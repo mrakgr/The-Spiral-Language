@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27004.2002
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "The Spiral Language", "The Spiral Language\The Spiral Language.fsproj", "{91C9628B-20CF-46AA-AD73-56456A532819}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{91C9628B-20CF-46AA-AD73-56456A532819}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{91C9628B-20CF-46AA-AD73-56456A532819}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{91C9628B-20CF-46AA-AD73-56456A532819}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{91C9628B-20CF-46AA-AD73-56456A532819}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {AF7AEBBA-0FB7-4B61-AD92-B1C2377DE6D2}
+	EndGlobalSection
+EndGlobal
