@@ -172,7 +172,7 @@ inl program =
 program id
     """
 
-rewrite_test_cache None //(Some(40,80))
+//rewrite_test_cache None //(Some(40,80))
 
 //output_test_to_temp @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary" learning
 //|> printfn "%s"
