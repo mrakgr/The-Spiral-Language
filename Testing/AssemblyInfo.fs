@@ -1,4 +1,4 @@
-﻿namespace SpiralExample.AssemblyInfo
+﻿namespace Testing.AssemblyInfo
 
 open System.Reflection
 open System.Runtime.CompilerServices
@@ -7,11 +7,11 @@ open System.Runtime.InteropServices
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[<assembly: AssemblyTitle("SpiralExample")>]
+[<assembly: AssemblyTitle("Testing")>]
 [<assembly: AssemblyDescription("")>]
 [<assembly: AssemblyConfiguration("")>]
 [<assembly: AssemblyCompany("")>]
-[<assembly: AssemblyProduct("SpiralExample")>]
+[<assembly: AssemblyProduct("Testing")>]
 [<assembly: AssemblyCopyright("Copyright ©  2017")>]
 [<assembly: AssemblyTrademark("")>]
 [<assembly: AssemblyCulture("")>]
@@ -22,7 +22,7 @@ open System.Runtime.InteropServices
 [<assembly: ComVisible(false)>]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[<assembly: Guid("db2237e2-b9d6-4ec3-ac98-89a766f02cd5")>]
+[<assembly: Guid("f7cc4d88-0e20-4395-9ffc-dc349c92b00d")>]
 
 // Version information for an assembly consists of the following four values:
 // 
