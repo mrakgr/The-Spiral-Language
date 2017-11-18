@@ -180,7 +180,7 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = [||]
     }
 
-//rewrite_test_cache None //(Some(40,80))
+//rewrite_test_cache cfg None //(Some(40,80))
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary" learning
 |> printfn "%s"

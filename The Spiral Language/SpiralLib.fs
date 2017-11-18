@@ -933,7 +933,7 @@ inl cuda_toolkit_path = !PathCuda()
 inl visual_studio_path = !PathVS2017()
 inl cub_path = !PathCub()
 
-inl ManagedCuda = assembly_load ."ManagedCuda, Version=7.5.7.0, Culture=neutral, PublicKeyToken=242d898828717aa0" .ManagedCuda
+inl ManagedCuda = assembly_load ."ManagedCuda, Version=8.0.22.0, Culture=neutral, PublicKeyToken=242d898828717aa0" .ManagedCuda
 inl context = ManagedCuda.CudaContext false
 
 inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
