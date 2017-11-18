@@ -14,7 +14,7 @@ open FParsec
 open System.Text
 
 // #Main
-let spiral_peval (Module(N(module_name,_,_,_)) as module_main) = 
+let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as module_main) = 
     let join_point_dict_method = d0()
     let join_point_dict_closure = d0()
     let join_point_dict_type = d0()
@@ -1681,6 +1681,9 @@ let spiral_peval (Module(N(module_name,_,_,_)) as module_main) =
         | VV (N vars) -> List.map (tev d >> destructure d) vars |> tyvv
         | Op(N (op,vars)) ->
             match op,vars with
+            | PathCuda,[] -> settings.path_cuda80 |> LitString |> TyLit
+            | PathCub,[] -> settings.path_cub |> LitString |> TyLit
+            | PathVS2017,[] -> settings.path_vs2017 |> LitString |> TyLit
             | (MacroFs | MacroCuda),[a;b] -> macro op d a b
             | Apply,[a;b] -> apply_tev d a b
             | StringLength,[a] -> string_length d a

@@ -1853,26 +1853,26 @@ let tests =
 
 open System.IO
 
-let run_test_and_store_it_to_stream stream (name,aux,desc,body as m) =
+let run_test_and_store_it_to_stream cfg stream (name,aux,desc,body as m) =
     let main_module = module_ m
     sprintf "%s - %s:\n%s\n\n" name desc (body.Trim()) |> stream
-    match spiral_peval main_module with
+    match spiral_peval cfg main_module with
     | Succ x | Fail x -> stream x
 
-let output_test_to_string test = 
-    match spiral_peval (module_ test) with
+let output_test_to_string cfg test = 
+    match spiral_peval cfg (module_ test) with
     | Succ x | Fail x -> x
 
-let output_test_to_temp path test = 
-    match spiral_peval (module_ test) with
+let output_test_to_temp cfg path test = 
+    match spiral_peval cfg (module_ test) with
     | Succ x | Fail x -> 
         let file = if x.Length > 1024*128 then "output.txt" else "output.fs"
         File.WriteAllText(Path.Combine(path,file),x)
         x
 
-let output_tests_to_file file =
+let output_tests_to_file cfg file =
     let s = System.Text.StringBuilder()
-    Array.iter (run_test_and_store_it_to_stream (s.AppendLine >> ignore)) tests
+    Array.iter (run_test_and_store_it_to_stream cfg (s.AppendLine >> ignore)) tests
     File.WriteAllText(Path.Combine(__SOURCE_DIRECTORY__,file),s.ToString())
 
 let make_test_path_from_name name =
@@ -1880,12 +1880,12 @@ let make_test_path_from_name name =
     Directory.CreateDirectory dir |> ignore
     Path.Combine(dir,name+".txt")
 
-let cache_test (name,aux,desc,body as m) = File.WriteAllText(make_test_path_from_name name, output_test_to_string m)
-let rewrite_test_cache x = 
+let cache_test cfg (name,aux,desc,body as m) = File.WriteAllText(make_test_path_from_name name, output_test_to_string cfg m)
+let rewrite_test_cache cfg x = 
     let timer = System.Diagnostics.Stopwatch.StartNew()
     match x with
-    | Some (min, max) -> Array.iter cache_test tests.[min..max-1]
-    | None -> Array.iter cache_test tests
+    | Some (min, max) -> Array.iter (cache_test cfg) tests.[min..max-1]
+    | None -> Array.iter (cache_test cfg) tests
     printfn "The time it took to run all the tests is: %A" timer.Elapsed
 
 //let speed1 =

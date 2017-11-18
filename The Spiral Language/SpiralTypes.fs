@@ -98,6 +98,11 @@ type Value =
     | LitChar of char
 
 type Op =
+    // Settings
+    | PathCub
+    | PathCuda
+    | PathVS2017
+
     // Macros
     | MacroCuda
     | MacroFs
@@ -465,3 +470,14 @@ let c = function
 
 let (|C|) x = c x
 let (|CN|) (x: ConsedNode<_>) = x.node
+
+/// Here are the paths on my machine:
+/// path_vs2017 : C:\Program Files (x86)\Microsoft Visual Studio\2017\Community
+/// path_cub : C:\cub-1.7.4
+/// path_cuda80 : C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v8.0
+type CompilerSettings = {
+    path_vs2017 : string
+    path_cub : string
+    path_cuda80 : string
+    cuda_includes : string []
+    }

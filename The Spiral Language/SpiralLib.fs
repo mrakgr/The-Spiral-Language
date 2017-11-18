@@ -929,30 +929,9 @@ inl __gridDimZ = cuda_constant_int "gridDim.z"
 inl Operators = fsharp_core.Microsoft.FSharp.Core.Operators
 inl Environment = mscorlib.System.Environment
 
-inl cuda_toolkit_path = 
-    inl x = Environment.GetEnvironmentVariable("CUDA_PATH_V8_0")
-    inl x_ty = type(x)
-    if Operators(.isNull, x_ty, x) then failwith unit "CUDA_PATH_V8_0 environment variable not found. Make sure Cuda 8.0 SDK is installed."
-    x
-
-inl visual_studio_path =
-    inl x = Environment.GetEnvironmentVariable("VS140COMNTOOLS")
-    inl x_ty = type(x)
-    if Operators(.isNull, x_ty, x) then failwith unit "VS140COMNTOOLS environment variable not found. Make sure VS2015 is installed."
-    mscorlib.System.IO.Directory.GetParent(x).get_Parent().get_Parent().get_FullName()
-
-inl cub_path = // The path for the Cuda Unbound library.
-    inl x = Environment.GetEnvironmentVariable("CUB_PATH")
-    inl x_ty = type(x)
-    if Operators(.isNull, x_ty, x) then 
-        failwith unit 
-            @"If you are getting this exception then that means that CUB_PATH environment variable is not defined.
-
-Go to: https://nvlabs.github.io/cub/index.html#sec6
-...and download the latest version of the library, extract it somewhere like, 
-eg. : C:\cub-1.6.3
-and add that directory to the global enviroment by creating the CUB_PATH variable with a pointer to it."
-    x
+inl cuda_toolkit_path = !PathCuda()
+inl visual_studio_path = !PathVS2017()
+inl cub_path = !PathCub()
 
 inl ManagedCuda = assembly_load ."ManagedCuda, Version=7.5.7.0, Culture=neutral, PublicKeyToken=242d898828717aa0" .ManagedCuda
 inl context = ManagedCuda.CudaContext false
@@ -985,9 +964,10 @@ inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
     /// Puts quotes around the string.
     inl quote x = concat ('"',x,'"')
     inl call x = concat ("call ", x)
-    inl quoted_vs_path_to_vcvars = Path.Combine(visual_studio_path, @"VC\bin\x86_amd64\vcvarsx86_amd64.bat") |> quote
-    inl quoted_vs_path_to_cl = Path.Combine(visual_studio_path, @"VC\bin\x86_amd64") |> quote
+    inl quoted_vs_path_to_vcvars = Path.Combine(visual_studio_path, @"VC\Auxiliary\Build\vcvarsx86_amd64.bat") |> quote
+    inl quoted_vs_path_to_cl = Path.Combine(visual_studio_path, @"VC\Tools\MSVC\14.11.25503\bin\Hostx64\x64") |> quote
     inl quoted_cuda_toolkit_path_to_include = Path.Combine(cuda_toolkit_path,"include") |> quote
+    inl quoted_nvcc_path = Path.Combine(cuda_toolkit_path,@"bin\nvcc.exe") |> quote
     inl quoted_cub_path_to_include = cub_path |> quote
     inl quoted_kernels_dir = kernels_dir |> quote
     inl target_path = Path.Combine(kernels_dir,"cuda_kernels.ptx")
@@ -1005,7 +985,7 @@ inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
 
         nvcc_router_stream.WriteLine(call quoted_vs_path_to_vcvars)
         concat (
-            "nvcc -gencode=arch=compute_30,code=\\\"sm_30,compute_30\\\" --use-local-env --cl-version 2015 -ccbin ",quoted_vs_path_to_cl,
+            quoted_nvcc_path, " -gencode=arch=compute_30,code=\\\"sm_30,compute_30\\\" --use-local-env --cl-version 2017 -ccbin ",quoted_vs_path_to_cl,
             "  -I",quoted_cuda_toolkit_path_to_include," -I",quoted_cub_path_to_include," --keep-dir ",quoted_kernels_dir,
             " -maxrregcount=0  --machine 64 -ptx -cudart static  -o ",quoted_target_path,' ',quoted_input_path
             ) |> nvcc_router_stream.WriteLine
