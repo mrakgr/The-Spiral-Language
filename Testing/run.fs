@@ -1,5 +1,6 @@
 ﻿open Spiral.Lib
 open Spiral.Tests
+open System.IO
 
 let learning =
     "Learning",[option;cuda;extern_;option;console],"The deep learning module.",
