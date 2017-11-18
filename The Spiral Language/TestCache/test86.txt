@@ -1,0 +1,26 @@
+module SpiralExample.Main
+let cuda_kernels = """
+extern "C" {
+    
+}
+"""
+
+type EnvHeap0 =
+    {
+    mem_0: (int64 [])
+    }
+let rec method_0((var_0: (int64 [])), (var_1: int64), (var_2: int64)): int64 =
+    if (var_1 <= 9L) then
+        var_0.[int32 var_2] <- var_1
+        let (var_3: int64) = (var_2 + 1L)
+        let (var_4: int64) = (var_1 + 1L)
+        method_0((var_0: (int64 [])), (var_4: int64), (var_3: int64))
+    else
+        var_2
+let (var_0: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(10L))
+let (var_1: int64) = 0L
+let (var_2: int64) = 0L
+let (var_3: int64) = method_0((var_0: (int64 [])), (var_2: int64), (var_1: int64))
+let (var_4: EnvHeap0) = ({mem_0 = (var_0: (int64 []))} : EnvHeap0)
+let (var_5: (int64 [])) = var_4.mem_0
+var_5.[int32 5L]

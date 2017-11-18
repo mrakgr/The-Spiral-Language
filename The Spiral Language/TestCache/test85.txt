@@ -1,0 +1,16 @@
+module SpiralExample.Main
+let cuda_kernels = """
+extern "C" {
+    
+}
+"""
+
+let (var_0: int64) = 123L
+if (var_0 = 1L) then
+    1L
+else
+    if (var_0 = 2L) then
+        2L
+    else
+        3L
+

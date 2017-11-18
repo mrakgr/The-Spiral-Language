@@ -1,0 +1,13 @@
+Usage of naked type PrimT Int64T as an instance on the term level is invalid.
+Error trace on line: 2, column: 1 in file "test60_error".
+inl a = dyn 1
+^
+Error trace on line: 3, column: 1 in file "test60_error".
+inl b = dyn 2
+^
+Error trace on line: 4, column: 9 in file "test60_error".
+inl c = dyn 3
+        ^
+Error trace on line: 12, column: 13 in file "Core".
+inl dyn x = !Dynamize(x)
+            ^

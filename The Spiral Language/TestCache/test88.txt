@@ -1,0 +1,14 @@
+module SpiralExample.Main
+let cuda_kernels = """
+extern "C" {
+    
+}
+"""
+
+let rec method_0 ((var_0: int64)): (int64 -> int64) =
+    method_1((var_0: int64))
+and method_1 ((var_1: int64)) ((var_0: int64)): int64 =
+    (var_1 + var_0)
+let (var_1: (int64 -> (int64 -> int64))) = method_0
+let (var_2: (int64 -> int64)) = var_1(1L)
+var_2(2L)

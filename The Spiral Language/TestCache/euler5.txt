@@ -1,0 +1,68 @@
+module SpiralExample.Main
+let cuda_kernels = """
+extern "C" {
+    
+}
+"""
+
+let rec method_0((var_0: int64), (var_1: int64)): int64 =
+    if (var_1 <= var_0) then
+        let (var_2: int64) = (var_1 % 4L)
+        let (var_24: bool) =
+            if (var_2 = 0L) then
+                let (var_3: int64) = (var_1 % 6L)
+                if (var_3 = 0L) then
+                    let (var_4: int64) = (var_1 % 7L)
+                    if (var_4 = 0L) then
+                        let (var_5: int64) = (var_1 % 8L)
+                        if (var_5 = 0L) then
+                            let (var_6: int64) = (var_1 % 9L)
+                            if (var_6 = 0L) then
+                                let (var_7: int64) = (var_1 % 10L)
+                                if (var_7 = 0L) then
+                                    let (var_8: int64) = (var_1 % 12L)
+                                    if (var_8 = 0L) then
+                                        let (var_9: int64) = (var_1 % 14L)
+                                        if (var_9 = 0L) then
+                                            let (var_10: int64) = (var_1 % 15L)
+                                            if (var_10 = 0L) then
+                                                let (var_11: int64) = (var_1 % 16L)
+                                                if (var_11 = 0L) then
+                                                    let (var_12: int64) = (var_1 % 18L)
+                                                    if (var_12 = 0L) then
+                                                        let (var_13: int64) = (var_1 % 20L)
+                                                        (var_13 = 0L)
+                                                    else
+                                                        false
+                                                else
+                                                    false
+                                            else
+                                                false
+                                        else
+                                            false
+                                    else
+                                        false
+                                else
+                                    false
+                            else
+                                false
+                        else
+                            false
+                    else
+                        false
+                else
+                    false
+            else
+                false
+        if var_24 then
+            var_1
+        else
+            let (var_25: int64) = (var_1 + 1385670L)
+            method_0((var_0: int64), (var_25: int64))
+    else
+        -1L
+let (var_0: int64) = System.Int64.MaxValue
+let (var_1: int64) = 1385670L
+let (var_2: int64) = method_0((var_0: int64), (var_1: int64))
+System.Console.WriteLine(var_2)
+

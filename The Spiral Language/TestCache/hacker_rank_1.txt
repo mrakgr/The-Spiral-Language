@@ -1,0 +1,4 @@
+Invalid use of apply. TyT (LitT (LitString "System")) and TyT (LitT (LitString "Console"))
+Error trace on line: 2, column: 15 in file "hacker_rank_1".
+inl console = .System.Console |> mscorlib
+              ^

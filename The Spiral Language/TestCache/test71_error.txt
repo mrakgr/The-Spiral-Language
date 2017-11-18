@@ -1,0 +1,8 @@
+`is_numeric a && get_type a = get_type b` is false.
+a=TyLit (LitInt64 55L), b=TyMap (Env (map []),MapTypeFunction (" pat_var_118", Op <tag 722>))
+Error trace on line: 2, column: 1 in file "test71_error".
+55 + id
+^
+Error trace on line: 56, column: 15 in file "Core".
+inl (+) a b = !Add(a,b)
+              ^
