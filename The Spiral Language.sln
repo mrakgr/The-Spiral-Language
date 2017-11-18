@@ -8,6 +8,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{7B818960-A894-4094-93F7-55A892A5530E}"
 	ProjectSection(SolutionItems) = preProject
 		LICENSE = LICENSE
+		readme.md = readme.md
 	EndProjectSection
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "SpiralExample", "SpiralExample\SpiralExample.fsproj", "{DB2237E2-B9D6-4EC3-AC98-89A766F02CD5}"
