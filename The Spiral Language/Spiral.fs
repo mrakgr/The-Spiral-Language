@@ -1802,9 +1802,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let p = pos' s
             (expr |>> fun expr -> pat_pos p expr) s
 
-        let rec spaces_template spaces s = spaces >>. optional (followedByString "//" >>. skipRestOfLine true >>. spaces_template spaces) <| s
-        let spaces, spaces1 = spaces_template spaces, spaces_template spaces1
-    
+        let rec spaces s = FParsec.CharParsers.spaces >>. optional (followedByString "//" >>. skipRestOfLine true >>. spaces) <| s
+        let rec spaces1 s = FParsec.CharParsers.spaces1 >>. optional (followedByString "//" >>. skipRestOfLine true >>. spaces1) <| s
+        
         let is_identifier_starting_char c = isAsciiLetter c || c = '_'
         let is_identifier_char c = is_identifier_starting_char c || c = ''' || isDigit c 
         let is_separator_char c = 
@@ -1815,7 +1815,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             f ')' || f '}' || f ']'
         let is_operator_char c = (is_identifier_char c || is_separator_char c || is_closing_parenth_char c) = false
 
-        let var_name_core s = (many1Satisfy2L is_identifier_starting_char is_identifier_char "identifier" .>> spaces) s
+        let var_name_core = many1Satisfy2L is_identifier_starting_char is_identifier_char "identifier" .>> spaces
 
         let var_name =
             var_name_core >>=? function
@@ -1829,7 +1829,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let curlies p = between_brackets '{' p '}'
         let squares p = between_brackets '[' p ']'
         
-        let keywordString x = attempt (skipString x >>. nextCharSatisfiesNot is_identifier_char >>. spaces)
+        let keywordString_rest s = (nextCharSatisfiesNot is_identifier_char >>. spaces) s
+        let keywordString x = attempt (skipString x >>. keywordString_rest)
         let operatorChar x = attempt (skipChar x >>. nextCharSatisfiesNot is_operator_char >>. spaces)
         let prefixOperatorChar x = attempt (skipChar x >>. nextCharSatisfiesNot is_operator_char)
         let operatorString x = attempt (skipString x >>. nextCharSatisfiesNot is_operator_char >>. spaces)
@@ -1881,7 +1882,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let unary_minus_check_precondition s = previousCharSatisfiesNot (is_separator_char >> not) s
         let unary_minus_check s = (unary_minus_check_precondition >>. prefix_negate) s
 
-        let pnumber : Parser<_,_> =
+        let inline pnumber s =
             let default_number_format =  
                 NumberLiteralOptions.AllowFraction
                 ||| NumberLiteralOptions.AllowExponent
@@ -1898,69 +1899,74 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 if s.Peek() = '-' then (unary_minus_check_precondition >>. parse_num_lit number_format_with_minus) s
                 else parse_num_lit default_number_format s
 
-            let inline safe_parse f on_succ er_msg x = 
-                match f x with
-                | true, x -> Reply(on_succ x)
-                | false, _ -> Reply(ReplyStatus.FatalError,messageError er_msg)
+            let followedBySuffix x is_x_integer (s: CharStream<_>) =
+                let inline safe_parse f on_succ er_msg = 
+                    match f x with
+                    | true, x -> Reply(on_succ x)
+                    | false, _ -> Reply(ReplyStatus.FatalError,messageError er_msg)
 
-            let default_int x _ = safe_parse Int64.TryParse LitInt64 "default int parse failed" x
-            let default_float x _ = safe_parse Double.TryParse LitFloat64 "default float parse failed" x
+                match s.Peek() with
+                | 'i' ->
+                    s.Skip()
+                    match s.Read() with
+                    | '8' -> safe_parse SByte.TryParse LitInt8 "int8 parse failed"
+                    | '1' -> 
+                        match s.Read() with
+                        | '6' -> safe_parse Int16.TryParse LitInt16 "int16 parse failed"
+                        | _ -> Reply(Error,expected "6")
+                    | '3' -> 
+                        match s.Read() with
+                        | '2' -> safe_parse Int32.TryParse LitInt32 "int32 parse failed"
+                        | _ -> Reply(Error,expected "2")
+                    | '6' -> 
+                        match s.Read() with
+                        | '4' -> safe_parse Int64.TryParse LitInt64 "int64 parse failed"
+                        | _ -> Reply(Error,expected "4")
+                    | _ -> Reply(Error,expected "1 or 3 or 6 or 8")
+                | 'u' ->
+                    s.Skip()
+                    match s.Read() with
+                    | '8' -> safe_parse Byte.TryParse LitUInt8 "uint8 parse failed"
+                    | '1' -> 
+                        match s.Read() with
+                        | '6' -> safe_parse UInt16.TryParse LitUInt16 "uint16 parse failed"
+                        | _ -> Reply(Error,expected "6")
+                    | '3' -> 
+                        match s.Read() with
+                        | '2' -> safe_parse UInt32.TryParse LitUInt32 "uint32 parse failed"
+                        | _ -> Reply(Error,expected "2")
+                    | '6' -> 
+                        match s.Read() with
+                        | '4' -> safe_parse UInt64.TryParse LitUInt64 "uint64 parse failed"
+                        | _ -> Reply(Error,expected "4")
+                    | _ -> Reply(Error,expected "1 or 3 or 6 or 8")
+                | 'f' ->
+                    s.Skip()
+                    match s.Read() with
+                    | '3' -> 
+                        match s.Read() with
+                        | '2' -> safe_parse Single.TryParse LitFloat32 "float32 parse failed"
+                        | _ -> Reply(Error,expected "2")
+                    | '6' -> 
+                        match s.Read() with
+                        | '4' -> safe_parse Double.TryParse LitFloat64 "float64 parse failed"
+                        | _ -> Reply(Error,expected "4")
+                    | _ -> Reply(Error,expected "3 or 6")
+                | _ ->
+                    if is_x_integer then safe_parse Int64.TryParse LitInt64 "default int parse failed"
+                    else safe_parse Double.TryParse LitFloat64 "default float parse failed"
 
-            let int8 x _ = safe_parse SByte.TryParse LitInt8 "int8 parse failed" x
-            let int16 x _ = safe_parse Int16.TryParse LitInt16 "int16 parse failed" x
-            let int32 x _ = safe_parse Int32.TryParse LitInt32 "int32 parse failed" x
-            let int64 x _ = safe_parse Int64.TryParse LitInt64 "int64 parse failed" x
-
-            let uint8 x _ = safe_parse Byte.TryParse LitUInt8 "uint8 parse failed" x
-            let uint16 x _ = safe_parse UInt16.TryParse LitUInt16 "uint16 parse failed" x
-            let uint32 x _ = safe_parse UInt32.TryParse LitUInt32 "uint32 parse failed" x
-            let uint64 x _ = safe_parse UInt64.TryParse LitUInt64 "uint64 parse failed" x
-
-            let float32 x _ = safe_parse Single.TryParse LitFloat32 "float32 parse failed" x
-            let float64 x _ = safe_parse Double.TryParse LitFloat64 "float64 parse failed" x
-
-            let followedBySuffix x is_x_integer =
-                let f c l = 
-                    let l = Array.map (fun (k,m) -> keywordString k >>= fun _ -> m x) l
-                    skipChar c >>. choice l
-                choice
-                    [|
-                    f 'i'
-                        [|
-                        "8", int8
-                        "16", int16
-                        "32", int32
-                        "64", int64
-                        |]
-
-                    f 'u'
-                        [|
-                        "8", uint8
-                        "16", uint16
-                        "32", uint32
-                        "64", uint64
-                        |]
-
-                    f 'f'
-                        [|
-                        "32", float32
-                        "64", float64
-                        |]
-                    (if is_x_integer then default_int x else default_float x) .>> spaces
-                    |]
-
-            fun s ->
-                let reply = parser s
-                if reply.Status = Ok then
-                    let nl = reply.Result // the parsed NumberLiteral
-                    try 
-                        followedBySuffix nl.String nl.IsInteger s
-                    with
-                    | :? System.OverflowException as e ->
-                        s.Skip(-nl.String.Length)
-                        Reply(FatalError, messageError e.Message)
-                else // reconstruct error reply
-                    Reply(reply.Status, reply.Error)
+            let reply = parser s
+            if reply.Status = Ok then
+                let nl = reply.Result // the parsed NumberLiteral
+                try 
+                    (followedBySuffix nl.String nl.IsInteger .>> keywordString_rest) s
+                with
+                | :? System.OverflowException as e ->
+                    s.Skip(-nl.String.Length)
+                    Reply(FatalError, messageError e.Message)
+            else // reconstruct error reply
+                Reply(reply.Status, reply.Error)
 
         let quoted_char = 
             let normalChar = satisfy (fun c -> c <> '\\' && c <> ''')
@@ -2010,25 +2016,25 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let pat_e = wildcard >>% E
         let pat_var = var_name |>> PatVar
-        let pat_tuple pattern = sepBy1 pattern comma |>> function [x] -> x | x -> PatTuple x
-        let pat_cons pattern = sepBy1 pattern cons |>> function [x] -> x | x -> PatCons x
-        let pat_rounds pattern = rounds (pattern <|>% PatTuple [])
-        let pat_type expr pattern = tuple2 pattern (opt (pp >>. ((var_name |>> v) <|> rounds expr))) |>> function a,Some b as x-> PatTypeEq(a,b) | a, None -> a
-        let pat_active pattern = 
+        let inline pat_tuple pattern = sepBy1 pattern comma |>> function [x] -> x | x -> PatTuple x
+        let inline pat_cons pattern = sepBy1 pattern cons |>> function [x] -> x | x -> PatCons x
+        let inline pat_rounds pattern = rounds (pattern <|>% PatTuple [])
+        let inline pat_type expr pattern = tuple2 pattern (opt (pp >>. ((var_name |>> v) <|> rounds expr))) |>> function a,Some b as x-> PatTypeEq(a,b) | a, None -> a
+        let inline pat_active pattern = 
             let active_pat = choice [active_pat >>% PatActive; part_active_pat >>% PatPartActive; ext_active_pat >>% PatExtActive]
             pipe3 active_pat var_name pattern <| fun c name pat -> c (name,pat)
-        let pat_or pattern = sepBy1 pattern bar |>> function [x] -> x | x -> PatOr x
-        let pat_and pattern = sepBy1 pattern amphersand |>> function [x] -> x | x -> PatAnd x
+        let inline pat_or pattern = sepBy1 pattern bar |>> function [x] -> x | x -> PatOr x
+        let inline pat_and pattern = sepBy1 pattern amphersand |>> function [x] -> x | x -> PatAnd x
         let lit_var = lit_ <|> (var_name_core |>> LitString)
         let pat_type_lit = 
             let literal = lit_var |>> PatTypeLit
             let bind = var_name |>> PatTypeLitBind
             prefix_dot >>. (literal <|> rounds bind)
         let pat_lit = lit_ |>> PatLit
-        let pat_when expr pattern = pattern .>>. (opt (when_ >>. expr)) |>> function a, Some b -> PatWhen(a,b) | a, None -> a
-        let pat_as pattern = pattern .>>. (opt (as_ >>. pattern )) |>> function a, Some b -> PatAnd [a;b] | a, None -> a
+        let inline pat_when expr pattern = pattern .>>. (opt (when_ >>. expr)) |>> function a, Some b -> PatWhen(a,b) | a, None -> a
+        let inline pat_as pattern = pattern .>>. (opt (as_ >>. pattern )) |>> function a, Some b -> PatAnd [a;b] | a, None -> a
 
-        let pat_named_tuple pattern =
+        let inline pat_named_tuple pattern =
             let pat = pipe2 lit_var (opt (pp >>. pattern)) (fun lit pat ->
                 let lit = PatTypeLit lit
                 match pat with
@@ -2036,7 +2042,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | None -> lit)
             squares (many pat) |>> function [x] -> x | x -> PatTuple x
 
-        let pat_closure pattern = 
+        let inline pat_closure pattern = 
             pipe2 pattern (opt (arr >>. pattern))
                 (fun a -> function
                     | Some b -> PatTypeClosure(a,b)
@@ -2162,7 +2168,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let case_use_pat_statement expr = pipe2 (use_ >>. patterns expr) (eq' >>. expr) usep
         let case_inn_pat_statement expr = pipe2 (inb_ >>. patterns expr) (eq' >>. expr) inbp
 
-        let statements expressions expr = 
+        let inline statements expressions expr = 
             [case_inl_pat_statement; case_inl_name_pat_list_statement; case_inl_rec_name_pat_list_statement
              case_met_pat_statement; case_met_name_pat_list_statement; case_met_rec_name_pat_list_statement
              case_use_pat_statement; case_inm_pat_statement; case_inn_pat_statement
