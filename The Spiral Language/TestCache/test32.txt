@@ -1,11 +1,4 @@
-module SpiralExample.Main
-let cuda_kernels = """
-extern "C" {
-    
-}
-"""
-
-let rec method_0(): int64 =
-    let (var_0: char) = 'a'
-    System.Convert.ToInt64(var_0)
-method_0()
+Variable "mscorlib" not bound.
+Error trace on line: 2, column: 16 in file "test32".
+inl to_int64 = mscorlib .System.Convert .ToInt64
+               ^

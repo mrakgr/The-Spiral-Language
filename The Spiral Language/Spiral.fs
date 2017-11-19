@@ -5,7 +5,6 @@ open System
 open System.Collections.Generic
 open HashConsing
 open Types
-open DotNetInterop
 
 // Parser open
 open FParsec
@@ -42,6 +41,20 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let nodify_func_filt = nodify_expr <| d0()
     let nodify_vv = nodify_expr <| d0()
     let nodify_op = nodify_expr <| d0()
+
+    let listt x = ListT x
+    let litt x = LitT x
+    let funt (x, core) = MapT (x, core)
+    let uniont x = UnionT x
+    let term_functiont a b = TermFunctionT (a,b)
+    let arrayt x = ArrayT x
+
+    let BListT = listt []
+
+    /// Wraps the argument in a list if not a tuple type.
+    let tuple_field_ty = function 
+        | ListT x -> x
+        | x -> [x]
 
     let v x = nodify_v x |> V
     let lit x = nodify_lit x |> Lit
@@ -174,7 +187,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     and is_unit_env x = Map.forall (fun _ -> is_unit) x
     and is_unit = function
         | LitT _ -> true
-        | UnionT _ | RecT _ | DotNetTypeT _ | TermFunctionT _ | PrimT _ -> false
+        | UnionT _ | RecT _ | DotNetTypeT _ | CppTypeT _ | TermFunctionT _ | PrimT _ -> false
         | ArrayT (_,t) -> is_unit t
         | MapT (env,_) -> is_unit_env env
         | LayoutT (_, C x, _) -> typed_expr_env_free_var_exists x = false
@@ -716,7 +729,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 let {call_args=args},_ = renamer_apply_env l
                 List.forall (fun (_,t) -> is_cuda_type t) args
             | ArrayT ((ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal),t) -> is_cuda_type t
-            | UnionT _ | LayoutT _ | ArrayT _ | DotNetTypeT _ | TermFunctionT _ | RecT _ -> false
+            | UnionT _ | LayoutT _ | ArrayT _ | DotNetTypeT _ | CppTypeT _ | TermFunctionT _ | RecT _ -> false
 
         let join_point_cuda d expr = 
             let {call_args=call_arguments; method_pars=method_parameters; renamer'=renamer}, renamed_env = renamer_apply_env d.env
@@ -849,45 +862,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | :? TypeError as e -> reraise()
             | e -> on_type_er (trace d) (".NET exception:\n"+e.Message)
 
-        let assembly_compile d =
-            memoize ss_cache_assembly <| fun (x: Reflection.Assembly) ->
-                let rec to_typedexpr = function
-                    | LoadMap map -> tymap(Map.map (fun _ -> to_typedexpr) map |> consify_env_term, MapTypeModule) |> layoutify LayoutStack d
-                    | LoadType typ -> match ss_type_definition typ with SSTyType x -> tyt x | x -> dotnet_typet x |> tyt
-
-                x.GetTypes()
-                |> Array.fold (fun map (typ: Type) ->
-                    if typ.IsPublic then
-                        let namesp = typ.FullName.Split '.'
-                        let typ = typ
-                        let rec loop i map =
-                            if i < namesp.Length then
-                                let name = namesp.[i]
-                                match map with
-                                | LoadMap map ->
-                                    let env =
-                                        match Map.tryFind name map with
-                                        | Some(LoadMap _ & env) -> env
-                                        | None -> LoadMap Map.empty
-                                        | _ -> failwith "impossible"
-                                    LoadMap (Map.add name (loop (i+1) env) map)
-                                | _ -> failwith "impossible"
-                            else
-                                LoadType typ
-                        loop 0 map
-                    else
-                        map
-                        ) (LoadMap Map.empty)
-                |> to_typedexpr
-
-        let dotnet_assembly_load is_load_file d x =
-            match tev d x with
-            | TypeString x ->
-                wrap_exception d <| fun _ ->
-                    if is_load_file then System.Reflection.Assembly.LoadFile(x) else System.Reflection.Assembly.Load(x)
-                    |> assembly_compile d
-            | _ -> on_type_er (trace d) "Expected a type level string."
-
         let (|TyLitIndex|_|) = function
             | TyLit (LitInt32 i) -> Some i
             | TyLit (LitInt64 i) -> Some (int i)
@@ -980,108 +954,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | (ArtDotNetHeap | ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal), idx -> on_type_er (trace d) <| sprintf "The index into an array is not an int. Got: %A" idx
                 | ArtDotNetReference, TyList [] -> TyOp(ArrayIndex,[ar;idx],elem_ty) |> make_tyv_and_push_typed_expr d
                 | ArtDotNetReference, _ -> on_type_er (trace d) <| sprintf "The index into a reference is not a unit. Got: %A" idx
-            // apply_dotnet_type 
-            | TyType(DotNetTypeT(N t)) & dotnet_type, arg ->
-                let lambdify a b =
-                    let lam = 
-                        inl' ["a";"b";"c"] (ap (v "a") (vv [v "b"; v "c"]))
-                        |> inner_compile
-                    apply d (apply d lam a) b
-
-                let ss_overload_tryPick_method_return_type (TyTuple typ_arg) (TyType arg_ty) method_overloads =
-                    let typ_arg_len, typ_arg = typ_arg.Length, List.map get_type typ_arg
-
-                    method_overloads |> Array.tryPick (function
-                        | SSTyLam(_,typ_arg',_) as lam -> 
-                            if typ_arg_len = typ_arg'.Length then
-                                let r = ss_apply lam typ_arg
-                                match r with
-                                | TermFunctionT(method_ty,method_ret) -> 
-                                    if tuple_field_ty method_ty = tuple_field_ty arg_ty then Some method_ret else None
-                                | _ -> failwith "Methods need to return an arrow type."
-                            else None
-                        | _ -> failwith "Methods should always be staged."
-                        )
-
-                let ss_class_find kind f r name =
-                    match Map.tryFind name (f r) with
-                    | None -> on_type_er (trace d) <| sprintf "Cannot find %s %s in the .NET type." kind name
-                    | Some v -> v
-
-                let ss_method_template kind ss_tryPick t name typ_arg arg =
-                    match ss_tryPick t name typ_arg arg with
-                    | Some ret_ty -> 
-                        TyOp(DotNetTypeCallMethod,[dotnet_type;tyvv [name |> LitString |> type_lit_create'; arg]],ret_ty)
-                        |> make_tyv_and_push_typed_expr_even_if_unit d        
-                    | None ->
-                        on_type_er (trace d) <| sprintf "%s with the matching arguments not found." kind
-
-                let ss_static_method x = 
-                    let tryPick t name typ_arg arg = 
-                        ss_class_find "static method" (fun {static_methods=x} -> x) t name 
-                        |> ss_overload_tryPick_method_return_type typ_arg arg
-                    ss_method_template "Static method" tryPick x
-
-                let ss_method x = 
-                    let tryPick t name typ_arg arg = 
-                        ss_class_find "method" (fun {methods=x} -> x) t name
-                        |> ss_overload_tryPick_method_return_type typ_arg arg
-                    ss_method_template "Method" tryPick x
-
-                let ss_field_template f t name =
-                    let name' = name |> LitString |> type_lit_create'
-                    match Map.tryFind name (f t) with
-                    | None -> lambdify dotnet_type name'
-                    | Some field ->
-                        match field with
-                        | SSTyLam _ as lam -> 
-                            let typ = ss_apply lam []
-                            TyOp(DotNetTypeGetField,[dotnet_type;name'],typ)
-                            |> make_tyv_and_push_typed_expr_even_if_unit d
-                        | _ -> failwith "Fields should always be staged."
-
-                let ss_field x = ss_field_template (fun {fields=a} -> a) x
-                let ss_static_field x = ss_field_template (fun {static_fields=x} -> x) x
-
-                let ss_constructor (t': SSTypedExprClass) (TyType args_ty & args) =
-                    t'.constructors
-                    |> Array.exists (fun x -> tuple_field_ty (ss_apply x []) = tuple_field_ty args_ty)
-                    |> function
-                        | false -> on_type_er (trace d) "No constructors with the matching arguments exist."
-                        | _ ->
-                            TyOp(DotNetTypeConstruct,[args],get_type dotnet_type) 
-                            |> make_tyv_and_push_typed_expr_even_if_unit d
-
-                let ss_type_apply t a = 
-                    let a = get_type a |> tuple_field_ty
-                    ss_apply t a |> tyt
-
-                match dotnet_type with
-                | TyT _ ->
-                    match t with 
-                    | SSTyClass t ->
-                        match arg with
-                        | TyList [TypeString method_name; typ_arg; arg] -> ss_static_method t method_name typ_arg arg
-                        | TyList [TypeString method_name; arg] -> ss_static_method t method_name TyB arg
-                        | TypeString field_name -> ss_static_field t field_name
-                        | arg -> ss_constructor t arg
-                    | _ -> ss_type_apply t arg
-                | TyV _ ->
-                    match t with 
-                    | SSTyClass t ->
-                        match arg with
-                        | TyList [TypeString method_name; typ_arg; arg] -> ss_method t method_name typ_arg arg
-                        | TyList [TypeString method_name; arg] -> ss_method t method_name TyB arg
-                        | TypeString field_name -> 
-                            match field_name with
-                            | "elem_type" -> 
-                                match t.generic_type_args with 
-                                | [|x|] -> tyt x 
-                                | x -> Array.map tyt x |> Array.toList |> tyvv
-                            | _ -> ss_field t field_name
-                        | _ -> on_type_er (trace d) "Invalid input to a .NET type."
-                    | _ -> failwith "Compiler error: An instance of a .NET type should always be a SSTyClass."
-                | _ -> failwith "impossible"
             // apply_string
             | TyType(PrimT StringT) & str, TyList [a;b] -> 
                 if is_int a && is_int b then TyOp(StringSlice,[str;a;b],PrimT StringT) |> destructure d
@@ -1685,8 +1557,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | (MacroFs | MacroCuda),[a;b] -> macro op d a b
             | Apply,[a;b] -> apply_tev d a b
             | StringLength,[a] -> string_length d a
-            | DotNetAssemblyLoad,[a] -> dotnet_assembly_load false d a
-            | DotNetAssemblyLoadFile,[a] -> dotnet_assembly_load true d a
             | Fix,[Lit (N (LitString name)); body] ->
                 match tev d body with
                 | TyMap(env_term,MapTypeFunction core) -> tymap(env_term,MapTypeRecFunction(core,name))
@@ -2960,7 +2830,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ArrayT(ArtDotNetHeap,t) -> sprintf "(%s [])" (print_type t)
             | ArrayT(ArtCudaGlobal t,_) -> print_type t
             | ArrayT((ArtCudaShared | ArtCudaLocal),_) -> failwith "Cuda local and shared arrays cannot be used on the F# side."
-            | DotNetTypeT (N t) -> print_dotnet_type t
             | TermFunctionT(a,b) -> 
                 let a = tuple_field_ty a |> List.map print_type |> String.concat " * "
                 sprintf "(%s -> %s)" a (print_type b)
@@ -3055,8 +2924,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 enter <| fun _ -> codegen fl
 
             let make_struct x = make_struct codegen x
-
-            let (|DotNetPrintedArgs|) x = List.map codegen x |> List.filter ((<>) "") |> String.concat ", "
 
             let array_create size = function
                 | ArrayT(_,t) -> sprintf "Array.zeroCreate<%s> (System.Convert.ToInt32(%s))" (print_type t) (codegen size)
@@ -3226,18 +3093,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | Exp,[x] -> sprintf "exp(%s)" (codegen x)
                     | Tanh,[x] -> sprintf "tanh(%s)" (codegen x)
                     | FailWith,[x] -> sprintf "(failwith %s)" (codegen x)
-                    | DotNetTypeConstruct,[TyTuple (DotNetPrintedArgs args)] as x ->
-                        match t with 
-                        | DotNetTypeT (N instance_type) -> sprintf "%s(%s)" (print_dotnet_type instance_type) args
-                        | _ -> failwith "impossible"
-                    | DotNetTypeCallMethod,[v; TyTuple [TypeString method_name; TyTuple (DotNetPrintedArgs method_args)]] ->
-                        match v with
-                        | TyT _ & TyType (DotNetTypeT (N t)) -> sprintf "%s.%s(%s)" (print_dotnet_type t) method_name method_args
-                        | _ -> sprintf "%s.%s(%s)" (codegen v) method_name method_args
-                    | DotNetTypeGetField,[v; TypeString name] ->
-                        match v with
-                        | TyT _ & TyType (DotNetTypeT (N t)) -> sprintf "%s.%s" (print_dotnet_type t) name
-                        | _ -> sprintf "%s.%s" (codegen v) name
                     | UnsafeUpcastTo,[a;b] -> sprintf "(%s :> %s)" (codegen b) (print_type (get_type a))
                     | UnsafeDowncastTo,[a;b] -> sprintf "(%s :?> %s)" (codegen b) (print_type (get_type a))
                     | MacroFs,[a] -> codegen_macro codegen print_type a

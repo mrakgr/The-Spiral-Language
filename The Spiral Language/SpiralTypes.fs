@@ -128,13 +128,6 @@ type Op =
     | StringIndex
     | StringSlice
 
-    // DotNetOps
-    | DotNetAssemblyLoad
-    | DotNetAssemblyLoadFile
-    | DotNetTypeConstruct
-    | DotNetTypeCallMethod
-    | DotNetTypeGetField
-
     // Module
     | ModuleCreate
     | ModuleWith
@@ -327,7 +320,8 @@ and Ty =
     | UnionT of Set<Ty>
     | RecT of JoinPointKey
     | ArrayT of ArrayType * Ty
-    | DotNetTypeT of Node<SSTypedExpr>
+    | DotNetTypeT of TypedExpr
+    | CppTypeT of TypedExpr
 
 and TypedExpr =
     // Data structures

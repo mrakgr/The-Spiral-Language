@@ -1923,5 +1923,3 @@ let rewrite_test_cache cfg x =
 //
 //    "speed3",[],"Does the linear sequence of bindings get compiled in linear time?",code
 
-//rewrite_test_cache None //(Some(40,80))
-

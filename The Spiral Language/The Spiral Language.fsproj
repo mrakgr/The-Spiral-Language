@@ -58,7 +58,6 @@
     <None Include="App.config" />
     <Compile Include="SpiralHashConsing.fs" />
     <Compile Include="SpiralTypes.fs" />
-    <Compile Include="SpiralDotNetIntrop.fs" />
     <Compile Include="SpiralCoreLib.fs" />
     <Compile Include="Spiral.fs" />
     <Compile Include="SpiralLib.fs" />
