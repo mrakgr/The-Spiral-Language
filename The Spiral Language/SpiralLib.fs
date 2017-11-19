@@ -823,28 +823,29 @@ let extern_ =
 /// The sprintf in parsing is very slow to compile so this is the reasonable alternative to it.
 /// It is a decent bit more flexible that it too.
 /// TODO: Move this somewhere better. There needs to be a String module at some point.
-inl rec string_concat sep l =
+inl string_concat sep l =
     inl StringBuilder = mscorlib.System.Text.StringBuilder
-    inl ap s = function
-        | x : string when lit_is x && x = "" -> s
-        | _ :: _ as l -> string_concat sep l
-        | x -> s.Append x
-    inl ap_sep s x = ap (ap s sep) x
-
     inl len =
-        inl rec len = 
+        inl rec len x = 
             inl f (static_len, dyn_len, num_sep as s) = function
                 | x : string ->
                     if lit_is x then (static_len + string_length x, dyn_len, num_sep+1)
                     else (static_len, dyn_len + string_length x, num_sep+1)
                 | _ :: _ as l -> len s l
                 | x -> (static_len+6, dyn_len, num_sep+1)
-            Tuple.foldl f
+            Tuple.foldl f x
         inl static_len, dyn_len, num_sep = len (0,0,-1) l
         static_len + num_sep * string_length sep + dyn_len
         |> unsafe_convert int32
 
-    Tuple.foldl ap_sep (ap (StringBuilder len) (Tuple.head l)) (Tuple.tail l)
+    inl rec apply = function
+        | .ap s -> function
+            | x : string when lit_is x && x = "" -> s
+            | _ :: _ as l -> Tuple.foldl (apply.ap_sep) s l
+            | x -> s.Append x
+        | .ap_sep s x -> apply.ap (apply.ap s sep) x
+
+    Tuple.foldl (apply.ap_sep) (apply.ap (StringBuilder len) (Tuple.head l)) (Tuple.tail l)
     <| .ToString <| ()
 
 inl closure_of_template check_range f tys = 
@@ -963,11 +964,12 @@ inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
     inl (+) a b = concat (a, b)
 
     /// Puts quotes around the string.
-    inl quote x = concat ('"',x,'"')
-    inl call x = concat ("call ", x)
+    inl quote x = ('"',x,'"')
+    inl call x = ("call ", x)
     inl quoted_vs_path_to_vcvars = Path.Combine(visual_studio_path, @"VC\Auxiliary\Build\vcvarsx86_amd64.bat") |> quote
-    inl quoted_vs_path_to_cl = Path.Combine(visual_studio_path, @"VC\Tools\MSVC\14.11.25503\bin\Hostx64\x64") |> quote
+    inl quoted_vs_path_to_cl = Path.Combine(visual_studio_path, @"VC\Tools\MSVC\14.11.25503\bin\Hostx64\x64\cl.exe") |> quote
     inl quoted_cuda_toolkit_path_to_include = Path.Combine(cuda_toolkit_path,"include") |> quote
+    inl quoted_vc_path_to_include = Path.Combine(visual_studio_path, @"VC\Tools\MSVC\14.11.25503\include") |> quote
     inl quoted_nvcc_path = Path.Combine(cuda_toolkit_path,@"bin\nvcc.exe") |> quote
     inl quoted_cub_path_to_include = cub_path |> quote
     inl quoted_kernels_dir = kernels_dir |> quote
@@ -984,12 +986,16 @@ inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
         use nvcc_router_file = File.OpenWrite(nvcc_router_path)
         use nvcc_router_stream = StreamWriter(nvcc_router_file :> Stream)
 
-        nvcc_router_stream.WriteLine(call quoted_vs_path_to_vcvars)
-        concat (
-            quoted_nvcc_path, " -gencode=arch=compute_30,code=\\\"sm_30,compute_30\\\" --use-local-env --cl-version 2017 -ccbin ",quoted_vs_path_to_cl,
-            "  -I",quoted_cuda_toolkit_path_to_include," -I",quoted_cub_path_to_include," --keep-dir ",quoted_kernels_dir,
-            " -maxrregcount=0  --machine 64 -ptx -cudart static  -o ",quoted_target_path,' ',quoted_input_path
-            ) |> nvcc_router_stream.WriteLine
+        call quoted_vs_path_to_vcvars
+        |> concat |> nvcc_router_stream.WriteLine
+        (
+        quoted_nvcc_path, " -gencode=arch=compute_30,code=\\\"sm_30,compute_30\\\" --use-local-env --cl-version 2017 -ccbin ", quoted_vs_path_to_cl,
+        " -I", quoted_cuda_toolkit_path_to_include,
+        " -I", quoted_cub_path_to_include,
+        " -I", quoted_vc_path_to_include,
+        " --keep-dir ",quoted_kernels_dir,
+        " -maxrregcount=0  --machine 64 -ptx -cudart static  -o ",quoted_target_path,' ',quoted_input_path
+        ) |> concat |> nvcc_router_stream.WriteLine
 
     if process.Start() = false then failwith unit "NVCC failed to run."
     process.BeginOutputReadLine()
