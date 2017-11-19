@@ -148,6 +148,9 @@ inl map f (!zip ({size layout} & in)) =
 
 inl map = safe_alloc 2 map
 
+inl CudaRand = assembly_load ."CudaRand, Version=8.0.22.0, Culture=neutral, PublicKeyToken=fe981579f4e9a066" .ManagedCuda.CudaRand
+inl random_ty = CudaRand.CudaRandDevice
+
 open Console
 
 inl (>>=) a b ret = a <| inl a -> b a ret
