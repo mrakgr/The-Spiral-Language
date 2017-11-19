@@ -185,4 +185,3 @@ let cfg: Spiral.Types.CompilerSettings = {
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary" learning
 |> printfn "%s"
 |> ignore
-
