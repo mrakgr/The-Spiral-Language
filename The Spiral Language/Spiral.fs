@@ -1681,7 +1681,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         | VV (N vars) -> List.map (tev d >> destructure d) vars |> tyvv
         | Op(N (op,vars)) ->
             match op,vars with
-            | PathCuda,[] -> settings.path_cuda80 |> LitString |> TyLit
+            | PathCuda,[] -> settings.path_cuda90 |> LitString |> TyLit
             | PathCub,[] -> settings.path_cub |> LitString |> TyLit
             | PathVS2017,[] -> settings.path_vs2017 |> LitString |> TyLit
             | (MacroFs | MacroCuda),[a;b] -> macro op d a b

@@ -956,6 +956,7 @@ inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
         closure_of (inl args -> args.get_Data() |> writeline) 
             (system .System.Diagnostics.DataReceivedEventArgs => ())
 
+    Extern.FSU.Method process ."OutputDataReceived.Add" print_to_standard_output ()
     Extern.FSU.Method process ."ErrorDataReceived.Add" print_to_standard_output ()
 
     inl concat = string_concat ""

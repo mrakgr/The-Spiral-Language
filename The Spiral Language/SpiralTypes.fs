@@ -478,6 +478,6 @@ let (|CN|) (x: ConsedNode<_>) = x.node
 type CompilerSettings = {
     path_vs2017 : string
     path_cub : string
-    path_cuda80 : string
+    path_cuda90 : string
     cuda_includes : string []
     }
