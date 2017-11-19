@@ -400,10 +400,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let pattern_compile_def_on_fail = op(ErrorPatMiss,[arg])
         pattern_compile arg pat pattern_compile_def_on_succ pattern_compile_def_on_fail
 
-    and pattern_compile_single pat =
-        let main_arg = new_pat_var()
-        inl main_arg (pattern_compile (v main_arg) pat) |> expr_prepass
-
     and expr_prepass e =
         let inline f e = expr_prepass e
         match e with
@@ -420,7 +416,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let vars,body = f body
             Set.remove name vars, func_filt(vars,nodify_func(name,body))
         | Lit _ -> Set.empty, e
-        | Pattern (N pat) -> pattern_compile_single pat
+        | Pattern (N pat) -> 
+            let main_arg = new_pat_var()
+            inl main_arg (pattern_compile (v main_arg) pat) |> expr_prepass
         | ExprPos p -> 
             let vars, body = f p.Expression
             vars, expr_pos p.Pos body
