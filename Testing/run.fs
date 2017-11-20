@@ -183,9 +183,9 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = [||]
     }
 
-//rewrite_test_cache cfg (Some(0,40))
+rewrite_test_cache cfg (Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary" test15
-|> printfn "%s"
-|> ignore
+//output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary" test32
+//|> printfn "%s"
+//|> ignore
 

@@ -375,11 +375,12 @@ Tuple.zip ((j,k),(l,m),n) |> Tuple.unzip
     """
 
 let test28 = // 
-    "test28",[],"Does string indexing work?",
+    "test28",[extern_],"Does string indexing work?",
     """
-inl console = mscorlib .System.Console
+open Extern
+inl console_type = fs [text: "System.Console"]
 inl a = "qwe"
-inl b = console.ReadLine()
+inl b = FS.StaticMethod console_type .ReadLine() string
 a(0),b(0)
     """
 
@@ -430,9 +431,11 @@ type b =
     """
 
 let test32 =
-    "test32",[],"Do the .NET methods work inside methods?",
+    "test32",[extern_],"Do the .NET methods work inside methods?",
     """
-inl to_int64 = mscorlib .System.Convert .ToInt64
+open Extern
+inl convert_type = fs [text: "System.Convert"]
+inl to_int64 x = FS.StaticMethod convert_type .ToInt64 x int64
 met f = to_int64 (dyn 'a')
 f
     """
