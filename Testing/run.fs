@@ -5,8 +5,8 @@ open System.IO
 let learning =
     "Learning",[option;cuda;extern_;option;console],"The deep learning module.",
     """
-open Cuda
 open Extern
+open Cuda
 open Console
 
 inl smartptr_create ptr =
@@ -37,28 +37,39 @@ inl safe_alloc n create =
     | x -> loop () n x
 
 inl allocator size =
-    inl to_float x = Operators(.float,x,x)
-    inl to_int x = FSU.StaticMethod .int64 x int64
-    inl to_uint x = FSU.StaticMethod .uint64 x uint64
+    inl to_float x = FS.UnOp .float x float64
+    inl to_int x = FS.UnOp .int64 x int64
+    inl to_uint x = FS.UnOp .uint64 x uint64
+    inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
+    inl SizeT = FS.Constructor SizeT_type
+    inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
+    inl CUdeviceptr = FS.Constructor CUdeviceptr_type
     inl pool = 
         inl size = 
             match size with
-            | _ : float64 -> context.GetDeviceInfo().get_TotalGlobalMemory() |> to_int |> to_float |> (*) size |> to_int
+            | _ : float64 -> 
+                inl CudaDeviceProperties_type = fs [text: "ManagedCuda.CudaDeviceProperties"]
+                FS.Method context.GetDeviceInfo() CudaDeviceProperties_type
+                |> inl x -> FS.Method x.get_TotalGlobalMemory() SizeT_type
+                |> to_int |> to_float |> (*) size |> to_int
             | _ : int64 -> size
-        {size ptr=context.AllocateMemory (SizeT size) |> smartptr_create}
+        inl q = FS.Method context.AllocateMemory (SizeT size) CUdeviceptr_type
+        {size ptr=q |> smartptr_create}
 
-    inl stack = system.System.Collections.Generic."Stack`1"(pool)()
+    inl pool_type = type(pool)
+    inl stack_type = fs [text: "System.Collections.Generic.Stack"; types: pool_type]
+    inl stack = FS.Constructor stack_type ()
 
     inl allocate =
         inl smartptr_ty = type (pool.ptr)
-        inl f x = x.ptr().Pointer |> to_uint, x.size |> to_uint
+        inl f x = FS.Field (x.ptr()) .Pointer SizeT_type |> to_uint, x.size |> to_uint
         inl pool_ptr, pool_size = f pool
         met rec remove_disposed_and_return_the_first_live ret =
-            if stack.get_Count() > 0i32 then 
-                inl t = stack.Peek() 
+            if FS.Method stack.get_Count() int32 > 0i32 then 
+                inl t = FS.Method stack.Peek() pool_type
                 match t.ptr.Try with
-                || [Some: ptr] -> ret (ptr.Pointer |> to_uint, t.size |> to_uint)
-                | _ -> stack.Pop() |> ignore; remove_disposed_and_return_the_first_live ret 
+                || [Some: ptr] -> ret (FS.Field ptr.Pointer SizeT_type |> to_uint, t.size |> to_uint)
+                | _ -> FS.Method stack.Pop() pool_type |> ignore; remove_disposed_and_return_the_first_live ret 
             else join (ret (pool_ptr, 0u64))
             : smartptr_ty
         inl (!dyn size) ->
@@ -66,7 +77,7 @@ inl allocator size =
             inl pool_used = top_ptr - pool_ptr + top_size
             assert (to_uint size + pool_used <= pool_size) "Cache size has been exceeded in the allocator."
             inl cell = {size ptr=top_ptr + top_size |> SizeT |> CUdeviceptr |> smartptr_create}
-            stack.Push cell
+            FS.Method stack.Push cell unit
             cell.ptr
 
     {allocate}
@@ -84,7 +95,7 @@ inl CudaTensor allocator =
         inl elem_type = ar.elem_type
         inl size = Array.length ar |> unsafe_convert int64
         inl t = create_ar size elem_type
-        context(.CopyToDevice,ar,(t.ptr(), ar))
+        FS.Method context .CopyToDevice(t.ptr(), ar) unit
         t
 
     inl from_host_tensor = map_tensor from_host_array
@@ -93,8 +104,8 @@ inl CudaTensor allocator =
         inl elem_type = ar.elem_type
         inl ptr = ar.ptr()
         inl t = Array.create elem_type size1d
-        context(.CopyToHost,t,(t,ptr))
-        context.Synchronize()
+        FS.Method context .CopyToHost (t,ptr) unit
+        FS.Method context .Synchronize() unit
         t
 
     inl to_host_tensor {size} & tns = map_tensor (to_host_array (total_size size)) tns
@@ -148,9 +159,6 @@ inl map f (!zip ({size layout} & in)) =
 
 inl map = safe_alloc 2 map
 
-inl CudaRand = assembly_load ."CudaRand, Version=8.0.22.0, Culture=neutral, PublicKeyToken=fe981579f4e9a066" .ManagedCuda.CudaRand
-inl random_ty = CudaRand.CudaRandDevice
-
 open Console
 
 inl (>>=) a b ret = a <| inl a -> b a ret
@@ -174,6 +182,12 @@ inl program =
     succ (Array.show_array ar |> writeline)
 
 program id
+
+inl random = 
+    inl generator_type = fs [text: "ManagedCuda.CudaRand.GeneratorType"]
+    FS.Constructor (fs [text: "ManagedCuda.CudaRand.CudaRandDevice"]) (FS.StaticField generator_type .PseudoDefault generator_type)
+
+random
     """
 
 let cfg: Spiral.Types.CompilerSettings = {
@@ -183,9 +197,9 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = [||]
     }
 
-rewrite_test_cache cfg None //(Some(80,tests.Length))
+//rewrite_test_cache cfg None //(Some(80,tests.Length))
 
-//output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary" test84
-//|> printfn "%s"
-//|> ignore
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary" learning
+|> printfn "%s"
+|> ignore
 

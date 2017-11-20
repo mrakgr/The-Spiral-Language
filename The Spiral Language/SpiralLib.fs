@@ -169,6 +169,16 @@ let extern_ =
 inl dot = "."
 inl FS = {
     Constant = inl a t -> !MacroFs(t, [text: a])
+    StaticField = inl a b t -> !MacroFs(t, [
+        type: a
+        text: dot
+        text: b
+        ])
+    Field = inl a b t -> !MacroFs(t, [
+        arg: a
+        text: dot
+        text: b
+        ])
     Method = inl a b c t -> !MacroFs(t, [
         arg: a
         text: dot
@@ -184,6 +194,11 @@ inl FS = {
     Constructor = inl a b -> !MacroFs(a, [
         type: a
         args: b
+        ])
+    UnOp = inl op a t -> !MacroFs(t,[
+        text: op
+        text: " "
+        arg: a
         ])
     BinOp = inl a op b t -> !MacroFs(t,[
         arg: a
@@ -219,7 +234,7 @@ inl string_concat sep l =
         | .ap_sep s x -> apply.ap (apply.ap s sep) x
 
     Tuple.foldl (apply.ap_sep) (apply.ap (StringBuilder len) (Tuple.head l)) (Tuple.tail l)
-    <| .ToString <| ()
+    |> inl x -> FS.Method x .ToString () string
 
 inl closure_of_template check_range f tys = 
     inl rec loop vars tys =
@@ -293,7 +308,7 @@ inl for' = for_template .Navigable
 
 let array =
     (
-    "Array",[tuple;loops],"The array module",
+    "Array",[tuple;loops;extern_],"The array module",
     """
 open Loops
 
@@ -343,15 +358,18 @@ inl forall f ar = for' {from=0; near_to=Array.length ar; state=true; body = inl 
 inl exists f ar = for' {from=0; near_to=Array.length ar; state=false; body = inl {next state i} -> f (ar i) || next state}
 
 met show_array ar =
-    inl s = mscorlib.System.Text.StringBuilder()
-    s.Append "[|" |> ignore
+    open Extern
+    inl strb_type = fs [text: "System.Text.StringBuilder"]
+    inl s = FS.Constructor strb_type ()
+
+    FS.Method s.Append "[|" strb_type |> ignore
     foldl (inl prefix x ->
-        s.Append prefix |> ignore
-        s.Append (mscorlib.System.Convert.ToString x) |> ignore
+        FS.Method s.Append prefix strb_type |> ignore
+        FS.Method s.Append (FS.StaticMethod (fs [text: "System.Convert"]) .ToString x string) strb_type |> ignore
         "; "
         ) "" ar |> ignore
-    s.Append "|]" |> ignore
-    s.ToString()
+    FS.Method s.Append "|]" strb_type |> ignore
+    FS.Method s.ToString() string
 
 {create=Array.create; length=Array.length; empty singleton foldl foldr init map filter append concat forall exists show_array}
     """) |> module_
@@ -906,7 +924,7 @@ let cuda =
 open Extern
 open Console
 
-inl cuda_kernels = FSU.Constant.cuda_kernels string
+inl cuda_kernels = FS.Constant.cuda_kernels string
 inl join_point_entry_cuda x = !JoinPointEntryCuda(x())
 
 inl cuda_constant a t = !MacroCuda(t,[text: a])
@@ -926,38 +944,43 @@ inl __gridDimX = cuda_constant_int "gridDim.x"
 inl __gridDimY = cuda_constant_int "gridDim.y"
 inl __gridDimZ = cuda_constant_int "gridDim.z"
 
-inl Operators = fsharp_core.Microsoft.FSharp.Core.Operators
-inl Environment = mscorlib.System.Environment
-
 inl cuda_toolkit_path = !PathCuda()
 inl visual_studio_path = !PathVS2017()
 inl cub_path = !PathCub()
 
-inl ManagedCuda = assembly_load ."ManagedCuda, Version=8.0.22.0, Culture=neutral, PublicKeyToken=242d898828717aa0" .ManagedCuda
-inl context = ManagedCuda.CudaContext false
+inl env_type = fs [text: "System.Environment"]
+inl context_type = fs [text: "ManagedCuda.CudaContext"]
+inl context = FS.Constructor context_type false
 
 inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
-    inl Path = mscorlib .System.IO.Path
-    inl File = mscorlib .System.IO.File
-    inl Stream = mscorlib .System.IO.Stream
-    inl StreamWriter = mscorlib .System.IO.StreamWriter
-    inl ProcessStartInfo = system .System.Diagnostics.ProcessStartInfo
+    inl path_type = fs [text: "System.IO.Path"]
+    inl file_type = fs [text: "System.IO.File"]
+    inl stream_type = fs [text: "System.IO.Stream"]
+    inl streamwriter_type = fs [text: "System.IO.StreamWriter"]
+    inl process_start_info_type = fs [text: "System.Diagnostics.ProcessStartInfo"]
+    inl combine x = FS.StaticMethod path_type .Combine x string
 
-    inl nvcc_router_path = Path.Combine(kernels_dir,"nvcc_router.bat")
-    inl procStartInfo = ProcessStartInfo()
-    procStartInfo.set_RedirectStandardOutput true
-    procStartInfo.set_RedirectStandardError true
-    procStartInfo.set_UseShellExecute false
-    procStartInfo.set_FileName nvcc_router_path
+    inl nvcc_router_path = combine (kernels_dir,"nvcc_router.bat")
+    inl procStartInfo = FS.Constructor process_start_info_type ()
+    FS.Method procStartInfo.set_RedirectStandardOutput true unit
+    FS.Method procStartInfo.set_RedirectStandardError true unit
+    FS.Method procStartInfo.set_UseShellExecute false unit
+    FS.Method procStartInfo.set_FileName nvcc_router_path unit
 
-    use process = system.System.Diagnostics.Process()
-    process.set_StartInfo procStartInfo
+    inl (use) a b =
+        inl r = b a
+        FS.Method a.Dispose() unit
+        r
+
+    inl process_type = fs [text: "System.Diagnostics.Process"]
+    use process = FS.Constructor process_type ()
+    FS.Method process .set_StartInfo procStartInfo unit
     inl print_to_standard_output = 
-        closure_of (inl args -> args.get_Data() |> writeline) 
-            (system .System.Diagnostics.DataReceivedEventArgs => ())
+        closure_of (inl args -> FS.Method args.get_Data() string |> writeline) 
+            (fs [text: "System.Diagnostics.DataReceivedEventArgs"] => ())
 
-    Extern.FSU.Method process ."OutputDataReceived.Add" print_to_standard_output ()
-    Extern.FSU.Method process ."ErrorDataReceived.Add" print_to_standard_output ()
+    FS.Method process ."OutputDataReceived.Add" print_to_standard_output ()
+    FS.Method process ."ErrorDataReceived.Add" print_to_standard_output ()
 
     inl concat = string_concat ""
     inl (+) a b = concat (a, b)
@@ -965,28 +988,30 @@ inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
     /// Puts quotes around the string.
     inl quote x = ('"',x,'"')
     inl call x = ("call ", x)
-    inl quoted_vs_path_to_vcvars = Path.Combine(visual_studio_path, @"VC\Auxiliary\Build\vcvarsx86_amd64.bat") |> quote
-    inl quoted_vs_path_to_cl = Path.Combine(visual_studio_path, @"VC\Tools\MSVC\14.11.25503\bin\Hostx64\x64\cl.exe") |> quote
-    inl quoted_cuda_toolkit_path_to_include = Path.Combine(cuda_toolkit_path,"include") |> quote
-    inl quoted_vc_path_to_include = Path.Combine(visual_studio_path, @"VC\Tools\MSVC\14.11.25503\include") |> quote
-    inl quoted_nvcc_path = Path.Combine(cuda_toolkit_path,@"bin\nvcc.exe") |> quote
+    inl quoted_vs_path_to_vcvars = combine(visual_studio_path, @"VC\Auxiliary\Build\vcvarsx86_amd64.bat") |> quote
+    inl quoted_vs_path_to_cl = combine(visual_studio_path, @"VC\Tools\MSVC\14.11.25503\bin\Hostx64\x64\cl.exe") |> quote
+    inl quoted_cuda_toolkit_path_to_include = combine(cuda_toolkit_path,"include") |> quote
+    inl quoted_vc_path_to_include = combine(visual_studio_path, @"VC\Tools\MSVC\14.11.25503\include") |> quote
+    inl quoted_nvcc_path = combine(cuda_toolkit_path,@"bin\nvcc.exe") |> quote
     inl quoted_cub_path_to_include = cub_path |> quote
     inl quoted_kernels_dir = kernels_dir |> quote
-    inl target_path = Path.Combine(kernels_dir,"cuda_kernels.ptx")
+    inl target_path = combine(kernels_dir,"cuda_kernels.ptx")
     inl quoted_target_path = target_path |> quote
-    inl input_path = Path.Combine(kernels_dir,"cuda_kernels.cu")
+    inl input_path = combine(kernels_dir,"cuda_kernels.cu")
     inl quoted_input_path = input_path |> quote
 
-    if File.Exists input_path then File.Delete input_path
-    File.WriteAllText(input_path,cuda_kernels)
+    if FS.StaticMethod file_type .Exists input_path bool then FS.StaticMethod file_type .Delete input_path unit
+    FS.StaticMethod file_type .WriteAllText(input_path,cuda_kernels) unit
    
     inl _ = 
-        if File.Exists nvcc_router_path then File.Delete nvcc_router_path
-        use nvcc_router_file = File.OpenWrite(nvcc_router_path)
-        use nvcc_router_stream = StreamWriter(nvcc_router_file :> Stream)
+        if FS.StaticMethod file_type .Exists nvcc_router_path bool then FS.StaticMethod file_type .Delete nvcc_router_path unit
+        inl filestream_type = fs [text: "System.IO.FileStream"]
+
+        use nvcc_router_file = FS.StaticMethod file_type .OpenWrite(nvcc_router_path) filestream_type
+        use nvcc_router_stream = FS.Constructor streamwriter_type nvcc_router_file
 
         call quoted_vs_path_to_vcvars
-        |> concat |> nvcc_router_stream.WriteLine
+        |> concat |> inl x -> FS.Method nvcc_router_stream.WriteLine x unit
         (
         quoted_nvcc_path, " -gencode=arch=compute_30,code=\\\"sm_30,compute_30\\\" --use-local-env --cl-version 2017 -ccbin ", quoted_vs_path_to_cl,
         " -I", quoted_cuda_toolkit_path_to_include,
@@ -994,19 +1019,24 @@ inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
         " -I", quoted_vc_path_to_include,
         " --keep-dir ",quoted_kernels_dir,
         " -maxrregcount=0  --machine 64 -ptx -cudart static  -o ",quoted_target_path,' ',quoted_input_path
-        ) |> concat |> nvcc_router_stream.WriteLine
+        ) |> concat |> inl x -> FS.Method nvcc_router_stream.WriteLine x unit
 
-    if process.Start() = false then failwith unit "NVCC failed to run."
-    process.BeginOutputReadLine()
-    process.BeginErrorReadLine()
-    process.WaitForExit()
+    inl stopwatch_type = fs [text: "System.Diagnostics.Stopwatch"]
+    inl timer = FS.StaticMethod stopwatch_type .StartNew () stopwatch_type
+    if FS.Method process.Start() bool = false then failwith unit "NVCC failed to run."
+    FS.Method process.BeginOutputReadLine() unit
+    FS.Method process.BeginErrorReadLine() unit
+    FS.Method process.WaitForExit() unit
 
-    inl exit_code = process.get_ExitCode()
+    inl exit_code = FS.Method process.get_ExitCode() int32
     if exit_code <> 0i32 then failwith unit <| concat ("NVCC failed compilation with code ", exit_code)
+    
+    inl elapsed = FS.Method timer .get_Elapsed() (fs [text: "System.TimeSpan"])
+    !MacroFs(unit,[text: "printfn \"The time it took to compile the Cuda kernels is: %A\" "; arg: elapsed])
 
-    context.LoadModulePTX target_path
+    FS.Method context.LoadModulePTX target_path (fs [text: "ManagedCuda.BasicTypes.CUmodule"])
 
-inl current_directory = Environment.get_CurrentDirectory()
+inl current_directory = FS.StaticMethod env_type .get_CurrentDirectory() string
 inl modules = compile_kernel_using_nvcc_bat_router current_directory
 writeline (string_concat "" ("Compiled the kernels into the following directory: ", current_directory))
 
@@ -1019,7 +1049,7 @@ inl dim3 = function
 inl run {blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} as runable =
     inl to_obj_ar args =
         inl len = Tuple.length args
-        inl typ = mscorlib .System.Object
+        inl typ = fs [text: "System.Object"]
         if len > 0 then Array.init.static len (inl x -> Tuple.index args x :> typ)
         else Array.empty typ
 
@@ -1036,20 +1066,21 @@ inl run {blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} as runable =
             inl gridDim = {x=x'(); y=y'(); z=z'()}
             kernel threadIdx blockIdx blockDim gridDim
     inl method_name, !to_obj_ar args = join_point_entry_cuda kernel
-    inl dim3 {x y z} = Tuple.map (unsafe_convert uint32) (x,y,z) |> ManagedCuda.VectorTypes.dim3
+    inl dim3 {x y z} = Tuple.map (unsafe_convert uint32) (x,y,z) |> FS.Constructor (fs [text: "ManagedCuda.VectorTypes.dim3"])
     
     inl context = match runable with | {context} | _ -> context
-    inl cuda_kernel = ManagedCuda.CudaKernel(method_name,modules,context)
-    cuda_kernel.set_GridDimensions(dim3 gridDim)
-    cuda_kernel.set_BlockDimensions(dim3 blockDim)
+    inl kernel_type = fs [text: "ManagedCuda.CudaKernel"]
+    inl cuda_kernel = FS.Constructor kernel_type (method_name,modules,context)
+    FS.Method cuda_kernel.set_GridDimensions(dim3 gridDim) unit
+    FS.Method cuda_kernel.set_BlockDimensions(dim3 blockDim) unit
 
     match runable with
-    | {stream} -> cuda_kernel.RunAsync(stream.get_Stream(),args)
-    | _ -> cuda_kernel.Run(args)
+    | {stream} -> 
+        inl CUstream_type = fs [text: "ManagedCuda.CUstream"]
+        FS.Method cuda_kernel.RunAsync(FS.Method stream.get_Stream() CUstream_type,args) unit
+    | _ -> FS.Method cuda_kernel.Run(args) float32
 
-inl SizeT = ManagedCuda.BasicTypes.SizeT
-inl CUdeviceptr = ManagedCuda.BasicTypes.CUdeviceptr
 
-{ManagedCuda SizeT CUdeviceptr context dim3 run Operators}
+{context dim3 run}
     """) |> module_
 

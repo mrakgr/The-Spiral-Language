@@ -2396,9 +2396,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let inline append (x: string) = strb.Append x |> ignore
         let f = function
             | TyList [TypeString "text"; (TypeString x | TyLit (LitString x))] -> append x
-            | TyList [TypeString "arg"; (TyV _ | TyT _ as x)] -> append (codegen x)
+            | TyList [TypeString "arg"; x] -> append (codegen x)
             | TyList [TypeString "args"; (TyTuple l)] -> append "("; List.map codegen l |> String.concat ", " |> append; append ")"
-            | TyList [TypeString "type"; (TyV (_,x) | TyT x)] -> append (print_type x)
+            | TyList [TypeString "type"; TyType x] -> append (print_type x)
             | TyList [TypeString "types"; (TyTuple l)] -> append "<"; List.map (get_type >> print_type) l |> String.concat ", " |> append; append ">" 
             | x -> failwithf "Unknown argument in macro. Got: %A" x
         match x with

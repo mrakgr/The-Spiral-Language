@@ -121,11 +121,6 @@ inl (=) a b =
     if eq_type a b then a = b
     else error_type ("Trying to compare variables of two different types. Got:",a,b)
 
-inl (use) a b =
-    inl r = b a
-    a.Dispose()
-    r
-
 inl sizeof x = !SizeOf(x)
 
 inl cuda x = !CudaTypeCreate(x)
@@ -136,5 +131,5 @@ inl fs x = !DotNetTypeCreate(x)
  string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref Array (+) (-) (*) (/) (%)
  (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (&&) (||) (<<<) (>>>) Tuple fst snd not
  string_length lit_is box_is failwith assert max min eq_type module_values caseable_is (:>)
- (:?>) (=) module_map module_fold (use) sizeof} |> stack
+ (:?>) (=) module_map module_fold sizeof} |> stack
     """) |> module_
