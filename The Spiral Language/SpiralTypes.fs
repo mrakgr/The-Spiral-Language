@@ -98,6 +98,10 @@ type Value =
     | LitChar of char
 
 type Op =
+    // Extern type constructors
+    | DotNetTypeCreate
+    | CudaTypeCreate
+    
     // Settings
     | PathCub
     | PathCuda
@@ -321,7 +325,7 @@ and Ty =
     | RecT of JoinPointKey
     | ArrayT of ArrayType * Ty
     | DotNetTypeT of TypedExpr
-    | CppTypeT of TypedExpr
+    | CudaTypeT of TypedExpr
 
 and TypedExpr =
     // Data structures

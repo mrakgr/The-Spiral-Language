@@ -862,7 +862,7 @@ inl closure_of' = closure_of_template false
 inl closure_of = closure_of_template true
 inl dot = "."
 
-inl FSU = {
+inl FS = {
     Constant = inl a t -> !MacroFs(t, [text: a])
     Method = inl a b c t -> !MacroFs(t, [
         arg: a
@@ -870,20 +870,10 @@ inl FSU = {
         text: b
         args: c
         ])
-    GenericMethod = inl a b c d t -> !MacroFs(t,[
-        arg: a
+    StaticMethod = inl a b c t -> !MacroFs(t, [
+        type: a
         text: dot
         text: b
-        types: c
-        args: d
-        ])
-    StaticMethod = inl a b t -> !MacroFs(t, [
-        text: a
-        args: b
-        ])
-    StaticGenericMethod = inl a b c t -> !MacroFs(t,[
-        text: a
-        types: b
         args: c
         ])
     Constructor = inl a b -> !MacroFs(a, [
@@ -897,7 +887,7 @@ inl FSU = {
         ])
     }
 
-{string_concat closure_of closure_of' FSU}
+{string_concat closure_of closure_of' FS} |> stack
     """) |> module_
 
 let cuda =

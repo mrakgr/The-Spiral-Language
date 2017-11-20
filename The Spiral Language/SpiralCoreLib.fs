@@ -128,7 +128,10 @@ inl (use) a b =
 
 inl sizeof x = !SizeOf(x)
 
-{type_lit_lift error_type print_static dyn (\/) (=>)
+inl cuda x = !CudaTypeCreate(x)
+inl fs x = !DotNetTypeCreate(x)
+
+{type_lit_lift error_type print_static dyn (\/) (=>) cuda fs
  split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
  string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref Array (+) (-) (*) (/) (%)
  (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (&&) (||) (<<<) (>>>) Tuple fst snd not

@@ -187,7 +187,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     and is_unit_env x = Map.forall (fun _ -> is_unit) x
     and is_unit = function
         | LitT _ -> true
-        | UnionT _ | RecT _ | DotNetTypeT _ | CppTypeT _ | TermFunctionT _ | PrimT _ -> false
+        | UnionT _ | RecT _ | DotNetTypeT _ | CudaTypeT _ | TermFunctionT _ | PrimT _ -> false
         | ArrayT (_,t) -> is_unit t
         | MapT (env,_) -> is_unit_env env
         | LayoutT (_, C x, _) -> typed_expr_env_free_var_exists x = false
@@ -643,6 +643,13 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                
         and layout_env_term_unseal d recf (C env) = Map.map (fun _ -> layout_boxed_unseal d recf) env |> Env
 
+        let extern_type_create op d x =
+            let _, x = renamer_apply_typedexpr (tev d x)
+            match op with
+            | DotNetTypeCreate -> tyt (DotNetTypeT x)
+            | CudaTypeCreate -> tyt (CudaTypeT x)
+            | _ -> failwith "invalid op"
+
         let layout_to_none' d = function
             | TyMap _ as a -> a
             | TyType(LayoutT(_,env,t)) as a -> tymap(layout_env_term_unseal d a env,t)
@@ -651,7 +658,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let rec layoutify layout d = function
             | TyMap(env,t) as a ->
-                let {renamer'=r}, env' = renamer_apply_envc env 
+                let {renamer'=r}, env' = renamer_apply_envc env
                 if r.Count = 0 then LayoutT(layout,env',t) |> tyt
                 else TyOp(layout_to_op layout,[a],LayoutT(layout,env',t)) |> destructure d
             | TyType(LayoutT(layout',_,_)) as a ->
@@ -729,7 +736,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 let {call_args=args},_ = renamer_apply_env l
                 List.forall (fun (_,t) -> is_cuda_type t) args
             | ArrayT ((ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal),t) -> is_cuda_type t
-            | UnionT _ | LayoutT _ | ArrayT _ | DotNetTypeT _ | CppTypeT _ | TermFunctionT _ | RecT _ -> false
+            | UnionT _ | LayoutT _ | ArrayT _ | DotNetTypeT _ | CudaTypeT _ | TermFunctionT _ | RecT _ -> false
 
         let join_point_cuda d expr = 
             let {call_args=call_arguments; method_pars=method_parameters; renamer'=renamer}, renamed_env = renamer_apply_env d.env
@@ -1574,6 +1581,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 Map.iter (fun k v -> printfn "%s" k) (c d.env)
                 tev d a
             | PrintExpr,[a] -> printfn "%A" a; tev d a
+            | (CudaTypeCreate | DotNetTypeCreate), [a] -> extern_type_create op d a
             | LayoutToNone,[a] -> layout_to_none d a
             | LayoutToStack,[a] -> layout_to LayoutStack d a
             | LayoutToPackedStack,[a] -> layout_to LayoutPackedStack d a
@@ -2329,7 +2337,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let print_tag_env_packed_stack' t = sprintf "EnvPackedStack%i" t
     let sep_comma = ", "
 
-    let inline print_args print_tyv args = 
+    let inline print_args' print_tyv args = 
         (args, (StringBuilder(),null)) ||> List.foldBack (fun (_,ty as x) (bldr,sep as state) ->
             if is_unit ty = false then 
                 let f (x: string) = bldr.Append x |> ignore
@@ -2455,12 +2463,12 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | BoolT -> "char"
                 | CharT -> "unsigned short"
                 | StringT -> failwith "The string type is not supported on the Cuda side."
-            | LitT _ -> 
-                failwith "Should be covered in Unit."
+            | CudaTypeT x -> codegen_macro (codegen' {branch_return=id; trace=[]}) print_type x
+            //| DotNetTypeT x -> failwith "Dotnet types are not allowed on the Cuda side."
+            | LitT _ -> failwith "Should be covered in Unit."
 
         and print_tyv_with_type (tag,ty as v) = sprintf "%s %s" (print_type ty) (print_tyv v)
-        and print_args' print_tyv x = print_args print_tyv x
-        let rec codegen' ({branch_return=branch_return; trace=trace} as d) expr =
+        and codegen' ({branch_return=branch_return; trace=trace} as d) expr =
             let inline codegen expr = codegen' {d with branch_return=id} expr
 
             let inline print_method_definition_args x = print_args' print_tyv_with_type x
@@ -2544,7 +2552,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             try
                 match expr with
                 | TyT Unit | TyV (_, Unit) -> ""
-                | TyT t -> on_type_er trace <| sprintf "Usage of naked type %A as an instance on the term level is invalid." t
+                | TyT t -> //on_type_er trace <| sprintf "Usage of naked type %A as an instance on the term level is invalid." t
+                    printfn "Error: Naked type on the term level has been generated on the Cuda side. Check the code for the exact location of it."
+                    sprintf "naked_type /*%s*/" (print_type t)
                 | TyV v -> print_tyv v |> branch_return
                 | TyLet(tyv,b,TyV tyv',_,trace) when tyv = tyv' -> codegen' {d with trace=trace} b
                 | TyState(b,rest,_,trace) ->
@@ -2819,6 +2829,19 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | Some LayoutHeap -> def_enqueue print_tag_env_heap' t
             | Some LayoutHeapMutable -> def_enqueue print_tag_env_heap_mutable' t
 
+        let print_case_rec x i = [|print_tag_rec x;"Case";string i|] |> String.concat null
+        let print_case_union x i = [|print_tag_union x;"Case";string i|] |> String.concat null
+
+        let inline handle_unit_in_last_position f =
+            let c = buffer_temp.Count
+            match f () with
+            | "" ->
+                match Seq.last buffer_temp with
+                | Statement (_,s) when s.StartsWith "let " -> "()"
+                | _ when c = buffer_temp.Count -> "()"
+                | _ -> ""
+            | x -> x
+
         let rec print_type = function
             | Unit -> "unit"
             | MapT _ as x -> print_tag_env None x
@@ -2848,36 +2871,14 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | BoolT -> "bool"
                 | StringT -> "string"
                 | CharT -> "char"
-            | LitT _ -> 
-                failwith "Should be covered in Unit."
-                
+            | DotNetTypeT x -> codegen_macro (codegen' []) print_type x
+            | CudaTypeT _ -> failwith "Cuda types are not allowed on the F# side."
+            | LitT _ -> failwith "Should be covered in Unit."
 
-        and print_dotnet_type x =
-            let print_class (x: SSTypedExprClass) =
-                if x.generic_type_args |> Array.isEmpty then x.full_name
-                else sprintf "%s<%s>" x.full_name (Array.map print_type x.generic_type_args |> String.concat ", ")
-            match x with
-            | SSTyClass x -> print_class x
-            | SSTyType x -> print_type x
-            | SSTyArray _ | SSTyLam _ -> failwith "SSTyArray and SSTyLam type should never appear in generated code."
+        and print_tyv_with_type (tag,ty as v) = sprintf "(%s: %s)" (print_tyv v) (print_type ty)
+        and print_args x = print_args' print_tyv_with_type x
 
-        let print_tyv_with_type (tag,ty as v) = sprintf "(%s: %s)" (print_tyv v) (print_type ty)
-        let print_args x = print_args print_tyv_with_type x
-
-        let print_case_rec x i = [|print_tag_rec x;"Case";string i|] |> String.concat null
-        let print_case_union x i = [|print_tag_union x;"Case";string i|] |> String.concat null
-
-        let inline handle_unit_in_last_position f =
-            let c = buffer_temp.Count
-            match f () with
-            | "" ->
-                match Seq.last buffer_temp with
-                | Statement (_,s) when s.StartsWith "let " -> "()"
-                | _ when c = buffer_temp.Count -> "()"
-                | _ -> ""
-            | x -> x
-
-        let rec codegen' trace expr =
+        and codegen' trace expr =
             let inline codegen expr = codegen' trace expr
             let print_value = function
                 | LitInt8 x -> sprintf "%iy" x
@@ -2982,7 +2983,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             try
                 match expr with
                 | TyT Unit | TyV (_, Unit) -> ""
-                | TyT t -> on_type_er trace <| sprintf "Usage of naked type %A as an instance on the term level is invalid." t
+                | TyT t -> //on_type_er trace <| sprintf "Usage of naked type %A as an instance on the term level is invalid." t
+                    printfn "Error: Naked type detected on the F# side. Please check the generated code for details."
+                    sprintf "naked_type (*%s*)" (print_type t)
                 | TyV v -> print_tyv v
                 | TyLet(tyv,b,TyV tyv',_,trace) when tyv = tyv' -> codegen' trace b
                 | TyState(b,rest,_,trace) ->

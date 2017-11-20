@@ -198,27 +198,29 @@ inter c
     """
 
 let test15 =
-    "test15",[],"Does basic .NET interop work?",
+    "test15",[extern_],"Does basic .NET interop work?",
     """
-inl system = assembly_load .mscorlib .System
-inl builder_type = system.Text.StringBuilder
-inl b = builder_type ("Qwe", 128i32)
+open Extern
+inl builder_type = fs [text: "System.Text.StringBuilder"]
+inl b = FS.Constructor builder_type ("Qwe", 128i32)
 inl a x =
-    b .Append x |> ignore
-    b .AppendLine () |> ignore
+    FS.Method b .Append x builder_type |> ignore
+    FS.Method b .AppendLine () builder_type |> ignore
 a 123
 a 123i16
 a "qwe"
-inl str = b.ToString()
-inl console = system.Console
-console .Write str |> ignore
+inl str = FS.Method b .ToString () string
 
-inl dictionary_type = system.Collections.Generic."Dictionary`2"
+inl console = fs [text: "System.Console"]
+FS.StaticMethod console .Write str ()
+
 inl key = 1, 1
 inl value = {a=1;b=2;c=3}
-inl dict = dictionary_type(key, value)(128i32)
-dict.Add(key,value)
-dict.get_Item (key :: ())
+inl dictionary_type = fs [text: "System.Collections.Generic.Dictionary"; types: type (key,value)]
+inl dict = FS.Constructor dictionary_type 128i32
+FS.Method dict .Add (key,value) ()
+FS.Method dict .Item (key :: ()) value |> dyn |> ignore
+0
     """
 
 let hacker_rank_1 =
