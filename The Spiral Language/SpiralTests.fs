@@ -980,14 +980,6 @@ met f _ = ar
 f true
     """
 
-let test84 =
-    "test84",[],"Can the ManagedCuda assembly be loaded?",
-    """
-inl managed_cuda_path = .(@"C:\Users\Marko\Documents\Visual Studio 2015\Projects\Multi-armed Bandit Experiments\packages\ManagedCuda-80.8.0.13\lib\net46\ManagedCuda.dll")
-inl mc = assembly_load_file managed_cuda_path
-0
-    """
-
 let test85 =
     "test85",[],"Does the equality rewrite work?",
     """
@@ -1112,10 +1104,12 @@ let parsing7 =
     "parsing7",[array;console;parsing;extern_],"Does the parsing library work? Birthday Cake Candles problem.",
     """
 //https://www.hackerrank.com/challenges/birthday-cake-candles
+
+open Extern
 open Console
 open Parsing
 
-inl int64_minvalue = mscorlib.System.Int64.MinValue
+inl int64_minvalue = FS.Constant "System.Int64.MinValue" int64
 
 inl p = 
     inm n = parse_int
@@ -1345,8 +1339,9 @@ while {
     """
 
 let euler3 = 
-    "euler3",[array;loops;console;option],"Largest prime factor",
+    "euler3",[array;loops;console;option;extern_],"Largest prime factor",
     """
+open Extern
 open Loops
 open Console
 open Array
@@ -1355,12 +1350,12 @@ open Option
 // The prime factors of 13195 are 5, 7, 13 and 29.
 // What is the largest prime factor of the number 600851475143 ?
 
-inl math = mscorlib .System.Math
+inl math_type = fs [text: "System.Math"]
 
 inl target = dyn 600851475143
 
 inl sieve_length = 
-    math.Sqrt(unsafe_convert float64 target)
+    FS.StaticMethod math_type .Sqrt(unsafe_convert float64 target) float64
     |> unsafe_convert int64
 
 inl sieve = Array.init (sieve_length+1) (inl _ -> true)
@@ -1407,18 +1402,19 @@ for {from=dyn 100; to=dyn 999; state={highest_palindrome=dyn 0}; body=inl {state
     """
 
 let euler5 =
-    "euler5",[tuple;loops;console],"Smallest multiple",
+    "euler5",[tuple;loops;console;extern_],"Smallest multiple",
     """
 //2520 is the smallest number that can be divided by each of the numbers from 1 to 10 without any remainder.
 //What is the smallest positive number that is evenly divisible by all of the numbers from 1 to 20?
 
+open Extern
 open Loops
 open Console
 
 inl primes = 2,3,5,11,13,17,19
 inl non_primes = Tuple.range (2,20) |> Tuple.filter (Tuple.contains primes >> not)
 inl step = Tuple.foldl (*) 1 primes
-inl int64_maxvalue = mscorlib.System.Int64.MaxValue
+inl int64_maxvalue = FS.Constant "System.Int64.MaxValue" int64
 for' {from=step; to=int64_maxvalue; by=step; state= -1; body=inl {next state i} ->
     if Tuple.forall (inl x -> i % x = 0) non_primes then i
     else next state
@@ -1849,7 +1845,7 @@ let tests =
     test50;test51;test52;test53;test54;test55;test56;test57;test58;test59
     test60_error;test61;test62;test63;test64;test65;test66;test67;test68;test69
     test70;test71_error;test72;test73;test74;test75;test76;test77;test78;test79
-    test80;test81;test82;test83;test84;test85;test86;test87;test88;test89
+    test80;test81;test82;test83;      test85;test86;test87;test88;test89
     hacker_rank_1;hacker_rank_2;hacker_rank_3;hacker_rank_4;hacker_rank_5;hacker_rank_6;hacker_rank_7;hacker_rank_8;hacker_rank_9
     parsing1;parsing2;parsing3;parsing4;parsing5;parsing6;parsing7;parsing8
     loop1;loop2;loop3;loop4_error;loop5;loop6;loop7;loop8

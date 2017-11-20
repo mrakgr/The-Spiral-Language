@@ -162,6 +162,81 @@ inl rec intersperse sep = function
  init repeat append singleton range tryFind contains intersperse}
     """) |> module_
 
+let extern_ =
+    (
+    "Extern",[tuple],"The Extern module.",
+    """
+inl dot = "."
+inl FS = {
+    Constant = inl a t -> !MacroFs(t, [text: a])
+    Method = inl a b c t -> !MacroFs(t, [
+        arg: a
+        text: dot
+        text: b
+        args: c
+        ])
+    StaticMethod = inl a b c t -> !MacroFs(t, [
+        type: a
+        text: dot
+        text: b
+        args: c
+        ])
+    Constructor = inl a b -> !MacroFs(a, [
+        type: a
+        args: b
+        ])
+    BinOp = inl a op b t -> !MacroFs(t,[
+        arg: a
+        text: op
+        arg: b
+        ])
+    }
+
+/// The sprintf in Parsing is very slow to compile so this is the reasonable alternative to it.
+/// It is a decent bit more flexible that it too.
+/// TODO: Move this somewhere better. There needs to be a String module at some point.
+inl string_concat sep l =
+    inl stringbuilder_type = fs [text: "System.Text.StringBuilder"]
+    inl StringBuilder = FS.Constructor stringbuilder_type
+    inl len =
+        inl rec len x = 
+            inl f (static_len, dyn_len, num_sep as s) = function
+                | x : string ->
+                    if lit_is x then (static_len + string_length x, dyn_len, num_sep+1)
+                    else (static_len, dyn_len + string_length x, num_sep+1)
+                | _ :: _ as l -> len s l
+                | x -> (static_len+6, dyn_len, num_sep+1)
+            Tuple.foldl f x
+        inl static_len, dyn_len, num_sep = len (0,0,-1) l
+        static_len + num_sep * string_length sep + dyn_len
+        |> unsafe_convert int32
+
+    inl rec apply = function
+        | .ap s -> function
+            | x : string when lit_is x && x = "" -> s
+            | _ :: _ as l -> Tuple.foldl (apply.ap_sep) s l
+            | x -> FS.Method s .Append x stringbuilder_type
+        | .ap_sep s x -> apply.ap (apply.ap s sep) x
+
+    Tuple.foldl (apply.ap_sep) (apply.ap (StringBuilder len) (Tuple.head l)) (Tuple.tail l)
+    <| .ToString <| ()
+
+inl closure_of_template check_range f tys = 
+    inl rec loop vars tys =
+        match tys with
+        | x => xs -> term_cast (inl x -> loop (x :: vars) xs) x
+        | x -> 
+            inl r = Tuple.foldr (inl var f -> f var) vars f 
+            if check_range && eq_type r x = false then error_type "The tail of the closure does not correspond to the one being casted to."
+            r
+    loop () tys
+
+inl closure_of' = closure_of_template false
+inl closure_of = closure_of_template true
+
+{string_concat closure_of closure_of' FS} |> stack
+    """) |> module_
+
 let loops =
     (
     "Loops",[tuple],"Various imperative loop constructors module.",
@@ -383,8 +458,9 @@ inl concat l & !elem_type !elem_type t = foldr append l (empty t)
 
 let parsing =
     (
-    "Parsing",[tuple],"Parser combinators.",
+    "Parsing",[extern_],"Parser combinators.",
     """
+open Extern
 // Primitives
 inl m x = { 
     elem =
@@ -465,8 +541,8 @@ inl choice = function
     | () -> error_type "choice require at lease one parser as input"
 
 // CharParsers
-inl convert = mscorlib.System.Convert
-inl to_int64 = convert .ToInt64
+inl convert_type = fs [text: "System.Convert"]
+inl to_int64 x = FS.StaticMethod convert_type .ToInt64 x int64
 
 inl is_digit x = x >= '0' && x <= '9'
 inl is_whitespace x = x = ' '
@@ -615,11 +691,12 @@ inl sprintf_template append ret format =
     run format (sprintf_parser append) ret
 
 inl sprintf format = 
-    inl strb = mscorlib.System.Text.StringBuilder(64i32)
-    inl append x = strb.Append x |> ignore
+    inl strb_type = fs [text: "System.Text.StringBuilder"]
+    inl strb = FS.Constructor strb_type (64i32)
+    inl append x = FS.Method strb.Append x strb_type |> ignore
     sprintf_template append {
         on_succ = inl x _ -> x
-        on_fail = inl msg _ -> strb.ToString()
+        on_fail = inl msg _ -> FS.Method strb.ToString() string
         } format
 
 {run run_with_unit_ret succ fail fatal_fail state type_ tuple (>>=) (|>>) (.>>.) (.>>) (>>.) (>>%) (<|>) choice stream_char 
@@ -629,14 +706,20 @@ inl sprintf format =
 
 let console =
     (
-    "Console",[parsing],"IO printing functions.",
+    "Console",[parsing;extern_],"IO printing functions.",
     """
-inl console = mscorlib.System.Console
-inl readall () = console.OpenStandardInput() |> mscorlib .System.IO.StreamReader |> inl x -> x.ReadToEnd()
-inl readline () = console.ReadLine()
+open Extern
+inl console_type = fs [text: "System.Console"]
+inl stream_type = fs [text: "System.IO.Stream"]
+inl streamreader_type = fs [text: "System.IO.StreamReader"]
+inl readall () = 
+    FS.StaticMethod console_type .OpenStandardInput() stream_type
+    |> FS.Constructor streamreader_type 
+    |> inl x -> FS.Method x.ReadToEnd() string
+inl readline () = FS.StaticMethod console_type .ReadLine() string
 
-inl write = console.Write
-inl writeline = console.WriteLine
+inl write x = FS.StaticMethod console_type .Write x unit
+inl writeline x = FS.StaticMethod console_type .WriteLine x unit
 
 inl printf_template cont = 
     Parsing.sprintf_template write {
@@ -647,7 +730,7 @@ inl printf_template cont =
 inl printf = printf_template id
 inl printfn = printf_template writeline
 
-{console readall readline write writeline printf printfn}
+{readall readline write writeline printf printfn}
     """) |> module_
 
 let queue =
@@ -814,80 +897,6 @@ inl map_tensor f {size ar layout} & tns = { size layout ar = map_tensor_ar f tns
                 
 {init init_toa init_aot index index_unsafe set set_unsafe toa_map toa_map2 toa_iter toa_iter2 dim_size
  total_size map_tensor_ar elem_type map_tensor} |> stack
-    """) |> module_
-
-let extern_ =
-    (
-    "Extern",[tuple],"The Extern module.",
-    """
-/// The sprintf in parsing is very slow to compile so this is the reasonable alternative to it.
-/// It is a decent bit more flexible that it too.
-/// TODO: Move this somewhere better. There needs to be a String module at some point.
-inl string_concat sep l =
-    inl StringBuilder = mscorlib.System.Text.StringBuilder
-    inl len =
-        inl rec len x = 
-            inl f (static_len, dyn_len, num_sep as s) = function
-                | x : string ->
-                    if lit_is x then (static_len + string_length x, dyn_len, num_sep+1)
-                    else (static_len, dyn_len + string_length x, num_sep+1)
-                | _ :: _ as l -> len s l
-                | x -> (static_len+6, dyn_len, num_sep+1)
-            Tuple.foldl f x
-        inl static_len, dyn_len, num_sep = len (0,0,-1) l
-        static_len + num_sep * string_length sep + dyn_len
-        |> unsafe_convert int32
-
-    inl rec apply = function
-        | .ap s -> function
-            | x : string when lit_is x && x = "" -> s
-            | _ :: _ as l -> Tuple.foldl (apply.ap_sep) s l
-            | x -> s.Append x
-        | .ap_sep s x -> apply.ap (apply.ap s sep) x
-
-    Tuple.foldl (apply.ap_sep) (apply.ap (StringBuilder len) (Tuple.head l)) (Tuple.tail l)
-    <| .ToString <| ()
-
-inl closure_of_template check_range f tys = 
-    inl rec loop vars tys =
-        match tys with
-        | x => xs -> term_cast (inl x -> loop (x :: vars) xs) x
-        | x -> 
-            inl r = Tuple.foldr (inl var f -> f var) vars f 
-            if check_range && eq_type r x = false then error_type "The tail of the closure does not correspond to the one being casted to."
-            r
-    loop () tys
-
-inl closure_of' = closure_of_template false
-inl closure_of = closure_of_template true
-inl dot = "."
-
-inl FS = {
-    Constant = inl a t -> !MacroFs(t, [text: a])
-    Method = inl a b c t -> !MacroFs(t, [
-        arg: a
-        text: dot
-        text: b
-        args: c
-        ])
-    StaticMethod = inl a b c t -> !MacroFs(t, [
-        type: a
-        text: dot
-        text: b
-        args: c
-        ])
-    Constructor = inl a b -> !MacroFs(a, [
-        type: a
-        args: b
-        ])
-    BinOp = inl a op b t -> !MacroFs(t,[
-        arg: a
-        text: op
-        arg: b
-        ])
-    }
-
-{string_concat closure_of closure_of' FS} |> stack
     """) |> module_
 
 let cuda =

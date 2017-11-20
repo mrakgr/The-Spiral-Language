@@ -1,11 +1,12 @@
 module SpiralExample.Main
-let cuda_kernels = """
-extern "C" {
-    
-}
-"""
 
-let rec method_0(): int64 =
-    let (var_0: char) = 'a'
-    System.Convert.ToInt64(var_0)
-method_0()
+open System.Collections.Generic
+
+let q = Dictionary()
+q.Add(1,2)
+
+let t = ref 0
+
+match q.TryGetValue(0,t) with
+| true -> !t
+| false -> -1
