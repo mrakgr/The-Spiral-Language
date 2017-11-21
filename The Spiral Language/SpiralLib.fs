@@ -806,16 +806,23 @@ let host_tensor =
 open Loops
 open Console
 
+inl wrap = Tuple.wrap
+
 inl dim_size = function
     | {from to} -> to - from + 1 |> max 0
     | x -> x
-inl wrap = Tuple.wrap
+
+inl map_dims = 
+    Tuple.map (function
+        | {from to} as d -> d
+        | x -> {from=0; to=x-1}) << wrap
+
 inl offset_at_index is_safe array (!wrap i) =
     inl array = {array with size=wrap self}
-    print_static (Tuple.length (array.size), Tuple.length i)
     inl rec loop x state = 
         match x with
-        | {size=({from to} & dim_range) :: size ar}, i :: is ->
+        | {size=dim_range :: size ar}, i :: is ->
+            inl {from to} = map_dims dim_range
             inl offset, dim_offset = loop ({size ar}, is) state
             inl dim_offset = dim_offset() 
             if is_safe then assert (i >= from && i <= to) "Argument out of bounds."
@@ -825,17 +832,8 @@ inl offset_at_index is_safe array (!wrap i) =
             (offset+dim_offset*(i-from)), inl _ -> dim_offset * dim_size dim_range 
         | {size=() ar}, () ->
             state
-    inl r = loop (array,i) (0,inl _ -> 1) |> fst
-    print_static r
-    r
+    loop (array,i) (0,inl _ -> 1) |> fst
        
-inl map_dims (!wrap x) = 
-    inl f = function
-        | {from to} as d -> d
-        | x -> {from=0; to=x-1}
-
-    Tuple.map f x
-
 inl rec toa_map f x = 
     inl rec loop = function
         | x when caseable_is x -> f x

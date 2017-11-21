@@ -1,15 +1,4 @@
-Pattern miss error. The argument is TyList
-  [TyMap
-     (Env
-        (map
-           [("ar",
-             TyV
-               (1,
-                ArrayT
-                  (ArtCudaGlobal
-                     (DotNetTypeT
-                        (TyList
-                           [TyT (LitT (LitString...
+Pattern miss error. The argument is TyList [TyMap (EnvConsed <tag 184>,MapTypeModule)]
 Error trace on line: 2, column: 1 in file "Learning".
 open Extern
 ^
@@ -160,36 +149,27 @@ Error trace on line: 187, column: 17 in file "Learning".
 Error trace on line: 188, column: 17 in file "Learning".
                 inl load i = map (index_unsafe in' i)
                 ^
-Error trace on line: 189, column: 17 in file "Learning".
+Error trace on line: 189, column: 37 in file "Learning".
                 inl thread_result = Loops.for {from=from+by; near_to by state=load from; body=inl {state i} -> redo state (load i)}
-                ^
-Error trace on line: 191, column: 17 in file "Learning".
-                inl t = type(thread_result)
-                ^
-Error trace on line: 192, column: 17 in file "Learning".
-                inl redo = closure_of (inl a,b -> redo a b) ((t,t) => t)
-                ^
-Error trace on line: 193, column: 17 in file "Learning".
-                inl block_result = !MacroCuda(t,[
-                ^
-Error trace on line: 199, column: 17 in file "Learning".
-                if threadIdx.x = 0 then set_unsafe out' (blockIdx.x) block_result
-                ^
-Error trace on line: 96, column: 5 in file "HostTensor".
+                                    ^
+Error trace on line: 188, column: 30 in file "Learning".
+                inl load i = map (index_unsafe in' i)
+                             ^
+Error trace on line: 87, column: 5 in file "HostTensor".
     inl {ar layout} = x
     ^
-Error trace on line: 97, column: 18 in file "HostTensor".
+Error trace on line: 88, column: 18 in file "HostTensor".
     inl offset = offset_at_index is_safe x i
                  ^
-Error trace on line: 10, column: 5 in file "HostTensor".
+Error trace on line: 17, column: 5 in file "HostTensor".
     inl array = {array with size=wrap self}
     ^
-Error trace on line: 12, column: 5 in file "HostTensor".
+Error trace on line: 18, column: 5 in file "HostTensor".
     inl rec loop x state = 
     ^
-Error trace on line: 24, column: 13 in file "HostTensor".
-    inl r = loop (array,i) (0,inl _ -> 1) |> fst
-            ^
-Error trace on line: 13, column: 9 in file "HostTensor".
+Error trace on line: 31, column: 5 in file "HostTensor".
+    loop (array,i) (0,inl _ -> 1) |> fst
+    ^
+Error trace on line: 19, column: 9 in file "HostTensor".
         match x with
         ^
