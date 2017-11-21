@@ -956,7 +956,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 match array_ty, idx with
                 | _, TypeString x -> 
                     if x = "elem_type" then elem_ty |> tyt
-                    else failwithf "Unknown type string applied to array. Got: %s" x
+                    else on_type_er (trace d) <| sprintf "Unknown type string applied to array. Got: %s" x
                 | (ArtDotNetHeap | ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal), idx when is_int idx -> TyOp(ArrayIndex,[ar;idx],elem_ty) |> make_tyv_and_push_typed_expr d
                 | (ArtDotNetHeap | ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal), idx -> on_type_er (trace d) <| sprintf "The index into an array is not an int. Got: %A" idx
                 | ArtDotNetReference, TyList [] -> TyOp(ArrayIndex,[ar;idx],elem_ty) |> make_tyv_and_push_typed_expr d
@@ -2167,8 +2167,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             inbuilt_op_core '@' >>= fun a ->
                 match a with
                 | "PathCuda" -> settings.path_cuda90 |> LitString |> lit |> preturn
-                | "PathVS2017" -> settings.path_cub |> LitString |> lit |> preturn
-                | "PathCub" -> settings.path_vs2017 |> LitString |> lit |> preturn
+                | "PathCub" -> settings.path_cub |> LitString |> lit |> preturn
+                | "PathVS2017" -> settings.path_vs2017 |> LitString |> lit |> preturn
                 | a -> failFatally <| sprintf "%s is not a valid parser macro." a
 
         let rec expressions expr s =

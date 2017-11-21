@@ -1046,6 +1046,14 @@ inl dim3 = function
     | x,y -> {x=x: int64; y=y: int64; z=1}
     | x -> {x=x: int64; y=1; z=1}
 
+inl Stream =
+    inl ty x = fs [text: x]
+    inl CudaStream_type = ty."ManagedCuda.CudaStream"
+    inl CUstream_type = ty."ManagedCuda.BasicTypes.CUstream"
+
+    {create = inl x -> FS.Constructor CudaStream_type x
+     extract = inl x -> FS.Method x.get_Stream() CUstream_type } |> stack
+
 inl run {blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} as runable =
     inl to_obj_ar args =
         inl len = Tuple.length args
@@ -1075,12 +1083,10 @@ inl run {blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} as runable =
     FS.Method cuda_kernel.set_BlockDimensions(dim3 blockDim) unit
 
     match runable with
-    | {stream} -> 
-        inl CUstream_type = fs [text: "ManagedCuda.CUstream"]
-        FS.Method cuda_kernel.RunAsync(FS.Method stream.get_Stream() CUstream_type,args) unit
+    | {stream} -> FS.Method cuda_kernel.RunAsync(Stream.extract stream,args) unit
     | _ -> FS.Method cuda_kernel.Run(args) float32
 
 
-{context dim3 run}
+{Stream context dim3 run}
     """) |> module_
 

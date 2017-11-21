@@ -36,14 +36,16 @@ inl safe_alloc n create =
     | .unsafe -> create
     | x -> loop () n x
 
+inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
+inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
+inl SizeT = FS.Constructor SizeT_type
+inl CUdeviceptr = FS.Constructor CUdeviceptr_type
+
 inl allocator size =
     inl to_float x = FS.UnOp .float x float64
     inl to_int x = FS.UnOp .int64 x int64
     inl to_uint x = FS.UnOp .uint64 x uint64
-    inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
-    inl SizeT = FS.Constructor SizeT_type
-    inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
-    inl CUdeviceptr = FS.Constructor CUdeviceptr_type
+    
     inl pool = 
         inl size = 
             match size with
@@ -133,60 +135,91 @@ inl CudaTensor allocator =
     inl create = safe_alloc 1 create
     inl from_host_tensor = safe_alloc 1 from_host_tensor
 
-    {create from_host_tensor to_host_tensor zip elem_type coerce_to_1d to_device_tensor_form total_size} |> stack
+    {create from_host_tensor to_host_tensor zip elem_type coerce_to_1d to_device_tensor_form total_size ptr} |> stack
 
 open CudaTensor (allocator 0.7)
 
-inl map f (!zip ({size layout} & in)) =
-    inl out = create.unsafe {size layout elem_type = type (f (elem_type in))}
+inl random = 
+    inl generator_type = fs [text: "ManagedCuda.CudaRand.GeneratorType"]
+    FS.Constructor (fs [text: "ManagedCuda.CudaRand.CudaRandDevice"]) (FS.StaticField generator_type .PseudoDefault generator_type)
 
-    inl in' = coerce_to_1d in |> to_device_tensor_form
-    inl out' = coerce_to_1d out |> to_device_tensor_form
-    inl near_to = total_size (in'.size)
+inl CudaKernels stream =
+    open HostTensor
+    inl map f (!zip ({size layout} & in)) =
+        inl out = create.unsafe {size layout elem_type = type (f (elem_type in))}
 
-    run {
-        blockDim = 128
-        gridDim = 32
-        kernel = cuda // Lexical scoping rocks.
-            inl from = blockIdx.x * blockDim.x + threadIdx.x
-            inl by = gridDim.x * blockDim.x
-            Loops.for {from near_to by body=inl {i} ->
-                HostTensor.set_unsafe in' i (f (HostTensor.index_unsafe out' i))
-                }
-        } |> ignore
+        inl in' = coerce_to_1d in |> to_device_tensor_form
+        inl out' = coerce_to_1d out |> to_device_tensor_form
+        inl near_to = total_size (in'.size)
 
-    out
+        run {
+            stream
+            blockDim = 128
+            gridDim = 32
+            kernel = cuda // Lexical scoping rocks.
+                inl from = blockIdx.x * blockDim.x + threadIdx.x
+                inl by = gridDim.x * blockDim.x
+                Loops.for {from near_to by body=inl {i} ->
+                    HostTensor.set_unsafe in' i (f (HostTensor.index_unsafe out' i))
+                    }
+            } |> ignore
 
-inl map = safe_alloc 2 map
+        out
 
+    inl map = safe_alloc 2 map
+
+    FS.Method random .SetStream (Stream.extract stream) unit
+
+    inl fill_random_array op size1d ar =
+        inl elem_type = ar.elem_type
+        inl gen, dot = "Generate", "."
+        match op with
+        | .Uniform & .(distribution) ->
+            inl args = ar, size1d
+            inl bits = 
+                match elem_type with
+                | _ : float32 -> "32" | _ : float64 -> "64"
+                | _ -> error_type ("Only 32/64 bit float types are supported. Try UInt if you need uint random numbers. Got: ", elem_type)
+            !MacroFs(unit,[arg: random; text: dot; text: gen; text: distribution; text: bits; args: args])
+        | {op=(.Normal | .LogNormal) & .(distribution) stddev mean} ->
+            match stddev with | _: float32 -> () | _ -> error_type "Standard deviation needs to be in float32."
+            match mean with | _: float32 -> () | _ -> error_type "Mean needs to be in float32."
+
+            inl args = ar, size1d, mean, stddev
+            inl bits = 
+                match elem_type with
+                | _ : float32 -> "32" | _ : float64 -> "64"
+                | _ -> error_type ("Only 32/64 bit float types are supported. Try UInt if you need uint random numbers. Got: ", elem_type)
+            !MacroFs(unit,[arg: random; text: dot; text: gen; text: distribution; text: bits; args: args])
+        | .UInt ->
+            inl args = ar, size1d
+            inl bits =
+                match elem_type with
+                | _ : uint32 -> "32" | _ : uint64 -> "64"
+                | _ -> error_type "Only 32/64 bit uint types are supported."
+            !MacroFs(unit,[arg: random; text: dot; text: gen; text: bits; args: args])
+
+    inl fill_random_tensor op (!zip in) =
+        inl in' = coerce_to_1d in |> to_device_tensor_form
+        map_tensor (fill_random_array op (total_size (in'.size) |> SizeT)) in' |> ignore
+
+    {map fill_random_tensor}
+
+open CudaKernels (Stream.create())
 open Console
 
 inl (>>=) a b ret = a <| inl a -> b a ret
 inl succ a ret = ret a
 
-inl map_op_option x =
-    open Option
-    match dyn (none int64) with
-    | [Some: x] -> 99
-    | [None] -> x*2
-
-inl map_op x =
-    inl add (x, y) = x + y
-    inl f = term_cast add (x,x)
-    f (x,x)
-
 inl program = 
-    inl host_tensor = HostTensor.init 8 id
-    inm device_tensor = from_host_tensor host_tensor >>= map map_op
+    //inl host_tensor = HostTensor.init 32 (unsafe_convert float32)
+    inm device_tensor = create {layout= .toa; size=32; elem_type=float32}
+    fill_random_tensor {op=.LogNormal; stddev=1.0f32; mean=0f32} device_tensor
     inl {ar} = to_host_tensor device_tensor
     succ (Array.show_array ar |> writeline)
 
 program id
 
-inl random = 
-    inl generator_type = fs [text: "ManagedCuda.CudaRand.GeneratorType"]
-    FS.Constructor (fs [text: "ManagedCuda.CudaRand.CudaRandDevice"]) (FS.StaticField generator_type .PseudoDefault generator_type)
-random
     """
 
 let cfg: Spiral.Types.CompilerSettings = {

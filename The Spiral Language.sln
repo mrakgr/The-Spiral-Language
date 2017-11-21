@@ -14,6 +14,9 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Testing", "Testing\Testing.fsproj", "{F7CC4D88-0E20-4395-9FFC-DC349C92B00D}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Temporary", "Temporary\Temporary.fsproj", "{DAEDEB63-BB98-412C-82C6-8DCAEA7F24AB}"
+	ProjectSection(ProjectDependencies) = postProject
+		{F7CC4D88-0E20-4395-9FFC-DC349C92B00D} = {F7CC4D88-0E20-4395-9FFC-DC349C92B00D}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
