@@ -1058,7 +1058,7 @@ inl run {blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} as runable =
     inl to_obj_ar args =
         inl len = Tuple.length args
         inl typ = fs [text: "System.Object"]
-        if len > 0 then Array.init.static len (inl x -> Tuple.index args x :> typ)
+        if len > 0 then Array.init.static len (inl x -> Tuple.index args (len-1-x) :> typ)
         else Array.empty typ
 
     inl kernel =

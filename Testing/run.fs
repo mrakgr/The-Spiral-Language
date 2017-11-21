@@ -160,13 +160,45 @@ inl CudaKernels stream =
                 inl from = blockIdx.x * blockDim.x + threadIdx.x
                 inl by = gridDim.x * blockDim.x
                 Loops.for {from near_to by body=inl {i} ->
-                    HostTensor.set_unsafe in' i (f (HostTensor.index_unsafe out' i))
+                    set_unsafe out' i (f (index_unsafe in' i))
                     }
             } |> ignore
 
         out
 
     inl map = safe_alloc 2 map
+
+    //inl map_redo {map redo neutral_elem} (!zip ({size layout} & in)) =
+    //    inl in' = coerce_to_1d in |> to_device_tensor_form
+    //    inl near_to = total_size (in'.size)
+
+    //    assert (near_to > 0) "The input to map_redo must be non-empty."
+    //    assert (near_to > 131) "Right now I am testing these things so make them at least 132. Will remove this later."
+
+    //    inl blockDim = 128
+    //    inl gridDim = near_to / blockDim
+    //    inl elem_type = type (
+    //        inl ty = f (elem_type in)
+    //        redo ty ty
+    //        )
+    //    inl out = create.unsafe {size=gridDim layout elem_type}
+    //    inl out' = coerce_to_1d out |> to_device_tensor_form
+
+    //    run {
+    //        stream
+    //        blockDim
+    //        gridDim
+    //        kernel = cuda // Lexical scoping rocks.
+    //            open Loops
+    //            inl from = blockIdx.x * blockDim.x + threadIdx.x
+    //            inl by = gridDim.x * blockDim.x
+    //            inl state = 
+    //            Loops.for {from near_to by body=inl {i} ->
+    //                set_unsafe in' i (f (index_unsafe out' i))
+    //                }
+    //        } |> ignore
+
+    //    out
 
     FS.Method random .SetStream (Stream.extract stream) unit
 
@@ -211,11 +243,16 @@ open Console
 inl (>>=) a b ret = a <| inl a -> b a ret
 inl succ a ret = ret a
 
-inl program = 
+inl program_random = 
     //inl host_tensor = HostTensor.init 32 (unsafe_convert float32)
     inm device_tensor = create {layout= .toa; size=32; elem_type=float32}
     fill_random_tensor {op=.LogNormal; stddev=1.0f32; mean=0f32} device_tensor
     inl {ar} = to_host_tensor device_tensor
+    succ (Array.show_array ar |> writeline)
+
+inl program = 
+    inl host_tensor = HostTensor.init 32 (unsafe_convert float32)
+    inm {ar} = from_host_tensor host_tensor >>= map ((*) (dyn 2f32)) >>= (to_host_tensor >> succ)
     succ (Array.show_array ar |> writeline)
 
 program id
