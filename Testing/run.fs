@@ -168,37 +168,47 @@ inl CudaKernels stream =
 
     inl map = safe_alloc 2 map
 
-    //inl map_redo {map redo neutral_elem} (!zip ({size layout} & in)) =
-    //    inl in' = coerce_to_1d in |> to_device_tensor_form
-    //    inl near_to = total_size (in'.size)
+    inl map_redo {map redo} (!zip ({size layout} & in)) =
+        inl in' = coerce_to_1d in |> to_device_tensor_form
+        inl near_to = total_size (in'.size)
 
-    //    assert (near_to > 0) "The input to map_redo must be non-empty."
-    //    assert (near_to > 131) "Right now I am testing these things so make them at least 132. Will remove this later."
+        assert (near_to > 0) "The input to map_redo must be non-empty."
+        assert (near_to > 131) "Right now I am testing these things so make them at least 132. Will remove this later."
 
-    //    inl blockDim = 128
-    //    inl gridDim = near_to / blockDim
-    //    inl elem_type = type (
-    //        inl ty = f (elem_type in)
-    //        redo ty ty
-    //        )
-    //    inl out = create.unsafe {size=gridDim layout elem_type}
-    //    inl out' = coerce_to_1d out |> to_device_tensor_form
+        inl blockDim = 128
+        inl gridDim = near_to / blockDim
+        inl elem_type = type (
+            inl ty = map (elem_type in)
+            redo ty ty
+            )
+        inl out = create.unsafe {size=gridDim; layout elem_type}
+        inl out' = coerce_to_1d out |> to_device_tensor_form
 
-    //    run {
-    //        stream
-    //        blockDim
-    //        gridDim
-    //        kernel = cuda // Lexical scoping rocks.
-    //            open Loops
-    //            inl from = blockIdx.x * blockDim.x + threadIdx.x
-    //            inl by = gridDim.x * blockDim.x
-    //            inl state = 
-    //            Loops.for {from near_to by body=inl {i} ->
-    //                set_unsafe in' i (f (index_unsafe out' i))
-    //                }
-    //        } |> ignore
+        run {
+            stream
+            blockDim
+            gridDim
+            kernel = cuda // Lexical scoping rocks.
+                inl from = blockIdx.x * blockDim.x + threadIdx.x
+                inl by = gridDim.x * blockDim.x
+                inl load i = map (index_unsafe in' i)
+                inl thread_result = Loops.for {from=from+by; near_to by state=load from; body=inl {state i} -> redo state (load i)}
 
-    //    out
+                inl t = type(thread_result)
+                inl redo = closure_of (inl a,b -> redo a b) ((t,t) => t)
+                inl block_result = !MacroCuda(t,[
+                    text: "cub::BlockReduce"
+                    iter: "<",",",">",[type: t; arg: blockDim.x]
+                    args: ()
+                    text: ".Reduce"
+                    args: thread_result, redo])
+                if threadIdx.x = 0 then set_unsafe out' (blockIdx.x) block_result
+
+            } |> ignore
+
+        inl _ -> 
+            inl tns = to_host_tensor out |> coerce_to_1d
+            Loops.for {from=1; near_to=total_size (tns.size); state=index_unsafe tns 0; body=inl {state i} -> redo state (index_unsafe tns i)}
 
     FS.Method random .SetStream (Stream.extract stream) unit
 
@@ -231,11 +241,11 @@ inl CudaKernels stream =
                 | _ -> error_type "Only 32/64 bit uint types are supported."
             !MacroFs(unit,[arg: random; text: dot; text: gen; text: bits; args: args])
 
-    inl fill_random_tensor op (!zip in) =
+    inl fill_random op (!zip in) =
         inl in' = coerce_to_1d in |> to_device_tensor_form
         map_tensor (fill_random_array op (total_size (in'.size) |> SizeT)) in' |> ignore
 
-    {map fill_random_tensor}
+    {map map_redo fill_random}
 
 open CudaKernels (Stream.create())
 open Console
@@ -246,16 +256,20 @@ inl succ a ret = ret a
 inl program_random = 
     //inl host_tensor = HostTensor.init 32 (unsafe_convert float32)
     inm device_tensor = create {layout= .toa; size=32; elem_type=float32}
-    fill_random_tensor {op=.LogNormal; stddev=1.0f32; mean=0f32} device_tensor
+    fill_random {op=.LogNormal; stddev=1.0f32; mean=0f32} device_tensor
     inl {ar} = to_host_tensor device_tensor
     succ (Array.show_array ar |> writeline)
 
-inl program = 
+inl program_map = 
     inl host_tensor = HostTensor.init 32 (unsafe_convert float32)
     inm {ar} = from_host_tensor host_tensor >>= map ((*) (dyn 2f32)) >>= (to_host_tensor >> succ)
     succ (Array.show_array ar |> writeline)
 
-program id
+inl program_map_redo =
+    inl force x = x ()
+    inl host_tensor = HostTensor.init 256 (unsafe_convert float32)
+    from_host_tensor host_tensor >>= map_redo {map=id; redo=(+)} >>= (to_host_tensor >> force >> writeline >> succ)
+program_map_redo id
     """
 
 let cfg: Spiral.Types.CompilerSettings = {

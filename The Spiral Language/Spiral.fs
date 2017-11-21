@@ -2401,12 +2401,21 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let inline codegen_macro codegen print_type x = 
         let strb = StringBuilder()
         let inline append (x: string) = strb.Append x |> ignore
-        let f = function
-            | TyList [TypeString "text"; (TypeString x | TyLit (LitString x))] -> append x
+        let (|LS|) = function
+                | TyLit (LitString x) | TypeString x -> x
+                | _ -> failwithf "Iter's first three arguments must be strings."
+        let rec f = function
+            | TyList [TypeString "text"; LS x] -> append x
             | TyList [TypeString "arg"; x] -> append (codegen x)
-            | TyList [TypeString "args"; (TyTuple l)] -> append "("; List.map codegen l |> String.concat ", " |> append; append ")"
+            | TyList [TypeString "args"; TyTuple l] -> append "("; List.map codegen l |> String.concat ", " |> append; append ")"
             | TyList [TypeString "type"; TyType x] -> append (print_type x)
-            | TyList [TypeString "types"; (TyTuple l)] -> append "<"; List.map (get_type >> print_type) l |> String.concat ", " |> append; append ">" 
+            | TyList [TypeString "types"; TyTuple l] -> append "<"; List.map (get_type >> print_type) l |> String.concat ", " |> append; append ">" 
+            | TyList [TypeString "iter"; TyList [LS begin_;LS sep;LS end_;ops]] ->
+                    append begin_
+                    match ops with
+                    | TyList ((TyList _ & x) :: xs) -> f x; List.iter (fun x -> append sep; f x) xs
+                    | x -> f x
+                    append end_
             | x -> failwithf "Unknown argument in macro. Got: %A" x
         match x with
         | TyList (TyList _ :: _ as x) -> List.iter f x
