@@ -219,7 +219,6 @@ inl program =
     succ (Array.show_array ar |> writeline)
 
 program id
-
     """
 
 let cfg: Spiral.Types.CompilerSettings = {
