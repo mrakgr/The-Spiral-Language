@@ -26,6 +26,10 @@ inl head = function
 inl tail = function
     | x :: xs -> xs
 
+inl wrap = function
+    | _ :: _ as x -> x
+    | x -> x :: ()
+
 inl rec foldl f s = function
     | x :: xs -> foldl f (f s x) xs
     | () -> s
@@ -159,7 +163,7 @@ inl rec intersperse sep = function
     | _ -> error_type "Not a tuple."
 
 {index length head tail foldl foldr scanl scanr rev map iter iteri iter2 forall exists filter zip unzip index 
- init repeat append singleton range tryFind contains intersperse}
+ init repeat append singleton range tryFind contains intersperse wrap}
     """) |> module_
 
 let extern_ =
@@ -802,8 +806,13 @@ let host_tensor =
 open Loops
 open Console
 
-inl dim_size {from to} = to - from + 1 |> max 0
-inl offset_at_index is_safe array i =
+inl dim_size = function
+    | {from to} -> to - from + 1 |> max 0
+    | x -> x
+inl wrap = Tuple.wrap
+inl offset_at_index is_safe array (!wrap i) =
+    inl array = {array with size=wrap self}
+    print_static (Tuple.length (array.size), Tuple.length i)
     inl rec loop x state = 
         match x with
         | {size=({from to} & dim_range) :: size ar}, i :: is ->
@@ -816,17 +825,16 @@ inl offset_at_index is_safe array i =
             (offset+dim_offset*(i-from)), inl _ -> dim_offset * dim_size dim_range 
         | {size=() ar}, () ->
             state
-    inl i = match i with | _ :: _ -> i | i -> i :: ()
-    loop (array,i) (0,inl _ -> 1) |> fst
+    inl r = loop (array,i) (0,inl _ -> 1) |> fst
+    print_static r
+    r
        
-inl map_dims x = 
+inl map_dims (!wrap x) = 
     inl f = function
         | {from to} as d -> d
         | x -> {from=0; to=x-1}
 
-    match x with
-    | _ :: _ -> Tuple.map f x
-    | x -> f x :: ()
+    Tuple.map f x
 
 inl rec toa_map f x = 
     inl rec loop = function
@@ -901,9 +909,7 @@ inl index_unsafe = index_template false
 inl set = set_template true
 inl set_unsafe = set_template false
 
-inl total_size = function
-    | _ :: _ as x -> Tuple.foldl (inl s x -> s * dim_size x) 1 x
-    | x -> x
+inl total_size (!wrap x) = Tuple.foldl (inl s x -> s * dim_size x) 1 x
 
 inl map_tensor_ar f {ar layout} =
     match layout with

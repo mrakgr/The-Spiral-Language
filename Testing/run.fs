@@ -182,7 +182,7 @@ inl CudaKernels stream =
             redo ty ty
             )
         inl out = create.unsafe {size=gridDim; layout elem_type}
-        inl out' = coerce_to_1d out |> to_device_tensor_form
+        inl out' = to_device_tensor_form out
 
         run {
             stream
@@ -207,7 +207,7 @@ inl CudaKernels stream =
             } |> ignore
 
         inl _ -> 
-            inl tns = to_host_tensor out |> coerce_to_1d
+            inl tns = to_host_tensor out
             Loops.for {from=1; near_to=total_size (tns.size); state=index_unsafe tns 0; body=inl {state i} -> redo state (index_unsafe tns i)}
 
     FS.Method random .SetStream (Stream.extract stream) unit
