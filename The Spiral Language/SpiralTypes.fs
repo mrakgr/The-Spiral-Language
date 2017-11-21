@@ -102,11 +102,6 @@ type Op =
     | DotNetTypeCreate
     | CudaTypeCreate
     
-    // Settings
-    | PathCub
-    | PathCuda
-    | PathVS2017
-
     // Macros
     | MacroCuda
     | MacroFs

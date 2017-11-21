@@ -725,7 +725,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             |> make_tyv_and_push_typed_expr_even_if_unit d
 
         let rec is_cuda_type = function
-            | LitT _ -> true
+            | CudaTypeT _ | LitT _ -> true
             | PrimT t ->
                 match t with
                 | StringT _ -> false
@@ -736,7 +736,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 let {call_args=args},_ = renamer_apply_env l
                 List.forall (fun (_,t) -> is_cuda_type t) args
             | ArrayT ((ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal),t) -> is_cuda_type t
-            | UnionT _ | LayoutT _ | ArrayT _ | DotNetTypeT _ | CudaTypeT _ | TermFunctionT _ | RecT _ -> false
+            | UnionT _ | LayoutT _ | ArrayT _ | DotNetTypeT _ | TermFunctionT _ | RecT _ -> false
 
         let join_point_cuda d expr = 
             let {call_args=call_arguments; method_pars=method_parameters; renamer'=renamer}, renamed_env = renamer_apply_env d.env
@@ -1558,9 +1558,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         | VV (N vars) -> List.map (tev d >> destructure d) vars |> tyvv
         | Op(N (op,vars)) ->
             match op,vars with
-            | PathCuda,[] -> settings.path_cuda90 |> LitString |> TyLit
-            | PathCub,[] -> settings.path_cub |> LitString |> TyLit
-            | PathVS2017,[] -> settings.path_vs2017 |> LitString |> TyLit
             | (MacroFs | MacroCuda),[a;b] -> macro op d a b
             | Apply,[a;b] -> apply_tev d a b
             | StringLength,[a] -> string_length d a
@@ -2154,16 +2151,25 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let case_join_point expr = keywordString "join" >>. expr |>> join_point_entry_method
         let case_cuda expr = keywordString "cuda" >>. expr |>> inl' ["threadIdx"; "blockIdx"; "blockDim";"gridDim"]
 
+        let inbuilt_op_core c = operatorChar c >>. var_name
         let case_inbuilt_op expr =
-            (operatorChar '!' >>. var_name) .>>. (rounds (expr <|>% B))
-            >>= fun (a, b) ->
-                let rec loop = function
-                    | ExprPos x -> loop x.Expression
-                    | VV (N l) -> l 
-                    | x -> [x]
+            let rec loop = function
+                | ExprPos x -> loop x.Expression
+                | VV (N l) -> l 
+                | x -> [x]
+            let body c = inbuilt_op_core c .>>. rounds (expr <|>% B)
+            body '!' >>= fun (a, b) ->
                 match string_to_op a with
                 | true, op' -> op(op',loop b) |> preturn
                 | false, _ -> failFatally <| sprintf "%s not found among the inbuilt Ops." a
+
+        let case_parser_macro expr = 
+            inbuilt_op_core '@' >>= fun a ->
+                match a with
+                | "PathCuda" -> settings.path_cuda90 |> LitString |> lit |> preturn
+                | "PathVS2017" -> settings.path_cub |> LitString |> lit |> preturn
+                | "PathCub" -> settings.path_vs2017 |> LitString |> lit |> preturn
+                | a -> failFatally <| sprintf "%s is not a valid parser macro." a
 
         let rec expressions expr s =
             let unary_ops = 
@@ -2171,7 +2177,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 |> List.map (fun x -> x (expressions expr) |> attempt)
                 |> choice
             let expressions = 
-                [case_print_env; case_print_expr; case_type; case_join_point; case_cuda; case_inbuilt_op
+                [case_print_env; case_print_expr; case_type; case_join_point; case_cuda; 
+                 case_inbuilt_op; case_parser_macro
                  case_inl_pat_list_expr; case_met_pat_list_expr; case_lit; case_if_then_else
                  case_rounds; case_typecase; case_typeinl; case_var; case_module; case_named_tuple]
                 |> List.map (fun x -> x expr |> attempt)

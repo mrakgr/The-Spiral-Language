@@ -186,7 +186,6 @@ program id
 inl random = 
     inl generator_type = fs [text: "ManagedCuda.CudaRand.GeneratorType"]
     FS.Constructor (fs [text: "ManagedCuda.CudaRand.CudaRandDevice"]) (FS.StaticField generator_type .PseudoDefault generator_type)
-
 random
     """
 

@@ -944,9 +944,9 @@ inl __gridDimX = cuda_constant_int "gridDim.x"
 inl __gridDimY = cuda_constant_int "gridDim.y"
 inl __gridDimZ = cuda_constant_int "gridDim.z"
 
-inl cuda_toolkit_path = !PathCuda()
-inl visual_studio_path = !PathVS2017()
-inl cub_path = !PathCub()
+inl cuda_toolkit_path = @PathCuda
+inl visual_studio_path = @PathVS2017
+inl cub_path = @PathCub
 
 inl env_type = fs [text: "System.Environment"]
 inl context_type = fs [text: "ManagedCuda.CudaContext"]
