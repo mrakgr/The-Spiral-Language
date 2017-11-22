@@ -2708,6 +2708,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         "module SpiralExample.Main" |> state_new
         sprintf "let %s = \"\"\"" cuda_kernels_name |> state_new
+        settings.cuda_includes |> List.iter (sprintf "#include \"%s\"" >> state_new)
+        state_new ""
         "extern \"C\" {" |> state_new
         enter' <| fun _ ->
             while buffer_type_definitions.Count > 0 do move_to buffer_temp (buffer_type_definitions.Pop())

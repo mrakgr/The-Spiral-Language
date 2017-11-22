@@ -146,8 +146,8 @@ inl random =
 
 inl CudaKernels stream =
     open HostTensor
-    inl map f (!zip ({size layout} & in)) =
-        inl out = create.unsafe {size layout elem_type = type (f (elem_type in))}
+    inl map f (!zip ({size layout} & in)) ret =
+        inb out = create {size layout elem_type = type (f (elem_type in))}
 
         inl in' = coerce_to_1d in |> to_device_tensor_form
         inl out' = coerce_to_1d out |> to_device_tensor_form
@@ -165,11 +165,9 @@ inl CudaKernels stream =
                     }
             } |> ignore
 
-        out
+        ret out
 
-    inl map = safe_alloc 2 map
-
-    inl map_redo {map redo} (!zip ({size layout} & in)) =
+    inl map_redo {map redo} (!zip ({size layout} & in)) ret =
         inl in' = coerce_to_1d in |> to_device_tensor_form
         inl near_to = total_size (in'.size)
 
@@ -182,7 +180,7 @@ inl CudaKernels stream =
             inl ty = map (elem_type in)
             redo ty ty
             )
-        inl out = create.unsafe {size=gridDim; layout elem_type}
+        inb out = create {size=gridDim; layout elem_type}
         inl out' = to_device_tensor_form out
 
         run {
@@ -210,6 +208,7 @@ inl CudaKernels stream =
         inl _ -> 
             inl tns = to_host_tensor out
             Loops.for {from=1; near_to=total_size (tns.size); state=index_unsafe tns 0; body=inl {state i} -> redo state (index_unsafe tns i)}
+        |> ret
 
     FS.Method random .SetStream (Stream.extract stream) unit
 
@@ -269,7 +268,8 @@ inl program_map =
 inl program_map_redo =
     inl force x = x ()
     inl host_tensor = HostTensor.init 256 (unsafe_convert float32)
-    from_host_tensor host_tensor >>= map_redo {map=id; redo=(+)} >>= (to_host_tensor >> force >> writeline >> succ)
+    from_host_tensor host_tensor >>= map_redo {map=id; redo=(+)} >>= (force >> writeline >> succ)
+
 program_map_redo id
     """
 
@@ -277,12 +277,12 @@ let cfg: Spiral.Types.CompilerSettings = {
     path_cuda90 = @"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.0"
     path_cub = @"C:\cub-1.7.4"
     path_vs2017 = @"C:\Program Files (x86)\Microsoft Visual Studio\2017\Community"
-    cuda_includes = [||]
+    cuda_includes = []
     }
 
 //rewrite_test_cache cfg None //(Some(80,tests.Length))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary" learning
+output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary" learning
 |> printfn "%s"
 |> ignore
 

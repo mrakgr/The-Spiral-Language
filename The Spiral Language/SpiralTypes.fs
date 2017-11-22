@@ -439,7 +439,7 @@ type CompilerSettings = {
     path_vs2017 : string
     path_cub : string
     path_cuda90 : string
-    cuda_includes : string []
+    cuda_includes : string list
     }
 
 /// Wraps the argument in a list if not a tuple.
