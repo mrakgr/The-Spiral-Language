@@ -40,9 +40,9 @@ let test5 = //
     "test5",[],"Does basic pattern matching work?",
     """
 inl f = function
-    || .Add x y -> x + y
-    || .Sub x y -> x - y
-    || .Mult x y -> x * y
+    | .Add x y -> join (x + y)
+    | .Sub x y -> join (x - y)
+    | .Mult x y -> join (x * y)
 inl a = f .Add 1 2
 inl b = f .Sub 1 2
 inl c = f .Mult 1 2
@@ -224,14 +224,14 @@ FS.Method dict .Item (key :: ()) value |> dyn |> ignore
     """
 
 let hacker_rank_1 =
-    "hacker_rank_1",[],"The very first warmup exercise : https://www.hackerrank.com/challenges/solve-me-first",
+    "hacker_rank_1",[extern_],"The very first warmup exercise : https://www.hackerrank.com/challenges/solve-me-first",
     """
-inl console = .System.Console |> mscorlib
-inl parse_int32 = 
-    inl f = .System.Int32 |> mscorlib
-    inl str -> f .Parse str
-inl read_line () = console.ReadLine()
-inl write x = console.Write x
+open Extern
+inl console = fs [text: "System.Console"]
+inl int32_type = fs [text: "System.Int32"]
+inl parse_int32 str = FS.StaticMethod int32_type .Parse str int32
+inl read_line () = FS.StaticMethod console.ReadLine() string
+inl write x = FS.StaticMethod console.Write x unit
 inl read_int () = read_line() |> parse_int32
 inl a, b = read_int(), read_int()
 write (a + b)
@@ -563,24 +563,25 @@ open Array
 empty int64, singleton 2.2
     """
 
-let test44 =
-    "test44",[],"Do or extension active patterns work?",
-    """
-inl f x on_fail on_succ =
-    match x with
-    | [tup: 4, x] -> on_succ x // This one does not get triggered due to not being in m
-    | [tup: 3, x] -> on_succ x
-    | [tup: 2, x] -> on_succ x
-    | [var: x] -> on_succ ("is_var",x)
-    | _ -> on_fail()
+// Extension patterns are to be replaced.
+//let test44 =
+//    "test44",[],"Do or extension active patterns work?",
+//    """
+//inl f x on_fail on_succ =
+//    match x with
+//    | [tup: 4, x] -> on_succ x // This one does not get triggered due to not being in m
+//    | [tup: 3, x] -> on_succ x
+//    | [tup: 2, x] -> on_succ x
+//    | [var: x] -> on_succ ("is_var",x)
+//    | _ -> on_fail()
 
-inl m m1 = function
-    | #m1 (x,_,_ | x,_ | x) -> x
-    | _ -> error_type "The call to m1 failed."
+//inl m m1 = function
+//    | #m1 (x,_,_ | x,_ | x) -> x
+//    | _ -> error_type "The call to m1 failed."
 
-// Tuple4(Tuple1("is_var", true), 2.200000f, "a", Tuple3("is_var", Tuple2(1L, 2L, 3L, 4L)))
-m f true, m f (2.2,3.3), m f ("a","b","c"), m f (1,2,3,4)
-    """
+//// Tuple4(Tuple1("is_var", true), 2.200000f, "a", Tuple3("is_var", Tuple2(1L, 2L, 3L, 4L)))
+//m f true, m f (2.2,3.3), m f ("a","b","c"), m f (1,2,3,4)
+//    """
 
 let test45 =
     "test45",[],"Do `type` and `when` patterns work with combination extension patterns?",
@@ -1841,7 +1842,7 @@ let tests =
     test10;test11;test12;test13;test14;test15;test16;test17;test18;test19
     test20;test21;test22;test23;test24;test25;test26;test27;test28;test29
     test30;test31;test32;test33;test34;test35;test36;test37;test38;test39
-    test40;test41;test42;test43;test44;test45;test46;test47;test48;test49
+    test40;test41;test42;test43;       test45;test46;test47;test48;test49
     test50;test51;test52;test53;test54;test55;test56;test57;test58;test59
     test60_error;test61;test62;test63;test64;test65;test66;test67;test68;test69
     test70;test71_error;test72;test73;test74;test75;test76;test77;test78;test79

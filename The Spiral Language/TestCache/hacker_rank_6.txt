@@ -14,6 +14,11 @@ and EnvHeap1 =
     }
 and Tuple2 =
     struct
+    val mem_0: Tuple3
+    new(arg_mem_0) = {mem_0 = arg_mem_0}
+    end
+and Tuple3 =
+    struct
     val mem_0: int64
     new(arg_mem_0) = {mem_0 = arg_mem_0}
     end
@@ -460,110 +465,102 @@ and method_13((var_0: EnvHeap1), (var_1: int64), (var_2: int64), (var_3: int64),
     let (var_19: Union0) = var_11.[int32 var_18]
     match var_19 with
     | Union0Case0(var_20) ->
-        var_20.mem_0
+        let (var_21: Tuple3) = var_20.mem_0
+        var_21.mem_0
     | Union0Case1 ->
-        let (var_22: bool) =
+        let (var_23: bool) =
             if (var_5 >= 1L) then
                 (var_5 <= 15L)
             else
                 false
-        let (var_26: bool) =
-            if var_22 then
-                let (var_23: bool) =
+        let (var_27: bool) =
+            if var_23 then
+                let (var_24: bool) =
                     if (var_6 >= 1L) then
                         (var_6 <= 15L)
                     else
                         false
-                if var_23 then
-                    let (var_24: int64) = method_13((var_0: EnvHeap1), (var_5: int64), (var_6: int64), (var_4: int64), (var_3: int64))
-                    (var_24 = var_3)
+                if var_24 then
+                    let (var_25: int64) = method_13((var_0: EnvHeap1), (var_5: int64), (var_6: int64), (var_4: int64), (var_3: int64))
+                    (var_25 = var_3)
                 else
                     false
             else
                 false
-        let (var_45: int64) =
-            if var_26 then
+        let (var_46: int64) =
+            if var_27 then
                 var_3
             else
-                let (var_27: bool) =
+                let (var_28: bool) =
                     if (var_5 >= 1L) then
                         (var_5 <= 15L)
                     else
                         false
-                let (var_31: bool) =
-                    if var_27 then
-                        let (var_28: bool) =
+                let (var_32: bool) =
+                    if var_28 then
+                        let (var_29: bool) =
                             if (var_7 >= 1L) then
                                 (var_7 <= 15L)
                             else
                                 false
-                        if var_28 then
-                            let (var_29: int64) = method_13((var_0: EnvHeap1), (var_5: int64), (var_7: int64), (var_4: int64), (var_3: int64))
-                            (var_29 = var_3)
+                        if var_29 then
+                            let (var_30: int64) = method_13((var_0: EnvHeap1), (var_5: int64), (var_7: int64), (var_4: int64), (var_3: int64))
+                            (var_30 = var_3)
                         else
                             false
                     else
                         false
-                if var_31 then
+                if var_32 then
                     var_3
                 else
-                    let (var_32: bool) =
+                    let (var_33: bool) =
                         if (var_8 >= 1L) then
                             (var_8 <= 15L)
                         else
                             false
-                    let (var_36: bool) =
-                        if var_32 then
-                            let (var_33: bool) =
+                    let (var_37: bool) =
+                        if var_33 then
+                            let (var_34: bool) =
                                 if (var_9 >= 1L) then
                                     (var_9 <= 15L)
                                 else
                                     false
-                            if var_33 then
-                                let (var_34: int64) = method_13((var_0: EnvHeap1), (var_8: int64), (var_9: int64), (var_4: int64), (var_3: int64))
-                                (var_34 = var_3)
+                            if var_34 then
+                                let (var_35: int64) = method_13((var_0: EnvHeap1), (var_8: int64), (var_9: int64), (var_4: int64), (var_3: int64))
+                                (var_35 = var_3)
                             else
                                 false
                         else
                             false
-                    if var_36 then
+                    if var_37 then
                         var_3
                     else
-                        let (var_37: bool) =
+                        let (var_38: bool) =
                             if (var_10 >= 1L) then
                                 (var_10 <= 15L)
                             else
                                 false
-                        let (var_41: bool) =
-                            if var_37 then
-                                let (var_38: bool) =
+                        let (var_42: bool) =
+                            if var_38 then
+                                let (var_39: bool) =
                                     if (var_9 >= 1L) then
                                         (var_9 <= 15L)
                                     else
                                         false
-                                if var_38 then
-                                    let (var_39: int64) = method_13((var_0: EnvHeap1), (var_10: int64), (var_9: int64), (var_4: int64), (var_3: int64))
-                                    (var_39 = var_3)
+                                if var_39 then
+                                    let (var_40: int64) = method_13((var_0: EnvHeap1), (var_10: int64), (var_9: int64), (var_4: int64), (var_3: int64))
+                                    (var_40 = var_3)
                                 else
                                     false
                             else
                                 false
-                        if var_41 then
+                        if var_42 then
                             var_3
                         else
                             var_4
-        let (var_46: bool) =
+        let (var_47: bool) =
             if (var_3 >= 0L) then
                 (var_3 <= 1L)
-            else
-                false
-        if var_46 then
-            ()
-        else
-            (failwith "Argument out of bounds.")
-        let (var_47: bool) =
-            if (var_7 >= 0L) then
-                (var_7 <= 14L)
             else
                 false
         if var_47 then
@@ -571,16 +568,25 @@ and method_13((var_0: EnvHeap1), (var_1: int64), (var_2: int64), (var_3: int64),
         else
             (failwith "Argument out of bounds.")
         let (var_48: bool) =
-            if (var_10 >= 0L) then
-                (var_10 <= 14L)
+            if (var_7 >= 0L) then
+                (var_7 <= 14L)
             else
                 false
         if var_48 then
             ()
         else
             (failwith "Argument out of bounds.")
-        var_11.[int32 var_18] <- (Union0Case0(Tuple2(var_45)))
-        var_45
+        let (var_49: bool) =
+            if (var_10 >= 0L) then
+                (var_10 <= 14L)
+            else
+                false
+        if var_49 then
+            ()
+        else
+            (failwith "Argument out of bounds.")
+        var_11.[int32 var_18] <- (Union0Case0(Tuple2(Tuple3(var_46))))
+        var_46
 let (var_0: (Union0 [])) = Array.zeroCreate<Union0> (System.Convert.ToInt32(450L))
 let (var_1: int64) = 0L
 let (var_2: int64) = 0L

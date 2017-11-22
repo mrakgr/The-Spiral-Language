@@ -487,7 +487,7 @@ open Extern
 inl m x = { 
     elem =
         match x with
-        || {parser_rec} {d with on_type} state -> parser_rec d .elem d state : on_type
+        | {parser_rec} {d with on_type} state -> join (parser_rec d .elem d state : on_type)
         | {parser} -> parser
         | {parser_mon} -> parser_mon .elem
     }
@@ -818,11 +818,12 @@ inl map_dims =
         | x -> {from=0; to=x-1}) << wrap
 
 inl offset_at_index is_safe array (!wrap i) =
-    inl array = {array with size=wrap self}
+    inl {size ar} = array
+    inl size = wrap size
     inl rec loop x state = 
         match x with
         | {size=dim_range :: size ar}, i :: is ->
-            inl {from to} = map_dims dim_range
+            inl {from to} :: () = map_dims dim_range
             inl offset, dim_offset = loop ({size ar}, is) state
             inl dim_offset = dim_offset() 
             if is_safe then assert (i >= from && i <= to) "Argument out of bounds."
@@ -832,7 +833,7 @@ inl offset_at_index is_safe array (!wrap i) =
             (offset+dim_offset*(i-from)), inl _ -> dim_offset * dim_size dim_range 
         | {size=() ar}, () ->
             state
-    loop (array,i) (0,inl _ -> 1) |> fst
+    loop ({size ar},i) (0,inl _ -> 1) |> fst
        
 inl rec toa_map f x = 
     inl rec loop = function
@@ -888,15 +889,15 @@ inl init_aot = init_template {
 inl init = init_toa
 
 inl index_template is_safe x i = 
-    inl {ar layout} = x
-    inl offset = offset_at_index is_safe x i
+    inl {size ar layout} = x
+    inl offset = offset_at_index is_safe {size ar} i
     match layout with
     | .aot -> ar offset
     | .toa -> toa_map (inl ar -> ar offset) ar
 
 inl set_template is_safe x i v = 
-    inl {ar layout} = x
-    inl offset = offset_at_index is_safe x i
+    inl {size ar layout} = x
+    inl offset = offset_at_index is_safe {size ar} i
     inl body ar v = ar offset <- v
     match layout with
     | .aot -> body ar v

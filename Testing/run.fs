@@ -16,10 +16,11 @@ inl smartptr_create ptr =
     function
     | .Dispose -> cell := none ptr_ty
     | .Try -> cell()
-    || () ->
+    | () -> join (
         match cell() with
         | [Some: x] -> x
         | _ -> failwith ptr_ty "A Cuda memory cell that has been disposed has been tried to be accessed."
+        )
     |> stack // Unless this closure is converted to a layout type, the CUdeviceptr gets manifested as a runtime type and gives a type error.
 
 ///// n is the number of args the create function has.
@@ -70,7 +71,7 @@ inl allocator size =
             if FS.Method stack.get_Count() int32 > 0i32 then 
                 inl t = FS.Method stack.Peek() pool_type
                 match t.ptr.Try with
-                || [Some: ptr] -> ret (FS.Field ptr.Pointer SizeT_type |> to_uint, t.size |> to_uint)
+                | [Some: ptr] -> join (ret (FS.Field ptr.Pointer SizeT_type |> to_uint, t.size |> to_uint))
                 | _ -> FS.Method stack.Pop() pool_type |> ignore; remove_disposed_and_return_the_first_live ret 
             else join (ret (pool_ptr, 0u64))
             : smartptr_ty

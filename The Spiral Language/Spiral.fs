@@ -1620,11 +1620,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     // #Parsing
     let spiral_parse (Module(N(module_name,_,_,module_code)) & module_) = 
         let pos' (s: CharStream<_>) = module_, s.Line, s.Column
-        let pos expr (s: CharStream<_>) = (expr |>> expr_pos (pos' s)) s
-
-        let patpos expr (s: CharStream<_>) = 
-            let p = pos' s
-            (expr |>> fun expr -> pat_pos p expr) s
+        let exprpos expr (s: CharStream<_>) = (expr |>> expr_pos (pos' s)) s
+        let patpos expr (s: CharStream<_>) = (expr |>> pat_pos (pos' s)) s
 
         let rec spaces_template spaces s = spaces >>. optional (followedByString "//" >>. skipRestOfLine true >>. spaces_template spaces) <| s
         let spaces, spaces1 = spaces_template spaces, spaces_template spaces1
@@ -1858,7 +1855,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 match pat with
                 | Some pat -> PatTuple [lit; pat]
                 | None -> lit)
-            squares (many pat) |>> function [x] -> x | x -> PatTuple x
+            squares (many pat) |>> PatTuple
 
         let pat_closure pattern = 
             pipe2 pattern (opt (arr >>. pattern))
@@ -1918,7 +1915,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             ^<| choice [|pat_active recurse; pat_e; pat_var; pat_type_lit; pat_lit 
                          pat_rounds recurse; pat_named_tuple recurse; pat_module_outer expr|] <| s
 
-        let inline patterns expr s = patterns_template expr s
+        let inline patterns expr s = patpos (patterns_template expr) s
     
         let pattern_list expr = many (patterns expr)
     
@@ -1961,7 +1958,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             |> inl_pat' args
         let meth_pat' args body = x_pat' join_point_entry_method args body
         let type_pat' args body = x_pat' join_point_entry_type args body
-
 
         let inline statement_expr expr = eq' >>. expr
         let case_inl_pat_statement expr = pipe2 (inl_ >>. patterns expr) (statement_expr expr) lp
@@ -2008,15 +2004,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let expr_indent op expr (s: CharStream<_>) = expr_indent i.Value op expr s
     
             let clause = 
-                let clause_template is_meth = 
-                    pipe2 (many1 (patterns expr) .>> lam) expr <| fun pat body ->
-                        match pat with
-                        | x :: xs -> x, if is_meth then meth_pat' xs body else inl_pat' xs body
-                        | _ -> failwith "impossible"
-
                 poperator >>=? function
-                    | "|" -> clause_template false
-                    | "||" -> clause_template true
+                    | "|" -> pipe2 (many1 (patterns expr) .>> lam) expr <| fun pat body ->
+                        match pat with
+                        | x :: xs -> x, inl_pat' xs body
+                        | _ -> failwith "impossible"
                     | _ -> fail "not a pattern matching clause"
                 |> expr_indent (<=) 
             
@@ -2086,7 +2078,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | Some expr -> vv [tup; expr]
                     | None -> tup
                     ) s
-            squares (many (pat .>> optional semicolon')) |>> function [x] -> x | x -> vv x
+            squares (many (pat .>> optional semicolon')) |>> vv
 
         let case_negate expr = unary_minus_check >>. expr |>> (ap (v "negate"))
         let case_join_point expr = keywordString "join" >>. expr |>> join_point_entry_method
@@ -2128,26 +2120,25 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let process_parser_exprs exprs = 
             let error_statement_in_last_pos _ = Reply(Error,messageError "Statements not allowed in the last position of a block.")
             let rec process_parser_exprs on_succ = function
-                | [ParserExpr (p,a)] -> on_succ (expr_pos p a)
+                | [ParserExpr a] -> on_succ a
                 | [ParserStatement _] -> error_statement_in_last_pos
-                | ParserStatement (p,a) :: xs -> process_parser_exprs (expr_pos p >> a >> on_succ) xs
-                | ParserExpr (p,a) :: xs -> process_parser_exprs (l "" (error_non_unit (expr_pos p a)) >> on_succ) xs
+                | ParserStatement a :: xs -> process_parser_exprs (a >> on_succ) xs
+                | ParserExpr a :: xs -> process_parser_exprs (l "" (error_non_unit a) >> on_succ) xs
                 | [] -> preturn B
             
             process_parser_exprs preturn exprs
 
         let indentations statements expressions (s: CharStream<Userstate>) =
             let i = col s
-            let pos' s = Reply(pos' s)
             let inline if_ op tr s = expr_indent i op tr s
             let inline many_indents expr = many1 (if_ (<=) (expr .>> optional semicolon))
-            many_indents ((tuple2 pos' statements |>> ParserStatement) <|> (tuple2 pos' expressions |>> ParserExpr)) >>= process_parser_exprs <| s
+            many_indents ((statements |>> ParserStatement) <|> (expressions |>> ParserExpr)) >>= process_parser_exprs <| s
 
         let application expr (s: CharStream<_>) =
             let i = (col s)
             let expr_up (s: CharStream<_>) = expr_indent i (<) expr s
     
-            pipe2 expr (many expr_up) (List.fold ap) s
+            exprpos (pipe2 expr (many expr_up) (List.fold ap)) s
 
         let tuple expr (s: CharStream<_>) =
             let i = (col s)
@@ -2396,7 +2387,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | CharT -> "unsigned short"
                 | StringT -> failwith "The string type is not supported on the Cuda side."
             | CudaTypeT x -> codegen_macro (codegen' {branch_return=id; trace=[]}) print_type x
-            //| DotNetTypeT x -> failwith "Dotnet types are not allowed on the Cuda side."
             | LitT _ -> failwith "Should be covered in Unit."
 
         and print_tyv_with_type (tag,ty as v) = sprintf "%s %s" (print_type ty) (print_tyv v)
@@ -3152,7 +3142,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let print_type_error (trace: Trace) message = 
         let code: Dictionary<Module, ModuleCode []> = d0()
         let error = System.Text.StringBuilder(1024)
-        error.AppendLine message |> ignore
         List.foldBack (fun ((file & Module(N(file_name,_,_,file_code))), line, col as trace) prev_trace ->
             let b =
                 match prev_trace with
@@ -3173,6 +3162,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             Some trace
             ) trace None
         |> ignore
+        error.AppendLine message |> ignore
         error.ToString()
 
     let data_empty () = {

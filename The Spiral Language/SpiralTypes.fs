@@ -134,6 +134,12 @@ type Op =
     | ModuleWithout
     | ModuleIs
     | ModuleValues
+    | ModuleHasMember
+    | ModuleMap
+    | ModuleFold
+    | ModuleOpen
+
+    // Caseable
     | CaseableIs
     | CaseableBoxedIs
 
@@ -186,9 +192,6 @@ type Op =
     | TypeSplit
     | TypeBox
     | EqType
-    | ModuleHasMember
-    | ModuleMap
-    | ModuleFold
     | SizeOf
 
     // Array
@@ -205,7 +208,6 @@ type Op =
     | PrintStatic
     | ErrorNonUnit
     | ErrorType
-    | ModuleOpen
     | TypeLitCreate
     | TypeLitCast
     | TypeLitIs
@@ -379,8 +381,8 @@ type Userstate = {
     }
 
 type ParserExpr =
-| ParserStatement of PosKey * (Expr -> Expr)
-| ParserExpr of PosKey * Expr
+| ParserStatement of (Expr -> Expr)
+| ParserExpr of Expr
 
 // Codegen types
 type CodegenEnv = {
@@ -481,32 +483,6 @@ and get_type = function
 
 let (|TyType|) x = get_type x
 
-let inline codegen_macro codegen print_type x = 
-    let strb = StringBuilder()
-    let inline append (x: string) = strb.Append x |> ignore
-    let (|LS|) = function
-            | TyLit (LitString x) | TypeString x -> x
-            | _ -> failwithf "Iter's first three arguments must be strings."
-    let rec f = function
-        | TyList [TypeString "text"; LS x] -> append x
-        | TyList [TypeString "arg"; x] -> append (codegen x)
-        | TyList [TypeString "args"; TyTuple l] -> append "("; List.map codegen l |> String.concat ", " |> append; append ")"
-        | TyList [TypeString "type"; TyType x] -> append (print_type x)
-        | TyList [TypeString "types"; TyTuple l] -> append "<"; List.map (get_type >> print_type) l |> String.concat ", " |> append; append ">" 
-        | TyList [TypeString "iter"; TyList [LS begin_;LS sep;LS end_;ops]] ->
-                append begin_
-                match ops with
-                | TyList ((TyList _ & x) :: xs) -> f x; List.iter (fun x -> append sep; f x) xs
-                | TyList [] -> ()
-                | x -> f x
-                append end_
-        | x -> failwithf "Unknown argument in macro. Got: %A" x
-    match x with
-    | TyList (TyList _ :: _ as x) -> List.iter f x
-    | TyList [] -> ()
-    | x -> f x
-    strb.ToString()
-
 let show_primt = function
     | UInt8T -> "uint8"
     | UInt16T -> "uint16"
@@ -550,6 +526,32 @@ let show_layout_type = function
     | LayoutHeap -> "layout_heap"
     | LayoutHeapMutable -> "layout_heap_mutable"
 
+let inline codegen_macro' show_typedexpr codegen print_type x = 
+    let strb = StringBuilder()
+    let inline append (x: string) = strb.Append x |> ignore
+    let (|LS|) = function
+            | TyLit (LitString x) | TypeString x -> x
+            | _ -> failwithf "Iter's first three arguments must be strings."
+    let er x = failwithf "Unknown argument in macro. Got: %s" (show_typedexpr x)
+    let rec f = function
+        | TyList [TypeString "text"; LS x] -> append x
+        | TyList [TypeString "arg"; x] -> append (codegen x)
+        | TyList [TypeString "args"; TyTuple l] -> append "("; List.map codegen l |> String.concat ", " |> append; append ")"
+        | TyList [TypeString "type"; TyType x] -> append (print_type x)
+        | TyList [TypeString "types"; TyTuple l] -> append "<"; List.map (get_type >> print_type) l |> String.concat ", " |> append; append ">" 
+        | TyList [TypeString "iter"; TyList [LS begin_;LS sep;LS end_;ops]] ->
+                append begin_
+                match ops with
+                | TyList (x :: xs) -> f x; List.iter (fun x -> append sep; f x) xs
+                | TyList [] -> ()
+                | x -> er x
+                append end_
+        | x -> er x
+    match x with
+    | TyList x -> List.iter f x
+    | x -> er x
+    strb.ToString()
+
 let rec show_ty = function
     | PrimT x -> show_primt x
     | ListT l -> sprintf "[%s]" (List.map show_ty l |> String.concat ", ")
@@ -580,8 +582,8 @@ let rec show_ty = function
         sprintf "union {%s}" body
     | RecT x -> sprintf "rec_type %i" x.Symbol
     | ArrayT (a,b) -> sprintf "%s (%s)" (show_art a) (show_ty b)
-    | DotNetTypeT x -> sprintf "dotnet_type (%s)" (codegen_macro show_typedexpr show_ty x)
-    | CudaTypeT x -> sprintf "cuda_type (%s)" (codegen_macro show_typedexpr show_ty x)
+    | DotNetTypeT x -> sprintf "dotnet_type (%s)" (codegen_macro' show_typedexpr show_typedexpr show_ty x)
+    | CudaTypeT x -> sprintf "cuda_type (%s)" (codegen_macro' show_typedexpr show_typedexpr show_ty x)
 
 and show_typedexpr = function
     | TyT x -> sprintf "type (%s)" (show_ty x)
@@ -600,3 +602,4 @@ and show_typedexpr = function
     | TyLit v -> sprintf "lit %s" (show_value v)
     | _ -> failwith "Compiler error: The other typed expressions are forbidden to be printed as type errors. They should never appear in bindings."
 
+let inline codegen_macro codegen print_type x = codegen_macro' show_typedexpr codegen print_type x
