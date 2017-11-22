@@ -113,9 +113,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let tuple_slice_from v i = (ListSliceFrom,[v; lit_int i]) |> op
     let tuple_is v = (ListIs,[v]) |> op
 
-    let print_env x = (PrintEnv,[x]) |> op
-    let print_expr x = (PrintExpr,[x]) |> op
-
     let module_is x = op (ModuleIs,[x])
     let module_has_member a b = op (ModuleHasMember,[a;b])
 
@@ -143,34 +140,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let type_union a b = op(TypeUnion,[a;b])
     let type_box a b = op(TypeBox,[a;b])
 
-    // Aux outer functions
-    let flip f a b = f b a
-
-    let get_type_of_value = function
-        | LitUInt8 _ -> PrimT UInt8T
-        | LitUInt16 _ -> PrimT UInt16T
-        | LitUInt32 _ -> PrimT UInt32T
-        | LitUInt64 _ -> PrimT UInt64T
-        | LitInt8 _ -> PrimT Int8T
-        | LitInt16 _ -> PrimT Int16T
-        | LitInt32 _ -> PrimT Int32T
-        | LitInt64 _ -> PrimT Int64T
-        | LitFloat32 _ -> PrimT Float32T
-        | LitFloat64 _ -> PrimT Float64T   
-        | LitBool _ -> PrimT BoolT
-        | LitString _ -> PrimT StringT
-        | LitChar _ -> PrimT CharT
-
-    let rec env_to_ty env = Map.map (fun _ -> get_type) env
-    and get_type = function
-        | TyLit x -> get_type_of_value x
-        | TyList l -> List.map get_type l |> listt
-        | TyMap(C l, t) -> funt (env_to_ty l, t)
-
-        | TyT t | TyV(_,t) | TyBox(_,t)
-        | TyLet(_,_,_,t,_) | TyJoinPoint(_,_,_,t)
-        | TyState(_,_,t,_) | TyOp(_,_,t) -> t
-
     let rec typed_expr_env_free_var_exists x = Map.exists (fun k v -> typed_expr_free_var_exists v) x
     and typed_expr_free_var_exists e =
         let inline f x = typed_expr_free_var_exists x
@@ -180,7 +149,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         | TyMap(C l,t) -> typed_expr_env_free_var_exists l
         | TyV (n,t as k) -> true
         | TyT _ | TyLit _ -> false
-        | TyJoinPoint _ | TyOp _ | TyState _ | TyLet _ -> failwithf "Only data structures in the TypedExpr can be tested for free variable existence. Got: %A" e
+        | TyJoinPoint _ | TyOp _ | TyState _ | TyLet _ -> failwith "Compiler error: Only data structures in the TypedExpr can be tested for free variable existence."
 
     // #Unit type tests
     let rec is_unit_tuple t = List.forall is_unit t
@@ -193,27 +162,12 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         | LayoutT (_, C x, _) -> typed_expr_env_free_var_exists x = false
         | ListT t -> is_unit_tuple t
 
-    /// Wraps the argument in a list if not a tuple.
-    let tuple_field = function 
-        | TyList args -> args
-        | x -> [x]
-
-    let (|TyTuple|) x = tuple_field x
-
     /// Wraps the argument in a set if not a UnionT.
     let set_field = function
         | UnionT t -> t
         | t -> Set.singleton t
 
     let (|TySet|) x = set_field x
-
-    let (|TyType|) x = get_type x
-    let (|TypeLit|_|) = function
-        | TyType (LitT x) -> Some x
-        | _ -> None
-    let (|TypeString|_|) = function
-        | TypeLit (LitString x) -> Some x
-        | _ -> None
 
     let is_numeric' = function
         | PrimT (UInt8T | UInt16T | UInt32T | UInt64T 
@@ -464,7 +418,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 let n', _ as k' = rename k
                 if n' = n then e else tyv k'
             | TyLit _ -> e
-            | TyJoinPoint _ | TyOp _ | TyState _ | TyLet _ -> failwithf "Only data structures in the env can be renamed. Got: %A" e
+            | TyJoinPoint _ | TyOp _ | TyState _ | TyLet _ -> failwith "Only data structures in the env can be renamed."
             |> fun x -> memo.[e] <- x; x
 
     let inline renamer_apply_template f x =
@@ -598,7 +552,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyT _ -> destructure_var r (List.map (tyt >> destructure)) (Map.map (fun _ -> (tyt >> destructure)) >> Env)
             | TyV _ -> destructure_var r (index_tuple_args r) (env_unseal r >> Env)
             | TyOp _ -> destructure_cse r
-            | TyJoinPoint _ | TyLet _ | TyState _ -> failwithf "This should never appear in destructure. It should go directly into d.seq. Got: %A" r
+            | TyJoinPoint _ | TyLet _ | TyState _ -> failwith "Compiler error: This should never appear in destructure. It should go directly into d.seq."
 
         let if_body d cond tr fl =
             let b x = cse_add' d cond (TyLit <| LitBool x)
@@ -617,10 +571,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | TyLit(LitBool true) -> tr
                     | TyLit(LitBool false) -> fl
                     | _ -> TyOp(If,[cond;tr;fl],type_tr) |> make_tyv_and_push_typed_expr_even_if_unit d
-            else on_type_er (trace d) <| sprintf "Types in branches of If do not match.\nGot: %A and %A" type_tr type_fl
+            else on_type_er (trace d) <| sprintf "Types in branches of If do not match.\nGot: %s and %s" (show_ty type_tr) (show_ty type_fl)
 
         let if_cond d tr fl cond =
-            if is_bool cond = false then on_type_er (trace d) <| sprintf "Expected a bool in conditional.\nGot: %A" (get_type cond)
+            if is_bool cond = false then on_type_er (trace d) <| sprintf "Expected a bool in conditional.\nGot: %s" (get_type cond |> show_ty)
             else if_body d cond tr fl
 
         let if_static d cond tr fl =
@@ -653,7 +607,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let layout_to_none' d = function
             | TyMap _ as a -> a
             | TyType(LayoutT(_,env,t)) as a -> tymap(layout_env_term_unseal d a env,t)
-            | x -> on_type_er (trace d) <| sprintf "Cannot turn the argument into a non-layout type. Got: %A" x
+            | x -> on_type_er (trace d) <| sprintf "Cannot turn the argument into a non-layout type. Got: %s" (show_typedexpr x)
         let layout_to_none d a = layout_to_none' d (tev d a)
 
         let rec layoutify layout d = function
@@ -663,7 +617,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 else TyOp(layout_to_op layout,[a],LayoutT(layout,env',t)) |> destructure d
             | TyType(LayoutT(layout',_,_)) as a ->
                 if layout <> layout' then layout_to_none' d a |> layoutify layout d else a
-            | x -> on_type_er (trace d) <| sprintf "Cannot turn the argument into a layout type. Got: %A" x
+            | x -> on_type_er (trace d) <| sprintf "Cannot turn the argument into a layout type. Got: %s" (show_typedexpr x)
 
         let layout_to layout d a = layoutify layout d (tev d a)
 
@@ -742,7 +696,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let {call_args=call_arguments; method_pars=method_parameters; renamer'=renamer}, renamed_env = renamer_apply_env d.env
             match List.filter (snd >> is_cuda_type >> not) call_arguments with
             | [] -> ()
-            | l -> on_type_er (trace d) <| sprintf "At the Cuda join point the following arguments have disallowed types: %A" l
+            | l -> on_type_er (trace d) <| sprintf "At the Cuda join point the following arguments have disallowed types: %s" (List.map tyv l |> tyvv |> show_typedexpr)
 
             let length=renamer.Count
             let join_point_key = nodify_memo_key (expr, renamed_env) 
@@ -828,7 +782,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             closure_f (on_x false) (on_x true) d x
 
         let inline closure_dr is_domain d x =
-            let on_fail x = on_type_er (trace d) <| sprintf "Expected a closure (or its type).\nGot: %A" x
+            let on_fail x = on_type_er (trace d) <| sprintf "Expected a closure (or its type).\nGot: %s" (show_typedexpr x)
             let on_succ (dom,range) = if is_domain then tyt dom else tyt range
             closure_f on_fail on_succ d x
 
@@ -854,7 +808,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         |> make_tyv_and_push_typed_expr_even_if_unit d
                     else 
                         let l = List.map (snd >> get_type) cases
-                        on_type_er (trace d) <| sprintf "All the cases in pattern matching clause with dynamic data must have the same type.\n%A" l
+                        on_type_er (trace d) <| sprintf "All the cases in pattern matching clause with dynamic data must have the same type.\nGot: %s" (listt l |> show_ty)
                 | _ -> failwith "There should always be at least one clause here."
             | _ -> tev d case
            
@@ -914,7 +868,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 let env_term = unpack()
                 tev {d with env = if pat <> "" then env_add pat args env_term else env_term} body
             // apply_module
-            | MapTypeModule when is_term_cast -> on_type_er (trace d) <| sprintf "Expected a function in term casting application. Got: %A" fun_type
+            | MapTypeModule when is_term_cast -> on_type_er (trace d) <| sprintf "Expected a function in term casting application. Got a module instead."
             | MapTypeModule ->
                 match args with
                 | TypeString n ->
@@ -935,7 +889,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             
                 let args = instantiate_type_as_variable d (get_type args)
                 apply_func true d recf layout env_term fun_type args
-            | x -> on_type_er (trace d) <| sprintf "Expected a function in term casting application. Got: %A" x
+            | x,_ -> on_type_er (trace d) <| sprintf "Expected a function in term casting application. Got: %s" (show_typedexpr x)
 
         let type_lit_create' x = litt x |> tyt
 
@@ -958,9 +912,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     if x = "elem_type" then elem_ty |> tyt
                     else on_type_er (trace d) <| sprintf "Unknown type string applied to array. Got: %s" x
                 | (ArtDotNetHeap | ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal), idx when is_int idx -> TyOp(ArrayIndex,[ar;idx],elem_ty) |> make_tyv_and_push_typed_expr d
-                | (ArtDotNetHeap | ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal), idx -> on_type_er (trace d) <| sprintf "The index into an array is not an int. Got: %A" idx
+                | (ArtDotNetHeap | ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal), idx -> on_type_er (trace d) <| sprintf "The index into an array is not an int. Got: %s" (show_typedexpr idx)
                 | ArtDotNetReference, TyList [] -> TyOp(ArrayIndex,[ar;idx],elem_ty) |> make_tyv_and_push_typed_expr d
-                | ArtDotNetReference, _ -> on_type_er (trace d) <| sprintf "The index into a reference is not a unit. Got: %A" idx
+                | ArtDotNetReference, _ -> on_type_er (trace d) <| sprintf "The index into a reference is not a unit. Got: %s" (show_typedexpr idx)
             // apply_string
             | TyType(PrimT StringT) & str, TyList [a;b] -> 
                 if is_int a && is_int b then TyOp(StringSlice,[str;a;b],PrimT StringT) |> destructure d
@@ -971,9 +925,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             // apply_closure
             | closure & TyType(TermFunctionT (clo_arg_ty,clo_ret_ty)), args -> 
                 let arg_ty = get_type args
-                if arg_ty <> clo_arg_ty then on_type_er (trace d) <| sprintf "Cannot apply an argument of type %A to closure (%A -> %A)." arg_ty clo_arg_ty clo_ret_ty
+                if arg_ty <> clo_arg_ty then on_type_er (trace d) <| sprintf "Cannot apply an argument of type %s to closure (%s => %s)." (show_ty arg_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
                 else TyOp(Apply,[closure;args],clo_ret_ty) |> make_tyv_and_push_typed_expr_even_if_unit d
-            | a,b -> on_type_er (trace d) <| sprintf "Invalid use of apply. %A and %A" a b
+            | a,b -> on_type_er (trace d) <| sprintf "Invalid use of apply. %s and %s" (show_typedexpr a) (show_typedexpr b)
 
         let type_box d typec args =
             let typec & TyType ty, args = tev2 d typec args
@@ -992,7 +946,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 let lam = inl' ["typec"; "args"] (op(Case,[v "args"; type_box (v "typec") (v "args")])) |> inner_compile
                 apply d (apply d lam typec) args
             | TyRecUnion ty', TyType x when Set.contains x ty' -> substitute_ty args
-            | _ -> on_type_er (trace d) <| sprintf "Type constructor application failed. %A does not intersect %A." ty (get_type args)
+            | _ -> on_type_er (trace d) <| sprintf "Type constructor application failed. %s does not intersect %s." (show_ty ty) (get_type args |> show_ty)
 
 
         let apply_tev d expr args = apply d (tev d expr) (tev d args)
@@ -1005,8 +959,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | Some v -> v
                 | None -> on_type_er (trace d) "Tuple index not within bounds."
             | v & TyType (ListT ts), TyLitIndex i -> failwith "The tuple should always be destructured."
-            | v, TyLitIndex i -> on_type_er (trace d) <| sprintf "Type of an evaluated expression in tuple index is not a tuple.\nGot: %A" v
-            | v, i -> on_type_er (trace d) <| sprintf "Index into a tuple must be an at least a i32 less than the size of the tuple.\nGot: %A" i
+            | v, TyLitIndex i -> on_type_er (trace d) <| sprintf "Type of an evaluated expression in tuple index is not a tuple.\nGot: %s" (show_typedexpr v)
+            | v, i -> on_type_er (trace d) <| sprintf "Index into a tuple must be an at least a i32 less than the size of the tuple.\nGot: %s" (show_typedexpr i)
 
         let vv_index d v i = vv_index_template List.tryItem d v i |> destructure d
         let vv_slice_from d v i = 
@@ -1022,11 +976,12 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             match tev d v with
             | TyList l -> on_succ l
             | v & TyType (ListT ts) -> failwith "The tuple should always be destructured."
-            | v -> on_fail()
+            | v -> on_fail v
 
-        let vv_length x = 
-            vv_unop_template (fun l -> l.Length |> int64 |> LitInt64 |> TyLit) 
-                (fun _ -> on_type_er (trace d) <| sprintf "Type of an evaluated expression in tuple index is not a tuple.\nGot: %A" v) x
+        let vv_length d = 
+            vv_unop_template (fun l -> l.Length |> int64 |> LitInt64 |> TyLit)
+                (fun v -> on_type_er (trace d) <| sprintf "Type of an evaluated expression in tuple index is not a tuple.\nGot: %s" (show_typedexpr v)) 
+                d
                 
         let vv_is x = vv_unop_template (fun _ -> TyLit (LitBool true)) (fun _ -> TyLit (LitBool false)) x
 
@@ -1058,7 +1013,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 match layout with
                 | None -> opt id env_term
                 | _ -> opt (layout_boxed_unseal d recf) env_term
-            | x -> on_type_er (trace d) <| sprintf "The open expected a module type as input. Got: %A" x
+            | x -> on_type_er (trace d) <| sprintf "The open expected a module type as input. Got: %s" (show_typedexpr x)
 
         let type_annot d a b =
             match d.rbeh with
@@ -1066,7 +1021,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | AnnotationDive ->
                 let a, b = tev d a, tev_seq {d with rbeh=AnnotationDive} b
                 let ta, tb = get_type a, get_type b
-                if ta = tb then a else on_type_er (trace d) <| sprintf "Type annotation mismatch.\n%A <> %A" ta tb
+                if ta = tb then a else on_type_er (trace d) <| sprintf "Type annotation mismatch.\n%s <> %s" (show_ty ta) (show_ty tb)
 
         let inline prim_bin_op_template d check_error is_check k a b t =
             let a, b = tev2 d a b
@@ -1078,7 +1033,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let inline bool_helper t a b = TyOp(t,[a;b],PrimT BoolT)
 
         let prim_arith_op d a b t = 
-            let er a b = sprintf "`is_numeric a && get_type a = get_type b` is false.\na=%A, b=%A" a b
+            let er a b = sprintf "`is_numeric a && get_type a = get_type b` is false.\na=%s, b=%s" (show_typedexpr a) (show_typedexpr b)
             let check a b = is_numeric a && get_type a = get_type b
             prim_bin_op_template d er check (fun t a b ->
                 let inline op_arith a b =
@@ -1163,7 +1118,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 ) a b t
 
         let prim_comp_op d a b t = 
-            let er a b = sprintf "(is_char a || is_string a || is_numeric a || is_bool a) && get_type a = get_type b` is false.\na=%A, b=%A" a b
+            let er a b = sprintf "(is_char a || is_string a || is_numeric a || is_bool a) && get_type a = get_type b` is false.\na=%s, b=%s" (show_typedexpr a) (show_typedexpr b)
             let check a b = (is_char a || is_string a || is_numeric a || is_bool a) && get_type a = get_type b
             prim_bin_op_template d er check (fun t a b ->
                 let inline eq_op a b = LitBool (a = b) |> TyLit
@@ -1211,17 +1166,17 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | _ -> failwith "impossible"
 
         let prim_shift_op d a b t =
-            let er a b = sprintf "`is_int a && is_int b` is false.\na=%A, b=%A" a b
+            let er a b = sprintf "`is_int a && is_int b` is false.\na=%s, b=%s" (show_typedexpr a) (show_typedexpr b)
             let check a b = is_int a && is_int b
             prim_bin_op_template d er check prim_bin_op_helper a b t
 
         let prim_bitwise_op d a b t =
-            let er a b = sprintf "`is_any_int a && is_any_int b` is false.\na=%A, b=%A" a b
+            let er a b = sprintf "`is_any_int a && is_any_int b` is false.\na=%s, b=%s" (show_typedexpr a) (show_typedexpr b)
             let check a b = is_any_int a && is_any_int b
             prim_bin_op_template d er check prim_bin_op_helper a b t
 
         let prim_shuffle_op d a b t =
-            let er a b = sprintf "`is_int b` is false.\na=%A, b=%A" a b
+            let er a b = sprintf "`is_int b` is false.\na=%s, b=%s" (show_typedexpr a) (show_typedexpr b)
             let check a b = is_int b
             prim_bin_op_template d er check prim_bin_op_helper a b t
 
@@ -1231,18 +1186,18 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             else on_type_er (trace d) (check_error a)
 
         let prim_un_floating d a t =
-            let er a = sprintf "`is_float a` is false.\na=%A" a
+            let er a = sprintf "`is_float a` is false.\na=%s" (show_typedexpr a)
             let check a = is_float a
             prim_un_op_template d er check prim_un_op_helper a t
 
         let prim_un_numeric d a t =
-            let er a = sprintf "`is_numeric a` is false.\na=%A" a
+            let er a = sprintf "`is_numeric a` is false.\na=%s" (show_typedexpr a)
             let check a = is_numeric a
             prim_un_op_template d er check (fun t a -> 
                 let inline op a = 
                     match t with
                     | Neg -> -a
-                    | _ -> failwithf "Unexpected operation %A." t
+                    | _ -> failwithf "Compiler error: Unexpected operation %A." t
 
                 match a with
                 | TyLit a' ->
@@ -1312,7 +1267,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | V (N x) -> x :: acc
                 | VV (N l) -> List.fold loop acc l
                 | ExprPos p -> loop acc p.Expression
-                | x -> on_type_er (trace d) <| sprintf "Only variable names are allowed in module create. Got: %A" x
+                | x -> on_type_er (trace d) <| sprintf "Only variable names are allowed in module create."
             let er n _ = on_type_er (trace d) <| sprintf "In module create, the variable %s was not found." n
             let env = List.fold (fun s n -> Map.add n (v_find d.env n (er n)) s) Map.empty (loop [] l) |> Env
             tymap(env, MapTypeModule)
@@ -1323,7 +1278,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let size,array_type =
                 match tev d size with
                 | size when is_int size -> size,arrayt(ArtDotNetHeap,typ)
-                | size -> on_type_er (trace d) <| sprintf "An size argument in CreateArray is not of type int64.\nGot: %A" size
+                | size -> on_type_er (trace d) <| sprintf "An size argument in CreateArray is not of type int64.\nGot: %s" (show_typedexpr size)
 
             TyOp(ArrayCreate,[size],array_type) |> make_tyv_and_push_typed_expr d
 
@@ -1341,15 +1296,15 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 if is_int idx then
                     let r_ty = get_type r
                     if ar_ty = r_ty then ret ar_ty ar idx r
-                    else on_type_er (trace d) <| sprintf "The two sides in array set have different types.\nGot: %A and %A" ar_ty r_ty
-                else on_type_er (trace d) <| sprintf "Expected the array index to be an integer.\nGot: %A" idx
+                    else on_type_er (trace d) <| sprintf "The two sides in array set have different types.\nGot: %s and %s" (show_ty ar_ty) (show_ty r_ty)
+                else on_type_er (trace d) <| sprintf "Expected the array index to be an integer.\nGot: %s" (show_typedexpr idx)
             | ar & TyType (ArrayT(ArtDotNetReference,ar_ty)), idx, r ->
                 match idx with
                 | TyList [] ->
                     let r_ty = get_type r
                     if ar_ty = r_ty then ret ar_ty ar idx r
-                    else on_type_er (trace d) <| sprintf "The two sides in reference set have different types.\nGot: %A and %A" ar_ty r_ty
-                | _ -> on_type_er (trace d) <| sprintf "The input to reference set should be ().\nGot: %A" idx
+                    else on_type_er (trace d) <| sprintf "The two sides in reference set have different types.\nGot: %s and %s" (show_ty ar_ty) (show_ty r_ty)
+                | _ -> on_type_er (trace d) <| sprintf "The input to reference set should be ().\nGot: %s" (show_typedexpr idx)
             | module_ & TyType (LayoutT(LayoutHeapMutable,C env,_)), field, r ->
                 match field with
                 | TypeString field' ->
@@ -1360,20 +1315,20 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                             if k = field' then 
                                 let v_ty = get_type v
                                 if v_ty = r_ty then true 
-                                else on_type_er (trace d) <| sprintf "The two sides in the module set have different types.\nExpected: %A\n Got:%A" v_ty r_ty
+                                else on_type_er (trace d) <| sprintf "The two sides in the module set have different types.\nExpected: %s\n Got:%s" (show_ty v_ty) (show_ty r_ty)
                             else 
                                 s <- s+1
                                 false) env
                     if br then ret r_ty module_ (sprintf "mem_%i" s |> LitString |> type_lit_create') r
                     else on_type_er (trace d) <| sprintf "The field %s is missing in the module." field'
-                | x -> on_type_er (trace d) <| sprintf "Expected a type string as the input to a mutable heap module.\nGot: %A" x
-            | x,_,_ -> on_type_er (trace d) <| sprintf "Expected a heap mutable module, reference or an array the input to mutable set.\nGot: %A" x
+                | x -> on_type_er (trace d) <| sprintf "Expected a type string as the input to a mutable heap module.\nGot: %s" (show_typedexpr x)
+            | x,_,_ -> on_type_er (trace d) <| sprintf "Expected a heap mutable module, reference or an array the input to mutable set.\nGot: %s" (show_typedexpr x)
 
         let array_length d ar =
             match tev d ar with
             | ar & TyType (ArrayT(ArtDotNetHeap,t))-> make_tyv_and_push_typed_expr d (TyOp(ArrayLength,[ar],PrimT Int64T))
             | ar & TyType (ArrayT(ArtDotNetReference,t))-> TyLit (LitInt64 1L)
-            | x -> on_type_er (trace d) <| sprintf "ArrayLength is only supported for .NET arrays. Got: %A" x
+            | x -> on_type_er (trace d) <| sprintf "ArrayLength is only supported for .NET arrays. Got: %s" (show_typedexpr x)
 
         let module_is d a =
             match tev d a with
@@ -1389,7 +1344,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | _ -> toList (layout_boxed_unseal d recf)
                 |> tyvv
             | x ->
-                on_type_er (trace d) <| sprintf "Expected a module. Got: %A" x
+                on_type_er (trace d) <| sprintf "Expected a module. Got: %s" (show_typedexpr x)
 
         let module_map d map_op a =
             match tev2 d map_op a with
@@ -1400,8 +1355,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 match layout with
                 | None -> map id
                 | Some l -> map (layout_boxed_unseal d recf) |> layoutify l d
-            | x ->
-                on_type_er (trace d) <| sprintf "Expected a module. Got: %A" x
+            | _, x ->
+                on_type_er (trace d) <| sprintf "Expected a module in module map. Got: %s" (show_typedexpr x)
 
         let module_fold d fold_op s m =
             match tev3 d fold_op s m with
@@ -1411,16 +1366,16 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 match layout with
                 | None -> fold id
                 | Some l -> fold (layout_boxed_unseal d recf)
-            | x ->
-                on_type_er (trace d) <| sprintf "Expected a module. Got: %A" x
+            | _,_,x ->
+                on_type_er (trace d) <| sprintf "Expected a module on module fold. Got: %s" (show_typedexpr x)
 
         let module_has_member d a b =
             match tev2 d a b with
             | M(_,C env,MapTypeModule), b -> 
                 match b with
                 | TypeString b -> TyLit (LitBool <| Map.containsKey b env)
-                | _ -> on_type_er (trace d) "Expecting a type literals as the second argument to ModuleHasMember."
-            | x -> on_type_er (trace d) <| sprintf "Expecting a module as the first argument to ModuleHasMember. Got: %A" x
+                | x -> on_type_er (trace d) <| sprintf "Expecting a type literals as the second argument to ModuleHasMember.\n Got: %s" (show_typedexpr x)
+            | x,_ -> on_type_er (trace d) <| sprintf "Expecting a module as the first argument to ModuleHasMember.\n Got: %s" (show_typedexpr x)
 
         let module_create d l =
             List.fold (fun env -> function
@@ -1434,7 +1389,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 match l with
                 | VV (N l) :: bindings -> l, bindings
                 | V _ as x :: bindings -> [x], bindings
-                | x -> failwithf "Malformed ModuleWith. %A" x
+                | x -> failwith "Compiler error: Malformed ModuleWith."
 
             let rec module_with_loop (C cur_env) names = 
                 let inline layout_unseal name =
@@ -1472,7 +1427,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         | _ -> failwith "impossible"
                         ) cur_env bindings
                     |> fun env -> tymap(Env env, MapTypeModule)
-                | x -> failwithf "Malformed ModuleWith. %A" x
+                | x -> failwithf "Compiler error: Malformed ModuleWith."
             module_with_loop d.env names
 
         let failwith_ d typ a =
@@ -1498,7 +1453,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | PrimT CharT -> char x |> LitChar
                     | PrimT Float32T -> float32 x |> LitFloat32
                     | PrimT Float64T -> float x |> LitFloat64
-                    | _ -> on_type_er (trace d) "Cannot convert the literal to the following type: %A" tot
+                    | _ -> on_type_er (trace d) "Cannot convert the literal to the following type: %s" tot
                     |> TyLit
                 match from with
                 | TyLit (LitInt8 a) -> conv_lit a
@@ -1512,9 +1467,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | TyLit (LitChar a) -> conv_lit a
                 | TyLit (LitFloat32 a) -> conv_lit a
                 | TyLit (LitFloat64 a) -> conv_lit a
-                | TyLit (LitBool _) -> on_type_er (trace d) "Cannot convert the a boolean literal to the following type: %A" tot
+                | TyLit (LitBool _) -> on_type_er (trace d) "Cannot convert the a boolean literal to the following type: %s" tot
                 // The string is not supported because it can't throw an exception if the conversion fails on the Cuda side.
-                | TyLit (LitString _) -> on_type_er (trace d) "Cannot convert the a string literal to the following type: %A" tot
+                | TyLit (LitString _) -> on_type_er (trace d) "Cannot convert the a string literal to the following type: %s" tot
                 | _ ->
                     let is_convertible_primt x =
                         match x with
@@ -1522,7 +1477,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         | PrimT _ -> true
                         | _ -> false
                     if is_convertible_primt fromt && is_convertible_primt tot then TyOp(UnsafeConvert,[to_;from],tot)
-                    else on_type_er (trace d) <| sprintf "Cannot convert %A to the following type: %A" from tot
+                    else on_type_er (trace d) <| sprintf "Cannot convert %s to the following type: %s" (show_typedexpr from) (show_ty tot)
 
         let unsafe_upcast_to d a b =
             let a, b = tev2 d a b
@@ -1548,7 +1503,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         match expr with
         | Lit (N value) -> TyLit value
-        | V (N x) -> v_find d.env x (fun () -> on_type_er (trace d) <| sprintf "Variable %A not bound." x) |> destructure d
+        | V (N x) -> v_find d.env x (fun () -> on_type_er (trace d) <| sprintf "Variable %s not bound." x) |> destructure d
         | FunctionFilt(N (vars,N (pat, body))) -> 
             let env = match d.env with | EnvUnfiltered (env,_) | Env env | EnvConsed (CN env) -> env
             tymap(EnvUnfiltered (env,vars), MapTypeFunction (pat, body))
@@ -1573,11 +1528,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | JoinPointEntryCuda,[a] -> join_point_cuda d a
             | TermCast,[a;b] -> term_cast d a b
             | UnsafeConvert,[to_;from] -> unsafe_convert d to_ from
-            | PrintStatic,[a] -> printfn "%A" (tev d a); TyB
-            | PrintEnv,[a] -> 
-                Map.iter (fun k v -> printfn "%s" k) (c d.env)
-                tev d a
-            | PrintExpr,[a] -> printfn "%A" a; tev d a
+            | PrintStatic,[a] -> printfn "%s" (tev d a |> show_typedexpr); TyB
             | (CudaTypeCreate | DotNetTypeCreate), [a] -> extern_type_create op d a
             | LayoutToNone,[a] -> layout_to_none d a
             | LayoutToStack,[a] -> layout_to LayoutStack d a
@@ -1649,10 +1600,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
             | EqType,[a;b] -> eq_type d a b
             | Neg,[a] -> prim_un_numeric d a Neg
-            | ErrorType,[a] -> tev d a |> fun a -> on_type_er (trace d) <| sprintf "%A" a
+            | ErrorType,[a] -> tev d a |> fun a -> on_type_er (trace d) <| sprintf "%s" (show_typedexpr a)
             | ErrorNonUnit,[a] -> error_non_unit d a
             | ErrorPatClause,[] -> on_type_er (trace d) "Compiler error: The pattern matching clauses are malformed. PatClause is missing."
-            | ErrorPatMiss,[a] -> tev d a |> fun a -> on_type_er (trace d) <| sprintf "Pattern miss error. The argument is %A" a
+            | ErrorPatMiss,[a] -> tev d a |> fun a -> on_type_er (trace d) <| sprintf "Pattern miss error. The argument is %s" (show_typedexpr a)
 
             | Log,[a] -> prim_un_floating d a Log
             | Exp,[a] -> prim_un_floating d a Exp
@@ -1664,7 +1615,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | UnsafeCoerceToArrayCudaGlobal,[a;b] -> unsafe_coerce_to_array_cuda_global d a b
             | SizeOf,[a] -> sizeof d a
             
-            | x -> failwithf "Missing Op case. %A" x
+            | x -> failwithf "Compiler error: Missing Op case. %A" x
 
     // #Parsing
     let spiral_parse (Module(N(module_name,_,_,module_code)) & module_) = 
@@ -2091,16 +2042,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let lit = expr |>> type_lit_lift'
             prefix_dot >>. (var <|> lit)
 
-        let case_print_env expr s = 
-            let i = col s
-            keywordString "print_env" >>. expr_indent i (<=) expr |>> print_env
-            <| s
-
-        let case_print_expr expr s = 
-            let i = col s
-            keywordString "print_expr" >>. expr_indent i (<=) expr |>> print_expr
-            <| s
-          
         let case_module expr s =
             let mp_binding (n,e) = vv [lit_string n; e]
             let mp_without n = op(ModuleWithout,[lit_string n])
@@ -2177,8 +2118,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 |> List.map (fun x -> x (expressions expr) |> attempt)
                 |> choice
             let expressions = 
-                [case_print_env; case_print_expr; case_type; case_join_point; case_cuda; 
-                 case_inbuilt_op; case_parser_macro
+                [case_type; case_join_point; case_cuda; case_inbuilt_op; case_parser_macro
                  case_inl_pat_list_expr; case_met_pat_list_expr; case_lit; case_if_then_else
                  case_rounds; case_typecase; case_typeinl; case_var; case_module; case_named_tuple]
                 |> List.map (fun x -> x expr |> attempt)
@@ -2398,30 +2338,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let tys = List.foldBack (fun (_,x) s -> define_mem s x) fv ([],0) |> fst |> List.rev
             print_type_definition (Some layout) name tys
 
-    let inline codegen_macro codegen print_type x = 
-        let strb = StringBuilder()
-        let inline append (x: string) = strb.Append x |> ignore
-        let (|LS|) = function
-                | TyLit (LitString x) | TypeString x -> x
-                | _ -> failwithf "Iter's first three arguments must be strings."
-        let rec f = function
-            | TyList [TypeString "text"; LS x] -> append x
-            | TyList [TypeString "arg"; x] -> append (codegen x)
-            | TyList [TypeString "args"; TyTuple l] -> append "("; List.map codegen l |> String.concat ", " |> append; append ")"
-            | TyList [TypeString "type"; TyType x] -> append (print_type x)
-            | TyList [TypeString "types"; TyTuple l] -> append "<"; List.map (get_type >> print_type) l |> String.concat ", " |> append; append ">" 
-            | TyList [TypeString "iter"; TyList [LS begin_;LS sep;LS end_;ops]] ->
-                    append begin_
-                    match ops with
-                    | TyList ((TyList _ & x) :: xs) -> f x; List.iter (fun x -> append sep; f x) xs
-                    | x -> f x
-                    append end_
-            | x -> failwithf "Unknown argument in macro. Got: %A" x
-        match x with
-        | TyList (TyList _ :: _ as x) -> List.iter f x
-        | x -> f x
-        strb.ToString()
-
     // #Cuda
     let spiral_cuda_codegen (definitions_queue: Queue<TypeOrMethod>) = 
         let buffer_forward_declarations = ResizeArray()
@@ -2462,7 +2378,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | UnionT _ as x -> print_tag_union x
             | ArrayT((ArtCudaLocal | ArtCudaShared | ArtCudaGlobal _),t) -> sprintf "%s *" (print_type t)
             | ArrayT _ -> failwith "Not implemented."
-            | LayoutT (_, _, _) | RecT _ | DotNetTypeT _ as x -> failwithf "%A is not supported on the Cuda side." x
+            | LayoutT (_, _, _) | RecT _ | DotNetTypeT _ as x -> failwithf "%s is not supported on the Cuda side." (show_ty x)
             | TermFunctionT _ as t -> print_tag_closure t
             | PrimT x ->
                 match x with
@@ -2568,7 +2484,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             try
                 match expr with
                 | TyT Unit | TyV (_, Unit) -> ""
-                | TyT t -> //on_type_er trace <| sprintf "Usage of naked type %A as an instance on the term level is invalid." t
+                | TyT t -> //on_type_er trace <| sprintf "Usage of naked type %s as an instance on the term level is invalid." t
                     printfn "Error: Naked type on the term level has been generated on the Cuda side. Check the code for the exact location of it."
                     sprintf "naked_type /*%s*/" (print_type t)
                 | TyV v -> print_tyv v |> branch_return
@@ -2684,7 +2600,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | MacroCuda,[a] -> codegen_macro codegen print_type a
                     | SizeOf,[TyType a] -> sprintf "(sizeof %s)" (print_type a)
 
-                    | x -> failwithf "Missing TyOp case. %A" x
+                    | x -> failwithf "Compiler error: Missing TyOp case. %A" x
                     |> branch_return
             with 
             | :? TypeError -> reraise()
@@ -2999,7 +2915,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             try
                 match expr with
                 | TyT Unit | TyV (_, Unit) -> ""
-                | TyT t -> //on_type_er trace <| sprintf "Usage of naked type %A as an instance on the term level is invalid." t
+                | TyT t -> //on_type_er trace <| sprintf "Usage of naked type %s as an instance on the term level is invalid." t
                     printfn "Error: Naked type detected on the F# side. Please check the generated code for details."
                     sprintf "naked_type (*%s*)" (print_type t)
                 | TyV v -> print_tyv v
@@ -3116,7 +3032,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | UnsafeDowncastTo,[a;b] -> sprintf "(%s :?> %s)" (codegen b) (print_type (get_type a))
                     | MacroFs,[a] -> codegen_macro codegen print_type a
                     | SizeOf,[TyType a] -> sprintf "(int64 sizeof<%s>)" (print_type a)
-                    | x -> failwithf "Missing TyOp case. %A" x
+                    | x -> failwithf "Compiler error: Missing TyOp case. %A" x
             with 
             | :? TypeError -> reraise()
             | e -> on_type_er trace e.Message
@@ -3309,5 +3225,4 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         with 
         | :? TypeError as e -> 
             let trace, message = e.Data0, e.Data1
-            let message = if message.Length > 300 then message.[0..299] + "..." else message
             Fail <| print_type_error trace message
