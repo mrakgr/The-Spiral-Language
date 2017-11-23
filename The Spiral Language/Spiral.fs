@@ -2007,10 +2007,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let pat_function l = pattern (PatClauses l)
             let pat_match x l = ap (pat_function l) x
 
-            let helper msg (s: CharStream<_>) = 
-                printfn "%s" msg
-                Reply(())
-            let clauses i = helper "I am in clauses" >>. sepBy1 (expr_indent i (<=) clause) (expr_indent i (<=) bar)
+            let clauses i s = sepBy1 (expr_indent i (<=) clause) (expr_indent i (<=) bar) s
             let get_col (s: CharStream<_>) = Reply(col s)
 
             match match_type with
