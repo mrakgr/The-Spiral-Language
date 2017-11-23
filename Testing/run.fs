@@ -156,17 +156,19 @@ inl to_operation = function
     | .T -> enum operation_type .Transpose
     | .nT -> enum operation_type .NonTranspose
 
-inl isT x = function
+inl isT = function
     | .T -> true
     | _ -> false
-inl isnT x = function
+
+inl isnT = function
     | .nT -> true
     | _ -> false
 
 inl CudaKernels stream =
     open HostTensor
 
-    inl set_stream x = FS.Method x .SetStream (Stream.extract stream) unit
+    inl set_stream_random x = FS.Method x .SetStream (Stream.extract stream) unit
+    inl set_stream_cublas x = FS.Method x .set_Stream (Stream.extract stream) unit
 
     inl fill_random_array op size1d ar =
         inl elem_type = ar.elem_type
@@ -198,7 +200,7 @@ inl CudaKernels stream =
             !MacroFs(unit,[arg: random; text: dot; text: gen; text: bits; args: args])
 
     inl fill_random op (!zip in) =
-        set_stream random
+        set_stream_random random
         inl in' = coerce_to_1d in |> to_device_tensor_form
         map_tensor (fill_random_array op (total_size (in'.size) |> SizeT)) in' |> ignore
 
@@ -274,11 +276,14 @@ inl CudaKernels stream =
 
     /// General matrix-matrix multiply from cuBLAS. Inplace version
     inl gemm transa transb alpha A B beta C =
-        set_stream cublas
-        inl handle = FS.Method cublas .get_Handle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
-        inl native_type = fs [text: "ManagedCuda.CudaBlas.NativeMethods"]
-        inl assert_ok status = !MacroFS(unit,[text: "if "; arg: status; text: " <> CublasStatus.Success then raise <| new CudaBlasException(_status)"])
-        inl call m x = FS.StaticMethod native_type m x unit |> assert_ok
+        set_stream_cublas cublas
+        inl handle = FS.Method cublas .get_CublasHandle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
+        inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
+        inl assert_ok status = !MacroFs(unit,[text: "if "; arg: status; text: " <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException"; args: status])
+        inl call m x = 
+            inl x = Tuple.map (function x : int64 -> unsafe_convert int32 x | x -> x) x
+            inl status_type = fs [text: "ManagedCuda.CudaBlas.CublasStatus"]
+            FS.StaticMethod native_type m x status_type |> assert_ok
         
         // -------
 
@@ -289,15 +294,15 @@ inl CudaKernels stream =
         /// o <- alpha * op(A) * x + beta * o
         /// Matrix-vector multiplication. Inplace version.
         inl gemv transa alpha A x beta o =
-            let m,n = A.size
-            let lda = m
+            inl m,n = A.size
+            inl lda = m
             call.cublasSgemv_v2(handle, to_operation transa, m, n, ref alpha, A.ar, lda, x.ar, 1, ref beta, o.ar, 1)
 
         // A <- alpha * x * yT + beta * A (outer product)
         inl ger alpha x y beta a =
             inl max (a,b) = max a b
-            let m = max (x.size)
-            let n = max (y.size)
+            inl m = max (x.size)
+            inl n = max (y.size)
 
             match beta with
             | 1.0f64 | 1.0f32 -> ()
@@ -311,19 +316,19 @@ inl CudaKernels stream =
         inl cols x = x.size |> inl a,b -> b
         inl is_vector x = rows x = 1 || cols x = 1
 
-        let a_col = if isnT transa then cols A else rows A
-        let b_row = if isnT transb then rows B else cols B
+        inl a_col = if isnT transa then cols A else rows A
+        inl b_row = if isnT transb then rows B else cols B
         assert (a_col = b_row) <| inl _ ->
             inl a_col, b_row = dyn (a_col, b_row)
             inl msg = "a_col(",a_col,") <> b_row(",b_row,") in gemm."
             join (string_concat "" msg)
 
-        let m = if isnT transa then rows A else cols A
-        let n = if isnT transb then cols B else rows B
-        let k = a_col
-        let lda = if isnT transa then m else k
-        let ldb = if isnT transb then k else n
-        let ldc = m
+        inl m = if isnT transa then rows A else cols A
+        inl n = if isnT transb then cols B else rows B
+        inl k = a_col
+        inl lda = if isnT transa then m else k
+        inl ldb = if isnT transb then k else n
+        inl ldc = m
 
         assert (m = rows C && n = cols C) <| inl _ -> 
             inl m, rows_C, n, cols_C = dyn (m, rows C, n, cols C)
@@ -341,7 +346,7 @@ inl CudaKernels stream =
             gemv optb alpha B A beta C
         // Just do the standard matrix multiply
         else
-            call.cublasSgemm_v2(handle,to_operation transa, to_operation transb, m, n, k, ref alpha, A.ar, lda, B, ldb, ref beta, C.ar, ldc)
+            call.cublasSgemm_v2(handle,to_operation transa, to_operation transb, m, n, k, ref alpha, A.ar, lda, B.ar, ldb, ref beta, C.ar, ldc)
 
     {map map_redo gemm fill_random}
 
@@ -371,10 +376,22 @@ inl test_map_redo =
     inl host_tensor = HostTensor.init (dyn 64) (unsafe_convert float32)
     from_host_tensor host_tensor >>= map_redo {map=id; redo=(+)} >>= force >>= merge >>= (writeline >> succ)
 
-inl learning_tests =
-    test_random, test_map
+inl test_gemm =
+    inl create' size =
+        inm device_tensor = create {layout= .toa; size elem_type=float32}
+        fill_random {op=.LogNormal; stddev=1.0f32; mean=0f32} device_tensor
+        succ device_tensor
+    inm a = create' (4,2)
+    inm b = create' (2,4)
+    inm c = create {layout = .toa; size=4,4; elem_type=float32}
+    gemm .nT .nT 1.0f32 (to_device_tensor_form a) (to_device_tensor_form b) 0.0f32 (to_device_tensor_form c)
+    inl {ar} = to_host_tensor c 
+    Array.show_array ar |> writeline |> succ
 
-test_map_redo id
+inl learning_tests =
+    test_random, test_map, test_map_redo, test_gemm
+
+test_gemm id
     """
 
 let cfg: Spiral.Types.CompilerSettings = {
@@ -387,6 +404,6 @@ let cfg: Spiral.Types.CompilerSettings = {
 //rewrite_test_cache cfg None //(Some(80,tests.Length))
 
 output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary" learning
-//|> printfn "%s"
+|> printfn "%s"
 |> ignore
 

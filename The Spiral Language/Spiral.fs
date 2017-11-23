@@ -1671,7 +1671,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let bar = operatorChar '|' 
         let amphersand = operatorChar '&'
         let caret = operatorChar '^'
-        let barbar = operatorString "||" 
         let lam = operatorString "->"
         let arr = operatorString "=>"
         let union = operatorString "\/"
@@ -2000,31 +1999,25 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let case_var expr = var_op_name |>> v
 
         let case_typex match_type expr (s: CharStream<_>) =
-            let mutable i = None
-            let expr_indent op expr (s: CharStream<_>) = expr_indent i.Value op expr s
-    
-            let clause = 
-                poperator >>=? function
-                    | "|" -> pipe2 (many1 (patterns expr) .>> lam) expr <| fun pat body ->
-                        match pat with
-                        | x :: xs -> x, inl_pat' xs body
-                        | _ -> failwith "impossible"
-                    | _ -> fail "not a pattern matching clause"
-                |> expr_indent (<=) 
-            
-            let set_col (s: CharStream<_>) = i <- Some (col s); Reply(())
+            let clause = pipe2 (many1 (patterns expr) .>> lam) expr <| fun pat body ->
+                match pat with
+                | x :: xs -> x, inl_pat' xs body
+                | _ -> failwith "impossible"
 
             let pat_function l = pattern (PatClauses l)
             let pat_match x l = ap (pat_function l) x
 
+            let helper msg (s: CharStream<_>) = 
+                printfn "%s" msg
+                Reply(())
+            let clauses i = helper "I am in clauses" >>. sepBy1 (expr_indent i (<=) clause) (expr_indent i (<=) bar)
+            let get_col (s: CharStream<_>) = Reply(col s)
+
             match match_type with
             | true -> // function
-                (function_ >>. set_col >>. many1 clause
-                |>> pat_function) s    
+                (function_ >>. get_col >>=? clauses |>> pat_function) s    
             | false -> // match
-                pipe2 (match_ >>. expr .>> with_ .>> set_col)
-                    (many1 clause)
-                    pat_match s
+                pipe2 (match_ >>. expr .>> with_) (get_col >>=? clauses) pat_match s
 
         let case_typeinl expr (s: CharStream<_>) = case_typex true expr s
         let case_typecase expr (s: CharStream<_>) = case_typex false expr s
