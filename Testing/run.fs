@@ -136,7 +136,7 @@ inl CudaTensor allocator =
     inl create = safe_alloc 1 create
     inl from_host_tensor = safe_alloc 1 from_host_tensor
 
-    {create from_host_tensor to_host_tensor zip elem_type coerce_to_1d to_device_tensor_form total_size ptr} |> stack
+    {create from_host_tensor to_host_tensor zip elem_type coerce_to_1d to_device_tensor_form total_size ptr}
 
 open CudaTensor (allocator 0.7)
 
@@ -146,71 +146,6 @@ inl random =
 
 inl CudaKernels stream =
     open HostTensor
-    inl map f (!zip ({size layout} & in)) ret =
-        inb out = create {size layout elem_type = type (f (elem_type in))}
-
-        inl in' = coerce_to_1d in |> to_device_tensor_form
-        inl out' = coerce_to_1d out |> to_device_tensor_form
-        inl near_to = total_size (in'.size)
-
-        run {
-            stream
-            blockDim = 128
-            gridDim = 32
-            kernel = cuda // Lexical scoping rocks.
-                inl from = blockIdx.x * blockDim.x + threadIdx.x
-                inl by = gridDim.x * blockDim.x
-                Loops.for {from near_to by body=inl {i} ->
-                    set_unsafe out' i (f (index_unsafe in' i))
-                    }
-            } |> ignore
-
-        ret out
-
-    inl map_redo {map redo} (!zip ({size layout} & in)) ret =
-        inl in' = coerce_to_1d in |> to_device_tensor_form
-        inl near_to = total_size (in'.size)
-
-        assert (near_to > 0) "The input to map_redo must be non-empty."
-        assert (near_to > 131) "Right now I am testing these things so make them at least 132. Will remove this later."
-
-        inl blockDim = 128
-        inl gridDim = near_to / blockDim
-        inl elem_type = type (
-            inl ty = map (elem_type in)
-            redo ty ty
-            )
-        inb out = create {size=gridDim; layout elem_type}
-        inl out' = to_device_tensor_form out
-
-        run {
-            stream
-            blockDim
-            gridDim
-            kernel = cuda // Lexical scoping rocks.
-                inl from = blockIdx.x * blockDim.x + threadIdx.x
-                inl by = gridDim.x * blockDim.x
-                inl load i = map (index_unsafe in' i)
-                inl thread_result = Loops.for {from=from+by; near_to by state=load from; body=inl {state i} -> redo state (load i)}
-
-                inl t = type(thread_result)
-                inl redo = closure_of (inl a,b -> redo a b) ((t,t) => t)
-                inl block_result = !MacroCuda(t,[
-                    text: "cub::BlockReduce"
-                    iter: "<",",",">",[type: t; arg: blockDim.x]
-                    args: ()
-                    text: ".Reduce"
-                    args: thread_result, redo])
-                if threadIdx.x = 0 then set_unsafe out' (blockIdx.x) block_result
-
-            } |> ignore
-
-        inl _ -> 
-            inl tns = to_host_tensor out
-            Loops.for {from=1; near_to=total_size (tns.size); state=index_unsafe tns 0; body=inl {state i} -> redo state (index_unsafe tns i)}
-        |> ret
-
-    FS.Method random .SetStream (Stream.extract stream) unit
 
     inl fill_random_array op size1d ar =
         inl elem_type = ar.elem_type
@@ -245,6 +180,77 @@ inl CudaKernels stream =
         inl in' = coerce_to_1d in |> to_device_tensor_form
         map_tensor (fill_random_array op (total_size (in'.size) |> SizeT)) in' |> ignore
 
+    inl map f (!zip ({size layout} & in)) ret =
+        inb out = create {size layout elem_type = type (f (elem_type in))}
+
+        inl in' = coerce_to_1d in |> to_device_tensor_form
+        inl out' = coerce_to_1d out |> to_device_tensor_form
+        inl near_to = total_size (in'.size)
+
+        run {
+            stream
+            blockDim = 128
+            gridDim = 32
+            kernel = cuda // Lexical scoping rocks.
+                inl from = blockIdx.x * blockDim.x + threadIdx.x
+                inl by = gridDim.x * blockDim.x
+                Loops.for {from near_to by body=inl {i} ->
+                    set_unsafe out' i (f (index_unsafe in' i))
+                    }
+            } |> ignore
+
+        ret out
+
+    inl map_redo {map redo} (!zip ({size layout} & in)) ret =
+        inl in' = coerce_to_1d in |> to_device_tensor_form
+        inl near_to = total_size (in'.size)
+
+        assert (near_to > 0) "The input to map_redo must be non-empty."
+
+        inl final_reduce map out =
+            inl _ ->
+                inl tns = to_host_tensor out
+                Loops.for {from=1; near_to=total_size (tns.size); state=index_unsafe tns 0 |> map; body=inl {state i} -> redo state (index_unsafe tns i |> map)}
+            |> ret
+
+        if near_to >= 128 then
+            inl blockDim = 128
+            inl gridDim = near_to / blockDim
+            inl elem_type = type (
+                inl ty = map (elem_type in)
+                redo ty ty
+                )
+            inb out = create {size=gridDim; layout elem_type}
+            inl out' = to_device_tensor_form out
+
+            run {
+                stream
+                blockDim
+                gridDim
+                kernel = cuda // Lexical scoping rocks.
+                    inl from = blockIdx.x * blockDim.x + threadIdx.x
+                    inl by = gridDim.x * blockDim.x
+                    inl load i = map (index_unsafe in' i)
+                    inl thread_result = Loops.for {from=from+by; near_to by state=load from; body=inl {state i} -> redo state (load i)}
+
+                    inl t = type(thread_result)
+                    inl redo = closure_of (inl a,b -> redo a b) ((t,t) => t)
+                    inl block_result = !MacroCuda(t,[
+                        text: "cub::BlockReduce"
+                        iter: "<",",",">",[type: t; arg: blockDim.x]
+                        args: ()
+                        text: ".Reduce"
+                        args: thread_result, redo])
+                    if threadIdx.x = 0 then set_unsafe out' (blockIdx.x) block_result
+
+                } |> ignore
+
+            final_reduce id out
+        else
+            final_reduce map in
+
+    FS.Method random .SetStream (Stream.extract stream) unit
+
     {map map_redo fill_random}
 
 open CudaKernels (Stream.create())
@@ -267,7 +273,7 @@ inl program_map =
 
 inl program_map_redo =
     inl force x = x ()
-    inl host_tensor = HostTensor.init 256 (unsafe_convert float32)
+    inl host_tensor = HostTensor.init 64 (unsafe_convert float32)
     from_host_tensor host_tensor >>= map_redo {map=id; redo=(+)} >>= (force >> writeline >> succ)
 
 program_map_redo id
