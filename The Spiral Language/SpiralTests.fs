@@ -114,7 +114,7 @@ match x with
 | _ -> 4
     """
 
-let test10 = // 
+let test10 = 
     "test10",[],"The worst case for partially evaluated pattern matchers.",
     """
 type ab = 

@@ -104,6 +104,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let join_point_entry_type y = (JoinPointEntryType,[y]) |> op
 
     let module_open a b = (ModuleOpen,[a;b]) |> op
+    let module_openb a b = ap a (inl " module" (module_open (v " module") b)) 
 
     let rec ap' f l = List.fold ap f l
 
@@ -996,8 +997,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | _ -> on_type_er (trace d) "Expected a tuple on the right in ListCons."
 
         let module_open d a b =
-            let a = tev d a
-            match a with
+            match tev d a with
             | M(layout,C env_term,MapTypeModule) as recf -> 
                 let inline opt open_ env =
                     let env = 
@@ -1640,9 +1640,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let var_name =
             var_name_core >>=? function
-                | "match" | "function" | "with" | "without" | "open" | "module" | "as" | "when" | "print_env" | "inl" | "met" | "inm" 
+                | "match" | "function" | "with" | "without" | "module" | "as" | "when" | "print_env" | "inl" | "met" | "inm" 
                 | "inb" | "use" | "type" | "print_expr" | "rec" | "if" | "if_dynamic" | "then" | "elif" | "else" | "true" | "false" 
-                | "join" as x -> fun _ -> Reply(Error,messageError <| sprintf "%s not allowed as an identifier." x)
+                | "open" | "openb" | "join" as x -> fun _ -> Reply(Error,messageError <| sprintf "%s not allowed as an identifier." x)
                 | x -> preturn x
 
         let between_brackets l p r = between (skipChar l >>. spaces) (skipChar r >>. spaces) p
@@ -1687,7 +1687,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let function_ = keywordString "function"
         let with_ = keywordString "with"
         let without = keywordString "without"
-        let open_ = keywordString "open"
         let cons = operatorString "::"
         let active_pat = prefixOperatorChar '!'
         let not_ = active_pat
@@ -1976,7 +1975,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             pipe3 (type_' >>. var_op_name) (pattern_list expr) (eq' >>. type_parse) <| fun name pattern body -> 
                 l_rec name (type_pat' pattern body)
 
-        let case_open expr = open_ >>. expr |>> module_open
+        let case_open expr = 
+            var_name_core >>=? function
+                | "open" -> expr |>> module_open
+                | "openb" -> expr |>> module_openb
+                | x -> fun _ -> Reply(Error,expected "open or openb")
         let case_inm_pat_statement expr = pipe2 (inm_ >>. patterns expr) (eq' >>. expr) inmp
         let case_use_pat_statement expr = pipe2 (use_ >>. patterns expr) (eq' >>. expr) usep
         let case_inn_pat_statement expr = pipe2 (inb_ >>. patterns expr) (eq' >>. expr) inbp
@@ -2007,7 +2010,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let pat_function l = pattern (PatClauses l)
             let pat_match x l = ap (pat_function l) x
 
-            let clauses i s = sepBy1 (expr_indent i (<=) clause) (expr_indent i (<=) bar) s
+            let clauses i = 
+                let bar s = expr_indent i (<=) bar s
+                optional bar >>. sepBy1 (expr_indent i (<=) clause) bar
             let get_col (s: CharStream<_>) = Reply(col s)
 
             match match_type with

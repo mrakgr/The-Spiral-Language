@@ -6,7 +6,7 @@ let learning =
     "Learning",[option;cuda;extern_;option;console],"The deep learning module.",
     """
 open Extern
-open Cuda
+openb Cuda
 open Console
 
 inl smartptr_create ptr =
@@ -42,7 +42,7 @@ inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
 inl SizeT = FS.Constructor SizeT_type
 inl CUdeviceptr = FS.Constructor CUdeviceptr_type
 
-inl allocator size =
+inl allocator size ret =
     inl to_float x = FS.UnOp .float x float64
     inl to_int x = FS.UnOp .int64 x int64
     inl to_uint x = FS.UnOp .uint64 x uint64
@@ -83,7 +83,10 @@ inl allocator size =
             FS.Method stack.Push cell unit
             cell.ptr
 
-    {allocate}
+    ret {allocate}
+    inl ptr = pool.ptr
+    FS.Method context .FreeMemory (ptr()) unit
+    ptr.Dispose
 
 inl CudaTensor allocator =
     open HostTensor
@@ -138,14 +141,16 @@ inl CudaTensor allocator =
 
     {create from_host_tensor to_host_tensor zip elem_type coerce_to_1d to_device_tensor_form total_size ptr}
 
-open CudaTensor (allocator 0.7)
+inb allocator = allocator 0.7
+open CudaTensor allocator
 
-inl random = 
+inl enum ty x = FS.StaticField ty x ty
+
+use random = 
     inl generator_type = fs [text: "ManagedCuda.CudaRand.GeneratorType"]
     FS.Constructor (fs [text: "ManagedCuda.CudaRand.CudaRandDevice"]) (FS.StaticField generator_type .PseudoDefault generator_type)
 
-inl enum ty x = FS.StaticField ty x ty
-inl cublas =
+use cublas =
     inl cublas_type = fs [text: "ManagedCuda.CudaBlas.CudaBlas"]
     inl pointer_mode_type = fs [text: "ManagedCuda.CudaBlas.PointerMode"]
     inl atomics_mode_type = fs [text: "ManagedCuda.CudaBlas.AtomicsMode"]
@@ -274,8 +279,11 @@ inl CudaKernels stream =
             final_reduce map in
 
 
+    inl rows x = x.size |> inl a,b -> a
+    inl cols x = x.size |> inl a,b -> b
+
     /// General matrix-matrix multiply from cuBLAS. Inplace version
-    inl gemm transa transb alpha A B beta C =
+    inl gemm' transa transb alpha (!to_device_tensor_form A) (!to_device_tensor_form B) beta (!to_device_tensor_form C) =
         set_stream_cublas cublas
         inl handle = FS.Method cublas .get_CublasHandle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
         inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
@@ -312,16 +320,11 @@ inl CudaKernels stream =
 
         // -------
 
-        inl rows x = x.size |> inl a,b -> a
-        inl cols x = x.size |> inl a,b -> b
         inl is_vector x = rows x = 1 || cols x = 1
 
         inl a_col = if isnT transa then cols A else rows A
         inl b_row = if isnT transb then rows B else cols B
-        assert (a_col = b_row) <| inl _ ->
-            inl a_col, b_row = dyn (a_col, b_row)
-            inl msg = "a_col(",a_col,") <> b_row(",b_row,") in gemm."
-            join (string_concat "" msg)
+        assert (a_col = b_row) "Colums of a does not match rows of b in GEMM."
 
         inl m = if isnT transa then rows A else cols A
         inl n = if isnT transb then cols B else rows B
@@ -330,10 +333,7 @@ inl CudaKernels stream =
         inl ldb = if isnT transb then k else n
         inl ldc = m
 
-        assert (m = rows C && n = cols C) <| inl _ -> 
-            inl m, rows_C, n, cols_C = dyn (m, rows C, n, cols C)
-            inl msg = "m(",m,") <> rows C(",rows_C,") || n(",n,") <> cols C(",cols_C,")" m (rows C) n (cols C)
-            join (string_concat "" msg)
+        assert (m = rows C && n = cols C) "Output matrix dimensions do not match in GEMM."
 
         // If is outer product call ger
         if a_col = 1 && b_row = 1 then ger alpha A B beta C
@@ -347,6 +347,18 @@ inl CudaKernels stream =
         // Just do the standard matrix multiply
         else
             call.cublasSgemm_v2(handle,to_operation transa, to_operation transb, m, n, k, ref alpha, A.ar, lda, B.ar, ldb, ref beta, C.ar, ldc)
+
+    inl gemm transa transb alpha ({layout} & A) B ret =
+        inl A_ty, B_ty = type(A), type(B)
+        assert (eq_type A_ty B_ty) ("A should be of equal type to B.", A_ty, " <> ", B_ty)
+
+        inl m = if isnT transa then rows A else cols A
+        inl n = if isnT transb then cols B else rows B
+
+        inb C = create {size=m,n; layout elem_type = type (elem_type A)}
+        inl beta = match alpha with _: float32 -> 0f32 | _: float64 -> 0f64
+        gemm' transa transb alpha A B beta C
+        ret C
 
     {map map_redo gemm fill_random}
 
@@ -383,10 +395,8 @@ inl test_gemm =
         succ device_tensor
     inm a = create' (4,2)
     inm b = create' (2,4)
-    inm c = create {layout = .toa; size=4,4; elem_type=float32}
-    gemm .nT .nT 1.0f32 (to_device_tensor_form a) (to_device_tensor_form b) 0.0f32 (to_device_tensor_form c)
-    inl {ar} = to_host_tensor c 
-    Array.show_array ar |> writeline |> succ
+    gemm .nT .nT 1.0f32 a b >>= (to_host_tensor >> HostTensor.show_tensor >> writeline >> succ)
+    
 
 inl learning_tests =
     test_random, test_map, test_map_redo, test_gemm
