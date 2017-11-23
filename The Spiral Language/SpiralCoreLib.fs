@@ -95,7 +95,10 @@ inl box_is x = !BoxIs(x)
 inl caseable_is x = !CaseableIs(x)
 inl caseable_boxed_is x = !CaseableBoxedIs(x)
 inl failwith typ msg = !FailWith(typ,msg)
-inl assert c msg = if c then () else failwith unit msg
+inl assert c = function
+    | msg : string -> if c then () else failwith unit msg
+    | msg  -> if c then () else failwith unit (msg ())
+
 inl max a b = if a > b then a else b
 inl min a b = if a > b then b else a
 inl eq_type a b = !EqType(a,b)

@@ -153,12 +153,14 @@ and method_11((var_0: (float32 [])), (var_1: int64), (var_2: int64), (var_3: flo
         method_11((var_0: (float32 [])), (var_1: int64), (var_7: int64), (var_6: float32))
     else
         var_3
-and method_12((var_0: (float32 [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: float32)): float32 =
+and method_12((var_0: float32)): unit =
+    System.Console.WriteLine(var_0)
+and method_13((var_0: (float32 [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: float32)): float32 =
     if (var_3 < var_2) then
         let (var_5: float32) = var_0.[int32 var_3]
         let (var_6: float32) = (var_4 + var_5)
         let (var_7: int64) = (var_3 + 1L)
-        method_12((var_0: (float32 [])), (var_1: int64), (var_2: int64), (var_7: int64), (var_6: float32))
+        method_13((var_0: (float32 [])), (var_1: int64), (var_2: int64), (var_7: int64), (var_6: float32))
     else
         var_4
 and method_5((var_0: ManagedCuda.BasicTypes.CUdeviceptr), (var_1: uint64), (var_2: uint64), (var_3: int64), (var_4: System.Collections.Generic.Stack<Env4>), (var_5: EnvStack3), (var_6: int64)): EnvStack3 =
@@ -422,7 +424,7 @@ if (var_143 >= 128L) then
     let (var_159: float32) = var_157.[int32 0L]
     let (var_160: int64) = 1L
     let (var_161: float32) = method_11((var_157: (float32 [])), (var_145: int64), (var_160: int64), (var_159: float32))
-    System.Console.WriteLine(var_161)
+    method_12((var_161: float32))
     var_148 := Union0Case1
 else
     let (var_162: int64) =
@@ -441,7 +443,7 @@ else
             var_138
     let (var_166: float32) = var_164.[int32 0L]
     let (var_167: int64) = 1L
-    let (var_168: float32) = method_12((var_164: (float32 [])), (var_130: int64), (var_165: int64), (var_167: int64), (var_166: float32))
-    System.Console.WriteLine(var_168)
+    let (var_168: float32) = method_13((var_164: (float32 [])), (var_130: int64), (var_165: int64), (var_167: int64), (var_166: float32))
+    method_12((var_168: float32))
 var_136 := Union0Case1
 

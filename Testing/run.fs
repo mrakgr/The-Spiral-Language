@@ -144,8 +144,29 @@ inl random =
     inl generator_type = fs [text: "ManagedCuda.CudaRand.GeneratorType"]
     FS.Constructor (fs [text: "ManagedCuda.CudaRand.CudaRandDevice"]) (FS.StaticField generator_type .PseudoDefault generator_type)
 
+inl enum ty x = FS.StaticField ty x ty
+inl cublas =
+    inl cublas_type = fs [text: "ManagedCuda.CudaBlas.CudaBlas"]
+    inl pointer_mode_type = fs [text: "ManagedCuda.CudaBlas.PointerMode"]
+    inl atomics_mode_type = fs [text: "ManagedCuda.CudaBlas.AtomicsMode"]
+    FS.Constructor cublas_type (enum pointer_mode_type .Host, enum atomics_mode_type .Allowed)
+
+inl operation_type = fs [text: "ManagedCuda.CudaBlas.Operation"]
+inl to_operation = function
+    | .T -> enum operation_type .Transpose
+    | .nT -> enum operation_type .NonTranspose
+
+inl isT x = function
+    | .T -> true
+    | _ -> false
+inl isnT x = function
+    | .nT -> true
+    | _ -> false
+
 inl CudaKernels stream =
     open HostTensor
+
+    inl set_stream x = FS.Method x .SetStream (Stream.extract stream) unit
 
     inl fill_random_array op size1d ar =
         inl elem_type = ar.elem_type
@@ -177,6 +198,7 @@ inl CudaKernels stream =
             !MacroFs(unit,[arg: random; text: dot; text: gen; text: bits; args: args])
 
     inl fill_random op (!zip in) =
+        set_stream random
         inl in' = coerce_to_1d in |> to_device_tensor_form
         map_tensor (fill_random_array op (total_size (in'.size) |> SizeT)) in' |> ignore
 
@@ -249,34 +271,110 @@ inl CudaKernels stream =
         else
             final_reduce map in
 
-    FS.Method random .SetStream (Stream.extract stream) unit
 
-    {map map_redo fill_random}
+    /// General matrix-matrix multiply from cuBLAS. Inplace version
+    inl gemm transa transb alpha A B beta C =
+        set_stream cublas
+        inl handle = FS.Method cublas .get_Handle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
+        inl native_type = fs [text: "ManagedCuda.CudaBlas.NativeMethods"]
+        inl assert_ok status = !MacroFS(unit,[text: "if "; arg: status; text: " <> CublasStatus.Success then raise <| new CudaBlasException(_status)"])
+        inl call m x = FS.StaticMethod native_type m x unit |> assert_ok
+        
+        // -------
 
-open CudaKernels (Stream.create())
-open Console
+        // These two are meant to be called from inside gemm as they lack boundary checks.
+        // I've added them to enhance gemm's vector handling capabilities for online learning
+        // tasks.
+
+        /// o <- alpha * op(A) * x + beta * o
+        /// Matrix-vector multiplication. Inplace version.
+        inl gemv transa alpha A x beta o =
+            let m,n = A.size
+            let lda = m
+            call.cublasSgemv_v2(handle, to_operation transa, m, n, ref alpha, A.ar, lda, x.ar, 1, ref beta, o.ar, 1)
+
+        // A <- alpha * x * yT + beta * A (outer product)
+        inl ger alpha x y beta a =
+            inl max (a,b) = max a b
+            let m = max (x.size)
+            let n = max (y.size)
+
+            match beta with
+            | 1.0f64 | 1.0f32 -> ()
+            | _ -> FS.Method context .ClearMemoryAsync (a.ar,0u8,total_size (a.size) * sizeof (a.ar.elem_type) |> SizeT,Stream.extract stream) unit
+
+            call.cublasSger_v2(handle, m, n, ref alpha, x.ar, 1, y.ar, 1, a.ar, m)
+
+        // -------
+
+        inl rows x = x.size |> inl a,b -> a
+        inl cols x = x.size |> inl a,b -> b
+        inl is_vector x = rows x = 1 || cols x = 1
+
+        let a_col = if isnT transa then cols A else rows A
+        let b_row = if isnT transb then rows B else cols B
+        assert (a_col = b_row) <| inl _ ->
+            inl a_col, b_row = dyn (a_col, b_row)
+            inl msg = "a_col(",a_col,") <> b_row(",b_row,") in gemm."
+            join (string_concat "" msg)
+
+        let m = if isnT transa then rows A else cols A
+        let n = if isnT transb then cols B else rows B
+        let k = a_col
+        let lda = if isnT transa then m else k
+        let ldb = if isnT transb then k else n
+        let ldc = m
+
+        assert (m = rows C && n = cols C) <| inl _ -> 
+            inl m, rows_C, n, cols_C = dyn (m, rows C, n, cols C)
+            inl msg = "m(",m,") <> rows C(",rows_C,") || n(",n,") <> cols C(",cols_C,")" m (rows C) n (cols C)
+            join (string_concat "" msg)
+
+        // If is outer product call ger
+        if a_col = 1 && b_row = 1 then ger alpha A B beta C
+        // If the vector is on the right side or both are vectors call gemv normally.
+        elif is_vector B then gemv transa alpha A B beta C
+        // If the vector is on the left side call gemv with the arguments switched and transposed
+        // It does not actually transpose them, just their views. The function should work regardless.
+        elif is_vector A then
+            inl optb = if isnT transb then .T else .nT
+            gemv optb alpha B A beta C
+        // Just do the standard matrix multiply
+        else
+            call.cublasSgemm_v2(handle,to_operation transa, to_operation transb, m, n, k, ref alpha, A.ar, lda, B, ldb, ref beta, C.ar, ldc)
+
+    {map map_redo gemm fill_random}
 
 inl (>>=) a b ret = a <| inl a -> b a ret
 inl succ a ret = ret a
 
-inl program_random = 
+open CudaKernels (Stream.create())
+open Console
+
+inl test_random = 
     //inl host_tensor = HostTensor.init 32 (unsafe_convert float32)
     inm device_tensor = create {layout= .toa; size=32; elem_type=float32}
     fill_random {op=.LogNormal; stddev=1.0f32; mean=0f32} device_tensor
     inl {ar} = to_host_tensor device_tensor
     succ (Array.show_array ar |> writeline)
 
-inl program_map = 
+inl test_map = 
     inl host_tensor = HostTensor.init 32 (unsafe_convert float32)
     inm {ar} = from_host_tensor host_tensor >>= map ((*) (dyn 2f32)) >>= (to_host_tensor >> succ)
     succ (Array.show_array ar |> writeline)
 
-inl program_map_redo =
-    inl force x = x ()
-    inl host_tensor = HostTensor.init 64 (unsafe_convert float32)
-    from_host_tensor host_tensor >>= map_redo {map=id; redo=(+)} >>= (force >> writeline >> succ)
+inl test_map_redo =
+    inl force x ret = ret (x ())
+    // In this example the only thing that happens after the merge is the writeline, but it would be useful if there
+    // is more stuff after it. The merge would be an effective tool for keeping the code bloat down in that case.
+    inl merge x ret = join (ret x) 
+    inl host_tensor = HostTensor.init (dyn 64) (unsafe_convert float32)
+    from_host_tensor host_tensor >>= map_redo {map=id; redo=(+)} >>= force >>= merge >>= (writeline >> succ)
 
-program_map_redo id
+inl learning_tests =
+    test_random, test_map
+
+test_map_redo id
     """
 
 let cfg: Spiral.Types.CompilerSettings = {
@@ -289,6 +387,6 @@ let cfg: Spiral.Types.CompilerSettings = {
 //rewrite_test_cache cfg None //(Some(80,tests.Length))
 
 output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary" learning
-|> printfn "%s"
+//|> printfn "%s"
 |> ignore
 
