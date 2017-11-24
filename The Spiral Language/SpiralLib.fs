@@ -936,171 +936,173 @@ let cuda =
     (
     "Cuda",[loops;console;array;host_tensor;extern_],"The Cuda module.",
     """
-inl ret ->
-    open Extern
-    open Console
 
-    inl cuda_kernels = FS.Constant.cuda_kernels string
-    inl join_point_entry_cuda x = !JoinPointEntryCuda(x())
+open Extern
+open Console
 
-    inl cuda_constant a t = !MacroCuda(t,[text: a])
+inl cuda_kernels = FS.Constant.cuda_kernels string
+inl join_point_entry_cuda x = !JoinPointEntryCuda(x())
 
-    inl cuda_constant_int constant () = cuda_constant constant int64
-    inl __threadIdxX = cuda_constant_int "threadIdx.x"
-    inl __threadIdxY = cuda_constant_int "threadIdx.y"
-    inl __threadIdxZ = cuda_constant_int "threadIdx.z"
-    inl __blockIdxX = cuda_constant_int "blockIdx.x"
-    inl __blockIdxY = cuda_constant_int "blockIdx.y"
-    inl __blockIdxZ = cuda_constant_int "blockIdx.z"
+inl cuda_constant a t = !MacroCuda(t,[text: a])
 
-    inl __blockDimX = cuda_constant_int "blockDim.x"
-    inl __blockDimY = cuda_constant_int "blockDim.y"
-    inl __blockDimZ = cuda_constant_int "blockDim.z"
-    inl __gridDimX = cuda_constant_int "gridDim.x"
-    inl __gridDimY = cuda_constant_int "gridDim.y"
-    inl __gridDimZ = cuda_constant_int "gridDim.z"
+inl cuda_constant_int constant () = cuda_constant constant int64
+inl __threadIdxX = cuda_constant_int "threadIdx.x"
+inl __threadIdxY = cuda_constant_int "threadIdx.y"
+inl __threadIdxZ = cuda_constant_int "threadIdx.z"
+inl __blockIdxX = cuda_constant_int "blockIdx.x"
+inl __blockIdxY = cuda_constant_int "blockIdx.y"
+inl __blockIdxZ = cuda_constant_int "blockIdx.z"
 
-    inl cuda_toolkit_path = @PathCuda
-    inl visual_studio_path = @PathVS2017
-    inl cub_path = @PathCub
+inl __blockDimX = cuda_constant_int "blockDim.x"
+inl __blockDimY = cuda_constant_int "blockDim.y"
+inl __blockDimZ = cuda_constant_int "blockDim.z"
+inl __gridDimX = cuda_constant_int "gridDim.x"
+inl __gridDimY = cuda_constant_int "gridDim.y"
+inl __gridDimZ = cuda_constant_int "gridDim.z"
 
-    inl env_type = fs [text: "System.Environment"]
-    inl context_type = fs [text: "ManagedCuda.CudaContext"]
-    use context = FS.Constructor context_type false
-    FS.Method context .Synchronize() unit
+inl cuda_toolkit_path = @PathCuda
+inl visual_studio_path = @PathVS2017
+inl cub_path = @PathCub
 
-    inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
-        inl path_type = fs [text: "System.IO.Path"]
-        inl file_type = fs [text: "System.IO.File"]
-        inl stream_type = fs [text: "System.IO.Stream"]
-        inl streamwriter_type = fs [text: "System.IO.StreamWriter"]
-        inl process_start_info_type = fs [text: "System.Diagnostics.ProcessStartInfo"]
-        inl combine x = FS.StaticMethod path_type .Combine x string
+inl env_type = fs [text: "System.Environment"]
+inl context_type = fs [text: "ManagedCuda.CudaContext"]
+inl context = FS.Constructor context_type false
+FS.Method context .Synchronize() unit
 
-        inl nvcc_router_path = combine (kernels_dir,"nvcc_router.bat")
-        inl procStartInfo = FS.Constructor process_start_info_type ()
-        FS.Method procStartInfo.set_RedirectStandardOutput true unit
-        FS.Method procStartInfo.set_RedirectStandardError true unit
-        FS.Method procStartInfo.set_UseShellExecute false unit
-        FS.Method procStartInfo.set_FileName nvcc_router_path unit
+inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
+    inl path_type = fs [text: "System.IO.Path"]
+    inl file_type = fs [text: "System.IO.File"]
+    inl stream_type = fs [text: "System.IO.Stream"]
+    inl streamwriter_type = fs [text: "System.IO.StreamWriter"]
+    inl process_start_info_type = fs [text: "System.Diagnostics.ProcessStartInfo"]
+    inl combine x = FS.StaticMethod path_type .Combine x string
 
-        inl process_type = fs [text: "System.Diagnostics.Process"]
-        use process = FS.Constructor process_type ()
-        FS.Method process .set_StartInfo procStartInfo unit
-        inl print_to_standard_output = 
-            closure_of (inl args -> FS.Method args.get_Data() string |> writeline) 
-                (fs [text: "System.Diagnostics.DataReceivedEventArgs"] => ())
+    inl nvcc_router_path = combine (kernels_dir,"nvcc_router.bat")
+    inl procStartInfo = FS.Constructor process_start_info_type ()
+    FS.Method procStartInfo.set_RedirectStandardOutput true unit
+    FS.Method procStartInfo.set_RedirectStandardError true unit
+    FS.Method procStartInfo.set_UseShellExecute false unit
+    FS.Method procStartInfo.set_FileName nvcc_router_path unit
 
-        FS.Method process ."OutputDataReceived.Add" print_to_standard_output ()
-        FS.Method process ."ErrorDataReceived.Add" print_to_standard_output ()
+    inl process_type = fs [text: "System.Diagnostics.Process"]
+    use process = FS.Constructor process_type ()
+    FS.Method process .set_StartInfo procStartInfo unit
+    inl print_to_standard_output = 
+        closure_of (inl args -> FS.Method args.get_Data() string |> writeline) 
+            (fs [text: "System.Diagnostics.DataReceivedEventArgs"] => ())
 
-        inl concat = string_concat ""
-        inl (+) a b = concat (a, b)
+    FS.Method process ."OutputDataReceived.Add" print_to_standard_output ()
+    FS.Method process ."ErrorDataReceived.Add" print_to_standard_output ()
 
-        /// Puts quotes around the string.
-        inl quote x = ('"',x,'"')
-        inl call x = ("CALL ", x)
-        inl quoted_vs_path_to_vcvars = combine(visual_studio_path, @"VC\Auxiliary\Build\vcvarsx86_amd64.bat") |> quote
-        inl quoted_vs_path_to_cl = combine(visual_studio_path, @"VC\Tools\MSVC\14.11.25503\bin\Hostx64\x64") |> quote
-        inl quoted_cuda_toolkit_path_to_include = combine(cuda_toolkit_path,"include") |> quote
-        inl quoted_vc_path_to_include = combine(visual_studio_path, @"VC\Tools\MSVC\14.11.25503\include") |> quote
-        inl quoted_nvcc_path = combine(cuda_toolkit_path,@"bin\nvcc.exe") |> quote
-        inl quoted_cub_path_to_include = cub_path |> quote
-        inl quoted_kernels_dir = kernels_dir |> quote
-        inl target_path = combine(kernels_dir,"cuda_kernels.ptx")
-        inl quoted_target_path = target_path |> quote
-        inl input_path = combine(kernels_dir,"cuda_kernels.cu")
-        inl quoted_input_path = input_path |> quote
+    inl concat = string_concat ""
+    inl (+) a b = concat (a, b)
 
-        if FS.StaticMethod file_type .Exists input_path bool then FS.StaticMethod file_type .Delete input_path unit
-        FS.StaticMethod file_type .WriteAllText(input_path,cuda_kernels) unit
+    /// Puts quotes around the string.
+    inl quote x = ('"',x,'"')
+    inl call x = ("CALL ", x)
+    inl quoted_vs_path_to_vcvars = combine(visual_studio_path, @"VC\Auxiliary\Build\vcvarsx86_amd64.bat") |> quote
+    inl quoted_vs_path_to_cl = combine(visual_studio_path, @"VC\Tools\MSVC\14.11.25503\bin\Hostx64\x64") |> quote
+    inl quoted_cuda_toolkit_path_to_include = combine(cuda_toolkit_path,"include") |> quote
+    inl quoted_vc_path_to_include = combine(visual_studio_path, @"VC\Tools\MSVC\14.11.25503\include") |> quote
+    inl quoted_nvcc_path = combine(cuda_toolkit_path,@"bin\nvcc.exe") |> quote
+    inl quoted_cub_path_to_include = cub_path |> quote
+    inl quoted_kernels_dir = kernels_dir |> quote
+    inl target_path = combine(kernels_dir,"cuda_kernels.ptx")
+    inl quoted_target_path = target_path |> quote
+    inl input_path = combine(kernels_dir,"cuda_kernels.cu")
+    inl quoted_input_path = input_path |> quote
+
+    if FS.StaticMethod file_type .Exists input_path bool then FS.StaticMethod file_type .Delete input_path unit
+    FS.StaticMethod file_type .WriteAllText(input_path,cuda_kernels) unit
    
-        inl _ = 
-            if FS.StaticMethod file_type .Exists nvcc_router_path bool then FS.StaticMethod file_type .Delete nvcc_router_path unit
-            inl filestream_type = fs [text: "System.IO.FileStream"]
+    inl _ = 
+        if FS.StaticMethod file_type .Exists nvcc_router_path bool then FS.StaticMethod file_type .Delete nvcc_router_path unit
+        inl filestream_type = fs [text: "System.IO.FileStream"]
 
-            use nvcc_router_file = FS.StaticMethod file_type .OpenWrite(nvcc_router_path) filestream_type
-            use nvcc_router_stream = FS.Constructor streamwriter_type nvcc_router_file
+        use nvcc_router_file = FS.StaticMethod file_type .OpenWrite(nvcc_router_path) filestream_type
+        use nvcc_router_stream = FS.Constructor streamwriter_type nvcc_router_file
 
-            inl write_to_batch = concat >> inl x -> FS.Method nvcc_router_stream.WriteLine x unit
+        inl write_to_batch = concat >> inl x -> FS.Method nvcc_router_stream.WriteLine x unit
 
-            "SETLOCAL" |> write_to_batch
-            call quoted_vs_path_to_vcvars |> write_to_batch
-            ("SET PATH=%PATH%;", quoted_vs_path_to_cl) |> write_to_batch
-            (
-            quoted_nvcc_path, " -gencode=arch=compute_30,code=\\\"sm_30,compute_30\\\" --use-local-env --cl-version 2017",
-            " -I", quoted_cuda_toolkit_path_to_include,
-            " -I", quoted_cub_path_to_include,
-            " -I", quoted_vc_path_to_include,
-            " --keep-dir ",quoted_kernels_dir,
-            " -maxrregcount=0  --machine 64 -ptx -cudart static  -o ",quoted_target_path,' ',quoted_input_path
-            ) |> write_to_batch
+        "SETLOCAL" |> write_to_batch
+        call quoted_vs_path_to_vcvars |> write_to_batch
+        ("SET PATH=%PATH%;", quoted_vs_path_to_cl) |> write_to_batch
+        (
+        quoted_nvcc_path, " -gencode=arch=compute_30,code=\\\"sm_30,compute_30\\\" --use-local-env --cl-version 2017",
+        " -I", quoted_cuda_toolkit_path_to_include,
+        " -I", quoted_cub_path_to_include,
+        " -I", quoted_vc_path_to_include,
+        " --keep-dir ",quoted_kernels_dir,
+        " -maxrregcount=0  --machine 64 -ptx -cudart static  -o ",quoted_target_path,' ',quoted_input_path
+        ) |> write_to_batch
 
-        inl stopwatch_type = fs [text: "System.Diagnostics.Stopwatch"]
-        inl timer = FS.StaticMethod stopwatch_type .StartNew () stopwatch_type
-        if FS.Method process.Start() bool = false then failwith unit "NVCC failed to run."
-        FS.Method process.BeginOutputReadLine() unit
-        FS.Method process.BeginErrorReadLine() unit
-        FS.Method process.WaitForExit() unit
+    inl stopwatch_type = fs [text: "System.Diagnostics.Stopwatch"]
+    inl timer = FS.StaticMethod stopwatch_type .StartNew () stopwatch_type
+    if FS.Method process.Start() bool = false then failwith unit "NVCC failed to run."
+    FS.Method process.BeginOutputReadLine() unit
+    FS.Method process.BeginErrorReadLine() unit
+    FS.Method process.WaitForExit() unit
 
-        inl exit_code = FS.Method process.get_ExitCode() int32
-        if exit_code <> 0i32 then failwith unit <| concat ("NVCC failed compilation with code ", exit_code)
+    inl exit_code = FS.Method process.get_ExitCode() int32
+    if exit_code <> 0i32 then failwith unit <| concat ("NVCC failed compilation with code ", exit_code)
     
-        inl elapsed = FS.Method timer .get_Elapsed() (fs [text: "System.TimeSpan"])
-        !MacroFs(unit,[text: "printfn \"The time it took to compile the Cuda kernels is: %A\" "; arg: elapsed])
+    inl elapsed = FS.Method timer .get_Elapsed() (fs [text: "System.TimeSpan"])
+    !MacroFs(unit,[text: "printfn \"The time it took to compile the Cuda kernels is: %A\" "; arg: elapsed])
 
-        FS.Method context.LoadModulePTX target_path (fs [text: "ManagedCuda.BasicTypes.CUmodule"])
+    FS.Method context.LoadModulePTX target_path (fs [text: "ManagedCuda.BasicTypes.CUmodule"])
 
-    inl current_directory = FS.StaticMethod env_type .get_CurrentDirectory() string
-    inl modules = compile_kernel_using_nvcc_bat_router current_directory
-    writeline (string_concat "" ("Compiled the kernels into the following directory: ", current_directory))
+inl current_directory = FS.StaticMethod env_type .get_CurrentDirectory() string
+inl modules = compile_kernel_using_nvcc_bat_router current_directory
+writeline (string_concat "" ("Compiled the kernels into the following directory: ", current_directory))
 
-    inl dim3 = function
-        | {x y z} as m -> m
-        | x,y,z -> {x=x: int64; y=y: int64; z=z: int64}
-        | x,y -> {x=x: int64; y=y: int64; z=1}
-        | x -> {x=x: int64; y=1; z=1}
+inl dim3 = function
+    | {x y z} as m -> m
+    | x,y,z -> {x=x: int64; y=y: int64; z=z: int64}
+    | x,y -> {x=x: int64; y=y: int64; z=1}
+    | x -> {x=x: int64; y=1; z=1}
 
-    inl Stream =
-        inl ty x = fs [text: x]
-        inl CudaStream_type = ty."ManagedCuda.CudaStream"
-        inl CUstream_type = ty."ManagedCuda.BasicTypes.CUstream"
+inl Stream =
+    inl ty x = fs [text: x]
+    inl CudaStream_type = ty."ManagedCuda.CudaStream"
+    inl CUstream_type = ty."ManagedCuda.BasicTypes.CUstream"
 
-        {create = inl x -> FS.Constructor CudaStream_type x
-         extract = inl x -> FS.Method x.get_Stream() CUstream_type } |> stack
+    {create = inl x -> FS.Constructor CudaStream_type x
+        extract = inl x -> FS.Method x.get_Stream() CUstream_type } |> stack
 
-    inl run {blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} as runable =
-        inl to_obj_ar args =
-            inl len = Tuple.length args
-            inl typ = fs [text: "System.Object"]
-            if len > 0 then Array.init.static len (inl x -> Tuple.index args (len-1-x) :> typ)
-            else Array.empty typ
+inl run {blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} as runable =
+    inl to_obj_ar args =
+        inl len = Tuple.length args
+        inl typ = fs [text: "System.Object"]
+        if len > 0 then Array.init.static len (inl x -> Tuple.index args (len-1-x) :> typ)
+        else Array.empty typ
 
-        inl kernel =
-            inl map_to_op_if_not_static {x y z} (x', y', z') = 
-                inl f x x' = if lit_is x then const x else x' 
-                f x x', f y y', f z z'
-            inl x,y,z = map_to_op_if_not_static blockDim (__blockDimX,__blockDimY,__blockDimZ)
-            inl x',y',z' = map_to_op_if_not_static gridDim (__gridDimX,__gridDimY,__gridDimZ)
-            inl _ -> // This convoluted way of swaping non-literals for ops is so they do not get called outside of the kernel.
-                inl threadIdx = {x=__threadIdxX(); y=__threadIdxY(); z=__threadIdxZ()}
-                inl blockIdx = {x=__blockIdxX(); y=__blockIdxY(); z=__blockIdxZ()}
-                inl blockDim = {x=x(); y=y(); z=z()}
-                inl gridDim = {x=x'(); y=y'(); z=z'()}
-                kernel threadIdx blockIdx blockDim gridDim
-        inl method_name, !to_obj_ar args = join_point_entry_cuda kernel
-        inl dim3 {x y z} = Tuple.map (unsafe_convert uint32) (x,y,z) |> FS.Constructor (fs [text: "ManagedCuda.VectorTypes.dim3"])
+    inl kernel =
+        inl map_to_op_if_not_static {x y z} (x', y', z') = 
+            inl f x x' = if lit_is x then const x else x' 
+            f x x', f y y', f z z'
+        inl x,y,z = map_to_op_if_not_static blockDim (__blockDimX,__blockDimY,__blockDimZ)
+        inl x',y',z' = map_to_op_if_not_static gridDim (__gridDimX,__gridDimY,__gridDimZ)
+        inl _ -> // This convoluted way of swaping non-literals for ops is so they do not get called outside of the kernel.
+            inl threadIdx = {x=__threadIdxX(); y=__threadIdxY(); z=__threadIdxZ()}
+            inl blockIdx = {x=__blockIdxX(); y=__blockIdxY(); z=__blockIdxZ()}
+            inl blockDim = {x=x(); y=y(); z=z()}
+            inl gridDim = {x=x'(); y=y'(); z=z'()}
+            kernel threadIdx blockIdx blockDim gridDim
+    inl method_name, !to_obj_ar args = join_point_entry_cuda kernel
+    inl dim3 {x y z} = Tuple.map (unsafe_convert uint32) (x,y,z) |> FS.Constructor (fs [text: "ManagedCuda.VectorTypes.dim3"])
     
-        inl context = match runable with | {context} | _ -> context
-        inl kernel_type = fs [text: "ManagedCuda.CudaKernel"]
-        inl cuda_kernel = FS.Constructor kernel_type (method_name,modules,context)
-        FS.Method cuda_kernel.set_GridDimensions(dim3 gridDim) unit
-        FS.Method cuda_kernel.set_BlockDimensions(dim3 blockDim) unit
+    inl context = match runable with | {context} | _ -> context
+    inl kernel_type = fs [text: "ManagedCuda.CudaKernel"]
+    inl cuda_kernel = FS.Constructor kernel_type (method_name,modules,context)
+    FS.Method cuda_kernel.set_GridDimensions(dim3 gridDim) unit
+    FS.Method cuda_kernel.set_BlockDimensions(dim3 blockDim) unit
 
-        match runable with
-        | {stream} -> FS.Method cuda_kernel.RunAsync(Stream.extract stream,args) unit
-        | _ -> FS.Method cuda_kernel.Run(args) float32
+    match runable with
+    | {stream} -> FS.Method cuda_kernel.RunAsync(Stream.extract stream,args) unit
+    | _ -> FS.Method cuda_kernel.Run(args) float32
 
+inl ret -> 
+    use context = context
     ret {Stream context dim3 run}
     """) |> module_
 
