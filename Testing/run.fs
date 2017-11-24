@@ -413,7 +413,7 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //rewrite_test_cache cfg None //(Some(80,tests.Length))
 
-output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary" learning
+output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
 |> printfn "%s"
 |> ignore
 

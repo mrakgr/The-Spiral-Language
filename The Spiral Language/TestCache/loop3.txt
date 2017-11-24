@@ -1,9 +1,0 @@
-module SpiralExample.Main
-let cuda_kernels = """
-extern "C" {
-    
-}
-"""
-
-System.Console.WriteLine(14L)
-

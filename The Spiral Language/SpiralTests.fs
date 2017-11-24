@@ -1854,6 +1854,7 @@ let tests =
     |]
 
 open System.IO
+open System
 
 let run_test_and_store_it_to_stream cfg stream (name,aux,desc,body as m) =
     let main_module = module_ m
@@ -1868,17 +1869,12 @@ let output_test_to_string cfg test =
 let output_test_to_temp cfg path test = 
     match spiral_peval cfg (module_ test) with
     | Succ x | Fail x -> 
-        let file = if x.Length > 1024*128 then "output.txt" else "output.fs"
-        File.WriteAllText(Path.Combine(path,file),x)
+        if File.Exists path then File.WriteAllText(path,x)
+        else failwithf "File %s not found.\nNote to new users: In order to prevent files being made in the middle of nowhere this check was inserted.\nWhat you should do is create a new F# project with an F# file and point the compiler to it instead." path
         x
 
-let output_tests_to_file cfg file =
-    let s = System.Text.StringBuilder()
-    Array.iter (run_test_and_store_it_to_stream cfg (s.AppendLine >> ignore)) tests
-    File.WriteAllText(Path.Combine(__SOURCE_DIRECTORY__,file),s.ToString())
-
 let make_test_path_from_name name =
-    let dir = Path.Combine(__SOURCE_DIRECTORY__,"TestCache")
+    let dir = Path.Combine(Environment.CurrentDirectory,"TestCache")
     Directory.CreateDirectory dir |> ignore
     Path.Combine(dir,name+".txt")
 
