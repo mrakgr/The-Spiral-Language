@@ -401,7 +401,7 @@ inl test_gemm =
     inm b = create' (2,4)
     gemm .nT .nT 1.0f32 a b >>= (to_host_tensor >> HostTensor.show_tensor >> writeline >> succ)
 
-inl test_forward_pass = 
+inl test_forward_pass {num_iters} = 
     inl hidden_size = 10
     inl input_size = 768
     inl batch_size = 128
@@ -426,17 +426,24 @@ inl test_forward_pass =
         square = inl (x,y) -> y - x |> inl t -> t * t
         }
 
-    gemm .nT .nT 1f32 example weight 
-    >>= map sigmoid 
-    >>= inl input -> map_redo {map=Error.square; redo=(+)} (input,label)
-    >>= force
-    >>= (writeline >> succ)
+    inl pass =
+        gemm .nT .nT 1f32 example weight 
+        >>= map sigmoid 
+        >>= inl input -> map_redo {map=Error.square; redo=(+)} (input,label)
+        >>= force
+        >>= (writeline >> succ)
+        |> heap
 
+    Loops.for {from=0; near_to=num_iters; body = inl {i} ->
+        writeline ("On iteration ",i)
+        pass id
+        }
+    |> succ
 
 inl learning_tests =
     test_random, test_map, test_map_redo, test_gemm
 
-test_forward_pass id
+test_forward_pass {num_iters=100} id
     """
 
 let cfg: Spiral.Types.CompilerSettings = {

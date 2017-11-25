@@ -563,25 +563,24 @@ open Array
 empty int64, singleton 2.2
     """
 
-// Extension patterns are to be replaced.
-//let test44 =
-//    "test44",[],"Do or extension active patterns work?",
-//    """
-//inl f x on_fail on_succ =
-//    match x with
-//    | [tup: 4, x] -> on_succ x // This one does not get triggered due to not being in m
-//    | [tup: 3, x] -> on_succ x
-//    | [tup: 2, x] -> on_succ x
-//    | [var: x] -> on_succ ("is_var",x)
-//    | _ -> on_fail()
+let test44 =
+    "test44",[],"Do or extension active patterns work?",
+    """
+inl f x on_fail on_succ =
+    match x with
+    | (.tup, (4, x)) -> on_succ x // This one does not get triggered due to not being in m
+    | (tup, (3, x)) -> on_succ x
+    | (tup, (2, x)) -> on_succ x
+    | (var, x) -> on_succ ("is_var",x)
+    | _ -> on_fail()
 
-//inl m m1 = function
-//    | #m1 (x,_,_ | x,_ | x) -> x
-//    | _ -> error_type "The call to m1 failed."
+inl m m1 = function
+    | #m1 (x,_,_ | x,_ | x) -> x
+    | _ -> error_type "The call to m1 failed."
 
-//// Tuple4(Tuple1("is_var", true), 2.200000f, "a", Tuple3("is_var", Tuple2(1L, 2L, 3L, 4L)))
-//m f true, m f (2.2,3.3), m f ("a","b","c"), m f (1,2,3,4)
-//    """
+// Tuple4(Tuple1("is_var", true), 2.200000f, "a", Tuple3("is_var", Tuple2(1L, 2L, 3L, 4L)))
+m f true, m f (2.2,3.3), m f ("a","b","c"), m f (1,2,3,4)
+    """
 
 let test45 =
     "test45",[],"Do `type` and `when` patterns work with combination extension patterns?",

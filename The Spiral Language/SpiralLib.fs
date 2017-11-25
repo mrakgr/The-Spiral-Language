@@ -747,8 +747,12 @@ inl readall () =
     |> inl x -> FS.Method x.ReadToEnd() string
 inl readline () = FS.StaticMethod console_type .ReadLine() string
 
-inl write x = FS.StaticMethod console_type .Write x unit
-inl writeline x = FS.StaticMethod console_type .WriteLine x unit
+inl write x = 
+    inl x = string_concat "" x
+    FS.StaticMethod console_type .Write x unit
+inl writeline x = 
+    inl x = string_concat "" x
+    FS.StaticMethod console_type .WriteLine x unit
 
 inl printf_template cont = 
     Parsing.sprintf_template write {
