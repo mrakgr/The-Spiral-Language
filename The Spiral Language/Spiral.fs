@@ -1214,7 +1214,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let error_non_unit d a =
             let x = tev d a 
-            if get_type x <> BListT then on_type_er (trace d) "Only the last expression of a block is allowed to be unit. Use `ignore` if it intended to be such."
+            let er l = on_type_er l <| sprintf "Only the last expression of a block is allowed to be unit. Use `ignore` if it intended to be such.\nGot: %s" (show_typedexpr x)
+            if get_type x <> BListT then 
+                match a with
+                | ExprPos x -> er (x.Pos :: trace d)
+                | _ -> er (trace d)
             else x
 
         let type_lit_create d a =
@@ -2127,13 +2131,13 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let i = col s
             let inline if_ op tr s = expr_indent i op tr s
             let inline many_indents expr = many1 (if_ (<=) (expr .>> optional semicolon))
-            many_indents ((statements |>> ParserStatement) <|> (expressions |>> ParserExpr)) >>= process_parser_exprs <| s
+            many_indents ((statements |>> ParserStatement) <|> (exprpos expressions |>> ParserExpr)) >>= process_parser_exprs <| s
 
         let application expr (s: CharStream<_>) =
             let i = (col s)
             let expr_up (s: CharStream<_>) = expr_indent i (<) expr s
     
-            exprpos (pipe2 expr (many expr_up) (List.fold ap)) s
+            pipe2 expr (many expr_up) (List.fold ap) s
 
         let tuple expr (s: CharStream<_>) =
             let i = (col s)
