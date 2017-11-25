@@ -126,10 +126,10 @@ inl CudaTensor allocator =
             Tuple.iter (inl {size=sb layout=lb} -> 
                 assert (sa=sb) "The sizes of all the tensors in zip must be the same in order to be zipped"
                 assert (eq_type la lb) "The layouts of all the tensors must have the same format."
-                )
+                ) xs
             match la with
             | .aot -> error_type "Array of tuples tensor layout is currently not supported."
-            | .toa -> {size=sa layout=la ar = Tuple.map (inl {ar} -> ar) l}
+            | .toa -> {size=sa; layout=la; ar = Tuple.map (inl {ar} -> ar) l}
         | () -> error_type "Empty input to zip is invalid."
         | x -> x
         
@@ -246,11 +246,12 @@ inl CudaKernels stream =
             inl blockDim = 128
             inl gridDim = near_to / blockDim
             inl elem_type = type (map (elem_type in))
+            inl ty = elem_type
 
             inl cub_block_reduce thread_result redo =
-                !MacroCuda(elem_type,[
+                !MacroCuda(ty,[
                     text: "cub::BlockReduce"
-                    iter: "<",",",">",[type: elem_type; arg: blockDim]
+                    iter: "<",",",">",[type: ty; arg: blockDim]
                     args: ()
                     text: ".Reduce"
                     args: thread_result, redo])
@@ -268,7 +269,7 @@ inl CudaKernels stream =
                     inl load i = map (index_unsafe in' i)
                     inl thread_result = Loops.for {from=from+by; near_to by state=load from; body=inl {state i} -> redo state (load i)}
 
-                    inl redo = closure_of (inl a,b -> redo a b) ((t,t) => t)
+                    inl redo = closure_of (inl a,b -> redo a b) ((ty,ty) => ty)
                     inl block_result = cub_block_reduce thread_result redo
                     if threadIdx.x = 0 then set_unsafe out' (blockIdx.x) block_result
                 } |> ignore
@@ -361,6 +362,8 @@ inl CudaKernels stream =
 
     {map map_redo gemm fill_random}
 
+inl force x ret = ret (x ())
+inl merge x ret = join (ret x)
 inl (>>=) a b ret = a <| inl a -> b a ret
 inl succ a ret = ret a
 
@@ -387,20 +390,53 @@ inl test_map_redo =
     inl host_tensor = HostTensor.init (dyn 64) (unsafe_convert float32)
     from_host_tensor host_tensor >>= map_redo {map=id; redo=(+)} >>= force >>= merge >>= (writeline >> succ)
 
+inl create_random_tensor op size =
+    inm device_tensor = create {layout= .toa; size elem_type=float32}
+    fill_random op device_tensor
+    succ device_tensor
+
 inl test_gemm =
-    inl create' size =
-        inm device_tensor = create {layout= .toa; size elem_type=float32}
-        fill_random {op=.LogNormal; stddev=1.0f32; mean=0f32} device_tensor
-        succ device_tensor
+    inl create' = create_random_tensor {op=.LogNormal; stddev=1.0f32; mean=0f32}
     inm a = create' (4,2)
     inm b = create' (2,4)
     gemm .nT .nT 1.0f32 a b >>= (to_host_tensor >> HostTensor.show_tensor >> writeline >> succ)
-    
+
+inl test_forward_pass = 
+    inl hidden_size = 10
+    inl input_size = 768
+    inl batch_size = 128
+    inl example_size = batch_size, input_size
+    inl weight_size = input_size, hidden_size
+    inl label_size = batch_size, hidden_size
+
+    inl sqrt x = FS.UnOp .sqrt x x
+    inl create' size = 
+        inl stddev = 1f32 / sqrt (Tuple.foldl (+) 0 size |> unsafe_convert float32)
+        create_random_tensor {op=.Normal; stddev mean=0f32} size
+
+    // A text would load the data from a Mnist file.
+    inm example = create' example_size 
+    inm weight = create' weight_size
+    inm label = create' label_size
+
+    inl sigmoid x = 1f32 / (1f32 + (exp (-x)))
+
+    inl Error = {
+        cross_entropy = inl (x,y) -> -(y * log x + (1-y) * log (1-x))
+        square = inl (x,y) -> y - x |> inl t -> t * t
+        }
+
+    gemm .nT .nT 1f32 example weight 
+    >>= map sigmoid 
+    >>= inl input -> map_redo {map=Error.square; redo=(+)} (input,label)
+    >>= force
+    >>= (writeline >> succ)
+
 
 inl learning_tests =
     test_random, test_map, test_map_redo, test_gemm
 
-test_gemm id
+test_forward_pass id
     """
 
 let cfg: Spiral.Types.CompilerSettings = {

@@ -3011,9 +3011,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                             let args = List.rev fv |> List.mapi (fun i x -> sprintf "mem_%i = %s" i (print_tyv_with_type x)) |> String.concat "; "
                             sprintf "({%s} : %s)" args (print_tag_env (layout_from_op op |> Some) t)
                         | _ -> failwith "impossible"
-                    | Log,[x] -> sprintf "log(%s)" (codegen x)
-                    | Exp,[x] -> sprintf "exp(%s)" (codegen x)
-                    | Tanh,[x] -> sprintf "tanh(%s)" (codegen x)
+                    | Log,[x] -> sprintf "(log %s)" (codegen x)
+                    | Exp,[x] -> sprintf "(exp %s)" (codegen x)
+                    | Tanh,[x] -> sprintf "(tanh %s)" (codegen x)
                     | FailWith,[x] -> sprintf "(failwith %s)" (codegen x)
                     | UnsafeUpcastTo,[a;b] -> sprintf "(%s :> %s)" (codegen b) (print_type (get_type a))
                     | UnsafeDowncastTo,[a;b] -> sprintf "(%s :?> %s)" (codegen b) (print_type (get_type a))

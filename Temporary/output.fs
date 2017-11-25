@@ -3,7 +3,75 @@ let cuda_kernels = """
 #include "cub/cub.cuh"
 
 extern "C" {
+    typedef float(*FunPointer0)(float, float);
+    __global__ void method_7(float * var_0, float * var_1);
+    __global__ void method_9(float * var_0, float * var_1, float * var_2);
+    __device__ void method_8(float * var_0, float * var_1, long long int var_2);
+    __device__ float method_10(float * var_0, float * var_1, long long int var_2, float var_3);
+    __device__ float method_11(float var_0, float var_1);
     
+    __global__ void method_7(float * var_0, float * var_1) {
+        long long int var_2 = threadIdx.x;
+        long long int var_3 = threadIdx.y;
+        long long int var_4 = threadIdx.z;
+        long long int var_5 = blockIdx.x;
+        long long int var_6 = blockIdx.y;
+        long long int var_7 = blockIdx.z;
+        long long int var_8 = (var_5 * 128);
+        long long int var_9 = (var_8 + var_2);
+        method_8(var_0, var_1, var_9);
+    }
+    __global__ void method_9(float * var_0, float * var_1, float * var_2) {
+        long long int var_3 = threadIdx.x;
+        long long int var_4 = threadIdx.y;
+        long long int var_5 = threadIdx.z;
+        long long int var_6 = blockIdx.x;
+        long long int var_7 = blockIdx.y;
+        long long int var_8 = blockIdx.z;
+        long long int var_9 = (var_6 * 128);
+        long long int var_10 = (var_9 + var_3);
+        long long int var_11 = (var_10 + 1280);
+        float var_12 = var_0[var_10];
+        float var_13 = var_1[var_10];
+        float var_14 = (var_13 - var_12);
+        float var_15 = (var_14 * var_14);
+        float var_16 = method_10(var_0, var_1, var_11, var_15);
+        FunPointer0 var_19 = method_11;
+        float var_20 = cub::BlockReduce<float,128>().Reduce(var_16, var_19);
+        if ((var_3 == 0)) {
+            var_2[var_6] = var_20;
+        } else {
+        }
+    }
+    __device__ void method_8(float * var_0, float * var_1, long long int var_2) {
+        if ((var_2 < 1280)) {
+            float var_3 = var_0[var_2];
+            float var_4 = (-var_3);
+            float var_5 = exp(var_4);
+            float var_6 = (1 + var_5);
+            float var_7 = (1 / var_6);
+            var_1[var_2] = var_7;
+            long long int var_8 = (var_2 + 4096);
+            method_8(var_0, var_1, var_8);
+        } else {
+        }
+    }
+    __device__ float method_10(float * var_0, float * var_1, long long int var_2, float var_3) {
+        if ((var_2 < 1280)) {
+            float var_4 = var_0[var_2];
+            float var_5 = var_1[var_2];
+            float var_6 = (var_5 - var_4);
+            float var_7 = (var_6 * var_6);
+            float var_8 = (var_3 + var_7);
+            long long int var_9 = (var_2 + 1280);
+            return method_10(var_0, var_1, var_9, var_8);
+        } else {
+            return var_3;
+        }
+    }
+    __device__ float method_11(float var_0, float var_1) {
+        return (var_0 + var_1);
+    }
 }
 """
 
@@ -89,14 +157,14 @@ and method_4((var_0: uint64), (var_1: System.Collections.Generic.Stack<Env4>), (
             method_4((var_0: uint64), (var_1: System.Collections.Generic.Stack<Env4>), (var_2: uint64), (var_3: int64))
     else
         method_6((var_0: uint64), (var_1: System.Collections.Generic.Stack<Env4>), (var_2: uint64), (var_3: int64))
-and method_7((var_0: (float32 []))): string =
-    let (var_1: System.Text.StringBuilder) = System.Text.StringBuilder()
-    let (var_2: System.Text.StringBuilder) = var_1.Append("[|")
-    let (var_3: int64) = var_0.LongLength
-    let (var_4: int64) = 0L
-    let (var_5: string) = method_8((var_0: (float32 [])), (var_1: System.Text.StringBuilder), (var_3: int64), (var_4: int64))
-    let (var_6: System.Text.StringBuilder) = var_1.Append("|]")
-    var_1.ToString()
+and method_12((var_0: (float32 [])), (var_1: int64), (var_2: float32)): float32 =
+    if (var_1 < 10L) then
+        let (var_3: float32) = var_0.[int32 var_1]
+        let (var_4: float32) = (var_2 + var_3)
+        let (var_5: int64) = (var_1 + 1L)
+        method_12((var_0: (float32 [])), (var_5: int64), (var_4: float32))
+    else
+        var_2
 and method_5((var_0: ManagedCuda.BasicTypes.CUdeviceptr), (var_1: uint64), (var_2: uint64), (var_3: int64), (var_4: System.Collections.Generic.Stack<Env4>), (var_5: EnvStack3), (var_6: int64)): EnvStack3 =
     let (var_7: ManagedCuda.BasicTypes.SizeT) = var_0.Pointer
     let (var_8: uint64) = uint64 var_7
@@ -130,26 +198,6 @@ and method_6((var_0: uint64), (var_1: System.Collections.Generic.Stack<Env4>), (
     let (var_9: EnvStack3) = EnvStack3((var_8: (Union0 ref)))
     var_1.Push((Env4(var_9, var_3)))
     var_9
-and method_8((var_0: (float32 [])), (var_1: System.Text.StringBuilder), (var_2: int64), (var_3: int64)): string =
-    if (var_3 < var_2) then
-        let (var_4: float32) = var_0.[int32 var_3]
-        let (var_5: System.Text.StringBuilder) = var_1.Append("")
-        let (var_6: string) = System.Convert.ToString(var_4)
-        let (var_7: System.Text.StringBuilder) = var_1.Append(var_6)
-        let (var_8: int64) = (var_3 + 1L)
-        method_9((var_0: (float32 [])), (var_1: System.Text.StringBuilder), (var_2: int64), (var_8: int64))
-    else
-        ""
-and method_9((var_0: (float32 [])), (var_1: System.Text.StringBuilder), (var_2: int64), (var_3: int64)): string =
-    if (var_3 < var_2) then
-        let (var_4: float32) = var_0.[int32 var_3]
-        let (var_5: System.Text.StringBuilder) = var_1.Append("; ")
-        let (var_6: string) = System.Convert.ToString(var_4)
-        let (var_7: System.Text.StringBuilder) = var_1.Append(var_6)
-        let (var_8: int64) = (var_3 + 1L)
-        method_9((var_0: (float32 [])), (var_1: System.Text.StringBuilder), (var_2: int64), (var_8: int64))
-    else
-        "; "
 let (var_0: string) = cuda_kernels
 let (var_1: ManagedCuda.CudaContext) = ManagedCuda.CudaContext(false)
 var_1.Synchronize()
@@ -322,50 +370,104 @@ let (var_128: int64) = 0L
 let (var_129: int64) = 0L
 let (var_130: int64) = method_3((var_127: (float32 [])), (var_124: int64), (var_129: int64), (var_128: int64))
 let (var_131: EnvHeap6) = ({mem_0 = (var_127: (float32 [])); mem_1 = (var_124: int64)} : EnvHeap6)
-let (var_132: int64) = (int64 sizeof<float32>)
-let (var_133: int64) = (8L * var_132)
-let (var_134: EnvStack3) = method_4((var_109: uint64), (var_105: System.Collections.Generic.Stack<Env4>), (var_110: uint64), (var_133: int64))
-let (var_135: ManagedCuda.BasicTypes.CUstream) = var_116.get_Stream()
-var_112.SetStream(var_135)
-let (var_136: (Union0 ref)) = var_134.mem_0
-let (var_137: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_136: (Union0 ref)))
-let (var_138: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(8L)
-var_112.GenerateLogNormal32(var_137, var_138, 0.000000f, 1.000000f)
-let (var_139: EnvStack3) = method_4((var_109: uint64), (var_105: System.Collections.Generic.Stack<Env4>), (var_110: uint64), (var_133: int64))
-let (var_140: ManagedCuda.BasicTypes.CUstream) = var_116.get_Stream()
-var_112.SetStream(var_140)
-let (var_141: (Union0 ref)) = var_139.mem_0
-let (var_142: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_141: (Union0 ref)))
-let (var_143: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(8L)
-var_112.GenerateLogNormal32(var_142, var_143, 0.000000f, 1.000000f)
-let (var_144: int64) = (16L * var_132)
-let (var_145: EnvStack3) = method_4((var_109: uint64), (var_105: System.Collections.Generic.Stack<Env4>), (var_110: uint64), (var_144: int64))
-let (var_146: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_136: (Union0 ref)))
-let (var_147: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_141: (Union0 ref)))
-let (var_148: (Union0 ref)) = var_145.mem_0
-let (var_149: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_148: (Union0 ref)))
-let (var_150: ManagedCuda.BasicTypes.CUstream) = var_116.get_Stream()
-var_115.set_Stream(var_150)
-let (var_151: ManagedCuda.CudaBlas.CudaBlasHandle) = var_115.get_CublasHandle()
-let (var_152: ManagedCuda.CudaBlas.Operation) = ManagedCuda.CudaBlas.Operation.NonTranspose
-let (var_153: ManagedCuda.CudaBlas.Operation) = ManagedCuda.CudaBlas.Operation.NonTranspose
-let (var_154: (float32 ref)) = (ref 1.000000f)
-let (var_155: (float32 ref)) = (ref 0.000000f)
-let (var_156: ManagedCuda.CudaBlas.CublasStatus) = ManagedCuda.CudaBlas.CudaBlasNativeMethods.cublasSgemm_v2(var_151, var_152, var_153, 4, 4, 2, var_154, var_146, 4, var_147, 2, var_155, var_149, 4)
-if var_156 <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException(var_156)
-let (var_157: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_148: (Union0 ref)))
-let (var_158: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(16L))
-var_1.CopyToHost(var_158, var_157)
+let (var_132: float32) = sqrt 896.000000f
+let (var_133: float32) = (1.000000f / var_132)
+let (var_134: int64) = (int64 sizeof<float32>)
+let (var_135: int64) = (98304L * var_134)
+let (var_136: EnvStack3) = method_4((var_109: uint64), (var_105: System.Collections.Generic.Stack<Env4>), (var_110: uint64), (var_135: int64))
+let (var_137: ManagedCuda.BasicTypes.CUstream) = var_116.get_Stream()
+var_112.SetStream(var_137)
+let (var_138: (Union0 ref)) = var_136.mem_0
+let (var_139: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_138: (Union0 ref)))
+let (var_140: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(98304L)
+var_112.GenerateNormal32(var_139, var_140, 0.000000f, var_133)
+let (var_141: float32) = sqrt 778.000000f
+let (var_142: float32) = (1.000000f / var_141)
+let (var_143: int64) = (7680L * var_134)
+let (var_144: EnvStack3) = method_4((var_109: uint64), (var_105: System.Collections.Generic.Stack<Env4>), (var_110: uint64), (var_143: int64))
+let (var_145: ManagedCuda.BasicTypes.CUstream) = var_116.get_Stream()
+var_112.SetStream(var_145)
+let (var_146: (Union0 ref)) = var_144.mem_0
+let (var_147: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_146: (Union0 ref)))
+let (var_148: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(7680L)
+var_112.GenerateNormal32(var_147, var_148, 0.000000f, var_142)
+let (var_149: float32) = sqrt 138.000000f
+let (var_150: float32) = (1.000000f / var_149)
+let (var_151: int64) = (1280L * var_134)
+let (var_152: EnvStack3) = method_4((var_109: uint64), (var_105: System.Collections.Generic.Stack<Env4>), (var_110: uint64), (var_151: int64))
+let (var_153: ManagedCuda.BasicTypes.CUstream) = var_116.get_Stream()
+var_112.SetStream(var_153)
+let (var_154: (Union0 ref)) = var_152.mem_0
+let (var_155: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_154: (Union0 ref)))
+let (var_156: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(1280L)
+var_112.GenerateNormal32(var_155, var_156, 0.000000f, var_150)
+let (var_157: EnvStack3) = method_4((var_109: uint64), (var_105: System.Collections.Generic.Stack<Env4>), (var_110: uint64), (var_151: int64))
+let (var_158: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_138: (Union0 ref)))
+let (var_159: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_146: (Union0 ref)))
+let (var_160: (Union0 ref)) = var_157.mem_0
+let (var_161: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_160: (Union0 ref)))
+let (var_162: ManagedCuda.BasicTypes.CUstream) = var_116.get_Stream()
+var_115.set_Stream(var_162)
+let (var_163: ManagedCuda.CudaBlas.CudaBlasHandle) = var_115.get_CublasHandle()
+let (var_164: ManagedCuda.CudaBlas.Operation) = ManagedCuda.CudaBlas.Operation.NonTranspose
+let (var_165: ManagedCuda.CudaBlas.Operation) = ManagedCuda.CudaBlas.Operation.NonTranspose
+let (var_166: (float32 ref)) = (ref 1.000000f)
+let (var_167: (float32 ref)) = (ref 0.000000f)
+let (var_168: ManagedCuda.CudaBlas.CublasStatus) = ManagedCuda.CudaBlas.CudaBlasNativeMethods.cublasSgemm_v2(var_163, var_164, var_165, 128, 10, 768, var_166, var_158, 128, var_159, 768, var_167, var_161, 128)
+if var_168 <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException(var_168)
+let (var_172: EnvStack3) = method_4((var_109: uint64), (var_105: System.Collections.Generic.Stack<Env4>), (var_110: uint64), (var_151: int64))
+let (var_173: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_160: (Union0 ref)))
+let (var_174: (Union0 ref)) = var_172.mem_0
+let (var_175: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_174: (Union0 ref)))
+// Cuda join point
+// method_7((var_173: ManagedCuda.BasicTypes.CUdeviceptr), (var_175: ManagedCuda.BasicTypes.CUdeviceptr))
+let (var_176: (System.Object [])) = Array.zeroCreate<System.Object> (System.Convert.ToInt32(2L))
+var_176.[int32 0L] <- (var_173 :> System.Object)
+var_176.[int32 1L] <- (var_175 :> System.Object)
+let (var_177: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_7", var_88, var_1)
+let (var_178: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(32u, 1u, 1u)
+var_177.set_GridDimensions(var_178)
+let (var_179: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(128u, 1u, 1u)
+var_177.set_BlockDimensions(var_179)
+let (var_180: ManagedCuda.BasicTypes.CUstream) = var_116.get_Stream()
+var_177.RunAsync(var_180, var_176)
+let (var_181: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_174: (Union0 ref)))
+let (var_182: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_154: (Union0 ref)))
+let (var_184: int64) = (10L * var_134)
+let (var_185: EnvStack3) = method_4((var_109: uint64), (var_105: System.Collections.Generic.Stack<Env4>), (var_110: uint64), (var_184: int64))
+let (var_186: (Union0 ref)) = var_185.mem_0
+let (var_187: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_186: (Union0 ref)))
+// Cuda join point
+// method_9((var_181: ManagedCuda.BasicTypes.CUdeviceptr), (var_182: ManagedCuda.BasicTypes.CUdeviceptr), (var_187: ManagedCuda.BasicTypes.CUdeviceptr))
+let (var_188: (System.Object [])) = Array.zeroCreate<System.Object> (System.Convert.ToInt32(3L))
+var_188.[int32 0L] <- (var_181 :> System.Object)
+var_188.[int32 1L] <- (var_182 :> System.Object)
+var_188.[int32 2L] <- (var_187 :> System.Object)
+let (var_189: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_9", var_88, var_1)
+let (var_190: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(10u, 1u, 1u)
+var_189.set_GridDimensions(var_190)
+let (var_191: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(128u, 1u, 1u)
+var_189.set_BlockDimensions(var_191)
+let (var_192: ManagedCuda.BasicTypes.CUstream) = var_116.get_Stream()
+var_189.RunAsync(var_192, var_188)
+let (var_193: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_186: (Union0 ref)))
+let (var_194: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(10L))
+var_1.CopyToHost(var_194, var_193)
 var_1.Synchronize()
-let (var_159: string) = method_7((var_158: (float32 [])))
-System.Console.WriteLine(var_159)
-var_148 := Union0Case1
-var_141 := Union0Case1
-var_136 := Union0Case1
+let (var_195: float32) = var_194.[int32 0L]
+let (var_196: int64) = 1L
+let (var_197: float32) = method_12((var_194: (float32 [])), (var_196: int64), (var_195: float32))
+System.Console.WriteLine(var_197)
+var_186 := Union0Case1
+var_174 := Union0Case1
+var_160 := Union0Case1
+var_154 := Union0Case1
+var_146 := Union0Case1
+var_138 := Union0Case1
 var_115.Dispose()
 var_112.Dispose()
-let (var_160: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_106: (Union0 ref)))
-var_1.FreeMemory(var_160)
+let (var_198: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_106: (Union0 ref)))
+var_1.FreeMemory(var_198)
 var_106 := Union0Case1
 var_1.Dispose()
 

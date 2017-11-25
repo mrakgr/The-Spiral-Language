@@ -134,7 +134,11 @@ inl sizeof x = !SizeOf(x)
 inl cuda x = !CudaTypeCreate(x)
 inl fs x = !DotNetTypeCreate(x)
 
-{type_lit_lift error_type print_static dyn (\/) (=>) cuda fs
+inl log x = !Log(x)
+inl exp x = !Exp(x)
+inl tanh x = !Tanh(x)
+
+{type_lit_lift error_type print_static dyn (\/) (=>) cuda fs log exp tanh
  split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
  string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref Array (+) (-) (*) (/) (%)
  (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (&&) (||) (<<<) (>>>) Tuple fst snd not
