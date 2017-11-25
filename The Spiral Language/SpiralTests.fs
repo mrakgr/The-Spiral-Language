@@ -1886,7 +1886,7 @@ let rewrite_test_cache cfg x =
     | None -> Array.iter (cache_test cfg) tests
     printfn "The time it took to run all the tests is: %A" timer.Elapsed
 
-//let speed1 =
+//let speed1 = // Note: Trying to load this example in the IDE after it has compiled will crush it. Better output it to txt.
 //    "speed1",[parsing;console],"Does the Parsing module work?",
 //    """
 //open Parsing

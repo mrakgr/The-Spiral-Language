@@ -245,10 +245,16 @@ inl CudaKernels stream =
         if near_to >= 128 then
             inl blockDim = 128
             inl gridDim = near_to / blockDim
-            inl elem_type = type (
-                inl ty = map (elem_type in)
-                redo ty ty
-                )
+            inl elem_type = type (map (elem_type in))
+
+            inl cub_block_reduce thread_result redo =
+                !MacroCuda(elem_type,[
+                    text: "cub::BlockReduce"
+                    iter: "<",",",">",[type: elem_type; arg: blockDim]
+                    args: ()
+                    text: ".Reduce"
+                    args: thread_result, redo])
+
             inb out = create {size=gridDim; layout elem_type}
             inl out' = to_device_tensor_form out
 
@@ -256,22 +262,15 @@ inl CudaKernels stream =
                 stream
                 blockDim
                 gridDim
-                kernel = cuda // Lexical scoping rocks.
+                kernel = cuda 
                     inl from = blockIdx.x * blockDim.x + threadIdx.x
                     inl by = gridDim.x * blockDim.x
                     inl load i = map (index_unsafe in' i)
                     inl thread_result = Loops.for {from=from+by; near_to by state=load from; body=inl {state i} -> redo state (load i)}
 
-                    inl t = type(thread_result)
                     inl redo = closure_of (inl a,b -> redo a b) ((t,t) => t)
-                    inl block_result = !MacroCuda(t,[
-                        text: "cub::BlockReduce"
-                        iter: "<",",",">",[type: t; arg: blockDim.x]
-                        args: ()
-                        text: ".Reduce"
-                        args: thread_result, redo])
+                    inl block_result = cub_block_reduce thread_result redo
                     if threadIdx.x = 0 then set_unsafe out' (blockIdx.x) block_result
-
                 } |> ignore
 
             final_reduce id out
