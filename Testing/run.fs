@@ -441,9 +441,53 @@ inl test_forward_pass {num_iters} =
     |> succ
 
 inl learning_tests =
-    test_random, test_map, test_map_redo, test_gemm
+    test_random, test_map, test_map_redo, test_gemm, test_forward_pass {num_iters=100}
 
-test_forward_pass {num_iters=100} id
+inl mnist_path = @"C:\Users\Marko\Documents\Visual Studio 2015\Projects\SpiralQ\SpiralQ\Tests"
+
+inl mnist_files = {
+    test_images = "t10k-images.idx3-ubyte"
+    test_labels = "t10k-labels.idx1-ubyte"
+    train_images = "train-images.idx3-ubyte"
+    train_labels = "train-labels.idx1-ubyte"
+    }
+
+met load_mnist (!dyn filename) =
+    inl File_ty = fs [text: "System.IO.File"]
+    inl FileStream_ty = fs [text: "System.IO.FileStream"]
+    inl FileMode = enum (fs [text: "System.IO.FileMode"])
+    inl FileAccess = enum (fs [text: "System.IO.FileAccess"])
+    inl FileShare = enum (fs [text: "System.IO.FileShare"])
+    inl BinaryReader_ty = fs [text: "System.IO.BinaryReader"]
+    inl IPAddress_ty = fs [text: "System.Net.IPAddress"]
+
+    inl netword_to_host_order x = FS.StaticMethod IPAddress_ty .NetworkToHostOrder x int32
+
+    use f = FS.StaticMethod File_ty.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read) FileStream_ty
+    use d = FS.Constructor BinaryReader_ty f
+
+    inl read_int32 x = FS.Method d.ReadInt32 x int32 |> netword_to_host_order
+    inl read_bytes n = FS.Method d.ReadBytes n (array uint8)
+
+    inl to_int64 = unsafe_convert int64
+    inl to_ints64 = Tuple.map to_int64
+
+    inl magic_number = read_int32()
+    match magic_number with
+    | 2049i32 -> // Labels
+        inl n = read_int32()
+        read_bytes n |> HostTensor.array_as_tensor (to_int64 n,1)
+    | x -> // Images
+        assert (x = 2051i32) "The magic number must be either 2049 or 2051"
+        inl n, rows, cols = read_int32(), read_int32(), read_int32()
+        read_bytes (n * rows * cols) |> HostTensor.array_as_tensor (to_ints64 (n,rows*cols))
+
+inl mnist_tensors = 
+    inl path_type = fs [text: "System.IO.Path"]
+    inl combine x = FS.StaticMethod path_type .Combine x string
+    module_map (inl _ v -> load_mnist (combine (mnist_path, v))) mnist_files
+
+writeline (mnist_tensors.test_labels |> HostTensor.show_tensor," ", total_size (mnist_tensors.test_labels.size))
     """
 
 let cfg: Spiral.Types.CompilerSettings = {

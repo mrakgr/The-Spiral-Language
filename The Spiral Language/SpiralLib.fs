@@ -931,9 +931,14 @@ inl elem_type = map_tensor_ar (inl ar -> ar.elem_type)
 inl map_tensor f {size ar layout} & tns = { size layout ar = map_tensor_ar f tns }
 
 inl show_tensor {ar} = Array.show_array ar
+
+/// Reinterprets an array as a tensor. Does no copying.
+inl array_as_tensor size ar =
+    assert (total_size size = Array.length ar) "The product sizes does not match the length of the array."
+    {size ar layout= .aot}
                 
 {init init_toa init_aot index index_unsafe set set_unsafe toa_map toa_map2 toa_iter toa_iter2 dim_size
- total_size map_tensor_ar elem_type map_tensor show_tensor} |> stack
+ total_size map_tensor_ar elem_type map_tensor show_tensor array_as_tensor} |> stack
     """) |> module_
 
 let cuda =
@@ -975,12 +980,13 @@ FS.Method context .Synchronize() unit
 
 inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
     inl path_type = fs [text: "System.IO.Path"]
+    inl combine x = FS.StaticMethod path_type .Combine x string
+    
     inl file_type = fs [text: "System.IO.File"]
     inl stream_type = fs [text: "System.IO.Stream"]
     inl streamwriter_type = fs [text: "System.IO.StreamWriter"]
     inl process_start_info_type = fs [text: "System.Diagnostics.ProcessStartInfo"]
-    inl combine x = FS.StaticMethod path_type .Combine x string
-
+    
     inl nvcc_router_path = combine (kernels_dir,"nvcc_router.bat")
     inl procStartInfo = FS.Constructor process_start_info_type ()
     FS.Method procStartInfo.set_RedirectStandardOutput true unit
@@ -1070,8 +1076,10 @@ inl Stream =
     inl CudaStream_type = ty."ManagedCuda.CudaStream"
     inl CUstream_type = ty."ManagedCuda.BasicTypes.CUstream"
 
-    {create = inl x -> FS.Constructor CudaStream_type x
-        extract = inl x -> FS.Method x.get_Stream() CUstream_type } |> stack
+    {
+    create = inl x -> FS.Constructor CudaStream_type x
+    extract = inl x -> FS.Method x.get_Stream() CUstream_type 
+    } |> stack
 
 inl run {blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} as runable =
     inl to_obj_ar args =
