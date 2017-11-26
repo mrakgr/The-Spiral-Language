@@ -490,114 +490,6 @@ inl mnist_tensors =
 writeline (mnist_tensors.test_labels |> HostTensor.show_tensor," ", total_size (mnist_tensors.test_labels.size))
     """
 
-let host_tensor =
-    (
-    "HostTensor",[tuple;loops],"The host tensor module.",
-    """
-open Loops
-
-inl rec toa_map f x = 
-    inl rec loop = function
-        | x when caseable_is x -> f x
-        | () -> ()
-        | x :: xs -> loop x :: loop xs
-        | {} & x -> module_map (inl _ -> loop) x
-        | x -> f x
-    loop x
-
-inl rec toa_map2 f a b = 
-    inl rec loop = function
-        | x, y when caseable_is x || caseable_is y -> f x y
-        | (), () -> ()
-        | x :: xs, y :: ys -> loop (x,y) :: loop (xs,ys)
-        | {} & x, {} & y -> module_map (inl k y -> loop (x k,y)) y
-        | x, y -> f x y
-    loop (a,b)
-
-inl toa_iter f = toa_map (inl x -> f x; ()) >> ignore
-inl toa_iter2 f a b = toa_map2 (inl a b -> f a b; ()) a b |> ignore
-
-inl dim_size = function
-    | {from to} -> to - from + 1 |> max 0
-    | {from near_to} -> near_to - from |> max 0
-    | x -> x
-
-inl map_dim = function
-    | {from to} -> {from; near_to=to+1}
-    | {from near_to} as d -> d
-    | x -> {from=0; near_to=x}
-
-inl map_dims = Tuple.map map_dim << Tuple.wrap
-
-inl total_size {dim = {size offset} :: _} = size * offset
-
-inl rec wrap {ar cur_offset dim} as data = function
-    | .data -> data
-    | .get -> 
-        match dim with
-        | () -> toa_map (inl ar -> ar cur_offset) ar
-        | _ -> error_type "Cannot get from a tensor that has not been applied all the way through."
-    | .set -> 
-        match dim with
-        | () -> toa_iter2 (inl ar v -> ar cur_offset <- v) ar v
-        | _ -> error_type "Cannot set to a tensor that has not been applied all the way through."
-    | i ->
-        match dim with
-        | () -> error_type "Cannot apply the tensor anymore."
-        | {size={from near_to} offset} :: dim ->
-            assert (i >= from && i < near_to) "Argument out of bounds." 
-            inl cur_offset = cur_offset + (i - from) * offset
-            wrap {ar cur_offset dim}
-
-inl size_to_dim size = 
-    inl size = map_dims size
-    inl len :: offset = Tuple.scanr (inl (!dim_size dim) s -> dim * s) size 1
-    inl rec zip = function
-        | size :: s', offset :: o' -> {size offset} :: zip (s',o')
-        | (), () -> ()
-    {len dim=zip (size,offset)}
-
-inl create {size elem_type} as dsc = 
-    inl cur_offset = 0
-    inl layout = match dsc with {layout} -> layout | _ -> .toa
-    inl {len dim} = size_to_dim size
-
-    let ar =
-        match layout with
-        | .aot -> Array.create elem_type len
-        | .toa -> toa_map (inl elem_type -> Array.create elem_type len) elem_type
-
-    wrap {ar cur_offset dim}
-    
-inl init_core tns f =
-    inl rec loop tns f = 
-        match tns.data.dim with
-        | {size={from near_to}} :: _ -> for { from near_to; body=inl {i} -> loop (tns i) (f i) }
-        | () -> tns .set f
-    loop tns f
-
-inl init dsc f = init_core (create dsc) f
-inl copy (!view tns) = wrap {tns with ar = toa_map (Array.copy) self}
-
-inl view tns = tns.data
-inl to_1d (!indiv (!view (!total_size offset) & tns) = wrap {tns with dim = {size = map_dim offset; offset = 1} :: ()}
-inl reshape (!size_to_dim {len dim}) (!view (!total_size tns_total_size) & tns) = 
-    assert (len = tns_total_size) "The product sizes does not match the length of the array."
-    wrap {tns with dim}
-
-///// Reinterprets an array as a tensor. Does no copying.
-inl array_as_tensor ar =
-    inl dim = {size = map_dim (Array.length ar); offset=1} :: ()
-    {dim ar cur_offset=0}
-
-inl array_to_tensor = array_as_tensor >> copy
-
-{toa_map toa_map2 toa_iter toa_iter2 dim_size map_dim map_dims total_size wrap create size_to_dim 
- init copy view to_1d reshape array_as_tensor array_to_tensor}
-|> stack
-    """)
-
-
 let cfg: Spiral.Types.CompilerSettings = {
     path_cuda90 = @"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.0"
     path_cub = @"C:\cub-1.7.4"
@@ -605,10 +497,11 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = []
     }
 
-//rewrite_test_cache cfg None //(Some(80,tests.Length))
+rewrite_test_cache cfg (Some(0,40))
 
-output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
-|> printfn "%s"
-|> ignore
+//output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
+//output_test_to_temp cnf @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test1
+//|> printfn "%s"
+//|> ignore
 
 

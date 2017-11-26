@@ -819,41 +819,8 @@ inl create n typ =
 
 let host_tensor =
     (
-    "HostTensor",[tuple;loops;console],"The host tensor module.",
+    "HostTensor",[tuple;loops],"The host tensor module.",
     """
-open Loops
-open Console
-
-inl wrap = Tuple.wrap
-
-inl dim_size = function
-    | {from to} -> to - from + 1 |> max 0
-    | x -> x
-
-inl map_dim = function
-    | {from to} as d -> d
-    | x -> {from=0; to=x-1}
-
-inl map_dims = Tuple.map map_dim << wrap
-
-inl offset_at_index is_safe array (!wrap i) =
-    inl {size ar} = array
-    inl size = wrap size
-    inl rec loop x state = 
-        match x with
-        | {size=dim_range :: size ar}, i :: is ->
-            inl {from to} = map_dim dim_range
-            inl offset, dim_offset = loop ({size ar}, is) state
-            inl dim_offset = dim_offset() 
-            if is_safe then assert (i >= from && i <= to) "Argument out of bounds."
-            
-            // The function wrapper here is to simulate lazy eval in order to 
-            // avoid the multiply on the first index at the end of the loop.
-            (offset+dim_offset*(i-from)), inl _ -> dim_offset * dim_size dim_range 
-        | {size=() ar}, () ->
-            state
-    loop ({size ar},i) (0,inl _ -> 1) |> fst
-       
 inl rec toa_map f x = 
     inl rec loop = function
         | x when caseable_is x -> f x
@@ -875,77 +842,84 @@ inl rec toa_map2 f a b =
 inl toa_iter f = toa_map (inl x -> f x; ()) >> ignore
 inl toa_iter2 f a b = toa_map2 (inl a b -> f a b; ()) a b |> ignore
 
-inl init_template {create set layout} (!map_dims size) f =
-    match Tuple.length size with
-    | 0 -> error_type "The number of dimensions to init must exceed 0. Use `ref` instead."
-    | num_dims ->
-        inl len :: dim_offsets = Tuple.scanr (inl (!dim_size dim) s -> dim * s) size 1
-        inl f = if num_dims = 1 then (inl x :: () -> f x) else f
-        inl ty = type (f (Tuple.repeat num_dims 0))
-        inl ar = create ty len
-        inl rec loop offset index = function
-            | {from to} :: size, dim_offset :: dim_offsets ->
-                for {from to state=offset; body=inl {state=offset i} ->
-                    loop offset (i :: index) (size,dim_offsets)
-                    offset+dim_offset
-                    } |> ignore
-            | (),() -> f (Tuple.rev index) |> set offset ar
-        loop (dyn 0) () (size,dim_offsets)
-        heap {size ar layout}
+inl dim_size = function
+    | {from to} -> to - from + 1 |> max 0
+    | {from near_to} -> near_to - from |> max 0
+    | x -> x
 
-inl init_toa = init_template {
-    create = inl ty len -> toa_map (inl ty -> Array.create ty len) ty
-    set = inl offset -> toa_iter2 (inl a b -> a offset <- b) 
-    layout = .toa
-    }
+inl map_dim = function
+    | {from to} -> {from; near_to=to+1}
+    | {from near_to} as d -> d
+    | x -> {from=0; near_to=x}
 
-inl init_aot = init_template {
-    create = Array.create
-    set = inl offset ar b -> ar offset <- b
-    layout = .aot
-    }
+inl map_dims = Tuple.map map_dim << Tuple.wrap
 
-inl init = init_toa
+inl total_size {dim = {size offset} :: _} = size * offset
 
-inl index_template is_safe x i = 
-    inl {size ar layout} = x
-    inl offset = offset_at_index is_safe {size ar} i
-    match layout with
-    | .aot -> ar offset
-    | .toa -> toa_map (inl ar -> ar offset) ar
+inl rec wrap {ar cur_offset dim} as data = function
+    | .data -> data
+    | .get -> 
+        match dim with
+        | () -> toa_map (inl ar -> ar cur_offset) ar
+        | _ -> error_type "Cannot get from a tensor that has not been applied all the way through."
+    | .set -> 
+        match dim with
+        | () -> toa_iter2 (inl ar v -> ar cur_offset <- v) ar v
+        | _ -> error_type "Cannot set to a tensor that has not been applied all the way through."
+    | i ->
+        match dim with
+        | () -> error_type "Cannot apply the tensor anymore."
+        | {size={from near_to} offset} :: dim ->
+            assert (i >= from && i < near_to) "Argument out of bounds." 
+            inl cur_offset = cur_offset + (i - from) * offset
+            wrap {ar cur_offset dim}
 
-inl set_template is_safe x i v = 
-    inl {size ar layout} = x
-    inl offset = offset_at_index is_safe {size ar} i
-    inl body ar v = ar offset <- v
-    match layout with
-    | .aot -> body ar v
-    | .toa -> toa_iter2 body ar v
+inl size_to_dim size = 
+    inl size = map_dims size
+    inl len :: offset = Tuple.scanr (inl (!dim_size dim) s -> dim * s) size 1
+    inl rec zip = function
+        | size :: s', offset :: o' -> {size offset} :: zip (s',o')
+        | (), () -> ()
+    {len dim=zip (size,offset)}
 
-inl index = index_template true
-inl index_unsafe = index_template false
-inl set = set_template true
-inl set_unsafe = set_template false
+inl create {size elem_type} as dsc = 
+    inl cur_offset = 0
+    inl layout = match dsc with {layout} -> layout | _ -> .toa
+    inl {len dim} = size_to_dim size
 
-inl total_size (!wrap x) = Tuple.foldl (inl s x -> s * dim_size x) 1 x
+    let ar =
+        match layout with
+        | .aot -> Array.create elem_type len
+        | .toa -> toa_map (inl elem_type -> Array.create elem_type len) elem_type
 
-inl map_tensor_ar f {ar layout} =
-    match layout with
-    | .aot -> f ar
-    | .toa -> toa_map f ar
+    wrap {ar cur_offset dim}
+    
+inl init_core tns f =
+    inl rec loop tns f = 
+        match tns.data.dim with
+        | {size={from near_to}} :: _ -> Loops.for { from near_to; body=inl {i} -> loop (tns i) (f i) }
+        | () -> tns .set f
+    loop tns f
 
-inl elem_type = map_tensor_ar (inl ar -> ar.elem_type)
-inl map_tensor f {size ar layout} & tns = { size layout ar = map_tensor_ar f tns }
+inl init dsc f = init_core (create dsc) f
+inl copy (!view tns) = wrap {tns with ar = toa_map (Array.copy) self}
 
-inl show_tensor {ar} = Array.show_array ar
+inl view tns = tns.data
+inl to_1d (!view (!total_size offset) & tns) = wrap {tns with dim = {size = map_dim offset; offset = 1} :: ()}
+inl reshape (!size_to_dim {len dim}) (!view (!total_size tns_total_size) & tns) = 
+    assert (len = tns_total_size) "The product sizes does not match the length of the array."
+    wrap {tns with dim}
 
-/// Reinterprets an array as a tensor. Does no copying.
-inl array_as_tensor size ar =
-    assert (total_size size = Array.length ar) "The product sizes does not match the length of the array."
-    {size ar layout= .aot}
-                
-{init init_toa init_aot index index_unsafe set set_unsafe toa_map toa_map2 toa_iter toa_iter2 dim_size
- total_size map_tensor_ar elem_type map_tensor show_tensor array_as_tensor} |> stack
+///// Reinterprets an array as a tensor. Does no copying.
+inl array_as_tensor ar =
+    inl dim = {size = map_dim (Array.length ar); offset=1} :: ()
+    {dim ar cur_offset=0}
+
+inl array_to_tensor = array_as_tensor >> copy
+
+{toa_map toa_map2 toa_iter toa_iter2 dim_size map_dim map_dims total_size wrap create size_to_dim 
+ init copy view to_1d reshape array_as_tensor array_to_tensor}
+|> stack
     """) |> module_
 
 let cuda =

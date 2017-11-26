@@ -1855,9 +1855,10 @@ let output_test_to_temp cfg path test =
         x
 
 let make_test_path_from_name name =
-    let dir = Path.Combine(Environment.CurrentDirectory,"TestCache")
-    Directory.CreateDirectory dir |> ignore
-    Path.Combine(dir,name+".txt")
+    let dir = Environment.CurrentDirectory |> DirectoryInfo
+    let path = Path.Combine(dir.Parent.Parent.FullName,"TestCache")
+    Directory.CreateDirectory path |> ignore
+    Path.Combine(path,name+".txt")
 
 let cache_test cfg (name,aux,desc,body as m) = File.WriteAllText(make_test_path_from_name name, output_test_to_string cfg m)
 let rewrite_test_cache cfg x = 
