@@ -553,15 +553,18 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyT _ -> destructure_var r (List.map (tyt >> destructure)) (Map.map (fun _ -> (tyt >> destructure)) >> Env)
             | TyV _ -> destructure_var r (index_tuple_args r) (env_unseal r >> Env)
             | TyOp _ -> destructure_cse r
-            | TyJoinPoint _ | TyLet _ | TyState _ -> failwith "Compiler error: This should never appear in destructure. It should go directly into d.seq."
+            | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
 
         let if_body d cond tr fl =
             let b x = cse_add' d cond (TyLit <| LitBool x)
             let tr = 
                 match cond with
-                | TyOp(EQ,[b & TyLit _; a & TyV _],_) | TyOp(EQ,[a & TyV _; b & TyLit _],_) -> tev_assume (cse_add' d a b) d tr
+                | TyOp(EQ,([b & TyLit _; a & TyV _] | [a & TyV _; b & TyLit _]),_) -> tev_assume (cse_add' d a b) d tr
                 | _ -> tev_assume (b true) d tr
-            let fl = tev_assume (b false) d fl
+            let fl = 
+                match cond with
+                | TyOp(NEQ,([b & TyLit _; a & TyV _] | [a & TyV _; b & TyLit _]),_) -> tev_assume (cse_add' d a b) d fl
+                | _ -> tev_assume (b false) d fl
             let type_tr, type_fl = get_type tr, get_type fl
             if type_tr = type_fl then
                 match tr, fl with
@@ -1173,11 +1176,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let prim_bitwise_op d a b t =
             let er a b = sprintf "`is_any_int a && is_any_int b` is false.\na=%s, b=%s" (show_typedexpr a) (show_typedexpr b)
             let check a b = is_any_int a && is_any_int b
-            prim_bin_op_template d er check prim_bin_op_helper a b t
-
-        let prim_shuffle_op d a b t =
-            let er a b = sprintf "`is_int b` is false.\na=%s, b=%s" (show_typedexpr a) (show_typedexpr b)
-            let check a b = is_int b
             prim_bin_op_template d er check prim_bin_op_helper a b t
 
         let prim_un_op_template d check_error is_check k a t =

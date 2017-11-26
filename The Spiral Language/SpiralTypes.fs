@@ -578,7 +578,7 @@ let rec show_ty = function
         let body =
             Set.toArray l
             |> Array.map show_ty
-            |> String.concat ", "
+            |> String.concat " | "
         sprintf "union {%s}" body
     | RecT x -> sprintf "rec_type %i" x.Symbol
     | ArrayT (a,b) -> sprintf "%s (%s)" (show_art a) (show_ty b)

@@ -797,13 +797,13 @@ met enqueue queue (!dyn v) =
         queue.ar <- ar
     else queue.to <- to
 
-met dequeue queue () =
+met dequeue queue =
     inl {from to ar} = queue
     assert (from <> to) "Cannot dequeue past the end of the queue."
     queue.from <- add_one (Array.length ar) from
     ar from
 
-inl create n typ =
+inl create typ n =
     inl n = match n with () -> 16 | n -> max 1 n
     heapm {from=dyn 0; to=dyn 0; ar=Array.create typ n}
 
@@ -864,7 +864,7 @@ inl rec wrap {ar cur_offset dim} as data = function
         | _ -> error_type "Cannot get from a tensor that has not been applied all the way through."
     | .set -> 
         match dim with
-        | () -> toa_iter2 (inl ar v -> ar cur_offset <- v) ar v
+        | () -> toa_iter2 (inl ar v -> ar cur_offset <- v) ar
         | _ -> error_type "Cannot set to a tensor that has not been applied all the way through."
     | i ->
         match dim with
@@ -887,7 +887,7 @@ inl create {size elem_type} as dsc =
     inl layout = match dsc with {layout} -> layout | _ -> .toa
     inl {len dim} = size_to_dim size
 
-    let ar =
+    inl ar =
         match layout with
         | .aot -> Array.create elem_type len
         | .toa -> toa_map (inl elem_type -> Array.create elem_type len) elem_type
@@ -901,7 +901,13 @@ inl init_core tns f =
         | () -> tns .set f
     loop tns f
 
-inl init dsc f = init_core (create dsc) f
+inl init size f =
+    inl size = Tuple.wrap size
+    inl elem_type = 
+        inl rec loop f = function x :: x' -> loop (f 0) x' | () -> f
+        type (loop f size)
+    inl tns = create {elem_type size layout= .toa}
+    init_core tns f; tns
 inl copy (!view tns) = wrap {tns with ar = toa_map (Array.copy) self}
 
 inl view tns = tns.data

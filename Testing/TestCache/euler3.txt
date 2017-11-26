@@ -78,7 +78,7 @@ let (var_3: int64) = (int64 var_2)
 let (var_4: int64) = (var_3 + 1L)
 let (var_5: bool) = (var_4 >= 0L)
 if (var_5 = false) then
-    (failwith "The input to init needs to be greater or equal than 0.")
+    (failwith "The input to init needs to be greater or equal to 0.")
 else
     ()
 let (var_6: (bool [])) = Array.zeroCreate<bool> (System.Convert.ToInt32(var_4))

@@ -48,7 +48,7 @@ method_0((var_0: (int64 [])), (var_1: int64))
 let (var_2: int64) = var_0.LongLength
 let (var_3: bool) = (var_2 >= 0L)
 if (var_3 = false) then
-    (failwith "The input to init needs to be greater or equal than 0.")
+    (failwith "The input to init needs to be greater or equal to 0.")
 else
     ()
 let (var_5: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_2))
@@ -62,7 +62,7 @@ let (var_11: int64) = 0L
 let (var_12: int64) = method_2((var_5: (int64 [])), (var_8: (int64 [])), (var_10: int64), (var_11: int64), (var_9: int64))
 let (var_13: bool) = (var_12 >= 0L)
 if (var_13 = false) then
-    (failwith "The input to init needs to be greater or equal than 0.")
+    (failwith "The input to init needs to be greater or equal to 0.")
 else
     ()
 let (var_15: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_12))

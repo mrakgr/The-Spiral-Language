@@ -935,27 +935,28 @@ Tuple.scanl (+) 0 x, Tuple.scanr (+) x 0
 let test79 =
     "test79",[host_tensor],"Does the HostTensor init work? Do set and index for the new array module work?",
     """
-inl ar = HostTensor.init (10,10) (inl (a,b) -> a*b)
-inl x = HostTensor.index ar (2,2)
-HostTensor.set ar (2,2) (x+100)
-HostTensor.index ar (2,2)
+inl tns = HostTensor.init (10,10) (inl a b -> a*b)
+inl x = tns 2 2 .get
+tns 2 2 .set (x+100)
+tns 2 2 .get
     """
 
 let test80 =
     "test80",[queue;console],"Does the Queue module work?",
     """
 open Console
-inl queue = Queue.create 1 int64
-inl rec dequeue n =
-    if n > 0 then queue .dequeue () |> writeline; dequeue (n-1)
+open Queue
+inl queue = create int64 1
+inl rec dequeue' n =
+    if n > 0 then dequeue queue |> writeline; dequeue' (n-1)
     else ()
-Tuple.iter (queue .enqueue) (Tuple.range (1,4))
-dequeue 2
-Tuple.iter (queue .enqueue) (Tuple.range (1,4))
-Tuple.iter (queue .enqueue) (Tuple.range (1,4))
-dequeue 2
-dequeue 4
-dequeue 4
+Tuple.iter (enqueue queue) (Tuple.range (1,4))
+dequeue' 2
+Tuple.iter (enqueue queue) (Tuple.range (1,4))
+Tuple.iter (enqueue queue) (Tuple.range (1,4))
+dequeue' 2
+dequeue' 4
+dequeue' 4
     """
 
 let test81 =
@@ -972,13 +973,18 @@ inl b = List.empty int64 |> dyn
 a = b
     """
 
-let test83 =
-    "test83",[host_tensor],"Does passing heapified arrays cause unnecessary coping of its individual elements in the resultant code?",
-    """
-inl ar = HostTensor.init (dyn 10,dyn 10) (const false)
-met f _ = ar
-f true
-    """
+//let test83 =
+//    "test83",[],"Does this destructure trigger an error?",
+//    """
+//inl f =
+//    if dyn true then
+//        dyn 2 |> ignore
+//        dyn 3 |> ignore
+//        true
+//    else
+//        false
+//dyn 2 |> ignore
+//    """
 
 let test85 =
     "test85",[],"Does the equality rewrite work?",
@@ -994,7 +1000,7 @@ let test86 =
     """
 open HostTensor
 inl ar = init 10 id
-index ar 5
+ar 5 .get
     """
 
 let test87 =
@@ -1471,8 +1477,8 @@ inl parser =
         }
     |> function
         | {mario=[Some: mario_row, mario_col as mario_pos] princess=[Some: princess_row, princess_col as princess_pos]} ->
-            inl cells_visited = HostTensor.init (n,n) (const false)
-            HostTensor.set cells_visited mario_pos true
+            inl cells_visited = HostTensor.init (n,n) (inl _ _ -> false)
+            cells_visited mario_row mario_col .set true
 
             inl up_string = dyn "UP"
             inl down_string = dyn "DOWN"
@@ -1499,11 +1505,11 @@ inl parser =
                     Array.map (inl mario_pos, prev_moves as state ->
                         inl potential_new_states = 
                             Tuple.map (inl move -> 
-                                inl new_pos,_ as new_state = move state
+                                inl (pos_row, pos_col),_ as new_state = move state
                                 inl is_valid =
-                                    if is_in_range new_state && HostTensor.index cells_visited new_pos = false then 
+                                    if is_in_range new_state && cells_visited pos_row pos_col .get = false then 
                                         if is_princess_in_state new_state then solution := some new_state
-                                        HostTensor.set cells_visited new_pos true
+                                        cells_visited pos_row pos_col .set true
                                         true
                                     else false
                                 new_state, is_valid
@@ -1579,8 +1585,8 @@ inl parser ret =
 
 inl main = {
     some = met {n field mario=(mario_row, mario_col as mario_pos) princess=(princess_row, princess_col as princess_pos)} ->
-        inl cells_visited = HostTensor.init (n,n) (const false)
-        HostTensor.set cells_visited mario_pos true
+        inl cells_visited = HostTensor.init (n,n) (inl _ _ -> false)
+        cells_visited mario_row mario_col .set true
 
         inl up_string = dyn "UP"
         inl down_string = dyn "DOWN"
@@ -1599,8 +1605,9 @@ inl main = {
         inl init_state = (mario_pos, List.empty string)
         inl state_type = type (init_state)
 
-        inl queue = Queue.create () state_type
-        queue.enqueue init_state
+        open Queue
+        inl queue = create state_type ()
+        enqueue queue init_state
 
         met print_solution _, path = //List.foldr (inl x _ -> Console.writeline x) path ()
             match List.last path with
@@ -1608,18 +1615,18 @@ inl main = {
             | [None] -> failwith unit "Error: No moves taken."
 
         met evaluate_move state move on_fail =
-            inl new_pos,_ as new_state = move state
-            if is_in_range new_state && HostTensor.index cells_visited new_pos = false then 
+            inl (pos_row, pos_col),_ as new_state = move state
+            if is_in_range new_state && cells_visited pos_row pos_col .get = false then 
                 if is_princess_in_state new_state then print_solution new_state
                 else
-                    HostTensor.set cells_visited new_pos true
-                    queue.enqueue new_state
+                    cells_visited pos_row pos_col .set true
+                    enqueue queue new_state
                     on_fail ()
             else on_fail ()
             
         met rec loop () =
             inl next_moves = up, down, left, right
-            inl state = queue.dequeue()
+            inl state = dequeue queue
             Tuple.foldr (inl move next () -> evaluate_move state move next) next_moves loop ()
             : ()
 
@@ -1707,8 +1714,8 @@ inl second = 1
 inl max_t = 15
 
 inl cache = 
-    inl cache = HostTensor.init (max_t,max_t,num_players) (const (none first))
-    inl op (x,y,player_one,player_two) -> HostTensor op cache (x-1,y-1,player_one)
+    inl cache = HostTensor.init (max_t,max_t,num_players) (inl _ _ _ -> none first)
+    inl op (x,y,player_one,player_two) -> cache (x-1) (y-1) player_one op
 
 met rec solve !dyn (x,y,player_one,player_two) as d = 
     inl new_positions = (x-2,y+1),(x-2,y-1),(x+1,y-2),(x-1,y-2)
@@ -1716,7 +1723,7 @@ met rec solve !dyn (x,y,player_one,player_two) as d =
     inl try x,y on_fail =
         if is_in_range x && is_in_range y && solve (x,y,player_two,player_one) = player_one then player_one
         else on_fail()
-    match cache.index d with
+    match cache.get d with
     | [None] -> Tuple.foldr (inl pos next () -> try pos next) new_positions (const player_two) () |> inl x -> some x |> cache.set d; x
     | [Some: x] -> x
     : player_one
@@ -1799,10 +1806,10 @@ inl x_range = {from=1; to=1000}
 inl n_range = {from=2; to=10}
 
 inl x_to_n = 
-    inl cache = HostTensor.init (x_range,n_range) (inl x,n ->
+    inl cache = HostTensor.init (x_range,n_range) (inl x n ->
         for {from=2; to=n; state=x; body=inl {state=x'} -> x*x'}
         )
-    HostTensor.index cache
+    inl (x, n) -> cache x n .get
 
 met rec solve !dyn state !dyn sum !dyn from to,n =
     for' {from to state body=inl {next state i=x} ->
@@ -1827,7 +1834,7 @@ let tests =
     test50;test51;test52;test53;test54;test55;test56;test57;test58;test59
     test60_error;test61;test62;test63;test64;test65;test66;test67;test68;test69
     test70;test71_error;test72;test73;test74;test75;test76;test77;test78;test79
-    test80;test81;test82;test83;      test85;test86;test87;test88;test89
+    test80;test81;test82;                    test85;test86;test87;test88;test89
     hacker_rank_1;hacker_rank_2;hacker_rank_3;hacker_rank_4;hacker_rank_5;hacker_rank_6;hacker_rank_7;hacker_rank_8;hacker_rank_9
     parsing1;parsing2;parsing3;parsing4;parsing5;parsing6;parsing7;parsing8
     loop1;loop2;loop3;loop4_error;loop5;loop6;loop7;loop8
@@ -1903,3 +1910,6 @@ let rewrite_test_cache cfg x =
 //
 //    "speed3",[],"Does the linear sequence of bindings get compiled in linear time?",code
 
+"""
+
+"""
