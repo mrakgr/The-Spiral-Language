@@ -334,7 +334,7 @@ inl foldr f ar state = for {to=0; from=Array.length ar-1; by= -1; state; body=in
 
 inl init = 
     inl body is_static n f =
-        assert (n >= 0) "The input to init needs to be greater or equal than 0."
+        assert (n >= 0) "The input to init needs to be greater or equal to 0."
         inl typ = type (f 0)
         inl ar = Array.create typ n
         inl d = 
@@ -346,6 +346,7 @@ inl init =
     | .static n f -> body true n f
     | n f -> body false n f
 
+met copy ar = init (Array.length ar) ar
 
 inl map f ar = init (Array.length ar) (ar >> f)
 inl filter f ar =
@@ -382,7 +383,8 @@ met show_array ar =
     FS.Method s.Append "|]" strb_type |> ignore
     FS.Method s.ToString() string
 
-{create=Array.create; length=Array.length; empty singleton foldl foldr init map filter append concat forall exists show_array}
+{create=Array.create; length=Array.length; empty singleton foldl foldr init copy map filter append 
+ concat forall exists show_array}
     """) |> module_
 
 let list =
@@ -772,8 +774,7 @@ let queue =
     """
 open Loops
 open Console
-// The design of this is not ideal, it should be a single object with 3 mutable fields instead of just one tuple field,
-// but it should do nicely in a pinch for those dynamic programming kind of problems.
+
 inl add_one len x =
     inl x = x + 1
     if x = len then 0 else x
@@ -803,11 +804,17 @@ met dequeue queue () =
     ar from
 
 inl create n typ =
-    inl n = match n with | () -> 16 | n -> max 1 n
-    inl queue = heapm {from=dyn 0; to=dyn 0; ar=Array.create typ n}
-    {internal = queue; enqueue = enqueue queue; dequeue = dequeue queue}
+    inl n = match n with () -> 16 | n -> max 1 n
+    heapm {from=dyn 0; to=dyn 0; ar=Array.create typ n}
 
-{create}
+// Note: By convention I am disallowing module methods to keep track of their data.
+// Hence the user will have to use enqueue and dequeue statically on the queue.
+
+// This is because {queue with queue = new_queue} will not update the queue and dequeue
+// which will still point to the old and unused data. Modules are not to be used as classes.
+
+// Closures can be used as classes as their fields cannot be updated immutably.
+{create enqueue dequeue}
     """) |> module_
 
 let host_tensor =
