@@ -1,0 +1,4 @@
+Error trace on line: 2, column: 5 in file "test70".
+inl a: float64 = 5
+    ^
+Pattern miss error. The argument is lit 5i64
