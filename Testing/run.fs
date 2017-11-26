@@ -3,7 +3,7 @@ open Spiral.Tests
 open System.IO
 
 let learning =
-    "Learning",[option;cuda;extern_;option;console],"The deep learning module.",
+    "Learning",[option;cuda;extern_;option;console;host_tensor],"The deep learning module.",
     """
 open Extern
 openb Cuda
@@ -489,6 +489,21 @@ inl mnist_tensors =
 
 writeline (mnist_tensors.test_labels |> HostTensor.show_tensor," ", total_size (mnist_tensors.test_labels.size))
     """
+
+let host_tensor =
+    (
+    "HostTensor",[tuple;loops],"The host tensor module.",
+    """
+open Loops
+
+inl init_core tns f =
+    inl rec loop tns f = function
+        | {from near_to} :: size -> for { from near_to; body=inl {i} -> loop (ar i) (f i) size }
+        | (),() -> ar .set f
+    loop tns set (tns.size)
+
+    """)
+
 
 let cfg: Spiral.Types.CompilerSettings = {
     path_cuda90 = @"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.0"

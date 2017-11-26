@@ -1817,24 +1817,6 @@ inl parser = parse_int .>>. parse_int |>> (solve 0 0 1 >> writeline)
 run_with_unit_ret (readall()) parser 
     """
 
-//let hacker_rank_10 =
-//    "hacker_rank_10",[tuple;array;list;parsing;console;option],"Crossword Puzzle",
-//    """
-//    """
-
-//let cuda1 =
-//    "cuda1",[loops;tuple;cuda;console;array;host_tensor],"Does the map kernel work?",
-//    """
-//open Loops
-//open Cuda
-//open CudaTensor
-//open Console
-//
-//inl dev_tensor = from_host_tensor (HostTensor.init 8 id)
-//inl {ar} = map (inl x -> x * 2) dev_tensor |> to_host_tensor
-//Array.show_array ar |> writeline
-//    """
-
 let tests =
     [|
     test1;test2;test3;test4;test5;test6;test7;test8;test9
