@@ -13,14 +13,15 @@ type Tuple0 =
     new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
     end
 let rec method_0((var_0: (Tuple0 [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64)): Tuple0 =
-    if (var_2 < var_1) then
-        let (var_5: Tuple0) = var_0.[int32 var_2]
-        let (var_6: int64) = var_5.mem_0
-        let (var_7: int64) = var_5.mem_1
-        let (var_8: int64) = (var_3 + var_6)
-        let (var_9: int64) = (var_4 + var_7)
-        let (var_10: int64) = (var_2 + 1L)
-        method_0((var_0: (Tuple0 [])), (var_1: int64), (var_10: int64), (var_8: int64), (var_9: int64))
+    let (var_5: bool) = (var_2 < var_1)
+    if var_5 then
+        let (var_6: Tuple0) = var_0.[int32 var_2]
+        let (var_7: int64) = var_6.mem_0
+        let (var_8: int64) = var_6.mem_1
+        let (var_9: int64) = (var_3 + var_7)
+        let (var_10: int64) = (var_4 + var_8)
+        let (var_11: int64) = (var_2 + 1L)
+        method_0((var_0: (Tuple0 [])), (var_1: int64), (var_11: int64), (var_9: int64), (var_10: int64))
     else
         Tuple0(var_3, var_4)
 let (var_0: (Tuple0 [])) = Array.zeroCreate<Tuple0> (System.Convert.ToInt32(128L))

@@ -147,7 +147,6 @@ type Op =
     | Case
 
     // TriOps
-    | If
     | IfStatic
 
     // BinOps
@@ -162,8 +161,6 @@ type Op =
     | NEQ 
     | GT 
     | GTE 
-    | And 
-    | Or
     | BitwiseAnd
     | BitwiseOr
     | BitwiseXor

@@ -555,40 +555,22 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyOp _ -> destructure_cse r
             | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
 
-        let if_body d cond tr fl =
-            let b x = cse_add' d cond (TyLit <| LitBool x)
-            let tr = 
-                match cond with
-                | TyOp(EQ,([b & TyLit _; a & TyV _] | [a & TyV _; b & TyLit _]),_) -> tev_assume (cse_add' d a b) d tr
-                | _ -> tev_assume (b true) d tr
-            let fl = 
-                match cond with
-                | TyOp(NEQ,([b & TyLit _; a & TyV _] | [a & TyV _; b & TyLit _]),_) -> tev_assume (cse_add' d a b) d fl
-                | _ -> tev_assume (b false) d fl
-            let type_tr, type_fl = get_type tr, get_type fl
-            if type_tr = type_fl then
-                match tr, fl with
-                | TyLit (LitBool true), TyLit (LitBool false) -> cond
-                | _ when tr = fl -> tr
-                | _ ->
-                    match cond with
-                    | TyLit(LitBool true) -> tr
-                    | TyLit(LitBool false) -> fl
-                    | _ -> TyOp(If,[cond;tr;fl],type_tr) |> make_tyv_and_push_typed_expr_even_if_unit d
-            else on_type_er (trace d) <| sprintf "Types in branches of If do not match.\nGot: %s and %s" (show_ty type_tr) (show_ty type_fl)
-
-        let if_cond d tr fl cond =
-            if is_bool cond = false then on_type_er (trace d) <| sprintf "Expected a bool in conditional.\nGot: %s" (get_type cond |> show_ty)
-            else if_body d cond tr fl
-
         let if_static d cond tr fl =
             match tev d cond with
-            | TyLit (LitBool cond) -> 
-                let branch = if cond then tr else fl
-                tev d branch
-            | cond -> if_cond d tr fl cond
-
-        let if_ d cond tr fl = tev d cond |> if_cond d tr fl
+            | TyLit (LitBool true) -> tev d tr
+            | TyLit (LitBool false) -> tev d fl
+            | TyType (PrimT BoolT) as cond ->
+                let b x = cse_add' d cond (TyLit <| LitBool x)
+                let tr = tev_assume (b true) d tr
+                let fl = tev_assume (b false) d fl
+                let type_tr, type_fl = get_type tr, get_type fl
+                if type_tr = type_fl then
+                    match tr, fl with
+                    | TyLit (LitBool true), TyLit (LitBool false) -> cond
+                    | _ when tr = fl -> tr
+                    | _ -> TyOp(IfStatic,[cond;tr;fl],type_tr) |> make_tyv_and_push_typed_expr_even_if_unit d
+                else on_type_er (trace d) <| sprintf "Types in branches of If do not match.\nGot: %s and %s" (show_ty type_tr) (show_ty type_fl)
+            | TyType cond -> on_type_er (trace d) <| sprintf "Expected a bool in conditional.\nGot: %s" (show_ty cond)
 
         let rec layout_boxed_unseal d recf x =
             let inline f x = layout_boxed_unseal d recf x
@@ -1057,7 +1039,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 let op_arith_zero_num a b =
                     match t with
                     | Add -> b
-                    | Sub -> TyOp(Neg,[b],get_type b) |> destructure d
+                    | Sub -> TyOp(Neg,[b],get_type b)
                     | Mult | Div | Mod -> a
                     | _ -> failwith "Expected an arithmetic operation."
                 let op_arith_num_one a b =
@@ -1162,12 +1144,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | _ -> bool_helper t a b
                     ) a b t
 
-        let prim_bool_op d a b t =
-            match t with
-            | And -> if_ d a b (lit (LitBool false))
-            | Or -> if_ d a (lit (LitBool true)) b
-            | _ -> failwith "impossible"
-
         let prim_shift_op d a b t =
             let er a b = sprintf "`is_int a && is_int b` is false.\na=%s, b=%s" (show_typedexpr a) (show_typedexpr b)
             let check a b = is_int a && is_int b
@@ -1180,7 +1156,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let prim_un_op_template d check_error is_check k a t =
             let a = tev d a
-            if is_check a then k t a
+            if is_check a then k t a |> destructure d
             else on_type_er (trace d) (check_error a)
 
         let prim_un_floating d a t =
@@ -1524,7 +1500,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | x -> x
             | Case,[v;case] -> case_ d v case
             | IfStatic,[cond;tr;fl] -> if_static d cond tr fl
-            | If,[cond;tr;fl] -> if_ d cond tr fl
             | JoinPointEntryMethod,[a] -> join_point_method d a
             | JoinPointEntryType,[a] -> join_point_type d a
             | JoinPointEntryCuda,[a] -> join_point_cuda d a
@@ -1573,9 +1548,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | GT,[a;b] -> prim_comp_op d a b GT
             | GTE,[a;b] -> prim_comp_op d a b GTE
     
-            | And,[a;b] -> prim_bool_op d a b And
-            | Or,[a;b] -> prim_bool_op d a b Or
-
             | BitwiseAnd,[a;b] -> prim_bitwise_op d a b BitwiseAnd
             | BitwiseOr,[a;b] -> prim_bitwise_op d a b BitwiseOr
             | BitwiseXor,[a;b] -> prim_bitwise_op d a b BitwiseXor
@@ -1643,7 +1615,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let var_name =
             var_name_core >>=? function
                 | "match" | "function" | "with" | "without" | "module" | "as" | "when" | "print_env" | "inl" | "met" | "inm" 
-                | "inb" | "use" | "type" | "print_expr" | "rec" | "if" | "if_dynamic" | "then" | "elif" | "else" | "true" | "false" 
+                | "inb" | "use" | "type" | "print_expr" | "rec" | "if" | "then" | "elif" | "else" | "true" | "false" 
                 | "open" | "openb" | "join" as x -> fun _ -> Reply(Error,messageError <| sprintf "%s not allowed as an identifier." x)
                 | x -> preturn x
 
@@ -1937,14 +1909,12 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let expr_indent expr (s: CharStream<_>) = expr_indent i (<=) expr s
             let inline f' str = keywordString str >>. expr
             let inline f str = expr_indent (f' str)
-            let if_ = f' "if" |>> fun x -> IfStatic, x
-            let if_dynamic = f' "if_dynamic" |>> fun x -> If, x
-            pipe4 (if_ <|> if_dynamic) (f "then") (many (f "elif" .>>. f "then")) (opt (f "else"))
-                (fun (if_op,cond) tr elifs fl -> 
+            pipe4 (f' "if") (f "then") (many (f "elif" .>>. f "then")) (opt (f "else"))
+                (fun cond tr elifs fl -> 
                     let fl = 
                         match fl with Some x -> x | None -> B
-                        |> List.foldBack (fun (cond,tr) fl -> op(if_op,[cond;tr;fl])) elifs
-                    op(if_op,[cond;tr;fl]))
+                        |> List.foldBack (fun (cond,tr) fl -> op(IfStatic,[cond;tr;fl])) elifs
+                    op(IfStatic,[cond;tr;fl]))
             <| s
 
         let poperator (s: CharStream<Userstate>) = many1Satisfy is_operator_char .>> spaces <| s
@@ -2202,8 +2172,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                             match dict_operator.TryGetValue op' with
                             | true, (prec,asoc) -> preturn (prec,asoc,fun a b -> 
                                 match orig_op with
-                                | "||" -> expr_pos p (op(Or, [a; b]))
-                                | "&&" -> expr_pos p (op(And, [a; b]))
+                                | "&&" -> expr_pos p (op(IfStatic, [a; b; lit (LitBool false)]))
+                                | "||" -> expr_pos p (op(IfStatic, [a; lit (LitBool true); b]))
                                 | _ -> expr_pos p (ap' (v orig_op) [a; b]))
                             | false, _ -> on_fail ()
 
@@ -2541,7 +2511,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         let b = tuple_field b |> List.map codegen |> String.concat ", "
                         sprintf "%s(%s)" (codegen a) b
                     | Case, v :: cases -> match_with (codegen' d) v cases; ""
-                    | If,[cond;tr;fl] -> if_ (codegen' d) cond tr fl; ""
+                    | IfStatic,[cond;tr;fl] -> if_ (codegen' d) cond tr fl; ""
                     | ArrayCreate,[a] -> failwith "ArrayCreate should be done in a let statement on the Cuda side."
                     | ArrayIndex,[ar & TyType(ArrayT((ArtCudaLocal | ArtCudaShared | ArtCudaGlobal _),_));idx] -> sprintf "%s[%s]" (codegen ar) (codegen idx)
                     | ArrayLength,[a] -> on_type_er trace "The ArrayLlength operation is invalid on the Cuda side as the array is just a pointer."
@@ -2559,8 +2529,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | NEQ,[a;b] -> sprintf "(%s != %s)" (codegen a) (codegen b)
                     | GT,[a;b] -> sprintf "(%s > %s)" (codegen a) (codegen b)
                     | GTE,[a;b] -> sprintf "(%s >= %s)" (codegen a) (codegen b)
-                    | And,[a;b] -> sprintf "(%s && %s)" (codegen a) (codegen b)
-                    | Or,[a;b] -> sprintf "(%s || %s)" (codegen a) (codegen b)
                     | BitwiseAnd,[a;b] -> sprintf "(%s & %s)" (codegen a) (codegen b)
                     | BitwiseOr,[a;b] -> sprintf "(%s | %s)" (codegen a) (codegen b)
                     | BitwiseXor,[a;b] -> sprintf "(%s ^ %s)" (codegen a) (codegen b)
@@ -2968,7 +2936,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         let b = tuple_field b |> List.map codegen |> String.concat ", "
                         sprintf "%s(%s)" (codegen a) b
                     | Case,v :: cases -> match_with v cases; ""
-                    | If,[cond;tr;fl] -> if_ cond tr fl; ""
+                    | IfStatic,[cond;tr;fl] -> if_ cond tr fl; ""
                     | ArrayCreate,[a] -> array_create a t
                     | ReferenceCreate,[a] -> reference_create a
                     | ArrayIndex,[b & TyType(ArrayT(ArtDotNetHeap,_));c] -> array_index b c
@@ -2991,8 +2959,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | NEQ,[a;b] -> sprintf "(%s <> %s)" (codegen a) (codegen b)
                     | GT,[a;b] -> sprintf "(%s > %s)" (codegen a) (codegen b)
                     | GTE,[a;b] -> sprintf "(%s >= %s)" (codegen a) (codegen b)
-                    | And,[a;b] -> sprintf "(%s && %s)" (codegen a) (codegen b)
-                    | Or,[a;b] -> sprintf "(%s || %s)" (codegen a) (codegen b)
                     | BitwiseAnd,[a;b] -> sprintf "(%s &&& %s)" (codegen a) (codegen b)
                     | BitwiseOr,[a;b] -> sprintf "(%s ||| %s)" (codegen a) (codegen b)
                     | BitwiseXor,[a;b] -> sprintf "(%s ^^^ %s)" (codegen a) (codegen b)

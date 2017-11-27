@@ -7,126 +7,138 @@ extern "C" {
 """
 
 let rec method_0((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64)): unit =
-    if (var_5 < var_2) then
-        let (var_6: int64) = 0L
-        method_1((var_6: int64), (var_0: int64), (var_1: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_2: int64))
+    let (var_6: bool) = (var_5 < var_2)
+    if var_6 then
+        let (var_7: int64) = 0L
+        method_1((var_7: int64), (var_0: int64), (var_1: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_2: int64))
     else
         (failwith "Failure.")
 and method_1((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64)): unit =
-    if (var_0 < var_6) then
+    let (var_7: bool) = (var_0 < var_6)
+    if var_7 then
         System.Console.Write("I am at (")
         System.Console.Write(var_5)
         System.Console.Write(",")
         System.Console.Write(var_0)
         System.Console.Write(")")
         System.Console.WriteLine()
-        let (var_7: bool) =
-            if (var_5 = var_1) then
+        let (var_8: bool) = (var_5 = var_1)
+        let (var_10: bool) =
+            if var_8 then
                 (var_0 = var_2)
             else
                 false
-        if var_7 then
+        if var_10 then
             System.Console.Write("I've found Mario.")
             System.Console.WriteLine()
-            let (var_8: int64) = (var_0 + 1L)
-            method_2((var_8: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64))
+            let (var_11: int64) = (var_0 + 1L)
+            method_2((var_11: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64))
         else
-            let (var_9: bool) =
-                if (var_5 = var_3) then
+            let (var_12: bool) = (var_5 = var_3)
+            let (var_14: bool) =
+                if var_12 then
                     (var_0 = var_4)
                 else
                     false
-            if var_9 then
+            if var_14 then
                 System.Console.Write("I've found Princess.")
                 System.Console.WriteLine()
-                let (var_10: int64) = (var_0 + 1L)
-                method_4((var_10: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64))
+                let (var_15: int64) = (var_0 + 1L)
+                method_4((var_15: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64))
             else
-                let (var_11: int64) = (var_0 + 1L)
-                method_1((var_11: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64))
+                let (var_16: int64) = (var_0 + 1L)
+                method_1((var_16: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64))
     else
-        let (var_12: int64) = (var_5 + 1L)
-        method_0((var_1: int64), (var_2: int64), (var_6: int64), (var_3: int64), (var_4: int64), (var_12: int64))
+        let (var_17: int64) = (var_5 + 1L)
+        method_0((var_1: int64), (var_2: int64), (var_6: int64), (var_3: int64), (var_4: int64), (var_17: int64))
 and method_2((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64)): unit =
-    if (var_0 < var_6) then
+    let (var_7: bool) = (var_0 < var_6)
+    if var_7 then
         System.Console.Write("I am at (")
         System.Console.Write(var_5)
         System.Console.Write(",")
         System.Console.Write(var_0)
         System.Console.Write(")")
         System.Console.WriteLine()
-        let (var_7: bool) =
-            if (var_5 = var_1) then
+        let (var_8: bool) = (var_5 = var_1)
+        let (var_10: bool) =
+            if var_8 then
                 (var_0 = var_2)
             else
                 false
-        if var_7 then
+        if var_10 then
             System.Console.Write("I've found Mario.")
             System.Console.WriteLine()
-            let (var_8: int64) = (var_0 + 1L)
-            method_2((var_8: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64))
+            let (var_11: int64) = (var_0 + 1L)
+            method_2((var_11: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64))
         else
-            let (var_9: bool) =
-                if (var_5 = var_3) then
+            let (var_12: bool) = (var_5 = var_3)
+            let (var_14: bool) =
+                if var_12 then
                     (var_0 = var_4)
                 else
                     false
-            if var_9 then
+            if var_14 then
                 System.Console.Write("I've found Princess.")
                 System.Console.WriteLine()
                 System.Console.Write("Success.")
                 System.Console.WriteLine()
             else
-                let (var_10: int64) = (var_0 + 1L)
-                method_2((var_10: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64))
+                let (var_15: int64) = (var_0 + 1L)
+                method_2((var_15: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64))
     else
-        let (var_11: int64) = (var_5 + 1L)
-        method_3((var_1: int64), (var_2: int64), (var_6: int64), (var_3: int64), (var_4: int64), (var_11: int64))
+        let (var_16: int64) = (var_5 + 1L)
+        method_3((var_1: int64), (var_2: int64), (var_6: int64), (var_3: int64), (var_4: int64), (var_16: int64))
 and method_4((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64)): unit =
-    if (var_0 < var_6) then
+    let (var_7: bool) = (var_0 < var_6)
+    if var_7 then
         System.Console.Write("I am at (")
         System.Console.Write(var_5)
         System.Console.Write(",")
         System.Console.Write(var_0)
         System.Console.Write(")")
         System.Console.WriteLine()
-        let (var_7: bool) =
-            if (var_5 = var_1) then
+        let (var_8: bool) = (var_5 = var_1)
+        let (var_10: bool) =
+            if var_8 then
                 (var_0 = var_2)
             else
                 false
-        if var_7 then
+        if var_10 then
             System.Console.Write("I've found Mario.")
             System.Console.WriteLine()
             System.Console.Write("Success.")
             System.Console.WriteLine()
         else
-            let (var_8: bool) =
-                if (var_5 = var_3) then
+            let (var_11: bool) = (var_5 = var_3)
+            let (var_13: bool) =
+                if var_11 then
                     (var_0 = var_4)
                 else
                     false
-            if var_8 then
+            if var_13 then
                 System.Console.Write("I've found Princess.")
                 System.Console.WriteLine()
-                let (var_9: int64) = (var_0 + 1L)
-                method_4((var_9: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64))
+                let (var_14: int64) = (var_0 + 1L)
+                method_4((var_14: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64))
             else
-                let (var_10: int64) = (var_0 + 1L)
-                method_4((var_10: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64))
+                let (var_15: int64) = (var_0 + 1L)
+                method_4((var_15: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64))
     else
-        let (var_11: int64) = (var_5 + 1L)
-        method_5((var_1: int64), (var_2: int64), (var_6: int64), (var_3: int64), (var_4: int64), (var_11: int64))
+        let (var_16: int64) = (var_5 + 1L)
+        method_5((var_1: int64), (var_2: int64), (var_6: int64), (var_3: int64), (var_4: int64), (var_16: int64))
 and method_3((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64)): unit =
-    if (var_5 < var_2) then
-        let (var_6: int64) = 0L
-        method_2((var_6: int64), (var_0: int64), (var_1: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_2: int64))
+    let (var_6: bool) = (var_5 < var_2)
+    if var_6 then
+        let (var_7: int64) = 0L
+        method_2((var_7: int64), (var_0: int64), (var_1: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_2: int64))
     else
         (failwith "Failure.")
 and method_5((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64)): unit =
-    if (var_5 < var_2) then
-        let (var_6: int64) = 0L
-        method_4((var_6: int64), (var_0: int64), (var_1: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_2: int64))
+    let (var_6: bool) = (var_5 < var_2)
+    if var_6 then
+        let (var_7: int64) = 0L
+        method_4((var_7: int64), (var_0: int64), (var_1: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_2: int64))
     else
         (failwith "Failure.")
 let (var_0: int64) = 0L

@@ -8,22 +8,24 @@ extern "C" {
 
 let (var_0: string) = "2"
 let (var_1: int64) = 0L
-let (var_3: bool) =
-    if (var_1 >= 0L) then
-        let (var_2: int64) = (int64 var_0.Length)
-        (var_1 < var_2)
+let (var_2: bool) = (var_1 >= 0L)
+let (var_5: bool) =
+    if var_2 then
+        let (var_3: int64) = (int64 var_0.Length)
+        (var_1 < var_3)
     else
         false
-if var_3 then
-    let (var_4: char) = var_0.[int32 var_1]
-    let (var_5: bool) =
-        if (var_4 >= '0') then
-            (var_4 <= '9')
+if var_5 then
+    let (var_6: char) = var_0.[int32 var_1]
+    let (var_7: bool) = (var_6 >= '0')
+    let (var_9: bool) =
+        if var_7 then
+            (var_6 <= '9')
         else
             false
-    let (var_6: int64) = (var_1 + 1L)
-    if var_5 then
-        System.Console.WriteLine(var_4)
+    let (var_10: int64) = (var_1 + 1L)
+    if var_9 then
+        System.Console.WriteLine(var_6)
     else
         (failwith "digit")
 else

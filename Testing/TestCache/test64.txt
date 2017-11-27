@@ -33,7 +33,7 @@ match var_0 with
             let (var_8: int64) = (var_2 + var_5)
             (var_8 + 10L)
         | Rec0Case1(var_7) ->
-            let (var_9: int64) = var_7.mem_0
-            let (var_10: Rec0) = var_7.mem_1
+            let (var_10: int64) = var_7.mem_0
+            let (var_11: Rec0) = var_7.mem_1
             (var_2 + var_5)
 

@@ -78,8 +78,6 @@ inl (|||) a b = !BitwiseOr(a,b)
 inl (^^^) a b = !BitwiseXor(a,b)
 
 inl (::) a b = !ListCons(a,b)
-inl (&&) a b = !And(a,b)
-inl (||) a b = !Or(a,b)
 inl (<<<) a b = !ShiftLeft(a,b)
 inl (>>>) a b = !ShiftRight(a,b)
 inl Tuple = {
@@ -143,7 +141,7 @@ inl tanh x = !Tanh(x)
 {type_lit_lift error_type print_static dyn (\/) (=>) cuda fs log exp tanh array
  split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
  string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref Array (+) (-) (*) (/) (%)
- (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (&&) (||) (<<<) (>>>) Tuple fst snd not
+ (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>) Tuple fst snd not
  string_length lit_is box_is failwith assert max min eq_type module_values caseable_is (:>)
  (:?>) (=) module_map module_fold sizeof} |> stack
     """) |> module_
