@@ -1028,7 +1028,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let inline prim_bin_op_template d check_error is_check k a b t =
             let a, b = tev2 d a b
-            if is_check a b then k t a b
+            if is_check a b then k t a b |> destructure d
             else on_type_er (trace d) (check_error a b)
 
         let inline prim_bin_op_helper t a b = TyOp(t,[a;b],get_type a)

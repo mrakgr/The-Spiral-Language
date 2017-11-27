@@ -973,19 +973,6 @@ inl b = List.empty int64 |> dyn
 a = b
     """
 
-//let test83 =
-//    "test83",[],"Does this destructure trigger an error?",
-//    """
-//inl f =
-//    if dyn true then
-//        dyn 2 |> ignore
-//        dyn 3 |> ignore
-//        true
-//    else
-//        false
-//dyn 2 |> ignore
-//    """
-
 let test85 =
     "test85",[],"Does the equality rewrite work?",
     """
