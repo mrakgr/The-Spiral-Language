@@ -403,7 +403,7 @@ inl test_gemm =
 
 inl test_forward_pass {num_iters} = 
     inl hidden_size = 10
-    inl input_size = 768
+    inl input_size = 784
     inl batch_size = 128
     inl example_size = batch_size, input_size
     inl weight_size = input_size, hidden_size
@@ -446,10 +446,10 @@ inl learning_tests =
 inl mnist_path = @"C:\Users\Marko\Documents\Visual Studio 2015\Projects\SpiralQ\SpiralQ\Tests"
 
 inl mnist_files = {
-    test_images = "t10k-images.idx3-ubyte"
-    test_labels = "t10k-labels.idx1-ubyte"
-    train_images = "train-images.idx3-ubyte"
-    train_labels = "train-labels.idx1-ubyte"
+    test_images = {file = "t10k-images.idx3-ubyte"; expected_size = 10000,28*28}
+    test_labels = {file = "t10k-labels.idx1-ubyte"; expected_size = 10000,1}
+    train_images = {file = "train-images.idx3-ubyte"; expected_size = 50000,28*28}
+    train_labels = {file = "train-labels.idx1-ubyte"; expected_size = 50000,1}
     }
 
 met load_mnist (!dyn filename) =
@@ -476,16 +476,26 @@ met load_mnist (!dyn filename) =
     match magic_number with
     | 2049i32 -> // Labels
         inl n = read_int32()
-        read_bytes n |> HostTensor.array_as_tensor (to_int64 n,1)
+        read_bytes n 
+        |> HostTensor.array_as_tensor 
+        |> HostTensor.reshape (to_ints64 (n,1))
     | x -> // Images
         assert (x = 2051i32) "The magic number must be either 2049 or 2051"
         inl n, rows, cols = read_int32(), read_int32(), read_int32()
-        read_bytes (n * rows * cols) |> HostTensor.array_as_tensor (to_ints64 (n,rows*cols))
+        inl size = n,rows*cols
+        read_bytes (n * rows * cols) 
+        |> HostTensor.array_as_tensor
+        |> HostTensor.reshape (to_ints64 size)
+        |> HostTensor.map <| inl x -> unsafe_convert float32 (x / 255f32)
+            
 
 inl mnist_tensors = 
     inl path_type = fs [text: "System.IO.Path"]
     inl combine x = FS.StaticMethod path_type .Combine x string
-    module_map (inl _ v -> load_mnist (combine (mnist_path, v))) mnist_files
+    module_map (inl _ {file expected_size} -> 
+        load_mnist (combine (mnist_path, file))
+        |> HostTensor.assert_size expected_size
+        ) mnist_files
 
 writeline (mnist_tensors.test_labels |> HostTensor.show_tensor," ", total_size (mnist_tensors.test_labels.size))
     """
