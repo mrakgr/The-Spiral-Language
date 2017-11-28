@@ -943,16 +943,20 @@ inl array_as_tensor ar =
 /// Reinterprets an array as a tensor. array -> tensor.
 inl array_to_tensor = array_as_tensor >> copy
 
+/// Maps the elements of the tensor. (a -> b) -> a tensor -> b tensor
 inl map f tns =
-    inl size = tns.data.dim |> Tuple.map (fun {size} -> size)
+    inl size = tns.data.dim |> Tuple.map (inl {size} -> size)
     inl rec loop tns = function
         | x :: x' -> inl x -> loop (tns x) x' 
         | () -> f (tns .get)
     
     init size (loop size)
 
+/// Maps the ar field of the tensor rather than it elements. (a -> b) -> tensor with (a ar) -> tensor with (b ar)
+inl map_ar f (!view {ar} & tns) = wrap {tns with ar = toa_map f ar}
+
 {toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims total_size wrap create size_to_dim 
- init copy view to_1d reshape assert_size array_as_tensor array_to_tensor map}
+ init copy view to_1d reshape assert_size array_as_tensor array_to_tensor map map_ar}
 |> stack
     """) |> module_
 

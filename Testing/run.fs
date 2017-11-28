@@ -30,7 +30,7 @@ inl safe_alloc n create =
         | 0 ret ->
             inl tns = Tuple.foldr (inl x create -> create x) vars create
             inl r = ret tns
-            HostTensor.map_tensor (inl x -> x.ptr.Dispose) tns |> ignore
+            HostTensor.map_ar (inl x -> x.ptr.Dispose) tns |> ignore
             r
         | n x -> loop (x :: vars) (n-1)
     function
@@ -104,7 +104,7 @@ inl CudaTensor allocator =
         FS.Method context .CopyToDevice(t.ptr(), ar) unit
         t
 
-    inl from_host_tensor = map_tensor from_host_array
+    inl from_host_tensor = map_ar from_host_array
 
     inl to_host_array size1d ar =
         inl elem_type = ar.elem_type
@@ -118,18 +118,17 @@ inl CudaTensor allocator =
     inl ptr ar = 
         inl ptr, elem_type = ar.ptr(), ar.elem_type
         !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
-    inl to_device_tensor_form = map_tensor ptr
+    inl pointerize = map_ar ptr
 
     inl zip = function
         | x :: xs as l ->
-            inl {size=sa layout=la} = x
-            Tuple.iter (inl {size=sb layout=lb} -> 
+            inl {dim={size=sa}} = x
+            Tuple.iter (inl {dim={size=sb}} -> 
                 assert (sa=sb) "The sizes of all the tensors in zip must be the same in order to be zipped"
-                assert (eq_type la lb) "The layouts of all the tensors must have the same format."
                 ) xs
-            match la with
-            | .aot -> error_type "Array of tuples tensor layout is currently not supported."
-            | .toa -> {size=sa; layout=la; ar = Tuple.map (inl {ar} -> ar) l}
+            inl l = 
+                Tuple.map (inl {dim ar cur_offset})
+            {size=sa; ar = Tuple.map (inl {ar} -> ar) l}
         | () -> error_type "Empty input to zip is invalid."
         | x -> x
         
@@ -497,7 +496,8 @@ inl mnist_tensors =
         |> HostTensor.assert_size expected_size
         ) mnist_files
 
-writeline (mnist_tensors.test_labels |> HostTensor.show_tensor," ", total_size (mnist_tensors.test_labels.size))
+print_static mnist_tensors
+//writeline (mnist_tensors.test_labels |> HostTensor.show_tensor," ", total_size (mnist_tensors.test_labels.size))
     """
 
 let cfg: Spiral.Types.CompilerSettings = {
@@ -507,8 +507,8 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = []
     }
 
-rewrite_test_cache cfg None //(Some(0,40))
+//rewrite_test_cache cfg None //(Some(0,40))
 
-//output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
-//|> printfn "%s"
-//|> ignore
+output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
+|> printfn "%s"
+|> ignore
