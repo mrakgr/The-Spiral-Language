@@ -856,69 +856,52 @@ inl map_dim = function
         {from=0; near_to=x}
 
 inl map_dims = Tuple.map map_dim << Tuple.wrap
+inl wrap p f = f p
 
-inl offset x = x.offset
+inl HostTensorPrimitives = 
+    inl view {data with size position} v = {data with position=position + v * size}
+    inl merge_size {data with size position} {size=size' position=position'} = {data with size=size'; position=position + position'}
+    {
+    view merge_size
+    get = inl {data with position ar} -> ar position
+    set = inl {data with position ar} -> ar position <- v
+    apply = {data with offsets=x :: offsets} v -> merge_offset (view {data with offsets} v) x
+    }
 
-// Wrapper for the offset of the tensor
-inl rec wrap_offset {data with size value} = function
-    | .offset -> data
-    | .value -> value
-    | .view v -> wrap_offset {data with value=value + v * size}
-    | .merge_offset (!offset {size=size' value=value'}) -> wrap_offset {data with size=size'; value=value + value'}
-
-// Wrapper for the array of the tensor.
-inl rec wrap_ar {data with offset ar} = function
-    | .get -> ar (offset.value)
-    | .set v -> ar (offset.value) <- v
-    | .ar -> ar
-    | .replace_ar f -> f data
-    | x -> wrap_ar {data with offset = offset x}
-
-/// Wrapper for the body of the tensor
-inl rec wrap_body {data with ar offsets} = function
-    | .apply v -> 
-        match offsets with
-        | x :: offsets -> wrap_body {data with ar = ar.view v.merge_offset x; offsets}
-    | .offsets -> offsets
-    | .ar -> ar.ar
-    | (.get | .set) & x -> ar x
-    | x -> wrap_body {data with ar = ar x}
-
-// Wrapper for the tensor.
-inl rec wrap_tensor {data with bodies dim} = 
-    function
-    | .dim -> dim
-    | .update f {update_body update_dim} -> 
-        inl bodies = 
-            match f with
-            | {update_body} -> toa_map update_body bodies
-            | _ -> bodies
-        inl dim =
-            match f with
-            | {update_dim} -> update_dim dim
-            | _ -> dim
-        wrap_tensor {bodies dim}
-    | .get ->
+inl Tensor {view merge_offset get set apply} = {
+    update_body = inl {data with bodies} f -> {data with bodies=toa_map (f >> wrap) bodies}    
+    update_dim = inl {data with dim} f -> {data with dim=f dim}
+    get = inl {data with dim} -> 
         match dim with
-        | () -> toa_map (inl body -> body.get) bodies
+        | () -> toa_map get bodies
         | _ -> error_type "Cannot get from tensor whose dimensions have not been applied completely."
-    | .set v -> 
+    set = inl {data with dim} ->
         match dim with
-        | () -> toa_iter2 (inl body v -> body.set v) bodies v
+        | () -> toa_iter2 set bodies v
         | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
-    | .view (!map_dim ({from=from' near_to=near_to'} & head_dim)) -> 
+    view = {inl data with dim} (!map_dim ({from=from' near_to=near_to'} & head_dim)) ->
         match dim with
         | () -> error_type "Cannot view the tensor anymore."
         | {from near_to} :: tail_dim ->
             assert (from' >= from && from' < near_to) "Lower boundary out of bounds." 
             assert (near_to' > from && near_to' <= near_to) "Higher boundary out of bounds." 
-            wrap_tensor {body = toa_map (inl ar -> ar.view from') self; dim=head_dim :: tail_dim}
-    | i -> 
+            {data with bodies = toa_map (inl ar -> view ar from' |> wrap) self; dim=head_dim :: tail_dim}
+    apply = inl {data with dim} i ->
         match dim with
         | () -> error_type "Cannot apply the tensor anymore."
         | {from near_to} :: dim ->
             assert (i >= from && i < near_to) "Argument out of bounds." 
-            wrap_tensor {body = toa_map (inl ar -> ar.apply i) body; dim}
+            {data with body = toa_map (inl ar -> apply ar i |> wrap) self; dim}
+    }
+
+inl tensor_wrap module = 
+    inl rec wrap data = function
+        | (.get | .set) & x -> module x data
+        | .(_) & x -> module x data |> wrap
+        | i -> module .apply data i |> wrap
+    wrap
+
+inl host_tensor_wrap = tensor_wrap (Tensor HostTensorPrimitives)
 
 inl dim_describe (!map_dims dim) = 
     match dim with
