@@ -980,6 +980,22 @@ inl q = true && dyn true
 ()
     """
 
+let test84 =
+    "test84",[host_tensor],"Does the scalar tensor work?",
+    """
+open HostTensor
+inl ar = init () 5
+ar .get
+    """
+
+let test85 =
+    "test85",[host_tensor],"Do the reshape and the to_1d work?",
+    """
+open HostTensor
+inl ar = init (32*32) id |> reshape (16,64)
+(ar 0 0, ar 0 1, ar 0 2, ar 1 0, ar 1 1, ar 1 2, (to_1d ar 123)) |> Tuple.map (inl x -> x.get)
+    """
+
 let test86 =
     "test86",[host_tensor],"Is the type of host tensor for the TOA layout correct? Does it work on the singleton dimensions?",
     """
@@ -1819,7 +1835,7 @@ let tests =
     test50;test51;test52;test53;test54;test55;test56;test57;test58;test59
     test60_error;test61;test62;test63;test64;test65;test66;test67;test68;test69
     test70;test71_error;test72;test73;test74;test75;test76;test77;test78;test79
-    test80;test81;test82;test83;                    test86;test87;test88;test89
+    test80;test81;test82;test83;test84;test85;test86;test87;test88;test89
     hacker_rank_1;hacker_rank_2;hacker_rank_3;hacker_rank_4;hacker_rank_5;hacker_rank_6;hacker_rank_7;hacker_rank_8;hacker_rank_9
     parsing1;parsing2;parsing3;parsing4;parsing5;parsing6;parsing7;parsing8
     loop1;loop2;loop3;loop4_error;loop5;loop6;loop7;loop8
