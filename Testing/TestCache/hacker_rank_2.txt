@@ -210,54 +210,53 @@ and method_4((var_0: ((Union0 []) [])), (var_1: int64), (var_2: string), (var_3:
                 let (var_21: Tuple4) = var_20.mem_0
                 let (var_22: int64) = var_21.mem_0
                 let (var_23: int64) = var_21.mem_1
-                let (var_24: bool) = (0L > var_1)
-                let (var_25: int64) =
-                    if var_24 then
-                        0L
-                    else
-                        var_1
-                let (var_26: int64) =
-                    if var_24 then
-                        0L
-                    else
-                        var_1
-                let (var_27: int64) = (var_26 * var_25)
-                let (var_28: (bool [])) = Array.zeroCreate<bool> (System.Convert.ToInt32(var_27))
-                let (var_29: int64) = 0L
-                method_15((var_28: (bool [])), (var_25: int64), (var_1: int64), (var_29: int64))
-                let (var_30: bool) = (var_17 >= 0L)
-                let (var_32: bool) =
-                    if var_30 then
+                let (var_24: bool) = (var_1 > 0L)
+                let (var_25: bool) = (var_24 = false)
+                if var_25 then
+                    (failwith "Tensor needs to be at least size 1.")
+                else
+                    ()
+                if var_25 then
+                    (failwith "Tensor needs to be at least size 1.")
+                else
+                    ()
+                let (var_26: int64) = (var_1 * var_1)
+                let (var_27: (bool [])) = Array.zeroCreate<bool> (System.Convert.ToInt32(var_26))
+                let (var_28: int64) = 0L
+                method_15((var_27: (bool [])), (var_1: int64), (var_28: int64))
+                let (var_29: bool) = (var_17 >= 0L)
+                let (var_31: bool) =
+                    if var_29 then
                         (var_17 < var_1)
                     else
                         false
-                let (var_33: bool) = (var_32 = false)
-                if var_33 then
+                let (var_32: bool) = (var_31 = false)
+                if var_32 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_34: int64) = (var_17 * var_25)
-                let (var_35: bool) = (var_18 >= 0L)
-                let (var_37: bool) =
-                    if var_35 then
+                let (var_33: int64) = (var_17 * var_1)
+                let (var_34: bool) = (var_18 >= 0L)
+                let (var_36: bool) =
+                    if var_34 then
                         (var_18 < var_1)
                     else
                         false
-                let (var_38: bool) = (var_37 = false)
-                if var_38 then
+                let (var_37: bool) = (var_36 = false)
+                if var_37 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_39: int64) = (var_34 + var_18)
-                var_28.[int32 var_39] <- true
-                let (var_40: string) = "UP"
-                let (var_41: string) = "DOWN"
-                let (var_42: string) = "LEFT"
-                let (var_43: string) = "RIGHT"
-                let (var_44: (Tuple5 [])) = Array.zeroCreate<Tuple5> (System.Convert.ToInt32(1L))
-                var_44.[int32 0L] <- Tuple5(Tuple4(var_17, var_18), Rec6Case0)
-                let (var_45: (Union7 ref)) = (ref Union7Case1)
-                method_18((var_28: (bool [])), (var_25: int64), (var_1: int64), (var_23: int64), (var_22: int64), (var_40: string), (var_41: string), (var_42: string), (var_43: string), (var_45: (Union7 ref)), (var_44: (Tuple5 [])))
+                let (var_38: int64) = (var_33 + var_18)
+                var_27.[int32 var_38] <- true
+                let (var_39: string) = "UP"
+                let (var_40: string) = "DOWN"
+                let (var_41: string) = "LEFT"
+                let (var_42: string) = "RIGHT"
+                let (var_43: (Tuple5 [])) = Array.zeroCreate<Tuple5> (System.Convert.ToInt32(1L))
+                var_43.[int32 0L] <- Tuple5(Tuple4(var_17, var_18), Rec6Case0)
+                let (var_44: (Union7 ref)) = (ref Union7Case1)
+                method_18((var_27: (bool [])), (var_1: int64), (var_23: int64), (var_22: int64), (var_39: string), (var_40: string), (var_41: string), (var_42: string), (var_44: (Union7 ref)), (var_43: (Tuple5 [])))
             | Union2Case1 ->
                 (failwith "Current position not found.")
         | Union2Case1 ->
@@ -382,52 +381,52 @@ and method_7((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64)): Env1 =
         method_8((var_0: ((Union0 []) [])), (var_2: int64), (var_1: int64), (var_4: int64))
     else
         (Env1(Union2Case1, Union2Case1))
-and method_15((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64)): unit =
-    let (var_4: bool) = (var_3 < var_2)
-    if var_4 then
-        let (var_5: bool) = (var_3 >= 0L)
-        let (var_6: bool) = (var_5 = false)
-        if var_6 then
+and method_15((var_0: (bool [])), (var_1: int64), (var_2: int64)): unit =
+    let (var_3: bool) = (var_2 < var_1)
+    if var_3 then
+        let (var_4: bool) = (var_2 >= 0L)
+        let (var_5: bool) = (var_4 = false)
+        if var_5 then
             (failwith "Argument out of bounds.")
         else
             ()
-        let (var_7: int64) = (var_3 * var_1)
-        let (var_8: int64) = 0L
-        method_16((var_0: (bool [])), (var_7: int64), (var_2: int64), (var_8: int64))
-        let (var_9: int64) = (var_3 + 1L)
-        method_15((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_9: int64))
+        let (var_6: int64) = (var_2 * var_1)
+        let (var_7: int64) = 0L
+        method_16((var_0: (bool [])), (var_6: int64), (var_1: int64), (var_7: int64))
+        let (var_8: int64) = (var_2 + 1L)
+        method_15((var_0: (bool [])), (var_1: int64), (var_8: int64))
     else
         ()
-and method_18((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: string), (var_6: string), (var_7: string), (var_8: string), (var_9: (Union7 ref)), (var_10: (Tuple5 []))): unit =
-    let (var_11: int64) = var_10.LongLength
-    let (var_12: bool) = (var_11 >= 0L)
-    let (var_13: bool) = (var_12 = false)
-    if var_13 then
+and method_18((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: string), (var_5: string), (var_6: string), (var_7: string), (var_8: (Union7 ref)), (var_9: (Tuple5 []))): unit =
+    let (var_10: int64) = var_9.LongLength
+    let (var_11: bool) = (var_10 >= 0L)
+    let (var_12: bool) = (var_11 = false)
+    if var_12 then
         (failwith "The input to init needs to be greater or equal to 0.")
     else
         ()
-    let (var_165: ((Tuple5 []) [])) = Array.zeroCreate<(Tuple5 [])> (System.Convert.ToInt32(var_11))
+    let (var_164: ((Tuple5 []) [])) = Array.zeroCreate<(Tuple5 [])> (System.Convert.ToInt32(var_10))
+    let (var_165: int64) = 0L
+    method_19((var_164: ((Tuple5 []) [])), (var_9: (Tuple5 [])), (var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: string), (var_5: string), (var_6: string), (var_7: string), (var_8: (Union7 ref)), (var_10: int64), (var_165: int64))
     let (var_166: int64) = 0L
-    method_19((var_165: ((Tuple5 []) [])), (var_10: (Tuple5 [])), (var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: string), (var_6: string), (var_7: string), (var_8: string), (var_9: (Union7 ref)), (var_11: int64), (var_166: int64))
-    let (var_167: int64) = 0L
-    let (var_168: int64) = var_165.LongLength
-    let (var_169: int64) = 0L
-    let (var_170: int64) = method_20((var_165: ((Tuple5 []) [])), (var_168: int64), (var_169: int64), (var_167: int64))
-    let (var_171: (Tuple5 [])) = Array.zeroCreate<Tuple5> (System.Convert.ToInt32(var_170))
-    let (var_172: int64) = 0L
-    let (var_173: int64) = var_165.LongLength
-    let (var_174: int64) = 0L
-    let (var_175: int64) = method_21((var_165: ((Tuple5 []) [])), (var_171: (Tuple5 [])), (var_173: int64), (var_174: int64), (var_172: int64))
-    let (var_176: Union7) = (!var_9)
-    match var_176 with
-    | Union7Case0(var_177) ->
-        let (var_178: Tuple11) = var_177.mem_0
-        let (var_179: Tuple5) = var_178.mem_0
-        let (var_180: Tuple4) = var_179.mem_0
-        let (var_181: Rec6) = var_179.mem_1
-        method_23((var_181: Rec6))
+    let (var_167: int64) = var_164.LongLength
+    let (var_168: int64) = 0L
+    let (var_169: int64) = method_20((var_164: ((Tuple5 []) [])), (var_167: int64), (var_168: int64), (var_166: int64))
+    let (var_170: (Tuple5 [])) = Array.zeroCreate<Tuple5> (System.Convert.ToInt32(var_169))
+    let (var_171: int64) = 0L
+    let (var_172: int64) = var_164.LongLength
+    let (var_173: int64) = 0L
+    let (var_174: int64) = method_21((var_164: ((Tuple5 []) [])), (var_170: (Tuple5 [])), (var_172: int64), (var_173: int64), (var_171: int64))
+    let (var_175: Union7) = (!var_8)
+    match var_175 with
+    | Union7Case0(var_176) ->
+        let (var_177: Tuple11) = var_176.mem_0
+        let (var_178: Tuple5) = var_177.mem_0
+        let (var_179: Tuple4) = var_178.mem_0
+        let (var_180: Rec6) = var_178.mem_1
+        method_23((var_180: Rec6))
     | Union7Case1 ->
-        method_18((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: string), (var_6: string), (var_7: string), (var_8: string), (var_9: (Union7 ref)), (var_171: (Tuple5 [])))
+        method_18((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: string), (var_5: string), (var_6: string), (var_7: string), (var_8: (Union7 ref)), (var_170: (Tuple5 [])))
 and method_6((var_0: (Union0 [])), (var_1: ((Union0 []) [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: bool), (var_6: string), (var_7: int64), (var_8: int64)): unit =
     let (var_9: int64) = (var_7 + 1L)
     let (var_10: bool) = (var_8 >= 0L)
@@ -491,400 +490,400 @@ and method_16((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64)
         method_16((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_8: int64))
     else
         ()
-and method_19((var_0: ((Tuple5 []) [])), (var_1: (Tuple5 [])), (var_2: (bool [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: string), (var_8: string), (var_9: string), (var_10: string), (var_11: (Union7 ref)), (var_12: int64), (var_13: int64)): unit =
-    let (var_14: bool) = (var_13 < var_12)
-    if var_14 then
-        let (var_15: Tuple5) = var_1.[int32 var_13]
-        let (var_16: Tuple4) = var_15.mem_0
-        let (var_17: Rec6) = var_15.mem_1
-        let (var_18: int64) = var_16.mem_0
-        let (var_19: int64) = var_16.mem_1
-        let (var_20: int64) = (var_18 - 1L)
-        let (var_21: bool) = (var_20 >= 0L)
-        let (var_23: bool) =
-            if var_21 then
-                (var_20 < var_4)
+and method_19((var_0: ((Tuple5 []) [])), (var_1: (Tuple5 [])), (var_2: (bool [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: string), (var_7: string), (var_8: string), (var_9: string), (var_10: (Union7 ref)), (var_11: int64), (var_12: int64)): unit =
+    let (var_13: bool) = (var_12 < var_11)
+    if var_13 then
+        let (var_14: Tuple5) = var_1.[int32 var_12]
+        let (var_15: Tuple4) = var_14.mem_0
+        let (var_16: Rec6) = var_14.mem_1
+        let (var_17: int64) = var_15.mem_0
+        let (var_18: int64) = var_15.mem_1
+        let (var_19: int64) = (var_17 - 1L)
+        let (var_20: bool) = (var_19 >= 0L)
+        let (var_22: bool) =
+            if var_20 then
+                (var_19 < var_3)
             else
                 false
-        let (var_27: bool) =
-            if var_23 then
-                let (var_24: bool) = (var_19 >= 0L)
-                if var_24 then
-                    (var_19 < var_4)
+        let (var_26: bool) =
+            if var_22 then
+                let (var_23: bool) = (var_18 >= 0L)
+                if var_23 then
+                    (var_18 < var_3)
                 else
                     false
             else
                 false
-        let (var_39: bool) =
-            if var_27 then
-                let (var_29: bool) =
-                    if var_21 then
-                        (var_20 < var_4)
+        let (var_38: bool) =
+            if var_26 then
+                let (var_28: bool) =
+                    if var_20 then
+                        (var_19 < var_3)
                     else
                         false
-                let (var_30: bool) = (var_29 = false)
-                if var_30 then
+                let (var_29: bool) = (var_28 = false)
+                if var_29 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_31: int64) = (var_20 * var_3)
-                let (var_32: bool) = (var_19 >= 0L)
-                let (var_34: bool) =
-                    if var_32 then
-                        (var_19 < var_4)
+                let (var_30: int64) = (var_19 * var_3)
+                let (var_31: bool) = (var_18 >= 0L)
+                let (var_33: bool) =
+                    if var_31 then
+                        (var_18 < var_3)
                     else
                         false
-                let (var_35: bool) = (var_34 = false)
-                if var_35 then
+                let (var_34: bool) = (var_33 = false)
+                if var_34 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_36: int64) = (var_31 + var_19)
-                let (var_37: bool) = var_2.[int32 var_36]
-                (var_37 = false)
+                let (var_35: int64) = (var_30 + var_18)
+                let (var_36: bool) = var_2.[int32 var_35]
+                (var_36 = false)
             else
                 false
-        let (var_52: bool) =
-            if var_39 then
-                let (var_40: bool) = (var_20 = var_6)
-                let (var_42: bool) =
-                    if var_40 then
-                        (var_19 = var_5)
+        let (var_51: bool) =
+            if var_38 then
+                let (var_39: bool) = (var_19 = var_5)
+                let (var_41: bool) =
+                    if var_39 then
+                        (var_18 = var_4)
                     else
                         false
-                if var_42 then
-                    var_11 := (Union7Case0(Tuple10(Tuple11(Tuple5(Tuple4(var_20, var_19), (Rec6Case1(Tuple9(var_7, var_17))))))))
+                if var_41 then
+                    var_10 := (Union7Case0(Tuple10(Tuple11(Tuple5(Tuple4(var_19, var_18), (Rec6Case1(Tuple9(var_6, var_16))))))))
                 else
                     ()
-                let (var_44: bool) =
-                    if var_21 then
-                        (var_20 < var_4)
+                let (var_43: bool) =
+                    if var_20 then
+                        (var_19 < var_3)
                     else
                         false
-                let (var_45: bool) = (var_44 = false)
-                if var_45 then
+                let (var_44: bool) = (var_43 = false)
+                if var_44 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_46: int64) = (var_20 * var_3)
-                let (var_47: bool) = (var_19 >= 0L)
-                let (var_49: bool) =
-                    if var_47 then
-                        (var_19 < var_4)
+                let (var_45: int64) = (var_19 * var_3)
+                let (var_46: bool) = (var_18 >= 0L)
+                let (var_48: bool) =
+                    if var_46 then
+                        (var_18 < var_3)
                     else
                         false
-                let (var_50: bool) = (var_49 = false)
-                if var_50 then
+                let (var_49: bool) = (var_48 = false)
+                if var_49 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_51: int64) = (var_46 + var_19)
-                var_2.[int32 var_51] <- true
+                let (var_50: int64) = (var_45 + var_18)
+                var_2.[int32 var_50] <- true
                 true
             else
                 false
-        let (var_53: int64) = (var_18 + 1L)
-        let (var_54: bool) = (var_53 >= 0L)
-        let (var_56: bool) =
-            if var_54 then
-                (var_53 < var_4)
+        let (var_52: int64) = (var_17 + 1L)
+        let (var_53: bool) = (var_52 >= 0L)
+        let (var_55: bool) =
+            if var_53 then
+                (var_52 < var_3)
             else
                 false
-        let (var_60: bool) =
-            if var_56 then
-                let (var_57: bool) = (var_19 >= 0L)
-                if var_57 then
-                    (var_19 < var_4)
+        let (var_59: bool) =
+            if var_55 then
+                let (var_56: bool) = (var_18 >= 0L)
+                if var_56 then
+                    (var_18 < var_3)
                 else
                     false
             else
                 false
-        let (var_72: bool) =
-            if var_60 then
-                let (var_62: bool) =
-                    if var_54 then
-                        (var_53 < var_4)
+        let (var_71: bool) =
+            if var_59 then
+                let (var_61: bool) =
+                    if var_53 then
+                        (var_52 < var_3)
                     else
                         false
-                let (var_63: bool) = (var_62 = false)
-                if var_63 then
+                let (var_62: bool) = (var_61 = false)
+                if var_62 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_64: int64) = (var_53 * var_3)
-                let (var_65: bool) = (var_19 >= 0L)
-                let (var_67: bool) =
-                    if var_65 then
-                        (var_19 < var_4)
+                let (var_63: int64) = (var_52 * var_3)
+                let (var_64: bool) = (var_18 >= 0L)
+                let (var_66: bool) =
+                    if var_64 then
+                        (var_18 < var_3)
                     else
                         false
-                let (var_68: bool) = (var_67 = false)
-                if var_68 then
+                let (var_67: bool) = (var_66 = false)
+                if var_67 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_69: int64) = (var_64 + var_19)
-                let (var_70: bool) = var_2.[int32 var_69]
-                (var_70 = false)
+                let (var_68: int64) = (var_63 + var_18)
+                let (var_69: bool) = var_2.[int32 var_68]
+                (var_69 = false)
             else
                 false
-        let (var_85: bool) =
-            if var_72 then
-                let (var_73: bool) = (var_53 = var_6)
-                let (var_75: bool) =
-                    if var_73 then
-                        (var_19 = var_5)
+        let (var_84: bool) =
+            if var_71 then
+                let (var_72: bool) = (var_52 = var_5)
+                let (var_74: bool) =
+                    if var_72 then
+                        (var_18 = var_4)
                     else
                         false
-                if var_75 then
-                    var_11 := (Union7Case0(Tuple10(Tuple11(Tuple5(Tuple4(var_53, var_19), (Rec6Case1(Tuple9(var_8, var_17))))))))
+                if var_74 then
+                    var_10 := (Union7Case0(Tuple10(Tuple11(Tuple5(Tuple4(var_52, var_18), (Rec6Case1(Tuple9(var_7, var_16))))))))
                 else
                     ()
-                let (var_77: bool) =
-                    if var_54 then
-                        (var_53 < var_4)
+                let (var_76: bool) =
+                    if var_53 then
+                        (var_52 < var_3)
                     else
                         false
-                let (var_78: bool) = (var_77 = false)
-                if var_78 then
+                let (var_77: bool) = (var_76 = false)
+                if var_77 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_79: int64) = (var_53 * var_3)
-                let (var_80: bool) = (var_19 >= 0L)
-                let (var_82: bool) =
-                    if var_80 then
-                        (var_19 < var_4)
+                let (var_78: int64) = (var_52 * var_3)
+                let (var_79: bool) = (var_18 >= 0L)
+                let (var_81: bool) =
+                    if var_79 then
+                        (var_18 < var_3)
                     else
                         false
-                let (var_83: bool) = (var_82 = false)
-                if var_83 then
+                let (var_82: bool) = (var_81 = false)
+                if var_82 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_84: int64) = (var_79 + var_19)
-                var_2.[int32 var_84] <- true
+                let (var_83: int64) = (var_78 + var_18)
+                var_2.[int32 var_83] <- true
                 true
             else
                 false
-        let (var_86: int64) = (var_19 - 1L)
-        let (var_87: bool) = (var_18 >= 0L)
-        let (var_89: bool) =
-            if var_87 then
-                (var_18 < var_4)
+        let (var_85: int64) = (var_18 - 1L)
+        let (var_86: bool) = (var_17 >= 0L)
+        let (var_88: bool) =
+            if var_86 then
+                (var_17 < var_3)
             else
                 false
-        let (var_93: bool) =
-            if var_89 then
-                let (var_90: bool) = (var_86 >= 0L)
-                if var_90 then
-                    (var_86 < var_4)
+        let (var_92: bool) =
+            if var_88 then
+                let (var_89: bool) = (var_85 >= 0L)
+                if var_89 then
+                    (var_85 < var_3)
                 else
                     false
             else
                 false
-        let (var_105: bool) =
-            if var_93 then
-                let (var_95: bool) =
-                    if var_87 then
-                        (var_18 < var_4)
+        let (var_104: bool) =
+            if var_92 then
+                let (var_94: bool) =
+                    if var_86 then
+                        (var_17 < var_3)
                     else
                         false
-                let (var_96: bool) = (var_95 = false)
-                if var_96 then
+                let (var_95: bool) = (var_94 = false)
+                if var_95 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_97: int64) = (var_18 * var_3)
-                let (var_98: bool) = (var_86 >= 0L)
-                let (var_100: bool) =
-                    if var_98 then
-                        (var_86 < var_4)
+                let (var_96: int64) = (var_17 * var_3)
+                let (var_97: bool) = (var_85 >= 0L)
+                let (var_99: bool) =
+                    if var_97 then
+                        (var_85 < var_3)
                     else
                         false
-                let (var_101: bool) = (var_100 = false)
-                if var_101 then
+                let (var_100: bool) = (var_99 = false)
+                if var_100 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_102: int64) = (var_97 + var_86)
-                let (var_103: bool) = var_2.[int32 var_102]
-                (var_103 = false)
+                let (var_101: int64) = (var_96 + var_85)
+                let (var_102: bool) = var_2.[int32 var_101]
+                (var_102 = false)
             else
                 false
-        let (var_118: bool) =
-            if var_105 then
-                let (var_106: bool) = (var_18 = var_6)
-                let (var_108: bool) =
-                    if var_106 then
-                        (var_86 = var_5)
+        let (var_117: bool) =
+            if var_104 then
+                let (var_105: bool) = (var_17 = var_5)
+                let (var_107: bool) =
+                    if var_105 then
+                        (var_85 = var_4)
                     else
                         false
-                if var_108 then
-                    var_11 := (Union7Case0(Tuple10(Tuple11(Tuple5(Tuple4(var_18, var_86), (Rec6Case1(Tuple9(var_9, var_17))))))))
+                if var_107 then
+                    var_10 := (Union7Case0(Tuple10(Tuple11(Tuple5(Tuple4(var_17, var_85), (Rec6Case1(Tuple9(var_8, var_16))))))))
                 else
                     ()
-                let (var_110: bool) =
-                    if var_87 then
-                        (var_18 < var_4)
+                let (var_109: bool) =
+                    if var_86 then
+                        (var_17 < var_3)
                     else
                         false
-                let (var_111: bool) = (var_110 = false)
-                if var_111 then
+                let (var_110: bool) = (var_109 = false)
+                if var_110 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_112: int64) = (var_18 * var_3)
-                let (var_113: bool) = (var_86 >= 0L)
-                let (var_115: bool) =
-                    if var_113 then
-                        (var_86 < var_4)
+                let (var_111: int64) = (var_17 * var_3)
+                let (var_112: bool) = (var_85 >= 0L)
+                let (var_114: bool) =
+                    if var_112 then
+                        (var_85 < var_3)
                     else
                         false
-                let (var_116: bool) = (var_115 = false)
-                if var_116 then
+                let (var_115: bool) = (var_114 = false)
+                if var_115 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_117: int64) = (var_112 + var_86)
-                var_2.[int32 var_117] <- true
+                let (var_116: int64) = (var_111 + var_85)
+                var_2.[int32 var_116] <- true
                 true
             else
                 false
-        let (var_119: int64) = (var_19 + 1L)
-        let (var_121: bool) =
-            if var_87 then
-                (var_18 < var_4)
+        let (var_118: int64) = (var_18 + 1L)
+        let (var_120: bool) =
+            if var_86 then
+                (var_17 < var_3)
             else
                 false
-        let (var_125: bool) =
-            if var_121 then
-                let (var_122: bool) = (var_119 >= 0L)
-                if var_122 then
-                    (var_119 < var_4)
+        let (var_124: bool) =
+            if var_120 then
+                let (var_121: bool) = (var_118 >= 0L)
+                if var_121 then
+                    (var_118 < var_3)
                 else
                     false
             else
                 false
-        let (var_137: bool) =
-            if var_125 then
-                let (var_127: bool) =
-                    if var_87 then
-                        (var_18 < var_4)
+        let (var_136: bool) =
+            if var_124 then
+                let (var_126: bool) =
+                    if var_86 then
+                        (var_17 < var_3)
                     else
                         false
-                let (var_128: bool) = (var_127 = false)
-                if var_128 then
+                let (var_127: bool) = (var_126 = false)
+                if var_127 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_129: int64) = (var_18 * var_3)
-                let (var_130: bool) = (var_119 >= 0L)
-                let (var_132: bool) =
-                    if var_130 then
-                        (var_119 < var_4)
+                let (var_128: int64) = (var_17 * var_3)
+                let (var_129: bool) = (var_118 >= 0L)
+                let (var_131: bool) =
+                    if var_129 then
+                        (var_118 < var_3)
                     else
                         false
-                let (var_133: bool) = (var_132 = false)
-                if var_133 then
+                let (var_132: bool) = (var_131 = false)
+                if var_132 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_134: int64) = (var_129 + var_119)
-                let (var_135: bool) = var_2.[int32 var_134]
-                (var_135 = false)
+                let (var_133: int64) = (var_128 + var_118)
+                let (var_134: bool) = var_2.[int32 var_133]
+                (var_134 = false)
             else
                 false
-        let (var_150: bool) =
-            if var_137 then
-                let (var_138: bool) = (var_18 = var_6)
-                let (var_140: bool) =
-                    if var_138 then
-                        (var_119 = var_5)
+        let (var_149: bool) =
+            if var_136 then
+                let (var_137: bool) = (var_17 = var_5)
+                let (var_139: bool) =
+                    if var_137 then
+                        (var_118 = var_4)
                     else
                         false
-                if var_140 then
-                    var_11 := (Union7Case0(Tuple10(Tuple11(Tuple5(Tuple4(var_18, var_119), (Rec6Case1(Tuple9(var_10, var_17))))))))
+                if var_139 then
+                    var_10 := (Union7Case0(Tuple10(Tuple11(Tuple5(Tuple4(var_17, var_118), (Rec6Case1(Tuple9(var_9, var_16))))))))
                 else
                     ()
-                let (var_142: bool) =
-                    if var_87 then
-                        (var_18 < var_4)
+                let (var_141: bool) =
+                    if var_86 then
+                        (var_17 < var_3)
                     else
                         false
-                let (var_143: bool) = (var_142 = false)
-                if var_143 then
+                let (var_142: bool) = (var_141 = false)
+                if var_142 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_144: int64) = (var_18 * var_3)
-                let (var_145: bool) = (var_119 >= 0L)
-                let (var_147: bool) =
-                    if var_145 then
-                        (var_119 < var_4)
+                let (var_143: int64) = (var_17 * var_3)
+                let (var_144: bool) = (var_118 >= 0L)
+                let (var_146: bool) =
+                    if var_144 then
+                        (var_118 < var_3)
                     else
                         false
-                let (var_148: bool) = (var_147 = false)
-                if var_148 then
+                let (var_147: bool) = (var_146 = false)
+                if var_147 then
                     (failwith "Argument out of bounds.")
                 else
                     ()
-                let (var_149: int64) = (var_144 + var_119)
-                var_2.[int32 var_149] <- true
+                let (var_148: int64) = (var_143 + var_118)
+                var_2.[int32 var_148] <- true
                 true
             else
                 false
+        let (var_150: int64) =
+            if var_51 then
+                1L
+            else
+                0L
         let (var_151: int64) =
-            if var_52 then
+            if var_84 then
                 1L
             else
                 0L
-        let (var_152: int64) =
-            if var_85 then
+        let (var_152: int64) = (var_150 + var_151)
+        let (var_153: int64) =
+            if var_117 then
                 1L
             else
                 0L
-        let (var_153: int64) = (var_151 + var_152)
-        let (var_154: int64) =
-            if var_118 then
+        let (var_154: int64) = (var_152 + var_153)
+        let (var_155: int64) =
+            if var_149 then
                 1L
             else
                 0L
-        let (var_155: int64) = (var_153 + var_154)
-        let (var_156: int64) =
-            if var_150 then
+        let (var_156: int64) = (var_154 + var_155)
+        let (var_157: (Tuple5 [])) = Array.zeroCreate<Tuple5> (System.Convert.ToInt32(var_156))
+        let (var_158: int64) =
+            if var_51 then
+                var_157.[int32 0L] <- Tuple5(Tuple4(var_19, var_18), (Rec6Case1(Tuple9(var_6, var_16))))
                 1L
             else
                 0L
-        let (var_157: int64) = (var_155 + var_156)
-        let (var_158: (Tuple5 [])) = Array.zeroCreate<Tuple5> (System.Convert.ToInt32(var_157))
-        let (var_159: int64) =
-            if var_52 then
-                var_158.[int32 0L] <- Tuple5(Tuple4(var_20, var_19), (Rec6Case1(Tuple9(var_7, var_17))))
-                1L
+        let (var_160: int64) =
+            if var_84 then
+                var_157.[int32 var_158] <- Tuple5(Tuple4(var_52, var_18), (Rec6Case1(Tuple9(var_7, var_16))))
+                (var_158 + 1L)
             else
-                0L
-        let (var_161: int64) =
-            if var_85 then
-                var_158.[int32 var_159] <- Tuple5(Tuple4(var_53, var_19), (Rec6Case1(Tuple9(var_8, var_17))))
-                (var_159 + 1L)
+                var_158
+        let (var_162: int64) =
+            if var_117 then
+                var_157.[int32 var_160] <- Tuple5(Tuple4(var_17, var_85), (Rec6Case1(Tuple9(var_8, var_16))))
+                (var_160 + 1L)
             else
-                var_159
-        let (var_163: int64) =
-            if var_118 then
-                var_158.[int32 var_161] <- Tuple5(Tuple4(var_18, var_86), (Rec6Case1(Tuple9(var_9, var_17))))
-                (var_161 + 1L)
+                var_160
+        let (var_164: int64) =
+            if var_149 then
+                var_157.[int32 var_162] <- Tuple5(Tuple4(var_17, var_118), (Rec6Case1(Tuple9(var_9, var_16))))
+                (var_162 + 1L)
             else
-                var_161
-        let (var_165: int64) =
-            if var_150 then
-                var_158.[int32 var_163] <- Tuple5(Tuple4(var_18, var_119), (Rec6Case1(Tuple9(var_10, var_17))))
-                (var_163 + 1L)
-            else
-                var_163
-        var_0.[int32 var_13] <- var_158
-        let (var_166: int64) = (var_13 + 1L)
-        method_19((var_0: ((Tuple5 []) [])), (var_1: (Tuple5 [])), (var_2: (bool [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: string), (var_8: string), (var_9: string), (var_10: string), (var_11: (Union7 ref)), (var_12: int64), (var_166: int64))
+                var_162
+        var_0.[int32 var_12] <- var_157
+        let (var_165: int64) = (var_12 + 1L)
+        method_19((var_0: ((Tuple5 []) [])), (var_1: (Tuple5 [])), (var_2: (bool [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: string), (var_7: string), (var_8: string), (var_9: string), (var_10: (Union7 ref)), (var_11: int64), (var_165: int64))
     else
         ()
 and method_20((var_0: ((Tuple5 []) [])), (var_1: int64), (var_2: int64), (var_3: int64)): int64 =

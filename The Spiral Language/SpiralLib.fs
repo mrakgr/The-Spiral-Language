@@ -904,31 +904,35 @@ inl rec wrap {data with body dim} =
         | () -> error_type "Cannot apply the tensor anymore."
         | {from near_to} :: dim ->
             assert (i >= from && i < near_to) "Argument out of bounds." 
-            wrap {body = toa_map (inl ar -> ar i) self; dim}
+            wrap {body = toa_map (inl ar -> ar i) body; dim}
 
 inl dim_describe (!map_dims dim) = 
     match dim with
     | () -> type_error "Empty dimensions are not allowed."
     | dim ->
         inl cur = 0
-        inl len :: offset = Tuple.scanr (inl {from near_to} s -> (near_to - from) * s) dim 1
-        inl offset = Tuple.map (inl size -> {size cur}) offset
-        {len dim offset}
+        inl len :: size = Tuple.scanr (inl {from near_to} s -> (near_to - from) * s) dim 1
+        inl cur = Tuple.map (const cur) size
+        {len dim offset={size cur}}
 
 /// Creates an empty tensor given the descriptor. {size elem_type ?layout=(.toa | .aot)} -> tensor
 inl create {dsc with dim elem_type} = 
-    inl {len dim offset} = dim_describe dim
-    inl body =
-        inl layout = match dsc with {layout} -> layout | _ -> .toa
-        inl create elem_type = 
-            inl ar = Array.create elem_type len
-            wrap_ar {ar offset}
+    inl create dim =
+        inl {len dim offset} = dim_describe dim
+        inl body =
+            inl layout = match dsc with {layout} -> layout | _ -> .toa
+            inl create elem_type = 
+                inl ar = Array.create elem_type len
+                wrap_ar {ar offset}
 
-        match layout with
-        | .aot -> create elem_type
-        | .toa -> toa_map create elem_type
+            match layout with
+            | .aot -> create elem_type
+            | .toa -> toa_map create elem_type
 
-    wrap {body size}
+        wrap {body dim}
+    match dim with
+    | () -> create 1 0
+    | dim -> create dim
     
 inl init_core tns f =
     inl rec loop tns f = 
@@ -939,11 +943,11 @@ inl init_core tns f =
 
 /// Creates a new tensor based on given sizes. Takes in a setter function. size -> f -> tensor.
 inl init size f =
-    inl size = Tuple.wrap size
+    inl dim = Tuple.wrap size
     inl elem_type = 
         inl rec loop f = function x :: x' -> loop (f 0) x' | () -> f
-        type (loop f size)
-    inl tns = create {elem_type size layout= .toa}
+        type (loop f dim)
+    inl tns = create {elem_type dim layout= .toa}
     init_core tns f
     tns
 
@@ -1004,7 +1008,7 @@ inl zip = function
         inb x = x.update_body
         x :: toa_map (inl (!view {body dim=dim'}) -> assert (dim = dim') "All tensors in zip need to have the same dimensions"; body) xs
 
-{toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims total_size wrap create size_to_dim 
+{toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims length wrap create dim_describe 
  init copy data to_1d reshape assert_size array_as_tensor array_to_tensor map map_ar zip}
 |> stack
     """) |> module_

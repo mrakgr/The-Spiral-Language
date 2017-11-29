@@ -513,9 +513,11 @@ let test84 =
     "test84",[host_tensor],"",
     """
 open HostTensor
+inl ar = init () 5
+ar .get
     """
 
-//rewrite_test_cache cfg None //(Some(0,40))
+rewrite_test_cache cfg None //(Some(0,40))
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test86
 |> printfn "%s"

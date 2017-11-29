@@ -670,57 +670,56 @@ and method_36((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3:
         let (var_10: int64) = (var_1 + 1L)
         method_37((var_0: ((Union0 []) [])), (var_2: int64), (var_10: int64), (var_1: int64), (var_4: int64))
 and method_35((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64)): unit =
-    let (var_4: bool) = (0L > var_2)
-    let (var_5: int64) =
-        if var_4 then
-            0L
-        else
-            var_2
-    let (var_6: int64) =
-        if var_4 then
-            0L
-        else
-            var_2
-    let (var_7: int64) = (var_6 * var_5)
-    let (var_8: (bool [])) = Array.zeroCreate<bool> (System.Convert.ToInt32(var_7))
-    let (var_9: int64) = 0L
-    method_19((var_8: (bool [])), (var_5: int64), (var_2: int64), (var_9: int64))
-    let (var_10: bool) = (var_1 >= 0L)
-    let (var_12: bool) =
-        if var_10 then
+    let (var_4: bool) = (var_2 > 0L)
+    let (var_5: bool) = (var_4 = false)
+    if var_5 then
+        (failwith "Tensor needs to be at least size 1.")
+    else
+        ()
+    if var_5 then
+        (failwith "Tensor needs to be at least size 1.")
+    else
+        ()
+    let (var_6: int64) = (var_2 * var_2)
+    let (var_7: (bool [])) = Array.zeroCreate<bool> (System.Convert.ToInt32(var_6))
+    let (var_8: int64) = 0L
+    method_19((var_7: (bool [])), (var_2: int64), (var_8: int64))
+    let (var_9: bool) = (var_1 >= 0L)
+    let (var_11: bool) =
+        if var_9 then
             (var_1 < var_2)
         else
             false
-    let (var_13: bool) = (var_12 = false)
-    if var_13 then
+    let (var_12: bool) = (var_11 = false)
+    if var_12 then
         (failwith "Argument out of bounds.")
     else
         ()
-    let (var_14: int64) = (var_1 * var_5)
-    let (var_15: bool) = (var_0 >= 0L)
-    let (var_17: bool) =
-        if var_15 then
+    let (var_13: int64) = (var_1 * var_2)
+    let (var_14: bool) = (var_0 >= 0L)
+    let (var_16: bool) =
+        if var_14 then
             (var_0 < var_2)
         else
             false
-    let (var_18: bool) = (var_17 = false)
-    if var_18 then
+    let (var_17: bool) = (var_16 = false)
+    if var_17 then
         (failwith "Argument out of bounds.")
     else
         ()
-    let (var_19: int64) = (var_14 + var_0)
-    var_8.[int32 var_19] <- true
-    let (var_20: string) = "UP"
-    let (var_21: string) = "DOWN"
-    let (var_22: string) = "LEFT"
-    let (var_23: string) = "RIGHT"
+    let (var_18: int64) = (var_13 + var_0)
+    var_7.[int32 var_18] <- true
+    let (var_19: string) = "UP"
+    let (var_20: string) = "DOWN"
+    let (var_21: string) = "LEFT"
+    let (var_22: string) = "RIGHT"
+    let (var_23: int64) = 0L
     let (var_24: int64) = 0L
-    let (var_25: int64) = 0L
-    let (var_26: (Tuple1 [])) = Array.zeroCreate<Tuple1> (System.Convert.ToInt32(16L))
-    let (var_27: EnvHeapMutable2) = ({mem_0 = (var_26: (Tuple1 [])); mem_1 = (var_24: int64); mem_2 = (var_25: int64)} : EnvHeapMutable2)
-    let (var_28: Rec3) = Rec3Case0
-    method_22((var_27: EnvHeapMutable2), (var_1: int64), (var_0: int64), (var_28: Rec3))
-    method_26((var_21: string), (var_8: (bool [])), (var_5: int64), (var_2: int64), (var_3: int64), (var_1: int64), (var_27: EnvHeapMutable2), (var_22: string), (var_23: string), (var_20: string))
+    let (var_25: (Tuple1 [])) = Array.zeroCreate<Tuple1> (System.Convert.ToInt32(16L))
+    let (var_26: EnvHeapMutable2) = ({mem_0 = (var_25: (Tuple1 [])); mem_1 = (var_23: int64); mem_2 = (var_24: int64)} : EnvHeapMutable2)
+    let (var_27: Rec3) = Rec3Case0
+    method_22((var_26: EnvHeapMutable2), (var_1: int64), (var_0: int64), (var_27: Rec3))
+    method_26((var_20: string), (var_7: (bool [])), (var_2: int64), (var_3: int64), (var_1: int64), (var_26: EnvHeapMutable2), (var_21: string), (var_22: string), (var_19: string))
 and method_16((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64)): unit =
     let (var_5: bool) = (var_2 < var_1)
     if var_5 then
@@ -735,20 +734,20 @@ and method_37((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3:
         method_38((var_0: ((Union0 []) [])), (var_2: int64), (var_1: int64), (var_6: int64), (var_3: int64), (var_4: int64))
     else
         (failwith "Current position not found.")
-and method_19((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64)): unit =
-    let (var_4: bool) = (var_3 < var_2)
-    if var_4 then
-        let (var_5: bool) = (var_3 >= 0L)
-        let (var_6: bool) = (var_5 = false)
-        if var_6 then
+and method_19((var_0: (bool [])), (var_1: int64), (var_2: int64)): unit =
+    let (var_3: bool) = (var_2 < var_1)
+    if var_3 then
+        let (var_4: bool) = (var_2 >= 0L)
+        let (var_5: bool) = (var_4 = false)
+        if var_5 then
             (failwith "Argument out of bounds.")
         else
             ()
-        let (var_7: int64) = (var_3 * var_1)
-        let (var_8: int64) = 0L
-        method_20((var_0: (bool [])), (var_7: int64), (var_2: int64), (var_8: int64))
-        let (var_9: int64) = (var_3 + 1L)
-        method_19((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_9: int64))
+        let (var_6: int64) = (var_2 * var_1)
+        let (var_7: int64) = 0L
+        method_20((var_0: (bool [])), (var_6: int64), (var_1: int64), (var_7: int64))
+        let (var_8: int64) = (var_2 + 1L)
+        method_19((var_0: (bool [])), (var_1: int64), (var_8: int64))
     else
         ()
 and method_22((var_0: EnvHeapMutable2), (var_1: int64), (var_2: int64), (var_3: Rec3)): unit =
@@ -778,11 +777,11 @@ and method_22((var_0: EnvHeapMutable2), (var_1: int64), (var_2: int64), (var_3: 
         var_0.mem_0 <- var_15
     else
         var_0.mem_2 <- var_10
-and method_26((var_0: string), (var_1: (bool [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: EnvHeapMutable2), (var_7: string), (var_8: string), (var_9: string)): unit =
-    let (var_10: Tuple1) = method_27((var_6: EnvHeapMutable2))
-    let (var_11: Tuple4) = var_10.mem_0
-    let (var_12: Rec3) = var_10.mem_1
-    method_28((var_1: (bool [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_9: string), (var_6: EnvHeapMutable2), (var_0: string), (var_7: string), (var_8: string), (var_11: Tuple4), (var_12: Rec3))
+and method_26((var_0: string), (var_1: (bool [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: EnvHeapMutable2), (var_6: string), (var_7: string), (var_8: string)): unit =
+    let (var_9: Tuple1) = method_27((var_5: EnvHeapMutable2))
+    let (var_10: Tuple4) = var_9.mem_0
+    let (var_11: Rec3) = var_9.mem_1
+    method_28((var_1: (bool [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_8: string), (var_5: EnvHeapMutable2), (var_0: string), (var_6: string), (var_7: string), (var_10: Tuple4), (var_11: Rec3))
 and method_17((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64)): unit =
     let (var_6: bool) = (var_3 < var_2)
     if var_6 then
@@ -872,145 +871,144 @@ and method_27((var_0: EnvHeapMutable2)): Tuple1 =
             var_7
     var_0.mem_1 <- var_9
     var_3.[int32 var_1]
-and method_28((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: string), (var_6: EnvHeapMutable2), (var_7: string), (var_8: string), (var_9: string), (var_10: Tuple4), (var_11: Rec3)): unit =
-    let (var_12: int64) = var_10.mem_0
-    let (var_13: int64) = var_10.mem_1
-    let (var_14: int64) = (var_12 - 1L)
-    let (var_15: bool) = (var_14 >= 0L)
-    let (var_17: bool) =
-        if var_15 then
-            (var_14 < var_2)
+and method_28((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: string), (var_5: EnvHeapMutable2), (var_6: string), (var_7: string), (var_8: string), (var_9: Tuple4), (var_10: Rec3)): unit =
+    let (var_11: int64) = var_9.mem_0
+    let (var_12: int64) = var_9.mem_1
+    let (var_13: int64) = (var_11 - 1L)
+    let (var_14: bool) = (var_13 >= 0L)
+    let (var_16: bool) =
+        if var_14 then
+            (var_13 < var_1)
         else
             false
-    let (var_21: bool) =
-        if var_17 then
-            let (var_18: bool) = (var_13 >= 0L)
-            if var_18 then
-                (var_13 < var_2)
+    let (var_20: bool) =
+        if var_16 then
+            let (var_17: bool) = (var_12 >= 0L)
+            if var_17 then
+                (var_12 < var_1)
             else
                 false
         else
             false
-    let (var_33: bool) =
-        if var_21 then
-            let (var_23: bool) =
-                if var_15 then
-                    (var_14 < var_2)
+    let (var_32: bool) =
+        if var_20 then
+            let (var_22: bool) =
+                if var_14 then
+                    (var_13 < var_1)
                 else
                     false
-            let (var_24: bool) = (var_23 = false)
-            if var_24 then
+            let (var_23: bool) = (var_22 = false)
+            if var_23 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_25: int64) = (var_14 * var_1)
-            let (var_26: bool) = (var_13 >= 0L)
-            let (var_28: bool) =
-                if var_26 then
-                    (var_13 < var_2)
+            let (var_24: int64) = (var_13 * var_1)
+            let (var_25: bool) = (var_12 >= 0L)
+            let (var_27: bool) =
+                if var_25 then
+                    (var_12 < var_1)
                 else
                     false
-            let (var_29: bool) = (var_28 = false)
-            if var_29 then
+            let (var_28: bool) = (var_27 = false)
+            if var_28 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_30: int64) = (var_25 + var_13)
-            let (var_31: bool) = var_0.[int32 var_30]
-            (var_31 = false)
+            let (var_29: int64) = (var_24 + var_12)
+            let (var_30: bool) = var_0.[int32 var_29]
+            (var_30 = false)
         else
             false
-    if var_33 then
-        let (var_34: bool) = (var_14 = var_4)
-        let (var_36: bool) =
-            if var_34 then
-                (var_13 = var_3)
+    if var_32 then
+        let (var_33: bool) = (var_13 = var_3)
+        let (var_35: bool) =
+            if var_33 then
+                (var_12 = var_2)
             else
                 false
-        if var_36 then
-            method_29((var_5: string), (var_11: Rec3))
+        if var_35 then
+            method_29((var_4: string), (var_10: Rec3))
         else
-            let (var_38: bool) =
-                if var_15 then
-                    (var_14 < var_2)
+            let (var_37: bool) =
+                if var_14 then
+                    (var_13 < var_1)
                 else
                     false
-            let (var_39: bool) = (var_38 = false)
-            if var_39 then
+            let (var_38: bool) = (var_37 = false)
+            if var_38 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_40: int64) = (var_14 * var_1)
-            let (var_41: bool) = (var_13 >= 0L)
-            let (var_43: bool) =
-                if var_41 then
-                    (var_13 < var_2)
+            let (var_39: int64) = (var_13 * var_1)
+            let (var_40: bool) = (var_12 >= 0L)
+            let (var_42: bool) =
+                if var_40 then
+                    (var_12 < var_1)
                 else
                     false
-            let (var_44: bool) = (var_43 = false)
-            if var_44 then
+            let (var_43: bool) = (var_42 = false)
+            if var_43 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_45: int64) = (var_40 + var_13)
-            var_0.[int32 var_45] <- true
-            let (var_46: Rec3) = (Rec3Case1(Tuple5(var_5, var_11)))
-            method_22((var_6: EnvHeapMutable2), (var_14: int64), (var_13: int64), (var_46: Rec3))
-            method_32((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_7: string), (var_6: EnvHeapMutable2), (var_8: string), (var_9: string), (var_5: string), (var_10: Tuple4), (var_11: Rec3))
+            let (var_44: int64) = (var_39 + var_12)
+            var_0.[int32 var_44] <- true
+            let (var_45: Rec3) = (Rec3Case1(Tuple5(var_4, var_10)))
+            method_22((var_5: EnvHeapMutable2), (var_13: int64), (var_12: int64), (var_45: Rec3))
+            method_32((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_6: string), (var_5: EnvHeapMutable2), (var_7: string), (var_8: string), (var_4: string), (var_9: Tuple4), (var_10: Rec3))
     else
-        method_32((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_7: string), (var_6: EnvHeapMutable2), (var_8: string), (var_9: string), (var_5: string), (var_10: Tuple4), (var_11: Rec3))
+        method_32((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_6: string), (var_5: EnvHeapMutable2), (var_7: string), (var_8: string), (var_4: string), (var_9: Tuple4), (var_10: Rec3))
 and method_18((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64)): unit =
-    let (var_5: bool) = (0L > var_2)
-    let (var_6: int64) =
-        if var_5 then
-            0L
-        else
-            var_2
-    let (var_7: int64) =
-        if var_5 then
-            0L
-        else
-            var_2
-    let (var_8: int64) = (var_7 * var_6)
-    let (var_9: (bool [])) = Array.zeroCreate<bool> (System.Convert.ToInt32(var_8))
-    let (var_10: int64) = 0L
-    method_19((var_9: (bool [])), (var_6: int64), (var_2: int64), (var_10: int64))
-    let (var_11: bool) = (var_1 >= 0L)
-    let (var_13: bool) =
-        if var_11 then
+    let (var_5: bool) = (var_2 > 0L)
+    let (var_6: bool) = (var_5 = false)
+    if var_6 then
+        (failwith "Tensor needs to be at least size 1.")
+    else
+        ()
+    if var_6 then
+        (failwith "Tensor needs to be at least size 1.")
+    else
+        ()
+    let (var_7: int64) = (var_2 * var_2)
+    let (var_8: (bool [])) = Array.zeroCreate<bool> (System.Convert.ToInt32(var_7))
+    let (var_9: int64) = 0L
+    method_19((var_8: (bool [])), (var_2: int64), (var_9: int64))
+    let (var_10: bool) = (var_1 >= 0L)
+    let (var_12: bool) =
+        if var_10 then
             (var_1 < var_2)
         else
             false
-    let (var_14: bool) = (var_13 = false)
-    if var_14 then
+    let (var_13: bool) = (var_12 = false)
+    if var_13 then
         (failwith "Argument out of bounds.")
     else
         ()
-    let (var_15: int64) = (var_1 * var_6)
-    let (var_16: bool) = (var_0 >= 0L)
-    let (var_18: bool) =
-        if var_16 then
+    let (var_14: int64) = (var_1 * var_2)
+    let (var_15: bool) = (var_0 >= 0L)
+    let (var_17: bool) =
+        if var_15 then
             (var_0 < var_2)
         else
             false
-    let (var_19: bool) = (var_18 = false)
-    if var_19 then
+    let (var_18: bool) = (var_17 = false)
+    if var_18 then
         (failwith "Argument out of bounds.")
     else
         ()
-    let (var_20: int64) = (var_15 + var_0)
-    var_9.[int32 var_20] <- true
-    let (var_21: string) = "UP"
-    let (var_22: string) = "DOWN"
-    let (var_23: string) = "LEFT"
-    let (var_24: string) = "RIGHT"
+    let (var_19: int64) = (var_14 + var_0)
+    var_8.[int32 var_19] <- true
+    let (var_20: string) = "UP"
+    let (var_21: string) = "DOWN"
+    let (var_22: string) = "LEFT"
+    let (var_23: string) = "RIGHT"
+    let (var_24: int64) = 0L
     let (var_25: int64) = 0L
-    let (var_26: int64) = 0L
-    let (var_27: (Tuple1 [])) = Array.zeroCreate<Tuple1> (System.Convert.ToInt32(16L))
-    let (var_28: EnvHeapMutable2) = ({mem_0 = (var_27: (Tuple1 [])); mem_1 = (var_25: int64); mem_2 = (var_26: int64)} : EnvHeapMutable2)
-    let (var_29: Rec3) = Rec3Case0
-    method_22((var_28: EnvHeapMutable2), (var_1: int64), (var_0: int64), (var_29: Rec3))
-    method_26((var_22: string), (var_9: (bool [])), (var_6: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_28: EnvHeapMutable2), (var_23: string), (var_24: string), (var_21: string))
+    let (var_26: (Tuple1 [])) = Array.zeroCreate<Tuple1> (System.Convert.ToInt32(16L))
+    let (var_27: EnvHeapMutable2) = ({mem_0 = (var_26: (Tuple1 [])); mem_1 = (var_24: int64); mem_2 = (var_25: int64)} : EnvHeapMutable2)
+    let (var_28: Rec3) = Rec3Case0
+    method_22((var_27: EnvHeapMutable2), (var_1: int64), (var_0: int64), (var_28: Rec3))
+    method_26((var_21: string), (var_8: (bool [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_27: EnvHeapMutable2), (var_22: string), (var_23: string), (var_20: string))
 and method_24((var_0: (Tuple1 [])), (var_1: (Tuple1 [])), (var_2: int64), (var_3: int64), (var_4: int64)): unit =
     let (var_5: bool) = (var_4 < var_3)
     if var_5 then
@@ -1030,182 +1028,182 @@ and method_29((var_0: string), (var_1: Rec3)): unit =
         System.Console.WriteLine(var_5)
     | Union6Case1 ->
         (failwith "Error: No moves taken.")
-and method_32((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: string), (var_6: EnvHeapMutable2), (var_7: string), (var_8: string), (var_9: string), (var_10: Tuple4), (var_11: Rec3)): unit =
-    let (var_12: int64) = var_10.mem_0
-    let (var_13: int64) = var_10.mem_1
-    let (var_14: int64) = (var_12 + 1L)
-    let (var_15: bool) = (var_14 >= 0L)
-    let (var_17: bool) =
-        if var_15 then
-            (var_14 < var_2)
+and method_32((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: string), (var_5: EnvHeapMutable2), (var_6: string), (var_7: string), (var_8: string), (var_9: Tuple4), (var_10: Rec3)): unit =
+    let (var_11: int64) = var_9.mem_0
+    let (var_12: int64) = var_9.mem_1
+    let (var_13: int64) = (var_11 + 1L)
+    let (var_14: bool) = (var_13 >= 0L)
+    let (var_16: bool) =
+        if var_14 then
+            (var_13 < var_1)
         else
             false
-    let (var_21: bool) =
-        if var_17 then
-            let (var_18: bool) = (var_13 >= 0L)
-            if var_18 then
-                (var_13 < var_2)
+    let (var_20: bool) =
+        if var_16 then
+            let (var_17: bool) = (var_12 >= 0L)
+            if var_17 then
+                (var_12 < var_1)
             else
                 false
         else
             false
-    let (var_33: bool) =
-        if var_21 then
-            let (var_23: bool) =
-                if var_15 then
-                    (var_14 < var_2)
+    let (var_32: bool) =
+        if var_20 then
+            let (var_22: bool) =
+                if var_14 then
+                    (var_13 < var_1)
                 else
                     false
-            let (var_24: bool) = (var_23 = false)
-            if var_24 then
+            let (var_23: bool) = (var_22 = false)
+            if var_23 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_25: int64) = (var_14 * var_1)
-            let (var_26: bool) = (var_13 >= 0L)
-            let (var_28: bool) =
-                if var_26 then
-                    (var_13 < var_2)
+            let (var_24: int64) = (var_13 * var_1)
+            let (var_25: bool) = (var_12 >= 0L)
+            let (var_27: bool) =
+                if var_25 then
+                    (var_12 < var_1)
                 else
                     false
-            let (var_29: bool) = (var_28 = false)
-            if var_29 then
+            let (var_28: bool) = (var_27 = false)
+            if var_28 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_30: int64) = (var_25 + var_13)
-            let (var_31: bool) = var_0.[int32 var_30]
-            (var_31 = false)
+            let (var_29: int64) = (var_24 + var_12)
+            let (var_30: bool) = var_0.[int32 var_29]
+            (var_30 = false)
         else
             false
-    if var_33 then
-        let (var_34: bool) = (var_14 = var_4)
-        let (var_36: bool) =
-            if var_34 then
-                (var_13 = var_3)
+    if var_32 then
+        let (var_33: bool) = (var_13 = var_3)
+        let (var_35: bool) =
+            if var_33 then
+                (var_12 = var_2)
             else
                 false
-        if var_36 then
-            method_29((var_5: string), (var_11: Rec3))
+        if var_35 then
+            method_29((var_4: string), (var_10: Rec3))
         else
-            let (var_38: bool) =
-                if var_15 then
-                    (var_14 < var_2)
+            let (var_37: bool) =
+                if var_14 then
+                    (var_13 < var_1)
                 else
                     false
-            let (var_39: bool) = (var_38 = false)
-            if var_39 then
+            let (var_38: bool) = (var_37 = false)
+            if var_38 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_40: int64) = (var_14 * var_1)
-            let (var_41: bool) = (var_13 >= 0L)
-            let (var_43: bool) =
-                if var_41 then
-                    (var_13 < var_2)
+            let (var_39: int64) = (var_13 * var_1)
+            let (var_40: bool) = (var_12 >= 0L)
+            let (var_42: bool) =
+                if var_40 then
+                    (var_12 < var_1)
                 else
                     false
-            let (var_44: bool) = (var_43 = false)
-            if var_44 then
+            let (var_43: bool) = (var_42 = false)
+            if var_43 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_45: int64) = (var_40 + var_13)
-            var_0.[int32 var_45] <- true
-            let (var_46: Rec3) = (Rec3Case1(Tuple5(var_5, var_11)))
-            method_22((var_6: EnvHeapMutable2), (var_14: int64), (var_13: int64), (var_46: Rec3))
-            method_33((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_7: string), (var_6: EnvHeapMutable2), (var_8: string), (var_5: string), (var_9: string), (var_10: Tuple4), (var_11: Rec3))
+            let (var_44: int64) = (var_39 + var_12)
+            var_0.[int32 var_44] <- true
+            let (var_45: Rec3) = (Rec3Case1(Tuple5(var_4, var_10)))
+            method_22((var_5: EnvHeapMutable2), (var_13: int64), (var_12: int64), (var_45: Rec3))
+            method_33((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_6: string), (var_5: EnvHeapMutable2), (var_7: string), (var_4: string), (var_8: string), (var_9: Tuple4), (var_10: Rec3))
     else
-        method_33((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_7: string), (var_6: EnvHeapMutable2), (var_8: string), (var_5: string), (var_9: string), (var_10: Tuple4), (var_11: Rec3))
+        method_33((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_6: string), (var_5: EnvHeapMutable2), (var_7: string), (var_4: string), (var_8: string), (var_9: Tuple4), (var_10: Rec3))
 and method_30((var_0: string), (var_1: Rec3)): Union6 =
     method_31((var_1: Rec3), (var_0: string))
-and method_33((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: string), (var_6: EnvHeapMutable2), (var_7: string), (var_8: string), (var_9: string), (var_10: Tuple4), (var_11: Rec3)): unit =
-    let (var_12: int64) = var_10.mem_0
-    let (var_13: int64) = var_10.mem_1
-    let (var_14: int64) = (var_13 - 1L)
-    let (var_15: bool) = (var_12 >= 0L)
-    let (var_17: bool) =
-        if var_15 then
-            (var_12 < var_2)
+and method_33((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: string), (var_5: EnvHeapMutable2), (var_6: string), (var_7: string), (var_8: string), (var_9: Tuple4), (var_10: Rec3)): unit =
+    let (var_11: int64) = var_9.mem_0
+    let (var_12: int64) = var_9.mem_1
+    let (var_13: int64) = (var_12 - 1L)
+    let (var_14: bool) = (var_11 >= 0L)
+    let (var_16: bool) =
+        if var_14 then
+            (var_11 < var_1)
         else
             false
-    let (var_21: bool) =
-        if var_17 then
-            let (var_18: bool) = (var_14 >= 0L)
-            if var_18 then
-                (var_14 < var_2)
+    let (var_20: bool) =
+        if var_16 then
+            let (var_17: bool) = (var_13 >= 0L)
+            if var_17 then
+                (var_13 < var_1)
             else
                 false
         else
             false
-    let (var_33: bool) =
-        if var_21 then
-            let (var_23: bool) =
-                if var_15 then
-                    (var_12 < var_2)
+    let (var_32: bool) =
+        if var_20 then
+            let (var_22: bool) =
+                if var_14 then
+                    (var_11 < var_1)
                 else
                     false
-            let (var_24: bool) = (var_23 = false)
-            if var_24 then
+            let (var_23: bool) = (var_22 = false)
+            if var_23 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_25: int64) = (var_12 * var_1)
-            let (var_26: bool) = (var_14 >= 0L)
-            let (var_28: bool) =
-                if var_26 then
-                    (var_14 < var_2)
+            let (var_24: int64) = (var_11 * var_1)
+            let (var_25: bool) = (var_13 >= 0L)
+            let (var_27: bool) =
+                if var_25 then
+                    (var_13 < var_1)
                 else
                     false
-            let (var_29: bool) = (var_28 = false)
-            if var_29 then
+            let (var_28: bool) = (var_27 = false)
+            if var_28 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_30: int64) = (var_25 + var_14)
-            let (var_31: bool) = var_0.[int32 var_30]
-            (var_31 = false)
+            let (var_29: int64) = (var_24 + var_13)
+            let (var_30: bool) = var_0.[int32 var_29]
+            (var_30 = false)
         else
             false
-    if var_33 then
-        let (var_34: bool) = (var_12 = var_4)
-        let (var_36: bool) =
-            if var_34 then
-                (var_14 = var_3)
+    if var_32 then
+        let (var_33: bool) = (var_11 = var_3)
+        let (var_35: bool) =
+            if var_33 then
+                (var_13 = var_2)
             else
                 false
-        if var_36 then
-            method_29((var_5: string), (var_11: Rec3))
+        if var_35 then
+            method_29((var_4: string), (var_10: Rec3))
         else
-            let (var_38: bool) =
-                if var_15 then
-                    (var_12 < var_2)
+            let (var_37: bool) =
+                if var_14 then
+                    (var_11 < var_1)
                 else
                     false
-            let (var_39: bool) = (var_38 = false)
-            if var_39 then
+            let (var_38: bool) = (var_37 = false)
+            if var_38 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_40: int64) = (var_12 * var_1)
-            let (var_41: bool) = (var_14 >= 0L)
-            let (var_43: bool) =
-                if var_41 then
-                    (var_14 < var_2)
+            let (var_39: int64) = (var_11 * var_1)
+            let (var_40: bool) = (var_13 >= 0L)
+            let (var_42: bool) =
+                if var_40 then
+                    (var_13 < var_1)
                 else
                     false
-            let (var_44: bool) = (var_43 = false)
-            if var_44 then
+            let (var_43: bool) = (var_42 = false)
+            if var_43 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_45: int64) = (var_40 + var_14)
-            var_0.[int32 var_45] <- true
-            let (var_46: Rec3) = (Rec3Case1(Tuple5(var_5, var_11)))
-            method_22((var_6: EnvHeapMutable2), (var_12: int64), (var_14: int64), (var_46: Rec3))
-            method_34((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_7: string), (var_8: string), (var_6: EnvHeapMutable2), (var_5: string), (var_9: string), (var_10: Tuple4), (var_11: Rec3))
+            let (var_44: int64) = (var_39 + var_13)
+            var_0.[int32 var_44] <- true
+            let (var_45: Rec3) = (Rec3Case1(Tuple5(var_4, var_10)))
+            method_22((var_5: EnvHeapMutable2), (var_11: int64), (var_13: int64), (var_45: Rec3))
+            method_34((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_6: string), (var_7: string), (var_5: EnvHeapMutable2), (var_4: string), (var_8: string), (var_9: Tuple4), (var_10: Rec3))
     else
-        method_34((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_7: string), (var_8: string), (var_6: EnvHeapMutable2), (var_5: string), (var_9: string), (var_10: Tuple4), (var_11: Rec3))
+        method_34((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_6: string), (var_7: string), (var_5: EnvHeapMutable2), (var_4: string), (var_8: string), (var_9: Tuple4), (var_10: Rec3))
 and method_31((var_0: Rec3), (var_1: string)): Union6 =
     match var_0 with
     | Rec3Case0 ->
@@ -1214,93 +1212,93 @@ and method_31((var_0: Rec3), (var_1: string)): Union6 =
         let (var_3: string) = var_2.mem_0
         let (var_4: Rec3) = var_2.mem_1
         method_31((var_4: Rec3), (var_3: string))
-and method_34((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: string), (var_6: string), (var_7: EnvHeapMutable2), (var_8: string), (var_9: string), (var_10: Tuple4), (var_11: Rec3)): unit =
-    let (var_12: int64) = var_10.mem_0
-    let (var_13: int64) = var_10.mem_1
-    let (var_14: int64) = (var_13 + 1L)
-    let (var_15: bool) = (var_12 >= 0L)
-    let (var_17: bool) =
-        if var_15 then
-            (var_12 < var_2)
+and method_34((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: string), (var_5: string), (var_6: EnvHeapMutable2), (var_7: string), (var_8: string), (var_9: Tuple4), (var_10: Rec3)): unit =
+    let (var_11: int64) = var_9.mem_0
+    let (var_12: int64) = var_9.mem_1
+    let (var_13: int64) = (var_12 + 1L)
+    let (var_14: bool) = (var_11 >= 0L)
+    let (var_16: bool) =
+        if var_14 then
+            (var_11 < var_1)
         else
             false
-    let (var_21: bool) =
-        if var_17 then
-            let (var_18: bool) = (var_14 >= 0L)
-            if var_18 then
-                (var_14 < var_2)
+    let (var_20: bool) =
+        if var_16 then
+            let (var_17: bool) = (var_13 >= 0L)
+            if var_17 then
+                (var_13 < var_1)
             else
                 false
         else
             false
-    let (var_33: bool) =
-        if var_21 then
-            let (var_23: bool) =
-                if var_15 then
-                    (var_12 < var_2)
+    let (var_32: bool) =
+        if var_20 then
+            let (var_22: bool) =
+                if var_14 then
+                    (var_11 < var_1)
                 else
                     false
-            let (var_24: bool) = (var_23 = false)
-            if var_24 then
+            let (var_23: bool) = (var_22 = false)
+            if var_23 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_25: int64) = (var_12 * var_1)
-            let (var_26: bool) = (var_14 >= 0L)
-            let (var_28: bool) =
-                if var_26 then
-                    (var_14 < var_2)
+            let (var_24: int64) = (var_11 * var_1)
+            let (var_25: bool) = (var_13 >= 0L)
+            let (var_27: bool) =
+                if var_25 then
+                    (var_13 < var_1)
                 else
                     false
-            let (var_29: bool) = (var_28 = false)
-            if var_29 then
+            let (var_28: bool) = (var_27 = false)
+            if var_28 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_30: int64) = (var_25 + var_14)
-            let (var_31: bool) = var_0.[int32 var_30]
-            (var_31 = false)
+            let (var_29: int64) = (var_24 + var_13)
+            let (var_30: bool) = var_0.[int32 var_29]
+            (var_30 = false)
         else
             false
-    if var_33 then
-        let (var_34: bool) = (var_12 = var_4)
-        let (var_36: bool) =
-            if var_34 then
-                (var_14 = var_3)
+    if var_32 then
+        let (var_33: bool) = (var_11 = var_3)
+        let (var_35: bool) =
+            if var_33 then
+                (var_13 = var_2)
             else
                 false
-        if var_36 then
-            method_29((var_5: string), (var_11: Rec3))
+        if var_35 then
+            method_29((var_4: string), (var_10: Rec3))
         else
-            let (var_38: bool) =
-                if var_15 then
-                    (var_12 < var_2)
+            let (var_37: bool) =
+                if var_14 then
+                    (var_11 < var_1)
                 else
                     false
-            let (var_39: bool) = (var_38 = false)
-            if var_39 then
+            let (var_38: bool) = (var_37 = false)
+            if var_38 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_40: int64) = (var_12 * var_1)
-            let (var_41: bool) = (var_14 >= 0L)
-            let (var_43: bool) =
-                if var_41 then
-                    (var_14 < var_2)
+            let (var_39: int64) = (var_11 * var_1)
+            let (var_40: bool) = (var_13 >= 0L)
+            let (var_42: bool) =
+                if var_40 then
+                    (var_13 < var_1)
                 else
                     false
-            let (var_44: bool) = (var_43 = false)
-            if var_44 then
+            let (var_43: bool) = (var_42 = false)
+            if var_43 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_45: int64) = (var_40 + var_14)
-            var_0.[int32 var_45] <- true
-            let (var_46: Rec3) = (Rec3Case1(Tuple5(var_5, var_11)))
-            method_22((var_7: EnvHeapMutable2), (var_12: int64), (var_14: int64), (var_46: Rec3))
-            method_26((var_6: string), (var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_7: EnvHeapMutable2), (var_8: string), (var_5: string), (var_9: string))
+            let (var_44: int64) = (var_39 + var_13)
+            var_0.[int32 var_44] <- true
+            let (var_45: Rec3) = (Rec3Case1(Tuple5(var_4, var_10)))
+            method_22((var_6: EnvHeapMutable2), (var_11: int64), (var_13: int64), (var_45: Rec3))
+            method_26((var_5: string), (var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_6: EnvHeapMutable2), (var_7: string), (var_4: string), (var_8: string))
     else
-        method_26((var_6: string), (var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_7: EnvHeapMutable2), (var_8: string), (var_5: string), (var_9: string))
+        method_26((var_5: string), (var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_6: EnvHeapMutable2), (var_7: string), (var_4: string), (var_8: string))
 let (var_0: System.IO.Stream) = System.Console.OpenStandardInput()
 let (var_1: System.IO.StreamReader) = System.IO.StreamReader(var_0)
 let (var_2: string) = var_1.ReadToEnd()
