@@ -857,36 +857,44 @@ inl map_dim = function
 
 inl map_dims = Tuple.map map_dim << Tuple.wrap
 
+// Wrapper for the array of the tensor.
+inl rec wrap_ar {data with offset ar} = function
+    | .data -> data
+    | .get -> ar offset
+    | .set v -> ar offset <- v
+    | .move_address v -> wrap_ar {ar offset=self+v}
+    | .update f -> wrap_ar (f data)
+
 /// A wrapper for the body field of the tensor. Does not check boundaries, but tracks the offsets size and current
 /// pointer offsets.
-inl rec wrap_body {data with ar {offset with size cur}} =
+inl rec wrap_body {data with size cur} =
     function 
     | .data -> data
     | .get -> 
         match size with
-        | () -> ar cur
+        | () -> cur.get
         | _ -> error_type "Cannot get from a subtensor that has not been applied all the way through."
     | .set v -> 
         match size with
-        | () -> ar cur <- v
+        | () -> cur.set v
         | _ -> error_type "Cannot set from a subtensor that has not been applied all the way through."
     | .view {from} -> 
         match size, cur with
-        | size :: _, cur :: cur' -> wrap_body {tns.offset with cur=(cur + from * size) :: cur'}
+        | size :: _, cur :: cur' -> wrap_body {size cur=cur.move_address (from * size) :: cur'}
         | () -> error_type "Cannot view into a subtensor that has been applied all the way through."
     | .update f -> wrap_body (f data)
+    | .update_ar f -> 
+        match cur with
+        | ar :: cur' -> wrap_body {data with cur=ar.update f :: cur'}
+        | cur -> wrap_body {data with cur=cur.update f}
     | i ->
         match size with
         | head_size :: size -> 
             inl cur = 
-                inl address_at cur cur' =
-                    match array_is cur with
-                    | () -> cur + cur'
-                    | .CudaGlobal | .CudaShared | .CudaLocal -> !MacroCuda(cur,[arg: cur; text: " + "; arg: cur'])
                 match cur with 
-                | cur :: cur' :: cur'' -> address_at cur (cur' + i * head_size) :: cur'' // returns a list
-                | cur :: () -> address_at cur (i * head_size) // returns a scalar
-            wrap_body {data.offset with size cur}
+                | ar :: cur' :: cur'' -> ar.move_address (cur' + i * head_size) :: cur'' // returns a list
+                | ar :: () -> ar.move_address (i * head_size) // returns cur
+            wrap_body {size cur}
         | () -> error_type "Cannot apply into a subtensor that has been applied all the way through."
 
 inl rec wrap {data with body dim} = 
@@ -902,7 +910,7 @@ inl rec wrap {data with body dim} =
             assert (near_to' > from && near_to' <= near_to) "Higher boundary out of bounds." 
             wrap {body = toa_map (inl ar -> ar.view head_size) self; dim=head_dim :: tail_dim}
     | .update f -> wrap (f data)
-    | .update_body f -> wrap {data with body=body.update f}
+    | .update_body f -> wrap {data with body=toa_map f self}
     | i -> 
         match dim with
         | () -> error_type "Cannot apply the tensor anymore."
@@ -914,20 +922,17 @@ inl dim_describe (!map_dims dim) =
     match dim with
     | () -> error_type "Empty dimensions are not allowed."
     | dim ->
-        inl cur = 0
         inl len :: size = Tuple.scanr (inl {from near_to} s -> (near_to - from) * s) dim 1
-        inl cur = Tuple.map (const cur) size
-        {len dim offset={size cur}}
+        inl append_zero_offsets x = x :: Tuple.map (cons 0) (Tuple.tail size)
+        {len dim size append_zero_offsets}
 
 /// Creates an empty tensor given the descriptor. {size elem_type ?layout=(.toa | .aot)} -> tensor
 inl create {dsc with dim elem_type} = 
     inl create dim =
-        inl {len dim offset} = dim_describe dim
+        inl {len dim size append_zero_offsets} = dim_describe dim
         inl body =
             inl layout = match dsc with {layout} -> layout | _ -> .toa
-            inl create elem_type = 
-                inl ar = array_create elem_type len
-                wrap_body {ar offset}
+            inl create elem_type = wrap_body {size cur=wrap_ar {offset=0; ar=array_create elem_type len} |> append_zero_offsets}
 
             match layout with
             | .aot -> create elem_type
@@ -972,22 +977,22 @@ inl copy = map id
 inl length tns = Tuple.foldl (inl s {from near_to} -> s * (near_to - from)) 1 (tns.data.dim)
 
 /// Sets the tensor dimensions assuming the overall length matches. Does not copy. size -> tensor -> tensor.
-inl reshape (!dim_describe {len dim offset}) tns = 
+inl reshape (!dim_describe {len dim size append_zero_offsets}) tns = 
     inl len' = length tns
     assert (len = len') "The product of given dimensions does not match the product of tensor dimensions."
     inb tns = tns.update
     {tns with dim
-        body =
-            toa_map (inl (!data {body with offset={cur}}) -> 
+        body = 
+            toa_map (inl body -> 
+                inb {body with cur} = body.update
                 match cur with 
-                | cur :: cur' -> 
+                | ar :: cur' -> 
                     Tuple.iter (inl cur -> assert (cur = 0) "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead") cur'
-                    {body with offset={offset with cur=cur :: Tuple.tail self}}
+                    {body with size cur=append_zero_offsets ar}
                 | _ -> error_type "Scalars cannot be reshaped."
-                ) self |> wrap_body
+                ) self
         }
     
-
 inl to_1d tns = reshape (length tns) tns
 
 /// Asserts the tensor size. Useful for setting those values to statically known ones. Does not copy. size -> tensor -> tensor.
@@ -1006,8 +1011,14 @@ inl array_to_tensor = array_as_tensor >> copy
 
 /// Maps the ar field of the tensor rather than it elements. (a -> b) -> tensor with (a ar) -> tensor with (b ar)
 inl map_ar f tns = 
-    inb {body with ar} = tns.update_body
-    toa_map (data >> f) (wrap_body body)
+    inb tns = tns.update
+    {tns with body=}
+    inb ar = body.update_ar
+    {tns with body =
+        toa_map (inl !data {body with cur} -> 
+            
+            ) self
+        }
 
 inl zip = function
     | x :: xs ->
