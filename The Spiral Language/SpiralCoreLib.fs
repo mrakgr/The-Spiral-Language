@@ -48,11 +48,10 @@ inl ignore x = ()
 inl id x = x
 inl const x _ = x
 inl ref x = !ReferenceCreate(x)
-inl Array = {
-    create = inl typ size -> !ArrayCreate(size,typ)
-    length = inl ar -> !ArrayLength(ar)
-    }
 
+inl array_create typ size = !ArrayCreate(size,typ)
+inl array_length ar = !ArrayLength(ar)
+inl array_is x = !ArrayIs(x)
 inl array t = type (Array.create t 1)
 
 inl (+) a b = !Add(a,b)
@@ -138,9 +137,9 @@ inl log x = !Log(x)
 inl exp x = !Exp(x)
 inl tanh x = !Tanh(x)
 
-{type_lit_lift error_type print_static dyn (\/) (=>) cuda fs log exp tanh array
+{type_lit_lift error_type print_static dyn (\/) (=>) cuda fs log exp tanh array_create array_length array_is array
  split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
- string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref Array (+) (-) (*) (/) (%)
+ string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref (+) (-) (*) (/) (%)
  (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>) Tuple fst snd not
  string_length lit_is box_is failwith assert max min eq_type module_values caseable_is (:>)
  (:?>) (=) module_map module_fold sizeof} |> stack

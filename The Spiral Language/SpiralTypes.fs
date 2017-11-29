@@ -197,6 +197,7 @@ type Op =
     | ArrayIndex
     | MutableSet
     | ArrayLength
+    | ArrayIs
    
     | ShiftLeft
     | ShiftRight

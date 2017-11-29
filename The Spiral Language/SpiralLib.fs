@@ -325,20 +325,20 @@ let array =
     """
 open Loops
 
-inl empty t = Array.create t 0
+inl empty t = array_create t 0
 inl singleton x =
-    inl ar = Array.create x 1
+    inl ar = array_create x 1
     ar 0 <- x
     ar
 
-inl foldl f state ar = for {from=0; near_to=Array.length ar; state; body=inl {state i} -> f state (ar i)}
-inl foldr f ar state = for {to=0; from=Array.length ar-1; by= -1; state; body=inl {state i} -> f (ar i) state}
+inl foldl f state ar = for {from=0; near_to=array_length ar; state; body=inl {state i} -> f state (ar i)}
+inl foldr f ar state = for {to=0; from=array_length ar-1; by= -1; state; body=inl {state i} -> f (ar i) state}
 
 inl init = 
     inl body is_static n f =
         assert (n >= 0) "The input to init needs to be greater or equal to 0."
         inl typ = type (f 0)
-        inl ar = Array.create typ n
+        inl ar = array_create typ n
         inl d = 
             inl d = {from=0; near_to=n; body=inl {i} -> ar i <- f i}
             if is_static then {d with static = ()} else d
@@ -348,28 +348,28 @@ inl init =
     | .static n f -> body true n f
     | n f -> body false n f
 
-met copy ar = init (Array.length ar) ar
+met copy ar = init (array_length ar) ar
 
-inl map f ar = init (Array.length ar) (ar >> f)
+inl map f ar = init (array_length ar) (ar >> f)
 inl filter f ar =
-    inl ar' = Array.create (ar.elem_type) (Array.length ar)
+    inl ar' = array_create (ar.elem_type) (array_length ar)
     inl count = foldl (inl s x -> if f x then ar' s <- x; s+1 else s) (dyn 0) ar
     init count ar'
 
 inl append l =
-    inl ar' = Array.create ((fst l).elem_type) (Tuple.foldl (inl s l -> s + Array.length l) 0 l)
+    inl ar' = array_create ((fst l).elem_type) (Tuple.foldl (inl s l -> s + array_length l) 0 l)
     inl ap s ar = foldl (inl i x -> ar' i <- x; i+1) s ar
     Tuple.foldl ap (dyn 0) l |> ignore
     ar'
 
 inl concat ar =
-    inl count = foldl (inl s ar -> s + Array.length ar) (dyn 0) ar
-    inl ar' = Array.create (ar.elem_type.elem_type) count
+    inl count = foldl (inl s ar -> s + array_length ar) (dyn 0) ar
+    inl ar' = array_create (ar.elem_type.elem_type) count
     (foldl << foldl) (inl i x -> ar' i <- x; i+1) (dyn 0) ar |> ignore
     ar'
 
-inl forall f ar = for' {from=0; near_to=Array.length ar; state=true; body = inl {next state i} -> f (ar i) && next state}
-inl exists f ar = for' {from=0; near_to=Array.length ar; state=false; body = inl {next state i} -> f (ar i) || next state}
+inl forall f ar = for' {from=0; near_to=array_length ar; state=true; body = inl {next state i} -> f (ar i) && next state}
+inl exists f ar = for' {from=0; near_to=array_length ar; state=false; body = inl {next state i} -> f (ar i) || next state}
 
 met show_array ar =
     open Extern
@@ -385,8 +385,8 @@ met show_array ar =
     FS.Method s.Append "|]" strb_type |> ignore
     FS.Method s.ToString() string
 
-{create=Array.create; length=Array.length; empty singleton foldl foldr init copy map filter append 
- concat forall exists show_array}
+{empty singleton foldl foldr init copy map filter append concat forall exists show_array} 
+|> stack
     """) |> module_
 
 let list =
@@ -668,7 +668,7 @@ inl repeat n parser =
 inl parse_array {parser typ n} = m {
     parser_mon =
         inm _ = guard (n >= 0) (fatal_fail "n in parse array must be >= 0")
-        inl ar = Array.create typ n
+        inl ar = array_create typ n
         repeat n (inl i -> parser |>> inl x -> ar i <- x) >>. succ ar
     }
 
@@ -782,7 +782,7 @@ inl add_one len x =
     if x = len then 0 else x
 
 inl resize {len from to ar} =
-    inl ar' = Array.create (ar.elem_type) (len*3/2+3)
+    inl ar' = array_create (ar.elem_type) (len*3/2+3)
     for {from near_to=len; body=inl {i} -> ar' (i - from) <- ar i}
     for {from=0; near_to=from; body=inl {i} -> ar' (len - from + i) <- ar i}
     {from=0; to=len; ar=ar'}
@@ -790,7 +790,7 @@ inl resize {len from to ar} =
 met enqueue queue (!dyn v) =
     inl {from to ar} = queue
     ar to <- v
-    inl len = Array.length ar
+    inl len = array_length ar
     inl to = add_one len to
     if from = to then 
         inl {from to ar} = resize {len from to ar}
@@ -802,12 +802,12 @@ met enqueue queue (!dyn v) =
 met dequeue queue =
     inl {from to ar} = queue
     assert (from <> to) "Cannot dequeue past the end of the queue."
-    queue.from <- add_one (Array.length ar) from
+    queue.from <- add_one (array_length ar) from
     ar from
 
 inl create typ n =
     inl n = match n with () -> 16 | n -> max 1 n
-    heapm {from=dyn 0; to=dyn 0; ar=Array.create typ n}
+    heapm {from=dyn 0; to=dyn 0; ar=array_create typ n}
 
 // Note: By convention I am disallowing module methods to keep track of their data.
 // Hence the user will have to use enqueue and dequeue statically on the queue.
@@ -879,9 +879,13 @@ inl rec wrap_body {data with ar {offset with size cur}} =
         match size with
         | head_size :: size -> 
             inl cur = 
-                match cur with
-                | cur :: cur' :: cur'' -> (cur + cur' + i * head_size) :: cur''
-                | cur :: () -> cur + i * head_size
+                inl address_at cur cur' =
+                    match array_is cur with
+                    | () -> cur + cur'
+                    | .CudaGlobal | .CudaShared | .CudaLocal -> !MacroCuda(cur,[arg: cur; text: " + "; arg: cur'])
+                match cur with 
+                | cur :: cur' :: cur'' -> address_at cur (cur' + i * head_size) :: cur'' // returns a list
+                | cur :: () -> address_at cur (i * head_size) // returns a scalar
             wrap_body {data.offset with size cur}
         | () -> error_type "Cannot apply into a subtensor that has been applied all the way through."
 
@@ -922,7 +926,7 @@ inl create {dsc with dim elem_type} =
         inl body =
             inl layout = match dsc with {layout} -> layout | _ -> .toa
             inl create elem_type = 
-                inl ar = Array.create elem_type len
+                inl ar = array_create elem_type len
                 wrap_body {ar offset}
 
             match layout with
@@ -944,9 +948,7 @@ inl init_core tns f =
 /// Creates a new tensor based on given sizes. Takes in a setter function. size -> f -> tensor.
 inl init size f =
     inl dim = Tuple.wrap size
-    inl elem_type = 
-        inl rec loop f = function x :: x' -> loop (f 0) x' | () -> f
-        type (loop f dim)
+    inl elem_type = type (Tuple.foldl (inl f _ -> f 0) f dim)
     inl tns = create {elem_type dim layout= .toa}
     init_core tns f
     tns
@@ -961,13 +963,13 @@ inl map f tns =
         | _ :: x' -> inl x -> loop (tns x) x' 
         | () -> f (tns .get)
     
-    init size (loop size)
+    init size (loop tns size)
 
 /// Copies a tensor. tensor -> tensor
 inl copy = map id
 
 /// Total tensor size in elements.
-inl length tns = Tuple.map (inl {from near_to} -> near_to - from) (tns.data.dim) |> Tuple.reduce (*)
+inl length tns = Tuple.foldl (inl s {from near_to} -> s * (near_to - from)) 1 (tns.data.dim)
 
 /// Sets the tensor dimensions assuming the overall length matches. Does not copy. size -> tensor -> tensor.
 inl reshape (!dim_describe {len dim offset}) tns = 
@@ -981,6 +983,7 @@ inl reshape (!dim_describe {len dim offset}) tns =
                 | cur :: cur' -> 
                     Tuple.iter (inl cur -> assert (cur = 0) "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead") cur'
                     {body with offset={offset with cur=cur :: Tuple.tail self}}
+                | _ -> error_type "Scalars cannot be reshaped."
                 ) self |> wrap_body
         }
     
@@ -995,8 +998,8 @@ inl assert_size (!map_dims dim') tns =
 
 /// Reinterprets an array as a tensor. Does not copy. array -> tensor.
 inl array_as_tensor ar =
-    inl {dim offset} = dim_describe (Array.length ar)
-    wrap {dim body={ar offset}}
+    inl {dim offset} = dim_describe (array_length ar)
+    wrap {dim body=wrap_body {ar offset}}
 
 /// Reinterprets an array as a tensor. array -> tensor.
 inl array_to_tensor = array_as_tensor >> copy

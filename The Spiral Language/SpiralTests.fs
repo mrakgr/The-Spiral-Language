@@ -273,11 +273,11 @@ inl a = ref <| term_cast (inl a, b -> a + b) (int64,int64)
 a := term_cast (inl a, b -> a * b) (int64,int64)
 a() |> ignore
 
-inl a = Array.create int64 10
+inl a = array_create int64 10
 a 3 <- 2
 a 3 |> ignore
 
-inl a = Array.create id 3 // Is supposed to be unit and not printed.
+inl a = array_create id 3 // Is supposed to be unit and not printed.
 a 1 <- id
 a 1 |> ignore
     """
@@ -735,7 +735,7 @@ inl d = 4
 let test58 =
     "test58",[array],"Does the fold function get duplicated?",
     """
-inl ar = Array.create (int64,int64) 128
+inl ar = array_create (int64,int64) 128
 Array.foldl (inl a,b c,d -> a+c,b+d) (dyn (1,2)) ar
 |> inl a,b -> a*b
     """
@@ -1029,6 +1029,27 @@ let test89 =
     "test89",[],"Does changing layout type work?",
     """
 {a=1;b=2} |> dyn |> stack |> heap |> indiv
+    """
+
+let test90 =
+    "test90",[host_tensor],"Does the tensor map work?",
+    """
+open HostTensor
+init (2,2) (inl a b -> a*2+b)
+|> map ((*) 2)
+    """
+
+let test91 =
+    "test91",[array;host_tensor],"Does assert_size work? Does converting from array to tensor work?",
+    """
+open HostTensor
+inl tns =
+    Array.init 6 id
+    |> array_to_tensor
+    |> reshape (dyn (2,3))
+    |> assert_size (2,3)
+    
+tns 1 0 .get |> ignore
     """
 
 let parsing1 = 
@@ -1453,7 +1474,7 @@ inl mario = pchar 'm' >>% box Cell .Mario
 inl cell = empty <|> princess <|> mario
 
 inl parse_cols n = parse_array {parser=cell; typ=Cell; n} .>> spaces
-inl parse_field n = parse_array {parser=parse_cols n; typ=type (Array.create Cell 0); n}
+inl parse_field n = parse_array {parser=parse_cols n; typ=type (array_create Cell 0); n}
 inl parser = 
     inm n = parse_int 
     inm field = parse_field n
@@ -1517,7 +1538,7 @@ inl parser =
                                 ) next_moves
                         inl bool_to_int x = if x then 1 else 0
                         inl number_of_valid_states = Tuple.foldl (inl s (_,!bool_to_int x) -> s + x) 0 potential_new_states
-                        inl new_states = Array.create state_type number_of_valid_states
+                        inl new_states = array_create state_type number_of_valid_states
                         Tuple.foldl (inl i (state,is_valid) -> 
                             if is_valid then new_states i <- state; i+1
                             else i
@@ -1563,7 +1584,7 @@ inl mario = pchar 'm' >>% box Cell .Mario
 inl cell = empty <|> princess <|> mario
 
 inl parse_cols n = parse_array {parser=cell; typ=Cell; n} .>> spaces
-inl parse_field n = parse_array {parser=parse_cols n; typ=type (Array.create Cell 0); n}
+inl parse_field n = parse_array {parser=parse_cols n; typ=type (array_create Cell 0); n}
 inl parser ret = 
     inm n = parse_int .>> parse_int .>> parse_int
     inm field = parse_field n
@@ -1836,6 +1857,7 @@ let tests =
     test60_error;test61;test62;test63;test64;test65;test66;test67;test68;test69
     test70;test71_error;test72;test73;test74;test75;test76;test77;test78;test79
     test80;test81;test82;test83;test84;test85;test86;test87;test88;test89
+    test90;test91
     hacker_rank_1;hacker_rank_2;hacker_rank_3;hacker_rank_4;hacker_rank_5;hacker_rank_6;hacker_rank_7;hacker_rank_8;hacker_rank_9
     parsing1;parsing2;parsing3;parsing4;parsing5;parsing6;parsing7;parsing8
     loop1;loop2;loop3;loop4_error;loop5;loop6;loop7;loop8

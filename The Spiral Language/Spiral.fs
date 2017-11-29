@@ -1308,6 +1308,18 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ar & TyType (ArrayT(ArtDotNetReference,t))-> TyLit (LitInt64 1L)
             | x -> on_type_er (trace d) <| sprintf "ArrayLength is only supported for .NET arrays. Got: %s" (show_typedexpr x)
 
+        let array_is d ar =
+            match tev d ar with
+            | TyType (ArrayT(t,_))-> 
+                match t with
+                | ArtCudaGlobal _ -> "CudaGlobal"
+                | ArtCudaShared -> "CudaShared"
+                | ArtCudaLocal -> "CudaLocal"
+                | ArtDotNetHeap -> "DotNetHeap"
+                | ArtDotNetReference -> "DotNetReference"
+                |> (type_lit_create' << LitString)
+            | x -> TyB
+
         let module_is d a =
             match tev d a with
             | M(_,_,MapTypeModule) -> TyLit (LitBool true)
@@ -1533,6 +1545,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ReferenceCreate,[a] -> reference_create d a
             | MutableSet,[a;b;c] -> mutable_set d a b c
             | ArrayLength,[a] -> array_length d a
+            | ArrayIs,[a] -> array_is d a
 
             // Primitive operations on expressions.
             | Add,[a;b] -> prim_arith_op d a b Add
