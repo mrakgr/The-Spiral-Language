@@ -868,7 +868,7 @@ inl HostTensorPrimitives =
     apply = {data with offsets=x :: offsets} v -> merge_offset (view {data with offsets} v) x
     }
 
-inl Tensor {view merge_offset get set apply} = {
+inl TensorTemplate {view merge_offset get set apply} = {
     update_body = inl {data with bodies} f -> {data with bodies=toa_map (f >> wrap) bodies}    
     update_dim = inl {data with dim} f -> {data with dim=f dim}
     get = inl {data with dim} -> 
@@ -901,17 +901,17 @@ inl tensor_wrap module =
         | i -> module .apply data i |> wrap
     wrap
 
-inl host_tensor_wrap = tensor_wrap (Tensor HostTensorPrimitives)
+inl host_tensor_wrap = tensor_wrap (TensorTemplate HostTensorPrimitives)
 
 inl dim_describe (!map_dims dim) = 
     match dim with
     | () -> error_type "Empty dimensions are not allowed."
     | dim ->
-        inl len :: size = Tuple.scanr (inl {from near_to} s -> (near_to - from) * s) dim 1
+        inl len :: size :: size' = Tuple.scanr (inl {from near_to} s -> (near_to - from) * s) dim 1
         inl make_body ar = 
-            inl value = 0
-            Tuple.map (inl size -> wrap_offset {size value}) size
-            |> inl offset :: offsets -> wrap_body { ar = wrap_ar {ar offset}; offsets}
+            inl position = 0
+            inl offsets = Tuple.map (inl size -> {size position}) size'
+            {ar size position offsets}
         {len dim make_body}
 
 /// Creates an empty tensor given the descriptor. {size elem_type ?layout=(.toa | .aot)} -> tensor
