@@ -828,7 +828,7 @@ inl rec toa_map f x =
         | x when caseable_is x -> f x
         | () -> ()
         | x :: xs -> loop x :: loop xs
-        | {} & x -> module_map (inl _ -> loop) x
+        | {!block_toa_map} & x -> module_map (inl _ -> loop) x
         | x -> f x
     loop x
 
@@ -837,9 +837,18 @@ inl rec toa_map2 f a b =
         | x, y when caseable_is x || caseable_is y -> f x y
         | (), () -> ()
         | x :: xs, y :: ys -> loop (x,y) :: loop (xs,ys)
-        | {} & x, {} & y -> module_map (inl k y -> loop (x k,y)) y
+        | {!block_toa_map} & x, {!block_toa_map} & y -> module_map (inl k y -> loop (x k,y)) y
         | x, y -> f x y
     loop (a,b)
+
+inl rec toa_foldl f s x = 
+    inl rec loop s = function
+        | x when caseable_is x -> f s x
+        | () -> s
+        | x :: xs -> loop (loop x) xs
+        | {!block_toa_map} & x -> module_foldl (inl _ -> loop) s x
+        | x -> f s x
+    loop s x
 
 inl toa_iter f = toa_map (inl x -> f x; ()) >> ignore
 inl toa_iter2 f a b = toa_map2 (inl a b -> f a b; ()) a b |> ignore
@@ -856,52 +865,56 @@ inl map_dim = function
         {from=0; near_to=x}
 
 inl map_dims = Tuple.map map_dim << Tuple.wrap
-inl wrap p f = f p
 
 inl HostTensorPrimitives = 
     inl view {data with size position} v = {data with position=position + v * size}
-    inl merge_size {data with size position} {size=size' position=position'} = {data with size=size'; position=position + position'}
+    inl merge_offset {data with size position} {size=size' position=position'} = {data with size=size'; position=position + position'}
     {
-    view merge_size
+    view merge_offset
     get = inl {data with position ar} -> ar position
-    set = inl {data with position ar} -> ar position <- v
-    apply = {data with offsets=x :: offsets} v -> merge_offset (view {data with offsets} v) x
+    set = inl {data with position ar} v -> ar position <- v
+    apply = inl {data with offsets} v -> 
+        match offsets with
+        | x :: offsets -> merge_offset (view {data with offsets} v) x
+        | () -> view data v |> inl x -> {x without size offsets}
     }
 
-inl TensorTemplate {view merge_offset get set apply} = {
-    update_body = inl {data with bodies} f -> {data with bodies=toa_map (f >> wrap) bodies}    
+inl TensorTemplate {view get set apply} = {
+    update_body = inl {data with bodies} f -> {data with bodies=toa_map f bodies}    
     update_dim = inl {data with dim} f -> {data with dim=f dim}
-    get = inl {data with dim} -> 
+    get = inl {data with dim bodies} -> 
         match dim with
         | () -> toa_map get bodies
         | _ -> error_type "Cannot get from tensor whose dimensions have not been applied completely."
-    set = inl {data with dim} ->
+    set = inl {data with dim bodies} v ->
         match dim with
         | () -> toa_iter2 set bodies v
         | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
-    view = {inl data with dim} (!map_dim ({from=from' near_to=near_to'} & head_dim)) ->
+    view = inl {data with dim} (!map_dim ({from=from' near_to=near_to'} & head_dim)) ->
         match dim with
         | () -> error_type "Cannot view the tensor anymore."
         | {from near_to} :: tail_dim ->
             assert (from' >= from && from' < near_to) "Lower boundary out of bounds." 
             assert (near_to' > from && near_to' <= near_to) "Higher boundary out of bounds." 
-            {data with bodies = toa_map (inl ar -> view ar from' |> wrap) self; dim=head_dim :: tail_dim}
+            {data with bodies = toa_map (inl ar -> view ar from') self; dim=head_dim :: tail_dim}
     apply = inl {data with dim} i ->
         match dim with
         | () -> error_type "Cannot apply the tensor anymore."
         | {from near_to} :: dim ->
             assert (i >= from && i < near_to) "Argument out of bounds." 
-            {data with body = toa_map (inl ar -> apply ar i |> wrap) self; dim}
+            {data with bodies = toa_map (inl ar -> apply ar i) self; dim}
     }
 
-inl tensor_wrap module = 
+inl wrap_tensor_template module = 
     inl rec wrap data = function
         | (.get | .set) & x -> module x data
-        | .(_) & x -> module x data |> wrap
+        | .(_) & x -> 
+            if module_has_member data x then data x
+            else module x data >> wrap
         | i -> module .apply data i |> wrap
     wrap
 
-inl host_tensor_wrap = tensor_wrap (TensorTemplate HostTensorPrimitives)
+inl wrap_host_tensor = wrap_tensor_template (TensorTemplate HostTensorPrimitives)
 
 inl dim_describe (!map_dims dim) = 
     match dim with
@@ -911,7 +924,7 @@ inl dim_describe (!map_dims dim) =
         inl make_body ar = 
             inl position = 0
             inl offsets = Tuple.map (inl size -> {size position}) size'
-            {ar size position offsets}
+            {ar size position offsets block_toa_map=()}
         {len dim make_body}
 
 /// Creates an empty tensor given the descriptor. {size elem_type ?layout=(.toa | .aot)} -> tensor
@@ -925,7 +938,7 @@ inl create {dsc with dim elem_type} =
             | .aot -> create elem_type
             | .toa -> toa_map create elem_type
 
-        wrap_tensor {bodies dim}
+        wrap_host_tensor {bodies dim}
     match dim with
     | () -> create 1 0
     | dim -> create dim
@@ -963,49 +976,47 @@ inl length tns = product (tns.dim)
 
 /// Sets the tensor dimensions assuming the overall length matches. Does not copy. size -> tensor -> tensor.
 inl reshape (!dim_describe {len dim make_body}) tns = 
-    tns.update {
-        update_dim = inl dim' ->
+    tns.update_dim (inl dim' ->
             inl len' = product dim'
             assert (len = len') "The product of given dimensions does not match the product of tensor dimensions."
-            dim
-        update_body = inl body ->
+            dim)
+        .update_body (inl {offsets ar} ->
             assert 
-                (Tuple.forall (inl offset -> offset.value = 0) (body.offsets)) 
+                (Tuple.forall (inl {position} -> position = 0) offsets) 
                 "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead"
-            make_body (body.ar)
-    }
-    
+            make_body ar
+            )
+
 inl to_1d tns = reshape (length tns) tns
 
 /// Asserts the tensor size. Useful for setting those values to statically known ones. Does not copy. size -> tensor -> tensor.
 inl assert_size (!map_dims dim') tns = 
-    tns.update {
-        update_dim = inl dim ->
+    tns.update_dim <| inl dim ->
             assert (dim = dim') "Tensor size assert failed."
             dim'
-        }
 
 /// Reinterprets an array as a tensor. Does not copy. array -> tensor.
 inl array_as_tensor ar =
     inl {dim make_body} = dim_describe (array_length ar)
-    wrap_tensor {dim bodies=make_body ar}
+    wrap_host_tensor {dim bodies=make_body ar}
 
 /// Reinterprets an array as a tensor. array -> tensor.
 inl array_to_tensor = array_as_tensor >> copy
 
 /// Maps the ar field of the tensor rather than it elements. (a -> b) -> tensor with (a ar) -> tensor with (b ar)
-inl map_ar f tns = 
-    tns.update {
-        update_body = inl body -> body.replace_ar f
-        }
+inl map_ar f tns = tns.update_body <| inl {data with ar} -> {data with ar = f ar}
 
-inl zip = function
-    | x :: xs ->
-        inb x = x.update_body
-        x :: toa_map (inl (!view {body dim=dim'}) -> assert (dim = dim') "All tensors in zip need to have the same dimensions"; body) xs
+inl zip l = 
+    toa_foldl (inl s x ->
+        match s with
+        | () -> x
+        | s -> assert (s.dim = x.dim) "All tensors in zip need to have the same dimensions"; s) () x
+    |> function 
+        | () -> error_type "Empty inputs to zip are not allowed."
+        | tns -> tns.update_body <| inl _ -> toa_map (inl x -> x.bodies) l
 
-{toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims length wrap create dim_describe 
- init copy data to_1d reshape assert_size array_as_tensor array_to_tensor map map_ar zip}
+{toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims length create dim_describe 
+ init copy to_1d reshape assert_size array_as_tensor array_to_tensor map map_ar zip}
 |> stack
     """) |> module_
 

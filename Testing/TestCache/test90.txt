@@ -6,56 +6,47 @@ extern "C" {
 }
 """
 
-type Tuple0 =
+type Env0 =
     struct
     val mem_0: int64
     val mem_1: int64
     new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
     end
-and Env1 =
+and Tuple1 =
     struct
-    val mem_0: Tuple0
-    val mem_1: Tuple0
-    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    val mem_0: Env0
+    new(arg_mem_0) = {mem_0 = arg_mem_0}
     end
 and Env2 =
     struct
     val mem_0: (int64 [])
-    val mem_1: Env1
-    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
-    end
-and Env3 =
-    struct
-    val mem_0: (int64 [])
-    val mem_1: Tuple0
-    val mem_2: Env2
-    val mem_3: Tuple0
+    val mem_1: Tuple1
+    val mem_2: int64
+    val mem_3: int64
     new(arg_mem_0, arg_mem_1, arg_mem_2, arg_mem_3) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2; mem_3 = arg_mem_3}
     end
-and Env4 =
+and Env3 =
     struct
     val mem_0: int64
     val mem_1: int64
     new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
     end
-and Tuple5 =
+and Tuple4 =
     struct
-    val mem_0: Env4
-    val mem_1: Env4
+    val mem_0: Env3
+    val mem_1: Env3
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+and Env5 =
+    struct
+    val mem_0: Env2
+    val mem_1: Tuple4
     new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
     end
 and Env6 =
     struct
-    val mem_0: Env3
-    val mem_1: Tuple5
-    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
-    end
-and Env7 =
-    struct
-    val mem_0: Env3
-    val mem_1: Env6
-    val mem_2: Tuple5
-    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
+    val mem_0: Env5
+    new(arg_mem_0) = {mem_0 = arg_mem_0}
     end
 let rec method_0((var_0: (int64 [])), (var_1: int64)): unit =
     let (var_2: bool) = (var_1 < 2L)
@@ -137,4 +128,4 @@ method_0((var_0: (int64 [])), (var_1: int64))
 let (var_4: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(4L))
 let (var_5: int64) = 0L
 method_2((var_0: (int64 [])), (var_4: (int64 [])), (var_5: int64))
-(Env7((Env3(var_4, Tuple0(0L, 0L), (Env2(var_4, (Env1(Tuple0(0L, 0L), Tuple0(2L, 1L))))), Tuple0(2L, 1L))), (Env6((Env3(var_4, Tuple0(0L, 0L), (Env2(var_4, (Env1(Tuple0(0L, 0L), Tuple0(2L, 1L))))), Tuple0(2L, 1L))), Tuple5((Env4(0L, 2L)), (Env4(0L, 2L))))), Tuple5((Env4(0L, 2L)), (Env4(0L, 2L)))))
+(Env6((Env5((Env2(var_4, Tuple1((Env0(0L, 1L))), 0L, 2L)), Tuple4((Env3(0L, 2L)), (Env3(0L, 2L)))))))

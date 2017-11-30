@@ -1,12 +1,4 @@
-module SpiralExample.Main
-let cuda_kernels = """
-
-extern "C" {
-    
-}
-"""
-
-type Env0 =
+﻿type Env0 =
     struct
     val mem_0: int64
     val mem_1: int64
@@ -43,10 +35,5 @@ and Env5 =
     val mem_1: Tuple4
     new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
     end
-and Env6 =
-    struct
-    val mem_0: Env5
-    new(arg_mem_0) = {mem_0 = arg_mem_0}
-    end
 
-(Env6((Env5((Env2([||], Tuple1((Env0(0L, 1L))), 0L, 2L)), Tuple4((Env3(0L, 2L)), (Env3(0L, 2L)))))))
+Env5((Env2([||], Tuple1((Env0(0L, 1L))), 0L, 2L)), Tuple4((Env3(0L, 2L)), (Env3(0L, 2L))))

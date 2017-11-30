@@ -1,4 +1,4 @@
-Error trace on line: 2, column: 1 in file "test71_error".
+Error trace on line: 2, column: 1 in file "test71'".
 55 + id
 ^
 Error trace on line: 51, column: 11 in file "Core".

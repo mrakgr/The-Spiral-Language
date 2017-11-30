@@ -136,7 +136,7 @@ type Op =
     | ModuleValues
     | ModuleHasMember
     | ModuleMap
-    | ModuleFold
+    | ModuleFoldL
     | ModuleOpen
 
     // Caseable
