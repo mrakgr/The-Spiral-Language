@@ -223,15 +223,16 @@ inl CudaKernels stream =
 
     inl fill_random op (!zip in) =
         set_stream_random random
-        inl in' = coerce_to_1d in |> to_device_tensor_form
-        map_tensor (fill_random_array op (total_size (in'.size) |> SizeT)) in' |> ignore
+        inl in' = to_1d in |> cuda_tensor_to_device_tensor
+        inl len = length in'
+        in'.update_body (inl {ar} -> fill_random_array op len ar |> SizeT) |> ignore
 
-    inl map f (!zip ({size layout} & in)) ret =
-        inb out = create {size layout elem_type = type (f (elem_type in))}
+    inl map f (!zip in) ret =
+        inb out = create {size elem_type = type (f (elem_type in))}
 
-        inl in' = coerce_to_1d in |> to_device_tensor_form
-        inl out' = coerce_to_1d out |> to_device_tensor_form
-        inl near_to = total_size (in'.size)
+        inl in' = to_1d in |> cuda_tensor_to_device_tensor
+        inl out' = to_1d out |> cuda_tensor_to_device_tensor
+        inl near_to = length in'
 
         run {
             stream
@@ -240,9 +241,7 @@ inl CudaKernels stream =
             kernel = cuda // Lexical scoping rocks.
                 inl from = blockIdx.x * blockDim.x + threadIdx.x
                 inl by = gridDim.x * blockDim.x
-                Loops.for {from near_to by body=inl {i} ->
-                    set_unsafe out' i (f (index_unsafe in' i))
-                    }
+                Loops.for {from near_to by body=inl {i} -> out' i .set (f (in' i .get)) }
             } |> ignore
 
         ret out
@@ -256,7 +255,8 @@ inl CudaKernels stream =
         inl final_reduce map out =
             inl _ ->
                 inl tns = to_host_tensor out
-                Loops.for {from=1; near_to=total_size (tns.size); state=index_unsafe tns 0 |> map; body=inl {state i} -> redo state (index_unsafe tns i |> map)}
+                inl load i = map (tns i .get)
+                Loops.for {from=1; near_to=total_size (tns.dim); state=load 0; body=inl {state i} -> redo state (load i)}
             |> ret
 
         if near_to >= 128 then
@@ -273,8 +273,8 @@ inl CudaKernels stream =
                     text: ".Reduce"
                     args: thread_result, redo])
 
-            inb out = create {size=gridDim; layout elem_type}
-            inl out' = to_device_tensor_form out
+            inb out = create {size=gridDim elem_type}
+            inl out' = cuda_tensor_to_device_tensor out
 
             run {
                 stream
@@ -283,12 +283,12 @@ inl CudaKernels stream =
                 kernel = cuda 
                     inl from = blockIdx.x * blockDim.x + threadIdx.x
                     inl by = gridDim.x * blockDim.x
-                    inl load i = map (index_unsafe in' i)
+                    inl load i = map (in' i .get)
                     inl thread_result = Loops.for {from=from+by; near_to by state=load from; body=inl {state i} -> redo state (load i)}
 
                     inl redo = closure_of (inl a,b -> redo a b) ((ty,ty) => ty)
                     inl block_result = cub_block_reduce thread_result redo
-                    if threadIdx.x = 0 then set_unsafe out' (blockIdx.x) block_result
+                    if threadIdx.x = 0 then out' (blockIdx.x) .set block_result
                 } |> ignore
 
             final_reduce id out
@@ -296,11 +296,12 @@ inl CudaKernels stream =
             final_reduce map in
 
 
-    inl rows x = x.size |> inl a,b -> a
-    inl cols x = x.size |> inl a,b -> b
+    inl rows x = x.dim |> inl a,b -> a
+    inl cols x = x.dim |> inl a,b -> b
 
     /// General matrix-matrix multiply from cuBLAS. Inplace version
-    inl gemm' transa transb alpha (!to_device_tensor_form A) (!to_device_tensor_form B) beta (!to_device_tensor_form C) =
+    inl gemm' transa transb alpha A B beta C =
+        inl A,B,C = Tuple.map cuda_tensor_to_device_tensor (A,B,C)
         set_stream_cublas cublas
         inl handle = FS.Method cublas .get_CublasHandle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
         inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
@@ -365,14 +366,14 @@ inl CudaKernels stream =
         else
             call.cublasSgemm_v2(handle,to_operation transa, to_operation transb, m, n, k, ref alpha, A.ar, lda, B.ar, ldb, ref beta, C.ar, ldc)
 
-    inl gemm transa transb alpha ({layout} & A) B ret =
+    inl gemm transa transb alpha A B ret =
         inl A_ty, B_ty = type(A), type(B)
         assert (eq_type A_ty B_ty) ("A should be of equal type to B.", A_ty, " <> ", B_ty)
 
         inl m = if isnT transa then rows A else cols A
         inl n = if isnT transb then cols B else rows B
 
-        inb C = create {size=m,n; layout elem_type = type (elem_type A)}
+        inb C = create {size=m,n; elem_type = type (elem_type A)}
         inl beta = match alpha with _: float32 -> 0f32 | _: float64 -> 0f64
         gemm' transa transb alpha A B beta C
         ret C
@@ -389,7 +390,7 @@ open Console
 
 inl test_random = 
     //inl host_tensor = HostTensor.init 32 (unsafe_convert float32)
-    inm device_tensor = create {layout= .toa; size=32; elem_type=float32}
+    inm device_tensor = create {size=32; elem_type=float32}
     fill_random {op=.LogNormal; stddev=1.0f32; mean=0f32} device_tensor
     inl {ar} = to_host_tensor device_tensor
     succ (Array.show_array ar |> writeline)
@@ -408,7 +409,7 @@ inl test_map_redo =
     from_host_tensor host_tensor >>= map_redo {map=id; redo=(+)} >>= force >>= merge >>= (writeline >> succ)
 
 inl create_random_tensor op size =
-    inm device_tensor = create {layout= .toa; size elem_type=float32}
+    inm device_tensor = create {size elem_type=float32}
     fill_random op device_tensor
     succ device_tensor
 
@@ -515,7 +516,7 @@ inl mnist_tensors =
         ) mnist_files
 
 print_static mnist_tensors
-//writeline (mnist_tensors.test_labels |> HostTensor.show_tensor," ", total_size (mnist_tensors.test_labels.size))
+//writeline (mnist_tensors.test_labels |> HostTensor.show_tensor, " ", total_size (mnist_tensors.test_labels.size))
     """
 
 let cfg: Spiral.Types.CompilerSettings = {
