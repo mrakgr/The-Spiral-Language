@@ -402,11 +402,11 @@ inl test_map =
 
 inl test_map_redo =
     inl force x ret = ret (x ())
-    // In this example the only thing that happens after the merge is the writeline, but it would be useful if there
-    // is more stuff after it. The merge would be an effective tool for keeping the code bloat down in that case.
-    inl merge x ret = join (ret x) 
+    // In this example the only thing that happens after the joinm is the writeline, but it would be useful if there
+    // is more stuff after it. The joinm would be an effective tool for keeping the code bloat down in that case.
+    inl joinm x ret = join (ret x) 
     inl host_tensor = HostTensor.init (dyn 64) (unsafe_convert float32)
-    from_host_tensor host_tensor >>= map_redo {map=id; redo=(+)} >>= force >>= merge >>= (writeline >> succ)
+    from_host_tensor host_tensor >>= map_redo {map=id; redo=(+)} >>= force >>= joinm >>= (writeline >> succ)
 
 inl create_random_tensor op size =
     inm device_tensor = create {size elem_type=float32}
