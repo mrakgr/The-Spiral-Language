@@ -933,6 +933,7 @@ inl create {dsc with dim elem_type} =
         inl {len dim make_body} = dim_describe dim
         inl bodies =
             inl layout = match dsc with {layout} -> layout | _ -> .toa
+            inl array_create = match dsc with {array_create} -> array_create | _ -> array_create
             inl create elem_type = make_body (array_create elem_type len)
             match layout with
             | .aot -> create elem_type

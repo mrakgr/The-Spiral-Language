@@ -90,17 +90,17 @@ inl allocator size ret =
 
 inl CudaTensor allocator =
     open HostTensor
-    inl create_ar size1d elem_type = 
-        inl ptr = allocator.allocate (size1d * unsafe_convert int64 (sizeof elem_type))
+    inl array_create elem_type len = 
+        inl ptr = allocator.allocate (len * unsafe_convert int64 (sizeof elem_type))
         function // It needs to be like this rather than a module so toa_map does not split it.
         | .elem_type -> elem_type
         | .ptr -> ptr
-    inl create {layout elem_type size} = map_tensor (create_ar (total_size size)) {layout size ar=type (elem_type)}
+    inl create data = create {data with array_create}
 
     inl from_host_array ar =
         inl elem_type = ar.elem_type
-        inl size = Array.length ar |> unsafe_convert int64
-        inl t = create_ar size elem_type
+        inl size = array_length ar |> unsafe_convert int64
+        inl t = array_create size elem_type
         FS.Method context .CopyToDevice(t.ptr(), ar) unit
         t
 
@@ -109,7 +109,7 @@ inl CudaTensor allocator =
     inl to_host_array size1d ar =
         inl elem_type = ar.elem_type
         inl ptr = ar.ptr()
-        inl t = Array.create elem_type size1d
+        inl t = Core.array_create elem_type size1d
         FS.Method context .CopyToHost (t,ptr) unit
         FS.Method context .Synchronize() unit
         t
