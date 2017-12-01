@@ -866,17 +866,19 @@ inl map_dim = function
 
 inl map_dims = Tuple.map map_dim << Tuple.wrap
 
-inl HostTensorPrimitives = 
+inl primitive_apply_template {merge_offset view} {data with offsets} v = 
+    match offsets with
+    | x :: offsets -> merge_offset (view {data with offsets} v) x
+    | () -> view data v |> inl x -> {x without size offsets}
+
+inl HostTensorPrimitives =
     inl view {data with size position} v = {data with position=position + v * size}
     inl merge_offset {data with size position} {size=size' position=position'} = {data with size=size'; position=position + position'}
     {
-    view merge_offset
+    view 
     get = inl {data with position ar} -> ar position
     set = inl {data with position ar} v -> ar position <- v
-    apply = inl {data with offsets} v -> 
-        match offsets with
-        | x :: offsets -> merge_offset (view {data with offsets} v) x
-        | () -> view data v |> inl x -> {x without size offsets}
+    apply = primitive_apply_template {view merge_offset} 
     }
 
 inl TensorTemplate {view get set apply} = {
@@ -905,8 +907,9 @@ inl TensorTemplate {view get set apply} = {
             {data with bodies = toa_map (inl ar -> apply ar i) self; dim}
     }
 
-inl wrap_tensor_template module = 
+inl rec wrap_tensor_template module = 
     inl rec wrap data = function
+        | .replace_module module -> wrap_tensor_template module data
         | (.get | .set) & x -> module x data
         | .(_) & x -> 
             if module_has_member data x then data x
@@ -1005,7 +1008,7 @@ inl array_as_tensor ar =
 inl array_to_tensor = array_as_tensor >> copy
 
 /// Maps the ar field of the tensor rather than it elements. (a -> b) -> tensor with (a ar) -> tensor with (b ar)
-inl map_ar f tns = tns.update_body <| inl {data with ar} -> {data with ar = f ar}
+//inl map_ar f tns = tns.update_body <| inl {data with ar} -> {data with ar = f ar}
 
 inl zip l = 
     toa_foldl (inl s x ->
@@ -1016,8 +1019,8 @@ inl zip l =
         | () -> error_type "Empty inputs to zip are not allowed."
         | tns -> tns.update_body <| inl _ -> toa_map (inl x -> x.bodies) l
 
-{toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims length create dim_describe 
- init copy to_1d reshape assert_size array_as_tensor array_to_tensor map map_ar zip}
+{toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims length create dim_describe primitive_apply_template TensorTemplate
+ init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip}
 |> stack
     """) |> module_
 

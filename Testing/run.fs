@@ -42,10 +42,13 @@ inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
 inl SizeT = FS.Constructor SizeT_type
 inl CUdeviceptr = FS.Constructor CUdeviceptr_type
 
+inl to_uint x = FS.UnOp .uint64 x uint64
+inl ptr_to_uint (ptr: CUdeviceptr_type) = FS.Field ptr.Pointer SizeT_type |> to_uint
+inl uint_to_ptr (x: uint64) = SizeT x |> CUdeviceptr
+
 inl allocator size ret =
     inl to_float x = FS.UnOp .float x float64
     inl to_int x = FS.UnOp .int64 x int64
-    inl to_uint x = FS.UnOp .uint64 x uint64
     
     inl pool = 
         inl size = 
@@ -57,7 +60,7 @@ inl allocator size ret =
                 |> to_int |> to_float |> (*) size |> to_int
             | _ : int64 -> size
         inl q = FS.Method context.AllocateMemory (SizeT size) CUdeviceptr_type
-        {size ptr=q |> smartptr_create}
+        {size ptr=smartptr_create q}
 
     inl pool_type = type(pool)
     inl stack_type = fs [text: "System.Collections.Generic.Stack"; types: pool_type]
@@ -65,13 +68,13 @@ inl allocator size ret =
 
     inl allocate =
         inl smartptr_ty = type (pool.ptr)
-        inl f x = FS.Field (x.ptr()) .Pointer SizeT_type |> to_uint, x.size |> to_uint
+        inl f x = x.ptr() |> ptr_to_uint, x.size |> to_uint
         inl pool_ptr, pool_size = f pool
         met rec remove_disposed_and_return_the_first_live ret =
             if FS.Method stack.get_Count() int32 > 0i32 then 
                 inl t = FS.Method stack.Peek() pool_type
                 match t.ptr.Try with
-                | [Some: ptr] -> join (ret (FS.Field ptr.Pointer SizeT_type |> to_uint, t.size |> to_uint))
+                | [Some: ptr] -> join (ret (ptr_to_uint ptr, t.size |> to_uint))
                 | _ -> FS.Method stack.Pop() pool_type |> ignore; remove_disposed_and_return_the_first_live ret 
             else join (ret (pool_ptr, 0u64))
             : smartptr_ty
@@ -79,7 +82,7 @@ inl allocator size ret =
             inb top_ptr, top_size = remove_disposed_and_return_the_first_live
             inl pool_used = top_ptr - pool_ptr + top_size
             assert (to_uint size + pool_used <= pool_size) "Cache size has been exceeded in the allocator."
-            inl cell = {size ptr=top_ptr + top_size |> SizeT |> CUdeviceptr |> smartptr_create}
+            inl cell = {size ptr=top_ptr + top_size |> uint_to_ptr |> smartptr_create}
             FS.Method stack.Push cell unit
             cell.ptr
 
@@ -104,7 +107,13 @@ inl CudaTensor allocator =
         FS.Method context .CopyToDevice(t.ptr(), ar) unit
         t
 
-    inl from_host_tensor = map_ar from_host_array
+    inl from_host_tensor tns = 
+        reshape dim tns |> ignore // This is just a check that the inner dimenions are unviewed.
+        tns.update_body <| inl {body with position ar} ->
+            // I do not feel like messing with GC handles in Spiral right now.
+            // Allowing a copy with an offset would be easy though. See ManagedCuda's CopyToHost and CopyToDevice.
+            assert (position = 0) "Only unviewed arrays are allowed for now." // I do not feel like messing with GC handles in Spiral right now.
+            {body with ar = from_host_array ar}
 
     inl to_host_array size1d ar =
         inl elem_type = ar.elem_type
@@ -114,31 +123,40 @@ inl CudaTensor allocator =
         FS.Method context .Synchronize() unit
         t
 
-    inl to_host_tensor {size} & tns = map_tensor (to_host_array (total_size size)) tns
-    inl ptr ar = 
-        inl ptr, elem_type = ar.ptr(), ar.elem_type
-        !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
-    inl pointerize = map_ar ptr
+    inl to_host_tensor {tns with dim} = 
+        reshape dim tns |> ignore // This is just a check that the inner dimenions are unviewed.
+        tns.update_body <| inl {ar position} ->
+            // I do not feel like messing with GC handles in Spiral right now.
+            // Allowing a copy with an offset would be easy though. See ManagedCuda's CopyToHost and CopyToDevice.
+            assert (position = 0) "Only unviewed arrays are allowed for now." 
+            {body with ar = to_host_array (length tns) ar}
 
-    inl zip = function
-        | x :: xs as l ->
-            inl {dim={size=sa}} = x
-            Tuple.iter (inl {dim={size=sb}} -> 
-                assert (sa=sb) "The sizes of all the tensors in zip must be the same in order to be zipped"
-                ) xs
-            inl l = 
-                Tuple.map (inl {dim ar cur_offset})
-            {size=sa; ar = Tuple.map (inl {ar} -> ar) l}
-        | () -> error_type "Empty input to zip is invalid."
-        | x -> x
-        
-    inl coerce_to_1d {size layout ar} = {layout ar size={from=0; to=total_size size - 1} :: ()}
+    inl DeviceTensorPrimitives = // The DeviceTensor uses the position as the array.
+        inl (+) a (b: int64) = !MacroCuda(a,[arg: a; text: " + "; arg: b])
+        inl view {data with size ar} v = {data with ar=ar + v * size}
+        inl merge_offset {data with size ar} {size=size' position=position'} = {data with size=size'; ar=ar + position'}
+        {
+        view
+        get = inl {data with ar} -> ar 0
+        set = inl {data with ar} v -> ar 0 <- v
+        apply = primitive_apply_template {view merge_offset} 
+        }
+
+    inl cuda_tensor_to_device_tensor tns = 
+        tns.update_body (inl {ar position} ->
+            inl ptr, elem_type = ar.ptr(), ar.elem_type
+            met position = 
+                inl ptr = ptr_to_uint ptr + unsafe_convert uint64 position |> uint_to_ptr    
+                !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
+
+            {body with position without ar}
+            ).replace_wrapper (TensorTemplate DeviceTensorPrimitives)
 
     // CPS'd variants of the allcoator functions.
     inl create = safe_alloc 1 create
     inl from_host_tensor = safe_alloc 1 from_host_tensor
 
-    {create from_host_tensor to_host_tensor zip elem_type coerce_to_1d to_device_tensor_form total_size ptr}
+    {create from_host_tensor to_host_tensor cuda_tensor_to_device_tensor}
 
 inb allocator = allocator 0.7
 open CudaTensor allocator
@@ -229,8 +247,8 @@ inl CudaKernels stream =
 
         ret out
 
-    inl map_redo {map redo} (!zip ({size layout} & in)) ret =
-        inl in' = coerce_to_1d in |> to_device_tensor_form
+    inl map_redo {map redo} (!zip in) ret =
+        inl in' = to_1d in |> cuda_tensor_to_device_tensor
         inl near_to = total_size (in'.size)
 
         assert (near_to > 0) "The input to map_redo must be non-empty."
