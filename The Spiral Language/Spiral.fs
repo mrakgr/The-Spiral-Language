@@ -843,12 +843,14 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                             | LitChar x -> box x
                             | LitBool x -> box x
                         | _ -> failwith "impossible"
-                    match l with
-                    | [a] -> String.Format(format,f a)
-                    | [a;b] -> String.Format(format,f a,f b)
-                    | [a;b;c] -> String.Format(format,f a,f b,f c)
-                    | l -> String.Format(format,List.toArray l |> Array.map f)
-                    |> LitString |> TyLit
+                    try 
+                        match l with
+                        | [a] -> String.Format(format,f a)
+                        | [a;b] -> String.Format(format,f a,f b)
+                        | [a;b;c] -> String.Format(format,f a,f b,f c)
+                        | l -> String.Format(format,List.toArray l |> Array.map f)
+                        |> LitString |> TyLit
+                    with :? System.FormatException as e -> on_type_er (trace d) <| sprintf "Dotnet format exception.\nMessage: %s" e.Message
                 else
                     TyOp(StringFormat,a :: l,PrimT StringT)
             | TyType (PrimT StringT) & a, TyTuple (_ :: _ as l) -> TyOp(StringFormat,a :: l,PrimT StringT)
