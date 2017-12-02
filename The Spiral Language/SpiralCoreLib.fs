@@ -95,7 +95,9 @@ inl caseable_is x = !CaseableIs(x)
 inl caseable_boxed_is x = !CaseableBoxedIs(x)
 inl failwith typ msg = !FailWith(typ,msg)
 inl assert c msg = 
-    inl raise =
+    // Note: testing `lit_is c` needs to be done before testing for `c = false` otherwise the CSE rewrite will mess up the program.
+    // Do not add an argument to raise.
+    inl raise = 
         if lit_is c then error_type
         else failwith unit
     

@@ -823,6 +823,8 @@ let host_tensor =
     (
     "HostTensor",[tuple;loops],"The host tensor module.",
     """
+// A lot of the code in this module is made with purpose of being reused on the Cuda side.
+
 inl rec toa_map f x = 
     inl rec loop = function
         | x when caseable_is x -> f x
@@ -882,6 +884,7 @@ inl HostTensorPrimitives =
     }
 
 inl TensorTemplate {view get set apply} = {
+    elem_type = inl {data with bodies} -> toa_map (inl {ar} -> ar.elem_type) bodies
     update_body = inl {data with bodies} f -> {data with bodies=toa_map f bodies}    
     update_dim = inl {data with dim} f -> {data with dim=f dim}
     get = inl {data with dim bodies} -> 
@@ -910,7 +913,7 @@ inl TensorTemplate {view get set apply} = {
 inl rec wrap_tensor_template module = 
     inl rec wrap data = function
         | .replace_module module -> wrap_tensor_template module data
-        | (.get | .set) & x -> module x data
+        | (.elem_type | .get | .set) & x -> module x data
         | .(_) & x -> 
             if module_has_member data x then data x
             else module x data >> wrap
@@ -930,7 +933,7 @@ inl dim_describe (!map_dims dim) =
             {ar size position offsets block_toa_map=()}
         {len dim make_body}
 
-/// Creates an empty tensor given the descriptor. {size elem_type ?layout=(.toa | .aot)} -> tensor
+/// Creates an empty tensor given the descriptor. {size elem_type ?layout=(.toa | .aot) ?array_create} -> tensor
 inl create {dsc with dim elem_type} = 
     inl create dim =
         inl {len dim make_body} = dim_describe dim
@@ -1014,7 +1017,7 @@ inl zip l =
     toa_foldl (inl s x ->
         match s with
         | () -> x
-        | s -> assert (s.dim = x.dim) "All tensors in zip need to have the same dimensions"; s) () x
+        | s -> assert (s.dim = x.dim) "All tensors in zip need to have the same dimensions"; s) () l
     |> function 
         | () -> error_type "Empty inputs to zip are not allowed."
         | tns -> tns.update_body <| inl _ -> toa_map (inl x -> x.bodies) l

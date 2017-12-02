@@ -103,17 +103,9 @@ inl CudaTensor allocator =
     inl from_host_array ar =
         inl elem_type = ar.elem_type
         inl size = array_length ar |> unsafe_convert int64
-        inl t = array_create size elem_type
+        inl t = array_create elem_type size
         FS.Method context .CopyToDevice(t.ptr(), ar) unit
         t
-
-    inl from_host_tensor tns = 
-        reshape dim tns |> ignore // This is just a check that the inner dimenions are unviewed.
-        tns.update_body <| inl {body with position ar} ->
-            // I do not feel like messing with GC handles in Spiral right now.
-            // Allowing a copy with an offset would be easy though. See ManagedCuda's CopyToHost and CopyToDevice.
-            assert (position = 0) "Only unviewed arrays are allowed for now." // I do not feel like messing with GC handles in Spiral right now.
-            {body with ar = from_host_array ar}
 
     inl to_host_array size1d ar =
         inl elem_type = ar.elem_type
@@ -123,13 +115,16 @@ inl CudaTensor allocator =
         FS.Method context .Synchronize() unit
         t
 
-    inl to_host_tensor {tns with dim} = 
-        reshape dim tns |> ignore // This is just a check that the inner dimenions are unviewed.
-        tns.update_body <| inl {ar position} ->
+    inl transfer_template f tns = 
+        reshape (tns.dim) tns |> ignore // This is just a check that the inner dimenions are unviewed.
+        tns.update_body <| inl {body with position ar} ->
             // I do not feel like messing with GC handles in Spiral right now.
             // Allowing a copy with an offset would be easy though. See ManagedCuda's CopyToHost and CopyToDevice.
-            assert (position = 0) "Only unviewed arrays are allowed for now." 
-            {body with ar = to_host_array (length tns) ar}
+            assert (position = 0) "Only unviewed arrays are allowed for now." // I do not feel like messing with GC handles in Spiral right now.
+            {body with ar = f ar}
+
+    inl from_host_tensor = transfer_template from_host_array
+    inl to_host_tensor = transfer_template to_host_array
 
     inl DeviceTensorPrimitives = // The DeviceTensor uses the position as the array.
         inl (+) a (b: int64) = !MacroCuda(a,[arg: a; text: " + "; arg: b])
@@ -143,14 +138,14 @@ inl CudaTensor allocator =
         }
 
     inl cuda_tensor_to_device_tensor tns = 
-        tns.update_body (inl {ar position} ->
+        tns.update_body (inl {body with ar position} ->
             inl ptr, elem_type = ar.ptr(), ar.elem_type
-            met position = 
+            met ar = 
                 inl ptr = ptr_to_uint ptr + unsafe_convert uint64 position |> uint_to_ptr    
                 !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
 
-            {body with position without ar}
-            ).replace_wrapper (TensorTemplate DeviceTensorPrimitives)
+            {body with ar without position}
+            ).replace_module (TensorTemplate DeviceTensorPrimitives)
 
     // CPS'd variants of the allcoator functions.
     inl create = safe_alloc 1 create
@@ -159,6 +154,7 @@ inl CudaTensor allocator =
     {create from_host_tensor to_host_tensor cuda_tensor_to_device_tensor}
 
 inb allocator = allocator 0.7
+open HostTensor
 open CudaTensor allocator
 
 inl enum ty x = FS.StaticField ty x ty
@@ -187,7 +183,7 @@ inl isnT = function
     | _ -> false
 
 inl CudaKernels stream =
-    open HostTensor
+    
 
     inl set_stream_random x = FS.Method x .SetStream (Stream.extract stream) unit
     inl set_stream_cublas x = FS.Method x .set_Stream (Stream.extract stream) unit
@@ -228,8 +224,8 @@ inl CudaKernels stream =
         in'.update_body (inl {ar} -> fill_random_array op len ar |> SizeT) |> ignore
 
     inl map f (!zip in) ret =
-        inb out = create {size elem_type = type (f (elem_type in))}
-
+        inb out = create {dim=in.dim; elem_type = type (f (in.elem_type))}
+        
         inl in' = to_1d in |> cuda_tensor_to_device_tensor
         inl out' = to_1d out |> cuda_tensor_to_device_tensor
         inl near_to = length in'
@@ -381,7 +377,7 @@ inl CudaKernels stream =
     {map map_redo gemm fill_random}
 
 inl force x ret = ret (x ())
-inl merge x ret = join (ret x)
+inl joinm x ret = join (ret x)
 inl (>>=) a b ret = a <| inl a -> b a ret
 inl succ a ret = ret a
 
@@ -404,7 +400,6 @@ inl test_map_redo =
     inl force x ret = ret (x ())
     // In this example the only thing that happens after the joinm is the writeline, but it would be useful if there
     // is more stuff after it. The joinm would be an effective tool for keeping the code bloat down in that case.
-    inl joinm x ret = join (ret x) 
     inl host_tensor = HostTensor.init (dyn 64) (unsafe_convert float32)
     from_host_tensor host_tensor >>= map_redo {map=id; redo=(+)} >>= force >>= joinm >>= (writeline >> succ)
 
@@ -461,61 +456,63 @@ inl test_forward_pass {num_iters} =
 inl learning_tests =
     test_random, test_map, test_map_redo, test_gemm, test_forward_pass {num_iters=100}
 
-inl mnist_path = @"C:\Users\Marko\Documents\Visual Studio 2015\Projects\SpiralQ\SpiralQ\Tests"
+test_map id
 
-inl mnist_files = {
-    test_images = {file = "t10k-images.idx3-ubyte"; expected_size = 10000,28*28}
-    test_labels = {file = "t10k-labels.idx1-ubyte"; expected_size = 10000,1}
-    train_images = {file = "train-images.idx3-ubyte"; expected_size = 50000,28*28}
-    train_labels = {file = "train-labels.idx1-ubyte"; expected_size = 50000,1}
-    }
+//inl mnist_path = @"C:\Users\Marko\Documents\Visual Studio 2015\Projects\SpiralQ\SpiralQ\Tests"
 
-met load_mnist (!dyn filename) =
-    inl File_ty = fs [text: "System.IO.File"]
-    inl FileStream_ty = fs [text: "System.IO.FileStream"]
-    inl FileMode = enum (fs [text: "System.IO.FileMode"])
-    inl FileAccess = enum (fs [text: "System.IO.FileAccess"])
-    inl FileShare = enum (fs [text: "System.IO.FileShare"])
-    inl BinaryReader_ty = fs [text: "System.IO.BinaryReader"]
-    inl IPAddress_ty = fs [text: "System.Net.IPAddress"]
+//inl mnist_files = {
+//    test_images = {file = "t10k-images.idx3-ubyte"; expected_size = 10000,28*28}
+//    test_labels = {file = "t10k-labels.idx1-ubyte"; expected_size = 10000,1}
+//    train_images = {file = "train-images.idx3-ubyte"; expected_size = 50000,28*28}
+//    train_labels = {file = "train-labels.idx1-ubyte"; expected_size = 50000,1}
+//    }
 
-    inl netword_to_host_order x = FS.StaticMethod IPAddress_ty .NetworkToHostOrder x int32
+//met load_mnist (!dyn filename) =
+//    inl File_ty = fs [text: "System.IO.File"]
+//    inl FileStream_ty = fs [text: "System.IO.FileStream"]
+//    inl FileMode = enum (fs [text: "System.IO.FileMode"])
+//    inl FileAccess = enum (fs [text: "System.IO.FileAccess"])
+//    inl FileShare = enum (fs [text: "System.IO.FileShare"])
+//    inl BinaryReader_ty = fs [text: "System.IO.BinaryReader"]
+//    inl IPAddress_ty = fs [text: "System.Net.IPAddress"]
 
-    use f = FS.StaticMethod File_ty.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read) FileStream_ty
-    use d = FS.Constructor BinaryReader_ty f
+//    inl netword_to_host_order x = FS.StaticMethod IPAddress_ty .NetworkToHostOrder x int32
 
-    inl read_int32 x = FS.Method d.ReadInt32 x int32 |> netword_to_host_order
-    inl read_bytes n = FS.Method d.ReadBytes n (array uint8)
+//    use f = FS.StaticMethod File_ty.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read) FileStream_ty
+//    use d = FS.Constructor BinaryReader_ty f
 
-    inl to_int64 = unsafe_convert int64
-    inl to_ints64 = Tuple.map to_int64
+//    inl read_int32 x = FS.Method d.ReadInt32 x int32 |> netword_to_host_order
+//    inl read_bytes n = FS.Method d.ReadBytes n (array uint8)
 
-    inl magic_number = read_int32()
-    match magic_number with
-    | 2049i32 -> // Labels
-        inl n = read_int32()
-        read_bytes n 
-        |> HostTensor.array_as_tensor 
-        |> HostTensor.reshape (to_ints64 (n,1))
-    | x -> // Images
-        assert (x = 2051i32) "The magic number must be either 2049 or 2051"
-        inl n, rows, cols = read_int32(), read_int32(), read_int32()
-        inl size = n,rows*cols
-        read_bytes (n * rows * cols) 
-        |> HostTensor.array_as_tensor
-        |> HostTensor.reshape (to_ints64 size)
-        |> HostTensor.map <| inl x -> unsafe_convert float32 (x / 255f32)
+//    inl to_int64 = unsafe_convert int64
+//    inl to_ints64 = Tuple.map to_int64
+
+//    inl magic_number = read_int32()
+//    match magic_number with
+//    | 2049i32 -> // Labels
+//        inl n = read_int32()
+//        read_bytes n 
+//        |> HostTensor.array_as_tensor 
+//        |> HostTensor.reshape (to_ints64 (n,1))
+//    | x -> // Images
+//        assert (x = 2051i32) "The magic number must be either 2049 or 2051"
+//        inl n, rows, cols = read_int32(), read_int32(), read_int32()
+//        inl size = n,rows*cols
+//        read_bytes (n * rows * cols) 
+//        |> HostTensor.array_as_tensor
+//        |> HostTensor.reshape (to_ints64 size)
+//        |> HostTensor.map <| inl x -> unsafe_convert float32 (x / 255f32)
             
 
-inl mnist_tensors = 
-    inl path_type = fs [text: "System.IO.Path"]
-    inl combine x = FS.StaticMethod path_type .Combine x string
-    module_map (inl _ {file expected_size} -> 
-        load_mnist (combine (mnist_path, file))
-        |> HostTensor.assert_size expected_size
-        ) mnist_files
+//inl mnist_tensors = 
+//    inl path_type = fs [text: "System.IO.Path"]
+//    inl combine x = FS.StaticMethod path_type .Combine x string
+//    module_map (inl _ {file expected_size} -> 
+//        load_mnist (combine (mnist_path, file))
+//        |> HostTensor.assert_size expected_size
+//        ) mnist_files
 
-print_static mnist_tensors
+//print_static mnist_tensors
 //writeline (mnist_tensors.test_labels |> HostTensor.show_tensor, " ", total_size (mnist_tensors.test_labels.size))
     """
 
@@ -530,6 +527,6 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //rewrite_test_cache cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test90
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
 |> printfn "%s"
 |> ignore
