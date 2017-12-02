@@ -2,6 +2,7 @@
 open Spiral.Tests
 open System.IO
 
+
 let learning =
     "Learning",[option;cuda;extern_;option;console;host_tensor],"The deep learning module.",
     """
@@ -530,3 +531,4 @@ let cfg: Spiral.Types.CompilerSettings = {
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
 |> printfn "%s"
 |> ignore
+

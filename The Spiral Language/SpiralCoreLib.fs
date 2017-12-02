@@ -89,6 +89,7 @@ inl snd _ :: x :: _ = x
 
 inl not x = x = false
 inl string_length x = !StringLength(x)
+inl string_format a b = !StringFormat(a,b)
 inl lit_is x = !LitIs(x)
 inl box_is x = !BoxIs(x)
 inl caseable_is x = !CaseableIs(x)

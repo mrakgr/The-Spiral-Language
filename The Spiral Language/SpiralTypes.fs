@@ -127,6 +127,7 @@ type Op =
     | StringLength
     | StringIndex
     | StringSlice
+    | StringFormat
 
     // Module
     | ModuleCreate
@@ -601,3 +602,7 @@ and show_typedexpr = function
     | _ -> failwith "Compiler error: The other typed expressions are forbidden to be printed as type errors. They should never appear in bindings."
 
 let inline codegen_macro codegen print_type x = codegen_macro' show_typedexpr codegen print_type x
+
+let lit_is = function
+    | TyLit _ -> true
+    | _ -> false

@@ -822,6 +822,39 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyType(PrimT StringT) & str -> TyOp(StringLength,[str],PrimT Int64T)
             | _ -> on_type_er (trace d) "Expected a string."
 
+        let string_format d a b = 
+            match tev2 d a b with
+            | TyLit(LitString format) & a, TyTuple (_ :: _ as l) ->
+                if List.forall lit_is l then
+                    let f = function
+                        | TyLit x ->
+                            match x with
+                            | LitInt8 x -> box x
+                            | LitInt16 x -> box x
+                            | LitInt32 x -> box x
+                            | LitInt64 x -> box x
+                            | LitUInt8 x -> box x
+                            | LitUInt16 x -> box x
+                            | LitUInt32 x -> box x
+                            | LitUInt64 x -> box x
+                            | LitFloat32 x -> box x
+                            | LitFloat64 x -> box x
+                            | LitString x -> box x
+                            | LitChar x -> box x
+                            | LitBool x -> box x
+                        | _ -> failwith "impossible"
+                    match l with
+                    | [a] -> String.Format(format,f a)
+                    | [a;b] -> String.Format(format,f a,f b)
+                    | [a;b;c] -> String.Format(format,f a,f b,f c)
+                    | l -> String.Format(format,List.toArray l |> Array.map f)
+                    |> LitString |> TyLit
+                else
+                    TyOp(StringFormat,a :: l,PrimT StringT)
+            | TyType (PrimT StringT) & a, TyTuple (_ :: _ as l) -> TyOp(StringFormat,a :: l,PrimT StringT)
+            | TyType (PrimT StringT), b -> on_type_er (trace d) <| sprintf "Expected a non_empty tuple as the second argument to string format.\nGot: %s" (show_typedexpr b)
+            | a, _ -> on_type_er (trace d) <| sprintf "Expected a string as the first argument to string format.\nGot: %s" (show_typedexpr a)
+
         let (|M|_|) = function
             | TyMap(env,t) -> Some (None,env,t)
             | TyType(LayoutT(layout,env,t)) -> Some (Some layout,env,t)
@@ -1205,15 +1238,12 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyT (LitT x) -> TyLit x
             | _ -> on_type_er (trace d) "Expected a literal in type literal cast."
 
-        let type_lit_is d a =
+        let type_lit_is d a = 
             match tev d a with
             | TyT (LitT _) -> TyLit <| LitBool true
             | _ -> TyLit <| LitBool false
 
-        let lit_is d a =
-            match tev d a with
-            | TyLit _ -> TyLit <| LitBool true
-            | _ -> TyLit <| LitBool false
+        let lit_is d a = TyLit <| LitBool (tev d a |> lit_is)
 
         let box_is d a =
             match tev d a with
@@ -1506,6 +1536,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | (MacroFs | MacroCuda),[a;b] -> macro op d a b
             | Apply,[a;b] -> apply_tev d a b
             | StringLength,[a] -> string_length d a
+            | StringFormat,[a;b] -> string_format d a b
             | Fix,[Lit (N (LitString name)); body] ->
                 match tev d body with
                 | TyMap(env_term,MapTypeFunction core) -> tymap(env_term,MapTypeRecFunction(core,name))
@@ -2844,6 +2875,16 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let string_length str = sprintf "(int64 %s.Length)" (codegen str)
             let string_index str idx = sprintf "%s.[int32 %s]" (codegen str) (codegen idx)
             let string_slice str a b = sprintf "%s.[int32 %s..int32 %s]" (codegen str) (codegen a) (codegen b)
+            let string_format = function
+                | format :: l ->
+                    match l with
+                    | [a;b;c] -> sprintf "String.Format(%s,%s,%s,%s)" (codegen format) (codegen a) (codegen b) (codegen c)
+                    | [a;b] -> sprintf "String.Format(%s,%s,%s)" (codegen format) (codegen a) (codegen b)
+                    | [a] -> sprintf "String.Format(%s,%s)" (codegen format) (codegen a)
+                    | l -> 
+                        let l = List.map codegen l |> String.concat "; "
+                        sprintf "String.Format(%s,([|%s|] : obj[]))" (codegen format) l 
+                | _ -> failwith "impossible"
 
             let match_with v cases =
                 let print_case =
@@ -2958,6 +2999,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | StringIndex,[str;idx] -> string_index str idx
                     | StringSlice,[str;a;b] -> string_slice str a b
                     | StringLength,[str] -> string_length str
+                    | StringFormat,l -> string_format l
                     | UnsafeConvert,[_;from] -> unsafe_convert t from
 
                     // Primitive operations on expressions.
