@@ -128,6 +128,7 @@ type Op =
     | StringIndex
     | StringSlice
     | StringFormat
+    | StringConcat
 
     // Module
     | ModuleCreate

@@ -857,6 +857,37 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyType (PrimT StringT), b -> on_type_er (trace d) <| sprintf "Expected a non_empty tuple as the second argument to string format.\nGot: %s" (show_typedexpr b)
             | a, _ -> on_type_er (trace d) <| sprintf "Expected a string as the first argument to string format.\nGot: %s" (show_typedexpr a)
 
+        let string_concat d sep l =
+            match tev2 d sep l with
+            | (TyV(_,PrimT StringT) | TyT (PrimT StringT)) & sep, a ->
+                match a with
+                | TyList [] -> LitString "" |> TyLit
+                | TyType (ArrayT(_,t)) ->
+                    match t with
+                    | PrimT StringT -> TyOp(StringConcat, [sep; a], PrimT StringT)
+                    | t -> on_type_er (trace d) <| sprintf "Expected the type of the array element inputted to string concat as the second argument to be string.\nGot: %s" (show_ty t)
+                | TyTuple l -> 
+                    List.iter (function
+                        | TyType (PrimT StringT) -> ()
+                        | x -> on_type_er (trace d)  <| sprintf "One of the arguments to string concat is not a string.\nGot: %s" (show_typedexpr x)) l
+                    TyOp(StringConcat, [sep; tyvv l], PrimT StringT)
+            | TyLit(LitString sep) & a, TyTuple l & b ->
+                List.fold (fun s -> function
+                    | TyLit (LitString _) -> s && true
+                    | TyType (PrimT StringT) -> false
+                    | x -> on_type_er (trace d)  <| sprintf "One of the arguments to string concat is not a string.\nGot: %s" (show_typedexpr x)
+                    ) true l
+                |> function
+                    | true -> 
+                        List.map (function
+                            | TyLit (LitString x) -> x
+                            | _ -> failwith "impossible") l
+                        |> String.concat sep
+                        |> LitString |> TyLit
+                    | false ->
+                        TyOp(StringConcat, [a; tyvv l], PrimT StringT)
+            | x,_ -> on_type_er (trace d) <| sprintf "Expected a string as the separator argument to string concat.\nGot: %s" (show_typedexpr x)
+
         let (|M|_|) = function
             | TyMap(env,t) -> Some (None,env,t)
             | TyType(LayoutT(layout,env,t)) -> Some (Some layout,env,t)
@@ -1539,6 +1570,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | Apply,[a;b] -> apply_tev d a b
             | StringLength,[a] -> string_length d a
             | StringFormat,[a;b] -> string_format d a b
+            | StringConcat,[a;b] -> string_concat d a b
             | Fix,[Lit (N (LitString name)); body] ->
                 match tev d body with
                 | TyMap(env_term,MapTypeFunction core) -> tymap(env_term,MapTypeRecFunction(core,name))
@@ -2888,6 +2920,13 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         sprintf "String.Format(%s,([|%s|] : obj[]))" (codegen format) l 
                 | _ -> failwith "impossible"
 
+            let string_concat = function
+                | [sep; TyList l] -> 
+                    let l = List.map codegen l |> String.concat "; "
+                    sprintf "String.concat %s [|%s|]" (codegen sep) l 
+                | [sep; x] -> sprintf "String.concat %s %s" (codegen sep) (codegen x)
+                | _ -> failwith "impossible"
+
             let match_with v cases =
                 let print_case =
                     match get_type v with
@@ -3002,6 +3041,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | StringSlice,[str;a;b] -> string_slice str a b
                     | StringLength,[str] -> string_length str
                     | StringFormat,l -> string_format l
+                    | StringConcat,l -> string_concat l
                     | UnsafeConvert,[_;from] -> unsafe_convert t from
 
                     // Primitive operations on expressions.
