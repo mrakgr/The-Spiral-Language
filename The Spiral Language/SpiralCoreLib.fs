@@ -90,6 +90,7 @@ inl snd _ :: x :: _ = x
 inl not x = x = false
 inl string_length x = !StringLength(x)
 inl string_format a b = !StringFormat(a,b)
+inl string_concat a b = !StringConcat(a,b)
 inl lit_is x = !LitIs(x)
 inl box_is x = !BoxIs(x)
 inl caseable_is x = !CaseableIs(x)
@@ -146,5 +147,5 @@ inl tanh x = !Tanh(x)
  string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref (+) (-) (*) (/) (%)
  (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>) Tuple fst snd not
  string_length lit_is box_is failwith assert max min eq_type module_values caseable_is (:>)
- (:?>) (=) module_map module_foldl module_has_member sizeof string_format} |> stack
+ (:?>) (=) module_map module_foldl module_has_member sizeof string_format string_concat} |> stack
     """) |> module_

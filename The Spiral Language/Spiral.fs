@@ -859,19 +859,17 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let string_concat d sep l =
             match tev2 d sep l with
-            | (TyV(_,PrimT StringT) | TyT (PrimT StringT)) & sep, a ->
-                match a with
-                | TyList [] -> LitString "" |> TyLit
-                | TyType (ArrayT(_,t)) ->
-                    match t with
-                    | PrimT StringT -> TyOp(StringConcat, [sep; a], PrimT StringT)
-                    | t -> on_type_er (trace d) <| sprintf "Expected the type of the array element inputted to string concat as the second argument to be string.\nGot: %s" (show_ty t)
-                | TyTuple l -> 
-                    List.iter (function
-                        | TyType (PrimT StringT) -> ()
-                        | x -> on_type_er (trace d)  <| sprintf "One of the arguments to string concat is not a string.\nGot: %s" (show_typedexpr x)) l
-                    TyOp(StringConcat, [sep; tyvv l], PrimT StringT)
-            | TyLit(LitString sep) & a, TyTuple l & b ->
+            | TyType(PrimT StringT) & sep, TyList [] -> LitString "" |> TyLit
+            | TyType(PrimT StringT) & sep, TyType (ArrayT(_,t)) & a -> 
+                match t with
+                | PrimT StringT -> TyOp(StringConcat, [sep; a], PrimT StringT)
+                | t -> on_type_er (trace d) <| sprintf "Expected the type of the array element inputted to string concat as the second argument to be string.\nGot: %s" (show_ty t)
+            | (TyT(PrimT StringT) | TyV(_, (PrimT StringT))) & sep, TyTuple l -> 
+                List.iter (function
+                    | TyType (PrimT StringT) -> ()
+                    | x -> on_type_er (trace d)  <| sprintf "One of the arguments to string concat is not a string.\nGot: %s" (show_typedexpr x)) l
+                TyOp(StringConcat, [sep; tyvv l], PrimT StringT)
+            | TyLit(LitString sep) & a, TyTuple l ->
                 List.fold (fun s -> function
                     | TyLit (LitString _) -> s && true
                     | TyType (PrimT StringT) -> false
@@ -2912,12 +2910,12 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let string_format = function
                 | format :: l ->
                     match l with
-                    | [a;b;c] -> sprintf "String.Format(%s,%s,%s,%s)" (codegen format) (codegen a) (codegen b) (codegen c)
-                    | [a;b] -> sprintf "String.Format(%s,%s,%s)" (codegen format) (codegen a) (codegen b)
-                    | [a] -> sprintf "String.Format(%s,%s)" (codegen format) (codegen a)
+                    | [a;b;c] -> sprintf "System.String.Format(%s,%s,%s,%s)" (codegen format) (codegen a) (codegen b) (codegen c)
+                    | [a;b] -> sprintf "System.String.Format(%s,%s,%s)" (codegen format) (codegen a) (codegen b)
+                    | [a] -> sprintf "System.String.Format(%s,%s)" (codegen format) (codegen a)
                     | l -> 
                         let l = List.map codegen l |> String.concat "; "
-                        sprintf "String.Format(%s,([|%s|] : obj[]))" (codegen format) l 
+                        sprintf "System.String.Format(%s,([|%s|] : obj[]))" (codegen format) l 
                 | _ -> failwith "impossible"
 
             let string_concat = function
