@@ -371,21 +371,7 @@ inl concat ar =
 inl forall f ar = for' {from=0; near_to=array_length ar; state=true; body = inl {next state i} -> f (ar i) && next state}
 inl exists f ar = for' {from=0; near_to=array_length ar; state=false; body = inl {next state i} -> f (ar i) || next state}
 
-met show_array ar =
-    open Extern
-    inl strb_type = fs [text: "System.Text.StringBuilder"]
-    inl s = FS.Constructor strb_type ()
-
-    FS.Method s.Append "[|" strb_type |> ignore
-    foldl (inl prefix x ->
-        FS.Method s.Append prefix strb_type |> ignore
-        FS.Method s.Append (FS.StaticMethod (fs [text: "System.Convert"]) .ToString x string) strb_type |> ignore
-        "; "
-        ) "" ar |> ignore
-    FS.Method s.Append "|]" strb_type |> ignore
-    FS.Method s.ToString() string
-
-{empty singleton foldl foldr init copy map filter append concat forall exists show_array} 
+{empty singleton foldl foldr init copy map filter append concat forall exists} 
 |> stack
     """) |> module_
 
