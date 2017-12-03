@@ -206,11 +206,11 @@ inl for_template kind =
     >> function | {to ^ near_to} as d -> d | d -> "For loop needs exlusively to or near_to fields."
     >> function | {body} as d -> d | d -> error_type "The loop body is missing."
     >> function | {state} as d -> d | d -> {d with state=()}
-    >> function | {by} as d -> d | d -> {d with by=1}
+    >> function | {by} as d -> d | {down} -> {d with by= -1} | d -> {d with by=1}
     >> function | {finally} as d -> d | d -> {d with finally=id}
     >> function 
-        | {by down} as d -> loop {d with check=match d with | {to} -> inl from -> from >= to | {near_to} -> inl from -> from > near_to}
-        | {by} as d -> loop {d with check=match d with | {to} -> inl from -> from <= to | {near_to} -> inl from -> from < near_to}
+        | {down} as d -> loop {d with check=match d with | {to} -> inl from -> from >= to | {near_to} -> inl from -> from > near_to}
+        | d -> loop {d with check=match d with | {to} -> inl from -> from <= to | {near_to} -> inl from -> from < near_to}
 
 inl for = for_template .Standard
 inl for' = for_template .Navigable
@@ -299,10 +299,9 @@ inl rec show' cfg =
         inl append x = FS.Method s.Append x strb_type |> ignore
 
         append "[|"
-        Loops.for {from=0; near_to=cfg.array_cutoff; state=""; body=inl {state=prefix i} ->
-            append prefix
-            append (show (ar i))
-            "; "
+        inl array_cutoff = match cfg with {array_cutoff} -> array_cutoff | _ -> FS.Constant "System.Int64.MaxValue" int64
+        Loops.for {from=0; near_to=min (Array.length ar) array_cutoff; state=dyn ""; body=inl {state=prefix i} ->
+            append prefix; append (show (ar i)); dyn "; "
             }
         append "|]"
         FS.Method s.ToString() string
@@ -868,8 +867,18 @@ inl primitive_apply_template {merge_offset view} {data with offsets} v =
     | x :: offsets -> merge_offset (view {data with offsets} v) x
     | () -> view data v |> inl x -> {x without size offsets}
 
+inl rec view_offsets = function
+    | {position size} :: d', {from} :: h' -> position + from * size :: view_offsets (d',h')
+    | (), _ :: _ -> error_type "The view has more dimensions than the tensor."
+    | offsets, () -> offsets
+
 inl HostTensorPrimitives =
-    inl view {data with size position} v = {data with position=position + v * size}
+    inl view {data with size position offsets} = function
+        | {from} :: l -> {data with 
+            position=position + from * size
+            offsets=view_offsets (offsets,l)
+            }
+        | {from} -> {data with position=position + from * size}
     inl merge_offset {data with size position} {size=size' position=position'} = {data with size=size'; position=position + position'}
     {
     view 
@@ -890,13 +899,17 @@ inl TensorTemplate {view get set apply} = {
         match dim with
         | () -> toa_iter2 set bodies v
         | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
-    view = inl {data with dim} (!map_dim ({from=from' near_to=near_to'} & head_dim)) ->
-        match dim with
-        | () -> error_type "Cannot view the tensor anymore."
-        | {from near_to} :: tail_dim ->
-            assert (from' >= from && from' < near_to) "Lower boundary out of bounds." 
-            assert (near_to' > from && near_to' <= near_to) "Higher boundary out of bounds." 
-            {data with bodies = toa_map (inl ar -> view ar from') self; dim=head_dim :: tail_dim}
+    view = inl {data with dim} (!map_dims head_dims) ->
+        inl rec new_dim = function
+            | {from near_to} :: d', {head_dim with from=from' near_to=near_to'} :: h' ->
+                assert (from' >= from && from' < near_to) "Lower boundary out of bounds." 
+                assert (near_to' > from && near_to' <= near_to) "Higher boundary out of bounds." 
+                head_dim :: new_dim (d',h')
+            | (), _ :: _ -> error_type "The view has more dimensions than the tensor."
+            | dim, () -> dim
+
+        inl dim = new_dim (dim, head_dims)
+        {data with bodies = toa_map (inl ar -> view ar dim) self; dim}
     apply = inl {data with dim} i ->
         match dim with
         | () -> error_type "Cannot apply the tensor anymore."
@@ -904,6 +917,35 @@ inl TensorTemplate {view get set apply} = {
             assert (i >= from && i < near_to) "Argument out of bounds." 
             {data with bodies = toa_map (inl ar -> apply ar i) self; dim}
     }
+
+inl show_tensor' tns =
+    inl strb_type = fs [text: "System.Text.StringBuilder"]
+    inl s = FS.Constructor strb_type ()
+    inl append x = FS.Method s.Append x strb_type |> ignore
+    inl append_line x = FS.Method s.AppendLine x strb_type |> ignore
+    inl indent near_to = Loops.for {from=0; near_to; body=inl _ -> append ' '}
+    inl blank = dyn ""
+    inl rec loop {tns ind prefix} = function
+        | {from near_to} :: x' ->
+            Loops.for {from near_to state=blank; body=inl {state i} ->
+                indent ind; append_line "[|"
+                inl prefix = loop {tns=tns i; ind=ind+4; prefix=state} x'
+                indent ind; append_line "|]"
+                prefix
+                } |> ignore
+        | () -> 
+            append prefix
+            tns .get |> show |> append
+            dyn "; "
+    loop {tns; ind=0; prefix=blank}
+
+inl show_tensor tns =
+    inl {view ap} =
+        Tuple.foldr (inl {x with from} -> function
+            | {state with c view} when c < 3 -> {state with view=x :: view;c=c+1}
+            | {state with ap} -> {state with ap=from :: ap}
+            ) (tns.dim) {c=0; view=(); ap=()}
+    Tuple.foldr (<|) tns ap .view view |> show_tensor'
 
 inl rec wrap_tensor_template module = 
     inl rec wrap data = function
@@ -1018,7 +1060,7 @@ inl zip l =
         | tns -> tns.update_body <| inl _ -> toa_map (inl x -> x.bodies) l
 
 {toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims length create dim_describe primitive_apply_template TensorTemplate
- init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip}
+ view_offsets init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip}
 |> stack
     """) |> module_
 

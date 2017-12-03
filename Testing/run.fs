@@ -129,7 +129,13 @@ inl CudaTensor allocator =
 
     inl DeviceTensorPrimitives = // The DeviceTensor uses the position as the array.
         inl (+) a (b: int64) = !MacroCuda(a,[arg: a; text: " + "; arg: b])
-        inl view {data with size ar} v = {data with ar=ar + v * size}
+        inl view {data with size ar offsets} = function
+            | {from} :: l -> {data with 
+                ar=ar + from * size
+                offsets=view_offsets (offsets,l)
+                }
+            | {from} -> {data with ar=ar + from * size}
+        
         inl merge_offset {data with size ar} {size=size' position=position'} = {data with size=size'; ar=ar + position'}
         {
         view
