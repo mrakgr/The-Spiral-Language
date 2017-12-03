@@ -171,6 +171,53 @@ inl rec intersperse sep = function
  filter zip unzip index init repeat append singleton range tryFind contains intersperse wrap}
     """) |> module_
 
+let loops =
+    (
+    "Loops",[tuple],"Various imperative loop constructors module.",
+    """
+inl rec while {cond body state} as d =
+    inl loop_body {state cond body} as d =
+        if cond state then while {d with state=body state}
+        else state
+    match d with
+    | {static} -> loop_body d
+    | _ -> (met _ -> loop_body d : state) ()
+
+inl for_template kind =
+    inl rec loop {from (near_to ^ to)=to by} as d =
+        inl loop_body {check from by state body finally} as d =
+            if check from then 
+                match kind with
+                | .Navigable ->
+                    inl d = {d without state}
+                    inl next state = loop {d with state from=from+by}
+                    body {next state i=from}
+                | .Standard ->
+                    loop {d with state=body {state i=from}; from=from+by}
+            else finally state
+            : finally state
+
+        match d with
+        | {static} when Tuple.forall lit_is (from,to,by) -> loop_body d
+        | _ -> (met d -> loop_body d) {d with from=dyn from}
+
+    function | {static_from} as d -> {d with static=()} | d -> d
+    >> function | {from ^ static_from=from} as d -> {d with from without static_from} | d -> error_type "The from field to loop is missing."
+    >> function | {to ^ near_to} as d -> d | d -> "For loop needs exlusively to or near_to fields."
+    >> function | {body} as d -> d | d -> error_type "The loop body is missing."
+    >> function | {state} as d -> d | d -> {d with state=()}
+    >> function | {by} as d -> d | d -> {d with by=1}
+    >> function | {finally} as d -> d | d -> {d with finally=id}
+    >> function 
+        | {by down} as d -> loop {d with check=match d with | {to} -> inl from -> from >= to | {near_to} -> inl from -> from > near_to}
+        | {by} as d -> loop {d with check=match d with | {to} -> inl from -> from <= to | {near_to} -> inl from -> from < near_to}
+
+inl for = for_template .Standard
+inl for' = for_template .Navigable
+
+{for for' while}
+    """) |> module_
+
 let extern_ =
     (
     "Extern",[tuple],"The Extern module.",
@@ -265,57 +312,28 @@ inl (use) a b =
     FS.Method a.Dispose() unit
     r
 
+met show_array cutoff ar =
+    inl strb_type = fs [text: "System.Text.StringBuilder"]
+    inl s = FS.Constructor strb_type ()
+
+    FS.Method s.Append "[|" strb_type |> ignore
+    foldl (inl prefix x ->
+        FS.Method s.Append prefix strb_type |> ignore
+        FS.Method s.Append (FS.StaticMethod (fs [text: "System.Convert"]) .ToString x string) strb_type |> ignore
+        "; "
+        ) "" ar |> ignore
+    FS.Method s.Append "|]" strb_type |> ignore
+    FS.Method s.ToString() string
+
+inl rec show cfg = 
+    inl r = show cfg
+    function
+    | !array_is .(x) as ar ->
+        match x with
+        | .DotNetHeap -> show_array (cfg.array_cutoff) ar
+        | .DotNetReference -> r ar
+
 {string_concat closure_of closure_of' FS (use)} |> stack
-    """) |> module_
-
-let loops =
-    (
-    "Loops",[tuple],"Various imperative loop constructors module.",
-    """
-inl rec while {cond body state} as d =
-    inl loop_body {state cond body} as d =
-        if cond state then while {d with state=body state}
-        else state
-    match d with
-    | {static} -> loop_body d
-    | _ -> (met _ -> loop_body d : state) ()
-
-inl for_template kind =
-    inl rec loop {from (near_to ^ to)=to by} as d =
-        inl loop_body {check from by state body finally} as d =
-            if check from then 
-                match kind with
-                | .Navigable ->
-                    inl d = {d without state}
-                    inl next state = loop {d with state from=from+by}
-                    body {next state i=from}
-                | .Standard ->
-                    loop {d with state=body {state i=from}; from=from+by}
-            else finally state
-            : finally state
-
-        match d with
-        | {static} when Tuple.forall lit_is (from,to,by) -> loop_body d
-        | _ -> (met d -> loop_body d) {d with from=dyn from}
-
-    function | {static_from} as d -> {d with static=()} | d -> d
-    >> function | {from ^ static_from=from} as d -> {d with from without static_from} | d -> error_type "The from field to loop is missing."
-    >> function | {to ^ near_to} as d -> d | d -> "For loop needs exlusively to or near_to fields."
-    >> function | {body} as d -> d | d -> error_type "The loop body is missing."
-    >> function | {state} as d -> d | d -> {d with state=()}
-    >> function | {by} as d -> d | d -> {d with by=1}
-    >> function | {finally} as d -> d | d -> {d with finally=id}
-    >> function 
-        // Note: If by cannot be statically determined, it will be specialized to both directions.
-        // TODO: This is not the best design for a for loop. Change this to something more sensible.
-        | {by} as d -> 
-            if by < 0 then loop {d with check=match d with | {to} -> inl from -> from >= to | {near_to} -> inl from -> from > near_to}
-            else loop {d with check=match d with | {to} -> inl from -> from <= to | {near_to} -> inl from -> from < near_to}
-
-inl for = for_template .Standard
-inl for' = for_template .Navigable
-
-{for for' while}
     """) |> module_
 
 
@@ -332,7 +350,7 @@ inl singleton x =
     ar
 
 inl foldl f state ar = for {from=0; near_to=array_length ar; state; body=inl {state i} -> f state (ar i)}
-inl foldr f ar state = for {to=0; from=array_length ar-1; by= -1; state; body=inl {state i} -> f (ar i) state}
+inl foldr f ar state = for {from=array_length ar-1; down=(); to=0; by= -1; state; body=inl {state i} -> f (ar i) state}
 
 inl init = 
     inl body is_static n f =
