@@ -263,37 +263,6 @@ inl FS = {
         ])
     }
 
-/// The sprintf in Parsing is very slow to compile so this is the reasonable alternative to it.
-/// It is a decent bit more flexible that it too.
-/// TODO: Move this somewhere better. There needs to be a String module at some point.
-inl string_concat sep = function
-    | _ :: _ as l ->
-        inl stringbuilder_type = fs [text: "System.Text.StringBuilder"]
-        inl StringBuilder = FS.Constructor stringbuilder_type
-        inl len =
-            inl rec len x = 
-                inl f (static_len, dyn_len, num_sep as s) = function
-                    | x : string ->
-                        if lit_is x then (static_len + string_length x, dyn_len, num_sep+1)
-                        else (static_len, dyn_len + string_length x, num_sep+1)
-                    | _ :: _ as l -> len s l
-                    | x -> (static_len+6, dyn_len, num_sep+1)
-                Tuple.foldl f x
-            inl static_len, dyn_len, num_sep = len (0,0,-1) l
-            static_len + num_sep * string_length sep + dyn_len
-            |> unsafe_convert int32
-
-        inl rec apply = function
-            | .ap s -> function
-                | x : string when lit_is x && x = "" -> s
-                | _ :: _ as l -> Tuple.foldl (apply.ap_sep) s l
-                | x -> FS.Method s .Append x stringbuilder_type
-            | .ap_sep s x -> apply.ap (apply.ap s sep) x
-
-        Tuple.foldl (apply.ap_sep) (apply.ap (StringBuilder len) (Tuple.head l)) (Tuple.tail l)
-        |> inl x -> FS.Method x .ToString () string
-    | x -> x
-
 inl closure_of_template check_range f tys = 
     inl rec loop vars tys =
         match tys with
@@ -312,48 +281,50 @@ inl (use) a b =
     FS.Method a.Dispose() unit
     r
 
-inl rec show =
-    met show_array near_to ar =
+// Optimized to do more work at compile time.
+inl string_concat sep = function
+    | _ :: _ as l ->
+        Tuple.foldr (inl x {state with dyn stc} ->
+            match x with
+            | x when is_lit x -> {state with stc=x::stc}
+            | x -> {dyn=x :: string_concat sep stc :: dyn; stc=()}
+            ) l {dyn=(); stc=()}
+    | x -> x
+
+inl rec show' cfg =
+    inl show = show' cfg
+    inl show_array ar = 
         inl strb_type = fs [text: "System.Text.StringBuilder"]
         inl s = FS.Constructor strb_type ()
         inl append x = FS.Method s.Append x strb_type |> ignore
 
         append "[|"
-        Loops.for {from=0; near_to state=""; body=inl {state=prefix i} ->
+        Loops.for {from=0; near_to=cfg.array_cutoff; state=""; body=inl {state=prefix i} ->
             append prefix
             append (show (ar i))
             "; "
             }
         append "|]"
         FS.Method s.ToString() string
+    inl show_tuple l = 
+        string_format "[{1}]" <|Tuple.foldr (v s -> show v :: s) l () |> string_concat ", "
+    inl show_module m = 
+        inl x = module_foldr (inl .(k) v s -> string_format "{0} = {1}" (k,show v) :: s) m () |> string_concat "; "
+        string_format "{0}{1}{2}" ("{", x, "}")
 
-    inl rec show cfg l state = 
-        inl r = show cfg
-        inl ret sep x {state with acc lits} = 
-            if is_lit x then {state with lits = x :: self}
-            else 
-                match lits with
-                | () -> {state with acc = x :: acc}
-                | _ -> {state with acc = x :: string_concat sep lits :: acc; lits=()}
-        inl fold_lits sep = function
-            | {d with lits=()} -> state
-            | d -> {d with lits = string_concat sep self}
+    function
+    | {} as m -> show_module m
+    | _ :: _ as l -> show_tuple l
+    | (!array_is .(x)) as ar ->
+        match x with
+        | .DotNetHeap -> show_array ar
+        | .DotNetReference -> show (ar ())
+    | x -> cfg.show_value x
 
-        match l with
-        | (!array_is .(x)) as ar ->
-            match x with
-            | .DotNetHeap -> show_array (cfg.array_cutoff) ar |> ret ""
-            | .DotNetReference -> r (ar ()) |> ret ""
-        | _ :: _ -> Tuple.foldr (ret ", ") l state
-        | {} -> 
-            Tuple.foldr (inl x s -> x s) 
-                (ret "" "{", module_foldr (inl .(k) v -> ret "; " <| string_format "{0} = {1}" (k, r v)) l, ret "" "}")
+inl show_value = string_format "{0}"
+inl show = show' {array_cutoff = 30; show_value}
 
-            
-            
-    show
-
-{string_concat closure_of closure_of' FS (use) show} |> stack
+{string_concat closure_of closure_of' FS (use) show' show} |> stack
     """) |> module_
 
 
