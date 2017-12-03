@@ -1409,16 +1409,23 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | _, x ->
                 on_type_er (trace d) <| sprintf "Expected a module in module map. Got: %s" (show_typedexpr x)
 
-        let module_foldl d fold_op s m =
+        let inline module_fold_template map_fold d fold_op s m =
             match tev3 d fold_op s m with
             | fold_op, s, M(layout,C env,MapTypeModule) & recf ->
-                let inline ap a b = apply d a b
-                let inline fold f = Map.fold (fun s k v -> ap (ap (ap fold_op (type_lit_create' (LitString k))) s) (f v)) s env
+                let inline fold f = map_fold f fold_op s env
                 match layout with
                 | None -> fold id
                 | Some l -> fold (layout_boxed_unseal d recf)
             | _,_,x ->
                 on_type_er (trace d) <| sprintf "Expected a module on module fold. Got: %s" (show_typedexpr x)
+
+        let module_foldl d = 
+            let inline ap a b = apply d a b
+            module_fold_template (fun f fold_op -> Map.fold (fun s k v -> ap (ap (ap fold_op (type_lit_create' (LitString k))) s) (f v))) d
+
+        let module_foldr d = 
+            let inline ap a b = apply d a b
+            module_fold_template (fun f fold_op s env -> Map.foldBack (fun k v s -> ap (ap (ap fold_op (type_lit_create' (LitString k))) s) (f v)) env s) d
 
         let module_has_member d a b =
             match tev2 d a b with
@@ -1601,6 +1608,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ModuleHasMember,[a;b] -> module_has_member d a b
             | ModuleMap,[a;b] -> module_map d a b
             | ModuleFoldL,[a;b;c] -> module_foldl d a b c
+            | ModuleFoldR,[a;b;c] -> module_foldr d a b c
             | CaseableIs,[a] -> caseable_is d a
             | CaseableBoxedIs,[a] -> caseable_boxed_is d a
 

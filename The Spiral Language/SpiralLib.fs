@@ -220,7 +220,7 @@ inl for' = for_template .Navigable
 
 let extern_ =
     (
-    "Extern",[tuple],"The Extern module.",
+    "Extern",[tuple;loops],"The Extern module.",
     """
 inl dot = "."
 inl FS = {
@@ -312,28 +312,48 @@ inl (use) a b =
     FS.Method a.Dispose() unit
     r
 
-met show_array cutoff ar =
-    inl strb_type = fs [text: "System.Text.StringBuilder"]
-    inl s = FS.Constructor strb_type ()
+inl rec show =
+    met show_array near_to ar =
+        inl strb_type = fs [text: "System.Text.StringBuilder"]
+        inl s = FS.Constructor strb_type ()
+        inl append x = FS.Method s.Append x strb_type |> ignore
 
-    FS.Method s.Append "[|" strb_type |> ignore
-    foldl (inl prefix x ->
-        FS.Method s.Append prefix strb_type |> ignore
-        FS.Method s.Append (FS.StaticMethod (fs [text: "System.Convert"]) .ToString x string) strb_type |> ignore
-        "; "
-        ) "" ar |> ignore
-    FS.Method s.Append "|]" strb_type |> ignore
-    FS.Method s.ToString() string
+        append "[|"
+        Loops.for {from=0; near_to state=""; body=inl {state=prefix i} ->
+            append prefix
+            append (show (ar i))
+            "; "
+            }
+        append "|]"
+        FS.Method s.ToString() string
 
-inl rec show cfg = 
-    inl r = show cfg
-    function
-    | !array_is .(x) as ar ->
-        match x with
-        | .DotNetHeap -> show_array (cfg.array_cutoff) ar
-        | .DotNetReference -> r ar
+    inl rec show cfg l state = 
+        inl r = show cfg
+        inl ret sep x {state with acc lits} = 
+            if is_lit x then {state with lits = x :: self}
+            else 
+                match lits with
+                | () -> {state with acc = x :: acc}
+                | _ -> {state with acc = x :: string_concat sep lits :: acc; lits=()}
+        inl fold_lits sep = function
+            | {d with lits=()} -> state
+            | d -> {d with lits = string_concat sep self}
 
-{string_concat closure_of closure_of' FS (use)} |> stack
+        match l with
+        | (!array_is .(x)) as ar ->
+            match x with
+            | .DotNetHeap -> show_array (cfg.array_cutoff) ar |> ret ""
+            | .DotNetReference -> r (ar ()) |> ret ""
+        | _ :: _ -> Tuple.foldr (ret ", ") l state
+        | {} -> 
+            Tuple.foldr (inl x s -> x s) 
+                (ret "" "{", module_foldr (inl .(k) v -> ret "; " <| string_format "{0} = {1}" (k, r v)) l, ret "" "}")
+
+            
+            
+    show
+
+{string_concat closure_of closure_of' FS (use) show} |> stack
     """) |> module_
 
 

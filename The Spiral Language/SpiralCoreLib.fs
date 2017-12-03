@@ -111,6 +111,7 @@ inl eq_type a b = !EqType(a,b)
 inl module_values x = !ModuleValues(x)
 inl module_map f a = !ModuleMap(f,a)
 inl module_foldl f s a = !ModuleFoldL(f,s,a)
+inl module_foldr f a s = !ModuleFoldR(f,s,a)
 inl module_has_member m x = !ModuleHasMember(m,x)
 inl (:>) a b = !UnsafeUpcastTo(b,a)
 inl (:?>) a b = !UnsafeDowncastTo(b,a)
@@ -147,5 +148,5 @@ inl tanh x = !Tanh(x)
  string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref (+) (-) (*) (/) (%)
  (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>) Tuple fst snd not
  string_length lit_is box_is failwith assert max min eq_type module_values caseable_is (:>)
- (:?>) (=) module_map module_foldl module_has_member sizeof string_format string_concat} |> stack
+ (:?>) (=) module_map module_foldl module_foldr module_has_member sizeof string_format string_concat} |> stack
     """) |> module_
