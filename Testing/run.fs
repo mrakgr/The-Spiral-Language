@@ -532,17 +532,9 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
 
-//rewrite_test_cache cfg None //(Some(0,40))
+rewrite_test_cache cfg None //(Some(0,40))
 
-let test96 =
-    "test96",[host_tensor],"Does the show_tensor work?",
-    """
-open HostTensor
-init (3,3) (inl a b -> a*b) .view ({from=1; near_to=3},{from=1; near_to=3})
-|> copy
-    """
-
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test96
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test97
 |> printfn "%s"
 |> ignore
 

@@ -1084,6 +1084,24 @@ inl d = unsafe_convert float64
 Array.init 8 (inl i -> {x = d i; y = d i-30.0} |> dyn |> packed_stack) |> show
     """
 
+let test96 =
+    "test96",[host_tensor],"Does the show_tensor work?",
+    """
+open HostTensor
+inl w = {from=1; near_to=3}, {from=1; near_to=3},{from=1; near_to=4}
+init ({from=1; near_to=5},3,10) (inl a b c -> a*b*c)  
+|> show_tensor' w
+    """
+
+let test97 =
+    "test97",[host_tensor],"Does the view_span work?",
+    """
+open HostTensor
+inl w = {from=1; near_to=3}, {from=1; near_to=3},{from=1; near_to=4}
+init ({from=1; near_to=5},3,10) (inl a b c -> a*b*c) .view_span w
+|> show_tensor_all
+    """
+
 let parsing1 = 
     "parsing1",[parsing;console],"Does the Parsing module work?",
     """
@@ -1876,7 +1894,7 @@ let tests =
     test60';test61;test62;test63;test64;test65;test66;test67;test68;test69
     test70;test71';test72;test73;test74;test75;test76';test77';test78;test79
     test80;test81;test82;test83;test84;test85;test86;test87;test88;test89
-    test90;test91;test92;test93;test94;test95
+    test90;test91;test92;test93;test94;test95;test96;test97
     hacker_rank_1;hacker_rank_2;hacker_rank_3;hacker_rank_4;hacker_rank_5;hacker_rank_6;hacker_rank_7;hacker_rank_8;hacker_rank_9
     parsing1;parsing2;parsing3;parsing4;parsing5;parsing6;parsing7;parsing8
     loop1;loop2;loop3;     loop5;loop6;loop7;loop8

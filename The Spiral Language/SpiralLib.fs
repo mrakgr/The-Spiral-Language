@@ -867,24 +867,23 @@ inl map_dim = function
 
 inl map_dims = Tuple.map map_dim << Tuple.wrap
 
-inl primitive_apply_template {merge_offset view} {data with offsets} from = 
-    inl v = {from}
+inl primitive_apply_template {merge_offset view} {data with offsets} v = 
     match offsets with
     | x :: offsets -> merge_offset (view {data with offsets} v) x
     | () -> view data v |> inl x -> {x without size offsets}
 
 inl rec view_offsets = function
-    | {position size} :: d', {from} :: h' -> position + from * size :: view_offsets (d',h')
+    | {position size} :: d', i :: h' -> {size position=position + i * size} :: view_offsets (d',h')
     | (), _ :: _ -> error_type "The view has more dimensions than the tensor."
     | offsets, () -> offsets
 
 inl HostTensorPrimitives =
     inl view {data with size position offsets} = function
-        | {from} :: l -> {data with 
-            position=position + from * size
+        | i :: l -> {data with 
+            position=position + i * size
             offsets=view_offsets (offsets,l)
             }
-        | {from} -> {data with position=position + from * size}
+        | i -> {data with position=position + i * size}
     inl merge_offset {data with size position} {size=size' position=position'} = {data with size=size'; position=position + position'}
     {
     view 
@@ -907,24 +906,42 @@ inl TensorTemplate {view get set apply} = {
         | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
     view = inl {data with dim} (!map_dims head_dims) ->
         inl rec new_dim = function
-            | {from near_to} :: d', {head_dim with from=from' near_to=near_to'} :: h' ->
+            | {from near_to} :: d', {nd with from=from' near_to=near_to'} :: h' ->
                 assert (from' >= from && from' < near_to) "Lower boundary out of bounds." 
                 assert (near_to' > from && near_to' <= near_to) "Higher boundary out of bounds." 
-                head_dim :: new_dim (d',h')
+                inl i',nd' = new_dim (d',h')
+                from'-from :: i', nd :: nd'
             | (), _ :: _ -> error_type "The view has more dimensions than the tensor."
-            | dim, () -> dim
+            | dim, () -> (),dim
 
-        inl dim = new_dim (dim, head_dims)
-        {data with bodies = toa_map (inl ar -> view ar dim) self; dim}
+        inl indices, dim = new_dim (dim, head_dims)
+        {data with bodies = toa_map (inl ar -> view ar indices) self; dim}
+    
+    // Resizes the view towards zero.
+    view_span = inl {data with dim} (!map_dims head_dims) ->
+        inl rec new_dim = function
+            | {from near_to} :: d', {nd with from=from' near_to=near_to'} :: h' ->
+                inl span, span' = near_to-from, near_to' - from'
+                inl nd = {from = 0; near_to = span'}
+                assert (from' >= 0) "Lower boundary out of bounds." 
+                assert (span >= span') "Higher boundary out of bounds." 
+                inl i', nd' = new_dim (d',h')
+                from' :: i', nd :: nd'
+            | (), _ :: _ -> error_type "The view has more dimensions than the tensor."
+            | dim, () -> (),dim
+
+        inl indices, dim = new_dim (dim, head_dims)
+        {data with bodies = toa_map (inl ar -> view ar indices) self; dim}
+
     apply = inl {data with dim} i ->
         match dim with
         | () -> error_type "Cannot apply the tensor anymore."
         | {from near_to} :: dim ->
             assert (i >= from && i < near_to) "Argument out of bounds." 
-            {data with bodies = toa_map (inl ar -> apply ar i) self; dim}
+            {data with bodies = toa_map (inl ar -> apply ar (i-from)) self; dim}
     }
 
-inl show_tensor_core tns =
+inl show_tensor_all tns =
     open Extern
     inl strb_type = fs [text: "System.Text.StringBuilder"]
     inl s = FS.Constructor strb_type ()
@@ -932,28 +949,36 @@ inl show_tensor_core tns =
     inl append_line x = FS.Method s.AppendLine x strb_type |> ignore
     inl indent near_to = Loops.for {from=0; near_to; body=inl _ -> append ' '}
     inl blank = dyn ""
-    inl rec loop {tns ind prefix} = function
-        | {from near_to} :: x' ->
-            Loops.for {from near_to state=blank; body=inl {state i} ->
-                indent ind; append_line "[|"
-                inl prefix = loop {tns=tns i; ind=ind+4; prefix=state} x'
-                indent ind; append_line "|]"
-                prefix
+    inl rec loop {tns ind} = 
+        match tns.dim with
+        | () -> tns.get |> show |> append
+        | {from near_to} :: () ->
+            indent ind; append "[|"
+            Loops.for {from near_to state=blank; body=inl {state i} -> 
+                append state
+                tns i .get |> show |> append
+                dyn "; "
                 } |> ignore
-        | () -> 
-            append prefix
-            tns .get |> show |> append
-            dyn "; "
-    loop {tns; ind=0; prefix=blank}
+            append_line "|]"
+        | {from near_to} :: x' ->
+            indent ind; append_line "[|"
+            Loops.for {from near_to body=inl {state i} -> loop {tns=tns i; ind=ind+4}}
+            indent ind; append_line "|]"
+        
+    loop {tns; ind=0; prefix=blank} |> ignore
+    FS.Method s .ToString() string
 
 inl show_tensor' (!map_dims dim) tns =
-    inl f {from near_to} {from=from' near_to=near_to'} = {from = min from from'; near_to = min near_to near_to'}
+    inl f {from near_to} {from=from' near_to=near_to'} = {
+        from = min (near_to-1) (from + from')
+        near_to = min near_to (from + near_to')
+        }
     inl {view ap} =
         Tuple.foldr (inl {x with from} -> function
             | {state with view dim=d :: dim} -> {state with view=f x d :: view; dim}
             | {state with ap} -> {state with ap=from :: ap}
             ) (tns.dim) {dim=Tuple.rev dim; view=(); ap=()}
-    Tuple.foldr (|>) ap tns .view view |> show_tensor_core
+    Tuple.foldr (|>) ap tns .view view |> show_tensor_all
 
 // By default it just shows the first 5x5x5 matrix of the first 3 innermost dimensions.
 // If the tensor has less than 3 dimensions or its sizes are less than 5 then the minimum is taken.
@@ -1072,7 +1097,8 @@ inl zip l =
         | tns -> tns.update_body <| inl _ -> toa_map (inl x -> x.bodies) l
 
 {toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims length create dim_describe primitive_apply_template TensorTemplate
- view_offsets init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip show_tensor' show_tensor}
+ view_offsets init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip show_tensor' show_tensor 
+ show_tensor_all }
 |> stack
     """) |> module_
 
