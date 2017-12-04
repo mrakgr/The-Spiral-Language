@@ -1425,7 +1425,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let module_foldr d = 
             let inline ap a b = apply d a b
-            module_fold_template (fun f fold_op s env -> Map.foldBack (fun k v s -> ap (ap (ap fold_op (type_lit_create' (LitString k))) s) (f v)) env s) d
+            module_fold_template (fun f fold_op s env -> Map.foldBack (fun k s v -> ap (ap (ap fold_op (type_lit_create' (LitString k))) s) (f v)) env s) d
 
         let module_has_member d a b =
             match tev2 d a b with

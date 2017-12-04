@@ -286,38 +286,46 @@ inl string_concat sep = function
     | _ :: _ as l ->
         Tuple.foldr (inl x {state with dyn stc} ->
             match x with
-            | x when is_lit x -> {state with stc=x::stc}
+            | x when lit_is x -> {state with stc=x::stc}
             | x -> {dyn=x :: string_concat sep stc :: dyn; stc=()}
             ) l {dyn=(); stc=()}
     | x -> x
 
 inl rec show' cfg =
-    inl show = show' cfg
-    inl show_array ar = 
+    inl show x = show' cfg x
+    met show_array !dyn (array_cutoff, ar) = 
         inl strb_type = fs [text: "System.Text.StringBuilder"]
         inl s = FS.Constructor strb_type ()
         inl append x = FS.Method s.Append x strb_type |> ignore
 
         append "[|"
-        inl array_cutoff = match cfg with {array_cutoff} -> array_cutoff | _ -> FS.Constant "System.Int64.MaxValue" int64
-        Loops.for {from=0; near_to=min (Array.length ar) array_cutoff; state=dyn ""; body=inl {state=prefix i} ->
+        Loops.for {from=0; near_to=min (array_length ar) array_cutoff; state=dyn ""; body=inl {state=prefix i} ->
             append prefix; append (show (ar i)); dyn "; "
-            }
+            } |> ignore
         append "|]"
         FS.Method s.ToString() string
     inl show_tuple l = 
-        string_format "[{1}]" <|Tuple.foldr (v s -> show v :: s) l () |> string_concat ", "
+        string_format "[{1}]" <| Tuple.foldr (inl v s -> show v :: s) l () |> string_concat ", "
     inl show_module m = 
-        inl x = module_foldr (inl .(k) v s -> string_format "{0} = {1}" (k,show v) :: s) m () |> string_concat "; "
+        //inl x = 
+        //    module_foldr (inl .(k) v s -> 
+        //        inl x = string_format "{0} = {1}" (k,show v)
+        //        print_static x
+        //        x :: s) m () |> string_concat "; "
+        //inl x = string_format "{0} = {1}" (dyn (1,2))
+            //match m with
+            //| {x=x' y=y'} -> string_format "{0} = {1}" ("x", show x')
         string_format "{0}{1}{2}" ("{", x, "}")
-
+    
     function
     | {} as m -> show_module m
     | _ :: _ as l -> show_tuple l
     | (!array_is .(x)) as ar ->
         match x with
-        | .DotNetHeap -> show_array ar
-        | .DotNetReference -> show (ar ())
+        | "DotNetHeap" -> 
+            inl array_cutoff = match cfg with {array_cutoff} -> array_cutoff | _ -> FS.Constant "System.Int64.MaxValue" int64
+            show_array (array_cutoff, ar)
+        | "DotNetReference" -> show (ar ())
     | x -> cfg.show_value x
 
 inl show_value = string_format "{0}"

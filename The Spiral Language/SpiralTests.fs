@@ -1063,8 +1063,10 @@ let test93 =
     "test93",[],"Does the string format work as expected?",
     """
 inl l = 2,2.3,"qwe"
+inl q = 1,2
 string_format "{0,-5}{1,-5}{2,-5}" l |> dyn |> ignore
-string_format "{0,-5}{1,-5}{2,-5}" (dyn l)
+string_format "{0,-5}{1,-5}{2,-5}" (dyn l) |> ignore
+string_format "{0} = {1}" (dyn q) |> ignore
     """
 
 let test94 =

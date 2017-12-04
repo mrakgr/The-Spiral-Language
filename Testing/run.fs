@@ -534,7 +534,15 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //rewrite_test_cache cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test1
+let test95 =
+    "test95",[extern_;array],"Does the show work?",
+    """
+open Extern
+inl d = unsafe_convert float64
+Array.init 8 (inl i -> {x = d i; y = d i-30.0} |> dyn |> packed_stack) |> show
+    """
+
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test93
 |> printfn "%s"
 |> ignore
 
