@@ -1425,7 +1425,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let module_foldr d = 
             let inline ap a b = apply d a b
-            module_fold_template (fun f fold_op s env -> Map.foldBack (fun k s v -> ap (ap (ap fold_op (type_lit_create' (LitString k))) s) (f v)) env s) d
+            module_fold_template (fun f fold_op s env -> Map.foldBack (fun k v s -> ap (ap (ap fold_op (type_lit_create' (LitString k))) (f v)) s) env s) d
 
         let module_has_member d a b =
             match tev2 d a b with
@@ -2542,7 +2542,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         let b = codegen' d' b
                         if b <> "" then sprintf "%s" b |> state
                     codegen' {d with trace=trace} rest
-                | TyLet(tyv,TyOp(If,[cond;tr;fl],t),rest,_,trace) -> 
+                | TyLet(tyv,TyOp(IfStatic,[cond;tr;fl],t),rest,_,trace) -> 
                     print_scope tyv if_ cond tr fl
                     codegen' {d with trace=trace} rest
                 | TyLet(tyv,TyOp(Case,v :: cases,t),rest,_,trace) -> 
@@ -2993,7 +2993,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         let b = codegen' trace b
                         if b <> "" then sprintf "%s" b |> state
                     codegen' trace rest
-                | TyLet(tyv,TyOp(If,[cond;tr;fl],t),rest,_,trace) -> print_scope tyv (fun _ -> if_ cond tr fl); codegen' trace rest
+                | TyLet(tyv,TyOp(IfStatic,[cond;tr;fl],t),rest,_,trace) -> print_scope tyv (fun _ -> if_ cond tr fl); codegen' trace rest
                 | TyLet(tyv,TyOp(Case,v :: cases,t),rest,_,trace) -> print_scope tyv (fun _ -> match_with v cases); codegen' trace rest
                 | TyLet(tyv,b,rest,_,trace) -> sprintf "let %s = %s" (print_tyv_with_type tyv) (codegen' trace b) |> state; codegen' trace rest
                 | TyLit x -> print_value x

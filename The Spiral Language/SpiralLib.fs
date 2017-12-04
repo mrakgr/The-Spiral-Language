@@ -287,8 +287,12 @@ inl string_concat sep = function
         Tuple.foldr (inl x {state with dyn stc} ->
             match x with
             | x when lit_is x -> {state with stc=x::stc}
-            | x -> {dyn=x :: string_concat sep stc :: dyn; stc=()}
+            | x -> 
+                match stc with
+                | _ :: _ -> {dyn=x :: string_concat sep stc :: dyn; stc=()}
+                | _ -> {dyn=x :: dyn; stc=()}
             ) l {dyn=(); stc=()}
+        |> inl {dyn stc} -> Tuple.append stc dyn |> string_concat sep
     | x -> x
 
 inl rec show' cfg =
@@ -307,15 +311,8 @@ inl rec show' cfg =
     inl show_tuple l = 
         string_format "[{1}]" <| Tuple.foldr (inl v s -> show v :: s) l () |> string_concat ", "
     inl show_module m = 
-        //inl x = 
-        //    module_foldr (inl .(k) v s -> 
-        //        inl x = string_format "{0} = {1}" (k,show v)
-        //        print_static x
-        //        x :: s) m () |> string_concat "; "
-        //inl x = string_format "{0} = {1}" (dyn (1,2))
-            //match m with
-            //| {x=x' y=y'} -> string_format "{0} = {1}" ("x", show x')
-        string_format "{0}{1}{2}" ("{", x, "}")
+        inl x = module_foldr (inl .(k) v s -> string_format "{0} = {1}" (k, show v) :: s) m () 
+        string_format "{0}{1}{2}" ("{", string_concat "; " x, "}")
     
     function
     | {} as m -> show_module m
@@ -870,7 +867,8 @@ inl map_dim = function
 
 inl map_dims = Tuple.map map_dim << Tuple.wrap
 
-inl primitive_apply_template {merge_offset view} {data with offsets} v = 
+inl primitive_apply_template {merge_offset view} {data with offsets} from = 
+    inl v = {from}
     match offsets with
     | x :: offsets -> merge_offset (view {data with offsets} v) x
     | () -> view data v |> inl x -> {x without size offsets}
