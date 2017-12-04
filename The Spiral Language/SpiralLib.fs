@@ -820,7 +820,7 @@ inl create typ n =
 
 let host_tensor =
     (
-    "HostTensor",[tuple;loops],"The host tensor module.",
+    "HostTensor",[tuple;loops;extern_],"The host tensor module.",
     """
 // A lot of the code in this module is made with purpose of being reused on the Cuda side.
 
@@ -924,7 +924,8 @@ inl TensorTemplate {view get set apply} = {
             {data with bodies = toa_map (inl ar -> apply ar i) self; dim}
     }
 
-inl show_tensor' tns =
+inl show_tensor_core tns =
+    open Extern
     inl strb_type = fs [text: "System.Text.StringBuilder"]
     inl s = FS.Constructor strb_type ()
     inl append x = FS.Method s.Append x strb_type |> ignore
@@ -945,13 +946,18 @@ inl show_tensor' tns =
             dyn "; "
     loop {tns; ind=0; prefix=blank}
 
-inl show_tensor tns =
+inl show_tensor' (!map_dims dim) tns =
+    inl f {from near_to} {from=from' near_to=near_to'} = {from = min from from'; near_to = min near_to near_to'}
     inl {view ap} =
         Tuple.foldr (inl {x with from} -> function
-            | {state with c view} when c < 3 -> {state with view=x :: view;c=c+1}
+            | {state with view dim=d :: dim} -> {state with view=f x d :: view; dim}
             | {state with ap} -> {state with ap=from :: ap}
-            ) (tns.dim) {c=0; view=(); ap=()}
-    Tuple.foldr (<|) tns ap .view view |> show_tensor'
+            ) (tns.dim) {dim=Tuple.rev dim; view=(); ap=()}
+    Tuple.foldr (|>) ap tns .view view |> show_tensor_core
+
+// By default it just shows the first 5x5x5 matrix of the first 3 innermost dimensions.
+// If the tensor has less than 3 dimensions or its sizes are less than 5 then the minimum is taken.
+inl show_tensor = show_tensor' (5,5,5) 
 
 inl rec wrap_tensor_template module = 
     inl rec wrap data = function
@@ -1066,7 +1072,7 @@ inl zip l =
         | tns -> tns.update_body <| inl _ -> toa_map (inl x -> x.bodies) l
 
 {toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims length create dim_describe primitive_apply_template TensorTemplate
- view_offsets init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip}
+ view_offsets init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip show_tensor' show_tensor}
 |> stack
     """) |> module_
 
