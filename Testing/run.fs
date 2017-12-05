@@ -537,3 +537,4 @@ rewrite_test_cache cfg None //(Some(0,40))
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test97
 |> printfn "%s"
 |> ignore
+
