@@ -107,13 +107,13 @@ type Op =
     | MacroCuda
     | MacroFs
 
-    // Closure
+    // Term function
     | TermFunctionTypeCreate
-    | ClosureIs
-    | ClosureDomain
-    | ClosureRange
+    | TermFunctionIs
+    | TermFunctionDomain
+    | TermFunctionRange
 
-    // Cast
+    // Unsafe casts
     | UnsafeConvert
     | UnsafeUpcastTo
     | UnsafeDowncastTo
@@ -130,6 +130,15 @@ type Op =
     | StringFormat
     | StringConcat
 
+    // List
+    | ListIndex
+    | ListSliceFrom
+    | ListCons
+    | ListLength
+    | ListIs
+    | ListHead
+    | ListTail
+
     // Module
     | ModuleCreate
     | ModuleWith
@@ -141,15 +150,15 @@ type Op =
     | ModuleFoldL
     | ModuleFoldR
     | ModuleOpen
+    | MapGetField // Codegen only
 
-    // Caseable
+    // Box & caseable
     | CaseableIs
     | CaseableBoxedIs
+    | BoxIs
 
-    // Case
+    // Braching
     | Case
-
-    // TriOps
     | IfStatic
 
     // BinOps
@@ -167,26 +176,26 @@ type Op =
     | BitwiseAnd
     | BitwiseOr
     | BitwiseXor
+    | ShiftLeft
+    | ShiftRight
 
+    // Application
     | Fix
     | Apply
     | TermCast
     | JoinPointEntryMethod
     | JoinPointEntryType
     | JoinPointEntryCuda
-    | StructCreate
-    | ListIndex
-    | ListSliceFrom
-    | ListCons
-    | ListLength
-    | ListIs
     | TypeAnnot
-    | MapGetField
+
+    // Layout
     | LayoutToNone
     | LayoutToStack
     | LayoutToPackedStack
     | LayoutToHeap
     | LayoutToHeapMutable
+
+    // Type 
     | TypeGet
     | TypeUnion
     | TypeSplit
@@ -202,19 +211,17 @@ type Op =
     | ArrayLength
     | ArrayIs
    
-    | ShiftLeft
-    | ShiftRight
-
     // Static unary operations
     | PrintStatic
     | ErrorNonUnit
     | ErrorType
+    | Dynamize
+    | LitIs
+
+    // Type lit ops
     | TypeLitCreate
     | TypeLitCast
     | TypeLitIs
-    | Dynamize
-    | LitIs
-    | BoxIs
 
     // UnOps
     | Neg

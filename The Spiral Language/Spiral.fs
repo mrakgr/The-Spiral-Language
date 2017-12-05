@@ -125,9 +125,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let lt a b = binop LT a b
     let gte a b = binop GTE a b
 
-    let closure_is x = op(ClosureIs,[x])
-    let closure_dom x = op(ClosureDomain,[x])
-    let closure_range x = op(ClosureRange,[x])
+    let closure_is x = op(TermFunctionIs,[x])
+    let closure_dom x = op(TermFunctionDomain,[x])
+    let closure_range x = op(TermFunctionRange,[x])
 
     let error_non_unit x = (ErrorNonUnit, [x]) |> op
     let type_lit_lift' x = (TypeLitCreate,[x]) |> op
@@ -1652,9 +1652,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TypeSplit,[a] -> type_split d a
 
             | TermFunctionTypeCreate,[a;b] -> closure_type_create d a b
-            | ClosureIs,[a] -> closure_is d a
-            | ClosureDomain,[a] -> closure_dr true d a
-            | ClosureRange,[a] -> closure_dr false d a 
+            | TermFunctionIs,[a] -> closure_is d a
+            | TermFunctionDomain,[a] -> closure_dr true d a
+            | TermFunctionRange,[a] -> closure_dr false d a 
 
             | EqType,[a;b] -> eq_type d a b
             | Neg,[a] -> prim_un_numeric d a Neg
