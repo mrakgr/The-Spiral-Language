@@ -281,18 +281,22 @@ inl (use) a b =
     FS.Method a.Dispose() unit
     r
 
-// Optimized to do more work at compile time.
-inl string_concat sep = function
-    | _ :: _ as l ->
+// Optimized to do more work at compile time. Will flatten nested tuples.
+inl string_concat sep = 
+    inl rec loop = 
         Tuple.foldr (inl x {state with dyn stc} ->
             match x with
+            | _ :: _ -> loop x state
             | x when lit_is x -> {state with stc=x::stc}
             | x -> 
                 match stc with
                 | _ :: _ -> {dyn=x :: string_concat sep stc :: dyn; stc=()}
                 | _ -> {dyn=x :: dyn; stc=()}
-            ) l {dyn=(); stc=()}
-        |> inl {dyn stc} -> Tuple.append stc dyn |> string_concat sep
+            ) 
+    function
+    | _ :: _ as l ->
+        inl {dyn stc} = loop l {dyn=(); stc=()}
+        Tuple.append stc dyn |> string_concat sep
     | x -> x
 
 inl rec show' cfg =
