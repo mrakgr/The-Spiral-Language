@@ -31,7 +31,7 @@ inl safe_alloc n create =
         | 0 ret ->
             inl tns = Tuple.foldr (inl x create -> create x) vars create
             inl r = ret tns
-            HostTensor.map_ar (inl x -> x.ptr.Dispose) tns |> ignore
+            tns.update_body (inl {ar} -> ar.ptr.Dispose) |> ignore
             r
         | n x -> loop (x :: vars) (n-1)
     function
@@ -94,24 +94,24 @@ inl allocator size ret =
 
 inl CudaTensor allocator =
     open HostTensor
-    inl array_create elem_type len = 
+    inl cuda_array_create elem_type len = 
         inl ptr = allocator.allocate (len * unsafe_convert int64 (sizeof elem_type))
         function // It needs to be like this rather than a module so toa_map does not split it.
         | .elem_type -> elem_type
         | .ptr -> ptr
-    inl create data = create {data with array_create}
+    inl create data = create {data with array_create = cuda_array_create}
 
     inl from_host_array ar =
         inl elem_type = ar.elem_type
         inl size = array_length ar |> unsafe_convert int64
-        inl t = array_create elem_type size
+        inl t = cuda_array_create elem_type size
         FS.Method context .CopyToDevice(t.ptr(), ar) unit
         t
 
     inl to_host_array size1d ar =
         inl elem_type = ar.elem_type
         inl ptr = ar.ptr()
-        inl t = Core.array_create elem_type size1d
+        inl t = array_create elem_type size1d
         FS.Method context .CopyToHost (t,ptr) unit
         FS.Method context .Synchronize() unit
         t
@@ -121,20 +121,20 @@ inl CudaTensor allocator =
         tns.update_body <| inl {body with position ar} ->
             // I do not feel like messing with GC handles in Spiral right now.
             // Allowing a copy with an offset would be easy though. See ManagedCuda's CopyToHost and CopyToDevice.
-            assert (position = 0) "Only unviewed arrays are allowed for now." // I do not feel like messing with GC handles in Spiral right now.
+            assert (position = 0) "Only unviewed arrays are allowed for now."
             {body with ar = f ar}
 
     inl from_host_tensor = transfer_template from_host_array
-    inl to_host_tensor = transfer_template to_host_array
+    inl to_host_tensor tns = transfer_template (to_host_array (length tns)) tns
 
     inl DeviceTensorPrimitives = // The DeviceTensor uses the position as the array.
         inl (+) a (b: int64) = !MacroCuda(a,[arg: a; text: " + "; arg: b])
         inl view {data with size ar offsets} = function
-            | {from} :: l -> {data with 
-                ar=ar + from * size
+            | i :: l -> {data with 
+                ar=ar + i * size
                 offsets=view_offsets (offsets,l)
                 }
-            | {from} -> {data with ar=ar + from * size}
+            | i -> {data with ar=ar + i * size}
         
         inl merge_offset {data with size ar} {size=size' position=position'} = {data with size=size'; ar=ar + position'}
         {
@@ -400,8 +400,7 @@ inl test_random =
 
 inl test_map = 
     inl host_tensor = HostTensor.init 32 (unsafe_convert float32)
-    inm {ar} = from_host_tensor host_tensor >>= map ((*) (dyn 2f32)) >>= (to_host_tensor >> succ)
-    succ (Array.show_array ar |> writeline)
+    from_host_tensor host_tensor >>= map ((*) (dyn 2f32)) >>= (to_host_tensor >> show_tensor_all >> writeline >> succ)
 
 inl test_map_redo =
     inl force x ret = ret (x ())
@@ -532,9 +531,9 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
 
-rewrite_test_cache cfg None //(Some(0,40))
+//rewrite_test_cache cfg None //(Some(0,40))
 
-//output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
-//|> printfn "%s"
-//|> ignore
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
+|> printfn "%s"
+|> ignore
 

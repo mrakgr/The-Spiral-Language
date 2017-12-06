@@ -2634,7 +2634,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | Log,[x] -> sprintf "log(%s)" (codegen x)
                     | Exp,[x] -> sprintf "exp(%s)" (codegen x)
                     | Tanh,[x] -> sprintf "tanh(%s)" (codegen x)
-                    | FailWith,[x] -> on_type_er trace "Exceptions and hence failwith are not supported on the Cuda side."
+                    | FailWith,[x] -> "// unprinted assert"
+                        //on_type_er trace "Exceptions and hence failwith are not supported on the Cuda side."
 
                     | MacroCuda,[a] -> codegen_macro codegen print_type a
                     | SizeOf,[TyType a] -> sprintf "(sizeof %s)" (print_type a)

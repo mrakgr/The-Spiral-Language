@@ -283,7 +283,7 @@ inl (use) a b =
 
 // Optimized to do more work at compile time. Will flatten nested tuples.
 inl string_concat sep = 
-    inl rec loop = 
+    inl rec loop x = 
         Tuple.foldr (inl x {state with dyn stc} ->
             match x with
             | _ :: _ -> loop x state
@@ -292,7 +292,7 @@ inl string_concat sep =
                 match stc with
                 | _ :: _ -> {dyn=x :: string_concat sep stc :: dyn; stc=()}
                 | _ -> {dyn=x :: dyn; stc=()}
-            ) 
+            ) x
     function
     | _ :: _ as l ->
         inl {dyn stc} = loop l {dyn=(); stc=()}
@@ -332,7 +332,12 @@ inl rec show' cfg =
 inl show_value = string_format "{0}"
 inl show = show' {array_cutoff = 30; show_value}
 
-{string_concat closure_of closure_of' FS (use) show' show} |> stack
+inl assert c msg =
+    if c = false then
+        if lit_is c then error_type msg
+        else failwith unit (show msg)
+
+{string_concat closure_of closure_of' FS (use) show' show assert} |> stack
     """) |> module_
 
 
@@ -1110,7 +1115,6 @@ let cuda =
     (
     "Cuda",[loops;console;array;host_tensor;extern_],"The Cuda module.",
     """
-
 open Extern
 open Console
 
@@ -1173,9 +1177,9 @@ inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
     inl (+) a b = concat (a, b)
 
     /// Puts quotes around the string.
-    inl quote x = ('"',x,'"')
+    inl quote x = ("\"",x,"\"")
     inl call x = ("CALL ", x)
-    inl quoted_vs_path_to_vcvars = combine(visual_studio_path, @"VC\Auxiliary\Build\vcvarsx86_amd64.bat") |> quote
+    inl quoted_vs_path_to_vcvars = combine(visual_studio_path, @"VC\Auxiliary\Build\vcvars64.bat") |> quote
     inl quoted_vs_path_to_cl = combine(visual_studio_path, @"VC\Tools\MSVC\14.11.25503\bin\Hostx64\x64") |> quote
     inl quoted_cuda_toolkit_path_to_include = combine(cuda_toolkit_path,"include") |> quote
     inl quoted_vc_path_to_include = combine(visual_studio_path, @"VC\Tools\MSVC\14.11.25503\include") |> quote
@@ -1208,7 +1212,7 @@ inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
         " -I", quoted_cub_path_to_include,
         " -I", quoted_vc_path_to_include,
         " --keep-dir ",quoted_kernels_dir,
-        " -maxrregcount=0  --machine 64 -ptx -cudart static  -o ",quoted_target_path,' ',quoted_input_path
+        " -maxrregcount=0  --machine 64 -ptx -cudart static  -o ",quoted_target_path," ",quoted_input_path
         ) |> write_to_batch
 
     inl stopwatch_type = fs [text: "System.Diagnostics.Stopwatch"]
@@ -1219,7 +1223,7 @@ inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
     FS.Method process.WaitForExit() unit
 
     inl exit_code = FS.Method process.get_ExitCode() int32
-    if exit_code <> 0i32 then failwith unit <| concat ("NVCC failed compilation with code ", exit_code)
+    assert (exit_code = 0i32) ("NVCC failed compilation.", exit_code)
     
     inl elapsed = FS.Method timer .get_Elapsed() (fs [text: "System.TimeSpan"])
     !MacroFs(unit,[text: "printfn \"The time it took to compile the Cuda kernels is: %A\" "; arg: elapsed])
