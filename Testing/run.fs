@@ -532,18 +532,9 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
 
-let test98 =
-    "test98",[],"",
-    """
-met rec loop f i =
-    if i <= 10 then loop (inl _ -> f() + 1) (i + 1)
-    else f()
-loop (inl _ -> 0) 0
-    """
-
 //rewrite_test_cache cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test98
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test1
 |> printfn "%s"
 |> ignore
 
