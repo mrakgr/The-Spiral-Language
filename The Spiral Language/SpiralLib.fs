@@ -313,7 +313,9 @@ inl rec show' cfg =
         append "|]"
         FS.Method s.ToString() string
     inl show_tuple l = 
-        string_format "[{1}]" <| Tuple.foldr (inl v s -> show v :: s) l () |> string_concat ", "
+        Tuple.foldr (inl v s -> show v :: s) l ()
+        |> string_concat ", "
+        |> string_format "[{0}]"
     inl show_module m = 
         inl x = module_foldr (inl .(k) v s -> string_format "{0} = {1}" (k, show v) :: s) m () 
         string_format "{0}{1}{2}" ("{", string_concat "; " x, "}")
@@ -759,12 +761,8 @@ inl readall () =
     |> inl x -> FS.Method x.ReadToEnd() string
 inl readline () = FS.StaticMethod console_type .ReadLine() string
 
-inl write x = 
-    inl x = string_concat "" x
-    FS.StaticMethod console_type .Write x unit
-inl writeline x = 
-    inl x = string_concat "" x
-    FS.StaticMethod console_type .WriteLine x unit
+inl write x = FS.StaticMethod console_type .Write (show x) unit
+inl writeline x = FS.StaticMethod console_type .WriteLine (show x) unit
 
 inl printf_template cont = 
     Parsing.sprintf_template write {
@@ -851,17 +849,27 @@ inl rec toa_map2 f a b =
         | x, y -> f x y
     loop (a,b)
 
+inl rec toa_map3 f a b c = 
+    inl rec loop = function
+        | x, y, z when caseable_is x || caseable_is y || caseable_is z -> f x y z
+        | (), (), () -> ()
+        | x :: xs, y :: ys, z :: zs -> loop (x,y,z) :: loop (xs,ys,zs)
+        | {!block_toa_map} & x, {!block_toa_map} & y, {!block_toa_map} & z -> module_map (inl k y -> loop (x k,y k,z)) z
+        | x, y, z -> f x y z
+    loop (a,b,c)
+
 inl rec toa_foldl f s x = 
     inl rec loop s = function
         | x when caseable_is x -> f s x
         | () -> s
-        | x :: xs -> loop (loop x) xs
+        | x :: xs -> loop (loop s x) xs
         | {!block_toa_map} & x -> module_foldl (inl _ -> loop) s x
         | x -> f s x
     loop s x
 
 inl toa_iter f = toa_map (inl x -> f x; ()) >> ignore
 inl toa_iter2 f a b = toa_map2 (inl a b -> f a b; ()) a b |> ignore
+inl toa_iter3 f a b c = toa_map3 (inl a b c -> f a b c; ()) a b c |> ignore
 
 inl map_dim = function
     | {from to} -> 
@@ -1077,13 +1085,14 @@ inl reshape (!dim_describe {len dim make_body}) tns =
             make_body ar
             )
 
+inl assert_contiguous tns = reshape (tns.dim) tns |> ignore 
 inl to_1d tns = reshape (length tns) tns
 
 /// Asserts the tensor size. Useful for setting those values to statically known ones. Does not copy. size -> tensor -> tensor.
 inl assert_size (!map_dims dim') tns = 
     tns.update_dim <| inl dim ->
-            assert (dim = dim') "Tensor size assert failed."
-            dim'
+        assert (dim = dim') "Tensor size assert failed."
+        dim'
 
 /// Reinterprets an array as a tensor. Does not copy. array -> tensor.
 inl array_as_tensor ar =
@@ -1100,14 +1109,14 @@ inl zip l =
     toa_foldl (inl s x ->
         match s with
         | () -> x
-        | s -> assert (s.dim = x.dim) "All tensors in zip need to have the same dimensions"; s) () l
+        | s -> assert ((s.dim) = (x.dim)) "All tensors in zip need to have the same dimensions"; s) () l
     |> function 
         | () -> error_type "Empty inputs to zip are not allowed."
         | tns -> tns.update_body <| inl _ -> toa_map (inl x -> x.bodies) l
 
 {toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims length create dim_describe primitive_apply_template TensorTemplate
  view_offsets init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip show_tensor' show_tensor 
- show_tensor_all }
+ show_tensor_all toa_map3 toa_iter3 assert_contiguous}
 |> stack
     """) |> module_
 

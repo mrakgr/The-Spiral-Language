@@ -117,7 +117,7 @@ inl CudaTensor allocator =
         t
 
     inl transfer_template f tns = 
-        reshape (tns.dim) tns |> ignore // This is just a check that the inner dimenions are unviewed.
+        assert_contiguous tns
         tns.update_body <| inl {body with position ar} ->
             // I do not feel like messing with GC handles in Spiral right now.
             // Allowing a copy with an offset would be easy though. See ManagedCuda's CopyToHost and CopyToDevice.
@@ -190,8 +190,6 @@ inl isnT = function
     | _ -> false
 
 inl CudaKernels stream =
-    
-
     inl set_stream_random x = FS.Method x .SetStream (Stream.extract stream) unit
     inl set_stream_cublas x = FS.Method x .set_Stream (Stream.extract stream) unit
 
@@ -200,7 +198,7 @@ inl CudaKernels stream =
         inl gen, dot = "Generate", "."
         match op with
         | .Uniform & .(distribution) ->
-            inl args = ar, size1d
+            inl args = ar, SizeT size1d
             inl bits = 
                 match elem_type with
                 | _ : float32 -> "32" | _ : float64 -> "64"
@@ -210,14 +208,14 @@ inl CudaKernels stream =
             match stddev with | _: float32 -> () | _ -> error_type "Standard deviation needs to be in float32."
             match mean with | _: float32 -> () | _ -> error_type "Mean needs to be in float32."
 
-            inl args = ar, size1d, mean, stddev
+            inl args = ar, SizeT size1d, mean, stddev
             inl bits = 
                 match elem_type with
                 | _ : float32 -> "32" | _ : float64 -> "64"
                 | _ -> error_type ("Only 32/64 bit float types are supported. Try UInt if you need uint random numbers. Got: ", elem_type)
             !MacroFs(unit,[arg: random; text: dot; text: gen; text: distribution; text: bits; args: args])
         | .UInt ->
-            inl args = ar, size1d
+            inl args = ar, SizeT size1d
             inl bits =
                 match elem_type with
                 | _ : uint32 -> "32" | _ : uint64 -> "64"
@@ -228,7 +226,7 @@ inl CudaKernels stream =
         set_stream_random random
         inl in' = to_1d in |> cuda_tensor_to_device_tensor
         inl len = length in'
-        in'.update_body (inl {ar} -> fill_random_array op len ar |> SizeT) |> ignore
+        in'.update_body (inl {ar} -> fill_random_array op len ar) |> ignore
 
     inl map f (!zip in) ret =
         inb out = create {dim=in.dim; elem_type = type (f (in.elem_type))}
@@ -251,7 +249,7 @@ inl CudaKernels stream =
 
     inl map_redo {map redo} (!zip in) ret =
         inl in' = to_1d in |> cuda_tensor_to_device_tensor
-        inl near_to = total_size (in'.size)
+        inl near_to = length in'
 
         assert (near_to > 0) "The input to map_redo must be non-empty."
 
@@ -259,13 +257,13 @@ inl CudaKernels stream =
             inl _ ->
                 inl tns = to_host_tensor out
                 inl load i = map (tns i .get)
-                Loops.for {from=1; near_to=total_size (tns.dim); state=load 0; body=inl {state i} -> redo state (load i)}
+                Loops.for {from=1; near_to=length tns; state=load 0; body=inl {state i} -> redo state (load i)}
             |> ret
 
         if near_to >= 128 then
             inl blockDim = 128
             inl gridDim = near_to / blockDim
-            inl elem_type = type (map (elem_type in))
+            inl elem_type = type (in.elem_type |> map)
             inl ty = elem_type
 
             inl cub_block_reduce thread_result redo =
@@ -276,7 +274,7 @@ inl CudaKernels stream =
                     text: ".Reduce"
                     args: thread_result, redo])
 
-            inb out = create {size=gridDim elem_type}
+            inb out = create {elem_type dim=gridDim}
             inl out' = cuda_tensor_to_device_tensor out
 
             run {
@@ -298,13 +296,13 @@ inl CudaKernels stream =
         else
             final_reduce map in
 
-
-    inl rows x = x.dim |> inl a,b -> a
-    inl cols x = x.dim |> inl a,b -> b
+    inl len {from near_to} = near_to - from
+    inl rows x = x.dim |> inl a,b -> len a
+    inl cols x = x.dim |> inl a,b -> len b
 
     /// General matrix-matrix multiply from cuBLAS. Inplace version
     inl gemm' transa transb alpha A B beta C =
-        inl A,B,C = Tuple.map cuda_tensor_to_device_tensor (A,B,C)
+        inl A,B,C = Tuple.map (inl x -> assert_contiguous x; cuda_tensor_to_device_tensor x) (A,B,C)
         set_stream_cublas cublas
         inl handle = FS.Method cublas .get_CublasHandle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
         inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
@@ -325,7 +323,9 @@ inl CudaKernels stream =
         inl gemv transa alpha A x beta o =
             inl m,n = A.size
             inl lda = m
-            call.cublasSgemv_v2(handle, to_operation transa, m, n, ref alpha, A.ar, lda, x.ar, 1, ref beta, o.ar, 1)
+            toa_iter3 (inl {ar=A} {ar=x} {ar=o} ->
+                call.cublasSgemv_v2(handle, to_operation transa, m, n, ref alpha, A, lda, x, 1, ref beta, o, 1)
+                ) (A.bodies) (x.bodies) (o.bodies)
 
         // A <- alpha * x * yT + beta * A (outer product)
         inl ger alpha x y beta a =
@@ -337,7 +337,9 @@ inl CudaKernels stream =
             | 1.0f64 | 1.0f32 -> ()
             | _ -> FS.Method context .ClearMemoryAsync (a.ar,0u8,total_size (a.size) * sizeof (a.ar.elem_type) |> SizeT,Stream.extract stream) unit
 
-            call.cublasSger_v2(handle, m, n, ref alpha, x.ar, 1, y.ar, 1, a.ar, m)
+            toa_iter3 (inl {ar=x} {ar=y} {ar=a} ->
+                call.cublasSger_v2(handle, m, n, ref alpha, x, 1, y, 1, a, m)
+                ) (x.bodies) (y.bodies) (a.bodies)
 
         // -------
 
@@ -353,7 +355,7 @@ inl CudaKernels stream =
         inl lda = if isnT transa then m else k
         inl ldb = if isnT transb then k else n
         inl ldc = m
-
+        
         assert (m = rows C && n = cols C) "Output matrix dimensions do not match in GEMM."
 
         // If is outer product call ger
@@ -367,7 +369,9 @@ inl CudaKernels stream =
             gemv optb alpha B A beta C
         // Just do the standard matrix multiply
         else
-            call.cublasSgemm_v2(handle,to_operation transa, to_operation transb, m, n, k, ref alpha, A.ar, lda, B.ar, ldb, ref beta, C.ar, ldc)
+            toa_iter3 (inl {ar=A} {ar=B} {ar=C} ->
+                call.cublasSgemm_v2(handle, to_operation transa, to_operation transb, m, n, k, ref alpha, A, lda, B, ldb, ref beta, C, ldc)
+                ) (A.bodies) (B.bodies) (C.bodies)
 
     inl gemm transa transb alpha A B ret =
         inl A_ty, B_ty = type(A), type(B)
@@ -376,7 +380,7 @@ inl CudaKernels stream =
         inl m = if isnT transa then rows A else cols A
         inl n = if isnT transb then cols B else rows B
 
-        inb C = create {size=m,n; elem_type = type (elem_type A)}
+        inb C = create {dim=m,n; elem_type = type (A.elem_type)}
         inl beta = match alpha with _: float32 -> 0f32 | _: float64 -> 0f64
         gemm' transa transb alpha A B beta C
         ret C
@@ -392,12 +396,10 @@ open CudaKernels (Stream.create())
 open Console
 
 inl test_random = 
-    //inl host_tensor = HostTensor.init 32 (unsafe_convert float32)
-    inm device_tensor = create {size=32; elem_type=float32}
+    inm device_tensor = create {dim=32; elem_type=float32}
     fill_random {op=.LogNormal; stddev=1.0f32; mean=0f32} device_tensor
-    inl {ar} = to_host_tensor device_tensor
-    succ (Array.show_array ar |> writeline)
-
+    to_host_tensor device_tensor |> show_tensor_all |> writeline |> succ
+    
 inl test_map = 
     inl host_tensor = HostTensor.init 32 (unsafe_convert float32)
     from_host_tensor host_tensor >>= map ((*) (dyn 2f32)) >>= (to_host_tensor >> show_tensor_all >> writeline >> succ)
@@ -409,8 +411,8 @@ inl test_map_redo =
     inl host_tensor = HostTensor.init (dyn 64) (unsafe_convert float32)
     from_host_tensor host_tensor >>= map_redo {map=id; redo=(+)} >>= force >>= joinm >>= (writeline >> succ)
 
-inl create_random_tensor op size =
-    inm device_tensor = create {size elem_type=float32}
+inl create_random_tensor op dim =
+    inm device_tensor = create {dim elem_type=float32}
     fill_random op device_tensor
     succ device_tensor
 
@@ -418,7 +420,7 @@ inl test_gemm =
     inl create' = create_random_tensor {op=.LogNormal; stddev=1.0f32; mean=0f32}
     inm a = create' (4,2)
     inm b = create' (2,4)
-    gemm .nT .nT 1.0f32 a b >>= (to_host_tensor >> HostTensor.show_tensor >> writeline >> succ)
+    gemm .nT .nT 1.0f32 a b >>= (to_host_tensor >> show_tensor_all >> writeline >> succ)
 
 inl test_forward_pass {num_iters} = 
     inl hidden_size = 10
@@ -454,7 +456,7 @@ inl test_forward_pass {num_iters} =
         |> heap
 
     Loops.for {from=0; near_to=num_iters; body = inl {i} ->
-        writeline ("On iteration ",i)
+        string_format "On iteration {0}" i |> writeline
         pass id
         }
     |> succ
@@ -462,7 +464,7 @@ inl test_forward_pass {num_iters} =
 inl learning_tests =
     test_random, test_map, test_map_redo, test_gemm, test_forward_pass {num_iters=100}
 
-test_map id
+test_forward_pass {num_iters=100} id
 
 //inl mnist_path = @"C:\Users\Marko\Documents\Visual Studio 2015\Projects\SpiralQ\SpiralQ\Tests"
 
@@ -529,11 +531,9 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = []
     }
 
-//output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
-
 //rewrite_test_cache cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
+output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
 |> printfn "%s"
 |> ignore
 
