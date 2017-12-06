@@ -179,13 +179,15 @@ type Op =
     | ShiftLeft
     | ShiftRight
 
-    // Application
-    | Fix
-    | Apply
-    | TermCast
+    // Join points
     | JoinPointEntryMethod
     | JoinPointEntryType
     | JoinPointEntryCuda
+    
+    // Application related
+    | Fix
+    | Apply
+    | TermCast // Term cast also places the closure join point directly.
     | TypeAnnot
 
     // Layout
