@@ -982,41 +982,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let apply_tev d expr args = apply d (tev d expr) (tev d args)
 
-        let inline vv_index_template f d v i =
-            let v,i = tev2 d v i
-            match v, i with
-            | TyList l, TyLitIndex i ->
-                match f i l with
-                | Some v -> v
-                | None -> on_type_er (trace d) "Tuple index not within bounds."
-            | v & TyType (ListT ts), TyLitIndex i -> failwith "The tuple should always be destructured."
-            | v, TyLitIndex i -> on_type_er (trace d) <| sprintf "Type of an evaluated expression in tuple index is not a tuple.\nGot: %s" (show_typedexpr v)
-            | v, i -> on_type_er (trace d) <| sprintf "Index into a tuple must be an at least a i32 less than the size of the tuple.\nGot: %s" (show_typedexpr i)
-
-        let vv_index d v i = vv_index_template List.tryItem d v i |> destructure d
-        let vv_slice_from d v i = 
-            let rec loop i l = 
-                if i = 0 then tyvv l |> Some
-                else
-                    match l with
-                    | x :: xs -> loop (i-1) xs
-                    | [] -> None
-            vv_index_template loop d v i
-
-        let inline vv_unop_template on_succ on_fail d v =
-            match tev d v with
-            | TyList l -> on_succ l
-            | v & TyType (ListT ts) -> failwith "The tuple should always be destructured."
-            | v -> on_fail v
-
-        let vv_length d = 
-            vv_unop_template (fun l -> l.Length |> int64 |> LitInt64 |> TyLit)
-                (fun v -> on_type_er (trace d) <| sprintf "Type of an evaluated expression in tuple index is not a tuple.\nGot: %s" (show_typedexpr v)) 
-                d
-                
-        let vv_is x = vv_unop_template (fun _ -> TyLit (LitBool true)) (fun _ -> TyLit (LitBool false)) x
-
-        let vv_cons d a b =
+        let list_cons d a b =
             let a, b = tev2 d a b
             match b with
             | TyList b -> tyvv(a::b)
@@ -1642,11 +1608,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ShiftLeft,[a;b] -> prim_shift_op d a b ShiftLeft
             | ShiftRight,[a;b] -> prim_shift_op d a b ShiftRight
 
-            | ListIndex,[a;b] -> vv_index d a b
-            | ListLength,[a] -> vv_length d a
-            | ListIs,[a] -> vv_is d a
-            | ListSliceFrom,[a;b] -> vv_slice_from d a b
-            | ListCons,[a;b] -> vv_cons d a b
+            | ListCons,[a;b] -> list_cons d a b
             | ListTakeN,[a;b;c;d'] -> list_taken d a b c d'
             | ListTakeNTail,[a;b;c;d'] -> list_taken_tail d a b c d'
 

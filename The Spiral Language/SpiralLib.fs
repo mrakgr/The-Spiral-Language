@@ -18,8 +18,6 @@ let tuple =
     (
     "Tuple",[],"Operations on tuples.",
     """
-inl index = Tuple.index // from Core
-inl length = Tuple.length
 inl singleton x = x :: ()
 inl head = function
     | x :: xs -> x
@@ -134,7 +132,6 @@ inl rec unzip_template on_irreg l =
 
 inl unzip = unzip_template regularity_guard
 inl unzip' = unzip_template id
-inl index = Tuple.index
 
 inl init_template k n f =
     inl rec loop n = 
@@ -167,8 +164,8 @@ inl rec intersperse sep = function
     | x :: xs -> x :: sep :: intersperse sep xs
     | _ -> error_type "Not a tuple."
 
-{index length head tail foldl foldr reduce scanl scanr rev map iter iteri iter2 forall exists 
- filter zip unzip index init repeat append singleton range tryFind contains intersperse wrap}
+{head tail foldl foldr reduce scanl scanr rev map iter iteri iter2 forall exists 
+ filter zip unzip init repeat append singleton range tryFind contains intersperse wrap}
     """) |> module_
 
 let loops =
@@ -1265,10 +1262,8 @@ inl Stream =
 
 inl run {blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} as runable =
     inl to_obj_ar args =
-        inl len = Tuple.length args
-        inl typ = fs [text: "System.Object"]
-        if len > 0 then Array.init.static len (inl x -> Tuple.index args (len-1-x) :> typ)
-        else Array.empty typ
+        inl ty = fs [text: "System.Object"] |> array
+        !MacroFs(ty,[fs_array_args: args; text: ": "; type: ty])
 
     inl kernel =
         inl map_to_op_if_not_static {x y z} (x', y', z') = 

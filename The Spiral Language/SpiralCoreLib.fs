@@ -52,7 +52,7 @@ inl ref x = !ReferenceCreate(x)
 inl array_create typ size = !ArrayCreate(size,typ)
 inl array_length ar = !ArrayLength(ar)
 inl array_is x = !ArrayIs(x)
-inl array t = type (Array.create t 1)
+inl array t = type (array_create t 1)
 
 inl (+) a b = !Add(a,b)
 inl (-) a b = !Sub(a,b)
@@ -79,10 +79,6 @@ inl (^^^) a b = !BitwiseXor(a,b)
 inl (::) a b = !ListCons(a,b)
 inl (<<<) a b = !ShiftLeft(a,b)
 inl (>>>) a b = !ShiftRight(a,b)
-inl Tuple = {
-    length = inl x -> !ListLength(x)
-    index = inl v i -> !ListIndex(v,i)
-    }
 
 inl fst x :: _ = x
 inl snd _ :: x :: _ = x
@@ -144,7 +140,7 @@ inl tanh x = !Tanh(x)
 {type_lit_lift error_type print_static dyn (\/) (=>) cuda fs log exp tanh array_create array_length array_is array
  split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
  string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref (+) (-) (*) (/) (%)
- (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>) Tuple fst snd not
+ (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>) fst snd not
  string_length lit_is box_is failwith assert max min eq_type module_values caseable_is (:>)
  (:?>) (=) module_map module_foldl module_foldr module_has_member sizeof string_format string_concat} |> stack
     """) |> module_
