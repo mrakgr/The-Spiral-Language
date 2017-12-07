@@ -108,15 +108,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
     let rec ap' f l = List.fold ap f l
 
-    let tuple_index' v i = (ListIndex,[v; i]) |> op
-    let tuple_index v i = tuple_index' v (lit_int i)
-    let tuple_length v = (ListLength,[v]) |> op
-    let tuple_slice_from v i = (ListSliceFrom,[v; lit_int i]) |> op
-    let tuple_is v = (ListIs,[v]) |> op
-
-    let module_is x = op (ModuleIs,[x])
-    let module_has_member a b = op (ModuleHasMember,[a;b])
-
     let if_static cond tr fl = (IfStatic,[cond;tr;fl]) |> op
     let case arg case = (Case,[arg;case]) |> op
     let binop op' a b = (op',[a;b]) |> op
@@ -219,7 +210,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let inline is_int64 a = is_int64' (get_type a)
 
     // #Prepass
-    
     let new_pat_var =
         let mutable i = 0
         let get_pattern_tag () = i <- i+1; i
@@ -236,61 +226,18 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             
             let pat_tuple l =
                 let count, args, on_succ = pat_tuple_helper l
-                case arg (op(ListTakeN,[lit (LitInt32 count); arg; on_fail; inl' args on_succ]))
+                case arg (op(ListTakeNCPS,[lit (LitInt32 count); arg; on_fail; inl' args on_succ]))
 
             let pat_cons l = 
                 let count, args, on_succ = pat_tuple_helper l
-                case arg (op(ListTakeNTail,[lit (LitInt32 (count-1)); arg; on_fail; inl' args on_succ]))
+                case arg (op(ListTakeNTailCPS,[lit (LitInt32 (count-1)); arg; on_fail; inl' args on_succ]))
 
             let pat_part_active a pat on_fail arg =
                 let pat_var = new_pat_var()
                 let on_succ = inl pat_var (cp (v pat_var) pat on_succ on_fail)
                 let on_fail = inl "" on_fail
                 ap' (v a) [arg; on_fail; on_succ]
-
             
-            let pat_module_is_module on_succ = if_static (module_is arg) on_succ on_fail
-
-            let inline pat_or cp arg l on_succ on_fail = List.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
-            let inline pat_and cp arg l on_succ on_fail = List.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
-
-            let rec pattern_module_compile arg pat on_succ on_fail =
-                let inline pat_bind name f =
-                    let memb = type_lit_lift (LitString name)
-                    let on_succ = f memb
-                    if_static (module_has_member arg memb) on_succ on_fail
-
-                match pat with
-                | PatMName name ->
-                    pat_bind name <| fun memb -> l name (ap arg memb) on_succ
-                | PatMRebind(name,pat) ->
-                    let pat_var = new_pat_var()
-                    pat_bind name <| fun memb -> l pat_var (ap arg memb) (cp (v pat_var) pat on_succ on_fail)
-                | PatMPattern pat -> cp arg pat on_succ on_fail
-                | PatMAnd l -> pat_and pattern_module_compile arg l on_succ on_fail
-                | PatMOr l -> pat_or pattern_module_compile arg l on_succ on_fail
-                | PatMXor l ->
-                    let state_var = new_pat_var()
-                    let state_var' = v state_var
-                    let bool x = lit <| LitBool x
-                    let rec just_one = function
-                        | x :: xs -> 
-                            let xs = just_one xs
-                            inl state_var (pattern_module_compile arg x (if_static state_var' on_fail (ap xs (bool true))) (ap xs state_var'))
-                        | [] -> inl state_var on_succ
-                    ap (just_one l) (bool false)
-                | PatMNot x -> pattern_module_compile arg x on_fail on_succ
-                | PatMInnerModule(name,pat) ->
-                    let pat_var = new_pat_var()
-                    let pat_var' = v pat_var
-                    let memb = type_lit_lift (LitString name)
-                
-                    pattern_module_compile pat_var' pat on_succ on_fail
-                    |> l name pat_var'
-                    |> l pat_var (ap arg memb)
-                    |> fun on_succ -> if_static (module_has_member arg memb) on_succ on_fail
-                    |> pat_module_is_module
-
             match pat with
             | E -> on_succ
             | PatVar x -> l x arg on_succ
@@ -315,8 +262,19 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | PatClauses _ -> failwith "Clauses should not appear inside other clauses."
                     | pat -> vv [type_lit_lift (LitString "var"); arg] |> pat_part_active a (pat' pat) on_fail
                 f id on_fail pat
-            | PatOr l -> pat_or cp arg l on_succ on_fail
-            | PatAnd l -> pat_and cp arg l on_succ on_fail
+            | PatOr l -> List.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
+            | PatAnd l -> List.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
+            | PatXor l ->
+                let state_var = new_pat_var()
+                let state_var' = v state_var
+                let bool x = lit <| LitBool x
+                let rec just_one = function
+                    | x :: xs -> 
+                        let xs = just_one xs
+                        inl state_var (cp arg x (if_static state_var' on_fail (ap xs (bool true))) (ap xs state_var'))
+                    | [] -> inl state_var on_succ
+                ap (just_one l) (bool false)
+            | PatNot p -> cp arg p on_fail on_succ
             | PatClauses l -> List.foldBack (fun (pat, exp) on_fail -> cp arg pat (expr_prepass exp |> snd) on_fail) l on_fail
             | PatTypeLit x -> 
                 if_static (eq_type arg (type_lit_lift x)) on_succ on_fail 
@@ -329,16 +287,13 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 let on_succ = if_static (eq arg x) on_succ on_fail
                 if_static (eq_type arg x) on_succ on_fail |> case arg
             | PatWhen (p, e) -> cp arg p (if_static e on_succ on_fail) on_fail
-            | PatModule(name,pat) ->
-                let pat_var = new_pat_var()
-                let pat_var' = v pat_var
-                pattern_module_compile pat_var' pat on_succ on_fail
-                |> fun x -> 
-                    match name with
-                    | Some name -> l name pat_var' x
-                    | None -> x
-                |> l pat_var arg
-                |> pat_module_is_module
+            | PatModuleIs p -> 
+                op(ModuleIsCPS,[arg;on_fail;cp arg p on_succ on_fail])
+                |> case arg
+            | PatModuleMember name -> op(ModuleMemberCPS,[arg;lit (LitString name);on_fail;inl name on_succ])
+            | PatModuleRebind(name,b) -> 
+                let arg' = new_pat_var()    
+                op(ModuleMemberCPS,[arg;lit (LitString name);on_fail;inl arg' (cp (v arg') b on_succ on_fail)])
             | PatPos p -> expr_pos p.Pos (cp arg p.Expression on_succ on_fail)
             | PatTypeClosure(a,b) ->
                 let range = cp (closure_range arg) b on_succ on_fail
@@ -444,10 +399,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let inline inner_compile x = expr_prepass x |> snd |> tev d
 
-        let inline v_find env x on_fail = 
+        let inline v_find env x on_fail on_succ = 
             let run env = 
                 match Map.tryFind x env with
-                | Some v -> v
+                | Some v -> on_succ v
                 | None -> on_fail()
             match env with
             | Env env -> run env
@@ -903,10 +858,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | MapTypeModule ->
                 match args with
                 | TypeString n ->
-                    let unpack () = v_find env_term n (fun () -> on_type_er (trace d) <| sprintf "Cannot find a member named %s inside the module." n)
+                    let inline unpack k = v_find env_term n (fun () -> on_type_er (trace d) <| sprintf "Cannot find a member named %s inside the module." n) k
                     match layout with
-                    | None -> unpack()
-                    | _ -> unpack() |> layout_boxed_unseal d recf
+                    | None -> unpack id
+                    | _ -> unpack (layout_boxed_unseal d recf)
                 | x -> on_type_er (trace d) "Expected a type level string in module application." 
 
         let term_cast d a b =
@@ -1277,7 +1232,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | ExprPos p -> loop acc p.Expression
                 | x -> on_type_er (trace d) <| sprintf "Only variable names are allowed in module create."
             let er n _ = on_type_er (trace d) <| sprintf "In module create, the variable %s was not found." n
-            let env = List.fold (fun s n -> Map.add n (v_find d.env n (er n)) s) Map.empty (loop [] l) |> Env
+            let env = List.fold (fun s n -> Map.add n (v_find d.env n (er n) id) s) Map.empty (loop [] l) |> Env
             tymap(env, MapTypeModule)
 
         let array_create d size typ =
@@ -1350,10 +1305,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 |> (type_lit_create' << LitString)
             | x -> TyB
 
-        let module_is d a =
+        let module_is_cps d a on_fail on_succ =
             match tev d a with
-            | M(_,_,MapTypeModule) -> TyLit (LitBool true)
-            | _ -> TyLit (LitBool false)
+            | M(_,_,MapTypeModule) -> tev d on_succ
+            | _ -> tev d on_fail
 
         let module_values d a =
             match tev d a with
@@ -1401,8 +1356,20 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | M(_,C env,MapTypeModule), b -> 
                 match b with
                 | TypeString b -> TyLit (LitBool <| Map.containsKey b env)
-                | x -> on_type_er (trace d) <| sprintf "Expecting a type literals as the second argument to ModuleHasMember.\n Got: %s" (show_typedexpr x)
-            | x,_ -> on_type_er (trace d) <| sprintf "Expecting a module as the first argument to ModuleHasMember.\n Got: %s" (show_typedexpr x)
+                | x -> on_type_er (trace d) <| sprintf "Expecting a type literal as the second argument to ModuleHasMember.\nGot: %s" (show_typedexpr x)
+            | x,_ -> on_type_er (trace d) <| sprintf "Expecting a module as the first argument to ModuleHasMember.\nGot: %s" (show_typedexpr x)
+
+        let module_member_cps d a b on_fail on_succ =
+            match tev2 d a b with
+            | M(layout,env_term,MapTypeModule) & recf, b -> 
+                match b with
+                | TyLit (LitString n) -> 
+                    let inline unpack k = v_find env_term n (fun () -> tev d on_fail) k
+                    match layout with
+                    | None -> unpack (apply d (tev d on_succ))
+                    | _ -> unpack (apply d (tev d on_succ) << layout_boxed_unseal d recf)
+                | x -> on_type_er (trace d) <| sprintf "Expecting a string as the second argument to ModuleMemberCPS.\nGot: %s" (show_typedexpr x)
+            | x,_ -> tev d on_fail
 
         let module_create d l =
             List.fold (fun env -> function
@@ -1530,7 +1497,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         match expr with
         | Lit (N value) -> TyLit value
-        | V (N x) -> v_find d.env x (fun () -> on_type_er (trace d) <| sprintf "Variable %s not bound." x) |> destructure d
+        | V (N x) -> v_find d.env x (fun () -> on_type_er (trace d) <| sprintf "Variable %s not bound." x) (destructure d)
         | FunctionFilt(N (vars,N (pat, body))) -> 
             let env = match d.env with | EnvUnfiltered (env,_) | Env env | EnvConsed (CN env) -> env
             tymap(EnvUnfiltered (env,vars), MapTypeFunction (pat, body))
@@ -1573,7 +1540,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ModuleCreate,l -> module_create d l
             | ModuleWith, l -> module_with d l
             | ModuleValues, [a] -> module_values d a
-            | ModuleIs,[a] -> module_is d a
+            | ModuleIsCPS,[a;b;c] -> module_is_cps d a b c
             | ModuleHasMember,[a;b] -> module_has_member d a b
             | ModuleMap,[a;b] -> module_map d a b
             | ModuleFoldL,[a;b;c] -> module_foldl d a b c
@@ -1609,8 +1576,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ShiftRight,[a;b] -> prim_shift_op d a b ShiftRight
 
             | ListCons,[a;b] -> list_cons d a b
-            | ListTakeN,[a;b;c;d'] -> list_taken d a b c d'
-            | ListTakeNTail,[a;b;c;d'] -> list_taken_tail d a b c d'
+            | ListTakeNCPS,[a;b;c;d'] -> list_taken d a b c d'
+            | ListTakeNTailCPS,[a;b;c;d'] -> list_taken_tail d a b c d'
 
             | TypeAnnot,[a;b] -> type_annot d a b
             | TypeUnion,[a;b] -> type_union d a b
@@ -1888,19 +1855,16 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let (^<|) a b = a b // High precedence, right associative <| operator
 
-        let rec pat_module_helper (names,bindings) = 
-            match names with
-            | [x] -> PatMInnerModule(x,bindings)
-            | x :: xs -> PatMInnerModule(x,pat_module_helper (xs,bindings))
-            | _ -> failwith "Invalid state"
-        
+        let rec pat_module_helper = function
+            | [n], bindings -> PatAnd [PatVar n; bindings]
+            | n :: n', bindings -> PatModuleRebind(n, pat_module_helper (n', bindings))
+            | [], _ -> failwith "impossible"
+
         let rec pat_module_outer expr s = 
             curlies (opt (attempt (sepBy1 var_name dot .>> with_)) .>>. pat_module_body expr)
             |>> function
-                | Some (n :: (_ :: _ as ns)), bindings -> PatModule(Some n, pat_module_helper (ns,bindings))
-                | Some [n], bindings -> PatModule(Some n,bindings)
-                | Some [], _ -> failwith "impossible"
-                | None, bindings -> PatModule(None,bindings)
+                | None, bindings -> bindings
+                | Some n, bindings -> pat_module_helper (n, bindings)
             <| s
 
         and pat_module_inner expr s = 
@@ -1908,29 +1872,18 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             |>> pat_module_helper <| s
 
         and pat_module_body expr s =
-            let bind = eq' >>. patterns_template expr
-            let pat_bind_fun (v,pat) =
-                match pat with
-                | Some pat -> 
-                    let rec loop = function
-                        | PatMName name -> PatMRebind(name,pat)
-                        | PatMRebind (name,_) as v  -> PatMAnd [v; PatMRebind(name,pat)]
-                        | (PatMInnerModule _ | PatMPattern _) as v -> PatMAnd [v;PatMPattern pat]
-                        | PatMAnd l -> PatMAnd <| List.map loop l
-                        | PatMOr l -> PatMOr <| List.map loop l
-                        | PatMXor l -> PatMXor <| List.map loop l
-                        | PatMNot x -> PatMNot (loop x)
-                    loop v
-                | None -> v
-                
-            let pat_name = var_name |>> PatMName
-            let pat_bind pat = (pat .>>. opt bind |>> pat_bind_fun) 
+            let pat_bind = 
+                var_name .>>. opt (eq >>. patterns_template expr) 
+                |>> function
+                    | name, None -> PatModuleMember name
+                    | name, Some p -> PatModuleRebind (name, p)
             let inline pat_template sep con pat = sepBy1 pat sep |>> function [x] -> x | x -> con x
-            let pat_not pat = (not_ >>. pat |>> PatMNot) <|> pat
-            let pat_xor pat = pat_template caret PatMXor pat
-            let pat_or pat = pat_template bar PatMOr pat
-            let pat_and pat = many pat |>> PatMAnd
-            pat_and ^<| pat_or ^<| pat_xor ^<| pat_not ^<| pat_bind ^<| choice [pat_name; pat_module_inner expr; rounds (pat_module_body expr)] <| s
+            let pat_not pat = (not_ >>. pat |>> PatNot) <|> pat
+            let pat_xor pat = pat_template caret PatXor pat
+            let pat_or pat = pat_template bar PatOr pat
+            let pat_and pat = many pat |>> (PatAnd >> PatModuleIs)
+            pat_and ^<| pat_or ^<| pat_xor ^<| pat_not ^<| choice [pat_bind; pat_module_inner expr; rounds (pat_module_body expr)] 
+            <| s
 
         and patterns_template expr s = // The order in which the pattern parsers are chained in determines their precedence.
             let inline recurse s = patterns_template expr s

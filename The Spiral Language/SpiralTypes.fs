@@ -131,19 +131,16 @@ type Op =
     | StringConcat
 
     // List
-    | ListIndex
-    | ListSliceFrom
+    | ListIndex // codegen only
     | ListCons
-    | ListLength
-    | ListIs
-    | ListTakeN
-    | ListTakeNTail
+    | ListTakeNCPS
+    | ListTakeNTailCPS
 
     // Module
     | ModuleCreate
     | ModuleWith
     | ModuleWithout
-    | ModuleIs
+    | ModuleIsCPS
     | ModuleValues
     | ModuleHasMember
     | ModuleMap
@@ -151,6 +148,7 @@ type Op =
     | ModuleFoldR
     | ModuleOpen
     | MapGetField // Codegen only
+    | ModuleMemberCPS
 
     // Box & caseable
     | CaseableIs
@@ -264,6 +262,7 @@ and Pattern =
     | PatTypeLitBind of string
     | PatLit of Value
     | PatWhen of Pattern * Expr
+    | PatModuleIs of Pattern
     | PatModuleMember of string
     | PatModuleRebind of string * Pattern
     | PatPos of Pos<Pattern>
