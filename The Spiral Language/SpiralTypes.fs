@@ -146,6 +146,7 @@ type Op =
     | ModuleIs
     | ModuleValues
     | ModuleHasMember
+    | ModuleMembers
     | ModuleMap
     | ModuleFoldL
     | ModuleFoldR
@@ -249,6 +250,7 @@ and MapType =
 and Pattern =
     | E
     | PatVar of string
+    | PatRebind of string * Pattern
     | PatTuple of Pattern list
     | PatCons of Pattern list
     | PatTypeEq of Pattern * Expr
@@ -261,7 +263,7 @@ and Pattern =
     | PatTypeLitBind of string
     | PatLit of Value
     | PatWhen of Pattern * Expr
-    | PatModule of string list * Pattern
+    | PatModule of Pattern list
     | PatPos of Pos<Pattern>
     | PatTypeClosure of Pattern * Pattern
 
