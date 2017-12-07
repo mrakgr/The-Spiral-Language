@@ -257,24 +257,17 @@ and Pattern =
     | PatExtActive of string * Pattern
     | PatOr of Pattern list
     | PatAnd of Pattern list
+    | PatXor of Pattern list
+    | PatNot of Pattern
     | PatClauses of (Pattern * Expr) list
     | PatTypeLit of Value
     | PatTypeLitBind of string
     | PatLit of Value
     | PatWhen of Pattern * Expr
-    | PatModule of string option * PatternModule
+    | PatModuleMember of string
+    | PatModuleRebind of string * Pattern
     | PatPos of Pos<Pattern>
     | PatTypeClosure of Pattern * Pattern
-
-and PatternModule =
-    | PatMAnd of PatternModule list
-    | PatMOr of PatternModule list
-    | PatMXor of PatternModule list
-    | PatMNot of PatternModule
-    | PatMInnerModule of string * PatternModule
-    | PatMName of string
-    | PatMRebind of string * Pattern
-    | PatMPattern of Pattern
 
 and Expr = 
     | V of Node<string>
