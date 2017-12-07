@@ -305,10 +305,12 @@ and method_10((var_0: int64), (var_1: int64), (var_2: int64), (var_3: (int64 [])
             method_10((var_0: int64), (var_1: int64), (var_2: int64), (var_3: (int64 [])), (var_4: int64), (var_5: int64), (var_6: string), (var_9: int64), (var_20: int64))
         else
             let (var_21: int64) = method_11((var_2: int64), (var_0: int64), (var_3: (int64 [])), (var_4: int64), (var_5: int64), (var_1: int64))
-            System.Console.WriteLine(var_21)
+            let (var_22: string) = System.String.Format("{0}",var_21)
+            System.Console.WriteLine(var_22)
     else
-        let (var_22: int64) = method_11((var_2: int64), (var_0: int64), (var_3: (int64 [])), (var_4: int64), (var_5: int64), (var_1: int64))
-        System.Console.WriteLine(var_22)
+        let (var_23: int64) = method_11((var_2: int64), (var_0: int64), (var_3: (int64 [])), (var_4: int64), (var_5: int64), (var_1: int64))
+        let (var_24: string) = System.String.Format("{0}",var_23)
+        System.Console.WriteLine(var_24)
 and method_11((var_0: int64), (var_1: int64), (var_2: (int64 [])), (var_3: int64), (var_4: int64), (var_5: int64)): int64 =
     method_12((var_1: int64), (var_2: (int64 [])), (var_4: int64), (var_5: int64), (var_0: int64), (var_3: int64))
 and method_12((var_0: int64), (var_1: (int64 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64)): int64 =

@@ -111,9 +111,11 @@ and method_2((var_0: int64), (var_1: string), (var_2: int64), (var_3: int64)): u
         if var_14 then
             method_2((var_0: int64), (var_1: string), (var_4: int64), (var_15: int64))
         else
-            System.Console.WriteLine(var_0)
+            let (var_16: string) = System.String.Format("{0}",var_0)
+            System.Console.WriteLine(var_16)
     else
-        System.Console.WriteLine(var_0)
+        let (var_17: string) = System.String.Format("{0}",var_0)
+        System.Console.WriteLine(var_17)
 let (var_0: string) = "1 2 3"
 let (var_1: int64) = 0L
 let (var_2: bool) = (var_1 >= 0L)

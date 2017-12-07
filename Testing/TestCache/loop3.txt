@@ -6,5 +6,5 @@ extern "C" {
 }
 """
 
-System.Console.WriteLine(14L)
+System.Console.WriteLine("14")
 

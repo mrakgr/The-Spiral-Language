@@ -136,8 +136,8 @@ type Op =
     | ListCons
     | ListLength
     | ListIs
-    | ListHead
-    | ListTail
+    | ListTakeN
+    | ListTakeNTail
 
     // Module
     | ModuleCreate

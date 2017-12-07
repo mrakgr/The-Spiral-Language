@@ -102,43 +102,55 @@ method_0((var_3: EnvHeapMutable0), (var_6: int64))
 let (var_7: int64) = 4L
 method_0((var_3: EnvHeapMutable0), (var_7: int64))
 let (var_8: int64) = method_4((var_3: EnvHeapMutable0))
-System.Console.WriteLine(var_8)
-let (var_9: int64) = method_4((var_3: EnvHeapMutable0))
+let (var_9: string) = System.String.Format("{0}",var_8)
 System.Console.WriteLine(var_9)
-let (var_10: int64) = 1L
-method_0((var_3: EnvHeapMutable0), (var_10: int64))
-let (var_11: int64) = 2L
-method_0((var_3: EnvHeapMutable0), (var_11: int64))
-let (var_12: int64) = 3L
+let (var_10: int64) = method_4((var_3: EnvHeapMutable0))
+let (var_11: string) = System.String.Format("{0}",var_10)
+System.Console.WriteLine(var_11)
+let (var_12: int64) = 1L
 method_0((var_3: EnvHeapMutable0), (var_12: int64))
-let (var_13: int64) = 4L
+let (var_13: int64) = 2L
 method_0((var_3: EnvHeapMutable0), (var_13: int64))
-let (var_14: int64) = 1L
+let (var_14: int64) = 3L
 method_0((var_3: EnvHeapMutable0), (var_14: int64))
-let (var_15: int64) = 2L
+let (var_15: int64) = 4L
 method_0((var_3: EnvHeapMutable0), (var_15: int64))
-let (var_16: int64) = 3L
+let (var_16: int64) = 1L
 method_0((var_3: EnvHeapMutable0), (var_16: int64))
-let (var_17: int64) = 4L
+let (var_17: int64) = 2L
 method_0((var_3: EnvHeapMutable0), (var_17: int64))
-let (var_18: int64) = method_4((var_3: EnvHeapMutable0))
-System.Console.WriteLine(var_18)
-let (var_19: int64) = method_4((var_3: EnvHeapMutable0))
-System.Console.WriteLine(var_19)
+let (var_18: int64) = 3L
+method_0((var_3: EnvHeapMutable0), (var_18: int64))
+let (var_19: int64) = 4L
+method_0((var_3: EnvHeapMutable0), (var_19: int64))
 let (var_20: int64) = method_4((var_3: EnvHeapMutable0))
-System.Console.WriteLine(var_20)
-let (var_21: int64) = method_4((var_3: EnvHeapMutable0))
+let (var_21: string) = System.String.Format("{0}",var_20)
 System.Console.WriteLine(var_21)
 let (var_22: int64) = method_4((var_3: EnvHeapMutable0))
-System.Console.WriteLine(var_22)
-let (var_23: int64) = method_4((var_3: EnvHeapMutable0))
+let (var_23: string) = System.String.Format("{0}",var_22)
 System.Console.WriteLine(var_23)
 let (var_24: int64) = method_4((var_3: EnvHeapMutable0))
-System.Console.WriteLine(var_24)
-let (var_25: int64) = method_4((var_3: EnvHeapMutable0))
+let (var_25: string) = System.String.Format("{0}",var_24)
 System.Console.WriteLine(var_25)
 let (var_26: int64) = method_4((var_3: EnvHeapMutable0))
-System.Console.WriteLine(var_26)
-let (var_27: int64) = method_4((var_3: EnvHeapMutable0))
+let (var_27: string) = System.String.Format("{0}",var_26)
 System.Console.WriteLine(var_27)
+let (var_28: int64) = method_4((var_3: EnvHeapMutable0))
+let (var_29: string) = System.String.Format("{0}",var_28)
+System.Console.WriteLine(var_29)
+let (var_30: int64) = method_4((var_3: EnvHeapMutable0))
+let (var_31: string) = System.String.Format("{0}",var_30)
+System.Console.WriteLine(var_31)
+let (var_32: int64) = method_4((var_3: EnvHeapMutable0))
+let (var_33: string) = System.String.Format("{0}",var_32)
+System.Console.WriteLine(var_33)
+let (var_34: int64) = method_4((var_3: EnvHeapMutable0))
+let (var_35: string) = System.String.Format("{0}",var_34)
+System.Console.WriteLine(var_35)
+let (var_36: int64) = method_4((var_3: EnvHeapMutable0))
+let (var_37: string) = System.String.Format("{0}",var_36)
+System.Console.WriteLine(var_37)
+let (var_38: int64) = method_4((var_3: EnvHeapMutable0))
+let (var_39: string) = System.String.Format("{0}",var_38)
+System.Console.WriteLine(var_39)
 

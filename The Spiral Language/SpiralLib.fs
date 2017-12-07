@@ -761,8 +761,12 @@ inl readall () =
     |> inl x -> FS.Method x.ReadToEnd() string
 inl readline () = FS.StaticMethod console_type .ReadLine() string
 
-inl write x = FS.StaticMethod console_type .Write (show x) unit
-inl writeline x = FS.StaticMethod console_type .WriteLine (show x) unit
+inl write = function
+    | () -> ()
+    | x -> FS.StaticMethod console_type .Write (show x) unit
+inl writeline = function
+    | () -> FS.StaticMethod console_type .WriteLine () unit
+    | x -> FS.StaticMethod console_type .WriteLine (show x) unit
 
 inl printf_template cont = 
     Parsing.sprintf_template write {

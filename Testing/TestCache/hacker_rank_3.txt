@@ -1025,7 +1025,8 @@ and method_29((var_0: string), (var_1: Rec3)): unit =
     | Union6Case0(var_3) ->
         let (var_4: Tuple7) = var_3.mem_0
         let (var_5: string) = var_4.mem_0
-        System.Console.WriteLine(var_5)
+        let (var_6: string) = System.String.Format("{0}",var_5)
+        System.Console.WriteLine(var_6)
     | Union6Case1 ->
         (failwith "Error: No moves taken.")
 and method_32((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: string), (var_5: EnvHeapMutable2), (var_6: string), (var_7: string), (var_8: string), (var_9: Tuple4), (var_10: Rec3)): unit =

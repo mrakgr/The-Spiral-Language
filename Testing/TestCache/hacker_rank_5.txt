@@ -401,22 +401,24 @@ and method_9((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64), (va
                     2L
                 else
                     1L
-            System.Console.WriteLine(var_23)
+            let (var_24: string) = System.String.Format("{0}",var_23)
+            System.Console.WriteLine(var_24)
             method_3((var_4: string), (var_2: int64), (var_3: int64), (var_6: int64))
     else
-        let (var_24: bool) = (var_0 = 1L)
-        let (var_27: bool) =
-            if var_24 then
+        let (var_25: bool) = (var_0 = 1L)
+        let (var_28: bool) =
+            if var_25 then
                 true
             else
-                let (var_25: int64) = (var_1 % 2L)
-                (var_25 = 0L)
-        let (var_28: int64) =
-            if var_27 then
+                let (var_26: int64) = (var_1 % 2L)
+                (var_26 = 0L)
+        let (var_29: int64) =
+            if var_28 then
                 2L
             else
                 1L
-        System.Console.WriteLine(var_28)
+        let (var_30: string) = System.String.Format("{0}",var_29)
+        System.Console.WriteLine(var_30)
         method_3((var_4: string), (var_2: int64), (var_3: int64), (var_6: int64))
 let (var_0: System.IO.Stream) = System.Console.OpenStandardInput()
 let (var_1: System.IO.StreamReader) = System.IO.StreamReader(var_0)

@@ -30,5 +30,6 @@ let (var_0: int64) = 3L
 let (var_1: int64) = 999L
 let (var_2: int64) = 0L
 let (var_3: int64) = method_0((var_1: int64), (var_0: int64), (var_2: int64))
-System.Console.WriteLine(var_3)
+let (var_4: string) = System.String.Format("{0}",var_3)
+System.Console.WriteLine(var_4)
 

@@ -25,7 +25,8 @@ if var_5 then
             false
     let (var_10: int64) = (var_1 + 1L)
     if var_9 then
-        System.Console.WriteLine(var_6)
+        let (var_11: string) = System.String.Format("{0}",var_6)
+        System.Console.WriteLine(var_11)
     else
         (failwith "digit")
 else

@@ -424,6 +424,8 @@ and method_18((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64)
         let (var_178: Tuple5) = var_177.mem_0
         let (var_179: Tuple4) = var_178.mem_0
         let (var_180: Rec6) = var_178.mem_1
+        let (var_181: int64) = var_179.mem_0
+        let (var_182: int64) = var_179.mem_1
         method_23((var_180: Rec6))
     | Union7Case1 ->
         method_18((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: string), (var_5: string), (var_6: string), (var_7: string), (var_8: (Union7 ref)), (var_170: (Tuple5 [])))
@@ -915,7 +917,8 @@ and method_23((var_0: Rec6)): unit =
         let (var_2: string) = var_1.mem_0
         let (var_3: Rec6) = var_1.mem_1
         method_23((var_3: Rec6))
-        System.Console.WriteLine(var_2)
+        let (var_4: string) = System.String.Format("{0}",var_2)
+        System.Console.WriteLine(var_4)
 and method_9((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64)): Env1 =
     let (var_5: bool) = (var_3 < var_2)
     if var_5 then

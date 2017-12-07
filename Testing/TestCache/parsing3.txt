@@ -30,7 +30,8 @@ let rec method_0((var_0: string), (var_1: int64), (var_2: string), (var_3: int64
         else
             (failwith "string index out of bounds")
     else
-        System.Console.WriteLine(var_2)
+        let (var_15: string) = System.String.Format("{0}",var_2)
+        System.Console.WriteLine(var_15)
 let (var_0: string) = "qwe"
 let (var_1: string) = "qwerty"
 let (var_2: int64) = 0L

@@ -238,16 +238,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 loop 0L l, len
             
             let pat_tuple l' =
-                pat_foldbacki
-                    (fun (pat,i) on_succ ->
-                        let arg = tuple_index arg i
-                        cp arg pat on_succ on_fail)
-                    on_succ
-                    l'
-                |> fun (on_succ,len) -> 
-                    if_static (eq (tuple_length arg) (lit_int len)) on_succ on_fail
-                    |> fun on_succ -> if_static (tuple_is arg) on_succ on_fail
-                    |> case arg
+                let count, args, on_succ = 
+                    List.foldBack (fun pat (c,s,on_succ) -> 
+                        let arg = new_pat_var()
+                        c + 1, arg :: s,cp (v arg) pat on_succ on_fail) l' (0,[],on_succ)
+                case arg (op(ListTakeN,[lit (LitInt32 count); arg; on_fail; inl' args on_succ]))
 
             let pat_cons l = 
                 pat_foldbacki
@@ -854,7 +849,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 else
                     TyOp(StringFormat,a :: l,PrimT StringT)
             | TyType (PrimT StringT) & a, TyTuple (_ :: _ as l) -> TyOp(StringFormat,a :: l,PrimT StringT)
-            | TyType (PrimT StringT), b -> on_type_er (trace d) <| sprintf "Expected a non_empty tuple as the second argument to string format.\nGot: %s" (show_typedexpr b)
+            | TyType (PrimT StringT), b -> on_type_er (trace d) <| sprintf "Expected a non-empty tuple as the second argument to string format.\nGot: %s" (show_typedexpr b)
             | a, _ -> on_type_er (trace d) <| sprintf "Expected a string as the first argument to string format.\nGot: %s" (show_typedexpr a)
 
         let string_concat d sep l =
@@ -1035,15 +1030,28 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 
         let vv_is x = vv_unop_template (fun _ -> TyLit (LitBool true)) (fun _ -> TyLit (LitBool false)) x
 
-        let eq_type d a b =
-            let a, b = tev2 d a b 
-            LitBool (get_type a = get_type b) |> TyLit
-    
         let vv_cons d a b =
             let a, b = tev2 d a b
             match b with
             | TyList b -> tyvv(a::b)
             | _ -> on_type_er (trace d) "Expected a tuple on the right in ListCons."
+
+        let list_taken d a arg on_fail on_succ =
+            match tev d a with
+            | TyLitIndex c -> 
+                match tev d arg with
+                | TyList args ->
+                    let rec loop args = function
+                        | 0,[] -> List.foldBack (fun arg on_succ -> apply d on_succ arg) args (tev d on_succ)
+                        | _,[] | 0, _ -> tev d on_fail
+                        | c,x :: x' -> loop (x :: args) (c-1,x')
+                    loop [] (c,args)
+                | _ -> tev d on_fail
+            | _ -> on_type_er (trace d) "Expected an int literal as the first input to ListTakeN."
+
+        let eq_type d a b =
+            let a, b = tev2 d a b 
+            LitBool (get_type a = get_type b) |> TyLit
 
         let module_open d a b =
             match tev d a with
@@ -1644,6 +1652,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ListIs,[a] -> vv_is d a
             | ListSliceFrom,[a;b] -> vv_slice_from d a b
             | ListCons,[a;b] -> vv_cons d a b
+            | ListTakeN,[a;b;c;d'] -> list_taken d a b c d'
 
             | TypeAnnot,[a;b] -> type_annot d a b
             | TypeUnion,[a;b] -> type_union d a b

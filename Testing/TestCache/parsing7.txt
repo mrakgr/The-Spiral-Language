@@ -163,7 +163,8 @@ and method_3((var_0: (int64 [])), (var_1: int64), (var_2: string), (var_3: int64
         let (var_21: Tuple0) = method_7((var_0: (int64 [])), (var_19: int64), (var_20: int64), (var_18: int64), (var_1: int64))
         let (var_22: int64) = var_21.mem_0
         let (var_23: int64) = var_21.mem_1
-        System.Console.WriteLine(var_22)
+        let (var_24: string) = System.String.Format("{0}",var_22)
+        System.Console.WriteLine(var_24)
 and method_4((var_0: bool), (var_1: (int64 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: string), (var_7: int64)): unit =
     let (var_8: bool) = (var_7 >= 0L)
     let (var_11: bool) =

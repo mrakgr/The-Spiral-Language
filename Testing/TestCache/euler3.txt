@@ -88,7 +88,8 @@ match var_10 with
 | Union0Case0(var_11) ->
     let (var_12: Tuple1) = var_11.mem_0
     let (var_13: int64) = var_12.mem_0
-    System.Console.WriteLine(var_13)
+    let (var_14: string) = System.String.Format("{0}",var_13)
+    System.Console.WriteLine(var_14)
 | Union0Case1 ->
     (failwith "No prime factor found!")
 

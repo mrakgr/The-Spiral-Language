@@ -77,5 +77,6 @@ let rec method_0((var_0: int64), (var_1: int64)): int64 =
 let (var_0: int64) = System.Int64.MaxValue
 let (var_1: int64) = 1385670L
 let (var_2: int64) = method_0((var_0: int64), (var_1: int64))
-System.Console.WriteLine(var_2)
+let (var_3: string) = System.String.Format("{0}",var_2)
+System.Console.WriteLine(var_3)
 

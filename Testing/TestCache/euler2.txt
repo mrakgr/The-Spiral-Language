@@ -34,5 +34,6 @@ let (var_3: Env0) = method_0((var_1: int64), (var_2: int64), (var_0: int64))
 let (var_4: int64) = var_3.mem_0
 let (var_5: int64) = var_3.mem_1
 let (var_6: int64) = var_3.mem_2
-System.Console.WriteLine(var_6)
+let (var_7: string) = System.String.Format("{0}",var_6)
+System.Console.WriteLine(var_7)
 
