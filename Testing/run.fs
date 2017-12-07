@@ -464,7 +464,7 @@ inl test_forward_pass {num_iters} =
 inl learning_tests =
     test_random, test_map, test_map_redo, test_gemm, test_forward_pass {num_iters=100}
 
-test_forward_pass {num_iters=100} id
+test_map id
 
 //inl mnist_path = @"C:\Users\Marko\Documents\Visual Studio 2015\Projects\SpiralQ\SpiralQ\Tests"
 
