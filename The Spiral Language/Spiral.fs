@@ -229,32 +229,18 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let rec pattern_compile arg pat on_succ on_fail =
             let inline cp arg pat on_succ on_fail = pattern_compile arg pat on_succ on_fail
 
-            let inline pat_foldbacki f s l =
-                let mutable len = 0L
-                let rec loop i l =
-                    match l with
-                    | x :: xs -> f (x,i) (loop (i+1L) xs)
-                    | [] -> len <- i; s
-                loop 0L l, len
+            let pat_tuple_helper l =
+                List.foldBack (fun pat (c,s,on_succ) -> 
+                    let arg = new_pat_var()
+                    c + 1, arg :: s,cp (v arg) pat on_succ on_fail) l (0,[],on_succ)
             
-            let pat_tuple l' =
-                let count, args, on_succ = 
-                    List.foldBack (fun pat (c,s,on_succ) -> 
-                        let arg = new_pat_var()
-                        c + 1, arg :: s,cp (v arg) pat on_succ on_fail) l' (0,[],on_succ)
+            let pat_tuple l =
+                let count, args, on_succ = pat_tuple_helper l
                 case arg (op(ListTakeN,[lit (LitInt32 count); arg; on_fail; inl' args on_succ]))
 
             let pat_cons l = 
-                pat_foldbacki
-                    (fun (pat,i) (on_succ, tuple_index') ->
-                        let arg = tuple_index' arg i
-                        cp arg pat on_succ on_fail, tuple_index)
-                    (on_succ, tuple_slice_from)
-                    l
-                |> fun ((on_succ,_),len) -> 
-                    if_static (gte (tuple_length arg) (lit_int (len-1L))) on_succ on_fail
-                    |> fun on_succ -> if_static (tuple_is arg) on_succ on_fail
-                    |> case arg
+                let count, args, on_succ = pat_tuple_helper l
+                case arg (op(ListTakeNTail,[lit (LitInt32 (count-1)); arg; on_fail; inl' args on_succ]))
 
             let pat_part_active a pat on_fail arg =
                 let pat_var = new_pat_var()
@@ -1036,18 +1022,27 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyList b -> tyvv(a::b)
             | _ -> on_type_er (trace d) "Expected a tuple on the right in ListCons."
 
-        let list_taken d a arg on_fail on_succ =
+        let inline list_taken_template op_name loop d a arg on_fail on_succ = 
             match tev d a with
             | TyLitIndex c -> 
                 match tev d arg with
-                | TyList args ->
-                    let rec loop args = function
-                        | 0,[] -> List.foldBack (fun arg on_succ -> apply d on_succ arg) args (tev d on_succ)
-                        | _,[] | 0, _ -> tev d on_fail
-                        | c,x :: x' -> loop (x :: args) (c-1,x')
-                    loop [] (c,args)
+                | TyList args -> loop [] (c,args)
                 | _ -> tev d on_fail
-            | _ -> on_type_er (trace d) "Expected an int literal as the first input to ListTakeN."
+            | x -> on_type_er (trace d) "Expected an int literal as the first input to %s.\nGot: %s" op_name (show_typedexpr x)
+
+        let list_taken d a arg on_fail on_succ =
+            let rec loop args = function
+                | 0,[] -> List.foldBack (fun arg on_succ -> apply d on_succ arg) args (tev d on_succ)
+                | _,[] | 0, _ -> tev d on_fail
+                | c,x :: x' -> loop (x :: args) (c-1,x')
+            list_taken_template "ListTakeN" loop d a arg on_fail on_succ
+
+        let list_taken_tail d a arg on_fail on_succ =
+            let rec loop args = function
+                | 0,x' -> List.foldBack (fun arg on_succ -> apply d on_succ arg) (tyvv x' :: args) (tev d on_succ)
+                | _,[] -> tev d on_fail
+                | c,x :: x' -> loop (x :: args) (c-1,x')
+            list_taken_template "ListTakeNTail" loop d a arg on_fail on_succ
 
         let eq_type d a b =
             let a, b = tev2 d a b 
@@ -1653,6 +1648,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ListSliceFrom,[a;b] -> vv_slice_from d a b
             | ListCons,[a;b] -> vv_cons d a b
             | ListTakeN,[a;b;c;d'] -> list_taken d a b c d'
+            | ListTakeNTail,[a;b;c;d'] -> list_taken_tail d a b c d'
 
             | TypeAnnot,[a;b] -> type_annot d a b
             | TypeUnion,[a;b] -> type_union d a b
