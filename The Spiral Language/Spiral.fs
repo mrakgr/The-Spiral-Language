@@ -239,7 +239,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 ap' (v a) [arg; on_fail; on_succ]
             
             match pat with
-            | E -> on_succ
+            | PatE -> on_succ
             | PatVar x -> l x arg on_succ
             | PatTypeEq (exp,typ) ->
                 let on_succ = cp arg exp on_succ on_fail
@@ -1542,6 +1542,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ModuleValues, [a] -> module_values d a
             | ModuleIsCPS,[a;b;c] -> module_is_cps d a b c
             | ModuleHasMember,[a;b] -> module_has_member d a b
+            | ModuleMemberCPS,[a;b;c;d'] -> module_member_cps d a b c d'
             | ModuleMap,[a;b] -> module_map d a b
             | ModuleFoldL,[a;b;c] -> module_foldl d a b c
             | ModuleFoldR,[a;b;c] -> module_foldr d a b c
@@ -1819,7 +1820,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 |]
             <| s
 
-        let pat_e = wildcard >>% E
+        let pat_e = wildcard >>% PatE
         let pat_var = var_name |>> PatVar
         let pat_tuple pattern = sepBy1 pattern comma |>> function [x] -> x | x -> PatTuple x
         let pat_cons pattern = sepBy1 pattern cons |>> function [x] -> x | x -> PatCons x
@@ -1855,34 +1856,45 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let (^<|) a b = a b // High precedence, right associative <| operator
 
-        let rec pat_module_helper = function
-            | [n], bindings -> PatAnd [PatVar n; bindings]
-            | n :: n', bindings -> PatModuleRebind(n, pat_module_helper (n', bindings))
-            | [], _ -> failwith "impossible"
+        let inline pat_module_nested x b = List.foldBack (fun x b -> PatModuleRebind(x,PatAnd [PatVar x; b])) x b
 
         let rec pat_module_outer expr s = 
-            curlies (opt (attempt (sepBy1 var_name dot .>> with_)) .>>. pat_module_body expr)
-            |>> function
-                | None, bindings -> bindings
-                | Some n, bindings -> pat_module_helper (n, bindings)
-            <| s
+            curlies
+                (pipe2 
+                    (opt (attempt (sepBy1 var_name dot .>> with_))) (pat_module_body expr)
+                    (fun n bindings ->
+                        match n with
+                        | None -> PatModuleIs bindings
+                        | Some [] -> failwith "impossible"
+                        | Some (n :: n') -> PatAnd [PatVar n; pat_module_nested n' bindings]))
+                s
 
         and pat_module_inner expr s = 
-            curlies ((sepBy1 var_name dot .>> with_) .>>. pat_module_body expr) 
-            |>> pat_module_helper <| s
+            curlies (pipe2 (sepBy1 var_name dot .>> with_) (pat_module_body expr) pat_module_nested) s
 
         and pat_module_body expr s =
-            let pat_bind = 
-                var_name .>>. opt (eq >>. patterns_template expr) 
+            let pat_name = var_name |>> PatModuleMember
+            let inline pat_bind pat = 
+                pat .>>. opt (eq >>. patterns_template expr) 
                 |>> function
-                    | name, None -> PatModuleMember name
-                    | name, Some p -> PatModuleRebind (name, p)
+                    | v, None -> v
+                    | v, Some pat ->
+                        let rec loop = function
+                            | PatModuleMember name -> PatModuleRebind(name,pat)
+                            | PatModuleRebind (name,_) as v  -> PatAnd [v; PatModuleRebind(name,pat)]
+                            | PatModuleIs x -> PatModuleIs (loop x)
+                            | PatAnd l -> PatAnd <| List.map loop l
+                            | PatOr l -> PatOr <| List.map loop l
+                            | PatXor l -> PatXor <| List.map loop l
+                            | PatNot x -> PatNot (loop x)
+                            | x -> failwithf "Compiler error: Pattern %A not supported." x
+                        loop v
             let inline pat_template sep con pat = sepBy1 pat sep |>> function [x] -> x | x -> con x
-            let pat_not pat = (not_ >>. pat |>> PatNot) <|> pat
-            let pat_xor pat = pat_template caret PatXor pat
-            let pat_or pat = pat_template bar PatOr pat
-            let pat_and pat = many pat |>> (PatAnd >> PatModuleIs)
-            pat_and ^<| pat_or ^<| pat_xor ^<| pat_not ^<| choice [pat_bind; pat_module_inner expr; rounds (pat_module_body expr)] 
+            let inline pat_not pat = (not_ >>. pat |>> PatNot) <|> pat
+            let inline pat_xor pat = pat_template caret PatXor pat
+            let inline pat_or pat = pat_template bar PatOr pat
+            let inline pat_and pat = many pat |>> PatAnd
+            pat_and ^<| pat_or ^<| pat_xor ^<| pat_not ^<| pat_bind ^<| choice [pat_name; pat_module_inner expr; rounds (pat_module_body expr)] 
             <| s
 
         and patterns_template expr s = // The order in which the pattern parsers are chained in determines their precedence.

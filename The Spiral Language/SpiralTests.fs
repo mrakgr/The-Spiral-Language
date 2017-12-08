@@ -1325,7 +1325,9 @@ inl princess_pos = dyn (0,0)
 inl mario_pos = dyn (1,1)
 inl n = dyn 5
 met rec row {from=r near_to state} as d =
+    print_static "I am in row."
     met rec col {from=c near_to state} as d =
+        print_static "I am in col."
         if c < near_to then
             printfn "I am at (%i,%i)" r c
             inl ret = function

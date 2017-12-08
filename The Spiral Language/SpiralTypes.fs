@@ -245,7 +245,7 @@ and MapType =
     | MapTypeModule
 
 and Pattern =
-    | E
+    | PatE
     | PatVar of string
     | PatTuple of Pattern list
     | PatCons of Pattern list
