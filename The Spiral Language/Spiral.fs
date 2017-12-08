@@ -727,12 +727,12 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | _ -> []
                             
                 match map_cases (case_type d t |> List.map (make_up_vars_for_ty d)) with
-                | (_, TyType p) :: _ as cases -> 
+                | (_, TyType p) :: cases as cases' -> 
                     if List.forall (fun (_, TyType x) -> x = p) cases then 
-                        TyOp(Case,v :: List.collect (fun (a,b) -> [a;b]) cases, p) 
+                        TyOp(Case,v :: List.collect (fun (a,b) -> [a;b]) cases', p) 
                         |> make_tyv_and_push_typed_expr_even_if_unit d
                     else 
-                        let l = List.map (snd >> get_type) cases
+                        let l = List.map (snd >> get_type) cases'
                         on_type_er (trace d) <| sprintf "All the cases in pattern matching clause with dynamic data must have the same type.\nGot: %s" (listt l |> show_ty)
                 | _ -> failwith "There should always be at least one clause here."
             | _ -> tev d case
@@ -827,7 +827,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let (|M|_|) = function
             | TyMap(env,t) -> Some (None,env,t)
-            | TyType(LayoutT(layout,env,t)) -> Some (Some layout,env,t)
+            | (TyV(_,LayoutT(layout,env,t)) | TyT(LayoutT(layout,env,t))) -> Some (Some layout,env,t)
             | _ -> None
 
         let inline env_add a b env =
@@ -894,29 +894,36 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyLit (LitString str), TyLitIndex x -> 
                 if x >= 0 && x < str.Length then TyLit(LitChar str.[x])
                 else on_type_er (trace d) "The index into a string literal is out of bounds."
-            // apply_array
-            | ar & TyType(ArrayT(array_ty,elem_ty)), idx ->
-                match array_ty, idx with
-                | _, TypeString x -> 
-                    if x = "elem_type" then elem_ty |> tyt
-                    else on_type_er (trace d) <| sprintf "Unknown type string applied to array. Got: %s" x
-                | (ArtDotNetHeap | ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal), idx when is_int idx -> TyOp(ArrayIndex,[ar;idx],elem_ty) |> make_tyv_and_push_typed_expr d
-                | (ArtDotNetHeap | ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal), idx -> on_type_er (trace d) <| sprintf "The index into an array is not an int. Got: %s" (show_typedexpr idx)
-                | ArtDotNetReference, TyList [] -> TyOp(ArrayIndex,[ar;idx],elem_ty) |> make_tyv_and_push_typed_expr d
-                | ArtDotNetReference, _ -> on_type_er (trace d) <| sprintf "The index into a reference is not a unit. Got: %s" (show_typedexpr idx)
-            // apply_string
-            | TyType(PrimT StringT) & str, TyList [a;b] -> 
-                if is_int a && is_int b then TyOp(StringSlice,[str;a;b],PrimT StringT) |> destructure d
-                else on_type_er (trace d) "Expected an int as the second argument to string index."
-            | TyType(PrimT StringT) & str, idx -> 
-                if is_int idx then TyOp(StringIndex,[str;idx],PrimT CharT) |> destructure d
-                else on_type_er (trace d) "Expected an int as the second argument to string index."
-            // apply_closure
-            | closure & TyType(TermFunctionT (clo_arg_ty,clo_ret_ty)), args -> 
-                let arg_ty = get_type args
-                if arg_ty <> clo_arg_ty then on_type_er (trace d) <| sprintf "Cannot apply an argument of type %s to closure (%s => %s)." (show_ty arg_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
-                else TyOp(Apply,[closure;args],clo_ret_ty) |> make_tyv_and_push_typed_expr_even_if_unit d
-            | a,b -> on_type_er (trace d) <| sprintf "Invalid use of apply. %s and %s" (show_typedexpr a) (show_typedexpr b)
+            | a, b ->
+                match get_type a with
+                // apply_array
+                | ArrayT(array_ty,elem_ty) ->
+                    let ar,idx = a, b
+                    match array_ty, idx with
+                    | _, TypeString x -> 
+                        if x = "elem_type" then elem_ty |> tyt
+                        else on_type_er (trace d) <| sprintf "Unknown type string applied to array. Got: %s" x
+                    | (ArtDotNetHeap | ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal), idx when is_int idx -> TyOp(ArrayIndex,[ar;idx],elem_ty) |> make_tyv_and_push_typed_expr d
+                    | (ArtDotNetHeap | ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal), idx -> on_type_er (trace d) <| sprintf "The index into an array is not an int. Got: %s" (show_typedexpr idx)
+                    | ArtDotNetReference, TyList [] -> TyOp(ArrayIndex,[ar;idx],elem_ty) |> make_tyv_and_push_typed_expr d
+                    | ArtDotNetReference, _ -> on_type_er (trace d) <| sprintf "The index into a reference is not a unit. Got: %s" (show_typedexpr idx)
+                // apply_string
+                | PrimT StringT -> 
+                    let str = a
+                    match b with
+                    | TyList [a;b] ->
+                        if is_int a && is_int b then TyOp(StringSlice,[str;a;b],PrimT StringT) |> destructure d
+                        else on_type_er (trace d) "Expected an int as the second argument to string index."
+                    | idx -> 
+                        if is_int idx then TyOp(StringIndex,[str;idx],PrimT CharT) |> destructure d
+                        else on_type_er (trace d) "Expected an int as the second argument to string index."
+                // apply_closure
+                | TermFunctionT (clo_arg_ty,clo_ret_ty) -> 
+                    let closure,args = a,b
+                    let arg_ty = get_type args
+                    if arg_ty <> clo_arg_ty then on_type_er (trace d) <| sprintf "Cannot apply an argument of type %s to closure (%s => %s)." (show_ty arg_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
+                    else TyOp(Apply,[closure;args],clo_ret_ty) |> make_tyv_and_push_typed_expr_even_if_unit d
+                | _ -> on_type_er (trace d) <| sprintf "Invalid use of apply. %s and %s" (show_typedexpr a) (show_typedexpr b)
 
         let type_box d typec args =
             let typec & TyType ty, args = tev2 d typec args
@@ -928,13 +935,13 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | UnionT ty' -> Some ty'
                 | RecT key -> Some (set_field (rect_unbox d key))
                 | _ -> None
-
-            match ty, args with
-            | x, TyType r when x = r -> args
-            | TyRecUnion ty', TyType (UnionT ty_args) when Set.isSubset ty_args ty' ->
+            
+            match ty, get_type args with
+            | x, r when x = r -> args
+            | TyRecUnion ty', UnionT ty_args when Set.isSubset ty_args ty' ->
                 let lam = inl' ["typec"; "args"] (op(Case,[v "args"; type_box (v "typec") (v "args")])) |> inner_compile
                 apply d (apply d lam typec) args
-            | TyRecUnion ty', TyType x when Set.contains x ty' -> substitute_ty args
+            | TyRecUnion ty', x when Set.contains x ty' -> substitute_ty args
             | _ -> on_type_er (trace d) <| sprintf "Type constructor application failed. %s does not intersect %s." (show_ty ty) (get_type args |> show_ty)
 
 
@@ -1210,12 +1217,18 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let caseable_is d a =
             match tev d a with
-            | TyType (UnionT _ | RecT _) -> TyLit (LitBool true)
+            | TyBox(_, t) | TyV(_, t) | TyT t -> 
+                match t with
+                | UnionT _ | RecT _ -> TyLit (LitBool true)
+                | _ -> TyLit (LitBool false)
             | _ -> TyLit (LitBool false)
 
         let caseable_boxed_is d a =
             match tev d a with
-            | (TyT _ | TyV _) & TyType (UnionT _ | RecT _) -> TyLit (LitBool true)
+            | TyV(_, t) | TyT t -> 
+                match t with
+                | UnionT _ | RecT _ -> TyLit (LitBool true)
+                | _ -> TyLit (LitBool false)
             | _ -> TyLit (LitBool false)
 
         // Is intended to be equal to push -> destructure.
@@ -1257,21 +1270,25 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let ret t ar idx r =
                 if is_unit t then TyB
                 else make_tyv_and_push_typed_expr_even_if_unit d (TyOp(MutableSet,[ar;idx;r],BListT))
-            match tev3 d ar idx r with
-            | ar & TyType (ArrayT((ArtDotNetHeap | ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal),ar_ty)), idx, r ->
+            let a,b,c = tev3 d ar idx r
+            match get_type a with
+            | ArrayT((ArtDotNetHeap | ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal),ar_ty) ->
+                let ar, idx, r = a, b, c
                 if is_int idx then
                     let r_ty = get_type r
                     if ar_ty = r_ty then ret ar_ty ar idx r
                     else on_type_er (trace d) <| sprintf "The two sides in array set have different types.\nGot: %s and %s" (show_ty ar_ty) (show_ty r_ty)
                 else on_type_er (trace d) <| sprintf "Expected the array index to be an integer.\nGot: %s" (show_typedexpr idx)
-            | ar & TyType (ArrayT(ArtDotNetReference,ar_ty)), idx, r ->
+            | ArrayT(ArtDotNetReference,ar_ty) ->
+                let ar, idx, r = a, b, c
                 match idx with
                 | TyList [] ->
                     let r_ty = get_type r
                     if ar_ty = r_ty then ret ar_ty ar idx r
                     else on_type_er (trace d) <| sprintf "The two sides in reference set have different types.\nGot: %s and %s" (show_ty ar_ty) (show_ty r_ty)
                 | _ -> on_type_er (trace d) <| sprintf "The input to reference set should be ().\nGot: %s" (show_typedexpr idx)
-            | module_ & TyType (LayoutT(LayoutHeapMutable,C env,_)), field, r ->
+            | LayoutT(LayoutHeapMutable,C env,_) ->
+                let module_,field,r = a,b,c
                 match field with
                 | TypeString field' ->
                     let r_ty = get_type r
@@ -1288,17 +1305,18 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     if br then ret r_ty module_ (sprintf "mem_%i" s |> LitString |> type_lit_create') r
                     else on_type_er (trace d) <| sprintf "The field %s is missing in the module." field'
                 | x -> on_type_er (trace d) <| sprintf "Expected a type string as the input to a mutable heap module.\nGot: %s" (show_typedexpr x)
-            | x,_,_ -> on_type_er (trace d) <| sprintf "Expected a heap mutable module, reference or an array the input to mutable set.\nGot: %s" (show_typedexpr x)
+            | _ -> on_type_er (trace d) <| sprintf "Expected a heap mutable module, reference or an array the input to mutable set.\nGot: %s" (show_typedexpr a)
 
         let array_length d ar =
-            match tev d ar with
-            | ar & TyType (ArrayT(ArtDotNetHeap,t))-> make_tyv_and_push_typed_expr d (TyOp(ArrayLength,[ar],PrimT Int64T))
-            | ar & TyType (ArrayT(ArtDotNetReference,t))-> TyLit (LitInt64 1L)
-            | x -> on_type_er (trace d) <| sprintf "ArrayLength is only supported for .NET arrays. Got: %s" (show_typedexpr x)
+            let ar = tev d ar
+            match get_type ar with
+            | ArrayT(ArtDotNetHeap,t) -> make_tyv_and_push_typed_expr d (TyOp(ArrayLength,[ar],PrimT Int64T))
+            | ArrayT(ArtDotNetReference,t) -> TyLit (LitInt64 1L)
+            | _ -> on_type_er (trace d) <| sprintf "ArrayLength is only supported for .NET arrays. Got: %s" (show_typedexpr ar)
 
         let array_is d ar =
             match tev d ar with
-            | TyType (ArrayT(t,_))-> 
+            | TyV(_,ArrayT(t,_)) | TyT (ArrayT(t,_)) ->
                 match t with
                 | ArtCudaGlobal _ -> "CudaGlobal"
                 | ArtCudaShared -> "CudaShared"
