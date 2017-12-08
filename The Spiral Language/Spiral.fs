@@ -289,7 +289,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | PatWhen (p, e) -> cp arg p (if_static e on_succ on_fail) on_fail
             | PatModuleIs p -> 
                 op(ModuleIsCPS,[arg;on_fail;cp arg p on_succ on_fail])
-                //|> case arg
+                |> case arg
             | PatModuleMember name -> 
                 op(ModuleMemberCPS,[arg;lit (LitString name);on_fail;inl name on_succ])
             | PatModuleRebind(name,b) -> 
@@ -718,7 +718,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let inline assume d v x branch = tev_assume (cse_add' d v x) d branch
             match tev d v with
             | a & TyBox(b,_) -> tev {d with cse_env = ref (cse_add' d a b)} case
-            | TyType(t & (UnionT _ | RecT _)) as v ->
+            | (TyV(_, t & (UnionT _ | RecT _)) | TyT(t & (UnionT _ | RecT _))) as v ->
                 let rec map_cases l =
                     match l with
                     | x :: xs -> (x, assume d v x case) :: map_cases xs
