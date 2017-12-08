@@ -1318,8 +1318,12 @@ let loop7 =
 open Console
 inl compare_pos (a_row,a_col) (b_row,b_col) = a_row = b_row && a_col = b_col
 inl ret = {
-    some = inl state -> printfn "Success."
-    none = inl state -> failwith unit "Failure."
+    some = inl state -> 
+        print_static "I am in successs."
+        printfn "Success."
+    none = inl state -> 
+        print_static "I am in failure."
+        failwith unit "Failure."
     }
 inl princess_pos = dyn (0,0)
 inl mario_pos = dyn (1,1)
@@ -1327,24 +1331,44 @@ inl n = dyn 5
 met rec row {from=r near_to state} as d =
     print_static "I am in row."
     met rec col {from=c near_to state} as d =
-        print_static "I am in col."
+        print_static "I am in col"
         if c < near_to then
-            printfn "I am at (%i,%i)" r c
+            print_static "I am in if."
+            //printfn "I am at (%i,%i)" r c
+            print_static "I am past printfn."
             inl ret = function
                 | {mario princess} as state -> ret .some state
                 | state -> col {d with state from=c+1}
+            print_static "I am past ret."
             if compare_pos (r,c) mario_pos then 
-                printfn "I've found Mario."
-                ret {state with mario=mario_pos}
+                print_static "In branch #1."
+                //printfn "I've found Mario."
+                inl r = ret {state with mario=mario_pos}
+                print_static "Returning from branch #1."
+                r
             elif compare_pos (r,c) princess_pos then 
-                printfn "I've found Princess."
-                ret {state with princess=princess_pos}
-            else ret state
+                print_static "In branch #2."
+                //printfn "I've found Princess."
+                inl r = ret {state with princess=princess_pos}
+                print_static "Returning from branch #2."
+                r
+            else 
+                print_static "In branch #3."
+                inl r = ret state
+                print_static "Returning from branch #3."
+                r
         else 
-            row {d with from=r+1}
+            print_static "In col else."
+            inl r = row {d with from=r+1}
+            print_static "Returning from col else."
+            r
         : ()
     if r < near_to then col {from=dyn 0; near_to state}
-    else ret .none () 
+    else 
+        print_static "In row else."
+        inl r = ret .none () 
+        print_static "Returning from row else."
+        r
     : ()
 row {from=dyn 0; near_to=dyn n; state={}}
     """
