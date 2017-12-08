@@ -531,16 +531,9 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = []
     }
 
-//rewrite_test_cache cfg None //(Some(0,40))
+rewrite_test_cache cfg None //(Some(0,40))
 
-let speed4 =
-    "speed4",[console],"Does printfn run sensibly?",
-    """
-open Console
-printfn "qweqweqwe qweqweqwe qqweqwe %i %i %i" (dyn 1) (dyn 2) (dyn 3)
-    """
-
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" speed4
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test1
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
 |> printfn "%s"
 |> ignore
