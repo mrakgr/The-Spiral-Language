@@ -289,7 +289,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | PatWhen (p, e) -> cp arg p (if_static e on_succ on_fail) on_fail
             | PatModuleIs p -> 
                 op(ModuleIsCPS,[arg;on_fail;cp arg p on_succ on_fail])
-                |> case arg
+                //|> case arg
             | PatModuleMember name -> 
                 op(ModuleMemberCPS,[arg;lit (LitString name);on_fail;inl name on_succ])
             | PatModuleRebind(name,b) -> 

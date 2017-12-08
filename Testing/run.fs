@@ -537,7 +537,7 @@ let speed4 =
     "speed4",[console],"Does printfn run sensibly?",
     """
 open Console
-printfn "qqweqwe %i %i %i" (dyn 1) (dyn 2) (dyn 3)
+printfn "qweqweqwe qweqweqwe qqweqwe %i %i %i" (dyn 1) (dyn 2) (dyn 3)
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" speed4
