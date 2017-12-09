@@ -10,6 +10,47 @@ open Extern
 openb Cuda
 open Console
 
+// Auxiliaries
+inl enum ty x = FS.StaticField ty x ty
+
+met load_mnist (!dyn filename) =
+    inl File_ty = fs [text: "System.IO.File"]
+    inl FileStream_ty = fs [text: "System.IO.FileStream"]
+    inl FileMode = enum (fs [text: "System.IO.FileMode"])
+    inl FileAccess = enum (fs [text: "System.IO.FileAccess"])
+    inl FileShare = enum (fs [text: "System.IO.FileShare"])
+    inl BinaryReader_ty = fs [text: "System.IO.BinaryReader"]
+    inl IPAddress_ty = fs [text: "System.Net.IPAddress"]
+
+    inl netword_to_host_order x = FS.StaticMethod IPAddress_ty .NetworkToHostOrder x int32
+
+    use f = FS.StaticMethod File_ty.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read) FileStream_ty
+    use d = FS.Constructor BinaryReader_ty f
+
+    inl read_int32 x = FS.Method d.ReadInt32 x int32 |> netword_to_host_order
+    inl read_bytes n = FS.Method d.ReadBytes n (array uint8)
+
+    inl to_int64 = unsafe_convert int64
+    inl to_ints64 = Tuple.map to_int64
+
+    inl magic_number = read_int32()
+    match magic_number with
+    | 2049i32 -> // Labels
+        inl n = read_int32()
+        inl ar = read_bytes n 
+        HostTensor.init (to_int64 n,10) (inl a ->
+            inl x = ar a
+            inl b -> if unsafe_convert uint8 b = x then 1.0f32 else 0.0f32
+            )
+    | x -> // Images
+        assert (x = 2051i32) "The magic number must be either 2049 or 2051"
+        inl n, rows, cols = read_int32(), read_int32(), read_int32()
+        inl size = n,rows*cols
+        read_bytes (n * rows * cols) 
+        |> HostTensor.array_as_tensor
+        |> HostTensor.reshape (to_ints64 size)
+        |> HostTensor.map (inl x -> unsafe_convert float32 x / 255f32)
+
 inl smartptr_create ptr =
     inl ptr_ty = type (ptr)
     open Option
@@ -154,17 +195,21 @@ inl CudaTensor allocator =
             {body with ar without position}
             ).replace_module (TensorTemplate DeviceTensorPrimitives)
 
-    // CPS'd variants of the allcoator functions.
+    inl from_host_tensors x ret = 
+        inl tensors = toa_map from_host_tensor x
+        inl r = ret tensors
+        toa_map (inl x -> x.update_body (inl {ar} -> ar.ptr.Dispose)) |> ignore
+        r
+
+    // CPS'd variants of the allocator functions.
     inl create = safe_alloc 1 create
     inl from_host_tensor = safe_alloc 1 from_host_tensor
 
-    {create from_host_tensor to_host_tensor cuda_tensor_to_device_tensor}
+    {create from_host_tensor from_host_tensors to_host_tensor cuda_tensor_to_device_tensor}
 
 inb allocator = allocator 0.7
 open HostTensor
 open CudaTensor allocator
-
-inl enum ty x = FS.StaticField ty x ty
 
 use random = 
     inl generator_type = fs [text: "ManagedCuda.CudaRand.GeneratorType"]
@@ -247,8 +292,8 @@ inl CudaKernels stream =
 
         ret out
 
-    inl map_redo {map redo} (!zip in) ret =
-        inl in' = to_1d in |> cuda_tensor_to_device_tensor
+    inl map_redo {map redo} (!zip (!to_1d in)) ret =
+        inl in' = cuda_tensor_to_device_tensor in
         inl near_to = length in'
 
         assert (near_to > 0) "The input to map_redo must be non-empty."
@@ -321,7 +366,7 @@ inl CudaKernels stream =
         /// o <- alpha * op(A) * x + beta * o
         /// Matrix-vector multiplication. Inplace version.
         inl gemv transa alpha A x beta o =
-            inl m,n = A.size
+            inl m,n = rows A, cols A
             inl lda = m
             toa_iter3 (inl {ar=A} {ar=x} {ar=o} ->
                 call.cublasSgemv_v2(handle, to_operation transa, m, n, ref alpha, A, lda, x, 1, ref beta, o, 1)
@@ -330,8 +375,8 @@ inl CudaKernels stream =
         // A <- alpha * x * yT + beta * A (outer product)
         inl ger alpha x y beta a =
             inl max (a,b) = max a b
-            inl m = max (x.size)
-            inl n = max (y.size)
+            inl m = max (rows x, cols x)
+            inl n = max (rows y, cols y)
 
             match beta with
             | 1.0f64 | 1.0f32 -> ()
@@ -422,99 +467,14 @@ inl test_gemm =
     inm b = create' (2,4)
     gemm .nT .nT 1.0f32 a b >>= (to_host_tensor >> show_tensor_all >> writeline >> succ)
 
-inl test_forward_pass {num_iters} = 
-    inl hidden_size = 10
-    inl input_size = 784
-    inl batch_size = 128
-    inl example_size = batch_size, input_size
-    inl weight_size = input_size, hidden_size
-    inl label_size = batch_size, hidden_size
-
-    inl sqrt x = FS.UnOp .sqrt x x
-    inl create' size = 
-        inl stddev = 1f32 / sqrt (Tuple.foldl (+) 0 size |> unsafe_convert float32)
-        create_random_tensor {op=.Normal; stddev mean=0f32} size
-
-    // A text would load the data from a Mnist file.
-    inm example = create' example_size 
-    inm weight = create' weight_size
-    inm label = create' label_size
-
-    inl sigmoid x = 1f32 / (1f32 + (exp (-x)))
-
-    inl Error = {
-        cross_entropy = inl (x,y) -> -(y * log x + (1-y) * log (1-x))
-        square = inl (x,y) -> y - x |> inl t -> t * t
-        }
-
-    inl pass =
-        gemm .nT .nT 1f32 example weight 
-        >>= map sigmoid 
-        >>= inl input -> map_redo {map=Error.square; redo=(+)} (input,label)
-        >>= force
-        >>= (writeline >> succ)
-        |> heap
-
-    Loops.for {from=0; near_to=num_iters; body = inl {i} ->
-        string_format "On iteration {0}" i |> writeline
-        pass id
-        }
-    |> succ
-
-inl test_mnist_feedforward _ =
-    inl mnist_path = @"C:\Users\Marko\Documents\Visual Studio 2015\Projects\SpiralQ\SpiralQ\Tests"
-
+inl test_mnist_feedforward mnist_path =
     inl mnist_files = {
         test_images = {file = "t10k-images.idx3-ubyte"; expected_size = 10000,28*28}
         test_labels = {file = "t10k-labels.idx1-ubyte"; expected_size = 10000,10}
         train_images = {file = "train-images.idx3-ubyte"; expected_size = 60000,28*28}
         train_labels = {file = "train-labels.idx1-ubyte"; expected_size = 60000,10}
         }
-
-    met load_mnist (!dyn filename) =
-        inl File_ty = fs [text: "System.IO.File"]
-        inl FileStream_ty = fs [text: "System.IO.FileStream"]
-        inl FileMode = enum (fs [text: "System.IO.FileMode"])
-        inl FileAccess = enum (fs [text: "System.IO.FileAccess"])
-        inl FileShare = enum (fs [text: "System.IO.FileShare"])
-        inl BinaryReader_ty = fs [text: "System.IO.BinaryReader"]
-        inl IPAddress_ty = fs [text: "System.Net.IPAddress"]
-
-        inl netword_to_host_order x = FS.StaticMethod IPAddress_ty .NetworkToHostOrder x int32
-
-        use f = FS.StaticMethod File_ty.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read) FileStream_ty
-        use d = FS.Constructor BinaryReader_ty f
-
-        inl read_int32 x = FS.Method d.ReadInt32 x int32 |> netword_to_host_order
-        inl read_bytes n = FS.Method d.ReadBytes n (array uint8)
-
-        inl to_int64 = unsafe_convert int64
-        inl to_ints64 = Tuple.map to_int64
-
-        inl magic_number = read_int32()
-        match magic_number with
-        | 2049i32 -> // Labels
-            inl n = read_int32()
-            inl ar = read_bytes n 
-            HostTensor.init (to_int64 n,10) (inl a ->
-                inl x = ar a
-                inl b -> if unsafe_convert uint8 b = x then 1.0f32 else 0.0f32
-                )
-        | x -> // Images
-            assert (x = 2051i32) "The magic number must be either 2049 or 2051"
-            inl n, rows, cols = read_int32(), read_int32(), read_int32()
-            inl size = n,rows*cols
-            read_bytes (n * rows * cols) 
-            |> HostTensor.array_as_tensor
-            |> HostTensor.reshape (to_ints64 size)
-            |> HostTensor.map (inl x -> unsafe_convert float32 x / 255f32)
-            
-    inl from_host_tensors x ret = 
-        inl tensors = toa_map (from_host_tensor.unsafe) x
-        inl r = ret tensors
-        toa_map (inl x -> x.update_body (inl {ar} -> ar.ptr.Dispose)) |> ignore
-        r
-
+           
     inb mnist_tensors = 
         inl path_type = fs [text: "System.IO.Path"]
         inl combine x = FS.StaticMethod path_type .Combine x string
@@ -524,15 +484,50 @@ inl test_mnist_feedforward _ =
             ) mnist_files
         |> from_host_tensors
 
-    //to_host_tensor (mnist_tensors.test_labels) |> show_tensor' (100,10) |> writeline 
-    
-    map ((+) 3f32) (mnist_tensors.test_labels) 
-    >>= (to_host_tensor >> show_tensor' (100,10) >> writeline >> succ)
+    inl hidden_size = 10
+    inl input_size = 784
 
-inl learning_tests = test_random, test_map, test_map_redo, test_gemm, test_forward_pass {num_iters=100}
+    inl create' size = 
+        inl sqrt x = FS.UnOp .sqrt x x
+        inl stddev = 1f32 / sqrt (Tuple.foldl (+) 0 size |> unsafe_convert float32)
+        create_random_tensor {op=.Normal; stddev mean=0f32} size
 
-//test_mnist_feedforward () id
-test_map id
+    inb weight = create' (input_size, hidden_size)
+
+    inl sigmoid x = 1f32 / (1f32 + (exp (-x)))
+
+    inl Error = {
+        cross_entropy = inl (x,y) -> -(y * log x + (1f32-y) * log (1f32-x))
+        square = inl (x,y) -> (y - x) * (y - x)
+        }
+
+    inl pass (input,test) =
+        gemm .nT .nT 1f32 input weight 
+        >>= map sigmoid 
+        >>= inl input -> map_redo {map=Error.square; redo=(+)} (input,test)
+        >>= force
+        >>= (writeline >> succ)
+        |> heap
+
+    inl iterate minibatch_size (train,test) =
+        inl dim1 x = x.dim |> fst
+        inl near_to = dim1 train |> inl {near_to} -> near_to 
+        assert (dim1 train = dim1 test) "Training and test set need to have to equal first dimensions."
+
+        Loops.for {from=0; near_to; by=minibatch_size; body = inl {i=from} ->
+            inl near_to = min (from + minibatch_size) near_to
+            inl span = {from near_to}
+            inl view x = x.view_span span
+            string_format "On span {0}" (show span) |> writeline
+            pass (view train, view test) id
+            }
+
+    iterate 128 (mnist_tensors.train_images,mnist_tensors.train_labels)
+
+inl learning_tests _ = test_random, test_map, test_map_redo, test_gemm, test_mnist_feedforward mnist_path
+
+inl mnist_path = @"C:\Users\Marko\Documents\Visual Studio 2015\Projects\SpiralQ\SpiralQ\Tests"
+test_mnist_feedforward mnist_path
     """
 
 let cfg: Spiral.Types.CompilerSettings = {

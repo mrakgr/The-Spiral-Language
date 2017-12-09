@@ -912,6 +912,8 @@ inl HostTensorPrimitives =
     apply = primitive_apply_template {view merge_offset} 
     }
 
+inl span {from near_to} = near_to - from
+
 inl TensorTemplate {view get set apply} = {
     elem_type = inl {data with bodies} -> toa_map (inl {ar} -> ar.elem_type) bodies
     update_body = inl {data with bodies} f -> {data with bodies=toa_map f bodies}    
@@ -941,10 +943,11 @@ inl TensorTemplate {view get set apply} = {
     view_span = inl {data with dim} (!map_dims head_dims) ->
         inl rec new_dim = function
             | {from near_to} :: d', {nd with from=from' near_to=near_to'} :: h' ->
-                inl span, span' = near_to-from, near_to' - from'
-                inl nd = {from = 0; near_to = span'}
-                assert (from' >= 0) "Lower boundary out of bounds." 
-                assert (span >= span') "Higher boundary out of bounds." 
+                inl nd = {from = 0; near_to = span nd}
+                inl _ = // Want to make `from'` go out scope.
+                    inl from', near_to' = from + from', from + near_to'
+                    assert (from' >= from && from' < near_to) "Lower boundary out of bounds." 
+                    assert (near_to' > from && near_to' <= near_to) "Higher boundary out of bounds." 
                 inl i', nd' = new_dim (d',h')
                 from' :: i', nd :: nd'
             | (), _ :: _ -> error_type "The view has more dimensions than the tensor."
@@ -990,8 +993,8 @@ inl show_tensor_all tns =
 
 inl show_tensor' (!map_dims dim) tns =
     inl f {from near_to} {from=from' near_to=near_to'} = {
-        from = min (near_to-1) (from + from')
-        near_to = min near_to (from + near_to')
+        from = min (near_to-1) (from + from') |> max from
+        near_to = min near_to (from + near_to') |> max (from+1)
         }
     inl {view ap} =
         Tuple.foldr (inl {x with from} -> function
@@ -1020,7 +1023,7 @@ inl dim_describe (!map_dims dim) =
     match dim with
     | () -> error_type "Empty dimensions are not allowed."
     | dim ->
-        inl len :: size :: size' = Tuple.scanr (inl {from near_to} s -> (near_to - from) * s) dim 1
+        inl len :: size :: size' = Tuple.scanr (inl (!span x) s -> x * s) dim 1
         inl make_body ar = 
             inl position = 0
             inl offsets = Tuple.map (inl size -> {size position}) size'
@@ -1072,7 +1075,7 @@ inl map f tns =
 inl copy = map id
 
 /// Total tensor size in elements.
-inl product = Tuple.foldl (inl s {from near_to} -> s * (near_to - from)) 1
+inl product = Tuple.foldl (inl s (!span x) -> s * x) 1
 inl length tns = product (tns.dim)
 
 /// Sets the tensor dimensions assuming the overall length matches. Does not copy. size -> tensor -> tensor.
