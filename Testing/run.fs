@@ -461,66 +461,79 @@ inl test_forward_pass {num_iters} =
         }
     |> succ
 
-inl learning_tests =
-    test_random, test_map, test_map_redo, test_gemm, test_forward_pass {num_iters=100}
+inl test_mnist_feedforward _ =
+    inl mnist_path = @"C:\Users\Marko\Documents\Visual Studio 2015\Projects\SpiralQ\SpiralQ\Tests"
 
-inl mnist_path = @"C:\Users\Marko\Documents\Visual Studio 2015\Projects\SpiralQ\SpiralQ\Tests"
+    inl mnist_files = {
+        test_images = {file = "t10k-images.idx3-ubyte"; expected_size = 10000,28*28}
+        test_labels = {file = "t10k-labels.idx1-ubyte"; expected_size = 10000,10}
+        train_images = {file = "train-images.idx3-ubyte"; expected_size = 60000,28*28}
+        train_labels = {file = "train-labels.idx1-ubyte"; expected_size = 60000,10}
+        }
 
-inl mnist_files = {
-    test_images = {file = "t10k-images.idx3-ubyte"; expected_size = 10000,28*28}
-    test_labels = {file = "t10k-labels.idx1-ubyte"; expected_size = 10000,10}
-    train_images = {file = "train-images.idx3-ubyte"; expected_size = 60000,28*28}
-    train_labels = {file = "train-labels.idx1-ubyte"; expected_size = 60000,10}
-    }
+    met load_mnist (!dyn filename) =
+        inl File_ty = fs [text: "System.IO.File"]
+        inl FileStream_ty = fs [text: "System.IO.FileStream"]
+        inl FileMode = enum (fs [text: "System.IO.FileMode"])
+        inl FileAccess = enum (fs [text: "System.IO.FileAccess"])
+        inl FileShare = enum (fs [text: "System.IO.FileShare"])
+        inl BinaryReader_ty = fs [text: "System.IO.BinaryReader"]
+        inl IPAddress_ty = fs [text: "System.Net.IPAddress"]
 
-met load_mnist (!dyn filename) =
-    inl File_ty = fs [text: "System.IO.File"]
-    inl FileStream_ty = fs [text: "System.IO.FileStream"]
-    inl FileMode = enum (fs [text: "System.IO.FileMode"])
-    inl FileAccess = enum (fs [text: "System.IO.FileAccess"])
-    inl FileShare = enum (fs [text: "System.IO.FileShare"])
-    inl BinaryReader_ty = fs [text: "System.IO.BinaryReader"]
-    inl IPAddress_ty = fs [text: "System.Net.IPAddress"]
+        inl netword_to_host_order x = FS.StaticMethod IPAddress_ty .NetworkToHostOrder x int32
 
-    inl netword_to_host_order x = FS.StaticMethod IPAddress_ty .NetworkToHostOrder x int32
+        use f = FS.StaticMethod File_ty.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read) FileStream_ty
+        use d = FS.Constructor BinaryReader_ty f
 
-    use f = FS.StaticMethod File_ty.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read) FileStream_ty
-    use d = FS.Constructor BinaryReader_ty f
+        inl read_int32 x = FS.Method d.ReadInt32 x int32 |> netword_to_host_order
+        inl read_bytes n = FS.Method d.ReadBytes n (array uint8)
 
-    inl read_int32 x = FS.Method d.ReadInt32 x int32 |> netword_to_host_order
-    inl read_bytes n = FS.Method d.ReadBytes n (array uint8)
+        inl to_int64 = unsafe_convert int64
+        inl to_ints64 = Tuple.map to_int64
 
-    inl to_int64 = unsafe_convert int64
-    inl to_ints64 = Tuple.map to_int64
-
-    inl magic_number = read_int32()
-    match magic_number with
-    | 2049i32 -> // Labels
-        inl n = read_int32()
-        inl ar = read_bytes n 
-        HostTensor.init (to_int64 n,10) (inl a ->
-            inl x = ar a
-            inl b -> if unsafe_convert uint8 b = x then 1.0f32 else 0.0f32
-            )
-    | x -> // Images
-        assert (x = 2051i32) "The magic number must be either 2049 or 2051"
-        inl n, rows, cols = read_int32(), read_int32(), read_int32()
-        inl size = n,rows*cols
-        read_bytes (n * rows * cols) 
-        |> HostTensor.array_as_tensor
-        |> HostTensor.reshape (to_ints64 size)
-        |> HostTensor.map (inl x -> unsafe_convert float32 x / 255f32)
+        inl magic_number = read_int32()
+        match magic_number with
+        | 2049i32 -> // Labels
+            inl n = read_int32()
+            inl ar = read_bytes n 
+            HostTensor.init (to_int64 n,10) (inl a ->
+                inl x = ar a
+                inl b -> if unsafe_convert uint8 b = x then 1.0f32 else 0.0f32
+                )
+        | x -> // Images
+            assert (x = 2051i32) "The magic number must be either 2049 or 2051"
+            inl n, rows, cols = read_int32(), read_int32(), read_int32()
+            inl size = n,rows*cols
+            read_bytes (n * rows * cols) 
+            |> HostTensor.array_as_tensor
+            |> HostTensor.reshape (to_ints64 size)
+            |> HostTensor.map (inl x -> unsafe_convert float32 x / 255f32)
             
+    inl from_host_tensors x ret = 
+        inl tensors = toa_map (from_host_tensor.unsafe) x
+        inl r = ret tensors
+        toa_map (inl x -> x.update_body (inl {ar} -> ar.ptr.Dispose)) |> ignore
+        r
 
-inl mnist_tensors = 
-    inl path_type = fs [text: "System.IO.Path"]
-    inl combine x = FS.StaticMethod path_type .Combine x string
-    module_map (inl _ {file expected_size} -> 
-        load_mnist (combine (mnist_path, file))
-        |> HostTensor.assert_size expected_size
-        ) mnist_files
+    inb mnist_tensors = 
+        inl path_type = fs [text: "System.IO.Path"]
+        inl combine x = FS.StaticMethod path_type .Combine x string
+        module_map (inl _ {file expected_size} -> 
+            load_mnist (combine (mnist_path, file))
+            |> HostTensor.assert_size expected_size
+            ) mnist_files
+        |> from_host_tensors
 
-writeline (mnist_tensors.test_labels |> show_tensor' (100,10))
+    //to_host_tensor (mnist_tensors.test_labels) |> show_tensor' (100,10) |> writeline 
+    
+    map ((+) 3f32) (mnist_tensors.test_labels) 
+    >>= (to_host_tensor >> show_tensor' (100,10) >> writeline >> succ)
+
+inl learning_tests = test_random, test_map, test_map_redo, test_gemm, test_forward_pass {num_iters=100}
+
+//test_mnist_feedforward () id
+test_map id
+
     """
 
 let cfg: Spiral.Types.CompilerSettings = {
@@ -530,10 +543,10 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = []
     }
 
-rewrite_test_cache cfg None //(Some(0,40))
+//rewrite_test_cache cfg None //(Some(0,40))
 
 //output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.txt" test1
-output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test98
+output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
 |> printfn "%s"
 |> ignore
 
