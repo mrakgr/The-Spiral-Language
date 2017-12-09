@@ -1645,6 +1645,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let is_separator_char c = 
             let inline f x = c = x
             f ' ' || f ',' || f ';' || f '\t' || f '\n' || f '\"' || f '(' || f '{' || f '['
+        let is_separator_char_ext c = 
+            let inline f x = c = x
+            is_separator_char c || f '=' || f ':'
         let is_closing_parenth_char c = 
             let inline f x = c = x
             f ')' || f '}' || f ']'
@@ -1676,6 +1679,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let dot = operatorChar '.'
         let prefix_dot = prefixOperatorChar '.'
         let pp = operatorChar ':'
+        let pp' = skipChar ':' >>. spaces
         let semicolon' = operatorChar ';'
         let semicolon = semicolon' >>=? fun _ s -> 
             if s.Line <> s.UserState.semicolon_line then Reply(())
@@ -1711,7 +1715,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let pbool = ((skipString "false" >>% LitBool false) <|> (skipString "true" >>% LitBool true)) .>> spaces
 
-        let unary_minus_check_precondition s = previousCharSatisfiesNot (is_separator_char >> not) s
+        let unary_minus_check_precondition s = previousCharSatisfiesNot (is_separator_char_ext >> not) s
         let unary_minus_check s = (unary_minus_check_precondition >>. prefix_negate) s
 
         let pnumber : Parser<_,_> =
@@ -1862,7 +1866,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let pat_as pattern = pattern .>>. (opt (as_ >>. pattern )) |>> function a, Some b -> PatAnd [a;b] | a, None -> a
 
         let pat_named_tuple pattern =
-            let pat = pipe2 lit_var (opt (pp >>. pattern)) (fun lit pat ->
+            let pat = pipe2 lit_var (opt (pp' >>. pattern)) (fun lit pat ->
                 let lit = PatTypeLit lit
                 match pat with
                 | Some pat -> PatTuple [lit; pat]
@@ -2076,7 +2080,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let pat s = 
                 let i = col s
                 let line = line s
-                pipe2 lit_var (opt (pp >>. expr_indent i (<) (set_semicolon_level_to_line line expr))) (fun lit expr ->
+                pipe2 lit_var (opt (pp' >>. expr_indent i (<) (set_semicolon_level_to_line line expr))) (fun lit expr ->
                     let tup = type_lit_lift lit
                     match expr with
                     | Some expr -> vv [tup; expr]
@@ -2172,7 +2176,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let annotations expr (s: CharStream<_>) = 
             let i = (col s)
             let expr_indent expr (s: CharStream<_>) = expr_indent i (<=) expr s
-            pipe2 (expr_indent expr) (opt (expr_indent pp >>. expr_indent expr))
+            pipe2 (expr_indent expr) (opt (expr_indent pp' >>. expr_indent expr))
                 (fun a -> function
                     | Some b -> op(TypeAnnot,[a;b])
                     | None -> a) s

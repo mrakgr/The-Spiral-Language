@@ -81,8 +81,30 @@ let (var_23: bool) =
         false
 let (var_24: bool) = (var_23 = false)
 if var_24 then
-    (failwith "Tensor size assert failed.")
+    (failwith "The dimensions do not match.")
 else
     ()
-let (var_25: int64) = var_10.[int32 var_13]
+let (var_25: bool) = (0L < var_12)
+let (var_26: bool) = (var_25 = false)
+if var_26 then
+    (failwith "Tensor needs to be at least size 1.")
+else
+    ()
+let (var_27: bool) = (0L < var_13)
+let (var_28: bool) = (var_27 = false)
+if var_28 then
+    (failwith "Tensor needs to be at least size 1.")
+else
+    ()
+let (var_29: bool) = (1L < var_12)
+let (var_30: bool) = (var_29 = false)
+if var_30 then
+    (failwith "Argument out of bounds.")
+else
+    ()
+if var_28 then
+    (failwith "Argument out of bounds.")
+else
+    ()
+let (var_31: int64) = var_10.[int32 var_13]
 
