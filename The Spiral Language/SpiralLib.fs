@@ -1093,9 +1093,9 @@ inl to_1d tns = reshape (length tns) tns
 
 /// Asserts the tensor size. Useful for setting those values to statically known ones. Does not copy. size -> tensor -> tensor.
 inl assert_size (!map_dims dim') tns = 
-    tns.update_dim <| inl dim ->
-        assert (dim = dim') "Tensor size assert failed."
-        dim'
+    inl dim = tns.dim
+    assert (dim = dim') "The dimensions do not match."
+    reshape dim tns // This is in order for the offsets to become static.
 
 /// Reinterprets an array as a tensor. Does not copy. array -> tensor.
 inl array_as_tensor ar =
