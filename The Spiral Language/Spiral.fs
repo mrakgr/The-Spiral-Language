@@ -1896,7 +1896,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         and pat_module_body expr s =
             let pat_name = var_name |>> PatModuleMember
             let inline pat_bind pat = 
-                pat .>>. opt (eq >>. patterns_template expr) 
+                pat .>>. opt (eq' >>. patterns_template expr) 
                 |>> function
                     | v, None -> v
                     | v, Some pat ->

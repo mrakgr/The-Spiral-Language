@@ -679,7 +679,7 @@ inl parse_array {parser typ n} = m {
         repeat n (inl i -> parser |>> inl x -> ar i <- x) >>. succ ar
     }
 
-// This function takes too long to compile so I do not recommend using it seriously.
+// This function takes too long to compile so its use is not recommended.
 // `show`, `string_concat` and `string_format` are better candidates as printing functions.
 inl sprintf_parser append =
     inl rec sprintf_parser sprintf_state =
