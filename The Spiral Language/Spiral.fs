@@ -648,7 +648,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             |> make_tyv_and_push_typed_expr_even_if_unit d |> ignore
 
             let method_name = print_method join_point_key.Symbol |> LitString |> TyLit
-            let args = Seq.toList call_arguments |> List.map tyv |> tyvv
+            let args = Seq.toList call_arguments |> List.map tyv |> List.rev |> tyvv
             tyvv [method_name; args]
 
         let join_point_type d expr = 
