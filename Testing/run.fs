@@ -533,7 +533,6 @@ inl learning_tests = test_random, test_map, test_map_redo, test_gemm, test_forwa
 
 //test_mnist_feedforward () id
 test_map id
-
     """
 
 let cfg: Spiral.Types.CompilerSettings = {
