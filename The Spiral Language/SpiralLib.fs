@@ -834,7 +834,7 @@ let host_tensor =
     """
 // A lot of the code in this module is made with purpose of being reused on the Cuda side.
 
-inl rec toa_map f x = 
+inl toa_map f x = 
     inl rec loop = function
         | x when caseable_is x -> f x
         | () -> ()
@@ -843,7 +843,7 @@ inl rec toa_map f x =
         | x -> f x
     loop x
 
-inl rec toa_map2 f a b = 
+inl toa_map2 f a b = 
     inl rec loop = function
         | x, y when caseable_is x || caseable_is y -> f x y
         | (), () -> ()
@@ -852,7 +852,7 @@ inl rec toa_map2 f a b =
         | x, y -> f x y
     loop (a,b)
 
-inl rec toa_map3 f a b c = 
+inl toa_map3 f a b c = 
     inl rec loop = function
         | x, y, z when caseable_is x || caseable_is y || caseable_is z -> f x y z
         | (), (), () -> ()
@@ -861,7 +861,7 @@ inl rec toa_map3 f a b c =
         | x, y, z -> f x y z
     loop (a,b,c)
 
-inl rec toa_foldl f s x = 
+inl toa_foldl f s x = 
     inl rec loop s = function
         | x when caseable_is x -> f s x
         | () -> s
@@ -917,6 +917,7 @@ inl span {from near_to} = near_to - from
 inl TensorTemplate {view get set apply} = {
     elem_type = inl {data with bodies} -> toa_map (inl {ar} -> ar.elem_type) bodies
     update_body = inl {data with bodies} f -> {data with bodies=toa_map f bodies}    
+    update_body2 = inl {data with bodies=a,b} f -> {data with bodies=toa_map2 f a b}
     update_dim = inl {data with dim} f -> {data with dim=f dim}
     get = inl {data with dim bodies} -> 
         match dim with

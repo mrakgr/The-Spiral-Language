@@ -285,9 +285,7 @@ inl CudaKernels stream =
         inl len = length in'
         in'.update_body (inl {ar} -> fill_random_array op len ar) |> ignore
 
-    inl map f (!zip in) ret =
-        inb out = create {dim=in.dim; elem_type = type (f (in.elem_type))}
-        
+    inl map_template f in out =
         inl in' = to_1d in |> to_dev_tensor
         inl out' = to_1d out |> to_dev_tensor
         inl near_to = length in'
@@ -302,7 +300,29 @@ inl CudaKernels stream =
                 Loops.for {from near_to by body=inl {i} -> out' i .set (f (in' i .get)) }
             } |> ignore
 
+    inl map f (!zip in) ret =
+        inb out = create {dim=in.dim; elem_type = type (f (in.elem_type))}
+        map_template f in out
         ret out
+
+    inl map_back f {in={primal adjoint} out} _ =
+        match Tuple.filter (function
+            | () -> false
+            | _ -> true) adjoint with
+        | () -> () // No need to run the map if all the adjoints are empty.
+        | adjoint ->
+            zip (primal,adjoint) |> ignore // This is to make sure that the sizes assert in primal and adjoint. 
+            inl f x = 
+                // What this does is selectively filter out the results of applying f 
+                // where the adjoints are missing (in other words constants.)
+                let rec loop = function
+                    | x :: x', () :: y' -> loop (x',y')
+                    | x :: x', _ :: y' -> x :: loop (x',y')
+                    | x, () -> ()
+                    | x, _ -> x
+                loop (f x,adjoint)
+            inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
+            map_template f (zip {in=primal; out}) (zip adjoint)
 
     inl map_redo {map redo} (!zip (!to_1d in)) ret =
         inl in' = to_dev_tensor in
@@ -442,23 +462,36 @@ inl CudaKernels stream =
         gemm' transa transb alpha A B beta C
         ret C
 
-    {map map_redo gemm fill_random}
+    {map map_back map_redo gemm fill_random}
 
 inl AutoDiff stream =
     open CudaKernels stream
     inl (>>=) a b ret = a <| inl a -> b a ret
-    inl make_dual primal ret = 
-        inb adjoint = zero_like x
-        ret {primal adjoint}
-    inl primal = function
-        | {primal} -> primal
-        | x -> x
-    inl adjoint = function
-        | {adjoint} -> adjoint
-        | x -> error_type "Adjoint not present."
+    inl make_dual x ret = 
+        match x with
+        | {primal adjoint} -> x
+        | x ->
+            inb adjoint = zero_like x
+            ret {primal=x; adjoint}
+    inl fmap f x = 
+        inl rec loop = function
+            | x when caseable_is x -> f x
+            | () -> ()
+            | x :: xs -> loop x :: loop xs
+            | x -> f x
+        loop x
+    inl primal = 
+        fmap <| function
+            | {primal} -> primal
+            | x -> x
+    inl adjoint = 
+        fmap <| function
+            | {adjoint} -> adjoint
+            | x -> ()
     inl map {fwd bck} in ret =
-        inb out = map fwd (primal in) >>= make_dual
-        ret (out, map bck {out in})
+        inl in = {primal=primal in; adjoint=adjoint in}
+        inb out = map fwd (in.primal) >>= make_dual
+        ret (out, map_back bck {out in})
 
 inl force x ret = ret (x ())
 inl joinm x ret = join (ret x)
