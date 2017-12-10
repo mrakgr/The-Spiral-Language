@@ -141,6 +141,7 @@ inl CudaTensor allocator =
         | .elem_type -> elem_type
         | .ptr -> ptr
     inl create data = create {data with array_create = cuda_array_create}
+    inl create_like tns = create {elem_type=tns.elem_type; dim=tns.dim}
 
     inl from_host_array ar =
         inl elem_type = ar.elem_type
@@ -195,6 +196,15 @@ inl CudaTensor allocator =
             {body with ar without position}
             ).replace_module (TensorTemplate DeviceTensorPrimitives)
 
+    inl clear (!to_dev_tensor tns) = 
+        assert_contiguous tns
+        inl size = length tns
+        inl stream = Stream.extract stream
+        tns.update_body <| inl {ar} ->
+            FS.Method context .ClearMemoryAsync (ar,0u8,size * sizeof (ar.elem_type) |> SizeT,stream) unit
+
+    inl zero_like = create_like >> clear
+
     inl from_host_tensors x ret = 
         inl tensors = toa_map from_host_tensor x
         inl r = ret tensors
@@ -204,8 +214,10 @@ inl CudaTensor allocator =
     // CPS'd variants of the allocator functions.
     inl create = safe_alloc 1 create
     inl from_host_tensor = safe_alloc 1 from_host_tensor
+    inl clear = safe_alloc 1 clear
+    inl zero_like = safe_alloc 1 zero_like
 
-    {create from_host_tensor from_host_tensors to_host_tensor to_dev_tensor}
+    {create from_host_tensor from_host_tensors to_host_tensor to_dev_tensor clear zero_like}
 
 inb allocator = allocator 0.7
 open HostTensor
@@ -379,8 +391,8 @@ inl CudaKernels stream =
             inl n = max (rows y, cols y)
 
             match beta with
-            | 1.0f64 | 1.0f32 -> ()
-            | _ -> FS.Method context .ClearMemoryAsync (a.ar,0u8,total_size (a.size) * sizeof (a.ar.elem_type) |> SizeT,Stream.extract stream) unit
+            | 0.0f64 | 0.0f32 -> ()
+            | _ -> failwith unit "Rescaling of inputs in ger not allowed for now."
 
             toa_iter3 (inl {ar=x} {ar=y} {ar=a} ->
                 call.cublasSger_v2(handle, m, n, ref alpha, x, 1, y, 1, a, m)
@@ -431,6 +443,22 @@ inl CudaKernels stream =
         ret C
 
     {map map_redo gemm fill_random}
+
+inl AutoDiff stream =
+    open CudaKernels stream
+    inl (>>=) a b ret = a <| inl a -> b a ret
+    inl make_dual primal ret = 
+        inb adjoint = zero_like x
+        ret {primal adjoint}
+    inl primal = function
+        | {primal} -> primal
+        | x -> x
+    inl adjoint = function
+        | {adjoint} -> adjoint
+        | x -> error_type "Adjoint not present."
+    inl map {fwd bck} in ret =
+        inb out = map fwd (primal in) >>= make_dual
+        ret (out, map bck {out in})
 
 inl force x ret = ret (x ())
 inl joinm x ret = join (ret x)
