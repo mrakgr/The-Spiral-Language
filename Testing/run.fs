@@ -185,7 +185,7 @@ inl CudaTensor allocator =
         apply = primitive_apply_template {view merge_offset} 
         }
 
-    inl cuda_tensor_to_device_tensor tns = 
+    inl to_dev_tensor tns = 
         tns.update_body (inl {body with ar position} ->
             inl ptr, elem_type = ar.ptr(), ar.elem_type
             met ar = 
@@ -205,7 +205,7 @@ inl CudaTensor allocator =
     inl create = safe_alloc 1 create
     inl from_host_tensor = safe_alloc 1 from_host_tensor
 
-    {create from_host_tensor from_host_tensors to_host_tensor cuda_tensor_to_device_tensor}
+    {create from_host_tensor from_host_tensors to_host_tensor to_dev_tensor}
 
 inb allocator = allocator 0.7
 open HostTensor
@@ -269,15 +269,15 @@ inl CudaKernels stream =
 
     inl fill_random op (!zip in) =
         set_stream_random random
-        inl in' = to_1d in |> cuda_tensor_to_device_tensor
+        inl in' = to_1d in |> to_dev_tensor
         inl len = length in'
         in'.update_body (inl {ar} -> fill_random_array op len ar) |> ignore
 
     inl map f (!zip in) ret =
         inb out = create {dim=in.dim; elem_type = type (f (in.elem_type))}
         
-        inl in' = to_1d in |> cuda_tensor_to_device_tensor
-        inl out' = to_1d out |> cuda_tensor_to_device_tensor
+        inl in' = to_1d in |> to_dev_tensor
+        inl out' = to_1d out |> to_dev_tensor
         inl near_to = length in'
 
         run {
@@ -293,7 +293,7 @@ inl CudaKernels stream =
         ret out
 
     inl map_redo {map redo} (!zip (!to_1d in)) ret =
-        inl in' = cuda_tensor_to_device_tensor in
+        inl in' = to_dev_tensor in
         inl near_to = length in'
 
         assert (near_to > 0) "The input to map_redo must be non-empty."
@@ -320,7 +320,7 @@ inl CudaKernels stream =
                     args: thread_result, redo])
 
             inb out = create {elem_type dim=gridDim}
-            inl out' = cuda_tensor_to_device_tensor out
+            inl out' = to_dev_tensor out
 
             run {
                 stream
@@ -347,7 +347,7 @@ inl CudaKernels stream =
 
     /// General matrix-matrix multiply from cuBLAS. Inplace version
     inl gemm' transa transb alpha A B beta C =
-        inl A,B,C = Tuple.map (inl x -> assert_contiguous x; cuda_tensor_to_device_tensor x) (A,B,C)
+        inl A,B,C = Tuple.map (inl x -> assert_contiguous x; to_dev_tensor x) (A,B,C)
         set_stream_cublas cublas
         inl handle = FS.Method cublas .get_CublasHandle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
         inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
