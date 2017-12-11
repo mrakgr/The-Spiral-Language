@@ -1109,21 +1109,20 @@ inl array_as_tensor ar =
 /// Reinterprets an array as a tensor. array -> tensor.
 inl array_to_tensor = array_as_tensor >> copy
 
-/// Maps the ar field of the tensor rather than it elements. (a -> b) -> tensor with (a ar) -> tensor with (b ar)
-//inl map_ar f tns = tns.update_body <| inl {data with ar} -> {data with ar = f ar}
-
-inl zip l = 
+inl assert_zip l =
     toa_foldl (inl s x ->
         match s with
         | () -> x
         | s -> assert ((s.dim) = (x.dim)) "All tensors in zip need to have the same dimensions"; s) () l
-    |> function 
-        | () -> error_type "Empty inputs to zip are not allowed."
-        | tns -> tns.update_body <| inl _ -> toa_map (inl x -> x.bodies) l
+
+inl zip l = 
+    match assert_zip l with
+    | () -> error_type "Empty inputs to zip are not allowed."
+    | tns -> tns.update_body <| inl _ -> toa_map (inl x -> x.bodies) l
 
 {toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims length create dim_describe primitive_apply_template TensorTemplate
  view_offsets init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip show_tensor' show_tensor 
- show_tensor_all toa_map3 toa_iter3 assert_contiguous}
+ show_tensor_all toa_map3 toa_iter3 assert_contiguous assert_zip}
 |> stack
     """) |> module_
 

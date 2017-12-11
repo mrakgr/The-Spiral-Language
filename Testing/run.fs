@@ -285,10 +285,11 @@ inl CudaKernels stream =
         inl len = length in'
         in'.update_body (inl {ar} -> fill_random_array op len ar) |> ignore
 
-    inl map_template f in out =
-        inl in' = to_1d in |> to_dev_tensor
-        inl out' = to_1d out |> to_dev_tensor
-        inl near_to = length in'
+    inl map_template mode f (!zip in) (!zip out) =
+        assert_zip (in, out) |> ignore
+        inl in = to_1d in |> to_dev_tensor
+        inl out = to_1d out |> to_dev_tensor
+        inl near_to = length in
 
         run {
             stream
@@ -297,32 +298,18 @@ inl CudaKernels stream =
             kernel = cuda // Lexical scoping rocks.
                 inl from = blockIdx.x * blockDim.x + threadIdx.x
                 inl by = gridDim.x * blockDim.x
-                Loops.for {from near_to by body=inl {i} -> out' i .set (f (in' i .get)) }
+                Loops.for {from near_to by body=inl {i} -> 
+                    inl out, in = out i, in i
+                    match mode with
+                    | .Add -> out .set (out .get + f (in .get)) 
+                    | .Set -> out .set (f (in .get)) 
+                    }
             } |> ignore
 
     inl map f (!zip in) ret =
         inb out = create {dim=in.dim; elem_type = type (f (in.elem_type))}
-        map_template f in out
+        map_template .Set f in out
         ret out
-
-    inl map_back f {in={primal adjoint} out} _ =
-        match Tuple.filter (function
-            | () -> false
-            | _ -> true) adjoint with
-        | () -> () // No need to run the map if all the adjoints are empty.
-        | adjoint ->
-            zip (primal,adjoint) |> ignore // This is to make sure that the sizes assert in primal and adjoint. 
-            inl f x = 
-                // What this does is selectively filter out the results of applying f 
-                // where the adjoints are missing (in other words constants.)
-                let rec loop = function
-                    | x :: x', () :: y' -> loop (x',y')
-                    | x :: x', _ :: y' -> x :: loop (x',y')
-                    | x, () -> ()
-                    | x, _ -> x
-                loop (f x,adjoint)
-            inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
-            map_template f (zip {in=primal; out}) (zip adjoint)
 
     inl map_redo {map redo} (!zip (!to_1d in)) ret =
         inl in' = to_dev_tensor in
@@ -339,7 +326,7 @@ inl CudaKernels stream =
 
         if near_to >= 128 then
             inl blockDim = 128
-            inl gridDim = near_to / blockDim
+            inl gridDim = near_to / blockDim // TODO: Do something more fancy here.
             inl elem_type = type (in.elem_type |> map)
             inl ty = elem_type
 
@@ -388,6 +375,10 @@ inl CudaKernels stream =
             inl x = Tuple.map (function x : int64 -> unsafe_convert int32 x | x -> x) x
             inl status_type = fs [text: "ManagedCuda.CudaBlas.CublasStatus"]
             FS.StaticMethod native_type m x status_type |> assert_ok
+        inl conv o x = 
+            match o.elem_type with
+            | t: float64 | t: float32 -> if eq_type t x then x else unsafe_convert t x
+            | _ -> error_type "Only f32/f64 types supported for conversion in gemm."
         
         // -------
 
@@ -401,6 +392,7 @@ inl CudaKernels stream =
             inl m,n = rows A, cols A
             inl lda = m
             toa_iter3 (inl {ar=A} {ar=x} {ar=o} ->
+                inl alpha, beta = conv o alpha, conv o beta
                 call.cublasSgemv_v2(handle, to_operation transa, m, n, ref alpha, A, lda, x, 1, ref beta, o, 1)
                 ) (A.bodies) (x.bodies) (o.bodies)
 
@@ -410,11 +402,11 @@ inl CudaKernels stream =
             inl m = max (rows x, cols x)
             inl n = max (rows y, cols y)
 
-            match beta with
-            | 0.0f64 | 0.0f32 -> ()
-            | _ -> failwith unit "Rescaling of inputs in ger not allowed for now."
-
             toa_iter3 (inl {ar=x} {ar=y} {ar=a} ->
+                inl alpha, beta = conv a alpha, conv b beta
+                match beta with
+                | 0.0f64 | 0.0f32 -> ()
+                | _ -> map_template .Set ((*) beta) a a
                 call.cublasSger_v2(handle, m, n, ref alpha, x, 1, y, 1, a, m)
                 ) (x.bodies) (y.bodies) (a.bodies)
 
@@ -447,32 +439,29 @@ inl CudaKernels stream =
         // Just do the standard matrix multiply
         else
             toa_iter3 (inl {ar=A} {ar=B} {ar=C} ->
+                inl alpha, beta = conv C alpha, conv C beta
                 call.cublasSgemm_v2(handle, to_operation transa, to_operation transb, m, n, k, ref alpha, A, lda, B, ldb, ref beta, C, ldc)
                 ) (A.bodies) (B.bodies) (C.bodies)
 
     inl gemm transa transb alpha A B ret =
-        inl A_ty, B_ty = type(A), type(B)
-        assert (eq_type A_ty B_ty) ("A should be of equal type to B.", A_ty, " <> ", B_ty)
+        inl A_ty, B_ty = A.elem_type, B.elem_type
+        assert (eq_type A_ty B_ty) ("Elements of A should be of equal type to B's.", A_ty, " <> ", B_ty)
 
         inl m = if isnT transa then rows A else cols A
         inl n = if isnT transb then cols B else rows B
 
-        inb C = create {dim=m,n; elem_type = type (A.elem_type)}
-        inl beta = match alpha with _: float32 -> 0f32 | _: float64 -> 0f64
-        gemm' transa transb alpha A B beta C
+        inb C = create {dim=m,n; elem_type = A_ty}
+        gemm' transa transb alpha A B 0.0 C
         ret C
 
-    {map map_back map_redo gemm fill_random}
+    {map map_template map_redo gemm' gemm fill_random}
 
 inl AutoDiff stream =
     open CudaKernels stream
     inl (>>=) a b ret = a <| inl a -> b a ret
     inl make_dual x ret = 
-        match x with
-        | {primal adjoint} -> x
-        | x ->
-            inb adjoint = zero_like x
-            ret {primal=x; adjoint}
+        inb adjoint = zero_like x
+        ret {primal=x; adjoint}
     inl fmap f x = 
         inl rec loop = function
             | x when caseable_is x -> f x
@@ -480,6 +469,7 @@ inl AutoDiff stream =
             | x :: xs -> loop x :: loop xs
             | x -> f x
         loop x
+    inl make_dual_host = fmap (inl x -> usafe_confert x 0 |> ref)
     inl primal = 
         fmap <| function
             | {primal} -> primal
@@ -488,10 +478,58 @@ inl AutoDiff stream =
         fmap <| function
             | {adjoint} -> adjoint
             | x -> ()
+
+    // What this does is selectively filter out the results of applying f 
+    // where the adjoints are missing (in other words constants.)
+    inl filter_based_on_adjoints f x adjoint =
+        let rec loop = function
+            | x :: x', () :: y' -> loop (x',y')
+            | x :: x', _ :: y' -> x :: loop (x',y')
+            | x, () -> ()
+            | x, _ -> x
+        loop (f x,adjoint)
+
+    inl filter_unit_and_branch x ret =
+        match Tuple.filter (function
+            | () -> false
+            | _ -> true) x with
+        | () -> ()
+        | x -> ret x
+
     inl map {fwd bck} in ret =
-        inl in = {primal=primal in; adjoint=adjoint in}
-        inb out = map fwd (in.primal) >>= make_dual
-        ret (out, map_back bck {out in})
+        inl primal, adjoint = primal in, adjoint in
+        inb out = map fwd primal >>= make_dual
+        ret (out, inl _ ->
+            inl bck x = filter_based_on_adjoints bck x adjoint
+            inb adjoint = filter_unit_and_branch adjoint 
+            inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
+            map_template .Add bck {in=primal; out} adjoint
+            )
+
+    inl map_redo {fwd bck} in ret =
+        inl primal, adjoint = primal in, adjoint in
+        inb !make_dual_host out = map_redo (in.primal)
+        ret (out, inl _ ->
+            inl out = toa_map2 (inl P A -> {P A = A ()}) (out.primal) (out.adjoint)
+            inl bck in = filter_based_on_adjoints bck {in out} adjoint
+            inb adjoint = filter_unit_and_branch adjoint 
+            map_template .Add bck primal adjoint
+            )
+
+    inl gemm' alpha A B ret =
+        inb C = gemm .nT .nT alpha (primal A) (primal B) >>= make_dual
+        ret (C, inl _ ->
+            inl on_adjoint B ret =
+                match adjoint B with
+                | () -> ()
+                | B -> ret B
+            
+            on_adjoint A (gemm' .nT .T alpha (adjoint C) (primal B) 1.0)
+            on_adjoint B (gemm' .T .nT alpha (primal A) (adjoint C) 1.0)
+            )
+
+    inl gemm = gemm' 1.0
+
 
 inl force x ret = ret (x ())
 inl joinm x ret = join (ret x)
