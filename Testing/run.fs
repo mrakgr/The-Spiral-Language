@@ -456,81 +456,6 @@ inl CudaKernels stream =
 
     {map map_template map_redo gemm' gemm fill_random}
 
-inl AutoDiff stream =
-    open CudaKernels stream
-    inl (>>=) a b ret = a <| inl a -> b a ret
-    inl make_dual x ret = 
-        inb adjoint = zero_like x
-        ret {primal=x; adjoint}
-    inl fmap f x = 
-        inl rec loop = function
-            | x when caseable_is x -> f x
-            | () -> ()
-            | x :: xs -> loop x :: loop xs
-            | x -> f x
-        loop x
-    inl make_dual_host = fmap (inl x -> usafe_confert x 0 |> ref)
-    inl primal = 
-        fmap <| function
-            | {primal} -> primal
-            | x -> x
-    inl adjoint = 
-        fmap <| function
-            | {adjoint} -> adjoint
-            | x -> ()
-
-    // What this does is selectively filter out the results of applying f 
-    // where the adjoints are missing (in other words constants.)
-    inl filter_based_on_adjoints f x adjoint =
-        let rec loop = function
-            | x :: x', () :: y' -> loop (x',y')
-            | x :: x', _ :: y' -> x :: loop (x',y')
-            | x, () -> ()
-            | x, _ -> x
-        loop (f x,adjoint)
-
-    inl filter_unit_and_branch x ret =
-        match Tuple.filter (function
-            | () -> false
-            | _ -> true) x with
-        | () -> ()
-        | x -> ret x
-
-    inl map {fwd bck} in ret =
-        inl primal, adjoint = primal in, adjoint in
-        inb out = map fwd primal >>= make_dual
-        ret (out, inl _ ->
-            inl bck x = filter_based_on_adjoints bck x adjoint
-            inb adjoint = filter_unit_and_branch adjoint 
-            inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
-            map_template .Add bck {in=primal; out} adjoint
-            )
-
-    inl map_redo {fwd bck} in ret =
-        inl primal, adjoint = primal in, adjoint in
-        inb !make_dual_host out = map_redo (in.primal)
-        ret (out, inl _ ->
-            inl out = toa_map2 (inl P A -> {P A = A ()}) (out.primal) (out.adjoint)
-            inl bck in = filter_based_on_adjoints bck {in out} adjoint
-            inb adjoint = filter_unit_and_branch adjoint 
-            map_template .Add bck primal adjoint
-            )
-
-    inl gemm' alpha A B ret =
-        inb C = gemm .nT .nT alpha (primal A) (primal B) >>= make_dual
-        ret (C, inl _ ->
-            inl on_adjoint B ret =
-                match adjoint B with
-                | () -> ()
-                | B -> ret B
-            
-            on_adjoint A (gemm' .nT .T alpha (adjoint C) (primal B) 1.0)
-            on_adjoint B (gemm' .T .nT alpha (primal A) (adjoint C) 1.0)
-            )
-
-    inl gemm = gemm' 1.0
-
-
 inl force x ret = ret (x ())
 inl joinm x ret = join (ret x)
 inl (>>=) a b ret = a <| inl a -> b a ret
@@ -555,18 +480,18 @@ inl test_map_redo =
     inl host_tensor = HostTensor.init (dyn 64) (unsafe_convert float32)
     from_host_tensor host_tensor >>= map_redo {map=id; redo=(+)} >>= force >>= joinm >>= (writeline >> succ)
 
-inl create_random_tensor op dim =
-    inm device_tensor = create {dim elem_type=float32}
+inl create_random_tensor op dsc =
+    inm device_tensor = create dsc
     fill_random op device_tensor
     succ device_tensor
 
 inl test_gemm =
-    inl create' = create_random_tensor {op=.LogNormal; stddev=1.0f32; mean=0f32}
+    inl create' dim = create_random_tensor {op=.LogNormal; stddev=1.0f32; mean=0f32} {dim elem_type=float32}
     inm a = create' (4,2)
     inm b = create' (2,4)
     gemm .nT .nT 1.0f32 a b >>= (to_host_tensor >> show_tensor_all >> writeline >> succ)
 
-inl test_mnist_feedforward mnist_path =
+inl load_mnist_tensors mnist_path =
     inl mnist_files = {
         test_images = {file = "t10k-images.idx3-ubyte"; expected_size = 10000,28*28}
         test_labels = {file = "t10k-labels.idx1-ubyte"; expected_size = 10000,10}
@@ -574,25 +499,27 @@ inl test_mnist_feedforward mnist_path =
         train_labels = {file = "train-labels.idx1-ubyte"; expected_size = 60000,10}
         }
            
-    inb mnist_tensors = 
-        inl path_type = fs [text: "System.IO.Path"]
-        inl combine x = FS.StaticMethod path_type .Combine x string
-        module_map (inl _ {file expected_size} -> 
-            load_mnist (combine (mnist_path, file))
-            |> HostTensor.assert_size expected_size
-            ) mnist_files
-        |> from_host_tensors
+    inl path_type = fs [text: "System.IO.Path"]
+    inl combine x = FS.StaticMethod path_type .Combine x string
+    
+    module_map (inl _ {file expected_size} -> 
+        load_mnist (combine (mnist_path, file))
+        |> HostTensor.assert_size expected_size
+        ) mnist_files
+    |> from_host_tensors
+
+inl test_mnist_feedforward mnist_path =
+    inb mnist_tensors = load_mnist_tensors mnist_path
 
     inl hidden_size = 10
     inl input_size = 784
 
-    inl create' size = 
+    inl create' dim = 
         inl sqrt x = FS.UnOp .sqrt x x
         inl stddev = 1f32 / sqrt (Tuple.foldl (+) 0 size |> unsafe_convert float32)
-        create_random_tensor {op=.Normal; stddev mean=0f32} size
+        create_random_tensor {op=.Normal; stddev mean=0f32} {dim elem_type=float32}
 
     inb weight = create' (input_size, hidden_size)
-
     inl sigmoid x = 1f32 / (1f32 + (exp (-x)))
 
     inl Error = {
@@ -623,10 +550,112 @@ inl test_mnist_feedforward mnist_path =
 
     iterate 128 (mnist_tensors.train_images,mnist_tensors.train_labels)
 
+inl AutoDiffPrimitives stream =
+    open CudaKernels stream
+    inl (>>=) a b ret = a <| inl a -> b a ret
+    inl make_dual x ret = 
+        inb adjoint = zero_like x
+        ret {primal=x; adjoint}
+    inl make_dual_host = fmap (inl x -> {primal=x; adjoint=usafe_convert x 0 |> ref})
+    inl fmap f x = 
+        inl rec loop = function
+            | x when caseable_is x -> f x
+            | () -> ()
+            | x :: xs -> loop x :: loop xs
+            | x -> f x
+        loop x
+    inl primal = 
+        fmap <| function
+            | {primal} -> primal
+            | x -> x
+    inl adjoint = 
+        fmap <| function
+            | {adjoint} -> adjoint
+            | x -> ()
+
+    // What this does is selectively filter out the results of applying f 
+    // where the adjoints are missing (in other words constants.)
+    inl filter_based_on_adjoints x adjoint =
+        let rec loop = function
+            | x :: x', () :: y' -> loop (x',y')
+            | x :: x', _ :: y' -> x :: loop (x',y')
+            | x, () -> ()
+            | x, _ -> x
+        loop (x,adjoint)
+
+    inl filter_unit_and_branch x ret =
+        match Tuple.filter (function
+            | () -> false
+            | _ -> true) x with
+        | () -> ()
+        | x -> ret x
+
+    inl map {fwd bck} in ret =
+        inl primal, adjoint = primal in, adjoint in
+        inb out = map fwd primal >>= make_dual
+        ret (out, inl _ ->
+            inl bck x = filter_based_on_adjoints (bck x) adjoint
+            inb adjoint = filter_unit_and_branch adjoint 
+            inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
+            map_template .Add bck {in=primal; out} adjoint
+            )
+
+    inl map_redo {fwd bck} in ret =
+        inl primal, adjoint = primal in, adjoint in
+        inb !make_dual_host out = map_redo (in.primal)
+        ret (out, inl _ ->
+            inl out = toa_map2 (inl P A -> {P A = A ()}) (out.primal) (out.adjoint)
+            inl bck in = filter_based_on_adjoints (bck {in out}) adjoint
+            inb adjoint = filter_unit_and_branch adjoint 
+            map_template .Add bck primal adjoint
+            )
+
+    inl gemm' alpha A B ret =
+        inb C = gemm .nT .nT alpha (primal A) (primal B) >>= make_dual
+        ret (C, inl _ ->
+            inl on_adjoint B ret =
+                match adjoint B with
+                | () -> ()
+                | B -> ret B
+            
+            on_adjoint A (gemm' .nT .T alpha (adjoint C) (primal B) 1.0)
+            on_adjoint B (gemm' .T .nT alpha (primal A) (adjoint C) 1.0)
+            )
+
+    inl gemm = gemm' 1.0
+
+    {map map_redo gemm' gemm make_dual make_dual_host}
+
+inl AutoDiffOps stream =
+    open AutoDiffPrimitives stream
+
+    inl one_of = function
+        | _ : float32 -> 1f32
+        | _ : float64 -> 1f64
+
+    inl act d = map {d with bck = inl {out={A P} in} -> toa_map ((*) A) (self {in out=P})}
+    inl sigmoid = act {
+        fwd = inl x & (!one_of one) -> one / (one + expr -x)
+        bck = inl {out} -> out * (one_of out - out)
+        }
+
+    inl Error = {
+        square = act {
+            fwd = inl (x,y) -> (y - x) * (y - x)
+            bck = inl {out in=x,y} -> -2 * (y - x), 2 * (y - x)
+            }
+        cross_entropy = act {
+            fwd = inl x, y & (!one_of one) -> -(y * log x + (one-y) * log (one-x))
+            bck = inl {out in=x, y & (!one_of one)} -> x * (x-y) / (one-x), log (one-x) - log x
+            }
+        }
+
 inl learning_tests _ = test_random, test_map, test_map_redo, test_gemm, test_mnist_feedforward mnist_path
 
 inl mnist_path = @"C:\Users\Marko\Documents\Visual Studio 2015\Projects\SpiralQ\SpiralQ\Tests"
 test_mnist_feedforward mnist_path
+
+
     """
 
 let cfg: Spiral.Types.CompilerSettings = {
