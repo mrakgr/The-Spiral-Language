@@ -553,40 +553,55 @@ inl test_mnist_feedforward mnist_path =
 inl AutoDiffPrimitives stream =
     open CudaKernels stream
     inl (>>=) a b ret = a <| inl a -> b a ret
-    inl make_dual x ret = 
-        inb adjoint = zero_like x
-        ret {primal=x; adjoint}
-    inl make_dual_host = fmap (inl x -> {primal=x; adjoint=usafe_convert x 0 |> ref})
-    inl fmap f x = 
+
+    inl make_dual primal ret = 
+        inb adjoint = zero_like primal
+        ret {primal adjoint}
+    inl make_dual_host primal = {primal adjoint=usafe_convert primal 0 |> ref}
+
+    inl fmap pat x = 
         inl rec loop = function
-            | x when caseable_is x -> f x
-            | () -> ()
+            | @pat x -> x
             | x :: xs -> loop x :: loop xs
-            | x -> f x
-        loop x
-    inl primal = 
-        fmap <| function
-            | {primal} -> primal
+            | {} as x -> module_map (const loop) x
             | x -> x
-    inl adjoint = 
-        fmap <| function
-            | {adjoint} -> adjoint
-            | x -> ()
+        loop x
+
+    inl primal_template f = 
+        fmap <| inl x on_fail on_succ ->
+            match x with
+            | {primal adjoint} -> (primal, adjoint) |> f |> on_succ
+            | _ -> on_fail ()
+
+    inl primal = primal_template fst
+    inl adjoint = primal_template snd
+
+    inl is_unit = function
+        | () -> false
+        | _ -> true
+
+    inl rec filter_units = function
+        | x :: x' -> 
+            match filter_units x with
+            | () -> filter_units x'
+            | x -> x :: filter_units x'
+        | {} & x ->
+            module_filter (inl k (!filter_units (!is_unit x)) -> x) x
+            |> inl x -> if eq_type x {} then () else x
+        | x -> x
 
     // What this does is selectively filter out the results of applying f 
     // where the adjoints are missing (in other words constants.)
     inl filter_based_on_adjoints x adjoint =
-        let rec loop = function
-            | x :: x', () :: y' -> loop (x',y')
-            | x :: x', _ :: y' -> x :: loop (x',y')
-            | x, () -> ()
+        inl rec mark_units = function
+            | x :: x', y :: y' -> mark_units (x,y) :: mark_units (x',y')
+            | {} & x, {} & y -> module_map (inl k x -> mark_units (x,y k)) x
+            | _, () -> ()
             | x, _ -> x
-        loop (x,adjoint)
+        mark_units (x,adjoint) |> filter_units
 
     inl filter_unit_and_branch x ret =
-        match Tuple.filter (function
-            | () -> false
-            | _ -> true) x with
+        match filter_units x with
         | () -> ()
         | x -> ret x
 
@@ -665,11 +680,10 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = []
     }
 
-rewrite_test_cache cfg None //(Some(0,40))
+//rewrite_test_cache cfg None //(Some(0,40))
 
-//output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.txt" test1
-//output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
-//|> printfn "%s"
-//|> ignore
+output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
+|> printfn "%s"
+|> ignore
 
 
