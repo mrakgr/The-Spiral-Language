@@ -665,20 +665,39 @@ inl AutoDiffOps stream =
             }
         }
 
+    inl (>>=) a b ret =
+        inb a,a_bck = a
+        inb b,b_bck = b a
+        ret (b, inl _ -> a_bck(); b_bck())
+
     {sigmoid Error gemm gemm'}
 
-inl Layers stream =
+inl FeedforwardLayers stream =
     open AutoDiffOps stream
+
+    inl layer initializer activation hidden_size next_layer input_size ret =
+        inb weight = initializer (input_size, hidden_size)
+        inb next_layer = next_layer hidden_size
+        ret function
+            | .update_weight f -> f weight; next_layer .update_weight f
+            | input -> gemm input weight >>= activation >>= next_layer
 
     inl sigmoid_initializer dim = 
         inl sqrt x = FS.UnOp .sqrt x x
         inl stddev = sqrt (2f32 / Tuple.foldl (+) 0 dim |> unsafe_convert float32)
         create_random_tensor {op=.Normal; stddev mean=0f32} {dim elem_type=float32}
 
-    inl sigmoid hidden_size next_layer input_size ret =
-        inb weight = sigmoid_initializer (input_size, hidden_size)
-        inb next_layer = next_layer hidden_size
-        ret (inl input -> gemm input weight >>= sigmoid >>= next_layer)
+    inl sigmoid = layer sigmoid_initializer sigmoid
+    
+    inl succ _ ret =
+        ret function
+            | .update_weight _ -> ()
+            | x -> x
+
+    inl init layers = Tuple.fodlr (<|) layers succ
+
+    // inb layer = init (sigmoid 512, sigmoid 10) 784
+    // inl pass label = layer >>= inl input -> Error.square (input,label)
 
 inl learning_tests _ = test_random, test_map, test_map_redo, test_gemm, test_mnist_feedforward mnist_path
 
