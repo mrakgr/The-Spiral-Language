@@ -670,17 +670,20 @@ inl AutoDiffOps stream =
         inb b,b_bck = b a
         ret (b, inl _ -> a_bck(); b_bck())
 
-    {sigmoid Error gemm gemm'}
+    inl succ x ret = ret (x, const ())
+
+    {sigmoid Error gemm gemm' (>>=) succ}
 
 inl FeedforwardLayers stream =
     open AutoDiffOps stream
 
     inl layer initializer activation hidden_size next_layer input_size ret =
         inb weight = initializer (input_size, hidden_size)
-        inb next_layer = next_layer hidden_size
-        ret function
-            | .update_weight f -> f weight; next_layer .update_weight f
-            | input -> gemm input weight >>= activation >>= next_layer
+        inb {update_weights apply} = next_layer hidden_size
+        ret {
+            update_weights = inl f -> f weight; update_weights f
+            apply = inl input -> gemm input weight >>= activation >>= apply
+            }
 
     inl sigmoid_initializer dim = 
         inl sqrt x = FS.UnOp .sqrt x x
@@ -690,9 +693,10 @@ inl FeedforwardLayers stream =
     inl sigmoid = layer sigmoid_initializer sigmoid
     
     inl succ _ ret =
-        ret function
-            | .update_weight _ -> ()
-            | x -> x
+        ret {
+            update_weights = const ()
+            apply = succ
+            }
 
     inl init layers = Tuple.fodlr (<|) layers succ
 
