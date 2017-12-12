@@ -516,7 +516,7 @@ inl test_mnist_feedforward mnist_path =
 
     inl create' dim = 
         inl sqrt x = FS.UnOp .sqrt x x
-        inl stddev = 1f32 / sqrt (Tuple.foldl (+) 0 size |> unsafe_convert float32)
+        inl stddev = sqrt (2f32 / Tuple.foldl (+) 0 dim |> unsafe_convert float32)
         create_random_tensor {op=.Normal; stddev mean=0f32} {dim elem_type=float32}
 
     inb weight = create' (input_size, hidden_size)
@@ -664,6 +664,21 @@ inl AutoDiffOps stream =
             bck = inl {out in=x, y & (!one_of one)} -> x * (x-y) / (one-x), log (one-x) - log x
             }
         }
+
+    {sigmoid Error gemm gemm'}
+
+inl Layers stream =
+    open AutoDiffOps stream
+
+    inl sigmoid_initializer dim = 
+        inl sqrt x = FS.UnOp .sqrt x x
+        inl stddev = sqrt (2f32 / Tuple.foldl (+) 0 dim |> unsafe_convert float32)
+        create_random_tensor {op=.Normal; stddev mean=0f32} {dim elem_type=float32}
+
+    inl sigmoid hidden_size next_layer input_size ret =
+        inb weight = sigmoid_initializer (input_size, hidden_size)
+        inb next_layer = next_layer hidden_size
+        ret (inl input -> gemm input weight >>= sigmoid >>= next_layer)
 
 inl learning_tests _ = test_random, test_map, test_map_redo, test_gemm, test_mnist_feedforward mnist_path
 
