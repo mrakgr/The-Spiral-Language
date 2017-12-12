@@ -110,6 +110,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
     let if_static cond tr fl = (IfStatic,[cond;tr;fl]) |> op
     let case arg case = (Case,[arg;case]) |> op
+    let module_is_cps arg on_fail on_succ = op(ModuleIsCPS,[arg;on_fail;on_succ])
+    let module_member_cps arg name on_fail on_succ = op(ModuleMemberCPS,[arg;lit (LitString name);on_fail;on_succ])
+    let list_taken_cps count arg on_fail on_succ = op(ListTakeNCPS,[lit (LitInt32 count);arg;on_fail;on_succ])
+    let list_taken_tail_cps count arg on_fail on_succ = op(ListTakeNTailCPS,[lit (LitInt32 (count-1));arg;on_fail;on_succ])
     let binop op' a b = (op',[a;b]) |> op
     let eq_type a b = binop EqType a b
     let eq a b = binop EQ a b
@@ -223,14 +227,14 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 List.foldBack (fun pat (c,s,on_succ) -> 
                     let arg = new_pat_var()
                     c + 1, arg :: s,cp (v arg) pat on_succ on_fail) l (0,[],on_succ)
-            
+           
             let pat_tuple l =
                 let count, args, on_succ = pat_tuple_helper l
-                case arg (op(ListTakeNCPS,[lit (LitInt32 count); arg; on_fail; inl' args on_succ]))
+                list_taken_cps count arg on_fail (inl' args on_succ) |> case arg
 
             let pat_cons l = 
                 let count, args, on_succ = pat_tuple_helper l
-                case arg (op(ListTakeNTailCPS,[lit (LitInt32 (count-1)); arg; on_fail; inl' args on_succ]))
+                list_taken_tail_cps count arg on_fail (inl' args on_succ) |> case arg
 
             let pat_part_active a pat on_fail arg =
                 let pat_var = new_pat_var()
@@ -287,15 +291,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 let on_succ = if_static (eq arg x) on_succ on_fail
                 if_static (eq_type arg x) on_succ on_fail |> case arg
             | PatWhen (p, e) -> cp arg p (if_static e on_succ on_fail) on_fail
-            | PatModuleIs p -> 
-                op(ModuleIsCPS,[arg;on_fail;cp arg p on_succ on_fail])
-                |> case arg
-            | PatModuleMember name -> 
-                op(ModuleMemberCPS,[arg;lit (LitString name);on_fail;inl name on_succ])
-                |> case arg
+            | PatModuleIs p -> module_is_cps arg on_fail (cp arg p on_succ on_fail) |> case arg
+            | PatModuleMember name -> module_member_cps arg name on_fail (inl name on_succ) |> case arg
             | PatModuleRebind(name,b) -> 
                 let arg' = new_pat_var()    
-                op(ModuleMemberCPS,[arg;lit (LitString name);on_fail;inl arg' (cp (v arg') b on_succ on_fail)])
+                module_member_cps arg name on_fail (inl arg' (cp (v arg') b on_succ on_fail)) 
                 |> case arg
             | PatPos p -> expr_pos p.Pos (cp arg p.Expression on_succ on_fail)
             | PatTypeClosure(a,b) ->
@@ -1342,17 +1342,27 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | x ->
                 on_type_er (trace d) <| sprintf "Expected a module. Got: %s" (show_typedexpr x)
 
-        let module_map d map_op a =
-            match tev2 d map_op a with
-            | map_op, M(layout,C env,MapTypeModule) & recf ->
-                let inline map f = 
-                    let f k x = apply d (apply d map_op (type_lit_create' (LitString k))) (f x)
-                    tymap(Map.map f env |> Env, MapTypeModule)
+        let inline module_map_template is_filter d op a =
+            match tev2 d op a with
+            | op, M(layout,C env,MapTypeModule) & recf ->
+                let inline op f = 
+                    if is_filter then
+                        let f k x = 
+                            match apply d (apply d op (type_lit_create' (LitString k))) (f x) with
+                            | TyLit (LitBool x) -> x
+                            | x -> on_type_er (trace d) "Expected a bool literal in ModuleFold.\nGot: %s" (show_typedexpr x)
+                        tymap(Map.filter f env |> Env, MapTypeModule)
+                    else
+                        let f k x = apply d (apply d op (type_lit_create' (LitString k))) (f x)
+                        tymap(Map.map f env |> Env, MapTypeModule)
                 match layout with
-                | None -> map id
-                | Some l -> map (layout_boxed_unseal d recf) |> layoutify l d
+                | None -> op id
+                | Some l -> op (layout_boxed_unseal d recf) |> layoutify l d
             | _, x ->
                 on_type_er (trace d) <| sprintf "Expected a module in module map. Got: %s" (show_typedexpr x)
+
+        let module_map x = module_map_template false x
+        let module_filter x = module_map_template true x
 
         let inline module_fold_template map_fold d fold_op s m =
             match tev3 d fold_op s m with
@@ -1565,6 +1575,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ModuleHasMember,[a;b] -> module_has_member d a b
             | ModuleMemberCPS,[a;b;c;d'] -> module_member_cps d a b c d'
             | ModuleMap,[a;b] -> module_map d a b
+            | ModuleFilter,[a;b] -> module_filter d a b
             | ModuleFoldL,[a;b;c] -> module_foldl d a b c
             | ModuleFoldR,[a;b;c] -> module_foldr d a b c
             | CaseableIs,[a] -> caseable_is d a

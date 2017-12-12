@@ -144,6 +144,7 @@ type Op =
     | ModuleValues
     | ModuleHasMember
     | ModuleMap
+    | ModuleFilter
     | ModuleFoldL
     | ModuleFoldR
     | ModuleOpen
