@@ -318,7 +318,9 @@ inl CudaKernels stream =
         assert (near_to > 0) "The input to map_redo must be non-empty."
 
         inl final_reduce map out =
-            inl _ ->
+            function
+            | .elem_type -> type (out.elem_type |> map)
+            | _ ->
                 inl tns = to_host_tensor out
                 inl load i = map (tns i .get)
                 Loops.for {from=1; near_to=length tns; state=load 0; body=inl {state i} -> redo state (load i)}
@@ -554,28 +556,36 @@ inl AutoDiffPrimitives stream =
     open CudaKernels stream
     inl (>>=) a b ret = a <| inl a -> b a ret
 
+    inl fmap on_module on_var =
+        inl rec loop = function
+            | x :: xs -> loop x :: loop xs
+            | {} as x -> on_module x (module_map (const loop))
+            | x -> on_var x
+        loop
+
+    inl primal_template f = 
+        fmap (function
+            | {primal adjoint} _ -> f (primal, adjoint)
+            | x on_fail -> on_fail x)
+            id
+
+    inl primal = primal_template fst id
+    inl adjoint = primal_template snd (const ())
+
+    // These two are not intended to be able to make duals of duals.
+    // Higher order AD is not supported.
     inl make_dual primal ret = 
         inb adjoint = zero_like primal
         ret {primal adjoint}
-    inl make_dual_host primal = {primal adjoint=usafe_convert primal 0 |> ref}
 
-    inl fmap pat x = 
-        inl rec loop = function
-            | @pat x -> x
-            | x :: xs -> loop x :: loop xs
-            | {} as x -> module_map (const loop) x
-            | x -> x
-        loop x
-
-    inl primal_template f = 
-        fmap <| inl x on_fail on_succ ->
-            match x with
-            | {primal adjoint} -> (primal, adjoint) |> f |> on_succ
-            | _ -> on_fail ()
-
-    inl primal = primal_template fst
-    inl adjoint = primal_template snd
-
+    inl make_dual_host =
+        fmap (|>) <| inl primal ->
+            inl zero_of = function
+                | _: float32 -> 0f32
+                | _: float64 -> 0f64
+                | _: -> ()
+            {primal adjoint=fmap (|>) zero_of (primal.elem_type)}
+            
     inl is_unit = function
         | () -> false
         | _ -> true
@@ -698,7 +708,7 @@ inl FeedforwardLayers stream =
             apply = succ
             }
 
-    inl init layers = Tuple.fodlr (<|) layers succ
+    inl init layers = Tuple.foldr (<|) layers succ
 
     // inb layer = init (sigmoid 512, sigmoid 10) 784
     // inl pass label = layer >>= inl input -> Error.square (input,label)
