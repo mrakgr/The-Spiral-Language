@@ -642,14 +642,24 @@ inl AutoDiffPrimitives stream =
                 match adjoint B with
                 | () -> ()
                 | B -> ret B
-            
             on_adjoint A (gemm' .nT .T alpha (adjoint C) (primal B) 1.0)
             on_adjoint B (gemm' .T .nT alpha (primal A) (adjoint C) 1.0)
             )
 
     inl gemm = gemm' 1.0
 
-    {map map_redo gemm' gemm make_dual make_dual_host}
+    inl scalar_mult a b ret =
+        inl c = primal a * primal b |> make_dual_host
+        ret (c, inl _ ->
+            inl on_adjoint a ret =
+                match a with
+                | {adjoint} -> adjoint := adjoint + ret ()
+                | _ -> ()
+            on_adjoint a <| inl _ -> adjoint c * primal b
+            on_adjoint b <| inl _ -> adjoint c * primal a
+            )
+
+    {map map_redo gemm' gemm make_dual make_dual_host scalar_mult fmap primal adjoint}
 
 inl AutoDiffOps stream =
     open AutoDiffPrimitives stream
@@ -682,6 +692,11 @@ inl AutoDiffOps stream =
 
     inl succ x ret = ret (x, const ())
 
+    inl div_by_batch_size cost_function input =
+        inl batch_size = primal input .dim |> fst
+        inm output = cost_function input
+        inl 
+
     {sigmoid Error gemm gemm' (>>=) succ}
 
 inl FeedforwardLayers stream =
@@ -709,6 +724,21 @@ inl FeedforwardLayers stream =
             }
 
     inl init layers = Tuple.foldr (<|) layers succ
+
+    inl run {network={update_weights apply} optimizer train test minibatch_size} =
+        inl dim1 x = x.dim |> fst
+        inl near_to = dim1 train |> inl {near_to} -> near_to 
+        assert (dim1 train = dim1 test) "Training and test set need to have to equal first dimensions."
+
+        Loops.for {from=0; near_to; by=minibatch_size; body = inl {i=from} ->
+            inl near_to = min (from + minibatch_size) near_to
+            inl span = {from near_to}
+            inl view x = x.view_span span
+            string_format "On span {0}" (show span) |> writeline
+            inl {primal adjoint} = apply (view train, view test) id
+            string_format ""
+            }
+
 
     // inb layer = init (sigmoid 512, sigmoid 10) 784
     // inl pass label = layer >>= inl input -> Error.square (input,label)
