@@ -137,7 +137,7 @@ inl allocator size ret =
     FS.Method context .FreeMemory (ptr()) unit
     ptr.Dispose
 
-inl CudaTensor allocator =
+inl CudaTensor allocator stream =
     open HostTensor
     inl cuda_array_create elem_type len = 
         inl ptr = allocator.allocate (len * unsafe_convert int64 (sizeof elem_type))
@@ -218,14 +218,14 @@ inl CudaTensor allocator =
     // CPS'd variants of the allocator functions.
     inl create = safe_alloc 1 create
     inl from_host_tensor = safe_alloc 1 from_host_tensor
-    inl clear = safe_alloc 1 clear
     inl zero_like = safe_alloc 1 zero_like
 
     {create from_host_tensor from_host_tensors to_host_tensor to_dev_tensor clear zero_like}
 
 inb allocator = allocator 0.7
 open HostTensor
-open CudaTensor allocator
+inl stream = Stream.create()
+open CudaTensor allocator stream
 
 use random = 
     inl generator_type = fs [text: "ManagedCuda.CudaRand.GeneratorType"]
@@ -467,7 +467,7 @@ inl joinm x ret = join (ret x)
 inl (>>=) a b ret = a <| inl a -> b a ret
 inl succ a ret = ret a
 
-open CudaKernels (Stream.create())
+open CudaKernels stream
 open Console
 
 inl test_random = 
@@ -719,6 +719,15 @@ inl AutoDiffOps stream =
         }
 
     {sigmoid Error gemm gemm' (>>=) succ}
+
+inl Optimizers stream = 
+    inl {clear} = CudaTensor allocator stream
+    open CudaKernels stream
+    inl sgd {primal adjoint} = 
+        map_template (inl (a,b) -> a+b) (primal,adjoint) primal
+        clear adjoint 
+
+    {sgd}
 
 inl FeedforwardLayers stream =
     open AutoDiffOps stream
