@@ -572,6 +572,8 @@ inl AutoDiffPrimitives stream =
     inl primal = primal_template fst id
     inl adjoint = primal_template snd (const ())
 
+    inl fmap = fmap (|>)
+
     // These two are not intended to be able to make duals of duals.
     // Higher order AD is not supported.
     inl make_dual primal ret = 
@@ -579,12 +581,12 @@ inl AutoDiffPrimitives stream =
         ret {primal adjoint}
 
     inl make_dual_host =
-        fmap (|>) <| inl primal ->
+        fmap <| inl primal ->
             inl zero_of = function
                 | _: float32 -> 0f32
                 | _: float64 -> 0f64
                 | _: -> ()
-            {primal adjoint=fmap (|>) zero_of (primal.elem_type)}
+            {primal adjoint=fmap zero_of (primal.elem_type)}
             
     inl is_unit = function
         | () -> false
@@ -659,7 +661,24 @@ inl AutoDiffPrimitives stream =
             on_adjoint b <| inl _ -> adjoint c * primal a
             )
 
-    {map map_redo gemm' gemm make_dual make_dual_host scalar_mult fmap primal adjoint}
+    inl scalar_div a b ret =
+        inl c = 
+            inl a = primal a
+            inl b = 
+                match a with 
+                | t: float32 | t: float64 when eq_type a b = false -> type (t)
+            |> inl t -> 
+            primal a * primal b |> make_dual_host
+        ret (c, inl _ ->
+            inl on_adjoint a ret =
+                match a with
+                | {adjoint} -> adjoint := adjoint + ret ()
+                | _ -> ()
+            on_adjoint a <| inl _ -> adjoint c * primal b
+            on_adjoint b <| inl _ -> adjoint c * primal a
+            )
+
+    {map map_redo gemm' gemm make_dual make_dual_host scalar_mult}
 
 inl AutoDiffOps stream =
     open AutoDiffPrimitives stream
@@ -692,10 +711,10 @@ inl AutoDiffOps stream =
 
     inl succ x ret = ret (x, const ())
 
-    inl div_by_batch_size cost_function input =
+    inl div_by_batch_size cost_function input ret =
         inl batch_size = primal input .dim |> fst
         inm output = cost_function input
-        inl 
+        scalar_div output batch_size
 
     {sigmoid Error gemm gemm' (>>=) succ}
 
