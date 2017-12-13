@@ -11,6 +11,10 @@ openb Cuda
 open Console
 
 // Auxiliaries
+inl one_of = function
+    | _ : float32 -> 1f32
+    | _ : float64 -> 1f64
+
 inl enum ty x = FS.StaticField ty x ty
 
 met load_mnist (!dyn filename) =
@@ -650,59 +654,38 @@ inl AutoDiffPrimitives stream =
 
     inl gemm = gemm' 1.0
 
+    inl on_adjoint a ret =
+        match a with
+        | {adjoint} -> adjoint := adjoint + ret ()
+        | _ -> ()
+
     inl scalar_mult a b ret =
         inl c = primal a * primal b |> make_dual_host
         ret (c, inl _ ->
-            inl on_adjoint a ret =
-                match a with
-                | {adjoint} -> adjoint := adjoint + ret ()
-                | _ -> ()
-            on_adjoint a <| inl _ -> adjoint c * primal b
-            on_adjoint b <| inl _ -> adjoint c * primal a
+            inl c' = adjoint c
+            on_adjoint a <| inl _ -> c' * primal b
+            on_adjoint b <| inl _ -> c' * primal a
             )
 
     inl scalar_div a b ret =
-        inl c = 
-            inl a = primal a
-            inl b = 
-                match a with 
-                | t: float32 | t: float64 when eq_type a b = false -> type (t)
-            |> inl t -> 
-            primal a * primal b |> make_dual_host
+        inl c = primal a / primal b |> make_dual_host
         ret (c, inl _ ->
-            inl on_adjoint a ret =
-                match a with
-                | {adjoint} -> adjoint := adjoint + ret ()
-                | _ -> ()
-            on_adjoint a <| inl _ -> adjoint c * primal b
-            on_adjoint b <| inl _ -> adjoint c * primal a
+            inl c' = adjoint c
+            on_adjoint a <| inl _ -> c' / primal b
+            on_adjoint b <| inl _ -> c' * -(primal a / (primal b * primal b))
             )
 
-    {map map_redo gemm' gemm make_dual make_dual_host scalar_mult}
+    inl to y_ty x ret =
+        inl x_ty = type (primal x)
+        inl y = primal x |> unsafe_convert y_ty |> make_dual_host
+        ret (y, inl _ ->
+            on_adjoint x <| inl _ -> unsafe_convert x_ty (adjoint y)
+            )
+
+    {map map_redo gemm' gemm make_dual make_dual_host scalar_mult scalar_div y_ty}
 
 inl AutoDiffOps stream =
     open AutoDiffPrimitives stream
-
-    inl one_of = function
-        | _ : float32 -> 1f32
-        | _ : float64 -> 1f64
-
-    inl act d = map {d with bck = inl {out={A P} in} -> toa_map ((*) A) (self {in out=P})}
-    inl sigmoid = act {
-        fwd = inl x & (!one_of one) -> one / (one + expr -x)
-        bck = inl {out} -> out * (one_of out - out)
-        }
-
-    inl Error = {
-        square = act {
-            fwd = inl (x,y) -> (y - x) * (y - x)
-            bck = inl {out in=x,y} -> -2 * (y - x), 2 * (y - x)
-            }
-        cross_entropy = act {
-            fwd = inl x, y & (!one_of one) -> -(y * log x + (one-y) * log (one-x))
-            bck = inl {out in=x, y & (!one_of one)} -> x * (x-y) / (one-x), log (one-x) - log x
-            }
-        }
 
     inl (>>=) a b ret =
         inb a,a_bck = a
@@ -711,10 +694,29 @@ inl AutoDiffOps stream =
 
     inl succ x ret = ret (x, const ())
 
-    inl div_by_batch_size cost_function input ret =
-        inl batch_size = primal input .dim |> fst
-        inm output = cost_function input
-        scalar_div output batch_size
+    /// Used for dividing by minibatch size.
+    inl scalar_div_by_outermost_dim cost_function x =
+        inm y = cost_function x
+        inm batch_size = to (type (primal y)) (primal x .dim |> fst)
+        scalar_div y batch_size
+
+    inl act d = map {d with bck = inl {out={A P} in} -> toa_map ((*) A) (self {in out=P})}
+    inl sigmoid = act {
+        fwd = inl x & (!one_of one) -> one / (one + expr -x)
+        bck = inl {out} -> out * (one_of out - out)
+        }
+
+    inl error x = scalar_div_by_outermost_dim (act x)
+    inl Error = {
+        square = error {
+            fwd = inl (x,y) -> (y - x) * (y - x)
+            bck = inl {out in=x,y} -> -2 * (y - x), 2 * (y - x)
+            }
+        cross_entropy = error {
+            fwd = inl x, y & (!one_of one) -> -(y * log x + (one-y) * log (one-x))
+            bck = inl {out in=x, y & (!one_of one)} -> x * (x-y) / (one-x), log (one-x) - log x
+            }
+        }
 
     {sigmoid Error gemm gemm' (>>=) succ}
 
@@ -743,21 +745,41 @@ inl FeedforwardLayers stream =
             }
 
     inl init layers = Tuple.foldr (<|) layers succ
+    inl with_error error network (input,label) = {network with apply = self input >>= inl input -> error (input,label)}
 
-    inl run {network={update_weights apply} optimizer train test minibatch_size} =
+    inl run {d with network={update_weights apply} input label} =
         inl dim1 x = x.dim |> fst
-        inl near_to = dim1 train |> inl {near_to} -> near_to 
-        assert (dim1 train = dim1 test) "Training and test set need to have to equal first dimensions."
+        inl to = unsafe_convert
+        inl span_size {from near_to} = near_to - from
 
-        Loops.for {from=0; near_to; by=minibatch_size; body = inl {i=from} ->
+        inl {span with from near_to} = dim1 input
+        assert (dim1 input = dim1 label) "Training and test set need to have to equal first dimensions."
+
+        inl minibatch_size = match d with {minibatch_size} -> minibatch_size | _ -> span_size span
+
+        Loops.for {from near_to; state=0.0; by=minibatch_size; body = inl {state i=from} ->
             inl near_to = min (from + minibatch_size) near_to
             inl span = {from near_to}
             inl view x = x.view_span span
-            string_format "On span {0}" (show span) |> writeline
-            inl {primal adjoint} = apply (view train, view test) id
-            string_format ""
-            }
+            inl {primal adjoint}, bck = apply (view input, view label) id
+            string_format "On minibatch {0}. Error = {1}" (show span) primal |> writeline
 
+            match d with
+            | {optimizer} ->
+                writeline "Running the backwards phase..."
+                adjoint := one_of primal
+                bck() // Runs the backwards pass.
+                update_weights optimizer
+            
+            inl unscaled_cost = to float64 primal * to float64 (span_size span)
+            state + unscaled_cost
+            }
+        |> inl unscaled_cost -> 
+            writeline "-----"
+            writeline "Batch done."
+            string_format "Total cost is {0}." (unscaled_cost / to float64 (span_size span)) |> writeline
+            writeline "-----"
+            
 
     // inb layer = init (sigmoid 512, sigmoid 10) 784
     // inl pass label = layer >>= inl input -> Error.square (input,label)
