@@ -340,27 +340,22 @@ inl Learning {allocator stream} =
             ret out
             
         /// Flattens the tensor to 1d, maps it, reduces it, and maps it again.
-        /// Lazily returns two outputs, one after redo and one after map_end.
-        inl map_redo_map {d with redo} (!zip (!to_1d in)) ret =
+        /// Lazily returns two an output.
+        inl map_redo {d with redo} (!zip (!to_1d in)) ret =
             inl in' = to_dev_tensor in
             inl near_to = length in'
 
-            assert (near_to > 0) "The input to map_redo_map must be non-empty."
+            assert (near_to > 0) "The input to map_redo must be non-empty."
 
             inl map = match d with {map} -> map | _ -> id
 
             inl final_reduce map out =
-                inl a =
-                    inl _ ->
-                        inl tns = to_host_tensor out
-                        inl load i = map (tns i .get)
-                        Loops.for {from=1; near_to=length tns; state=load 0; body=inl {state i} -> redo state (load i)}
-                    |> lazy // The lazy return here is because transfering to host would block the execution.
-                inl b =
-                    match d with
-                    | {map_end} -> lazy inl _ -> a.value |> map_end
-                    | _ -> a
-                ret (a,b)
+                inl _ ->
+                    inl tns = to_host_tensor out
+                    inl load i = map (tns i .get)
+                    Loops.for {from=1; near_to=length tns; state=load 0; body=inl {state i} -> redo state (load i)}
+                |> lazy // The lazy return here is because transfering to host would block the execution.
+                |> ret
 
             if near_to >= 128 then
                 inl blockDim = 128
@@ -492,7 +487,7 @@ inl Learning {allocator stream} =
             gemm' transa transb alpha A B 0.0 C
             ret C
 
-        {map map_template map_redo_map gemm' gemm random_fill random_create_tensor}
+        {map map_template map_redo gemm' gemm random_fill random_create_tensor}
 
     inl AutoDiffPrimitives =
         open CudaKernels
@@ -556,19 +551,37 @@ inl Learning {allocator stream} =
             inl primal, adjoint = primal in, adjoint in
             inb out = map fwd primal >>= dual_make
             ret (out, inl _ ->
+                inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
                 inl bck x = filter_based_on_adjoints (bck x) adjoint
                 inb adjoint = filter_unit_and_branch adjoint 
-                inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
                 map_template .Add bck {in=primal; out} adjoint
                 )
 
-        inl map_redo_map {fwd bck} in ret =
+        inl hostlazy_map {fwd bck} in ret =
             inl primal, adjoint = primal in, adjoint in
-            inb out_primal, !dual_make_lazyhost out2 = map_redo_map fwd primal
-            ret (out2, inl _ ->
-                inl bck, bck_end = match bck with {map map_end} -> map, map_end
-                inl out_adjoint = toa_map2 (inl P A -> {P A = A ()}) (out2.primal.value) (out2.adjoint) |> bck_end
-                inl out = toa_map2 (inl P A -> {P A}) (out_primal.value) out_adjoint
+            inb !dual_make_lazyhost out = fwd primal
+            ret (out, inl _ ->
+                inl out = toa_map2 (inl P A -> {P A = A ()}) (out.primal.value) (out.adjoint)
+                inl bck = filter_based_on_adjoints (bck {in=toa_map (inl x -> x.value) primal; out}) adjoint
+                inb adjoint = filter_unit_and_branch adjoint 
+                toa_map2 (inl a b -> a := a() + b) adjoint bck
+                )
+
+        inl host_map {fwd bck} in ret =
+            inl primal, adjoint = primal in, adjoint in
+            inb !dual_make_host out = fwd primal
+            ret (out, inl _ ->
+                inl out = toa_map2 (inl P A -> {P A = A ()}) (out.primal) (out.adjoint)
+                inl bck = filter_based_on_adjoints (bck {in=toa_map (inl x -> x.value) primal; out}) adjoint
+                inb adjoint = filter_unit_and_branch adjoint 
+                toa_map2 (inl a b -> a := a() + b) adjoint bck
+                )
+
+        inl map_redo {fwd bck} in ret =
+            inl primal, adjoint = primal in, adjoint in
+            inb !dual_make_lazyhost out = map_redo fwd primal
+            ret (out, inl _ ->
+                inl out = toa_map2 (inl P A -> {P A = A ()}) (out.primal.value) (out.adjoint)
                 inl bck in = filter_based_on_adjoints (bck {in out}) adjoint
                 inb adjoint = filter_unit_and_branch adjoint 
                 map_template .Add bck primal adjoint
@@ -587,35 +600,22 @@ inl Learning {allocator stream} =
 
         inl gemm = gemm' 1.0
 
-        inl on_adjoint a ret =
-            match a with
-            | {adjoint} -> adjoint := adjoint + ret ()
-            | _ -> ()
+        inl scalar_mult a b = host_map {
+            fwd = inl a,b -> a * b
+            bck = inl {in=a,b out={A}} -> A * b, A * a
+            } (a,b)
 
-        inl scalar_mult a b ret =
-            inl c = primal a * primal b |> dual_make_host
-            ret (c, inl _ ->
-                inl c' = adjoint c
-                on_adjoint a <| inl _ -> c' * primal b
-                on_adjoint b <| inl _ -> c' * primal a
-                )
+        inl scalar_div a b = host_map {
+            fwd = inl a,b -> a / b
+            bck = inl {in=a,b out={A}} -> A / b, A * -(a / b * b)
+            } (a,b)
 
-        inl scalar_div a b ret =
-            inl c = primal a / primal b |> dual_make_host
-            ret (c, inl _ ->
-                inl c' = adjoint c
-                on_adjoint a <| inl _ -> c' / primal b
-                on_adjoint b <| inl _ -> c' * -(primal a / (primal b * primal b))
-                )
+        inl to y_ty x = host_map {
+            fwd = unsafe_convert y_ty 
+            bck = inl {in out={A}} -> unsafe_convert in A
+            }
 
-        inl to y_ty x ret =
-            inl x_ty = type (primal x)
-            inl y = primal x |> unsafe_convert y_ty |> dual_make_host
-            ret (y, inl _ ->
-                on_adjoint x <| inl _ -> unsafe_convert x_ty (adjoint y)
-                )
-
-        {map map_redo_map gemm' gemm dual_make dual_make_lazyhost scalar_mult scalar_div to}
+        {map hostlazy_map host_map map_redo_map gemm' gemm dual_make dual_make_lazyhost scalar_mult scalar_div to}
 
     inl AutoDiffOps = 
         open AutoDiffPrimitives
@@ -636,18 +636,17 @@ inl Learning {allocator stream} =
 
         inl error {fwd bck} (input,_ as x) = 
             inl batch_size = primal input .dim |> fst
-            inl map_end = function x: float32 | x: float64 -> x / unsafe_convert x batch_size
-            map_redo_map {
+            inl fwd = function x: float32 | x: float64 -> x / unsafe_convert x batch_size
+            map_redo {
                 fwd = {
                     map = fwd
                     redo = (+)
-                    map_end
                     }
-                bck = {
-                    map = multiply_by_adjoint bck
-                    map_end = inl {A} -> map_end A
-                    }
-                } x
+                bck = multiply_by_adjoint bck
+                }
+            >>= hostlazy_map {fwd bck = inl {A} -> map_end A}
+            <| x
+
         inl Error = {
             square = error {
                 fwd = inl (x,y) -> (y - x) * (y - x)
