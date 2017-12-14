@@ -338,20 +338,29 @@ inl Learning {allocator stream} =
             inb out = create {dim=in.dim; elem_type = type (f (in.elem_type))}
             map_template .Set f in out
             ret out
-
-        inl map_redo {map redo} (!zip (!to_1d in)) ret =
+            
+        /// Flattens the tensor to 1d, maps it, reduces it, and maps it again.
+        /// Lazily returns two outputs, one after redo and one after map_end.
+        inl map_redo_map {d with redo} (!zip (!to_1d in)) ret =
             inl in' = to_dev_tensor in
             inl near_to = length in'
 
-            assert (near_to > 0) "The input to map_redo must be non-empty."
+            assert (near_to > 0) "The input to map_redo_map must be non-empty."
+
+            inl map = match d with {map} -> map | _ -> id
 
             inl final_reduce map out =
-                inl _ ->
-                    inl tns = to_host_tensor out
-                    inl load i = map (tns i .get)
-                    Loops.for {from=1; near_to=length tns; state=load 0; body=inl {state i} -> redo state (load i)}
-                |> lazy
-                |> ret
+                inl a =
+                    inl _ ->
+                        inl tns = to_host_tensor out
+                        inl load i = map (tns i .get)
+                        Loops.for {from=1; near_to=length tns; state=load 0; body=inl {state i} -> redo state (load i)}
+                    |> lazy // The lazy return here is because transfering to host would block the execution.
+                inl b =
+                    match d with
+                    | {map_end} -> lazy inl _ -> a.value |> map_end
+                    | _ -> a
+                ret (a,b)
 
             if near_to >= 128 then
                 inl blockDim = 128
@@ -483,7 +492,7 @@ inl Learning {allocator stream} =
             gemm' transa transb alpha A B 0.0 C
             ret C
 
-        {map map_template map_redo gemm' gemm random_fill random_create_tensor}
+        {map map_template map_redo_map gemm' gemm random_fill random_create_tensor}
 
     inl AutoDiffPrimitives =
         open CudaKernels
@@ -505,16 +514,14 @@ inl Learning {allocator stream} =
         inl primal = primal_template fst id
         inl adjoint = primal_template snd (const ())
 
-        inl fmap = fmap (|>)
-
         // These two are not intended to be able to make duals of duals.
         // Higher order AD is not supported.
         inl dual_make primal ret = 
             inb adjoint = zero_like primal
             ret {primal adjoint}
 
-        inl dual_make_lazyhost = fmap <| inl primal -> {primal adjoint=(zero_of >> ref) (primal.elem_type)}
-        inl dual_make_host = fmap <| inl primal -> {primal adjoint=(zero_of >> ref) (type (primal))}
+        inl dual_make_lazyhost = toa_map <| inl primal -> {primal adjoint=(zero_of >> ref) (primal.elem_type)}
+        inl dual_make_host = toa_map <| inl primal -> {primal adjoint=(zero_of >> ref) (type (primal))}
             
         inl is_unit = function
             | () -> false
@@ -555,11 +562,13 @@ inl Learning {allocator stream} =
                 map_template .Add bck {in=primal; out} adjoint
                 )
 
-        inl map_redo {fwd bck} in ret =
+        inl map_redo_map {fwd bck} in ret =
             inl primal, adjoint = primal in, adjoint in
-            inb !dual_make_lazyhost out = map_redo (in.primal)
-            ret (out, inl _ ->
-                inl out = toa_map2 (inl P A -> {P A = A ()}) (out.primal.value) (out.adjoint)
+            inb out_primal, !dual_make_lazyhost out2 = map_redo_map fwd primal
+            ret (out2, inl _ ->
+                inl bck, bck_end = match bck with {map map_end} -> map, map_end
+                inl out_adjoint = toa_map2 (inl P A -> {P A = A ()}) (out2.primal.value) (out2.adjoint) |> bck_end
+                inl out = toa_map2 (inl P A -> {P A}) (out_primal.value) out_adjoint
                 inl bck in = filter_based_on_adjoints (bck {in out}) adjoint
                 inb adjoint = filter_unit_and_branch adjoint 
                 map_template .Add bck primal adjoint
@@ -606,7 +615,7 @@ inl Learning {allocator stream} =
                 on_adjoint x <| inl _ -> unsafe_convert x_ty (adjoint y)
                 )
 
-        {map map_redo gemm' gemm dual_make dual_make_lazyhost scalar_mult scalar_div to}
+        {map map_redo_map gemm' gemm dual_make dual_make_lazyhost scalar_mult scalar_div to}
 
     inl AutoDiffOps = 
         open AutoDiffPrimitives
@@ -618,27 +627,35 @@ inl Learning {allocator stream} =
 
         inl succ x ret = ret (x, const ())
 
-        /// Used for dividing by minibatch size.
-        inl scalar_div_by_outermost_dim cost_function x =
-            inm y = cost_function x
-            inm batch_size = to (type (primal y)) (primal x .dim |> fst)
-            scalar_div y batch_size
-
-        inl act d = map {d with bck = inl {out={A P} in} -> toa_map ((*) A) (self {in out=P})}
-        inl sigmoid = act {
+        inl multiply_by_adjoint f {out={A P} in} = toa_map ((*) A) (f {in out=P})
+        inl activation d = map {d with bck = multiply_by_adjoint self }
+        inl sigmoid = activation {
             fwd = inl x & (!one_of one) -> one / (one + expr -x)
             bck = inl {out} -> out * (one_of out - out)
             }
 
-        inl error x = scalar_div_by_outermost_dim (act x)
+        inl error {fwd bck} (input,_ as x) = 
+            inl batch_size = primal input .dim |> fst
+            inl map_end = function x: float32 | x: float64 -> x / unsafe_convert x batch_size
+            map_redo_map {
+                fwd = {
+                    map = fwd
+                    redo = (+)
+                    map_end
+                    }
+                bck = {
+                    map = multiply_by_adjoint bck
+                    map_end = inl {A} -> map_end A
+                    }
+                } x
         inl Error = {
             square = error {
                 fwd = inl (x,y) -> (y - x) * (y - x)
-                bck = inl {out in=x,y} -> -2 * (y - x), 2 * (y - x)
+                bck = inl {in=x,y} -> -2 * (y - x), 2 * (y - x)
                 }
             cross_entropy = error {
                 fwd = inl x, y & (!one_of one) -> -(y * log x + (one-y) * log (one-x))
-                bck = inl {out in=x, y & (!one_of one)} -> x * (x-y) / (one-x), log (one-x) - log x
+                bck = inl {in=x, y & (!one_of one)} -> x * (x-y) / (one-x), log (one-x) - log x
                 }
             }
 
@@ -738,11 +755,11 @@ inl test_map =
     inl host_tensor = HostTensor.init 32 (unsafe_convert float32)
     from_host_tensor host_tensor >>= map ((*) (dyn 2f32)) >>= (to_host_tensor >> show_tensor_all >> writeline >> succ)
 
-inl test_map_redo =
+inl test_map_redo_map =
     // In this example the only thing that happens after the joinm is the writeline, but it would be useful if there
     // is more stuff after it. The joinm would be an effective tool for keeping the code bloat down in that case.
     inl host_tensor = HostTensor.init (dyn 64) (unsafe_convert float32)
-    from_host_tensor host_tensor >>= map_redo {map=id; redo=(+)} >>= force >>= joinm >>= (writeline >> succ)
+    from_host_tensor host_tensor >>= map_redo_map {redo=(+)} >>= force >>= joinm >>= (writeline >> succ)
 
 inl test_mnist_feedforward mnist_path =
     inb mnist_tensors = load_mnist_tensors mnist_path |> from_host_tensors
@@ -766,7 +783,7 @@ inl test_mnist_feedforward mnist_path =
     inl pass (input,test) =
         gemm .nT .nT 1f32 input weight 
         >>= map sigmoid 
-        >>= inl input -> map_redo {map=Error.square; redo=(+)} (input,test)
+        >>= inl input -> map_redo_map {map=Error.square; redo=(+)} (input,test)
         >>= force
         >>= (writeline >> succ)
         |> heap
