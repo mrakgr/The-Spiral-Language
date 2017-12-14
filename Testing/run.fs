@@ -4,7 +4,7 @@ open System.IO
 
 
 let learning =
-    "Learning",[option;cuda;extern_;option;console;host_tensor],"The deep learning module.",
+    "Learning",[option;lazy_;cuda;extern_;option;console;host_tensor],"The deep learning module.",
     """
 open Extern
 openb Cuda
@@ -85,7 +85,7 @@ inl smartptr_create ptr =
     | .Try -> cell()
     | () -> join (
         match cell() with
-        | [Some: x] -> x
+        | .Some, x -> x
         | _ -> failwith ptr_ty "A Cuda memory cell that has been disposed has been tried to be accessed."
         )
     |> stack // Unless this closure is converted to a layout type, the CUdeviceptr gets manifested as a runtime type and gives a type error.
@@ -141,7 +141,7 @@ inl allocator size ret =
             if FS.Method stack.get_Count() int32 > 0i32 then 
                 inl t = FS.Method stack.Peek() pool_type
                 match t.ptr.Try with
-                | [Some: ptr] -> join (ret (ptr_to_uint ptr, t.size |> to_uint))
+                | .Some, ptr -> join (ret (ptr_to_uint ptr, t.size |> to_uint))
                 | _ -> FS.Method stack.Pop() pool_type |> ignore; remove_disposed_and_return_the_first_live ret 
             else join (ret (pool_ptr, 0u64))
             : smartptr_ty
@@ -345,12 +345,11 @@ inl Learning {allocator stream} =
             assert (near_to > 0) "The input to map_redo must be non-empty."
 
             inl final_reduce map out =
-                function
-                | .elem_type -> type (out.elem_type |> map)
-                | _ ->
+                inl _ ->
                     inl tns = to_host_tensor out
                     inl load i = map (tns i .get)
                     Loops.for {from=1; near_to=length tns; state=load 0; body=inl {state i} -> redo state (load i)}
+                |> Lazy.lazy
                 |> ret
 
             if near_to >= 128 then
@@ -555,13 +554,11 @@ inl Learning {allocator stream} =
                 map_template .Add bck {in=primal; out} adjoint
                 )
 
-        inl force in = {in with primal = self.value}
-
         inl map_redo {fwd bck} in ret =
             inl primal, adjoint = primal in, adjoint in
             inb !dual_make_lazyhost out = map_redo (in.primal)
             ret (out, inl _ ->
-                inl out = toa_map2 (inl P A -> {P A = A ()}) ((force out).primal) (out.adjoint)
+                inl out = toa_map2 (inl P A -> {P A = A ()}) (out.primal.value) (out.adjoint)
                 inl bck in = filter_based_on_adjoints (bck {in out}) adjoint
                 inb adjoint = filter_unit_and_branch adjoint 
                 map_template .Add bck primal adjoint
@@ -594,7 +591,7 @@ inl Learning {allocator stream} =
                 )
 
         inl scalar_div a b ret =
-            inl c = primal a / primal b |> dual_make_lazyhost
+            inl c = primal a / primal b |> dual_make_host
             ret (c, inl _ ->
                 inl c' = adjoint c
                 on_adjoint a <| inl _ -> c' / primal b
@@ -603,7 +600,7 @@ inl Learning {allocator stream} =
 
         inl to y_ty x ret =
             inl x_ty = type (primal x)
-            inl y = primal x |> unsafe_convert y_ty |> dual_make_lazyhost
+            inl y = primal x |> unsafe_convert y_ty |> dual_make_host
             ret (y, inl _ ->
                 on_adjoint x <| inl _ -> unsafe_convert x_ty (adjoint y)
                 )
@@ -718,7 +715,7 @@ inl Learning {allocator stream} =
         {run with_error init sigmoid layer}
     {CudaTensor CudaKernels AutoDiffPrimitives AutoDiffOps Optimizers FeedforwardLayers}
 
-inl force x ret = ret (x ())
+inl force x ret = ret (x.value)
 inl joinm x ret = join (ret x)
 inl (>>=) a b ret = a <| inl a -> b a ret
 inl succ a ret = ret a
@@ -814,10 +811,10 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = []
     }
 
-rewrite_test_cache cfg None //(Some(0,40))
+//rewrite_test_cache cfg None //(Some(0,40))
 
-//output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
-//|> printfn "%s"
-//|> ignore
+output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
+|> printfn "%s"
+|> ignore
 
 

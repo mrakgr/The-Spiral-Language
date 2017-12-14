@@ -23,13 +23,14 @@ inl lazy f =
     inl ty = type (f ())
     inl x = Option.none ty |> ref
     function
-    | .value ->
+    | .value -> join (
         match x() with
         | .None ->
             inl r = f()
             x := Option.some r
             r
         | .Some, r -> r
+        )
     | .elem_type -> ty
 
 {lazy}
