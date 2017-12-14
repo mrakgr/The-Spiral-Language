@@ -609,7 +609,7 @@ inl Learning {allocator stream} =
 
         {map map_redo gemm' gemm make_dual make_dual_host scalar_mult scalar_div y_ty}
 
-    inl AutoDiffOps =
+    inl AutoDiffOps = 
         open AutoDiffPrimitives
 
         inl (>>=) a b ret =
@@ -653,7 +653,7 @@ inl Learning {allocator stream} =
 
         {sgd}
 
-    inl FeedforwardLayers =
+    inl FeedforwardLayers = 
         open AutoDiffOps
 
         inl layer initializer activation hidden_size next_layer input_size ret =
@@ -716,7 +716,35 @@ inl Learning {allocator stream} =
 
         // inb layer = init (sigmoid 512, sigmoid 10) 784
         // inl pass label = layer >>= inl input -> Error.square (input,label)
+    {CudaTensor CudaKernels AutoDiffPrimitives AutoDiffOps Optimizers FeedforwardLayers}
 
+inl force x ret = ret (x ())
+inl joinm x ret = join (ret x)
+inl (>>=) a b ret = a <| inl a -> b a ret
+inl succ a ret = ret a
+
+inb allocator = allocator 0.7
+use stream = Stream.create()
+open Learning {allocator stream}
+open CudaKernels
+open Console
+
+inl test_random = 
+    inm device_tensor = create {dim=32; elem_type=float32}
+    random_fill {op=.LogNormal; stddev=1.0f32; mean=0f32} device_tensor
+    to_host_tensor device_tensor |> show_tensor_all |> writeline |> succ
+    
+inl test_map = 
+    inl host_tensor = HostTensor.init 32 (unsafe_convert float32)
+    from_host_tensor host_tensor >>= map ((*) (dyn 2f32)) >>= (to_host_tensor >> show_tensor_all >> writeline >> succ)
+
+inl test_map_redo =
+    // In this example the only thing that happens after the joinm is the writeline, but it would be useful if there
+    // is more stuff after it. The joinm would be an effective tool for keeping the code bloat down in that case.
+    inl host_tensor = HostTensor.init (dyn 64) (unsafe_convert float32)
+    from_host_tensor host_tensor >>= map_redo {map=id; redo=(+)} >>= force >>= joinm >>= (writeline >> succ)
+
+test_random id
     """
 
 let cfg: Spiral.Types.CompilerSettings = {
