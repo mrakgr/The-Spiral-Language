@@ -11,6 +11,11 @@ openb Cuda
 open Console
 
 // Auxiliaries
+inl zero_of = function
+    | _: float32 -> 0f32
+    | _: float64 -> 0f64
+    | _ -> ()
+
 inl one_of = function
     | _ : float32 -> 1f32
     | _ : float64 -> 1f64
@@ -70,7 +75,6 @@ inl load_mnist_tensors mnist_path =
         load_mnist (combine (mnist_path, file))
         |> HostTensor.assert_size expected_size
         ) mnist_files
-    |> from_host_tensors
 
 inl smartptr_create ptr =
     inl ptr_ty = type (ptr)
@@ -268,7 +272,7 @@ inl Learning {allocator stream} =
         inl set_stream_random x = FS.Method x .SetStream (Stream.extract stream) unit
         inl set_stream_cublas x = FS.Method x .set_Stream (Stream.extract stream) unit
 
-        inl fill_random_array op size1d ar =
+        inl random_fill_array op size1d ar =
             inl elem_type = ar.elem_type
             inl gen, dot = "Generate", "."
             match op with
@@ -301,11 +305,11 @@ inl Learning {allocator stream} =
             set_stream_random random
             inl in' = to_1d in |> to_dev_tensor
             inl len = length in'
-            in'.update_body (inl {ar} -> fill_random_array op len ar) |> ignore
+            in'.update_body (inl {ar} -> random_fill_array op len ar) |> ignore
 
         inl random_create_tensor op dsc ret =
             inb device_tensor = create dsc
-            fill_random op device_tensor
+            random_fill op device_tensor
             ret device_tensor
 
         inl map_template mode f (!zip in) (!zip out) =
@@ -510,12 +514,7 @@ inl Learning {allocator stream} =
             ret {primal adjoint}
 
         inl make_dual_host =
-            fmap <| inl primal ->
-                inl zero_of = function
-                    | _: float32 -> 0f32
-                    | _: float64 -> 0f64
-                    | _: -> ()
-                {primal adjoint=fmap zero_of (primal.elem_type)}
+            fmap <| inl primal -> {primal adjoint=fmap zero_of (primal.elem_type)}
             
         inl is_unit = function
             | () -> false
@@ -607,7 +606,7 @@ inl Learning {allocator stream} =
                 on_adjoint x <| inl _ -> unsafe_convert x_ty (adjoint y)
                 )
 
-        {map map_redo gemm' gemm make_dual make_dual_host scalar_mult scalar_div y_ty}
+        {map map_redo gemm' gemm make_dual make_dual_host scalar_mult scalar_div to}
 
     inl AutoDiffOps = 
         open AutoDiffPrimitives
@@ -646,7 +645,7 @@ inl Learning {allocator stream} =
         {sigmoid Error gemm gemm' (>>=) succ}
 
     inl Optimizers = 
-        open CudaKernels stream
+        open CudaKernels
         inl sgd {primal adjoint} = 
             map_template (inl (a,b) -> a+b) (primal,adjoint) primal
             CudaTensor.clear adjoint 
@@ -666,11 +665,10 @@ inl Learning {allocator stream} =
 
         inl sigmoid_initializer dim = 
             inl sqrt x = FS.UnOp .sqrt x x
-            inl stddev = sqrt (2f32 / Tuple.foldl (+) 0 dim |> unsafe_convert float32)
+            inl stddev = sqrt (2f32 / unsafe_convert float32 (Tuple.foldl (+) 0 dim))
             create_random_tensor {op=.Normal; stddev mean=0f32} {dim elem_type=float32}
 
         inl sigmoid = layer sigmoid_initializer sigmoid
-    
         inl succ _ ret =
             ret {
                 update_weights = const ()
@@ -679,7 +677,7 @@ inl Learning {allocator stream} =
 
         inl init layers = Tuple.foldr (<|) layers succ
         inl with_error error network (input,label) = {network with apply = self input >>= inl input -> error (input,label)}
-
+        
         inl run {d with network={update_weights apply} input label} =
             inl dim1 x = x.dim |> fst
             inl to = unsafe_convert
@@ -713,9 +711,9 @@ inl Learning {allocator stream} =
                 string_format "Total cost is {0}." (unscaled_cost / to float64 (span_size span)) |> writeline
                 writeline "-----"
             
-
         // inb layer = init (sigmoid 512, sigmoid 10) 784
         // inl pass label = layer >>= inl input -> Error.square (input,label)
+        {run with_error init sigmoid layer}
     {CudaTensor CudaKernels AutoDiffPrimitives AutoDiffOps Optimizers FeedforwardLayers}
 
 inl force x ret = ret (x ())
@@ -726,6 +724,8 @@ inl succ a ret = ret a
 inb allocator = allocator 0.7
 use stream = Stream.create()
 open Learning {allocator stream}
+open HostTensor
+open CudaTensor
 open CudaKernels
 open Console
 
@@ -744,7 +744,50 @@ inl test_map_redo =
     inl host_tensor = HostTensor.init (dyn 64) (unsafe_convert float32)
     from_host_tensor host_tensor >>= map_redo {map=id; redo=(+)} >>= force >>= joinm >>= (writeline >> succ)
 
-test_random id
+inl test_mnist_feedforward mnist_path =
+    inb mnist_tensors = load_mnist_tensors mnist_path |> from_host_tensors
+
+    inl hidden_size = 10
+    inl input_size = 784
+
+    inl create' dim = 
+        inl sqrt x = FS.UnOp .sqrt x x
+        inl stddev = sqrt (2f32 / unsafe_convert float32 (Tuple.foldl (+) 0 dim))
+        random_create_tensor {op=.Normal; stddev mean=0f32} {dim elem_type=float32}
+
+    inb weight = create' (input_size, hidden_size)
+    inl sigmoid x = 1f32 / (1f32 + (exp (-x)))
+
+    inl Error = {
+        cross_entropy = inl (x,y) -> -(y * log x + (1f32-y) * log (1f32-x))
+        square = inl (x,y) -> (y - x) * (y - x)
+        }
+
+    inl pass (input,test) =
+        gemm .nT .nT 1f32 input weight 
+        >>= map sigmoid 
+        >>= inl input -> map_redo {map=Error.square; redo=(+)} (input,test)
+        >>= force
+        >>= (writeline >> succ)
+        |> heap
+
+    inl iterate minibatch_size (train,test) =
+        inl dim1 x = x.dim |> fst
+        inl near_to = dim1 train |> inl {near_to} -> near_to 
+        assert (dim1 train = dim1 test) "Training and test set need to have to equal first dimensions."
+
+        Loops.for {from=0; near_to; by=minibatch_size; body = inl {i=from} ->
+            inl near_to = min (from + minibatch_size) near_to
+            inl span = {from near_to}
+            inl view x = x.view_span span
+            string_format "On span {0}" (show span) |> writeline
+            pass (view train, view test) id
+            }
+
+    iterate 128 (mnist_tensors.train_images,mnist_tensors.train_labels)
+
+inl mnist_path = @"C:\Users\Marko\Documents\Visual Studio 2015\Projects\SpiralQ\SpiralQ\Tests"
+test_mnist_feedforward mnist_path
     """
 
 let cfg: Spiral.Types.CompilerSettings = {
