@@ -11,6 +11,7 @@ openb Cuda
 open Console
 
 // Auxiliaries
+inl lazy = Lazy.lazy
 inl zero_of = function
     | _: float32 -> 0f32
     | _: float64 -> 0f64
@@ -349,7 +350,7 @@ inl Learning {allocator stream} =
                     inl tns = to_host_tensor out
                     inl load i = map (tns i .get)
                     Loops.for {from=1; near_to=length tns; state=load 0; body=inl {state i} -> redo state (load i)}
-                |> Lazy.lazy
+                |> lazy
                 |> ret
 
             if near_to >= 128 then
