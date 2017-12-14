@@ -1444,8 +1444,8 @@ for' {from=sieve_length; to=2; by= -1; state=none int64; body = inl {next state 
     else next state
     }
 |>  function
-    | [Some: result] -> writeline result // 6857
-    | [None] -> failwith unit "No prime factor found!"
+    | .Some, result -> writeline result // 6857
+    | .None -> failwith unit "No prime factor found!"
     """
 
 let euler4 = 
@@ -1531,19 +1531,19 @@ inl parser =
                 | .Mario -> 
                     inl state = {state with mario=some (r,c)}
                     match state with
-                    | {princess=[Some: _]} -> state
+                    | {princess=.Some, _} -> state
                     | _ -> col state
                 | .Princess -> 
                     inl state = {state with princess=some (r,c)}
                     match state with
-                    | {mario=[Some: _]} -> state
+                    | {mario=.Some, _} -> state
                     | _ -> col state
                 | _ -> col state
             finally = row
             }
         }
     |> function
-        | {mario=[Some: mario_row, mario_col as mario_pos] princess=[Some: princess_row, princess_col as princess_pos]} ->
+        | {mario=.Some, (mario_row, mario_col as mario_pos) princess=.Some, (princess_row, princess_col as princess_pos)} ->
             inl cells_visited = HostTensor.init (n,n) (inl _ _ -> false)
             cells_visited mario_row mario_col .set true
 
@@ -1592,8 +1592,8 @@ inl parser =
                         ) queue
                     |> Array.concat
                 match solution() with
-                | [None] -> loop queue
-                | [Some: _,path] -> List.foldr (inl x _ -> Console.writeline x) path ()
+                | .None -> loop queue
+                | .Some, (_, path) -> List.foldr (inl x _ -> Console.writeline x) path ()
                 : ()
             loop start_queue
         | _ -> failwith unit "Current position not found."
@@ -1678,8 +1678,8 @@ inl main = {
 
         met print_solution _, path = //List.foldr (inl x _ -> Console.writeline x) path ()
             match List.last path with
-            | [Some: x] -> Console.writeline x
-            | [None] -> failwith unit "Error: No moves taken."
+            | .Some, x -> Console.writeline x
+            | .None -> failwith unit "Error: No moves taken."
 
         met evaluate_move state move on_fail =
             inl (pos_row, pos_col),_ as new_state = move state
@@ -1733,11 +1733,11 @@ met rec solve (!dyn player, !dyn opposing_player) (!dyn n) =
 
     if player = first then
         match solutions n with
-        | [None] -> 
+        | .None -> 
             inl x = run()
             solutions n <- some x
             x
-        | [Some: x] -> x
+        | .Some, x -> x
     else run()
     : player
 
@@ -1791,8 +1791,8 @@ met rec solve !dyn (x,y,player_one,player_two) as d =
         if is_in_range x && is_in_range y && solve (x,y,player_two,player_one) = player_one then player_one
         else on_fail()
     match cache.get d with
-    | [None] -> Tuple.foldr (inl pos next () -> try pos next) new_positions (const player_two) () |> inl x -> some x |> cache.set d; x
-    | [Some: x] -> x
+    | .None -> Tuple.foldr (inl pos next () -> try pos next) new_positions (const player_two) () |> inl x -> some x |> cache.set d; x
+    | .Some, x -> x
     : player_one
 
 inl show = function

@@ -6,12 +6,33 @@ let option =
     (
     "Option",[],"The Option module.",
     """
-inl Option x = (type ([Some: x])) \/ (type ([None]))
+inl Option x = (type (.Some, x)) \/ (type (.None))
 
-inl some x = box (Option x) [Some: x]
-inl none x = box (Option x) [None]
+inl some x = box (Option x) (.Some, x)
+inl none x = box (Option x) (.None)
 
 {Option some none}
+    """) |> module_
+
+let lazy_ =
+    (
+    "Lazy",[option],"The Lazy module.",
+    """
+inl lazy f =
+    met f x = f x
+    inl ty = type (f ())
+    inl x = Option.none ty |> ref
+    function
+    | .value ->
+        match x() with
+        | .None ->
+            inl r = f()
+            x := Option.some r
+            r
+        | .Some, r -> r
+    | .elem_type -> ty
+
+{lazy}
     """) |> module_
 
 let tuple =
@@ -151,13 +172,13 @@ inl range (min,max) =
     else error_type "The inputs to range must be both static and the length of the resulting tuple must be greater than 0."
 
 inl rec tryFind f = function
-    | x :: xs -> if f x then [Some: x] else tryFind f xs
-    | () -> [None]
+    | x :: xs -> if f x then .Some, x else tryFind f xs
+    | () -> .None
 
 inl rec contains t x = 
     match tryFind ((=) x) t with
-    | [Some: x] -> true
-    | [None] -> false
+    | .Some, x -> true
+    | .None -> false
 
 inl rec intersperse sep = function
     | _ :: () as x -> x

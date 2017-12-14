@@ -509,12 +509,12 @@ inl Learning {allocator stream} =
 
         // These two are not intended to be able to make duals of duals.
         // Higher order AD is not supported.
-        inl make_dual primal ret = 
+        inl dual_make primal ret = 
             inb adjoint = zero_like primal
             ret {primal adjoint}
 
-        inl make_dual_host =
-            fmap <| inl primal -> {primal adjoint=fmap zero_of (primal.elem_type)}
+        inl dual_make_lazyhost = fmap <| inl primal -> {primal adjoint=(zero_of >> ref) (primal.elem_type)}
+        inl dual_make_host = fmap <| inl primal -> {primal adjoint=(zero_of >> ref) (type (primal))}
             
         inl is_unit = function
             | () -> false
@@ -547,7 +547,7 @@ inl Learning {allocator stream} =
 
         inl map {fwd bck} in ret =
             inl primal, adjoint = primal in, adjoint in
-            inb out = map fwd primal >>= make_dual
+            inb out = map fwd primal >>= dual_make
             ret (out, inl _ ->
                 inl bck x = filter_based_on_adjoints (bck x) adjoint
                 inb adjoint = filter_unit_and_branch adjoint 
@@ -555,18 +555,20 @@ inl Learning {allocator stream} =
                 map_template .Add bck {in=primal; out} adjoint
                 )
 
+        inl force in = {in with primal = self.value}
+
         inl map_redo {fwd bck} in ret =
             inl primal, adjoint = primal in, adjoint in
-            inb !make_dual_host out = map_redo (in.primal)
+            inb !dual_make_lazyhost out = map_redo (in.primal)
             ret (out, inl _ ->
-                inl out = toa_map2 (inl P A -> {P A = A ()}) (out.primal) (out.adjoint)
+                inl out = toa_map2 (inl P A -> {P A = A ()}) ((force out).primal) (out.adjoint)
                 inl bck in = filter_based_on_adjoints (bck {in out}) adjoint
                 inb adjoint = filter_unit_and_branch adjoint 
                 map_template .Add bck primal adjoint
                 )
 
         inl gemm' alpha A B ret =
-            inb C = gemm .nT .nT alpha (primal A) (primal B) >>= make_dual
+            inb C = gemm .nT .nT alpha (primal A) (primal B) >>= dual_make
             ret (C, inl _ ->
                 inl on_adjoint B ret =
                     match adjoint B with
@@ -584,7 +586,7 @@ inl Learning {allocator stream} =
             | _ -> ()
 
         inl scalar_mult a b ret =
-            inl c = primal a * primal b |> make_dual_host
+            inl c = primal a * primal b |> dual_make_host
             ret (c, inl _ ->
                 inl c' = adjoint c
                 on_adjoint a <| inl _ -> c' * primal b
@@ -592,7 +594,7 @@ inl Learning {allocator stream} =
                 )
 
         inl scalar_div a b ret =
-            inl c = primal a / primal b |> make_dual_host
+            inl c = primal a / primal b |> dual_make_lazyhost
             ret (c, inl _ ->
                 inl c' = adjoint c
                 on_adjoint a <| inl _ -> c' / primal b
@@ -601,12 +603,12 @@ inl Learning {allocator stream} =
 
         inl to y_ty x ret =
             inl x_ty = type (primal x)
-            inl y = primal x |> unsafe_convert y_ty |> make_dual_host
+            inl y = primal x |> unsafe_convert y_ty |> dual_make_lazyhost
             ret (y, inl _ ->
                 on_adjoint x <| inl _ -> unsafe_convert x_ty (adjoint y)
                 )
 
-        {map map_redo gemm' gemm make_dual make_dual_host scalar_mult scalar_div to}
+        {map map_redo gemm' gemm dual_make dual_make_lazyhost scalar_mult scalar_div to}
 
     inl AutoDiffOps = 
         open AutoDiffPrimitives
@@ -786,6 +788,21 @@ inl test_mnist_feedforward mnist_path =
 
     iterate 128 (mnist_tensors.train_images,mnist_tensors.train_labels)
 
+inl test_mnist mnist_path =
+    open AutoDiffOps
+    open FeedforwardLayers
+    inb mnist_tensors = load_mnist_tensors mnist_path |> from_host_tensors
+
+    inl hidden_size = 10
+    inl input_size = 784
+
+    inl network =
+        init (sigmoid hidden_size) input_size
+        |> with_error (Error.square)
+
+    inl input, label = mnist_tensors.train_images, mnist_tensors.train_labels
+    run {network minibatch_size=128; input label}
+
 inl mnist_path = @"C:\Users\Marko\Documents\Visual Studio 2015\Projects\SpiralQ\SpiralQ\Tests"
 test_mnist_feedforward mnist_path
     """
@@ -797,10 +814,10 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = []
     }
 
-//rewrite_test_cache cfg None //(Some(0,40))
+rewrite_test_cache cfg None //(Some(0,40))
 
-output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
-|> printfn "%s"
-|> ignore
+//output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
+//|> printfn "%s"
+//|> ignore
 
 

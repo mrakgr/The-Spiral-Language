@@ -38,16 +38,11 @@ and Tuple5 =
     new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
     end
 and Union6 =
-    | Union6Case0 of Tuple8
+    | Union6Case0 of Tuple7
     | Union6Case1
 and Tuple7 =
     struct
     val mem_0: string
-    new(arg_mem_0) = {mem_0 = arg_mem_0}
-    end
-and Tuple8 =
-    struct
-    val mem_0: Tuple7
     new(arg_mem_0) = {mem_0 = arg_mem_0}
     end
 let rec method_1((var_0: bool), (var_1: string), (var_2: int64)): unit =
@@ -1023,10 +1018,9 @@ and method_29((var_0: string), (var_1: Rec3)): unit =
     let (var_2: Union6) = method_30((var_0: string), (var_1: Rec3))
     match var_2 with
     | Union6Case0(var_3) ->
-        let (var_4: Tuple7) = var_3.mem_0
-        let (var_5: string) = var_4.mem_0
-        let (var_6: string) = System.String.Format("{0}",var_5)
-        System.Console.WriteLine(var_6)
+        let (var_4: string) = var_3.mem_0
+        let (var_5: string) = System.String.Format("{0}",var_4)
+        System.Console.WriteLine(var_5)
     | Union6Case1 ->
         (failwith "Error: No moves taken.")
 and method_32((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: string), (var_5: EnvHeapMutable2), (var_6: string), (var_7: string), (var_8: string), (var_9: Tuple4), (var_10: Rec3)): unit =
@@ -1208,7 +1202,7 @@ and method_33((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64)
 and method_31((var_0: Rec3), (var_1: string)): Union6 =
     match var_0 with
     | Rec3Case0 ->
-        (Union6Case0(Tuple8(Tuple7(var_1))))
+        (Union6Case0(Tuple7(var_1)))
     | Rec3Case1(var_2) ->
         let (var_3: string) = var_2.mem_0
         let (var_4: Rec3) = var_2.mem_1
