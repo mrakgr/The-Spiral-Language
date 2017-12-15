@@ -629,11 +629,11 @@ inl rec Learning {d with allocator stream} =
 
         inl succ x ret = ret (x, const ())
 
-        inl multiply_by_adjoint f {out={A P} in} = toa_map ((*) A) (f {in out=P})
+        inl multiply_by_adjoint f {d with out={A P} in} = toa_map ((*) A) (f {in out=P})
         inl activation d = map {d with bck = multiply_by_adjoint self }
         inl sigmoid = activation {
-            fwd = inl x & (!one_of one) -> one / (one + exp -x)
-            bck = inl {out} -> out * (one_of out - out)
+            fwd = inl x -> float 1 / (float 1 + exp -x)
+            bck = inl {out} -> out * (float 1 - out)
             }
 
         inl error {fwd bck} (input,_ as x) = 
@@ -756,7 +756,7 @@ inl test_mnist mnist_path =
     inl network = with_error (Error.square) layers
 
     inl input, label = mnist_tensors.train_images, mnist_tensors.train_labels
-    run {network input label minibatch_size=128}
+    run {network input label minibatch_size=128; optimizer=Optimizers.sgd}
 
 inl mnist_path = @"C:\Users\Marko\Documents\Visual Studio 2015\Projects\SpiralQ\SpiralQ\Tests"
 test_mnist mnist_path
