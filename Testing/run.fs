@@ -340,58 +340,50 @@ inl rec Learning {allocator stream} =
             ret out
             
         /// Flattens the tensor to 1d, maps it, reduces it, and maps it again.
-        /// Lazily returns two an output.
-        inl map_redo {d with redo} (!zip (!to_1d in)) ret =
+        /// Lazily returns the output. Requires the redo and the neutral element.
+        /// Map is optional.
+        inl map_redo {d with redo neutral_elem} (!zip (!to_1d in)) ret =
             inl in' = to_dev_tensor in
             inl near_to = length in'
-
-            assert (near_to > 0) "The input to map_redo must be non-empty."
-
             inl map = match d with {map} -> map | _ -> id
 
-            inl final_reduce map out =
-                inl _ ->
-                    inl tns = to_host_tensor out
-                    inl load i = map (tns i .get)
-                    Loops.for {from=1; near_to=length tns; state=load 0; body=inl {state i} -> redo state (load i)}
-                |> lazy // The lazy return here is because transfering to host would block the execution.
-                |> ret
+            inl blockDim = 128
+            inl gridDim = 32
+            inl elem_type = type (in.elem_type |> map)
+            inl ty = elem_type
 
-            if near_to >= 128 then
-                inl blockDim = 128
-                inl gridDim = near_to / blockDim // TODO: Do something more fancy here.
-                inl elem_type = type (in.elem_type |> map)
-                inl ty = elem_type
+            inl cub_block_reduce thread_result redo =
+                !MacroCuda(ty,[
+                    text: "cub::BlockReduce"
+                    iter: "<",",",">",[type: ty; arg: blockDim]
+                    args: ()
+                    text: ".Reduce"
+                    args: thread_result, redo])
 
-                inl cub_block_reduce thread_result redo =
-                    !MacroCuda(ty,[
-                        text: "cub::BlockReduce"
-                        iter: "<",",",">",[type: ty; arg: blockDim]
-                        args: ()
-                        text: ".Reduce"
-                        args: thread_result, redo])
+            inb out = create {elem_type dim=gridDim}
+            inl out' = to_dev_tensor out
 
-                inb out = create {elem_type dim=gridDim}
-                inl out' = to_dev_tensor out
+            run {
+                stream
+                blockDim
+                gridDim
+                kernel = cuda 
+                    inl from = blockIdx.x * blockDim.x + threadIdx.x
+                    inl by = gridDim.x * blockDim.x
+                    inl load i = map (in' i .get)
+                    inl thread_result = Loops.for {from near_to by state=neutral_elem; body=inl {state i} -> redo state (load i)}
 
-                run {
-                    stream
-                    blockDim
-                    gridDim
-                    kernel = cuda 
-                        inl from = blockIdx.x * blockDim.x + threadIdx.x
-                        inl by = gridDim.x * blockDim.x
-                        inl load i = map (in' i .get)
-                        inl thread_result = Loops.for {from=from+by; near_to by state=load from; body=inl {state i} -> redo state (load i)}
+                    inl redo = closure_of (inl a,b -> redo a b) ((ty,ty) => ty)
+                    inl block_result = cub_block_reduce thread_result redo
+                    if threadIdx.x = 0 then out' (blockIdx.x) .set block_result
+                } |> ignore
 
-                        inl redo = closure_of (inl a,b -> redo a b) ((ty,ty) => ty)
-                        inl block_result = cub_block_reduce thread_result redo
-                        if threadIdx.x = 0 then out' (blockIdx.x) .set block_result
-                    } |> ignore
-
-                final_reduce id out
-            else
-                final_reduce map in
+            inl _ ->
+                inl tns = to_host_tensor out
+                inl load i = tns i .get
+                Loops.for {from=0; near_to=length tns; state=neutral_elem; body=inl {state i} -> redo state (load i)}
+            |> lazy // The lazy return here is because transfering to host would block the execution.
+            |> ret
 
         inl len {from near_to} = near_to - from
         inl rows x = x.dim |> inl a,b -> len a
@@ -643,6 +635,7 @@ inl rec Learning {allocator stream} =
                 fwd = {
                     map = fwd
                     redo = (+)
+                    neutral_elem = 0f32
                     }
                 bck = multiply_by_adjoint bck
                 } x
