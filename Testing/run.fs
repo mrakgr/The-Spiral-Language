@@ -644,7 +644,7 @@ inl Learning {allocator stream} =
                     }
                 bck = multiply_by_adjoint bck
                 }
-            >>= hostlazy_map {fwd bck = inl {A} -> map_end A}
+            >>= hostlazy_map {fwd bck = inl {A} -> fwd A}
             <| x
 
         inl Error = {
