@@ -182,7 +182,7 @@ inl isnT = function
     | .nT -> true
     | _ -> false
 
-inl Learning {allocator stream} =
+inl rec Learning {allocator stream} =
     open HostTensor
     inl CudaTensor =
         inl cuda_array_create elem_type len = 
@@ -504,7 +504,6 @@ inl Learning {allocator stream} =
             fmap (function
                 | {primal adjoint} _ -> f (primal, adjoint)
                 | x on_fail -> on_fail x)
-                id
 
         inl primal = primal_template fst id
         inl adjoint = primal_template snd (const ())
@@ -559,7 +558,7 @@ inl Learning {allocator stream} =
 
         inl hostlazy_map {fwd bck} in ret =
             inl primal, adjoint = primal in, adjoint in
-            inb !dual_make_lazyhost out = fwd primal
+            inl out = lazy (inl _ -> toa_map (inl x -> x.value) primal |> fwd) |> dual_make_lazyhost
             ret (out, inl _ ->
                 inl out = toa_map2 (inl P A -> {P A = A ()}) (out.primal.value) (out.adjoint)
                 inl bck = filter_based_on_adjoints (bck {in=toa_map (inl x -> x.value) primal; out}) adjoint
@@ -569,7 +568,7 @@ inl Learning {allocator stream} =
 
         inl host_map {fwd bck} in ret =
             inl primal, adjoint = primal in, adjoint in
-            inb !dual_make_host out = fwd primal
+            inl out = fwd primal |> dual_make_host
             ret (out, inl _ ->
                 inl out = toa_map2 (inl P A -> {P A = A ()}) (out.primal) (out.adjoint)
                 inl bck = filter_based_on_adjoints (bck {in=toa_map (inl x -> x.value) primal; out}) adjoint
@@ -600,22 +599,25 @@ inl Learning {allocator stream} =
 
         inl gemm = gemm' 1.0
 
-        inl scalar_mult a b = host_map {
-            fwd = inl a,b -> a * b
-            bck = inl {in=a,b out={A}} -> A * b, A * a
-            } (a,b)
+        inl scalar_mult a b = 
+            host_map {
+                fwd = inl a,b -> a * b
+                bck = inl {in=a,b out={A}} -> A * b, A * a
+                } (a,b)
+                
+        inl scalar_div a b = 
+            host_map {
+                fwd = inl a,b -> a / b
+                bck = inl {in=a,b out={A}} -> A / b, A * -(a / b * b)
+                } (a,b)
 
-        inl scalar_div a b = host_map {
-            fwd = inl a,b -> a / b
-            bck = inl {in=a,b out={A}} -> A / b, A * -(a / b * b)
-            } (a,b)
+        inl to y_ty x = 
+            host_map {
+                fwd = unsafe_convert y_ty 
+                bck = inl {in out={A}} -> unsafe_convert in A
+                } x
 
-        inl to y_ty x = host_map {
-            fwd = unsafe_convert y_ty 
-            bck = inl {in out={A}} -> unsafe_convert in A
-            }
-
-        {map hostlazy_map host_map map_redo_map gemm' gemm dual_make dual_make_lazyhost scalar_mult scalar_div to}
+        {map hostlazy_map host_map map_redo gemm' gemm dual_make dual_make_lazyhost scalar_mult scalar_div to}
 
     inl AutoDiffOps = 
         open AutoDiffPrimitives
@@ -630,22 +632,21 @@ inl Learning {allocator stream} =
         inl multiply_by_adjoint f {out={A P} in} = toa_map ((*) A) (f {in out=P})
         inl activation d = map {d with bck = multiply_by_adjoint self }
         inl sigmoid = activation {
-            fwd = inl x & (!one_of one) -> one / (one + expr -x)
+            fwd = inl x & (!one_of one) -> one / (one + exp -x)
             bck = inl {out} -> out * (one_of out - out)
             }
 
         inl error {fwd bck} (input,_ as x) = 
-            inl batch_size = primal input .dim |> fst
-            inl fwd = function x: float32 | x: float64 -> x / unsafe_convert x batch_size
+            inl batch_size = input .primal .dim |> fst |> HostTensor.span
+            inl div_by_minibatch_size = function x: float32 | x: float64 -> x / unsafe_convert x batch_size
             map_redo {
                 fwd = {
                     map = fwd
                     redo = (+)
                     }
                 bck = multiply_by_adjoint bck
-                }
-            >>= hostlazy_map {fwd bck = inl {A} -> fwd A}
-            <| x
+                } x
+            >>= hostlazy_map {fwd = div_by_minibatch_size; bck = inl {A} -> div_by_minibatch_size A}
 
         inl Error = {
             square = error {
@@ -682,7 +683,7 @@ inl Learning {allocator stream} =
         inl sigmoid_initializer dim = 
             inl sqrt x = FS.UnOp .sqrt x x
             inl stddev = sqrt (2f32 / unsafe_convert float32 (Tuple.foldl (+) 0 dim))
-            create_random_tensor {op=.Normal; stddev mean=0f32} {dim elem_type=float32}
+            CudaKernels.random_create_tensor {op=.Normal; stddev mean=0f32} {dim elem_type=float32}
 
         inl sigmoid = layer sigmoid_initializer sigmoid
         inl succ _ ret =
@@ -691,8 +692,10 @@ inl Learning {allocator stream} =
                 apply = succ
                 }
 
-        inl init layers = Tuple.foldr (<|) layers succ
-        inl with_error error network (input,label) = {network with apply = self input >>= inl input -> error (input,label)}
+        inl init = function
+            | _ :: _ as layers -> Tuple.foldr (<|) layers succ
+            | layer -> layer succ
+        inl with_error error network = {network with apply = inl (input,label) -> self input >>= inl input -> error (input,label)}
         
         inl run {d with network={update_weights apply} input label} =
             inl dim1 x = x.dim |> fst
@@ -754,11 +757,11 @@ inl test_map =
     inl host_tensor = HostTensor.init 32 (unsafe_convert float32)
     from_host_tensor host_tensor >>= map ((*) (dyn 2f32)) >>= (to_host_tensor >> show_tensor_all >> writeline >> succ)
 
-inl test_map_redo_map =
+inl test_map_redo =
     // In this example the only thing that happens after the joinm is the writeline, but it would be useful if there
     // is more stuff after it. The joinm would be an effective tool for keeping the code bloat down in that case.
     inl host_tensor = HostTensor.init (dyn 64) (unsafe_convert float32)
-    from_host_tensor host_tensor >>= map_redo_map {redo=(+)} >>= force >>= joinm >>= (writeline >> succ)
+    from_host_tensor host_tensor >>= map_redo {redo=(+)} >>= force >>= joinm >>= (writeline >> succ)
 
 inl test_mnist_feedforward mnist_path =
     inb mnist_tensors = load_mnist_tensors mnist_path |> from_host_tensors
@@ -782,7 +785,7 @@ inl test_mnist_feedforward mnist_path =
     inl pass (input,test) =
         gemm .nT .nT 1f32 input weight 
         >>= map sigmoid 
-        >>= inl input -> map_redo_map {map=Error.square; redo=(+)} (input,test)
+        >>= inl input -> map_redo {map=Error.square; redo=(+)} (input,test)
         >>= force
         >>= (writeline >> succ)
         |> heap
@@ -810,15 +813,14 @@ inl test_mnist mnist_path =
     inl hidden_size = 10
     inl input_size = 784
 
-    inl network =
-        init (sigmoid hidden_size) input_size
-        |> with_error (Error.square)
+    inb layers = init (sigmoid hidden_size) input_size
+    inl network = with_error (Error.square) layers
 
     inl input, label = mnist_tensors.train_images, mnist_tensors.train_labels
     run {network minibatch_size=128; input label}
 
 inl mnist_path = @"C:\Users\Marko\Documents\Visual Studio 2015\Projects\SpiralQ\SpiralQ\Tests"
-test_mnist_feedforward mnist_path
+test_mnist mnist_path
     """
 
 let cfg: Spiral.Types.CompilerSettings = {

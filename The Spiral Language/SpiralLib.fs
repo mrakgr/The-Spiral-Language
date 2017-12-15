@@ -1144,7 +1144,7 @@ inl zip l =
 
 {toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims length create dim_describe primitive_apply_template TensorTemplate
  view_offsets init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip show_tensor' show_tensor 
- show_tensor_all toa_map3 toa_iter3 assert_contiguous assert_zip}
+ show_tensor_all toa_map3 toa_iter3 assert_contiguous assert_zip span}
 |> stack
     """) |> module_
 
