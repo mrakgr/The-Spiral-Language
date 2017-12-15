@@ -11,6 +11,7 @@ openb Cuda
 open Console
 
 // Auxiliaries
+inl divup a b = (a-1)/b+1 // Integer division with rounding up. (a+b-1)/b is another variant on this.
 inl lazy = Lazy.lazy
 inl zero_of = function
     | _: float32 -> 0f32
@@ -182,7 +183,10 @@ inl isnT = function
     | .nT -> true
     | _ -> false
 
-inl rec Learning {allocator stream} =
+inl rec Learning {d with allocator stream} =
+    // Module float default
+    inl float = match d with {float} -> float | _ -> unsafe_convert float32
+
     open HostTensor
     inl CudaTensor =
         inl cuda_array_create elem_type len = 
@@ -322,7 +326,7 @@ inl rec Learning {allocator stream} =
             run {
                 stream
                 blockDim = 128
-                gridDim = 32
+                gridDim = 64
                 kernel = cuda // Lexical scoping rocks.
                     inl from = blockIdx.x * blockDim.x + threadIdx.x
                     inl by = gridDim.x * blockDim.x
@@ -348,7 +352,7 @@ inl rec Learning {allocator stream} =
             inl map = match d with {map} -> map | _ -> id
 
             inl blockDim = 128
-            inl gridDim = 32
+            inl gridDim = min 64 (divup near_to blockDim)
             inl elem_type = type (in.elem_type |> map)
             inl ty = elem_type
 
@@ -371,7 +375,7 @@ inl rec Learning {allocator stream} =
                     inl from = blockIdx.x * blockDim.x + threadIdx.x
                     inl by = gridDim.x * blockDim.x
                     inl load i = map (in' i .get)
-                    inl thread_result = Loops.for {from near_to by state=neutral_elem; body=inl {state i} -> redo state (load i)}
+                    inl thread_result = Loops.for {from near_to by state=dyn neutral_elem; body=inl {state i} -> redo state (load i)}
 
                     inl redo = closure_of (inl a,b -> redo a b) ((ty,ty) => ty)
                     inl block_result = cub_block_reduce thread_result redo
@@ -381,7 +385,7 @@ inl rec Learning {allocator stream} =
             inl _ ->
                 inl tns = to_host_tensor out
                 inl load i = tns i .get
-                Loops.for {from=0; near_to=length tns; state=neutral_elem; body=inl {state i} -> redo state (load i)}
+                Loops.for {from=0; near_to=length tns; state=dyn neutral_elem; body=inl {state i} -> redo state (load i)}
             |> lazy // The lazy return here is because transfering to host would block the execution.
             |> ret
 
@@ -558,6 +562,10 @@ inl rec Learning {allocator stream} =
                 toa_map2 (inl a b -> a := a() + b) adjoint bck
                 )
 
+        inl force in ret = 
+            inl primal, adjoint = toa_map (inl x -> x.value) (primal in), adjoint in
+            ret ({primal adjoint}, const ())
+
         inl host_map {fwd bck} in ret =
             inl primal, adjoint = primal in, adjoint in
             inl out = fwd primal |> dual_make_host
@@ -609,7 +617,7 @@ inl rec Learning {allocator stream} =
                 bck = inl {in out={A}} -> unsafe_convert in A
                 } x
 
-        {map hostlazy_map host_map map_redo gemm' gemm dual_make dual_make_lazyhost scalar_mult scalar_div to}
+        {map hostlazy_map host_map map_redo gemm' gemm dual_make dual_make_lazyhost scalar_mult scalar_div to force}
 
     inl AutoDiffOps = 
         open AutoDiffPrimitives
@@ -630,12 +638,12 @@ inl rec Learning {allocator stream} =
 
         inl error {fwd bck} (input,_ as x) = 
             inl batch_size = input .primal .dim |> fst |> HostTensor.span
-            inl div_by_minibatch_size = function x: float32 | x: float64 -> x / unsafe_convert x batch_size
+            inl div_by_minibatch_size x = x / float batch_size
             map_redo {
                 fwd = {
                     map = fwd
                     redo = (+)
-                    neutral_elem = 0f32
+                    neutral_elem = float 0
                     }
                 bck = multiply_by_adjoint bck
                 } x
@@ -644,15 +652,15 @@ inl rec Learning {allocator stream} =
         inl Error = {
             square = error {
                 fwd = inl (x,y) -> (y - x) * (y - x)
-                bck = inl {in=x,y} -> -2 * (y - x), 2 * (y - x)
+                bck = inl {in=x,y} -> float -2 * (y - x), float 2 * (y - x)
                 }
             cross_entropy = error {
-                fwd = inl x, y & (!one_of one) -> -(y * log x + (one-y) * log (one-x))
-                bck = inl {in=x, y & (!one_of one)} -> x * (x-y) / (one-x), log (one-x) - log x
+                fwd = inl x, y -> -(y * log x + (float 1 - y) * log (float 1 - x))
+                bck = inl {in=x, y} -> x * (x-y) / (float 1 - x), log (float 1 - x) - log x
                 }
             }
 
-        {sigmoid Error gemm gemm' (>>=) succ}
+        {sigmoid Error gemm gemm' (>>=) succ force}
 
     inl Optimizers = 
         open CudaKernels
@@ -676,24 +684,24 @@ inl rec Learning {allocator stream} =
         inl sigmoid_initializer dim = 
             inl sqrt x = FS.UnOp .sqrt x x
             inl stddev = sqrt (2f32 / unsafe_convert float32 (Tuple.foldl (+) 0 dim))
-            CudaKernels.random_create_tensor {op=.Normal; stddev mean=0f32} {dim elem_type=float32}
+            CudaKernels.random_create_tensor {op=.Normal; stddev mean=0f32} {dim elem_type=type (float 0)}
 
         inl sigmoid = layer sigmoid_initializer sigmoid
-        inl succ _ ret =
-            ret {
-                update_weights = const ()
-                apply = succ
-                }
-
-        inl init = function
-            | _ :: _ as layers -> Tuple.foldr (<|) layers succ
-            | layer -> layer succ
+        inl init = 
+            inl fin _ ret =
+                ret {
+                    update_weights = const ()
+                    apply = succ
+                    }            
+            function
+            | _ :: _ as layers -> Tuple.foldr (<|) layers fin
+            | layer -> layer fin
         inl with_error error network = {network with apply = inl (input,label) -> self input >>= inl input -> error (input,label)}
         
         inl run {d with network={update_weights apply} input label} =
             inl dim1 x = x.dim |> fst
             inl to = unsafe_convert
-            inl span_size {from near_to} = near_to - from
+            inl span_size = HostTensor.span // near_to - from
 
             inl {span with from near_to} = dim1 input
             assert (dim1 input = dim1 label) "Training and test set need to have to equal first dimensions."
@@ -704,8 +712,9 @@ inl rec Learning {allocator stream} =
                 inl near_to = min (from + minibatch_size) near_to
                 inl span = {from near_to}
                 inl view x = x.view_span span
-                inl {primal adjoint}, bck = apply (view input, view label) id
-                string_format "On minibatch {0}. Error = {1}" (show span) primal |> writeline
+                inb {primal adjoint}, bck = apply (view input, view label)
+                inl primal = primal.value
+                string_format "On minibatch {0}. Error = {1}" (show span, primal) |> writeline
 
                 match d with
                 | {optimizer} ->
@@ -713,25 +722,19 @@ inl rec Learning {allocator stream} =
                     adjoint := one_of primal
                     bck() // Runs the backwards pass.
                     update_weights optimizer
-            
+                | _ -> ()
+
                 inl unscaled_cost = to float64 primal * to float64 (span_size span)
                 state + unscaled_cost
                 }
             |> inl unscaled_cost -> 
                 writeline "-----"
                 writeline "Batch done."
-                string_format "Total cost is {0}." (unscaled_cost / to float64 (span_size span)) |> writeline
+                string_format "Average of batch costs is {0}." (unscaled_cost / to float64 (span_size span)) |> writeline
                 writeline "-----"
             
-        // inb layer = init (sigmoid 512, sigmoid 10) 784
-        // inl pass label = layer >>= inl input -> Error.square (input,label)
         {run with_error init sigmoid layer}
     {CudaTensor CudaKernels AutoDiffPrimitives AutoDiffOps Optimizers FeedforwardLayers}
-
-inl force x ret = ret (x.value)
-inl joinm x ret = join (ret x)
-inl (>>=) a b ret = a <| inl a -> b a ret
-inl succ a ret = ret a
 
 inb allocator = allocator 0.7
 use stream = Stream.create()
@@ -740,63 +743,6 @@ open HostTensor
 open CudaTensor
 open CudaKernels
 open Console
-
-inl test_random = 
-    inm device_tensor = create {dim=32; elem_type=float32}
-    random_fill {op=.LogNormal; stddev=1.0f32; mean=0f32} device_tensor
-    to_host_tensor device_tensor |> show_tensor_all |> writeline |> succ
-    
-inl test_map = 
-    inl host_tensor = HostTensor.init 32 (unsafe_convert float32)
-    from_host_tensor host_tensor >>= map ((*) (dyn 2f32)) >>= (to_host_tensor >> show_tensor_all >> writeline >> succ)
-
-inl test_map_redo =
-    // In this example the only thing that happens after the joinm is the writeline, but it would be useful if there
-    // is more stuff after it. The joinm would be an effective tool for keeping the code bloat down in that case.
-    inl host_tensor = HostTensor.init (dyn 64) (unsafe_convert float32)
-    from_host_tensor host_tensor >>= map_redo {redo=(+)} >>= force >>= joinm >>= (writeline >> succ)
-
-inl test_mnist_feedforward mnist_path =
-    inb mnist_tensors = load_mnist_tensors mnist_path |> from_host_tensors
-
-    inl hidden_size = 10
-    inl input_size = 784
-
-    inl create' dim = 
-        inl sqrt x = FS.UnOp .sqrt x x
-        inl stddev = sqrt (2f32 / unsafe_convert float32 (Tuple.foldl (+) 0 dim))
-        random_create_tensor {op=.Normal; stddev mean=0f32} {dim elem_type=float32}
-
-    inb weight = create' (input_size, hidden_size)
-    inl sigmoid x = 1f32 / (1f32 + (exp (-x)))
-
-    inl Error = {
-        cross_entropy = inl (x,y) -> -(y * log x + (1f32-y) * log (1f32-x))
-        square = inl (x,y) -> (y - x) * (y - x)
-        }
-
-    inl pass (input,test) =
-        gemm .nT .nT 1f32 input weight 
-        >>= map sigmoid 
-        >>= inl input -> map_redo {map=Error.square; redo=(+)} (input,test)
-        >>= force
-        >>= (writeline >> succ)
-        |> heap
-
-    inl iterate minibatch_size (train,test) =
-        inl dim1 x = x.dim |> fst
-        inl near_to = dim1 train |> inl {near_to} -> near_to 
-        assert (dim1 train = dim1 test) "Training and test set need to have to equal first dimensions."
-
-        Loops.for {from=0; near_to; by=minibatch_size; body = inl {i=from} ->
-            inl near_to = min (from + minibatch_size) near_to
-            inl span = {from near_to}
-            inl view x = x.view_span span
-            string_format "On span {0}" (show span) |> writeline
-            pass (view train, view test) id
-            }
-
-    iterate 128 (mnist_tensors.train_images,mnist_tensors.train_labels)
 
 inl test_mnist mnist_path =
     open AutoDiffOps
@@ -810,7 +756,7 @@ inl test_mnist mnist_path =
     inl network = with_error (Error.square) layers
 
     inl input, label = mnist_tensors.train_images, mnist_tensors.train_labels
-    run {network minibatch_size=128; input label}
+    run {network input label minibatch_size=128}
 
 inl mnist_path = @"C:\Users\Marko\Documents\Visual Studio 2015\Projects\SpiralQ\SpiralQ\Tests"
 test_mnist mnist_path
