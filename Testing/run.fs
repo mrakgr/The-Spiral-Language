@@ -254,10 +254,11 @@ inl rec Learning {d with allocator stream} =
             assert_contiguous tns
             inl size = length tns
             inl stream = Stream.extract stream
-            tns.update_body <| inl {ar} ->
+            tns.update_body <| inl {body with ar} ->
                 FS.Method context .ClearMemoryAsync (ar,0u8,size * sizeof (ar.elem_type) |> SizeT,stream) unit
+            |> ignore
 
-        inl zero_like = create_like >> clear
+        inl zero_like = create_like >> inl x -> clear x; x
 
         inl from_host_tensors x ret = 
             inl tensors = toa_map from_host_tensor x
@@ -333,7 +334,7 @@ inl rec Learning {d with allocator stream} =
                     Loops.for {from near_to by body=inl {i} -> 
                         inl out, in = out i, in i
                         match mode with
-                        | .Add -> out .set (out .get + f (in .get)) 
+                        | .Add -> out .set (toa_map2 (inl a b -> a + b) (out.get) (f (in.get)))
                         | .Set -> out .set (f (in .get)) 
                         }
                 } |> ignore
@@ -395,11 +396,11 @@ inl rec Learning {d with allocator stream} =
 
         /// General matrix-matrix multiply from cuBLAS. Inplace version
         inl gemm' transa transb alpha A B beta C =
-            inl A,B,C = Tuple.map (inl x -> assert_contiguous x; to_dev_tensor x) (A,B,C)
             set_stream_cublas cublas
             inl handle = FS.Method cublas .get_CublasHandle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
             inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
             inl assert_ok status = !MacroFs(unit,[text: "if "; arg: status; text: " <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException"; args: status])
+            inl to_dev_tensors = Tuple.map (inl x -> assert_contiguous x; to_dev_tensor x)
             inl call m x = 
                 inl x = Tuple.map (function x : int64 -> unsafe_convert int32 x | x -> x) x
                 inl status_type = fs [text: "ManagedCuda.CudaBlas.CublasStatus"]
@@ -420,6 +421,7 @@ inl rec Learning {d with allocator stream} =
             inl gemv transa alpha A x beta o =
                 inl m,n = rows A, cols A
                 inl lda = m
+                inl A,x,o = to_dev_tensors (A,x,o)
                 toa_iter3 (inl {ar=A} {ar=x} {ar=o} ->
                     inl alpha, beta = conv o alpha, conv o beta
                     call.cublasSgemv_v2(handle, to_operation transa, m, n, ref alpha, A, lda, x, 1, ref beta, o, 1)
@@ -431,11 +433,13 @@ inl rec Learning {d with allocator stream} =
                 inl m = max (rows x, cols x)
                 inl n = max (rows y, cols y)
 
+                inl alpha, beta = conv a alpha, conv a beta
+                match beta with
+                | 0.0f64 | 0.0f32 -> ()
+                | _ -> map_template .Set (toa_map ((*) beta)) a a
+
+                inl x,y,a = to_dev_tensors (x,y,a)
                 toa_iter3 (inl {ar=x} {ar=y} {ar=a} ->
-                    inl alpha, beta = conv a alpha, conv b beta
-                    match beta with
-                    | 0.0f64 | 0.0f32 -> ()
-                    | _ -> map_template .Set ((*) beta) a a
                     call.cublasSger_v2(handle, m, n, ref alpha, x, 1, y, 1, a, m)
                     ) (x.bodies) (y.bodies) (a.bodies)
 
@@ -467,6 +471,7 @@ inl rec Learning {d with allocator stream} =
                 gemv optb alpha B A beta C
             // Just do the standard matrix multiply
             else
+                inl A,B,C = to_dev_tensors (A,B,C)
                 toa_iter3 (inl {ar=A} {ar=B} {ar=C} ->
                     inl alpha, beta = conv C alpha, conv C beta
                     call.cublasSgemm_v2(handle, to_operation transa, to_operation transb, m, n, k, ref alpha, A, lda, B, ldb, ref beta, C, ldc)
@@ -547,7 +552,9 @@ inl rec Learning {d with allocator stream} =
             inb out = map fwd primal >>= dual_make
             ret (out, inl _ ->
                 inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
-                inl bck x = filter_based_on_adjoints (bck x) adjoint
+                inl bck =
+                    inl adjoint = type (adjoint)
+                    inl x -> filter_based_on_adjoints (bck x) adjoint
                 inb adjoint = filter_unit_and_branch adjoint 
                 map_template .Add bck {in=primal; out} adjoint
                 )
@@ -581,7 +588,9 @@ inl rec Learning {d with allocator stream} =
             inb !dual_make_lazyhost out = map_redo fwd primal
             ret (out, inl _ ->
                 inl out = toa_map2 (inl P A -> {P A = A ()}) (out.primal.value) (out.adjoint)
-                inl bck in = filter_based_on_adjoints (bck {in out}) adjoint
+                inl bck =
+                    inl adjoint = type (adjoint)
+                    inl in -> filter_based_on_adjoints (bck {in out}) adjoint
                 inb adjoint = filter_unit_and_branch adjoint 
                 map_template .Add bck primal adjoint
                 )
@@ -625,7 +634,7 @@ inl rec Learning {d with allocator stream} =
         inl (>>=) a b ret =
             inb a,a_bck = a
             inb b,b_bck = b a
-            ret (b, inl _ -> a_bck(); b_bck())
+            ret (b, inl _ -> b_bck(); a_bck())
 
         inl succ x ret = ret (x, const ())
 
@@ -647,7 +656,7 @@ inl rec Learning {d with allocator stream} =
                     }
                 bck = multiply_by_adjoint bck
                 } x
-            >>= hostlazy_map {fwd = div_by_minibatch_size; bck = inl {A} -> div_by_minibatch_size A}
+            >>= hostlazy_map {fwd = div_by_minibatch_size; bck = inl {out={A}} -> div_by_minibatch_size A}
 
         inl Error = {
             square = error {
@@ -660,12 +669,12 @@ inl rec Learning {d with allocator stream} =
                 }
             }
 
-        {sigmoid Error gemm gemm' (>>=) succ force}
+        {sigmoid Error gemm gemm' (>>=) succ force dual_make}
 
     inl Optimizers = 
         open CudaKernels
-        inl sgd {primal adjoint} = 
-            map_template (inl (a,b) -> a+b) (primal,adjoint) primal
+        inl sgd learning_rate {primal adjoint} = 
+            map_template .Set (inl A,P -> toa_map2 (inl A P -> P - learning_rate * A) A P) (adjoint,primal) primal
             CudaTensor.clear adjoint 
 
         {sgd}
@@ -675,6 +684,7 @@ inl rec Learning {d with allocator stream} =
 
         inl layer initializer activation hidden_size next_layer input_size ret =
             inb weight = initializer (input_size, hidden_size)
+            inb weight = dual_make weight
             inb {update_weights apply} = next_layer hidden_size
             ret {
                 update_weights = inl f -> f weight; update_weights f
@@ -756,9 +766,9 @@ inl test_mnist mnist_path =
     inl network = with_error (Error.square) layers
 
     inl input, label = mnist_tensors.train_images, mnist_tensors.train_labels
-    run {network input label minibatch_size=128; optimizer=Optimizers.sgd}
+    run {network input label minibatch_size=128; optimizer=Optimizers.sgd 0.01f32}
 
-inl mnist_path = @"C:\Users\Marko\Documents\Visual Studio 2015\Projects\SpiralQ\SpiralQ\Tests"
+inl mnist_path = @"C:\ML Datasets\Mnist"
 test_mnist mnist_path
     """
 
