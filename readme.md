@@ -494,7 +494,6 @@ inl c = type (string_format "{0}, {1}" (string_type, "rty"))
 
 default_of a, default_of b, default_of c
 ```
-
 ```
 type Tuple0 =
     struct
@@ -514,7 +513,8 @@ int64 + 3
 ```
 (naked_type (*int64*) + 3L)
 ```
-These kinds of errors are easier to locate when they are shown in generated code. When they happen it is usually because of a missed argument to partially applied function which causes its environment to spill in the generated code. This makes the usual error messages unhelpful.
+
+These kinds of errors are easier to locate when they are shown in generated code. When they happen it is usually because of a missed argument to partially applied function which causes its environment to spill into the generated code. This makes the usual error messages unhelpful, but looking at the error code gives a good indication of what is happening.
 
 
 
