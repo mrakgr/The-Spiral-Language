@@ -516,6 +516,6 @@ int64 + 3
 
 These kinds of errors are easier to locate when they are shown in generated code. When they happen it is usually because of a missed argument to partially applied function which causes its environment to spill into the generated code. This makes the usual error messages unhelpful, but looking at the error code gives a good indication of what is happening.
 
-
+##### Join point recursion
 
 
