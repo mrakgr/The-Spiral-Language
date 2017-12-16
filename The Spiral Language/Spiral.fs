@@ -1972,21 +1972,16 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let poperator (s: CharStream<Userstate>) = many1Satisfy is_operator_char .>> spaces <| s
         let var_op_name = var_name <|> rounds (poperator <|> var_name_core)
 
-        let filter_env x = ap (inl "" x) B
         let inl_pat' (args: Pattern list) body = List.foldBack inl_pat args body
-        let inline x_pat' memo args body = 
-            let body = memo body
-            if List.isEmpty args then filter_env body else body
-            |> inl_pat' args
-        let meth_pat' args body = x_pat' join_point_entry_method args body
-        let type_pat' args body = x_pat' join_point_entry_type args body
+        let meth_pat' args body = inl_pat' args (join_point_entry_method body)
+        let type_pat' args body = inl_pat' args (join_point_entry_type body)
 
         let inline statement_expr expr = eq' >>. expr
         let case_inl_pat_statement expr = pipe2 (inl_ >>. patterns expr) (statement_expr expr) lp
         let case_inl_name_pat_list_statement expr = pipe3 (inl_ >>. var_op_name) (pattern_list expr) (statement_expr expr) (fun name pattern body -> l name (inl_pat' pattern body)) 
         let case_inl_rec_name_pat_list_statement expr = pipe3 (inl_rec >>. var_op_name) (pattern_list expr) (statement_expr expr) (fun name pattern body -> l_rec name (inl_pat' pattern body))
         
-        let case_met_pat_statement expr = pipe2 (met_ >>. patterns expr) (statement_expr expr) <| fun pattern body -> lp pattern (filter_env (join_point_entry_method body))
+        let case_met_pat_statement expr = pipe2 (met_ >>. patterns expr) (statement_expr expr) <| fun pattern body -> lp pattern (join_point_entry_method body)
         let case_met_name_pat_list_statement expr = pipe3 (met_ >>. var_op_name) (pattern_list expr) (statement_expr expr) (fun name pattern body -> l name (meth_pat' pattern body))
         let case_met_rec_name_pat_list_statement expr = pipe3 (met_rec >>. var_op_name) (pattern_list expr) (statement_expr expr) <| fun name pattern body -> l_rec name (meth_pat' pattern body)
 

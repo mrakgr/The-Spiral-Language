@@ -11,14 +11,14 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = []
     }
 
-//rewrite_test_cache cfg None //(Some(0,40))
+rewrite_test_cache cfg None //(Some(0,40))
 
 let example1 = 
     "example1",[],"",
     """
-inl add a b = a + b
-inl f = add 1
-f 2, f 3
+met mult (!dyn a) (!dyn b) = a * b
+met f g = g 1 2, g 3.0 4.0
+f mult
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example1

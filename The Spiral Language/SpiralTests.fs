@@ -22,17 +22,17 @@ a () + b ()
 let test3 = // 
     "test3",[],"Does this method case work?",
     """
-met a = 5
-met b = 10
+inl a = dyn 5
+inl b = dyn 10
 a + b
     """
 
 let test4 = // 
     "test4",[],"Does the and pattern work correctly?",
     """
-met f (a, b) (c, d) = (a+c,b+d)
-met q & (a, b) = 1,2
-met w & (c, d) = 3,4
+inl f (a, b) (c, d) = dyn (a+c,b+d)
+inl q & (a, b) = dyn (1,2)
+inl w & (c, d) = dyn (3,4)
 f q w
     """
 
@@ -184,8 +184,8 @@ inl int_expr = box (expr int64)
 inl v x = int_expr (.V, x)
 inl add a b = int_expr (.Add, a, b)
 inl mult a b = int_expr (.Mult, a, b)
-met a = add (v 1) (v 2)
-met b = add (v 3) (v 4)
+inl a = add (v 1) (v 2) |> dyn
+inl b = add (v 3) (v 4) |> dyn
 inl c = mult a b
 
 met rec inter x = 
