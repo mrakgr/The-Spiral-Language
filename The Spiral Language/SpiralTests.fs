@@ -1110,6 +1110,18 @@ inl x=-1
 x
     """
 
+let test99 =
+    "test99",[],"Does the . operator apply if it is directly next to an expression?",
+    """
+inl f = function
+    | .Hello as x -> .Bye
+
+inl g = function
+    | .Bye -> ()
+
+g f.Hello
+    """
+
 let parsing1 = 
     "parsing1",[parsing;console],"Does the Parsing module work?",
     """
