@@ -244,7 +244,7 @@ method_0()
 
 `!` on the left (the pattern) side of the expression is the active pattern unary operator. It takes a function as its first argument, applies the input to it and rebinds the result to second argument of the pattern (in this case `a` and `b` respectively) before the body is evaluated.
 
-#### Recursion
+#### Recursion and destructuring
 
 Much like in F#, recursive functions can be defined using `rec`.
 
@@ -311,11 +311,70 @@ let (var_7: int64) = 4L
 let (var_8: int64) = method_1((var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64))
 Tuple0(var_3, var_8)
 ```
+While language allow variant arguments, Spiral has the ability to specialize methods to their exact arguments and in combination with destructuring to implement variant arguments in a typesafe manner. 
 
+```
+inl rec foldl f s = function
+    | x :: xs -> foldl f (f s x) xs
+    | () -> s
 
-Some language allow variant arguments
+met sum l = foldl (+) 0 l
 
+sum (1,2,3,dyn 4), sum (2,2,3,dyn 4)
+```
+```
+type Tuple0 =
+    struct
+    val mem_0: int64
+    val mem_1: int64
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let rec method_0((var_0: int64)): int64 =
+    (6L + var_0)
+and method_1((var_0: int64)): int64 =
+    (7L + var_0)
+let (var_0: int64) = 4L
+let (var_1: int64) = method_0((var_0: int64))
+let (var_2: int64) = 4L
+let (var_3: int64) = method_1((var_2: int64))
+Tuple0(var_1, var_3)
+```
 
+By default, in Spiral all the data structures in Spiral are flattened and have their variables tracked individually. As can be seen in the generated code, when a tuple is passed into a function it is not the actual tuple that is being passed into it, but its arguments instead.
+
+The specialization is exact to the structure, not just the types. If literals are being passed through the method call, the method will get specialized to them.
+
+```
+met f _ = 1,2,3
+inl x = f ()
+0
+```
+```
+type Tuple0 =
+    struct
+    val mem_0: int64
+    val mem_1: int64
+    val mem_2: int64
+    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
+    end
+let rec method_0(): Tuple0 =
+    Tuple0(1L, 2L, 3L)
+let (var_0: Tuple0) = method_0()
+let (var_1: int64) = var_0.mem_0
+let (var_2: int64) = var_0.mem_1
+let (var_3: int64) = var_0.mem_2
+0L
+```
+
+Tuples themselves are only manifested in the generated code on join point and branch returns. They get destructured right away and tracked by their individual variables on bindings and function applications. Had I not bound the method return to `x`, it would not have been destructured. This is the desired behavior because otherwise destructuring might block tail call optimizations.
+
+```
+met f _ = 1
+```
+```
+inl f _ = join (1)
+```
+The above two code fragments are identical in Spiral. `met` is just syntax sugar for a function with a join point around its body.
 
 
 
