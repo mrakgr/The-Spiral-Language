@@ -8,8 +8,12 @@ Functional programming language compiling to F# and Cuda C with decent integrati
 
 Spiral has great many similarities to other languages of the ML family, most notably F# with whom it shares the most similarity and a great deal of syntax, but in terms of semantics, it is different at its core.
 
-`inl x = 2 // Define a 64-bit integer in Spiral.`
-`let x = 2 // Define a 32-bit integer in F#.`
+```
+inl x = 2 // Define a 64-bit integer in Spiral.
+```
+```
+let x = 2 // Define a 32-bit integer in F#.
+```
 
 Unlike in F#, statements and function definitions in Spiral are preceded by `inl` instead of `let` which is short for `inl`inleable or `inl`ine.
 
@@ -32,8 +36,12 @@ extern "C" {
 
 It is not absolutely nothing though. If the program used Cuda kernels in it, they would gathered at the top of the file inside the `cuda_kernels` variable. For interests of brevity, the unremarkable top part will be cut out during the tutorials.
 
-`inl x = dyn 2`
-`let (var_0: int64) = 2L // Generated F# code.`
+```
+inl x = dyn 2
+```
+```
+let (var_0: int64) = 2L // Generated F# code.
+```
 
 The reason Spiral is generating nothing is because `2` as defined is a literal and is gets tracked as such by the partial evaluator inside the environment. Suppose you want to have it appear in the generated code, what you would do is cast it from the type to the term level using `dyn`amize function. From here on out, the literal will be bound to a variable and the binding `x` will track `var_0` instead.
 
@@ -234,5 +242,83 @@ and method_2((var_0: float), (var_1: float)): float =
 method_0()
 ```
 
-`!` on the left (pattern) side of the expression is an active pattern. It takes a function as its first argument and applies it before the body is evaluated.
+`!` on the left (the pattern) side of the expression is the active pattern unary operator. It takes a function as its first argument, applies the input to it and rebinds the result to second argument of the pattern (in this case `a` and `b` respectively) before the body is evaluated.
+
+#### Recursion
+
+Much like in F#, recursive functions can be defined using `rec`.
+
+```
+inl rec foldl f s = function
+    | x :: xs -> foldl f (f s x) xs
+    | () -> s
+
+inl sum = foldl (+) 0
+
+sum (1,2,3)
+```
+```
+6L
+```
+In ML languages, `::` is the list cons pattern. In Spiral it is the the tuple cons pattern. Tuple are fully fledged heterognous lists in Spiral and can be treated as such.
+
+```
+inl a = 2,3
+1 :: a
+```
+```
+type Tuple0 =
+    struct
+    val mem_0: int64
+    val mem_1: int64
+    val mem_2: int64
+    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
+    end
+Tuple0(1L, 2L, 3L)
+```
+There are some interesting applications of this. 
+```
+inl rec foldl f s = function
+    | x :: xs -> foldl f (f s x) xs
+    | () -> s
+
+met sum (!dyn l) = foldl (+) 0 l
+
+sum (1,2,3), sum (1,2,3,4)
+```
+```
+type Tuple0 =
+    struct
+    val mem_0: int64
+    val mem_1: int64
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let rec method_0((var_0: int64), (var_1: int64), (var_2: int64)): int64 =
+    let (var_3: int64) = (var_0 + var_1)
+    (var_3 + var_2)
+and method_1((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64)): int64 =
+    let (var_4: int64) = (var_0 + var_1)
+    let (var_5: int64) = (var_4 + var_2)
+    (var_5 + var_3)
+let (var_0: int64) = 1L
+let (var_1: int64) = 2L
+let (var_2: int64) = 3L
+let (var_3: int64) = method_0((var_0: int64), (var_1: int64), (var_2: int64))
+let (var_4: int64) = 1L
+let (var_5: int64) = 2L
+let (var_6: int64) = 3L
+let (var_7: int64) = 4L
+let (var_8: int64) = method_1((var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64))
+Tuple0(var_3, var_8)
+```
+
+
+Some language allow variant arguments
+
+
+
+
+
+
+
 
