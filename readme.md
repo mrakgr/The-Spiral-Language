@@ -103,3 +103,5 @@ Tuple0(3L, 4L)
 Of course, they can be partially applied.
 
 Besides being staged, Spiral's function allow more powerful forms of polymorphism than F#'s.
+
+...
