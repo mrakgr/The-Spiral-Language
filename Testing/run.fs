@@ -784,5 +784,3 @@ let cfg: Spiral.Types.CompilerSettings = {
 output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
 |> printfn "%s"
 |> ignore
-
-
