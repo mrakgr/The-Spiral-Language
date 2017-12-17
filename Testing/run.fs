@@ -17,7 +17,12 @@ let cfg: Spiral.Types.CompilerSettings = {
 let example1 = 
     "example1",[],"",
     """
-int64 + 3
+inl rec loop f i =
+    inl f, i = term_cast f (), dyn i
+    inl body _ = if i < 10 then loop (inl _ -> f() + 1) (i + 1) else f()
+    join (body() : int64)
+
+loop (inl _ -> 0) 0
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning

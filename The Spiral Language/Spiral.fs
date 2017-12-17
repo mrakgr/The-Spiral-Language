@@ -2795,7 +2795,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ArrayT(ArtCudaGlobal t,_) -> print_type t
             | ArrayT((ArtCudaShared | ArtCudaLocal),_) -> failwith "Cuda local and shared arrays cannot be used on the F# side."
             | TermFunctionT(a,b) -> 
-                let a = tuple_field_ty a |> List.map print_type |> String.concat " * "
+                let a = 
+                    tuple_field_ty a |> List.map print_type |> String.concat " * "
+                    |> function "" -> "unit" | x -> x
                 sprintf "(%s -> %s)" a (print_type b)
             | PrimT x ->
                 match x with
