@@ -19,6 +19,12 @@ Visual Studio 2017 C++ tools individual component (VC++ 2017 v141 toolset (x86,x
 
 ## Tutorials
 
+### 0: The way to use the language
+
+The easiest way to do it right now would be to clone this repo. In the Testing project, look at `run.fs`. It has the latest example I am using for the tutorial. Select the `Testing` project as the starter one and point the output to the `output.fs` file in the `Temporary` project. Don't worry about getting it wrong - at worst you will get an exception.
+
+You do not need deal with Cuda configuration options in the `run.fs` file unless you want to use the libraries related to that.
+
 ### 1: Inlinleables, Methods and Join Points
 
 Spiral has great many similarities to other languages of the ML family, most notably F# with whom it shares the most similarity and a great deal of syntax, but in terms of semantics, it is different at its core.
