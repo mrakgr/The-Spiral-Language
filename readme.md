@@ -514,8 +514,74 @@ int64 + 3
 (naked_type (*int64*) + 3L)
 ```
 
-These kinds of errors are easier to locate when they are shown in generated code. When they happen it is usually because of a missed argument to partially applied function which causes its environment to spill into the generated code. This makes the usual error messages unhelpful, but looking at the error code gives a good indication of what is happening.
+These kinds of errors are easier to locate when they are shown in generated code. When they happen it is usually because of a missed argument to a curried function which causes its environment to spill into the generated code. This makes the usual error messages unhelpful, but looking at the error code gives a good indication of what is happening.
 
 ##### Join point recursion
+
+Spiral in general does not need type annotations. The only exception is the recursion when used in tandem with join points.
+
+```
+met rec fact (!dyn x) = if x > 1 then x * fact (x-1) else 1
+fact 3
+```
+```
+Process is terminated due to StackOverflowException.
+```
+The correct way to write the above would be.
+```
+met rec fact (!dyn x) = 
+    if x > 1 then x * fact (x-1) else 1
+    : int64 // or alternatively `: x`
+fact 3
+```
+```
+let rec method_0((var_0: int64)): int64 =
+    let (var_1: bool) = (var_0 > 1L)
+    if var_1 then
+        let (var_2: int64) = (var_0 - 1L)
+        let (var_3: int64) = method_0((var_2: int64))
+        (var_0 * var_3)
+    else
+        1L
+let (var_0: int64) = 3L
+method_0((var_0: int64))
+```
+`:` has the lowest precedence of all Spiral's constructs so it will get applied before any of the statements. It does not necessarily have to be put directly into the function.
+```
+inl rec fact x =
+    inl body x = if x > 1 then x * fact (x-1) else 1
+    if lit_is x then body x
+    else join (body (dyn x) : int64)
+fact 3, fact (dyn 3)
+```
+```
+type Tuple0 =
+    struct
+    val mem_0: int64
+    val mem_1: int64
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let rec method_0((var_0: int64)): int64 =
+    let (var_1: bool) = (var_0 > 1L)
+    if var_1 then
+        let (var_2: int64) = (var_0 - 1L)
+        let (var_3: int64) = method_0((var_2: int64))
+        (var_0 * var_3)
+    else
+        1L
+let (var_0: int64) = 3L
+let (var_1: int64) = method_0((var_0: int64))
+Tuple0(6L, var_1)
+```
+It takes some work, but it is not difficult to make functions stage polymorphic in Spiral.
+
+
+
+
+
+
+
+
+
 
 
