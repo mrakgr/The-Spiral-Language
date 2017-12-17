@@ -275,7 +275,7 @@ sum (1,2,3)
 ```
 6L
 ```
-In ML languages, `::` is the list cons pattern. In Spiral it is the the tuple cons pattern. Tuple are fully fledged heterognous lists in Spiral and can be treated as such.
+In ML languages, `::` is the list cons pattern. In Spiral it is the the tuple cons pattern. Tuple are fully fledged heterogeneous lists in Spiral and can be treated as such.
 
 ```
 inl a = 2,3
@@ -426,7 +426,7 @@ let (var_0: int64) = 4L
 let (var_1: int64) = method_0((var_0: int64))
 Tuple0(10L, var_1)
 ```
-The `lit_is` just like other structure testing functions always resolves at compile time to either `true` or `false`. In combination with `forall` that allows for testing of whether all the arguments of `l` are known at compile time. Then using a static if, the two braches amount to either summing them all at compile time, or term casting them and pushing the work to runtime.
+The `lit_is` just like other structure testing functions always resolves at compile time to either `true` or `false`. In combination with `forall` that allows for testing of whether all the arguments of `l` are known at compile time. Then using a static if, the two branches amount to either summing them all at compile time, or term casting them and pushing the work to runtime.
 
 This ensures that the sum function does not get specialized to every arbitrary literal passed into it.
 ```
@@ -457,7 +457,7 @@ type Tuple0 =
     end
 Tuple0(0L, 0.000000, "")
 ```
-Unlike ML languages which use Hindley-Milner global type inference, Spiral does not infer as much as propagate. A consequence of that besides undecideability is that it knowns the exact structure and type of everything at all times. When done on non-union types as done up to now, this sort of branching has no runtime overhead whatsoever and can be readily seen by looking into the generated code.
+Unlike ML languages which use Hindley-Milner global type inference, Spiral does not infer as much as propagate. A consequence of that besides undecidability is that it knows the exact structure and type of everything at all times. When done on non-union types as done up to now, this sort of branching has no runtime overhead whatsoever and can be readily seen by looking into the generated code.
 
 [`function`](https://stackoverflow.com/questions/1839016/f-explicit-match-vs-function-syntax) is just shorthand for matching on the immediate argument like in F#.
 
@@ -561,7 +561,7 @@ let rec method_0((var_0: int64)): int64 =
 let (var_0: int64) = 3L
 method_0((var_0: int64))
 ```
-`:` has the lowest precedence of all Spiral's constructs so it will get applied before any of the statements. It does not necessarily have to be put directly into the function.
+`:` has the lowest precedence of all Spiral's constructs so it will get applied before any of the statements. It does not necessarily have to be put directly into the function. As reminder, on the pattern side `:` is not a type annotation, but a type equality test.
 ```
 inl rec fact x =
     inl body x = if x > 1 then x * fact (x-1) else 1
@@ -671,7 +671,7 @@ All the information in type literals is preserved at all times.
 
 Spiral's functions as flexible as they are have the notable weakness of not being able to emulate recursive datatypes. For that they need to be cast to the term level.
 
-Consider a silly example like the following where the function is used as an counter.
+Consider a silly example like the following where the function is used as a counter.
 
 ```
 met rec loop f (!dyn i) =
@@ -681,7 +681,7 @@ met rec loop f (!dyn i) =
 loop (inl _ -> 0) 0
 ```
 
-This will never compile for the reason that `f` continually expands its enviroment.
+This will never compile for the reason that `f` continually expands its environment.
 
 At first it tries to specialize the function for just `inl _ -> 0` -> `int64` -> `int64`. The second specialization it tries is `[inl _ -> 0; inl _ -> f() + 1]` -> `int64` -> `int64`. During the third it is trying to specialize it for `[inl _ -> 0; inl _ -> f() + 1; inl _ -> f() + 1]` -> `int64` -> `int64`. The syntax used here is just for the sake of description. The problem is the it is impossible for the compiler to ever terminate on the above program. The only way to do it would be to cast the function to the term level and track it as a variable.
 
@@ -713,8 +713,8 @@ method_1((var_0: (unit -> int64)), (var_1: int64))
 ```
 `term_cast` works by taking a function as its first argument and a type as its second. It emulates a function call, gets the return type of the term function from the result of that, and set the input type to the first argument. In the generated code, it flattens the arguments a single tuple level.
 
-Term level functions have their enviroments hidden and the only information available to the evaluator is its type.
+Term level functions have their environments hidden and the only information available to the evaluator is its type.
 
-On the Cuda side, term functions are also allowed with the restriction that their enviroments be empty. Meaning, they cannot capture variables in their lexical scope. Despite that restriction, they are useful for interop with Cuda libraries.
+On the Cuda side, term functions are also allowed with the restriction that their environments be empty. Meaning, they cannot capture variables in their lexical scope and can only be used as function pointers. Despite that restriction, they are useful for interop with Cuda libraries.
 
 All the features of Spiral with the exception of heap allocated modules and closures can be used on the Cuda side.
