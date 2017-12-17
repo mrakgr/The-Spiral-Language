@@ -1,6 +1,21 @@
 # The Spiral Language
 
-Functional programming language compiling to F# and Cuda C with decent integration for both. Is extremely efficient and expressive and boasts having intensional polymorphism and first-class staging. Made for the sake of making a deep learning library which was too difficult to do in F# itself for its author.
+## Overview
+
+Functional programming language compiling to F# and Cuda C with decent integration for both. Is extremely efficient and expressive, and boasts having intensional polymorphism and first-class staging. Made for the sake of making a deep learning library which was too difficult to do in F# itself for its author.
+
+## Dependencies
+
+##### For the compiler:
+
+FParsec
+Visual Studio 2017 F# template (.NET desktop development)
+
+##### For the Cuda using Spiral libraries:
+
+ManagedCuda 8.0 + (CUBLAS,CURAND)
+Cuda SDK 8.0 + 9.0 (8.0 for the libraries and 9.0 for the NVCC compiler)
+Visual Studio 2017 C++ tools individual component (VC++ 2017 v141 toolset (x86,x64))
 
 ## Tutorials
 
@@ -575,13 +590,131 @@ Tuple0(6L, var_1)
 ```
 It takes some work, but it is not difficult to make functions stage polymorphic in Spiral.
 
+Mutual recursion can also be done using join points.
+```
+// https://en.wikipedia.org/wiki/Hofstadter_sequence#Hofstadter_Female_and_Male_sequences
+inl rec hof x = 
+    inl male n = if n > 0 then n - hof.female (hof.male (n-1)) else 0
+    inl female n = if n > 0 then n - hof.male (hof.female (n-1)) else 1
+    match x with
+    | .male (!dyn n) -> join (male n : int64)
+    | .female (!dyn n) -> join (female n : int64)
+hof.male 3
+```
+```
+let rec method_0((var_0: int64)): int64 =
+    let (var_1: bool) = (var_0 > 0L)
+    if var_1 then
+        let (var_2: int64) = (var_0 - 1L)
+        let (var_3: int64) = method_0((var_2: int64))
+        let (var_4: int64) = method_1((var_3: int64))
+        (var_0 - var_4)
+    else
+        0L
+and method_1((var_0: int64)): int64 =
+    let (var_1: bool) = (var_0 > 0L)
+    if var_1 then
+        let (var_2: int64) = (var_0 - 1L)
+        let (var_3: int64) = method_1((var_2: int64))
+        let (var_4: int64) = method_0((var_3: int64))
+        (var_0 - var_4)
+    else
+        1L
+let (var_0: int64) = 3L
+method_0((var_0: int64))
+```
+`.` here is the type literal lift operator. It has special syntax for strings and when used directly next to an expression, it binds more tightly than application similar to how F#'s method access works. It also has its own dedicated pattern as shown above.
+```
+inl f x = .(x)
+inl a = f "asd"
+inl b = .asd
+eq_type a b
+```
+```
+true
+```
+It works on any kind of literal, not just strings. Type literals can be converted to ordinary literals as well.
+```
+inl a = .1
+inl b = .2
+match a,b with
+| .(a), .(b) -> a + b
+```
+```
+3L
+```
+The difference between type literals and ordinary literals is that type literals will always be erased in generated code and it is impossible to push them at runtime by `dyn`ing them.
+```
+dyn (.a,"b",.false,true)
+```
+```
+type Tuple0 =
+    struct
+    val mem_0: string
+    val mem_1: bool
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let (var_0: string) = "b"
+let (var_1: bool) = true
+Tuple0(var_0, var_1)
+```
+Using `print_static` you can inspect what the evaluator sees at compile time.
+```
+print_static (dyn (.a,"b",.false,true))
+```
+```
+[type (type_lit (a)), var (string), type (type_lit (false)), var (bool)]
+```
+All the information in type literals is preserved at all times.
 
+##### Term casting of functions
 
+Spiral's functions as flexible as they are have the notable weakness of not being able to emulate recursive datatypes. For that they need to be cast to the term level.
 
+Consider a silly example like the following where the function is used as an counter.
 
+```
+met rec loop f (!dyn i) =
+    if i < 10 then loop (inl _ -> f() + 1) (i + 1)
+    else f()
+    : int64
+loop (inl _ -> 0) 0
+```
 
+This will never compile for the reason that `f` continually expands its enviroment.
 
+At first it tries to specialize the function for just `inl _ -> 0` -> `int64` -> `int64`. The second specialization it tries is `[inl _ -> 0; inl _ -> f() + 1]` -> `int64` -> `int64`. During the third it is trying to specialize it for `[inl _ -> 0; inl _ -> f() + 1; inl _ -> f() + 1]` -> `int64` -> `int64`. The syntax used here is just for the sake of description. The problem is the it is impossible for the compiler to ever terminate on the above program. The only way to do it would be to cast the function to the term level and track it as a variable.
 
+```
+inl rec loop f i =
+    inl f, i = term_cast f (), dyn i
+    inl body _ = if i < 10 then loop (inl _ -> f() + 1) (i + 1) else f()
+    join (body() : int64)
 
+loop (inl _ -> 0) 0
+```
+```
+let rec method_0 (): int64 =
+    0L
+and method_1((var_0: (unit -> int64)), (var_1: int64)): int64 =
+    let (var_2: bool) = (var_1 < 10L)
+    if var_2 then
+        let (var_3: int64) = (var_1 + 1L)
+        let (var_4: (unit -> int64)) = method_2((var_0: (unit -> int64)))
+        method_1((var_4: (unit -> int64)), (var_3: int64))
+    else
+        var_0()
+and method_2 ((var_0: (unit -> int64))) (): int64 =
+    let (var_1: int64) = var_0()
+    (var_1 + 1L)
+let (var_0: (unit -> int64)) = method_0
+let (var_1: int64) = 0L
+method_1((var_0: (unit -> int64)), (var_1: int64))
+```
+`term_cast` works by taking a function as its first argument and a type as its second. It emulates a function call, gets the return type of the term function from the result of that, and set the input type to the first argument. In the generated code, it flattens the arguments a single tuple level.
 
+Term level functions have their enviroments hidden and the only information available to the evaluator is its type.
 
+On the Cuda side, term functions are also allowed with the restriction that their enviroments be empty. Meaning, they cannot capture variables in their lexical scope. Despite that restriction, they are useful for interop with Cuda libraries.
+
+All the features of Spiral with the exception of heap allocated modules and closures can be used on the Cuda side.
