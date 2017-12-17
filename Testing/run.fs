@@ -3,6 +3,7 @@
 open Spiral.Lib
 open Spiral.Tests
 open System.IO
+open Learning
 
 let cfg: Spiral.Types.CompilerSettings = {
     path_cuda90 = @"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.0"
@@ -11,7 +12,7 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = []
     }
 
-rewrite_test_cache cfg None //(Some(0,40))
+//rewrite_test_cache cfg None //(Some(0,40))
 
 let example1 = 
     "example1",[],"",
@@ -19,7 +20,7 @@ let example1 =
 int64 + 3
     """
 
-//output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example1
-//output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test99
-//|> printfn "%s"
-//|> ignore
+//output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example1
+|> printfn "%s"
+|> ignore

@@ -230,8 +230,8 @@ open Extern
 inl console = fs [text: "System.Console"]
 inl int32_type = fs [text: "System.Int32"]
 inl parse_int32 str = FS.StaticMethod int32_type .Parse str int32
-inl read_line () = FS.StaticMethod console.ReadLine() string
-inl write x = FS.StaticMethod console.Write x unit
+inl read_line () = FS.StaticMethod console .ReadLine() string
+inl write x = FS.StaticMethod console .Write x unit
 inl read_int () = read_line() |> parse_int32
 inl a, b = read_int(), read_int()
 write (a + b)
@@ -1111,7 +1111,7 @@ x
     """
 
 let test99 =
-    "test99",[],"Does the . operator apply if it is directly next to an expression?",
+    "test99",[],"Does the binary . operator apply if it is directly next to an expression?",
     """
 inl f = function
     | .Hello as x -> .Bye
@@ -1914,7 +1914,7 @@ let tests =
     test60';test61;test62;test63;test64;test65;test66;test67;test68;test69
     test70;test71';test72;test73;test74;test75;test76';test77';test78;test79
     test80;test81;test82;test83;test84;test85;test86;test87;test88;test89
-    test90;test91;test92;test93;test94;test95;test96;test97;test98
+    test90;test91;test92;test93;test94;test95;test96;test97;test98;test99
     hacker_rank_1;hacker_rank_2;hacker_rank_3;hacker_rank_4;hacker_rank_5;hacker_rank_6;hacker_rank_7;hacker_rank_8;hacker_rank_9
     parsing1;parsing2;parsing3;parsing4;parsing5;parsing6;parsing7;parsing8
     loop1;loop2;loop3;     loop5;loop6;loop7;loop8

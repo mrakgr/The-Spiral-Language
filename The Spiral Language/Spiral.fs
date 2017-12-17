@@ -2113,15 +2113,28 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | "PathVS2017" -> settings.path_vs2017 |> LitString |> lit |> preturn
                 | a -> failFatally <| sprintf "%s is not a valid parser macro." a
 
-        let rec expressions expr s =
-            let expressions = 
-                [case_type; case_join_point; case_cuda; case_inbuilt_op; case_parser_macro
-                 case_inl_pat_list_expr; case_met_pat_list_expr; case_lit; case_if_then_else
-                 case_rounds; case_typecase; case_typeinl; case_var; case_module; case_named_tuple
-                 case_negate << expressions]
-                |> List.map (fun x -> x expr |> attempt)
-                |> choice
-            expressions <| s
+        let case_lit_lift expr = 
+            let var = var_name |>> (LitString >> type_lit_lift)
+            let lit = expr |>> type_lit_lift'
+            prefix_dot >>. (var <|> lit)
+
+        let binary_lit_lift expr =
+            let is_immeditate_expr x = is_closing_parenth_char x || is_identifier_char x
+            sepBy1 expr (previousCharSatisfies is_immeditate_expr >>. prefix_dot) 
+            |>> List.reduce (fun a b ->
+                match b with
+                | V (N x) -> type_lit_lift (LitString x)
+                | x -> type_lit_lift' x
+                |> ap a
+                )
+
+        let rec expressions expr s = 
+            [
+            case_type; case_join_point; case_cuda; case_inbuilt_op; case_parser_macro
+            case_inl_pat_list_expr; case_met_pat_list_expr; case_lit; case_if_then_else
+            case_rounds; case_typecase; case_typeinl; case_var; case_module; case_named_tuple
+            case_negate << expressions; case_lit_lift << expressions
+            ] |> List.map (fun x -> x expr |> attempt) |> choice <| s
  
         let process_parser_exprs exprs = 
             let error_statement_in_last_pos _ = Reply(Error,messageError "Statements not allowed in the last position of a block.")
@@ -2142,21 +2155,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let application expr (s: CharStream<_>) =
             let i = col s
-            let expr_up expr (s: CharStream<_>) = expr_indent i (<) expr s
-
-            let case_lit_lift = 
-                let var = var_name |>> (LitString >> type_lit_lift)
-                let lit = expr |>> type_lit_lift'
-                prefix_dot >>. (var <|> lit)
-
-            let inline body body' next left = (expr_up body' |>> ap left >>= next) <|>% left
-            let inline branch up body' next left = up left >>= body body' next
-
-            let rec branch_immediate_lit_lift left = body (previousCharSatisfiesNot is_separator_char_ext >>. case_lit_lift) branch_immediate_lit_lift left
-            let rec branch_lit_lift left = branch branch_immediate_lit_lift case_lit_lift branch_lit_lift left
-            let rec branch_expr left = branch branch_lit_lift expr branch_expr left
-
-            (expr >>= branch_expr) s
+            let expr_up (s: CharStream<_>) = expr_indent i (<) expr s
+            pipe2 expr (many expr_up) (List.fold ap) s
 
         let tuple expr (s: CharStream<_>) =
             let i = (col s)
@@ -2258,7 +2258,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             tdop Int32.MinValue s
 
         let rec expr s = 
-            let expressions s = mset expr ^<| tuple ^<| operators ^<| application ^<| expressions expr <| s
+            let expressions s = mset expr ^<| tuple ^<| operators ^<| application ^<| binary_lit_lift ^<| expressions expr <| s
             let statements s = statements expressions expr <| s
             annotations ^<| indentations statements expressions <| s
         runParserOnString (spaces >>. expr .>> eof) {ops=inbuilt_operators; semicolon_line= -1L} module_name module_code

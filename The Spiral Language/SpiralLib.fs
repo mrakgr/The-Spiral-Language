@@ -297,7 +297,7 @@ inl closure_of = closure_of_template true
 
 inl (use) a b =
     inl r = b a
-    FS.Method a.Dispose() unit
+    FS.Method a .Dispose() unit
     r
 
 // Optimized to do more work at compile time. Will flatten nested tuples.
@@ -323,14 +323,14 @@ inl rec show' cfg =
     met show_array !dyn (array_cutoff, ar) = 
         inl strb_type = fs [text: "System.Text.StringBuilder"]
         inl s = FS.Constructor strb_type ()
-        inl append x = FS.Method s.Append x strb_type |> ignore
+        inl append x = FS.Method s .Append x strb_type |> ignore
 
         append "[|"
         Loops.for {from=0; near_to=min (array_length ar) array_cutoff; state=dyn ""; body=inl {state=prefix i} ->
             append prefix; append (show (ar i)); dyn "; "
             } |> ignore
         append "|]"
-        FS.Method s.ToString() string
+        FS.Method s .ToString() string
     inl show_tuple l = 
         Tuple.foldr (inl v s -> show v :: s) l ()
         |> string_concat ", "
@@ -757,10 +757,10 @@ inl sprintf_template append ret format =
 inl sprintf format = 
     inl strb_type = fs [text: "System.Text.StringBuilder"]
     inl strb = FS.Constructor strb_type (64i32)
-    inl append x = FS.Method strb.Append x strb_type |> ignore
+    inl append x = FS.Method strb .Append x strb_type |> ignore
     sprintf_template append {
         on_succ = inl x _ -> x
-        on_fail = inl msg _ -> FS.Method strb.ToString() string
+        on_fail = inl msg _ -> FS.Method strb .ToString() string
         } format
 
 {run run_with_unit_ret succ fail fatal_fail state type_ tuple (>>=) (|>>) (.>>.) (.>>) (>>.) (>>%) (<|>) choice stream_char 
@@ -779,7 +779,7 @@ inl streamreader_type = fs [text: "System.IO.StreamReader"]
 inl readall () = 
     FS.StaticMethod console_type .OpenStandardInput() stream_type
     |> FS.Constructor streamreader_type 
-    |> inl x -> FS.Method x.ReadToEnd() string
+    |> inl x -> FS.Method x .ReadToEnd() string
 inl readline () = FS.StaticMethod console_type .ReadLine() string
 
 inl write = function
@@ -991,8 +991,8 @@ inl show_tensor_all tns =
     open Extern
     inl strb_type = fs [text: "System.Text.StringBuilder"]
     inl s = FS.Constructor strb_type ()
-    inl append x = FS.Method s.Append x strb_type |> ignore
-    inl append_line x = FS.Method s.AppendLine x strb_type |> ignore
+    inl append x = FS.Method s .Append x strb_type |> ignore
+    inl append_line x = FS.Method s .AppendLine x strb_type |> ignore
     inl indent near_to = Loops.for {from=0; near_to; body=inl _ -> append ' '}
     inl blank = dyn ""
     inl rec loop {tns ind} = 
@@ -1195,16 +1195,16 @@ inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
     
     inl nvcc_router_path = combine (kernels_dir,"nvcc_router.bat")
     inl procStartInfo = FS.Constructor process_start_info_type ()
-    FS.Method procStartInfo.set_RedirectStandardOutput true unit
-    FS.Method procStartInfo.set_RedirectStandardError true unit
-    FS.Method procStartInfo.set_UseShellExecute false unit
-    FS.Method procStartInfo.set_FileName nvcc_router_path unit
+    FS.Method procStartInfo .set_RedirectStandardOutput true unit
+    FS.Method procStartInfo .set_RedirectStandardError true unit
+    FS.Method procStartInfo .set_UseShellExecute false unit
+    FS.Method procStartInfo .set_FileName nvcc_router_path unit
 
     inl process_type = fs [text: "System.Diagnostics.Process"]
     use process = FS.Constructor process_type ()
     FS.Method process .set_StartInfo procStartInfo unit
     inl print_to_standard_output = 
-        closure_of (inl args -> FS.Method args.get_Data() string |> writeline) 
+        closure_of (inl args -> FS.Method args .get_Data() string |> writeline) 
             (fs [text: "System.Diagnostics.DataReceivedEventArgs"] => ())
 
     FS.Method process ."OutputDataReceived.Add" print_to_standard_output ()
@@ -1238,7 +1238,7 @@ inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
         use nvcc_router_file = FS.StaticMethod file_type .OpenWrite(nvcc_router_path) filestream_type
         use nvcc_router_stream = FS.Constructor streamwriter_type nvcc_router_file
 
-        inl write_to_batch = concat >> inl x -> FS.Method nvcc_router_stream.WriteLine x unit
+        inl write_to_batch = concat >> inl x -> FS.Method nvcc_router_stream .WriteLine x unit
 
         "SETLOCAL" |> write_to_batch
         call quoted_vs_path_to_vcvars |> write_to_batch
@@ -1254,18 +1254,18 @@ inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
 
     inl stopwatch_type = fs [text: "System.Diagnostics.Stopwatch"]
     inl timer = FS.StaticMethod stopwatch_type .StartNew () stopwatch_type
-    if FS.Method process.Start() bool = false then failwith unit "NVCC failed to run."
-    FS.Method process.BeginOutputReadLine() unit
-    FS.Method process.BeginErrorReadLine() unit
-    FS.Method process.WaitForExit() unit
+    if FS.Method process .Start() bool = false then failwith unit "NVCC failed to run."
+    FS.Method process .BeginOutputReadLine() unit
+    FS.Method process .BeginErrorReadLine() unit
+    FS.Method process .WaitForExit() unit
 
-    inl exit_code = FS.Method process.get_ExitCode() int32
+    inl exit_code = FS.Method process .get_ExitCode() int32
     assert (exit_code = 0i32) ("NVCC failed compilation.", exit_code)
     
     inl elapsed = FS.Method timer .get_Elapsed() (fs [text: "System.TimeSpan"])
     !MacroFs(unit,[text: "printfn \"The time it took to compile the Cuda kernels is: %A\" "; arg: elapsed])
 
-    FS.Method context.LoadModulePTX target_path (fs [text: "ManagedCuda.BasicTypes.CUmodule"])
+    FS.Method context .LoadModulePTX target_path (fs [text: "ManagedCuda.BasicTypes.CUmodule"])
 
 inl current_directory = FS.StaticMethod env_type .get_CurrentDirectory() string
 inl modules = compile_kernel_using_nvcc_bat_router current_directory
@@ -1284,7 +1284,7 @@ inl Stream =
 
     {
     create = inl x -> FS.Constructor CudaStream_type x
-    extract = inl x -> FS.Method x.get_Stream() CUstream_type 
+    extract = inl x -> FS.Method x .get_Stream() CUstream_type 
     } |> stack
 
 inl run {blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} as runable =
@@ -1310,12 +1310,12 @@ inl run {blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} as runable =
     inl context = match runable with | {context} | _ -> context
     inl kernel_type = fs [text: "ManagedCuda.CudaKernel"]
     inl cuda_kernel = FS.Constructor kernel_type (method_name,modules,context)
-    FS.Method cuda_kernel.set_GridDimensions(dim3 gridDim) unit
-    FS.Method cuda_kernel.set_BlockDimensions(dim3 blockDim) unit
+    FS.Method cuda_kernel .set_GridDimensions(dim3 gridDim) unit
+    FS.Method cuda_kernel .set_BlockDimensions(dim3 blockDim) unit
 
     match runable with
-    | {stream} -> FS.Method cuda_kernel.RunAsync(Stream.extract stream,args) unit
-    | _ -> FS.Method cuda_kernel.Run(args) float32
+    | {stream} -> FS.Method cuda_kernel .RunAsync(Stream.extract stream,args) unit
+    | _ -> FS.Method cuda_kernel .Run(args) float32
 
 inl ret -> 
     use context = context

@@ -36,11 +36,11 @@ met load_mnist (!dyn filename) =
 
     inl netword_to_host_order x = FS.StaticMethod IPAddress_ty .NetworkToHostOrder x int32
 
-    use f = FS.StaticMethod File_ty.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read) FileStream_ty
+    use f = FS.StaticMethod File_ty .Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read) FileStream_ty
     use d = FS.Constructor BinaryReader_ty f
 
-    inl read_int32 x = FS.Method d.ReadInt32 x int32 |> netword_to_host_order
-    inl read_bytes n = FS.Method d.ReadBytes n (array uint8)
+    inl read_int32 x = FS.Method d .ReadInt32 x int32 |> netword_to_host_order
+    inl read_bytes n = FS.Method d .ReadBytes n (array uint8)
 
     inl to_int64 = unsafe_convert int64
     inl to_ints64 = Tuple.map to_int64
@@ -113,7 +113,7 @@ inl SizeT = FS.Constructor SizeT_type
 inl CUdeviceptr = FS.Constructor CUdeviceptr_type
 
 inl to_uint x = FS.UnOp .uint64 x uint64
-inl ptr_to_uint (ptr: CUdeviceptr_type) = FS.Field ptr.Pointer SizeT_type |> to_uint
+inl ptr_to_uint (ptr: CUdeviceptr_type) = FS.Field ptr .Pointer SizeT_type |> to_uint
 inl uint_to_ptr (x: uint64) = SizeT x |> CUdeviceptr
 
 inl allocator size ret =
@@ -125,11 +125,11 @@ inl allocator size ret =
             match size with
             | _ : float64 -> 
                 inl CudaDeviceProperties_type = fs [text: "ManagedCuda.CudaDeviceProperties"]
-                FS.Method context.GetDeviceInfo() CudaDeviceProperties_type
-                |> inl x -> FS.Method x.get_TotalGlobalMemory() SizeT_type
+                FS.Method context .GetDeviceInfo() CudaDeviceProperties_type
+                |> inl x -> FS.Method x .get_TotalGlobalMemory() SizeT_type
                 |> to_int |> to_float |> (*) size |> to_int
             | _ : int64 -> size
-        inl q = FS.Method context.AllocateMemory (SizeT size) CUdeviceptr_type
+        inl q = FS.Method context .AllocateMemory (SizeT size) CUdeviceptr_type
         {size ptr=smartptr_create q}
 
     inl pool_type = type(pool)
@@ -141,11 +141,11 @@ inl allocator size ret =
         inl f x = x.ptr() |> ptr_to_uint, x.size |> to_uint
         inl pool_ptr, pool_size = f pool
         met rec remove_disposed_and_return_the_first_live ret =
-            if FS.Method stack.get_Count() int32 > 0i32 then 
-                inl t = FS.Method stack.Peek() pool_type
+            if FS.Method stack .get_Count() int32 > 0i32 then 
+                inl t = FS.Method stack .Peek() pool_type
                 match t.ptr.Try with
                 | .Some, ptr -> join (ret (ptr_to_uint ptr, t.size |> to_uint))
-                | _ -> FS.Method stack.Pop() pool_type |> ignore; remove_disposed_and_return_the_first_live ret 
+                | _ -> FS.Method stack .Pop() pool_type |> ignore; remove_disposed_and_return_the_first_live ret 
             else join (ret (pool_ptr, 0u64))
             : smartptr_ty
         inl (!dyn size) ->
@@ -153,7 +153,7 @@ inl allocator size ret =
             inl pool_used = top_ptr - pool_ptr + top_size
             assert (to_uint size + pool_used <= pool_size) "Cache size has been exceeded in the allocator."
             inl cell = {size ptr=top_ptr + top_size |> uint_to_ptr |> smartptr_create}
-            FS.Method stack.Push cell unit
+            FS.Method stack .Push cell unit
             cell.ptr
 
     ret {allocate}
@@ -249,7 +249,7 @@ inl rec Learning {d with allocator stream} =
                     !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
 
                 {body with ar without position}
-                ).replace_module (TensorTemplate DeviceTensorPrimitives)
+                ) .replace_module (TensorTemplate DeviceTensorPrimitives)
 
         inl clear (!to_dev_tensor tns) = 
             assert_contiguous tns
