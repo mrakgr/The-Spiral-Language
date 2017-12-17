@@ -724,3 +724,15 @@ Term level functions have their environments hidden and the only information ava
 On the Cuda side, term functions are also allowed with the restriction that their environments be empty. Meaning, they cannot capture variables in their lexical scope and can only be used as function pointers. Despite that restriction, they are useful for interop with Cuda libraries.
 
 All the features of Spiral with the exception of heap allocated modules and closures can be used on the Cuda side.
+
+##### `<function>` error message
+
+Don't be fooled by the `<function>` you will see during type errors. As was repeatedly stated, functions are not at all opaque - they are fully transpared to the evaluator. The reason why they get printed like that is simply because they have a tendency to suck everything into the environment. And except for very small examples, trying to print out the raw AST of its body is worthless even for debugging as it is so convoluted.
+
+...
+
+### 2: Modules and interop
+
+(Work in progress)
+
+#### Warm up
