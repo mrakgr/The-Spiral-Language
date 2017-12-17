@@ -66,12 +66,6 @@
     <Content Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="CudaBlas">
-      <HintPath>..\packages\ManagedCuda-CUBLAS.8.0.22\lib\net46\CudaBlas.dll</HintPath>
-    </Reference>
-    <Reference Include="CudaRand">
-      <HintPath>..\packages\ManagedCuda-CURAND.8.0.22\lib\net46\CudaRand.dll</HintPath>
-    </Reference>
     <Reference Include="FParsec">
       <HintPath>..\packages\FParsec.1.0.3\lib\net40-client\FParsec.dll</HintPath>
     </Reference>
@@ -80,9 +74,6 @@
     </Reference>
     <Reference Include="FSharp.Core">
       <HintPath>..\packages\FSharp.Core.4.2.3\lib\net45\FSharp.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="ManagedCuda">
-      <HintPath>..\packages\ManagedCuda-80.8.0.22\lib\net46\ManagedCuda.dll</HintPath>
     </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
