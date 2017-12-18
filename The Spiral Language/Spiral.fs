@@ -214,11 +214,12 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let inline is_int64 a = is_int64' (get_type a)
 
     // #Prepass
-    let rec pattern_compile tag pat =
+    let rec pattern_compile pat =
         let new_pat_var =
+            let mutable i = 0
             let get_pattern_tag () = 
-                let x = !tag
-                tag := x + 1
+                let x = i
+                i <- i + 1
                 x
             fun () -> sprintf " pat_var_%i" (get_pattern_tag())
         let rec pattern_compile arg pat on_succ on_fail =
@@ -280,7 +281,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | [] -> inl state_var on_succ
                 ap (just_one l) (bool false)
             | PatNot p -> cp arg p on_fail on_succ
-            | PatClauses l -> List.foldBack (fun (pat, exp) on_fail -> cp arg pat (expr_prepass tag exp |> snd) on_fail) l on_fail
+            | PatClauses l -> List.foldBack (fun (pat, exp) on_fail -> cp arg pat (expr_prepass exp |> snd) on_fail) l on_fail
             | PatTypeLit x -> 
                 if_static (eq_type arg (type_lit_lift x)) on_succ on_fail 
                 |> case arg
@@ -309,10 +310,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     
         let pattern_compile_def_on_succ = op(ErrorPatClause,[])
         let pattern_compile_def_on_fail = op(ErrorPatMiss,[arg])
-        inl main_arg (pattern_compile arg pat pattern_compile_def_on_succ pattern_compile_def_on_fail) |> expr_prepass tag
+        inl main_arg (pattern_compile arg pat pattern_compile_def_on_succ pattern_compile_def_on_fail) |> expr_prepass
 
-    and expr_prepass tag e =
-        let inline f e = expr_prepass tag e
+    and expr_prepass e =
+        let inline f e = expr_prepass e
         match e with
         | V (N n) -> Set.singleton n, e
         | Op(N(op',l)) ->
@@ -327,7 +328,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let vars,body = f body
             Set.remove name vars, func_filt(vars,nodify_func(name,body))
         | Lit _ -> Set.empty, e
-        | Pattern (N pat) -> pattern_compile tag pat
+        | Pattern (N pat) -> pattern_compile pat
         | ExprPos p -> 
             let vars, body = f p.Expression
             vars, expr_pos p.Pos body
@@ -402,7 +403,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let inline tev3 d a b c = tev d a, tev d b, tev d c
         let inline tev4 d a b c d' = tev d a, tev d b, tev d c, tev d d'
 
-        let inline inner_compile x = expr_prepass (ref 0) x |> snd |> tev d
+        let inline inner_compile x = expr_prepass x |> snd |> tev d
 
         let inline v_find env x on_fail on_succ = 
             let run env = 
@@ -3245,7 +3246,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         printfn "Time for parse: %A" watch.Elapsed
         watch.Restart()
         let d = data_empty()
-        let input = body |> expr_prepass (ref 0) |> snd
+        let input = body |> expr_prepass |> snd
         printfn "Time for prepass: %A" watch.Elapsed
         watch.Restart()
         try
