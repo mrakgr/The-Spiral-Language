@@ -214,103 +214,107 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let inline is_int64 a = is_int64' (get_type a)
 
     // #Prepass
-    let rec pattern_compile pat =
-        let new_pat_var =
-            let mutable i = 0
-            let get_pattern_tag () = 
-                let x = i
-                i <- i + 1
-                x
-            fun () -> sprintf " pat_var_%i" (get_pattern_tag())
-        let rec pattern_compile arg pat on_succ on_fail =
-            let inline cp arg pat on_succ on_fail = pattern_compile arg pat on_succ on_fail
+    let pattern_dict = d0()
+    let rec pattern_compile pat = 
+        memoize pattern_dict (fun pat ->
+            let node = pattern_dict.Count
+            let new_pat_var =
+                let mutable i = 0
+                let get_pattern_tag () = 
+                    let x = i
+                    i <- i + 1
+                    x
+                fun () -> sprintf " pat_var_%i_%i" node (get_pattern_tag())
+            let rec pattern_compile arg pat on_succ on_fail =
+                let inline cp arg pat on_succ on_fail = pattern_compile arg pat on_succ on_fail
 
-            let pat_tuple_helper l =
-                List.foldBack (fun pat (c,s,on_succ) -> 
-                    let arg = new_pat_var()
-                    c + 1, arg :: s,cp (v arg) pat on_succ on_fail) l (0,[],on_succ)
+                let pat_tuple_helper l =
+                    List.foldBack (fun pat (c,s,on_succ) -> 
+                        let arg = new_pat_var()
+                        c + 1, arg :: s,cp (v arg) pat on_succ on_fail) l (0,[],on_succ)
            
-            let pat_tuple l =
-                let count, args, on_succ = pat_tuple_helper l
-                list_taken_cps count arg on_fail (inl' args on_succ) |> case arg
+                let pat_tuple l =
+                    let count, args, on_succ = pat_tuple_helper l
+                    list_taken_cps count arg on_fail (inl' args on_succ) |> case arg
 
-            let pat_cons l = 
-                let count, args, on_succ = pat_tuple_helper l
-                list_taken_tail_cps count arg on_fail (inl' args on_succ) |> case arg
+                let pat_cons l = 
+                    let count, args, on_succ = pat_tuple_helper l
+                    list_taken_tail_cps count arg on_fail (inl' args on_succ) |> case arg
 
-            let pat_part_active a pat on_fail arg =
-                let pat_var = new_pat_var()
-                let on_succ = inl pat_var (cp (v pat_var) pat on_succ on_fail)
-                let on_fail = inl "" on_fail
-                ap' (v a) [arg; on_fail; on_succ]
+                let pat_part_active a pat on_fail arg =
+                    let pat_var = new_pat_var()
+                    let on_succ = inl pat_var (cp (v pat_var) pat on_succ on_fail)
+                    let on_fail = inl "" on_fail
+                    ap' (v a) [arg; on_fail; on_succ]
             
-            match pat with
-            | PatE -> on_succ
-            | PatVar x -> l x arg on_succ
-            | PatTypeEq (exp,typ) ->
-                let on_succ = cp arg exp on_succ on_fail
-                if_static (eq_type arg typ) on_succ on_fail
-                |> case arg
-            | PatTuple l -> pat_tuple l
-            | PatCons l -> pat_cons l
-            | PatActive (a,b) ->
-                let pat_var = new_pat_var()
-                l pat_var (ap (v a) arg) (cp (v pat_var) b on_succ on_fail)
-            | PatPartActive (a,pat) -> pat_part_active a pat on_fail arg
-            | PatExtActive (a,pat) ->
-                let rec f pat' on_fail = function
-                    | PatAnd _ as pat -> op(ErrorType,[lit_string "And patterns are not allowed in extension patterns."]) |> pat_part_active a (pat' pat) on_fail
-                    | PatOr l -> List.foldBack (fun pat on_fail -> f pat' on_fail pat) l on_fail
-                    | PatCons l -> vv [type_lit_lift (LitString "cons"); vv [l.Length-1 |> int64 |> LitInt64 |> lit; arg]] |> pat_part_active a (pat' <| PatTuple l) on_fail
-                    | PatTuple l as pat -> vv [type_lit_lift (LitString "tup"); vv [l.Length |> int64 |> LitInt64 |> lit; arg]] |> pat_part_active a (pat' pat) on_fail
-                    | PatTypeEq (a,typ) -> f (fun a -> PatTypeEq(a,typ) |> pat') on_fail a
-                    | PatWhen (pat, e) -> f (fun pat -> PatWhen(pat,e) |> pat') on_fail pat
-                    | PatClauses _ -> failwith "Clauses should not appear inside other clauses."
-                    | pat -> vv [type_lit_lift (LitString "var"); arg] |> pat_part_active a (pat' pat) on_fail
-                f id on_fail pat
-            | PatOr l -> List.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
-            | PatAnd l -> List.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
-            | PatXor l ->
-                let state_var = new_pat_var()
-                let state_var' = v state_var
-                let bool x = lit <| LitBool x
-                let rec just_one = function
-                    | x :: xs -> 
-                        let xs = just_one xs
-                        inl state_var (cp arg x (if_static state_var' on_fail (ap xs (bool true))) (ap xs state_var'))
-                    | [] -> inl state_var on_succ
-                ap (just_one l) (bool false)
-            | PatNot p -> cp arg p on_fail on_succ
-            | PatClauses l -> List.foldBack (fun (pat, exp) on_fail -> cp arg pat (expr_prepass exp |> snd) on_fail) l on_fail
-            | PatTypeLit x -> 
-                if_static (eq_type arg (type_lit_lift x)) on_succ on_fail 
-                |> case arg
-            | PatTypeLitBind x -> 
-                if_static (type_lit_is arg) (l x (type_lit_cast arg) on_succ) on_fail 
-                |> case arg
-            | PatLit x -> 
-                let x = lit x
-                let on_succ = if_static (eq arg x) on_succ on_fail
-                if_static (eq_type arg x) on_succ on_fail |> case arg
-            | PatWhen (p, e) -> cp arg p (if_static e on_succ on_fail) on_fail
-            | PatModuleIs p -> module_is_cps arg on_fail (cp arg p on_succ on_fail) |> case arg
-            | PatModuleMember name -> module_member_cps arg name on_fail (inl name on_succ) |> case arg
-            | PatModuleRebind(name,b) -> 
-                let arg' = new_pat_var()    
-                module_member_cps arg name on_fail (inl arg' (cp (v arg') b on_succ on_fail)) 
-                |> case arg
-            | PatPos p -> expr_pos p.Pos (cp arg p.Expression on_succ on_fail)
-            | PatTypeClosure(a,b) ->
-                let range = cp (closure_range arg) b on_succ on_fail
-                let closure = cp (closure_dom arg) a range on_fail
-                if_static (closure_is arg) closure on_fail
+                match pat with
+                | PatE -> on_succ
+                | PatVar x -> l x arg on_succ
+                | PatTypeEq (exp,typ) ->
+                    let on_succ = cp arg exp on_succ on_fail
+                    if_static (eq_type arg typ) on_succ on_fail
+                    |> case arg
+                | PatTuple l -> pat_tuple l
+                | PatCons l -> pat_cons l
+                | PatActive (a,b) ->
+                    let pat_var = new_pat_var()
+                    l pat_var (ap (v a) arg) (cp (v pat_var) b on_succ on_fail)
+                | PatPartActive (a,pat) -> pat_part_active a pat on_fail arg
+                | PatExtActive (a,pat) ->
+                    let rec f pat' on_fail = function
+                        | PatAnd _ as pat -> op(ErrorType,[lit_string "And patterns are not allowed in extension patterns."]) |> pat_part_active a (pat' pat) on_fail
+                        | PatOr l -> List.foldBack (fun pat on_fail -> f pat' on_fail pat) l on_fail
+                        | PatCons l -> vv [type_lit_lift (LitString "cons"); vv [l.Length-1 |> int64 |> LitInt64 |> lit; arg]] |> pat_part_active a (pat' <| PatTuple l) on_fail
+                        | PatTuple l as pat -> vv [type_lit_lift (LitString "tup"); vv [l.Length |> int64 |> LitInt64 |> lit; arg]] |> pat_part_active a (pat' pat) on_fail
+                        | PatTypeEq (a,typ) -> f (fun a -> PatTypeEq(a,typ) |> pat') on_fail a
+                        | PatWhen (pat, e) -> f (fun pat -> PatWhen(pat,e) |> pat') on_fail pat
+                        | PatClauses _ -> failwith "Clauses should not appear inside other clauses."
+                        | pat -> vv [type_lit_lift (LitString "var"); arg] |> pat_part_active a (pat' pat) on_fail
+                    f id on_fail pat
+                | PatOr l -> List.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
+                | PatAnd l -> List.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
+                | PatXor l ->
+                    let state_var = new_pat_var()
+                    let state_var' = v state_var
+                    let bool x = lit <| LitBool x
+                    let rec just_one = function
+                        | x :: xs -> 
+                            let xs = just_one xs
+                            inl state_var (cp arg x (if_static state_var' on_fail (ap xs (bool true))) (ap xs state_var'))
+                        | [] -> inl state_var on_succ
+                    ap (just_one l) (bool false)
+                | PatNot p -> cp arg p on_fail on_succ
+                | PatClauses l -> List.foldBack (fun (pat, exp) on_fail -> cp arg pat (expr_prepass exp |> snd) on_fail) l on_fail
+                | PatTypeLit x -> 
+                    if_static (eq_type arg (type_lit_lift x)) on_succ on_fail 
+                    |> case arg
+                | PatTypeLitBind x -> 
+                    if_static (type_lit_is arg) (l x (type_lit_cast arg) on_succ) on_fail 
+                    |> case arg
+                | PatLit x -> 
+                    let x = lit x
+                    let on_succ = if_static (eq arg x) on_succ on_fail
+                    if_static (eq_type arg x) on_succ on_fail |> case arg
+                | PatWhen (p, e) -> cp arg p (if_static e on_succ on_fail) on_fail
+                | PatModuleIs p -> module_is_cps arg on_fail (cp arg p on_succ on_fail) |> case arg
+                | PatModuleMember name -> module_member_cps arg name on_fail (inl name on_succ) |> case arg
+                | PatModuleRebind(name,b) -> 
+                    let arg' = new_pat_var()    
+                    module_member_cps arg name on_fail (inl arg' (cp (v arg') b on_succ on_fail)) 
+                    |> case arg
+                | PatPos p -> expr_pos p.Pos (cp arg p.Expression on_succ on_fail)
+                | PatTypeClosure(a,b) ->
+                    let range = cp (closure_range arg) b on_succ on_fail
+                    let closure = cp (closure_dom arg) a range on_fail
+                    if_static (closure_is arg) closure on_fail
                     
-        let main_arg = new_pat_var()
-        let arg = v main_arg
+            let main_arg = new_pat_var()
+            let arg = v main_arg
                     
-        let pattern_compile_def_on_succ = op(ErrorPatClause,[])
-        let pattern_compile_def_on_fail = op(ErrorPatMiss,[arg])
-        inl main_arg (pattern_compile arg pat pattern_compile_def_on_succ pattern_compile_def_on_fail) |> expr_prepass
+            let pattern_compile_def_on_succ = op(ErrorPatClause,[])
+            let pattern_compile_def_on_fail = op(ErrorPatMiss,[arg])
+            inl main_arg (pattern_compile arg pat pattern_compile_def_on_succ pattern_compile_def_on_fail) |> expr_prepass
+            ) pat
 
     and expr_prepass e =
         let inline f e = expr_prepass e
@@ -551,9 +555,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let join_point_method d expr = 
             let {call_args=call_arguments; method_pars=method_parameters; renamer'=renamer}, renamed_env = renamer_apply_env d.env
-            let length=renamer.Count
+            let length = renamer.Count
             let join_point_key = nodify_memo_key (expr, renamed_env) 
-            
+           
             let ret_ty = 
                 let d = {d with env=renamed_env; ltag=ref length}
                 let join_point_dict = join_point_dict_method
