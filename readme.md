@@ -774,13 +774,213 @@ else
 
 (Work in progress)
 
-#### Warm up
+#### Modules
 
-...
+Owing to Spiral's relatively dynamic nature, modules work much like records do in F# albeit with greatly expanded functionality. This section will cover the gamut of their functionality.
 
+```
+inl f m =
+    open m
+    q + w + e
+inl m1 = {q=1; w=2; e=3}
+inl m2 = {q=1.0; w=2.0; e=3.0}
+f m1, f m2
+```
+```
+type Tuple0 =
+    struct
+    val mem_0: int64
+    val mem_1: float
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+Tuple0(6L, 6.000000)
+```
+As per their namesake, they can be opened and passed as arguments. Their have their own dedicated patterns.
+```
+inl f {q w e} = q + w + e
+inl q = 1
+inl w = 2
+inl e = 3
+inl m = {q w e}
+f m
+```
+```
+6L
+```
+They allow functional lens updates. Note that in the generated code their fields are ordered by their names.
+```
+inl f d = {d.data with a = self + 10}
+inl a = 1
+inl b = 2
+inl c = 3
+inl m = {data={a b c}}
+f m
+```
+```
+type Env0 =
+    struct
+    val mem_0: int64
+    val mem_1: int64
+    val mem_2: int64
+    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
+    end
+and Env1 =
+    struct
+    val mem_0: Env0
+    new(arg_mem_0) = {mem_0 = arg_mem_0}
+    end
+(Env1((Env0(11L, 2L, 3L))))
+```
+Fields can be added to them and removed arbitrarily in an immutable fashion. Using `without` on an nonexisting field will not do anything.
+```
+inl a = 1
+inl b = 2
+inl c = 3
+inl m = {a b c}
+{m with d = 4; without a}
+```
+```
+type Env0 =
+    struct
+    val mem_0: int64
+    val mem_1: int64
+    val mem_2: int64
+    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
+    end
+(Env0(2L, 3L, 4L))
+```
+Like with tuples which are represented by immutable lists in Spiral, the modules in Spiral allow anything immutable maps might do. For example, they can be maped over(`module_map`), folded(`module_foldl`,``module_fold`), and filtered(`module_filter`). Here is the fold example.
+```
+inl m = {a=1; b=2; c=3}
+module_foldl (inl key state value -> state + value) 0 m
+```
+```
+6L
+```
+They support more powerful patterns than F# allows on records like not(`!`) and xor(`^`).
+```
+inl f {!nope (a ^ b)=s} = s
+// f {nope=()} // Would trigger a type error
+inl m = {a=1; b=2}
+// f m // Without trigger a type error
+f {m without a}, f {m without b}
+```
+```
+type Tuple0 =
+    struct
+    val mem_0: int64
+    val mem_1: int64
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+Tuple0(2L, 1L)
+```
+Last, but not least, Spiral's modules and functions support several kinds of layouts. By default, like tuples they have a tranparent structure whose variables are tracked on an individual basis. Here is the heap layout.
+```
+{a=1; b=2; c=3} |> dyn |> heap
+```
+```
+type EnvHeap0 =
+    {
+    mem_0: int64
+    mem_1: int64
+    mem_2: int64
+    }
+let (var_0: int64) = 1L
+let (var_1: int64) = 2L
+let (var_2: int64) = 3L
+({mem_0 = (var_0: int64); mem_1 = (var_1: int64); mem_2 = (var_2: int64)} : EnvHeap0)
+```
+Here are the 5 layouts in order: `indiv`,`heap`,`heapm`,`stack`,`packed_stack`.
+```
+{a=1; b=2; c=3} |> dyn |> heap |> heapm |> stack |> packed_stack
+```
+```
+type EnvHeap0 =
+    {
+    mem_0: int64
+    mem_1: int64
+    mem_2: int64
+    }
+and EnvHeapMutable1 =
+    {
+    mutable mem_0: int64
+    mutable mem_1: int64
+    mutable mem_2: int64
+    }
+and EnvStack2 =
+    struct
+    val mem_0: int64
+    val mem_1: int64
+    val mem_2: int64
+    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
+    end
+[<System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential,Pack=1)>]
+and EnvPackedStack3 =
+    struct
+    val mem_0: int64
+    val mem_1: int64
+    val mem_2: int64
+    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
+    end
+let (var_0: int64) = 1L
+let (var_1: int64) = 2L
+let (var_2: int64) = 3L
+let (var_3: EnvHeap0) = ({mem_0 = (var_0: int64); mem_1 = (var_1: int64); mem_2 = (var_2: int64)} : EnvHeap0)
+let (var_4: int64) = var_3.mem_0
+let (var_5: int64) = var_3.mem_1
+let (var_6: int64) = var_3.mem_2
+let (var_7: EnvHeapMutable1) = ({mem_0 = (var_4: int64); mem_1 = (var_5: int64); mem_2 = (var_6: int64)} : EnvHeapMutable1)
+let (var_8: int64) = var_7.mem_0
+let (var_9: int64) = var_7.mem_1
+let (var_10: int64) = var_7.mem_2
+let (var_11: EnvStack2) = EnvStack2((var_8: int64), (var_9: int64), (var_10: int64))
+let (var_12: int64) = var_11.mem_0
+let (var_13: int64) = var_11.mem_1
+let (var_14: int64) = var_11.mem_2
+EnvPackedStack3((var_12: int64), (var_13: int64), (var_14: int64))
+```
+That is the tour of them, but it does not yet demonstrate their true power. The essence of modules when combined with layout types (layout types for short) is that they capture scope.
+```
+inl npc = 
+    {
+    health = dyn 0
+    mana = dyn 0
+    max_health = 40
+    max_mana = 30
+    } |> stack
 
+inl ar = array_create npc 3
+ar 0 <- {npc with health = dyn 10; mana = dyn 20}
+ar 1 <- {npc with health = dyn 20; mana = dyn 10}
+//ar 2 <- {npc with health = dyn 10; mana = dyn 20; max_health = 50} // Gives a type error
+()
+```
+```
+type EnvStack0 =
+    struct
+    val mem_0: int64
+    val mem_1: int64
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let (var_0: int64) = 0L
+let (var_1: int64) = 0L
+let (var_2: EnvStack0) = EnvStack0((var_0: int64), (var_1: int64))
+let (var_3: (EnvStack0 [])) = Array.zeroCreate<EnvStack0> (System.Convert.ToInt32(3L))
+let (var_4: int64) = var_2.mem_0
+let (var_5: int64) = var_2.mem_1
+let (var_6: int64) = 10L
+let (var_7: int64) = 20L
+let (var_8: EnvStack0) = EnvStack0((var_6: int64), (var_7: int64))
+var_3.[int32 0L] <- var_8
+let (var_9: int64) = 20L
+let (var_10: int64) = 10L
+let (var_11: EnvStack0) = EnvStack0((var_9: int64), (var_10: int64))
+var_3.[int32 1L] <- var_11
+```
+In layout types, literals and naked types become a part of the bigger type and are tracked at the type level. 
 
+The `packed_stack` layout is just there in case it might be necessary to pass a tuple over to the Cuda side. In most cases it makes more sense to use the default and pass them as individual arguments though.
 
+`heapm` layout is useful for mutably updating individual fields of a heap allocated module.
 
-
-
+`stack` and `heap` are there in order to allow finer control of the boxed representations of modules and functions. Also without `heap` it would be impossible to heap allocate modules for example.
