@@ -188,8 +188,6 @@ inl a = add (v 1) (v 2) |> dyn
 inl b = add (v 3) (v 4) |> dyn
 inl c = mult a b |> dyn
 
-print_static "Hello"
-
 met rec inter x = 
     match x with
     | .V, x -> x

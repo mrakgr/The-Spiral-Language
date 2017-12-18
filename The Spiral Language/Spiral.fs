@@ -216,8 +216,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     // #Prepass
     let pattern_dict = d0()
     let rec pattern_compile (pat: Node<_>) = 
-        pat |> memoize pattern_dict (fun pat ->
-            let node = pat.Symbol
+        //pat |> memoize pattern_dict (fun pat ->
+            let node = 0
             let pat = pat.Expression
 
             let new_pat_var =
@@ -317,7 +317,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let pattern_compile_def_on_succ = op(ErrorPatClause,[])
             let pattern_compile_def_on_fail = op(ErrorPatMiss,[arg])
             inl main_arg (pattern_compile arg pat pattern_compile_def_on_succ pattern_compile_def_on_fail) |> expr_prepass
-            )
+            
 
     and expr_prepass e =
         let inline f e = expr_prepass e
@@ -1565,6 +1565,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TermCast,[a;b] -> term_cast d a b
             | UnsafeConvert,[to_;from] -> unsafe_convert d to_ from
             | PrintStatic,[a] -> printfn "%s" (tev d a |> show_typedexpr); TyB
+            | PrintEnv,[a] ->
+                printfn "%A" (c d.env)
+                tev d a
             | (CudaTypeCreate | DotNetTypeCreate), [a] -> extern_type_create op d a
             | LayoutToNone,[a] -> layout_to_none d a
             | LayoutToStack,[a] -> layout_to LayoutStack d a
@@ -1678,7 +1681,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let var_name =
             var_name_core >>=? function
-                | "match" | "function" | "with" | "without" | "as" | "when" | "print_env" | "inl" | "met" | "inm" 
+                | "match" | "function" | "with" | "without" | "as" | "when" | "inl" | "met" | "inm" 
                 | "inb" | "use" | "type" | "print_expr" | "rec" | "if" | "then" | "elif" | "else" | "true" | "false" 
                 | "open" | "openb" | "join" as x -> fun _ -> Reply(Error,messageError <| sprintf "%s not allowed as an identifier." x)
                 | x -> preturn x

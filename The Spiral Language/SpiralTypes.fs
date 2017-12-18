@@ -214,6 +214,7 @@ type Op =
    
     // Static unary operations
     | PrintStatic
+    | PrintEnv
     | ErrorNonUnit
     | ErrorType
     | Dynamize
