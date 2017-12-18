@@ -215,9 +215,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
     // #Prepass
     let pattern_dict = d0()
-    let rec pattern_compile pat = 
-        memoize pattern_dict (fun pat ->
-            let node = pattern_dict.Count
+    let rec pattern_compile (pat: Node<_>) = 
+        pat |> memoize pattern_dict (fun pat ->
+            let node = pat.Symbol
+            let pat = pat.Expression
+
             let new_pat_var =
                 let mutable i = 0
                 let get_pattern_tag () = 
@@ -225,6 +227,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     i <- i + 1
                     x
                 fun () -> sprintf " pat_var_%i_%i" node (get_pattern_tag())
+
             let rec pattern_compile arg pat on_succ on_fail =
                 let inline cp arg pat on_succ on_fail = pattern_compile arg pat on_succ on_fail
 
@@ -314,7 +317,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let pattern_compile_def_on_succ = op(ErrorPatClause,[])
             let pattern_compile_def_on_fail = op(ErrorPatMiss,[arg])
             inl main_arg (pattern_compile arg pat pattern_compile_def_on_succ pattern_compile_def_on_fail) |> expr_prepass
-            ) pat
+            )
 
     and expr_prepass e =
         let inline f e = expr_prepass e
@@ -332,7 +335,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let vars,body = f body
             Set.remove name vars, func_filt(vars,nodify_func(name,body))
         | Lit _ -> Set.empty, e
-        | Pattern (N pat) -> pattern_compile pat
+        | Pattern pat -> pattern_compile pat
         | ExprPos p -> 
             let vars, body = f p.Expression
             vars, expr_pos p.Pos body

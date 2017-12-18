@@ -32,33 +32,17 @@ let rec method_1((var_0: Rec0)): int64 =
     | Rec0Case0(var_1) ->
         let (var_4: Rec0) = var_1.mem_0
         let (var_5: Rec0) = var_1.mem_1
-        let (var_6: int64) = method_2((var_0: Rec0), (var_4: Rec0))
-        let (var_7: int64) = method_2((var_0: Rec0), (var_5: Rec0))
+        let (var_6: int64) = method_1((var_4: Rec0))
+        let (var_7: int64) = method_1((var_5: Rec0))
         (var_6 + var_7)
     | Rec0Case1(var_2) ->
         let (var_9: Rec0) = var_2.mem_0
         let (var_10: Rec0) = var_2.mem_1
-        let (var_11: int64) = method_2((var_0: Rec0), (var_9: Rec0))
-        let (var_12: int64) = method_2((var_0: Rec0), (var_10: Rec0))
+        let (var_11: int64) = method_1((var_9: Rec0))
+        let (var_12: int64) = method_1((var_10: Rec0))
         (var_11 * var_12)
     | Rec0Case2(var_3) ->
         var_3.mem_0
-and method_2((var_0: Rec0), (var_1: Rec0)): int64 =
-    match var_1 with
-    | Rec0Case0(var_2) ->
-        let (var_5: Rec0) = var_2.mem_0
-        let (var_6: Rec0) = var_2.mem_1
-        let (var_7: int64) = method_2((var_0: Rec0), (var_5: Rec0))
-        let (var_8: int64) = method_2((var_0: Rec0), (var_6: Rec0))
-        (var_7 + var_8)
-    | Rec0Case1(var_3) ->
-        let (var_10: Rec0) = var_3.mem_0
-        let (var_11: Rec0) = var_3.mem_1
-        let (var_12: int64) = method_2((var_0: Rec0), (var_10: Rec0))
-        let (var_13: int64) = method_2((var_0: Rec0), (var_11: Rec0))
-        (var_12 * var_13)
-    | Rec0Case2(var_4) ->
-        var_4.mem_0
 let (var_0: Rec0) = (Rec0Case0(Tuple2((Rec0Case2(Tuple1(1L))), (Rec0Case2(Tuple1(2L))))))
 let (var_1: Rec0) = (Rec0Case0(Tuple2((Rec0Case2(Tuple1(3L))), (Rec0Case2(Tuple1(4L))))))
 let (var_2: Rec0) = (Rec0Case1(Tuple3(var_0, var_1)))
