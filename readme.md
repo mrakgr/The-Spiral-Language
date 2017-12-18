@@ -729,9 +729,48 @@ All the features of Spiral with the exception of heap allocated modules and clos
 
 Don't be fooled by the `<function>` you will see during type errors. As was repeatedly stated, functions are not at all opaque - they are fully transpared to the evaluator. The reason why they get printed like that is simply because they have a tendency to suck everything into the environment. And except for very small examples, trying to print out the raw AST of its body is worthless even for debugging as it is so convoluted.
 
-...
+```
+if dyn true then
+    inl a,b = dyn (1,2)
+    inl _ -> a + b
+else
+    inl a,b = dyn (3.0,4.0)
+    inl _ -> a + b
+```
+```
+if dyn true then
+^
+Types in branches of If do not match.
+Got: <function> and <function>
+```
+If function have same bodies, they can be returned from branches of a dynamic if statement if they also have the same environments.
+```
+if dyn true then
+    inl a,b = dyn (1,2)
+    inl _ -> a + b
+else
+    inl a,b = dyn (3,4)
+    inl _ -> a + b
+```
+```
+type Env0 =
+    struct
+    val mem_0: int64
+    val mem_1: int64
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let (var_0: bool) = true
+if var_0 then
+    let (var_1: int64) = 1L
+    let (var_2: int64) = 2L
+    (Env0(var_1, var_2))
+else
+    let (var_3: int64) = 3L
+    let (var_4: int64) = 4L
+    (Env0(var_3, var_4))
+```
 
-### 2: Modules and interop
+### 2: Modules, macros and interop
 
 (Work in progress)
 
