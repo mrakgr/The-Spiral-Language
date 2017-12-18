@@ -17,12 +17,19 @@ let cfg: Spiral.Types.CompilerSettings = {
 let example1 = 
     "example1",[],"",
     """
-if dyn true then
-    inl a,b = dyn (1,2)
-    inl _ -> a + b
-else
-    inl a,b = dyn (3,4)
-    inl _ -> a + b
+inl npc = 
+    {
+    health = dyn 0
+    mana = dyn 0
+    max_health = 40
+    max_mana = 30
+    } |> stack
+
+inl ar = array_create npc 3
+ar 0 <- {npc with health = dyn 10; mana = dyn 20}
+ar 1 <- {npc with health = dyn 20; mana = dyn 10}
+//ar 2 <- {npc with health = dyn 10; mana = dyn 20; max_health = 50} // Gives a type error
+()
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
