@@ -216,8 +216,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     // #Prepass
     let pattern_dict = d0()
     let rec pattern_compile (pat: Node<_>) = 
-        //pat |> memoize pattern_dict (fun pat ->
-            let node = 0
+        pat |> memoize pattern_dict (fun pat ->
+            let node = pat.Symbol
             let pat = pat.Expression
 
             let new_pat_var =
@@ -317,6 +317,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let pattern_compile_def_on_succ = op(ErrorPatClause,[])
             let pattern_compile_def_on_fail = op(ErrorPatMiss,[arg])
             inl main_arg (pattern_compile arg pat pattern_compile_def_on_succ pattern_compile_def_on_fail) |> expr_prepass
+            ) 
             
 
     and expr_prepass e =
@@ -1540,6 +1541,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         | Lit (N value) -> TyLit value
         | V (N x) -> v_find d.env x (fun () -> on_type_er (trace d) <| sprintf "Variable %s not bound." x) (destructure d)
         | FunctionFilt(N (vars,N (pat, body))) -> 
+            // Note: Without having tags for var generation in pattern_compile, the following can cause a hygiene issue 
+            // in tandem with recursive functions. Test101 is there to guard against this.
             let env = match d.env with | EnvUnfiltered (env,_) | Env env | EnvConsed (CN env) -> env
             tymap(EnvUnfiltered (env,vars), MapTypeFunction (pat, body))
         | Function core -> failwith "Function not allowed in this phase as it tends to cause stack overflows in recursive scenarios."
@@ -1566,7 +1569,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | UnsafeConvert,[to_;from] -> unsafe_convert d to_ from
             | PrintStatic,[a] -> printfn "%s" (tev d a |> show_typedexpr); TyB
             | PrintEnv,[a] ->
-                printfn "%A" (c d.env)
+                printfn "%A" (d.env)
                 tev d a
             | (CudaTypeCreate | DotNetTypeCreate), [a] -> extern_type_create op d a
             | LayoutToNone,[a] -> layout_to_none d a
