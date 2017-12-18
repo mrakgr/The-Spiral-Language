@@ -776,7 +776,7 @@ else
 
 #### Modules
 
-Owing to Spiral's relatively dynamic nature, modules work much like records do in F# albeit with greatly expanded functionality. This section will cover the gamut of their functionality.
+Owing to Spiral's relatively dynamic nature, modules work much like [records](https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/records) do in F# albeit with greatly expanded functionality. Unlike in F#, they do not need to be predefined.
 
 ```
 inl f m =
@@ -795,7 +795,7 @@ type Tuple0 =
     end
 Tuple0(6L, 6.000000)
 ```
-As per their namesake, they can be opened and passed as arguments. Their have their own dedicated patterns.
+As per their namesake, they can be opened and passed as arguments. They have their own dedicated patterns.
 ```
 inl f {q w e} = q + w + e
 inl q = 1
@@ -979,8 +979,21 @@ var_3.[int32 1L] <- var_11
 ```
 In layout types, literals and naked types become a part of the bigger type and are tracked at the type level. 
 
-The `packed_stack` layout is just there in case it might be necessary to pass a tuple over to the Cuda side. In most cases it makes more sense to use the default and pass them as individual arguments though.
+The `packed_stack` layout is just there in case it might be necessary to pass a tuple over to the Cuda side. In most cases though, it makes more sense to use the default (non)layout and pass them as individual arguments.
 
 `heapm` layout is useful for mutably updating individual fields of a heap allocated module.
 
-`stack` and `heap` are there in order to allow finer control of the boxed representations of modules and functions. Also without `heap` it would be impossible to heap allocate modules for example.
+Layout types are there in order to allow finer control of the boxed representations of modules and functions. Without `heap` it would be impossible to heap allocate modules directly for example.
+
+#### Macros
+
+Modules are beautiful and elegant part of Spiral. Macros are definitely ugly, but they are the only way for Spiral to interop with other languages' libraries and are as such indispensable.
+
+In Spiral they have the interesting property of also acting as types.
+
+...
+
+
+
+
+
