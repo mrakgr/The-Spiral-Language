@@ -50,3 +50,4 @@ macro.fs int32 [text: "Array.fold "; arg: add_closure; text: " 0 "; arg: ar]
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example1
 |> printfn "%s"
 |> ignore
+
