@@ -1017,7 +1017,7 @@ let main argv =
 
 The above is the F# solution given directly. It just reads two ints from input, sums them and returns the sum. Doing it in Spiral without the IDE support and even direct language support for .NET constructs make it more complicated.
 
-First we need to define the `System.Console` type.
+First the `System.Console` type needs to be defined.
 
 ```
 //inl console = fs ((.text, "System.Console") :: ())
@@ -1109,6 +1109,7 @@ This example is to demonstrate how macros can be used to interop with F# librari
 
 The code fragments will be split into two. The first part loads the numbers into a Spiral array, splits them based on the whitespace char and convert them to ints.
 ```
+//https://www.hackerrank.com/challenges/simple-array-sum/problem
 inl console = fs [text: "System.Console"]
 inl static_method static_type method_name args return_type = 
     macro.fs return_type [
