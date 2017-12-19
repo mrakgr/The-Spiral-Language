@@ -1125,22 +1125,12 @@ let (var_3: (int32 [])) = var_2.Split [|' '|] |> Array.map int
 ```
 The next part could also be done using macros, but is here to demonstrate an aspect of Spiral intensional polymorphism.
 ```
-// The rightwards fold over tuples, similar to F#'s lists.
-inl rec tuple_foldr f l s = 
-    match l with
-    | x :: xs -> f x (tuple_foldr f xs s)
-    | () -> s
-
 // Converts a type level function to a term level function based on a type.
-inl closure_of f tys = 
-    inl rec loop vars tys =
-        match tys with
-        | x => xs -> term_cast (inl x -> loop (x :: vars) xs) x
-        | x -> 
-            inl r = tuple_foldr (inl var f -> f var) vars f 
-            if eq_type r x = false then error_type "The tail of the closure does not correspond to the one being casted to."
-            r
-    loop () tys
+inl rec closure_of f tys = 
+    match tys with
+    | x => xs -> term_cast (inl x -> closure_of (f x) xs) x
+    | x: f -> f
+    | _ -> error_type "The tail of the closure does not correspond to the one being casted to."
 
 inl add a b = a + b
 inl add_closure = closure_of add (int32 => int32 => int32)
@@ -1171,11 +1161,11 @@ and method_1 ((var_1: int32)) ((var_0: int32)): int32 =
     (var_1 + var_0)
 method_0
 ```
-The original version is just a more generic version of `closure_of_2` that loops over the arguments and accumulates them before applying them.
+The original version is just a more generic version of `closure_of_2` that loops over the arguments while both accumulating the results of the application of the closure and term casting it.
 
 That is roughly it with regards to interop. Spiral of course does have its own libraries.
 
-`closure_of` and other macro related functions can be found in the `Extern` module while the tuple functions can be found in the `Tuple` module.
+`closure_of` and other macro related functions can be found in the `Extern` module.
 
 ### Spiral libraries
 
