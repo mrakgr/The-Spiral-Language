@@ -282,15 +282,13 @@ inl FS = {
         ])
     }
 
-inl closure_of_template check_range f tys = 
-    inl rec loop vars tys =
+inl closure_of_template check_range = 
+    inl rec loop f tys =
         match tys with
-        | x => xs -> term_cast (inl x -> loop (x :: vars) xs) x
-        | x -> 
-            inl r = Tuple.foldr (inl var f -> f var) vars f 
-            if check_range && eq_type r x = false then error_type "The tail of the closure does not correspond to the one being casted to."
-            r
-    loop () tys
+        | x => xs -> term_cast (inl x -> loop (f x) xs) x
+        | x when check_range && eq_type f x = false -> error_type "The tail of the closure does not correspond to the one being casted to."
+        | _ -> f
+    loop
 
 inl closure_of' = closure_of_template false
 inl closure_of = closure_of_template true

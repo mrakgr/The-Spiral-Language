@@ -15,21 +15,35 @@ let cfg: Spiral.Types.CompilerSettings = {
 //rewrite_test_cache cfg None //(Some(0,40))
 
 let example1 = 
-    "example1",[],"",
+    "example1",[],"Module description.",
     """
-inl npc = 
-    {
-    health = dyn 0
-    mana = dyn 0
-    max_health = 40
-    max_mana = 30
-    } |> stack
+inl console = fs [text: "System.Console"]
+inl static_method static_type method_name args return_type = 
+    macro.fs return_type [
+        type: static_type
+        text: "."
+        text: method_name
+        args: args
+        ]
 
-inl ar = array_create npc 3
-ar 0 <- {npc with health = dyn 10; mana = dyn 20}
-ar 1 <- {npc with health = dyn 20; mana = dyn 10}
-//ar 2 <- {npc with health = dyn 10; mana = dyn 20; max_health = 50} // Gives a type error
-()
+inl readline() = static_method console .ReadLine() string
+inl writeline x = static_method console .WriteLine x string
+
+inl array t = type (array_create t 0)
+inl _, ar = readline(), macro.fs (array int32) [arg: readline(); text: ".Split [|' '|] |> Array.map int"]
+
+// Converts a type level function to a term level function based on a type.
+inl rec closure_of f tys = 
+    match tys with
+    | x => xs -> term_cast (inl x -> closure_of (f x) xs) x
+    | x: f -> f
+    | _ -> error_type "The tail of the closure does not correspond to the one being casted to."
+
+inl add a b = a + b
+inl add_closure = closure_of add (int32 => int32 => int32)
+
+macro.fs int32 [text: "Array.fold "; arg: add_closure; text: " 0 "; arg: ar]
+|> writeline
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning

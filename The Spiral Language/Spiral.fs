@@ -1900,11 +1900,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | None -> lit)
             squares (many pat) |>> PatTuple
 
-        let pat_closure pattern = 
-            pipe2 pattern (opt (arr >>. pattern))
-                (fun a -> function
-                    | Some b -> PatTypeClosure(a,b)
-                    | None -> a)
+        let pat_closure pattern = sepBy1 pattern arr |>> List.reduceBack (fun a b -> PatTypeClosure(a,b))
 
         let (^<|) a b = a b // High precedence, right associative <| operator
 
