@@ -780,8 +780,6 @@ else
 
 ### 2: Modules, macros and interop
 
-(Work in progress)
-
 #### Modules
 
 Owing to Spiral's relatively dynamic nature, modules work much like [records](https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/records) do in F# albeit with greatly expanded functionality. Unlike in F#, they do not need to be predefined.
@@ -839,7 +837,7 @@ and Env1 =
     end
 (Env1((Env0(11L, 2L, 3L))))
 ```
-Fields can be added to them and removed arbitrarily in an immutable fashion. Using `without` on an nonexisting field will not do anything.
+Fields can be added to them and removed arbitrarily in an immutable fashion. Using `without` on a non-existing field will not do anything.
 ```
 inl a = 1
 inl b = 2
@@ -857,7 +855,7 @@ type Env0 =
     end
 (Env0(2L, 3L, 4L))
 ```
-Like with tuples which are represented by immutable lists in Spiral, the modules in Spiral allow anything immutable maps might do. For example, they can be maped over(`module_map`), folded(`module_foldl`,``module_fold`), and filtered(`module_filter`). Here is the fold example.
+Like with tuples which are represented by immutable lists in Spiral, the modules in Spiral allow anything immutable maps might do. For example, they can be mapped over(`module_map`), folded(`module_foldl`,``module_fold`), and filtered(`module_filter`). Here is the fold example.
 ```
 inl m = {a=1; b=2; c=3}
 module_foldl (inl key state value -> state + value) 0 m
@@ -882,7 +880,7 @@ type Tuple0 =
     end
 Tuple0(2L, 1L)
 ```
-Last, but not least, Spiral's modules and functions support several kinds of layouts. By default, like tuples they have a tranparent structure whose variables are tracked on an individual basis. Here is the heap layout.
+Last, but not least, Spiral's modules and functions support several kinds of layouts. By default, like tuples they have a transparent structure whose variables are tracked on an individual basis. Here is the heap layout.
 ```
 {a=1; b=2; c=3} |> dyn |> heap
 ```
@@ -1048,7 +1046,7 @@ print_static (fs [text: "1 + 2 + 3"])
 ```
 type (dotnet_type (1 + 2 + 3))
 ```
-Hence mistakes with macros will have to be responsibility of the downwards langauges. But in the worst they will just lead to a type error.
+Hence mistakes with macros will have to be responsibility of the downwards languages. But in the worst they will just lead to a type error.
 
 Unlike in other languages where they are used for abstraction, macros in Spiral are only to be used for interop. They would not be good at all for that anyway given that at most they can print text.
 ```
@@ -1068,9 +1066,10 @@ inl a, b = readline(), readline()
 let (var_0: string) = System.Console.ReadLine()
 let (var_1: string) = System.Console.ReadLine()
 ```
-The above program succintly captures Spiral's approach to language interop. The facilities used for defining macro-based types and printing them are intervowen with one another. One extra ingredient macros evaluation require over macro type definitions is the return type.
+The above program succinctly captures Spiral's approach to language interop. The facilities used for defining macro-based types and printing them are interwoven with one another. One extra ingredient macros evaluation require over macro type definitions is the return type.
 
-What the `macro.fs` function is doing is printing the macro based on the second argument and returning a variable of the type in the first argument.
+What the `macro.fs` function is doing is printing the macro based on the second argument and returning
+ a variable of the type in the first argument.
 
 Now all the pieces are in place to finish the exercise.
 
@@ -1130,7 +1129,7 @@ let (var_0: string) = System.Console.ReadLine()
 let (var_2: string) = System.Console.ReadLine()
 let (var_3: (int32 [])) = var_2.Split [|' '|] |> Array.map int
 ```
-The next part could also be done using macros, but is here to demonstrate an aspect of Spiral intensional polymorphism.
+The next part could also be done using macros, but is here to demonstrate an aspect of Spiral's intensional polymorphism.
 ```
 // Converts a type level function to a term level function based on a type.
 inl rec closure_of f tys = 
@@ -1150,11 +1149,11 @@ let (var_5: (int32 -> (int32 -> int32))) = method_0
 let (var_6: int32) = Array.fold var_5 0 var_3
 System.Console.WriteLine(var_6)
 ```
-`closure_of` is a more functional version of `term_cast` and can be implemented in terms of it. Term level functions have their own dedicated pattern for destructuring their types.
+`closure_of` is an expanded version of `term_cast` that instead of converting by applying using the input argument converts a staged type level function to a term level using a target type thereby unstaging it. Term level functions have their own dedicated pattern for destructuring their types.
 
-Naked types for them can be constructed with the `=>` operator.
+Naked types for them can be constructed with the `=>` operator. The `error_type` raises a type error with the specified message whenever it is evaluated.
 
-What the above function does can be better understood by rewriting it to a specific instance with two arguments.
+What the `closure_of` function does can be better understood by rewriting it to a specific instance with two arguments.
 
 ```
 inl closure_of_2 f (a' => b' => c') = 
@@ -1200,6 +1199,3 @@ Much like F#, Spiral imposes a top down ordering of the program and modules cann
 This kind of constrained architecture cuts down on circular referencing and encourages purposeful laying out of programs.
 
 Spiral libraries are (to be) covered in depth in the user guide and the reference.
-
-
-
