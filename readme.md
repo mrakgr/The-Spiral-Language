@@ -978,7 +978,7 @@ let (var_10: int64) = 10L
 let (var_11: EnvStack0) = EnvStack0((var_9: int64), (var_10: int64))
 var_3.[int32 1L] <- var_11
 ```
-In layout types, literals and naked types become a part of the bigger type and are tracked at the type level. 
+In layout types, literals and naked types become a part of the bigger type and are tracked at the type level. The individual variables are flattened and the intermediate structures are erased in the generated code, very similarly to how the arguments are handled in join points.
 
 The `packed_stack` layout is just there in case it might be necessary to pass a tuple over to the Cuda side. In most cases though, it makes more sense to use the default (non)layout and pass them as individual arguments.
 
@@ -1097,5 +1097,112 @@ let (var_4: int32) = (var_2 + var_3)
 System.Console.WriteLine(var_4)
 ```
 
-##### Simple array sum
+##### Simple array sum (macro version)
+
+This example is to demonstrate how macros can be used to interop with F# libraries which often take in functions as arguments.
+
+The code fragments will be split into two. The first part loads the numbers into a Spiral array, splits them based on the whitespace char and convert them to ints.
+```
+inl console = fs [text: "System.Console"]
+inl static_method static_type method_name args return_type = 
+    macro.fs return_type [
+        type: static_type
+        text: "."
+        text: method_name
+        args: args
+        ]
+
+inl readline() = static_method console .ReadLine() string
+inl writeline x = static_method console .WriteLine x string
+
+inl array t = type (array_create t 0)
+inl _, ar = readline(), macro.fs (array int32) [arg: readline(); text: ".Split [|' '|] |> Array.map int"]
+```
+```
+let (var_0: string) = System.Console.ReadLine()
+let (var_2: string) = System.Console.ReadLine()
+let (var_3: (int32 [])) = var_2.Split [|' '|] |> Array.map int
+```
+The next part could also be done using macros, but is here to demonstrate an aspect of Spiral intensional polymorphism.
+```
+// The rightwards fold over tuples, similar to F#'s lists.
+inl rec tuple_foldr f l s = 
+    match l with
+    | x :: xs -> f x (tuple_foldr f xs s)
+    | () -> s
+
+// Converts a type level function to a term level function based on a type.
+inl closure_of f tys = 
+    inl rec loop vars tys =
+        match tys with
+        | x => xs -> term_cast (inl x -> loop (x :: vars) xs) x
+        | x -> 
+            inl r = tuple_foldr (inl var f -> f var) vars f 
+            if eq_type r x = false then error_type "The tail of the closure does not correspond to the one being casted to."
+            r
+    loop () tys
+
+inl add a b = a + b
+inl add_closure = closure_of add (int32 => int32 => int32)
+
+macro.fs int32 [text: "Array.fold "; arg: add_closure; text: " 0 "; arg: ar]
+|> writeline
+```
+```
+let (var_5: (int32 -> (int32 -> int32))) = method_0
+let (var_6: int32) = Array.fold var_5 0 var_3
+System.Console.WriteLine(var_6)
+```
+`closure_of` is a more functional version of `term_cast` and can be implemented in terms of it. Term level functions have their own dedicated pattern for destructuring their types.
+
+Naked types for them can be constructed with the `=>` operator.
+
+What the above function does can be better understood by rewriting it to a specific instance with two arguments.
+
+```
+inl closure_of_2 f (a' => b' => c') = 
+    term_cast (inl a -> term_cast (inl b -> f a b : c') b') a'
+closure_of_2 (+) (int32 => int32 => int32)
+```
+```
+let rec method_0 ((var_0: int32)): (int32 -> int32) =
+    method_1((var_0: int32))
+and method_1 ((var_1: int32)) ((var_0: int32)): int32 =
+    (var_1 + var_0)
+method_0
+```
+The original version is just a more generic version of `closure_of_2` that loops over the arguments and accumulates them before applying them.
+
+That is roughly it with regards to interop. Spiral of course does have its own libraries.
+
+`closure_of` and other macro related functions can be found in the `Extern` module while the tuple functions can be found in the `Tuple` module.
+
+### Spiral libraries
+
+```
+let example1 = 
+    "example1",[array;console],"Module description.",
+    """
+open Console
+inl _, b = readline(), macro.fs (array int32) [arg: readline(); text: ".Split [|' '|] |> Array.map int"]
+Array.foldl (+) (dyn 0i32) b |> writeline
+    """
+```
+The way Spiral is currently meant to be used is as a scripting language inside F#. The module argument is the list in the middle and the `array` and `console` are the modules of the same name respectively.
+```
+inl Array = ...
+inl Console = ...
+open Console
+inl _, b = readline(), macro.fs (array int32) [arg: readline(); text: ".Split [|' '|] |> Array.map int"]
+Array.foldl (+) (dyn 0i32) b |> writeline
+```
+The above is roughly how the program would be unfolded after parsing, but before typing and partial evaluation. Modules are unfolded in a flattened manner in the sequence they are input. Duplicate modules are ignored.
+
+Much like F#, Spiral imposes a top down ordering of the program and modules cannot refer to each other recursively. If that functionality is required, it can be achieved using join points and higher order functions, but in general it should not be necessary.
+
+This kind of constrained architecture cuts down on circular referencing and encourages purposeful laying out of programs.
+
+Spiral libraries are (to be) covered in depth in the user guide and the reference.
+
+
 
