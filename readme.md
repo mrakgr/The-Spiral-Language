@@ -15,9 +15,10 @@ Visual Studio 2017 F# template (.NET desktop development)
 
 ManagedCuda 8.0 + (CUBLAS,CURAND)
 Cuda SDK 8.0 + 9.0 (8.0 for the libraries and 9.0 for the NVCC compiler)
+The Cuda Unbound library
 Visual Studio 2017 C++ tools individual component (VC++ 2017 v141 toolset (x86,x64))
 
-## Tutorials
+## Tutorials: Introduction to Spiral
 
 ### 0: The way to use the language
 
@@ -985,15 +986,81 @@ The `packed_stack` layout is just there in case it might be necessary to pass a 
 
 Layout types are there in order to allow finer control of the boxed representations of modules and functions. Without `heap` it would be impossible to heap allocate modules directly for example.
 
-#### Macros
+#### Warming up with macros
 
 Modules are beautiful and elegant part of Spiral. Macros are definitely ugly, but they are the only way for Spiral to interop with other languages' libraries and are as such indispensable.
 
 In Spiral they have the interesting property of also acting as types.
 
-...
+So far all the examples given in the tutorial were relatively unmotivated. With macros it is possible to do IO.
 
+As a very basic demonstration of them, let us start with this HackerRank problem. [Solve me first.](https://www.hackerrank.com/challenges/solve-me-first/problem)
 
+```
+// The entire code is given, you can just review and submit!
+open System
 
+[<EntryPoint>]
+let main argv = 
+    let a = Console.ReadLine() |> int
+    let b = Console.ReadLine() |> int
+    printfn "%d" (a+b)
+    0 // return an integer exit code
+```
 
+The above is the F# solution given directly. It just reads two ints from input, sums them and returns the sum. Doing it in Spiral without the IDE support and even direct language support for .NET constructs make it more complicated.
 
+First we need to define the `System.Console` type.
+
+```
+//inl console = fs ((.text, "System.Console") :: ())
+inl console = fs [text: "System.Console"]
+print_static console
+```
+```
+type (dotnet_type (System.Console))
+```
+What this has done is create the `[text: "System.Console"]` naked type. The type shown in the output is just how it gets printed - the actual type is determined by its body, namely `[text: "System.Console"]`. This is equivalent to `((.text, "System.Console") :: ())`
+```
+inl a = (.text, "System.Console") :: () |> fs
+inl b = [text: "System.Console"] |> fs
+eq_type a b
+```
+```
+true
+```
+`[]` is just syntax sugar for named tuples. It has no extra functionality apart from what is provided by the standard constructs.
+
+Since types are just macros it is possible to make nonsensical types.
+
+```
+print_static (fs [text: "1 + 2 + 3"])
+```
+```
+type (dotnet_type (1 + 2 + 3))
+```
+Hence mistakes with macros will have to be responsibility of the downwards langauges. But in the worst they will just lead to a type error.
+
+Unlike in other languages where they are used for abstraction, macros in Spiral are only to be used for interop. They would not be good at all for that anyway given that at most they can print text.
+```
+inl console = fs [text: "System.Console"]
+inl static_method static_type method_name args return_type = 
+    macro.fs return_type [
+        type: static_type
+        text: "."
+        text: method_name
+        args: args
+        ]
+inl readline() = static_method console .ReadLine() string
+inl a, b = readline(), readline()
+()
+```
+```
+let (var_0: string) = System.Console.ReadLine()
+let (var_1: string) = System.Console.ReadLine()
+```
+The above program succintly captures Spiral's approach to language interop. The facilities used for defining macro-based types and printing them are intervowen with one another. One extra ingredient macros evaluation require over macro type definitions is the return type.
+
+What `macro.fs` is saying is essentially - print
+
+....
