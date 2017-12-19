@@ -24,7 +24,7 @@ Visual Studio 2017 C++ tools individual component (VC++ 2017 v141 toolset (x86,x
 1. [Inlinleables, Methods and Join Points](#1-inlinleables-methods-and-join-points)
 2. [Modules, macros and interop](#2-modules-macros-and-interop)
     1. [Modules](#modules)
-    2. [Macros](#-macros)
+    2. [Macros](#macros)
     3. [Spiral libraries](#spiral-libraries)
 
 ### 0: The way to use the language
