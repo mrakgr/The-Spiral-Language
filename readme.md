@@ -986,17 +986,19 @@ The `packed_stack` layout is just there in case it might be necessary to pass a 
 
 Layout types are there in order to allow finer control of the boxed representations of modules and functions. Without `heap` it would be impossible to heap allocate modules directly for example.
 
-#### Warming up with macros
+#### Macros
+##### Solve me
 
 Modules are beautiful and elegant part of Spiral. Macros are definitely ugly, but they are the only way for Spiral to interop with other languages' libraries and are as such indispensable.
 
 In Spiral they have the interesting property of also acting as types.
 
-So far all the examples given in the tutorial were relatively unmotivated. With macros it is possible to do IO.
+So far all the examples given in the tutorial were relatively unmotivated. Macros make it is possible to do IO among other thing which allow the language to be applied to real world problems.
 
-As a very basic demonstration of them, let us start with this HackerRank problem. [Solve me first.](https://www.hackerrank.com/challenges/solve-me-first/problem)
+As a very basic demonstration of them, let us start with this HackerRank problem.
 
 ```
+// https://www.hackerrank.com/challenges/solve-me-first/problem
 // The entire code is given, you can just review and submit!
 open System
 
@@ -1020,7 +1022,7 @@ print_static console
 ```
 type (dotnet_type (System.Console))
 ```
-What this has done is create the `[text: "System.Console"]` naked type. The type shown in the output is just how it gets printed - the actual type is determined by its body, namely `[text: "System.Console"]`. This is equivalent to `((.text, "System.Console") :: ())`
+What this has done is create the `[text: "System.Console"]` naked type. The type shown in the output is just how it gets printed - the actual type is determined by its body, namely `[text: "System.Console"]`. This is equivalent to `(.text, "System.Console") :: ()`
 ```
 inl a = (.text, "System.Console") :: () |> fs
 inl b = [text: "System.Console"] |> fs
@@ -1061,6 +1063,39 @@ let (var_1: string) = System.Console.ReadLine()
 ```
 The above program succintly captures Spiral's approach to language interop. The facilities used for defining macro-based types and printing them are intervowen with one another. One extra ingredient macros evaluation require over macro type definitions is the return type.
 
-What `macro.fs` is saying is essentially - print
+What the `macro.fs` function is doing is printing the macro based on the second argument and returning a variable of the type in the first argument.
 
-....
+Now all the pieces are in place to finish the exercise.
+
+```
+inl console = fs [text: "System.Console"]
+inl static_method static_type method_name args return_type = 
+    macro.fs return_type [
+        type: static_type
+        text: "."
+        text: method_name
+        args: args
+        ]
+inl unop name arg return_type = 
+    macro.fs return_type [
+        text: name
+        text: " "
+        arg: arg
+        ]
+inl readline() = static_method console .ReadLine() string
+inl writeline x = static_method console .WriteLine x string
+inl int x = unop "int" x int64
+inl a, b = readline(), readline()
+writeline (int a + int b)
+```
+```
+let (var_0: string) = System.Console.ReadLine()
+let (var_1: string) = System.Console.ReadLine()
+let (var_2: int32) = int var_0
+let (var_3: int32) = int var_1
+let (var_4: int32) = (var_2 + var_3)
+System.Console.WriteLine(var_4)
+```
+
+##### Simple array sum
+
