@@ -20,6 +20,10 @@ Visual Studio 2017 C++ tools individual component (VC++ 2017 v141 toolset (x86,x
 
 ## Tutorials: Introduction to Spiral
 
+### Table of Contents
+1. [Inlinleables, Methods and Join Points](#1-inlinleables-methods-and-join-points)
+2. [Modules, macros and interop](#2-modules-macros-and-interop)
+
 ### 0: The way to use the language
 
 The easiest way to do it right now would be to clone this repo. In the Testing project, look at `run.fs`. It has the latest example I am using for the tutorial. Select the `Testing` project as the starter one and point the output to the `output.fs` file in the `Temporary` project. Don't worry about getting it wrong - at worst you will get an exception.
