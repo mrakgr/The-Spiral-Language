@@ -287,7 +287,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         | [] -> inl state_var on_succ
                     ap (just_one l) (bool false)
                 | PatNot p -> cp arg p on_fail on_succ
-                | PatClauses l -> List.foldBack (fun (pat, exp) on_fail -> cp arg pat (expr_prepass exp |> snd) on_fail) l on_fail
+                | PatClauses l -> List.foldBack (fun (pat, exp) on_fail -> cp arg pat exp on_fail) l on_fail
                 | PatTypeLit x -> 
                     if_static (eq_type arg (type_lit_lift x)) on_succ on_fail 
                     |> case arg
