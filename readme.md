@@ -1223,3 +1223,14 @@ Spiral libraries are (to be) covered in depth in the user guide and the referenc
 
 ### 3: Loops and Arrays
 
+Most languages make it trivial to write loops, and apart from runtime, the user does not have to worry about them diverging except at runtime.
+
+Spiral's staging abilities introduce new complexities into the mix. In Spiral, for every loop one writes, it is necessary to keep in mind whether it is intended to run at compile or at runtime.
+
+Making functions stage polymorphic takes even more effort. Furthermore for recursive runtime functions it is easy to forget to put in the type annotation and to dynamize the counter.
+
+For that reason, the bog standard `for` and `while` loops exist as a part of the `Loops` module in Spiral.
+
+This chapter will be on building up the basic loop and then using it to implement the array library functions from first principles.
+
+At this point, apart from union types and the Cuda backend, all the main language features have been introduced albeit shallowly.
