@@ -793,7 +793,7 @@ else
     (Env0(var_3, var_4))
 ```
 
-### 2: Modules, macros and interop
+### 2: Modules, Macros and Interop
 
 #### Modules
 
