@@ -50,9 +50,9 @@ Visual Studio 2017 C++ tools individual component (VC++ 2017 v141 toolset (x86,x
 
 ### 0: The way to use the language
 
-The easiest way to do it right now would be to clone this repo. In the Testing project, look at `run.fs`. It has the latest example I am using for the tutorial. Select the `Testing` project as the starter one and point the output to the `output.fs` file in the `Temporary` project. Don't worry about getting it wrong - at worst you will get an exception.
+The easiest way to do it right now would be to clone this repo. In the Testing project, look at `run.fs`. It has the latest example used for the tutorial. Select the `Testing` project as the starter one and point the output to the `output.fs` file in the `Temporary` project. No need to worry about getting it wrong - at worst an exception will be raised.
 
-You do not need deal with Cuda configuration options in the `run.fs` file unless you want to use the libraries related to that.
+Modifying the Cuda configuration options in the `run.fs` file unless usage of libraries related to that is required.
 
 ### 1: Inlinleables, Methods and Join Points
 
@@ -72,7 +72,7 @@ let x = 2
 ()
 ```
 
-If you were to take a program like the above one and disassemble it, you'd see that `x` would compile down to a public method in F#. In Spiral in contrast, you would get nothing.
+If a program like the above was disassembled, `x` would compile down to a public method in F#. In Spiral in contrast, there would be nothing.
 
 ```
 module SpiralExample.Main
@@ -93,7 +93,7 @@ inl x = dyn 2
 let (var_0: int64) = 2L // Generated F# code.
 ```
 
-The reason Spiral is generating nothing is because `2` as defined is a literal and is gets tracked as such by the partial evaluator inside the environment. Suppose you want to have it appear in the generated code, what you would do is cast it from the type to the term level using `dyn`amize function. From here on out, the literal will be bound to a variable and the binding `x` will track `var_0` instead.
+The reason Spiral is generating nothing is because `2` as defined is a literal and is gets tracked as such by the partial evaluator inside the environment. In order to have it appear in the generated code, what it is necessary to cast it from the type to the term level using `dyn`amize function. From here on out, the literal will be bound to a variable and the binding `x` will track `var_0` instead.
 
 Being able to do this is useful for various reasons and without the ability to do this constructs such as runtime loops would be impossible to write in Spiral because the partial evaluator would diverge. Despite its static typing features, the language would essentially be constrained to being an interpreter for a pure dynamic functional language.
 
@@ -262,7 +262,7 @@ and method_2(): float =
 method_0()
 ```
 
-The result would not be as you would expect since the methods would get specialized to the literal arguments passed to them. Instead it would be better to use `dyn` here. But rather than letting the caller `f` do the term casting operation, it would be better if the callee `mult` did it.
+The result would not be as might be expected since the methods would get specialized to the literal arguments passed to them. Instead it would be better to use `dyn` here. But rather than letting the caller `f` do the term casting operation, it would be better if the callee `mult` did it.
 
 ```
 met mult (!dyn a) (!dyn b) = a * b
@@ -416,7 +416,7 @@ let (var_3: int64) = var_0.mem_2
 0L
 ```
 
-Tuples themselves are only manifested in the generated code on join point and branch returns. They get destructured right away and tracked by their individual variables on bindings and function applications. Had I not bound the method return to `x`, it would not have been destructured. This is the desired behavior because otherwise destructuring might block tail call optimizations.
+Tuples themselves are only manifested in the generated code on join point and branch returns. They get destructured right away and tracked by their individual variables on bindings and function applications. Had the method return not been bound to `x`, it would not have been destructured. This is the desired behavior because otherwise destructuring might block tail call optimizations.
 
 ```
 met f _ = 1
@@ -472,7 +472,7 @@ if dyn true then 1 else "qwe" // A type error.
 ```
 If statements in Spiral default to evaluating only one branch if their conditional is known at compile time. This is the bedrock of its intensional (structural) polymorphism. Under the hood, the patterns get compiled to static if statements which allow it to branch on structures and types.
 
-I goes hand in hand with join point specialization.
+`if` goes hand in hand with join point specialization.
 
 ```
 inl default_of = function
@@ -693,7 +693,7 @@ let (var_0: string) = "b"
 let (var_1: bool) = true
 Tuple0(var_0, var_1)
 ```
-Using `print_static` you can inspect what the evaluator sees at compile time.
+Using `print_static` can be used to inspect what the evaluator sees at compile time.
 ```
 print_static (dyn (.a,"b",.false,true))
 ```
@@ -756,7 +756,7 @@ All the features of Spiral with the exception of heap allocated modules and clos
 
 ##### `<function>` error message
 
-Don't be fooled by the `<function>` you will see during type errors. As was repeatedly stated, functions are not at all opaque - they are fully transpared to the evaluator. The reason why they get printed like that is simply because they have a tendency to suck everything into the environment. And except for very small examples, trying to print out the raw AST of its body is worthless even for debugging as it is so convoluted.
+Don't be fooled by the `<function>` during type errors. As was repeatedly stated, functions are not at all opaque - they are fully transparent to the evaluator. The reason why they get printed like that is simply because they have a tendency to suck everything into the environment. And except for very small examples, trying to print out the raw AST of its body is worthless even for debugging as it is so convoluted.
 
 ```
 if dyn true then
