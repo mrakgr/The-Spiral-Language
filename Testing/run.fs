@@ -14,40 +14,54 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //rewrite_test_cache cfg None //(Some(0,40))
 
-let example1 = 
-    "example1",[],"Module description.",
+let example = 
+    "example",[tuple;console],"Module description.",
     """
-inl console = fs [text: "System.Console"]
-inl static_method static_type method_name args return_type = 
-    macro.fs return_type [
-        type: static_type
-        text: "."
-        text: method_name
-        args: args
-        ]
+open Console
+inl for {d with state body} =
+    inl check =
+        match d with
+        | {near_to} from -> from < near_to 
+        | {to} from -> from <= to
+        | {down_to} from -> from >= down_to
+        | {near_down_to} from -> from > near_down_to
+        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` needs be present."
 
-inl readline() = static_method console .ReadLine() string
-inl writeline x = static_method console .WriteLine x string
 
-inl array t = type (array_create t 0)
-inl _, ar = readline(), macro.fs (array int32) [arg: readline(); text: ".Split [|' '|] |> Array.map int"]
+    inl from =
+        match d with
+        | {from=(!dyn from) ^ static_from=from} -> from
+        | _ -> error_type "Only one of `from` and `static_from` field to loop needs to be present."
 
-// Converts a type level function to a term level function based on a type.
-inl rec closure_of f tys = 
-    match tys with
-    | x => xs -> term_cast (inl x -> closure_of (f x) xs) x
-    | x: f -> f
-    | _ -> error_type "The tail of the closure does not correspond to the one being casted to."
+    inl to =
+        match d with
+        | {(to ^ near_to ^ down_to ^ near_down_to)=to} -> to
+        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` is allowed."
 
-inl add a b = a + b
-inl add_closure = closure_of add (int32 => int32 => int32)
+    inl by =
+        match d with
+        | {by} -> by
+        | _ -> 1
 
-macro.fs int32 [text: "Array.fold "; arg: add_closure; text: " 0 "; arg: ar]
-|> writeline
+    inl rec loop {from state} =
+        inl body {from} = 
+            if check from then loop {from=from+by; state=body {state i=from}}
+            else state
+
+        if Tuple.forall lit_is (from,to,by) then body {from}
+        else 
+            inl from = dyn from
+            join (body {from} : state)
+
+    loop {from state}
+
+inl power a near_to = for {static_from=1; near_to state=a; body=inl {state} -> state * a}
+
+power 2 3
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example
 |> printfn "%s"
 |> ignore
 

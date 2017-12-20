@@ -22,6 +22,7 @@
                 - [Simple array sum (macro version)](#simple-array-sum-macro-version)
             - [Spiral libraries](#spiral-libraries)
         - [3: Loops and Arrays](#3-loops-and-arrays)
+            - [Loops](#loops)
 
 <!-- /TOC -->
 
@@ -1223,6 +1224,10 @@ Spiral libraries are (to be) covered in depth in the user guide and the referenc
 
 ### 3: Loops and Arrays
 
+(Work in progress)
+
+#### Loops
+
 Most languages make it trivial to write loops, and apart from runtime, the user does not have to worry about them diverging except at runtime.
 
 Spiral's staging abilities introduce new complexities into the mix. In Spiral, for every loop one writes, it is necessary to keep in mind whether it is intended to run at compile or at runtime.
@@ -1234,3 +1239,396 @@ For that reason, the bog standard `for` and `while` loops exist as a part of the
 This chapter will be on building up the basic loop and then using it to implement the array library functions from first principles.
 
 At this point, apart from union types and the Cuda backend, all the main language features have been introduced albeit shallowly.
+
+This makes it possible to demonstrate how the architecture of a Spiral program differs from those in other languages.
+
+```
+let example = 
+    "example",[console],"Module description.",
+    """
+open Console
+met rec for {d with from=(!dyn from) to by body} =
+    if from <= to then body from; for {d with from=from+by}
+    else ()
+    : ()
+
+for {from=0; to=5; by=1; body=inl i ->
+    string_format "The loop is on iteration {0}" i |> writeline
+    }
+    """
+```
+```
+let rec method_0((var_0: int64)): unit =
+    let (var_1: bool) = (var_0 <= 5L)
+    if var_1 then
+        let (var_2: string) = System.String.Format("The loop is on iteration {0}",var_0)
+        let (var_3: string) = System.String.Format("{0}",var_2)
+        System.Console.WriteLine(var_3)
+        let (var_4: int64) = (var_0 + 1L)
+        method_1((var_4: int64))
+    else
+        ()
+and method_1((var_0: int64)): unit =
+    let (var_1: bool) = (var_0 <= 5L)
+    if var_1 then
+        let (var_2: string) = System.String.Format("The loop is on iteration {0}",var_0)
+        let (var_3: string) = System.String.Format("{0}",var_2)
+        System.Console.WriteLine(var_3)
+        let (var_4: int64) = (var_0 + 1L)
+        method_1((var_4: int64))
+    else
+        ()
+let (var_0: int64) = 0L
+method_0((var_0: int64))
+```
+Somewhat inadvertently, the first example become a good lesson in why loops would be desirable as a part of the library. The first example was careful to `dyn` the counter and did not forget the annotation, but for some reason the loop got specialized to two functions one which only got called once.
+
+It is not a compiler bug.
+
+```
+met rec for {d with from=(!dyn from) to by body} =
+    if from <= to then body from; for {d with from=from+by}
+```
+
+The way join points work is that they specialize the call by their arguments. By rewriting the above to an equivalent form it will be easy to demonstrate what is happening.
+
+```
+inl rec for d =
+    inl from = dyn d.from
+    inl {to by body} = d
+    join(
+        if from <= to then body from; for {d with from=from+by}
+        else ()
+        : ()
+        )
+```
+
+What is going on is that `d` - the old one with the `from` field still as literal is getting passed through the join point and causes the redundant specialization to happen.
+
+Here is the way to write the `for` function correctly.
+
+Out of all the mistakes to make in Spiral, accidentally passing old state through the join point is the easiest one to make. With missed return type annotations and such the compiler will diverge and warn the user that way, but but this one has a way of preying on laziness.
+
+In fact, this kind of error can happen in any language that supports records with mutable updates, not just Spiral. Spiral in particular makes it obvious by looking at the argument count in the generated code.
+
+```
+met rec for {from=(!dyn from) to by body} =
+    if from <= to then body from; for {from=from+by; to by body}
+    else ()
+    : ()
+```
+```
+let rec method_0((var_0: int64)): unit =
+    let (var_1: bool) = (var_0 <= 5L)
+    if var_1 then
+        let (var_2: string) = System.String.Format("The loop is on iteration {0}",var_0)
+        let (var_3: string) = System.String.Format("{0}",var_2)
+        System.Console.WriteLine(var_3)
+        let (var_4: int64) = (var_0 + 1L)
+        method_0((var_4: int64))
+    else
+        ()
+let (var_0: int64) = 0L
+method_0((var_0: int64))
+```
+The above output is the ideal for this kind of loop. Only the `var_0` varies, the other literals all get passed through the boundary and specialized along with the body.
+
+This is kind of specialization important to do with Cuda kernels as using too many variables in place of literals can cause register spillage into global memory and cause drastic degradations of performance. Spiral makes it easy to keep such data static and propagate it through the program.
+
+In addition, Spiral makes it trivial to this kind of specialization even across language boundaries. Partial evaluation is commonly refereed to as specialization. Staging makes it user directed. And being able to use staging constructs as the basis of abstraction rather than being restricted to a second class macro inspired system is what makes Spiral's staging first class. That is a desirable trait as it increases uniformity of the language and with it, its power. It also simplifies its implementation greatly, so it is a good design principle to follow at all times.
+
+More concretely, one of the main motivations for writing Spiral for its author is avoiding having to write unending litanies of wrappers for simple Cuda kernels.
+
+Moving on, here is the static version of the loop.
+
+```
+inl rec for {from to by body} =
+    if from <= to then body from; for {from=from+by; to by body}
+    else ()
+
+for {from=0; to=5; by=1; body=inl i ->
+    string_format "The loop is on iteration {0}" i |> writeline
+    }
+```
+```
+System.Console.WriteLine("The loop is on iteration 0")
+System.Console.WriteLine("The loop is on iteration 1")
+System.Console.WriteLine("The loop is on iteration 2")
+System.Console.WriteLine("The loop is on iteration 3")
+System.Console.WriteLine("The loop is on iteration 4")
+System.Console.WriteLine("The loop is on iteration 5")
+```
+
+Now what remains is to make the function stage polymorphic.
+
+```
+let example = 
+    "example",[tuple;console],"Module description.",
+    """
+open Console
+inl rec for {from to by body} =
+    inl body from = 
+        if from <= to then body from; for {from=from+by; to by body}
+        else ()
+    if Tuple.forall lit_is (from,to,by) then body from
+    else 
+        inl from = dyn from
+        join (body from : ())
+
+for {from=0; to=5; by=1; body=inl i ->
+    string_format "The loop is on iteration {0}" i |> writeline
+    }
+
+for {from=dyn 0; to=5; by=1; body=inl i ->
+    string_format "The loop is on iteration {0}" i |> writeline
+    }
+    """
+```
+```
+let rec method_0((var_0: int64)): unit =
+    let (var_1: bool) = (var_0 <= 5L)
+    if var_1 then
+        let (var_2: string) = System.String.Format("The loop is on iteration {0}",var_0)
+        let (var_3: string) = System.String.Format("{0}",var_2)
+        System.Console.WriteLine(var_3)
+        let (var_4: int64) = (var_0 + 1L)
+        method_0((var_4: int64))
+    else
+        ()
+System.Console.WriteLine("The loop is on iteration 0")
+System.Console.WriteLine("The loop is on iteration 1")
+System.Console.WriteLine("The loop is on iteration 2")
+System.Console.WriteLine("The loop is on iteration 3")
+System.Console.WriteLine("The loop is on iteration 4")
+System.Console.WriteLine("The loop is on iteration 5")
+let (var_0: int64) = 0L
+method_0((var_0: int64))
+```
+
+The above loop can further improved in terms of functionality. Notice that its body has has a type `unit` which is represented by an empty tuple in Spiral. That is a throwback to C that has no place in modern language such as Spiral.
+
+```
+open Console
+inl rec for {from to by state body} =
+    inl body from = 
+        if from <= to then for {to by body from=from+by; state=body {state i=from}}
+        else state
+    if Tuple.forall lit_is (from,to,by) then body from
+    else 
+        inl from = dyn from
+        join (body from : state)
+
+inl power a to = for {from=2; to by=1; state=a; body=inl {state} -> state * a}
+
+power 2 3
+```
+```
+8L
+```
+The above works, but various criticisms of the program could be made. For one, is it really necessary to give `by` every time? Vast majority of loops will in fact have it as `1` so if it is not given it makes sense to use that default instead of giving a type error.
+
+Speaking of defaults, a decent guess is that most loops do are not intended to be unrolled and that a user is more likely to just forget to `dyn` the `from` field by an accident.
+
+```
+open Console
+inl rec for {d with to state body} =
+    inl body {from by} = 
+        if from <= to then for {to by body from=from+by; state=body {state i=from}}
+        else state
+
+    inl from =
+        match d with
+        | {from} -> dyn from
+        | {static_from} -> static_from
+
+    inl by =
+        match d with
+        | {by} -> by
+        | _ -> 1
+
+    if Tuple.forall lit_is (from,to,by) then body {from}
+    else 
+        inl from = dyn from
+        join (body {from by} : state)
+
+inl power a to = for {from=2; to state=a; body=inl {state} -> state * a}
+
+power 2 3
+```
+```
+let rec method_0((var_0: int64)): int64 =
+    let (var_1: bool) = (var_0 <= 3L)
+    if var_1 then
+        let (var_2: int64) = (var_0 + 1L)
+        method_1((var_2: int64))
+    else
+        2L
+and method_1((var_0: int64)): int64 =
+    let (var_1: bool) = (var_0 <= 3L)
+    if var_1 then
+        let (var_2: int64) = (var_0 + 1L)
+        method_2((var_2: int64))
+    else
+        4L
+and method_2((var_0: int64)): int64 =
+    let (var_1: bool) = (var_0 <= 3L)
+    if var_1 then
+        let (var_2: int64) = (var_0 + 1L)
+        method_3((var_2: int64))
+    else
+        8L
+// ...and so on up to method_63
+```
+Not quite as planned. An error made now is that the state gets specialized for every different power of 2.
+
+With a single added `dyn` that can be fixed.
+
+```
+inl power a to = for {from=2; to state=dyn a; body=inl {state} -> state * a}
+```
+```
+let rec method_0((var_0: int64), (var_1: int64)): int64 =
+    let (var_2: bool) = (var_1 <= 3L)
+    if var_2 then
+        let (var_3: int64) = (var_1 + 1L)
+        let (var_4: int64) = (var_0 * 2L)
+        method_0((var_4: int64), (var_3: int64))
+    else
+        var_0
+let (var_0: int64) = 2L
+let (var_1: int64) = 2L
+method_0((var_0: int64), (var_1: int64))
+```
+As a matter of convention, Spiral library functions that take in `state` never dyn it directly. That responsibility should fall onto the user. 
+
+The reason for that is for example that the state might be an option type so it might be better to specialize it for both of its states without instantiating it directly. Or it might be a tuple with some fields which would be desirable to remain as literals.
+
+`for` is intended to be used as a primitive and so requires some flexibility.
+
+Looking over the function now it seems fine, but it is a bit uncomfortable how from has to start from `2`. It is not like the loop has to use the `<=` operator for comparison in the conditional. In a lot of cases `<` make a lot more sense.
+
+Furthermore, an user might want to iterate downwards. That can be accommodated.
+
+```
+open Console
+inl rec for {d with state body} =
+    inl check =
+        match d with
+        | {near_to} from -> from < near_to 
+        | {to} from -> from <= to
+        | {down_to} from -> from >= down_to
+        | {near_down_to} from -> from > near_down_to
+
+    inl from =
+        match d with
+        | {from} -> dyn from
+        | {static_from} -> static_from
+
+    inl {(to ^ near_to ^ down_to ^ near_down_to)=to} = d
+
+    inl by =
+        match d with
+        | {by} -> by
+        | _ -> 1
+
+    inl rec loop {from state} =
+        inl body {from} = 
+            if check from then loop {from=from+by; state=body {state i=from}}
+            else state
+
+        if Tuple.forall lit_is (from,to,by) then body {from}
+        else 
+            inl from = dyn from
+            join (body {from} : state)
+
+    loop {from state}
+
+inl power a near_to = for {from=1; near_to state=dyn a; body=inl {state} -> state * a}
+
+power 2 3
+```
+```
+let rec method_0((var_0: int64), (var_1: int64)): int64 =
+    let (var_2: bool) = (var_1 < 3L)
+    if var_2 then
+        let (var_3: int64) = (var_1 + 1L)
+        let (var_4: int64) = (var_0 * 2L)
+        method_0((var_4: int64), (var_3: int64))
+    else
+        var_0
+let (var_0: int64) = 2L
+let (var_1: int64) = 1L
+method_0((var_0: int64), (var_1: int64))
+```
+The module member queries are all done statically and so maximum polymorphism is attained. The above program also demonstrates why lexical scope is so great.
+
+The above is starting to near the functionality of the for function in the actual library. To make it more professional, rather than returning a pattern miss on when a field is missed, it would be better to tell the user what the problem is.
+
+```
+open Console
+inl for {d with state body} =
+    inl check =
+        match d with
+        | {near_to} from -> from < near_to 
+        | {to} from -> from <= to
+        | {down_to} from -> from >= down_to
+        | {near_down_to} from -> from > near_down_to
+        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` needs be present."
+
+
+    inl from =
+        match d with
+        | {from=(!dyn from) ^ static_from=from} -> from
+        | _ -> error_type "Only one of `from` and `static_from` field to loop needs to be present."
+
+    inl to =
+        match d with
+        | {(to ^ near_to ^ down_to ^ near_down_to)=to} -> to
+        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` is allowed."
+
+    inl by =
+        match d with
+        | {by} -> by
+        | _ -> 1
+
+    inl rec loop {from state} =
+        inl body {from} = 
+            if check from then loop {from=from+by; state=body {state i=from}}
+            else state
+
+        if Tuple.forall lit_is (from,to,by) then body {from}
+        else 
+            inl from = dyn from
+            join (body {from} : state)
+
+    loop {from state}
+
+inl power a near_to = for {static_from=1; near_to state=a; body=inl {state} -> state * a}
+
+power 2 3
+```
+```
+8L
+```
+
+The above design is in fact superior to what is currently in the standard library. A lot of features of the language were developed along with the library and some parts of it did not keep up. The author also got to fancy with the design of it. At the time that was useful for pushing the language, but not so much from a design perspective.
+
+Another issue with the standard library as it stands is that in fact its author did not know how to program in the language he was making and had to learn it as he going along.
+
+```
+    inl from =
+        match d with
+        | {from=(!dyn from) ^ static_from=from} -> from
+        | _ -> error_type "Only one of `from` and `static_from` field to loop needs to be present."
+```
+
+This part here is highlighted in order to show the xor (`^`) pattern might be used in tandem with active patterns.
+
+All the features in the making of the loop so far have been covered in the previous chapters and now it can be seen how they come together.
+
+It is not done yet.
+
+In order to attain the full functionality of C style loops, Spiral's loops also need the ability to break out. Strictly speaking, this cannot be done in a functional language and having `return` makes even less sense in Spiral than it does in ML variants, but the same functionality can be achieved instead by writing the loop body and calling the continuation for the next iteration in tail position.
+
+As motivating example, imagine trying to iterate over nested arrays trying to find a specific item before breaking out. With the loop as was written above, there is no way to stop before reaching the end.
+
