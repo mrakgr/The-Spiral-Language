@@ -1200,3 +1200,6 @@ Much like F#, Spiral imposes a top down ordering of the program and modules cann
 This kind of constrained architecture cuts down on circular referencing and encourages purposeful laying out of programs.
 
 Spiral libraries are (to be) covered in depth in the user guide and the reference.
+
+### 3: Loops
+
