@@ -1,5 +1,8 @@
 # Table of Contents
 
+<!-- TOC -->
+
+- [Table of Contents](#table-of-contents)
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
     - [Dependencies](#dependencies)
@@ -12,13 +15,15 @@
                 - [Join point recursion](#join-point-recursion)
                 - [Term casting of functions](#term-casting-of-functions)
                 - [`<function>` error message](#function-error-message)
-        - [2: Modules, macros and interop](#2-modules-macros-and-interop)
+        - [2: Modules, Macros and Interop](#2-modules-macros-and-interop)
             - [Modules](#modules)
             - [Macros](#macros)
                 - [Solve me](#solve-me)
                 - [Simple array sum (macro version)](#simple-array-sum-macro-version)
             - [Spiral libraries](#spiral-libraries)
         - [3: Loops and Arrays](#3-loops-and-arrays)
+
+<!-- /TOC -->
 
 # The Spiral Language
 
