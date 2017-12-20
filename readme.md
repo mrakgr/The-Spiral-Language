@@ -1,3 +1,25 @@
+# Table of Contents
+
+- [The Spiral Language](#the-spiral-language)
+    - [Overview](#overview)
+    - [Dependencies](#dependencies)
+                - [For the compiler:](#for-the-compiler)
+                - [For the Cuda using Spiral libraries:](#for-the-cuda-using-spiral-libraries)
+    - [Tutorials: Introduction to Spiral](#tutorials-introduction-to-spiral)
+        - [0: The way to use the language](#0-the-way-to-use-the-language)
+        - [1: Inlinleables, Methods and Join Points](#1-inlinleables-methods-and-join-points)
+            - [Recursion, destructuring and pattern matching](#recursion-destructuring-and-pattern-matching)
+                - [Join point recursion](#join-point-recursion)
+                - [Term casting of functions](#term-casting-of-functions)
+                - [`<function>` error message](#function-error-message)
+        - [2: Modules, macros and interop](#2-modules-macros-and-interop)
+            - [Modules](#modules)
+            - [Macros](#macros)
+                - [Solve me](#solve-me)
+                - [Simple array sum (macro version)](#simple-array-sum-macro-version)
+            - [Spiral libraries](#spiral-libraries)
+        - [3: Loops and Arrays](#3-loops-and-arrays)
+
 # The Spiral Language
 
 ## Overview
@@ -19,39 +41,6 @@ The Cuda Unbound library
 Visual Studio 2017 C++ tools individual component (VC++ 2017 v141 toolset (x86,x64))
 
 ## Tutorials: Introduction to Spiral
-
-### Table of Contents
-<!-- TOC -->
-
-- [The Spiral Language](#the-spiral-language)
-    - [Overview](#overview)
-    - [Dependencies](#dependencies)
-                - [For the compiler:](#for-the-compiler)
-                - [For the Cuda using Spiral libraries:](#for-the-cuda-using-spiral-libraries)
-    - [Tutorials: Introduction to Spiral](#tutorials-introduction-to-spiral)
-        - [Table of Contents](#table-of-contents)
-        - [0: The way to use the language](#0-the-way-to-use-the-language)
-        - [1: Inlinleables, Methods and Join Points](#1-inlinleables-methods-and-join-points)
-            - [Recursion, destructuring and pattern matching](#recursion-destructuring-and-pattern-matching)
-                - [Join point recursion](#join-point-recursion)
-                - [Term casting of functions](#term-casting-of-functions)
-                - [`<function>` error message](#function-error-message)
-        - [2: Modules, macros and interop](#2-modules-macros-and-interop)
-            - [Modules](#modules)
-            - [Macros](#macros)
-                - [Solve me](#solve-me)
-                - [Simple array sum (macro version)](#simple-array-sum-macro-version)
-            - [Spiral libraries](#spiral-libraries)
-        - [3: Loops and Arrays](#3-loops-and-arrays)
-
-<!-- /TOC -->
-
-
-1. [Inlinleables, Methods and Join Points](#1-inlinleables-methods-and-join-points)
-2. [Modules, macros and interop](#2-modules-macros-and-interop)
-    1. [Modules](#modules)
-    2. [Macros](#macros)
-    3. [Spiral libraries](#spiral-libraries)
 
 ### 0: The way to use the language
 
