@@ -1290,7 +1290,7 @@ met rec for {d with from=(!dyn from) to by body} =
     if from <= to then body from; for {d with from=from+by}
 ```
 
-The way join points work is that they specialize the call by their arguments. By rewriting the above to an equivalent form it will be easy to demonstrate what is happening.
+The way join points work is that they specialize the call by their arguments. By rewriting the fragment highlighted above to an equivalent form it will be easy to demonstrate what is happening.
 
 ```
 inl rec for d =
@@ -1628,7 +1628,107 @@ All the features in the making of the loop so far have been covered in the previ
 
 It is not done yet.
 
-In order to attain the full functionality of C style loops, Spiral's loops also need the ability to break out. Strictly speaking, this cannot be done in a functional language and having `return` makes even less sense in Spiral than it does in ML variants, but the same functionality can be achieved instead by writing the loop body and calling the continuation for the next iteration in tail position.
+In order to attain the full functionality of C style loops, Spiral's loops also need the ability to break out. Strictly speaking, this cannot be done in a functional language and having `return` would make even less sense in Spiral than it does in ML variants, but the same functionality can be achieved instead by writing the loop body and calling the continuation for the next iteration in tail position.
 
 As motivating example, imagine trying to iterate over nested arrays trying to find a specific item before breaking out. With the loop as was written above, there is no way to stop before reaching the end.
 
+To start things off, first the nested arrays need to be created.
+
+```
+open Console
+inl for {d with body} =
+    inl state = 
+        match d with
+        | {state} -> state
+        | _ -> ()
+/// ...
+inl array_init near_to f =
+    assert (near_to >= 0) "The input to init needs to be greater or equal to 0."
+    // Somewhat of an ugly practice in order to infer the type in a language that doesn't support inference. 
+    // For large functions, it is recommended to put them in a join point otherwise compile times could 
+    // become exponential if the function contains branches.
+    // For a simple map for an array like here, it does not matter.
+    inl typ = type (f 0) 
+    inl ar = array_create typ near_to
+    for {from=0; near_to; body=inl {i} -> ar i <- f i}
+    ar
+
+inl rec zeroes = function
+    | x :: x' -> array_init x (inl _ -> zeroes x')
+    | () -> ""
+
+inl ar = zeroes (4,4,4,4)
+ar 0 0 0 2 <- "princess"
+```
+```
+let rec method_3((var_0: ((((string []) []) []) [])), (var_1: int64)): unit =
+    let (var_2: bool) = (var_1 < 4L)
+    if var_2 then
+        let (var_3: int64) = (var_1 + 1L)
+        let (var_8: (((string []) []) [])) = Array.zeroCreate<((string []) [])> (System.Convert.ToInt32(4L))
+        let (var_9: int64) = 0L
+        method_2((var_8: (((string []) []) [])), (var_9: int64))
+        var_0.[int32 var_1] <- var_8
+        method_3((var_0: ((((string []) []) []) [])), (var_3: int64))
+    else
+        ()
+and method_2((var_0: (((string []) []) [])), (var_1: int64)): unit =
+    let (var_2: bool) = (var_1 < 4L)
+    if var_2 then
+        let (var_3: int64) = (var_1 + 1L)
+        let (var_6: ((string []) [])) = Array.zeroCreate<(string [])> (System.Convert.ToInt32(4L))
+        let (var_7: int64) = 0L
+        method_1((var_6: ((string []) [])), (var_7: int64))
+        var_0.[int32 var_1] <- var_6
+        method_2((var_0: (((string []) []) [])), (var_3: int64))
+    else
+        ()
+and method_1((var_0: ((string []) [])), (var_1: int64)): unit =
+    let (var_2: bool) = (var_1 < 4L)
+    if var_2 then
+        let (var_3: int64) = (var_1 + 1L)
+        let (var_4: (string [])) = Array.zeroCreate<string> (System.Convert.ToInt32(4L))
+        let (var_5: int64) = 0L
+        method_0((var_4: (string [])), (var_5: int64))
+        var_0.[int32 var_1] <- var_4
+        method_1((var_0: ((string []) [])), (var_3: int64))
+    else
+        ()
+and method_0((var_0: (string [])), (var_1: int64)): unit =
+    let (var_2: bool) = (var_1 < 4L)
+    if var_2 then
+        let (var_3: int64) = (var_1 + 1L)
+        var_0.[int32 var_1] <- ""
+        method_0((var_0: (string [])), (var_3: int64))
+    else
+        ()
+let (var_6: ((((string []) []) []) [])) = Array.zeroCreate<(((string []) []) [])> (System.Convert.ToInt32(4L))
+let (var_7: int64) = 0L
+method_3((var_6: ((((string []) []) []) [])), (var_7: int64))
+let (var_8: (((string []) []) [])) = var_6.[int32 0L]
+let (var_9: ((string []) [])) = var_8.[int32 0L]
+let (var_10: (string [])) = var_9.[int32 0L]
+var_10.[int32 2L] <- "princess"
+```
+
+First off, the case for `state` that was forgotten is added at the top of the `for` function. As the big comment states inferring the type returned by `f` involves evaluating it twice which might not be a good idea depending on what it is.
+
+The `Lazy` module's only function `lazy` for example puts a join point before evaluating the function because it might otherwise repeat long evaluations and those long evaluation in combination with branching (such as when nesting lazy values) might make compilation time take exponential time.
+
+The `assert` function if its conditional can be statically determined and is true gives a type error at compile time instead of triggering at runtime. Spiral has support for throwing exceptions, but not catching or cleaning up after them, so they are intended to be used only for unrecoverable errors.
+
+As the example shows, nesting loops is straightforward in Spiral. It is a decent bit more elegant than doing it with macros which are the only choice in languages with weaker type systems. In Spiral, type inference and partial evaluation are one.
+
+Its type system is extremely powerful, and yet it does not have parametric polymorphism. Adding parametric polymorphism would significantly increase the complexity of both the language and its implementation, would not make the language any more expressive and would make it a lot harder to integrate the partial evaluator with the type system. This would make the language quite a bit slower.
+
+It is interesting to consider the implication of this - in Lisp languages, its raw AST flavored syntax is there for the reason of supporting its macro meta-programming feature. Maybe a really powerful type system does require the absence of parametricity?
+
+In light of what Spiral can do, it might be worth considering whether the programming language community at large collectively missed a whole evolutionary branch of languages with static typing, but without parametric polymorphism.
+
+If that is not convincing yet, maybe it will be after the tutorials are through.
+
+Here is how to write a breakable loop, in the continuation passing style.
+
+```
+...
+```

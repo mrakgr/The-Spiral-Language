@@ -18,7 +18,12 @@ let example =
     "example",[tuple;console],"Module description.",
     """
 open Console
-inl for {d with state body} =
+inl for {d with body} =
+    inl state = 
+        match d with
+        | {state} -> state
+        | _ -> ()
+
     inl check =
         match d with
         | {near_to} from -> from < near_to 
@@ -26,7 +31,6 @@ inl for {d with state body} =
         | {down_to} from -> from >= down_to
         | {near_down_to} from -> from > near_down_to
         | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` needs be present."
-
 
     inl from =
         match d with
@@ -55,9 +59,23 @@ inl for {d with state body} =
 
     loop {from state}
 
-inl power a near_to = for {static_from=1; near_to state=a; body=inl {state} -> state * a}
+inl array_init near_to f =
+    assert (near_to >= 0) "The input to init needs to be greater or equal to 0."
+    // Somewhat of an ugly practice in order to infer the type in a language that doesn't support inference. 
+    // For large functions, it is recomended to put them in a join point otherwise compile times could 
+    // become exponential if the function contains branches.
+    // For a simple map for an array like here, it does not matter.
+    inl typ = type (f 0) 
+    inl ar = array_create typ near_to
+    for {from=0; near_to; body=inl {i} -> ar i <- f i}
+    ar
 
-power 2 3
+inl rec zeroes = function
+    | x :: x' -> array_init x (inl _ -> zeroes x')
+    | () -> ""
+
+inl ar = zeroes (4,4,4,4)
+ar 0 0 0 2 <- "princess"
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
