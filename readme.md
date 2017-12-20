@@ -21,6 +21,32 @@ Visual Studio 2017 C++ tools individual component (VC++ 2017 v141 toolset (x86,x
 ## Tutorials: Introduction to Spiral
 
 ### Table of Contents
+<!-- TOC -->
+
+- [The Spiral Language](#the-spiral-language)
+    - [Overview](#overview)
+    - [Dependencies](#dependencies)
+                - [For the compiler:](#for-the-compiler)
+                - [For the Cuda using Spiral libraries:](#for-the-cuda-using-spiral-libraries)
+    - [Tutorials: Introduction to Spiral](#tutorials-introduction-to-spiral)
+        - [Table of Contents](#table-of-contents)
+        - [0: The way to use the language](#0-the-way-to-use-the-language)
+        - [1: Inlinleables, Methods and Join Points](#1-inlinleables-methods-and-join-points)
+            - [Recursion, destructuring and pattern matching](#recursion-destructuring-and-pattern-matching)
+                - [Join point recursion](#join-point-recursion)
+                - [Term casting of functions](#term-casting-of-functions)
+                - [`<function>` error message](#function-error-message)
+        - [2: Modules, macros and interop](#2-modules-macros-and-interop)
+            - [Modules](#modules)
+            - [Macros](#macros)
+                - [Solve me](#solve-me)
+                - [Simple array sum (macro version)](#simple-array-sum-macro-version)
+            - [Spiral libraries](#spiral-libraries)
+        - [3: Loops and Arrays](#3-loops-and-arrays)
+
+<!-- /TOC -->
+
+
 1. [Inlinleables, Methods and Join Points](#1-inlinleables-methods-and-join-points)
 2. [Modules, macros and interop](#2-modules-macros-and-interop)
     1. [Modules](#modules)
@@ -1174,7 +1200,7 @@ That is roughly it with regards to interop. Spiral of course does have its own l
 
 `closure_of` and other macro related functions can be found in the `Extern` module.
 
-### Spiral libraries
+#### Spiral libraries
 
 ```
 let example1 = 
@@ -1201,5 +1227,5 @@ This kind of constrained architecture cuts down on circular referencing and enco
 
 Spiral libraries are (to be) covered in depth in the user guide and the reference.
 
-### 3: Loops
+### 3: Loops and Arrays
 
