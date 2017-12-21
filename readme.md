@@ -23,6 +23,7 @@
             - [Spiral libraries](#spiral-libraries)
         - [3: Loops and Arrays](#3-loops-and-arrays)
             - [Loops](#loops)
+            - [Arrays](#arrays)
 
 <!-- /TOC -->
 
@@ -1817,7 +1818,40 @@ find_index {state=(); next = inl _ -> failwith (type (dim)) "The princess is in 
 ```
 `failwith` unlike in F#, requires the return type in Spiral but otherwise functions the same.
 
-The output once the program is compiled is rather large, but it will be reproduced in bulk as an example this time to show that all the loops are being unfolded correctly.
+The `@` operator on the pattern side is a partial active pattern. Unlike F#'s which expect an option type, what `@` takes in is a function with three arguments in the `inl arg on_fail on_succ -> ...` form. `on_fail` and `on_succ` are to be called in tail position and possibly with join points around them when done so multiple times.
+
+Here is a small example.
+
+```
+inl f pat = function
+    | @pat x -> x
+    | _ -> error_type "The pattern failed to trigger."
+
+inl pat x on_fail on_succ =
+    match x with
+    | x: string | x: int64 -> join on_succ (string_format "{0} joined" x)
+    | _ -> on_fail()
+
+f pat "qwe", f pat 123
+```
+```
+type Tuple0 =
+    struct
+    val mem_0: string
+    val mem_1: string
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let rec method_0(): string =
+    "qwe joined"
+and method_1(): string =
+    "123 joined"
+let (var_0: string) = method_0()
+let (var_1: string) = method_1()
+Tuple0(var_0, var_1)
+```
+Anything in Spiral can be passed as an argument, and since that includes functions it also applies to partial active patterns.
+
+The output of the compiled program is rather large, but it will be reproduced in bulk as an example this time to show that all the loops are being unfolded correctly.
 ```
 type Tuple0 =
     struct
@@ -2062,6 +2096,40 @@ inl rec find_index {next state} = function
 find_index {state=(); next = inl _ -> failwith (type (dim)) "The princess is in another castle."} ar
 ```
 
-There was a lot of material covered here. The logic of `find_index` might seem confusing to the uninitiated, and would no doubt be to the author had he encountered this over a year ago. But ultimately the function is just 5 lines long and there is no particular magic about it.
+There was a lot of material covered here. The logic of `find_index` might seem confusing to the uninitiated, and would no doubt be to the author had he encountered this over a year ago. But ultimately the function is just 5 lines long and there is nothing particular magic about it; the function is fully explicit. Thinking about it for a long time will help and so will mentally rehearsing the motions until the pieces fall into place.
 
-Seeing similar examples will no doubt help and there will be a significant number of them throughout these tutorials.
+One useful tool in gaining understanding is trying to manually expand the loop. Here is what happens if `find_index` is expanded a single step of recursion.
+
+```
+inl rec find_index {next state} = function
+    | ar & @array_is _ -> 
+        inl body {next i} = 
+            inl state = i :: state
+            match ar i with
+            | ar & @array_is _ -> 
+                inl body {next i} = find_index {next state=i::state} (ar i)
+                for' {from=0; near_to=array_length ar; finally=next; body}
+            | "princess" -> tuple_rev state
+            | _ -> next ()
+        for' {from=0; near_to=array_length ar; finally=next; body}
+    | "princess" -> tuple_rev state
+    | _ -> next ()
+```
+Supposing the input is one dimensional, that is if the type of the array was `string []` it become possible to do more partial evaluation by hand.
+```
+inl rec find_index {next state} = function
+    | ar & @array_is _ -> 
+        inl body {next i} = 
+            inl state = i :: state
+            match ar i with
+            | "princess" -> tuple_rev state
+            | _ -> next ()
+        for' {from=0; near_to=array_length ar; finally=next; body}
+```
+This program corresponds to a single loop and is in fact what the program would get specialized to had it been given only a string array as input.
+
+Seeing similar examples of this pattern will no doubt help and there will be a significant number of them throughout these tutorials.
+
+#### Arrays
+
+...
