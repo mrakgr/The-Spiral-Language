@@ -59,6 +59,54 @@ inl for {d with body} =
 
     loop {from state}
 
+inl for' {d with body} =
+    inl finally =
+        match d with
+        | {finally} -> finally
+        | _ -> id
+
+    inl state = 
+        match d with
+        | {state} -> state
+        | _ -> ()
+
+    inl check =
+        match d with
+        | {near_to} from -> from < near_to 
+        | {to} from -> from <= to
+        | {down_to} from -> from >= down_to
+        | {near_down_to} from -> from > near_down_to
+        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` needs be present."
+
+    inl from =
+        match d with
+        | {from=(!dyn from) ^ static_from=from} -> from
+        | _ -> error_type "Only one of `from` and `static_from` field to loop needs to be present."
+
+    inl to =
+        match d with
+        | {(to ^ near_to ^ down_to ^ near_down_to)=to} -> to
+        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` is allowed."
+
+    inl by =
+        match d with
+        | {by} -> by
+        | _ -> 1
+
+    inl rec loop {from state} =
+        inl body {from} = 
+            if check from then 
+                inl next state = loop {state from=from+by}
+                body {next state i=from}
+            else finally state
+
+        if Tuple.forall lit_is (from,to,by) then body {from}
+        else 
+            inl from = dyn from
+            join (body {from} : finally state)
+
+    loop {from state}
+
 inl array_init near_to f =
     assert (near_to >= 0) "The input to init needs to be greater or equal to 0."
     // Somewhat of an ugly practice in order to infer the type in a language that doesn't support inference. 

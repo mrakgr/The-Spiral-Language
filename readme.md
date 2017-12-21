@@ -1730,5 +1730,69 @@ If that is not convincing yet, maybe it will be after the tutorials are through.
 Here is how to write a breakable loop, in the continuation passing style.
 
 ```
+inl for' {d with body} =
+    inl finally =
+        match d with
+        | {finally} -> finally
+        | _ -> id
+
+    inl state = 
+        match d with
+        | {state} -> state
+        | _ -> ()
+
+    inl check =
+        match d with
+        | {near_to} from -> from < near_to 
+        | {to} from -> from <= to
+        | {down_to} from -> from >= down_to
+        | {near_down_to} from -> from > near_down_to
+        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` needs be present."
+
+    inl from =
+        match d with
+        | {from=(!dyn from) ^ static_from=from} -> from
+        | _ -> error_type "Only one of `from` and `static_from` field to loop needs to be present."
+
+    inl to =
+        match d with
+        | {(to ^ near_to ^ down_to ^ near_down_to)=to} -> to
+        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` is allowed."
+
+    inl by =
+        match d with
+        | {by} -> by
+        | _ -> 1
+
+    inl rec loop {from state} =
+        inl body {from} = 
+            if check from then 
+                inl next state = loop {state from=from+by}
+                body {next state i=from}
+            else finally state
+
+        if Tuple.forall lit_is (from,to,by) then body {from}
+        else 
+            inl from = dyn from
+            join (body {from} : finally state)
+
+    loop {from state}
+```
+
+There is a significant amount of duplication now that will need to be eliminated. The highlights are the addition of the `finally` field and the parts inside `loop`.
+
+```
+            if check from then 
+                inl next state = loop {state from=from+by}
+                body {next state i=from}
+            else finally state
+```
+Instead of the loop calling itself, it instead passes a function to the body and lets it do it instead.
+
+The `finally` field is useful for resuming the outer loop. It can also be used to set the state to `unit`, which would allow the loop to change states without having to resort to union types.
+
+Here is how to apply the loop.
+
+```
 ...
 ```
