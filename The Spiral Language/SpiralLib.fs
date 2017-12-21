@@ -340,12 +340,12 @@ inl rec show' cfg =
     function
     | {} as m -> show_module m
     | _ :: _ as l -> show_tuple l
-    | (!array_is .(x)) as ar ->
+    | (@array_is x) as ar ->
         match x with
-        | "DotNetHeap" -> 
+        | .DotNetHeap -> 
             inl array_cutoff = match cfg with {array_cutoff} -> array_cutoff | _ -> FS.Constant "System.Int64.MaxValue" int64
             show_array (array_cutoff, ar)
-        | "DotNetReference" -> show (ar ())
+        | .DotNetReference -> show (ar ())
     | x -> cfg.show_value x
 
 inl show_value = string_format "{0}"

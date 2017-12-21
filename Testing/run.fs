@@ -17,49 +17,7 @@ let cfg: Spiral.Types.CompilerSettings = {
 let example = 
     "example",[tuple;console],"Module description.",
     """
-open Console
-inl for {d with body} =
-    inl state = 
-        match d with
-        | {state} -> state
-        | _ -> ()
-
-    inl check =
-        match d with
-        | {near_to} from -> from < near_to 
-        | {to} from -> from <= to
-        | {down_to} from -> from >= down_to
-        | {near_down_to} from -> from > near_down_to
-        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` needs be present."
-
-    inl from =
-        match d with
-        | {from=(!dyn from) ^ static_from=from} -> from
-        | _ -> error_type "Only one of `from` and `static_from` field to loop needs to be present."
-
-    inl to =
-        match d with
-        | {(to ^ near_to ^ down_to ^ near_down_to)=to} -> to
-        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` is allowed."
-
-    inl by =
-        match d with
-        | {by} -> by
-        | _ -> 1
-
-    inl rec loop {from state} =
-        inl body {from} = 
-            if check from then loop {from=from+by; state=body {state i=from}}
-            else state
-
-        if Tuple.forall lit_is (from,to,by) then body {from}
-        else 
-            inl from = dyn from
-            join (body {from} : state)
-
-    loop {from state}
-
-inl for' {d with body} =
+inl for_template kind {d with body} =
     inl finally =
         match d with
         | {finally} -> finally
@@ -96,8 +54,12 @@ inl for' {d with body} =
     inl rec loop {from state} =
         inl body {from} = 
             if check from then 
-                inl next state = loop {state from=from+by}
-                body {next state i=from}
+                match kind with
+                | .Standard ->
+                    loop {from=from+by; state=body {state i=from}}
+                | .CPSd ->
+                    inl next state = loop {state from=from+by}
+                    body {next state i=from}
             else finally state
 
         if Tuple.forall lit_is (from,to,by) then body {from}
@@ -106,6 +68,9 @@ inl for' {d with body} =
             join (body {from} : finally state)
 
     loop {from state}
+
+inl for' = for_template .CPSd
+inl for = for_template .Standard
 
 inl array_init near_to f =
     assert (near_to >= 0) "The input to init needs to be greater or equal to 0."
@@ -122,8 +87,26 @@ inl rec zeroes = function
     | x :: x' -> array_init x (inl _ -> zeroes x')
     | () -> ""
 
-inl ar = zeroes (4,4,4,4)
+inl dim = (4,4,4,4)
+inl ar = zeroes dim
 ar 0 0 0 2 <- "princess"
+
+// Reverses a tuple
+inl tuple_rev = 
+    inl rec loop state = function
+        | x :: xs -> loop (x :: state) xs
+        | () -> state
+    loop ()
+
+// Correct version
+inl rec find_index {next state} = function
+    | ar & @array_is _ -> 
+        inl body {next i} = find_index {next state=i::state} (ar i)
+        for' {from=0; near_to=array_length ar; finally=next; body}
+    | "princess" -> tuple_rev state
+    | _ -> next ()
+
+find_index {state=(); next = inl _ -> failwith (type (dim)) "The princess is in another castle."} ar
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning

@@ -1325,7 +1325,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ArrayT(ArtDotNetReference,t) -> TyLit (LitInt64 1L)
             | _ -> on_type_er (trace d) <| sprintf "ArrayLength is only supported for .NET arrays. Got: %s" (show_typedexpr ar)
 
-        let array_is d ar =
+        let array_is d ar on_fail on_succ =
             match tev d ar with
             | TyV(_,ArrayT(t,_)) | TyT (ArrayT(t,_)) ->
                 match t with
@@ -1335,7 +1335,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | ArtDotNetHeap -> "DotNetHeap"
                 | ArtDotNetReference -> "DotNetReference"
                 |> (type_lit_create' << LitString)
-            | x -> TyB
+                |> apply d (tev d on_succ)
+            | x -> apply d (tev d on_fail) TyB
 
         let module_is_cps d a on_fail on_succ =
             match tev d a with
@@ -1601,7 +1602,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ReferenceCreate,[a] -> reference_create d a
             | MutableSet,[a;b;c] -> mutable_set d a b c
             | ArrayLength,[a] -> array_length d a
-            | ArrayIs,[a] -> array_is d a
+            | ArrayIs,[a;b;c] -> array_is d a b c
 
             // Primitive operations on expressions.
             | Add,[a;b] -> prim_arith_op d a b Add

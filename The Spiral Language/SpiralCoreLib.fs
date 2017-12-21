@@ -51,7 +51,7 @@ inl ref x = !ReferenceCreate(x)
 
 inl array_create typ size = !ArrayCreate(size,typ)
 inl array_length ar = !ArrayLength(ar)
-inl array_is x = !ArrayIs(x)
+inl array_is x on_fail on_succ = !ArrayIs(x,on_fail,on_succ)
 inl array t = type (array_create t 1)
 
 inl (+) a b = !Add(a,b)

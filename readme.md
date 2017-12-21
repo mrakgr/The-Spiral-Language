@@ -1727,7 +1727,7 @@ In light of what Spiral can do, it might be worth considering whether the progra
 
 If that is not convincing yet, maybe it will be after the tutorials are through.
 
-Here is how to write a breakable loop, in the continuation passing style.
+Here is how to write a breakable version of the `for` function in to take advantage of the continuation passing style.
 
 ```
 inl for' {d with body} =
@@ -1791,8 +1791,277 @@ Instead of the loop calling itself, it instead passes a function to the body and
 
 The `finally` field is useful for resuming the outer loop. It can also be used to set the state to `unit`, which would allow the loop to change states without having to resort to union types.
 
-Here is how to apply the loop.
+First a utility function for reversing a tuple is needed. This is standard fare for functional programmers and closely mirrors how one would reverse a list in ML styled languages.
 
 ```
-...
+// Reverses a tuple
+inl tuple_rev = 
+    inl rec loop state = function
+        | x :: xs -> loop (x :: state) xs
+        | () -> state
+    loop ()
 ```
+
+Here is how to apply the breakable for loop function. The goal is to find the coordinates of "princess". The method is generalized to an arbitrary of number of nested arrays.
+
+```
+// Correct version
+inl rec find_index {next state} = function
+    | ar & @array_is _ -> 
+        inl body {next i} = find_index {next state=i::state} (ar i)
+        for' {from=0; near_to=array_length ar; finally=next; body}
+    | "princess" -> tuple_rev state
+    | _ -> next ()
+
+find_index {state=(); next = inl _ -> failwith (type (dim)) "The princess is in another castle."} ar
+```
+`failwith` unlike in F#, requires the return type in Spiral but otherwise functions the same.
+
+The output once the program is compiled is rather large, but it will be reproduced in bulk as an example this time to show that all the loops are being unfolded correctly.
+```
+type Tuple0 =
+    struct
+    val mem_0: int64
+    val mem_1: int64
+    val mem_2: int64
+    val mem_3: int64
+    new(arg_mem_0, arg_mem_1, arg_mem_2, arg_mem_3) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2; mem_3 = arg_mem_3}
+    end
+let rec method_3((var_0: ((((string []) []) []) [])), (var_1: int64)): unit =
+    let (var_2: bool) = (var_1 < 4L)
+    if var_2 then
+        let (var_3: int64) = (var_1 + 1L)
+        let (var_8: (((string []) []) [])) = Array.zeroCreate<((string []) [])> (System.Convert.ToInt32(4L))
+        let (var_9: int64) = 0L
+        method_2((var_8: (((string []) []) [])), (var_9: int64))
+        var_0.[int32 var_1] <- var_8
+        method_3((var_0: ((((string []) []) []) [])), (var_3: int64))
+    else
+        ()
+and method_4((var_0: ((((string []) []) []) [])), (var_1: int64), (var_2: int64)): Tuple0 =
+    let (var_3: bool) = (var_2 < var_1)
+    if var_3 then
+        let (var_4: (((string []) []) [])) = var_0.[int32 var_2]
+        let (var_5: int64) = var_4.LongLength
+        let (var_6: int64) = 0L
+        method_5((var_4: (((string []) []) [])), (var_2: int64), (var_5: int64), (var_0: ((((string []) []) []) [])), (var_1: int64), (var_6: int64))
+    else
+        (failwith "The princess is in another castle.")
+and method_2((var_0: (((string []) []) [])), (var_1: int64)): unit =
+    let (var_2: bool) = (var_1 < 4L)
+    if var_2 then
+        let (var_3: int64) = (var_1 + 1L)
+        let (var_6: ((string []) [])) = Array.zeroCreate<(string [])> (System.Convert.ToInt32(4L))
+        let (var_7: int64) = 0L
+        method_1((var_6: ((string []) [])), (var_7: int64))
+        var_0.[int32 var_1] <- var_6
+        method_2((var_0: (((string []) []) [])), (var_3: int64))
+    else
+        ()
+and method_5((var_0: (((string []) []) [])), (var_1: int64), (var_2: int64), (var_3: ((((string []) []) []) [])), (var_4: int64), (var_5: int64)): Tuple0 =
+    let (var_6: bool) = (var_5 < var_2)
+    if var_6 then
+        let (var_7: ((string []) [])) = var_0.[int32 var_5]
+        let (var_8: int64) = var_7.LongLength
+        let (var_9: int64) = 0L
+        method_6((var_7: ((string []) [])), (var_5: int64), (var_1: int64), (var_8: int64), (var_0: (((string []) []) [])), (var_2: int64), (var_3: ((((string []) []) []) [])), (var_4: int64), (var_9: int64))
+    else
+        let (var_11: int64) = (var_1 + 1L)
+        method_4((var_3: ((((string []) []) []) [])), (var_4: int64), (var_11: int64))
+and method_1((var_0: ((string []) [])), (var_1: int64)): unit =
+    let (var_2: bool) = (var_1 < 4L)
+    if var_2 then
+        let (var_3: int64) = (var_1 + 1L)
+        let (var_4: (string [])) = Array.zeroCreate<string> (System.Convert.ToInt32(4L))
+        let (var_5: int64) = 0L
+        method_0((var_4: (string [])), (var_5: int64))
+        var_0.[int32 var_1] <- var_4
+        method_1((var_0: ((string []) [])), (var_3: int64))
+    else
+        ()
+and method_6((var_0: ((string []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: (((string []) []) [])), (var_5: int64), (var_6: ((((string []) []) []) [])), (var_7: int64), (var_8: int64)): Tuple0 =
+    let (var_9: bool) = (var_8 < var_3)
+    if var_9 then
+        let (var_10: (string [])) = var_0.[int32 var_8]
+        let (var_11: int64) = var_10.LongLength
+        let (var_12: int64) = 0L
+        method_7((var_10: (string [])), (var_8: int64), (var_1: int64), (var_2: int64), (var_11: int64), (var_0: ((string []) [])), (var_3: int64), (var_4: (((string []) []) [])), (var_5: int64), (var_6: ((((string []) []) []) [])), (var_7: int64), (var_12: int64))
+    else
+        let (var_14: int64) = (var_1 + 1L)
+        method_5((var_4: (((string []) []) [])), (var_2: int64), (var_5: int64), (var_6: ((((string []) []) []) [])), (var_7: int64), (var_14: int64))
+and method_0((var_0: (string [])), (var_1: int64)): unit =
+    let (var_2: bool) = (var_1 < 4L)
+    if var_2 then
+        let (var_3: int64) = (var_1 + 1L)
+        var_0.[int32 var_1] <- ""
+        method_0((var_0: (string [])), (var_3: int64))
+    else
+        ()
+and method_7((var_0: (string [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: ((string []) [])), (var_6: int64), (var_7: (((string []) []) [])), (var_8: int64), (var_9: ((((string []) []) []) [])), (var_10: int64), (var_11: int64)): Tuple0 =
+    let (var_12: bool) = (var_11 < var_4)
+    if var_12 then
+        let (var_13: string) = var_0.[int32 var_11]
+        let (var_14: bool) = (var_13 = "princess")
+        if var_14 then
+            Tuple0(var_3, var_2, var_1, var_11)
+        else
+            let (var_15: int64) = (var_11 + 1L)
+            method_7((var_0: (string [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: ((string []) [])), (var_6: int64), (var_7: (((string []) []) [])), (var_8: int64), (var_9: ((((string []) []) []) [])), (var_10: int64), (var_15: int64))
+    else
+        let (var_18: int64) = (var_1 + 1L)
+        method_6((var_5: ((string []) [])), (var_2: int64), (var_3: int64), (var_6: int64), (var_7: (((string []) []) [])), (var_8: int64), (var_9: ((((string []) []) []) [])), (var_10: int64), (var_18: int64))
+let (var_6: ((((string []) []) []) [])) = Array.zeroCreate<(((string []) []) [])> (System.Convert.ToInt32(4L))
+let (var_7: int64) = 0L
+method_3((var_6: ((((string []) []) []) [])), (var_7: int64))
+let (var_8: (((string []) []) [])) = var_6.[int32 0L]
+let (var_9: ((string []) [])) = var_8.[int32 0L]
+let (var_10: (string [])) = var_9.[int32 0L]
+var_10.[int32 2L] <- "princess"
+let (var_11: int64) = var_6.LongLength
+let (var_12: int64) = 0L
+method_4((var_6: ((((string []) []) []) [])), (var_11: int64), (var_12: int64))
+```
+The continuation passing style is the key to a significant amount of abstractive power. It is difficult to understand in terms of what the program does, instead what is needed is to focus on what the program is.
+
+There are numerous ways of writing `find_index` incorrectly that would not get immediately caught by the type system.
+
+1) Forgetting to pass in the array.
+```
+...
+find_index {state=(); next = inl _ -> failwith (type (dim)) "The princess is in another castle."}
+```
+```
+...
+method_3((var_6: ((((string []) []) []) [])), (var_7: int64))
+let (var_8: (((string []) []) [])) = var_6.[int32 0L]
+let (var_9: ((string []) [])) = var_8.[int32 0L]
+let (var_10: (string [])) = var_9.[int32 0L]
+var_10.[int32 2L] <- "princess"
+(Env7((Env4((Env3((Env2((Env1((Env0(naked_type (*bool*))))))))))), (Env3((Env2((Env1((Env0(naked_type (*bool*))))))))), (Env6(Tuple5(4L, 4L, 4L, 4L)))))
+```
+Seeing a dozen nested `Env`s along with a naked type in the generated code is almost always a sign of forgetting to apply an argument somewhere.
+
+2) Passing the state in incorrectly in the else branch.
+```
+...
+| _ -> next state
+```
+This would still have it compile and run correctly, but the code would have 4 extra useless specializations. It won't be shown here.
+
+3) Passing the state even more incorrectly.
+
+```
+inl rec find_index {next state} = function
+    | ar & @array_is _ -> 
+        inl body {next state i} = find_index {next state=i::state} (ar i)
+        for' {from=0; near_to=array_length ar; state finally=next; body}
+    | "princess" -> tuple_rev state
+    | _ -> next state
+```
+
+This would cause it to diverge as it would continually append to `state` inside the loop.
+
+In general though, programs written in a higher order style tend to work well after they typecheck much like in F# despite the language feeling more dynamic. And it is not necessarily the case that Spiral is less typesafe than F#. 
+
+In fact it is the opposite for tasks that require union types which need to be brought out due to the language having insufficient polymorphism in its type system otherwise. Many tasks that would otherwise require writing an interpreter in other languages can be done at compile time in Spiral.
+
+Loop unrolling is just one of those examples.
+
+Before the section on Loops can be finished there is just one bit of cleaning up left to do. That would be to merge `for` and `for'` into one function. Here is the full example in its completed form. The new loops are going to go into the standard library.
+
+```
+inl for_template kind {d with body} =
+    inl finally =
+        match d with
+        | {finally} -> finally
+        | _ -> id
+
+    inl state = 
+        match d with
+        | {state} -> state
+        | _ -> ()
+
+    inl check =
+        match d with
+        | {near_to} from -> from < near_to 
+        | {to} from -> from <= to
+        | {down_to} from -> from >= down_to
+        | {near_down_to} from -> from > near_down_to
+        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` needs be present."
+
+    inl from =
+        match d with
+        | {from=(!dyn from) ^ static_from=from} -> from
+        | _ -> error_type "Only one of `from` and `static_from` field to loop needs to be present."
+
+    inl to =
+        match d with
+        | {(to ^ near_to ^ down_to ^ near_down_to)=to} -> to
+        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` is allowed."
+
+    inl by =
+        match d with
+        | {by} -> by
+        | _ -> 1
+
+    inl rec loop {from state} =
+        inl body {from} = 
+            if check from then 
+                match kind with
+                | .Standard ->
+                    loop {from=from+by; state=body {state i=from}}
+                | .CPSd ->
+                    inl next state = loop {state from=from+by}
+                    body {next state i=from}
+            else finally state
+
+        if Tuple.forall lit_is (from,to,by) then body {from}
+        else 
+            inl from = dyn from
+            join (body {from} : finally state)
+
+    loop {from state}
+
+inl for' = for_template .CPSd
+inl for = for_template .Standard
+
+inl array_init near_to f =
+    assert (near_to >= 0) "The input to init needs to be greater or equal to 0."
+    // Somewhat of an ugly practice in order to infer the type in a language that doesn't support inference. 
+    // For large functions, it is recomended to put them in a join point otherwise compile times could 
+    // become exponential if the function contains branches.
+    // For a simple map for an array like here, it does not matter.
+    inl typ = type (f 0) 
+    inl ar = array_create typ near_to
+    for {from=0; near_to; body=inl {i} -> ar i <- f i}
+    ar
+
+inl rec zeroes = function
+    | x :: x' -> array_init x (inl _ -> zeroes x')
+    | () -> ""
+
+inl dim = (4,4,4,4)
+inl ar = zeroes dim
+ar 0 0 0 2 <- "princess"
+
+// Reverses a tuple
+inl tuple_rev = 
+    inl rec loop state = function
+        | x :: xs -> loop (x :: state) xs
+        | () -> state
+    loop ()
+
+// Correct version
+inl rec find_index {next state} = function
+    | ar & @array_is _ -> 
+        inl body {next i} = find_index {next state=i::state} (ar i)
+        for' {from=0; near_to=array_length ar; finally=next; body}
+    | "princess" -> tuple_rev state
+    | _ -> next ()
+
+find_index {state=(); next = inl _ -> failwith (type (dim)) "The princess is in another castle."} ar
+```
+
+There was a lot of material covered here. The logic of `find_index` might seem confusing to the uninitiated, and would no doubt be to the author had he encountered this over a year ago. But ultimately the function is just 5 lines long and there is no particular magic about it.
+
+Seeing similar examples will no doubt help and there will be a significant number of them throughout these tutorials.
