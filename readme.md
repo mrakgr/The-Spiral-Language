@@ -11,7 +11,7 @@
     - [Tutorials: Introduction to Spiral](#tutorials-introduction-to-spiral)
         - [0: The way to use the language](#0-the-way-to-use-the-language)
         - [1: Inlinleables, Methods and Join Points](#1-inlinleables-methods-and-join-points)
-            - [Recursion, destructuring and pattern matching](#recursion-destructuring-and-pattern-matching)
+            - [Recursion, Destructuring and Pattern Matching](#recursion-destructuring-and-pattern-matching)
                 - [Join point recursion](#join-point-recursion)
                 - [Term casting of functions](#term-casting-of-functions)
                 - [`<function>` error message](#function-error-message)
@@ -24,6 +24,7 @@
         - [3: Loops and Arrays](#3-loops-and-arrays)
             - [Loops](#loops)
             - [Arrays](#arrays)
+        - [3: Union types and Lists](#3-union-types-and-lists)
 
 <!-- /TOC -->
 
@@ -295,7 +296,7 @@ method_0()
 
 `!` on the left (the pattern) side of the expression is the active pattern unary operator. It takes a function as its first argument, applies the input to it and rebinds the result to second argument of the pattern (in this case `a` and `b` respectively) before the body is evaluated.
 
-#### Recursion, destructuring and pattern matching
+#### Recursion, Destructuring and Pattern Matching
 
 Much like in F#, recursive functions can be defined using `rec`.
 
@@ -362,6 +363,7 @@ let (var_7: int64) = 4L
 let (var_8: int64) = method_1((var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64))
 Tuple0(var_3, var_8)
 ```
+
 While language allow variant arguments, Spiral has the ability to specialize methods to their exact arguments and in combination with destructuring to implement variant arguments in a typesafe manner. 
 
 ```
@@ -391,7 +393,7 @@ let (var_3: int64) = method_1((var_2: int64))
 Tuple0(var_1, var_3)
 ```
 
-By default, in Spiral all the data structures in Spiral are flattened and have their variables tracked individually. As can be seen in the generated code, when a tuple is passed into a function it is not the actual tuple that is being passed into it, but its arguments instead.
+By default, in Spiral tuples and modules are flattened and have their variables tracked individually. As can be seen in the generated code, when a tuple is passed into a function it is not the actual tuple that is being passed into it, but its arguments instead.
 
 The specialization is exact to the structure, not just the types. If literals are being passed through the method call, the method will get specialized to them.
 
@@ -525,7 +527,7 @@ Tuple0(0L, 0.000000, "")
 
 As can be seen, the two generated code fragments are identical. `:` on the pattern side is the type equality operator. It can be invoked outside the pattern using the `eq_type` function.
 
-Like `join`, `type` is a keyword and needs its body to be surrounded by parenthesis.
+`type` is a keyword and needs its body to be surrounded by parenthesis.
 
 The types themselves can do more than be passed around or be matched on.
 
@@ -773,7 +775,7 @@ if dyn true then
 Types in branches of If do not match.
 Got: <function> and <function>
 ```
-If function have same bodies, they can be returned from branches of a dynamic if statement if they also have the same environments.
+If functions have the same bodies, they can be returned from branches of a dynamic if statement if they also have the same environments.
 ```
 if dyn true then
     inl a,b = dyn (1,2)
@@ -967,7 +969,7 @@ let (var_13: int64) = var_11.mem_1
 let (var_14: int64) = var_11.mem_2
 EnvPackedStack3((var_12: int64), (var_13: int64), (var_14: int64))
 ```
-That is the tour of them, but it does not yet demonstrate their true power. The essence of modules when combined with layout types (layout types for short) is that they capture scope.
+That is the tour of them, but it does not yet demonstrate their true power. The essence of modules converted to layout types is that they capture scope.
 ```
 inl npc = 
     {
@@ -1005,7 +1007,7 @@ let (var_10: int64) = 10L
 let (var_11: EnvStack0) = EnvStack0((var_9: int64), (var_10: int64))
 var_3.[int32 1L] <- var_11
 ```
-In layout types, literals and naked types become a part of the bigger type and are tracked at the type level. The individual variables are flattened and the intermediate structures are erased in the generated code, very similarly to how the arguments are handled in join points.
+In layout types, literals and naked types become a part of the bigger type and are tracked at the type level. The individual variables are flattened and the intermediate structures are erased in the generated code, very similarly to how the arguments are handled at join points.
 
 The `packed_stack` layout is just there in case it might be necessary to pass a tuple over to the Cuda side. In most cases though, it makes more sense to use the default (non)layout and pass them as individual arguments.
 
@@ -1172,7 +1174,7 @@ let (var_5: (int32 -> (int32 -> int32))) = method_0
 let (var_6: int32) = Array.fold var_5 0 var_3
 System.Console.WriteLine(var_6)
 ```
-`closure_of` is an expanded version of `term_cast` that instead of converting by applying using the input argument converts a staged type level function to a term level using a target type thereby unstaging it. Term level functions have their own dedicated pattern for destructuring their types.
+`closure_of` is an expanded version of `term_cast` that instead of converting by applying using the input argument converts a (staged) type level function to a term level using a target type thereby unstaging it. Term level functions have their own dedicated pattern for destructuring their types.
 
 Naked types for them can be constructed with the `=>` operator. The `error_type` raises a type error with the specified message whenever it is evaluated.
 
@@ -1217,15 +1219,13 @@ Array.foldl (+) (dyn 0i32) b |> writeline
 ```
 The above is roughly how the program would be unfolded after parsing, but before typing and partial evaluation. Modules are unfolded in a flattened manner in the sequence they are input. Duplicate modules are ignored.
 
-Much like F#, Spiral imposes a top down ordering of the program and modules cannot refer to each other recursively. If that functionality is required, it can be achieved using join points and higher order functions, but in general it should not be necessary.
+Much like F#, Spiral imposes a top down ordering of the program and modules cannot refer to each other recursively. If that functionality is required, it can be achieved using join points, but in general it should not be necessary.
 
 This kind of constrained architecture cuts down on circular referencing and encourages purposeful laying out of programs.
 
 Spiral libraries are (to be) covered in depth in the user guide and the reference.
 
 ### 3: Loops and Arrays
-
-(Work in progress)
 
 #### Loops
 
@@ -1428,7 +1428,7 @@ power 2 3
 ```
 The above works, but various criticisms of the program could be made. For one, is it really necessary to give `by` every time? Vast majority of loops will in fact have it as `1` so if it is not given it makes sense to use that default instead of giving a type error.
 
-Speaking of defaults, a decent guess is that most loops do are not intended to be unrolled and that a user is more likely to just forget to `dyn` the `from` field by an accident.
+Speaking of defaults, a decent guess would be that most loops are not intended to be unrolled and that a user is more likely to just forget to `dyn` the `from` field by accident.
 
 ```
 open Console
@@ -1563,7 +1563,7 @@ method_0((var_0: int64), (var_1: int64))
 ```
 The module member queries are all done statically and so maximum polymorphism is attained. The above program also demonstrates why lexical scope is so great.
 
-The above is starting to near the functionality of the for function in the actual library. To make it more professional, rather than returning a pattern miss on when a field is missed, it would be better to tell the user what the problem is.
+The above is starting to near the functionality of the `for` function in the actual library. To make it more professional, rather than returning a pattern miss error on when a field is missed, it would be better to tell the user what the problem is.
 
 ```
 open Console
@@ -1851,7 +1851,7 @@ Tuple0(var_0, var_1)
 ```
 Anything in Spiral can be passed as an argument, and since that includes functions it also applies to partial active patterns.
 
-The output of the compiled program is rather large, but it will be reproduced in bulk as an example this time to show that all the loops are being unfolded correctly.
+The output of the compiled program is rather large, but it will be reproduced in bulk as an example this time to show that all the loops are being unfolded correctly into tail recursive functions.
 ```
 type Tuple0 =
     struct
@@ -2097,7 +2097,7 @@ inl rec find_index {next state} = function
 find_index {state=(); next = inl _ -> failwith (type (dim)) "The princess is in another castle."} ar
 ```
 
-There was a lot of material covered here. The logic of `find_index` might seem confusing to the uninitiated, and would no doubt be to the author had he encountered this over a year ago. But ultimately the function is just 5 lines long and there is nothing particular magical about it; the function is fully explicit. Thinking about it for a long time will help and so will mentally rehearsing the motions until the pieces fall into place.
+There was a lot of material covered here. The logic of `find_index` as well as the other loop unrolling functions might seem confusing to the uninitiated, and would no doubt be to the author had he encountered this over a year ago. But ultimately the function is just 5 lines long and there is nothing particular magical about it; the function is fully explicit. Thinking about it for a long time will help and so will mentally rehearsing the motions until the pieces fall into place.
 
 One useful tool in gaining understanding is trying to manually expand the loop. Here is what happens if `find_index` is expanded a single step of recursion.
 
@@ -2185,4 +2185,113 @@ inl init =
     | n -> body false n
 ```
 
-Here is init
+`init` here is a example how the architecture of a Spiral function differs from that in F#. The interesting part is that `.static` can be passed into it as an optional argument that will allow it to be run statically. Otherwise this is the same as the `init` from the previous section so no demonstration of it should be necessary.
+
+```
+/// Builds a new array that contains elements of a given array.
+/// a array -> a array
+met copy ar = init (array_length ar) ar
+
+/// Builds a new array whose elements are the result of applying a given function to each of the elements of the array.
+/// (a -> b) -> a array -> a array
+inl map f ar = init (array_length ar) (ar >> f)
+```
+
+`init` is useful as it is easy to derive other functions from it. These two function exactly as in F# and other functional languages.
+
+```
+/// Returns a new array containing only elements of the array for which the predicate function returns `true`.
+/// (a -> bool) -> a array -> a array
+inl filter f ar =
+    inl ar' = array_create ar.elem_type (array_length ar)
+    inl count = foldl (inl s x -> if f x then ar' s <- x; s+1 else s) (dyn 0) ar
+    init count ar'
+```
+
+Being able to apply arrays directly instead of having to index them allows them to be used more like functions. Also worthy of note is the `ar.elem_type`. In Spiral there is not inference, only propagation so the type of an array must be extracted directly. In Spiral, types are first class and can be used as values. This can be exploited to get around the lack of inference in most cases.
+
+Arrays are a simple examples of how types might be held in structures.
+
+Unlike other .NET types, arrays are built into the language directly.
+
+```
+/// Merges all the arrays in a tuple into a single one.
+/// a array tuple -> a array
+inl append l =
+    inl ar' = array_create ((fst l).elem_type) (Tuple.foldl (inl s l -> s + array_length l) 0 l)
+    inl ap s ar = foldl (inl i x -> ar' i <- x; i+1) s ar
+    Tuple.foldl ap (dyn 0) l |> ignore
+    ar'
+```
+
+Like how `init` can match on its first arguments before deciding whether to run statically or not, being able to iterate over tuples in order to merge the arrays is a standard use case for intensional polymorphism.
+
+```
+/// Flattens an array of arrays into a single one.
+/// a array array -> a array
+inl concat ar =
+    inl count = foldl (inl s ar -> s + array_length ar) (dyn 0) ar
+    inl ar' = array_create ar.elem_type.elem_type count
+    (foldl << foldl) (inl i x -> ar' i <- x; i+1) (dyn 0) ar |> ignore
+    ar'
+```
+
+`foldl << foldl` is a good way to compose folds for nested arrays.
+
+Writing functions in this higher order style is the optimal way to program in Spiral. For contrast, here is how `concat` is implemented in F#'s source.
+
+```
+let concatArrays (arrs : 'T[][]) : 'T[] =
+    let mutable acc = 0    
+    for h in arrs do
+        acc <- acc + h.Length        
+        
+    let res = Microsoft.FSharp.Primitives.Basics.Array.zeroCreateUnchecked acc  
+        
+    let mutable j = 0
+    for i = 0 to arrs.Length-1 do     
+        let h = arrs.[i]
+        let len = h.Length
+        Array.Copy(h,0,res,j,len)        
+        j <- j + len
+    res               
+```
+
+It is not quite C, but it is the same style inherited from it. All fast languages tend to regress to that particular kind of programming when performance or just the guarantee of it becomes a necessity.
+
+Even in a pure and lazy language like Haskell, looking under the hood of some of its fast libraries will reveal this and other kinds of regressions.
+
+On the strength of its inlining guarantees, the goal of Spiral is to liberate programmers from that gravitic impulse towards C.
+
+During the last 45 years there have been numerous attempts at bridging the expressiveness of dynamic languages with the performance of C, none of which have borne fruit.
+
+Assuming Spiral can be scaled, it or some other language of similar design with powerful first class types and staging features will finally break beyond the atmosphere to bring light of civilization into the cold, dead space that lies beyond.
+
+The above example is not that bad actually. It is only 12 lines in F# vs 5 in Spiral. It is hardly a reason to create a new language and propose the jettison of parametric polymoprhism.
+
+In the following chapters there will be examples of programs, most notably of Spiral's tensors, whose functionalities have such requirements that would pretty much break any existing language.
+
+The next two functions are all that remains of the module.
+
+```
+/// Tests if all the elements of the array satisfy the given predicate.
+/// (a -> bool) -> a array -> bool
+inl forall f ar = for' {from=0; near_to=array_length ar; state=true; body = inl {next state i} -> f (ar i) && next state}
+
+/// Tests if any the element of the array satisfies the given predicate.
+/// (a -> bool) -> a array -> bool
+inl exists f ar = for' {from=0; near_to=array_length ar; state=false; body = inl {next state i} -> f (ar i) || next state}
+
+{empty singleton foldl foldr init copy map filter append concat forall exists} 
+|> stack
+    """) |> module_
+```
+
+On the F# side it is necessary to wrap the module in a type using the `module_` function. That `|> stack` at the end is not necessary and only has something to do with the way the language is currently implemented. Omitting the conversion of the module to a layout type would not break anything, at most there might be a minor compilation slowdown. More details are (to be) provided in the user guide.
+
+Modules with no free variables such as the `Array` module whose fields are entirely made of combinators always get converted into naked types rather than variables and hence have no overhead.
+
+### 3: Union types and Lists
+
+(Work in progress)
+

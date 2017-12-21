@@ -438,14 +438,14 @@ inl map f ar = init (array_length ar) (ar >> f)
 /// Returns a new array containing only elements of the array for which the predicate function returns `true`.
 /// (a -> bool) -> a array -> a array
 inl filter f ar =
-    inl ar' = array_create (ar.elem_type) (array_length ar)
+    inl ar' = array_create ar.elem_type (array_length ar)
     inl count = foldl (inl s x -> if f x then ar' s <- x; s+1 else s) (dyn 0) ar
     init count ar'
 
 /// Merges all the arrays in a tuple into a single one.
 /// a array tuple -> a array
 inl append l =
-    inl ar' = array_create ((fst l).elem_type) (Tuple.foldl (inl s l -> s + array_length l) 0 l)
+    inl ar' = array_create (fst l).elem_type (Tuple.foldl (inl s l -> s + array_length l) 0 l)
     inl ap s ar = foldl (inl i x -> ar' i <- x; i+1) s ar
     Tuple.foldl ap (dyn 0) l |> ignore
     ar'
@@ -454,7 +454,7 @@ inl append l =
 /// a array array -> a array
 inl concat ar =
     inl count = foldl (inl s ar -> s + array_length ar) (dyn 0) ar
-    inl ar' = array_create (ar.elem_type.elem_type) count
+    inl ar' = array_create ar.elem_type.elem_type count
     (foldl << foldl) (inl i x -> ar' i <- x; i+1) (dyn 0) ar |> ignore
     ar'
 
