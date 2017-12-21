@@ -18,15 +18,15 @@ and Env1 =
     new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
     end
 let rec method_0((var_0: int64), (var_1: int64), (var_2: int64)): Env0 =
-    let (var_3: bool) = (var_1 <= var_0)
+    let (var_3: bool) = (var_2 <= var_0)
     if var_3 then
         let (var_4: int64) = 999L
-        let (var_5: Env0) = method_1((var_1: int64), (var_4: int64), (var_2: int64))
+        let (var_5: Env0) = method_1((var_2: int64), (var_4: int64), (var_1: int64))
         let (var_6: int64) = var_5.mem_0
-        let (var_7: int64) = (var_1 + 1L)
-        method_0((var_0: int64), (var_7: int64), (var_6: int64))
+        let (var_7: int64) = (var_2 + 1L)
+        method_0((var_0: int64), (var_6: int64), (var_7: int64))
     else
-        (Env0(var_2))
+        (Env0(var_1))
 and method_1((var_0: int64), (var_1: int64), (var_2: int64)): Env0 =
     let (var_3: bool) = (var_0 <= var_1)
     if var_3 then
@@ -48,7 +48,7 @@ and method_1((var_0: int64), (var_1: int64), (var_2: int64)): Env0 =
                 (Env0(var_2))
         let (var_13: int64) = var_12.mem_0
         let (var_14: int64) = (var_0 + 1L)
-        method_3((var_0: int64), (var_1: int64), (var_14: int64), (var_13: int64))
+        method_3((var_0: int64), (var_1: int64), (var_13: int64), (var_14: int64))
     else
         (Env0(var_2))
 and method_2((var_0: int64), (var_1: int64)): Env1 =
@@ -62,9 +62,9 @@ and method_2((var_0: int64), (var_1: int64)): Env1 =
     else
         (Env1(var_0, var_1))
 and method_3((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64)): Env0 =
-    let (var_4: bool) = (var_2 <= var_1)
+    let (var_4: bool) = (var_3 <= var_1)
     if var_4 then
-        let (var_5: int64) = (var_0 * var_2)
+        let (var_5: int64) = (var_0 * var_3)
         let (var_6: int64) = 0L
         let (var_7: Env1) = method_2((var_5: int64), (var_6: int64))
         let (var_8: int64) = var_7.mem_0
@@ -72,23 +72,23 @@ and method_3((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64)): En
         let (var_10: bool) = (var_5 = var_9)
         let (var_12: bool) =
             if var_10 then
-                (var_3 < var_5)
+                (var_2 < var_5)
             else
                 false
         let (var_13: Env0) =
             if var_12 then
                 (Env0(var_5))
             else
-                (Env0(var_3))
+                (Env0(var_2))
         let (var_14: int64) = var_13.mem_0
-        let (var_15: int64) = (var_2 + 1L)
-        method_3((var_0: int64), (var_1: int64), (var_15: int64), (var_14: int64))
+        let (var_15: int64) = (var_3 + 1L)
+        method_3((var_0: int64), (var_1: int64), (var_14: int64), (var_15: int64))
     else
-        (Env0(var_3))
+        (Env0(var_2))
 let (var_0: int64) = 100L
 let (var_1: int64) = 999L
 let (var_2: int64) = 0L
-let (var_3: Env0) = method_0((var_1: int64), (var_0: int64), (var_2: int64))
+let (var_3: Env0) = method_0((var_1: int64), (var_2: int64), (var_0: int64))
 let (var_4: int64) = var_3.mem_0
 let (var_5: string) = System.String.Format("{0}",var_4)
 System.Console.WriteLine(var_5)

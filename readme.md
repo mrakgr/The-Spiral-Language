@@ -1818,7 +1818,7 @@ find_index {state=(); next = inl _ -> failwith (type (dim)) "The princess is in 
 ```
 `failwith` unlike in F#, requires the return type in Spiral but otherwise functions the same.
 
-The `@` operator on the pattern side is a partial active pattern. Unlike F#'s which expect an option type, what `@` takes in is a function with three arguments in the `inl arg on_fail on_succ -> ...` form. `on_fail` and `on_succ` are to be called in tail position and possibly with join points around them when done so multiple times.
+The `@` operator on the pattern side is a partial active pattern. Unlike F#'s which expect an option type, what `@` takes in is a function with three arguments in the `inl arg on_fail on_succ -> ...` form. `on_fail` and `on_succ` are to be called in tail position and possibly with join points around them when done so multiple times. They represent pattern failure and pattern success respectively.
 
 Here is a small example.
 
@@ -1980,7 +1980,7 @@ Seeing a dozen nested `Env`s along with a naked type in the generated code is al
 ...
 | _ -> next state
 ```
-This would still have it compile and run correctly, but the code would have 4 extra useless specializations. It won't be shown here.
+This would still have it compile and run correctly, but the code would have 40 lines more of useless specializations. It won't be shown here.
 
 3) Passing the state even more incorrectly.
 
@@ -1997,11 +1997,11 @@ This would cause it to diverge as it would continually append to `state` inside 
 
 In general though, programs written in a higher order style tend to work well after they typecheck much like in F# despite the language feeling more dynamic. And it is not necessarily the case that Spiral is less typesafe than F#. 
 
-In fact it is the opposite for tasks that require union types which need to be brought out due to the language having insufficient polymorphism in its type system otherwise. Many tasks that would otherwise require writing an interpreter in other languages can be done at compile time in Spiral.
+In fact it is the opposite for tasks that require union types due to the language having insufficient polymorphism in its type system. Many tasks that would otherwise require writing an interpreter in other languages can be done at compile time in Spiral.
 
 Loop unrolling is just one of those examples.
 
-Before the section on Loops can be finished there is just one bit of cleaning up left to do. That would be to merge `for` and `for'` into one function. Here is the full example in its completed form. The new loops are going to go into the standard library.
+Before the section on Loops can be finished there is just one bit of cleaning up left to do. That would be to merge `for` and `for'` into one function. Here is the full example in its completed form with a last minute change to `by`. The new loops are going to go into the standard library.
 
 ```
 inl for_template kind {d with body} =
@@ -2036,7 +2036,8 @@ inl for_template kind {d with body} =
     inl by =
         match d with
         | {by} -> by
-        | _ -> 1
+        | {to | near_to} -> 1
+        | {down_to | near_down_to} -> -1
 
     inl rec loop {from state} =
         inl body {from} = 
@@ -2096,7 +2097,7 @@ inl rec find_index {next state} = function
 find_index {state=(); next = inl _ -> failwith (type (dim)) "The princess is in another castle."} ar
 ```
 
-There was a lot of material covered here. The logic of `find_index` might seem confusing to the uninitiated, and would no doubt be to the author had he encountered this over a year ago. But ultimately the function is just 5 lines long and there is nothing particular magic about it; the function is fully explicit. Thinking about it for a long time will help and so will mentally rehearsing the motions until the pieces fall into place.
+There was a lot of material covered here. The logic of `find_index` might seem confusing to the uninitiated, and would no doubt be to the author had he encountered this over a year ago. But ultimately the function is just 5 lines long and there is nothing particular magical about it; the function is fully explicit. Thinking about it for a long time will help and so will mentally rehearsing the motions until the pieces fall into place.
 
 One useful tool in gaining understanding is trying to manually expand the loop. Here is what happens if `find_index` is expanded a single step of recursion.
 
@@ -2132,4 +2133,56 @@ Seeing similar examples of this pattern will no doubt help and there will be a s
 
 #### Arrays
 
+Compared to the intensity of the previous section, this one should be a breeze in comparison. The most important of the array functions `init` was already introduced. 
+
+```
+let array =
+    (
+    "Array",[tuple;loops],"The array module",
+    """
+open Loops
+
+/// Creates an empty array with the given type.
+/// t -> t array
+inl empty t = array_create t 0
+
+/// Creates a singleton array with the given element.
+/// x -> t array
+inl singleton x =
+    inl ar = array_create x 1
+    ar 0 <- x
+    ar
+
+/// Applies a function to each elements of the collection, threading an accumulator argument through the computation.
+/// If the input function is f and the elements are i0..iN then computes f..(f i0 s)..iN.
+/// (s -> a -> s) -> s -> a array -> s
+inl foldl f state ar = for {from=0; near_to=array_length ar; state; body=inl {state i} -> f state (ar i)}
+
+/// Applies a function to each element of the array, threading an accumulator argument through the computation. 
+/// If the input function is f and the elements are i0...iN then computes f i0 (...(f iN s)).
+/// (a -> s -> a) -> a array -> s -> s
+inl foldr f ar state = for {from=array_length ar-1; down_to=0; state; body=inl {state i} -> f (ar i) state}
 ...
+```
+
+Here are some of the basic ones. Having a loop as a part of the standard library makes it really easy to implement the two `fold` functions. Unlike in F# where `foldl` and `foldr` are `fold` and `foldBack`, here the Haskell naming convention has been followed for no special reason apart from `foldr` being more elegant to write than `foldBack`.
+
+```
+// Creates an array given a dimension and a generator function to compute the elements.
+// ?{.is_static} -> int -> (int -> a) -> a array
+inl init = 
+    inl body is_static n f =
+        assert (n >= 0) "The input to init needs to be greater or equal to 0."
+        inl typ = type (f 0)
+        inl ar = array_create typ n
+        inl d = 
+            inl d = {near_to=n; body=inl {i} -> ar i <- f i}
+            if is_static then {d with from = 0} else {d with static_from = 0}
+        for d
+        ar
+    function
+    | .static -> body true
+    | n -> body false n
+```
+
+Here is init

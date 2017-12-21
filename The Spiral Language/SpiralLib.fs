@@ -202,37 +202,61 @@ inl rec while {cond body state} as d =
     | {static} -> loop_body d
     | _ -> (met _ -> loop_body d : state) ()
 
-inl for_template kind =
-    inl rec loop {from (near_to ^ to)=to by} as d =
-        inl loop_body {check from by state body finally} as d =
+inl for_template kind {d with body} =
+    inl finally =
+        match d with
+        | {finally} -> finally
+        | _ -> id
+
+    inl state = 
+        match d with
+        | {state} -> state
+        | _ -> ()
+
+    inl check =
+        match d with
+        | {near_to} from -> from < near_to 
+        | {to} from -> from <= to
+        | {down_to} from -> from >= down_to
+        | {near_down_to} from -> from > near_down_to
+        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` needs be present."
+
+    inl from =
+        match d with
+        | {from=(!dyn from) ^ static_from=from} -> from
+        | _ -> error_type "Only one of `from` and `static_from` field to loop needs to be present."
+
+    inl to =
+        match d with
+        | {(to ^ near_to ^ down_to ^ near_down_to)=to} -> to
+        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` is allowed."
+
+    inl by =
+        match d with
+        | {by} -> by
+        | {to | near_to} -> 1
+        | {down_to | near_down_to} -> -1
+
+    inl rec loop {from state} =
+        inl body {from} = 
             if check from then 
                 match kind with
-                | .Navigable ->
-                    inl d = {d without state}
-                    inl next state = loop {d with state from=from+by}
-                    body {next state i=from}
                 | .Standard ->
-                    loop {d with state=body {state i=from}; from=from+by}
+                    loop {state=body {state i=from}; from=from+by}
+                | .CPSd ->
+                    inl next state = loop {state from=from+by}
+                    body {next state i=from}
             else finally state
-            : finally state
 
-        match d with
-        | {static} when Tuple.forall lit_is (from,to,by) -> loop_body d
-        | _ -> (met d -> loop_body d) {d with from=dyn from}
+        if Tuple.forall lit_is (from,to,by) then body {from}
+        else 
+            inl from = dyn from
+            join (body {from} : finally state)
 
-    function | {static_from} as d -> {d with static=()} | d -> d
-    >> function | {from ^ static_from=from} as d -> {d with from without static_from} | d -> error_type "The from field to loop is missing."
-    >> function | {to ^ near_to} as d -> d | d -> "For loop needs exlusively to or near_to fields."
-    >> function | {body} as d -> d | d -> error_type "The loop body is missing."
-    >> function | {state} as d -> d | d -> {d with state=()}
-    >> function | {by} as d -> d | {down} -> {d with by= -1} | d -> {d with by=1}
-    >> function | {finally} as d -> d | d -> {d with finally=id}
-    >> function 
-        | {down} as d -> loop {d with check=match d with | {to} -> inl from -> from >= to | {near_to} -> inl from -> from > near_to}
-        | d -> loop {d with check=match d with | {to} -> inl from -> from <= to | {near_to} -> inl from -> from < near_to}
+    loop {from state}
 
+inl for' = for_template .CPSd
 inl for = for_template .Standard
-inl for' = for_template .Navigable
 
 {for for' while}
     """) |> module_
@@ -362,54 +386,84 @@ inl assert c msg =
 
 let array =
     (
-    "Array",[tuple;loops;extern_],"The array module",
+    "Array",[tuple;loops],"The array module",
     """
 open Loops
 
+/// Creates an empty array with the given type.
+/// t -> t array
 inl empty t = array_create t 0
+
+/// Creates a singleton array with the given element.
+/// x -> t array
 inl singleton x =
     inl ar = array_create x 1
     ar 0 <- x
     ar
 
+/// Applies a function to each elements of the collection, threading an accumulator argument through the computation.
+/// If the input function is f and the elements are i0..iN then computes f..(f i0 s)..iN.
+/// (s -> a -> s) -> s -> a array -> s
 inl foldl f state ar = for {from=0; near_to=array_length ar; state; body=inl {state i} -> f state (ar i)}
-inl foldr f ar state = for {from=array_length ar-1; down=(); to=0; by= -1; state; body=inl {state i} -> f (ar i) state}
 
+/// Applies a function to each element of the array, threading an accumulator argument through the computation. 
+/// If the input function is f and the elements are i0...iN then computes f i0 (...(f iN s)).
+/// (a -> s -> a) -> a array -> s -> s
+inl foldr f ar state = for {from=array_length ar-1; down_to=0; state; body=inl {state i} -> f (ar i) state}
+
+// Creates an array given a dimension and a generator function to compute the elements.
+// ?{.is_static} -> int -> (int -> a) -> a array
 inl init = 
     inl body is_static n f =
         assert (n >= 0) "The input to init needs to be greater or equal to 0."
         inl typ = type (f 0)
         inl ar = array_create typ n
         inl d = 
-            inl d = {from=0; near_to=n; body=inl {i} -> ar i <- f i}
-            if is_static then {d with static = ()} else d
+            inl d = {near_to=n; body=inl {i} -> ar i <- f i}
+            if is_static then {d with static_from = 0} else {d with from = 0}
         for d
         ar
     function
-    | .static n f -> body true n f
-    | n f -> body false n f
+    | .static -> body true
+    | n -> body false n
 
+/// Builds a new array that contains elements of a given array.
+/// a array -> a array
 met copy ar = init (array_length ar) ar
 
+/// Builds a new array whose elements are the result of applying a given function to each of the elements of the array.
+/// (a -> b) -> a array -> a array
 inl map f ar = init (array_length ar) (ar >> f)
+
+/// Returns a new array containing only elements of the array for which the predicate function returns `true`.
+/// (a -> bool) -> a array -> a array
 inl filter f ar =
     inl ar' = array_create (ar.elem_type) (array_length ar)
     inl count = foldl (inl s x -> if f x then ar' s <- x; s+1 else s) (dyn 0) ar
     init count ar'
 
+/// Merges all the arrays in a tuple into a single one.
+/// a array tuple -> a array
 inl append l =
     inl ar' = array_create ((fst l).elem_type) (Tuple.foldl (inl s l -> s + array_length l) 0 l)
     inl ap s ar = foldl (inl i x -> ar' i <- x; i+1) s ar
     Tuple.foldl ap (dyn 0) l |> ignore
     ar'
 
+/// Flattens an array of arrays into a single one.
+/// a array array -> a array
 inl concat ar =
     inl count = foldl (inl s ar -> s + array_length ar) (dyn 0) ar
     inl ar' = array_create (ar.elem_type.elem_type) count
     (foldl << foldl) (inl i x -> ar' i <- x; i+1) (dyn 0) ar |> ignore
     ar'
 
+/// Tests if all the elements of the array satisfy the given predicate.
+/// (a -> bool) -> a array -> bool
 inl forall f ar = for' {from=0; near_to=array_length ar; state=true; body = inl {next state i} -> f (ar i) && next state}
+
+/// Tests if any the element of the array satisfies the given predicate.
+/// (a -> bool) -> a array -> bool
 inl exists f ar = for' {from=0; near_to=array_length ar; state=false; body = inl {next state i} -> f (ar i) || next state}
 
 {empty singleton foldl foldr init copy map filter append concat forall exists} 

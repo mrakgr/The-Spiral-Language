@@ -623,47 +623,47 @@ and method_14((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3:
             method_14((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_7: int64))
         | Union0Case1 ->
             let (var_8: int64) = (var_3 + 1L)
-            method_15((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_8: int64), (var_3: int64))
+            method_15((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_8: int64))
         | Union0Case2 ->
             let (var_9: int64) = (var_3 + 1L)
-            method_36((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_9: int64), (var_3: int64))
+            method_36((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_9: int64))
     else
         let (var_10: int64) = (var_1 + 1L)
         method_13((var_0: ((Union0 []) [])), (var_2: int64), (var_10: int64))
 and method_15((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64)): unit =
-    let (var_5: bool) = (var_3 < var_2)
+    let (var_5: bool) = (var_4 < var_2)
     if var_5 then
         let (var_6: (Union0 [])) = var_0.[int32 var_1]
-        let (var_7: Union0) = var_6.[int32 var_3]
+        let (var_7: Union0) = var_6.[int32 var_4]
         match var_7 with
         | Union0Case0 ->
-            let (var_8: int64) = (var_3 + 1L)
-            method_15((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_8: int64), (var_4: int64))
+            let (var_8: int64) = (var_4 + 1L)
+            method_15((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_8: int64))
         | Union0Case1 ->
-            let (var_9: int64) = (var_3 + 1L)
-            method_15((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_9: int64), (var_3: int64))
+            let (var_9: int64) = (var_4 + 1L)
+            method_15((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_4: int64), (var_9: int64))
         | Union0Case2 ->
-            method_35((var_4: int64), (var_1: int64), (var_2: int64), (var_3: int64))
-    else
-        let (var_10: int64) = (var_1 + 1L)
-        method_16((var_0: ((Union0 []) [])), (var_2: int64), (var_10: int64), (var_1: int64), (var_4: int64))
-and method_36((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64)): unit =
-    let (var_5: bool) = (var_3 < var_2)
-    if var_5 then
-        let (var_6: (Union0 [])) = var_0.[int32 var_1]
-        let (var_7: Union0) = var_6.[int32 var_3]
-        match var_7 with
-        | Union0Case0 ->
-            let (var_8: int64) = (var_3 + 1L)
-            method_36((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_8: int64), (var_4: int64))
-        | Union0Case1 ->
             method_35((var_3: int64), (var_1: int64), (var_2: int64), (var_4: int64))
-        | Union0Case2 ->
-            let (var_9: int64) = (var_3 + 1L)
-            method_36((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_9: int64), (var_3: int64))
     else
         let (var_10: int64) = (var_1 + 1L)
-        method_37((var_0: ((Union0 []) [])), (var_2: int64), (var_10: int64), (var_1: int64), (var_4: int64))
+        method_16((var_0: ((Union0 []) [])), (var_2: int64), (var_1: int64), (var_3: int64), (var_10: int64))
+and method_36((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64)): unit =
+    let (var_5: bool) = (var_4 < var_2)
+    if var_5 then
+        let (var_6: (Union0 [])) = var_0.[int32 var_1]
+        let (var_7: Union0) = var_6.[int32 var_4]
+        match var_7 with
+        | Union0Case0 ->
+            let (var_8: int64) = (var_4 + 1L)
+            method_36((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_8: int64))
+        | Union0Case1 ->
+            method_35((var_4: int64), (var_1: int64), (var_2: int64), (var_3: int64))
+        | Union0Case2 ->
+            let (var_9: int64) = (var_4 + 1L)
+            method_36((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_4: int64), (var_9: int64))
+    else
+        let (var_10: int64) = (var_1 + 1L)
+        method_37((var_0: ((Union0 []) [])), (var_2: int64), (var_1: int64), (var_3: int64), (var_10: int64))
 and method_35((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64)): unit =
     let (var_4: bool) = (var_2 > 0L)
     let (var_5: bool) = (var_4 = false)
@@ -716,17 +716,17 @@ and method_35((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64)): u
     method_22((var_26: EnvHeapMutable2), (var_1: int64), (var_0: int64), (var_27: Rec3))
     method_26((var_20: string), (var_7: (bool [])), (var_2: int64), (var_3: int64), (var_1: int64), (var_26: EnvHeapMutable2), (var_21: string), (var_22: string), (var_19: string))
 and method_16((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64)): unit =
-    let (var_5: bool) = (var_2 < var_1)
+    let (var_5: bool) = (var_4 < var_1)
     if var_5 then
         let (var_6: int64) = 0L
-        method_17((var_0: ((Union0 []) [])), (var_2: int64), (var_1: int64), (var_6: int64), (var_3: int64), (var_4: int64))
+        method_17((var_0: ((Union0 []) [])), (var_4: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_6: int64))
     else
         (failwith "Current position not found.")
 and method_37((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64)): unit =
-    let (var_5: bool) = (var_2 < var_1)
+    let (var_5: bool) = (var_4 < var_1)
     if var_5 then
         let (var_6: int64) = 0L
-        method_38((var_0: ((Union0 []) [])), (var_2: int64), (var_1: int64), (var_6: int64), (var_3: int64), (var_4: int64))
+        method_38((var_0: ((Union0 []) [])), (var_4: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_6: int64))
     else
         (failwith "Current position not found.")
 and method_19((var_0: (bool [])), (var_1: int64), (var_2: int64)): unit =
@@ -778,39 +778,39 @@ and method_26((var_0: string), (var_1: (bool [])), (var_2: int64), (var_3: int64
     let (var_11: Rec3) = var_9.mem_1
     method_28((var_1: (bool [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_8: string), (var_5: EnvHeapMutable2), (var_0: string), (var_6: string), (var_7: string), (var_10: Tuple4), (var_11: Rec3))
 and method_17((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64)): unit =
-    let (var_6: bool) = (var_3 < var_2)
+    let (var_6: bool) = (var_5 < var_2)
     if var_6 then
         let (var_7: (Union0 [])) = var_0.[int32 var_1]
-        let (var_8: Union0) = var_7.[int32 var_3]
+        let (var_8: Union0) = var_7.[int32 var_5]
         match var_8 with
         | Union0Case0 ->
-            let (var_9: int64) = (var_3 + 1L)
-            method_17((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_9: int64), (var_4: int64), (var_5: int64))
+            let (var_9: int64) = (var_5 + 1L)
+            method_17((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_9: int64))
         | Union0Case1 ->
-            let (var_10: int64) = (var_3 + 1L)
-            method_15((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_10: int64), (var_3: int64))
+            let (var_10: int64) = (var_5 + 1L)
+            method_15((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_5: int64), (var_10: int64))
         | Union0Case2 ->
-            method_18((var_5: int64), (var_4: int64), (var_2: int64), (var_3: int64), (var_1: int64))
+            method_18((var_4: int64), (var_3: int64), (var_2: int64), (var_5: int64), (var_1: int64))
     else
         let (var_11: int64) = (var_1 + 1L)
-        method_16((var_0: ((Union0 []) [])), (var_2: int64), (var_11: int64), (var_4: int64), (var_5: int64))
+        method_16((var_0: ((Union0 []) [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_11: int64))
 and method_38((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64)): unit =
-    let (var_6: bool) = (var_3 < var_2)
+    let (var_6: bool) = (var_5 < var_2)
     if var_6 then
         let (var_7: (Union0 [])) = var_0.[int32 var_1]
-        let (var_8: Union0) = var_7.[int32 var_3]
+        let (var_8: Union0) = var_7.[int32 var_5]
         match var_8 with
         | Union0Case0 ->
-            let (var_9: int64) = (var_3 + 1L)
-            method_38((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_9: int64), (var_4: int64), (var_5: int64))
+            let (var_9: int64) = (var_5 + 1L)
+            method_38((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_9: int64))
         | Union0Case1 ->
-            method_18((var_3: int64), (var_1: int64), (var_2: int64), (var_5: int64), (var_4: int64))
+            method_18((var_5: int64), (var_1: int64), (var_2: int64), (var_4: int64), (var_3: int64))
         | Union0Case2 ->
-            let (var_10: int64) = (var_3 + 1L)
-            method_36((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_10: int64), (var_3: int64))
+            let (var_10: int64) = (var_5 + 1L)
+            method_36((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_5: int64), (var_10: int64))
     else
         let (var_11: int64) = (var_1 + 1L)
-        method_37((var_0: ((Union0 []) [])), (var_2: int64), (var_11: int64), (var_4: int64), (var_5: int64))
+        method_37((var_0: ((Union0 []) [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_11: int64))
 and method_20((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64)): unit =
     let (var_4: bool) = (var_3 < var_2)
     if var_4 then

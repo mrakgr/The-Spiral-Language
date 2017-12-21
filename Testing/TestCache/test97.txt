@@ -96,7 +96,7 @@ and method_6((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (int64
         method_7((var_0: System.Text.StringBuilder), (var_11: int64))
         let (var_12: System.Text.StringBuilder) = var_0.Append("[|")
         let (var_13: int64) = 0L
-        let (var_14: string) = method_8((var_0: System.Text.StringBuilder), (var_2: (int64 [])), (var_10: int64), (var_13: int64), (var_1: string))
+        let (var_14: string) = method_8((var_0: System.Text.StringBuilder), (var_2: (int64 [])), (var_10: int64), (var_1: string), (var_13: int64))
         let (var_15: System.Text.StringBuilder) = var_0.AppendLine("|]")
         let (var_16: int64) = (var_4 + 1L)
         method_6((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (int64 [])), (var_3: int64), (var_16: int64))
@@ -127,25 +127,25 @@ and method_7((var_0: System.Text.StringBuilder), (var_1: int64)): unit =
         method_7((var_0: System.Text.StringBuilder), (var_4: int64))
     else
         ()
-and method_8((var_0: System.Text.StringBuilder), (var_1: (int64 [])), (var_2: int64), (var_3: int64), (var_4: string)): string =
-    let (var_5: bool) = (var_3 < 3L)
+and method_8((var_0: System.Text.StringBuilder), (var_1: (int64 [])), (var_2: int64), (var_3: string), (var_4: int64)): string =
+    let (var_5: bool) = (var_4 < 3L)
     if var_5 then
-        let (var_6: System.Text.StringBuilder) = var_0.Append(var_4)
-        let (var_7: bool) = (var_3 >= 0L)
+        let (var_6: System.Text.StringBuilder) = var_0.Append(var_3)
+        let (var_7: bool) = (var_4 >= 0L)
         let (var_8: bool) = (var_7 = false)
         if var_8 then
             (failwith "Argument out of bounds.")
         else
             ()
-        let (var_9: int64) = (var_2 + var_3)
+        let (var_9: int64) = (var_2 + var_4)
         let (var_10: int64) = var_1.[int32 var_9]
         let (var_11: string) = System.String.Format("{0}",var_10)
         let (var_12: System.Text.StringBuilder) = var_0.Append(var_11)
         let (var_13: string) = "; "
-        let (var_14: int64) = (var_3 + 1L)
-        method_8((var_0: System.Text.StringBuilder), (var_1: (int64 [])), (var_2: int64), (var_14: int64), (var_13: string))
+        let (var_14: int64) = (var_4 + 1L)
+        method_8((var_0: System.Text.StringBuilder), (var_1: (int64 [])), (var_2: int64), (var_13: string), (var_14: int64))
     else
-        var_4
+        var_3
 let (var_0: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(120L))
 let (var_1: int64) = 1L
 method_0((var_0: (int64 [])), (var_1: int64))

@@ -336,7 +336,7 @@ and method_11((var_0: (int64 [])), (var_1: int64), (var_2: int64)): int64 =
         let (var_4: int64) = var_0.[int32 var_2]
         let (var_5: int64) = (0L ^^^ var_4)
         let (var_6: int64) = (var_2 + 1L)
-        method_12((var_0: (int64 [])), (var_1: int64), (var_6: int64), (var_5: int64))
+        method_12((var_0: (int64 [])), (var_1: int64), (var_5: int64), (var_6: int64))
     else
         0L
 and method_13((var_0: (int64 [])), (var_1: int64), (var_2: int64)): bool =
@@ -406,14 +406,14 @@ and method_9((var_0: bool), (var_1: (int64 [])), (var_2: int64), (var_3: int64),
         let (var_34: int64) = 0L
         method_10((var_33: int64), (var_1: (int64 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: string), (var_34: int64), (var_9: int64))
 and method_12((var_0: (int64 [])), (var_1: int64), (var_2: int64), (var_3: int64)): int64 =
-    let (var_4: bool) = (var_2 < var_1)
+    let (var_4: bool) = (var_3 < var_1)
     if var_4 then
-        let (var_5: int64) = var_0.[int32 var_2]
-        let (var_6: int64) = (var_3 ^^^ var_5)
-        let (var_7: int64) = (var_2 + 1L)
-        method_12((var_0: (int64 [])), (var_1: int64), (var_7: int64), (var_6: int64))
+        let (var_5: int64) = var_0.[int32 var_3]
+        let (var_6: int64) = (var_2 ^^^ var_5)
+        let (var_7: int64) = (var_3 + 1L)
+        method_12((var_0: (int64 [])), (var_1: int64), (var_6: int64), (var_7: int64))
     else
-        var_3
+        var_2
 and method_10((var_0: int64), (var_1: (int64 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: string), (var_8: int64), (var_9: int64)): unit =
     let (var_10: int64) = (var_8 + 1L)
     let (var_11: bool) = (var_9 >= 0L)
