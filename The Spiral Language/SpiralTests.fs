@@ -89,9 +89,7 @@ a, b, c
 let test8 =
     "test8",[],"Does the basic union type work?",
     """
-type option_int = 
-    .Some, 1 
-    .None
+inl option_int = .Some, 1 \/ .None
 
 met x = box option_int .None
 match x with
@@ -102,9 +100,7 @@ match x with
 let test9 = // 
     "test9",[],"Does the partial evaluator optimize unused match cases?",
     """
-type ab = 
-    .A
-    .B
+inl ab = .A \/ .B
 inl ab = box ab
 met x = (ab .A, ab .A, ab .A)
 match x with
@@ -117,10 +113,7 @@ match x with
 let test10 = 
     "test10",[],"The worst case for partially evaluated pattern matchers.",
     """
-type ab = 
-    .A
-    .B
-inl ab = box ab
+inl ab = box (.A \/ .B)
 met x = (ab .A, ab .A, ab .A, ab .A)
 match x with
 | .A, .A, _, _ -> 1
@@ -132,8 +125,8 @@ match x with
 let test11 = // 
     "test11",[],"Do the nested patterns work on dynamic data?",
     """
-type a = (1,2)
-type b = (1,a,a)
+inl a = type (1,2)
+inl b = type (1,a,a)
 inl a,b = box a, box b
 met x = b (1, a (2,3), a (4,5))
 match x with
@@ -154,10 +147,10 @@ p (.Some, .None)
 let test13 = 
     "test13",[],"A more complex interpreter example on static data.",
     """
-type expr x = 
+inl rec expr x = join_type
     .V, x
-    .Add, expr x, expr x
-    .Mult, expr x, expr x
+    \/ .Add, expr x, expr x
+    \/ .Mult, expr x, expr x
 inl int_expr = box (expr int64)
 inl v x = int_expr (.V, x)
 inl add a b = int_expr (.Add, a, b)
@@ -176,10 +169,10 @@ interpreter_static c
 let test14 =
     "test14",[],"Does recursive pattern matching work on partially static data?",
     """
-type expr x = 
+inl rec expr x = join_type
     .V, x
-    .Add, expr x, expr x
-    .Mult, expr x, expr x
+    \/ .Add, expr x, expr x
+    \/ .Mult, expr x, expr x
 inl int_expr = box (expr int64)
 inl v x = int_expr (.V, x)
 inl add a b = int_expr (.Add, a, b)
@@ -241,9 +234,7 @@ write (a + b)
 let test16 = // 
     "test16",[],"Do var union types work?",
     """
-type t = 
-    int64
-    float64
+inl t = int64 \/ float64
 if dyn true then box t 0
 else box t 0.0
     """
@@ -294,9 +285,7 @@ f (1,(2,5),3)
 let test20 = // 
     "test20",[],"Does pattern matching on union non-tuple types work? Do type annotation patterns work?",
     """
-type t = 
-    int64
-    float64
+inl t = int64 \/ float64
 inl x = box t 3.5
 match x with
 | q : int64 -> x * x
@@ -388,9 +377,7 @@ a(0),b(0)
 let test29 =
     "test29",[],"Does pattern matching work redux?",
     """
-type t = 
-    int64, int64
-    int64
+inl t = int64, int64 \/ int64
 
 inl x = (1,1) |> box t |> dyn
 match x with
@@ -401,9 +388,7 @@ match x with
 let test30 = // 
     "test30",[],"Do recursive algebraic datatypes work?",
     """
-type List x =
-    .ListCons, (x, List x)
-    .ListNil
+inl rec List x = join_type .ListCons, (x, List x) \/ .ListNil
 
 inl t = box (List int64)
 inl nil = t .ListNil
@@ -418,16 +403,11 @@ met rec sum (!dyn s) l =
 nil |> cons 3 |> cons 2 |> cons 1 |> dyn |> sum 0
         """
 
-let test31 = // 
+let test31 = 
     "test31",[],"Does passing types into types work?",
     """
-type a = 
-    .A, (int64, int64)
-    .B, string
-
-type b = 
-    a
-    .Hello
+inl a = .A, (int64, int64) \/ .B, string
+inl b = a \/ .Hello
 (.A, (2,3)) |> box a |> dyn |> box b
     """
 
@@ -462,14 +442,14 @@ f (stack add) (dyn 3) (dyn 4)
 let test35 = // 
     "test35",[],"Does case on union types with recursive types work properly?",
     """
-type List x = 
-    .Nil
-    .Cons, (int64, List x)
+inl rec List x = join_type
+    .Nil 
+    \/ .Cons, (int64, List x)
 
-type Res =
+inl Res =
     int64
-    int64, int64
-    List int64
+    \/ int64, int64
+    \/ List int64
 
 match box Res 1 |> dyn with
 | x : int64 -> 1
@@ -1544,10 +1524,7 @@ open Option
 open Array
 open Loops
 
-type Cell =
-    .Empty
-    .Princess
-    .Mario
+inl Cell = .Empty \/ .Princess \/ .Mario
 
 inl empty = pchar '-' >>% box Cell .Empty
 inl princess = pchar 'p' >>% box Cell .Princess
@@ -1654,10 +1631,7 @@ open Console
 open Array
 open Loops
 
-type Cell =
-    .Empty
-    .Princess
-    .Mario
+inl Cell = .Empty \/ .Princess \/ .Mario
 
 inl empty = pchar '-' >>% box Cell .Empty
 inl princess = pchar 'p' >>% box Cell .Princess
@@ -1750,9 +1724,7 @@ open Console
 open Loops
 open Option
 
-type Player =
-    .First
-    .Second
+inl Player = .First \/ .Second
 
 inl first = box Player .First
 inl second = box Player .Second

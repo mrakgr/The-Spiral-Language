@@ -132,7 +132,7 @@ inl allocator size ret =
         inl q = FS.Method context .AllocateMemory (SizeT size) CUdeviceptr_type
         {size ptr=smartptr_create q}
 
-    inl pool_type = type(pool)
+    inl pool_type = type pool
     inl stack_type = fs [text: "System.Collections.Generic.Stack"; types: pool_type]
     inl stack = FS.Constructor stack_type ()
 

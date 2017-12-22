@@ -100,8 +100,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let B = vv []
     let TyB = tyvv []
     
-    let join_point_entry_method y = (JoinPointEntryMethod,[y]) |> op
-    let join_point_entry_type y = (JoinPointEntryType,[y]) |> op
+    let join_point_entry_method y = op(JoinPointEntryMethod,[y]) 
+    let join_point_entry_type y = op(JoinPointEntryType,[y])
 
     let module_open a b = (ModuleOpen,[a;b]) |> op
     let module_openb a b = ap a (inl " module" (module_open (v " module") b)) 
@@ -132,6 +132,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let expr_pos pos x = ExprPos(Pos(pos,x))
     let pat_pos pos x = PatPos(Pos(pos,x))
 
+    let type_get a = op(TypeGet,[a])
     let type_union l = op(TypeUnion,l)
     let type_box a b = op(TypeBox,[a;b])
 
@@ -747,7 +748,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | _ -> failwith "There should always be at least one clause here."
             | _ -> tev d case
            
-        let type_union d l = List.fold (fun s x -> Set.add (tev d x |> get_type) s) Set.empty l |> uniont |> tyt
+        let type_union d l = List.fold (fun s x -> Set.union s (tev d x |> get_type |> set_field)) Set.empty l |> uniont |> tyt
 
         let inline wrap_exception d f =
             try f()
@@ -1683,7 +1684,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             var_name_core >>=? function
                 | "match" | "function" | "with" | "without" | "as" | "when" | "inl" | "met" | "inm" 
                 | "inb" | "use" | "rec" | "if" | "then" | "elif" | "else" | "true" | "false" 
-                | "open" | "openb" | "join" | "join_type" as x -> fun _ -> Reply(Error,messageError <| sprintf "%s not allowed as an identifier." x)
+                | "open" | "openb" | "join" | "join_type" | "type" as x -> fun _ -> Reply(Error,messageError <| sprintf "%s not allowed as an identifier." x)
                 | x -> preturn x
 
         let between_brackets l p r = between (skipChar l >>. spaces) (skipChar r >>. spaces) p
@@ -2086,9 +2087,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             squares (many (pat .>> optional semicolon')) |>> vv
 
         let case_negate expr = unary_minus_check >>. expr |>> (ap (v "negate"))
-        let case_join_point expr = 
-            (keywordString "join" >>. expr |>> join_point_entry_method)
-            <|> (keywordString "join_type" >>. expr |>> join_point_entry_type)
+        let case_join_point expr = keywordString "join" >>. expr |>> join_point_entry_method
+        let case_join_point_type expr = keywordString "join_type" >>. expr |>> join_point_entry_type
+        let case_type expr = keywordString "type" >>. rounds expr |>> type_get
         let case_cuda expr = keywordString "cuda" >>. expr |>> inl' ["threadIdx"; "blockIdx"; "blockDim";"gridDim"]
 
         let inbuilt_op_core c = operatorChar c >>. var_name
@@ -2138,7 +2139,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let rec expressions expr s = 
             [
-            case_join_point; case_cuda; case_inbuilt_op; case_parser_macro
+            case_join_point; case_join_point_type; case_type
+            case_cuda; case_inbuilt_op; case_parser_macro
             case_inl_pat_list_expr; case_met_pat_list_expr; case_lit; case_if_then_else
             case_rounds; case_typecase; case_typeinl; case_var; case_module; case_named_tuple
             case_negate << expressions; case_lit_lift << expressions

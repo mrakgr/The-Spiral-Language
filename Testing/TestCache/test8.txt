@@ -14,9 +14,9 @@ and Tuple1 =
     val mem_0: int64
     new(arg_mem_0) = {mem_0 = arg_mem_0}
     end
-let rec method_1(): Union0 =
+let rec method_0(): Union0 =
     Union0Case1
-let (var_0: Union0) = method_1()
+let (var_0: Union0) = method_0()
 match var_0 with
 | Union0Case0(var_1) ->
     var_1.mem_0

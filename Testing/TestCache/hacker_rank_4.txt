@@ -17,15 +17,15 @@ and Tuple1 =
 and Union2 =
     | Union2Case0
     | Union2Case1
-let rec method_1((var_0: (Union0 [])), (var_1: int64)): unit =
+let rec method_0((var_0: (Union0 [])), (var_1: int64)): unit =
     let (var_2: bool) = (var_1 < 101L)
     if var_2 then
         var_0.[int32 var_1] <- Union0Case1
         let (var_3: int64) = (var_1 + 1L)
-        method_1((var_0: (Union0 [])), (var_3: int64))
+        method_0((var_0: (Union0 [])), (var_3: int64))
     else
         ()
-and method_2((var_0: bool), (var_1: (Union0 [])), (var_2: string), (var_3: int64)): unit =
+and method_1((var_0: bool), (var_1: (Union0 [])), (var_2: string), (var_3: int64)): unit =
     let (var_4: bool) = (var_3 >= 0L)
     let (var_7: bool) =
         if var_4 then
@@ -46,12 +46,12 @@ and method_2((var_0: bool), (var_1: (Union0 [])), (var_2: string), (var_3: int64
             let (var_13: int64) = System.Convert.ToInt64(var_8)
             let (var_14: int64) = System.Convert.ToInt64('0')
             let (var_15: int64) = (var_13 - var_14)
-            method_3((var_0: bool), (var_1: (Union0 [])), (var_2: string), (var_15: int64), (var_12: int64))
+            method_2((var_0: bool), (var_1: (Union0 [])), (var_2: string), (var_15: int64), (var_12: int64))
         else
             (failwith "pint64")
     else
         (failwith "pint64")
-and method_3((var_0: bool), (var_1: (Union0 [])), (var_2: string), (var_3: int64), (var_4: int64)): unit =
+and method_2((var_0: bool), (var_1: (Union0 [])), (var_2: string), (var_3: int64), (var_4: int64)): unit =
     let (var_5: bool) = (var_4 >= 0L)
     let (var_8: bool) =
         if var_5 then
@@ -86,7 +86,7 @@ and method_3((var_0: bool), (var_1: (Union0 [])), (var_2: string), (var_3: int64
             if var_21 then
                 let (var_22: int64) = (var_3 * 10L)
                 let (var_23: int64) = (var_22 + var_16)
-                method_3((var_0: bool), (var_1: (Union0 [])), (var_2: string), (var_23: int64), (var_13: int64))
+                method_2((var_0: bool), (var_1: (Union0 [])), (var_2: string), (var_23: int64), (var_13: int64))
             else
                 (failwith "integer overflow")
         else
@@ -96,7 +96,7 @@ and method_3((var_0: bool), (var_1: (Union0 [])), (var_2: string), (var_3: int64
                 else
                     (-var_3)
             let (var_26: int64) = 0L
-            method_4((var_25: int64), (var_1: (Union0 [])), (var_2: string), (var_26: int64), (var_4: int64))
+            method_3((var_25: int64), (var_1: (Union0 [])), (var_2: string), (var_26: int64), (var_4: int64))
     else
         let (var_28: int64) =
             if var_0 then
@@ -104,8 +104,8 @@ and method_3((var_0: bool), (var_1: (Union0 [])), (var_2: string), (var_3: int64
             else
                 (-var_3)
         let (var_29: int64) = 0L
-        method_4((var_28: int64), (var_1: (Union0 [])), (var_2: string), (var_29: int64), (var_4: int64))
-and method_4((var_0: int64), (var_1: (Union0 [])), (var_2: string), (var_3: int64), (var_4: int64)): unit =
+        method_3((var_28: int64), (var_1: (Union0 [])), (var_2: string), (var_29: int64), (var_4: int64))
+and method_3((var_0: int64), (var_1: (Union0 [])), (var_2: string), (var_3: int64), (var_4: int64)): unit =
     let (var_5: int64) = (var_3 + 1L)
     let (var_6: bool) = (var_4 >= 0L)
     let (var_9: bool) =
@@ -128,14 +128,14 @@ and method_4((var_0: int64), (var_1: (Union0 [])), (var_2: string), (var_3: int6
                     (var_10 = '\r')
         let (var_16: int64) = (var_4 + 1L)
         if var_15 then
-            method_4((var_0: int64), (var_1: (Union0 [])), (var_2: string), (var_5: int64), (var_16: int64))
+            method_3((var_0: int64), (var_1: (Union0 [])), (var_2: string), (var_5: int64), (var_16: int64))
         else
             let (var_17: int64) = 0L
-            method_5((var_2: string), (var_17: int64), (var_0: int64), (var_1: (Union0 [])), (var_4: int64))
+            method_4((var_2: string), (var_17: int64), (var_0: int64), (var_1: (Union0 [])), (var_4: int64))
     else
         let (var_18: int64) = 0L
-        method_5((var_2: string), (var_18: int64), (var_0: int64), (var_1: (Union0 [])), (var_4: int64))
-and method_5((var_0: string), (var_1: int64), (var_2: int64), (var_3: (Union0 [])), (var_4: int64)): unit =
+        method_4((var_2: string), (var_18: int64), (var_0: int64), (var_1: (Union0 [])), (var_4: int64))
+and method_4((var_0: string), (var_1: int64), (var_2: int64), (var_3: (Union0 [])), (var_4: int64)): unit =
     let (var_5: bool) = (var_1 < var_2)
     if var_5 then
         let (var_6: Union2) = Union2Case0
@@ -154,16 +154,16 @@ and method_5((var_0: string), (var_1: int64), (var_2: int64), (var_3: (Union0 []
             let (var_15: int64) = (var_4 + 1L)
             if var_14 then
                 let (var_16: bool) = false
-                method_6((var_16: bool), (var_7: Union2), (var_6: Union2), (var_3: (Union0 [])), (var_8: int64), (var_2: int64), (var_0: string), (var_15: int64))
+                method_5((var_16: bool), (var_7: Union2), (var_6: Union2), (var_3: (Union0 [])), (var_8: int64), (var_2: int64), (var_0: string), (var_15: int64))
             else
                 let (var_17: bool) = true
-                method_6((var_17: bool), (var_7: Union2), (var_6: Union2), (var_3: (Union0 [])), (var_8: int64), (var_2: int64), (var_0: string), (var_4: int64))
+                method_5((var_17: bool), (var_7: Union2), (var_6: Union2), (var_3: (Union0 [])), (var_8: int64), (var_2: int64), (var_0: string), (var_4: int64))
         else
             let (var_18: bool) = true
-            method_6((var_18: bool), (var_7: Union2), (var_6: Union2), (var_3: (Union0 [])), (var_8: int64), (var_2: int64), (var_0: string), (var_4: int64))
+            method_5((var_18: bool), (var_7: Union2), (var_6: Union2), (var_3: (Union0 [])), (var_8: int64), (var_2: int64), (var_0: string), (var_4: int64))
     else
         ()
-and method_6((var_0: bool), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])), (var_4: int64), (var_5: int64), (var_6: string), (var_7: int64)): unit =
+and method_5((var_0: bool), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])), (var_4: int64), (var_5: int64), (var_6: string), (var_7: int64)): unit =
     let (var_8: bool) = (var_7 >= 0L)
     let (var_11: bool) =
         if var_8 then
@@ -184,12 +184,12 @@ and method_6((var_0: bool), (var_1: Union2), (var_2: Union2), (var_3: (Union0 []
             let (var_17: int64) = System.Convert.ToInt64(var_12)
             let (var_18: int64) = System.Convert.ToInt64('0')
             let (var_19: int64) = (var_17 - var_18)
-            method_7((var_0: bool), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])), (var_4: int64), (var_5: int64), (var_6: string), (var_19: int64), (var_16: int64))
+            method_6((var_0: bool), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])), (var_4: int64), (var_5: int64), (var_6: string), (var_19: int64), (var_16: int64))
         else
             (failwith "pint64")
     else
         (failwith "pint64")
-and method_7((var_0: bool), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])), (var_4: int64), (var_5: int64), (var_6: string), (var_7: int64), (var_8: int64)): unit =
+and method_6((var_0: bool), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])), (var_4: int64), (var_5: int64), (var_6: string), (var_7: int64), (var_8: int64)): unit =
     let (var_9: bool) = (var_8 >= 0L)
     let (var_12: bool) =
         if var_9 then
@@ -224,7 +224,7 @@ and method_7((var_0: bool), (var_1: Union2), (var_2: Union2), (var_3: (Union0 []
             if var_25 then
                 let (var_26: int64) = (var_7 * 10L)
                 let (var_27: int64) = (var_26 + var_20)
-                method_7((var_0: bool), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])), (var_4: int64), (var_5: int64), (var_6: string), (var_27: int64), (var_17: int64))
+                method_6((var_0: bool), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])), (var_4: int64), (var_5: int64), (var_6: string), (var_27: int64), (var_17: int64))
             else
                 (failwith "integer overflow")
         else
@@ -234,7 +234,7 @@ and method_7((var_0: bool), (var_1: Union2), (var_2: Union2), (var_3: (Union0 []
                 else
                     (-var_7)
             let (var_30: int64) = 0L
-            method_8((var_29: int64), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])), (var_4: int64), (var_5: int64), (var_6: string), (var_30: int64), (var_8: int64))
+            method_7((var_29: int64), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])), (var_4: int64), (var_5: int64), (var_6: string), (var_30: int64), (var_8: int64))
     else
         let (var_32: int64) =
             if var_0 then
@@ -242,8 +242,8 @@ and method_7((var_0: bool), (var_1: Union2), (var_2: Union2), (var_3: (Union0 []
             else
                 (-var_7)
         let (var_33: int64) = 0L
-        method_8((var_32: int64), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])), (var_4: int64), (var_5: int64), (var_6: string), (var_33: int64), (var_8: int64))
-and method_8((var_0: int64), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])), (var_4: int64), (var_5: int64), (var_6: string), (var_7: int64), (var_8: int64)): unit =
+        method_7((var_32: int64), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])), (var_4: int64), (var_5: int64), (var_6: string), (var_33: int64), (var_8: int64))
+and method_7((var_0: int64), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])), (var_4: int64), (var_5: int64), (var_6: string), (var_7: int64), (var_8: int64)): unit =
     let (var_9: int64) = (var_7 + 1L)
     let (var_10: bool) = (var_8 >= 0L)
     let (var_13: bool) =
@@ -266,24 +266,24 @@ and method_8((var_0: int64), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [
                     (var_14 = '\r')
         let (var_20: int64) = (var_8 + 1L)
         if var_19 then
-            method_8((var_0: int64), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])), (var_4: int64), (var_5: int64), (var_6: string), (var_9: int64), (var_20: int64))
+            method_7((var_0: int64), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])), (var_4: int64), (var_5: int64), (var_6: string), (var_9: int64), (var_20: int64))
         else
-            let (var_21: Union2) = method_9((var_0: int64), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])))
+            let (var_21: Union2) = method_8((var_0: int64), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])))
             match var_21 with
             | Union2Case0 ->
                 System.Console.WriteLine("First")
             | Union2Case1 ->
                 System.Console.WriteLine("Second")
-            method_5((var_6: string), (var_4: int64), (var_5: int64), (var_3: (Union0 [])), (var_8: int64))
+            method_4((var_6: string), (var_4: int64), (var_5: int64), (var_3: (Union0 [])), (var_8: int64))
     else
-        let (var_22: Union2) = method_9((var_0: int64), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])))
+        let (var_22: Union2) = method_8((var_0: int64), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [])))
         match var_22 with
         | Union2Case0 ->
             System.Console.WriteLine("First")
         | Union2Case1 ->
             System.Console.WriteLine("Second")
-        method_5((var_6: string), (var_4: int64), (var_5: int64), (var_3: (Union0 [])), (var_8: int64))
-and method_9((var_0: int64), (var_1: Union2), (var_2: Union2), (var_3: (Union0 []))): Union2 =
+        method_4((var_6: string), (var_4: int64), (var_5: int64), (var_3: (Union0 [])), (var_8: int64))
+and method_8((var_0: int64), (var_1: Union2), (var_2: Union2), (var_3: (Union0 []))): Union2 =
     let (var_4: bool) =
         match var_2 with
         | Union2Case0 ->
@@ -296,18 +296,18 @@ and method_9((var_0: int64), (var_1: Union2), (var_2: Union2), (var_3: (Union0 [
         | Union0Case0(var_6) ->
             var_6.mem_0
         | Union0Case1 ->
-            let (var_8: Union2) = method_10((var_1: Union2), (var_0: int64), (var_2: Union2), (var_3: (Union0 [])))
+            let (var_8: Union2) = method_9((var_1: Union2), (var_0: int64), (var_2: Union2), (var_3: (Union0 [])))
             var_3.[int32 var_0] <- (Union0Case0(Tuple1(var_8)))
             var_8
     else
-        method_10((var_1: Union2), (var_0: int64), (var_2: Union2), (var_3: (Union0 [])))
-and method_10((var_0: Union2), (var_1: int64), (var_2: Union2), (var_3: (Union0 []))): Union2 =
+        method_9((var_1: Union2), (var_0: int64), (var_2: Union2), (var_3: (Union0 [])))
+and method_9((var_0: Union2), (var_1: int64), (var_2: Union2), (var_3: (Union0 []))): Union2 =
     let (var_4: bool) = (var_1 >= 2L)
     let (var_8: bool) =
         if var_4 then
             let (var_5: int64) = (var_1 - 2L)
-            let (var_6: Union2) = method_9((var_5: int64), (var_2: Union2), (var_0: Union2), (var_3: (Union0 [])))
-            method_11((var_6: Union2), (var_2: Union2))
+            let (var_6: Union2) = method_8((var_5: int64), (var_2: Union2), (var_0: Union2), (var_3: (Union0 [])))
+            method_10((var_6: Union2), (var_2: Union2))
         else
             false
     if var_8 then
@@ -317,8 +317,8 @@ and method_10((var_0: Union2), (var_1: int64), (var_2: Union2), (var_3: (Union0 
         let (var_13: bool) =
             if var_9 then
                 let (var_10: int64) = (var_1 - 3L)
-                let (var_11: Union2) = method_9((var_10: int64), (var_2: Union2), (var_0: Union2), (var_3: (Union0 [])))
-                method_11((var_11: Union2), (var_2: Union2))
+                let (var_11: Union2) = method_8((var_10: int64), (var_2: Union2), (var_0: Union2), (var_3: (Union0 [])))
+                method_10((var_11: Union2), (var_2: Union2))
             else
                 false
         if var_13 then
@@ -328,15 +328,15 @@ and method_10((var_0: Union2), (var_1: int64), (var_2: Union2), (var_3: (Union0 
             let (var_18: bool) =
                 if var_14 then
                     let (var_15: int64) = (var_1 - 5L)
-                    let (var_16: Union2) = method_9((var_15: int64), (var_2: Union2), (var_0: Union2), (var_3: (Union0 [])))
-                    method_11((var_16: Union2), (var_2: Union2))
+                    let (var_16: Union2) = method_8((var_15: int64), (var_2: Union2), (var_0: Union2), (var_3: (Union0 [])))
+                    method_10((var_16: Union2), (var_2: Union2))
                 else
                     false
             if var_18 then
                 var_2
             else
                 var_0
-and method_11((var_0: Union2), (var_1: Union2)): bool =
+and method_10((var_0: Union2), (var_1: Union2)): bool =
     match var_0 with
     | Union2Case0 ->
         match var_1 with
@@ -352,7 +352,7 @@ and method_11((var_0: Union2), (var_1: Union2)): bool =
             true
 let (var_0: (Union0 [])) = Array.zeroCreate<Union0> (System.Convert.ToInt32(101L))
 let (var_1: int64) = 0L
-method_1((var_0: (Union0 [])), (var_1: int64))
+method_0((var_0: (Union0 [])), (var_1: int64))
 let (var_2: System.IO.Stream) = System.Console.OpenStandardInput()
 let (var_3: System.IO.StreamReader) = System.IO.StreamReader(var_2)
 let (var_4: string) = var_3.ReadToEnd()
@@ -370,11 +370,11 @@ if var_9 then
     let (var_12: int64) = (var_5 + 1L)
     if var_11 then
         let (var_13: bool) = false
-        method_2((var_13: bool), (var_0: (Union0 [])), (var_4: string), (var_12: int64))
+        method_1((var_13: bool), (var_0: (Union0 [])), (var_4: string), (var_12: int64))
     else
         let (var_14: bool) = true
-        method_2((var_14: bool), (var_0: (Union0 [])), (var_4: string), (var_5: int64))
+        method_1((var_14: bool), (var_0: (Union0 [])), (var_4: string), (var_5: int64))
 else
     let (var_15: bool) = true
-    method_2((var_15: bool), (var_0: (Union0 [])), (var_4: string), (var_5: int64))
+    method_1((var_15: bool), (var_0: (Union0 [])), (var_4: string), (var_5: int64))
 

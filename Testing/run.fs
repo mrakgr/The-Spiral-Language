@@ -12,15 +12,13 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = []
     }
 
-//rewrite_test_cache cfg None //(Some(0,40))
+rewrite_test_cache cfg None //(Some(0,40))
 
 let example = 
     "example",[tuple;console;loops],"Module description.",
     """
 open Loops
-type List x =
-    ()
-    x, List x
+inl rec List x = () \/ x, List x
 
 /// Creates an empty list with the given type.
 /// t -> List t
@@ -52,6 +50,6 @@ print_static (Option int64 |> split)
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test95
 |> printfn "%s"
 |> ignore

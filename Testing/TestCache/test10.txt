@@ -17,9 +17,9 @@ type Tuple0 =
 and Union1 =
     | Union1Case0
     | Union1Case1
-let rec method_1(): Tuple0 =
+let rec method_0(): Tuple0 =
     Tuple0(Union1Case0, Union1Case0, Union1Case0, Union1Case0)
-let (var_0: Tuple0) = method_1()
+let (var_0: Tuple0) = method_0()
 let (var_1: Union1) = var_0.mem_0
 let (var_2: Union1) = var_0.mem_1
 let (var_3: Union1) = var_0.mem_2

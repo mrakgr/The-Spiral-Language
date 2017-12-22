@@ -6,7 +6,7 @@ let option =
     (
     "Option",[],"The Option module.",
     """
-inl Option x = type (.Some, x) \/ type (.None)
+inl Option x = .Some, x \/ .None
 
 inl some x = box (Option x) (.Some, x)
 inl none x = box (Option x) (.None)
@@ -477,9 +477,7 @@ let list =
 open Loops
 open Option
 
-type List x =
-    ()
-    x, List x
+inl rec List x = join_type () \/ x, List x
 
 inl lw x = 
     inl rec loop tup_type n x on_fail on_succ =
