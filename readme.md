@@ -2373,8 +2373,16 @@ type List x =
     ()
     x, List x
 
+/// Creates an empty list with the given type.
+/// t -> List t
 inl empty x = box (List x) ()
+
+/// Creates a single element list with the given type.
+/// x -> List x
 inl singleton x = box (List x) (x, empty x)
+
+/// Immutably appends an element to the head of the list.
+/// x -> List x -> List x
 inl cons a b = 
     inl t = List a
     box t (a, box t b)
@@ -2394,4 +2402,44 @@ and Tuple1 =
 (Rec0Case1(Tuple1(1L, (Rec0Case1(Tuple1(2L, (Rec0Case1(Tuple1(3L, Rec0Case0)))))))))
 ```
 The `type` statement has special syntax inside the body. It parses a sequence of expressions, rather than statements and expression for functions. Recursive datatypes need to be be defined this way as they require a type definition join point in order not to diverge. The standard `type (...)` is just a get type operation. The parenthesis in `type (...)` are necessary so it does not conflict with the type definition statement.
+```
+/// Creates a list by calling the given generator on each index.
+/// ?(.static) -> int -> (int -> a) -> List a
+inl init =
+    inl body is_static n f =
+        inl t = type (f 0)
+        inl d = {near_to=n; state=empty t; body=inl {next i state} -> cons (f i) (next state)}
+        if is_static then for' {d with static_from=0}
+        else for' {d with from=0}
 
+    function
+    | .static -> body true
+    | x -> body false x
+```
+The above function resembles the `init` in the `Array` module in structure. There is an interesting usage of the breakable `for'` here. Usually the `next` is intended to be called in tail position, but here it is not. Instead the `state` is used merely to ship the empty list to the end of it.
+```
+inl x = init.static 3 id
+()
+```
+```
+```
+The world 'staging' means 'staged for later'. Just like literals, the creation of union types is deferred for as long as possible in Spiral.
+
+In order to actually instantiate the type, it is necessary to `dyn` it or return it from a join point or an if branch.
+
+```
+inl x = init.static 3 id |> dyn
+()
+```
+```
+type Rec0 =
+    | Rec0Case0
+    | Rec0Case1 of Tuple1
+and Tuple1 =
+    struct
+    val mem_0: int64
+    val mem_1: Rec0
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let (var_0: Rec0) = (Rec0Case1(Tuple1(0L, (Rec0Case1(Tuple1(1L, (Rec0Case1(Tuple1(2L, Rec0Case0)))))))))
+```

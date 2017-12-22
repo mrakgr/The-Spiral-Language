@@ -500,12 +500,22 @@ inl lw x =
     | [var: x] _ on_succ -> on_succ x
     | (.tup | .cons) & typ, (n, x) -> loop typ n x
 
+/// Creates an empty list with the given type.
+/// t -> List t
 inl empty x = box (List x) ()
+
+/// Creates a single element list with the given type.
+/// x -> List x
 inl singleton x = box (List x) (x, empty x)
+
+/// Immutable appends an element to the head of the list.
+/// x -> List x -> List x
 inl cons a b = 
     inl t = List a
     box t (a, box t b)
 
+/// Creates a list by calling the given generator on each index.
+/// ?(.static) -> int -> (int -> a) -> List a
 inl init =
     inl body is_static n f =
         inl t = type (f 0)
@@ -517,7 +527,8 @@ inl init =
     | .static -> body true
     | x -> body false x
     
-    
+/// Returns the element type of the list.
+/// a List -> a type
 inl elem_type l =
     match split l with
     | (), (a,b) when eq_type (List a) l -> a
