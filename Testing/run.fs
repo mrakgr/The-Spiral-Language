@@ -12,20 +12,22 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = []
     }
 
-rewrite_test_cache cfg None //(Some(0,40))
+//rewrite_test_cache cfg None //(Some(0,40))
 
 let example = 
     "example",[tuple;console;loops],"Module description.",
     """
 open Loops
-inl rec List x = () \/ x, List x
+inl rec List x = join_type () \/ x, List x
 
 /// Creates an empty list with the given type.
 /// t -> List t
 inl empty x = box (List x) ()
+
 /// Creates a single element list with the given type.
 /// x -> List x
 inl singleton x = box (List x) (x, empty x)
+
 /// Immutable appends an element to the head of the list.
 /// x -> List x -> List x
 inl cons a b = 
@@ -45,11 +47,14 @@ inl init =
     | .static -> body true
     | x -> body false x
 
-inl Option x = type (.Some, x) \/ type (.None)
-print_static (Option int64 |> split)
+inl rec List x = join_type 
+    inl el = stack {elem_type=x}
+    el, () \/ el, x, List x
+
+()
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test95
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example
 |> printfn "%s"
 |> ignore
