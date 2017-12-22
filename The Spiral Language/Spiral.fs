@@ -2089,7 +2089,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let case_negate expr = unary_minus_check >>. expr |>> (ap (v "negate"))
         let case_join_point expr = keywordString "join" >>. expr |>> join_point_entry_method
         let case_join_point_type expr = keywordString "join_type" >>. expr |>> join_point_entry_type
-        let case_type expr = keywordString "type" >>. rounds expr |>> type_get
+        let case_type expr = keywordString "type" >>. expr |>> type_get
         let case_cuda expr = keywordString "cuda" >>. expr |>> inl' ["threadIdx"; "blockIdx"; "blockDim";"gridDim"]
 
         let inbuilt_op_core c = operatorChar c >>. var_name

@@ -1681,7 +1681,7 @@ inl main = {
         inl is_princess_in_state (row,col), _ = row = princess_row && col = princess_col
 
         inl init_state = (mario_pos, List.empty string)
-        inl state_type = type (init_state)
+        inl state_type = type init_state 
 
         open Queue
         inl queue = create state_type ()

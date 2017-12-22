@@ -19,24 +19,24 @@ inl heap x = !LayoutToHeap(x)
 inl heapm x = !LayoutToHeapMutable(x)
 inl indiv x = !LayoutToNone(x)
 
-inl bool = type(true)
+inl bool = type true 
 
-inl int64 = type(0i64)
-inl int32 = type(0i32)
-inl int16 = type(0i16)
-inl int8 = type(0i8)
+inl int64 = type 0i64 
+inl int32 = type 0i32 
+inl int16 = type 0i16 
+inl int8 = type 0i8 
 
-inl uint64 = type(0u64)
-inl uint32 = type(0u32)
-inl uint16 = type(0u16)
-inl uint8 = type(0u8)
+inl uint64 = type 0u64 
+inl uint32 = type 0u32 
+inl uint16 = type 0u16 
+inl uint8 = type 0u8
 
-inl float64 = type(0f64)
-inl float32 = type(0f32)
+inl float64 = type 0f64
+inl float32 = type 0f32
 
-inl string = type("")
-inl char = type(' ')
-inl unit = type(())
+inl string = type ""
+inl char = type ' '
+inl unit = type ()
 
 inl type_lit_cast x = !TypeLitCast(x)
 inl type_lit_is x = !TypeLitIs(x)
