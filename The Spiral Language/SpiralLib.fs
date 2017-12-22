@@ -6,7 +6,7 @@ let option =
     (
     "Option",[],"The Option module.",
     """
-inl Option x = (type (.Some, x)) \/ (type (.None))
+inl Option x = type (.Some, x) \/ type (.None)
 
 inl some x = box (Option x) (.Some, x)
 inl none x = box (Option x) (.None)
@@ -412,7 +412,7 @@ inl foldl f state ar = for {from=0; near_to=array_length ar; state; body=inl {st
 inl foldr f ar state = for {from=array_length ar-1; down_to=0; state; body=inl {state i} -> f (ar i) state}
 
 // Creates an array given a dimension and a generator function to compute the elements.
-// ?{.is_static} -> int -> (int -> a) -> a array
+// ?(.is_static) -> int -> (int -> a) -> a array
 inl init = 
     inl body is_static n f =
         assert (n >= 0) "The input to init needs to be greater or equal to 0."
@@ -506,14 +506,16 @@ inl cons a b =
     inl t = List a
     box t (a, box t b)
 
-inl init = 
-    inl body n f =
+inl init =
+    inl body is_static n f =
         inl t = type (f 0)
-        {from=0; near_to=n; state=empty t; body=inl {next i state} -> cons (f i) (next state)}
+        inl d = {near_to=n; state=empty t; body=inl {next i state} -> cons (f i) (next state)}
+        if is_static then for' {d with static_from=0}
+        else for' {d with from=0}
 
     function
-    | .static n f -> body n f |> inl d -> {d with static=()} |> for'
-    | n f -> body n f |> for'
+    | .static -> body true
+    | x -> body false x
     
     
 inl elem_type l =

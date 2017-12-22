@@ -2169,7 +2169,7 @@ Here are some of the basic ones. Having a loop as a part of the standard library
 
 ```
 // Creates an array given a dimension and a generator function to compute the elements.
-// ?{.is_static} -> int -> (int -> a) -> a array
+// ?(.is_static) -> int -> (int -> a) -> a array
 inl init = 
     inl body is_static n f =
         assert (n >= 0) "The input to init needs to be greater or equal to 0."
@@ -2293,5 +2293,105 @@ Modules with no free variables such as the `Array` module whose fields are entir
 
 ### 3: Union types and Lists
 
-(Work in progress)
+Discriminated union types in Spiral take direct inspiration from F#'s own. That having said, the lack of type inference and the aggressive unboxing of them by the Spiral evaluator makes them less convenient to work with. Nonetheless, union types capture the essence of dynamism and are absolutely essential in a modern language.
+
+Since Spiral has first class types, type string literals take the place of case names. Furthermore, types can be defined anywhere in the program rather than at the top level like in F#.
+
+A non-recursive union type like the Option can be defined like the following. `\/` is the type union operator.
+
+```
+inl Option x = type (.Some, x) \/ type (.None)
+
+// constructors
+inl some x = box (Option x) (.Some, x)
+inl none x = box (Option x) (.None)
+
+none int64
+```
+```
+type Union0 =
+    | Union0Case0 of Tuple1
+    | Union0Case1
+and Tuple1 =
+    struct
+    val mem_0: int64
+    new(arg_mem_0) = {mem_0 = arg_mem_0}
+    end
+Union0Case1
+```
+
+If the above was generated C code, there would be no complaint, but at the moment several complaints could be made. At the time of writing of this in late 2017, .NET does not have performant handling of structs and can box them at unexpected times, so using heap allocated structures might be more efficient even when common sense would dictate that stack allocated structures would be better.
+
+Given that, having a stack allocated tuples as a fields of non-empty heap allocated union types is not the best way of compiling them. But as Spiral was made to support Cuda programming and potentially other languages, if there are issues with handling of structs on the .NET side, then the .NET side if the one that is going to have to improve. Flattening the union type definitions is out of the question for the Spiral compiler as it would mess with typing.
+
+```
+some (1,(some 2.0),none string)
+```
+```
+type Union0 =
+    | Union0Case0 of Tuple5
+    | Union0Case1
+and Union1 =
+    | Union1Case0 of Tuple2
+    | Union1Case1
+and Tuple2 =
+    struct
+    val mem_0: float
+    new(arg_mem_0) = {mem_0 = arg_mem_0}
+    end
+and Union3 =
+    | Union3Case0 of Tuple6
+    | Union3Case1
+and Tuple4 =
+    struct
+    val mem_0: int64
+    val mem_1: Union1
+    val mem_2: Union3
+    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
+    end
+and Tuple5 =
+    struct
+    val mem_0: Tuple4
+    new(arg_mem_0) = {mem_0 = arg_mem_0}
+    end
+and Tuple6 =
+    struct
+    val mem_0: string
+    new(arg_mem_0) = {mem_0 = arg_mem_0}
+    end
+(Union0Case0(Tuple5(Tuple4(1L, (Union1Case0(Tuple2(2.000000))), Union3Case1))))
+```
+Union types work correctly, but it has not been tested how performant the above way of generating them is. The author is not hopeful with regards to the .NET platform, but they should be usable regardless.
+
+As Spiral's codegen was written to target F# 4.0 which did not support struct union types yet, the above union type definition prints as a heap allocated union type - without `[<Struct>]` annotation above, but it is likely that this will be added in the future so maybe that should improve the quality of the generated code.
+
+For branches, Spiral's natural style is to CPS them rather than using union types.
+
+Here is how recursive datatypes like lists might be defined.
+```
+type List x =
+    ()
+    x, List x
+
+inl empty x = box (List x) ()
+inl singleton x = box (List x) (x, empty x)
+inl cons a b = 
+    inl t = List a
+    box t (a, box t b)
+
+singleton 3 |> cons 2 |> cons 1
+```
+```
+type Rec0 =
+    | Rec0Case0
+    | Rec0Case1 of Tuple1
+and Tuple1 =
+    struct
+    val mem_0: int64
+    val mem_1: Rec0
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+(Rec0Case1(Tuple1(1L, (Rec0Case1(Tuple1(2L, (Rec0Case1(Tuple1(3L, Rec0Case0)))))))))
+```
+The `type` statement has special syntax inside the body. It parses a sequence of expressions, rather than statements and expression for functions. Recursive datatypes need to be be defined this way as they require a type definition join point in order not to diverge. The standard `type (...)` is just a get type operation. The parenthesis in `type (...)` are necessary so it does not conflict with the type definition statement.
 
