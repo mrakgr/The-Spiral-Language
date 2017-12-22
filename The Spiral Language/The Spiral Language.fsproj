@@ -62,7 +62,7 @@
     <Compile Include="Spiral.fs" />
     <Compile Include="SpiralLib.fs" />
     <Compile Include="SpiralTests.fs" />
-    <None Include="Script1.fsx" />
+    <Content Include="Script1.txt" />
     <Content Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

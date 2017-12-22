@@ -58,7 +58,6 @@
     <None Include="App.config" />
     <Content Include="packages.config" />
     <Compile Include="Learning.fs" />
-    <Content Include="learning_tests.txt" />
     <Compile Include="run.fs" />
   </ItemGroup>
   <ItemGroup>
