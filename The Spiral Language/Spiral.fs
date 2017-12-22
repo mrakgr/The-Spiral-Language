@@ -132,8 +132,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let expr_pos pos x = ExprPos(Pos(pos,x))
     let pat_pos pos x = PatPos(Pos(pos,x))
 
-    let type_get a = op(TypeGet,[a])
-    let type_union a b = op(TypeUnion,[a;b])
+    let type_union l = op(TypeUnion,l)
     let type_box a b = op(TypeBox,[a;b])
 
     let rec typed_expr_env_free_var_exists x = Map.exists (fun k v -> typed_expr_free_var_exists v) x
@@ -748,10 +747,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | _ -> failwith "There should always be at least one clause here."
             | _ -> tev d case
            
-        let type_union d a b =
-            let a, b = tev2 d a b
-            let f x = set_field (get_type x)
-            f a + f b |> uniont |> tyt
+        let type_union d l = List.fold (fun s x -> Set.add (tev d x |> get_type) s) Set.empty l |> uniont |> tyt
 
         let inline wrap_exception d f =
             try f()
@@ -1630,7 +1626,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ListTakeNTailCPS,[a;b;c;d'] -> list_taken_tail d a b c d'
 
             | TypeAnnot,[a;b] -> type_annot d a b
-            | TypeUnion,[a;b] -> type_union d a b
+            | TypeUnion,l -> type_union d l
             | TypeBox,[a;b] -> type_box d a b
             | TypeGet,[a] -> type_get d a
             | TypeSplit,[a] -> type_split d a
@@ -1686,8 +1682,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let var_name =
             var_name_core >>=? function
                 | "match" | "function" | "with" | "without" | "as" | "when" | "inl" | "met" | "inm" 
-                | "inb" | "use" | "type" | "print_expr" | "rec" | "if" | "then" | "elif" | "else" | "true" | "false" 
-                | "open" | "openb" | "join" as x -> fun _ -> Reply(Error,messageError <| sprintf "%s not allowed as an identifier." x)
+                | "inb" | "use" | "rec" | "if" | "then" | "elif" | "else" | "true" | "false" 
+                | "open" | "openb" | "join" | "join_type" as x -> fun _ -> Reply(Error,messageError <| sprintf "%s not allowed as an identifier." x)
                 | x -> preturn x
 
         let between_brackets l p r = between (skipChar l >>. spaces) (skipChar r >>. spaces) p
@@ -1704,6 +1700,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let as_ = keywordString "as"
         let prefix_negate = prefixOperatorChar '-'
         let comma = skipChar ',' >>. spaces
+        let union = keywordString "\/"
         let dot = operatorChar '.'
         let prefix_dot = prefixOperatorChar '.'
         let pp = operatorChar ':'
@@ -1719,7 +1716,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let caret = operatorChar '^'
         let lam = operatorString "->"
         let arr = operatorString "=>"
-        let union = operatorString "\/"
         let set_ref = operatorString ":="
         let set_array = operatorString "<-"
         let inl_ = keywordString "inl"
@@ -1738,7 +1734,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let not_ = active_pat
         let part_active_pat = prefixOperatorChar '@'
         let ext_active_pat = prefixOperatorChar '#'
-        let type_' = keywordString "type"
         let wildcard = operatorChar '_'
 
         let pbool = ((skipString "false" >>% LitBool false) <|> (skipString "true" >>% LitBool true)) .>> spaces
@@ -1987,7 +1982,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let inl_pat' (args: Pattern list) body = List.foldBack inl_pat args body
         let meth_pat' args body = inl_pat' args (join_point_entry_method body)
-        let type_pat' args body = inl_pat' args (join_point_entry_type body)
 
         let inline statement_expr expr = eq' >>. expr
         let case_inl_pat_statement expr = pipe2 (inl_ >>. patterns expr) (statement_expr expr) lp
@@ -1998,15 +1992,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let case_met_name_pat_list_statement expr = pipe3 (met_ >>. var_op_name) (pattern_list expr) (statement_expr expr) (fun name pattern body -> l name (meth_pat' pattern body))
         let case_met_rec_name_pat_list_statement expr = pipe3 (met_rec >>. var_op_name) (pattern_list expr) (statement_expr expr) <| fun name pattern body -> l_rec name (meth_pat' pattern body)
 
-        let case_type_name_pat_list_statement expressions expr = 
-            let type_parse (s: CharStream<_>) = 
-                let i = col s
-                let expr_indent expr (s: CharStream<_>) = expr_indent i (=) expr s
-                many1 (expr_indent expressions) |>> (List.reduce type_union) <| s
-
-            pipe3 (type_' >>. var_op_name) (pattern_list expr) (eq' >>. type_parse) <| fun name pattern body -> 
-                l_rec name (type_pat' pattern body)
-
         let case_open expr = 
             var_name_core >>=? function
                 | "open" -> expr |>> module_open
@@ -2016,11 +2001,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let case_use_pat_statement expr = pipe2 (use_ >>. patterns expr) (eq' >>. expr) usep
         let case_inn_pat_statement expr = pipe2 (inb_ >>. patterns expr) (eq' >>. expr) inbp
 
-        let statements expressions expr = 
+        let statements expr = 
             [case_inl_pat_statement; case_inl_name_pat_list_statement; case_inl_rec_name_pat_list_statement
              case_met_pat_statement; case_met_name_pat_list_statement; case_met_rec_name_pat_list_statement
              case_use_pat_statement; case_inm_pat_statement; case_inn_pat_statement
-             case_open; case_type_name_pat_list_statement expressions]
+             case_open]
             |> List.map (fun x -> x expr |> attempt)
             |> choice
 
@@ -2088,8 +2073,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 
             curlies (attempt module_with <|> module_create) <| s
 
-        let case_type expr = type_' >>. rounds expr |>> type_get // rounds are needed to avoid collisions with the statement parser
-
         let case_named_tuple expr =
             let pat s = 
                 let i = col s
@@ -2103,7 +2086,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             squares (many (pat .>> optional semicolon')) |>> vv
 
         let case_negate expr = unary_minus_check >>. expr |>> (ap (v "negate"))
-        let case_join_point expr = keywordString "join" >>. expr |>> join_point_entry_method
+        let case_join_point expr = 
+            (keywordString "join" >>. expr |>> join_point_entry_method)
+            <|> (keywordString "join_type" >>. expr |>> join_point_entry_type)
         let case_cuda expr = keywordString "cuda" >>. expr |>> inl' ["threadIdx"; "blockIdx"; "blockDim";"gridDim"]
 
         let inbuilt_op_core c = operatorChar c >>. var_name
@@ -2141,9 +2126,19 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 |> ap a
                 )
 
+        let inline tuple_template fin sep expr (s: CharStream<_>) =
+            let i = (col s)
+            let expr_indent expr (s: CharStream<_>) = expr_indent i (<=) expr s
+            sepBy1 (expr_indent expr) (expr_indent sep)
+            |>> function [x] -> x | x -> fin x
+            <| s
+
+        let type_union expr s = tuple_template type_union union expr s
+        let tuple expr s = tuple_template vv comma expr s
+
         let rec expressions expr s = 
             [
-            case_type; case_join_point; case_cuda; case_inbuilt_op; case_parser_macro
+            case_join_point; case_cuda; case_inbuilt_op; case_parser_macro
             case_inl_pat_list_expr; case_met_pat_list_expr; case_lit; case_if_then_else
             case_rounds; case_typecase; case_typeinl; case_var; case_module; case_named_tuple
             case_negate << expressions; case_lit_lift << expressions
@@ -2171,14 +2166,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let expr_up (s: CharStream<_>) = expr_indent i (<) expr s
             pipe2 expr (many expr_up) (List.fold ap) s
 
-        let tuple expr (s: CharStream<_>) =
-            let i = (col s)
-            let expr_indent expr (s: CharStream<_>) = expr_indent i (<=) expr s
-            sepBy1 (expr_indent expr) (expr_indent comma)
-            |>> function [x] -> x | x -> vv x
-            <| s
-
-        let mset statements expressions (s: CharStream<_>) = 
+        let mset recurse expr (s: CharStream<_>) = 
             let i = col s
             let line = s.Line
             let expr_indent expr (s: CharStream<_>) = expr_indent i (<) expr s
@@ -2191,7 +2179,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                             | _ -> fail "Expected two arguments on the left of <-."
                         loop l)
 
-            (tuple2 expressions (opt (expr_indent op .>>. expr_indent (set_semicolon_level_to_line line statements)))
+            (tuple2 expr (opt (expr_indent op .>>. expr_indent (set_semicolon_level_to_line line recurse)))
             >>= function 
                 | a,Some(f,b) -> f a b
                 | a,None -> preturn a) s
@@ -2220,8 +2208,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let right_associative_ops =
                 let f str prec = add_infix_operator Associativity.Right str prec
                 f "||" 20; f "&&" 30; f "::" 50; f "^^^" 45
-                f "=>" 0; f "\/" -10
-                f ":>" 35; f ":?>" 35
+                f "=>" 0; f ":>" 35; f ":?>" 35
          
             dict_operator
 
@@ -2271,8 +2258,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             tdop Int32.MinValue s
 
         let rec expr s = 
-            let expressions s = mset expr ^<| tuple ^<| operators ^<| application ^<| binary_lit_lift ^<| expressions expr <| s
-            let statements s = statements expressions expr <| s
+            let expressions s = mset expr ^<| type_union ^<| tuple ^<| operators ^<| application ^<| binary_lit_lift ^<| expressions expr <| s
+            let statements s = statements expr <| s
             annotations ^<| indentations statements expressions <| s
         runParserOnString (spaces >>. expr .>> eof) {ops=inbuilt_operators; semicolon_line= -1L} module_name module_code
 

@@ -10,7 +10,6 @@ inl type_lit_lift x = !TypeLitCreate(x)
 inl error_type x = !ErrorType(x)
 inl print_static x = !PrintStatic(x)
 inl dyn x = !Dynamize(x)
-inl (\/) a b = !TypeUnion(a,b)
 inl (=>) a b = !TermFunctionTypeCreate(a,b)
 inl split x = !TypeSplit(x)
 inl box a b = !TypeBox(a,b)
@@ -20,24 +19,26 @@ inl heap x = !LayoutToHeap(x)
 inl heapm x = !LayoutToHeapMutable(x)
 inl indiv x = !LayoutToNone(x)
 
-inl bool = type(true)
+inl type x = !TypeGet(x)
 
-inl int64 = type(0i64)
-inl int32 = type(0i32)
-inl int16 = type(0i16)
-inl int8 = type(0i8)
+inl bool = !TypeGet(true)
 
-inl uint64 = type(0u64)
-inl uint32 = type(0u32)
-inl uint16 = type(0u16)
-inl uint8 = type(0u8)
+inl int64 = !TypeGet(0i64)
+inl int32 = !TypeGet(0i32)
+inl int16 = !TypeGet(0i16)
+inl int8 = !TypeGet(0i8)
 
-inl float64 = type(0f64)
-inl float32 = type(0f32)
+inl uint64 = !TypeGet(0u64)
+inl uint32 = !TypeGet(0u32)
+inl uint16 = !TypeGet(0u16)
+inl uint8 = !TypeGet(0u8)
 
-inl string = type("")
-inl char = type(' ')
-inl unit = type(())
+inl float64 = !TypeGet(0f64)
+inl float32 = !TypeGet(0f32)
+
+inl string = !TypeGet("")
+inl char = !TypeGet(' ')
+inl unit = !TypeGet(())
 
 inl type_lit_cast x = !TypeLitCast(x)
 inl type_lit_is x = !TypeLitIs(x)
@@ -143,8 +144,8 @@ inl macro = {
     cuda = inl typ expr -> !MacroCuda(typ,expr)
     }
 
-{type_lit_lift error_type print_static dyn (\/) (=>) cuda fs log exp tanh array_create array_length array_is array
- split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
+{type_lit_lift error_type print_static dyn (=>) cuda fs log exp tanh array_create array_length array_is array
+ split box stack packed_stack heap heapm indiv type bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
  string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref (+) (-) (*) (/) (%)
  (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>) fst snd not macro
  string_length lit_is box_is failwith assert max min eq_type module_values caseable_is (:>)
