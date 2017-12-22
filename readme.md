@@ -502,9 +502,9 @@ Unlike ML languages which use Hindley-Milner global type inference, Spiral does 
 One other thing that is different from F# is that `int64`,`float64` and `string` on the right side of the `:` operators are not type annotations, but standard variables. The types in Spiral are first class much like everything else.
 
 ```
-inl int64_type = type (1)
-inl float64_type = type (1.0)
-inl string_type = type ("qwe")
+inl int64_type = type 1
+inl float64_type = type 1.0
+inl string_type = type "qwe"
 
 inl default_of = function
     | _: int64_type -> 0
@@ -532,9 +532,9 @@ As can be seen, the two generated code fragments are identical. `:` on the patte
 The types themselves can do more than be passed around or be matched on.
 
 ```
-inl int64_type = type (1)
-inl float64_type = type (1.0)
-inl string_type = type ("qwe")
+inl int64_type = type 1
+inl float64_type = type 1.0
+inl string_type = type "qwe"
 
 inl default_of = function
     | _: int64_type -> 0
@@ -1962,7 +1962,7 @@ There are numerous ways of writing `find_index` incorrectly that would not get i
 1) Forgetting to pass in the array.
 ```
 ...
-find_index {state=(); next = inl _ -> failwith (type (dim)) "The princess is in another castle."}
+find_index {state=(); next = inl _ -> failwith (type dim) "The princess is in another castle."}
 ```
 ```
 ...
@@ -2094,7 +2094,7 @@ inl rec find_index {next state} = function
     | "princess" -> tuple_rev state
     | _ -> next ()
 
-find_index {state=(); next = inl _ -> failwith (type (dim)) "The princess is in another castle."} ar
+find_index {state=(); next = inl _ -> failwith (type dim) "The princess is in another castle."} ar
 ```
 
 There was a lot of material covered here. The logic of `find_index` as well as the other loop unrolling functions might seem confusing to the uninitiated, and would no doubt be to the author had he encountered this over a year ago. But ultimately the function is just 5 lines long and there is nothing particular magical about it; the function is fully explicit. Thinking about it for a long time will help and so will mentally rehearsing the motions until the pieces fall into place.
