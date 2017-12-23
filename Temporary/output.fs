@@ -6,111 +6,27 @@ extern "C" {
 }
 """
 
-type Tuple0 =
-    struct
-    val mem_0: Union1
-    val mem_1: Union1
-    val mem_2: Union1
-    val mem_3: Union1
-    new(arg_mem_0, arg_mem_1, arg_mem_2, arg_mem_3) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2; mem_3 = arg_mem_3}
-    end
-and Union1 =
-    | Union1Case0
-    | Union1Case1
-let rec method_0(): Tuple0 =
-    Tuple0(Union1Case0, Union1Case0, Union1Case0, Union1Case0)
-let (var_0: Tuple0) = method_0()
-let (var_1: Union1) = var_0.mem_0
-let (var_2: Union1) = var_0.mem_1
-let (var_3: Union1) = var_0.mem_2
-let (var_4: Union1) = var_0.mem_3
-match var_1 with
-| Union1Case0 ->
-    match var_2 with
-    | Union1Case0 ->
-        1L
-    | Union1Case1 ->
-        match var_3 with
-        | Union1Case0 ->
-            match var_4 with
-            | Union1Case0 ->
-                2L
-            | Union1Case1 ->
-                match var_1 with
-                | Union1Case0 ->
-                    match var_2 with
-                    | Union1Case0 ->
-                        4L
-                    | Union1Case1 ->
-                        match var_3 with
-                        | Union1Case0 ->
-                            match var_4 with
-                            | Union1Case0 ->
-                                4L
-                            | Union1Case1 ->
-                                3L
-                        | Union1Case1 ->
-                            4L
-                | Union1Case1 ->
-                    4L
-        | Union1Case1 ->
+type Union0 =
+    | Union0Case0
+    | Union0Case1
+let (var_0: Union0) = Union0Case0
+let (var_1: Union0) = Union0Case0
+let (var_2: Union0) = Union0Case0
+match var_0 with
+| Union0Case0 ->
+    1L
+| Union0Case1 ->
+    match var_1 with
+    | Union0Case0 ->
+        match var_0 with
+        | Union0Case0 ->
             match var_1 with
-            | Union1Case0 ->
-                match var_2 with
-                | Union1Case0 ->
-                    4L
-                | Union1Case1 ->
-                    match var_3 with
-                    | Union1Case0 ->
-                        match var_4 with
-                        | Union1Case0 ->
-                            4L
-                        | Union1Case1 ->
-                            3L
-                    | Union1Case1 ->
-                        4L
-            | Union1Case1 ->
+            | Union0Case0 ->
+                3L
+            | Union0Case1 ->
                 4L
-| Union1Case1 ->
-    match var_3 with
-    | Union1Case0 ->
-        match var_4 with
-        | Union1Case0 ->
-            2L
-        | Union1Case1 ->
-            match var_1 with
-            | Union1Case0 ->
-                match var_2 with
-                | Union1Case0 ->
-                    4L
-                | Union1Case1 ->
-                    match var_3 with
-                    | Union1Case0 ->
-                        match var_4 with
-                        | Union1Case0 ->
-                            4L
-                        | Union1Case1 ->
-                            3L
-                    | Union1Case1 ->
-                        4L
-            | Union1Case1 ->
-                4L
-    | Union1Case1 ->
-        match var_1 with
-        | Union1Case0 ->
-            match var_2 with
-            | Union1Case0 ->
-                4L
-            | Union1Case1 ->
-                match var_3 with
-                | Union1Case0 ->
-                    match var_4 with
-                    | Union1Case0 ->
-                        4L
-                    | Union1Case1 ->
-                        3L
-                | Union1Case1 ->
-                    4L
-        | Union1Case1 ->
+        | Union0Case1 ->
             4L
+    | Union0Case1 ->
+        2L
 

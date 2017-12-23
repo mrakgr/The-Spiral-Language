@@ -113,13 +113,21 @@ match x with
 let test10 = 
     "test10",[],"The worst case for partially evaluated pattern matchers.",
     """
+inl dyn x = !Dynamize(x)
+inl box a b = !TypeBox(a,b)
+
 inl ab = box (.A \/ .B)
-met x = (ab .A, ab .A, ab .A, ab .A)
-match x with
-| .A, .A, _, _ -> 1
-| _, _, .A, .A -> 2
-| .A, .B, .A, .B -> 3
+match dyn (ab .A, ab .A, ab .A) with
+| .A, _, _ -> 1
+| _, .B, _ -> 2
+| .A, .A, _ -> 3
 | _ -> 4
+//met x = (ab .A, ab .A, ab .A, ab .A)
+//match x with
+//| .A, .A, _, _ -> 1
+//| _, _, .A, .A -> 2
+//| .A, .B, .A, .B -> 3
+//| _ -> 4
     """
 
 let test11 = // 

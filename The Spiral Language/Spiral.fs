@@ -239,6 +239,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         c + 1, arg :: s,cp arg pat on_succ on_fail) l (0,[],on_succ)
            
                 let pat_tuple l =
+                    printfn "In pat_tuple the arg is %s" arg
                     let count, args, on_succ = pat_tuple_helper l
                     list_taken_cps count (v arg) on_fail (inl' args on_succ) |> case arg
 
@@ -908,11 +909,12 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let case_ d v' case =
             let case = tev d case
-            match tev d v' with
+            let v = tev d v'
+            match v' with
+            | V (N v') -> printfn "v %s is %A" v' v
+            match v with
             | a & TyBox(b,_) -> apply d case b
-            | TyV(tag, t & (UnionT _ | RecT _)) as v ->
-                match v' with
-                | V (N v') -> printfn "v %s is %i...%A" v' tag v
+            | (TyV(_, t & (UnionT _ | RecT _)) | TyT(t & (UnionT _ | RecT _))) as v ->
                 let rec map_cases l =
                     match l with
                     | x :: xs -> 
