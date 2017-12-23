@@ -108,10 +108,16 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
     let rec ap' f l = List.fold ap f l
 
+    let print_static x = op(PrintStatic,[x])
+
     let if_static cond tr fl = (IfStatic,[cond;tr;fl]) |> op
-    let case arg case = (Case,[arg;case]) |> op
+    let case arg case = 
+        let case = 
+            inl arg (l "" (print_static (vv [sprintf "inside the case %s is" arg |> LitString |> lit; v arg])) case)
+        (Case,[v arg;case]) |> op
     let module_is_cps arg on_fail on_succ = op(ModuleIsCPS,[arg;on_fail;on_succ])
     let module_member_cps arg name on_fail on_succ = op(ModuleMemberCPS,[arg;lit (LitString name);on_fail;on_succ])
+    let term_fun_dom_range_cps arg on_fail on_succ = op(TermFunctionDomainRangeCPS,[arg;on_fail;on_succ])
     let list_taken_cps count arg on_fail on_succ = op(ListTakeNCPS,[lit (LitInt32 count);arg;on_fail;on_succ])
     let list_taken_tail_cps count arg on_fail on_succ = op(ListTakeNTailCPS,[lit (LitInt32 (count-1));arg;on_fail;on_succ])
     let binop op' a b = (op',[a;b]) |> op
@@ -119,10 +125,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let eq a b = binop EQ a b
     let lt a b = binop LT a b
     let gte a b = binop GTE a b
-
-    let closure_is x = op(TermFunctionIs,[x])
-    let closure_dom x = op(TermFunctionDomain,[x])
-    let closure_range x = op(TermFunctionRange,[x])
 
     let error_non_unit x = (ErrorNonUnit, [x]) |> op
     let type_lit_lift' x = (TypeLitCreate,[x]) |> op
@@ -228,51 +230,51 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     x
                 fun () -> sprintf " pat_var_%i_%i" node (get_pattern_tag())
 
-            let rec pattern_compile arg pat on_succ on_fail =
+            let rec pattern_compile (arg: string) pat on_succ on_fail =
                 let inline cp arg pat on_succ on_fail = pattern_compile arg pat on_succ on_fail
 
                 let pat_tuple_helper l =
                     List.foldBack (fun pat (c,s,on_succ) -> 
                         let arg = new_pat_var()
-                        c + 1, arg :: s,cp (v arg) pat on_succ on_fail) l (0,[],on_succ)
+                        c + 1, arg :: s,cp arg pat on_succ on_fail) l (0,[],on_succ)
            
                 let pat_tuple l =
                     let count, args, on_succ = pat_tuple_helper l
-                    list_taken_cps count arg on_fail (inl' args on_succ) |> case arg
+                    list_taken_cps count (v arg) on_fail (inl' args on_succ) |> case arg
 
                 let pat_cons l = 
                     let count, args, on_succ = pat_tuple_helper l
-                    list_taken_tail_cps count arg on_fail (inl' args on_succ) |> case arg
+                    list_taken_tail_cps count (v arg) on_fail (inl' args on_succ) |> case arg
 
                 let pat_part_active a pat on_fail arg =
                     let pat_var = new_pat_var()
-                    let on_succ = inl pat_var (cp (v pat_var) pat on_succ on_fail)
+                    let on_succ = inl pat_var (cp pat_var pat on_succ on_fail)
                     let on_fail = inl "" on_fail
                     ap' (v a) [arg; on_fail; on_succ]
             
                 match pat with
                 | PatE -> on_succ
-                | PatVar x -> l x arg on_succ
+                | PatVar x -> l x (v arg) on_succ
                 | PatTypeEq (exp,typ) ->
                     let on_succ = cp arg exp on_succ on_fail
-                    if_static (eq_type arg typ) on_succ on_fail
+                    if_static (eq_type (v arg) typ) on_succ on_fail
                     |> case arg
                 | PatTuple l -> pat_tuple l
                 | PatCons l -> pat_cons l
                 | PatActive (a,b) ->
                     let pat_var = new_pat_var()
-                    l pat_var (ap (v a) arg) (cp (v pat_var) b on_succ on_fail)
-                | PatPartActive (a,pat) -> pat_part_active a pat on_fail arg
+                    l pat_var (ap (v a) (v arg)) (cp pat_var b on_succ on_fail)
+                | PatPartActive (a,pat) -> pat_part_active a pat on_fail (v arg)
                 | PatExtActive (a,pat) ->
                     let rec f pat' on_fail = function
                         | PatAnd _ as pat -> op(ErrorType,[lit_string "And patterns are not allowed in extension patterns."]) |> pat_part_active a (pat' pat) on_fail
                         | PatOr l -> List.foldBack (fun pat on_fail -> f pat' on_fail pat) l on_fail
-                        | PatCons l -> vv [type_lit_lift (LitString "cons"); vv [l.Length-1 |> int64 |> LitInt64 |> lit; arg]] |> pat_part_active a (pat' <| PatTuple l) on_fail
-                        | PatTuple l as pat -> vv [type_lit_lift (LitString "tup"); vv [l.Length |> int64 |> LitInt64 |> lit; arg]] |> pat_part_active a (pat' pat) on_fail
+                        | PatCons l -> vv [type_lit_lift (LitString "cons"); vv [l.Length-1 |> int64 |> LitInt64 |> lit; v arg]] |> pat_part_active a (pat' <| PatTuple l) on_fail
+                        | PatTuple l as pat -> vv [type_lit_lift (LitString "tup"); vv [l.Length |> int64 |> LitInt64 |> lit; v arg]] |> pat_part_active a (pat' pat) on_fail
                         | PatTypeEq (a,typ) -> f (fun a -> PatTypeEq(a,typ) |> pat') on_fail a
                         | PatWhen (pat, e) -> f (fun pat -> PatWhen(pat,e) |> pat') on_fail pat
                         | PatClauses _ -> failwith "Clauses should not appear inside other clauses."
-                        | pat -> vv [type_lit_lift (LitString "var"); arg] |> pat_part_active a (pat' pat) on_fail
+                        | pat -> vv [type_lit_lift (LitString "var"); v arg] |> pat_part_active a (pat' pat) on_fail
                     f id on_fail pat
                 | PatOr l -> List.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
                 | PatAnd l -> List.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
@@ -289,34 +291,33 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | PatNot p -> cp arg p on_fail on_succ
                 | PatClauses l -> List.foldBack (fun (pat, exp) on_fail -> cp arg pat exp on_fail) l on_fail
                 | PatTypeLit x -> 
-                    if_static (eq_type arg (type_lit_lift x)) on_succ on_fail 
+                    if_static (eq_type (v arg) (type_lit_lift x)) on_succ on_fail 
                     |> case arg
                 | PatTypeLitBind x -> 
-                    if_static (type_lit_is arg) (l x (type_lit_cast arg) on_succ) on_fail 
+                    if_static (type_lit_is (v arg)) (l x (type_lit_cast (v arg)) on_succ) on_fail 
                     |> case arg
                 | PatLit x -> 
                     let x = lit x
-                    let on_succ = if_static (eq arg x) on_succ on_fail
-                    if_static (eq_type arg x) on_succ on_fail |> case arg
+                    let on_succ = if_static (eq (v arg) x) on_succ on_fail
+                    if_static (eq_type (v arg) x) on_succ on_fail |> case arg
                 | PatWhen (p, e) -> cp arg p (if_static e on_succ on_fail) on_fail
-                | PatModuleIs p -> module_is_cps arg on_fail (cp arg p on_succ on_fail) |> case arg
-                | PatModuleMember name -> module_member_cps arg name on_fail (inl name on_succ) |> case arg
+                | PatModuleIs p -> module_is_cps (v arg) on_fail (cp arg p on_succ on_fail) |> case arg
+                | PatModuleMember name -> module_member_cps (v arg) name on_fail (inl name on_succ) |> case arg
                 | PatModuleRebind(name,b) -> 
                     let arg' = new_pat_var()    
-                    module_member_cps arg name on_fail (inl arg' (cp (v arg') b on_succ on_fail)) 
+                    module_member_cps (v arg) name on_fail (inl arg' (cp arg' b on_succ on_fail)) 
                     |> case arg
                 | PatPos p -> expr_pos p.Pos (cp arg p.Expression on_succ on_fail)
-                | PatTypeClosure(a,b) ->
-                    let range = cp (closure_range arg) b on_succ on_fail
-                    let closure = cp (closure_dom arg) a range on_fail
-                    if_static (closure_is arg) closure on_fail
+                | PatTypeTermFunction(a,b) -> 
+                    let va, vb = new_pat_var(), new_pat_var()
+                    term_fun_dom_range_cps (v arg) on_fail 
+                    <| inl' [va; vb] (cp va a (cp vb b on_succ on_fail) on_fail)
                     
-            let main_arg = new_pat_var()
-            let arg = v main_arg
+            let arg = new_pat_var()
                     
             let pattern_compile_def_on_succ = op(ErrorPatClause,[])
-            let pattern_compile_def_on_fail = op(ErrorPatMiss,[arg])
-            inl main_arg (pattern_compile arg pat pattern_compile_def_on_succ pattern_compile_def_on_fail) |> expr_prepass
+            let pattern_compile_def_on_fail = op(ErrorPatMiss,[v arg])
+            inl arg (pattern_compile arg pat pattern_compile_def_on_succ pattern_compile_def_on_fail) |> expr_prepass
             ) 
             
 
@@ -708,46 +709,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             |> List.map tyt
             |> tyvv
 
-        let inline closure_f on_fail on_succ d x =
-            match tev d x with
-            | TyType(TermFunctionT (a,b)) -> on_succ (a,b)
-            | x -> on_fail x
-
-        let closure_is d x =
-            let on_x x _ = LitBool x |> TyLit
-            closure_f (on_x false) (on_x true) d x
-
-        let inline closure_dr is_domain d x =
-            let on_fail x = on_type_er (trace d) <| sprintf "Expected a closure (or its type).\nGot: %s" (show_typedexpr x)
-            let on_succ (dom,range) = if is_domain then tyt dom else tyt range
-            closure_f on_fail on_succ d x
-
-        let closure_type_create d a b =
+        let term_fun_type_create d a b =
             let a = tev_seq d a
             let b = tev_seq d b
             term_functiont (get_type a) (get_type b) |> tyt
 
-        let case_ d v case =
-            let inline assume d v x branch = tev_assume (cse_add' d v x) d branch
-            match tev d v with
-            | a & TyBox(b,_) -> tev {d with cse_env = ref (cse_add' d a b)} case
-            | (TyV(_, t & (UnionT _ | RecT _)) | TyT(t & (UnionT _ | RecT _))) as v ->
-                let rec map_cases l =
-                    match l with
-                    | x :: xs -> (x, assume d v x case) :: map_cases xs
-                    | _ -> []
-                            
-                match map_cases (case_type d t |> List.map (make_up_vars_for_ty d)) with
-                | (_, TyType p) :: cases as cases' -> 
-                    if List.forall (fun (_, TyType x) -> x = p) cases then 
-                        TyOp(Case,v :: List.collect (fun (a,b) -> [a;b]) cases', p) 
-                        |> make_tyv_and_push_typed_expr_even_if_unit d
-                    else 
-                        let l = List.map (snd >> get_type) cases'
-                        on_type_er (trace d) <| sprintf "All the cases in pattern matching clause with dynamic data must have the same type.\nGot: %s" (listt l |> show_ty)
-                | _ -> failwith "There should always be at least one clause here."
-            | _ -> tev d case
-           
         let type_union d l = List.fold (fun s x -> Set.union s (tev d x |> get_type |> set_field)) Set.empty l |> uniont |> tyt
 
         let inline wrap_exception d f =
@@ -932,6 +898,40 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     if arg_ty <> clo_arg_ty then on_type_er (trace d) <| sprintf "Cannot apply an argument of type %s to closure (%s => %s)." (show_ty arg_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
                     else TyOp(Apply,[closure;args],clo_ret_ty) |> make_tyv_and_push_typed_expr_even_if_unit d
                 | _ -> on_type_er (trace d) <| sprintf "Invalid use of apply. %s and %s" (show_typedexpr a) (show_typedexpr b)
+
+        let term_fun_dom_range_cps d x on_fail on_succ =
+            match tev d x with
+            | TyType(TermFunctionT (a,b)) -> 
+                let on_succ = tev d on_succ    
+                apply d (apply d on_succ (tyt a)) (tyt b)
+            | x -> tev d on_fail
+
+        let case_ d v' case =
+            let case = tev d case
+            match tev d v' with
+            | a & TyBox(b,_) -> apply d case b
+            | TyV(tag, t & (UnionT _ | RecT _)) as v ->
+                match v' with
+                | V (N v') -> printfn "v %s is %i...%A" v' tag v
+                let rec map_cases l =
+                    match l with
+                    | x :: xs -> 
+                        let seq = ref id
+                        printfn "%A" x
+                        let r = apply {d with seq=seq; cse_env=ref !d.cse_env} case x
+                        (x,!seq r) :: map_cases xs
+                    | _ -> []
+                            
+                match map_cases (case_type d t |> List.map (make_up_vars_for_ty d)) with
+                | (_, TyType p) :: cases as cases' -> 
+                    if List.forall (fun (_, TyType x) -> x = p) cases then 
+                        TyOp(Case,v :: List.collect (fun (a,b) -> [a;b]) cases', p) 
+                        |> make_tyv_and_push_typed_expr_even_if_unit d
+                    else 
+                        let l = List.map (snd >> get_type) cases'
+                        on_type_er (trace d) <| sprintf "All the cases in pattern matching clause with dynamic data must have the same type.\nGot: %s" (listt l |> show_ty)
+                | _ -> failwith "There should always be at least one clause here."
+            | x -> apply d case x
 
         let type_box d typec args =
             let typec & TyType ty, args = tev2 d typec args
@@ -1632,10 +1632,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TypeGet,[a] -> type_get d a
             | TypeSplit,[a] -> type_split d a
 
-            | TermFunctionTypeCreate,[a;b] -> closure_type_create d a b
-            | TermFunctionIs,[a] -> closure_is d a
-            | TermFunctionDomain,[a] -> closure_dr true d a
-            | TermFunctionRange,[a] -> closure_dr false d a 
+            | TermFunctionTypeCreate,[a;b] -> term_fun_type_create d a b
+            | TermFunctionDomainRangeCPS,[a;b;c] -> term_fun_dom_range_cps d a b c
 
             | EqType,[a;b] -> eq_type d a b
             | Neg,[a] -> prim_un_numeric d a Neg
@@ -1897,7 +1895,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | None -> lit)
             squares (many pat) |>> PatTuple
 
-        let pat_closure pattern = sepBy1 pattern arr |>> List.reduceBack (fun a b -> PatTypeClosure(a,b))
+        let pat_closure pattern = sepBy1 pattern arr |>> List.reduceBack (fun a b -> PatTypeTermFunction(a,b))
 
         let (^<|) a b = a b // High precedence, right associative <| operator
 

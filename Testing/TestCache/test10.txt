@@ -36,9 +36,41 @@ match var_1 with
             | Union1Case0 ->
                 2L
             | Union1Case1 ->
-                3L
+                match var_1 with
+                | Union1Case0 ->
+                    match var_2 with
+                    | Union1Case0 ->
+                        4L
+                    | Union1Case1 ->
+                        match var_3 with
+                        | Union1Case0 ->
+                            match var_4 with
+                            | Union1Case0 ->
+                                4L
+                            | Union1Case1 ->
+                                3L
+                        | Union1Case1 ->
+                            4L
+                | Union1Case1 ->
+                    4L
         | Union1Case1 ->
-            4L
+            match var_1 with
+            | Union1Case0 ->
+                match var_2 with
+                | Union1Case0 ->
+                    4L
+                | Union1Case1 ->
+                    match var_3 with
+                    | Union1Case0 ->
+                        match var_4 with
+                        | Union1Case0 ->
+                            4L
+                        | Union1Case1 ->
+                            3L
+                    | Union1Case1 ->
+                        4L
+            | Union1Case1 ->
+                4L
 | Union1Case1 ->
     match var_3 with
     | Union1Case0 ->
@@ -46,7 +78,39 @@ match var_1 with
         | Union1Case0 ->
             2L
         | Union1Case1 ->
-            4L
+            match var_1 with
+            | Union1Case0 ->
+                match var_2 with
+                | Union1Case0 ->
+                    4L
+                | Union1Case1 ->
+                    match var_3 with
+                    | Union1Case0 ->
+                        match var_4 with
+                        | Union1Case0 ->
+                            4L
+                        | Union1Case1 ->
+                            3L
+                    | Union1Case1 ->
+                        4L
+            | Union1Case1 ->
+                4L
     | Union1Case1 ->
-        4L
+        match var_1 with
+        | Union1Case0 ->
+            match var_2 with
+            | Union1Case0 ->
+                4L
+            | Union1Case1 ->
+                match var_3 with
+                | Union1Case0 ->
+                    match var_4 with
+                    | Union1Case0 ->
+                        4L
+                    | Union1Case1 ->
+                        3L
+                | Union1Case1 ->
+                    4L
+        | Union1Case1 ->
+            4L
 

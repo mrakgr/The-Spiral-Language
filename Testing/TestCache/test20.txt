@@ -1,9 +1,20 @@
-module SpiralExample.Main
-let cuda_kernels = """
-
-extern "C" {
-    
-}
-"""
-
-7.000000
+Error trace on line: 2, column: 5 in file "test20".
+inl t = int64 \/ float64
+    ^
+Error trace on line: 3, column: 5 in file "test20".
+inl x = box t 3.5
+    ^
+Error trace on line: 4, column: 1 in file "test20".
+match x with
+^
+Error trace on line: 5, column: 3 in file "test20".
+| q : int64 -> x * x
+  ^
+Error trace on line: 6, column: 3 in file "test20".
+| q : float64 -> x + x
+  ^
+Error trace on line: 50, column: 11 in file "Core".
+inl (+) a b = !Add(a,b)
+          ^
+`is_numeric a && get_type a = get_type b` is false.
+a=(boxed_type union {int64 | float64} with lit 3.500000f64), b=(boxed_type union {int64 | float64} with lit 3.500000f64)
