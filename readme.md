@@ -2299,7 +2299,7 @@ Discriminated union types in Spiral take direct inspiration from F#'s own. That 
 
 Since Spiral has first class types, type string literals take the place of case names. Furthermore, types can be defined anywhere in the program rather than at the top level like in F#.
 
-A non-recursive union type like the Option can be defined like the following. `\/` is the type union keyword operator. It has a lower precedence than tuples. `.Some, x \/ .None` is equivalent to `type (.Some, x) \/ type (.None)`.
+A non-recursive union type like the Option can be defined like the following. `\/` is the type union keyword operator. It has a lower precedence than tuples. `.Some, x \/ .None` is equivalent to `(type .Some, x) \/ (type .None)`.
 
 ```
 inl Option x = .Some, x \/ .None
@@ -2321,7 +2321,7 @@ and Tuple1 =
     end
 Union0Case1
 ```
-Commentary on the quality of the generated code will be left for later. Pattern matching on the boxed union values can be done the same way as in F#.
+Commentary on the quality of the generated code will be left for the user guide. Pattern matching on the boxed union values can be done the same way as in F#.
 ```
 match none int64 with
 | .Some, x -> x
