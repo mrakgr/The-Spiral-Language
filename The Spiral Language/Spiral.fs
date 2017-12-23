@@ -112,6 +112,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let case arg case = (Case,[arg;case]) |> op
     let module_is_cps arg on_fail on_succ = op(ModuleIsCPS,[arg;on_fail;on_succ])
     let module_member_cps arg name on_fail on_succ = op(ModuleMemberCPS,[arg;lit (LitString name);on_fail;on_succ])
+    let term_fun_dom_range_cps arg on_fail on_succ = op(TermFunctionDomainRangeCPS,[arg;on_fail;on_succ])
     let list_taken_cps count arg on_fail on_succ = op(ListTakeNCPS,[lit (LitInt32 count);arg;on_fail;on_succ])
     let list_taken_tail_cps count arg on_fail on_succ = op(ListTakeNTailCPS,[lit (LitInt32 (count-1));arg;on_fail;on_succ])
     let binop op' a b = (op',[a;b]) |> op
@@ -119,10 +120,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let eq a b = binop EQ a b
     let lt a b = binop LT a b
     let gte a b = binop GTE a b
-
-    let closure_is x = op(TermFunctionIs,[x])
-    let closure_dom x = op(TermFunctionDomain,[x])
-    let closure_range x = op(TermFunctionRange,[x])
 
     let error_non_unit x = (ErrorNonUnit, [x]) |> op
     let type_lit_lift' x = (TypeLitCreate,[x]) |> op
@@ -306,10 +303,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     module_member_cps arg name on_fail (inl arg' (cp (v arg') b on_succ on_fail)) 
                     |> case arg
                 | PatPos p -> expr_pos p.Pos (cp arg p.Expression on_succ on_fail)
-                | PatTypeClosure(a,b) ->
-                    let range = cp (closure_range arg) b on_succ on_fail
-                    let closure = cp (closure_dom arg) a range on_fail
-                    if_static (closure_is arg) closure on_fail
+                | PatTypeTermFunction(a,b) -> 
+                    let va, vb = new_pat_var(), new_pat_var()
+                    term_fun_dom_range_cps arg on_fail 
+                    <| inl' [va; vb] (cp (v va) a (cp (v vb) b on_succ on_fail) on_fail)
                     
             let main_arg = new_pat_var()
             let arg = v main_arg
@@ -708,25 +705,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             |> List.map tyt
             |> tyvv
 
-        let inline closure_f on_fail on_succ d x =
-            match tev d x with
-            | TyType(TermFunctionT (a,b)) -> on_succ (a,b)
-            | x -> on_fail x
-
-        let closure_is d x =
-            let on_x x _ = LitBool x |> TyLit
-            closure_f (on_x false) (on_x true) d x
-
-        let inline closure_dr is_domain d x =
-            let on_fail x = on_type_er (trace d) <| sprintf "Expected a closure (or its type).\nGot: %s" (show_typedexpr x)
-            let on_succ (dom,range) = if is_domain then tyt dom else tyt range
-            closure_f on_fail on_succ d x
-
-        let closure_type_create d a b =
-            let a = tev_seq d a
-            let b = tev_seq d b
-            term_functiont (get_type a) (get_type b) |> tyt
-
         let case_ d v case =
             let inline assume d v x branch = tev_assume (cse_add' d v x) d branch
             match tev d v with
@@ -932,6 +910,18 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     if arg_ty <> clo_arg_ty then on_type_er (trace d) <| sprintf "Cannot apply an argument of type %s to closure (%s => %s)." (show_ty arg_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
                     else TyOp(Apply,[closure;args],clo_ret_ty) |> make_tyv_and_push_typed_expr_even_if_unit d
                 | _ -> on_type_er (trace d) <| sprintf "Invalid use of apply. %s and %s" (show_typedexpr a) (show_typedexpr b)
+
+        let term_fun_type_create d a b =
+            let a = tev_seq d a
+            let b = tev_seq d b
+            term_functiont (get_type a) (get_type b) |> tyt
+
+        let term_fun_dom_range_cps d x on_fail on_succ =
+            match tev d x with
+            | TyType(TermFunctionT (a,b)) -> 
+                let on_succ = tev d on_succ    
+                apply d (apply d on_succ (tyt a)) (tyt b)
+            | x -> tev d on_fail
 
         let type_box d typec args =
             let typec & TyType ty, args = tev2 d typec args
@@ -1632,10 +1622,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TypeGet,[a] -> type_get d a
             | TypeSplit,[a] -> type_split d a
 
-            | TermFunctionTypeCreate,[a;b] -> closure_type_create d a b
-            | TermFunctionIs,[a] -> closure_is d a
-            | TermFunctionDomain,[a] -> closure_dr true d a
-            | TermFunctionRange,[a] -> closure_dr false d a 
+            | TermFunctionTypeCreate,[a;b] -> term_fun_type_create d a b
+            | TermFunctionDomainRangeCPS,[a;b;c] -> term_fun_dom_range_cps d a b c
 
             | EqType,[a;b] -> eq_type d a b
             | Neg,[a] -> prim_un_numeric d a Neg
@@ -1897,7 +1885,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | None -> lit)
             squares (many pat) |>> PatTuple
 
-        let pat_closure pattern = sepBy1 pattern arr |>> List.reduceBack (fun a b -> PatTypeClosure(a,b))
+        let pat_closure pattern = sepBy1 pattern arr |>> List.reduceBack (fun a b -> PatTypeTermFunction(a,b))
 
         let (^<|) a b = a b // High precedence, right associative <| operator
 

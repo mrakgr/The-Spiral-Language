@@ -109,9 +109,7 @@ type Op =
 
     // Term function
     | TermFunctionTypeCreate
-    | TermFunctionIs
-    | TermFunctionDomain
-    | TermFunctionRange
+    | TermFunctionDomainRangeCPS
 
     // Unsafe casts
     | UnsafeConvert
@@ -268,7 +266,7 @@ and Pattern =
     | PatModuleMember of string
     | PatModuleRebind of string * Pattern
     | PatPos of Pos<Pattern>
-    | PatTypeClosure of Pattern * Pattern
+    | PatTypeTermFunction of Pattern * Pattern
 
 and Expr = 
     | V of Node<string>
