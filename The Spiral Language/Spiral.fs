@@ -1221,7 +1221,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | _ -> TyLit (LitBool false)
             | _ -> TyLit (LitBool false)
 
-        let caseable_boxed_is d a =
+        let caseable_box_is d a =
             match tev d a with
             | TyV(_, t) | TyT t -> 
                 match t with
@@ -1569,8 +1569,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TypeLitCast,[a] -> type_lit_cast d a
             | TypeLitIs,[a] -> type_lit_is d a
             | Dynamize,[a] -> dynamize d a
-            | LitIs,[a] -> lit_is d a
-            | BoxIs,[a] -> box_is d a
             | ModuleOpen,[a;b] -> module_open d a b
             | ModuleCreate,l -> module_create d l
             | ModuleWith, l -> module_with d l
@@ -1582,8 +1580,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ModuleFilter,[a;b] -> module_filter d a b
             | ModuleFoldL,[a;b;c] -> module_foldl d a b c
             | ModuleFoldR,[a;b;c] -> module_foldr d a b c
+            | LitIs,[a] -> lit_is d a
             | CaseableIs,[a] -> caseable_is d a
-            | CaseableBoxedIs,[a] -> caseable_boxed_is d a
+            | BoxIs,[a] -> box_is d a
+            | CaseableBoxIs,[a] -> caseable_box_is d a
 
             | ArrayCreate,[a;b] -> array_create d a b
             | ReferenceCreate,[a] -> reference_create d a

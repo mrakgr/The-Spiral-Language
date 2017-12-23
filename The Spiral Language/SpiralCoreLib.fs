@@ -89,7 +89,7 @@ inl string_concat a b = !StringConcat(a,b)
 inl lit_is x = !LitIs(x)
 inl box_is x = !BoxIs(x)
 inl caseable_is x = !CaseableIs(x)
-inl caseable_boxed_is x = !CaseableBoxedIs(x)
+inl caseable_box_is x = !CaseableBoxIs(x)
 inl failwith typ msg = !FailWith(typ,msg)
 inl assert c msg = 
     inl raise = 
@@ -123,7 +123,7 @@ inl (=) a b =
             | _ -> false
         // TODO: If I put in a hack for doing fast equality comparison on boxed union types remember 
         // to also allow comparison of type level function.
-        if caseable_boxed_is a && caseable_boxed_is b then join (body (a, b) : bool)
+        if caseable_box_is a && caseable_box_is b then join (body (a, b) : bool)
         else body (a, b)
     if eq_type a b then a = b
     else error_type ("Trying to compare variables of two different types. Got:",a,b)

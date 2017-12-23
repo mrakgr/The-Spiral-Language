@@ -47,14 +47,29 @@ inl init =
     | .static -> body true
     | x -> body false x
 
-inl rec List x = join_type 
-    inl el = stack {elem_type=x}
-    el, () \/ el, x, List x
+/// Returns the element type of the list.
+/// a List -> a type
+inl elem_type l =
+    match split l with
+    | (), (a,b) when eq_type (List a) l -> a
+    | _ -> error_type "Expected a List in elem_type."
 
-()
+inl TypeA = .A \/ .B \/ .C \/ .D
+
+inl f g = function
+    | .A -> 1
+    | .B -> 2
+    | x -> 
+        dyn "Just passing through." |> ignore
+        g x
+
+f (function
+    | .C -> 3
+    | .D -> 4)
+    (box TypeA .A |> dyn )
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test102
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example
 |> printfn "%s"
 |> ignore

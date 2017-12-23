@@ -541,7 +541,7 @@ inl rec map f l =
         | #lw (x :: xs) -> cons (f x) (map f xs)
         | #lw () -> empty t
         : List t
-    if is_static l then loop map
+    if box_is l then loop map
     else (met _ -> loop map) ()
 
 inl fold_template loop f s l = 

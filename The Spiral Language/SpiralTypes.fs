@@ -151,7 +151,7 @@ type Op =
 
     // Box & caseable
     | CaseableIs
-    | CaseableBoxedIs
+    | CaseableBoxIs
     | BoxIs
 
     // Braching

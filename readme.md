@@ -503,9 +503,9 @@ Unlike ML languages which use Hindley-Milner global type inference, Spiral does 
 One other thing that is different from F# is that `int64`,`float64` and `string` on the right side of the `:` operators are not type annotations, but standard variables. The types in Spiral are first class much like everything else.
 
 ```
-inl int64_type = type (1)
-inl float64_type = type (1.0)
-inl string_type = type ("qwe")
+inl int64_type = type 1
+inl float64_type = type 1.0
+inl string_type = type "qwe"
 
 inl default_of = function
     | _: int64_type -> 0
@@ -533,9 +533,9 @@ As can be seen, the two generated code fragments are identical. `:` on the patte
 The types themselves can do more than be passed around or be matched on.
 
 ```
-inl int64_type = type (1)
-inl float64_type = type (1.0)
-inl string_type = type ("qwe")
+inl int64_type = type 1
+inl float64_type = type 1.0
+inl string_type = type "qwe"
 
 inl default_of = function
     | _: int64_type -> 0
@@ -2321,53 +2321,95 @@ and Tuple1 =
     end
 Union0Case1
 ```
-
-If the above was generated C code, there would be no complaint, but at the moment several complaints could be made. At the time of writing of this in late 2017, .NET does not have performant handling of structs and can box them at unexpected times, so using heap allocated structures might be more efficient even when common sense would dictate that stack allocated structures would be better.
-
-Given that, having a stack allocated tuples as a fields of non-empty heap allocated union types is not the best way of compiling them. But as Spiral was made to support Cuda programming and potentially other languages, if there are issues with handling of structs on the .NET side, then the .NET side if the one that is going to have to improve. Flattening the union type definitions is out of the question for the Spiral compiler as it would mess with typing.
-
+Commentary on the quality of the generated code will be left for later. Pattern matching on the boxed union values can be done the same way as in F#.
 ```
-some (1,(some 2.0),none string)
+match none int64 with
+| .Some, x -> x
+| .None -> -11
+```
+```
+11L
+```
+The word 'staging' means 'defering for later'. Just like literals, the creation of union types is deferred for as long as possible in Spiral.
+
+In order to actually instantiate the type, it is necessary to `dyn` it or return it from a join point or an if branch. The end of the entire program also qualifies for instantiation.
+```
+match none int64 |> dyn with
+| .Some, x -> x
+| .None -> -11
 ```
 ```
 type Union0 =
-    | Union0Case0 of Tuple5
+    | Union0Case0 of Tuple1
     | Union0Case1
-and Union1 =
-    | Union1Case0 of Tuple2
-    | Union1Case1
-and Tuple2 =
-    struct
-    val mem_0: float
-    new(arg_mem_0) = {mem_0 = arg_mem_0}
-    end
-and Union3 =
-    | Union3Case0 of Tuple6
-    | Union3Case1
-and Tuple4 =
+and Tuple1 =
     struct
     val mem_0: int64
-    val mem_1: Union1
-    val mem_2: Union3
-    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
-    end
-and Tuple5 =
-    struct
-    val mem_0: Tuple4
     new(arg_mem_0) = {mem_0 = arg_mem_0}
     end
-and Tuple6 =
-    struct
-    val mem_0: string
-    new(arg_mem_0) = {mem_0 = arg_mem_0}
-    end
-(Union0Case0(Tuple5(Tuple4(1L, (Union1Case0(Tuple2(2.000000))), Union3Case1))))
+let (var_0: Union0) = Union0Case1
+match var_0 with
+| Union0Case0(var_1) ->
+    var_1.mem_0
+| Union0Case1 ->
+    -11L
 ```
-Union types work correctly, but it has not been tested how performant the above way of generating them is. The author is not hopeful with regards to the .NET platform, but they should be usable regardless.
+The above is roughly what you would expect to get in F# or the MLs. Spiral's pattern matching is more flexible though.
+```
+inl TypeA = .A \/ .B
+inl TypeB = .B \/ .C
 
-As Spiral's codegen was written to target F# 4.0 which did not support struct union types yet, the above union type definition prints as a heap allocated union type - without [`[<Struct>]`](https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/discriminated-unions#struct-discriminated-unions) annotation above, but it is likely that this will be added in the future so maybe that should improve the quality of the generated code.
+inl f = function
+    | .A -> 1
+    | .B -> 2
+    | .C -> 3
 
-For branches, Spiral's natural style is to CPS them rather than using union types.
+box TypeA .A |> dyn |> f |> ignore
+box TypeB .C |> dyn |> f |> ignore
+```
+```
+type Union0 =
+    | Union0Case0
+    | Union0Case1
+and Union1 =
+    | Union1Case0
+    | Union1Case1
+let (var_0: Union0) = Union0Case0
+let (var_1: int64) =
+    match var_0 with
+    | Union0Case0 ->
+        1L
+    | Union0Case1 ->
+        2L
+let (var_2: Union1) = Union1Case1
+let (var_3: int64) =
+    match var_2 with
+    | Union1Case0 ->
+        2L
+    | Union1Case1 ->
+        3L
+```
+Despite this added flexibility, it is in fact exhaustive. Unlike in F#, this is not a warning, but an error as Spiral's union types are intended to be used on devices which have no capabilities for raising exceptions.
+```
+inl TypeA = .A \/ .B
+
+inl f = function
+    | .A -> 1
+    | .C -> 3
+
+box TypeA .A |> dyn |> f |> ignore
+```
+```
+...
+Error trace on line: 35, column: 7 in file "example".
+    | .A -> 1
+      ^
+Error trace on line: 36, column: 7 in file "example".
+    | .C -> 3
+      ^
+Pattern miss error. The argument is type (type_lit (B))
+```
+As it never matches `.B` it goes over the edge and returns a type error.
 
 Here is how recursive datatypes like lists might be defined.
 ```
@@ -2423,16 +2465,6 @@ inl init =
 ```
 The above function resembles the `init` in the `Array` module in structure. There is an interesting usage of the breakable `for'` here. Usually the `next` is intended to be called in tail position, but here it is not. Instead the `state` is used merely to ship the empty list to the end of it.
 ```
-inl x = init.static 3 id
-()
-```
-```
-```
-The word 'staging' means 'staged for later'. Just like literals, the creation of union types is deferred for as long as possible in Spiral.
-
-In order to actually instantiate the type, it is necessary to `dyn` it or return it from a join point or an if branch. The end of the entire program also qualifies for instantiation.
-
-```
 inl x = init.static 3 id |> dyn
 ()
 ```
@@ -2450,6 +2482,118 @@ let (var_0: Rec0) = (Rec0Case1(Tuple1(0L, (Rec0Case1(Tuple1(1L, (Rec0Case1(Tuple
 ```
 
 The above is nearly identical to the `singleton 3 |> cons 2 |> cons 1` example.
+
+The next function on the list would be the `map`. This is where things start to get tricky. Here is an example of it that does not work.
+
+```
+inl rec map f l = 
+    inl loop l =
+        match l with
+        | x,xs -> cons (f x) (map f xs)
+        | () -> l // Error #1
+        : ??? // Error #2
+    if box_is l then loop l
+    else join loop l
+```
+
+Error #2 should be obvious - there is no return type. Error #1 is more subtle - and is related to the way pattern matching is compiled. 
+
+Backtracking to the earlier example.
+```
+inl TypeA = .A \/ .B
+
+inl f = function
+    | x -> x
+
+box TypeA .A |> dyn |> f |> ignore
+```
+```
+type Union0 =
+    | Union0Case0
+    | Union0Case1
+let (var_0: Union0) = Union0Case0
+```
+The above is as one would expect.
+```
+inl TypeA = .A \/ .B
+
+inl f = function
+    | "qwe" -> ()
+    | x -> x
+
+box TypeA .A |> dyn |> f |> ignore
+```
+```
+...
+Error trace on line: 35, column: 7 in file "example".
+    | "qwe" -> ()
+      ^
+All the cases in pattern matching clause with dynamic data must have the same type.
+Got: [type_lit (A), type_lit (B)]
+```
+The error message gives an indication of what is wrong. In Spiral, the match case is not what triggers unboxing - the operations that actually need to unbox the union type are what do it. That means literal, type literal, tuple, module and others. This applies even to those patterns that have nothing to do with the variable's type and would have been expected to be skipped.
+
+It gets worse. Spiral's is really aggressive at rewriting the terms it is unboxing even if they are outside its intended scope.
+```
+inl x = box TypeA .A |> dyn
+print_static x // var (union {type_lit (A) | type_lit (B)})
+
+match x with
+| "qwe" -> ()
+| _ -> 
+    // prints twice
+    // type (type_lit (A))
+    // type (type_lit (B))
+    print_static x 
+    x
+```
+```
+...
+All the cases in pattern matching clause with dynamic data must have the same type.
+Got: [type_lit (A), type_lit (B)]
+```
+The way things are currently is the fault of whoever wrote the pattern matching compiler. Since patterns would be difficult to compile otherwise, internally Spiral uses the same mechanism used to do common subexpression elimination to pass information over multiple branches. There is no issue at all with this when not dealing with union types, but here there is some friction here.
+
+There is something good about the current arrangement that MLs do not have.
+
+```
+inl TypeA = .A \/ .B \/ .C \/ .D
+
+inl f g = function
+    | .A -> 1
+    | .B -> 2
+    | x -> 
+        dyn "Just passing through." |> ignore
+        g x
+
+f (function
+    | .C -> 3
+    | .D -> 4)
+    (box TypeA .A |> dyn )
+```
+```
+type Union0 =
+    | Union0Case0
+    | Union0Case1
+    | Union0Case2
+    | Union0Case3
+let (var_0: Union0) = Union0Case0
+match var_0 with
+| Union0Case0 ->
+    1L
+| Union0Case1 ->
+    2L
+| Union0Case2 ->
+    let (var_1: string) = "Just passing through."
+    3L
+| Union0Case3 ->
+    let (var_2: string) = "Just passing through."
+    4L
+```
+
+That would be that the exhaustiveness check is not local to the pattern. As long as all the branches of it are properly handled, the pattern does not have to be squeezed all into one place and can be composed. This is one of the safety aspects at compile time that F# does not have.
+
+Regardless of the merits and demerits of this approach, in order to complete the map function some kind of method for getting what would be the generic parameter of the list in a parametric language is needed.
 
 #### Type Splitting and Generic Parameters
 
@@ -2482,5 +2626,4 @@ inl rec List x = join_type
 
 They all involve sticking the type in directly somehow by using layout types. Since layout types capture the scope by the typed expressions instead of types and since `x` can only ever be a type once it passes the `join_type` point, that assures that it will always be instantiated.
 
-[TODO: An explanation why this is needed should come first. This subsection came a bit too early.]
-
+...
