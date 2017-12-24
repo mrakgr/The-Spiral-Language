@@ -3023,4 +3023,217 @@ With this, the new List module is done.
 
 #### Warning on combining union types, partial active patterns and join points
 
-...
+Union types in Spiral are an example of a well designed feature with some implementation issues. Union types work, partial active patterns work and join points work, but right now they are a pick two out of three kind of deal. The reason for this is related to how Spiral will aggressively rewrite even variables outside of its intended scope.
+
+```
+inl ab = box (.A \/ .B)
+inl x = dyn (ab .A, ab .A, ab .A)
+match x with
+| .A, .A, _ -> 1
+| .A, .B, .B -> 2
+| _, _, .A -> 3
+| _ -> 4   
+```
+```
+type Union0 =
+    | Union0Case0
+    | Union0Case1
+let (var_0: Union0) = Union0Case0
+let (var_1: Union0) = Union0Case0
+let (var_2: Union0) = Union0Case0
+match var_0 with
+| Union0Case0 ->
+    match var_1 with
+    | Union0Case0 ->
+        1L
+    | Union0Case1 ->
+        match var_2 with
+        | Union0Case0 ->
+            3L
+        | Union0Case1 ->
+            2L
+| Union0Case1 ->
+    match var_2 with
+    | Union0Case0 ->
+        3L
+    | Union0Case1 ->
+        4L
+```
+The above compiles nicely, but suppose a partial active pattern with a join point is inserted in the middle.
+```
+inl ab = box (.A \/ .B)
+inl x = dyn (ab .A, ab .A, ab .A)
+inl pat arg on_fail on_succ = join on_fail ()
+match x with
+| .A, .A, _ -> 1
+| @pat _ -> -1
+| .A, .B, .B -> 2
+| _, _, .A -> 3
+| _ -> 4    
+```
+```
+type Union0 =
+    | Union0Case0
+    | Union0Case1
+let rec method_0((var_0: Union0), (var_1: Union0), (var_2: Union0)): int64 =
+    match var_0 with
+    | Union0Case0 ->
+        match var_1 with
+        | Union0Case0 ->
+            match var_2 with
+            | Union0Case0 ->
+                3L
+            | Union0Case1 ->
+                4L
+        | Union0Case1 ->
+            match var_2 with
+            | Union0Case0 ->
+                3L
+            | Union0Case1 ->
+                2L
+    | Union0Case1 ->
+        match var_2 with
+        | Union0Case0 ->
+            3L
+        | Union0Case1 ->
+            4L
+let (var_0: Union0) = Union0Case0
+let (var_1: Union0) = Union0Case0
+let (var_2: Union0) = Union0Case0
+match var_0 with
+| Union0Case0 ->
+    match var_1 with
+    | Union0Case0 ->
+        1L
+    | Union0Case1 ->
+        method_0((var_0: Union0), (var_1: Union0), (var_2: Union0))
+| Union0Case1 ->
+    method_0((var_0: Union0), (var_1: Union0), (var_2: Union0))
+```
+What is going on here is that the evaluator is forgetting that it already tested the variables and starts unboxing them again inside the join point. This is because join points throw away local left to right rewrite information.
+
+A workaround would be to put join points in the clause bodies.
+```
+inl ab = box (.A \/ .B)
+inl x = dyn (ab .A, ab .A, ab .A)
+inl pat arg on_fail on_succ = on_fail ()
+match x with
+| .A, .A, _ -> join 1
+| @pat _ -> join -1
+| .A, .B, .B -> join 2
+| _, _, .A -> join 3
+| _ -> join 4
+```
+```
+type Union0 =
+    | Union0Case0
+    | Union0Case1
+let rec method_0((var_0: Union0), (var_1: Union0), (var_2: Union0)): int64 =
+    1L
+and method_1(): int64 =
+    3L
+and method_2((var_0: Union0), (var_1: Union0), (var_2: Union0)): int64 =
+    2L
+and method_3((var_0: Union0)): int64 =
+    3L
+and method_4((var_0: Union0)): int64 =
+    4L
+let (var_0: Union0) = Union0Case0
+let (var_1: Union0) = Union0Case0
+let (var_2: Union0) = Union0Case0
+match var_0 with
+| Union0Case0 ->
+    match var_1 with
+    | Union0Case0 ->
+        method_0((var_0: Union0), (var_1: Union0), (var_2: Union0))
+    | Union0Case1 ->
+        match var_2 with
+        | Union0Case0 ->
+            method_1()
+        | Union0Case1 ->
+            method_2((var_0: Union0), (var_1: Union0), (var_2: Union0))
+| Union0Case1 ->
+    match var_2 with
+    | Union0Case0 ->
+        method_3((var_2: Union0))
+    | Union0Case1 ->
+        method_4((var_2: Union0))
+```
+This result is probably not what one would expect. Why are all those unused variables getting passed into the functions?
+
+The reason for that is that variable filtering is only done with functions, not join points.
+```
+inl ab = box (.A \/ .B)
+inl x = dyn (ab .A, ab .A, ab .A)
+inl pat arg on_fail on_succ = on_fail ()
+met a _ = 1
+met b _ = -2
+met c _ = 2
+met d _ = 3
+met e _ = 4
+match x with
+| .A, .A, _ -> a()
+| @pat _ -> b()
+| .A, .B, .B -> c()
+| _, _, .A -> d()
+| _ -> e()
+```
+```
+type Union0 =
+    | Union0Case0
+    | Union0Case1
+let rec method_0(): int64 =
+    1L
+and method_1(): int64 =
+    3L
+and method_2(): int64 =
+    2L
+and method_3(): int64 =
+    4L
+let (var_0: Union0) = Union0Case0
+let (var_1: Union0) = Union0Case0
+let (var_2: Union0) = Union0Case0
+match var_0 with
+| Union0Case0 ->
+    match var_1 with
+    | Union0Case0 ->
+        method_0()
+    | Union0Case1 ->
+        match var_2 with
+        | Union0Case0 ->
+            method_1()
+        | Union0Case1 ->
+            method_2()
+| Union0Case1 ->
+    match var_2 with
+    | Union0Case0 ->
+        method_1()
+    | Union0Case1 ->
+        method_3()
+```
+This could be changed, but in practice it won't be an issue as join points will always be behind functions unless a mistake has been made. Even something like the following will be enough to clean up the unusued variables.
+```
+inl ab = box (.A \/ .B)
+inl x = dyn (ab .A, ab .A, ab .A)
+inl pat arg on_fail on_succ = on_fail ()
+match x with
+| .A, .A, _ -> 
+    inl _ = ()
+    join 1
+| @pat _ -> 
+    inl _ = ()
+    join -1
+| .A, .B, .B -> 
+    inl _ = ()
+    join 2
+| _, _, .A -> 
+    inl _ = ()
+    join 3
+| _ -> 
+    inl _ = ()
+    join 4
+```
+Same as the previous example.
+
+[Note: Rather than make the user keep another thing in mind, wouldn't it be better if this was fixed instead?]
+
