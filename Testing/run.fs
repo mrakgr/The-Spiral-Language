@@ -22,6 +22,7 @@ inl x = dyn (ab .A, ab .A, ab .A)
 inl pat arg on_fail on_succ = on_fail ()
 match x with
 | .A, .A, _ -> join 1
+| @pat _ -> join -1
 | .A, .B, .B -> join 2
 | _, _, .A -> join 3
 | _ -> join 4

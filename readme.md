@@ -24,9 +24,10 @@
         - [3: Loops and Arrays](#3-loops-and-arrays)
             - [Loops](#loops)
             - [Arrays](#arrays)
-        - [3: Union types and Lists](#3-union-types-and-lists)
+        - [3: Union Types and Lists](#3-union-types-and-lists)
             - [Type Splitting and Generic Parameters](#type-splitting-and-generic-parameters)
             - [Warning on combining union types, partial active patterns and join points](#warning-on-combining-union-types-partial-active-patterns-and-join-points)
+        - [4: Continuation Passing Style, Monadic Computation and Parsing](#4-continuation-passing-style-monadic-computation-and-parsing)
 
 <!-- /TOC -->
 
@@ -2292,9 +2293,7 @@ On the F# side it is necessary to wrap the module in a type using the `module_` 
 
 Modules with no free variables such as the `Array` module whose fields are entirely made of combinators always get converted into naked types rather than variables and hence have no overhead.
 
-### 3: Union types and Lists
-
-(work in progress)
+### 3: Union Types and Lists
 
 Discriminated union types in Spiral take direct inspiration from F#'s own. That having said, the lack of type inference and the aggressive unboxing of them by the Spiral evaluator makes them less convenient to work with. Nonetheless, union types capture the essence of dynamism and are absolutely essential in a modern language.
 
@@ -2496,7 +2495,6 @@ inl rec map f l =
     if box_is l then loop l
     else join loop l
 ```
-
 Error #2 should be obvious - there is no return type. Error #1 is more subtle - and is related to the way pattern matching is compiled. 
 
 Backtracking to the earlier example.
@@ -2532,7 +2530,7 @@ Error trace on line: 35, column: 7 in file "example".
 All the cases in pattern matching clause with dynamic data must have the same type.
 Got: [type_lit (A), type_lit (B)]
 ```
-The error message gives an indication of what is wrong. In Spiral, the match case is not what triggers unboxing - the operations that actually need to unbox the union type are what do it. That means literal, type literal, tuple, module and others. This applies even to those patterns that have nothing to do with the variable's type and would have been expected to be skipped.
+The error message gives an indication of what is wrong. In Spiral, the match case is not what triggers unboxing - the operations that actually need to unbox the union type are what do it. That means literal, type literal, type equality, tuple and module patterns. This applies even to those patterns that have nothing to do with the variable's type and would have been expected to be skipped.
 
 It gets worse. Spiral's is really aggressive at rewriting the terms it is unboxing even if they are outside its intended scope.
 ```
@@ -2627,7 +2625,7 @@ inl rec List x = join_type
 
 They all involve sticking the type in directly somehow by using layout types. Since layout types capture the scope by the typed expressions instead of types and since `x` can only ever be a type once it passes the `join_type` point, that assures that it will always be instantiated.
 
-If adding `el` to all the branches of a larger type by hand is tedious, it possible to automate that. It needs to be done inside the type join point. Here is how it would be done on a tuple.
+If adding `el` to all the branches of a larger type by hand is tedious, it is possible to automate that. It needs to be done inside the type join point. Here is how it would be done on a tuple.
 
 ```
 inl rec List x = join_type 
@@ -2643,7 +2641,7 @@ print_static (split (List int64))
 
 Using first class types Spiral can emulate what would be generic parameters of a container in a language with parametric polymorphism.
 
-With `elem_type` in hand, it become possible to implement map.
+With `elem_type` in hand, it becomes possible to implement map.
 
 ```
 /// Builds a new list whose elements are the results of applying the given function to each of the elements of the list.
@@ -3128,60 +3126,6 @@ match x with
 type Union0 =
     | Union0Case0
     | Union0Case1
-let rec method_0((var_0: Union0), (var_1: Union0), (var_2: Union0)): int64 =
-    1L
-and method_1(): int64 =
-    3L
-and method_2((var_0: Union0), (var_1: Union0), (var_2: Union0)): int64 =
-    2L
-and method_3((var_0: Union0)): int64 =
-    3L
-and method_4((var_0: Union0)): int64 =
-    4L
-let (var_0: Union0) = Union0Case0
-let (var_1: Union0) = Union0Case0
-let (var_2: Union0) = Union0Case0
-match var_0 with
-| Union0Case0 ->
-    match var_1 with
-    | Union0Case0 ->
-        method_0((var_0: Union0), (var_1: Union0), (var_2: Union0))
-    | Union0Case1 ->
-        match var_2 with
-        | Union0Case0 ->
-            method_1()
-        | Union0Case1 ->
-            method_2((var_0: Union0), (var_1: Union0), (var_2: Union0))
-| Union0Case1 ->
-    match var_2 with
-    | Union0Case0 ->
-        method_3((var_2: Union0))
-    | Union0Case1 ->
-        method_4((var_2: Union0))
-```
-This result is probably not what one would expect. Why are all those unused variables getting passed into the functions?
-
-The reason for that is that variable filtering is only done with functions, not join points.
-```
-inl ab = box (.A \/ .B)
-inl x = dyn (ab .A, ab .A, ab .A)
-inl pat arg on_fail on_succ = on_fail ()
-met a _ = 1
-met b _ = -2
-met c _ = 2
-met d _ = 3
-met e _ = 4
-match x with
-| .A, .A, _ -> a()
-| @pat _ -> b()
-| .A, .B, .B -> c()
-| _, _, .A -> d()
-| _ -> e()
-```
-```
-type Union0 =
-    | Union0Case0
-    | Union0Case1
 let rec method_0(): int64 =
     1L
 and method_1(): int64 =
@@ -3211,29 +3155,29 @@ match var_0 with
     | Union0Case1 ->
         method_3()
 ```
-This could be changed, but in practice it won't be an issue as join points will always be behind functions unless a mistake has been made. Even something like the following will be enough to clean up the unusued variables.
-```
-inl ab = box (.A \/ .B)
-inl x = dyn (ab .A, ab .A, ab .A)
-inl pat arg on_fail on_succ = on_fail ()
-match x with
-| .A, .A, _ -> 
-    inl _ = ()
-    join 1
-| @pat _ -> 
-    inl _ = ()
-    join -1
-| .A, .B, .B -> 
-    inl _ = ()
-    join 2
-| _, _, .A -> 
-    inl _ = ()
-    join 3
-| _ -> 
-    inl _ = ()
-    join 4
-```
-Same as the previous example.
+Now the result is what one might want.
 
-[Note: Rather than make the user keep another thing in mind, wouldn't it be better if this was fixed instead?]
+In the future this might not be an issue and in fact, it might just get fixed as a natural process of making the compiler run faster. The way patterns work now is inefficient from a compilation speed perspective and there is room for improvement there. In fact, since pattern matching is so ubiquitous in Spiral, that would be the first thing one would want to optimize in order to speed up compilation.
+
+The way they work now though has the great combination of them being both elegant, highly effective and simple to implement.
+
+It is difficult to imagine what could be added to Spiral for it generate better code for runtime at this point. Spiral's one pass is THE optimization pass to optimize these patterns at runtime, but it does not have any capacity to optimize its own compilation.
+
+What it offers is the mastery of the first Futamura projection - given a program and its input, it is capable of optimizing it.
+
+There are second and the third Futamura projections beyond that which it does not even touch, and it might be necessary to put a foot into them to get the language to scale. Mastering the second Futamura projection would allow the language given its own source as input and a library to fuse them together. Doing this would not make the programs using that fused library any faster at runtime, but it would make a significant difference to compilation speed. And mastering the third might give a principled way of optimizing the compiler itself.
+
+The last paragraph is just speculation, and without any good ideas how that might be achieved which is the case for the author at the moment, it would be more sensible to focus on doing hand made optimizations. It took the Spiral's author over a hear to get a handle on just what is in the language now as simple as it is - who knows how long it would take him to get a handle on things that seem vastly more difficult than he has done from the current vantage point.
+
+Those higher projections are a glimpse into programming beyond programming. Both the second and the third projection would require vastly improved composability between various pieces of the infrastructure and there is no doubt that a language that is capable of meeting the mastery requirements will be able to significantly exceed Spiral in power and expressiveness.
+
+### 4: Continuation Passing Style, Monadic Computation and Parsing
+
+(work in progress)
+
+Now that union types are out of the way, slowly the subject can move towards the more fun stuff that can be done with the language. CPS is a great way to write highly abstract, generic and very fast code in Spiral and so the language has support for programming in such a style using monadic syntax. Modules are a significant aid as well for programming in CPS.
+
+Up to now the examples have been relatively simple, in order for them to be instructive and give a feel for how the language works and its syntax. They weren't important from a real world use case perspective.
+
+The way parsers can be done in Spiral starts to qualify as a thing not possible to do in any other language depending on how much weight is put on performance.
 
