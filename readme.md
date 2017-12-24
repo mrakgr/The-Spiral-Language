@@ -26,7 +26,7 @@
             - [Arrays](#arrays)
         - [3: Union types and Lists](#3-union-types-and-lists)
             - [Type Splitting and Generic Parameters](#type-splitting-and-generic-parameters)
-            - [Note on combining union types, partial active patterns and join points](#note-on-combining-union-types-partial-active-patterns-and-join-points)
+            - [Warning on combining union types, partial active patterns and join points](#warning-on-combining-union-types-partial-active-patterns-and-join-points)
 
 <!-- /TOC -->
 
@@ -3021,6 +3021,6 @@ inl concat l & !elem_type !elem_type t = foldr append l (empty t)
 
 With this, the new List module is done.
 
-#### Note on combining union types, partial active patterns and join points
+#### Warning on combining union types, partial active patterns and join points
 
 ...

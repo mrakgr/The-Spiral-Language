@@ -252,7 +252,6 @@ and Pattern =
     | PatTypeEq of Pattern * Expr
     | PatActive of string * Pattern
     | PatPartActive of string * Pattern
-    | PatExtActive of string * Pattern
     | PatOr of Pattern list
     | PatAnd of Pattern list
     | PatXor of Pattern list

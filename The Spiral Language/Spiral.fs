@@ -260,17 +260,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     let pat_var = new_pat_var()
                     l pat_var (ap (v a) arg) (cp (v pat_var) b on_succ on_fail)
                 | PatPartActive (a,pat) -> pat_part_active a pat on_fail arg
-                | PatExtActive (a,pat) ->
-                    let rec f pat' on_fail = function
-                        | PatAnd _ as pat -> op(ErrorType,[lit_string "And patterns are not allowed in extension patterns."]) |> pat_part_active a (pat' pat) on_fail
-                        | PatOr l -> List.foldBack (fun pat on_fail -> f pat' on_fail pat) l on_fail
-                        | PatCons l -> vv [type_lit_lift (LitString "cons"); vv [l.Length-1 |> int64 |> LitInt64 |> lit; arg]] |> pat_part_active a (pat' <| PatTuple l) on_fail
-                        | PatTuple l as pat -> vv [type_lit_lift (LitString "tup"); vv [l.Length |> int64 |> LitInt64 |> lit; arg]] |> pat_part_active a (pat' pat) on_fail
-                        | PatTypeEq (a,typ) -> f (fun a -> PatTypeEq(a,typ) |> pat') on_fail a
-                        | PatWhen (pat, e) -> f (fun pat -> PatWhen(pat,e) |> pat') on_fail pat
-                        | PatClauses _ -> failwith "Clauses should not appear inside other clauses."
-                        | pat -> vv [type_lit_lift (LitString "var"); arg] |> pat_part_active a (pat' pat) on_fail
-                    f id on_fail pat
                 | PatOr l -> List.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
                 | PatAnd l -> List.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
                 | PatXor l ->
@@ -1722,7 +1711,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let active_pat = prefixOperatorChar '!'
         let not_ = active_pat
         let part_active_pat = prefixOperatorChar '@'
-        let ext_active_pat = prefixOperatorChar '#'
         let wildcard = operatorChar '_'
 
         let pbool = ((skipString "false" >>% LitBool false) <|> (skipString "true" >>% LitBool true)) .>> spaces
@@ -1864,7 +1852,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let pat_rounds pattern = rounds (pattern <|>% PatTuple [])
         let pat_type expr pattern = tuple2 pattern (opt (pp >>. ((var_name |>> v) <|> rounds expr))) |>> function a,Some b as x-> PatTypeEq(a,b) | a, None -> a
         let pat_active pattern = 
-            let active_pat = choice [active_pat >>% PatActive; part_active_pat >>% PatPartActive; ext_active_pat >>% PatExtActive]
+            let active_pat = choice [active_pat >>% PatActive; part_active_pat >>% PatPartActive]
             pipe3 active_pat var_name pattern <| fun c name pat -> c (name,pat)
         let pat_or pattern = sepBy1 pattern bar |>> function [x] -> x | x -> PatOr x
         let pat_and pattern = sepBy1 pattern amphersand |>> function [x] -> x | x -> PatAnd x

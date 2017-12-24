@@ -544,49 +544,6 @@ open Array
 empty int64, singleton 2.2
     """
 
-let test44 =
-    "test44",[],"Do or extension active patterns work?",
-    """
-inl f x on_fail on_succ =
-    match x with
-    | (.tup, (4, x)) -> on_succ x // This one does not get triggered due to not being in m
-    | (tup, (3, x)) -> on_succ x
-    | (tup, (2, x)) -> on_succ x
-    | (var, x) -> on_succ ("is_var",x)
-    | _ -> on_fail()
-
-inl m m1 = function
-    | #m1 (x,_,_ | x,_ | x) -> x
-    | _ -> error_type "The call to m1 failed."
-
-// Tuple4(Tuple1("is_var", true), 2.200000f, "a", Tuple3("is_var", Tuple2(1L, 2L, 3L, 4L)))
-m f true, m f (2.2,3.3), m f ("a","b","c"), m f (1,2,3,4)
-    """
-
-let test45 =
-    "test45",[],"Do `type` and `when` patterns work with combination extension patterns?",
-    """
-inl f x on_fail on_succ =
-    match x with
-    | _, (_, x) -> on_succ x
-    | _, x -> on_succ x
-
-inl m m1 = function
-    | #m1 ((a,b,c): (int64,int64,int64)) -> "is_int64_int64_int64"
-    | #m1 ((a,b): (int64,int64)) -> "is_int64_int64"
-    | #m1 (x : bool) -> "is_bool"
-    | #m1 x -> "is_x"
-
-inl m' n m1 = function
-    | #m1 ((a,b,c): (int64,int64,int64) when n > 5) -> "is_int64_int64_int64, n > 5"
-    | #m1 ((a,b): (int64,int64) when n > 5) -> "is_int64_int64, n > 5"
-    | #m1 ((a,b): (int64,int64) when n <= 5) -> "is_int64_int64, n <= 5"
-    | _ -> "???"
-
-// Tuple5("is_int64_int64", "is_bool", "is_int64_int64, n > 5", "is_int64_int64, n <= 5", "???")
-m f (1,1), m f true, m' 6 f (2,2), m' 5 f (2,2), m' 1 f 123.456
-    """
-
 let test46 =
     "test46",[],"Does the module pattern work?",
     """
@@ -770,19 +727,6 @@ let test63 =
     """
 open List
 cons 1 (cons 2 (singleton 3))
-    """
-
-let test64 =
-    "test64",[tuple;list],"Does the list pattern work?",
-    """
-open List
-
-match dyn (empty int64) with
-| #lw (a,b) -> a + b + 10
-| #lw (x :: x2 :: xs) -> x + x2
-| #lw (x :: xs) -> 55
-| #lw () -> 0
-| _ -> 1 // Does not get triggered.
     """
 
 let test65 =
@@ -1906,9 +1850,9 @@ let tests =
     test10;test11;test12;test13;test14;test15;test16;test17;test18;test19
     test20;test21;test22;test23;test24;test25;test26;test27;test28;test29
     test30;test31;test32;test33;test34;test35;test36;test37;test38;test39
-    test40;test41;test42;test43;test44;test45;test46;test47;test48;test49
+    test40;test41;test42;test43;              test46;test47;test48;test49
     test50;test51;test52;test53;test54;test55;test56;test57;test58;test59
-    test60';test61;test62;test63;test64;test65;test66;test67;test68;test69
+    test60';test61;test62;test63;       test65;test66;test67;test68;test69
     test70;test71';test72;test73;test74;test75;test76';test77';test78;test79
     test80;test81;test82;test83;test84;test85;test86;test87;test88;test89
     test90;test91;test92;test93;test94;test95;test96;test97;test98;test99
