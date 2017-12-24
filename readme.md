@@ -26,6 +26,7 @@
             - [Arrays](#arrays)
         - [3: Union types and Lists](#3-union-types-and-lists)
             - [Type Splitting and Generic Parameters](#type-splitting-and-generic-parameters)
+            - [Note on combining union types, partial active patterns and join points](#note-on-combining-union-types-partial-active-patterns-and-join-points)
 
 <!-- /TOC -->
 
@@ -2414,7 +2415,7 @@ As it never matches `.B` it goes over the edge and returns a type error.
 Here is how recursive datatypes like lists might be defined.
 ```
 let example = 
-    "example",[tuple;console;loops],"Module description.",
+    "example",[option;tuple;loops],"Module description.",
     """
 open Loops
 inl rec List x = join_type () \/ x, List x
@@ -2621,9 +2622,405 @@ The above example works for lists and is how they are implemented in the standar
 ```
 inl rec List x = join_type 
     inl el = stack {elem_type=x}
-    el, () \/ el, x, List x
+    el, () \/ el, (x, List x)
 ```
 
 They all involve sticking the type in directly somehow by using layout types. Since layout types capture the scope by the typed expressions instead of types and since `x` can only ever be a type once it passes the `join_type` point, that assures that it will always be instantiated.
+
+If adding `el` to all the branches of a larger type by hand is tedious, it possible to automate that. It needs to be done inside the type join point. Here is how it would be done on a tuple.
+
+```
+inl rec List x = join_type 
+    inl el = stack {elem_type=x}
+    inl typ = () \/ x, List x
+    split typ
+    |> Tuple.map (inl x -> el, x)
+    |> Tuple.reducel (inl a b -> a \/ b)
+
+// [type ([layout_stack {elem_type=type (int64)}, []]), type ([layout_stack {elem_type=type (int64)}, [int64, rec_type 0]])]
+print_static (split (List int64)) 
+```
+
+Using first class types Spiral can emulate what would be generic parameters of a container in a language with parametric polymorphism.
+
+With `elem_type` in hand, it become possible to implement map.
+
+```
+/// Builds a new list whose elements are the results of applying the given function to each of the elements of the list.
+/// (a List -> b List) -> a List -> List b
+inl rec map f l = 
+    inl t = elem_type l
+    inl loop = function
+        | x,xs -> cons (f x) (map f xs)
+        | () -> empty t
+    if box_is l then loop l
+    else join loop l : List t
+
+inl l = init.static 3 id |> map ((*) 2) |> dyn
+()
+```
+```
+type Rec0 =
+    | Rec0Case0
+    | Rec0Case1 of Tuple1
+and Tuple1 =
+    struct
+    val mem_0: int64
+    val mem_1: Rec0
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let (var_0: Rec0) = (Rec0Case1(Tuple1(0L, (Rec0Case1(Tuple1(2L, (Rec0Case1(Tuple1(4L, Rec0Case0)))))))))
+```
+The static version of map works fine now.
+
+Here is how the non-static version looks like.
+```
+init 3 id |> map ((*) 2) |> dyn
+```
+```
+type Rec0 =
+    | Rec0Case0
+    | Rec0Case1 of Tuple1
+and Tuple1 =
+    struct
+    val mem_0: int64
+    val mem_1: Rec0
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let rec method_1((var_0: int64)): Rec0 =
+    let (var_1: bool) = (var_0 < 3L)
+    if var_1 then
+        let (var_2: int64) = (var_0 + 1L)
+        let (var_3: Rec0) = method_1((var_2: int64))
+        (Rec0Case1(Tuple1(var_0, var_3)))
+    else
+        Rec0Case0
+and method_2((var_0: Rec0)): Rec0 =
+    match var_0 with
+    | Rec0Case0 ->
+        Rec0Case0
+    | Rec0Case1(var_1) ->
+        let (var_2: int64) = var_1.mem_0
+        let (var_3: Rec0) = var_1.mem_1
+        let (var_4: int64) = (2L * var_2)
+        let (var_5: Rec0) = method_2((var_3: Rec0))
+        (Rec0Case1(Tuple1(var_4, var_5)))
+let (var_0: int64) = 0L
+let (var_1: Rec0) = method_1((var_0: int64))
+method_2((var_1: Rec0))
+```
+This does not demonstrate Spiral's true power. The function can map over lists that are partially static.
+```
+inl l = dyn (singleton 3) |> cons 2 |> cons 1 |> cons 0
+map ((*) 2) l |> dyn
+```
+```
+type Rec0 =
+    | Rec0Case0
+    | Rec0Case1 of Tuple1
+and Tuple1 =
+    struct
+    val mem_0: int64
+    val mem_1: Rec0
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let rec method_1((var_0: Rec0)): Rec0 =
+    match var_0 with
+    | Rec0Case0 ->
+        Rec0Case0
+    | Rec0Case1(var_1) ->
+        let (var_2: int64) = var_1.mem_0
+        let (var_3: Rec0) = var_1.mem_1
+        let (var_4: int64) = (2L * var_2)
+        let (var_5: Rec0) = method_1((var_3: Rec0))
+        (Rec0Case1(Tuple1(var_4, var_5)))
+let (var_0: Rec0) = (Rec0Case1(Tuple1(3L, Rec0Case0)))
+let (var_1: Rec0) = method_1((var_0: Rec0))
+(Rec0Case1(Tuple1(0L, (Rec0Case1(Tuple1(2L, (Rec0Case1(Tuple1(4L, var_1)))))))))
+```
+The first 3 elements are done at compile time, and the rest is done at runtime.
+
+With the map done, `foldl` and `foldr` are straightforward enough.
+
+```
+/// Applies a function f to each element of the collection, threading an accumulator argument through the computation. 
+/// The fold function takes the second argument, and applies the function f to it and the first element of the list. 
+/// Then, it feeds this result into the function f along with the second element, and so on. It returns the final result. 
+/// If the input function is f and the elements are i0...iN, then this function computes f (... (f s i0) i1 ...) iN.
+/// (s -> a -> s) -> s -> a List -> s
+inl rec foldl f s l = 
+    inl loop = function
+        | x, xs -> foldl f (f s x) xs
+        | () -> s
+    if box_is l then loop l
+    else join loop l : s
+
+inl l = dyn (singleton 3) |> cons 2 |> cons 1 |> cons 0
+foldl (+) (dyn 0) l
+```
+```
+type Rec0 =
+    | Rec0Case0
+    | Rec0Case1 of Tuple1
+and Tuple1 =
+    struct
+    val mem_0: int64
+    val mem_1: Rec0
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let rec method_1((var_0: Rec0), (var_1: int64)): int64 =
+    match var_0 with
+    | Rec0Case0 ->
+        var_1
+    | Rec0Case1(var_2) ->
+        let (var_3: int64) = var_2.mem_0
+        let (var_4: Rec0) = var_2.mem_1
+        let (var_5: int64) = (var_1 + var_3)
+        method_1((var_4: Rec0), (var_5: int64))
+let (var_0: Rec0) = (Rec0Case1(Tuple1(3L, Rec0Case0)))
+let (var_1: int64) = 0L
+let (var_2: int64) = (var_1 + 1L)
+let (var_3: int64) = (var_2 + 2L)
+method_1((var_0: Rec0), (var_3: int64))
+```
+One thing the example above demonstrates is that Spiral does require the user to know whether compile time or runtime execution is being targeted. The above fragment is not ideal since it would be better to sum the static part of the list and then `dyn` the state rather than do so at the beginning.
+```
+/// Applies a function to each element of the collection, threading an accumulator argument through the computation. 
+/// If the input function is f and the elements are i0...iN, then this function computes f i0 (...(f iN s)).
+/// (a -> s -> s) -> a List -> s -> s
+inl rec foldr f l s = 
+    inl loop = function
+        | x, xs -> f x (foldr f xs s)
+        | () -> s
+    if box_is l then loop l
+    else join loop l : s
+
+inl l = dyn (singleton 3) |> cons 2 |> cons 1 |> cons 0
+foldr (+) l (dyn 0)
+```
+```
+type Rec0 =
+    | Rec0Case0
+    | Rec0Case1 of Tuple1
+and Tuple1 =
+    struct
+    val mem_0: int64
+    val mem_1: Rec0
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let rec method_1((var_0: Rec0), (var_1: int64)): int64 =
+    match var_0 with
+    | Rec0Case0 ->
+        var_1
+    | Rec0Case1(var_2) ->
+        let (var_3: int64) = var_2.mem_0
+        let (var_4: Rec0) = var_2.mem_1
+        let (var_5: int64) = method_1((var_4: Rec0), (var_1: int64))
+        (var_3 + var_5)
+let (var_0: Rec0) = (Rec0Case1(Tuple1(3L, Rec0Case0)))
+let (var_1: int64) = 0L
+let (var_2: int64) = method_1((var_0: Rec0), (var_1: int64))
+let (var_3: int64) = (2L + var_2)
+(1L + var_3)
+```
+The next are `head` and `tail`.
+```
+open Option
+
+/// Returns the first element of the list.
+/// a List -> a Option
+inl head l =
+    inl t = elem_type l
+    match l with
+    | x, xs -> some x
+    | () -> none t
+
+/// Returns the list without the first element.
+/// a List -> a List Option
+inl tail l =
+    inl t = elem_type l
+    match l with
+    | x, xs -> some xs
+    | () -> none (List t)
+```
+As the above are straightforward so there is no need to run them. That having said, it would be interesting to know how it might be possible to implement them in continuation passing style for greater efficiency.
+```
+/// Returns the first element of the list.
+/// a List -> {some=(a -> a) none=(a type -> a)} -> a
+inl head' l {some none} =
+    inl t = elem_type l
+    match l with
+    | x, xs -> some x
+    | () -> none t
+
+/// Returns the list without the first element.
+/// a List -> {some=(a List -> a List) none=(a List type -> a List)} -> a List
+inl tail' l {some none} =
+    inl t = elem_type l
+    match l with
+    | x, xs -> some xs
+    | () -> none (List t)
+
+inl l = dyn (singleton 3)
+tail' l {
+    some = id
+    none = inl x -> failwith x "The list is empty."
+    }
+```
+```
+type Rec0 =
+    | Rec0Case0
+    | Rec0Case1 of Tuple1
+and Tuple1 =
+    struct
+    val mem_0: int64
+    val mem_1: Rec0
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let (var_0: Rec0) = (Rec0Case1(Tuple1(3L, Rec0Case0)))
+match var_0 with
+| Rec0Case0 ->
+    (failwith "The list is empty.")
+| Rec0Case1(var_1) ->
+    let (var_3: int64) = var_1.mem_0
+    var_1.mem_1
+```
+The best is left for `last`.
+```
+/// Returns the last element of the list.
+/// a List -> a Option
+inl last l =
+    inl t = elem_type l
+    foldl (inl _ x -> some x) (none t) l
+
+inl l = dyn (singleton 3) |> cons 2 |> cons 1 |> cons 0
+last l 
+```
+```
+type Rec0 =
+    | Rec0Case0
+    | Rec0Case1 of Tuple1
+and Tuple1 =
+    struct
+    val mem_0: int64
+    val mem_1: Rec0
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+and Union2 =
+    | Union2Case0 of Tuple3
+    | Union2Case1
+and Tuple3 =
+    struct
+    val mem_0: int64
+    new(arg_mem_0) = {mem_0 = arg_mem_0}
+    end
+let rec method_1((var_0: Rec0)): Union2 =
+    match var_0 with
+    | Rec0Case0 ->
+        (Union2Case0(Tuple3(2L)))
+    | Rec0Case1(var_1) ->
+        let (var_2: int64) = var_1.mem_0
+        let (var_3: Rec0) = var_1.mem_1
+        method_2((var_3: Rec0), (var_2: int64))
+and method_2((var_0: Rec0), (var_1: int64)): Union2 =
+    match var_0 with
+    | Rec0Case0 ->
+        (Union2Case0(Tuple3(var_1)))
+    | Rec0Case1(var_2) ->
+        let (var_3: int64) = var_2.mem_0
+        let (var_4: Rec0) = var_2.mem_1
+        method_2((var_4: Rec0), (var_3: int64))
+let (var_0: Rec0) = (Rec0Case1(Tuple1(3L, Rec0Case0)))
+method_1((var_0: Rec0))
+```
+The above way of specializing it is close to ideal. It would be better had `method_1` been inlined, but this is a decent showing. As can be seen, the option type is staged and only the int inside is passed through until it is time to return from the function at which point the instantiation happens. In F#, this way of doing `last` would be grossly inefficient as a new option would be instantiated at each step. Very few languages allow passing of literals across call boundaries due to the uncertainty whether the optimizer will diverge. Spiral achieves its efficiency by making dealing with the [halting problem](https://en.wikipedia.org/wiki/Halting_problem) the user's responsibility. This is not a bad strategy - as the halting problem is NP Hard, other compilers' optimizers have no choice but to rely on fallible heuristics whereas the user has to determine whether the program will terminate anyway and has no say in what the black box is deciding. It is not so in Spiral.
+
+The essence of Spiral is to convert the termination proofs implicitly and informally present in the program into polymorphism.
+
+Here is how it would be done in CPS for that last bit of efficiency.
+
+```
+/// Returns the last element of the list.
+/// a List -> {some=(a -> a) none=(a type -> a)} -> a
+inl rec last' l {some none} =
+    inl t = elem_type l
+    inl loop = function
+        | x, xs -> last' xs {some none=some x}
+        | () -> none t
+    if box_is l then loop l
+    else join loop l : none t
+
+inl l = dyn (singleton 3)
+last' l {
+    some = inl x _ -> x
+    none = inl t -> failwith t "The list is empty."
+    }
+```
+```
+type Rec0 =
+    | Rec0Case0
+    | Rec0Case1 of Tuple1
+and Tuple1 =
+    struct
+    val mem_0: int64
+    val mem_1: Rec0
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let rec method_1((var_0: Rec0)): int64 =
+    match var_0 with
+    | Rec0Case0 ->
+        (failwith "The list is empty.")
+    | Rec0Case1(var_1) ->
+        let (var_3: int64) = var_1.mem_0
+        let (var_4: Rec0) = var_1.mem_1
+        method_2((var_4: Rec0), (var_3: int64))
+and method_2((var_0: Rec0), (var_1: int64)): int64 =
+    match var_0 with
+    | Rec0Case0 ->
+        var_1
+    | Rec0Case1(var_2) ->
+        let (var_3: int64) = var_2.mem_0
+        let (var_4: Rec0) = var_2.mem_1
+        method_2((var_4: Rec0), (var_3: int64))
+let (var_0: Rec0) = (Rec0Case1(Tuple1(3L, Rec0Case0)))
+method_1((var_0: Rec0))
+```
+It can no longer be implemented in terms of fold, but otherwise is rather simple.
+
+Note that `head'`, `tail'` and `last'` are just more generic versions of the non-CPS versions. Assuming the 3 original functions were missing, here is how they might be implemented in terms of CPS'd ones.
+
+```
+/// Returns the first element of the list.
+/// a List -> a Option
+inl head l = head' l {some none}
+
+/// Returns the list without the first element.
+/// a List -> a List Option
+inl tail l = tail' l {some none}
+
+/// Returns the last element of the list.
+/// a List -> a Option
+inl last l = last' l {some=const << some; none}
+```
+
+Here `const` is simply `inl x _ -> x` as was used inside `some` of the previous example. The continuation passing style is great for writing generic code in Spiral as it meshes well with tss typing scheme. The monadic computations that will be shown in the following chapters are just syntax sugar over CPS.
+
+The capacity to make specialized functions from generic one like the above is an important factor in ensuring code correctness. Eliminating code duplication and ensuring single responsibility is possible without performance impact in Spiral.
+
+```
+/// Returns a new list that contains the elements of the first list followed by elements of the second.
+/// a List -> a List -> a List
+inl append = foldr cons
+
+/// Returns a new list that contains the elements of each list in order.
+/// a List List -> a List
+inl concat l & !elem_type !elem_type t = foldr append l (empty t)
+
+{List empty cons init map foldl foldr singleton head' tail' last' head tail last append concat} |> stack
+```
+
+With this, the new List module is done.
+
+#### Note on combining union types, partial active patterns and join points
 
 ...

@@ -59,7 +59,7 @@ inl rec foldr f l s =
     | x :: xs -> f x (foldr f xs s)
     | () -> s
 
-inl reduce f l =
+inl reducel f l =
     match l with
     | x :: xs -> foldl f x xs
     | () -> error_type "Reduce must receive a non-empty tuple as input."
@@ -186,7 +186,7 @@ inl rec intersperse sep = function
     | x :: xs -> x :: sep :: intersperse sep xs
     | _ -> error_type "Not a tuple."
 
-{head tail foldl foldr reduce scanl scanr rev map iter iteri iter2 forall exists 
+{head tail foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists 
  filter zip unzip init repeat append singleton range tryFind contains intersperse wrap}
     """) |> module_
 
@@ -474,29 +474,7 @@ let list =
     (
     "List",[loops;option;tuple],"The List module.",
     """
-open Loops
-open Option
-
 inl rec List x = join_type () \/ x, List x
-
-inl lw x = 
-    inl rec loop tup_type n x on_fail on_succ =
-        if n > 0 then
-            match x with
-            | () -> on_fail()
-            | a, b -> loop tup_type (n-1) b on_fail <| inl b -> on_succ (a :: b)
-        else
-            match tup_type with
-            | .tup ->
-                match x with
-                | () -> on_succ()
-                | _ -> on_fail()
-            | .cons -> on_succ (x :: ())
-
-    // Testing for whether the type is a List is not possible since the types are stripped away so ruthlesly in case.
-    match x with
-    | [var: x] _ on_succ -> on_succ x
-    | (.tup | .cons) & typ, (n, x) -> loop typ n x
 
 /// Creates an empty list with the given type.
 /// t -> List t
@@ -518,13 +496,13 @@ inl init =
     inl body is_static n f =
         inl t = type (f 0)
         inl d = {near_to=n; state=empty t; body=inl {next i state} -> cons (f i) (next state)}
-        if is_static then for' {d with static_from=0}
-        else for' {d with from=0}
+        if is_static then Loops.for' {d with static_from=0}
+        else Loops.for' {d with from=0}
 
     function
     | .static -> body true
     | x -> body false x
-    
+
 /// Returns the element type of the list.
 /// a List -> a type
 inl elem_type l =
@@ -532,53 +510,87 @@ inl elem_type l =
     | (), (a,b) when eq_type (List a) l -> a
     | _ -> error_type "Expected a List in elem_type."
 
-inl is_static x = box_is x || lit_is x
-
+/// Builds a new list whose elements are the results of applying the given function to each of the elements of the list.
+/// (a List -> b List) -> a List -> List b
 inl rec map f l = 
-    inl t = type (f (elem_type l))
-    inl loop map =
-        match l with
-        | #lw (x :: xs) -> cons (f x) (map f xs)
-        | #lw () -> empty t
-        : List t
-    if box_is l then loop map
-    else (met _ -> loop map) ()
+    inl t = elem_type l
+    inl loop = function
+        | x,xs -> cons (f x) (map f xs)
+        | () -> empty t
+    if box_is l then loop l
+    else join loop l : List t
 
-inl fold_template loop f s l = 
-    if is_static l then loop f s l
-    else (met () -> loop f s l) ()
+/// Applies a function f to each element of the collection, threading an accumulator argument through the computation. 
+/// The fold function takes the second argument, and applies the function f to it and the first element of the list. 
+/// Then, it feeds this result into the function f along with the second element, and so on. It returns the final result. 
+/// If the input function is f and the elements are i0...iN, then this function computes f (... (f s i0) i1 ...) iN.
+/// (s -> a -> s) -> s -> a List -> s
+inl rec foldl f s l = 
+    inl loop = function
+        | x, xs -> foldl f (f s x) xs
+        | () -> s
+    if box_is l then loop l
+    else join loop l : s
 
-inl rec foldl x =
-    fold_template (inl f s l ->
-        match l with
-        | #lw (x :: xs) -> foldl f (f s x) xs
-        | #lw () -> s
-        : s) x
-
+/// Applies a function to each element of the collection, threading an accumulator argument through the computation. 
+/// If the input function is f and the elements are i0...iN, then this function computes f i0 (...(f iN s)).
+/// (a -> s -> s) -> a List -> s -> s
 inl rec foldr f l s = 
-    fold_template (inl f s l ->
-        match l with
-        | #lw (x :: xs) -> f x (foldr f xs s)
-        | #lw () -> s
-        : s) f s l
+    inl loop = function
+        | x, xs -> f x (foldr f xs s)
+        | () -> s
+    if box_is l then loop l
+    else join loop l : s
 
-inl head_tail_template f l = 
+open Option
+
+/// Returns the first element of the list.
+/// a List -> {some=(a -> a) none=(a type -> a)} -> a
+inl head' l {some none} =
     inl t = elem_type l
     match l with
-    | #lw (x :: xs) -> f (x, xs) |> some
-    | #lw () -> none t
+    | x, xs -> some x
+    | () -> none t
 
-inl head = head_tail_template fst
-inl tail = head_tail_template snd
-
-met rec last l = 
+/// Returns the list without the first element.
+/// a List -> {some=(a List -> a List) none=(a List type -> a List)} -> a List
+inl tail' l {some none} =
     inl t = elem_type l
-    foldl (inl _ x -> some x) (none t) l
+    match l with
+    | x, xs -> some xs
+    | () -> none (List t)
 
-inl append a b = foldr cons a b
+/// Returns the last element of the list.
+/// a List -> {some=(a -> a) none=(a type -> a)} -> a
+inl rec last' l {some none} =
+    inl t = elem_type l
+    inl loop = function
+        | x, xs -> last' xs {some none=some x}
+        | () -> none t
+    if box_is l then loop l
+    else join loop l : none t
+
+/// Returns the first element of the list.
+/// a List -> a Option
+inl head l = head' l {some none}
+
+/// Returns the list without the first element.
+/// a List -> a List Option
+inl tail l = tail' l {some none}
+
+/// Returns the last element of the list.
+/// a List -> a Option
+inl last l = last' l {some=const << some; none}
+
+/// Returns a new list that contains the elements of the first list followed by elements of the second.
+/// a List -> a List -> a List
+inl append = foldr cons
+
+/// Returns a new list that contains the elements of each list in order.
+/// a List List -> a List
 inl concat l & !elem_type !elem_type t = foldr append l (empty t)
 
-{List lw init map foldl foldr empty cons singleton append concat head tail last}
+{List empty cons init map foldl foldr singleton head' tail' last' head tail last append concat} |> stack
     """) |> module_
 
 let parsing =
