@@ -21,21 +21,10 @@ inl ab = box (.A \/ .B)
 inl x = dyn (ab .A, ab .A, ab .A)
 inl pat arg on_fail on_succ = on_fail ()
 match x with
-| .A, .A, _ -> 
-    inl _ = ()
-    join 1
-| @pat _ -> 
-    inl _ = ()
-    join -1
-| .A, .B, .B -> 
-    inl _ = ()
-    join 2
-| _, _, .A -> 
-    inl _ = ()
-    join 3
-| _ -> 
-    inl _ = ()
-    join 4
+| .A, .A, _ -> join 1
+| .A, .B, .B -> join 2
+| _, _, .A -> join 3
+| _ -> join 4
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning

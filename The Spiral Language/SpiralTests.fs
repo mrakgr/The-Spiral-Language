@@ -111,15 +111,15 @@ match x with
     """
 
 let test10 = 
-    "test10",[],"The worst case for partially evaluated pattern matchers.",
+    "test10",[],"Do the join points get filtered?",
     """
 inl ab = box (.A \/ .B)
 met x = (ab .A, ab .A, ab .A, ab .A)
 match x with
-| .A, .A, _, _ -> 1
-| _, _, .A, .A -> 2
-| .A, .B, .A, .B -> 3
-| _ -> 4
+| .A, .A, _, _ -> join 1
+| _, _, .A, .A -> join 2
+| .A, .B, .A, .B -> join 3
+| _ -> join 4
     """
 
 let test11 = // 

@@ -100,8 +100,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let B = vv []
     let TyB = tyvv []
     
-    let join_point_entry_method y = op(JoinPointEntryMethod,[y]) 
-    let join_point_entry_type y = op(JoinPointEntryType,[y])
+    // The seemingly useless function application is there to filter the environment just in case it has not been done.
+    let join_point_entry_method y = ap (inl "" (op(JoinPointEntryMethod,[y]))) B 
+    let join_point_entry_type y = ap (inl "" (op(JoinPointEntryType,[y]))) B
 
     let module_open a b = (ModuleOpen,[a;b]) |> op
     let module_openb a b = ap a (inl " module" (module_open (v " module") b)) 
