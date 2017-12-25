@@ -3167,21 +3167,21 @@ Right now Spiral's worst problem is its poor library support. The libraries are 
 
 One thing is for certain, such a language would be hard to write as a standard compiler in F#. A lot more infrastructure support would be necessary in order to support a fundamentally different approach towards compiler construction. Its own platform and a surgical compiler like [Lancet](https://github.com/TiarkRompf/lancet) would be a prerequisite. MLs are more suited towards writing interpreters than language towers. 
 
-[Racket](https://racket-lang.org/) has a superior ecosystem for writing such a language compared to the .NET, but it is the author's opinion that the parser in particular is not the best place to do compile time evaluation of functions and that syntax should not be used for abstraction - it should be used for ergonomics and should be consistent. Parsing should be a step to get rid of syntax.
+[Racket](https://racket-lang.org/) has a superior ecosystem for writing such a language compared to the .NET, but it is the author's opinion that the parser in particular is not the best place to do compile time evaluation of functions and that syntax should not be used for abstraction - it should be used for ergonomics and should be consistent. Parsing should be a step to get rid of syntax for the rest of the passes.
 
-Macros do not make sense in dynamic languages as a tool for language creation. They are absolute insanity in static languages. Often when they reach the limit of their design they cram macros to do everything else - like performance optimizations for example, and tout them as a feature rather than an admission of failure in language design. 
+Macros do not make sense in dynamic languages as a tool for language creation. They are absolute insanity in static languages. Often when static languages reach the limit of their design they cram macros to do everything else - like performance optimizations for example, and tout them as a feature rather than an admission of failure in language design. 
 
 Wanting macros in order to optimize performance will never happen in Spiral.
 
 ### 4: Continuation Passing Style, Monadic Computation and Parsing
 
-(work in progress)
+(work in progress, probably needs to be redone as the style of the previous tutorials is not working for it)
 
 Now that union types are out of the way, slowly the subject can move towards the more fun stuff that can be done with the language. CPS is a great way of writing highly abstract, generic and very fast code in Spiral and so the language has support for programming in such a style using monadic syntax. Modules are a significant aid as well for programming in CPS.
 
 Up to now the examples have been relatively simple, in order for them to be instructive and give a feel for how the language works and its syntax. They weren't important from a real world use case perspective. Many bold claims were made about performance, but not a single performance figure was made despite that. That is due to the examples being simple enough that there was no need to especially prove that they would be anything other than optimal. That should have been plain enough from just looking at the generated code.
 
-That will change in this chapter. A very basic parsing library with little error handling will be written in both Spiral and F# and their performance will be compared.
+That will change in this chapter. A very basic parsing library based on [FParsec](http://www.quanttec.com/fparsec/) with little error handling will be written in both Spiral and F# and their performance will be compared.
 
 The way parsers can be done in Spiral starts to qualify as a thing not possible to do in any other language depending on how much weight is put on performance.
 
@@ -3216,7 +3216,7 @@ if var_4 then
 else
     (failwith "string index out of bounds")
 ```
-The `string_stream` function converts the string into a stream suitable for parsing. The important bits are the `on_succ` and `on_fail` functions. By calling them we bypass the usual exception mechanism for failures and do backtracking in the parser.
+The `string_stream` function converts the string into a stream suitable for parsing. The important bits are the `on_succ` and `on_fail` functions. By calling them the usual exception mechanism is bypassed for failures and it is possible to do backtracking in the parser.
 
 Before work on the parser can start the essential elements of it need to be defined. What does a parser need?
 
@@ -3257,4 +3257,322 @@ else
 
 At this point the above example essentially feels like a lot of boilerplate and the output code is easier to understand than the original example.
 
-That should improve hopefully.
+The important thing is to win out in the long run though. And what was gained by making this char parser is the ability to parse those without having to think about the stream position. The failures will be handled by it.
+
+With the goal of making a parser to parse an int, what it first needed is a parser for a digit.
+
+```
+inl is_digit x = x >= '0' && x <= '9'
+inl digit {stream on_succ on_fail} state =
+    stream_char {
+        stream on_fail
+        on_succ = inl x state' -> 
+            if is_digit x then on_succ x state'
+            else on_fail "digit" state
+        } state
+
+inl stream = dyn "123456789" |> string_stream
+
+inl d = {
+    stream
+    on_succ = inl x state -> id x
+    on_fail = inl x state -> failwith char x
+    }
+
+digit d {pos=0}
+```
+```
+let (var_0: string) = "123456789"
+let (var_1: int64) = (int64 var_0.Length)
+let (var_2: bool) = (0L < var_1)
+if var_2 then
+    let (var_3: char) = var_0.[int32 0L]
+    let (var_4: bool) = (var_3 >= '0')
+    let (var_6: bool) =
+        if var_4 then
+            (var_3 <= '9')
+        else
+            false
+    if var_6 then
+        var_3
+    else
+        (failwith "digit")
+else
+    (failwith "string index out of bounds")
+```
+
+The above code returns the char '1'. Note that the parser does not change state if it fails. All calls inside are made in tail position.
+
+`digit` is fairly ugly right now. This is generally the case for CPS'd code without any syntactic sugar to sweeten it.
+
+With `digit`, it becomes possible to implement `puint64`.
+
+Before that, instead of pasting it everywhere `run` should be factored into a function. And since `puint64` will need it, it is necessary to plug in the return type.
+
+```
+inl run ret_type str parser = 
+    inl stream = dyn str |> string_stream
+
+    inl d = {
+        stream
+        on_succ = inl x state -> id x
+        on_fail = inl x state -> failwith ret_type x
+        on_type = ret_type
+        }
+
+    parser d {pos=dyn 0}
+```
+
+Now...here is the `puint64` in all its explicit glory. The `Extern` module which has those interop macros mentioned two chapters ago is finally brought out.
+
+```
+inl convert_type = fs [text: "System.Convert"]
+inl to_uint64 x = Extern.FS.StaticMethod convert_type .ToUInt64 x uint64
+inl puint64 {stream on_succ on_fail on_type} state =
+    inl error state = on_fail "puint64" state
+    inl rec loop i on_fail state =
+        digit {
+            stream
+            on_fail=inl _ state -> on_fail i state
+            on_succ=inl c state ->
+                inl max = 1844674407370955161u64 // max of uint64 / 10u64
+                if i <= max then
+                    inl i' = i * 10u64 + to_uint64 c - to_uint64 '0'
+                    if i < i' then join loop i' on_succ state
+                    else error state
+                else error state
+            } state
+        : on_type
+    loop (dyn 0u64) (inl _ state -> error state) state
+
+run uint64 "12345678912345678912" puint64
+```
+The above does in fact parse the number properly. It seems complicated because of all the boilerplate and error checking which need to be explicit, but monadic or CPS'd, the function will compose nicely with other now that it is here. Here is the output. The function gets specialized to two versions because it needs to keep track on whether it has read the first number or not.
+
+While the previous two parsers could be used in a stage polymorphic manner, this one won't be attempted to be done like that even though it could be.
+```
+let rec method_0((var_0: uint64), (var_1: string), (var_2: int64)): uint64 =
+    let (var_3: bool) = (var_2 >= 0L)
+    let (var_6: bool) =
+        if var_3 then
+            let (var_4: int64) = (int64 var_1.Length)
+            (var_2 < var_4)
+        else
+            false
+    if var_6 then
+        let (var_7: char) = var_1.[int32 var_2]
+        let (var_8: int64) = (var_2 + 1L)
+        let (var_9: bool) = (var_7 >= '0')
+        let (var_11: bool) =
+            if var_9 then
+                (var_7 <= '9')
+            else
+                false
+        if var_11 then
+            let (var_12: bool) = (var_0 <= 1844674407370955161UL)
+            if var_12 then
+                let (var_13: uint64) = (var_0 * 10UL)
+                let (var_14: uint64) = System.Convert.ToUInt64(var_7)
+                let (var_15: uint64) = (var_13 + var_14)
+                let (var_16: uint64) = System.Convert.ToUInt64('0')
+                let (var_17: uint64) = (var_15 - var_16)
+                let (var_18: bool) = (var_0 < var_17)
+                if var_18 then
+                    method_0((var_17: uint64), (var_1: string), (var_8: int64))
+                else
+                    (failwith "puint64")
+            else
+                (failwith "puint64")
+        else
+            var_0
+    else
+        var_0
+let (var_0: string) = "12345678912345678912"
+let (var_1: int64) = 0L
+let (var_2: uint64) = 0UL
+let (var_3: bool) = (var_1 >= 0L)
+let (var_6: bool) =
+    if var_3 then
+        let (var_4: int64) = (int64 var_0.Length)
+        (var_1 < var_4)
+    else
+        false
+if var_6 then
+    let (var_7: char) = var_0.[int32 var_1]
+    let (var_8: int64) = (var_1 + 1L)
+    let (var_9: bool) = (var_7 >= '0')
+    let (var_11: bool) =
+        if var_9 then
+            (var_7 <= '9')
+        else
+            false
+    if var_11 then
+        let (var_12: bool) = (var_2 <= 1844674407370955161UL)
+        if var_12 then
+            let (var_13: uint64) = (var_2 * 10UL)
+            let (var_14: uint64) = System.Convert.ToUInt64(var_7)
+            let (var_15: uint64) = (var_13 + var_14)
+            let (var_16: uint64) = System.Convert.ToUInt64('0')
+            let (var_17: uint64) = (var_15 - var_16)
+            let (var_18: bool) = (var_2 < var_17)
+            if var_18 then
+                method_0((var_17: uint64), (var_0: string), (var_8: int64))
+            else
+                (failwith "puint64")
+        else
+            (failwith "puint64")
+    else
+        (failwith "puint64")
+else
+    (failwith "puint64")
+```
+The outputted code will started to get even longer from here. Note the clever usage of a join point to make sure the first iteration of the loop is unrolled. This is a good idea since the first iteration will always be different from the rest and there is no point turning it into a method.
+
+Now since the `uint64` parser exists in order to work up to a sequence, a separator parser is needed. But to make it simple, it makes more sense to start just with whitespaces.
+
+```
+met rec spaces {d with stream on_succ on_fail on_type} state =
+    stream_char {
+        stream
+        on_fail = inl _ state -> on_succ () state
+        on_succ = inl c state' -> 
+            if is_whitespace c || is_newline c then spaces d state'
+            else on_succ () state
+        } state
+    : on_type
+
+inl (>>.) a b {d with on_succ} state = a {d with on_succ = inl _ state -> b d state} state
+inl (.>>) a b {d with on_succ} state = 
+    a {d with on_succ = inl a state -> 
+        b {d with on_succ = inl _ state -> on_succ a state} state
+        } state
+
+run uint64 "123 456 789" (puint64 .>> spaces)
+```
+The output demonstrates that the compiler is doing its job.
+```
+let rec method_0((var_0: uint64), (var_1: string), (var_2: int64)): uint64 =
+    let (var_3: bool) = (var_2 >= 0L)
+    let (var_6: bool) =
+        if var_3 then
+            let (var_4: int64) = (int64 var_1.Length)
+            (var_2 < var_4)
+        else
+            false
+    if var_6 then
+        let (var_7: char) = var_1.[int32 var_2]
+        let (var_8: int64) = (var_2 + 1L)
+        let (var_9: bool) = (var_7 >= '0')
+        let (var_11: bool) =
+            if var_9 then
+                (var_7 <= '9')
+            else
+                false
+        if var_11 then
+            let (var_12: bool) = (var_0 <= 1844674407370955161UL)
+            if var_12 then
+                let (var_13: uint64) = (var_0 * 10UL)
+                let (var_14: uint64) = System.Convert.ToUInt64(var_7)
+                let (var_15: uint64) = (var_13 + var_14)
+                let (var_16: uint64) = System.Convert.ToUInt64('0')
+                let (var_17: uint64) = (var_15 - var_16)
+                let (var_18: bool) = (var_0 < var_17)
+                if var_18 then
+                    method_0((var_17: uint64), (var_1: string), (var_8: int64))
+                else
+                    (failwith "puint64")
+            else
+                (failwith "puint64")
+        else
+            method_1((var_0: uint64), (var_1: string), (var_2: int64))
+    else
+        method_1((var_0: uint64), (var_1: string), (var_2: int64))
+and method_1((var_0: uint64), (var_1: string), (var_2: int64)): uint64 =
+    let (var_3: bool) = (var_2 >= 0L)
+    let (var_6: bool) =
+        if var_3 then
+            let (var_4: int64) = (int64 var_1.Length)
+            (var_2 < var_4)
+        else
+            false
+    if var_6 then
+        let (var_7: char) = var_1.[int32 var_2]
+        let (var_8: int64) = (var_2 + 1L)
+        let (var_9: bool) = (var_7 = ' ')
+        let (var_13: bool) =
+            if var_9 then
+                true
+            else
+                let (var_10: bool) = (var_7 = '\n')
+                if var_10 then
+                    true
+                else
+                    (var_7 = '\r')
+        if var_13 then
+            method_1((var_0: uint64), (var_1: string), (var_8: int64))
+        else
+            var_0
+    else
+        var_0
+let (var_0: string) = "123 456 789"
+let (var_1: int64) = 0L
+let (var_2: uint64) = 0UL
+let (var_3: bool) = (var_1 >= 0L)
+let (var_6: bool) =
+    if var_3 then
+        let (var_4: int64) = (int64 var_0.Length)
+        (var_1 < var_4)
+    else
+        false
+if var_6 then
+    let (var_7: char) = var_0.[int32 var_1]
+    let (var_8: int64) = (var_1 + 1L)
+    let (var_9: bool) = (var_7 >= '0')
+    let (var_11: bool) =
+        if var_9 then
+            (var_7 <= '9')
+        else
+            false
+    if var_11 then
+        let (var_12: bool) = (var_2 <= 1844674407370955161UL)
+        if var_12 then
+            let (var_13: uint64) = (var_2 * 10UL)
+            let (var_14: uint64) = System.Convert.ToUInt64(var_7)
+            let (var_15: uint64) = (var_13 + var_14)
+            let (var_16: uint64) = System.Convert.ToUInt64('0')
+            let (var_17: uint64) = (var_15 - var_16)
+            let (var_18: bool) = (var_2 < var_17)
+            if var_18 then
+                method_0((var_17: uint64), (var_0: string), (var_8: int64))
+            else
+                (failwith "puint64")
+        else
+            (failwith "puint64")
+    else
+        (failwith "puint64")
+else
+    (failwith "puint64")
+```
+
+As the last example in CPS style, the next will come `tuple`.
+
+The tutorial will lighten up on huge code from here.
+
+```
+inl rec tuple l {d with on_succ} state =
+    match l with
+    | x :: xs ->
+        x {d with on_succ = inl x state ->
+            tuple xs {d with on_succ = inl xs state ->
+                on_succ (x :: xs) state
+                } state
+            } state
+    | () -> on_succ () state
+
+inl num = puint64 .>> spaces
+
+run (uint64,uint64,uint64) "123 456 789" (tuple (num, num, num))
+```
+As the output is 374 lines long, it won't be posted and for the following sections the style of the tutorials will change.
+
+[TODO: Add descriptions for the functions and the type annotations.]
