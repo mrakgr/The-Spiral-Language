@@ -3163,21 +3163,25 @@ The way they work now though has the great combination of them being both elegan
 
 It is difficult to imagine what could be added to Spiral for it generate better code for runtime at this point. Spiral's one pass is THE optimization pass to optimize these patterns at runtime, but it does not have any capacity to optimize its own compilation.
 
-What it offers is the mastery of the first Futamura projection - given a program and its input, it is capable of optimizing it.
+Right now Spiral's worst problem is its poor library support. The libraries are always in text and have to be parsed and prepassed from the scratch on every compilation. The way most languages solve that is by inventing an intermediate bytecode format, but without a doubt there exists a language design that would allow both the language to be fused to libraries, and to optimize both itself and the programs it is applied to. Without a doubt, such a language would significantly exceed Spiral in quality.
 
-There are second and the third Futamura projections beyond that which it does not even touch, and it might be necessary to put a foot into them to get the language to scale. Mastering the second Futamura projection would allow the language given its own source as input and a library to fuse them together. Doing this would not make the programs using that fused library any faster at runtime, but it would make a significant difference to compilation speed. And mastering the third might give a principled way of optimizing the compiler itself.
+One thing is for certain, such a language would be hard to write as a standard compiler in F#. A lot more infrastructure support would be necessary in order to support a fundamentally different approach towards compiler construction. Its own platform and a surgical compiler like [Lancet](https://github.com/TiarkRompf/lancet) would be a prerequisite. MLs are more suited towards writing interpreters than language towers. 
 
-The last paragraph is just speculation, and without any good ideas how that might be achieved which is the case for the author at the moment, it would be more sensible to focus on doing hand made optimizations. It took the Spiral's author over a hear to get a handle on just what is in the language now as simple as it is - who knows how long it would take him to get a handle on things that seem vastly more difficult than he has done from the current vantage point.
+[Racket](https://racket-lang.org/) has a superior ecosystem for writing such a language compared to the .NET, but it is the author's opinion that the parser in particular is not the best place to do compile time evaluation of functions and that syntax should not be used for abstraction - it should be used for ergonomics and should be consistent. Parsing should be a step to get rid of syntax.
 
-Those higher projections are a glimpse into programming beyond programming. Both the second and the third projection would require vastly improved composability between various pieces of the infrastructure and there is no doubt that a language that is capable of meeting the mastery requirements will be able to significantly exceed Spiral in power and expressiveness.
+Macros do not make sense in dynamic languages as a tool for language creation. They are absolute insanity in static languages. Often when they reach the limit of their design they cram macros to do everything else - like performance optimizations for example, and tout them as a feature rather than an admission of failure in language design. 
+
+Wanting macros in order to optimize performance will never happen in Spiral.
 
 ### 4: Continuation Passing Style, Monadic Computation and Parsing
 
 (work in progress)
 
-Now that union types are out of the way, slowly the subject can move towards the more fun stuff that can be done with the language. CPS is a great way to write highly abstract, generic and very fast code in Spiral and so the language has support for programming in such a style using monadic syntax. Modules are a significant aid as well for programming in CPS.
+Now that union types are out of the way, slowly the subject can move towards the more fun stuff that can be done with the language. CPS is a great way of writing highly abstract, generic and very fast code in Spiral and so the language has support for programming in such a style using monadic syntax. Modules are a significant aid as well for programming in CPS.
 
-Up to now the examples have been relatively simple, in order for them to be instructive and give a feel for how the language works and its syntax. They weren't important from a real world use case perspective.
+Up to now the examples have been relatively simple, in order for them to be instructive and give a feel for how the language works and its syntax. They weren't important from a real world use case perspective. Many bold claims were made about performance, but not a single performance figure was made despite that. That is due to the examples being simple enough that there was no need to especially prove that they would be anything other than optimal. That should have been plain enough from just looking at the generated code.
+
+That will change in this chapter. A very basic parsing library with little error handling will be written in both Spiral and F# and their performance will be compared.
 
 The way parsers can be done in Spiral starts to qualify as a thing not possible to do in any other language depending on how much weight is put on performance.
 
