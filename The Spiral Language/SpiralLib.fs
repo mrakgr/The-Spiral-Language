@@ -687,15 +687,17 @@ inl is_newline x = x = '\n' || x = '\r'
 
 inl string_stream str {idx on_succ on_fail} =
     inl f idx = idx >= 0 && idx < string_length str
+    inl branch cond = if cond then on_succ (str idx) else on_fail "string index out of bounds" 
     match idx with
-    | a, b when f a && f b | idx when f idx -> on_succ (str idx)
-    | _ -> on_fail "string index out of bounds"
+    | a, b -> branch (f a && f b)
+    | _ -> branch (f idx)
 
 inl stream_char = m {
-    parser = inl {d with stream on_succ on_fail} {state with pos} ->
+    parser = inl {stream on_succ on_fail} {state with pos} ->
+        inl state = {state with pos=pos+1}
         stream {
             idx = pos
-            on_succ = inl c -> on_succ c {state with pos=pos+1}
+            on_succ = inl c -> on_succ c state
             on_fail = inl msg -> on_fail msg state
             }
     }

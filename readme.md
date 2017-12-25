@@ -3185,3 +3185,76 @@ That will change in this chapter. A very basic parsing library with little error
 
 The way parsers can be done in Spiral starts to qualify as a thing not possible to do in any other language depending on how much weight is put on performance.
 
+To start things off, what is needed is a first to read a character from a stream.
+
+```
+inl string_stream str {idx on_succ on_fail} =
+    inl f idx = idx >= 0 && idx < string_length str
+    inl branch cond = if cond then on_succ (str idx) else on_fail "string index out of bounds" 
+    match idx with
+    | a, b -> branch (f a && f b)
+    | _ -> branch (f idx)
+
+inl str = dyn "123456789" |> string_stream
+str {
+    idx = 1,2
+    on_succ = id
+    on_fail = failwith string
+    }
+```
+```
+let (var_0: string) = "123456789"
+let (var_1: int64) = (int64 var_0.Length)
+let (var_2: bool) = (1L < var_1)
+let (var_4: bool) =
+    if var_2 then
+        (2L < var_1)
+    else
+        false
+if var_4 then
+    var_0.[int32 1L..int32 2L]
+else
+    (failwith "string index out of bounds")
+```
+The `string_stream` function converts the string into a stream suitable for parsing. The important bits are the `on_succ` and `on_fail` functions. By calling them we bypass the usual exception mechanism for failures and do backtracking in the parser.
+
+Before work on the parser can start the essential elements of it need to be defined. What does a parser need?
+
+1) It needs the stream to operate on. Without the stream it could hardly do anything.
+
+2) It needs some way of signaling success and failure. In other words, it would be expected that `on_succ` and `on_fail` should be passed into it somewhere.
+
+3) It needs to know the current position in the stream it is on.
+
+```
+inl stream_char {stream on_succ on_fail} {state with pos} =
+    stream {
+        idx = pos
+        on_succ = inl c -> on_succ c {state with pos=pos+1}
+        on_fail = inl msg -> on_fail msg state
+        }
+
+inl stream = dyn "123456789" |> string_stream
+
+inl d = {
+    stream
+    on_succ = inl x state -> id x
+    on_fail = inl x state -> failwith char x
+    }
+
+stream_char d {pos=0}
+```
+```
+let (var_0: string) = "123456789"
+let (var_1: int64) = (int64 var_0.Length)
+let (var_2: bool) = (0L < var_1)
+if var_2 then
+    var_0.[int32 0L]
+else
+    (failwith "string index out of bounds")
+```
+`stream_char` is just a wrapper around the call to stream. In order for parser to compose it is necessary for them to have an uniform interface. It might be tempting to stick the `state` with the rest of the arguments so as to not worry about partially applying them out of order, but that would create problems when passing the arguments around.
+
+At this point the above example essentially feels like a lot of boilerplate and the output code is easier to understand than the original example.
+
+That should improve hopefully.
