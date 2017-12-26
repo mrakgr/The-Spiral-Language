@@ -136,11 +136,11 @@ inl box typ p {d with on_succ on_fail} state =
         | .ParserSucc, x, state -> on_succ x state
         | .ParserFail, x, state -> on_fail x state
 
-//inl puint64 d state = join puint64 d state // Make sure that the unrolled outer loop is rolled in.
+inl puint64 d state = join puint64 d state // Make sure that the unrolled outer loop is rolled in.
 
 /// Parses an unsigned 64-bit integer and returns it after parsing whitespaces.
 /// uint64 parser
-inl num = (puint64 .>> spaces)
+inl num = box uint64 (puint64 .>> spaces)
 
 run (uint64,uint64,uint64) "123 456 789" (tuple (num, num, num))
     """
