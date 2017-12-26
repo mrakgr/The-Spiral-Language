@@ -3478,6 +3478,7 @@ printfn "The time it took to run 100k iterations: %A" stopwatch.Elapsed
 ```
 
 F#: `The time it took to run 100k iterations: 00:00:00.4651116`
+
 Spiral: `The time it took to run 100k iterations: 00:00:00.1161899`
 
 So F# takes about 4x longer to finish than the Spiral version. The interesting thing not noted in the benchmark is that once the Spiral's output has been compiled to F# code, it runs instantaneously while in F#'s case, there is a noticeable delay while the JIT tries to optimize it. Obviously, in Spiral's case the JIT does not have much work left for it.
