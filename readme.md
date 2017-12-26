@@ -3719,4 +3719,95 @@ Tensors in Spiral represent the crystallization of its power; they are the point
 
 Unlike parsers of the previous chapter which were complicated - so complicated that they could not be explained, tensors are actually rather simple and intended for all ages.
 
+The implementation of `HostTensor` in the standard library is somewhat convoluted due to needing to be generic in order to be reusable on the Cuda side in addition to having a lot of functionality, so this chapter will follow the format of giving a few examples of its most salient features and then show how a simpler `Tensor` can be derived from first principles in order to attain understanding of it.
+
+Tensors in Spiral can have an arbitrary number of dimensions, arbitrary types and arbitrary layouts in addition to supporting views. Indexing into them emulates the partial application of functions. `init` for them takes arguments in curried form which supports scope control.
+
+```
+let example = 
+    "example",[option;tuple;loops;extern_;console;host_tensor],"Module description.",
+    """
+inl ar = array_create string 3
+Tuple.foldl (inl i x -> ar i <- x; i+1) 0 ("zero","one","two") |> ignore
+HostTensor.init (3,5,{from=2; to=5}) (inl a ->
+    inl x = ar a
+    string_format "x is {0}" x |> Console.writeline
+    inl b c -> x, b, c
+    )
+|> HostTensor.show_tensor_all
+|> Console.writeline
+    """
+```
+The generated code won't be posted as the loops for printing the tensors and initializing it are long, but here is what comes out when the program has been ran.
+```
+x is zero
+x is one
+x is two
+[|
+    [|
+        [|[zero, 0, 2]; [zero, 0, 3]; [zero, 0, 4]; [zero, 0, 5]|]
+        [|[zero, 1, 2]; [zero, 1, 3]; [zero, 1, 4]; [zero, 1, 5]|]
+        [|[zero, 2, 2]; [zero, 2, 3]; [zero, 2, 4]; [zero, 2, 5]|]
+        [|[zero, 3, 2]; [zero, 3, 3]; [zero, 3, 4]; [zero, 3, 5]|]
+        [|[zero, 4, 2]; [zero, 4, 3]; [zero, 4, 4]; [zero, 4, 5]|]
+    |]
+    [|
+        [|[one, 0, 2]; [one, 0, 3]; [one, 0, 4]; [one, 0, 5]|]
+        [|[one, 1, 2]; [one, 1, 3]; [one, 1, 4]; [one, 1, 5]|]
+        [|[one, 2, 2]; [one, 2, 3]; [one, 2, 4]; [one, 2, 5]|]
+        [|[one, 3, 2]; [one, 3, 3]; [one, 3, 4]; [one, 3, 5]|]
+        [|[one, 4, 2]; [one, 4, 3]; [one, 4, 4]; [one, 4, 5]|]
+    |]
+    [|
+        [|[two, 0, 2]; [two, 0, 3]; [two, 0, 4]; [two, 0, 5]|]
+        [|[two, 1, 2]; [two, 1, 3]; [two, 1, 4]; [two, 1, 5]|]
+        [|[two, 2, 2]; [two, 2, 3]; [two, 2, 4]; [two, 2, 5]|]
+        [|[two, 3, 2]; [two, 3, 3]; [two, 3, 4]; [two, 3, 5]|]
+        [|[two, 4, 2]; [two, 4, 3]; [two, 4, 4]; [two, 4, 5]|]
+    |]
+|]
+```
+Having the arguments to `init` be partially applied rather than given all at once is what allow the outside array to be indexed only in the outer loop. Had it been otherwise, the indexing would have needed to be done inside the innermost loop. `init` gives loops for free. Important operations such as map, rotation and reduction can be implemented in terms of init on the host (CPU) side.
+
+Tensors themselves emulate partial application of functions. Here is how they can be indexed into.
+```
+inl ar = array_create string 3
+Tuple.foldl (inl i x -> ar i <- x; i+1) 0 ("zero","one","two") |> ignore
+inl tns = HostTensor.init (3,5,{from=2; to=5}) (inl a ->
+    inl x = ar a
+    inl b c -> x, b, c
+    )
+inl f x = x 0 2 .get
+tns 0 |> f |> Console.writeline
+tns 1 |> f |> Console.writeline
+tns 2 |> f |> Console.writeline
+```
+```
+[zero, 0, 2]
+[one, 0, 2]
+[two, 0, 2]
+```
+This is convenient for views. Views can take more than a single argument in which case they need to be passed as a tuple.
+```
+inl ar = array_create string 3
+Tuple.foldl (inl i x -> ar i <- x; i+1) 0 ("zero","one","two") |> ignore
+inl tns = HostTensor.init (3,5,{from=2; to=5}) (inl a ->
+    inl x = ar a
+    inl b c -> x, b, c
+    )
+
+tns.view (1,{from=2;near_to=4})
+|> HostTensor.show_tensor_all
+|> Console.writeline
+```
+```
+[|
+    [|
+        [|[zero, 2, 2]; [zero, 2, 3]; [zero, 2, 4]; [zero, 2, 5]|]
+        [|[zero, 3, 2]; [zero, 3, 3]; [zero, 3, 4]; [zero, 3, 5]|]
+    |]
+|]
+```
+Both the tensor applications and views are done done immutably. Apart from join points which are memoized, Spiral's metalanguage is pure and there is no way of mutably updating tuples or modules.
+
 ...
