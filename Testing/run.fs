@@ -102,7 +102,13 @@ inl rec tuple l {d with on_succ} state =
 
 inl num = puint64 .>> spaces
 
-run (uint64,uint64,uint64) "123 456 789" (tuple (num, num, num))
+//run (uint64,uint64,uint64) "123 456 789" (tuple (num, num, num))
+inl f x ret =
+    Console.writeline x
+    ret()
+    Console.writeline "done"
+inb x = f "hello"
+Console.writeline "doing work"
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning

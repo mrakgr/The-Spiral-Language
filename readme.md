@@ -3175,5 +3175,75 @@ Wanting macros in order to optimize performance will never happen in Spiral.
 
 ### 4: Continuation Passing Style, Monadic Computation and Parsing
 
-(work in progress, probably needs to be redone as the style of the previous tutorials is not working for it)
+(work in progress)
 
+Now that union types are out of the way, slowly the subject can move towards the more fun stuff that can be done with the language. CPS is a great way of writing highly abstract, generic and very fast code in Spiral and so the language has support for programming in such a style using monadic syntax. Modules are a significant aid as well for programming in CPS.
+
+This chapter will be short and won't go into depth of how monads work. Neither will it explain how parsers work. As both of those subjects are highly complex, it would take a lot of time to cover them. For parsers combinators in particular, the place place to learn how they work would be to start with the [FParsec documentation](http://www.quanttec.com/fparsec/) and play with them.
+
+For monads in particular, it is best to study their specific instances. There is a large amount of tutorials online regarding them, most often in the context of the Haskell language. More closer to home, the author's understanding of them went through a dramatic improvement once he stopped trying to figure out what the higher kinded types are doing and simply focused on them in terms of flow.
+
+```
+inl on_succ a = (a,())
+inl on_log x = ((),Tuple.singleton x)
+inl (>>=) (a,w) f = // The writer monad.
+    inl a',w' = f a
+    (a',Tuple.append w w')
+
+inl add x y = x + y |> on_succ
+
+inm x = add 1 1
+inm _ = on_log x
+inm y = add 3 4
+inm _ = on_log y
+inm z = add 5 6
+inm _ = on_log z
+on_succ (x+y+z) // Tuple2(20L, Tuple1(2L, 7L, 11L))
+```
+```
+type Tuple0 =
+    struct
+    val mem_0: int64
+    val mem_1: int64
+    val mem_2: int64
+    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
+    end
+and Tuple1 =
+    struct
+    val mem_0: int64
+    val mem_1: Tuple0
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+Tuple1(20L, Tuple0(2L, 7L, 11L))
+```
+What the `inm` keyword does is merely rewrite `inm x = f` to `f >>= inl x -> ...`. Meaning the above example could have been done manually as...
+```
+add 1 1 >>= inl x ->
+on_log x >>= inl _ ->
+add 3 4 >>= inl y ->
+on_log y >>= inl _ ->
+add 5 6 >>= inl z ->
+on_log z >>= inl _ ->
+on_succ (x+y+z)
+```
+The writer monad pattern is notable as it is used to accumulate the backwards trace in the ML library, so it is worth keeping in mind. Despite the power of monads, most of the time they are used to encapsulate state.
+
+Apart from `inm` there is also `inb`.
+
+```
+inl f x ret =
+    Console.writeline x
+    ret()
+    Console.writeline "done"
+inb x = f "hello"
+Console.writeline "doing work"
+```
+```
+System.Console.WriteLine("hello")
+System.Console.WriteLine("doing work")
+System.Console.WriteLine("done")
+```
+
+A pattern similar to the above is used to emulate stack allocation of Cuda memory in the ML library.
+
+...
