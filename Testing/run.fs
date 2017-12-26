@@ -4,6 +4,7 @@ open Spiral.Lib
 open Spiral.Tests
 open System.IO
 open Learning
+open System.Diagnostics
 
 let cfg: Spiral.Types.CompilerSettings = {
     path_cuda90 = @"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.0"
@@ -17,6 +18,8 @@ let cfg: Spiral.Types.CompilerSettings = {
 let example = 
     "example",[option;tuple;loops;extern_;console],"Module description.",
     """
+/// Converts a string to a parser stream.
+/// string -> parser_stream
 inl string_stream str {idx on_succ on_fail} =
     inl f idx = idx >= 0 && idx < string_length str
     inl branch cond = if cond then on_succ (str idx) else on_fail "string index out of bounds" 
@@ -24,6 +27,8 @@ inl string_stream str {idx on_succ on_fail} =
     | a, b -> branch (f a && f b)
     | _ -> branch (f idx)
 
+/// Runs a parser given the string and the expected return type.
+/// t type -> string -> t parser -> t
 inl run ret_type str parser = 
     inl stream = dyn str |> string_stream
 
@@ -36,6 +41,8 @@ inl run ret_type str parser =
 
     parser d {pos=dyn 0}
 
+/// Reads a char.
+/// char parser
 inl stream_char {stream on_succ on_fail} {state with pos} =
     stream {
         idx = pos
@@ -47,6 +54,8 @@ inl is_digit x = x >= '0' && x <= '9'
 inl is_whitespace x = x = ' '
 inl is_newline x = x = '\n' || x = '\r'
 
+/// Reads a digit.
+/// char parser
 inl digit {stream on_succ on_fail} state =
     stream_char {
         stream on_fail
@@ -57,6 +66,8 @@ inl digit {stream on_succ on_fail} state =
 
 inl convert_type = fs [text: "System.Convert"]
 inl to_uint64 x = Extern.FS.StaticMethod convert_type .ToUInt64 x uint64
+/// Reads an 64-bit integer parser.
+/// uint64 parser
 inl puint64 {stream on_succ on_fail on_type} state =
     inl error state = on_fail "puint64" state
     inl rec loop i on_fail state =
@@ -74,6 +85,8 @@ inl puint64 {stream on_succ on_fail on_type} state =
         : on_type
     loop (dyn 0u64) (inl _ state -> error state) state
 
+/// The skips an all the whitespaces (including newlines) before succeeding.
+/// unit parser
 met rec spaces {d with stream on_succ on_fail on_type} state =
     stream_char {
         stream
@@ -84,12 +97,18 @@ met rec spaces {d with stream on_succ on_fail on_type} state =
         } state
     : on_type
 
+/// Runs the first and then the second parser before returning the result of the second parser.
+/// a parser -> b parser -> b parser
 inl (>>.) a b {d with on_succ} state = a {d with on_succ = inl _ state -> b d state} state
+/// Runs the first and then the second parser before returning the result of the first parser.
+/// a parser -> b parser -> a parser
 inl (.>>) a b {d with on_succ} state = 
     a {d with on_succ = inl a state -> 
         b {d with on_succ = inl _ state -> on_succ a state} state
         } state
 
+/// Runs the tuple of parsers before returning their result.
+/// tuple parser
 inl rec tuple l {d with on_succ} state =
     match l with
     | x :: xs ->
@@ -100,15 +119,30 @@ inl rec tuple l {d with on_succ} state =
             } state
     | () -> on_succ () state
 
-inl num = puint64 .>> spaces
+inl term_cast typ p {d with on_succ on_type} state =
+    p {d with on_succ = Extern.closure_of on_succ (typ => state => on_type)} state
 
-//run (uint64,uint64,uint64) "123 456 789" (tuple (num, num, num))
-inl f x ret =
-    Console.writeline x
-    ret()
-    Console.writeline "done"
-inb x = f "hello"
-Console.writeline "doing work"
+inl ParserResult x state = .ParserSucc, x, state \/ .ParserFail, string, state
+
+inl box typ p {d with on_succ on_fail} state = 
+    inl on_type = ParserResult typ state
+    inl box = box on_type
+    p {d with
+        on_succ = inl x state -> box (.ParserSucc, x, state)
+        on_fail = inl x state -> box (.ParserFail, x, state)
+        on_type
+        } state
+    |> function
+        | .ParserSucc, x, state -> on_succ x state
+        | .ParserFail, x, state -> on_fail x state
+
+//inl puint64 d state = join puint64 d state // Make sure that the unrolled outer loop is rolled in.
+
+/// Parses an unsigned 64-bit integer and returns it after parsing whitespaces.
+/// uint64 parser
+inl num = (puint64 .>> spaces)
+
+run (uint64,uint64,uint64) "123 456 789" (tuple (num, num, num))
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning

@@ -3246,4 +3246,463 @@ System.Console.WriteLine("done")
 
 A pattern similar to the above is used to emulate stack allocation of Cuda memory in the ML library.
 
-...
+Anyway, here is a simple Spiral parser library written in CPS style. A more advanced version in monadic style can be found in the standard library.
+
+```
+let example = 
+    "example",[option;tuple;loops;extern_;console],"Module description.",
+    """
+/// Converts a string to a parser stream.
+/// string -> parser_stream
+inl string_stream str {idx on_succ on_fail} =
+    inl f idx = idx >= 0 && idx < string_length str
+    inl branch cond = if cond then on_succ (str idx) else on_fail "string index out of bounds" 
+    match idx with
+    | a, b -> branch (f a && f b)
+    | _ -> branch (f idx)
+
+/// Runs a parser given the string and the expected return type.
+/// t type -> string -> t parser -> t
+inl run ret_type str parser = 
+    inl stream = dyn str |> string_stream
+
+    inl d = {
+        stream
+        on_succ = inl x state -> id x
+        on_fail = inl x state -> failwith ret_type x
+        on_type = ret_type
+        }
+
+    parser d {pos=dyn 0}
+
+/// Reads a char.
+/// char parser
+inl stream_char {stream on_succ on_fail} {state with pos} =
+    stream {
+        idx = pos
+        on_succ = inl c -> on_succ c {state with pos=pos+1}
+        on_fail = inl msg -> on_fail msg state
+        }
+
+inl is_digit x = x >= '0' && x <= '9'
+inl is_whitespace x = x = ' '
+inl is_newline x = x = '\n' || x = '\r'
+
+/// Reads a digit.
+/// char parser
+inl digit {stream on_succ on_fail} state =
+    stream_char {
+        stream on_fail
+        on_succ = inl x state' -> 
+            if is_digit x then on_succ x state'
+            else on_fail "digit" state
+        } state
+
+inl convert_type = fs [text: "System.Convert"]
+inl to_uint64 x = Extern.FS.StaticMethod convert_type .ToUInt64 x uint64
+/// Reads an 64-bit integer parser.
+/// uint64 parser
+inl puint64 {stream on_succ on_fail on_type} state =
+    inl error state = on_fail "puint64" state
+    inl rec loop i on_fail state =
+        digit {
+            stream
+            on_fail=inl _ state -> on_fail i state
+            on_succ=inl c state ->
+                inl max = 1844674407370955161u64 // max of uint64 / 10u64
+                if i <= max then
+                    inl i' = i * 10u64 + to_uint64 c - to_uint64 '0'
+                    if i < i' then join loop i' on_succ state
+                    else error state
+                else error state
+            } state
+        : on_type
+    loop (dyn 0u64) (inl _ state -> error state) state
+
+/// The skips an all the whitespaces (including newlines) before succeeding.
+/// unit parser
+met rec spaces {d with stream on_succ on_fail on_type} state =
+    stream_char {
+        stream
+        on_fail = inl _ state -> on_succ () state
+        on_succ = inl c state' -> 
+            if is_whitespace c || is_newline c then spaces d state'
+            else on_succ () state
+        } state
+    : on_type
+
+/// Runs the first and then the second parser before returning the result of the second parser.
+/// a parser -> b parser -> b parser
+inl (>>.) a b {d with on_succ} state = a {d with on_succ = inl _ state -> b d state} state
+/// Runs the first and then the second parser before returning the result of the first parser.
+/// a parser -> b parser -> a parser
+inl (.>>) a b {d with on_succ} state = 
+    a {d with on_succ = inl a state -> 
+        b {d with on_succ = inl _ state -> on_succ a state} state
+        } state
+
+/// Runs the tuple of parsers before returning their result.
+/// tuple parser
+inl rec tuple l {d with on_succ} state =
+    match l with
+    | x :: xs ->
+        x {d with on_succ = inl x state ->
+            tuple xs {d with on_succ = inl xs state ->
+                on_succ (x :: xs) state
+                } state
+            } state
+    | () -> on_succ () state
+
+/// Parses an unsigned 64-bit integer and returns it after parsing whitespaces.
+/// uint64 parser
+inl num = puint64 .>> spaces
+
+run (uint64,uint64,uint64) "123 456 789" (tuple (num, num, num))
+    """
+```
+As the output is 376 lines long, it won't be pasted. Here is a straightforward translation of the above to F#.
+```
+let example2 = 
+    /// Converts a string to a parser stream.
+    /// string -> parser_stream
+    /// Note: The functionality of this functions needs to be pared down in F# due to lack of intensional polymorphism.
+    let string_stream (str: string) (idx, on_succ, on_fail) =
+        if idx >= 0 && idx < str.Length then on_succ str.[idx] else on_fail "string index out of bounds" 
+
+    /// Runs a parser given the string and the expected return type.
+    /// string -> t parser -> t
+    let run str parser = 
+        let stream = string_stream str
+
+        let d = 
+            stream
+            ,fun x state -> id x
+            ,fun x state -> failwith x
+
+        parser d 0
+
+    /// Reads a char.
+    /// char parser
+    let stream_char (stream, on_succ, on_fail) pos =
+        stream 
+            (pos
+            ,fun c -> on_succ c (pos+1)
+            ,fun msg -> on_fail msg pos
+            )
+
+    let is_digit x = x >= '0' && x <= '9'
+    let is_whitespace x = x = ' '
+    let is_newline x = x = '\n' || x = '\r'
+
+    /// Reads a digit.
+    /// char parser
+    let digit (stream, on_succ, on_fail) state =
+        stream_char ( 
+            stream 
+            ,fun x state' -> 
+                if is_digit x then on_succ x state'
+                else on_fail "digit" state
+            ,on_fail
+            ) state
+            
+
+    /// Reads an 64-bit integer parser.
+    /// uint64 parser
+    let puint64 (stream, on_succ, on_fail) state =
+        let error state = on_fail "puint64" state
+        let rec loop i on_fail state =
+            digit (
+                stream
+                ,fun c state ->
+                    let max = 1844674407370955161UL // max of uint64 / 10u64
+                    if i <= max then
+                        let i' = i * 10UL + System.Convert.ToUInt64 c - System.Convert.ToUInt64 '0'
+                        if i < i' then loop i' on_succ state
+                        else error state
+                    else error state
+                ,fun _ state -> on_fail i state
+                ) state
+        loop 0UL (fun _ state -> error state) state
+
+    /// The skips an all the whitespaces (including newlines) before succeeding.
+    /// unit parser
+    let rec spaces (stream, on_succ, on_fail as d) state =
+        stream_char (
+            stream
+            ,fun c state' -> 
+                if is_whitespace c || is_newline c then spaces d state'
+                else on_succ () state
+            ,fun _ state -> on_succ () state
+            ) state
+
+    /// Runs the first and then the second parser before returning the result of the second parser.
+    /// a parser -> b parser -> b parser
+    let (>>.) a b (stream,on_succ,on_fail as d) state = a (stream,(fun _ state -> b d state), on_fail) state
+    /// Runs the first and then the second parser before returning the result of the first parser.
+    /// a parser -> b parser -> a parser
+    let (.>>) a b (stream,on_succ,on_fail) state = 
+        a (stream, (fun a state -> b (stream, (fun _ state -> on_succ a state),on_fail) state), on_fail) state
+
+    /// Runs the tuple of parsers before returning their result.
+    /// tuple parser
+    /// Note: This one is ugly. It is impossible to make a generic tuple without great type hackery in F#. 
+    /// Check out FParsec.Pipes library to see how that might be done.
+    let tuple3 (a,b,c) (stream,on_succ,on_fail) =
+        a (
+            stream 
+            ,fun a ->
+                b (
+                    stream
+                    ,fun b ->
+                        c (
+                            stream
+                            ,fun c ->
+                                on_succ (a,b,c)
+                            ,on_fail)
+                    ,on_fail)
+            ,on_fail)
+
+    /// Parses an unsigned 64-bit integer and returns it after parsing whitespaces.
+    /// uint64 parser
+    let num = puint64 .>> spaces
+
+    run "123 456 789" (tuple3 (num, num, num))
+```
+Using the following script, here are the figures on the author's machine. For the Spiral example, the output of the Spiral's compiler was simply factored into `example2`.
+
+```
+for i = 1 to 10000 do example2 () |> ignore
+let stopwatch = System.Diagnostics.Stopwatch.StartNew()
+for i = 1 to 100000 do example2 () |> ignore
+printfn "The time it took to run 100k iterations: %A" stopwatch.Elapsed
+```
+
+F#: `The time it took to run 100k iterations: 00:00:00.4651116`
+Spiral: `The time it took to run 100k iterations: 00:00:00.1161899`
+
+So F# takes about 4x longer to finish than the Spiral version. The interesting thing not noted in the benchmark is that once the Spiral's output has been compiled to F# code, it runs instantaneously while in F#'s case, there is a noticeable delay while the JIT tries to optimize it. Obviously, in Spiral's case the JIT does not have much work left for it.
+
+This particular benchmark actually makes F# look quite good and the gap is less what the author expected, but the example being tested on and the parser was particularly small. Given how poor F# is at optimizing [monads](https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/computation-expressions), the author would not be particularly surprised to see a gap of 100x for serious parser. And he would not be surprised either to see parser that would take a second to compile in F#, take minutes in Spiral due to all the inlining.
+
+The matter of compile times in Spiral is a matter of speculation at this point, but there are ways of improving it, and it boils down to reducing the code size via boxing to union types or term casting.
+
+Here is how term casting of parsers can be done in Spiral.
+
+```
+inl term_cast typ p {d with on_succ on_type} state =
+    p {d with on_succ = Extern.closure_of on_succ (typ => state => on_type)} state
+
+inl puint64 d state = join puint64 d state // Make sure that the unrolled outer loop is rolled in.
+
+/// Parses an unsigned 64-bit integer and returns it after parsing whitespaces.
+/// uint64 parser
+inl num = term_cast uint64 (puint64 .>> spaces)
+
+run (uint64,uint64,uint64) "123 456 789" (tuple (num, num, num))
+```
+
+The amount of code generated drops from 375 to 150 with this change.
+
+`The time it took to run 100k iterations: 00:00:00.1713986`
+
+Had the language supported struct unions, an alternative to the above would be to do the similar trick showed towards the end of list chapter. Here is how it could be done.
+
+```
+inl ParserResult x state = .ParserSucc, x, state \/ .ParserFail, string, state
+
+inl box typ p {d with on_succ on_fail} state = 
+    inl on_type = ParserResult typ state
+    inl box = box on_type
+    p {d with
+        on_succ = inl x state -> box (.ParserSucc, x, state)
+        on_fail = inl x state -> box (.ParserFail, x, state)
+        on_type
+        } state
+    |> function
+        | .ParserSucc, x, state -> on_succ x state
+        | .ParserFail, x, state -> on_fail x state
+
+inl puint64 d state = join puint64 d state // Make sure that the unrolled outer loop is rolled in.
+
+/// Parses an unsigned 64-bit integer and returns it after parsing whitespaces.
+/// uint64 parser
+inl num = box uint64 (puint64 .>> spaces)
+
+run (uint64,uint64,uint64) "123 456 789" (tuple (num, num, num))
+```
+
+`The time it took to run 100k iterations: 00:00:00.0087432`
+
+The amount of code generated is now 170 which is close to the term casted version, but the time shown above is quite interesting and quite confusing. At first it seemed as though the new version was something like 30% faster, but it turns out that calculation missed a decimal point. It is literally 13.2891733 times faster.
+
+Either the author is doing something very wrong, or there is some kind of black magic being done by the JIT. But the program does work correctly.
+
+This will be updated after asking around for a bit.
+
+The generated code is quite nice and worth posting. It is a good demonstration of Spiral's inlining capabilities. Without making use of boxing, methods 0,1 and 2 would be replicated 3 times each.
+
+```
+type Union0 =
+    | Union0Case0 of Tuple3
+    | Union0Case1 of Tuple4
+and Env1 =
+    struct
+    val mem_0: int64
+    new(arg_mem_0) = {mem_0 = arg_mem_0}
+    end
+and Tuple2 =
+    struct
+    val mem_0: uint64
+    val mem_1: uint64
+    val mem_2: uint64
+    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
+    end
+and Tuple3 =
+    struct
+    val mem_0: string
+    val mem_1: Env1
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+and Tuple4 =
+    struct
+    val mem_0: uint64
+    val mem_1: Env1
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let rec method_0((var_0: string), (var_1: int64)): Union0 =
+    let (var_2: uint64) = 0UL
+    let (var_3: bool) = (var_1 >= 0L)
+    let (var_6: bool) =
+        if var_3 then
+            let (var_4: int64) = (int64 var_0.Length)
+            (var_1 < var_4)
+        else
+            false
+    if var_6 then
+        let (var_7: char) = var_0.[int32 var_1]
+        let (var_8: int64) = (var_1 + 1L)
+        let (var_9: bool) = (var_7 >= '0')
+        let (var_11: bool) =
+            if var_9 then
+                (var_7 <= '9')
+            else
+                false
+        if var_11 then
+            let (var_12: bool) = (var_2 <= 1844674407370955161UL)
+            if var_12 then
+                let (var_13: uint64) = (var_2 * 10UL)
+                let (var_14: uint64) = System.Convert.ToUInt64(var_7)
+                let (var_15: uint64) = (var_13 + var_14)
+                let (var_16: uint64) = System.Convert.ToUInt64('0')
+                let (var_17: uint64) = (var_15 - var_16)
+                let (var_18: bool) = (var_2 < var_17)
+                if var_18 then
+                    method_1((var_17: uint64), (var_0: string), (var_8: int64))
+                else
+                    (Union0Case0(Tuple3("puint64", (Env1(var_8)))))
+            else
+                (Union0Case0(Tuple3("puint64", (Env1(var_8)))))
+        else
+            (Union0Case0(Tuple3("puint64", (Env1(var_1)))))
+    else
+        (Union0Case0(Tuple3("puint64", (Env1(var_1)))))
+and method_1((var_0: uint64), (var_1: string), (var_2: int64)): Union0 =
+    let (var_3: bool) = (var_2 >= 0L)
+    let (var_6: bool) =
+        if var_3 then
+            let (var_4: int64) = (int64 var_1.Length)
+            (var_2 < var_4)
+        else
+            false
+    if var_6 then
+        let (var_7: char) = var_1.[int32 var_2]
+        let (var_8: int64) = (var_2 + 1L)
+        let (var_9: bool) = (var_7 >= '0')
+        let (var_11: bool) =
+            if var_9 then
+                (var_7 <= '9')
+            else
+                false
+        if var_11 then
+            let (var_12: bool) = (var_0 <= 1844674407370955161UL)
+            if var_12 then
+                let (var_13: uint64) = (var_0 * 10UL)
+                let (var_14: uint64) = System.Convert.ToUInt64(var_7)
+                let (var_15: uint64) = (var_13 + var_14)
+                let (var_16: uint64) = System.Convert.ToUInt64('0')
+                let (var_17: uint64) = (var_15 - var_16)
+                let (var_18: bool) = (var_0 < var_17)
+                if var_18 then
+                    method_1((var_17: uint64), (var_1: string), (var_8: int64))
+                else
+                    (Union0Case0(Tuple3("puint64", (Env1(var_8)))))
+            else
+                (Union0Case0(Tuple3("puint64", (Env1(var_8)))))
+        else
+            method_2((var_0: uint64), (var_1: string), (var_2: int64))
+    else
+        method_2((var_0: uint64), (var_1: string), (var_2: int64))
+and method_2((var_0: uint64), (var_1: string), (var_2: int64)): Union0 =
+    let (var_3: bool) = (var_2 >= 0L)
+    let (var_6: bool) =
+        if var_3 then
+            let (var_4: int64) = (int64 var_1.Length)
+            (var_2 < var_4)
+        else
+            false
+    if var_6 then
+        let (var_7: char) = var_1.[int32 var_2]
+        let (var_8: int64) = (var_2 + 1L)
+        let (var_9: bool) = (var_7 = ' ')
+        let (var_13: bool) =
+            if var_9 then
+                true
+            else
+                let (var_10: bool) = (var_7 = '\n')
+                if var_10 then
+                    true
+                else
+                    (var_7 = '\r')
+        if var_13 then
+            method_2((var_0: uint64), (var_1: string), (var_8: int64))
+        else
+            (Union0Case1(Tuple4(var_0, (Env1(var_2)))))
+    else
+        (Union0Case1(Tuple4(var_0, (Env1(var_2)))))
+let (var_0: string) = "123 456 789"
+let (var_1: int64) = 0L
+let (var_2: Union0) = method_0((var_0: string), (var_1: int64))
+match var_2 with
+| Union0Case0(var_3) ->
+    let (var_5: string) = var_3.mem_0
+    let (var_6: Env1) = var_3.mem_1
+    let (var_7: int64) = var_6.mem_0
+    (failwith var_5)
+| Union0Case1(var_4) ->
+    let (var_9: uint64) = var_4.mem_0
+    let (var_10: Env1) = var_4.mem_1
+    let (var_11: int64) = var_10.mem_0
+    let (var_12: Union0) = method_0((var_0: string), (var_11: int64))
+    match var_12 with
+    | Union0Case0(var_13) ->
+        let (var_15: string) = var_13.mem_0
+        let (var_16: Env1) = var_13.mem_1
+        let (var_17: int64) = var_16.mem_0
+        (failwith var_15)
+    | Union0Case1(var_14) ->
+        let (var_19: uint64) = var_14.mem_0
+        let (var_20: Env1) = var_14.mem_1
+        let (var_21: int64) = var_20.mem_0
+        let (var_22: Union0) = method_0((var_0: string), (var_21: int64))
+        match var_22 with
+        | Union0Case0(var_23) ->
+            let (var_25: string) = var_23.mem_0
+            let (var_26: Env1) = var_23.mem_1
+            let (var_27: int64) = var_26.mem_0
+            (failwith var_25)
+        | Union0Case1(var_24) ->
+            let (var_29: uint64) = var_24.mem_0
+            let (var_30: Env1) = var_24.mem_1
+            let (var_31: int64) = var_30.mem_0
+            Tuple2(var_9, var_19, var_29)
+```
