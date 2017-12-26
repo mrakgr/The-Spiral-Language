@@ -28,6 +28,7 @@
             - [Type Splitting and Generic Parameters](#type-splitting-and-generic-parameters)
             - [Warning on combining union types, partial active patterns and join points](#warning-on-combining-union-types-partial-active-patterns-and-join-points)
         - [4: Continuation Passing Style, Monadic Computation and Parsing](#4-continuation-passing-style-monadic-computation-and-parsing)
+        - [5: Tensors](#5-tensors)
 
 <!-- /TOC -->
 
@@ -3175,7 +3176,7 @@ Wanting macros in order to optimize performance will never happen in Spiral.
 
 ### 4: Continuation Passing Style, Monadic Computation and Parsing
 
-(work in progress)
+(work in progress until the performance puzzle is resolved)
 
 Now that union types are out of the way, slowly the subject can move towards the more fun stuff that can be done with the language. CPS is a great way of writing highly abstract, generic and very fast code in Spiral and so the language has support for programming in such a style using monadic syntax. Modules are a significant aid as well for programming in CPS.
 
@@ -3707,3 +3708,8 @@ match var_2 with
             let (var_31: int64) = var_30.mem_0
             Tuple2(var_9, var_19, var_29)
 ```
+
+### 5: Tensors
+
+(work in progress)
+
