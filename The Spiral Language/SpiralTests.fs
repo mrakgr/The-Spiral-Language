@@ -1015,7 +1015,7 @@ let test96 =
 open HostTensor
 inl w = {from=1; near_to=3}, {from=1; near_to=3},{from=1; near_to=4}
 init ({from=1; near_to=5},3,10) (inl a b c -> a*b*c)  
-|> show_tensor' w
+|> show.range w
     """
 
 let test97 =
@@ -1024,7 +1024,7 @@ let test97 =
 open HostTensor
 inl w = {from=1; near_to=3}, {from=1; near_to=3},{from=1; near_to=4}
 init ({from=1; near_to=5},3,10) (inl a b c -> a*b*c) .view_span w
-|> show_tensor_all
+|> show.all
     """
 
 let test98 =

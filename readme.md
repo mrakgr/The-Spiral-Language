@@ -29,7 +29,9 @@
             - [Warning on combining union types, partial active patterns and join points](#warning-on-combining-union-types-partial-active-patterns-and-join-points)
         - [4: Continuation Passing Style, Monadic Computation and Parsing](#4-continuation-passing-style-monadic-computation-and-parsing)
             - [Parsing Benchmark](#parsing-benchmark)
-        - [5: Tensors](#5-tensors)
+        - [5: Tensors and Structural Reflection](#5-tensors-and-structural-reflection)
+            - [Under The Hood](#under-the-hood)
+                - [Layout Polymorphism](#layout-polymorphism)
 
 <!-- /TOC -->
 
@@ -3575,7 +3577,7 @@ Just how hard would such a fast handwritten C-style parser be to modify after th
 
 ML styled languages still have some advantages over Spiral due to having type inference which is a great aid to refactoring and explorability, but C offshots can be completely replaced with no regret.
 
-### 5: Tensors
+### 5: Tensors and Structural Reflection
 
 (work in progress)
 
@@ -3600,7 +3602,7 @@ HostTensor.init (3,5,{from=2; to=5}) (inl a ->
     string_format "x is {0}" x |> Console.writeline
     inl b c -> x, b, c
     )
-|> HostTensor.show_tensor_all
+|> HostTensor.show.all
 |> Console.writeline
     """
 ```
@@ -3653,7 +3655,7 @@ tns 2 |> f |> Console.writeline
 [one, 0, 2]
 [two, 0, 2]
 ```
-This is convenient for views. Views can take more than a single argument in which case they need to be passed as a tuple.
+This is convenient for views. Views can take more than a single argument in which case they need to be passed as a tuple. Like application, views work on dimensions from left to right - from the outermost to the innermost.
 ```
 inl ar = array_create string 3
 Tuple.foldl (inl i x -> ar i <- x; i+1) 0 ("zero","one","two") |> ignore
@@ -3663,7 +3665,7 @@ inl tns = HostTensor.init (3,5,{from=2; to=5}) (inl a ->
     )
 
 tns.view (1,{from=2;near_to=4})
-|> HostTensor.show_tensor_all
+|> HostTensor.show.all
 |> Console.writeline
 ```
 ```
@@ -3675,5 +3677,184 @@ tns.view (1,{from=2;near_to=4})
 |]
 ```
 Both the tensor applications and views are done done immutably. Apart from join points which are memoized, Spiral's metalanguage is pure and there is no way of mutably updating tuples or modules.
+
+For the sake of demonstration, here is how `.set` works. It is very similar to `.get`.
+
+```
+inl tns = HostTensor.init ({from=2; near_to=5}) id
+inl modify f t = t .set (t .get |> f)
+tns 2 |> modify ((*) 2)
+tns 3 |> modify ((+) 22)
+tns 4 |> modify (const -11)
+
+HostTensor.show.all tns
+|> Console.writeline
+```
+```
+[|4; 25; -11|]
+```
+In addition to `.view`, `.view_span` is useful.
+```
+inl tns_a = HostTensor.init ({from=2; near_to=10}) id
+
+HostTensor.show.all tns_a
+|> string_format "tns_a = {0}"
+|> Console.write
+
+inl tns_b = tns_a.view_span {from=0;near_to=2}
+HostTensor.show.all tns_b
+|> string_format "tns_b = {0}"
+|> Console.write
+
+inl tns_c = tns_a.view_span {from=2;near_to=4}
+HostTensor.show.all tns_c
+|> string_format "tns_c = {0}"
+|> Console.write
+
+tns_c 0 .get |> Console.writeline
+tns_c 1 .get |> Console.writeline
+//tns_c 2 .get |> Console.writeline // Would trigger the range check assertion at compile time.
+```
+```
+tns_a = [|2; 3; 4; 5; 6; 7; 8; 9|]
+tns_b = [|2; 3|]
+tns_c = [|4; 5|]
+4
+5
+```
+`.view_span` is similar to view except starts the indexing from the beginning of the dimensions of the target tensor and rebases the dimensions so they start from 0. That means that `.view_span -1` would always be an out of bounds error as would all negative values of the index. Given how Spiral specializes join points, it is useful for avoiding code bloat as well.
+
+For the sake of machine learning, it is preferable to keep the tensor sizes as constants to get rid of as many assertion at compile time as possible. Note that in the last line, had it not been commented out the compiler would have raised a type error at compile time.
+
+Tensors have even more to offer. By default, their layout is that of tuple of arrays. Meaning a tuple of type `float32 * int64 * int64` would be represented using 3 arrays internally each for the separate elements of the tuple. The main motivation behind this design is to make it easy to pass them through language boundaries onto the Cuda side as unless the arrays were of primitive types, it would be difficult to align them in memory, but there are performance benefits as well to allowing such a representation.
+
+That varies from problem to problem, so it would be even better if it was easy to switch between representations at will.
+
+```
+inl tns_toa = HostTensor.init (5,5) (inl a b -> a,b)
+inl tns_aot = HostTensor.init.aot (5,5) (inl a b -> tns_toa a b .get)
+()
+```
+```
+type Tuple0 =
+    struct
+    val mem_0: int64
+    val mem_1: int64
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+...
+let (var_0: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(25L))
+let (var_1: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(25L))
+let (var_2: int64) = 0L
+method_0((var_0: (int64 [])), (var_1: (int64 [])), (var_2: int64))
+let (var_5: (Tuple0 [])) = Array.zeroCreate<Tuple0> (System.Convert.ToInt32(25L))
+let (var_6: int64) = 0L
+method_2((var_0: (int64 [])), (var_1: (int64 [])), (var_5: (Tuple0 [])), (var_6: int64))
+```
+The full thing won't be posted as it is 100 LOC, but it should be imaginable that `method_0` is `init` for `tns_toa` and `method_2` is `init` for `tns_aot`. Spiral's tensors are the perfect abstraction where layouts are concerned and it is possible to mix and match `.aot` and `.toa` layout using the `zip` function and it will still work fine. For most usecases, the default tuple of arrays is sensible.
+
+Saying tuple of arrays does not cover it completely though. The tensors work fine with modules.
+
+```
+inl a = HostTensor.init (3,3) (inl a b -> {a b})
+a 2 2 .set {a=99}
+HostTensor.show a
+|> Console.writeline
+```
+```
+[|
+    [|{a = 0; b = 0}; {a = 0; b = 1}; {a = 0; b = 2}|]
+    [|{a = 1; b = 0}; {a = 1; b = 1}; {a = 1; b = 2}|]
+    [|{a = 2; b = 0}; {a = 2; b = 1}; {a = 99; b = 2}|]
+|]
+```
+
+When tensor are in `toa` form they have the added feature of allowing the module fields to be mutated individually. This is not possible in general in Spiral as modules and tuples are immutable; if they were represented as `aot` or if the modules were tuples this would not be possible. What is going on is that when they are represented as separate entities this changes their semantics to reflect that and this is the correct behavior even in a functional language.
+
+This is the short tour of the tensors in Spiral. The next section will be on how they are implemented.
+
+#### Under The Hood
+
+As was shown there are two aspects of tensor polymorphism - one was that they have an arbitrary number of dimensions and the other was that are layout polymorphic. In a language with weaker type systems that would require creating specific tensor instances for both of those concerns, but Spiral can handle them naturally.
+
+Even better, the dimensionality of the tensor is really a separate concern from its layout and so the two subjects can be taken in as separate pieces.
+
+##### Layout Polymorphism
+
+Suppose we want to create an array of `int64 * int64 * int64` this is how it can be done in Spiral.
+
+```
+array_create (int64,int64,int64) 8
+```
+```
+type Tuple0 =
+    struct
+    val mem_0: int64
+    val mem_1: int64
+    val mem_2: int64
+    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
+    end
+Array.zeroCreate<Tuple0> (System.Convert.ToInt32(8L))
+```
+
+The above is also known as `aot` or `array of tuples` form. How would the `toa` or `tuple of arrays` form look like then?
+
+```
+inl ar = array_create int64 8, array_create int64 8, array_create int64 8
+()
+```
+```
+let (var_0: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+let (var_1: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+let (var_2: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+```
+
+Rather than copy pasting like the above it would be better if we mapped the type directly.
+
+```
+inl ar = Tuple.map (inl x -> array_create x 8) (int64,int64,int64)
+()
+```
+```
+let (var_0: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+let (var_1: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+let (var_2: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+```
+
+The same output as in the above example shows up. By now, the general principle of how Spiral's tensors achieve their layout polymorphism should be becoming clearer. Of course, the above is woefully incomplete. For example, if the tuple were nested then the `toa` layout would not be achieved.
+
+```
+inl ar = Tuple.map (inl x -> array_create x 8) (int64,(int64,int64))
+()
+```
+```
+type Tuple0 =
+    struct
+    val mem_0: int64
+    val mem_1: int64
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let (var_0: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+let (var_1: (Tuple0 [])) = Array.zeroCreate<Tuple0> (System.Convert.ToInt32(8L))
+```
+
+What should be done is to write a function capable mapping over nested tuples.
+
+```
+inl rec toa_map f = function
+    | x :: x' -> toa_map f x :: toa_map f x'
+    | () -> ()
+    | x -> f x
+
+inl ar = toa_map (inl x -> array_create x 8) (int64,(int64,int64))
+()
+```
+```
+let (var_0: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+let (var_1: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+let (var_2: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+```
+
+Note the subtle difference between `toa_map` and a regular `map`. In `| x :: x' -> toa_map f x :: toa_map f x'` the function recurses on `x` as well, not just on the tail.
 
 ...

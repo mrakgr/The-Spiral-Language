@@ -694,10 +694,9 @@ inl string_stream str {idx on_succ on_fail} =
 
 inl stream_char = m {
     parser = inl {stream on_succ on_fail} {state with pos} ->
-        inl state = {state with pos=pos+1}
         stream {
             idx = pos
-            on_succ = inl c -> on_succ c state
+            on_succ = inl c -> on_succ c {state with pos=pos+1}
             on_fail = inl msg -> on_fail msg state
             }
     }
@@ -1064,48 +1063,45 @@ inl TensorTemplate {view get set apply} = {
             {data with bodies = toa_map (inl ar -> apply ar (i-from)) self; dim}
     }
 
-inl show_tensor_all tns =
-    open Extern
-    inl strb_type = fs [text: "System.Text.StringBuilder"]
-    inl s = FS.Constructor strb_type ()
-    inl append x = FS.Method s .Append x strb_type |> ignore
-    inl append_line x = FS.Method s .AppendLine x strb_type |> ignore
-    inl indent near_to = Loops.for {from=0; near_to; body=inl _ -> append ' '}
-    inl blank = dyn ""
-    inl rec loop {tns ind} = 
-        match tns.dim with
-        | () -> tns.get |> show |> append
-        | {from near_to} :: () ->
-            indent ind; append "[|"
-            Loops.for {from near_to state=blank; body=inl {state i} -> 
-                append state
-                tns i .get |> show |> append
-                dyn "; "
-                } |> ignore
-            append_line "|]"
-        | {from near_to} :: x' ->
-            indent ind; append_line "[|"
-            Loops.for {from near_to body=inl {state i} -> loop {tns=tns i; ind=ind+4}}
-            indent ind; append_line "|]"
+inl rec show = function
+    | .range (!map_dims dim) tns ->
+        inl f {from near_to} {from=from' near_to=near_to'} = {
+            from = min (near_to-1) (from + from') |> max from
+            near_to = min near_to (from + near_to') |> max (from+1)
+            }
+        inl {view ap} =
+            Tuple.foldr (inl {x with from} -> function
+                | {state with view dim=d :: dim} -> {state with view=f x d :: view; dim}
+                | {state with ap} -> {state with ap=from :: ap}
+                ) (tns.dim) {dim=Tuple.rev dim; view=(); ap=()}
+        Tuple.foldr (|>) ap tns .view view |> show.all
+    | .all tns ->
+        open Extern
+        inl strb_type = fs [text: "System.Text.StringBuilder"]
+        inl s = FS.Constructor strb_type ()
+        inl append x = FS.Method s .Append x strb_type |> ignore
+        inl append_line x = FS.Method s .AppendLine x strb_type |> ignore
+        inl indent near_to = Loops.for {from=0; near_to; body=inl _ -> append ' '}
+        inl blank = dyn ""
+        inl rec loop {tns ind} = 
+            match tns.dim with
+            | () -> tns.get |> Extern.show |> append
+            | {from near_to} :: () ->
+                indent ind; append "[|"
+                Loops.for {from near_to state=blank; body=inl {state i} -> 
+                    append state
+                    tns i .get |> Extern.show |> append
+                    dyn "; "
+                    } |> ignore
+                append_line "|]"
+            | {from near_to} :: x' ->
+                indent ind; append_line "[|"
+                Loops.for {from near_to body=inl {state i} -> loop {tns=tns i; ind=ind+4}}
+                indent ind; append_line "|]"
         
-    loop {tns; ind=0; prefix=blank} |> ignore
-    FS.Method s .ToString() string
-
-inl show_tensor' (!map_dims dim) tns =
-    inl f {from near_to} {from=from' near_to=near_to'} = {
-        from = min (near_to-1) (from + from') |> max from
-        near_to = min near_to (from + near_to') |> max (from+1)
-        }
-    inl {view ap} =
-        Tuple.foldr (inl {x with from} -> function
-            | {state with view dim=d :: dim} -> {state with view=f x d :: view; dim}
-            | {state with ap} -> {state with ap=from :: ap}
-            ) (tns.dim) {dim=Tuple.rev dim; view=(); ap=()}
-    Tuple.foldr (|>) ap tns .view view |> show_tensor_all
-
-// By default it just shows the first 5x5x5 matrix of the first 3 innermost dimensions.
-// If the tensor has less than 3 dimensions or its sizes are less than 5 then the minimum is taken.
-inl show_tensor = show_tensor' (5,5,5) 
+        loop {tns; ind=0; prefix=blank} |> ignore
+        FS.Method s .ToString() string
+    | tns -> show.all tns // TODO: Put in a cutoff here later.
 
 inl rec wrap_tensor_template module = 
     inl rec wrap data = function
@@ -1154,13 +1150,19 @@ inl init_core tns f =
         | () -> tns .set f
     loop tns f
 
-/// Creates a new tensor based on given sizes. Takes in a setter function. size -> f -> tensor.
-inl init size f =
-    inl dim = Tuple.wrap size
-    inl elem_type = type (Tuple.foldl (inl f _ -> f 0) f dim)
-    inl tns = create {elem_type dim layout= .toa}
-    init_core tns f
-    tns
+/// Creates a new tensor based on given sizes. Takes in a setter function. 
+/// ?layout -> size -> f -> tensor.
+inl init = 
+    inl body layout size f = 
+        inl dim = Tuple.wrap size
+        inl elem_type = type (Tuple.foldl (inl f _ -> f 0) f dim)
+        inl tns = create {elem_type dim layout}
+        init_core tns f
+        tns
+    function
+    | .aot  -> body .aot
+    | size -> body .toa size
+
 
 /// Maps the elements of the tensor. (a -> b) -> a tensor -> b tensor
 inl map f tns =
@@ -1220,8 +1222,8 @@ inl zip l =
     | tns -> tns.update_body <| inl _ -> toa_map (inl x -> x.bodies) l
 
 {toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims length create dim_describe primitive_apply_template TensorTemplate
- view_offsets init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip show_tensor' show_tensor 
- show_tensor_all toa_map3 toa_iter3 assert_contiguous assert_zip span}
+ view_offsets init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip show
+ toa_map3 toa_iter3 assert_contiguous assert_zip span}
 |> stack
     """) |> module_
 
