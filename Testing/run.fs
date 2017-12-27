@@ -119,6 +119,8 @@ inl rec tuple l {d with on_succ} state =
             } state
     | () -> on_succ () state
 
+/// Term casting for parsers
+/// a type -> a parser -> a parser
 inl term_cast typ p {d with on_succ on_fail on_type} state =
     inl term_cast_uncurried g a b = // This is to make sure only one closure is allocated.
         inl g = term_cast (inl a, b -> g a b) (a,b)
@@ -128,14 +130,29 @@ inl term_cast typ p {d with on_succ on_fail on_type} state =
         on_fail = term_cast_uncurried on_fail string state
         } state
 
+inl ParserResult x state = .ParserSucc, x, state \/ .ParserFail, string, state
+
+/// Union boxing for parsers
+/// a type -> a parser -> a parser
+inl box typ p {d with on_succ on_fail} state = 
+    inl on_type = ParserResult typ state
+    inl box = box on_type
+    p {d with
+        on_succ = inl x state -> box (.ParserSucc, x, state)
+        on_fail = inl x state -> box (.ParserFail, x, state)
+        on_type
+        } state
+    |> function
+        | .ParserSucc, x, state -> on_succ x state
+        | .ParserFail, x, state -> on_fail x state
+
 inl puint64 d state = join puint64 d state // Make sure that the unrolled outer loop is rolled in.
 
 /// Parses an unsigned 64-bit integer and returns it after parsing whitespaces.
 /// uint64 parser
-inl num = term_cast uint64 (puint64 .>> spaces)
+inl num = box uint64 (puint64 .>> spaces)
 
 run (uint64,uint64,uint64) "123 456 789" (tuple (num, num, num))
-
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning

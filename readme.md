@@ -28,6 +28,7 @@
             - [Type Splitting and Generic Parameters](#type-splitting-and-generic-parameters)
             - [Warning on combining union types, partial active patterns and join points](#warning-on-combining-union-types-partial-active-patterns-and-join-points)
         - [4: Continuation Passing Style, Monadic Computation and Parsing](#4-continuation-passing-style-monadic-computation-and-parsing)
+            - [Parsing Benchmark](#parsing-benchmark)
         - [5: Tensors](#5-tensors)
 
 <!-- /TOC -->
@@ -3176,7 +3177,7 @@ Wanting macros in order to optimize performance will never happen in Spiral.
 
 ### 4: Continuation Passing Style, Monadic Computation and Parsing
 
-(work in progress until the performance puzzle is resolved)
+(work in progress)
 
 Now that union types are out of the way, slowly the subject can move towards the more fun stuff that can be done with the language. CPS is a great way of writing highly abstract, generic and very fast code in Spiral and so the language has support for programming in such a style using monadic syntax. Modules are a significant aid as well for programming in CPS.
 
@@ -3247,7 +3248,9 @@ System.Console.WriteLine("done")
 
 A pattern similar to the above is used to emulate stack allocation of Cuda memory in the ML library.
 
-Anyway, here is a simple Spiral parser library written in CPS style. A more advanced version in monadic style can be found in the standard library.
+Anyway, here is a simple Spiral parser library written in CPS style just for the sake of making a benchmark. A more advanced version in monadic style can be found in the standard library.
+
+#### Parsing Benchmark
 
 ```
 let example = 
@@ -3469,30 +3472,39 @@ let example2 =
 
     run "123 456 789" (tuple3 (num, num, num))
 ```
-Using the following script, here are the figures on the author's machine. For the Spiral example, the output of the Spiral's compiler was simply factored into `example2`.
+
+Testing the above two programs using the [BenchmarkDotNet](https://github.com/dotnet/BenchmarkDotNet) libary here are the performance figures. What the above program is merely parsing 3 unsigned 64-bit ints and returning them in a tuple.
 
 ```
-for i = 1 to 10000 do example2 () |> ignore
-let stopwatch = System.Diagnostics.Stopwatch.StartNew()
-for i = 1 to 100000 do example2 () |> ignore
-printfn "The time it took to run 100k iterations: %A" stopwatch.Elapsed
+           Method |       Mean |     Error |    StdDev |
+----------------- |-----------:|----------:|----------:|
+ FullySpecialized |   292.8 ns | 0.8448 ns | 0.7902 ns |
+           FSharp | 3,616.2 ns | 8.9547 ns | 8.3762 ns |
 ```
 
-F#: `The time it took to run 100k iterations: 00:00:00.4651116`
+The Spiral parser is about 12x times faster. That is quite a nice improvement and roughly what one could expect. The interesting thing not noted in the benchmark is that once the Spiral's output has been compiled to F# code, it runs instantaneously while in F#'s case, there is a noticeable delay while the .NET JIT tries to optimize it. Obviously, in Spiral's case the JIT does not have much work left for it. Apart from register allocation, Spiral already does everything else and does a better job of it.
 
-Spiral: `The time it took to run 100k iterations: 00:00:00.1161899`
+If anything, the above understates the advantage that Spiral has over F#. Given how poor F# is at optimizing [monads](https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/computation-expressions), for parsers written in a monadic style the author would not be surprised to see the gap widen by another 10x.
 
-So F# takes about 4x longer to finish than the Spiral version. The interesting thing not noted in the benchmark is that once the Spiral's output has been compiled to F# code, it runs instantaneously while in F#'s case, there is a noticeable delay while the JIT tries to optimize it. Obviously, in Spiral's case the JIT does not have much work left for it.
+Nevertheless, one point in F#'s favor are compile times. The parser being tested here is somewhat trivial, but for a more complex parser such as the one for the Spiral compiler, the author would not be surprised to see it go up into 100s of thousands of lines of code. Given that the IDE gets crushed by the weight of a 20k LOC parser, it has him wondering how would he even compile such a monster? As a rule of the thumb, Spiral's evaluator generates around 3k LOC per second currently.
 
-This particular benchmark actually makes F# look quite good and the gap is less what the author expected, but the example being tested on and the parser was particularly small. Given how poor F# is at optimizing [monads](https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/computation-expressions), the author would not be particularly surprised to see a gap of 100x for serious parser. And he would not be surprised either to see parser that would take a second to compile in F#, take minutes in Spiral due to all the inlining.
+For that sake, rather than CPSing everything it would be important to do boxing. In the previous section on lists, it was shown how in Spiral, the CPS form of `head`,`tail` and `last` is just a more generic form of the one that uses the option type. Note that this is not the case in other functional languages as they lack Spiral's inlining guarantees.
 
-The matter of compile times in Spiral is a matter of speculation at this point, but there are ways of improving it, and it boils down to reducing the code size via boxing to union types or term casting.
+There are two choices for doing boxing in Spiral and they are good to know in order to cut down on exceesive specialization and making sure the evaluator does not diverge.
 
-Here is how term casting of parsers can be done in Spiral.
+1) Do term casting.
 
 ```
-inl term_cast typ p {d with on_succ on_type} state =
-    p {d with on_succ = Extern.closure_of on_succ (typ => state => on_type)} state
+/// Term casting for parsers
+/// a type -> a parser -> a parser
+inl term_cast typ p {d with on_succ on_fail on_type} state =
+    inl term_cast_uncurried g a b = // This is to make sure only one closure is allocated.
+        inl g = term_cast (inl a, b -> g a b) (a,b)
+        inl a b -> g (a,b)
+    p {d with 
+        on_succ = term_cast_uncurried on_succ typ state
+        on_fail = term_cast_uncurried on_fail string state
+        } state
 
 inl puint64 d state = join puint64 d state // Make sure that the unrolled outer loop is rolled in.
 
@@ -3503,15 +3515,23 @@ inl num = term_cast uint64 (puint64 .>> spaces)
 run (uint64,uint64,uint64) "123 456 789" (tuple (num, num, num))
 ```
 
-The amount of code generated drops from 375 to 150 with this change.
+The amount of code generated drops down to 141 LOC with this. Unfortunately it does make the program slower by about 30%.
 
-`The time it took to run 100k iterations: 00:00:00.1713986`
+```
+           Method |       Mean |     Error |    StdDev |
+----------------- |-----------:|----------:|----------:|
+       TermCasted |   406.6 ns | 1.2316 ns | 1.1520 ns |
+ FullySpecialized |   292.8 ns | 0.8448 ns | 0.7902 ns |
+           FSharp | 3,616.2 ns | 8.9547 ns | 8.3762 ns |
+```
 
-An alternative to the above would be to do the similar trick showed towards the end of list chapter using union types. Here is how it could be done.
+2) Box using union types.
 
 ```
 inl ParserResult x state = .ParserSucc, x, state \/ .ParserFail, string, state
 
+/// Union boxing for parsers
+/// a type -> a parser -> a parser
 inl box typ p {d with on_succ on_fail} state = 
     inl on_type = ParserResult typ state
     inl box = box on_type
@@ -3532,182 +3552,28 @@ inl num = box uint64 (puint64 .>> spaces)
 
 run (uint64,uint64,uint64) "123 456 789" (tuple (num, num, num))
 ```
-
-`The time it took to run 100k iterations: 00:00:00.0087432`
-
-The amount of code generated is now 170 which is close to the term casted version, but the time shown above is quite interesting and quite confusing. At first it seemed as though the new version was something like 30% faster, but it turns out that calculation missed a decimal point. It is literally 13.2891733 times faster.
-
-Either the author is doing something very wrong, or there is some kind of black magic being done by the JIT. But the program does work correctly.
-
-This will be updated after asking around for a bit.
-
-The generated code is quite nice and worth posting. It is a good demonstration of Spiral's inlining capabilities. Without making use of boxing, methods 0,1 and 2 would be replicated 3 times each.
-
+This actually improves the running time significantly.
 ```
-type Union0 =
-    | Union0Case0 of Tuple3
-    | Union0Case1 of Tuple4
-and Env1 =
-    struct
-    val mem_0: int64
-    new(arg_mem_0) = {mem_0 = arg_mem_0}
-    end
-and Tuple2 =
-    struct
-    val mem_0: uint64
-    val mem_1: uint64
-    val mem_2: uint64
-    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
-    end
-and Tuple3 =
-    struct
-    val mem_0: string
-    val mem_1: Env1
-    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
-    end
-and Tuple4 =
-    struct
-    val mem_0: uint64
-    val mem_1: Env1
-    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
-    end
-let rec method_0((var_0: string), (var_1: int64)): Union0 =
-    let (var_2: uint64) = 0UL
-    let (var_3: bool) = (var_1 >= 0L)
-    let (var_6: bool) =
-        if var_3 then
-            let (var_4: int64) = (int64 var_0.Length)
-            (var_1 < var_4)
-        else
-            false
-    if var_6 then
-        let (var_7: char) = var_0.[int32 var_1]
-        let (var_8: int64) = (var_1 + 1L)
-        let (var_9: bool) = (var_7 >= '0')
-        let (var_11: bool) =
-            if var_9 then
-                (var_7 <= '9')
-            else
-                false
-        if var_11 then
-            let (var_12: bool) = (var_2 <= 1844674407370955161UL)
-            if var_12 then
-                let (var_13: uint64) = (var_2 * 10UL)
-                let (var_14: uint64) = System.Convert.ToUInt64(var_7)
-                let (var_15: uint64) = (var_13 + var_14)
-                let (var_16: uint64) = System.Convert.ToUInt64('0')
-                let (var_17: uint64) = (var_15 - var_16)
-                let (var_18: bool) = (var_2 < var_17)
-                if var_18 then
-                    method_1((var_17: uint64), (var_0: string), (var_8: int64))
-                else
-                    (Union0Case0(Tuple3("puint64", (Env1(var_8)))))
-            else
-                (Union0Case0(Tuple3("puint64", (Env1(var_8)))))
-        else
-            (Union0Case0(Tuple3("puint64", (Env1(var_1)))))
-    else
-        (Union0Case0(Tuple3("puint64", (Env1(var_1)))))
-and method_1((var_0: uint64), (var_1: string), (var_2: int64)): Union0 =
-    let (var_3: bool) = (var_2 >= 0L)
-    let (var_6: bool) =
-        if var_3 then
-            let (var_4: int64) = (int64 var_1.Length)
-            (var_2 < var_4)
-        else
-            false
-    if var_6 then
-        let (var_7: char) = var_1.[int32 var_2]
-        let (var_8: int64) = (var_2 + 1L)
-        let (var_9: bool) = (var_7 >= '0')
-        let (var_11: bool) =
-            if var_9 then
-                (var_7 <= '9')
-            else
-                false
-        if var_11 then
-            let (var_12: bool) = (var_0 <= 1844674407370955161UL)
-            if var_12 then
-                let (var_13: uint64) = (var_0 * 10UL)
-                let (var_14: uint64) = System.Convert.ToUInt64(var_7)
-                let (var_15: uint64) = (var_13 + var_14)
-                let (var_16: uint64) = System.Convert.ToUInt64('0')
-                let (var_17: uint64) = (var_15 - var_16)
-                let (var_18: bool) = (var_0 < var_17)
-                if var_18 then
-                    method_1((var_17: uint64), (var_1: string), (var_8: int64))
-                else
-                    (Union0Case0(Tuple3("puint64", (Env1(var_8)))))
-            else
-                (Union0Case0(Tuple3("puint64", (Env1(var_8)))))
-        else
-            method_2((var_0: uint64), (var_1: string), (var_2: int64))
-    else
-        method_2((var_0: uint64), (var_1: string), (var_2: int64))
-and method_2((var_0: uint64), (var_1: string), (var_2: int64)): Union0 =
-    let (var_3: bool) = (var_2 >= 0L)
-    let (var_6: bool) =
-        if var_3 then
-            let (var_4: int64) = (int64 var_1.Length)
-            (var_2 < var_4)
-        else
-            false
-    if var_6 then
-        let (var_7: char) = var_1.[int32 var_2]
-        let (var_8: int64) = (var_2 + 1L)
-        let (var_9: bool) = (var_7 = ' ')
-        let (var_13: bool) =
-            if var_9 then
-                true
-            else
-                let (var_10: bool) = (var_7 = '\n')
-                if var_10 then
-                    true
-                else
-                    (var_7 = '\r')
-        if var_13 then
-            method_2((var_0: uint64), (var_1: string), (var_8: int64))
-        else
-            (Union0Case1(Tuple4(var_0, (Env1(var_2)))))
-    else
-        (Union0Case1(Tuple4(var_0, (Env1(var_2)))))
-let (var_0: string) = "123 456 789"
-let (var_1: int64) = 0L
-let (var_2: Union0) = method_0((var_0: string), (var_1: int64))
-match var_2 with
-| Union0Case0(var_3) ->
-    let (var_5: string) = var_3.mem_0
-    let (var_6: Env1) = var_3.mem_1
-    let (var_7: int64) = var_6.mem_0
-    (failwith var_5)
-| Union0Case1(var_4) ->
-    let (var_9: uint64) = var_4.mem_0
-    let (var_10: Env1) = var_4.mem_1
-    let (var_11: int64) = var_10.mem_0
-    let (var_12: Union0) = method_0((var_0: string), (var_11: int64))
-    match var_12 with
-    | Union0Case0(var_13) ->
-        let (var_15: string) = var_13.mem_0
-        let (var_16: Env1) = var_13.mem_1
-        let (var_17: int64) = var_16.mem_0
-        (failwith var_15)
-    | Union0Case1(var_14) ->
-        let (var_19: uint64) = var_14.mem_0
-        let (var_20: Env1) = var_14.mem_1
-        let (var_21: int64) = var_20.mem_0
-        let (var_22: Union0) = method_0((var_0: string), (var_21: int64))
-        match var_22 with
-        | Union0Case0(var_23) ->
-            let (var_25: string) = var_23.mem_0
-            let (var_26: Env1) = var_23.mem_1
-            let (var_27: int64) = var_26.mem_0
-            (failwith var_25)
-        | Union0Case1(var_24) ->
-            let (var_29: uint64) = var_24.mem_0
-            let (var_30: Env1) = var_24.mem_1
-            let (var_31: int64) = var_30.mem_0
-            Tuple2(var_9, var_19, var_29)
+           Method |       Mean |     Error |    StdDev |
+----------------- |-----------:|----------:|----------:|
+       TermCasted |   406.6 ns | 1.2316 ns | 1.1520 ns |
+             Boxy |   199.4 ns | 0.9976 ns | 0.9332 ns |
+ FullySpecialized |   292.8 ns | 0.8448 ns | 0.7902 ns |
+           FSharp | 3,616.2 ns | 8.9547 ns | 8.3762 ns |
 ```
+The boxy parser is by far the best variant. It comes out to only 170 LOCs and is 45% faster than the fully specialized version and 18x times than the F# version. The lines of code reduced would be much more dramatic for a larger parser thereby making the application of this technique a necessity in a serious library. Currently the `Parsing` module in the standard library is lacking in that regard and the above benchmark is actually the first time the author used union type boxing on parsers. The `Parsing` module was not intented to be a serious parsing library, but to drive the development of the language in a challening area.
+
+When the first version of it was created Spiral did not have modules nor monadic syntax nor good error messages, but it did have a lot of compiler bugs as if to make up for it. Spiral's modules were created in part because refactoring the parser was simply so painful during those days - it would take the author hours to fix the type errors that in F# would have taken him 10m. It is much better now thankfully.
+
+As the author has no intention of doing so and wants to do machine learning instead, for those interested in parsing Spiral is a very good language to experiment with them in the context of staged functional programming.
+
+It will no doubt be a very productive language for such a purpose depending on how much weight is put on performance. If full weight is put on it then there is no doubt that Spiral would be orders of magnitute more productive at such a task than other languages.
+
+The reason for that is that it is not enough to judge merely by how long would it take to write a parser, but how long would it take to get it on par with Spiral in performance. It took the author ~5h to make the parser for this benchmark in Spiral and then maybe 20m to transcribe it to F# by hand. In order to get to the Boxy level of performance, how long would it have taken to specialize all of that by hand and test it? Days?
+
+Just how hard would such a fast handwritten C-style parser be to modify after that? It would be completely inflexible, so a decent guess is quite hard. It would also take a special kind of masochism to deliberately write code in such a style.
+
+ML styled languages still have some advantages over Spiral due to having type inference which is a great aid to refactoring and explorability, but C offshots can be completely replaced by Spiral with no regret.
 
 ### 5: Tensors
 
