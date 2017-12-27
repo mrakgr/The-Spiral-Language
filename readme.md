@@ -3473,7 +3473,7 @@ let example2 =
     run "123 456 789" (tuple3 (num, num, num))
 ```
 
-Testing the above two programs using the [BenchmarkDotNet](https://github.com/dotnet/BenchmarkDotNet) libary here are the performance figures. What the above program is merely parsing 3 unsigned 64-bit ints and returning them in a tuple.
+Here are the performance figures from testing the above two programs using the [BenchmarkDotNet](https://github.com/dotnet/BenchmarkDotNet) library . What the above program is doing is merely parsing 3 unsigned 64-bit ints and returning them in a tuple.
 
 ```
            Method |       Mean |     Error |    StdDev |
@@ -3482,7 +3482,7 @@ Testing the above two programs using the [BenchmarkDotNet](https://github.com/do
            FSharp | 3,616.2 ns | 8.9547 ns | 8.3762 ns |
 ```
 
-The Spiral parser is about 12x times faster. That is quite a nice improvement and roughly what one could expect. The interesting thing not noted in the benchmark is that once the Spiral's output has been compiled to F# code, it runs instantaneously while in F#'s case, there is a noticeable delay while the .NET JIT tries to optimize it. Obviously, in Spiral's case the JIT does not have much work left for it. Apart from register allocation, Spiral already does everything else and does a better job of it.
+The Spiral parser is about 12x times faster. That is quite a nice improvement and roughly what one could expect. The interesting thing not noted in the benchmark is that once the Spiral's output has been compiled to F# code, it runs instantaneously while in F#'s case, there is a noticeable delay while the .NET JIT tries to optimize it. Obviously, in Spiral's case the JIT does not have much work left for it. Apart from register allocation, Spiral already does everything else and does a better job if it finishes compiling.
 
 If anything, the above understates the advantage that Spiral has over F#. Given how poor F# is at optimizing [monads](https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/computation-expressions), for parsers written in a monadic style the author would not be surprised to see the gap widen by another 10x.
 
@@ -3515,7 +3515,7 @@ inl num = term_cast uint64 (puint64 .>> spaces)
 run (uint64,uint64,uint64) "123 456 789" (tuple (num, num, num))
 ```
 
-The amount of code generated drops down to 141 LOC with this. Unfortunately it does make the program slower by about 30%.
+The amount of code generated drops down to 141 LOC with this. Unfortunately it does make the program slower by about 40%.
 
 ```
            Method |       Mean |     Error |    StdDev |
@@ -3565,7 +3565,7 @@ The boxy parser is by far the best variant. It comes out to only 170 LOCs and is
 
 When the first version of it was created Spiral did not have modules nor monadic syntax nor good error messages, but it did have a lot of compiler bugs as if to make up for it. Spiral's modules were created in part because refactoring the parser was simply so painful during those days - it would take the author hours to fix the type errors that in F# would have taken him 10m. It is much better now thankfully.
 
-As the author has no intention of doing so and wants to do machine learning instead, for those interested in parsing Spiral is a very good language to experiment with them in the context of staged functional programming.
+As the author has no intention of doing so and wants to do machine learning instead, for those interested in parsing Spiral is a very good language to experiment with in the context of staged functional programming.
 
 It will no doubt be a very productive language for such a purpose depending on how much weight is put on performance. If full weight is put on it then there is no doubt that Spiral would be orders of magnitute more productive at such a task than other languages.
 
@@ -3573,7 +3573,7 @@ The reason for that is that it is not enough to judge merely by how long would i
 
 Just how hard would such a fast handwritten C-style parser be to modify after that? It would be completely inflexible, so a decent guess is quite hard. It would also take a special kind of masochism to deliberately write code in such a style.
 
-ML styled languages still have some advantages over Spiral due to having type inference which is a great aid to refactoring and explorability, but C offshots can be completely replaced by Spiral with no regret.
+ML styled languages still have some advantages over Spiral due to having type inference which is a great aid to refactoring and explorability, but C offshots can be completely replaced with no regret.
 
 ### 5: Tensors
 
