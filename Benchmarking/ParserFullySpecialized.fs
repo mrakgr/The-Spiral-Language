@@ -1,4 +1,6 @@
-﻿type Tuple0 =
+﻿module ParserFullySpecialized
+
+type Tuple0 =
     struct
     val mem_0: uint64
     val mem_1: uint64
@@ -6,7 +8,7 @@
     new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
     end
 
-let example2 () =
+let example () =
     let rec method_0((var_0: uint64), (var_1: string), (var_2: int64)): Tuple0 =
         let (var_3: bool) = (var_2 >= 0L)
         let (var_6: bool) =
@@ -366,11 +368,3 @@ let example2 () =
             (failwith "puint64")
     else
         (failwith "puint64")
-
-for i = 1 to 10000 do example2 () |> ignore
-let stopwatch = System.Diagnostics.Stopwatch.StartNew()
-for i = 1 to 100000 do example2 () |> ignore
-printfn "The time it took to run 100k iterations: %A" stopwatch.Elapsed // 00:00:00.1111072
-
-let x = example2 ()
-printfn "%A" (x.mem_0,x.mem_1,x.mem_2)

@@ -6,173 +6,136 @@ extern "C" {
 }
 """
 
-let rec method_0((var_0: (string [])), (var_1: (string [])), (var_2: (int64 [])), (var_3: (int64 [])), (var_4: int64)): unit =
-    let (var_5: bool) = (var_4 < 3L)
-    if var_5 then
-        let (var_6: bool) = (var_4 >= 0L)
-        let (var_7: bool) = (var_6 = false)
-        if var_7 then
-            (failwith "Argument out of bounds.")
+type Env0 =
+    struct
+    val mem_0: int64
+    new(arg_mem_0) = {mem_0 = arg_mem_0}
+    end
+and Tuple1 =
+    struct
+    val mem_0: uint64
+    val mem_1: uint64
+    val mem_2: uint64
+    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
+    end
+let rec method_0 ((var_2: string)) ((var_0: uint64), (var_1: Env0)): Tuple1 =
+    let (var_3: int64) = var_1.mem_0
+    let (var_6: (uint64 * Env0 -> Tuple1)) = method_1((var_0: uint64), (var_2: string))
+    let (var_9: (string * Env0 -> Tuple1)) = method_3
+    method_4((var_9: (string * Env0 -> Tuple1)), (var_6: (uint64 * Env0 -> Tuple1)), (var_2: string), (var_3: int64))
+and method_3 ((var_0: string), (var_1: Env0)): Tuple1 =
+    let (var_2: int64) = var_1.mem_0
+    (failwith var_0)
+and method_4((var_0: (string * Env0 -> Tuple1)), (var_1: (uint64 * Env0 -> Tuple1)), (var_2: string), (var_3: int64)): Tuple1 =
+    let (var_4: uint64) = 0UL
+    let (var_5: bool) = (var_3 >= 0L)
+    let (var_8: bool) =
+        if var_5 then
+            let (var_6: int64) = (int64 var_2.Length)
+            (var_3 < var_6)
         else
-            ()
-        let (var_8: int64) = (var_4 * 20L)
-        let (var_9: string) = var_0.[int32 var_4]
-        let (var_10: int64) = 0L
-        method_1((var_9: string), (var_1: (string [])), (var_8: int64), (var_2: (int64 [])), (var_3: (int64 [])), (var_10: int64))
-        let (var_11: int64) = (var_4 + 1L)
-        method_0((var_0: (string [])), (var_1: (string [])), (var_2: (int64 [])), (var_3: (int64 [])), (var_11: int64))
-    else
-        ()
-and method_3((var_0: System.Text.StringBuilder), (var_1: int64)): unit =
-    let (var_2: bool) = (var_1 < 0L)
-    if var_2 then
-        let (var_3: System.Text.StringBuilder) = var_0.Append(' ')
-        let (var_4: int64) = (var_1 + 1L)
-        method_3((var_0: System.Text.StringBuilder), (var_4: int64))
-    else
-        ()
-and method_4((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (string [])), (var_3: (int64 [])), (var_4: (int64 [])), (var_5: int64)): unit =
-    let (var_6: bool) = (var_5 < 1L)
-    if var_6 then
-        let (var_7: bool) = (var_5 >= 0L)
-        let (var_8: bool) = (var_7 = false)
-        if var_8 then
-            (failwith "Argument out of bounds.")
+            false
+    if var_8 then
+        let (var_9: char) = var_2.[int32 var_3]
+        let (var_10: int64) = (var_3 + 1L)
+        let (var_11: bool) = (var_9 >= '0')
+        let (var_13: bool) =
+            if var_11 then
+                (var_9 <= '9')
+            else
+                false
+        if var_13 then
+            let (var_14: bool) = (var_4 <= 1844674407370955161UL)
+            if var_14 then
+                let (var_15: uint64) = (var_4 * 10UL)
+                let (var_16: uint64) = System.Convert.ToUInt64(var_9)
+                let (var_17: uint64) = (var_15 + var_16)
+                let (var_18: uint64) = System.Convert.ToUInt64('0')
+                let (var_19: uint64) = (var_17 - var_18)
+                let (var_20: bool) = (var_4 < var_19)
+                if var_20 then
+                    method_5((var_19: uint64), (var_0: (string * Env0 -> Tuple1)), (var_1: (uint64 * Env0 -> Tuple1)), (var_2: string), (var_10: int64))
+                else
+                    var_0("puint64", (Env0(var_10)))
+            else
+                var_0("puint64", (Env0(var_10)))
         else
-            ()
-        let (var_9: int64) = (var_5 * 20L)
-        let (var_10: int64) = (var_9 + 8L)
-        let (var_11: int64) = 0L
-        method_5((var_0: System.Text.StringBuilder), (var_11: int64))
-        let (var_12: System.Text.StringBuilder) = var_0.AppendLine("[|")
-        let (var_13: int64) = 2L
-        method_6((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (string [])), (var_10: int64), (var_3: (int64 [])), (var_4: (int64 [])), (var_13: int64))
-        let (var_14: int64) = 0L
-        method_5((var_0: System.Text.StringBuilder), (var_14: int64))
-        let (var_15: System.Text.StringBuilder) = var_0.AppendLine("|]")
-        let (var_16: int64) = (var_5 + 1L)
-        method_4((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (string [])), (var_3: (int64 [])), (var_4: (int64 [])), (var_16: int64))
+            var_0("puint64", (Env0(var_3)))
     else
-        ()
-and method_1((var_0: string), (var_1: (string [])), (var_2: int64), (var_3: (int64 [])), (var_4: (int64 [])), (var_5: int64)): unit =
-    let (var_6: bool) = (var_5 < 5L)
-    if var_6 then
-        let (var_7: bool) = (var_5 >= 0L)
-        let (var_8: bool) = (var_7 = false)
-        if var_8 then
-            (failwith "Argument out of bounds.")
+        var_0("puint64", (Env0(var_3)))
+and method_1 ((var_2: uint64), (var_3: string)) ((var_0: uint64), (var_1: Env0)): Tuple1 =
+    let (var_4: int64) = var_1.mem_0
+    let (var_7: (uint64 * Env0 -> Tuple1)) = method_2((var_2: uint64), (var_0: uint64), (var_3: string))
+    let (var_10: (string * Env0 -> Tuple1)) = method_3
+    method_4((var_10: (string * Env0 -> Tuple1)), (var_7: (uint64 * Env0 -> Tuple1)), (var_3: string), (var_4: int64))
+and method_5((var_0: uint64), (var_1: (string * Env0 -> Tuple1)), (var_2: (uint64 * Env0 -> Tuple1)), (var_3: string), (var_4: int64)): Tuple1 =
+    let (var_5: bool) = (var_4 >= 0L)
+    let (var_8: bool) =
+        if var_5 then
+            let (var_6: int64) = (int64 var_3.Length)
+            (var_4 < var_6)
         else
-            ()
-        let (var_9: int64) = (var_5 * 4L)
-        let (var_10: int64) = (var_2 + var_9)
-        let (var_11: int64) = 2L
-        method_2((var_5: int64), (var_0: string), (var_1: (string [])), (var_10: int64), (var_3: (int64 [])), (var_4: (int64 [])), (var_11: int64))
-        let (var_12: int64) = (var_5 + 1L)
-        method_1((var_0: string), (var_1: (string [])), (var_2: int64), (var_3: (int64 [])), (var_4: (int64 [])), (var_12: int64))
-    else
-        ()
-and method_5((var_0: System.Text.StringBuilder), (var_1: int64)): unit =
-    let (var_2: bool) = (var_1 < 4L)
-    if var_2 then
-        let (var_3: System.Text.StringBuilder) = var_0.Append(' ')
-        let (var_4: int64) = (var_1 + 1L)
-        method_5((var_0: System.Text.StringBuilder), (var_4: int64))
-    else
-        ()
-and method_6((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (string [])), (var_3: int64), (var_4: (int64 [])), (var_5: (int64 [])), (var_6: int64)): unit =
-    let (var_7: bool) = (var_6 < 4L)
-    if var_7 then
-        let (var_8: bool) = (var_6 >= 2L)
-        let (var_9: bool) = (var_8 = false)
-        if var_9 then
-            (failwith "Argument out of bounds.")
+            false
+    if var_8 then
+        let (var_9: char) = var_3.[int32 var_4]
+        let (var_10: int64) = (var_4 + 1L)
+        let (var_11: bool) = (var_9 >= '0')
+        let (var_13: bool) =
+            if var_11 then
+                (var_9 <= '9')
+            else
+                false
+        if var_13 then
+            let (var_14: bool) = (var_0 <= 1844674407370955161UL)
+            if var_14 then
+                let (var_15: uint64) = (var_0 * 10UL)
+                let (var_16: uint64) = System.Convert.ToUInt64(var_9)
+                let (var_17: uint64) = (var_15 + var_16)
+                let (var_18: uint64) = System.Convert.ToUInt64('0')
+                let (var_19: uint64) = (var_17 - var_18)
+                let (var_20: bool) = (var_0 < var_19)
+                if var_20 then
+                    method_5((var_19: uint64), (var_1: (string * Env0 -> Tuple1)), (var_2: (uint64 * Env0 -> Tuple1)), (var_3: string), (var_10: int64))
+                else
+                    var_1("puint64", (Env0(var_10)))
+            else
+                var_1("puint64", (Env0(var_10)))
         else
-            ()
-        let (var_10: int64) = (var_6 - 2L)
-        let (var_11: int64) = (var_10 * 4L)
-        let (var_12: int64) = (var_3 + var_11)
-        let (var_13: int64) = 0L
-        method_7((var_0: System.Text.StringBuilder), (var_13: int64))
-        let (var_14: System.Text.StringBuilder) = var_0.Append("[|")
-        let (var_15: int64) = 2L
-        let (var_16: string) = method_8((var_0: System.Text.StringBuilder), (var_2: (string [])), (var_12: int64), (var_4: (int64 [])), (var_5: (int64 [])), (var_1: string), (var_15: int64))
-        let (var_17: System.Text.StringBuilder) = var_0.AppendLine("|]")
-        let (var_18: int64) = (var_6 + 1L)
-        method_6((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (string [])), (var_3: int64), (var_4: (int64 [])), (var_5: (int64 [])), (var_18: int64))
+            method_6((var_1: (string * Env0 -> Tuple1)), (var_0: uint64), (var_2: (uint64 * Env0 -> Tuple1)), (var_3: string), (var_4: int64))
     else
-        ()
-and method_2((var_0: int64), (var_1: string), (var_2: (string [])), (var_3: int64), (var_4: (int64 [])), (var_5: (int64 [])), (var_6: int64)): unit =
-    let (var_7: bool) = (var_6 < 6L)
-    if var_7 then
-        let (var_8: bool) = (var_6 >= 2L)
-        let (var_9: bool) = (var_8 = false)
-        if var_9 then
-            (failwith "Argument out of bounds.")
+        method_6((var_1: (string * Env0 -> Tuple1)), (var_0: uint64), (var_2: (uint64 * Env0 -> Tuple1)), (var_3: string), (var_4: int64))
+and method_2 ((var_2: uint64), (var_3: uint64), (var_4: string)) ((var_0: uint64), (var_1: Env0)): Tuple1 =
+    let (var_5: int64) = var_1.mem_0
+    Tuple1(var_2, var_3, var_0)
+and method_6((var_0: (string * Env0 -> Tuple1)), (var_1: uint64), (var_2: (uint64 * Env0 -> Tuple1)), (var_3: string), (var_4: int64)): Tuple1 =
+    let (var_5: bool) = (var_4 >= 0L)
+    let (var_8: bool) =
+        if var_5 then
+            let (var_6: int64) = (int64 var_3.Length)
+            (var_4 < var_6)
         else
-            ()
-        let (var_10: int64) = (var_6 - 2L)
-        let (var_11: int64) = (var_3 + var_10)
-        var_2.[int32 var_11] <- var_1
-        var_4.[int32 var_11] <- var_0
-        var_5.[int32 var_11] <- var_6
-        let (var_12: int64) = (var_6 + 1L)
-        method_2((var_0: int64), (var_1: string), (var_2: (string [])), (var_3: int64), (var_4: (int64 [])), (var_5: (int64 [])), (var_12: int64))
-    else
-        ()
-and method_7((var_0: System.Text.StringBuilder), (var_1: int64)): unit =
-    let (var_2: bool) = (var_1 < 8L)
-    if var_2 then
-        let (var_3: System.Text.StringBuilder) = var_0.Append(' ')
-        let (var_4: int64) = (var_1 + 1L)
-        method_7((var_0: System.Text.StringBuilder), (var_4: int64))
-    else
-        ()
-and method_8((var_0: System.Text.StringBuilder), (var_1: (string [])), (var_2: int64), (var_3: (int64 [])), (var_4: (int64 [])), (var_5: string), (var_6: int64)): string =
-    let (var_7: bool) = (var_6 < 6L)
-    if var_7 then
-        let (var_8: System.Text.StringBuilder) = var_0.Append(var_5)
-        let (var_9: bool) = (var_6 >= 2L)
-        let (var_10: bool) = (var_9 = false)
-        if var_10 then
-            (failwith "Argument out of bounds.")
+            false
+    if var_8 then
+        let (var_9: char) = var_3.[int32 var_4]
+        let (var_10: int64) = (var_4 + 1L)
+        let (var_11: bool) = (var_9 = ' ')
+        let (var_15: bool) =
+            if var_11 then
+                true
+            else
+                let (var_12: bool) = (var_9 = '\n')
+                if var_12 then
+                    true
+                else
+                    (var_9 = '\r')
+        if var_15 then
+            method_6((var_0: (string * Env0 -> Tuple1)), (var_1: uint64), (var_2: (uint64 * Env0 -> Tuple1)), (var_3: string), (var_10: int64))
         else
-            ()
-        let (var_11: int64) = (var_6 - 2L)
-        let (var_12: int64) = (var_2 + var_11)
-        let (var_13: string) = var_1.[int32 var_12]
-        let (var_14: int64) = var_3.[int32 var_12]
-        let (var_15: int64) = var_4.[int32 var_12]
-        let (var_16: string) = System.String.Format("{0}",var_15)
-        let (var_17: string) = System.String.Format("{0}",var_14)
-        let (var_18: string) = System.String.Format("{0}",var_13)
-        let (var_19: string) = String.concat ", " [|var_18; var_17; var_16|]
-        let (var_20: string) = System.String.Format("[{0}]",var_19)
-        let (var_21: System.Text.StringBuilder) = var_0.Append(var_20)
-        let (var_22: string) = "; "
-        let (var_23: int64) = (var_6 + 1L)
-        method_8((var_0: System.Text.StringBuilder), (var_1: (string [])), (var_2: int64), (var_3: (int64 [])), (var_4: (int64 [])), (var_22: string), (var_23: int64))
+            var_2(var_1, (Env0(var_4)))
     else
-        var_5
-let (var_0: (string [])) = Array.zeroCreate<string> (System.Convert.ToInt32(3L))
-var_0.[int32 0L] <- "zero"
-var_0.[int32 1L] <- "one"
-var_0.[int32 2L] <- "two"
-let (var_2: (string [])) = Array.zeroCreate<string> (System.Convert.ToInt32(60L))
-let (var_3: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(60L))
-let (var_4: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(60L))
-let (var_5: int64) = 0L
-method_0((var_0: (string [])), (var_2: (string [])), (var_3: (int64 [])), (var_4: (int64 [])), (var_5: int64))
-let (var_6: System.Text.StringBuilder) = System.Text.StringBuilder()
-let (var_7: string) = ""
-let (var_8: int64) = 0L
-method_3((var_6: System.Text.StringBuilder), (var_8: int64))
-let (var_9: System.Text.StringBuilder) = var_6.AppendLine("[|")
-let (var_10: int64) = 0L
-method_4((var_6: System.Text.StringBuilder), (var_7: string), (var_2: (string [])), (var_3: (int64 [])), (var_4: (int64 [])), (var_10: int64))
-let (var_11: int64) = 0L
-method_3((var_6: System.Text.StringBuilder), (var_11: int64))
-let (var_12: System.Text.StringBuilder) = var_6.AppendLine("|]")
-let (var_13: string) = var_6.ToString()
-let (var_14: string) = System.String.Format("{0}",var_13)
-System.Console.WriteLine(var_14)
-
+        var_2(var_1, (Env0(var_4)))
+let (var_0: string) = "123 456 789"
+let (var_1: int64) = 0L
+let (var_4: (uint64 * Env0 -> Tuple1)) = method_0((var_0: string))
+let (var_7: (string * Env0 -> Tuple1)) = method_3
+method_4((var_7: (string * Env0 -> Tuple1)), (var_4: (uint64 * Env0 -> Tuple1)), (var_0: string), (var_1: int64))

@@ -59,10 +59,6 @@
     <Content Include="packages.config" />
     <Compile Include="Learning.fs" />
     <Compile Include="run.fs" />
-    <None Include="boxy.fsx" />
-    <None Include="fully_specialized.fsx" />
-    <None Include="boxy%27.fsx" />
-    <None Include="fully_specialized%27.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="CudaBlas">

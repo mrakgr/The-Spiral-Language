@@ -55,7 +55,11 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Program.fs" />
+    <Compile Include="ParserTermCasted.fs" />
+    <Compile Include="ParserBoxy.fs" />
+    <Compile Include="ParserFullySpecialized.fs" />
+    <Compile Include="ParserFSharp.fs" />
+    <Compile Include="benchmark.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
   </ItemGroup>
