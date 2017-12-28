@@ -123,7 +123,7 @@ inl (=) a b =
             | _ -> false
         // TODO: If I put in a hack for doing fast equality comparison on boxed union types remember 
         // to also allow comparison of type level function.
-        if caseable_box_is a && caseable_box_is b then join (body (a, b) : bool)
+        if caseable_is a && caseable_is b then join (body (a, b) : bool)
         else body (a, b)
     if eq_type a b then a = b
     else error_type ("Trying to compare variables of two different types. Got:",a,b)
@@ -146,6 +146,6 @@ inl macro = {
  split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
  string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref (+) (-) (*) (/) (%)
  (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>) fst snd not macro
- string_length lit_is box_is failwith assert max min eq_type module_values caseable_is (:>)
+ string_length lit_is box_is failwith assert max min eq_type module_values caseable_is caseable_box_is (:>)
  (:?>) (=) module_map module_filter module_foldl module_foldr module_has_member sizeof string_format string_concat} |> stack
     """) |> module_

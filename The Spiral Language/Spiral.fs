@@ -1203,15 +1203,16 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyBox _ -> TyLit <| LitBool true
             | _ -> TyLit <| LitBool false
 
-        let caseable_is d a =
+        let caseable_box_is d a =
             match tev d a with
-            | TyBox(_, t) | TyV(_, t) | TyT t -> 
+            | TyBox _ -> TyLit (LitBool true)
+            | TyV(_, t) | TyT t -> 
                 match t with
                 | UnionT _ | RecT _ -> TyLit (LitBool true)
                 | _ -> TyLit (LitBool false)
             | _ -> TyLit (LitBool false)
 
-        let caseable_box_is d a =
+        let caseable_is d a =
             match tev d a with
             | TyV(_, t) | TyT t -> 
                 match t with

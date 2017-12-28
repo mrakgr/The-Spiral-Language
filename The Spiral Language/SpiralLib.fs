@@ -41,10 +41,8 @@ let tuple =
     "Tuple",[],"Operations on tuples.",
     """
 inl singleton x = x :: ()
-inl head = function
-    | x :: xs -> x
-inl tail = function
-    | x :: xs -> xs
+inl head x :: xs = x
+inl tail x :: xs = xs
 
 inl wrap = function
     | (_ :: _ | ()) as x -> x
@@ -186,7 +184,13 @@ inl rec intersperse sep = function
     | x :: xs -> x :: sep :: intersperse sep xs
     | _ -> error_type "Not a tuple."
 
-{head tail foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists 
+inl take n l = 
+    assert (lit_is n) "The input to take must be a literal."
+    assert (n >= 0) "The input must be positive or zero."
+    inl rec loop n l = if n > 0 then loop (n-1) (tail l) else l
+    loop n l
+
+{head tail foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists take
  filter zip unzip init repeat append singleton range tryFind contains intersperse wrap}
     """) |> module_
 
@@ -934,7 +938,7 @@ let host_tensor =
 
 inl toa_map f x = 
     inl rec loop = function
-        | x when caseable_is x -> f x
+        | x when caseable_box_is x -> f x
         | () -> ()
         | x :: xs -> loop x :: loop xs
         | {!block_toa_map} & x -> module_map (inl _ -> loop) x
@@ -943,7 +947,7 @@ inl toa_map f x =
 
 inl toa_map2 f a b = 
     inl rec loop = function
-        | x, y when caseable_is x || caseable_is y -> f x y
+        | x, y when caseable_box_is x || caseable_box_is y -> f x y
         | (), () -> ()
         | x :: xs, y :: ys -> loop (x,y) :: loop (xs,ys)
         | {!block_toa_map} & x, {!block_toa_map} & y -> module_map (inl k y -> loop (x k,y)) y
@@ -952,7 +956,7 @@ inl toa_map2 f a b =
 
 inl toa_map3 f a b c = 
     inl rec loop = function
-        | x, y, z when caseable_is x || caseable_is y || caseable_is z -> f x y z
+        | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z
         | (), (), () -> ()
         | x :: xs, y :: ys, z :: zs -> loop (x,y,z) :: loop (xs,ys,zs)
         | {!block_toa_map} & x, {!block_toa_map} & y, {!block_toa_map} & z -> module_map (inl k y -> loop (x k,y k,z)) z
@@ -961,7 +965,7 @@ inl toa_map3 f a b c =
 
 inl toa_foldl f s x = 
     inl rec loop s = function
-        | x when caseable_is x -> f s x
+        | x when caseable_box_is x -> f s x
         | () -> s
         | x :: xs -> loop (loop s x) xs
         | {!block_toa_map} & x -> module_foldl (inl _ -> loop) s x

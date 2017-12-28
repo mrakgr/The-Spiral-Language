@@ -33,6 +33,7 @@
             - [Under The Hood](#under-the-hood)
                 - [Layout Polymorphism](#layout-polymorphism)
                 - [Dimensionality Polymorphism](#dimensionality-polymorphism)
+                    - [The design of the tensor](#the-design-of-the-tensor)
 
 <!-- /TOC -->
 
@@ -3578,7 +3579,7 @@ Just how hard would such a fast handwritten C-style parser be to modify after th
 
 ML styled languages still have some advantages over Spiral due to having type inference which is a great aid to refactoring and explorability, but C offshots can be completely replaced with no regret.
 
-Addendum: The 4 parser benchmarked in this section can be found in [this folder](https://github.com/mrakgr/The-Spiral-Language/tree/master/Benchmarking) of the repo.
+The 4 parser benchmarked in this section can be found in [this folder](https://github.com/mrakgr/The-Spiral-Language/tree/master/Benchmarking) of the repo.
 
 ### 5: Tensors and Structural Reflection
 
@@ -3812,7 +3813,7 @@ let (var_1: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
 let (var_2: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
 ```
 
-Rather than copy pasting like the above it would be better if we mapped the type directly.
+Rather than copy pasting like the above it would be better if the type was mapped directly.
 
 ```
 inl ar = Tuple.map (inl x -> array_create x 8) (int64,int64,int64)
@@ -3880,12 +3881,12 @@ let (var_1: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
 let (var_2: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
 ```
 
-Before the function is complete, there are two more things need. To stop the function from unboxing every union type and to stop it from recursing on every module. This last one is more of a convenience than necessity.
+Before the function is complete there are two more things needed. That would be to stop the function from unboxing every union type and to stop it from recursing on every module. This last one is more of a convenience than necessity.
 
 ```
 inl toa_map f =
     inl rec loop = function
-        | x when caseable_is x -> f x // This needs to be in the first position to prevent the unboxing from triggering.
+        | x when caseable_box_is x -> f x // This needs to be in the first position to prevent the unboxing from triggering.
         | x :: x' -> loop x :: loop x'
         | () -> ()
         | {!toa_map_block} & x -> module_map (const loop) x
@@ -3949,7 +3950,7 @@ Setting such an array is a bit more difficult. In order to do that, `toa_map2` w
 ```
 inl toa_map2 f a b =
     inl rec loop = function
-        | x, y when caseable_is x || caseable_is y -> f x y
+        | x, y when caseable_box_is x || caseable_box_is y -> f x y
         | x :: x', y :: y' -> loop (x,y) :: loop (x',y')
         | (),() -> ()
         | {!toa_map_block} & x, {!toa_map_block} & y -> module_map (inl k y -> loop (x k, y)) y
@@ -4005,4 +4006,342 @@ The next section will be on how to take what has been done so far and make the 1
 
 ##### Dimensionality Polymorphism
 
-...
+In one of the previous chapters, it was mentioned that Spiral is not necessarily less typesafe than F#, and that in some cases the opposite is in fact the case. Whenever dynamism and therefore union types are needed, a step is made into an entirely different paradigm for languages with weaker type systems.
+
+```
+List.take 5 [1;2;3] // An error at runtime.
+```
+```
+Tuple.take 5 (1,2,3) // An error at compile time.
+```
+
+This comparison might seem unfair since lists in F# are explicitly runtime constructs, but that is in fact the point. Spiral's parent language as it stands now does not have any substitute for Spiral's tuples at all and has absolutely no way of making tensors arbitrary in their dimensions at compile time. All it can do is support very specific instances of them.
+
+So back when the author was making the ML library in F#, he had `d2M` for a 2D GPU tensor, and `d4M` for 4d GPU tensors. Afterwards he found the need for a 3d tensor so he made `d3M` too and so on. There was the `Df`, a lazy scalar host tensor as well.
+
+Layout polymorphism? Forget that. The best what was possible was having them be generic in their type.
+
+Now, there is no doubt that making a very specific instance of a tensor (such as `d2M`) is easier than making a fully blown generic tensor, but making such a tensor type is definitely easier than having to make a specific instance for all the endless varieties of tensors. Making specific instances of the more generic type by hand gets tiresome really quickly. It is humiliating to have to use personal effort because the tool one is using is not good enough.
+
+###### The design of the tensor
+
+```
+{
+    bodies = { ar size offset toa_map_block } structure
+    dim
+}
+```
+The above is very similar to the type of the Spiral's `HostTensor` in pseudo-code. It is actually one of its previous designs that is easier to explain as it has a more uniform structure. 
+
+In it, `dim` is just the dimension of the tensor and might be `(2,3,4)` for a 3d tensor, `(10,20)` for a 2d tensor or `()` for a scalar tensor for example.
+
+`size` and `offset` inside the `bodies` are directly related to it. Elements of `offset` are always to be multiples of their related `size` element.
+
+Before the coding can start, some simple examples need to be gone though by hand so that it becomes clear what is trying to be done in the first place.
+
+1) On tensor creation.
+
+```
+/// Creating a 1d tensor of type int64 and dim 10
+inl dim = 10
+inl ar = array_create int64 dim
+inl tns = {
+    bodies = {
+        ar
+        size = Tuple.singleton 1
+        offset = Tuple.singleton 0
+        toa_map_block = ()
+        }
+    dim = Tuple.singleton dim
+    }
+```
+```
+/// Creating a 2d tensor of type int64 and dim 10, 10
+inl dim = 10, 10
+inl ar = array_create int64 (10 * 10)
+inl tns = {
+    bodies = {
+        ar
+        size = 10, 1
+        offset = 0, 0
+        toa_map_block = ()
+        }
+    dim
+    }
+```
+```
+/// Creating a 3d tensor of type int64 and dim 10, 5, 5
+inl dim = 10, 5, 5
+inl ar = array_create int64 (10 * 5 * 5)
+inl tns = {
+    bodies = {
+        ar
+        size = 5*5, 5, 1
+        offset = 0, 0, 0
+        toa_map_block = ()
+        }
+    dim
+    }
+```
+By now some patterns should be coming out. `ar` is always inserted directly into the tensor body, `size` is just the rightwards [scan product](https://stackoverflow.com/questions/23491216/f-cumulative-product-of-an-array) of `dim`, `offset` is always `dim` mapped to 0, and `dim` is always itself. The only difference is 1d when `size`, `offset` and `dim` are wrapped in a tuple.
+```
+/// Creating a nd tensor in the array of tuples layout.
+inl tensor_aot_create typ dim =
+    inl dim = match dim with _ :: _ -> dim | x -> x :: ()
+    inl array_size :: size = Tuple.scanr (*) dim 1
+    inl offset = Tuple.map (const 0) dim
+    {
+    bodies = {
+        ar = array_create typ array_size
+        size offset
+        toa_map_block=()
+        }
+    dim
+    }
+```
+Here is the pattern abstracted and codified. The tuple of arrays version is similar to the above.
+```
+/// Creating a nd tensor in the tuple of arrays layout.
+inl tensor_toa_create typ dim =
+    inl dim = match dim with _ :: _ -> dim | x -> x :: ()
+    inl array_size :: size = Tuple.scanr (*) dim 1
+    inl offset = Tuple.map (const 0) dim
+    inl make_body typ = {
+        toa_map_block=()
+        ar = array_create typ array_size
+        size offset
+        }
+    {
+    bodies = toa_map make_body typ            
+    dim
+    }
+```
+The two functions have a very similar internal structure. It can be factored out like so.
+```
+/// Creating a nd tensor
+inl tensor_create {dsc with typ dim} =
+    inl dim = match dim with _ :: _ -> dim | x -> x :: ()
+    inl array_size :: size = Tuple.scanr (*) dim 1
+    inl offset = Tuple.map (const 0) dim
+    inl make_body typ = {
+        toa_map_block=()
+        ar = array_create typ array_size
+        size offset
+        }
+    {
+    bodies = 
+        match dsc with
+        | {layout=x} -> 
+            match x with
+            | .aot -> make_body typ
+            | .toa -> toa_map make_body typ
+        | _ -> toa_map make_body typ
+    dim
+    }
+```
+The beautiful thing about this is that since all the sizes are known, Spiral can track them at compile time.
+```
+inl tns = tensor_create {typ=int64,string,float32; dim=10,5,5}
+()
+```
+```
+let (var_0: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(250L))
+let (var_1: (string [])) = Array.zeroCreate<string> (System.Convert.ToInt32(250L))
+let (var_2: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(250L))
+```
+Unless the tensor is returned from a join point, or a dynamic if statement, or put into an array, those fields will never be instantiated due being tracked at the type level and the tensor will have the very minimal overhead at runtime.
+
+Spiral's `HostTensor` actually tracks lower and upper bounds in `dim` as well, but that won't be done for this tutorial.
+
+2) On application.
+
+```
+{
+bodies = {
+    ar
+    size = 25, 5, 1
+    offset = 0, 0, 0
+    toa_map_block = ()
+    }
+dim = 10, 5, 5
+}
+```
+For the purpose of explanation, the 3d tensor from the previous example will be the starting point.
+
+How should applying 2 to the tensor transform it?
+
+It should be into this.
+
+```
+{
+bodies = {
+    ar
+    size = 5, 1
+    offset = 25*2 + 0, 0 // 50
+    toa_map_block = ()
+    }
+dim = 5, 5
+}
+```
+Applying 3 to the above should turn it into this.
+```
+{
+bodies = {
+    ar
+    size = 1 :: ()
+    offset = 25*2 + 5*3 + 0 :: () // 65
+    toa_map_block = ()
+    }
+dim = 5 :: ()
+}
+```
+Now that it is has been applied twice, the resulting tensor has gone from 3d to 1d. Once more and it will be scalar. Here is simulating the application of 4.
+```
+{
+bodies = {
+    ar
+    size = ()
+    offset = 25*2 + 5*3 + 1*4 // 69
+    toa_map_block = ()
+    }
+dim = ()
+}
+```
+Note how now the offset it a scalar and can be used to index into an array. The rules of tensors are quite simple, only 0d (scalar) tensors can be indexed and set and cannot be applied, while the opposite holds for tensors with higher number of dimensions.
+
+Also note that `dim` plays no role in calculating the top of the new offset.
+
+What was omitted in the above example is the boundary checking. If the value being applied was out of range that would have triggered an error.
+
+Here is the above intuition in code.
+
+```
+inl tensor_apply i {dim=d::dim bodies} =
+    assert (i >= 0 && i < d) "Tensor application out of bounds"
+
+    {
+    dim
+    bodies = 
+        toa_map (inl {d with size=s::size offset=o::offset} ->
+            inl o = o + i * s
+            inl offset = 
+                match offset with
+                | o' :: offset -> o + o' :: offset
+                | () -> o
+            {d with size offset}
+            ) bodies
+    }
+```
+
+The `| o' :: offset -> o + o' :: offset` might be surprising, but that is needed because the offsets might not be zero and that should not be thrown away. That can happen in tensors whose inner dimensions were viewed.
+
+```
+inl tns = tensor_create {typ=int64,string,float32; dim=10,5,5}
+tensor_apply 2 tns
+|> tensor_apply 3
+|> tensor_apply 4
+```
+```
+let (var_0: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(250L))
+let (var_1: (string [])) = Array.zeroCreate<string> (System.Convert.ToInt32(250L))
+let (var_2: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(250L))
+(Env4(Tuple3((Env0(var_0, 69L)), (Env1(var_1, 69L)), (Env2(var_2, 69L)))))
+```
+
+The types were cut out in the above generated code. As can be seen since scalar tensors have only their offset and an array that is what gets printed. 
+
+```
+inl tns = 
+    tensor_create {typ=int64,string,float32; dim=10,5,5}
+    |> tensor_apply (dyn 2)
+    |> tensor_apply 3
+    |> tensor_apply 4
+join tns
+```
+```
+let rec method_0((var_0: (int64 [])), (var_1: int64), (var_2: (string [])), (var_3: (float32 []))): Env0 =
+    (Env0(Tuple4((Env1(var_0, var_1)), (Env2(var_2, var_1)), (Env3(var_3, var_1)))))
+let (var_0: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(250L))
+let (var_1: (string [])) = Array.zeroCreate<string> (System.Convert.ToInt32(250L))
+let (var_2: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(250L))
+let (var_3: int64) = 2L
+let (var_4: bool) = (var_3 >= 0L)
+let (var_6: bool) =
+    if var_4 then
+        (var_3 < 10L)
+    else
+        false
+let (var_7: bool) = (var_6 = false)
+if var_7 then
+    (failwith "Tensor application out of bounds")
+else
+    ()
+let (var_8: int64) = (var_3 * 25L) // 50
+let (var_9: int64) = (var_8 + 15L) // 65
+let (var_10: int64) = (var_9 + 4L) // 69
+method_0((var_0: (int64 [])), (var_10: int64), (var_1: (string [])), (var_2: (float32 [])))
+```
+In the above example the first application was `dyn`ed. This makes the assertion check necessary at runtime, but the line of note is the last one. Due to common subexpression rewriting, in the end all the bodies end up with the same index variable.
+
+This will be reflected when they are being passed through join points. 
+
+```
+met f (a,b,c) = a+b+c
+inl x = dyn 3
+f (x,x,x)
+```
+```
+let rec method_0((var_0: int64)): int64 =
+    let (var_1: int64) = (var_0 + var_0)
+    (var_1 + var_0)
+let (var_0: int64) = 3L
+method_0((var_0: int64))
+```
+
+The moral of that is - for efficiency tensors should not be returned from anything apart from inlineables and should not be stored into arrays. Spiral's natural style is towards continuation passing and (mostly) functional purity. Tuples and modules should be used to store arguments whenever possible and opaque structures should be avoided.
+
+3) On indexing and setting.
+
+These two are easy since all the hard work has already been done by `tensor_apply`.
+
+```
+inl tensor_index {bodies dim=()} = toa_map (inl {ar offset} -> ar offset) bodies
+inl tensor_set {bodies dim=()} v = toa_map2 (inl {ar offset} v -> ar offset <- v) bodies v |> ignore
+
+inl tns = 
+    tensor_create {typ=int64,string,float32; dim=10,5,5}
+    |> tensor_apply 2
+    |> tensor_apply 3
+    |> tensor_apply 4
+
+tensor_set tns (1,"asd",3.3f32)
+```
+```
+let (var_0: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(250L))
+let (var_1: (string [])) = Array.zeroCreate<string> (System.Convert.ToInt32(250L))
+let (var_2: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(250L))
+var_0.[int32 69L] <- 1L
+var_1.[int32 69L] <- "asd"
+var_2.[int32 69L] <- 3.300000f
+```
+Here is the `aot` form for good measure.
+```
+inl tns = 
+    tensor_create {layout=.aot; typ=int64,string,float32; dim=10,5,5}
+    |> tensor_apply 2
+    |> tensor_apply 3
+    |> tensor_apply 4
+
+tensor_set tns (1,"asd",3.3f32)
+```
+```
+type Tuple0 =
+    struct
+    val mem_0: int64
+    val mem_1: string
+    val mem_2: float32
+    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
+    end
+let (var_0: (Tuple0 [])) = Array.zeroCreate<Tuple0> (System.Convert.ToInt32(250L))
+var_0.[int32 69L] <- Tuple0(1L, "asd", 3.300000f)
+```
