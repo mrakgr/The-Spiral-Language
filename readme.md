@@ -32,6 +32,7 @@
         - [5: Tensors and Structural Reflection](#5-tensors-and-structural-reflection)
             - [Under The Hood](#under-the-hood)
                 - [Layout Polymorphism](#layout-polymorphism)
+                - [Dimensionality Polymorphism](#dimensionality-polymorphism)
 
 <!-- /TOC -->
 
@@ -3577,6 +3578,8 @@ Just how hard would such a fast handwritten C-style parser be to modify after th
 
 ML styled languages still have some advantages over Spiral due to having type inference which is a great aid to refactoring and explorability, but C offshots can be completely replaced with no regret.
 
+Addendum: The 4 parser benchmarked in this section can be found in [this folder](https://github.com/mrakgr/The-Spiral-Language/tree/master/Benchmarking) of the repo.
+
 ### 5: Tensors and Structural Reflection
 
 (work in progress)
@@ -3868,7 +3871,7 @@ inl toa_map f =
         | x -> f x
     loop
 
-inl ar = toa_map (inl x -> array_create x 8) {x = int64; y=int64,int64}
+inl ar = toa_map (inl x -> array_create x 8) {x=int64; y=int64,int64}
 ()
 ```
 ```
@@ -3877,7 +3880,7 @@ let (var_1: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
 let (var_2: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
 ```
 
-Before the function is complete, there are two more things need. To stop the function from unboxing every union type and to stop it from recursing on every module.
+Before the function is complete, there are two more things need. To stop the function from unboxing every union type and to stop it from recursing on every module. This last one is more of a convenience than necessity.
 
 ```
 inl toa_map f =
@@ -3885,11 +3888,11 @@ inl toa_map f =
         | x when caseable_is x -> f x // This needs to be in the first position to prevent the unboxing from triggering.
         | x :: x' -> loop x :: loop x'
         | () -> ()
-        | {!toa_map_block} as x -> module_map (const loop) x
+        | {!toa_map_block} & x -> module_map (const loop) x
         | x -> f x
     loop
 
-inl ar = toa_map (inl x -> array_create x 8) {x = int64; y=int64,int64; o=Option.Option float32}
+inl ar = toa_map (inl x -> array_create x 8) {x=int64; y=int64,int64; o=Option.Option float32}
 ()
 ```
 ```
@@ -3906,5 +3909,100 @@ let (var_1: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
 let (var_2: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
 let (var_3: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
 ```
+
+With this as the basis, it is easy to make a `toa` version of array create.
+
+```
+inl toa_array_create typ size = toa_map (inl x -> array_create x size) typ
+```
+
+Indexing into such an array is quite similar to creating it. It is just a straightforward application of `toa_map`.
+
+```
+inl toa_index ar idx = toa_map (inl ar -> ar idx) ar
+
+inl ar = toa_array_create {x=int64; y=int64,int64; o=Option.Option float32} 8
+inl el = toa_index ar 0
+()
+```
+```
+type Union0 =
+    | Union0Case0 of Tuple1
+    | Union0Case1
+and Tuple1 =
+    struct
+    val mem_0: float32
+    new(arg_mem_0) = {mem_0 = arg_mem_0}
+    end
+let (var_0: (Union0 [])) = Array.zeroCreate<Union0> (System.Convert.ToInt32(8L))
+let (var_1: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+let (var_2: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+let (var_3: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+let (var_4: Union0) = var_0.[int32 0L]
+let (var_5: int64) = var_1.[int32 0L]
+let (var_6: int64) = var_2.[int32 0L]
+let (var_7: int64) = var_3.[int32 0L]
+```
+
+Setting such an array is a bit more difficult. In order to do that, `toa_map2` would be needed first.
+
+```
+inl toa_map2 f a b =
+    inl rec loop = function
+        | x, y when caseable_is x || caseable_is y -> f x y
+        | x :: x', y :: y' -> loop (x,y) :: loop (x',y')
+        | (),() -> ()
+        | {!toa_map_block} & x, {!toa_map_block} & y -> module_map (inl k y -> loop (x k, y)) y
+        | x, y -> f x y
+    loop (a,b)
+```
+
+With this it is possible to implement `toa_set`.
+
+```
+inl toa_set ar idx v = toa_map2 (inl ar v -> ar idx <- v) ar v |> ignore
+
+inl ar = toa_array_create {x=int64; y=int64,int64; o=Option.Option float32} 8
+toa_set ar 0 {x=2; y=1,1; o=Option.some 2.2f32}
+()
+```
+```
+type Union0 =
+    | Union0Case0 of Tuple1
+    | Union0Case1
+and Tuple1 =
+    struct
+    val mem_0: float32
+    new(arg_mem_0) = {mem_0 = arg_mem_0}
+    end
+let (var_0: (Union0 [])) = Array.zeroCreate<Union0> (System.Convert.ToInt32(8L))
+let (var_1: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+let (var_2: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+let (var_3: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+var_0.[int32 0L] <- (Union0Case0(Tuple1(2.200000f)))
+var_1.[int32 0L] <- 2L
+var_2.[int32 0L] <- 1L
+var_3.[int32 0L] <- 1L
+```
+
+There is an interesting design decision of whether to allow partial setting of fields in modules in `toa_map2`.
+
+```
+| {!toa_map_block} & x, {!toa_map_block} & y -> module_map (inl k y -> loop (x k, y)) y
+```
+
+The above particular line could have also been written like so.
+
+```
+| {!toa_map_block} & x, {!toa_map_block} & y -> module_map (inl k x -> loop (x, y k)) x
+```
+
+Doing it like that would have disallowed the partial module sets as the map would have gone through every field of the `toa` array instead of every field of the setter.
+
+In this section the way to make layout polymorphic arrays was described and is how Spiral's tensors attain such a capability. The ability to reflect on the structure of everything in the language at no runtime cost is a powerful one and solves a lot of the issues currently facing persons writing numerical libraries. It also covers an aspect of polymorphism that parametric languages do not touch.
+
+The next section will be on how to take what has been done so far and make the 1d `toa` array, a tensor capable of support arbitrary dimensions.
+
+##### Dimensionality Polymorphism
 
 ...

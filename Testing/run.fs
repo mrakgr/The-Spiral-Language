@@ -23,11 +23,25 @@ inl toa_map f =
         | x when caseable_is x -> f x
         | x :: x' -> loop x :: loop x'
         | () -> ()
-        | {!toa_map_block} as x -> module_map (const loop) x
+        | {!toa_map_block} & x -> module_map (const loop) x
         | x -> f x
     loop
 
-inl ar = toa_map (inl x -> array_create x 8) {x = int64; y=int64,int64; o=Option.Option float32}
+inl toa_map2 f a b =
+    inl rec loop = function
+        | x, y when caseable_is x || caseable_is y -> f x y
+        | x :: x', y :: y' -> loop (x,y) :: loop (x',y')
+        | (),() -> ()
+        | {!toa_map_block} & x, {!toa_map_block} & y -> module_map (inl k y -> loop (x k, y)) y
+        | x, y -> f x y
+    loop (a,b)
+
+inl toa_array_create typ size = toa_map (inl x -> array_create x size) typ
+inl toa_index ar idx = toa_map (inl ar -> ar idx) ar
+inl toa_set ar idx v = toa_map2 (inl ar v -> ar idx <- v) ar v |> ignore
+
+inl ar = toa_array_create {x=int64; y=int64,int64; o=Option.Option float32} 8
+toa_set ar 0 {x=2; y=1,1; o=Option.some 2.2f32}
 ()
     """
 
