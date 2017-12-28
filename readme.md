@@ -3857,4 +3857,54 @@ let (var_2: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
 
 Note the subtle difference between `toa_map` and a regular `map`. In `| x :: x' -> toa_map f x :: toa_map f x'` the function recurses on `x` as well, not just on the tail.
 
+For modules, a little extra is needed in `toa_map`.
+
+```
+inl toa_map f =
+    inl rec loop = function
+        | x :: x' -> loop x :: loop x'
+        | () -> ()
+        | {} as x -> module_map (const loop) x
+        | x -> f x
+    loop
+
+inl ar = toa_map (inl x -> array_create x 8) {x = int64; y=int64,int64}
+()
+```
+```
+let (var_0: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+let (var_1: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+let (var_2: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+```
+
+Before the function is complete, there are two more things need. To stop the function from unboxing every union type and to stop it from recursing on every module.
+
+```
+inl toa_map f =
+    inl rec loop = function
+        | x when caseable_is x -> f x // This needs to be in the first position to prevent the unboxing from triggering.
+        | x :: x' -> loop x :: loop x'
+        | () -> ()
+        | {!toa_map_block} as x -> module_map (const loop) x
+        | x -> f x
+    loop
+
+inl ar = toa_map (inl x -> array_create x 8) {x = int64; y=int64,int64; o=Option.Option float32}
+()
+```
+```
+type Union0 =
+    | Union0Case0 of Tuple1
+    | Union0Case1
+and Tuple1 =
+    struct
+    val mem_0: float32
+    new(arg_mem_0) = {mem_0 = arg_mem_0}
+    end
+let (var_0: (Union0 [])) = Array.zeroCreate<Union0> (System.Convert.ToInt32(8L))
+let (var_1: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+let (var_2: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+let (var_3: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
+```
+
 ...

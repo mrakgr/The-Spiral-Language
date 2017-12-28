@@ -18,12 +18,16 @@ let cfg: Spiral.Types.CompilerSettings = {
 let example = 
     "example",[option;tuple;loops;extern_;console;host_tensor],"Module description.",
     """
-inl rec toa_map f = function
-    | x :: x' -> toa_map f x :: toa_map f x'
-    | () -> ()
-    | x -> f x
+inl toa_map f =
+    inl rec loop = function
+        | x when caseable_is x -> f x
+        | x :: x' -> loop x :: loop x'
+        | () -> ()
+        | {!toa_map_block} as x -> module_map (const loop) x
+        | x -> f x
+    loop
 
-inl ar = toa_map (inl x -> array_create x 8) (int64,(int64,int64))
+inl ar = toa_map (inl x -> array_create x 8) {x = int64; y=int64,int64; o=Option.Option float32}
 ()
     """
 
