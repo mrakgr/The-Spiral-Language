@@ -12,14 +12,14 @@
         - [0: The way to use the language](#0-the-way-to-use-the-language)
         - [1: Inlinleables, Methods and Join Points](#1-inlinleables-methods-and-join-points)
             - [Recursion, Destructuring and Pattern Matching](#recursion-destructuring-and-pattern-matching)
-                - [Join point recursion](#join-point-recursion)
-                - [Term casting of functions](#term-casting-of-functions)
+                - [Join Point Recursion](#join-point-recursion)
+                - [Term Casting of Functions](#term-casting-of-functions)
                 - [`<function>` error message](#function-error-message)
         - [2: Modules, Macros and Interop](#2-modules-macros-and-interop)
             - [Modules](#modules)
             - [Macros](#macros)
-                - [Solve me](#solve-me)
-                - [Simple array sum (macro version)](#simple-array-sum-macro-version)
+                - [Solve Me](#solve-me)
+                - [Simple Array Sum (macro version)](#simple-array-sum-macro-version)
             - [Spiral libraries](#spiral-libraries)
         - [3: Loops and Arrays](#3-loops-and-arrays)
             - [Loops](#loops)
@@ -30,10 +30,10 @@
         - [4: Continuation Passing Style, Monadic Computation and Parsing](#4-continuation-passing-style-monadic-computation-and-parsing)
             - [Parsing Benchmark](#parsing-benchmark)
         - [5: Tensors and Structural Reflection](#5-tensors-and-structural-reflection)
-            - [Under The Hood](#under-the-hood)
+            - [Under the Hood](#under-the-hood)
                 - [Layout Polymorphism](#layout-polymorphism)
                 - [Dimensionality Polymorphism](#dimensionality-polymorphism)
-                    - [The design of the tensor](#the-design-of-the-tensor)
+                    - [Design of the Tensor](#design-of-the-tensor)
 
 <!-- /TOC -->
 
@@ -578,7 +578,7 @@ int64 + 3
 
 These kinds of errors are easier to locate when they are shown in generated code. When they happen it is usually because of a missed argument to a curried function which causes its environment to spill into the generated code. This makes the usual error messages unhelpful, but looking at the error code gives a good indication of what is happening.
 
-##### Join point recursion
+##### Join Point Recursion
 
 Spiral in general does not need type annotations. The only exception is the recursion when used in tandem with join points.
 
@@ -714,7 +714,7 @@ print_static (dyn (.a,"b",.false,true))
 ```
 All the information in type literals is preserved at all times.
 
-##### Term casting of functions
+##### Term Casting of Functions
 
 Spiral's functions as flexible as they are have the notable weakness of not being able to emulate recursive datatypes. For that they need to be cast to the term level.
 
@@ -1025,7 +1025,7 @@ The `packed_stack` layout is just there in case it might be necessary to pass a 
 Layout types are there in order to allow finer control of the boxed representations of modules and functions. Without `heap` it would be impossible to heap allocate modules directly for example.
 
 #### Macros
-##### Solve me
+##### Solve Me
 
 Modules are beautiful and elegant part of Spiral. Macros are definitely ugly, but they are the only way for Spiral to interop with other languages' libraries and are as such indispensable.
 
@@ -1136,7 +1136,7 @@ let (var_4: int32) = (var_2 + var_3)
 System.Console.WriteLine(var_4)
 ```
 
-##### Simple array sum (macro version)
+##### Simple Array Sum (macro version)
 
 This example is to demonstrate how macros can be used to interop with F# libraries which often take in functions as arguments.
 
@@ -3777,7 +3777,7 @@ When tensor are in `toa` form they have the added feature of allowing the module
 
 This is the short tour of the tensors in Spiral. The next section will be on how they are implemented.
 
-#### Under The Hood
+#### Under the Hood
 
 As was shown there are two aspects of tensor polymorphism - one was that they have an arbitrary number of dimensions and the other was that are layout polymorphic. In a language with weaker type systems that would require creating specific tensor instances for both of those concerns, but Spiral can handle them naturally.
 
@@ -4023,7 +4023,7 @@ Layout polymorphism? Forget that. The best what was possible was having them be 
 
 Now, there is no doubt that making a very specific instance of a tensor (such as `d2M`) is easier than making a fully blown generic tensor, but making such a tensor type is definitely easier than having to make a specific instance for all the endless varieties of tensors. Making specific instances of the more generic type by hand gets tiresome really quickly. It is humiliating to have to use personal effort because the tool one is using is not good enough.
 
-###### The design of the tensor
+###### Design of the Tensor
 
 ```
 {
