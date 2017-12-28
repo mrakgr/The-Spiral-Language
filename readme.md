@@ -10,7 +10,7 @@
                 - [For the Cuda using Spiral libraries:](#for-the-cuda-using-spiral-libraries)
     - [Tutorials: Introduction to Spiral](#tutorials-introduction-to-spiral)
         - [0: The way to use the language](#0-the-way-to-use-the-language)
-        - [1: Inlinleables, Methods and Join Points](#1-inlinleables-methods-and-join-points)
+        - [1: Inlineables, Methods and Join Points](#1-inlineables-methods-and-join-points)
             - [Recursion, Destructuring and Pattern Matching](#recursion-destructuring-and-pattern-matching)
                 - [Join Point Recursion](#join-point-recursion)
                 - [Term Casting of Functions](#term-casting-of-functions)
@@ -65,7 +65,7 @@ The easiest way to do it right now would be to clone this repo. In the Testing p
 
 Modifying the Cuda configuration options in the `run.fs` file unless usage of libraries related to that is required.
 
-### 1: Inlinleables, Methods and Join Points
+### 1: Inlineables, Methods and Join Points
 
 Spiral has great many similarities to other languages of the ML family, most notably F# with whom it shares the most similarity and a great deal of syntax, but in terms of semantics, it is different at its core.
 
@@ -76,7 +76,7 @@ inl x = 2 // Define a 64-bit integer in Spiral.
 let x = 2 // Define a 32-bit integer in F#.
 ```
 
-Unlike in F#, statements and function definitions in Spiral are preceded by `inl` instead of `let` which is short for `inl`inleable or `inl`ine.
+Unlike in F#, statements and function definitions in Spiral are preceded by `inl` instead of `let` which is short for `inl`ineable or `inl`ine.
 
 ```
 let x = 2
@@ -104,9 +104,9 @@ inl x = dyn 2
 let (var_0: int64) = 2L // Generated F# code.
 ```
 
-The reason Spiral is generating nothing is because `2` as defined is a literal and is gets tracked as such by the partial evaluator inside the environment. In order to have it appear in the generated code, what it is necessary to cast it from the type to the term level using `dyn`amize function. From here on out, the literal will be bound to a variable and the binding `x` will track `var_0` instead.
+The reason Spiral is generating nothing is because `2` as defined is a literal and gets tracked as such by the partial evaluator inside the environment. In order to have it appear in the generated code, it is necessary to cast it from the type to the term level using `dyn`amize function. From here on out, the literal will be bound to a variable and the binding `x` will track `var_0` instead.
 
-Being able to do this is useful for various reasons and without the ability to do this constructs such as runtime loops would be impossible to write in Spiral because the partial evaluator would diverge. Despite its static typing features, the language would essentially be constrained to being an interpreter for a pure dynamic functional language.
+Being able to do this is useful for various reasons, without it constructs such as runtime loops would be impossible to write in Spiral because the partial evaluator would diverge. Despite its static typing features, the language would essentially be constrained to being an interpreter for a pure dynamic functional language.
 
 ```
 inl x = dyn 2
@@ -151,7 +151,7 @@ type Tuple0 =
 Tuple0(3L, 7L)
 ```
 
-Tuples are used in Spiral much in the same way as in other functional languages. As per their name, `inl`inleables are always inlined. There are no heuristics at play here in the evaluator. Spiral's staged functions are tracked at the type level and both their exact body and environments are known at every point of compilation. This is an absolute guarantee and there is no point at which they can be automatically converted into heap allocated closures.
+Tuples are used in Spiral much in the same way as in other functional languages. As per their name, `inl`ineables are always inlined. There are no heuristics at play here in the evaluator. Spiral's staged functions are tracked at the type level and both their exact body and environments are known at every point of compilation. This is an absolute guarantee and there is no point at which they can be automatically converted into heap allocated closures.
 
 ```
 inl add a b = a + b
@@ -273,7 +273,7 @@ and method_2(): float =
 method_0()
 ```
 
-The result would not be as might be expected since the methods would get specialized to the literal arguments passed to them. Instead it would be better to use `dyn` here. But rather than letting the caller `f` do the term casting operation, it would be better if the callee `mult` did it.
+The result would not be as one might expect since the methods would get specialized to the literal arguments passed to them. Instead it would be better to use `dyn` here. But rather than letting the caller `f` do the term casting operation, it would be better if the callee `mult` did it.
 
 ```
 met mult (!dyn a) (!dyn b) = a * b
