@@ -96,3 +96,4 @@ tensor_set tns (1,"asd",3.3f32)
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example
 |> printfn "%s"
 |> ignore
+
