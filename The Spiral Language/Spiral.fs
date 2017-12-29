@@ -990,7 +990,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             match d.rbeh with
             | AnnotationReturn -> tev_seq {d with rbeh=AnnotationDive} b
             | AnnotationDive ->
-                let a, b = tev d a, tev_seq {d with rbeh=AnnotationDive} b
+                let a, b = tev d a, tev_seq d b
                 let ta, tb = get_type a, get_type b
                 if ta = tb then a else on_type_er (trace d) <| sprintf "Type annotation mismatch.\n%s <> %s" (show_ty ta) (show_ty tb)
 
