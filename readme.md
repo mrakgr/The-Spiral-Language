@@ -36,7 +36,7 @@
                     - [Design of the Tensor](#design-of-the-tensor)
                     - [The Tensor Facade.](#the-tensor-facade)
             - [Closing Comments](#closing-comments)
-        - [6: The Cuda Backend](#6-the-cuda-backend)
+        - [6: The Cuda Backend (Sneak Peek)](#6-the-cuda-backend-sneak-peek)
 
 <!-- /TOC -->
 
@@ -4398,9 +4398,72 @@ Whether it is composability or performance or lack of safety, those kinds of pro
 
 Once that fusion is done, a piece of the power that is released can be seen in this chapter - a properly done tensor type.
 
-### 6: The Cuda Backend
+### 6: The Cuda Backend (Sneak Peek)
 
-(work in progress)
+(work in progress for the time being)
 
-...
+At the time of writing `12/30/2017` though the Cuda backend works just fine, the allocator, the `CudaTensor` and `CudaKernels` are all bound in the deep `Learning` module and are not even properly organized which makes it hard to properly introduce them. They are very fresh, and most of the Cuda content in the language has been written in the last two weeks before the start of the tutorials, so they need more time to mature. Out of the Cuda kernels only two `map` and `map_redo` have been written so far which are enough for activation functions and cost functions, but not biases or accuracy. The author has not even gotten to doing `init` yet.
 
+Hence, this chapter will be very brief.
+
+```
+inl fact to = Loops.for {from=2; to state=dyn 1; body=inl {state i} -> state * i}
+fact 3
+```
+```
+let rec method_0((var_0: int64), (var_1: int64)): int64 =
+    let (var_2: bool) = (var_1 <= 3L)
+    if var_2 then
+        let (var_3: int64) = (var_0 * var_1)
+        let (var_4: int64) = (var_1 + 1L)
+        method_0((var_3: int64), (var_4: int64))
+    else
+        var_0
+let (var_0: int64) = 1L
+let (var_1: int64) = 2L
+method_0((var_0: int64), (var_1: int64))
+```
+Here is the Cuda version. The `cuda` keyword is just syntax sugar for `inl threadIdx blockIdx blockDim gridDim -> ...`. `openb` is the CPS version of `open`.
+```
+inl fact to = Loops.for {from=2; to state=dyn 1; body=inl {state i} -> state * i}
+openb Cuda
+run {
+    blockDim=1
+    gridDim=1
+    kernel=cuda fact 3 |> ignore
+    }
+```
+```
+let cuda_kernels = """
+
+extern "C" {
+    __global__ void method_1();
+    __device__ long long int method_2(long long int var_0, long long int var_1);
+    
+    __global__ void method_1() {
+        long long int var_0 = threadIdx.x;
+        long long int var_1 = threadIdx.y;
+        long long int var_2 = threadIdx.z;
+        long long int var_3 = blockIdx.x;
+        long long int var_4 = blockIdx.y;
+        long long int var_5 = blockIdx.z;
+        long long int var_6 = 1;
+        long long int var_7 = 2;
+        long long int var_8 = method_2(var_6, var_7);
+    }
+    __device__ long long int method_2(long long int var_0, long long int var_1) {
+        char var_2 = (var_1 <= 3);
+        if (var_2) {
+            long long int var_3 = (var_0 * var_1);
+            long long int var_4 = (var_1 + 1);
+            return method_2(var_3, var_4);
+        } else {
+            return var_0;
+        }
+    }
+}
+"""
+```
+The rest of the output is initialization code and won't be shown.
+
+More information will be provided in the coming months.
