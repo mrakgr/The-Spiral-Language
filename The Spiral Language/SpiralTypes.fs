@@ -294,9 +294,9 @@ and TypedExpr =
     // Data structures
     | TyT of Ty
     | TyV of TyTag
+    | TyBox of TypedExpr * Ty
     | TyList of TypedExpr list
     | TyMap of EnvTerm * MapType
-    | TyBox of TypedExpr * Ty
     | TyLit of Value
 
     // Operations

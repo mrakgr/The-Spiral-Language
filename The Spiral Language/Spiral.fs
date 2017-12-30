@@ -443,9 +443,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let cse_add' d r x = let e = !d.cse_env in if r <> x then Map.add r x e else e
         let cse_add d r x = d.cse_env := cse_add' d r x
 
-        // for a shallow version, take a look at `alternative_destructure_v6e.fsx`.
-        // The deep version can also be straightforwardly derived from a template of this using the Y combinator.
-        let rec destructure d r = 
+        let rec destructure (d: LangEnv) (r: TypedExpr) = 
             let inline destructure r = destructure d r
 
             let inline chase_cse on_succ on_fail r = 
@@ -1220,7 +1218,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | _ -> TyLit (LitBool false)
             | _ -> TyLit (LitBool false)
 
-        // Is intended to be equal to push -> destructure.
+        // Apart from preserving aliasing is intended to be equal to push -> destructure.
         let dynamize d a =
             let rec loop = function
                 | TyBox(_, _) | TyLit _ as a -> make_tyv_and_push_typed_expr d a

@@ -34,9 +34,12 @@
                 - [Layout Polymorphism](#layout-polymorphism)
                 - [Dimensionality Polymorphism](#dimensionality-polymorphism)
                     - [Design of the Tensor](#design-of-the-tensor)
-                    - [The Tensor Facade.](#the-tensor-facade)
+                    - [The Tensor Facade](#the-tensor-facade)
             - [Closing Comments](#closing-comments)
         - [6: The Cuda Backend (Sneak Peek)](#6-the-cuda-backend-sneak-peek)
+    - [User Guide: The Spiral Power](#user-guide-the-spiral-power)
+        - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
+        - [2: Let Insertion and Common Subexpression Rewriting](#2-let-insertion-and-common-subexpression-rewriting)
 
 <!-- /TOC -->
 
@@ -4346,7 +4349,7 @@ type Tuple0 =
 let (var_0: (Tuple0 [])) = Array.zeroCreate<Tuple0> (System.Convert.ToInt32(250L))
 var_0.[int32 69L] <- Tuple0(1L, "asd", 3.300000f)
 ```
-###### The Tensor Facade.
+###### The Tensor Facade
 
 Now that is is possible to create, apply, index and set the tensors the thing that remains is to make it applicable directly. To that, what is needed is to make a facade. The only thing of note in the following is that on standard application the facade rewraps itself. The rest should be straightforward.
 
@@ -4467,3 +4470,204 @@ extern "C" {
 The rest of the output is initialization code and won't be shown.
 
 More information will be provided in the coming months.
+
+## User Guide: The Spiral Power
+
+While the tutorial was meant to be a light introduction to the language, the user guide is intended to be an in depth guide not just into the language, but into the workings of the compiler. As it currently stands, the compiler in its entirety is at about 4.1k LOC. And while the parser and the codegens have their charm points, the part of interest which is the partial evaluator for Spiral is only 1.6k LOC. Out of that 1.6k probably around 1000 lines are vital to its functioning, meaning as the language continues to grow and more operatives get added, the essence of it should remain intact.
+
+It took the author 14 months to get the language up to this point, but with it as a reference it would be closer to 1 month long student project in terms of difficulty if a sensible tool like F# is used instead of C++.
+
+### 1: Data Structures, Abstraction and Destructuring
+
+```
+and TypedExpr =
+    // Data structures
+    | TyT of Ty
+    | TyV of TyTag // int * Ty
+    | TyBox of TypedExpr * Ty
+    | TyList of TypedExpr list
+    | TyMap of EnvTerm * MapType
+    | TyLit of Value
+```
+
+Nearly everything that can be done is Spiral is by manipulating the above 6 data structures. Chop off the first 3 and Spiral would be a pure dynamic functional language. `TyBox` represents a staged union type. `TyMap` is reused for both functions and modules. Modules are in essence functions without a body, they can be thought of as first class environments. In `TyMap` `EnvTerm` is almost the immutable map and can be thought of as that for all intents and purposes for now.
+
+The way information flows in Spiral is that as much of it is let through forward. Inlineables always preserve all information and unlike most other languages, Spiral allows the exact structures, that is `TypedExpr`s themselves, to be propagated forward through specialization boundaries. In Spiral those are join points, but in most other languages those are standard functions.
+
+In order to for there to be a separation between compile time and runtime, abstraction is necessary.
+
+Abstraction is the process of turning a non-variable (`TyBox`,`TyList`,`TyMap`,`TyLit`) into an abstract variable. There are 3 ways of doing that: join point returns, and dynamic if branch and dynamic case returns.
+
+When that is done, apart from what is preserved in the common subexpression dictionary, all information about the structure apart from its type is thrown away and it is replaced with a `TyV`. `TyV` is just a tag and a type representing a variable.
+
+Here are a few examples just to make sure the lesson sticks. It is rough typing the following out by hand. Keeping track of information is why compilers exist. The more a language allows the user to reason locally, the better it is at doing its job.
+
+`TyLit (TyInt64 1) -> TyV(100, PrimT Int64T)`
+`TyBox (TyT(LitT (LitString "None")),UnionT {LitT (LitString "None"); ListT [LitT (LitString Some); PrimT Int64T]}) -> TyV(101,UnionT {LitT (LitString "None"); ListT [LitT (LitString Some); PrimT Int64T]})`
+`TyList [TyV(2,PrimT Float32T); TyLit (LitString "Hello"); TyV(3,PrimT CharT)] -> TyV(102,ListT [PrimT Float32T; PrimT StringT; PrimT CharT])`
+
+Destructuring is what usually comes after abstraction as it is used so often in the language. It is not the opposite of abstraction - it can't be since abstraction is the process throwing away information in a principled manner. Once that information is lost it can't be recovered.
+
+Destructuring is always done at bindings and at list and map creation and before join points entries, so fully abstracted variables will never appear in the environment when the printed via `print_static`.
+
+Here is how the process roughly works.
+
+`TyV(100, PrimT Int64T) -> TyV(100, PrimT Int64T)` // no change
+`TyV(101,UnionT {LitT (LitString "None"); ListT [LitT (LitString Some); PrimT Int64T]}) -> TyV(101,UnionT {LitT (LitString "None"); ListT [LitT (LitString Some); PrimT Int64T]})` // no change
+`TyV(102,ListT [PrimT Float32T; PrimT StringT; PrimT CharT]) -> TyList [TyV(103,PrimT Float32T); TyV(104,PrimT StringT); TyV(105,PrimT CharT)]`
+
+Spiral is crazy about turning variables inside out whenever it can. This has the effect of flattening them when they are passed through join points and makes it easy to support having partially static maps and lists in the language. Note that this does not change their type in any way. In the above examples you will note that the left and the right sides have completely equal types.
+
+`destructure` is probably the single most important function in the language as without it everything else would be impossible. It is the first hurdle to overcome when making a language with first class staging.
+
+Note the the way F# for example or other functional languages do destructuring is not the same. There is a notable difference between the philosophy of Spiral and the rest of the pack. Spiral follows the dogma of `inline first and optimize later` while generally high level languages inherit the Lisp philosophy of `heap allocate first and optimize later`.
+
+That means in F# for example pattern matching is necessary to destructure a tuple since otherwise they would be packed. This is done at runtime.
+
+```
+let x = 1,2,3
+let t =
+    <@
+    let a,b,c = x
+    ()
+    @>
+```
+```
+val x : int * int * int = (1, 2, 3)
+val t : Quotations.Expr<unit> =
+  Let (c, TupleGet (PropertyGet (None, x, []), 2),
+     Let (b, TupleGet (PropertyGet (None, x, []), 1),
+          Let (a, TupleGet (PropertyGet (None, x, []), 0), Value (<null>))))
+```
+
+Most compilers worth their salt would optimize this away, but Spiral's optimizations are actually a part of its semantics thereby making them guarantees. Replacing optimizations with guarantees and making it a part of the type system is important for getting predictable and predictably good performance.
+
+In Spiral something like a simple binding would mean something completely different.
+
+```
+inl a,b,c = x
+```
+
+There is no way that in the above `x`that would not have already been destructured, hence what that tuple pattern does is tries to unbox a union type, but otherwise does absolutely nothing at runtime. It adds a few names to the environment and that is it. `destructure` would be called and then it would do nothing once it saw `TyList` as input.
+
+```
+inl a,b,c = join 1,2,3
+```
+
+Now if it was something like the above then it would be doing destructuring. It would go roughly `1,2,3 -> var [int64; int64; int64]` in the join point and then `var [int64; int64; int64] -> [var int64; var int64; var int64]` on destructuring.
+
+Keeping the environments fully destructured at all times is important for than just efficiency at runtime, making specialization coherent, supporting partially static structures and making other operations easier - it also solves one of the great language interop problems. How are arguments to be passed through join points to other languages?
+
+It is impossible to pass tuples of primitives to the Cuda side in their default form. The reason for that is that C might decide to layout the struct differently than the .NET JIT does and there is no way to access the layout information directly.
+
+By flattening structures out of the way completely at runtime, interop becomes a much easier task. That is one of the main motivations for supporting tuple of array tensors as the default as well.
+
+The time it took for the author to write the `destructure` function can be measured in many months.
+
+```
+        let rec destructure (d: LangEnv) (r: TypedExpr) = 
+            let inline destructure r = destructure d r
+
+            let inline chase_cse on_succ on_fail r = 
+                match Map.tryFind r !d.cse_env with
+                | Some x -> on_succ x
+                | None -> on_fail r
+            let inline chase_recurse r = chase_cse destructure id r
+
+            let inline destructure_cse r = 
+                chase_cse 
+                    chase_recurse
+                    (fun r ->
+                        let x = make_tyv_and_push_typed_expr d r
+                        cse_add d r x
+                        x)
+                    r
+
+            let index_tuple_args r tuple_types = 
+                let unpack (s,i as state) typ = 
+                    if is_unit typ then tyt typ :: s, i
+                    else (destructure <| TyOp(ListIndex,[r;TyLit <| LitInt64 (int64 i)],typ)) :: s, i + 1
+                List.fold unpack ([],0) tuple_types
+                |> fst |> List.rev
+
+            let env_unseal r x =
+                let unseal (m,i as state) (k: string) typ = 
+                    if is_unit typ then Map.add k (tyt typ) m, i
+                    else
+                        let r = TyOp(MapGetField,[r; tyv(i,typ)], typ) |> destructure 
+                        Map.add k r m, i + 1
+                Map.fold unseal (Map.empty,0) x |> fst
+
+            let inline destructure_var r map_vvt map_funt =
+                match get_type r with
+                | ListT tuple_types -> tyvv(map_vvt tuple_types)
+                | MapT (env,t) -> tymap(map_funt env, t)
+                | _ -> chase_recurse r
+            
+            match r with
+            | TyMap _ | TyList _ | TyLit _ -> r
+            | TyBox _ -> chase_recurse r
+            | TyT _ -> destructure_var r (List.map (tyt >> destructure)) (Map.map (fun _ -> (tyt >> destructure)) >> Env)
+            | TyV _ -> destructure_var r (index_tuple_args r) (env_unseal r >> Env)
+            | TyOp _ -> destructure_cse r
+            | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
+```
+
+What was covered so far is essentially the `TyV _` case. `TyT _` case works very similarly to that except there is no need to make any work for the code generator in the later stage. Understanding the specifics of the function is not necessary at this point. What is desired is to show that there is a direct mapping between what was talked about and code. 
+
+If one can understand the above function and how join points work, that would be enough to understand 90% of Spiral so it a goal to strive for.
+
+Based on what was discussed up to now, in terms of understanding the first time user guide's model should roughly be as if the above function was written like this.
+
+```
+        let rec destructure (d: LangEnv) (r: TypedExpr) = 
+            let inline destructure r = destructure d r
+
+            let index_tuple_args r tuple_types = 
+                let unpack (s,i as state) typ = 
+                    if is_unit typ then tyt typ :: s, i
+                    else (destructure <| TyOp(ListIndex,[r;TyLit <| LitInt64 (int64 i)],typ)) :: s, i + 1
+                List.fold unpack ([],0) tuple_types
+                |> fst |> List.rev
+
+            let env_unseal r x =
+                let unseal (m,i as state) (k: string) typ = 
+                    if is_unit typ then Map.add k (tyt typ) m, i
+                    else
+                        let r = TyOp(MapGetField,[r; tyv(i,typ)], typ) |> destructure 
+                        Map.add k r m, i + 1
+                Map.fold unseal (Map.empty,0) x |> fst
+
+            let inline destructure_var r map_vvt map_funt =
+                match get_type r with
+                | ListT tuple_types -> tyvv(map_vvt tuple_types)
+                | MapT (env,t) -> tymap(map_funt env, t)
+                | _ -> chase_recurse r
+            
+            match r with
+            | TyMap _ | TyList _ | TyLit _ -> r
+            | TyBox _ -> make_tyv_and_push_typed_expr d r
+            | TyT _ -> destructure_var r (List.map (tyt >> destructure)) (Map.map (fun _ -> (tyt >> destructure)) >> Env)
+            | TyV _ -> destructure_var r (index_tuple_args r) (env_unseal r >> Env)
+            | TyOp _ -> make_tyv_and_push_typed_expr d r
+            | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
+```
+`destructure_var` can be completely thought of as a recursive map.
+
+Suppose something like `var [int64; int64]` bound to `var_12` is destructured. 
+
+Inside `destructure` the type of the variable is iterated over. 
+
+The first element is converted to `list_index var_12 0`. Then a recursive call is made on that. What happens is that then the `TyOp _` case gets hit. `make_tyv_and_push_typed_expr` then converts that into a `TyV` which then gets returned.
+
+The second element is converted to `list_index var_12 1`. Then a recursive call is made on that. What happens is that then the `TyOp _` case gets hit. `make_tyv_and_push_typed_expr` then converts that into a `TyV` which then gets returned.
+
+The reason why this is done recursively is because lists might have sublists and such. Without that only a single level would get destructured which would be poor.
+
+The reason why first converting to a `TyOp(ListIdex,[var_12,0])` and such is needed is for the code generation pass. As can be inferred from that, it stands to reason that `make_tyv_and_push_typed_expr` is doing something to pass that information along. What is that function is doing is commonly known as let insertion.
+
+### 2: Let Insertion and Common Subexpression Rewriting
+
+(work in progress)
+
+...
