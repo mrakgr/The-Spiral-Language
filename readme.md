@@ -2366,7 +2366,7 @@ match var_0 with
 | Union0Case1 ->
     -11L
 ```
-The above is roughly what you would expect to get in F# or the MLs. Spiral's pattern matching is more flexible though.
+The above is roughly what would be expect to in F# or the MLs. Spiral's pattern matching is more flexible though.
 ```
 inl TypeA = .A \/ .B
 inl TypeB = .B \/ .C
@@ -3789,7 +3789,7 @@ Even better, the dimensionality of the tensor is really a separate concern from 
 
 ##### Layout Polymorphism
 
-Suppose we want to create an array of `int64 * int64 * int64` this is how it can be done in Spiral.
+Creating an array of `int64 * int64 * int64` can be done like this in Spiral.
 
 ```
 array_create (int64,int64,int64) 8
@@ -4516,7 +4516,7 @@ Here is how the process roughly works.
 `TyV(101,UnionT {LitT (LitString "None"); ListT [LitT (LitString Some); PrimT Int64T]}) -> TyV(101,UnionT {LitT (LitString "None"); ListT [LitT (LitString Some); PrimT Int64T]})` // no change
 `TyV(102,ListT [PrimT Float32T; PrimT StringT; PrimT CharT]) -> TyList [TyV(103,PrimT Float32T); TyV(104,PrimT StringT); TyV(105,PrimT CharT)]`
 
-Spiral is crazy about turning variables inside out whenever it can. This has the effect of flattening them when they are passed through join points and makes it easy to support having partially static maps and lists in the language. Note that this does not change their type in any way. In the above examples you will note that the left and the right sides have completely equal types.
+Spiral is crazy about turning variables inside out whenever it can. This has the effect of flattening them when they are passed through join points and makes it easy to support having partially static maps and lists in the language. Note that this does not change their type in any way. In the above examples the left and the right sides have completely equal types.
 
 `destructure` is probably the single most important function in the language as without it everything else would be impossible. It is the first hurdle to overcome when making a language with first class staging.
 
