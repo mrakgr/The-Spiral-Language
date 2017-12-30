@@ -83,13 +83,16 @@ inl tensor_apply i {dim=d::dim bodies} =
 inl tensor_index {bodies dim=()} = toa_map (inl {ar offset} -> ar offset) bodies
 inl tensor_set {bodies dim=()} v = toa_map2 (inl {ar offset} v -> ar offset <- v) bodies v |> ignore
 
-inl tns = 
-    tensor_create {layout=.aot; typ=int64,string,float32; dim=10,5,5}
-    |> tensor_apply 2
-    |> tensor_apply 3
-    |> tensor_apply 4
+inl rec tensor_facade tns = function
+    | .get -> tensor_get tns
+    | .set v -> tensor_set tns v
+    | .(_) & x -> tns x
+    | x -> tensor_apply x tns |> tensor_facade
 
-tensor_set tns (1,"asd",3.3f32)
+inl tensor_create = tensor_create >> tensor_facade
+
+inl tns = tensor_create {layout=.aot; typ=int64,string,float32; dim=10,5,5} 
+tns 2 3 4 .set (1,"asd",3.3f32)
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning

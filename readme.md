@@ -34,6 +34,9 @@
                 - [Layout Polymorphism](#layout-polymorphism)
                 - [Dimensionality Polymorphism](#dimensionality-polymorphism)
                     - [Design of the Tensor](#design-of-the-tensor)
+                    - [The Tensor Facade.](#the-tensor-facade)
+            - [Closing Comments](#closing-comments)
+        - [6: The Cuda Backend](#6-the-cuda-backend)
 
 <!-- /TOC -->
 
@@ -3583,8 +3586,6 @@ The 4 parser benchmarked in this section can be found in [this folder](https://g
 
 ### 5: Tensors and Structural Reflection
 
-(work in progress)
-
 The development of Spiral was driven by the need for a language with great capability for abstraction whose semantics would allow for it to be compiled to very fast code suitable for GPUs and the architectures coming down the line. During the early days of its development when it was intended as a Cuda backend for the ML library Spiral actually had built in arrays that would track variables at on the type level, but that tensors could be designed like the way they currently could be was beyond the imagination of its author and makes him glad that he decided to complete the language instead of leaving Spiral in a half finished state as a crappy ML library backend.
 
 Tensors in Spiral represent the crystallization of its power; they are the point at which all of its features flow together to create something that cannot be done in any other language.
@@ -4170,7 +4171,7 @@ For the purpose of explanation, the 3d tensor from the previous example will be 
 
 How should applying 2 to the tensor transform it?
 
-It should be into this.
+It should be into this 2d tensor.
 
 ```
 {
@@ -4345,3 +4346,61 @@ type Tuple0 =
 let (var_0: (Tuple0 [])) = Array.zeroCreate<Tuple0> (System.Convert.ToInt32(250L))
 var_0.[int32 69L] <- Tuple0(1L, "asd", 3.300000f)
 ```
+###### The Tensor Facade.
+
+Now that is is possible to create, apply, index and set the tensors the thing that remains is to make it applicable directly. To that, what is needed is to make a facade. The only thing of note in the following is that on standard application the facade rewraps itself. The rest should be straightforward.
+
+```
+inl rec tensor_facade tns = function
+    | .get -> tensor_get tns
+    | .set v -> tensor_set tns v
+    | .(_) & x -> tns x
+    | x -> tensor_apply x tns |> tensor_facade
+
+inl tensor_create = tensor_create >> tensor_facade
+
+inl tns = tensor_create {layout=.aot; typ=int64,string,float32; dim=10,5,5} 
+tns 2 3 4 .set (1,"asd",3.3f32)
+```
+```
+type Tuple0 =
+    struct
+    val mem_0: int64
+    val mem_1: string
+    val mem_2: float32
+    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
+    end
+let (var_0: (Tuple0 [])) = Array.zeroCreate<Tuple0> (System.Convert.ToInt32(250L))
+var_0.[int32 69L] <- Tuple0(1L, "asd", 3.300000f)
+```
+
+#### Closing Comments
+
+Views on tensors are similar to apply and just push the offsets without reducing the dimensionality of the tensor. It won't be covered in the tutorial and the interested should just look into the standard library implementation of them for specific details.
+
+There is an interesting programming lesson that the author re-experienced while making the tensor. Near the beginning there was a comment that the tensor design for the tutorial is more uniform than the one in the standard library. It is actually even more than that. The way it has been designed here is in fact how the author remembered the tensor. He knew it was not like this in the standard library, but when he looked he was actually surprised at how it was made indicating that he in fact forgot about it.
+
+It is not the first time it happened that a piece poorly fit into memory to him and won't be the last. Memory mismatches are a sure sign that a particular piece of software is due to a redesign. Having been left alone for a while, all but the most salient features of a program faded from memory indicating that in fact the rest are worthless and should be removed. Once he is done with the documentation that will surely be done.
+
+With this all that has needed to be said in order to understand tensors has been said, but a digression needs to be made to highlight just how great they really are.
+
+The tensor tutorial should have been rather clear and straightforward and unless something has badly gone wrong, those reading this chapter should have a clear picture of their essence.
+
+The number of languages in which a tensor can be implemented in such a manner can at the time of writing, 2 days to 2018, be literally counted on one finger. Being able to implement tensors like this is what essentially convinced the author that now that he has Spiral, it might be a good idea challenge the other deep learning frameworks for supremacy even though they have big corporate sponsorship.
+
+There is no need to consider how tensors are made in a language made for numeric computation like Julia. Take PyTorch for instance, and go to the [tour of its internals](http://pytorch.org/blog/). It is essentially a tour of poor programming practices: using C macros for everything including making tensors type generic, the absolutely fearsome `static PyTypeObject py_FloatType` which is badly in need of modules or at least SML records, the friction between different components that just jumps out.
+
+From what has been heard of PyTorch in action by the author, there has been nothing but praise.
+
+Nevertheless, if the best tools for the job in 2018 for making tensors generic are the 1972 C macros then probably something went wrong somewhere and not just with PyTorch specifically.
+
+Whether it is composability or performance or lack of safety, those kinds of problems exist due to the weak type systems, but it is not like type systems have to be just about solving constraints, nor do they have to be segregated from the rest of the compiler passes. Lisps had the great idea of integrating parsing with the rest of compilation passes. There is nothing preventing similar to be done with a type system.
+
+Once that fusion is done, a piece of the power that is released can be seen in this chapter - a properly done tensor type.
+
+### 6: The Cuda Backend
+
+(work in progress)
+
+...
+
