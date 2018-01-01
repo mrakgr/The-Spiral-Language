@@ -427,13 +427,13 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             if is_unit ty then
                 if even_if_unit then 
                     let seq = !d.seq
-                    let trace = (trace d)
+                    let trace = trace d
                     d.seq := fun rest -> TyState(ty_exp,rest,get_type rest,trace) |> seq
                 tyt ty
             else
                 let v = make_tyv_ty d ty
                 let seq = !d.seq
-                let trace = (trace d)
+                let trace = trace d
                 d.seq := fun rest -> TyLet(v,ty_exp,rest,get_type rest,trace) |> seq
                 tyv v
             
@@ -443,18 +443,18 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let cse_add' d r x = let e = !d.cse_env in if r <> x then Map.add r x e else e
         let cse_add d r x = d.cse_env := cse_add' d r x
 
-        let rec destructure (d: LangEnv) (r: TypedExpr) = 
+        let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr = 
             let inline destructure r = destructure d r
 
-            let inline chase_cse on_succ on_fail r = 
+            let inline cse_eval on_succ on_fail r = 
                 match Map.tryFind r !d.cse_env with
                 | Some x -> on_succ x
                 | None -> on_fail r
-            let inline chase_recurse r = chase_cse destructure id r
+            let inline cse_recurse r = cse_eval destructure id r
 
-            let inline destructure_cse r = 
-                chase_cse 
-                    chase_recurse
+            let inline let_insert_cse r = 
+                cse_eval 
+                    cse_recurse
                     (fun r ->
                         let x = make_tyv_and_push_typed_expr d r
                         cse_add d r x
@@ -480,14 +480,14 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 match get_type r with
                 | ListT tuple_types -> tyvv(map_vvt tuple_types)
                 | MapT (env,t) -> tymap(map_funt env, t)
-                | _ -> chase_recurse r
+                | _ -> cse_recurse r
             
             match r with
             | TyMap _ | TyList _ | TyLit _ -> r
-            | TyBox _ -> chase_recurse r
+            | TyBox _ -> cse_recurse r
             | TyT _ -> destructure_var r (List.map (tyt >> destructure)) (Map.map (fun _ -> (tyt >> destructure)) >> Env)
             | TyV _ -> destructure_var r (index_tuple_args r) (env_unseal r >> Env)
-            | TyOp _ -> destructure_cse r
+            | TyOp _ -> let_insert_cse r
             | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
 
         let if_static d cond tr fl =

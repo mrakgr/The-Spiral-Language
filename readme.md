@@ -39,7 +39,8 @@
         - [6: The Cuda Backend (Sneak Peek)](#6-the-cuda-backend-sneak-peek)
     - [User Guide: The Spiral Power](#user-guide-the-spiral-power)
         - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
-        - [2: Let Insertion and Common Subexpression Rewriting](#2-let-insertion-and-common-subexpression-rewriting)
+        - [2: Let Insertion and Common Subexpression Elimination](#2-let-insertion-and-common-subexpression-elimination)
+        - [3: The If Statement](#3-the-if-statement)
 
 <!-- /TOC -->
 
@@ -4488,6 +4489,12 @@ and TypedExpr =
     | TyList of TypedExpr list
     | TyMap of EnvTerm * MapType
     | TyLit of Value
+
+    // Operations
+    | TyLet of TyTag * TypedExpr * TypedExpr * Ty * Trace
+    | TyState of TypedExpr * TypedExpr * Ty * Trace
+    | TyOp of Op * TypedExpr list * Ty
+    | TyJoinPoint of JoinPointKey * JoinPointType * Arguments * Ty
 ```
 
 Nearly everything that can be done is Spiral is by manipulating the above 6 data structures. Chop off the first 3 and Spiral would be a pure dynamic functional language. `TyBox` represents a staged union type. `TyMap` is reused for both functions and modules. Modules are in essence functions without a body, they can be thought of as first class environments. In `TyMap` `EnvTerm` is almost the immutable map and can be thought of as that for all intents and purposes for now.
@@ -4565,18 +4572,18 @@ By flattening structures out of the way completely at runtime, interop becomes a
 The time it took for the author to write the `destructure` function can be measured in many months.
 
 ```
-        let rec destructure (d: LangEnv) (r: TypedExpr) = 
+        let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr = 
             let inline destructure r = destructure d r
 
-            let inline chase_cse on_succ on_fail r = 
+            let inline cse_eval on_succ on_fail r = 
                 match Map.tryFind r !d.cse_env with
                 | Some x -> on_succ x
                 | None -> on_fail r
-            let inline chase_recurse r = chase_cse destructure id r
+            let inline cse_recurse r = cse_eval destructure id r
 
-            let inline destructure_cse r = 
-                chase_cse 
-                    chase_recurse
+            let inline let_insert_cse r = 
+                cse_eval 
+                    cse_recurse
                     (fun r ->
                         let x = make_tyv_and_push_typed_expr d r
                         cse_add d r x
@@ -4602,14 +4609,14 @@ The time it took for the author to write the `destructure` function can be measu
                 match get_type r with
                 | ListT tuple_types -> tyvv(map_vvt tuple_types)
                 | MapT (env,t) -> tymap(map_funt env, t)
-                | _ -> chase_recurse r
+                | _ -> cse_recurse r
             
             match r with
             | TyMap _ | TyList _ | TyLit _ -> r
-            | TyBox _ -> chase_recurse r
+            | TyBox _ -> cse_recurse r
             | TyT _ -> destructure_var r (List.map (tyt >> destructure)) (Map.map (fun _ -> (tyt >> destructure)) >> Env)
             | TyV _ -> destructure_var r (index_tuple_args r) (env_unseal r >> Env)
-            | TyOp _ -> destructure_cse r
+            | TyOp _ -> let_insert_cse r
             | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
 ```
 
@@ -4617,10 +4624,10 @@ What was covered so far is essentially the `TyV _` case. `TyT _` case works very
 
 If one can understand the above function and how join points work, that would be enough to understand 90% of Spiral so it a goal to strive for.
 
-Based on what was discussed up to now, in terms of understanding the first time user guide's model should roughly be as if the above function was written like this.
+Based on what was discussed up to now, the first time reader of the user guide's model should roughly be as if the above function was written like this. The following is `destructure` without common subexpression elimination.
 
 ```
-        let rec destructure (d: LangEnv) (r: TypedExpr) = 
+        let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr = 
             let inline destructure r = destructure d r
 
             let index_tuple_args r tuple_types = 
@@ -4642,7 +4649,7 @@ Based on what was discussed up to now, in terms of understanding the first time 
                 match get_type r with
                 | ListT tuple_types -> tyvv(map_vvt tuple_types)
                 | MapT (env,t) -> tymap(map_funt env, t)
-                | _ -> chase_recurse r
+                | _ -> cse_recurse r
             
             match r with
             | TyMap _ | TyList _ | TyLit _ -> r
@@ -4666,8 +4673,264 @@ The reason why this is done recursively is because lists might have sublists and
 
 The reason why first converting to a `TyOp(ListIdex,[var_12,0])` and such is needed is for the code generation pass. As can be inferred from that, it stands to reason that `make_tyv_and_push_typed_expr` is doing something to pass that information along. What is that function is doing is commonly known as let insertion.
 
-### 2: Let Insertion and Common Subexpression Rewriting
+### 2: Let Insertion and Common Subexpression Elimination
+
+When the code is generated, it tends to be a series of `let` statements punctuated by an expression.
+
+```
+let var_0 = ...
+let var_1 = ...
+let var_2 = ...
+...
+```
+
+Based on that information it be guessed that during evaluation a list of let statements is maintained in the environment that gets added every time `make_tyv_and_push_typed_expr` gets called. That is in fact exactly what happens, but the way the function is implemented might seem convoluted at first.
+
+```
+        let inline make_tyv_and_push_typed_expr_template (even_if_unit: bool) (d: LangEnv) (ty_exp: TypedExpr): TypedExpr =
+            let ty = get_type ty_exp
+            if is_unit ty then
+                if even_if_unit then
+                    let seq = !d.seq
+                    let trace = trace d
+                    d.seq := fun rest -> TyState(ty_exp,rest,get_type rest,trace) |> seq
+                tyt ty
+            else
+                let v = make_tyv_ty d ty
+                let seq = !d.seq
+                let trace = trace d
+                d.seq := fun rest -> TyLet(v,ty_exp,rest,get_type rest,trace) |> seq
+                tyv v
+            
+        let make_tyv_and_push_typed_expr_even_if_unit d ty_exp = make_tyv_and_push_typed_expr_template true d ty_exp
+        let make_tyv_and_push_typed_expr d ty_exp = make_tyv_and_push_typed_expr_template false d ty_exp
+```
+
+There are actually two variants of the function packed into a single one based on whether the type of the expression is a unit. Using some partial evaluation by hand, it should be possible to clarify the function by splitting them into two.
+
+```
+        let make_tyv_and_push_typed_expr_even_if_unit (d: LangEnv) (ty_exp: TypedExpr): TypedExpr = //make_tyv_and_push_typed_expr_template true d ty_exp
+            let ty = get_type ty_exp
+            let seq = !d.seq
+            let trace = trace d
+            
+            if is_unit ty then
+                d.seq := fun rest -> TyState(ty_exp,rest,get_type rest,trace) |> seq
+                tyt ty
+            else
+                let v = make_tyv_ty d ty
+                d.seq := fun rest -> TyLet(v,ty_exp,rest,get_type rest,trace) |> seq
+                tyv v
+
+        let make_tyv_and_push_typed_expr (d: LangEnv) (ty_exp: TypedExpr): TypedExpr = //make_tyv_and_push_typed_expr_template false d ty_exp
+            let ty = get_type ty_exp
+            if is_unit ty then
+                tyt ty
+            else
+                let v = make_tyv_ty d ty
+                let seq = !d.seq
+                let trace = trace d
+                d.seq := fun rest -> TyLet(v,ty_exp,rest,get_type rest,trace) |> seq
+                tyv v
+```
+
+With this rewrite hopefully the distinction between the two functions should be clearer.
+
+`d.seq` is in fact a list, but it is implemented as a closure of type `(TypedExpr -> TypedExpr) ref`. To explain the reason for that, a look at the full `TypedExpr` type is needed once again.
+
+```
+and TypedExpr =
+    // Data structures
+    | TyT of Ty
+    | TyV of TyTag
+    | TyBox of TypedExpr * Ty
+    | TyList of TypedExpr list
+    | TyMap of EnvTerm * MapType
+    | TyLit of Value
+
+    // Operations
+    | TyLet of TyTag * TypedExpr * TypedExpr * Ty * Trace
+    | TyState of TypedExpr * TypedExpr * Ty * Trace
+    | TyOp of Op * TypedExpr list * Ty
+    | TyJoinPoint of JoinPointKey * JoinPointType * Arguments * Ty
+```
+
+The way it is implemented like that is because of `TyLet`. Using a list directly would be annoying because `TyLet` is a list itself and it would be troublesome to add to end if the arraignment was different.
+
+So the solution is to just do some lambda magic to do that instead and emulate an immutable stack that way in a statically safe manner. The same goes for `TyState` which is like `TyLet` except for side effecting operations and not new bindings.
+
+`make_tyv_and_push_typed_expr` and `make_tyv_and_push_typed_expr_even_if_unit` are used for non side effecting and side effecting operations respectively. Destructuring that was shown in the previous chapter is an example of the former, for example it should not happen that runtime unit types such as type level literals should ever be instantiated. As those get printed as "" during code generation trying to do so would give an error when the F# or Cuda compilers get the code.
+
+As a part of general mechanism of supporting the first class types in Spiral, in both let insertion and destructuring any operations that would produce a unit type gets converted to a unwrapped (naked) type. Side effecting or potentially side effecting operations such as join points therefore must call `make_tyv_and_push_typed_expr_even_if_unit` before `destructure` gets to it otherwise it will cause errors. For example if `make_tyv_and_push_typed_expr_even_if_unit` was not called inside join points then those with unit type as return would not get printed at all.
+
+Even worse, repeating join points in local scope would get rewritten to the same variable.
+
+The way (CSE) common subexpression elimination works is simple in Spiral.
+
+```
+inl q = x + 3
+...
+inl w = x + 3
+...
+```
+
+All CSE happens in `destructure`. What happens is that the call to `destructure` gets `TyOp(Add,[TyV(5,PrimT Int64T); TyLit (LitInt64 3L)])` or similar as the argument. It hits the `TyOp` branch and then performs a check against the CSE dictionary with is a standard map of type `Map<TypedExpr,TypedExpr> ref`.
+
+The first time it happens in `inl q = x + 3`, the key is not present in the dictionary so what it does is calls `make_tyv_and_push_typed_expr` with the argument. It gets back something like `TyV(9,PrimT Int64T)`. That gets bound to the key and added to the dictionary like `Map.add (TyOp(Add,[TyV(5,PrimT Int64T); TyLit (LitInt64 3L)])) (TyV(9,PrimT Int64T))`.
+
+The actual code is a tad more complicated.
+
+```
+let cse_add' d r x = let e = !d.cse_env in if r <> x then Map.add r x e else e
+let cse_add d r x = d.cse_env := cse_add' d r x
+```
+
+There is a check to make sure that the variable being added to the map is not itself because that could lead to divergence, but otherwise the intent should be straightforward.
+
+Once the new key and its value in the map, the program proceeds and `inl w = x + 3` is hit eventually. As the arguments flows through `destructure` the check for `TyOp(Add,[TyV(5,PrimT Int64T); TyLit (LitInt64 3L)])` and this time the key is present dictionary. Since it is present, instead calling `make_tyv_and_push_typed_expr` to perform let insertion, the expression just gets rewritten.
+
+Note that this happens recursively. Here is the full `destructure` once again.
+
+```
+        let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr = 
+            let inline destructure r = destructure d r
+
+            let inline cse_eval on_succ on_fail r = 
+                match Map.tryFind r !d.cse_env with
+                | Some x -> on_succ x
+                | None -> on_fail r
+            let inline cse_recurse r = cse_eval destructure id r
+
+            let inline let_insert_cse r = 
+                cse_eval 
+                    cse_recurse
+                    (fun r ->
+                        let x = make_tyv_and_push_typed_expr d r
+                        cse_add d r x
+                        x)
+                    r
+
+            let index_tuple_args r tuple_types = 
+                let unpack (s,i as state) typ = 
+                    if is_unit typ then tyt typ :: s, i
+                    else (destructure <| TyOp(ListIndex,[r;TyLit <| LitInt64 (int64 i)],typ)) :: s, i + 1
+                List.fold unpack ([],0) tuple_types
+                |> fst |> List.rev
+
+            let env_unseal r x =
+                let unseal (m,i as state) (k: string) typ = 
+                    if is_unit typ then Map.add k (tyt typ) m, i
+                    else
+                        let r = TyOp(MapGetField,[r; tyv(i,typ)], typ) |> destructure 
+                        Map.add k r m, i + 1
+                Map.fold unseal (Map.empty,0) x |> fst
+
+            let inline destructure_var r map_vvt map_funt =
+                match get_type r with
+                | ListT tuple_types -> tyvv(map_vvt tuple_types)
+                | MapT (env,t) -> tymap(map_funt env, t)
+                | _ -> cse_recurse r
+            
+            match r with
+            | TyMap _ | TyList _ | TyLit _ -> r
+            | TyBox _ -> cse_recurse r
+            | TyT _ -> destructure_var r (List.map (tyt >> destructure)) (Map.map (fun _ -> (tyt >> destructure)) >> Env)
+            | TyV _ -> destructure_var r (index_tuple_args r) (env_unseal r >> Env)
+            | TyOp _ -> let_insert_cse r
+            | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
+```
+
+And here it is pared down so that the CSE using parts are highlighted.
+
+```
+        let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr = 
+            let inline destructure r = destructure d r
+
+            let inline cse_eval on_succ on_fail r = 
+                match Map.tryFind r !d.cse_env with
+                | Some x -> on_succ x
+                | None -> on_fail r
+            let inline cse_recurse r = 
+                cse_eval 
+                    destructure // on_succ
+                    id // on_fail
+                    r
+
+            let inline let_insert_cse r = 
+                cse_eval 
+                    cse_recurse // on_succ
+                    (fun r -> // on_fail
+                        let x = make_tyv_and_push_typed_expr d r
+                        cse_add d r x
+                        x)
+                    r
+            
+            match r with
+            | TyMap _ | TyList _ | TyLit _ -> r
+            | TyBox _ -> cse_recurse r
+            | TyOp _ -> let_insert_cse r
+            | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
+```
+
+It is possible to simplify it even further.
+
+```
+        let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr = 
+            let inline destructure r = destructure d r
+            let cse_recurse r = 
+                match Map.tryFind r !d.cse_env with
+                | Some x -> destructure x
+                | None -> r
+
+            let let_insert_cse r = 
+                match Map.tryFind r !d.cse_env with
+                | Some x -> cse_recurse x
+                | None -> 
+                    let x = make_tyv_and_push_typed_expr d r
+                    cse_add d r x
+                    x
+            
+            match r with
+            | TyMap _ | TyList _ | TyLit _ -> r
+            | TyBox _ -> cse_recurse r
+            | TyOp _ -> let_insert_cse r
+            | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
+```
+
+This should hopefully be clear. `cse_recurse` does not call itself recursively. It does call `destructure` instead, but for all intents and purposes the function can thought of calling itself recursively.
+
+Suppose that the dictionary is like the following (in pseudo-code):
+
+```
+TyOp(Add,[TyV(5,PrimT Int64T); TyLit (LitInt64 3L)]) => TyV(9,PrimT Int64T)
+TyV(9,PrimT Int64T) => TyV(12,PrimT Int64T)
+```
+
+So `x+3` will first get rewritten to `TyV(9,PrimT Int64T)`. Then `destructure` will be called again.
+
+The `| TyV _ -> destructure_var r (index_tuple_args r) (env_unseal r >> Env)` case will get hit. After that happens it will attempt to pattern match on this.
+
+```
+let inline destructure_var r map_vvt map_funt =
+    match get_type r with
+    | ListT tuple_types -> tyvv(map_vvt tuple_types)
+    | MapT (env,t) -> tymap(map_funt env, t)
+    | _ -> cse_recurse r
+```
+
+It is not `ListT` nor `MapT` so `cse_recurse` in the last branch gets called. Then `TyV(9,PrimT Int64T)` would get rewritten to `TyV(12,PrimT Int64T)`.
+
+`let_insert_cse` is just the same as `cse_recurse` apart from the extra step of doing let insertion.
+
+With this the let insertion and destructuring have been covered in full. The functions related to them serve as focal points of the entire language and with the understanding of them the paths to understanding of everything else become unblocked. In programming in general, programs tend to be easier to write than to read. 
+
+Those two functions on the other hand are definitely on the exact opposite of the spectrum as they literally took months and months of refinement to make.
+
+CSE rewriting has some additional uses which will be covered in the following chapter.
+
+### 3: The If Statement
 
 (work in progress)
 
 ...
+
