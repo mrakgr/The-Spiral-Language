@@ -386,7 +386,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         | _ -> failwith "Not a layout op."
 
     // #Type directed partial evaluation
-    let rec expr_peval (d: LangEnv) (expr: Expr) =
+    let rec expr_peval (d: LangEnv) (expr: Expr): TypedExpr =
         let inline tev d expr = expr_peval d expr
         let inline apply_seq d x = !d.seq x
         let inline tev_seq d expr = let d = {d with seq=ref id; cse_env=ref !d.cse_env} in tev d expr |> apply_seq d
@@ -490,7 +490,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyOp _ -> let_insert_cse r
             | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
 
-        let if_static d cond tr fl =
+        let if_static (d: LangEnv) (cond: Expr) (tr: Expr) (fl: Expr): TypedExpr =
             match tev d cond with
             | TyLit (LitBool true) -> tev d tr
             | TyLit (LitBool false) -> tev d fl

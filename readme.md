@@ -41,6 +41,8 @@
         - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
         - [2: Let Insertion and Common Subexpression Elimination](#2-let-insertion-and-common-subexpression-elimination)
         - [3: The If Statement](#3-the-if-statement)
+            - [Raising Type Errors](#raising-type-errors)
+        - [4: Boxing and Unboxing of Union Types](#4-boxing-and-unboxing-of-union-types)
 
 <!-- /TOC -->
 
@@ -4499,7 +4501,7 @@ and TypedExpr =
 
 Nearly everything that can be done is Spiral is by manipulating the above 6 data structures. Chop off the first 3 and Spiral would be a pure dynamic functional language. `TyBox` represents a staged union type. `TyMap` is reused for both functions and modules. Modules are in essence functions without a body, they can be thought of as first class environments. In `TyMap` `EnvTerm` is almost the immutable map and can be thought of as that for all intents and purposes for now.
 
-The way information flows in Spiral is that as much of it is let through forward. Inlineables always preserve all information and unlike most other languages, Spiral allows the exact structures, that is `TypedExpr`s themselves, to be propagated forward through specialization boundaries. In Spiral those are join points, but in most other languages those are standard functions.
+The dogma of information flows in Spiral is to let as much of it through forward. Inlineables always preserve all information and unlike most other languages, Spiral allows the exact structures, that is `TypedExpr`s themselves, to be propagated forward through specialization boundaries. In Spiral those are join points, but in most other languages those are standard functions.
 
 In order to for there to be a separation between compile time and runtime, abstraction is necessary.
 
@@ -4930,7 +4932,207 @@ CSE rewriting has some additional uses which will be covered in the following ch
 
 ### 3: The If Statement
 
+Spiral originally started out with the dynamic if as is found in most languages, but as an experiment the author decided to make the static the default one. After two month of use, he noted that not even once had he used the other version and when he ran into a bug with the dynamic if that cemented its removal for good from the language.
+
+Here is the static if in full.
+
+```
+let if_static (d: LangEnv) (cond: Expr) (tr: Expr) (fl: Expr): TypedExpr =
+    match tev d cond with
+    | TyLit (LitBool true) -> tev d tr
+    | TyLit (LitBool false) -> tev d fl
+    | TyType (PrimT BoolT) as cond ->
+        let b x = cse_add' d cond (TyLit <| LitBool x)
+        let tr = tev_assume (b true) d tr
+        let fl = tev_assume (b false) d fl
+        let type_tr, type_fl = get_type tr, get_type fl
+        if type_tr = type_fl then
+            match tr, fl with
+            | TyLit (LitBool true), TyLit (LitBool false) -> cond
+            | _ when tr = fl -> tr
+            | _ -> TyOp(IfStatic,[cond;tr;fl],type_tr) |> make_tyv_and_push_typed_expr_even_if_unit d
+        else on_type_er (trace d) <| sprintf "Types in branches of If do not match.\nGot: %s and %s" (show_ty type_tr) (show_ty type_fl)
+    | TyType cond -> on_type_er (trace d) <| sprintf "Expected a bool in conditional.\nGot: %s" (show_ty cond)
+```
+
+The first 2 cases should be straightforward.
+
+```
+let if_static (d: LangEnv) (cond: Expr) (tr: Expr) (fl: Expr): TypedExpr =
+    match tev d cond with
+    | TyLit (LitBool true) -> tev d tr
+    | TyLit (LitBool false) -> tev d fl
+```
+
+At first the conditional is evaluated and if it turns out to be a literal only one of the branches is evaluated.
+
+```
+    | TyType (PrimT BoolT) as cond ->
+        let b x = cse_add' d cond (TyLit <| LitBool x)
+        let tr = tev_assume (b true) d tr
+        let fl = tev_assume (b false) d fl
+```
+
+Here the two branches are evaluated with an little extra twist. Suppose an example like the following.
+
+```
+if x > 0 then
+    if x > 0 then
+        123
+    else
+        "qwe"
+else
+    456
+```
+
+In the outer if the conditional `x > 0` will evaluate to an abstract variable and in `if_static` the third branch will get hit.
+
+Then once the conditional of the inner if is evaluated, what it will find in the CSE dictionary is that the `x > 0` can be rewritten to `true`.
+
+```
+        let b x = cse_add' d cond (TyLit <| LitBool x)
+        let tr = tev_assume (b true) d tr
+```
+
+The above two lines are responsible for this.
+
+Here is how `tev_assume` is implemented.
+
+```
+// #Type directed partial evaluation
+let rec expr_peval (d: LangEnv) (expr: Expr): TypedExpr =
+    let inline tev d expr = expr_peval d expr
+    let inline apply_seq d x = !d.seq x
+    let inline tev_seq d expr = let d = {d with seq=ref id; cse_env=ref !d.cse_env} in tev d expr |> apply_seq d
+    let inline tev_assume cse_env d expr = let d = {d with seq=ref id; cse_env=ref cse_env} in tev d expr |> apply_seq d
+```
+
+`tev` itself just calls the main evaluation functions. `expr_eval` itself is the core pass of Spiral as that is where all the partial evaluation happens. The rest are parsing and code generation.
+
+As `tev_seq` and `tev_assume` are very similar, it would be easier to start with an explanation of `tev_seq`.
+
+In Spiral there are constructs such as if statements, case expressions and join points which require their own scope.
+
+On entry therefore, the let statements that are being carried in the environment need to be cleared instead of being carried into the branch. `seq=ref id` is what represents this. If it was a standard list, it would just be set to `[]`, but here it is set to the identity function.
+
+Then there is the CSE dictionary that also needs to be handled. Since Spiral is lexically scoped it is fine if the expressions inside the scope get rewritten to expressions outside it, but what should not happen is that after scope is exited for expressions to get rewritten with the stuff that was in the scope.
+
+```
+if c then 
+    inl q = x + 2
+    ...
+else
+    ...
+
+inl e = x + 2 // Do not want this to be rewritten to `q` inside the if statement.
+```
+
+If `cse_env` was a standard .NET mutable dictionary it would need to be copied at this point so that invariant is ensured, but since it is an F# immutable map, what should just be done is replacing the reference to it.
+
+`tev_assume` has similar intent to `tev_seq` except the map for `cse_env` is taken as an argument; it is a more generic version of `tev_seq`.
+
+With this it has been established that the two functions just evaluate an expression in its own scope.
+
+`tev d expr |> apply_seq d`
+
+After that evaluation is done, `apply_seq` is called. `tev` by itself only returns the last expression in the scope. After the call to `tev` the rest of the expressions can be found in `d.seq` where they have been let inserted.
+
+```
+let inline tev_seq (d: LangEnv) (expr: TypedExpr): TypedExpr = let d = {d with seq=ref id; cse_env=ref !d.cse_env} in tev d expr |> apply_seq d
+```
+
+Appending the last expression to it is quite easy. The last expression just need to be applied to `d.seq` and the result will be the whole branch. If the `d.seq` is empty, then it would be the identity function and so applying an expression to it would return the same thing; there wouldn't be any empty statements. This is why `(TypedExpr -> TypedExpr) ref` representation is so convenient.
+
+```
+| TyType (PrimT BoolT) as cond ->
+    let b x = cse_add' d cond (TyLit <| LitBool x)
+    let tr = tev_assume (b true) d tr
+    let fl = tev_assume (b false) d fl
+    let type_tr, type_fl = get_type tr, get_type fl
+    if type_tr = type_fl then
+        match tr, fl with
+        | TyLit (LitBool true), TyLit (LitBool false) -> cond
+        | _ when tr = fl -> tr
+        | _ -> TyOp(IfStatic,[cond;tr;fl],type_tr) |> make_tyv_and_push_typed_expr_even_if_unit d
+    else on_type_er (trace d) <| sprintf "Types in branches of If do not match.\nGot: %s and %s" (show_ty type_tr) (show_ty type_fl)
+| TyType cond -> on_type_er (trace d) <| sprintf "Expected a bool in conditional.\nGot: %s" (show_ty cond)
+```
+
+Hopefully what the first 4 lines are doing now should now be clear.
+
+```
+let type_tr, type_fl = get_type tr, get_type fl
+```
+
+`get_type` is important so it will get its own treatment later, but its essence is in entirety described by its type which is `TypedExpr -> Ty`. That is, it gets the type of the expression.
+
+```
+if type_tr = type_fl then
+```
+
+Since the conditional is dynamic, the branches need to be compared for equality. Then a tad optimization is inside the if statement.
+
+```
+match tr, fl with
+| TyLit (LitBool true), TyLit (LitBool false) -> cond
+| _ when tr = fl -> tr
+| _ -> TyOp(IfStatic,[cond;tr;fl],type_tr) |> make_tyv_and_push_typed_expr_even_if_unit d
+```
+
+The first case does trigger sometimes such as in structural equality for example. The second case just checks if both branches are equal. In that case obviously the if statement is unnecessary.
+
+In the third branch is where the if statement gets let inserted. Note how `make_tyv_and_push_typed_expr_even_if_unit` needs to be called here. If that did not happen and the return was let to be grabbed by `destructure` it would not get printed if it had unit return and would be added to the CSE dictionary there.
+
+That is not the desired behavior.
+
+It is the desired behavior when destructuring unit types from a tuple, or with pure built-in arithmetic expressions, but not with if statements.
+
+```
+on_type_er (trace d) <| sprintf "Types in branches of If do not match.\nGot: %s and %s" (show_ty type_tr) (show_ty type_fl)
+```
+
+If the types of the branches do not match the above will raise a type error. Here is how it is implemented
+
+```
+let on_type_er trace message = TypeError(trace,message) |> raise
+```
+
+The exception just takes the trace and the messages and then gets raised.
+
+#### Raising Type Errors
+
+It is possible to raise a type error directly in Spiral.
+
+```
+if c then
+    ...
+else
+    error_type "Some error."
+```
+
+If the conditional `c` is dynamic then the type error will always get triggered so this would not be very useful, but plenty of times functions of such form will get used with static conditionals. Plenty of times has `assert` been used in the tutorials.
+
+Here is how the `assert` is implemented in the core library. There is a more sophisticated version in `Extern` calls `show` as well.
+
+```
+inl assert c msg = 
+    inl raise = 
+        if lit_is c then error_type
+        else failwith unit
+    
+    if c = false then raise msg
+```
+
+Here is how it is implemented in the partial evaluator.
+
+```
+| ErrorType,[a] -> tev d a |> fun a -> on_type_er (trace d) <| sprintf "%s" (show_typedexpr a)
+```
+
+So it is a simple `tev` and then the `on_type_er` gets called on the result of that. It is not particularly sophisticated, but then it does not have to be.
+
+### 4: Boxing and Unboxing of Union Types
+
 (work in progress)
 
 ...
-
