@@ -4514,9 +4514,11 @@ When that is done, apart from what is preserved in the common subexpression dict
 
 Here are a few examples just to make sure the lesson sticks. It is rough typing the following out by hand. Keeping track of information is why compilers exist. The more a language allows the user to reason locally, the better it is at doing its job.
 
-`TyLit (TyInt64 1) -> TyV(100, PrimT Int64T)`
-`TyBox (TyT(LitT (LitString "None")),UnionT {LitT (LitString "None"); ListT [LitT (LitString Some); PrimT Int64T]}) -> TyV(101,UnionT {LitT (LitString "None"); ListT [LitT (LitString Some); PrimT Int64T]})`
-`TyList [TyV(2,PrimT Float32T); TyLit (LitString "Hello"); TyV(3,PrimT CharT)] -> TyV(102,ListT [PrimT Float32T; PrimT StringT; PrimT CharT])`
+```
+TyLit (TyInt64 1) -> TyV(100, PrimT Int64T)
+TyBox (TyT(LitT (LitString "None")),UnionT {LitT (LitString "None"); ListT [LitT (LitString Some); PrimT Int64T]}) -> TyV(101,UnionT {LitT (LitString "None"); ListT [LitT (LitString Some); PrimT Int64T]})
+TyList [TyV(2,PrimT Float32T); TyLit (LitString "Hello"); TyV(3,PrimT CharT)] -> TyV(102,ListT [PrimT Float32T; PrimT StringT; PrimT CharT])
+```
 
 Destructuring is what usually comes after abstraction as it is used so often in the language. It is not the opposite of abstraction - it can't be since abstraction is the process throwing away information in a principled manner. Once that information is lost it can't be recovered.
 
@@ -4524,9 +4526,11 @@ Destructuring is always done at bindings and at list and map creation and before
 
 Here is how the process roughly works.
 
-`TyV(100, PrimT Int64T) -> TyV(100, PrimT Int64T)` // no change
-`TyV(101,UnionT {LitT (LitString "None"); ListT [LitT (LitString Some); PrimT Int64T]}) -> TyV(101,UnionT {LitT (LitString "None"); ListT [LitT (LitString Some); PrimT Int64T]})` // no change
-`TyV(102,ListT [PrimT Float32T; PrimT StringT; PrimT CharT]) -> TyList [TyV(103,PrimT Float32T); TyV(104,PrimT StringT); TyV(105,PrimT CharT)]`
+```
+TyV(100, PrimT Int64T) -> TyV(100, PrimT Int64T) // no change
+TyV(101,UnionT {LitT (LitString "None"); ListT [LitT (LitString Some); PrimT Int64T]}) -> TyV(101,UnionT {LitT (LitString "None"); ListT [LitT (LitString Some); PrimT Int64T]}) // no change
+TyV(102,ListT [PrimT Float32T; PrimT StringT; PrimT CharT]) -> TyList [TyV(103,PrimT Float32T); TyV(104,PrimT StringT); TyV(105,PrimT CharT)]
+```
 
 Spiral is crazy about turning variables inside out whenever it can. This has the effect of flattening them when they are passed through join points and makes it easy to support having partially static maps and lists in the language. Note that this does not change their type in any way. In the above examples the left and the right sides have completely equal types.
 
