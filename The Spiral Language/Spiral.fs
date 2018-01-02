@@ -390,6 +390,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let inline tev d expr = expr_peval d expr
         let inline apply_seq d x = !d.seq x
         let inline tev_seq d expr = let d = {d with seq=ref id; cse_env=ref !d.cse_env} in tev d expr |> apply_seq d
+        let inline tev_annot d expr = let d = {d with seq=ref id; cse_env=ref !d.cse_env} in tev d expr
         let inline tev_assume cse_env d expr = let d = {d with seq=ref id; cse_env=ref cse_env} in tev d expr |> apply_seq d
         let inline tev_method d expr = let d = {d with seq=ref id; cse_env=ref Map.empty} in tev d expr |> apply_seq d
         let inline tev_rec d expr = let d = {d with seq=ref id; cse_env=ref Map.empty; rbeh=AnnotationReturn} in tev d expr |> apply_seq d
@@ -542,14 +543,14 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let layout_to layout d a = layoutify layout d (tev d a)
 
-        let join_point_method d expr = 
+        let join_point_method (d: LangEnv) (expr: Expr): TypedExpr = 
             let {call_args=call_arguments; method_pars=method_parameters; renamer'=renamer}, renamed_env = renamer_apply_env d.env
             let length = renamer.Count
-            let join_point_key = nodify_memo_key (expr, renamed_env) 
+            let join_point_key: Node<Expr * EnvTerm> = nodify_memo_key (expr, renamed_env)
            
             let ret_ty = 
                 let d = {d with env=renamed_env; ltag=ref length}
-                let join_point_dict = join_point_dict_method
+                let join_point_dict: Dictionary<_,_> = join_point_dict_method
                 match join_point_dict.TryGetValue join_point_key with
                 | false, _ ->
                     join_point_dict.[join_point_key] <- JoinPointInEvaluation ()
@@ -984,9 +985,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let type_annot d a b =
             match d.rbeh with
-            | AnnotationReturn -> tev_seq {d with rbeh=AnnotationDive} b
+            | AnnotationReturn -> tev_annot {d with rbeh=AnnotationDive} b
             | AnnotationDive ->
-                let a, b = tev d a, tev_seq d b
+                let a, b = tev d a, tev_annot d b
                 let ta, tb = get_type a, get_type b
                 if ta = tb then a else on_type_er (trace d) <| sprintf "Type annotation mismatch.\n%s <> %s" (show_ty ta) (show_ty tb)
 

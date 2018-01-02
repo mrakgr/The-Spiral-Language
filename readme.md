@@ -45,6 +45,7 @@
         - [4: Boxing of Union Types](#4-boxing-of-union-types)
         - [5: Unboxing of Union Types](#5-unboxing-of-union-types)
         - [6: Join Points](#6-join-points)
+        - [7: The Prepass and Unused Variable Filtering](#7-the-prepass-and-unused-variable-filtering)
 
 <!-- /TOC -->
 
@@ -5374,6 +5375,235 @@ This is n^2 compilation for structural equality for fully boxed types. It could 
 For `Result` and `Option` types, what Spiral has currently has is sufficient. The rest can be done by propagating types at compile time.
 
 ### 6: Join Points
+
+Along with `inl`ineables, join points are Spiral's most iconic feature and what make it the crystallization of the staged functional programming style. 
+
+Currently there are 4 kinds of join points in total and this section will cover the vanilla one. The rest are quite similar to it though. The join point for term casting cannot be not placed directly, instead `term_cast` does it. So far the Cuda join point has not been shown in the tutorial, but will be covered here in the user guide in order to demonstrate Spiral's approach to language interop.
+
+Join points have a long history in Spiral. When work first started on Spiral the language originally had only inlineables, but some way of handling recursion had been necessary. So then the second thing that was added were `met`hods. They weren't join points at first, but a different kind of function that memoizes its result using a global dictionary.
+
+There wasn't a single great point where methods suddenly evolved into join points. It took the author a considerable amount of refactoring work in order to separate functions and where they join at the conceptual level. He had never seen such a feature in any other language up to that point so it was quite hard for him to internalize them and how they fit into the language.
+
+Regardless, join points are such an integral part of the whole staged functional programming experiences that language with staging, but no join points can be considered as simply toys and disregarded based on that fact.
+
+There are 2 aspects of join points that need to be kept in mind in order to understand them.
+
+1) Unused variable elimination.
+
+```
+inl a _ = ...
+inl b _ = ...a... // `a` should be in `b`'s lexical environment when the function is called
+inl c _ = ...a...b... // `a` and `b` should be in b's lexical environment when the function is called
+...
+```
+
+```
+inl a _ = ...
+inl b _ = ... // empty env
+inl c _ = ... // empty env
+...
+```
+
+Spiral always does unused variable filtering at function boundaries and that is necessary to guarantee predicable convergence for join points.
+
+If the environment always had everything it passed inside the join point, then those sucked in unused arguments would get specialized to as well which would not be good. This kind of optimization would not be necessary in dynamic languages, but is necessary in Spiral.
+
+Strictly speaking, Spiral does not do immediate filtration. It tends to keep a list of unused variables and delay the filtration until the last possible moment, but the semantics of immediate and lazy unused argument filtration are intended to be the same. It is just intended to be a performance optimization.
+
+2) Renaming.
+
+If the filtered arguments into join points are something like `{a=var_3; b=var_6; c=var_10}` they should be renamed to `{a=var_0; b=var_1; c=var_2}` before the expression can be memoized. This is simple enough to do and took the author around 2.5 month in order to understand properly and that is despite thinking about it the whole time.
+
+In practice, Spiral's renamer also collects the join point arguments along the way so the traversal is not repeated. It also collects the renamed arguments as well.
+
+```
+    let rec renamer_apply_env' (r: EnvRenamer) (C x) = Map.map (fun k -> renamer_apply_typedexpr' r) x
+    and renamer_apply_typedexpr' ({memo=memo; renamer=renamer; ref_call_args=call_args; ref_method_pars=method_pars} as r) e =
+        let inline f e = renamer_apply_typedexpr' r e
+        let inline rename (n,t as k) =
+            match renamer.TryGetValue n with
+            | true, v -> v,t
+            | false, _ ->
+                let n' = renamer.Count
+                renamer.Add(n,n')
+                call_args := k :: !call_args 
+                let k' = n', t
+                method_pars := k' :: !method_pars
+                k'
+
+        match memo.TryGetValue e with
+        | true, e -> e
+        | false, _ ->
+            match e with
+            | TyT _ -> e
+            | TyBox (n,t) -> tybox(f n,t)
+            | TyList l -> tyvv(List.map f l)
+            | TyMap(l,t) -> tymap(renamer_apply_env' r l |> consify_env_term, t)
+            | TyV (n,t as k) ->
+                let n', _ as k' = rename k
+                if n' = n then e else tyv k'
+            | TyLit _ -> e
+            | TyJoinPoint _ | TyOp _ | TyState _ | TyLet _ -> failwith "Only data structures in the env can be renamed."
+            |> fun x -> memo.[e] <- x; x
+```
+
+The above is in fact a map over `TypedExpr` that just does memoization using the `memo`. Memoization inside the renamer is an important optimization when doing renaming since the standard and core library function will repeat themselves significantly in nested functions.
+
+There isn't too much need to dwell on the above function. It is merely big, but not particularly complicated and does what it is name says.
+
+With that out of the way, here is the actual join point.
+
+```
+let join_point_method (d: LangEnv) (expr: Expr): TypedExpr = 
+    let {call_args=call_arguments; method_pars=method_parameters; renamer'=renamer}, renamed_env = renamer_apply_env d.env
+    let length = renamer.Count
+    let join_point_key: Node<Expr * EnvTerm> = nodify_memo_key (expr, renamed_env)
+    
+    let ret_ty = 
+        let d = {d with env=renamed_env; ltag=ref length}
+        let join_point_dict: Dictionary<_,_> = join_point_dict_method
+        match join_point_dict.TryGetValue join_point_key with
+        | false, _ ->
+            join_point_dict.[join_point_key] <- JoinPointInEvaluation ()
+            let typed_expr = tev_method d expr
+            join_point_dict.[join_point_key] <- JoinPointDone (method_parameters, typed_expr)
+            typed_expr
+        | true, JoinPointInEvaluation _ -> 
+            tev_rec d expr
+        | true, JoinPointDone (used_vars, typed_expr) -> 
+            typed_expr
+        |> get_type
+
+    ty_join_point join_point_key JoinPointMethod call_arguments ret_ty 
+    |> make_tyv_and_push_typed_expr_even_if_unit d
+```
+
+The `let join_point_key: Node<Expr * EnvTerm> = nodify_memo_key (expr, renamed_env)` line is a performance optimization so dictionary keys can be compared quickly. The actual key is `Expr * EnvTerm`, but a wrapper is put around it that ensures fast comparison.
+
+Here is the `Node` type.
+
+```
+type Node<'a>(expr:'a, symbol:int) = 
+    member x.Expression = expr
+    member x.Symbol = symbol
+    override x.ToString() = sprintf "<tag %i>" symbol
+    override x.GetHashCode() = symbol
+    override x.Equals(y) = 
+        match y with 
+        | :? Node<'a> as y -> symbol = y.Symbol
+        | _ -> failwith "Invalid equality for Node."
+
+    interface IComparable with
+        member x.CompareTo(y) = 
+            match y with
+            | :? Node<'a> as y -> compare symbol y.Symbol
+            | _ -> failwith "Invalid comparison for Node."
+```
+
+What `Node` does is allows two arbitrary expressions to be assigned an unique `symbol` and be compared using that.
+
+After renaming and making the `join_point_key`, the body of the join point is what comes.
+
+```
+let ret_ty = 
+    let d = {d with env=renamed_env; ltag=ref length}
+```
+
+Now the environment is assigned the renamed environment and the tag reference which is incremented every time a new variable is made is set to one past the highest argument in scope.
+
+```
+let join_point_dict: Dictionary<_,_> = join_point_dict_method
+match join_point_dict.TryGetValue join_point_key with
+| false, _ ->
+    join_point_dict.[join_point_key] <- JoinPointInEvaluation ()
+    let typed_expr = tev_method d expr
+    join_point_dict.[join_point_key] <- JoinPointDone (method_parameters, typed_expr)
+    typed_expr
+```
+
+This is the heart of the join point. In the first case which is hit when the join point is entered the first time, it sets the dictionary to indicate that the join point is evaluation.
+
+Then it calls `tev_method`. That particular method is similar to `tev_seq`.
+
+```
+let inline tev_seq d expr = let d = {d with seq=ref id; cse_env=ref !d.cse_env} in tev d expr |> apply_seq d
+let inline tev_assume cse_env d expr = let d = {d with seq=ref id; cse_env=ref cse_env} in tev d expr |> apply_seq d
+let inline tev_method d expr = let d = {d with seq=ref id; cse_env=ref Map.empty} in tev d expr |> apply_seq d
+let inline tev_rec d expr = let d = {d with seq=ref id; cse_env=ref Map.empty; rbeh=AnnotationReturn} in tev d expr |> apply_seq d
+```
+
+As can be seen when entering a new scope, all 4 functions set the `seq` to identity. `tev_seq` and `tev_assume` when entering a new scope make a copy of the `cse_env`. `tev_method` and `tev_rec` which are join point functions outright set it to empty.
+
+`tev_method` finishes running and returns the body of the join point, the join point is set to finished and the `typed_expr` is returned from the branch.
+
+```
+| true, JoinPointInEvaluation _ -> 
+    tev_rec d expr
+```
+
+This particular case can only ever happen during recursion. If it hits it means the function has essentially called itself. In order for it to not diverge it needs to get the return type.
+
+The `tev_rec` is exactly like `tev_method` except for setting the return behavior to `rbeh=AnnotationReturn`.
+
+There is only a single place where `rbeh` ever comes into play in the language. In the type annotation function.
+
+```
+let type_annot d a b =
+    match d.rbeh with
+    | AnnotationReturn -> tev_annot {d with rbeh=AnnotationDive} b
+    | AnnotationDive ->
+        let a, b = tev d a, tev_annot d b
+        let ta, tb = get_type a, get_type b
+        if ta = tb then a else on_type_er (trace d) <| sprintf "Type annotation mismatch.\n%s <> %s" (show_ty ta) (show_ty tb)
+```
+
+When `rbeh` is set to annotation return then it won't evaluate the body, but will just evaluate the right side of the annotation instead.
+
+```
+let inline tev_seq d expr = let d = {d with seq=ref id; cse_env=ref !d.cse_env} in tev d expr |> apply_seq d
+let inline tev_annot d expr = let d = {d with seq=ref id; cse_env=ref !d.cse_env} in tev d expr
+```
+
+`tev_annot` is identical to `tev_seq` except it throws away the intermediate statements and only returns the final expression.
+
+```
+        | true, JoinPointDone (used_vars, typed_expr) -> 
+            typed_expr
+```
+
+The last case does no evaluation and just returns the body.
+
+```
+        |> get_type
+
+    ty_join_point join_point_key JoinPointMethod call_arguments ret_ty 
+    |> make_tyv_and_push_typed_expr_even_if_unit d
+```
+
+This is the final stretch. The returned body gets converted into the return type `ret_ty` and then a join point is made and let inserted.
+
+```
+let ty_join_point key jp_type args ret_type = TyJoinPoint(key,jp_type,args,ret_type)
+```
+
+It might be more readable to make the join point directly, but a lot of the functions in the Spiral compiler that essentially act as the identity might have been been doing memoization in the past and are just stumps at the current point in time, so the author prefers to leave them alone in case inspiration hits him. At any rate, the final part is extremely straightforward.
+
+Before this chapter is done, a note is needed regarding the join point dictionaries.
+
+```
+// #Main
+let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as module_main) = 
+    let join_point_dict_method = d0()
+    let join_point_dict_closure = d0()
+    let join_point_dict_type = d0()
+    let join_point_dict_cuda = d0()
+```
+
+They are initialized at the very start of compilation and hash via structural equality. Because passing state would be annoying otherwise and since they are only ever added to, they are present during the entire compilation. Parsing and prepass does not touch them, but the code generator reads from them.
+
+Apart from the types and the core library, the entire compiler is a part of a single 3200 line function. The author didn't like stepping into that at first, but once he did so he found that the arrangement works surprisingly well and has had no trouble with it.
+
+### 7: The Prepass and Unused Variable Filtering
 
 (work in progress)
 
