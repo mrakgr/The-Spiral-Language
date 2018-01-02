@@ -42,7 +42,9 @@
         - [2: Let Insertion and Common Subexpression Elimination](#2-let-insertion-and-common-subexpression-elimination)
         - [3: The If Statement](#3-the-if-statement)
             - [Raising Type Errors](#raising-type-errors)
-        - [4: Boxing and Unboxing of Union Types](#4-boxing-and-unboxing-of-union-types)
+        - [4: Boxing of Union Types](#4-boxing-of-union-types)
+        - [5: Unboxing of Union Types](#5-unboxing-of-union-types)
+        - [6: Join Points](#6-join-points)
 
 <!-- /TOC -->
 
@@ -5112,7 +5114,7 @@ else
 
 If the conditional `c` is dynamic then the type error will always get triggered so this would not be very useful, but plenty of times functions of such form will get used with static conditionals. Plenty of times has `assert` been used in the tutorials.
 
-Here is how the `assert` is implemented in the core library. There is a more sophisticated version in `Extern` calls `show` as well.
+Here is how the `assert` is implemented in the core library. There is a slightly more sophisticated version in `Extern` calls `show` as well.
 
 ```
 inl assert c msg = 
@@ -5131,7 +5133,247 @@ Here is how it is implemented in the partial evaluator.
 
 So it is a simple `tev` and then the `on_type_er` gets called on the result of that. It is not particularly sophisticated, but then it does not have to be.
 
-### 4: Boxing and Unboxing of Union Types
+### 4: Boxing of Union Types
+
+Some languages can afford to be minimalist like Lisp, but Spiral is not that sort of language. It depends on a large number of first class features working seamlessly together. Without union types and term casting it would be harder to ensure convergence and the language would be poorer as a result. Though the lack of such features in a language with first class types like Spiral would immediately become obvious and the need for them would arise on its own.
+
+The way boxing works is simple. If the argument being boxed is a subset of the the type, then it gets wrapped in a `TyBox` otherwise it is a type error.
+
+Any complexity in the following function is just from needing to handle the various edge cases.
+
+```
+let type_box (d: LangEnv) (typec: Expr) (args: Expr): TypedExpr =
+    let typec & TyType ty, args = tev2 d typec args
+    let substitute_ty = function
+        | TyBox(x,_) -> tybox(x,ty)
+        | x -> tybox(x,ty)
+
+    let (|TyRecUnion|_|) = function
+        | UnionT ty' -> Some ty'
+        | RecT key -> Some (set_field (rect_unbox d key))
+        | _ -> None
+    
+    match ty, get_type args with
+    | x, r when x = r -> args
+    | TyRecUnion ty', UnionT ty_args when Set.isSubset ty_args ty' ->
+        let lam = inl' ["typec"; "args"] (op(Case,[v "args"; type_box (v "typec") (v "args")])) |> inner_compile
+        apply d (apply d lam typec) args
+    | TyRecUnion ty', x when Set.contains x ty' -> substitute_ty args
+    | _ -> on_type_er (trace d) <| sprintf "Type constructor application failed. %s does not intersect %s." (show_ty ty) (get_type args |> show_ty)
+```
+
+To start things off, here is how `tev2` is implemented.
+
+```
+let inline tev2 d a b = tev d a, tev d b
+let inline tev3 d a b c = tev d a, tev d b, tev d c
+let inline tev4 d a b c d' = tev d a, tev d b, tev d c, tev d d'
+```
+
+Not a big deal.
+
+```
+let typec & TyType ty, args = tev2 d typec args
+let substitute_ty = function
+    | TyBox(x,_) -> tybox(x,ty)
+    | x -> tybox(x,ty)
+```
+
+`substitute_ty` ty is fairly straightforward. The reason why it exists is because the argument being boxed might already by a `TyBox` in which case the box is just replaced.
+
+```
+let (|TyRecUnion|_|) = function
+    | UnionT ty' -> Some ty'
+    | RecT key -> Some (set_field (rect_unbox d key))
+    | _ -> None
+```
+
+Since the type being boxed to must be a union type, the above active pattern is what is responsible for that. If the type being boxed is a straightforward union type, then it just returns it. But if the type being boxed is a recursive type then it is unrolled a single level and converted into a union type.
+
+```
+match ty, get_type args with
+| x, r when x = r -> args
+| TyRecUnion ty', UnionT ty_args when Set.isSubset ty_args ty' ->
+    let lam = inl' ["typec"; "args"] (op(Case,[v "args"; type_box (v "typec") (v "args")])) |> inner_compile
+    apply d (apply d lam typec) args
+| TyRecUnion ty', x when Set.contains x ty' -> substitute_ty args
+| _ -> on_type_er (trace d) <| sprintf "Type constructor application failed. %s does not intersect %s." (show_ty ty) (get_type args |> show_ty)
+```
+
+The first case is straightforward. It is true that types can only be boxed into union types, but there is no need to throw an error on `box int64 1` for example. In that case returning the original should be fine.
+
+The second case is a bit less straightforward and deals with the case when a union type is being boxed with a larger union type as the target. Note the call to `Set.isSubset`. The description for it says `Evaluated to 'true' if all the elements of the first set are in the second.` What will happen in this case is that all the elements will get unboxed and boxed into the new type.
+
+The third case is straightforward and just does the substitution.
+
+The fourth case is straightforward and just raises a type error.
+
+### 5: Unboxing of Union Types
+
+Originally CSE was added to Spiral in order to propagate unboxing information. In the following function that handles the entirety of unboxing, it will be shown how that works.
+
+```
+        let case_ d v case =
+            let inline assume d v x branch = tev_assume (cse_add' d v x) d branch
+            match tev d v with
+            | a & TyBox(b,_) -> tev {d with cse_env = ref (cse_add' d a b)} case
+            | (TyV(_, t & (UnionT _ | RecT _)) | TyT(t & (UnionT _ | RecT _))) as v ->
+                let make_up_vars_for_ty (l: Ty list): TypedExpr list = List.map (make_up_vars_for_ty d) l
+                let map_to_cases (l: TypedExpr list): (TypedExpr * TypedExpr) list = List.map (fun x -> x, assume d v x case) l
+                            
+                match case_type d t |> make_up_vars_for_ty |> map_to_cases with
+                | (_, TyType p) :: cases as cases' -> 
+                    if List.forall (fun (_, TyType x) -> x = p) cases then 
+                        TyOp(Case,v :: List.collect (fun (a,b) -> [a;b]) cases', p) 
+                        |> make_tyv_and_push_typed_expr_even_if_unit d
+                    else 
+                        let l = List.map (snd >> get_type) cases'
+                        on_type_er (trace d) <| sprintf "All the cases in pattern matching clause with dynamic data must have the same type.\nGot: %s" (listt l |> show_ty)
+                | _ -> failwith "There should always be at least one clause here."
+            | _ -> tev d case
+```
+
+Near the very top there is `tev_assume` that was also used in `if_static`.
+
+```
+            match tev d v with
+            | a & TyBox(b,_) -> tev {d with cse_env = ref (cse_add' d a b)} case
+```
+
+The first case is straightforward. If the type is a `TyBox _`, that is a staged boxed type instead of being fully boxed then the box is thrown away. `cse_env` is used to rewrite the box `a` to what is inside it `b` as it goes to evaluate case.
+
+```
+        let rec case_type d args_ty =
+            let union_case = function
+                | UnionT l -> Set.toList l
+                | _ -> [args_ty]
+            match args_ty with
+            | RecT key -> union_case (rect_unbox d key)
+            | x -> union_case x
+...
+            | (TyV(_, t & (UnionT _ | RecT _)) | TyT(t & (UnionT _ | RecT _))) as v ->
+                let make_up_vars_for_ty (l: Ty list): TypedExpr list = List.map (make_up_vars_for_ty d) l
+                let map_to_cases (l: TypedExpr list): (TypedExpr * TypedExpr) list = List.map (fun x -> x, assume d v x case) l
+                            
+                match case_type d t |> make_up_vars_for_ty |> map_to_cases with
+```
+
+The 4 lines here make the meat of the function. First the boxed type is taken apart. If it is a union type then its member are returned in a list. If it is a recursive type then it is unrolled a level into a union type and then its members are returned into a list.
+
+Here is an example in pseudo-code.
+
+```
+union {.Some, int64 | .None} -> [.Some, int64; .None]
+```
+
+Since raw types can't be in the case expression what is needed is to assign them variables. `make_up_vars_for_ty` is what does this.
+
+Here is an example in pseudo-code.
+
+```
+.Some, int64 -> .Some, var int64
+.None -> .None
+```
+
+Then those two members are mapped to their case bodies in `map_to_cases`.
+
+This part might be a bit confusing. There aren't any case bodies strictly speaking; there is only one `case`. But that one `case` is in fact enough to cover all the pattern matching needs due to the magic of intensional polymorphism and first class staging. It will be shown later how the pattern compiler works and hopefully it will be clear why this works after that. As a short summary, the patterns are all CPS'd and the static ifs suffice to cover the entirety of the pattern matching needs.
+
+```
+                | (_, TyType p) :: cases as cases' -> 
+                    if List.forall (fun (_, TyType x) -> x = p) cases then 
+                        TyOp(Case,v :: List.collect (fun (a,b) -> [a;b]) cases', p) 
+                        |> make_tyv_and_push_typed_expr_even_if_unit d
+                    else 
+                        let l = List.map (snd >> get_type) cases'
+                        on_type_er (trace d) <| sprintf "All the cases in pattern matching clause with dynamic data must have the same type.\nGot: %s" (listt l |> show_ty)
+                | _ -> failwith "There should always be at least one clause here."
+```
+
+By this point, all the important work has been done and the rest is error checking and let insertion for the code generator in the next phase of compilation.
+
+```
+            | _ -> tev d case
+```
+
+If the argument is not a caseable (union or recursive) type then the unboxing is skipped. The partial evaluation just proceeds as normal.
+
+This is the entirety of unboxing. 
+
+```
+let inline assume d v x branch = tev_assume (cse_add' d v x) d branch
+```
+
+As a recap, consider how in the tutorial chapters it was warned against using join points in tandem with partial active patterns and union types. By now it should be clear why this is so. When a join point is entered, the rewriting information in `cse_env` is thrown away. Since `cse_env` is used to propagate unboxing information as shown in the above function, that is where the difficulty arises.
+
+As it stands, unboxing in Spiral is fairly primitive. ML compilers go a lot further in optimizing pattern matching expressions than Spiral and in its current form, Spiral is not really suitable for writing runtime interpreters as its unboxing facilities are not developed enough.
+
+For example, it has structural equality, but...
+
+```
+inl ty = .A \/ .B \/ .C \/ .E
+inl a = box ty .A |> dyn
+inl b = box ty .B |> dyn
+
+a = b
+```
+```
+type Union0 =
+    | Union0Case0
+    | Union0Case1
+    | Union0Case2
+    | Union0Case3
+let rec method_0((var_0: Union0), (var_1: Union0)): bool =
+    match var_0 with
+    | Union0Case0 ->
+        match var_1 with
+        | Union0Case0 ->
+            true
+        | Union0Case1 ->
+            false
+        | Union0Case2 ->
+            false
+        | Union0Case3 ->
+            false
+    | Union0Case1 ->
+        match var_1 with
+        | Union0Case0 ->
+            false
+        | Union0Case1 ->
+            true
+        | Union0Case2 ->
+            false
+        | Union0Case3 ->
+            false
+    | Union0Case2 ->
+        match var_1 with
+        | Union0Case0 ->
+            false
+        | Union0Case1 ->
+            false
+        | Union0Case2 ->
+            true
+        | Union0Case3 ->
+            false
+    | Union0Case3 ->
+        match var_1 with
+        | Union0Case0 ->
+            false
+        | Union0Case1 ->
+            false
+        | Union0Case2 ->
+            false
+        | Union0Case3 ->
+            true
+let (var_0: Union0) = Union0Case0
+let (var_1: Union0) = Union0Case1
+method_0((var_0: Union0), (var_1: Union0))
+```
+This is n^2 compilation for structural equality for fully boxed types. It could be dealt with by introducing a different kind of case, but it is not a priority by any means at the moment.
+
+For `Result` and `Option` types, what Spiral has currently has is sufficient. The rest can be done by propagating types at compile time.
+
+### 6: Join Points
 
 (work in progress)
 

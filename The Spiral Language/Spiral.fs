@@ -698,12 +698,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             match tev d v with
             | a & TyBox(b,_) -> tev {d with cse_env = ref (cse_add' d a b)} case
             | (TyV(_, t & (UnionT _ | RecT _)) | TyT(t & (UnionT _ | RecT _))) as v ->
-                let rec map_cases l =
-                    match l with
-                    | x :: xs -> (x, assume d v x case) :: map_cases xs
-                    | _ -> []
+                let make_up_vars_for_ty (l: Ty list): TypedExpr list = List.map (make_up_vars_for_ty d) l
+                let map_to_cases (l: TypedExpr list): (TypedExpr * TypedExpr) list = List.map (fun x -> x, assume d v x case) l
                             
-                match map_cases (case_type d t |> List.map (make_up_vars_for_ty d)) with
+                match case_type d t |> make_up_vars_for_ty |> map_to_cases with
                 | (_, TyType p) :: cases as cases' -> 
                     if List.forall (fun (_, TyType x) -> x = p) cases then 
                         TyOp(Case,v :: List.collect (fun (a,b) -> [a;b]) cases', p) 
@@ -911,7 +909,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 apply d (apply d on_succ (tyt a)) (tyt b)
             | x -> tev d on_fail
 
-        let type_box d typec args =
+        let type_box (d: LangEnv) (typec: Expr) (args: Expr): TypedExpr =
             let typec & TyType ty, args = tev2 d typec args
             let substitute_ty = function
                 | TyBox(x,_) -> tybox(x,ty)
