@@ -13,19 +13,22 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = []
     }
 
-//rewrite_test_cache cfg None //(Some(0,40))
+rewrite_test_cache cfg None //(Some(0,40))
 
 let example = 
-    "example",[option;tuple;loops;extern_;console;host_tensor],"Module description.",
+    "example",[option;tuple;loops;extern_;console;host_tensor;cuda],"Module description.",
     """
-inl f = function 
-    | {a ^ b} -> a
-    | _ -> true
-f {}
+inl fact to = Loops.for {from=2; to state=dyn 1; body=inl {state i} -> state * i}
+openb Cuda
+run {
+    blockDim=1
+    gridDim=1
+    kernel=cuda fact 3 |> ignore
+    }
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example
-|> printfn "%s"
-|> ignore
+//output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example
+//|> printfn "%s"
+//|> ignore
 

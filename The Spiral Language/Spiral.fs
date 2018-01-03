@@ -266,19 +266,22 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     let rec just_one = function
                         | x :: xs -> 
                             let xs = just_one xs
-                            inl state_var (cp arg x (if_static state_var' on_fail (ap xs (bool true))) (ap xs state_var'))
-                        | [] -> inl state_var on_succ
+                            inl state_var 
+                                (cp arg x 
+                                    (if_static state_var' on_fail (ap xs (bool true))) // true case
+                                    (ap xs state_var')) // false case
+                        | [] -> inl state_var (if_static state_var' on_succ on_fail)
                     ap (just_one l) (bool false)
+                | PatLit x -> 
+                    let x = lit x
+                    let on_succ = if_static (eq arg x) on_succ on_fail
+                    if_static (eq_type arg x) on_succ on_fail |> case arg
                 | PatTypeLit x -> 
                     if_static (eq_type arg (type_lit_lift x)) on_succ on_fail 
                     |> case arg
                 | PatTypeLitBind x -> 
                     if_static (type_lit_is arg) (l x (type_lit_cast arg) on_succ) on_fail 
                     |> case arg
-                | PatLit x -> 
-                    let x = lit x
-                    let on_succ = if_static (eq arg x) on_succ on_fail
-                    if_static (eq_type arg x) on_succ on_fail |> case arg
                 | PatWhen (p, e) -> cp arg p (if_static e on_succ on_fail) on_fail
                 | PatModuleIs p -> module_is_cps arg on_fail (cp arg p on_succ on_fail) |> case arg
                 | PatModuleMember name -> module_member_cps arg name on_fail (inl name on_succ) |> case arg

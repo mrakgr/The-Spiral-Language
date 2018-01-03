@@ -47,9 +47,11 @@
         - [6: Join Points](#6-join-points)
         - [7: The Prepass and Unused Variable Filtering](#7-the-prepass-and-unused-variable-filtering)
         - [8: Pattern Compilation](#8-pattern-compilation)
+            - [Type Equality Pattern](#type-equality-pattern)
             - [Tuples](#tuples)
             - [Active Patterns](#active-patterns)
             - [Boolean Patterns](#boolean-patterns)
+            - [Literal Patterns](#literal-patterns)
 
 <!-- /TOC -->
 
@@ -5881,7 +5883,9 @@ Here is how `l`et is implemented in the language.
 let l v b e = ap (inl v e) b
 ```
 
-Let statements can easily be desugared into function abstraction and then application. In HM style languages there are some advantages to having separate let statements for the sake of generalization, but not in Spiral so it choses the easiest route. It made debugging a pain since it turned the program inside out, but that does not matter anymore.
+Let statements can easily be desugared into function abstraction and then application. In HM style languages there are some advantages to having separate let statements for the sake of generalization, but not in Spiral so it choses the easiest route. It made debugging a pain since it turned the program inside out and hence unprintable in raw form, but that does not matter anymore.
+
+#### Type Equality Pattern
 
 ```
             | PatTypeEq (exp,typ) ->
@@ -6143,14 +6147,17 @@ The examples won't be provided for the above 3, the users can rest assured that 
                 let rec just_one = function
                     | x :: xs -> 
                         let xs = just_one xs
-                        inl state_var (cp arg x (if_static state_var' on_fail (ap xs (bool true))) (ap xs state_var'))
-                    | [] -> inl state_var on_succ
+                        inl state_var 
+                            (cp arg x 
+                                (if_static state_var' on_fail (ap xs (bool true))) // true case
+                                (ap xs state_var')) // false case
+                    | [] -> inl state_var (if_static state_var' on_succ on_fail)
                 ap (just_one l) (bool false)
 ```
 
-`PatXor` is definitely the most complex of all the patterns. Currently it can only be placed inside the module pattern. It is also misnamed as unlike the boolean pattern, it cannot be used to flip back forth.
+`PatXor` is definitely the most complex of all the patterns. Currently it can only be placed inside the module pattern. It is also misnamed as unlike the boolean pattern, it cannot be used to flip back and forth.
 
-For `pat0 ^ pat1 ... ^ patn` it ensures that only one of the patterns triggers.
+For `pat0 ^ pat1 ... ^ patn` it ensures that only one of the patterns triggers. And is false when there are no patterns.
 
 It is a bit annoying to sketch out what it does hand by hand, so as an alternative consider this example written in F#.
 
@@ -6158,14 +6165,25 @@ It is a bit annoying to sketch out what it does hand by hand, so as an alternati
 let rec just_one state = function
     | true :: xs -> if state then false else just_one true xs
     | false :: xs -> just_one state xs
-    | [] -> true
+    | [] -> state
 
-just_one false [] // true
+just_one false [] // false
 just_one false [true;false] // true
-just_one false [false;false] // true
+just_one false [false;false] // false
 just_one false [false;true;false] // true
 just_one false [false;false;true] // true
 just_one false [true;false;true] // false
 ```
 
-[Author's Note: That false false case should not be giving true. Whops. This is also present in the Spiral's pattern. Let me fix it.]
+What the `PatXor` does is translate the above into execution flow for the evaluator. It is just one example of how compilation makes composing languages much easier than interpretation. This is also an argument in favor of powerful type systems such as Spiral's because they make composition much easier. After a certain point this translates into a permanent advantage beyond what even dynamic languages offer due to the ability to cross language boundaries.
+
+#### Literal Patterns
+
+```
+            | PatLit x -> 
+                let x = lit x
+                let on_succ = if_static (eq arg x) on_succ on_fail
+                if_static (eq_type arg x) on_succ on_fail |> case arg
+```
+
+...
