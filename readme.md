@@ -72,13 +72,17 @@ Statically typed functional programming language compiling to F# and Cuda C with
 ##### For the compiler:
 
 FParsec
+
 Visual Studio 2017 F# template (.NET desktop development)
 
 ##### For the Cuda using Spiral libraries:
 
 ManagedCuda 8.0 + (CUBLAS,CURAND)
+
 Cuda SDK 8.0 + 9.0 (8.0 for the libraries and 9.0 for the NVCC compiler)
+
 The Cuda Unbound library
+
 Visual Studio 2017 C++ tools individual component (VC++ 2017 v141 toolset (x86,x64))
 
 ## Tutorials: Introduction to Spiral
