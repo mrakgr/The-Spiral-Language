@@ -13,7 +13,7 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = []
     }
 
-//rewrite_test_cache cfg None //(Some(0,40))
+rewrite_test_cache cfg None //(Some(0,40))
 
 let example = 
     "example",[option;tuple;loops;extern_;console;host_tensor;cuda],"Module description.",

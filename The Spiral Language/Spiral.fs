@@ -680,7 +680,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | JoinPointDone (ty, packed_ty) -> ty
             |> rect_unbox' d
 
-        let type_get d a = tev_seq d a |> get_type |> TyT
+        let type_get d a = tev_annot d a |> get_type |> TyT
         let rec case_type d args_ty =
             let union_case = function
                 | UnionT l -> Set.toList l
@@ -3230,7 +3230,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let x = Succ (spiral_fsharp_codegen x)
             printfn "Time for codegen was: %A" watch.Elapsed
             x
-        with 
+        with
         | :? TypeError as e -> 
             let trace, message = e.Data0, e.Data1
             Fail <| print_type_error trace message
