@@ -52,6 +52,12 @@
             - [Active Patterns](#active-patterns)
             - [Boolean Patterns](#boolean-patterns)
             - [Literal Patterns](#literal-patterns)
+            - [Module Patterns](#module-patterns)
+            - [When Pattern](#when-pattern)
+            - [Term Function Type Pattern](#term-function-type-pattern)
+            - [The Pos Pattern](#the-pos-pattern)
+            - [A Note On Case](#a-note-on-case)
+        - [9: Layout Types](#9-layout-types)
 
 <!-- /TOC -->
 
@@ -5629,29 +5635,31 @@ and Expr =
     | ExprPos of Pos<Expr>
 ```
 
-The way it works is rather simple. Prepass is a rightwards fold + map over `Expr`.
+The way it works is rather simple. Prepass is a rightwards fold + map over `Expr`. It also does memoization.
 
 ```
     and expr_prepass e =
-        let inline f e = expr_prepass e
-        match e with
-        | V (N n) -> Set.singleton n, e
-        | Op(N(op',l)) ->
-            let l,l' = List.map f l |> List.unzip
-            Set.unionMany l, op(op',l')
-        | VV (N l) -> 
-            let l,l' = List.map f l |> List.unzip
-            Set.unionMany l, vv l'
-        | FunctionFilt(N (vars,N(name,body))) ->
-            Set.remove name vars, e
-        | Function(N(name,body)) ->
-            let vars,body = f body
-            Set.remove name vars, func_filt(vars,nodify_func(name,body))
-        | Lit _ -> Set.empty, e
-        | Pattern pat -> pattern_compile pat
-        | ExprPos p -> 
-            let vars, body = f p.Expression
-            vars, expr_pos p.Pos body
+        e |> memoize prepass_dict (fun e ->
+            let inline f e = expr_prepass e
+            match e with
+            | V (N n) -> Set.singleton n, e
+            | Op(N(op',l)) ->
+                let l,l' = List.map f l |> List.unzip
+                Set.unionMany l, op(op',l')
+            | VV (N l) -> 
+                let l,l' = List.map f l |> List.unzip
+                Set.unionMany l, vv l'
+            | FunctionFilt(N (vars,N(name,body))) ->
+                Set.remove name vars, e
+            | Function(N(name,body)) ->
+                let vars,body = f body
+                Set.remove name vars, func_filt(vars,nodify_func(name,body))
+            | Lit _ -> Set.empty, e
+            | Pattern pat -> pattern_compile pat
+            | ExprPos p -> 
+                let vars, body = f p.Expression
+                vars, expr_pos p.Pos body
+            )
 ```
 
 I a nutshell, if it find a `V _` then it adds it to the set. If it finds a function it removes variable with the name of its binding from the set. It does it top to bottom so the thing works.
@@ -5683,8 +5691,6 @@ Whenever `C env` is seen as a part of the pattern, this is what happens. If it i
 This might seem complicated, but the type system takes care that no mistakes are made when dealing with environments. It was really trivial to move from immediate to lazy filtering.
 
 ### 8: Pattern Compilation
-
-(work in progress)
 
 ```
 let pattern_dict = d0()
@@ -5733,6 +5739,7 @@ let rec pattern_compile (pat: Node<_>) =
                 ap' (v a) [arg; on_fail; on_succ]
             | PatOr l -> List.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
             | PatAnd l -> List.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
+            | PatNot p -> cp arg p on_fail on_succ // switches the on_fail and on_succ arguments
             | PatXor l ->
                 let state_var = new_pat_var()
                 let state_var' = v state_var
@@ -5740,20 +5747,22 @@ let rec pattern_compile (pat: Node<_>) =
                 let rec just_one = function
                     | x :: xs -> 
                         let xs = just_one xs
-                        inl state_var (cp arg x (if_static state_var' on_fail (ap xs (bool true))) (ap xs state_var'))
-                    | [] -> inl state_var on_succ
+                        inl state_var 
+                            (cp arg x 
+                                (if_static state_var' on_fail (ap xs (bool true))) // true case
+                                (ap xs state_var')) // false case
+                    | [] -> inl state_var (if_static state_var' on_succ on_fail)
                 ap (just_one l) (bool false)
-            | PatNot p -> cp arg p on_fail on_succ
+            | PatLit x -> 
+                let x = lit x
+                let on_succ = if_static (eq arg x) on_succ on_fail
+                if_static (eq_type arg x) on_succ on_fail |> case arg
             | PatTypeLit x -> 
                 if_static (eq_type arg (type_lit_lift x)) on_succ on_fail 
                 |> case arg
             | PatTypeLitBind x -> 
                 if_static (type_lit_is arg) (l x (type_lit_cast arg) on_succ) on_fail 
                 |> case arg
-            | PatLit x -> 
-                let x = lit x
-                let on_succ = if_static (eq arg x) on_succ on_fail
-                if_static (eq_type arg x) on_succ on_fail |> case arg
             | PatWhen (p, e) -> cp arg p (if_static e on_succ on_fail) on_fail
             | PatModuleIs p -> module_is_cps arg on_fail (cp arg p on_succ on_fail) |> case arg
             | PatModuleMember name -> module_member_cps arg name on_fail (inl name on_succ) |> case arg
@@ -6185,5 +6194,191 @@ What the `PatXor` does is translate the above into execution flow for the evalua
                 let on_succ = if_static (eq arg x) on_succ on_fail
                 if_static (eq_type arg x) on_succ on_fail |> case arg
 ```
+
+At some point in the future these might get their own dedicated CPS operations just like tuples, but it is interesting to study them the way they are right now. If the later this changes in the source there is no need to be surprised. The meaning of the pattern won't change.
+
+What is happening above is that first a type equality check is made (otherwise the equality could throw a type error) and then the equality is tested for. Here is how that would compile.
+
+```
+function
+| 1 -> body1
+| 2 -> body2
+```
+```
+inl pat_var_6_0 ->
+    if eq_type pat_var_6_0 1 then
+        if pat_var_6_0 = 1 then body1
+        else 
+            if eq_type pat_var_6_0 2 then
+                if pat_var_6_0 = 2 then body2
+                else on_fail // pattern miss
+            else on_fail // pattern miss
+
+    elif eq_type pat_var_6_0 2 then
+        if pat_var_6_0 = 2 then body2
+        else on_fail // pattern miss
+    else on_fail // pattern miss
+```
+
+The above demonstrates why would it be good to replace the operation with a single CPS'd operation. 
+
+```
+            | PatTypeLit x -> 
+                if_static (eq_type arg (type_lit_lift x)) on_succ on_fail 
+                |> case arg
+```
+
+Since type literals are types they are compared using `eq_type` rather than `=`. Trying to do so with `=` would cause a type error.
+
+```
+            | PatTypeLitBind x -> 
+                if_static (type_lit_is arg) (l x (type_lit_cast arg) on_succ) on_fail 
+                |> case arg
+```
+
+The language has specialized operations in order to cast type literals to the term level like it is possible with functions. The full list of `Op`eratives will be in the reference.
+
+```
+let type_lit_cast x = (TypeLitCast,[x]) |> op
+```
+
+Here is how `type_lit_cast` is implemented. The following is how it is done in the evaluator.
+
+```
+let type_lit_cast d a =
+    match tev d a with
+    | TyT (LitT x) -> TyLit x
+    | _ -> on_type_er (trace d) "Expected a literal in type literal cast."
+```
+
+Type literals are always expected to be naked types.
+
+#### Module Patterns
+
+```
+            | PatModuleIs p -> module_is_cps arg on_fail (cp arg p on_succ on_fail) |> case arg
+            | PatModuleMember name -> module_member_cps arg name on_fail (inl name on_succ) |> case arg
+            | PatModuleRebind(name,b) -> 
+                let arg' = new_pat_var()    
+                module_member_cps arg name on_fail (inl arg' (cp (v arg') b on_succ on_fail)) 
+                |> case arg
+```
+
+The patterns remaining are nearly over. Explicit examples won't be provided for the above as it should be straightforward by now. As a note, `PatModuleIs` is only created when the module pattern is empty.
+
+Here is how `module_is_cps` is implemented in the evaluator.
+
+```
+let module_is_cps d a on_fail on_succ =
+    match tev d a with
+    | M(_,_,MapTypeModule) -> tev d on_succ
+    | _ -> tev d on_fail
+```
+
+Here is the other one.
+
+```
+let module_member_cps d a b on_fail on_succ =
+    match tev2 d a b with
+    | M(layout,env_term,MapTypeModule) & recf, b -> 
+        match b with
+        | TyLit (LitString n) -> 
+            let inline unpack k = v_find env_term n (fun () -> tev d on_fail) k
+            match layout with
+            | None -> unpack (apply d (tev d on_succ))
+            | _ -> unpack (apply d (tev d on_succ) << layout_boxed_unseal d recf)
+        | x -> on_type_er (trace d) <| sprintf "Expecting a string as the second argument to ModuleMemberCPS.\nGot: %s" (show_typedexpr x)
+    | x,_ -> tev d on_fail
+```
+
+Whatever complexity is here, it is because the module pattern has to also work on layout types. Layout types need to be explicitly unsealed instead of reached into directly.
+
+Here is how `v_find` is implemented.
+
+```
+let inline v_find env x on_fail on_succ = 
+    let run env = 
+        match Map.tryFind x env with
+        | Some v -> on_succ v
+        | None -> on_fail()
+    match env with
+    | Env env -> run env
+    | EnvConsed env -> run env.node
+    | EnvUnfiltered (env, used_vars) -> if used_vars.Contains x then run env else on_fail()
+```
+
+It roughly as one would expect. It takes an `env` and two continuations and runs them depending on whether it finds the member in the dictionary.
+
+With that in mind, here is `unpack` again with the type of `k` added.
+
+```
+let inline unpack (k: TypedExpr -> TypedExpr) = v_find env_term n (fun () -> tev d on_fail) k
+```
+
+`k` is merely the `on_succ` argument.
+
+If the code is unclear then what the suggested course of action is to try inlining the code by hand and seeing if starts making sense.
+
+#### When Pattern
+
+```
+            | PatWhen (p, e) -> cp arg p (if_static e on_succ on_fail) on_fail
+```
+
+This one is straightforward. The author had more difficulty parsing it than implementing it. What it does is first tries the left pattern side and makes the `on_succ` argument the when check.
+
+#### Term Function Type Pattern
+
+```
+            | PatTypeTermFunction(a,b) -> 
+                let va, vb = new_pat_var(), new_pat_var()
+                term_fun_dom_range_cps arg on_fail 
+                <| inl' [va; vb] (cp (v va) a (cp (v vb) b on_succ on_fail) on_fail)
+```
+
+This the `=>` pattern that was covered during the implementation of `closure_of`. Here is how it is implemented in the evaluator.
+
+```
+        let term_fun_dom_range_cps d x on_fail on_succ =
+            match tev d x with
+            | TyType(TermFunctionT (a,b)) -> 
+                let on_succ = tev d on_succ    
+                apply d (apply d on_succ (tyt a)) (tyt b)
+            | x -> tev d on_fail
+```
+
+It a pretty straightforward mapping. It extracts the types and applies them to the `on_succ` continuation otherwise it calls `on_fail`.
+
+#### The Pos Pattern
+
+```
+| PatPos p -> expr_pos p.Pos (cp arg p.Expression on_succ on_fail)
+```
+
+This one is not placed by the user but by the parser. This pattern is converted into the `ExprPos` node.
+
+Here is how it looks like in the evaluator.
+
+```
+let inline add_trace (d: LangEnv) x = {d with trace = x :: d.trace}
+...
+| ExprPos p -> tev (add_trace d p.Pos) p.Expression
+```
+
+The trace is of course what the user gets when he makes a type error.
+
+#### A Note On Case
+
+For the purpose of simplification whenever `|> case arg` has appeared, it has been ignored.
+
+```
+let case arg case = (Case,[arg;case]) |> op
+```
+
+What it does is what was covered in the `Unboxing of Union Types` chapter of the user guide.
+
+### 9: Layout Types
+
+(work in progress)
 
 ...

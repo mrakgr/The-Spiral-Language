@@ -213,6 +213,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
     // #Prepass
     let pattern_dict = d0()
+    let prepass_dict = d0()
     let rec pattern_compile (pat: Node<_>) = 
         pat |> memoize pattern_dict (fun pat ->
             let node = pat.Symbol
@@ -282,18 +283,18 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | PatTypeLitBind x -> 
                     if_static (type_lit_is arg) (l x (type_lit_cast arg) on_succ) on_fail 
                     |> case arg
-                | PatWhen (p, e) -> cp arg p (if_static e on_succ on_fail) on_fail
                 | PatModuleIs p -> module_is_cps arg on_fail (cp arg p on_succ on_fail) |> case arg
                 | PatModuleMember name -> module_member_cps arg name on_fail (inl name on_succ) |> case arg
                 | PatModuleRebind(name,b) -> 
                     let arg' = new_pat_var()    
                     module_member_cps arg name on_fail (inl arg' (cp (v arg') b on_succ on_fail)) 
                     |> case arg
-                | PatPos p -> expr_pos p.Pos (cp arg p.Expression on_succ on_fail)
+                | PatWhen (p, e) -> cp arg p (if_static e on_succ on_fail) on_fail
                 | PatTypeTermFunction(a,b) -> 
                     let va, vb = new_pat_var(), new_pat_var()
                     term_fun_dom_range_cps arg on_fail 
                     <| inl' [va; vb] (cp (v va) a (cp (v vb) b on_succ on_fail) on_fail)
+                | PatPos p -> expr_pos p.Pos (cp arg p.Expression on_succ on_fail)
                     
             let main_arg = new_pat_var()
             let arg = v main_arg
@@ -305,25 +306,27 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             
 
     and expr_prepass e =
-        let inline f e = expr_prepass e
-        match e with
-        | V (N n) -> Set.singleton n, e
-        | Op(N(op',l)) ->
-            let l,l' = List.map f l |> List.unzip
-            Set.unionMany l, op(op',l')
-        | VV (N l) -> 
-            let l,l' = List.map f l |> List.unzip
-            Set.unionMany l, vv l'
-        | FunctionFilt(N (vars,N(name,body))) ->
-            Set.remove name vars, e
-        | Function(N(name,body)) ->
-            let vars,body = f body
-            Set.remove name vars, func_filt(vars,nodify_func(name,body))
-        | Lit _ -> Set.empty, e
-        | Pattern pat -> pattern_compile pat
-        | ExprPos p -> 
-            let vars, body = f p.Expression
-            vars, expr_pos p.Pos body
+        e |> memoize prepass_dict (fun e ->
+            let inline f e = expr_prepass e
+            match e with
+            | V (N n) -> Set.singleton n, e
+            | Op(N(op',l)) ->
+                let l,l' = List.map f l |> List.unzip
+                Set.unionMany l, op(op',l')
+            | VV (N l) -> 
+                let l,l' = List.map f l |> List.unzip
+                Set.unionMany l, vv l'
+            | FunctionFilt(N (vars,N(name,body))) ->
+                Set.remove name vars, e
+            | Function(N(name,body)) ->
+                let vars,body = f body
+                Set.remove name vars, func_filt(vars,nodify_func(name,body))
+            | Lit _ -> Set.empty, e
+            | Pattern pat -> pattern_compile pat
+            | ExprPos p -> 
+                let vars, body = f p.Expression
+                vars, expr_pos p.Pos body
+            )
 
     // #Renaming
     let inline renamables0() = {memo=Dictionary(HashIdentity.Reference); renamer=d0(); ref_call_args=ref []; ref_method_pars=ref []} : EnvRenamer
@@ -1512,7 +1515,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let t, a = tev_seq d t, tev d a
             TyOp(op,[a],get_type t) |> make_tyv_and_push_typed_expr_even_if_unit d
            
-        let inline add_trace (d: LangEnv) x = {d with trace = x :: (trace d)}
+        let inline add_trace (d: LangEnv) x = {d with trace = x :: d.trace}
 
         match expr with
         | Lit (N value) -> TyLit value
