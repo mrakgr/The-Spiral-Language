@@ -226,7 +226,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     x
                 fun () -> sprintf " pat_var_%i_%i" node (get_pattern_tag())
 
-            let rec pattern_compile arg pat on_succ on_fail =
+            let rec pattern_compile (arg: Expr) (pat: Pattern) (on_succ: Expr) (on_fail: Expr): Expr =
                 let inline cp arg pat on_succ on_fail = pattern_compile arg pat on_succ on_fail
 
                 let pat_tuple_helper l =
@@ -234,35 +234,31 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         let arg = new_pat_var()
                         c + 1, arg :: s,cp (v arg) pat on_succ on_fail) l (0,[],on_succ)
            
-                let pat_tuple l =
-                    let count, args, on_succ = pat_tuple_helper l
-                    list_taken_cps count arg on_fail (inl' args on_succ) |> case arg
-
-                let pat_cons l = 
-                    let count, args, on_succ = pat_tuple_helper l
-                    list_taken_tail_cps count arg on_fail (inl' args on_succ) |> case arg
-
-                let pat_part_active a pat on_fail arg =
-                    let pat_var = new_pat_var()
-                    let on_succ = inl pat_var (cp (v pat_var) pat on_succ on_fail)
-                    let on_fail = inl "" on_fail
-                    ap' (v a) [arg; on_fail; on_succ]
-            
                 match pat with
+                | PatClauses l -> List.foldBack (fun (pat, exp) on_fail -> cp arg pat exp on_fail) l on_fail
                 | PatE -> on_succ
                 | PatVar x -> l x arg on_succ
                 | PatTypeEq (exp,typ) ->
                     let on_succ = cp arg exp on_succ on_fail
                     if_static (eq_type arg typ) on_succ on_fail
                     |> case arg
-                | PatTuple l -> pat_tuple l
-                | PatCons l -> pat_cons l
+                | PatTuple l -> 
+                    let count, args, on_succ = pat_tuple_helper l
+                    list_taken_cps count arg on_fail (inl' args on_succ) |> case arg
+                | PatCons l -> 
+                    let count, args, on_succ = pat_tuple_helper l
+                    list_taken_tail_cps count arg on_fail (inl' args on_succ) |> case arg
                 | PatActive (a,b) ->
                     let pat_var = new_pat_var()
                     l pat_var (ap (v a) arg) (cp (v pat_var) b on_succ on_fail)
-                | PatPartActive (a,pat) -> pat_part_active a pat on_fail arg
+                | PatPartActive (a,pat) -> 
+                    let pat_var = new_pat_var()
+                    let on_succ = inl pat_var (cp (v pat_var) pat on_succ on_fail)
+                    let on_fail = inl "" on_fail
+                    ap' (v a) [arg; on_fail; on_succ]
                 | PatOr l -> List.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
                 | PatAnd l -> List.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
+                | PatNot p -> cp arg p on_fail on_succ // switches the on_fail and on_succ arguments
                 | PatXor l ->
                     let state_var = new_pat_var()
                     let state_var' = v state_var
@@ -273,8 +269,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                             inl state_var (cp arg x (if_static state_var' on_fail (ap xs (bool true))) (ap xs state_var'))
                         | [] -> inl state_var on_succ
                     ap (just_one l) (bool false)
-                | PatNot p -> cp arg p on_fail on_succ
-                | PatClauses l -> List.foldBack (fun (pat, exp) on_fail -> cp arg pat exp on_fail) l on_fail
                 | PatTypeLit x -> 
                     if_static (eq_type arg (type_lit_lift x)) on_succ on_fail 
                     |> case arg
@@ -304,7 +298,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let pattern_compile_def_on_succ = op(ErrorPatClause,[])
             let pattern_compile_def_on_fail = op(ErrorPatMiss,[arg])
             inl main_arg (pattern_compile arg pat pattern_compile_def_on_succ pattern_compile_def_on_fail) |> expr_prepass
-            ) 
+            )
             
 
     and expr_prepass e =
@@ -938,27 +932,31 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyList b -> tyvv(a::b)
             | _ -> on_type_er (trace d) "Expected a tuple on the right in ListCons."
 
-        let inline list_taken_template op_name loop d a arg on_fail on_succ = 
+        let list_taken (d: LangEnv) (a: Expr) (arg: Expr) (on_fail: Expr) (on_succ: Expr) = 
             match tev d a with
             | TyLitIndex c -> 
                 match tev d arg with
-                | TyList args -> loop [] (c,args)
+                | TyList args -> 
+                    let rec loop = function
+                        | 0,[] -> List.fold (fun on_succ arg -> apply d on_succ arg) (tev d on_succ) args
+                        | _,[] | 0, _ -> tev d on_fail
+                        | c,_ :: x' -> loop (c-1,x')
+                    loop (c,args)
                 | _ -> tev d on_fail
-            | x -> on_type_er (trace d) "Expected an int literal as the first input to %s.\nGot: %s" op_name (show_typedexpr x)
+            | x -> on_type_er (trace d) "Expected an int literal as the first input to ListTakeN.\nGot: %s" (show_typedexpr x)
 
-        let list_taken d a arg on_fail on_succ =
-            let rec loop args = function
-                | 0,[] -> List.foldBack (fun arg on_succ -> apply d on_succ arg) args (tev d on_succ)
-                | _,[] | 0, _ -> tev d on_fail
-                | c,x :: x' -> loop (x :: args) (c-1,x')
-            list_taken_template "ListTakeN" loop d a arg on_fail on_succ
-
-        let list_taken_tail d a arg on_fail on_succ =
-            let rec loop args = function
-                | 0,x' -> List.foldBack (fun arg on_succ -> apply d on_succ arg) (tyvv x' :: args) (tev d on_succ)
-                | _,[] -> tev d on_fail
-                | c,x :: x' -> loop (x :: args) (c-1,x')
-            list_taken_template "ListTakeNTail" loop d a arg on_fail on_succ
+        let list_taken_tail d a arg on_fail on_succ = 
+            match tev d a with
+            | TyLitIndex c -> 
+                match tev d arg with
+                | TyList args -> 
+                    let rec loop args = function
+                        | 0,x' -> List.foldBack (fun arg on_succ -> apply d on_succ arg) (tyvv x' :: args) (tev d on_succ)
+                        | _,[] -> tev d on_fail
+                        | c,x :: x' -> loop (x :: args) (c-1,x')
+                    loop [] (c,args)
+                | _ -> tev d on_fail
+            | x -> on_type_er (trace d) "Expected an int literal as the first input to ListTakeNTail.\nGot: %s" (show_typedexpr x)
 
         let eq_type d a b =
             let a, b = tev2 d a b 
@@ -1519,7 +1517,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         | FunctionFilt(N (vars,N (pat, body))) -> 
             // Note: Without having tags for var generation in pattern_compile, the following can cause a hygiene issue 
             // in tandem with recursive functions. Test101 is there to guard against this.
-            let env = match d.env with | EnvUnfiltered (env,_) | Env env | EnvConsed (CN env) -> env
+            let env = match d.env with EnvUnfiltered (env,_) | Env env | EnvConsed (CN env) -> env
             tymap(EnvUnfiltered (env,vars), MapTypeFunction (pat, body))
         | Function core -> failwith "Function not allowed in this phase as it tends to cause stack overflows in recursive scenarios."
         | Pattern pat -> failwith "Pattern not allowed in this phase as it tends to cause stack overflows when prepass is triggered in the match case."

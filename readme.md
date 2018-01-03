@@ -46,6 +46,10 @@
         - [5: Unboxing of Union Types](#5-unboxing-of-union-types)
         - [6: Join Points](#6-join-points)
         - [7: The Prepass and Unused Variable Filtering](#7-the-prepass-and-unused-variable-filtering)
+        - [8: Pattern Compilation](#8-pattern-compilation)
+            - [Tuples](#tuples)
+            - [Active Patterns](#active-patterns)
+            - [Boolean Patterns](#boolean-patterns)
 
 <!-- /TOC -->
 
@@ -5590,7 +5594,7 @@ This is the final stretch. The returned body gets converted into the return type
 let ty_join_point key jp_type args ret_type = TyJoinPoint(key,jp_type,args,ret_type)
 ```
 
-It might be more readable to make the join point directly, but a lot of the functions in the Spiral compiler that essentially act as the identity might have been been doing memoization in the past and are just stumps at the current point in time, so the author prefers to leave them alone in case inspiration hits him. At any rate, the final part is extremely straightforward.
+It might be more readable to make the join point directly, but a lot of the functions in the Spiral compiler that essentially act as the identity might have been been doing memoization in the past and are just stumps at the current point in time, so the author prefers to leave them alone in case inspiration hits him. At any rate, the final part of the join point is extremely straightforward.
 
 Before this chapter is done, a note is needed regarding the join point dictionaries.
 
@@ -5605,10 +5609,563 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
 They are initialized at the very start of compilation and hash via structural equality. Because passing state would be annoying otherwise and since they are only ever added to, they are present during the entire compilation. Parsing and prepass does not touch them, but the code generator reads from them.
 
-Apart from the types and the core library, the entire compiler is a part of a single 3200 line function. The author didn't like stepping into that at first, but once he did so he found that the arrangement works surprisingly well and has had no trouble with it.
+Apart from the types and the core library, the entire compiler is a part of a single 3200 line function. The author didn't like stepping into that at first, but once he did so he found that the arrangement works surprisingly well and has had no trouble with it since then.
 
 ### 7: The Prepass and Unused Variable Filtering
 
+The prepass works before partial evaluation, but after parsing. Its goal is to convert `Function`s to `FunctionFilt`s which have the set of used variables their bodies. It also calls `pattern_compile` in order to compile the `Pattern`s into `Expr`s.
+
+```
+and Expr = 
+    | V of Node<string>
+    | Lit of Node<Value>
+    | Pattern of Node<Pattern>
+    | Function of Node<FunctionCore>
+    | FunctionFilt of Node<Set<string> * Node<FunctionCore>>
+    | VV of Node<Expr list>
+    | Op of Node<Op * Expr list>
+    | ExprPos of Pos<Expr>
+```
+
+The way it works is rather simple. Prepass is a rightwards fold + map over `Expr`.
+
+```
+    and expr_prepass e =
+        let inline f e = expr_prepass e
+        match e with
+        | V (N n) -> Set.singleton n, e
+        | Op(N(op',l)) ->
+            let l,l' = List.map f l |> List.unzip
+            Set.unionMany l, op(op',l')
+        | VV (N l) -> 
+            let l,l' = List.map f l |> List.unzip
+            Set.unionMany l, vv l'
+        | FunctionFilt(N (vars,N(name,body))) ->
+            Set.remove name vars, e
+        | Function(N(name,body)) ->
+            let vars,body = f body
+            Set.remove name vars, func_filt(vars,nodify_func(name,body))
+        | Lit _ -> Set.empty, e
+        | Pattern pat -> pattern_compile pat
+        | ExprPos p -> 
+            let vars, body = f p.Expression
+            vars, expr_pos p.Pos body
+```
+
+I a nutshell, if it find a `V _` then it adds it to the set. If it finds a function it removes variable with the name of its binding from the set. It does it top to bottom so the thing works.
+
+With this in mind, now it can be revealed what `EnvTerm` is.
+
+```
+and EnvTerm = 
+| EnvConsed of ConsedNode<Map<string, TypedExpr>>
+| Env of Map<string, TypedExpr>
+| EnvUnfiltered of Map<string, TypedExpr> * Set<string>
+```
+
+In the previous versions of Spiral, the unused arguments were filtered every time `FunctionFilt` was reached, but the author decided he did not want the entire environment to be iterated over every time so he decided to add some laziness to the mix.
+
+Every time `EnvTerm` is accessed it is either converted to `Env` if it is unfiltered or a check is made first against the used variable set. `EnvConsed` is similar to `Env`. In the renamer as a performance optimization, the environment is [hash consed](https://en.wikipedia.org/wiki/Hash_consing). To see how that works check out `SpiralHashConsing.fs`. For the understanding of language semantics understanding hash consing is not particularly important. It might be worth reevaluating whether hash consing is worth having since the evaluator has went through several iteration since that was useful.
+
+```
+let c = function
+| Env env -> env
+| EnvUnfiltered (env,used_vars) -> Map.filter (fun k _ -> used_vars.Contains k) env
+| EnvConsed env -> env.node
+
+let (|C|) x = c x
+```
+
+Whenever `C env` is seen as a part of the pattern, this is what happens. If it is unfiltered, then it gets filtered otherwise it is just extracted.
+
+This might seem complicated, but the type system takes care that no mistakes are made when dealing with environments. It was really trivial to move from immediate to lazy filtering.
+
+### 8: Pattern Compilation
+
 (work in progress)
 
+```
+let pattern_dict = d0()
+let rec pattern_compile (pat: Node<_>) = 
+    pat |> memoize pattern_dict (fun pat ->
+        let node = pat.Symbol
+        let pat = pat.Expression
+
+        let new_pat_var =
+            let mutable i = 0
+            let get_pattern_tag () = 
+                let x = i
+                i <- i + 1
+                x
+            fun () -> sprintf " pat_var_%i_%i" node (get_pattern_tag())
+
+        let rec pattern_compile (arg: Expr) (pat: Pattern) (on_succ: Expr) (on_fail: Expr): Expr =
+            let inline cp arg pat on_succ on_fail = pattern_compile arg pat on_succ on_fail
+
+            let pat_tuple_helper l =
+                List.foldBack (fun pat (c,s,on_succ) -> 
+                    let arg = new_pat_var()
+                    c + 1, arg :: s,cp (v arg) pat on_succ on_fail) l (0,[],on_succ)
+        
+            match pat with
+            | PatClauses l -> List.foldBack (fun (pat, exp) on_fail -> cp arg pat exp on_fail) l on_fail
+            | PatE -> on_succ
+            | PatVar x -> l x arg on_succ
+            | PatTypeEq (exp,typ) ->
+                let on_succ = cp arg exp on_succ on_fail
+                if_static (eq_type arg typ) on_succ on_fail
+                |> case arg
+            | PatTuple l -> 
+                let count, args, on_succ = pat_tuple_helper l
+                list_taken_cps count arg on_fail (inl' args on_succ) |> case arg
+            | PatCons l -> 
+                let count, args, on_succ = pat_tuple_helper l
+                list_taken_tail_cps count arg on_fail (inl' args on_succ) |> case arg
+            | PatActive (a,b) ->
+                let pat_var = new_pat_var()
+                l pat_var (ap (v a) arg) (cp (v pat_var) b on_succ on_fail)
+            | PatPartActive (a,pat) -> 
+                let pat_var = new_pat_var()
+                let on_succ = inl pat_var (cp (v pat_var) pat on_succ on_fail)
+                let on_fail = inl "" on_fail
+                ap' (v a) [arg; on_fail; on_succ]
+            | PatOr l -> List.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
+            | PatAnd l -> List.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
+            | PatXor l ->
+                let state_var = new_pat_var()
+                let state_var' = v state_var
+                let bool x = lit <| LitBool x
+                let rec just_one = function
+                    | x :: xs -> 
+                        let xs = just_one xs
+                        inl state_var (cp arg x (if_static state_var' on_fail (ap xs (bool true))) (ap xs state_var'))
+                    | [] -> inl state_var on_succ
+                ap (just_one l) (bool false)
+            | PatNot p -> cp arg p on_fail on_succ
+            | PatTypeLit x -> 
+                if_static (eq_type arg (type_lit_lift x)) on_succ on_fail 
+                |> case arg
+            | PatTypeLitBind x -> 
+                if_static (type_lit_is arg) (l x (type_lit_cast arg) on_succ) on_fail 
+                |> case arg
+            | PatLit x -> 
+                let x = lit x
+                let on_succ = if_static (eq arg x) on_succ on_fail
+                if_static (eq_type arg x) on_succ on_fail |> case arg
+            | PatWhen (p, e) -> cp arg p (if_static e on_succ on_fail) on_fail
+            | PatModuleIs p -> module_is_cps arg on_fail (cp arg p on_succ on_fail) |> case arg
+            | PatModuleMember name -> module_member_cps arg name on_fail (inl name on_succ) |> case arg
+            | PatModuleRebind(name,b) -> 
+                let arg' = new_pat_var()    
+                module_member_cps arg name on_fail (inl arg' (cp (v arg') b on_succ on_fail)) 
+                |> case arg
+            | PatPos p -> expr_pos p.Pos (cp arg p.Expression on_succ on_fail)
+            | PatTypeTermFunction(a,b) -> 
+                let va, vb = new_pat_var(), new_pat_var()
+                term_fun_dom_range_cps arg on_fail 
+                <| inl' [va; vb] (cp (v va) a (cp (v vb) b on_succ on_fail) on_fail)
+                
+        let main_arg = new_pat_var()
+        let arg = v main_arg
+                
+        let pattern_compile_def_on_succ = op(ErrorPatClause,[])
+        let pattern_compile_def_on_fail = op(ErrorPatMiss,[arg])
+        inl main_arg (pattern_compile arg pat pattern_compile_def_on_succ pattern_compile_def_on_fail) |> expr_prepass
+        )
+```
+
+The pattern compilation function is a rather large function so it is worth going on it in turn. Its purpose is to turn a `Pattern` into an `Expr`ession for easier compilation down the road.
+
+As a brief history of its development, this way of compiling or rather dealing with patterns came only after 4.5 months into Spiral's development and it represents one of the big breakthroughs that gives Spiral the expressiveness that it has now.
+
+Before that Spiral had pattern matching and had so from the start, but instead of compiling `Pattern`s to `Expr`s what it did was try to evaluate them directly in the evaluator. That made dealing with them really, really difficult. Essentially, having another interpreted language directly in the evaluator made the patterns very non-composable and isolated from the rest of the language and during those times as a result Spiral could only deal with simple patterns that could be dealt completely at compile time. Without compiling them it would have been very difficult to implement partially static patterns such as for union types.
+
+Also not doing compilation would necessitate that the prepass also take care of propagating variables through the `Pattern` which made it much more complicated.
+
+Dealing with control flow in `Pattern`s is especially difficult when they are interpreted.
+
+What `pattern_compile` does is not just convert them to `Expr`, but while it is doing that it also CPS's them.
+
+It is worth going through the function top to bottom.
+
+```
+let pattern_dict = d0()
+let rec pattern_compile (pat: Node<_>) = 
+    pat |> memoize pattern_dict (fun pat ->
+        let node = pat.Symbol
+        let pat = pat.Expression
+
+        let new_pat_var =
+            let mutable i = 0
+            let get_pattern_tag () = 
+                let x = i
+                i <- i + 1
+                x
+            fun () -> sprintf " pat_var_%i_%i" node (get_pattern_tag())
+```
+
+This is its entry. In order to take a precaution that a pattern is only compiled once, it is memoized. It slips the authors mind whether this is actually necessary, but here it is.
+
+`new_pat_var` is just a tagger function that returns fresh names.
+
+```
+        let rec pattern_compile (arg: Expr) (pat: Pattern) (on_succ: Expr) (on_fail: Expr): Expr =
+            let inline cp arg pat on_succ on_fail = pattern_compile arg pat on_succ on_fail
+```
+
+If there is a programing problem, the continuation passing style probably has a solution for it. Note that using the `on_fail on_succ` order is preferable to `on_succ on_fail`, but the author got careless this time. This would be fixable, but the type system will not be as helpful as usual because both are of type `Expr` so refactoring is dangerous here. Modules were added in Spiral in order to make deciding function argument order easier and take care of situations like this. They are also there for extensibility, but in F# since the type system is always on hand it is better to rely on it instead, though the author does hope that Spiral will inspire F# to improve its record syntax.
+
+Instead of diving directly into the function, it would be worth to start near the beginning just before it is called.
+
+```
+            let main_arg = new_pat_var()
+            let arg = v main_arg
+                    
+            let pattern_compile_def_on_succ = op(ErrorPatClause,[])
+            let pattern_compile_def_on_fail = op(ErrorPatMiss,[arg])
+            inl main_arg (pattern_compile arg pat pattern_compile_def_on_succ pattern_compile_def_on_fail) |> expr_prepass
+```
+
+Always, the pattern is wrapped in an inlineable, and its main argument is passed into the function. By default, the on_succ and on_fail are errors which will trigger if the evaluator ever reaches them.
+
+`PatClauses` is always the first to trigger and is never found inside another pattern.
+
+```
+| PatClauses of (Pattern * Expr) list
+```
+```
+            match pat with
+            | PatClauses l -> List.foldBack (fun (pat, exp) on_fail -> cp arg pat exp on_fail) l on_fail
+```
+Compilation of the pattern is a rightwards fold, meaning it proceeds from the end to the beginning.
+
+`PatClauses` could be simplified by turning it into a combination of the `PatAnd` and the `PatOr` patterns. The way patterns work is as follows - if the pattern is successful, in the later stage the evaluator will call `on_succ`. Hence why `exp` replaces the default `on_succ` in `PatClauses`.
+
+On the other hand if the evaluator fail to find a match, it will call `on_fail`. It can be visualized like so:
+
+```
+pat1 pat2 pat3 -> ...
+pat4 -> ...
+pat5 -> ...
+```
+
+Evaluator always starts at `pat1` and then moves to `pat2` if is successful. If it is a failure it goes to `pat4` and works from there.
+
+That the `pattern_compile` does is through the magic of CPS give the evaluator a choice of simply having the continuations there for it to call. It compiles the patterns into such a form that the desired behavior happens.
+
+```
+| PatE -> on_succ
+```
+
+Suppose a pattern like `inl _ -> body` directly in the language. There is only one clause and only `PatE` here.
+
+So based on what is known it could be expected that it would get compiled as something like `inl main_arg -> on_succ`. `on_succ` is just the body here and so it works.
+
+```
+| PatVar x -> l x arg on_succ
+```
+
+`PatVar` is similar, but it it the arg must be bound to `x` first.
+
+So `inl x -> body` would be compiled to something like (in pseudo-code):
+
+```
+inl pat_var_0_0 -> 
+    inl x = pat_var_0_0
+    body
+```
+
+Here is how `l`et is implemented in the language.
+
+```
+let l v b e = ap (inl v e) b
+```
+
+Let statements can easily be desugared into function abstraction and then application. In HM style languages there are some advantages to having separate let statements for the sake of generalization, but not in Spiral so it choses the easiest route. It made debugging a pain since it turned the program inside out, but that does not matter anymore.
+
+```
+            | PatTypeEq (exp,typ) ->
+                let on_succ = cp arg exp on_succ on_fail
+                if_static (eq_type arg typ) on_succ on_fail
+                |> case arg
+```
+
+Type equality is the `:` operator when on the pattern side. How this works could be written directly in the language itself as the following.
+
+```
+function
+| _: int64 -> body1
+| _: float32 -> body2
+| _: string -> body3
+```
+
+```
+inl pat_var_1_0 ->
+    if eq_type pat_var_1_0 int64 then body1
+    elif eq_type pat_var_1_0 float32 then body2
+    elif eq_type pat_var_1_0 string then body3
+    else on_fail // pattern miss
+```
+
+#### Tuples
+
+```
+let list_taken_cps count arg on_fail on_succ = op(ListTakeNCPS,[lit (LitInt32 count);arg;on_fail;on_succ])
+let list_taken_tail_cps count arg on_fail on_succ = op(ListTakeNTailCPS,[lit (LitInt32 (count-1));arg;on_fail;on_succ])
 ...
+            let pat_tuple_helper l =
+                List.foldBack (fun pat (c,s,on_succ) -> 
+                    let arg = new_pat_var()
+                    c + 1, arg :: s,cp (v arg) pat on_succ on_fail) l (0,[],on_succ)
+...
+            | PatTuple l -> 
+                let count, args, on_succ = pat_tuple_helper l
+                list_taken_cps count arg on_fail (inl' args on_succ) |> case arg
+```
+
+`pat_tuple_helper` takes the count of the pattern, makes up new pattern variables for each of the pattern arguments and also recursively maps the inner pattern.
+
+Here is an example of how this would work.
+
+```
+inl a,b,c -> body
+```
+```
+inl pat_var_2_0 -> // pat_var_2_0 is main_arg
+    !ListTakeNCPS(
+        3i32
+        ,pat_var_2_0 
+        ,inl pat_var_2_1 pat_var_2_2 pat_var_2_3 -> 
+            inl a = pat_var_2_1
+            inl b = pat_var_2_2
+            inl c = pat_var_2_3
+            body
+        ,on_fail // pattern miss
+        )
+```
+
+As you can see in the above, the pattern compiler is a bit stupid and is doing redundant bindings. This has no runtime impact as `inl`ineables get inlined period, but does cause slowdown at compile time.
+
+Here an example with multiple patterns. 
+
+```
+function
+| a,b,c -> body1
+| q,w -> body2
+```
+```
+inl pat_var_3_0 -> // pat_var_3_0 is main_arg
+    !ListTakeNCPS(
+        3i32
+        ,pat_var_3_0
+        ,inl pat_var_3_1 pat_var_3_2 pat_var_3_3 -> 
+            inl a = pat_var_3_1
+            inl b = pat_var_3_2
+            inl c = pat_var_3_3
+            body1
+        ,!ListTakeNCPS(
+            2i32
+            ,pat_var_3_0
+            ,inl pat_var_3_4 pat_var_3_5 -> 
+                inl q = pat_var_3_4
+                inl w = pat_var_3_5
+                body2
+            ,on_fail // pattern_miss
+            )
+        )
+```
+Here is how `ListTakeN` operation is implemented in the evaluator.
+
+```
+let inline list_taken_template op_name loop d a arg on_fail on_succ = 
+    match tev d a with
+    | TyLitIndex c -> 
+        match tev d arg with
+        | TyList args -> loop [] (c,args)
+        | _ -> tev d on_fail
+    | x -> on_type_er (trace d) "Expected an int literal as the first input to %s.\nGot: %s" op_name (show_typedexpr x)
+
+let list_taken d a arg on_fail on_succ =
+    let rec loop args = function
+        | 0,[] -> List.foldBack (fun arg on_succ -> apply d on_succ arg) args (tev d on_succ)
+        | _,[] | 0, _ -> tev d on_fail
+        | c,x :: x' -> loop (x :: args) (c-1,x')
+    list_taken_template "ListTakeN" loop d a arg on_fail on_succ
+```
+
+Figuring this out will take some specialization by hand.
+
+```
+let list_taken (d: LangEnv) (a: Expr) (arg: Expr) (on_fail: Expr) (on_succ: Expr) = 
+    match tev d a with
+    | TyLitIndex c -> 
+        match tev d arg with
+        | TyList args -> 
+            let rec loop args = function
+                | 0,[] -> List.foldBack (fun arg on_succ -> apply d on_succ arg) args (tev d on_succ)
+                | _,[] | 0, _ -> tev d on_fail
+                | c,x :: x' -> loop (x :: args) (c-1,x')
+            loop [] (c,args)
+        | _ -> tev d on_fail
+    | x -> on_type_er (trace d) "Expected an int literal as the first input to ListTakeN.\nGot: %s" (show_typedexpr x)
+```
+
+The recursive loop is a bit convoluted so it is worth going through step by step. The loop can be split into two phases:
+
+1) Making sure that the tuple has exactly the specified number of arguments.
+
+```
+                | _,[] | 0, _ -> tev d on_fail
+                | c,x :: x' -> loop (x :: args) (c-1,x')
+```
+That is ensured by this particular segment.
+
+2) Assuming the number arguments in the tuple is correct, then they are all applied to the `on_succ` in correct order.
+
+```
+                | 0,[] -> List.foldBack (fun arg on_succ -> apply d on_succ arg) args (tev d on_succ)
+```
+
+Why does the loop reverse the argument list before applying it? Absolutely no reason.
+
+If this were the tutorials, the author would quietly fix this, but since the user guide is meant for power users, it would be worth showing how the compiler can be improved in action.
+
+```
+let list_taken (d: LangEnv) (a: Expr) (arg: Expr) (on_fail: Expr) (on_succ: Expr) = 
+    match tev d a with
+    | TyLitIndex c -> 
+        match tev d arg with
+        | TyList args -> 
+            let rec loop = function
+                | 0,[] -> List.fold (fun on_succ arg -> apply d on_succ arg) (tev d on_succ) args
+                | _,[] | 0, _ -> tev d on_fail
+                | c,_ :: x' -> loop (c-1,x')
+            loop (c,args)
+        | _ -> tev d on_fail
+    | x -> on_type_er (trace d) "Expected an int literal as the first input to ListTakeN.\nGot: %s" (show_typedexpr x)
+```
+
+This actually sped up the compiler by a few % since the tuple pattern is so frequently used.
+
+Moving on to the cons pattern.
+
+```
+            | PatCons l -> 
+                let count, args, on_succ = pat_tuple_helper l
+                list_taken_tail_cps count arg on_fail (inl' args on_succ) |> case arg
+```
+
+It is quite similar to the standard tuple pattern.
+
+So is how it is implemented in the evaluator.
+
+```
+let list_taken_tail d a arg on_fail on_succ = 
+    match tev d a with
+    | TyLitIndex c -> 
+        match tev d arg with
+        | TyList args -> 
+            let rec loop args = function
+                | 0,x' -> List.foldBack (fun arg on_succ -> apply d on_succ arg) (tyvv x' :: args) (tev d on_succ)
+                | _,[] -> tev d on_fail
+                | c,x :: x' -> loop (x :: args) (c-1,x')
+            loop [] (c,args)
+        | _ -> tev d on_fail
+    | x -> on_type_er (trace d) "Expected an int literal as the first input to ListTakeNTail.\nGot: %s" (show_typedexpr x)
+```
+
+Note that in the cons pattern now collecting the leftover arguments has a definite purpose.
+
+#### Active Patterns
+
+```
+            | PatActive (a,b) ->
+                let pat_var = new_pat_var()
+                l pat_var (ap (v a) arg) (cp (v pat_var) b on_succ on_fail)
+```
+
+Here is an example how this works.
+
+```
+inl !dyn x -> body
+```
+```
+inl pat_var_4_0 ->
+    inl pat_var_1 = dyn pat_var_4_0
+    inl x = pat_var_1
+    body
+```
+
+Here is the partial active pattern.
+
+```
+            | PatPartActive (a,pat) -> 
+                let pat_var = new_pat_var()
+                let on_succ = inl pat_var (cp (v pat_var) pat on_succ on_fail)
+                let on_fail = inl "" on_fail
+                ap' (v a) [arg; on_fail; on_succ]
+```
+
+Here is an example of its compilation in action.
+
+```
+inl f arg on_fail on_succ = on_succ arg
+inl @f x -> body
+```
+```
+inl pat_var_5_0 ->
+    inl on_succ pat_var_5_1 = 
+        inl x = pat_var_5_1
+        body
+    inl on_fail _ = on_fail // pattern miss
+    f pat_var_5_0 on_fail on_succ
+```
+
+Spiral's ability to propagate information deeply makes it easy to compile active patterns to CPS'd control flow.
+
+#### Boolean Patterns
+
+```
+            | PatOr l -> List.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
+            | PatAnd l -> List.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
+            | PatNot p -> cp arg p on_fail on_succ // switches the on_fail and on_succ arguments
+```
+
+`PatOr` links the patterns through the `on_fail`. `PatAnd` links the arguments through the `on_succ`. `PatNot` just switches the arguments.
+
+The examples won't be provided for the above 3, the users can rest assured that they are doing their job.
+
+```
+            | PatXor l ->
+                let state_var = new_pat_var()
+                let state_var' = v state_var
+                let bool x = lit <| LitBool x
+                let rec just_one = function
+                    | x :: xs -> 
+                        let xs = just_one xs
+                        inl state_var (cp arg x (if_static state_var' on_fail (ap xs (bool true))) (ap xs state_var'))
+                    | [] -> inl state_var on_succ
+                ap (just_one l) (bool false)
+```
+
+`PatXor` is definitely the most complex of all the patterns. Currently it can only be placed inside the module pattern. It is also misnamed as unlike the boolean pattern, it cannot be used to flip back forth.
+
+For `pat0 ^ pat1 ... ^ patn` it ensures that only one of the patterns triggers.
+
+It is a bit annoying to sketch out what it does hand by hand, so as an alternative consider this example written in F#.
+
+```
+let rec just_one state = function
+    | true :: xs -> if state then false else just_one true xs
+    | false :: xs -> just_one state xs
+    | [] -> true
+
+just_one false [] // true
+just_one false [true;false] // true
+just_one false [false;false] // true
+just_one false [false;true;false] // true
+just_one false [false;false;true] // true
+just_one false [true;false;true] // false
+```
+
+[Author's Note: That false false case should not be giving true. Whops. This is also present in the Spiral's pattern. Let me fix it.]

@@ -59,6 +59,7 @@
     <Content Include="packages.config" />
     <Compile Include="Learning.fs" />
     <Compile Include="run.fs" />
+    <None Include="Script1.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="CudaBlas">
