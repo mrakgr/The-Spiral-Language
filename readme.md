@@ -5,6 +5,8 @@
 - [Table of Contents](#table-of-contents)
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
+        - [Intro](#intro)
+        - [Design Philosophy](#design-philosophy)
     - [Dependencies](#dependencies)
                 - [For the compiler:](#for-the-compiler)
                 - [For the Cuda using Spiral libraries:](#for-the-cuda-using-spiral-libraries)
@@ -69,7 +71,49 @@
 
 ## Overview
 
-Statically typed functional programming language compiling to F# and Cuda C with decent integration for both. Is extremely efficient and expressive, and boasts having intensional polymorphism and first-class staging. Made for the sake of making a deep learning library which was too difficult to do in F# itself for its author.
+### Intro
+
+As the world inexorably hurls towards the black maw of tomorrow, the power to face it is needed.
+
+Throughout the history of programming languages, the choice was between fast or expressive; the two traditions are crystallized by the C and the Lisp family of languages. There has been a lot of effort into this, but always as languages developed and moved forward they stepped away from the bare metal and in turn lost some of that core vitality that is needed for performance.
+
+The culprit for this is the heap allocation by default dogma introduced by Lisp decades ago. It is a clutch for languages with weak type systems.
+
+Abstraction by heap allocation is a dead end. It works moderately well on the current generation of computers where CPU is still the dominant driver of computation.
+
+It cannot work for devices like GPUs and the rest coming down the line. Many of the most important computational devices of the future won't support heap allocation so an alternative is needed to draw out their full power. It is of absolute importance that a language for that task have excellent control over inlining. Inlining therefore must comes as guarantee in the language and be a part of the type system.
+
+Inlining is a trade-off that expresses the exchange of memory for computation. It should be the default instead of heap allocating.
+
+A language good enough at propagating information so as to be capable of expressing inlining guarantees is also powerful enough for expressing a lot of other things well - without any abstraction overhead.
+
+1) First class types.
+2) Structural reflection through pattern matching.
+3) Interoperability between different languages (such as F# and Cuda.)
+4) First class functions.
+5) Tuples as heterogeneous lists.
+6) First class modules.
+7) First class layouts of data structures.
+
+Spiral is such a language.
+
+Statically typed and with a lightweight, very powerful type system giving it expressiveness of dynamic languages and the speed of C, Spiral is the crystallization of staged functional programming. It boasts of having intensional polymorphism and first class staging. It was made for the sake of making a deep learning library which was too difficult to do in F# itself for its author.
+
+### Design Philosophy
+
+Automatically doing type inference, inlining and other optimizations requires restrictions and heuristics in order to ensure termination. Languages that make the choice of automating the important parts of their internals invariably hamstring their expressiveness. Even if they end up doing well on some low level benchmarks, they perform poorly when high level abstractions are required.
+
+Spiral is different. The power of Spiral lies in its novel kind of language design, not compiler smartness. Spiral is a static language without any restrictions on either type inference or optimizations.
+
+It introduces novel constructs such as inlineables and join points, exposes optimizations as polymorphism in its type system, and then ties them together and with the rest of the features in such a manner so as to allow programs to be written so they terminate.
+
+The halting problem is the primary obstacle preventing the bridging of expressiveness and performance. Ultimately, C is a competing style more than it is a competing language. It is something other higher level languages regress to once they start worrying about performance.
+
+In Spiral, inlining by hand will never be necessary.
+
+In Spiral, the most abstract way of writing a program is also the optimal one from a performance standpoint.
+
+Spiral exists to abstract away optimization.
 
 ## Dependencies
 
