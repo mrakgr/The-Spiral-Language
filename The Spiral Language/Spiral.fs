@@ -532,7 +532,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | x -> on_type_er (trace d) <| sprintf "Cannot turn the argument into a non-layout type. Got: %s" (show_typedexpr x)
         let layout_to_none d a = layout_to_none' d (tev d a)
 
-        let rec layoutify layout d = function
+        let rec layoutify (layout: LayoutType) (d: LangEnv) = function
             | TyMap(env,t) as a ->
                 let {renamer'=r}, env' = renamer_apply_envc env
                 if r.Count = 0 then LayoutT(layout,env',t) |> tyt
@@ -540,7 +540,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyType(LayoutT(layout',_,_)) as a ->
                 if layout <> layout' then layout_to_none' d a |> layoutify layout d else a
             | x -> on_type_er (trace d) <| sprintf "Cannot turn the argument into a layout type. Got: %s" (show_typedexpr x)
-
         let layout_to layout d a = layoutify layout d (tev d a)
 
         let join_point_method (d: LangEnv) (expr: Expr): TypedExpr = 

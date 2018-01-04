@@ -58,6 +58,7 @@
             - [The Pos Pattern](#the-pos-pattern)
             - [A Note On Case](#a-note-on-case)
         - [9: Layout Types](#9-layout-types)
+        - [10: Macros](#10-macros)
 
 <!-- /TOC -->
 
@@ -4495,7 +4496,9 @@ More information will be provided in the coming months.
 
 ## User Guide: The Spiral Power
 
-While the tutorial was meant to be a light introduction to the language, the user guide is intended to be an in depth guide not just into the language, but into the workings of the compiler. As it currently stands, the compiler in its entirety is at about 4.1k LOC. And while the parser and the codegens have their charm points, the part of interest which is the partial evaluator for Spiral is only 1.6k LOC. Out of that 1.6k probably around 1000 lines are vital to its functioning, meaning as the language continues to grow and more operatives get added, the essence of it should remain intact.
+While the tutorial was meant to be a light introduction to the language, the user guide is intended to be an in depth guide not just into the language, but into the workings of the compiler. It is not intended to be exhaustive, but to cover the core language features and their implementation for the sake of making the user more confident in traversing the Spiral's source should that be needed. 
+
+As it currently stands, the compiler in its entirety is at about 4.1k LOC. And while the parser and the codegens have their charm points, the part of interest which is the partial evaluator for Spiral is only 1.6k LOC. Out of that 1.6k probably around 1000 lines are vital to its functioning, meaning as the language continues to grow and more operatives get added, the essence of it should remain intact.
 
 It took the author 14 months to get the language up to this point, but with it as a reference it would be closer to 1 month long student project in terms of difficulty if a sensible tool like F# is used instead of C++.
 
@@ -6383,10 +6386,165 @@ What it does is what was covered in the `Unboxing of Union Types` chapter of the
 
 ### 9: Layout Types
 
-(work in progress)
+Layout types came relatively late in Spiral's development, about six months in. The reason why that is remarkable is because the author thought for a long time on how to do them and eventually concluded that they were impossible. The reason for that is because having them would mean having to essentially capture chunks of scope and how could something like that possibly be done?
 
-Layout types came relatively late in Spiral's development, about six months in. The reason why that is remarkable is because the author thought for a long time on how to do them and eventually concluded that they were impossible. The reason for that is because having them would mean having to essentially capture chunks of scope and how could something like that could possible done?
+It can be done quite simply.
 
-It can be do quite simply.
+First, it is time to take the lid off the list of all the `Ty`pes in Spiral. All of these have been demonstrated so far.
 
-...
+```
+and Ty =
+    | PrimT of PrimitiveType
+    | ListT of Ty list
+    | LitT of Value
+    | MapT of EnvTy * MapType // function or module
+    | LayoutT of LayoutType * EnvTerm * MapType
+    | TermFunctionT of Ty * Ty
+    | UnionT of Set<Ty>
+    | RecT of JoinPointKey
+    | ArrayT of ArrayType * Ty
+    | DotNetTypeT of TypedExpr // macro
+    | CudaTypeT of TypedExpr // macro
+```
+
+Note the similarities between `MapT` and `LayoutT`.
+
+The type of `EnvTy` is `Map<string,Ty>`. While `EnvTerm` can be thought of as `Map<string,TypedExpr>`. `LayoutType` is rather simple.
+
+```
+type LayoutType =
+    | LayoutStack
+    | LayoutPackedStack
+    | LayoutHeap
+    | LayoutHeapMutable
+```
+
+It is just some extra data denoting what kind of type it is. Functionally though, `MapT` and `LayoutT` can be thought of as duals of each other. `LayoutT` is just a map with a bit more information propagated in it.
+
+Here is how the types are created.
+
+```
+let layout_to_none' d = function
+    | TyMap _ as a -> a
+    | TyType(LayoutT(_,env,t)) as a -> tymap(layout_env_term_unseal d a env,t)
+    | x -> on_type_er (trace d) <| sprintf "Cannot turn the argument into a non-layout type. Got: %s" (show_typedexpr x)
+let layout_to_none d a = layout_to_none' d (tev d a)
+
+let rec layoutify (layout: LayoutType) (d: LangEnv) = function
+    | TyMap(env,t) as a ->
+        let {renamer'=r}, env' = renamer_apply_envc env
+        if r.Count = 0 then LayoutT(layout,env',t) |> tyt
+        else TyOp(layout_to_op layout,[a],LayoutT(layout,env',t)) |> destructure d
+    | TyType(LayoutT(layout',_,_)) as a ->
+        if layout <> layout' then layout_to_none' d a |> layoutify layout d else a
+    | x -> on_type_er (trace d) <| sprintf "Cannot turn the argument into a layout type. Got: %s" (show_typedexpr x)
+let layout_to layout d a = layoutify layout d (tev d a)
+```
+
+The above could be summarized as - run the renamer and then plug the resulting environment into the `LayoutT`. This is exactly what the join points do for their keys.
+
+If one can understand renaming then one can understand layout types.
+
+The only remaining thing is to show how the can be unsealed.
+
+```
+let rec layout_boxed_unseal d recf x =
+    let inline f x = layout_boxed_unseal d recf x
+    match x with
+    | TyV _ as v -> TyOp(MapGetField,[recf;v],get_type v) |> destructure d
+    | TyList l -> tyvv (List.map f l)
+    | TyBox(a,b) -> tybox (f a, b)
+    | TyMap(env, b) -> tymap (layout_env_term_unseal d recf env, b)
+    | x -> x
+        
+and layout_env_term_unseal d recf (C env) = Map.map (fun _ -> layout_boxed_unseal d recf) env |> Env
+```
+
+`recf` is in the above two functions is just the variable being unsealed.
+
+Unsealing layout types is a standard map over `TypedExpr`. Note that if in local scope the unsealing is done twice on the same variable, CSE will prevent duplicate work from being done.
+
+```
+TyOp(MapGetField,[recf;v],get_type v) |> destructure d
+```
+
+This is due to `destructure`. It will send the `TyOp`s to the CSE dictionary and will remember if they tried to be unsealed again.
+
+This is what is needed to understand layout types. With this all the features that are core to the full Spiral experience have been covered in depth.
+
+`layout_boxed_unseal` and `layout_env_term_unseal` are used in various places throughout the evaluator when opening the layout types is needed. This won't be covered in the user guide.
+
+If you've managed to get this far, by now you are reasonably familiar with not just the language, but with its internals as well.
+
+Past this if you would like to know more, looking into the source is a reasonable option. Spiral is not a huge overbearing monolith of a language with hundreds of thousands of lines of code. The evaluator itself is at the time of writing 1.6k lines long. It is not commented, but a significant amount of effort has gone into refactoring it and you can be sure that if there is a feature in the language, you can find it in just one place in the evaluator.
+
+If that is not enough, just ask the author.
+
+### 10: Macros
+
+In Spiral macros can be treated as types and used to instantiate types which makes them unique in a statically typed language. They are definitely not needed to understand Spiral, but they should be in the user guide nonetheless.
+
+```
+let inline codegen_macro' show_typedexpr codegen print_type x = 
+    let strb = StringBuilder()
+    let inline append (x: string) = strb.Append x |> ignore
+    let (|LS|) = function
+            | TyLit (LitString x) | TypeString x -> x
+            | _ -> failwithf "Iter's first three arguments must be strings."
+    let er x = failwithf "Unknown argument in macro. Got: %s" (show_typedexpr x)
+    let rec f = function
+        | TyList [TypeString "text"; LS x] -> append x
+        | TyList [TypeString "arg"; x] -> append (codegen x)
+        | TyList [TypeString "args"; TyTuple l] -> append "("; List.map codegen l |> String.concat ", " |> append; append ")"
+        | TyList [TypeString "fs_array_args"; TyTuple l] -> append "[|"; List.map codegen l |> String.concat "; " |> append; append "|]"
+        | TyList [TypeString "type"; TyType x] -> append (print_type x)
+        | TyList [TypeString "types"; TyTuple l] -> append "<"; List.map (get_type >> print_type) l |> String.concat ", " |> append; append ">" 
+        | TyList [TypeString "iter"; TyList [LS begin_;LS sep;LS end_;ops]] ->
+                append begin_
+                match ops with
+                | TyList (x :: xs) -> f x; List.iter (fun x -> append sep; f x) xs
+                | TyList [] -> ()
+                | x -> er x
+                append end_
+        | x -> er x
+    match x with
+    | TyList x -> List.iter f x
+    | x -> er x
+    strb.ToString()
+```
+
+This function definitely looks like it came from the code generation phase and that would be correct. `show_typedexpr` is just there for printing errors. `codegen` for printing `TypedExpr`s and `print_type` for printing `Ty`pes are provided by the evaluator and the code generators separately and that allows macros to be printed in one way inside errors and in another way in code while retaining the same structure underneath.
+
+Macros are an ad-hoc feature there just for the sake of language interoperability and while needed, they should not be considered core to the language nor should be used for abstraction. They should be redone into something more principled.
+
+As it is their functionality just arose from needs of various sorts.
+
+List of operations:
+
+1) `text`
+
+Takes in a literal or a type string literal and prints it.
+
+2) `arg`
+
+Takes in an argument and prints it.
+
+2) `args`
+
+Takes in an argument or a tuple of arguments and prints them between parentheses and separated by commas.
+
+3) `fs_array_args`
+
+Takes in an argument or a tuple of arguments and prints them between `[|` and `|]` and separated by semicolons.
+
+4) `type`
+
+Takes in an argument and prints its type.
+
+5) `types`
+
+Takes in an argument or a tuple of arguments and prints their type them between `<` and `>` and separated by commas.
+
+6) `iter`
+
+It takes in the opener, separator and closer as strings or type level strings and a tuple of macro operations and executes them while printing the separator in-between them and the opener and the closer at the beginning and the end respectively.

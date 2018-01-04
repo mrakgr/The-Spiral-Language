@@ -281,14 +281,14 @@ and Ty =
     | PrimT of PrimitiveType
     | ListT of Ty list
     | LitT of Value
-    | MapT of EnvTy * MapType
+    | MapT of EnvTy * MapType // function or module
     | LayoutT of LayoutType * EnvTerm * MapType
     | TermFunctionT of Ty * Ty
     | UnionT of Set<Ty>
     | RecT of JoinPointKey
     | ArrayT of ArrayType * Ty
-    | DotNetTypeT of TypedExpr
-    | CudaTypeT of TypedExpr
+    | DotNetTypeT of TypedExpr // macro
+    | CudaTypeT of TypedExpr // macro
 
 and TypedExpr =
     // Data structures
