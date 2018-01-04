@@ -16,14 +16,15 @@ let cfg: Spiral.Types.CompilerSettings = {
 //rewrite_test_cache cfg None //(Some(0,40))
 
 let example = 
-    "example",[option;tuple;loops;extern_;console;host_tensor;cuda],"Module description.",
+    "example",[option;tuple;loops;extern_;console;host_tensor],"Module description.",
     """
-inl fact to = Loops.for {from=2; to state=dyn 1; body=inl {state i} -> state * i}
-openb Cuda
-run {
-    blockDim=1
-    gridDim=1
-    kernel=cuda fact 3 |> ignore
+inl f m =
+    open m
+    (1 + 2) * (3 + 4)
+
+f {
+    (+) = inl a b -> string_format "({0} + {1})" (a,b)
+    (*) = inl a b -> string_format "({0} * {1})" (a,b)
     }
     """
 

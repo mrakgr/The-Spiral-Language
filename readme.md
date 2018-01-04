@@ -59,7 +59,9 @@
             - [A Note On Case](#a-note-on-case)
         - [9: Layout Types](#9-layout-types)
         - [10: Macros](#10-macros)
-            - [Parser Macro](#parser-macro)
+            - [Parser Macros](#parser-macros)
+        - [11: Operatives and the Core Library](#11-operatives-and-the-core-library)
+            - [Virtualization](#virtualization)
 
 <!-- /TOC -->
 
@@ -6550,19 +6552,330 @@ Takes in an argument or a tuple of arguments and prints their type them between 
 
 It takes in the opener, separator and closer as strings or type level strings and a tuple of macro operations and executes them while printing the separator in-between them and the opener and the closer at the beginning and the end respectively.
 
-#### Parser Macro
+#### Parser Macros
 
 There are only 3 of them.
 
 ```
-        let case_parser_macro expr = 
-            inbuilt_op_core '@' >>= fun a ->
-                match a with
-                | "PathCuda" -> settings.path_cuda90 |> LitString |> lit |> preturn
-                | "PathCub" -> settings.path_cub |> LitString |> lit |> preturn
-                | "PathVS2017" -> settings.path_vs2017 |> LitString |> lit |> preturn
-                | a -> failFatally <| sprintf "%s is not a valid parser macro." a
+let case_parser_macro expr = 
+    inbuilt_op_core '@' >>= fun a ->
+        match a with
+        | "PathCuda" -> settings.path_cuda90 |> LitString |> lit |> preturn
+        | "PathCub" -> settings.path_cub |> LitString |> lit |> preturn
+        | "PathVS2017" -> settings.path_vs2017 |> LitString |> lit |> preturn
+        | a -> failFatally <| sprintf "%s is not a valid parser macro." a
 ```
 
-They are invoked like `inl path_cuda = @PathCuda` and so on. They are just there as a safeguard in case join point dictionaries ever get floated up a level. If that happens changing the compiler setting might give incorrect results if the path were inserted during the partial evaluation stage.
+They are invoked like `inl path_cuda = @PathCuda` and so on. They are just there as a safeguard in case join point dictionaries ever get floated up a level. If that happens changing the compiler setting might give incorrect results if the paths were inserted during the partial evaluation stage since join points would not recognize the changes.
+
+### 11: Operatives and the Core Library
+
+Invoking operatives is the main way the user communicates with the partial evaluator. In Spiral most operations are virtualized and compile to calls to core library functions.
+
+Here is how it can be done.
+
+```
+inl (+) a b = !Add(a,b)
+```
+
+The `Add` is an `Op`erative and the `!` is the operative invocation unary operator. At the time of writing there are 93 `Op`eratives in total. A full list of them can be found with the rest of the types in `SpiralTypes.fs`.
+
+The core library can be found in `SpiralCoreLib.fs`. It is opened automatically every time the program is compiled.
+
+Here is a copy of it.
+
+```
+module Spiral.CoreLib
+
+let module_ = Types.module_
+let core =
+    (
+    "Core",[],"The Core module.",
+    """
+/// Lifts a literal to the type level.
+inl type_lit_lift x = !TypeLitCreate(x)
+
+/// Raises a type error.
+inl error_type x = !ErrorType(x)
+/// Prints an expression at compile time.
+inl print_static x = !PrintStatic(x)
+/// Pushes the expression to runtime.
+inl dyn x = !Dynamize(x)
+/// Creates a term function with the given two types.
+inl (=>) a b = !TermFunctionTypeCreate(a,b)
+/// Splits the union or recursive type into a tuple.
+inl split x = !TypeSplit(x)
+/// Boxes a type.
+inl box a b = !TypeBox(a,b)
+/// Converts module or a function to a stack layout type.
+inl stack x = !LayoutToStack(x)
+/// Converts module or a function to a packed stack layout type.
+inl packed_stack x = !LayoutToPackedStack(x)
+/// Converts module or a function to a heap layout type.
+inl heap x = !LayoutToHeap(x)
+/// Converts module or a function to a mutable heap layout type.
+inl heapm x = !LayoutToHeapMutable(x)
+/// Converts a layout type to a module or a function.
+inl indiv x = !LayoutToNone(x)
+
+/// The type of a boolean.
+inl bool = type true 
+
+/// The type of a int64.
+inl int64 = type 0i64 
+/// The type of a int32.
+inl int32 = type 0i32 
+/// The type of a int16.
+inl int16 = type 0i16 
+/// The type of a int8.
+inl int8 = type 0i8 
+
+/// The type of a uint64.
+inl uint64 = type 0u64 
+/// The type of a uint32.
+inl uint32 = type 0u32 
+/// The type of a uint16.
+inl uint16 = type 0u16 
+/// The type of a uint8.
+inl uint8 = type 0u8
+
+/// The type of a float64.
+inl float64 = type 0f64
+/// The type of a float32.
+inl float32 = type 0f32
+
+/// The type of a string.
+inl string = type ""
+/// The type of a char.
+inl char = type ' '
+/// The type of a empty tuple.
+inl unit = type ()
+
+/// Casts a type literal to the term level.
+inl type_lit_cast x = !TypeLitCast(x)
+/// Returns whether the expression is a type literal as a bool.
+inl type_lit_is x = !TypeLitIs(x)
+/// Cast a function to the term level.
+inl term_cast to from = !TermCast(to,from)
+/// Does unchecked conversion for primitives.
+inl unsafe_convert to from = !UnsafeConvert(to,from) 
+/// Unary negation.
+inl negate x = !Neg(x)
+/// Evaluates an expression and throws away the result.
+inl ignore x = ()
+/// Returns an expression after evaluating it.
+inl id x = x
+/// Throws away the second argument and returns the first.
+inl const x _ = x
+/// Creates a reference.
+inl ref x = !ReferenceCreate(x)
+
+/// Creates an array with the given type and the size.
+inl array_create typ size = !ArrayCreate(size,typ)
+/// Returns the length of an array. Not applicable to Cuda arrays.
+inl array_length ar = !ArrayLength(ar)
+/// Partial active pattern. In `on_succ` it also passes the type of the array as a type string.
+inl array_is x on_fail on_succ = !ArrayIs(x,on_fail,on_succ)
+/// Type of an array with the given type.
+inl array t = type (array_create t 1)
+
+/// Binary addition.
+inl (+) a b = !Add(a,b)
+/// Binary subtraction.
+inl (-) a b = !Sub(a,b)
+/// Binary multiplication.
+inl (*) a b = !Mult(a,b)
+/// Binary division.
+inl (/) a b = !Div(a,b)
+/// Binary modulo.
+inl (%) a b = !Mod(a,b)
+
+/// Applies the first argument to the second.
+inl (|>) a b = b a
+/// Applies the second argument to the first.
+inl (<|) a b = a b
+/// Applies the third argument to the first and then the result of that to the second.
+inl (>>) a b x = b (a x)
+/// Applies the third argument to the second and then the result of that to the first.
+inl (<<) a b x = a (b x)
+
+/// Binary less-than-or-equals.
+inl (<=) a b = !LTE(a,b)
+/// Binary less-than.
+inl (<) a b = !LT(a,b)
+/// Binary equals.
+inl (=) a b = !EQ(a,b)
+/// Binary unequals.
+inl (<>) a b = !NEQ(a,b)
+/// Binary greater-than.
+inl (>) a b = !GT(a,b)
+/// Binary greater-than-or-equals.
+inl (>=) a b = !GTE(a,b)
+
+/// Bitwise and.
+inl (&&&) a b = !BitwiseAnd(a,b)
+/// Bitwise or.
+inl (|||) a b = !BitwiseOr(a,b)
+/// Bitwise xor.
+inl (^^^) a b = !BitwiseXor(a,b)
+
+/// Tuple cons.
+inl (::) a b = !ListCons(a,b)
+/// Shift left.
+inl (<<<) a b = !ShiftLeft(a,b)
+/// Shift right.
+inl (>>>) a b = !ShiftRight(a,b)
+
+/// Gets the first elements of a tuple.
+inl fst x :: _ = x
+/// Gets the second element of a tuple.
+inl snd _ :: x :: _ = x
+
+/// Unary negation.
+inl not x = x = false
+/// Returns the length of a string.
+inl string_length x = !StringLength(x)
+/// The .NET String.Format function.
+/// https://msdn.microsoft.com/en-us/library/system.string.format(v=vs.110).aspx
+/// When its arguments are literals, it evaluates at compile time.
+inl string_format a b = !StringFormat(a,b)
+/// The F# String.concat function
+/// https://msdn.microsoft.com/en-us/visualfsharpdocs/conceptual/string.concat-function-%5Bfsharp%5D
+/// When its arguments are literals, it evaluates at compile time.
+inl string_concat a b = !StringConcat(a,b)
+/// Returns boolean whether the expression is a literal.
+inl lit_is x = !LitIs(x)
+/// Returns boolean whether the expression is a box (but not an union type.)
+inl box_is x = !BoxIs(x)
+/// Returns boolean whether the expression is a union or a recursive type (excluding boxes.)
+inl caseable_is x = !CaseableIs(x)
+/// Returns boolean whether the expression is a union or a recursive type.
+inl caseable_box_is x = !CaseableBoxIs(x)
+/// Raises an exception at runtime.
+inl failwith typ msg = !FailWith(typ,msg)
+/// Asserts an expression. If the conditional is a literal it raises a type error instead.
+inl assert c msg = 
+    inl raise = 
+        if lit_is c then error_type
+        else failwith unit
+    
+    if c = false then raise msg
+/// Returns the maximum of the two expressions.
+inl max a b = if a > b then a else b
+/// Returns the minimum of the two expressions.
+inl min a b = if a > b then b else a
+/// Returns boolean whether the two expressions are equal in their types.
+inl eq_type a b = !EqType(a,b)
+/// Returns the values of a module in a tuple.
+inl module_values x = !ModuleValues(x)
+/// Maps over a module.
+/// (string type_lit -> a -> b) -> a module -> b module
+inl module_map f a = !ModuleMap(f,a)
+/// Filters a module at compile time.
+/// (string type_lit -> a -> bool) -> a module -> a module
+inl module_filter f a = !ModuleFilter(f,a)
+/// Folds over a module left to right.
+/// (string type_lit -> state -> a -> state) -> state -> a module -> state
+inl module_foldl f s a = !ModuleFoldL(f,s,a)
+/// Folds over a module right to left.
+/// (string type_lit -> a -> state -> state) -> a module -> state -> state
+inl module_foldr f a s = !ModuleFoldR(f,s,a)
+/// Returns boolean whether the module has a member.
+/// a module -> string type_lit -> bool
+inl module_has_member m x = !ModuleHasMember(m,x)
+/// Unsafe upcast. Unlike the F# compiler, Spiral won't check its correctness.
+inl (:>) a b = !UnsafeUpcastTo(b,a)
+/// Unsafe downcast. Unlike the F# compiler, Spiral won't check its correctness.
+inl (:?>) a b = !UnsafeDowncastTo(b,a)
+
+/// Structural polymorphic equality for every type in the language (apart from functions).
+inl (=) a b =
+    inl prim_eq = (=)
+    inl rec (=) a b =
+        inl body = function
+            | .(a), .(b) -> a = b
+            | a :: as', b :: bs -> a = b && as' = bs
+            | {} & a, {} & b -> module_values a = module_values b
+            | (), () -> true
+            | a, b when eq_type a b -> prim_eq a b // This repeat eq_type check is because unboxed union types might lead to variables of different types to be compared.
+            | _ -> false
+        if caseable_is a && caseable_is b then join (body (a, b) : bool)
+        else body (a, b)
+    if eq_type a b then a = b
+    else error_type ("Trying to compare variables of two different types. Got:",a,b)
+
+/// Returns the size a type.
+/// type -> int64
+inl sizeof x = !SizeOf(x)
+
+/// Creates a .NET type from a macro.
+inl fs x = !DotNetTypeCreate(x)
+/// Creates a Cuda type from a macro.
+inl cuda x = !CudaTypeCreate(x)
+
+/// Natural Logarithm.
+inl log x = !Log(x)
+/// Exponent.
+inl exp x = !Exp(x)
+/// Hyperbolic tangent. 
+inl tanh x = !Tanh(x)
+
+/// Macros.
+inl macro = {
+    /// F# macro.
+    fs = inl typ expr -> !MacroFs(typ,expr)
+    /// Cuda macro.
+    cuda = inl typ expr -> !MacroCuda(typ,expr)
+    }
+
+{type_lit_lift error_type print_static dyn (=>) cuda fs log exp tanh array_create array_length array_is array
+ split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
+ string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref (+) (-) (*) (/) (%)
+ (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>) fst snd not macro
+ string_length lit_is box_is failwith assert max min eq_type module_values caseable_is caseable_box_is (:>)
+ (:?>) (=) module_map module_filter module_foldl module_foldr module_has_member sizeof string_format string_concat} |> stack
+    """) |> module_
+```
+
+#### Virtualization
+
+Most operations in Spiral are virtualized, meaning they can be overridden.
+
+```
+inl f m =
+    open m
+    (1 + 2) * (3 + 4)
+
+f {}
+```
+```
+21L
+```
+
+If `+` and `*` overriden, the meaning of the expression can change completely.
+
+```
+inl f m =
+    open m
+    (1 + 2) * (3 + 4)
+
+f {
+    (+) = inl a b -> string_format "({0} + {1})" (a,b)
+    (*) = inl a b -> string_format "({0} * {1})" (a,b)
+    }
+```
+```
+"((1 + 2) * (3 + 4))"
+```
+
+Currently `if`,`&&` and `||` are keywords, but there is no reason why they couldn't be virtualized.
+
+The keyword `use` can be overridden by putting parentheses around it. This is how `use` is implemented in `Extern`.
+
+```
+inl (use) a b =
+    inl r = b a
+    FS.Method a .Dispose() unit
+    r
+```
 
