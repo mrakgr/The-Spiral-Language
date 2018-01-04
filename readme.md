@@ -59,6 +59,7 @@
             - [A Note On Case](#a-note-on-case)
         - [9: Layout Types](#9-layout-types)
         - [10: Macros](#10-macros)
+            - [Parser Macro](#parser-macro)
 
 <!-- /TOC -->
 
@@ -6548,3 +6549,20 @@ Takes in an argument or a tuple of arguments and prints their type them between 
 6) `iter`
 
 It takes in the opener, separator and closer as strings or type level strings and a tuple of macro operations and executes them while printing the separator in-between them and the opener and the closer at the beginning and the end respectively.
+
+#### Parser Macro
+
+There are only 3 of them.
+
+```
+        let case_parser_macro expr = 
+            inbuilt_op_core '@' >>= fun a ->
+                match a with
+                | "PathCuda" -> settings.path_cuda90 |> LitString |> lit |> preturn
+                | "PathCub" -> settings.path_cub |> LitString |> lit |> preturn
+                | "PathVS2017" -> settings.path_vs2017 |> LitString |> lit |> preturn
+                | a -> failFatally <| sprintf "%s is not a valid parser macro." a
+```
+
+They are invoked like `inl path_cuda = @PathCuda` and so on. They are just there as a safeguard in case join point dictionaries ever get floated up a level. If that happens changing the compiler setting might give incorrect results if the path were inserted during the partial evaluation stage.
+
