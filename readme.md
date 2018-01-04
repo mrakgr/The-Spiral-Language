@@ -6385,4 +6385,8 @@ What it does is what was covered in the `Unboxing of Union Types` chapter of the
 
 (work in progress)
 
+Layout types came relatively late in Spiral's development, about six months in. The reason why that is remarkable is because the author thought for a long time on how to do them and eventually concluded that they were impossible. The reason for that is because having them would mean having to essentially capture chunks of scope and how could something like that could possible done?
+
+It can be do quite simply.
+
 ...
