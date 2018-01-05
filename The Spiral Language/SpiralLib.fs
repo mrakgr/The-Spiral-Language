@@ -989,45 +989,35 @@ inl map_dim = function
 
 inl map_dims = Tuple.map map_dim << Tuple.wrap
 
-inl primitive_apply_template {merge_offset view} {data with offsets} v = 
-    match offsets with
-    | x :: offsets -> merge_offset (view {data with offsets} v) x
-    | () -> view data v |> inl x -> {x without size offsets}
-
 inl rec view_offsets = function
-    | {position size} :: d', i :: h' -> {size position=position + i * size} :: view_offsets (d',h')
-    | (), _ :: _ -> error_type "The view has more dimensions than the tensor."
-    | offsets, () -> offsets
+    | s :: s', o :: o', i :: i' -> o + i * s :: view_offsets (s', o', i')
+    | _, o, () -> o
 
-inl HostTensorPrimitives =
-    inl view {data with size position offsets} = function
-        | i :: l -> {data with 
-            position=position + i * size
-            offsets=view_offsets (offsets,l)
-            }
-        | i -> {data with position=position + i * size}
-    inl merge_offset {data with size position} {size=size' position=position'} = {data with size=size'; position=position + position'}
-    {
-    view 
-    get = inl {data with offset ar} -> ar offset
-    set = inl {data with offset ar} v -> ar offset <- v
-    apply = primitive_apply_template {view merge_offset} 
-    }
+inl tensor_view {data with size offset} i' = {data with offset = view_offsets (size,offset,i')}
+inl tensor_get {data with offset ar} = ar position
+inl tensor_set {data with offset ar} v = ar position <- v
+inl tensor_apply {data with size=s::size offset=o::offset} =
+    inl o = o + i * s
+    inl offset = 
+        match offset with
+        | o' :: offset -> o + o' :: offset
+        | () -> o
+    {data with size offset}
 
 inl span {from near_to} = near_to - from
 
-inl TensorTemplate {view get set apply} = {
+inl Tensor = {
     elem_type = inl {data with bodies} -> toa_map (inl {ar} -> ar.elem_type) bodies
     update_body = inl {data with bodies} f -> {data with bodies=toa_map f bodies}    
     update_body2 = inl {data with bodies=a,b} f -> {data with bodies=toa_map2 f a b}
     update_dim = inl {data with dim} f -> {data with dim=f dim}
     get = inl {data with dim bodies} -> 
         match dim with
-        | () -> toa_map get bodies
+        | () -> toa_map tensor_get bodies
         | _ -> error_type "Cannot get from tensor whose dimensions have not been applied completely."
     set = inl {data with dim bodies} v ->
         match dim with
-        | () -> toa_iter2 set bodies v
+        | () -> toa_iter2 tensor_set bodies v
         | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
     view = inl {data with dim} (!map_dims head_dims) ->
         inl rec new_dim = function
@@ -1040,7 +1030,7 @@ inl TensorTemplate {view get set apply} = {
             | dim, () -> (),dim
 
         inl indices, dim = new_dim (dim, head_dims)
-        {data with bodies = toa_map (inl ar -> view ar indices) self; dim}
+        {data with bodies = toa_map (inl ar -> tensor_view ar indices) self; dim}
     
     // Resizes the view towards zero.
     view_span = inl {data with dim} (!map_dims head_dims) ->
@@ -1057,14 +1047,14 @@ inl TensorTemplate {view get set apply} = {
             | dim, () -> (),dim
 
         inl indices, dim = new_dim (dim, head_dims)
-        {data with bodies = toa_map (inl ar -> view ar indices) self; dim}
+        {data with bodies = toa_map (inl ar -> tensor_view ar indices) self; dim}
 
     apply = inl {data with dim} i ->
         match dim with
         | () -> error_type "Cannot apply the tensor anymore."
         | {from near_to} :: dim ->
             assert (i >= from && i < near_to) "Argument out of bounds." 
-            {data with bodies = toa_map (inl ar -> apply ar (i-from)) self; dim}
+            {data with bodies = toa_map (inl ar -> tensor_apply ar (i-from)) self; dim}
     }
 
 inl rec show = function
@@ -1107,27 +1097,21 @@ inl rec show = function
         FS.Method s .ToString() string
     | tns -> show.all tns // TODO: Put in a cutoff here later.
 
-inl rec wrap_tensor_template module = 
-    inl rec wrap data = function
-        | .replace_module module -> wrap_tensor_template module data
-        | (.elem_type | .get | .set) & x -> module x data
-        | .(_) & x -> 
-            if module_has_member data x then data x
-            else module x data >> wrap
-        | i -> module .apply data i |> wrap
-    wrap
-
-inl wrap_host_tensor = wrap_tensor_template (TensorTemplate HostTensorPrimitives)
+inl rec facade data = function
+    | (.elem_type | .get | .set) & x -> Tensor x data
+    | .(_) & x -> 
+        if module_has_member data x then data x
+        else Tensor x data >> facade
+    | i -> Tensor .apply data i |> facade
 
 inl dim_describe (!map_dims dim) = 
     match dim with
     | () -> error_type "Empty dimensions are not allowed."
     | dim ->
-        inl len :: size :: size' = Tuple.scanr (inl (!span x) s -> x * s) dim 1
+        inl len :: size = Tuple.scanr (inl (!span x) s -> x * s) dim 1
         inl make_body ar = 
-            inl position = 0
-            inl offsets = Tuple.map (inl size -> {size position}) size'
-            {ar size position offsets block_toa_map=()}
+            inl offset = Tuple.map (inl size -> {size position}) size
+            {ar size offset block_toa_map=()}
         {len dim make_body}
 
 /// Creates an empty tensor given the descriptor. {size elem_type ?layout=(.toa | .aot) ?array_create} -> tensor
@@ -1142,7 +1126,7 @@ inl create {dsc with dim elem_type} =
             | .aot -> create elem_type
             | .toa -> toa_map create elem_type
 
-        wrap_host_tensor {bodies dim}
+        facade {bodies dim}
     match dim with
     | () -> create 1 0
     | dim -> create dim
@@ -1190,9 +1174,9 @@ inl reshape (!dim_describe {len dim make_body}) tns =
             inl len' = product dim'
             assert (len = len') "The product of given dimensions does not match the product of tensor dimensions."
             dim)
-        .update_body (inl {offsets ar} ->
+        .update_body (inl {offset=_::o' ar} ->
             assert 
-                (Tuple.forall (inl {position} -> position = 0) offsets) 
+                (Tuple.forall ((=) 0) o') 
                 "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead"
             make_body ar
             )
@@ -1209,7 +1193,7 @@ inl assert_size (!map_dims dim') tns =
 /// Reinterprets an array as a tensor. Does not copy. array -> tensor.
 inl array_as_tensor ar =
     inl {dim make_body} = dim_describe (array_length ar)
-    wrap_host_tensor {dim bodies=make_body ar}
+    facade {dim bodies=make_body ar}
 
 /// Reinterprets an array as a tensor. array -> tensor.
 inl array_to_tensor = array_as_tensor >> copy
@@ -1218,14 +1202,14 @@ inl assert_zip l =
     toa_foldl (inl s x ->
         match s with
         | () -> x
-        | s -> assert ((s.dim) = (x.dim)) "All tensors in zip need to have the same dimensions"; s) () l
+        | s -> assert (s.dim = x.dim) "All tensors in zip need to have the same dimensions"; s) () l
 
 inl zip l = 
     match assert_zip l with
     | () -> error_type "Empty inputs to zip are not allowed."
     | tns -> tns.update_body <| inl _ -> toa_map (inl x -> x.bodies) l
 
-{toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims length create dim_describe primitive_apply_template TensorTemplate
+{toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims length create dim_describe facade
  view_offsets init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip show
  toa_map3 toa_iter3 assert_contiguous assert_zip span}
 |> stack
