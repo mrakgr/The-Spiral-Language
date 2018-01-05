@@ -1181,7 +1181,7 @@ inl reshape (!dim_describe {len dim make_body}) tns =
             make_body ar
             )
 
-inl assert_contiguous tns = reshape (tns.dim) tns |> ignore 
+inl assert_contiguous tns = reshape tns.dim tns |> ignore 
 inl to_1d tns = reshape (length tns) tns
 
 /// Asserts the tensor size. Useful for setting those values to statically known ones. Does not copy. size -> tensor -> tensor.

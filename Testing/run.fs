@@ -17,16 +17,8 @@ let cfg: Spiral.Types.CompilerSettings = {
 let example = 
     "example",[option;tuple;loops;extern_;console;host_tensor],"Module description.",
     """
-inl ar = array_create string 3
-Tuple.foldl (inl i x -> ar i <- x; i+1) 0 ("zero","one","two") |> ignore
-inl tns = HostTensor.init (3,5,{from=2; to=5}) (inl a ->
-    inl x = ar a
-    inl b c -> x, b, c
-    )
-inl f x = x 0 2 .get
-tns 0 |> f |> Console.writeline
-tns 1 |> f |> Console.writeline
-tns 2 |> f |> Console.writeline
+inl tns = HostTensor.init (1,2,3) (inl _ _ _ -> 1)
+print_static tns.unwrap
 """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning

@@ -1,4 +1,4 @@
-﻿module Learning
+﻿module DeepLearning
 
 open Spiral.Lib
 open Spiral.Tests
@@ -215,41 +215,24 @@ inl rec Learning {d with allocator stream} =
 
         inl transfer_template f tns = 
             assert_contiguous tns
-            tns.update_body <| inl {body with position ar} ->
+            tns.update_body <| inl {body with offset=o::_ ar} ->
                 // I do not feel like messing with GC handles in Spiral right now.
                 // Allowing a copy with an offset would be easy though. See ManagedCuda's CopyToHost and CopyToDevice.
-                assert (position = 0) "Only unviewed arrays are allowed for now."
+                assert (o = 0) "Only unviewed arrays are allowed for now."
                 {body with ar = f ar}
 
         inl from_host_tensor = transfer_template from_host_array
         inl to_host_tensor tns = transfer_template (to_host_array (length tns)) tns
 
-        inl DeviceTensorPrimitives = // The DeviceTensor uses the position as the array.
-            inl (+) a (b: int64) = !MacroCuda(a,[arg: a; text: " + "; arg: b])
-            inl view {data with size ar offsets} = function
-                | i :: l -> {data with 
-                    ar=ar + i * size
-                    offsets=view_offsets (offsets,l)
-                    }
-                | i -> {data with ar=ar + i * size}
-        
-            inl merge_offset {data with size ar} {size=size' position=position'} = {data with size=size'; ar=ar + position'}
-            {
-            view
-            get = inl {data with ar} -> ar 0
-            set = inl {data with ar} v -> ar 0 <- v
-            apply = primitive_apply_template {view merge_offset} 
-            }
-
         inl to_dev_tensor tns = 
-            tns.update_body (inl {body with ar position} ->
+            tns.update_body (inl {body with ar offset} ->
                 inl ptr, elem_type = ar.ptr(), ar.elem_type
-                met ar = 
-                    inl ptr = ptr_to_uint ptr + unsafe_convert uint64 position |> uint_to_ptr    
-                    !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
-
-                {body with ar without position}
-                ) .replace_module (TensorTemplate DeviceTensorPrimitives)
+                inl o = match offset with o :: _ | o -> o
+                inl ptr = ptr_to_uint ptr + unsafe_convert uint64 o |> uint_to_ptr    
+                inl ar = !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
+                inl offset = match offset with _ :: o' -> 0 :: o' | offset -> 0
+                {body with ar offset}
+                )
 
         inl clear (!to_dev_tensor tns) = 
             assert_contiguous tns
@@ -782,19 +765,6 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //rewrite_test_cache cfg None //(Some(0,40))
 
-let example = 
-    "example",[option;tuple;loops;extern_;console;host_tensor],"Module description.",
-    """
-inl rec loop f i =
-    inl f, i = term_cast f (), dyn i
-    join 
-        if i < 10 then loop (inl _ -> f() + 1) (i + 1) else f()
-        : int64
-
-loop (inl _ -> 0) 0
-"""
-
-//output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example
+output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
 |> printfn "%s"
 |> ignore
