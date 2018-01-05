@@ -18,15 +18,14 @@ let cfg: Spiral.Types.CompilerSettings = {
 let example = 
     "example",[option;tuple;loops;extern_;console;host_tensor],"Module description.",
     """
-inl f m =
-    open m
-    (1 + 2) * (3 + 4)
+inl rec loop f i =
+    inl f, i = term_cast f (), dyn i
+    join 
+        if i < 10 then loop (inl _ -> f() + 1) (i + 1) else f()
+        : int64
 
-f {
-    (+) = inl a b -> string_format "({0} + {1})" (a,b)
-    (*) = inl a b -> string_format "({0} * {1})" (a,b)
-    }
-    """
+loop (inl _ -> 0) 0
+"""
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example

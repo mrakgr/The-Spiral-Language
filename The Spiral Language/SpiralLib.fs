@@ -255,7 +255,7 @@ inl for_template kind {d with body} =
         if Tuple.forall lit_is (from,to,by) then body {from}
         else 
             inl from = dyn from
-            join (body {from} : finally state)
+            join body {from} : finally state
 
     loop {from state}
 

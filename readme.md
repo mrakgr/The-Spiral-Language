@@ -152,7 +152,7 @@ inl x = 2 // Define a 64-bit integer in Spiral.
 let x = 2 // Define a 32-bit integer in F#.
 ```
 
-Unlike in F#, statements and function definitions in Spiral are preceded by `inl` instead of `let` which is short for `inl`ineable or `inl`ine.
+Unlike in F#, statements and function definitions in Spiral are preceded by `inl` instead of `let` which is short for `inl`ineable.
 
 ```
 let x = 2
@@ -182,7 +182,7 @@ let (var_0: int64) = 2L // Generated F# code.
 
 The reason Spiral is generating nothing is because `2` as defined is a literal and gets tracked as such by the partial evaluator inside the environment. In order to have it appear in the generated code, it is necessary to cast it from the type to the term level using `dyn`amize function. From here on out, the literal will be bound to a variable and the binding `x` will track `var_0` instead.
 
-Being able to do this is useful for various reasons, without it constructs such as runtime loops would be impossible to write in Spiral because the partial evaluator would diverge. Despite its static typing features, the language would essentially be constrained to being an interpreter for a pure dynamic functional language.
+Being able to do this is useful for various reasons. For example, without it constructs such as runtime loops would be impossible to write in Spiral because the partial evaluator would diverge. Despite its static typing features, the language would essentially be constrained to being an interpreter for a pure dynamic functional language.
 
 ```
 inl x = dyn 2
@@ -196,7 +196,7 @@ let (var_1: int64) = (var_0 + 3L)
 (var_1 * var_1)
 ```
 
-To get a sense of how `dyn` works, here is a slightly more complex example. The evaluator does common subexpression elimination in the local scope so it is smart enough to optimize the `x+y` into a single addition and a multiplication.
+To get a sense of how `dyn` works, here is a slightly more complex example. The evaluator does common subexpression elimination in the local scope and so it is smart enough to optimize the `x+y` into a single addition and a multiplication.
 
 ```
 inl x = 2
@@ -208,7 +208,7 @@ inl y = 3
 25L
 ```
 
-Without `dyn`, all the arithmetic operations get evaluated at compile time. This is due to the simple fact that a variable + a literal is a variable. In general if an operation has a variable as one of its inputs, then its output will also be a variable. The evaluator term casts the literals when necessary. For an operation to be evaluated at compile time, the partial evaluator must have support for it internally.
+Without `dyn`, all the arithmetic operations get evaluated at compile time. This is due to the simple fact that a variable added to a literal is a variable. In general if an operation has a variable as one of its inputs, then its output will also be a variable. The evaluator term casts the literals when necessary. For an operation to be evaluated at compile time, the partial evaluator must have support for it internally.
 
 `inl` can also be used to define functions.
 
@@ -316,7 +316,6 @@ inl mult a b = a * b
 met f g = g 1 2, g 3.0 4.0
 f mult
 ```
-
 ```
 type Tuple0 =
     struct
@@ -331,6 +330,11 @@ method_0()
 
 `mult` can also be defined using `met` and passed into the other function.
 
+```
+met mult a b = a * b
+met f g = g 1 2, g 3.0 4.0
+f mult
+```
 ```
 type Tuple0 =
     struct
@@ -397,7 +401,8 @@ sum (1,2,3)
 ```
 6L
 ```
-In ML languages, `::` is the list cons pattern. In Spiral it is the the tuple cons pattern. Tuple are fully fledged heterogeneous lists in Spiral and can be treated as such.
+
+In the ML family of languages, `::` is the list cons pattern. In Spiral it is the the tuple cons pattern. Tuple are fully fledged heterogeneous lists in Spiral and can be treated as such.
 
 ```
 inl a = 2,3
@@ -413,7 +418,9 @@ type Tuple0 =
     end
 Tuple0(1L, 2L, 3L)
 ```
+
 There are some interesting applications of this. 
+
 ```
 inl rec foldl f s = function
     | x :: xs -> foldl f (f s x) xs
@@ -449,7 +456,7 @@ let (var_8: int64) = method_1((var_4: int64), (var_5: int64), (var_6: int64), (v
 Tuple0(var_3, var_8)
 ```
 
-While language allow variant arguments, Spiral has the ability to specialize methods to their exact arguments and in combination with destructuring to implement variant arguments in a typesafe manner. 
+While the language allows variant arguments, Spiral has the ability to specialize methods to their exact arguments and in combination with destructuring to implement variant arguments in a typesafe manner. 
 
 ```
 inl rec foldl f s = function
@@ -504,14 +511,15 @@ let (var_3: int64) = var_0.mem_2
 0L
 ```
 
-Tuples themselves are only manifested in the generated code on join point and branch returns. They get destructured right away and tracked by their individual variables on bindings and function applications. Had the method return not been bound to `x`, it would not have been destructured. This is the desired behavior because otherwise destructuring might block tail call optimizations.
+Tuples themselves are only manifested in the generated code on join point and branch returns. They get destructured right away and tracked by their individual variables on binding and function application. Had the method return not been bound to `x`, it would not have been destructured. This is the desired behavior because otherwise destructuring might block tail call optimizations.
 
 ```
 met f _ = 1
 ```
 ```
-inl f _ = join (1)
+inl f _ = join 1
 ```
+
 The above two code fragments are identical in Spiral. `met` is just syntax sugar for a function with a join point around its body.
 
 Being able to do this is quite powerful as it allows more fine grained control over inlining.
@@ -527,7 +535,7 @@ inl rec forall f = function
 
 inl sum l = 
     if forall lit_is l then foldl (+) 0 l
-    else join (foldl (+) 0 (dyn l))
+    else join foldl (+) 0 (dyn l)
 
 sum (1,2,3,4), sum (1,2,3,dyn 4)
 ```
@@ -549,16 +557,18 @@ let (var_0: int64) = 4L
 let (var_1: int64) = method_0((var_0: int64))
 Tuple0(10L, var_1)
 ```
-The `lit_is` just like other structure testing functions always resolves at compile time to either `true` or `false`. In combination with `forall` that allows for testing of whether all the arguments of `l` are known at compile time. Then using a static if, the two branches amount to either summing them all at compile time, or term casting them and pushing the work to runtime.
+The `lit_is` always resolves at compile time to either `true` or `false` just like other structure testing functions. In combination with `forall` that allows for testing of whether all the arguments of `l` are known at compile time. Then using a static if, the two branches amount to either summing them all at compile time, or term casting them and pushing the work to runtime.
 
 This ensures that the sum function does not get specialized to every arbitrary literal passed into it.
+
 ```
 if true then 1 else "qwe" // Not a type error.
 ```
 ```
 if dyn true then 1 else "qwe" // A type error.
 ```
-If statements in Spiral default to evaluating only one branch if their conditional is known at compile time. This is the bedrock of its intensional (structural) polymorphism. Under the hood, the patterns get compiled to static if statements which allow it to branch on structures and types.
+
+If statements in Spiral default to evaluating only one branch if their conditional is known at compile time meaning they are static by default. This is the bedrock of its intensional (structural) polymorphism. Under the hood, the patterns get compiled to static if statements which allow it to branch on structures and types.
 
 `if` goes hand in hand with join point specialization.
 
@@ -612,7 +622,7 @@ Tuple0(0L, 0.000000, "")
 
 As can be seen, the two generated code fragments are identical. `:` on the pattern side is the type equality operator. It can be invoked outside the pattern using the `eq_type` function.
 
-`type` is a keyword and needs its body to be surrounded by parenthesis.
+`type` is a keyword and like `join` it enters a new scope.
 
 The types themselves can do more than be passed around or be matched on.
 
@@ -626,9 +636,9 @@ inl default_of = function
     | _: float64_type -> 0.0
     | _: string_type -> ""
 
-inl a = type (int64_type + 1)
-inl b = type (float64_type + 1.0)
-inl c = type (string_format "{0}, {1}" (string_type, "rty"))
+inl a = type int64_type + 1
+inl b = type float64_type + 1.0
+inl c = type string_format "{0}, {1}" (string_type, "rty")
 
 default_of a, default_of b, default_of c
 ```
@@ -656,7 +666,7 @@ These kinds of errors are easier to locate when they are shown in generated code
 
 ##### Join Point Recursion
 
-Spiral in general does not need type annotations. The only exception is the recursion when used in tandem with join points.
+Spiral in general does not need type annotations. The only exceptions are recursive functions when used in tandem with join points.
 
 ```
 met rec fact (!dyn x) = if x > 1 then x * fact (x-1) else 1
@@ -665,7 +675,9 @@ fact 3
 ```
 Process is terminated due to StackOverflowException.
 ```
+
 The correct way to write the above would be.
+
 ```
 met rec fact (!dyn x) = 
     if x > 1 then x * fact (x-1) else 1
@@ -684,12 +696,14 @@ let rec method_0((var_0: int64)): int64 =
 let (var_0: int64) = 3L
 method_0((var_0: int64))
 ```
+
 `:` has the lowest precedence of all Spiral's constructs so it will get applied before any of the statements. It does not necessarily have to be put directly into the function. As reminder, on the pattern side `:` is not a type annotation, but a type equality test.
+
 ```
 inl rec fact x =
     inl body x = if x > 1 then x * fact (x-1) else 1
     if lit_is x then body x
-    else join (body (dyn x) : int64)
+    else join (body x : int64)
 fact 3, fact (dyn 3)
 ```
 ```
@@ -711,17 +725,19 @@ let (var_0: int64) = 3L
 let (var_1: int64) = method_0((var_0: int64))
 Tuple0(6L, var_1)
 ```
+
 It takes some work, but it is not difficult to make functions stage polymorphic in Spiral.
 
 Mutual recursion can also be done using join points.
+
 ```
 // https://en.wikipedia.org/wiki/Hofstadter_sequence#Hofstadter_Female_and_Male_sequences
 inl rec hof x = 
     inl male n = if n > 0 then n - hof.female (hof.male (n-1)) else 0
     inl female n = if n > 0 then n - hof.male (hof.female (n-1)) else 1
     match x with
-    | .male (!dyn n) -> join (male n : int64)
-    | .female (!dyn n) -> join (female n : int64)
+    | .male (!dyn n) -> join male n : int64
+    | .female (!dyn n) -> join female n : int64
 hof.male 3
 ```
 ```
@@ -746,7 +762,9 @@ and method_1((var_0: int64)): int64 =
 let (var_0: int64) = 3L
 method_0((var_0: int64))
 ```
+
 `.` here is the type literal lift operator. It has special syntax for strings and when used directly next to an expression, it binds more tightly than application similar to how F#'s method access works. It also has its own dedicated pattern as shown above.
+
 ```
 inl f x = .(x)
 inl a = f "asd"
@@ -756,7 +774,9 @@ eq_type a b
 ```
 true
 ```
+
 It works on any kind of literal, not just strings. Type literals can be converted to ordinary literals as well.
+
 ```
 inl a = .1
 inl b = .2
@@ -766,7 +786,9 @@ match a,b with
 ```
 3L
 ```
+
 The difference between type literals and ordinary literals is that type literals will always be erased in generated code and it is impossible to push them at runtime by `dyn`ing them.
+
 ```
 dyn (.a,"b",.false,true)
 ```
@@ -781,13 +803,16 @@ let (var_0: string) = "b"
 let (var_1: bool) = true
 Tuple0(var_0, var_1)
 ```
+
 Using `print_static` can be used to inspect what the evaluator sees at compile time.
+
 ```
 print_static (dyn (.a,"b",.false,true))
 ```
 ```
 [type (type_lit (a)), var (string), type (type_lit (false)), var (bool)]
 ```
+
 All the information in type literals is preserved at all times.
 
 ##### Term Casting of Functions
@@ -811,8 +836,9 @@ At first it tries to specialize the function for just `inl _ -> 0` -> `int64` ->
 ```
 inl rec loop f i =
     inl f, i = term_cast f (), dyn i
-    inl body _ = if i < 10 then loop (inl _ -> f() + 1) (i + 1) else f()
-    join (body() : int64)
+    join 
+        if i < 10 then loop (inl _ -> f() + 1) (i + 1) else f()
+        : int64
 
 loop (inl _ -> 0) 0
 ```
@@ -834,6 +860,7 @@ let (var_0: (unit -> int64)) = method_0
 let (var_1: int64) = 0L
 method_1((var_0: (unit -> int64)), (var_1: int64))
 ```
+
 `term_cast` works by taking a function as its first argument and a type as its second. It emulates a function call, gets the return type of the term function from the result of that, and set the input type to the first argument. In the generated code, it flattens the arguments a single tuple level.
 
 Term level functions have their environments hidden and the only information available to the evaluator is its type.
@@ -860,7 +887,9 @@ if dyn true then
 Types in branches of If do not match.
 Got: <function> and <function>
 ```
+
 If functions have the same bodies, they can be returned from branches of a dynamic if statement if they also have the same environments.
+
 ```
 if dyn true then
     inl a,b = dyn (1,2)
@@ -910,7 +939,9 @@ type Tuple0 =
     end
 Tuple0(6L, 6.000000)
 ```
+
 As per their namesake, they can be opened and passed as arguments. They have their own dedicated patterns.
+
 ```
 inl f {q w e} = q + w + e
 inl q = 1
@@ -922,7 +953,9 @@ f m
 ```
 6L
 ```
+
 They allow functional lens updates. Note that in the generated code their fields are ordered by their names.
+
 ```
 inl f d = {d.data with a = self + 10}
 inl a = 1
@@ -946,7 +979,9 @@ and Env1 =
     end
 (Env1((Env0(11L, 2L, 3L))))
 ```
+
 Fields can be added to them and removed arbitrarily in an immutable fashion. Using `without` on a non-existing field will not do anything.
+
 ```
 inl a = 1
 inl b = 2
@@ -964,7 +999,9 @@ type Env0 =
     end
 (Env0(2L, 3L, 4L))
 ```
+
 Like with tuples which are represented by immutable lists in Spiral, the modules in Spiral allow anything immutable maps might do. For example, they can be mapped over(`module_map`), folded(`module_foldl`,``module_fold`), and filtered(`module_filter`). Here is the fold example.
+
 ```
 inl m = {a=1; b=2; c=3}
 module_foldl (inl key state value -> state + value) 0 m
@@ -972,7 +1009,9 @@ module_foldl (inl key state value -> state + value) 0 m
 ```
 6L
 ```
+
 They support more powerful patterns than F# allows on records like not(`!`) and xor(`^`).
+
 ```
 inl f {!nope (a ^ b)=s} = s
 // f {nope=()} // Would trigger a type error
@@ -989,7 +1028,9 @@ type Tuple0 =
     end
 Tuple0(2L, 1L)
 ```
+
 Last, but not least, Spiral's modules and functions support several kinds of layouts. By default, like tuples they have a transparent structure whose variables are tracked on an individual basis. Here is the heap layout.
+
 ```
 {a=1; b=2; c=3} |> dyn |> heap
 ```
@@ -1005,7 +1046,9 @@ let (var_1: int64) = 2L
 let (var_2: int64) = 3L
 ({mem_0 = (var_0: int64); mem_1 = (var_1: int64); mem_2 = (var_2: int64)} : EnvHeap0)
 ```
+
 Here are the 5 layouts in order: `indiv`,`heap`,`heapm`,`stack`,`packed_stack`.
+
 ```
 {a=1; b=2; c=3} |> dyn |> heap |> heapm |> stack |> packed_stack
 ```
@@ -1054,7 +1097,9 @@ let (var_13: int64) = var_11.mem_1
 let (var_14: int64) = var_11.mem_2
 EnvPackedStack3((var_12: int64), (var_13: int64), (var_14: int64))
 ```
+
 That is the tour of them, but it does not yet demonstrate their true power. The essence of modules converted to layout types is that they capture scope.
+
 ```
 inl npc = 
     {
@@ -1092,6 +1137,7 @@ let (var_10: int64) = 10L
 let (var_11: EnvStack0) = EnvStack0((var_9: int64), (var_10: int64))
 var_3.[int32 1L] <- var_11
 ```
+
 In layout types, literals and naked types become a part of the bigger type and are tracked at the type level. The individual variables are flattened and the intermediate structures are erased in the generated code, very similarly to how the arguments are handled at join points.
 
 The `packed_stack` layout is just there in case it might be necessary to pass a tuple over to the Cuda side. In most cases though, it makes more sense to use the default (non)layout and pass them as individual arguments.
@@ -1124,7 +1170,7 @@ let main argv =
     0 // return an integer exit code
 ```
 
-The above is the F# solution given directly. It just reads two ints from input, sums them and returns the sum. Doing it in Spiral without the IDE support and even direct language support for .NET constructs make it more complicated.
+The above is the F# solution given directly. It just reads two ints from input, sums them and returns the sum. Doing it in Spiral without the IDE support or even direct language support for .NET constructs make it more complicated.
 
 First the `System.Console` type needs to be defined.
 
@@ -1136,7 +1182,9 @@ print_static console
 ```
 type (dotnet_type (System.Console))
 ```
+
 What this has done is create the `[text: "System.Console"]` naked type. The type shown in the output is just how it gets printed - the actual type is determined by its body, namely `[text: "System.Console"]`. This is equivalent to `(.text, "System.Console") :: ()`
+
 ```
 inl a = (.text, "System.Console") :: () |> fs
 inl b = [text: "System.Console"] |> fs
@@ -1145,6 +1193,7 @@ eq_type a b
 ```
 true
 ```
+
 `[]` is just syntax sugar for named tuples. It has no extra functionality apart from what is provided by the standard constructs.
 
 Since types are just macros it is possible to make nonsensical types.
@@ -1155,9 +1204,11 @@ print_static (fs [text: "1 + 2 + 3"])
 ```
 type (dotnet_type (1 + 2 + 3))
 ```
+
 Hence mistakes with macros will have to be responsibility of the downwards languages. But in the worst they will just lead to a type error.
 
 Unlike in other languages where they are used for abstraction, macros in Spiral are only to be used for interop. They would not be good at all for that anyway given that at most they can print text.
+
 ```
 inl console = fs [text: "System.Console"]
 inl static_method static_type method_name args return_type = 
@@ -1175,10 +1226,10 @@ inl a, b = readline(), readline()
 let (var_0: string) = System.Console.ReadLine()
 let (var_1: string) = System.Console.ReadLine()
 ```
+
 The above program succinctly captures Spiral's approach to language interop. The facilities used for defining macro-based types and printing them are interwoven with one another. One extra ingredient macros evaluation require over macro type definitions is the return type.
 
-What the `macro.fs` function is doing is printing the macro based on the second argument and returning
- a variable of the type in the first argument.
+What the `macro.fs` function is doing is printing the macro based on the second argument and returning a variable of the type in the first argument.
 
 Now all the pieces are in place to finish the exercise.
 
@@ -1217,6 +1268,7 @@ System.Console.WriteLine(var_4)
 This example is to demonstrate how macros can be used to interop with F# libraries which often take in functions as arguments.
 
 The code fragments will be split into two. The first part loads the numbers into a Spiral array, splits them based on the whitespace char and convert them to ints.
+
 ```
 //https://www.hackerrank.com/challenges/simple-array-sum/problem
 inl console = fs [text: "System.Console"]
@@ -1239,7 +1291,9 @@ let (var_0: string) = System.Console.ReadLine()
 let (var_2: string) = System.Console.ReadLine()
 let (var_3: (int32 [])) = var_2.Split [|' '|] |> Array.map int
 ```
+
 The next part could also be done using macros, but is here to demonstrate an aspect of Spiral's intensional polymorphism.
+
 ```
 // Converts a type level function to a term level function based on a type.
 inl rec closure_of f tys = 
@@ -1259,6 +1313,7 @@ let (var_5: (int32 -> (int32 -> int32))) = method_0
 let (var_6: int32) = Array.fold var_5 0 var_3
 System.Console.WriteLine(var_6)
 ```
+
 `closure_of` is an expanded version of `term_cast` that instead of converting by applying using the input argument converts a (staged) type level function to a term level using a target type thereby unstaging it. Term level functions have their own dedicated pattern for destructuring their types.
 
 Naked types for them can be constructed with the `=>` operator. The `error_type` raises a type error with the specified message whenever it is evaluated.
@@ -1314,7 +1369,7 @@ Spiral libraries are (to be) covered in depth in the user guide and the referenc
 
 #### Loops
 
-Most languages make it trivial to write loops, and apart from runtime, the user does not have to worry about them diverging except at runtime.
+Most languages make it trivial to write loops and the user does not have to worry about them diverging except at runtime.
 
 Spiral's staging abilities introduce new complexities into the mix. In Spiral, for every loop one writes, it is necessary to keep in mind whether it is intended to run at compile or at runtime.
 
@@ -1394,7 +1449,7 @@ Here is the way to write the `for` function correctly.
 
 Out of all the mistakes to make in Spiral, accidentally passing old state through the join point is the easiest one to make. With missed return type annotations and such the compiler will diverge and warn the user that way, but but this one has a way of preying on laziness.
 
-In fact, this kind of error can happen in any language that supports records with mutable updates, not just Spiral. Spiral in particular makes it obvious by looking at the argument count in the generated code.
+In fact, this kind of error can happen in any language that supports records with mutable updates, not just Spiral. Spiral in particular just makes it obvious by looking at the argument count in the generated code.
 
 ```
 met rec for {from=(!dyn from) to by body} =
@@ -1416,11 +1471,12 @@ let rec method_0((var_0: int64)): unit =
 let (var_0: int64) = 0L
 method_0((var_0: int64))
 ```
+
 The above output is the ideal for this kind of loop. Only the `var_0` varies, the other literals all get passed through the boundary and specialized along with the body.
 
 This is kind of specialization important to do with Cuda kernels as using too many variables in place of literals can cause register spillage into global memory and cause drastic degradations of performance. Spiral makes it easy to keep such data static and propagate it through the program.
 
-In addition, Spiral makes it trivial to this kind of specialization even across language boundaries. Partial evaluation is commonly refereed to as specialization. Staging makes it user directed. And being able to use staging constructs as the basis of abstraction rather than being restricted to a second class macro inspired system is what makes Spiral's staging first class. That is a desirable trait as it increases uniformity of the language and with it, its power. It also simplifies its implementation greatly, so it is a good design principle to follow at all times.
+In addition, Spiral makes it trivial to this kind of specialization even across language boundaries. Partial evaluation is commonly refereed to as specialization. Staging makes it user directed. And being able to use staging constructs through the the type system as the basis of abstraction rather than being restricted to a second class macro inspired system is what makes Spiral's staging first class. That is a desirable trait as it increases uniformity of the language and with it, its power. It also simplifies its implementation greatly, so it is a good design principle to follow at all times.
 
 More concretely, one of the main motivations for writing Spiral for its author is avoiding having to write unending litanies of wrappers for simple Cuda kernels.
 
@@ -1458,7 +1514,7 @@ inl rec for {from to by body} =
     if Tuple.forall lit_is (from,to,by) then body from
     else 
         inl from = dyn from
-        join (body from : ())
+        join body from : ()
 
 for {from=0; to=5; by=1; body=inl i ->
     string_format "The loop is on iteration {0}" i |> writeline
@@ -1501,7 +1557,7 @@ inl rec for {from to by state body} =
     if Tuple.forall lit_is (from,to,by) then body from
     else 
         inl from = dyn from
-        join (body from : state)
+        join body from : state
 
 inl power a to = for {from=2; to by=1; state=a; body=inl {state} -> state * a}
 
@@ -1510,6 +1566,7 @@ power 2 3
 ```
 8L
 ```
+
 The above works, but various criticisms of the program could be made. For one, is it really necessary to give `by` every time? Vast majority of loops will in fact have it as `1` so if it is not given it makes sense to use that default instead of giving a type error.
 
 Speaking of defaults, a decent guess would be that most loops are not intended to be unrolled and that a user is more likely to just forget to `dyn` the `from` field by accident.
@@ -1534,7 +1591,7 @@ inl rec for {d with to state body} =
     if Tuple.forall lit_is (from,to,by) then body {from}
     else 
         inl from = dyn from
-        join (body {from by} : state)
+        join body {from by} : state
 
 inl power a to = for {from=2; to state=a; body=inl {state} -> state * a}
 
@@ -1564,6 +1621,7 @@ and method_2((var_0: int64)): int64 =
         8L
 // ...and so on up to method_63
 ```
+
 Not quite as planned. An error made now is that the state gets specialized for every different power of 2.
 
 With a single added `dyn` that can be fixed.
@@ -1584,11 +1642,12 @@ let (var_0: int64) = 2L
 let (var_1: int64) = 2L
 method_0((var_0: int64), (var_1: int64))
 ```
-As a matter of convention, Spiral library functions that take in `state` never dyn it directly. That responsibility should fall onto the user. 
 
-The reason for that is for example that the state might be an option type so it might be better to specialize it for both of its states without instantiating it directly. Or it might be a tuple with some fields which would be desirable to remain as literals.
+As a matter of convention, Spiral library functions that take in `state` never `dyn` it directly. That responsibility should fall onto the user. 
 
-`for` is intended to be used as a primitive and so requires some flexibility.
+As an example of the reason for that, the state might be an option type so it might be better to specialize it for both of its states without instantiating it directly. Or it might be a tuple with some fields which would be desirable to remain as literals.
+
+`for` is intended to be used as a primitive and so requires some flexibility; it would not do to block functionality.
 
 Looking over the function now it seems fine, but it is a bit uncomfortable how from has to start from `2`. It is not like the loop has to use the `<=` operator for comparison in the conditional. In a lot of cases `<` make a lot more sense.
 
@@ -1624,7 +1683,7 @@ inl rec for {d with state body} =
         if Tuple.forall lit_is (from,to,by) then body {from}
         else 
             inl from = dyn from
-            join (body {from} : state)
+            join body {from} : state
 
     loop {from state}
 
@@ -1645,6 +1704,7 @@ let (var_0: int64) = 2L
 let (var_1: int64) = 1L
 method_0((var_0: int64), (var_1: int64))
 ```
+
 The module member queries are all done statically and so maximum polymorphism is attained. The above program also demonstrates why lexical scope is so great.
 
 The above is starting to near the functionality of the `for` function in the actual library. To make it more professional, rather than returning a pattern miss error on when a field is missed, it would be better to tell the user what the problem is.
@@ -1684,7 +1744,7 @@ inl for {d with state body} =
         if Tuple.forall lit_is (from,to,by) then body {from}
         else 
             inl from = dyn from
-            join (body {from} : state)
+            join body {from} : state
 
     loop {from state}
 
@@ -1859,7 +1919,7 @@ inl for' {d with body} =
         if Tuple.forall lit_is (from,to,by) then body {from}
         else 
             inl from = dyn from
-            join (body {from} : finally state)
+            join body {from} : finally state
 
     loop {from state}
 ```
@@ -1933,9 +1993,11 @@ let (var_0: string) = method_0()
 let (var_1: string) = method_1()
 Tuple0(var_0, var_1)
 ```
+
 Anything in Spiral can be passed as an argument, and since that includes functions it also applies to partial active patterns.
 
 The output of the compiled program is rather large, but it will be reproduced in bulk as an example this time to show that all the loops are being unfolded correctly into tail recursive functions.
+
 ```
 type Tuple0 =
     struct
@@ -2039,11 +2101,13 @@ let (var_11: int64) = var_6.LongLength
 let (var_12: int64) = 0L
 method_4((var_6: ((((string []) []) []) [])), (var_11: int64), (var_12: int64))
 ```
+
 The continuation passing style is the key to a significant amount of abstractive power. It is difficult to understand in terms of what the program does, instead what is needed is to focus on what the program is.
 
 There are numerous ways of writing `find_index` incorrectly that would not get immediately caught by the type system.
 
 1) Forgetting to pass in the array.
+
 ```
 ...
 find_index {state=(); next = inl _ -> failwith (type (dim)) "The princess is in another castle."}
@@ -2060,10 +2124,12 @@ var_10.[int32 2L] <- "princess"
 Seeing a dozen nested `Env`s along with a naked type in the generated code is almost always a sign of forgetting to apply an argument somewhere.
 
 2) Passing the state in incorrectly in the else branch.
+
 ```
 ...
 | _ -> next state
 ```
+
 This would still have it compile and run correctly, but the code would have 40 lines more of useless specializations. It won't be shown here.
 
 3) Passing the state even more incorrectly.
@@ -2081,7 +2147,7 @@ This would cause it to diverge as it would continually append to `state` inside 
 
 In general though, programs written in a higher order style tend to work well after they typecheck much like in F# despite the language feeling more dynamic. And it is not necessarily the case that Spiral is less typesafe than F#. 
 
-In fact it is the opposite for tasks that require union types due to the language having insufficient polymorphism in its type system. Many tasks that would otherwise require writing an interpreter in other languages can be done at compile time in Spiral.
+In fact it is the opposite for tasks that require union types due to F# having insufficient polymorphism in its type system. Many tasks that would otherwise require writing an interpreter in other languages can be done at compile time in Spiral.
 
 Loop unrolling is just one of those examples.
 
@@ -2200,7 +2266,9 @@ inl rec find_index {next state} = function
     | "princess" -> tuple_rev state
     | _ -> next ()
 ```
+
 Supposing the input is one dimensional, that is if the type of the array was `string []` it become possible to do more partial evaluation by hand.
+
 ```
 inl rec find_index {next state} = function
     | ar & @array_is _ -> 
@@ -2211,6 +2279,7 @@ inl rec find_index {next state} = function
             | _ -> next ()
         for' {from=0; near_to=array_length ar; finally=next; body}
 ```
+
 This program corresponds to a single loop and is in fact what the program would get specialized to had it been given only a string array as input.
 
 Seeing similar examples of this pattern will no doubt help and there will be a significant number of them throughout these tutorials.
@@ -2292,7 +2361,7 @@ inl filter f ar =
     init count ar'
 ```
 
-Being able to apply arrays directly instead of having to index them allows them to be used more like functions. Also worthy of note is the `ar.elem_type`. In Spiral there is not inference, only propagation so the type of an array must be extracted directly. In Spiral, types are first class and can be used as values. This can be exploited to get around the lack of inference in most cases.
+Being able to apply arrays directly instead of having to index them allows them to be used more like functions. Also worthy of note is the `ar.elem_type`. In Spiral there is no inference, only propagation so the type of an array must be extracted directly. In Spiral, types are first class and can be used as values. This can be exploited to get around the lack of inference in most cases.
 
 Arrays are a simple examples of how types might be held in structures.
 
@@ -2379,9 +2448,9 @@ Modules with no free variables such as the `Array` module whose fields are entir
 
 Discriminated union types in Spiral take direct inspiration from F#'s own. That having said, the lack of type inference and the aggressive unboxing of them by the Spiral evaluator makes them less convenient to work with. Nonetheless, union types capture the essence of dynamism and are absolutely essential in a modern language.
 
-Since Spiral has first class types, type string literals take the place of case names. Furthermore, types can be defined anywhere in the program rather than at the top level like in F#.
+Since Spiral has first class types, type string literals take the place of case names. Furthermore, types can be defined anywhere in the program rather than only at the top level like in F#.
 
-A non-recursive union type like the Option can be defined like the following. `\/` is the type union keyword operator. It has a lower precedence than tuples. `.Some, x \/ .None` is equivalent to `(type .Some, x) \/ (type .None)`.
+A non-recursive union type like the Option can be defined like the following. `\/` is the type union keyword operator. It has a lower precedence than tuples.
 
 ```
 inl Option x = .Some, x \/ .None
@@ -2403,7 +2472,9 @@ and Tuple1 =
     end
 Union0Case1
 ```
+
 Commentary on the quality of the generated code will be left for the user guide. Pattern matching on the boxed union values can be done the same way as in F#.
+
 ```
 match none int64 with
 | .Some, x -> x
@@ -2412,9 +2483,11 @@ match none int64 with
 ```
 11L
 ```
+
 The word 'staging' means 'defering for later'. Just like literals, the creation of union types is deferred for as long as possible in Spiral.
 
 In order to actually instantiate the type, it is necessary to `dyn` it or return it from a join point or an if branch. The end of the entire program also qualifies for instantiation.
+
 ```
 match none int64 |> dyn with
 | .Some, x -> x
@@ -2436,7 +2509,9 @@ match var_0 with
 | Union0Case1 ->
     -11L
 ```
+
 The above is roughly what would be expect to in F# or the MLs. Spiral's pattern matching is more flexible though.
+
 ```
 inl TypeA = .A \/ .B
 inl TypeB = .B \/ .C
@@ -2471,7 +2546,9 @@ let (var_3: int64) =
     | Union1Case1 ->
         3L
 ```
+
 Despite this added flexibility, it is in fact exhaustive. Unlike in F#, this is not a warning, but an error as Spiral's union types are intended to be used on devices which have no capabilities for raising exceptions.
+
 ```
 inl TypeA = .A \/ .B
 
@@ -2491,9 +2568,11 @@ Error trace on line: 36, column: 7 in file "example".
       ^
 Pattern miss error. The argument is type (type_lit (B))
 ```
+
 As it never matches `.B` it goes over the edge and returns a type error.
 
 Here is how recursive datatypes like lists might be defined.
+
 ```
 let example = 
     "example",[option;tuple;loops],"Module description.",
@@ -2530,7 +2609,9 @@ and Tuple1 =
     end
 (Rec0Case1(Tuple1(1L, (Rec0Case1(Tuple1(2L, (Rec0Case1(Tuple1(3L, Rec0Case0)))))))))
 ```
+
 `join_type` is similar to the standard `join` except it is used to define types. It always returns a naked type and on entry converts everything in the environment to their types and that includes literals. That means that passing literals through the type join point requires doing it on the type level or inside a layout type.
+
 ```
 /// Creates a list by calling the given generator on each index.
 /// ?(.static) -> int -> (int -> a) -> List a
@@ -2545,7 +2626,9 @@ inl init =
     | .static -> body true
     | x -> body false x
 ```
+
 The above function resembles the `init` in the `Array` module in structure. There is an interesting usage of the breakable `for'` here. Usually the `next` is intended to be called in tail position, but here it is not. Instead the `state` is used merely to ship the empty list to the end of it.
+
 ```
 inl x = init.static 3 id |> dyn
 ()
@@ -2577,9 +2660,11 @@ inl rec map f l =
     if box_is l then loop l
     else join loop l
 ```
+
 Error #2 should be obvious - there is no return type. Error #1 is more subtle - and is related to the way pattern matching is compiled. 
 
 Backtracking to the earlier example.
+
 ```
 inl TypeA = .A \/ .B
 
@@ -2594,7 +2679,9 @@ type Union0 =
     | Union0Case1
 let (var_0: Union0) = Union0Case0
 ```
+
 The above is as one would expect.
+
 ```
 inl TypeA = .A \/ .B
 
@@ -2612,9 +2699,11 @@ Error trace on line: 35, column: 7 in file "example".
 All the cases in pattern matching clause with dynamic data must have the same type.
 Got: [type_lit (A), type_lit (B)]
 ```
+
 The error message gives an indication of what is wrong. In Spiral, the match case is not what triggers unboxing - the operations that actually need to unbox the union type are what do it. That means literal, type literal, type equality, tuple and module patterns. This applies even to those patterns that have nothing to do with the variable's type and would have been expected to be skipped.
 
-It gets worse. Spiral's is really aggressive at rewriting the terms it is unboxing even if they are outside its intended scope.
+It gets worse. Spiral is really aggressive at rewriting the terms it is unboxing even if they are outside its intended scope.
+
 ```
 inl x = box TypeA .A |> dyn
 print_static x // var (union {type_lit (A) | type_lit (B)})
@@ -2633,7 +2722,8 @@ match x with
 All the cases in pattern matching clause with dynamic data must have the same type.
 Got: [type_lit (A), type_lit (B)]
 ```
-The way things are currently is the fault of whoever wrote the pattern matching compiler. Since patterns would be difficult to compile otherwise, internally Spiral uses the same mechanism used to do common subexpression elimination to pass information over multiple branches. There is no issue at all with this when not dealing with union types, but here there is some friction here.
+
+The way things are currently is the fault of whoever wrote the pattern matching compiler. Since patterns would be difficult to compile otherwise, internally Spiral uses the same mechanism used to do common subexpression elimination to pass information over multiple branches. There is no issue at all with this when not dealing with union types, but here there is some friction there.
 
 There is something good about the current arrangement that MLs do not have.
 
@@ -2705,7 +2795,7 @@ inl rec List x = join_type
     el, () \/ el, (x, List x)
 ```
 
-They all involve sticking the type in directly somehow by using layout types. Since layout types capture the scope by the typed expressions instead of types and since `x` can only ever be a type once it passes the `join_type` point, that assures that it will always be instantiated.
+They all involve sticking the type in directly by using layout types. Since layout types capture the scope by the expression instead of type and since `x` can only ever be a naked type once it passes the `join_type` point, that assures that it will always be instantiated.
 
 If adding `el` to all the branches of a larger type by hand is tedious, it is possible to automate that. It needs to be done inside the type join point. Here is how it would be done on a tuple.
 
@@ -2718,7 +2808,7 @@ inl rec List x = join_type
     |> Tuple.reducel (inl a b -> a \/ b)
 
 // [type ([layout_stack {elem_type=type (int64)}, []]), type ([layout_stack {elem_type=type (int64)}, [int64, rec_type 0]])]
-print_static (split (List int64)) 
+print_static (split (List int64))
 ```
 
 Using first class types Spiral can emulate what would be generic parameters of a container in a language with parametric polymorphism.
@@ -2751,9 +2841,11 @@ and Tuple1 =
     end
 let (var_0: Rec0) = (Rec0Case1(Tuple1(0L, (Rec0Case1(Tuple1(2L, (Rec0Case1(Tuple1(4L, Rec0Case0)))))))))
 ```
+
 The static version of map works fine now.
 
 Here is how the non-static version looks like.
+
 ```
 init 3 id |> map ((*) 2) |> dyn
 ```
@@ -2789,7 +2881,9 @@ let (var_0: int64) = 0L
 let (var_1: Rec0) = method_1((var_0: int64))
 method_2((var_1: Rec0))
 ```
+
 This does not demonstrate Spiral's true power. The function can map over lists that are partially static.
+
 ```
 inl l = dyn (singleton 3) |> cons 2 |> cons 1 |> cons 0
 map ((*) 2) l |> dyn
@@ -2818,6 +2912,7 @@ let (var_0: Rec0) = (Rec0Case1(Tuple1(3L, Rec0Case0)))
 let (var_1: Rec0) = method_1((var_0: Rec0))
 (Rec0Case1(Tuple1(0L, (Rec0Case1(Tuple1(2L, (Rec0Case1(Tuple1(4L, var_1)))))))))
 ```
+
 The first 3 elements are done at compile time, and the rest is done at runtime.
 
 With the map done, `foldl` and `foldr` are straightforward enough.
@@ -2863,7 +2958,9 @@ let (var_2: int64) = (var_1 + 1L)
 let (var_3: int64) = (var_2 + 2L)
 method_1((var_0: Rec0), (var_3: int64))
 ```
+
 One thing the example above demonstrates is that Spiral does require the user to know whether compile time or runtime execution is being targeted. The above fragment is not ideal since it would be better to sum the static part of the list and then `dyn` the state rather than do so at the beginning.
+
 ```
 /// Applies a function to each element of the collection, threading an accumulator argument through the computation. 
 /// If the input function is f and the elements are i0...iN, then this function computes f i0 (...(f iN s)).
@@ -2903,7 +3000,9 @@ let (var_2: int64) = method_1((var_0: Rec0), (var_1: int64))
 let (var_3: int64) = (2L + var_2)
 (1L + var_3)
 ```
+
 The next are `head` and `tail`.
+
 ```
 open Option
 
@@ -2923,7 +3022,9 @@ inl tail l =
     | x, xs -> some xs
     | () -> none (List t)
 ```
+
 As the above are straightforward so there is no need to run them. That having said, it would be interesting to know how it might be possible to implement them in continuation passing style for greater efficiency.
+
 ```
 /// Returns the first element of the list.
 /// a List -> {some=(a -> a) none=(a type -> a)} -> a
@@ -2965,7 +3066,9 @@ match var_0 with
     let (var_3: int64) = var_1.mem_0
     var_1.mem_1
 ```
+
 The best is left for `last`.
+
 ```
 /// Returns the last element of the list.
 /// a List -> a Option
@@ -3013,6 +3116,7 @@ and method_2((var_0: Rec0), (var_1: int64)): Union2 =
 let (var_0: Rec0) = (Rec0Case1(Tuple1(3L, Rec0Case0)))
 method_1((var_0: Rec0))
 ```
+
 The above way of specializing it is close to ideal. It would be better had `method_1` been inlined, but this is a decent showing. As can be seen, the option type is staged and only the int inside is passed through until it is time to return from the function at which point the instantiation happens. In F#, this way of doing `last` would be grossly inefficient as a new option would be instantiated at each step. Very few languages allow passing of literals across call boundaries due to the uncertainty whether the optimizer will diverge. Spiral achieves its efficiency by making dealing with the [halting problem](https://en.wikipedia.org/wiki/Halting_problem) the user's responsibility. This is not a bad strategy - as the halting problem is NP Hard, other compilers' optimizers have no choice but to rely on fallible heuristics whereas the user has to determine whether the program will terminate anyway and has no say in what the black box is deciding. It is not so in Spiral.
 
 The essence of Spiral is to convert the termination proofs implicitly and informally present in the program into polymorphism.
@@ -3065,6 +3169,7 @@ and method_2((var_0: Rec0), (var_1: int64)): int64 =
 let (var_0: Rec0) = (Rec0Case1(Tuple1(3L, Rec0Case0)))
 method_1((var_0: Rec0))
 ```
+
 It can no longer be implemented in terms of fold, but otherwise is rather simple.
 
 Note that `head'`, `tail'` and `last'` are just more generic versions of the non-CPS versions. Assuming the 3 original functions were missing, here is how they might be implemented in terms of CPS'd ones.
@@ -3083,7 +3188,7 @@ inl tail l = tail' l {some none}
 inl last l = last' l {some=const << some; none}
 ```
 
-Here `const` is simply `inl x _ -> x` as was used inside `some` of the previous example. The continuation passing style is great for writing generic code in Spiral as it meshes well with tss typing scheme. The monadic computations that will be shown in the following chapters are just syntax sugar over CPS.
+Here `const` is simply `inl x _ -> x` as was used inside `some` of the previous example. The continuation passing style is great for writing generic code in Spiral as it meshes well with its typing scheme. The monadic computations that will be shown in the following chapters are just syntax sugar over CPS.
 
 The capacity to make specialized functions from generic one like the above is an important factor in ensuring code correctness. Eliminating code duplication and ensuring single responsibility is possible without performance impact in Spiral.
 
@@ -3139,7 +3244,9 @@ match var_0 with
     | Union0Case1 ->
         4L
 ```
+
 The above compiles nicely, but suppose a partial active pattern with a join point is inserted in the middle.
+
 ```
 inl ab = box (.A \/ .B)
 inl x = dyn (ab .A, ab .A, ab .A)
@@ -3190,9 +3297,11 @@ match var_0 with
 | Union0Case1 ->
     method_0((var_0: Union0), (var_1: Union0), (var_2: Union0))
 ```
+
 What is going on here is that the evaluator is forgetting that it already tested the variables and starts unboxing them again inside the join point. This is because join points throw away local left to right rewrite information.
 
 A workaround would be to put join points in the clause bodies.
+
 ```
 inl ab = box (.A \/ .B)
 inl x = dyn (ab .A, ab .A, ab .A)
@@ -3257,11 +3366,9 @@ Wanting macros in order to optimize performance will never happen in Spiral.
 
 ### 4: Continuation Passing Style, Monadic Computation and Parsing
 
-(work in progress)
-
 Now that union types are out of the way, slowly the subject can move towards the more fun stuff that can be done with the language. CPS is a great way of writing highly abstract, generic and very fast code in Spiral and so the language has support for programming in such a style using monadic syntax. Modules are a significant aid as well for programming in CPS.
 
-This chapter will be short and won't go into depth of how monads work. Neither will it explain how parsers work. As both of those subjects are highly complex, it would take a lot of time to cover them. For parsers combinators in particular, the place place to learn how they work would be to start with the [FParsec documentation](http://www.quanttec.com/fparsec/) and play with them.
+This chapter will be short and won't go into depth of how monads work. Neither will it explain how parsers work. As both of those subjects are highly complex, it would take a lot of time to cover them. For parsers combinators in particular, the place place to learn how they work would be to start with the [FParsec documentation](http://www.quanttec.com/fparsec/).
 
 For monads in particular, it is best to study their specific instances. There is a large amount of tutorials online regarding them, most often in the context of the Haskell language. More closer to home, the author's understanding of them went through a dramatic improvement once he stopped trying to figure out what the higher kinded types are doing and simply focused on the functions themselves in terms of flow.
 
@@ -3298,7 +3405,9 @@ and Tuple1 =
     end
 Tuple1(20L, Tuple0(2L, 7L, 11L))
 ```
+
 What the `inm` keyword does is merely rewrite `inm x = f` to `f >>= inl x -> ...`. Meaning the above example could have been done manually as...
+
 ```
 add 1 1 >>= inl x ->
 on_log x >>= inl _ ->
@@ -3308,6 +3417,7 @@ add 5 6 >>= inl z ->
 on_log z >>= inl _ ->
 on_succ (x+y+z)
 ```
+
 The writer monad pattern is notable as it is used to accumulate the backwards trace in the ML library, so it is worth keeping in mind. Despite the power of monads, most of the time they are used to encapsulate state.
 
 Apart from `inm` there is also `inb`.
@@ -3632,7 +3742,9 @@ inl num = box uint64 (puint64 .>> spaces)
 
 run (uint64,uint64,uint64) "123 456 789" (tuple (num, num, num))
 ```
+
 This actually improves the running time significantly.
+
 ```
            Method |       Mean |     Error |    StdDev |
 ----------------- |-----------:|----------:|----------:|
@@ -3641,7 +3753,8 @@ This actually improves the running time significantly.
  FullySpecialized |   292.8 ns | 0.8448 ns | 0.7902 ns |
            FSharp | 3,616.2 ns | 8.9547 ns | 8.3762 ns |
 ```
-The boxy parser is by far the best variant. It comes out to only 170 LOCs and is 45% faster than the fully specialized version and 18x times than the F# version. This also demonstrates that code duplication does have a noticeable performance impact. The lines of code reduced would be much more dramatic for a larger parser thereby making the application of this technique a necessity in a serious library. Currently the `Parsing` module in the standard library is lacking in that regard and the above benchmark is actually the first time the author used union type boxing on parsers or did benchmarking of a Spiral program for that matter. The `Parsing` module was not intented to be a serious parsing library, but to drive the development of the language in a challening area.
+
+The boxy parser is by far the best variant. It comes out to only 170 LOCs and is 45% faster than the fully specialized version and 18x times than the F# version. This also demonstrates that code duplication does have a noticeable performance impact. The lines of code reduced would be much more dramatic for a larger parser thereby making the application of this technique a necessity in a serious library. Currently the `Parsing` module in the standard library is lacking in that regard and the above benchmark is actually the first time the author used union type boxing on parsers or did benchmarking of a Spiral program. The `Parsing` module was not intented to be a serious parsing library, but to drive the development of the language in a challening area.
 
 When the first version of it was created Spiral did not have modules nor monadic syntax nor good error messages, but it did have a lot of compiler bugs as if to make up for it. Spiral's modules were created in part because refactoring the parser was simply so painful during those days - it would take the author hours to fix the type errors that in F# would have taken him 10m. It is much better now thankfully.
 
@@ -3665,7 +3778,7 @@ Tensors in Spiral represent the crystallization of its power; they are the point
 
 Unlike parsers of the previous chapter which were complicated - so complicated that they could not be explained, tensors are actually rather simple and intended for all ages.
 
-The implementation of `HostTensor` in the standard library is somewhat convoluted due to needing to be generic in order to be reusable on the Cuda side in addition to having a lot of functionality, so this chapter will follow the format of giving a few examples of its most salient features and then show how a simpler `Tensor` can be derived from first principles in order to attain understanding of it.
+The implementation of `HostTensor` in the standard library is somewhat convoluted due to needing to be generic in order to be reusable on the Cuda side in addition to having a lot of functionality, so this chapter will follow the format of giving a few examples of its most salient features and then show how a simpler tensor can be derived from first principles in order to attain understanding of it.
 
 Tensors in Spiral can have an arbitrary number of dimensions, arbitrary types and arbitrary layouts in addition to supporting views. Indexing into them emulates the partial application of functions. `init` for them takes arguments in curried form which supports scope control.
 
@@ -3684,7 +3797,9 @@ HostTensor.init (3,5,{from=2; to=5}) (inl a ->
 |> Console.writeline
     """
 ```
+
 The generated code won't be posted as the loops for printing the tensors and initializing it are long, but here is what comes out when the program has been ran.
+
 ```
 x is zero
 x is one
@@ -3716,6 +3831,7 @@ x is two
 Having the arguments to `init` be partially applied rather than given all at once is what allow the outside array to be indexed only in the outer loop. Had it been otherwise, the indexing would have needed to be done inside the innermost loop. `init` gives loops for free. Important operations such as map, rotation and reduction can be implemented in terms of init on the host (CPU) side.
 
 Tensors themselves emulate partial application of functions. Here is how they can be indexed into.
+
 ```
 inl ar = array_create string 3
 Tuple.foldl (inl i x -> ar i <- x; i+1) 0 ("zero","one","two") |> ignore
@@ -3733,7 +3849,9 @@ tns 2 |> f |> Console.writeline
 [one, 0, 2]
 [two, 0, 2]
 ```
+
 This is convenient for views. Views can take more than a single argument in which case they need to be passed as a tuple. Like application, views work on dimensions from left to right - from the outermost to the innermost.
+
 ```
 inl ar = array_create string 3
 Tuple.foldl (inl i x -> ar i <- x; i+1) 0 ("zero","one","two") |> ignore
@@ -3829,6 +3947,7 @@ let (var_5: (Tuple0 [])) = Array.zeroCreate<Tuple0> (System.Convert.ToInt32(25L)
 let (var_6: int64) = 0L
 method_2((var_0: (int64 [])), (var_1: (int64 [])), (var_5: (Tuple0 [])), (var_6: int64))
 ```
+
 The full thing won't be posted as it is 100 LOC, but it should be imaginable that `method_0` is `init` for `tns_toa` and `method_2` is `init` for `tns_aot`. Spiral's tensors are the perfect abstraction where layouts are concerned and it is possible to mix and match `.aot` and `.toa` layout using the `zip` function and it will still work fine. For most usecases, the default tuple of arrays is sensible.
 
 Saying tuple of arrays does not cover it completely though. The tensors work fine with modules.
@@ -3853,7 +3972,7 @@ This is the short tour of the tensors in Spiral. The next section will be on how
 
 #### Under the Hood
 
-As was shown there are two aspects of tensor polymorphism - one was that they have an arbitrary number of dimensions and the other was that are layout polymorphic. In a language with weaker type systems that would require creating specific tensor instances for both of those concerns, but Spiral can handle them naturally.
+As was demonstrated, there are two aspects of tensor polymorphism - one was that they have an arbitrary number of dimensions and the other was that are layout polymorphic. In a language with weaker type systems that would require creating specific tensor instances for both of those concerns, but Spiral can handle them naturally.
 
 Even better, the dimensionality of the tensor is really a separate concern from its layout and so the two subjects can be taken in as separate pieces.
 
@@ -3875,7 +3994,7 @@ type Tuple0 =
 Array.zeroCreate<Tuple0> (System.Convert.ToInt32(8L))
 ```
 
-The above is also known as `aot` or `array of tuples` form. How would the `toa` or `tuple of arrays` form look like then?
+The above is also known as `aot` or `array of tuples` form. The opposite of it, the `toa` or `tuple of arrays` form would be this.
 
 ```
 inl ar = array_create int64 8, array_create int64 8, array_create int64 8
@@ -3887,7 +4006,7 @@ let (var_1: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
 let (var_2: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(8L))
 ```
 
-Rather than copy pasting like the above it would be better if the type was mapped directly.
+Rather than copy pasting like, it would be better if the type were mapped directly.
 
 ```
 inl ar = Tuple.map (inl x -> array_create x 8) (int64,int64,int64)
@@ -4080,7 +4199,7 @@ The next section will be on how to take what has been done so far and make the 1
 
 ##### Dimensionality Polymorphism
 
-In one of the previous chapters, it was mentioned that Spiral is not necessarily less typesafe than F#, and that in some cases the opposite is in fact the case. Whenever dynamism and therefore union types are needed, a step is made into an entirely different paradigm for languages with weaker type systems.
+In one of the previous chapters, it was mentioned that Spiral is not necessarily less typesafe than F#, and that in some cases the opposite is in fact the case. Whenever dynamism and therefore union types are needed, a step is made into an entirely different paradigm for languages with weaker type systems due to have to push typechecking to runtime.
 
 ```
 List.take 5 [1;2;3] // An error at runtime.
@@ -4105,6 +4224,7 @@ Now, there is no doubt that making a very specific instance of a tensor (such as
     dim
 }
 ```
+
 The above is very similar to the type of the Spiral's `HostTensor` in pseudo-code. It is actually one of its previous designs that is easier to explain as it has a more uniform structure. 
 
 In it, `dim` is just the dimension of the tensor and might be `(2,3,4)` for a 3d tensor, `(10,20)` for a 2d tensor or `()` for a scalar tensor for example.
@@ -4157,7 +4277,9 @@ inl tns = {
     dim
     }
 ```
+
 By now some patterns should be coming out. `ar` is always inserted directly into the tensor body, `size` is just the rightwards [scan product](https://stackoverflow.com/questions/23491216/f-cumulative-product-of-an-array) of `dim`, `offset` is always `dim` mapped to 0, and `dim` is always itself. The only difference is 1d when `size`, `offset` and `dim` are wrapped in a tuple.
+
 ```
 /// Creating a nd tensor in the array of tuples layout.
 inl tensor_aot_create typ dim =
@@ -4173,7 +4295,9 @@ inl tensor_aot_create typ dim =
     dim
     }
 ```
+
 Here is the pattern abstracted and codified. The tuple of arrays version is similar to the above.
+
 ```
 /// Creating a nd tensor in the tuple of arrays layout.
 inl tensor_toa_create typ dim =
@@ -4190,7 +4314,9 @@ inl tensor_toa_create typ dim =
     dim
     }
 ```
+
 The two functions have a very similar internal structure. It can be factored out like so.
+
 ```
 /// Creating a nd tensor
 inl tensor_create {dsc with typ dim} =
@@ -4213,7 +4339,9 @@ inl tensor_create {dsc with typ dim} =
     dim
     }
 ```
+
 The beautiful thing about this is that since all the sizes are known, Spiral can track them at compile time.
+
 ```
 inl tns = tensor_create {typ=int64,string,float32; dim=10,5,5}
 ()
@@ -4223,6 +4351,7 @@ let (var_0: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(250L))
 let (var_1: (string [])) = Array.zeroCreate<string> (System.Convert.ToInt32(250L))
 let (var_2: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(250L))
 ```
+
 Unless the tensor is returned from a join point, or a dynamic if statement, or put into an array, those fields will never be instantiated due being tracked at the type level and the tensor will have the very minimal overhead at runtime.
 
 Spiral's `HostTensor` actually tracks lower and upper bounds in `dim` as well, but that won't be done for this tutorial.
@@ -4240,6 +4369,7 @@ bodies = {
 dim = 10, 5, 5
 }
 ```
+
 For the purpose of explanation, the 3d tensor from the previous example will be the starting point.
 
 How should applying 2 to the tensor transform it?
@@ -4257,7 +4387,9 @@ bodies = {
 dim = 5, 5
 }
 ```
+
 Applying 3 to the above should turn it into this.
+
 ```
 {
 bodies = {
@@ -4269,7 +4401,9 @@ bodies = {
 dim = 5 :: ()
 }
 ```
+
 Now that it is has been applied twice, the resulting tensor has gone from 3d to 1d. Once more and it will be scalar. Here is simulating the application of 4.
+
 ```
 {
 bodies = {
@@ -4281,6 +4415,7 @@ bodies = {
 dim = ()
 }
 ```
+
 Note how now the offset it a scalar and can be used to index into an array. The rules of tensors are quite simple, only 0d (scalar) tensors can be indexed and set and cannot be applied, while the opposite holds for tensors with higher number of dimensions.
 
 Also note that `dim` plays no role in calculating the top of the new offset.
@@ -4355,6 +4490,7 @@ let (var_9: int64) = (var_8 + 15L) // 65
 let (var_10: int64) = (var_9 + 4L) // 69
 method_0((var_0: (int64 [])), (var_10: int64), (var_1: (string [])), (var_2: (float32 [])))
 ```
+
 In the above example the first application was `dyn`ed. This makes the assertion check necessary at runtime, but the line of note is the last one. Due to common subexpression rewriting, in the end all the bodies end up with the same index variable.
 
 This will be reflected when they are being passed through join points. 
@@ -4398,7 +4534,9 @@ var_0.[int32 69L] <- 1L
 var_1.[int32 69L] <- "asd"
 var_2.[int32 69L] <- 3.300000f
 ```
+
 Here is the `aot` form for good measure.
+
 ```
 inl tns = 
     tensor_create {layout=.aot; typ=int64,string,float32; dim=10,5,5}
@@ -4451,9 +4589,9 @@ var_0.[int32 69L] <- Tuple0(1L, "asd", 3.300000f)
 
 Views on tensors are similar to apply and just push the offsets without reducing the dimensionality of the tensor. It won't be covered in the tutorial and the interested should just look into the standard library implementation of them for specific details.
 
-There is an interesting programming lesson that the author re-experienced while making the tensor. Near the beginning there was a comment that the tensor design for the tutorial is more uniform than the one in the standard library. It is actually even more than that. The way it has been designed here is in fact how the author remembered the tensor. He knew it was not like this in the standard library, but when he looked he was actually surprised at how it was made indicating that he in fact forgot about it.
+There is an interesting programming lesson that the author (re)experienced while making the tensor tutorial. Near the beginning there was a comment that the tensor design for the tutorial is more uniform than the one in the standard library. It is actually even more than that. The way it has been designed here is in fact how the author remembered the tensor. He knew it was not like this in the standard library, but when he looked he was actually surprised at how it was made indicating that he in fact forgot about it.
 
-It is not the first time it happened that a piece poorly fit into memory to him and won't be the last. Memory mismatches are a sure sign that a particular piece of software is due to a redesign. Having been left alone for a while, all but the most salient features of a program faded from memory indicating that in fact the rest are worthless and should be removed. Once he is done with the documentation that will surely be done.
+It is not the first time it happened that a piece poorly fit into memory to him and won't be the last. Memory mismatches are a sure sign that a particular piece of software should be redesigned. Having been left alone for a while, all but the most salient features of a program faded from memory indicating that in fact the rest are worthless and should be removed. Once he is done with the documentation that will surely be done.
 
 With this all that has needed to be said in order to understand tensors has been said, but a digression needs to be made to highlight just how great they really are.
 
@@ -4467,7 +4605,7 @@ From what has been heard of PyTorch in action by the author, there has been noth
 
 Nevertheless, if the best tools for the job in 2018 for making tensors generic are the 1972 C macros then probably something went wrong somewhere and not just with PyTorch specifically.
 
-Whether it is composability or performance or lack of safety, those kinds of problems exist due to the weak type systems, but it is not like type systems have to be just about solving constraints, nor do they have to be segregated from the rest of the compiler passes. Lisps had the great idea of integrating parsing with the rest of compilation passes. There is nothing preventing similar to be done with a type system.
+Whether it be composability or performance or lack of safety, those kinds of problems exist due to the weak type systems. But it is not like type systems have to be just about solving constraints, nor do they have to be segregated from the rest of the compiler passes. Lisps had the great idea of integrating parsing with the rest of compilation passes. There is nothing preventing similar to be done with a type system.
 
 Once that fusion is done, a piece of the power that is released can be seen in this chapter - a properly done tensor type.
 
@@ -4496,7 +4634,9 @@ let (var_0: int64) = 1L
 let (var_1: int64) = 2L
 method_0((var_0: int64), (var_1: int64))
 ```
+
 Here is the Cuda version. The `cuda` keyword is just syntax sugar for `inl threadIdx blockIdx blockDim gridDim -> ...`. `openb` is the CPS version of `open`.
+
 ```
 inl fact to = Loops.for {from=2; to state=dyn 1; body=inl {state i} -> state * i}
 openb Cuda
