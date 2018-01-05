@@ -4689,6 +4689,8 @@ As it currently stands, the compiler in its entirety is at about 4.1k LOC. And w
 
 It took the author 14 months to get the language up to this point, but with it as a reference it would be closer to 1 month long student project in terms of difficulty if a sensible tool like F# is used instead of C++.
 
+The first 9 chapters document the language's core. The rest can be read in any order.
+
 ### 1: Data Structures, Abstraction and Destructuring
 
 ```
