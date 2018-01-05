@@ -994,9 +994,9 @@ inl rec view_offsets = function
     | _, o, () -> o
 
 inl tensor_view {data with size offset} i' = {data with offset = view_offsets (size,offset,i')}
-inl tensor_get {data with offset ar} = ar position
-inl tensor_set {data with offset ar} v = ar position <- v
-inl tensor_apply {data with size=s::size offset=o::offset} =
+inl tensor_get {data with offset ar} = ar offset
+inl tensor_set {data with offset ar} v = ar offset <- v
+inl tensor_apply {data with size=s::size offset=o::offset} i =
     inl o = o + i * s
     inl offset = 
         match offset with
@@ -1110,7 +1110,7 @@ inl dim_describe (!map_dims dim) =
     | dim ->
         inl len :: size = Tuple.scanr (inl (!span x) s -> x * s) dim 1
         inl make_body ar = 
-            inl offset = Tuple.map (inl size -> {size position}) size
+            inl offset = Tuple.map (const 0) size
             {ar size offset block_toa_map=()}
         {len dim make_body}
 
