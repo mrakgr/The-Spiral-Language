@@ -1009,8 +1009,8 @@ inl HostTensorPrimitives =
     inl merge_offset {data with size position} {size=size' position=position'} = {data with size=size'; position=position + position'}
     {
     view 
-    get = inl {data with position ar} -> ar position
-    set = inl {data with position ar} v -> ar position <- v
+    get = inl {data with offset ar} -> ar offset
+    set = inl {data with offset ar} v -> ar offset <- v
     apply = primitive_apply_template {view merge_offset} 
     }
 
