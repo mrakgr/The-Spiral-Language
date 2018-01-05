@@ -3,7 +3,6 @@
 open Spiral.Lib
 open Spiral.Tests
 open System.IO
-open Learning
 open System.Diagnostics
 
 let cfg: Spiral.Types.CompilerSettings = {

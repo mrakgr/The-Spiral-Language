@@ -20,6 +20,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Temporary", "Temporary\Temp
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Benchmarking", "Benchmarking\Benchmarking.fsproj", "{C4A5AE59-82F8-4793-932F-66B60A038048}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Learning", "Learning\Learning.fsproj", "{8A44EEC1-7E30-4B7C-A878-1F78A0C08E9A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -42,6 +44,10 @@ Global
 		{C4A5AE59-82F8-4793-932F-66B60A038048}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C4A5AE59-82F8-4793-932F-66B60A038048}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C4A5AE59-82F8-4793-932F-66B60A038048}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8A44EEC1-7E30-4B7C-A878-1F78A0C08E9A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A44EEC1-7E30-4B7C-A878-1F78A0C08E9A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A44EEC1-7E30-4B7C-A878-1F78A0C08E9A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A44EEC1-7E30-4B7C-A878-1F78A0C08E9A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
