@@ -4746,7 +4746,7 @@ Spiral is crazy about turning variables inside out whenever it can. This has the
 
 Note the the way F# for example or other functional languages do destructuring is not the same. There is a notable difference between the philosophy of Spiral and the rest of the pack. Spiral follows the dogma of `inline first and optimize later` while generally high level languages inherit the Lisp philosophy of `heap allocate first and optimize later`.
 
-That means in F# for example pattern matching is necessary to destructure a tuple since otherwise they would be packed. This is done at runtime.
+That means in F# for example pattern matching is necessary to destructure a tuple since otherwise they would be packed. This is done at runtime. Here is a look into how F# does it based on its AST. The following examples uses its [code quotation](https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/code-quotations) feature.
 
 ```
 let x = 1,2,3
@@ -4772,7 +4772,7 @@ In Spiral something like a simple binding would mean something completely differ
 inl a,b,c = x
 ```
 
-There is no way that in the above `x`that would not have already been destructured, hence what that tuple pattern does is tries to unbox a union type, but otherwise does absolutely nothing at runtime. It adds a few names to the environment and that is it. `destructure` would be called and then it would do nothing once it saw `TyList` as input.
+There is no way that in the above example that `x` would not have already been destructured, hence what that tuple pattern does is tries to unbox a union type, but otherwise does absolutely nothing at runtime. It adds a few names to the environment and that is it. `destructure` would be called and then it would do nothing once it saw `TyList` as input.
 
 ```
 inl a,b,c = join 1,2,3
@@ -4780,7 +4780,7 @@ inl a,b,c = join 1,2,3
 
 Now if it was something like the above then it would be doing destructuring. It would go roughly `1,2,3 -> var [int64; int64; int64]` in the join point and then `var [int64; int64; int64] -> [var int64; var int64; var int64]` on destructuring.
 
-Keeping the environments fully destructured at all times is important for than just efficiency at runtime, making specialization coherent, supporting partially static structures and making other operations easier - it also solves one of the great language interop problems. How are arguments to be passed through join points to other languages?
+Keeping the environments fully destructured at all times is important for than just efficiency at runtime, making specialization coherent, supporting partially static structures and making other operations easier - it also solves one of the great language interop problems. "How are arguments to be passed through join points to other languages?"
 
 It is impossible to pass tuples of primitives to the Cuda side in their default form. The reason for that is that C might decide to layout the struct differently than the .NET JIT does and there is no way to access the layout information directly.
 
@@ -4789,52 +4789,52 @@ By flattening structures out of the way completely at runtime, interop becomes a
 The time it took for the author to write the `destructure` function can be measured in many months.
 
 ```
-        let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr = 
-            let inline destructure r = destructure d r
+let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr = 
+    let inline destructure r = destructure d r
 
-            let inline cse_eval on_succ on_fail r = 
-                match Map.tryFind r !d.cse_env with
-                | Some x -> on_succ x
-                | None -> on_fail r
-            let inline cse_recurse r = cse_eval destructure id r
+    let inline cse_eval on_succ on_fail r = 
+        match Map.tryFind r !d.cse_env with
+        | Some x -> on_succ x
+        | None -> on_fail r
+    let inline cse_recurse r = cse_eval destructure id r
 
-            let inline let_insert_cse r = 
-                cse_eval 
-                    cse_recurse
-                    (fun r ->
-                        let x = make_tyv_and_push_typed_expr d r
-                        cse_add d r x
-                        x)
-                    r
+    let inline let_insert_cse r = 
+        cse_eval 
+            cse_recurse
+            (fun r ->
+                let x = make_tyv_and_push_typed_expr d r
+                cse_add d r x
+                x)
+            r
 
-            let index_tuple_args r tuple_types = 
-                let unpack (s,i as state) typ = 
-                    if is_unit typ then tyt typ :: s, i
-                    else (destructure <| TyOp(ListIndex,[r;TyLit <| LitInt64 (int64 i)],typ)) :: s, i + 1
-                List.fold unpack ([],0) tuple_types
-                |> fst |> List.rev
+    let index_tuple_args r tuple_types = 
+        let unpack (s,i as state) typ = 
+            if is_unit typ then tyt typ :: s, i
+            else (destructure <| TyOp(ListIndex,[r;TyLit <| LitInt64 (int64 i)],typ)) :: s, i + 1
+        List.fold unpack ([],0) tuple_types
+        |> fst |> List.rev
 
-            let env_unseal r x =
-                let unseal (m,i as state) (k: string) typ = 
-                    if is_unit typ then Map.add k (tyt typ) m, i
-                    else
-                        let r = TyOp(MapGetField,[r; tyv(i,typ)], typ) |> destructure 
-                        Map.add k r m, i + 1
-                Map.fold unseal (Map.empty,0) x |> fst
+    let env_unseal r x =
+        let unseal (m,i as state) (k: string) typ = 
+            if is_unit typ then Map.add k (tyt typ) m, i
+            else
+                let r = TyOp(MapGetField,[r; tyv(i,typ)], typ) |> destructure 
+                Map.add k r m, i + 1
+        Map.fold unseal (Map.empty,0) x |> fst
 
-            let inline destructure_var r map_vvt map_funt =
-                match get_type r with
-                | ListT tuple_types -> tyvv(map_vvt tuple_types)
-                | MapT (env,t) -> tymap(map_funt env, t)
-                | _ -> cse_recurse r
-            
-            match r with
-            | TyMap _ | TyList _ | TyLit _ -> r
-            | TyBox _ -> cse_recurse r
-            | TyT _ -> destructure_var r (List.map (tyt >> destructure)) (Map.map (fun _ -> (tyt >> destructure)) >> Env)
-            | TyV _ -> destructure_var r (index_tuple_args r) (env_unseal r >> Env)
-            | TyOp _ -> let_insert_cse r
-            | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
+    let inline destructure_var r map_vvt map_funt =
+        match get_type r with
+        | ListT tuple_types -> tyvv(map_vvt tuple_types)
+        | MapT (env,t) -> tymap(map_funt env, t)
+        | _ -> cse_recurse r
+    
+    match r with
+    | TyMap _ | TyList _ | TyLit _ -> r
+    | TyBox _ -> cse_recurse r
+    | TyT _ -> destructure_var r (List.map (tyt >> destructure)) (Map.map (fun _ -> (tyt >> destructure)) >> Env)
+    | TyV _ -> destructure_var r (index_tuple_args r) (env_unseal r >> Env)
+    | TyOp _ -> let_insert_cse r
+    | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
 ```
 
 What was covered so far is essentially the `TyV _` case. `TyT _` case works very similarly to that except there is no need to make any work for the code generator in the later stage. Understanding the specifics of the function is not necessary at this point. What is desired is to show that there is a direct mapping between what was talked about and code. 
@@ -4844,37 +4844,37 @@ If one can understand the above function and how join points work, that would be
 Based on what was discussed up to now, the first time reader of the user guide's model should roughly be as if the above function was written like this. The following is `destructure` without common subexpression elimination.
 
 ```
-        let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr = 
-            let inline destructure r = destructure d r
+let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr = 
+    let inline destructure r = destructure d r
 
-            let index_tuple_args r tuple_types = 
-                let unpack (s,i as state) typ = 
-                    if is_unit typ then tyt typ :: s, i
-                    else (destructure <| TyOp(ListIndex,[r;TyLit <| LitInt64 (int64 i)],typ)) :: s, i + 1
-                List.fold unpack ([],0) tuple_types
-                |> fst |> List.rev
+    let index_tuple_args r tuple_types = 
+        let unpack (s,i as state) typ = 
+            if is_unit typ then tyt typ :: s, i
+            else (destructure <| TyOp(ListIndex,[r;TyLit <| LitInt64 (int64 i)],typ)) :: s, i + 1
+        List.fold unpack ([],0) tuple_types
+        |> fst |> List.rev
 
-            let env_unseal r x =
-                let unseal (m,i as state) (k: string) typ = 
-                    if is_unit typ then Map.add k (tyt typ) m, i
-                    else
-                        let r = TyOp(MapGetField,[r; tyv(i,typ)], typ) |> destructure 
-                        Map.add k r m, i + 1
-                Map.fold unseal (Map.empty,0) x |> fst
+    let env_unseal r x =
+        let unseal (m,i as state) (k: string) typ = 
+            if is_unit typ then Map.add k (tyt typ) m, i
+            else
+                let r = TyOp(MapGetField,[r; tyv(i,typ)], typ) |> destructure 
+                Map.add k r m, i + 1
+        Map.fold unseal (Map.empty,0) x |> fst
 
-            let inline destructure_var r map_vvt map_funt =
-                match get_type r with
-                | ListT tuple_types -> tyvv(map_vvt tuple_types)
-                | MapT (env,t) -> tymap(map_funt env, t)
-                | _ -> cse_recurse r
-            
-            match r with
-            | TyMap _ | TyList _ | TyLit _ -> r
-            | TyBox _ -> make_tyv_and_push_typed_expr d r
-            | TyT _ -> destructure_var r (List.map (tyt >> destructure)) (Map.map (fun _ -> (tyt >> destructure)) >> Env)
-            | TyV _ -> destructure_var r (index_tuple_args r) (env_unseal r >> Env)
-            | TyOp _ -> make_tyv_and_push_typed_expr d r
-            | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
+    let inline destructure_var r map_vvt map_funt =
+        match get_type r with
+        | ListT tuple_types -> tyvv(map_vvt tuple_types)
+        | MapT (env,t) -> tymap(map_funt env, t)
+        | _ -> cse_recurse r
+    
+    match r with
+    | TyMap _ | TyList _ | TyLit _ -> r
+    | TyBox _ -> make_tyv_and_push_typed_expr d r
+    | TyT _ -> destructure_var r (List.map (tyt >> destructure)) (Map.map (fun _ -> (tyt >> destructure)) >> Env)
+    | TyV _ -> destructure_var r (index_tuple_args r) (env_unseal r >> Env)
+    | TyOp _ -> make_tyv_and_push_typed_expr d r
+    | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
 ```
 `destructure_var` can be completely thought of as a recursive map.
 
@@ -4904,51 +4904,51 @@ let var_2 = ...
 Based on that information it be guessed that during evaluation a list of let statements is maintained in the environment that gets added every time `make_tyv_and_push_typed_expr` gets called. That is in fact exactly what happens, but the way the function is implemented might seem convoluted at first.
 
 ```
-        let inline make_tyv_and_push_typed_expr_template (even_if_unit: bool) (d: LangEnv) (ty_exp: TypedExpr): TypedExpr =
-            let ty = get_type ty_exp
-            if is_unit ty then
-                if even_if_unit then
-                    let seq = !d.seq
-                    let trace = trace d
-                    d.seq := fun rest -> TyState(ty_exp,rest,get_type rest,trace) |> seq
-                tyt ty
-            else
-                let v = make_tyv_ty d ty
-                let seq = !d.seq
-                let trace = trace d
-                d.seq := fun rest -> TyLet(v,ty_exp,rest,get_type rest,trace) |> seq
-                tyv v
-            
-        let make_tyv_and_push_typed_expr_even_if_unit d ty_exp = make_tyv_and_push_typed_expr_template true d ty_exp
-        let make_tyv_and_push_typed_expr d ty_exp = make_tyv_and_push_typed_expr_template false d ty_exp
+let inline make_tyv_and_push_typed_expr_template (even_if_unit: bool) (d: LangEnv) (ty_exp: TypedExpr): TypedExpr =
+    let ty = get_type ty_exp
+    if is_unit ty then
+        if even_if_unit then
+            let seq = !d.seq
+            let trace = trace d
+            d.seq := fun rest -> TyState(ty_exp,rest,get_type rest,trace) |> seq
+        tyt ty
+    else
+        let v = make_tyv_ty d ty
+        let seq = !d.seq
+        let trace = trace d
+        d.seq := fun rest -> TyLet(v,ty_exp,rest,get_type rest,trace) |> seq
+        tyv v
+    
+let make_tyv_and_push_typed_expr_even_if_unit d ty_exp = make_tyv_and_push_typed_expr_template true d ty_exp
+let make_tyv_and_push_typed_expr d ty_exp = make_tyv_and_push_typed_expr_template false d ty_exp
 ```
 
 There are actually two variants of the function packed into a single one based on whether the type of the expression is a unit. Using some partial evaluation by hand, it should be possible to clarify the function by splitting them into two.
 
 ```
-        let make_tyv_and_push_typed_expr_even_if_unit (d: LangEnv) (ty_exp: TypedExpr): TypedExpr = //make_tyv_and_push_typed_expr_template true d ty_exp
-            let ty = get_type ty_exp
-            let seq = !d.seq
-            let trace = trace d
-            
-            if is_unit ty then
-                d.seq := fun rest -> TyState(ty_exp,rest,get_type rest,trace) |> seq
-                tyt ty
-            else
-                let v = make_tyv_ty d ty
-                d.seq := fun rest -> TyLet(v,ty_exp,rest,get_type rest,trace) |> seq
-                tyv v
+let make_tyv_and_push_typed_expr_even_if_unit (d: LangEnv) (ty_exp: TypedExpr): TypedExpr = //make_tyv_and_push_typed_expr_template true d ty_exp
+    let ty = get_type ty_exp
+    let seq = !d.seq
+    let trace = trace d
+    
+    if is_unit ty then
+        d.seq := fun rest -> TyState(ty_exp,rest,get_type rest,trace) |> seq
+        tyt ty
+    else
+        let v = make_tyv_ty d ty
+        d.seq := fun rest -> TyLet(v,ty_exp,rest,get_type rest,trace) |> seq
+        tyv v
 
-        let make_tyv_and_push_typed_expr (d: LangEnv) (ty_exp: TypedExpr): TypedExpr = //make_tyv_and_push_typed_expr_template false d ty_exp
-            let ty = get_type ty_exp
-            if is_unit ty then
-                tyt ty
-            else
-                let v = make_tyv_ty d ty
-                let seq = !d.seq
-                let trace = trace d
-                d.seq := fun rest -> TyLet(v,ty_exp,rest,get_type rest,trace) |> seq
-                tyv v
+let make_tyv_and_push_typed_expr (d: LangEnv) (ty_exp: TypedExpr): TypedExpr = //make_tyv_and_push_typed_expr_template false d ty_exp
+    let ty = get_type ty_exp
+    if is_unit ty then
+        tyt ty
+    else
+        let v = make_tyv_ty d ty
+        let seq = !d.seq
+        let trace = trace d
+        d.seq := fun rest -> TyLet(v,ty_exp,rest,get_type rest,trace) |> seq
+        tyv v
 ```
 
 With this rewrite hopefully the distinction between the two functions should be clearer.
@@ -4980,7 +4980,7 @@ So the solution is to just do some lambda magic to do that instead and emulate a
 
 As a part of general mechanism of supporting the first class types in Spiral, in both let insertion and destructuring any operations that would produce a unit type gets converted to a unwrapped (naked) type. Side effecting or potentially side effecting operations such as join points therefore must call `make_tyv_and_push_typed_expr_even_if_unit` before `destructure` gets to it otherwise it will cause errors. For example if `make_tyv_and_push_typed_expr_even_if_unit` was not called inside join points then those with unit type as return would not get printed at all.
 
-Even worse, repeating join points in local scope would get rewritten to the same variable.
+Even worse, repeating join points in local scope would get rewritten to the same variable. This would not be a problem for pure functions, but for side effecting ones it would lead to erroneous results.
 
 The way (CSE) common subexpression elimination works is simple in Spiral.
 
@@ -5009,109 +5009,109 @@ Once the new key and its value in the map, the program proceeds and `inl w = x +
 Note that this happens recursively. Here is the full `destructure` once again.
 
 ```
-        let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr = 
-            let inline destructure r = destructure d r
+let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr = 
+    let inline destructure r = destructure d r
 
-            let inline cse_eval on_succ on_fail r = 
-                match Map.tryFind r !d.cse_env with
-                | Some x -> on_succ x
-                | None -> on_fail r
-            let inline cse_recurse r = cse_eval destructure id r
+    let inline cse_eval on_succ on_fail r = 
+        match Map.tryFind r !d.cse_env with
+        | Some x -> on_succ x
+        | None -> on_fail r
+    let inline cse_recurse r = cse_eval destructure id r
 
-            let inline let_insert_cse r = 
-                cse_eval 
-                    cse_recurse
-                    (fun r ->
-                        let x = make_tyv_and_push_typed_expr d r
-                        cse_add d r x
-                        x)
-                    r
+    let inline let_insert_cse r = 
+        cse_eval 
+            cse_recurse
+            (fun r ->
+                let x = make_tyv_and_push_typed_expr d r
+                cse_add d r x
+                x)
+            r
 
-            let index_tuple_args r tuple_types = 
-                let unpack (s,i as state) typ = 
-                    if is_unit typ then tyt typ :: s, i
-                    else (destructure <| TyOp(ListIndex,[r;TyLit <| LitInt64 (int64 i)],typ)) :: s, i + 1
-                List.fold unpack ([],0) tuple_types
-                |> fst |> List.rev
+    let index_tuple_args r tuple_types = 
+        let unpack (s,i as state) typ = 
+            if is_unit typ then tyt typ :: s, i
+            else (destructure <| TyOp(ListIndex,[r;TyLit <| LitInt64 (int64 i)],typ)) :: s, i + 1
+        List.fold unpack ([],0) tuple_types
+        |> fst |> List.rev
 
-            let env_unseal r x =
-                let unseal (m,i as state) (k: string) typ = 
-                    if is_unit typ then Map.add k (tyt typ) m, i
-                    else
-                        let r = TyOp(MapGetField,[r; tyv(i,typ)], typ) |> destructure 
-                        Map.add k r m, i + 1
-                Map.fold unseal (Map.empty,0) x |> fst
+    let env_unseal r x =
+        let unseal (m,i as state) (k: string) typ = 
+            if is_unit typ then Map.add k (tyt typ) m, i
+            else
+                let r = TyOp(MapGetField,[r; tyv(i,typ)], typ) |> destructure 
+                Map.add k r m, i + 1
+        Map.fold unseal (Map.empty,0) x |> fst
 
-            let inline destructure_var r map_vvt map_funt =
-                match get_type r with
-                | ListT tuple_types -> tyvv(map_vvt tuple_types)
-                | MapT (env,t) -> tymap(map_funt env, t)
-                | _ -> cse_recurse r
-            
-            match r with
-            | TyMap _ | TyList _ | TyLit _ -> r
-            | TyBox _ -> cse_recurse r
-            | TyT _ -> destructure_var r (List.map (tyt >> destructure)) (Map.map (fun _ -> (tyt >> destructure)) >> Env)
-            | TyV _ -> destructure_var r (index_tuple_args r) (env_unseal r >> Env)
-            | TyOp _ -> let_insert_cse r
-            | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
+    let inline destructure_var r map_vvt map_funt =
+        match get_type r with
+        | ListT tuple_types -> tyvv(map_vvt tuple_types)
+        | MapT (env,t) -> tymap(map_funt env, t)
+        | _ -> cse_recurse r
+    
+    match r with
+    | TyMap _ | TyList _ | TyLit _ -> r
+    | TyBox _ -> cse_recurse r
+    | TyT _ -> destructure_var r (List.map (tyt >> destructure)) (Map.map (fun _ -> (tyt >> destructure)) >> Env)
+    | TyV _ -> destructure_var r (index_tuple_args r) (env_unseal r >> Env)
+    | TyOp _ -> let_insert_cse r
+    | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
 ```
 
 And here it is pared down so that the CSE using parts are highlighted.
 
 ```
-        let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr = 
-            let inline destructure r = destructure d r
+let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr = 
+    let inline destructure r = destructure d r
 
-            let inline cse_eval on_succ on_fail r = 
-                match Map.tryFind r !d.cse_env with
-                | Some x -> on_succ x
-                | None -> on_fail r
-            let inline cse_recurse r = 
-                cse_eval 
-                    destructure // on_succ
-                    id // on_fail
-                    r
+    let inline cse_eval on_succ on_fail r = 
+        match Map.tryFind r !d.cse_env with
+        | Some x -> on_succ x
+        | None -> on_fail r
+    let inline cse_recurse r = 
+        cse_eval 
+            destructure // on_succ
+            id // on_fail
+            r
 
-            let inline let_insert_cse r = 
-                cse_eval 
-                    cse_recurse // on_succ
-                    (fun r -> // on_fail
-                        let x = make_tyv_and_push_typed_expr d r
-                        cse_add d r x
-                        x)
-                    r
-            
-            match r with
-            | TyMap _ | TyList _ | TyLit _ -> r
-            | TyBox _ -> cse_recurse r
-            | TyOp _ -> let_insert_cse r
-            | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
+    let inline let_insert_cse r = 
+        cse_eval 
+            cse_recurse // on_succ
+            (fun r -> // on_fail
+                let x = make_tyv_and_push_typed_expr d r
+                cse_add d r x
+                x)
+            r
+    
+    match r with
+    | TyMap _ | TyList _ | TyLit _ -> r
+    | TyBox _ -> cse_recurse r
+    | TyOp _ -> let_insert_cse r
+    | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
 ```
 
 It is possible to simplify it even further.
 
 ```
-        let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr = 
-            let inline destructure r = destructure d r
-            let cse_recurse r = 
-                match Map.tryFind r !d.cse_env with
-                | Some x -> destructure x
-                | None -> r
+let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr = 
+    let inline destructure r = destructure d r
+    let cse_recurse r = 
+        match Map.tryFind r !d.cse_env with
+        | Some x -> destructure x
+        | None -> r
 
-            let let_insert_cse r = 
-                match Map.tryFind r !d.cse_env with
-                | Some x -> cse_recurse x
-                | None -> 
-                    let x = make_tyv_and_push_typed_expr d r
-                    cse_add d r x
-                    x
-            
-            match r with
-            | TyMap _ | TyList _ | TyLit _ -> r
-            | TyBox _ -> cse_recurse r
-            | TyOp _ -> let_insert_cse r
-            | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
+    let let_insert_cse r = 
+        match Map.tryFind r !d.cse_env with
+        | Some x -> cse_recurse x
+        | None -> 
+            let x = make_tyv_and_push_typed_expr d r
+            cse_add d r x
+            x
+    
+    match r with
+    | TyMap _ | TyList _ | TyLit _ -> r
+    | TyBox _ -> cse_recurse r
+    | TyOp _ -> let_insert_cse r
+    | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
 ```
 
 This should hopefully be clear. `cse_recurse` does not call itself recursively. It does call `destructure` instead, but for all intents and purposes the function can thought of calling itself recursively.
@@ -5147,9 +5147,9 @@ CSE rewriting has some additional uses which will be covered in the following ch
 
 ### 3: The If Statement
 
-Spiral originally started out with the dynamic if as is found in most languages, but as an experiment the author decided to make the static the default one. After two month of use, he noted that not even once had he used the other version and when he ran into a bug with the dynamic if that cemented its removal for good from the language.
+Spiral originally started out with the dynamic `if` as is found in most statically typed languages, but as an experiment the author decided to make the static the default one. After two month of use, he noted that not even once had he used the other version and when he ran into a bug with the dynamic `if` that cemented its removal for good from the language.
 
-Here is the static if in full.
+Here is the static `if` in full.
 
 ```
 let if_static (d: LangEnv) (cond: Expr) (tr: Expr) (fl: Expr): TypedExpr =
@@ -5222,7 +5222,7 @@ let rec expr_peval (d: LangEnv) (expr: Expr): TypedExpr =
     let inline tev_assume cse_env d expr = let d = {d with seq=ref id; cse_env=ref cse_env} in tev d expr |> apply_seq d
 ```
 
-`tev` itself just calls the main evaluation functions. `expr_eval` itself is the core pass of Spiral as that is where all the partial evaluation happens. The rest are parsing and code generation.
+`tev` itself just calls the main evaluation functions. The `expr_eval` function is one of the core passes of Spiral as that is where all the partial evaluation happens. The rest are parsing and code generation.
 
 As `tev_seq` and `tev_assume` are very similar, it would be easier to start with an explanation of `tev_seq`.
 
@@ -5230,7 +5230,7 @@ In Spiral there are constructs such as if statements, case expressions and join 
 
 On entry therefore, the let statements that are being carried in the environment need to be cleared instead of being carried into the branch. `seq=ref id` is what represents this. If it was a standard list, it would just be set to `[]`, but here it is set to the identity function.
 
-Then there is the CSE dictionary that also needs to be handled. Since Spiral is lexically scoped it is fine if the expressions inside the scope get rewritten to expressions outside it, but what should not happen is that after scope is exited for expressions to get rewritten with the stuff that was in the scope.
+Then there is the CSE dictionary that also needs to be handled. Since Spiral is lexically scoped it is fine if the expressions inside the local scope get rewritten to expressions that came before it, but what should not happen after the scope is exited for expressions to get rewritten with the ones that are now out of scope.
 
 ```
 if c then 
@@ -5256,7 +5256,7 @@ After that evaluation is done, `apply_seq` is called. `tev` by itself only retur
 let inline tev_seq (d: LangEnv) (expr: TypedExpr): TypedExpr = let d = {d with seq=ref id; cse_env=ref !d.cse_env} in tev d expr |> apply_seq d
 ```
 
-Appending the last expression to it is quite easy. The last expression just need to be applied to `d.seq` and the result will be the whole branch. If the `d.seq` is empty, then it would be the identity function and so applying an expression to it would return the same thing; there wouldn't be any empty statements. This is why `(TypedExpr -> TypedExpr) ref` representation is so convenient.
+Appending the last expression to it is quite easy. The last expression just need to be applied to `d.seq` and the result will be all the statements in scope neatly arranged. If the `d.seq` is empty, then it would be the identity function and so applying an expression to it would return the same thing; there wouldn't be any empty statements. This is why `(TypedExpr -> TypedExpr) ref` representation is so convenient.
 
 ```
 | TyType (PrimT BoolT) as cond ->
@@ -5285,7 +5285,7 @@ let type_tr, type_fl = get_type tr, get_type fl
 if type_tr = type_fl then
 ```
 
-Since the conditional is dynamic, the branches need to be compared for equality. Then a tad optimization is inside the if statement.
+Since the conditional is dynamic, the branches need to be compared for equality. Then a tad optimization is done after the check.
 
 ```
 match tr, fl with
@@ -5348,9 +5348,9 @@ So it is a simple `tev` and then the `on_type_er` gets called on the result of t
 
 ### 4: Boxing of Union Types
 
-Some languages can afford to be minimalist like Lisp, but Spiral is not that sort of language. It depends on a large number of first class features working seamlessly together. Without union types and term casting it would be harder to ensure convergence and the language would be poorer as a result. Though the lack of such features in a language with first class types like Spiral would immediately become obvious and the need for them would arise on its own.
+Some languages can afford to be minimalist like Lisp, but Spiral is not that sort of language. It depends on a large number of first class features working seamlessly together. Without union types and term casting it would be harder to ensure convergence and the language would be poorer as a result. The lack of such features in a language with first class staging like Spiral would immediately become obvious and the need for them would arise on its own.
 
-The way boxing works is simple. If the argument being boxed is a subset of the the type, then it gets wrapped in a `TyBox` otherwise it is a type error.
+The way boxing works is simple. If the argument being boxed is a subset of the type, then it gets wrapped in a `TyBox` otherwise it is a type error.
 
 Any complexity in the following function is just from needing to handle the various edge cases.
 
@@ -5401,7 +5401,7 @@ let (|TyRecUnion|_|) = function
     | _ -> None
 ```
 
-Since the type being boxed to must be a union type, the above active pattern is what is responsible for that. If the type being boxed is a straightforward union type, then it just returns it. But if the type being boxed is a recursive type then it is unrolled a single level and converted into a union type.
+Since the type being boxed to must be a union type, the above active pattern is what is responsible for that. If the type being boxed is a straightforward union type, then it just returns it. But if the type being boxed is a recursive type then it is unrolled a single level and treated like a union type.
 
 ```
 match ty, get_type args with
@@ -5415,7 +5415,7 @@ match ty, get_type args with
 
 The first case is straightforward. It is true that types can only be boxed into union types, but there is no need to throw an error on `box int64 1` for example. In that case returning the original should be fine.
 
-The second case is a bit less straightforward and deals with the case when a union type is being boxed with a larger union type as the target. Note the call to `Set.isSubset`. The description for it says `Evaluated to 'true' if all the elements of the first set are in the second.` What will happen in this case is that all the elements will get unboxed and boxed into the new type.
+The second case is a bit less straightforward and deals with the case when a union type is being boxed with a larger union type as the target. Note the call to `Set.isSubset`. The description for it says `Evaluated to 'true' if all the elements of the first set are in the second.` What will happen in this case is that all the elements will get unboxed and then boxed into the new type.
 
 The third case is straightforward and just does the substitution.
 
@@ -5590,11 +5590,11 @@ For `Result` and `Option` types, what Spiral has currently has is sufficient. Th
 
 Along with `inl`ineables, join points are Spiral's most iconic feature and what make it the crystallization of the staged functional programming style. 
 
-Currently there are 4 kinds of join points in total and this section will cover the vanilla one. The rest are quite similar to it though. The join point for term casting cannot be not placed directly, instead `term_cast` does it. So far the Cuda join point has not been shown in the tutorial, but will be covered here in the user guide in order to demonstrate Spiral's approach to language interop.
+Currently there are 4 kinds of join points in total and this section will cover the vanilla one. The rest are quite similar to it though. The join point for term casting cannot be placed directly, instead `term_cast` does it.
 
 Join points have a long history in Spiral. When work first started on Spiral the language originally had only inlineables, but some way of handling recursion had been necessary. So then the second thing that was added were `met`hods. They weren't join points at first, but a different kind of function that memoizes its result using a global dictionary.
 
-There wasn't a single great point where methods suddenly evolved into join points. It took the author a considerable amount of refactoring work in order to separate functions and where they join at the conceptual level. He had never seen such a feature in any other language up to that point so it was quite hard for him to internalize them and how they fit into the language.
+There wasn't a single great point where methods suddenly evolved into join points. It took the author a considerable amount of refactoring work in order to separate the concept of functions and where they join at the conceptual level. He had never seen such a feature in any other language up to that point so it was quite hard for him to internalize them and how they fit into the language.
 
 Regardless, join points are such an integral part of the whole staged functional programming experiences that language with staging, but no join points can be considered as simply toys and disregarded based on that fact.
 
@@ -5733,7 +5733,7 @@ match join_point_dict.TryGetValue join_point_key with
     typed_expr
 ```
 
-This is the heart of the join point. In the first case which is hit when the join point is entered the first time, it sets the dictionary to indicate that the join point is evaluation.
+This is the heart of the join point. In the first case which is hit when the join point is entered the first time, it sets the dictionary to indicate that the join point is being evaluated in case it is ever called recursively.
 
 Then it calls `tev_method`. That particular method is similar to `tev_seq`.
 
@@ -5753,7 +5753,7 @@ As can be seen when entering a new scope, all 4 functions set the `seq` to ident
     tev_rec d expr
 ```
 
-This particular case can only ever happen during recursion. If it hits it means the function has essentially called itself. In order for it to not diverge it needs to get the return type.
+This particular case can only ever happen during recursion. If it hits it means the function has been called recursively. In order for it to not diverge it needs to get the return type.
 
 The `tev_rec` is exactly like `tev_method` except for setting the return behavior to `rbeh=AnnotationReturn`.
 
@@ -5798,7 +5798,7 @@ This is the final stretch. The returned body gets converted into the return type
 let ty_join_point key jp_type args ret_type = TyJoinPoint(key,jp_type,args,ret_type)
 ```
 
-It might be more readable to make the join point directly, but a lot of the functions in the Spiral compiler that essentially act as the identity might have been been doing memoization in the past and are just stumps at the current point in time, so the author prefers to leave them alone in case inspiration hits him. At any rate, the final part of the join point is extremely straightforward.
+It might be more readable to make the join point directly, but a lot of the functions in the Spiral compiler that essentially act as the identity might have been been doing memoization in the past, so the author prefers to leave them alone in case inspiration hits him in order to make redesign easier. At any rate, the final part of the join point is extremely straightforward.
 
 Before this chapter is done, a note is needed regarding the join point dictionaries.
 
@@ -5817,7 +5817,7 @@ Apart from the types and the core library, the entire compiler is a part of a si
 
 ### 7: The Prepass and Unused Variable Filtering
 
-The prepass works before partial evaluation, but after parsing. Its goal is to convert `Function`s to `FunctionFilt`s which have the set of used variables their bodies. It also calls `pattern_compile` in order to compile the `Pattern`s into `Expr`s.
+The prepass works before partial evaluation, but after parsing. Its goal is to convert `Function`s to `FunctionFilt`s which have the set of used variables in their bodies. It also calls `pattern_compile` in order to compile the `Pattern`s into `Expr`s.
 
 ```
 and Expr = 
@@ -5858,7 +5858,7 @@ The way it works is rather simple. Prepass is a rightwards fold + map over `Expr
             )
 ```
 
-I a nutshell, if it find a `V _` then it adds it to the set. If it finds a function it removes variable with the name of its binding from the set. It does it top to bottom so the thing works.
+In a nutshell, if it find a `V _` then it adds it to the set. If it finds a function it removes variable with the name of its binding from the set. It does it top to bottom so the thing works.
 
 With this in mind, now it can be revealed what `EnvTerm` is.
 
@@ -5871,7 +5871,7 @@ and EnvTerm =
 
 In the previous versions of Spiral, the unused arguments were filtered every time `FunctionFilt` was reached, but the author decided he did not want the entire environment to be iterated over every time so he decided to add some laziness to the mix.
 
-Every time `EnvTerm` is accessed it is either converted to `Env` if it is unfiltered or a check is made first against the used variable set. `EnvConsed` is similar to `Env`. In the renamer as a performance optimization, the environment is [hash consed](https://en.wikipedia.org/wiki/Hash_consing). To see how that works check out `SpiralHashConsing.fs`. For the understanding of language semantics understanding hash consing is not particularly important. It might be worth reevaluating whether hash consing is worth having since the evaluator has went through several iteration since that was useful.
+Every time `EnvTerm` is accessed it is either converted to `Env` if it is unfiltered or a check is made first against the used variable set. `EnvConsed` is similar to `Env`. The environment is [hash consed](https://en.wikipedia.org/wiki/Hash_consing) in the renamer as a performance optimization. To see how that works check out `SpiralHashConsing.fs`. For the understanding of language semantics understanding hash consing is not particularly important. It might be worth reevaluating whether hash consing is worth having since the evaluator has went through several iteration since that was useful. It might turn out that reference equality in the renamer is all that is needed.
 
 ```
 let c = function
@@ -6020,7 +6020,7 @@ This is its entry. In order to take a precaution that a pattern is only compiled
             let inline cp arg pat on_succ on_fail = pattern_compile arg pat on_succ on_fail
 ```
 
-If there is a programing problem, the continuation passing style probably has a solution for it. Note that using the `on_fail on_succ` order is preferable to `on_succ on_fail`, but the author got careless this time. This would be fixable, but the type system will not be as helpful as usual because both are of type `Expr` so refactoring is dangerous here. Modules were added in Spiral in order to make deciding function argument order easier and take care of situations like this. They are also there for extensibility, but in F# since the type system is always on hand it is better to rely on it instead, though the author does hope that Spiral will inspire F# to improve its record syntax.
+If there is a programing problem, the continuation passing style probably has a solution for it. Note that using the `on_fail on_succ` order is preferable to `on_succ on_fail`, but the author got careless this time. This would be fixable, but the type system will not be as helpful as usual because both are of type `Expr` so refactoring is dangerous here. Modules were added in Spiral in order to make deciding function argument order easier and take care of situations like this. The modules are also there for extensibility. In F# since the type system is always on hand it is better to rely on it instead, though the author does hope that Spiral will inspire F# to improve its record syntax.
 
 Instead of diving directly into the function, it would be worth to start near the beginning just before it is called.
 
@@ -6044,6 +6044,7 @@ Always, the pattern is wrapped in an inlineable, and its main argument is passed
             match pat with
             | PatClauses l -> List.foldBack (fun (pat, exp) on_fail -> cp arg pat exp on_fail) l on_fail
 ```
+
 Compilation of the pattern is a rightwards fold, meaning it proceeds from the end to the beginning.
 
 `PatClauses` could be simplified by turning it into a combination of the `PatAnd` and the `PatOr` patterns. The way patterns work is as follows - if the pattern is successful, in the later stage the evaluator will call `on_succ`. Hence why `exp` replaces the default `on_succ` in `PatClauses`.
@@ -6088,7 +6089,7 @@ Here is how `l`et is implemented in the language.
 let l v b e = ap (inl v e) b
 ```
 
-Let statements can easily be desugared into function abstraction and then application. In HM style languages there are some advantages to having separate let statements for the sake of generalization, but not in Spiral so it choses the easiest route. It made debugging a pain since it turned the program inside out and hence unprintable in raw form, but that does not matter anymore.
+Let statements can easily be desugared into function abstraction and then application. In HM style languages there are some advantages to having separate let statements for the sake of generalization, but not in Spiral so it choses the easiest route. It made debugging a pain since it turns the program inside out and hence unprintable in raw form, but that does not matter anymore.
 
 #### Type Equality Pattern
 
@@ -6107,7 +6108,6 @@ function
 | _: float32 -> body2
 | _: string -> body3
 ```
-
 ```
 inl pat_var_1_0 ->
     if eq_type pat_var_1_0 int64 then body1
@@ -6134,7 +6134,7 @@ let list_taken_tail_cps count arg on_fail on_succ = op(ListTakeNTailCPS,[lit (Li
 
 `pat_tuple_helper` takes the count of the pattern, makes up new pattern variables for each of the pattern arguments and also recursively maps the inner pattern.
 
-Here is an example of how this would work.
+Here is an example of how this would work. The `|> case` will be pretended not to exist for the sake of brevity.
 
 ```
 inl a,b,c -> body
@@ -6237,7 +6237,7 @@ That is ensured by this particular segment.
 
 Why does the loop reverse the argument list before applying it? Absolutely no reason.
 
-If this were the tutorials, the author would quietly fix this, but since the user guide is meant for power users, it would be worth showing how the compiler can be improved in action.
+If this were the tutorials, the author would quietly fix this, but since the user guide is meant for power users, it would be worth showing how the compiler can be improved in action. Here is the ammended function.
 
 ```
 let list_taken (d: LangEnv) (a: Expr) (arg: Expr) (on_fail: Expr) (on_succ: Expr) = 
@@ -6360,7 +6360,7 @@ The examples won't be provided for the above 3, the users can rest assured that 
                 ap (just_one l) (bool false)
 ```
 
-`PatXor` is definitely the most complex of all the patterns. Currently it can only be placed inside the module pattern. It is also misnamed as unlike the boolean pattern, it cannot be used to flip back and forth.
+`PatXor` is definitely the most complex of all the patterns. Currently it can only be placed inside the module pattern. It is also misleadingly named as unlike the boolean pattern, it cannot be used to flip back and forth.
 
 For `pat0 ^ pat1 ... ^ patn` it ensures that only one of the patterns triggers. And is false when there are no patterns.
 
@@ -6380,7 +6380,7 @@ just_one false [false;false;true] // true
 just_one false [true;false;true] // false
 ```
 
-What the `PatXor` does is translate the above into execution flow for the evaluator. It is just one example of how compilation makes composing languages much easier than interpretation. This is also an argument in favor of powerful type systems such as Spiral's because they make composition much easier. After a certain point this translates into a permanent advantage beyond what even dynamic languages offer due to the ability to cross language boundaries.
+What the `PatXor` does is translate the above into execution flow for the evaluator. It is just one example of how compilation makes composing languages much easier than interpretation. This is also an argument in favor of powerful type systems such as Spiral's because they make composition much easier. After a certain point this translates into a permanent advantage beyond what even dynamic languages offer due to the ability to propagate information through language boundaries.
 
 #### Literal Patterns
 
@@ -6571,13 +6571,13 @@ For the purpose of simplification whenever `|> case arg` has appeared, it has be
 let case arg case = (Case,[arg;case]) |> op
 ```
 
-What it does is what was covered in the `Unboxing of Union Types` chapter of the user guide.
+What it does has been covered in the `Unboxing of Union Types` chapter of the user guide.
 
 ### 9: Layout Types
 
 Layout types came relatively late in Spiral's development, about six months in. The reason why that is remarkable is because the author thought for a long time on how to do them and eventually concluded that they were impossible. The reason for that is because having them would mean having to essentially capture chunks of scope and how could something like that possibly be done?
 
-It can be done quite simply.
+Quite simply.
 
 First, it is time to take the lid off the list of all the `Ty`pes in Spiral. All of these have been demonstrated so far.
 
@@ -6651,7 +6651,7 @@ and layout_env_term_unseal d recf (C env) = Map.map (fun _ -> layout_boxed_unsea
 
 `recf` is in the above two functions is just the variable being unsealed.
 
-Unsealing layout types is a standard map over `TypedExpr`. Note that if in local scope the unsealing is done twice on the same variable, CSE will prevent duplicate work from being done.
+Unsealing layout types is a standard map over `TypedExpr`. Note that if the unsealing is done twice on the same variable in local scope, CSE will prevent duplicate work from being done.
 
 ```
 TyOp(MapGetField,[recf;v],get_type v) |> destructure d
@@ -6667,7 +6667,9 @@ If you've managed to get this far, by now you are reasonably familiar with not j
 
 Past this if you would like to know more, looking into the source is a reasonable option. Spiral is not a huge overbearing monolith of a language with hundreds of thousands of lines of code. The evaluator itself is at the time of writing 1.6k lines long. It is not commented, but a significant amount of effort has gone into refactoring it and you can be sure that if there is a feature in the language, you can find it in just one place in the evaluator.
 
-If that is not enough, just ask the author.
+Well, apart from the `-` and `.` operators in the parsing stage. The author hates those things.
+
+If that is not enough, just ask him.
 
 ### 10: Macros
 
@@ -6768,7 +6770,7 @@ The `Add` is an `Op`erative and the `!` is the operative invocation unary operat
 
 The core library can be found in `SpiralCoreLib.fs`. It is opened automatically every time the program is compiled.
 
-Here is a copy of it.
+Here is a copy of it for easy perusal.
 
 ```
 module Spiral.CoreLib
@@ -7054,7 +7056,7 @@ f {
 "((1 + 2) * (3 + 4))"
 ```
 
-Currently `if`,`&&` and `||` are keywords, but there is no reason why they couldn't be virtualized.
+Currently `if`,`&&`, `||` and `.` are keywords, but there is no reason why they couldn't be virtualized.
 
 The keyword `use` can be overridden by putting parentheses around it. This is how `use` is implemented in `Extern`.
 
