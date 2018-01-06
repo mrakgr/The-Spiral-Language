@@ -12,14 +12,13 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = []
     }
 
-//rewrite_test_cache cfg None //(Some(0,40))
+//rewrite_test_cache tests cfg None //(Some(0,40))
 
 let example = 
     "example",[option;tuple;loops;extern_;console;host_tensor],"Module description.",
     """
-inl tns = HostTensor.init (1,2,3) (inl _ _ _ -> 1)
-print_static tns.unwrap
-"""
+HostTensor.init (1,2,3) (inl _ _ _ -> 1)
+    """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example

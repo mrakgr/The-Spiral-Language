@@ -1899,11 +1899,11 @@ let make_test_path_from_name name =
     Path.Combine(path,name+".txt")
 
 let cache_test cfg (name,aux,desc,body as m) = File.WriteAllText(make_test_path_from_name name, output_test_to_string cfg m)
-let rewrite_test_cache cfg x = 
+let rewrite_test_cache tests cfg x = 
     let timer = System.Diagnostics.Stopwatch.StartNew()
     match x with
-    | Some (min, max) -> Array.iter (cache_test cfg) tests.[min..max-1]
     | None -> Array.iter (cache_test cfg) tests
+    | Some (min, max) -> Array.iter (cache_test cfg) tests.[min..max-1]
     printfn "The time it took to run all the tests is: %A" timer.Elapsed
 
 //let speed1 = // Note: Trying to load this example in the IDE after it has compiled will crush it. Better output it to txt.
