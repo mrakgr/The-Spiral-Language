@@ -6999,7 +6999,7 @@ inl sizeof x = !SizeOf(x)
 /// Creates a .NET type from a macro.
 inl fs x = !DotNetTypeCreate(x)
 /// Creates a Cuda type from a macro.
-inl cuda x = !CudaTypeCreate(x)
+inl cd x = !CudaTypeCreate(x)
 
 /// Natural Logarithm.
 inl log x = !Log(x)
@@ -7013,10 +7013,10 @@ inl macro = {
     /// F# macro.
     fs = inl typ expr -> !MacroFs(typ,expr)
     /// Cuda macro.
-    cuda = inl typ expr -> !MacroCuda(typ,expr)
+    cd = inl typ expr -> !MacroCuda(typ,expr)
     }
 
-{type_lit_lift error_type print_static dyn (=>) cuda fs log exp tanh array_create array_length array_is array
+{type_lit_lift error_type print_static dyn (=>) cd fs log exp tanh array_create array_length array_is array
  split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
  string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref (+) (-) (*) (/) (%)
  (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>) fst snd not macro

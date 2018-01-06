@@ -242,9 +242,10 @@ inl rec Learning {d with allocator stream} =
             map_template .Set f in out
             ret out
             
-        /// Flattens the tensor to 1d, maps it, reduces it, and maps it again.
+        /// Flattens the tensor to 1d, maps and reduces it.
         /// Lazily returns the output. Requires the redo and the neutral element.
-        /// Map is optional.
+        /// Map is optional. Allocates a temporary tensor for the intermediary results.
+		/// Requires the continuation in order for the sake of memory allocation.
         inl map_redo {d with redo neutral_elem} (!zip (!to_1d in)) ret =
             inl in' = to_dev_tensor in
             inl near_to = length in'
@@ -267,9 +268,7 @@ inl rec Learning {d with allocator stream} =
             inl out' = to_dev_tensor out
 
             run {
-                stream
-                blockDim
-                gridDim
+                stream blockDim gridDim
                 kernel = cuda 
                     inl from = blockIdx.x * blockDim.x + threadIdx.x
                     inl by = gridDim.x * blockDim.x

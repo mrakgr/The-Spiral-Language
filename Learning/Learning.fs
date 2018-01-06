@@ -211,12 +211,13 @@ inl a2 = CudaTensor.to_host_tensor a1
 
 let cuda_kernel =
     (
-    "CudaKernel",[host_tensor],"The Cuda kernels module.",
+    "CudaKernel",[lazy_;host_tensor],"The Cuda kernels module.",
     """
 inl {stream Cuda CudaTensor} ->
     open HostTensor
     open Cuda
     open CudaTensor
+    open Extern
     inl divup a b = (a-1)/b+1 // Integer division with rounding up. (a+b-1)/b is another variant on this.
     inl map f (!zip in) (!zip out) =
         assert_zip (in, out) |> ignore
@@ -225,7 +226,7 @@ inl {stream Cuda CudaTensor} ->
         inl near_to = length in
 
         inl blockDim = 128
-        inl gridDim = divup near_to blockDim
+        inl gridDim = min 64 (divup near_to blockDim)
 
         run {
             stream blockDim gridDim
@@ -235,7 +236,53 @@ inl {stream Cuda CudaTensor} ->
                 Loops.for {from near_to by body=inl {i} -> out i .set (f (in i .get))}
             } |> ignore
 
-    {map}
+    /// Flattens the tensor to 1d, maps and reduces it.
+    /// Lazily returns the output. Requires the redo and the neutral element.
+    /// Map is optional. Allocates a temporary tensor for the intermediary results.
+	/// Requires the continuation in order for the sake of memory allocation.
+    inl map_redo {d with redo neutral_elem} (!zip (!to_1d in)) ret =
+        inl in' = to_dev_tensor in
+        inl near_to = length in'
+        inl map = match d with {map} -> map | _ -> id
+
+        inl blockDim = 128
+        inl gridDim = min 64 (divup near_to blockDim)
+        inl elem_type = type (in.elem_type |> map)
+        inl ty = elem_type
+
+        inl cub_block_reduce thread_result redo =
+            macro.cd ty [
+                text: "cub::BlockReduce"
+                iter: "<",",",">",[type: ty; arg: blockDim]
+                args: ()
+                text: ".Reduce"
+                args: thread_result, redo
+                ]
+
+        inb out = create {elem_type dim=gridDim}
+        inl out' = to_dev_tensor out
+
+        run {
+            stream blockDim gridDim
+            kernel = cuda 
+                inl from = blockIdx.x * blockDim.x + threadIdx.x
+                inl by = gridDim.x * blockDim.x
+                inl load i = map (in' i .get)
+                inl thread_result = Loops.for {from near_to by state=dyn neutral_elem; body=inl {state i} -> redo state (load i)}
+
+                inl redo = closure_of (inl a,b -> redo a b) ((ty,ty) => ty)
+                inl block_result = cub_block_reduce thread_result redo
+                if threadIdx.x = 0 then out' (blockIdx.x) .set block_result
+            } |> ignore
+
+        inl _ ->
+            inl tns = to_host_tensor out
+            inl load i = tns i .get
+            Loops.for {from=0; near_to=length tns; state=dyn neutral_elem; body=inl {state i} -> redo state (load i)}
+        |> Lazy.lazy // The lazy return here is because transfering to host would block the execution.
+        |> ret
+
+    {map map_redo}
     """) |> module_
 
 let kernel1 =
@@ -255,11 +302,26 @@ inl a2 = CudaTensor.to_host_tensor o1
 HostTensor.show a2 |> Console.writeline
     """
 
+let kernel2 =
+    "kernel2",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;console],"Does the map_redo kernel work?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+
+inl h = HostTensor.init 32 ((+) 1)
+inb a1 = CudaTensor.from_host_tensor h
+inb o1 = CudaKernel.map_redo {neutral_elem=0; redo=(+)} a1
+Console.writeline o1.value
+    """
+
 let tests =
     [|
     allocator1
     tensor1;tensor2
-    kernel1
+    kernel1;kernel2
     |]
 
 let cfg: Spiral.Types.CompilerSettings = {
@@ -271,6 +333,7 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel2
 |> printfn "%s"
 |> ignore
+
