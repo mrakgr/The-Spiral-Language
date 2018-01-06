@@ -7,22 +7,21 @@ open Spiral.Types
 
 let allocator = 
     (
-    "Allocator",[],"The deep learning module.",
+    "Allocator",[option;extern_],"The stack based GPU memory allocator module.",
     """
 inl context ->
+    open Extern
     inl smartptr_create ptr =
-        inl ptr_ty = type (ptr)
-        open Option
-        inl cell = some ptr |> ref
+        inl ptr_ty = {value = type ptr} |> stack // Seals the type in a layout type so it does not get instantiated.
+        inl cell = Option.some ptr |> ref
         function
-        | .Dispose -> cell := none ptr_ty
+        | .Dispose -> cell := Option.none ptr_ty.value
         | .Try -> cell()
         | () -> join (
             match cell() with
             | .Some, x -> x
-            | _ -> failwith ptr_ty "A Cuda memory cell that has been disposed has been tried to be accessed."
+            | _ -> failwith ptr_ty.value "A Cuda memory cell that has been disposed has been tried to be accessed."
             )
-        |> stack // Unless this closure is converted to a layout type, the CUdeviceptr gets manifested as a runtime type and gives a type error.
 
     ///// n is the number of args the create function has.
     inl safe_alloc n create =
@@ -99,7 +98,15 @@ let allocator1 =
     "allocator1",[allocator;cuda],"Does the allocator work?",
     """
 openb Cuda
-openb Allocator context
+open Allocator context
+inb allocator = allocator 1024
+inl a = allocator.allocate 128
+a.Dispose
+inl b = allocator.allocate 64
+b.Dispose
+inl c = allocator.allocate 32
+c.Dispose
+()
     """
 
 let tests =
@@ -114,8 +121,8 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = ["cub/cub.cuh"]
     }
 
-//rewrite_test_cache tests cfg None //(Some(0,40))
+rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" allocator1
-|> printfn "%s"
-|> ignore
+//output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" allocator1
+//|> printfn "%s"
+//|> ignore
