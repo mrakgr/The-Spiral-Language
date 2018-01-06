@@ -183,21 +183,25 @@ let (var_46: ManagedCuda.BasicTypes.SizeT) = var_45.Pointer
 let (var_47: uint64) = uint64 var_46
 let (var_48: uint64) = uint64 var_40
 let (var_49: ManagedCuda.CudaStream) = ManagedCuda.CudaStream()
-let (var_50: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(6L))
-let (var_51: int64) = var_50.LongLength
-let (var_52: int64) = (var_51 * 8L)
-let (var_53: Env3) = method_2((var_47: uint64), (var_44: System.Collections.Generic.Stack<Env2>), (var_48: uint64), (var_52: int64))
-let (var_54: (Union0 ref)) = var_53.mem_0
-let (var_55: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_54: (Union0 ref)))
-var_1.CopyToDevice(var_55, var_50)
-let (var_56: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_54: (Union0 ref)))
-let (var_57: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(6L))
-var_1.CopyToHost(var_57, var_56)
-var_1.Synchronize()
-var_54 := Union0Case1
+let (var_50: int64) = 48L
+let (var_51: Env3) = method_2((var_47: uint64), (var_44: System.Collections.Generic.Stack<Env2>), (var_48: uint64), (var_50: int64))
+let (var_52: (Union0 ref)) = var_51.mem_0
+let (var_53: int64) = 48L
+let (var_54: Env3) = method_2((var_47: uint64), (var_44: System.Collections.Generic.Stack<Env2>), (var_48: uint64), (var_53: int64))
+let (var_55: (Union0 ref)) = var_54.mem_0
+let (var_56: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_55: (Union0 ref)))
+let (var_57: ManagedCuda.BasicTypes.SizeT) = var_56.Pointer
+let (var_58: uint64) = uint64 var_57
+let (var_59: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_58)
+let (var_60: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_59)
+let (var_61: ManagedCuda.BasicTypes.CUstream) = var_49.get_Stream()
+let (var_62: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(48L)
+var_1.ClearMemoryAsync(var_60, 0uy, var_62, var_61)
+var_55 := Union0Case1
+var_52 := Union0Case1
 var_49.Dispose()
-let (var_58: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_43: (Union0 ref)))
-var_1.FreeMemory(var_58)
+let (var_63: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_43: (Union0 ref)))
+var_1.FreeMemory(var_63)
 var_43 := Union0Case1
 var_1.Dispose()
 

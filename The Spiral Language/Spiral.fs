@@ -1508,7 +1508,26 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyT t', t -> tyt(ArrayT(ArtCudaGlobal t',get_type t))
             | _ -> on_type_er (trace d) "Only variables or runtime types can be converted to the Cuda global array type."
 
-        let sizeof d a = TyOp(SizeOf,[tev d a],PrimT Int64T)
+        let sizeof d a = 
+            match tev d a with
+            | TyType (PrimT x) ->
+                let size =
+                    match x with
+                    | Int8T -> sizeof<int8>
+                    | Int16T -> sizeof<int16>
+                    | Int32T -> sizeof<int32>
+                    | Int64T -> sizeof<int64>
+                    | UInt8T -> sizeof<uint8>
+                    | UInt16T -> sizeof<uint16>
+                    | UInt32T -> sizeof<uint32>
+                    | UInt64T -> sizeof<uint64>
+                    | Float32T -> sizeof<float32>
+                    | Float64T -> sizeof<float>
+                    | CharT -> sizeof<char>
+                    | StringT -> sizeof<string>
+                    | BoolT -> sizeof<bool>
+                TyLit (LitInt64 (int64 size))
+            | a -> TyOp(SizeOf,[a],PrimT Int64T)
 
         let macro op d t a = 
             let t, a = tev_seq d t, tev d a
