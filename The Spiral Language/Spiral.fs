@@ -444,11 +444,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let cse_add' d r x = let e = !d.cse_env in if r <> x then Map.add r x e else e
         let cse_remove' d r = let e = !d.cse_env in Map.remove r e
         let cse_add d r x = d.cse_env := cse_add' d r x
-        let inline cse_with d r x k =
-            d.cse_env := cse_add' d r x
-            let r = k ()
-            d.cse_env := cse_remove' d r
-            r
 
         let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr = 
             let inline destructure r = destructure d r
@@ -702,7 +697,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let case_ d v case =
             let inline assume d v x branch = tev_assume (cse_add' d v x) d branch
             match tev d v with
-            | a & TyBox(b,_) -> cse_with d a b <| fun _ -> tev d case
+            | a & TyBox(b,_) -> 
+                d.cse_env := cse_add' d a b
+                let r = tev d case
+                d.cse_env := cse_remove' d a
+                r
             | (TyV(_, t & (UnionT _ | RecT _)) | TyT(t & (UnionT _ | RecT _))) as v ->
                 let make_up_vars_for_ty (l: Ty list): TypedExpr list = List.map (make_up_vars_for_ty d) l
                 let map_to_cases (l: TypedExpr list): (TypedExpr * TypedExpr) list = List.map (fun x -> x, assume d v x case) l
