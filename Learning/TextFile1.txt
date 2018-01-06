@@ -6,8 +6,10 @@ openb Cuda
 open Console
 
 // Auxiliaries
-inl divup a b = (a-1)/b+1 // Integer division with rounding up. (a+b-1)/b is another variant on this.
+
 inl lazy = Lazy.lazy
+
+inl divup a b = (a-1)/b+1 // Integer division with rounding up. (a+b-1)/b is another variant on this.
 inl zero_of = function
     | _: float32 -> 0f32
     | _: float64 -> 0f64

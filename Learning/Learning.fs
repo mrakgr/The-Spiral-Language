@@ -209,10 +209,57 @@ inl a2 = CudaTensor.to_host_tensor a1
 ()
     """
 
+let cuda_kernel =
+    (
+    "CudaKernel",[host_tensor],"The Cuda kernels module.",
+    """
+inl {stream Cuda CudaTensor} ->
+    open HostTensor
+    open Cuda
+    open CudaTensor
+    inl divup a b = (a-1)/b+1 // Integer division with rounding up. (a+b-1)/b is another variant on this.
+    inl map f (!zip in) (!zip out) =
+        assert_zip (in, out) |> ignore
+        inl in = to_1d in |> to_dev_tensor
+        inl out = to_1d out |> to_dev_tensor
+        inl near_to = length in
+
+        inl blockDim = 128
+        inl gridDim = divup near_to blockDim
+
+        run {
+            stream blockDim gridDim
+            kernel = cuda // Lexical scoping rocks.
+                inl from = blockIdx.x * blockDim.x + threadIdx.x
+                inl by = gridDim.x * blockDim.x
+                Loops.for {from near_to by body=inl {i} -> out i .set (f (in i .get))}
+            } |> ignore
+
+    {map}
+    """) |> module_
+
+let kernel1 =
+    "kernel1",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;console],"Does the map kernel work?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+
+inl h = HostTensor.init 32 ((+) 1)
+inb a1 = CudaTensor.from_host_tensor h
+inb o1 = CudaTensor.zero_like a1
+CudaKernel.map ((*) 2) a1 o1
+inl a2 = CudaTensor.to_host_tensor o1
+HostTensor.show a2 |> Console.writeline
+    """
+
 let tests =
     [|
     allocator1
     tensor1;tensor2
+    kernel1
     |]
 
 let cfg: Spiral.Types.CompilerSettings = {
@@ -222,8 +269,8 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = ["cub/cub.cuh"]
     }
 
-rewrite_test_cache tests cfg None //(Some(0,40))
+//rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" tensor2
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel1
 |> printfn "%s"
 |> ignore
