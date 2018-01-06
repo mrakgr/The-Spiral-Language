@@ -1387,6 +1387,15 @@ inl ret ->
         | {stream} -> FS.Method cuda_kernel .RunAsync(Stream.extract stream,args) unit
         | _ -> FS.Method cuda_kernel .Run(args) float32
 
-    ret {Stream context dim3 run}
+    inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
+    inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
+    inl SizeT = FS.Constructor SizeT_type
+    inl CUdeviceptr = FS.Constructor CUdeviceptr_type
+
+    inl to_uint x = FS.UnOp .uint64 x uint64
+    inl ptr_to_uint (ptr: CUdeviceptr_type) = FS.Field ptr .Pointer SizeT_type |> to_uint
+    inl uint_to_ptr (x: uint64) = SizeT x |> CUdeviceptr
+
+    ret {Stream context dim3 run SizeT SizeT_type CUdeviceptr CUdeviceptr_type ptr_to_uint uint_to_ptr to_uint}
     """) |> module_
 

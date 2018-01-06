@@ -38,15 +38,6 @@ inl {Cuda size} ret ->
         | .unsafe -> create
         | x -> loop () n x
 
-    inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
-    inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
-    inl SizeT = FS.Constructor SizeT_type
-    inl CUdeviceptr = FS.Constructor CUdeviceptr_type
-
-    inl to_uint x = FS.UnOp .uint64 x uint64
-    inl ptr_to_uint (ptr: CUdeviceptr_type) = FS.Field ptr .Pointer SizeT_type |> to_uint
-    inl uint_to_ptr (x: uint64) = SizeT x |> CUdeviceptr
-
     inl to_float x = FS.UnOp .float x float64
     inl to_int x = FS.UnOp .int64 x int64
     
@@ -86,7 +77,7 @@ inl {Cuda size} ret ->
             FS.Method stack .Push cell unit
             cell.ptr
 
-    ret {allocate ptr_to_uint uint_to_ptr safe_alloc SizeT CUdeviceptr}
+    ret {allocate ptr_to_uint uint_to_ptr safe_alloc}
 
     inl ptr = pool.ptr
     FS.Method context .FreeMemory (ptr()) unit
@@ -285,6 +276,64 @@ inl {stream Cuda CudaTensor} ->
     {map map_redo}
     """) |> module_
 
+let cuda_random =
+    (
+    "CudaRandom",[extern_],"The Cuda random module.",
+    """
+inl ret ->
+    open Extern
+    use random = 
+        inl generator_type = fs [text: "ManagedCuda.CudaRand.GeneratorType"]
+        FS.Constructor (fs [text: "ManagedCuda.CudaRand.CudaRandDevice"]) (FS.StaticField generator_type .PseudoDefault generator_type)
+    
+    ret inl {d with stream Cuda CudaTensor} ->
+        open Cuda
+        open HostTensor
+        open CudaTensor
+        FS.Method random .SetStream (Stream.extract stream) unit
+    
+        inl fill_array distribution size1d ar =
+            inl elem_type = ar.elem_type
+            inl gen, dot = "Generate", "."
+            match distribution with
+            | .Uniform ->
+                inl args = ar, SizeT size1d
+                inl bits = 
+                    match elem_type with
+                    | _ : float32 -> "32" | _ : float64 -> "64"
+                    | _ -> error_type ("Only 32/64 bit float types are supported. Try UInt if you need uint random numbers. Got: ", elem_type)
+                macro.fs unit [arg: random; text: dot; text: gen; text: distribution; text: bits; args: args]
+            | {dst=(.Normal | .LogNormal) & distribution stddev mean} ->
+                match stddev with | _: float32 -> () | _ -> error_type "Standard deviation needs to be in float32."
+                match mean with | _: float32 -> () | _ -> error_type "Mean needs to be in float32."
+
+                inl args = ar, SizeT size1d, mean, stddev
+                inl bits = 
+                    match elem_type with
+                    | _ : float32 -> "32" | _ : float64 -> "64"
+                    | _ -> error_type ("Only 32/64 bit float types are supported. Try UInt if you need uint random numbers. Got: ", elem_type)
+                macro.fs unit [arg: random; text: dot; text: gen; text: distribution; text: bits; args: args]
+            | .UInt -> // every bit random
+                inl args = ar, SizeT size1d
+                inl bits =
+                    match elem_type with
+                    | _ : uint32 -> "32" | _ : uint64 -> "64"
+                    | _ -> error_type "Only 32/64 bit uint types are supported."
+                macro.fs unit [arg: random; text: dot; text: gen; text: bits; args: args]
+
+        inl fill op (!zip in) =
+            inl in' = to_1d in |> to_dev_tensor
+            inl len = length in'
+            in'.update_body (inl {ar} -> fill_array op len ar) |> ignore
+
+        inl create_tensor op dsc ret =
+            inb device_tensor = create dsc
+            fill op device_tensor
+            ret device_tensor
+
+        {fill create_tensor}
+    """) |> module_
+
 let kernel1 =
     "kernel1",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;console],"Does the map kernel work?",
     """
@@ -303,7 +352,7 @@ HostTensor.show a2 |> Console.writeline
     """
 
 let kernel2 =
-    "kernel2",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;console],"Does the map_redo kernel work?",
+    "kernel2",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the map_redo kernel work?",
     """
 inb Cuda = Cuda
 inb Allocator = Allocator {Cuda size=0.7}
@@ -317,11 +366,26 @@ inb o1 = CudaKernel.map_redo {neutral_elem=0; redo=(+)} a1
 Console.writeline o1.value
     """
 
+let random1 =
+    "random1",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the map_redo kernel work?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inb CudaRandomModule = CudaRandom
+inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
+
+inb o1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=6,6}
+CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
+    """
+
 let tests =
     [|
     allocator1
     tensor1;tensor2
     kernel1;kernel2
+    random1
     |]
 
 let cfg: Spiral.Types.CompilerSettings = {
@@ -331,9 +395,9 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = ["cub/cub.cuh"]
     }
 
-//rewrite_test_cache tests cfg None //(Some(0,40))
+rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel2
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" random1
 |> printfn "%s"
 |> ignore
 

@@ -173,9 +173,9 @@ inl rec Learning {d with allocator stream} =
 
     open CudaTensor
     inl CudaKernels =
-        inl set_stream_random x = FS.Method x .SetStream (Stream.extract stream) unit
         inl set_stream_cublas x = FS.Method x .set_Stream (Stream.extract stream) unit
 
+		inl set_stream_random x = FS.Method x .SetStream (Stream.extract stream) unit
         inl random_fill_array op size1d ar =
             inl elem_type = ar.elem_type
             inl gen, dot = "Generate", "."
