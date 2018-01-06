@@ -1,4 +1,4 @@
-﻿module DeepLearning
+﻿module Learning.Main
 
 open Spiral.Lib
 open Spiral.Tests
