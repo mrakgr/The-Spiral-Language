@@ -55,10 +55,11 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Learning.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
     <Content Include="TextFile1.txt" />
+    <Compile Include="Modules.fs" />
+    <Compile Include="Tests.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
