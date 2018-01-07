@@ -124,12 +124,12 @@ inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
-open Learning float32 {CudaTensor CudaKernel CudaBlas}
+inl default_float = float32
+open Learning {default_float CudaTensor CudaKernel CudaBlas}
 
-inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=2,8}
-inb a2 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=8,2}
-inb o1,bck = matmult a1 a2 
-bck()
+inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=2,8}
+inb a2 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=8,2}
+inb o1,bck = matmult a1 a2
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
 primal o1 |> show
     """
@@ -141,6 +141,7 @@ let tests =
     kernel1;kernel2
     random1
     blas1
+    learning1
     |]
 
 let cfg: Spiral.Types.CompilerSettings = {

@@ -354,7 +354,9 @@ inl ret ->
         FS.Method cublas .set_Stream (Stream.extract stream) unit
 
         /// General matrix-matrix multiply from cuBLAS. Inplace version
-        inl gemm' transa transb alpha (!to_dev_tensor A) (!to_dev_tensor B) beta (!to_dev_tensor C) =
+        inl gemm' transa transb alpha A B beta C =
+            inl A,B,C = Tuple.map to_dev_tensor (A,B,C)
+
             // -------
 
             // These two are meant to be called from inside gemm as they lack boundary checks.
@@ -425,7 +427,7 @@ let learning =
     (
     "Learning",[host_tensor;extern_],"The deep learning module.",
     """
-inl default_float {CudaTensor CudaKernel CudaBlas} ->
+inl {default_float CudaTensor CudaKernel CudaBlas} ->
     open HostTensor
     open CudaTensor
     open CudaKernel
