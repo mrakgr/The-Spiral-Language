@@ -143,7 +143,9 @@ inl {stream Cuda Allocator} ->
             FS.Method context .ClearMemoryAsync (ar,0u8,size * sizeof (ar.elem_type) |> SizeT,stream) unit
         |> ignore
 
-    inl zero_like = create_like >> inl x -> clear x; x
+    inl clear' x = clear x; x
+    inl zero = create >> clear'
+    inl zero_like = create_like >> clear'
 
     inl from_host_tensors x ret = 
         inl tensors = toa_map from_host_tensor x
@@ -156,7 +158,7 @@ inl {stream Cuda Allocator} ->
     inl from_host_tensor = safe_alloc 1 from_host_tensor
     inl zero_like = safe_alloc 1 zero_like
 
-    {create from_host_tensor from_host_tensors to_host_tensor to_dev_tensor clear zero_like}
+    {create from_host_tensor from_host_tensors to_host_tensor to_dev_tensor clear zero zero_like}
     """) |> module_
 
 let cuda_kernel =
@@ -237,7 +239,7 @@ inl {stream Cuda CudaTensor} ->
 
 let cuda_random =
     (
-    "CudaRandom",[extern_],"The Cuda random module.",
+    "CudaRandom",[extern_],"The CudaRandom module.",
     """
 inl ret ->
     open Extern
@@ -291,4 +293,117 @@ inl ret ->
             ret device_tensor
 
         {fill create_tensor}
+    """) |> module_
+
+let cuda_blas =
+    (
+    "CudaBlas",[extern_],"The CudaBlas module.",
+    """
+inl ret ->
+    open Extern
+    
+    inl enum ty x = FS.StaticField ty x ty
+
+    inl operation_type = fs [text: "ManagedCuda.CudaBlas.Operation"]
+    inl to_operation = function
+        | .T -> enum operation_type .Transpose
+        | .nT -> enum operation_type .NonTranspose
+
+    inl isT = function
+        | .T -> true
+        | _ -> false
+
+    inl isnT = function
+        | .nT -> true
+        | _ -> false
+
+    inl len {from near_to} = near_to - from
+    inl rows x = x.dim |> inl a,b -> len a
+    inl cols x = x.dim |> inl a,b -> len b
+
+    inl assert_singleton x = 
+        match x.bodies with
+        | _ :: _ | {!block_toa_map} -> error_type "Expected a singleton tensor."
+        | _ -> ()
+    inl to_dev_tensor x = assert_contiguous x; assert_singleton x; to_dev_tensor x
+    inl call m x = 
+        inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
+        inl status_type = fs [text: "ManagedCuda.CudaBlas.CublasStatus"]
+        inl assert_ok status = !MacroFs(unit,[text: "if "; arg: status; text: " <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException"; args: status])
+        inl x = Tuple.map (function x : int64 -> unsafe_convert int32 x | x -> x) x
+        FS.StaticMethod native_type m x status_type |> assert_ok
+
+    use cublas =
+        inl cublas_type = fs [text: "ManagedCuda.CudaBlas.CudaBlas"]
+        inl pointer_mode_type = fs [text: "ManagedCuda.CudaBlas.PointerMode"]
+        inl atomics_mode_type = fs [text: "ManagedCuda.CudaBlas.AtomicsMode"]
+        FS.Constructor cublas_type (enum pointer_mode_type .Host, enum atomics_mode_type .Allowed)
+
+    inl handle = FS.Method cublas .get_CublasHandle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
+
+    ret inl {d with stream Cuda CudaKernel CudaTensor} ->
+        open Cuda
+        open HostTensor
+        open CudaTensor
+
+        FS.Method cublas .set_Stream (Stream.extract stream) unit
+
+        /// General matrix-matrix multiply from cuBLAS. Inplace version
+        inl gemm' transa transb alpha (!to_dev_tensor A) (!to_dev_tensor B) beta (!to_dev_tensor C) =
+            // -------
+
+            // These two are meant to be called from inside gemm as they lack boundary checks.
+            // I've added them to enhance gemm's vector handling capabilities for online learning
+            // tasks.
+
+            /// o <- alpha * op(A) * x + beta * o
+            /// Matrix-vector multiplication. Inplace version.
+            inl gemv transa alpha A x beta o =
+                inl m,n = rows A, cols A
+                inl lda = m
+                call.cublasSgemv_v2(handle, to_operation transa, m, n, ref alpha, A.bodies.ar, lda, x.bodies.ar, 1, ref beta, o.bodies.ar, 1)
+
+            // A <- alpha * x * yT + beta * A (outer product)
+            inl ger alpha x y beta a =
+                inl max (a,b) = max a b
+                inl m = max (rows x, cols x)
+                inl n = max (rows y, cols y)
+
+                match beta with
+                | 0.0f64 | 0.0f32 -> ()
+                | _ -> CudaKernel.map (toa_map ((*) beta)) a a
+
+                call.cublasSger_v2(handle, m, n, ref alpha, x.bodies.ar, 1, y.bodies.ar, 1, a.bodies.ar, m)
+
+            // -------
+
+            inl is_vector x = rows x = 1 || cols x = 1
+
+            inl a_col = if isnT transa then cols A else rows A
+            inl b_row = if isnT transb then rows B else cols B
+            assert (a_col = b_row) "Colums of a does not match rows of b in GEMM."
+
+            inl m = if isnT transa then rows A else cols A
+            inl n = if isnT transb then cols B else rows B
+            inl k = a_col
+            inl lda = if isnT transa then m else k
+            inl ldb = if isnT transb then k else n
+            inl ldc = m
+        
+            assert (m = rows C && n = cols C) "Output matrix dimensions do not match in GEMM."
+
+            // If is outer product call ger
+            if a_col = 1 && b_row = 1 then ger alpha A B beta C
+            // If the vector is on the right side or both are vectors call gemv normally.
+            elif is_vector B then gemv transa alpha A B beta C
+            // If the vector is on the left side call gemv with the arguments switched and transposed
+            // It does not actually transpose them, just their views. The function should work regardless.
+            elif is_vector A then
+                inl optb = if isnT transb then .T else .nT
+                gemv optb alpha B A beta C
+            // Just do the standard matrix multiply
+            else
+                call.cublasSgemm_v2(handle, to_operation transa, to_operation transb, m, n, k, ref alpha, A.bodies.ar, lda, B.bodies.ar, ldb, ref beta, C.bodies.ar, ldc)
+
+        {gemm'}
     """) |> module_
