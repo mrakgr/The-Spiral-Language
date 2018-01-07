@@ -57,7 +57,7 @@ inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
 inl h = HostTensor.init 32 ((+) 1)
 inb a1 = CudaTensor.from_host_tensor h
 inb o1 = CudaTensor.zero_like a1
-CudaKernel.map ((*) 2) a1 o1
+CudaKernel.map' ((*) 2) a1 o1
 inl a2 = CudaTensor.to_host_tensor o1
 HostTensor.show a2 |> Console.writeline
     """
@@ -78,7 +78,7 @@ Console.writeline o1.value
     """
 
 let random1 =
-    "random1",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the map_redo kernel work?",
+    "random1",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the create_tensor work?",
     """
 inb Cuda = Cuda
 inb Allocator = Allocator {Cuda size=0.7}
@@ -92,7 +92,7 @@ CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
     """
 
 let blas1 =
-    "blas1",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;console],"Does the map_redo kernel work?",
+    "blas1",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;console],"Does the gemm work?",
     """
 inb Cuda = Cuda
 inb Allocator = Allocator {Cuda size=0.7}
@@ -110,6 +110,28 @@ inb o1 = CudaTensor.create {elem_type=float32; dim=2,2}
 CudaBlas.gemm' .nT .nT 1f32 a1 a2 0f32 o1
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
 Tuple.iter show (a1,a2,o1)
+    """
+
+let learning1 =
+    "learning1",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;console],"Does the matmult work?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+inb CudaRandomModule = CudaRandom
+inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
+inb CudaBlasModule = CudaBlas
+inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
+open Learning float32 {CudaTensor CudaKernel CudaBlas}
+
+inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=2,8}
+inb a2 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=8,2}
+inb o1,bck = matmult a1 a2 
+bck()
+met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
+primal o1 |> show
     """
 
 let tests =
@@ -130,7 +152,7 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" blas1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning1
 |> printfn "%s"
 |> ignore
 

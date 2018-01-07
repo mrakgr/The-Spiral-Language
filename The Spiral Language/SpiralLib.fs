@@ -269,6 +269,9 @@ let extern_ =
     (
     "Extern",[tuple;loops],"The Extern module.",
     """
+inl zero_of ty = unsafe_convert ty 0
+inl one_of ty = unsafe_convert ty 1
+
 inl dot = "."
 inl FS = {
     Constant = inl a t -> !MacroFs(t, [text: a])
@@ -384,7 +387,7 @@ inl assert c msg =
         if lit_is c then error_type msg
         else failwith unit (show msg)
 
-{string_concat closure_of closure_of' FS (use) show' show assert} |> stack
+{string_concat closure_of closure_of' FS (use) show' show assert one_of zero_of} |> stack
     """) |> module_
 
 

@@ -171,7 +171,7 @@ inl {stream Cuda CudaTensor} ->
     open CudaTensor
     open Extern
     inl divup a b = (a-1)/b+1 // Integer division with rounding up. (a+b-1)/b is another variant on this.
-    inl map f (!zip in) (!zip out) =
+    inl map' f (!zip in) (!zip out) =
         assert_zip (in, out) |> ignore
         inl in = to_1d in |> to_dev_tensor
         inl out = to_1d out |> to_dev_tensor
@@ -187,6 +187,11 @@ inl {stream Cuda CudaTensor} ->
                 inl by = gridDim.x * blockDim.x
                 Loops.for {from near_to by body=inl {i} -> out i .set (f (in i .get))}
             } |> ignore
+
+    inl map f (!zip in) ret =
+        inb out = create {dim=in.dim; elem_type=type f in.elem_type}
+        map' f in out
+        ret out
 
     /// Flattens the tensor to 1d, maps and reduces it.
     /// Lazily returns the output. Requires the redo and the neutral element.
@@ -234,7 +239,7 @@ inl {stream Cuda CudaTensor} ->
         |> Lazy.lazy // The lazy return here is because transfering to host would block the execution.
         |> ret
 
-    {map map_redo}
+    {map' map map_redo}
     """) |> module_
 
 let cuda_random =
@@ -405,12 +410,52 @@ inl ret ->
             else
                 call.cublasSgemm_v2(handle, to_operation transa, to_operation transb, m, n, k, ref alpha, A.bodies.ar, lda, B.bodies.ar, ldb, ref beta, C.bodies.ar, ldc)
 
-        {gemm'}
+        inl gemm transa transb alpha A B ret =
+            inl m = if isnT transa then rows A else cols A
+            inl n = if isnT transb then cols B else rows B
+
+            inb C = create {dim=m,n; elem_type = A.elem_type}
+            gemm' transa transb alpha A B (zero_of alpha) C
+            ret C
+
+        {gemm' gemm}
     """) |> module_
 
 let learning =
     (
-    "Learning",[extern_],"The deep learning module.",
+    "Learning",[host_tensor;extern_],"The deep learning module.",
     """
+inl default_float {CudaTensor CudaKernel CudaBlas} ->
+    open HostTensor
+    open CudaTensor
+    open CudaKernel
+    open CudaBlas
 
+    inl zero = Extern.zero_of default_float
+    inl one = Extern.one_of default_float
+
+    inl dr primal ret =
+        inb adjoint = zero_like primal
+        ret {DR={primal adjoint}; toa_map_block=()}
+
+    inl primal = function {DR={primal}} | primal -> primal
+    inl adjoint = function {DR={adjoint}} -> adjoint | _ -> ()
+
+    inl primals = toa_map primal
+    inl adjoints = toa_map adjoint
+
+    inl (>>!) a b ret = a <| inl a -> b a ret
+
+    inl matmult A B ret =
+        inb C = gemm .nT .nT one (primal A) (primal B) >>! dr
+        ret (C, inl _ ->
+            inl on_adjoint B ret =
+                match adjoint B with
+                | () -> ()
+                | B -> ret B
+            on_adjoint A (gemm' .nT .T one (adjoint C) (primal B) one)
+            on_adjoint B (gemm' .T .nT one (primal A) (adjoint C) one)
+            )
+
+    {primal primals adjoint adjoints matmult}
     """) |> module_

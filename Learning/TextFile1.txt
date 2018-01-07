@@ -413,7 +413,7 @@ inl rec Learning {d with allocator stream} =
             ret {primal adjoint}
 
         inl dual_make_lazyhost = toa_map <| inl primal -> {primal adjoint=(zero_of >> ref) (primal.elem_type)}
-        inl dual_make_host = toa_map <| inl primal -> {primal adjoint=(zero_of >> ref) (type (primal))}
+        inl dual_make_host = toa_map <| inl primal -> {primal adjoint=(zero_of >> ref) (type primal)}
             
         inl is_unit = function
             | () -> false
