@@ -407,3 +407,10 @@ inl ret ->
 
         {gemm'}
     """) |> module_
+
+let learning =
+    (
+    "Learning",[extern_],"The deep learning module.",
+    """
+
+    """) |> module_
