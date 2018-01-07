@@ -14,7 +14,7 @@
         - [0: The way to use the language](#0-the-way-to-use-the-language)
         - [1: Inlineables, Methods and Join Points](#1-inlineables-methods-and-join-points)
             - [Recursion, Destructuring and Pattern Matching](#recursion-destructuring-and-pattern-matching)
-                - [Join Point Recursion](#join-point-recursion)
+                - [Intensional Recursion](#intensional-recursion)
                 - [Term Casting of Functions](#term-casting-of-functions)
                 - [`<function>` error message](#function-error-message)
         - [2: Modules, Macros and Interop](#2-modules-macros-and-interop)
@@ -664,7 +664,7 @@ int64 + 3
 
 These kinds of errors are easier to locate when they are shown in generated code. When they happen it is usually because of a missed argument to a curried function which causes its environment to spill into the generated code. This makes the usual error messages unhelpful, but looking at the error code gives a good indication of what is happening.
 
-##### Join Point Recursion
+##### Intensional Recursion
 
 Spiral in general does not need type annotations. The only exceptions are recursive functions when used in tandem with join points.
 
@@ -5429,7 +5429,11 @@ Originally CSE was added to Spiral in order to propagate unboxing information. I
         let case_ d v case =
             let inline assume d v x branch = tev_assume (cse_add' d v x) d branch
             match tev d v with
-            | a & TyBox(b,_) -> tev {d with cse_env = ref (cse_add' d a b)} case
+            | a & TyBox(b,_) -> 
+                cse_add d a b
+                let r = tev d case
+                cse_remove d a
+                r
             | (TyV(_, t & (UnionT _ | RecT _)) | TyT(t & (UnionT _ | RecT _))) as v ->
                 let make_up_vars_for_ty (l: Ty list): TypedExpr list = List.map (make_up_vars_for_ty d) l
                 let map_to_cases (l: TypedExpr list): (TypedExpr * TypedExpr) list = List.map (fun x -> x, assume d v x case) l
@@ -5449,11 +5453,15 @@ Originally CSE was added to Spiral in order to propagate unboxing information. I
 Near the very top there is `tev_assume` that was also used in `if_static`.
 
 ```
-            match tev d v with
-            | a & TyBox(b,_) -> tev {d with cse_env = ref (cse_add' d a b)} case
+        match tev d v with
+        | a & TyBox(b,_) -> 
+            d.cse_env := cse_add' d a b
+            let r = tev d case
+            d.cse_env := cse_remove' d a
+            r
 ```
 
-The first case is straightforward. If the type is a `TyBox _`, that is a staged boxed type instead of being fully boxed then the box is thrown away. `cse_env` is used to rewrite the box `a` to what is inside it `b` as it goes to evaluate case.
+The first case is straightforward. If the type is a `TyBox _`, that is a staged boxed type instead of being fully boxed then the box is thrown away. `cse_env` is used to rewrite the variable `a` to what is inside it `b` as it goes to evaluate case. When if finishes evaluation the rewrite is removed and the result is returned.
 
 ```
         let rec case_type d args_ty =
