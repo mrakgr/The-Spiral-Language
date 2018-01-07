@@ -4145,7 +4145,8 @@ inl toa_map2 f a b =
     inl rec loop = function
         | x, y when caseable_box_is x || caseable_box_is y -> f x y
         | x :: x', y :: y' -> loop (x,y) :: loop (x',y')
-        | (),() -> ()
+        | (), () -> ()
+        | (), _ | _, () -> error_type "Tuple dimensions do not match."
         | {!toa_map_block} & x, {!toa_map_block} & y -> module_map (inl k y -> loop (x k, y)) y
         | x, y -> f x y
     loop (a,b)

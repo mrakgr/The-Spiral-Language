@@ -440,13 +440,48 @@ inl {default_float CudaTensor CudaKernel CudaBlas} ->
         inb adjoint = zero_like primal
         ret {DR={primal adjoint}; toa_map_block=()}
 
+    inl dr_lazyhost primal = {primal adjoint=zero_of primal.elem_type |> ref}
+    inl dr_host primal = {primal adjoint=zero_of (type primal) |> ref}
+
     inl primal = function {DR={primal}} | primal -> primal
-    inl adjoint = function {DR={adjoint}} -> adjoint | _ -> ()
+    inl adjoint = function {DR={adjoint}} -> adjoint | _ -> .nil
 
     inl primals = toa_map primal
     inl adjoints = toa_map adjoint
 
     inl (>>!) a b ret = a <| inl a -> b a ret
+
+    inl is_unit = function
+        | () -> false
+        | _ -> true
+
+    inl rec filter_units = function
+        | x :: x' -> 
+            match filter_units x with
+            | .nil -> filter_unit x'
+            | () -> filter_units x'
+            | x -> x :: filter_units x'
+        | {} & x ->
+            module_filter (inl k (!filter_units (!is_unit x)) -> x) x
+            |> inl x -> if eq_type x {} then () else x
+        | x -> x
+
+    // What this does is selectively filter out the results of applying f 
+    // where the adjoints are missing (in other words constants.)
+    inl filter_based_on_adjoints x adjoint =
+        inl rec mark_units = function
+            | x :: x', y :: y' -> mark_units (x,y) :: mark_units (x',y')
+            | (), () -> ()
+            | (), _ | _, () -> error_type "Tuple dimesions do not match."
+            | {} & x, {} & y -> module_map (inl k y -> mark_units (x k,y)) y
+            | _, .nil -> ()
+            | x, _ -> x
+        mark_units (x, adjoint) |> filter_units
+
+    inl filter_unit_and_branch x ret =
+        match filter_units x with
+        | () -> ()
+        | x -> ret x
 
     inl matmult A B ret =
         inb C = gemm .nT .nT one (primal A) (primal B) >>! dr
@@ -459,5 +494,34 @@ inl {default_float CudaTensor CudaKernel CudaBlas} ->
             on_adjoint B (gemm' .T .nT one (primal A) (adjoint C) one)
             )
 
-    {primal primals adjoint adjoints matmult}
+    inl map {fwd bck} in ret =
+        inl primal, adjoint = primals in, adjoints in
+        inb out = map fwd primal >>! dr
+        ret (out, inl _ ->
+            inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
+            inl bck =
+                inl bck = filter_based_on_adjoints bck adjoint
+                inl {in out adjoint} -> 
+                    toa_map ((|>) {in out}) bck
+                    |> toa_map2 (+) adjoint
+
+            inb adjoint = filter_unit_and_branch adjoint 
+            map' bck {in=primal; out adjoint} adjoint
+            )
+
+        inl map_redo {fwd bck} in ret =
+            inl primal, adjoint = primals in, adjoints in
+            inb !dr_lazyhost out = map_redo fwd primal
+            ret (out, inl _ ->
+                inl out = toa_map2 (inl P A -> {P A = A ()}) out.primal.value out.adjoint
+                inl bck =
+                    inl bck = filter_based_on_adjoints bck adjoint
+                    inl {in adjoint} -> 
+                        toa_map ((|>) {in out}) bck
+                        |> toa_map2 (+) adjoint
+                inb adjoint = filter_unit_and_branch adjoint 
+                map bck {in=primal; adjoint} adjoint
+                )
+
+    {dr primal primals adjoint adjoints matmult map map_redo}
     """) |> module_

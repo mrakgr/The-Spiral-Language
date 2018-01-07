@@ -942,8 +942,8 @@ let host_tensor =
 inl toa_map f x = 
     inl rec loop = function
         | x when caseable_box_is x -> f x
-        | () -> ()
         | x :: xs -> loop x :: loop xs
+        | () -> ()
         | {!block_toa_map} & x -> module_map (inl _ -> loop) x
         | x -> f x
     loop x
@@ -951,8 +951,9 @@ inl toa_map f x =
 inl toa_map2 f a b = 
     inl rec loop = function
         | x, y when caseable_box_is x || caseable_box_is y -> f x y
-        | (), () -> ()
         | x :: xs, y :: ys -> loop (x,y) :: loop (xs,ys)
+        | (), () -> ()
+        | (), _ | _, () -> error_type "Tuple dimensions do not match."
         | {!block_toa_map} & x, {!block_toa_map} & y -> module_map (inl k y -> loop (x k,y)) y
         | x, y -> f x y
     loop (a,b)
@@ -960,8 +961,9 @@ inl toa_map2 f a b =
 inl toa_map3 f a b c = 
     inl rec loop = function
         | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z
-        | (), (), () -> ()
         | x :: xs, y :: ys, z :: zs -> loop (x,y,z) :: loop (xs,ys,zs)
+        | (), (), () -> ()
+        | (), _, _ | _, (), _ | _, _, () -> error_type "Tuple dimensions do not match."
         | {!block_toa_map} & x, {!block_toa_map} & y, {!block_toa_map} & z -> module_map (inl k y -> loop (x k,y k,z)) z
         | x, y, z -> f x y z
     loop (a,b,c)
