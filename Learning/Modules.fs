@@ -438,10 +438,10 @@ inl {default_float CudaTensor CudaKernel CudaBlas} ->
 
     inl dr primal ret =
         inb adjoint = zero_like primal
-        ret {DR={primal adjoint}; toa_map_block=()}
+        ret {DR={primal adjoint}; block_toa_map=()}
 
-    inl dr_lazyhost primal = {primal adjoint=zero_of primal.elem_type |> ref}
-    inl dr_host primal = {primal adjoint=zero_of (type primal) |> ref}
+    inl dr_lazyhost primal = {primal adjoint=Extern.zero_of primal.elem_type |> ref}
+    inl dr_host primal = {primal adjoint=Extern.zero_of (type primal) |> ref}
 
     inl primal = function {DR={primal}} | primal -> primal
     inl adjoint = function {DR={adjoint}} -> adjoint | _ -> .nil
@@ -451,19 +451,19 @@ inl {default_float CudaTensor CudaKernel CudaBlas} ->
 
     inl (>>!) a b ret = a <| inl a -> b a ret
 
-    inl is_unit = function
+    inl is_not_unit = function
         | () -> false
         | _ -> true
 
     inl rec filter_units = function
         | x :: x' -> 
             match filter_units x with
-            | .nil -> filter_unit x'
             | () -> filter_units x'
             | x -> x :: filter_units x'
         | {} & x ->
-            module_filter (inl k (!filter_units (!is_unit x)) -> x) x
+            module_filter (inl k (!filter_units (!is_not_unit x)) -> x) x
             |> inl x -> if eq_type x {} then () else x
+        | .nil -> ()
         | x -> x
 
     // What this does is selectively filter out the results of applying f 
@@ -488,17 +488,17 @@ inl {default_float CudaTensor CudaKernel CudaBlas} ->
         ret (C, inl _ ->
             inl on_adjoint B ret =
                 match adjoint B with
-                | () -> ()
+                | .nil -> ()
                 | B -> ret B
-            on_adjoint A (gemm' .nT .T one (adjoint C) (primal B) one)
-            on_adjoint B (gemm' .T .nT one (primal A) (adjoint C) one)
+            on_adjoint A (inl A -> gemm' .nT .T one (adjoint C) (primal B) one A)
+            on_adjoint B (inl B -> gemm' .T .nT one (primal A) (adjoint C) one B)
             )
 
     inl map {fwd bck} in ret =
         inl primal, adjoint = primals in, adjoints in
         inb out = map fwd primal >>! dr
         ret (out, inl _ ->
-            inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
+            inl out = match out with {DR={primal adjoint}} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
             inl bck =
                 inl bck = filter_based_on_adjoints bck adjoint
                 inl {in out adjoint} -> 
@@ -509,19 +509,19 @@ inl {default_float CudaTensor CudaKernel CudaBlas} ->
             map' bck {in=primal; out adjoint} adjoint
             )
 
-        inl map_redo {fwd bck} in ret =
-            inl primal, adjoint = primals in, adjoints in
-            inb !dr_lazyhost out = map_redo fwd primal
-            ret (out, inl _ ->
-                inl out = toa_map2 (inl P A -> {P A = A ()}) out.primal.value out.adjoint
-                inl bck =
-                    inl bck = filter_based_on_adjoints bck adjoint
-                    inl {in adjoint} -> 
-                        toa_map ((|>) {in out}) bck
-                        |> toa_map2 (+) adjoint
-                inb adjoint = filter_unit_and_branch adjoint 
-                map bck {in=primal; adjoint} adjoint
-                )
+    inl map_redo {fwd bck} in ret =
+        inl primal, adjoint = primals in, adjoints in
+        inb !dr_lazyhost out = map_redo fwd primal
+        ret (out, inl _ ->
+            inl out = toa_map2 (inl P A -> {P A = A ()}) out.primal.value out.adjoint
+            inl bck =
+                inl bck = filter_based_on_adjoints bck adjoint
+                inl {in adjoint} -> 
+                    toa_map ((|>) {in out}) bck
+                    |> toa_map2 (+) adjoint
+            inb adjoint = filter_unit_and_branch adjoint 
+            map bck {in=primal; adjoint} adjoint
+            )
 
-    {dr primal primals adjoint adjoints matmult map map_redo}
+    {dr primal primals adjoint adjoints (>>!) matmult map map_redo}
     """) |> module_

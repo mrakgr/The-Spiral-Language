@@ -127,11 +127,55 @@ inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
 inl default_float = float32
 open Learning {default_float CudaTensor CudaKernel CudaBlas}
 
-inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=2,8}
-inb a2 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=8,2}
+inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=2,8} >>! dr
+inb a2 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=8,2} >>! dr
 inb o1,bck = matmult a1 a2
+bck()
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
 primal o1 |> show
+    """
+
+let learning2 =
+    "learning2",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;console],"Does the map work?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+inb CudaRandomModule = CudaRandom
+inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
+inb CudaBlasModule = CudaBlas
+inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
+inl default_float = float32
+open Learning {default_float CudaTensor CudaKernel CudaBlas}
+
+inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=2,8} >>! dr
+inb o1,bck = map {fwd=((*) 10f32); bck=inl {out} -> out.A * 10f32} a1
+bck()
+met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
+primal o1 |> show
+    """
+
+let learning3 =
+    "learning3",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;console],"Does the map_redo work?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+inb CudaRandomModule = CudaRandom
+inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
+inb CudaBlasModule = CudaBlas
+inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
+inl default_float = float32
+open Learning {default_float CudaTensor CudaKernel CudaBlas}
+
+inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=2,8} >>! dr
+inb o1,bck = map_redo {fwd={neutral_elem=0f32; redo=(+)}; bck=(+)} a1
+bck()
+Console.writeline o1.value
     """
 
 let tests =
@@ -141,7 +185,7 @@ let tests =
     kernel1;kernel2
     random1
     blas1
-    learning1
+    learning1;learning2
     |]
 
 let cfg: Spiral.Types.CompilerSettings = {
@@ -153,7 +197,7 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning3
 |> printfn "%s"
 |> ignore
 
