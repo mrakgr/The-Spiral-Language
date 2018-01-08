@@ -17,7 +17,11 @@ let cfg: Spiral.Types.CompilerSettings = {
 let example = 
     "example",[option;tuple;loops;extern_;console;host_tensor],"Module description.",
     """
-HostTensor.init (1,2,3) (inl _ _ _ -> 1)
+inl f a b =
+    inl c = a + b
+    c + 3
+
+f (dyn 1) (dyn 2)
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning

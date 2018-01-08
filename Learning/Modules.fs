@@ -520,7 +520,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas} ->
                     toa_map ((|>) {in out}) bck
                     |> toa_map2 (+) adjoint
             inb adjoint = filter_unit_and_branch adjoint 
-            map bck {in=primal; adjoint} adjoint
+            map' bck {in=primal; adjoint} adjoint
             )
 
     {dr primal primals adjoint adjoints (>>!) matmult map map_redo}
