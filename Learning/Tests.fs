@@ -28,7 +28,8 @@ inb Allocator = Allocator {Cuda size=0.7}
 inb stream = Cuda.Stream.create()
 inl CudaTensor = CudaTensor {stream Cuda Allocator}
 inb a1 = CudaTensor.create {dim=1,2,3; elem_type=int64}
-inb a2 = CudaTensor.zero_like a1
+inb a2 = CudaTensor.zero {dim=1,2,3; elem_type=int64}
+inb a3 = CudaTensor.zero_like a1
 ()
     """
 
@@ -126,6 +127,7 @@ inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
 inl default_float = float32
 open Learning {default_float CudaTensor CudaKernel CudaBlas}
+open Primitive
 
 inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=2,8} >>! dr
 inb a2 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=8,2} >>! dr
@@ -149,6 +151,7 @@ inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
 inl default_float = float32
 open Learning {default_float CudaTensor CudaKernel CudaBlas}
+open Primitive
 
 inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=2,8} >>! dr
 inb o1,bck = map {fwd=((*) 10f32); bck=inl {out} -> out.A * 10f32} a1
@@ -171,11 +174,12 @@ inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
 inl default_float = float32
 open Learning {default_float CudaTensor CudaKernel CudaBlas}
+open Primitive
 
 inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=default_float; dim=256,256} >>! dr
 inb o1,bck = map_redo {fwd={neutral_elem=0f32; redo=(+)}; bck=inl {out} -> out.A} a1
 bck()
-Console.writeline <| o1.primal.value / unsafe_convert float32 (HostTensor.length a1.DR.primal)
+Console.writeline <| (primal o1).value / unsafe_convert float32 (HostTensor.length (primal a1))
     """
 
 let learning4 =
@@ -192,13 +196,47 @@ inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
 inl default_float = float32
 open Learning {default_float CudaTensor CudaKernel CudaBlas}
+open Primitive
 
 inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=default_float; dim=6,6} >>! dr
 inb o1,bck = map_redo {fwd={neutral_elem=0f32; redo=(+)}; bck=inl {out} -> out.A} a1
-o1.adjoint := 1f32
+adjoint o1 := 1f32
 bck()
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
 adjoint a1 |> show
+    """
+
+let learning5 =
+    "learning5",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;console],"Does the basic pass work?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+inb CudaRandomModule = CudaRandom
+inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
+inb CudaBlasModule = CudaBlas
+inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
+inl default_float = float32
+open Learning {default_float CudaTensor CudaKernel CudaBlas}
+open Primitive
+open Activation
+open Error
+
+inb input = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=2,6}
+inb weight = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=6,4} >>! dr
+inb label = CudaTensor.zero {elem_type=default_float; dim=2,4}
+inb er,bck = 
+    inm o1 = matmult input weight >>= sigmoid
+    square (o1,label)
+
+Console.writeline ("Cost is:", primal er .value)
+
+adjoint er := 1f32
+bck()
+met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
+adjoint weight |> show
     """
 
 let tests =
@@ -208,7 +246,7 @@ let tests =
     kernel1;kernel2
     random1
     blas1
-    learning1;learning2;learning3;learning4
+    learning1;learning2;learning3;learning4;learning5
     |]
 
 let cfg: Spiral.Types.CompilerSettings = {
@@ -220,7 +258,7 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning4
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning5
 |> printfn "%s"
 |> ignore
 

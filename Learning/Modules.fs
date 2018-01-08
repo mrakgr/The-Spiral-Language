@@ -140,8 +140,12 @@ inl {stream Cuda Allocator} ->
         inl size = length tns
         inl stream = Stream.extract stream
         tns.update_body <| inl {body with ar} ->
-            FS.Method context .ClearMemoryAsync (ar,0u8,size * sizeof (ar.elem_type) |> SizeT,stream) unit
+            FS.Method context .ClearMemoryAsync (ar,0u8,size * sizeof ar.elem_type |> SizeT,stream) unit
         |> ignore
+
+    inl fmap f a ret =
+        inb a = a
+        ret (f a)
 
     inl clear' x = clear x; x
     inl zero = create >> clear'
@@ -156,6 +160,7 @@ inl {stream Cuda Allocator} ->
     // CPS'd variants of the allocator functions.
     inl create = safe_alloc 1 create
     inl from_host_tensor = safe_alloc 1 from_host_tensor
+    inl zero = safe_alloc 1 zero
     inl zero_like = safe_alloc 1 zero_like
 
     {create from_host_tensor from_host_tensors to_host_tensor to_dev_tensor clear zero zero_like}
@@ -433,15 +438,18 @@ inl {default_float CudaTensor CudaKernel CudaBlas} ->
     open CudaKernel
     open CudaBlas
 
+    // #Primitives
+
     inl zero = Extern.zero_of default_float
     inl one = Extern.one_of default_float
+    inl two = unsafe_convert default_float 2
 
     inl dr primal ret =
         inb adjoint = zero_like primal
         ret {DR={primal adjoint}; block_toa_map=()}
 
-    inl dr_lazyhost primal = {primal adjoint=Extern.zero_of primal.elem_type |> ref}
-    inl dr_host primal = {primal adjoint=Extern.zero_of (type primal) |> ref}
+    inl dr_lazyhost primal = {DR={primal adjoint=Extern.zero_of primal.elem_type |> ref}; block_toa_map=()}
+    inl dr_host primal = {DR={primal adjoint=Extern.zero_of (type primal) |> ref}; block_toa_map=()}
 
     inl primal = function {DR={primal}} | primal -> primal
     inl adjoint = function {DR={adjoint}} -> adjoint | _ -> .nil
@@ -509,11 +517,25 @@ inl {default_float CudaTensor CudaKernel CudaBlas} ->
             map' bck {in=primal; out adjoint} adjoint
             )
 
+    inl hostlazy_map {fwd bck} in ret =
+        inl primal, adjoint = primals in, adjoints in
+        inl values primal = toa_map (inl x -> x.value) primal
+        inl out = Lazy.lazy (inl _ -> values primal |> fwd) |> dr_lazyhost
+        ret (out, inl _ ->
+            inl out = toa_map2 (inl P A -> {P=P.value; A=A()}) (primals out) (adjoints out)
+            inl bck = 
+                inl bck = filter_based_on_adjoints bck adjoint
+                inl in = values primal
+                toa_map ((|>) {in out}) bck
+            inb adjoint = filter_unit_and_branch adjoint 
+            toa_map2 (inl a b -> a := a() + b) adjoint bck
+            )
+
     inl map_redo {fwd bck} in ret =
         inl primal, adjoint = primals in, adjoints in
         inb !dr_lazyhost out = map_redo fwd primal
         ret (out, inl _ ->
-            inl out = toa_map2 (inl P A -> {P A = A ()}) out.primal.value out.adjoint
+            inl out = toa_map2 (inl P A -> {P=P.value; A=A()}) (primals out) (adjoints out)
             inl bck =
                 inl bck = filter_based_on_adjoints bck adjoint
                 inl {in adjoint} -> 
@@ -523,5 +545,55 @@ inl {default_float CudaTensor CudaKernel CudaBlas} ->
             map' bck {in=primal; adjoint} adjoint
             )
 
-    {dr primal primals adjoint adjoints (>>!) matmult map map_redo}
+    inl Primitive = {matmult map map_redo hostlazy_map}
+
+    // #Operations
+
+    inl (>>=) a b ret =
+        inb a,a_bck = a
+        inb b,b_bck = b a
+        ret (b, inl _ -> b_bck(); a_bck())
+
+    inl succ x ret = ret (x, const ())
+
+    inl multiply_by_adjoint f {d with out={A P} in} = toa_map ((*) A) (f {in out=P})
+    inl activation d = map {d with bck = multiply_by_adjoint self }
+
+    inl sigmoid = activation {
+        fwd = inl x -> one / (one + exp -x)
+        bck = inl {out} -> out * (one - out)
+        }
+
+    inl Activation = {sigmoid}
+
+    inl error {fwd bck} (input,_ as x) = 
+        inl batch_size = primal input .dim |> fst |> span
+        inl div_by_minibatch_size x = x / unsafe_convert default_float batch_size
+        map_redo {
+            fwd = {
+                map = fwd
+                redo = (+)
+                neutral_elem = zero
+                }
+            bck = toa_map multiply_by_adjoint bck
+            } x
+        >>= hostlazy_map {fwd = div_by_minibatch_size; bck = inl {out={A}} -> div_by_minibatch_size A}
+
+    inl square = error {
+        fwd = inl (x,y) -> (y - x) * (y - x)
+        bck = 
+            inl {in=x,y} -> two * (x - y)
+            ,inl {in=x,y} -> two * (y - x)
+        }
+
+    inl cross_entropy = error {
+        fwd = inl x, y -> -(y * log x + (one - y) * log (one - x))
+        bck = 
+            inl {in=x, y} -> x * (x - y) / (one - x)
+            ,inl {in=x, y} -> log (one - x) - log x
+        }
+
+    inl Error = {square cross_entropy}
+
+    {dr primal primals adjoint adjoints (>>!) Primitive succ (>>=) Activation Error}
     """) |> module_

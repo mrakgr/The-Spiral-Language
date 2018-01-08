@@ -3768,7 +3768,7 @@ Just how hard would such a fast handwritten C-style parser be to modify after th
 
 ML styled languages still have some advantages over Spiral due to having type inference which is a great aid to refactoring and explorability, but C offshots can be completely replaced with no regret.
 
-The 4 parser benchmarked in this section can be found in [this folder](https://github.com/mrakgr/The-Spiral-Language/tree/master/Benchmarking) of the repo.
+The 4 parsers benchmarked in this section can be found in [this folder](https://github.com/mrakgr/The-Spiral-Language/tree/master/Benchmarking) of the repo.
 
 ### 5: Tensors and Structural Reflection
 
