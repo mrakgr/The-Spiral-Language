@@ -198,7 +198,6 @@ inl {stream Cuda Allocator} ->
     inl to_dev_tensor tns = 
         tns.update_body (inl {body with ar offset} ->
             inl o = match offset with o :: _ | o -> o
-            print_static ar
             inl ptr, elem_type = ar.ptr(), ar.elem_type
             inl ptr =
                 if lit_is o && o = 0 then ptr
@@ -408,20 +407,6 @@ inl ret ->
         match x.bodies with
         | _ :: _ | {!block_toa_map} -> error_type "Expected a singleton tensor."
         | _ -> ()
-    inl to_dev_tensor x = assert_contiguous x; assert_singleton x; to_dev_tensor x
-    inl call method args = 
-        inl args = Tuple.map (function x : int64 -> unsafe_convert int32 x | x -> x) args |> dyn
-        join 
-            inl args = 
-                Tuple.map (function 
-                    | x : float64 | x : float32 -> ref x
-                    | (.nT | .T) as x -> to_operation x
-                    | x -> x
-                    ) args
-            inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
-            inl status_type = fs [text: "ManagedCuda.CudaBlas.CublasStatus"]
-            inl assert_ok status = macro.fs unit [text: "if "; arg: status; text: " <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException"; args: status]
-            FS.StaticMethod native_type method args status_type |> assert_ok
 
     use cublas =
         inl cublas_type = fs [text: "ManagedCuda.CudaBlas.CudaBlas"]
@@ -436,12 +421,26 @@ inl ret ->
         open HostTensor
         open CudaTensor
 
+        inl call method args = 
+            inl to_dev_tensor x = assert_contiguous x; assert_singleton x; to_dev_tensor x
+            inl args = Tuple.map (function x : int64 -> unsafe_convert int32 x | x -> x) args |> dyn
+            join 
+                inl args = 
+                    Tuple.map (function 
+                        | x : float64 | x : float32 -> ref x
+                        | (.nT | .T) as x -> to_operation x
+                        | {ptr=!to_dev_tensor x} -> x.bodies.ar
+                        | x -> x
+                        ) args
+                inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
+                inl status_type = fs [text: "ManagedCuda.CudaBlas.CublasStatus"]
+                inl assert_ok status = macro.fs unit [text: "if "; arg: status; text: " <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException"; args: status]
+                FS.StaticMethod native_type method args status_type |> assert_ok
+
         FS.Method cublas .set_Stream (Stream.extract stream) unit
 
         /// General matrix-matrix multiply from cuBLAS. Inplace version
         inl gemm' transa transb alpha A B beta C =
-            inl A,B,C = Tuple.map to_dev_tensor (A,B,C)
-
             // -------
 
             // These two are meant to be called from inside gemm as they lack boundary checks.
@@ -453,7 +452,7 @@ inl ret ->
             inl gemv transa alpha A x beta o =
                 inl m,n = rows A, cols A
                 inl lda = m
-                call.cublasSgemv_v2(handle, transa, m, n, alpha, A.bodies.ar, lda, x.bodies.ar, 1, beta, o.bodies.ar, 1)
+                call.cublasSgemv_v2(handle, transa, m, n, alpha, {ptr=A}, lda, {ptr=x}, 1, beta, {ptr=o}, 1)
 
             // A <- alpha * x * yT + beta * A (outer product)
             inl ger alpha x y beta a =
@@ -463,9 +462,9 @@ inl ret ->
 
                 match beta with
                 | 0.0f64 | 0.0f32 -> ()
-                | _ -> CudaKernel.map (toa_map ((*) beta)) a a
+                | _ -> CudaKernel.map' (toa_map ((*) beta)) a a
 
-                call.cublasSger_v2(handle, m, n, alpha, x.bodies.ar, 1, y.bodies.ar, 1, a.bodies.ar, m)
+                call.cublasSger_v2(handle, m, n, alpha, {ptr=x}, 1, {ptr=y}, 1, {ptr=a}, m)
 
             // -------
 
@@ -495,7 +494,7 @@ inl ret ->
                 gemv optb alpha B A beta C
             // Just do the standard matrix multiply
             else
-                call.cublasSgemm_v2(handle, transa, transb, m, n, k, ref alpha, A.bodies.ar, lda, B.bodies.ar, ldb, ref beta, C.bodies.ar, ldc)
+                call.cublasSgemm_v2(handle, transa, transb, m, n, k, alpha, {ptr=A}, lda, {ptr=B}, ldb, beta, {ptr=C}, ldc)
 
         inl gemm transa transb alpha A B ret =
             inl m = if isnT transa then rows A else cols A
@@ -701,7 +700,8 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
     inl Feedforward = {sigmoid init with_error}
 
     // #Optimizer
-    inl sgd learning_rate {primal adjoint} = 
+    inl sgd learning_rate x = 
+        inl primal, adjoint = primal x, adjoint x
         map' (inl A,P -> toa_map2 (inl A P -> P - learning_rate * A) A P) (adjoint, primal) primal
         CudaTensor.clear adjoint 
 
