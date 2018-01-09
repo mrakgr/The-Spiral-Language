@@ -129,7 +129,7 @@ inl default_float = float32
 open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Primitive
 
-inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=2,8} >>! dr
+inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=dyn (2,8)}
 inb a2 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=8,2} >>! dr
 inb o1,bck = matmult a1 a2
 bck()
@@ -321,43 +321,6 @@ open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Error
 open Feedforward
 
-inl run {d with network={update_weights apply} input label} =
-    open Extern
-    open Console
-    inl dim1 x = x.dim |> fst
-    inl to = unsafe_convert
-    inl span_size = HostTensor.span // near_to - from
-
-    inl {span with from near_to} = dim1 input
-    assert (dim1 input = dim1 label) "Training and test set need to have to equal first dimensions."
-
-    inl minibatch_size = match d with {minibatch_size} -> minibatch_size | _ -> span_size span
-
-    Loops.for {from near_to; state=0.0; by=minibatch_size; body = inl {state i=from} ->
-        inl near_to = min (from + minibatch_size) near_to
-        inl span = {from near_to}
-        inl view x = x.view_span span
-        inb er, bck = apply (view input, view label)
-        inl primal = primal er .value
-        string_format "On minibatch {0}. Error = {1}" (show span, primal) |> writeline
-
-        match d with
-        | {optimizer} ->
-            writeline "Running the backwards phase..."
-            adjoint er := 1f32 // TODO: Don't forget to make this generic.
-            bck() // Runs the backwards pass.
-            //update_weights optimizer
-        | _ -> ()
-
-        inl unscaled_cost = to float64 primal * to float64 (span_size span)
-        state + unscaled_cost
-        }
-    |> inl unscaled_cost -> 
-        writeline "-----"
-        writeline "Batch done."
-        string_format "Average of batch costs is {0}." (unscaled_cost / to float64 (span_size span)) |> writeline
-        writeline "-----"
-
 inb { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
     Mnist.load_mnist_tensors mnist_path
@@ -366,8 +329,40 @@ inb { test_images test_labels train_images train_labels} =
 inl input_size = 784
 inl hidden_size = 10
 
-inb network = init (sigmoid hidden_size) input_size >>! with_error square
-run {network input=train_images; label=train_labels; optimizer=Optimizer.sgd}
+inb {apply update_weights} = init (sigmoid hidden_size) input_size >>! with_error square
+
+inl input = train_images
+inl label = train_labels
+
+open Extern
+open Console
+inl dim1 x = x.dim |> fst
+inl to = unsafe_convert
+inl span_size = HostTensor.span // near_to - from
+
+inl {span with from near_to} = dim1 input
+assert (dim1 input = dim1 label) "Training and test set need to have to equal first dimensions."
+
+inl minibatch_size = 128
+
+inl from=0
+inl near_to=dyn 128
+
+
+inl near_to = min (from + minibatch_size) near_to
+inl span = {from near_to}
+
+inl view x = x.view_span span
+inb er, bck = apply (view input, view label)
+inl primal = primal er .value
+string_format "On minibatch {0}. Error = {1}" (show span, primal) |> writeline
+
+writeline "Running the backwards phase..."
+adjoint er := 1f32 // TODO: Don't forget to make this generic.
+bck() // Runs the backwards pass.
+//update_weights optimizer
+
+()
     """
 
 let tests =
@@ -389,7 +384,7 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning1
 |> printfn "%s"
 |> ignore
 

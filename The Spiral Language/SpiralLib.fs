@@ -1103,6 +1103,7 @@ inl rec show = function
     | tns -> show.all tns // TODO: Put in a cutoff here later.
 
 inl rec facade data = function
+    | .unwrap -> data
     | (.elem_type | .get | .set) & x -> Tensor x data
     | .(_) & x -> 
         if module_has_member data x then data x

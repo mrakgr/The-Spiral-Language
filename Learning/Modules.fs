@@ -198,6 +198,7 @@ inl {stream Cuda Allocator} ->
     inl to_dev_tensor tns = 
         tns.update_body (inl {body with ar offset} ->
             inl o = match offset with o :: _ | o -> o
+            print_static ar
             inl ptr, elem_type = ar.ptr(), ar.elem_type
             inl ptr =
                 if lit_is o && o = 0 then ptr
