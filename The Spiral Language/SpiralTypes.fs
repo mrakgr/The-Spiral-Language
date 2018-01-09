@@ -225,10 +225,13 @@ type Op =
 
     // UnOps
     | Neg
+    | FailWith
+
+    // Auxiliary math ops
+    | Tanh
     | Log
     | Exp
-    | Tanh
-    | FailWith
+    | Sqrt
 
 type ArrayType =
     | ArtDotNetHeap

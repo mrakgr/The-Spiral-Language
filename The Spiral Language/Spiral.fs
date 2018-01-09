@@ -1154,7 +1154,19 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let prim_un_floating d a t =
             let er a = sprintf "`is_float a` is false.\na=%s" (show_typedexpr a)
             let check a = is_float a
-            prim_un_op_template d er check prim_un_op_helper a t
+            prim_un_op_template d er check (fun t a ->
+                let inline op x =
+                    match t with
+                    | Tanh -> tanh x
+                    | Log -> log x
+                    | Exp -> exp x
+                    | Sqrt -> sqrt x
+                    | _ -> on_type_er (trace d) "Compiler error: Unknown op."
+                match a with
+                | TyLit (LitFloat32 x) -> op x |> LitFloat32 |> TyLit
+                | TyLit (LitFloat64 x) -> op x |> LitFloat64 |> TyLit
+                | x -> prim_un_op_helper t x
+                ) a t
 
         let prim_un_numeric d a t =
             let er a = sprintf "`is_numeric a` is false.\na=%s" (show_typedexpr a)
@@ -1651,6 +1663,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | Log,[a] -> prim_un_floating d a Log
             | Exp,[a] -> prim_un_floating d a Exp
             | Tanh,[a] -> prim_un_floating d a Tanh
+            | Sqrt,[a] -> prim_un_floating d a Sqrt
             | FailWith,[typ;a] -> failwith_ d typ a
 
             | UnsafeUpcastTo,[a;b] -> unsafe_upcast_to d a b
@@ -2606,6 +2619,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | Log,[x] -> sprintf "log(%s)" (codegen x)
                     | Exp,[x] -> sprintf "exp(%s)" (codegen x)
                     | Tanh,[x] -> sprintf "tanh(%s)" (codegen x)
+                    | Sqrt,[x] -> sprintf "sqrt(%s)" (codegen x)
                     | FailWith,[x] -> "// unprinted assert"
                         //on_type_er trace "Exceptions and hence failwith are not supported on the Cuda side."
 
@@ -3060,6 +3074,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | Log,[x] -> sprintf "(log %s)" (codegen x)
                     | Exp,[x] -> sprintf "(exp %s)" (codegen x)
                     | Tanh,[x] -> sprintf "(tanh %s)" (codegen x)
+                    | Sqrt,[x] -> sprintf "(sqrt %s)" (codegen x)
                     | FailWith,[x] -> sprintf "(failwith %s)" (codegen x)
                     | UnsafeUpcastTo,[a;b] -> sprintf "(%s :> %s)" (codegen b) (print_type (get_type a))
                     | UnsafeDowncastTo,[a;b] -> sprintf "(%s :?> %s)" (codegen b) (print_type (get_type a))

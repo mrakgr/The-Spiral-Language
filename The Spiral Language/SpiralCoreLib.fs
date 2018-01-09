@@ -232,6 +232,8 @@ inl log x = !Log(x)
 inl exp x = !Exp(x)
 /// Hyperbolic tangent. 
 inl tanh x = !Tanh(x)
+/// Square root.
+inl sqrt x = !Sqrt(x)
 
 /// Macros.
 inl macro = {
@@ -241,7 +243,7 @@ inl macro = {
     cd = inl typ expr -> !MacroCuda(typ,expr)
     }
 
-{type_lit_lift error_type print_static dyn (=>) cd fs log exp tanh array_create array_length array_is array
+{type_lit_lift error_type print_static dyn (=>) cd fs log exp tanh sqrt array_create array_length array_is array
  split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
  string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref (+) (-) (*) (/) (%)
  (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>) fst snd not macro
