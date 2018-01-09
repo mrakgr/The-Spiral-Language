@@ -441,14 +441,13 @@ let learning =
     (
     "Learning",[host_tensor;extern_],"The deep learning module.",
     """
-inl {default_float CudaTensor CudaKernel CudaBlas} ->
+inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
     open HostTensor
     open CudaTensor
     open CudaKernel
     open CudaBlas
 
     // #Primitives
-
     inl zero = Extern.zero_of default_float
     inl one = Extern.one_of default_float
     inl two = unsafe_convert default_float 2
@@ -557,7 +556,6 @@ inl {default_float CudaTensor CudaKernel CudaBlas} ->
     inl Primitive = {matmult map map_redo hostlazy_map}
 
     // #Operations
-
     inl (>>=) a b ret =
         inb a,a_bck = a
         inb b,b_bck = b a
@@ -604,5 +602,32 @@ inl {default_float CudaTensor CudaKernel CudaBlas} ->
 
     inl Error = {square cross_entropy}
 
-    {dr primal primals adjoint adjoints (>>!) Primitive succ (>>=) Activation Error}
+    // #Feedforward
+    inl layer initializer activation hidden_size next_layer input_size ret =
+        inb weight = initializer (input_size, hidden_size) >>! dr
+        inb {update_weights apply} = next_layer hidden_size
+        ret {
+            update_weights = inl f -> f weight; update_weights f
+            apply = inl input -> matmult input weight >>= activation >>= apply
+            }
+
+    inl sigmoid_initializer dim = 
+        inl stddev = sqrt (two / unsafe_convert default_float (Tuple.foldl (+) 0 dim))
+        CudaRandom.create_tensor {dst=.Normal; stddev mean=0f32} {dim elem_type=type zero}
+
+    inl sigmoid = layer sigmoid_initializer sigmoid
+    inl init = 
+        inl fin _ ret =
+            ret {
+                update_weights = const ()
+                apply = succ
+                }            
+        function
+        | _ :: _ as layers -> Tuple.foldr (<|) layers fin
+        | layer -> layer fin
+    inl with_error error network ret = ret {network with apply = inl (input,label) -> self input >>= inl input -> error (input,label)}
+
+    inl Feedforward = {sigmoid init with_error}
+
+    {dr primal primals adjoint adjoints (>>!) Primitive succ (>>=) Activation Error Feedforward}
     """) |> module_
