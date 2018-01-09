@@ -127,9 +127,11 @@ inl {stream Cuda Allocator} ->
 
     inl to_dev_tensor tns = 
         tns.update_body (inl {body with ar offset} ->
-            inl ptr, elem_type = ar.ptr(), ar.elem_type
             inl o = match offset with o :: _ | o -> o
-            inl ptr = ptr_to_uint ptr + unsafe_convert uint64 o |> uint_to_ptr    
+            inl ptr, elem_type = ar.ptr(), ar.elem_type
+            inl ptr =
+                if lit_is o && o = 0 then ptr
+                else ptr_to_uint ptr + unsafe_convert uint64 o |> uint_to_ptr    
             inl ar = !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
             inl offset = match offset with _ :: o' -> 0 :: o' | offset -> 0
             {body with ar offset}
@@ -336,12 +338,19 @@ inl ret ->
         | _ :: _ | {!block_toa_map} -> error_type "Expected a singleton tensor."
         | _ -> ()
     inl to_dev_tensor x = assert_contiguous x; assert_singleton x; to_dev_tensor x
-    inl call m x = 
-        inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
-        inl status_type = fs [text: "ManagedCuda.CudaBlas.CublasStatus"]
-        inl assert_ok status = !MacroFs(unit,[text: "if "; arg: status; text: " <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException"; args: status])
-        inl x = Tuple.map (function x : int64 -> unsafe_convert int32 x | x -> x) x
-        FS.StaticMethod native_type m x status_type |> assert_ok
+    inl call method args = 
+        inl args = Tuple.map (function x : int64 -> unsafe_convert int32 x | x -> x) args |> dyn
+        join 
+            inl args = 
+                Tuple.map (function 
+                    | x : float64 | x : float32 -> ref x
+                    | (.nT | .T) as x -> to_operation x
+                    | x -> x
+                    ) args
+            inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
+            inl status_type = fs [text: "ManagedCuda.CudaBlas.CublasStatus"]
+            inl assert_ok status = macro.fs unit [text: "if "; arg: status; text: " <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException"; args: status]
+            FS.StaticMethod native_type method args status_type |> assert_ok
 
     use cublas =
         inl cublas_type = fs [text: "ManagedCuda.CudaBlas.CudaBlas"]
@@ -373,7 +382,7 @@ inl ret ->
             inl gemv transa alpha A x beta o =
                 inl m,n = rows A, cols A
                 inl lda = m
-                call.cublasSgemv_v2(handle, to_operation transa, m, n, ref alpha, A.bodies.ar, lda, x.bodies.ar, 1, ref beta, o.bodies.ar, 1)
+                call.cublasSgemv_v2(handle, transa, m, n, alpha, A.bodies.ar, lda, x.bodies.ar, 1, beta, o.bodies.ar, 1)
 
             // A <- alpha * x * yT + beta * A (outer product)
             inl ger alpha x y beta a =
@@ -385,7 +394,7 @@ inl ret ->
                 | 0.0f64 | 0.0f32 -> ()
                 | _ -> CudaKernel.map (toa_map ((*) beta)) a a
 
-                call.cublasSger_v2(handle, m, n, ref alpha, x.bodies.ar, 1, y.bodies.ar, 1, a.bodies.ar, m)
+                call.cublasSger_v2(handle, m, n, alpha, x.bodies.ar, 1, y.bodies.ar, 1, a.bodies.ar, m)
 
             // -------
 
@@ -415,7 +424,7 @@ inl ret ->
                 gemv optb alpha B A beta C
             // Just do the standard matrix multiply
             else
-                call.cublasSgemm_v2(handle, to_operation transa, to_operation transb, m, n, k, ref alpha, A.bodies.ar, lda, B.bodies.ar, ldb, ref beta, C.bodies.ar, ldc)
+                call.cublasSgemm_v2(handle, transa, transb, m, n, k, ref alpha, A.bodies.ar, lda, B.bodies.ar, ldb, ref beta, C.bodies.ar, ldc)
 
         inl gemm transa transb alpha A B ret =
             inl m = if isnT transa then rows A else cols A
