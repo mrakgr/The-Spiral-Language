@@ -58,13 +58,28 @@ inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
 inl h = HostTensor.init 32 ((+) 1)
 inb a1 = CudaTensor.from_host_tensor h
 inb o1 = CudaTensor.zero_like a1
-CudaKernel.map' ((*) 2) a1 o1
+CudaKernel.map' (inl a _ -> a * 2) a1 o1
 inl a2 = CudaTensor.to_host_tensor o1
 HostTensor.show a2 |> Console.writeline
     """
 
 let kernel2 =
     "kernel2",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the map_redo kernel work?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+
+inl h = HostTensor.init 32 ((+) 1)
+inb a1 = CudaTensor.from_host_tensor h
+inb o1 = CudaKernel.map_redo {neutral_elem=0; redo=(+)} a1
+Console.writeline o1.value
+    """
+
+let kernel3 =
+    "kernel3",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the replicate_map kernel work?",
     """
 inb Cuda = Cuda
 inb Allocator = Allocator {Cuda size=0.7}
@@ -331,43 +346,6 @@ inl hidden_size = 10
 
 inb network = init (sigmoid hidden_size) input_size >>! with_error square
 
-inl run {d with network={update_weights apply} input label} =
-    open Extern
-    open Console
-    inl dim1 x = x.dim |> fst
-    inl to = unsafe_convert
-
-    assert (dim1 input = dim1 label) "Training and test set need to have to equal first dimensions."
-
-    inl run_minibatch {state span} = 
-        inl view x = x.view_span span
-        inb er, bck = apply (view input, view label)
-        inl primal = primal er .value
-        string_format "On minibatch {0}. Error = {1}" (show span, primal) |> writeline
-
-        match d with
-        | {optimizer} ->
-            writeline "Running the backwards phase..."
-            adjoint er := one_of primal
-            bck() // Runs the backwards pass.
-            update_weights optimizer
-        | _ -> ()
-
-        inl unscaled_cost = to float64 primal * to float64 (HostTensor.span span)
-        state + unscaled_cost
-
-    inl near_to = dim1 input |> HostTensor.span
-    inl by = match d with {minibatch_size} -> minibatch_size | _ -> near_to
-    inl unscaled_cost = Loops.for {from=0; near_to; state=dyn 0.0; by; body=inl {state i=from} ->
-        if near_to % by = 0 then run_minibatch {state span={from by}}
-        else run_minibatch {state span={from near_to=from+by |> min near_to}}
-        }
-
-    writeline "-----"
-    writeline "Batch done."
-    string_format "Average of batch costs is {0}." (unscaled_cost / to float64 near_to) |> writeline
-    writeline "-----"
-
 run {network input=train_images; label=train_labels; optimizer=Optimizer.sgd 0.01f32; minibatch_size=128}
     """
 
@@ -390,7 +368,7 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning5
 |> printfn "%s"
 |> ignore
 

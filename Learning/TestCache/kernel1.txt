@@ -31,10 +31,11 @@ extern "C" {
             } else {
             }
             long long int var_6 = var_0[var_2];
-            long long int var_7 = (2 * var_6);
-            var_1[var_2] = var_7;
-            long long int var_8 = (var_2 + 128);
-            method_8(var_0, var_1, var_8);
+            long long int var_7 = var_1[var_2];
+            long long int var_8 = (var_6 * 2);
+            var_1[var_2] = var_8;
+            long long int var_9 = (var_2 + 128);
+            method_8(var_0, var_1, var_9);
         } else {
         }
     }

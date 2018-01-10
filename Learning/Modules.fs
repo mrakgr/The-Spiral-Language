@@ -262,12 +262,15 @@ inl {stream Cuda CudaTensor} ->
             kernel = cuda // Lexical scoping rocks.
                 inl from = blockIdx.x * blockDim.x + threadIdx.x
                 inl by = gridDim.x * blockDim.x
-                Loops.for {from near_to by body=inl {i} -> out i .set (f (in i .get))}
+                Loops.for {from near_to by body=inl {i} -> 
+                    inl out = out i
+                    inl in = in i
+                    out .set (f in.get out.get)}
             } |> ignore
 
     inl map f (!zip in) ret =
         inb out = create {dim=in.dim; elem_type=type f in.elem_type}
-        map' f in out
+        map' (inl in _ -> f in) in out
         ret out
 
     /// Flattens the tensor to 1d, maps and reduces it.
@@ -315,6 +318,8 @@ inl {stream Cuda CudaTensor} ->
             Loops.for {from=0; near_to=length tns; state=dyn neutral_elem; body=inl {state i} -> redo state (load i)}
         |> Lazy.lazy // The lazy return here is because transfering to host would block the execution.
         |> ret
+
+    //inl replicate' {a map into}
 
     {map' map map_redo}
     """) |> module_
@@ -462,7 +467,7 @@ inl ret ->
 
                 match beta with
                 | 0.0f64 | 0.0f32 -> ()
-                | _ -> CudaKernel.map' (toa_map ((*) beta)) a a
+                | _ -> CudaKernel.map' (toa_map ((*) beta) |> const) a a
 
                 call.cublasSger_v2(handle, m, n, alpha, {ptr=x}, 1, {ptr=y}, 1, {ptr=a}, m)
 
@@ -587,12 +592,10 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             inl out = match out with {DR={primal adjoint}} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
             inl bck =
                 inl bck = filter_based_on_adjoints bck adjoint
-                inl {in out adjoint} -> 
-                    toa_map ((|>) {in out}) bck
-                    |> toa_map2 (+) adjoint
+                inl in adjoint -> toa_map ((|>) in) bck |> toa_map2 (+) adjoint
 
             inb adjoint = filter_unit_and_branch adjoint 
-            map' bck {in=primal; out adjoint} adjoint
+            map' bck {in=primal; out} adjoint
             )
 
     inl hostlazy_map {fwd bck} in ret =
@@ -616,11 +619,9 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             inl out = toa_map2 (inl P A -> {P=P.value; A=A()}) (primals out) (adjoints out)
             inl bck =
                 inl bck = filter_based_on_adjoints bck adjoint
-                inl {in adjoint} -> 
-                    toa_map ((|>) {in out}) bck
-                    |> toa_map2 (+) adjoint
+                inl {in} adjoint -> toa_map ((|>) {in out}) bck |> toa_map2 (+) adjoint
             inb adjoint = filter_unit_and_branch adjoint 
-            map' bck {in=primal; adjoint} adjoint
+            map' bck {in=primal} adjoint
             )
 
     inl Primitive = {matmult map map_redo hostlazy_map}
@@ -702,10 +703,47 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
     // #Optimizer
     inl sgd learning_rate x = 
         inl primal, adjoint = primal x, adjoint x
-        map' (inl A,P -> toa_map2 (inl A P -> P - learning_rate * A) A P) (adjoint, primal) primal
+        map' (toa_map2 (inl A P -> P - learning_rate * A)) adjoint primal
         CudaTensor.clear adjoint 
 
     inl Optimizer = {sgd}
 
-    {dr primal primals adjoint adjoints (>>!) Primitive succ (>>=) Activation Error Feedforward Optimizer}
+    inl run {d with network={update_weights apply} input label} =
+        open Extern
+        open Console
+        inl dim1 x = x.dim |> fst
+        inl to = unsafe_convert
+
+        assert (dim1 input = dim1 label) "Training and test set need to have to equal first dimensions."
+
+        inl run_minibatch {state span} = 
+            inl view x = x.view_span span
+            inb er, bck = apply (view input, view label)
+            inl primal = primal er .value
+            string_format "On minibatch {0}. Error = {1}" (show span, primal) |> writeline
+
+            match d with
+            | {optimizer} ->
+                writeline "Running the backwards phase..."
+                adjoint er := one_of primal
+                bck() // Runs the backwards pass.
+                update_weights optimizer
+            | _ -> ()
+
+            inl unscaled_cost = to float64 primal * to float64 (HostTensor.span span)
+            state + unscaled_cost
+
+        inl near_to = dim1 input |> HostTensor.span
+        inl by = match d with {minibatch_size} -> minibatch_size | _ -> near_to
+        inl unscaled_cost = Loops.for {from=0; near_to; state=dyn 0.0; by; body=inl {state i=from} ->
+            if near_to % by = 0 then run_minibatch {state span={from by}}
+            else run_minibatch {state span={from near_to=from+by |> min near_to}}
+            }
+
+        writeline "-----"
+        writeline "Batch done."
+        string_format "Average of batch costs is {0}." (unscaled_cost / to float64 near_to) |> writeline
+        writeline "-----"
+
+    {dr primal primals adjoint adjoints (>>!) Primitive succ (>>=) Activation Error Feedforward Optimizer run}
     """) |> module_

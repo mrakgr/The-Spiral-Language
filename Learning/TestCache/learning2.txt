@@ -4,9 +4,9 @@ let cuda_kernels = """
 
 extern "C" {
     __global__ void method_6(float * var_0, float * var_1);
-    __global__ void method_8(float * var_0, float * var_1, float * var_2, float * var_3, float * var_4);
+    __global__ void method_8(float * var_0, float * var_1, float * var_2, float * var_3);
     __device__ void method_7(float * var_0, float * var_1, long long int var_2);
-    __device__ void method_9(float * var_0, float * var_1, float * var_2, float * var_3, float * var_4, long long int var_5);
+    __device__ void method_9(float * var_0, float * var_1, float * var_2, float * var_3, long long int var_4);
     
     __global__ void method_6(float * var_0, float * var_1) {
         long long int var_2 = threadIdx.x;
@@ -19,16 +19,16 @@ extern "C" {
         long long int var_9 = (var_8 + var_2);
         method_7(var_0, var_1, var_9);
     }
-    __global__ void method_8(float * var_0, float * var_1, float * var_2, float * var_3, float * var_4) {
-        long long int var_5 = threadIdx.x;
-        long long int var_6 = threadIdx.y;
-        long long int var_7 = threadIdx.z;
-        long long int var_8 = blockIdx.x;
-        long long int var_9 = blockIdx.y;
-        long long int var_10 = blockIdx.z;
-        long long int var_11 = (var_8 * 128);
-        long long int var_12 = (var_11 + var_5);
-        method_9(var_0, var_1, var_2, var_3, var_4, var_12);
+    __global__ void method_8(float * var_0, float * var_1, float * var_2, float * var_3) {
+        long long int var_4 = threadIdx.x;
+        long long int var_5 = threadIdx.y;
+        long long int var_6 = threadIdx.z;
+        long long int var_7 = blockIdx.x;
+        long long int var_8 = blockIdx.y;
+        long long int var_9 = blockIdx.z;
+        long long int var_10 = (var_7 * 128);
+        long long int var_11 = (var_10 + var_4);
+        method_9(var_0, var_1, var_2, var_3, var_11);
     }
     __device__ void method_7(float * var_0, float * var_1, long long int var_2) {
         char var_3 = (var_2 < 16);
@@ -44,35 +44,36 @@ extern "C" {
             } else {
             }
             float var_6 = var_0[var_2];
-            float var_7 = (10 * var_6);
-            var_1[var_2] = var_7;
-            long long int var_8 = (var_2 + 128);
-            method_7(var_0, var_1, var_8);
+            float var_7 = var_1[var_2];
+            float var_8 = (10 * var_6);
+            var_1[var_2] = var_8;
+            long long int var_9 = (var_2 + 128);
+            method_7(var_0, var_1, var_9);
         } else {
         }
     }
-    __device__ void method_9(float * var_0, float * var_1, float * var_2, float * var_3, float * var_4, long long int var_5) {
-        char var_6 = (var_5 < 16);
-        if (var_6) {
-            char var_7 = (var_5 >= 0);
-            char var_8 = (var_7 == 0);
-            if (var_8) {
+    __device__ void method_9(float * var_0, float * var_1, float * var_2, float * var_3, long long int var_4) {
+        char var_5 = (var_4 < 16);
+        if (var_5) {
+            char var_6 = (var_4 >= 0);
+            char var_7 = (var_6 == 0);
+            if (var_7) {
                 // unprinted assert;
             } else {
             }
-            if (var_8) {
+            if (var_7) {
                 // unprinted assert;
             } else {
             }
-            float var_9 = var_0[var_5];
-            float var_10 = var_1[var_5];
-            float var_11 = var_2[var_5];
-            float var_12 = var_3[var_5];
-            float var_13 = (var_11 * 10);
-            float var_14 = (var_9 + var_13);
-            var_4[var_5] = var_14;
-            long long int var_15 = (var_5 + 128);
-            method_9(var_0, var_1, var_2, var_3, var_4, var_15);
+            float var_8 = var_0[var_4];
+            float var_9 = var_1[var_4];
+            float var_10 = var_2[var_4];
+            float var_11 = var_3[var_4];
+            float var_12 = (var_9 * 10);
+            float var_13 = (var_11 + var_12);
+            var_3[var_4] = var_13;
+            long long int var_14 = (var_4 + 128);
+            method_9(var_0, var_1, var_2, var_3, var_14);
         } else {
         }
     }
@@ -440,30 +441,29 @@ let (var_84: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_83: (Union0 ref
 let (var_85: ManagedCuda.BasicTypes.CUstream) = var_49.get_Stream()
 let (var_86: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(64L)
 var_1.ClearMemoryAsync(var_84, 0uy, var_86, var_85)
-let (var_87: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_65: (Union0 ref)))
-let (var_88: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_60: (Union0 ref)))
-let (var_89: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_83: (Union0 ref)))
-let (var_90: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_72: (Union0 ref)))
-let (var_91: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_65: (Union0 ref)))
+let (var_87: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_60: (Union0 ref)))
+let (var_88: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_83: (Union0 ref)))
+let (var_89: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_72: (Union0 ref)))
+let (var_90: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_65: (Union0 ref)))
 // Cuda join point
-// method_8((var_87: ManagedCuda.BasicTypes.CUdeviceptr), (var_88: ManagedCuda.BasicTypes.CUdeviceptr), (var_89: ManagedCuda.BasicTypes.CUdeviceptr), (var_90: ManagedCuda.BasicTypes.CUdeviceptr), (var_91: ManagedCuda.BasicTypes.CUdeviceptr))
-let (var_93: (System.Object [])) = [|var_87; var_88; var_89; var_90; var_91|]: (System.Object [])
-let (var_94: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_8", var_32, var_1)
-let (var_95: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
-var_94.set_GridDimensions(var_95)
-let (var_96: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(128u, 1u, 1u)
-var_94.set_BlockDimensions(var_96)
-let (var_97: ManagedCuda.BasicTypes.CUstream) = var_49.get_Stream()
-var_94.RunAsync(var_97, var_93)
+// method_8((var_87: ManagedCuda.BasicTypes.CUdeviceptr), (var_88: ManagedCuda.BasicTypes.CUdeviceptr), (var_89: ManagedCuda.BasicTypes.CUdeviceptr), (var_90: ManagedCuda.BasicTypes.CUdeviceptr))
+let (var_92: (System.Object [])) = [|var_87; var_88; var_89; var_90|]: (System.Object [])
+let (var_93: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_8", var_32, var_1)
+let (var_94: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
+var_93.set_GridDimensions(var_94)
+let (var_95: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(128u, 1u, 1u)
+var_93.set_BlockDimensions(var_95)
+let (var_96: ManagedCuda.BasicTypes.CUstream) = var_49.get_Stream()
+var_93.RunAsync(var_96, var_92)
+let (var_97: int64) = 0L
 let (var_98: int64) = 0L
-let (var_99: int64) = 0L
-let (var_100: int64) = 8L
-let (var_101: int64) = 1L
-let (var_102: int64) = 0L
-let (var_103: int64) = 2L
-let (var_104: int64) = 0L
-let (var_105: int64) = 8L
-method_10((var_1: ManagedCuda.CudaContext), (var_49: ManagedCuda.CudaStream), (var_47: uint64), (var_48: uint64), (var_44: System.Collections.Generic.Stack<Env2>), (var_72: (Union0 ref)), (var_98: int64), (var_99: int64), (var_100: int64), (var_101: int64), (var_102: int64), (var_103: int64), (var_104: int64), (var_105: int64))
+let (var_99: int64) = 8L
+let (var_100: int64) = 1L
+let (var_101: int64) = 0L
+let (var_102: int64) = 2L
+let (var_103: int64) = 0L
+let (var_104: int64) = 8L
+method_10((var_1: ManagedCuda.CudaContext), (var_49: ManagedCuda.CudaStream), (var_47: uint64), (var_48: uint64), (var_44: System.Collections.Generic.Stack<Env2>), (var_72: (Union0 ref)), (var_97: int64), (var_98: int64), (var_99: int64), (var_100: int64), (var_101: int64), (var_102: int64), (var_103: int64), (var_104: int64))
 var_83 := Union0Case1
 var_72 := Union0Case1
 var_65 := Union0Case1
@@ -471,8 +471,8 @@ var_60 := Union0Case1
 var_55.Dispose()
 var_51.Dispose()
 var_49.Dispose()
-let (var_106: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_43: (Union0 ref)))
-var_1.FreeMemory(var_106)
+let (var_105: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_43: (Union0 ref)))
+var_1.FreeMemory(var_105)
 var_43 := Union0Case1
 var_1.Dispose()
 
