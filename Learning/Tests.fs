@@ -270,40 +270,6 @@ adjoint er := 1f32
 bck()
     """
 
-let learning7 =
-    "learning7",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"Does the pass work with Mnist?",
-    """
-inb Cuda = Cuda
-inb Allocator = Allocator {Cuda size=0.7}
-inb stream = Cuda.Stream.create()
-inl CudaTensor = CudaTensor {stream Cuda Allocator}
-inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
-inb CudaRandomModule = CudaRandom
-inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
-inb CudaBlasModule = CudaBlas
-inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
-inl default_float = float32
-open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
-open Error
-open Feedforward
-
-inb { test_images test_labels train_images train_labels} =
-    inl mnist_path = @"C:\ML Datasets\Mnist"
-    Mnist.load_mnist_tensors mnist_path
-    |> CudaTensor.from_host_tensors
-
-inl input_size = 784
-inl hidden_size = 10
-
-inb {apply update_weights} = init (sigmoid hidden_size) input_size >>! with_error square
-inb er,bck = apply (test_images,test_labels)
-
-Console.writeline ("Cost is:", primal er .value)
-
-adjoint er := 1f32
-bck()
-    """
-
 let learning8 =
     "learning8",[loops;cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"Does the full training work with Mnist?",
     """
@@ -371,6 +337,40 @@ inl run {d with network={update_weights apply} input label} =
 run {network input=train_images; label=train_labels; optimizer=Optimizer.sgd 0.01f32; minibatch_size=128}
     """
 
+let learning7 =
+    "learning7",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"Does the pass work with Mnist?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+inb CudaRandomModule = CudaRandom
+inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
+inb CudaBlasModule = CudaBlas
+inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
+inl default_float = float32
+open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+open Error
+open Feedforward
+
+inb { test_images test_labels train_images train_labels} =
+    inl mnist_path = @"C:\ML Datasets\Mnist"
+    Mnist.load_mnist_tensors mnist_path
+    |> CudaTensor.from_host_tensors
+
+inl input_size = 784
+inl hidden_size = 10
+
+inb {apply update_weights} = init (sigmoid hidden_size) input_size >>! with_error square
+inb er,bck = apply (test_images,test_labels)
+
+Console.writeline ("Cost is:", primal er .value)
+
+adjoint er := 1f32
+bck()
+    """
+
 let tests =
     [|
     allocator1
@@ -390,7 +390,7 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning6
 |> printfn "%s"
 |> ignore
 
