@@ -1009,7 +1009,9 @@ inl tensor_apply {data with size=s::size offset=o::offset} i =
         | () -> o
     {data with size offset}
 
-inl span {from near_to} = near_to - from
+inl span = function
+    | {from near_to} -> near_to - from
+    | {from by} -> from + by
 
 inl Tensor = {
     elem_type = inl {data with bodies} -> toa_map (inl {ar} -> ar.elem_type) bodies
@@ -1038,20 +1040,29 @@ inl Tensor = {
         {data with bodies = toa_map (inl ar -> tensor_view ar indices) self; dim}
     
     // Resizes the view towards zero.
-    view_span = inl {data with dim} (!map_dims head_dims) ->
+    view_span = inl {data with dim} head_dims ->
         inl rec new_dim = function
-            | {from near_to} :: d', {nd with from=from' near_to=near_to'} :: h' ->
-                inl nd = {from = 0; near_to = span nd}
-                inl _ = // Want to make `from'` go out scope.
-                    inl from', near_to' = from + from', from + near_to'
+            | {from near_to} :: d', h :: h' ->
+                inl check from' near_to' =
                     assert (from' >= from && from' < near_to) "Lower boundary out of bounds." 
                     assert (near_to' > from && near_to' <= near_to) "Higher boundary out of bounds." 
+                inl i, nd = 
+                    match h with
+                    | {from=from' by} ->
+                        assert (by >= 0) "`by` must be positive or zero."
+                        inl from' = from + from'
+                        check from' (from' + by)
+                        from', {from = 0; near_to = by}
+                    | !map_dim {nd with from=from' near_to=near_to'} ->
+                        inl from' = from + from'
+                        check from' (from + near_to')
+                        from', {from = 0; near_to = span nd}
                 inl i', nd' = new_dim (d',h')
-                from' :: i', nd :: nd'
+                i :: i', nd :: nd'
             | (), _ :: _ -> error_type "The view has more dimensions than the tensor."
             | dim, () -> (),dim
 
-        inl indices, dim = new_dim (dim, head_dims)
+        inl indices, dim = new_dim (dim, Tuple.wrap head_dims)
         {data with bodies = toa_map (inl ar -> tensor_view ar indices) self; dim}
 
     apply = inl {data with dim} i ->

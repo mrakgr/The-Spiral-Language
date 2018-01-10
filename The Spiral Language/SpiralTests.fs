@@ -1031,7 +1031,7 @@ let test97 =
     "test97",[host_tensor],"Does the view_span work?",
     """
 open HostTensor
-inl w = {from=1; near_to=3}, {from=1; near_to=3},{from=1; near_to=4}
+inl w = {from=1; by=2}, {from=1; by=2},{from=1; by=3}
 init ({from=1; near_to=5},3,10) (inl a b c -> a*b*c) .view_span w
 |> show.all
     """

@@ -399,7 +399,7 @@ inl ret ->
         | .nT -> true
         | _ -> false
 
-    inl len {from near_to} = near_to - from
+    inl len = HostTensor.span
     inl rows x = x.dim |> inl a,b -> len a
     inl cols x = x.dim |> inl a,b -> len b
 
@@ -483,18 +483,18 @@ inl ret ->
         
             assert (m = rows C && n = cols C) "Output matrix dimensions do not match in GEMM."
 
-            // If is outer product call ger
-            if a_col = 1 && b_row = 1 then ger alpha A B beta C
-            // If the vector is on the right side or both are vectors call gemv normally.
-            elif is_vector B then gemv transa alpha A B beta C
-            // If the vector is on the left side call gemv with the arguments switched and transposed
-            // It does not actually transpose them, just their views. The function should work regardless.
-            elif is_vector A then
-                inl optb = if isnT transb then .T else .nT
-                gemv optb alpha B A beta C
-            // Just do the standard matrix multiply
-            else
-                call.cublasSgemm_v2(handle, transa, transb, m, n, k, alpha, {ptr=A}, lda, {ptr=B}, ldb, beta, {ptr=C}, ldc)
+            //// If is outer product call ger
+            //if a_col = 1 && b_row = 1 then ger alpha A B beta C
+            //// If the vector is on the right side or both are vectors call gemv normally.
+            //elif is_vector B then gemv transa alpha A B beta C
+            //// If the vector is on the left side call gemv with the arguments switched and transposed
+            //// It does not actually transpose them, just their views. The function should work regardless.
+            //elif is_vector A then
+            //    inl optb = if isnT transb then .T else .nT
+            //    gemv optb alpha B A beta C
+            //// Just do the standard matrix multiply
+            //else
+            call.cublasSgemm_v2(handle, transa, transb, m, n, k, alpha, {ptr=A}, lda, {ptr=B}, ldb, beta, {ptr=C}, ldc)
 
         inl gemm transa transb alpha A B ret =
             inl m = if isnT transa then rows A else cols A

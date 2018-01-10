@@ -348,7 +348,7 @@ inl run {d with network={update_weights apply} input label} =
         match d with
         | {optimizer} ->
             writeline "Running the backwards phase..."
-            adjoint er := 1f32 // TODO: Don't forget to make this generic.
+            adjoint er := one_of primal
             bck() // Runs the backwards pass.
             update_weights optimizer
         | _ -> ()
@@ -358,10 +358,9 @@ inl run {d with network={update_weights apply} input label} =
 
     inl near_to = dim1 input |> HostTensor.span
     inl by = match d with {minibatch_size} -> minibatch_size | _ -> near_to
-    inl unscaled_cost = Loops.for {from=0; near_to; state=dyn 0.0; by; body=inl {state i} ->
-        inl i' = i + by
-        if i' <= near_to then run_minibatch {state span={from=i; near_to=i'}}
-        else state // run_minibatch {state span={from near_to}}
+    inl unscaled_cost = Loops.for {from=0; near_to; state=dyn 0.0; by; body=inl {state i=from} ->
+        if near_to % by = 0 then run_minibatch {state span={from by}}
+        else run_minibatch {state span={from near_to=from+by |> min near_to}}
         }
 
     writeline "-----"

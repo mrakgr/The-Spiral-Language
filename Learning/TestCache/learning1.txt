@@ -3,40 +3,7 @@ let cuda_kernels = """
 #include "cub/cub.cuh"
 
 extern "C" {
-    __global__ void method_8(float * var_0, float * var_1);
-    __device__ void method_9(float * var_0, float * var_1, long long int var_2);
     
-    __global__ void method_8(float * var_0, float * var_1) {
-        long long int var_2 = threadIdx.x;
-        long long int var_3 = threadIdx.y;
-        long long int var_4 = threadIdx.z;
-        long long int var_5 = blockIdx.x;
-        long long int var_6 = blockIdx.y;
-        long long int var_7 = blockIdx.z;
-        long long int var_8 = (var_5 * 128);
-        long long int var_9 = (var_8 + var_2);
-        method_9(var_0, var_1, var_9);
-    }
-    __device__ void method_9(float * var_0, float * var_1, long long int var_2) {
-        char var_3 = (var_2 < 16);
-        if (var_3) {
-            char var_4 = (var_2 >= 0);
-            char var_5 = (var_4 == 0);
-            if (var_5) {
-                // unprinted assert;
-            } else {
-            }
-            if (var_5) {
-                // unprinted assert;
-            } else {
-            }
-            float var_6 = var_0[var_2];
-            var_1[var_2] = var_6;
-            long long int var_7 = (var_2 + 128);
-            method_9(var_0, var_1, var_7);
-        } else {
-        }
-    }
 }
 """
 
@@ -97,457 +64,27 @@ and method_5((var_0: (Union0 ref))): ManagedCuda.BasicTypes.CUdeviceptr =
         var_2.mem_0
     | Union0Case1 ->
         (failwith "A Cuda memory cell that has been disposed has been tried to be accessed.")
-and method_6((var_0: ManagedCuda.CudaBlas.CudaBlasHandle), (var_1: int32), (var_2: int32), (var_3: float32), (var_4: (Union0 ref)), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_11: int64), (var_12: int64), (var_13: int32), (var_14: (Union0 ref)), (var_15: int64), (var_16: int64), (var_17: int64), (var_18: int64), (var_19: int64), (var_20: int64), (var_21: int64), (var_22: int32), (var_23: float32), (var_24: (Union0 ref)), (var_25: int64), (var_26: int64), (var_27: int64), (var_28: int64), (var_29: int64), (var_30: int64), (var_31: int64), (var_32: int32)): unit =
-    let (var_33: ManagedCuda.CudaBlas.Operation) = ManagedCuda.CudaBlas.Operation.Transpose
-    let (var_34: (float32 ref)) = (ref var_3)
-    let (var_35: bool) = (var_9 < var_10)
-    let (var_36: bool) = (var_35 = false)
-    if var_36 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_37: bool) = (var_11 < var_12)
-    let (var_38: bool) = (var_37 = false)
-    if var_38 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_39: int64) = (var_12 - var_11)
-    let (var_40: int64) = (var_10 - var_9)
-    let (var_41: int64) = (var_40 * var_39)
-    let (var_42: bool) = (0L = var_6)
-    let (var_43: bool) = (var_42 = false)
-    if var_43 then
-        (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
-    else
-        ()
-    let (var_44: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_4: (Union0 ref)))
-    let (var_45: ManagedCuda.BasicTypes.SizeT) = var_44.Pointer
-    let (var_46: uint64) = uint64 var_45
-    let (var_47: uint64) = (uint64 var_5)
-    let (var_48: uint64) = (var_46 + var_47)
-    let (var_49: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_48)
-    let (var_50: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_49)
-    let (var_51: bool) = (var_19 < var_20)
-    let (var_52: bool) = (var_51 = false)
-    if var_52 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_53: bool) = (var_21 < var_17)
-    let (var_54: bool) = (var_53 = false)
-    if var_54 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_55: int64) = (var_17 - var_21)
-    let (var_56: int64) = (var_20 - var_19)
-    let (var_57: int64) = (var_56 * var_55)
-    let (var_58: bool) = (0L = var_16)
-    let (var_59: bool) = (var_58 = false)
-    if var_59 then
-        (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
-    else
-        ()
-    let (var_60: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_14: (Union0 ref)))
-    let (var_61: ManagedCuda.BasicTypes.SizeT) = var_60.Pointer
-    let (var_62: uint64) = uint64 var_61
-    let (var_63: uint64) = (uint64 var_15)
-    let (var_64: uint64) = (var_62 + var_63)
-    let (var_65: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_64)
-    let (var_66: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_65)
-    let (var_67: (float32 ref)) = (ref var_23)
-    let (var_68: bool) = (var_29 < var_20)
-    let (var_69: bool) = (var_68 = false)
-    if var_69 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_70: bool) = (var_30 < var_31)
-    let (var_71: bool) = (var_70 = false)
-    if var_71 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_72: int64) = (var_31 - var_30)
-    let (var_73: int64) = (var_20 - var_29)
-    let (var_74: int64) = (var_73 * var_72)
-    let (var_75: bool) = (0L = var_26)
-    let (var_76: bool) = (var_75 = false)
-    if var_76 then
-        (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
-    else
-        ()
-    let (var_77: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_24: (Union0 ref)))
-    let (var_78: ManagedCuda.BasicTypes.SizeT) = var_77.Pointer
-    let (var_79: uint64) = uint64 var_78
-    let (var_80: uint64) = (uint64 var_25)
-    let (var_81: uint64) = (var_79 + var_80)
-    let (var_82: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_81)
-    let (var_83: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_82)
-    let (var_84: ManagedCuda.CudaBlas.CublasStatus) = ManagedCuda.CudaBlas.CudaBlasNativeMethods.cublasSgemv_v2(var_0, var_33, var_1, var_2, var_34, var_50, var_13, var_66, var_22, var_67, var_83, var_32)
-    if var_84 <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException(var_84)
-and method_7((var_0: ManagedCuda.CudaBlas.CudaBlasHandle), (var_1: int32), (var_2: int32), (var_3: int32), (var_4: float32), (var_5: (Union0 ref)), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_11: int64), (var_12: int64), (var_13: (Union0 ref)), (var_14: int64), (var_15: int64), (var_16: int64), (var_17: int64), (var_18: int64), (var_19: int64), (var_20: int64), (var_21: int64), (var_22: float32), (var_23: (Union0 ref)), (var_24: int64), (var_25: int64), (var_26: int64), (var_27: int64), (var_28: int64), (var_29: int64), (var_30: int64)): unit =
-    let (var_31: ManagedCuda.CudaBlas.Operation) = ManagedCuda.CudaBlas.Operation.NonTranspose
-    let (var_32: ManagedCuda.CudaBlas.Operation) = ManagedCuda.CudaBlas.Operation.NonTranspose
-    let (var_33: (float32 ref)) = (ref var_4)
-    let (var_34: bool) = (var_10 < var_11)
-    let (var_35: bool) = (var_34 = false)
-    if var_35 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_36: bool) = (var_12 < var_8)
-    let (var_37: bool) = (var_36 = false)
-    if var_37 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_38: int64) = (var_8 - var_12)
-    let (var_39: int64) = (var_11 - var_10)
-    let (var_40: int64) = (var_39 * var_38)
-    let (var_41: bool) = (0L = var_7)
-    let (var_42: bool) = (var_41 = false)
-    if var_42 then
-        (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
-    else
-        ()
-    let (var_43: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_5: (Union0 ref)))
-    let (var_44: ManagedCuda.BasicTypes.SizeT) = var_43.Pointer
-    let (var_45: uint64) = uint64 var_44
-    let (var_46: uint64) = (uint64 var_6)
-    let (var_47: uint64) = (var_45 + var_46)
-    let (var_48: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_47)
-    let (var_49: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_48)
-    let (var_50: bool) = (var_18 < var_19)
-    let (var_51: bool) = (var_50 = false)
-    if var_51 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_52: bool) = (var_20 < var_21)
-    let (var_53: bool) = (var_52 = false)
-    if var_53 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_54: int64) = (var_21 - var_20)
-    let (var_55: int64) = (var_19 - var_18)
-    let (var_56: int64) = (var_55 * var_54)
-    let (var_57: bool) = (0L = var_15)
-    let (var_58: bool) = (var_57 = false)
-    if var_58 then
-        (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
-    else
-        ()
-    let (var_59: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_13: (Union0 ref)))
-    let (var_60: ManagedCuda.BasicTypes.SizeT) = var_59.Pointer
-    let (var_61: uint64) = uint64 var_60
-    let (var_62: uint64) = (uint64 var_14)
-    let (var_63: uint64) = (var_61 + var_62)
-    let (var_64: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_63)
-    let (var_65: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_64)
-    let (var_66: (float32 ref)) = (ref var_22)
-    let (var_67: bool) = (var_28 < var_11)
-    let (var_68: bool) = (var_67 = false)
-    if var_68 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_69: bool) = (var_29 < var_30)
-    let (var_70: bool) = (var_69 = false)
-    if var_70 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_71: int64) = (var_30 - var_29)
-    let (var_72: int64) = (var_11 - var_28)
-    let (var_73: int64) = (var_72 * var_71)
-    let (var_74: bool) = (0L = var_25)
-    let (var_75: bool) = (var_74 = false)
-    if var_75 then
-        (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
-    else
-        ()
-    let (var_76: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_23: (Union0 ref)))
-    let (var_77: ManagedCuda.BasicTypes.SizeT) = var_76.Pointer
-    let (var_78: uint64) = uint64 var_77
-    let (var_79: uint64) = (uint64 var_24)
-    let (var_80: uint64) = (var_78 + var_79)
-    let (var_81: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_80)
-    let (var_82: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_81)
-    let (var_83: ManagedCuda.CudaBlas.CublasStatus) = ManagedCuda.CudaBlas.CudaBlasNativeMethods.cublasSgemm_v2(var_0, var_31, var_32, var_1, var_2, var_3, var_33, var_49, var_1, var_65, var_3, var_66, var_82, var_1)
-    if var_83 <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException(var_83)
-and method_10((var_0: ManagedCuda.CudaBlas.CudaBlasHandle), (var_1: int32), (var_2: int32), (var_3: float32), (var_4: (Union0 ref)), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_11: int64), (var_12: int32), (var_13: (Union0 ref)), (var_14: int64), (var_15: int64), (var_16: int64), (var_17: int64), (var_18: int64), (var_19: int64), (var_20: int64), (var_21: int32), (var_22: (Union0 ref)), (var_23: int64), (var_24: int64), (var_25: int64), (var_26: int64), (var_27: int64), (var_28: int64), (var_29: int64), (var_30: int64)): unit =
-    let (var_31: (float32 ref)) = (ref var_3)
-    let (var_32: bool) = (var_9 < var_10)
-    let (var_33: bool) = (var_32 = false)
-    if var_33 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_34: bool) = (var_11 < var_7)
-    let (var_35: bool) = (var_34 = false)
-    if var_35 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_36: int64) = (var_7 - var_11)
-    let (var_37: int64) = (var_10 - var_9)
-    let (var_38: int64) = (var_37 * var_36)
-    let (var_39: bool) = (0L = var_6)
-    let (var_40: bool) = (var_39 = false)
-    if var_40 then
-        (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
-    else
-        ()
-    let (var_41: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_4: (Union0 ref)))
-    let (var_42: ManagedCuda.BasicTypes.SizeT) = var_41.Pointer
-    let (var_43: uint64) = uint64 var_42
-    let (var_44: uint64) = (uint64 var_5)
-    let (var_45: uint64) = (var_43 + var_44)
-    let (var_46: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_45)
-    let (var_47: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_46)
-    let (var_48: bool) = (var_18 < var_10)
-    let (var_49: bool) = (var_48 = false)
-    if var_49 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_50: bool) = (var_19 < var_20)
-    let (var_51: bool) = (var_50 = false)
-    if var_51 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_52: int64) = (var_20 - var_19)
-    let (var_53: int64) = (var_10 - var_18)
-    let (var_54: int64) = (var_53 * var_52)
-    let (var_55: bool) = (0L = var_15)
-    let (var_56: bool) = (var_55 = false)
-    if var_56 then
-        (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
-    else
-        ()
-    let (var_57: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_13: (Union0 ref)))
-    let (var_58: ManagedCuda.BasicTypes.SizeT) = var_57.Pointer
-    let (var_59: uint64) = uint64 var_58
-    let (var_60: uint64) = (uint64 var_14)
-    let (var_61: uint64) = (var_59 + var_60)
-    let (var_62: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_61)
-    let (var_63: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_62)
-    let (var_64: bool) = (var_27 < var_28)
-    let (var_65: bool) = (var_64 = false)
-    if var_65 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_66: bool) = (var_29 < var_30)
-    let (var_67: bool) = (var_66 = false)
-    if var_67 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_68: int64) = (var_30 - var_29)
-    let (var_69: int64) = (var_28 - var_27)
-    let (var_70: int64) = (var_69 * var_68)
-    let (var_71: bool) = (0L = var_24)
-    let (var_72: bool) = (var_71 = false)
-    if var_72 then
-        (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
-    else
-        ()
-    let (var_73: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_22: (Union0 ref)))
-    let (var_74: ManagedCuda.BasicTypes.SizeT) = var_73.Pointer
-    let (var_75: uint64) = uint64 var_74
-    let (var_76: uint64) = (uint64 var_23)
-    let (var_77: uint64) = (var_75 + var_76)
-    let (var_78: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_77)
-    let (var_79: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_78)
-    let (var_80: ManagedCuda.CudaBlas.CublasStatus) = ManagedCuda.CudaBlas.CudaBlasNativeMethods.cublasSger_v2(var_0, var_1, var_2, var_31, var_47, var_12, var_63, var_21, var_79, var_1)
-    if var_80 <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException(var_80)
-and method_11((var_0: ManagedCuda.CudaBlas.CudaBlasHandle), (var_1: int32), (var_2: int32), (var_3: float32), (var_4: (Union0 ref)), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_11: int64), (var_12: int64), (var_13: (Union0 ref)), (var_14: int64), (var_15: int64), (var_16: int64), (var_17: int64), (var_18: int64), (var_19: int64), (var_20: int32), (var_21: float32), (var_22: (Union0 ref)), (var_23: int64), (var_24: int64), (var_25: int64), (var_26: int64), (var_27: int64), (var_28: int64), (var_29: int64), (var_30: int64), (var_31: int32)): unit =
-    let (var_32: ManagedCuda.CudaBlas.Operation) = ManagedCuda.CudaBlas.Operation.Transpose
-    let (var_33: (float32 ref)) = (ref var_3)
-    let (var_34: bool) = (var_9 < var_10)
-    let (var_35: bool) = (var_34 = false)
-    if var_35 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_36: bool) = (var_11 < var_12)
-    let (var_37: bool) = (var_36 = false)
-    if var_37 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_38: int64) = (var_12 - var_11)
-    let (var_39: int64) = (var_10 - var_9)
-    let (var_40: int64) = (var_39 * var_38)
-    let (var_41: bool) = (0L = var_6)
-    let (var_42: bool) = (var_41 = false)
-    if var_42 then
-        (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
-    else
-        ()
-    let (var_43: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_4: (Union0 ref)))
-    let (var_44: ManagedCuda.BasicTypes.SizeT) = var_43.Pointer
-    let (var_45: uint64) = uint64 var_44
-    let (var_46: uint64) = (uint64 var_5)
-    let (var_47: uint64) = (var_45 + var_46)
-    let (var_48: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_47)
-    let (var_49: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_48)
-    let (var_50: bool) = (var_18 < var_10)
-    let (var_51: bool) = (var_50 = false)
-    if var_51 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_52: bool) = (var_19 < var_16)
-    let (var_53: bool) = (var_52 = false)
-    if var_53 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_54: int64) = (var_16 - var_19)
-    let (var_55: int64) = (var_10 - var_18)
-    let (var_56: int64) = (var_55 * var_54)
-    let (var_57: bool) = (0L = var_15)
-    let (var_58: bool) = (var_57 = false)
-    if var_58 then
-        (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
-    else
-        ()
-    let (var_59: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_13: (Union0 ref)))
-    let (var_60: ManagedCuda.BasicTypes.SizeT) = var_59.Pointer
-    let (var_61: uint64) = uint64 var_60
-    let (var_62: uint64) = (uint64 var_14)
-    let (var_63: uint64) = (var_61 + var_62)
-    let (var_64: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_63)
-    let (var_65: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_64)
-    let (var_66: (float32 ref)) = (ref var_21)
-    let (var_67: bool) = (var_27 < var_28)
-    let (var_68: bool) = (var_67 = false)
-    if var_68 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_69: bool) = (var_29 < var_30)
-    let (var_70: bool) = (var_69 = false)
-    if var_70 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_71: int64) = (var_30 - var_29)
-    let (var_72: int64) = (var_28 - var_27)
-    let (var_73: int64) = (var_72 * var_71)
-    let (var_74: bool) = (0L = var_24)
-    let (var_75: bool) = (var_74 = false)
-    if var_75 then
-        (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
-    else
-        ()
-    let (var_76: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_22: (Union0 ref)))
-    let (var_77: ManagedCuda.BasicTypes.SizeT) = var_76.Pointer
-    let (var_78: uint64) = uint64 var_77
-    let (var_79: uint64) = (uint64 var_23)
-    let (var_80: uint64) = (var_78 + var_79)
-    let (var_81: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_80)
-    let (var_82: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_81)
-    let (var_83: ManagedCuda.CudaBlas.CublasStatus) = ManagedCuda.CudaBlas.CudaBlasNativeMethods.cublasSgemv_v2(var_0, var_32, var_1, var_2, var_33, var_49, var_1, var_65, var_20, var_66, var_82, var_31)
-    if var_83 <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException(var_83)
-and method_12((var_0: ManagedCuda.CudaBlas.CudaBlasHandle), (var_1: int32), (var_2: int32), (var_3: int32), (var_4: float32), (var_5: (Union0 ref)), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_11: int64), (var_12: int64), (var_13: (Union0 ref)), (var_14: int64), (var_15: int64), (var_16: int64), (var_17: int64), (var_18: int64), (var_19: int64), (var_20: int64), (var_21: float32), (var_22: (Union0 ref)), (var_23: int64), (var_24: int64), (var_25: int64), (var_26: int64), (var_27: int64), (var_28: int64), (var_29: int64), (var_30: int64)): unit =
-    let (var_31: ManagedCuda.CudaBlas.Operation) = ManagedCuda.CudaBlas.Operation.Transpose
-    let (var_32: ManagedCuda.CudaBlas.Operation) = ManagedCuda.CudaBlas.Operation.NonTranspose
-    let (var_33: (float32 ref)) = (ref var_4)
-    let (var_34: bool) = (var_10 < var_11)
-    let (var_35: bool) = (var_34 = false)
-    if var_35 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_36: bool) = (var_12 < var_8)
-    let (var_37: bool) = (var_36 = false)
-    if var_37 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_38: int64) = (var_8 - var_12)
-    let (var_39: int64) = (var_11 - var_10)
-    let (var_40: int64) = (var_39 * var_38)
-    let (var_41: bool) = (0L = var_7)
-    let (var_42: bool) = (var_41 = false)
-    if var_42 then
-        (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
-    else
-        ()
-    let (var_43: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_5: (Union0 ref)))
-    let (var_44: ManagedCuda.BasicTypes.SizeT) = var_43.Pointer
-    let (var_45: uint64) = uint64 var_44
-    let (var_46: uint64) = (uint64 var_6)
-    let (var_47: uint64) = (var_45 + var_46)
-    let (var_48: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_47)
-    let (var_49: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_48)
-    let (var_50: bool) = (var_18 < var_11)
-    let (var_51: bool) = (var_50 = false)
-    if var_51 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_52: bool) = (var_19 < var_20)
-    let (var_53: bool) = (var_52 = false)
-    if var_53 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_54: int64) = (var_20 - var_19)
-    let (var_55: int64) = (var_11 - var_18)
-    let (var_56: int64) = (var_55 * var_54)
-    let (var_57: bool) = (0L = var_15)
-    let (var_58: bool) = (var_57 = false)
-    if var_58 then
-        (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
-    else
-        ()
-    let (var_59: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_13: (Union0 ref)))
-    let (var_60: ManagedCuda.BasicTypes.SizeT) = var_59.Pointer
-    let (var_61: uint64) = uint64 var_60
-    let (var_62: uint64) = (uint64 var_14)
-    let (var_63: uint64) = (var_61 + var_62)
-    let (var_64: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_63)
-    let (var_65: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_64)
-    let (var_66: (float32 ref)) = (ref var_21)
-    let (var_67: bool) = (var_27 < var_28)
-    let (var_68: bool) = (var_67 = false)
-    if var_68 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_69: bool) = (var_29 < var_30)
-    let (var_70: bool) = (var_69 = false)
-    if var_70 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_71: int64) = (var_30 - var_29)
-    let (var_72: int64) = (var_28 - var_27)
-    let (var_73: int64) = (var_72 * var_71)
-    let (var_74: bool) = (0L = var_24)
-    let (var_75: bool) = (var_74 = false)
-    if var_75 then
-        (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
-    else
-        ()
-    let (var_76: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_22: (Union0 ref)))
-    let (var_77: ManagedCuda.BasicTypes.SizeT) = var_76.Pointer
-    let (var_78: uint64) = uint64 var_77
-    let (var_79: uint64) = (uint64 var_23)
-    let (var_80: uint64) = (var_78 + var_79)
-    let (var_81: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_80)
-    let (var_82: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_81)
-    let (var_83: ManagedCuda.CudaBlas.CublasStatus) = ManagedCuda.CudaBlas.CudaBlasNativeMethods.cublasSgemm_v2(var_0, var_31, var_32, var_1, var_2, var_3, var_33, var_49, var_3, var_65, var_3, var_66, var_82, var_1)
-    if var_83 <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException(var_83)
-and method_13((var_0: ManagedCuda.CudaContext), (var_1: ManagedCuda.CudaStream), (var_2: uint64), (var_3: uint64), (var_4: System.Collections.Generic.Stack<Env2>), (var_5: (Union0 ref)), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_11: int64), (var_12: int64), (var_13: int64)): unit =
+and method_6((var_0: ManagedCuda.CudaBlas.CudaBlasHandle), (var_1: (Union0 ref)), (var_2: (Union0 ref)), (var_3: (Union0 ref))): unit =
+    let (var_4: ManagedCuda.CudaBlas.Operation) = ManagedCuda.CudaBlas.Operation.NonTranspose
+    let (var_5: ManagedCuda.CudaBlas.Operation) = ManagedCuda.CudaBlas.Operation.NonTranspose
+    let (var_6: (float32 ref)) = (ref 1.000000f)
+    let (var_7: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_1: (Union0 ref)))
+    let (var_8: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_2: (Union0 ref)))
+    let (var_9: (float32 ref)) = (ref 0.000000f)
+    let (var_10: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_3: (Union0 ref)))
+    let (var_11: ManagedCuda.CudaBlas.CublasStatus) = ManagedCuda.CudaBlas.CudaBlasNativeMethods.cublasSgemm_v2(var_0, var_4, var_5, 2, 2, 8, var_6, var_7, 2, var_8, 8, var_9, var_10, 2)
+    if var_11 <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException(var_11)
+and method_7((var_0: ManagedCuda.CudaBlas.CudaBlasHandle), (var_1: (Union0 ref)), (var_2: (Union0 ref)), (var_3: (Union0 ref))): unit =
+    let (var_4: ManagedCuda.CudaBlas.Operation) = ManagedCuda.CudaBlas.Operation.Transpose
+    let (var_5: ManagedCuda.CudaBlas.Operation) = ManagedCuda.CudaBlas.Operation.NonTranspose
+    let (var_6: (float32 ref)) = (ref 1.000000f)
+    let (var_7: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_1: (Union0 ref)))
+    let (var_8: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_2: (Union0 ref)))
+    let (var_9: (float32 ref)) = (ref 1.000000f)
+    let (var_10: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_3: (Union0 ref)))
+    let (var_11: ManagedCuda.CudaBlas.CublasStatus) = ManagedCuda.CudaBlas.CudaBlasNativeMethods.cublasSgemm_v2(var_0, var_4, var_5, 8, 2, 2, var_6, var_7, 2, var_8, 2, var_9, var_10, 8)
+    if var_11 <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException(var_11)
+and method_8((var_0: ManagedCuda.CudaContext), (var_1: ManagedCuda.CudaStream), (var_2: uint64), (var_3: uint64), (var_4: System.Collections.Generic.Stack<Env2>), (var_5: (Union0 ref)), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_11: int64), (var_12: int64), (var_13: int64)): unit =
     let (var_14: int64) = (var_11 - var_10)
     let (var_15: int64) = (var_13 - var_12)
     let (var_16: int64) = (var_14 * var_15)
@@ -582,11 +119,11 @@ and method_13((var_0: ManagedCuda.CudaContext), (var_1: ManagedCuda.CudaStream),
     let (var_27: System.Text.StringBuilder) = System.Text.StringBuilder()
     let (var_28: string) = ""
     let (var_29: int64) = 0L
-    method_14((var_27: System.Text.StringBuilder), (var_29: int64))
+    method_9((var_27: System.Text.StringBuilder), (var_29: int64))
     let (var_30: System.Text.StringBuilder) = var_27.AppendLine("[|")
-    method_15((var_27: System.Text.StringBuilder), (var_28: string), (var_26: (float32 [])), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_11: int64), (var_12: int64), (var_13: int64))
+    method_10((var_27: System.Text.StringBuilder), (var_28: string), (var_26: (float32 [])), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_11: int64), (var_12: int64), (var_13: int64))
     let (var_31: int64) = 0L
-    method_14((var_27: System.Text.StringBuilder), (var_31: int64))
+    method_9((var_27: System.Text.StringBuilder), (var_31: int64))
     let (var_32: System.Text.StringBuilder) = var_27.AppendLine("|]")
     let (var_33: string) = var_27.ToString()
     let (var_34: string) = System.String.Format("{0}",var_33)
@@ -624,15 +161,15 @@ and method_4((var_0: uint64), (var_1: uint64), (var_2: int64), (var_3: System.Co
     let (var_9: (Union0 ref)) = (ref (Union0Case0(Tuple1(var_8))))
     var_3.Push((Env2((Env3(var_9)), var_2)))
     (Env3(var_9))
-and method_14((var_0: System.Text.StringBuilder), (var_1: int64)): unit =
+and method_9((var_0: System.Text.StringBuilder), (var_1: int64)): unit =
     let (var_2: bool) = (var_1 < 0L)
     if var_2 then
         let (var_3: System.Text.StringBuilder) = var_0.Append(' ')
         let (var_4: int64) = (var_1 + 1L)
-        method_14((var_0: System.Text.StringBuilder), (var_4: int64))
+        method_9((var_0: System.Text.StringBuilder), (var_4: int64))
     else
         ()
-and method_15((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64)): unit =
+and method_10((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64)): unit =
     let (var_11: bool) = (var_7 < var_8)
     if var_11 then
         let (var_12: bool) = (var_7 >= var_7)
@@ -643,23 +180,23 @@ and method_15((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (floa
             ()
         let (var_14: int64) = (var_3 + var_4)
         let (var_15: int64) = 0L
-        method_16((var_0: System.Text.StringBuilder), (var_15: int64))
+        method_11((var_0: System.Text.StringBuilder), (var_15: int64))
         let (var_16: System.Text.StringBuilder) = var_0.Append("[|")
-        let (var_17: string) = method_17((var_0: System.Text.StringBuilder), (var_2: (float32 [])), (var_14: int64), (var_6: int64), (var_9: int64), (var_10: int64), (var_1: string))
+        let (var_17: string) = method_12((var_0: System.Text.StringBuilder), (var_2: (float32 [])), (var_14: int64), (var_6: int64), (var_9: int64), (var_10: int64), (var_1: string))
         let (var_18: System.Text.StringBuilder) = var_0.AppendLine("|]")
         let (var_19: int64) = (var_7 + 1L)
-        method_19((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_19: int64))
+        method_14((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_19: int64))
     else
         ()
-and method_16((var_0: System.Text.StringBuilder), (var_1: int64)): unit =
+and method_11((var_0: System.Text.StringBuilder), (var_1: int64)): unit =
     let (var_2: bool) = (var_1 < 4L)
     if var_2 then
         let (var_3: System.Text.StringBuilder) = var_0.Append(' ')
         let (var_4: int64) = (var_1 + 1L)
-        method_16((var_0: System.Text.StringBuilder), (var_4: int64))
+        method_11((var_0: System.Text.StringBuilder), (var_4: int64))
     else
         ()
-and method_17((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: string)): string =
+and method_12((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: string)): string =
     let (var_7: bool) = (var_4 < var_5)
     if var_7 then
         let (var_8: System.Text.StringBuilder) = var_0.Append(var_6)
@@ -674,10 +211,10 @@ and method_17((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2:
         let (var_13: System.Text.StringBuilder) = var_0.Append(var_12)
         let (var_14: string) = "; "
         let (var_15: int64) = (var_4 + 1L)
-        method_18((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_14: string), (var_15: int64))
+        method_13((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_14: string), (var_15: int64))
     else
         var_6
-and method_19((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_11: int64)): unit =
+and method_14((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_11: int64)): unit =
     let (var_12: bool) = (var_11 < var_8)
     if var_12 then
         let (var_13: bool) = (var_11 >= var_7)
@@ -691,15 +228,15 @@ and method_19((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (floa
         let (var_17: int64) = (var_3 + var_16)
         let (var_18: int64) = (var_17 + var_4)
         let (var_19: int64) = 0L
-        method_16((var_0: System.Text.StringBuilder), (var_19: int64))
+        method_11((var_0: System.Text.StringBuilder), (var_19: int64))
         let (var_20: System.Text.StringBuilder) = var_0.Append("[|")
-        let (var_21: string) = method_17((var_0: System.Text.StringBuilder), (var_2: (float32 [])), (var_18: int64), (var_6: int64), (var_9: int64), (var_10: int64), (var_1: string))
+        let (var_21: string) = method_12((var_0: System.Text.StringBuilder), (var_2: (float32 [])), (var_18: int64), (var_6: int64), (var_9: int64), (var_10: int64), (var_1: string))
         let (var_22: System.Text.StringBuilder) = var_0.AppendLine("|]")
         let (var_23: int64) = (var_11 + 1L)
-        method_19((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_23: int64))
+        method_14((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_23: int64))
     else
         ()
-and method_18((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: string), (var_7: int64)): string =
+and method_13((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: string), (var_7: int64)): string =
     let (var_8: bool) = (var_7 < var_5)
     if var_8 then
         let (var_9: System.Text.StringBuilder) = var_0.Append(var_6)
@@ -717,7 +254,7 @@ and method_18((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2:
         let (var_17: System.Text.StringBuilder) = var_0.Append(var_16)
         let (var_18: string) = "; "
         let (var_19: int64) = (var_7 + 1L)
-        method_18((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_18: string), (var_19: int64))
+        method_13((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_18: string), (var_19: int64))
     else
         var_6
 let (var_0: string) = cuda_kernels
@@ -816,268 +353,56 @@ let (var_55: ManagedCuda.CudaBlas.CudaBlas) = ManagedCuda.CudaBlas.CudaBlas(var_
 let (var_56: ManagedCuda.CudaBlas.CudaBlasHandle) = var_55.get_CublasHandle()
 let (var_57: ManagedCuda.BasicTypes.CUstream) = var_49.get_Stream()
 var_55.set_Stream(var_57)
-let (var_58: int64) = 2L
-let (var_59: int64) = 8L
-let (var_60: bool) = (var_58 > 0L)
-let (var_61: bool) = (var_60 = false)
-if var_61 then
-    (failwith "Tensor needs to be at least size 1.")
-else
-    ()
-let (var_62: bool) = (var_59 > 0L)
-let (var_63: bool) = (var_62 = false)
-if var_63 then
-    (failwith "Tensor needs to be at least size 1.")
-else
-    ()
-let (var_64: int64) = (var_58 * var_59)
-let (var_65: int64) = (var_64 * 4L)
-let (var_66: Env3) = method_2((var_47: uint64), (var_44: System.Collections.Generic.Stack<Env2>), (var_48: uint64), (var_65: int64))
-let (var_67: (Union0 ref)) = var_66.mem_0
-let (var_68: bool) = (var_64 > 0L)
-let (var_69: bool) = (var_68 = false)
-if var_69 then
-    (failwith "Tensor needs to be at least size 1.")
-else
-    ()
-let (var_70: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_67: (Union0 ref)))
-let (var_71: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_64)
-var_51.GenerateNormal32(var_70, var_71, 0.000000f, 1.000000f)
-let (var_72: int64) = 64L
-let (var_73: Env3) = method_2((var_47: uint64), (var_44: System.Collections.Generic.Stack<Env2>), (var_48: uint64), (var_72: int64))
-let (var_74: (Union0 ref)) = var_73.mem_0
-let (var_75: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_74: (Union0 ref)))
-let (var_76: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(16L)
-var_51.GenerateNormal32(var_75, var_76, 0.000000f, 1.000000f)
-let (var_77: int64) = 64L
+let (var_58: int64) = 64L
+let (var_59: Env3) = method_2((var_47: uint64), (var_44: System.Collections.Generic.Stack<Env2>), (var_48: uint64), (var_58: int64))
+let (var_60: (Union0 ref)) = var_59.mem_0
+let (var_61: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_60: (Union0 ref)))
+let (var_62: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(16L)
+var_51.GenerateNormal32(var_61, var_62, 0.000000f, 1.000000f)
+let (var_63: int64) = 64L
+let (var_64: Env3) = method_2((var_47: uint64), (var_44: System.Collections.Generic.Stack<Env2>), (var_48: uint64), (var_63: int64))
+let (var_65: (Union0 ref)) = var_64.mem_0
+let (var_66: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_65: (Union0 ref)))
+let (var_67: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(16L)
+var_51.GenerateNormal32(var_66, var_67, 0.000000f, 1.000000f)
+let (var_68: int64) = 64L
+let (var_69: Env3) = method_2((var_47: uint64), (var_44: System.Collections.Generic.Stack<Env2>), (var_48: uint64), (var_68: int64))
+let (var_70: (Union0 ref)) = var_69.mem_0
+let (var_71: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_70: (Union0 ref)))
+let (var_72: ManagedCuda.BasicTypes.CUstream) = var_49.get_Stream()
+let (var_73: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(64L)
+var_1.ClearMemoryAsync(var_71, 0uy, var_73, var_72)
+let (var_74: int64) = 16L
+let (var_75: Env3) = method_2((var_47: uint64), (var_44: System.Collections.Generic.Stack<Env2>), (var_48: uint64), (var_74: int64))
+let (var_76: (Union0 ref)) = var_75.mem_0
+method_6((var_56: ManagedCuda.CudaBlas.CudaBlasHandle), (var_60: (Union0 ref)), (var_65: (Union0 ref)), (var_76: (Union0 ref)))
+let (var_77: int64) = 16L
 let (var_78: Env3) = method_2((var_47: uint64), (var_44: System.Collections.Generic.Stack<Env2>), (var_48: uint64), (var_77: int64))
 let (var_79: (Union0 ref)) = var_78.mem_0
 let (var_80: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_79: (Union0 ref)))
 let (var_81: ManagedCuda.BasicTypes.CUstream) = var_49.get_Stream()
-let (var_82: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(64L)
+let (var_82: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(16L)
 var_1.ClearMemoryAsync(var_80, 0uy, var_82, var_81)
-if var_61 then
-    (failwith "Tensor needs to be at least size 1.")
-else
-    ()
-let (var_83: int64) = (var_58 * 2L)
-let (var_84: int64) = (var_83 * 4L)
-let (var_85: Env3) = method_2((var_47: uint64), (var_44: System.Collections.Generic.Stack<Env2>), (var_48: uint64), (var_84: int64))
-let (var_86: (Union0 ref)) = var_85.mem_0
-let (var_87: bool) = (var_59 = 8L)
-let (var_88: bool) = (var_87 = false)
-if var_88 then
-    (failwith "Colums of a does not match rows of b in GEMM.")
-else
-    ()
-let (var_89: bool) = (var_59 = 1L)
-let (var_90: bool) = (var_58 = 1L)
-let (var_91: bool) =
-    if var_90 then
-        true
-    else
-        var_89
-if var_91 then
-    let (var_92: int32) = 8
-    let (var_93: int32) = 2
-    let (var_94: float32) = 1.000000f
-    let (var_95: int64) = 0L
-    let (var_96: int64) = 0L
-    let (var_97: int64) = 2L
-    let (var_98: int64) = 1L
-    let (var_99: int64) = 0L
-    let (var_100: int64) = 8L
-    let (var_101: int64) = 0L
-    let (var_102: int64) = 2L
-    let (var_103: int32) = 8
-    let (var_104: int64) = 0L
-    let (var_105: int64) = 0L
-    let (var_106: int64) = 1L
-    let (var_107: int64) = 0L
-    let (var_108: int64) = 0L
-    let (var_109: int32) = 1
-    let (var_110: float32) = 0.000000f
-    let (var_111: int64) = 0L
-    let (var_112: int64) = 0L
-    let (var_113: int64) = 2L
-    let (var_114: int64) = 1L
-    let (var_115: int64) = 0L
-    let (var_116: int64) = 0L
-    let (var_117: int64) = 2L
-    let (var_118: int32) = 1
-    method_6((var_56: ManagedCuda.CudaBlas.CudaBlasHandle), (var_92: int32), (var_93: int32), (var_94: float32), (var_74: (Union0 ref)), (var_95: int64), (var_96: int64), (var_97: int64), (var_98: int64), (var_99: int64), (var_100: int64), (var_101: int64), (var_102: int64), (var_103: int32), (var_67: (Union0 ref)), (var_104: int64), (var_105: int64), (var_59: int64), (var_106: int64), (var_107: int64), (var_58: int64), (var_108: int64), (var_109: int32), (var_110: float32), (var_86: (Union0 ref)), (var_111: int64), (var_112: int64), (var_113: int64), (var_114: int64), (var_115: int64), (var_116: int64), (var_117: int64), (var_118: int32))
-else
-    let (var_119: int32) = (int32 var_58)
-    let (var_120: int32) = (int32 var_59)
-    let (var_121: int32) = 2
-    let (var_122: float32) = 1.000000f
-    let (var_123: int64) = 0L
-    let (var_124: int64) = 0L
-    let (var_125: int64) = 1L
-    let (var_126: int64) = 0L
-    let (var_127: int64) = 0L
-    let (var_128: int64) = 0L
-    let (var_129: int64) = 0L
-    let (var_130: int64) = 2L
-    let (var_131: int64) = 1L
-    let (var_132: int64) = 0L
-    let (var_133: int64) = 8L
-    let (var_134: int64) = 0L
-    let (var_135: int64) = 2L
-    let (var_136: float32) = 0.000000f
-    let (var_137: int64) = 0L
-    let (var_138: int64) = 0L
-    let (var_139: int64) = 2L
-    let (var_140: int64) = 1L
-    let (var_141: int64) = 0L
-    let (var_142: int64) = 0L
-    let (var_143: int64) = 2L
-    method_7((var_56: ManagedCuda.CudaBlas.CudaBlasHandle), (var_119: int32), (var_121: int32), (var_120: int32), (var_122: float32), (var_67: (Union0 ref)), (var_123: int64), (var_124: int64), (var_59: int64), (var_125: int64), (var_126: int64), (var_58: int64), (var_127: int64), (var_74: (Union0 ref)), (var_128: int64), (var_129: int64), (var_130: int64), (var_131: int64), (var_132: int64), (var_133: int64), (var_134: int64), (var_135: int64), (var_136: float32), (var_86: (Union0 ref)), (var_137: int64), (var_138: int64), (var_139: int64), (var_140: int64), (var_141: int64), (var_142: int64), (var_143: int64))
-let (var_144: bool) = (0L < var_58)
-let (var_145: bool) = (var_144 = false)
-if var_145 then
-    (failwith "Tensor needs to be at least size 1.")
-else
-    ()
-let (var_146: Env3) = method_2((var_47: uint64), (var_44: System.Collections.Generic.Stack<Env2>), (var_48: uint64), (var_84: int64))
-let (var_147: (Union0 ref)) = var_146.mem_0
-let (var_148: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_147: (Union0 ref)))
-if var_145 then
-    (failwith "Tensor needs to be at least size 1.")
-else
-    ()
-let (var_149: ManagedCuda.BasicTypes.CUstream) = var_49.get_Stream()
-let (var_150: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_84)
-var_1.ClearMemoryAsync(var_148, 0uy, var_150, var_149)
-if var_88 then
-    (failwith "Output matrix dimensions do not match in GEMM.")
-else
-    ()
-if var_90 then
-    let (var_151: bool) = (var_58 > var_59)
-    let (var_152: int64) =
-        if var_151 then
-            var_58
-        else
-            var_59
-    let (var_153: bool) = (var_58 > 2L)
-    let (var_154: int64) =
-        if var_153 then
-            var_58
-        else
-            2L
-    let (var_155: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_79: (Union0 ref)))
-    let (var_156: ManagedCuda.BasicTypes.CUdeviceptr) = method_5((var_79: (Union0 ref)))
-    // Cuda join point
-    // method_8((var_155: ManagedCuda.BasicTypes.CUdeviceptr), (var_156: ManagedCuda.BasicTypes.CUdeviceptr))
-    let (var_158: (System.Object [])) = [|var_155; var_156|]: (System.Object [])
-    let (var_159: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_8", var_32, var_1)
-    let (var_160: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
-    var_159.set_GridDimensions(var_160)
-    let (var_161: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(128u, 1u, 1u)
-    var_159.set_BlockDimensions(var_161)
-    let (var_162: ManagedCuda.BasicTypes.CUstream) = var_49.get_Stream()
-    var_159.RunAsync(var_162, var_158)
-    let (var_163: int32) = (int32 var_152)
-    let (var_164: int32) = (int32 var_154)
-    let (var_165: float32) = 1.000000f
-    let (var_166: int64) = 0L
-    let (var_167: int64) = 0L
-    let (var_168: int64) = 1L
-    let (var_169: int64) = 0L
-    let (var_170: int64) = 0L
-    let (var_171: int32) = 1
-    let (var_172: int64) = 0L
-    let (var_173: int64) = 0L
-    let (var_174: int64) = 2L
-    let (var_175: int64) = 1L
-    let (var_176: int64) = 0L
-    let (var_177: int64) = 0L
-    let (var_178: int64) = 2L
-    let (var_179: int32) = 1
-    let (var_180: int64) = 0L
-    let (var_181: int64) = 0L
-    let (var_182: int64) = 2L
-    let (var_183: int64) = 1L
-    let (var_184: int64) = 0L
-    let (var_185: int64) = 8L
-    let (var_186: int64) = 0L
-    let (var_187: int64) = 2L
-    method_10((var_56: ManagedCuda.CudaBlas.CudaBlasHandle), (var_163: int32), (var_164: int32), (var_165: float32), (var_67: (Union0 ref)), (var_166: int64), (var_167: int64), (var_59: int64), (var_168: int64), (var_169: int64), (var_58: int64), (var_170: int64), (var_171: int32), (var_147: (Union0 ref)), (var_172: int64), (var_173: int64), (var_174: int64), (var_175: int64), (var_176: int64), (var_177: int64), (var_178: int64), (var_179: int32), (var_79: (Union0 ref)), (var_180: int64), (var_181: int64), (var_182: int64), (var_183: int64), (var_184: int64), (var_185: int64), (var_186: int64), (var_187: int64))
-else
-    if var_89 then
-        let (var_188: int32) = (int32 var_58)
-        let (var_189: int32) = 2
-        let (var_190: float32) = 1.000000f
-        let (var_191: int64) = 0L
-        let (var_192: int64) = 0L
-        let (var_193: int64) = 2L
-        let (var_194: int64) = 1L
-        let (var_195: int64) = 0L
-        let (var_196: int64) = 0L
-        let (var_197: int64) = 2L
-        let (var_198: int64) = 0L
-        let (var_199: int64) = 0L
-        let (var_200: int64) = 1L
-        let (var_201: int64) = 0L
-        let (var_202: int64) = 0L
-        let (var_203: int32) = 1
-        let (var_204: float32) = 1.000000f
-        let (var_205: int64) = 0L
-        let (var_206: int64) = 0L
-        let (var_207: int64) = 2L
-        let (var_208: int64) = 1L
-        let (var_209: int64) = 0L
-        let (var_210: int64) = 8L
-        let (var_211: int64) = 0L
-        let (var_212: int64) = 2L
-        let (var_213: int32) = 1
-        method_11((var_56: ManagedCuda.CudaBlas.CudaBlasHandle), (var_188: int32), (var_189: int32), (var_190: float32), (var_147: (Union0 ref)), (var_191: int64), (var_192: int64), (var_193: int64), (var_194: int64), (var_195: int64), (var_58: int64), (var_196: int64), (var_197: int64), (var_67: (Union0 ref)), (var_198: int64), (var_199: int64), (var_59: int64), (var_200: int64), (var_201: int64), (var_202: int64), (var_203: int32), (var_204: float32), (var_79: (Union0 ref)), (var_205: int64), (var_206: int64), (var_207: int64), (var_208: int64), (var_209: int64), (var_210: int64), (var_211: int64), (var_212: int64), (var_213: int32))
-    else
-        let (var_214: int32) = (int32 var_59)
-        let (var_215: int32) = (int32 var_58)
-        let (var_216: int32) = 2
-        let (var_217: float32) = 1.000000f
-        let (var_218: int64) = 0L
-        let (var_219: int64) = 0L
-        let (var_220: int64) = 1L
-        let (var_221: int64) = 0L
-        let (var_222: int64) = 0L
-        let (var_223: int64) = 0L
-        let (var_224: int64) = 0L
-        let (var_225: int64) = 2L
-        let (var_226: int64) = 1L
-        let (var_227: int64) = 0L
-        let (var_228: int64) = 0L
-        let (var_229: int64) = 2L
-        let (var_230: float32) = 1.000000f
-        let (var_231: int64) = 0L
-        let (var_232: int64) = 0L
-        let (var_233: int64) = 2L
-        let (var_234: int64) = 1L
-        let (var_235: int64) = 0L
-        let (var_236: int64) = 8L
-        let (var_237: int64) = 0L
-        let (var_238: int64) = 2L
-        method_12((var_56: ManagedCuda.CudaBlas.CudaBlasHandle), (var_214: int32), (var_216: int32), (var_215: int32), (var_217: float32), (var_67: (Union0 ref)), (var_218: int64), (var_219: int64), (var_59: int64), (var_220: int64), (var_221: int64), (var_58: int64), (var_222: int64), (var_147: (Union0 ref)), (var_223: int64), (var_224: int64), (var_225: int64), (var_226: int64), (var_227: int64), (var_228: int64), (var_229: int64), (var_230: float32), (var_79: (Union0 ref)), (var_231: int64), (var_232: int64), (var_233: int64), (var_234: int64), (var_235: int64), (var_236: int64), (var_237: int64), (var_238: int64))
-let (var_239: int64) = 0L
-let (var_240: int64) = 0L
-let (var_241: int64) = 2L
-let (var_242: int64) = 1L
-let (var_243: int64) = 0L
-let (var_244: int64) = 0L
-let (var_245: int64) = 2L
-method_13((var_1: ManagedCuda.CudaContext), (var_49: ManagedCuda.CudaStream), (var_47: uint64), (var_48: uint64), (var_44: System.Collections.Generic.Stack<Env2>), (var_86: (Union0 ref)), (var_239: int64), (var_240: int64), (var_241: int64), (var_242: int64), (var_243: int64), (var_58: int64), (var_244: int64), (var_245: int64))
-var_147 := Union0Case1
-var_86 := Union0Case1
+method_7((var_56: ManagedCuda.CudaBlas.CudaBlasHandle), (var_60: (Union0 ref)), (var_79: (Union0 ref)), (var_70: (Union0 ref)))
+let (var_83: int64) = 0L
+let (var_84: int64) = 0L
+let (var_85: int64) = 2L
+let (var_86: int64) = 1L
+let (var_87: int64) = 0L
+let (var_88: int64) = 2L
+let (var_89: int64) = 0L
+let (var_90: int64) = 2L
+method_8((var_1: ManagedCuda.CudaContext), (var_49: ManagedCuda.CudaStream), (var_47: uint64), (var_48: uint64), (var_44: System.Collections.Generic.Stack<Env2>), (var_76: (Union0 ref)), (var_83: int64), (var_84: int64), (var_85: int64), (var_86: int64), (var_87: int64), (var_88: int64), (var_89: int64), (var_90: int64))
 var_79 := Union0Case1
-var_74 := Union0Case1
-var_67 := Union0Case1
+var_76 := Union0Case1
+var_70 := Union0Case1
+var_65 := Union0Case1
+var_60 := Union0Case1
 var_55.Dispose()
 var_51.Dispose()
 var_49.Dispose()
-let (var_246: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_43: (Union0 ref)))
-var_1.FreeMemory(var_246)
+let (var_91: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_43: (Union0 ref)))
+var_1.FreeMemory(var_91)
 var_43 := Union0Case1
 var_1.Dispose()
 
