@@ -423,7 +423,7 @@ inl ret ->
 
         inl call method args = 
             inl to_dev_tensor x = assert_contiguous x; assert_singleton x; to_dev_tensor x
-            inl args = Tuple.map (function x : int64 -> unsafe_convert int32 x | x -> x) args |> dyn
+            inl args = Tuple.map (function x : int64 -> unsafe_convert int32 x | x -> x) args
             join 
                 inl args = 
                     Tuple.map (function 
