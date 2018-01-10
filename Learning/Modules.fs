@@ -337,16 +337,47 @@ inl {stream Cuda CudaTensor} ->
             kernel = cuda 
                 open Loops
 
-                for {from=blockIdx.x; by=gridDim.x; near_to=dim_out_a; body=inl {i} ->
-                    inl out = out i
-                    for {from=threadIdx.x; by=blockDim.x; near_to=dim_in; body=inl {i} ->
-                            inl out, in = out i, in i
+                for {from=threadIdx.x; by=gridDim.x*blockDim.x; near_to=dim_in; body=inl {i} ->
+                        inl in = in i
+                        inl out j = out j i
+                        for {from=blockIdx.x; near_to=dim_out_a; body=inl {i} ->
+                            inl out = out i
                             out.set (f in.get out.get)
                         }
-                }
+                    }
             } |> ignore
 
-    {map' map map_redo}
+    /// Contracts the 2d `in`'s outer dimension and maps it along with the out.
+    inl constract_map' (!zip in) {d with redo neutral_elem} (!zip out) =
+        inl dim_in_a, dim_in_b = in.dim
+        inl dim_out :: () = out.dim
+
+        assert (dim_out = dim_in_b) "Input's inner dimension must equal the output's dimension."
+
+        inl blockDim = min 128 dim_out
+        inl gridDim = min 64 (divup near_to blockDim)
+
+        inl in = to_dev_tensor in
+        inl out = to_dev_tensor out
+        inl f = match d with {map} -> map | _ -> const
+
+        run {
+            stream blockDim gridDim
+            kernel = cuda 
+                open Loops
+
+                for {from=threadIdx.x; by=blockDim.x*gridDim.x; near_to=dim_out; body=inl {i} ->
+                        inl in j = in j i
+                        inl result =
+                            for {from=blockIdx.x; near_to=dim_in_a; state=dyn neutral_elem; body=inl {state i} ->
+                                redo state (in i)
+                                }
+                        inl out = out i
+                        out.set (f result out.get)
+                    }
+            } |> ignore
+
+    {map' map map_redo replicate_map'}
     """) |> module_
 
 let cuda_random =
