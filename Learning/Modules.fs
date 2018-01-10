@@ -319,7 +319,32 @@ inl {stream Cuda CudaTensor} ->
         |> Lazy.lazy // The lazy return here is because transfering to host would block the execution.
         |> ret
 
-    //inl replicate' {a map into}
+    /// Replicates the 1d `in` and maps it along with the out.
+    inl replicate_map' (!zip in) f (!zip out) =
+        inl dim_in :: () = in.dim
+        inl dim_out_a, dim_out_b = out.dim
+
+        assert (dim_in = dim_out_b) "Input's dimension must equal the output's inner dimension."
+
+        inl blockDim = min 128 dim_in
+        inl gridDim = min 64 (divup near_to blockDim)
+
+        inl in = to_dev_tensor in
+        inl out = to_dev_tensor out
+
+        run {
+            stream blockDim gridDim
+            kernel = cuda 
+                open Loops
+
+                for {from=blockIdx.x; by=gridDim.x; near_to=dim_out_a; body=inl {i} ->
+                    inl out = out i
+                    for {from=threadIdx.x; by=blockDim.x; near_to=dim_in; body=inl {i} ->
+                            inl out, in = out i, in i
+                            out.set (f in.get out.get)
+                        }
+                }
+            } |> ignore
 
     {map' map map_redo}
     """) |> module_
