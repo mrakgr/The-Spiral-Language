@@ -325,20 +325,22 @@ inl {stream Cuda CudaTensor} ->
 
     inl warp_size = 32
 
-    /// Replicates the 1d `in` and maps it along with the out.
-    inl replicate_map' f (!zip in) (!zip out) =
+    /// Replicates the 1d `in` and maps it along with the in' and the out.
+    inl replicate_map' f (!zip in) (!zip in') (!zip out) =
         inl s = HostTensor.span
         inl dim_in :: () = in.dim
-        inl dim_out_a, dim_out_b = out.dim
+        inl dim_in'_a, dim_in'_b = in'.dim
 
-        assert (dim_in = dim_out_b) "Input's dimension must equal the output's inner dimension."
+        assert (dim_in = dim_in'_b) "Input's dimension must equal the second input's inner dimension."
+        assert (in'.dim = out.dim) "Second input must have the same dimension as the output."
 
         inl blockDimX = min warp_size (s dim_in)
         // TODO: Determine if a different multiple would be better.
-        inl blockDimY = min 8 (s dim_out_a)
+        inl blockDimY = min 8 (s dim_in'_a)
         inl gridDim = min 64 (divup (s dim_in) blockDimX)
 
         inl in = to_dev_tensor in
+        inl in' = to_dev_tensor in'
         inl out = to_dev_tensor out
 
         run {
@@ -349,22 +351,29 @@ inl {stream Cuda CudaTensor} ->
 
                 for {from=threadIdx.x+blockDim.x*blockIdx.x-dim_in.from; by=gridDim.x*blockDim.x; near_to=dim_in.near_to; body=inl {i} ->
                         inl in = in i
+                        inl in' j = in' j i 
                         inl out j = out j i
                         for {
                             from=threadIdx.y+blockDim.y*blockIdx.y-dim_out_a.from
                             by=gridDim.y*blockDim.y
                             near_to=dim_out_a.near_to
                             body=inl {i} ->
+                                inl in' = in' i
                                 inl out = out i
-                                out.set (f in.get out.get)
+                                out.set (f in.get in'.get out.get)
                             }
                     }
             } |> ignore
 
-    inl replicate_map f (!zip in) dim_out_a ret =
-        inl dim_in :: () = in.dim
-        inb out = create {elem_type=type f in.elem_type; dim=dim_out_a,dim_in}
-        replicate_map' (inl result _ -> f result) in out
+    inl replicate_map f (!zip in) in' ret =
+        inl in' =
+            match in' with
+            | by : int64 -> 
+                inl dim_in :: () = in.dim
+                HostTensor.create {elem_type=(); dim=by,dim_in}
+            | in' -> in'
+        inb out = create {elem_type=type f in.elem_type in'.elem_type; dim=dim_out_a,dim_in}
+        replicate_map' (inl a b _ -> f a b) in in' out
         ret out
 
     inl syncthreads () = macro.cd unit [text: "__syncthreads()"]
