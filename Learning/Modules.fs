@@ -325,14 +325,15 @@ inl {stream Cuda CudaTensor} ->
 
     /// Replicates the 1d `in` and maps it along with the out.
     inl replicate_map' (!zip in) f (!zip out) =
+        inl s = HostTensor.span
         inl dim_in :: () = in.dim
         inl dim_out_a, dim_out_b = out.dim
 
         assert (dim_in = dim_out_b) "Input's dimension must equal the output's inner dimension."
 
-        inl blockDimX = min warp_size dim_in
-        inl blockDimY = min 8 dim_out_a
-        inl gridDim = min 64 (divup dim_in blockDimX)
+        inl blockDimX = min warp_size (s dim_in)
+        inl blockDimY = min 8 (s dim_out_a)
+        inl gridDim = min 64 (divup (s dim_in) blockDimX)
 
         inl in = to_dev_tensor in
         inl out = to_dev_tensor out
@@ -343,13 +344,17 @@ inl {stream Cuda CudaTensor} ->
             kernel = cuda 
                 open Loops
 
-                for {from=threadIdx.x+blockDim.x*blockIdx.x; by=gridDim.x*blockDim.x; near_to=dim_in; body=inl {i} ->
+                for {from=threadIdx.x+blockDim.x*blockIdx.x-dim_in.from; by=gridDim.x*blockDim.x; near_to=dim_in.near_to; body=inl {i} ->
                         inl in = in i
                         inl out j = out j i
-                        for {from=threadIdx.y+blockDim.y*blockIdx.y; by=gridDim.y*blockDim.y; near_to=dim_out_a; body=inl {i} ->
-                            inl out = out i
-                            out.set (f in.get out.get)
-                        }
+                        for {
+                            from=threadIdx.y+blockDim.y*blockIdx.y-dim_out_a.from
+                            by=gridDim.y*blockDim.y
+                            near_to=dim_out_a.near_to
+                            body=inl {i} ->
+                                inl out = out i
+                                out.set (f in.get out.get)
+                            }
                     }
             } |> ignore
 
@@ -357,14 +362,15 @@ inl {stream Cuda CudaTensor} ->
 
     /// Contracts the 2d `in`'s outer dimension and maps it along with the out.
     inl contract_map' (!zip in) {d with redo neutral_elem} (!zip out) =
+        inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         inl dim_out :: () = out.dim
 
         assert (dim_out = dim_in_b) "Input's inner dimension must equal the output's dimension."
 
-        inl blockDimX = min warp_size dim_out
-        inl blockDimY = 1 //min 8 dim_in_a
-        inl gridDim = min 64 (divup dim_out blockDimX)
+        inl blockDimX = min warp_size (s dim_out)
+        inl blockDimY = 1 //min 8 (s dim_in_a)
+        inl gridDim = min 64 (divup (s dim_out) blockDimX)
 
         inl in = to_dev_tensor in
         inl out = to_dev_tensor out
@@ -376,13 +382,16 @@ inl {stream Cuda CudaTensor} ->
             kernel = cuda 
                 open Loops
 
-                for {from=threadIdx.x+blockDim.x*blockIdx.x; by=gridDim.x*blockDim.x; near_to=dim_in; body=inl {i} ->
+                for {from=threadIdx.x+blockDim.x*blockIdx.x-dim_in.from; by=gridDim.x*blockDim.x; near_to=dim_in.near_to; body=inl {i} ->
                         inl in j = in j i
                         inl out = out i
                         inl finally result = out.set (f result out.get)
 
                         inl blockResult = for {
-                            from=threadIdx.y+blockDim.y*blockIdx.y; by=gridDim.y*blockDim.y; near_to=dim_out_a; state=dyn neutral_elem; 
+                            from=threadIdx.y+blockDim.y*blockIdx.y-dim_out_a.from
+                            by=gridDim.y*blockDim.y
+                            near_to=dim_out_a.near_to 
+                            state=dyn neutral_elem 
                             body=inl {state i} -> redo state (in i .get) 
                             }
                         

@@ -87,10 +87,15 @@ inb stream = Cuda.Stream.create()
 inl CudaTensor = CudaTensor {stream Cuda Allocator}
 inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
 
-inl h = HostTensor.init 32 ((+) 1)
+inl inner_size = 8
+inl outer_size = 8
+
+inl h = HostTensor.init inner_size id
 inb a1 = CudaTensor.from_host_tensor h
-inb o1 = CudaKernel.map_redo {neutral_elem=0; redo=(+)} a1
-Console.writeline o1.value
+inb o1 = CudaTensor.create {elem_type=int64; dim=outer_size,inner_size} 
+CudaKernel.replicate_map' a1 const o1
+met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
+Tuple.iter show (a1,o1)
     """
 
 let random1 =
@@ -353,7 +358,7 @@ let tests =
     [|
     allocator1
     tensor1;tensor2
-    kernel1;kernel2
+    kernel1;kernel2;kernel3
     random1
     blas1
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8
@@ -368,7 +373,7 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning5
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel3
 |> printfn "%s"
 |> ignore
 
