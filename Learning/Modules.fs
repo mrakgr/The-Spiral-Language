@@ -354,9 +354,9 @@ inl {stream Cuda CudaTensor} ->
                         inl in' j = in' j i 
                         inl out j = out j i
                         for {
-                            from=threadIdx.y+blockDim.y*blockIdx.y-dim_out_a.from
+                            from=threadIdx.y+blockDim.y*blockIdx.y-dim_in'_a.from
                             by=gridDim.y*blockDim.y
-                            near_to=dim_out_a.near_to
+                            near_to=dim_in'_a.near_to
                             body=inl {i} ->
                                 inl in' = in' i
                                 inl out = out i
@@ -366,13 +366,18 @@ inl {stream Cuda CudaTensor} ->
             } |> ignore
 
     inl replicate_map f (!zip in) in' ret =
+        print_static in'
+        print_static {raw=in'.elem_type; zipped=zip in' .elem_type}
         inl in' =
             match in' with
             | by : int64 -> 
                 inl dim_in :: () = in.dim
                 HostTensor.create {elem_type=(); dim=by,dim_in}
-            | in' -> in'
-        inb out = create {elem_type=type f in.elem_type in'.elem_type; dim=dim_out_a,dim_in}
+            | in' -> zip in'
+        
+        inb out = create {elem_type=type f in.elem_type in'.elem_type; dim=in'.dim}
+        qwe
+        
         replicate_map' (inl a b _ -> f a b) in in' out
         ret out
 

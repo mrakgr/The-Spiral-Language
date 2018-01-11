@@ -91,8 +91,18 @@ inl inner_size = 8
 inl outer_size = 8
 
 inl h = HostTensor.init inner_size id
+inl h' = 
+    HostTensor.init (outer_size,inner_size) (inl a b -> 
+        print_static {a b}
+        a,b)
+print_static h'.elem_type
 inb a1 = CudaTensor.from_host_tensor h
-inb o1 = CudaKernel.replicate_map id a1 outer_size //CudaTensor.create {elem_type=int64; dim=outer_size,inner_size} 
+inb a2 = CudaTensor.from_host_tensor h'
+print_static a2.elem_type
+inb o1 = 
+    CudaKernel.replicate_map (inl a b -> 
+        print_static {a b}
+        a+a'+b) a1 a2
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
 Tuple.iter show (a1,o1)
     """
@@ -391,7 +401,7 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel4
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel3
 |> printfn "%s"
 |> ignore
 
