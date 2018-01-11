@@ -1258,15 +1258,26 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let env = List.fold (fun s n -> Map.add n (v_find d.env n (er n) id) s) Map.empty (loop [] l) |> Env
             tymap(env, MapTypeModule)
 
-        let array_create d size typ =
+        let array_create' ar_typ d size typ =
             let typ = tev_seq d typ |> get_type
 
             let size,array_type =
                 match tev d size with
-                | size when is_int size -> size,arrayt(ArtDotNetHeap,typ)
+                | size when is_int size -> size,arrayt(ar_typ,typ)
                 | size -> on_type_er (trace d) <| sprintf "An size argument in CreateArray is not of type int64.\nGot: %s" (show_typedexpr size)
 
             TyOp(ArrayCreate,[size],array_type) |> make_tyv_and_push_typed_expr d
+
+        let array_create ar_typ d size typ =
+            let ar_typ = 
+                match tev d ar_typ with
+                | TypeString x ->
+                    match x with 
+                    | "cuda_shared" -> ArtCudaShared
+                    | "cuda_local" -> ArtCudaLocal
+                    | x -> on_type_er (trace d) <| sprintf "Array %s not supported." x
+                | x -> on_type_er (trace d) <| sprintf "Expected a type string as the input to array_create.\nGot: %s" (show_typedexpr x)
+            array_create' ar_typ d size typ
 
         let reference_create d x =
             let x = tev d x
@@ -1613,7 +1624,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | BoxIs,[a] -> box_is d a
             | CaseableBoxIs,[a] -> caseable_box_is d a
 
-            | ArrayCreate,[a;b] -> array_create d a b
+            | ArrayCreate,[a;b] -> array_create' ArtDotNetHeap d a b
+            | ArrayCreate,[ar_typ;a;b] -> array_create ar_typ d a b
             | ReferenceCreate,[a] -> reference_create d a
             | MutableSet,[a;b;c] -> mutable_set d a b c
             | ArrayLength,[a] -> array_length d a
@@ -2424,15 +2436,20 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | StringT -> failwith "The string type is not supported on the Cuda side."
             | CudaTypeT x -> codegen_macro (codegen' {branch_return=id; trace=[]}) print_type x
             | LitT _ -> failwith "Should be covered in Unit."
-
         and print_tyv_with_type (tag,ty as v) = sprintf "%s %s" (print_type ty) (print_tyv v)
         and codegen' ({branch_return=branch_return; trace=trace} as d) expr =
             let inline codegen expr = codegen' {d with branch_return=id} expr
 
-            let inline print_method_definition_args x = print_args' print_tyv_with_type x
+            //let inline print_method_definition_args x = print_args' print_tyv_with_type x
             let inline print_join_point_args x = 
                 let print_with_error_checking x = print_type (snd x) |> ignore; print_tyv x
                 print_args' print_with_error_checking x
+
+            let print_type_array = function // C syntax sucks.
+                | ArrayT(ArtCudaLocal,t) -> print_type t
+                | ArrayT(ArtCudaShared,t) -> sprintf "__shared__ %s" (print_type t)
+                | t -> print_type t
+            let print_tyv_with_array (tag,ty as v) = sprintf "%s %s" (print_type_array ty) (print_tyv v)
 
             let print_value = function
                 | LitUInt8 x -> string x 
@@ -2537,7 +2554,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     let _ = 
                         let d = {d with branch_return=id; trace=trace}
                         match b with
-                        | TyOp(ArrayCreate,[a],t) -> sprintf "%s[%s]" (print_tyv_with_type (tag,t)) (codegen' d a)
+                        | TyOp(ArrayCreate,[a],t) -> sprintf "%s[%s]" (print_tyv_with_array (tag,t)) (codegen' d a)
                         | _ -> sprintf "%s = %s" (print_tyv_with_type tyv) (codegen' d b) 
                         |> state 
                     codegen' {d with trace=trace} rest

@@ -85,6 +85,10 @@ inl ref x = !ReferenceCreate(x)
 
 /// Creates an array with the given type and the size.
 inl array_create typ size = !ArrayCreate(size,typ)
+/// Creates a Cuda shared memory array with the given type and the size.
+inl array_create_cuda_shared typ size = !ArrayCreate(.cuda_shared,size,typ)
+/// Creates a Cuda local memory array with the given type and the size.
+inl array_create_cuda_local typ size = !ArrayCreate(.cuda_local,size,typ)
 /// Returns the length of an array. Not applicable to Cuda arrays.
 inl array_length ar = !ArrayLength(ar)
 /// Partial active pattern. In `on_succ` it also passes the type of the array as a type string.
@@ -248,5 +252,7 @@ inl macro = {
  string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref (+) (-) (*) (/) (%)
  (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>) fst snd not macro
  string_length lit_is box_is failwith assert max min eq_type module_values caseable_is caseable_box_is (:>)
- (:?>) (=) module_map module_filter module_foldl module_foldr module_has_member sizeof string_format string_concat} |> stack
+ (:?>) (=) module_map module_filter module_foldl module_foldr module_has_member sizeof string_format string_concat
+ array_create_cuda_shared array_create_cuda_local
+} |> stack
     """) |> module_

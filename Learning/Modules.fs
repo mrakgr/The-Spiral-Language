@@ -161,18 +161,20 @@ inl {stream Cuda Allocator} ->
     open Allocator
     open HostTensor
     open Extern
-    inl cuda_array_create elem_type len = 
+
+    /// Is just a CUdeviceptr rather than the true array.
+    inl array_create_cuda_global elem_type len = 
         inl ptr = allocate (len * unsafe_convert int64 (sizeof elem_type))
         function // It needs to be like this rather than a module so toa_map does not split it.
         | .elem_type -> elem_type
         | .ptr -> ptr
-    inl create data = create {data with array_create = cuda_array_create}
+    inl create data = create {data with array_create = array_create_cuda_global}
     inl create_like tns = create {elem_type=tns.elem_type; dim=tns.dim}
 
     inl from_host_array ar =
         inl elem_type = ar.elem_type
         inl size = array_length ar |> unsafe_convert int64
-        inl t = cuda_array_create elem_type size
+        inl t = array_create_cuda_global elem_type size
         FS.Method context .CopyToDevice(t.ptr(), ar) unit
         t
 
@@ -332,6 +334,7 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_in = dim_out_b) "Input's dimension must equal the output's inner dimension."
 
         inl blockDimX = min warp_size (s dim_in)
+        // TODO: Determine if a different multiple would be better.
         inl blockDimY = min 8 (s dim_out_a)
         inl gridDim = min 64 (divup (s dim_in) blockDimX)
 
@@ -358,10 +361,10 @@ inl {stream Cuda CudaTensor} ->
                     }
             } |> ignore
 
-    inl syncthreads () = macro.cuda unit [text: "syncthreads()"]
+    inl syncthreads () = macro.cd unit [text: "__syncthreads()"]
 
     /// Contracts the 2d `in`'s outer dimension and maps it along with the out.
-    inl contract_map' (!zip in) {d with redo neutral_elem} (!zip out) =
+    inl d2_redo_map' (!zip in) {d with redo neutral_elem} (!zip out) =
         inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         inl dim_out :: () = out.dim
@@ -369,7 +372,8 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_out = dim_in_b) "Input's inner dimension must equal the output's dimension."
 
         inl blockDimX = min warp_size (s dim_out)
-        inl blockDimY = 1 //min 8 (s dim_in_a)
+        // TODO: Determine if a different multiple would be better.
+        inl blockDimY = min 8 (s dim_in_a)
         inl gridDim = min 64 (divup (s dim_out) blockDimX)
 
         inl in = to_dev_tensor in
@@ -382,31 +386,33 @@ inl {stream Cuda CudaTensor} ->
             kernel = cuda 
                 open Loops
 
-                for {from=threadIdx.x+blockDim.x*blockIdx.x-dim_in.from; by=gridDim.x*blockDim.x; near_to=dim_in.near_to; body=inl {i} ->
+                for {from=threadIdx.x+blockDim.x*blockIdx.x-dim_out.from; by=gridDim.x*blockDim.x; near_to=dim_out.near_to; body=inl {i} ->
                         inl in j = in j i
                         inl out = out i
                         inl finally result = out.set (f result out.get)
 
                         inl blockResult = for {
-                            from=threadIdx.y+blockDim.y*blockIdx.y-dim_out_a.from
+                            from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from
                             by=gridDim.y*blockDim.y
-                            near_to=dim_out_a.near_to 
+                            near_to=dim_in_a.near_to 
                             state=dyn neutral_elem 
                             body=inl {state i} -> redo state (in i .get) 
                             }
                         
                         if blockDim.y > 1 then
-                            inl ar = 
-                                create_array_shared (blockDim.x*(blockDim.y-1))
-                                |> HostTensor.array_as_tensor
-                                |> HostTensor.reshape (blockDim.x,{from=1; near_to=blockDim.y})
+                            inl ar = HostTensor.create {
+                                array_create=array_create_cuda_shared
+                                elem_type=blockResult
+                                // TODO: Determine if padding is needed here.
+                                dim=blockDim.x,{from=1; near_to=blockDim.y}
+                                }
                             
-                            if threadIdx.y <> 0 then
-                                ar threadIdx.x threadIdx.y .set blockResult
+                            inl ar = ar threadIdx.x
+                            
+                            if threadIdx.y <> 0 then ar threadIdx.y .set blockResult
                             syncthreads()
 
                             if threadIdx.y = 0 then
-                                inl ar = ar threadIdx.x
                                 for {from=1; near_to=blockDim.y; state=blockResult; 
                                     body=inl {state i} -> redo state (ar i .get)
                                     finally
@@ -416,7 +422,7 @@ inl {stream Cuda CudaTensor} ->
                     }
             } |> ignore
 
-    {map' map map_redo replicate_map' contract_map'}
+    {map' map map_redo replicate_map' d2_redo_map'}
     """) |> module_
 
 let cuda_random =

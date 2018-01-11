@@ -98,6 +98,26 @@ met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Cons
 Tuple.iter show (a1,o1)
     """
 
+let kernel4 =
+    "kernel4",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the d2_redo_map' kernel work?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+
+inl inner_size = 8
+inl outer_size = 32
+
+inl h = HostTensor.init (outer_size,inner_size) (inl _ x -> x)
+inb a1 = CudaTensor.from_host_tensor h
+inb o1 = CudaTensor.create {elem_type=int64; dim=inner_size} 
+CudaKernel.d2_redo_map' a1 {neutral_elem=0; redo=(+)} o1
+met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
+Tuple.iter show (a1,o1)
+    """
+
 let random1 =
     "random1",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the create_tensor work?",
     """
@@ -358,7 +378,7 @@ let tests =
     [|
     allocator1
     tensor1;tensor2
-    kernel1;kernel2;kernel3
+    kernel1;kernel2;kernel3;kernel4
     random1
     blas1
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8
@@ -371,9 +391,9 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = ["cub/cub.cuh"]
     }
 
-//rewrite_test_cache tests cfg None //(Some(0,40))
+rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel3
-|> printfn "%s"
-|> ignore
+//output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel4
+//|> printfn "%s"
+//|> ignore
 
