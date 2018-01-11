@@ -366,18 +366,13 @@ inl {stream Cuda CudaTensor} ->
             } |> ignore
 
     inl replicate_map f (!zip in) in' ret =
-        print_static in'
-        print_static {raw=in'.elem_type; zipped=HostTensor.zip in' .elem_type}
         inl in' =
             match in' with
             | by : int64 -> 
                 inl dim_in :: () = in.dim
                 HostTensor.create {elem_type=(); dim=by,dim_in}
-            | in' -> HostTensor.zip in'
-        
+            | in' -> zip in'
         inb out = create {elem_type=type f in.elem_type in'.elem_type; dim=in'.dim}
-        qwe
-        
         replicate_map' (inl a b _ -> f a b) in in' out
         ret out
 

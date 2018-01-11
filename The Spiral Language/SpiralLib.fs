@@ -1224,7 +1224,7 @@ inl assert_zip l =
 inl zip l = 
     match assert_zip l with
     | () -> error_type "Empty inputs to zip are not allowed."
-    | tns -> {dim=tns.dim; bodies=toa_map (inl x -> x.bodies) l}
+    | tns -> facade {dim=tns.dim; bodies=toa_map (inl x -> x.bodies) l}
 
 {toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims length create dim_describe facade
  view_offsets init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip show
