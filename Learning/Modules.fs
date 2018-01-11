@@ -326,7 +326,7 @@ inl {stream Cuda CudaTensor} ->
     inl warp_size = 32
 
     /// Replicates the 1d `in` and maps it along with the out.
-    inl replicate_map' (!zip in) f (!zip out) =
+    inl replicate_map' f (!zip in) (!zip out) =
         inl s = HostTensor.span
         inl dim_in :: () = in.dim
         inl dim_out_a, dim_out_b = out.dim
@@ -360,6 +360,12 @@ inl {stream Cuda CudaTensor} ->
                             }
                     }
             } |> ignore
+
+    inl replicate_map f (!zip in) dim_out_a ret =
+        inl dim_in :: () = in.dim
+        inb out = create {elem_type=type f in.elem_type; dim=dim_out_a,dim_in}
+        replicate_map' (inl result _ -> f result) in out
+        ret out
 
     inl syncthreads () = macro.cd unit [text: "__syncthreads()"]
 
@@ -422,7 +428,14 @@ inl {stream Cuda CudaTensor} ->
                     }
             } |> ignore
 
-    {map' map map_redo replicate_map' d2_redo_map'}
+    inl d2_redo_map d (!zip in) ret =
+        inl dim_in_a, dim_in_b = in.dim
+        inl map = match d with {map} a _ -> map a | _ -> const
+        inb out = create {elem_type=type map in.elem_type (); dim=dim_in_b}
+        d2_redo_map' in {d with map} out
+        ret out
+
+    {map' map map_redo replicate_map' replicate_map d2_redo_map' d2_redo_map}
     """) |> module_
 
 let cuda_random =
@@ -697,6 +710,19 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
             inb adjoint = filter_unit_and_branch adjoint 
             map' bck {in=primal; out} adjoint
+            )
+
+    inl replicate_map {fwd bck by} in ret =
+        inl primal, adjoint = primals in, adjoints in
+        inb out = replicate_map fwd primal by >>! dr
+        ret (out, inl _ ->
+            inl out = match out with {DR={primal adjoint}} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
+            inl bck =
+                inl bck = filter_based_on_adjoints bck adjoint
+                inl in adjoint -> toa_map ((|>) in) bck |> toa_map2 (+) adjoint
+
+            inb adjoint = filter_unit_and_branch adjoint 
+            d2_redo_map' bck {in=primal; out} adjoint
             )
 
     inl hostlazy_map {fwd bck} in ret =

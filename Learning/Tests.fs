@@ -92,8 +92,7 @@ inl outer_size = 8
 
 inl h = HostTensor.init inner_size id
 inb a1 = CudaTensor.from_host_tensor h
-inb o1 = CudaTensor.create {elem_type=int64; dim=outer_size,inner_size} 
-CudaKernel.replicate_map' a1 const o1
+inb o1 = CudaKernel.replicate_map id a1 outer_size //CudaTensor.create {elem_type=int64; dim=outer_size,inner_size} 
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
 Tuple.iter show (a1,o1)
     """
@@ -112,8 +111,7 @@ inl outer_size = 32
 
 inl h = HostTensor.init (outer_size,inner_size) (inl _ x -> x)
 inb a1 = CudaTensor.from_host_tensor h
-inb o1 = CudaTensor.create {elem_type=int64; dim=inner_size} 
-CudaKernel.d2_redo_map' a1 {neutral_elem=0; redo=(+)} o1
+inb o1 = CudaKernel.d2_redo_map {neutral_elem=0; redo=(+)} a1
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
 Tuple.iter show (a1,o1)
     """
@@ -391,9 +389,9 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = ["cub/cub.cuh"]
     }
 
-rewrite_test_cache tests cfg None //(Some(0,40))
+//rewrite_test_cache tests cfg None //(Some(0,40))
 
-//output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel4
-//|> printfn "%s"
-//|> ignore
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel4
+|> printfn "%s"
+|> ignore
 
