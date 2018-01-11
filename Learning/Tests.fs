@@ -81,20 +81,17 @@ Console.writeline o1.value
 let kernel3 =
     "kernel3",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the replicate_map kernel work?",
     """
-inb Cuda = Cuda
-inb Allocator = Allocator {Cuda size=0.7}
-inb stream = Cuda.Stream.create()
-inl CudaTensor = CudaTensor {stream Cuda Allocator}
-inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+//inb Cuda = Cuda
+//inb Allocator = Allocator {Cuda size=0.7}
+//inb stream = Cuda.Stream.create()
+//inl CudaTensor = CudaTensor {stream Cuda Allocator}
+//inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
 
 inl inner_size = 8
 inl outer_size = 8
 
-inl h = HostTensor.init inner_size id
-inl h' = 
-    HostTensor.init (outer_size,inner_size) (inl a b -> 
-        print_static {a b}
-        a,b)
+inl h = HostTensor.init inner_size (const (2,2))
+inl h' = HostTensor.init (outer_size,inner_size) (inl a b -> a,b)
 print_static h'.elem_type
 inb a1 = CudaTensor.from_host_tensor h
 inb a2 = CudaTensor.from_host_tensor h'

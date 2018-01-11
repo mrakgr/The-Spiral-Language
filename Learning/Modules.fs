@@ -367,13 +367,13 @@ inl {stream Cuda CudaTensor} ->
 
     inl replicate_map f (!zip in) in' ret =
         print_static in'
-        print_static {raw=in'.elem_type; zipped=zip in' .elem_type}
+        print_static {raw=in'.elem_type; zipped=HostTensor.zip in' .elem_type}
         inl in' =
             match in' with
             | by : int64 -> 
                 inl dim_in :: () = in.dim
                 HostTensor.create {elem_type=(); dim=by,dim_in}
-            | in' -> zip in'
+            | in' -> HostTensor.zip in'
         
         inb out = create {elem_type=type f in.elem_type in'.elem_type; dim=in'.dim}
         qwe
