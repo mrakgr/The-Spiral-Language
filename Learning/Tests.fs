@@ -100,7 +100,7 @@ Tuple.iter show (a1,o1)
     """
 
 let kernel4 =
-    "kernel4",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the d2_redo_map' kernel work?",
+    "kernel4",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the map_d2_redo_map' kernel work?",
     """
 inb Cuda = Cuda
 inb Allocator = Allocator {Cuda size=0.7}
@@ -113,7 +113,7 @@ inl outer_size = 32
 
 inl h = HostTensor.init (outer_size,inner_size) (inl _ x -> x)
 inb a1 = CudaTensor.from_host_tensor h
-inb o1 = CudaKernel.d2_redo_map {neutral_elem=0; redo=(+)} a1
+inb o1 = CudaKernel.map_d2_redo_map {neutral_elem=0; redo=(+)} a1 ()
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
 Tuple.iter show (a1,o1)
     """
@@ -393,7 +393,7 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel3
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel4
 |> printfn "%s"
 |> ignore
 

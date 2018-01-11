@@ -378,22 +378,25 @@ inl {stream Cuda CudaTensor} ->
 
     inl syncthreads () = macro.cd unit [text: "__syncthreads()"]
 
-    /// Contracts the 2d `in`'s outer dimension and maps it along with the out.
-    inl d2_redo_map' (!zip in) {d with redo neutral_elem} (!zip out) =
+    /// Maps the two inputs and then reduces the first's outer dimensions.
+    inl map_d2_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) =
         inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
-        inl dim_out :: () = out.dim
+        inl dim_in' :: () = in'.dim
 
-        assert (dim_out = dim_in_b) "Input's inner dimension must equal the output's dimension."
+        assert (dim_in' = dim_in_b) "Input's inner dimension must equal the output's dimension."
+        assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        inl blockDimX = min warp_size (s dim_out)
+        inl blockDimX = min warp_size (s dim_in')
         // TODO: Determine if a different multiple would be better.
         inl blockDimY = min 8 (s dim_in_a)
-        inl gridDim = min 64 (divup (s dim_out) blockDimX)
+        inl gridDim = min 64 (divup (s dim_in') blockDimX)
 
         inl in = to_dev_tensor in
+        inl in' = to_dev_tensor in'
         inl out = to_dev_tensor out
-        inl f = match d with {map} -> map | _ -> const
+        inl map_in = match d with {map_in} -> map_in | _ -> const
+        inl map_out = match d with {map_out} -> map_out | _ -> const
 
         run {
             stream gridDim
@@ -401,17 +404,23 @@ inl {stream Cuda CudaTensor} ->
             kernel = cuda 
                 open Loops
 
-                for {from=threadIdx.x+blockDim.x*blockIdx.x-dim_out.from; by=gridDim.x*blockDim.x; near_to=dim_out.near_to; body=inl {i} ->
+                for {from=threadIdx.x+blockDim.x*blockIdx.x-dim_in'.from; by=gridDim.x*blockDim.x; near_to=dim_in'.near_to; body=inl {i} ->
                         inl in j = in j i
+                        inl in' = in' i
                         inl out = out i
-                        inl finally result = out.set (f result out.get)
+                        inl finally result = 
+                            inl q = map_out result out.get
+                            print_static {q q' = out.elem_type}
+                            out.set q
 
                         inl blockResult = for {
                             from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from
                             by=gridDim.y*blockDim.y
                             near_to=dim_in_a.near_to 
                             state=dyn neutral_elem 
-                            body=inl {state i} -> redo state (in i .get) 
+                            body=inl {state i} -> 
+                                inl in = in i 
+                                redo state (map_in in.get in'.get) 
                             }
                         
                         if blockDim.y > 1 then
@@ -437,14 +446,22 @@ inl {stream Cuda CudaTensor} ->
                     }
             } |> ignore
 
-    inl d2_redo_map d (!zip in) ret =
+    inl map_d2_redo_map d (!zip in) in' ret =
         inl dim_in_a, dim_in_b = in.dim
-        inl map = match d with {map} a _ -> map a | _ -> const
-        inb out = create {elem_type=type map in.elem_type (); dim=dim_in_b}
-        d2_redo_map' in {d with map} out
+        inl in' = 
+            match in' with
+            | () -> HostTensor.create {elem_type=(); dim=dim_in_b}
+            | in' -> zip in'
+
+        inl map_in = match d with {map_in} -> map_in | _ -> const
+        inl map_out, elem_type = 
+            inl ty = type map_in in.elem_type in'.elem_type
+            match d with {map_out} -> (inl a _ -> map_out a),(type map_out ty) | _ -> const, ty
+        inb out = create {elem_type dim=in'.dim}
+        map_d2_redo_map' {d with map_in map_out} in in' out
         ret out
 
-    {map' map map_redo replicate_map' replicate_map d2_redo_map' d2_redo_map}
+    {map' map map_redo replicate_map' replicate_map map_d2_redo_map' map_d2_redo_map}
     """) |> module_
 
 let cuda_random =
