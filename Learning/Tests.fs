@@ -382,7 +382,9 @@ inl hidden_size = 10
 
 inb network = init (sigmoid hidden_size) input_size >>! with_error square
 
-run {network input=train_images; label=train_labels; optimizer=Optimizer.sgd 0.01f32; minibatch_size=128}
+Loops.for {from=0; near_to=10;body=inl _ ->
+    run {network input=train_images; label=train_labels; optimizer=Optimizer.sgd 0.01f32; minibatch_size=128}
+    }
     """
 
 let learning9 =
@@ -441,9 +443,9 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = ["cub/cub.cuh"]
     }
 
-rewrite_test_cache tests cfg None //(Some(0,40))
+//rewrite_test_cache tests cfg None //(Some(0,40))
 
-//output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
-//|> printfn "%s"
-//|> ignore
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
+|> printfn "%s"
+|> ignore
 

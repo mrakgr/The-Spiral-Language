@@ -387,9 +387,20 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_in' = dim_in_b) "Input's inner dimension must equal the output's dimension."
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        inl blockDimX = min warp_size (s dim_in')
+        // TODO: Maybe it would be better to simply drop the uneven last minibatch in order to simplify this.
+        // I've noticed that NVCC will unroll the static loops whenever it can, so having dynamic sizes will block
+        // that as well.
+        inl blockDimX = 
+            inl x = s dim_in'
+            if lit_is x then min warp_size x
+            else warp_size
         // TODO: Determine if a different multiple would be better.
-        inl blockDimY = min 8 (s dim_in_a)
+        inl blockDimY = 
+            inl m = 8
+            inl x = s dim_in_a
+            if lit_is x then min m x
+            else m
+
         inl gridDim = min 64 (divup (s dim_in') blockDimX)
 
         inl in = to_dev_tensor in
@@ -425,7 +436,10 @@ inl {stream Cuda CudaTensor} ->
                                 array_create=array_create_cuda_shared
                                 elem_type=blockResult
                                 // TODO: Determine if padding is needed here.
-                                dim=blockDim.x,{from=1; near_to=blockDim.y}
+                                dim=
+                                    inl r = blockDim.x,{from=1; near_to=blockDim.y}
+                                    print_static r
+                                    r
                                 }
                             
                             inl ar = ar threadIdx.x
@@ -836,10 +850,11 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
     // #Feedforward
     inl layer initializer activation hidden_size next_layer input_size ret =
         inb weight = initializer (input_size, hidden_size) >>! dr
+        inb bias = CudaTensor.zero {elem_type=default_float; dim=hidden_size} >>! dr
         inb {update_weights apply} = next_layer hidden_size
         ret {
-            update_weights = inl f -> f weight; update_weights f
-            apply = inl input -> matmult input weight >>= activation >>= apply
+            update_weights = inl f -> f weight; f bias; update_weights f
+            apply = inl input -> matmult input weight >>= add_bias bias >>= activation >>= apply
             }
 
     inl sigmoid_initializer dim = 
@@ -880,11 +895,10 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             inl view x = x.view_span span
             inb er, bck = apply (view input, view label)
             inl primal = primal er .value
-            string_format "On minibatch {0}. Error = {1}" (show span, primal) |> writeline
+            //string_format "On minibatch {0}. Error = {1}" (show span, primal) |> writeline
 
             match d with
             | {optimizer} ->
-                writeline "Running the backwards phase..."
                 adjoint er := one_of primal
                 bck() // Runs the backwards pass.
                 update_weights optimizer

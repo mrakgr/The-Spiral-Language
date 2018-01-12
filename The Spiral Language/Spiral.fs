@@ -1262,9 +1262,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let typ = tev_seq d typ |> get_type
 
             let size,array_type =
-                match tev d size with
-                | size when is_int size -> size,arrayt(ar_typ,typ)
-                | size -> on_type_er (trace d) <| sprintf "An size argument in CreateArray is not of type int64.\nGot: %s" (show_typedexpr size)
+                match ar_typ, tev d size with
+                | ArtCudaShared, TyLit _ & size when is_int size -> size,arrayt(ar_typ,typ)
+                | ArtCudaShared, size -> on_type_er (trace d) <| sprintf "The size argument for shared memory arrays must be a int literal.\nGot: %s" (show_typedexpr size)
+                | _, size when is_int size -> size,arrayt(ar_typ,typ)
+                | _, size -> on_type_er (trace d) <| sprintf "An size argument in CreateArray is not of type int64.\nGot: %s" (show_typedexpr size)
 
             TyOp(ArrayCreate,[size],array_type) |> make_tyv_and_push_typed_expr d
 
