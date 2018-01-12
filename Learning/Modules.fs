@@ -711,13 +711,14 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         | () -> ()
         | x -> ret x
 
+    inl on_adjoint B ret =
+        match adjoint B with
+        | .nil -> ()
+        | B -> ret B
+
     inl matmult A B ret =
         inb C = gemm .nT .nT one (primal A) (primal B) >>! dr
         ret (C, inl _ ->
-            inl on_adjoint B ret =
-                match adjoint B with
-                | .nil -> ()
-                | B -> ret B
             on_adjoint A (inl A -> gemm' .nT .T one (adjoint C) (primal B) one A)
             on_adjoint B (inl B -> gemm' .T .nT one (primal A) (adjoint C) one B)
             )
@@ -735,9 +736,10 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             map' bck {in=primal; out} adjoint
             )
 
-    inl replicate_map {fwd bck by} in ret =
+    inl replicate_map {fwd bck={bck_in bck_in'}} in in' ret =
         inl primal, adjoint = primals in, adjoints in
-        inb out = replicate_map fwd primal by >>! dr
+        inl primal', adjoint' = primals in', adjoints in'
+        inb out = replicate_map fwd primal primal' >>! dr
         ret (out, inl _ ->
             inl out = match out with {DR={primal adjoint}} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
             inl bck =
@@ -745,8 +747,21 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 inl in adjoint -> toa_map ((|>) in) bck |> toa_map2 (+) adjoint
 
             inb adjoint = filter_unit_and_branch adjoint 
-            d2_redo_map' bck {in=primal; out} adjoint
+            on_adjoint adjoint (d2_redo_map' bck_in {in'=primal'; out} primal)
+            on_adjoint adjoint' (replicate_map' bck_in' primal {in'=primal'; out})
             )
+
+    inl add_bias = replicate_map {
+        fwd=(+)
+        bck={
+            bck_in={
+                map_in=inl {out} -> out.A
+                neutral_elem=0;redo=(+)
+                map_out=(+)
+                }
+            bck_in'=inl _ {out} adjoint -> out.A + adjoint
+            }
+        }
 
     inl hostlazy_map {fwd bck} in ret =
         inl primal, adjoint = primals in, adjoints in
@@ -774,7 +789,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             map' bck {in=primal} adjoint
             )
 
-    inl Primitive = {matmult map map_redo hostlazy_map}
+    inl Primitive = {matmult map map_redo hostlazy_map replicate_map add_bias}
 
     // #Operations
     inl (>>=) a b ret =
