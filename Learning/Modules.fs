@@ -750,23 +750,27 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             map' bck {in=primal; out} adjoint
             )
 
-    inl replicate_map =
-        inl body is_inplace {fwd bck={bck_in bck_in'}} in in' ret =
-            inl primal, adjoint = primals in, adjoints in
-            inl primal', adjoint' = primals in', adjoints in'
-            inb out =
-                if is_inplace then inl ret -> replicate_map' (inl a b _ -> fwd a b) primal primal' primal'; ret in'
-                else replicate_map fwd primal primal' >>! dr
-            ret (out, inl _ ->
-                inl out = match out with {DR={primal adjoint}} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
-                on_non_nil adjoint (map_d2_redo_map' bck_in {in'=primal'; out} primal)
-                on_non_nil adjoint' (replicate_map' bck_in' primal {in'=primal'; out})
-                )
-        function
-        | .inplace -> body true
-        | x -> body false x
+    inl replicate_map {fwd bck={bck_in bck_in'}} in in' ret =
+        inl primal, adjoint = primals in, adjoints in
+        inl primal', adjoint' = primals in', adjoints in'
+        inb out = replicate_map fwd primal primal' >>! dr
+        ret (out, inl _ ->
+            inl out = match out with {DR={primal adjoint}} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
+            on_non_nil adjoint (map_d2_redo_map' bck_in {in'=primal'; out} primal)
+            on_non_nil adjoint' (replicate_map' bck_in' primal {in'=primal'; out})
+            )
 
-    inl add_bias_template f = f {
+    inl matmultb A B bias ret =
+        inb C = gemm .nT .nT one (primal A) (primal B) >>! dr
+        replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
+        ret (C, inl _ ->
+            inl C' = adjoint C
+            on_non_nil (adjoint A) (inl A -> gemm' .nT .T one C' (primal B) one A)
+            on_non_nil (adjoint B) (inl B -> gemm' .T .nT one (primal A) C' one B)
+            on_non_nil (adjoint bias) (inl bias -> map_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
+            )
+
+    inl add_bias = replicate_map {
         fwd=(+)
         bck={
             bck_in={
@@ -777,9 +781,6 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             bck_in'=inl _ {out} adjoint -> out.A + adjoint
             }
         }
-
-    inl add_bias_inplace = add_bias_template replicate_map.inplace
-    inl add_bias = add_bias_template replicate_map
 
     inl hostlazy_map {fwd bck} in ret =
         inl primal, adjoint = primals in, adjoints in
@@ -807,7 +808,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             map' bck {in=primal} adjoint
             )
 
-    inl Primitive = {matmult map map_redo hostlazy_map replicate_map add_bias add_bias_inplace}
+    inl Primitive = {matmult matmultb map map_redo hostlazy_map replicate_map add_bias}
 
     // #Operations
     inl (>>=) a b ret =
@@ -863,7 +864,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         inb {update_weights apply} = next_layer hidden_size
         ret {
             update_weights = inl f -> f weight; f bias; update_weights f
-            apply = inl input -> matmult input weight >>= add_bias_inplace bias >>= activation >>= apply
+            apply = inl input -> matmultb input weight bias >>= activation >>= apply
             }
 
     inl sigmoid_initializer dim = 

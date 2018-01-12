@@ -1115,6 +1115,7 @@ inl rec show = function
 
 inl rec facade data = function
     | .unwrap -> data
+    | .empty -> facade {data with bodies=()}
     | (.elem_type | .get | .set) & x -> Tensor x data
     | .(_) & x -> 
         if module_has_member data x then data x
