@@ -907,16 +907,17 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             inl unscaled_cost = to float64 primal * to float64 (HostTensor.span span)
             state + unscaled_cost
 
-        inl near_to = dim1 input |> HostTensor.span
-        inl by = match d with {minibatch_size} -> minibatch_size | _ -> near_to
-        inl unscaled_cost = Loops.for {from=0; near_to; state=dyn 0.0; by; body=inl {state i=from} ->
+        inl {from near_to} = dim1 input
+        inl span = near_to - from
+        inl by = match d with {minibatch_size} -> minibatch_size | _ -> near_to - from
+        inl unscaled_cost = Loops.for {from near_to; state=dyn 0.0; by; body=inl {state i=from} ->
             if near_to % by = 0 then run_minibatch {state span={from by}}
             else run_minibatch {state span={from near_to=from+by |> min near_to}}
             }
 
         writeline "-----"
         writeline "Batch done."
-        string_format "Average of batch costs is {0}." (unscaled_cost / to float64 near_to) |> writeline
+        string_format "Average of batch costs is {0}." (unscaled_cost / to float64 span) |> writeline
         writeline "-----"
 
     {dr primal primals adjoint adjoints (>>!) Primitive succ (>>=) Activation Error Feedforward Optimizer run}

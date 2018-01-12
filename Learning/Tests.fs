@@ -383,7 +383,7 @@ inl hidden_size = 10
 inb network = init (sigmoid hidden_size) input_size >>! with_error square
 
 Loops.for {from=0; near_to=10;body=inl _ ->
-    run {network input=train_images; label=train_labels; optimizer=Optimizer.sgd 0.001f32; minibatch_size=128}
+    run {network input=train_images; label=train_labels; optimizer=Optimizer.sgd 0.01f32; minibatch_size=32}
     }
     """
 

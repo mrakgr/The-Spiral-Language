@@ -1011,7 +1011,7 @@ inl tensor_apply {data with size=s::size offset=o::offset} i =
 
 inl span = function
     | {from near_to} -> near_to - from
-    | {from by} -> from + by
+    | {from by} -> by
 
 inl Tensor = {
     elem_type = inl {data with bodies} -> toa_map (inl {ar} -> ar.elem_type) bodies
