@@ -383,7 +383,7 @@ inl hidden_size = 10
 inb network = init (sigmoid hidden_size) input_size >>! with_error square
 
 Loops.for {from=0; near_to=10;body=inl _ ->
-    run {network input=train_images; label=train_labels; optimizer=Optimizer.sgd 0.01f32; minibatch_size=128}
+    run {network input=train_images; label=train_labels; optimizer=Optimizer.sgd 0.001f32; minibatch_size=128}
     }
     """
 
@@ -422,8 +422,7 @@ Console.writeline ("Cost is:", primal er .value)
 adjoint er := 1f32
 bck()
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
-//Tuple.iter show (adjoint bias, adjoint weight)
-()
+Tuple.iter show (adjoint bias, adjoint weight)
     """
 
 let tests =

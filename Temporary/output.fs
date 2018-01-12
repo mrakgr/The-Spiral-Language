@@ -369,7 +369,7 @@ extern "C" {
             }
             float var_6 = var_0[var_2];
             float var_7 = var_1[var_2];
-            float var_8 = (0.01 * var_6);
+            float var_8 = (0.001 * var_6);
             float var_9 = (var_7 - var_8);
             var_1[var_2] = var_9;
             long long int var_10 = (var_2 + 7936);
@@ -392,7 +392,7 @@ extern "C" {
             }
             float var_6 = var_0[var_2];
             float var_7 = var_1[var_2];
-            float var_8 = (0.01 * var_6);
+            float var_8 = (0.001 * var_6);
             float var_9 = (var_7 - var_8);
             var_1[var_2] = var_9;
             long long int var_10 = (var_2 + 128);
