@@ -94,9 +94,10 @@ inl h = HostTensor.init inner_size (const (2,2))
 inl h' = HostTensor.init (outer_size,inner_size) (inl a b -> a,b)
 inb a1 = CudaTensor.from_host_tensor h
 inb a2 = CudaTensor.from_host_tensor h'
-inb o1 = CudaKernel.replicate_map (inl a b -> a,b) a1 a2
+inb o1 = CudaKernel.replicate_map (inl a b -> a, b) a1 a2
+inb o2 = CudaKernel.replicate_map (inl a _ -> a) a1 outer_size
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
-Tuple.iter show (a1,o1)
+Tuple.iter show (a1,o1,o2)
     """
 
 let kernel4 =
@@ -112,11 +113,20 @@ inl inner_size = 8
 inl outer_size = 32
 
 inl h = HostTensor.init (outer_size,inner_size) (inl _ x -> x)
+inl h' = HostTensor.init inner_size (const 10)
 inb a1 = CudaTensor.from_host_tensor h
-inb o1 = CudaKernel.map_d2_redo_map {neutral_elem=0; redo=(+)} a1 ()
-met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
-Tuple.iter show (a1,o1)
+inb a2 = CudaTensor.from_host_tensor h'
+inl f map_in a2 =
+    CudaKernel.map_d2_redo_map {
+        map_in
+        neutral_elem=0; redo=(+)
+        map_out=inl a -> a/2
+        } a1 a2
+inb o1 = f (inl a b -> a+1) ()
+inb o2 = f (inl a b -> a+b) a2
 
+met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
+Tuple.iter show (a1,o1,o2)
     """
 
 let random1 =

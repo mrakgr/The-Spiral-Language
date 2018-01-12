@@ -408,10 +408,7 @@ inl {stream Cuda CudaTensor} ->
                         inl in j = in j i
                         inl in' = in' i
                         inl out = out i
-                        inl finally result = 
-                            inl q = map_out result out.get
-                            print_static {q q' = out.elem_type}
-                            out.set q
+                        inl finally result = out.set (map_out result out.get)
 
                         inl blockResult = for {
                             from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from
