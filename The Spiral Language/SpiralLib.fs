@@ -1183,7 +1183,7 @@ inl copy = map id
 
 /// Total tensor size in elements.
 inl product = Tuple.foldl (inl s (!span x) -> s * x) 1
-inl length tns = product (tns.dim)
+inl length tns = product tns.dim
 
 /// Sets the tensor dimensions assuming the overall length matches. Does not copy. size -> tensor -> tensor.
 inl reshape (!dim_describe {len dim make_body}) tns = 

@@ -385,6 +385,45 @@ inb network = init (sigmoid hidden_size) input_size >>! with_error square
 run {network input=train_images; label=train_labels; optimizer=Optimizer.sgd 0.01f32; minibatch_size=128}
     """
 
+let learning9 =
+    "learning9",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;console],"Does the add_bias work?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+inb CudaRandomModule = CudaRandom
+inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
+inb CudaBlasModule = CudaBlas
+inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
+inl default_float = float32
+open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+open Primitive
+open Activation
+open Error
+
+inl input_size = 32
+inl outer_dim = 6
+inl inner_dim = 16
+inb input = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=input_size,outer_dim}
+inb weight = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=outer_dim,inner_dim} >>! dr
+inb bias = CudaTensor.zero {elem_type=default_float; dim=inner_dim} >>! dr
+inb label = CudaTensor.zero {elem_type=default_float; dim=input_size,inner_dim}
+
+inb er,bck = 
+    inm o1 = matmult input weight >>= add_bias bias >>= sigmoid
+    square (o1,label)
+
+Console.writeline ("Cost is:", primal er .value)
+
+adjoint er := 1f32
+bck()
+met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
+//Tuple.iter show (adjoint bias, adjoint weight)
+()
+    """
+
 let tests =
     [|
     allocator1
@@ -392,7 +431,7 @@ let tests =
     kernel1;kernel2;kernel3;kernel4
     random1
     blas1
-    learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8
+    learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
 let cfg: Spiral.Types.CompilerSettings = {
@@ -402,9 +441,9 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_includes = ["cub/cub.cuh"]
     }
 
-//rewrite_test_cache tests cfg None //(Some(0,40))
+rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel4
-|> printfn "%s"
-|> ignore
+//output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
+//|> printfn "%s"
+//|> ignore
 

@@ -711,16 +711,16 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         | () -> ()
         | x -> ret x
 
-    inl on_adjoint B ret =
-        match adjoint B with
+    inl on_non_nil B ret =
+        match B with
         | .nil -> ()
         | B -> ret B
 
     inl matmult A B ret =
         inb C = gemm .nT .nT one (primal A) (primal B) >>! dr
         ret (C, inl _ ->
-            on_adjoint A (inl A -> gemm' .nT .T one (adjoint C) (primal B) one A)
-            on_adjoint B (inl B -> gemm' .T .nT one (primal A) (adjoint C) one B)
+            on_non_nil (adjoint A) (inl A -> gemm' .nT .T one (adjoint C) (primal B) one A)
+            on_non_nil (adjoint B) (inl B -> gemm' .T .nT one (primal A) (adjoint C) one B)
             )
 
     inl map {fwd bck} in ret =
@@ -742,21 +742,16 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         inb out = replicate_map fwd primal primal' >>! dr
         ret (out, inl _ ->
             inl out = match out with {DR={primal adjoint}} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
-            inl bck =
-                inl bck = filter_based_on_adjoints bck adjoint
-                inl in adjoint -> toa_map ((|>) in) bck |> toa_map2 (+) adjoint
-
-            inb adjoint = filter_unit_and_branch adjoint 
-            on_adjoint adjoint (d2_redo_map' bck_in {in'=primal'; out} primal)
-            on_adjoint adjoint' (replicate_map' bck_in' primal {in'=primal'; out})
+            on_non_nil adjoint (map_d2_redo_map' bck_in {in'=primal'; out} primal)
+            on_non_nil adjoint' (replicate_map' bck_in' primal {in'=primal'; out})
             )
 
     inl add_bias = replicate_map {
         fwd=(+)
         bck={
             bck_in={
-                map_in=inl {out} -> out.A
-                neutral_elem=0;redo=(+)
+                map_in=inl {out} _ -> out.A
+                neutral_elem=zero;redo=(+)
                 map_out=(+)
                 }
             bck_in'=inl _ {out} adjoint -> out.A + adjoint
