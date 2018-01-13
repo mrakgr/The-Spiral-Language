@@ -378,6 +378,8 @@ inl {stream Cuda CudaTensor} ->
 
     inl syncthreads () = macro.cd unit [text: "__syncthreads()"]
 
+    // inl map_d1_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) =
+
     /// Maps the two inputs and then reduces the first's outer dimensions.
     inl map_d2_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) =
         inl s = HostTensor.span
