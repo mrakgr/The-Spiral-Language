@@ -410,6 +410,8 @@ inl {stream Cuda CudaTensor} ->
                     inl in = in i
                     inl in' = in' i
 
+                    print_static {neutral_elem}
+
                     inl result = 
                         for {
                             from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
@@ -418,7 +420,10 @@ inl {stream Cuda CudaTensor} ->
                             state=dyn neutral_elem 
                             body=inl {state i} -> 
                                 inl in = in i 
-                                redo state (map_in in.get in'.get) 
+                                inl l = state
+                                inl r = map_in in.get in'.get
+                                print_static {l r}
+                                redo l r
                             }
                         |> cub_block_reduce blockDim.x redo
 
@@ -715,6 +720,10 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
     inl zero = Extern.zero_of default_float
     inl one = Extern.one_of default_float
     inl two = unsafe_convert default_float 2
+    inl infinity =
+        match default_float with
+        | _: float32 -> infinityf32
+        | _: float64 -> infinityf64
 
     inl dr primal ret =
         inb adjoint = zero_like primal
@@ -866,18 +875,31 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl Activation = {sigmoid}
 
+    inl accuracy (input,label) ret =
+        inl input, label = primal input, primal label
+        inb x = 
+            map_d1_redo_map {
+                map_in=const
+                neutral_elem=-infinity,zero
+                redo=inl a b -> if fst a > fst b then a else b
+                map_out=inl a -> snd a = one
+                } (input,label) ()
+        ret (Array.foldl (inl s x -> if x then s+1 else s) 0 (to_host_tensor x).bodies.ar)
+
     inl error {fwd bck} (input,_ as x) = 
         inl batch_size = primal input .dim |> fst |> span
         inl div_by_minibatch_size x = x / unsafe_convert default_float batch_size
-        map_redo {
-            fwd = {
-                map = fwd
-                redo = (+)
-                neutral_elem = zero
-                }
-            bck = toa_map multiply_by_adjoint bck
-            } x
-        >>= hostlazy_map {fwd = div_by_minibatch_size; bck = inl {out={A}} -> div_by_minibatch_size A}
+        inm cost =
+            map_redo {
+                fwd = {
+                    map = fwd
+                    redo = (+)
+                    neutral_elem = zero
+                    }
+                bck = toa_map multiply_by_adjoint bck
+                } x
+            >>= hostlazy_map {fwd = div_by_minibatch_size; bck = inl {out={A}} -> div_by_minibatch_size A}
+        succ {cost accuracy=accuracy x}
 
     inl square = error {
         fwd = inl (x,y) -> (y - x) * (y - x)
@@ -931,7 +953,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl Optimizer = {sgd}
 
-    inl run {d with network={update_weights apply} input label} =
+    inl run {d with network={update_weights apply} input label state} =
         open Extern
         open Console
         inl dim1 x = x.dim |> fst
@@ -941,31 +963,39 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
         inl run_minibatch {state span} = 
             inl view x = x.view_span span
-            inb er, bck = apply (view input, view label)
-            inl primal = primal er .value
+            inb {cost accuracy}, bck = apply (view input, view label)
+            inl primal = primal cost .value
             //string_format "On minibatch {0}. Error = {1}" (show span, primal) |> writeline
 
             match d with
             | {optimizer} ->
-                adjoint er := one_of primal
+                adjoint cost := one_of primal
                 bck() // Runs the backwards pass.
                 update_weights optimizer
             | _ -> ()
 
-            inl unscaled_cost = to float64 primal * to float64 (HostTensor.span span)
-            state + unscaled_cost
-
+            inl running_cost =
+                match state with
+                | {running_cost} -> running_cost + to float64 primal * to float64 (HostTensor.span span)
+                
+            match state with
+            | {running_accuracy} -> 
+                { running_cost running_accuracy=running_accuracy + accuracy id }
+            | _ -> {running_cost}
+            
         inl {from near_to} = dim1 input
         inl span = near_to - from
         inl by = match d with {minibatch_size} -> minibatch_size | _ -> near_to - from
-        inl unscaled_cost = Loops.for {from near_to; state=dyn 0.0; by; body=inl {state i=from} ->
+
+        inl state = Loops.for {from near_to; state by; body=inl {state i=from} ->
             if near_to % by = 0 then run_minibatch {state span={from by}}
             else run_minibatch {state span={from near_to=from+by |> min near_to}}
             }
 
         writeline "-----"
         writeline "Batch done."
-        string_format "Average of batch costs is {0}." (unscaled_cost / to float64 span) |> writeline
+        match state with {running_cost} -> string_format "Average of batch costs is {0}." (running_cost / to float64 span) |> writeline | _ -> ()
+        match state with {running_accuracy} -> string_format "The accuracy of the batch is {0}/{1}." (running_accuracy,span) |> writeline | _ -> ()
         writeline "-----"
 
     {dr primal primals adjoint adjoints (>>!) Primitive succ (>>=) Activation Error Feedforward Optimizer run}

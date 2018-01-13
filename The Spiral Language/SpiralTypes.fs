@@ -237,6 +237,7 @@ type Op =
     | InfinityF64
     | InfinityF32
 
+
 type ArrayType =
     | ArtDotNetHeap
     | ArtDotNetReference
@@ -448,6 +449,7 @@ type CompilerSettings = {
     path_cub : string
     path_cuda90 : string
     cuda_includes : string list
+    trace_length : int
     }
 
 /// Wraps the argument in a list if not a tuple.

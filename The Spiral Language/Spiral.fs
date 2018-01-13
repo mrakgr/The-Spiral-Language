@@ -3229,7 +3229,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     // #Run
     let print_type_error (trace: Trace) message = 
         let trace = 
-            let mutable c = 20
+            let mutable c = settings.trace_length
             List.takeWhile (fun x -> if c > 0 then c <- c-1; true else false) trace
         let code: Dictionary<Module, ModuleCode []> = d0()
         let error = System.Text.StringBuilder(1024)

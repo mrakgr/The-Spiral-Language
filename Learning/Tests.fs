@@ -144,17 +144,19 @@ inl inner_size = 16
 inl outer_size = 32
 
 inb a1 = CudaRandom.create_tensor .Uniform {elem_type=float32; dim=outer_size,inner_size}
-inl f map_in a2 =
+inb a2 = CudaRandom.create_tensor .Uniform {elem_type=float32; dim=outer_size,inner_size}
+inl f a1 a2 =
     CudaKernel.map_d1_redo_map {
-        map_in
-        neutral_elem=-infinityf32; redo=max
+        map_in=const
+        neutral_elem=-infinityf32,0f32; 
+        redo=inl a b -> if fst a > fst b then a else b
+        map_out=fst
         } a1 a2
-inb o1 = f const ()
+inb o1 = f (a1,a2) ()
 
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
 Tuple.iter show (a1,o1)
     """
-
 
 let random1 =
     "random1",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the create_tensor work?",
@@ -305,13 +307,13 @@ open Error
 inb input = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=2,6}
 inb weight = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=6,4} >>! dr
 inb label = CudaTensor.zero {elem_type=default_float; dim=2,4}
-inb er,bck = 
+inb {cost},bck = 
     inm o1 = matmult input weight >>= sigmoid
     square (o1,label)
 
-Console.writeline ("Cost is:", primal er .value)
+Console.writeline ("Cost is:", primal cost .value)
 
-adjoint er := 1f32
+adjoint cost := 1f32
 bck()
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
 adjoint weight |> show
@@ -340,11 +342,11 @@ inb input = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem
 inb label = CudaTensor.zero {elem_type=default_float; dim=2,hidden_size}
 
 inb {apply update_weights} = init (sigmoid hidden_size) input_size >>! with_error square
-inb er,bck = apply (input,label)
+inb {cost},bck = apply (input,label)
 
-Console.writeline ("Cost is:", primal er .value)
+Console.writeline ("Cost is:", primal cost .value)
 
-adjoint er := 1f32
+adjoint cost := 1f32
 bck()
     """
 
@@ -374,11 +376,11 @@ inl input_size = 784
 inl hidden_size = 10
 
 inb {apply update_weights} = init (sigmoid hidden_size) input_size >>! with_error square
-inb er,bck = apply (test_images,test_labels)
+inb {cost},bck = apply (test_images,test_labels)
 
-Console.writeline ("Cost is:", primal er .value)
+Console.writeline ("Cost is:", primal cost .value)
 
-adjoint er := 1f32
+adjoint cost := 1f32
 bck()
     """
 
@@ -410,7 +412,10 @@ inl hidden_size = 10
 inb network = init (sigmoid hidden_size) input_size >>! with_error square
 
 Loops.for {from=0; near_to=10;body=inl _ ->
-    run {network input=train_images; label=train_labels; optimizer=Optimizer.sgd 0.01f32; minibatch_size=32}
+    run {
+        network input=train_images; label=train_labels; optimizer=Optimizer.sgd 0.01f32; minibatch_size=32
+        state={running_cost=dyn 0.0; running_accuracy=dyn 0}
+        }
     }
     """
 
@@ -440,13 +445,13 @@ inb weight = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {ele
 inb bias = CudaTensor.zero {elem_type=default_float; dim=inner_dim} >>! dr
 inb label = CudaTensor.zero {elem_type=default_float; dim=input_size,inner_dim}
 
-inb er,bck = 
+inb {cost},bck = 
     inm o1 = matmult input weight >>= add_bias bias >>= sigmoid
     square (o1,label)
 
-Console.writeline ("Cost is:", primal er .value)
+Console.writeline ("Cost is:", primal cost .value)
 
-adjoint er := 1f32
+adjoint cost := 1f32
 bck()
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
 Tuple.iter show (adjoint bias, adjoint weight)
@@ -467,11 +472,12 @@ let cfg: Spiral.Types.CompilerSettings = {
     path_cub = @"C:\cub-1.7.4"
     path_vs2017 = @"C:\Program Files (x86)\Microsoft Visual Studio\2017\Community"
     cuda_includes = ["cub/cub.cuh"]
+    trace_length = 40
     }
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel5
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
 |> printfn "%s"
 |> ignore
 

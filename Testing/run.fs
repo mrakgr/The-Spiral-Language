@@ -10,6 +10,7 @@ let cfg: Spiral.Types.CompilerSettings = {
     path_cub = @"C:\cub-1.7.4"
     path_vs2017 = @"C:\Program Files (x86)\Microsoft Visual Studio\2017\Community"
     cuda_includes = []
+    trace_length = 20
     }
 
 rewrite_test_cache tests cfg None //(Some(0,40))

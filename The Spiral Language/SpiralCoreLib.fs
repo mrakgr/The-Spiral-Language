@@ -249,6 +249,9 @@ inl macro = {
 
 inl infinityf64 = !InfinityF64()
 inl infinityf32 = !InfinityF32()
+// Note: Nan is not allowed as a literal because it cannot be memoized. Just use zero or something else.
+// Since join points use structural equality and nan = nan returns false, nans will cause it to diverge.
+// Note for future language designers - make nan = nan return true!
 
 {type_lit_lift error_type print_static dyn (=>) cd fs log exp tanh sqrt array_create array_length array_is array
  split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
