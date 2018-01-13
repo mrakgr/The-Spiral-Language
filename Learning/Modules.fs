@@ -277,6 +277,15 @@ inl {stream Cuda CudaTensor} ->
         map' (inl in _ -> f in) in out
         ret out
 
+    inl cub_block_reduce redo x =
+        macro.cd x [
+            text: "cub::BlockReduce"
+            iter: "<",",",">",[type: x; arg: blockDim]
+            args: ()
+            text: ".Reduce"
+            args: x, closure_of (inl a,b -> redo a b) ((x,x) => x)
+            ]
+
     /// Flattens the tensor to 1d, maps and reduces it.
     /// Lazily returns the output. Requires the redo and the neutral element.
     /// Map is optional. Allocates a temporary tensor for the intermediary results.
@@ -291,15 +300,6 @@ inl {stream Cuda CudaTensor} ->
         inl elem_type = type (in.elem_type |> map)
         inl ty = elem_type
 
-        inl cub_block_reduce thread_result redo =
-            macro.cd ty [
-                text: "cub::BlockReduce"
-                iter: "<",",",">",[type: ty; arg: blockDim]
-                args: ()
-                text: ".Reduce"
-                args: thread_result, redo
-                ]
-
         inb out = create {elem_type dim=gridDim}
         inl out' = to_dev_tensor out
 
@@ -310,10 +310,9 @@ inl {stream Cuda CudaTensor} ->
                 inl by = gridDim.x * blockDim.x
                 inl load i = map (in' i .get)
                 inl thread_result = Loops.for {from near_to by state=dyn neutral_elem; body=inl {state i} -> redo state (load i)}
-
-                inl redo = closure_of (inl a,b -> redo a b) ((ty,ty) => ty)
-                inl block_result = cub_block_reduce thread_result redo
-                if threadIdx.x = 0 then out' (blockIdx.x) .set block_result
+                
+                inl block_result = cub_block_reduce redo thread_result
+                if threadIdx.x = 0 then out' blockIdx.x .set block_result
             } |> ignore
 
         inl _ ->
@@ -378,9 +377,57 @@ inl {stream Cuda CudaTensor} ->
 
     inl syncthreads () = macro.cd unit [text: "__syncthreads()"]
 
-    // inl map_d1_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) =
+    inl lit_min a b =
+        if lit_is a && lit_is b then min a b
+        elif lit_is a then a
+        elif lit_is b then b
+        else error_type "a or b need to be a literal"
 
-    /// Maps the two inputs and then reduces the first's outer dimensions.
+    /// Maps the two inputs and then reduces the first's inner dimension.
+    inl map_d1_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) =
+        inl s = HostTensor.span
+        inl dim_in_a, dim_in_b = in.dim
+        inl dim_in' :: () = in'.dim
+
+        assert (dim_in' = dim_in_a) "Input's outer dimension must equal the output's dimension."
+        assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
+
+        inl blockDim = lit_min 1024 (s dim_in_b)
+        inl gridDimY = lit_min 64 (s dim_in')
+
+        inl in = to_dev_tensor in
+        inl in' = to_dev_tensor in'
+        inl out = to_dev_tensor out
+        inl map_in = match d with {map_in} -> map_in | _ -> const
+        inl map_out = match d with {map_out} -> map_out | _ -> const
+
+        run {
+            stream blockDim
+            gridDim=1,gridDimY
+            kernel = cuda 
+                open Loops
+                for {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in'.from; by=gridDim.y*blockDim.y; near_to=dim_in'.near_to; body=inl {i} ->
+                    inl in = in i
+                    inl in' = in' i
+
+                    inl result = 
+                        for {
+                            from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
+                            by=gridDim.x*blockDim.x
+                            near_to=dim_in_b.near_to 
+                            state=dyn neutral_elem 
+                            body=inl {state i} -> 
+                                inl in = in i 
+                                redo state (map_in in.get in'.get) 
+                            }
+                        |> cub_block_reduce redo
+
+                    if threadIdx.x = 0 then 
+                        inl out = out i
+                        out.set (map_out result out.get)
+                    }
+
+    /// Maps the two inputs and then reduces the first's outer dimension.
     inl map_d2_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) =
         inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
@@ -389,20 +436,9 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_in' = dim_in_b) "Input's inner dimension must equal the output's dimension."
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        // TODO: Maybe it would be better to simply drop the uneven last minibatch in order to simplify this.
-        // I've noticed that NVCC will unroll the static loops whenever it can, so having dynamic sizes will block
-        // that as well.
-        inl blockDimX = 
-            inl x = s dim_in'
-            if lit_is x then min warp_size x
-            else warp_size
+        inl blockDimX = lit_min warp_size (s dim_in')
         // TODO: Determine if a different multiple would be better.
-        inl blockDimY = 
-            inl m = 8
-            inl x = s dim_in_a
-            if lit_is x then min m x
-            else m
-
+        inl blockDimY = lit_min 8 (s dim_in_a)
         inl gridDim = min 64 (divup (s dim_in') blockDimX)
 
         inl in = to_dev_tensor in
@@ -438,10 +474,7 @@ inl {stream Cuda CudaTensor} ->
                                 array_create=array_create_cuda_shared
                                 elem_type=blockResult
                                 // TODO: Determine if padding is needed here.
-                                dim=
-                                    inl r = blockDim.x,{from=1; near_to=blockDim.y}
-                                    print_static r
-                                    r
+                                dim=blockDim.x,{from=1; near_to=blockDim.y}
                                 }
                             
                             inl ar = ar threadIdx.x
