@@ -492,11 +492,10 @@ inl {stream Cuda CudaTensor} ->
                     }
             } |> ignore
 
-    inl map_d2_redo_map d (!zip in) in' ret =
-        inl dim_in_a, dim_in_b = in.dim
+    inl map_dx_redo_map_template dim kernel d in in' ret =
         inl in' = 
             match in' with
-            | () -> HostTensor.create {elem_type=(); dim=dim_in_b}
+            | () -> HostTensor.create {elem_type=(); dim}
             | in' -> zip in'
 
         inl map_in = match d with {map_in} -> map_in | _ -> const
@@ -504,10 +503,13 @@ inl {stream Cuda CudaTensor} ->
             inl ty = type map_in in.elem_type in'.elem_type
             match d with {map_out} -> (inl a _ -> map_out a),(type map_out ty) | _ -> const, ty
         inb out = create {elem_type dim=in'.dim}
-        map_d2_redo_map' {d with map_in map_out} in in' out
+        kernel {d with map_in map_out} in in' out
         ret out
 
-    {map' map map_redo replicate_map' replicate_map map_d2_redo_map' map_d2_redo_map}
+    inl map_d1_redo_map d (!zip in) = map_dx_redo_map_template (fst in.dim) map_d1_redo_map' d in
+    inl map_d2_redo_map d (!zip in) = map_dx_redo_map_template (snd in.dim) map_d2_redo_map' d in
+
+    {map' map map_redo replicate_map' replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map}
     """) |> module_
 
 let cuda_random =
