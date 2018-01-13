@@ -277,7 +277,7 @@ inl {stream Cuda CudaTensor} ->
         map' (inl in _ -> f in) in out
         ret out
 
-    inl cub_block_reduce redo x =
+    inl cub_block_reduce blockDim redo x =
         macro.cd x [
             text: "cub::BlockReduce"
             iter: "<",",",">",[type: x; arg: blockDim]
@@ -311,7 +311,7 @@ inl {stream Cuda CudaTensor} ->
                 inl load i = map (in' i .get)
                 inl thread_result = Loops.for {from near_to by state=dyn neutral_elem; body=inl {state i} -> redo state (load i)}
                 
-                inl block_result = cub_block_reduce redo thread_result
+                inl block_result = cub_block_reduce blockDim.x redo thread_result
                 if threadIdx.x = 0 then out' blockIdx.x .set block_result
             } |> ignore
 
@@ -420,12 +420,13 @@ inl {stream Cuda CudaTensor} ->
                                 inl in = in i 
                                 redo state (map_in in.get in'.get) 
                             }
-                        |> cub_block_reduce redo
+                        |> cub_block_reduce blockDim.x redo
 
                     if threadIdx.x = 0 then 
                         inl out = out i
                         out.set (map_out result out.get)
                     }
+            }
 
     /// Maps the two inputs and then reduces the first's outer dimension.
     inl map_d2_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) =

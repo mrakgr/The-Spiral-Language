@@ -233,6 +233,10 @@ type Op =
     | Exp
     | Sqrt
 
+    // Infinity
+    | InfinityF64
+    | InfinityF32
+
 type ArrayType =
     | ArtDotNetHeap
     | ArtDotNetReference

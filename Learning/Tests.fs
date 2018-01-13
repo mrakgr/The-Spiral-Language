@@ -137,28 +137,22 @@ inb Allocator = Allocator {Cuda size=0.7}
 inb stream = Cuda.Stream.create()
 inl CudaTensor = CudaTensor {stream Cuda Allocator}
 inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+inb CudaRandomModule = CudaRandom
+inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 
-inl inner_size = 10
+inl inner_size = 16
 inl outer_size = 32
 
-inl min_float = macro.fs float32 [text: "System.Float32.MinValue"]
-
-
-inl h = HostTensor.init (outer_size,inner_size) (inl _ x -> x)
-inl h' = HostTensor.init outer_size (const 10)
-inb a1 = CudaTensor.from_host_tensor h
-inb a2 = CudaTensor.from_host_tensor h'
+inb a1 = CudaRandom.create_tensor .Uniform {elem_type=float32; dim=outer_size,inner_size}
 inl f map_in a2 =
-    CudaKernel.map_d2_redo_map {
+    CudaKernel.map_d1_redo_map {
         map_in
-        neutral_elem=0; redo=(+)
-        map_out=inl a -> a/2
+        neutral_elem=-infinityf32; redo=max
         } a1 a2
-inb o1 = f (inl a b -> a+1) ()
-inb o2 = f (inl a b -> a+b) a2
+inb o1 = f const ()
 
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
-Tuple.iter show (a1,o1,o2)
+Tuple.iter show (a1,o1)
     """
 
 
@@ -462,7 +456,7 @@ let tests =
     [|
     allocator1
     tensor1;tensor2
-    kernel1;kernel2;kernel3;kernel4
+    kernel1;kernel2;kernel3;kernel4;kernel5
     random1
     blas1
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9

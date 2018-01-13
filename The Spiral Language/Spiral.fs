@@ -1684,6 +1684,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | UnsafeDowncastTo,[a;b] -> unsafe_downcast_to d a b
             | UnsafeCoerceToArrayCudaGlobal,[a;b] -> unsafe_coerce_to_array_cuda_global d a b
             | SizeOf,[a] -> sizeof d a
+
+            | InfinityF64,[] -> TyLit (LitFloat64 infinity)
+            | InfinityF32,[] -> TyLit (LitFloat32 infinityf)
             
             | x -> failwithf "Compiler error: Missing Op case. %A" x
 
@@ -2462,8 +2465,16 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | LitInt16 x -> string x
                 | LitInt32 x -> string x
                 | LitInt64 x -> string x
-                | LitFloat32 x -> string x
-                | LitFloat64 x -> string x
+                | LitFloat32 x -> 
+                    if x = infinityf then "__int_as_float(0x7f800000)"
+                    elif x = -infinityf then "__int_as_float(0xff800000)"
+                    elif x = nanf then "__int_as_float(0x7fffffff)"
+                    else string x
+                | LitFloat64 x ->
+                    if x = infinity then "__longlong_as_double(0x7ff0000000000000ULL)"
+                    elif x = -infinity then "__longlong_as_double(0xfff0000000000000ULL)"
+                    elif x = nan then "__longlong_as_double(0xfff8000000000000ULL)"
+                    else string x
                 | LitBool x -> if x then "1" else "0"
                 | LitChar x -> string (int x)
                 | LitString x -> on_type_er trace "String literals are not supported on the Cuda side."
