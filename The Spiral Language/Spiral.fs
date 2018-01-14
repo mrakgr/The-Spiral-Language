@@ -2736,41 +2736,44 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | JoinPointType -> ()
             
         while definitions_queue.Count > 0 do
-            match definitions_queue.Dequeue() with
-            | TomJP (join_point_type,key) ->
-                let fv,body =
-                    match join_point_type with
-                    | JoinPointMethod -> 
-                        match join_point_dict_method.[key] with
-                        | JoinPointDone(a,b) -> a,b
-                        | _ -> failwith "impossible"
-                    | JoinPointClosure -> 
-                        match join_point_dict_closure.[key] with
-                        | JoinPointDone(_,a,b) -> a,b
-                        | _ -> failwith "impossible"
-                    | JoinPointCuda -> 
-                        match join_point_dict_cuda.[key] with
-                        | JoinPointDone(a,b) -> a,b
-                        | _ -> failwith "impossible"
-                    | JoinPointType -> failwith "impossible"
+            let x = definitions_queue.ToArray()
+            definitions_queue.Clear()
+            x |> Array.iter (function
+                | TomJP (join_point_type,key) ->
+                    let fv,body =
+                        match join_point_type with
+                        | JoinPointMethod -> 
+                            match join_point_dict_method.[key] with
+                            | JoinPointDone(a,b) -> a,b
+                            | _ -> failwith "impossible"
+                        | JoinPointClosure -> 
+                            match join_point_dict_closure.[key] with
+                            | JoinPointDone(_,a,b) -> a,b
+                            | _ -> failwith "impossible"
+                        | JoinPointCuda -> 
+                            match join_point_dict_cuda.[key] with
+                            | JoinPointDone(a,b) -> a,b
+                            | _ -> failwith "impossible"
+                        | JoinPointType -> failwith "impossible"
 
-                print_method_definition true key.Symbol (join_point_type, fv, body)
-                move_to buffer_forward_declarations buffer_temp
+                    print_method_definition true key.Symbol (join_point_type, fv, body)
+                    move_to buffer_forward_declarations buffer_temp
 
-                print_method_definition false key.Symbol (join_point_type, fv, body)
-                move_to buffer_method buffer_temp
-            | TomType ty ->
-                match ty with
-                | ListT tys -> define_listt ty print_tag_tuple print_type_definition tys
-                | MapT(tys, _) -> define_mapt ty print_tag_env print_type_definition tys
-                | LayoutT ((LayoutStack | LayoutPackedStack) as layout, env, _) ->
-                    define_layoutt ty print_tag_env print_type_definition layout env
-                | UnionT tys as x -> print_union_definition (print_tag_union x) (Set.toArray tys)
-                | TermFunctionT(a,r) as x -> print_closure_type_definition (print_tag_closure x) (a,r)
-                | _ -> failwith "impossible"
+                    print_method_definition false key.Symbol (join_point_type, fv, body)
+                    move_to buffer_method buffer_temp
+                | TomType ty ->
+                    match ty with
+                    | ListT tys -> define_listt ty print_tag_tuple print_type_definition tys
+                    | MapT(tys, _) -> define_mapt ty print_tag_env print_type_definition tys
+                    | LayoutT ((LayoutStack | LayoutPackedStack) as layout, env, _) ->
+                        define_layoutt ty print_tag_env print_type_definition layout env
+                    | UnionT tys as x -> print_union_definition (print_tag_union x) (Set.toArray tys)
+                    | TermFunctionT(a,r) as x -> print_closure_type_definition (print_tag_closure x) (a,r)
+                    | _ -> failwith "impossible"
+                )
                 
-                buffer_type_definitions.Push(ResizeArray(buffer_temp))
-                buffer_temp.Clear()
+            buffer_type_definitions.Push(ResizeArray(buffer_temp))
+            buffer_temp.Clear()
 
         "module SpiralExample.Main" |> state_new
         sprintf "let %s = \"\"\"" cuda_kernels_name |> state_new
