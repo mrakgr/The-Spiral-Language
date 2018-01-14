@@ -396,8 +396,8 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_in' = dim_in_a) "Input's outer dimension must equal the output's dimension."
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        inl blockDim = lit_min 1024 (s dim_in_b)
-        inl gridDimY = lit_min 64 (s dim_in')
+        inl blockDim = 1 // lit_min 1024 (s dim_in_b)
+        inl gridDimY = 1 // lit_min 64 (s dim_in')
 
         inl in = to_dev_tensor in
         inl in' = to_dev_tensor in'
@@ -424,7 +424,7 @@ inl {stream Cuda CudaTensor} ->
                                 inl in = in i 
                                 redo state (map_in in.get in'.get)
                             }
-                        |> cub_block_reduce blockDim.x redo
+                        //|> cub_block_reduce blockDim.x redo
 
                     if threadIdx.x = 0 then 
                         inl out = out i
@@ -883,15 +883,33 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 redo=inl a b -> if fst a > fst b then a else b
                 map_out=inl a -> snd a
                 } (input,label) ()
-        inl x = to_host_tensor x
-        HostTensor.show x |> Console.writeline
-        ret (Array.foldl (+) 0f32 ( x).bodies.ar |> unsafe_convert int64)
+        ret (Array.foldl (+) (dyn 0f32) (to_host_tensor x).bodies.ar |> unsafe_convert int64)
 
-    inl debug_accuracy (input,label) ret =
-        inl input, label = primal input, primal label
-        HostTensor.show (primal input |> to_host_tensor) |> Console.writeline
-        HostTensor.show (primal label |> to_host_tensor) |> Console.writeline
-        ret 0
+    ///// For debugging. Reduction is performed on host.
+    //inl accuracy (input,label) ret =
+    //    inl input, label = primal input, primal label
+    //    inb !to_host_tensor input = CudaKernel.map id input 
+    //    inb !to_host_tensor label = CudaKernel.map id label
+        
+    //    inl a, b = input.dim
+        
+    //    inl x =
+    //        HostTensor.init a (inl i ->
+    //            inl {from near_to} = b
+    //            inl input, label = input i, label i
+    //            inl state = dyn (-infinity,zero)
+    //            inl redo = inl a b -> if fst a > fst b then a else b
+    //            Loops.for { from near_to state
+    //                body=inl {state i} -> redo state (input i .get, label i .get)
+    //                } 
+    //            |> snd
+    //            )
+    //    inl {from near_to} = a
+    //    Loops.for { from near_to 
+    //        state=dyn 0f32
+    //        body=inl {state i} -> state + (x i .get)
+    //        }
+    //    |> unsafe_convert int64
 
     inl error {fwd bck} (input,_ as x) = 
         inl batch_size = primal input .dim |> fst |> span

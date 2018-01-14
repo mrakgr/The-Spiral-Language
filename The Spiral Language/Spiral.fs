@@ -2884,8 +2884,16 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | LitUInt16 x -> sprintf "%ius" x
                 | LitUInt32 x -> sprintf "%iu" x
                 | LitUInt64 x -> sprintf "%iUL" x
-                | LitFloat32 x -> sprintf "%ff" x
-                | LitFloat64 x -> sprintf "%f" x
+                | LitFloat32 x -> 
+                    if x = infinityf then "infinityf"
+                    elif x = -infinityf then "-infinityf"
+                    elif x = nanf then "nanf"
+                    else sprintf "%ff" x
+                | LitFloat64 x ->
+                    if x = infinity then "infinity"
+                    elif x = -infinity then "-infinity"
+                    elif x = nan then "nan"
+                    else sprintf "%f" x
                 | LitString x -> 
                     let strb = StringBuilder(x.Length)
                     String.iter (function
