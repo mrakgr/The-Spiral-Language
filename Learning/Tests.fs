@@ -520,7 +520,7 @@ inb {cost accuracy},bck = square (a1,a2)
 Console.writeline ("Accuracy is:", accuracy id)
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel5
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" debug1
 |> printfn "%s"
 |> ignore
 

@@ -141,7 +141,10 @@ inl {Cuda size} ret ->
             inb top_ptr, top_size = remove_disposed_and_return_the_first_live
             inl pool_used = top_ptr - pool_ptr + top_size
             assert (to_uint size + pool_used <= pool_size) "Cache size has been exceeded in the allocator."
-            inl cell = {size ptr=top_ptr + top_size |> uint_to_ptr |> smartptr_create}
+            inl ptr = 
+                inl x = top_ptr + top_size
+                (x + x % 128u64) |> uint_to_ptr |> smartptr_create
+            inl cell = {size ptr}
             FS.Method stack .Push cell unit
             cell.ptr
 
@@ -393,7 +396,7 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_in' = dim_in_a) "Input's outer dimension must equal the output's dimension."
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        inl blockDim = 1 //lit_min 1024 (s dim_in_b)
+        inl blockDim = lit_min 1024 (s dim_in_b)
         inl gridDimY = lit_min 64 (s dim_in')
 
         inl in = to_dev_tensor in
@@ -421,7 +424,7 @@ inl {stream Cuda CudaTensor} ->
                                 inl in = in i 
                                 redo state (map_in in.get in'.get)
                             }
-                        //|> cub_block_reduce blockDim.x redo
+                        |> cub_block_reduce blockDim.x redo
 
                     if threadIdx.x = 0 then 
                         inl out = out i
