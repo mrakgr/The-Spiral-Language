@@ -882,6 +882,12 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 } (input,label) ()
         ret (Array.foldl (+) 0 (to_host_tensor x).bodies.ar |> unsafe_convert int64)
 
+    inl debug_accuracy (input,label) ret =
+        inl input, label = primal input, primal label
+        HostTensor.show (primal input |> to_host_tensor) |> Console.writeline
+        HostTensor.show (primal label |> to_host_tensor) |> Console.writeline
+        ret 0
+
     inl error {fwd bck} (input,_ as x) = 
         inl batch_size = primal input .dim |> fst |> span
         inl div_by_minibatch_size x = x / unsafe_convert default_float batch_size
@@ -895,7 +901,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 bck = toa_map multiply_by_adjoint bck
                 } x
             >>= hostlazy_map {fwd = div_by_minibatch_size; bck = inl {out={A}} -> div_by_minibatch_size A}
-        inb accuracy = accuracy x
+        inl accuracy = accuracy x
         succ {cost accuracy}
 
     inl square = error {
@@ -977,7 +983,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 
             match state with
             | {running_accuracy} -> 
-                { running_cost running_accuracy=running_accuracy + accuracy }
+                { running_cost running_accuracy=running_accuracy + accuracy id }
             | _ -> {running_cost}
             
         inl {from near_to} = dim1 input

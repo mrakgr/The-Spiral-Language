@@ -148,14 +148,15 @@ inb a2 = CudaRandom.create_tensor .Uniform {elem_type=float32; dim=outer_size,in
 inl f a1 a2 =
     CudaKernel.map_d1_redo_map {
         map_in=const
-        neutral_elem=-infinityf32,0f32; 
+        neutral_elem=-infinityf32,0f32
         redo=inl a b -> if fst a > fst b then a else b
-        map_out=fst
+        map_out=inl a -> snd a > 0.5f32
         } a1 a2
-inb o1 = f (a1,a2) ()
+inb o1 = f (a1 .view_span {from=4; by=4},a2 .view_span {from=4; by=4}) ()
+inb o2 = f (a1 .view_span {from=8; by=4},a2 .view_span {from=8; by=4}) ()
 
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
-Tuple.iter show (a1,o1)
+Tuple.iter show (a1,o1,o2)
     """
 
 let random1 =
@@ -411,14 +412,26 @@ inl hidden_size = 10
 
 inb network = init (sigmoid hidden_size) input_size >>! with_error square
 
-Loops.for {from=0; near_to=10;body=inl _ ->
+inl train_images = train_images.view_span 32
+inl train_labels = train_labels.view_span 32
+
+Loops.for {from=0; near_to=10000;body=inl _ ->
     run {
         network input=train_images; label=train_labels; minibatch_size=32
         optimizer=Optimizer.sgd 0.01f32
         state={
             running_cost=dyn 0.0
-            running_accuracy=dyn 0
+            //running_accuracy=dyn 0
             }
+        }
+    }
+
+run {
+    network input=train_images; label=train_labels; minibatch_size=32
+    optimizer=Optimizer.sgd 0.01f32
+    state={
+        running_cost=dyn 0.0
+        running_accuracy=dyn 0
         }
     }
     """
@@ -481,7 +494,33 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
-//|> printfn "%s"
+let debug1 =
+    "debug1",[loops;cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"Where is the memory corruption bug?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+inb CudaRandomModule = CudaRandom
+inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
+inb CudaBlasModule = CudaBlas
+inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
+inl default_float = float32
+open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+open Error
+open Feedforward
+
+inl dim=32,16
+inb a1 = CudaTensor.zero {elem_type=float32; dim}
+inb a2 = CudaTensor.zero {elem_type=float32; dim}
+
+inb {cost accuracy},bck = square (a1,a2)
+
+Console.writeline ("Accuracy is:", accuracy id)
+    """
+
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" debug1
+|> printfn "%s"
 |> ignore
 
