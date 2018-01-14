@@ -199,10 +199,11 @@ inl {stream Cuda Allocator} ->
 
     inl to_dev_tensor tns = 
         tns.update_body (inl {body with ar offset} ->
+            inl type_size = sizeof ar.elem_type
             inl o, offset = 
                 match offset with 
-                | _ :: _ -> Tuple.foldl (+) 0 offset, Tuple.map (const 0) offset
-                | o -> o, 0
+                | _ :: _ -> Tuple.foldl (+) 0 offset * type_size, Tuple.map (const 0) offset
+                | o -> o * type_size, 0
             inl ptr, elem_type = ar.ptr(), ar.elem_type
             inl ptr =
                 if lit_is o then ptr
@@ -879,7 +880,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 redo=inl a b -> if fst a > fst b then a else b
                 map_out=inl a -> if snd a = one then 1 else 0
                 } (input,label) ()
-        ret (Array.foldl (+) 0 (to_host_tensor x).bodies.ar)
+        ret (Array.foldl (+) 0 (to_host_tensor x).bodies.ar |> unsafe_convert int64)
 
     inl error {fwd bck} (input,_ as x) = 
         inl batch_size = primal input .dim |> fst |> span
