@@ -511,7 +511,7 @@ open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Error
 open Feedforward
 
-inl dim=32,16
+inl dim=1,10
 inb a1 = CudaTensor.zero {elem_type=float32; dim}
 inb a2 = CudaTensor.zero {elem_type=float32; dim}
 
