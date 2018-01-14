@@ -393,7 +393,7 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_in' = dim_in_a) "Input's outer dimension must equal the output's dimension."
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        inl blockDim = lit_min 1024 (s dim_in_b)
+        inl blockDim = 1 //lit_min 1024 (s dim_in_b)
         inl gridDimY = lit_min 64 (s dim_in')
 
         inl in = to_dev_tensor in
@@ -421,7 +421,7 @@ inl {stream Cuda CudaTensor} ->
                                 inl in = in i 
                                 redo state (map_in in.get in'.get)
                             }
-                        |> cub_block_reduce blockDim.x redo
+                        //|> cub_block_reduce blockDim.x redo
 
                     if threadIdx.x = 0 then 
                         inl out = out i

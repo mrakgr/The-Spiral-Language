@@ -140,23 +140,23 @@ inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
 inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 
-inl inner_size = 16
-inl outer_size = 32
+inl inner_size = 10
+inl outer_size = 1
 
 inb a1 = CudaRandom.create_tensor .Uniform {elem_type=float32; dim=outer_size,inner_size}
 inb a2 = CudaRandom.create_tensor .Uniform {elem_type=float32; dim=outer_size,inner_size}
+inb a3 = CudaTensor.create {elem_type=float32; dim=1} // This causes the alignment error.
 inl f a1 a2 =
     CudaKernel.map_d1_redo_map {
         map_in=const
         neutral_elem=-infinityf32,0f32
         redo=inl a b -> if fst a > fst b then a else b
-        map_out=inl a -> snd a > 0.5f32
+        map_out=inl a -> if snd a > 0.5f32 then 1 else 0
         } a1 a2
-inb o1 = f (a1 .view_span {from=4; by=4},a2 .view_span {from=4; by=4}) ()
-inb o2 = f (a1 .view_span {from=8; by=4},a2 .view_span {from=8; by=4}) ()
+inb o1 = f (a1, a2) ()
 
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
-Tuple.iter show (a1,o1,o2)
+Tuple.iter show (a1,o1)
     """
 
 let random1 =
@@ -520,7 +520,7 @@ inb {cost accuracy},bck = square (a1,a2)
 Console.writeline ("Accuracy is:", accuracy id)
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" debug1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel5
 |> printfn "%s"
 |> ignore
 
