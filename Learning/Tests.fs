@@ -414,7 +414,10 @@ inb network = init (sigmoid hidden_size) input_size >>! with_error square
 Loops.for {from=0; near_to=10;body=inl _ ->
     run {
         network input=train_images; label=train_labels; optimizer=Optimizer.sgd 0.01f32; minibatch_size=32
-        state={running_cost=dyn 0.0; running_accuracy=dyn 0}
+        state={
+            running_cost=dyn 0.0
+            running_accuracy=dyn 0
+            }
         }
     }
     """
@@ -478,6 +481,6 @@ let cfg: Spiral.Types.CompilerSettings = {
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
-|> printfn "%s"
+//|> printfn "%s"
 |> ignore
 

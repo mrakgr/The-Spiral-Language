@@ -384,7 +384,7 @@ inl {stream Cuda CudaTensor} ->
         else error_type "a or b need to be a literal"
 
     /// Maps the two inputs and then reduces the first's inner dimension.
-    inl map_d1_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) =
+    inl map_d1_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) = 
         inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         inl dim_in' :: () = in'.dim
@@ -400,7 +400,7 @@ inl {stream Cuda CudaTensor} ->
         inl out = to_dev_tensor out
         inl map_in = match d with {map_in} -> map_in | _ -> const
         inl map_out = match d with {map_out} -> map_out | _ -> const
-
+        
         run {
             stream blockDim
             gridDim=1,gridDimY
@@ -410,8 +410,6 @@ inl {stream Cuda CudaTensor} ->
                     inl in = in i
                     inl in' = in' i
 
-                    print_static {neutral_elem}
-
                     inl result = 
                         for {
                             from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
@@ -420,10 +418,7 @@ inl {stream Cuda CudaTensor} ->
                             state=dyn neutral_elem 
                             body=inl {state i} -> 
                                 inl in = in i 
-                                inl l = state
-                                inl r = map_in in.get in'.get
-                                print_static {l r}
-                                redo l r
+                                redo state (map_in in.get in'.get)
                             }
                         |> cub_block_reduce blockDim.x redo
 
@@ -882,9 +877,9 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 map_in=const
                 neutral_elem=-infinity,zero
                 redo=inl a b -> if fst a > fst b then a else b
-                map_out=inl a -> snd a = one
+                map_out=inl a -> if snd a = one then 1 else 0
                 } (input,label) ()
-        ret (Array.foldl (inl s x -> if x then s+1 else s) 0 (to_host_tensor x).bodies.ar)
+        ret (Array.foldl (+) 0 (to_host_tensor x).bodies.ar)
 
     inl error {fwd bck} (input,_ as x) = 
         inl batch_size = primal input .dim |> fst |> span
@@ -899,7 +894,8 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 bck = toa_map multiply_by_adjoint bck
                 } x
             >>= hostlazy_map {fwd = div_by_minibatch_size; bck = inl {out={A}} -> div_by_minibatch_size A}
-        succ {cost accuracy=accuracy x}
+        inb accuracy = accuracy x
+        succ {cost accuracy}
 
     inl square = error {
         fwd = inl (x,y) -> (y - x) * (y - x)
@@ -980,7 +976,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 
             match state with
             | {running_accuracy} -> 
-                { running_cost running_accuracy=running_accuracy + accuracy id }
+                { running_cost running_accuracy=running_accuracy + accuracy }
             | _ -> {running_cost}
             
         inl {from near_to} = dim1 input
