@@ -412,26 +412,17 @@ inl hidden_size = 10
 
 inb network = init (sigmoid hidden_size) input_size >>! with_error square
 
-inl train_images = train_images.view_span 32
-inl train_labels = train_labels.view_span 32
+inl train_images=train_images .view_span 32
+inl train_labels=train_labels .view_span 32
 
-Loops.for {from=0; near_to=10000;body=inl _ ->
+Loops.for {from=0; near_to=2000;body=inl _ ->
     run {
-        network input=train_images; label=train_labels; minibatch_size=32
+        network input=train_images; label=train_labels; minibatch_size=2
         optimizer=Optimizer.sgd 0.01f32
         state={
             running_cost=dyn 0.0
-            //running_accuracy=dyn 0
+            running_accuracy=dyn 0
             }
-        }
-    }
-
-run {
-    network input=train_images; label=train_labels; minibatch_size=32
-    optimizer=Optimizer.sgd 0.01f32
-    state={
-        running_cost=dyn 0.0
-        running_accuracy=dyn 0
         }
     }
     """
@@ -511,16 +502,16 @@ open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Error
 open Feedforward
 
-inl dim=1,10
+inl dim = 1,10
 inb a1 = CudaTensor.zero {elem_type=float32; dim}
 inb a2 = CudaTensor.zero {elem_type=float32; dim}
 
-inb {cost accuracy},bck = square (a1,a2)
+inb {cost accuracy}, bck = square (a1,a2)
 
 Console.writeline ("Accuracy is:", accuracy id)
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" debug1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
 |> printfn "%s"
 |> ignore
 

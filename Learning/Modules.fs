@@ -143,7 +143,7 @@ inl {Cuda size} ret ->
             assert (to_uint size + pool_used <= pool_size) "Cache size has been exceeded in the allocator."
             inl ptr = 
                 inl x = top_ptr + top_size
-                (x + x % 128u64) |> uint_to_ptr |> smartptr_create
+                x + x % 128u64 |> uint_to_ptr |> smartptr_create
             inl cell = {size ptr}
             FS.Method stack .Push cell unit
             cell.ptr
@@ -881,9 +881,11 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 map_in=const
                 neutral_elem=-infinity,zero
                 redo=inl a b -> if fst a > fst b then a else b
-                map_out=inl a -> if snd a = one then 1 else 0
+                map_out=inl a -> snd a
                 } (input,label) ()
-        ret (Array.foldl (+) 0 (to_host_tensor x).bodies.ar |> unsafe_convert int64)
+        inl x = to_host_tensor x
+        HostTensor.show x |> Console.writeline
+        ret (Array.foldl (+) 0f32 ( x).bodies.ar |> unsafe_convert int64)
 
     inl debug_accuracy (input,label) ret =
         inl input, label = primal input, primal label
