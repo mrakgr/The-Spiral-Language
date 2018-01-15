@@ -511,8 +511,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyType cond -> on_type_er (trace d) <| sprintf "Expected a bool in conditional.\nGot: %s" (show_ty cond)
 
         let while_ d cond body =
-            match tev d cond with
-            | TyLit (LitBool false) -> tev d cond
+            match tev_seq d cond with
+            | TyLit (LitBool false) -> tev d body
             | TyType (PrimT BoolT) as cond -> 
                 match tev_seq d body with
                 | TyType (ListT []) as body -> 
@@ -2516,6 +2516,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 enter <| fun _ -> codegen' fl
                 "}" |> state_new
 
+            /// This thing is only here until NVCC gets its act together.
             let inline while_ cond body =
                 sprintf "while (%s) {" (codegen cond) |> state_new
                 enter <| fun _ -> codegen body
@@ -2771,7 +2772,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | JoinPointType -> ()
             
         while definitions_queue.Count > 0 do
-            let x = definitions_queue.ToArray()
+            let x = definitions_queue.ToArray() |> Array.rev
             definitions_queue.Clear()
             x |> Array.iter (function
                 | TomJP (join_point_type,key) ->
@@ -2952,10 +2953,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 "else" |> state
                 enter_handle_unit <| fun _ -> codegen fl
 
-            let while_ cond body =
-                sprintf "while %s do" (codegen cond) |> state
-                enter_handle_unit <| fun _ -> codegen body
-
             let make_struct x = make_struct codegen x
 
             let array_create size = function
@@ -3097,7 +3094,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         sprintf "%s(%s)" (codegen a) b
                     | Case,v :: cases -> match_with v cases; ""
                     | IfStatic,[cond;tr;fl] -> if_ cond tr fl; ""
-                    | While,[cond;body] -> while_ cond body; ""
                     | ArrayCreate,[a] -> array_create a t
                     | ReferenceCreate,[a] -> reference_create a
                     | ArrayIndex,[b & TyType(ArrayT(ArtDotNetHeap,_));c] -> array_index b c

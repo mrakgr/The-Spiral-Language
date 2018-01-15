@@ -258,17 +258,20 @@ inl {stream Cuda CudaTensor} ->
     open CudaTensor
     open Extern
 
+    /// These two loops are only here until NVidia gets its shit together and fixes the NVCC tuple write bugs.
     inl whilecd {cond state body} =
         inl r = array_create_cuda_local state 1
         r 0 <- state
-        !While((join cond (r 0)),r 0 <- body (r 0))
+        !While((join cond (r 0)),(r 0 <- body (r 0)))
         r 0
 
     inl forcd {from by near_to state body} =
         inl state = {from state}
         whilecd {
-            cond 
-            }
+            state
+            cond = inl {from state} -> from < near_to
+            body = inl {from state} -> {from=from+by; state=body {state i=from}}
+            } .state
 
     inl divup a b = (a-1)/b+1 // Integer division with rounding up. (a+b-1)/b is another variant on this.
     inl map' f (!zip in) (!zip out) =
@@ -323,13 +326,15 @@ inl {stream Cuda CudaTensor} ->
         run {
             stream blockDim gridDim
             kernel = cuda 
+                open Loops
                 inl from = blockIdx.x * blockDim.x + threadIdx.x
                 inl by = gridDim.x * blockDim.x
                 inl load i = map (in i .get)
-                inl thread_result = Loops.for {from near_to by state=dyn neutral_elem; body=inl {state i} -> 
+                inl thread_result = forcd {from near_to by state=dyn neutral_elem; body=inl {state i} -> 
                     inl x = load i
                     macro.cd unit [text:"printf"; args:"i = %d, x = %f\n", i, fst x]
-                    redo state x}
+                    redo state x
+                    }
                 
                 inl block_result = cub_block_reduce blockDim.x redo thread_result
                 if threadIdx.x = 0 then out' blockIdx.x .set block_result
@@ -917,7 +922,6 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             neutral_elem=-infinity,zero
             redo=inl a b -> if fst a > fst b then a else b
             } (input,label)
-        |> snd
         |> ret
 
     ///// Is reducing a pair giving it trouble?

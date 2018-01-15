@@ -3,20 +3,30 @@ let cuda_kernels = """
 #include "cub/cub.cuh"
 
 extern "C" {
-    __global__ void method_5(float * var_0, float * var_1, float * var_2, float * var_3);
-    struct Tuple0 {
+    struct Tuple1 {
         float mem_0;
         float mem_1;
     };
-    __device__ __forceinline__ Tuple0 make_Tuple0(float mem_0, float mem_1){
-        Tuple0 tmp;
+    __device__ __forceinline__ Tuple1 make_Tuple1(float mem_0, float mem_1){
+        Tuple1 tmp;
         tmp.mem_0 = mem_0;
         tmp.mem_1 = mem_1;
         return tmp;
     }
-    __device__ Tuple0 method_6(float * var_0, float * var_1, float var_2, float var_3, long long int var_4);
-    typedef Tuple0(*FunPointer1)(Tuple0, Tuple0);
-    __device__ Tuple0 method_7(Tuple0 var_0, Tuple0 var_1);
+    struct Env0 {
+        long long int mem_0;
+        Tuple1 mem_1;
+    };
+    __device__ __forceinline__ Env0 make_Env0(long long int mem_0, Tuple1 mem_1){
+        Env0 tmp;
+        tmp.mem_0 = mem_0;
+        tmp.mem_1 = mem_1;
+        return tmp;
+    }
+    __global__ void method_5(float * var_0, float * var_1, float * var_2, float * var_3);
+    __device__ Tuple1 method_7(Tuple1 var_0, Tuple1 var_1);
+    typedef Tuple1(*FunPointer2)(Tuple1, Tuple1);
+    __device__ char method_6(Env0 * var_0);
     
     __global__ void method_5(float * var_0, float * var_1, float * var_2, float * var_3) {
         long long int var_4 = threadIdx.x;
@@ -28,74 +38,92 @@ extern "C" {
         long long int var_10 = (var_7 + var_4);
         float var_11 = __int_as_float(0xff800000);
         float var_12 = 0;
-        Tuple0 var_13 = method_6(var_0, var_1, var_11, var_12, var_10);
-        float var_14 = var_13.mem_0;
-        float var_15 = var_13.mem_1;
-        FunPointer1 var_18 = method_7;
-        Tuple0 var_19 = cub::BlockReduce<Tuple0,1>().Reduce(make_Tuple0(var_14, var_15), var_18);
-        float var_20 = var_19.mem_0;
-        float var_21 = var_19.mem_1;
-        char var_22 = (var_4 == 0);
-        if (var_22) {
-            char var_23 = (var_7 >= 0);
-            char var_25;
-            if (var_23) {
-                var_25 = (var_7 < 1);
+        Env0 var_13[1];
+        var_13[0] = (make_Env0(var_10, make_Tuple1(var_11, var_12)));
+        while (method_6(var_13)) {
+            Env0 var_15 = var_13[0];
+            long long int var_16 = var_15.mem_0;
+            Tuple1 var_17 = var_15.mem_1;
+            float var_18 = var_17.mem_0;
+            float var_19 = var_17.mem_1;
+            long long int var_20 = (var_16 + 1);
+            char var_21 = (var_16 >= 0);
+            char var_23;
+            if (var_21) {
+                var_23 = (var_16 < 32);
             } else {
-                var_25 = 0;
+                var_23 = 0;
             }
-            char var_26 = (var_25 == 0);
-            if (var_26) {
+            char var_24 = (var_23 == 0);
+            if (var_24) {
                 // "Argument out of bounds."
             } else {
             }
-            var_2[var_7] = var_20;
-            var_3[var_7] = var_21;
-        } else {
+            float var_25 = var_0[var_16];
+            float var_26 = var_1[var_16];
+            printf("i = %d, x = %f\n", var_16, var_25);
+            char var_27 = (var_18 > var_25);
+            Tuple1 var_28;
+            if (var_27) {
+                var_28 = make_Tuple1(var_18, var_19);
+            } else {
+                var_28 = make_Tuple1(var_25, var_26);
+            }
+            float var_29 = var_28.mem_0;
+            float var_30 = var_28.mem_1;
+            var_13[0] = (make_Env0(var_20, make_Tuple1(var_29, var_30)));
         }
-    }
-    __device__ Tuple0 method_6(float * var_0, float * var_1, float var_2, float var_3, long long int var_4) {
-        char var_5 = (var_4 < 32);
-        if (var_5) {
-            char var_6 = (var_4 >= 0);
-            char var_7 = (var_6 == 0);
-            if (var_7) {
+        Env0 var_31 = var_13[0];
+        long long int var_32 = var_31.mem_0;
+        Tuple1 var_33 = var_31.mem_1;
+        float var_34 = var_33.mem_0;
+        float var_35 = var_33.mem_1;
+        FunPointer2 var_38 = method_7;
+        Tuple1 var_39 = cub::BlockReduce<Tuple1,1>().Reduce(make_Tuple1(var_34, var_35), var_38);
+        float var_40 = var_39.mem_0;
+        float var_41 = var_39.mem_1;
+        char var_42 = (var_4 == 0);
+        if (var_42) {
+            char var_43 = (var_7 >= 0);
+            char var_45;
+            if (var_43) {
+                var_45 = (var_7 < 1);
+            } else {
+                var_45 = 0;
+            }
+            char var_46 = (var_45 == 0);
+            if (var_46) {
                 // "Argument out of bounds."
             } else {
             }
-            float var_8 = var_0[var_4];
-            float var_9 = var_1[var_4];
-            printf("i = %d, x = %f\n", var_4, var_8);
-            char var_10 = (var_2 > var_8);
-            Tuple0 var_11;
-            if (var_10) {
-                var_11 = make_Tuple0(var_2, var_3);
-            } else {
-                var_11 = make_Tuple0(var_8, var_9);
-            }
-            float var_12 = var_11.mem_0;
-            float var_13 = var_11.mem_1;
-            long long int var_14 = (var_4 + 1);
-            return method_6(var_0, var_1, var_12, var_13, var_14);
+            var_2[var_7] = var_40;
+            var_3[var_7] = var_41;
         } else {
-            return make_Tuple0(var_2, var_3);
         }
     }
-    __device__ Tuple0 method_7(Tuple0 var_0, Tuple0 var_1) {
+    __device__ Tuple1 method_7(Tuple1 var_0, Tuple1 var_1) {
         float var_2 = var_0.mem_0;
         float var_3 = var_0.mem_1;
         float var_4 = var_1.mem_0;
         float var_5 = var_1.mem_1;
         char var_6 = (var_2 > var_4);
-        Tuple0 var_7;
+        Tuple1 var_7;
         if (var_6) {
-            var_7 = make_Tuple0(var_2, var_3);
+            var_7 = make_Tuple1(var_2, var_3);
         } else {
-            var_7 = make_Tuple0(var_4, var_5);
+            var_7 = make_Tuple1(var_4, var_5);
         }
         float var_8 = var_7.mem_0;
         float var_9 = var_7.mem_1;
-        return make_Tuple0(var_8, var_9);
+        return make_Tuple1(var_8, var_9);
+    }
+    __device__ char method_6(Env0 * var_0) {
+        Env0 var_1 = var_0[0];
+        long long int var_2 = var_1.mem_0;
+        Tuple1 var_3 = var_1.mem_1;
+        float var_4 = var_3.mem_0;
+        float var_5 = var_3.mem_1;
+        return (var_2 < 32);
     }
 }
 """
@@ -365,14 +393,17 @@ let (var_95: float32) = var_93.mem_1
 var_76 := Union0Case1
 var_78 := Union0Case1
 let (var_96: string) = System.String.Format("{0}",var_95)
-System.Console.WriteLine(var_96)
+let (var_97: string) = System.String.Format("{0}",var_94)
+let (var_98: string) = String.concat ", " [|var_97; var_96|]
+let (var_99: string) = System.String.Format("[{0}]",var_98)
+System.Console.WriteLine(var_99)
 var_67 := Union0Case1
 var_62 := Union0Case1
 var_57.Dispose()
 var_53.Dispose()
 var_51.Dispose()
-let (var_97: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_46: (Union0 ref)))
-var_1.FreeMemory(var_97)
+let (var_100: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_46: (Union0 ref)))
+var_1.FreeMemory(var_100)
 var_46 := Union0Case1
 var_1.Dispose()
 
