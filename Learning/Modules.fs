@@ -81,16 +81,16 @@ inl {Cuda size} ret ->
     open Cuda
     open Extern
     inl smartptr_create ptr =
-        inl ptr_ty = {value = type ptr} |> stack // Seals the type in a layout type so it does not get instantiated.
+        inl ptr_ty = type ptr
         inl cell = Option.some ptr |> ref
         function
-        | .Dispose -> cell := Option.none ptr_ty.value
+        | .Dispose -> cell := Option.none ptr_ty
         | .Try -> cell()
-        | () -> join (
+        | () -> join 
             match cell() with
             | .Some, x -> x
-            | _ -> failwith ptr_ty.value "A Cuda memory cell that has been disposed has been tried to be accessed."
-            )
+            | _ -> failwith ptr_ty "A Cuda memory cell that has been disposed has been tried to be accessed."
+        |> stack
 
     ///// n is the number of args the create function has.
     inl safe_alloc n create =
@@ -416,7 +416,7 @@ inl {stream Cuda CudaTensor} ->
                     inl in = in i
                     inl in' = in' i
 
-                    //macro.cd unit [text:"printf"; args:"outer i = %d\n", i]
+                    macro.cd unit [text:"printf"; args:"outer i = %d\n", i]
 
                     inl result = 
                         for {
@@ -425,19 +425,18 @@ inl {stream Cuda CudaTensor} ->
                             near_to=dim_in_b.near_to
                             state=dyn neutral_elem 
                             body=inl {state i} -> 
-                                //macro.cd unit [text:"printf"; args:"inner i = %d\n", i]
+                                macro.cd unit [text:"printf"; args:"inner i = %d\n", i]
                                 inl in = in i 
                                 inl a = in.get
                                 inl b = in'.get
-                                //macro.cd unit [text:"printf"; args:"in: %f, in': %f\n", fst a, snd a]
+                                macro.cd unit [text:"printf"; args:"in: %f, in': %f\n", fst a, snd a]
                                 redo state (map_in a b)
                             }
                         //|> cub_block_reduce blockDim.x redo
 
                     if threadIdx.x = 0 then 
                         inl out = out i
-                        //out.set (map_out result out.get)
-                        ()
+                        out.set (map_out result out.get)
                     }
             }
 
@@ -885,10 +884,10 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl accuracy (input,label) ret =
         inl input, label = primal input, primal label
-        inb !to_host_tensor input' = CudaKernel.map id input 
-        inb !to_host_tensor label' = CudaKernel.map id label
-        HostTensor.show input' |> Console.writeline
-        HostTensor.show label' |> Console.writeline
+        //inb !to_host_tensor input' = CudaKernel.map id input 
+        //inb !to_host_tensor label' = CudaKernel.map id label
+        //HostTensor.show input' |> Console.writeline
+        //HostTensor.show label' |> Console.writeline
         inb x = 
             map_d1_redo_map {
                 map_in=const
@@ -896,7 +895,26 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 redo=inl a b -> if fst a > fst b then a else b
                 map_out=inl a -> snd a
                 } (input,label) ()
-        ret (Array.foldl (+) (dyn 0f32) (to_host_tensor x).bodies.ar |> unsafe_convert int64)
+        ret (
+            Array.foldl (+) (dyn 0f32) (to_host_tensor x).bodies.ar 
+            //|> unsafe_convert int64
+            )
+
+    ///// Is reducing a pair giving it trouble?
+    //inl accuracy (input,label) ret =
+    //    inl input, label = primal input, primal label
+    //    inb !to_host_tensor input' = CudaKernel.map id input 
+    //    inb !to_host_tensor label' = CudaKernel.map id label
+    //    HostTensor.show input' |> Console.writeline
+    //    HostTensor.show label' |> Console.writeline
+    //    inb x = 
+    //        map_d1_redo_map {
+    //            map_in= inl (a,_) _ -> a
+    //            neutral_elem=-infinity
+    //            redo=inl a b -> if a > b then a else b
+    //            map_out=inl a -> a
+    //            } (input,label) ()
+    //    ret (Array.foldl (+) (dyn 0f32) (to_host_tensor x).bodies.ar)
 
     ///// For debugging. Reduction is performed on host.
     //inl accuracy (input,label) ret =
@@ -1037,5 +1055,5 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         match state with {running_accuracy} -> string_format "The accuracy of the batch is {0}/{1}." (running_accuracy,span) |> writeline | _ -> ()
         writeline "-----"
 
-    {dr primal primals adjoint adjoints (>>!) Primitive succ (>>=) Activation Error Feedforward Optimizer run}
+    {dr primal primals adjoint adjoints (>>!) Primitive succ (>>=) Activation Error Feedforward Optimizer run accuracy}
     """) |> module_

@@ -2667,7 +2667,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | FailWith,[x] -> 
                         if settings.cuda_assert_enabled then
                             sprintf "printf(%s)" (codegen x) |> state
-                        //sprintf "assert(1 /* %s */)" (codegen x) |> state 
+                        else
+                            sprintf "// %s" (codegen x) |> state_new
                         ""
                     | MacroCuda,[a] -> codegen_macro codegen print_type a
                     | SizeOf,[TyType a] -> sprintf "(sizeof %s)" (print_type a)

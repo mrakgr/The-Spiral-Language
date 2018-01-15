@@ -481,7 +481,7 @@ let cfg: Spiral.Types.CompilerSettings = {
     path_vs2017 = "C:/Program Files (x86)/Microsoft Visual Studio/2017/Community"
     cuda_includes = ["cub/cub.cuh"]
     trace_length = 40
-    cuda_assert_enabled = true
+    cuda_assert_enabled = false
     }
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
@@ -503,26 +503,14 @@ open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Error
 open Feedforward
 
-inl input_size = 784
 inl hidden_size = 32
-
-inb network = init (sigmoid hidden_size) input_size >>! with_error square
-
 inl batch_size = 1
 
-inb train_images=CudaRandom.create_tensor .Uniform {elem_type=float32; dim=batch_size,input_size}
+inb train_images=CudaRandom.create_tensor .Uniform {elem_type=float32; dim=batch_size,hidden_size}
 inb train_labels=CudaRandom.create_tensor .Uniform {elem_type=float32; dim=batch_size,hidden_size}
 
-Loops.for {from=0; near_to=3;body=inl _ ->
-    run {
-        network input=train_images; label=train_labels
-        optimizer=Optimizer.sgd 0.01f32
-        state={
-            running_cost=dyn 0.0
-            running_accuracy=dyn 0
-            }
-        }
-    }
+accuracy (train_images,train_labels) id |> Console.writeline
+()
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" debug1
