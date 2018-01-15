@@ -41,7 +41,7 @@ and method_4((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (int64
         else
             ()
         let (var_7: int64) = (var_3 * 30L)
-        let (var_8: int64) = (30L + var_7)
+        let (var_8: int64) = (60L + var_7)
         let (var_9: int64) = (var_8 + 10L)
         let (var_10: int64) = 0L
         method_5((var_0: System.Text.StringBuilder), (var_10: int64))

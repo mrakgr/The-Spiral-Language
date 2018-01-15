@@ -1013,7 +1013,7 @@ inl span = function
     | {from near_to} -> near_to - from
     | {from by} -> by
 
-inl Tensor = {
+inl Tensor = stack {
     elem_type = inl {data with bodies} -> toa_map (inl {ar} -> ar.elem_type) bodies
     update_body = inl {data with bodies} f -> {data with bodies=toa_map f bodies}    
     update_body2 = inl {data with bodies=a,b} f -> {data with bodies=toa_map2 f a b}

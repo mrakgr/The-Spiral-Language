@@ -2382,6 +2382,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let tys = List.foldBack (fun (_,x) s -> define_mem s x) fv ([],0) |> fst |> List.rev
             print_type_definition (Some layout) name tys
 
+    let print_unescaped_string (x: string) = sprintf "\"%s\"" x 
+
     // #Cuda
     let spiral_cuda_codegen (definitions_queue: Queue<TypeOrMethod>) = 
         let buffer_forward_declarations = ResizeArray()
@@ -2477,7 +2479,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     else string x
                 | LitBool x -> if x then "1" else "0"
                 | LitChar x -> string (int x)
-                | LitString x -> on_type_er trace "String literals are not supported on the Cuda side."
+                | LitString x -> print_unescaped_string x
+                    //on_type_er trace "String literals are not supported on the Cuda side."
 
             let assign_to tyv = function
                 | "" as x -> x
@@ -2651,7 +2654,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | Tanh,[x] -> sprintf "tanh(%s)" (codegen x)
                     | Sqrt,[x] -> sprintf "sqrt(%s)" (codegen x)
                     | FailWith,[x] -> 
-                        sprintf "assert(1 /* %s */)" (codegen x) |> state 
+                        if settings.cuda_assert_enabled then
+                            sprintf "printf(%s)" (codegen x) |> state
+                        //sprintf "assert(1 /* %s */)" (codegen x) |> state 
                         ""
                     | MacroCuda,[a] -> codegen_macro codegen print_type a
                     | SizeOf,[TyType a] -> sprintf "(sizeof %s)" (print_type a)
@@ -2778,8 +2783,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         "module SpiralExample.Main" |> state_new
         sprintf "let %s = \"\"\"" cuda_kernels_name |> state_new
         settings.cuda_includes |> List.iter (sprintf "#include \"%s\"" >> state_new)
-        if settings.cuda_assert_enabled = false then "#define NDEBUG" |> state_new
-        "#include <assert.h>" |> state_new
+        //if settings.cuda_assert_enabled = false then "#define NDEBUG" |> state_new
+        //"#include <assert.h>" |> state_new
         state_new ""
         "extern \"C\" {" |> state_new
         enter' <| fun _ ->
@@ -2896,18 +2901,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     elif x = -infinity then "-infinity"
                     elif x = nan then "nan"
                     else sprintf "%f" x
-                | LitString x -> 
-                    let strb = StringBuilder(x.Length)
-                    String.iter (function
-                        | '"' -> strb.Append "\\\"" 
-                        | '\t' -> strb.Append "\t"
-                        | '\n' -> strb.Append "\n"
-                        | '\r' -> strb.Append "\r"
-                        | '\\' -> strb.Append "\\\\"
-                        | x -> strb.Append x
-                        >> ignore 
-                        ) x
-                    sprintf "\"%s\"" (strb.ToString())
+                | LitString x -> print_unescaped_string x
                 | LitChar x -> 
                     match x with
                     | '\n' -> @"\n"

@@ -414,15 +414,21 @@ inl {stream Cuda CudaTensor} ->
                     inl in = in i
                     inl in' = in' i
 
+                    macro.cd unit [text:"printf"; args:@"outer i = %d\n", i]
+
                     inl result = 
                         for {
                             from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
                             by=gridDim.x*blockDim.x
-                            near_to=dim_in_b.near_to 
+                            near_to=dim_in_b.near_to
                             state=dyn neutral_elem 
                             body=inl {state i} -> 
+                                macro.cd unit [text:"printf"; args:@"inner i = %d\n", i]
                                 inl in = in i 
-                                redo state (map_in in.get in'.get)
+                                inl a = in.get
+                                inl b = in'.get
+                                macro.cd unit [text:"printf"; args:@"in: %f, in': %f\n", fst a, snd a]
+                                redo state (map_in a b)
                             }
                         //|> cub_block_reduce blockDim.x redo
 
