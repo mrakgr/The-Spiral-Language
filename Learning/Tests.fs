@@ -504,7 +504,7 @@ open Error
 open Feedforward
 
 inl input_size = 784
-inl hidden_size = 16
+inl hidden_size = 32
 
 inb network = init (sigmoid hidden_size) input_size >>! with_error square
 
