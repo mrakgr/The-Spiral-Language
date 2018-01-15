@@ -450,6 +450,7 @@ type CompilerSettings = {
     path_cuda90 : string
     cuda_includes : string list
     trace_length : int
+    cuda_assert_enabled : bool
     }
 
 /// Wraps the argument in a list if not a tuple.

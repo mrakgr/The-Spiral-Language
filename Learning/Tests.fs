@@ -481,6 +481,7 @@ let cfg: Spiral.Types.CompilerSettings = {
     path_vs2017 = @"C:\Program Files (x86)\Microsoft Visual Studio\2017\Community"
     cuda_includes = ["cub/cub.cuh"]
     trace_length = 40
+    cuda_assert_enabled = true
     }
 
 //rewrite_test_cache tests cfg None //(Some(0,40))

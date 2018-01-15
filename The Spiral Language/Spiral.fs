@@ -2650,9 +2650,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | Exp,[x] -> sprintf "exp(%s)" (codegen x)
                     | Tanh,[x] -> sprintf "tanh(%s)" (codegen x)
                     | Sqrt,[x] -> sprintf "sqrt(%s)" (codegen x)
-                    | FailWith,[x] -> "// unprinted assert"
-                        //on_type_er trace "Exceptions and hence failwith are not supported on the Cuda side."
-
+                    | FailWith,[x] -> 
+                        sprintf "assert(1 /* %s */)" (codegen x) |> state 
+                        ""
                     | MacroCuda,[a] -> codegen_macro codegen print_type a
                     | SizeOf,[TyType a] -> sprintf "(sizeof %s)" (print_type a)
 
@@ -2778,6 +2778,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         "module SpiralExample.Main" |> state_new
         sprintf "let %s = \"\"\"" cuda_kernels_name |> state_new
         settings.cuda_includes |> List.iter (sprintf "#include \"%s\"" >> state_new)
+        if settings.cuda_assert_enabled = false then "#define NDEBUG" |> state_new
+        "#include <assert.h>" |> state_new
         state_new ""
         "extern \"C\" {" |> state_new
         enter' <| fun _ ->
