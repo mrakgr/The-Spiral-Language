@@ -262,7 +262,8 @@ inl {stream Cuda CudaTensor} ->
     inl whilecd {cond state body} =
         inl r = array_create_cuda_local state 1
         r 0 <- state
-        !While((join cond (r 0)),(r 0 <- body (r 0)))
+        /// Note: While must have a join point around it.
+        !While((join cond (r 0)), (r 0 <- body (r 0)))
         r 0
 
     inl forcd {from by near_to state body} =
