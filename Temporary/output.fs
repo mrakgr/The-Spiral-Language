@@ -3,8 +3,7 @@ let cuda_kernels = """
 #include "cub/cub.cuh"
 
 extern "C" {
-    __global__ void method_5(float * var_0, float * var_1, float * var_2);
-    __device__ void method_6(long long int var_0, long long int var_1, long long int var_2, float * var_3, float * var_4, float * var_5, long long int var_6, long long int var_7, long long int var_8, long long int var_9);
+    __global__ void method_5(float * var_0, float * var_1, float * var_2, float * var_3);
     struct Tuple0 {
         float mem_0;
         float mem_1;
@@ -15,82 +14,88 @@ extern "C" {
         tmp.mem_1 = mem_1;
         return tmp;
     }
-    __device__ Tuple0 method_7(float * var_0, long long int var_1, float * var_2, float var_3, float var_4, long long int var_5);
+    __device__ Tuple0 method_6(float * var_0, float * var_1, float var_2, float var_3, long long int var_4);
+    typedef Tuple0(*FunPointer1)(Tuple0, Tuple0);
+    __device__ Tuple0 method_7(Tuple0 var_0, Tuple0 var_1);
     
-    __global__ void method_5(float * var_0, float * var_1, float * var_2) {
-        long long int var_3 = threadIdx.x;
-        long long int var_4 = threadIdx.y;
-        long long int var_5 = threadIdx.z;
-        long long int var_6 = blockIdx.x;
-        long long int var_7 = blockIdx.y;
-        long long int var_8 = blockIdx.z;
-        long long int var_9 = (var_4 + var_7);
-        method_6(var_6, var_7, var_8, var_0, var_1, var_2, var_3, var_4, var_5, var_9);
-    }
-    __device__ void method_6(long long int var_0, long long int var_1, long long int var_2, float * var_3, float * var_4, float * var_5, long long int var_6, long long int var_7, long long int var_8, long long int var_9) {
-        char var_10 = (var_9 < 1);
-        if (var_10) {
-            char var_11 = (var_9 >= 0);
-            char var_12 = (var_11 == 0);
-            if (var_12) {
+    __global__ void method_5(float * var_0, float * var_1, float * var_2, float * var_3) {
+        long long int var_4 = threadIdx.x;
+        long long int var_5 = threadIdx.y;
+        long long int var_6 = threadIdx.z;
+        long long int var_7 = blockIdx.x;
+        long long int var_8 = blockIdx.y;
+        long long int var_9 = blockIdx.z;
+        long long int var_10 = (var_7 + var_4);
+        float var_11 = __int_as_float(0xff800000);
+        float var_12 = 0;
+        Tuple0 var_13 = method_6(var_0, var_1, var_11, var_12, var_10);
+        float var_14 = var_13.mem_0;
+        float var_15 = var_13.mem_1;
+        FunPointer1 var_18 = method_7;
+        Tuple0 var_19 = cub::BlockReduce<Tuple0,1>().Reduce(make_Tuple0(var_14, var_15), var_18);
+        float var_20 = var_19.mem_0;
+        float var_21 = var_19.mem_1;
+        char var_22 = (var_4 == 0);
+        if (var_22) {
+            char var_23 = (var_7 >= 0);
+            char var_25;
+            if (var_23) {
+                var_25 = (var_7 < 1);
+            } else {
+                var_25 = 0;
+            }
+            char var_26 = (var_25 == 0);
+            if (var_26) {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_13 = (var_9 * 32);
-            if (var_12) {
-                // "Argument out of bounds."
-            } else {
-            }
-            printf("outer i = %d\n", var_9);
-            long long int var_14 = (var_6 + var_0);
-            float var_15 = __int_as_float(0xff800000);
-            float var_16 = 0;
-            Tuple0 var_17 = method_7(var_3, var_13, var_4, var_15, var_16, var_14);
-            float var_18 = var_17.mem_0;
-            float var_19 = var_17.mem_1;
-            char var_20 = (var_6 == 0);
-            if (var_20) {
-                if (var_12) {
-                    // "Argument out of bounds."
-                } else {
-                }
-                float var_21 = var_5[var_9];
-                var_5[var_9] = var_19;
-            } else {
-            }
-            long long int var_22 = (var_9 + 1);
-            method_6(var_0, var_1, var_2, var_3, var_4, var_5, var_6, var_7, var_8, var_22);
+            var_2[var_7] = var_20;
+            var_3[var_7] = var_21;
         } else {
         }
     }
-    __device__ Tuple0 method_7(float * var_0, long long int var_1, float * var_2, float var_3, float var_4, long long int var_5) {
-        char var_6 = (var_5 < 32);
+    __device__ Tuple0 method_6(float * var_0, float * var_1, float var_2, float var_3, long long int var_4) {
+        char var_5 = (var_4 < 32);
+        if (var_5) {
+            char var_6 = (var_4 >= 0);
+            char var_7 = (var_6 == 0);
+            if (var_7) {
+                // "Argument out of bounds."
+            } else {
+            }
+            float var_8 = var_0[var_4];
+            float var_9 = var_1[var_4];
+            printf("i = %d, x = %f\n", var_4, var_8);
+            char var_10 = (var_2 > var_8);
+            Tuple0 var_11;
+            if (var_10) {
+                var_11 = make_Tuple0(var_2, var_3);
+            } else {
+                var_11 = make_Tuple0(var_8, var_9);
+            }
+            float var_12 = var_11.mem_0;
+            float var_13 = var_11.mem_1;
+            long long int var_14 = (var_4 + 1);
+            return method_6(var_0, var_1, var_12, var_13, var_14);
+        } else {
+            return make_Tuple0(var_2, var_3);
+        }
+    }
+    __device__ Tuple0 method_7(Tuple0 var_0, Tuple0 var_1) {
+        float var_2 = var_0.mem_0;
+        float var_3 = var_0.mem_1;
+        float var_4 = var_1.mem_0;
+        float var_5 = var_1.mem_1;
+        char var_6 = (var_2 > var_4);
+        Tuple0 var_7;
         if (var_6) {
-            printf("inner i = %d\n", var_5);
-            char var_7 = (var_5 >= 0);
-            char var_8 = (var_7 == 0);
-            if (var_8) {
-                // "Argument out of bounds."
-            } else {
-            }
-            long long int var_9 = (var_1 + var_5);
-            float var_10 = var_0[var_9];
-            float var_11 = var_2[var_9];
-            printf("in: %f, in': %f\n", var_10, var_11);
-            char var_12 = (var_3 > var_10);
-            Tuple0 var_13;
-            if (var_12) {
-                var_13 = make_Tuple0(var_3, var_4);
-            } else {
-                var_13 = make_Tuple0(var_10, var_11);
-            }
-            float var_14 = var_13.mem_0;
-            float var_15 = var_13.mem_1;
-            long long int var_16 = (var_5 + 1);
-            return method_7(var_0, var_1, var_2, var_14, var_15, var_16);
+            var_7 = make_Tuple0(var_2, var_3);
         } else {
-            return make_Tuple0(var_3, var_4);
+            var_7 = make_Tuple0(var_4, var_5);
         }
+        float var_8 = var_7.mem_0;
+        float var_9 = var_7.mem_1;
+        return make_Tuple0(var_8, var_9);
     }
 }
 """
@@ -112,6 +117,12 @@ and Env3 =
     struct
     val mem_0: EnvStack2
     val mem_1: int64
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+and Tuple4 =
+    struct
+    val mem_0: float32
+    val mem_1: float32
     new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
     end
 let rec method_0 ((var_0: System.Diagnostics.DataReceivedEventArgs)): unit =
@@ -145,15 +156,29 @@ and method_2((var_0: uint64), (var_1: System.Collections.Generic.Stack<Env3>), (
             method_2((var_0: uint64), (var_1: System.Collections.Generic.Stack<Env3>), (var_2: uint64), (var_3: int64))
     else
         method_4((var_0: uint64), (var_2: uint64), (var_3: int64), (var_1: System.Collections.Generic.Stack<Env3>))
-and method_8((var_0: (float32 [])), (var_1: int64), (var_2: float32), (var_3: int64)): float32 =
-    let (var_4: bool) = (var_3 < var_1)
-    if var_4 then
-        let (var_5: float32) = var_0.[int32 var_3]
-        let (var_6: float32) = (var_2 + var_5)
-        let (var_7: int64) = (var_3 + 1L)
-        method_8((var_0: (float32 [])), (var_1: int64), (var_6: float32), (var_7: int64))
+and method_8((var_0: (float32 [])), (var_1: (float32 [])), (var_2: float32), (var_3: float32), (var_4: int64)): Tuple4 =
+    let (var_5: bool) = (var_4 < 1L)
+    if var_5 then
+        let (var_6: bool) = (var_4 >= 0L)
+        let (var_7: bool) = (var_6 = false)
+        if var_7 then
+            (failwith "Argument out of bounds.")
+        else
+            ()
+        let (var_8: float32) = var_0.[int32 var_4]
+        let (var_9: float32) = var_1.[int32 var_4]
+        let (var_10: bool) = (var_2 > var_8)
+        let (var_11: Tuple4) =
+            if var_10 then
+                Tuple4(var_2, var_3)
+            else
+                Tuple4(var_8, var_9)
+        let (var_12: float32) = var_11.mem_0
+        let (var_13: float32) = var_11.mem_1
+        let (var_14: int64) = (var_4 + 1L)
+        method_8((var_0: (float32 [])), (var_1: (float32 [])), (var_12: float32), (var_13: float32), (var_14: int64))
     else
-        var_2
+        Tuple4(var_2, var_3)
 and method_3((var_0: ManagedCuda.BasicTypes.CUdeviceptr), (var_1: uint64), (var_2: uint64), (var_3: int64), (var_4: System.Collections.Generic.Stack<Env3>), (var_5: EnvStack2), (var_6: int64)): EnvStack2 =
     let (var_7: ManagedCuda.BasicTypes.SizeT) = var_0.Pointer
     let (var_8: uint64) = uint64 var_7
@@ -303,40 +328,51 @@ let (var_67: (Union0 ref)) = var_66.mem_0
 let (var_68: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_67: (Union0 ref)))
 let (var_69: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(32L)
 var_53.GenerateUniform32(var_68, var_69)
-let (var_70: int64) = 4L
-let (var_71: EnvStack2) = method_2((var_49: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_50: uint64), (var_70: int64))
-let (var_72: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_62: (Union0 ref)))
-let (var_73: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_67: (Union0 ref)))
-let (var_74: (Union0 ref)) = var_71.mem_0
-let (var_75: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_74: (Union0 ref)))
+let (var_70: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_62: (Union0 ref)))
+let (var_71: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_67: (Union0 ref)))
+let (var_72: int64) = 4L
+let (var_73: EnvStack2) = method_2((var_49: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_50: uint64), (var_72: int64))
+let (var_74: int64) = 4L
+let (var_75: EnvStack2) = method_2((var_49: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_50: uint64), (var_74: int64))
+let (var_76: (Union0 ref)) = var_73.mem_0
+let (var_77: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_76: (Union0 ref)))
+let (var_78: (Union0 ref)) = var_75.mem_0
+let (var_79: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_78: (Union0 ref)))
 // Cuda join point
-// method_5((var_72: ManagedCuda.BasicTypes.CUdeviceptr), (var_73: ManagedCuda.BasicTypes.CUdeviceptr), (var_75: ManagedCuda.BasicTypes.CUdeviceptr))
-let (var_77: (System.Object [])) = [|var_72; var_73; var_75|]: (System.Object [])
-let (var_78: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_5", var_32, var_1)
-let (var_79: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
-var_78.set_GridDimensions(var_79)
-let (var_80: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
-var_78.set_BlockDimensions(var_80)
-let (var_81: ManagedCuda.BasicTypes.CUstream) = var_51.get_Stream()
-var_78.RunAsync(var_81, var_77)
-let (var_82: float32) = 0.000000f
-let (var_83: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_74: (Union0 ref)))
-let (var_84: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(1L))
-var_1.CopyToHost(var_84, var_83)
+// method_5((var_70: ManagedCuda.BasicTypes.CUdeviceptr), (var_71: ManagedCuda.BasicTypes.CUdeviceptr), (var_77: ManagedCuda.BasicTypes.CUdeviceptr), (var_79: ManagedCuda.BasicTypes.CUdeviceptr))
+let (var_81: (System.Object [])) = [|var_70; var_71; var_77; var_79|]: (System.Object [])
+let (var_82: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_5", var_32, var_1)
+let (var_83: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
+var_82.set_GridDimensions(var_83)
+let (var_84: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
+var_82.set_BlockDimensions(var_84)
+let (var_85: ManagedCuda.BasicTypes.CUstream) = var_51.get_Stream()
+var_82.RunAsync(var_85, var_81)
+let (var_86: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_76: (Union0 ref)))
+let (var_87: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(1L))
+var_1.CopyToHost(var_87, var_86)
 var_1.Synchronize()
-let (var_85: int64) = var_84.LongLength
-let (var_86: int64) = 0L
-let (var_87: float32) = method_8((var_84: (float32 [])), (var_85: int64), (var_82: float32), (var_86: int64))
-var_74 := Union0Case1
-let (var_88: string) = System.String.Format("{0}",var_87)
-System.Console.WriteLine(var_88)
+let (var_88: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_78: (Union0 ref)))
+let (var_89: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(1L))
+var_1.CopyToHost(var_89, var_88)
+var_1.Synchronize()
+let (var_90: float32) = -infinityf
+let (var_91: float32) = 0.000000f
+let (var_92: int64) = 0L
+let (var_93: Tuple4) = method_8((var_87: (float32 [])), (var_89: (float32 [])), (var_90: float32), (var_91: float32), (var_92: int64))
+let (var_94: float32) = var_93.mem_0
+let (var_95: float32) = var_93.mem_1
+var_76 := Union0Case1
+var_78 := Union0Case1
+let (var_96: string) = System.String.Format("{0}",var_95)
+System.Console.WriteLine(var_96)
 var_67 := Union0Case1
 var_62 := Union0Case1
 var_57.Dispose()
 var_53.Dispose()
 var_51.Dispose()
-let (var_89: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_46: (Union0 ref)))
-var_1.FreeMemory(var_89)
+let (var_97: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_46: (Union0 ref)))
+var_1.FreeMemory(var_97)
 var_46 := Union0Case1
 var_1.Dispose()
 

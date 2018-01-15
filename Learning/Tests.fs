@@ -511,7 +511,6 @@ inb train_labels=CudaRandom.create_tensor .Uniform {elem_type=float32; dim=batch
 
 accuracy (train_images,train_labels) id |> Console.writeline
 ()
-
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" debug1

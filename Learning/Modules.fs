@@ -293,16 +293,14 @@ inl {stream Cuda CudaTensor} ->
             ]
 
     /// Flattens the tensor to 1d, maps and reduces it.
-    /// Lazily returns the output. Requires the redo and the neutral element.
+    /// Requires the redo and the neutral element.
     /// Map is optional. Allocates a temporary tensor for the intermediary results.
-	/// Requires the continuation in order for the sake of memory allocation.
-    inl map_redo {d with redo neutral_elem} (!zip (!to_1d in)) ret =
-        inl in' = to_dev_tensor in
-        inl near_to = length in'
+    inl map_redo {d with redo neutral_elem} (!zip (!to_1d (!to_dev_tensor in))) =
+        inl near_to = length in
         inl map = match d with {map} -> map | _ -> id
 
-        inl blockDim = 128
-        inl gridDim = min 64 (divup near_to blockDim)
+        inl blockDim = 1 // 128
+        inl gridDim = 1 // min 64 (divup near_to blockDim)
         inl elem_type = type (in.elem_type |> map)
         inl ty = elem_type
 
@@ -314,19 +312,18 @@ inl {stream Cuda CudaTensor} ->
             kernel = cuda 
                 inl from = blockIdx.x * blockDim.x + threadIdx.x
                 inl by = gridDim.x * blockDim.x
-                inl load i = map (in' i .get)
-                inl thread_result = Loops.for {from near_to by state=dyn neutral_elem; body=inl {state i} -> redo state (load i)}
+                inl load i = map (in i .get)
+                inl thread_result = Loops.for {from near_to by state=dyn neutral_elem; body=inl {state i} -> 
+                    inl x = load i
+                    macro.cd unit [text:"printf"; args:"i = %d, x = %f\n", i, fst x]
+                    redo state x}
                 
                 inl block_result = cub_block_reduce blockDim.x redo thread_result
                 if threadIdx.x = 0 then out' blockIdx.x .set block_result
             } |> ignore
 
-        inl _ ->
-            inl tns = to_host_tensor out
-            inl load i = tns i .get
-            Loops.for {from=0; near_to=length tns; state=dyn neutral_elem; body=inl {state i} -> redo state (load i)}
-        |> Lazy.lazy // The lazy return here is because transfering to host would block the execution.
-        |> ret
+        inl tns = to_host_tensor out
+        Loops.for {from=0; near_to=length tns; state=dyn neutral_elem; body=inl {state i} -> redo state (tns i .get)}
 
     inl warp_size = 32
 
@@ -882,23 +879,33 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl Activation = {sigmoid}
 
+    //inl accuracy (input,label) ret =
+    //    inl input, label = primal input, primal label
+    //    //inb !to_host_tensor input' = CudaKernel.map id input 
+    //    //inb !to_host_tensor label' = CudaKernel.map id label
+    //    //HostTensor.show input' |> Console.writeline
+    //    //HostTensor.show label' |> Console.writeline
+    //    inb x = 
+    //        map_d1_redo_map {
+    //            map_in=const
+    //            neutral_elem=-infinity,zero
+    //            redo=inl a b -> if fst a > fst b then a else b
+    //            map_out=inl a -> snd a
+    //            } (input,label) ()
+    //    ret (
+    //        Array.foldl (+) (dyn 0f32) (to_host_tensor x).bodies.ar 
+    //        //|> unsafe_convert int64
+    //        )
+
+    // The 1d accuracy for debugging purposes.
     inl accuracy (input,label) ret =
         inl input, label = primal input, primal label
-        //inb !to_host_tensor input' = CudaKernel.map id input 
-        //inb !to_host_tensor label' = CudaKernel.map id label
-        //HostTensor.show input' |> Console.writeline
-        //HostTensor.show label' |> Console.writeline
-        inb x = 
-            map_d1_redo_map {
-                map_in=const
-                neutral_elem=-infinity,zero
-                redo=inl a b -> if fst a > fst b then a else b
-                map_out=inl a -> snd a
-                } (input,label) ()
-        ret (
-            Array.foldl (+) (dyn 0f32) (to_host_tensor x).bodies.ar 
-            //|> unsafe_convert int64
-            )
+        CudaKernel.map_redo {
+            neutral_elem=-infinity,zero
+            redo=inl a b -> if fst a > fst b then a else b
+            } (input,label)
+        |> snd
+        |> ret
 
     ///// Is reducing a pair giving it trouble?
     //inl accuracy (input,label) ret =
