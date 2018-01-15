@@ -510,6 +510,17 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 else on_type_er (trace d) <| sprintf "Types in branches of If do not match.\nGot: %s and %s" (show_ty type_tr) (show_ty type_fl)
             | TyType cond -> on_type_er (trace d) <| sprintf "Expected a bool in conditional.\nGot: %s" (show_ty cond)
 
+        let while_ d cond body =
+            match tev d cond with
+            | TyLit (LitBool false) -> tev d cond
+            | TyType (PrimT BoolT) as cond -> 
+                match tev_seq d body with
+                | TyType (ListT []) as body -> 
+                    TyOp(While,[cond;body],BListT) 
+                    |> make_tyv_and_push_typed_expr_even_if_unit d
+                | TyType t -> on_type_er (trace d) <| sprintf "Expected unit as the type of the while loop.\nGot: %s" (show_ty t)
+            | TyType cond -> on_type_er (trace d) <| sprintf "Expected a bool in conditional.\nGot: %s" (show_ty cond)
+
         let rec layout_boxed_unseal d recf x =
             let inline f x = layout_boxed_unseal d recf x
             match x with
@@ -1591,6 +1602,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | x -> x
             | Case,[v;case] -> case_ d v case
             | IfStatic,[cond;tr;fl] -> if_static d cond tr fl
+            | While,[cond;body] -> while_ d cond body
             | JoinPointEntryMethod,[a] -> join_point_method d a
             | JoinPointEntryType,[a] -> join_point_type d a
             | JoinPointEntryCuda,[a] -> join_point_cuda d a
@@ -2504,6 +2516,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 enter <| fun _ -> codegen' fl
                 "}" |> state_new
 
+            let inline while_ cond body =
+                sprintf "while (%s) {" (codegen cond) |> state_new
+                enter <| fun _ -> codegen body
+                "}" |> state_new
+
             let match_with codegen' v cases =
                 let print_case =
                     match get_type v with
@@ -2625,6 +2642,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         sprintf "%s(%s)" (codegen a) b
                     | Case, v :: cases -> match_with (codegen' d) v cases; ""
                     | IfStatic,[cond;tr;fl] -> if_ (codegen' d) cond tr fl; ""
+                    | While,[cond;body] -> while_ cond body; ""
                     | ArrayCreate,[a] -> failwith "ArrayCreate should be done in a let statement on the Cuda side."
                     | ArrayIndex,[ar & TyType(ArrayT((ArtCudaLocal | ArtCudaShared | ArtCudaGlobal _),_));idx] -> sprintf "%s[%s]" (codegen ar) (codegen idx)
                     | ArrayLength,[a] -> on_type_er trace "The ArrayLlength operation is invalid on the Cuda side as the array is just a pointer."
@@ -2927,13 +2945,16 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 sprintf "let %s =" (print_tyv_with_type v) |> state
                 enter' <| fun _ -> f()
 
-            let inline if_ cond tr fl =
-                let enter f = enter <| fun _ -> handle_unit_in_last_position f
-                
+            let inline enter_handle_unit f = enter <| fun _ -> handle_unit_in_last_position f
+            let if_ cond tr fl =
                 sprintf "if %s then" (codegen cond) |> state
-                enter <| fun _ -> codegen tr
+                enter_handle_unit <| fun _ -> codegen tr
                 "else" |> state
-                enter <| fun _ -> codegen fl
+                enter_handle_unit <| fun _ -> codegen fl
+
+            let while_ cond body =
+                sprintf "while %s do" (codegen cond) |> state
+                enter_handle_unit <| fun _ -> codegen body
 
             let make_struct x = make_struct codegen x
 
@@ -2983,7 +3004,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         let case = codegen case
                         if String.IsNullOrEmpty case then sprintf "| %s ->" (print_case i) |> state
                         else sprintf "| %s(%s) ->" (print_case i) case |> state
-                        enter <| fun _ -> handle_unit_in_last_position (fun _ -> codegen body)
+                        enter_handle_unit <| fun _ -> codegen body
                         loop (i+1) rest
                     | [] -> ()
                     | _ -> failwith "The cases should always be in pairs."
@@ -3076,6 +3097,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         sprintf "%s(%s)" (codegen a) b
                     | Case,v :: cases -> match_with v cases; ""
                     | IfStatic,[cond;tr;fl] -> if_ cond tr fl; ""
+                    | While,[cond;body] -> while_ cond body; ""
                     | ArrayCreate,[a] -> array_create a t
                     | ReferenceCreate,[a] -> reference_create a
                     | ArrayIndex,[b & TyType(ArrayT(ArtDotNetHeap,_));c] -> array_index b c

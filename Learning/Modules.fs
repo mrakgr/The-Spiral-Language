@@ -257,6 +257,19 @@ inl {stream Cuda CudaTensor} ->
     open Cuda
     open CudaTensor
     open Extern
+
+    inl whilecd {cond state body} =
+        inl r = array_create_cuda_local state 1
+        r 0 <- state
+        !While((join cond (r 0)),r 0 <- body (r 0))
+        r 0
+
+    inl forcd {from by near_to state body} =
+        inl state = {from state}
+        whilecd {
+            cond 
+            }
+
     inl divup a b = (a-1)/b+1 // Integer division with rounding up. (a+b-1)/b is another variant on this.
     inl map' f (!zip in) (!zip out) =
         assert_zip (in, out) |> ignore

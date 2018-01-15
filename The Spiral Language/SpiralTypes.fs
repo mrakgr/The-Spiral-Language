@@ -157,6 +157,7 @@ type Op =
     // Braching
     | Case
     | IfStatic
+    | While
 
     // BinOps
     | Add
