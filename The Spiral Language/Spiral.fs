@@ -2382,8 +2382,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let tys = List.foldBack (fun (_,x) s -> define_mem s x) fv ([],0) |> fst |> List.rev
             print_type_definition (Some layout) name tys
 
-    let print_unescaped_string (x: string) = sprintf "\"%s\"" x 
-
     // #Cuda
     let spiral_cuda_codegen (definitions_queue: Queue<TypeOrMethod>) = 
         let buffer_forward_declarations = ResizeArray()
@@ -2479,7 +2477,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     else string x
                 | LitBool x -> if x then "1" else "0"
                 | LitChar x -> string (int x)
-                | LitString x -> print_unescaped_string x
+                | LitString x -> sprintf "\"%s\"" x
                     //on_type_er trace "String literals are not supported on the Cuda side."
 
             let assign_to tyv = function
@@ -2901,7 +2899,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     elif x = -infinity then "-infinity"
                     elif x = nan then "nan"
                     else sprintf "%f" x
-                | LitString x -> print_unescaped_string x
+                | LitString x -> sprintf "\"%s\"" x
                 | LitChar x -> 
                     match x with
                     | '\n' -> @"\n"
