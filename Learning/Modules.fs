@@ -212,6 +212,8 @@ inl {stream Cuda Allocator} ->
                 if lit_is o then ptr
                 else ptr_to_uint ptr + unsafe_convert uint64 o |> uint_to_ptr    
             inl ar = !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
+            //inl ptr, elem_type = ar.ptr(), ar.elem_type
+            //inl ar = !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
             {body with ar offset}
             )
 
@@ -434,7 +436,8 @@ inl {stream Cuda CudaTensor} ->
 
                     if threadIdx.x = 0 then 
                         inl out = out i
-                        out.set (map_out result out.get)
+                        //out.set (map_out result out.get)
+                        ()
                     }
             }
 

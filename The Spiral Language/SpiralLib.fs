@@ -1330,7 +1330,7 @@ inl ret ->
             call quoted_vs_path_to_vcvars |> write_to_batch
             ("SET PATH=%PATH%;", quoted_vs_path_to_cl) |> write_to_batch
             (
-            quoted_nvcc_path, " -gencode=arch=compute_30,code=\\\"sm_30,compute_30\\\" --use-local-env --cl-version 2017",
+            quoted_nvcc_path, " -gencode=arch=compute_52,code=\\\"sm_52,compute_52\\\" --use-local-env --cl-version 2017",
             " -I", quoted_cuda_toolkit_path_to_include,
             " -I", quoted_cub_path_to_include,
             " -I", quoted_vc_path_to_include,
