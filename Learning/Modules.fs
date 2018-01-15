@@ -414,7 +414,7 @@ inl {stream Cuda CudaTensor} ->
                     inl in = in i
                     inl in' = in' i
 
-                    macro.cd unit [text:"printf"; args:@"outer i = %d\n", i]
+                    macro.cd unit [text:"printf"; args:"outer i = %d\n", i]
 
                     inl result = 
                         for {
@@ -423,11 +423,11 @@ inl {stream Cuda CudaTensor} ->
                             near_to=dim_in_b.near_to
                             state=dyn neutral_elem 
                             body=inl {state i} -> 
-                                macro.cd unit [text:"printf"; args:@"inner i = %d\n", i]
+                                macro.cd unit [text:"printf"; args:"inner i = %d\n", i]
                                 inl in = in i 
                                 inl a = in.get
                                 inl b = in'.get
-                                macro.cd unit [text:"printf"; args:@"in: %f, in': %f\n", fst a, snd a]
+                                macro.cd unit [text:"printf"; args:"in: %f, in': %f\n", fst a, snd a]
                                 redo state (map_in a b)
                             }
                         //|> cub_block_reduce blockDim.x redo
@@ -882,6 +882,10 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl accuracy (input,label) ret =
         inl input, label = primal input, primal label
+        inb !to_host_tensor input' = CudaKernel.map id input 
+        inb !to_host_tensor label' = CudaKernel.map id label
+        HostTensor.show input' |> Console.writeline
+        HostTensor.show label' |> Console.writeline
         inb x = 
             map_d1_redo_map {
                 map_in=const
