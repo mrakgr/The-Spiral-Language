@@ -2775,8 +2775,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             
         while definitions_queue.Count > 0 do
             let x = definitions_queue.ToArray()
-            printfn "%A" x
-
+            
             definitions_queue.Clear()
             x |> Array.iter (function
                 | TomJP (join_point_type,key) ->
