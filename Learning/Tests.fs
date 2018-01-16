@@ -415,9 +415,9 @@ inb network = init (sigmoid hidden_size) input_size >>! with_error square
 inl train_images=train_images .view_span 32
 inl train_labels=train_labels .view_span 32
 
-Loops.for {from=0; near_to=3;body=inl _ ->
+Loops.for {from=0; near_to=1;body=inl _ ->
     run {
-        network input=train_images; label=train_labels; minibatch_size=2
+        network input=train_images; label=train_labels; minibatch_size=4
         optimizer=Optimizer.sgd 0.01f32
         state={
             running_cost=dyn 0.0

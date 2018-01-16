@@ -202,18 +202,18 @@ inl {stream Cuda Allocator} ->
 
     inl to_dev_tensor tns = 
         tns.update_body (inl {body with ar offset} ->
-            inl type_size = sizeof ar.elem_type
-            inl o, offset = 
-                match offset with 
-                | _ :: _ -> Tuple.foldl (+) 0 offset * type_size, Tuple.map (const 0) offset
-                | o -> o * type_size, 0
-            inl ptr, elem_type = ar.ptr(), ar.elem_type
-            inl ptr =
-                if lit_is o then ptr
-                else ptr_to_uint ptr + unsafe_convert uint64 o |> uint_to_ptr    
-            inl ar = !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
+            //inl type_size = sizeof ar.elem_type
+            //inl o, offset = 
+            //    match offset with 
+            //    | _ :: _ -> Tuple.foldl (+) 0 offset * type_size, Tuple.map (const 0) offset
+            //    | o -> o * type_size, 0
             //inl ptr, elem_type = ar.ptr(), ar.elem_type
+            //inl ptr =
+            //    if lit_is o then ptr
+            //    else ptr_to_uint ptr + unsafe_convert uint64 o |> uint_to_ptr    
             //inl ar = !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
+            inl ptr, elem_type = ar.ptr(), ar.elem_type
+            inl ar = !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
             {body with ar offset}
             )
 
@@ -915,6 +915,10 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl accuracy (input,label) ret =
         inl input, label = primal input, primal label
+        inl _ =
+            inb input = CudaKernel.map id input 
+            inb label = CudaKernel.map id label
+            HostTensor.show (zip (to_host_tensor input, to_host_tensor label)) |> Console.writeline
         inb x = 
             map_d1_redo_map {
                 map_in=const
