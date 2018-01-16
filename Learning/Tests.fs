@@ -260,7 +260,7 @@ open Primitive
 inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=default_float; dim=256,256} >>! dr
 inb o1,bck = map_redo {fwd={neutral_elem=0f32; redo=(+)}; bck=inl {out} -> out.A} a1
 bck()
-Console.writeline <| primal o1 .value / unsafe_convert float32 (HostTensor.length (primal a1))
+Console.writeline <| primal o1 / unsafe_convert float32 (HostTensor.length (primal a1))
     """
 
 let learning4 =
@@ -312,7 +312,7 @@ inb {cost},bck =
     inm o1 = matmult input weight >>= sigmoid
     square (o1,label)
 
-Console.writeline ("Cost is:", primal cost .value)
+Console.writeline ("Cost is:", primal cost)
 
 adjoint cost := 1f32
 bck()
@@ -345,7 +345,7 @@ inb label = CudaTensor.zero {elem_type=default_float; dim=2,hidden_size}
 inb {apply update_weights} = init (sigmoid hidden_size) input_size >>! with_error square
 inb {cost},bck = apply (input,label)
 
-Console.writeline ("Cost is:", primal cost .value)
+Console.writeline ("Cost is:", primal cost)
 
 adjoint cost := 1f32
 bck()
@@ -379,7 +379,7 @@ inl hidden_size = 10
 inb {apply update_weights} = init (sigmoid hidden_size) input_size >>! with_error square
 inb {cost},bck = apply (test_images,test_labels)
 
-Console.writeline ("Cost is:", primal cost .value)
+Console.writeline ("Cost is:", primal cost)
 
 adjoint cost := 1f32
 bck()
@@ -513,6 +513,6 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel4
-//|> printfn "%s"
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
+|> printfn "%s"
 |> ignore

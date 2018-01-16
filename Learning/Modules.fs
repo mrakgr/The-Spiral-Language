@@ -873,8 +873,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             inl out = toa_map2 (inl P A -> {P A=A()}) (primals out) (adjoints out)
             inl bck = 
                 inl bck = filter_based_on_adjoints bck adjoint
-                inl in = values primal
-                toa_map ((|>) {in out}) bck
+                toa_map ((|>) {in=primal; out}) bck
             inb adjoint = filter_unit_and_branch adjoint 
             toa_map2 (inl a b -> a := a() + b) adjoint bck
             )
@@ -891,7 +890,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             map' bck {in=primal} adjoint
             )
 
-    inl Primitive = {matmult matmultb map map_redo hostlazy_map replicate_map add_bias}
+    inl Primitive = {matmult matmultb map map_redo host_map replicate_map add_bias}
 
     // #Operations
     inl (>>=) a b ret =
@@ -1002,7 +1001,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         inl run_minibatch {state span} = 
             inl view x = x.view_span span
             inb {cost accuracy}, bck = apply (view input, view label)
-            inl primal = primal cost .value
+            inl primal = primal cost
             //string_format "On minibatch {0}. Error = {1}" (show span, primal) |> writeline
 
             match d with
