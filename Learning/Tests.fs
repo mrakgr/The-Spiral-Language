@@ -493,13 +493,21 @@ open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Error
 open Feedforward
 
-inl hidden_size = 32
-inl batch_size = 1
+inl hidden_size = 5
+inl batch_size = 32
 
-inb train_images=CudaRandom.create_tensor .Uniform {elem_type=float32; dim=batch_size,hidden_size}
-inb train_labels=CudaRandom.create_tensor .Uniform {elem_type=float32; dim=batch_size,hidden_size}
+inb a=CudaRandom.create_tensor .Uniform {elem_type=float32; dim=batch_size,hidden_size}
+inb b=CudaRandom.create_tensor .Uniform {elem_type=float32; dim=batch_size,hidden_size}
 
-accuracy (train_images,train_labels) id |> Console.writeline
+met rec show (!dyn o1) = CudaTensor.to_host_tensor (HostTensor.zip o1) |> HostTensor.show |> Console.writeline
+show (a,b)
+
+inl by = 2
+Loops.for {from=0;near_to=32;by;body=inl {i} ->
+    inl f a = a .view_span {from=i;by}
+    inl a, b = f a, f b
+    accuracy (a,b) id |> Console.writeline
+    }
 ()
     """
 
@@ -513,6 +521,6 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" debug1
 |> printfn "%s"
 |> ignore
