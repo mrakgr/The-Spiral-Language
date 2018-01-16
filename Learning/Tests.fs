@@ -514,5 +514,5 @@ let tests =
     |]
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel5
-|> printfn "%s"
+//|> printfn "%s"
 |> ignore
