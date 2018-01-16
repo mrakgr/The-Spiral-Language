@@ -2776,8 +2776,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         while definitions_queue.Count > 0 do
             let x = definitions_queue.ToArray()
             definitions_queue.Clear()
-            for i=x.Length-1 downto 0 do
-                match x.[i] with
+            x |> Array.iter (function
                 | TomJP (join_point_type,key) ->
                     let fv,body =
                         match join_point_type with
@@ -2809,7 +2808,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | UnionT tys as x -> print_union_definition (print_tag_union x) (Set.toArray tys)
                     | TermFunctionT(a,r) as x -> print_closure_type_definition (print_tag_closure x) (a,r)
                     | _ -> failwith "impossible"
-                
+                )
                 
             buffer_type_definitions.Push(ResizeArray(buffer_temp))
             buffer_temp.Clear()

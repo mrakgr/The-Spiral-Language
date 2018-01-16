@@ -74,8 +74,8 @@ inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
 
 inl h = HostTensor.init 32 ((+) 1)
 inb a1 = CudaTensor.from_host_tensor h
-inb o1 = CudaKernel.map_redo {neutral_elem=0; redo=(+)} a1
-Console.writeline o1.value
+inl o1 = CudaKernel.map_redo {neutral_elem=0; redo=(+)} a1
+Console.writeline o1
     """
 
 let kernel3 =
@@ -97,7 +97,7 @@ inb a2 = CudaTensor.from_host_tensor h'
 inb o1 = CudaKernel.replicate_map (inl a b -> a, b) a1 a2
 inb o2 = CudaKernel.replicate_map (inl a _ -> a) a1 outer_size
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
-Tuple.iter show (a1,o1,o2)
+Tuple.iter show (a1,a2,o1,o2)
     """
 
 let kernel4 =
@@ -465,16 +465,6 @@ met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Cons
 Tuple.iter show (adjoint bias, adjoint weight)
     """
 
-let tests =
-    [|
-    allocator1
-    tensor1;tensor2
-    kernel1;kernel2;kernel3;kernel4;kernel5
-    random1
-    blas1
-    learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
-    |]
-
 let cfg: Spiral.Types.CompilerSettings = {
     path_cuda90 = "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v9.0"
     path_cub = "C:/cub-1.7.4"
@@ -513,6 +503,16 @@ accuracy (train_images,train_labels) id |> Console.writeline
 ()
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" debug1
+let tests =
+    [|
+    allocator1
+    tensor1;tensor2
+    kernel1;kernel2;kernel3;kernel4;kernel5
+    random1
+    blas1
+    learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
+    |]
+
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel5
 |> printfn "%s"
 |> ignore

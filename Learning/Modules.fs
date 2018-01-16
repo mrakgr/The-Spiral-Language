@@ -266,13 +266,43 @@ inl {stream Cuda CudaTensor} ->
         !While((join cond (r 0)), (r 0 <- body (r 0)))
         r 0
 
-    inl forcd {from by near_to state body} =
+    inl forcd {d with from body} =
+        inl finally =
+            match d with
+            | {finally} -> finally
+            | _ -> id
+
+        inl check =
+            match d with
+            | {near_to} from -> from < near_to 
+            | {to} from -> from <= to
+            | {down_to} from -> from >= down_to
+            | {near_down_to} from -> from > near_down_to
+            | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` needs be present."
+
+        inl by =
+            match d with
+            | {by} -> by
+            | {to | near_to} -> 1
+            | {down_to | near_down_to} -> -1
+
+        inl to =
+            match d with
+            | {(to ^ near_to ^ down_to ^ near_down_to)=to} -> to
+            | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` is allowed."
+
+        inl state = 
+            match d with
+            | {state} -> state
+            | _ -> ()
+
         inl state = {from state}
         whilecd {
             state
-            cond = inl {from state} -> from < near_to
+            cond = inl {from state} -> check from
             body = inl {from state} -> {from=from+by; state=body {state i=from}}
             } .state
+        |> finally
 
     inl divup a b = (a-1)/b+1 // Integer division with rounding up. (a+b-1)/b is another variant on this.
     inl map' f (!zip in) (!zip out) =
@@ -289,10 +319,11 @@ inl {stream Cuda CudaTensor} ->
             kernel = cuda // Lexical scoping rocks.
                 inl from = blockIdx.x * blockDim.x + threadIdx.x
                 inl by = gridDim.x * blockDim.x
-                Loops.for {from near_to by body=inl {i} -> 
+                forcd {from near_to by body=inl {i} -> 
                     inl out = out i
                     inl in = in i
-                    out .set (f in.get out.get)}
+                    out .set (f in.get out.get)
+                    }
             } |> ignore
 
     inl map f (!zip in) ret =
@@ -316,8 +347,8 @@ inl {stream Cuda CudaTensor} ->
         inl near_to = length in
         inl map = match d with {map} -> map | _ -> id
 
-        inl blockDim = 1 // 128
-        inl gridDim = 1 // min 64 (divup near_to blockDim)
+        inl blockDim = 128
+        inl gridDim = min 64 (divup near_to blockDim)
         inl elem_type = type (in.elem_type |> map)
         inl ty = elem_type
 
@@ -327,16 +358,10 @@ inl {stream Cuda CudaTensor} ->
         run {
             stream blockDim gridDim
             kernel = cuda 
-                open Loops
                 inl from = blockIdx.x * blockDim.x + threadIdx.x
                 inl by = gridDim.x * blockDim.x
-                inl load i = map (in i .get)
-                inl thread_result = forcd {from near_to by state=dyn neutral_elem; body=inl {state i} -> 
-                    inl x = load i
-                    macro.cd unit [text:"printf"; args:"i = %d, x = %f\n", i, fst x]
-                    redo state x
-                    }
-                
+                inl body {state i} = redo state (map (in i .get)) 
+                inl thread_result = forcd {from near_to by state=dyn neutral_elem; body}
                 inl block_result = cub_block_reduce blockDim.x redo thread_result
                 if threadIdx.x = 0 then out' blockIdx.x .set block_result
             } |> ignore
@@ -368,13 +393,11 @@ inl {stream Cuda CudaTensor} ->
             stream gridDim
             blockDim=blockDimX,blockDimY
             kernel = cuda 
-                open Loops
-
-                for {from=threadIdx.x+blockDim.x*blockIdx.x-dim_in.from; by=gridDim.x*blockDim.x; near_to=dim_in.near_to; body=inl {i} ->
+                forcd {from=threadIdx.x+blockDim.x*blockIdx.x-dim_in.from; by=gridDim.x*blockDim.x; near_to=dim_in.near_to; body=inl {i} ->
                         inl in = in i
                         inl in' j = in' j i 
                         inl out j = out j i
-                        for {
+                        forcd {
                             from=threadIdx.y+blockDim.y*blockIdx.y-dim_in'_a.from
                             by=gridDim.y*blockDim.y
                             near_to=dim_in'_a.near_to
@@ -414,8 +437,8 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_in' = dim_in_a) "Input's outer dimension must equal the output's dimension."
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        inl blockDim = 1 // lit_min 1024 (s dim_in_b)
-        inl gridDimY = 1 // lit_min 64 (s dim_in')
+        inl blockDim = lit_min 1024 (s dim_in_b)
+        inl gridDimY = lit_min 64 (s dim_in')
 
         inl in = to_dev_tensor in
         inl in' = to_dev_tensor in'
@@ -427,28 +450,21 @@ inl {stream Cuda CudaTensor} ->
             stream blockDim
             gridDim=1,gridDimY
             kernel = cuda 
-                open Loops
-                for {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in'.from; by=gridDim.y*blockDim.y; near_to=dim_in'.near_to; body=inl {i} ->
+                forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in'.from; by=gridDim.y*blockDim.y; near_to=dim_in'.near_to; body=inl {i} ->
                     inl in = in i
                     inl in' = in' i
 
-                    macro.cd unit [text:"printf"; args:"outer i = %d\n", i]
-
                     inl result = 
-                        for {
+                        forcd {
                             from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
                             by=gridDim.x*blockDim.x
                             near_to=dim_in_b.near_to
                             state=dyn neutral_elem 
                             body=inl {state i} -> 
-                                macro.cd unit [text:"printf"; args:"inner i = %d\n", i]
                                 inl in = in i 
-                                inl a = in.get
-                                inl b = in'.get
-                                macro.cd unit [text:"printf"; args:"in: %f, in': %f\n", fst a, snd a]
-                                redo state (map_in a b)
+                                redo state (map_in in.get in'.get)
                             }
-                        //|> cub_block_reduce blockDim.x redo
+                        |> cub_block_reduce blockDim.x redo
 
                     if threadIdx.x = 0 then 
                         inl out = out i
@@ -480,15 +496,13 @@ inl {stream Cuda CudaTensor} ->
             stream gridDim
             blockDim=blockDimX,blockDimY
             kernel = cuda 
-                open Loops
-
-                for {from=threadIdx.x+blockDim.x*blockIdx.x-dim_in'.from; by=gridDim.x*blockDim.x; near_to=dim_in'.near_to; body=inl {i} ->
+                forcd {from=threadIdx.x+blockDim.x*blockIdx.x-dim_in'.from; by=gridDim.x*blockDim.x; near_to=dim_in'.near_to; body=inl {i} ->
                         inl in j = in j i
                         inl in' = in' i
                         inl out = out i
                         inl finally result = out.set (map_out result out.get)
 
-                        inl blockResult = for {
+                        inl blockResult = forcd {
                             from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from
                             by=gridDim.y*blockDim.y
                             near_to=dim_in_a.near_to 
@@ -502,7 +516,7 @@ inl {stream Cuda CudaTensor} ->
                             inl ar = HostTensor.create {
                                 array_create=array_create_cuda_shared
                                 elem_type=blockResult
-                                // TODO: Determine if padding is needed here.
+                                // TODO: Determine if padding is needed here for the sake of bank conflict elimination.
                                 dim=blockDim.x,{from=1; near_to=blockDim.y}
                                 }
                             
@@ -512,7 +526,7 @@ inl {stream Cuda CudaTensor} ->
                             syncthreads()
 
                             if threadIdx.y = 0 then
-                                for {from=1; near_to=blockDim.y; state=blockResult; 
+                                forcd {from=1; near_to=blockDim.y; state=blockResult; 
                                     body=inl {state i} -> redo state (ar i .get)
                                     finally
                                     }
@@ -852,12 +866,11 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             }
         }
 
-    inl hostlazy_map {fwd bck} in ret =
+    inl host_map {fwd bck} in ret =
         inl primal, adjoint = primals in, adjoints in
-        inl values primal = toa_map (inl x -> x.value) primal
-        inl out = Lazy.lazy (inl _ -> values primal |> fwd) |> dr_lazyhost
+        inl out = fwd primal |> dr_host
         ret (out, inl _ ->
-            inl out = toa_map2 (inl P A -> {P=P.value; A=A()}) (primals out) (adjoints out)
+            inl out = toa_map2 (inl P A -> {P A=A()}) (primals out) (adjoints out)
             inl bck = 
                 inl bck = filter_based_on_adjoints bck adjoint
                 inl in = values primal
@@ -868,9 +881,9 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl map_redo {fwd bck} in ret =
         inl primal, adjoint = primals in, adjoints in
-        inb !dr_lazyhost out = map_redo fwd primal
+        inl out = map_redo fwd primal |> dr_host
         ret (out, inl _ ->
-            inl out = toa_map2 (inl P A -> {P=P.value; A=A()}) (primals out) (adjoints out)
+            inl out = toa_map2 (inl P A -> {P A=A()}) (primals out) (adjoints out)
             inl bck =
                 inl bck = filter_based_on_adjoints bck adjoint
                 inl {in} adjoint -> toa_map ((|>) {in out}) bck |> toa_map2 (+) adjoint
@@ -898,74 +911,17 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl Activation = {sigmoid}
 
-    //inl accuracy (input,label) ret =
-    //    inl input, label = primal input, primal label
-    //    //inb !to_host_tensor input' = CudaKernel.map id input 
-    //    //inb !to_host_tensor label' = CudaKernel.map id label
-    //    //HostTensor.show input' |> Console.writeline
-    //    //HostTensor.show label' |> Console.writeline
-    //    inb x = 
-    //        map_d1_redo_map {
-    //            map_in=const
-    //            neutral_elem=-infinity,zero
-    //            redo=inl a b -> if fst a > fst b then a else b
-    //            map_out=inl a -> snd a
-    //            } (input,label) ()
-    //    ret (
-    //        Array.foldl (+) (dyn 0f32) (to_host_tensor x).bodies.ar 
-    //        //|> unsafe_convert int64
-    //        )
-
-    // The 1d accuracy for debugging purposes.
     inl accuracy (input,label) ret =
         inl input, label = primal input, primal label
-        CudaKernel.map_redo {
-            neutral_elem=-infinity,zero
-            redo=inl a b -> if fst a > fst b then a else b
-            } (input,label)
-        |> ret
-
-    ///// Is reducing a pair giving it trouble?
-    //inl accuracy (input,label) ret =
-    //    inl input, label = primal input, primal label
-    //    inb !to_host_tensor input' = CudaKernel.map id input 
-    //    inb !to_host_tensor label' = CudaKernel.map id label
-    //    HostTensor.show input' |> Console.writeline
-    //    HostTensor.show label' |> Console.writeline
-    //    inb x = 
-    //        map_d1_redo_map {
-    //            map_in= inl (a,_) _ -> a
-    //            neutral_elem=-infinity
-    //            redo=inl a b -> if a > b then a else b
-    //            map_out=inl a -> a
-    //            } (input,label) ()
-    //    ret (Array.foldl (+) (dyn 0f32) (to_host_tensor x).bodies.ar)
-
-    ///// For debugging. Reduction is performed on host.
-    //inl accuracy (input,label) ret =
-    //    inl input, label = primal input, primal label
-    //    inb !to_host_tensor input = CudaKernel.map id input 
-    //    inb !to_host_tensor label = CudaKernel.map id label
-        
-    //    inl a, b = input.dim
-        
-    //    inl x =
-    //        HostTensor.init a (inl i ->
-    //            inl {from near_to} = b
-    //            inl input, label = input i, label i
-    //            inl state = dyn (-infinity,zero)
-    //            inl redo = inl a b -> if fst a > fst b then a else b
-    //            Loops.for { from near_to state
-    //                body=inl {state i} -> redo state (input i .get, label i .get)
-    //                } 
-    //            |> snd
-    //            )
-    //    inl {from near_to} = a
-    //    Loops.for { from near_to 
-    //        state=dyn 0f32
-    //        body=inl {state i} -> state + (x i .get)
-    //        }
-    //    |> unsafe_convert int64
+        inb x = 
+            map_d1_redo_map {
+                map_in=const
+                neutral_elem=-infinity,zero
+                redo=inl a b -> if fst a > fst b then a else b
+                map_out=inl a -> snd a
+                } (input,label) ()
+        Array.foldl (+) (dyn 0f32) (to_host_tensor x).bodies.ar 
+        |> unsafe_convert int64 |> ret
 
     inl error {fwd bck} (input,_ as x) = 
         inl batch_size = primal input .dim |> fst |> span
@@ -979,7 +935,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                     }
                 bck = toa_map multiply_by_adjoint bck
                 } x
-            >>= hostlazy_map {fwd = div_by_minibatch_size; bck = inl {out={A}} -> div_by_minibatch_size A}
+            >>= host_map {fwd = div_by_minibatch_size; bck = inl {out={A}} -> div_by_minibatch_size A}
         inl accuracy = accuracy x
         succ {cost accuracy}
 
@@ -1061,16 +1017,15 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 | {running_cost} -> running_cost + to float64 primal * to float64 (HostTensor.span span)
                 
             match state with
-            | {running_accuracy} -> 
-                { running_cost running_accuracy=running_accuracy + accuracy id }
+            | {running_accuracy} -> { running_cost running_accuracy=running_accuracy + accuracy id }
             | _ -> {running_cost}
             
         inl {from near_to} = dim1 input
         inl span = near_to - from
-        inl by = match d with {minibatch_size} -> minibatch_size | _ -> near_to - from
+        inl by = match d with {minibatch_size} -> minibatch_size | _ -> span
 
         inl state = Loops.for {from near_to; state by; body=inl {state i=from} ->
-            if near_to % by = 0 then run_minibatch {state span={from by}}
+            if span % by = 0 then run_minibatch {state span={from by}}
             else run_minibatch {state span={from near_to=from+by |> min near_to}}
             }
 
