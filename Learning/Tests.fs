@@ -151,7 +151,7 @@ inl f a1 a2 =
         map_in=const
         neutral_elem=-infinityf32,0f32
         redo=inl a b -> if fst a > fst b then a else b
-        map_out=inl a -> if snd a > 0.5f32 then 1 else 0
+        map_out=id
         } a1 a2
 inb o1 = f (a1, a2) ()
 
@@ -513,6 +513,6 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel5
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel4
 //|> printfn "%s"
 |> ignore

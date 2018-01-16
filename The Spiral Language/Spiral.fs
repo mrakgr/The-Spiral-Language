@@ -2412,7 +2412,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     // #Cuda
     let spiral_cuda_codegen (definitions_queue: Queue<TypeOrMethod>) = 
         let buffer_forward_declarations = ResizeArray()
-        let buffer_type_definitions = Stack()
+        let buffer_type_definitions = ResizeArray()
         let buffer_method = ResizeArray()
         let buffer_temp = ResizeArray()
 
@@ -2772,47 +2772,79 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | JoinPointClosure | JoinPointMethod -> print_method "__device__"
             | JoinPointCuda -> print_method "__global__"
             | JoinPointType -> ()
-            
-        while definitions_queue.Count > 0 do
-            let x = definitions_queue.ToArray()
-            
-            definitions_queue.Clear()
-            x |> Array.iter (function
+
+        /// Flattens the types inside out as it encounters them.
+        let definitions_set_printed = h0()
+        let rec collect_definition x: TypeOrMethod list = 
+            if definitions_set_printed.Add x then
+                match x with
                 | TomJP (join_point_type,key) ->
-                    let fv,body =
+                    let x' = 
                         match join_point_type with
                         | JoinPointMethod -> 
                             match join_point_dict_method.[key] with
-                            | JoinPointDone(a,b) -> a,b
+                            | JoinPointDone(a,b) -> a
                             | _ -> failwith "impossible"
                         | JoinPointClosure -> 
                             match join_point_dict_closure.[key] with
-                            | JoinPointDone(_,a,b) -> a,b
+                            | JoinPointDone(i,a,b) -> i @ a
                             | _ -> failwith "impossible"
                         | JoinPointCuda -> 
                             match join_point_dict_cuda.[key] with
-                            | JoinPointDone(a,b) -> a,b
+                            | JoinPointDone(a,b) -> a
                             | _ -> failwith "impossible"
                         | JoinPointType -> failwith "impossible"
-
-                    print_method_definition true key.Symbol (join_point_type, fv, body)
-                    move_to buffer_forward_declarations buffer_temp
-
-                    print_method_definition false key.Symbol (join_point_type, fv, body)
-                    move_to buffer_method buffer_temp
+                        |> List.collect (collect_definition << TomType << snd)
+                    x :: x'
                 | TomType ty ->
                     match ty with
-                    | ListT tys -> define_listt ty print_tag_tuple print_type_definition tys
-                    | MapT(tys, _) -> define_mapt ty print_tag_env print_type_definition tys
-                    | LayoutT ((LayoutStack | LayoutPackedStack) as layout, env, _) ->
-                        define_layoutt ty print_tag_env print_type_definition layout env
-                    | UnionT tys as x -> print_union_definition (print_tag_union x) (Set.toArray tys)
-                    | TermFunctionT(a,r) as x -> print_closure_type_definition (print_tag_closure x) (a,r)
-                    | _ -> failwith "impossible"
-                )
-                
-            buffer_type_definitions.Push(ResizeArray(buffer_temp))
-            buffer_temp.Clear()
+                    | ListT tys -> x :: (List.collect (collect_definition << TomType) tys)
+                    | MapT(tys, _) -> x :: (Map.toList tys |> List.collect (collect_definition << TomType << snd))
+                    | LayoutT (_, C env, _) -> x :: (env_to_ty env |> Map.toList |> List.collect (collect_definition << TomType << snd))
+                    | UnionT tys -> x :: (Set.toList tys |> List.collect (collect_definition << TomType))
+                    | TermFunctionT(a,b) -> x :: collect_definition (TomType a) @ collect_definition (TomType b)
+                    | _ -> []
+            else
+                []
+
+        let print_definition = function
+            | TomJP (join_point_type,key) ->
+                let fv,body =
+                    match join_point_type with
+                    | JoinPointMethod -> 
+                        match join_point_dict_method.[key] with
+                        | JoinPointDone(a,b) -> a,b
+                        | _ -> failwith "impossible"
+                    | JoinPointClosure -> 
+                        match join_point_dict_closure.[key] with
+                        | JoinPointDone(_,a,b) -> a,b
+                        | _ -> failwith "impossible"
+                    | JoinPointCuda -> 
+                        match join_point_dict_cuda.[key] with
+                        | JoinPointDone(a,b) -> a,b
+                        | _ -> failwith "impossible"
+                    | JoinPointType -> failwith "impossible"
+
+                print_method_definition true key.Symbol (join_point_type, fv, body)
+                move_to buffer_forward_declarations buffer_temp
+
+                print_method_definition false key.Symbol (join_point_type, fv, body)
+                move_to buffer_method buffer_temp
+            | TomType ty ->
+                match ty with
+                | ListT tys -> define_listt ty print_tag_tuple print_type_definition tys
+                | MapT(tys, _) -> define_mapt ty print_tag_env print_type_definition tys
+                | LayoutT ((LayoutStack | LayoutPackedStack) as layout, env, _) ->
+                    define_layoutt ty print_tag_env print_type_definition layout env
+                | UnionT tys as x -> print_union_definition (print_tag_union x) (Set.toArray tys)
+                | TermFunctionT(a,r) as x -> print_closure_type_definition (print_tag_closure x) (a,r)
+                | _ -> failwith "impossible"
+                move_to buffer_type_definitions buffer_temp
+
+
+        while definitions_queue.Count > 0 do
+            let x = definitions_queue.Dequeue() |> collect_definition
+            List.foldBack (fun x _ -> print_definition x) x ()
 
         "module SpiralExample.Main" |> state_new
         sprintf "let %s = \"\"\"" cuda_kernels_name |> state_new
@@ -2822,7 +2854,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         state_new ""
         "extern \"C\" {" |> state_new
         enter' <| fun _ ->
-            while buffer_type_definitions.Count > 0 do move_to buffer_temp (buffer_type_definitions.Pop())
+            move_to buffer_temp buffer_type_definitions
             move_to buffer_temp buffer_forward_declarations
             state_new ""
             move_to buffer_temp buffer_method
