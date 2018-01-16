@@ -510,9 +510,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 else on_type_er (trace d) <| sprintf "Types in branches of If do not match.\nGot: %s and %s" (show_ty type_tr) (show_ty type_fl)
             | TyType cond -> on_type_er (trace d) <| sprintf "Expected a bool in conditional.\nGot: %s" (show_ty cond)
 
+        // Note: The while loop is only here until NVidia fixes the compiler bugs in NVCC.
+        // It exists in order to be a workaround for languages that do not support tail call optimization.
+        // `cond` is always supposed to be a join point so no need to test for if it is a literal.
         let while_ d cond body =
             match tev_seq d cond with
-            | TyLit (LitBool false) -> tev d body
             | TyType (PrimT BoolT) as cond -> 
                 match tev_seq d body with
                 | TyType (ListT []) as body -> 
@@ -2772,9 +2774,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | JoinPointType -> ()
             
         while definitions_queue.Count > 0 do
-            let x = definitions_queue.ToArray() |> Array.rev
+            let x = definitions_queue.ToArray()
             definitions_queue.Clear()
-            x |> Array.iter (function
+            for i=x.Length-1 downto 0 do
+                match x.[i] with
                 | TomJP (join_point_type,key) ->
                     let fv,body =
                         match join_point_type with
@@ -2806,7 +2809,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | UnionT tys as x -> print_union_definition (print_tag_union x) (Set.toArray tys)
                     | TermFunctionT(a,r) as x -> print_closure_type_definition (print_tag_closure x) (a,r)
                     | _ -> failwith "impossible"
-                )
+                
                 
             buffer_type_definitions.Push(ResizeArray(buffer_temp))
             buffer_temp.Clear()
