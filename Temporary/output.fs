@@ -642,7 +642,7 @@ extern "C" {
         while (method_18(var_10)) {
             Env0 var_12 = var_10[0];
             long long int var_13 = var_12.mem_0;
-            long long int var_14 = (var_13 + 2);
+            long long int var_14 = (var_13 + 1);
             char var_15 = (var_13 >= 0);
             char var_17;
             if (var_15) {
@@ -667,75 +667,76 @@ extern "C" {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_23 = (10 * var_6);
-            long long int var_24 = (var_3 + var_23);
-            float var_25 = __int_as_float(0xff800000);
-            float var_26 = 0;
-            Env3 var_27[1];
-            var_27[0] = (make_Env3(var_24, make_Tuple4(var_25, var_26)));
-            while (method_34(var_27)) {
-                Env3 var_29 = var_27[0];
-                long long int var_30 = var_29.mem_0;
-                Tuple4 var_31 = var_29.mem_1;
-                float var_32 = var_31.mem_0;
-                float var_33 = var_31.mem_1;
-                long long int var_34 = (var_30 + 10);
-                char var_35 = (var_30 >= 0);
-                char var_37;
-                if (var_35) {
-                    var_37 = (var_30 < 10);
+            printf("outer i=%d\n", var_13);
+            long long int var_23 = (var_3 + var_6);
+            float var_24 = __int_as_float(0xff800000);
+            float var_25 = 0;
+            Env3 var_26[1];
+            var_26[0] = (make_Env3(var_23, make_Tuple4(var_24, var_25)));
+            while (method_34(var_26)) {
+                Env3 var_28 = var_26[0];
+                long long int var_29 = var_28.mem_0;
+                Tuple4 var_30 = var_28.mem_1;
+                float var_31 = var_30.mem_0;
+                float var_32 = var_30.mem_1;
+                long long int var_33 = (var_29 + 1);
+                char var_34 = (var_29 >= 0);
+                char var_36;
+                if (var_34) {
+                    var_36 = (var_29 < 10);
                 } else {
-                    var_37 = 0;
+                    var_36 = 0;
                 }
-                char var_38 = (var_37 == 0);
-                if (var_38) {
+                char var_37 = (var_36 == 0);
+                if (var_37) {
                     // "Argument out of bounds."
                 } else {
                 }
-                long long int var_39 = (var_19 + var_30);
-                float var_40 = var_0[var_39];
-                float var_41 = var_1[var_39];
-                char var_42 = (var_32 > var_40);
-                Tuple4 var_43;
-                if (var_42) {
-                    var_43 = make_Tuple4(var_32, var_33);
+                long long int var_38 = (var_19 + var_29);
+                float var_39 = var_0[var_38];
+                float var_40 = var_1[var_38];
+                printf("inner i=%d, (%f,%f)\n", var_29, var_39, var_40);
+                char var_41 = (var_31 > var_39);
+                Tuple4 var_42;
+                if (var_41) {
+                    var_42 = make_Tuple4(var_31, var_32);
                 } else {
-                    var_43 = make_Tuple4(var_40, var_41);
+                    var_42 = make_Tuple4(var_39, var_40);
                 }
-                float var_44 = var_43.mem_0;
-                float var_45 = var_43.mem_1;
-                var_27[0] = (make_Env3(var_34, make_Tuple4(var_44, var_45)));
+                float var_43 = var_42.mem_0;
+                float var_44 = var_42.mem_1;
+                var_26[0] = (make_Env3(var_33, make_Tuple4(var_43, var_44)));
             }
-            Env3 var_46 = var_27[0];
-            long long int var_47 = var_46.mem_0;
-            Tuple4 var_48 = var_46.mem_1;
-            float var_49 = var_48.mem_0;
-            float var_50 = var_48.mem_1;
-            FunPointer5 var_53 = method_35;
-            Tuple4 var_54 = cub::BlockReduce<Tuple4,10>().Reduce(make_Tuple4(var_49, var_50), var_53);
-            float var_55 = var_54.mem_0;
-            float var_56 = var_54.mem_1;
-            char var_57 = (var_3 == 0);
-            if (var_57) {
-                char var_59;
+            Env3 var_45 = var_26[0];
+            long long int var_46 = var_45.mem_0;
+            Tuple4 var_47 = var_45.mem_1;
+            float var_48 = var_47.mem_0;
+            float var_49 = var_47.mem_1;
+            FunPointer5 var_52 = method_35;
+            Tuple4 var_53 = cub::BlockReduce<Tuple4,1>().Reduce(make_Tuple4(var_48, var_49), var_52);
+            float var_54 = var_53.mem_0;
+            float var_55 = var_53.mem_1;
+            char var_56 = (var_3 == 0);
+            if (var_56) {
+                char var_58;
                 if (var_15) {
-                    var_59 = (var_13 < 2);
+                    var_58 = (var_13 < 2);
                 } else {
-                    var_59 = 0;
+                    var_58 = 0;
                 }
-                char var_60 = (var_59 == 0);
-                if (var_60) {
+                char var_59 = (var_58 == 0);
+                if (var_59) {
                     // "Argument out of bounds."
                 } else {
                 }
-                float var_61 = var_2[var_13];
-                var_2[var_13] = var_56;
+                float var_60 = var_2[var_13];
+                var_2[var_13] = var_55;
             } else {
             }
             var_10[0] = (make_Env0(var_14));
         }
-        Env0 var_62 = var_10[0];
-        long long int var_63 = var_62.mem_0;
+        Env0 var_61 = var_10[0];
+        long long int var_62 = var_61.mem_0;
     }
     __device__ char method_17(Env0 * var_0) {
         Env0 var_1 = var_0[0];
@@ -1318,9 +1319,9 @@ and method_14((var_0: ManagedCuda.CudaContext), (var_1: ManagedCuda.BasicTypes.C
         // method_33((var_154: ManagedCuda.BasicTypes.CUdeviceptr), (var_162: ManagedCuda.BasicTypes.CUdeviceptr), (var_164: ManagedCuda.BasicTypes.CUdeviceptr))
         let (var_166: (System.Object [])) = [|var_154; var_162; var_164|]: (System.Object [])
         let (var_167: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_33", var_1, var_0)
-        let (var_168: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 2u, 1u)
+        let (var_168: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
         var_167.set_GridDimensions(var_168)
-        let (var_169: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(10u, 1u, 1u)
+        let (var_169: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
         var_167.set_BlockDimensions(var_169)
         let (var_170: ManagedCuda.BasicTypes.CUstream) = var_2.get_Stream()
         var_167.RunAsync(var_170, var_166)
@@ -1620,9 +1621,9 @@ and method_37((var_0: ManagedCuda.CudaContext), (var_1: ManagedCuda.BasicTypes.C
         // method_33((var_156: ManagedCuda.BasicTypes.CUdeviceptr), (var_164: ManagedCuda.BasicTypes.CUdeviceptr), (var_166: ManagedCuda.BasicTypes.CUdeviceptr))
         let (var_168: (System.Object [])) = [|var_156; var_164; var_166|]: (System.Object [])
         let (var_169: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_33", var_1, var_0)
-        let (var_170: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 2u, 1u)
+        let (var_170: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
         var_169.set_GridDimensions(var_170)
-        let (var_171: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(10u, 1u, 1u)
+        let (var_171: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
         var_169.set_BlockDimensions(var_171)
         let (var_172: ManagedCuda.BasicTypes.CUstream) = var_2.get_Stream()
         var_169.RunAsync(var_172, var_168)

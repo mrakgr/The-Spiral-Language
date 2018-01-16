@@ -437,8 +437,8 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_in' = dim_in_a) "Input's outer dimension must equal the output's dimension."
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        inl blockDim = lit_min 1024 (s dim_in_b)
-        inl gridDimY = lit_min 64 (s dim_in')
+        inl blockDim = 1 //lit_min 1024 (s dim_in_b)
+        inl gridDimY = 1 //lit_min 64 (s dim_in')
 
         inl in = to_dev_tensor in
         inl in' = to_dev_tensor in'
@@ -453,6 +453,7 @@ inl {stream Cuda CudaTensor} ->
                 forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in'.from; by=gridDim.y*blockDim.y; near_to=dim_in'.near_to; body=inl {i} ->
                     inl in = in i
                     inl in' = in' i
+                    macro.cd unit [text:"printf"; args: "outer i=%d\n", i]
 
                     inl result = 
                         forcd {
@@ -462,7 +463,9 @@ inl {stream Cuda CudaTensor} ->
                             state=dyn neutral_elem 
                             body=inl {state i} -> 
                                 inl in = in i 
-                                redo state (map_in in.get in'.get)
+                                inl a = in.get
+                                macro.cd unit [text:"printf"; args: "inner i=%d, (%f,%f)\n", i, fst a, snd a]
+                                redo state (map_in a in'.get)
                             }
                         |> cub_block_reduce blockDim.x redo
 
