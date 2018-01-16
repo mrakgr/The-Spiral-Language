@@ -1228,9 +1228,19 @@ inl zip l =
     | () -> error_type "Empty inputs to zip are not allowed."
     | tns -> facade {dim=tns.dim; bodies=toa_map (inl x -> x.bodies) l}
 
+inl rec equal (!zip t) =
+    match t.dim with
+    | {from near_to} :: _ ->
+        Loops.for' {from near_to state=true; body=inl {next i} ->
+            equal (t i) && next true
+            }
+    | _ -> 
+        inl a :: b = t.get
+        Tuple.forall ((=) a) b
+
 {toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims length create dim_describe facade
  view_offsets init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip show
- toa_map3 toa_iter3 assert_contiguous assert_zip span}
+ toa_map3 toa_iter3 assert_contiguous assert_zip span equal}
 |> stack
     """) |> module_
 

@@ -506,7 +506,7 @@ inl by = 2
 Loops.for {from=0;near_to=32;by;body=inl {i} ->
     inl f a = a .view_span {from=i;by}
     inl a, b = f a, f b
-    accuracy (a,b) id |> Console.writeline
+    accuracy (a,b) id |> HostTensor.show |> Console.writeline
     }
 ()
     """
@@ -533,15 +533,6 @@ inl h1 = HostTensor.init (batch_size,hidden_size) (inl _ _ -> rnd_float32())
 
 inl zip = HostTensor.zip
 inl show a2 = HostTensor.show (zip a2) |> Console.writeline
-inl rec equal (!zip t) =
-    match t.dim with
-    | {from near_to} :: _ ->
-        Loops.for' {from near_to state=true; body=inl {next i} ->
-            equal (t i) && next true
-            }
-    | _ -> 
-        inl a :: b = t.get
-        Tuple.forall ((=) a) b
 
 inl a = h1
 inb b = CudaTensor.from_host_tensor h1
@@ -552,7 +543,70 @@ Loops.for {from=0;near_to=32;by;body=inl {i} ->
     inb b = CudaKernel.map id b 
     inl b = CudaTensor.to_host_tensor b
     show (a, b)
-    equal (a, b) |> Console.writeline
+    HostTensor.equal (a, b) |> Console.writeline
+    }
+    """
+
+let debug3 =
+    "debug3",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does view_span work correctly with map_d1_redo_map?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+inb CudaRandomModule = CudaRandom
+inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
+inl default_float = float32
+
+inl infinity = infinityf32
+inl zero = 0f32
+
+inl accuracy' input  =
+    inl a, b = input.dim
+    inl state = dyn (-infinity,zero)
+    inl redo = inl a b -> if fst a > fst b then a else b
+    HostTensor.init a (inl i ->
+        inl {from near_to} = b
+        inl input = input i
+        Loops.for { from near_to state
+            body=inl {state i} -> redo state (input i .get)
+            } 
+        )
+
+inl accuracy input =
+    CudaKernel.map_d1_redo_map {
+        map_in=const
+        neutral_elem=-infinity,zero
+        redo=inl a b -> if fst a > fst b then a else b
+        } input ()
+
+open Extern
+inl rnd_ty = fs [text: "System.Random"]
+inl rnd = FS.Constructor rnd_ty ()
+inl rnd_float64 () = FS.Method rnd .NextDouble() float64
+inl rnd_float32 () = rnd_float64 () |> unsafe_convert float32
+
+inl hidden_size = 5
+inl batch_size = 32
+
+inl h1 = HostTensor.init (batch_size,hidden_size) (inl _ _ -> rnd_float32())
+inl h2 = HostTensor.init (batch_size,hidden_size) (inl _ _ -> rnd_float32())
+
+inl zip = HostTensor.zip
+inl show a2 = HostTensor.show (zip a2) |> Console.writeline
+
+inl a = zip (h1,h2)
+inb b = CudaTensor.from_host_tensor a
+inl by = 2
+Loops.for {from=0;near_to=32;by;body=inl {i} ->
+    inl f a = a .view_span {from=i;by}
+    inl a, b = f a, f b
+    inl a = accuracy' a
+    inb b = accuracy b 
+    inl b = CudaTensor.to_host_tensor b
+    show (a, b)
+    HostTensor.equal (a, b) |> Console.writeline
     }
     """
 
@@ -566,6 +620,6 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" debug2
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" debug1
 |> printfn "%s"
 |> ignore

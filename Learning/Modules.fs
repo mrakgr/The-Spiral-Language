@@ -437,8 +437,8 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_in' = dim_in_a) "Input's outer dimension must equal the output's dimension."
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        inl blockDim = 1 //lit_min 1024 (s dim_in_b)
-        inl gridDimY = 1 //lit_min 64 (s dim_in')
+        inl blockDim = lit_min 1024 (s dim_in_b)
+        inl gridDimY = lit_min 64 (s dim_in')
 
         inl in = to_dev_tensor in
         inl in' = to_dev_tensor in'
@@ -924,10 +924,11 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 map_in=const
                 neutral_elem=-infinity,zero
                 redo=inl a b -> if fst a > fst b then a else b
-                map_out=inl a -> snd a
+                //map_out=inl a -> snd a = one
                 } (input,label) ()
-        Array.foldl (+) (dyn 0f32) (to_host_tensor x).bodies.ar 
-        |> unsafe_convert int64 |> ret
+        ret (to_host_tensor x)
+        //Array.foldl (inl s x -> if x then s+1 else s) (dyn 0) (to_host_tensor x).bodies.ar 
+        //|> ret
 
     inl error {fwd bck} (input,_ as x) = 
         inl batch_size = primal input .dim |> fst |> span
