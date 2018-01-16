@@ -511,6 +511,51 @@ Loops.for {from=0;near_to=32;by;body=inl {i} ->
 ()
     """
 
+let debug2 =
+    "debug2",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;console],"Does view_span work correctly with map?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+
+open Extern
+inl rnd_ty = fs [text: "System.Random"]
+inl rnd = FS.Constructor rnd_ty ()
+inl rnd_float64 () = FS.Method rnd .NextDouble() float64
+inl rnd_float32 () = rnd_float64 () |> unsafe_convert float32
+
+inl hidden_size = 5
+inl batch_size = 32
+
+inl h1 = HostTensor.init (batch_size,hidden_size) (inl _ _ -> rnd_float32())
+
+inl zip = HostTensor.zip
+inl show a2 = HostTensor.show (zip a2) |> Console.writeline
+inl rec equal (!zip t) =
+    match t.dim with
+    | {from near_to} :: _ ->
+        Loops.for' {from near_to state=true; body=inl {next i} ->
+            equal (t i) && next true
+            }
+    | _ -> 
+        inl a :: b = t.get
+        Tuple.forall ((=) a) b
+
+inl a = h1
+inb b = CudaTensor.from_host_tensor h1
+inl by = 2
+Loops.for {from=0;near_to=32;by;body=inl {i} ->
+    inl f a = a .view_span {from=i;by}
+    inl a, b = f a, f b
+    inb b = CudaKernel.map id b 
+    inl b = CudaTensor.to_host_tensor b
+    show (a, b)
+    equal (a, b) |> Console.writeline
+    }
+    """
+
 let tests =
     [|
     allocator1
@@ -521,6 +566,6 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" debug1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" debug2
 |> printfn "%s"
 |> ignore

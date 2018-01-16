@@ -1192,11 +1192,12 @@ inl reshape (!dim_describe {len dim make_body}) tns =
             inl len' = product dim'
             assert (len = len') "The product of given dimensions does not match the product of tensor dimensions."
             dim)
-        .update_body (inl {offset=_::o' ar} ->
+        .update_body (inl {offset=o::o' ar} ->
             assert 
                 (Tuple.forall ((=) 0) o') 
                 "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead"
-            make_body ar
+            inl {d with offset=_::o'} = make_body ar
+            {d with offset=o::o'}
             )
 
 inl assert_contiguous tns = reshape tns.dim tns |> ignore 
