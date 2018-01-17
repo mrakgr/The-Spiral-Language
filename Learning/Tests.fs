@@ -410,7 +410,7 @@ inb { test_images test_labels train_images train_labels} =
 inl input_size = 784
 inl hidden_size = 10
 
-inb network = init (sigmoid hidden_size) input_size >>! with_error cross_entropy
+inb network = init (sigmoid 128, sigmoid hidden_size) input_size >>! with_error square
 
 inl train_images=train_images .view_span 10240
 inl train_labels=train_labels .view_span 10240
@@ -418,7 +418,7 @@ inl train_labels=train_labels .view_span 10240
 Loops.for {from=0; near_to=1000;body=inl _ ->
     run {
         network input=train_images; label=train_labels
-        optimizer=Optimizer.sgd 0.03f32
+        optimizer=Optimizer.sgd 0.5f32
         state={
             running_cost=dyn 0.0
             running_accuracy=dyn 0

@@ -225,10 +225,6 @@ inl {stream Cuda Allocator} ->
             FS.Method context .ClearMemoryAsync (ar,0u8,size * sizeof ar.elem_type |> SizeT,stream) unit
         |> ignore
 
-    inl fmap f a ret =
-        inb a = a
-        ret (f a)
-
     inl clear' x = clear x; x
     inl zero = create >> clear'
     inl zero_like = create_like >> clear'
