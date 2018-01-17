@@ -642,7 +642,6 @@ inl train_labels=train_labels .view_span 32
 
 grad_check {network input=train_images; label=train_labels}
 ()
-
     """
 
 let tests =
