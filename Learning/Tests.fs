@@ -410,7 +410,7 @@ inb { test_images test_labels train_images train_labels} =
 inl input_size = 784
 inl hidden_size = 10
 
-inb network = init (sigmoid 128, sigmoid hidden_size) input_size >>! with_error square
+inb network = init (sigmoid 128, sigmoid hidden_size) input_size >>! with_error cross_entropy
 
 inl train_images=train_images .view_span 10240
 inl train_labels=train_labels .view_span 10240

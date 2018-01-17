@@ -143,7 +143,7 @@ inl {Cuda size} ret ->
             assert (to_uint size + pool_used <= pool_size) "Cache size has been exceeded in the allocator."
             inl ptr = 
                 inl x = top_ptr + top_size
-                x + x % 128u64 |> uint_to_ptr |> smartptr_create
+                x + x % 256u64 |> uint_to_ptr |> smartptr_create
             inl cell = {size ptr}
             FS.Method stack .Push cell unit
             cell.ptr

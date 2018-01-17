@@ -1568,7 +1568,7 @@ and method_11((var_0: ManagedCuda.BasicTypes.CUdeviceptr), (var_1: uint64), (var
     else
         ()
     let (var_16: uint64) = (var_8 + var_9)
-    let (var_17: uint64) = (var_16 % 128UL)
+    let (var_17: uint64) = (var_16 % 256UL)
     let (var_18: uint64) = (var_16 + var_17)
     let (var_19: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_18)
     let (var_20: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_19)
@@ -1584,7 +1584,7 @@ and method_12((var_0: uint64), (var_1: uint64), (var_2: int64), (var_3: System.C
         (failwith "Cache size has been exceeded in the allocator.")
     else
         ()
-    let (var_7: uint64) = (var_0 % 128UL)
+    let (var_7: uint64) = (var_0 % 256UL)
     let (var_8: uint64) = (var_0 + var_7)
     let (var_9: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_8)
     let (var_10: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_9)
