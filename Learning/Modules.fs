@@ -453,7 +453,6 @@ inl {stream Cuda CudaTensor} ->
                 forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in'.from; by=gridDim.y*blockDim.y; near_to=dim_in'.near_to; body=inl {i} ->
                     inl in = in i
                     inl in' = in' i
-                    macro.cd unit [text:"printf"; args: "outer i=%d\n", i]
 
                     inl result = 
                         forcd {
@@ -464,7 +463,6 @@ inl {stream Cuda CudaTensor} ->
                             body=inl {state i} -> 
                                 inl in = in i 
                                 inl a = in.get
-                                macro.cd unit [text:"printf"; args: "inner i=%d, (%f,%f)\n", i, fst a, snd a]
                                 redo state (map_in a in'.get)
                             }
                         |> cub_block_reduce blockDim.x redo
@@ -915,20 +913,15 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl accuracy (input,label) ret =
         inl input, label = primal input, primal label
-        inl _ =
-            inb input = CudaKernel.map id input 
-            inb label = CudaKernel.map id label
-            HostTensor.show (zip (to_host_tensor input, to_host_tensor label)) |> Console.writeline
         inb x = 
             map_d1_redo_map {
                 map_in=const
                 neutral_elem=-infinity,zero
                 redo=inl a b -> if fst a > fst b then a else b
-                //map_out=inl a -> snd a = one
+                map_out=snd
                 } (input,label) ()
-        ret (to_host_tensor x)
-        //Array.foldl (inl s x -> if x then s+1 else s) (dyn 0) (to_host_tensor x).bodies.ar 
-        //|> ret
+        Array.foldl (inl s x -> if x = one then s+1 else s) (dyn 0) (to_host_tensor x).bodies.ar 
+        |> ret
 
     inl error {fwd bck} (input,_ as x) = 
         inl batch_size = primal input .dim |> fst |> span

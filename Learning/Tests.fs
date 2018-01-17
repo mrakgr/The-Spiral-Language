@@ -412,13 +412,13 @@ inl hidden_size = 10
 
 inb network = init (sigmoid hidden_size) input_size >>! with_error square
 
-inl train_images=train_images .view_span 32
-inl train_labels=train_labels .view_span 32
+//inl train_images=train_images .view_span 128
+//inl train_labels=train_labels .view_span 128
 
-Loops.for {from=0; near_to=1;body=inl _ ->
+Loops.for {from=0; near_to=100;body=inl _ ->
     run {
-        network input=train_images; label=train_labels; minibatch_size=4
-        optimizer=Optimizer.sgd 0.01f32
+        network input=train_images; label=train_labels; minibatch_size=64
+        optimizer=Optimizer.sgd 1.0f32
         state={
             running_cost=dyn 0.0
             running_accuracy=dyn 0
@@ -620,6 +620,6 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" debug1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
 |> printfn "%s"
 |> ignore
