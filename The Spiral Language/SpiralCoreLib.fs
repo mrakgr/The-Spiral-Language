@@ -253,12 +253,16 @@ inl infinityf32 = !InfinityF32()
 // Since join points use structural equality and nan = nan returns false, nans will cause it to diverge.
 // Note for future language designers - make nan = nan return true!
 
+inl abs x = 
+    inl x' = -x
+    if x' < x then x else x'
+
 {type_lit_lift error_type print_static dyn (=>) cd fs log exp tanh sqrt array_create array_length array_is array
  split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
  string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref (+) (-) (*) (/) (%)
  (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>) fst snd not macro
  string_length lit_is box_is failwith assert max min eq_type module_values caseable_is caseable_box_is (:>)
  (:?>) (=) module_map module_filter module_foldl module_foldr module_has_member sizeof string_format string_concat
- array_create_cuda_shared array_create_cuda_local infinityf64 infinityf32
+ array_create_cuda_shared array_create_cuda_local infinityf64 infinityf32 abs
 } |> stack
     """) |> module_

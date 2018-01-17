@@ -818,7 +818,6 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
     inl matmult A B ret =
         inb C = gemm .nT .nT one (primal A) (primal B) >>! dr
         ret (C, inl _ ->
-            Console.writeline "I am in matmult back."
             on_non_nil (adjoint A) (inl A -> gemm' .nT .T one (adjoint C) (primal B) one A)
             on_non_nil (adjoint B) (inl B -> gemm' .T .nT one (primal A) (adjoint C) one B)
             )
@@ -833,7 +832,6 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 inl in adjoint -> toa_map ((|>) in) bck |> toa_map2 (+) adjoint
 
             inb adjoint = filter_unit_and_branch adjoint 
-            Console.writeline "I am in map back."
             map' bck {in=primal; out} adjoint
             )
 
@@ -843,7 +841,6 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         inb out = replicate_map fwd primal primal' >>! dr
         ret (out, inl _ ->
             inl out = match out with {DR={primal adjoint}} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
-            Console.writeline "I am in replicate_map back."
             on_non_nil adjoint (map_d2_redo_map' bck_in {in'=primal'; out} primal)
             on_non_nil adjoint' (replicate_map' bck_in' primal {in'=primal'; out})
             )
@@ -853,7 +850,6 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
         ret (C, inl _ ->
             inl C' = adjoint C
-            Console.writeline "I am in matmultb back."
             on_non_nil (adjoint A) (inl A -> gemm' .nT .T one C' (primal B) one A)
             on_non_nil (adjoint B) (inl B -> gemm' .T .nT one (primal A) C' one B)
             on_non_nil (adjoint bias) (inl bias -> map_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
@@ -880,7 +876,6 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 inl bck = filter_based_on_adjoints bck adjoint
                 toa_map ((|>) {in=primal; out}) bck
             inb adjoint = filter_unit_and_branch adjoint 
-            Console.writeline "I am in host_map back."
             toa_map2 (inl a b -> a := a() + b) adjoint bck
             )
 
@@ -893,7 +888,6 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 inl bck = filter_based_on_adjoints bck adjoint
                 inl {in} adjoint -> toa_map ((|>) {in out}) bck |> toa_map2 (+) adjoint
             inb adjoint = filter_unit_and_branch adjoint 
-            Console.writeline "I am in map_redo back."
             map' bck {in=primal} adjoint
             )
 
@@ -965,9 +959,9 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
     inl layer initializer activation hidden_size next_layer input_size ret =
         inb weight = initializer (input_size, hidden_size) >>! dr
         inb bias = CudaTensor.zero {elem_type=default_float; dim=hidden_size} >>! dr
-        inb {update_weights apply} = next_layer hidden_size
+        inb {weights apply} = next_layer hidden_size
         ret {
-            update_weights = inl f -> f weight; f bias; update_weights f
+            weights = (weight, bias) :: weights
             apply = inl input -> matmultb input weight bias >>= activation >>= apply
             }
 
@@ -981,7 +975,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
     inl init = 
         inl fin _ ret =
             ret {
-                update_weights = const ()
+                weights = ()
                 apply = succ
                 }            
         function
@@ -999,7 +993,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl Optimizer = {sgd}
 
-    inl run {d with network={update_weights apply} input label state} =
+    inl run {d with network={weights apply} input label state} =
         open Extern
         open Console
         inl dim1 x = x.dim |> fst
@@ -1017,7 +1011,8 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             | {optimizer} ->
                 adjoint cost := one_of primal
                 bck() // Runs the backwards pass.
-                update_weights optimizer
+                print_static weights
+                toa_iter optimizer weights
             | _ -> ()
 
             inl running_cost =
@@ -1043,5 +1038,59 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         match state with {running_accuracy} -> string_format "The accuracy of the batch is {0}/{1}." (running_accuracy,span) |> writeline | _ -> ()
         writeline "-----"
 
-    {dr primal primals adjoint adjoints (>>!) Primitive succ (>>=) Activation Error Feedforward Optimizer run accuracy}
+    inl grad_check {d with network={weights apply} input label} =
+        open Extern
+        inl CDV t = fs [text: "ManagedCuda.CudaDeviceVariable"; types: t] |> FS.Constructor
+        inl SizeT = fs [text: "ManagedCuda.BasicTypes.SizeT"] |> FS.Constructor
+        inl into_cdv x =
+            inl {ar offset=offset : int64} = x.bodies
+            inl elem_type = ar.elem_type
+            inl size = sizeof elem_type
+            inl ptr = ar.ptr()
+            {cdv=CDV elem_type (ptr,false,SizeT size); elem_type offset}
+
+        inl get_cdv x = macro.fs x.elem_type [arg:x.cdv; text: ".["; arg:SizeT x.offset; text: "]"]
+        inl set_cdv x v = macro.fs unit [arg:x.cdv; text: ".["; arg:SizeT x.offset; text: "] <- "; arg:v : x.elem_type]
+
+        // Run it once.
+        inb {cost accuracy}, bck = apply (input, label)
+        adjoint cost := 1f32
+        bck()
+
+        inl epsilon = 0.001f32
+        inl boundary = 0.001f32
+        // Assert that all the gradients make sense.
+
+        inl rec perturb primal' adjoint' =
+            HostTensor.assert_zip (primal', adjoint') |> ignore
+            match primal'.dim with
+            | {from near_to} :: _ ->
+                Loops.for {from near_to body=inl {i} ->
+                    perturb (primal' i) (adjoint' i)
+                    }
+            | _ -> 
+                met cost () =
+                    inb {cost accuracy}, bck = apply (input, label)
+                    primal cost
+                inl cdv = into_cdv primal'
+                inl orig = get_cdv cdv
+                set_cdv cdv (orig + epsilon)
+                inl cost_plus_epsilon = cost ()
+                set_cdv cdv (orig - epsilon)
+                inl cost_minus_epsilon = cost ()
+                set_cdv cdv orig
+                inl approx_gradient = (cost_plus_epsilon - cost_minus_epsilon) / (2.0f32 * epsilon)
+
+                inl cdv = into_cdv adjoint'
+                inl true_gradient = get_cdv cdv
+                
+                inl diff = abs (true_gradient - approx_gradient)
+                if diff >= boundary then
+                    Console.writeline {true_gradient approx_gradient diff}
+                    Console.writeline "--- Gradient checking failure."
+                
+        toa_iter (inl t -> perturb (primal t) (adjoint t)) weights
+
+
+    {dr primal primals adjoint adjoints (>>!) Primitive succ (>>=) Activation Error Feedforward Optimizer run grad_check accuracy }
     """) |> module_

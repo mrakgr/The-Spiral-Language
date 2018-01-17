@@ -1784,7 +1784,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let part_active_pat = prefixOperatorChar '@'
         let wildcard = operatorChar '_'
 
-        let pbool = ((skipString "false" >>% LitBool false) <|> (skipString "true" >>% LitBool true)) .>> spaces
+        let pbool = ((keywordString "false" >>% LitBool false) <|> (keywordString "true" >>% LitBool true)) .>> spaces
 
         let unary_minus_check_precondition s = previousCharSatisfiesNot (is_separator_char_ext >> not) s
         let unary_minus_check s = (unary_minus_check_precondition >>. prefix_negate) s

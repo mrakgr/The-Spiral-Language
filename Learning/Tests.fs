@@ -342,7 +342,7 @@ inl hidden_size = 4
 inb input = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=2,input_size}
 inb label = CudaTensor.zero {elem_type=default_float; dim=2,hidden_size}
 
-inb {apply update_weights} = init (sigmoid hidden_size) input_size >>! with_error square
+inb {apply} = init (sigmoid hidden_size) input_size >>! with_error square
 inb {cost},bck = apply (input,label)
 
 Console.writeline ("Cost is:", primal cost)
@@ -376,7 +376,7 @@ inb { test_images test_labels train_images train_labels} =
 inl input_size = 784
 inl hidden_size = 10
 
-inb {apply update_weights} = init (sigmoid hidden_size) input_size >>! with_error square
+inb {apply} = init (sigmoid hidden_size) input_size >>! with_error square
 inb {cost},bck = apply (test_images,test_labels)
 
 Console.writeline ("Cost is:", primal cost)
@@ -415,10 +415,10 @@ inb network = init (sigmoid hidden_size) input_size >>! with_error square
 inl train_images=train_images .view_span 10240
 inl train_labels=train_labels .view_span 10240
 
-Loops.for {from=0; near_to=1;body=inl _ ->
+Loops.for {from=0; near_to=1000;body=inl _ ->
     run {
         network input=train_images; label=train_labels
-        optimizer=Optimizer.sgd 0.01f32
+        optimizer=Optimizer.sgd 1f32
         state={
             running_cost=dyn 0.0
             running_accuracy=dyn 0
@@ -610,6 +610,40 @@ Loops.for {from=0;near_to=32;by;body=inl {i} ->
     }
     """
 
+let grad1 =
+    "grad1",[loops;cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"Does gradient checking pass for the full network?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+inb CudaRandomModule = CudaRandom
+inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
+inb CudaBlasModule = CudaBlas
+inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
+inl default_float = float32
+open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+open Error
+open Feedforward
+
+inb { test_images test_labels train_images train_labels} =
+    inl mnist_path = @"C:\ML Datasets\Mnist"
+    Mnist.load_mnist_tensors mnist_path
+    |> CudaTensor.from_host_tensors
+
+inl input_size = 784
+inl hidden_size = 10
+
+inb network = init (sigmoid hidden_size, sigmoid hidden_size) input_size >>! with_error square
+
+inl train_images=train_images .view_span 32
+inl train_labels=train_labels .view_span 32
+
+grad_check {network input=train_images; label=train_labels}
+()
+    """
+
 let tests =
     [|
     allocator1
@@ -620,6 +654,6 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" grad1
 |> printfn "%s"
 |> ignore
