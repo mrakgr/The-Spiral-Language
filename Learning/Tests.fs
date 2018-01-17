@@ -635,7 +635,7 @@ inb { test_images test_labels train_images train_labels} =
 inl input_size = 784
 inl hidden_size = 10
 
-inb network = init (sigmoid hidden_size, sigmoid hidden_size) input_size >>! with_error square
+inb network = init (sigmoid hidden_size) input_size >>! with_error cross_entropy
 
 inl train_images=train_images .view_span 32
 inl train_labels=train_labels .view_span 32
@@ -655,6 +655,6 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" grad1
 |> printfn "%s"
 |> ignore

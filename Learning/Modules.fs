@@ -945,7 +945,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
     inl cross_entropy = error {
         fwd = inl x, y -> -(y * log x + (one - y) * log (one - x))
         bck = 
-            inl {in=x, y} -> x * (x - y) / (one - x)
+            inl {in=x, y} -> (x - y) / (x * (one - x))
             ,inl {in=x, y} -> log (one - x) - log x
         }
 
@@ -1056,10 +1056,15 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         inl get_cdv x = macro.fs x.elem_type [arg:x.cdv; text: ".["; arg:SizeT x.offset; text: "]"]
         inl set_cdv x v = macro.fs unit [arg:x.cdv; text: ".["; arg:SizeT x.offset; text: "] <- "; arg:v : x.elem_type]
 
-        // Run it once.
-        inb {cost accuracy}, bck = apply (input, label)
-        adjoint cost := 1f32
-        bck()
+        met run () = 
+            inb {cost accuracy}, bck = apply (input, label)
+            adjoint cost := 1f32
+            bck()
+        met update () = 
+            toa_iter (sgd 0.01f32) weights
+
+        // Run it a few times.
+        run()
 
         inl epsilon = 0.001f32
         inl boundary = 0.001f32
