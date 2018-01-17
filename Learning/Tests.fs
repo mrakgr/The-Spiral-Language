@@ -410,14 +410,14 @@ inb { test_images test_labels train_images train_labels} =
 inl input_size = 784
 inl hidden_size = 10
 
-inb network = init (sigmoid 128, sigmoid hidden_size) input_size >>! with_error cross_entropy
+inb network = init (sigmoid hidden_size) input_size >>! with_error cross_entropy
 
 inl train_images=train_images .view_span 10240
 inl train_labels=train_labels .view_span 10240
 
-Loops.for {from=0; near_to=1000;body=inl _ ->
+Loops.for {from=0; near_to=100;body=inl _ ->
     run {
-        network input=train_images; label=train_labels
+        network input=train_images; label=train_labels; minibatch_size=128
         optimizer=Optimizer.sgd 0.5f32
         state={
             running_cost=dyn 0.0
@@ -655,6 +655,6 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" grad1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
 |> printfn "%s"
 |> ignore
