@@ -2776,6 +2776,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         /// Flattens the types inside out as it encounters them.
         let definitions_set_printed = h0()
         let rec collect_definition x: TypeOrMethod list = 
+            let inline f x = collect_definition (TomType x)
             if definitions_set_printed.Add x then
                 match x with
                 | TomJP (join_point_type,key) ->
@@ -2794,15 +2795,17 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                             | JoinPointDone(a,b) -> a
                             | _ -> failwith "impossible"
                         | JoinPointType -> failwith "impossible"
-                        |> List.collect (collect_definition << TomType << snd)
+                        |> List.collect (f << snd)
                     x :: x'
                 | TomType ty ->
                     match ty with
-                    | ListT tys -> x :: (List.collect (collect_definition << TomType) tys)
-                    | MapT(tys, _) -> x :: (Map.toList tys |> List.collect (collect_definition << TomType << snd))
-                    | LayoutT (_, C env, _) -> x :: (env_to_ty env |> Map.toList |> List.collect (collect_definition << TomType << snd))
-                    | UnionT tys -> x :: (Set.toList tys |> List.collect (collect_definition << TomType))
-                    | TermFunctionT(a,b) -> x :: collect_definition (TomType a) @ collect_definition (TomType b)
+                    | ListT tys -> x :: (List.collect f tys)
+                    | MapT(tys, _) -> x :: (Map.toList tys |> List.collect (f << snd))
+                    | LayoutT (_, env, _) ->
+                        let {call_args=x'},_ = renamer_apply_env env
+                        x :: (List.collect (f << snd) x')
+                    | UnionT tys -> x :: (Set.toList tys |> List.collect f)
+                    | TermFunctionT(a,b) -> x :: f a  @ f b
                     | _ -> []
             else
                 []
