@@ -818,6 +818,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
     inl matmult A B ret =
         inb C = gemm .nT .nT one (primal A) (primal B) >>! dr
         ret (C, inl _ ->
+            Console.writeline "I am in matmult back."
             on_non_nil (adjoint A) (inl A -> gemm' .nT .T one (adjoint C) (primal B) one A)
             on_non_nil (adjoint B) (inl B -> gemm' .T .nT one (primal A) (adjoint C) one B)
             )
@@ -832,6 +833,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 inl in adjoint -> toa_map ((|>) in) bck |> toa_map2 (+) adjoint
 
             inb adjoint = filter_unit_and_branch adjoint 
+            Console.writeline "I am in map back."
             map' bck {in=primal; out} adjoint
             )
 
@@ -841,6 +843,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         inb out = replicate_map fwd primal primal' >>! dr
         ret (out, inl _ ->
             inl out = match out with {DR={primal adjoint}} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
+            Console.writeline "I am in replicate_map back."
             on_non_nil adjoint (map_d2_redo_map' bck_in {in'=primal'; out} primal)
             on_non_nil adjoint' (replicate_map' bck_in' primal {in'=primal'; out})
             )
@@ -850,6 +853,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
         ret (C, inl _ ->
             inl C' = adjoint C
+            Console.writeline "I am in matmultb back."
             on_non_nil (adjoint A) (inl A -> gemm' .nT .T one C' (primal B) one A)
             on_non_nil (adjoint B) (inl B -> gemm' .T .nT one (primal A) C' one B)
             on_non_nil (adjoint bias) (inl bias -> map_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
@@ -876,6 +880,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 inl bck = filter_based_on_adjoints bck adjoint
                 toa_map ((|>) {in=primal; out}) bck
             inb adjoint = filter_unit_and_branch adjoint 
+            Console.writeline "I am in host_map back."
             toa_map2 (inl a b -> a := a() + b) adjoint bck
             )
 
@@ -888,6 +893,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 inl bck = filter_based_on_adjoints bck adjoint
                 inl {in} adjoint -> toa_map ((|>) {in out}) bck |> toa_map2 (+) adjoint
             inb adjoint = filter_unit_and_branch adjoint 
+            Console.writeline "I am in map_redo back."
             map' bck {in=primal} adjoint
             )
 
@@ -970,6 +976,8 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         CudaRandom.create_tensor {dst=.Normal; stddev mean=0f32} {dim elem_type=type zero}
 
     inl sigmoid = layer sigmoid_initializer sigmoid
+    inl linear = layer sigmoid_initializer succ
+
     inl init = 
         inl fin _ ret =
             ret {
@@ -981,7 +989,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         | layer -> layer fin
     inl with_error error network ret = ret {network with apply = inl (input,label) -> self input >>= inl input -> error (input,label)}
 
-    inl Feedforward = {sigmoid init with_error}
+    inl Feedforward = {sigmoid linear init with_error}
 
     // #Optimizer
     inl sgd learning_rate x = 
