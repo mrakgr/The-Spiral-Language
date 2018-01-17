@@ -965,6 +965,15 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             apply = inl input -> matmultb input weight bias >>= activation >>= apply
             }
 
+    //inl layer initializer activation hidden_size next_layer input_size ret =
+    //    inb weight = initializer (input_size, hidden_size) >>! dr
+    //    //inb bias = CudaTensor.zero {elem_type=default_float; dim=hidden_size} >>! dr
+    //    inb {weights apply} = next_layer hidden_size
+    //    ret {
+    //        weights = weight :: weights
+    //        apply = inl input -> matmult input weight >>= activation >>= apply
+    //        }
+
     inl sigmoid_initializer dim = 
         inl stddev = sqrt (two / unsafe_convert default_float (Tuple.foldl (+) 0 dim))
         CudaRandom.create_tensor {dst=.Normal; stddev mean=0f32} {dim elem_type=type zero}
@@ -1011,7 +1020,6 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             | {optimizer} ->
                 adjoint cost := one_of primal
                 bck() // Runs the backwards pass.
-                print_static weights
                 toa_iter optimizer weights
             | _ -> ()
 
