@@ -1395,56 +1395,56 @@ inl ret ->
     inl uint_to_ptr (x: uint64) = SizeT x |> CUdeviceptr
 
     inl run {blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} as runable =
-        inl to_obj_ar args =
-            inl ty = fs [text: "System.Object"] |> array
-            !MacroFs(ty,[fs_array_args: args; text: ": "; type: ty])
+        //inl to_obj_ar args =
+        //    inl ty = fs [text: "System.Object"] |> array
+        //    !MacroFs(ty,[fs_array_args: args; text: ": "; type: ty])
 
-        inl kernel =
-            inl map_to_op_if_not_static {x y z} (x', y', z') = 
-                inl f x x' = if lit_is x then const x else x' 
-                f x x', f y y', f z z'
-            inl x,y,z = map_to_op_if_not_static blockDim (__blockDimX,__blockDimY,__blockDimZ)
-            inl x',y',z' = map_to_op_if_not_static gridDim (__gridDimX,__gridDimY,__gridDimZ)
-            inl method_name, args -> // This convoluted way of swaping non-literals for ops is so they do not get called outside of the kernel.
-                inl args' = 
-                    Tuple.map (function
-                        | _ & @array_is _ -> "%llu"
-                        | _ : float32 | _ : float64 -> "%f"
-                        | _ -> "%d") args
-                    |> string_concat ", "
-                inl an = string_format "Inside {0} with args: [{1}]\n" (method_name, args')
-                macro.cd unit [text: "printf"; args: an :: args]
+        //inl kernel =
+        //    inl map_to_op_if_not_static {x y z} (x', y', z') = 
+        //        inl f x x' = if lit_is x then const x else x' 
+        //        f x x', f y y', f z z'
+        //    inl x,y,z = map_to_op_if_not_static blockDim (__blockDimX,__blockDimY,__blockDimZ)
+        //    inl x',y',z' = map_to_op_if_not_static gridDim (__gridDimX,__gridDimY,__gridDimZ)
+        //    inl method_name, args -> // This convoluted way of swaping non-literals for ops is so they do not get called outside of the kernel.
+        //        inl args' = 
+        //            Tuple.map (function
+        //                | _ & @array_is _ -> "%llu"
+        //                | _ : float32 | _ : float64 -> "%f"
+        //                | _ -> "%d") args
+        //            |> string_concat ", "
+        //        inl an = string_format "Inside {0} with args: [{1}]\n" (method_name, args')
+        //        macro.cd unit [text: "printf"; args: an :: args]
 
-                inl threadIdx = {x=__threadIdxX(); y=__threadIdxY(); z=__threadIdxZ()}
-                inl blockIdx = {x=__blockIdxX(); y=__blockIdxY(); z=__blockIdxZ()}
-                inl blockDim = {x=x(); y=y(); z=z()}
-                inl gridDim = {x=x'(); y=y'(); z=z'()}
-                kernel threadIdx blockIdx blockDim gridDim
+        //        inl threadIdx = {x=__threadIdxX(); y=__threadIdxY(); z=__threadIdxZ()}
+        //        inl blockIdx = {x=__blockIdxX(); y=__blockIdxY(); z=__blockIdxZ()}
+        //        inl blockDim = {x=x(); y=y(); z=z()}
+        //        inl gridDim = {x=x'(); y=y'(); z=z'()}
+        //        kernel threadIdx blockIdx blockDim gridDim
 
-        inl method_name, args = (inl _ -> !JoinPointEntryCuda(kernel)) ()
-        inl _ = 
-            inl args = 
-                Tuple.map (function
-                    | x & @array_is _ -> to_uint x
-                    | x -> x
-                    ) args
+        //inl method_name, args = (inl _ -> !JoinPointEntryCuda(kernel)) ()
+        //inl _ = 
+        //    inl args = 
+        //        Tuple.map (function
+        //            | x & @array_is _ -> to_uint x
+        //            | x -> x
+        //            ) args
 
-            string_format "Calling {0} with args: {1}" (method_name, show args)
-            |> Console.writeline
+        //    string_format "Calling {0} with args: {1}" (method_name, show args)
+        //    |> Console.writeline
         
-        inl dim3 {x y z} = Tuple.map (unsafe_convert uint32) (x,y,z) |> FS.Constructor (fs [text: "ManagedCuda.VectorTypes.dim3"])
+        //inl dim3 {x y z} = Tuple.map (unsafe_convert uint32) (x,y,z) |> FS.Constructor (fs [text: "ManagedCuda.VectorTypes.dim3"])
     
-        inl context = match runable with | {context} | _ -> context
-        inl kernel_type = fs [text: "ManagedCuda.CudaKernel"]
-        inl cuda_kernel = FS.Constructor kernel_type (method_name,modules,context)
-        FS.Method cuda_kernel .set_GridDimensions(dim3 gridDim) unit
-        FS.Method cuda_kernel .set_BlockDimensions(dim3 blockDim) unit
+        //inl context = match runable with | {context} | _ -> context
+        //inl kernel_type = fs [text: "ManagedCuda.CudaKernel"]
+        //inl cuda_kernel = FS.Constructor kernel_type (method_name,modules,context)
+        //FS.Method cuda_kernel .set_GridDimensions(dim3 gridDim) unit
+        //FS.Method cuda_kernel .set_BlockDimensions(dim3 blockDim) unit
 
         //match runable with
         //| {stream} -> FS.Method cuda_kernel .RunAsync(Stream.extract stream,to_obj_ar args) unit
         //| _ -> FS.Method cuda_kernel .Run(to_obj_ar args) float32 |> ignore
 
-        FS.Method context .Synchronize() unit
+        ()
 
     ret {Stream context dim3 run SizeT SizeT_type CUdeviceptr CUdeviceptr_type ptr_to_uint uint_to_ptr to_uint}
     """) |> module_

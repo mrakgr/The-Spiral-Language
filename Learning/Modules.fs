@@ -182,10 +182,8 @@ inl {stream Cuda Allocator} ->
         t
 
     inl to_host_array size1d ar =
-        inl elem_type = ar.elem_type
-        inl ptr = ar.ptr()
-        inl t = array_create elem_type size1d
-        FS.Method context .CopyToHost (t,ptr) unit
+        inl t = array_create ar.elem_type size1d
+        FS.Method context .CopyToHost (t,ar.ptr()) unit
         FS.Method context .Synchronize() unit
         t
 
@@ -218,12 +216,13 @@ inl {stream Cuda Allocator} ->
             )
 
     inl clear (!to_dev_tensor tns) = 
-        assert_contiguous tns
-        inl size = length tns
-        inl stream = Stream.extract stream
-        tns.update_body <| inl {body with ar} ->
-            FS.Method context .ClearMemoryAsync (ar,0u8,size * sizeof ar.elem_type |> SizeT,stream) unit
-        |> ignore
+        //assert_contiguous tns
+        //inl size = length tns
+        //inl stream = Stream.extract stream
+        //tns.update_body <| inl {body with ar} ->
+        //    FS.Method context .ClearMemoryAsync (ar,0u8,size * sizeof ar.elem_type |> SizeT,stream) unit
+        //|> ignore
+        ()
 
     inl clear' x = clear x; x
     inl zero = create >> clear'
@@ -604,7 +603,7 @@ inl ret ->
 
         inl create_tensor op dsc ret =
             inb device_tensor = create dsc
-            fill op device_tensor
+            //fill op device_tensor
             ret device_tensor
 
         {fill create_tensor}
@@ -1117,3 +1116,4 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     {dr primal primals adjoint adjoints (>>!) Primitive succ (>>=) Activation Error Feedforward Optimizer run grad_check accuracy }
     """) |> module_
+
