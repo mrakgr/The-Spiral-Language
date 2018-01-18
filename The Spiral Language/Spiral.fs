@@ -614,54 +614,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             ty_join_point join_point_key JoinPointClosure captured_arguments (term_functiont arg_ty ret_ty)
             |> make_tyv_and_push_typed_expr_even_if_unit d
 
-        let rec is_cuda_type = function
-            | CudaTypeT _ | LitT _ -> true
-            | PrimT t ->
-                match t with
-                | StringT _ -> false
-                | _ -> true
-            | ListT l -> false
-            | MapT (l,_) -> Map.forall (fun _ -> is_cuda_type) l
-            | LayoutT (LayoutPackedStack, l, _) -> 
-                let {call_args=args},_ = renamer_apply_env l
-                List.forall (fun (_,t) -> is_cuda_type t) args
-            | ArrayT ((ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal),t) -> is_cuda_type t
-            | UnionT _ | LayoutT _ | ArrayT _ | DotNetTypeT _ | TermFunctionT _ | RecT _ -> false
-
-        let join_point_cuda d expr = 
-            let {call_args=call_arguments; method_pars=method_parameters; renamer'=renamer}, renamed_env = renamer_apply_env d.env
-            match List.filter (snd >> is_cuda_type >> not) call_arguments with
-            | [] -> ()
-            | l -> on_type_er (trace d) <| sprintf "At the Cuda join point the following arguments have disallowed types: %s" (List.map tyv l |> tyvv |> show_typedexpr)
-
-            let length=renamer.Count
-            let join_point_key = nodify_memo_key (expr, renamed_env) 
-
-            let ret_ty = 
-                let d = {d with env=renamed_env; ltag=ref length}
-                let join_point_dict = join_point_dict_cuda
-                match join_point_dict.TryGetValue join_point_key with
-                | false, _ ->
-                    join_point_dict.[join_point_key] <- JoinPointInEvaluation ()
-                    let typed_expr = tev_method d expr
-                    join_point_dict.[join_point_key] <- JoinPointDone (method_parameters, typed_expr)
-                    typed_expr
-                | true, JoinPointInEvaluation () -> 
-                    tev_rec d expr
-                | true, JoinPointDone (used_vars, typed_expr) -> 
-                    typed_expr
-                |> get_type
-
-            if is_unit ret_ty = false then on_type_er d.trace "The return type of Cuda join point must be unit."
-
-            // This line is so the method actually gets printed during codegen.
-            ty_join_point join_point_key JoinPointCuda call_arguments ret_ty 
-            |> make_tyv_and_push_typed_expr_even_if_unit d |> ignore
-
-            let method_name = print_method join_point_key.Symbol |> LitString |> TyLit
-            let args = Seq.toList call_arguments |> List.map tyv |> List.rev |> tyvv
-            tyvv [method_name; args]
-
         let join_point_type d expr = 
             let env = Map.map (fun _ -> get_type >> tyt) (c d.env) |> Env
             let join_point_key = nodify_memo_key (expr, env) 
@@ -915,6 +867,59 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     if arg_ty <> clo_arg_ty then on_type_er (trace d) <| sprintf "Cannot apply an argument of type %s to closure (%s => %s)." (show_ty arg_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
                     else TyOp(Apply,[closure;args],clo_ret_ty) |> make_tyv_and_push_typed_expr_even_if_unit d
                 | _ -> on_type_er (trace d) <| sprintf "Invalid use of apply. %s and %s" (show_typedexpr a) (show_typedexpr b)
+
+        let rec is_cuda_type = function
+            | CudaTypeT _ | LitT _ -> true
+            | PrimT t ->
+                match t with
+                | StringT _ -> false
+                | _ -> true
+            | ListT l -> false
+            | MapT (l,_) -> Map.forall (fun _ -> is_cuda_type) l
+            | LayoutT (LayoutPackedStack, l, _) -> 
+                let {call_args=args},_ = renamer_apply_env l
+                List.forall (fun (_,t) -> is_cuda_type t) args
+            | ArrayT ((ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal),t) -> is_cuda_type t
+            | UnionT _ | LayoutT _ | ArrayT _ | DotNetTypeT _ | TermFunctionT _ | RecT _ -> false
+
+        let join_point_cuda d expr = 
+            let {call_args=call_arguments; method_pars=method_parameters; renamer'=renamer}, renamed_env = renamer_apply_env d.env
+            match List.filter (snd >> is_cuda_type >> not) call_arguments with
+            | [] -> ()
+            | l -> on_type_er (trace d) <| sprintf "At the Cuda join point the following arguments have disallowed types: %s" (List.map tyv l |> tyvv |> show_typedexpr)
+
+            let length=renamer.Count
+            let join_point_key = nodify_memo_key (expr, renamed_env) 
+
+            let method_name = print_method join_point_key.Symbol |> LitString |> TyLit
+            let args = List.map tyv call_arguments |> List.rev |> tyvv
+            let ret = tyvv [method_name; args]
+
+            let ret_ty = 
+                let d = {d with env=renamed_env; ltag=ref length}
+                let join_point_dict = join_point_dict_cuda
+                match join_point_dict.TryGetValue join_point_key with
+                | false, _ ->
+                    join_point_dict.[join_point_key] <- JoinPointInEvaluation ()
+                    let typed_expr = 
+                        let d = {d with seq=ref id; cse_env=ref Map.empty}
+                        apply d (tev d expr) ret |> apply_seq d
+                    join_point_dict.[join_point_key] <- JoinPointDone (method_parameters, typed_expr)
+                    typed_expr
+                | true, JoinPointInEvaluation () -> 
+                    let d = {d with seq=ref id; cse_env=ref Map.empty; rbeh=AnnotationReturn} in 
+                    apply d (tev d expr) ret |> apply_seq d
+                | true, JoinPointDone (used_vars, typed_expr) -> 
+                    typed_expr
+                |> get_type
+
+            if is_unit ret_ty = false then on_type_er d.trace "The return type of Cuda join point must be unit."
+
+            // This line is so the method actually gets printed during codegen.
+            ty_join_point join_point_key JoinPointCuda call_arguments ret_ty 
+            |> make_tyv_and_push_typed_expr_even_if_unit d |> ignore
+          
+            ret
 
         let term_fun_type_create d a b =
             let a = tev_seq d a

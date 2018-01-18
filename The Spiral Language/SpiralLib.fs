@@ -1253,7 +1253,6 @@ inl ret ->
     open Console
 
     inl cuda_kernels = FS.Constant.cuda_kernels string
-    inl join_point_entry_cuda x = !JoinPointEntryCuda(x())
 
     inl cuda_constant a t = !MacroCuda(t,[text: a])
 
@@ -1406,14 +1405,20 @@ inl ret ->
                 f x x', f y y', f z z'
             inl x,y,z = map_to_op_if_not_static blockDim (__blockDimX,__blockDimY,__blockDimZ)
             inl x',y',z' = map_to_op_if_not_static gridDim (__gridDimX,__gridDimY,__gridDimZ)
-            inl _ -> // This convoluted way of swaping non-literals for ops is so they do not get called outside of the kernel.
+            inl method_name, args -> // This convoluted way of swaping non-literals for ops is so they do not get called outside of the kernel.
+                inl args_tys = 
+                    Tuple.map (function
+                        | x & @array_is _ -> ""
+                            
+                   )
+
                 inl threadIdx = {x=__threadIdxX(); y=__threadIdxY(); z=__threadIdxZ()}
                 inl blockIdx = {x=__blockIdxX(); y=__blockIdxY(); z=__blockIdxZ()}
                 inl blockDim = {x=x(); y=y(); z=z()}
                 inl gridDim = {x=x'(); y=y'(); z=z'()}
                 kernel threadIdx blockIdx blockDim gridDim
 
-        inl method_name, args = join_point_entry_cuda kernel
+        inl method_name, args = (inl _ -> !JoinPointEntryCuda(kernel)) ()
         inl _ = 
             inl args = 
                 Tuple.map (function
