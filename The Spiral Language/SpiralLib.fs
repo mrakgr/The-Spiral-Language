@@ -1408,11 +1408,11 @@ inl ret ->
             inl method_name, args -> // This convoluted way of swaping non-literals for ops is so they do not get called outside of the kernel.
                 inl args' = 
                     Tuple.map (function
-                        | _ & @array_is _ -> "%p"
+                        | _ & @array_is _ -> "%llu"
                         | _ : float32 | _ : float64 -> "%f"
                         | _ -> "%d") args
                     |> string_concat ", "
-                inl an = string_format "Inside {0} with args: [{1}]" (method_name, args')
+                inl an = string_format "Inside {0} with args: [{1}]\n" (method_name, args')
                 macro.cd unit [text: "printf"; args: an :: args]
 
                 inl threadIdx = {x=__threadIdxX(); y=__threadIdxY(); z=__threadIdxZ()}
@@ -1440,9 +1440,9 @@ inl ret ->
         FS.Method cuda_kernel .set_GridDimensions(dim3 gridDim) unit
         FS.Method cuda_kernel .set_BlockDimensions(dim3 blockDim) unit
 
-        match runable with
-        | {stream} -> FS.Method cuda_kernel .RunAsync(Stream.extract stream,to_obj_ar args) unit
-        | _ -> FS.Method cuda_kernel .Run(to_obj_ar args) float32 |> ignore
+        //match runable with
+        //| {stream} -> FS.Method cuda_kernel .RunAsync(Stream.extract stream,to_obj_ar args) unit
+        //| _ -> FS.Method cuda_kernel .Run(to_obj_ar args) float32 |> ignore
 
         FS.Method context .Synchronize() unit
 

@@ -727,7 +727,7 @@ inl ret ->
             //    gemv optb alpha B A beta C
             //// Just do the standard matrix multiply
             //else
-            call.cublasSgemm_v2(handle, transa, transb, m, n, k, alpha, {ptr=A}, lda, {ptr=B}, ldb, beta, {ptr=C}, ldc)
+            //call.cublasSgemm_v2(handle, transa, transb, m, n, k, alpha, {ptr=A}, lda, {ptr=B}, ldb, beta, {ptr=C}, ldc)
 
         inl gemm transa transb alpha A B ret =
             inl m = if isnT transa then rows A else cols A
