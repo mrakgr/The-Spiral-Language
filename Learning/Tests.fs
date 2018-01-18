@@ -657,3 +657,4 @@ let tests =
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
 |> printfn "%s"
 |> ignore
+
