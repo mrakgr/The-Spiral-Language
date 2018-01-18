@@ -1386,6 +1386,10 @@ inl ret ->
         extract = inl x -> FS.Method x .get_Stream() CUstream_type 
         } |> stack
 
+    inl to_uint x = FS.UnOp .uint64 x uint64
+    inl ptr_to_uint (ptr: CUdeviceptr_type) = FS.Field ptr .Pointer SizeT_type |> to_uint
+    inl uint_to_ptr (x: uint64) = SizeT x |> CUdeviceptr
+
     inl run {blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} as runable =
         inl to_obj_ar args =
             inl ty = fs [text: "System.Object"] |> array
@@ -1403,7 +1407,17 @@ inl ret ->
                 inl blockDim = {x=x(); y=y(); z=z()}
                 inl gridDim = {x=x'(); y=y'(); z=z'()}
                 kernel threadIdx blockIdx blockDim gridDim
-        inl method_name, !to_obj_ar args = join_point_entry_cuda kernel
+
+        inl method_name, args = join_point_entry_cuda kernel
+        inl _ = 
+            inl args = 
+                Tuple.map (function
+                    | @array_is _ as x -> to_uint x
+                    | x -> x
+                    ) args
+                |> show
+            string_formal "Calling {0} with args: {1}" (method_name, args)
+        
         inl dim3 {x y z} = Tuple.map (unsafe_convert uint32) (x,y,z) |> FS.Constructor (fs [text: "ManagedCuda.VectorTypes.dim3"])
     
         inl context = match runable with | {context} | _ -> context
@@ -1413,17 +1427,13 @@ inl ret ->
         FS.Method cuda_kernel .set_BlockDimensions(dim3 blockDim) unit
 
         match runable with
-        | {stream} -> FS.Method cuda_kernel .RunAsync(Stream.extract stream,args) unit
-        | _ -> FS.Method cuda_kernel .Run(args) float32
+        | {stream} -> FS.Method cuda_kernel .RunAsync(Stream.extract stream,to_obj_ar args) unit
+        | _ -> FS.Method cuda_kernel .Run(to_obj_ar args) float32
 
     inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
     inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
     inl SizeT = FS.Constructor SizeT_type
     inl CUdeviceptr = FS.Constructor CUdeviceptr_type
-
-    inl to_uint x = FS.UnOp .uint64 x uint64
-    inl ptr_to_uint (ptr: CUdeviceptr_type) = FS.Field ptr .Pointer SizeT_type |> to_uint
-    inl uint_to_ptr (x: uint64) = SizeT x |> CUdeviceptr
 
     ret {Stream context dim3 run SizeT SizeT_type CUdeviceptr CUdeviceptr_type ptr_to_uint uint_to_ptr to_uint}
     """) |> module_

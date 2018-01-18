@@ -307,8 +307,8 @@ inl {stream Cuda CudaTensor} ->
         inl out = to_1d out |> to_dev_tensor
         inl near_to = length in
 
-        inl blockDim = 128
-        inl gridDim = min 64 (divup near_to blockDim)
+        inl blockDim = 1 // 128
+        inl gridDim = 1 // min 64 (divup near_to blockDim)
 
         run {
             stream blockDim gridDim
@@ -343,8 +343,8 @@ inl {stream Cuda CudaTensor} ->
         inl near_to = length in
         inl map = match d with {map} -> map | _ -> id
 
-        inl blockDim = 128
-        inl gridDim = min 64 (divup near_to blockDim)
+        inl blockDim = 1 // 128
+        inl gridDim = 1 // min 64 (divup near_to blockDim)
         inl elem_type = type (in.elem_type |> map)
         inl ty = elem_type
 
@@ -376,10 +376,10 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_in = dim_in'_b) "Input's dimension must equal the second input's inner dimension."
         assert (in'.dim = out.dim) "Second input must have the same dimension as the output."
 
-        inl blockDimX = min warp_size (s dim_in)
+        inl blockDimX = 1 // min warp_size (s dim_in)
         // TODO: Determine if a different multiple would be better.
-        inl blockDimY = min 8 (s dim_in'_a)
-        inl gridDim = min 64 (divup (s dim_in) blockDimX)
+        inl blockDimY = 1 // min 8 (s dim_in'_a)
+        inl gridDim = 1 // min 64 (divup (s dim_in) blockDimX)
 
         inl in = to_dev_tensor in
         inl in' = to_dev_tensor in'
@@ -433,8 +433,8 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_in' = dim_in_a) "Input's outer dimension must equal the output's dimension."
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        inl blockDim = lit_min 1024 (s dim_in_b)
-        inl gridDimY = lit_min 64 (s dim_in')
+        inl blockDim = 1 // lit_min 1024 (s dim_in_b)
+        inl gridDimY = 1 // lit_min 64 (s dim_in')
 
         inl in = to_dev_tensor in
         inl in' = to_dev_tensor in'
@@ -478,10 +478,10 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_in' = dim_in_b) "Input's inner dimension must equal the output's dimension."
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        inl blockDimX = lit_min warp_size (s dim_in')
+        inl blockDimX = 1 // lit_min warp_size (s dim_in')
         // TODO: Determine if a different multiple would be better.
-        inl blockDimY = lit_min 8 (s dim_in_a)
-        inl gridDim = min 64 (divup (s dim_in') blockDimX)
+        inl blockDimY = 1 // lit_min 8 (s dim_in_a)
+        inl gridDim = 1 // min 64 (divup (s dim_in') blockDimX)
 
         inl in = to_dev_tensor in
         inl in' = to_dev_tensor in'
