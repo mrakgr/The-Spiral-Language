@@ -12,11 +12,11 @@ let allocator1 =
 inb Cuda = Cuda
 inb {allocate} = Allocator {Cuda size=1024}
 inl a = allocate 128
-a.Dispose
 inl b = allocate 64
-b.Dispose
 inl c = allocate 32
 c.Dispose
+b.Dispose
+a.Dispose
 ()
     """
 
@@ -701,7 +701,7 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" debug4
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel5
 |> printfn "%s"
 |> ignore
 

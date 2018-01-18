@@ -139,12 +139,10 @@ inl {Cuda size} ret ->
             : smartptr_ty
         inl (!dyn size) ->
             inb top_ptr, top_size = remove_disposed_and_return_the_first_live
-            inl size = size + size % 256
+            inl size = size - size % 256 + 256
             inl top_used = top_ptr + top_size
             inl pool_used = pool_ptr + pool_size
-            Console.writeline {pool_ptr top_ptr}
             assert (to_uint size <= pool_used - top_used) "Cache size has been exceeded in the allocator."
-            Console.writeline {top_used size}
             inl ptr = top_used |> uint_to_ptr |> smartptr_create
             inl cell = {size ptr}
             FS.Method stack .Push cell unit
