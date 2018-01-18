@@ -1406,11 +1406,14 @@ inl ret ->
             inl x,y,z = map_to_op_if_not_static blockDim (__blockDimX,__blockDimY,__blockDimZ)
             inl x',y',z' = map_to_op_if_not_static gridDim (__gridDimX,__gridDimY,__gridDimZ)
             inl method_name, args -> // This convoluted way of swaping non-literals for ops is so they do not get called outside of the kernel.
-                inl args_tys = 
+                inl args' = 
                     Tuple.map (function
-                        | x & @array_is _ -> ""
-                            
-                   )
+                        | _ & @array_is _ -> "%p"
+                        | _ : float32 | _ : float64 -> "%f"
+                        | _ -> "%d") args
+                    |> string_concat ", "
+                inl an = string_format "Inside {0} with args: [{1}]" (method_name, args')
+                macro.cd unit [text: "printf"; args: an :: args]
 
                 inl threadIdx = {x=__threadIdxX(); y=__threadIdxY(); z=__threadIdxZ()}
                 inl blockIdx = {x=__blockIdxX(); y=__blockIdxY(); z=__blockIdxZ()}

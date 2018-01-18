@@ -73,6 +73,7 @@ extern "C" {
     __device__ Tuple4 method_27(Tuple4 var_0, Tuple4 var_1);
     
     __global__ void method_8(float * var_0, float * var_1, float * var_2) {
+        printf("Inside method_8 with args: [%p, %p, %p]", var_0, var_1, var_2);
         long long int var_3 = threadIdx.x;
         long long int var_4 = threadIdx.y;
         long long int var_5 = threadIdx.z;
@@ -167,6 +168,7 @@ extern "C" {
         long long int var_47 = var_46.mem_0;
     }
     __global__ void method_11(float * var_0, float * var_1) {
+        printf("Inside method_11 with args: [%p, %p]", var_0, var_1);
         long long int var_2 = threadIdx.x;
         long long int var_3 = threadIdx.y;
         long long int var_4 = threadIdx.z;
@@ -216,6 +218,7 @@ extern "C" {
         long long int var_28 = var_27.mem_0;
     }
     __global__ void method_13(float * var_0, float * var_1, float * var_2) {
+        printf("Inside method_13 with args: [%p, %p, %p]", var_0, var_1, var_2);
         long long int var_3 = threadIdx.x;
         long long int var_4 = threadIdx.y;
         long long int var_5 = threadIdx.z;
@@ -280,6 +283,7 @@ extern "C" {
         }
     }
     __global__ void method_17(float var_0, float var_1, float * var_2, float * var_3, float * var_4) {
+        printf("Inside method_17 with args: [%f, %f, %p, %p, %p]", var_0, var_1, var_2, var_3, var_4);
         long long int var_5 = threadIdx.x;
         long long int var_6 = threadIdx.y;
         long long int var_7 = threadIdx.z;
@@ -332,6 +336,7 @@ extern "C" {
         long long int var_34 = var_33.mem_0;
     }
     __global__ void method_18(float * var_0, float * var_1, float * var_2, float * var_3) {
+        printf("Inside method_18 with args: [%p, %p, %p, %p]", var_0, var_1, var_2, var_3);
         long long int var_4 = threadIdx.x;
         long long int var_5 = threadIdx.y;
         long long int var_6 = threadIdx.z;
@@ -383,6 +388,7 @@ extern "C" {
         long long int var_32 = var_31.mem_0;
     }
     __global__ void method_20(float * var_0, float * var_1) {
+        printf("Inside method_20 with args: [%p, %p]", var_0, var_1);
         long long int var_2 = threadIdx.x;
         long long int var_3 = threadIdx.y;
         long long int var_4 = threadIdx.z;
@@ -469,6 +475,7 @@ extern "C" {
         long long int var_46 = var_45.mem_0;
     }
     __global__ void method_22(float * var_0, float * var_1) {
+        printf("Inside method_22 with args: [%p, %p]", var_0, var_1);
         long long int var_2 = threadIdx.x;
         long long int var_3 = threadIdx.y;
         long long int var_4 = threadIdx.z;
@@ -516,6 +523,7 @@ extern "C" {
         long long int var_26 = var_25.mem_0;
     }
     __global__ void method_24(float * var_0, float * var_1) {
+        printf("Inside method_24 with args: [%p, %p]", var_0, var_1);
         long long int var_2 = threadIdx.x;
         long long int var_3 = threadIdx.y;
         long long int var_4 = threadIdx.z;
@@ -563,6 +571,7 @@ extern "C" {
         long long int var_26 = var_25.mem_0;
     }
     __global__ void method_25(float * var_0, float * var_1, char * var_2) {
+        printf("Inside method_25 with args: [%p, %p, %p]", var_0, var_1, var_2);
         long long int var_3 = threadIdx.x;
         long long int var_4 = threadIdx.y;
         long long int var_5 = threadIdx.z;

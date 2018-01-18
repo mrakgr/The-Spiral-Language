@@ -892,8 +892,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let join_point_key = nodify_memo_key (expr, renamed_env) 
 
             let method_name = print_method join_point_key.Symbol |> LitString |> TyLit
-            let args = List.map tyv call_arguments |> List.rev |> tyvv
-            let ret = tyvv [method_name; args]
+            let inline ret x = tyvv [method_name; List.map tyv x |> List.rev |> tyvv]
 
             let ret_ty = 
                 let d = {d with env=renamed_env; ltag=ref length}
@@ -903,12 +902,12 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     join_point_dict.[join_point_key] <- JoinPointInEvaluation ()
                     let typed_expr = 
                         let d = {d with seq=ref id; cse_env=ref Map.empty}
-                        apply d (tev d expr) ret |> apply_seq d
+                        apply d (tev d expr) (ret method_parameters) |> apply_seq d
                     join_point_dict.[join_point_key] <- JoinPointDone (method_parameters, typed_expr)
                     typed_expr
                 | true, JoinPointInEvaluation () -> 
                     let d = {d with seq=ref id; cse_env=ref Map.empty; rbeh=AnnotationReturn} in 
-                    apply d (tev d expr) ret |> apply_seq d
+                    apply d (tev d expr) (ret method_parameters) |> apply_seq d
                 | true, JoinPointDone (used_vars, typed_expr) -> 
                     typed_expr
                 |> get_type
@@ -919,7 +918,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             ty_join_point join_point_key JoinPointCuda call_arguments ret_ty 
             |> make_tyv_and_push_typed_expr_even_if_unit d |> ignore
           
-            ret
+            ret call_arguments
+            
 
         let term_fun_type_create d a b =
             let a = tev_seq d a
