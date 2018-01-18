@@ -141,7 +141,7 @@ inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 
 inl inner_size = 10
-inl outer_size = 1
+inl outer_size = 32
 
 inb a1 = CudaRandom.create_tensor .Uniform {elem_type=float32; dim=outer_size,inner_size}
 inb a2 = CudaRandom.create_tensor .Uniform {elem_type=float32; dim=outer_size,inner_size}
@@ -151,7 +151,7 @@ inl f a1 a2 =
         map_in=const
         neutral_elem=-infinityf32,0f32
         redo=inl a b -> if fst a > fst b then a else b
-        map_out=id
+        map_out=inl x -> snd x > 0.5f32
         } a1 a2
 inb o1 = f (a1, a2) ()
 
@@ -663,7 +663,7 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel5
 |> printfn "%s"
 |> ignore
 
