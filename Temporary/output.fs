@@ -3,7 +3,69 @@ let cuda_kernels = """
 #include "cub/cub.cuh"
 
 extern "C" {
+    struct Env0 {
+        long long int mem_0;
+    };
+    __device__ __forceinline__ Env0 make_Env0(long long int mem_0){
+        Env0 tmp;
+        tmp.mem_0 = mem_0;
+        return tmp;
+    }
+    __global__ void method_6(char * var_0, char * var_1);
+    __device__ char method_7(Env0 * var_0);
     
+    __global__ void method_6(char * var_0, char * var_1) {
+        long long int var_2 = threadIdx.x;
+        long long int var_3 = threadIdx.y;
+        long long int var_4 = threadIdx.z;
+        long long int var_5 = blockIdx.x;
+        long long int var_6 = blockIdx.y;
+        long long int var_7 = blockIdx.z;
+        long long int var_8 = (var_5 * 128);
+        long long int var_9 = (var_8 + var_2);
+        Env0 var_10[1];
+        var_10[0] = (make_Env0(var_9));
+        while (method_7(var_10)) {
+            Env0 var_12 = var_10[0];
+            long long int var_13 = var_12.mem_0;
+            long long int var_14 = (var_13 + 128);
+            char var_15 = (var_13 >= 0);
+            char var_17;
+            if (var_15) {
+                var_17 = (var_13 < 32);
+            } else {
+                var_17 = 0;
+            }
+            char var_18 = (var_17 == 0);
+            if (var_18) {
+                // "Argument out of bounds."
+            } else {
+            }
+            char var_20;
+            if (var_15) {
+                var_20 = (var_13 < 32);
+            } else {
+                var_20 = 0;
+            }
+            char var_21 = (var_20 == 0);
+            if (var_21) {
+                // "Argument out of bounds."
+            } else {
+            }
+            char var_22 = var_0[var_13];
+            char var_23 = var_1[var_13];
+            char var_24 = (var_22 == 0);
+            var_1[var_13] = var_24;
+            var_10[0] = (make_Env0(var_14));
+        }
+        Env0 var_25 = var_10[0];
+        long long int var_26 = var_25.mem_0;
+    }
+    __device__ char method_7(Env0 * var_0) {
+        Env0 var_1 = var_0[0];
+        long long int var_2 = var_1.mem_0;
+        return (var_2 < 32);
+    }
 }
 """
 
@@ -37,7 +99,23 @@ and method_1((var_0: (Union0 ref))): ManagedCuda.BasicTypes.CUdeviceptr =
         var_2.mem_0
     | Union0Case1 ->
         (failwith "A Cuda memory cell that has been disposed has been tried to be accessed.")
-and method_2((var_0: uint64), (var_1: System.Collections.Generic.Stack<Env3>), (var_2: uint64), (var_3: int64)): EnvStack2 =
+and method_2((var_0: (bool [])), (var_1: int64)): unit =
+    let (var_2: bool) = (var_1 < 32L)
+    if var_2 then
+        let (var_3: bool) = (var_1 >= 0L)
+        let (var_4: bool) = (var_3 = false)
+        if var_4 then
+            (failwith "Argument out of bounds.")
+        else
+            ()
+        let (var_5: int64) = (var_1 % 2L)
+        let (var_6: bool) = (var_5 = 0L)
+        var_0.[int32 var_1] <- var_6
+        let (var_7: int64) = (var_1 + 1L)
+        method_2((var_0: (bool [])), (var_7: int64))
+    else
+        ()
+and method_3((var_0: uint64), (var_1: System.Collections.Generic.Stack<Env3>), (var_2: uint64), (var_3: int64)): EnvStack2 =
     let (var_4: int32) = var_1.get_Count()
     let (var_5: bool) = (var_4 > 0)
     if var_5 then
@@ -49,43 +127,45 @@ and method_2((var_0: uint64), (var_1: System.Collections.Generic.Stack<Env3>), (
         match var_10 with
         | Union0Case0(var_11) ->
             let (var_12: ManagedCuda.BasicTypes.CUdeviceptr) = var_11.mem_0
-            method_3((var_12: ManagedCuda.BasicTypes.CUdeviceptr), (var_0: uint64), (var_2: uint64), (var_3: int64), (var_1: System.Collections.Generic.Stack<Env3>), (var_7: EnvStack2), (var_8: int64))
+            method_4((var_12: ManagedCuda.BasicTypes.CUdeviceptr), (var_0: uint64), (var_2: uint64), (var_3: int64), (var_1: System.Collections.Generic.Stack<Env3>), (var_7: EnvStack2), (var_8: int64))
         | Union0Case1 ->
             let (var_14: Env3) = var_1.Pop()
             let (var_15: EnvStack2) = var_14.mem_0
             let (var_16: int64) = var_14.mem_1
-            method_2((var_0: uint64), (var_1: System.Collections.Generic.Stack<Env3>), (var_2: uint64), (var_3: int64))
+            method_3((var_0: uint64), (var_1: System.Collections.Generic.Stack<Env3>), (var_2: uint64), (var_3: int64))
     else
-        method_4((var_0: uint64), (var_2: uint64), (var_3: int64), (var_1: System.Collections.Generic.Stack<Env3>))
-and method_5((var_0: System.Text.StringBuilder), (var_1: int64)): unit =
+        method_5((var_0: uint64), (var_2: uint64), (var_3: int64), (var_1: System.Collections.Generic.Stack<Env3>))
+and method_8((var_0: System.Text.StringBuilder), (var_1: int64)): unit =
     let (var_2: bool) = (var_1 < 0L)
     if var_2 then
         let (var_3: System.Text.StringBuilder) = var_0.Append(' ')
         let (var_4: int64) = (var_1 + 1L)
-        method_5((var_0: System.Text.StringBuilder), (var_4: int64))
+        method_8((var_0: System.Text.StringBuilder), (var_4: int64))
     else
         ()
-and method_6((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64)): unit =
-    let (var_4: bool) = (var_3 < 3L)
-    if var_4 then
-        let (var_5: bool) = (var_3 >= 0L)
-        let (var_6: bool) = (var_5 = false)
-        if var_6 then
+and method_9((var_0: System.Text.StringBuilder), (var_1: (bool [])), (var_2: (bool [])), (var_3: string), (var_4: int64)): string =
+    let (var_5: bool) = (var_4 < 32L)
+    if var_5 then
+        let (var_6: System.Text.StringBuilder) = var_0.Append(var_3)
+        let (var_7: bool) = (var_4 >= 0L)
+        let (var_8: bool) = (var_7 = false)
+        if var_8 then
             (failwith "Argument out of bounds.")
         else
             ()
-        let (var_7: int64) = (var_3 * 8L)
-        let (var_8: int64) = 0L
-        method_7((var_0: System.Text.StringBuilder), (var_8: int64))
-        let (var_9: System.Text.StringBuilder) = var_0.Append("[|")
-        let (var_10: int64) = 0L
-        let (var_11: string) = method_8((var_0: System.Text.StringBuilder), (var_2: (float32 [])), (var_7: int64), (var_1: string), (var_10: int64))
-        let (var_12: System.Text.StringBuilder) = var_0.AppendLine("|]")
-        let (var_13: int64) = (var_3 + 1L)
-        method_6((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_13: int64))
+        let (var_9: bool) = var_1.[int32 var_4]
+        let (var_10: bool) = var_2.[int32 var_4]
+        let (var_11: string) = System.String.Format("{0}",var_10)
+        let (var_12: string) = System.String.Format("{0}",var_9)
+        let (var_13: string) = String.concat ", " [|var_12; var_11|]
+        let (var_14: string) = System.String.Format("[{0}]",var_13)
+        let (var_15: System.Text.StringBuilder) = var_0.Append(var_14)
+        let (var_16: string) = "; "
+        let (var_17: int64) = (var_4 + 1L)
+        method_9((var_0: System.Text.StringBuilder), (var_1: (bool [])), (var_2: (bool [])), (var_16: string), (var_17: int64))
     else
-        ()
-and method_3((var_0: ManagedCuda.BasicTypes.CUdeviceptr), (var_1: uint64), (var_2: uint64), (var_3: int64), (var_4: System.Collections.Generic.Stack<Env3>), (var_5: EnvStack2), (var_6: int64)): EnvStack2 =
+        var_3
+and method_4((var_0: ManagedCuda.BasicTypes.CUdeviceptr), (var_1: uint64), (var_2: uint64), (var_3: int64), (var_4: System.Collections.Generic.Stack<Env3>), (var_5: EnvStack2), (var_6: int64)): EnvStack2 =
     let (var_7: ManagedCuda.BasicTypes.SizeT) = var_0.Pointer
     let (var_8: uint64) = uint64 var_7
     let (var_9: uint64) = uint64 var_6
@@ -108,7 +188,7 @@ and method_3((var_0: ManagedCuda.BasicTypes.CUdeviceptr), (var_1: uint64), (var_
     let (var_22: EnvStack2) = EnvStack2((var_21: (Union0 ref)))
     var_4.Push((Env3(var_22, var_3)))
     var_22
-and method_4((var_0: uint64), (var_1: uint64), (var_2: int64), (var_3: System.Collections.Generic.Stack<Env3>)): EnvStack2 =
+and method_5((var_0: uint64), (var_1: uint64), (var_2: int64), (var_3: System.Collections.Generic.Stack<Env3>)): EnvStack2 =
     let (var_4: uint64) = uint64 var_2
     let (var_5: bool) = (var_4 <= var_1)
     let (var_6: bool) = (var_5 = false)
@@ -124,33 +204,6 @@ and method_4((var_0: uint64), (var_1: uint64), (var_2: int64), (var_3: System.Co
     let (var_12: EnvStack2) = EnvStack2((var_11: (Union0 ref)))
     var_3.Push((Env3(var_12, var_2)))
     var_12
-and method_7((var_0: System.Text.StringBuilder), (var_1: int64)): unit =
-    let (var_2: bool) = (var_1 < 4L)
-    if var_2 then
-        let (var_3: System.Text.StringBuilder) = var_0.Append(' ')
-        let (var_4: int64) = (var_1 + 1L)
-        method_7((var_0: System.Text.StringBuilder), (var_4: int64))
-    else
-        ()
-and method_8((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: string), (var_4: int64)): string =
-    let (var_5: bool) = (var_4 < 8L)
-    if var_5 then
-        let (var_6: System.Text.StringBuilder) = var_0.Append(var_3)
-        let (var_7: bool) = (var_4 >= 0L)
-        let (var_8: bool) = (var_7 = false)
-        if var_8 then
-            (failwith "Argument out of bounds.")
-        else
-            ()
-        let (var_9: int64) = (var_2 + var_4)
-        let (var_10: float32) = var_1.[int32 var_9]
-        let (var_11: string) = System.String.Format("{0}",var_10)
-        let (var_12: System.Text.StringBuilder) = var_0.Append(var_11)
-        let (var_13: string) = "; "
-        let (var_14: int64) = (var_4 + 1L)
-        method_8((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_13: string), (var_14: int64))
-    else
-        var_3
 let (var_0: string) = cuda_kernels
 let (var_1: ManagedCuda.CudaContext) = ManagedCuda.CudaContext(false)
 var_1.Synchronize()
@@ -239,38 +292,53 @@ let (var_48: ManagedCuda.BasicTypes.SizeT) = var_47.Pointer
 let (var_49: uint64) = uint64 var_48
 let (var_50: uint64) = uint64 var_40
 let (var_51: ManagedCuda.CudaStream) = ManagedCuda.CudaStream()
-let (var_52: ManagedCuda.CudaRand.GeneratorType) = ManagedCuda.CudaRand.GeneratorType.PseudoDefault
-let (var_53: ManagedCuda.CudaRand.CudaRandDevice) = ManagedCuda.CudaRand.CudaRandDevice(var_52)
-let (var_54: ManagedCuda.BasicTypes.CUstream) = var_51.get_Stream()
-var_53.SetStream(var_54)
-let (var_55: int64) = 96L
-let (var_56: EnvStack2) = method_2((var_49: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_50: uint64), (var_55: int64))
-let (var_57: (Union0 ref)) = var_56.mem_0
-let (var_58: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_57: (Union0 ref)))
-let (var_59: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(12L)
-var_53.GenerateNormal32(var_58, var_59, 0.000000f, 0.534523f)
-let (var_60: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_57: (Union0 ref)))
-let (var_61: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(24L))
-var_1.CopyToHost(var_61, var_60)
+let (var_52: (bool [])) = Array.zeroCreate<bool> (System.Convert.ToInt32(32L))
+let (var_53: int64) = 0L
+method_2((var_52: (bool [])), (var_53: int64))
+let (var_54: int64) = var_52.LongLength
+let (var_55: EnvStack2) = method_3((var_49: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_50: uint64), (var_54: int64))
+let (var_56: (Union0 ref)) = var_55.mem_0
+let (var_57: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_56: (Union0 ref)))
+var_1.CopyToDevice(var_57, var_52)
+let (var_58: int64) = 32L
+let (var_59: EnvStack2) = method_3((var_49: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_50: uint64), (var_58: int64))
+let (var_60: (Union0 ref)) = var_59.mem_0
+let (var_61: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_60: (Union0 ref)))
+let (var_62: ManagedCuda.BasicTypes.CUstream) = var_51.get_Stream()
+let (var_63: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(32L)
+var_1.ClearMemoryAsync(var_61, 0uy, var_63, var_62)
+let (var_64: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_56: (Union0 ref)))
+let (var_65: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_60: (Union0 ref)))
+// Cuda join point
+// method_6((var_64: ManagedCuda.BasicTypes.CUdeviceptr), (var_65: ManagedCuda.BasicTypes.CUdeviceptr))
+let (var_67: (System.Object [])) = [|var_64; var_65|]: (System.Object [])
+let (var_68: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_6", var_32, var_1)
+let (var_69: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
+var_68.set_GridDimensions(var_69)
+let (var_70: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(128u, 1u, 1u)
+var_68.set_BlockDimensions(var_70)
+let (var_71: ManagedCuda.BasicTypes.CUstream) = var_51.get_Stream()
+var_68.RunAsync(var_71, var_67)
+let (var_72: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_60: (Union0 ref)))
+let (var_73: (bool [])) = Array.zeroCreate<bool> (System.Convert.ToInt32(32L))
+var_1.CopyToHost(var_73, var_72)
 var_1.Synchronize()
-let (var_62: System.Text.StringBuilder) = System.Text.StringBuilder()
-let (var_63: string) = ""
-let (var_64: int64) = 0L
-method_5((var_62: System.Text.StringBuilder), (var_64: int64))
-let (var_65: System.Text.StringBuilder) = var_62.AppendLine("[|")
-let (var_66: int64) = 0L
-method_6((var_62: System.Text.StringBuilder), (var_63: string), (var_61: (float32 [])), (var_66: int64))
-let (var_67: int64) = 0L
-method_5((var_62: System.Text.StringBuilder), (var_67: int64))
-let (var_68: System.Text.StringBuilder) = var_62.AppendLine("|]")
-let (var_69: string) = var_62.ToString()
-let (var_70: string) = System.String.Format("{0}",var_69)
-System.Console.WriteLine(var_70)
-var_57 := Union0Case1
-var_53.Dispose()
+let (var_74: System.Text.StringBuilder) = System.Text.StringBuilder()
+let (var_75: string) = ""
+let (var_76: int64) = 0L
+method_8((var_74: System.Text.StringBuilder), (var_76: int64))
+let (var_77: System.Text.StringBuilder) = var_74.Append("[|")
+let (var_78: int64) = 0L
+let (var_79: string) = method_9((var_74: System.Text.StringBuilder), (var_52: (bool [])), (var_73: (bool [])), (var_75: string), (var_78: int64))
+let (var_80: System.Text.StringBuilder) = var_74.AppendLine("|]")
+let (var_81: string) = var_74.ToString()
+let (var_82: string) = System.String.Format("{0}",var_81)
+System.Console.WriteLine(var_82)
+var_60 := Union0Case1
+var_56 := Union0Case1
 var_51.Dispose()
-let (var_71: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_46: (Union0 ref)))
-var_1.FreeMemory(var_71)
+let (var_83: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_46: (Union0 ref)))
+var_1.FreeMemory(var_83)
 var_46 := Union0Case1
 var_1.Dispose()
 

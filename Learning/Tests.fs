@@ -55,12 +55,12 @@ inb stream = Cuda.Stream.create()
 inl CudaTensor = CudaTensor {stream Cuda Allocator}
 inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
 
-inl h = HostTensor.init 32 ((+) 1)
+inl h = HostTensor.init 32 (inl x -> x % 2 = 0)
 inb a1 = CudaTensor.from_host_tensor h
 inb o1 = CudaTensor.zero_like a1
-CudaKernel.map' (inl a _ -> a * 2) a1 o1
+CudaKernel.map' (inl a _ -> a = false) a1 o1
 inl a2 = CudaTensor.to_host_tensor o1
-HostTensor.show a2 |> Console.writeline
+HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
     """
 
 let kernel2 =
@@ -663,7 +663,7 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" random1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel1
 |> printfn "%s"
 |> ignore
 
