@@ -623,7 +623,7 @@ let debug4 =
     "debug4",[loops;cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"The memory corruption minimalist example triggered by the `accuracy` function in the Learning module.",
     """
 inb Cuda = Cuda
-inb Allocator = Allocator {Cuda size=0.7}
+inb Allocator = Allocator {Cuda size=0.1}
 inb stream = Cuda.Stream.create()
 inl CudaTensor = CudaTensor {stream Cuda Allocator}
 inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
@@ -636,7 +636,7 @@ open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Error
 open Feedforward
 
-inl batch_size = 10240
+inl batch_size = 32
 inl input_size = 784
 inl hidden_size = 10
 
@@ -647,7 +647,7 @@ inb network = init (sigmoid hidden_size) input_size >>! with_error cross_entropy
 
 Loops.for {from=0; near_to=5;body=inl _ ->
     run {
-        network input=train_images; label=train_labels; minibatch_size=128
+        network input=train_images; label=train_labels
         optimizer=Optimizer.sgd 0.5f32
         state={
             running_cost=0.0
