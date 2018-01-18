@@ -424,7 +424,7 @@ inb network = init (sigmoid hidden_size) input_size >>! with_error cross_entropy
 inl train_images=train_images .view_span 10240
 inl train_labels=train_labels .view_span 10240
 
-Loops.for {from=0; near_to=100;body=inl _ ->
+Loops.for {from=0; near_to=5;body=inl _ ->
     run {
         network input=train_images; label=train_labels; minibatch_size=128
         optimizer=Optimizer.sgd 0.5f32
@@ -619,6 +619,36 @@ Loops.for {from=0;near_to=32;by;body=inl {i} ->
     }
     """
 
+let debug4 =
+    "debug4",[loops;cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"What causes the memory corruption in accuracy?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+inb CudaRandomModule = CudaRandom
+inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
+inb CudaBlasModule = CudaBlas
+inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
+inl default_float = float32
+open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+open Error
+open Feedforward
+
+inl batch_size = 10240
+inl input_size = 784
+inl hidden_size = 10
+
+inb train_images = CudaRandom.create_tensor .Uniform {elem_type=float32; dim=batch_size,input_size}
+inb train_labels = CudaRandom.create_tensor .Uniform {elem_type=float32; dim=batch_size,hidden_size}
+
+inb {apply} = init (sigmoid hidden_size) input_size >>! with_error cross_entropy
+
+inb {cost accuracy},bck = apply (train_images,train_labels)
+accuracy id |> Console.writeline
+    """
+
 let grad1 =
     "grad1",[loops;cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"Does gradient checking pass for the full network?",
     """
@@ -663,7 +693,7 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel5
-|> printfn "%s"
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
+//|> printfn "%s"
 |> ignore
 

@@ -907,6 +907,18 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl Activation = {sigmoid}
 
+    //inl accuracy (input,label) ret =
+    //    inl input, label = primal input, primal label
+    //    inb x = 
+    //        map_d1_redo_map {
+    //            map_in=const
+    //            neutral_elem=-infinity,zero
+    //            redo=inl a b -> if fst a > fst b then a else b
+    //            map_out=snd
+    //            } (input,label) ()
+    //    Array.foldl (inl s x -> if x = one then s+1 else s) (dyn 0) (to_host_tensor x).bodies.ar 
+    //    |> ret
+
     inl accuracy (input,label) ret =
         inl input, label = primal input, primal label
         inb x = 
@@ -914,9 +926,9 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 map_in=const
                 neutral_elem=-infinity,zero
                 redo=inl a b -> if fst a > fst b then a else b
-                map_out=snd
+                map_out=inl x -> snd x = one
                 } (input,label) ()
-        Array.foldl (inl s x -> if x = one then s+1 else s) (dyn 0) (to_host_tensor x).bodies.ar 
+        Array.foldl (inl s x -> if x then s+1 else s) (dyn 0) (to_host_tensor x).bodies.ar 
         |> ret
 
     inl error {fwd bck} (input,_ as x) = 
@@ -1032,6 +1044,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         inl by = match d with {minibatch_size} -> minibatch_size | _ -> span
 
         inl state = Loops.for {from near_to; state by; body=inl {state i=from} ->
+            macro.fs unit [text: "// This is the run body"]
             if span % by = 0 then run_minibatch {state span={from by}}
             else run_minibatch {state span={from near_to=from+by |> min near_to}}
             }

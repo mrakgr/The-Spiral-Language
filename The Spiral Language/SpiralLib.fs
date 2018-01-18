@@ -196,7 +196,7 @@ inl take n l =
 
 let loops =
     (
-    "Loops",[tuple],"Various imperative loop constructors module.",
+    "Loops",[tuple],"The Loop module.",
     """
 inl rec while {cond body state} as d =
     inl loop_body {state cond body} as d =
