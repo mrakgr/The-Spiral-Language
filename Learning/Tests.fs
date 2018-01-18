@@ -169,7 +169,16 @@ inl CudaTensor = CudaTensor {stream Cuda Allocator}
 inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 
-inb o1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=6,6}
+inl sigmoid_initializer' x = 
+    inl stddev = sqrt (2.0f32 / unsafe_convert float32 (Tuple.foldl (inl s x -> s + HostTensor.span x) 0 x.dim))
+    CudaRandom.fill {dst=.Normal; stddev mean=0f32} x
+
+inl sigmoid_initializer dim ret = 
+    inb x = CudaTensor.create {elem_type=float32; dim}
+    sigmoid_initializer' (x.view_span (3,4))
+    ret x
+
+inb o1 = sigmoid_initializer (3,8)
 CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
     """
 
@@ -654,7 +663,7 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" random1
 |> printfn "%s"
 |> ignore
 
