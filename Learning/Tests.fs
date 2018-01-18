@@ -429,8 +429,8 @@ Loops.for {from=0; near_to=5;body=inl _ ->
         network input=train_images; label=train_labels; minibatch_size=128
         optimizer=Optimizer.sgd 0.5f32
         state={
-            running_cost=dyn 0.0
-            running_accuracy=dyn 0
+            running_cost=0.0
+            running_accuracy=0
             }
         }
     }
@@ -620,7 +620,7 @@ Loops.for {from=0;near_to=32;by;body=inl {i} ->
     """
 
 let debug4 =
-    "debug4",[loops;cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"What causes the memory corruption in accuracy?",
+    "debug4",[loops;cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"The memory corruption minimalist example triggered by the `accuracy` function in the Learning module.",
     """
 inb Cuda = Cuda
 inb Allocator = Allocator {Cuda size=0.7}
@@ -643,10 +643,18 @@ inl hidden_size = 10
 inb train_images = CudaRandom.create_tensor .Uniform {elem_type=float32; dim=batch_size,input_size}
 inb train_labels = CudaRandom.create_tensor .Uniform {elem_type=float32; dim=batch_size,hidden_size}
 
-inb {apply} = init (sigmoid hidden_size) input_size >>! with_error cross_entropy
+inb network = init (sigmoid hidden_size) input_size >>! with_error cross_entropy
 
-inb {cost accuracy},bck = apply (train_images,train_labels)
-accuracy id |> Console.writeline
+Loops.for {from=0; near_to=5;body=inl _ ->
+    run {
+        network input=train_images; label=train_labels; minibatch_size=128
+        optimizer=Optimizer.sgd 0.5f32
+        state={
+            running_cost=0.0
+            running_accuracy=0
+            }
+        }
+    }
     """
 
 let grad1 =
@@ -693,7 +701,7 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
-//|> printfn "%s"
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" debug4
+|> printfn "%s"
 |> ignore
 

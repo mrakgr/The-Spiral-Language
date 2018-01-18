@@ -1010,30 +1010,32 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl Optimizer = {sgd}
 
-    inl run {d with network={weights apply} input label state} =
-        open Extern
-        open Console
+    inl run {d with network={weights apply} input label state=!dyn state} =
         inl dim1 x = x.dim |> fst
         inl to = unsafe_convert
+        open Extern
+        open Console
 
         assert (dim1 input = dim1 label) "Training and test set need to have to equal first dimensions."
 
-        inl run_minibatch {state span} = 
-            inl view x = x.view_span span
-            inb {cost accuracy}, bck = apply (view input, view label)
-            inl primal = primal cost
-            //string_format "On minibatch {0}. Error = {1}" (show span, primal) |> writeline
-
-            match d with
-            | {optimizer} ->
-                adjoint cost := one_of primal
+        inl optimizer =
+            match d with // Take care not to pass d in by accident into run_minibatch.
+            | {optimizer} {cost},bck ->
+                adjoint cost := one_of (primal cost)
                 bck() // Runs the backwards pass.
                 toa_iter optimizer weights
-            | _ -> ()
+            | _ _ -> ()
+
+        inl run_minibatch {state span} = 
+            inl view x = x.view_span span
+            inb {cost accuracy}, _ as er = apply (view input, view label)
+            //string_format "On minibatch {0}. Error = {1}" (show span, primal cost) |> writeline
+
+            optimizer er
 
             inl running_cost =
                 match state with
-                | {running_cost} -> running_cost + to float64 primal * to float64 (HostTensor.span span)
+                | {running_cost} -> running_cost + to float64 (primal cost) * to float64 (HostTensor.span span)
                 
             match state with
             | {running_accuracy} -> { running_cost running_accuracy=running_accuracy + accuracy id }
@@ -1044,7 +1046,6 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         inl by = match d with {minibatch_size} -> minibatch_size | _ -> span
 
         inl state = Loops.for {from near_to; state by; body=inl {state i=from} ->
-            macro.fs unit [text: "// This is the run body"]
             if span % by = 0 then run_minibatch {state span={from by}}
             else run_minibatch {state span={from near_to=from+by |> min near_to}}
             }
