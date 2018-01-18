@@ -1386,6 +1386,11 @@ inl ret ->
         extract = inl x -> FS.Method x .get_Stream() CUstream_type 
         } |> stack
 
+    inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
+    inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
+    inl SizeT = FS.Constructor SizeT_type
+    inl CUdeviceptr = FS.Constructor CUdeviceptr_type
+
     inl to_uint x = FS.UnOp .uint64 x uint64
     inl ptr_to_uint (ptr: CUdeviceptr_type) = FS.Field ptr .Pointer SizeT_type |> to_uint
     inl uint_to_ptr (x: uint64) = SizeT x |> CUdeviceptr
@@ -1412,11 +1417,12 @@ inl ret ->
         inl _ = 
             inl args = 
                 Tuple.map (function
-                    | @array_is _ as x -> to_uint x
+                    | x & @array_is _ -> to_uint x
                     | x -> x
                     ) args
-                |> show
-            string_formal "Calling {0} with args: {1}" (method_name, args)
+
+            string_format "Calling {0} with args: {1}" (method_name, show args)
+            |> Console.writeline
         
         inl dim3 {x y z} = Tuple.map (unsafe_convert uint32) (x,y,z) |> FS.Constructor (fs [text: "ManagedCuda.VectorTypes.dim3"])
     
@@ -1428,12 +1434,9 @@ inl ret ->
 
         match runable with
         | {stream} -> FS.Method cuda_kernel .RunAsync(Stream.extract stream,to_obj_ar args) unit
-        | _ -> FS.Method cuda_kernel .Run(to_obj_ar args) float32
+        | _ -> FS.Method cuda_kernel .Run(to_obj_ar args) float32 |> ignore
 
-    inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
-    inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
-    inl SizeT = FS.Constructor SizeT_type
-    inl CUdeviceptr = FS.Constructor CUdeviceptr_type
+        FS.Method context .Synchronize() unit
 
     ret {Stream context dim3 run SizeT SizeT_type CUdeviceptr CUdeviceptr_type ptr_to_uint uint_to_ptr to_uint}
     """) |> module_
