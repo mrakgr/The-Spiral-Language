@@ -421,16 +421,15 @@ inl hidden_size = 10
 
 inb network = init (sigmoid hidden_size) input_size >>! with_error cross_entropy
 
-Loops.for {from=0; near_to=30;body=inl _ ->
+inl run state =
     run {
         network input=train_images; label=train_labels; minibatch_size=128
-        optimizer=Optimizer.sgd 0.0f32
-        state={
-            running_cost=0.0
-            running_accuracy=0
-            }
+        optimizer=Optimizer.sgd 0.5f32
+        state
         }
-    }
+
+Loops.for {from=0; near_to=20;body=inl _ -> run {running_cost=0.0}}
+Loops.for {from=0; near_to=1;body=inl _ -> run {running_cost=0.0; running_accuracy=0}}
     """
 
 let learning9 =

@@ -904,6 +904,10 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl accuracy (input,label) ret =
         inl input, label = primal input, primal label
+        inl _ =
+            inb input = CudaKernel.map id input
+            inb label = CudaKernel.map id label
+            zip (input,label) |> to_host_tensor |> HostTensor.show |> Console.writeline
         inb x = 
             map_d1_redo_map {
                 map_in=const
