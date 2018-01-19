@@ -987,21 +987,32 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         inl span = near_to - from
         inl by = match d with {minibatch_size} -> minibatch_size | _ -> span
 
-        inl state = Loops.for {from near_to; state by; body=inl {state i=from} ->
-            if span % by = 0 then run_minibatch {state span={from by}}
-            else run_minibatch {state span={from near_to=from+by |> min near_to}}
+        inl state = Loops.for' {from near_to; state by; body=inl {next state i=from} ->
+            if macro.fs bool [text: "System.Double.IsNaN"; args: state.running_cost] then
+                state
+            else
+                if span % by = 0 then run_minibatch {state span={from by}}
+                else run_minibatch {state span={from near_to=from+by |> min near_to}}
+                |> next
             }
 
         writeline "-----"
         writeline "Batch done."
         inl spanf64 = to float64 span
-        match state with {running_cost} -> string_format "Average of batch costs is {0}." (running_cost / spanf64) |> writeline | _ -> ()
+        inl cost = 
+            match state with 
+            | {running_cost} -> 
+                inl cost = running_cost / spanf64
+                string_format "Average of batch costs is {0}." cost |> writeline 
+                cost
+            | _ -> ()
         match state with 
         | {running_accuracy} -> 
             inl percetange = to float64 running_accuracy / spanf64 * 100f64
             string_format "The accuracy of the batch is {0}/{1}({2}%). " (running_accuracy,span,percetange) |> writeline 
         | _ -> ()
         writeline "-----"
+        cost
 
     inl grad_check {d with network={weights apply} input label} =
         open Extern

@@ -422,14 +422,26 @@ inl hidden_size = 10
 
 inb network = init (sigmoid hidden_size) input_size >>! with_error cross_entropy
 
-inl run state =
-    run {
-        network input=train_images; label=train_labels; minibatch_size=128
-        optimizer=Optimizer.sgd 0.25f32
-        state
-        }
+Loops.for' {from=0; near_to=10;body=inl {next} -> 
+    inl train_cost =
+        Console.writeline "Training:"
+        run {
+            network input=train_images; label=train_labels; minibatch_size=128
+            optimizer=Optimizer.sgd 0.25f32
+            state={running_cost=0.0}
+            }
 
-Loops.for {from=0; near_to=10;body=inl _ -> run {running_cost=0.0; running_accuracy=0}}
+    if macro.fs bool [text: "System.Double.IsNaN"; args: train_cost] then
+        Console.writeline "Training diverged. Aborting..."
+    else
+        inl test_cost =
+            Console.writeline "Test:"
+            run {
+                network input=test_images; label=test_labels
+                state={running_cost=0.0; running_accuracy=0}
+                }
+        next ()
+    }
     """
 
 let learning9 =
