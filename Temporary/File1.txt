@@ -1,0 +1,11 @@
+﻿module File1
+
+open ManagedCuda
+open ManagedCuda.BasicTypes
+
+let size = 10240
+let x = new CudaDeviceVariable<bool>(SizeT size)
+
+for i=1 to 1000 do
+    let y = Array.zeroCreate<bool>(size)
+    x.CopyToHost(y)
