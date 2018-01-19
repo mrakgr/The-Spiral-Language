@@ -680,7 +680,7 @@ inl ret ->
             assert (m = rows C && n = cols C) "Output matrix dimensions do not match in GEMM."
 
             // Row major
-            call.cublasSgemm_v2(handle, transa, transb, n, m, k, alpha, {ptr=B}, n, {ptr=A}, k, beta, {ptr=C}, n)
+            call.cublasSgemm_v2(handle, transb, transa, n, m, k, alpha, {ptr=B}, n, {ptr=A}, k, beta, {ptr=C}, n)
 
         inl gemm transa transb alpha A B ret =
             inl m = if isnT transa then rows A else cols A

@@ -195,11 +195,13 @@ inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
 
-inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=2,3}
-inb a2 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=3,2}
+inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=2,2}
+inb a2 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=2,2}
 inb o1 = CudaBlas.gemm .nT .nT 1f32 a1 a2
+inb o2 = CudaBlas.gemm .T .nT 1f32 a1 a2
+inb o3 = CudaBlas.gemm .nT .T 1f32 a1 a2
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
-Tuple.iter show (a1,a2,o1)
+Tuple.iter show (a1,a2,o1,o2,o3)
     """
 
 let learning1 =
