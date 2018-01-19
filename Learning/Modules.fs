@@ -630,6 +630,7 @@ inl ret ->
     inl len = HostTensor.span
     inl rows x = x.dim |> inl a,b -> len a
     inl cols x = x.dim |> inl a,b -> len b
+    inl ld x = x.bodies.size |> fst
 
     inl assert_singleton x = 
         match x.bodies with
@@ -680,7 +681,7 @@ inl ret ->
             assert (m = rows C && n = cols C) "Output matrix dimensions do not match in GEMM."
 
             // Row major
-            call.cublasSgemm_v2(handle, transb, transa, n, m, k, alpha, {ptr=B}, n, {ptr=A}, k, beta, {ptr=C}, n)
+            call.cublasSgemm_v2(handle, transb, transa, n, m, k, alpha, {ptr=B}, ld B, {ptr=A}, ld A, beta, {ptr=C}, ld C)
 
         inl gemm transa transb alpha A B ret =
             inl m = if isnT transa then rows A else cols A
