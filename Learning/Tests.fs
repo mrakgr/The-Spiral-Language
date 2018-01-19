@@ -186,7 +186,7 @@ let blas1 =
     "blas1",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;console],"Does the gemm work?",
     """
 inb Cuda = Cuda
-inb Allocator = Allocator {Cuda size=0.7}
+inb Allocator = Allocator {Cuda size=0.1}
 inb stream = Cuda.Stream.create()
 inl CudaTensor = CudaTensor {stream Cuda Allocator}
 inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
@@ -195,11 +195,11 @@ inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
 
-inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=2,2}
-inb a2 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=2,2}
+inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=2,3}
+inb a2 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=3,4}
 inb o1 = CudaBlas.gemm .nT .nT 1f32 a1 a2
-inb o2 = CudaBlas.gemm .T .nT 1f32 a1 a2
-inb o3 = CudaBlas.gemm .nT .T 1f32 a1 a2
+inb o2 = CudaBlas.gemm .nT .T 1f32 o1 a2
+inb o3 = CudaBlas.gemm .T .nT 1f32 a1 o1
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
 Tuple.iter show (a1,a2,o1,o2,o3)
     """
@@ -697,7 +697,7 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" blas1
 |> printfn "%s"
 |> ignore
 
