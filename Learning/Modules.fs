@@ -175,16 +175,14 @@ inl {stream Cuda Allocator} ->
     inl create_like tns = create {elem_type=tns.elem_type; dim=tns.dim}
 
     inl from_host_array ar =
-        inl elem_type = ar.elem_type
         inl size = array_length ar |> unsafe_convert int64
-        inl t = array_create_cuda_global elem_type size
+        inl t = array_create_cuda_global ar.elem_type size
         FS.Method context .CopyToDevice(t.ptr(), ar) unit
         t
 
     inl to_host_array size1d ar =
         inl t = array_create ar.elem_type size1d
         FS.Method context .CopyToHost (t,ar.ptr()) unit
-        FS.Method context .Synchronize() unit
         t
 
     inl transfer_template f tns = 
@@ -216,13 +214,12 @@ inl {stream Cuda Allocator} ->
             )
 
     inl clear (!to_dev_tensor tns) = 
-        //assert_contiguous tns
-        //inl size = length tns
-        //inl stream = Stream.extract stream
-        //tns.update_body <| inl {body with ar} ->
-        //    FS.Method context .ClearMemoryAsync (ar,0u8,size * sizeof ar.elem_type |> SizeT,stream) unit
-        //|> ignore
-        ()
+        assert_contiguous tns
+        inl size = length tns
+        inl stream = Stream.extract stream
+        tns.update_body <| inl {body with ar} ->
+            FS.Method context .ClearMemoryAsync (ar,0u8,size * sizeof ar.elem_type |> SizeT,stream) unit
+        |> ignore
 
     inl clear' x = clear x; x
     inl zero = create >> clear'
@@ -306,8 +303,8 @@ inl {stream Cuda CudaTensor} ->
         inl out = to_1d out |> to_dev_tensor
         inl near_to = length in
 
-        inl blockDim = 1 // 128
-        inl gridDim = 1 // min 64 (divup near_to blockDim)
+        inl blockDim = 128
+        inl gridDim = min 64 (divup near_to blockDim)
 
         run {
             stream blockDim gridDim
@@ -342,10 +339,9 @@ inl {stream Cuda CudaTensor} ->
         inl near_to = length in
         inl map = match d with {map} -> map | _ -> id
 
-        inl blockDim = 1 // 128
-        inl gridDim = 1 // min 64 (divup near_to blockDim)
-        inl elem_type = type (in.elem_type |> map)
-        inl ty = elem_type
+        inl blockDim = 128
+        inl gridDim = min 64 (divup near_to blockDim)
+        inl elem_type = type map in.elem_type
 
         inb out = create {elem_type dim=gridDim}
         inl out' = to_dev_tensor out
@@ -375,10 +371,10 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_in = dim_in'_b) "Input's dimension must equal the second input's inner dimension."
         assert (in'.dim = out.dim) "Second input must have the same dimension as the output."
 
-        inl blockDimX = 1 // min warp_size (s dim_in)
+        inl blockDimX = min warp_size (s dim_in)
         // TODO: Determine if a different multiple would be better.
-        inl blockDimY = 1 // min 8 (s dim_in'_a)
-        inl gridDim = 1 // min 64 (divup (s dim_in) blockDimX)
+        inl blockDimY = min 8 (s dim_in'_a)
+        inl gridDim = min 64 (divup (s dim_in) blockDimX)
 
         inl in = to_dev_tensor in
         inl in' = to_dev_tensor in'
@@ -432,8 +428,8 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_in' = dim_in_a) "Input's outer dimension must equal the output's dimension."
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        inl blockDim = 1 // lit_min 1024 (s dim_in_b)
-        inl gridDimY = 1 // lit_min 64 (s dim_in')
+        inl blockDim = lit_min 1024 (s dim_in_b)
+        inl gridDimY = lit_min 64 (s dim_in')
 
         inl in = to_dev_tensor in
         inl in' = to_dev_tensor in'
@@ -477,10 +473,10 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_in' = dim_in_b) "Input's inner dimension must equal the output's dimension."
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        inl blockDimX = 1 // lit_min warp_size (s dim_in')
+        inl blockDimX = lit_min warp_size (s dim_in')
         // TODO: Determine if a different multiple would be better.
-        inl blockDimY = 1 // lit_min 8 (s dim_in_a)
-        inl gridDim = 1 // min 64 (divup (s dim_in') blockDimX)
+        inl blockDimY = lit_min 8 (s dim_in_a)
+        inl gridDim = min 64 (divup (s dim_in') blockDimX)
 
         inl in = to_dev_tensor in
         inl in' = to_dev_tensor in'
@@ -603,7 +599,7 @@ inl ret ->
 
         inl create_tensor op dsc ret =
             inb device_tensor = create dsc
-            //fill op device_tensor
+            fill op device_tensor
             ret device_tensor
 
         {fill create_tensor}
@@ -726,7 +722,7 @@ inl ret ->
             //    gemv optb alpha B A beta C
             //// Just do the standard matrix multiply
             //else
-            //call.cublasSgemm_v2(handle, transa, transb, m, n, k, alpha, {ptr=A}, lda, {ptr=B}, ldb, beta, {ptr=C}, ldc)
+            call.cublasSgemm_v2(handle, transa, transb, m, n, k, alpha, {ptr=A}, lda, {ptr=B}, ldb, beta, {ptr=C}, ldc)
 
         inl gemm transa transb alpha A B ret =
             inl m = if isnT transa then rows A else cols A
@@ -906,18 +902,6 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl Activation = {sigmoid}
 
-    //inl accuracy (input,label) ret =
-    //    inl input, label = primal input, primal label
-    //    inb x = 
-    //        map_d1_redo_map {
-    //            map_in=const
-    //            neutral_elem=-infinity,zero
-    //            redo=inl a b -> if fst a > fst b then a else b
-    //            map_out=snd
-    //            } (input,label) ()
-    //    Array.foldl (inl s x -> if x = one then s+1 else s) (dyn 0) (to_host_tensor x).bodies.ar 
-    //    |> ret
-
     inl accuracy (input,label) ret =
         inl input, label = primal input, primal label
         inb x = 
@@ -925,9 +909,9 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 map_in=const
                 neutral_elem=-infinity,zero
                 redo=inl a b -> if fst a > fst b then a else b
-                map_out=inl x -> snd x = one
+                map_out=snd
                 } (input,label) ()
-        Array.foldl (inl s x -> if x then s+1 else s) (dyn 0) (to_host_tensor x).bodies.ar 
+        Array.foldl (inl s x -> if x = one then s+1 else s) (dyn 0) (to_host_tensor x).bodies.ar 
         |> ret
 
     inl error {fwd bck} (input,_ as x) = 
@@ -1112,7 +1096,6 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                     Console.writeline "--- Gradient checking failure."
                 
         toa_iter (inl t -> perturb (primal t) (adjoint t)) weights
-
 
     {dr primal primals adjoint adjoints (>>!) Primitive succ (>>=) Activation Error Feedforward Optimizer run grad_check accuracy }
     """) |> module_
