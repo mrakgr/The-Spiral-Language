@@ -1363,9 +1363,9 @@ inl ret ->
 
         FS.Method context .LoadModulePTX target_path (fs [text: "ManagedCuda.BasicTypes.CUmodule"])
 
-    inl current_directory = FS.StaticMethod env_type .get_CurrentDirectory() string
-    inl modules = compile_kernel_using_nvcc_bat_router current_directory
-    writeline (string_concat "" ("Compiled the kernels into the following directory: ", current_directory))
+    //inl current_directory = FS.StaticMethod env_type .get_CurrentDirectory() string
+    //inl modules = compile_kernel_using_nvcc_bat_router current_directory
+    //writeline (string_concat "" ("Compiled the kernels into the following directory: ", current_directory))
 
     inl dim3 = function
         | {x y z} as m -> m
