@@ -967,7 +967,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl sigmoid_initializer dim = 
         inl stddev = sqrt (two / unsafe_convert default_float (Tuple.foldl (+) 0 dim))
-        CudaRandom.create_tensor {dst=.Normal; stddev mean=0f32} {dim elem_type=type zero}
+        CudaRandom.create_tensor {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
 
     inl sigmoid = layer sigmoid_initializer sigmoid
     inl linear = layer sigmoid_initializer succ

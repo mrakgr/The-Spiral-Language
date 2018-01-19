@@ -590,13 +590,11 @@ extern "C" {
             }
             float var_22 = var_0[var_13];
             float var_23 = var_1[var_13];
-            float var_24 = (0.5 * var_22);
-            float var_25 = (var_23 - var_24);
-            var_1[var_13] = var_25;
+            var_1[var_13] = var_23;
             var_10[0] = (make_Env0(var_14));
         }
-        Env0 var_26 = var_10[0];
-        long long int var_27 = var_26.mem_0;
+        Env0 var_24 = var_10[0];
+        long long int var_25 = var_24.mem_0;
     }
     __global__ void method_31(float * var_0, float * var_1) {
         long long int var_2 = threadIdx.x;
@@ -638,13 +636,11 @@ extern "C" {
             }
             float var_22 = var_0[var_13];
             float var_23 = var_1[var_13];
-            float var_24 = (0.5 * var_22);
-            float var_25 = (var_23 - var_24);
-            var_1[var_13] = var_25;
+            var_1[var_13] = var_23;
             var_10[0] = (make_Env0(var_14));
         }
-        Env0 var_26 = var_10[0];
-        long long int var_27 = var_26.mem_0;
+        Env0 var_24 = var_10[0];
+        long long int var_25 = var_24.mem_0;
     }
     __global__ void method_32(long long int var_0, float * var_1, float * var_2, float * var_3) {
         long long int var_4 = threadIdx.x;
@@ -1011,7 +1007,7 @@ and method_10((var_0: uint64), (var_1: System.Collections.Generic.Stack<Env3>), 
     else
         method_12((var_0: uint64), (var_2: uint64), (var_3: int64), (var_1: System.Collections.Generic.Stack<Env3>))
 and method_13((var_0: ManagedCuda.CudaContext), (var_1: ManagedCuda.CudaStream), (var_2: uint64), (var_3: uint64), (var_4: System.Collections.Generic.Stack<Env3>), (var_5: ManagedCuda.BasicTypes.CUmodule), (var_6: EnvStack2), (var_7: EnvStack2), (var_8: ManagedCuda.CudaBlas.CudaBlasHandle), (var_9: EnvStack2), (var_10: EnvStack2), (var_11: EnvStack2), (var_12: EnvStack2), (var_13: int64)): unit =
-    let (var_14: bool) = (var_13 < 5L)
+    let (var_14: bool) = (var_13 < 30L)
     if var_14 then
         let (var_15: int64) = 0L
         let (var_16: float) = 0.000000
@@ -1821,7 +1817,7 @@ let (var_149: EnvStack2) = method_10((var_49: uint64), (var_45: System.Collectio
 let (var_150: (Union0 ref)) = var_149.mem_0
 let (var_151: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_150: (Union0 ref)))
 let (var_152: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(7840L)
-var_53.GenerateNormal32(var_151, var_152, 0.000000f, 0.050189f)
+var_53.GenerateNormal32(var_151, var_152, 0.001000f, 0.050189f)
 let (var_153: int64) = 31360L
 let (var_154: EnvStack2) = method_10((var_49: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_50: uint64), (var_153: int64))
 let (var_155: (Union0 ref)) = var_154.mem_0
