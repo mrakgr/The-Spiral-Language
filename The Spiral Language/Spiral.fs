@@ -1008,7 +1008,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         /// Note: The way type_annot is currently set up is inconsistent. It would make more sense for the expression to be `dyn`ed
         /// on return from both sides, but this way is more useful since it preserves more information so it will be kept as is for now.
-        /// I do not see literals not being turned to variables ever being a problem here, but I will be sure to remember it.
+        /// I do not see literals not being turned to variables ever being a problem here, but it might be something to keep in mind.
         let type_annot d a b =
             match d.rbeh with
             | AnnotationReturn -> tev_annot {d with rbeh=AnnotationDive} b

@@ -651,7 +651,7 @@ inl ret ->
         open CudaTensor
 
         inl call method args = 
-            inl to_dev_tensor x = assert_contiguous x; assert_singleton x; to_dev_tensor x
+            inl to_dev_tensor x = assert_contiguous x; to_dev_tensor x
             inl args = Tuple.map (function x : int64 -> unsafe_convert int32 x | x -> x) args
             join 
                 inl args = 
@@ -994,8 +994,13 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
         writeline "-----"
         writeline "Batch done."
-        match state with {running_cost} -> string_format "Average of batch costs is {0}." (running_cost / to float64 span) |> writeline | _ -> ()
-        match state with {running_accuracy} -> string_format "The accuracy of the batch is {0}/{1}." (running_accuracy,span) |> writeline | _ -> ()
+        inl spanf64 = to float64 span
+        match state with {running_cost} -> string_format "Average of batch costs is {0}." (running_cost / spanf64) |> writeline | _ -> ()
+        match state with 
+        | {running_accuracy} -> 
+            inl percetange = to float64 running_accuracy / spanf64 * 100f64
+            string_format "The accuracy of the batch is {0}/{1}({2}%). " (running_accuracy,span,percetange) |> writeline 
+        | _ -> ()
         writeline "-----"
 
     inl grad_check {d with network={weights apply} input label} =

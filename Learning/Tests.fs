@@ -425,7 +425,7 @@ inb network = init (sigmoid hidden_size) input_size >>! with_error cross_entropy
 inl run state =
     run {
         network input=train_images; label=train_labels; minibatch_size=128
-        optimizer=Optimizer.sgd 0.5f32
+        optimizer=Optimizer.sgd 0.25f32
         state
         }
 
@@ -697,7 +697,7 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" blas1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
 |> printfn "%s"
 |> ignore
 
