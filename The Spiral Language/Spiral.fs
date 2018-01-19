@@ -872,7 +872,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | CudaTypeT _ | LitT _ -> true
             | PrimT t ->
                 match t with
-                | StringT _ -> false
+                | BoolT _ | CharT _ | StringT _ -> false
                 | _ -> true
             | ListT l -> false
             | MapT (l,_) -> Map.forall (fun _ -> is_cuda_type) l
