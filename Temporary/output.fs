@@ -74,11 +74,11 @@ and method_5((var_0: uint64), (var_1: uint64), (var_2: System.Collections.Generi
         let (var_19: float) = var_17.mem_1
         System.Console.WriteLine("-----")
         System.Console.WriteLine("Batch done.")
-        let (var_20: float) = (var_19 / 32.000000)
+        let (var_20: float) = (var_19 / 10240.000000)
         let (var_21: string) = System.String.Format("Average of batch costs is {0}.",var_20)
         let (var_22: string) = System.String.Format("{0}",var_21)
         System.Console.WriteLine(var_22)
-        let (var_23: string) = System.String.Format("The accuracy of the batch is {0}/{1}.",var_18,32L)
+        let (var_23: string) = System.String.Format("The accuracy of the batch is {0}/{1}.",var_18,10240L)
         let (var_24: string) = System.String.Format("{0}",var_23)
         System.Console.WriteLine(var_24)
         System.Console.WriteLine("-----")
@@ -129,9 +129,9 @@ and method_4((var_0: uint64), (var_1: uint64), (var_2: int64), (var_3: System.Co
     var_3.Push((Env3(var_15, var_6)))
     var_15
 and method_6((var_0: ManagedCuda.CudaStream), (var_1: uint64), (var_2: uint64), (var_3: System.Collections.Generic.Stack<Env3>), (var_4: ManagedCuda.CudaContext), (var_5: EnvStack2), (var_6: EnvStack2), (var_7: ManagedCuda.CudaBlas.CudaBlasHandle), (var_8: EnvStack2), (var_9: EnvStack2), (var_10: EnvStack2), (var_11: EnvStack2), (var_12: int64), (var_13: float), (var_14: int64)): Env4 =
-    let (var_15: bool) = (var_14 < 32L)
+    let (var_15: bool) = (var_14 < 10240L)
     if var_15 then
-        let (var_16: int64) = (var_14 + 32L)
+        let (var_16: int64) = (var_14 + 10240L)
         let (var_17: bool) = (var_14 >= 0L)
         let (var_18: bool) = (var_17 = false)
         if var_18 then
@@ -141,7 +141,7 @@ and method_6((var_0: ManagedCuda.CudaStream), (var_1: uint64), (var_2: uint64), 
         let (var_19: bool) = (var_16 > 0L)
         let (var_21: bool) =
             if var_19 then
-                (var_16 <= 32L)
+                (var_16 <= 10240L)
             else
                 false
         let (var_22: bool) = (var_21 = false)
@@ -156,7 +156,7 @@ and method_6((var_0: ManagedCuda.CudaStream), (var_1: uint64), (var_2: uint64), 
             ()
         let (var_25: bool) =
             if var_19 then
-                (var_16 <= 32L)
+                (var_16 <= 10240L)
             else
                 false
         let (var_26: bool) = (var_25 = false)
@@ -165,9 +165,9 @@ and method_6((var_0: ManagedCuda.CudaStream), (var_1: uint64), (var_2: uint64), 
         else
             ()
         let (var_27: int64) = (var_14 * 10L)
-        let (var_28: int64) = 1280L
+        let (var_28: int64) = 409600L
         let (var_29: EnvStack2) = method_2((var_1: uint64), (var_3: System.Collections.Generic.Stack<Env3>), (var_2: uint64), (var_28: int64))
-        let (var_30: int64) = 1280L
+        let (var_30: int64) = 409600L
         let (var_31: EnvStack2) = method_2((var_1: uint64), (var_3: System.Collections.Generic.Stack<Env3>), (var_2: uint64), (var_30: int64))
         let (var_32: (Union0 ref)) = var_31.mem_0
         let (var_33: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_32: (Union0 ref)))
@@ -176,12 +176,12 @@ and method_6((var_0: ManagedCuda.CudaStream), (var_1: uint64), (var_2: uint64), 
         let (var_36: (Union0 ref)) = var_29.mem_0
         let (var_37: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_36: (Union0 ref)))
         let (var_38: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_36: (Union0 ref)))
-        let (var_43: int64) = 1280L
+        let (var_43: int64) = 409600L
         let (var_44: EnvStack2) = method_2((var_1: uint64), (var_3: System.Collections.Generic.Stack<Env3>), (var_2: uint64), (var_43: int64))
         let (var_45: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_36: (Union0 ref)))
         let (var_46: (Union0 ref)) = var_44.mem_0
         let (var_47: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_46: (Union0 ref)))
-        let (var_48: int64) = 1280L
+        let (var_48: int64) = 409600L
         let (var_49: EnvStack2) = method_2((var_1: uint64), (var_3: System.Collections.Generic.Stack<Env3>), (var_2: uint64), (var_48: int64))
         let (var_50: (Union0 ref)) = var_49.mem_0
         let (var_51: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_50: (Union0 ref)))
@@ -199,20 +199,20 @@ and method_6((var_0: ManagedCuda.CudaStream), (var_1: uint64), (var_2: uint64), 
         let (var_70: EnvStack2) = method_2((var_1: uint64), (var_3: System.Collections.Generic.Stack<Env3>), (var_2: uint64), (var_69: int64))
         let (var_71: (Union0 ref)) = var_70.mem_0
         let (var_72: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_71: (Union0 ref)))
-        let (var_73: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_71: (Union0 ref)))
-        let (var_74: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(1L))
-        var_4.CopyToHost(var_74, var_73)
+        let (var_73: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(1L))
+        let (var_74: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_71: (Union0 ref)))
+        var_4.CopyToHost(var_73, var_74)
         var_4.Synchronize()
         let (var_75: float32) = 0.000000f
         let (var_76: int64) = 0L
-        let (var_77: float32) = method_7((var_74: (float32 [])), (var_75: float32), (var_76: int64))
+        let (var_77: float32) = method_7((var_73: (float32 [])), (var_75: float32), (var_76: int64))
         var_71 := Union0Case1
         let (var_78: (float32 ref)) = (ref 0.000000f)
-        let (var_79: float32) = (var_77 / 32.000000f)
+        let (var_79: float32) = (var_77 / 10240.000000f)
         let (var_80: (float32 ref)) = (ref 0.000000f)
         var_80 := 1.000000f
         let (var_81: float32) = (!var_80)
-        let (var_82: float32) = (var_81 / 32.000000f)
+        let (var_82: float32) = (var_81 / 10240.000000f)
         let (var_83: float32) = (!var_78)
         let (var_84: float32) = (var_83 + var_82)
         var_78 := var_84
@@ -241,9 +241,9 @@ and method_6((var_0: ManagedCuda.CudaStream), (var_1: uint64), (var_2: uint64), 
         let (var_107: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_34: (Union0 ref)))
         let (var_108: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_99: (Union0 ref)))
         let (var_109: float) = (float var_79)
-        let (var_110: float) = (var_109 * 32.000000)
+        let (var_110: float) = (var_109 * 10240.000000)
         let (var_111: float) = (var_13 + var_110)
-        let (var_113: int64) = 32L
+        let (var_113: int64) = 10240L
         let (var_114: EnvStack2) = method_2((var_1: uint64), (var_3: System.Collections.Generic.Stack<Env3>), (var_2: uint64), (var_113: int64))
         let (var_115: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_46: (Union0 ref)))
         let (var_116: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_54: (Union0 ref)))
@@ -255,13 +255,13 @@ and method_6((var_0: ManagedCuda.CudaStream), (var_1: uint64), (var_2: uint64), 
         let (var_122: (Union0 ref)) = var_114.mem_0
         let (var_123: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_122: (Union0 ref)))
         let (var_124: int64) = 0L
-        let (var_125: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_122: (Union0 ref)))
-        let (var_126: (bool [])) = Array.zeroCreate<bool> (System.Convert.ToInt32(32L))
-        var_4.CopyToHost(var_126, var_125)
+        let (var_125: (bool [])) = Array.zeroCreate<bool> (System.Convert.ToInt32(10240L*128L)) // Lengthening the array here does not seem to help.
+        let (var_126: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_122: (Union0 ref)))
+        var_4.CopyToHost(var_125, var_126)
         var_4.Synchronize()
-        let (var_127: int64) = var_126.LongLength
+        let (var_127: int64) = var_125.LongLength
         let (var_128: int64) = 0L
-        let (var_129: int64) = method_8((var_126: (bool [])), (var_127: int64), (var_124: int64), (var_128: int64))
+        let (var_129: int64) = method_8((var_125: (bool [])), (var_127: int64), (var_124: int64), (var_128: int64))
         var_122 := Union0Case1
         let (var_130: int64) = (var_12 + var_129)
         var_50 := Union0Case1
@@ -397,9 +397,9 @@ let (var_57: ManagedCuda.CudaBlas.CudaBlas) = ManagedCuda.CudaBlas.CudaBlas(var_
 let (var_58: ManagedCuda.CudaBlas.CudaBlasHandle) = var_57.get_CublasHandle()
 let (var_59: ManagedCuda.BasicTypes.CUstream) = var_51.get_Stream()
 var_57.set_Stream(var_59)
-let (var_60: int64) = 100352L
+let (var_60: int64) = 32112640L
 let (var_61: EnvStack2) = method_2((var_49: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_50: uint64), (var_60: int64))
-let (var_62: int64) = 1280L
+let (var_62: int64) = 409600L
 let (var_63: EnvStack2) = method_2((var_49: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_50: uint64), (var_62: int64))
 let (var_64: int64) = 31360L
 let (var_65: EnvStack2) = method_2((var_49: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_50: uint64), (var_64: int64))

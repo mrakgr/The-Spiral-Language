@@ -636,7 +636,7 @@ open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Error
 open Feedforward
 
-inl batch_size = 32
+inl batch_size = 1024*10
 inl input_size = 784
 inl hidden_size = 10
 
