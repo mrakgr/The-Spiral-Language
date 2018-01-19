@@ -628,8 +628,8 @@ inl ret ->
         | _ -> false
 
     inl len = HostTensor.span
-    inl rows x = x.dim |> inl a,b -> len b
-    inl cols x = x.dim |> inl a,b -> len a
+    inl rows x = x.dim |> inl a,b -> len a
+    inl cols x = x.dim |> inl a,b -> len b
 
     inl assert_singleton x = 
         match x.bodies with
@@ -668,37 +668,7 @@ inl ret ->
         FS.Method cublas .set_Stream (Stream.extract stream) unit
 
         /// General matrix-matrix multiply from cuBLAS. Inplace version
-        /// Note: The arguments are swapped in order to change from column to row major ordering that Spiral uses.
-        inl gemm' transa transb alpha B A beta C =
-            // -------
-
-            // These two are meant to be called from inside gemm as they lack boundary checks.
-            // I've added them to enhance gemm's vector handling capabilities for online learning
-            // tasks.
-
-            /// o <- alpha * op(A) * x + beta * o
-            /// Matrix-vector multiplication. Inplace version.
-            inl gemv transa alpha A x beta o =
-                inl m,n = rows A, cols A
-                inl lda = m
-                call.cublasSgemv_v2(handle, transa, m, n, alpha, {ptr=A}, lda, {ptr=x}, 1, beta, {ptr=o}, 1)
-
-            // A <- alpha * x * yT + beta * A (outer product)
-            inl ger alpha x y beta a =
-                inl max (a,b) = max a b
-                inl m = max (rows x, cols x)
-                inl n = max (rows y, cols y)
-
-                match beta with
-                | 0.0f64 | 0.0f32 -> ()
-                | _ -> CudaKernel.map' (toa_map ((*) beta) |> const) a a
-
-                call.cublasSger_v2(handle, m, n, alpha, {ptr=x}, 1, {ptr=y}, 1, {ptr=a}, m)
-
-            // -------
-
-            inl is_vector x = rows x = 1 || cols x = 1
-
+        inl gemm' transa transb alpha A B beta C =
             inl a_col = if isnT transa then cols A else rows A
             inl b_row = if isnT transb then rows B else cols B
             assert (a_col = b_row) "Colums of a does not match rows of b in GEMM."
@@ -706,31 +676,18 @@ inl ret ->
             inl m = if isnT transa then rows A else cols A
             inl n = if isnT transb then cols B else rows B
             inl k = a_col
-            inl lda = if isnT transa then m else k
-            inl ldb = if isnT transb then k else n
-            inl ldc = m
         
             assert (m = rows C && n = cols C) "Output matrix dimensions do not match in GEMM."
 
-            //// If is outer product call ger
-            //if a_col = 1 && b_row = 1 then ger alpha A B beta C
-            //// If the vector is on the right side or both are vectors call gemv normally.
-            //elif is_vector B then gemv transa alpha A B beta C
-            //// If the vector is on the left side call gemv with the arguments switched and transposed
-            //// It does not actually transpose them, just their views. The function should work regardless.
-            //elif is_vector A then
-            //    inl optb = if isnT transb then .T else .nT
-            //    gemv optb alpha B A beta C
-            //// Just do the standard matrix multiply
-            //else
-            call.cublasSgemm_v2(handle, transa, transb, m, n, k, alpha, {ptr=A}, lda, {ptr=B}, ldb, beta, {ptr=C}, ldc)
+            // Row major
+            call.cublasSgemm_v2(handle, transa, transb, n, m, k, alpha, {ptr=B}, n, {ptr=A}, k, beta, {ptr=C}, n)
 
-        inl gemm transa transb alpha B A ret =
+        inl gemm transa transb alpha A B ret =
             inl m = if isnT transa then rows A else cols A
             inl n = if isnT transb then cols B else rows B
 
-            inb C = create {dim=n,m; elem_type = A.elem_type}
-            gemm' transa transb alpha B A (zero_of alpha) C
+            inb C = create {dim=m,n; elem_type = A.elem_type}
+            gemm' transa transb alpha A B (zero_of alpha) C
             ret C
 
         {gemm' gemm}
@@ -905,10 +862,6 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl accuracy (input,label) ret =
         inl input, label = primal input, primal label
-        inl _ =
-            inb input = CudaKernel.map id input
-            inb label = CudaKernel.map id label
-            zip (input,label) |> to_host_tensor |> HostTensor.show |> Console.writeline
         inb x = 
             map_d1_redo_map {
                 map_in=const
