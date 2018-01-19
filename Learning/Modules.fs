@@ -628,8 +628,8 @@ inl ret ->
         | _ -> false
 
     inl len = HostTensor.span
-    inl rows x = x.dim |> inl a,b -> len a
-    inl cols x = x.dim |> inl a,b -> len b
+    inl rows x = x.dim |> inl a,b -> len b
+    inl cols x = x.dim |> inl a,b -> len a
 
     inl assert_singleton x = 
         match x.bodies with
@@ -668,7 +668,8 @@ inl ret ->
         FS.Method cublas .set_Stream (Stream.extract stream) unit
 
         /// General matrix-matrix multiply from cuBLAS. Inplace version
-        inl gemm' transa transb alpha A B beta C =
+        /// Note: The arguments are swapped in order to change from column to row major ordering that Spiral uses.
+        inl gemm' transa transb alpha B A beta C =
             // -------
 
             // These two are meant to be called from inside gemm as they lack boundary checks.
@@ -724,12 +725,12 @@ inl ret ->
             //else
             call.cublasSgemm_v2(handle, transa, transb, m, n, k, alpha, {ptr=A}, lda, {ptr=B}, ldb, beta, {ptr=C}, ldc)
 
-        inl gemm transa transb alpha A B ret =
+        inl gemm transa transb alpha B A ret =
             inl m = if isnT transa then rows A else cols A
             inl n = if isnT transb then cols B else rows B
 
-            inb C = create {dim=m,n; elem_type = A.elem_type}
-            gemm' transa transb alpha A B (zero_of alpha) C
+            inb C = create {dim=n,m; elem_type = A.elem_type}
+            gemm' transa transb alpha B A (zero_of alpha) C
             ret C
 
         {gemm' gemm}
