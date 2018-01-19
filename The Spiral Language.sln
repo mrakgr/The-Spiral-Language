@@ -22,8 +22,6 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Benchmarking", "Benchmarkin
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Learning", "Learning\Learning.fsproj", "{8A44EEC1-7E30-4B7C-A878-1F78A0C08E9A}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "SpiralV4", "SpiralV4\SpiralV4.fsproj", "{73AA2375-62BB-48FF-9515-3360921F0322}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -50,10 +48,6 @@ Global
 		{8A44EEC1-7E30-4B7C-A878-1F78A0C08E9A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8A44EEC1-7E30-4B7C-A878-1F78A0C08E9A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8A44EEC1-7E30-4B7C-A878-1F78A0C08E9A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{73AA2375-62BB-48FF-9515-3360921F0322}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{73AA2375-62BB-48FF-9515-3360921F0322}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{73AA2375-62BB-48FF-9515-3360921F0322}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{73AA2375-62BB-48FF-9515-3360921F0322}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
