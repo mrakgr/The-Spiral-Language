@@ -428,8 +428,7 @@ inl run state =
         state
         }
 
-Loops.for {from=0; near_to=20;body=inl _ -> run {running_cost=0.0}}
-Loops.for {from=0; near_to=1;body=inl _ -> run {running_cost=0.0; running_accuracy=0}}
+Loops.for {from=0; near_to=10;body=inl _ -> run {running_cost=0.0; running_accuracy=0}}
     """
 
 let learning9 =
@@ -697,7 +696,7 @@ let tests =
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" blas1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
 |> printfn "%s"
 |> ignore
 
