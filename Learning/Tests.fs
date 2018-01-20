@@ -527,7 +527,6 @@ let cfg: Spiral.Types.CompilerSettings = {
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-
 let tests =
     [|
     allocator1
