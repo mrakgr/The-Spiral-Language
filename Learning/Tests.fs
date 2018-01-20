@@ -482,189 +482,6 @@ met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Cons
 Tuple.iter show (adjoint bias, adjoint weight)
     """
 
-let cfg: Spiral.Types.CompilerSettings = {
-    path_cuda90 = "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v9.0"
-    path_cub = "C:/cub-1.7.4"
-    path_vs2017 = "C:/Program Files (x86)/Microsoft Visual Studio/2017/Community"
-    cuda_includes = ["cub/cub.cuh"]
-    trace_length = 40
-    cuda_assert_enabled = false
-    }
-
-//rewrite_test_cache tests cfg None //(Some(0,40))
-
-let debug1 =
-    "debug1",[loops;cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"Where is the memory corruption bug?",
-    """
-inb Cuda = Cuda
-inb Allocator = Allocator {Cuda size=0.7}
-inb stream = Cuda.Stream.create()
-inl CudaTensor = CudaTensor {stream Cuda Allocator}
-inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
-inb CudaRandomModule = CudaRandom
-inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
-inb CudaBlasModule = CudaBlas
-inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
-inl default_float = float32
-open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
-open Error
-open Feedforward
-
-inl hidden_size = 5
-inl batch_size = 32
-
-inb a=CudaRandom.create_tensor .Uniform {elem_type=float32; dim=batch_size,hidden_size}
-inb b=CudaRandom.create_tensor .Uniform {elem_type=float32; dim=batch_size,hidden_size}
-
-met rec show (!dyn o1) = CudaTensor.to_host_tensor (HostTensor.zip o1) |> HostTensor.show |> Console.writeline
-show (a,b)
-
-inl by = 2
-Loops.for {from=0;near_to=32;by;body=inl {i} ->
-    inl f a = a .view_span {from=i;by}
-    inl a, b = f a, f b
-    accuracy (a,b) id |> HostTensor.show |> Console.writeline
-    }
-()
-    """
-
-let debug2 =
-    "debug2",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;console],"Does view_span work correctly with map?",
-    """
-inb Cuda = Cuda
-inb Allocator = Allocator {Cuda size=0.7}
-inb stream = Cuda.Stream.create()
-inl CudaTensor = CudaTensor {stream Cuda Allocator}
-inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
-
-open Extern
-inl rnd_ty = fs [text: "System.Random"]
-inl rnd = FS.Constructor rnd_ty ()
-inl rnd_float64 () = FS.Method rnd .NextDouble() float64
-inl rnd_float32 () = rnd_float64 () |> unsafe_convert float32
-
-inl hidden_size = 5
-inl batch_size = 32
-
-inl h1 = HostTensor.init (batch_size,hidden_size) (inl _ _ -> rnd_float32())
-
-inl zip = HostTensor.zip
-inl show a2 = HostTensor.show (zip a2) |> Console.writeline
-
-inl a = h1
-inb b = CudaTensor.from_host_tensor h1
-inl by = 2
-Loops.for {from=0;near_to=32;by;body=inl {i} ->
-    inl f a = a .view_span {from=i;by}
-    inl a, b = f a, f b
-    inb b = CudaKernel.map id b 
-    inl b = CudaTensor.to_host_tensor b
-    show (a, b)
-    HostTensor.equal (a, b) |> Console.writeline
-    }
-    """
-
-let debug3 =
-    "debug3",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does view_span work correctly with map_d1_redo_map?",
-    """
-inb Cuda = Cuda
-inb Allocator = Allocator {Cuda size=0.7}
-inb stream = Cuda.Stream.create()
-inl CudaTensor = CudaTensor {stream Cuda Allocator}
-inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
-inb CudaRandomModule = CudaRandom
-inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
-inl default_float = float32
-
-inl infinity = infinityf32
-inl zero = 0f32
-
-inl accuracy' input  =
-    inl a, b = input.dim
-    inl state = dyn (-infinity,zero)
-    inl redo = inl a b -> if fst a > fst b then a else b
-    HostTensor.init a (inl i ->
-        inl {from near_to} = b
-        inl input = input i
-        Loops.for { from near_to state
-            body=inl {state i} -> redo state (input i .get)
-            } 
-        )
-
-inl accuracy input =
-    CudaKernel.map_d1_redo_map {
-        map_in=const
-        neutral_elem=-infinity,zero
-        redo=inl a b -> if fst a > fst b then a else b
-        } input ()
-
-open Extern
-inl rnd_ty = fs [text: "System.Random"]
-inl rnd = FS.Constructor rnd_ty ()
-inl rnd_float64 () = FS.Method rnd .NextDouble() float64
-inl rnd_float32 () = rnd_float64 () |> unsafe_convert float32
-
-inl hidden_size = 5
-inl batch_size = 32
-
-inl h1 = HostTensor.init (batch_size,hidden_size) (inl _ _ -> rnd_float32())
-inl h2 = HostTensor.init (batch_size,hidden_size) (inl _ _ -> rnd_float32())
-
-inl zip = HostTensor.zip
-inl show a2 = HostTensor.show (zip a2) |> Console.writeline
-
-inl a = zip (h1,h2)
-inb b = CudaTensor.from_host_tensor a
-inl by = 2
-Loops.for {from=0;near_to=32;by;body=inl {i} ->
-    inl f a = a .view_span {from=i;by}
-    inl a, b = f a, f b
-    inl a = accuracy' a
-    inb b = accuracy b 
-    inl b = CudaTensor.to_host_tensor b
-    show (a, b)
-    HostTensor.equal (a, b) |> Console.writeline
-    }
-    """
-
-let debug4 =
-    "debug4",[loops;cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"The memory corruption minimalist example triggered by the `accuracy` function in the Learning module.",
-    """
-inb Cuda = Cuda
-inb Allocator = Allocator {Cuda size=0.1}
-inb stream = Cuda.Stream.create()
-inl CudaTensor = CudaTensor {stream Cuda Allocator}
-inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
-inb CudaRandomModule = CudaRandom
-inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
-inb CudaBlasModule = CudaBlas
-inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
-inl default_float = float32
-open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
-open Error
-open Feedforward
-
-inl batch_size = 1024*10
-inl input_size = 784
-inl hidden_size = 10
-
-inb train_images = CudaRandom.create_tensor .Uniform {elem_type=float32; dim=batch_size,input_size}
-inb train_labels = CudaRandom.create_tensor .Uniform {elem_type=float32; dim=batch_size,hidden_size}
-
-inb network = init (sigmoid hidden_size) input_size >>! with_error cross_entropy
-
-Loops.for {from=0; near_to=5;body=inl _ ->
-    run {
-        network input=train_images; label=train_labels
-        optimizer=Optimizer.sgd 0.5f32
-        state={
-            running_cost=0.0
-            running_accuracy=0
-            }
-        }
-    }
-    """
-
 let grad1 =
     "grad1",[loops;cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"Does gradient checking pass for the full network?",
     """
@@ -699,6 +516,18 @@ grad_check {network input=train_images; label=train_labels}
 ()
     """
 
+let cfg: Spiral.Types.CompilerSettings = {
+    path_cuda90 = "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v9.0"
+    path_cub = "C:/cub-1.7.4"
+    path_vs2017 = "C:/Program Files (x86)/Microsoft Visual Studio/2017/Community"
+    cuda_includes = ["cub/cub.cuh"]
+    trace_length = 40
+    cuda_assert_enabled = false
+    }
+
+//rewrite_test_cache tests cfg None //(Some(0,40))
+
+
 let tests =
     [|
     allocator1
@@ -707,9 +536,9 @@ let tests =
     random1
     blas1
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
+    grad1
     |]
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
 |> printfn "%s"
 |> ignore
-
