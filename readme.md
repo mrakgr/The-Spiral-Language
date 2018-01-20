@@ -64,6 +64,7 @@
             - [Parser Macros](#parser-macros)
         - [11: Operatives and the Core Library](#11-operatives-and-the-core-library)
             - [Virtualization](#virtualization)
+        - [Known Bugs](#known-bugs)
 
 <!-- /TOC -->
 
@@ -7076,3 +7077,8 @@ inl (use) a b =
     r
 ```
 
+### Known Bugs
+
+1) Passing `nan`s through join points causes the compiler to diverge. Since join points use structural equality for memoization and `nan = nan` is always `false`. That means that they cannot be compared and will always result in a new entry to their dictionary at join point boundaries. Note to numerical standards designers - don't do this again! Comparing `nan`s should be invalid, but returning `false` is not the answer.
+
+2) `.NET` will happily marshal non [`blittable`](https://docs.microsoft.com/en-us/dotnet/framework/interop/blittable-and-non-blittable-types) types past language boundaries corrupting memory and writing past the ends of the arrays. Spiral will give a type error at join points, but it is still possible to corrupt memory using transfer functions which aren't doing proper checking.
