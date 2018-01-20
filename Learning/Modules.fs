@@ -679,7 +679,7 @@ inl ret ->
         
             assert (m = rows C && n = cols C) "Output matrix dimensions do not match in GEMM."
 
-            // Row major
+            // The arguments are switched in order to convert from column major (which CuBlas uses) to row major (which Spiral's tensor use)
             call.cublasSgemm_v2(handle, transb, transa, n, m, k, alpha, {ptr=B}, ld B, {ptr=A}, ld A, beta, {ptr=C}, ld C)
 
         inl gemm transa transb alpha A B ret =
