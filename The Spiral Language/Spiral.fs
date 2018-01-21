@@ -614,23 +614,23 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             ty_join_point join_point_key JoinPointClosure captured_arguments (term_functiont arg_ty ret_ty)
             |> make_tyv_and_push_typed_expr_even_if_unit d
 
-        let rec is_cuda_type = function
+        let rec blittable_is = function
             | CudaTypeT _ | LitT _ -> true
             | PrimT t ->
                 match t with
                 | BoolT _ | CharT _ | StringT _ -> false
                 | _ -> true
             | ListT l -> false
-            | MapT (l,_) -> Map.forall (fun _ -> is_cuda_type) l
+            | MapT (l,_) -> Map.forall (fun _ -> blittable_is) l
             | LayoutT (LayoutPackedStack, l, _) -> 
                 let {call_args=args},_ = renamer_apply_env l
-                List.forall (fun (_,t) -> is_cuda_type t) args
-            | ArrayT ((ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal),t) -> is_cuda_type t
+                List.forall (fun (_,t) -> blittable_is t) args
+            | ArrayT ((ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal),t) -> blittable_is t
             | UnionT _ | LayoutT _ | ArrayT _ | DotNetTypeT _ | TermFunctionT _ | RecT _ -> false
 
         let join_point_cuda d expr = 
             let {call_args=call_arguments; method_pars=method_parameters; renamer'=renamer}, renamed_env = renamer_apply_env d.env
-            match List.filter (snd >> is_cuda_type >> not) call_arguments with
+            match List.filter (snd >> blittable_is >> not) call_arguments with
             | [] -> ()
             | l -> on_type_er (trace d) <| sprintf "At the Cuda join point the following arguments have disallowed types: %s" (List.map tyv l |> tyvv |> show_typedexpr)
 
