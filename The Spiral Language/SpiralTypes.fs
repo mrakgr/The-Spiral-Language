@@ -149,10 +149,11 @@ type Op =
     | MapGetField // Codegen only
     | ModuleMemberCPS
 
-    // Box & caseable
+    // Subtype tests
     | CaseableIs
     | CaseableBoxIs
     | BoxIs
+    | BlittableIs
 
     // Braching
     | Case

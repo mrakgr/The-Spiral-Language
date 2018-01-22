@@ -55,10 +55,10 @@ inb stream = Cuda.Stream.create()
 inl CudaTensor = CudaTensor {stream Cuda Allocator}
 inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
 
-inl h = HostTensor.init 32 (inl x -> x % 2 = 0)
+inl h = HostTensor.init 32 (inl x -> x + 1)
 inb a1 = CudaTensor.from_host_tensor h
 inb o1 = CudaTensor.zero_like a1
-CudaKernel.map' (inl a _ -> a = false) a1 o1
+CudaKernel.map' (inl a _ -> a *2) a1 o1
 inl a2 = CudaTensor.to_host_tensor o1
 HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
     """
@@ -151,7 +151,7 @@ inl f a1 a2 =
         map_in=const
         neutral_elem=-infinityf32,0f32
         redo=inl a b -> if fst a > fst b then a else b
-        map_out=inl x -> snd x > 0.5f32
+        map_out=snd
         } a1 a2
 inb o1 = f (a1, a2) ()
 
@@ -396,7 +396,45 @@ bck()
     """
 
 let learning8 =
-    "learning8",[loops;cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"Does the full training work with Mnist?",
+    "learning8",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;console],"Does the add_bias work?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+inb CudaRandomModule = CudaRandom
+inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
+inb CudaBlasModule = CudaBlas
+inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
+inl default_float = float32
+open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+open Primitive
+open Activation
+open Error
+
+inl input_size = 32
+inl outer_dim = 6
+inl inner_dim = 16
+inb input = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=input_size,outer_dim}
+inb weight = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=outer_dim,inner_dim} >>! dr
+inb bias = CudaTensor.zero {elem_type=default_float; dim=inner_dim} >>! dr
+inb label = CudaTensor.zero {elem_type=default_float; dim=input_size,inner_dim}
+
+inb {cost},bck = 
+    inm o1 = matmult input weight >>= add_bias bias >>= sigmoid
+    square (o1,label)
+
+Console.writeline ("Cost is:", primal cost)
+
+adjoint cost := 1f32
+bck()
+met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
+Tuple.iter show (adjoint bias, adjoint weight)
+    """
+
+let learning9 =
+    "learning9",[loops;cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"Does the full training work with Mnist?",
     """
 inb Cuda = Cuda
 inb Allocator = Allocator {Cuda size=0.7}
@@ -444,44 +482,6 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
     }
     """
 
-let learning9 =
-    "learning9",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;console],"Does the add_bias work?",
-    """
-inb Cuda = Cuda
-inb Allocator = Allocator {Cuda size=0.7}
-inb stream = Cuda.Stream.create()
-inl CudaTensor = CudaTensor {stream Cuda Allocator}
-inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
-inb CudaRandomModule = CudaRandom
-inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
-inb CudaBlasModule = CudaBlas
-inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
-inl default_float = float32
-open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
-open Primitive
-open Activation
-open Error
-
-inl input_size = 32
-inl outer_dim = 6
-inl inner_dim = 16
-inb input = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=input_size,outer_dim}
-inb weight = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=outer_dim,inner_dim} >>! dr
-inb bias = CudaTensor.zero {elem_type=default_float; dim=inner_dim} >>! dr
-inb label = CudaTensor.zero {elem_type=default_float; dim=input_size,inner_dim}
-
-inb {cost},bck = 
-    inm o1 = matmult input weight >>= add_bias bias >>= sigmoid
-    square (o1,label)
-
-Console.writeline ("Cost is:", primal cost .value)
-
-adjoint cost := 1f32
-bck()
-met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
-Tuple.iter show (adjoint bias, adjoint weight)
-    """
-
 let grad1 =
     "grad1",[loops;cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"Does gradient checking pass for the full network?",
     """
@@ -525,8 +525,6 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_assert_enabled = false
     }
 
-//rewrite_test_cache tests cfg None //(Some(0,40))
-
 let tests =
     [|
     allocator1
@@ -538,6 +536,8 @@ let tests =
     grad1
     |]
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
+//rewrite_test_cache tests cfg None //(Some(0,40))
+
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" grad1
 |> printfn "%s"
 |> ignore

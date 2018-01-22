@@ -614,25 +614,27 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             ty_join_point join_point_key JoinPointClosure captured_arguments (term_functiont arg_ty ret_ty)
             |> make_tyv_and_push_typed_expr_even_if_unit d
 
-        let rec blittable_is = function
+        let rec blittable_is' = function
             | CudaTypeT _ | LitT _ -> true
             | PrimT t ->
                 match t with
                 | BoolT _ | CharT _ | StringT _ -> false
                 | _ -> true
             | ListT l -> false
-            | MapT (l,_) -> Map.forall (fun _ -> blittable_is) l
+            | MapT (l,_) -> Map.forall (fun _ -> blittable_is') l
             | LayoutT (LayoutPackedStack, l, _) -> 
                 let {call_args=args},_ = renamer_apply_env l
-                List.forall (fun (_,t) -> blittable_is t) args
-            | ArrayT ((ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal),t) -> blittable_is t
+                List.forall (fun (_,t) -> blittable_is' t) args
+            | ArrayT ((ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal),t) -> blittable_is' t
             | UnionT _ | LayoutT _ | ArrayT _ | DotNetTypeT _ | TermFunctionT _ | RecT _ -> false
+
+        let blittable_is d a = tev d a |> get_type |> blittable_is' |> LitBool |> TyLit
 
         let join_point_cuda d expr = 
             let {call_args=call_arguments; method_pars=method_parameters; renamer'=renamer}, renamed_env = renamer_apply_env d.env
-            match List.filter (snd >> blittable_is >> not) call_arguments with
+            match List.filter (snd >> blittable_is' >> not) call_arguments with
             | [] -> ()
-            | l -> on_type_er (trace d) <| sprintf "At the Cuda join point the following arguments have disallowed types: %s" (List.map tyv l |> tyvv |> show_typedexpr)
+            | l -> on_type_er (trace d) <| sprintf "At the Cuda join point the following arguments have disallowed non-blittable types: %s" (List.map tyv l |> tyvv |> show_typedexpr)
 
             let length=renamer.Count
             let join_point_key = nodify_memo_key (expr, renamed_env) 
@@ -1640,6 +1642,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | CaseableIs,[a] -> caseable_is d a
             | BoxIs,[a] -> box_is d a
             | CaseableBoxIs,[a] -> caseable_box_is d a
+            | BlittableIs,[a] -> blittable_is d a
 
             | ArrayCreate,[a;b] -> array_create' ArtDotNetHeap d a b
             | ArrayCreate,[ar_typ;a;b] -> array_create ar_typ d a b

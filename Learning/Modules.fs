@@ -176,12 +176,16 @@ inl {stream Cuda Allocator} ->
 
     inl from_host_array ar =
         inl size = array_length ar |> unsafe_convert int64
-        inl t = array_create_cuda_global ar.elem_type size
+        inl elem_type = ar.elem_type
+        assert (blittable_is elem_type) "The host array type must be blittable."
+        inl t = array_create_cuda_global elem_type size
         FS.Method context .CopyToDevice(t.ptr(), ar) unit
         t
 
     inl to_host_array size1d ar =
-        inl t = array_create ar.elem_type size1d
+        inl elem_type = ar.elem_type
+        assert (blittable_is elem_type) "The host array type must be blittable."
+        inl t = array_create elem_type size1d
         FS.Method context .CopyToHost (t,ar.ptr()) unit
         t
 
@@ -1027,18 +1031,20 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         inl get_cdv x = macro.fs x.elem_type [arg:x.cdv; text: ".["; arg:SizeT x.offset; text: "]"]
         inl set_cdv x v = macro.fs unit [arg:x.cdv; text: ".["; arg:SizeT x.offset; text: "] <- "; arg:v : x.elem_type]
 
-        met run () = 
+        inl float = unsafe_convert default_float
+
+        inl run () = 
             inb {cost accuracy}, bck = apply (input, label)
-            adjoint cost := 1f32
+            adjoint cost := float 1
             bck()
-        met update () = 
-            toa_iter (sgd 0.01f32) weights
+        //met update () = 
+        //    toa_iter (sgd (float 0.01)) weights
 
         // Run it a few times.
         run()
 
-        inl epsilon = 0.001f32
-        inl boundary = 0.001f32
+        inl epsilon = float 0.001
+        inl boundary = float 0.001
         // Assert that all the gradients make sense.
 
         inl rec perturb primal' adjoint' =
