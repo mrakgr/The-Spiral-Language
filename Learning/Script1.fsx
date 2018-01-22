@@ -9,4 +9,3 @@ let symbols = text.ToCharArray() |> Array.groupBy id |> Array.map (fun (a,b) -> 
 symbols 
 |> Array.map (fst >> int)
 |> Array.max
-
