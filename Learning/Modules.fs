@@ -417,11 +417,15 @@ inl {stream Cuda CudaTensor} ->
 
     inl syncthreads () = macro.cd unit [text: "__syncthreads()"]
 
-    inl lit_min a b =
-        if lit_is a && lit_is b then min a b
+    inl lit_comp op a b =
+        if lit_is a && lit_is b then op a b
         elif lit_is a then a
         elif lit_is b then b
         else error_type "a or b need to be a literal"
+
+    inl lit_min = lit_comp min
+    inl lit_max = lit_comp max
+
 
     /// Maps the two inputs and then reduces the first's inner dimension.
     inl map_d1_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) = 
@@ -511,15 +515,15 @@ inl {stream Cuda CudaTensor} ->
                             inl ar = HostTensor.create {
                                 array_create=array_create_cuda_shared
                                 elem_type=blockResult
-                                // TODO: Determine if padding is needed here for the sake of bank conflict elimination.
-                                dim=blockDim.x,{from=1; near_to=blockDim.y}
+                                dim={from=1; near_to=blockDim.y}, lit_max (warp_size/2) blockDim.x
                                 }
                             
-                            inl ar = ar threadIdx.x
+                            inl ar i = ar i threadIdx.x
                             
                             if threadIdx.y <> 0 then ar threadIdx.y .set blockResult
                             syncthreads()
 
+                            // TODO: Do a proper reduce here instead of letting a single warp do all the work.
                             if threadIdx.y = 0 then
                                 forcd {from=1; near_to=blockDim.y; state=blockResult; 
                                     body=inl {state i} -> redo state (ar i .get)
