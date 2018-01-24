@@ -336,6 +336,15 @@ inl {stream Cuda CudaTensor} ->
             args: x, closure_of (inl a,b -> redo a b) ((x,x) => x)
             ]
 
+    inl cub_warp_reduce redo x =
+        macro.cd x [
+            text: "cub::WarpReduce"
+            types: x
+            args: ()
+            text: ".Reduce"
+            args: x, closure_of (inl a,b -> redo a b) ((x,x) => x)
+            ]
+
     /// Flattens the tensor to 1d, maps and reduces it.
     /// Requires the redo and the neutral element.
     /// Map is optional. Allocates a temporary tensor for the intermediary results.
@@ -481,7 +490,7 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_in' = dim_in_b) "Input's inner dimension must equal the output's dimension."
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        inl blockDimX = lit_min warp_size (s dim_in')
+        inl blockDimX = 32
         inl blockDimY = lit_min 32 (s dim_in_a)
         inl gridDim = min 64 (divup (s dim_in') blockDimX)
 
@@ -512,34 +521,22 @@ inl {stream Cuda CudaTensor} ->
                             }
                         
                         if blockDim.y > 1 then
-                            inl near_to = blockDim.y
                             inl ar = HostTensor.create {
                                 array_create=array_create_cuda_shared
                                 elem_type=blockResult
-                                dim={from=near_to/2; near_to}, lit_max (warp_size/2) blockDim.x
+                                dim=blockDim.x, blockDim.y + 1
                                 }
+
+                            ar threadIdx.x threadIdx.y .set blockResult
+                            syncthreads()
                             
-                            inl ar i = ar i threadIdx.x
+                            inl result =
+                                if threadIdx.y < blockDim.x && threadIdx.x < blockDim.y then ar threadIdx.y threadIdx.x .get
+                                else neutral_elem
+                                |> cub_warp_reduce
                             
-                            whilecd {
-                                state={near_to state=blockResult}
-                                cond=inl {near_to} -> near_to >= 2
-                                body=inl {near_to state} ->
-                                    inl by = near_to/2
-                                    if threadIdx.y >= by then ar threadIdx.y .set blockResult
-                                    syncthreads()
-                                    inl state =
-                                        forcd {from=threadIdx.y+by; by near_to; state; 
-                                            body=inl {state i} ->  redo state (ar i .get)
-                                            }
-                                    //ar threadIdx.y .set state
-                                }
-                            //// TODO: Do a proper reduce here instead of letting a single warp do all the work.
-                            //if threadIdx.y = 0 then
-                            //    forcd {from=1; near_to=blockDim.y; state=blockResult; 
-                            //        body=inl {state i} -> redo state (ar i .get)
-                            //        finally
-                            //        }
+                            if threadIdx.
+
                         else
                             finally blockResult
                     }
