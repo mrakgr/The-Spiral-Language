@@ -512,23 +512,34 @@ inl {stream Cuda CudaTensor} ->
                             }
                         
                         if blockDim.y > 1 then
+                            inl near_to = blockDim.y
                             inl ar = HostTensor.create {
                                 array_create=array_create_cuda_shared
                                 elem_type=blockResult
-                                dim={from=1; near_to=blockDim.y}, lit_max (warp_size/2) blockDim.x
+                                dim={from=near_to/2; near_to}, lit_max (warp_size/2) blockDim.x
                                 }
                             
                             inl ar i = ar i threadIdx.x
                             
-                            if threadIdx.y <> 0 then ar threadIdx.y .set blockResult
-                            syncthreads()
-
-                            // TODO: Do a proper reduce here instead of letting a single warp do all the work.
-                            if threadIdx.y = 0 then
-                                forcd {from=1; near_to=blockDim.y; state=blockResult; 
-                                    body=inl {state i} -> redo state (ar i .get)
-                                    finally
-                                    }
+                            whilecd {
+                                state={near_to state=blockResult}
+                                cond=inl {near_to} -> near_to >= 2
+                                body=inl {near_to state} ->
+                                    inl by = near_to/2
+                                    if threadIdx.y >= by then ar threadIdx.y .set blockResult
+                                    syncthreads()
+                                    inl state =
+                                        forcd {from=threadIdx.y+by; by near_to; state; 
+                                            body=inl {state i} ->  redo state (ar i .get)
+                                            }
+                                    //ar threadIdx.y .set state
+                                }
+                            //// TODO: Do a proper reduce here instead of letting a single warp do all the work.
+                            //if threadIdx.y = 0 then
+                            //    forcd {from=1; near_to=blockDim.y; state=blockResult; 
+                            //        body=inl {state i} -> redo state (ar i .get)
+                            //        finally
+                            //        }
                         else
                             finally blockResult
                     }
