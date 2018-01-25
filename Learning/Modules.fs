@@ -490,7 +490,7 @@ inl {stream Cuda CudaTensor} ->
         assert (dim_in' = dim_in_b) "Input's inner dimension must equal the output's dimension."
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        inl blockDimX = 32
+        inl blockDimX = lit_min warp_size (s dim_in')
         inl blockDimY = lit_min 32 (s dim_in_a)
         inl gridDim = min 64 (divup (s dim_in') blockDimX)
 
