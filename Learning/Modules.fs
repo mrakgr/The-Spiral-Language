@@ -435,6 +435,57 @@ inl {stream Cuda CudaTensor} ->
     inl lit_min = lit_comp min
     inl lit_max = lit_comp max
 
+    /// The exclusive scan over the innermost dimension.
+    inl d1_scan {d with redo neutral_elem} (!zip in) (!zip out) =
+        inl s = HostTensor.span
+        inl dim_in_a, dim_in_b = in.dim
+        assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
+
+        inl blockDim = lit_min 1024 (s dim_in_b)
+        inl gridDimY = lit_min 64 (s dim_in_a)
+
+        inl in = to_dev_tensor in
+        inl out = to_dev_tensor out
+
+        run {
+            stream blockDim
+            gridDim=1,gridDimY
+            kernel = cuda 
+                forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from; by=gridDim.y*blockDim.y; near_to=dim_in_a.near_to; body=inl {i} ->
+                    inl in = in i
+                    inl out = out i
+
+                    inl ar = HostTensor.create {
+                        array_create=array_create_cuda_shared
+                        elem_type=blockResult
+                        dim=blockDim.x
+                        }
+
+                    forcd {
+                        from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
+                        by=gridDim.x*blockDim.x
+                        near_to=dim_in_b.near_to
+                        state=neutral_elem
+                        body=inl {state i} -> 
+                            inl {state=state'} =
+                                whilecd {
+                                    state = {state=in i .get; from=1}
+                                    cond = inl {from} -> from < blockDim.x
+                                    body = inl {state from} ->
+                                        if threadIdx.x < blockDim.x - from then
+                                            ar threadIdx.x .set state
+                                        syncthreads()
+                                        {
+                                        from=from*2
+                                        state = forcd {from near_to=blockDim.x; state body=inl {state i} ->
+                                            redo state (ar (i-from) .get)
+                                            }
+                                        }
+                                    }
+                            inl result = redo state state'
+                            out i .set result
+                        }
+                }
 
     /// Maps the two inputs and then reduces the first's inner dimension.
     inl map_d1_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) = 
