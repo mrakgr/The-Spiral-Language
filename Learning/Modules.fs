@@ -341,12 +341,12 @@ inl {stream Cuda CudaTensor} ->
         inl in = f () 
         in 0 <- x
         inl out, ag = f (), f ()
-        macro.cd x [
+        macro.cd unit [
             text: "cub::BlockScan"
             iter: "<",",",">",[type: x; arg: blockDim]
             args: ()
             text: ".InclusiveScan"
-            args: in, out, closure_of (inl a,b -> redo a b) ((x,x) => x), ag
+            args: in, out, closure_of (inl a,b -> redo a b) ((x,x) => x), ag 0
             ]
         out 0, ag 0
 
@@ -449,7 +449,7 @@ inl {stream Cuda CudaTensor} ->
     inl lit_max = lit_comp max
 
     /// The inclusive scan over the innermost dimension.
-    inl d1_scan_map {d with redo neutral_elem} (!zip in) (!zip out) =
+    inl map_d1_scan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
         inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
@@ -465,7 +465,7 @@ inl {stream Cuda CudaTensor} ->
 
         run {
             stream blockDim
-            gridDim=1,gridDimY
+            gridDim = 1, gridDimY
             kernel = cuda 
                 forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from; by=gridDim.y*blockDim.y; near_to=dim_in_a.near_to; body=inl {i} ->
                     inl in = in i
@@ -475,7 +475,7 @@ inl {stream Cuda CudaTensor} ->
                         from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
                         by=gridDim.x*blockDim.x
                         near_to=dim_in_b.near_to
-                        state=neutral_elem
+                        state=dyn neutral_elem
                         body=inl {state i} ->
                             inl state', ag = cub_block_inclusive_scan blockDim.x redo (in i .get)
                             inl out = out i
@@ -483,6 +483,7 @@ inl {stream Cuda CudaTensor} ->
                             ag
                         } |> ignore
                     }
+            }
 
     /// Maps the two inputs and then reduces the first's inner dimension.
     inl map_d1_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) = 
@@ -620,7 +621,8 @@ inl {stream Cuda CudaTensor} ->
     inl map_d1_redo_map d (!zip in) = map_dx_redo_map_template (fst in.dim) map_d1_redo_map' d in
     inl map_d2_redo_map d (!zip in) = map_dx_redo_map_template (snd in.dim) map_d2_redo_map' d in
 
-    {map' map map_redo replicate_map' replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map}
+    {map' map map_redo replicate_map' replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
+     map_d1_scan_map'}
     """) |> module_
 
 let cuda_random =
