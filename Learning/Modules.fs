@@ -521,22 +521,43 @@ inl {stream Cuda CudaTensor} ->
                             }
                         
                         if blockDim.y > 1 then
+                            inl near_to = blockDim.y
                             inl ar = HostTensor.create {
                                 array_create=array_create_cuda_shared
                                 elem_type=blockResult
-                                dim=blockDim.x, blockDim.y + 1
+                                dim={from=1; near_to}, warp_size + 1
                                 }
+                            
+                            inl ar i = ar i threadIdx.x
 
-                            ar threadIdx.x threadIdx.y .set blockResult
+                            if threadIdx.y <> 0 then ar threadIdx.y .set blockResult
                             syncthreads()
-                            
-                            inl result =
-                                if threadIdx.y < blockDim.x && threadIdx.x < blockDim.y then ar threadIdx.y threadIdx.x .get
-                                else neutral_elem
-                                |> cub_warp_reduce
-                            
-                            if threadIdx.
 
+                            if threadIdx.y = 0 then
+                                forcd {from=1; near_to=blockDim.y; state=blockResult; 
+                                    body=inl {state i} -> redo state (ar i .get)
+                                    finally
+                                    }
+                            
+                            //whilecd {
+                            //    state={near_to state=blockResult}
+                            //    cond=inl {near_to} -> near_to >= 2
+                            //    body=inl {near_to state} ->
+                            //        inl by = near_to/2
+                            //        if threadIdx.y >= by then ar threadIdx.y .set blockResult
+                            //        syncthreads()
+                            //        {
+                            //        near_to=by 
+                            //        state =
+                            //            if threadIdx.y < by then
+                            //                forcd {from=threadIdx.y+by; by near_to state 
+                            //                    body=inl {state i} ->  redo state (ar i .get)
+                            //                    }
+                            //            else
+                            //                state
+                            //        }
+                            //    }
+                            //|> inl {state} -> if threadIdx.y = 0 then finally state
                         else
                             finally blockResult
                     }

@@ -482,7 +482,7 @@ extern "C" {
             Env1 var_43 = var_26[0];
             long long int var_44 = var_43.mem_0;
             float var_45 = var_43.mem_1;
-            __shared__ float var_46[496];
+            __shared__ float var_46[1023];
             char var_47 = (var_4 != 0);
             if (var_47) {
                 char var_48 = (var_4 >= 1);
@@ -498,11 +498,11 @@ extern "C" {
                 } else {
                 }
                 long long int var_52 = (var_4 - 1);
-                long long int var_53 = (var_52 * 16);
+                long long int var_53 = (var_52 * 33);
                 char var_54 = (var_3 >= 0);
                 char var_56;
                 if (var_54) {
-                    var_56 = (var_3 < 16);
+                    var_56 = (var_3 < 33);
                 } else {
                     var_56 = 0;
                 }
@@ -538,11 +538,11 @@ extern "C" {
                     } else {
                     }
                     long long int var_70 = (var_63 - 1);
-                    long long int var_71 = (var_70 * 16);
+                    long long int var_71 = (var_70 * 33);
                     char var_72 = (var_3 >= 0);
                     char var_74;
                     if (var_72) {
-                        var_74 = (var_3 < 16);
+                        var_74 = (var_3 < 33);
                     } else {
                         var_74 = 0;
                     }
