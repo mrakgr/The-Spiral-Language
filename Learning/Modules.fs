@@ -544,29 +544,18 @@ inl {stream Cuda CudaTensor} ->
                                 cond=inl {near_to} -> near_to >= 2
                                 body=inl {near_to state} ->
                                     inl by = near_to/2
-                                    if threadIdx.y = 0 && threadIdx.x = 0 then
-                                        macro.cd unit [text:"printf"; args: "I am in while. near_to=%d\n", near_to]
-                                    if threadIdx.y < near_to && threadIdx.y >= by then ar threadIdx.y .set blockResult
+                                    if threadIdx.y < near_to && threadIdx.y >= by then ar threadIdx.y .set state
                                     syncthreads()
 
-                                    //macro.cd unit [text:"printf"; args: "(%lli,%lli) = %lli\n", threadIdx.y, threadIdx.x, state]
-                                    //syncthreads()
-                                    if threadIdx.y < near_to && threadIdx.y >= by then 
-                                        macro.cd unit [text:"printf"; args: "ar (%lli,%lli) = %lli\n", threadIdx.y, threadIdx.x, ar i .get]
-
-                                    inl state =
+                                    {
+                                    near_to=by 
+                                    state=
                                         if threadIdx.y < by then
                                             forcd {from=threadIdx.y+by; by near_to state 
                                                 body=inl {state i} -> redo state (ar i .get)
                                                 }
                                         else
                                             state
-
-                                    if threadIdx.y = 0 then
-                                        macro.cd unit [text:"printf"; args: "state(%i) = %lli\n", threadIdx.x, state]
-                                    {
-                                    near_to=by 
-                                    state
                                     }
                                 }
                             |> inl {state} -> if threadIdx.y = 0 then finally state

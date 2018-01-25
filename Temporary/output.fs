@@ -126,161 +126,108 @@ extern "C" {
                 long long int var_50 = var_49.mem_0;
                 long long int var_51 = var_49.mem_1;
                 long long int var_52 = (var_50 / 2);
-                char var_53 = (var_3 == 0);
+                char var_53 = (var_3 < var_50);
                 char var_55;
                 if (var_53) {
-                    var_55 = (var_2 == 0);
+                    var_55 = (var_3 >= var_52);
                 } else {
                     var_55 = 0;
                 }
                 if (var_55) {
-                    printf("I am in while. near_to=%d\n", var_50);
-                } else {
-                }
-                char var_56 = (var_3 < var_50);
-                char var_58;
-                if (var_56) {
-                    var_58 = (var_3 >= var_52);
-                } else {
-                    var_58 = 0;
-                }
-                if (var_58) {
-                    char var_59 = (var_3 >= 1);
-                    char var_61;
+                    char var_56 = (var_3 >= 1);
+                    char var_58;
+                    if (var_56) {
+                        var_58 = (var_3 < 4);
+                    } else {
+                        var_58 = 0;
+                    }
+                    char var_59 = (var_58 == 0);
                     if (var_59) {
-                        var_61 = (var_3 < 4);
+                        // "Argument out of bounds."
                     } else {
-                        var_61 = 0;
                     }
-                    char var_62 = (var_61 == 0);
+                    long long int var_60 = (var_3 - 1);
+                    long long int var_61 = (var_60 * 33);
+                    char var_62 = (var_2 >= 0);
+                    char var_64;
                     if (var_62) {
-                        // "Argument out of bounds."
+                        var_64 = (var_2 < 33);
                     } else {
+                        var_64 = 0;
                     }
-                    long long int var_63 = (var_3 - 1);
-                    long long int var_64 = (var_63 * 33);
-                    char var_65 = (var_2 >= 0);
-                    char var_67;
+                    char var_65 = (var_64 == 0);
                     if (var_65) {
-                        var_67 = (var_2 < 33);
-                    } else {
-                        var_67 = 0;
-                    }
-                    char var_68 = (var_67 == 0);
-                    if (var_68) {
                         // "Argument out of bounds."
                     } else {
                     }
-                    long long int var_69 = (var_64 + var_2);
-                    var_46[var_69] = var_45;
+                    long long int var_66 = (var_61 + var_2);
+                    var_46[var_66] = var_51;
                 } else {
                 }
                 __syncthreads();
-                char var_71;
-                if (var_56) {
-                    var_71 = (var_3 >= var_52);
-                } else {
-                    var_71 = 0;
-                }
-                if (var_71) {
-                    char var_72 = (var_13 >= 1);
-                    char var_74;
-                    if (var_72) {
-                        var_74 = (var_13 < 4);
-                    } else {
-                        var_74 = 0;
-                    }
-                    char var_75 = (var_74 == 0);
-                    if (var_75) {
-                        // "Argument out of bounds."
-                    } else {
-                    }
-                    long long int var_76 = (var_13 - 1);
-                    long long int var_77 = (var_76 * 33);
-                    char var_78 = (var_2 >= 0);
-                    char var_80;
-                    if (var_78) {
-                        var_80 = (var_2 < 33);
-                    } else {
-                        var_80 = 0;
-                    }
-                    char var_81 = (var_80 == 0);
-                    if (var_81) {
-                        // "Argument out of bounds."
-                    } else {
-                    }
-                    long long int var_82 = (var_77 + var_2);
-                    long long int var_83 = var_46[var_82];
-                    printf("ar (%lli,%lli) = %lli\n", var_3, var_2, var_83);
-                } else {
-                }
-                char var_84 = (var_3 < var_52);
-                long long int var_108;
-                if (var_84) {
-                    long long int var_85 = (var_3 + var_52);
-                    Env1 var_86[1];
-                    var_86[0] = (make_Env1(var_85, var_51));
-                    while (method_12(var_50, var_86)) {
-                        Env1 var_88 = var_86[0];
-                        long long int var_89 = var_88.mem_0;
-                        long long int var_90 = var_88.mem_1;
-                        long long int var_91 = (var_89 + var_52);
-                        char var_92 = (var_89 >= 1);
-                        char var_94;
-                        if (var_92) {
-                            var_94 = (var_89 < 4);
+                char var_67 = (var_3 < var_52);
+                long long int var_91;
+                if (var_67) {
+                    long long int var_68 = (var_3 + var_52);
+                    Env1 var_69[1];
+                    var_69[0] = (make_Env1(var_68, var_51));
+                    while (method_12(var_50, var_69)) {
+                        Env1 var_71 = var_69[0];
+                        long long int var_72 = var_71.mem_0;
+                        long long int var_73 = var_71.mem_1;
+                        long long int var_74 = (var_72 + var_52);
+                        char var_75 = (var_72 >= 1);
+                        char var_77;
+                        if (var_75) {
+                            var_77 = (var_72 < 4);
                         } else {
-                            var_94 = 0;
+                            var_77 = 0;
                         }
-                        char var_95 = (var_94 == 0);
-                        if (var_95) {
+                        char var_78 = (var_77 == 0);
+                        if (var_78) {
                             // "Argument out of bounds."
                         } else {
                         }
-                        long long int var_96 = (var_89 - 1);
-                        long long int var_97 = (var_96 * 33);
-                        char var_98 = (var_2 >= 0);
-                        char var_100;
-                        if (var_98) {
-                            var_100 = (var_2 < 33);
+                        long long int var_79 = (var_72 - 1);
+                        long long int var_80 = (var_79 * 33);
+                        char var_81 = (var_2 >= 0);
+                        char var_83;
+                        if (var_81) {
+                            var_83 = (var_2 < 33);
                         } else {
-                            var_100 = 0;
+                            var_83 = 0;
                         }
-                        char var_101 = (var_100 == 0);
-                        if (var_101) {
+                        char var_84 = (var_83 == 0);
+                        if (var_84) {
                             // "Argument out of bounds."
                         } else {
                         }
-                        long long int var_102 = (var_97 + var_2);
-                        long long int var_103 = var_46[var_102];
-                        long long int var_104 = (var_90 + var_103);
-                        var_86[0] = (make_Env1(var_91, var_104));
+                        long long int var_85 = (var_80 + var_2);
+                        long long int var_86 = var_46[var_85];
+                        long long int var_87 = (var_73 + var_86);
+                        var_69[0] = (make_Env1(var_74, var_87));
                     }
-                    Env1 var_105 = var_86[0];
-                    long long int var_106 = var_105.mem_0;
-                    var_108 = var_105.mem_1;
+                    Env1 var_88 = var_69[0];
+                    long long int var_89 = var_88.mem_0;
+                    var_91 = var_88.mem_1;
                 } else {
-                    var_108 = var_51;
+                    var_91 = var_51;
                 }
-                if (var_53) {
-                    printf("state(%i) = %lli\n", var_2, var_108);
-                } else {
-                }
-                var_47[0] = (make_Env2(var_52, var_108));
+                var_47[0] = (make_Env2(var_52, var_91));
             }
-            Env2 var_109 = var_47[0];
-            long long int var_110 = var_109.mem_0;
-            long long int var_111 = var_109.mem_1;
-            char var_112 = (var_3 == 0);
-            if (var_112) {
-                long long int var_113 = var_1[var_13];
-                var_1[var_13] = var_111;
+            Env2 var_92 = var_47[0];
+            long long int var_93 = var_92.mem_0;
+            long long int var_94 = var_92.mem_1;
+            char var_95 = (var_3 == 0);
+            if (var_95) {
+                long long int var_96 = var_1[var_13];
+                var_1[var_13] = var_94;
             } else {
             }
             var_10[0] = (make_Env0(var_14));
         }
-        Env0 var_114 = var_10[0];
-        long long int var_115 = var_114.mem_0;
+        Env0 var_97 = var_10[0];
+        long long int var_98 = var_97.mem_0;
     }
     __device__ char method_9(Env0 * var_0) {
         Env0 var_1 = var_0[0];
