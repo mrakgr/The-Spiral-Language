@@ -336,6 +336,20 @@ inl {stream Cuda CudaTensor} ->
             args: x, closure_of (inl a,b -> redo a b) ((x,x) => x)
             ]
 
+    inl cub_block_inclusive_scan blockDim redo x =
+        inl f () = array_create_cuda_local x 1
+        inl in = f () 
+        in 0 <- x
+        inl out, ag = f (), f ()
+        macro.cd x [
+            text: "cub::BlockScan"
+            iter: "<",",",">",[type: x; arg: blockDim]
+            args: ()
+            text: ".InclusiveScan"
+            args: in, out, closure_of (inl a,b -> redo a b) ((x,x) => x), ag
+            ]
+        out 0, ag 0
+
     inl cub_warp_reduce redo x =
         macro.cd x [
             text: "cub::WarpReduce"
@@ -385,8 +399,7 @@ inl {stream Cuda CudaTensor} ->
         assert (in'.dim = out.dim) "Second input must have the same dimension as the output."
 
         inl blockDimX = min warp_size (s dim_in)
-        // TODO: Determine if a different multiple would be better.
-        inl blockDimY = min 8 (s dim_in'_a)
+        inl blockDimY = min 32 (s dim_in'_a)
         inl gridDim = min 64 (divup (s dim_in) blockDimX)
 
         inl in = to_dev_tensor in
@@ -435,8 +448,8 @@ inl {stream Cuda CudaTensor} ->
     inl lit_min = lit_comp min
     inl lit_max = lit_comp max
 
-    /// The exclusive scan over the innermost dimension.
-    inl d1_scan {d with redo neutral_elem} (!zip in) (!zip out) =
+    /// The inclusive scan over the innermost dimension.
+    inl d1_scan_map {d with redo neutral_elem} (!zip in) (!zip out) =
         inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
@@ -447,6 +460,9 @@ inl {stream Cuda CudaTensor} ->
         inl in = to_dev_tensor in
         inl out = to_dev_tensor out
 
+        //inl map_in = match d with {map_in} -> map_in | _ -> const
+        inl map_out = match d with {map_out} -> map_out | _ -> const
+
         run {
             stream blockDim
             gridDim=1,gridDimY
@@ -455,37 +471,18 @@ inl {stream Cuda CudaTensor} ->
                     inl in = in i
                     inl out = out i
 
-                    inl ar = HostTensor.create {
-                        array_create=array_create_cuda_shared
-                        elem_type=blockResult
-                        dim=blockDim.x
-                        }
-
                     forcd {
                         from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
                         by=gridDim.x*blockDim.x
                         near_to=dim_in_b.near_to
                         state=neutral_elem
-                        body=inl {state i} -> 
-                            inl {state=state'} =
-                                whilecd {
-                                    state = {state=in i .get; from=1}
-                                    cond = inl {from} -> from < blockDim.x
-                                    body = inl {state from} ->
-                                        if threadIdx.x < blockDim.x - from then
-                                            ar threadIdx.x .set state
-                                        syncthreads()
-                                        {
-                                        from=from*2
-                                        state = forcd {from near_to=blockDim.x; state body=inl {state i} ->
-                                            redo state (ar (i-from) .get)
-                                            }
-                                        }
-                                    }
-                            inl result = redo state state'
-                            out i .set result
-                        }
-                }
+                        body=inl {state i} ->
+                            inl state', ag = cub_block_inclusive_scan blockDim.x redo (in i .get)
+                            inl out = out i
+                            out.set (map_out (redo state state') out.get)
+                            ag
+                        } |> ignore
+                    }
 
     /// Maps the two inputs and then reduces the first's inner dimension.
     inl map_d1_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) = 
