@@ -120,13 +120,13 @@ inl f map_in a2 =
     CudaKernel.map_d2_redo_map {
         map_in
         neutral_elem=0; redo=(+)
-        //map_out=inl a -> a/2
+        map_out=inl a -> a/2
         } a1 a2
 inb o1 = f (inl a b -> a+1) ()
-//inb o2 = f (inl a b -> a+b) a2
+inb o2 = f (inl a b -> a+b) a2
 
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
-Tuple.iter show (a1,o1)
+Tuple.iter show (a1,o1,o2)
     """
 
 let kernel5 =
@@ -538,6 +538,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel4
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
 |> printfn "%s"
 |> ignore

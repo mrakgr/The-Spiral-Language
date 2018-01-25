@@ -491,7 +491,7 @@ inl {stream Cuda CudaTensor} ->
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
         inl blockDimX = lit_min warp_size (s dim_in')
-        inl blockDimY = 4 //lit_min 32 (s dim_in_a)
+        inl blockDimY = lit_min 32 (s dim_in_a)
         inl gridDim = min 64 (divup (s dim_in') blockDimX)
 
         inl in = to_dev_tensor in
@@ -530,15 +530,6 @@ inl {stream Cuda CudaTensor} ->
                             
                             inl ar i = ar i threadIdx.x
 
-                            //if threadIdx.y <> 0 then ar threadIdx.y .set blockResult
-                            //syncthreads()
-
-                            //if threadIdx.y = 0 then
-                            //    forcd {from=1; near_to=blockDim.y; state=blockResult; 
-                            //        body=inl {state i} -> redo state (ar i .get)
-                            //        finally
-                            //        }
-                            
                             whilecd {
                                 state={near_to state=blockResult}
                                 cond=inl {near_to} -> near_to >= 2
