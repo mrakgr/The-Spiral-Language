@@ -571,31 +571,35 @@ inl {stream Cuda CudaTensor} ->
                                 inl state, prefix = // block inclusive transposed scan
                                     inl state = map_in in.get in'.get
                                     inl near_to = blockDim.y
-                                    inl to = near_to-1
+                                    if near_to > 1 then
+                                        inl to = near_to-1
 
-                                    inl ar = HostTensor.create {
-                                        array_create=array_create_cuda_shared
-                                        elem_type=state
-                                        dim=to, warp_size+1
-                                        }
-
-                                    inl ar i = ar i threadIdx.x
-
-                                    inl {state} =
-                                        whilecd {
-                                            state={from=1; state}
-                                            cond=inl {from} -> from < near_to
-                                            body=inl {from state} ->
-                                                if threadIdx.y < near_to - from then ar threadIdx.y .set state
-                                                syncthreads()
-                                                inl d = {from=from*2; state}
-                                                if threadIdx.y >= from then { d with state = redo self (ar (threadIdx.y-from) .get) }
-                                                else d
+                                        inl ar = HostTensor.create {
+                                            array_create=array_create_cuda_shared
+                                            elem_type=state
+                                            dim=to, warp_size+1
                                             }
-                                    inl state = redo prefix state
-                                    if threadIdx.y = to then ar 0 .set state
-                                    syncthreads()
-                                    state, ar 0 .get
+
+                                        inl ar i = ar i threadIdx.x
+
+                                        inl {state} =
+                                            whilecd {
+                                                state={from=1; state}
+                                                cond=inl {from} -> from < near_to
+                                                body=inl {from state} ->
+                                                    if threadIdx.y < near_to - from then ar threadIdx.y .set state
+                                                    syncthreads()
+                                                    inl d = {from=from*2; state}
+                                                    if threadIdx.y >= from then { d with state = redo self (ar (threadIdx.y-from) .get) }
+                                                    else d
+                                                }
+                                        inl state = redo prefix state
+                                        if threadIdx.y = to then ar 0 .set state
+                                        syncthreads()
+                                        state, ar 0 .get
+                                    else
+                                        inl x = redo prefix state
+                                        x, x
 
                                 out.set (map_out state out.get)
                                 prefix
@@ -656,7 +660,7 @@ inl {stream Cuda CudaTensor} ->
                                 state={near_to state=blockResult}
                                 cond=inl {near_to} -> near_to >= 2
                                 body=inl {near_to state} ->
-                                    inl by = near_to/2
+                                    inl by = near_to/2 // It might be worth trying max 1 (near_to/3)
                                     if threadIdx.y < near_to && threadIdx.y >= by then ar threadIdx.y .set state
                                     syncthreads()
 
