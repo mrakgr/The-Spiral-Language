@@ -50,11 +50,11 @@ extern "C" {
         while (method_6(var_9)) {
             Env0 var_11 = var_9[0];
             long long int var_12 = var_11.mem_0;
-            long long int var_13 = (var_12 + 32);
+            long long int var_13 = (var_12 + 3);
             char var_14 = (var_12 >= 0);
             char var_16;
             if (var_14) {
-                var_16 = (var_12 < 32);
+                var_16 = (var_12 < 3);
             } else {
                 var_16 = 0;
             }
@@ -63,10 +63,10 @@ extern "C" {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_18 = (var_12 * 10);
+            long long int var_18 = (var_12 * 50);
             char var_20;
             if (var_14) {
-                var_20 = (var_12 < 32);
+                var_20 = (var_12 < 3);
             } else {
                 var_20 = 0;
             }
@@ -75,76 +75,115 @@ extern "C" {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_22 = (10 * var_5);
-            long long int var_23 = (var_2 + var_22);
-            float var_24 = 0;
-            Env1 var_25[1];
-            var_25[0] = (make_Env1(var_23, var_24));
-            while (method_7(var_25)) {
-                Env1 var_27 = var_25[0];
-                long long int var_28 = var_27.mem_0;
-                float var_29 = var_27.mem_1;
-                long long int var_30 = (var_28 + 10);
-                char var_31 = (var_28 >= 0);
-                char var_33;
-                if (var_31) {
-                    var_33 = (var_28 < 10);
-                } else {
-                    var_33 = 0;
-                }
-                char var_34 = (var_33 == 0);
-                if (var_34) {
-                    // "Argument out of bounds."
-                } else {
-                }
-                long long int var_35 = (var_18 + var_28);
-                float var_36 = var_0[var_35];
-                float var_37[1];
-                var_37[0] = var_36;
-                float var_38[1];
-                float var_39[1];
-                FunPointer2 var_42 = method_8;
-                float var_43 = var_39[0];
-                cub::BlockScan<float,10>().InclusiveScan(var_37, var_38, var_42, var_43);
-                float var_44 = var_38[0];
-                float var_45 = var_39[0];
-                char var_47;
-                if (var_31) {
-                    var_47 = (var_28 < 10);
-                } else {
-                    var_47 = 0;
-                }
-                char var_48 = (var_47 == 0);
-                if (var_48) {
-                    // "Argument out of bounds."
-                } else {
-                }
-                float var_49 = (var_29 + var_44);
-                float var_50 = var_1[var_35];
-                var_1[var_35] = var_49;
-                var_25[0] = (make_Env1(var_30, var_45));
+            char var_23;
+            if (var_14) {
+                var_23 = (var_12 < 3);
+            } else {
+                var_23 = 0;
             }
-            Env1 var_51 = var_25[0];
-            long long int var_52 = var_51.mem_0;
-            float var_53 = var_51.mem_1;
+            char var_24 = (var_23 == 0);
+            if (var_24) {
+                // "Argument out of bounds."
+            } else {
+            }
+            long long int var_25 = (4 * var_5);
+            long long int var_26 = (var_2 + var_25);
+            float var_27 = __int_as_float(0xff800000);
+            Env1 var_28[1];
+            var_28[0] = (make_Env1(var_26, var_27));
+            while (method_7(var_28)) {
+                Env1 var_30 = var_28[0];
+                long long int var_31 = var_30.mem_0;
+                float var_32 = var_30.mem_1;
+                long long int var_33 = (var_31 + 4);
+                char var_34 = (var_31 >= 0);
+                char var_36;
+                if (var_34) {
+                    var_36 = (var_31 < 50);
+                } else {
+                    var_36 = 0;
+                }
+                char var_37 = (var_36 == 0);
+                if (var_37) {
+                    // "Argument out of bounds."
+                } else {
+                }
+                long long int var_38 = (var_18 + var_31);
+                char var_40;
+                if (var_34) {
+                    var_40 = (var_31 < 50);
+                } else {
+                    var_40 = 0;
+                }
+                char var_41 = (var_40 == 0);
+                if (var_41) {
+                    // "Argument out of bounds."
+                } else {
+                }
+                char var_43;
+                if (var_34) {
+                    var_43 = (var_31 < 50);
+                } else {
+                    var_43 = 0;
+                }
+                char var_44 = (var_43 == 0);
+                if (var_44) {
+                    // "Argument out of bounds."
+                } else {
+                }
+                float var_45 = var_0[var_38];
+                float var_46[1];
+                var_46[0] = var_45;
+                float var_47[1];
+                float var_48[1];
+                float var_49 = var_48[0];
+                FunPointer2 var_52 = method_8;
+                cub::BlockScan<float,4>().InclusiveScan(var_46, var_47, var_52, var_49);
+                float var_53 = var_47[0];
+                char var_54 = (var_32 > var_53);
+                float var_55;
+                if (var_54) {
+                    var_55 = var_32;
+                } else {
+                    var_55 = var_53;
+                }
+                float var_56 = var_1[var_38];
+                var_1[var_38] = var_55;
+                char var_57 = (var_32 > var_49);
+                float var_58;
+                if (var_57) {
+                    var_58 = var_32;
+                } else {
+                    var_58 = var_49;
+                }
+                var_28[0] = (make_Env1(var_33, var_58));
+            }
+            Env1 var_59 = var_28[0];
+            long long int var_60 = var_59.mem_0;
+            float var_61 = var_59.mem_1;
             var_9[0] = (make_Env0(var_13));
         }
-        Env0 var_54 = var_9[0];
-        long long int var_55 = var_54.mem_0;
+        Env0 var_62 = var_9[0];
+        long long int var_63 = var_62.mem_0;
     }
     __device__ char method_6(Env0 * var_0) {
         Env0 var_1 = var_0[0];
         long long int var_2 = var_1.mem_0;
-        return (var_2 < 32);
+        return (var_2 < 3);
     }
     __device__ char method_7(Env1 * var_0) {
         Env1 var_1 = var_0[0];
         long long int var_2 = var_1.mem_0;
         float var_3 = var_1.mem_1;
-        return (var_2 < 10);
+        return (var_2 < 50);
     }
     __device__ float method_8(float var_0, float var_1) {
-        return (var_0 + var_1);
+        char var_2 = (var_0 > var_1);
+        if (var_2) {
+            return var_0;
+        } else {
+            return var_1;
+        }
     }
 }
 """
@@ -473,13 +512,13 @@ let (var_52: ManagedCuda.CudaRand.GeneratorType) = ManagedCuda.CudaRand.Generato
 let (var_53: ManagedCuda.CudaRand.CudaRandDevice) = ManagedCuda.CudaRand.CudaRandDevice(var_52)
 let (var_54: ManagedCuda.BasicTypes.CUstream) = var_51.get_Stream()
 var_53.SetStream(var_54)
-let (var_55: int64) = 1280L
+let (var_55: int64) = 600L
 let (var_56: EnvStack2) = method_2((var_49: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_50: uint64), (var_55: int64))
 let (var_57: (Union0 ref)) = var_56.mem_0
 let (var_58: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_57: (Union0 ref)))
-let (var_59: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(320L)
-var_53.GenerateUniform32(var_58, var_59)
-let (var_60: int64) = 1280L
+let (var_59: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(150L)
+var_53.GenerateNormal32(var_58, var_59, 0.000000f, 1.000000f)
+let (var_60: int64) = 600L
 let (var_61: EnvStack2) = method_2((var_49: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_50: uint64), (var_60: int64))
 let (var_62: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_57: (Union0 ref)))
 let (var_63: (Union0 ref)) = var_61.mem_0
@@ -487,30 +526,30 @@ let (var_64: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_63: (Union0 ref
 // Cuda join point
 // method_5((var_62: ManagedCuda.BasicTypes.CUdeviceptr), (var_64: ManagedCuda.BasicTypes.CUdeviceptr))
 let (var_65: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_5", var_32, var_1)
-let (var_66: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 32u, 1u)
+let (var_66: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 3u, 1u)
 var_65.set_GridDimensions(var_66)
-let (var_67: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(10u, 1u, 1u)
+let (var_67: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(4u, 1u, 1u)
 var_65.set_BlockDimensions(var_67)
 let (var_68: ManagedCuda.BasicTypes.CUstream) = var_51.get_Stream()
 let (var_70: (System.Object [])) = [|var_62; var_64|]: (System.Object [])
 var_65.RunAsync(var_68, var_70)
 let (var_71: int64) = 0L
 let (var_72: int64) = 0L
-let (var_73: int64) = 10L
+let (var_73: int64) = 50L
 let (var_74: int64) = 1L
 let (var_75: int64) = 0L
-let (var_76: int64) = 32L
+let (var_76: int64) = 3L
 let (var_77: int64) = 0L
-let (var_78: int64) = 10L
+let (var_78: int64) = 50L
 method_9((var_1: ManagedCuda.CudaContext), (var_51: ManagedCuda.CudaStream), (var_49: uint64), (var_50: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_56: EnvStack2), (var_71: int64), (var_72: int64), (var_73: int64), (var_74: int64), (var_75: int64), (var_76: int64), (var_77: int64), (var_78: int64))
 let (var_79: int64) = 0L
 let (var_80: int64) = 0L
-let (var_81: int64) = 10L
+let (var_81: int64) = 50L
 let (var_82: int64) = 1L
 let (var_83: int64) = 0L
-let (var_84: int64) = 32L
+let (var_84: int64) = 3L
 let (var_85: int64) = 0L
-let (var_86: int64) = 10L
+let (var_86: int64) = 50L
 method_9((var_1: ManagedCuda.CudaContext), (var_51: ManagedCuda.CudaStream), (var_49: uint64), (var_50: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_61: EnvStack2), (var_79: int64), (var_80: int64), (var_81: int64), (var_82: int64), (var_83: int64), (var_84: int64), (var_85: int64), (var_86: int64))
 var_63 := Union0Case1
 var_57 := Union0Case1

@@ -170,16 +170,16 @@ inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
 inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 
-inl inner_size = 10
-inl outer_size = 32
+inl inner_size = 50
+inl outer_size = 3
 
-inb a1 = CudaRandom.create_tensor .Uniform {elem_type=float32; dim=outer_size,inner_size}
+inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
 //inb a2 = CudaRandom.create_tensor .Uniform {elem_type=float32; dim=outer_size,inner_size}
-inb o1 = CudaTensor.create {elem_type=float32; dim=outer_size,inner_size}
-CudaKernel.map_d1_scan_map' {
-    neutral_elem=0f32
-    redo=(+)
-    } a1 o1
+inb o1 = 
+    CudaKernel.map_d1_scan_map {
+        neutral_elem=-infinityf32
+        redo=max
+        } a1 ()
 
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
 Tuple.iter show (a1,o1)
