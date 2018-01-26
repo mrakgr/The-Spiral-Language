@@ -449,7 +449,7 @@ inl {stream Cuda CudaTensor} ->
     inl lit_max = lit_comp max
 
     /// The inclusive scan over the innermost dimension.
-    inl map_d1_scan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
+    inl map_d1_scan_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) =
         inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
