@@ -301,31 +301,17 @@ inl {stream Cuda CudaTensor} ->
         |> finally
 
     inl divup a b = (a-1)/b+1 // Integer division with rounding up. (a+b-1)/b is another variant on this.
-    inl map' f (!zip in) (!zip out) =
-        assert_zip (in, out) |> ignore
-        inl in = to_1d in |> to_dev_tensor
-        inl out = to_1d out |> to_dev_tensor
-        inl near_to = length in
+    inl warp_size = 32
+    inl syncthreads () = macro.cd unit [text: "__syncthreads()"]
 
-        inl blockDim = 128
-        inl gridDim = min 64 (divup near_to blockDim)
+    inl lit_comp op a b =
+        if lit_is a && lit_is b then op a b
+        elif lit_is a then a
+        elif lit_is b then b
+        else error_type "a or b need to be a literal"
 
-        run {
-            stream blockDim gridDim
-            kernel = cuda // Lexical scoping rocks.
-                inl from = blockIdx.x * blockDim.x + threadIdx.x
-                inl by = gridDim.x * blockDim.x
-                forcd {from near_to by body=inl {i} -> 
-                    inl out = out i
-                    inl in = in i
-                    out .set (f in.get out.get)
-                    }
-            } |> ignore
-
-    inl map f (!zip in) ret =
-        inb out = create {dim=in.dim; elem_type=type f in.elem_type}
-        map' (inl in _ -> f in) in out
-        ret out
+    inl lit_min = lit_comp min
+    inl lit_max = lit_comp max
 
     inl cub_block_reduce blockDim redo x =
         macro.cd x [
@@ -335,6 +321,20 @@ inl {stream Cuda CudaTensor} ->
             text: ".Reduce"
             args: x, closure_of (inl a,b -> redo a b) ((x,x) => x)
             ]
+
+    inl cub_block_inclusive_scan' blockDim redo x =
+        inl f () = array_create_cuda_local x 1
+        inl in = f ()
+        in 0 <- x
+        inl out = f ()
+        macro.cd unit [
+            text: "cub::BlockScan"
+            iter: "<",",",">",[type: x; arg: blockDim]
+            args: ()
+            text: ".InclusiveScan"
+            args: in, out, closure_of (inl a,b -> redo a b) ((x,x) => x)
+            ]
+        out 0
 
     inl cub_block_inclusive_scan blockDim redo x =
         inl f () = array_create_cuda_local x 1
@@ -358,6 +358,115 @@ inl {stream Cuda CudaTensor} ->
             text: ".Reduce"
             args: x, closure_of (inl a,b -> redo a b) ((x,x) => x)
             ]
+
+    inl map' f (!zip in) (!zip out) =
+        assert_zip (in, out) |> ignore
+        inl in = to_1d in |> to_dev_tensor
+        inl out = to_1d out |> to_dev_tensor
+        inl near_to = length in
+
+        inl blockDim = 128
+        inl gridDim = min 64 (divup near_to blockDim)
+
+        run {
+            stream blockDim gridDim
+            kernel = cuda // Lexical scoping rocks.
+                inl from = blockIdx.x * blockDim.x + threadIdx.x
+                inl by = gridDim.x * blockDim.x
+                forcd {from near_to by body=inl {i} -> 
+                    inl out = out i
+                    inl in = in i
+                    out .set (f in.get out.get)
+                    }
+            } |> ignore
+
+    /// The inclusive scan over the innermost dimension.
+    /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
+    inl map_d1_scan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
+        inl s = HostTensor.span
+        inl dim_in_a, dim_in_b = in.dim
+        assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
+
+        inl blockDim = lit_min 1024 (s dim_in_b)
+        inl gridDimY = lit_min 64 (s dim_in_a)
+
+        inl in = to_dev_tensor in
+        inl out = to_dev_tensor out
+
+        inl map_in = match d with {map_in} -> map_in | _ -> id
+        inl map_out = match d with {map_out} -> map_out | _ -> const
+
+        run {
+            stream blockDim
+            gridDim = 1, gridDimY
+            kernel = cuda 
+                forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from; by=gridDim.y*blockDim.y; near_to=dim_in_a.near_to; body=inl {i} ->
+                    inl in, out = in i, out i
+
+                    forcd {
+                        from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
+                        by=gridDim.x*blockDim.x
+                        near_to=dim_in_b.near_to
+                        state=dyn neutral_elem
+                        body=inl {state=prefix i} ->
+                            inl in, out = in i, out i
+                            inl state', ag = cub_block_inclusive_scan blockDim.x redo (map_in in.get)
+                            out.set (map_out (redo prefix state') out.get)
+                            redo prefix ag
+                        } |> ignore
+                    }
+            }
+
+    inl scan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
+        assert_zip (in, out) |> ignore
+        inl in = to_1d in |> to_dev_tensor
+        inl out = to_1d out |> to_dev_tensor
+        inl near_to = length in
+
+        inl blockDim = lit_min 1024 near_to
+        inl gridDim = lit_min 64 dim
+
+        inl map_in = match d with {map_in} -> map_in | _ -> id
+        inl map_out = match d with {map_out} -> map_out | _ -> const
+
+        inb temp = CudaTensor.create {elem_type=type map_in in.elem_type; dim=1,divup near_to blockDim}
+
+        inl _ = // First perform the reduction to get the aggregates.
+            inl temp = to_dev_tensor (temp 1)
+            run {
+                stream blockDim gridDim
+                kernel = cuda
+                    forcd {from=blockIdx.x; by=gridDim.x; near_to=divup near_to blockDim.x; body=inl {i} ->
+                        inl temp = temp i
+                        inl i = i * blockDim.x + threadIdx.x
+                        if i < near_to then in i .get else neutral_elem
+                        |> cub_block_reduce blockDim.x redo
+                        |> temp.set
+                        }
+                }
+
+        // Scan the aggregates to get the prefixes.
+        map_d1_scan_map {redo neutral_elem} temp temp
+
+        inl temp = to_dev_tensor (temp 1)
+        run {
+            stream blockDim gridDim
+            kernel = cuda
+                forcd {from=blockIdx.x; by=gridDim.x; near_to=divup near_to blockDim.x; body=inl {i} ->
+                    inl prefix = temp i .get
+                    inl i = i * blockDim.x + threadIdx.x
+                    if i < near_to then 
+                        in i .get 
+                        |> cub_block_inclusive_scan' blockDim.x redo
+                        |> redo prefix
+                        |> out i .set
+                    }
+            }
+
+    inl map f (!zip in) ret =
+        inb out = create {dim=in.dim; elem_type=type f in.elem_type}
+        map' (inl in _ -> f in) in out
+        ret out
 
     /// Flattens the tensor to 1d, maps and reduces it.
     /// Requires the redo and the neutral element.
@@ -386,8 +495,6 @@ inl {stream Cuda CudaTensor} ->
 
         inl tns = to_host_tensor out
         Loops.for {from=0; near_to=length tns; state=dyn neutral_elem; body=inl {state i} -> redo state (tns i .get)}
-
-    inl warp_size = 32
 
     /// Replicates the 1d `in` and maps it along with the in' and the out.
     inl replicate_map' f (!zip in) (!zip in') (!zip out) =
@@ -437,56 +544,6 @@ inl {stream Cuda CudaTensor} ->
         replicate_map' (inl a b _ -> f a b) in in' out
         ret out
 
-    inl syncthreads () = macro.cd unit [text: "__syncthreads()"]
-
-    inl lit_comp op a b =
-        if lit_is a && lit_is b then op a b
-        elif lit_is a then a
-        elif lit_is b then b
-        else error_type "a or b need to be a literal"
-
-    inl lit_min = lit_comp min
-    inl lit_max = lit_comp max
-
-    /// The inclusive scan over the innermost dimension.
-    /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
-    inl map_d1_scan_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) =
-        inl s = HostTensor.span
-        inl dim_in_a, dim_in_b = in.dim
-        assert (in.dim = in'.dim) "The two inputs need to have the same dimensions."
-        assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
-
-        inl blockDim = lit_min 1024 (s dim_in_b)
-        inl gridDimY = lit_min 64 (s dim_in_a)
-
-        inl in = to_dev_tensor in
-        inl in' = to_dev_tensor in'
-        inl out = to_dev_tensor out
-
-        inl map_in = match d with {map_in} -> map_in | _ -> const
-        inl map_out = match d with {map_out} -> map_out | _ -> const
-
-        run {
-            stream blockDim
-            gridDim = 1, gridDimY
-            kernel = cuda 
-                forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from; by=gridDim.y*blockDim.y; near_to=dim_in_a.near_to; body=inl {i} ->
-                    inl in, in', out = in i, in' i, out i
-
-                    forcd {
-                        from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
-                        by=gridDim.x*blockDim.x
-                        near_to=dim_in_b.near_to
-                        state=dyn neutral_elem
-                        body=inl {state=prefix i} ->
-                            inl in, in', out = in i, in' i, out i
-                            inl state', ag = cub_block_inclusive_scan blockDim.x redo (map_in in.get in'.get)
-                            out.set (map_out (redo prefix state') out.get)
-                            redo prefix ag
-                        } |> ignore
-                    }
-            }
-
     /// Maps the two inputs and then reduces the first's inner dimension.
     inl map_d1_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) = 
         inl s = HostTensor.span
@@ -534,10 +591,9 @@ inl {stream Cuda CudaTensor} ->
 
     /// The inclusive scan over the outermost dimension.
     /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
-    inl map_d2_scan_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) =
+    inl map_d2_scan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
         inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
-        assert (in.dim = in'.dim) "The two inputs need to have the same dimensions."
         assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
 
         inl blockDimX = lit_min warp_size (s dim_in_b)
@@ -545,10 +601,9 @@ inl {stream Cuda CudaTensor} ->
         inl gridDim = min 64 (divup (s dim_in_b) blockDimX)
 
         inl in = to_dev_tensor in
-        inl in' = to_dev_tensor in'
         inl out = to_dev_tensor out
 
-        inl map_in = match d with {map_in} -> map_in | _ -> const
+        inl map_in = match d with {map_in} -> map_in | _ -> id
         inl map_out = match d with {map_out} -> map_out | _ -> const
 
         run {
@@ -557,8 +612,7 @@ inl {stream Cuda CudaTensor} ->
             kernel = cuda 
                 forcd {from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from; by=gridDim.x*blockDim.x; near_to=dim_in_b.near_to; body=inl {i} ->
                         inl in j = in j i
-                        inl in' j = in' j i
-                        inl out  j = out j i
+                        inl out j = out j i
 
                         forcd {
                             from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from
@@ -566,10 +620,10 @@ inl {stream Cuda CudaTensor} ->
                             near_to=dim_in_a.near_to 
                             state=dyn neutral_elem 
                             body=inl {state=prefix i} -> 
-                                inl in, in', out = in i, in' i, out i
+                                inl in, out = in i, out i
 
                                 inl state, prefix = // block inclusive transposed scan
-                                    inl state = map_in in.get in'.get
+                                    inl state = map_in in.get
                                     inl near_to = blockDim.y
                                     if near_to > 1 then
                                         inl to = near_to-1
@@ -697,8 +751,18 @@ inl {stream Cuda CudaTensor} ->
 
     inl map_d1_redo_map d (!zip in) = map_dx_redo_map_template (fst in.dim) map_d1_redo_map' d in
     inl map_d2_redo_map d (!zip in) = map_dx_redo_map_template (snd in.dim) map_d2_redo_map' d in
-    inl map_d1_scan_map d (!zip in) = map_dx_redo_map_template in.dim map_d1_scan_map' d in
-    inl map_d2_scan_map d (!zip in) = map_dx_redo_map_template in.dim map_d2_scan_map' d in
+
+    inl map_dx_scan_map_template kernel d (!zip in) ret =
+        inl map_in = match d with {map_in} -> map_in | _ -> id
+        inl map_out, elem_type = 
+            inl ty = type map_in in.elem_type
+            match d with {map_out} -> (inl a _ -> map_out a), (type map_out ty) | _ -> const, ty
+        inb out = create {elem_type dim=in.dim}
+        kernel {d with map_in map_out} in out
+        ret out
+
+    inl map_d1_scan_map = map_dx_scan_map_template map_d1_scan_map'
+    inl map_d2_scan_map = map_dx_scan_map_template map_d2_scan_map'
 
     {map' map map_redo replicate_map' replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
      map_d1_scan_map' map_d1_scan_map map_d2_scan_map' map_d2_scan_map}

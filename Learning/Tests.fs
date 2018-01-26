@@ -179,7 +179,7 @@ inb o1 =
     CudaKernel.map_d1_scan_map {
         neutral_elem=-infinityf32
         redo=max
-        } a1 ()
+        } a1
 
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
 Tuple.iter show (a1,o1)
@@ -204,7 +204,7 @@ inb o1 =
     CudaKernel.map_d2_scan_map {
         neutral_elem=-infinityf32
         redo=max
-        } a1 ()
+        } a1
 
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
 Tuple.iter show (a1,o1)

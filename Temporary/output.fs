@@ -99,166 +99,144 @@ extern "C" {
                     // "Argument out of bounds."
                 } else {
                 }
-                char var_41;
-                if (var_24) {
-                    var_41 = (var_21 < 64);
-                } else {
-                    var_41 = 0;
-                }
-                char var_42 = (var_41 == 0);
-                if (var_42) {
-                    // "Argument out of bounds."
-                } else {
-                }
-                char var_44;
-                if (var_29) {
-                    var_44 = (var_13 < 6);
-                } else {
-                    var_44 = 0;
-                }
-                char var_45 = (var_44 == 0);
-                if (var_45) {
-                    // "Argument out of bounds."
-                } else {
-                }
-                float var_46 = var_0[var_33];
-                __shared__ float var_47[1023];
-                Env1 var_48[1];
-                var_48[0] = (make_Env1(1, var_46));
-                while (method_8(var_48)) {
-                    Env1 var_50 = var_48[0];
-                    long long int var_51 = var_50.mem_0;
-                    float var_52 = var_50.mem_1;
-                    long long int var_53 = (32 - var_51);
-                    char var_54 = (var_3 < var_53);
-                    if (var_54) {
-                        char var_55 = (var_3 >= 0);
-                        char var_57;
-                        if (var_55) {
-                            var_57 = (var_3 < 31);
+                float var_40 = var_0[var_33];
+                __shared__ float var_41[1023];
+                Env1 var_42[1];
+                var_42[0] = (make_Env1(1, var_40));
+                while (method_8(var_42)) {
+                    Env1 var_44 = var_42[0];
+                    long long int var_45 = var_44.mem_0;
+                    float var_46 = var_44.mem_1;
+                    long long int var_47 = (32 - var_45);
+                    char var_48 = (var_3 < var_47);
+                    if (var_48) {
+                        char var_49 = (var_3 >= 0);
+                        char var_51;
+                        if (var_49) {
+                            var_51 = (var_3 < 31);
                         } else {
-                            var_57 = 0;
+                            var_51 = 0;
                         }
-                        char var_58 = (var_57 == 0);
-                        if (var_58) {
+                        char var_52 = (var_51 == 0);
+                        if (var_52) {
                             // "Argument out of bounds."
                         } else {
                         }
-                        long long int var_59 = (var_3 * 33);
-                        char var_60 = (var_2 >= 0);
-                        char var_62;
-                        if (var_60) {
-                            var_62 = (var_2 < 33);
+                        long long int var_53 = (var_3 * 33);
+                        char var_54 = (var_2 >= 0);
+                        char var_56;
+                        if (var_54) {
+                            var_56 = (var_2 < 33);
                         } else {
-                            var_62 = 0;
+                            var_56 = 0;
                         }
-                        char var_63 = (var_62 == 0);
-                        if (var_63) {
+                        char var_57 = (var_56 == 0);
+                        if (var_57) {
                             // "Argument out of bounds."
                         } else {
                         }
-                        long long int var_64 = (var_59 + var_2);
-                        var_47[var_64] = var_52;
+                        long long int var_58 = (var_53 + var_2);
+                        var_41[var_58] = var_46;
                     } else {
                     }
                     __syncthreads();
-                    long long int var_65 = (var_51 * 2);
-                    char var_66 = (var_3 >= var_51);
-                    Env1 var_81;
-                    if (var_66) {
-                        long long int var_67 = (var_3 - var_51);
-                        char var_68 = (var_67 >= 0);
-                        char var_70;
-                        if (var_68) {
-                            var_70 = (var_67 < 31);
+                    long long int var_59 = (var_45 * 2);
+                    char var_60 = (var_3 >= var_45);
+                    Env1 var_75;
+                    if (var_60) {
+                        long long int var_61 = (var_3 - var_45);
+                        char var_62 = (var_61 >= 0);
+                        char var_64;
+                        if (var_62) {
+                            var_64 = (var_61 < 31);
                         } else {
-                            var_70 = 0;
+                            var_64 = 0;
                         }
-                        char var_71 = (var_70 == 0);
-                        if (var_71) {
+                        char var_65 = (var_64 == 0);
+                        if (var_65) {
                             // "Argument out of bounds."
                         } else {
                         }
-                        long long int var_72 = (var_67 * 33);
-                        char var_73 = (var_2 >= 0);
-                        char var_75;
+                        long long int var_66 = (var_61 * 33);
+                        char var_67 = (var_2 >= 0);
+                        char var_69;
+                        if (var_67) {
+                            var_69 = (var_2 < 33);
+                        } else {
+                            var_69 = 0;
+                        }
+                        char var_70 = (var_69 == 0);
+                        if (var_70) {
+                            // "Argument out of bounds."
+                        } else {
+                        }
+                        long long int var_71 = (var_66 + var_2);
+                        float var_72 = var_41[var_71];
+                        char var_73 = (var_46 > var_72);
+                        float var_74;
                         if (var_73) {
-                            var_75 = (var_2 < 33);
+                            var_74 = var_46;
                         } else {
-                            var_75 = 0;
+                            var_74 = var_72;
                         }
-                        char var_76 = (var_75 == 0);
-                        if (var_76) {
-                            // "Argument out of bounds."
-                        } else {
-                        }
-                        long long int var_77 = (var_72 + var_2);
-                        float var_78 = var_47[var_77];
-                        char var_79 = (var_52 > var_78);
-                        float var_80;
-                        if (var_79) {
-                            var_80 = var_52;
-                        } else {
-                            var_80 = var_78;
-                        }
-                        var_81 = (make_Env1(var_65, var_80));
+                        var_75 = (make_Env1(var_59, var_74));
                     } else {
-                        var_81 = (make_Env1(var_65, var_52));
+                        var_75 = (make_Env1(var_59, var_46));
                     }
-                    var_48[0] = var_81;
+                    var_42[0] = var_75;
                 }
-                Env1 var_82 = var_48[0];
-                long long int var_83 = var_82.mem_0;
-                float var_84 = var_82.mem_1;
-                char var_85 = (var_22 > var_84);
-                float var_86;
-                if (var_85) {
-                    var_86 = var_22;
+                Env1 var_76 = var_42[0];
+                long long int var_77 = var_76.mem_0;
+                float var_78 = var_76.mem_1;
+                char var_79 = (var_22 > var_78);
+                float var_80;
+                if (var_79) {
+                    var_80 = var_22;
                 } else {
-                    var_86 = var_84;
+                    var_80 = var_78;
                 }
-                char var_87 = (var_3 == 31);
-                if (var_87) {
-                    char var_88 = (var_2 >= 0);
-                    char var_90;
-                    if (var_88) {
-                        var_90 = (var_2 < 33);
+                char var_81 = (var_3 == 31);
+                if (var_81) {
+                    char var_82 = (var_2 >= 0);
+                    char var_84;
+                    if (var_82) {
+                        var_84 = (var_2 < 33);
                     } else {
-                        var_90 = 0;
+                        var_84 = 0;
                     }
-                    char var_91 = (var_90 == 0);
-                    if (var_91) {
+                    char var_85 = (var_84 == 0);
+                    if (var_85) {
                         // "Argument out of bounds."
                     } else {
                     }
-                    var_47[var_2] = var_86;
+                    var_41[var_2] = var_80;
                 } else {
                 }
                 __syncthreads();
-                char var_92 = (var_2 >= 0);
-                char var_94;
-                if (var_92) {
-                    var_94 = (var_2 < 33);
+                char var_86 = (var_2 >= 0);
+                char var_88;
+                if (var_86) {
+                    var_88 = (var_2 < 33);
                 } else {
-                    var_94 = 0;
+                    var_88 = 0;
                 }
-                char var_95 = (var_94 == 0);
-                if (var_95) {
+                char var_89 = (var_88 == 0);
+                if (var_89) {
                     // "Argument out of bounds."
                 } else {
                 }
-                float var_96 = var_47[var_2];
-                float var_97 = var_1[var_33];
-                var_1[var_33] = var_86;
-                var_18[0] = (make_Env1(var_23, var_96));
+                float var_90 = var_41[var_2];
+                float var_91 = var_1[var_33];
+                var_1[var_33] = var_80;
+                var_18[0] = (make_Env1(var_23, var_90));
             }
-            Env1 var_98 = var_18[0];
-            long long int var_99 = var_98.mem_0;
-            float var_100 = var_98.mem_1;
+            Env1 var_92 = var_18[0];
+            long long int var_93 = var_92.mem_0;
+            float var_94 = var_92.mem_1;
             var_10[0] = (make_Env0(var_14));
         }
-        Env0 var_101 = var_10[0];
-        long long int var_102 = var_101.mem_0;
+        Env0 var_95 = var_10[0];
+        long long int var_96 = var_95.mem_0;
     }
     __device__ char method_6(Env0 * var_0) {
         Env0 var_1 = var_0[0];
