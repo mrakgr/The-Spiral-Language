@@ -431,6 +431,7 @@ inl {stream Cuda CudaTensor} ->
                     }
             }
 
+    /// Inclusive scan over the entire tensor.
     inl map_inscan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
         assert_zip (in, out) |> ignore
         inl in = to_1d in |> to_dev_tensor
@@ -644,6 +645,58 @@ inl {stream Cuda CudaTensor} ->
                     if threadIdx.x = 0 then 
                         inl out = out i
                         out.set (map_out result out.get)
+                    }
+            }
+
+    /// Maps the input and then broadcast maps the reduction over its inner dimensions.
+    inl map_d1_broadcast_map' {d with redo neutral_elem} (!zip in) (!zip out) = 
+        inl s = HostTensor.span
+        inl dim_in_a, dim_in_b = in.dim
+        assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
+
+        inl items_per_thread, blockDimX =
+            inl size_in_b = s dim_in_b
+            assert (lit_is size_in_b) "The inner dimension of the input to this kernel must be known at compile time."
+            if size_in_b < 1024 then 1, size_in_b
+            else divup size_in_b 128, 128
+        inl gridDim = min 64 (s dim_in_a)
+
+        inl in = to_dev_tensor in
+        inl out = to_dev_tensor out
+
+        inl map_in = match d with {map_in} -> map_in | _ -> id
+        inl map_out = match d with {map_out} -> map_out | _ -> const
+        
+        run {
+            stream blockDim
+            gridDim=1,gridDimY
+            kernel = cuda 
+                forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from; by=gridDim.y*blockDim.y; near_to=dim_in_a.near_to; body=inl {i} ->
+                    inl in, out = in i, out i
+
+                    inl inner_loop {state body} =
+                        forcd {
+                            from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
+                            by=gridDim.x*blockDim.x
+                            near_to=dim_in_b.near_to
+                            state body
+                            }
+
+                    inl exp_sum =
+                        inl x = 
+                            inner_loop {
+                                state=dyn neutral_elem 
+                                body=inl {state i} -> 
+                                    inl in = in i 
+                                    redo state (map_in in.get)
+                                }
+                            |> cub_block_reduce blockDim.x redo
+
+                        inl ar = array_create_cuda_shared x 1
+                        if threadIdx.x = 0 then ar 0 <- x
+                        syncthreads()
+                        ar 0
+                        
                     }
             }
 
