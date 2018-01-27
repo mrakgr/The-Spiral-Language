@@ -276,22 +276,20 @@ inl outer_size = 6
 
 inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
 inb a2 = CudaRandom.create_tensor {dst=.Normal; stddev=0f32; mean=0f32} {elem_type=float32; dim=outer_size}
-inb o1 = 
+inb o1 = // The sampling function
     CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
         scan={
-            ne=-1000f32
-            f=inl a b -> b
+            ne=0f32
+            f=(+)
             }
-        mapi_mid=inl _ index prob boundary -> prob, prob < boundary, index
+        mapi_mid=inl _ index prob boundary -> 
+            inl x = prob - boundary
+            (if x < 0f32 then infinityf32 else x), index
         redo={
-            ne=-infinityf32,false,0
-            f=inl a b ->
-                match snd a, snd b with
-                | true, true -> if fst a < fst b then b else a
-                | true, _ -> a
-                | _ -> b
+            ne=infinityf32,0
+            f=inl a b -> if fst a < fst b then a else b
             }
-        map_out=inl prob, _, i -> prob, i
+        map_out=snd
         } a1 a2
 
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
@@ -676,8 +674,8 @@ let tests =
     grad1
     |]
 
-rewrite_test_cache tests cfg None //(Some(0,40))
+//rewrite_test_cache tests cfg None //(Some(0,40))
 
-//output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel10
-//|> printfn "%s"
-//|> ignore
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel10
+|> printfn "%s"
+|> ignore
