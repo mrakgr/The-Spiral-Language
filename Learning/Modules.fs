@@ -350,6 +350,20 @@ inl {stream Cuda CudaTensor} ->
             ]
         out 0, ag
 
+    inl cub_block_exclusive_scan blockDim redo x initial_elem =
+        inl f () = array_create_cuda_local x 1
+        inl in = f () 
+        in 0 <- x
+        inl out, ag = f (), f () 0
+        macro.cd unit [
+            text: "cub::BlockScan"
+            iter: "<",",",">",[type: x; arg: blockDim]
+            args: ()
+            text: ".ExclusiveScan"
+            args: in, out, initial_elem, closure_of (inl a,b -> redo a b) ((x,x) => x), ag
+            ]
+        out 0, ag
+
     inl cub_warp_reduce redo x =
         macro.cd x [
             text: "cub::WarpReduce"
@@ -380,9 +394,9 @@ inl {stream Cuda CudaTensor} ->
                     }
             } |> ignore
 
-    /// The inclusive scan over the innermost dimension.
+    /// The exclusive scan over the innermost dimension.
     /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
-    inl map_d1_scan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
+    inl map_d1_exscan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
         inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
@@ -410,14 +424,14 @@ inl {stream Cuda CudaTensor} ->
                         state=dyn neutral_elem
                         body=inl {state=prefix i} ->
                             inl in, out = in i, out i
-                            inl state', ag = cub_block_inclusive_scan blockDim.x redo (map_in in.get)
-                            out.set (map_out (redo prefix state') out.get)
-                            redo prefix ag
+                            inl state, prefix' = cub_block_exclusive_scan blockDim.x redo (map_in in.get) prefix
+                            out.set (map_out state out.get)
+                            redo prefix prefix' // For some reason Cub is not reducing the aggregate.
                         } |> ignore
                     }
             }
 
-    inl map_scan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
+    inl map_inscan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
         assert_zip (in, out) |> ignore
         inl in = to_1d in |> to_dev_tensor
         inl out = to_1d out |> to_dev_tensor
@@ -448,7 +462,7 @@ inl {stream Cuda CudaTensor} ->
                 }
 
         // Scan the aggregates to get the prefixes.
-        map_d1_scan_map' {redo neutral_elem} temp temp
+        map_d1_exscan_map' {redo neutral_elem} temp temp
 
         // The actual scan.
         inl temp = to_dev_tensor (temp 0)
@@ -550,6 +564,43 @@ inl {stream Cuda CudaTensor} ->
         replicate_map' (inl a b _ -> f a b) in in' out
         ret out
 
+    /// The inclusive scan over the innermost dimension.
+    /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
+    inl map_d1_inscan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
+        inl s = HostTensor.span
+        inl dim_in_a, dim_in_b = in.dim
+        assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
+
+        inl blockDim = lit_min 1024 (s dim_in_b)
+        inl gridDimY = lit_min 64 (s dim_in_a)
+
+        inl in = to_dev_tensor in
+        inl out = to_dev_tensor out
+
+        inl map_in = match d with {map_in} -> map_in | _ -> id
+        inl map_out = match d with {map_out} -> map_out | _ -> const
+
+        run {
+            stream blockDim
+            gridDim = 1, gridDimY
+            kernel = cuda 
+                forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from; by=gridDim.y*blockDim.y; near_to=dim_in_a.near_to; body=inl {i} ->
+                    inl in, out = in i, out i
+
+                    forcd {
+                        from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
+                        by=gridDim.x*blockDim.x
+                        near_to=dim_in_b.near_to
+                        state=dyn neutral_elem
+                        body=inl {state=prefix i} ->
+                            inl in, out = in i, out i
+                            inl state', ag = cub_block_inclusive_scan blockDim.x redo (map_in in.get)
+                            out.set (map_out (redo prefix state') out.get)
+                            redo prefix ag
+                        } |> ignore
+                    }
+            }
+
     /// Maps the two inputs and then reduces the first's inner dimension.
     inl map_d1_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) = 
         inl s = HostTensor.span
@@ -597,7 +648,7 @@ inl {stream Cuda CudaTensor} ->
 
     /// The inclusive scan over the outermost dimension.
     /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
-    inl map_d2_scan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
+    inl map_d2_inscan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
         inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
@@ -767,12 +818,14 @@ inl {stream Cuda CudaTensor} ->
         kernel {d with map_in map_out} in out
         ret out
 
-    inl map_d1_scan_map = map_dx_scan_map_template map_d1_scan_map'
-    inl map_d2_scan_map = map_dx_scan_map_template map_d2_scan_map'
-    inl map_scan_map = map_dx_scan_map_template map_scan_map'
+    inl map_d1_exscan_map = map_dx_scan_map_template map_d1_exscan_map'
+    inl map_d1_inscan_map = map_dx_scan_map_template map_d1_inscan_map'
+    inl map_d2_inscan_map = map_dx_scan_map_template map_d2_inscan_map'
+    inl map_inscan_map = map_dx_scan_map_template map_inscan_map'
 
     {map' map map_redo replicate_map' replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
-     map_d1_scan_map' map_d1_scan_map map_d2_scan_map' map_d2_scan_map map_scan_map' map_scan_map}
+     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
+     map_d1_exscan_map' map_d1_exscan_map}
     """) |> module_
 
 let cuda_random =
