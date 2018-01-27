@@ -439,9 +439,10 @@ inl {stream Cuda CudaTensor} ->
                     forcd {from=blockIdx.x; by=gridDim.x; near_to=divup near_to blockDim.x; body=inl {i} ->
                         inl temp = temp i
                         inl i = i * blockDim.x + threadIdx.x
-                        if i < near_to then in i .get else neutral_elem
-                        |> cub_block_reduce blockDim.x redo
-                        |> temp.set
+                        inl x = 
+                            if i < near_to then in i .get else neutral_elem
+                            |> cub_block_reduce blockDim.x redo
+                        if threadIdx.x = 0 then temp .set x
                         }
                 }
 
