@@ -110,104 +110,105 @@ extern "C" {
             } else {
             }
             float var_24 = var_1[var_14];
-            long long int var_25 = (var_4 + var_7);
-            float var_26 = -1000;
-            float var_27 = __int_as_float(0xff800000);
-            char var_28 = 0;
-            long long int var_29 = 0;
-            Env1 var_30[1];
-            var_30[0] = (make_Env1(var_25, make_Tuple3(var_26, make_Tuple2(var_27, var_28, var_29))));
-            while (method_7(var_30)) {
-                Env1 var_32 = var_30[0];
-                long long int var_33 = var_32.mem_0;
-                Tuple3 var_34 = var_32.mem_1;
-                float var_35 = var_34.mem_0;
-                Tuple2 var_36 = var_34.mem_1;
-                long long int var_37 = (var_33 + 1);
-                float var_38 = var_36.mem_0;
-                char var_39 = var_36.mem_1;
-                long long int var_40 = var_36.mem_2;
-                char var_41 = (var_33 >= 0);
-                char var_43;
-                if (var_41) {
-                    var_43 = (var_33 < 10);
+            long long int var_25 = (10 * var_7);
+            long long int var_26 = (var_4 + var_25);
+            float var_27 = -1000;
+            float var_28 = __int_as_float(0xff800000);
+            char var_29 = 0;
+            long long int var_30 = 0;
+            Env1 var_31[1];
+            var_31[0] = (make_Env1(var_26, make_Tuple3(var_27, make_Tuple2(var_28, var_29, var_30))));
+            while (method_7(var_31)) {
+                Env1 var_33 = var_31[0];
+                long long int var_34 = var_33.mem_0;
+                Tuple3 var_35 = var_33.mem_1;
+                float var_36 = var_35.mem_0;
+                Tuple2 var_37 = var_35.mem_1;
+                long long int var_38 = (var_34 + 10);
+                float var_39 = var_37.mem_0;
+                char var_40 = var_37.mem_1;
+                long long int var_41 = var_37.mem_2;
+                char var_42 = (var_34 >= 0);
+                char var_44;
+                if (var_42) {
+                    var_44 = (var_34 < 10);
                 } else {
-                    var_43 = 0;
+                    var_44 = 0;
                 }
-                char var_44 = (var_43 == 0);
-                if (var_44) {
+                char var_45 = (var_44 == 0);
+                if (var_45) {
                     // "Argument out of bounds."
                 } else {
                 }
-                long long int var_45 = (var_20 + var_33);
-                float var_46 = var_0[var_45];
-                float var_47[1];
-                var_47[0] = var_46;
+                long long int var_46 = (var_20 + var_34);
+                float var_47 = var_0[var_46];
                 float var_48[1];
+                var_48[0] = var_47;
                 float var_49[1];
-                float var_50 = var_49[0];
-                FunPointer4 var_53 = method_8;
-                cub::BlockScan<float,1>().InclusiveScan(var_47, var_48, var_53, var_50);
-                float var_54 = var_48[0];
-                char var_55 = (var_54 < var_24);
-                FunPointer5 var_58 = method_9;
-                Tuple2 var_59 = cub::BlockReduce<Tuple2,1>().Reduce(make_Tuple2(var_54, var_55, var_33), var_58);
-                float var_60 = var_59.mem_0;
-                char var_61 = var_59.mem_1;
-                long long int var_62 = var_59.mem_2;
-                char var_63 = (var_39 == 1);
-                Tuple2 var_68;
-                if (var_63) {
-                    char var_64 = (var_61 == 1);
-                    if (var_64) {
-                        char var_65 = (var_38 < var_60);
-                        if (var_65) {
-                            var_68 = make_Tuple2(var_60, var_61, var_62);
+                float var_50[1];
+                float var_51 = var_50[0];
+                FunPointer4 var_54 = method_8;
+                cub::BlockScan<float,10>().InclusiveScan(var_48, var_49, var_54, var_51);
+                float var_55 = var_49[0];
+                char var_56 = (var_55 < var_24);
+                FunPointer5 var_59 = method_9;
+                Tuple2 var_60 = cub::BlockReduce<Tuple2,10>().Reduce(make_Tuple2(var_55, var_56, var_34), var_59);
+                float var_61 = var_60.mem_0;
+                char var_62 = var_60.mem_1;
+                long long int var_63 = var_60.mem_2;
+                char var_64 = (var_40 == 1);
+                Tuple2 var_69;
+                if (var_64) {
+                    char var_65 = (var_62 == 1);
+                    if (var_65) {
+                        char var_66 = (var_39 < var_61);
+                        if (var_66) {
+                            var_69 = make_Tuple2(var_61, var_62, var_63);
                         } else {
-                            var_68 = make_Tuple2(var_38, var_39, var_40);
+                            var_69 = make_Tuple2(var_39, var_40, var_41);
                         }
                     } else {
-                        var_68 = make_Tuple2(var_38, var_39, var_40);
+                        var_69 = make_Tuple2(var_39, var_40, var_41);
                     }
                 } else {
-                    var_68 = make_Tuple2(var_60, var_61, var_62);
+                    var_69 = make_Tuple2(var_61, var_62, var_63);
                 }
-                float var_69 = var_68.mem_0;
-                char var_70 = var_68.mem_1;
-                long long int var_71 = var_68.mem_2;
-                var_30[0] = (make_Env1(var_37, make_Tuple3(var_50, make_Tuple2(var_69, var_70, var_71))));
+                float var_70 = var_69.mem_0;
+                char var_71 = var_69.mem_1;
+                long long int var_72 = var_69.mem_2;
+                var_31[0] = (make_Env1(var_38, make_Tuple3(var_51, make_Tuple2(var_70, var_71, var_72))));
             }
-            Env1 var_72 = var_30[0];
-            long long int var_73 = var_72.mem_0;
-            Tuple3 var_74 = var_72.mem_1;
-            float var_75 = var_74.mem_0;
-            Tuple2 var_76 = var_74.mem_1;
-            float var_77 = var_76.mem_0;
-            char var_78 = var_76.mem_1;
-            long long int var_79 = var_76.mem_2;
-            char var_80 = (var_4 == 0);
-            if (var_80) {
-                char var_82;
+            Env1 var_73 = var_31[0];
+            long long int var_74 = var_73.mem_0;
+            Tuple3 var_75 = var_73.mem_1;
+            float var_76 = var_75.mem_0;
+            Tuple2 var_77 = var_75.mem_1;
+            float var_78 = var_77.mem_0;
+            char var_79 = var_77.mem_1;
+            long long int var_80 = var_77.mem_2;
+            char var_81 = (var_4 == 0);
+            if (var_81) {
+                char var_83;
                 if (var_16) {
-                    var_82 = (var_14 < 6);
+                    var_83 = (var_14 < 6);
                 } else {
-                    var_82 = 0;
+                    var_83 = 0;
                 }
-                char var_83 = (var_82 == 0);
-                if (var_83) {
+                char var_84 = (var_83 == 0);
+                if (var_84) {
                     // "Argument out of bounds."
                 } else {
                 }
-                float var_84 = var_2[var_14];
-                long long int var_85 = var_3[var_14];
-                var_2[var_14] = var_77;
-                var_3[var_14] = var_79;
+                float var_85 = var_2[var_14];
+                long long int var_86 = var_3[var_14];
+                var_2[var_14] = var_78;
+                var_3[var_14] = var_80;
             } else {
             }
             var_11[0] = (make_Env0(var_15));
         }
-        Env0 var_86 = var_11[0];
-        long long int var_87 = var_86.mem_0;
+        Env0 var_87 = var_11[0];
+        long long int var_88 = var_87.mem_0;
     }
     __device__ char method_6(Env0 * var_0) {
         Env0 var_1 = var_0[0];
@@ -695,7 +696,7 @@ let (var_75: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_74: (Union0 ref
 let (var_76: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_5", var_32, var_1)
 let (var_77: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 6u, 1u)
 var_76.set_GridDimensions(var_77)
-let (var_78: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
+let (var_78: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(10u, 1u, 1u)
 var_76.set_BlockDimensions(var_78)
 let (var_79: ManagedCuda.BasicTypes.CUstream) = var_51.get_Stream()
 let (var_81: (System.Object [])) = [|var_70; var_71; var_73; var_75|]: (System.Object [])

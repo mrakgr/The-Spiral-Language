@@ -443,6 +443,7 @@ inl {stream Cuda CudaTensor} ->
         inl map_in = match d with {map_in} -> map_in | _ -> id
         inl map_out = match d with {map_out} -> map_out | _ -> const
 
+        /// TODO: Optimize the case where the size of temp is just 1.
         inb temp = CudaTensor.create {elem_type=type map_in in.elem_type; dim=1,divup near_to blockDim}
 
         inl _ = // First perform the reduction to get the aggregates.
@@ -667,7 +668,8 @@ inl {stream Cuda CudaTensor} ->
             gridDim=1,gridDimY
             kernel = cuda 
                 forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in'.from; by=gridDim.y*blockDim.y; near_to=dim_in'.near_to; body=inl {i} ->
-                    inl in, in' = in i, in' i
+                    inl in = in i
+                    inl in' = in' i .get
 
                     inl _,redo_prefix =
                         forcd {
@@ -676,21 +678,21 @@ inl {stream Cuda CudaTensor} ->
                             near_to=dim_in_b.near_to
                             state=dyn (scan.ne, redo.ne)
                             body=inl {state=scan_prefix,redo_prefix i=j} ->
-                                inl in = in j
+                                inl in = in j .get
                                 inl scan_x, scan_prefix = 
                                     match d with
-                                    | {mapi_in} -> mapi_in i j in.get in'.get
-                                    | {map_in} -> map_in in.get in'.get
-                                    | _ -> in.get
+                                    | {mapi_in} -> mapi_in i j in in'
+                                    | {map_in} -> map_in in in'
+                                    | _ -> in
                                     |> cub_block_inclusive_scan blockDim.x scan.f
-                                    |> Tuple.map (scan scan_prefix)
+                                    |> Tuple.map (scan.f scan_prefix)
                                 inl redo_prefix = 
                                     match d with
-                                    | {mapi_mid} -> mapi_mid i j scan_x
-                                    | {map_mid} -> map_mid scan_x
+                                    | {mapi_mid} -> mapi_mid i j scan_x in'
+                                    | {map_mid} -> map_mid scan_x in'
                                     | _ -> scan_x
                                     |> cub_block_reduce blockDim.x redo.f
-                                    |> redo_f redo_prefix
+                                    |> redo.f redo_prefix
                                 scan_prefix, redo_prefix
                             }
                     if threadIdx.x = 0 then 
@@ -887,14 +889,16 @@ inl {stream Cuda CudaTensor} ->
             | in' -> zip in'
 
         inl elem_type = type
+            inl in = in.elem_type 
+            inl in' = in'.elem_type
             match d with
-            | {mapi_in} -> mapi_in 0 0 in.elem_type in'.elem_type
-            | {map_in} -> map_in in.elem_type in'.elem_type
-            | _ -> in.elem_type
+            | {mapi_in} -> mapi_in 0 0 in in'
+            | {map_in} -> map_in in in'
+            | _ -> in
             |>
             match d with
-            | {mapi_mid} -> mapi_mid 0 0
-            | {map_mid} -> map_mid
+            | {mapi_mid} x -> mapi_mid 0 0 x in'
+            | {map_mid} x -> map_mid x in'
             | _ -> id
             |>
             match d with
@@ -907,7 +911,7 @@ inl {stream Cuda CudaTensor} ->
             | {mapi_out} -> {d with mapi_out=inl i x _ -> mapi_out i x}
             | {map_out} -> {d with map_out=inl x _ -> map_out x}
             | _ -> {d with map_out=const}
-
+        
         inb out = create {elem_type dim=in'.dim}
         mapi_d1_inscan_mapi_d1_reduce_mapi' d in in' out
         ret out
@@ -915,7 +919,7 @@ inl {stream Cuda CudaTensor} ->
     {
     map' map map_redo replicate_map' replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
-    map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_map
+    map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
     }
     """) |> module_
 

@@ -727,14 +727,14 @@ extern "C" {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_20 = (8 * var_7);
+            long long int var_20 = (32 * var_7);
             long long int var_21 = (var_4 + var_20);
             Env0 var_22[1];
             var_22[0] = (make_Env0(var_21));
             while (method_35(var_22)) {
                 Env0 var_24 = var_22[0];
                 long long int var_25 = var_24.mem_0;
-                long long int var_26 = (var_25 + 8);
+                long long int var_26 = (var_25 + 32);
                 char var_27 = (var_25 >= 0);
                 char var_29;
                 if (var_27) {
@@ -1510,12 +1510,12 @@ and method_14((var_0: ManagedCuda.CudaContext), (var_1: ManagedCuda.BasicTypes.C
             let (var_45: ManagedCuda.BasicTypes.CUstream) = var_2.get_Stream()
             let (var_46: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_37)
             var_0.ClearMemoryAsync(var_44, 0uy, var_46, var_45)
-            let (var_47: bool) = (8L > var_28)
+            let (var_47: bool) = (32L > var_28)
             let (var_48: int64) =
                 if var_47 then
                     var_28
                 else
-                    8L
+                    32L
             let (var_49: (Union0 ref)) = var_7.mem_0
             let (var_50: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_49: (Union0 ref)))
             let (var_51: (Union0 ref)) = var_38.mem_0
@@ -1828,7 +1828,7 @@ and method_32((var_0: ManagedCuda.CudaContext), (var_1: ManagedCuda.BasicTypes.C
             let (var_43: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_34", var_1, var_0)
             let (var_44: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
             var_43.set_GridDimensions(var_44)
-            let (var_45: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(10u, 8u, 1u)
+            let (var_45: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(10u, 32u, 1u)
             var_43.set_BlockDimensions(var_45)
             let (var_46: ManagedCuda.BasicTypes.CUstream) = var_2.get_Stream()
             let (var_48: (System.Object [])) = [|var_39; var_41; var_42|]: (System.Object [])

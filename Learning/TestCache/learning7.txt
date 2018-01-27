@@ -84,14 +84,14 @@ extern "C" {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_20 = (8 * var_7);
+            long long int var_20 = (32 * var_7);
             long long int var_21 = (var_4 + var_20);
             Env0 var_22[1];
             var_22[0] = (make_Env0(var_21));
             while (method_16(var_22)) {
                 Env0 var_24 = var_22[0];
                 long long int var_25 = var_24.mem_0;
-                long long int var_26 = (var_25 + 8);
+                long long int var_26 = (var_25 + 32);
                 char var_27 = (var_25 >= 0);
                 char var_29;
                 if (var_27) {
@@ -1192,7 +1192,7 @@ let (var_182: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_180: (Union0 r
 let (var_183: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_14", var_32, var_1)
 let (var_184: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
 var_183.set_GridDimensions(var_184)
-let (var_185: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(10u, 8u, 1u)
+let (var_185: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(10u, 32u, 1u)
 var_183.set_BlockDimensions(var_185)
 let (var_186: ManagedCuda.BasicTypes.CUstream) = var_51.get_Stream()
 let (var_188: (System.Object [])) = [|var_179; var_181; var_182|]: (System.Object [])
