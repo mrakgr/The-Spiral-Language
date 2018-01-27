@@ -417,14 +417,14 @@ inl {stream Cuda CudaTensor} ->
                     }
             }
 
-    inl scan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
+    inl map_scan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
         assert_zip (in, out) |> ignore
         inl in = to_1d in |> to_dev_tensor
         inl out = to_1d out |> to_dev_tensor
         inl near_to = length in
 
         inl blockDim = lit_min 1024 near_to
-        inl gridDim = lit_min 64 dim
+        inl gridDim = lit_min 64 (divup near_to blockDim)
 
         inl map_in = match d with {map_in} -> map_in | _ -> id
         inl map_out = match d with {map_out} -> map_out | _ -> const
@@ -432,7 +432,7 @@ inl {stream Cuda CudaTensor} ->
         inb temp = CudaTensor.create {elem_type=type map_in in.elem_type; dim=1,divup near_to blockDim}
 
         inl _ = // First perform the reduction to get the aggregates.
-            inl temp = to_dev_tensor (temp 1)
+            inl temp = to_dev_tensor (temp 0)
             run {
                 stream blockDim gridDim
                 kernel = cuda
@@ -441,15 +441,17 @@ inl {stream Cuda CudaTensor} ->
                         inl i = i * blockDim.x + threadIdx.x
                         inl x = 
                             if i < near_to then in i .get else neutral_elem
+                            |> map_in
                             |> cub_block_reduce blockDim.x redo
                         if threadIdx.x = 0 then temp .set x
                         }
                 }
 
         // Scan the aggregates to get the prefixes.
-        map_d1_scan_map {redo neutral_elem} temp temp
+        map_d1_scan_map' {redo neutral_elem} temp temp
 
-        inl temp = to_dev_tensor (temp 1)
+        // The actual scan.
+        inl temp = to_dev_tensor (temp 0)
         run {
             stream blockDim gridDim
             kernel = cuda
@@ -457,10 +459,13 @@ inl {stream Cuda CudaTensor} ->
                     inl prefix = temp i .get
                     inl i = i * blockDim.x + threadIdx.x
                     if i < near_to then 
-                        in i .get 
-                        |> cub_block_inclusive_scan' blockDim.x redo
-                        |> redo prefix
-                        |> out i .set
+                        inl x =
+                            in i .get 
+                            |> map_in
+                            |> cub_block_inclusive_scan' blockDim.x redo
+                            |> redo prefix
+                        inl out = out i
+                        out .set (map_out x out.get)
                     }
             }
 
@@ -764,9 +769,10 @@ inl {stream Cuda CudaTensor} ->
 
     inl map_d1_scan_map = map_dx_scan_map_template map_d1_scan_map'
     inl map_d2_scan_map = map_dx_scan_map_template map_d2_scan_map'
+    inl map_scan_map = map_dx_scan_map_template map_scan_map'
 
     {map' map map_redo replicate_map' replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
-     map_d1_scan_map' map_d1_scan_map map_d2_scan_map' map_d2_scan_map}
+     map_d1_scan_map' map_d1_scan_map map_d2_scan_map' map_d2_scan_map map_scan_map' map_scan_map}
     """) |> module_
 
 let cuda_random =
