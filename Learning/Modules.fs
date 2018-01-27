@@ -880,10 +880,42 @@ inl {stream Cuda CudaTensor} ->
     inl map_d2_inscan_map = map_dx_scan_map_template map_d2_inscan_map'
     inl map_inscan_map = map_dx_scan_map_template map_inscan_map'
 
+    inl mapi_d1_inscan_mapi_d1_reduce_mapi d (!zip in) in' ret =
+        inl in' = 
+            match in' with
+            | () -> HostTensor.create {elem_type=(); dim=fst in.dim}
+            | in' -> zip in'
+
+        inl elem_type = type
+            match d with
+            | {mapi_in} -> mapi_in 0 0 in.elem_type in'.elem_type
+            | {map_in} -> map_in in.elem_type in'.elem_type
+            | _ -> in.elem_type
+            |>
+            match d with
+            | {mapi_mid} -> mapi_mid 0 0
+            | {map_mid} -> map_mid
+            | _ -> id
+            |>
+            match d with
+            | {mapi_out} -> mapi_out 0
+            | {map_out} -> map_out
+            | _ -> id
+
+        inl d =
+            match d with
+            | {mapi_out} -> {d with mapi_out=inl i x _ -> mapi_out i x}
+            | {map_out} -> {d with map_out=inl x _ -> map_out x}
+            | _ -> {d with map_out=const}
+
+        inb out = create {elem_type dim=in'.dim}
+        mapi_d1_inscan_mapi_d1_reduce_mapi' d in in' out
+        ret out
+
     {
     map' map map_redo replicate_map' replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
-    map_d1_exscan_map' map_d1_exscan_map
+    map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_map
     }
     """) |> module_
 
