@@ -646,6 +646,63 @@ inl {stream Cuda CudaTensor} ->
                     }
             }
 
+    /// Maps the two inputs and then scans, maps, reduces and maps the first's inner dimension.
+    inl mapi_d1_inscan_mapi_d1_reduce_mapi' {d with scan redo} (!zip in) (!zip in') (!zip out) = 
+        inl s = HostTensor.span
+        inl dim_in_a, dim_in_b = in.dim
+        inl dim_in' :: () = in'.dim
+
+        assert (dim_in' = dim_in_a) "Input's outer dimension must equal the output's dimension."
+        assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
+
+        inl blockDim = lit_min 1024 (s dim_in_b)
+        inl gridDimY = lit_min 64 (s dim_in')
+
+        inl in = to_dev_tensor in
+        inl in' = to_dev_tensor in'
+        inl out = to_dev_tensor out
+
+        run {
+            stream blockDim
+            gridDim=1,gridDimY
+            kernel = cuda 
+                forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in'.from; by=gridDim.y*blockDim.y; near_to=dim_in'.near_to; body=inl {i} ->
+                    inl in, in' = in i, in' i
+
+                    inl _,redo_prefix =
+                        forcd {
+                            from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
+                            by=gridDim.x*blockDim.x
+                            near_to=dim_in_b.near_to
+                            state=dyn (scan.ne, redo.ne)
+                            body=inl {state=scan_prefix,redo_prefix i=j} ->
+                                inl in = in j
+                                inl scan_x, scan_prefix = 
+                                    match d with
+                                    | {mapi_in} -> mapi_in i j in.get in'.get
+                                    | {map_in} -> map_in in.get in'.get
+                                    | _ -> in.get
+                                    |> cub_block_inclusive_scan blockDim.x scan.f
+                                    |> Tuple.map (scan scan_prefix)
+                                inl redo_prefix = 
+                                    match d with
+                                    | {mapi_mid} -> mapi_mid i j scan_x
+                                    | {map_mid} -> map_mid scan_x
+                                    | _ -> scan_x
+                                    |> cub_block_reduce blockDim.x redo.f
+                                    |> redo_f redo_prefix
+                                scan_prefix, redo_prefix
+                            }
+                    if threadIdx.x = 0 then 
+                        inl out = out i
+                        match d with
+                        | {mapi_out} -> map_out i redo_prefix out.get
+                        | {map_out} -> map_out redo_prefix out.get
+                        | _ -> redo_prefix
+                        |> out.set
+                    }
+            }
+
     /// The inclusive scan over the outermost dimension.
     /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
     inl map_d2_inscan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
