@@ -823,9 +823,11 @@ inl {stream Cuda CudaTensor} ->
     inl map_d2_inscan_map = map_dx_scan_map_template map_d2_inscan_map'
     inl map_inscan_map = map_dx_scan_map_template map_inscan_map'
 
-    {map' map map_redo replicate_map' replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
-     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
-     map_d1_exscan_map' map_d1_exscan_map}
+    {
+    map' map map_redo replicate_map' replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
+    map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
+    map_d1_exscan_map' map_d1_exscan_map
+    }
     """) |> module_
 
 let cuda_random =
