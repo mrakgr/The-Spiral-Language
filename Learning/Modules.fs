@@ -329,7 +329,7 @@ inl {stream Cuda CudaTensor} ->
         inl out = f ()
         macro.cd unit [
             text: "cub::BlockScan"
-            iter: "<",",",">",[type: x; arg: blockDim]
+            iter: "<",",",">",[type: x; arg: blockDim; text: "BLOCK_SCAN_RAKING_MEMOIZE"]
             args: ()
             text: ".InclusiveScan"
             args: in, out, closure_of (inl a,b -> redo a b) ((x,x) => x)
@@ -343,7 +343,7 @@ inl {stream Cuda CudaTensor} ->
         inl out, ag = f (), f () 0
         macro.cd unit [
             text: "cub::BlockScan"
-            iter: "<",",",">",[type: x; arg: blockDim]
+            iter: "<",",",">",[type: x; arg: blockDim; text: "BLOCK_SCAN_RAKING_MEMOIZE"]
             args: ()
             text: ".InclusiveScan"
             args: in, out, closure_of (inl a,b -> redo a b) ((x,x) => x), ag
@@ -357,7 +357,7 @@ inl {stream Cuda CudaTensor} ->
         inl out, ag = f (), f () 0
         macro.cd unit [
             text: "cub::BlockScan"
-            iter: "<",",",">",[type: x; arg: blockDim]
+            iter: "<",",",">",[type: x; arg: blockDim; text: "BLOCK_SCAN_RAKING_MEMOIZE"]
             args: ()
             text: ".ExclusiveScan"
             args: in, out, initial_elem, closure_of (inl a,b -> redo a b) ((x,x) => x), ag
