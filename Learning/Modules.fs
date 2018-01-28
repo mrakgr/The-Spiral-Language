@@ -658,7 +658,7 @@ inl {stream Cuda CudaTensor} ->
             inl size_in_b = s dim_in_b
             assert (lit_is size_in_b) "The inner dimension of the input to this kernel must be known at compile time."
             if size_in_b < 1024 then 1, size_in_b
-            else divup size_in_b 512, 512
+            else divup size_in_b 256, 256
         inl gridDim = min 64 (s dim_in_a)
 
         inl in = to_dev_tensor in
