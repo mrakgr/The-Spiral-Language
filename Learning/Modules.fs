@@ -487,9 +487,11 @@ inl {stream Cuda CudaTensor} ->
                         state=dyn neutral_elem
                         body=inl {state=prefix i} ->
                             inl in, out = in i, out i
-                            inl state, prefix' = cub_block_exclusive_scan blockDim.x redo (map_in in.get) prefix
+                            inl state, prefix = 
+                                cub_block_scan {scan_type=.exclusive,prefix; is_input_tensor=false; return_aggregate=true}
+                                    {blockDim redo} (map_in in.get)
                             out.set (map_out state out.get)
-                            redo prefix prefix' // For some reason Cub is not reducing the aggregate.
+                            prefix
                         } |> ignore
                     }
             }
@@ -541,7 +543,9 @@ inl {stream Cuda CudaTensor} ->
                         inl x =
                             in i .get 
                             |> map_in
-                            |> cub_block_inclusive_scan' blockDim.x redo
+                            |> cub_block_scan
+                                {scan_type=.inclusive; return_aggregate=false; is_input_tensor=false}
+                                {blockDim redo}
                             |> redo prefix
                         inl out = out i
                         out .set (map_out x out.get)
@@ -655,7 +659,10 @@ inl {stream Cuda CudaTensor} ->
                         state=dyn neutral_elem
                         body=inl {state=prefix i} ->
                             inl in, out = in i, out i
-                            inl state', ag = cub_block_inclusive_scan blockDim.x redo (map_in in.get)
+                            inl state', ag = 
+                                cub_block_scan
+                                    {scan_type=.inclusive; is_input_tensor=false; return_aggregate=true}
+                                    {blockDim redo} (map_in in.get)
                             out.set (map_out (redo prefix state') out.get)
                             redo prefix ag
                         } |> ignore
@@ -804,7 +811,9 @@ inl {stream Cuda CudaTensor} ->
                                     | {mapi_in} -> mapi_in i j in in'
                                     | {map_in} -> map_in in in'
                                     | _ -> in
-                                    |> cub_block_inclusive_scan blockDim.x scan.f
+                                    |> cub_block_scan 
+                                        {scan_type=.inclusive; is_input_tensor=false; return_aggregate=true}
+                                        {blockDim scan=scan.f}
                                     |> Tuple.map (scan.f scan_prefix)
                                 inl redo_prefix = 
                                     match d with
