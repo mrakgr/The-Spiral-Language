@@ -317,7 +317,7 @@ inl {stream Cuda CudaTensor} ->
     inl lit_min = lit_comp min
     inl lit_max = lit_comp max
 
-    inl cub_block_reduce {d with blockDim input=x redo} =
+    inl cub_block_reduce {d with blockDim redo} x =
         inl algorithm =
             match d with
             | {algorithm} -> algorithm
@@ -426,7 +426,12 @@ inl {stream Cuda CudaTensor} ->
                     inl in = in i
                     out .set (f in.get out.get)
                     }
-            } |> ignore
+            }
+
+    inl map f (!zip in) ret =
+        inb out = create {dim=in.dim; elem_type=type f in.elem_type}
+        map' (inl in _ -> f in) in out
+        ret out
 
     /// The exclusive scan over the innermost dimension.
     /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
@@ -492,7 +497,7 @@ inl {stream Cuda CudaTensor} ->
                         inl x = 
                             if i < near_to then in i .get else neutral_elem
                             |> map_in
-                            |> cub_block_reduce blockDim.x redo
+                            |> cub_block_reduce {blockDim redo}
                         if threadIdx.x = 0 then temp .set x
                         }
                 }
@@ -519,11 +524,6 @@ inl {stream Cuda CudaTensor} ->
                     }
             }
 
-    inl map f (!zip in) ret =
-        inb out = create {dim=in.dim; elem_type=type f in.elem_type}
-        map' (inl in _ -> f in) in out
-        ret out
-
     /// Flattens the tensor to 1d, maps and reduces it.
     /// Requires the redo and the neutral element.
     /// Map is optional. Allocates a temporary tensor for the intermediary results.
@@ -544,16 +544,17 @@ inl {stream Cuda CudaTensor} ->
                 inl from = blockIdx.x * blockDim.x + threadIdx.x
                 inl by = gridDim.x * blockDim.x
                 inl body {state i} = redo state (map (in i .get)) 
-                inl thread_result = forcd {from near_to by state=dyn neutral_elem; body}
-                inl block_result = cub_block_reduce blockDim.x redo thread_result
+                inl block_result = 
+                    forcd {from near_to by state=dyn neutral_elem; body}
+                    |> cub_block_reduce {blockDim redo}
                 if threadIdx.x = 0 then out' blockIdx.x .set block_result
-            } |> ignore
+            }
 
         inl tns = to_host_tensor out
         Loops.for {from=0; near_to=length tns; state=dyn neutral_elem; body=inl {state i} -> redo state (tns i .get)}
 
     /// Replicates the 1d `in` and maps it along with the in' and the out.
-    inl replicate_map' f (!zip in) (!zip in') (!zip out) =
+    inl d1_replicate_map' f (!zip in) (!zip in') (!zip out) =
         inl s = HostTensor.span
         inl dim_in :: () = in.dim
         inl dim_in'_a, dim_in'_b = in'.dim
@@ -587,9 +588,9 @@ inl {stream Cuda CudaTensor} ->
                                 out.set (f in.get in'.get out.get)
                             }
                     }
-            } |> ignore
+            }
 
-    inl replicate_map f (!zip in) in' ret =
+    inl d1_replicate_map f (!zip in) in' ret =
         inl in' =
             match in' with
             | by : int64 -> 
@@ -597,7 +598,7 @@ inl {stream Cuda CudaTensor} ->
                 HostTensor.create {elem_type=(); dim=by,dim_in}
             | in' -> zip in'
         inb out = create {elem_type=type f in.elem_type in'.elem_type; dim=in'.dim}
-        replicate_map' (inl a b _ -> f a b) in in' out
+        d1_replicate_map' (inl a b _ -> f a b) in in' out
         ret out
 
     /// The inclusive scan over the innermost dimension.
@@ -674,7 +675,7 @@ inl {stream Cuda CudaTensor} ->
                                 inl a = in.get
                                 redo state (map_in a in'.get)
                             }
-                        |> cub_block_reduce blockDim.x redo
+                        |> cub_block_reduce {blockDim redo}
 
                     if threadIdx.x = 0 then 
                         inl out = out i
@@ -729,10 +730,10 @@ inl {stream Cuda CudaTensor} ->
                             items i .set (in from .get |> map_in)
 
                     inl x = 
-                        inl d = {blockDim redo input=items.bodies.ar}
+                        inl d = {blockDim redo}
                         if num_valid % blockDim.x = 0 then cub_block_reduce d
                         else cub_block_reduce {d with num_valid} 
-                        |> broadcast_zero
+                        <| items.bodies.ar |> broadcast_zero
 
                     inner_loop <| inl {i from near_to} ->
                         if from < near_to then 
@@ -786,7 +787,7 @@ inl {stream Cuda CudaTensor} ->
                                     | {mapi_mid} -> mapi_mid i j scan_x in'
                                     | {map_mid} -> map_mid scan_x in'
                                     | _ -> scan_x
-                                    |> cub_block_reduce blockDim.x redo.f
+                                    |> cub_block_reduce {blockDim redo=redo.f}
                                     |> redo.f redo_prefix
                                 scan_prefix, redo_prefix
                             }
@@ -1012,7 +1013,7 @@ inl {stream Cuda CudaTensor} ->
         ret out
 
     {
-    map' map map_redo replicate_map' replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
+    map' map map_redo d1_replicate_map' d1_replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
     }
