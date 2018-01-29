@@ -256,11 +256,15 @@ inl {stream Cuda CudaTensor} ->
 
     /// These two loops are only here until NVidia gets its shit together and fixes the NVCC tuple write bugs.
     inl whilecd {cond state body} =
-        inl r = array_create_cuda_local state 1
-        r 0 <- state
+        inl r = HostTensor.create {
+            array_create=array_create_cuda_local 
+            elem_type=state 
+            dim=()
+            }
+        r .set state
         /// Note: While must have a join point around it.
-        !While((join cond (r 0)), (r 0 <- body (r 0)))
-        r 0
+        !While((join cond r.get), (r.set <| body r.get))
+        r .get
 
     inl forcd {d with from body} =
         inl finally =
@@ -372,6 +376,12 @@ inl {stream Cuda CudaTensor} ->
             text: ".Reduce"
             args: x, closure_of (inl a,b -> redo a b) ((x,x) => x)
             ]
+
+    inl broadcast_zero x =
+        inl ar = array_create_cuda_shared x 1
+        if threadIdx.x = 0 then ar 0 <- x
+        syncthreads()
+        ar 0
 
     inl map' f (!zip in) (!zip out) =
         assert_zip (in, out) |> ignore
@@ -657,7 +667,7 @@ inl {stream Cuda CudaTensor} ->
         inl items_per_thread, blockDimX =
             inl size_in_b = s dim_in_b
             assert (lit_is size_in_b) "The inner dimension of the input to this kernel must be known at compile time."
-            if size_in_b < 1024 then 1, size_in_b
+            if size_in_b <= 1024 then 1, size_in_b
             else divup size_in_b 256, 256
         inl gridDim = min 64 (s dim_in_a)
 
@@ -674,29 +684,31 @@ inl {stream Cuda CudaTensor} ->
                 forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from; by=gridDim.y*blockDim.y; near_to=dim_in_a.near_to; body=inl {i} ->
                     inl in, out = in i, out i
 
-                    inl inner_loop {state body} =
-                        forcd {
-                            from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
-                            by=gridDim.x*blockDim.x
-                            near_to=dim_in_b.near_to
-                            state body
+                    inl items = HostTensor.create {
+                        array_create = array_create_cuda_local
+                        elem_type = type in.elem_type |> map_in
+                        dim=items_per_thread
+                        }
+
+                    inl inner_loop body =
+                        inl by=gridDim.x*blockDim.x
+                        inl from=threadIdx.x-dim_in_b.from
+                        inl near_to=dim_in_b.near_to
+                        forcd {from=0;near_to=items_per_thread;body=inl {i} ->
+                            inl from = from+by*i
+                            body {i from near_to}
                             }
 
-                    inl exp_sum =
-                        inl x = 
-                            inner_loop {
-                                state=dyn neutral_elem 
-                                body=inl {state i} -> 
-                                    inl in = in i 
-                                    redo state (map_in in.get)
-                                }
-                            |> cub_block_reduce blockDim.x redo
+                    inner_loop <| inl {i from near_to} ->
+                        if from < near_to then items i .set (in from .get |> map_in)
+                        else items i .set neutral_elem
 
-                        inl ar = array_create_cuda_shared x 1
-                        if threadIdx.x = 0 then ar 0 <- x
-                        syncthreads()
-                        ar 0
-                        
+                    inl x = cub_block_reduce' items_per_thread blockDim.x redo items |> broadcast_zero
+                    inner_loop <| inl {i from near_to} ->
+                        if from < near_to then 
+                            inl out = out from
+                            map_out (items i .get) x (out .get)
+                            |> out .set
                     }
             }
 
