@@ -350,47 +350,71 @@ inl {stream Cuda CudaTensor} ->
 
         macro.cd x (Tuple.append block_redo call)
 
-    inl cub_block_inclusive_scan' blockDim redo x =
-        inl f () = array_create_cuda_local x 1
-        inl in = f ()
-        in 0 <- x
-        inl out = f ()
-        macro.cd unit [
-            text: "cub::BlockScan"
-            iter: "<",",",">",[type: x; arg: blockDim; text: "BLOCK_SCAN_RAKING_MEMOIZE"]
-            args: ()
-            text: ".InclusiveScan"
-            args: in, out, closure_of (inl a,b -> redo a b) ((x,x) => x)
-            ]
-        out 0
+    inl cub_block_scan {scan_type is_input_tensor return_aggregate} {d with blockDim redo} in =
+        inl out = 
+            if is_input_tensor then 
+                HostTensor.create {
+                    array_create = array_create_cuda_local
+                    elem_type=in.elem_type; dim=in.dim
+                    }
+            else array_create_cuda_local in 1 0
 
-    inl cub_block_inclusive_scan blockDim redo x =
-        inl f () = array_create_cuda_local x 1
-        inl in = f () 
-        in 0 <- x
-        inl out, ag = f (), f () 0
-        macro.cd unit [
-            text: "cub::BlockScan"
-            iter: "<",",",">",[type: x; arg: blockDim; text: "BLOCK_SCAN_RAKING_MEMOIZE"]
-            args: ()
-            text: ".InclusiveScan"
-            args: in, out, closure_of (inl a,b -> redo a b) ((x,x) => x), ag
-            ]
-        out 0, ag
+        inl ag = if return_aggregate then array_create_cuda_local in 1 0 else ()
+        inl algorithm =
+            match d with
+            | {algorithm} -> algorithm
+            | _ -> "BLOCK_SCAN_RAKING_MEMOIZE"
 
-    inl cub_block_exclusive_scan blockDim redo x initial_elem =
-        inl f () = array_create_cuda_local x 1
-        inl in = f () 
-        in 0 <- x
-        inl out, ag = f (), f () 0
-        macro.cd unit [
+        inl blockScan =
+            [
             text: "cub::BlockScan"
-            iter: "<",",",">",[type: x; arg: blockDim; text: "BLOCK_SCAN_RAKING_MEMOIZE"]
+            iter: "<",",",">",[type: in; arg: blockDim.x; text: algorithm; arg: blockDim.y; arg: blockDim.z]
             args: ()
-            text: ".ExclusiveScan"
-            args: in, out, initial_elem, closure_of (inl a,b -> redo a b) ((x,x) => x), ag
             ]
-        out 0, ag
+
+        inl call =
+            inl in, out = if is_input_tensor then in.bodies.ar, out.bodies.ar else in, out
+
+            inl exclusive_scan initial_elem =
+                [
+                text: ".ExclusiveScan"
+                args: 
+                    inl clo = closure_of (inl a,b -> redo a b) ((in,in) => in)
+                    if return_aggregate then in,out,initial_elem,clo,ag else in,out,initial_elem,clo
+                ]
+
+            if eq_type (+) redo then 
+                match scan_type with
+                | .inclusive ->
+                    [
+                    text: ".InclusiveSum"
+                    args: if return_aggregate then in,out,ag else in,out
+                    ]
+                | .exclusive, initial_elem ->
+                    // This is because the exclusive sum does not accept an initial element.
+                    // The Cub author picked such an uncomfortable place to do this kind of thing in the API.
+                    exclusive_scan initial_elem 
+            else
+                match scan_type with
+                | .inclusive ->
+                    [
+                    text: ".InclusiveScan"
+                    args: 
+                        inl clo = closure_of (inl a,b -> redo a b) ((in,in) => in)
+                        if return_aggregate then in,out,clo,ag else in,out,clo
+                    ]
+                | .exclusive, initial_elem ->
+                    exclusive_scan initial_elem
+
+        macro.cd unit (Tuple.append block_redo call)
+
+        if return_aggregate then 
+            inl ag =
+                match scan_type with
+                | .inclusive -> ag
+                | .exclusive, initial_elem -> redo initial_elem ag // For some reason, Cub does not do this on its own.
+            out, ag 
+        else out
 
     inl cub_warp_reduce redo x =
         macro.cd x [
