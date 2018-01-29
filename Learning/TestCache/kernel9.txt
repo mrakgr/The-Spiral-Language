@@ -3,259 +3,222 @@ let cuda_kernels = """
 #include "cub/cub.cuh"
 
 extern "C" {
-    struct Env0 {
-        long long int mem_0;
-    };
-    __device__ __forceinline__ Env0 make_Env0(long long int mem_0){
-        Env0 tmp;
-        tmp.mem_0 = mem_0;
-        return tmp;
-    }
-    struct Tuple3 {
+    struct Tuple1 {
         float mem_0;
         float mem_1;
     };
-    __device__ __forceinline__ Tuple3 make_Tuple3(float mem_0, float mem_1){
-        Tuple3 tmp;
+    __device__ __forceinline__ Tuple1 make_Tuple1(float mem_0, float mem_1){
+        Tuple1 tmp;
         tmp.mem_0 = mem_0;
         tmp.mem_1 = mem_1;
         return tmp;
     }
-    typedef float(*FunPointer1)(float, float);
-    struct Env2 {
-        long long int mem_0;
-        float mem_1;
-    };
-    __device__ __forceinline__ Env2 make_Env2(long long int mem_0, float mem_1){
-        Env2 tmp;
-        tmp.mem_0 = mem_0;
-        tmp.mem_1 = mem_1;
-        return tmp;
-    }
+    typedef float(*FunPointer0)(float, float);
     __global__ void method_5(float * var_0, float * var_1);
     __global__ void method_8(float * var_0, float * var_1);
     __global__ void method_10(float * var_0, float * var_1, float * var_2);
-    __device__ char method_6(Env0 * var_0);
+    __device__ char method_6(long long int * var_0);
     __device__ float method_7(float var_0, float var_1);
-    __device__ char method_9(Env2 * var_0);
+    __device__ char method_9(long long int * var_0, float * var_1);
     
     __global__ void method_5(float * var_0, float * var_1) {
-        long long int var_2 = threadIdx.x;
-        long long int var_3 = threadIdx.y;
-        long long int var_4 = threadIdx.z;
-        long long int var_5 = blockIdx.x;
-        long long int var_6 = blockIdx.y;
-        long long int var_7 = blockIdx.z;
-        Env0 var_8[1];
-        var_8[0] = (make_Env0(var_5));
-        while (method_6(var_8)) {
-            Env0 var_10 = var_8[0];
-            long long int var_11 = var_10.mem_0;
-            long long int var_12 = (var_11 + 1);
-            char var_13 = (var_11 >= 0);
-            char var_15;
-            if (var_13) {
-                var_15 = (var_11 < 1);
+        long long int var_2 = blockIdx.x;
+        long long int var_3[1];
+        var_3[0] = var_2;
+        while (method_6(var_3)) {
+            long long int var_5 = var_3[0];
+            long long int var_6 = (var_5 + 1);
+            char var_7 = (var_5 >= 0);
+            char var_9;
+            if (var_7) {
+                var_9 = (var_5 < 1);
             } else {
-                var_15 = 0;
+                var_9 = 0;
             }
-            char var_16 = (var_15 == 0);
-            if (var_16) {
+            char var_10 = (var_9 == 0);
+            if (var_10) {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_17 = (var_11 * 192);
-            long long int var_18 = (var_17 + var_2);
-            char var_19 = (var_18 < 192);
-            float var_23;
-            if (var_19) {
-                char var_20 = (var_18 >= 0);
-                char var_21 = (var_20 == 0);
-                if (var_21) {
+            long long int var_11 = (var_5 * 192);
+            long long int var_12 = threadIdx.x;
+            long long int var_13 = (var_11 + var_12);
+            char var_14 = (var_13 < 192);
+            float var_18;
+            if (var_14) {
+                char var_15 = (var_13 >= 0);
+                char var_16 = (var_15 == 0);
+                if (var_16) {
                     // "Argument out of bounds."
                 } else {
                 }
-                var_23 = var_0[var_18];
+                var_18 = var_0[var_13];
             } else {
-                var_23 = __int_as_float(0x7f800000);
+                var_18 = __int_as_float(0x7f800000);
             }
-            FunPointer1 var_26 = method_7;
-            float var_27 = cub::BlockReduce<float,192>().Reduce(var_23, var_26);
-            char var_28 = (var_2 == 0);
-            if (var_28) {
-                var_1[var_11] = var_27;
+            FunPointer0 var_21 = method_7;
+            float var_22 = cub::BlockReduce<float,192,cub::BLOCK_REDUCE_WARP_REDUCTIONS,1,1>().Reduce(var_18, var_21);
+            long long int var_23 = threadIdx.x;
+            char var_24 = (var_23 == 0);
+            if (var_24) {
+                var_1[var_5] = var_22;
             } else {
             }
-            var_8[0] = (make_Env0(var_12));
+            var_3[0] = var_6;
         }
-        Env0 var_29 = var_8[0];
-        long long int var_30 = var_29.mem_0;
+        long long int var_25 = var_3[0];
     }
     __global__ void method_8(float * var_0, float * var_1) {
-        long long int var_2 = threadIdx.x;
-        long long int var_3 = threadIdx.y;
-        long long int var_4 = threadIdx.z;
-        long long int var_5 = blockIdx.x;
-        long long int var_6 = blockIdx.y;
-        long long int var_7 = blockIdx.z;
-        long long int var_8 = (var_3 + var_6);
-        Env0 var_9[1];
-        var_9[0] = (make_Env0(var_8));
-        while (method_6(var_9)) {
-            Env0 var_11 = var_9[0];
-            long long int var_12 = var_11.mem_0;
-            long long int var_13 = (var_12 + 1);
-            char var_14 = (var_12 >= 0);
-            char var_16;
-            if (var_14) {
-                var_16 = (var_12 < 1);
+        long long int var_2 = threadIdx.y;
+        long long int var_3 = blockIdx.y;
+        long long int var_4 = (var_2 + var_3);
+        long long int var_5[1];
+        var_5[0] = var_4;
+        while (method_6(var_5)) {
+            long long int var_7 = var_5[0];
+            long long int var_8 = (var_7 + 1);
+            char var_9 = (var_7 >= 0);
+            char var_11;
+            if (var_9) {
+                var_11 = (var_7 < 1);
             } else {
-                var_16 = 0;
+                var_11 = 0;
             }
-            char var_17 = (var_16 == 0);
-            if (var_17) {
+            char var_12 = (var_11 == 0);
+            if (var_12) {
                 // "Argument out of bounds."
             } else {
             }
-            char var_19;
-            if (var_14) {
-                var_19 = (var_12 < 1);
+            char var_14;
+            if (var_9) {
+                var_14 = (var_7 < 1);
             } else {
-                var_19 = 0;
+                var_14 = 0;
             }
-            char var_20 = (var_19 == 0);
-            if (var_20) {
+            char var_15 = (var_14 == 0);
+            if (var_15) {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_21 = (var_2 + var_5);
-            float var_22 = __int_as_float(0x7f800000);
-            Env2 var_23[1];
-            var_23[0] = (make_Env2(var_21, var_22));
-            while (method_9(var_23)) {
-                Env2 var_25 = var_23[0];
-                long long int var_26 = var_25.mem_0;
-                float var_27 = var_25.mem_1;
-                long long int var_28 = (var_26 + 1);
-                char var_29 = (var_26 >= 0);
-                char var_31;
-                if (var_29) {
-                    var_31 = (var_26 < 1);
+            long long int var_16 = threadIdx.x;
+            long long int var_17 = blockIdx.x;
+            long long int var_18 = (var_16 + var_17);
+            float var_19 = __int_as_float(0x7f800000);
+            long long int var_20[1];
+            float var_21[1];
+            var_20[0] = var_18;
+            var_21[0] = var_19;
+            while (method_9(var_20, var_21)) {
+                long long int var_23 = var_20[0];
+                float var_24 = var_21[0];
+                long long int var_25 = (var_23 + 1);
+                char var_26 = (var_23 >= 0);
+                char var_28;
+                if (var_26) {
+                    var_28 = (var_23 < 1);
                 } else {
-                    var_31 = 0;
+                    var_28 = 0;
                 }
-                char var_32 = (var_31 == 0);
-                if (var_32) {
+                char var_29 = (var_28 == 0);
+                if (var_29) {
                     // "Argument out of bounds."
                 } else {
                 }
-                long long int var_33 = (var_12 + var_26);
-                char var_35;
-                if (var_29) {
-                    var_35 = (var_26 < 1);
+                long long int var_30 = (var_7 + var_23);
+                char var_32;
+                if (var_26) {
+                    var_32 = (var_23 < 1);
                 } else {
-                    var_35 = 0;
+                    var_32 = 0;
                 }
-                char var_36 = (var_35 == 0);
-                if (var_36) {
+                char var_33 = (var_32 == 0);
+                if (var_33) {
                     // "Argument out of bounds."
                 } else {
                 }
-                float var_37 = var_0[var_33];
-                float var_38[1];
-                var_38[0] = var_37;
-                float var_39[1];
-                float var_40[1];
-                float var_41 = var_40[0];
-                FunPointer1 var_44 = method_7;
-                cub::BlockScan<float,1>().ExclusiveScan(var_38, var_39, var_27, var_44, var_41);
-                float var_45 = var_39[0];
-                float var_46 = var_1[var_33];
-                var_1[var_33] = var_45;
-                char var_47 = (var_27 > var_41);
-                float var_48;
-                if (var_47) {
-                    var_48 = var_41;
+                float var_34 = var_0[var_30];
+                float var_35[1];
+                float var_36 = var_35[0];
+                float var_37[1];
+                float var_38 = var_37[0];
+                FunPointer0 var_41 = method_7;
+                cub::BlockScan<float,1,cub::BLOCK_SCAN_RAKING_MEMOIZE,1,1>().ExclusiveScan(var_34, var_36, var_24, var_41, var_38);
+                char var_42 = (var_24 > var_38);
+                float var_43;
+                if (var_42) {
+                    var_43 = var_38;
                 } else {
-                    var_48 = var_27;
+                    var_43 = var_24;
                 }
-                var_23[0] = (make_Env2(var_28, var_48));
+                float var_44 = var_1[var_30];
+                var_1[var_30] = var_36;
+                var_20[0] = var_25;
+                var_21[0] = var_43;
             }
-            Env2 var_49 = var_23[0];
-            long long int var_50 = var_49.mem_0;
-            float var_51 = var_49.mem_1;
-            var_9[0] = (make_Env0(var_13));
+            long long int var_45 = var_20[0];
+            float var_46 = var_21[0];
+            var_5[0] = var_8;
         }
-        Env0 var_52 = var_9[0];
-        long long int var_53 = var_52.mem_0;
+        long long int var_47 = var_5[0];
     }
     __global__ void method_10(float * var_0, float * var_1, float * var_2) {
-        long long int var_3 = threadIdx.x;
-        long long int var_4 = threadIdx.y;
-        long long int var_5 = threadIdx.z;
-        long long int var_6 = blockIdx.x;
-        long long int var_7 = blockIdx.y;
-        long long int var_8 = blockIdx.z;
-        Env0 var_9[1];
-        var_9[0] = (make_Env0(var_6));
-        while (method_6(var_9)) {
-            Env0 var_11 = var_9[0];
-            long long int var_12 = var_11.mem_0;
-            long long int var_13 = (var_12 + 1);
-            char var_14 = (var_12 >= 0);
-            char var_16;
-            if (var_14) {
-                var_16 = (var_12 < 1);
+        long long int var_3 = blockIdx.x;
+        long long int var_4[1];
+        var_4[0] = var_3;
+        while (method_6(var_4)) {
+            long long int var_6 = var_4[0];
+            long long int var_7 = (var_6 + 1);
+            char var_8 = (var_6 >= 0);
+            char var_10;
+            if (var_8) {
+                var_10 = (var_6 < 1);
             } else {
-                var_16 = 0;
+                var_10 = 0;
             }
-            char var_17 = (var_16 == 0);
-            if (var_17) {
+            char var_11 = (var_10 == 0);
+            if (var_11) {
                 // "Argument out of bounds."
             } else {
             }
-            float var_18 = var_2[var_12];
-            long long int var_19 = (var_12 * 192);
-            long long int var_20 = (var_19 + var_3);
-            char var_21 = (var_20 < 192);
-            if (var_21) {
-                char var_22 = (var_20 >= 0);
-                char var_23 = (var_22 == 0);
-                if (var_23) {
+            float var_12 = var_2[var_6];
+            long long int var_13 = (var_6 * 192);
+            long long int var_14 = threadIdx.x;
+            long long int var_15 = (var_13 + var_14);
+            char var_16 = (var_15 < 192);
+            if (var_16) {
+                char var_17 = (var_15 >= 0);
+                char var_18 = (var_17 == 0);
+                if (var_18) {
                     // "Argument out of bounds."
                 } else {
                 }
-                float var_24 = var_0[var_20];
-                float var_25[1];
-                var_25[0] = var_24;
-                float var_26[1];
-                FunPointer1 var_29 = method_7;
-                cub::BlockScan<float,192>().InclusiveScan(var_25, var_26, var_29);
-                float var_30 = var_26[0];
-                char var_31 = (var_18 > var_30);
-                float var_32;
-                if (var_31) {
-                    var_32 = var_30;
+                float var_19 = var_0[var_15];
+                float var_20[1];
+                float var_21 = var_20[0];
+                FunPointer0 var_24 = method_7;
+                cub::BlockScan<float,192,cub::BLOCK_SCAN_RAKING_MEMOIZE,1,1>().InclusiveScan(var_19, var_21, var_24);
+                char var_25 = (var_12 > var_21);
+                float var_26;
+                if (var_25) {
+                    var_26 = var_21;
                 } else {
-                    var_32 = var_18;
+                    var_26 = var_12;
                 }
-                if (var_23) {
+                if (var_18) {
                     // "Argument out of bounds."
                 } else {
                 }
-                float var_33 = var_1[var_20];
-                var_1[var_20] = var_32;
+                float var_27 = var_1[var_15];
+                var_1[var_15] = var_26;
             } else {
             }
-            var_9[0] = (make_Env0(var_13));
+            var_4[0] = var_7;
         }
-        Env0 var_34 = var_9[0];
-        long long int var_35 = var_34.mem_0;
+        long long int var_28 = var_4[0];
     }
-    __device__ char method_6(Env0 * var_0) {
-        Env0 var_1 = var_0[0];
-        long long int var_2 = var_1.mem_0;
-        return (var_2 < 1);
+    __device__ char method_6(long long int * var_0) {
+        long long int var_1 = var_0[0];
+        return (var_1 < 1);
     }
     __device__ float method_7(float var_0, float var_1) {
         char var_2 = (var_0 > var_1);
@@ -265,10 +228,9 @@ extern "C" {
             return var_0;
         }
     }
-    __device__ char method_9(Env2 * var_0) {
-        Env2 var_1 = var_0[0];
-        long long int var_2 = var_1.mem_0;
-        float var_3 = var_1.mem_1;
+    __device__ char method_9(long long int * var_0, float * var_1) {
+        long long int var_2 = var_0[0];
+        float var_3 = var_1[0];
         return (var_2 < 1);
     }
 }

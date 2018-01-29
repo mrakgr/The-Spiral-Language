@@ -1257,12 +1257,6 @@ inl ret ->
     inl cuda_constant a t = !MacroCuda(t,[text: a])
 
     inl cuda_constant_int constant () = cuda_constant constant int64
-    inl __threadIdxX = cuda_constant_int "threadIdx.x"
-    inl __threadIdxY = cuda_constant_int "threadIdx.y"
-    inl __threadIdxZ = cuda_constant_int "threadIdx.z"
-    inl __blockIdxX = cuda_constant_int "blockIdx.x"
-    inl __blockIdxY = cuda_constant_int "blockIdx.y"
-    inl __blockIdxZ = cuda_constant_int "blockIdx.z"
 
     inl __blockDimX = cuda_constant_int "blockDim.x"
     inl __blockDimY = cuda_constant_int "blockDim.y"
@@ -1406,11 +1400,9 @@ inl ret ->
             inl x,y,z = map_to_op_if_not_static blockDim (__blockDimX,__blockDimY,__blockDimZ)
             inl x',y',z' = map_to_op_if_not_static gridDim (__gridDimX,__gridDimY,__gridDimZ)
             inl _ -> // This convoluted way of swaping non-literals for ops is so they do not get called outside of the kernel.
-                inl threadIdx = {x=__threadIdxX(); y=__threadIdxY(); z=__threadIdxZ()}
-                inl blockIdx = {x=__blockIdxX(); y=__blockIdxY(); z=__blockIdxZ()}
                 inl blockDim = {x=x(); y=y(); z=z()}
                 inl gridDim = {x=x'(); y=y'(); z=z'()}
-                kernel threadIdx blockIdx blockDim gridDim
+                kernel blockDim gridDim
 
         inl join_point_entry_cuda x = !JoinPointEntryCuda(x())
         inl method_name, args = join_point_entry_cuda kernel

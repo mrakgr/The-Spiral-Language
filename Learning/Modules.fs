@@ -318,6 +318,11 @@ inl {stream Cuda CudaTensor} ->
     inl lit_max = lit_comp max
 
     inl cub_block_reduce {d with blockDim redo} x =
+        inl ty = 
+            match x with
+            | @array_is _ -> x.elem_type
+            | _ -> type x
+
         inl algorithm =
             match d with
             | {algorithm} -> algorithm
@@ -325,7 +330,7 @@ inl {stream Cuda CudaTensor} ->
 
         inl block_redo = [
             text: "cub::BlockReduce"
-            iter: "<",",",">",[type: x; arg: blockDim.x; text: string_format "cub::{0}" algorithm; arg: blockDim.y; arg: blockDim.z]
+            iter: "<",",",">",[type: ty; arg: blockDim.x; text: string_format "cub::{0}" algorithm; arg: blockDim.y; arg: blockDim.z]
             args: ()
             ]
 
@@ -342,24 +347,25 @@ inl {stream Cuda CudaTensor} ->
                 [
                 text: ".Reduce"
                 args: 
-                    inl clo = closure_of (inl a,b -> redo a b) ((x,x) => x)
+                    inl clo = closure_of (inl a,b -> redo a b) ((ty,ty) => ty)
                     match d with
                     | {num_valid} -> x,clo,num_valid
                     | _ -> x,clo
                 ]
 
-        macro.cd x (Tuple.append block_redo call)
+        macro.cd ty (Tuple.append block_redo call)
 
     inl cub_block_scan {scan_type is_input_tensor return_aggregate} {d with blockDim redo} in =
-        inl out = 
+        inl out, ty = 
             if is_input_tensor then 
+                inl elem_type = in.elem_type
                 HostTensor.create {
                     array_create = array_create_cuda_local
-                    elem_type=in.elem_type; dim=in.dim
-                    }
-            else array_create_cuda_local in 1 0
+                    elem_type dim=in.dim
+                    }, elem_type
+            else array_create_cuda_local in 1 0, type in
 
-        inl ag = if return_aggregate then array_create_cuda_local in 1 0 else ()
+        inl ag = if return_aggregate then array_create_cuda_local ty 1 0 else ()
         inl algorithm =
             match d with
             | {algorithm} -> algorithm
@@ -368,7 +374,7 @@ inl {stream Cuda CudaTensor} ->
         inl block_scan =
             [
             text: "cub::BlockScan"
-            iter: "<",",",">",[type: in; arg: blockDim.x; text: string_format "cub::{0}" algorithm; arg: blockDim.y; arg: blockDim.z]
+            iter: "<",",",">",[type: ty; arg: blockDim.x; text: string_format "cub::{0}" algorithm; arg: blockDim.y; arg: blockDim.z]
             args: ()
             ]
 
@@ -379,7 +385,7 @@ inl {stream Cuda CudaTensor} ->
                 [
                 text: ".ExclusiveScan"
                 args: 
-                    inl clo = closure_of (inl a,b -> redo a b) ((in,in) => in)
+                    inl clo = closure_of (inl a,b -> redo a b) ((ty,ty) => ty)
                     if return_aggregate then in,out,initial_elem,clo,ag else in,out,initial_elem,clo
                 ]
 
@@ -400,7 +406,7 @@ inl {stream Cuda CudaTensor} ->
                     [
                     text: ".InclusiveScan"
                     args: 
-                        inl clo = closure_of (inl a,b -> redo a b) ((in,in) => in)
+                        inl clo = closure_of (inl a,b -> redo a b) ((ty,ty) => ty)
                         if return_aggregate then in,out,clo,ag else in,out,clo
                     ]
                 | .exclusive, initial_elem ->
@@ -731,7 +737,7 @@ inl {stream Cuda CudaTensor} ->
         inl out = to_dev_tensor out
 
         inl map_in = match d with {map_in} -> map_in | _ -> id
-        inl map_out = match d with {map_out} -> map_out | _ -> const
+        inl map_out = match d with {map_out} -> map_out
         
         run {
             stream blockDim
@@ -759,7 +765,6 @@ inl {stream Cuda CudaTensor} ->
                     inner_loop <| inl {i from near_to} ->
                         if from < near_to then 
                             items i .set (in from .get |> map_in)
-
                     inl x = 
                         inl d = {blockDim redo}
                         if num_valid % blockDim.x = 0 then cub_block_reduce d
@@ -773,6 +778,16 @@ inl {stream Cuda CudaTensor} ->
                             |> out .set
                     }
             }
+
+    inl map_d1_broadcast_map {d with map_out} (!zip in) ret =
+        inl map_in = match d with {map_in} -> map_in | _ -> id
+        inl elem_type = type
+            inl ty = map_in in.elem_type 
+            map_out ty ty
+        inb out = create {elem_type dim=in.dim}
+        inl map_out a b _ = map_out a b
+        map_d1_broadcast_map' {d with map_in map_out} in out
+        ret out
 
     /// Maps the two inputs and then scans, maps, reduces and maps the first's inner dimension.
     inl mapi_d1_inscan_mapi_d1_reduce_mapi' {d with scan redo} (!zip in) (!zip in') (!zip out) = 
@@ -1010,7 +1025,6 @@ inl {stream Cuda CudaTensor} ->
     inl map_d1_inscan_map = map_dx_scan_map_template map_d1_inscan_map'
     inl map_d2_inscan_map = map_dx_scan_map_template map_d2_inscan_map'
     inl map_inscan_map = map_dx_scan_map_template map_inscan_map'
-    inl map_d1_broadcast_map = map_dx_scan_map_template map_d1_broadcast_map'
 
     inl mapi_d1_inscan_mapi_d1_reduce_mapi d (!zip in) in' ret =
         inl in' = 
@@ -1292,19 +1306,19 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             map' bck {in=primal; out} adjoint
             )
 
-    inl replicate_map {fwd bck={bck_in bck_in'}} in in' ret =
+    inl d1_replicate_map {fwd bck={bck_in bck_in'}} in in' ret =
         inl primal, adjoint = primals in, adjoints in
         inl primal', adjoint' = primals in', adjoints in'
-        inb out = replicate_map fwd primal primal' >>! dr
+        inb out = d1_replicate_map fwd primal primal' >>! dr
         ret (out, inl _ ->
             inl out = match out with {DR={primal adjoint}} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
             on_non_nil adjoint (map_d2_redo_map' bck_in {in'=primal'; out} primal)
-            on_non_nil adjoint' (replicate_map' bck_in' primal {in'=primal'; out})
+            on_non_nil adjoint' (d1_replicate_map' bck_in' primal {in'=primal'; out})
             )
 
     inl matmultb A B bias ret =
         inb C = gemm .nT .nT one (primal A) (primal B) >>! dr
-        replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
+        d1_replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
         ret (C, inl _ ->
             inl C' = adjoint C
             on_non_nil (adjoint A) (inl A -> gemm' .nT .T one C' (primal B) one A)
@@ -1312,7 +1326,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             on_non_nil (adjoint bias) (inl bias -> map_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
             )
 
-    inl add_bias = replicate_map {
+    inl add_bias = d1_replicate_map {
         fwd=(+)
         bck={
             bck_in={
@@ -1348,7 +1362,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             map' bck {in=primal} adjoint
             )
 
-    inl Primitive = {matmult matmultb map map_redo host_map replicate_map add_bias}
+    inl Primitive = {matmult matmultb map map_redo host_map d1_replicate_map add_bias}
 
     // #Operations
     inl (>>=) a b ret =

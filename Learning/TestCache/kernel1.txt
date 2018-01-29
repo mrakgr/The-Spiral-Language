@@ -3,68 +3,53 @@ let cuda_kernels = """
 #include "cub/cub.cuh"
 
 extern "C" {
-    struct Env0 {
-        long long int mem_0;
-    };
-    __device__ __forceinline__ Env0 make_Env0(long long int mem_0){
-        Env0 tmp;
-        tmp.mem_0 = mem_0;
-        return tmp;
-    }
     __global__ void method_6(long long int * var_0, long long int * var_1);
-    __device__ char method_7(Env0 * var_0);
+    __device__ char method_7(long long int * var_0);
     
     __global__ void method_6(long long int * var_0, long long int * var_1) {
-        long long int var_2 = threadIdx.x;
-        long long int var_3 = threadIdx.y;
-        long long int var_4 = threadIdx.z;
-        long long int var_5 = blockIdx.x;
-        long long int var_6 = blockIdx.y;
-        long long int var_7 = blockIdx.z;
-        long long int var_8 = (var_5 * 128);
-        long long int var_9 = (var_8 + var_2);
-        Env0 var_10[1];
-        var_10[0] = (make_Env0(var_9));
-        while (method_7(var_10)) {
-            Env0 var_12 = var_10[0];
-            long long int var_13 = var_12.mem_0;
-            long long int var_14 = (var_13 + 128);
-            char var_15 = (var_13 >= 0);
-            char var_17;
-            if (var_15) {
-                var_17 = (var_13 < 32);
+        long long int var_2 = blockIdx.x;
+        long long int var_3 = (var_2 * 128);
+        long long int var_4 = threadIdx.x;
+        long long int var_5 = (var_3 + var_4);
+        long long int var_6[1];
+        var_6[0] = var_5;
+        while (method_7(var_6)) {
+            long long int var_8 = var_6[0];
+            long long int var_9 = (var_8 + 128);
+            char var_10 = (var_8 >= 0);
+            char var_12;
+            if (var_10) {
+                var_12 = (var_8 < 32);
             } else {
-                var_17 = 0;
+                var_12 = 0;
             }
-            char var_18 = (var_17 == 0);
-            if (var_18) {
+            char var_13 = (var_12 == 0);
+            if (var_13) {
                 // "Argument out of bounds."
             } else {
             }
-            char var_20;
-            if (var_15) {
-                var_20 = (var_13 < 32);
+            char var_15;
+            if (var_10) {
+                var_15 = (var_8 < 32);
             } else {
-                var_20 = 0;
+                var_15 = 0;
             }
-            char var_21 = (var_20 == 0);
-            if (var_21) {
+            char var_16 = (var_15 == 0);
+            if (var_16) {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_22 = var_0[var_13];
-            long long int var_23 = var_1[var_13];
-            long long int var_24 = (var_22 * 2);
-            var_1[var_13] = var_24;
-            var_10[0] = (make_Env0(var_14));
+            long long int var_17 = var_0[var_8];
+            long long int var_18 = var_1[var_8];
+            long long int var_19 = (var_17 * 2);
+            var_1[var_8] = var_19;
+            var_6[0] = var_9;
         }
-        Env0 var_25 = var_10[0];
-        long long int var_26 = var_25.mem_0;
+        long long int var_20 = var_6[0];
     }
-    __device__ char method_7(Env0 * var_0) {
-        Env0 var_1 = var_0[0];
-        long long int var_2 = var_1.mem_0;
-        return (var_2 < 32);
+    __device__ char method_7(long long int * var_0) {
+        long long int var_1 = var_0[0];
+        return (var_1 < 32);
     }
 }
 """

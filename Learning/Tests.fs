@@ -315,11 +315,17 @@ inb o1 = // Softmax forward
     CudaKernel.map_d1_broadcast_map {
         map_in=exp
         redo=(+)
-        map_out=(/)
+        map_out=inl a b -> a/b
         } a1
 
+inb o2 = 
+    CudaKernel.map_d1_inscan_map {
+        redo=(+)
+        neutral_elem=0f32
+        } o1
+
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
-Tuple.iter show (a1,o1)
+Tuple.iter show (a1,HostTensor.zip (o1,o2))
     """
 
 let random1 =
@@ -693,7 +699,7 @@ let tests =
     allocator1
     tensor1;tensor2
     kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
-    kernel10
+    kernel10;kernel11
     random1
     blas1
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
@@ -702,6 +708,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel11
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning6
 |> printfn "%s"
 |> ignore

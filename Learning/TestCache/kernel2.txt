@@ -3,95 +3,67 @@ let cuda_kernels = """
 #include "cub/cub.cuh"
 
 extern "C" {
-    struct Env0 {
-        long long int mem_0;
-        long long int mem_1;
-    };
-    __device__ __forceinline__ Env0 make_Env0(long long int mem_0, long long int mem_1){
-        Env0 tmp;
-        tmp.mem_0 = mem_0;
-        tmp.mem_1 = mem_1;
-        return tmp;
-    }
-    struct Tuple2 {
-        long long int mem_0;
-        long long int mem_1;
-    };
-    __device__ __forceinline__ Tuple2 make_Tuple2(long long int mem_0, long long int mem_1){
-        Tuple2 tmp;
-        tmp.mem_0 = mem_0;
-        tmp.mem_1 = mem_1;
-        return tmp;
-    }
-    typedef long long int(*FunPointer1)(long long int, long long int);
     __global__ void method_6(long long int * var_0, long long int * var_1);
-    __device__ char method_7(Env0 * var_0);
-    __device__ long long int method_8(long long int var_0, long long int var_1);
+    __device__ char method_7(long long int * var_0, long long int * var_1);
     
     __global__ void method_6(long long int * var_0, long long int * var_1) {
-        long long int var_2 = threadIdx.x;
-        long long int var_3 = threadIdx.y;
-        long long int var_4 = threadIdx.z;
-        long long int var_5 = blockIdx.x;
-        long long int var_6 = blockIdx.y;
-        long long int var_7 = blockIdx.z;
-        long long int var_8 = (var_5 * 128);
-        long long int var_9 = (var_8 + var_2);
-        long long int var_10 = 0;
-        Env0 var_11[1];
-        var_11[0] = (make_Env0(var_9, var_10));
-        while (method_7(var_11)) {
-            Env0 var_13 = var_11[0];
-            long long int var_14 = var_13.mem_0;
-            long long int var_15 = var_13.mem_1;
-            long long int var_16 = (var_14 + 128);
-            char var_17 = (var_14 >= 0);
-            char var_19;
-            if (var_17) {
-                var_19 = (var_14 < 32);
+        long long int var_2 = blockIdx.x;
+        long long int var_3 = (var_2 * 128);
+        long long int var_4 = threadIdx.x;
+        long long int var_5 = (var_3 + var_4);
+        long long int var_6 = 0;
+        long long int var_7[1];
+        long long int var_8[1];
+        var_7[0] = var_5;
+        var_8[0] = var_6;
+        while (method_7(var_7, var_8)) {
+            long long int var_10 = var_7[0];
+            long long int var_11 = var_8[0];
+            long long int var_12 = (var_10 + 128);
+            char var_13 = (var_10 >= 0);
+            char var_15;
+            if (var_13) {
+                var_15 = (var_10 < 32);
             } else {
-                var_19 = 0;
+                var_15 = 0;
             }
-            char var_20 = (var_19 == 0);
-            if (var_20) {
+            char var_16 = (var_15 == 0);
+            if (var_16) {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_21 = var_0[var_14];
-            long long int var_22 = (var_15 + var_21);
-            var_11[0] = (make_Env0(var_16, var_22));
+            long long int var_17 = var_0[var_10];
+            long long int var_18 = (var_11 + var_17);
+            var_7[0] = var_12;
+            var_8[0] = var_18;
         }
-        Env0 var_23 = var_11[0];
-        long long int var_24 = var_23.mem_0;
-        long long int var_25 = var_23.mem_1;
-        FunPointer1 var_28 = method_8;
-        long long int var_29 = cub::BlockReduce<long long int,128>().Reduce(var_25, var_28);
-        char var_30 = (var_2 == 0);
-        if (var_30) {
-            char var_31 = (var_5 >= 0);
-            char var_33;
-            if (var_31) {
-                var_33 = (var_5 < 1);
+        long long int var_19 = var_7[0];
+        long long int var_20 = var_8[0];
+        long long int var_21 = cub::BlockReduce<long long int,128,cub::BLOCK_REDUCE_WARP_REDUCTIONS,1,1>().Sum(var_20);
+        long long int var_22 = threadIdx.x;
+        char var_23 = (var_22 == 0);
+        if (var_23) {
+            long long int var_24 = blockIdx.x;
+            char var_25 = (var_24 >= 0);
+            char var_27;
+            if (var_25) {
+                var_27 = (var_24 < 1);
             } else {
-                var_33 = 0;
+                var_27 = 0;
             }
-            char var_34 = (var_33 == 0);
-            if (var_34) {
+            char var_28 = (var_27 == 0);
+            if (var_28) {
                 // "Argument out of bounds."
             } else {
             }
-            var_1[var_5] = var_29;
+            var_1[var_24] = var_21;
         } else {
         }
     }
-    __device__ char method_7(Env0 * var_0) {
-        Env0 var_1 = var_0[0];
-        long long int var_2 = var_1.mem_0;
-        long long int var_3 = var_1.mem_1;
+    __device__ char method_7(long long int * var_0, long long int * var_1) {
+        long long int var_2 = var_0[0];
+        long long int var_3 = var_1[0];
         return (var_2 < 32);
-    }
-    __device__ long long int method_8(long long int var_0, long long int var_1) {
-        return (var_0 + var_1);
     }
 }
 """
@@ -161,7 +133,7 @@ and method_3((var_0: uint64), (var_1: System.Collections.Generic.Stack<Env3>), (
             method_3((var_0: uint64), (var_1: System.Collections.Generic.Stack<Env3>), (var_2: uint64), (var_3: int64))
     else
         method_5((var_0: uint64), (var_2: uint64), (var_3: int64), (var_1: System.Collections.Generic.Stack<Env3>))
-and method_9((var_0: (int64 [])), (var_1: int64), (var_2: int64)): int64 =
+and method_8((var_0: (int64 [])), (var_1: int64), (var_2: int64)): int64 =
     let (var_3: bool) = (var_2 < 1L)
     if var_3 then
         let (var_4: bool) = (var_2 >= 0L)
@@ -173,7 +145,7 @@ and method_9((var_0: (int64 [])), (var_1: int64), (var_2: int64)): int64 =
         let (var_6: int64) = var_0.[int32 var_2]
         let (var_7: int64) = (var_1 + var_6)
         let (var_8: int64) = (var_2 + 1L)
-        method_9((var_0: (int64 [])), (var_7: int64), (var_8: int64))
+        method_8((var_0: (int64 [])), (var_7: int64), (var_8: int64))
     else
         var_1
 and method_4((var_0: ManagedCuda.BasicTypes.CUdeviceptr), (var_1: uint64), (var_2: uint64), (var_3: int64), (var_4: System.Collections.Generic.Stack<Env3>), (var_5: EnvStack2), (var_6: int64)): EnvStack2 =
@@ -335,7 +307,7 @@ let (var_71: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_62: (Union0 ref
 var_1.CopyToHost(var_70, var_71)
 let (var_72: int64) = 0L
 let (var_73: int64) = 0L
-let (var_74: int64) = method_9((var_70: (int64 [])), (var_72: int64), (var_73: int64))
+let (var_74: int64) = method_8((var_70: (int64 [])), (var_72: int64), (var_73: int64))
 var_62 := Union0Case1
 let (var_75: string) = System.String.Format("{0}",var_74)
 System.Console.WriteLine(var_75)
