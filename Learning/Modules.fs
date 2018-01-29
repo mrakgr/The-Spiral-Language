@@ -325,7 +325,7 @@ inl {stream Cuda CudaTensor} ->
 
         inl block_redo = [
             text: "cub::BlockReduce"
-            iter: "<",",",">",[type: x; arg: blockDim.x; text: algorithm; arg: blockDim.y; arg: blockDim.z]
+            iter: "<",",",">",[type: x; arg: blockDim.x; text: string_format "cub::{0}" algorithm; arg: blockDim.y; arg: blockDim.z]
             args: ()
             ]
 
@@ -365,10 +365,10 @@ inl {stream Cuda CudaTensor} ->
             | {algorithm} -> algorithm
             | _ -> "BLOCK_SCAN_RAKING_MEMOIZE"
 
-        inl blockScan =
+        inl block_scan =
             [
             text: "cub::BlockScan"
-            iter: "<",",",">",[type: in; arg: blockDim.x; text: algorithm; arg: blockDim.y; arg: blockDim.z]
+            iter: "<",",",">",[type: in; arg: blockDim.x; text: string_format "cub::{0}" algorithm; arg: blockDim.y; arg: blockDim.z]
             args: ()
             ]
 
@@ -406,7 +406,7 @@ inl {stream Cuda CudaTensor} ->
                 | .exclusive, initial_elem ->
                     exclusive_scan initial_elem
 
-        macro.cd unit (Tuple.append block_redo call)
+        macro.cd unit (Tuple.append block_scan call)
 
         if return_aggregate then 
             inl ag =
@@ -813,7 +813,7 @@ inl {stream Cuda CudaTensor} ->
                                     | _ -> in
                                     |> cub_block_scan 
                                         {scan_type=.inclusive; is_input_tensor=false; return_aggregate=true}
-                                        {blockDim scan=scan.f}
+                                        {blockDim redo=scan.f}
                                     |> Tuple.map (scan.f scan_prefix)
                                 inl redo_prefix = 
                                     match d with
