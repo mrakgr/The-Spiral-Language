@@ -721,11 +721,11 @@ inl {stream Cuda CudaTensor} ->
         assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
 
         inl num_valid = s dim_in_b
-        inl items_per_thread, blockDimX =
+        inl items_per_thread, blockDim =
             assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
             if num_valid <= 1024 then 1, num_valid
             else divup num_valid 256, 256
-        inl gridDim = min 64 (s dim_in_a)
+        inl gridDimY = min 64 (s dim_in_a)
 
         inl in = to_dev_tensor in
         inl out = to_dev_tensor out
@@ -1010,6 +1010,7 @@ inl {stream Cuda CudaTensor} ->
     inl map_d1_inscan_map = map_dx_scan_map_template map_d1_inscan_map'
     inl map_d2_inscan_map = map_dx_scan_map_template map_d2_inscan_map'
     inl map_inscan_map = map_dx_scan_map_template map_inscan_map'
+    inl map_d1_broadcast_map = map_dx_scan_map_template map_d1_broadcast_map'
 
     inl mapi_d1_inscan_mapi_d1_reduce_mapi d (!zip in) in' ret =
         inl in' = 
@@ -1049,6 +1050,7 @@ inl {stream Cuda CudaTensor} ->
     map' map map_redo d1_replicate_map' d1_replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
+    map_d1_broadcast_map' map_d1_broadcast_map
     }
     """) |> module_
 
