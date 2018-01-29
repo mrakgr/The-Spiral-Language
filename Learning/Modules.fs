@@ -317,14 +317,38 @@ inl {stream Cuda CudaTensor} ->
     inl lit_min = lit_comp min
     inl lit_max = lit_comp max
 
-    inl cub_block_reduce blockDim redo x =
-        macro.cd x [
+    inl cub_block_reduce {d with blockDim input=x redo} =
+        inl algorithm =
+            match d with
+            | {algorithm} -> algorithm
+            | _ -> "BLOCK_REDUCE_WARP_REDUCTIONS"
+
+        inl block_redo = [
             text: "cub::BlockReduce"
-            iter: "<",",",">",[type: x; arg: blockDim]
+            iter: "<",",",">",[type: x; arg: blockDim.x; text: algorithm; arg: blockDim.y; arg: blockDim.z]
             args: ()
-            text: ".Reduce"
-            args: x, closure_of (inl a,b -> redo a b) ((x,x) => x)
             ]
+
+        inl call =
+            if eq_type (+) redo then 
+                [
+                text: ".Sum"
+                args:
+                    match d with
+                    | {num_valid} -> x,num_valid
+                    | _ -> x
+                ]
+            else
+                [
+                text: ".Reduce"
+                args: 
+                    inl clo = closure_of (inl a,b -> redo a b) ((x,x) => x)
+                    match d with
+                    | {num_valid} -> x,clo,num_valid
+                    | _ -> x,clo
+                ]
+
+        macro.cd x (Tuple.append block_redo call)
 
     inl cub_block_inclusive_scan' blockDim redo x =
         inl f () = array_create_cuda_local x 1
@@ -659,16 +683,16 @@ inl {stream Cuda CudaTensor} ->
             }
 
     /// Maps the input and then broadcast maps the reduction over its inner dimensions.
-    inl map_d1_broadcast_map' {d with redo neutral_elem} (!zip in) (!zip out) = 
+    inl map_d1_broadcast_map' {d with redo} (!zip in) (!zip out) = 
         inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
 
+        inl num_valid = s dim_in_b
         inl items_per_thread, blockDimX =
-            inl size_in_b = s dim_in_b
-            assert (lit_is size_in_b) "The inner dimension of the input to this kernel must be known at compile time."
-            if size_in_b <= 1024 then 1, size_in_b
-            else divup size_in_b 256, 256
+            assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
+            if num_valid <= 1024 then 1, num_valid
+            else divup num_valid 256, 256
         inl gridDim = min 64 (s dim_in_a)
 
         inl in = to_dev_tensor in
@@ -686,24 +710,30 @@ inl {stream Cuda CudaTensor} ->
 
                     inl items = HostTensor.create {
                         array_create = array_create_cuda_local
+                        layout=.aot
                         elem_type = type in.elem_type |> map_in
                         dim=items_per_thread
                         }
 
-                    inl inner_loop body =
+                    inl inner_loop =
                         inl by=gridDim.x*blockDim.x
                         inl from=threadIdx.x-dim_in_b.from
                         inl near_to=dim_in_b.near_to
-                        forcd {from=0;near_to=items_per_thread;body=inl {i} ->
+                        inl body -> forcd {from=0;near_to=items_per_thread;body=inl {i} ->
                             inl from = from+by*i
                             body {i from near_to}
                             }
 
                     inner_loop <| inl {i from near_to} ->
-                        if from < near_to then items i .set (in from .get |> map_in)
-                        else items i .set neutral_elem
+                        if from < near_to then 
+                            items i .set (in from .get |> map_in)
 
-                    inl x = cub_block_reduce' items_per_thread blockDim.x redo items |> broadcast_zero
+                    inl x = 
+                        inl d = {blockDim redo input=items.bodies.ar}
+                        if num_valid % blockDim.x = 0 then cub_block_reduce d
+                        else cub_block_reduce {d with num_valid} 
+                        |> broadcast_zero
+
                     inner_loop <| inl {i from near_to} ->
                         if from < near_to then 
                             inl out = out from
