@@ -587,8 +587,8 @@ inl {stream Cuda CudaTensor} ->
         inl tns = to_host_tensor out
         Loops.for {from=0; near_to=length tns; state=dyn neutral_elem; body=inl {state i} -> redo state (tns i .get)}
 
-    /// Replicates the 1d `in` and maps it along with the in' and the out.
-    inl d1_replicate_map' f (!zip in) (!zip in') (!zip out) =
+    /// Replicates the 1d `in` and maps it along the outer dimension as determined by in'.
+    inl d2_replicate_map' f (!zip in) (!zip in') (!zip out) =
         inl s = HostTensor.span
         inl dim_in :: () = in.dim
         inl dim_in'_a, dim_in'_b = in'.dim
@@ -624,7 +624,7 @@ inl {stream Cuda CudaTensor} ->
                     }
             }
 
-    inl d1_replicate_map f (!zip in) in' ret =
+    inl d2_replicate_map f (!zip in) in' ret =
         inl in' =
             match in' with
             | by : int64 -> 
@@ -632,7 +632,7 @@ inl {stream Cuda CudaTensor} ->
                 HostTensor.create {elem_type=(); dim=by,dim_in}
             | in' -> zip in'
         inb out = create {elem_type=type f in.elem_type in'.elem_type; dim=in'.dim}
-        d1_replicate_map' (inl a b _ -> f a b) in in' out
+        d2_replicate_map' (inl a b _ -> f a b) in in' out
         ret out
 
     /// The inclusive scan over the innermost dimension.
@@ -1061,7 +1061,7 @@ inl {stream Cuda CudaTensor} ->
         ret out
 
     {
-    map' map map_redo d1_replicate_map' d1_replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
+    map' map map_redo d2_replicate_map' d2_replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
     map_d1_broadcast_map' map_d1_broadcast_map
@@ -1306,19 +1306,19 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             map' bck {in=primal; out} adjoint
             )
 
-    inl d1_replicate_map {fwd bck={bck_in bck_in'}} in in' ret =
+    inl d2_replicate_map {fwd bck={bck_in bck_in'}} in in' ret =
         inl primal, adjoint = primals in, adjoints in
         inl primal', adjoint' = primals in', adjoints in'
-        inb out = d1_replicate_map fwd primal primal' >>! dr
+        inb out = d2_replicate_map fwd primal primal' >>! dr
         ret (out, inl _ ->
             inl out = match out with {DR={primal adjoint}} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
             on_non_nil adjoint (map_d2_redo_map' bck_in {in'=primal'; out} primal)
-            on_non_nil adjoint' (d1_replicate_map' bck_in' primal {in'=primal'; out})
+            on_non_nil adjoint' (d2_replicate_map' bck_in' primal {in'=primal'; out})
             )
 
     inl matmultb A B bias ret =
         inb C = gemm .nT .nT one (primal A) (primal B) >>! dr
-        d1_replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
+        d2_replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
         ret (C, inl _ ->
             inl C' = adjoint C
             on_non_nil (adjoint A) (inl A -> gemm' .nT .T one C' (primal B) one A)
@@ -1326,7 +1326,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             on_non_nil (adjoint bias) (inl bias -> map_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
             )
 
-    inl add_bias = d1_replicate_map {
+    inl add_bias = d2_replicate_map {
         fwd=(+)
         bck={
             bck_in={
@@ -1362,7 +1362,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             map' bck {in=primal} adjoint
             )
 
-    inl Primitive = {matmult matmultb map map_redo host_map d1_replicate_map add_bias}
+    inl Primitive = {matmult matmultb map map_redo host_map d2_replicate_map add_bias}
 
     // #Operations
     inl (>>=) a b ret =

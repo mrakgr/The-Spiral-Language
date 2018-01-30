@@ -79,7 +79,7 @@ Console.writeline o1
     """
 
 let kernel3 =
-    "kernel3",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the d1_replicate_map kernel work?",
+    "kernel3",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the d2_replicate_map kernel work?",
     """
 inb Cuda = Cuda
 inb Allocator = Allocator {Cuda size=0.7}
@@ -94,8 +94,8 @@ inl h = HostTensor.init inner_size (const (2,2))
 inl h' = HostTensor.init (outer_size,inner_size) (inl a b -> a,b)
 inb a1 = CudaTensor.from_host_tensor h
 inb a2 = CudaTensor.from_host_tensor h'
-inb o1 = CudaKernel.d1_replicate_map (inl a b -> a, b) a1 a2
-inb o2 = CudaKernel.d1_replicate_map (inl a _ -> a) a1 outer_size
+inb o1 = CudaKernel.d2_replicate_map (inl a b -> a, b) a1 a2
+inb o2 = CudaKernel.d2_replicate_map (inl a _ -> a) a1 outer_size
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
 Tuple.iter show (a1,a2,o1,o2)
     """
@@ -708,6 +708,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning6
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
 |> printfn "%s"
 |> ignore
