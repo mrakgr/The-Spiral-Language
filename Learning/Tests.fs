@@ -297,7 +297,7 @@ Tuple.iter show (a1,o1)
     """
 
 let kernel11 =
-    "kernel11",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the map_d1_broadcast_map kernel work?",
+    "kernel11",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the map_d1_seq_broadcast kernel work?",
     """
 inb Cuda = Cuda
 inb Allocator = Allocator {Cuda size=0.1}
@@ -307,15 +307,23 @@ inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
 inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 
-inl inner_size = 10
-inl outer_size = 10
+inl inner_size = 4
+inl outer_size = 1
 
 inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
+inb a2 = CudaRandom.create_tensor {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,inner_size}
 inb o1 = // Softmax forward
-    CudaKernel.map_d1_broadcast_map {
-        map_in=exp
-        redo=(+)
-        map_out=inl a b -> a/b
+    CudaKernel.map_d1_seq_broadcast {
+        seq = 
+            {
+            redo=max
+            map=inl a b -> a - b |> exp
+            }
+            ,
+            {
+            redo=(+)
+            map=(/)
+            }
         } a1
 
 inb o2 = 
@@ -324,8 +332,18 @@ inb o2 =
         neutral_elem=0f32
         } o1
 
+inb o3 = // Softmax backward
+    CudaKernel.map_d1_seq_broadcast {
+        seq = 
+            {
+            map_redo=inl a,b -> a*b
+            redo=(+)
+            map=inl (in,er) sum -> er * in * (1f32 - in) - in * (sum - er * in)
+            }
+        } (a1,a2)
+
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
-Tuple.iter show (a1,HostTensor.zip (o1,o2))
+Tuple.iter show (HostTensor.zip (a1),HostTensor.zip (o3))
     """
 
 let random1 =
@@ -708,6 +726,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel11
 |> printfn "%s"
 |> ignore

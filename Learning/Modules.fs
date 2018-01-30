@@ -764,29 +764,37 @@ inl {stream Cuda CudaTensor} ->
                             }
 
                     inner_loop <| inl {i from} ->
-                            items i .set (in from .get |> map_in)
+                        items i .set (in from .get |> map_in)
 
-                    inl seq_loop items = function
+                    inl rec seq_loop items = function
                         | {s with redo map} :: s' ->
                             inl x = 
-                                inl d = {blockDim redo}
-                                if num_valid % blockDim.x = 0 then cub_block_reduce d
-                                else cub_block_reduce {d with num_valid} 
-                                <| items.bodies.ar |> broadcast_zero
+                                inl redo = 
+                                    inl d = {blockDim redo}
+                                    if num_valid % blockDim.x = 0 then cub_block_reduce d
+                                    else cub_block_reduce {d with num_valid} 
+                                match s with
+                                | {map_redo} -> 
+                                    inl items' = create_items (type map_redo items.elem_type)
+                                    inner_loop <| inl {i from} ->
+                                        items i .get |> map_redo |> items' i .set
+                                    items'.bodies.ar
+                                | _ -> items.bodies.ar
+                                |> redo |> broadcast_zero
 
                             match s' with
                             | () -> 
                                 inner_loop <| inl {i from} ->
                                     inl out = out from
-                                    inl x = map (items i .get) x
-                                    x (out .get) |> out .set
+                                    map (items i .get) x
+                                    <| out .get |> out .set
                             | _ ->
-                                inl items = create_items (type map (items i .get) x)
+                                inl items' = create_items (type map items.elem_type x)
                                 inner_loop <| inl {i from} ->
                                     inl out = out from
-                                    inl x = map (items i .get) x
-                                    items i .set x
-                                seq_loop items s'
+                                    map (items i .get) x
+                                    |> items' i .set
+                                seq_loop items' s'
 
                         seq_loop items (Tuple.wrap seq)
                     }
@@ -797,12 +805,17 @@ inl {stream Cuda CudaTensor} ->
         inl seq = Tuple.wrap seq
         inl elem_type = type
             inl ty = map_in in.elem_type 
-            Tuple.foldl (inl ty {map} -> map ty ty) ty seq
+            Tuple.foldl (inl ty {d with map} -> 
+                inl ty' = 
+                    match d with
+                    | {map_redo} -> map_redo ty
+                    | _ -> ty
+                map ty ty') ty seq
         inb out = create {elem_type dim=in.dim}
         inl rec seq_loop = function
             | {s with map} :: () -> {s with map = inl a b _ -> map a b} :: ()
             | s :: s' -> s :: seq_loop s'
-        map_d1_broadcast_map' {d with map_in seq=seq_loop seq} in out
+        map_d1_seq_broadcast' {d with map_in seq=seq_loop seq} in out
         ret out
 
     /// Maps the two inputs and then scans, maps, reduces and maps the first's inner dimension.
@@ -1080,7 +1093,7 @@ inl {stream Cuda CudaTensor} ->
     map' map map_redo d2_replicate_map' d2_replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
-    map_d1_broadcast_map' map_d1_broadcast_map
+    map_d1_seq_broadcast' map_d1_seq_broadcast
     }
     """) |> module_
 
