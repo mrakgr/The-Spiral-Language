@@ -720,8 +720,8 @@ inl {stream Cuda CudaTensor} ->
                     }
             }
 
-    /// Maps the input and then broadcast maps the reduction over its inner dimensions.
-    inl map_d1_broadcast_map' {d with redo} (!zip in) (!zip out) = 
+    /// Maps the input and then for every operation in the sequence broadcast maps the reduction over its inner dimensions.
+    inl map_d1_seq_broadcast' {d with seq} (!zip in) (!zip out) = 
         inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
@@ -737,7 +737,6 @@ inl {stream Cuda CudaTensor} ->
         inl out = to_dev_tensor out
 
         inl map_in = match d with {map_in} -> map_in | _ -> id
-        inl map_out = match d with {map_out} -> map_out
         
         run {
             stream blockDim
@@ -746,12 +745,14 @@ inl {stream Cuda CudaTensor} ->
                 forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from; by=gridDim.y*blockDim.y; near_to=dim_in_a.near_to; body=inl {i} ->
                     inl in, out = in i, out i
 
-                    inl items = HostTensor.create {
+                    inl create_items elem_type = HostTensor.create {
                         array_create = array_create_cuda_local
                         layout=.aot
-                        elem_type = type in.elem_type |> map_in
+                        elem_type
                         dim=items_per_thread
                         }
+
+                    inl items = create_items (type in.elem_type |> map_in)
 
                     inl inner_loop =
                         inl by=gridDim.x*blockDim.x
@@ -759,34 +760,49 @@ inl {stream Cuda CudaTensor} ->
                         inl near_to=dim_in_b.near_to
                         inl body -> forcd {from=0;near_to=items_per_thread;body=inl {i} ->
                             inl from = from+by*i
-                            body {i from near_to}
+                            if from < near_to then body {i from}
                             }
 
-                    inner_loop <| inl {i from near_to} ->
-                        if from < near_to then 
+                    inner_loop <| inl {i from} ->
                             items i .set (in from .get |> map_in)
-                    inl x = 
-                        inl d = {blockDim redo}
-                        if num_valid % blockDim.x = 0 then cub_block_reduce d
-                        else cub_block_reduce {d with num_valid} 
-                        <| items.bodies.ar |> broadcast_zero
 
-                    inner_loop <| inl {i from near_to} ->
-                        if from < near_to then 
-                            inl out = out from
-                            map_out (items i .get) x (out .get)
-                            |> out .set
+                    inl seq_loop items = function
+                        | {s with redo map} :: s' ->
+                            inl x = 
+                                inl d = {blockDim redo}
+                                if num_valid % blockDim.x = 0 then cub_block_reduce d
+                                else cub_block_reduce {d with num_valid} 
+                                <| items.bodies.ar |> broadcast_zero
+
+                            match s' with
+                            | () -> 
+                                inner_loop <| inl {i from} ->
+                                    inl out = out from
+                                    inl x = map (items i .get) x
+                                    x (out .get) |> out .set
+                            | _ ->
+                                inl items = create_items (type map (items i .get) x)
+                                inner_loop <| inl {i from} ->
+                                    inl out = out from
+                                    inl x = map (items i .get) x
+                                    items i .set x
+                                seq_loop items s'
+
+                        seq_loop items (Tuple.wrap seq)
                     }
             }
 
-    inl map_d1_broadcast_map {d with map_out} (!zip in) ret =
+    inl map_d1_seq_broadcast {d with seq} (!zip in) ret =
         inl map_in = match d with {map_in} -> map_in | _ -> id
+        inl seq = Tuple.wrap seq
         inl elem_type = type
             inl ty = map_in in.elem_type 
-            map_out ty ty
+            Tuple.foldl (inl ty {map} -> map ty ty) ty seq
         inb out = create {elem_type dim=in.dim}
-        inl map_out a b _ = map_out a b
-        map_d1_broadcast_map' {d with map_in map_out} in out
+        inl rec seq_loop = function
+            | {s with map} :: () -> {s with map = inl a b _ -> map a b} :: ()
+            | s :: s' -> s :: seq_loop s'
+        map_d1_broadcast_map' {d with map_in seq=seq_loop seq} in out
         ret out
 
     /// Maps the two inputs and then scans, maps, reduces and maps the first's inner dimension.
