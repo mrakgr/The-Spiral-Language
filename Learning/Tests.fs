@@ -336,7 +336,7 @@ inb o3 = // Softmax backward
     CudaKernel.map_d1_seq_broadcast {
         seq = 
             {
-            map_redo=inl a,b -> a*b
+            map_redo=inl in,er -> in*er
             redo=(+)
             map=inl (in,er) sum -> er * in * (1f32 - in) - in * (sum - er * in)
             }
