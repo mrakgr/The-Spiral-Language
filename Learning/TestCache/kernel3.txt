@@ -291,36 +291,38 @@ and method_11((var_0: ManagedCuda.CudaContext), (var_1: ManagedCuda.CudaStream),
         (failwith "Tensor needs to be at least size 1.")
     else
         ()
-    let (var_16: bool) = (var_6 = 0L)
-    let (var_17: bool) = (var_16 = false)
-    if var_17 then
+    let (var_16: int64) = (var_13 * var_7)
+    let (var_17: int64) = (var_13 * var_10)
+    let (var_18: bool) = (var_6 = 0L)
+    let (var_19: bool) = (var_18 = false)
+    if var_19 then
         (failwith "Only unviewed arrays are allowed for now.")
     else
         ()
-    let (var_18: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_13))
-    let (var_19: (Union0 ref)) = var_5.mem_0
-    let (var_20: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_19: (Union0 ref)))
-    var_0.CopyToHost(var_18, var_20)
-    let (var_21: bool) = (var_9 = 0L)
-    let (var_22: bool) = (var_21 = false)
-    if var_22 then
+    let (var_20: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_13))
+    let (var_21: (Union0 ref)) = var_5.mem_0
+    let (var_22: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_21: (Union0 ref)))
+    var_0.CopyToHost(var_20, var_22)
+    let (var_23: bool) = (var_9 = 0L)
+    let (var_24: bool) = (var_23 = false)
+    if var_24 then
         (failwith "Only unviewed arrays are allowed for now.")
     else
         ()
-    let (var_23: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_13))
-    let (var_24: (Union0 ref)) = var_8.mem_0
-    let (var_25: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_24: (Union0 ref)))
-    var_0.CopyToHost(var_23, var_25)
-    let (var_26: System.Text.StringBuilder) = System.Text.StringBuilder()
-    let (var_27: string) = ""
-    let (var_28: int64) = 0L
-    method_12((var_26: System.Text.StringBuilder), (var_28: int64))
-    let (var_29: System.Text.StringBuilder) = var_26.Append("[|")
-    let (var_30: string) = method_13((var_26: System.Text.StringBuilder), (var_18: (int64 [])), (var_6: int64), (var_7: int64), (var_23: (int64 [])), (var_9: int64), (var_10: int64), (var_11: int64), (var_12: int64), (var_27: string))
-    let (var_31: System.Text.StringBuilder) = var_26.AppendLine("|]")
-    let (var_32: string) = var_26.ToString()
-    let (var_33: string) = System.String.Format("{0}",var_32)
-    System.Console.WriteLine(var_33)
+    let (var_25: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_13))
+    let (var_26: (Union0 ref)) = var_8.mem_0
+    let (var_27: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_26: (Union0 ref)))
+    var_0.CopyToHost(var_25, var_27)
+    let (var_28: System.Text.StringBuilder) = System.Text.StringBuilder()
+    let (var_29: string) = ""
+    let (var_30: int64) = 0L
+    method_12((var_28: System.Text.StringBuilder), (var_30: int64))
+    let (var_31: System.Text.StringBuilder) = var_28.Append("[|")
+    let (var_32: string) = method_13((var_28: System.Text.StringBuilder), (var_20: (int64 [])), (var_6: int64), (var_7: int64), (var_25: (int64 [])), (var_9: int64), (var_10: int64), (var_11: int64), (var_12: int64), (var_29: string))
+    let (var_33: System.Text.StringBuilder) = var_28.AppendLine("|]")
+    let (var_34: string) = var_28.ToString()
+    let (var_35: string) = System.String.Format("{0}",var_34)
+    System.Console.WriteLine(var_35)
 and method_15((var_0: ManagedCuda.CudaContext), (var_1: ManagedCuda.CudaStream), (var_2: uint64), (var_3: uint64), (var_4: System.Collections.Generic.Stack<Env3>), (var_5: EnvStack2), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: EnvStack2), (var_11: int64), (var_12: int64), (var_13: int64), (var_14: int64), (var_15: int64), (var_16: int64), (var_17: int64), (var_18: int64)): unit =
     let (var_19: int64) = (var_16 - var_15)
     let (var_20: int64) = (var_18 - var_17)
@@ -343,44 +345,48 @@ and method_15((var_0: ManagedCuda.CudaContext), (var_1: ManagedCuda.CudaStream),
         (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
     else
         ()
-    let (var_28: bool) = (0L = var_12)
-    let (var_29: bool) = (var_28 = false)
-    if var_29 then
+    let (var_28: int64) = (var_20 * var_9)
+    let (var_29: int64) = (var_19 * var_28)
+    let (var_30: bool) = (0L = var_12)
+    let (var_31: bool) = (var_30 = false)
+    if var_31 then
         (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
     else
         ()
-    let (var_30: bool) = (var_6 = 0L)
-    let (var_31: bool) = (var_30 = false)
-    if var_31 then
+    let (var_32: int64) = (var_20 * var_14)
+    let (var_33: int64) = (var_19 * var_32)
+    let (var_34: bool) = (var_6 = 0L)
+    let (var_35: bool) = (var_34 = false)
+    if var_35 then
         (failwith "Only unviewed arrays are allowed for now.")
     else
         ()
-    let (var_32: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_21))
-    let (var_33: (Union0 ref)) = var_5.mem_0
-    let (var_34: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_33: (Union0 ref)))
-    var_0.CopyToHost(var_32, var_34)
-    let (var_35: bool) = (var_11 = 0L)
-    let (var_36: bool) = (var_35 = false)
-    if var_36 then
+    let (var_36: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_21))
+    let (var_37: (Union0 ref)) = var_5.mem_0
+    let (var_38: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_37: (Union0 ref)))
+    var_0.CopyToHost(var_36, var_38)
+    let (var_39: bool) = (var_11 = 0L)
+    let (var_40: bool) = (var_39 = false)
+    if var_40 then
         (failwith "Only unviewed arrays are allowed for now.")
     else
         ()
-    let (var_37: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_21))
-    let (var_38: (Union0 ref)) = var_10.mem_0
-    let (var_39: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_38: (Union0 ref)))
-    var_0.CopyToHost(var_37, var_39)
-    let (var_40: System.Text.StringBuilder) = System.Text.StringBuilder()
-    let (var_41: string) = ""
-    let (var_42: int64) = 0L
-    method_12((var_40: System.Text.StringBuilder), (var_42: int64))
-    let (var_43: System.Text.StringBuilder) = var_40.AppendLine("[|")
-    method_16((var_40: System.Text.StringBuilder), (var_41: string), (var_32: (int64 [])), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_37: (int64 [])), (var_11: int64), (var_12: int64), (var_13: int64), (var_14: int64), (var_15: int64), (var_16: int64), (var_17: int64), (var_18: int64))
-    let (var_44: int64) = 0L
-    method_12((var_40: System.Text.StringBuilder), (var_44: int64))
-    let (var_45: System.Text.StringBuilder) = var_40.AppendLine("|]")
-    let (var_46: string) = var_40.ToString()
-    let (var_47: string) = System.String.Format("{0}",var_46)
-    System.Console.WriteLine(var_47)
+    let (var_41: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_21))
+    let (var_42: (Union0 ref)) = var_10.mem_0
+    let (var_43: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_42: (Union0 ref)))
+    var_0.CopyToHost(var_41, var_43)
+    let (var_44: System.Text.StringBuilder) = System.Text.StringBuilder()
+    let (var_45: string) = ""
+    let (var_46: int64) = 0L
+    method_12((var_44: System.Text.StringBuilder), (var_46: int64))
+    let (var_47: System.Text.StringBuilder) = var_44.AppendLine("[|")
+    method_16((var_44: System.Text.StringBuilder), (var_45: string), (var_36: (int64 [])), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_41: (int64 [])), (var_11: int64), (var_12: int64), (var_13: int64), (var_14: int64), (var_15: int64), (var_16: int64), (var_17: int64), (var_18: int64))
+    let (var_48: int64) = 0L
+    method_12((var_44: System.Text.StringBuilder), (var_48: int64))
+    let (var_49: System.Text.StringBuilder) = var_44.AppendLine("|]")
+    let (var_50: string) = var_44.ToString()
+    let (var_51: string) = System.String.Format("{0}",var_50)
+    System.Console.WriteLine(var_51)
 and method_19((var_0: ManagedCuda.CudaContext), (var_1: ManagedCuda.CudaStream), (var_2: uint64), (var_3: uint64), (var_4: System.Collections.Generic.Stack<Env3>), (var_5: EnvStack2), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: EnvStack2), (var_11: int64), (var_12: int64), (var_13: int64), (var_14: int64), (var_15: EnvStack2), (var_16: int64), (var_17: int64), (var_18: int64), (var_19: int64), (var_20: EnvStack2), (var_21: int64), (var_22: int64), (var_23: int64), (var_24: int64), (var_25: int64), (var_26: int64), (var_27: int64), (var_28: int64)): unit =
     let (var_29: int64) = (var_26 - var_25)
     let (var_30: int64) = (var_28 - var_27)
@@ -403,76 +409,84 @@ and method_19((var_0: ManagedCuda.CudaContext), (var_1: ManagedCuda.CudaStream),
         (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
     else
         ()
-    let (var_38: bool) = (0L = var_12)
-    let (var_39: bool) = (var_38 = false)
-    if var_39 then
-        (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
-    else
-        ()
-    let (var_40: bool) = (0L = var_17)
+    let (var_38: int64) = (var_30 * var_9)
+    let (var_39: int64) = (var_29 * var_38)
+    let (var_40: bool) = (0L = var_12)
     let (var_41: bool) = (var_40 = false)
     if var_41 then
         (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
     else
         ()
-    let (var_42: bool) = (0L = var_22)
-    let (var_43: bool) = (var_42 = false)
-    if var_43 then
+    let (var_42: int64) = (var_30 * var_14)
+    let (var_43: int64) = (var_29 * var_42)
+    let (var_44: bool) = (0L = var_17)
+    let (var_45: bool) = (var_44 = false)
+    if var_45 then
         (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
     else
         ()
-    let (var_44: bool) = (var_6 = 0L)
-    let (var_45: bool) = (var_44 = false)
-    if var_45 then
+    let (var_46: int64) = (var_30 * var_19)
+    let (var_47: int64) = (var_29 * var_46)
+    let (var_48: bool) = (0L = var_22)
+    let (var_49: bool) = (var_48 = false)
+    if var_49 then
+        (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
+    else
+        ()
+    let (var_50: int64) = (var_30 * var_24)
+    let (var_51: int64) = (var_29 * var_50)
+    let (var_52: bool) = (var_6 = 0L)
+    let (var_53: bool) = (var_52 = false)
+    if var_53 then
         (failwith "Only unviewed arrays are allowed for now.")
     else
         ()
-    let (var_46: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_31))
-    let (var_47: (Union0 ref)) = var_5.mem_0
-    let (var_48: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_47: (Union0 ref)))
-    var_0.CopyToHost(var_46, var_48)
-    let (var_49: bool) = (var_11 = 0L)
-    let (var_50: bool) = (var_49 = false)
-    if var_50 then
+    let (var_54: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_31))
+    let (var_55: (Union0 ref)) = var_5.mem_0
+    let (var_56: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_55: (Union0 ref)))
+    var_0.CopyToHost(var_54, var_56)
+    let (var_57: bool) = (var_11 = 0L)
+    let (var_58: bool) = (var_57 = false)
+    if var_58 then
         (failwith "Only unviewed arrays are allowed for now.")
     else
         ()
-    let (var_51: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_31))
-    let (var_52: (Union0 ref)) = var_10.mem_0
-    let (var_53: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_52: (Union0 ref)))
-    var_0.CopyToHost(var_51, var_53)
-    let (var_54: bool) = (var_16 = 0L)
-    let (var_55: bool) = (var_54 = false)
-    if var_55 then
+    let (var_59: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_31))
+    let (var_60: (Union0 ref)) = var_10.mem_0
+    let (var_61: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_60: (Union0 ref)))
+    var_0.CopyToHost(var_59, var_61)
+    let (var_62: bool) = (var_16 = 0L)
+    let (var_63: bool) = (var_62 = false)
+    if var_63 then
         (failwith "Only unviewed arrays are allowed for now.")
     else
         ()
-    let (var_56: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_31))
-    let (var_57: (Union0 ref)) = var_15.mem_0
-    let (var_58: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_57: (Union0 ref)))
-    var_0.CopyToHost(var_56, var_58)
-    let (var_59: bool) = (var_21 = 0L)
-    let (var_60: bool) = (var_59 = false)
-    if var_60 then
+    let (var_64: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_31))
+    let (var_65: (Union0 ref)) = var_15.mem_0
+    let (var_66: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_65: (Union0 ref)))
+    var_0.CopyToHost(var_64, var_66)
+    let (var_67: bool) = (var_21 = 0L)
+    let (var_68: bool) = (var_67 = false)
+    if var_68 then
         (failwith "Only unviewed arrays are allowed for now.")
     else
         ()
-    let (var_61: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_31))
-    let (var_62: (Union0 ref)) = var_20.mem_0
-    let (var_63: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_62: (Union0 ref)))
-    var_0.CopyToHost(var_61, var_63)
-    let (var_64: System.Text.StringBuilder) = System.Text.StringBuilder()
-    let (var_65: string) = ""
-    let (var_66: int64) = 0L
-    method_12((var_64: System.Text.StringBuilder), (var_66: int64))
-    let (var_67: System.Text.StringBuilder) = var_64.AppendLine("[|")
-    method_20((var_64: System.Text.StringBuilder), (var_65: string), (var_46: (int64 [])), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_51: (int64 [])), (var_11: int64), (var_12: int64), (var_13: int64), (var_14: int64), (var_56: (int64 [])), (var_16: int64), (var_17: int64), (var_18: int64), (var_19: int64), (var_61: (int64 [])), (var_21: int64), (var_22: int64), (var_23: int64), (var_24: int64), (var_25: int64), (var_26: int64), (var_27: int64), (var_28: int64))
-    let (var_68: int64) = 0L
-    method_12((var_64: System.Text.StringBuilder), (var_68: int64))
-    let (var_69: System.Text.StringBuilder) = var_64.AppendLine("|]")
-    let (var_70: string) = var_64.ToString()
-    let (var_71: string) = System.String.Format("{0}",var_70)
-    System.Console.WriteLine(var_71)
+    let (var_69: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_31))
+    let (var_70: (Union0 ref)) = var_20.mem_0
+    let (var_71: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_70: (Union0 ref)))
+    var_0.CopyToHost(var_69, var_71)
+    let (var_72: System.Text.StringBuilder) = System.Text.StringBuilder()
+    let (var_73: string) = ""
+    let (var_74: int64) = 0L
+    method_12((var_72: System.Text.StringBuilder), (var_74: int64))
+    let (var_75: System.Text.StringBuilder) = var_72.AppendLine("[|")
+    method_20((var_72: System.Text.StringBuilder), (var_73: string), (var_54: (int64 [])), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_59: (int64 [])), (var_11: int64), (var_12: int64), (var_13: int64), (var_14: int64), (var_64: (int64 [])), (var_16: int64), (var_17: int64), (var_18: int64), (var_19: int64), (var_69: (int64 [])), (var_21: int64), (var_22: int64), (var_23: int64), (var_24: int64), (var_25: int64), (var_26: int64), (var_27: int64), (var_28: int64))
+    let (var_76: int64) = 0L
+    method_12((var_72: System.Text.StringBuilder), (var_76: int64))
+    let (var_77: System.Text.StringBuilder) = var_72.AppendLine("|]")
+    let (var_78: string) = var_72.ToString()
+    let (var_79: string) = System.String.Format("{0}",var_78)
+    System.Console.WriteLine(var_79)
 and method_4((var_0: int64), (var_1: (int64 [])), (var_2: int64), (var_3: (int64 [])), (var_4: int64)): unit =
     let (var_5: bool) = (var_4 < 8L)
     if var_5 then

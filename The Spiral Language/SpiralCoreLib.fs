@@ -181,6 +181,18 @@ inl assert c msg =
 inl max a b = if a > b then a else b
 /// Returns the minimum of the two expressions.
 inl min a b = if a > b then b else a
+/// The template for lit_min and lit_max.
+inl lit_comp op a b =
+    if lit_is a && lit_is b then op a b
+    elif lit_is a then a
+    elif lit_is b then b
+    else error_type "a or b needs to be a literal"
+
+/// Returns the compile time expressible maximum of the two expressions.
+inl lit_max = lit_comp max
+/// Returns the compile time expressible minimum of the two expressions.
+inl lit_min = lit_comp min
+
 /// Returns boolean whether the two expressions are equal in their types.
 inl eq_type a b = !EqType(a,b)
 /// Returns the values of a module in a tuple.
@@ -262,12 +274,14 @@ inl blittable_is x = !BlittableIs(x)
 inl threadIdx (.x | .y | .z) as x = macro.cd int64 [text: "threadIdx."; text: x]
 inl blockIdx (.x | .y | .z) as x = macro.cd int64 [text: "blockIdx."; text: x]
 
-{type_lit_lift error_type print_static dyn (=>) cd fs log exp tanh sqrt array_create array_length array_is array
- split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
- string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref (+) (-) (*) (/) (%)
- (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>) fst snd not macro
- string_length lit_is box_is failwith assert max min eq_type module_values caseable_is caseable_box_is (:>)
- (:?>) (=) module_map module_filter module_foldl module_foldr module_has_member sizeof string_format string_concat
- array_create_cuda_shared array_create_cuda_local infinityf64 infinityf32 abs blittable_is threadIdx blockIdx
+{
+type_lit_lift error_type print_static dyn (=>) cd fs log exp tanh sqrt array_create array_length array_is array
+split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
+string char unit type_lit_cast type_lit_is term_cast unsafe_convert negate ignore id const ref (+) (-) (*) (/) (%)
+(|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>) fst snd not macro
+string_length lit_is box_is failwith assert max min eq_type module_values caseable_is caseable_box_is (:>)
+(:?>) (=) module_map module_filter module_foldl module_foldr module_has_member sizeof string_format string_concat
+array_create_cuda_shared array_create_cuda_local infinityf64 infinityf32 abs blittable_is threadIdx blockIdx
+lit_min lit_max
 } |> stack
     """) |> module_

@@ -2088,7 +2088,7 @@ else
 let (var_76: bool) = (7840000L = var_73)
 let (var_77: bool) = (var_76 = false)
 if var_77 then
-    (failwith "The product of given dimensions does not match the product of tensor dimensions.")
+    (failwith "The product of dimensions of the new tensor must equal that of the previous one.")
 else
     ()
 let (var_81: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(7840000L))
@@ -2139,7 +2139,7 @@ else
 let (var_110: bool) = (47040000L = var_107)
 let (var_111: bool) = (var_110 = false)
 if var_111 then
-    (failwith "The product of given dimensions does not match the product of tensor dimensions.")
+    (failwith "The product of dimensions of the new tensor must equal that of the previous one.")
 else
     ()
 let (var_115: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(47040000L))

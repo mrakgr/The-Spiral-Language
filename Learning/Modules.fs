@@ -308,15 +308,6 @@ inl {stream Cuda CudaTensor} ->
     inl warp_size = 32
     inl syncthreads () = macro.cd unit [text: "__syncthreads()"]
 
-    inl lit_comp op a b =
-        if lit_is a && lit_is b then op a b
-        elif lit_is a then a
-        elif lit_is b then b
-        else error_type "a or b need to be a literal"
-
-    inl lit_min = lit_comp min
-    inl lit_max = lit_comp max
-
     inl cub_block_reduce {d with blockDim redo} x =
         inl ty = 
             match x with

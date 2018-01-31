@@ -308,28 +308,30 @@ and method_11((var_0: ManagedCuda.CudaContext), (var_1: ManagedCuda.CudaStream),
         (failwith "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead")
     else
         ()
-    let (var_23: bool) = (var_6 = 0L)
-    let (var_24: bool) = (var_23 = false)
-    if var_24 then
+    let (var_23: int64) = (var_15 * var_9)
+    let (var_24: int64) = (var_14 * var_23)
+    let (var_25: bool) = (var_6 = 0L)
+    let (var_26: bool) = (var_25 = false)
+    if var_26 then
         (failwith "Only unviewed arrays are allowed for now.")
     else
         ()
-    let (var_25: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(var_16))
-    let (var_26: (Union0 ref)) = var_5.mem_0
-    let (var_27: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_26: (Union0 ref)))
-    var_0.CopyToHost(var_25, var_27)
-    let (var_28: System.Text.StringBuilder) = System.Text.StringBuilder()
-    let (var_29: string) = ""
-    let (var_30: int64) = 0L
-    method_12((var_28: System.Text.StringBuilder), (var_30: int64))
-    let (var_31: System.Text.StringBuilder) = var_28.AppendLine("[|")
-    method_13((var_28: System.Text.StringBuilder), (var_29: string), (var_25: (float32 [])), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_11: int64), (var_12: int64), (var_13: int64))
+    let (var_27: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(var_16))
+    let (var_28: (Union0 ref)) = var_5.mem_0
+    let (var_29: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_28: (Union0 ref)))
+    var_0.CopyToHost(var_27, var_29)
+    let (var_30: System.Text.StringBuilder) = System.Text.StringBuilder()
+    let (var_31: string) = ""
     let (var_32: int64) = 0L
-    method_12((var_28: System.Text.StringBuilder), (var_32: int64))
-    let (var_33: System.Text.StringBuilder) = var_28.AppendLine("|]")
-    let (var_34: string) = var_28.ToString()
-    let (var_35: string) = System.String.Format("{0}",var_34)
-    System.Console.WriteLine(var_35)
+    method_12((var_30: System.Text.StringBuilder), (var_32: int64))
+    let (var_33: System.Text.StringBuilder) = var_30.AppendLine("[|")
+    method_13((var_30: System.Text.StringBuilder), (var_31: string), (var_27: (float32 [])), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_11: int64), (var_12: int64), (var_13: int64))
+    let (var_34: int64) = 0L
+    method_12((var_30: System.Text.StringBuilder), (var_34: int64))
+    let (var_35: System.Text.StringBuilder) = var_30.AppendLine("|]")
+    let (var_36: string) = var_30.ToString()
+    let (var_37: string) = System.String.Format("{0}",var_36)
+    System.Console.WriteLine(var_37)
 and method_3((var_0: ManagedCuda.BasicTypes.CUdeviceptr), (var_1: uint64), (var_2: uint64), (var_3: int64), (var_4: System.Collections.Generic.Stack<Env3>), (var_5: EnvStack2), (var_6: int64)): EnvStack2 =
     let (var_7: ManagedCuda.BasicTypes.SizeT) = var_0.Pointer
     let (var_8: uint64) = uint64 var_7

@@ -669,6 +669,29 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
     }
     """
 
+let learning10 =
+    "learning10",[loops;cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"Does the full training work with the char-RNN?",
+    """
+//inb Cuda = Cuda
+//inb Allocator = Allocator {Cuda size=0.7}
+//inb stream = Cuda.Stream.create()
+//inl CudaTensor = CudaTensor {stream Cuda Allocator}
+//inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+//inb CudaRandomModule = CudaRandom
+//inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
+//inb CudaBlasModule = CudaBlas
+//inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
+//inl default_float = float32
+//open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+//open Error
+//open Feedforward
+
+// I got this dataset from Karpathy.
+inl path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
+inl data = macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
+()
+    """
+
 let grad1 =
     "grad1",[loops;cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"Does gradient checking pass for the full network?",
     """
@@ -720,12 +743,12 @@ let tests =
     kernel10;kernel11
     random1
     blas1
-    learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
+    learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9;learning10
     grad1
     |]
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel11
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
 |> printfn "%s"
 |> ignore

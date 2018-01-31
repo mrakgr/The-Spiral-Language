@@ -43,6 +43,7 @@ let tuple =
 inl singleton x = x :: ()
 inl head x :: xs = x
 inl tail x :: xs = xs
+inl rec last x :: xs = match xs with () -> x | xs -> last xs
 
 inl wrap = function
     | (_ :: _ | ()) as x -> x
@@ -190,7 +191,7 @@ inl take n l =
     inl rec loop n l = if n > 0 then loop (n-1) (tail l) else l
     loop n l
 
-{head tail foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists take
+{head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists take
  filter zip unzip init repeat append singleton range tryFind contains intersperse wrap}
     """) |> module_
 
@@ -1122,24 +1123,27 @@ inl rec facade data = function
         else Tensor x data >> facade
     | i -> Tensor .apply data i |> facade
 
-inl dim_describe (!map_dims dim) = 
+inl make_body {d with dim elem_type} =
     match dim with
     | () -> error_type "Empty dimensions are not allowed."
     | dim ->
-        inl len :: size = Tuple.scanr (inl (!span x) s -> x * s) dim 1
-        inl make_body ar = 
-            inl offset = Tuple.map (const 0) size
-            {ar size offset block_toa_map=()}
-        {len dim make_body}
+        inl init =
+            match d with
+            | {pad_to} -> min 1 (pad_to / sizeof elem_type)
+            | {last_size} -> last_size
+            | _ -> 1
+        inl len :: size = Tuple.scanr (inl (!span x) s -> x * s) dim init
+        inl ar = match d with {array_create} | _ -> array_create elem_type len
+        inl offset = Tuple.map (const 0) size
+        {ar size offset block_toa_map=()}
 
-/// Creates an empty tensor given the descriptor. {size elem_type ?layout=(.toa | .aot) ?array_create} -> tensor
+/// Creates an empty tensor given the descriptor. {size elem_type ?layout=(.toa | .aot) ?array_create ?pad_to} -> tensor
 inl create {dsc with dim elem_type} = 
-    inl create dim =
-        inl {len dim make_body} = dim_describe dim
+    inl create (!map_dims dim) =
+        inl dsc = {dsc with dim}
         inl bodies =
             inl layout = match dsc with {layout} -> layout | _ -> .toa
-            inl array_create = match dsc with {array_create} -> array_create | _ -> array_create
-            inl create elem_type = make_body (array_create elem_type len)
+            inl create elem_type = make_body {dsc with elem_type}
             match layout with
             | .aot -> create elem_type
             | .toa -> toa_map create elem_type
@@ -1187,17 +1191,14 @@ inl product = Tuple.foldl (inl s (!span x) -> s * x) 1
 inl length tns = product tns.dim
 
 /// Sets the tensor dimensions assuming the overall length matches. Does not copy. size -> tensor -> tensor.
-inl reshape (!dim_describe {len dim make_body}) tns = 
-    tns.update_dim (inl dim' ->
-            inl len' = product dim'
-            assert (len = len') "The product of given dimensions does not match the product of tensor dimensions."
-            dim)
-        .update_body (inl {size offset=o::o' ar} ->
+inl reshape (!map_dims dim) tns = 
+    inl dim' = tns.dim
+    assert (product dim = product dim') "The product of dimensions of the new tensor must equal that of the previous one."
+    tns .update_dim (const dim)
+        .update_body (inl {d with size=size' offset=o::o' ar} ->
             assert (Tuple.forall ((=) 0) o') "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead"
-            inl {d with size=size' offset=_::o'} = make_body ar
-            inl f = Tuple.foldl (*) 1
-            assert (f size = f size') "The product of sizes of the two tensors need to match."
-            {d with offset=o::o'}
+            inl {size offset=_::o'} = make_body {dim array_create=(inl _ _ -> ()); elem_type=ar.elem_type; last_size=Tuple.last size'}
+            {d with size offset=o::o'}
             )
 
 inl assert_contiguous tns = reshape tns.dim tns |> ignore 
@@ -1210,9 +1211,7 @@ inl assert_size (!map_dims dim') tns =
     reshape dim tns // This is in order for the offsets to become static.
 
 /// Reinterprets an array as a tensor. Does not copy. array -> tensor.
-inl array_as_tensor ar =
-    inl {dim make_body} = dim_describe (array_length ar)
-    facade {dim bodies=make_body ar}
+inl array_as_tensor ar = facade {dim=map_dims (array_length ar); bodies={ar size=1::(); offset=0::(); block_toa_map=()}}
 
 /// Reinterprets an array as a tensor. array -> tensor.
 inl array_to_tensor = array_as_tensor >> copy
@@ -1238,7 +1237,7 @@ inl rec equal (!zip t) =
         inl a :: b = t.get
         Tuple.forall ((=) a) b
 
-{toa_map toa_map2 toa_iter toa_iter2 map_dim map_dims length create dim_describe facade
+{toa_map toa_map2 toa_iter toa_iter2 length create facade
  view_offsets init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip show
  toa_map3 toa_iter3 assert_contiguous assert_zip span equal}
 |> stack
