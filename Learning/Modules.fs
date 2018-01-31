@@ -198,7 +198,7 @@ inl {stream Cuda Allocator} ->
             {body with ar = f ar}
 
     inl from_host_tensor = transfer_template from_host_array
-    inl to_host_tensor tns = transfer_template (to_host_array (length tns)) tns
+    inl to_host_tensor tns = transfer_template (to_host_array tns.length) tns
 
     inl to_dev_tensor tns = 
         tns.update_body (inl {body with ar offset} ->
@@ -219,7 +219,7 @@ inl {stream Cuda Allocator} ->
 
     inl clear (!to_dev_tensor tns) = 
         assert_contiguous tns
-        inl size = length tns
+        inl size = tns.length
         inl stream = Stream.extract stream
         tns.update_body <| inl {body with ar} ->
             FS.Method context .ClearMemoryAsync (ar,0u8,size * sizeof ar.elem_type |> SizeT,stream) unit
@@ -432,7 +432,7 @@ inl {stream Cuda CudaTensor} ->
         assert_zip (in, out) |> ignore
         inl in = to_1d in |> to_dev_tensor
         inl out = to_1d out |> to_dev_tensor
-        inl near_to = length in
+        inl near_to = in.length
 
         inl blockDim = 128
         inl gridDim = min 64 (divup near_to blockDim)
@@ -498,7 +498,7 @@ inl {stream Cuda CudaTensor} ->
         assert_zip (in, out) |> ignore
         inl in = to_1d in |> to_dev_tensor
         inl out = to_1d out |> to_dev_tensor
-        inl near_to = length in
+        inl near_to = in.length
 
         inl blockDim = lit_min 1024 near_to
         inl gridDim = lit_min 64 (divup near_to blockDim)
@@ -553,7 +553,7 @@ inl {stream Cuda CudaTensor} ->
     /// Requires the redo and the neutral element.
     /// Map is optional. Allocates a temporary tensor for the intermediary results.
     inl map_redo {d with redo neutral_elem} (!zip (!to_1d (!to_dev_tensor in))) =
-        inl near_to = length in
+        inl near_to = in.length
         inl map = match d with {map} -> map | _ -> id
 
         inl blockDim = 128
@@ -576,7 +576,7 @@ inl {stream Cuda CudaTensor} ->
             }
 
         inl tns = to_host_tensor out
-        Loops.for {from=0; near_to=length tns; state=dyn neutral_elem; body=inl {state i} -> redo state (tns i .get)}
+        Loops.for {from=0; near_to=tns.length; state=dyn neutral_elem; body=inl {state i} -> redo state (tns i .get)}
 
     /// Replicates the 1d `in` and maps it along the outer dimension as determined by in'.
     inl d2_replicate_map' f (!zip in) (!zip in') (!zip out) =
@@ -1135,7 +1135,7 @@ inl ret ->
 
         inl fill op (!zip in) =
             inl in' = to_1d in |> to_dev_tensor
-            inl len = length in'
+            inl len = in'.length
             in'.update_body (inl {ar} -> fill_array op len ar) |> ignore
 
         inl create_tensor op dsc ret =

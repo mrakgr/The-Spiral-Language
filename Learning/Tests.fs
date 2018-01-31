@@ -457,7 +457,7 @@ open Primitive
 inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=default_float; dim=256,256} >>! dr
 inb o1,bck = map_redo {fwd={neutral_elem=0f32; redo=(+)}; bck=inl {out} -> out.A} a1
 bck()
-Console.writeline <| primal o1 / unsafe_convert float32 (HostTensor.length (primal a1))
+Console.writeline <| primal o1 / unsafe_convert float32 ((primal a1).length)
     """
 
 let learning4 =
@@ -686,6 +686,9 @@ let learning10 =
 //open Error
 //open Feedforward
 
+inl seq_len = 1115394
+inl minibatch_size = 128
+
 // I got this dataset from Karpathy.
 inl path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
 inl data = 
@@ -696,9 +699,12 @@ inl data =
         unsafe_convert uint8 x
         )
     |> HostTensor.array_as_tensor
-    |> HostTensor.assert_size 1115394
+    |> HostTensor.assert_size seq_len
+    |> inl x -> x.view (seq_len - seq_len % minibatch_size)
+    |> inl x -> HostTensor.reshape (minibatch_size,x.length/minibatch_size) x
 
-inl length = 
+data
+
 
     """
 
