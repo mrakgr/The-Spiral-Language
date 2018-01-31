@@ -688,8 +688,18 @@ let learning10 =
 
 // I got this dataset from Karpathy.
 inl path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
-inl data = macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
-()
+inl data = 
+    macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
+    |> Array.map (inl x -> 
+        inl x = unsafe_convert int64 x
+        assert (x < 128) "The inputs need to be in the [0,127] range."
+        unsafe_convert uint8 x
+        )
+    |> HostTensor.array_as_tensor
+    |> HostTensor.assert_size 1115394
+
+inl length = 
+
     """
 
 let grad1 =

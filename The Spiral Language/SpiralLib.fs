@@ -1208,7 +1208,7 @@ inl to_1d tns = reshape (length tns) tns
 inl assert_size (!map_dims dim') tns = 
     inl dim = tns.dim
     assert (dim = dim') "The dimensions do not match."
-    reshape dim tns // This is in order for the offsets to become static.
+    reshape dim' tns // This is in order for the offsets to become static.
 
 /// Reinterprets an array as a tensor. Does not copy. array -> tensor.
 inl array_as_tensor ar = facade {dim=map_dims (array_length ar); bodies={ar size=1::(); offset=0::(); block_toa_map=()}}

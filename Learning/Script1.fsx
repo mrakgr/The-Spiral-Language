@@ -3,6 +3,7 @@
 let path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
 
 let text = File.ReadAllText path
+text.Length
 
 let symbols = text.ToCharArray() |> Array.groupBy id |> Array.map (fun (a,b) -> a,b.Length)
 
