@@ -1192,11 +1192,11 @@ inl reshape (!dim_describe {len dim make_body}) tns =
             inl len' = product dim'
             assert (len = len') "The product of given dimensions does not match the product of tensor dimensions."
             dim)
-        .update_body (inl {offset=o::o' ar} ->
-            assert 
-                (Tuple.forall ((=) 0) o') 
-                "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead"
-            inl {d with offset=_::o'} = make_body ar
+        .update_body (inl {size offset=o::o' ar} ->
+            assert (Tuple.forall ((=) 0) o') "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead"
+            inl {d with size=size' offset=_::o'} = make_body ar
+            inl f = Tuple.foldl (*) 1
+            assert (f size = f size') "The product of sizes of the two tensors need to match."
             {d with offset=o::o'}
             )
 
