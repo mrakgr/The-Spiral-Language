@@ -49,6 +49,10 @@ inl wrap = function
     | (_ :: _ | ()) as x -> x
     | x -> x :: ()
 
+inl unwrap = function
+    | x :: () -> x
+    | x -> x
+
 inl rec foldl f s = function
     | x :: xs -> foldl f (f s x) xs
     | () -> s
@@ -192,7 +196,7 @@ inl take n l =
     loop n l
 
 {head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists take
- filter zip unzip init repeat append singleton range tryFind contains intersperse wrap}
+ filter zip unzip init repeat append singleton range tryFind contains intersperse wrap unwrap}
     """) |> module_
 
 let loops =
@@ -1009,53 +1013,37 @@ inl tensor_apply {data with size=s::size offset=o::offset} i =
         | o' :: offset -> o + o' :: offset
         | () -> o
     {data with size offset}
+inl tensor_update_dim f dim = dim |> Tuple.unwrap |> f |> Tuple.wrap
 
-inl span = function
-    | {from near_to} -> near_to - from
-    | {from by} -> by
-
-inl rec show = function
-    | .range (!map_dims dim) tns ->
-        inl f {from near_to} {from=from' near_to=near_to'} = {
-            from = min (near_to-1) (from + from') |> max from
-            near_to = min near_to (from + near_to') |> max (from+1)
-            }
-        inl {view ap} =
-            Tuple.foldr (inl {x with from} -> function
-                | {state with view dim=d :: dim} -> {state with view=f x d :: view; dim}
-                | {state with ap} -> {state with ap=from :: ap}
-                ) (tns.dim) {dim=Tuple.rev dim; view=(); ap=()}
-        Tuple.foldr (|>) ap tns .view view |> show.all
-    | .all tns ->
-        open Extern
-        inl strb_type = fs [text: "System.Text.StringBuilder"]
-        inl s = FS.Constructor strb_type ()
-        inl append x = FS.Method s .Append x strb_type |> ignore
-        inl append_line x = FS.Method s .AppendLine x strb_type |> ignore
-        inl indent near_to = Loops.for {from=0; near_to; body=inl _ -> append ' '}
-        inl blank = dyn ""
-        inl rec loop {tns ind} = 
-            match tns.dim with
-            | () -> tns.get |> Extern.show |> append
-            | {from near_to} :: () ->
-                indent ind; append "[|"
-                Loops.for {from near_to state=blank; body=inl {state i} -> 
-                    append state
-                    tns i .get |> Extern.show |> append
-                    dyn "; "
-                    } |> ignore
-                append_line "|]"
-            | {from near_to} :: x' ->
-                indent ind; append_line "[|"
-                Loops.for {from near_to body=inl {state i} -> loop {tns=tns i; ind=ind+4}}
-                indent ind; append_line "|]"
+inl rec show tns = 
+    open Extern
+    inl strb_type = fs [text: "System.Text.StringBuilder"]
+    inl s = FS.Constructor strb_type ()
+    inl append x = FS.Method s .Append x strb_type |> ignore
+    inl append_line x = FS.Method s .AppendLine x strb_type |> ignore
+    inl indent near_to = Loops.for {from=0; near_to; body=inl _ -> append ' '}
+    inl blank = dyn ""
+    inl rec loop {tns ind} = 
+        match tns.dim with
+        | () -> tns.get |> Extern.show |> append
+        | near_to :: () ->
+            indent ind; append "[|"
+            Loops.for {from=0; near_to state=blank; body=inl {state i} -> 
+                append state
+                tns i .get |> Extern.show |> append
+                dyn "; "
+                } |> ignore
+            append_line "|]"
+        | near_to :: x' ->
+            indent ind; append_line "[|"
+            Loops.for {from=0; near_to body=inl {state i} -> loop {tns=tns i; ind=ind+4}}
+            indent ind; append_line "|]"
         
-        loop {tns; ind=0; prefix=blank} |> ignore
-        FS.Method s .ToString() string
-    | tns -> show.all tns // TODO: Put in a cutoff here later.
+    loop {tns; ind=0; prefix=blank} |> ignore
+    FS.Method s .ToString() string
 
 /// Total tensor size in elements.
-inl product = Tuple.foldl (inl s (!span x) -> s * x) 1
+inl product = Tuple.foldl (*) 1
 
 inl rec facade data = 
     inl Tensor = stack {
@@ -1072,53 +1060,38 @@ inl rec facade data =
             match dim with
             | () -> toa_iter2 tensor_set bodies v
             | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
-        view = inl {data with dim} (!map_dims head_dims) ->
-            inl rec new_dim = function
-                | {from near_to} :: d', {nd with from=from' near_to=near_to'} :: h' ->
-                    assert (from' >= from && from' < near_to) "Lower boundary out of bounds." 
-                    assert (near_to' > from && near_to' <= near_to) "Higher boundary out of bounds." 
-                    inl i',nd' = new_dim (d',h')
-                    from'-from :: i', nd :: nd'
-                | (), _ :: _ -> error_type "The view has more dimensions than the tensor."
-                | dim, () -> (),dim
-
-            inl indices, dim = new_dim (dim, head_dims)
-            {data with bodies = toa_map (inl ar -> tensor_view ar indices) self; dim}
-            |> facade
-    
+   
         // Resizes the view towards zero.
-        view_span = inl {data with dim} head_dims ->
+        view = inl {data with dim} f ->
             inl rec new_dim = function
-                | {from near_to} :: d', h :: h' ->
+                | near_to :: d', h :: h' ->
                     inl check from' near_to' =
-                        assert (from' >= from && from' < near_to) "Lower boundary out of bounds." 
-                        assert (near_to' > from && near_to' <= near_to) "Higher boundary out of bounds." 
+                        assert (from' >= 0 && from' < near_to) "Lower boundary out of bounds." 
+                        assert (near_to' > 0 && near_to' <= near_to) "Higher boundary out of bounds." 
                     inl i, nd = 
                         match h with
                         | {from=from' by} ->
                             assert (by >= 0) "`by` must be positive or zero."
-                            inl from' = from + from'
                             check from' (from' + by)
-                            from', {from = 0; near_to = by}
+                            from', by
                         | !map_dim {nd with from=from' near_to=near_to'} ->
-                            inl from' = from + from'
-                            check from' (from + near_to')
-                            from', {from = 0; near_to = span nd}
+                            check from' near_to'
+                            from', near_to' - from'
                     inl i', nd' = new_dim (d',h')
                     i :: i', nd :: nd'
                 | (), _ :: _ -> error_type "The view has more dimensions than the tensor."
                 | dim, () -> (),dim
 
-            inl indices, dim = new_dim (dim, Tuple.wrap head_dims)
+            inl indices, dim = new_dim (dim, tensor_update_dim f dim)
             {data with bodies = toa_map (inl ar -> tensor_view ar indices) self; dim}
             |> facade
         /// Applies the tensor.
         apply = inl {data with dim} i ->
             match dim with
             | () -> error_type "Cannot apply the tensor anymore."
-            | {from near_to} :: dim ->
-                assert (i >= from && i < near_to) "Argument out of bounds." 
-                {data with bodies = toa_map (inl ar -> tensor_apply ar (i-from)) self; dim}
+            | near_to :: dim ->
+                assert (i >= 0 && i < near_to) "Argument out of bounds." 
+                {data with bodies = toa_map (inl ar -> tensor_apply ar i) self; dim}
                 |> facade
         /// Returns the tensor data.
         unwrap = id
@@ -1141,14 +1114,14 @@ inl make_body {d with dim elem_type} =
             | {pad_to} -> min 1 (pad_to / sizeof elem_type)
             | {last_size} -> last_size
             | _ -> 1
-        inl len :: size = Tuple.scanr (inl (!span x) s -> x * s) dim init
+        inl len :: size = Tuple.scanr (*) dim init
         inl ar = match d with {array_create} | _ -> array_create elem_type len
         inl offset = Tuple.map (const 0) size
         {ar size offset block_toa_map=()}
 
 /// Creates an empty tensor given the descriptor. {size elem_type ?layout=(.toa | .aot) ?array_create ?pad_to} -> tensor
 inl create {dsc with dim elem_type} = 
-    inl create (!map_dims dim) =
+    inl create dim =
         inl dsc = {dsc with dim}
         inl bodies =
             inl layout = match dsc with {layout} -> layout | _ -> .toa
@@ -1159,7 +1132,7 @@ inl create {dsc with dim elem_type} =
 
         facade {bodies dim}
     match dim with
-    | () -> create 1 0
+    | () -> create (1 :: ()) 0
     | dim -> create dim
     
 /// Creates a new tensor based on given sizes. Takes in a setter function. 
@@ -1171,7 +1144,7 @@ inl init =
         inl tns = create {elem_type dim layout}
         inl rec loop tns f = 
             match tns.dim with
-            | {from near_to} :: _ -> Loops.for { from near_to; body=inl {i} -> loop (tns i) (f i) }
+            | near_to :: _ -> Loops.for { from=0; near_to; body=inl {i} -> loop (tns i) (f i) }
             | () -> tns .set f
         loop tns f
         tns
@@ -1191,9 +1164,10 @@ inl map f tns =
 /// Copies a tensor. tensor -> tensor
 inl copy = map id
 
-/// Sets the tensor dimensions assuming the overall length matches. Does not copy. size -> tensor -> tensor.
-inl reshape (!map_dims dim) tns = 
+/// Sets the tensor dimensions assuming the overall length matches. Does not copy. (dim -> dim) -> tensor -> tensor.
+inl reshape f tns = 
     inl dim' = tns.dim
+    inl dim = tensor_update_dim f dim'
     assert (product dim = product dim') "The product of dimensions of the new tensor must equal that of the previous one."
     tns .update_dim (const dim)
         .update_body (inl {d with size=size' offset=o::o' ar} ->
@@ -1202,16 +1176,16 @@ inl reshape (!map_dims dim) tns =
             {d with size offset=o::o'}
             )
 
-inl assert_contiguous tns = reshape tns.dim tns |> ignore 
-inl to_1d tns = reshape tns.length tns
+inl assert_contiguous tns = reshape id tns |> ignore 
+inl to_1d tns = reshape product tns
 
 /// Asserts the tensor size. Useful for setting those values to statically known ones. Does not copy. size -> tensor -> tensor.
-inl assert_size (!map_dims dim') tns = 
+inl assert_size dim' tns = 
     assert (tns.dim = dim') "The dimensions do not match."
-    reshape dim' tns // This is in order for the offsets to become static.
+    reshape (const dim') tns // This is in order for the sizes to become static.
 
 /// Reinterprets an array as a tensor. Does not copy. array -> tensor.
-inl array_as_tensor ar = facade {dim=map_dims (array_length ar); bodies={ar size=1::(); offset=0::(); block_toa_map=()}}
+inl array_as_tensor ar = facade {dim=array_length ar::(); bodies={ar size=1::(); offset=0::(); block_toa_map=()}}
 
 /// Reinterprets an array as a tensor. array -> tensor.
 inl array_to_tensor = array_as_tensor >> copy
@@ -1235,8 +1209,8 @@ inl zip l =
 /// tensor structure -> bool
 inl rec equal (!zip t) =
     match t.dim with
-    | {from near_to} :: _ ->
-        Loops.for' {from near_to state=true; body=inl {next i} ->
+    | near_to :: _ ->
+        Loops.for' {from=0; near_to state=true; body=inl {next i} ->
             equal (t i) && next true
             }
     | _ -> 
