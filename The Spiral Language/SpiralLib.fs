@@ -988,16 +988,14 @@ inl toa_iter3 f a b c = toa_map3 (inl a b c -> f a b c; ()) a b c |> ignore
 
 inl map_dim = function
     | {from to} -> 
-        assert (from <= to) "Tensor needs to be at least size 1."
+        assert (from <= to) "The dimension needs to be at least size 1."
         {from; near_to=to+1}
     | {from near_to} as d -> 
-        assert (from < near_to) "Tensor needs to be at least size 1."
+        assert (from < near_to) "The dimension needs to be at least size 1."
         d
     | x -> 
-        assert (x > 0) "Tensor needs to be at least size 1."
+        assert (x > 0) "The dimension needs to be at least size 1."
         {from=0; near_to=x}
-
-inl map_dims = Tuple.map map_dim << Tuple.wrap
 
 inl rec view_offsets = function
     | s :: s', o :: o', i :: i' -> o + i * s :: view_offsets (s', o', i')
@@ -1122,6 +1120,7 @@ inl make_body {d with dim elem_type} =
 /// Creates an empty tensor given the descriptor. {size elem_type ?layout=(.toa | .aot) ?array_create ?pad_to} -> tensor
 inl create {dsc with dim elem_type} = 
     inl create dim =
+        assert (Tuple.forall (inl x -> x > 0) dim) "Tensor must be at least of size 1."
         inl dsc = {dsc with dim}
         inl bodies =
             inl layout = match dsc with {layout} -> layout | _ -> .toa
@@ -1219,7 +1218,7 @@ inl rec equal (!zip t) =
 
 {toa_map toa_map2 toa_iter toa_iter2 create facade
  view_offsets init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip show
- toa_map3 toa_iter3 assert_contiguous assert_zip span equal}
+ toa_map3 toa_iter3 assert_contiguous assert_zip equal}
 |> stack
     """) |> module_
 
