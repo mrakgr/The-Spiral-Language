@@ -1120,6 +1120,7 @@ inl make_body {d with dim elem_type} =
 /// Creates an empty tensor given the descriptor. {size elem_type ?layout=(.toa | .aot) ?array_create ?pad_to} -> tensor
 inl create {dsc with dim elem_type} = 
     inl create dim =
+        inl dim = Tuple.wrap dim
         assert (Tuple.forall (inl x -> x > 0) dim) "Tensor must be at least of size 1."
         inl dsc = {dsc with dim}
         inl bodies =
@@ -1131,7 +1132,7 @@ inl create {dsc with dim elem_type} =
 
         facade {bodies dim}
     match dim with
-    | () -> create (1 :: ()) 0
+    | () -> create 1 0
     | dim -> create dim
     
 /// Creates a new tensor based on given sizes. Takes in a setter function. 
@@ -1176,11 +1177,11 @@ inl reshape f tns =
             )
 
 inl assert_contiguous tns = reshape id tns |> ignore 
-inl to_1d tns = reshape product tns
+inl to_1d tns = reshape (product << Tuple.wrap) tns
 
 /// Asserts the tensor size. Useful for setting those values to statically known ones. Does not copy. size -> tensor -> tensor.
 inl assert_size dim' tns = 
-    assert (tns.dim = dim') "The dimensions do not match."
+    assert (tns.dim = Tuple.wrap dim') "The dimensions do not match."
     reshape (const dim') tns // This is in order for the sizes to become static.
 
 /// Reinterprets an array as a tensor. Does not copy. array -> tensor.
@@ -1195,7 +1196,7 @@ inl assert_zip l =
     toa_foldl (inl s x ->
         match s with
         | () -> x.dim
-        | s -> assert (s.dim = x) "All tensors in zip need to have the same dimensions"; s) () l
+        | s -> assert (s = x.dim) "All tensors in zip need to have the same dimensions"; s) () l
 
 /// Zips all the tensors in the argument together. Their dimensions must be equal.
 /// tensor structure -> tensor

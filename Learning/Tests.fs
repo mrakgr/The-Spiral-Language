@@ -58,7 +58,7 @@ inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
 inl h = HostTensor.init 32 (inl x -> x + 1)
 inb a1 = CudaTensor.from_host_tensor h
 inb o1 = CudaTensor.zero_like a1
-CudaKernel.map' (inl a _ -> a *2) a1 o1
+CudaKernel.map' (inl a _ -> a*2) a1 o1
 inl a2 = CudaTensor.to_host_tensor o1
 HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
     """
@@ -357,12 +357,12 @@ inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 
 inl sigmoid_initializer' x = 
-    inl stddev = sqrt (2.0f32 / unsafe_convert float32 (Tuple.foldl (inl s x -> s + HostTensor.span x) 0 x.dim))
+    inl stddev = sqrt (2.0f32 / unsafe_convert float32 (Tuple.foldl (+) 0 x.dim))
     CudaRandom.fill {dst=.Normal; stddev mean=0f32} x
 
 inl sigmoid_initializer dim ret = 
     inb x = CudaTensor.create {elem_type=float32; dim}
-    sigmoid_initializer' (x.view_span (3,4))
+    sigmoid_initializer' (x.view (const (3,4)))
     ret x
 
 inb o1 = sigmoid_initializer (3,8)
@@ -700,12 +700,10 @@ inl data =
         )
     |> HostTensor.array_as_tensor
     |> HostTensor.assert_size seq_len
-    |> inl x -> x.view (seq_len - seq_len % minibatch_size)
-    |> inl x -> HostTensor.reshape (minibatch_size,x.length/minibatch_size) x
+    |> inl x -> x.view (inl x -> x - x % minibatch_size)
+    |> HostTensor.reshape (inl x -> minibatch_size, x/minibatch_size)
 
 data
-
-
     """
 
 let grad1 =
@@ -735,8 +733,8 @@ inl hidden_size = 10
 
 inb network = init (sigmoid hidden_size) input_size >>! with_error cross_entropy
 
-inl train_images=train_images .view_span 32
-inl train_labels=train_labels .view_span 32
+inl train_images=train_images .view (const 32)
+inl train_labels=train_labels .view (const 32)
 
 grad_check {network input=train_images; label=train_labels}
 ()
@@ -765,6 +763,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" grad1
 |> printfn "%s"
 |> ignore
