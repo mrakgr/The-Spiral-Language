@@ -1222,7 +1222,7 @@ inl assert_zip l =
     toa_foldl (inl s x ->
         match s with
         | () -> x.dim
-        | s -> assert (s.dim = x) "All tensors in zip need to have the same dimensions"; s) () l
+        | s -> assert (s = x.zip) "All tensors in zip need to have the same dimensions"; s) () l
 
 /// Zips all the tensors in the argument together. Their dimensions must be equal.
 /// tensor structure -> tensor
