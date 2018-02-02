@@ -926,7 +926,7 @@ let test85 =
     "test85",[host_tensor],"Do the reshape and the to_1d work?",
     """
 open HostTensor
-inl ar = init (32*32) id |> reshape (16,64)
+inl ar = init (32*32) id |> reshape (const (16,64))
 (ar 0 0, ar 0 1, ar 0 2, ar 1 0, ar 1 1, ar 1 2, to_1d ar 123) |> Tuple.map (inl x -> x.get)
     """
 
@@ -980,7 +980,7 @@ open HostTensor
 inl tns =
     Array.init 6 id
     |> array_to_tensor
-    |> reshape (dyn (2,3))
+    |> reshape (dyn (2,3) |> const)
     |> assert_size (2,3)
     
 tns 1 0 .get |> ignore
@@ -1031,7 +1031,7 @@ let test97 =
     """
 open HostTensor
 inl w = {from=1; by=2}, {from=1; by=2},{from=1; by=3}
-init ({from=1; near_to=5},3,10) (inl a b c -> a*b*c) .view_span w
+init ({from=1; near_to=5},3,10) (inl a b c -> a*b*c) .view_span (const w)
 |> show
     """
 
