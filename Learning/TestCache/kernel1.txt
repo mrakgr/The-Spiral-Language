@@ -126,28 +126,34 @@ and method_8((var_0: System.Text.StringBuilder), (var_1: int64)): unit =
         method_8((var_0: System.Text.StringBuilder), (var_4: int64))
     else
         ()
-and method_9((var_0: System.Text.StringBuilder), (var_1: (int64 [])), (var_2: (int64 [])), (var_3: string), (var_4: int64)): string =
-    let (var_5: bool) = (var_4 < 32L)
-    if var_5 then
-        let (var_6: System.Text.StringBuilder) = var_0.Append(var_3)
-        let (var_7: bool) = (var_4 >= 0L)
-        let (var_8: bool) = (var_7 = false)
-        if var_8 then
-            (failwith "Argument out of bounds.")
+and method_9((var_0: System.Text.StringBuilder), (var_1: (int64 [])), (var_2: (int64 [])), (var_3: string), (var_4: int64), (var_5: int64)): int64 =
+    let (var_6: bool) = (var_5 < 32L)
+    if var_6 then
+        let (var_7: bool) = (var_4 < 1000L)
+        if var_7 then
+            let (var_8: System.Text.StringBuilder) = var_0.Append(var_3)
+            let (var_9: bool) = (var_5 >= 0L)
+            let (var_10: bool) = (var_9 = false)
+            if var_10 then
+                (failwith "Argument out of bounds.")
+            else
+                ()
+            let (var_11: int64) = var_1.[int32 var_5]
+            let (var_12: int64) = var_2.[int32 var_5]
+            let (var_13: string) = System.String.Format("{0}",var_12)
+            let (var_14: string) = System.String.Format("{0}",var_11)
+            let (var_15: string) = String.concat ", " [|var_14; var_13|]
+            let (var_16: string) = System.String.Format("[{0}]",var_15)
+            let (var_17: System.Text.StringBuilder) = var_0.Append(var_16)
+            let (var_18: string) = "; "
+            let (var_19: int64) = (var_4 + 1L)
+            let (var_20: int64) = (var_5 + 1L)
+            method_9((var_0: System.Text.StringBuilder), (var_1: (int64 [])), (var_2: (int64 [])), (var_18: string), (var_19: int64), (var_20: int64))
         else
-            ()
-        let (var_9: int64) = var_1.[int32 var_4]
-        let (var_10: int64) = var_2.[int32 var_4]
-        let (var_11: string) = System.String.Format("{0}",var_10)
-        let (var_12: string) = System.String.Format("{0}",var_9)
-        let (var_13: string) = String.concat ", " [|var_12; var_11|]
-        let (var_14: string) = System.String.Format("[{0}]",var_13)
-        let (var_15: System.Text.StringBuilder) = var_0.Append(var_14)
-        let (var_16: string) = "; "
-        let (var_17: int64) = (var_4 + 1L)
-        method_9((var_0: System.Text.StringBuilder), (var_1: (int64 [])), (var_2: (int64 [])), (var_16: string), (var_17: int64))
+            let (var_22: System.Text.StringBuilder) = var_0.Append("...")
+            var_4
     else
-        var_3
+        var_4
 and method_4((var_0: ManagedCuda.BasicTypes.CUdeviceptr), (var_1: uint64), (var_2: uint64), (var_3: int64), (var_4: System.Collections.Generic.Stack<Env3>), (var_5: EnvStack2), (var_6: int64)): EnvStack2 =
     let (var_7: ManagedCuda.BasicTypes.SizeT) = var_0.Pointer
     let (var_8: uint64) = uint64 var_7
@@ -312,19 +318,20 @@ var_1.CopyToHost(var_73, var_74)
 let (var_75: System.Text.StringBuilder) = System.Text.StringBuilder()
 let (var_76: string) = ""
 let (var_77: int64) = 0L
-method_8((var_75: System.Text.StringBuilder), (var_77: int64))
-let (var_78: System.Text.StringBuilder) = var_75.Append("[|")
-let (var_79: int64) = 0L
-let (var_80: string) = method_9((var_75: System.Text.StringBuilder), (var_52: (int64 [])), (var_73: (int64 [])), (var_76: string), (var_79: int64))
-let (var_81: System.Text.StringBuilder) = var_75.AppendLine("|]")
-let (var_82: string) = var_75.ToString()
-let (var_83: string) = System.String.Format("{0}",var_82)
-System.Console.WriteLine(var_83)
+let (var_78: int64) = 0L
+method_8((var_75: System.Text.StringBuilder), (var_78: int64))
+let (var_79: System.Text.StringBuilder) = var_75.Append("[|")
+let (var_80: int64) = 0L
+let (var_81: int64) = method_9((var_75: System.Text.StringBuilder), (var_52: (int64 [])), (var_73: (int64 [])), (var_76: string), (var_77: int64), (var_80: int64))
+let (var_82: System.Text.StringBuilder) = var_75.AppendLine("|]")
+let (var_83: string) = var_75.ToString()
+let (var_84: string) = System.String.Format("{0}",var_83)
+System.Console.WriteLine(var_84)
 var_61 := Union0Case1
 var_57 := Union0Case1
 var_51.Dispose()
-let (var_84: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_46: (Union0 ref)))
-var_1.FreeMemory(var_84)
+let (var_85: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_46: (Union0 ref)))
+var_1.FreeMemory(var_85)
 var_46 := Union0Case1
 var_1.Dispose()
 
