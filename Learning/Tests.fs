@@ -357,7 +357,7 @@ inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 
 inl sigmoid_initializer' x = 
-    inl stddev = sqrt (2.0f32 / unsafe_convert float32 (Tuple.foldl (inl s x -> s + HostTensor.span x) 0 x.dim))
+    inl stddev = sqrt (2.0f32 / to float32 (Tuple.foldl (inl s x -> s + HostTensor.span x) 0 x.dim))
     CudaRandom.fill {dst=.Normal; stddev mean=0f32} x
 
 inl sigmoid_initializer dim ret = 
@@ -457,7 +457,7 @@ open Primitive
 inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=default_float; dim=256,256} >>! dr
 inb o1,bck = map_redo {fwd={neutral_elem=0f32; redo=(+)}; bck=inl {out} -> out.A} a1
 bck()
-Console.writeline <| primal o1 / unsafe_convert float32 ((primal a1).length)
+Console.writeline <| primal o1 / to float32 ((primal a1).length)
     """
 
 let learning4 =
@@ -688,24 +688,27 @@ let learning10 =
 
 inl seq_len = 1115394
 inl minibatch_size = 128
+inl num_steps = 64
+inl one_hot_size = 128
 
 // I got this dataset from Karpathy.
 inl path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
 inl data = 
+    inl view x = x.view
     macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
     |> Array.map (inl x -> 
-        inl x = unsafe_convert int64 x
-        assert (x < 128) "The inputs need to be in the [0,127] range."
-        unsafe_convert uint8 x
+        inl x = to int64 x
+        assert (x < one_hot_size) "The inputs need to be in the [0,127] range."
+        to uint8 x
         )
     |> HostTensor.array_as_tensor
     |> HostTensor.assert_size seq_len
-    |> inl x -> x.view (inl x -> x - x % minibatch_size)
+    |> view (inl x -> x - x % minibatch_size)
     |> HostTensor.reshape (inl x -> minibatch_size,x/minibatch_size)
+    |> view (inl mini, label -> mini, label - label % num_steps)
+    |> HostTensor.reshape (inl mini, label -> mini,label/num_steps,num_steps)
 
 data
-
-
     """
 
 let grad1 =
@@ -759,12 +762,13 @@ let tests =
     kernel10;kernel11
     random1
     blas1
-    learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9;learning10
+    learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
+    learning10
     grad1
     |]
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" grad1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
 |> printfn "%s"
 |> ignore

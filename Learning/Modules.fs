@@ -26,15 +26,14 @@ met load_mnist kind (!dyn filename) =
     inl read_int32 x = FS.Method d .ReadInt32 x int32 |> netword_to_host_order
     inl read_bytes n = FS.Method d .ReadBytes n (array uint8)
 
-    inl to_int64 = unsafe_convert int64
-    inl to_ints64 = Tuple.map to_int64
+    inl to_ints64 = Tuple.map (to int64)
 
     inl magic_number = read_int32()
     match kind with
     | .label ->
         assert (magic_number = 2049i32) "Expected a 2049i32 magic number."
         inl n = read_int32()
-        to_int64 n, read_bytes n
+        to int64 n, read_bytes n
     | .image ->
         assert (magic_number = 2051i32) "Expected a 2051i32 magic number."
         inl n, rows, cols = read_int32(), read_int32(), read_int32()
@@ -59,14 +58,14 @@ inl load_mnist_tensors mnist_path =
             inl images, rows, cols = image_size
             HostTensor.array_as_tensor ar
             |> HostTensor.reshape (const (images, rows * cols))
-            |> HostTensor.map (inl x -> unsafe_convert float32 x / 255f32)
+            |> HostTensor.map (inl x -> to float32 x / 255f32)
             
         | {file label_size} ->
             inl n, ar = load_mnist .label (combine (mnist_path, file))
             assert (label_size = n) "Mnist dimensions do not match the expected values."
             HostTensor.init (label_size, 10) (inl a ->
                 inl x = ar a
-                inl b -> if unsafe_convert uint8 b = x then 1.0f32 else 0.0f32
+                inl b -> if to uint8 b = x then 1.0f32 else 0.0f32
                 )
         ) mnist_files
 
@@ -167,7 +166,7 @@ inl {stream Cuda Allocator} ->
 
     /// Is just a CUdeviceptr rather than the true array.
     inl array_create_cuda_global elem_type len = 
-        inl ptr = allocate (len * unsafe_convert int64 (sizeof elem_type))
+        inl ptr = allocate (len * to int64 (sizeof elem_type))
         function // It needs to be like this rather than a module so toa_map does not split it.
         | .elem_type -> elem_type
         | .ptr -> ptr
@@ -175,7 +174,7 @@ inl {stream Cuda Allocator} ->
     inl create_like tns = create {elem_type=tns.elem_type; dim=tns.dim}
 
     inl from_host_array ar =
-        inl size = array_length ar |> unsafe_convert int64
+        inl size = array_length ar |> to int64
         inl elem_type = ar.elem_type
         assert (blittable_is elem_type) "The host array type must be blittable."
         inl t = array_create_cuda_global elem_type size
@@ -210,7 +209,7 @@ inl {stream Cuda Allocator} ->
             inl ptr, elem_type = ar.ptr(), ar.elem_type
             inl ptr =
                 if lit_is o then ptr
-                else ptr_to_uint ptr + unsafe_convert uint64 o |> uint_to_ptr    
+                else ptr_to_uint ptr + to uint64 o |> uint_to_ptr    
             inl ar = !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
             //inl ptr, elem_type = ar.ptr(), ar.elem_type
             //inl ar = !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
@@ -1193,7 +1192,7 @@ inl ret ->
 
         inl call method args = 
             inl to_dev_tensor x = assert_contiguous x; to_dev_tensor x
-            inl args = Tuple.map (function x : int64 -> unsafe_convert int32 x | x -> x) args
+            inl args = Tuple.map (function x : int64 -> to int32 x | x -> x) args
             join 
                 inl args = 
                     Tuple.map (function 
@@ -1248,7 +1247,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
     // #Primitives
     inl zero = Extern.zero_of default_float
     inl one = Extern.one_of default_float
-    inl two = unsafe_convert default_float 2
+    inl two = to default_float 2
     inl infinity =
         match default_float with
         | _: float32 -> infinityf32
@@ -1416,7 +1415,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl error {fwd bck} (input,_ as x) = 
         inl batch_size = primal input .dim |> fst |> span
-        inl div_by_minibatch_size x = x / unsafe_convert default_float batch_size
+        inl div_by_minibatch_size x = x / to default_float batch_size
         inm cost =
             map_redo {
                 fwd = {
@@ -1457,7 +1456,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             }
 
     inl sigmoid_initializer dim = 
-        inl stddev = sqrt (two / unsafe_convert default_float (Tuple.foldl (+) 0 dim))
+        inl stddev = sqrt (two / to default_float (Tuple.foldl (+) 0 dim))
         CudaRandom.create_tensor {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
 
     inl sigmoid = layer sigmoid_initializer sigmoid
@@ -1486,7 +1485,6 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl run {d with network={weights apply} input label state=!dyn state} =
         inl dim1 x = x.dim |> fst
-        inl to = unsafe_convert
         open Extern
         open Console
 
@@ -1559,7 +1557,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         inl get_cdv x = macro.fs x.elem_type [arg:x.cdv; text: ".["; arg:SizeT x.offset; text: "]"]
         inl set_cdv x v = macro.fs unit [arg:x.cdv; text: ".["; arg:SizeT x.offset; text: "] <- "; arg:v : x.elem_type]
 
-        inl float = unsafe_convert default_float
+        inl float = to default_float
 
         inl run () = 
             inb {cost accuracy}, bck = apply (input, label)

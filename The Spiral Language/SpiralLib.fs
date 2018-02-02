@@ -274,8 +274,8 @@ let extern_ =
     (
     "Extern",[tuple;loops],"The Extern module.",
     """
-inl zero_of ty = unsafe_convert ty 0
-inl one_of ty = unsafe_convert ty 1
+inl zero_of ty = to ty 0
+inl one_of ty = to ty 1
 
 inl dot = "."
 inl FS = {
@@ -1421,7 +1421,7 @@ inl ret ->
         inl join_point_entry_cuda x = !JoinPointEntryCuda(x())
         inl method_name, args = join_point_entry_cuda kernel
         
-        inl dim3 {x y z} = Tuple.map (unsafe_convert uint32) (x,y,z) |> FS.Constructor (fs [text: "ManagedCuda.VectorTypes.dim3"])
+        inl dim3 {x y z} = Tuple.map (to uint32) (x,y,z) |> FS.Constructor (fs [text: "ManagedCuda.VectorTypes.dim3"])
     
         inl context = match runable with | {context} | _ -> context
         inl kernel_type = fs [text: "ManagedCuda.CudaKernel"]

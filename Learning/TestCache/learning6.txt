@@ -397,20 +397,20 @@ extern "C" {
                 }
                 if (var_52) {
                     long long int var_53 = threadIdx.y;
-                    long long int var_54 = (var_53 - 1);
-                    char var_55 = (var_54 >= 0);
-                    char var_57;
-                    if (var_55) {
-                        var_57 = (var_54 < 1);
+                    char var_54 = (var_53 >= 1);
+                    char var_56;
+                    if (var_54) {
+                        var_56 = (var_53 < 2);
                     } else {
-                        var_57 = 0;
+                        var_56 = 0;
                     }
-                    char var_58 = (var_57 == 0);
-                    if (var_58) {
+                    char var_57 = (var_56 == 0);
+                    if (var_57) {
                         // "Argument out of bounds."
                     } else {
                     }
-                    long long int var_59 = (var_54 * 33);
+                    long long int var_58 = (var_53 - 1);
+                    long long int var_59 = (var_58 * 33);
                     long long int var_60 = threadIdx.x;
                     char var_61 = (var_60 >= 0);
                     char var_63;
@@ -443,20 +443,20 @@ extern "C" {
                         long long int var_73 = var_70[0];
                         float var_74 = var_71[0];
                         long long int var_75 = (var_73 + var_47);
-                        long long int var_76 = (var_73 - 1);
-                        char var_77 = (var_76 >= 0);
-                        char var_79;
-                        if (var_77) {
-                            var_79 = (var_76 < 1);
+                        char var_76 = (var_73 >= 1);
+                        char var_78;
+                        if (var_76) {
+                            var_78 = (var_73 < 2);
                         } else {
-                            var_79 = 0;
+                            var_78 = 0;
                         }
-                        char var_80 = (var_79 == 0);
-                        if (var_80) {
+                        char var_79 = (var_78 == 0);
+                        if (var_79) {
                             // "Argument out of bounds."
                         } else {
                         }
-                        long long int var_81 = (var_76 * 33);
+                        long long int var_80 = (var_73 - 1);
+                        long long int var_81 = (var_80 * 33);
                         long long int var_82 = threadIdx.x;
                         char var_83 = (var_82 >= 0);
                         char var_85;
