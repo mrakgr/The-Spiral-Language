@@ -943,6 +943,14 @@ let host_tensor =
     "HostTensor",[tuple;loops;extern_],"The host tensor module.",
     """
 // A lot of the code in this module is made with purpose of being reused on the Cuda side.
+// There is an implicit assumption that the type system cannot verify on its own.
+// - The tensor should not be rotated directly because the dimensions should be contiguous.
+//   This is not a problem when using the provided API. Rotating is fine when done implicitly inside kernels 
+//   such as `inl in i j = in j i`.
+//   
+// Also compared to when the tutorial was made, the lower bound is now assumed to be zero and `view_span` is now the default `view`.
+// As having a different lower bound is so rarely used, this was a design decision made for the sake of simplicity.
+// For a version of the HostTensor with lower bounds included, see the 2/1/2018 commit.
 
 inl toa_map f x = 
     inl rec loop = function
