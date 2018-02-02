@@ -1019,12 +1019,11 @@ Array.init 8 (inl i -> {x = d i; y = d i-30.0} |> dyn |> packed_stack) |> show
     """
 
 let test96 =
-    "test96",[host_tensor],"Does the show_tensor work?",
+    "test96",[host_tensor;console],"Does the show from HostTensor work?",
     """
 open HostTensor
-inl w = {from=1; near_to=3}, {from=1; near_to=3},{from=1; near_to=4}
-init ({from=1; near_to=5},3,10) (inl a b c -> a*b*c)  
-|> show.range w
+init ({from=1; near_to=5},{from=1;to=3},{from=1;to=101}) (inl a b c -> a*b*c)  
+|> show |> Console.writeline
     """
 
 let test97 =
@@ -1033,7 +1032,7 @@ let test97 =
 open HostTensor
 inl w = {from=1; by=2}, {from=1; by=2},{from=1; by=3}
 init ({from=1; near_to=5},3,10) (inl a b c -> a*b*c) .view_span w
-|> show.all
+|> show
     """
 
 let test98 =

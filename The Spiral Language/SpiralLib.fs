@@ -1014,45 +1014,48 @@ inl span = function
     | {from near_to} -> near_to - from
     | {from by} -> by
 
-inl rec show = function
-    | .range (!map_dims dim) tns ->
-        inl f {from near_to} {from=from' near_to=near_to'} = {
-            from = min (near_to-1) (from + from') |> max from
-            near_to = min near_to (from + near_to') |> max (from+1)
-            }
-        inl {view ap} =
-            Tuple.foldr (inl {x with from} -> function
-                | {state with view dim=d :: dim} -> {state with view=f x d :: view; dim}
-                | {state with ap} -> {state with ap=from :: ap}
-                ) (tns.dim) {dim=Tuple.rev dim; view=(); ap=()}
-        Tuple.foldr (|>) ap tns .view view |> show.all
-    | .all tns ->
-        open Extern
-        inl strb_type = fs [text: "System.Text.StringBuilder"]
-        inl s = FS.Constructor strb_type ()
-        inl append x = FS.Method s .Append x strb_type |> ignore
-        inl append_line x = FS.Method s .AppendLine x strb_type |> ignore
-        inl indent near_to = Loops.for {from=0; near_to; body=inl _ -> append ' '}
-        inl blank = dyn ""
-        inl rec loop {tns ind} = 
-            match tns.dim with
-            | () -> tns.get |> Extern.show |> append
-            | {from near_to} :: () ->
-                indent ind; append "[|"
-                Loops.for {from near_to state=blank; body=inl {state i} -> 
-                    append state
-                    tns i .get |> Extern.show |> append
-                    dyn "; "
-                    } |> ignore
-                append_line "|]"
-            | {from near_to} :: x' ->
-                indent ind; append_line "[|"
-                Loops.for {from near_to body=inl {state i} -> loop {tns=tns i; ind=ind+4}}
-                indent ind; append_line "|]"
-        
-        loop {tns; ind=0; prefix=blank} |> ignore
-        FS.Method s .ToString() string
-    | tns -> show.all tns // TODO: Put in a cutoff here later.
+inl show' {cutoff_near_to} tns = 
+    open Extern
+    inl strb_type = fs [text: "System.Text.StringBuilder"]
+    inl s = FS.Constructor strb_type ()
+    inl append x = FS.Method s .Append x strb_type |> ignore
+    inl append_line x = FS.Method s .AppendLine x strb_type |> ignore
+    inl indent near_to = Loops.for {from=0; near_to; body=inl _ -> append ' '}
+    inl blank = dyn ""
+    inl rec loop {tns ind cutoff} =
+        match tns.dim with
+        | () -> tns.get |> Extern.show |> append
+        | {from near_to} :: () ->
+            indent ind; append "[|"
+            inl cutoff =
+                Loops.for' {from near_to state=blank,cutoff; finally=snd; body=inl {next state=prefix,cutoff i} -> 
+                    if cutoff < cutoff_near_to then
+                        append prefix
+                        tns i .get |> Extern.show |> append
+                        next (dyn "; ", cutoff+1)
+                    else
+                        append "..."
+                        cutoff
+                    }
+            append_line "|]"
+            cutoff
+        | {from near_to} :: x' ->
+            indent ind; append_line "[|"
+            inl cutoff =
+                Loops.for' {from near_to state=cutoff; body=inl {next state=cutoff i} -> 
+                    if cutoff < cutoff_near_to then
+                        loop {tns=tns i; ind=ind+4; cutoff} |> next
+                    else
+                        indent ind; append_line "..."
+                        cutoff
+                    }
+            indent ind; append_line "|]"
+            cutoff
+
+    loop {tns; ind=0; cutoff=dyn 0} |> ignore
+    FS.Method s .ToString() string
+
+inl show = show' {cutoff_near_to=1000}
 
 /// Total tensor size in elements.
 inl product = Tuple.foldl (inl s (!span x) -> s * x) 1
