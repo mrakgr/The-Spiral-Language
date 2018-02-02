@@ -1016,29 +1016,33 @@ inl span = function
 
 inl rec show tns = 
     open Extern
+    inl cutoff_near_to = 1000
     inl strb_type = fs [text: "System.Text.StringBuilder"]
     inl s = FS.Constructor strb_type ()
     inl append x = FS.Method s .Append x strb_type |> ignore
     inl append_line x = FS.Method s .AppendLine x strb_type |> ignore
     inl indent near_to = Loops.for {from=0; near_to; body=inl _ -> append ' '}
     inl blank = dyn ""
-    inl rec loop {tns ind} = 
+    inl rec loop {tns ind cutoff finally} = 
         match tns.dim with
         | () -> tns.get |> Extern.show |> append
         | {from near_to} :: () ->
             indent ind; append "[|"
-            Loops.for {from near_to state=blank; body=inl {state i} -> 
-                append state
-                tns i .get |> Extern.show |> append
-                dyn "; "
-                } |> ignore
+            Loops.for' {finally from near_to state=blank; body=inl {next state i} -> 
+                if cutoff < cutoff_near_to then
+                    append state
+                    tns i .get |> Extern.show |> append
+                    dyn "; " |> next
+                else
+                    append "..."
+                }
             append_line "|]"
         | {from near_to} :: x' ->
             indent ind; append_line "[|"
-            Loops.for {from near_to body=inl {state i} -> loop {tns=tns i; ind=ind+4}}
+            Loops.for {finally from near_to body=inl {next state i} -> loop {tns=tns i; ind=ind+4; finally=next}}
             indent ind; append_line "|]"
         
-    loop {tns; ind=0; prefix=blank} |> ignore
+    loop {tns; ind=0; prefix=blank; finally=ignore} |> ignore
     FS.Method s .ToString() string
 
 /// Total tensor size in elements.
