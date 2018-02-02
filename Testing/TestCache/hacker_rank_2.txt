@@ -201,7 +201,11 @@ and method_3((var_0: ((Union0 []) [])), (var_1: int64), (var_2: string), (var_3:
                 let (var_22: bool) = (var_1 > 0L)
                 let (var_23: bool) = (var_22 = false)
                 if var_23 then
-                    (failwith "Tensor must be at least of size 1.")
+                    (failwith "Tensor needs to be at least size 1.")
+                else
+                    ()
+                if var_23 then
+                    (failwith "Tensor needs to be at least size 1.")
                 else
                     ()
                 let (var_24: int64) = (var_1 * var_1)

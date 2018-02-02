@@ -668,7 +668,11 @@ and method_33((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64)): u
     let (var_4: bool) = (var_2 > 0L)
     let (var_5: bool) = (var_4 = false)
     if var_5 then
-        (failwith "Tensor must be at least of size 1.")
+        (failwith "Tensor needs to be at least size 1.")
+    else
+        ()
+    if var_5 then
+        (failwith "Tensor needs to be at least size 1.")
     else
         ()
     let (var_6: int64) = (var_2 * var_2)
@@ -953,7 +957,11 @@ and method_17((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64), (v
     let (var_5: bool) = (var_2 > 0L)
     let (var_6: bool) = (var_5 = false)
     if var_6 then
-        (failwith "Tensor must be at least of size 1.")
+        (failwith "Tensor needs to be at least size 1.")
+    else
+        ()
+    if var_6 then
+        (failwith "Tensor needs to be at least size 1.")
     else
         ()
     let (var_7: int64) = (var_2 * var_2)
