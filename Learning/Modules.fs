@@ -310,21 +310,16 @@ inl {stream Cuda CudaTensor} ->
         inl by = gridDim axis * blockDim axis
         inl near_to = dim.near_to
 
-        inl {d with body} ->
-            inl state = 
-                match d with
-                | {state} -> state
-                | _ -> ()
-            match iteration_mode with
-            | .items_per_thread ->
-                inl span = s dim
-                inl items_per_thread = divup span by
-                forcd {from=0;near_to=items_per_thread; state body=inl {i=item} ->
-                    inl i = from + by * item
-                    inl num_valid = span - by * item
-                    if i < near_to then body {span num_valid items_per_thread item state i} else state
-                    }
-            | .std -> forcd {from by near_to state body}
+        match iteration_mode with
+        | .items_per_thread {d with body} ->
+            inl span = s dim
+            inl items_per_thread = divup span by
+            forcd {d with from=0;near_to=items_per_thread; body=inl {state i=item} ->
+                inl i = from + by * item
+                inl num_valid = span - by * item
+                if i < near_to then body {span num_valid item state i} else state
+                }
+        | .std d -> forcd {d with from by near_to}
 
     inl grid_for_items = grid_for_template {iteration_mode=.items_per_thread}
     inl grid_for = grid_for_template {iteration_mode=.std}
@@ -500,7 +495,7 @@ inl {stream Cuda CudaTensor} ->
                 grid_for .y dim_in_a {body=inl {i} ->
                     inl in, out = in i, out i
 
-                    grid_for .x dim_in_b {state=neutral_elem; body=inl {state=prefix i ->
+                    grid_for .x dim_in_b {state=dyn neutral_elem; body=inl {state=prefix i ->
                         inl in, out = in i, out i
                         inl state, prefix = 
                             cub_block_scan {scan_type=.exclusive,prefix; is_input_tensor=false; return_aggregate=true}
@@ -563,11 +558,13 @@ inl {stream Cuda CudaTensor} ->
     /// Flattens the tensor to 1d, maps and reduces it.
     /// Map is optional. Allocates a temporary tensor for the intermediary results.
     inl map_redo {d with redo neutral_elem} (!zip (!to_1d (!to_dev_tensor in))) =
-        inl near_to = in.length
         inl map = match d with {map} -> map | _ -> id
 
-        inl blockDim = 128
-        inl gridDim = min 64 (divup near_to blockDim)
+        inl in_a :: () = in.dim
+
+        inl span = s in_a
+        inl blockDim = lit_min span 256
+        inl gridDim = min 64 (divup span blockDim)
         inl elem_type = type map in.elem_type
 
         inb out = create {elem_type dim=gridDim}
@@ -576,21 +573,18 @@ inl {stream Cuda CudaTensor} ->
         run {
             stream blockDim gridDim
             kernel = cuda 
-                inl from = blockIdx.x * blockDim.x + threadIdx.x
-                inl by = gridDim.x * blockDim.x
-                inl body {state i} = redo state (map (in i .get)) 
-                inl block_result = 
-                    forcd {from near_to by state=dyn neutral_elem; body}
+                inl x = 
+                    grid_for {blockDim gridDim} .x in_a {state=dyn neutral_elem; body=inl {state i} -> redo state (map (in i .get)) }
                     |> cub_block_reduce {blockDim redo}
-                if threadIdx.x = 0 then out' blockIdx.x .set block_result
+                if threadIdx.x = 0 then out' blockIdx.x .set x
             }
 
         inl tns = to_host_tensor out
-        Loops.for {from=0; near_to=tns.length; state=dyn neutral_elem; body=inl {state i} -> redo state (tns i .get)}
+        inl state = tns 0 .get
+        Loops.for {from=1; near_to=tns.length; state body=inl {state i} -> redo state (tns i .get)}
 
     /// Replicates the 1d `in` and maps it along the outer dimension as determined by in'.
     inl d2_replicate_map' f (!zip in) (!zip in') (!zip out) =
-        inl s = HostTensor.span
         inl dim_in :: () = in.dim
         inl dim_in'_a, dim_in'_b = in'.dim
 
@@ -609,19 +603,15 @@ inl {stream Cuda CudaTensor} ->
             stream gridDim
             blockDim=blockDimX,blockDimY
             kernel = cuda 
-                forcd {from=threadIdx.x+blockDim.x*blockIdx.x-dim_in.from; by=gridDim.x*blockDim.x; near_to=dim_in.near_to; body=inl {i} ->
-                        inl in = in i
-                        inl in' j = in' j i 
-                        inl out j = out j i
-                        forcd {
-                            from=threadIdx.y+blockDim.y*blockIdx.y-dim_in'_a.from
-                            by=gridDim.y*blockDim.y
-                            near_to=dim_in'_a.near_to
-                            body=inl {i} ->
-                                inl in' = in' i
-                                inl out = out i
-                                out.set (f in.get in'.get out.get)
-                            }
+                inl grid_for = grid_for {gridDim blockDim}
+                grid_for .x dim_in'_b {body=inl {i} ->
+                    inl in = in i
+                    inl in' j = in' j i 
+                    inl out j = out j i
+                    grid_for .y dim_in'_a {body=inl {i} ->
+                        inl in', out = in' i, out i
+                        out.set (f in.get in'.get out.get)
+                        }
                     }
             }
 
@@ -639,7 +629,6 @@ inl {stream Cuda CudaTensor} ->
     /// The inclusive scan over the innermost dimension.
     /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
     inl map_d1_inscan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
-        inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
 
@@ -656,29 +645,24 @@ inl {stream Cuda CudaTensor} ->
             stream blockDim
             gridDim = 1, gridDimY
             kernel = cuda 
-                forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from; by=gridDim.y*blockDim.y; near_to=dim_in_a.near_to; body=inl {i} ->
+                inl grid_for = grid_for {blockDim gridDim}
+                grid_for .y dim_in_a {body=inl {i} ->
                     inl in, out = in i, out i
 
-                    forcd {
-                        from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
-                        by=gridDim.x*blockDim.x
-                        near_to=dim_in_b.near_to
-                        state=dyn neutral_elem
-                        body=inl {state=prefix i} ->
-                            inl in, out = in i, out i
-                            inl state', ag = 
-                                cub_block_scan
-                                    {scan_type=.inclusive; is_input_tensor=false; return_aggregate=true}
-                                    {blockDim redo} (map_in in.get)
-                            out.set (map_out (redo prefix state') out.get)
-                            redo prefix ag
+                    grid_for .x dim_in_b {state=dyn neutral_elem; body=inl {state=prefix i} ->
+                        inl in, out = in i, out i
+                        inl state', ag = 
+                            cub_block_scan
+                                {scan_type=.inclusive; is_input_tensor=false; return_aggregate=true}
+                                {blockDim redo} (map_in in.get)
+                        out.set (map_out (redo prefix state') out.get)
+                        redo prefix ag
                         } |> ignore
                     }
             }
 
     /// Maps the two inputs and then reduces the first's inner dimension.
     inl map_d1_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) = 
-        inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         inl dim_in' :: () = in'.dim
 
@@ -698,32 +682,26 @@ inl {stream Cuda CudaTensor} ->
             stream blockDim
             gridDim=1,gridDimY
             kernel = cuda 
-                forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in'.from; by=gridDim.y*blockDim.y; near_to=dim_in'.near_to; body=inl {i} ->
-                    inl in = in i
-                    inl in' = in' i
+                inl grid_for = grid_for {blockDim gridDim}
+                grid_for .y dim_in_a {body=inl {i} ->
+                    inl in, in' = in i, in' i
 
-                    inl result = 
-                        forcd {
-                            from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
-                            by=gridDim.x*blockDim.x
-                            near_to=dim_in_b.near_to
-                            state=dyn neutral_elem 
-                            body=inl {state i} -> 
-                                inl in = in i 
-                                inl a = in.get
-                                redo state (map_in a in'.get)
+                    inl x = 
+                        grid_for .x dim_in_b {state=dyn neutral_elem; body=inl {i} ->
+                            inl in = in i 
+                            inl a = in.get
+                            redo state (map_in a in'.get)
                             }
                         |> cub_block_reduce {blockDim redo}
 
-                    if threadIdx.x = 0 then 
+                    if threadIdx.x = 0 then
                         inl out = out i
-                        out.set (map_out result out.get)
+                        out.set (map_out x out.get)
                     }
             }
 
     /// Maps the input and then for every operation in the sequence broadcast maps the reduction over its inner dimensions.
     inl map_d1_seq_broadcast' {d with seq} (!zip in) (!zip out) = 
-        inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
 
@@ -743,7 +721,8 @@ inl {stream Cuda CudaTensor} ->
             stream blockDim
             gridDim=1,gridDimY
             kernel = cuda 
-                forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from; by=gridDim.y*blockDim.y; near_to=dim_in_a.near_to; body=inl {i} ->
+                inl grid_for = grid_for {blockDim gridDim}
+                grid_for .y dim_in_a {body=inl {i} ->
                     inl in, out = in i, out i
 
                     inl create_items elem_type = HostTensor.create {
@@ -755,17 +734,9 @@ inl {stream Cuda CudaTensor} ->
 
                     inl items = create_items (type in.elem_type |> map_in)
 
-                    inl inner_loop =
-                        inl by=gridDim.x*blockDim.x
-                        inl from=threadIdx.x-dim_in_b.from // + blockDim.x*blockIdx.x = + 0
-                        inl near_to=dim_in_b.near_to
-                        inl body -> forcd {from=0;near_to=items_per_thread;body=inl {i} ->
-                            inl from = from+by*i
-                            if from < near_to then body {i from}
-                            }
+                    inl inner_loop = grid_loop .x dim_in_b
 
-                    inner_loop <| inl {i from} ->
-                        items i .set (in from .get |> map_in)
+                    inner_loop {body=inl {item i} -> items item .set (in i .get |> map_in)}
 
                     inl rec seq_loop items = function
                         | {s with redo map} :: s' ->
@@ -777,24 +748,25 @@ inl {stream Cuda CudaTensor} ->
                                 match s with
                                 | {map_redo} -> 
                                     inl items' = create_items (type map_redo items.elem_type)
-                                    inner_loop <| inl {i from} ->
-                                        items i .get |> map_redo |> items' i .set
+                                    inner_loop {body=inl {item} -> items item .get |> map_redo |> items' item .set}
                                     items'.bodies.ar
                                 | _ -> items.bodies.ar
                                 |> redo |> broadcast_zero
 
                             match s' with
                             | () -> 
-                                inner_loop <| inl {i from} ->
-                                    inl out = out from
-                                    map (items i .get) x
+                                inner_loop {body=inl {item i} ->
+                                    inl out = out i
+                                    map (items item .get) x
                                     <| out .get |> out .set
+                                    }
                             | _ ->
                                 inl items' = create_items (type map items.elem_type x)
-                                inner_loop <| inl {i from} ->
-                                    inl out = out from
-                                    map (items i .get) x
-                                    |> items' i .set
+                                inner_loop {body=inl {item i} ->
+                                    inl out = out i
+                                    map (items item .get) x
+                                    |> items' item .set
+                                    }
                                 seq_loop items' s'
 
                         seq_loop items (Tuple.wrap seq)
@@ -821,7 +793,6 @@ inl {stream Cuda CudaTensor} ->
 
     /// Maps the two inputs and then scans, maps, reduces and maps the first's inner dimension.
     inl mapi_d1_inscan_mapi_d1_reduce_mapi' {d with scan redo} (!zip in) (!zip in') (!zip out) = 
-        inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         inl dim_in' :: () = in'.dim
 
@@ -839,35 +810,31 @@ inl {stream Cuda CudaTensor} ->
             stream blockDim
             gridDim=1,gridDimY
             kernel = cuda 
-                forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in'.from; by=gridDim.y*blockDim.y; near_to=dim_in'.near_to; body=inl {i} ->
+                inl grid_for = grid_for {blockDim gridDim}
+                grid_for .y dim_in_a {body=inl {i} ->
                     inl in = in i
                     inl in' = in' i .get
 
                     inl _,redo_prefix =
-                        forcd {
-                            from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
-                            by=gridDim.x*blockDim.x
-                            near_to=dim_in_b.near_to
-                            state=dyn (scan.ne, redo.ne)
-                            body=inl {state=scan_prefix,redo_prefix i=j} ->
-                                inl in = in j .get
-                                inl scan_x, scan_prefix = 
-                                    match d with
-                                    | {mapi_in} -> mapi_in i j in in'
-                                    | {map_in} -> map_in in in'
-                                    | _ -> in
-                                    |> cub_block_scan 
-                                        {scan_type=.inclusive; is_input_tensor=false; return_aggregate=true}
-                                        {blockDim redo=scan.f}
-                                    |> Tuple.map (scan.f scan_prefix)
-                                inl redo_prefix = 
-                                    match d with
-                                    | {mapi_mid} -> mapi_mid i j scan_x in'
-                                    | {map_mid} -> map_mid scan_x in'
-                                    | _ -> scan_x
-                                    |> cub_block_reduce {blockDim redo=redo.f}
-                                    |> redo.f redo_prefix
-                                scan_prefix, redo_prefix
+                        grid_for .x dim_in_b {state=dyn (scan.ne, redo.ne); body=inl {state=scan_prefix,redo_prefix i=j} ->
+                            inl in = in j .get
+                            inl scan_x, scan_prefix = 
+                                match d with
+                                | {mapi_in} -> mapi_in i j in in'
+                                | {map_in} -> map_in in in'
+                                | _ -> in
+                                |> cub_block_scan 
+                                    {scan_type=.inclusive; is_input_tensor=false; return_aggregate=true}
+                                    {blockDim redo=scan.f}
+                                |> Tuple.map (scan.f scan_prefix)
+                            inl redo_prefix = 
+                                match d with
+                                | {mapi_mid} -> mapi_mid i j scan_x in'
+                                | {map_mid} -> map_mid scan_x in'
+                                | _ -> scan_x
+                                |> cub_block_reduce {blockDim redo=redo.f}
+                                |> redo.f redo_prefix
+                            scan_prefix, redo_prefix
                             }
                     if threadIdx.x = 0 then 
                         inl out = out i
@@ -882,7 +849,6 @@ inl {stream Cuda CudaTensor} ->
     /// The inclusive scan over the outermost dimension.
     /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
     inl map_d2_inscan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
-        inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
 
@@ -900,60 +866,56 @@ inl {stream Cuda CudaTensor} ->
             stream gridDim
             blockDim=blockDimX,blockDimY
             kernel = cuda 
-                forcd {from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from; by=gridDim.x*blockDim.x; near_to=dim_in_b.near_to; body=inl {i} ->
-                        inl in j = in j i
-                        inl out j = out j i
+                inl grid_for = grid_for {blockDim gridDim}
+                grid_for .x dim_in_b {body=inl {i} ->
+                    inl in j = in j i
+                    inl out j = out j i
 
-                        forcd {
-                            from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from
-                            by=gridDim.y*blockDim.y
-                            near_to=dim_in_a.near_to 
-                            state=dyn neutral_elem 
-                            body=inl {state=prefix i} -> 
-                                inl in, out = in i, out i
+                    grid_for .y dim_in_a {state=dyn neutral_elem; body=inl {state=prefix i} -> 
+                        inl in, out = in i, out i
 
-                                inl state, prefix = // block inclusive transposed scan
-                                    inl state = map_in in.get
-                                    inl near_to = blockDim.y
-                                    if near_to > 1 then
-                                        inl to = near_to-1
+                        inl state, prefix = // block inclusive transposed scan
+                            inl state = map_in in.get
+                            inl near_to = blockDim.y
+                            if near_to > 1 then
+                                inl from = 1
+                                inl to = near_to-from
 
-                                        inl ar = HostTensor.create {
-                                            array_create=array_create_cuda_shared
-                                            elem_type=state
-                                            dim=to, warp_size+1
-                                            }
+                                inl ar = 
+                                    HostTensor.create {
+                                        array_create=array_create_cuda_shared
+                                        elem_type=state
+                                        dim=to, blockDim.x
+                                        }
+                                    |> inl ar i -> ar i threadIdx.x
 
-                                        inl ar i = ar i threadIdx.x
+                                inl {state} =
+                                    whilecd {
+                                        state={from state}
+                                        cond=inl {from} -> from < near_to
+                                        body=inl {from state} ->
+                                            if threadIdx.y < near_to - from then ar threadIdx.y .set state
+                                            syncthreads()
+                                            inl d = {from=from*2; state}
+                                            if threadIdx.y >= from then { d with state = redo self (ar (threadIdx.y-from) .get) }
+                                            else d
+                                        }
+                                inl state = redo prefix state
+                                if threadIdx.y = to then ar 0 .set state
+                                syncthreads()
+                                state, ar 0 .get
+                            else
+                                inl x = redo prefix state
+                                x, x
 
-                                        inl {state} =
-                                            whilecd {
-                                                state={from=1; state}
-                                                cond=inl {from} -> from < near_to
-                                                body=inl {from state} ->
-                                                    if threadIdx.y < near_to - from then ar threadIdx.y .set state
-                                                    syncthreads()
-                                                    inl d = {from=from*2; state}
-                                                    if threadIdx.y >= from then { d with state = redo self (ar (threadIdx.y-from) .get) }
-                                                    else d
-                                                }
-                                        inl state = redo prefix state
-                                        if threadIdx.y = to then ar 0 .set state
-                                        syncthreads()
-                                        state, ar 0 .get
-                                    else
-                                        inl x = redo prefix state
-                                        x, x
-
-                                out.set (map_out state out.get)
-                                prefix
-                            } |> ignore
+                        out.set (map_out state out.get)
+                        prefix
+                        } |> ignore
                     }
             }
 
     /// Maps the two inputs and then reduces the first's outer dimension.
     inl map_d2_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) =
-        inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         inl dim_in' :: () = in'.dim
 
@@ -974,55 +936,52 @@ inl {stream Cuda CudaTensor} ->
             stream gridDim
             blockDim=blockDimX,blockDimY
             kernel = cuda 
-                forcd {from=threadIdx.x+blockDim.x*blockIdx.x-dim_in'.from; by=gridDim.x*blockDim.x; near_to=dim_in'.near_to; body=inl {i} ->
-                        inl in j = in j i
-                        inl in' = in' i
-                        inl out = out i
-                        inl finally result = out.set (map_out result out.get)
+                inl grid_for = grid_for {blockDim gridDim}
+                grid_for .x dim_in_b {body=inl {i} ->
+                    inl in j = in j i
+                    inl in' = in' i
+                    inl out = out i
+                    inl finally result = out.set (map_out result out.get)
 
-                        inl blockResult = forcd {
-                            from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from
-                            by=gridDim.y*blockDim.y
-                            near_to=dim_in_a.near_to 
-                            state=dyn neutral_elem 
-                            body=inl {state i} -> 
-                                inl in = in i 
-                                redo state (map_in in.get in'.get) 
+                    inl blockResult = 
+                        grid_for .y dim_in_a {state=dyn neutral_elem; body=inl {state i} -> 
+                            inl in = in i 
+                            redo state (map_in in.get in'.get) 
                             }
                         
-                        if blockDim.y > 1 then
-                            inl near_to = blockDim.y
-                            inl ar = HostTensor.create {
+                    if blockDim.y > 1 then
+                        inl near_to = blockDim.y
+                        inl ar = 
+                            HostTensor.create {
                                 array_create=array_create_cuda_shared
                                 elem_type=blockResult
-                                dim={from=1; near_to}, warp_size + 1
+                                dim={from=1; near_to}, blockDim.x
                                 }
-                            
-                            inl ar i = ar i threadIdx.x
+                            |> ar i -> ar i threadIdx.x
 
-                            whilecd {
-                                state={near_to state=blockResult}
-                                cond=inl {near_to} -> near_to >= 2
-                                body=inl {near_to state} ->
-                                    inl by = near_to/2 // It might be worth trying max 1 (near_to/3)
-                                    if threadIdx.y < near_to && threadIdx.y >= by then ar threadIdx.y .set state
-                                    syncthreads()
+                        whilecd {
+                            state={near_to state=blockResult}
+                            cond=inl {near_to} -> near_to >= 2
+                            body=inl {near_to state} ->
+                                inl by = near_to/2 // It might be worth trying max 1 (near_to/3)
+                                if threadIdx.y < near_to && threadIdx.y >= by then ar threadIdx.y .set state
+                                syncthreads()
 
-                                    {
-                                    near_to=by 
-                                    state=
-                                        if threadIdx.y < by then
-                                            forcd {from=threadIdx.y+by; by near_to state 
-                                                body=inl {state i} -> redo state (ar i .get)
-                                                }
-                                        else
-                                            state
-                                    }
+                                {
+                                near_to=by 
+                                state=
+                                    if threadIdx.y < by then
+                                        forcd {from=threadIdx.y+by; by near_to state 
+                                            body=inl {state i} -> redo state (ar i .get)
+                                            }
+                                    else
+                                        state
                                 }
-                            |> inl {state} -> if threadIdx.y = 0 then finally state
-                        else
-                            finally blockResult
-                    }
+                            }
+                        |> inl {state} -> if threadIdx.y = 0 then finally state
+                    else
+                        finally blockResult
+                }
             } |> ignore
 
     inl map_dx_redo_map_template dim kernel d in in' ret =
