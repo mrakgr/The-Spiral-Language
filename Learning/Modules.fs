@@ -58,7 +58,7 @@ inl load_mnist_tensors mnist_path =
             assert (image_size = size) "Mnist dimensions do not match the expected values."
             inl images, rows, cols = image_size
             HostTensor.array_as_tensor ar
-            |> HostTensor.reshape (images, rows * cols)
+            |> HostTensor.reshape (const (images, rows * cols))
             |> HostTensor.map (inl x -> unsafe_convert float32 x / 255f32)
             
         | {file label_size} ->
@@ -1500,16 +1500,14 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 toa_iter optimizer weights
             | _ _ -> ()
 
-        inl run_minibatch {state span} = 
-            inl view x = x.view_span span
-            inb {cost accuracy}, _ as er = apply (view input, view label)
-            //string_format "On minibatch {0}. Error = {1}" (show span, primal cost) |> writeline
+        inl run_minibatch {state input label} = 
+            inb {cost accuracy}, _ as er = apply (input, label)
 
             optimizer er
 
             inl running_cost =
                 match state with
-                | {running_cost} -> running_cost + to float64 (primal cost) * to float64 (HostTensor.span span)
+                | {running_cost} -> running_cost + to float64 (primal cost) * to float64 (dim1 input |> HostTensor.span)
                 
             match state with
             | {running_accuracy} -> { running_cost running_accuracy=running_accuracy + accuracy id }
@@ -1523,8 +1521,9 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             if macro.fs bool [text: "System.Double.IsNaN"; args: state.running_cost] then
                 state
             else
-                if span % by = 0 then run_minibatch {state span={from by}}
-                else run_minibatch {state span={from near_to=from+by |> min near_to}}
+                inl span = if span % by = 0 then {from by} else {from near_to=from+by |> min near_to} 
+                inl f x = x.view_span (const span)
+                run_minibatch {state input=f input; label=f label}
                 |> next
             }
 
