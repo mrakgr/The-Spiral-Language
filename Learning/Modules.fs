@@ -304,6 +304,30 @@ inl {stream Cuda CudaTensor} ->
         |> finally
 
     inl divup a b = (a-1)/b+1 // Integer division with rounding up. (a+b-1)/b is another variant on this.
+
+    inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
+        inl from = threadIdx axis + blockDim axis * blockIdx axis - dim.from
+        inl by = gridDim axis * blockDim axis
+        inl near_to = dim.near_to
+
+        inl {d with body} ->
+            inl state = 
+                match d with
+                | {state} -> state
+                | _ -> ()
+            match iteration_mode with
+            | .items_per_thread ->
+                inl items_per_thread = divup (span dim) by
+                forcd {from=0;near_to=items_per_thread; state body=inl {i=item} ->
+                    inl i = from + by * item
+                    if i < near_to then body {items_per_thread item state i} else state
+                    }
+            | .std -> forcd {from by near_to state body}
+
+    inl grid_for_items = grid_for_template {iteration_mode=.items_per_thread}
+    inl grid_for = grid_for_template {iteration_mode=.std}
+        
+
     inl warp_size = 32
     inl syncthreads () = macro.cd unit [text: "__syncthreads()"]
 
@@ -746,7 +770,7 @@ inl {stream Cuda CudaTensor} ->
 
                     inl inner_loop =
                         inl by=gridDim.x*blockDim.x
-                        inl from=threadIdx.x-dim_in_b.from
+                        inl from=threadIdx.x-dim_in_b.from // + blockDim.x*blockIdx.x = + 0
                         inl near_to=dim_in_b.near_to
                         inl body -> forcd {from=0;near_to=items_per_thread;body=inl {i} ->
                             inl from = from+by*i
