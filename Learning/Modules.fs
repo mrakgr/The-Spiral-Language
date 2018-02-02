@@ -533,7 +533,7 @@ inl {stream Cuda CudaTensor} ->
             run {
                 stream blockDim gridDim
                 kernel = cuda
-                    grid_for_items .x in_a {body=inl {num_valid item i} ->
+                    grid_for_items {blockDim gridDim} .x in_a {body=inl {num_valid item i} ->
                         inl temp = temp item
                         inl x = in i .get |> map_in |> cub_block_reduce {num_valid blockDim redo}
                         if threadIdx.x = 0 then temp .set x
@@ -548,24 +548,19 @@ inl {stream Cuda CudaTensor} ->
         run {
             stream blockDim gridDim
             kernel = cuda
-                forcd {from=blockIdx.x; by=gridDim.x; near_to=divup near_to blockDim.x; body=inl {i} ->
-                    inl prefix = temp i .get
-                    inl i = i * blockDim.x + threadIdx.x
-                    if i < near_to then 
-                        inl x =
-                            in i .get 
-                            |> map_in
-                            |> cub_block_scan
-                                {scan_type=.inclusive; return_aggregate=false; is_input_tensor=false}
-                                {blockDim redo}
-                            |> redo prefix
-                        inl out = out i
-                        out .set (map_out x out.get)
+                grid_for_items {blockDim gridDim} .x in_a {body=inl {num_valid item i} ->
+                    inl prefix, out = temp item .get, out i
+                    in i .get 
+                    |> map_in
+                    |> cub_block_scan
+                        {scan_type=.inclusive; return_aggregate=false; is_input_tensor=false}
+                        {blockDim redo}
+                    |> redo prefix
+                    |> inl x -> out .set (map_out x out.get)
                     }
             }
 
     /// Flattens the tensor to 1d, maps and reduces it.
-    /// Requires the redo and the neutral element.
     /// Map is optional. Allocates a temporary tensor for the intermediary results.
     inl map_redo {d with redo neutral_elem} (!zip (!to_1d (!to_dev_tensor in))) =
         inl near_to = in.length
