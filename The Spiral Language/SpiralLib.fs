@@ -1002,6 +1002,7 @@ inl map_dims = Tuple.map map_dim << Tuple.wrap
 inl span = function
     | {from near_to} -> near_to - from
     | {from by} -> by
+    | {from to} -> to - from + 1
 
 inl rec view_offsets = function
     | s :: s', o :: o', i :: i' -> o + i * s :: view_offsets (s', o', i')
@@ -1199,7 +1200,7 @@ inl map f tns =
 /// Copies a tensor. tensor -> tensor
 inl copy = map id
 
-/// Sets the tensor dimensions assuming the overall length matches. Does not copy. size -> tensor -> tensor.
+/// Sets the tensor dimensions assuming the overall length matches. Does not copy. (dim -> dim) -> tensor -> tensor.
 inl reshape f tns = 
     inl dim' = tns.dim
     inl dim = tensor_update_dim f dim' |> map_dims
@@ -1207,7 +1208,11 @@ inl reshape f tns =
     tns .update_dim (const dim)
         .update_body (inl {d with size=size' offset=o::o' ar} ->
             assert (Tuple.forall ((=) 0) o') "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead"
-            inl {size offset=_::o'} = make_body {dim array_create=(inl _ _ -> ()); elem_type=ar.elem_type; last_size=Tuple.last size'}
+            inl make_body dim = make_body {dim array_create=(inl _ _ -> ()); elem_type=ar.elem_type; last_size=Tuple.last size'}
+            inl _ = 
+                inl {size} = make_body dim'
+                assert (size = size') "The inner sizes of the tensor being reshaped must be contiguous."
+            inl {size offset=_::o'} = make_body dim
             {d with size offset=o::o'}
             )
 

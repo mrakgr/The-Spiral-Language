@@ -327,7 +327,7 @@ inl {stream Cuda CudaTensor} ->
     inl grid_for_items = grid_for_template {iteration_mode=.items_per_thread}
     inl grid_for = grid_for_template {iteration_mode=.std}
         
-
+    inl s = span
     inl warp_size = 32
     inl syncthreads () = macro.cd unit [text: "__syncthreads()"]
 
@@ -452,20 +452,18 @@ inl {stream Cuda CudaTensor} ->
         ar 0
 
     inl map' f (!zip in) (!zip out) =
-        assert_zip (in, out) |> ignore
+        assert (in.dim = out.dim) "The input and output dimensions must be equal."
         inl in = to_1d in |> to_dev_tensor
         inl out = to_1d out |> to_dev_tensor
-        inl near_to = in.length
+        inl in_a :: () = in.dim
 
         inl blockDim = 128
-        inl gridDim = min 64 (divup near_to blockDim)
+        inl gridDim = min 64 (divup (s in_a) blockDim)
 
         run {
             stream blockDim gridDim
             kernel = cuda // Lexical scoping rocks.
-                inl from = blockIdx.x * blockDim.x + threadIdx.x
-                inl by = gridDim.x * blockDim.x
-                forcd {from near_to by body=inl {i} -> 
+                grid_for {blockDim gridDim} .x in_a {body=inl {i} ->
                     inl out = out i
                     inl in = in i
                     out .set (f in.get out.get)
@@ -480,7 +478,6 @@ inl {stream Cuda CudaTensor} ->
     /// The exclusive scan over the innermost dimension.
     /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
     inl map_d1_exscan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
-        inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
 
@@ -497,21 +494,17 @@ inl {stream Cuda CudaTensor} ->
             stream blockDim
             gridDim = 1, gridDimY
             kernel = cuda 
-                forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from; by=gridDim.y*blockDim.y; near_to=dim_in_a.near_to; body=inl {i} ->
+                inl grid_for = grid_for {blockDim gridDim}
+                grid_for .y dim_in_a {body=inl {i} ->
                     inl in, out = in i, out i
 
-                    forcd {
-                        from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
-                        by=gridDim.x*blockDim.x
-                        near_to=dim_in_b.near_to
-                        state=dyn neutral_elem
-                        body=inl {state=prefix i} ->
-                            inl in, out = in i, out i
-                            inl state, prefix = 
-                                cub_block_scan {scan_type=.exclusive,prefix; is_input_tensor=false; return_aggregate=true}
-                                    {blockDim redo} (map_in in.get)
-                            out.set (map_out state out.get)
-                            prefix
+                    grid_for .x dim_in_b {state=neutral_elem; body=inl {state=prefix i ->
+                        inl in, out = in i, out i
+                        inl state, prefix = 
+                            cub_block_scan {scan_type=.exclusive,prefix; is_input_tensor=false; return_aggregate=true}
+                                {blockDim redo} (map_in in.get)
+                        out.set (map_out state out.get)
+                        prefix
                         } |> ignore
                     }
             }
