@@ -317,10 +317,12 @@ inl {stream Cuda CudaTensor} ->
                 | _ -> ()
             match iteration_mode with
             | .items_per_thread ->
-                inl items_per_thread = divup (span dim) by
+                inl span = s dim
+                inl items_per_thread = divup span by
                 forcd {from=0;near_to=items_per_thread; state body=inl {i=item} ->
                     inl i = from + by * item
-                    if i < near_to then body {items_per_thread item state i} else state
+                    inl num_valid = span - by * item
+                    if i < near_to then body {span num_valid items_per_thread item state i} else state
                     }
             | .std -> forcd {from by near_to state body}
 
@@ -511,32 +513,29 @@ inl {stream Cuda CudaTensor} ->
 
     /// Inclusive scan over the entire tensor.
     inl map_inscan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
-        assert_zip (in, out) |> ignore
+        assert (in.dim = out.dim) "The input and output dimensions must be equal."
         inl in = to_1d in |> to_dev_tensor
         inl out = to_1d out |> to_dev_tensor
-        inl near_to = in.length
+        inl in_a :: () = in.dim
 
         inl blockDim = lit_min 1024 near_to
-        inl gridDim = lit_min 64 (divup near_to blockDim)
+        inl num_blocks = divup (s in_a) blockDim
+        inl gridDim = lit_min 64 num_blocks
 
         inl map_in = match d with {map_in} -> map_in | _ -> id
         inl map_out = match d with {map_out} -> map_out | _ -> const
 
         /// TODO: Optimize the case where the size of temp is just 1.
-        inb temp = CudaTensor.create {elem_type=type map_in in.elem_type; dim=1,divup near_to blockDim}
+        inb temp = CudaTensor.create {elem_type=type map_in in.elem_type; dim=1,num_blocks}
 
         inl _ = // First perform the reduction to get the aggregates.
             inl temp = to_dev_tensor (temp 0)
             run {
                 stream blockDim gridDim
                 kernel = cuda
-                    forcd {from=blockIdx.x; by=gridDim.x; near_to=divup near_to blockDim.x; body=inl {i} ->
-                        inl temp = temp i
-                        inl i = i * blockDim.x + threadIdx.x
-                        inl x = 
-                            if i < near_to then in i .get else neutral_elem
-                            |> map_in
-                            |> cub_block_reduce {blockDim redo}
+                    grid_for_items .x in_a {body=inl {num_valid item i} ->
+                        inl temp = temp item
+                        inl x = in i .get |> map_in |> cub_block_reduce {num_valid blockDim redo}
                         if threadIdx.x = 0 then temp .set x
                         }
                 }
