@@ -37,58 +37,40 @@ let (var_0: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(6L))
 let (var_1: int64) = 0L
 method_0((var_0: (int64 [])), (var_1: int64))
 let (var_2: int64) = var_0.LongLength
-let (var_3: bool) = (var_2 > 0L)
-let (var_4: bool) = (var_3 = false)
-if var_4 then
-    (failwith "Tensor needs to be at least size 1.")
+let (var_6: bool) = (var_2 > 0L)
+let (var_7: bool) = (var_6 = false)
+if var_7 then
+    (failwith "Tensor must be at least of size 1.")
 else
     ()
-let (var_8: bool) = (0L < var_2)
-let (var_9: bool) = (var_8 = false)
-if var_9 then
-    (failwith "Tensor needs to be at least size 1.")
+let (var_8: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_2))
+let (var_9: int64) = 0L
+method_1((var_0: (int64 [])), (var_2: int64), (var_8: (int64 [])), (var_9: int64))
+let (var_10: int64) = 2L
+let (var_11: int64) = 3L
+let (var_12: int64) = (var_10 * var_11)
+let (var_13: bool) = (var_12 = var_2)
+let (var_14: bool) = (var_13 = false)
+if var_14 then
+    (failwith "The product of dimensions of the new tensor must equal that of the previous one.")
 else
     ()
-let (var_10: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_2))
-let (var_11: int64) = 0L
-method_1((var_0: (int64 [])), (var_2: int64), (var_10: (int64 [])), (var_11: int64))
-let (var_12: int64) = 2L
-let (var_13: int64) = 3L
-let (var_14: bool) = (var_12 > 0L)
-let (var_15: bool) = (var_14 = false)
-if var_15 then
-    (failwith "Tensor needs to be at least size 1.")
+let (var_15: bool) = (var_10 = 2L)
+let (var_17: bool) =
+    if var_15 then
+        (var_11 = 3L)
+    else
+        false
+let (var_18: bool) = (var_17 = false)
+if var_18 then
+    (failwith "The dimensions do not match.")
 else
     ()
-let (var_16: bool) = (var_13 > 0L)
-let (var_17: bool) = (var_16 = false)
-if var_17 then
-    (failwith "Tensor needs to be at least size 1.")
-else
-    ()
-let (var_18: int64) = (var_12 * var_13)
-let (var_19: bool) = (var_18 = var_2)
+let (var_19: bool) = (6L = var_12)
 let (var_20: bool) = (var_19 = false)
 if var_20 then
     (failwith "The product of dimensions of the new tensor must equal that of the previous one.")
 else
     ()
-let (var_21: bool) = (var_12 = 2L)
-let (var_23: bool) =
-    if var_21 then
-        (var_13 = 3L)
-    else
-        false
-let (var_24: bool) = (var_23 = false)
-if var_24 then
-    (failwith "The dimensions do not match.")
-else
-    ()
-let (var_25: bool) = (6L = var_18)
-let (var_26: bool) = (var_25 = false)
-if var_26 then
-    (failwith "The product of dimensions of the new tensor must equal that of the previous one.")
-else
-    ()
-let (var_27: int64) = var_10.[int32 3L]
+let (var_21: int64) = var_8.[int32 3L]
 

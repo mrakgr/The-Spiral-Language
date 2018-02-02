@@ -7,20 +7,19 @@ extern "C" {
 """
 
 let rec method_1((var_0: (int64 [])), (var_1: int64)): unit =
-    let (var_2: bool) = (var_1 < 1001L)
+    let (var_2: bool) = (var_1 < 1000L)
     if var_2 then
-        let (var_3: bool) = (var_1 >= 1L)
+        let (var_3: bool) = (var_1 >= 0L)
         let (var_4: bool) = (var_3 = false)
         if var_4 then
             (failwith "Argument out of bounds.")
         else
             ()
-        let (var_5: int64) = (var_1 - 1L)
-        let (var_6: int64) = (var_5 * 9L)
-        let (var_7: int64) = 2L
-        method_2((var_1: int64), (var_0: (int64 [])), (var_6: int64), (var_7: int64))
-        let (var_8: int64) = (var_1 + 1L)
-        method_1((var_0: (int64 [])), (var_8: int64))
+        let (var_5: int64) = (var_1 * 9L)
+        let (var_6: int64) = 0L
+        method_2((var_1: int64), (var_0: (int64 [])), (var_5: int64), (var_6: int64))
+        let (var_7: int64) = (var_1 + 1L)
+        method_1((var_0: (int64 [])), (var_7: int64))
     else
         ()
 and method_5((var_0: bool), (var_1: int64), (var_2: (int64 [])), (var_3: int64), (var_4: int64), (var_5: string), (var_6: int64)): unit =
@@ -50,21 +49,22 @@ and method_5((var_0: bool), (var_1: int64), (var_2: (int64 [])), (var_3: int64),
     else
         (failwith "pint64")
 and method_2((var_0: int64), (var_1: (int64 [])), (var_2: int64), (var_3: int64)): unit =
-    let (var_4: bool) = (var_3 < 11L)
+    let (var_4: bool) = (var_3 < 9L)
     if var_4 then
-        let (var_5: bool) = (var_3 >= 2L)
+        let (var_5: bool) = (var_3 >= 0L)
         let (var_6: bool) = (var_5 = false)
         if var_6 then
             (failwith "Argument out of bounds.")
         else
             ()
-        let (var_7: int64) = (var_3 - 2L)
-        let (var_8: int64) = (var_2 + var_7)
-        let (var_9: int64) = 2L
-        let (var_10: int64) = method_3((var_0: int64), (var_3: int64), (var_9: int64))
-        var_1.[int32 var_8] <- var_10
-        let (var_11: int64) = (var_3 + 1L)
-        method_2((var_0: int64), (var_1: (int64 [])), (var_2: int64), (var_11: int64))
+        let (var_7: int64) = (var_2 + var_3)
+        let (var_8: int64) = (var_0 + 1L)
+        let (var_9: int64) = (var_3 + 2L)
+        let (var_10: int64) = 2L
+        let (var_11: int64) = method_3((var_8: int64), (var_9: int64), (var_10: int64))
+        var_1.[int32 var_7] <- var_11
+        let (var_12: int64) = (var_3 + 1L)
+        method_2((var_0: int64), (var_1: (int64 [])), (var_2: int64), (var_12: int64))
     else
         ()
 and method_6((var_0: bool), (var_1: int64), (var_2: (int64 [])), (var_3: int64), (var_4: int64), (var_5: string), (var_6: int64), (var_7: int64)): unit =
@@ -316,32 +316,32 @@ and method_11((var_0: int64), (var_1: int64), (var_2: (int64 [])), (var_3: int64
 and method_12((var_0: int64), (var_1: (int64 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64)): int64 =
     let (var_6: bool) = (var_5 <= var_3)
     if var_6 then
-        let (var_7: bool) = (var_5 >= 1L)
-        let (var_9: bool) =
-            if var_7 then
-                (var_5 < 1001L)
+        let (var_7: int64) = (var_5 - 1L)
+        let (var_8: bool) = (var_7 >= 0L)
+        let (var_10: bool) =
+            if var_8 then
+                (var_7 < 1000L)
             else
                 false
-        let (var_10: bool) = (var_9 = false)
-        if var_10 then
+        let (var_11: bool) = (var_10 = false)
+        if var_11 then
             (failwith "Argument out of bounds.")
         else
             ()
-        let (var_11: int64) = (var_5 - 1L)
-        let (var_12: int64) = (var_11 * 9L)
-        let (var_13: bool) = (var_0 >= 2L)
-        let (var_15: bool) =
-            if var_13 then
-                (var_0 < 11L)
+        let (var_12: int64) = (var_7 * 9L)
+        let (var_13: int64) = (var_0 - 2L)
+        let (var_14: bool) = (var_13 >= 0L)
+        let (var_16: bool) =
+            if var_14 then
+                (var_13 < 9L)
             else
                 false
-        let (var_16: bool) = (var_15 = false)
-        if var_16 then
+        let (var_17: bool) = (var_16 = false)
+        if var_17 then
             (failwith "Argument out of bounds.")
         else
             ()
-        let (var_17: int64) = (var_0 - 2L)
-        let (var_18: int64) = (var_12 + var_17)
+        let (var_18: int64) = (var_12 + var_13)
         let (var_19: int64) = var_1.[int32 var_18]
         let (var_20: int64) = (var_2 + var_19)
         let (var_21: bool) = (var_20 = var_3)
@@ -358,7 +358,7 @@ and method_12((var_0: int64), (var_1: (int64 [])), (var_2: int64), (var_3: int64
     else
         var_4
 let (var_2: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(9000L))
-let (var_3: int64) = 1L
+let (var_3: int64) = 0L
 method_1((var_2: (int64 [])), (var_3: int64))
 let (var_4: int64) = 0L
 let (var_5: int64) = 0L

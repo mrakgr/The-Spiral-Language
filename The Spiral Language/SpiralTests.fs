@@ -926,7 +926,7 @@ let test85 =
     "test85",[host_tensor],"Do the reshape and the to_1d work?",
     """
 open HostTensor
-inl ar = init (32*32) id |> reshape (16,64)
+inl ar = init (32*32) id |> reshape (inl x -> 16,x/16)
 (ar 0 0, ar 0 1, ar 0 2, ar 1 0, ar 1 1, ar 1 2, to_1d ar 123) |> Tuple.map (inl x -> x.get)
     """
 
@@ -980,7 +980,7 @@ open HostTensor
 inl tns =
     Array.init 6 id
     |> array_to_tensor
-    |> reshape (dyn (2,3))
+    |> reshape (inl _ -> dyn (2,3))
     |> assert_size (2,3)
     
 tns 1 0 .get |> ignore
@@ -1018,22 +1018,13 @@ inl d = unsafe_convert float64
 Array.init 8 (inl i -> {x = d i; y = d i-30.0} |> dyn |> packed_stack) |> show
     """
 
-let test96 =
-    "test96",[host_tensor],"Does the show_tensor work?",
-    """
-open HostTensor
-inl w = {from=1; near_to=3}, {from=1; near_to=3},{from=1; near_to=4}
-init ({from=1; near_to=5},3,10) (inl a b c -> a*b*c)  
-|> show.range w
-    """
-
 let test97 =
     "test97",[host_tensor],"Does the view_span work?",
     """
 open HostTensor
 inl w = {from=1; by=2}, {from=1; by=2},{from=1; by=3}
-init ({from=1; near_to=5},3,10) (inl a b c -> a*b*c) .view_span w
-|> show.all
+init (4,3,10) (inl a b c -> a*b*c) .view (const w)
+|> show
     """
 
 let test98 =
@@ -1835,10 +1826,12 @@ inl x_range = {from=1; to=1000}
 inl n_range = {from=2; to=10}
 
 inl x_to_n = 
-    inl cache = HostTensor.init (x_range,n_range) (inl x n ->
+    inl span x = x.to - x.from + 1
+    inl cache = HostTensor.init (span x_range,span n_range) (inl x n ->
+        inl x,n = x + x_range.from, n + n_range.from
         for {from=2; to=n; state=x; body=inl {state=x'} -> x*x'}
         )
-    inl (x, n) -> cache x n .get
+    inl (x, n) -> cache (x - x_range.from) (n - n_range.from) .get
 
 met rec solve !dyn state !dyn sum !dyn from to,n =
     for' {from to state body=inl {next state i=x} ->
@@ -1864,7 +1857,7 @@ let tests =
     test60';test61;test62;test63;       test65;test66;test67;test68;test69
     test70;test71';test72;test73;test74;test75;test76';test77';test78;test79
     test80;test81;test82;test83;test84;test85;test86;test87;test88;test89
-    test90;test91;test92;test93;test94;test95;test96;test97;test98;test99
+    test90;test91;test92;test93;test94;test95;       test97;test98;test99
     test100;test101
     hacker_rank_1;hacker_rank_2;hacker_rank_3;hacker_rank_4;hacker_rank_5;hacker_rank_6;hacker_rank_7;hacker_rank_8;hacker_rank_9
     parsing1;parsing2;parsing3;parsing4;parsing5;parsing6;parsing7;parsing8

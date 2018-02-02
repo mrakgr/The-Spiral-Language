@@ -21,25 +21,13 @@ and Env1 =
     end
 and Env2 =
     struct
-    val mem_0: int64
-    val mem_1: int64
+    val mem_0: Env1
+    val mem_1: Tuple0
     new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
     end
-and Tuple3 =
+and Env3 =
     struct
     val mem_0: Env2
-    val mem_1: Env2
-    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
-    end
-and Env4 =
-    struct
-    val mem_0: Env1
-    val mem_1: Tuple3
-    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
-    end
-and Env5 =
-    struct
-    val mem_0: Env4
     new(arg_mem_0) = {mem_0 = arg_mem_0}
     end
 let rec method_0((var_0: (int64 [])), (var_1: int64)): unit =
@@ -122,4 +110,4 @@ method_0((var_0: (int64 [])), (var_1: int64))
 let (var_4: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(4L))
 let (var_5: int64) = 0L
 method_2((var_0: (int64 [])), (var_4: (int64 [])), (var_5: int64))
-(Env5((Env4((Env1(var_4, Tuple0(0L, 0L), Tuple0(2L, 1L))), Tuple3((Env2(0L, 2L)), (Env2(0L, 2L)))))))
+(Env3((Env2((Env1(var_4, Tuple0(0L, 0L), Tuple0(2L, 1L))), Tuple0(2L, 2L)))))

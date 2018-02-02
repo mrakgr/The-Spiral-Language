@@ -58,7 +58,7 @@ inl load_mnist_tensors mnist_path =
             assert (image_size = size) "Mnist dimensions do not match the expected values."
             inl images, rows, cols = image_size
             HostTensor.array_as_tensor ar
-            |> HostTensor.reshape (images, rows * cols)
+            |> HostTensor.reshape (const (images, rows * cols))
             |> HostTensor.map (inl x -> unsafe_convert float32 x / 255f32)
             
         | {file label_size} ->
@@ -457,12 +457,11 @@ inl {stream Cuda CudaTensor} ->
     /// The exclusive scan over the innermost dimension.
     /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
     inl map_d1_exscan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
-        inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
 
-        inl blockDim = lit_min 1024 (s dim_in_b)
-        inl gridDimY = lit_min 64 (s dim_in_a)
+        inl blockDim = lit_min 1024 dim_in_b
+        inl gridDimY = lit_min 64 dim_in_a
 
         inl in = to_dev_tensor in
         inl out = to_dev_tensor out
@@ -474,13 +473,13 @@ inl {stream Cuda CudaTensor} ->
             stream blockDim
             gridDim = 1, gridDimY
             kernel = cuda 
-                forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from; by=gridDim.y*blockDim.y; near_to=dim_in_a.near_to; body=inl {i} ->
+                forcd {from=threadIdx.y+blockDim.y*blockIdx.y; by=gridDim.y*blockDim.y; near_to=dim_in_a; body=inl {i} ->
                     inl in, out = in i, out i
 
                     forcd {
-                        from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
+                        from=threadIdx.x+blockDim.x*blockIdx.x
                         by=gridDim.x*blockDim.x
-                        near_to=dim_in_b.near_to
+                        near_to=dim_in_b
                         state=dyn neutral_elem
                         body=inl {state=prefix i} ->
                             inl in, out = in i, out i
@@ -580,16 +579,15 @@ inl {stream Cuda CudaTensor} ->
 
     /// Replicates the 1d `in` and maps it along the outer dimension as determined by in'.
     inl d2_replicate_map' f (!zip in) (!zip in') (!zip out) =
-        inl s = HostTensor.span
         inl dim_in :: () = in.dim
         inl dim_in'_a, dim_in'_b = in'.dim
 
         assert (dim_in = dim_in'_b) "Input's dimension must equal the second input's inner dimension."
         assert (in'.dim = out.dim) "Second input must have the same dimension as the output."
 
-        inl blockDimX = min warp_size (s dim_in)
-        inl blockDimY = min 32 (s dim_in'_a)
-        inl gridDim = min 64 (divup (s dim_in) blockDimX)
+        inl blockDimX = min warp_size dim_in
+        inl blockDimY = min 32 dim_in'_a
+        inl gridDim = min 64 (divup dim_in blockDimX)
 
         inl in = to_dev_tensor in
         inl in' = to_dev_tensor in'
@@ -599,14 +597,14 @@ inl {stream Cuda CudaTensor} ->
             stream gridDim
             blockDim=blockDimX,blockDimY
             kernel = cuda 
-                forcd {from=threadIdx.x+blockDim.x*blockIdx.x-dim_in.from; by=gridDim.x*blockDim.x; near_to=dim_in.near_to; body=inl {i} ->
+                forcd {from=threadIdx.x+blockDim.x*blockIdx.x; by=gridDim.x*blockDim.x; near_to=dim_in; body=inl {i} ->
                         inl in = in i
                         inl in' j = in' j i 
                         inl out j = out j i
                         forcd {
-                            from=threadIdx.y+blockDim.y*blockIdx.y-dim_in'_a.from
+                            from=threadIdx.y+blockDim.y*blockIdx.y
                             by=gridDim.y*blockDim.y
-                            near_to=dim_in'_a.near_to
+                            near_to=dim_in'_a
                             body=inl {i} ->
                                 inl in' = in' i
                                 inl out = out i
@@ -629,12 +627,11 @@ inl {stream Cuda CudaTensor} ->
     /// The inclusive scan over the innermost dimension.
     /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
     inl map_d1_inscan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
-        inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
 
-        inl blockDim = lit_min 1024 (s dim_in_b)
-        inl gridDimY = lit_min 64 (s dim_in_a)
+        inl blockDim = lit_min 1024 dim_in_b
+        inl gridDimY = lit_min 64 dim_in_a
 
         inl in = to_dev_tensor in
         inl out = to_dev_tensor out
@@ -646,13 +643,13 @@ inl {stream Cuda CudaTensor} ->
             stream blockDim
             gridDim = 1, gridDimY
             kernel = cuda 
-                forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from; by=gridDim.y*blockDim.y; near_to=dim_in_a.near_to; body=inl {i} ->
+                forcd {from=threadIdx.y+blockDim.y*blockIdx.y; by=gridDim.y*blockDim.y; near_to=dim_in_a; body=inl {i} ->
                     inl in, out = in i, out i
 
                     forcd {
-                        from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
+                        from=threadIdx.x+blockDim.x*blockIdx.x
                         by=gridDim.x*blockDim.x
-                        near_to=dim_in_b.near_to
+                        near_to=dim_in_b
                         state=dyn neutral_elem
                         body=inl {state=prefix i} ->
                             inl in, out = in i, out i
@@ -668,15 +665,14 @@ inl {stream Cuda CudaTensor} ->
 
     /// Maps the two inputs and then reduces the first's inner dimension.
     inl map_d1_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) = 
-        inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         inl dim_in' :: () = in'.dim
 
         assert (dim_in' = dim_in_a) "Input's outer dimension must equal the output's dimension."
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        inl blockDim = lit_min 1024 (s dim_in_b)
-        inl gridDimY = lit_min 64 (s dim_in')
+        inl blockDim = lit_min 1024 dim_in_b
+        inl gridDimY = lit_min 64 dim_in'
 
         inl in = to_dev_tensor in
         inl in' = to_dev_tensor in'
@@ -688,15 +684,15 @@ inl {stream Cuda CudaTensor} ->
             stream blockDim
             gridDim=1,gridDimY
             kernel = cuda 
-                forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in'.from; by=gridDim.y*blockDim.y; near_to=dim_in'.near_to; body=inl {i} ->
+                forcd {from=threadIdx.y+blockDim.y*blockIdx.y; by=gridDim.y*blockDim.y; near_to=dim_in'; body=inl {i} ->
                     inl in = in i
                     inl in' = in' i
 
                     inl result = 
                         forcd {
-                            from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
+                            from=threadIdx.x+blockDim.x*blockIdx.x
                             by=gridDim.x*blockDim.x
-                            near_to=dim_in_b.near_to
+                            near_to=dim_in_b
                             state=dyn neutral_elem 
                             body=inl {state i} -> 
                                 inl in = in i 
@@ -713,16 +709,15 @@ inl {stream Cuda CudaTensor} ->
 
     /// Maps the input and then for every operation in the sequence broadcast maps the reduction over its inner dimensions.
     inl map_d1_seq_broadcast' {d with seq} (!zip in) (!zip out) = 
-        inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
 
-        inl num_valid = s dim_in_b
+        inl num_valid = dim_in_b
         inl items_per_thread, blockDim =
             assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
             if num_valid <= 1024 then 1, num_valid
             else divup num_valid 256, 256
-        inl gridDimY = min 64 (s dim_in_a)
+        inl gridDimY = min 64 dim_in_a
 
         inl in = to_dev_tensor in
         inl out = to_dev_tensor out
@@ -733,7 +728,7 @@ inl {stream Cuda CudaTensor} ->
             stream blockDim
             gridDim=1,gridDimY
             kernel = cuda 
-                forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from; by=gridDim.y*blockDim.y; near_to=dim_in_a.near_to; body=inl {i} ->
+                forcd {from=threadIdx.y+blockDim.y*blockIdx.y; by=gridDim.y*blockDim.y; near_to=dim_in_a; body=inl {i} ->
                     inl in, out = in i, out i
 
                     inl create_items elem_type = HostTensor.create {
@@ -747,8 +742,8 @@ inl {stream Cuda CudaTensor} ->
 
                     inl inner_loop =
                         inl by=gridDim.x*blockDim.x
-                        inl from=threadIdx.x-dim_in_b.from
-                        inl near_to=dim_in_b.near_to
+                        inl from=threadIdx.x
+                        inl near_to=dim_in_b
                         inl body -> forcd {from=0;near_to=items_per_thread;body=inl {i} ->
                             inl from = from+by*i
                             if from < near_to then body {i from}
@@ -811,15 +806,14 @@ inl {stream Cuda CudaTensor} ->
 
     /// Maps the two inputs and then scans, maps, reduces and maps the first's inner dimension.
     inl mapi_d1_inscan_mapi_d1_reduce_mapi' {d with scan redo} (!zip in) (!zip in') (!zip out) = 
-        inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         inl dim_in' :: () = in'.dim
 
         assert (dim_in' = dim_in_a) "Input's outer dimension must equal the output's dimension."
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        inl blockDim = lit_min 1024 (s dim_in_b)
-        inl gridDimY = lit_min 64 (s dim_in')
+        inl blockDim = lit_min 1024 dim_in_b
+        inl gridDimY = lit_min 64 dim_in'
 
         inl in = to_dev_tensor in
         inl in' = to_dev_tensor in'
@@ -829,15 +823,15 @@ inl {stream Cuda CudaTensor} ->
             stream blockDim
             gridDim=1,gridDimY
             kernel = cuda 
-                forcd {from=threadIdx.y+blockDim.y*blockIdx.y-dim_in'.from; by=gridDim.y*blockDim.y; near_to=dim_in'.near_to; body=inl {i} ->
+                forcd {from=threadIdx.y+blockDim.y*blockIdx.y; by=gridDim.y*blockDim.y; near_to=dim_in'; body=inl {i} ->
                     inl in = in i
                     inl in' = in' i .get
 
                     inl _,redo_prefix =
                         forcd {
-                            from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from
+                            from=threadIdx.x+blockDim.x*blockIdx.x
                             by=gridDim.x*blockDim.x
-                            near_to=dim_in_b.near_to
+                            near_to=dim_in_b
                             state=dyn (scan.ne, redo.ne)
                             body=inl {state=scan_prefix,redo_prefix i=j} ->
                                 inl in = in j .get
@@ -872,13 +866,12 @@ inl {stream Cuda CudaTensor} ->
     /// The inclusive scan over the outermost dimension.
     /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
     inl map_d2_inscan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
-        inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
 
-        inl blockDimX = lit_min warp_size (s dim_in_b)
-        inl blockDimY = lit_min 32 (s dim_in_a)
-        inl gridDim = min 64 (divup (s dim_in_b) blockDimX)
+        inl blockDimX = lit_min warp_size dim_in_b
+        inl blockDimY = lit_min 32 dim_in_a
+        inl gridDim = min 64 (divup dim_in_b blockDimX)
 
         inl in = to_dev_tensor in
         inl out = to_dev_tensor out
@@ -890,14 +883,14 @@ inl {stream Cuda CudaTensor} ->
             stream gridDim
             blockDim=blockDimX,blockDimY
             kernel = cuda 
-                forcd {from=threadIdx.x+blockDim.x*blockIdx.x-dim_in_b.from; by=gridDim.x*blockDim.x; near_to=dim_in_b.near_to; body=inl {i} ->
+                forcd {from=threadIdx.x+blockDim.x*blockIdx.x; by=gridDim.x*blockDim.x; near_to=dim_in_b; body=inl {i} ->
                         inl in j = in j i
                         inl out j = out j i
 
                         forcd {
-                            from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from
+                            from=threadIdx.y+blockDim.y*blockIdx.y
                             by=gridDim.y*blockDim.y
-                            near_to=dim_in_a.near_to 
+                            near_to=dim_in_a 
                             state=dyn neutral_elem 
                             body=inl {state=prefix i} -> 
                                 inl in, out = in i, out i
@@ -943,16 +936,15 @@ inl {stream Cuda CudaTensor} ->
 
     /// Maps the two inputs and then reduces the first's outer dimension.
     inl map_d2_redo_map' {d with redo neutral_elem} (!zip in) (!zip in') (!zip out) =
-        inl s = HostTensor.span
         inl dim_in_a, dim_in_b = in.dim
         inl dim_in' :: () = in'.dim
 
         assert (dim_in' = dim_in_b) "Input's inner dimension must equal the output's dimension."
         assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-        inl blockDimX = lit_min warp_size (s dim_in')
-        inl blockDimY = lit_min 32 (s dim_in_a)
-        inl gridDim = min 64 (divup (s dim_in') blockDimX)
+        inl blockDimX = lit_min warp_size dim_in'
+        inl blockDimY = lit_min 32 dim_in_a
+        inl gridDim = min 64 (divup dim_in' blockDimX)
 
         inl in = to_dev_tensor in
         inl in' = to_dev_tensor in'
@@ -964,16 +956,16 @@ inl {stream Cuda CudaTensor} ->
             stream gridDim
             blockDim=blockDimX,blockDimY
             kernel = cuda 
-                forcd {from=threadIdx.x+blockDim.x*blockIdx.x-dim_in'.from; by=gridDim.x*blockDim.x; near_to=dim_in'.near_to; body=inl {i} ->
+                forcd {from=threadIdx.x+blockDim.x*blockIdx.x; by=gridDim.x*blockDim.x; near_to=dim_in'; body=inl {i} ->
                         inl in j = in j i
                         inl in' = in' i
                         inl out = out i
                         inl finally result = out.set (map_out result out.get)
 
                         inl blockResult = forcd {
-                            from=threadIdx.y+blockDim.y*blockIdx.y-dim_in_a.from
+                            from=threadIdx.y+blockDim.y*blockIdx.y
                             by=gridDim.y*blockDim.y
-                            near_to=dim_in_a.near_to 
+                            near_to=dim_in_a 
                             state=dyn neutral_elem 
                             body=inl {state i} -> 
                                 inl in = in i 
@@ -982,13 +974,14 @@ inl {stream Cuda CudaTensor} ->
                         
                         if blockDim.y > 1 then
                             inl near_to = blockDim.y
-                            inl ar = HostTensor.create {
-                                array_create=array_create_cuda_shared
-                                elem_type=blockResult
-                                dim={from=1; near_to}, warp_size + 1
-                                }
-                            
-                            inl ar i = ar i threadIdx.x
+                            inl ar = 
+                                inl from = 1
+                                HostTensor.create {
+                                    array_create=array_create_cuda_shared
+                                    elem_type=blockResult
+                                    dim=near_to-from, warp_size + 1
+                                    }
+                                |> inl ar i -> ar (i-from) threadIdx.x
 
                             whilecd {
                                 state={near_to state=blockResult}
@@ -1168,9 +1161,8 @@ inl ret ->
         | .nT -> true
         | _ -> false
 
-    inl len = HostTensor.span
-    inl rows x = x.dim |> inl a,b -> len a
-    inl cols x = x.dim |> inl a,b -> len b
+    inl rows x = x.dim |> inl a,b -> a
+    inl cols x = x.dim |> inl a,b -> b
     inl ld x = x.bodies.size |> fst
 
     inl assert_singleton x = 
@@ -1415,7 +1407,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         |> ret
 
     inl error {fwd bck} (input,_ as x) = 
-        inl batch_size = primal input .dim |> fst |> span
+        inl batch_size = primal input .dim |> fst
         inl div_by_minibatch_size x = x / unsafe_convert default_float batch_size
         inm cost =
             map_redo {
@@ -1455,15 +1447,6 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             weights = (weight, bias) :: weights
             apply = inl input -> matmultb input weight bias >>= activation >>= apply
             }
-
-    //inl layer initializer activation hidden_size next_layer input_size ret =
-    //    inb weight = initializer (input_size, hidden_size) >>! dr
-    //    //inb bias = CudaTensor.zero {elem_type=default_float; dim=hidden_size} >>! dr
-    //    inb {weights apply} = next_layer hidden_size
-    //    ret {
-    //        weights = weight :: weights
-    //        apply = inl input -> matmult input weight >>= activation >>= apply
-    //        }
 
     inl sigmoid_initializer dim = 
         inl stddev = sqrt (two / unsafe_convert default_float (Tuple.foldl (+) 0 dim))
@@ -1509,32 +1492,30 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 toa_iter optimizer weights
             | _ _ -> ()
 
-        inl run_minibatch {state span} = 
-            inl view x = x.view_span span
-            inb {cost accuracy}, _ as er = apply (view input, view label)
-            //string_format "On minibatch {0}. Error = {1}" (show span, primal cost) |> writeline
+        inl near_to = dim1 input
+        inl span = near_to
+        inl by = match d with {minibatch_size} -> minibatch_size | _ -> span
+
+        inl run_minibatch {state input label} = 
+            inb {cost accuracy}, _ as er = apply (input, label)
 
             optimizer er
 
             inl running_cost =
                 match state with
-                | {running_cost} -> running_cost + to float64 (primal cost) * to float64 (HostTensor.span span)
+                | {running_cost} -> running_cost + to float64 (primal cost) * to float64 (dim1 input)
                 
             match state with
             | {running_accuracy} -> { running_cost running_accuracy=running_accuracy + accuracy id }
             | _ -> {running_cost}
             
-        inl {from near_to} = dim1 input
-        inl span = near_to - from
-        inl by = match d with {minibatch_size} -> minibatch_size | _ -> span
-
-        inl state = Loops.for' {from near_to; state by; body=inl {next state i=from} ->
+        inl state = Loops.for' {from=0; near_to; state by; body=inl {next state i=from} ->
             if macro.fs bool [text: "System.Double.IsNaN"; args: state.running_cost] then
                 state
             else
-                if span % by = 0 then run_minibatch {state span={from by}}
-                else run_minibatch {state span={from near_to=from+by |> min near_to}}
-                |> next
+                inl span = if span % by = 0 then {from by} else {from near_to=from+by |> min near_to}
+                inl f x = x.view (const span)
+                run_minibatch {state input=f input; label=f label} |> next
             }
 
         writeline "-----"
@@ -1588,8 +1569,8 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         inl rec perturb primal' adjoint' =
             HostTensor.assert_zip (primal', adjoint') |> ignore
             match primal'.dim with
-            | {from near_to} :: _ ->
-                Loops.for {from near_to body=inl {i} ->
+            | near_to :: _ ->
+                Loops.for {from=0; near_to body=inl {i} ->
                     perturb (primal' i) (adjoint' i)
                     }
             | _ -> 
