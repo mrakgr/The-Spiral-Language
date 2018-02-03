@@ -77,6 +77,7 @@ inl rec scanr f l s =
     | () -> s :: ()
 
 inl append = foldr (::)
+inl concat x = foldr append x ()
 
 inl rev, map =
     inl map' f l = foldl (inl s x -> f x :: s) () l
@@ -195,7 +196,7 @@ inl take n l =
 
 {
 head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists take
-filter zip unzip init repeat append singleton range tryFind contains intersperse wrap unwrap
+filter zip unzip init repeat append concat singleton range tryFind contains intersperse wrap unwrap
 } |> stack
     """) |> module_
 
@@ -1234,7 +1235,7 @@ inl rec equal (!zip t) =
         Tuple.forall ((=) a) b
 
 inl split f tns =
-    let rec assert_dim = function
+    inl rec assert_dim = function
         | d :: d', x :: x' ->
             match x with
             | _ :: _ -> assert (d = product x) "The product of the split dimension must equal that of the previous one."
@@ -1243,7 +1244,8 @@ inl split f tns =
         | (), () -> ()
         | _ -> error_type "The number of dimensions must match. The split dimensions need to be nested."
 
-    let rec update_size = function
+    inl rec update_size x = 
+        match x with
         | init :: s', dim :: x' ->
             inl next = update_size (s', x')
             match dim with
@@ -1253,14 +1255,24 @@ inl split f tns =
             | _ -> init :: next
         | (), () -> ()
 
-    inl dim =
+    inl prev_dim, dim =
         match tns.dim with
-        | dim :: () -> (span dim |> f) :: ()
-        | dim -> Tuple.map span dim |> f
-        |> map_dims
+        | dim :: () -> 
+            inl prev_dim = span dim
+            prev_dim :: (), f prev_dim :: ()
+        | dim -> 
+            inl prev_dim = Tuple.map span dim
+            prev_dim, f prev_dim
 
-    assert_dim dim
-    tns .update_dim (const dim)
+    inl rec concat = function
+        | x :: x' ->
+            inl x' = concat x'
+            match x with
+            | _ :: _ -> Tuple.append x x'
+            | _ -> x :: x'
+        | () -> ()
+        
+    tns .update_dim (dim |> concat |> map_dims |> const)
         .update_body (inl d -> {d with size=update_size (self,dim)})
 
 {

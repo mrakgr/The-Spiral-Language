@@ -926,8 +926,8 @@ let test85 =
     "test85",[host_tensor],"Do the reshape and the to_1d work?",
     """
 open HostTensor
-inl ar = init (32*32) id |> reshape (const (16,64))
-(ar 0 0, ar 0 1, ar 0 2, ar 1 0, ar 1 1, ar 1 2, to_1d ar 123) |> Tuple.map (inl x -> x.get)
+inl ar = init (32*32) id |> split (const (16,64))
+(ar 0 0, ar 0 1, ar 0 2, ar 1 0, ar 1 1, ar 1 2) |> Tuple.map (inl x -> x.get)
     """
 
 let test86 =
@@ -980,7 +980,7 @@ open HostTensor
 inl tns =
     Array.init 6 id
     |> array_to_tensor
-    |> reshape (dyn (2,3) |> const)
+    |> split (dyn (2,3) |> const)
     |> assert_size (2,3)
     
 tns 1 0 .get |> ignore
@@ -1014,8 +1014,7 @@ let test95 =
     "test95",[extern_;array],"Does the show work?",
     """
 open Extern
-inl d = unsafe_convert float64
-Array.init 8 (inl i -> {x = d i; y = d i-30.0} |> dyn |> packed_stack) |> show
+Array.init 8 (inl i -> {x = to float64 i; y = to float64 i-30.0} |> dyn |> packed_stack) |> show
     """
 
 let test96 =
@@ -1397,8 +1396,8 @@ inl math_type = fs [text: "System.Math"]
 inl target = dyn 600851475143
 
 inl sieve_length = 
-    FS.StaticMethod math_type .Sqrt(unsafe_convert float64 target) float64
-    |> unsafe_convert int64
+    FS.StaticMethod math_type .Sqrt(to float64 target) float64
+    |> to int64
 
 inl sieve = Array.init (sieve_length+1) (inl _ -> true)
 for {from=2; to=sieve_length; body = inl {i} ->

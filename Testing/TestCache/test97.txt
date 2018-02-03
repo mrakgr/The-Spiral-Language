@@ -43,22 +43,21 @@ and method_4((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (int64
             else
                 ()
             let (var_9: int64) = (var_4 * 30L)
-            let (var_10: int64) = (60L + var_9)
-            let (var_11: int64) = (var_10 + 10L)
-            let (var_12: int64) = 0L
-            method_5((var_0: System.Text.StringBuilder), (var_12: int64))
-            let (var_13: System.Text.StringBuilder) = var_0.AppendLine("[|")
-            let (var_14: int64) = 0L
-            let (var_15: int64) = method_6((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (int64 [])), (var_11: int64), (var_3: int64), (var_14: int64))
-            let (var_16: int64) = 0L
-            method_5((var_0: System.Text.StringBuilder), (var_16: int64))
-            let (var_17: System.Text.StringBuilder) = var_0.AppendLine("|]")
-            let (var_18: int64) = (var_4 + 1L)
-            method_4((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (int64 [])), (var_15: int64), (var_18: int64))
+            let (var_10: int64) = (71L + var_9)
+            let (var_11: int64) = 0L
+            method_5((var_0: System.Text.StringBuilder), (var_11: int64))
+            let (var_12: System.Text.StringBuilder) = var_0.AppendLine("[|")
+            let (var_13: int64) = 0L
+            let (var_14: int64) = method_6((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (int64 [])), (var_10: int64), (var_3: int64), (var_13: int64))
+            let (var_15: int64) = 0L
+            method_5((var_0: System.Text.StringBuilder), (var_15: int64))
+            let (var_16: System.Text.StringBuilder) = var_0.AppendLine("|]")
+            let (var_17: int64) = (var_4 + 1L)
+            method_4((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (int64 [])), (var_14: int64), (var_17: int64))
         else
-            let (var_20: int64) = 0L
-            method_3((var_0: System.Text.StringBuilder), (var_20: int64))
-            let (var_21: System.Text.StringBuilder) = var_0.AppendLine("...")
+            let (var_19: int64) = 0L
+            method_3((var_0: System.Text.StringBuilder), (var_19: int64))
+            let (var_20: System.Text.StringBuilder) = var_0.AppendLine("...")
             var_3
     else
         var_3
@@ -100,19 +99,18 @@ and method_6((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (int64
                 ()
             let (var_10: int64) = (var_5 * 10L)
             let (var_11: int64) = (var_3 + var_10)
-            let (var_12: int64) = (var_11 + 1L)
-            let (var_13: int64) = 0L
-            method_7((var_0: System.Text.StringBuilder), (var_13: int64))
-            let (var_14: System.Text.StringBuilder) = var_0.Append("[|")
-            let (var_15: int64) = 0L
-            let (var_16: int64) = method_8((var_0: System.Text.StringBuilder), (var_2: (int64 [])), (var_12: int64), (var_1: string), (var_4: int64), (var_15: int64))
-            let (var_17: System.Text.StringBuilder) = var_0.AppendLine("|]")
-            let (var_18: int64) = (var_5 + 1L)
-            method_6((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (int64 [])), (var_3: int64), (var_16: int64), (var_18: int64))
+            let (var_12: int64) = 0L
+            method_7((var_0: System.Text.StringBuilder), (var_12: int64))
+            let (var_13: System.Text.StringBuilder) = var_0.Append("[|")
+            let (var_14: int64) = 0L
+            let (var_15: int64) = method_8((var_0: System.Text.StringBuilder), (var_2: (int64 [])), (var_11: int64), (var_1: string), (var_4: int64), (var_14: int64))
+            let (var_16: System.Text.StringBuilder) = var_0.AppendLine("|]")
+            let (var_17: int64) = (var_5 + 1L)
+            method_6((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (int64 [])), (var_3: int64), (var_15: int64), (var_17: int64))
         else
-            let (var_20: int64) = 0L
-            method_5((var_0: System.Text.StringBuilder), (var_20: int64))
-            let (var_21: System.Text.StringBuilder) = var_0.AppendLine("...")
+            let (var_19: int64) = 0L
+            method_5((var_0: System.Text.StringBuilder), (var_19: int64))
+            let (var_20: System.Text.StringBuilder) = var_0.AppendLine("...")
             var_4
     else
         var_4

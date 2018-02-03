@@ -1,35 +1,82 @@
-Error trace on line: 111, column: 18 in file "Core".
-inl (<<) a b x = a (b x)
-                 ^
-Error trace on line: 109, column: 14 in file "Core".
-inl (>>) a b x = b (a x)
-             ^
-Error trace on line: 39, column: 16 in file "Tuple".
-    inl map' f l = foldl (inl s x -> f x :: s) () l
-               ^
-Error trace on line: 12, column: 7 in file "Tuple".
-    | x :: xs -> foldl f (f s x) xs
-      ^
-Error trace on line: 35, column: 39 in file "HostTensor".
-        | x when caseable_box_is x -> f s x
-                                      ^
-Error trace on line: 39, column: 33 in file "Tuple".
-    inl map' f l = foldl (inl s x -> f x :: s) () l
-                                ^
-Error trace on line: 47, column: 7 in file "HostTensor".
-    | {from to} -> 
-      ^
-Error trace on line: 50, column: 7 in file "HostTensor".
-    | {from near_to} as d -> 
-      ^
-Error trace on line: 53, column: 7 in file "HostTensor".
-    | x -> 
-      ^
-Error trace on line: 54, column: 9 in file "HostTensor".
-        assert (x > 0) "Tensor needs to be at least size 1."
-        ^
-Error trace on line: 122, column: 11 in file "Core".
-inl (>) a b = !GT(a,b)
-          ^
-(is_char a || is_string a || is_numeric a || is_bool a) && get_type a = get_type b` is false.
-a=<function>, b=lit 0i64
+module SpiralExample.Main
+let cuda_kernels = """
+
+extern "C" {
+    
+}
+"""
+
+let rec method_0((var_0: (int64 [])), (var_1: int64)): unit =
+    let (var_2: bool) = (var_1 < 6L)
+    if var_2 then
+        var_0.[int32 var_1] <- var_1
+        let (var_3: int64) = (var_1 + 1L)
+        method_0((var_0: (int64 [])), (var_3: int64))
+    else
+        ()
+and method_1((var_0: (int64 [])), (var_1: int64), (var_2: (int64 [])), (var_3: int64)): unit =
+    let (var_4: bool) = (var_3 < var_1)
+    if var_4 then
+        let (var_5: bool) = (var_3 >= 0L)
+        let (var_6: bool) = (var_5 = false)
+        if var_6 then
+            (failwith "Argument out of bounds.")
+        else
+            ()
+        if var_6 then
+            (failwith "Argument out of bounds.")
+        else
+            ()
+        let (var_7: int64) = var_0.[int32 var_3]
+        var_2.[int32 var_3] <- var_7
+        let (var_8: int64) = (var_3 + 1L)
+        method_1((var_0: (int64 [])), (var_1: int64), (var_2: (int64 [])), (var_8: int64))
+    else
+        ()
+let (var_0: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(6L))
+let (var_1: int64) = 0L
+method_0((var_0: (int64 [])), (var_1: int64))
+let (var_2: int64) = var_0.LongLength
+let (var_3: bool) = (var_2 > 0L)
+let (var_4: bool) = (var_3 = false)
+if var_4 then
+    (failwith "Tensor needs to be at least size 1.")
+else
+    ()
+let (var_8: bool) = (0L < var_2)
+let (var_9: bool) = (var_8 = false)
+if var_9 then
+    (failwith "Tensor needs to be at least size 1.")
+else
+    ()
+let (var_10: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(var_2))
+let (var_11: int64) = 0L
+method_1((var_0: (int64 [])), (var_2: int64), (var_10: (int64 [])), (var_11: int64))
+let (var_12: int64) = 2L
+let (var_13: int64) = 3L
+let (var_14: bool) = (var_12 > 0L)
+let (var_15: bool) = (var_14 = false)
+if var_15 then
+    (failwith "Tensor needs to be at least size 1.")
+else
+    ()
+let (var_16: bool) = (var_13 > 0L)
+let (var_17: bool) = (var_16 = false)
+if var_17 then
+    (failwith "Tensor needs to be at least size 1.")
+else
+    ()
+let (var_18: int64) = (var_12 * var_13)
+let (var_19: bool) = (var_12 = 2L)
+let (var_21: bool) =
+    if var_19 then
+        (var_13 = 3L)
+    else
+        false
+let (var_22: bool) = (var_21 = false)
+if var_22 then
+    (failwith "The dimensions must match.")
+else
+    ()
+let (var_23: int64) = var_10.[int32 var_13]
+
