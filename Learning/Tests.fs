@@ -694,7 +694,7 @@ inl one_hot_size = 128
 // I got this dataset from Karpathy.
 inl path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
 inl data = 
-    inl view x = x.view
+    inl view f x = x.view f
     macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
     |> Array.map (inl x -> 
         inl x = to int64 x

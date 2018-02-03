@@ -109,10 +109,10 @@ extern "C" {
         long long int var_43 = var_7[0];
     }
     __global__ void method_9(float * var_0, float * var_1) {
-        long long int var_2 = blockIdx.x;
-        long long int var_3 = (var_2 * 128);
-        long long int var_4 = threadIdx.x;
-        long long int var_5 = (var_3 + var_4);
+        long long int var_2 = threadIdx.x;
+        long long int var_3 = blockIdx.x;
+        long long int var_4 = (128 * var_3);
+        long long int var_5 = (var_2 + var_4);
         long long int var_6[1];
         var_6[0] = var_5;
         while (method_10(var_6)) {
@@ -153,10 +153,10 @@ extern "C" {
         long long int var_23 = var_6[0];
     }
     __global__ void method_11(float * var_0, float * var_1, float * var_2) {
-        long long int var_3 = blockIdx.x;
-        long long int var_4 = (var_3 * 128);
-        long long int var_5 = threadIdx.x;
-        long long int var_6 = (var_4 + var_5);
+        long long int var_3 = threadIdx.x;
+        long long int var_4 = blockIdx.x;
+        long long int var_5 = (256 * var_4);
+        long long int var_6 = (var_3 + var_5);
         float var_7 = 0;
         long long int var_8[1];
         float var_9[1];
@@ -188,7 +188,7 @@ extern "C" {
         }
         long long int var_23 = var_8[0];
         float var_24 = var_9[0];
-        float var_25 = cub::BlockReduce<float,128,cub::BLOCK_REDUCE_WARP_REDUCTIONS,1,1>().Sum(var_24);
+        float var_25 = cub::BlockReduce<float,256,cub::BLOCK_REDUCE_WARP_REDUCTIONS,1,1>().Sum(var_24);
         long long int var_26 = threadIdx.x;
         char var_27 = (var_26 == 0);
         if (var_27) {
@@ -196,7 +196,7 @@ extern "C" {
             char var_29 = (var_28 >= 0);
             char var_31;
             if (var_29) {
-                var_31 = (var_28 < 4);
+                var_31 = (var_28 < 2);
             } else {
                 var_31 = 0;
             }
@@ -210,10 +210,10 @@ extern "C" {
         }
     }
     __global__ void method_14(float var_0, float var_1, float * var_2, float * var_3, float * var_4) {
-        long long int var_5 = blockIdx.x;
-        long long int var_6 = (var_5 * 128);
-        long long int var_7 = threadIdx.x;
-        long long int var_8 = (var_6 + var_7);
+        long long int var_5 = threadIdx.x;
+        long long int var_6 = blockIdx.x;
+        long long int var_7 = (128 * var_6);
+        long long int var_8 = (var_5 + var_7);
         long long int var_9[1];
         var_9[0] = var_8;
         while (method_10(var_9)) {
@@ -255,10 +255,10 @@ extern "C" {
         long long int var_27 = var_9[0];
     }
     __global__ void method_15(float * var_0, float * var_1, float * var_2, float * var_3) {
-        long long int var_4 = blockIdx.x;
-        long long int var_5 = (var_4 * 128);
-        long long int var_6 = threadIdx.x;
-        long long int var_7 = (var_5 + var_6);
+        long long int var_4 = threadIdx.x;
+        long long int var_5 = blockIdx.x;
+        long long int var_6 = (128 * var_5);
+        long long int var_7 = (var_4 + var_6);
         long long int var_8[1];
         var_8[0] = var_7;
         while (method_10(var_8)) {
@@ -381,7 +381,7 @@ extern "C" {
             }
             long long int var_45 = var_25[0];
             float var_46 = var_26[0];
-            __shared__ float var_47[1023];
+            __shared__ float var_47[496];
             long long int var_48[1];
             float var_49[1];
             var_48[0] = 32;
@@ -414,12 +414,12 @@ extern "C" {
                     } else {
                     }
                     long long int var_64 = (var_59 - 1);
-                    long long int var_65 = (var_64 * 33);
+                    long long int var_65 = (var_64 * 16);
                     long long int var_66 = threadIdx.x;
                     char var_67 = (var_66 >= 0);
                     char var_69;
                     if (var_67) {
-                        var_69 = (var_66 < 33);
+                        var_69 = (var_66 < 16);
                     } else {
                         var_69 = 0;
                     }
@@ -460,12 +460,12 @@ extern "C" {
                         } else {
                         }
                         long long int var_86 = (var_79 - 1);
-                        long long int var_87 = (var_86 * 33);
+                        long long int var_87 = (var_86 * 16);
                         long long int var_88 = threadIdx.x;
                         char var_89 = (var_88 >= 0);
                         char var_91;
                         if (var_89) {
-                            var_91 = (var_88 < 33);
+                            var_91 = (var_88 < 16);
                         } else {
                             var_91 = 0;
                         }
@@ -693,7 +693,7 @@ and method_5((var_0: ManagedCuda.CudaBlas.CudaBlasHandle), (var_1: EnvStack2), (
     let (var_14: ManagedCuda.CudaBlas.CublasStatus) = ManagedCuda.CudaBlas.CudaBlasNativeMethods.cublasSgemm_v2(var_0, var_4, var_5, 16, 32, 6, var_6, var_8, 16, var_10, 6, var_11, var_13, 16)
     if var_14 <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException(var_14)
 and method_13((var_0: (float32 [])), (var_1: float32), (var_2: int64)): float32 =
-    let (var_3: bool) = (var_2 < 4L)
+    let (var_3: bool) = (var_2 < 2L)
     if var_3 then
         let (var_4: bool) = (var_2 >= 0L)
         let (var_5: bool) = (var_4 = false)
@@ -774,29 +774,35 @@ and method_26((var_0: ManagedCuda.CudaContext), (var_1: ManagedCuda.CudaStream),
         ()
     let (var_23: int64) = (var_15 * var_9)
     let (var_24: int64) = (var_14 * var_23)
-    let (var_25: bool) = (var_6 = 0L)
+    let (var_25: bool) = (var_23 = var_8)
     let (var_26: bool) = (var_25 = false)
     if var_26 then
+        (failwith "The inner sizes of the tensor being reshaped must be contiguous.")
+    else
+        ()
+    let (var_27: bool) = (var_6 = 0L)
+    let (var_28: bool) = (var_27 = false)
+    if var_28 then
         (failwith "Only unviewed arrays are allowed for now.")
     else
         ()
-    let (var_27: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(var_16))
-    let (var_28: (Union0 ref)) = var_5.mem_0
-    let (var_29: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_28: (Union0 ref)))
-    var_0.CopyToHost(var_27, var_29)
-    let (var_30: System.Text.StringBuilder) = System.Text.StringBuilder()
-    let (var_31: string) = ""
-    let (var_32: int64) = 0L
-    let (var_33: int64) = 0L
-    method_23((var_30: System.Text.StringBuilder), (var_33: int64))
-    let (var_34: System.Text.StringBuilder) = var_30.AppendLine("[|")
-    let (var_35: int64) = method_27((var_30: System.Text.StringBuilder), (var_31: string), (var_27: (float32 [])), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_11: int64), (var_12: int64), (var_13: int64), (var_32: int64))
-    let (var_36: int64) = 0L
-    method_23((var_30: System.Text.StringBuilder), (var_36: int64))
-    let (var_37: System.Text.StringBuilder) = var_30.AppendLine("|]")
-    let (var_38: string) = var_30.ToString()
-    let (var_39: string) = System.String.Format("{0}",var_38)
-    System.Console.WriteLine(var_39)
+    let (var_29: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(var_16))
+    let (var_30: (Union0 ref)) = var_5.mem_0
+    let (var_31: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_30: (Union0 ref)))
+    var_0.CopyToHost(var_29, var_31)
+    let (var_32: System.Text.StringBuilder) = System.Text.StringBuilder()
+    let (var_33: string) = ""
+    let (var_34: int64) = 0L
+    let (var_35: int64) = 0L
+    method_23((var_32: System.Text.StringBuilder), (var_35: int64))
+    let (var_36: System.Text.StringBuilder) = var_32.AppendLine("[|")
+    let (var_37: int64) = method_27((var_32: System.Text.StringBuilder), (var_33: string), (var_29: (float32 [])), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_11: int64), (var_12: int64), (var_13: int64), (var_34: int64))
+    let (var_38: int64) = 0L
+    method_23((var_32: System.Text.StringBuilder), (var_38: int64))
+    let (var_39: System.Text.StringBuilder) = var_32.AppendLine("|]")
+    let (var_40: string) = var_32.ToString()
+    let (var_41: string) = System.String.Format("{0}",var_40)
+    System.Console.WriteLine(var_41)
 and method_3((var_0: ManagedCuda.BasicTypes.CUdeviceptr), (var_1: uint64), (var_2: uint64), (var_3: int64), (var_4: System.Collections.Generic.Stack<Env3>), (var_5: EnvStack2), (var_6: int64)): EnvStack2 =
     let (var_7: ManagedCuda.BasicTypes.SizeT) = var_0.Pointer
     let (var_8: uint64) = uint64 var_7
@@ -1157,25 +1163,25 @@ let (var_142: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(2048L
 var_1.ClearMemoryAsync(var_140, 0uy, var_142, var_141)
 let (var_143: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_129: (Union0 ref)))
 let (var_144: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_90: (Union0 ref)))
-let (var_147: int64) = 16L
+let (var_147: int64) = 8L
 let (var_148: EnvStack2) = method_2((var_49: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_50: uint64), (var_147: int64))
 let (var_149: (Union0 ref)) = var_148.mem_0
 let (var_150: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_149: (Union0 ref)))
 // Cuda join point
 // method_11((var_143: ManagedCuda.BasicTypes.CUdeviceptr), (var_144: ManagedCuda.BasicTypes.CUdeviceptr), (var_150: ManagedCuda.BasicTypes.CUdeviceptr))
 let (var_151: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_11", var_32, var_1)
-let (var_152: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(4u, 1u, 1u)
+let (var_152: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(2u, 1u, 1u)
 var_151.set_GridDimensions(var_152)
-let (var_153: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(128u, 1u, 1u)
+let (var_153: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(256u, 1u, 1u)
 var_151.set_BlockDimensions(var_153)
 let (var_154: ManagedCuda.BasicTypes.CUstream) = var_51.get_Stream()
 let (var_156: (System.Object [])) = [|var_143; var_144; var_150|]: (System.Object [])
 var_151.RunAsync(var_154, var_156)
-let (var_157: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(4L))
+let (var_157: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(2L))
 let (var_158: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_149: (Union0 ref)))
 var_1.CopyToHost(var_157, var_158)
-let (var_159: float32) = 0.000000f
-let (var_160: int64) = 0L
+let (var_159: float32) = var_157.[int32 0L]
+let (var_160: int64) = 1L
 let (var_161: float32) = method_13((var_157: (float32 [])), (var_159: float32), (var_160: int64))
 var_149 := Union0Case1
 let (var_162: (float32 ref)) = (ref 0.000000f)

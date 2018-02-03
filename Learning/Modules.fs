@@ -304,6 +304,7 @@ inl {stream Cuda CudaTensor} ->
         |> finally
 
     inl divup a b = (a-1)/b+1 // Integer division with rounding up. (a+b-1)/b is another variant on this.
+    inl s = span
 
     inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
         inl from = threadIdx axis + blockDim axis * blockIdx axis - dim.from
@@ -323,8 +324,7 @@ inl {stream Cuda CudaTensor} ->
 
     inl grid_for_items = grid_for_template {iteration_mode=.items_per_thread}
     inl grid_for = grid_for_template {iteration_mode=.std}
-        
-    inl s = span
+    
     inl warp_size = 32
     inl syncthreads () = macro.cd unit [text: "__syncthreads()"]
 
@@ -495,7 +495,7 @@ inl {stream Cuda CudaTensor} ->
                 grid_for .y dim_in_a {body=inl {i} ->
                     inl in, out = in i, out i
 
-                    grid_for .x dim_in_b {state=dyn neutral_elem; body=inl {state=prefix i ->
+                    grid_for .x dim_in_b {state=dyn neutral_elem; body=inl {state=prefix i} ->
                         inl in, out = in i, out i
                         inl state, prefix = 
                             cub_block_scan {scan_type=.exclusive,prefix; is_input_tensor=false; return_aggregate=true}
@@ -513,8 +513,9 @@ inl {stream Cuda CudaTensor} ->
         inl out = to_1d out |> to_dev_tensor
         inl in_a :: () = in.dim
 
+        inl near_to = s in_a
         inl blockDim = lit_min 1024 near_to
-        inl num_blocks = divup (s in_a) blockDim
+        inl num_blocks = divup near_to blockDim
         inl gridDim = lit_min 64 num_blocks
 
         inl map_in = match d with {map_in} -> map_in | _ -> id
@@ -687,7 +688,7 @@ inl {stream Cuda CudaTensor} ->
                     inl in, in' = in i, in' i
 
                     inl x = 
-                        grid_for .x dim_in_b {state=dyn neutral_elem; body=inl {i} ->
+                        grid_for .x dim_in_b {state=dyn neutral_elem; body=inl {state i} ->
                             inl in = in i 
                             inl a = in.get
                             redo state (map_in a in'.get)
@@ -721,8 +722,8 @@ inl {stream Cuda CudaTensor} ->
             stream blockDim
             gridDim=1,gridDimY
             kernel = cuda 
-                inl grid_for = grid_for {blockDim gridDim}
-                grid_for .y dim_in_a {body=inl {i} ->
+                inl dims = {blockDim gridDim}
+                grid_for dims .y dim_in_a {body=inl {i} ->
                     inl in, out = in i, out i
 
                     inl create_items elem_type = HostTensor.create {
@@ -734,7 +735,7 @@ inl {stream Cuda CudaTensor} ->
 
                     inl items = create_items (type in.elem_type |> map_in)
 
-                    inl inner_loop = grid_loop .x dim_in_b
+                    inl inner_loop = grid_for_items dims .x dim_in_b
 
                     inner_loop {body=inl {item i} -> items item .set (in i .get |> map_in)}
 
@@ -957,13 +958,13 @@ inl {stream Cuda CudaTensor} ->
                                 elem_type=blockResult
                                 dim={from=1; near_to}, blockDim.x
                                 }
-                            |> ar i -> ar i threadIdx.x
+                            |> inl ar i -> ar i threadIdx.x
 
                         whilecd {
                             state={near_to state=blockResult}
                             cond=inl {near_to} -> near_to >= 2
                             body=inl {near_to state} ->
-                                inl by = near_to/2 // It might be worth trying max 1 (near_to/3)
+                                inl by = near_to/2 // It might be worth trying `max 1 (near_to/3)`
                                 if threadIdx.y < near_to && threadIdx.y >= by then ar threadIdx.y .set state
                                 syncthreads()
 

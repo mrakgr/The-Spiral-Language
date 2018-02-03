@@ -7,10 +7,10 @@ extern "C" {
     __device__ char method_7(long long int * var_0, long long int * var_1);
     
     __global__ void method_6(long long int * var_0, long long int * var_1) {
-        long long int var_2 = blockIdx.x;
-        long long int var_3 = (var_2 * 128);
-        long long int var_4 = threadIdx.x;
-        long long int var_5 = (var_3 + var_4);
+        long long int var_2 = threadIdx.x;
+        long long int var_3 = blockIdx.x;
+        long long int var_4 = (32 * var_3);
+        long long int var_5 = (var_2 + var_4);
         long long int var_6 = 0;
         long long int var_7[1];
         long long int var_8[1];
@@ -19,7 +19,7 @@ extern "C" {
         while (method_7(var_7, var_8)) {
             long long int var_10 = var_7[0];
             long long int var_11 = var_8[0];
-            long long int var_12 = (var_10 + 128);
+            long long int var_12 = (var_10 + 32);
             char var_13 = (var_10 >= 0);
             char var_15;
             if (var_13) {
@@ -39,7 +39,7 @@ extern "C" {
         }
         long long int var_19 = var_7[0];
         long long int var_20 = var_8[0];
-        long long int var_21 = cub::BlockReduce<long long int,128,cub::BLOCK_REDUCE_WARP_REDUCTIONS,1,1>().Sum(var_20);
+        long long int var_21 = cub::BlockReduce<long long int,32,cub::BLOCK_REDUCE_WARP_REDUCTIONS,1,1>().Sum(var_20);
         long long int var_22 = threadIdx.x;
         char var_23 = (var_22 == 0);
         if (var_23) {
@@ -297,7 +297,7 @@ let (var_63: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_62: (Union0 ref
 let (var_64: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_6", var_32, var_1)
 let (var_65: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
 var_64.set_GridDimensions(var_65)
-let (var_66: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(128u, 1u, 1u)
+let (var_66: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(32u, 1u, 1u)
 var_64.set_BlockDimensions(var_66)
 let (var_67: ManagedCuda.BasicTypes.CUstream) = var_51.get_Stream()
 let (var_69: (System.Object [])) = [|var_59; var_63|]: (System.Object [])
@@ -305,8 +305,8 @@ var_64.RunAsync(var_67, var_69)
 let (var_70: (int64 [])) = Array.zeroCreate<int64> (System.Convert.ToInt32(1L))
 let (var_71: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_62: (Union0 ref)))
 var_1.CopyToHost(var_70, var_71)
-let (var_72: int64) = 0L
-let (var_73: int64) = 0L
+let (var_72: int64) = var_70.[int32 0L]
+let (var_73: int64) = 1L
 let (var_74: int64) = method_8((var_70: (int64 [])), (var_72: int64), (var_73: int64))
 var_62 := Union0Case1
 let (var_75: string) = System.String.Format("{0}",var_74)

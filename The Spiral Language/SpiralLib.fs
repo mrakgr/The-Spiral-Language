@@ -1208,11 +1208,7 @@ inl reshape f tns =
     tns .update_dim (const dim)
         .update_body (inl {d with size=size' offset=o::o' ar} ->
             assert (Tuple.forall ((=) 0) o') "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead"
-            inl make_body dim = make_body {dim array_create=(inl _ _ -> ()); elem_type=ar.elem_type; last_size=Tuple.last size'}
-            inl _ = 
-                inl {size} = make_body dim'
-                assert (size = size') "The inner sizes of the tensor being reshaped must be contiguous."
-            inl {size offset=_::o'} = make_body dim
+            inl {size offset=_::o'} = make_body {dim array_create=(inl _ _ -> ()); elem_type=ar.elem_type; last_size=Tuple.last size'}
             {d with size offset=o::o'}
             )
 
