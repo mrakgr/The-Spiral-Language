@@ -193,23 +193,31 @@ let (var_54: int64) = 48L
 let (var_55: EnvStack2) = method_2((var_49: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_50: uint64), (var_54: int64))
 let (var_56: (Union0 ref)) = var_55.mem_0
 let (var_57: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_56: (Union0 ref)))
-let (var_58: ManagedCuda.BasicTypes.CUstream) = var_51.get_Stream()
-let (var_59: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(48L)
-var_1.ClearMemoryAsync(var_57, 0uy, var_59, var_58)
-let (var_60: int64) = 48L
-let (var_61: EnvStack2) = method_2((var_49: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_50: uint64), (var_60: int64))
-let (var_62: (Union0 ref)) = var_61.mem_0
-let (var_63: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_62: (Union0 ref)))
-let (var_64: ManagedCuda.BasicTypes.CUstream) = var_51.get_Stream()
-let (var_65: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(48L)
-var_1.ClearMemoryAsync(var_63, 0uy, var_65, var_64)
-var_62 := Union0Case1
-var_56 := Union0Case1
-let (var_66: (Union0 ref)) = var_53.mem_0
+let (var_58: ManagedCuda.BasicTypes.SizeT) = var_57.Pointer
+let (var_59: uint64) = uint64 var_58
+let (var_60: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_59)
+let (var_61: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_60)
+let (var_62: ManagedCuda.BasicTypes.CUstream) = var_51.get_Stream()
+let (var_63: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(48L)
+var_1.ClearMemoryAsync(var_61, 0uy, var_63, var_62)
+let (var_64: int64) = 48L
+let (var_65: EnvStack2) = method_2((var_49: uint64), (var_45: System.Collections.Generic.Stack<Env3>), (var_50: uint64), (var_64: int64))
+let (var_66: (Union0 ref)) = var_65.mem_0
+let (var_67: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_66: (Union0 ref)))
+let (var_68: ManagedCuda.BasicTypes.SizeT) = var_67.Pointer
+let (var_69: uint64) = uint64 var_68
+let (var_70: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_69)
+let (var_71: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_70)
+let (var_72: ManagedCuda.BasicTypes.CUstream) = var_51.get_Stream()
+let (var_73: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(48L)
+var_1.ClearMemoryAsync(var_71, 0uy, var_73, var_72)
 var_66 := Union0Case1
+var_56 := Union0Case1
+let (var_74: (Union0 ref)) = var_53.mem_0
+var_74 := Union0Case1
 var_51.Dispose()
-let (var_67: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_46: (Union0 ref)))
-var_1.FreeMemory(var_67)
+let (var_75: ManagedCuda.BasicTypes.CUdeviceptr) = method_1((var_46: (Union0 ref)))
+var_1.FreeMemory(var_75)
 var_46 := Union0Case1
 var_1.Dispose()
 

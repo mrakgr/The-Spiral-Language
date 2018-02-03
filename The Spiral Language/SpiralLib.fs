@@ -1296,7 +1296,7 @@ inl assert_contiguous = flatten >> ignore
 /// Asserts that the dimensions of the tensors are all equal.
 inl assert_dim l = assert_zip >> ignore
 /// Flattens and then splits the tensor dimensions.
-inl reshape f tns = split (inl _ -> tns.dim |> Tuple.map_span |> Tuple.unwrap |> f) (flatten tns)
+inl reshape f tns = split (inl _ -> tns.dim |> Tuple.map span |> Tuple.unwrap |> f) (flatten tns)
 
 {
 toa_map toa_map2 toa_iter toa_iter2 toa_map3 toa_iter3 create facade 

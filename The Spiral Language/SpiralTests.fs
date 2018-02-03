@@ -923,7 +923,7 @@ ar .get
     """
 
 let test85 =
-    "test85",[host_tensor],"Do the reshape and the to_1d work?",
+    "test85",[host_tensor],"Does the split work?",
     """
 open HostTensor
 inl ar = init (32*32) id |> split (const (16,64))

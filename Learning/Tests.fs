@@ -362,7 +362,7 @@ inl sigmoid_initializer' x =
 
 inl sigmoid_initializer dim ret = 
     inb x = CudaTensor.create {elem_type=float32; dim}
-    sigmoid_initializer' (x.view_span (const (3,4)))
+    sigmoid_initializer' x
     ret x
 
 inb o1 = sigmoid_initializer (3,8)
@@ -704,9 +704,9 @@ inl data =
     |> HostTensor.array_as_tensor
     |> HostTensor.assert_size seq_len
     |> view (inl x -> x - x % minibatch_size)
-    |> HostTensor.reshape (inl x -> minibatch_size,x/minibatch_size)
+    |> HostTensor.split (inl x -> minibatch_size,x/minibatch_size)
     |> view (inl mini, label -> mini, label - label % num_steps)
-    |> HostTensor.reshape (inl mini, label -> mini,label/num_steps,num_steps)
+    |> HostTensor.split (inl mini, label -> mini,(label/num_steps,num_steps))
 
 data
     """
@@ -767,8 +767,8 @@ let tests =
     grad1
     |]
 
-//rewrite_test_cache tests cfg None //(Some(0,40))
+rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
-|> printfn "%s"
-|> ignore
+//output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" random1
+//|> printfn "%s"
+//|> ignore

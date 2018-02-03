@@ -190,10 +190,10 @@ inl {stream Cuda Allocator} ->
 
     inl transfer_template f tns = 
         assert_contiguous tns
-        tns.update_body <| inl {body with offset=o::_ ar} ->
+        tns.update_body <| inl {body with offset ar} ->
             // I do not feel like messing with GC handles in Spiral right now.
             // Allowing a copy with an offset would be easy though. See ManagedCuda's CopyToHost and CopyToDevice.
-            assert (o = 0) "Only unviewed arrays are allowed for now."
+            assert (offset = 0) "Only unviewed arrays are allowed for now."
             {body with ar = f ar}
 
     inl from_host_tensor = transfer_template from_host_array
@@ -209,10 +209,10 @@ inl {stream Cuda Allocator} ->
 
     inl clear (!to_dev_tensor tns) = 
         assert_contiguous tns
-        inl size = tns.length
+        inl span = tns.dim |> fst |> span
         inl stream = Stream.extract stream
-        tns.update_body <| inl {body with ar} ->
-            FS.Method context .ClearMemoryAsync (ar,0u8,size * sizeof ar.elem_type |> SizeT,stream) unit
+        tns.update_body <| inl {body with size=size::_ ar} ->
+            FS.Method context .ClearMemoryAsync (ar,0u8,size * span * sizeof ar.elem_type |> SizeT,stream) unit
         |> ignore
 
     inl clear' x = clear x; x
@@ -441,8 +441,8 @@ inl {stream Cuda CudaTensor} ->
 
     inl map' f (!zip in) (!zip out) =
         assert (in.dim = out.dim) "The input and output dimensions must be equal."
-        inl in = to_1d in |> to_dev_tensor
-        inl out = to_1d out |> to_dev_tensor
+        inl in = flatten in |> to_dev_tensor
+        inl out = flatten out |> to_dev_tensor
         inl in_a :: () = in.dim
 
         inl blockDim = 128
@@ -500,8 +500,8 @@ inl {stream Cuda CudaTensor} ->
     /// Inclusive scan over the entire tensor.
     inl map_inscan_map' {d with redo neutral_elem} (!zip in) (!zip out) =
         assert (in.dim = out.dim) "The input and output dimensions must be equal."
-        inl in = to_1d in |> to_dev_tensor
-        inl out = to_1d out |> to_dev_tensor
+        inl in = flatten in |> to_dev_tensor
+        inl out = flatten out |> to_dev_tensor
         inl in_a :: () = in.dim
 
         inl near_to = s in_a
@@ -549,7 +549,7 @@ inl {stream Cuda CudaTensor} ->
 
     /// Flattens the tensor to 1d, maps and reduces it.
     /// Map is optional. Allocates a temporary tensor for the intermediary results.
-    inl map_redo {d with redo neutral_elem} (!zip (!to_1d (!to_dev_tensor in))) =
+    inl map_redo {d with redo neutral_elem} (!zip (!flatten (!to_dev_tensor in))) =
         inl map = match d with {map} -> map | _ -> id
 
         inl in_a :: () = in.dim
@@ -1095,7 +1095,7 @@ inl ret ->
                 macro.fs unit [arg: random; text: dot; text: gen; text: bits; args: args]
 
         inl fill op (!zip in) =
-            inl in' = to_1d in |> to_dev_tensor
+            inl in' = flatten in |> to_dev_tensor
             inl len = in'.length
             in'.update_body (inl {ar} -> fill_array op len ar) |> ignore
 
