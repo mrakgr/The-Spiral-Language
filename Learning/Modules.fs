@@ -57,7 +57,7 @@ inl load_mnist_tensors mnist_path =
             assert (image_size = size) "Mnist dimensions do not match the expected values."
             inl images, rows, cols = image_size
             HostTensor.array_as_tensor ar
-            |> HostTensor.reshape (const (images, rows * cols))
+            |> HostTensor.split (const (images, rows * cols))
             |> HostTensor.map (inl x -> to float32 x / 255f32)
             
         | {file label_size} ->
@@ -201,19 +201,10 @@ inl {stream Cuda Allocator} ->
 
     inl to_dev_tensor tns = 
         tns.update_body (inl {body with ar offset} ->
-            inl type_size = sizeof ar.elem_type
-            inl o, offset = 
-                match offset with 
-                | _ :: _ -> Tuple.foldl (+) 0 offset * type_size, Tuple.map (const 0) offset
-                | o -> o * type_size, 0
             inl ptr, elem_type = ar.ptr(), ar.elem_type
-            inl ptr =
-                if lit_is o then ptr
-                else ptr_to_uint ptr + to uint64 o |> uint_to_ptr    
+            inl ptr = ptr_to_uint ptr + to uint64 (offset * sizeof elem_type) |> uint_to_ptr    
             inl ar = !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
-            //inl ptr, elem_type = ar.ptr(), ar.elem_type
-            //inl ar = !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
-            {body with ar offset}
+            {body with ar offset=0}
             )
 
     inl clear (!to_dev_tensor tns) = 
