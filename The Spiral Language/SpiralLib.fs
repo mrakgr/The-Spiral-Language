@@ -1068,7 +1068,7 @@ inl rec facade data =
         elem_type = inl {data with bodies} -> toa_map (inl {ar} -> ar.elem_type) bodies
         update_body = inl {data with bodies} f -> {data with bodies=toa_map f bodies} |> facade
         update_body2 = inl {data with bodies=a,b} f -> {data with bodies=toa_map2 f a b} |> facade
-        update_dim = inl {data with dim} f -> {data with dim=f dim} |> facade
+        set_dim = inl {data with dim} dim -> {data with dim=map_dims dim} |> facade
         get = inl {data with dim bodies} -> 
             match dim with
             | () -> toa_map tensor_get bodies
@@ -1199,7 +1199,7 @@ inl copy = map id
 /// Should be used on 1d tensors. Does not copy. size -> tensor -> tensor.
 inl assert_size (!map_dims dim') tns = 
     assert (tns.dim = dim') "The dimensions must match."
-    tns.update_dim (const dim')
+    tns.set_dim dim'
 
 /// Reinterprets an array as a tensor. Does not copy. array -> tensor.
 inl array_as_tensor ar = facade {dim=map_dims (array_length ar); bodies={ar size=1::(); offset=0; block_toa_map=()}}
@@ -1234,6 +1234,9 @@ inl rec equal (!zip t) =
         inl a :: b = t.get
         Tuple.forall ((=) a) b
 
+/// Splits a tensor's dimensions. Works on non-contiguous tensors.
+/// Given the tensor dimensions (a,b,c) a function which maps them to (a,(q,w),c)
+/// The resulting tensor dimensions come out to (a,q,w,c).
 inl split f tns =
     inl rec assert_dim = function
         | d :: d', x :: x' ->
@@ -1272,13 +1275,33 @@ inl split f tns =
             | _ -> x :: x'
         | () -> ()
         
-    tns .update_dim (dim |> concat |> map_dims |> const)
+    tns .set_dim (concat dim)
         .update_body (inl d -> {d with size=update_size (self,dim)})
 
+/// Flattens the tensor to a single dimension.
+inl flatten tns =
+    inl dim = tns.dim |> Tuple.map span
+    tns .set_dim (product dim)
+        .update_body (inl {d with size} ->
+            Tuple.zip (dim,size)
+            |> Tuple.reducel (inl d,s d',s' ->
+                assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
+                d*s, s'
+                )
+            |> inl _,s -> {d with size=s :: ()}
+            )
+
+/// Asserts that the tensor is contiguous.
+inl assert_contiguous = flatten >> ignore
+/// Asserts that the dimensions of the tensors are all equal.
+inl assert_dim l = assert_zip >> ignore
+/// Flattens and then splits the tensor dimensions.
+inl reshape f tns = split (inl _ -> tns.dim |> Tuple.map_span |> Tuple.unwrap |> f) (flatten tns)
+
 {
-toa_map toa_map2 toa_iter toa_iter2 create facade split
+toa_map toa_map2 toa_iter toa_iter2 toa_map3 toa_iter3 create facade 
 init copy assert_size array_as_tensor array_to_tensor map zip show
-toa_map3 toa_iter3 span equal
+span equal split flatten assert_contiguous assert_dim reshape
 } |> stack
     """) |> module_
 
