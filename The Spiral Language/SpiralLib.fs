@@ -1003,21 +1003,16 @@ inl span = function
     | {from near_to} -> near_to - from
     | {from by} -> by
     | {from to} -> to - from + 1
+    | x : int64 -> x
 
-inl rec view_offsets = function
-    | s :: s', o :: o', i :: i' -> o + i * s :: view_offsets (s', o', i')
-    | _, o, () -> o
+inl rec view_offsets offset = function
+    | s :: s', i :: i' -> s * i + view_offsets offset (s', i')
+    | _, () -> offset
 
-inl tensor_view {data with size offset} i' = {data with offset = view_offsets (size,offset,i')}
+inl tensor_view {data with size offset} i' = {data with offset = view_offsets offset (size,i')}
 inl tensor_get {data with offset ar} = ar offset
 inl tensor_set {data with offset ar} v = ar offset <- v
-inl tensor_apply {data with size=s::size offset=o::offset} i =
-    inl o = o + i * s
-    inl offset = 
-        match offset with
-        | o' :: offset -> o + o' :: offset
-        | () -> o
-    {data with size offset}
+inl tensor_apply {data with size=s::size offset} i = {data with size offset=offset + i * s}
 inl tensor_update_dim f dim = dim |> Tuple.map span |> Tuple.unwrap |> f
 
 inl show' {cutoff_near_to} tns = 
@@ -1152,8 +1147,7 @@ inl make_body {d with dim elem_type} =
             | _ -> 1
         inl len :: size = Tuple.scanr (inl (!span x) s -> x * s) dim init
         inl ar = match d with {array_create} | _ -> array_create elem_type len
-        inl offset = Tuple.map (const 0) size
-        {ar size offset block_toa_map=()}
+        {ar size offset=0; block_toa_map=()}
 
 /// Creates an empty tensor given the descriptor. {size elem_type ?layout=(.toa | .aot) ?array_create ?pad_to} -> tensor
 inl create {dsc with dim elem_type} = 
@@ -1200,28 +1194,14 @@ inl map f tns =
 /// Copies a tensor. tensor -> tensor
 inl copy = map id
 
-/// Sets the tensor dimensions assuming the overall length matches. Does not copy. (dim -> dim) -> tensor -> tensor.
-inl reshape f tns = 
-    inl dim' = tns.dim
-    inl dim = tensor_update_dim f dim' |> map_dims
-    assert (product dim = product dim') "The product of dimensions of the new tensor must equal that of the previous one."
-    tns .update_dim (const dim)
-        .update_body (inl {d with size=size' offset=o::o' ar} ->
-            assert (Tuple.forall ((=) 0) o') "The inner dimensions much have offsets of 0. They must not be 'view'ed. Consider reshaping a copy of the tensor instead"
-            inl {size offset=_::o'} = make_body {dim array_create=(inl _ _ -> ()); elem_type=ar.elem_type; last_size=Tuple.last size'}
-            {d with size offset=o::o'}
-            )
-
-inl assert_contiguous tns = reshape id tns |> ignore 
-inl to_1d tns = reshape (const tns.length) tns
-
-/// Asserts the tensor size. Useful for setting those values to statically known ones. Does not copy. size -> tensor -> tensor.
+/// Asserts the tensor size. Useful for setting those values to statically known ones. 
+/// Should be used on 1d tensors. Does not copy. size -> tensor -> tensor.
 inl assert_size (!map_dims dim') tns = 
-    assert (tns.dim = dim') "The dimensions do not match."
-    reshape (const dim') tns // This is in order for the offsets to become static.
+    assert (tns.dim = dim') "The dimensions must match."
+    tns.update_dim (const dim')
 
 /// Reinterprets an array as a tensor. Does not copy. array -> tensor.
-inl array_as_tensor ar = facade {dim=map_dims (array_length ar); bodies={ar size=1::(); offset=0::(); block_toa_map=()}}
+inl array_as_tensor ar = facade {dim=map_dims (array_length ar); bodies={ar size=1::(); offset=0; block_toa_map=()}}
 
 /// Reinterprets an array as a tensor. array -> tensor.
 inl array_to_tensor = array_as_tensor >> copy
@@ -1253,10 +1233,41 @@ inl rec equal (!zip t) =
         inl a :: b = t.get
         Tuple.forall ((=) a) b
 
-{toa_map toa_map2 toa_iter toa_iter2 create facade
- view_offsets init copy to_1d reshape assert_size array_as_tensor array_to_tensor map zip show
- toa_map3 toa_iter3 assert_contiguous assert_zip span equal}
-|> stack
+inl split f tns =
+    let rec assert_dim = function
+        | d :: d', x :: x' ->
+            match x with
+            | _ :: _ -> assert (d = product x) "The product of the split dimension must equal that of the previous one."
+            | _ -> assert (d = x) "The dimensions can only be split, not shortened nor elongated."
+            assert_dim (d',x')
+        | (), () -> ()
+        | _ -> error_type "The number of dimensions must match. The split dimensions need to be nested."
+
+    let rec update_size = function
+        | init :: s', dim :: x' ->
+            inl next = update_size (s', x')
+            match dim with
+            | _ :: _ ->
+                inl _ :: size = Tuple.scanr (*) dim init
+                Tuple.append size next
+            | _ -> init :: next
+        | (), () -> ()
+
+    inl dim =
+        match tns.dim with
+        | dim :: () -> (span dim |> f) :: ()
+        | dim -> Tuple.map span dim |> f
+        |> map_dims
+
+    assert_dim dim
+    tns .update_dim (const dim)
+        .update_body (inl d -> {d with size=update_size (self,dim)})
+
+{
+toa_map toa_map2 toa_iter toa_iter2 create facade split
+init copy assert_size array_as_tensor array_to_tensor map zip show
+toa_map3 toa_iter3 span equal
+} |> stack
     """) |> module_
 
 let cuda =

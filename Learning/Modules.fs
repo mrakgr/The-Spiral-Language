@@ -1545,7 +1545,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         // Assert that all the gradients make sense.
 
         inl rec perturb primal' adjoint' =
-            HostTensor.assert_zip (primal', adjoint') |> ignore
+            assert (primal'.dim = adjoint'.dim) "Dimensions must be equal."
             match primal'.dim with
             | {from near_to} :: _ ->
                 Loops.for {from near_to body=inl {i} ->
