@@ -188,14 +188,23 @@ inl rec intersperse sep = function
     | x :: xs -> x :: sep :: intersperse sep xs
     | _ -> error_type "Not a tuple."
 
-inl take n l = 
-    assert (lit_is n) "The input to take must be a literal."
+inl split_at n l =
+    assert (lit_is n) "The index must be a literal."
     assert (n >= 0) "The input must be positive or zero."
-    inl rec loop n l = if n > 0 then loop (n-1) (tail l) else l
-    loop n l
+    inl rec loop n a b = 
+        if n > 0 then 
+            match b with
+            | x :: x' -> loop (n-1) (x :: a) x'
+            | _ -> error_type "Index out of bounds."
+        else
+            (rev a, b)
+    loop n () l
+
+inl take n l = split_at n l |> fst
+inl drop n l = split_at n l |> snd
 
 {
-head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists take
+head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists split_at take drop
 filter zip unzip init repeat append concat singleton range tryFind contains intersperse wrap unwrap
 } |> stack
     """) |> module_

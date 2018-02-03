@@ -1041,11 +1041,39 @@ inl {stream Cuda CudaTensor} ->
         mapi_d1_inscan_mapi_d1_reduce_mapi' d in in' out
         ret out
 
+    inl init' d f (!zip (!to_dev_tensor out)) =
+        inl dim_a, dim_b = 
+            match d with
+            | {parallel_dims} -> Tuple.split_at parallel_dims out.dim
+            | _ -> out.dim, ()
+
+        inl near_to = Tuple.foldl (a (!s b) -> a*b) 1 dim_a
+        inl blockDim = min near_to 256
+        inl gridDim = divup near_to blockDim
+
+        run {stream blockDim gridDim
+            kernel = cuda
+                grid_for {blockDim gridDim} .x {from=0 near_to} {body=inl {i} ->
+                    inl l,_ = Tuple.foldr (inl ((!s x_span) & x) (l,i) -> (i % x_span - x.from) :: l, i / x_span) dim_a ((),i)
+                    inl f, out = Tuple.foldl (inl i f,out -> f i, out i) (f, out) l
+                    inl rec loop f,out = function
+                        | x :: x' -> forcd {x with body=inl {i} -> loop (f i, out i) x'}
+                        | _ -> out.set f
+                    loop f dim_b
+                    }
+            }
+
+    inl init dim f ret =
+        inl elem_type = type Tuple.foldr (inl f _ -> f 0) f dim
+        inb out = create {dim elem_type}
+        init' {} f out
+        ret out
+
     {
     map' map map_redo d2_replicate_map' d2_replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
-    map_d1_seq_broadcast' map_d1_seq_broadcast
+    map_d1_seq_broadcast' map_d1_seq_broadcast init' init
     }
     """) |> module_
 

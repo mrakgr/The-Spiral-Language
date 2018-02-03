@@ -708,7 +708,8 @@ inl data =
     |> view (inl mini, label -> mini, label - label % num_steps)
     |> HostTensor.split (inl mini, label -> mini,(label/num_steps,num_steps))
 
-data
+//Tuple.map HostTensor.span data.dim
+data.length
     """
 
 let grad1 =
@@ -767,8 +768,8 @@ let tests =
     grad1
     |]
 
-rewrite_test_cache tests cfg None //(Some(0,40))
+//rewrite_test_cache tests cfg None //(Some(0,40))
 
-//output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" random1
-//|> printfn "%s"
-//|> ignore
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
+|> printfn "%s"
+|> ignore
