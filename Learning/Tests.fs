@@ -685,19 +685,19 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
 let learning10 =
     "learning10",[loops;cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;mnist;console],"Does the full training work with the char-RNN?",
     """
-//inb Cuda = Cuda
-//inb Allocator = Allocator {Cuda size=0.7}
-//inb stream = Cuda.Stream.create()
-//inl CudaTensor = CudaTensor {stream Cuda Allocator}
-//inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
-//inb CudaRandomModule = CudaRandom
-//inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
-//inb CudaBlasModule = CudaBlas
-//inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
-//inl default_float = float32
-//open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
-//open Error
-//open Feedforward
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.7}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+inb CudaRandomModule = CudaRandom
+inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
+inb CudaBlasModule = CudaBlas
+inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
+inl default_float = float32
+open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+open Error
+open Feedforward
 
 inl seq_len = 1115394
 inl minibatch_size = 128
@@ -706,8 +706,8 @@ inl one_hot_size = 128
 
 // I got this dataset from Karpathy.
 inl path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
-inl data = 
-    inl view f x = x.view f
+inb data = 
+    
     macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
     |> Array.map (inl x -> 
         inl x = to int64 x
@@ -716,13 +716,16 @@ inl data =
         )
     |> HostTensor.array_as_tensor
     |> HostTensor.assert_size seq_len
-    |> view (inl x -> x - x % minibatch_size)
+    |> CudaTensor.from_host_tensor
+
+inl data =
+    inl view f x = x.view f
+    view (inl x -> x - x % minibatch_size) data
     |> HostTensor.split (inl x -> minibatch_size,x/minibatch_size)
     |> view (inl mini, label -> mini, label - label % num_steps)
     |> HostTensor.split (inl mini, label -> mini,(label/num_steps,num_steps))
 
-//Tuple.map HostTensor.span data.dim
-data.length
+()
     """
 
 let grad1 =
@@ -783,6 +786,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel12
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
 |> printfn "%s"
 |> ignore
