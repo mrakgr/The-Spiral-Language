@@ -178,28 +178,31 @@ inl {stream Cuda Allocator} ->
         inl ptr = ptr_to_uint ptr + to uint64 (offset * sizeof elem_type) |> uint_to_ptr    
         ptr, elem_type
 
-    inl CDV t = fs [text: "ManagedCuda.CudaDeviceVariable"; types: t] |> FS.Constructor
-    inl SizeT = fs [text: "ManagedCuda.BasicTypes.SizeT"] |> FS.Constructor
-    inl cdv_create span1d body =
-        inl ptr, elem_type = add_to_ptr body
-        inl cdv = CDV elem_type (ptr,false,SizeT (span1d * sizeof elem_type))
-        function
-        | .get i -> macro.fs x.elem_type [arg:cdv; text: ".["; arg:SizeT i; text: "]"]
-        | .set i v -> macro.fs unit [arg:cdv; text: ".["; arg:SizeT i; text: "] <- "; arg:v : elem_type]
-        | .CopyToDevice span1d {ar offset size} -> 
-            inl size = span1d * fst size
-            macro.fs unit [text: "CopyToDevice"; args: ar, offset, SizeT 0, SizeT (span1d * sizeof elem_type)]
+    met copy_to_device (!dyn span1d) (!dyn dst) (!dyn src) =
+        inl dst_ptr, elem_type = add_to_ptr dst
+        assert (eq_type elem_type src.ar.elem_type) "The source and the destination need to have equal layout."
+        assert (dst.size = src.size) "The destination size must equal the source size."
+        assert (blittable_is elem_type) "The array type must be blittable."
 
-    inl from_host_array span1d body =
-        inl elem_type = body.ar.elem_type
-        assert (blittable_is elem_type) "The host array type must be blittable."
-        inl size = span1d * fst body.size
-        inl ar = array_create_cuda_global elem_type (span1d * fst body.size)
-        inl cdv = cdv_create span1d {ar offset=0}
-        cdv.CopyToDevice span1d body
+        inl handle_ty = fs [text: "System.Runtime.InteropServices.GCHandle"]
+        inl intptr_ty = fs [text: "System.IntPtr"]
+        inl res_ty = fs [text: "ManagedCuda.BasicTypes.CUResult"]
+
+        inl handle = macro.fs handle_ty [type:handle_ty; text: ".Alloc"; parenth: [arg: src.ar; text: "System.Runtime.InteropServices.GCHandleType.Pinned"]]
+        inl src_ptr = macro.fs intptr_ty [type: intptr_ty; iter: "(", "", ")", [arg: handle; text: ".AddrOfPinnedObject().ToInt64() + int64 "; arg: src.offset * sizeof elem_type]]
+        inl size = match dst.size with x :: _ -> x | () -> 1
+        inl res = macro.fs res_ty [text: "ManagedCuda.DriverAPINativeMethods.SynchronousMemcpy_v2.cuMemcpyHtoD_v2"; args: dst_ptr, src_ptr, span1d * size * sizeof elem_type |> SizeT]
+        macro.fs unit [arg: handle; text: ".Free()"]
+        macro.fs unit [text: "if "; arg: res; text: " <> ManagedCuda.BasicTypes.CUResult.Success then raise <| new ManagedCuda.CudaException"; args: res]
+
+    inl from_host_array span1d src =
+        inl size = span1d * fst src.size
+        print_static {size}
+        inl ar = array_create_cuda_global src.ar.elem_type size
+        copy_to_device span1d {src with ar offset=0} src
         ar
 
-    inl to_host_array span1d body =
+    met rec to_host_array (!dyn span1d) (!dyn body) =
         inl ptr, elem_type = add_to_ptr body
         assert (blittable_is elem_type) "The host array type must be blittable."
         inl t = array_create elem_type (span1d * fst body.size)
@@ -208,10 +211,11 @@ inl {stream Cuda Allocator} ->
 
     inl transfer_template f tns = 
         assert_contiguous tns
+        inl f = tns.dim |> fst |> span |> f
         tns.update_body <| inl body -> {body with ar = f body}
 
-    inl from_host_tensor tns = transfer_template (tns.dim |> fst |> span |> from_host_array) tns
-    inl to_host_tensor tns = transfer_template (tns.dim |> fst |> span |> to_host_array) tns
+    inl from_host_tensor tns = transfer_template from_host_array tns
+    inl to_host_tensor tns = transfer_template to_host_array tns
 
     inl to_dev_tensor tns = 
         tns.update_body (inl body ->
@@ -1558,6 +1562,18 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl grad_check {d with network={weights apply} input label} =
         open Extern
+        inl CDV t = fs [text: "ManagedCuda.CudaDeviceVariable"; types: t] |> FS.Constructor
+        inl SizeT = fs [text: "ManagedCuda.BasicTypes.SizeT"] |> FS.Constructor
+        inl into_cdv x =
+            inl {ar offset=offset : int64} = x.bodies
+            inl elem_type = ar.elem_type
+            inl size = sizeof elem_type
+            inl ptr = ar.ptr()
+            {cdv=CDV elem_type (ptr,false,SizeT size); elem_type offset}
+
+        inl get_cdv x = macro.fs x.elem_type [arg:x.cdv; text: ".["; arg:SizeT x.offset; text: "]"]
+        inl set_cdv x v = macro.fs unit [arg:x.cdv; text: ".["; arg:SizeT x.offset; text: "] <- "; arg:v : x.elem_type]
+
         inl float = to default_float
 
         inl run () = 
@@ -1585,17 +1601,17 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 met cost () =
                     inb {cost accuracy}, bck = apply (input, label)
                     primal cost
-                inl cdv = CudaTensor.cdv_create primal'.bodies
-                inl orig = cdv.get 0
-                cdv.set 0 (orig + epsilon)
+                inl cdv = into_cdv primal'
+                inl orig = get_cdv cdv
+                set_cdv cdv (orig + epsilon)
                 inl cost_plus_epsilon = cost ()
-                cdv.set 0 (orig - epsilon)
+                set_cdv cdv (orig - epsilon)
                 inl cost_minus_epsilon = cost ()
-                cdv.set 0 orig
+                set_cdv cdv orig
                 inl approx_gradient = (cost_plus_epsilon - cost_minus_epsilon) / (2.0f32 * epsilon)
 
-                inl cdv = cdv_create adjoint'.bodies
-                inl true_gradient = cdv.get 0 cdv
+                inl cdv = into_cdv adjoint'
+                inl true_gradient = get_cdv cdv
                 
                 inl diff = abs (true_gradient - approx_gradient)
                 if diff >= boundary then

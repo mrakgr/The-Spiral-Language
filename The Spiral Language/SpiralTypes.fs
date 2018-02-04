@@ -546,20 +546,22 @@ let inline codegen_macro' show_typedexpr codegen print_type x =
             | TyLit (LitString x) | TypeString x -> x
             | _ -> failwithf "Iter's first three arguments must be strings."
     let er x = failwithf "Unknown argument in macro. Got: %s" (show_typedexpr x)
-    let rec f = function
+    let rec iter begin_ sep end_ ops = 
+        append begin_
+        match ops with
+        | TyList (x :: xs) -> f x; List.iter (fun x -> append sep; f x) xs
+        | TyList [] -> ()
+        | x -> er x
+        append end_
+    and f = function
         | TyList [TypeString "text"; LS x] -> append x
         | TyList [TypeString "arg"; x] -> append (codegen x)
         | TyList [TypeString "args"; TyTuple l] -> append "("; List.map codegen l |> String.concat ", " |> append; append ")"
         | TyList [TypeString "fs_array_args"; TyTuple l] -> append "[|"; List.map codegen l |> String.concat "; " |> append; append "|]"
         | TyList [TypeString "type"; TyType x] -> append (print_type x)
         | TyList [TypeString "types"; TyTuple l] -> append "<"; List.map (get_type >> print_type) l |> String.concat ", " |> append; append ">" 
-        | TyList [TypeString "iter"; TyList [LS begin_;LS sep;LS end_;ops]] ->
-                append begin_
-                match ops with
-                | TyList (x :: xs) -> f x; List.iter (fun x -> append sep; f x) xs
-                | TyList [] -> ()
-                | x -> er x
-                append end_
+        | TyList [TypeString "iter"; TyList [LS begin_;LS sep;LS end_;ops]] -> iter begin_ sep end_ ops
+        | TyList [TypeString "parenth"; ops] -> iter "(" "," ")" ops
         | x -> er x
     match x with
     | TyList x -> List.iter f x
