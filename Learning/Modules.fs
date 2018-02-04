@@ -173,36 +173,49 @@ inl {stream Cuda Allocator} ->
     inl create data = create {data with array_create = array_create_cuda_global}
     inl create_like tns = create {elem_type=tns.elem_type; dim=tns.dim}
 
-    inl from_host_array ar =
-        inl size = array_length ar |> to int64
-        inl elem_type = ar.elem_type
-        assert (blittable_is elem_type) "The host array type must be blittable."
-        inl t = array_create_cuda_global elem_type size
-        FS.Method context .CopyToDevice(t.ptr(), ar) unit
-        t
+    inl add_to_ptr {ar offset} =
+        inl ptr, elem_type = ar.ptr(), ar.elem_type
+        inl ptr = ptr_to_uint ptr + to uint64 (offset * sizeof elem_type) |> uint_to_ptr    
+        ptr, elem_type
 
-    inl to_host_array size1d ar =
-        inl elem_type = ar.elem_type
+    inl CDV t = fs [text: "ManagedCuda.CudaDeviceVariable"; types: t] |> FS.Constructor
+    inl SizeT = fs [text: "ManagedCuda.BasicTypes.SizeT"] |> FS.Constructor
+    inl cdv_create span1d body =
+        inl ptr, elem_type = add_to_ptr body
+        inl cdv = CDV elem_type (ptr,false,SizeT (span1d * sizeof elem_type))
+        function
+        | .get i -> macro.fs x.elem_type [arg:cdv; text: ".["; arg:SizeT i; text: "]"]
+        | .set i v -> macro.fs unit [arg:cdv; text: ".["; arg:SizeT i; text: "] <- "; arg:v : elem_type]
+        | .CopyToDevice span1d {ar offset size} -> 
+            inl size = span1d * fst size
+            macro.fs unit [text: "CopyToDevice"; args: ar, offset, SizeT 0, SizeT (span1d * sizeof elem_type)]
+
+    inl from_host_array span1d body =
+        inl elem_type = body.ar.elem_type
         assert (blittable_is elem_type) "The host array type must be blittable."
-        inl t = array_create elem_type size1d
-        FS.Method context .CopyToHost (t,ar.ptr()) unit
+        inl size = span1d * fst body.size
+        inl ar = array_create_cuda_global elem_type (span1d * fst body.size)
+        inl cdv = cdv_create span1d {ar offset=0}
+        cdv.CopyToDevice span1d body
+        ar
+
+    inl to_host_array span1d body =
+        inl ptr, elem_type = add_to_ptr body
+        assert (blittable_is elem_type) "The host array type must be blittable."
+        inl t = array_create elem_type (span1d * fst body.size)
+        FS.Method context .CopyToHost (t,ptr) unit
         t
 
     inl transfer_template f tns = 
         assert_contiguous tns
-        tns.update_body <| inl {body with offset ar} ->
-            // I do not feel like messing with GC handles in Spiral right now.
-            // Allowing a copy with an offset would be easy though. See ManagedCuda's CopyToHost and CopyToDevice.
-            assert (offset = 0) "Only unviewed arrays are allowed for now."
-            {body with ar = f ar}
+        tns.update_body <| inl body -> {body with ar = f body}
 
-    inl from_host_tensor = transfer_template from_host_array
-    inl to_host_tensor tns = transfer_template (to_host_array tns.length) tns
+    inl from_host_tensor tns = transfer_template (tns.dim |> fst |> span |> from_host_array) tns
+    inl to_host_tensor tns = transfer_template (tns.dim |> fst |> span |> to_host_array) tns
 
     inl to_dev_tensor tns = 
-        tns.update_body (inl {body with ar offset} ->
-            inl ptr, elem_type = ar.ptr(), ar.elem_type
-            inl ptr = ptr_to_uint ptr + to uint64 (offset * sizeof elem_type) |> uint_to_ptr    
+        tns.update_body (inl body ->
+            inl ptr, elem_type = add_to_ptr body
             inl ar = !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
             {body with ar offset=0}
             )
@@ -1545,18 +1558,6 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl grad_check {d with network={weights apply} input label} =
         open Extern
-        inl CDV t = fs [text: "ManagedCuda.CudaDeviceVariable"; types: t] |> FS.Constructor
-        inl SizeT = fs [text: "ManagedCuda.BasicTypes.SizeT"] |> FS.Constructor
-        inl into_cdv x =
-            inl {ar offset=offset : int64} = x.bodies
-            inl elem_type = ar.elem_type
-            inl size = sizeof elem_type
-            inl ptr = ar.ptr()
-            {cdv=CDV elem_type (ptr,false,SizeT size); elem_type offset}
-
-        inl get_cdv x = macro.fs x.elem_type [arg:x.cdv; text: ".["; arg:SizeT x.offset; text: "]"]
-        inl set_cdv x v = macro.fs unit [arg:x.cdv; text: ".["; arg:SizeT x.offset; text: "] <- "; arg:v : x.elem_type]
-
         inl float = to default_float
 
         inl run () = 
@@ -1584,17 +1585,17 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                 met cost () =
                     inb {cost accuracy}, bck = apply (input, label)
                     primal cost
-                inl cdv = into_cdv primal'
-                inl orig = get_cdv cdv
-                set_cdv cdv (orig + epsilon)
+                inl cdv = CudaTensor.cdv_create primal'.bodies
+                inl orig = cdv.get 0
+                cdv.set 0 (orig + epsilon)
                 inl cost_plus_epsilon = cost ()
-                set_cdv cdv (orig - epsilon)
+                cdv.set 0 (orig - epsilon)
                 inl cost_minus_epsilon = cost ()
-                set_cdv cdv orig
+                cdv.set 0 orig
                 inl approx_gradient = (cost_plus_epsilon - cost_minus_epsilon) / (2.0f32 * epsilon)
 
-                inl cdv = into_cdv adjoint'
-                inl true_gradient = get_cdv cdv
+                inl cdv = cdv_create adjoint'.bodies
+                inl true_gradient = cdv.get 0 cdv
                 
                 inl diff = abs (true_gradient - approx_gradient)
                 if diff >= boundary then
