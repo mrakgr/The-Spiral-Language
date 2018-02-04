@@ -935,7 +935,7 @@ inl {stream Cuda CudaTensor} ->
                     inl out = out i
                     inl finally result = out.set (map_out result out.get)
 
-                    inl blockResult = 
+                    inl state = 
                         grid_for .y dim_in_a {state=dyn neutral_elem; body=inl {state i} -> 
                             inl in = in i 
                             redo state (map_in in.get in'.get) 
@@ -946,13 +946,13 @@ inl {stream Cuda CudaTensor} ->
                         inl ar = 
                             HostTensor.create {
                                 array_create=array_create_cuda_shared
-                                elem_type=blockResult
+                                elem_type=state
                                 dim={from=1; near_to}, blockDim.x
                                 }
                             |> inl ar i -> ar i threadIdx.x
 
                         whilecd {
-                            state={near_to state=blockResult}
+                            state={near_to state}
                             cond=inl {near_to} -> near_to >= 2
                             body=inl {near_to state} ->
                                 inl by = near_to/2 // It might be worth trying `max 1 (near_to/3)`
@@ -972,7 +972,7 @@ inl {stream Cuda CudaTensor} ->
                             }
                         |> inl {state} -> if threadIdx.y = 0 then finally state
                     else
-                        finally blockResult
+                        finally state
                 }
             } |> ignore
 
@@ -1041,32 +1041,39 @@ inl {stream Cuda CudaTensor} ->
         mapi_d1_inscan_mapi_d1_reduce_mapi' d in in' out
         ret out
 
+    /// Creates a tensor using the given generator function.
+    /// Takes in the optional {thread_limit} as the first argument in order to control the degree of parallelism.
     inl init' d f (!zip (!to_dev_tensor out)) =
-        inl dim_a, dim_b = 
+        inl dim = out.dim
+        inl rec merge = function
+            | thread_limit :: l', dim :: d' -> {dim thread_limit} :: merge (l', d')
+            | (), d' -> Tuple.map (inl dim -> {dim thread_limit=()}) d'
+        inl d = 
             match d with
-            | {parallel_dims} -> Tuple.split_at parallel_dims out.dim
-            | _ -> out.dim, ()
-
-        inl near_to = Tuple.foldl (a (!s b) -> a*b) 1 dim_a
+            | {thread_limit} -> merge (Tuple.wrap thread_limit,dim)
+            | {rev_thread_limit} -> merge (Tuple.wrap rev_thread_limit,Tuple.rev dim) |> Tuple.rev
+            | _ -> merge ((),dim)
+        inl s = function {thread_limit=() dim} -> s dim | {thread_limit} -> thread_limit
+        inl near_to = Tuple.foldl (inl a (!s b) -> a*b) 1 d
         inl blockDim = min near_to 256
         inl gridDim = divup near_to blockDim
 
         run {stream blockDim gridDim
             kernel = cuda
                 grid_for {blockDim gridDim} .x {from=0 near_to} {body=inl {i} ->
-                    inl l,_ = Tuple.foldr (inl ((!s x_span) & x) (l,i) -> (i % x_span - x.from) :: l, i / x_span) dim_a ((),i)
-                    inl f, out = Tuple.foldl (inl i f,out -> f i, out i) (f, out) l
-                    inl rec loop f,out = function
-                        | x :: x' -> forcd {x with body=inl {i} -> loop (f i, out i) x'}
-                        | _ -> out.set f
-                    loop f dim_b
+                    inl l,_ = Tuple.foldr (inl ((!s x_span) & x) (l,i) -> (i % x_span - x.dim.from) :: l, i / x_span) d ((),i)
+                    inl rec loop f out = function
+                        | {thread_limit=()} :: d', i :: i' -> loop (f i) (out i) (d', i')
+                        | {thread_limit=by dim={near_to}} :: d', from :: i' -> forcd {from by near_to body=inl {i} -> loop (f i) (out i) (d',i')}
+                        | (), () -> out.set f
+                    loop f out d
                     }
             }
 
-    inl init dim f ret =
+    inl init {d with dim} f ret =
         inl elem_type = type Tuple.foldr (inl f _ -> f 0) f dim
         inb out = create {dim elem_type}
-        init' {} f out
+        init' d out
         ret out
 
     {
