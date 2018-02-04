@@ -346,6 +346,19 @@ met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Cons
 Tuple.iter show (HostTensor.zip (a1),HostTensor.zip (o3))
     """
 
+let kernel12 =
+    "kernel12",[allocator;cuda;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the init kernel work?",
+    """
+inb Cuda = Cuda
+inb Allocator = Allocator {Cuda size=0.1}
+inb stream = Cuda.Stream.create()
+inl CudaTensor = CudaTensor {stream Cuda Allocator}
+inl CudaKernel = CudaKernel {stream Cuda CudaTensor}
+inb o1 = CudaKernel.init {rev_thread_limit=32; dim=2,2,128} (inl a b c -> a,b, c)
+
+CudaTensor.print o1
+    """
+
 let random1 =
     "random1",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;console],"Does the create_tensor work?",
     """
@@ -760,7 +773,7 @@ let tests =
     allocator1
     tensor1;tensor2
     kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
-    kernel10;kernel11
+    kernel10;kernel11;kernel12
     random1
     blas1
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
@@ -770,6 +783,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel12
 |> printfn "%s"
 |> ignore

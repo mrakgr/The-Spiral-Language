@@ -37,102 +37,102 @@ extern "C" {
         var_6[0] = var_5;
         while (method_6(var_6)) {
             long long int var_8 = var_6[0];
-            long long int var_9 = (var_8 + 32);
-            char var_10 = (var_8 >= 0);
-            char var_12;
-            if (var_10) {
-                var_12 = (var_8 < 32);
+            char var_9 = (var_8 >= 0);
+            char var_11;
+            if (var_9) {
+                var_11 = (var_8 < 32);
             } else {
-                var_12 = 0;
+                var_11 = 0;
             }
-            char var_13 = (var_12 == 0);
-            if (var_13) {
+            char var_12 = (var_11 == 0);
+            if (var_12) {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_14 = (var_8 * 10);
-            char var_16;
-            if (var_10) {
-                var_16 = (var_8 < 32);
+            long long int var_13 = (var_8 * 10);
+            char var_15;
+            if (var_9) {
+                var_15 = (var_8 < 32);
             } else {
-                var_16 = 0;
+                var_15 = 0;
             }
-            char var_17 = (var_16 == 0);
-            if (var_17) {
+            char var_16 = (var_15 == 0);
+            if (var_16) {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_18 = threadIdx.x;
-            long long int var_19 = blockIdx.x;
-            long long int var_20 = (10 * var_19);
-            long long int var_21 = (var_18 + var_20);
-            float var_22 = __int_as_float(0xff800000);
-            float var_23 = 0;
-            long long int var_24[1];
+            long long int var_17 = threadIdx.x;
+            long long int var_18 = blockIdx.x;
+            long long int var_19 = (10 * var_18);
+            long long int var_20 = (var_17 + var_19);
+            float var_21 = __int_as_float(0xff800000);
+            float var_22 = 0;
+            long long int var_23[1];
+            float var_24[1];
             float var_25[1];
-            float var_26[1];
+            var_23[0] = var_20;
             var_24[0] = var_21;
             var_25[0] = var_22;
-            var_26[0] = var_23;
-            while (method_7(var_24, var_25, var_26)) {
-                long long int var_28 = var_24[0];
+            while (method_7(var_23, var_24, var_25)) {
+                long long int var_27 = var_23[0];
+                float var_28 = var_24[0];
                 float var_29 = var_25[0];
-                float var_30 = var_26[0];
-                long long int var_31 = (var_28 + 10);
-                char var_32 = (var_28 >= 0);
-                char var_34;
-                if (var_32) {
-                    var_34 = (var_28 < 10);
+                char var_30 = (var_27 >= 0);
+                char var_32;
+                if (var_30) {
+                    var_32 = (var_27 < 10);
                 } else {
-                    var_34 = 0;
+                    var_32 = 0;
                 }
-                char var_35 = (var_34 == 0);
-                if (var_35) {
+                char var_33 = (var_32 == 0);
+                if (var_33) {
                     // "Argument out of bounds."
                 } else {
                 }
-                long long int var_36 = (var_14 + var_28);
-                float var_37 = var_0[var_36];
-                float var_38 = var_1[var_36];
-                char var_39 = (var_29 > var_37);
-                Tuple0 var_40;
-                if (var_39) {
-                    var_40 = make_Tuple0(var_29, var_30);
+                long long int var_34 = (var_13 + var_27);
+                float var_35 = var_0[var_34];
+                float var_36 = var_1[var_34];
+                char var_37 = (var_28 > var_35);
+                Tuple0 var_38;
+                if (var_37) {
+                    var_38 = make_Tuple0(var_28, var_29);
                 } else {
-                    var_40 = make_Tuple0(var_37, var_38);
+                    var_38 = make_Tuple0(var_35, var_36);
                 }
-                float var_41 = var_40.mem_0;
-                float var_42 = var_40.mem_1;
-                var_24[0] = var_31;
-                var_25[0] = var_41;
-                var_26[0] = var_42;
+                float var_39 = var_38.mem_0;
+                float var_40 = var_38.mem_1;
+                long long int var_41 = (var_27 + 10);
+                var_23[0] = var_41;
+                var_24[0] = var_39;
+                var_25[0] = var_40;
             }
-            long long int var_43 = var_24[0];
+            long long int var_42 = var_23[0];
+            float var_43 = var_24[0];
             float var_44 = var_25[0];
-            float var_45 = var_26[0];
-            FunPointer1 var_48 = method_8;
-            Tuple0 var_49 = cub::BlockReduce<Tuple0,10,cub::BLOCK_REDUCE_WARP_REDUCTIONS,1,1>().Reduce(make_Tuple0(var_44, var_45), var_48);
-            float var_50 = var_49.mem_0;
-            float var_51 = var_49.mem_1;
-            long long int var_52 = threadIdx.x;
-            char var_53 = (var_52 == 0);
-            if (var_53) {
-                char var_55;
-                if (var_10) {
-                    var_55 = (var_8 < 32);
+            FunPointer1 var_47 = method_8;
+            Tuple0 var_48 = cub::BlockReduce<Tuple0,10,cub::BLOCK_REDUCE_WARP_REDUCTIONS,1,1>().Reduce(make_Tuple0(var_43, var_44), var_47);
+            float var_49 = var_48.mem_0;
+            float var_50 = var_48.mem_1;
+            long long int var_51 = threadIdx.x;
+            char var_52 = (var_51 == 0);
+            if (var_52) {
+                char var_54;
+                if (var_9) {
+                    var_54 = (var_8 < 32);
                 } else {
-                    var_55 = 0;
+                    var_54 = 0;
                 }
-                char var_56 = (var_55 == 0);
-                if (var_56) {
+                char var_55 = (var_54 == 0);
+                if (var_55) {
                     // "Argument out of bounds."
                 } else {
                 }
-                float var_57 = var_2[var_8];
-                var_2[var_8] = var_51;
+                float var_56 = var_2[var_8];
+                var_2[var_8] = var_50;
             } else {
             }
-            var_6[0] = var_9;
+            long long int var_57 = (var_8 + 32);
+            var_6[0] = var_57;
         }
         long long int var_58 = var_6[0];
     }

@@ -21,23 +21,23 @@ extern "C" {
         while (method_6(var_7, var_8)) {
             long long int var_10 = var_7[0];
             float var_11 = var_8[0];
-            long long int var_12 = (var_10 + 16384);
-            char var_13 = (var_10 >= 0);
-            char var_15;
-            if (var_13) {
-                var_15 = (var_10 < 65536);
+            char var_12 = (var_10 >= 0);
+            char var_14;
+            if (var_12) {
+                var_14 = (var_10 < 65536);
             } else {
-                var_15 = 0;
+                var_14 = 0;
             }
-            char var_16 = (var_15 == 0);
-            if (var_16) {
+            char var_15 = (var_14 == 0);
+            if (var_15) {
                 // "Argument out of bounds."
             } else {
             }
-            float var_17 = var_0[var_10];
-            float var_18 = (var_11 + var_17);
-            var_7[0] = var_12;
-            var_8[0] = var_18;
+            float var_16 = var_0[var_10];
+            float var_17 = (var_11 + var_16);
+            long long int var_18 = (var_10 + 16384);
+            var_7[0] = var_18;
+            var_8[0] = var_17;
         }
         long long int var_19 = var_7[0];
         float var_20 = var_8[0];
@@ -71,35 +71,35 @@ extern "C" {
         var_8[0] = var_7;
         while (method_9(var_8)) {
             long long int var_10 = var_8[0];
-            long long int var_11 = (var_10 + 8192);
-            char var_12 = (var_10 >= 0);
-            char var_14;
-            if (var_12) {
-                var_14 = (var_10 < 65536);
+            char var_11 = (var_10 >= 0);
+            char var_13;
+            if (var_11) {
+                var_13 = (var_10 < 65536);
             } else {
-                var_14 = 0;
+                var_13 = 0;
             }
-            char var_15 = (var_14 == 0);
-            if (var_15) {
+            char var_14 = (var_13 == 0);
+            if (var_14) {
                 // "Argument out of bounds."
             } else {
             }
-            char var_17;
-            if (var_12) {
-                var_17 = (var_10 < 65536);
+            char var_16;
+            if (var_11) {
+                var_16 = (var_10 < 65536);
             } else {
-                var_17 = 0;
+                var_16 = 0;
             }
-            char var_18 = (var_17 == 0);
-            if (var_18) {
+            char var_17 = (var_16 == 0);
+            if (var_17) {
                 // "Argument out of bounds."
             } else {
             }
-            float var_19 = var_2[var_10];
-            float var_20 = var_3[var_10];
-            float var_21 = (var_20 + var_0);
-            var_3[var_10] = var_21;
-            var_8[0] = var_11;
+            float var_18 = var_2[var_10];
+            float var_19 = var_3[var_10];
+            float var_20 = (var_19 + var_0);
+            var_3[var_10] = var_20;
+            long long int var_21 = (var_10 + 8192);
+            var_8[0] = var_21;
         }
         long long int var_22 = var_8[0];
     }

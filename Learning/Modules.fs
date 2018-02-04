@@ -225,13 +225,15 @@ inl {stream Cuda Allocator} ->
         toa_map (inl x -> x.update_body (inl {ar} -> ar.ptr.Dispose)) |> ignore
         r
 
+    met print (!dyn o1) = to_host_tensor o1 |> HostTensor.show |> Console.writeline
+
     // CPS'd variants of the allocator functions.
     inl create = safe_alloc 1 create
     inl from_host_tensor = safe_alloc 1 from_host_tensor
     inl zero = safe_alloc 1 zero
     inl zero_like = safe_alloc 1 zero_like
 
-    {create from_host_tensor from_host_tensors to_host_tensor to_dev_tensor clear zero zero_like}
+    {create from_host_tensor from_host_tensors to_host_tensor to_dev_tensor clear zero zero_like print}
     """) |> module_
 
 let cuda_kernel =
@@ -290,7 +292,7 @@ inl {stream Cuda CudaTensor} ->
         whilecd {
             state
             cond = inl {from state} -> check from
-            body = inl {from state} -> {from=from+by; state=body {state i=from}}
+            body = inl {from state} -> {state=body {state i=from}; from=from+by}
             } .state
         |> finally
 
@@ -1060,20 +1062,21 @@ inl {stream Cuda CudaTensor} ->
 
         run {stream blockDim gridDim
             kernel = cuda
-                grid_for {blockDim gridDim} .x {from=0 near_to} {body=inl {i} ->
+                grid_for {blockDim gridDim} .x {from=0; near_to} {body=inl {i} ->
                     inl l,_ = Tuple.foldr (inl ((!s x_span) & x) (l,i) -> (i % x_span - x.dim.from) :: l, i / x_span) d ((),i)
                     inl rec loop f out = function
                         | {thread_limit=()} :: d', i :: i' -> loop (f i) (out i) (d', i')
                         | {thread_limit=by dim={near_to}} :: d', from :: i' -> forcd {from by near_to body=inl {i} -> loop (f i) (out i) (d',i')}
                         | (), () -> out.set f
-                    loop f out d
+                    loop f out (d,l)
                     }
             }
 
     inl init {d with dim} f ret =
-        inl elem_type = type Tuple.foldr (inl f _ -> f 0) f dim
+        inl dim = Tuple.wrap dim
+        inl elem_type = type Tuple.foldl (inl f _ -> f 0) f dim
         inb out = create {dim elem_type}
-        init' d out
+        init' d f out
         ret out
 
     {

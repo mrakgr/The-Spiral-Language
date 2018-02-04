@@ -26,84 +26,84 @@ extern "C" {
         var_7[0] = var_6;
         while (method_15(var_7)) {
             long long int var_9 = var_7[0];
-            long long int var_10 = (var_9 + 10);
-            char var_11 = (var_9 >= 0);
-            char var_13;
-            if (var_11) {
-                var_13 = (var_9 < 10);
+            char var_10 = (var_9 >= 0);
+            char var_12;
+            if (var_10) {
+                var_12 = (var_9 < 10);
             } else {
-                var_13 = 0;
+                var_12 = 0;
             }
-            char var_14 = (var_13 == 0);
-            if (var_14) {
+            char var_13 = (var_12 == 0);
+            if (var_13) {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_15 = threadIdx.y;
-            long long int var_16 = blockIdx.y;
-            long long int var_17 = (32 * var_16);
-            long long int var_18 = (var_15 + var_17);
-            long long int var_19[1];
-            var_19[0] = var_18;
-            while (method_16(var_19)) {
-                long long int var_21 = var_19[0];
-                long long int var_22 = (var_21 + 32);
-                char var_23 = (var_21 >= 0);
-                char var_25;
-                if (var_23) {
-                    var_25 = (var_21 < 32);
+            long long int var_14 = threadIdx.y;
+            long long int var_15 = blockIdx.y;
+            long long int var_16 = (32 * var_15);
+            long long int var_17 = (var_14 + var_16);
+            long long int var_18[1];
+            var_18[0] = var_17;
+            while (method_16(var_18)) {
+                long long int var_20 = var_18[0];
+                char var_21 = (var_20 >= 0);
+                char var_23;
+                if (var_21) {
+                    var_23 = (var_20 < 32);
                 } else {
-                    var_25 = 0;
+                    var_23 = 0;
                 }
-                char var_26 = (var_25 == 0);
-                if (var_26) {
+                char var_24 = (var_23 == 0);
+                if (var_24) {
                     // "Argument out of bounds."
                 } else {
                 }
-                long long int var_27 = (var_21 * 10);
-                char var_29;
-                if (var_11) {
-                    var_29 = (var_9 < 10);
+                long long int var_25 = (var_20 * 10);
+                char var_27;
+                if (var_10) {
+                    var_27 = (var_9 < 10);
                 } else {
-                    var_29 = 0;
+                    var_27 = 0;
                 }
-                char var_30 = (var_29 == 0);
-                if (var_30) {
+                char var_28 = (var_27 == 0);
+                if (var_28) {
                     // "Argument out of bounds."
                 } else {
                 }
-                long long int var_31 = (var_27 + var_9);
-                char var_33;
-                if (var_23) {
-                    var_33 = (var_21 < 32);
+                long long int var_29 = (var_25 + var_9);
+                char var_31;
+                if (var_21) {
+                    var_31 = (var_20 < 32);
                 } else {
-                    var_33 = 0;
+                    var_31 = 0;
                 }
-                char var_34 = (var_33 == 0);
-                if (var_34) {
+                char var_32 = (var_31 == 0);
+                if (var_32) {
                     // "Argument out of bounds."
                 } else {
                 }
-                char var_36;
-                if (var_11) {
-                    var_36 = (var_9 < 10);
+                char var_34;
+                if (var_10) {
+                    var_34 = (var_9 < 10);
                 } else {
-                    var_36 = 0;
+                    var_34 = 0;
                 }
-                char var_37 = (var_36 == 0);
-                if (var_37) {
+                char var_35 = (var_34 == 0);
+                if (var_35) {
                     // "Argument out of bounds."
                 } else {
                 }
-                float var_38 = var_0[var_9];
-                float var_39 = var_1[var_31];
-                float var_40 = var_2[var_31];
-                float var_41 = (var_38 + var_39);
-                var_2[var_31] = var_41;
-                var_19[0] = var_22;
+                float var_36 = var_0[var_9];
+                float var_37 = var_1[var_29];
+                float var_38 = var_2[var_29];
+                float var_39 = (var_36 + var_37);
+                var_2[var_29] = var_39;
+                long long int var_40 = (var_20 + 32);
+                var_18[0] = var_40;
             }
-            long long int var_42 = var_19[0];
-            var_7[0] = var_10;
+            long long int var_41 = var_18[0];
+            long long int var_42 = (var_9 + 10);
+            var_7[0] = var_42;
         }
         long long int var_43 = var_7[0];
     }
@@ -116,38 +116,38 @@ extern "C" {
         var_6[0] = var_5;
         while (method_18(var_6)) {
             long long int var_8 = var_6[0];
-            long long int var_9 = (var_8 + 384);
-            char var_10 = (var_8 >= 0);
-            char var_12;
-            if (var_10) {
-                var_12 = (var_8 < 320);
+            char var_9 = (var_8 >= 0);
+            char var_11;
+            if (var_9) {
+                var_11 = (var_8 < 320);
             } else {
-                var_12 = 0;
+                var_11 = 0;
             }
-            char var_13 = (var_12 == 0);
-            if (var_13) {
+            char var_12 = (var_11 == 0);
+            if (var_12) {
                 // "Argument out of bounds."
             } else {
             }
-            char var_15;
-            if (var_10) {
-                var_15 = (var_8 < 320);
+            char var_14;
+            if (var_9) {
+                var_14 = (var_8 < 320);
             } else {
-                var_15 = 0;
+                var_14 = 0;
             }
-            char var_16 = (var_15 == 0);
-            if (var_16) {
+            char var_15 = (var_14 == 0);
+            if (var_15) {
                 // "Argument out of bounds."
             } else {
             }
-            float var_17 = var_0[var_8];
-            float var_18 = var_1[var_8];
-            float var_19 = (-var_17);
-            float var_20 = exp(var_19);
-            float var_21 = (1 + var_20);
-            float var_22 = (1 / var_21);
-            var_1[var_8] = var_22;
-            var_6[0] = var_9;
+            float var_16 = var_0[var_8];
+            float var_17 = var_1[var_8];
+            float var_18 = (-var_16);
+            float var_19 = exp(var_18);
+            float var_20 = (1 + var_19);
+            float var_21 = (1 / var_20);
+            var_1[var_8] = var_21;
+            long long int var_22 = (var_8 + 384);
+            var_6[0] = var_22;
         }
         long long int var_23 = var_6[0];
     }
@@ -164,32 +164,32 @@ extern "C" {
         while (method_20(var_8, var_9)) {
             long long int var_11 = var_8[0];
             float var_12 = var_9[0];
-            long long int var_13 = (var_11 + 512);
-            char var_14 = (var_11 >= 0);
-            char var_16;
-            if (var_14) {
-                var_16 = (var_11 < 320);
+            char var_13 = (var_11 >= 0);
+            char var_15;
+            if (var_13) {
+                var_15 = (var_11 < 320);
             } else {
-                var_16 = 0;
+                var_15 = 0;
             }
-            char var_17 = (var_16 == 0);
-            if (var_17) {
+            char var_16 = (var_15 == 0);
+            if (var_16) {
                 // "Argument out of bounds."
             } else {
             }
-            float var_18 = var_0[var_11];
-            float var_19 = var_1[var_11];
-            float var_20 = log(var_18);
-            float var_21 = (var_19 * var_20);
-            float var_22 = (1 - var_19);
-            float var_23 = (1 - var_18);
-            float var_24 = log(var_23);
-            float var_25 = (var_22 * var_24);
-            float var_26 = (var_21 + var_25);
-            float var_27 = (-var_26);
-            float var_28 = (var_12 + var_27);
-            var_8[0] = var_13;
-            var_9[0] = var_28;
+            float var_17 = var_0[var_11];
+            float var_18 = var_1[var_11];
+            float var_19 = log(var_17);
+            float var_20 = (var_18 * var_19);
+            float var_21 = (1 - var_18);
+            float var_22 = (1 - var_17);
+            float var_23 = log(var_22);
+            float var_24 = (var_21 * var_23);
+            float var_25 = (var_20 + var_24);
+            float var_26 = (-var_25);
+            float var_27 = (var_12 + var_26);
+            long long int var_28 = (var_11 + 512);
+            var_8[0] = var_28;
+            var_9[0] = var_27;
         }
         long long int var_29 = var_8[0];
         float var_30 = var_9[0];
@@ -223,41 +223,41 @@ extern "C" {
         var_9[0] = var_8;
         while (method_18(var_9)) {
             long long int var_11 = var_9[0];
-            long long int var_12 = (var_11 + 384);
-            char var_13 = (var_11 >= 0);
-            char var_15;
-            if (var_13) {
-                var_15 = (var_11 < 320);
+            char var_12 = (var_11 >= 0);
+            char var_14;
+            if (var_12) {
+                var_14 = (var_11 < 320);
             } else {
-                var_15 = 0;
+                var_14 = 0;
             }
-            char var_16 = (var_15 == 0);
-            if (var_16) {
+            char var_15 = (var_14 == 0);
+            if (var_15) {
                 // "Argument out of bounds."
             } else {
             }
-            char var_18;
-            if (var_13) {
-                var_18 = (var_11 < 320);
+            char var_17;
+            if (var_12) {
+                var_17 = (var_11 < 320);
             } else {
-                var_18 = 0;
+                var_17 = 0;
             }
-            char var_19 = (var_18 == 0);
-            if (var_19) {
+            char var_18 = (var_17 == 0);
+            if (var_18) {
                 // "Argument out of bounds."
             } else {
             }
-            float var_20 = var_2[var_11];
-            float var_21 = var_3[var_11];
-            float var_22 = var_4[var_11];
-            float var_23 = (var_20 - var_21);
-            float var_24 = (1 - var_20);
-            float var_25 = (var_20 * var_24);
-            float var_26 = (var_23 / var_25);
-            float var_27 = (var_0 * var_26);
-            float var_28 = (var_22 + var_27);
-            var_4[var_11] = var_28;
-            var_9[0] = var_12;
+            float var_19 = var_2[var_11];
+            float var_20 = var_3[var_11];
+            float var_21 = var_4[var_11];
+            float var_22 = (var_19 - var_20);
+            float var_23 = (1 - var_19);
+            float var_24 = (var_19 * var_23);
+            float var_25 = (var_22 / var_24);
+            float var_26 = (var_0 * var_25);
+            float var_27 = (var_21 + var_26);
+            var_4[var_11] = var_27;
+            long long int var_28 = (var_11 + 384);
+            var_9[0] = var_28;
         }
         long long int var_29 = var_9[0];
     }
@@ -270,40 +270,40 @@ extern "C" {
         var_8[0] = var_7;
         while (method_18(var_8)) {
             long long int var_10 = var_8[0];
-            long long int var_11 = (var_10 + 384);
-            char var_12 = (var_10 >= 0);
-            char var_14;
-            if (var_12) {
-                var_14 = (var_10 < 320);
+            char var_11 = (var_10 >= 0);
+            char var_13;
+            if (var_11) {
+                var_13 = (var_10 < 320);
             } else {
-                var_14 = 0;
+                var_13 = 0;
             }
-            char var_15 = (var_14 == 0);
-            if (var_15) {
+            char var_14 = (var_13 == 0);
+            if (var_14) {
                 // "Argument out of bounds."
             } else {
             }
-            char var_17;
-            if (var_12) {
-                var_17 = (var_10 < 320);
+            char var_16;
+            if (var_11) {
+                var_16 = (var_10 < 320);
             } else {
-                var_17 = 0;
+                var_16 = 0;
             }
-            char var_18 = (var_17 == 0);
-            if (var_18) {
+            char var_17 = (var_16 == 0);
+            if (var_17) {
                 // "Argument out of bounds."
             } else {
             }
-            float var_19 = var_0[var_10];
-            float var_20 = var_1[var_10];
-            float var_21 = var_2[var_10];
-            float var_22 = var_3[var_10];
-            float var_23 = (1 - var_21);
-            float var_24 = (var_21 * var_23);
-            float var_25 = (var_20 * var_24);
-            float var_26 = (var_22 + var_25);
-            var_3[var_10] = var_26;
-            var_8[0] = var_11;
+            float var_18 = var_0[var_10];
+            float var_19 = var_1[var_10];
+            float var_20 = var_2[var_10];
+            float var_21 = var_3[var_10];
+            float var_22 = (1 - var_20);
+            float var_23 = (var_20 * var_22);
+            float var_24 = (var_19 * var_23);
+            float var_25 = (var_21 + var_24);
+            var_3[var_10] = var_25;
+            long long int var_26 = (var_10 + 384);
+            var_8[0] = var_26;
         }
         long long int var_27 = var_8[0];
     }
@@ -316,193 +316,193 @@ extern "C" {
         var_6[0] = var_5;
         while (method_15(var_6)) {
             long long int var_8 = var_6[0];
-            long long int var_9 = (var_8 + 10);
-            char var_10 = (var_8 >= 0);
-            char var_12;
-            if (var_10) {
-                var_12 = (var_8 < 10);
+            char var_9 = (var_8 >= 0);
+            char var_11;
+            if (var_9) {
+                var_11 = (var_8 < 10);
             } else {
-                var_12 = 0;
+                var_11 = 0;
             }
-            char var_13 = (var_12 == 0);
-            if (var_13) {
+            char var_12 = (var_11 == 0);
+            if (var_12) {
                 // "Argument out of bounds."
             } else {
             }
-            char var_15;
-            if (var_10) {
-                var_15 = (var_8 < 10);
+            char var_14;
+            if (var_9) {
+                var_14 = (var_8 < 10);
             } else {
-                var_15 = 0;
+                var_14 = 0;
             }
-            char var_16 = (var_15 == 0);
-            if (var_16) {
+            char var_15 = (var_14 == 0);
+            if (var_15) {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_17 = threadIdx.y;
-            long long int var_18 = blockIdx.y;
-            long long int var_19 = (32 * var_18);
-            long long int var_20 = (var_17 + var_19);
-            float var_21 = 0;
-            long long int var_22[1];
-            float var_23[1];
+            long long int var_16 = threadIdx.y;
+            long long int var_17 = blockIdx.y;
+            long long int var_18 = (32 * var_17);
+            long long int var_19 = (var_16 + var_18);
+            float var_20 = 0;
+            long long int var_21[1];
+            float var_22[1];
+            var_21[0] = var_19;
             var_22[0] = var_20;
-            var_23[0] = var_21;
-            while (method_26(var_22, var_23)) {
-                long long int var_25 = var_22[0];
-                float var_26 = var_23[0];
-                long long int var_27 = (var_25 + 32);
-                char var_28 = (var_25 >= 0);
-                char var_30;
-                if (var_28) {
-                    var_30 = (var_25 < 32);
+            while (method_26(var_21, var_22)) {
+                long long int var_24 = var_21[0];
+                float var_25 = var_22[0];
+                char var_26 = (var_24 >= 0);
+                char var_28;
+                if (var_26) {
+                    var_28 = (var_24 < 32);
                 } else {
-                    var_30 = 0;
+                    var_28 = 0;
                 }
-                char var_31 = (var_30 == 0);
-                if (var_31) {
+                char var_29 = (var_28 == 0);
+                if (var_29) {
                     // "Argument out of bounds."
                 } else {
                 }
-                long long int var_32 = (var_25 * 10);
-                char var_34;
-                if (var_10) {
-                    var_34 = (var_8 < 10);
+                long long int var_30 = (var_24 * 10);
+                char var_32;
+                if (var_9) {
+                    var_32 = (var_8 < 10);
                 } else {
-                    var_34 = 0;
+                    var_32 = 0;
                 }
-                char var_35 = (var_34 == 0);
-                if (var_35) {
+                char var_33 = (var_32 == 0);
+                if (var_33) {
                     // "Argument out of bounds."
                 } else {
                 }
-                long long int var_36 = (var_32 + var_8);
-                float var_37 = var_0[var_36];
-                float var_38 = (var_26 + var_37);
-                var_22[0] = var_27;
-                var_23[0] = var_38;
+                long long int var_34 = (var_30 + var_8);
+                float var_35 = var_0[var_34];
+                float var_36 = (var_25 + var_35);
+                long long int var_37 = (var_24 + 32);
+                var_21[0] = var_37;
+                var_22[0] = var_36;
             }
-            long long int var_39 = var_22[0];
-            float var_40 = var_23[0];
-            __shared__ float var_41[310];
-            long long int var_42[1];
-            float var_43[1];
-            var_42[0] = 32;
-            var_43[0] = var_40;
-            while (method_27(var_42, var_43)) {
-                long long int var_45 = var_42[0];
-                float var_46 = var_43[0];
-                long long int var_47 = (var_45 / 2);
-                long long int var_48 = threadIdx.y;
-                char var_49 = (var_48 < var_45);
-                char var_52;
-                if (var_49) {
-                    long long int var_50 = threadIdx.y;
-                    var_52 = (var_50 >= var_47);
+            long long int var_38 = var_21[0];
+            float var_39 = var_22[0];
+            __shared__ float var_40[310];
+            long long int var_41[1];
+            float var_42[1];
+            var_41[0] = 32;
+            var_42[0] = var_39;
+            while (method_27(var_41, var_42)) {
+                long long int var_44 = var_41[0];
+                float var_45 = var_42[0];
+                long long int var_46 = (var_44 / 2);
+                long long int var_47 = threadIdx.y;
+                char var_48 = (var_47 < var_44);
+                char var_51;
+                if (var_48) {
+                    long long int var_49 = threadIdx.y;
+                    var_51 = (var_49 >= var_46);
                 } else {
-                    var_52 = 0;
+                    var_51 = 0;
                 }
-                if (var_52) {
-                    long long int var_53 = threadIdx.y;
-                    char var_54 = (var_53 >= 1);
-                    char var_56;
-                    if (var_54) {
-                        var_56 = (var_53 < 32);
+                if (var_51) {
+                    long long int var_52 = threadIdx.y;
+                    char var_53 = (var_52 >= 1);
+                    char var_55;
+                    if (var_53) {
+                        var_55 = (var_52 < 32);
                     } else {
-                        var_56 = 0;
+                        var_55 = 0;
                     }
-                    char var_57 = (var_56 == 0);
-                    if (var_57) {
+                    char var_56 = (var_55 == 0);
+                    if (var_56) {
                         // "Argument out of bounds."
                     } else {
                     }
-                    long long int var_58 = (var_53 - 1);
-                    long long int var_59 = (var_58 * 10);
-                    long long int var_60 = threadIdx.x;
-                    char var_61 = (var_60 >= 0);
-                    char var_63;
-                    if (var_61) {
-                        var_63 = (var_60 < 10);
+                    long long int var_57 = (var_52 - 1);
+                    long long int var_58 = (var_57 * 10);
+                    long long int var_59 = threadIdx.x;
+                    char var_60 = (var_59 >= 0);
+                    char var_62;
+                    if (var_60) {
+                        var_62 = (var_59 < 10);
                     } else {
-                        var_63 = 0;
+                        var_62 = 0;
                     }
-                    char var_64 = (var_63 == 0);
-                    if (var_64) {
+                    char var_63 = (var_62 == 0);
+                    if (var_63) {
                         // "Argument out of bounds."
                     } else {
                     }
-                    long long int var_65 = (var_59 + var_60);
-                    var_41[var_65] = var_46;
+                    long long int var_64 = (var_58 + var_59);
+                    var_40[var_64] = var_45;
                 } else {
                 }
                 __syncthreads();
-                long long int var_66 = threadIdx.y;
-                char var_67 = (var_66 < var_47);
-                float var_92;
-                if (var_67) {
-                    long long int var_68 = threadIdx.y;
-                    long long int var_69 = (var_68 + var_47);
-                    long long int var_70[1];
-                    float var_71[1];
-                    var_70[0] = var_69;
-                    var_71[0] = var_46;
-                    while (method_28(var_45, var_70, var_71)) {
-                        long long int var_73 = var_70[0];
-                        float var_74 = var_71[0];
-                        long long int var_75 = (var_73 + var_47);
-                        char var_76 = (var_73 >= 1);
-                        char var_78;
-                        if (var_76) {
-                            var_78 = (var_73 < 32);
+                long long int var_65 = threadIdx.y;
+                char var_66 = (var_65 < var_46);
+                float var_91;
+                if (var_66) {
+                    long long int var_67 = threadIdx.y;
+                    long long int var_68 = (var_67 + var_46);
+                    long long int var_69[1];
+                    float var_70[1];
+                    var_69[0] = var_68;
+                    var_70[0] = var_45;
+                    while (method_28(var_44, var_69, var_70)) {
+                        long long int var_72 = var_69[0];
+                        float var_73 = var_70[0];
+                        char var_74 = (var_72 >= 1);
+                        char var_76;
+                        if (var_74) {
+                            var_76 = (var_72 < 32);
                         } else {
-                            var_78 = 0;
+                            var_76 = 0;
                         }
-                        char var_79 = (var_78 == 0);
-                        if (var_79) {
+                        char var_77 = (var_76 == 0);
+                        if (var_77) {
                             // "Argument out of bounds."
                         } else {
                         }
-                        long long int var_80 = (var_73 - 1);
-                        long long int var_81 = (var_80 * 10);
-                        long long int var_82 = threadIdx.x;
-                        char var_83 = (var_82 >= 0);
-                        char var_85;
-                        if (var_83) {
-                            var_85 = (var_82 < 10);
+                        long long int var_78 = (var_72 - 1);
+                        long long int var_79 = (var_78 * 10);
+                        long long int var_80 = threadIdx.x;
+                        char var_81 = (var_80 >= 0);
+                        char var_83;
+                        if (var_81) {
+                            var_83 = (var_80 < 10);
                         } else {
-                            var_85 = 0;
+                            var_83 = 0;
                         }
-                        char var_86 = (var_85 == 0);
-                        if (var_86) {
+                        char var_84 = (var_83 == 0);
+                        if (var_84) {
                             // "Argument out of bounds."
                         } else {
                         }
-                        long long int var_87 = (var_81 + var_82);
-                        float var_88 = var_41[var_87];
-                        float var_89 = (var_74 + var_88);
-                        var_70[0] = var_75;
-                        var_71[0] = var_89;
+                        long long int var_85 = (var_79 + var_80);
+                        float var_86 = var_40[var_85];
+                        float var_87 = (var_73 + var_86);
+                        long long int var_88 = (var_72 + var_46);
+                        var_69[0] = var_88;
+                        var_70[0] = var_87;
                     }
-                    long long int var_90 = var_70[0];
-                    var_92 = var_71[0];
+                    long long int var_89 = var_69[0];
+                    var_91 = var_70[0];
                 } else {
-                    var_92 = var_46;
+                    var_91 = var_45;
                 }
-                var_42[0] = var_47;
-                var_43[0] = var_92;
+                var_41[0] = var_46;
+                var_42[0] = var_91;
             }
-            long long int var_93 = var_42[0];
-            float var_94 = var_43[0];
-            long long int var_95 = threadIdx.y;
-            char var_96 = (var_95 == 0);
-            if (var_96) {
-                float var_97 = var_1[var_8];
-                float var_98 = (var_94 + var_97);
-                var_1[var_8] = var_98;
+            long long int var_92 = var_41[0];
+            float var_93 = var_42[0];
+            long long int var_94 = threadIdx.y;
+            char var_95 = (var_94 == 0);
+            if (var_95) {
+                float var_96 = var_1[var_8];
+                float var_97 = (var_93 + var_96);
+                var_1[var_8] = var_97;
             } else {
             }
-            var_6[0] = var_9;
+            long long int var_98 = (var_8 + 10);
+            var_6[0] = var_98;
         }
         long long int var_99 = var_6[0];
     }
