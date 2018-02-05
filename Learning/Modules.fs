@@ -79,16 +79,15 @@ let allocator =
 inl {Cuda size} ret ->
     open Cuda
     open Extern
-    inl smartptr_create ptr =
-        inl ptr_ty = type ptr
-        inl cell = Option.some ptr |> ref
+    inl smartptr_create (ptr: uint64) =
+        inl cell = ref ptr
         function
-        | .Dispose -> cell := Option.none ptr_ty
+        | .Dispose -> cell := 0u64
         | .Try -> cell()
         | () -> join 
-            match cell() with
-            | .Some, x -> x
-            | _ -> failwith ptr_ty "A Cuda memory cell that has been disposed has been tried to be accessed."
+            inl x = cell ()
+            assert (x <> 0u64) "A Cuda memory cell that has been disposed has been tried to be accessed."
+            x
         |> stack
 
     ///// n is the number of args the create function has.
@@ -115,42 +114,42 @@ inl {Cuda size} ret ->
                 inl CudaDeviceProperties_type = fs [text: "ManagedCuda.CudaDeviceProperties"]
                 FS.Method context .GetDeviceInfo() CudaDeviceProperties_type
                 |> inl x -> FS.Method x .get_TotalGlobalMemory() SizeT_type
-                |> to_int |> to_float |> (*) size |> to_int
-            | _ : int64 -> size
-        inl q = FS.Method context .AllocateMemory (SizeT size) CUdeviceptr_type
-        {size ptr=smartptr_create q}
+                |> to_int |> to_float |> (*) size |> to_uint
+            | _ : int64 -> to uint64 size
+        {size ptr=FS.Method context .AllocateMemory (SizeT size) CUdeviceptr_type |> to_uint |> smartptr_create}
 
     inl pool_type = type pool
     inl stack_type = fs [text: "System.Collections.Generic.Stack"; types: pool_type]
     inl stack = FS.Constructor stack_type ()
 
     inl allocate =
-        inl smartptr_ty = type (pool.ptr)
-        inl f x = x.ptr() |> ptr_to_uint, x.size |> to_uint
+        inl smartptr_ty = type pool.ptr
+        inl f {ptr size} = ptr(), size
         inl pool_ptr, pool_size = f pool
         met rec remove_disposed_and_return_the_first_live ret =
             if FS.Method stack .get_Count() int32 > 0i32 then 
-                inl t = FS.Method stack .Peek() pool_type
-                match t.ptr.Try with
-                | .Some, ptr -> join (ret (ptr_to_uint ptr, t.size |> to_uint))
-                | _ -> FS.Method stack .Pop() pool_type |> ignore; remove_disposed_and_return_the_first_live ret 
+                inl {ptr size} = FS.Method stack .Peek() pool_type
+                match ptr.Try with
+                | 0u64 -> FS.Method stack .Pop() pool_type |> ignore; remove_disposed_and_return_the_first_live ret 
+                | ptr -> join (ret (ptr, size))
+                
             else join (ret (pool_ptr, 0u64))
             : smartptr_ty
-        inl (!dyn size) ->
+        inl s = to uint64 >> dyn
+        inl (!s size) ->
             inb top_ptr, top_size = remove_disposed_and_return_the_first_live
-            inl size = size - size % 256 + 256
+            inl size = size - size % 256u64 + 256u64
             inl top_used = top_ptr + top_size
             inl pool_used = pool_ptr + pool_size
-            assert (to_uint size <= pool_used - top_used) "Cache size has been exceeded in the allocator."
-            inl ptr = top_used |> uint_to_ptr |> smartptr_create
-            inl cell = {size ptr}
-            FS.Method stack .Push cell unit
-            cell.ptr
+            assert (size <= pool_used - top_used) "Cache size has been exceeded in the allocator."
+            inl ptr = top_used |> smartptr_create
+            FS.Method stack .Push {size ptr} unit
+            ptr
 
-    ret {allocate ptr_to_uint uint_to_ptr safe_alloc}
+    ret {allocate safe_alloc}
 
     inl ptr = pool.ptr
-    FS.Method context .FreeMemory (ptr()) unit
+    FS.Method context .FreeMemory (ptr() |> CUdeviceptr) unit
     ptr.Dispose
     """) |> module_
 
@@ -166,49 +165,47 @@ inl {stream Cuda Allocator} ->
 
     /// Is just a CUdeviceptr rather than the true array.
     inl array_create_cuda_global elem_type len = 
-        inl ptr = allocate (len * to int64 (sizeof elem_type))
+        inl ptr = allocate (len * sizeof elem_type)
         function // It needs to be like this rather than a module so toa_map does not split it.
         | .elem_type -> elem_type
         | .ptr -> ptr
     inl create data = create {data with array_create = array_create_cuda_global}
     inl create_like tns = create {elem_type=tns.elem_type; dim=tns.dim}
 
-    inl add_to_ptr {ar offset} =
-        inl ptr, elem_type = ar.ptr(), ar.elem_type
-        inl ptr = ptr_to_uint ptr + to uint64 (offset * sizeof elem_type) |> uint_to_ptr    
-        ptr, elem_type
+    inl ptr_cuda {ar offset} = ar.ptr() + to uint64 (offset * sizeof ar.elem_type)
+    inl CUResult_ty = fs [text: "ManagedCuda.BasicTypes.CUResult"]
+    inl assert_curesult res = macro.fs unit [text: "if "; arg: res; text: " <> ManagedCuda.BasicTypes.CUResult.Success then raise <| new ManagedCuda.CudaException"; args: res]
+    inl memcpy dst_ptr src_ptr size = macro.fs CUResult_ty [text: "ManagedCuda.DriverAPINativeMethods.SynchronousMemcpy_v2.cuMemcpy"; args: CUdeviceptr dst_ptr, CUdeviceptr src_ptr, SizeT size] |> assert_curesult
 
-    met copy_to_device (!dyn span1d) (!dyn dst) (!dyn src) =
-        inl dst_ptr, elem_type = add_to_ptr dst
-        assert (eq_type elem_type src.ar.elem_type) "The source and the destination need to have equal layout."
-        assert (dst.size = src.size) "The destination size must equal the source size."
-        assert (blittable_is elem_type) "The array type must be blittable."
-
-        inl handle_ty = fs [text: "System.Runtime.InteropServices.GCHandle"]
-        inl intptr_ty = fs [text: "System.IntPtr"]
-        inl res_ty = fs [text: "ManagedCuda.BasicTypes.CUResult"]
-
-        inl handle = macro.fs handle_ty [type:handle_ty; text: ".Alloc"; parenth: [arg: src.ar; text: "System.Runtime.InteropServices.GCHandleType.Pinned"]]
-        inl src_ptr = macro.fs intptr_ty [type: intptr_ty; iter: "(", "", ")", [arg: handle; text: ".AddrOfPinnedObject().ToInt64() + int64 "; arg: src.offset * sizeof elem_type]]
-        inl size = match dst.size with x :: _ -> x | () -> 1
-        inl res = macro.fs res_ty [text: "ManagedCuda.DriverAPINativeMethods.SynchronousMemcpy_v2.cuMemcpyHtoD_v2"; args: dst_ptr, src_ptr, span1d * size * sizeof elem_type |> SizeT]
+    inl GCHandle_ty = fs [text: "System.Runtime.InteropServices.GCHandle"]
+    inl ptr_dotnet {ar offset} ret =
+        inl elem_type = ar.elem_type // ptr_dotnet
+        inl handle = macro.fs GCHandle_ty [type:GCHandle_ty; text: ".Alloc"; parenth: [arg: ar; text: "System.Runtime.InteropServices.GCHandleType.Pinned"]]
+        inl r =
+            macro.fs int64 [arg: handle; text: ".AddrOfPinnedObject().ToUInt64()"] 
+            |> to uint64 |> (+) (to uint64 (offset * sizeof elem_type)) |> ret
         macro.fs unit [arg: handle; text: ".Free()"]
-        macro.fs unit [text: "if "; arg: res; text: " <> ManagedCuda.BasicTypes.CUResult.Success then raise <| new ManagedCuda.CudaException"; args: res]
+        r
 
-    inl from_host_array span1d src =
-        inl size = span1d * fst src.size
-        print_static {size}
-        inl ar = array_create_cuda_global src.ar.elem_type size
-        copy_to_device span1d {src with ar offset=0} src
+    met from_host_array (!dyn span) (!dyn {ar offset size}) =
+        inl elem_type = ar.elem_type // from_host_array
+        inb src = ptr_dotnet {ar offset}
+        assert (blittable_is elem_type) "The host array type must be blittable."
+        inl span_size = match size with () -> span | size :: _ -> span * size
+        inl ar = array_create_cuda_global elem_type span_size
+        inl dst = ptr_cuda {ar offset=0}
+        memcpy dst src (span_size * sizeof elem_type)
         ar
 
-
-    met rec to_host_array (!dyn span1d) (!dyn body) =
-        inl ptr, elem_type = add_to_ptr body
+    met to_host_array (!dyn span) (!dyn {ar offset size}) =
+        inl elem_type = ar.elem_type // to_host_array
+        inl src = ptr_cuda {ar offset}
         assert (blittable_is elem_type) "The host array type must be blittable."
-        inl t = array_create elem_type (span1d * fst body.size)
-        FS.Method context .CopyToHost (t,ptr) unit
-        t
+        inl span_size = match size with () -> span | size :: _ -> span * size
+        inl ar = array_create elem_type span_size
+        inb dst = ptr_dotnet {ar offset=0}
+        memcpy dst src (span_size * sizeof elem_type)
+        ar
 
     inl transfer_template f tns = 
         assert_contiguous tns
@@ -217,13 +214,7 @@ inl {stream Cuda Allocator} ->
 
     inl from_host_tensor tns = transfer_template from_host_array tns
     inl to_host_tensor tns = transfer_template to_host_array tns
-
-    inl to_dev_tensor tns = 
-        tns.update_body (inl body ->
-            inl ptr, elem_type = add_to_ptr body
-            inl ar = !UnsafeCoerceToArrayCudaGlobal(ptr,elem_type)
-            {body with ar offset=0}
-            )
+    inl to_dev_tensor tns = tns.update_body (inl body -> {body with ar=!UnsafeCoerceToArrayCudaGlobal(ptr_cuda body,body.ar.elem_type); offset=0})
 
     inl clear (!to_dev_tensor tns) = 
         assert_contiguous tns
@@ -1122,7 +1113,7 @@ inl ret ->
         FS.Method random .SetStream (Stream.extract stream) unit
     
         inl fill_array distribution size1d ar =
-            inl elem_type = ar.elem_type
+            inl elem_type = ar.elem_type // fill_array
             inl gen, dot = "Generate", "."
             match distribution with
             | .Uniform ->
@@ -1567,7 +1558,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         inl SizeT = fs [text: "ManagedCuda.BasicTypes.SizeT"] |> FS.Constructor
         inl into_cdv x =
             inl {ar offset=offset : int64} = x.bodies
-            inl elem_type = ar.elem_type
+            inl elem_type = ar.elem_type // into_cdv
             inl size = sizeof elem_type
             inl ptr = ar.ptr()
             {cdv=CDV elem_type (ptr,false,SizeT size); elem_type offset}

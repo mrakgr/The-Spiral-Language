@@ -127,8 +127,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let type_lit_lift x = type_lit_lift' (lit x)
     let type_lit_cast x = (TypeLitCast,[x]) |> op
     let type_lit_is x = (TypeLitIs,[x]) |> op
-    let expr_pos pos x = ExprPos(Pos(pos,x))
-    let pat_pos pos x = PatPos(Pos(pos,x))
+    let expr_pos pos x = ExprPos(Spiral.Types.Position(pos,x))
+    let pat_pos pos x = PatPos(Spiral.Types.Position(pos,x))
 
     let type_get a = op(TypeGet,[a])
     let type_union l = op(TypeUnion,l)

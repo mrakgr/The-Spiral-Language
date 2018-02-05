@@ -52,21 +52,26 @@ let nodify (dict: Dictionary<_,_>) = memoize dict (fun x -> Node(x,dict.Count))
 let nodify_module = nodify <| d0()
 let module_ x = nodify_module x |> Module
 
-type Pos<'a when 'a: equality and 'a: comparison>(pos:PosKey, expr:'a) = 
-    member x.Expression = expr
-    member x.Pos = pos
-    override x.ToString() = sprintf "%A" expr
-    override x.GetHashCode() = hash expr
-    override x.Equals(y) = 
-        match y with 
-        | :? Pos<'a> as y -> expr = y.Expression
-        | x -> failwithf "Invalid equality for Pos. Got: %A" x
+//type Pos<'a when 'a: equality and 'a: comparison>(pos:PosKey, expr:'a) = 
+//    member x.Expression = expr
+//    member x.Pos = pos
+//    override x.ToString() = sprintf "%A" expr
+//    override x.GetHashCode() = hash (expr)
+//    override x.Equals(y) = 
+//        match y with 
+//        | :? Pos<'a> as y -> expr = y.Expression
+//        | x -> failwithf "Invalid equality for Pos. Got: %A" x
 
-    interface IComparable with
-        member x.CompareTo(y) = 
-            match y with
-            | :? Pos<'a> as y -> compare expr y.Expression
-            | x -> failwithf "Invalid comparison for Pos. Got: %A" x
+//    interface IComparable with
+//        member x.CompareTo(y) = 
+//            match y with
+//            | :? Pos<'a> as y -> compare expr y.Expression
+//            | x -> failwithf "Invalid comparison for Pos. Got: %A" x
+
+type Pos<'a> = Position of PosKey * 'a with
+    member x.Expression = match x with Position (_, expr) -> expr
+    member x.Pos = match x with Position (pos, _) -> pos
+    override x.ToString() = match x with Position (_, expr) -> sprintf "%A" expr
 
 type PrimitiveType =
     | UInt8T
