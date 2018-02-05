@@ -167,7 +167,6 @@ inl {stream Cuda Allocator} ->
         function // It needs to be like this rather than a module so toa_map does not split it.
         | .elem_type -> elem_type
         | .ptr -> ptr
-        |> stack
     inl create data = create {data with array_create = array_create_cuda_global}
     inl create_like tns = create {elem_type=tns.elem_type; dim=tns.dim}
 
@@ -205,9 +204,9 @@ inl {stream Cuda Allocator} ->
             ar
 
     met from_host_array (!dyn span) (!dyn {src with ar offset size}) =
-        copy span {array_create=array_create_cuda_global; ptr_get=ptr_cuda} {src with ptr_get=ptr_dotnet}
+        copy span {array_create=array_create_cuda_global; ptr_get=ptr_cuda} {src with ptr_get=ptr_dotnet} |> stack
 
-    met to_host_array (!dyn span) (!dyn {ar offset size}) =
+    met to_host_array (!dyn span) (!dyn {src with ar offset size}) =
         copy span {array_create ptr_get=ptr_dotnet} {src with ptr_get=ptr_cuda}
 
     inl get_elem {src with size=()} = to_host_array 1 src 0
@@ -216,6 +215,16 @@ inl {stream Cuda Allocator} ->
         ar 0 <- v
         copy 1 {dst with ptr_get=ptr_cuda} {ar size=(); offset=0; ptr_get=ptr_dotnet}
 
+    inl get tns = 
+        match tns.unwrap with
+        | {bodies dim=()} -> toa_map get_elem bodies
+        | _ -> error_type "Cannot get from tensor whose dimensions have not been applied completely."
+
+    inl set tns v = 
+        match tns.unwrap with
+        | {bodies dim=()} -> toa_iter2 set_elem bodies v
+        | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
+
     inl transfer_template f tns = 
         assert_contiguous tns
         inl f = tns.dim |> fst |> span |> f
@@ -223,7 +232,10 @@ inl {stream Cuda Allocator} ->
 
     inl from_host_tensor tns = transfer_template from_host_array tns
     inl to_host_tensor tns = transfer_template to_host_array tns
-    inl to_dev_tensor tns = tns.update_body (inl body -> {body with ar=!UnsafeCoerceToArrayCudaGlobal(ptr_cuda body,body.ar.elem_type); offset=0})
+    inl to_dev_tensor tns = tns.update_body (inl body -> 
+        inb ptr = ptr_cuda body
+        {body with ar=!UnsafeCoerceToArrayCudaGlobal(ptr,body.ar.elem_type); offset=0}
+        )
 
     inl clear tns = 
         assert_contiguous tns
@@ -251,7 +263,7 @@ inl {stream Cuda Allocator} ->
     inl zero = safe_alloc 1 zero
     inl zero_like = safe_alloc 1 zero_like
 
-    {create from_host_tensor from_host_tensors to_host_tensor to_dev_tensor clear zero zero_like print}
+    {create from_host_tensor from_host_tensors to_host_tensor to_dev_tensor clear zero zero_like print get set}
     """) |> module_
 
 let cuda_kernel =
