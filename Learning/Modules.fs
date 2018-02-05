@@ -111,9 +111,7 @@ inl {Cuda size} ret ->
         inl size = 
             match size with
             | _ : float64 -> 
-                inl CudaDeviceProperties_type = fs [text: "ManagedCuda.CudaDeviceProperties"]
-                FS.Method context .GetDeviceInfo() CudaDeviceProperties_type
-                |> inl x -> FS.Method x .get_TotalGlobalMemory() SizeT_type
+                FS.Method context .GetFreeDeviceMemorySize() SizeT_type
                 |> to_int |> to_float |> (*) size |> to_uint
             | _ : int64 -> to uint64 size
         {size ptr=FS.Method context .AllocateMemory (SizeT size) CUdeviceptr_type |> to_uint |> smartptr_create}
@@ -135,10 +133,10 @@ inl {Cuda size} ret ->
                 
             else join (ret (pool_ptr, 0u64))
             : smartptr_ty
-        inl s = to uint64 >> dyn
+        inl round_up_to_multiple mult size = size - size % mult + mult
+        inl s = to uint64 >> round_up_to_multiple 256u64 >> dyn
         inl (!s size) ->
             inb top_ptr, top_size = remove_disposed_and_return_the_first_live
-            inl size = size - size % 256u64 + 256u64
             inl top_used = top_ptr + top_size
             inl pool_used = pool_ptr + pool_size
             assert (size <= pool_used - top_used) "Cache size has been exceeded in the allocator."
@@ -182,7 +180,7 @@ inl {stream Cuda Allocator} ->
         inl elem_type = ar.elem_type // ptr_dotnet
         inl handle = macro.fs GCHandle_ty [type:GCHandle_ty; text: ".Alloc"; parenth: [arg: ar; text: "System.Runtime.InteropServices.GCHandleType.Pinned"]]
         inl r =
-            macro.fs int64 [arg: handle; text: ".AddrOfPinnedObject().ToUInt64()"] 
+            macro.fs int64 [arg: handle; text: ".AddrOfPinnedObject().ToInt64()"] 
             |> to uint64 |> (+) (to uint64 (offset * sizeof elem_type)) |> ret
         macro.fs unit [arg: handle; text: ".Free()"]
         r
@@ -195,7 +193,7 @@ inl {stream Cuda Allocator} ->
         inl ar = array_create_cuda_global elem_type span_size
         inl dst = ptr_cuda {ar offset=0}
         memcpy dst src (span_size * sizeof elem_type)
-        ar
+        stack ar
 
     met to_host_array (!dyn span) (!dyn {ar offset size}) =
         inl elem_type = ar.elem_type // to_host_array
@@ -216,12 +214,12 @@ inl {stream Cuda Allocator} ->
     inl to_host_tensor tns = transfer_template to_host_array tns
     inl to_dev_tensor tns = tns.update_body (inl body -> {body with ar=!UnsafeCoerceToArrayCudaGlobal(ptr_cuda body,body.ar.elem_type); offset=0})
 
-    inl clear (!to_dev_tensor tns) = 
+    inl clear tns = 
         assert_contiguous tns
         inl span = tns.dim |> fst |> span
         inl stream = Stream.extract stream
         tns.update_body <| inl {body with size=size::_ ar} ->
-            FS.Method context .ClearMemoryAsync (ar,0u8,size * span * sizeof ar.elem_type |> SizeT,stream) unit
+            FS.Method context .ClearMemoryAsync (CUdeviceptr (ar.ptr()),0u8,size * span * sizeof ar.elem_type |> SizeT,stream) unit
         |> ignore
 
     inl clear' x = clear x; x
@@ -1112,12 +1110,13 @@ inl ret ->
         open CudaTensor
         FS.Method random .SetStream (Stream.extract stream) unit
     
-        inl fill_array distribution size1d ar =
-            inl elem_type = ar.elem_type // fill_array
+        inl fill_array distribution (!SizeT size1d) ar =
+            inl elem_type = ar.elem_type
+            inl ar = CUdeviceptr ar
             inl gen, dot = "Generate", "."
             match distribution with
             | .Uniform ->
-                inl args = ar, SizeT size1d
+                inl args = ar, size1d
                 inl bits = 
                     match elem_type with
                     | _ : float32 -> "32" | _ : float64 -> "64"
@@ -1127,14 +1126,14 @@ inl ret ->
                 match stddev with | _: float32 -> () | _ -> error_type "Standard deviation needs to be in float32."
                 match mean with | _: float32 -> () | _ -> error_type "Mean needs to be in float32."
 
-                inl args = ar, SizeT size1d, mean, stddev
+                inl args = ar, size1d, mean, stddev
                 inl bits = 
                     match elem_type with
                     | _ : float32 -> "32" | _ : float64 -> "64"
                     | _ -> error_type ("Only 32/64 bit float types are supported. Try UInt if you need uint random numbers. Got: ", elem_type)
                 macro.fs unit [arg: random; text: dot; text: gen; text: distribution; text: bits; args: args]
             | .UInt -> // every bit random
-                inl args = ar, SizeT size1d
+                inl args = ar, size1d
                 inl bits =
                     match elem_type with
                     | _ : uint32 -> "32" | _ : uint64 -> "64"
@@ -1207,7 +1206,7 @@ inl ret ->
                     Tuple.map (function 
                         | x : float64 | x : float32 -> ref x
                         | (.nT | .T) as x -> to_operation x
-                        | {ptr=!to_dev_tensor x} -> x.bodies.ar
+                        | {ptr=!to_dev_tensor x} -> x.bodies.ar |> CUdeviceptr
                         | x -> x
                         ) args
                 inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]

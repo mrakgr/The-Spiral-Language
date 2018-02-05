@@ -1452,7 +1452,7 @@ inl ret ->
     inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
     inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
     inl SizeT = FS.Constructor SizeT_type
-    inl CUdeviceptr = FS.Constructor CUdeviceptr_type
+    inl CUdeviceptr = FS.Constructor CUdeviceptr_type << SizeT
 
     inl to_uint x = FS.UnOp .uint64 x uint64
     inl ptr_to_uint (ptr: CUdeviceptr_type) = FS.Field ptr .Pointer SizeT_type |> to_uint
