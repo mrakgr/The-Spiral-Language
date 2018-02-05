@@ -167,17 +167,18 @@ inl {stream Cuda Allocator} ->
         function // It needs to be like this rather than a module so toa_map does not split it.
         | .elem_type -> elem_type
         | .ptr -> ptr
+        |> stack
     inl create data = create {data with array_create = array_create_cuda_global}
     inl create_like tns = create {elem_type=tns.elem_type; dim=tns.dim}
 
-    inl ptr_cuda {ar offset} = ar.ptr() + to uint64 (offset * sizeof ar.elem_type)
+    inl ptr_cuda {ar offset} ret = ar.ptr() + to uint64 (offset * sizeof ar.elem_type) |> ret
     inl CUResult_ty = fs [text: "ManagedCuda.BasicTypes.CUResult"]
     inl assert_curesult res = macro.fs unit [text: "if "; arg: res; text: " <> ManagedCuda.BasicTypes.CUResult.Success then raise <| new ManagedCuda.CudaException"; args: res]
     inl memcpy dst_ptr src_ptr size = macro.fs CUResult_ty [text: "ManagedCuda.DriverAPINativeMethods.SynchronousMemcpy_v2.cuMemcpy"; args: CUdeviceptr dst_ptr, CUdeviceptr src_ptr, SizeT size] |> assert_curesult
 
     inl GCHandle_ty = fs [text: "System.Runtime.InteropServices.GCHandle"]
     inl ptr_dotnet {ar offset} ret =
-        inl elem_type = ar.elem_type // ptr_dotnet
+        inl elem_type = ar.elem_type
         inl handle = macro.fs GCHandle_ty [type:GCHandle_ty; text: ".Alloc"; parenth: [arg: ar; text: "System.Runtime.InteropServices.GCHandleType.Pinned"]]
         inl r =
             macro.fs int64 [arg: handle; text: ".AddrOfPinnedObject().ToInt64()"] 
@@ -185,25 +186,35 @@ inl {stream Cuda Allocator} ->
         macro.fs unit [arg: handle; text: ".Free()"]
         r
 
-    met from_host_array (!dyn span) (!dyn {ar offset size}) =
-        inl elem_type = ar.elem_type // from_host_array
-        inb src = ptr_dotnet {ar offset}
+    inl copy span dst {src with ar size ptr_get} =
+        inl elem_type = ar.elem_type 
         assert (blittable_is elem_type) "The host array type must be blittable."
         inl span_size = match size with () -> span | size :: _ -> span * size
-        inl ar = array_create_cuda_global elem_type span_size
-        inl dst = ptr_cuda {ar offset=0}
-        memcpy dst src (span_size * sizeof elem_type)
-        stack ar
+        inb src = ptr_get src
+        inl memcpy dst = memcpy dst src (span_size * sizeof elem_type)
+        match dst with
+        | {ar size=size' ptr_get} -> 
+            assert (size' = size) "The source and the destination must have the same sizes."
+            assert (eq_type ar.elem_type elem_type) "The source and the destination must have the same types"
+            inb dst = ptr_get dst
+            memcpy dst
+        | {array_create ptr_get} -> 
+            inl ar = array_create elem_type span_size
+            inb dst = ptr_get {ar offset=0}
+            memcpy dst
+            ar
+
+    met from_host_array (!dyn span) (!dyn {src with ar offset size}) =
+        copy span {array_create=array_create_cuda_global; ptr_get=ptr_cuda} {src with ptr_get=ptr_dotnet}
 
     met to_host_array (!dyn span) (!dyn {ar offset size}) =
-        inl elem_type = ar.elem_type // to_host_array
-        inl src = ptr_cuda {ar offset}
-        assert (blittable_is elem_type) "The host array type must be blittable."
-        inl span_size = match size with () -> span | size :: _ -> span * size
-        inl ar = array_create elem_type span_size
-        inb dst = ptr_dotnet {ar offset=0}
-        memcpy dst src (span_size * sizeof elem_type)
-        ar
+        copy span {array_create ptr_get=ptr_dotnet} {src with ptr_get=ptr_cuda}
+
+    inl get_elem {src with size=()} = to_host_array 1 src 0
+    met set_elem (!dyn {dst with size=()}) (!dyn v) =
+        inl ar = array_create v 1
+        ar 0 <- v
+        copy 1 {dst with ptr_get=ptr_cuda} {ar size=(); offset=0; ptr_get=ptr_dotnet}
 
     inl transfer_template f tns = 
         assert_contiguous tns
