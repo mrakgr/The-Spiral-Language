@@ -1896,19 +1896,19 @@ let make_test_path_from_name name =
     Directory.CreateDirectory path |> ignore
     Path.Combine(path,name+".txt")
 
-let cache_test cfg (a,b,c,d as time) (name,aux,desc,body as m) = 
+let cache_test cfg ({parsing_time=a; prepass_time=b; peval_time=c; codegen_time=d} as time) (name,aux,desc,body as m) = 
     let write x = File.WriteAllText(make_test_path_from_name name, x)
     match spiral_peval cfg (module_ m) with
     | Fail x -> write x; time
-    | Succ(x, (a',b',c',d')) -> write x; a+a',b+b',c+c',d+d'
+    | Succ(x, {parsing_time=a'; prepass_time=b'; peval_time=c'; codegen_time=d'}) -> write x; {parsing_time=a+a'; prepass_time=b+b'; peval_time=c+c'; codegen_time=d+d'}
     
 let rewrite_test_cache tests cfg x = 
-    let time = TimeSpan.Zero,TimeSpan.Zero,TimeSpan.Zero,TimeSpan.Zero
+    let time = {parsing_time=TimeSpan.Zero; prepass_time=TimeSpan.Zero; peval_time=TimeSpan.Zero; codegen_time=TimeSpan.Zero}
     match x with
     | None -> Array.fold (cache_test cfg) time tests
     | Some (min, max) -> Array.fold (cache_test cfg) time tests.[min..max-1]
-    |> fun (a,b,c,d as x) -> 
-        printfn "The timings are: %A" x
+    |> fun ({parsing_time=a; prepass_time=b; peval_time=c; codegen_time=d} as time) -> 
+        printfn "The timings are: %A" time
         printfn "The time it took to run all the tests is: %A" (a+b+c+d)
 
 //let speed1 = // Note: Trying to load this example in the IDE after it has compiled will crush it. Better output it to txt.
@@ -1937,12 +1937,13 @@ let rewrite_test_cache tests cfg x =
 //    let code =
 //        let var i = sprintf "var_%i" i
 //        let bnd (a, b) = sprintf "inl %s = %s" a b
-//        let vars = [|0..1199|] |> Array.map var // Any more than this and it will stack overflow.
+//        let vars = [|0..900|] |> Array.map var // Any more than this and it will stack overflow.
 //        let bnds = 
 //            vars |> Array.pairwise |> Array.map (fun (a,b) -> b,a) 
 //            |> Array.map bnd |> String.concat "\n"
 //        let adds = String.concat " + " vars
 //        String.concat "\n" [|bnd (var 0, "dyn 0");bnds;adds|]
-//
-//    "speed3",[],"Does the linear sequence of bindings get compiled in linear time?",code
+
+//    "speed3",([] : Module list),"Does the linear sequence of bindings get compiled in linear time?",code
+    
 

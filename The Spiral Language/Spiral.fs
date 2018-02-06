@@ -303,11 +303,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     
             let pattern_compile_def_on_succ = op(ErrorPatClause,[])
             let pattern_compile_def_on_fail = op(ErrorPatMiss,[arg])
-            inl main_arg (pattern_compile arg pat pattern_compile_def_on_succ pattern_compile_def_on_fail) |> expr_used_vars
+            inl main_arg (pattern_compile arg pat pattern_compile_def_on_succ pattern_compile_def_on_fail)
             )
             
     /// Rewrites the AST so that used variables are included.
-    and expr_used_vars e =
+    let rec expr_used_vars e =
         e |> memoize expr_used_vars_dict (fun e ->
             let inline f e = expr_used_vars e
             match e with
@@ -328,7 +328,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 let vars,body = f body
                 Set.remove name vars, func_filt(vars,nodify_func(name,body))
             | Lit _ -> Set.empty, e
-            | Pattern pat -> pattern_compile pat
+            | Pattern pat -> pattern_compile pat |> f
             | Open (N(a,b,_)) ->
                 let a,a' = f a
                 let b,b' = f b
@@ -338,20 +338,20 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 let vars, body = f p.Expression
                 vars, expr_pos p.Pos body
             )
-    and expr_diff_vars e =
-        e |> memoize expr_diff_vars_dict (fun (s,e) -> 
-            let inline f s e = expr_diff_vars (s, e)
-            match e with
-            | Lit _ | V _ -> e
-            | Fix(N(name,body)) -> fix name (f (Set.add name s) body)
-            | Op(N(op',l)) -> op(op',List.map (f s) l)
-            | VV (N l) -> vv (List.map (f s) l)
-            | FunctionFilt(N (vars,N(name,body))) -> func_filt(s - vars,nodify_func(name,f (Set.add name vars) body))
-            | Pattern _ | Function _ -> failwith "Compiler error: The diff vars pass has been called out of order."
-            | Open(N(a,b,c)) -> open_(f c a, f c b, c)
-            | ExprPos p -> expr_pos p.Pos (f s p.Expression)
-            )
-    let expr_prepass x = expr_used_vars x |> expr_diff_vars
+    //let rec expr_diff_vars (s,e) =
+    //    e |> memoize expr_diff_vars_dict (fun e -> 
+    //        let inline f s e = expr_diff_vars (s, e)
+    //        match e with
+    //        | Lit _ | V _ -> e
+    //        | Fix(N(name,body)) -> fix name (f (Set.add name s) body)
+    //        | Op(N(op',l)) -> op(op',List.map (f s) l)
+    //        | VV (N l) -> vv (List.map (f s) l)
+    //        | FunctionFilt(N (vars,N(name,body))) -> func_filt(s - vars,nodify_func(name,f (Set.add name vars) body))
+    //        | Pattern _ | Function _ -> failwith "Compiler error: The diff vars pass has been called out of order."
+    //        | Open(N(a,b,c)) -> open_(f c a, f c b, c)
+    //        | ExprPos p -> expr_pos p.Pos (f s p.Expression)
+    //        )
+    let expr_prepass x = expr_used_vars x |> snd // |> expr_diff_vars
 
     // #Renaming
     let inline renamables0() = {memo=Dictionary(HashIdentity.Reference); renamer=d0(); ref_call_args=ref []; ref_method_pars=ref []} : EnvRenamer
@@ -1604,8 +1604,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         | Lit (N value) -> TyLit value
         | V (N x) -> v_find d.env x (fun () -> on_type_er (trace d) <| sprintf "Variable %s not bound." x) (destructure d)
         | FunctionFilt(N (vars,N (pat, body))) -> 
-            let env = Set.foldBack Map.remove vars (c d.env)
-            //let env = Map.filter (fun x _ -> Set.contains x vars = false) (c d.env)
+            let env = Map.filter (fun x _ -> Set.contains x vars) (c d.env)
             tymap(Env env, MapTypeFunction (pat, body))
         | Function core -> failwith "Function not allowed in this phase as it tends to cause stack overflows in recursive scenarios."
         | Pattern pat -> failwith "Pattern not allowed in this phase as it tends to cause stack overflows when prepass is triggered in the match case."
@@ -3402,7 +3401,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let x = spiral_fsharp_codegen x
             let codegen_time = watch.Elapsed
             printfn "Time for codegen was: %A" codegen_time
-            Succ (x, (parse_time,prepass_time,peval_time,codegen_time))
+            Succ (x, {parsing_time=parse_time; prepass_time=prepass_time;peval_time=peval_time; codegen_time=codegen_time})
         with
         | :? TypeError as e -> 
             let trace, message = e.Data0, e.Data1

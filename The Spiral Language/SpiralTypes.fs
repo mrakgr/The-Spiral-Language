@@ -626,3 +626,10 @@ let inline codegen_macro codegen print_type x = codegen_macro' show_typedexpr co
 let lit_is = function
     | TyLit _ -> true
     | _ -> false
+
+type Timings = {
+    parsing_time: TimeSpan    
+    prepass_time: TimeSpan
+    peval_time: TimeSpan
+    codegen_time: TimeSpan
+    }
