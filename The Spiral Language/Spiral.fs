@@ -3370,19 +3370,23 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
     parse_modules module_main Fail <| fun body -> 
         printfn "Running %s." module_name
-        printfn "Time for parse: %A" watch.Elapsed
+        let parse_time = watch.Elapsed
+        printfn "Time for parse: %A" parse_time
         watch.Restart()
         let d = data_empty()
         let input = body |> expr_prepass |> snd
-        printfn "Time for prepass: %A" watch.Elapsed
+        let prepass_time = watch.Elapsed
+        printfn "Time for prepass: %A" prepass_time
         watch.Restart()
         try
             let x = !d.seq (expr_peval d input)
-            printfn "Time for peval was: %A" watch.Elapsed
+            let peval_time = watch.Elapsed
+            printfn "Time for peval was: %A" peval_time
             watch.Restart()
-            let x = Succ (spiral_fsharp_codegen x)
-            printfn "Time for codegen was: %A" watch.Elapsed
-            x
+            let x = spiral_fsharp_codegen x
+            let codegen_time = watch.Elapsed
+            printfn "Time for codegen was: %A" codegen_time
+            Succ (x, (parse_time,prepass_time,peval_time,codegen_time))
         with
         | :? TypeError as e -> 
             let trace, message = e.Data0, e.Data1
