@@ -1605,6 +1605,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         | V (N x) -> v_find d.env x (fun () -> on_type_er (trace d) <| sprintf "Variable %s not bound." x) (destructure d)
         | FunctionFilt(N (vars,N (pat, body))) -> 
             let env = Set.foldBack Map.remove vars (c d.env)
+            //let env = Map.filter (fun x _ -> Set.contains x vars = false) (c d.env)
             tymap(Env env, MapTypeFunction (pat, body))
         | Function core -> failwith "Function not allowed in this phase as it tends to cause stack overflows in recursive scenarios."
         | Pattern pat -> failwith "Pattern not allowed in this phase as it tends to cause stack overflows when prepass is triggered in the match case."
@@ -3385,19 +3386,23 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
     parse_modules module_main Fail <| fun body -> 
         printfn "Running %s." module_name
-        printfn "Time for parse: %A" watch.Elapsed
+        let parse_time = watch.Elapsed
+        printfn "Time for parse: %A" parse_time
         watch.Restart()
         let d = data_empty()
         let input = body |> expr_prepass
-        printfn "Time for prepass: %A" watch.Elapsed
+        let prepass_time = watch.Elapsed
+        printfn "Time for prepass: %A" prepass_time
         watch.Restart()
         try
             let x = !d.seq (expr_peval d input)
-            printfn "Time for peval was: %A" watch.Elapsed
+            let peval_time = watch.Elapsed
+            printfn "Time for peval was: %A" peval_time
             watch.Restart()
-            let x = Succ (spiral_fsharp_codegen x)
-            printfn "Time for codegen was: %A" watch.Elapsed
-            x
+            let x = spiral_fsharp_codegen x
+            let codegen_time = watch.Elapsed
+            printfn "Time for codegen was: %A" codegen_time
+            Succ (x, (parse_time,prepass_time,peval_time,codegen_time))
         with
         | :? TypeError as e -> 
             let trace, message = e.Data0, e.Data1

@@ -1877,15 +1877,15 @@ let run_test_and_store_it_to_stream cfg stream (name,aux,desc,body as m) =
     let main_module = module_ m
     sprintf "%s - %s:\n%s\n\n" name desc (body.Trim()) |> stream
     match spiral_peval cfg main_module with
-    | Succ x | Fail x -> stream x
+    | Succ (x,_) | Fail x -> stream x
 
 let output_test_to_string cfg test = 
     match spiral_peval cfg (module_ test) with
-    | Succ x | Fail x -> x
+    | Succ (x,_) | Fail x -> x
 
 let output_test_to_temp cfg path test = 
     match spiral_peval cfg (module_ test) with
-    | Succ x | Fail x -> 
+    | Succ (x,_) | Fail x -> 
         if File.Exists path then File.WriteAllText(path,x)
         else failwithf "File %s not found.\nNote to new users: In order to prevent files being made in the middle of nowhere this check was inserted.\nWhat you should do is create a new F# project with an F# file and point the compiler to it instead." path
         x
@@ -1896,13 +1896,20 @@ let make_test_path_from_name name =
     Directory.CreateDirectory path |> ignore
     Path.Combine(path,name+".txt")
 
-let cache_test cfg (name,aux,desc,body as m) = File.WriteAllText(make_test_path_from_name name, output_test_to_string cfg m)
+let cache_test cfg (a,b,c,d as time) (name,aux,desc,body as m) = 
+    let write x = File.WriteAllText(make_test_path_from_name name, x)
+    match spiral_peval cfg (module_ m) with
+    | Fail x -> write x; time
+    | Succ(x, (a',b',c',d')) -> write x; a+a',b+b',c+c',d+d'
+    
 let rewrite_test_cache tests cfg x = 
-    let timer = System.Diagnostics.Stopwatch.StartNew()
+    let time = TimeSpan.Zero,TimeSpan.Zero,TimeSpan.Zero,TimeSpan.Zero
     match x with
-    | None -> Array.iter (cache_test cfg) tests
-    | Some (min, max) -> Array.iter (cache_test cfg) tests.[min..max-1]
-    printfn "The time it took to run all the tests is: %A" timer.Elapsed
+    | None -> Array.fold (cache_test cfg) time tests
+    | Some (min, max) -> Array.fold (cache_test cfg) time tests.[min..max-1]
+    |> fun (a,b,c,d as x) -> 
+        printfn "The timings are: %A" x
+        printfn "The time it took to run all the tests is: %A" (a+b+c+d)
 
 //let speed1 = // Note: Trying to load this example in the IDE after it has compiled will crush it. Better output it to txt.
 //    "speed1",[parsing;console],"Does the Parsing module work?",
