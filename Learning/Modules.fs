@@ -167,6 +167,7 @@ inl {stream Cuda Allocator} ->
         function // It needs to be like this rather than a module so toa_map does not split it.
         | .elem_type -> elem_type
         | .ptr -> ptr
+        |> stack
     inl create data = create {data with array_create = array_create_cuda_global}
     inl create_like tns = create {elem_type=tns.elem_type; dim=tns.dim}
 
@@ -204,7 +205,7 @@ inl {stream Cuda Allocator} ->
             ar
 
     met from_host_array (!dyn span) (!dyn {src with ar offset size}) =
-        copy span {array_create=array_create_cuda_global; ptr_get=ptr_cuda} {src with ptr_get=ptr_dotnet} |> stack
+        copy span {array_create=array_create_cuda_global; ptr_get=ptr_cuda} {src with ptr_get=ptr_dotnet}
 
     met to_host_array (!dyn span) (!dyn {src with ar offset size}) =
         copy span {array_create ptr_get=ptr_dotnet} {src with ptr_get=ptr_cuda}

@@ -548,10 +548,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let layout_to_none d a = layout_to_none' d (tev d a)
 
         let rec layoutify (layout: LayoutType) (d: LangEnv) = function
-            | TyMap(env,t) as a ->
+            | TyMap(C env,t) ->
+                let env = Env env // This is necessary because otherwise the evaluator might diverge in some cases in destructure.
                 let {renamer'=r}, env' = renamer_apply_envc env
                 if r.Count = 0 then LayoutT(layout,env',t) |> tyt
-                else TyOp(layout_to_op layout,[a],LayoutT(layout,env',t)) |> destructure d
+                else TyOp(layout_to_op layout,[tymap(env,t)],LayoutT(layout,env',t)) |> destructure d
             | TyType(LayoutT(layout',_,_)) as a ->
                 if layout <> layout' then layout_to_none' d a |> layoutify layout d else a
             | x -> on_type_er (trace d) <| sprintf "Cannot turn the argument into a layout type. Got: %s" (show_typedexpr x)
