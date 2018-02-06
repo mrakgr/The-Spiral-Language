@@ -1015,9 +1015,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | M(layout,C env_term,MapTypeModule) as recf -> 
                 let inline opt open_ env =
                     let env = 
-                        let map_add s k v = if Set.contains k vars then Map.add k (open_ v) s else s
+                        let map_add s k v = Map.add k (open_ v) s
                         let run d_env = Map.fold map_add d_env env
-                        run (c d.env) |> Env
+                        run (c d.env) 
+                        |> Map.filter (fun x _ -> Set.contains x vars)
+                        |> Env
                     tev {d with env = env} b
                 match layout with
                 | None -> opt id env_term
