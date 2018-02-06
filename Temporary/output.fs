@@ -11,63 +11,52 @@ extern "C" {
         long long int var_3 = blockIdx.x;
         long long int var_4 = (32 * var_3);
         long long int var_5 = (var_2 + var_4);
-        long long int var_12[1];
-        long long int var_13[1];
-        char var_14 = (var_5 < 32);
-        if (var_14) {
-            char var_15 = (var_5 >= 0);
-            char var_16 = (var_15 == 0);
-            if (var_16) {
+        long long int var_6 = 0;
+        long long int var_7[1];
+        long long int var_8[1];
+        var_7[0] = var_5;
+        var_8[0] = var_6;
+        while (method_8(var_7, var_8)) {
+            long long int var_10 = var_7[0];
+            long long int var_11 = var_8[0];
+            char var_12 = (var_10 >= 0);
+            char var_14;
+            if (var_12) {
+                var_14 = (var_10 < 32);
+            } else {
+                var_14 = 0;
+            }
+            char var_15 = (var_14 == 0);
+            if (var_15) {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_17 = var_0[var_5];
-            long long int var_18 = (var_5 + 32);
-            var_12[0] = var_18;
-            var_13[0] = var_17;
-        } else {
+            long long int var_16 = var_0[var_10];
+            long long int var_17 = (var_11 + var_16);
+            long long int var_18 = (var_10 + 32);
+            var_7[0] = var_18;
+            var_8[0] = var_17;
         }
-        while (method_8(var_12, var_13)) {
-            long long int var_20 = var_12[0];
-            long long int var_21 = var_13[0];
-            char var_22 = (var_20 >= 0);
-            char var_24;
-            if (var_22) {
-                var_24 = (var_20 < 32);
-            } else {
-                var_24 = 0;
-            }
-            char var_25 = (var_24 == 0);
+        long long int var_19 = var_7[0];
+        long long int var_20 = var_8[0];
+        long long int var_21 = cub::BlockReduce<long long int,32,cub::BLOCK_REDUCE_WARP_REDUCTIONS,1,1>().Sum(var_20);
+        long long int var_22 = threadIdx.x;
+        char var_23 = (var_22 == 0);
+        if (var_23) {
+            long long int var_24 = blockIdx.x;
+            char var_25 = (var_24 >= 0);
+            char var_27;
             if (var_25) {
+                var_27 = (var_24 < 1);
+            } else {
+                var_27 = 0;
+            }
+            char var_28 = (var_27 == 0);
+            if (var_28) {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_26 = var_0[var_20];
-            long long int var_27 = (var_21 + var_26);
-            long long int var_28 = (var_20 + 32);
-            var_12[0] = var_28;
-            var_13[0] = var_27;
-        }
-        long long int var_29 = var_12[0];
-        long long int var_30 = var_13[0];
-        long long int var_31 = cub::BlockReduce<long long int,32,cub::BLOCK_REDUCE_WARP_REDUCTIONS,1,1>().Sum(var_30, 32);
-        long long int var_32 = threadIdx.x;
-        char var_33 = (var_32 == 0);
-        if (var_33) {
-            long long int var_34 = blockIdx.x;
-            char var_35 = (var_34 >= 0);
-            char var_37;
-            if (var_35) {
-                var_37 = (var_34 < 1);
-            } else {
-                var_37 = 0;
-            }
-            char var_38 = (var_37 == 0);
-            if (var_38) {
-                // "Argument out of bounds."
-            } else {
-            }
-            var_1[var_34] = var_31;
+            var_1[var_24] = var_21;
         } else {
         }
     }
