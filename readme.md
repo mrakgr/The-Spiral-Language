@@ -6631,7 +6631,6 @@ let layout_to_none d a = layout_to_none' d (tev d a)
 
 let rec layoutify (layout: LayoutType) (d: LangEnv) = function
     | TyMap(C env,t) ->
-        let env = Env env // This is necessary because otherwise the evaluator might diverge in some cases in destructure.
         let {renamer'=r}, env' = renamer_apply_envc env
         if r.Count = 0 then LayoutT(layout,env',t) |> tyt
         else TyOp(layout_to_op layout,[a],LayoutT(layout,env',t)) |> destructure d

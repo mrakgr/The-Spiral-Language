@@ -150,7 +150,6 @@ type Op =
     | ModuleFilter
     | ModuleFoldL
     | ModuleFoldR
-    | ModuleOpen
     | MapGetField // Codegen only
     | ModuleMemberCPS
 
@@ -189,7 +188,6 @@ type Op =
     | JoinPointEntryCuda
     
     // Application related
-    | Fix
     | Apply
     | TermCast // Term cast also places the closure join point directly.
     | TypeAnnot
@@ -285,6 +283,8 @@ and Pattern =
 and Expr = 
     | V of Node<string>
     | Lit of Node<Value>
+    | Open of Node<Expr * Expr * Set<string>>
+    | Fix of Node<string * Expr>
     | Pattern of Node<Pattern>
     | Function of Node<FunctionCore>
     | FunctionFilt of Node<Set<string> * Node<FunctionCore>>
@@ -336,7 +336,6 @@ and EnvTy = Map<string, Ty>
 and EnvTerm = 
 | EnvConsed of ConsedNode<Map<string, TypedExpr>>
 | Env of Map<string, TypedExpr>
-| EnvUnfiltered of Map<string, TypedExpr> * Set<string>
 
 and JoinPointKey = Node<Expr * EnvTerm>
 
@@ -441,7 +440,6 @@ let string_to_op =
 
 let c = function
 | Env env -> env
-| EnvUnfiltered (env,used_vars) -> Map.filter (fun k _ -> used_vars.Contains k) env
 | EnvConsed env -> env.node
 
 let (|C|) x = c x

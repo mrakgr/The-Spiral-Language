@@ -35,6 +35,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
    
     // nodify_expr variants.
     let nodify_v = nodify_expr <| d0()
+    let nodify_open = nodify_expr <| d0()
+    let nodify_fix = nodify_expr <| d0()
     let nodify_lit = nodify_expr <| d0()
     let nodify_pattern = nodify_expr <| d0()
     let nodify_func = nodify_expr <| d0()
@@ -57,6 +59,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         | x -> [x]
 
     let v x = nodify_v x |> V
+    let open_ x = nodify_open x |> Open
+    let fix_ x = nodify_fix x |> Fix
     let lit x = nodify_lit x |> Lit
     let op x = nodify_op x |> Op
     let pattern x = nodify_pattern x |> Pattern
@@ -81,10 +85,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let lit_int i = LitInt64 i |> lit
     let lit_string x = LitString x |> lit
 
-    let fix name x =
-        match name with
-        | "" -> x
-        | _ -> (Fix,[lit_string name; x]) |> op
+    let fix name x = fix_ (name, x)
     let inl x y = (x,y) |> func
     let inl_pat x y = (PatClauses([x,y])) |> pattern
     let ap x y = (Apply,[x;y]) |> op
@@ -104,7 +105,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let join_point_entry_method y = ap (inl "" (op(JoinPointEntryMethod,[y]))) B 
     let join_point_entry_type y = ap (inl "" (op(JoinPointEntryType,[y]))) B
 
-    let module_open a b = (ModuleOpen,[a;b]) |> op
+    let module_open a b = open_(a,b,Set.empty)
     let module_openb a b = ap a (inl " module" (module_open (v " module") b)) 
 
     let rec ap' f l = List.fold ap f l
@@ -213,7 +214,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
     // #Prepass
     let pattern_dict = d0()
-    let prepass_dict = d0()
+    let expr_used_vars_dict = d0()
+    let expr_diff_vars_dict = d0()
     let rec pattern_compile (pat: Node<_>) = 
         pat |> memoize pattern_dict (fun pat ->
             let node = pat.Symbol
@@ -301,15 +303,19 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     
             let pattern_compile_def_on_succ = op(ErrorPatClause,[])
             let pattern_compile_def_on_fail = op(ErrorPatMiss,[arg])
-            inl main_arg (pattern_compile arg pat pattern_compile_def_on_succ pattern_compile_def_on_fail) |> expr_prepass
+            inl main_arg (pattern_compile arg pat pattern_compile_def_on_succ pattern_compile_def_on_fail) |> expr_used_vars
             )
             
-
-    and expr_prepass e =
-        e |> memoize prepass_dict (fun e ->
-            let inline f e = expr_prepass e
+    /// Rewrites the AST so that used variables are included.
+    and expr_used_vars e =
+        e |> memoize expr_used_vars_dict (fun e ->
+            let inline f e = expr_used_vars e
             match e with
             | V (N n) -> Set.singleton n, e
+            | Fix(N(name,body)) ->
+                let l, body = f body
+                if Set.contains name l then l, fix name body
+                else l, body
             | Op(N(op',l)) ->
                 let l,l' = List.map f l |> List.unzip
                 Set.unionMany l, op(op',l')
@@ -323,10 +329,29 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 Set.remove name vars, func_filt(vars,nodify_func(name,body))
             | Lit _ -> Set.empty, e
             | Pattern pat -> pattern_compile pat
+            | Open (N(a,b,_)) ->
+                let a,a' = f a
+                let b,b' = f b
+                let c = a + b
+                c, open_(a',b',c)
             | ExprPos p -> 
                 let vars, body = f p.Expression
                 vars, expr_pos p.Pos body
             )
+    and expr_diff_vars e =
+        e |> memoize expr_diff_vars_dict (fun (s,e) -> 
+            let inline f s e = expr_diff_vars (s, e)
+            match e with
+            | Lit _ | V _ -> e
+            | Fix(N(name,body)) -> fix name (f (Set.add name s) body)
+            | Op(N(op',l)) -> op(op',List.map (f s) l)
+            | VV (N l) -> vv (List.map (f s) l)
+            | FunctionFilt(N (vars,N(name,body))) -> func_filt(s - vars,nodify_func(name,f (Set.add name vars) body))
+            | Pattern _ | Function _ -> failwith "Compiler error: The diff vars pass has been called out of order."
+            | Open(N(a,b,c)) -> open_(f c a, f c b, c)
+            | ExprPos p -> expr_pos p.Pos (f s p.Expression)
+            )
+    let expr_prepass x = expr_used_vars x |> expr_diff_vars
 
     // #Renaming
     let inline renamables0() = {memo=Dictionary(HashIdentity.Reference); renamer=d0(); ref_call_args=ref []; ref_method_pars=ref []} : EnvRenamer
@@ -399,7 +424,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let inline tev3 d a b c = tev d a, tev d b, tev d c
         let inline tev4 d a b c d' = tev d a, tev d b, tev d c, tev d d'
 
-        let inline inner_compile x = expr_prepass x |> snd |> tev d
+        let inline inner_compile x = expr_prepass x |> tev d
 
         let inline v_find env x on_fail on_succ = 
             let run env = 
@@ -409,7 +434,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             match env with
             | Env env -> run env
             | EnvConsed env -> run env.node
-            | EnvUnfiltered (env, used_vars) -> if used_vars.Contains x then run env else on_fail()
 
         let get_tag d = 
             let t = !d.ltag
@@ -548,11 +572,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let layout_to_none d a = layout_to_none' d (tev d a)
 
         let rec layoutify (layout: LayoutType) (d: LangEnv) = function
-            | TyMap(C env,t) ->
-                let env = Env env // This is necessary because otherwise the evaluator might diverge in some cases in destructure.
+            | TyMap(env,t) as a ->
                 let {renamer'=r}, env' = renamer_apply_envc env
                 if r.Count = 0 then LayoutT(layout,env',t) |> tyt
-                else TyOp(layout_to_op layout,[tymap(env,t)],LayoutT(layout,env',t)) |> destructure d
+                else TyOp(layout_to_op layout,[a],LayoutT(layout,env',t)) |> destructure d
             | TyType(LayoutT(layout',_,_)) as a ->
                 if layout <> layout' then layout_to_none' d a |> layoutify layout d else a
             | x -> on_type_er (trace d) <| sprintf "Cannot turn the argument into a layout type. Got: %s" (show_typedexpr x)
@@ -829,9 +852,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             match env with
             | EnvConsed env -> Map.add a b env.node |> Env
             | Env env -> Map.add a b env |> Env
-            | EnvUnfiltered (env, used_vars) -> 
-                let env = if used_vars.Contains a then Map.add a b env else env
-                EnvUnfiltered(env,used_vars)
 
         let inline apply_func is_term_cast d recf layout env_term fun_type args =
             let unpack () =
@@ -990,19 +1010,14 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let a, b = tev2 d a b 
             LitBool (get_type a = get_type b) |> TyLit
 
-        let module_open d a b =
+        let module_open d a b vars =
             match tev d a with
             | M(layout,C env_term,MapTypeModule) as recf -> 
                 let inline opt open_ env =
                     let env = 
-                        let map_add s k v = Map.add k (open_ v) s
+                        let map_add s k v = if Set.contains k vars then Map.add k (open_ v) s else s
                         let run d_env = Map.fold map_add d_env env
-                        match d.env with
-                        | Env d_env -> run d_env |> Env
-                        | EnvConsed d_env -> run d_env.node |> Env
-                        | EnvUnfiltered (d_env,used_vars) ->
-                            let d_env = Map.fold (fun s k v -> if used_vars.Contains k then map_add s k v else s) d_env env
-                            EnvUnfiltered(d_env,used_vars)
+                        run (c d.env) |> Env
                     tev {d with env = env} b
                 match layout with
                 | None -> opt id env_term
@@ -1587,14 +1602,17 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         | Lit (N value) -> TyLit value
         | V (N x) -> v_find d.env x (fun () -> on_type_er (trace d) <| sprintf "Variable %s not bound." x) (destructure d)
         | FunctionFilt(N (vars,N (pat, body))) -> 
-            // Note: Without having tags for var generation in pattern_compile, the following can cause a hygiene issue 
-            // in tandem with recursive functions. Test101 is there to guard against this.
-            let env = match d.env with EnvUnfiltered (env,_) | Env env | EnvConsed (CN env) -> env
-            tymap(EnvUnfiltered (env,vars), MapTypeFunction (pat, body))
+            let env = Set.foldBack Map.remove vars (c d.env)
+            tymap(Env env, MapTypeFunction (pat, body))
         | Function core -> failwith "Function not allowed in this phase as it tends to cause stack overflows in recursive scenarios."
         | Pattern pat -> failwith "Pattern not allowed in this phase as it tends to cause stack overflows when prepass is triggered in the match case."
         | ExprPos p -> tev (add_trace d p.Pos) p.Expression
         | VV (N vars) -> List.map (tev d >> destructure d) vars |> tyvv
+        | Open (N(a,b,vars)) -> module_open d a b vars
+        | Fix(N(name,body)) ->
+            match tev d body with
+            | TyMap(env_term,MapTypeFunction core) -> tymap(env_term,MapTypeRecFunction(core,name))
+            | x -> x
         | Op(N (op,vars)) ->
             match op,vars with
             | (MacroFs | MacroCuda),[a;b] -> macro op d a b
@@ -1602,10 +1620,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | StringLength,[a] -> string_length d a
             | StringFormat,[a;b] -> string_format d a b
             | StringConcat,[a;b] -> string_concat d a b
-            | Fix,[Lit (N (LitString name)); body] ->
-                match tev d body with
-                | TyMap(env_term,MapTypeFunction core) -> tymap(env_term,MapTypeRecFunction(core,name))
-                | x -> x
             | Case,[v;case] -> case_ d v case
             | IfStatic,[cond;tr;fl] -> if_static d cond tr fl
             | While,[cond;body] -> while_ d cond body
@@ -1628,7 +1642,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TypeLitCast,[a] -> type_lit_cast d a
             | TypeLitIs,[a] -> type_lit_is d a
             | Dynamize,[a] -> dynamize d a
-            | ModuleOpen,[a;b] -> module_open d a b
             | ModuleCreate,l -> module_create d l
             | ModuleWith, l -> module_with d l
             | ModuleValues, [a] -> module_values d a
@@ -3373,7 +3386,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         printfn "Time for parse: %A" watch.Elapsed
         watch.Restart()
         let d = data_empty()
-        let input = body |> expr_prepass |> snd
+        let input = body |> expr_prepass
         printfn "Time for prepass: %A" watch.Elapsed
         watch.Restart()
         try
