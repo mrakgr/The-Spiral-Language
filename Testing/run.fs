@@ -14,7 +14,7 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_assert_enabled = false
     }
 
-//rewrite_test_cache tests cfg None //(Some(0,40))
+rewrite_test_cache tests cfg None //(Some(0,40))
 
 let example = 
     "example",[option;tuple;loops;extern_;console;host_tensor],"Module description.",
@@ -27,6 +27,6 @@ f (dyn 1) (dyn 2)
     """
 
 //output_test_to_temp {cfg with cuda_includes=["cub/cub.cuh"]} @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example
-|> printfn "%s"
-|> ignore
+//output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example
+//|> printfn "%s"
+//|> ignore
