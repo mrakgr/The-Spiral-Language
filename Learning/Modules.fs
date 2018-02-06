@@ -256,7 +256,7 @@ inl {stream Cuda Allocator} ->
         toa_map (inl x -> x.update_body (inl {ar} -> ar.ptr.Dispose)) |> ignore
         r
 
-    met print (!dyn o1) = to_host_tensor o1 |> HostTensor.show |> Console.writeline
+    met print (!dyn o1) = to_host_tensor o1 |> HostTensor.print
 
     // CPS'd variants of the allocator functions.
     inl create = safe_alloc 1 create

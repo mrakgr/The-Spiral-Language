@@ -1306,10 +1306,12 @@ inl assert_contiguous = flatten >> ignore
 inl assert_dim l = assert_zip >> ignore
 /// Flattens and then splits the tensor dimensions.
 inl reshape f tns = split (inl _ -> tns.dim |> Tuple.map span |> Tuple.unwrap |> f) (flatten tns)
+/// Prints the tensor to the standard output.
+met print (!dyn x) = show x |> Console.writeline
 
 {
 toa_map toa_map2 toa_iter toa_iter2 toa_map3 toa_iter3 create facade 
-init copy assert_size array_as_tensor array_to_tensor map zip show
+init copy assert_size array_as_tensor array_to_tensor map zip show print
 span equal split flatten assert_contiguous assert_dim reshape
 } |> stack
     """) |> module_

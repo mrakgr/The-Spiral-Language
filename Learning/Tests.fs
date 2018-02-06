@@ -699,10 +699,12 @@ open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Error
 open Feedforward
 
-inl seq_len = 1115394
-inl minibatch_size = 128
-inl num_steps = 64
-inl one_hot_size = 128
+inl size = {
+    seq = 1115394
+    minibatch = 128
+    step = 64
+    hot = 128
+    }
 
 // I got this dataset from Karpathy.
 inl path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
@@ -710,20 +712,33 @@ inb data =
     macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
     |> Array.map (inl x -> 
         inl x = to int64 x
-        assert (x < one_hot_size) "The inputs need to be in the [0,127] range."
+        assert (x < size.hot) "The inputs need to be in the [0,127] range."
         to uint8 x
         )
     |> HostTensor.array_as_tensor
-    |> HostTensor.assert_size seq_len
+    |> HostTensor.assert_size size.seq
     |> CudaTensor.from_host_tensor
 
-inl data =
-    inl view f x = x.view f
-    view (inl x -> x - x % minibatch_size) data
-    |> HostTensor.split (inl x -> minibatch_size,x/minibatch_size)
-    |> view (inl mini, label -> mini, label - label % num_steps)
-    |> HostTensor.split (inl mini, label -> mini,(label/num_steps,num_steps))
+inl round mult x = x - x % mult
 
+inl view f x = x.view_span f
+inl data =
+    view (round size.minibatch) data
+    |> HostTensor.split (inl x -> size.minibatch,x/size.minibatch)
+
+inl minibatch,seq = data.dim
+inb input =
+    inl data = CudaTensor.to_dev_tensor data
+    CudaKernel.init {rev_thread_limit=32; dim=seq,minibatch,size.hot} (inl seq minibatch ->
+        inl x = data minibatch seq .get
+        inl hot -> if x = to uint8 hot then 1f32 else 0f32
+        )
+
+input
+|> view (const 4)
+|> CudaTensor.to_host_tensor
+|> view (inl a,_,c -> a,4,c)
+|> HostTensor.print
 ()
     """
 
@@ -783,8 +798,8 @@ let tests =
     grad1
     |]
 
-rewrite_test_cache tests cfg None //(Some(0,40))
+//rewrite_test_cache tests cfg None //(Some(0,40))
 
-//output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" allocator1
-//|> printfn "%s"
-//|> ignore
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
+|> printfn "%s"
+|> ignore

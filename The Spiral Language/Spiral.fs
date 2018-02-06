@@ -649,7 +649,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | LayoutT (LayoutPackedStack, l, _) -> 
                 let {call_args=args},_ = renamer_apply_env l
                 List.forall (fun (_,t) -> blittable_is' t) args
-            | ArrayT ((ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal),t) -> blittable_is' t
+            | ArrayT (ArtCudaGlobal _,t) -> blittable_is' t
             | UnionT _ | LayoutT _ | ArrayT _ | DotNetTypeT _ | TermFunctionT _ | RecT _ -> false
 
         let blittable_is d a = tev d a |> get_type |> blittable_is' |> LitBool |> TyLit
