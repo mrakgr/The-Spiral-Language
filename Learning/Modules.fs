@@ -162,7 +162,7 @@ inl {stream Cuda Allocator} ->
     open Extern
 
     /// Is just a CUdeviceptr rather than the true array.
-    inl array_create_cuda_global elem_type len = 
+    inl array_create_cuda_global elem_type len = // TODO: Why does this diverge when `|> stack`ed.
         inl ptr = allocate (len * sizeof elem_type)
         function // It needs to be like this rather than a module so toa_map does not split it.
         | .elem_type -> elem_type
