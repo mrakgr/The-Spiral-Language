@@ -1367,13 +1367,32 @@ inl {float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             on_non_nil adjoint' (d2_replicate_map' bck_in' primal {in'=primal'; out})
             )
 
-    inl matmultb A B bias ret =
-        inb C = gemm .nT .nT one (primal A) (primal B) >>! dr
+    inl matmultb l bias ret =
+        inl rec loop C l ret = 
+            match l with
+            | (A,B) :: x' ->
+                match C with
+                | () ->
+                    inb C = gemm .nT .nT one (primal A) (primal B) >>! dr
+                    loop C x' ret
+                | C ->
+                    gemm' .nT .nT one (primal A) (primal B) one (primal C)
+                    loop C x' ret
+            | () -> ret C
+
+        inl l =
+            match l with
+            | () -> error_type "First argument must not be empty."
+            | (_,_) :: _ -> l
+            | _ :: _ -> l :: ()
+        inb C = loop () l
         d2_replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
         ret (C, inl _ ->
             inl C' = adjoint C
-            on_non_nil (adjoint A) (inl A -> gemm' .nT .T one C' (primal B) one A)
-            on_non_nil (adjoint B) (inl B -> gemm' .T .nT one (primal A) C' one B)
+            Tuple.iter (inl A, B ->
+                on_non_nil (adjoint A) (inl A -> gemm' .nT .T one C' (primal B) one A)
+                on_non_nil (adjoint B) (inl B -> gemm' .T .nT one (primal A) C' one B)
+                ) l
             on_non_nil (adjoint bias) (inl bias -> map_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
             )
 
@@ -1484,7 +1503,7 @@ inl {float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         ret {
             hidden_size
             weights = weight, bias
-            apply = inl input -> matmultb input weight bias >>= activation
+            apply = inl input -> matmultb (input, weight) bias >>= activation
             }
 
     inl rec init layers input_size ret = 
@@ -1508,6 +1527,15 @@ inl {float CudaTensor CudaKernel CudaBlas CudaRandom} ->
     inl Feedforward = {sigmoid linear init with_error}
 
     // #Recurrent
+    inl rnn_layer initializer activation hidden_size input_size ret =
+        inb weight_input = initializer (input_size, hidden_size) >>! dr
+        inb weight_state = initializer (input_size, hidden_size) >>! dr
+        inb bias = CudaTensor.zero {elem_type=float; dim=hidden_size} >>! dr
+        ret {
+            hidden_size
+            weights = weight_input, weight_state, bias
+            apply = inl state input -> matmultb ((state,weight_state),(input,weight_input)) bias >>= activation
+            }
 
     // #Optimizer
     inl sgd learning_rate x = 
