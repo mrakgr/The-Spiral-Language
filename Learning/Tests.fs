@@ -416,12 +416,12 @@ inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
-inl default_float = float32
-open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+inl float = float32
+open Learning {float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Primitive
 
-inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=2,8}
-inb a2 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=8,2} >>! dr
+inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,8}
+inb a2 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=8,2} >>! dr
 inb o1,bck = matmult a1 a2
 bck()
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
@@ -440,11 +440,11 @@ inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
-inl default_float = float32
-open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+inl float = float32
+open Learning {float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Primitive
 
-inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=2,8} >>! dr
+inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,8} >>! dr
 inb o1,bck = map {fwd=((*) 10f32); bck=inl {out} -> out.A * 10f32} a1
 bck()
 met rec show (!dyn o1) = CudaTensor.to_host_tensor o1 |> HostTensor.show |> Console.writeline
@@ -463,11 +463,11 @@ inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
-inl default_float = float32
-open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+inl float = float32
+open Learning {float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Primitive
 
-inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=default_float; dim=256,256} >>! dr
+inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=float; dim=256,256} >>! dr
 inb o1,bck = map_redo {fwd={neutral_elem=0f32; redo=(+)}; bck=inl {out} -> out.A} a1
 bck()
 Console.writeline <| primal o1 / to float32 ((primal a1).length)
@@ -485,11 +485,11 @@ inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
-inl default_float = float32
-open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+inl float = float32
+open Learning {float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Primitive
 
-inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=default_float; dim=6,6} >>! dr
+inb a1 = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=float; dim=6,6} >>! dr
 inb o1,bck = map_redo {fwd={neutral_elem=0f32; redo=(+)}; bck=inl {out} -> out.A} a1
 adjoint o1 := 1f32
 bck()
@@ -509,15 +509,15 @@ inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
-inl default_float = float32
-open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+inl float = float32
+open Learning {float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Primitive
 open Activation
 open Error
 
-inb input = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=2,6}
-inb weight = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=6,4} >>! dr
-inb label = CudaTensor.zero {elem_type=default_float; dim=2,4}
+inb input = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,6}
+inb weight = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=6,4} >>! dr
+inb label = CudaTensor.zero {elem_type=float; dim=2,4}
 inb {cost},bck = 
     inm o1 = matmult input weight >>= sigmoid
     square (o1,label)
@@ -542,15 +542,15 @@ inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
-inl default_float = float32
-open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+inl float = float32
+open Learning {float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Error
 open Feedforward
 
 inl input_size = 6
 inl hidden_size = 4
-inb input = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=2,input_size}
-inb label = CudaTensor.zero {elem_type=default_float; dim=2,hidden_size}
+inb input = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,input_size}
+inb label = CudaTensor.zero {elem_type=float; dim=2,hidden_size}
 
 inb {apply} = init (sigmoid hidden_size) input_size >>! with_error square
 inb {cost},bck = apply (input,label)
@@ -573,8 +573,8 @@ inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
-inl default_float = float32
-open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+inl float = float32
+open Learning {float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Error
 open Feedforward
 
@@ -607,8 +607,8 @@ inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
-inl default_float = float32
-open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+inl float = float32
+open Learning {float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Primitive
 open Activation
 open Error
@@ -616,10 +616,10 @@ open Error
 inl input_size = 32
 inl outer_dim = 6
 inl inner_dim = 16
-inb input = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=input_size,outer_dim}
-inb weight = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=default_float; dim=outer_dim,inner_dim} >>! dr
-inb bias = CudaTensor.zero {elem_type=default_float; dim=inner_dim} >>! dr
-inb label = CudaTensor.zero {elem_type=default_float; dim=input_size,inner_dim}
+inb input = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=input_size,outer_dim}
+inb weight = CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=outer_dim,inner_dim} >>! dr
+inb bias = CudaTensor.zero {elem_type=float; dim=inner_dim} >>! dr
+inb label = CudaTensor.zero {elem_type=float; dim=input_size,inner_dim}
 
 inb {cost},bck = 
     inm o1 = matmult input weight >>= add_bias bias >>= sigmoid
@@ -645,8 +645,8 @@ inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
-inl default_float = float32
-open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+inl float = float32
+open Learning {float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Error
 open Feedforward
 
@@ -694,8 +694,8 @@ inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
-inl default_float = float32
-open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+inl float = float32
+open Learning {float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Error
 open Feedforward
 
@@ -754,8 +754,8 @@ inb CudaRandomModule = CudaRandom
 inl CudaRandom = CudaRandomModule {stream Cuda CudaTensor}
 inb CudaBlasModule = CudaBlas
 inl CudaBlas = CudaBlasModule {stream Cuda CudaKernel CudaTensor}
-inl default_float = float32
-open Learning {default_float CudaTensor CudaKernel CudaBlas CudaRandom}
+inl float = float32
+open Learning {float CudaTensor CudaKernel CudaBlas CudaRandom}
 open Error
 open Feedforward
 

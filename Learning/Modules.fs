@@ -1270,18 +1270,18 @@ let learning =
     (
     "Learning",[host_tensor;extern_],"The deep learning module.",
     """
-inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
+inl {float CudaTensor CudaKernel CudaBlas CudaRandom} ->
     open HostTensor
     open CudaTensor
     open CudaKernel
     open CudaBlas
 
     // #Primitives
-    inl zero = Extern.zero_of default_float
-    inl one = Extern.one_of default_float
-    inl two = to default_float 2
+    inl zero = Extern.zero_of float
+    inl one = Extern.one_of float
+    inl two = to float 2
     inl infinity =
-        match default_float with
+        match float with
         | _: float32 -> infinityf32
         | _: float64 -> infinityf64
 
@@ -1447,7 +1447,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl error {fwd bck} (input,_ as x) = 
         inl batch_size = primal input .dim |> fst |> span
-        inl div_by_minibatch_size x = x / to default_float batch_size
+        inl div_by_minibatch_size x = x / to float batch_size
         inm cost =
             map_redo {
                 fwd = {
@@ -1480,7 +1480,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
     // #Feedforward
     inl layer initializer activation hidden_size next_layer input_size ret =
         inb weight = initializer (input_size, hidden_size) >>! dr
-        inb bias = CudaTensor.zero {elem_type=default_float; dim=hidden_size} >>! dr
+        inb bias = CudaTensor.zero {elem_type=float; dim=hidden_size} >>! dr
         inb {weights apply} = next_layer hidden_size
         ret {
             weights = (weight, bias) :: weights
@@ -1488,7 +1488,7 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             }
 
     inl sigmoid_initializer dim = 
-        inl stddev = sqrt (two / to default_float (Tuple.foldl (+) 0 dim))
+        inl stddev = sqrt (two / to float (Tuple.foldl (+) 0 dim))
         CudaRandom.create_tensor {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
 
     inl sigmoid = layer sigmoid_initializer sigmoid
@@ -1506,6 +1506,8 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
     inl with_error error network ret = ret {network with apply = inl (input,label) -> self input >>= inl input -> error (input,label)}
 
     inl Feedforward = {sigmoid linear init with_error}
+
+    // #Recurrent
 
     // #Optimizer
     inl sgd learning_rate x = 
@@ -1578,23 +1580,21 @@ inl {default_float CudaTensor CudaKernel CudaBlas CudaRandom} ->
     inl grad_check {d with network={weights apply} input label} =
         open Extern
 
-        inl float = to default_float
-
         inl run () = 
             inb {cost accuracy}, bck = apply (input, label)
-            adjoint cost := float 1
+            adjoint cost := to float 1
             bck()
         met cost () =
             inb {cost accuracy}, bck = apply (input, label)
             primal cost
         //met update () = 
-        //    toa_iter (sgd (float 0.01)) weights
+        //    toa_iter (sgd (to float 0.01)) weights
 
         // Run it a few times.
         run()
 
-        inl epsilon = float 0.001
-        inl boundary = float 0.001
+        inl epsilon = to float 0.001
+        inl boundary = to float 0.001
         // Assert that all the gradients make sense.
 
         inl rec perturb primal adjoint =
