@@ -1478,14 +1478,25 @@ inl {float CudaTensor CudaKernel CudaBlas CudaRandom} ->
     inl Error = {square cross_entropy}
 
     // #Feedforward
-    inl layer initializer activation hidden_size next_layer input_size ret =
+    inl layer initializer activation hidden_size input_size ret =
         inb weight = initializer (input_size, hidden_size) >>! dr
         inb bias = CudaTensor.zero {elem_type=float; dim=hidden_size} >>! dr
-        inb {weights apply} = next_layer hidden_size
         ret {
-            weights = (weight, bias) :: weights
-            apply = inl input -> matmultb input weight bias >>= activation >>= apply
+            hidden_size
+            weights = weight, bias
+            apply = inl input -> matmultb input weight bias >>= activation
             }
+
+    inl rec init layers input_size ret = 
+        match layers with
+        | x :: x' ->
+            inb {hidden_size weights apply} = init x input_size
+            inb x' = init x' hidden_size
+            ret {x' with weights=weights :: self; apply = apply >>= self}
+        | () -> ret {hidden_size=input_size; weigths=(); apply=succ}
+        | x -> x input_size ret
+
+    inl with_error error network ret = ret {network with apply = inl (input,label) -> self input >>= inl input -> error (input,label)}
 
     inl sigmoid_initializer dim = 
         inl stddev = sqrt (two / to float (Tuple.foldl (+) 0 dim))
@@ -1493,17 +1504,6 @@ inl {float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl sigmoid = layer sigmoid_initializer sigmoid
     inl linear = layer sigmoid_initializer succ
-
-    inl init = 
-        inl fin _ ret =
-            ret {
-                weights = ()
-                apply = succ
-                }            
-        function
-        | _ :: _ as layers -> Tuple.foldr (<|) layers fin
-        | layer -> layer fin
-    inl with_error error network ret = ret {network with apply = inl (input,label) -> self input >>= inl input -> error (input,label)}
 
     inl Feedforward = {sigmoid linear init with_error}
 
