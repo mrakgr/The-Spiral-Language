@@ -1534,7 +1534,7 @@ inl {float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         ret {
             hidden_size
             weights = weight_input, weight_state, bias
-            apply = inl state input -> matmultb ((state,weight_state),(input,weight_input)) bias >>= activation
+            apply = inl state input -> matmultb ((state,weight_state),(input,weight_input)) bias >>= activation 
             }
 
     // #Optimizer
