@@ -1537,6 +1537,7 @@ inl {float CudaTensor CudaKernel CudaBlas CudaRandom} ->
             apply = inl state input -> matmultb ((state,weight_state),(input,weight_input)) bias >>= activation 
             }
 
+
     // #Optimizer
     inl sgd learning_rate x = 
         inl primal, adjoint = primal x, adjoint x
