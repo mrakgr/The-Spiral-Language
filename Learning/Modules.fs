@@ -1670,24 +1670,31 @@ inl {float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         open Extern
         open Console
 
-        inl rec map_fold f s = function
-            | x :: x' ->
-                inm x,s = f s x
-                inm x' = map_fold f s x'
-                succ (x :: x')
-            | () -> succ ()
+        //inl rec map_fold f s = function
+        //    | x :: x' ->
+        //        inm x,s = f s x
+        //        inm x' = map_fold f s x'
+        //        succ (x :: x')
+        //    | () -> succ ()
 
         inl wavefront network {input label} =
-            map_fold (inl d x -> 
-                match d with
-                | {input label} ->
-                    match x with
-                    | {rnn} -> 
-                        inm input, state = rnn () input
-                        {rnn state label}, ()
-                    | {rnn state label=label'} ->
-                        inm input, state = rnn state input
-                        {rnn state label}, 
+            map_fold (inl output x ->
+                match x with
+                | {rnn} -> {x with output label}, ()
+                | {rnn output=output'} -> {x with output}, output
+
+                
+                ) {input label} network
+            //map_fold (inl d x -> 
+            //    match d with
+            //    | {input label} ->
+            //        match x with
+            //        | {rnn} -> 
+            //            inm input, state = rnn () input
+            //            {rnn state label}, ()
+            //        | {rnn state label=label'} ->
+            //            inm input, state = rnn state input
+            //            {rnn state label}, 
                         
                 )
 
