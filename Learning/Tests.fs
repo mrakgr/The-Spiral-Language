@@ -800,12 +800,39 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-let eventually1 = 
-    "evenutally1",[console],"Does the eventually monad work in Spiral?",
+let message_passing1 = 
+    "message_passing1",[console],"Does the message passing monad work in Spiral?",
+    """
+inl rec (>>=) a b x =
+    inl x,a = a x
+    inl x,b = b x
+    x, a >>= b
+
+inl rec message_init {f state} state' =
+    inl x = f state
+    x, message_init {f state=state'}
+
+inl print msg state =
+    match state with
+    | .step -> .step
+    | state ->
+        Console.writeline msg
+        Console.writeline ("state=",state)
+        state
+
+inl a = message_init {f=print "I am in a."; state=.step}
+inl b = message_init {f=print "I am in b."; state=.step}
+inl c = message_init {f=print "I am in c."; state=.step}
+
+inl m = a >>= b >>= c
+inl f x m = 
+    inl x, x' = m x
+    print_static {x}
+    x'
+inl x = f 123 m |> f 456 |> f .step |> f .step
+()
     """
 
-    """
-
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" eventually1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" message_passing1
 |> printfn "%s"
 |> ignore

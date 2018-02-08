@@ -385,6 +385,7 @@ inl rec show' cfg =
     
     function
     | {} as m -> show_module m
+    | () -> "[]"
     | _ :: _ as l -> show_tuple l
     | (@array_is x) as ar ->
         match x with
