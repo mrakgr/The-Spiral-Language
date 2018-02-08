@@ -800,6 +800,12 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
+let eventually1 = 
+    "evenutally1",[console],"Does the eventually monad work in Spiral?",
+    """
+
+    """
+
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" eventually1
 |> printfn "%s"
 |> ignore
