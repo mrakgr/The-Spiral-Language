@@ -1534,7 +1534,12 @@ inl {float CudaTensor CudaKernel CudaBlas CudaRandom} ->
         ret {
             hidden_size
             weights = weight_input, weight_state, bias
-            apply = inl state input -> matmultb ((state,weight_state),(input,weight_input)) bias >>= activation 
+            apply = inl state input -> 
+                inm x = 
+                    match state with
+                    | () -> matmultb (input,weight_input) bias >>= activation 
+                    | _ -> matmultb ((state,weight_state),(input,weight_input)) bias >>= activation 
+                succ (x,x) // output, state
             }
 
 
