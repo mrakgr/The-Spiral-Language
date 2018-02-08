@@ -1526,23 +1526,6 @@ inl {float CudaTensor CudaKernel CudaBlas CudaRandom} ->
 
     inl Feedforward = {sigmoid linear init with_error}
 
-    // #Recurrent
-    inl rnn_layer initializer activation hidden_size input_size ret =
-        inb weight_input = initializer (input_size, hidden_size) >>! dr
-        inb weight_state = initializer (input_size, hidden_size) >>! dr
-        inb bias = CudaTensor.zero {elem_type=float; dim=hidden_size} >>! dr
-        ret {
-            hidden_size
-            weights = weight_input, weight_state, bias
-            apply = inl state input -> 
-                inm x = 
-                    match state with
-                    | () -> matmultb (input,weight_input) bias >>= activation 
-                    | _ -> matmultb ((state,weight_state),(input,weight_input)) bias >>= activation 
-                succ (x,x) // output, state
-            }
-
-
     // #Optimizer
     inl sgd learning_rate x = 
         inl primal, adjoint = primal x, adjoint x
@@ -1655,6 +1638,98 @@ inl {float CudaTensor CudaKernel CudaBlas CudaRandom} ->
                     Console.writeline "--- Gradient checking failure."
                 
         toa_iter (inl t -> perturb (primal t) (adjoint t)) weights
+
+    // #Recurrent
+    inl rnn_layer initializer activation hidden_size input_size ret =
+        inb weight_input = initializer (input_size, hidden_size) >>! dr
+        inb weight_state = initializer (input_size, hidden_size) >>! dr
+        inb bias = CudaTensor.zero {elem_type=float; dim=hidden_size} >>! dr
+        ret {
+            hidden_size
+            weights = weight_input, weight_state, bias
+            apply = inl state input -> 
+                inm x = 
+                    match state with
+                    | () -> matmultb (input,weight_input) bias >>= activation 
+                    | _ -> matmultb ((state,weight_state),(input,weight_input)) bias >>= activation 
+                succ (x,x) // output, state
+            }
+
+    inl rec init layers input_size ret = 
+        match layers with
+        | x :: x' ->
+            inb {hidden_size weights apply} = init x input_size
+            inb x' = init x' hidden_size
+            ret {x' with weights=weights :: self; apply = {rnn=apply} :: self}
+        | () -> ret {hidden_size=input_size; weigths=(); apply=()}
+        | x -> x input_size ret
+
+    inl with_error error network ret = ret {network with apply = Tuple.foldr (::) {cost=self} error}
+
+    inl seq_run {d with network={weights apply} input} =
+        open Extern
+        open Console
+
+        inl rec map_fold f s = function
+            | x :: x' ->
+                inm x,s = f s x
+                inm x' = map_fold f s x'
+                succ (x :: x')
+            | () -> succ ()
+
+        inl wavefront network {input label} =
+            map_fold (inl d x -> 
+                match d with
+                | {input label} ->
+                    match x with
+                    | {rnn} -> 
+                        inm input, state = rnn () input
+                        {rnn state label}, ()
+                    | {rnn state label=label'} ->
+                        inm input, state = rnn state input
+                        {rnn state label}, 
+                        
+                )
+
+        //inl run_minibatch {input label state} = 
+        //    inb {cost}, _ as er = apply (input, label)
+        //    inl cost = CudaTensor.get (primal cost)
+        //    state + to float64 (primal cost) * to float64 (dim1 input |> HostTensor.span)
+
+        inl {from near_to} :: _ = input.dim
+        Loops.for' {from=from+1; near_to state=dyn 0.0; body=inl {next state i} ->
+            inl label = input i
+            inl input = input (i-1)
+
+            }
+            
+        //inl state = Loops.for' {from near_to; state by; body=inl {next state i=from} ->
+        //    if macro.fs bool [text: "System.Double.IsNaN"; args: state.running_cost] then
+        //        state
+        //    else
+        //        inl span = if span % by = 0 then {from by} else {from near_to=from+by |> min near_to} 
+        //        inl f x = x.view_span (const span)
+        //        run_minibatch {state input=f input; label=f label}
+        //        |> next
+        //    }
+
+        writeline "-----"
+        writeline "Batch done."
+        inl spanf64 = to float64 span
+        inl cost = 
+            match state with 
+            | {running_cost} -> 
+                inl cost = running_cost / spanf64
+                string_format "Average of batch costs is {0}." cost |> writeline 
+                cost
+            | _ -> ()
+        match state with 
+        | {running_accuracy} -> 
+            inl percetange = to float64 running_accuracy / spanf64 * 100f64
+            string_format "The accuracy of the batch is {0}/{1}({2}%). " (running_accuracy,span,percetange) |> writeline 
+        | _ -> ()
+        writeline "-----"
+        cost
 
     {dr primal primals adjoint adjoints (>>!) Primitive succ (>>=) Activation Error Feedforward Optimizer run grad_check accuracy }
     """) |> module_
