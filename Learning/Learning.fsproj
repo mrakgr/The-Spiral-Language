@@ -58,8 +58,8 @@
     <None Include="App.config" />
     <Content Include="packages.config" />
     <Content Include="TextFile1.txt" />
-    <Compile Include="Modules.fs" />
-    <Compile Include="Tests.fs" />
+    <None Include="Modules.fs%27" />
+    <None Include="Tests.fs%27" />
     <None Include="Script1.fsx" />
   </ItemGroup>
   <ItemGroup>
