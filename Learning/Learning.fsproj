@@ -61,6 +61,7 @@
     <None Include="Modules.fs%27" />
     <None Include="Tests.fs%27" />
     <None Include="Script1.fsx" />
+    <Compile Include="Module.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
