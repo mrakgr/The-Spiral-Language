@@ -1440,18 +1440,6 @@ inl ret ->
         | x,y -> {x=x: int64; y=y: int64; z=1}
         | x -> {x=x: int64; y=1; z=1}
 
-    inl Stream =
-        inl ty x = fs [text: x]
-        inl CudaStream_type = ty."ManagedCuda.CudaStream"
-        inl CUstream_type = ty."ManagedCuda.BasicTypes.CUstream"
-
-        {
-        create = inl x ret -> 
-            use x = FS.Constructor CudaStream_type x
-            ret x
-        extract = inl x -> FS.Method x .get_Stream() CUstream_type 
-        } |> stack
-
     inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
     inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
     inl SizeT = FS.Constructor SizeT_type
@@ -1492,6 +1480,6 @@ inl ret ->
         | {stream} -> FS.Method cuda_kernel .RunAsync(Stream.extract stream,to_obj_ar args) unit
         | _ -> FS.Method cuda_kernel .Run(to_obj_ar args) float32 |> ignore
 
-    ret {Stream context dim3 run SizeT SizeT_type CUdeviceptr CUdeviceptr_type ptr_to_uint uint_to_ptr to_uint}
+    ret {context dim3 run SizeT SizeT_type CUdeviceptr CUdeviceptr_type ptr_to_uint uint_to_ptr to_uint}
     """) |> module_
 
