@@ -87,6 +87,7 @@ inl {Cuda} size ->
     inl sub region size = create .Clear {region size}
     inl create = create .Dispose
 
+
     {create sub}
     """) |> module_
 
