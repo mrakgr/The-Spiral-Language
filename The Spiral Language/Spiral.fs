@@ -547,6 +547,19 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | TyType t -> on_type_er (trace d) <| sprintf "Expected unit as the type of the while loop.\nGot: %s" (show_ty t)
             | TyType cond -> on_type_er (trace d) <| sprintf "Expected a bool in conditional.\nGot: %s" (show_ty cond)
 
+        /// TODO: I forgot that the mutable layout types can't be destructured directly. Fix that during the next redesign.
+        let rec layout_boxed_unseal_mutable d recf x =
+            let inline f x = layout_boxed_unseal_mutable d recf x
+            match x with
+            | TyV _ as v -> TyOp(MapGetField,[recf;v],get_type v) |> make_tyv_and_push_typed_expr d
+            | TyList l -> tyvv (List.map f l)
+            | TyBox(a,b) -> tybox (f a, b)
+            | TyMap(env, b) -> tymap (layout_env_term_unseal_mutable d recf env, b)
+            | x -> x
+               
+        and layout_env_term_unseal_mutable d recf (C env) = Map.map (fun _ -> layout_boxed_unseal_mutable d recf) env |> Env
+
+        
         let rec layout_boxed_unseal d recf x =
             let inline f x = layout_boxed_unseal d recf x
             match x with
