@@ -78,36 +78,22 @@ inl {Cuda} size ->
 
             region
 
-    inl current_region = ref (create_region size)
-
     inl create destructor size ret =
-        inl x = current_region ()
         inl region = create_region size
-        current_region <- region
         inl r = ret region
-        current_region <- x
         region destructor
         r
 
     inl sub region size = create .Clear {region size}
     inl create = create .Dispose
 
-    inl switch_to reg ret = 
-        inl x = current_region()
-        current_region <- reg
-        inl r = ret reg
-        current_region x
-        r
-
-    inl current_region x = current_region () x
-
-    {current_region create sub}
+    {create sub}
     """) |> module_
 
 let cuda_stream = 
     "CudaStream",[extern_],"The Cuda stream module.",
     """
-inl {Cuda} ret ->
+inl {Cuda} ->
     open Extern
     inl ty x = fs [text: x]
     inl CudaStream_type = ty "ManagedCuda.CudaStream"
@@ -120,14 +106,11 @@ inl {Cuda} ret ->
             | .get -> FS.Method x .get_Stream() CUstream_type 
             | .wait_on -> () // TODO
             
-    inb stream = create
-    inl current_stream = ref stream
-
     inl async ret = 
         inb stream = create
-        ret stream
+        inl r = ret stream
 
-    ret {current_stream create}
+    {create}
     """
 
 let cuda_tensor = 
