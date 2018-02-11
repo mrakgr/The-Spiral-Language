@@ -297,7 +297,7 @@ and Ty =
     | ListT of Ty list
     | LitT of Value
     | MapT of EnvTy * MapType // function or module
-    | LayoutT of LayoutType * EnvTerm * MapType
+    | LayoutT of LayoutType * TypedExpr
     | TermFunctionT of Ty * Ty
     | UnionT of Set<Ty>
     | RecT of JoinPointKey
@@ -583,12 +583,8 @@ let rec show_ty = function
 
         sprintf "{%s}" body
     | MapT (_, (MapTypeFunction _ | MapTypeRecFunction _)) -> "<function>"
-    | LayoutT (layout_type,env,MapTypeModule) ->
-        let body = 
-            c env |> Map.toArray 
-            |> Array.map (fun (k,v) -> sprintf "%s=%s" k (show_typedexpr v))
-            |> String.concat "; "
-        sprintf "%s {%s}" (show_layout_type layout_type) body
+    | LayoutT (layout_type,body,MapTypeModule) ->
+        sprintf "%s (%s)" (show_layout_type layout_type) (show_typedexpr body)
     | LayoutT (layout_type,_,(MapTypeFunction _ | MapTypeRecFunction _)) ->
         sprintf "%s <function>" (show_layout_type layout_type)
     | TermFunctionT (a,b) ->

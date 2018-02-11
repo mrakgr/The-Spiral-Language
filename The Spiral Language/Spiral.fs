@@ -154,7 +154,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         | UnionT _ | RecT _ | DotNetTypeT _ | CudaTypeT _ | TermFunctionT _ | PrimT _ -> false
         | ArrayT (_,t) -> is_unit t
         | MapT (env,_) -> is_unit_env env
-        | LayoutT (_, C x, _) -> typed_expr_env_free_var_exists x = false
+        | LayoutT (_, x) -> typed_expr_free_var_exists x = false
         | ListT t -> is_unit_tuple t
 
     /// Wraps the argument in a set if not a UnionT.
@@ -215,7 +215,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     // #Prepass
     let pattern_dict = d0()
     let expr_used_vars_dict = d0()
-    let expr_diff_vars_dict = d0()
     let rec pattern_compile (pat: Node<_>) = 
         pat |> memoize pattern_dict (fun pat ->
             let node = pat.Symbol
@@ -338,19 +337,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 let vars, body = f p.Expression
                 vars, expr_pos p.Pos body
             )
-    //let rec expr_diff_vars (s,e) =
-    //    e |> memoize expr_diff_vars_dict (fun e -> 
-    //        let inline f s e = expr_diff_vars (s, e)
-    //        match e with
-    //        | Lit _ | V _ -> e
-    //        | Fix(N(name,body)) -> fix name (f (Set.add name s) body)
-    //        | Op(N(op',l)) -> op(op',List.map (f s) l)
-    //        | VV (N l) -> vv (List.map (f s) l)
-    //        | FunctionFilt(N (vars,N(name,body))) -> func_filt(s - vars,nodify_func(name,f (Set.add name vars) body))
-    //        | Pattern _ | Function _ -> failwith "Compiler error: The diff vars pass has been called out of order."
-    //        | Open(N(a,b,c)) -> open_(f c a, f c b, c)
-    //        | ExprPos p -> expr_pos p.Pos (f s p.Expression)
-    //        )
     let expr_prepass x = expr_used_vars x |> snd // |> expr_diff_vars
 
     // #Renaming
@@ -547,7 +533,13 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | TyType t -> on_type_er (trace d) <| sprintf "Expected unit as the type of the while loop.\nGot: %s" (show_ty t)
             | TyType cond -> on_type_er (trace d) <| sprintf "Expected a bool in conditional.\nGot: %s" (show_ty cond)
 
-        /// TODO: I forgot that the mutable layout types can't be destructured directly. Fix that during the next redesign.
+        let extern_type_create op d x =
+            let _, x = renamer_apply_typedexpr (tev d x)
+            match op with
+            | DotNetTypeCreate -> tyt (DotNetTypeT x)
+            | CudaTypeCreate -> tyt (CudaTypeT x)
+            | _ -> failwith "invalid op"
+
         let rec layout_boxed_unseal_mutable d recf x =
             let inline f x = layout_boxed_unseal_mutable d recf x
             match x with
@@ -556,10 +548,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyBox(a,b) -> tybox (f a, b)
             | TyMap(env, b) -> tymap (layout_env_term_unseal_mutable d recf env, b)
             | x -> x
-               
         and layout_env_term_unseal_mutable d recf (C env) = Map.map (fun _ -> layout_boxed_unseal_mutable d recf) env |> Env
 
-        
         let rec layout_boxed_unseal d recf x =
             let inline f x = layout_boxed_unseal d recf x
             match x with
@@ -568,30 +558,24 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyBox(a,b) -> tybox (f a, b)
             | TyMap(env, b) -> tymap (layout_env_term_unseal d recf env, b)
             | x -> x
-               
         and layout_env_term_unseal d recf (C env) = Map.map (fun _ -> layout_boxed_unseal d recf) env |> Env
 
-        let extern_type_create op d x =
-            let _, x = renamer_apply_typedexpr (tev d x)
-            match op with
-            | DotNetTypeCreate -> tyt (DotNetTypeT x)
-            | CudaTypeCreate -> tyt (CudaTypeT x)
-            | _ -> failwith "invalid op"
-
         let layout_to_none' d = function
-            | TyMap _ as a -> a
-            | TyType(LayoutT(_,env,t)) as a -> tymap(layout_env_term_unseal d a env,t)
-            | x -> on_type_er (trace d) <| sprintf "Cannot turn the argument into a non-layout type. Got: %s" (show_typedexpr x)
+            | TyType(LayoutT(t,l)) as recf -> 
+                match t with
+                | LayoutHeapMutable -> layout_boxed_unseal_mutable d recf l
+                | _ -> layout_boxed_unseal d recf l
+            | a -> a
         let layout_to_none d a = layout_to_none' d (tev d a)
 
         let rec layoutify (layout: LayoutType) (d: LangEnv) = function
-            | TyMap(env,t) as a ->
-                let {renamer'=r}, env' = renamer_apply_envc env
-                if r.Count = 0 then LayoutT(layout,env',t) |> tyt
-                else TyOp(layout_to_op layout,[a],LayoutT(layout,env',t)) |> destructure d
-            | TyType(LayoutT(layout',_,_)) as a ->
+            | TyType(LayoutT(layout',_)) as a ->
                 if layout <> layout' then layout_to_none' d a |> layoutify layout d else a
-            | x -> on_type_er (trace d) <| sprintf "Cannot turn the argument into a layout type. Got: %s" (show_typedexpr x)
+            | TyV _ as a -> a
+            | a -> 
+                let {renamer'=r}, expr = renamer_apply_typedexpr a
+                if r.Count = 0 then LayoutT(layout,expr) |> tyt
+                else TyOp(layout_to_op layout,[a],LayoutT(layout,expr)) |> destructure d
         let layout_to layout d a = layoutify layout d (tev d a)
 
         let join_point_method (d: LangEnv) (expr: Expr): TypedExpr = 
@@ -659,8 +643,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | _ -> true
             | ListT l -> false
             | MapT (l,_) -> Map.forall (fun _ -> blittable_is') l
-            | LayoutT (LayoutPackedStack, l, _) -> 
-                let {call_args=args},_ = renamer_apply_env l
+            | LayoutT (LayoutPackedStack, l) -> 
+                let {call_args=args},_ = renamer_apply_typedexpr l
                 List.forall (fun (_,t) -> blittable_is' t) args
             | ArrayT (ArtCudaGlobal _,t) -> blittable_is' t
             | UnionT _ | LayoutT _ | ArrayT _ | DotNetTypeT _ | TermFunctionT _ | RecT _ -> false
@@ -773,12 +757,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
            
         let type_union d l = List.fold (fun s x -> Set.union s (tev d x |> get_type |> set_field)) Set.empty l |> uniont |> tyt
 
-        let inline wrap_exception d f =
-            try f()
-            with 
-            | :? TypeError as e -> reraise()
-            | e -> on_type_er (trace d) (".NET exception:\n"+e.Message)
-
         let (|TyLitIndex|_|) = function
             | TyLit (LitInt32 i) -> Some i
             | TyLit (LitInt64 i) -> Some (int i)
@@ -856,48 +834,27 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         TyOp(StringConcat, [a; tyvv l], PrimT StringT)
             | x,_ -> on_type_er (trace d) <| sprintf "Expected a string as the separator argument to string concat.\nGot: %s" (show_typedexpr x)
 
-        let (|M|_|) = function
-            | TyMap(env,t) -> Some (None,env,t)
-            | (TyV(_,LayoutT(layout,env,t)) | TyT(LayoutT(layout,env,t))) -> Some (Some layout,env,t)
-            | _ -> None
-
         let inline env_add a b env =
             match env with
             | EnvConsed env -> Map.add a b env.node |> Env
             | Env env -> Map.add a b env |> Env
 
-        let inline apply_func is_term_cast d recf layout env_term fun_type args =
-            let unpack () =
-                match layout with
-                | None -> env_term
-                | _ -> layout_env_term_unseal d recf env_term
-
+        let inline apply_func is_term_cast d recf env_term fun_type args =
             let inline tev x =
                 if is_term_cast then join_point_closure args x
                 else tev x
 
             match fun_type with
             | MapTypeRecFunction ((pat,body),name) ->
-                let env_term = unpack()
                 let env = if pat <> "" then env_add pat args env_term else env_term
                 tev {d with env = env_add name recf env} body
             | MapTypeFunction (pat,body) -> 
-                let env_term = unpack()
                 tev {d with env = if pat <> "" then env_add pat args env_term else env_term} body
-            // apply_module
-            | MapTypeModule when is_term_cast -> on_type_er (trace d) <| sprintf "Expected a function in term casting application. Got a module instead."
-            | MapTypeModule ->
-                match args with
-                | TypeString n ->
-                    let inline unpack k = v_find env_term n (fun () -> on_type_er (trace d) <| sprintf "Cannot find a member named %s inside the module." n) k
-                    match layout with
-                    | None -> unpack id
-                    | _ -> unpack (layout_boxed_unseal d recf)
-                | x -> on_type_er (trace d) "Expected a type level string in module application." 
+            | _ -> on_type_er (trace d) "Compiler error: Expected a function in function application."
 
         let term_cast d a b =
-            match tev d a, tev d b with
-            | recf & M(layout,env_term,fun_type), args -> 
+            match tev d a |> layout_to_none' d, tev d b with
+            | recf & TyMap(env_term,(MapTypeFunction _ | MapTypeRecFunction _ ) & map_type), args -> 
                 let instantiate_type_as_variable d args_ty =
                     let f x = make_up_vars_for_ty d x
                     match args_ty with
@@ -905,53 +862,83 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | x -> f x
             
                 let args = instantiate_type_as_variable d (get_type args)
-                apply_func true d recf layout env_term fun_type args
+                apply_func true d recf env_term map_type args
             | x,_ -> on_type_er (trace d) <| sprintf "Expected a function in term casting application. Got: %s" (show_typedexpr x)
 
         let type_lit_create' x = litt x |> tyt
 
+        let inline apply_module on_miss on_fail on_succ d a n =
+            match a with
+            | TyMap (env_term, MapTypeModule) -> v_find env_term n on_fail on_succ
+            | recf & TyT (LayoutT (t, TyMap (env_term, MapTypeModule)))
+            | recf & TyV (_, LayoutT (t, TyMap (env_term, MapTypeModule))) ->
+                let env_term =
+                    match t with
+                    | LayoutHeapMutable -> layout_env_term_unseal_mutable d recf env_term
+                    | _ -> layout_env_term_unseal_mutable d recf env_term
+                v_find env_term n on_fail on_succ
+            | _ -> on_miss ()
+
         let rec apply d a b =
-            match destructure d a, destructure d b with
-            // apply_function
-            | recf & M(layout,env_term,fun_type), args -> apply_func false d recf layout env_term fun_type args
-            // apply_string_static
-            | TyLit (LitString str), TyList [TyLitIndex a; TyLitIndex b] -> 
-                let f x = x >= 0 && x < str.Length
-                if f a && f b then TyLit(LitString str.[a..b])
-                else on_type_er (trace d) "The slice into a string literal is out of bounds."
-            | TyLit (LitString str), TyLitIndex x -> 
-                if x >= 0 && x < str.Length then TyLit(LitChar str.[x])
-                else on_type_er (trace d) "The index into a string literal is out of bounds."
-            | a, b ->
-                match get_type a with
-                // apply_array
-                | ArrayT(array_ty,elem_ty) ->
-                    let ar,idx = a, b
-                    match array_ty, idx with
-                    | _, TypeString x -> 
-                        if x = "elem_type" then elem_ty |> tyt
-                        else on_type_er (trace d) <| sprintf "Unknown type string applied to array. Got: %s" x
-                    | (ArtDotNetHeap | ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal), idx when is_int idx -> TyOp(ArrayIndex,[ar;idx],elem_ty) |> make_tyv_and_push_typed_expr d
-                    | (ArtDotNetHeap | ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal), idx -> on_type_er (trace d) <| sprintf "The index into an array is not an int. Got: %s" (show_typedexpr idx)
-                    | ArtDotNetReference, TyList [] -> TyOp(ArrayIndex,[ar;idx],elem_ty) |> make_tyv_and_push_typed_expr d
-                    | ArtDotNetReference, _ -> on_type_er (trace d) <| sprintf "The index into a reference is not a unit. Got: %s" (show_typedexpr idx)
-                // apply_string
-                | PrimT StringT -> 
-                    let str = a
-                    match b with
-                    | TyList [a;b] ->
-                        if is_int a && is_int b then TyOp(StringSlice,[str;a;b],PrimT StringT) |> destructure d
-                        else on_type_er (trace d) "Expected an int as the second argument to string index."
-                    | idx -> 
-                        if is_int idx then TyOp(StringIndex,[str;idx],PrimT CharT) |> destructure d
-                        else on_type_er (trace d) "Expected an int as the second argument to string index."
-                // apply_closure
-                | TermFunctionT (clo_arg_ty,clo_ret_ty) -> 
-                    let closure,args = a,b
-                    let arg_ty = get_type args
-                    if arg_ty <> clo_arg_ty then on_type_er (trace d) <| sprintf "Cannot apply an argument of type %s to closure (%s => %s)." (show_ty arg_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
-                    else TyOp(Apply,[closure;args],clo_ret_ty) |> make_tyv_and_push_typed_expr_even_if_unit d
-                | _ -> on_type_er (trace d) <| sprintf "Invalid use of apply. %s and %s" (show_typedexpr a) (show_typedexpr b)
+            match destructure d b with
+            | TyT (LitT (LitString n)) ->
+                match destructure d a with
+                | TyV (_,ArrayT(_,elem_ty)) 
+                | TyT (ArrayT(_,elem_ty)) ->
+                    // apply_array
+                    if n = "elem_type" then tyt elem_ty
+                    else on_type_er (trace d) <| sprintf "Unknown type string applied to array. Got: %s" n
+                | TyMap (env_term, MapTypeModule) -> v_find env_term n (fun () -> on_type_er (trace d) <| sprintf "Cannot find a member named %s inside the module." n) id
+                | recf & TyT (LayoutT (t, TyMap (env_term, MapTypeModule)))
+                | recf & TyV (_, LayoutT (t, TyMap (env_term, MapTypeModule))) ->
+                    let env_term =
+                        match t with
+                        | LayoutHeapMutable -> layout_env_term_unseal_mutable d recf env_term
+                        | _ -> layout_env_term_unseal_mutable d recf env_term
+                    v_find env_term n (fun () -> on_type_er (trace d) <| sprintf "Cannot find a member named %s inside the module." n) id
+                | a ->
+                    match layout_to_none' d a with
+                    | recf & TyMap(env_term,fun_type) -> apply_func false d recf env_term fun_type b
+                    | a -> on_type_er (trace d) <| sprintf "Invalid type string application. Got: %s and %s" (show_typedexpr a) n
+            | b ->
+                match destructure d a |> layout_to_none' d, b with
+                // apply_function
+                | recf & TyMap(env_term,fun_type), args -> apply_func false d recf env_term fun_type args
+                // apply_string_static
+                | TyLit (LitString str), TyList [TyLitIndex a; TyLitIndex b] -> 
+                    let f x = x >= 0 && x < str.Length
+                    if f a && f b then TyLit(LitString str.[a..b])
+                    else on_type_er (trace d) "The slice into a string literal is out of bounds."
+                | TyLit (LitString str), TyLitIndex x -> 
+                    if x >= 0 && x < str.Length then TyLit(LitChar str.[x])
+                    else on_type_er (trace d) "The index into a string literal is out of bounds."
+                | a, b ->
+                    match get_type a with
+                    // apply_array
+                    | ArrayT(array_ty,elem_ty) ->
+                        let ar,idx = a, b
+                        match array_ty, idx with
+                        | (ArtDotNetHeap | ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal), idx when is_int idx -> TyOp(ArrayIndex,[ar;idx],elem_ty) |> make_tyv_and_push_typed_expr d
+                        | (ArtDotNetHeap | ArtCudaGlobal _ | ArtCudaShared | ArtCudaLocal), idx -> on_type_er (trace d) <| sprintf "The index into an array is not an int. Got: %s" (show_typedexpr idx)
+                        | ArtDotNetReference, TyList [] -> TyOp(ArrayIndex,[ar;idx],elem_ty) |> make_tyv_and_push_typed_expr d
+                        | ArtDotNetReference, _ -> on_type_er (trace d) <| sprintf "The index into a reference is not a unit. Got: %s" (show_typedexpr idx)
+                    // apply_string
+                    | PrimT StringT -> 
+                        let str = a
+                        match b with
+                        | TyList [a;b] ->
+                            if is_int a && is_int b then TyOp(StringSlice,[str;a;b],PrimT StringT) |> destructure d
+                            else on_type_er (trace d) "Expected an int as the second argument to string index."
+                        | idx -> 
+                            if is_int idx then TyOp(StringIndex,[str;idx],PrimT CharT) |> destructure d
+                            else on_type_er (trace d) "Expected an int as the second argument to string index."
+                    // apply_closure
+                    | TermFunctionT (clo_arg_ty,clo_ret_ty) -> 
+                        let closure,args = a,b
+                        let arg_ty = get_type args
+                        if arg_ty <> clo_arg_ty then on_type_er (trace d) <| sprintf "Cannot apply an argument of type %s to closure (%s => %s)." (show_ty arg_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
+                        else TyOp(Apply,[closure;args],clo_ret_ty) |> make_tyv_and_push_typed_expr_even_if_unit d
+                    | _ -> on_type_er (trace d) <| sprintf "Invalid use of apply. %s and %s" (show_typedexpr a) (show_typedexpr b)
 
         let term_fun_type_create d a b =
             let a = tev_seq d a
@@ -1024,19 +1011,14 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             LitBool (get_type a = get_type b) |> TyLit
 
         let module_open d a b vars =
-            match tev d a with
-            | M(layout,C env_term,MapTypeModule) as recf -> 
-                let inline opt open_ env =
-                    let env = 
-                        let map_add s k v = Map.add k (open_ v) s
-                        let run d_env = Map.fold map_add d_env env
-                        run (c d.env) 
-                        |> Map.filter (fun x _ -> Set.contains x vars)
-                        |> Env
-                    tev {d with env = env} b
-                match layout with
-                | None -> opt id env_term
-                | _ -> opt (layout_boxed_unseal d recf) env_term
+            match tev d a |> layout_to_none' d with
+            | TyMap(C env_term,MapTypeModule) as recf -> 
+                let env = 
+                    let map_add s k v = Map.add k v s
+                    Map.fold map_add (c d.env) env_term
+                    |> Map.filter (fun x _ -> Set.contains x vars)
+                    |> Env
+                tev {d with env = env} b
             | x -> on_type_er (trace d) <| sprintf "The open expected a module type as input. Got: %s" (show_typedexpr x)
 
         let type_annot d a b =
@@ -1354,7 +1336,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     if ar_ty = r_ty then ret ar_ty ar idx r
                     else on_type_er (trace d) <| sprintf "The two sides in reference set have different types.\nGot: %s and %s" (show_ty ar_ty) (show_ty r_ty)
                 | _ -> on_type_er (trace d) <| sprintf "The input to reference set should be ().\nGot: %s" (show_typedexpr idx)
-            | LayoutT(LayoutHeapMutable,C env,_) ->
+            | LayoutT(LayoutHeapMutable,TyMap(C env,MapTypeModule)) ->
                 let module_,field,r = a,b,c
                 match field with
                 | TypeString field' ->
@@ -1396,36 +1378,26 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let module_is_cps d a on_fail on_succ =
             match tev d a with
-            | M(_,_,MapTypeModule) -> tev d on_succ
+            | TyMap(_,MapTypeModule) | TyType(LayoutT(_,TyMap(_,MapTypeModule))) -> tev d on_succ
             | _ -> tev d on_fail
 
         let module_values d a =
-            match tev d a with
-            | M(layout,C env,MapTypeModule) as recf ->
-                let inline toList f = Map.foldBack (fun _ x s -> f x :: s) env []
-                match layout with
-                | None -> toList id
-                | _ -> toList (layout_boxed_unseal d recf)
-                |> tyvv
-            | x ->
-                on_type_er (trace d) <| sprintf "Expected a module. Got: %s" (show_typedexpr x)
+            match tev d a |> layout_to_none' d with
+            | TyMap(C env,MapTypeModule) as recf -> Map.foldBack (fun _ x s -> x :: s) env [] |> tyvv
+            | x -> on_type_er (trace d) <| sprintf "Expected a module. Got: %s" (show_typedexpr x)
 
         let inline module_map_template is_filter d op a =
-            match tev2 d op a with
-            | op, M(layout,C env,MapTypeModule) & recf ->
-                let inline op f = 
-                    if is_filter then
-                        let f k x = 
-                            match apply d (apply d op (type_lit_create' (LitString k))) (f x) with
-                            | TyLit (LitBool x) -> x
-                            | x -> on_type_er (trace d) "Expected a bool literal in ModuleFold.\nGot: %s" (show_typedexpr x)
-                        tymap(Map.filter f env |> Env, MapTypeModule)
-                    else
-                        let f k x = apply d (apply d op (type_lit_create' (LitString k))) (f x)
-                        tymap(Map.map f env |> Env, MapTypeModule)
-                match layout with
-                | None -> op id
-                | Some l -> op (layout_boxed_unseal d recf) |> layoutify l d
+            match tev d op, tev d a |> layout_to_none' d with
+            | op, TyMap(C env,MapTypeModule) & recf ->
+                if is_filter then
+                    let f k x = 
+                        match apply d (apply d op (type_lit_create' (LitString k))) x with
+                        | TyLit (LitBool x) -> x
+                        | x -> on_type_er (trace d) "Expected a bool literal in ModuleFold.\nGot: %s" (show_typedexpr x)
+                    tymap(Map.filter f env |> Env, MapTypeModule)
+                else
+                    let f k x = apply d (apply d op (type_lit_create' (LitString k))) x
+                    tymap(Map.map f env |> Env, MapTypeModule)
             | _, x ->
                 on_type_er (trace d) <| sprintf "Expected a module in module map. Got: %s" (show_typedexpr x)
 
@@ -1433,42 +1405,35 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let module_filter x = module_map_template true x
 
         let inline module_fold_template map_fold d fold_op s m =
-            match tev3 d fold_op s m with
-            | fold_op, s, M(layout,C env,MapTypeModule) & recf ->
-                let inline fold f = map_fold f fold_op s env
-                match layout with
-                | None -> fold id
-                | Some l -> fold (layout_boxed_unseal d recf)
-            | _,_,x ->
-                on_type_er (trace d) <| sprintf "Expected a module on module fold. Got: %s" (show_typedexpr x)
+            match tev d fold_op, tev d s, tev d m with
+            | fold_op, s, TyMap(C env,MapTypeModule) & recf -> map_fold fold_op s env
+            | _,_,x -> on_type_er (trace d) <| sprintf "Expected a module on module fold. Got: %s" (show_typedexpr x)
 
         let module_foldl d = 
             let inline ap a b = apply d a b
-            module_fold_template (fun f fold_op -> Map.fold (fun s k v -> ap (ap (ap fold_op (type_lit_create' (LitString k))) s) (f v))) d
+            module_fold_template (fun fold_op -> Map.fold (fun s k v -> ap (ap (ap fold_op (type_lit_create' (LitString k))) s) v)) d
 
         let module_foldr d = 
             let inline ap a b = apply d a b
-            module_fold_template (fun f fold_op s env -> Map.foldBack (fun k v s -> ap (ap (ap fold_op (type_lit_create' (LitString k))) (f v)) s) env s) d
+            module_fold_template (fun fold_op s env -> Map.foldBack (fun k v s -> ap (ap (ap fold_op (type_lit_create' (LitString k))) v) s) env s) d
 
         let module_has_member d a b =
-            match tev2 d a b with
-            | M(_,C env,MapTypeModule), b -> 
+            match tev d a, tev d b with
+            | (TyV(_,LayoutT(_,TyMap(C env,MapTypeModule))) | (TyT(LayoutT(_,TyMap(C env,MapTypeModule)))) | TyMap(C env,MapTypeModule)), b -> 
                 match b with
-                | TypeString b -> TyLit (LitBool <| Map.containsKey b env)
+                | TyT (LitT (LitString b)) -> TyLit (LitBool <| Map.containsKey b env)
                 | x -> on_type_er (trace d) <| sprintf "Expecting a type literal as the second argument to ModuleHasMember.\nGot: %s" (show_typedexpr x)
             | x,_ -> on_type_er (trace d) <| sprintf "Expecting a module as the first argument to ModuleHasMember.\nGot: %s" (show_typedexpr x)
 
         let module_member_cps d a b on_fail on_succ =
-            match tev2 d a b with
-            | M(layout,env_term,MapTypeModule) & recf, b -> 
-                match b with
-                | TyLit (LitString n) -> 
-                    let inline unpack k = v_find env_term n (fun () -> tev d on_fail) k
-                    match layout with
-                    | None -> unpack (apply d (tev d on_succ))
-                    | _ -> unpack (apply d (tev d on_succ) << layout_boxed_unseal d recf)
-                | x -> on_type_er (trace d) <| sprintf "Expecting a string as the second argument to ModuleMemberCPS.\nGot: %s" (show_typedexpr x)
-            | x,_ -> tev d on_fail
+            match tev d b with
+            | TyT (LitT (LitString n)) ->
+                apply_module 
+                    (fun _ -> tev d on_fail)
+                    (fun _ -> tev d on_fail) 
+                    (apply d (tev d on_succ))
+                    d (tev d a) n
+            | x -> on_type_er (trace d) <| sprintf "Expecting a string as the second argument to ModuleMemberCPS.\nGot: %s" (show_typedexpr x)
 
         let module_create d l =
             List.fold (fun env -> function
@@ -1485,29 +1450,19 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | x -> failwith "Compiler error: Malformed ModuleWith."
 
             let rec module_with_loop (C cur_env) names = 
-                let inline layout_unseal name =
+                let inline layout_map name on_succ  =
                     match Map.tryFind name cur_env with
-                    | Some (M(layout,env,MapTypeModule) as recf) -> 
-                        match layout with
-                        | None -> layout, env
-                        | _ -> layout, layout_env_term_unseal d recf env
-                    | Some _ -> on_type_er (trace d) <| sprintf "Variable %s is not a module." name
+                    | Some recf ->
+                        match layout_to_none' d recf with
+                        | TyMap(env,MapTypeModule) -> on_succ env
+                        | _ -> on_type_er (trace d) <| sprintf "Variable %s is not a module." name
                     | _ -> on_type_er (trace d) <| sprintf "Module %s is not bound in the environment." name
-
-                let inline layout_reseal layout env =
-                    match layout with
-                    | None -> env
-                    | Some layout -> layoutify layout d env
-
-                let inline layout_map f name =
-                    let layout,env = layout_unseal name
-                    layout_reseal layout (f env)
 
                 let inline next names env = module_with_loop env names
 
                 match names with
-                | V(N name) :: names -> layout_map (next names) name
-                | Lit(N(LitString name)) :: names -> tymap (Map.add name (layout_map (next names) name) cur_env |> Env, MapTypeModule)
+                | V(N name) :: names -> layout_map name (next names)
+                | Lit(N(LitString name)) :: names -> tymap (Map.add name (layout_map name (next names)) cur_env |> Env, MapTypeModule)
                 | [] ->
                     List.fold (fun env -> function
                         | VV(N [Lit(N(LitString name)); e]) ->
@@ -2422,10 +2377,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let tys = Map.fold (fun s _ t -> define_mem s t) ([],0) tys |> fst |> List.rev
             print_type_definition None name tys
 
-    let inline define_layoutt ty print_tag_env print_type_definition layout (C env) =
-        if Map.forall (fun _ -> get_type >> is_unit) env = false then
+    let inline define_layoutt ty print_tag_env print_type_definition layout expr =
+        if (get_type expr |> is_unit) = false then
             let name = print_tag_env (Some layout) ty
-            let {call_args=fv},_ = renamer_apply_env (Env env)
+            let {call_args=fv},_ = renamer_apply_typedexpr expr
             let tys = List.foldBack (fun (_,x) s -> define_mem s x) fv ([],0) |> fst |> List.rev
             print_type_definition (Some layout) name tys
 
@@ -2477,12 +2432,12 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let rec print_type = function
             | Unit -> "void"
             | MapT _ as x -> print_tag_env None x
-            | LayoutT ((LayoutStack | LayoutPackedStack) as layout, _, _) as x -> print_tag_env (Some layout) x
+            | LayoutT ((LayoutStack | LayoutPackedStack) as layout, _) as x -> print_tag_env (Some layout) x
             | ListT _ as x -> print_tag_tuple x
             | UnionT _ as x -> print_tag_union x
             | ArrayT((ArtCudaLocal | ArtCudaShared | ArtCudaGlobal _),t) -> sprintf "%s *" (print_type t)
             | ArrayT _ -> failwith "Not implemented."
-            | LayoutT (_, _, _) | RecT _ | DotNetTypeT _ as x -> failwithf "%s is not supported on the Cuda side." (show_ty x)
+            | LayoutT (_, _) | RecT _ | DotNetTypeT _ as x -> failwithf "%s is not supported on the Cuda side." (show_ty x)
             | TermFunctionT _ as t -> print_tag_closure t
             | PrimT x ->
                 match x with
@@ -2834,8 +2789,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     match ty with
                     | ListT tys -> x :: (List.collect f tys)
                     | MapT(tys, _) -> x :: (Map.toList tys |> List.collect (f << snd))
-                    | LayoutT (_, env, _) ->
-                        let {call_args=x'},_ = renamer_apply_env env
+                    | LayoutT (_, expr) ->
+                        let {call_args=x'},_ = renamer_apply_typedexpr expr
                         x :: (List.collect (f << snd) x')
                     | UnionT tys -> x :: (Set.toList tys |> List.collect f)
                     | TermFunctionT(a,b) -> x :: f a  @ f b
@@ -2870,8 +2825,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 match ty with
                 | ListT tys -> define_listt ty print_tag_tuple print_type_definition tys
                 | MapT(tys, _) -> define_mapt ty print_tag_env print_type_definition tys
-                | LayoutT ((LayoutStack | LayoutPackedStack) as layout, env, _) ->
-                    define_layoutt ty print_tag_env print_type_definition layout env
+                | LayoutT ((LayoutStack | LayoutPackedStack) as layout, expr) ->
+                    define_layoutt ty print_tag_env print_type_definition layout expr
                 | UnionT tys as x -> print_union_definition (print_tag_union x) (Set.toArray tys)
                 | TermFunctionT(a,r) as x -> print_closure_type_definition (print_tag_closure x) (a,r)
                 | _ -> failwith "impossible"
@@ -2947,7 +2902,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let rec print_type = function
             | Unit -> "unit"
             | MapT _ as x -> print_tag_env None x
-            | LayoutT (layout, _, _) as x -> print_tag_env (Some layout) x
+            | LayoutT (layout, _) as x -> print_tag_env (Some layout) x
             | ListT _ as x -> print_tag_tuple x
             | UnionT _ as x -> print_tag_union x
             | RecT _ as x -> print_tag_rec x
@@ -3111,7 +3066,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         match get_type ar with
                         | ArrayT(ArtDotNetReference,_) -> reference_set ar b
                         | ArrayT(ArtDotNetHeap,_) -> array_set ar idx b
-                        | LayoutT(LayoutHeapMutable,_,_) -> 
+                        | LayoutT(LayoutHeapMutable,_) -> 
                             match idx with
                             | TypeString field -> layout_heap_mutable_set ar field b
                             | _ -> failwith "impossible"
@@ -3308,7 +3263,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 match ty with
                 | ListT tys -> define_listt ty print_tag_tuple print_type_definition tys
                 | MapT(tys, _) -> define_mapt ty print_tag_env print_type_definition tys
-                | LayoutT(layout, env, _) -> define_layoutt ty print_tag_env print_type_definition layout env
+                | LayoutT(layout, expr) -> define_layoutt ty print_tag_env print_type_definition layout expr
                 | RecT key as x ->
                     let tys = 
                         match join_point_dict_type.[key] with
