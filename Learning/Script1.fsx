@@ -7,7 +7,7 @@ text.Length
 
 let symbols = text.ToCharArray() |> Array.groupBy id |> Array.map (fun (a,b) -> a,b.Length)
 
-symbols 
+symbols
 |> Array.map (fst >> int)
 |> Array.max
 
@@ -19,4 +19,3 @@ let f i j =
 
 let g i = f 0 i + f 1 i + f 2 i
 g 0
-
