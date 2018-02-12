@@ -583,10 +583,8 @@ let rec show_ty = function
 
         sprintf "{%s}" body
     | MapT (_, (MapTypeFunction _ | MapTypeRecFunction _)) -> "<function>"
-    | LayoutT (layout_type,body,MapTypeModule) ->
+    | LayoutT (layout_type,body) ->
         sprintf "%s (%s)" (show_layout_type layout_type) (show_typedexpr body)
-    | LayoutT (layout_type,_,(MapTypeFunction _ | MapTypeRecFunction _)) ->
-        sprintf "%s <function>" (show_layout_type layout_type)
     | TermFunctionT (a,b) ->
         sprintf "(%s => %s)" (show_ty a) (show_ty b)
     | UnionT l ->

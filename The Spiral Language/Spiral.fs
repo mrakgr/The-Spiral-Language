@@ -540,10 +540,12 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | CudaTypeCreate -> tyt (CudaTypeT x)
             | _ -> failwith "invalid op"
 
+        let inline layout_boxed_unseal_var recf v = TyOp(MapGetField,[recf;v],get_type v)
+
         let rec layout_boxed_unseal_mutable d recf x =
             let inline f x = layout_boxed_unseal_mutable d recf x
             match x with
-            | TyV _ as v -> TyOp(MapGetField,[recf;v],get_type v) |> make_tyv_and_push_typed_expr d
+            | TyV _ as v -> layout_boxed_unseal_var recf v |> make_tyv_and_push_typed_expr d
             | TyList l -> tyvv (List.map f l)
             | TyBox(a,b) -> tybox (f a, b)
             | TyMap(env, b) -> tymap (layout_env_term_unseal_mutable d recf env, b)
@@ -553,7 +555,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let rec layout_boxed_unseal d recf x =
             let inline f x = layout_boxed_unseal d recf x
             match x with
-            | TyV _ as v -> TyOp(MapGetField,[recf;v],get_type v) |> destructure d
+            | TyV _ as v -> layout_boxed_unseal_var recf v |> destructure d
             | TyList l -> tyvv (List.map f l)
             | TyBox(a,b) -> tybox (f a, b)
             | TyMap(env, b) -> tymap (layout_env_term_unseal d recf env, b)
@@ -872,11 +874,13 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyMap (env_term, MapTypeModule) -> v_find env_term n on_fail on_succ
             | recf & TyT (LayoutT (t, TyMap (env_term, MapTypeModule)))
             | recf & TyV (_, LayoutT (t, TyMap (env_term, MapTypeModule))) ->
-                let env_term =
-                    match t with
-                    | LayoutHeapMutable -> layout_env_term_unseal_mutable d recf env_term
-                    | _ -> layout_env_term_unseal_mutable d recf env_term
-                v_find env_term n on_fail on_succ
+                let inline f k = 
+                    match Map.tryFind n (c env_term) with
+                    | Some v -> k d recf v |> on_succ
+                    | None -> on_fail()
+                match t with
+                | LayoutHeapMutable -> f layout_boxed_unseal_mutable
+                | _ -> f layout_boxed_unseal
             | _ -> on_miss ()
 
         let rec apply d a b =
@@ -888,18 +892,13 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     // apply_array
                     if n = "elem_type" then tyt elem_ty
                     else on_type_er (trace d) <| sprintf "Unknown type string applied to array. Got: %s" n
-                | TyMap (env_term, MapTypeModule) -> v_find env_term n (fun () -> on_type_er (trace d) <| sprintf "Cannot find a member named %s inside the module." n) id
-                | recf & TyT (LayoutT (t, TyMap (env_term, MapTypeModule)))
-                | recf & TyV (_, LayoutT (t, TyMap (env_term, MapTypeModule))) ->
-                    let env_term =
-                        match t with
-                        | LayoutHeapMutable -> layout_env_term_unseal_mutable d recf env_term
-                        | _ -> layout_env_term_unseal_mutable d recf env_term
-                    v_find env_term n (fun () -> on_type_er (trace d) <| sprintf "Cannot find a member named %s inside the module." n) id
                 | a ->
-                    match layout_to_none' d a with
-                    | recf & TyMap(env_term,fun_type) -> apply_func false d recf env_term fun_type b
-                    | a -> on_type_er (trace d) <| sprintf "Invalid type string application. Got: %s and %s" (show_typedexpr a) n
+                    let on_miss _ =
+                        match layout_to_none' d a with
+                        | recf & TyMap(env_term,fun_type) -> apply_func false d recf env_term fun_type b
+                        | a -> on_type_er (trace d) <| sprintf "Invalid type string application. Got: %s and %s" (show_typedexpr a) n
+                    let on_fail _ = on_type_er (trace d) <| sprintf "Cannot find a member named %s inside the module." n
+                    apply_module on_miss on_fail id d a n
             | b ->
                 match destructure d a |> layout_to_none' d, b with
                 // apply_function
@@ -1405,7 +1404,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let module_filter x = module_map_template true x
 
         let inline module_fold_template map_fold d fold_op s m =
-            match tev d fold_op, tev d s, tev d m with
+            match tev d fold_op, tev d s, tev d m |> layout_to_none' d with
             | fold_op, s, TyMap(C env,MapTypeModule) & recf -> map_fold fold_op s env
             | _,_,x -> on_type_er (trace d) <| sprintf "Expected a module on module fold. Got: %s" (show_typedexpr x)
 
@@ -1427,12 +1426,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let module_member_cps d a b on_fail on_succ =
             match tev d b with
-            | TyT (LitT (LitString n)) ->
-                apply_module 
-                    (fun _ -> tev d on_fail)
-                    (fun _ -> tev d on_fail) 
-                    (apply d (tev d on_succ))
-                    d (tev d a) n
+            | TyLit(LitString n) ->
+                let member_miss _ = tev d on_fail
+                apply_module member_miss member_miss (apply d (tev d on_succ)) d (tev d a) n
             | x -> on_type_er (trace d) <| sprintf "Expecting a string as the second argument to ModuleMemberCPS.\nGot: %s" (show_typedexpr x)
 
         let module_create d l =

@@ -44,13 +44,13 @@ and method_2((var_0: System.Text.StringBuilder), (var_1: (EnvPackedStack0 [])), 
     if var_5 then
         let (var_6: System.Text.StringBuilder) = var_0.Append(var_3)
         let (var_7: EnvPackedStack0) = var_1.[int32 var_4]
-        let (var_8: float) = var_7.mem_1
-        let (var_9: string) = System.String.Format("{0}",var_8)
-        let (var_10: string) = System.String.Format("{0} = {1}","y",var_9)
-        let (var_11: float) = var_7.mem_0
-        let (var_12: string) = System.String.Format("{0}",var_11)
+        let (var_8: float) = var_7.mem_0
+        let (var_9: float) = var_7.mem_1
+        let (var_10: string) = System.String.Format("{0}",var_9)
+        let (var_11: string) = System.String.Format("{0} = {1}","y",var_10)
+        let (var_12: string) = System.String.Format("{0}",var_8)
         let (var_13: string) = System.String.Format("{0} = {1}","x",var_12)
-        let (var_14: string) = String.concat "; " [|var_13; var_10|]
+        let (var_14: string) = String.concat "; " [|var_13; var_11|]
         let (var_15: string) = System.String.Format("{0}{1}{2}","{",var_14,"}")
         let (var_16: System.Text.StringBuilder) = var_0.Append(var_15)
         let (var_17: string) = "; "
