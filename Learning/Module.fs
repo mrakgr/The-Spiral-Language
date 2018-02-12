@@ -3,106 +3,6 @@
 open Spiral.Types
 open Spiral.Lib
 
-let allocator = 
-    (
-    "Allocator",[loops;option;extern_;console],"The region based GPU memory allocator module.",
-    """
-inl {Cuda} size ->
-    open Cuda
-    open Extern
-    inl smartptr_create (ptr: uint64) =
-        inl cell = ref ptr
-        function
-        | .Dispose -> cell := 0u64
-        | .Try -> cell()
-        | () -> join 
-            inl x = cell ()
-            assert (x <> 0u64) "A Cuda memory cell that has been disposed has been tried to be accessed."
-            x
-        |> stack
-
-    inl mult = 256u64
-    inl round_up_to_multiple size = size - size % mult + mult
-
-    inl allocate_global =
-        to uint64 >> round_up_to_multiple
-        >> inl size -> { size ptr = FS.Method context .AllocateMemory (SizeT size) CUdeviceptr_type |> to_uint |> smartptr_create }
-
-    inl resize_type = fs [text: "ResizeArray"; types: pool]
-    inl filter_resize_array f ar = macro.fs int [text: "RemoveAll"; args: closure_of f (pool => int32)] |> ignore
-    inl free_cells pool used_vars = 
-        filter_resize_array (inl {ptr} -> ptr.Try = 0u64)
-        inl free_cels = FS.Constructor resize_type ()
-        if FS.Method used_vars .get_Count() = 0 then then FS.Method free_cells .Add pool
-        else
-            inl state = macro.fs [arg: free_cells; iter: ".[","","]",[arg: 0i32]]
-
-    inl pool = allocate_global size
-    inl used_vars = FS.Constructor resize_type ()
-    inl free_cells = 
-
-
-    //    join
-    //        inl pool_type = type pool
-    //        inl stack_type = fs [text: "System.Collections.Generic.Stack"; types: pool_type]
-    //        inl stack = FS.Constructor stack_type ()
-
-    //        inl allocate =
-    //            inl smartptr_ty = type pool.ptr
-    //            inl f {ptr size} = ptr(), size
-    //            inl pool_ptr, pool_size = f pool
-    //            met rec remove_disposed_and_return_the_first_live ret =
-    //                if FS.Method stack .get_Count() int32 > 0i32 then 
-    //                    inl {ptr size} = FS.Method stack .Peek() pool_type
-    //                    match ptr.Try with
-    //                    | 0u64 -> FS.Method stack .Pop() pool_type |> ignore; remove_disposed_and_return_the_first_live ret 
-    //                    | ptr -> join (ret (ptr, size))
-                
-    //                else join (ret (pool_ptr, 0u64))
-    //                : smartptr_ty
-            
-    //            inl s = to uint64 >> round_up_to_multiple >> dyn
-    //            inl (!s size) ->
-    //                inb top_ptr, top_size = remove_disposed_and_return_the_first_live
-    //                inl top_used = top_ptr + top_size
-    //                inl pool_used = pool_ptr + pool_size
-    //                assert (size <= pool_used - top_used) "Cache size has been exceeded in the allocator."
-    //                inl ptr = top_used |> smartptr_create
-    //                FS.Method stack .Push {size ptr} unit
-    //                ptr
-
-    //        met rec clear () =
-    //            if FS.Method stack .get_Count() int32 > 0i32 then 
-    //                FS.Method stack .Pop() pool_type .Dispose
-    //                clear()
-    //            : ()
-
-    //        met dispose () = 
-    //            clear()
-    //            inl ptr = pool.ptr
-    //            FS.Method context .FreeMemory (ptr() |> CUdeviceptr) unit
-    //            ptr.Dispose
-
-    //        inl region = function
-    //            | .Dispose -> dispose ()
-    //            | .Clear -> clear ()
-    //            | x -> allocate x
-
-    //        region
-
-    //inl create destructor size ret =
-    //    inl region = create_region size
-    //    inl r = ret region
-    //    region destructor
-    //    r
-
-    //inl sub region size = create .Clear {region size}
-    //inl create = create .Dispose
-
-
-    //{create sub}
-    """) |> module_
-
 //let cuda_stream = 
 //    "CudaStream",[extern_],"The Cuda stream module.",
 //    """
@@ -241,3 +141,97 @@ inl {Cuda} size ->
 //    {create from_host_tensor from_host_tensors to_host_tensor to_dev_tensor clear zero zero_like print get set}
 //    """) |> module_
 
+let allocator = 
+    (
+    "Allocator",[loops;option;extern_;console],"The section based GPU memory allocator module.",
+    """
+inl {Cuda} size ->
+    open Cuda
+    open Extern
+    inl smartptr_create (ptr: uint64) =
+        inl cell = ref ptr
+        function
+        | .Dispose -> cell := 0u64
+        | .Try -> cell()
+        | () -> join 
+            inl x = cell ()
+            assert (x <> 0u64) "A Cuda memory cell that has been disposed has been tried to be accessed."
+            x
+        |> stack
+
+    inl mult = 256u64
+    inl round_up_to_multiple size = size - size % mult + mult
+
+    inl allocate_global =
+        to uint64 >> round_up_to_multiple >> dyn
+        >> inl size -> { size ptr = FS.Method context .AllocateMemory (SizeT size) CUdeviceptr_type |> to_uint |> smartptr_create }
+
+    inl resize_type = fs [text: "ResizeArray"; types: pool]
+    inl resize_array_filter f ar = FS.Method ar .RemoveAll (closure_of f (pool => int32)) int32 |> ignore
+    inl resize_array_sort f ar =
+        inl comparison_type = fs [text: System.Comparison]
+        inl f = closure_of f (pool => pool => int32)
+        inl c = FS.Contructor comparison_type f
+        FS.Method ar .Sort c unit
+
+    inl compare a b = if a < b then -1i32 elif a = b then 0i32 else 1i32
+    inl index free_cells i = macro.fs pool [arg: free_cells; iter: ".[","","]",[arg: to int32 i]]
+    inl set free_cells i v = macro.fs () [arg: free_cells; iter: ".[","","] <- ",[arg: to int32 i]; arg: v]
+
+    inl filter_empty = resize_array_filter (inl {ptr} -> ptr.Try = 0u64)
+    inl sort_ptrs = resize_array_sort (inl {ptr=a} {ptr=b} -> compare (a()) (b()))
+
+    met free_cells_refresh {section with pool free_cells used_cells} = 
+        filter_empty used_cells; sort_ptrs used_cells
+        FS.Method free_cells .Clear() ()
+        inl near_to = FS.Method used_cells .get_Count() int32
+        inl add {ptr size} = FS.Method free_cells .Add {ptr = smartptr_create (ptr()); size} ()
+        inl index = index free_cells
+
+        inl distance state state' = 
+            inl p1 = state.ptr() + state.size
+            inl p2 = state.ptr()
+            p2 - p1
+            
+        Loops.for {from=0i32; near_to by=1i32; state={pool with size = 0u64}; body=inl {state i} ->
+            inl state' = index i
+            inl size = distance state state'
+            if size > 0u64 then add { ptr size }
+            state'
+            }
+        |> inl state = // This is for the final free cell at the end.
+            inl size = distance pool state
+            add {state with size}
+
+    met allocate {section with free_cells} (!dyn size') =
+        inl index = index free_cells
+        inl set = set free_cells
+        inl near_to = FS.Method free_cells .get_Count() int32
+        inl loop next = 
+            inl i = 0i32
+            inl {ptr size} = index i
+            if size' <= size then 
+                set i {ptr=smartptr_create (ptr.Try+size'); size=size-size'}
+                {ptr size=size'}
+            else next()
+
+        loop <| inl _ ->
+            sort_ptrs free_cells
+            loop <| inl _ -> 
+                free_cells_refresh section
+                sort_ptrs free_cells
+                loop <| inl _ ->
+                    failwith () "Out of memory in the designated section."
+
+    inl create_section size =
+        inl free_cells = FS.Constructor resize_type ()
+        inl used_cells = FS.Constructor resize_type ()
+        inl pool = allocate_global size
+        inl section = {pool free_cells used_cells}
+        free_cells_refresh section
+        function
+        | .refresh -> free_cells_refresh section
+        | x -> allocate section x
+
+    create_section size
+    """) |> module_
