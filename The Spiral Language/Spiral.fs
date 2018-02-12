@@ -563,7 +563,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         and layout_env_term_unseal d recf (C env) = Map.map (fun _ -> layout_boxed_unseal d recf) env |> Env
 
         let layout_to_none' d = function
-            | TyType(LayoutT(t,l)) as recf -> 
+            | TyT(LayoutT(t,l))
+            | TyV(_,LayoutT(t,l)) as recf -> 
                 match t with
                 | LayoutHeapMutable -> layout_boxed_unseal_mutable d recf l
                 | _ -> layout_boxed_unseal d recf l
@@ -571,7 +572,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let layout_to_none d a = layout_to_none' d (tev d a)
 
         let rec layoutify (layout: LayoutType) (d: LangEnv) = function
-            | TyType(LayoutT(layout',_)) as a ->
+            | TyT(LayoutT(layout',_))
+            | TyV(_,LayoutT(layout',_)) as a ->
                 if layout <> layout' then layout_to_none' d a |> layoutify layout d else a
             | TyV _ as a -> a
             | a -> 
