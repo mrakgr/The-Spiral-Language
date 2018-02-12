@@ -5,7 +5,7 @@ open Spiral.Lib
 
 let allocator = 
     (
-    "Allocator",[option;extern_;console],"The region based GPU memory allocator module.",
+    "Allocator",[loops;option;extern_;console],"The region based GPU memory allocator module.",
     """
 inl {Cuda} size ->
     open Cuda
@@ -27,6 +27,20 @@ inl {Cuda} size ->
     inl allocate_global =
         to uint64 >> round_up_to_multiple
         >> inl size -> { size ptr = FS.Method context .AllocateMemory (SizeT size) CUdeviceptr_type |> to_uint |> smartptr_create }
+
+    inl resize_type = fs [text: "ResizeArray"; types: pool]
+    inl filter_resize_array f ar = macro.fs int [text: "RemoveAll"; args: closure_of f (pool => int32)] |> ignore
+    inl free_cells pool used_vars = 
+        filter_resize_array (inl {ptr} -> ptr.Try = 0u64)
+        inl free_cels = FS.Constructor resize_type ()
+        if FS.Method used_vars .get_Count() = 0 then then FS.Method free_cells .Add pool
+        else
+            inl state = macro.fs [arg: free_cells; iter: ".[","","]",[arg: 0i32]]
+
+    inl pool = allocate_global size
+    inl used_vars = FS.Constructor resize_type ()
+    inl free_cells = 
+
 
     //    join
     //        inl pool_type = type pool
