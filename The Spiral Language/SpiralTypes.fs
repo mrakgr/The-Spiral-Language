@@ -265,8 +265,8 @@ and Pattern =
     | PatTuple of Pattern list
     | PatCons of Pattern list
     | PatTypeEq of Pattern * Expr
-    | PatActive of string * Pattern
-    | PatPartActive of string * Pattern
+    | PatActive of Expr * Pattern
+    | PatPartActive of Expr * Pattern
     | PatOr of Pattern list
     | PatAnd of Pattern list
     | PatXor of Pattern list

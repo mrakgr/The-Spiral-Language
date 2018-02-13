@@ -96,11 +96,10 @@ inl {Cuda} ->
             inl size = distance pool state
             add {state with size}
 
-    inl s = to uint64 >> dyn
-    met allocate {section with free_cells} (!s size') =
-        inl loop next = 
+    met allocate {section with free_cells} (!(to uint64 >> dyn) size') =
+        inl loop next =
             inl {ptr size} = free_cells 0i32
-            if size' <= size then 
+            if size' <= size then
                 free_cells.set 0i32 {ptr=smartptr_create (ptr.Try+size'); size=size-size'}
                 {ptr size=size'}
             else next()
@@ -115,23 +114,29 @@ inl {Cuda} ->
                         failwith free_cells.elem_type "Out of memory in the designated section."
         ptr
 
-    inl size ->
+    inl size ret ->
         inl pool = allocate_global size
         inl elem_type = type pool
         inl free_cells, used_cells = ResizeArray.create {elem_type}, ResizeArray.create {elem_type}
         inl section = {pool free_cells used_cells}
         free_cells_refresh section
-        function
-        | .elem_type -> type elem_type.ptr
-        | .refresh -> free_cells_refresh section
-        | x -> allocate section x
+        inl r = ret function
+            | .elem_type -> type elem_type.ptr
+            | .refresh -> free_cells_refresh section
+            | x -> allocate section x
+
+        inl ptr = pool.ptr
+        FS.Method context .FreeMemory (ptr() |> CUdeviceptr) unit
+        ptr.Dispose
+        r
     """) |> module_
 
 let region =
     (
     "Region",[resize_array],"The region based resource tracker.",
     """
-inl create ->
+
+inl create' create =
     inl counter_ref_create ptr =
         inl count = ref 0
         function
@@ -161,4 +166,12 @@ inl create ->
     | .elem_type -> elem_type
     | .clear -> clear()
     | i -> allocate i
+
+inl create x ret = 
+    inl region = create' x
+    inl r = ret region
+    region.clear
+    r
+
+{create create'}
     """) |> module_

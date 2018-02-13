@@ -50,17 +50,25 @@ and method_1((var_0: ResizeArray<Env1>), (var_1: EnvStack0), (var_2: uint64), (v
     let (var_22: (uint64 ref)) = (ref var_21)
     let (var_23: EnvStack0) = EnvStack0((var_22: (uint64 ref)))
     var_0.Add((Env1(var_23, var_19)))
-and method_8((var_0: ResizeArray<EnvStack2>), (var_1: ResizeArray<Env1>), (var_2: EnvStack0), (var_3: uint64), (var_4: ResizeArray<Env1>), (var_5: int64)): EnvStack2 =
-    let (var_6: uint64) = (uint64 var_5)
-    let (var_7: EnvStack0) = method_9((var_1: ResizeArray<Env1>), (var_2: EnvStack0), (var_3: uint64), (var_4: ResizeArray<Env1>), (var_6: uint64))
-    let (var_8: (int64 ref)) = (ref 0L)
-    let (var_9: EnvStack2) = EnvStack2((var_8: (int64 ref)), (var_7: EnvStack0))
-    method_10((var_9: EnvStack2), (var_0: ResizeArray<EnvStack2>))
-    var_9
+and method_8((var_0: ResizeArray<EnvStack2>), (var_1: ResizeArray<Env1>), (var_2: EnvStack0), (var_3: uint64), (var_4: ResizeArray<Env1>), (var_5: uint64)): EnvStack2 =
+    let (var_6: EnvStack0) = method_9((var_1: ResizeArray<Env1>), (var_2: EnvStack0), (var_3: uint64), (var_4: ResizeArray<Env1>), (var_5: uint64))
+    let (var_7: (int64 ref)) = (ref 0L)
+    let (var_8: EnvStack2) = EnvStack2((var_7: (int64 ref)), (var_6: EnvStack0))
+    method_10((var_8: EnvStack2), (var_0: ResizeArray<EnvStack2>))
+    var_8
 and method_11((var_0: ResizeArray<EnvStack2>)): unit =
     let (var_2: (EnvStack2 -> unit)) = method_12
     var_0.ForEach <| System.Action<_>(var_2)
     var_0.Clear()
+and method_5((var_0: (uint64 ref))): uint64 =
+    let (var_1: uint64) = (!var_0)
+    let (var_2: bool) = (var_1 <> 0UL)
+    let (var_3: bool) = (var_2 = false)
+    if var_3 then
+        (failwith "A Cuda memory cell that has been disposed has been tried to be accessed.")
+    else
+        ()
+    var_1
 and method_2 ((var_0: Env1)): bool =
     let (var_1: EnvStack0) = var_0.mem_0
     let (var_2: uint64) = var_0.mem_1
@@ -93,15 +101,6 @@ and method_6((var_0: ResizeArray<Env1>), (var_1: int32), (var_2: EnvStack0), (va
         method_7((var_0: ResizeArray<Env1>), (var_1: int32), (var_6: EnvStack0), (var_7: uint64), (var_16: int32))
     else
         (Env1(var_2, 0UL))
-and method_5((var_0: (uint64 ref))): uint64 =
-    let (var_1: uint64) = (!var_0)
-    let (var_2: bool) = (var_1 <> 0UL)
-    let (var_3: bool) = (var_2 = false)
-    if var_3 then
-        (failwith "A Cuda memory cell that has been disposed has been tried to be accessed.")
-    else
-        ()
-    var_1
 and method_9((var_0: ResizeArray<Env1>), (var_1: EnvStack0), (var_2: uint64), (var_3: ResizeArray<Env1>), (var_4: uint64)): EnvStack0 =
     let (var_5: Env1) = var_0.[0]
     let (var_6: EnvStack0) = var_5.mem_0
@@ -298,12 +297,18 @@ let (var_42: ResizeArray<Env1>) = ResizeArray<Env1>()
 method_1((var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>))
 // is region
 let (var_46: ResizeArray<EnvStack2>) = ResizeArray<EnvStack2>()
-let (var_47: int64) = 128L
-let (var_48: EnvStack2) = method_8((var_46: ResizeArray<EnvStack2>), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_47: int64))
-let (var_49: int64) = 64L
-let (var_50: EnvStack2) = method_8((var_46: ResizeArray<EnvStack2>), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_49: int64))
-let (var_51: int64) = 32L
-let (var_52: EnvStack2) = method_8((var_46: ResizeArray<EnvStack2>), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_51: int64))
+let (var_47: uint64) = 128UL
+let (var_48: EnvStack2) = method_8((var_46: ResizeArray<EnvStack2>), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_47: uint64))
+let (var_49: uint64) = 64UL
+let (var_50: EnvStack2) = method_8((var_46: ResizeArray<EnvStack2>), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_49: uint64))
+let (var_51: uint64) = 32UL
+let (var_52: EnvStack2) = method_8((var_46: ResizeArray<EnvStack2>), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_51: uint64))
 method_11((var_46: ResizeArray<EnvStack2>))
+let (var_53: (uint64 ref)) = var_40.mem_0
+let (var_54: uint64) = method_5((var_53: (uint64 ref)))
+let (var_55: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_54)
+let (var_56: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_55)
+var_1.FreeMemory(var_56)
+var_53 := 0UL
 var_1.Dispose()
 

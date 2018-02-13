@@ -10,7 +10,7 @@ let allocator1 =
     "allocator1",[allocator;cuda],"Does the allocator work?",
     """
 inb Cuda = Cuda
-inl allocate = Allocator {Cuda} 1024
+inb allocate = Allocator {Cuda} 1024
 inl a = allocate 128
 inl b = allocate 64
 inl c = allocate 32
@@ -23,12 +23,12 @@ let allocator2 =
     "allocator2",[allocator;region;cuda],"Does the allocator + regions work?",
     """
 inb Cuda = Cuda
-inl allocate = Allocator {Cuda} 1024
-inl region = Region allocate
+inb allocate = Allocator {Cuda} 1024
+inb region = Region.create allocate
 inl a = region 128
 inl b = region 64
 inl c = region 32
-region.clear
+()
     """
 
 let cfg: Spiral.Types.CompilerSettings = {

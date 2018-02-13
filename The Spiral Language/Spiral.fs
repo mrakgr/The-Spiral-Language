@@ -252,12 +252,12 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     list_taken_tail_cps count arg on_fail (inl' args on_succ) |> case arg
                 | PatActive (a,b) ->
                     let pat_var = new_pat_var()
-                    l pat_var (ap (v a) arg) (cp (v pat_var) b on_succ on_fail)
+                    l pat_var (ap a arg) (cp (v pat_var) b on_succ on_fail)
                 | PatPartActive (a,pat) -> 
                     let pat_var = new_pat_var()
                     let on_succ = inl pat_var (cp (v pat_var) pat on_succ on_fail)
                     let on_fail = inl "" on_fail
-                    ap' (v a) [arg; on_fail; on_succ]
+                    ap' a [arg; on_fail; on_succ]
                 | PatOr l -> List.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
                 | PatAnd l -> List.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
                 | PatNot p -> cp arg p on_fail on_succ // switches the on_fail and on_succ arguments
@@ -1909,13 +1909,14 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let pat_e = wildcard >>% PatE
         let pat_var = var_name |>> PatVar
+        let pat_expr expr = (var_name |>> v) <|> rounds expr
         let pat_tuple pattern = sepBy1 pattern comma |>> function [x] -> x | x -> PatTuple x
         let pat_cons pattern = sepBy1 pattern cons |>> function [x] -> x | x -> PatCons x
         let pat_rounds pattern = rounds (pattern <|>% PatTuple [])
-        let pat_type expr pattern = tuple2 pattern (opt (pp >>. ((var_name |>> v) <|> rounds expr))) |>> function a,Some b as x-> PatTypeEq(a,b) | a, None -> a
-        let pat_active pattern = 
+        let pat_type expr pattern = tuple2 pattern (opt (pp >>. pat_expr expr)) |>> function a,Some b as x-> PatTypeEq(a,b) | a, None -> a
+        let pat_active expr pattern = 
             let active_pat = choice [active_pat >>% PatActive; part_active_pat >>% PatPartActive]
-            pipe3 active_pat var_name pattern <| fun c name pat -> c (name,pat)
+            pipe3 active_pat (pat_expr expr) pattern <| fun c name pat -> c (name,pat)
         let pat_or pattern = sepBy1 pattern bar |>> function [x] -> x | x -> PatOr x
         let pat_and pattern = sepBy1 pattern amphersand |>> function [x] -> x | x -> PatAnd x
         let lit_var = lit_ <|> (var_name_core |>> LitString)
@@ -1983,7 +1984,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         and patterns_template expr s = // The order in which the pattern parsers are chained in determines their precedence.
             let inline recurse s = patterns_template expr s
             pat_or ^<| pat_when expr ^<| pat_as ^<| pat_tuple ^<| pat_cons ^<| pat_and ^<| pat_type expr ^<| pat_closure
-            ^<| choice [|pat_active recurse; pat_e; pat_var; pat_type_lit; pat_lit 
+            ^<| choice [|pat_active expr recurse; pat_e; pat_var; pat_type_lit; pat_lit 
                          pat_rounds recurse; pat_named_tuple recurse; pat_module_outer expr|] <| s
 
         let inline patterns expr s = patpos (patterns_template expr) s
