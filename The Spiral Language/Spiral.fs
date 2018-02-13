@@ -854,7 +854,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 tev {d with env = env_add name recf env} body
             | MapTypeFunction (pat,body) -> 
                 tev {d with env = if pat <> "" then env_add pat args env_term else env_term} body
-            | _ -> on_type_er (trace d) "Compiler error: Expected a function in function application."
+            | _ -> on_type_er (trace d) "Expected a function in function application."
 
         let term_cast d a b =
             match tev d a |> layout_to_none' d, tev d b with

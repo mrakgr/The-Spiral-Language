@@ -21,7 +21,13 @@ and Env1 =
 and EnvStack2 =
     struct
     val mem_0: (int64 ref)
-    val mem_1: EnvStack0
+    val mem_1: EnvStack3
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+and EnvStack3 =
+    struct
+    val mem_0: (bool ref)
+    val mem_1: ManagedCuda.CudaStream
     new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
     end
 let rec method_0 ((var_0: System.Diagnostics.DataReceivedEventArgs)): unit =
@@ -50,14 +56,16 @@ and method_1((var_0: ResizeArray<Env1>), (var_1: EnvStack0), (var_2: uint64), (v
     let (var_22: (uint64 ref)) = (ref var_21)
     let (var_23: EnvStack0) = EnvStack0((var_22: (uint64 ref)))
     var_0.Add((Env1(var_23, var_19)))
-and method_8((var_0: ResizeArray<EnvStack2>), (var_1: ResizeArray<Env1>), (var_2: EnvStack0), (var_3: uint64), (var_4: ResizeArray<Env1>), (var_5: uint64)): EnvStack2 =
-    let (var_6: EnvStack0) = method_9((var_1: ResizeArray<Env1>), (var_2: EnvStack0), (var_3: uint64), (var_4: ResizeArray<Env1>), (var_5: uint64))
-    let (var_7: (int64 ref)) = (ref 0L)
-    let (var_8: EnvStack2) = EnvStack2((var_7: (int64 ref)), (var_6: EnvStack0))
-    method_10((var_8: EnvStack2), (var_0: ResizeArray<EnvStack2>))
-    var_8
-and method_11((var_0: ResizeArray<EnvStack2>)): unit =
-    let (var_2: (EnvStack2 -> unit)) = method_12
+and method_8((var_0: ResizeArray<EnvStack2>)): EnvStack2 =
+    let (var_1: ManagedCuda.CudaStream) = ManagedCuda.CudaStream()
+    let (var_2: (bool ref)) = (ref true)
+    let (var_3: EnvStack3) = EnvStack3((var_2: (bool ref)), (var_1: ManagedCuda.CudaStream))
+    let (var_4: (int64 ref)) = (ref 0L)
+    let (var_5: EnvStack2) = EnvStack2((var_4: (int64 ref)), (var_3: EnvStack3))
+    method_9((var_5: EnvStack2), (var_0: ResizeArray<EnvStack2>))
+    var_5
+and method_10((var_0: ResizeArray<EnvStack2>)): unit =
+    let (var_2: (EnvStack2 -> unit)) = method_11
     var_0.ForEach <| System.Action<_>(var_2)
     var_0.Clear()
 and method_5((var_0: (uint64 ref))): uint64 =
@@ -101,79 +109,26 @@ and method_6((var_0: ResizeArray<Env1>), (var_1: int32), (var_2: EnvStack0), (va
         method_7((var_0: ResizeArray<Env1>), (var_1: int32), (var_6: EnvStack0), (var_7: uint64), (var_16: int32))
     else
         (Env1(var_2, 0UL))
-and method_9((var_0: ResizeArray<Env1>), (var_1: EnvStack0), (var_2: uint64), (var_3: ResizeArray<Env1>), (var_4: uint64)): EnvStack0 =
-    let (var_5: Env1) = var_0.[0]
-    let (var_6: EnvStack0) = var_5.mem_0
-    let (var_7: uint64) = var_5.mem_1
-    let (var_8: bool) = (var_4 <= var_7)
-    let (var_44: Env1) =
-        if var_8 then
-            let (var_9: (uint64 ref)) = var_6.mem_0
-            let (var_10: uint64) = (!var_9)
-            let (var_11: uint64) = (var_10 + var_4)
-            let (var_12: (uint64 ref)) = (ref var_11)
-            let (var_13: EnvStack0) = EnvStack0((var_12: (uint64 ref)))
-            let (var_14: uint64) = (var_7 - var_4)
-            var_0.[0] <- (Env1(var_13, var_14))
-            (Env1(var_6, var_4))
-        else
-            let (var_16: (Env1 -> (Env1 -> int32))) = method_3
-            let (var_17: System.Comparison<Env1>) = System.Comparison<Env1>(var_16)
-            var_0.Sort(var_17)
-            let (var_18: Env1) = var_0.[0]
-            let (var_19: EnvStack0) = var_18.mem_0
-            let (var_20: uint64) = var_18.mem_1
-            let (var_21: bool) = (var_4 <= var_20)
-            if var_21 then
-                let (var_22: (uint64 ref)) = var_19.mem_0
-                let (var_23: uint64) = (!var_22)
-                let (var_24: uint64) = (var_23 + var_4)
-                let (var_25: (uint64 ref)) = (ref var_24)
-                let (var_26: EnvStack0) = EnvStack0((var_25: (uint64 ref)))
-                let (var_27: uint64) = (var_20 - var_4)
-                var_0.[0] <- (Env1(var_26, var_27))
-                (Env1(var_19, var_4))
-            else
-                method_1((var_0: ResizeArray<Env1>), (var_1: EnvStack0), (var_2: uint64), (var_3: ResizeArray<Env1>))
-                let (var_29: (Env1 -> (Env1 -> int32))) = method_3
-                let (var_30: System.Comparison<Env1>) = System.Comparison<Env1>(var_29)
-                var_0.Sort(var_30)
-                let (var_31: Env1) = var_0.[0]
-                let (var_32: EnvStack0) = var_31.mem_0
-                let (var_33: uint64) = var_31.mem_1
-                let (var_34: bool) = (var_4 <= var_33)
-                if var_34 then
-                    let (var_35: (uint64 ref)) = var_32.mem_0
-                    let (var_36: uint64) = (!var_35)
-                    let (var_37: uint64) = (var_36 + var_4)
-                    let (var_38: (uint64 ref)) = (ref var_37)
-                    let (var_39: EnvStack0) = EnvStack0((var_38: (uint64 ref)))
-                    let (var_40: uint64) = (var_33 - var_4)
-                    var_0.[0] <- (Env1(var_39, var_40))
-                    (Env1(var_32, var_4))
-                else
-                    (failwith "Out of memory in the designated section.")
-    let (var_45: EnvStack0) = var_44.mem_0
-    let (var_46: uint64) = var_44.mem_1
-    var_45
-and method_10((var_0: EnvStack2), (var_1: ResizeArray<EnvStack2>)): unit =
+and method_9((var_0: EnvStack2), (var_1: ResizeArray<EnvStack2>)): unit =
     let (var_2: (int64 ref)) = var_0.mem_0
-    let (var_3: EnvStack0) = var_0.mem_1
+    let (var_3: EnvStack3) = var_0.mem_1
     let (var_4: int64) = (!var_2)
     let (var_5: int64) = (var_4 + 1L)
     var_2 := var_5
     var_1.Add(var_0)
-and method_12 ((var_0: EnvStack2)): unit =
+and method_11 ((var_0: EnvStack2)): unit =
     let (var_1: (int64 ref)) = var_0.mem_0
-    let (var_2: EnvStack0) = var_0.mem_1
+    let (var_2: EnvStack3) = var_0.mem_1
     let (var_3: int64) = (!var_1)
     let (var_4: int64) = (var_3 - 1L)
     var_1 := var_4
     let (var_5: int64) = (!var_1)
     let (var_6: bool) = (var_5 = 0L)
     if var_6 then
-        let (var_7: (uint64 ref)) = var_2.mem_0
-        var_7 := 0UL
+        let (var_7: (bool ref)) = var_2.mem_0
+        let (var_8: ManagedCuda.CudaStream) = var_2.mem_1
+        var_8.Dispose()
+        var_7 := false
     else
         ()
 and method_4 ((var_1: EnvStack0)) ((var_0: Env1)): int32 =
@@ -295,15 +250,11 @@ let (var_40: EnvStack0) = EnvStack0((var_39: (uint64 ref)))
 let (var_41: ResizeArray<Env1>) = ResizeArray<Env1>()
 let (var_42: ResizeArray<Env1>) = ResizeArray<Env1>()
 method_1((var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>))
-// is region
-let (var_46: ResizeArray<EnvStack2>) = ResizeArray<EnvStack2>()
-let (var_47: uint64) = 128UL
-let (var_48: EnvStack2) = method_8((var_46: ResizeArray<EnvStack2>), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_47: uint64))
-let (var_49: uint64) = 64UL
-let (var_50: EnvStack2) = method_8((var_46: ResizeArray<EnvStack2>), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_49: uint64))
-let (var_51: uint64) = 32UL
-let (var_52: EnvStack2) = method_8((var_46: ResizeArray<EnvStack2>), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_51: uint64))
-method_11((var_46: ResizeArray<EnvStack2>))
+let (var_49: ResizeArray<EnvStack2>) = ResizeArray<EnvStack2>()
+let (var_50: EnvStack2) = method_8((var_49: ResizeArray<EnvStack2>))
+let (var_51: EnvStack2) = method_8((var_49: ResizeArray<EnvStack2>))
+let (var_52: EnvStack2) = method_8((var_49: ResizeArray<EnvStack2>))
+method_10((var_49: ResizeArray<EnvStack2>))
 let (var_53: (uint64 ref)) = var_40.mem_0
 let (var_54: uint64) = method_5((var_53: (uint64 ref)))
 let (var_55: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_54)

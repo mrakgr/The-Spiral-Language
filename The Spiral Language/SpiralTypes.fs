@@ -559,7 +559,7 @@ let inline codegen_macro' show_typedexpr codegen print_type x =
         | x -> er x
         append end_
     and f = function
-        | TyList [TypeString "text"; LS x] -> append x
+        | TyList [TypeString "text"; (TyLit (LitString x) | TypeString x)] -> append x
         | TyList [TypeString "arg"; x] -> append (codegen x)
         | TyList [TypeString "args"; TyTuple l] -> append "("; List.map codegen l |> String.concat ", " |> append; append ")"
         | TyList [TypeString "fs_array_args"; TyTuple l] -> append "[|"; List.map codegen l |> String.concat "; " |> append; append "|]"

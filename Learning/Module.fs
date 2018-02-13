@@ -148,11 +148,10 @@ inl create' create =
         |> stack
 
     inl elem_type = type counter_ref_create (var create.elem_type)
-    macro.fs () [text: "// is region"]
     inl region = ResizeArray.create {elem_type}
 
     met assign (r: elem_type) = r.inc; region.add r
-    met allocate (!(to uint64 >> dyn) x) = 
+    met allocate (!dyn x) = 
         inl r = create x |> counter_ref_create
         assign r
         r
@@ -174,4 +173,36 @@ inl create x ret =
     r
 
 {create create'}
+    """) |> module_
+
+let cuda_stream = 
+    (
+    "CudaStream",[extern_],"The Cuda stream module.",
+    """
+inl {Cuda} ->
+    open Extern
+    inl ty x = fs [text: x]
+    inl CudaStream_type = ty "ManagedCuda.CudaStream"
+    inl CUstream_type = ty "ManagedCuda.BasicTypes.CUstream"
+
+    inl create' _ = 
+        inl stream = FS.Constructor CudaStream_type ()
+        inl is_live = ref true
+        function
+        | .Dispose -> 
+            FS.Method stream .Dispose () ()
+            is_live := false
+        | .extract ->
+            assert (is_live()) "The stream has been disposed."
+            extract stream
+        | () ->
+            assert (is_live()) "The stream has been disposed."
+            stream
+        |> stack
+
+    inl create = function
+        | .elem_type -> type create' ()
+        | () -> create' ()
+
+    {create}
     """) |> module_

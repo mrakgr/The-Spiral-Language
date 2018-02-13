@@ -287,7 +287,8 @@ let extern_ =
 inl zero_of ty = to ty 0
 inl one_of ty = to ty 1
 
-inl dot = "."
+inl dot = ."."
+inl space = ." "
 inl FS = {
     Constant = inl a t -> !MacroFs(t, [text: a])
     StaticField = inl a b t -> !MacroFs(t, [
@@ -318,7 +319,7 @@ inl FS = {
         ])
     UnOp = inl op a t -> !MacroFs(t,[
         text: op
-        text: " "
+        text: space
         arg: a
         ])
     BinOp = inl a op b t -> !MacroFs(t,[
