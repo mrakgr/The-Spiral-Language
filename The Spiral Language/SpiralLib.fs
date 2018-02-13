@@ -1478,7 +1478,7 @@ inl ret ->
         FS.Method cuda_kernel .set_BlockDimensions(dim3 blockDim) unit
 
         match runable with
-        | {stream} -> FS.Method cuda_kernel .RunAsync(Stream.extract stream,to_obj_ar args) unit
+        | {stream} -> FS.Method cuda_kernel .RunAsync(stream.extract,to_obj_ar args) unit
         | _ -> FS.Method cuda_kernel .Run(to_obj_ar args) float32 |> ignore
 
     ret {context dim3 run SizeT SizeT_type CUdeviceptr CUdeviceptr_type ptr_to_uint uint_to_ptr to_uint}

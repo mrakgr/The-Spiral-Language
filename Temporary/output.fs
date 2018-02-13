@@ -64,8 +64,24 @@ and method_8((var_0: ResizeArray<EnvStack2>)): EnvStack2 =
     let (var_5: EnvStack2) = EnvStack2((var_4: (int64 ref)), (var_3: EnvStack3))
     method_9((var_5: EnvStack2), (var_0: ResizeArray<EnvStack2>))
     var_5
-and method_10((var_0: ResizeArray<EnvStack2>)): unit =
-    let (var_2: (EnvStack2 -> unit)) = method_11
+and method_10((var_0: EnvStack2), (var_1: ManagedCuda.CudaStream)): unit =
+    let (var_2: ManagedCuda.CudaEvent) = ManagedCuda.CudaEvent()
+    let (var_3: (int64 ref)) = var_0.mem_0
+    let (var_4: EnvStack3) = var_0.mem_1
+    let (var_5: (bool ref)) = var_4.mem_0
+    let (var_6: ManagedCuda.CudaStream) = var_4.mem_1
+    let (var_7: bool) = (!var_5)
+    let (var_8: bool) = (var_7 = false)
+    if var_8 then
+        (failwith "The stream has been disposed.")
+    else
+        ()
+    let (var_9: ManagedCuda.BasicTypes.CUstream) = var_6.Stream
+    var_2.Record(var_9)
+    var_1.WaitEvent var_2.Event
+    var_2.Dispose()
+and method_11((var_0: ResizeArray<EnvStack2>)): unit =
+    let (var_2: (EnvStack2 -> unit)) = method_12
     var_0.ForEach <| System.Action<_>(var_2)
     var_0.Clear()
 and method_5((var_0: (uint64 ref))): uint64 =
@@ -116,7 +132,7 @@ and method_9((var_0: EnvStack2), (var_1: ResizeArray<EnvStack2>)): unit =
     let (var_5: int64) = (var_4 + 1L)
     var_2 := var_5
     var_1.Add(var_0)
-and method_11 ((var_0: EnvStack2)): unit =
+and method_12 ((var_0: EnvStack2)): unit =
     let (var_1: (int64 ref)) = var_0.mem_0
     let (var_2: EnvStack3) = var_0.mem_1
     let (var_3: int64) = (!var_1)
@@ -254,12 +270,23 @@ let (var_49: ResizeArray<EnvStack2>) = ResizeArray<EnvStack2>()
 let (var_50: EnvStack2) = method_8((var_49: ResizeArray<EnvStack2>))
 let (var_51: EnvStack2) = method_8((var_49: ResizeArray<EnvStack2>))
 let (var_52: EnvStack2) = method_8((var_49: ResizeArray<EnvStack2>))
-method_10((var_49: ResizeArray<EnvStack2>))
-let (var_53: (uint64 ref)) = var_40.mem_0
-let (var_54: uint64) = method_5((var_53: (uint64 ref)))
-let (var_55: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_54)
-let (var_56: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_55)
-var_1.FreeMemory(var_56)
-var_53 := 0UL
+let (var_53: (int64 ref)) = var_50.mem_0
+let (var_54: EnvStack3) = var_50.mem_1
+let (var_55: (bool ref)) = var_54.mem_0
+let (var_56: ManagedCuda.CudaStream) = var_54.mem_1
+let (var_57: bool) = (!var_55)
+let (var_58: bool) = (var_57 = false)
+if var_58 then
+    (failwith "The stream has been disposed.")
+else
+    ()
+method_10((var_51: EnvStack2), (var_56: ManagedCuda.CudaStream))
+method_11((var_49: ResizeArray<EnvStack2>))
+let (var_59: (uint64 ref)) = var_40.mem_0
+let (var_60: uint64) = method_5((var_59: (uint64 ref)))
+let (var_61: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_60)
+let (var_62: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_61)
+var_1.FreeMemory(var_62)
+var_59 := 0UL
 var_1.Dispose()
 

@@ -41,6 +41,7 @@ inb stream_region = Region.create CudaStream.create
 inl a = stream_region ()
 inl b = stream_region ()
 inl c = stream_region ()
+a.wait_on b
 ()
     """
 

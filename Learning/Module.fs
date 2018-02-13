@@ -135,7 +135,6 @@ let region =
     (
     "Region",[resize_array],"The region based resource tracker.",
     """
-
 inl create' create =
     inl counter_ref_create ptr =
         inl count = ref 0
@@ -188,16 +187,23 @@ inl {Cuda} ->
     inl create' _ = 
         inl stream = FS.Constructor CudaStream_type ()
         inl is_live = ref true
+        inl dispose x = FS.Method x .Dispose () ()
         function
         | .Dispose -> 
-            FS.Method stream .Dispose () ()
+            dispose stream
             is_live := false
-        | .extract ->
+        | x ->
             assert (is_live()) "The stream has been disposed."
-            extract stream
-        | () ->
-            assert (is_live()) "The stream has been disposed."
-            stream
+            match x with
+            | .extract -> macro.fs CUstream_type [arg: stream; text: ".Stream"]
+            | .synchronize -> FS.Method stream .Synchronize() ()
+            | .wait_on on -> join
+                inl event_type = fs [text: "ManagedCuda.CudaEvent"]
+                inl event = FS.Constructor event_type ()
+                FS.Method event .Record on.extract ()
+                macro.fs () [arg: stream; text: ".WaitEvent "; arg: event; text: ".Event"]
+                dispose event
+            | () -> stream
         |> stack
 
     inl create = function
