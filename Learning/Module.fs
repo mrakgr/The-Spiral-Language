@@ -28,7 +28,7 @@ inl create {d with elem_type} =
     inl count () = FS.Method x .get_Count() int32
     inl add y = FS.Method x .Add y ()
 
-    inl iter f = FS.Method x ."ForEach <| System.Action" (closure_of f (elem_type => ())) ()
+    inl iter f = FS.Method x ."ForEach <| System.Action<_>" (closure_of f (elem_type => ())) ()
 
     function
     | .sort -> sort 
@@ -143,21 +143,16 @@ inl create ->
         |> stack
 
     inl elem_type = type counter_ref_create (var create.elem_type)
+    macro.fs () [text: "// is region"]
     inl region = ResizeArray.create {elem_type}
 
-    inl assert_elem_type r = 
-        inl a = type elem_type
-        inl b = type r
-        if eq_type a b = false then error_type ("Assert failed. Got: ", a, b)
-
-    inl assign r = assert_elem_type r; r.inc; region.add r
-    inl allocate x = 
+    met assign (r: elem_type) = r.inc; region.add r
+    met allocate (!(to uint64 >> dyn) x) = 
         inl r = create x |> counter_ref_create
-        assert_elem_type r
         assign r
         r
         
-    inl clear _ =
+    met clear _ =
         region.iter (inl r -> r.dec)
         region.clear
 

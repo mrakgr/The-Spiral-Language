@@ -269,11 +269,13 @@ inl abs x =
     inl x' = -x
     if x' < x then x else x'
 
+/// Checks whether the type can move past language boundaries.
 inl blittable_is x = !BlittableIs(x)
 
 inl threadIdx (.x | .y | .z) as x = macro.cd int64 [text: "threadIdx."; text: x]
 inl blockIdx (.x | .y | .z) as x = macro.cd int64 [text: "blockIdx."; text: x]
 
+/// Converts a type to a variable. Not to be used on the term level.
 inl var x = !ToVar(x)
 
 {

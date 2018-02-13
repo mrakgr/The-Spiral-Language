@@ -1563,6 +1563,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let macro op d t a = 
             let t, a = tev_seq d t, tev d a
             TyOp(op,[a],get_type t) |> make_tyv_and_push_typed_expr_even_if_unit d
+
+        let to_var d x = tev d x |> make_tyv_and_push_typed_expr d
+            
            
         let inline add_trace (d: LangEnv) x = {d with trace = x :: d.trace}
 
@@ -1688,7 +1691,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | InfinityF64,[] -> TyLit (LitFloat64 infinity)
             | InfinityF32,[] -> TyLit (LitFloat32 infinityf)
 
-            | ToVar,[x] -> ...
+            | ToVar,[x] -> to_var d x
             
             | x -> failwithf "Compiler error: Missing Op case. %A" x
 

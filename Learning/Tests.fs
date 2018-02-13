@@ -26,10 +26,9 @@ inb Cuda = Cuda
 inl allocate = Allocator {Cuda} 1024
 inl region = Region allocate
 inl a = region 128
-()
-//inl b = region 64
-//inl c = region 32
-//region.clear
+inl b = region 64
+inl c = region 32
+region.clear
     """
 
 let cfg: Spiral.Types.CompilerSettings = {
