@@ -28,13 +28,16 @@ inl create {d with elem_type} =
     inl count () = FS.Method x .get_Count() int32
     inl add y = FS.Method x .Add y ()
 
+    inl iter f = FS.Method x ."ForEach <| System.Action" (closure_of f (elem_type => ())) ()
+
     function
     | .sort -> sort 
     | .filter -> filter 
-    | .set i v -> set i v
+    | .set -> set
     | .clear -> clear ()
     | .count -> count ()
     | .add -> add
+    | .iter -> iter
     | .elem_type -> elem_type
     | i -> index i
 { 
@@ -124,3 +127,32 @@ inl {Cuda} size ->
 
     create_section size
     """) |> module_
+
+let region =
+    "Region",[resize_array],"The region based resource tracker.",
+    """
+inl allocate section region size = 
+    inl ptr = section size
+    inl count = ref 1
+    inl r =
+        function
+        | .inc -> count := count() + 1
+        | .dec -> 
+            count := count() - 1
+            if count() = 0 then ptr.Dispose
+        | x -> ptr x
+    region.add r
+    r
+
+inl clear region =
+    region.iter (inl r -> r.dec)
+    region.clear
+
+inl assign region x =
+    region.add x
+    x.inc
+
+inl create elem_type = ResizeArray.create {elem_type}
+
+
+    """
