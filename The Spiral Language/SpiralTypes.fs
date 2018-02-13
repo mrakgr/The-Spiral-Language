@@ -104,6 +104,8 @@ type Value =
     | LitChar of char
 
 type Op =
+    | ToVar
+    
     // Extern type constructors
     | DotNetTypeCreate
     | CudaTypeCreate

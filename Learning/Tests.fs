@@ -17,7 +17,19 @@ inl c = allocate 32
 c.Dispose
 b.Dispose
 a.Dispose
+    """
+
+let allocator2 =
+    "allocator2",[allocator;region;cuda],"Does the allocator + regions work?",
+    """
+inb Cuda = Cuda
+inl allocate = Allocator {Cuda} 1024
+inl region = Region allocate
+inl a = region 128
 ()
+//inl b = region 64
+//inl c = region 32
+//region.clear
     """
 
 let cfg: Spiral.Types.CompilerSettings = {
@@ -29,6 +41,6 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_assert_enabled = false
     }
     
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" allocator1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" allocator2
 |> printfn "%s"
 |> ignore

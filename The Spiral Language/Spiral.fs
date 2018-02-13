@@ -1687,6 +1687,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
             | InfinityF64,[] -> TyLit (LitFloat64 infinity)
             | InfinityF32,[] -> TyLit (LitFloat32 infinityf)
+
+            | ToVar,[x] -> ...
             
             | x -> failwithf "Compiler error: Missing Op case. %A" x
 

@@ -50,7 +50,7 @@ let allocator =
     (
     "Allocator",[resize_array;loops;option;extern_;console],"The section based GPU memory allocator module.",
     """
-inl {Cuda} size ->
+inl {Cuda} ->
     open Cuda
     open Extern
     inl smartptr_create (ptr: uint64) =
@@ -115,44 +115,55 @@ inl {Cuda} size ->
                         failwith free_cells.elem_type "Out of memory in the designated section."
         ptr
 
-    inl create_section size =
+    inl size ->
         inl pool = allocate_global size
         inl elem_type = type pool
         inl free_cells, used_cells = ResizeArray.create {elem_type}, ResizeArray.create {elem_type}
         inl section = {pool free_cells used_cells}
         free_cells_refresh section
         function
+        | .elem_type -> type elem_type.ptr
         | .refresh -> free_cells_refresh section
         | x -> allocate section x
-
-    create_section size
     """) |> module_
 
 let region =
+    (
     "Region",[resize_array],"The region based resource tracker.",
     """
-inl allocate section region size = 
-    inl ptr = section size
-    inl count = ref 1
-    inl r =
+inl create ->
+    inl counter_ref_create ptr =
+        inl count = ref 0
         function
         | .inc -> count := count() + 1
         | .dec -> 
             count := count() - 1
             if count() = 0 then ptr.Dispose
         | x -> ptr x
-    region.add r
-    r
+        |> stack
 
-inl clear region =
-    region.iter (inl r -> r.dec)
-    region.clear
+    inl elem_type = type counter_ref_create (var create.elem_type)
+    inl region = ResizeArray.create {elem_type}
 
-inl assign region x =
-    region.add x
-    x.inc
+    inl assert_elem_type r = 
+        inl a = type elem_type
+        inl b = type r
+        if eq_type a b = false then error_type ("Assert failed. Got: ", a, b)
 
-inl create elem_type = ResizeArray.create {elem_type}
+    inl assign r = assert_elem_type r; r.inc; region.add r
+    inl allocate x = 
+        inl r = create x |> counter_ref_create
+        assert_elem_type r
+        assign r
+        r
+        
+    inl clear _ =
+        region.iter (inl r -> r.dec)
+        region.clear
 
-
-    """
+    function
+    | .assign -> assign
+    | .elem_type -> elem_type
+    | .clear -> clear()
+    | i -> allocate i
+    """) |> module_
