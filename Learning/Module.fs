@@ -1227,12 +1227,12 @@ inl ret ->
             inl len = in'.length
             in'.update_body (inl {ar} -> fill_array op len ar) |> ignore
 
-        inl create_tensor op dsc ret =
-            inb device_tensor = create dsc
+        inl create op dsc =
+            inl device_tensor = create dsc
             fill op device_tensor
-            ret device_tensor
+            device_tensor
 
-        {fill create_tensor}
+        {fill create}
     """) |> module_
 
 let cuda_blas =
@@ -1313,13 +1313,13 @@ inl ret ->
             // The arguments are switched in order to convert from column major (which CuBlas uses) to row major (which Spiral's tensor use)
             call.cublasSgemm_v2(handle, transb, transa, n, m, k, alpha, {ptr=B}, ld B, {ptr=A}, ld A, beta, {ptr=C}, ld C)
 
-        inl gemm transa transb alpha A B ret =
+        inl gemm transa transb alpha A B =
             inl m = if isnT transa then rows A else cols A
             inl n = if isnT transb then cols B else rows B
 
-            inb C = create {dim=m,n; elem_type = A.elem_type}
+            inl C = create {dim=m,n; elem_type = A.elem_type}
             gemm' transa transb alpha A B (zero_of alpha) C
-            ret C
+            C
 
         {gemm' gemm}
     """) |> module_
