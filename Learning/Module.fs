@@ -65,7 +65,7 @@ inl {Cuda} ->
         |> stack
 
     inl mult = 256u64
-    inl round_up_to_multiple size = size - size % mult + mult
+    inl round_up_to_multiple size = (size + mult - 1u64) / mult * mult
 
     inl allocate_global =
         to uint64 >> round_up_to_multiple >> dyn
@@ -79,7 +79,11 @@ inl {Cuda} ->
         sort_ptrs used_cells
         free_cells.clear
         inl near_to = used_cells.count
-        inl add {ptr size} = free_cells.add {ptr = smartptr_create (ptr()); size}
+        inl add {ptr size} = 
+            inl ptr = ptr()
+            inl ptr' = round_up_to_multiple ptr
+            inl d = ptr' - ptr
+            if size >= d then free_cells.add {ptr = smartptr_create ptr'; size=size-d}
 
         inl distance state state' = 
             inl p1 = state.ptr() + state.size
@@ -89,14 +93,14 @@ inl {Cuda} ->
         Loops.for {from=0i32; near_to by=1i32; state={pool with size = 0u64}; body=inl {{state with ptr} i} ->
             inl state' = free_cells i
             inl size = distance state state'
-            if size > 0u64 then add { ptr size }
+            add { ptr size }
             state'
             }
         |> inl state -> // This is for the final free cell at the end.
-            inl size = distance pool state
+            inl size = distance state pool
             add {state with size}
 
-    met allocate {section with free_cells} (!(to uint64 >> dyn) size') =
+    met allocate {section with free_cells} (!(to uint64 >> round_up_to_multiple >> dyn) size') =
         inl loop next =
             inl {ptr size} = free_cells 0i32
             if size' <= size then
@@ -311,11 +315,7 @@ inl d ->
     inl zero = create >> clear'
     inl zero_like = create_like >> clear'
 
-    inl from_host_tensors x ret = 
-        inl tensors = toa_map from_host_tensor x
-        inl r = ret tensors
-        toa_map (inl x -> x.update_body (inl {ar} -> ar.ptr.Dispose)) |> ignore
-        r
+    inl from_host_tensors x = toa_map from_host_tensor x
 
     met print (!dyn o1) = to_host_tensor o1 |> HostTensor.print
 
@@ -548,10 +548,10 @@ inl d ->
                     }
             }
 
-    inl map f (!zip in) ret =
-        inb out = create {dim=in.dim; elem_type=type f in.elem_type}
+    inl map f (!zip in) =
+        inl out = create {dim=in.dim; elem_type=type f in.elem_type}
         map' (inl in _ -> f in) in out
-        ret out
+        out
 
     /// The exclusive scan over the innermost dimension.
     /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
@@ -603,7 +603,7 @@ inl d ->
         inl map_out = match d with {map_out} -> map_out | _ -> const
 
         /// TODO: Optimize the case where the size of temp is just 1.
-        inb temp = CudaTensor.create {elem_type=type map_in in.elem_type; dim=1,num_blocks}
+        inl temp = CudaTensor.create {elem_type=type map_in in.elem_type; dim=1,num_blocks}
 
         inl _ = // First perform the reduction to get the aggregates.
             inl temp = to_dev_tensor (temp 0)
@@ -649,7 +649,7 @@ inl d ->
         inl gridDim = min 64 (divup span blockDim)
         inl elem_type = type map in.elem_type
 
-        inb out = create {elem_type dim=gridDim}
+        inl out = create {elem_type dim=gridDim}
         inl out' = to_dev_tensor out
 
         run {
@@ -697,16 +697,16 @@ inl d ->
                     }
             }
 
-    inl d2_replicate_map f (!zip in) in' ret =
+    inl d2_replicate_map f (!zip in) in' =
         inl in' =
             match in' with
             | by : int64 -> 
                 inl dim_in :: () = in.dim
                 HostTensor.create {elem_type=(); dim=by,dim_in}
             | in' -> zip in'
-        inb out = create {elem_type=type f in.elem_type in'.elem_type; dim=in'.dim}
+        inl out = create {elem_type=type f in.elem_type in'.elem_type; dim=in'.dim}
         d2_replicate_map' (inl a b _ -> f a b) in in' out
-        ret out
+        out
 
     /// The inclusive scan over the innermost dimension.
     /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
@@ -855,7 +855,7 @@ inl d ->
                     }
             }
 
-    inl map_d1_seq_broadcast {d with seq} (!zip in) ret =
+    inl map_d1_seq_broadcast {d with seq} (!zip in) =
         inl map_in = match d with {map_in} -> map_in | _ -> id
         inl seq = Tuple.wrap seq
         inl elem_type = type
@@ -866,12 +866,12 @@ inl d ->
                     | {map_redo} -> map_redo ty
                     | _ -> ty
                 map ty ty') ty seq
-        inb out = create {elem_type dim=in.dim}
+        inl out = create {elem_type dim=in.dim}
         inl rec seq_loop = function
             | {s with map} :: () -> {s with map = inl a b _ -> map a b} :: ()
             | s :: s' -> s :: seq_loop s'
         map_d1_seq_broadcast' {d with map_in seq=seq_loop seq} in out
-        ret out
+        out
 
     /// Maps the two inputs and then scans, maps, reduces and maps the first's inner dimension.
     inl mapi_d1_inscan_mapi_d1_reduce_mapi' {d with scan redo} (!zip in) (!zip in') (!zip out) = 
@@ -1066,7 +1066,7 @@ inl d ->
                 }
             } |> ignore
 
-    inl map_dx_redo_map_template dim kernel d in in' ret =
+    inl map_dx_redo_map_template dim kernel d in in' =
         inl in' = 
             match in' with
             | () -> HostTensor.create {elem_type=(); dim}
@@ -1076,28 +1076,28 @@ inl d ->
         inl map_out, elem_type = 
             inl ty = type map_in in.elem_type in'.elem_type
             match d with {map_out} -> (inl a _ -> map_out a),(type map_out ty) | _ -> const, ty
-        inb out = create {elem_type dim=in'.dim}
+        inl out = create {elem_type dim=in'.dim}
         kernel {d with map_in map_out} in in' out
-        ret out
+        out
 
     inl map_d1_redo_map d (!zip in) = map_dx_redo_map_template (fst in.dim) map_d1_redo_map' d in
     inl map_d2_redo_map d (!zip in) = map_dx_redo_map_template (snd in.dim) map_d2_redo_map' d in
 
-    inl map_dx_scan_map_template kernel d (!zip in) ret =
+    inl map_dx_scan_map_template kernel d (!zip in) =
         inl map_in = match d with {map_in} -> map_in | _ -> id
         inl map_out, elem_type = 
             inl ty = type map_in in.elem_type
             match d with {map_out} -> (inl a _ -> map_out a), (type map_out ty) | _ -> const, ty
-        inb out = create {elem_type dim=in.dim}
+        inl out = create {elem_type dim=in.dim}
         kernel {d with map_in map_out} in out
-        ret out
+        out
 
     inl map_d1_exscan_map = map_dx_scan_map_template map_d1_exscan_map'
     inl map_d1_inscan_map = map_dx_scan_map_template map_d1_inscan_map'
     inl map_d2_inscan_map = map_dx_scan_map_template map_d2_inscan_map'
     inl map_inscan_map = map_dx_scan_map_template map_inscan_map'
 
-    inl mapi_d1_inscan_mapi_d1_reduce_mapi d (!zip in) in' ret =
+    inl mapi_d1_inscan_mapi_d1_reduce_mapi d (!zip in) in' =
         inl in' = 
             match in' with
             | () -> HostTensor.create {elem_type=(); dim=fst in.dim}
@@ -1127,9 +1127,9 @@ inl d ->
             | {map_out} -> {d with map_out=inl x _ -> map_out x}
             | _ -> {d with map_out=const}
         
-        inb out = create {elem_type dim=in'.dim}
+        inl out = create {elem_type dim=in'.dim}
         mapi_d1_inscan_mapi_d1_reduce_mapi' d in in' out
-        ret out
+        out
 
     /// Creates a tensor using the given generator function.
     /// Takes in the optional {thread_limit} as the first argument in order to control the degree of parallelism.
@@ -1160,12 +1160,12 @@ inl d ->
                     }
             }
 
-    inl init {d with dim} f ret =
+    inl init {d with dim} f =
         inl dim = Tuple.wrap dim
         inl elem_type = type Tuple.foldl (inl f _ -> f 0) f dim
-        inb out = create {dim elem_type}
+        inl out = create {dim elem_type}
         init' d f out
-        ret out
+        out
 
     {
     map' map map_redo d2_replicate_map' d2_replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
@@ -1705,10 +1705,10 @@ let cuda_modules =
     (
     "CudaModules",[cuda;allocator;region;cuda_stream;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;console],"All the cuda modules in one.",
     """
-inl ret ->
+inl size ret ->
     inb Cuda = Cuda
     inl CudaStream = CudaStream {Cuda}
-    inb global_allocate = Allocator {Cuda} 1024
+    inb global_allocate = Allocator {Cuda} size
     inb region = Region.create global_allocate
     inb stream_region = Region.create CudaStream.create
     inl stream = stream_region()

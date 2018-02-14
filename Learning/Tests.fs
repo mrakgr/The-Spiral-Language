@@ -162,7 +162,7 @@ Tuple.iter CudaTensor.print (a1,a2,o1,o2,o3)
 let kernel1 =
     "kernel1",[cuda_modules],"Does the map kernel work?",
     """
-inb d = CudaModules
+inb d = CudaModules (1024*1024)
 
 inl h = HostTensor.init 32 (inl x -> x + 1)
 inl a1 = d.CudaTensor.from_host_tensor h
@@ -175,7 +175,7 @@ HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
 let kernel2 =
     "kernel2",[cuda_modules],"Does the map_redo kernel work?",
     """
-inb d = CudaModules
+inb d = CudaModules (1024*1024)
 
 inl h = HostTensor.init 32 ((+) 1)
 inl a1 = d.CudaTensor.from_host_tensor h
@@ -186,7 +186,7 @@ Console.writeline o1
 let kernel3 =
     "kernel3",[cuda_modules],"Does the d2_replicate_map kernel work?",
     """
-inb d = CudaModules
+inb d = CudaModules (1024*1024)
 
 inl inner_size = 8
 inl outer_size = 8
@@ -195,15 +195,16 @@ inl h = HostTensor.init inner_size (const (2,2))
 inl h' = HostTensor.init (outer_size,inner_size) (inl a b -> a,b)
 inl a1 = d.CudaTensor.from_host_tensor h
 inl a2 = d.CudaTensor.from_host_tensor h'
-inl o1 = d.CudaKernel.d2_replicate_map (inl a b -> a, b) a1 a2
-inl o2 = d.CudaKernel.d2_replicate_map (inl a _ -> a) a1 outer_size
-Tuple.iter d.CudaTensor.print (a1,a2,o1,o2)
+()
+//inl o1 = d.CudaKernel.d2_replicate_map (inl a b -> a, b) a1 a2
+//inl o2 = d.CudaKernel.d2_replicate_map (inl a _ -> a) a1 outer_size
+//Tuple.iter d.CudaTensor.print (o1,o2)
     """
 
 let kernel4 =
     "kernel4",[cuda_modules],"Does the map_d2_redo_map' kernel work?",
     """
-inb d = CudaModules
+inb d = CudaModules (1024*1024)
 
 inl inner_size = 10
 inl outer_size = 128
@@ -227,7 +228,7 @@ Tuple.iter d.CudaTensor.print (a1,o1,o2)
 let kernel5 =
     "kernel5",[cuda_modules],"Does the map_d1_redo_map' kernel work?",
     """
-inb d = CudaModules
+inb d = CudaModules (1024*1024)
 
 inl inner_size = 10
 inl outer_size = 32
@@ -250,7 +251,7 @@ Tuple.iter d.CudaTensor.print (a1,o1)
 let kernel6 =
     "kernel6",[cuda_modules],"Does the map_d1_inscan_map kernel work?",
     """
-inb d = CudaModules
+inb d = CudaModules (1024*1024)
 
 inl inner_size = 50
 inl outer_size = 3
@@ -269,7 +270,7 @@ Tuple.iter d.CudaTensor.print (a1,o1)
 let kernel7 =
     "kernel7",[cuda_modules],"Does the map_d2_inscan_map kernel work?",
     """
-inb d = CudaModules
+inb d = CudaModules (1024*1024)
 
 inl inner_size = 6
 inl outer_size = 64
@@ -287,7 +288,7 @@ Tuple.iter d.CudaTensor.print (a1,o1)
 let kernel8 =
     "kernel8",[cuda_modules],"Does the map_d1_exscan_map kernel work?",
     """
-inb d = CudaModules
+inb d = CudaModules (1024*1024)
 
 inl inner_size = 10
 inl outer_size = 10
@@ -305,7 +306,7 @@ Tuple.iter d.CudaTensor.print (a1,o1)
 let kernel9 =
     "kernel9",[cuda_modules],"Does the map_inscan_map kernel work?",
     """
-inb d = CudaModules
+inb d = CudaModules (1024*1024)
 
 inl inner_size = 64
 inl outer_size = 3
@@ -323,7 +324,7 @@ Tuple.iter d.CudaTensor.print (a1,o1)
 let kernel10 =
     "kernel10",[cuda_modules],"Does the mapi_d1_inscan_mapi_d1_reduce_mapi kernel work?",
     """
-inb d = CudaModules
+inb d = CudaModules (1024*1024)
 
 inl inner_size = 10
 inl outer_size = 6
@@ -352,7 +353,7 @@ Tuple.iter d.CudaTensor.print (a1,o1)
 let kernel11 =
     "kernel11",[cuda_modules],"Does the map_d1_seq_broadcast kernel work?",
     """
-inb d = CudaModules
+inb d = CudaModules (1024*1024)
 
 inl inner_size = 4
 inl outer_size = 1
@@ -395,7 +396,7 @@ Tuple.iter d.CudaTensor.print (a1,o3)
 let kernel12 =
     "kernel12",[cuda_modules],"Does the init kernel work?",
     """
-inb d = CudaModules
+inb d = CudaModules (1024*1024)
 
 inl o1 = d.CudaKernel.init {rev_thread_limit=32; dim=2,2,128} (inl a b c -> a,b,c)
 CudaTensor.print o1
@@ -410,6 +411,6 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_assert_enabled = false
     }
     
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel3
 |> printfn "%s"
 |> ignore
