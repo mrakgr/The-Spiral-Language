@@ -1701,3 +1701,30 @@ inl d ->
     {dr primal primals adjoint adjoints (>>!) Primitive succ (>>=) Activation Error Feedforward Optimizer run grad_check accuracy }
     """) |> module_
 
+let cuda_modules =
+    (
+    "CudaModules",[cuda;allocator;region;cuda_stream;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;console],"All the cuda modules in one.",
+    """
+inl ret ->
+    inb Cuda = Cuda
+    inl CudaStream = CudaStream {Cuda}
+    inb global_allocate = Allocator {Cuda} 1024
+    inb region = Region.create global_allocate
+    inb stream_region = Region.create CudaStream.create
+    inl stream = stream_region()
+
+    inl d = {
+        allocate = region
+        stream = stream
+        Cuda = Cuda
+        }
+
+    inl CudaTensor = CudaTensor d
+    inl d = {d with CudaTensor}
+    inb CudaRandom' = CudaRandom
+    inl CudaRandom = CudaRandom' d
+    inb CudaBlas' = CudaBlas
+    inl CudaBlas = CudaBlas' d
+    inl CudaKernel = CudaKernel d
+    ret {d with CudaBlas CudaRandom CudaKernel}
+    """) |> module_
