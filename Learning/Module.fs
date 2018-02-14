@@ -212,3 +212,10 @@ inl {Cuda} ->
 
     {create}
     """) |> module_
+
+let cuda_tensor = 
+    (
+    "CudaTensor",[option;extern_;host_tensor],"The Cuda tensor module.",
+    """
+
+    """) |> module_
