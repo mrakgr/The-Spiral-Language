@@ -85,19 +85,17 @@ inl {Cuda} ->
             inl d = ptr' - ptr
             if size >= d then free_cells.add {ptr = smartptr_create ptr'; size=size-d}
 
-        inl distance state state' = 
-            inl p1 = state.ptr() + state.size
-            inl p2 = state.ptr()
-            p2 - p1
-            
+        inl start x = x.ptr()
+        inl end x = x.ptr() + x.size
+
         Loops.for {from=0i32; near_to by=1i32; state={pool with size = 0u64}; body=inl {{state with ptr} i} ->
             inl state' = free_cells i
-            inl size = distance state state'
+            inl size = start state' - end state
             add { ptr size }
             state'
             }
         |> inl state -> // This is for the final free cell at the end.
-            inl size = distance state pool
+            inl size = end pool - start state
             add {state with size}
 
     met allocate {section with free_cells} (!(to uint64 >> round_up_to_multiple >> dyn) size') =
@@ -603,7 +601,7 @@ inl d ->
         inl map_out = match d with {map_out} -> map_out | _ -> const
 
         /// TODO: Optimize the case where the size of temp is just 1.
-        inl temp = CudaTensor.create {elem_type=type map_in in.elem_type; dim=1,num_blocks}
+        inl temp = create {elem_type=type map_in in.elem_type; dim=1,num_blocks}
 
         inl _ = // First perform the reduction to get the aggregates.
             inl temp = to_dev_tensor (temp 0)

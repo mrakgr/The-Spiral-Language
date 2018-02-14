@@ -195,10 +195,9 @@ inl h = HostTensor.init inner_size (const (2,2))
 inl h' = HostTensor.init (outer_size,inner_size) (inl a b -> a,b)
 inl a1 = d.CudaTensor.from_host_tensor h
 inl a2 = d.CudaTensor.from_host_tensor h'
-()
-//inl o1 = d.CudaKernel.d2_replicate_map (inl a b -> a, b) a1 a2
-//inl o2 = d.CudaKernel.d2_replicate_map (inl a _ -> a) a1 outer_size
-//Tuple.iter d.CudaTensor.print (o1,o2)
+inl o1 = d.CudaKernel.d2_replicate_map (inl a b -> a, b) a1 a2
+inl o2 = d.CudaKernel.d2_replicate_map (inl a _ -> a) a1 outer_size
+Tuple.iter d.CudaTensor.print (o1,o2)
     """
 
 let kernel4 =
@@ -258,7 +257,7 @@ inl outer_size = 3
 
 inl a1 = d.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
 //inb a2 = d.CudaRandom.create .Uniform {elem_type=float32; dim=outer_size,inner_size}
-inb o1 = 
+inl o1 = 
     d.CudaKernel.map_d1_inscan_map {
         neutral_elem=-infinityf32
         redo=max
@@ -275,8 +274,8 @@ inb d = CudaModules (1024*1024)
 inl inner_size = 6
 inl outer_size = 64
 
-inb a1 = d.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
-inb o1 = 
+inl a1 = d.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
+inl o1 = 
     d.CudaKernel.map_d2_inscan_map {
         neutral_elem=-infinityf32
         redo=max
@@ -293,8 +292,8 @@ inb d = CudaModules (1024*1024)
 inl inner_size = 10
 inl outer_size = 10
 
-inb a1 = d.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
-inb o1 = 
+inl a1 = d.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
+inl o1 = 
     d.CudaKernel.map_d1_exscan_map {
         neutral_elem=0f32
         redo=(+)
@@ -311,8 +310,8 @@ inb d = CudaModules (1024*1024)
 inl inner_size = 64
 inl outer_size = 3
 
-inb a1 = d.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
-inb o1 = 
+inl a1 = d.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
+inl o1 = 
     d.CudaKernel.map_inscan_map {
         neutral_elem=infinityf32
         redo=min
@@ -329,9 +328,9 @@ inb d = CudaModules (1024*1024)
 inl inner_size = 10
 inl outer_size = 6
 
-inb a1 = d.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
-inb a2 = d.CudaRandom.create {dst=.Normal; stddev=0f32; mean=0f32} {elem_type=float32; dim=outer_size}
-inb o1 = // The sampling function
+inl a1 = d.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
+inl a2 = d.CudaRandom.create {dst=.Normal; stddev=0f32; mean=0f32} {elem_type=float32; dim=outer_size}
+inl o1 = // The sampling function
     d.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
         scan={
             ne=0f32
@@ -358,9 +357,9 @@ inb d = CudaModules (1024*1024)
 inl inner_size = 4
 inl outer_size = 1
 
-inb a1 = d.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
-inb a2 = d.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,inner_size}
-inb o1 = // Softmax forward
+inl a1 = d.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
+inl a2 = d.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,inner_size}
+inl o1 = // Softmax forward
     d.CudaKernel.map_d1_seq_broadcast {
         seq = 
             {
@@ -374,13 +373,13 @@ inb o1 = // Softmax forward
             }
         } a1
 
-inb o2 = 
+inl o2 = 
     d.CudaKernel.map_d1_inscan_map {
         redo=(+)
         neutral_elem=0f32
         } o1
 
-inb o3 = // Softmax backward
+inl o3 = // Softmax backward
     d.CudaKernel.map_d1_seq_broadcast {
         seq = 
             {
@@ -398,8 +397,8 @@ let kernel12 =
     """
 inb d = CudaModules (1024*1024)
 
-inl o1 = d.CudaKernel.init {rev_thread_limit=32; dim=2,2,128} (inl a b c -> a,b,c)
-CudaTensor.print o1
+inl o1 = d.CudaKernel.init {rev_thread_limit=32; dim=2,2,128} (inl a b c -> a, b, c)
+d.CudaTensor.print o1
     """
 
 let cfg: Spiral.Types.CompilerSettings = {
@@ -411,6 +410,6 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_assert_enabled = false
     }
     
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel3
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel12
 |> printfn "%s"
 |> ignore
