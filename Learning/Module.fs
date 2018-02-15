@@ -1329,40 +1329,55 @@ inl ret ->
         {gemm' gemm}
     """) |> module_
 
+let cuda_modules =
+    (
+    "CudaModules",[cuda;allocator;region;cuda_stream;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;console],"All the cuda modules in one.",
+    """
+inl size ret ->
+    inb Cuda = Cuda
+    inl CudaStream = CudaStream {Cuda}
+    inb global_allocate = Allocator {Cuda} size
+    inb region = Region.create global_allocate
+    inb stream_region = Region.create CudaStream.create
+    inl stream = stream_region()
+
+    inl d = {
+        allocate = region
+        stream = stream
+        Cuda = Cuda
+        }
+
+    inl CudaTensor = CudaTensor d
+    inl d = {d with CudaTensor}
+    inb CudaRandom' = CudaRandom
+    inl CudaRandom = CudaRandom' d
+    inb CudaBlas' = CudaBlas
+    inl CudaBlas = CudaBlas' d
+    inl CudaKernel = CudaKernel d
+    ret {d with CudaBlas CudaRandom CudaKernel}
+    """) |> module_
+
 let learning =
     (
     "Learning",[host_tensor;cuda_tensor;extern_],"The deep learning module.",
     """
-inl d ->
+inl {float d} ->
     open HostTensor
-    open d.CudaTensor
-    open d.CudaKernel
-    open d.CudaBlas
-    inl float = d.float
 
     // #Primitives
-    inl zero = Extern.zero_of float
-    inl one = Extern.one_of float
+    inl zero = to float 0
+    inl one = to float 1
     inl two = to float 2
     inl infinity =
         match float with
         | _: float32 -> infinityf32
         | _: float64 -> infinityf64
 
-    inl dr primal ret =
-        inb adjoint = zero_like primal
-        ret {DR={primal adjoint}; block_toa_map=()}
-
-    inl dr_lazyhost primal = {DR={primal adjoint=Extern.zero_of primal.elem_type |> ref}; block_toa_map=()}
-    inl dr_host primal = {DR={primal adjoint=Extern.zero_of (type primal) |> ref}; block_toa_map=()}
-
-    inl primal = function {DR={primal}} | primal -> primal
-    inl adjoint = function {DR={adjoint}} -> adjoint | _ -> .nil
+    inl primal = function {primal} | primal -> primal
+    inl adjoint = function {adjoint} -> adjoint | _ -> .nil
 
     inl primals = toa_map primal
     inl adjoints = toa_map adjoint
-
-    inl (>>!) a b ret = a <| inl a -> b a ret
 
     inl is_not_unit = function
         | () -> false
@@ -1401,335 +1416,13 @@ inl d ->
         | .nil -> ()
         | B -> ret B
 
-    inl matmult A B ret =
-        inb C = gemm .nT .nT one (primal A) (primal B) >>! dr
-        ret (C, inl _ ->
-            on_non_nil (adjoint A) (inl A -> gemm' .nT .T one (adjoint C) (primal B) one A)
-            on_non_nil (adjoint B) (inl B -> gemm' .T .nT one (primal A) (adjoint C) one B)
-            )
+    d.add_method (.dr, inl d primal -> {primal adjoint=d.cudatensor_zero_like primal; block_toa_map=()})
+    d.add_method (.prim_matmult, inl d A B ->
+        inl C = d.cudablas_gemm .nT .nT one (primal A) (primal B) |> d.dr
+        C, inl _ ->
+            on_non_nil (adjoint A) (inl A -> d.cudablas_gemm' .nT .T one (adjoint C) (primal B) one A)
+            on_non_nil (adjoint B) (inl B -> d.cudablas_gemm' .T .nT one (primal A) (adjoint C) one B)
+        )
 
-    inl map {fwd bck} in ret =
-        inl primal, adjoint = primals in, adjoints in
-        inb out = map fwd primal >>! dr
-        ret (out, inl _ ->
-            inl out = match out with {DR={primal adjoint}} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
-            inl bck =
-                inl bck = filter_based_on_adjoints bck adjoint
-                inl in adjoint -> toa_map ((|>) in) bck |> toa_map2 (+) adjoint
-
-            inb adjoint = filter_unit_and_branch adjoint 
-            map' bck {in=primal; out} adjoint
-            )
-
-    inl d2_replicate_map {fwd bck={bck_in bck_in'}} in in' ret =
-        inl primal, adjoint = primals in, adjoints in
-        inl primal', adjoint' = primals in', adjoints in'
-        inb out = d2_replicate_map fwd primal primal' >>! dr
-        ret (out, inl _ ->
-            inl out = match out with {DR={primal adjoint}} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
-            on_non_nil adjoint (map_d2_redo_map' bck_in {in'=primal'; out} primal)
-            on_non_nil adjoint' (d2_replicate_map' bck_in' primal {in'=primal'; out})
-            )
-
-    inl matmultb l bias ret =
-        inl rec loop C l ret = 
-            match l with
-            | (A,B) :: x' ->
-                match C with
-                | () ->
-                    inb C = gemm .nT .nT one (primal A) (primal B) >>! dr
-                    loop C x' ret
-                | C ->
-                    gemm' .nT .nT one (primal A) (primal B) one (primal C)
-                    loop C x' ret
-            | () -> ret C
-
-        inl l =
-            match l with
-            | () -> error_type "First argument must not be empty."
-            | (_,_) :: _ -> l
-            | _ :: _ -> l :: ()
-        inb C = loop () l
-        d2_replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
-        ret (C, inl _ ->
-            inl C' = adjoint C
-            Tuple.iter (inl A, B ->
-                on_non_nil (adjoint A) (inl A -> gemm' .nT .T one C' (primal B) one A)
-                on_non_nil (adjoint B) (inl B -> gemm' .T .nT one (primal A) C' one B)
-                ) l
-            on_non_nil (adjoint bias) (inl bias -> map_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
-            )
-
-    inl add_bias = d2_replicate_map {
-        fwd=(+)
-        bck={
-            bck_in={
-                map_in=inl {out} _ -> out.A
-                neutral_elem=zero;redo=(+)
-                map_out=(+)
-                }
-            bck_in'=inl _ {out} adjoint -> out.A + adjoint
-            }
-        }
-
-    inl host_map {fwd bck} in ret =
-        inl primal, adjoint = primals in, adjoints in
-        inl out = fwd primal |> dr_host
-        ret (out, inl _ ->
-            inl out = toa_map2 (inl P A -> {P A=A()}) (primals out) (adjoints out)
-            inl bck = 
-                inl bck = filter_based_on_adjoints bck adjoint
-                toa_map ((|>) {in=primal; out}) bck
-            inb adjoint = filter_unit_and_branch adjoint 
-            toa_map2 (inl a b -> a := a() + b) adjoint bck
-            )
-
-    inl map_redo {fwd bck} in ret =
-        inl primal, adjoint = primals in, adjoints in
-        inl out = map_redo fwd primal |> dr_host
-        ret (out, inl _ ->
-            inl out = toa_map2 (inl P A -> {P A=A()}) (primals out) (adjoints out)
-            inl bck =
-                inl bck = filter_based_on_adjoints bck adjoint
-                inl {in} adjoint -> toa_map ((|>) {in out}) bck |> toa_map2 (+) adjoint
-            inb adjoint = filter_unit_and_branch adjoint 
-            map' bck {in=primal} adjoint
-            )
-
-    inl Primitive = {matmult matmultb map map_redo host_map d2_replicate_map add_bias}
-
-    // #Operations
-    inl (>>=) a b ret =
-        inb a,a_bck = a
-        inb b,b_bck = b a
-        ret (b, inl _ -> b_bck(); a_bck())
-
-    inl succ x ret = ret (x, const ())
-
-    inl multiply_by_adjoint f {d with out={A P} in} = toa_map ((*) A) (f {in out=P})
-    inl activation d = map {d with bck = multiply_by_adjoint self }
-
-    inl sigmoid = activation {
-        fwd = inl x -> one / (one + exp -x)
-        bck = inl {out} -> out * (one - out)
-        }
-
-    inl Activation = {sigmoid}
-
-    inl accuracy (input,label) ret =
-        inl input, label = primal input, primal label
-        inb x = 
-            map_d1_redo_map {
-                map_in=const
-                neutral_elem=-infinity,zero
-                redo=inl a b -> if fst a > fst b then a else b
-                map_out=snd
-                } (input,label) ()
-        Array.foldl (inl s x -> if x = one then s+1 else s) (dyn 0) (to_host_tensor x).bodies.ar 
-        |> ret
-
-    inl error {fwd bck} (input,_ as x) = 
-        inl batch_size = primal input .dim |> fst |> span
-        inl div_by_minibatch_size x = x / to float batch_size
-        inm cost =
-            map_redo {
-                fwd = {
-                    map = fwd
-                    redo = (+)
-                    neutral_elem = zero
-                    }
-                bck = toa_map multiply_by_adjoint bck
-                } x
-            >>= host_map {fwd = div_by_minibatch_size; bck = inl {out={A}} -> div_by_minibatch_size A}
-        inl accuracy = accuracy x
-        succ {cost accuracy}
-
-    inl square = error {
-        fwd = inl (x,y) -> (y - x) * (y - x)
-        bck = 
-            inl {in=x,y} -> two * (x - y)
-            ,inl {in=x,y} -> two * (y - x)
-        }
-
-    inl cross_entropy = error {
-        fwd = inl x, y -> -(y * log x + (one - y) * log (one - x))
-        bck = 
-            inl {in=x, y} -> (x - y) / (x * (one - x))
-            ,inl {in=x, y} -> log (one - x) - log x
-        }
-
-    inl Error = {square cross_entropy}
-
-    // #Feedforward
-    inl layer initializer activation hidden_size input_size ret =
-        inb weight = initializer (input_size, hidden_size) >>! dr
-        inb bias = CudaTensor.zero {elem_type=float; dim=hidden_size} >>! dr
-        ret {
-            hidden_size
-            weights = weight, bias
-            apply = inl input -> matmultb (input, weight) bias >>= activation
-            }
-
-    inl rec init layers input_size ret = 
-        match layers with
-        | x :: x' ->
-            inb {hidden_size weights apply} = init x input_size
-            inb x' = init x' hidden_size
-            ret {x' with weights=weights :: self; apply = apply >>= self}
-        | () -> ret {hidden_size=input_size; weigths=(); apply=succ}
-        | x -> x input_size ret
-
-    inl with_error error network ret = ret {network with apply = inl (input,label) -> self input >>= inl input -> error (input,label)}
-
-    inl sigmoid_initializer dim = 
-        inl stddev = sqrt (two / to float (Tuple.foldl (+) 0 dim))
-        CudaRandom d .create_tensor {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
-
-    inl sigmoid = layer sigmoid_initializer sigmoid
-    inl linear = layer sigmoid_initializer succ
-
-    inl Feedforward = {sigmoid linear init with_error}
-
-    // #Optimizer
-    inl sgd learning_rate x = 
-        inl primal, adjoint = primal x, adjoint x
-        map' (toa_map2 (inl A P -> P - learning_rate * A)) adjoint primal
-        CudaTensor.clear adjoint 
-
-    inl Optimizer = {sgd}
-
-    inl run {d with network={weights apply} input label state=!dyn state} =
-        inl dim1 x = x.dim |> fst
-        open Extern
-        open Console
-
-        assert (dim1 input = dim1 label) "Training and test set need to have to equal first dimensions."
-
-        inl optimizer =
-            match d with // Take care not to pass d in by accident into run_minibatch.
-            | {optimizer} {cost},bck ->
-                adjoint cost := one_of (primal cost)
-                bck() // Runs the backwards pass.
-                toa_iter optimizer weights
-            | _ _ -> ()
-
-        inl run_minibatch {state input label} = 
-            inb {cost accuracy}, _ as er = apply (input, label)
-
-            optimizer er
-
-            inl running_cost =
-                match state with
-                | {running_cost} -> running_cost + to float64 (primal cost) * to float64 (dim1 input |> HostTensor.span)
-                
-            match state with
-            | {running_accuracy} -> { running_cost running_accuracy=running_accuracy + accuracy id }
-            | _ -> {running_cost}
-            
-        inl {from near_to} = dim1 input
-        inl span = near_to - from
-        inl by = match d with {minibatch_size} -> minibatch_size | _ -> span
-
-        inl state = Loops.for' {from near_to; state by; body=inl {next state i=from} ->
-            if macro.fs bool [text: "System.Double.IsNaN"; args: state.running_cost] then
-                state
-            else
-                inl span = if span % by = 0 then {from by} else {from near_to=from+by |> min near_to} 
-                inl f x = x.view_span (const span)
-                run_minibatch {state input=f input; label=f label}
-                |> next
-            }
-
-        writeline "-----"
-        writeline "Batch done."
-        inl spanf64 = to float64 span
-        inl cost = 
-            match state with 
-            | {running_cost} -> 
-                inl cost = running_cost / spanf64
-                string_format "Average of batch costs is {0}." cost |> writeline 
-                cost
-            | _ -> ()
-        match state with 
-        | {running_accuracy} -> 
-            inl percetange = to float64 running_accuracy / spanf64 * 100f64
-            string_format "The accuracy of the batch is {0}/{1}({2}%). " (running_accuracy,span,percetange) |> writeline 
-        | _ -> ()
-        writeline "-----"
-        cost
-
-    inl grad_check {d with network={weights apply} input label} =
-        open Extern
-
-        inl run () = 
-            inb {cost accuracy}, bck = apply (input, label)
-            adjoint cost := to float 1
-            bck()
-        met cost () =
-            inb {cost accuracy}, bck = apply (input, label)
-            primal cost
-        //met update () = 
-        //    toa_iter (sgd (to float 0.01)) weights
-
-        // Run it a few times.
-        run()
-
-        inl epsilon = to float 0.001
-        inl boundary = to float 0.001
-        // Assert that all the gradients make sense.
-
-        inl rec perturb primal adjoint =
-            assert (primal.dim = adjoint.dim) "Dimensions must be equal."
-            match primal.dim with
-            | {from near_to} :: _ ->
-                Loops.for {from near_to body=inl {i} ->
-                    perturb (primal i) (adjoint i)
-                    }
-            | _ -> 
-                inl orig = CudaTensor.get primal
-                CudaTensor.set primal (orig + epsilon)
-                inl cost_plus_epsilon = cost ()
-                CudaTensor.set primal(orig - epsilon)
-                inl cost_minus_epsilon = cost ()
-                CudaTensor.set primal orig
-                inl approx_gradient = (cost_plus_epsilon - cost_minus_epsilon) / (2.0f32 * epsilon)
-
-                inl true_gradient = CudaTensor.get adjoint
-                
-                inl diff = abs (true_gradient - approx_gradient)
-                if diff >= boundary then
-                    Console.writeline {true_gradient approx_gradient diff}
-                    Console.writeline "--- Gradient checking failure."
-                
-        toa_iter (inl t -> perturb (primal t) (adjoint t)) weights
-
-    {dr primal primals adjoint adjoints (>>!) Primitive succ (>>=) Activation Error Feedforward Optimizer run grad_check accuracy }
-    """) |> module_
-
-let cuda_modules =
-    (
-    "CudaModules",[cuda;allocator;region;cuda_stream;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;console],"All the cuda modules in one.",
-    """
-inl size ret ->
-    inb Cuda = Cuda
-    inl CudaStream = CudaStream {Cuda}
-    inb global_allocate = Allocator {Cuda} size
-    inb region = Region.create global_allocate
-    inb stream_region = Region.create CudaStream.create
-    inl stream = stream_region()
-
-    inl d = {
-        allocate = region
-        stream = stream
-        Cuda = Cuda
-        }
-
-    inl CudaTensor = CudaTensor d
-    inl d = {d with CudaTensor}
-    inb CudaRandom' = CudaRandom
-    inl CudaRandom = CudaRandom' d
-    inb CudaBlas' = CudaBlas
-    inl CudaBlas = CudaBlas' d
-    inl CudaKernel = CudaKernel d
-    ret {d with CudaBlas CudaRandom CudaKernel}
+    {dr primal primals adjoint adjoints d }
     """) |> module_

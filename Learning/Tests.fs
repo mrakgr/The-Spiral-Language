@@ -402,7 +402,7 @@ d.CudaTensor.print o1
     """
 
 let learning1 =
-    "learning1",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;console],"Does the matmult work?",
+    "learning1",[cuda_modules;learning],"Does the matmult work?",
     """
 inb d = CudaModules (1024*1024)
 
@@ -427,6 +427,6 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_assert_enabled = false
     }
     
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel2
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning1
 |> printfn "%s"
 |> ignore

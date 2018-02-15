@@ -284,9 +284,6 @@ let extern_ =
     (
     "Extern",[tuple;loops],"The Extern module.",
     """
-inl zero_of ty = to ty 0
-inl one_of ty = to ty 1
-
 inl dot = ."."
 inl space = ." "
 inl FS = {
@@ -404,7 +401,7 @@ inl assert c msg =
         if lit_is c then error_type msg
         else failwith unit (show msg)
 
-{string_concat closure_of closure_of' FS (use) show' show assert one_of zero_of} |> stack
+{string_concat closure_of closure_of' FS (use) show' show assert } |> stack
     """) |> module_
 
 
