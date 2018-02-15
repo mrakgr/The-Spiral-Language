@@ -401,6 +401,23 @@ inl o1 = d.CudaKernel.init {rev_thread_limit=32; dim=2,2,128} (inl a b c -> a, b
 d.CudaTensor.print o1
     """
 
+let learning1 =
+    "learning1",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;console],"Does the matmult work?",
+    """
+inb d = CudaModules (1024*1024)
+
+inl float = float32
+open Learning {float d}
+open Primitive
+
+inl a1 = d.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,8}
+inl a2 = d.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=8,2} >>! dr
+inl o1,bck = matmult a1 a2
+bck()
+
+primal o1 |> d.CudaTensor.print
+    """
+
 let cfg: Spiral.Types.CompilerSettings = {
     path_cuda90 = "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v9.0"
     path_cub = "C:/cub-1.7.4"
