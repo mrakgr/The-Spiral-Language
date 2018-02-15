@@ -1440,6 +1440,22 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 ) Map.empty l
             |> fun x -> tymap(Env x, MapTypeModule)
 
+        let module_add d s name v =
+            match tev d s with
+            | TyMap(C env, MapTypeModule) ->
+                match tev2 d name v with
+                | TypeString name, v -> tymap(Map.add name v env |> Env, MapTypeModule)
+                | _ -> on_type_er (trace d) "Expected a type string as the second argument to ModuleAdd."
+            | _ -> on_type_er (trace d) "Expected a module as the first argument to ModuleAdd."
+
+        let module_remove d s name =
+            match tev d s with
+            | TyMap(C env, MapTypeModule) ->
+                match tev d name with
+                | TypeString name -> tymap(Map.remove name env |> Env, MapTypeModule)
+                | _ -> on_type_er (trace d) "Expected a type string as the second argument to ModuleRemove."
+            | _ -> on_type_er (trace d) "Expected a module as the first argument to ModuleAdd."
+
         let module_with (d: LangEnv) l =
             let names, bindings =
                 match l with
@@ -1470,7 +1486,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                             |> fun d -> Map.add name (tev d e |> destructure d) env
                         | Op(N(ModuleWithout,[Lit(N(LitString name))])) ->
                             Map.remove name env
-                        | _ -> failwith "impossible"
+                        | x -> failwithf "impossible\nGot: %A" x
                         ) cur_env bindings
                     |> fun env -> tymap(Env env, MapTypeModule)
                 | x -> failwithf "Compiler error: Malformed ModuleWith."
@@ -1614,6 +1630,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TypeLitIs,[a] -> type_lit_is d a
             | Dynamize,[a] -> dynamize d a
             | ModuleCreate,l -> module_create d l
+            | ModuleAdd,[s;a;b] -> module_add d s a b
+            | ModuleRemove,[s;a] -> module_remove d s a
             | ModuleWith, l -> module_with d l
             | ModuleValues, [a] -> module_values d a
             | ModuleIsCPS,[a;b;c] -> module_is_cps d a b c

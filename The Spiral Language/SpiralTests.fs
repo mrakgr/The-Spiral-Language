@@ -553,6 +553,18 @@ inl f = function
 f {a=1}, f {}
     """
 
+let test45 =
+    "test45",[],"Does the module_add and module_remove work?",
+    """
+inl s = {}
+inl s = module_add s .add (inl a b -> a + b)
+inl s = module_add s .sub (inl a b -> a - b)
+inl s = module_add s .q 5
+inl s = module_add s .w 10
+inl s = module_remove s .q
+s
+    """
+
 let test46 =
     "test46",[],"Does the module pattern work?",
     """
@@ -1857,7 +1869,7 @@ let tests =
     test10;test11;test12;test13;test14;test15;test16;test17;test18;test19
     test20;test21;test22;test23;test24;test25;test26;test27;test28;test29
     test30;test31;test32;test33;test34;test35;test36;test37;test38;test39
-    test40;test41;test42;test43;test44;       test46;test47;test48;test49
+    test40;test41;test42;test43;test44;test45;test46;test47;test48;test49
     test50;test51;test52;test53;test54;test55;test56;test57;test58;test59
     test60';test61;test62;test63;       test65;test66;test67;test68;test69
     test70;test71';test72;test73;test74;test75;test76';test77';test78;test79

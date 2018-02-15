@@ -265,6 +265,7 @@ inl infinityf32 = !InfinityF32()
 // Since join points use structural equality and nan = nan returns false, nans will cause it to diverge.
 // Note for future language designers - make nan = nan return true!
 
+/// Returns the absolute value.
 inl abs x = 
     inl x' = -x
     if x' < x then x else x'
@@ -278,6 +279,11 @@ inl blockIdx (.x | .y | .z) as x = macro.cd int64 [text: "blockIdx."; text: x]
 /// Converts a type to a variable. Not to be used on the term level.
 inl var x = !ToVar(x)
 
+/// Adds a variable to the module.
+inl module_add s name v = !ModuleAdd(s,name,v)
+/// Removes a variable from the module. Does nothing if the variable is not present.
+inl module_remove s name = !ModuleRemove(s,name)
+
 {
 type_lit_lift error_type print_static dyn (=>) cd fs log exp tanh sqrt array_create array_length array_is array
 split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
@@ -286,6 +292,6 @@ string char unit type_lit_cast type_lit_is term_cast to negate ignore id const r
 string_length lit_is box_is failwith assert max min eq_type module_values caseable_is caseable_box_is (:>)
 (:?>) (=) module_map module_filter module_foldl module_foldr module_has_member sizeof string_format string_concat
 array_create_cuda_shared array_create_cuda_local infinityf64 infinityf32 abs blittable_is threadIdx blockIdx
-lit_min lit_max var
+lit_min lit_max var module_add module_remove
 } |> stack
     """) |> module_

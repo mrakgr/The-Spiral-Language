@@ -145,6 +145,8 @@ type Op =
     | ModuleCreate
     | ModuleWith
     | ModuleWithout
+    | ModuleAdd
+    | ModuleRemove
     | ModuleIsCPS
     | ModuleValues
     | ModuleHasMember
