@@ -1443,9 +1443,9 @@ inl ret ->
     inl SizeT = FS.Constructor SizeT_type
     inl CUdeviceptr = FS.Constructor CUdeviceptr_type << SizeT
 
-    inl to_uint x = FS.UnOp .uint64 x uint64
-    inl ptr_to_uint (ptr: CUdeviceptr_type) = FS.Field ptr .Pointer SizeT_type |> to_uint
-    inl uint_to_ptr (x: uint64) = SizeT x |> CUdeviceptr
+    //inl to_uint x = FS.UnOp .uint64 x uint64
+    //inl ptr_to_uint (ptr: CUdeviceptr_type) = FS.Field ptr .Pointer SizeT_type |> to_uint
+    //inl uint_to_ptr (x: uint64) = SizeT x |> CUdeviceptr
 
     inl run {blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} as runable =
         inl to_obj_ar args =
@@ -1478,6 +1478,6 @@ inl ret ->
         | {stream} -> FS.Method cuda_kernel .RunAsync(stream.extract,to_obj_ar args) unit
         | _ -> FS.Method cuda_kernel .Run(to_obj_ar args) float32 |> ignore
 
-    ret {context dim3 run SizeT SizeT_type CUdeviceptr CUdeviceptr_type ptr_to_uint uint_to_ptr to_uint}
+    ret {context run}
     """) |> module_
 

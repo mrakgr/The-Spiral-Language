@@ -265,10 +265,11 @@ inl transfer_template f tns =
     inl f = tns.dim |> fst |> span |> f
     tns.update_body <| inl body -> {body with ar = f body}
 
-inl methods = {
+inl methods = 
+    {
     array_create_cuda_global=inl s elem_type len ->
         /// Is just a CUdeviceptr rather than the true array.
-        inl ptr = s.allocate (len * sizeof elem_type)
+        inl ptr = s.allocate_mem (len * sizeof elem_type)
         function // It needs to be like this rather than a module so toa_map does not split it.
         | .elem_type -> elem_type
         | .ptr -> ptr
