@@ -173,14 +173,14 @@ HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
     """
 
 let kernel2 =
-    "kernel2",[cuda_modules],"Does the map_redo kernel work?",
+    "kernel2",[cuda_modules],"Does the map_redo_map kernel work?",
     """
 inb d = CudaModules (1024*1024)
 
-inl h = HostTensor.init 32 ((+) 1)
+inl h = HostTensor.init 1024 ((+) 1)
 inl a1 = d.CudaTensor.from_host_tensor h
-inl o1 = d.CudaKernel.map_redo {neutral_elem=0; redo=(+)} a1
-Console.writeline o1
+d.CudaKernel.map_redo_map {neutral_elem=0; redo=(+)} a1
+|> d.CudaTensor.print // 524800
     """
 
 let kernel3 =
@@ -427,6 +427,6 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_assert_enabled = false
     }
     
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel12
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel2
 |> printfn "%s"
 |> ignore

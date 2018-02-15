@@ -635,33 +635,40 @@ inl d ->
                     }
             }
 
-    /// Flattens the tensor to 1d, maps and reduces it.
+    /// Flattens the tensor to 1d, maps, reduces it and maps it.
     /// Map is optional. Allocates a temporary tensor for the intermediary results.
-    inl map_redo {d with redo neutral_elem} (!zip (!flatten (!to_dev_tensor in))) =
-        inl map = match d with {map} -> map | _ -> id
+    inl map_redo_map {d with redo neutral_elem} (!zip (!flatten in)) =
+        inl map_in = match d with {map_in} -> map_in | _ -> id
+        inl map_out = match d with {map_out} -> map_out | _ -> id
 
         inl in_a :: () = in.dim
 
         inl span = s in_a
         inl blockDim = lit_min span 256
-        inl gridDim = min 64 (divup span blockDim)
-        inl elem_type = type map in.elem_type
+        inl gridDim = lit_min 64 (divup span blockDim)
+        inl elem_type = type map_in in.elem_type
 
-        inl out = create {elem_type dim=gridDim}
-        inl out' = to_dev_tensor out
+        inl run {map_out blockDim gridDim} (!to_dev_tensor in) =
+            inl out = create {elem_type=type map_out in.elem_type; dim=gridDim}
+            inl out' = to_dev_tensor out
 
-        run {
-            stream blockDim gridDim
-            kernel = cuda 
-                inl x = 
-                    grid_for {blockDim gridDim} .x in_a {state=dyn neutral_elem; body=inl {state i} -> redo state (map (in i .get)) }
-                    |> cub_block_reduce {blockDim redo}
-                if threadIdx.x = 0 then out' blockIdx.x .set x
-            }
+            run {
+                stream blockDim gridDim
+                kernel = cuda 
+                    inl x = 
+                        grid_for {blockDim gridDim} .x in_a {state=dyn neutral_elem; body=inl {state i} -> redo state (map_in (in i .get)) }
+                        |> cub_block_reduce {blockDim redo} |> map_out
+                    if threadIdx.x = 0 then out' blockIdx.x .set x
+                }
 
-        inl tns = to_host_tensor out
-        inl state = tns 0 .get
-        Loops.for {from=1; near_to=tns.length; state body=inl {state i} -> redo state (tns i .get)}
+            out
+
+        if gridDim = 1 then
+            run {map_out blockDim gridDim} in
+        else
+            run {map_out=id; blockDim gridDim} in
+            |> run {map_out blockDim=gridDim; gridDim=1}
+        
 
     /// Replicates the 1d `in` and maps it along the outer dimension as determined by in'.
     inl d2_replicate_map' f (!zip in) (!zip in') (!zip out) =
@@ -1166,7 +1173,7 @@ inl d ->
         out
 
     {
-    map' map map_redo d2_replicate_map' d2_replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
+    map' map map_redo_map d2_replicate_map' d2_replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
     map_d1_seq_broadcast' map_d1_seq_broadcast init' init
