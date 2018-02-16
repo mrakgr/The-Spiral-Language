@@ -8,10 +8,10 @@ let resize_array =
     "ResizeArray",[extern_],"The resizable array module.",
     """
 open Extern
-inl create {d with elem_type} = 
+inl create {d with elem_type} =
     inl ty = fs [text: "ResizeArray"; types: elem_type]
-    inl x = 
-        match d with 
+    inl x =
+        match d with
         | {size} -> FS.Constructor ty (to int32 size)
         | _ -> FS.Constructor ty ()
 
@@ -50,169 +50,215 @@ let allocator =
     (
     "Allocator",[resize_array;loops;option;extern_;console],"The section based GPU memory allocator module.",
     """
-inl {Cuda} ->
-    open Cuda
-    open Extern
-    inl smartptr_create (ptr: uint64) =
-        inl cell = ref ptr
-        function
-        | .Dispose -> cell := 0u64
-        | .Try -> cell()
-        | () -> join 
-            inl x = cell ()
-            assert (x <> 0u64) "A Cuda memory cell that has been disposed has been tried to be accessed."
-            x
-        |> stack
+open Extern
 
-    inl mult = 256u64
-    inl round_up_to_multiple size = (size + mult - 1u64) / mult * mult
+inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
+inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
+inl SizeT = FS.Constructor SizeT_type
+inl CUdeviceptr = FS.Constructor CUdeviceptr_type << SizeT
 
-    inl allocate_global =
-        to uint64 >> round_up_to_multiple >> dyn
-        >> inl size -> { size ptr = FS.Method context .AllocateMemory (SizeT size) CUdeviceptr_type |> to_uint |> smartptr_create }
+inl smartptr_create (ptr: uint64) =
+    inl cell = ref ptr
+    function
+    | .Dispose -> cell := 0u64
+    | .Try -> cell()
+    | () -> join 
+        inl x = cell ()
+        assert (x <> 0u64) "A Cuda memory cell that has been disposed has been tried to be accessed."
+        x
+    |> stack
 
-    inl compare a b = if a < b then -1i32 elif a = b then 0i32 else 1i32
-    inl sort_ptrs x = x.sort (inl {ptr=a} {ptr=b} -> compare (a()) (b()))
+inl mult = 256u64
+inl round_up_to_multiple size = (size + mult - 1u64) / mult * mult
 
-    met free_cells_refresh {section with pool free_cells used_cells} = 
-        used_cells.filter (inl {ptr} -> ptr.Try = 0u64)
-        sort_ptrs used_cells
-        free_cells.clear
-        inl near_to = used_cells.count
-        inl add {ptr size} = 
-            inl ptr = ptr()
-            inl ptr' = round_up_to_multiple ptr
-            inl d = ptr' - ptr
-            if size >= d then free_cells.add {ptr = smartptr_create ptr'; size=size-d}
+inl allocate_global s =
+    to uint64 >> round_up_to_multiple >> dyn
+    >> inl size -> { size ptr = FS.Method s.context .AllocateMemory (SizeT size) CUdeviceptr_type |> to_uint |> smartptr_create }
 
-        inl start x = x.ptr()
-        inl end x = x.ptr() + x.size
+inl compare a b = if a < b then -1i32 elif a = b then 0i32 else 1i32
+inl sort_ptrs x = x.sort (inl {ptr=a} {ptr=b} -> compare (a()) (b()))
+inl sort_sizes x = x.sort (inl {size=a} {size=b} -> compare a b)
 
-        Loops.for {from=0i32; near_to by=1i32; state={pool with size = 0u64}; body=inl {{state with ptr} i} ->
-            inl state' = free_cells i
-            inl size = start state' - end state
-            add { ptr size }
-            state'
-            }
-        |> inl state -> // This is for the final free cell at the end.
-            inl size = end pool - start state
-            add {state with size}
+met free_cells_refresh {section with pool free_cells used_cells} = 
+    used_cells.filter (inl {ptr} -> ptr.Try = 0u64)
+    sort_ptrs used_cells
+    free_cells.clear
+    inl near_to = used_cells.count
+    inl add {ptr size} = 
+        inl ptr = ptr()
+        inl ptr' = round_up_to_multiple ptr
+        inl d = ptr' - ptr
+        if size >= d then free_cells.add {ptr = smartptr_create ptr'; size=size-d}
 
-    met allocate {section with free_cells} (!(to uint64 >> round_up_to_multiple >> dyn) size') =
-        inl loop next =
-            inl {ptr size} = free_cells 0i32
-            if size' <= size then
-                free_cells.set 0i32 {ptr=smartptr_create (ptr.Try+size'); size=size-size'}
-                {ptr size=size'}
-            else next()
+    inl start x = x.ptr()
+    inl end x = x.ptr() + x.size
 
-        inl {ptr} =
-            loop <| inl _ ->
-                sort_ptrs free_cells
-                loop <| inl _ -> 
-                    free_cells_refresh section
-                    sort_ptrs free_cells
-                    loop <| inl _ ->
-                        failwith free_cells.elem_type "Out of memory in the designated section."
-        ptr
+    Loops.for {from=0i32; near_to by=1i32; state={pool with size = 0u64}; body=inl {{state with ptr} i} ->
+        inl state' = free_cells i
+        inl size = start state' - end state
+        add { ptr size }
+        state'
+        }
+    |> inl state -> // This is for the final free cell at the end.
+        inl size = end pool - start state
+        add {state with size}
 
-    inl size ret ->
-        inl pool = allocate_global size
+met allocate {section with free_cells} (!(to uint64 >> round_up_to_multiple >> dyn) size') =
+    inl loop next =
+        inl {ptr size} = free_cells 0i32
+        if size' <= size then
+            free_cells.set 0i32 {ptr=smartptr_create (ptr.Try+size'); size=size-size'}
+            {ptr size=size'}
+        else next()
+
+    inl {ptr} =
+        loop <| inl _ ->
+            sort_sizes free_cells
+            loop <| inl _ -> 
+                free_cells_refresh section
+                sort_sizes free_cells
+                loop <| inl _ ->
+                    failwith free_cells.elem_type "Out of memory in the designated section."
+    ptr
+
+inl methods =
+    {
+    create = inl s size ret ->
+        inl pool = allocate_global s size
         inl elem_type = type pool
         inl free_cells, used_cells = ResizeArray.create {elem_type}, ResizeArray.create {elem_type}
         inl section = {pool free_cells used_cells}
         free_cells_refresh section
-        inl r = ret function
+
+        inl allocate _ = function
             | .elem_type -> type elem_type.ptr
             | .refresh -> free_cells_refresh section
             | x -> allocate section x
+
+        inl r = s.module_add .Section {allocate} |> ret
 
         inl ptr = pool.ptr
         FS.Method context .FreeMemory (ptr() |> CUdeviceptr) unit
         ptr.Dispose
         r
+    } |> stack
+
+s.module_add .Section methods
     """) |> module_
 
 let region =
     (
     "Region",[resize_array],"The region based resource tracker.",
     """
-inl create' create =
-    inl counter_ref_create ptr =
-        inl count = ref 0
-        function
-        | .inc -> count := count() + 1
-        | .dec -> 
-            count := count() - 1
-            if count() = 0 then ptr.Dispose
-        | x -> ptr x
-        |> stack
+inl counter_ref_create ptr =
+    inl count = ref 0
+    function
+    | .inc -> count := count() + 1
+    | .dec -> 
+        count := count() - 1
+        if count() = 0 then ptr.Dispose
+    | x -> ptr x
+    |> stack
 
-    inl elem_type = type counter_ref_create (var create.elem_type)
-    inl region = ResizeArray.create {elem_type}
+inl assign {region_name} s r = 
+    inl region = s region_name
+    join r.inc; region.add r
 
-    met assign (r: elem_type) = r.inc; region.add r
-    met allocate (!dyn x) = 
-        inl r = create x |> counter_ref_create
-        assign r
-        r
-        
-    met clear _ =
+inl allocate_mem s (!dyn x) =
+    inl allocate = s.Section.allocate
+    join
+        inl r = allocate x |> counter_ref_create
+        assign r; r
+
+inl allocate_stream s =
+    inl allocate = s.Stream.create
+    inl r = 
+        join
+            inl r = allocate () |> counter_ref_create
+            assign r; r
+    s.method_add .stream (const r)
+
+inl clear {region_name} s =
+    inl region = s region_name
+    join 
         region.iter (inl r -> r.dec)
         region.clear
 
-    function
-    | .assign -> assign
-    | .elem_type -> elem_type
-    | .clear -> clear()
-    | i -> allocate i
+inl create {region_name allocate} s = 
+    inl elem_type = type counter_ref_create (var (allocate s).elem_type)
+    inl region = ResizeArray.create {elem_type}
+    s.add_method region_name (const region)
 
-inl create x ret = 
-    inl region = create' x
-    inl r = ret region
-    region.clear
+inl create' {region_module_name} s ret =
+    inl s = s region_module_name .create
+    inl r = ret s
+    s region_module_name .clear
     r
 
-{create create'}
+inl methods_template allocate d = 
+    {
+    allocate
+    assign = assign d
+    clear = clear d
+    create = create d 
+    create' = create' d
+    } |> stack
+
+inl methods_mem =
+    inl region_module_name = .RegionMem
+    region_module_name, methods_template allocate_mem {
+        region_module_name
+        region_name = .region_mem
+        allocate = inl s -> s.Section.allocate
+        }
+
+inl methods_stream =
+    inl region_module_name = .RegionStream
+    region_module_name, methods_template allocate_stream {
+        region_module_name
+        region_name = .region_stream
+        allocate = inl s -> s.Stream.create
+        }
+
+inl s -> 
+    inl add (a, b) s = s.module_add a b
+    add methods_mem s |> add methods_stream
     """) |> module_
 
 let cuda_stream = 
     (
     "CudaStream",[extern_],"The Cuda stream module.",
     """
-inl {Cuda} ->
-    open Extern
-    inl ty x = fs [text: x]
-    inl CudaStream_type = ty "ManagedCuda.CudaStream"
-    inl CUstream_type = ty "ManagedCuda.BasicTypes.CUstream"
+open Extern
+inl ty x = fs [text: x]
+inl CudaStream_type = ty "ManagedCuda.CudaStream"
+inl CUstream_type = ty "ManagedCuda.BasicTypes.CUstream"
+inl dispose x = FS.Method x .Dispose () ()
 
-    inl create' _ = 
-        inl stream = FS.Constructor CudaStream_type ()
-        inl is_live = ref true
-        inl dispose x = FS.Method x .Dispose () ()
-        function
-        | .Dispose -> 
-            dispose stream
-            is_live := false
-        | x ->
-            assert (is_live()) "The stream has been disposed."
-            match x with
-            | .extract -> macro.fs CUstream_type [arg: stream; text: ".Stream"]
-            | .synchronize -> FS.Method stream .Synchronize() ()
-            | .wait_on on -> join
-                inl event_type = fs [text: "ManagedCuda.CudaEvent"]
-                inl event = FS.Constructor event_type ()
-                FS.Method event .Record on.extract ()
-                macro.fs () [arg: stream; text: ".WaitEvent "; arg: event; text: ".Event"]
-                dispose event
-            | () -> stream
-        |> stack
+inl create _ =
+    inl is_live = ref true
+    inl stream = FS.Constructor CudaStream_type ()
+    function
+    | .Dispose -> 
+        dispose stream
+        is_live := false
+    | x ->
+        assert (is_live()) "The stream has been disposed."
+        match x with
+        | .extract -> macro.fs CUstream_type [arg: stream; text: ".Stream"]
+        | .synchronize -> FS.Method stream .Synchronize() ()
+        | .wait_on on -> join
+            inl event_type = fs [text: "ManagedCuda.CudaEvent"]
+            inl event = FS.Constructor event_type ()
+            FS.Method event .Record on.extract ()
+            macro.fs () [arg: stream; text: ".WaitEvent "; arg: event; text: ".Event"]
+            dispose event
+        | () -> stream
+    |> stack
 
-    inl create = function
-        | .elem_type -> type create' ()
-        | () -> create' ()
+inl methods = { create elem_type = const type create () } |> stack
 
-    {create}
+inl s -> s.module_add .Stream methods
     """) |> module_
 
 let cuda_tensor = 
@@ -268,8 +314,7 @@ inl transfer_template f tns =
 inl methods = 
     {
     array_create_cuda_global=inl s elem_type len ->
-        /// Is just a CUdeviceptr rather than the true array.
-        inl ptr = s.allocate_mem (len * sizeof elem_type)
+        inl ptr = s.Region.allocate (len * sizeof elem_type)
         function // It needs to be like this rather than a module so toa_map does not split it.
         | .elem_type -> elem_type
         | .ptr -> ptr
@@ -320,7 +365,7 @@ inl methods =
     zero=inl s -> s.CudaTensor.create >> s.CudaTensor.clear'
     zero_like=inl s -> s.CudaTensor.create_like >> s.CudaTensor.clear'
 
-    print=met s x -> dyn x |> s.CudaTensor.to_host_tensor |> HostTensor.print
+    print=met s (!dyn x) -> s.CudaTensor.to_host_tensor x |> HostTensor.print
     } |> stack
 
 inl s -> s.add_module .CudaTensor methods
