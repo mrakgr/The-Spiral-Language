@@ -1315,9 +1315,25 @@ span equal split flatten assert_contiguous assert_dim reshape
 } |> stack
     """) |> module_
 
+let object =
+    (
+    "Object",[loops;console;array;host_tensor;extern_],"The object module.",
+    """
+inl object = {
+    module_add = inl s name v -> 
+        inl s' = s.unwrap
+        inl v = if module_has_member name s' then module_foldr module_add v (s' name) else v
+        module_add name (inl s name -> v name s) s' |> obj
+    member_add = inl s name v -> module_add name v s.unwrap |> obj
+    unwrap = id
+    }
+
+{object} |> stack
+    """) |> module_
+
 let cuda =
     (
-    "Cuda",[loops;console;array;host_tensor;extern_],"The Cuda module.",
+    "Cuda",[loops;console;array;host_tensor;extern_;object],"The Cuda module.",
     """
 inl ret -> 
     open Extern
@@ -1447,7 +1463,7 @@ inl ret ->
     //inl ptr_to_uint (ptr: CUdeviceptr_type) = FS.Field ptr .Pointer SizeT_type |> to_uint
     //inl uint_to_ptr (x: uint64) = SizeT x |> CUdeviceptr
 
-    inl run {blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} as runable =
+    inl run s {runnable with blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} =
         inl to_obj_ar args =
             inl ty = fs [text: "System.Object"] |> array
             !MacroFs(ty,[fs_array_args: args; text: ": "; type: ty])
@@ -1474,10 +1490,14 @@ inl ret ->
         FS.Method cuda_kernel .set_GridDimensions(dim3 gridDim) unit
         FS.Method cuda_kernel .set_BlockDimensions(dim3 blockDim) unit
 
-        match runable with
-        | {stream} -> FS.Method cuda_kernel .RunAsync(stream.extract,to_obj_ar args) unit
-        | _ -> FS.Method cuda_kernel .Run(to_obj_ar args) float32 |> ignore
+        match s.stream with
+        | () -> FS.Method cuda_kernel .Run(to_obj_ar args) float32
+        | stream -> FS.Method cuda_kernel .RunAsync(stream.extract,to_obj_ar args) unit
 
-    ret {context run}
+    { Object.object with
+    run
+    context = const context
+    stream = const ()
+    } |> obj |> ret
     """) |> module_
 

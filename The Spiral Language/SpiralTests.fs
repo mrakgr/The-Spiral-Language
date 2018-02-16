@@ -556,13 +556,11 @@ f {a=1}, f {}
 let test45 =
     "test45",[],"Does the module_add and module_remove work?",
     """
-inl s = {}
-inl s = module_add s .add (inl a b -> a + b)
-inl s = module_add s .sub (inl a b -> a - b)
-inl s = module_add s .q 5
-inl s = module_add s .w 10
-inl s = module_remove s .q
-s
+module_add .add (inl a b -> a + b) {}
+|> module_add .sub (inl a b -> a - b)
+|> module_add .q 5
+|> module_add .w 10
+|> module_remove .q
     """
 
 let test46 =

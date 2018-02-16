@@ -280,9 +280,12 @@ inl blockIdx (.x | .y | .z) as x = macro.cd int64 [text: "blockIdx."; text: x]
 inl var x = !ToVar(x)
 
 /// Adds a variable to the module.
-inl module_add s name v = !ModuleAdd(s,name,v)
+inl module_add name v s = !ModuleAdd(s,name,v)
 /// Removes a variable from the module. Does nothing if the variable is not present.
-inl module_remove s name = !ModuleRemove(s,name)
+inl module_remove name s = !ModuleRemove(s,name)
+
+/// Converts the argument (usually a module) to the object form.
+inl obj s x = s x s
 
 {
 type_lit_lift error_type print_static dyn (=>) cd fs log exp tanh sqrt array_create array_length array_is array
@@ -292,6 +295,6 @@ string char unit type_lit_cast type_lit_is term_cast to negate ignore id const r
 string_length lit_is box_is failwith assert max min eq_type module_values caseable_is caseable_box_is (:>)
 (:?>) (=) module_map module_filter module_foldl module_foldr module_has_member sizeof string_format string_concat
 array_create_cuda_shared array_create_cuda_local infinityf64 infinityf32 abs blittable_is threadIdx blockIdx
-lit_min lit_max var module_add module_remove
-} |> stack
+lit_min lit_max var module_add module_remove obj
+}
     """) |> module_
