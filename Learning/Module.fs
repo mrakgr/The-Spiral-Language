@@ -121,29 +121,26 @@ met allocate {section with free_cells} (!(to uint64 >> round_up_to_multiple >> d
                     failwith free_cells.elem_type "Out of memory in the designated section."
     ptr
 
-inl methods =
-    {
-    create = inl s size ret ->
-        inl pool = allocate_global s size
-        inl elem_type = type pool
-        inl free_cells, used_cells = ResizeArray.create {elem_type}, ResizeArray.create {elem_type}
-        inl section = {pool free_cells used_cells}
-        free_cells_refresh section
+inl section_create s size ret =
+    inl pool = allocate_global s size
+    inl elem_type = type pool
+    inl free_cells, used_cells = ResizeArray.create {elem_type}, ResizeArray.create {elem_type}
+    inl section = {pool free_cells used_cells}
+    free_cells_refresh section
 
-        inl allocate _ = function
-            | .elem_type -> type elem_type.ptr
-            | .refresh -> free_cells_refresh section
-            | x -> allocate section x
+    inl allocate _ = function
+        | .elem_type -> type elem_type.ptr
+        | .refresh -> free_cells_refresh section
+        | x -> allocate section x
 
-        inl r = s.module_add .Section {allocate} |> ret
+    inl r = s.module_add .Section {allocate} |> ret
 
-        inl ptr = pool.ptr
-        FS.Method context .FreeMemory (ptr() |> CUdeviceptr) unit
-        ptr.Dispose
-        r
-    } |> stack
+    inl ptr = pool.ptr
+    FS.Method context .FreeMemory (ptr() |> CUdeviceptr) unit
+    ptr.Dispose
+    r
 
-s.module_add .Section methods
+stack section_create
     """) |> module_
 
 let region =

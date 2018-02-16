@@ -18,8 +18,8 @@ let cfg: Spiral.Types.CompilerSettings = {
 let allocator1 =
     "allocator1",[allocator;cuda],"Does the allocator work?",
     """
-inb Cuda = Cuda
-inb allocate = Allocator {Cuda} 1024
+inb s = Cuda
+inb allocate = Allocator.create s 1024
 inl a = allocate 128
 inl b = allocate 64
 inl c = allocate 32
@@ -84,6 +84,6 @@ inl a3 = s.CudaTensor.zero_like a1
 ()
     """
     
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" tensor1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" allocator1
 |> printfn "%s"
 |> ignore
