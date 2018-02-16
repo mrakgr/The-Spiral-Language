@@ -1172,9 +1172,29 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             prim_bin_op_template d er check prim_bin_op_helper a b t
 
         let prim_bitwise_op d a b t =
-            let er a b = sprintf "`is_any_int a && is_any_int b` is false.\na=%s, b=%s" (show_typedexpr a) (show_typedexpr b)
-            let check a b = is_any_int a && is_any_int b
-            prim_bin_op_template d er check prim_bin_op_helper a b t
+            let er a b = sprintf "`get_type a = get_type b && is_any_int a && is_any_int b` is false.\na=%s, b=%s" (show_typedexpr a) (show_typedexpr b)
+            let check a b = get_type a = get_type b && is_any_int a && is_any_int b
+            prim_bin_op_template d er check (fun t a b ->
+                let inline op_bitwise a b = 
+                    match t with
+                    | BitwiseAnd -> a &&& b
+                    | BitwiseOr -> a ||| b
+                    | BitwiseXor -> a ^^^ b
+                    | _ -> on_type_er (trace d) "Compiler error: Expected a bitwise operation."
+                match a,b with
+                | TyLit a', TyLit b' ->
+                    match a', b' with
+                    | LitInt8 a, LitInt8 b -> op_bitwise a b |> LitInt8 |> TyLit
+                    | LitInt16 a, LitInt16 b -> op_bitwise a b |> LitInt16 |> TyLit
+                    | LitInt32 a, LitInt32 b -> op_bitwise a b |> LitInt32 |> TyLit
+                    | LitInt64 a, LitInt64 b -> op_bitwise a b |> LitInt64 |> TyLit
+                    | LitUInt8 a, LitUInt8 b -> op_bitwise a b |> LitUInt8 |> TyLit
+                    | LitUInt16 a, LitUInt16 b -> op_bitwise a b |> LitUInt16 |> TyLit
+                    | LitUInt32 a, LitUInt32 b -> op_bitwise a b |> LitUInt32 |> TyLit
+                    | LitUInt64 a, LitUInt64 b -> op_bitwise a b |> LitUInt64 |> TyLit
+                    | _ -> prim_bin_op_helper t a b
+                | _ -> prim_bin_op_helper t a b
+                ) a b t
 
         let prim_un_op_template d check_error is_check k a t =
             let a = tev d a
