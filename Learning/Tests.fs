@@ -19,10 +19,10 @@ let allocator1 =
     "allocator1",[allocator;cuda],"Does the allocator work?",
     """
 inb s = Cuda
-inb allocate = Allocator.create s 1024
-inl a = allocate 128
-inl b = allocate 64
-inl c = allocate 32
+inb s = Allocator s 1024
+inl a = s.Section.allocate 128
+inl b = s.Section.allocate 64
+inl c = s.Section.allocate 32
 c.Dispose
 b.Dispose
 a.Dispose
@@ -31,26 +31,27 @@ a.Dispose
 let allocator2 =
     "allocator2",[allocator;region;cuda],"Does the allocator + regions work?",
     """
-inb Cuda = Cuda
-inb allocate = Allocator {Cuda} 1024
-inb region = Region.create allocate
-inl a = region 128
-inl b = region 64
-inl c = region 32
+inb s = Cuda
+inb s = Allocator s 1024
+inl s = Region s .RegionMem .create
+inl a = s.RegionMem.allocate 128
+inl b = s.RegionMem.allocate 64
+inl c = s.RegionMem.allocate 32
+s.RegionMem.clear
 ()
     """
 
 let allocator3 =
     "allocator3",[allocator;region;cuda_stream;cuda],"Does the stream region work?",
     """
-inb Cuda = Cuda
-inl CudaStream = CudaStream {Cuda}
-inb allocate = Allocator {Cuda} 1024
-inb stream_region = Region.create CudaStream.create
-inl a = stream_region ()
-inl b = stream_region ()
-inl c = stream_region ()
-a.wait_on b
+inb s = Cuda
+inb s = Allocator s 1024
+inl s = CudaStream s |> Region
+inb s = s.RegionStream .create'
+inl a = s.RegionStream.allocate
+inl b = s.RegionStream.allocate
+inl c = s.RegionStream.allocate
+c.stream.wait_on b.stream
 ()
     """
 
@@ -84,6 +85,6 @@ inl a3 = s.CudaTensor.zero_like a1
 ()
     """
     
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" allocator1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" allocator3
 |> printfn "%s"
 |> ignore

@@ -69,8 +69,10 @@ inl smartptr_create (ptr: uint64) =
     |> stack
 
 inl mult = 256u64
-inl round_up_to_multiple size = (size + mult - 1u64) / mult * mult
+assert (mult <> 0u64 && (mult &&& mult - 1u64) = 0u64) "Multiple must be a power of 2." 
+inl round_up_to_multiple size = (size + mult - 1u64) &&& 0u64 - mult
 
+inl to_uint x = FS.UnOp .uint64 x uint64
 inl allocate_global s =
     to uint64 >> round_up_to_multiple >> dyn
     >> inl size -> { size ptr = FS.Method s.context .AllocateMemory (SizeT size) CUdeviceptr_type |> to_uint |> smartptr_create }
@@ -128,15 +130,17 @@ inl section_create s size ret =
     inl section = {pool free_cells used_cells}
     free_cells_refresh section
 
-    inl allocate _ = function
+    inl allocate _ = 
+        function
         | .elem_type -> type elem_type.ptr
         | .refresh -> free_cells_refresh section
         | x -> allocate section x
+        |> heap
 
     inl r = s.module_add .Section {allocate} |> ret
 
     inl ptr = pool.ptr
-    FS.Method context .FreeMemory (ptr() |> CUdeviceptr) unit
+    FS.Method s.context .FreeMemory (ptr() |> CUdeviceptr) unit
     ptr.Dispose
     r
 
@@ -155,25 +159,30 @@ inl counter_ref_create ptr =
         count := count() - 1
         if count() = 0 then ptr.Dispose
     | x -> ptr x
-    |> stack
+    |> heap
 
 inl assign {region_name} s r = 
     inl region = s region_name
     join r.inc; region.add r
 
-inl allocate_mem s (!dyn x) =
-    inl allocate = s.Section.allocate
+inl allocate d s (!dyn x) =
+    inl allocate = d.allocate s
     join
         inl r = allocate x |> counter_ref_create
-        assign r; r
+        assign d s r; r
 
-inl allocate_stream s =
-    inl allocate = s.Stream.create
-    inl r = 
-        join
-            inl r = allocate () |> counter_ref_create
-            assign r; r
-    s.method_add .stream (const r)
+inl allocate_mem d s (!dyn x) =
+    inl allocate = d.allocate s
+    join
+        inl r = allocate x |> counter_ref_create
+        assign d s r; r
+
+inl allocate_stream d s =
+    inl allocate = d.allocate s
+    join
+        inl r = counter_ref_create allocate
+        assign d s r; r
+    |> (const >> s.member_add .stream)
 
 inl clear {region_name} s =
     inl region = s region_name
@@ -184,7 +193,7 @@ inl clear {region_name} s =
 inl create {region_name allocate} s = 
     inl elem_type = type counter_ref_create (var (allocate s).elem_type)
     inl region = ResizeArray.create {elem_type}
-    s.add_method region_name (const region)
+    s.member_add region_name (const region)
 
 inl create' {region_module_name} s ret =
     inl s = s region_module_name .create
@@ -192,30 +201,33 @@ inl create' {region_module_name} s ret =
     s region_module_name .clear
     r
 
-inl methods_template allocate d = 
+inl methods_template d = 
     {
-    allocate
     assign = assign d
     clear = clear d
     create = create d 
     create' = create' d
     } |> stack
 
-inl methods_mem =
+inl methods_mem = 
     inl region_module_name = .RegionMem
-    region_module_name, methods_template allocate_mem {
+    inl d = {
         region_module_name
         region_name = .region_mem
         allocate = inl s -> s.Section.allocate
         }
+    inl x = methods_template d
+    region_module_name, {x with allocate = allocate_mem d}
 
 inl methods_stream =
     inl region_module_name = .RegionStream
-    region_module_name, methods_template allocate_stream {
+    inl d = {
         region_module_name
         region_name = .region_stream
-        allocate = inl s -> s.Stream.create
+        allocate = inl s -> s.Stream.allocate
         }
+    inl x = methods_template d
+    region_module_name, {x with allocate = allocate_stream d }
 
 inl s -> 
     inl add (a, b) s = s.module_add a b
@@ -232,30 +244,29 @@ inl CudaStream_type = ty "ManagedCuda.CudaStream"
 inl CUstream_type = ty "ManagedCuda.BasicTypes.CUstream"
 inl dispose x = FS.Method x .Dispose () ()
 
-inl create _ =
+inl rec allocate _ =
     inl is_live = ref true
     inl stream = FS.Constructor CudaStream_type ()
     function
     | .Dispose -> 
         dispose stream
         is_live := false
-    | x ->
+    | .elem_type -> type allocate ()
+    | x -> join
         assert (is_live()) "The stream has been disposed."
         match x with
         | .extract -> macro.fs CUstream_type [arg: stream; text: ".Stream"]
         | .synchronize -> FS.Method stream .Synchronize() ()
-        | .wait_on on -> join
+        | .wait_on on ->
             inl event_type = fs [text: "ManagedCuda.CudaEvent"]
             inl event = FS.Constructor event_type ()
             FS.Method event .Record on.extract ()
             macro.fs () [arg: stream; text: ".WaitEvent "; arg: event; text: ".Event"]
             dispose event
         | () -> stream
-    |> stack
+    |> heap
 
-inl methods = { create elem_type = const type create () } |> stack
-
-inl s -> s.module_add .Stream methods
+inl s -> s.module_add .Stream {allocate}
     """) |> module_
 
 let cuda_tensor = 
@@ -365,5 +376,5 @@ inl methods =
     print=met s (!dyn x) -> s.CudaTensor.to_host_tensor x |> HostTensor.print
     } |> stack
 
-inl s -> s.add_module .CudaTensor methods
+inl s -> s.module_add .CudaTensor methods
     """) |> module_

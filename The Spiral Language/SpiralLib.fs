@@ -1319,13 +1319,11 @@ let object =
     (
     "Object",[loops;console;array;host_tensor;extern_],"The object module.",
     """
-inl object = {
-    module_add = inl s name v -> module_add name (inl s name -> v name (obj s)) s |> obj
-    member_add = inl s name v -> module_add name (inl s -> v (obj s)) s |> obj
-    unwrap = id
-    }
-
-{object} |> stack
+{
+module_add = inl s name v -> module_add name (inl s name -> v name (obj s)) s |> obj
+member_add = inl s name v -> module_add name (inl s -> v (obj s)) s |> obj
+unwrap = id
+} |> stack
     """) |> module_
 
 let cuda =
@@ -1491,7 +1489,7 @@ inl ret ->
         | () -> FS.Method cuda_kernel .Run(to_obj_ar args) float32
         | stream -> FS.Method cuda_kernel .RunAsync(stream.extract,to_obj_ar args) unit
 
-    { Object.object with
+    { Object with
     run
     context = const context
     stream = const ()
