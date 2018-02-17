@@ -227,9 +227,8 @@ inl methods_stream =
         allocate = inl s -> s.Stream.allocate
         }
     inl x = methods_template d
-    region_module_name, {x with 
+    region_module_name, {x with
         allocate = allocate_stream d 
-        create' = inl s ret -> self s (inl s -> ret s.RegionStream.allcoate)
         create = inl s -> (self s).RegionStream.allocate
         }
 
@@ -326,7 +325,7 @@ inl transfer_template f tns =
 inl methods = 
     {
     array_create_cuda_global=inl s elem_type len ->
-        inl ptr = s.Region.allocate (len * sizeof elem_type)
+        inl ptr = s.RegionMem.allocate (len * sizeof elem_type)
         function // It needs to be like this rather than a module so toa_map does not split it.
         | .elem_type -> elem_type
         | .ptr -> ptr
@@ -368,9 +367,9 @@ inl methods =
     clear=inl s tns ->
         assert_contiguous tns
         inl span = tns.dim |> fst |> span
-        inl stream = s.CudaTensor.stream.extract
+        inl stream = s.stream.extract
         tns.update_body <| inl {body with size=size::_ ar} ->
-            FS.Method s.CudaTensor.context .ClearMemoryAsync (CUdeviceptr (ar.ptr()), 0u8, size * span * sizeof ar.elem_type |> SizeT, stream) unit
+            FS.Method s.context .ClearMemoryAsync (CUdeviceptr (ar.ptr()), 0u8, size * span * sizeof ar.elem_type |> SizeT, stream) unit
         |> ignore
 
     clear'=inl s x -> s.CudaTensor.clear x; x
@@ -382,3 +381,150 @@ inl methods =
 
 inl s -> s.module_add .CudaTensor methods
     """) |> module_
+
+let cuda_random =
+    (
+    "CudaRandom",[extern_;cuda_tensor],"The CudaRandom module.",
+    """
+inl s ret ->
+    open Extern
+
+    inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
+    inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
+    inl SizeT = FS.Constructor SizeT_type
+    inl CUdeviceptr = FS.Constructor CUdeviceptr_type << SizeT
+    
+    use random = 
+        inl generator_type = fs [text: "ManagedCuda.CudaRand.GeneratorType"]
+        FS.Constructor (fs [text: "ManagedCuda.CudaRand.CudaRandDevice"]) (FS.StaticField generator_type .PseudoDefault generator_type)
+    
+    open HostTensor
+    
+    inl fill_array s distribution (!SizeT size1d) ar =
+        FS.Method random .SetStream s.stream.extract unit
+        inl elem_type = ar.elem_type
+        inl ar = CUdeviceptr ar
+        inl gen, dot = "Generate", "."
+        match distribution with
+        | .Uniform ->
+            inl args = ar, size1d
+            inl bits = 
+                match elem_type with
+                | _ : float32 -> "32" | _ : float64 -> "64"
+                | _ -> error_type ("Only 32/64 bit float types are supported. Try UInt if you need uint random numbers. Got: ", elem_type)
+            macro.fs unit [arg: random; text: dot; text: gen; text: distribution; text: bits; args: args]
+        | {dst=(.Normal | .LogNormal) & distribution stddev mean} ->
+            match stddev with | _: float32 -> () | _ -> error_type "Standard deviation needs to be in float32."
+            match mean with | _: float32 -> () | _ -> error_type "Mean needs to be in float32."
+
+            inl args = ar, size1d, mean, stddev
+            inl bits = 
+                match elem_type with
+                | _ : float32 -> "32" | _ : float64 -> "64"
+                | _ -> error_type ("Only 32/64 bit float types are supported. Try UInt if you need uint random numbers. Got: ", elem_type)
+            macro.fs unit [arg: random; text: dot; text: gen; text: distribution; text: bits; args: args]
+        | .UInt -> // every bit random
+            inl args = ar, size1d
+            inl bits =
+                match elem_type with
+                | _ : uint32 -> "32" | _ : uint64 -> "64"
+                | _ -> error_type "Only 32/64 bit uint types are supported."
+            macro.fs unit [arg: random; text: dot; text: gen; text: bits; args: args]
+
+    inl fill s op (!zip in) =
+        inl in' = flatten in |> s.CudaTensor.to_dev_tensor
+        inl len = in'.length
+        in'.update_body (inl {ar} -> fill_array s op len ar) |> ignore
+
+    inl create s op dsc =
+        inl device_tensor = s.CudaTensor.create dsc
+        fill s op device_tensor
+        device_tensor
+
+    ret <| s.module_add .CudaRandom {fill create}
+    """) |> module_
+
+let cuda_blas =
+    (
+    "CudaBlas",[cuda_tensor;extern_],"The CudaBlas module.",
+    """
+inl s ret ->
+    open Extern
+    
+    inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
+    inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
+    inl SizeT = FS.Constructor SizeT_type
+    inl CUdeviceptr = FS.Constructor CUdeviceptr_type << SizeT
+
+    inl enum ty x = FS.StaticField ty x ty
+
+    inl operation_type = fs [text: "ManagedCuda.CudaBlas.Operation"]
+    inl to_operation = function
+        | .T -> enum operation_type .Transpose
+        | .nT -> enum operation_type .NonTranspose
+
+    inl isT = function
+        | .T -> true
+        | _ -> false
+
+    inl isnT = function
+        | .nT -> true
+        | _ -> false
+
+    inl len = HostTensor.span
+    inl rows x = x.dim |> inl a,b -> len a
+    inl cols x = x.dim |> inl a,b -> len b
+    inl ld x = x.bodies.size |> fst
+
+    use cublas =
+        inl cublas_type = fs [text: "ManagedCuda.CudaBlas.CudaBlas"]
+        inl pointer_mode_type = fs [text: "ManagedCuda.CudaBlas.PointerMode"]
+        inl atomics_mode_type = fs [text: "ManagedCuda.CudaBlas.AtomicsMode"]
+        FS.Constructor cublas_type (enum pointer_mode_type .Host, enum atomics_mode_type .Allowed)
+
+    inl handle = FS.Method cublas .get_CublasHandle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
+
+    open HostTensor
+    inl call s method args = 
+        inl to_dev_tensor x = assert_contiguous x; s.CudaTensor.to_dev_tensor x
+        inl args = Tuple.map (function x : int64 -> to int32 x | x -> x) args
+        join 
+            FS.Method cublas .set_Stream s.stream.extract ()
+            inl args = 
+                Tuple.map (function 
+                    | x : float64 | x : float32 -> ref x
+                    | (.nT | .T) as x -> to_operation x
+                    | {ptr=!to_dev_tensor x} -> x.bodies.ar |> CUdeviceptr
+                    | x -> x
+                    ) args
+            inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
+            inl status_type = fs [text: "ManagedCuda.CudaBlas.CublasStatus"]
+            inl assert_ok status = macro.fs unit [text: "if "; arg: status; text: " <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException"; args: status]
+            FS.StaticMethod native_type method args status_type |> assert_ok
+
+    /// General matrix-matrix multiply from cuBLAS. Inplace version
+    inl gemm' s transa transb alpha A B beta C =
+        inl a_col = if isnT transa then cols A else rows A
+        inl b_row = if isnT transb then rows B else cols B
+        assert (a_col = b_row) "Colums of a does not match rows of b in GEMM."
+
+        inl m = if isnT transa then rows A else cols A
+        inl n = if isnT transb then cols B else rows B
+        inl k = a_col
+        
+        assert (m = rows C && n = cols C) "Output matrix dimensions do not match in GEMM."
+
+        // The arguments are switched in order to convert from column major (which CuBlas uses) to row major (which Spiral's tensor use)
+        call s .cublasSgemm_v2(handle, transb, transa, n, m, k, alpha, {ptr=B}, ld B, {ptr=A}, ld A, beta, {ptr=C}, ld C)
+
+    inl gemm s transa transb alpha A B =
+        inl m = if isnT transa then rows A else cols A
+        inl n = if isnT transb then cols B else rows B
+
+        inl C = s.CudaTensor.create {dim=m,n; elem_type = A.elem_type}
+        gemm' s transa transb alpha A B (to alpha 0) C
+        C
+
+    ret <| s.module_add .CudaBlas {gemm' gemm}
+    """) |> module_
+
