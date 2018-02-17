@@ -227,11 +227,15 @@ inl methods_stream =
         allocate = inl s -> s.Stream.allocate
         }
     inl x = methods_template d
-    region_module_name, {x with allocate = allocate_stream d }
+    region_module_name, {x with 
+        allocate = allocate_stream d 
+        create' = inl s ret -> self s (inl s -> ret s.RegionStream.allcoate)
+        create = inl s -> (self s).RegionStream.allocate
+        }
 
 inl s -> 
-    inl add (a, b) s = s.module_add a b
-    add methods_mem s |> add methods_stream
+    inl add s (a, b) = s.module_add a b
+    Tuple.foldl add s (methods_mem, methods_stream)
     """) |> module_
 
 let cuda_stream = 

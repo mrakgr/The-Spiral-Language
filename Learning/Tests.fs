@@ -48,37 +48,22 @@ inb s = Cuda
 inb s = Allocator s 1024
 inl s = CudaStream s |> Region
 inb s = s.RegionStream .create'
-inl a = s.RegionStream.allocate
 inl b = s.RegionStream.allocate
 inl c = s.RegionStream.allocate
-c.stream.wait_on b.stream
+s.stream.wait_on b.stream
 ()
     """
 
 let tensor1 =
     "tensor1",[allocator;cuda;host_tensor;region;cuda_stream;cuda_tensor],"Does the Cuda tensor work?",
     """
-inb Cuda = Cuda
-inl CudaStream = CudaStream {Cuda}
-inb allocate = Allocator {Cuda} 1024
-inb region = Region.create allocate
-inb stream_region = Region.create CudaStream.create
-inl stream = stream_region()
+inb s = Cuda
+inb s = Allocator s 1024
+inl s = CudaTensor s |> CudaStream |> Region
+inb s = s.RegionMem.create'
+inb s = s.RegionStream.create'
+inl s = s.RegionStream.allocate
 
-inl obj s x = s x s
-inl s = 
-    {
-    allocate_mem = const region
-    allocate_stream = const stream_region
-    stream = const stream
-    context = const Cuda.context
-    run = inl s x -> Cuda.run {x with stream=s.stream}
-    module_add = inl s name v -> module_add s name (inl s name -> v name s) |> obj
-    member_add = inl s name v -> module_add s name v |> obj
-    unwrap = id
-    } |> obj
-    
-inl s = CudaTensor s
 inl a1 = s.CudaTensor.create {dim=1,2,3; elem_type=int64}
 inl a2 = s.CudaTensor.zero {dim=1,2,3; elem_type=int64}
 inl a3 = s.CudaTensor.zero_like a1
