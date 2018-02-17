@@ -482,13 +482,12 @@ inl s ret ->
         inl atomics_mode_type = fs [text: "ManagedCuda.CudaBlas.AtomicsMode"]
         FS.Constructor cublas_type (enum pointer_mode_type .Host, enum atomics_mode_type .Allowed)
 
-    inl handle = FS.Method cublas .get_CublasHandle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
-
     open HostTensor
     inl call s method args = 
         inl to_dev_tensor x = assert_contiguous x; s.CudaTensor.to_dev_tensor x
         inl args = Tuple.map (function x : int64 -> to int32 x | x -> x) args
         join 
+            inl handle = FS.Method cublas .get_CublasHandle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
             FS.Method cublas .set_Stream s.stream.extract ()
             inl args = 
                 Tuple.map (function 
@@ -500,7 +499,7 @@ inl s ret ->
             inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
             inl status_type = fs [text: "ManagedCuda.CudaBlas.CublasStatus"]
             inl assert_ok status = macro.fs unit [text: "if "; arg: status; text: " <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException"; args: status]
-            FS.StaticMethod native_type method args status_type |> assert_ok
+            FS.StaticMethod native_type method (handle :: args) status_type |> assert_ok
 
     /// General matrix-matrix multiply from cuBLAS. Inplace version
     inl gemm' s transa transb alpha A B beta C =
@@ -515,7 +514,7 @@ inl s ret ->
         assert (m = rows C && n = cols C) "Output matrix dimensions do not match in GEMM."
 
         // The arguments are switched in order to convert from column major (which CuBlas uses) to row major (which Spiral's tensor use)
-        call s .cublasSgemm_v2(handle, transb, transa, n, m, k, alpha, {ptr=B}, ld B, {ptr=A}, ld A, beta, {ptr=C}, ld C)
+        call s .cublasSgemm_v2(transb, transa, n, m, k, alpha, {ptr=B}, ld B, {ptr=A}, ld A, beta, {ptr=C}, ld C)
 
     inl gemm s transa transb alpha A B =
         inl m = if isnT transa then rows A else cols A
@@ -1475,14 +1474,21 @@ inl float s ->
         | .nil -> ()
         | B -> ret B
 
-    d.add_method (.dr, inl d primal -> {primal adjoint=d.cudatensor_zero_like primal; block_toa_map=()})
-    d.add_method (.prim_matmult, inl d A B ->
-        inl C = d.cudablas_gemm .nT .nT one (primal A) (primal B) |> d.dr
-        C, inl _ ->
-            on_non_nil (adjoint A) (inl A -> d.cudablas_gemm' .nT .T one (adjoint C) (primal B) one A)
-            on_non_nil (adjoint B) (inl B -> d.cudablas_gemm' .T .nT one (primal A) (adjoint C) one B)
-        )
+    inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block_toa_map=()}
 
-    {dr primal primals adjoint adjoints d }
+    inl matmult s A B =
+        inl C = s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
+        C, inl _ ->
+            on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one (adjoint C) (primal B) one A)
+            on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) (adjoint C) one B)
+
+    inl methods =
+        {
+        dr matmult
+        } |> stack
+
+    inl s = s.module_add .Primitive methods
+
+    { primal primals adjoint adjoints s }
     """) |> module_
 

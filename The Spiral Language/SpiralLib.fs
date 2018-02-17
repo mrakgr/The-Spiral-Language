@@ -1323,7 +1323,11 @@ let object =
     """
 inl member_add s name v = module_add name (inl s -> v (obj s)) s |> obj
 {
-module_add = inl s name v -> module_add name (inl s name -> v name (obj s)) s |> obj
+module_add = inl s name v -> 
+    module_add name (inl s -> function
+        | .unwrap -> module_map (const ((|>) (obj s))) v
+        | name -> v name (obj s)
+        ) s |> obj
 member_add
 member_adds = inl s -> module_foldl (inl name s v -> s.member_add name v) (obj s)
 unwrap = id

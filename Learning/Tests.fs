@@ -375,18 +375,19 @@ let learning1 =
     """
 inb s = CudaModules (1024*1024)
 
-open Learning float32 s
-open Primitive
+inl float = float32
+open Learning float s 
+open s.Primitive.unwrap
 
 inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,8}
-inl a2 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=8,2} >>! dr
-inl o1,bck = s.Learning.matmult a1 a2
+inl a2 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=8,2} |> dr
+inl o1,bck = matmult a1 a2
 bck()
 
-primal o1 |> d.CudaTensor.print
+primal o1 |> s.CudaTensor.print
     """
     
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel12
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning1
 |> printfn "%s"
 |> ignore
     
