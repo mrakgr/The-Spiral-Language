@@ -370,7 +370,21 @@ inl o1 = s.CudaKernel.init {rev_thread_limit=32; dim=2,2,128} (inl a b c -> a, b
 s.CudaTensor.print o1
     """
 
+let learning1 =
+    "learning1",[cuda_modules;learning],"Does the matmult work?",
+    """
+inb s = CudaModules (1024*1024)
 
+open Learning float32 s
+open Primitive
+
+inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,8}
+inl a2 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=8,2} >>! dr
+inl o1,bck = s.Learning.matmult a1 a2
+bck()
+
+primal o1 |> d.CudaTensor.print
+    """
     
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel12
 |> printfn "%s"

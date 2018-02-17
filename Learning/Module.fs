@@ -1416,3 +1416,73 @@ inl size ret ->
     ret s
     """) |> module_
 
+let learning =
+    (
+    "Learning",[host_tensor;extern_],"The deep learning module.",
+    """
+inl float s ->
+    open HostTensor
+
+    // #Primitives
+    inl zero = to float 0
+    inl one = to float 1
+    inl two = to float 2
+    inl infinity =
+        match float with
+        | _: float32 -> infinityf32
+        | _: float64 -> infinityf64
+
+    inl primal = function {primal} | primal -> primal
+    inl adjoint = function {adjoint} -> adjoint | _ -> .nil
+
+    inl primals = toa_map primal
+    inl adjoints = toa_map adjoint
+
+    inl is_not_unit = function
+        | () -> false
+        | _ -> true
+
+    inl rec filter_units = function
+        | x :: x' -> 
+            match filter_units x with
+            | () -> filter_units x'
+            | x -> x :: filter_units x'
+        | {} & x ->
+            module_filter (inl k (!filter_units (!is_not_unit x)) -> x) x
+            |> inl x -> if eq_type x {} then () else x
+        | .nil -> ()
+        | x -> x
+
+    // What this does is selectively filter out the results of applying f 
+    // where the adjoints are missing (in other words constants.)
+    inl filter_based_on_adjoints x adjoint =
+        inl rec mark_units = function
+            | x :: x', y :: y' -> mark_units (x,y) :: mark_units (x',y')
+            | (), () -> ()
+            | (), _ | _, () -> error_type "Tuple dimesions do not match."
+            | {} & x, {} & y -> module_map (inl k y -> mark_units (x k,y)) y
+            | _, .nil -> ()
+            | x, _ -> x
+        mark_units (x, adjoint) |> filter_units
+
+    inl filter_unit_and_branch x ret =
+        match filter_units x with
+        | () -> ()
+        | x -> ret x
+
+    inl on_non_nil B ret =
+        match B with
+        | .nil -> ()
+        | B -> ret B
+
+    d.add_method (.dr, inl d primal -> {primal adjoint=d.cudatensor_zero_like primal; block_toa_map=()})
+    d.add_method (.prim_matmult, inl d A B ->
+        inl C = d.cudablas_gemm .nT .nT one (primal A) (primal B) |> d.dr
+        C, inl _ ->
+            on_non_nil (adjoint A) (inl A -> d.cudablas_gemm' .nT .T one (adjoint C) (primal B) one A)
+            on_non_nil (adjoint B) (inl B -> d.cudablas_gemm' .T .nT one (primal A) (adjoint C) one B)
+        )
+
+    {dr primal primals adjoint adjoints d }
+    """) |> module_
+
