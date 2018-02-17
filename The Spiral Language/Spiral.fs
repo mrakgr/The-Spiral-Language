@@ -1460,21 +1460,21 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 ) Map.empty l
             |> fun x -> tymap(Env x, MapTypeModule)
 
-        let module_add d s name v =
+        let module_add d name v s =
             match tev d s with
             | TyMap(C env, MapTypeModule) ->
                 match tev2 d name v with
                 | TypeString name, v -> tymap(Map.add name v env |> Env, MapTypeModule)
                 | _ -> on_type_er (trace d) "Expected a type string as the second argument to ModuleAdd."
-            | _ -> on_type_er (trace d) "Expected a module as the first argument to ModuleAdd."
+            | _ -> on_type_er (trace d) "Expected a module as the third argument to ModuleAdd."
 
-        let module_remove d s name =
+        let module_remove d name s =
             match tev d s with
             | TyMap(C env, MapTypeModule) ->
                 match tev d name with
                 | TypeString name -> tymap(Map.remove name env |> Env, MapTypeModule)
                 | _ -> on_type_er (trace d) "Expected a type string as the second argument to ModuleRemove."
-            | _ -> on_type_er (trace d) "Expected a module as the first argument to ModuleAdd."
+            | _ -> on_type_er (trace d) "Expected a module as the second argument to ModuleRemove."
 
         let module_with (d: LangEnv) l =
             let names, bindings =
@@ -1650,8 +1650,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TypeLitIs,[a] -> type_lit_is d a
             | Dynamize,[a] -> dynamize d a
             | ModuleCreate,l -> module_create d l
-            | ModuleAdd,[s;a;b] -> module_add d s a b
-            | ModuleRemove,[s;a] -> module_remove d s a
+            | ModuleAdd,[a;b;c] -> module_add d a b c
+            | ModuleRemove,[a;b] -> module_remove d a b
             | ModuleWith, l -> module_with d l
             | ModuleValues, [a] -> module_values d a
             | ModuleIsCPS,[a;b;c] -> module_is_cps d a b c
@@ -1719,7 +1719,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | Exp,[a] -> prim_un_floating d a Exp
             | Tanh,[a] -> prim_un_floating d a Tanh
             | Sqrt,[a] -> prim_un_floating d a Sqrt
-            | FailWith,[typ;a] -> failwith_ d typ a
+            | FailWith,[a;b] -> failwith_ d a b
 
             | UnsafeUpcastTo,[a;b] -> unsafe_upcast_to d a b
             | UnsafeDowncastTo,[a;b] -> unsafe_downcast_to d a b

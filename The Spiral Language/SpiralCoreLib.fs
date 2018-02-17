@@ -280,9 +280,9 @@ inl blockIdx (.x | .y | .z) as x = macro.cd int64 [text: "blockIdx."; text: x]
 inl var x = !ToVar(x)
 
 /// Adds a variable to the module.
-inl module_add name v s = !ModuleAdd(s,name,v)
+inl module_add name v s = !ModuleAdd(name,v,s)
 /// Removes a variable from the module. Does nothing if the variable is not present.
-inl module_remove name s = !ModuleRemove(s,name)
+inl module_remove name s = !ModuleRemove(name,s)
 
 /// Converts the argument (usually a module) to the object form.
 inl obj s x = s x s

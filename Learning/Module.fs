@@ -79,7 +79,7 @@ inl allocate_global s =
 
 inl compare a b = if a < b then -1i32 elif a = b then 0i32 else 1i32
 inl sort_ptrs x = x.sort (inl {ptr=a} {ptr=b} -> compare (a()) (b()))
-inl sort_sizes x = x.sort (inl {size=a} {size=b} -> compare a b)
+inl sort_sizes x = x.sort (inl {size=a} {size=b} -> compare b a)
 
 met free_cells_refresh {section with pool free_cells used_cells} = 
     used_cells.filter (inl {ptr} -> ptr.Try = 0u64)
@@ -319,7 +319,7 @@ inl copy span dst {src with ar size ptr_get} =
 
 inl transfer_template f tns = 
     assert_contiguous tns
-    inl f = tns.dim |> fst |> span |> f
+    inl f = f match tns.dim with () -> 1 | !(fst >> span) s -> s
     tns.update_body <| inl body -> {body with ar = f body}
 
 inl methods = 
@@ -875,6 +875,7 @@ inl map_redo_map w {d with redo neutral_elem} (!zip (!flatten in)) =
     else
         run {map_out=id; blockDim gridDim} in
         |> run {map_out blockDim=gridDim; gridDim=1}
+    <| 0
         
 
 /// Replicates the 1d `in` and maps it along the outer dimension as determined by in'.
@@ -1162,8 +1163,8 @@ inl map_d2_inscan_map' w {d with redo neutral_elem} (!zip in) (!zip out) =
     inl map_in = match d with {map_in} -> map_in | _ -> id
     inl map_out = match d with {map_out} -> map_out | _ -> const
 
-    run {
-        stream gridDim
+    w.run {
+        gridDim
         blockDim=blockDimX,blockDimY
         kernel = cuda 
             inl grid_for = grid_for {blockDim gridDim}
@@ -1354,7 +1355,7 @@ inl mapi_d1_inscan_mapi_d1_reduce_mapi w d (!zip in) in' =
 /// Takes in the optional {thread_limit} as the first argument in order to control the degree of parallelism.
 inl init' w d f (!zip out) =
     inl to_dev_tensor = w.CudaTensor.to_dev_tensor
-    inl out = to_dev_tensor
+    inl out = to_dev_tensor out
 
     inl dim = out.dim
     inl rec merge = function
@@ -1397,6 +1398,21 @@ inl methods =
     map_d1_seq_broadcast' map_d1_seq_broadcast init' init
     }
 
-inl s -> s.module_all .CudaKernel methods
+inl s -> s.module_add .CudaKernel methods
+    """) |> module_
+
+let cuda_modules =
+    (
+    "CudaModules",[cuda;allocator;region;cuda_stream;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;console],"All the cuda modules in one.",
+    """
+inl size ret ->
+    inb s = Cuda
+    inb s = Allocator s size
+    inb s = CudaRandom s
+    inb s = CudaBlas s
+    inl s = Region s |> CudaStream |> CudaTensor |> CudaKernel
+    inb s = s.RegionMem.create'
+    inb s = s.RegionStream.create'
+    ret s
     """) |> module_
 

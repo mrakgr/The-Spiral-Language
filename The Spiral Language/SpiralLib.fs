@@ -1288,16 +1288,18 @@ inl split f tns =
 
 /// Flattens the tensor to a single dimension.
 inl flatten tns =
-    inl dim = tns.dim |> Tuple.map span
-    tns .set_dim (product dim)
-        .update_body (inl {d with size} ->
-            Tuple.zip (dim,size)
-            |> Tuple.reducel (inl d,s d',s' ->
-                assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
-                d*s, s'
+    match tns.dim with
+    | () -> tns
+    | !(Tuple.map span) dim ->
+        tns .set_dim (product dim)
+            .update_body (inl {d with size} ->
+                Tuple.zip (dim,size)
+                |> Tuple.reducel (inl d,s d',s' ->
+                    assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
+                    d*s, s'
+                    )
+                |> inl _,s -> {d with size=s :: ()}
                 )
-            |> inl _,s -> {d with size=s :: ()}
-            )
 
 /// Asserts that the tensor is contiguous.
 inl assert_contiguous = flatten >> ignore
@@ -1319,11 +1321,13 @@ let object =
     (
     "Object",[loops;console;array;host_tensor;extern_],"The object module.",
     """
+inl member_add s name v = module_add name (inl s -> v (obj s)) s |> obj
 {
 module_add = inl s name v -> module_add name (inl s name -> v name (obj s)) s |> obj
-member_add = inl s name v -> module_add name (inl s -> v (obj s)) s |> obj
+member_add
+member_adds = inl s -> module_foldl (inl name s v -> s.member_add name v) (obj s)
 unwrap = id
-} |> stack
+} |> obj |> stack
     """) |> module_
 
 let cuda =
@@ -1458,7 +1462,7 @@ inl ret ->
     //inl ptr_to_uint (ptr: CUdeviceptr_type) = FS.Field ptr .Pointer SizeT_type |> to_uint
     //inl uint_to_ptr (x: uint64) = SizeT x |> CUdeviceptr
 
-    inl run s {runnable with blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} =
+    inl run s {runable with blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} =
         inl to_obj_ar args =
             inl ty = fs [text: "System.Object"] |> array
             !MacroFs(ty,[fs_array_args: args; text: ": "; type: ty])
@@ -1479,7 +1483,7 @@ inl ret ->
         
         inl dim3 {x y z} = Tuple.map (to uint32) (x,y,z) |> FS.Constructor (fs [text: "ManagedCuda.VectorTypes.dim3"])
     
-        inl context = match runable with | {context} | _ -> context
+        inl context = match runable with {context} | _ -> context
         inl kernel_type = fs [text: "ManagedCuda.CudaKernel"]
         inl cuda_kernel = FS.Constructor kernel_type (method_name,modules,context)
         FS.Method cuda_kernel .set_GridDimensions(dim3 gridDim) unit
@@ -1489,10 +1493,10 @@ inl ret ->
         | () -> FS.Method cuda_kernel .Run(to_obj_ar args) float32
         | stream -> FS.Method cuda_kernel .RunAsync(stream.extract,to_obj_ar args) unit
 
-    { Object with
-    run
-    context = const context
-    stream = const ()
-    } |> obj |> ret
+    Object.member_adds { 
+        run
+        context = const context
+        stream = const ()
+        } |> ret
     """) |> module_
 
