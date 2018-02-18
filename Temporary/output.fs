@@ -3,21 +3,118 @@ let cuda_kernels = """
 #include "cub/cub.cuh"
 
 extern "C" {
-    __global__ void method_17(float * var_0, float * var_1);
-    __global__ void method_19(float * var_0, float * var_1, float * var_2);
-    __global__ void method_23(float * var_0, float * var_1, float * var_2, float * var_3, float * var_4);
-    __global__ void method_24(float * var_0, float * var_1, float * var_2, float * var_3);
+    __global__ void method_17(float * var_0, float * var_1, float * var_2);
+    __global__ void method_20(float * var_0, float * var_1);
+    __global__ void method_22(float * var_0, float * var_1, float * var_2);
+    __global__ void method_26(float * var_0, float * var_1, float * var_2, float * var_3, float * var_4);
+    __global__ void method_27(float * var_0, float * var_1, float * var_2, float * var_3);
+    __global__ void method_29(float * var_0, float * var_1);
     __device__ char method_18(long long int * var_0);
-    __device__ char method_20(long long int * var_0, float * var_1);
+    __device__ char method_19(long long int * var_0);
+    __device__ char method_21(long long int * var_0);
+    __device__ char method_23(long long int * var_0, float * var_1);
+    __device__ char method_30(long long int * var_0, float * var_1);
+    __device__ char method_31(long long int * var_0, float * var_1);
+    __device__ char method_32(long long int var_0, long long int * var_1, float * var_2);
     
-    __global__ void method_17(float * var_0, float * var_1) {
+    __global__ void method_17(float * var_0, float * var_1, float * var_2) {
+        long long int var_3 = threadIdx.x;
+        long long int var_4 = blockIdx.x;
+        long long int var_5 = (4 * var_4);
+        long long int var_6 = (var_3 + var_5);
+        long long int var_7[1];
+        var_7[0] = var_6;
+        while (method_18(var_7)) {
+            long long int var_9 = var_7[0];
+            char var_10 = (var_9 >= 0);
+            char var_12;
+            if (var_10) {
+                var_12 = (var_9 < 4);
+            } else {
+                var_12 = 0;
+            }
+            char var_13 = (var_12 == 0);
+            if (var_13) {
+                // "Argument out of bounds."
+            } else {
+            }
+            long long int var_14 = threadIdx.y;
+            long long int var_15 = blockIdx.y;
+            long long int var_16 = (2 * var_15);
+            long long int var_17 = (var_14 + var_16);
+            long long int var_18[1];
+            var_18[0] = var_17;
+            while (method_19(var_18)) {
+                long long int var_20 = var_18[0];
+                char var_21 = (var_20 >= 0);
+                char var_23;
+                if (var_21) {
+                    var_23 = (var_20 < 2);
+                } else {
+                    var_23 = 0;
+                }
+                char var_24 = (var_23 == 0);
+                if (var_24) {
+                    // "Argument out of bounds."
+                } else {
+                }
+                long long int var_25 = (var_20 * 4);
+                char var_27;
+                if (var_10) {
+                    var_27 = (var_9 < 4);
+                } else {
+                    var_27 = 0;
+                }
+                char var_28 = (var_27 == 0);
+                if (var_28) {
+                    // "Argument out of bounds."
+                } else {
+                }
+                long long int var_29 = (var_25 + var_9);
+                char var_31;
+                if (var_21) {
+                    var_31 = (var_20 < 2);
+                } else {
+                    var_31 = 0;
+                }
+                char var_32 = (var_31 == 0);
+                if (var_32) {
+                    // "Argument out of bounds."
+                } else {
+                }
+                char var_34;
+                if (var_10) {
+                    var_34 = (var_9 < 4);
+                } else {
+                    var_34 = 0;
+                }
+                char var_35 = (var_34 == 0);
+                if (var_35) {
+                    // "Argument out of bounds."
+                } else {
+                }
+                float var_36 = var_0[var_9];
+                float var_37 = var_1[var_29];
+                float var_38 = var_2[var_29];
+                float var_39 = (var_36 + var_37);
+                var_2[var_29] = var_39;
+                long long int var_40 = (var_20 + 2);
+                var_18[0] = var_40;
+            }
+            long long int var_41 = var_18[0];
+            long long int var_42 = (var_9 + 4);
+            var_7[0] = var_42;
+        }
+        long long int var_43 = var_7[0];
+    }
+    __global__ void method_20(float * var_0, float * var_1) {
         long long int var_2 = threadIdx.x;
         long long int var_3 = blockIdx.x;
         long long int var_4 = (128 * var_3);
         long long int var_5 = (var_2 + var_4);
         long long int var_6[1];
         var_6[0] = var_5;
-        while (method_18(var_6)) {
+        while (method_21(var_6)) {
             long long int var_8 = var_6[0];
             char var_9 = (var_8 >= 0);
             char var_11;
@@ -54,7 +151,7 @@ extern "C" {
         }
         long long int var_23 = var_6[0];
     }
-    __global__ void method_19(float * var_0, float * var_1, float * var_2) {
+    __global__ void method_22(float * var_0, float * var_1, float * var_2) {
         long long int var_3 = threadIdx.x;
         long long int var_4 = blockIdx.x;
         long long int var_5 = (8 * var_4);
@@ -64,7 +161,7 @@ extern "C" {
         float var_9[1];
         var_8[0] = var_6;
         var_9[0] = var_7;
-        while (method_20(var_8, var_9)) {
+        while (method_23(var_8, var_9)) {
             long long int var_11 = var_8[0];
             float var_12 = var_9[0];
             char var_13 = (var_11 >= 0);
@@ -112,14 +209,14 @@ extern "C" {
         } else {
         }
     }
-    __global__ void method_23(float * var_0, float * var_1, float * var_2, float * var_3, float * var_4) {
+    __global__ void method_26(float * var_0, float * var_1, float * var_2, float * var_3, float * var_4) {
         long long int var_5 = threadIdx.x;
         long long int var_6 = blockIdx.x;
         long long int var_7 = (128 * var_6);
         long long int var_8 = (var_5 + var_7);
         long long int var_9[1];
         var_9[0] = var_8;
-        while (method_18(var_9)) {
+        while (method_21(var_9)) {
             long long int var_11 = var_9[0];
             char var_12 = (var_11 >= 0);
             char var_14;
@@ -160,14 +257,14 @@ extern "C" {
         }
         long long int var_30 = var_9[0];
     }
-    __global__ void method_24(float * var_0, float * var_1, float * var_2, float * var_3) {
+    __global__ void method_27(float * var_0, float * var_1, float * var_2, float * var_3) {
         long long int var_4 = threadIdx.x;
         long long int var_5 = blockIdx.x;
         long long int var_6 = (128 * var_5);
         long long int var_7 = (var_4 + var_6);
         long long int var_8[1];
         var_8[0] = var_7;
-        while (method_18(var_8)) {
+        while (method_21(var_8)) {
             long long int var_10 = var_8[0];
             char var_11 = (var_10 >= 0);
             char var_13;
@@ -206,14 +303,236 @@ extern "C" {
         }
         long long int var_27 = var_8[0];
     }
+    __global__ void method_29(float * var_0, float * var_1) {
+        long long int var_2 = threadIdx.x;
+        long long int var_3 = blockIdx.x;
+        long long int var_4 = (4 * var_3);
+        long long int var_5 = (var_2 + var_4);
+        long long int var_6[1];
+        var_6[0] = var_5;
+        while (method_18(var_6)) {
+            long long int var_8 = var_6[0];
+            char var_9 = (var_8 >= 0);
+            char var_11;
+            if (var_9) {
+                var_11 = (var_8 < 4);
+            } else {
+                var_11 = 0;
+            }
+            char var_12 = (var_11 == 0);
+            if (var_12) {
+                // "Argument out of bounds."
+            } else {
+            }
+            char var_14;
+            if (var_9) {
+                var_14 = (var_8 < 4);
+            } else {
+                var_14 = 0;
+            }
+            char var_15 = (var_14 == 0);
+            if (var_15) {
+                // "Argument out of bounds."
+            } else {
+            }
+            long long int var_16 = threadIdx.y;
+            long long int var_17 = blockIdx.y;
+            long long int var_18 = (2 * var_17);
+            long long int var_19 = (var_16 + var_18);
+            float var_20 = 0;
+            long long int var_21[1];
+            float var_22[1];
+            var_21[0] = var_19;
+            var_22[0] = var_20;
+            while (method_30(var_21, var_22)) {
+                long long int var_24 = var_21[0];
+                float var_25 = var_22[0];
+                char var_26 = (var_24 >= 0);
+                char var_28;
+                if (var_26) {
+                    var_28 = (var_24 < 2);
+                } else {
+                    var_28 = 0;
+                }
+                char var_29 = (var_28 == 0);
+                if (var_29) {
+                    // "Argument out of bounds."
+                } else {
+                }
+                long long int var_30 = (var_24 * 4);
+                char var_32;
+                if (var_9) {
+                    var_32 = (var_8 < 4);
+                } else {
+                    var_32 = 0;
+                }
+                char var_33 = (var_32 == 0);
+                if (var_33) {
+                    // "Argument out of bounds."
+                } else {
+                }
+                long long int var_34 = (var_30 + var_8);
+                float var_35 = var_0[var_34];
+                float var_36 = (var_25 + var_35);
+                long long int var_37 = (var_24 + 2);
+                var_21[0] = var_37;
+                var_22[0] = var_36;
+            }
+            long long int var_38 = var_21[0];
+            float var_39 = var_22[0];
+            __shared__ float var_40[4];
+            long long int var_41[1];
+            float var_42[1];
+            var_41[0] = 2;
+            var_42[0] = var_39;
+            while (method_31(var_41, var_42)) {
+                long long int var_44 = var_41[0];
+                float var_45 = var_42[0];
+                long long int var_46 = (var_44 / 2);
+                long long int var_47 = threadIdx.y;
+                char var_48 = (var_47 < var_44);
+                char var_51;
+                if (var_48) {
+                    long long int var_49 = threadIdx.y;
+                    var_51 = (var_49 >= var_46);
+                } else {
+                    var_51 = 0;
+                }
+                if (var_51) {
+                    long long int var_52 = threadIdx.y;
+                    char var_53 = (var_52 >= 1);
+                    char var_55;
+                    if (var_53) {
+                        var_55 = (var_52 < 2);
+                    } else {
+                        var_55 = 0;
+                    }
+                    char var_56 = (var_55 == 0);
+                    if (var_56) {
+                        // "Argument out of bounds."
+                    } else {
+                    }
+                    long long int var_57 = (var_52 - 1);
+                    long long int var_58 = (var_57 * 4);
+                    long long int var_59 = threadIdx.x;
+                    char var_60 = (var_59 >= 0);
+                    char var_62;
+                    if (var_60) {
+                        var_62 = (var_59 < 4);
+                    } else {
+                        var_62 = 0;
+                    }
+                    char var_63 = (var_62 == 0);
+                    if (var_63) {
+                        // "Argument out of bounds."
+                    } else {
+                    }
+                    long long int var_64 = (var_58 + var_59);
+                    var_40[var_64] = var_45;
+                } else {
+                }
+                __syncthreads();
+                long long int var_65 = threadIdx.y;
+                char var_66 = (var_65 < var_46);
+                float var_91;
+                if (var_66) {
+                    long long int var_67 = threadIdx.y;
+                    long long int var_68 = (var_67 + var_46);
+                    long long int var_69[1];
+                    float var_70[1];
+                    var_69[0] = var_68;
+                    var_70[0] = var_45;
+                    while (method_32(var_44, var_69, var_70)) {
+                        long long int var_72 = var_69[0];
+                        float var_73 = var_70[0];
+                        char var_74 = (var_72 >= 1);
+                        char var_76;
+                        if (var_74) {
+                            var_76 = (var_72 < 2);
+                        } else {
+                            var_76 = 0;
+                        }
+                        char var_77 = (var_76 == 0);
+                        if (var_77) {
+                            // "Argument out of bounds."
+                        } else {
+                        }
+                        long long int var_78 = (var_72 - 1);
+                        long long int var_79 = (var_78 * 4);
+                        long long int var_80 = threadIdx.x;
+                        char var_81 = (var_80 >= 0);
+                        char var_83;
+                        if (var_81) {
+                            var_83 = (var_80 < 4);
+                        } else {
+                            var_83 = 0;
+                        }
+                        char var_84 = (var_83 == 0);
+                        if (var_84) {
+                            // "Argument out of bounds."
+                        } else {
+                        }
+                        long long int var_85 = (var_79 + var_80);
+                        float var_86 = var_40[var_85];
+                        float var_87 = (var_73 + var_86);
+                        long long int var_88 = (var_72 + var_46);
+                        var_69[0] = var_88;
+                        var_70[0] = var_87;
+                    }
+                    long long int var_89 = var_69[0];
+                    var_91 = var_70[0];
+                } else {
+                    var_91 = var_45;
+                }
+                var_41[0] = var_46;
+                var_42[0] = var_91;
+            }
+            long long int var_92 = var_41[0];
+            float var_93 = var_42[0];
+            long long int var_94 = threadIdx.y;
+            char var_95 = (var_94 == 0);
+            if (var_95) {
+                float var_96 = var_1[var_8];
+                float var_97 = (var_93 + var_96);
+                var_1[var_8] = var_97;
+            } else {
+            }
+            long long int var_98 = (var_8 + 4);
+            var_6[0] = var_98;
+        }
+        long long int var_99 = var_6[0];
+    }
     __device__ char method_18(long long int * var_0) {
+        long long int var_1 = var_0[0];
+        return (var_1 < 4);
+    }
+    __device__ char method_19(long long int * var_0) {
+        long long int var_1 = var_0[0];
+        return (var_1 < 2);
+    }
+    __device__ char method_21(long long int * var_0) {
         long long int var_1 = var_0[0];
         return (var_1 < 8);
     }
-    __device__ char method_20(long long int * var_0, float * var_1) {
+    __device__ char method_23(long long int * var_0, float * var_1) {
         long long int var_2 = var_0[0];
         float var_3 = var_1[0];
         return (var_2 < 8);
+    }
+    __device__ char method_30(long long int * var_0, float * var_1) {
+        long long int var_2 = var_0[0];
+        float var_3 = var_1[0];
+        return (var_2 < 2);
+    }
+    __device__ char method_31(long long int * var_0, float * var_1) {
+        long long int var_2 = var_0[0];
+        float var_3 = var_1[0];
+        return (var_2 >= 2);
+    }
+    __device__ char method_32(long long int var_0, long long int * var_1, float * var_2) {
+        long long int var_3 = var_1[0];
+        float var_4 = var_2[0];
+        return (var_3 < var_0);
     }
 }
 """
@@ -362,7 +681,7 @@ and method_16((var_0: EnvStack6), (var_1: EnvStack6), (var_2: EnvStack6), (var_3
     let (var_44: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_43)
     let (var_45: ManagedCuda.CudaBlas.CublasStatus) = ManagedCuda.CudaBlas.CudaBlasNativeMethods.cublasSgemm_v2(var_14, var_20, var_21, 4, 2, 6, var_22, var_29, 4, var_36, 6, var_37, var_44, 4)
     if var_45 <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException(var_45)
-and method_21((var_0: int64), (var_1: EnvStack6), (var_2: int64)): (float32 []) =
+and method_24((var_0: int64), (var_1: EnvStack6), (var_2: int64)): (float32 []) =
     let (var_3: EnvHeap2) = var_1.mem_0
     let (var_4: (int64 ref)) = var_3.mem_0
     let (var_5: EnvStack0) = var_3.mem_1
@@ -385,7 +704,7 @@ and method_21((var_0: int64), (var_1: EnvStack6), (var_2: int64)): (float32 []) 
     if var_21 <> ManagedCuda.BasicTypes.CUResult.Success then raise <| new ManagedCuda.CudaException(var_21)
     var_12.Free()
     var_11
-and method_22((var_0: EnvStack6), (var_1: int64), (var_2: float32)): unit =
+and method_25((var_0: EnvStack6), (var_1: int64), (var_2: float32)): unit =
     let (var_3: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(1L))
     var_3.[int32 0L] <- var_2
     let (var_4: System.Runtime.InteropServices.GCHandle) = System.Runtime.InteropServices.GCHandle.Alloc(var_3,System.Runtime.InteropServices.GCHandleType.Pinned)
@@ -407,7 +726,7 @@ and method_22((var_0: EnvStack6), (var_1: int64), (var_2: float32)): unit =
     let (var_20: ManagedCuda.BasicTypes.CUResult) = ManagedCuda.DriverAPINativeMethods.SynchronousMemcpy_v2.cuMemcpy(var_16, var_18, var_19)
     if var_20 <> ManagedCuda.BasicTypes.CUResult.Success then raise <| new ManagedCuda.CudaException(var_20)
     var_4.Free()
-and method_25((var_0: EnvStack6), (var_1: EnvStack6), (var_2: EnvStack6), (var_3: ManagedCuda.CudaBlas.CudaBlas), (var_4: ManagedCuda.CudaRand.CudaRandDevice), (var_5: ResizeArray<Env1>), (var_6: EnvStack0), (var_7: uint64), (var_8: ResizeArray<Env1>), (var_9: ManagedCuda.CudaContext), (var_10: ResizeArray<EnvHeap2>), (var_11: ResizeArray<EnvHeap3>), (var_12: ManagedCuda.BasicTypes.CUmodule), (var_13: EnvHeap3)): unit =
+and method_28((var_0: EnvStack6), (var_1: EnvStack6), (var_2: EnvStack6), (var_3: ManagedCuda.CudaBlas.CudaBlas), (var_4: ManagedCuda.CudaRand.CudaRandDevice), (var_5: ResizeArray<Env1>), (var_6: EnvStack0), (var_7: uint64), (var_8: ResizeArray<Env1>), (var_9: ManagedCuda.CudaContext), (var_10: ResizeArray<EnvHeap2>), (var_11: ResizeArray<EnvHeap3>), (var_12: ManagedCuda.BasicTypes.CUmodule), (var_13: EnvHeap3)): unit =
     let (var_14: ManagedCuda.CudaBlas.CudaBlasHandle) = var_3.get_CublasHandle()
     let (var_15: (int64 ref)) = var_13.mem_0
     let (var_16: EnvHeap4) = var_13.mem_1
@@ -442,32 +761,12 @@ and method_25((var_0: EnvStack6), (var_1: EnvStack6), (var_2: EnvStack6), (var_3
     let (var_44: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_43)
     let (var_45: ManagedCuda.CudaBlas.CublasStatus) = ManagedCuda.CudaBlas.CudaBlasNativeMethods.cublasSgemm_v2(var_14, var_20, var_21, 4, 6, 2, var_22, var_29, 4, var_36, 6, var_37, var_44, 4)
     if var_45 <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException(var_45)
-and method_26((var_0: ManagedCuda.CudaBlas.CudaBlas), (var_1: ManagedCuda.CudaRand.CudaRandDevice), (var_2: ResizeArray<Env1>), (var_3: EnvStack0), (var_4: uint64), (var_5: ResizeArray<Env1>), (var_6: ManagedCuda.CudaContext), (var_7: ResizeArray<EnvHeap2>), (var_8: ResizeArray<EnvHeap3>), (var_9: ManagedCuda.BasicTypes.CUmodule), (var_10: EnvHeap3), (var_11: EnvStack6), (var_12: int64), (var_13: int64), (var_14: int64), (var_15: int64), (var_16: int64), (var_17: int64), (var_18: int64)): unit =
-    let (var_19: int64) = (var_16 - var_15)
-    let (var_20: int64) = (var_18 - var_17)
-    let (var_21: int64) = (var_19 * var_20)
-    let (var_22: bool) = (var_21 > 0L)
-    let (var_23: bool) = (var_22 = false)
-    if var_23 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_24: int64) = (var_20 * var_14)
-    let (var_25: bool) = (var_13 = var_24)
-    let (var_26: bool) = (var_25 = false)
-    if var_26 then
-        (failwith "The tensor must be contiguous in order to be flattened.")
-    else
-        ()
-    let (var_27: int64) = (var_19 * var_13)
-    let (var_28: (float32 [])) = method_27((var_19: int64), (var_11: EnvStack6), (var_12: int64), (var_13: int64), (var_14: int64))
-    method_28((var_28: (float32 [])), (var_12: int64), (var_13: int64), (var_14: int64), (var_15: int64), (var_16: int64), (var_17: int64), (var_18: int64))
-and method_35((var_0: ResizeArray<EnvHeap3>)): unit =
-    let (var_2: (EnvHeap3 -> unit)) = method_36
+and method_33((var_0: ResizeArray<EnvHeap3>)): unit =
+    let (var_2: (EnvHeap3 -> unit)) = method_34
     var_0.ForEach <| System.Action<_>(var_2)
     var_0.Clear()
-and method_37((var_0: ResizeArray<EnvHeap2>)): unit =
-    let (var_2: (EnvHeap2 -> unit)) = method_38
+and method_35((var_0: ResizeArray<EnvHeap2>)): unit =
+    let (var_2: (EnvHeap2 -> unit)) = method_36
     var_0.ForEach <| System.Action<_>(var_2)
     var_0.Clear()
 and method_2 ((var_0: Env1)): bool =
@@ -577,45 +876,7 @@ and method_14((var_0: EnvHeap2), (var_1: ResizeArray<EnvHeap2>)): unit =
     let (var_5: int64) = (var_4 + 1L)
     var_2 := var_5
     var_1.Add(var_0)
-and method_27((var_0: int64), (var_1: EnvStack6), (var_2: int64), (var_3: int64), (var_4: int64)): (float32 []) =
-    let (var_5: EnvHeap2) = var_1.mem_0
-    let (var_6: int64) = (var_0 * var_3)
-    let (var_7: (int64 ref)) = var_5.mem_0
-    let (var_8: EnvStack0) = var_5.mem_1
-    let (var_9: (uint64 ref)) = var_8.mem_0
-    let (var_10: uint64) = method_5((var_9: (uint64 ref)))
-    let (var_11: int64) = (var_2 * 4L)
-    let (var_12: uint64) = (uint64 var_11)
-    let (var_13: uint64) = (var_10 + var_12)
-    let (var_14: (float32 [])) = Array.zeroCreate<float32> (System.Convert.ToInt32(var_6))
-    let (var_15: System.Runtime.InteropServices.GCHandle) = System.Runtime.InteropServices.GCHandle.Alloc(var_14,System.Runtime.InteropServices.GCHandleType.Pinned)
-    let (var_16: int64) = var_15.AddrOfPinnedObject().ToInt64()
-    let (var_17: uint64) = (uint64 var_16)
-    let (var_18: int64) = (var_6 * 4L)
-    let (var_19: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_17)
-    let (var_20: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_19)
-    let (var_21: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_13)
-    let (var_22: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_21)
-    let (var_23: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_18)
-    let (var_24: ManagedCuda.BasicTypes.CUResult) = ManagedCuda.DriverAPINativeMethods.SynchronousMemcpy_v2.cuMemcpy(var_20, var_22, var_23)
-    if var_24 <> ManagedCuda.BasicTypes.CUResult.Success then raise <| new ManagedCuda.CudaException(var_24)
-    var_15.Free()
-    var_14
-and method_28((var_0: (float32 [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64)): unit =
-    let (var_8: System.Text.StringBuilder) = System.Text.StringBuilder()
-    let (var_9: string) = ""
-    let (var_10: int64) = 0L
-    let (var_11: int64) = 0L
-    method_29((var_8: System.Text.StringBuilder), (var_11: int64))
-    let (var_12: System.Text.StringBuilder) = var_8.AppendLine("[|")
-    let (var_13: int64) = method_30((var_8: System.Text.StringBuilder), (var_9: string), (var_0: (float32 [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_10: int64))
-    let (var_14: int64) = 0L
-    method_29((var_8: System.Text.StringBuilder), (var_14: int64))
-    let (var_15: System.Text.StringBuilder) = var_8.AppendLine("|]")
-    let (var_16: string) = var_8.ToString()
-    let (var_17: string) = System.String.Format("{0}",var_16)
-    System.Console.WriteLine(var_17)
-and method_36 ((var_0: EnvHeap3)): unit =
+and method_34 ((var_0: EnvHeap3)): unit =
     let (var_1: (int64 ref)) = var_0.mem_0
     let (var_2: EnvHeap4) = var_0.mem_1
     let (var_3: int64) = (!var_1)
@@ -630,7 +891,7 @@ and method_36 ((var_0: EnvHeap3)): unit =
         var_7 := false
     else
         ()
-and method_38 ((var_0: EnvHeap2)): unit =
+and method_36 ((var_0: EnvHeap2)): unit =
     let (var_1: (int64 ref)) = var_0.mem_0
     let (var_2: EnvStack0) = var_0.mem_1
     let (var_3: int64) = (!var_1)
@@ -692,39 +953,6 @@ and method_12 ((var_0: Env1)): (Env1 -> int32) =
     let (var_1: EnvStack0) = var_0.mem_0
     let (var_2: uint64) = var_0.mem_1
     method_13((var_2: uint64))
-and method_29((var_0: System.Text.StringBuilder), (var_1: int64)): unit =
-    let (var_2: bool) = (var_1 < 0L)
-    if var_2 then
-        let (var_3: System.Text.StringBuilder) = var_0.Append(' ')
-        let (var_4: int64) = (var_1 + 1L)
-        method_29((var_0: System.Text.StringBuilder), (var_4: int64))
-    else
-        ()
-and method_30((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64)): int64 =
-    let (var_11: bool) = (var_6 < var_7)
-    if var_11 then
-        let (var_12: bool) = (var_10 < 1000L)
-        if var_12 then
-            let (var_13: bool) = (var_6 >= var_6)
-            let (var_14: bool) = (var_13 = false)
-            if var_14 then
-                (failwith "Argument out of bounds.")
-            else
-                ()
-            let (var_15: int64) = 0L
-            method_31((var_0: System.Text.StringBuilder), (var_15: int64))
-            let (var_16: System.Text.StringBuilder) = var_0.Append("[|")
-            let (var_17: int64) = method_32((var_0: System.Text.StringBuilder), (var_2: (float32 [])), (var_3: int64), (var_5: int64), (var_8: int64), (var_9: int64), (var_1: string), (var_10: int64))
-            let (var_18: System.Text.StringBuilder) = var_0.AppendLine("|]")
-            let (var_19: int64) = (var_6 + 1L)
-            method_34((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_17: int64), (var_19: int64))
-        else
-            let (var_21: int64) = 0L
-            method_29((var_0: System.Text.StringBuilder), (var_21: int64))
-            let (var_22: System.Text.StringBuilder) = var_0.AppendLine("...")
-            var_10
-    else
-        var_10
 and method_13 ((var_1: uint64)) ((var_0: Env1)): int32 =
     let (var_2: EnvStack0) = var_0.mem_0
     let (var_3: uint64) = var_0.mem_1
@@ -737,93 +965,6 @@ and method_13 ((var_1: uint64)) ((var_0: Env1)): int32 =
             0
         else
             1
-and method_31((var_0: System.Text.StringBuilder), (var_1: int64)): unit =
-    let (var_2: bool) = (var_1 < 4L)
-    if var_2 then
-        let (var_3: System.Text.StringBuilder) = var_0.Append(' ')
-        let (var_4: int64) = (var_1 + 1L)
-        method_31((var_0: System.Text.StringBuilder), (var_4: int64))
-    else
-        ()
-and method_32((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: string), (var_7: int64)): int64 =
-    let (var_8: bool) = (var_4 < var_5)
-    if var_8 then
-        let (var_9: bool) = (var_7 < 1000L)
-        if var_9 then
-            let (var_10: System.Text.StringBuilder) = var_0.Append(var_6)
-            let (var_11: bool) = (var_4 >= var_4)
-            let (var_12: bool) = (var_11 = false)
-            if var_12 then
-                (failwith "Argument out of bounds.")
-            else
-                ()
-            let (var_13: float32) = var_1.[int32 var_2]
-            let (var_14: string) = System.String.Format("{0}",var_13)
-            let (var_15: System.Text.StringBuilder) = var_0.Append(var_14)
-            let (var_16: string) = "; "
-            let (var_17: int64) = (var_7 + 1L)
-            let (var_18: int64) = (var_4 + 1L)
-            method_33((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_16: string), (var_17: int64), (var_18: int64))
-        else
-            let (var_20: System.Text.StringBuilder) = var_0.Append("...")
-            var_7
-    else
-        var_7
-and method_34((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_11: int64)): int64 =
-    let (var_12: bool) = (var_11 < var_7)
-    if var_12 then
-        let (var_13: bool) = (var_10 < 1000L)
-        if var_13 then
-            let (var_14: bool) = (var_11 >= var_6)
-            let (var_15: bool) = (var_14 = false)
-            if var_15 then
-                (failwith "Argument out of bounds.")
-            else
-                ()
-            let (var_16: int64) = (var_11 - var_6)
-            let (var_17: int64) = (var_16 * var_4)
-            let (var_18: int64) = (var_3 + var_17)
-            let (var_19: int64) = 0L
-            method_31((var_0: System.Text.StringBuilder), (var_19: int64))
-            let (var_20: System.Text.StringBuilder) = var_0.Append("[|")
-            let (var_21: int64) = method_32((var_0: System.Text.StringBuilder), (var_2: (float32 [])), (var_18: int64), (var_5: int64), (var_8: int64), (var_9: int64), (var_1: string), (var_10: int64))
-            let (var_22: System.Text.StringBuilder) = var_0.AppendLine("|]")
-            let (var_23: int64) = (var_11 + 1L)
-            method_34((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_21: int64), (var_23: int64))
-        else
-            let (var_25: int64) = 0L
-            method_29((var_0: System.Text.StringBuilder), (var_25: int64))
-            let (var_26: System.Text.StringBuilder) = var_0.AppendLine("...")
-            var_10
-    else
-        var_10
-and method_33((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: string), (var_7: int64), (var_8: int64)): int64 =
-    let (var_9: bool) = (var_8 < var_5)
-    if var_9 then
-        let (var_10: bool) = (var_7 < 1000L)
-        if var_10 then
-            let (var_11: System.Text.StringBuilder) = var_0.Append(var_6)
-            let (var_12: bool) = (var_8 >= var_4)
-            let (var_13: bool) = (var_12 = false)
-            if var_13 then
-                (failwith "Argument out of bounds.")
-            else
-                ()
-            let (var_14: int64) = (var_8 - var_4)
-            let (var_15: int64) = (var_14 * var_3)
-            let (var_16: int64) = (var_2 + var_15)
-            let (var_17: float32) = var_1.[int32 var_16]
-            let (var_18: string) = System.String.Format("{0}",var_17)
-            let (var_19: System.Text.StringBuilder) = var_0.Append(var_18)
-            let (var_20: string) = "; "
-            let (var_21: int64) = (var_7 + 1L)
-            let (var_22: int64) = (var_8 + 1L)
-            method_33((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_20: string), (var_21: int64), (var_22: int64))
-        else
-            let (var_24: System.Text.StringBuilder) = var_0.Append("...")
-            var_7
-    else
-        var_7
 let (var_0: string) = cuda_kernels
 let (var_1: ManagedCuda.CudaContext) = ManagedCuda.CudaContext(false)
 var_1.Synchronize()
@@ -934,34 +1075,34 @@ var_44.SetStream(var_87)
 let (var_88: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_81)
 let (var_89: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_88)
 var_44.GenerateNormal32(var_89, var_82, 0.000000f, 1.000000f)
-let (var_90: int64) = 96L
+let (var_90: int64) = 32L
 let (var_91: EnvHeap2) = method_10((var_74: EnvHeap5), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3), (var_90: int64))
 let (var_92: EnvStack6) = EnvStack6((var_91: EnvHeap2))
-let (var_93: EnvHeap2) = var_92.mem_0
-let (var_94: (int64 ref)) = var_93.mem_0
-let (var_95: EnvStack0) = var_93.mem_1
-let (var_96: (uint64 ref)) = var_95.mem_0
-let (var_97: uint64) = method_5((var_96: (uint64 ref)))
-let (var_98: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(24L)
-let (var_99: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
-var_44.SetStream(var_99)
-let (var_100: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_97)
-let (var_101: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_100)
-var_44.GenerateNormal32(var_101, var_98, 0.000000f, 1.000000f)
+let (var_93: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
+let (var_94: EnvHeap2) = var_92.mem_0
+let (var_95: (int64 ref)) = var_94.mem_0
+let (var_96: EnvStack0) = var_94.mem_1
+let (var_97: (uint64 ref)) = var_96.mem_0
+let (var_98: uint64) = method_5((var_97: (uint64 ref)))
+let (var_99: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_98)
+let (var_100: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_99)
+let (var_101: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(32L)
+var_1.ClearMemoryAsync(var_100, 0uy, var_101, var_93)
 let (var_102: int64) = 96L
 let (var_103: EnvHeap2) = method_10((var_74: EnvHeap5), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3), (var_102: int64))
 let (var_104: EnvStack6) = EnvStack6((var_103: EnvHeap2))
-let (var_105: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
-let (var_106: EnvHeap2) = var_104.mem_0
-let (var_107: (int64 ref)) = var_106.mem_0
-let (var_108: EnvStack0) = var_106.mem_1
-let (var_109: (uint64 ref)) = var_108.mem_0
-let (var_110: uint64) = method_5((var_109: (uint64 ref)))
-let (var_111: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_110)
-let (var_112: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_111)
-let (var_113: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(96L)
-var_1.ClearMemoryAsync(var_112, 0uy, var_113, var_105)
-let (var_114: int64) = 32L
+let (var_105: EnvHeap2) = var_104.mem_0
+let (var_106: (int64 ref)) = var_105.mem_0
+let (var_107: EnvStack0) = var_105.mem_1
+let (var_108: (uint64 ref)) = var_107.mem_0
+let (var_109: uint64) = method_5((var_108: (uint64 ref)))
+let (var_110: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(24L)
+let (var_111: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
+var_44.SetStream(var_111)
+let (var_112: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_109)
+let (var_113: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_112)
+var_44.GenerateNormal32(var_113, var_110, 0.000000f, 0.447214f)
+let (var_114: int64) = 96L
 let (var_115: EnvHeap2) = method_10((var_74: EnvHeap5), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3), (var_114: int64))
 let (var_116: EnvStack6) = EnvStack6((var_115: EnvHeap2))
 let (var_117: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
@@ -972,82 +1113,88 @@ let (var_121: (uint64 ref)) = var_120.mem_0
 let (var_122: uint64) = method_5((var_121: (uint64 ref)))
 let (var_123: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_122)
 let (var_124: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_123)
-let (var_125: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(32L)
+let (var_125: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(96L)
 var_1.ClearMemoryAsync(var_124, 0uy, var_125, var_117)
-let (var_126: int64) = 32L
+let (var_126: int64) = 16L
 let (var_127: EnvHeap2) = method_10((var_74: EnvHeap5), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3), (var_126: int64))
 let (var_128: EnvStack6) = EnvStack6((var_127: EnvHeap2))
-method_16((var_92: EnvStack6), (var_76: EnvStack6), (var_128: EnvStack6), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3))
-let (var_129: EnvHeap2) = var_128.mem_0
-let (var_130: int64) = 32L
-let (var_131: EnvHeap2) = method_10((var_74: EnvHeap5), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3), (var_130: int64))
-let (var_132: EnvStack6) = EnvStack6((var_131: EnvHeap2))
-let (var_133: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
-let (var_134: EnvHeap2) = var_132.mem_0
-let (var_135: (int64 ref)) = var_134.mem_0
-let (var_136: EnvStack0) = var_134.mem_1
-let (var_137: (uint64 ref)) = var_136.mem_0
-let (var_138: uint64) = method_5((var_137: (uint64 ref)))
-let (var_139: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_138)
-let (var_140: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_139)
-let (var_141: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(32L)
-var_1.ClearMemoryAsync(var_140, 0uy, var_141, var_133)
-let (var_146: int64) = 32L
-let (var_147: EnvHeap2) = method_10((var_74: EnvHeap5), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3), (var_146: int64))
-let (var_148: EnvStack6) = EnvStack6((var_147: EnvHeap2))
-let (var_149: (int64 ref)) = var_129.mem_0
-let (var_150: EnvStack0) = var_129.mem_1
-let (var_151: (uint64 ref)) = var_150.mem_0
-let (var_152: uint64) = method_5((var_151: (uint64 ref)))
-let (var_153: EnvHeap2) = var_148.mem_0
-let (var_154: (int64 ref)) = var_153.mem_0
-let (var_155: EnvStack0) = var_153.mem_1
-let (var_156: (uint64 ref)) = var_155.mem_0
-let (var_157: uint64) = method_5((var_156: (uint64 ref)))
+let (var_129: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
+let (var_130: EnvHeap2) = var_128.mem_0
+let (var_131: (int64 ref)) = var_130.mem_0
+let (var_132: EnvStack0) = var_130.mem_1
+let (var_133: (uint64 ref)) = var_132.mem_0
+let (var_134: uint64) = method_5((var_133: (uint64 ref)))
+let (var_135: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_134)
+let (var_136: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_135)
+let (var_137: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(16L)
+var_1.ClearMemoryAsync(var_136, 0uy, var_137, var_129)
+let (var_138: int64) = 16L
+let (var_139: EnvHeap2) = method_10((var_74: EnvHeap5), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3), (var_138: int64))
+let (var_140: EnvStack6) = EnvStack6((var_139: EnvHeap2))
+let (var_141: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
+let (var_142: EnvHeap2) = var_140.mem_0
+let (var_143: (int64 ref)) = var_142.mem_0
+let (var_144: EnvStack0) = var_142.mem_1
+let (var_145: (uint64 ref)) = var_144.mem_0
+let (var_146: uint64) = method_5((var_145: (uint64 ref)))
+let (var_147: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_146)
+let (var_148: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_147)
+let (var_149: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(16L)
+var_1.ClearMemoryAsync(var_148, 0uy, var_149, var_141)
+let (var_150: int64) = 32L
+let (var_151: EnvHeap2) = method_10((var_74: EnvHeap5), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3), (var_150: int64))
+let (var_152: EnvStack6) = EnvStack6((var_151: EnvHeap2))
+method_16((var_104: EnvStack6), (var_76: EnvStack6), (var_152: EnvStack6), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3))
+let (var_153: EnvHeap2) = var_152.mem_0
+let (var_154: int64) = 32L
+let (var_155: EnvHeap2) = method_10((var_74: EnvHeap5), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3), (var_154: int64))
+let (var_156: EnvStack6) = EnvStack6((var_155: EnvHeap2))
+let (var_157: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
+let (var_158: EnvHeap2) = var_156.mem_0
+let (var_159: (int64 ref)) = var_158.mem_0
+let (var_160: EnvStack0) = var_158.mem_1
+let (var_161: (uint64 ref)) = var_160.mem_0
+let (var_162: uint64) = method_5((var_161: (uint64 ref)))
+let (var_163: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_162)
+let (var_164: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_163)
+let (var_165: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(32L)
+var_1.ClearMemoryAsync(var_164, 0uy, var_165, var_157)
+let (var_166: uint64) = method_5((var_133: (uint64 ref)))
+let (var_167: (int64 ref)) = var_153.mem_0
+let (var_168: EnvStack0) = var_153.mem_1
+let (var_169: (uint64 ref)) = var_168.mem_0
+let (var_170: uint64) = method_5((var_169: (uint64 ref)))
+let (var_171: uint64) = method_5((var_169: (uint64 ref)))
 // Cuda join point
-// method_17((var_152: uint64), (var_157: uint64))
-let (var_158: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_17", var_32, var_1)
-let (var_159: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
-var_158.set_GridDimensions(var_159)
-let (var_160: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(128u, 1u, 1u)
-var_158.set_BlockDimensions(var_160)
-let (var_161: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
-let (var_163: (System.Object [])) = [|var_152; var_157|]: (System.Object [])
-var_158.RunAsync(var_161, var_163)
-let (var_164: int64) = 32L
-let (var_165: EnvHeap2) = method_10((var_74: EnvHeap5), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3), (var_164: int64))
-let (var_166: EnvStack6) = EnvStack6((var_165: EnvHeap2))
-let (var_167: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
-let (var_168: EnvHeap2) = var_166.mem_0
-let (var_169: (int64 ref)) = var_168.mem_0
-let (var_170: EnvStack0) = var_168.mem_1
-let (var_171: (uint64 ref)) = var_170.mem_0
-let (var_172: uint64) = method_5((var_171: (uint64 ref)))
-let (var_173: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_172)
-let (var_174: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_173)
-let (var_175: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(32L)
-var_1.ClearMemoryAsync(var_174, 0uy, var_175, var_167)
-let (var_178: uint64) = method_5((var_156: (uint64 ref)))
-let (var_179: uint64) = method_5((var_121: (uint64 ref)))
-let (var_183: int64) = 4L
-let (var_184: EnvHeap2) = method_10((var_74: EnvHeap5), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3), (var_183: int64))
-let (var_185: EnvStack6) = EnvStack6((var_184: EnvHeap2))
-let (var_186: EnvHeap2) = var_185.mem_0
+// method_17((var_166: uint64), (var_170: uint64), (var_171: uint64))
+let (var_172: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_17", var_32, var_1)
+let (var_173: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
+var_172.set_GridDimensions(var_173)
+let (var_174: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(4u, 2u, 1u)
+var_172.set_BlockDimensions(var_174)
+let (var_175: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
+let (var_177: (System.Object [])) = [|var_166; var_170; var_171|]: (System.Object [])
+var_172.RunAsync(var_175, var_177)
+let (var_182: int64) = 32L
+let (var_183: EnvHeap2) = method_10((var_74: EnvHeap5), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3), (var_182: int64))
+let (var_184: EnvStack6) = EnvStack6((var_183: EnvHeap2))
+let (var_185: uint64) = method_5((var_169: (uint64 ref)))
+let (var_186: EnvHeap2) = var_184.mem_0
 let (var_187: (int64 ref)) = var_186.mem_0
 let (var_188: EnvStack0) = var_186.mem_1
 let (var_189: (uint64 ref)) = var_188.mem_0
 let (var_190: uint64) = method_5((var_189: (uint64 ref)))
 // Cuda join point
-// method_19((var_178: uint64), (var_179: uint64), (var_190: uint64))
-let (var_191: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_19", var_32, var_1)
+// method_20((var_185: uint64), (var_190: uint64))
+let (var_191: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_20", var_32, var_1)
 let (var_192: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
 var_191.set_GridDimensions(var_192)
-let (var_193: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(8u, 1u, 1u)
+let (var_193: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(128u, 1u, 1u)
 var_191.set_BlockDimensions(var_193)
 let (var_194: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
-let (var_196: (System.Object [])) = [|var_178; var_179; var_190|]: (System.Object [])
+let (var_196: (System.Object [])) = [|var_185; var_190|]: (System.Object [])
 var_191.RunAsync(var_194, var_196)
-let (var_197: int64) = 4L
+let (var_197: int64) = 32L
 let (var_198: EnvHeap2) = method_10((var_74: EnvHeap5), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3), (var_197: int64))
 let (var_199: EnvStack6) = EnvStack6((var_198: EnvHeap2))
 let (var_200: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
@@ -1058,65 +1205,102 @@ let (var_204: (uint64 ref)) = var_203.mem_0
 let (var_205: uint64) = method_5((var_204: (uint64 ref)))
 let (var_206: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_205)
 let (var_207: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_206)
-let (var_208: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(4L)
+let (var_208: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(32L)
 var_1.ClearMemoryAsync(var_207, 0uy, var_208, var_200)
-let (var_209: int64) = 1L
-let (var_210: int64) = 0L
-let (var_211: (float32 [])) = method_21((var_209: int64), (var_185: EnvStack6), (var_210: int64))
-let (var_212: float32) = var_211.[int32 0L]
-let (var_213: string) = System.String.Format("Cost is: {0}",var_212)
-let (var_214: string) = System.String.Format("{0}",var_213)
-System.Console.WriteLine(var_214)
-let (var_215: int64) = 0L
-let (var_216: float32) = 1.000000f
-method_22((var_199: EnvStack6), (var_215: int64), (var_216: float32))
-let (var_217: uint64) = method_5((var_204: (uint64 ref)))
-let (var_218: uint64) = method_5((var_189: (uint64 ref)))
-let (var_219: uint64) = method_5((var_156: (uint64 ref)))
-let (var_220: uint64) = method_5((var_121: (uint64 ref)))
-let (var_221: uint64) = method_5((var_171: (uint64 ref)))
+let (var_211: uint64) = method_5((var_189: (uint64 ref)))
+let (var_212: uint64) = method_5((var_97: (uint64 ref)))
+let (var_216: int64) = 4L
+let (var_217: EnvHeap2) = method_10((var_74: EnvHeap5), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3), (var_216: int64))
+let (var_218: EnvStack6) = EnvStack6((var_217: EnvHeap2))
+let (var_219: EnvHeap2) = var_218.mem_0
+let (var_220: (int64 ref)) = var_219.mem_0
+let (var_221: EnvStack0) = var_219.mem_1
+let (var_222: (uint64 ref)) = var_221.mem_0
+let (var_223: uint64) = method_5((var_222: (uint64 ref)))
 // Cuda join point
-// method_23((var_217: uint64), (var_218: uint64), (var_219: uint64), (var_220: uint64), (var_221: uint64))
-let (var_222: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_23", var_32, var_1)
-let (var_223: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
-var_222.set_GridDimensions(var_223)
-let (var_224: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(128u, 1u, 1u)
-var_222.set_BlockDimensions(var_224)
-let (var_225: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
-let (var_227: (System.Object [])) = [|var_217; var_218; var_219; var_220; var_221|]: (System.Object [])
-var_222.RunAsync(var_225, var_227)
-let (var_228: uint64) = method_5((var_151: (uint64 ref)))
-let (var_229: uint64) = method_5((var_171: (uint64 ref)))
-let (var_230: uint64) = method_5((var_156: (uint64 ref)))
-let (var_231: uint64) = method_5((var_137: (uint64 ref)))
-// Cuda join point
-// method_24((var_228: uint64), (var_229: uint64), (var_230: uint64), (var_231: uint64))
-let (var_232: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_24", var_32, var_1)
-let (var_233: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
-var_232.set_GridDimensions(var_233)
-let (var_234: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(128u, 1u, 1u)
-var_232.set_BlockDimensions(var_234)
-let (var_235: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
-let (var_237: (System.Object [])) = [|var_228; var_229; var_230; var_231|]: (System.Object [])
-var_232.RunAsync(var_235, var_237)
-method_25((var_132: EnvStack6), (var_76: EnvStack6), (var_104: EnvStack6), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3))
-let (var_238: int64) = 0L
-let (var_239: int64) = 4L
-let (var_240: int64) = 1L
-let (var_241: int64) = 0L
-let (var_242: int64) = 6L
+// method_22((var_211: uint64), (var_212: uint64), (var_223: uint64))
+let (var_224: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_22", var_32, var_1)
+let (var_225: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
+var_224.set_GridDimensions(var_225)
+let (var_226: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(8u, 1u, 1u)
+var_224.set_BlockDimensions(var_226)
+let (var_227: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
+let (var_229: (System.Object [])) = [|var_211; var_212; var_223|]: (System.Object [])
+var_224.RunAsync(var_227, var_229)
+let (var_230: int64) = 4L
+let (var_231: EnvHeap2) = method_10((var_74: EnvHeap5), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3), (var_230: int64))
+let (var_232: EnvStack6) = EnvStack6((var_231: EnvHeap2))
+let (var_233: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
+let (var_234: EnvHeap2) = var_232.mem_0
+let (var_235: (int64 ref)) = var_234.mem_0
+let (var_236: EnvStack0) = var_234.mem_1
+let (var_237: (uint64 ref)) = var_236.mem_0
+let (var_238: uint64) = method_5((var_237: (uint64 ref)))
+let (var_239: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_238)
+let (var_240: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_239)
+let (var_241: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(4L)
+var_1.ClearMemoryAsync(var_240, 0uy, var_241, var_233)
+let (var_242: int64) = 1L
 let (var_243: int64) = 0L
-let (var_244: int64) = 4L
-method_26((var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3), (var_104: EnvStack6), (var_238: int64), (var_239: int64), (var_240: int64), (var_241: int64), (var_242: int64), (var_243: int64), (var_244: int64))
-method_35((var_68: ResizeArray<EnvHeap3>))
-method_37((var_56: ResizeArray<EnvHeap2>))
+let (var_244: (float32 [])) = method_24((var_242: int64), (var_218: EnvStack6), (var_243: int64))
+let (var_245: float32) = var_244.[int32 0L]
+let (var_246: string) = System.String.Format("Cost is: {0}",var_245)
+let (var_247: string) = System.String.Format("{0}",var_246)
+System.Console.WriteLine(var_247)
+let (var_248: int64) = 0L
+let (var_249: float32) = 1.000000f
+method_25((var_232: EnvStack6), (var_248: int64), (var_249: float32))
+let (var_250: uint64) = method_5((var_237: (uint64 ref)))
+let (var_251: uint64) = method_5((var_222: (uint64 ref)))
+let (var_252: uint64) = method_5((var_189: (uint64 ref)))
+let (var_253: uint64) = method_5((var_97: (uint64 ref)))
+let (var_254: uint64) = method_5((var_204: (uint64 ref)))
+// Cuda join point
+// method_26((var_250: uint64), (var_251: uint64), (var_252: uint64), (var_253: uint64), (var_254: uint64))
+let (var_255: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_26", var_32, var_1)
+let (var_256: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
+var_255.set_GridDimensions(var_256)
+let (var_257: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(128u, 1u, 1u)
+var_255.set_BlockDimensions(var_257)
+let (var_258: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
+let (var_260: (System.Object [])) = [|var_250; var_251; var_252; var_253; var_254|]: (System.Object [])
+var_255.RunAsync(var_258, var_260)
+let (var_261: uint64) = method_5((var_169: (uint64 ref)))
+let (var_262: uint64) = method_5((var_204: (uint64 ref)))
+let (var_263: uint64) = method_5((var_189: (uint64 ref)))
+let (var_264: uint64) = method_5((var_161: (uint64 ref)))
+// Cuda join point
+// method_27((var_261: uint64), (var_262: uint64), (var_263: uint64), (var_264: uint64))
+let (var_265: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_27", var_32, var_1)
+let (var_266: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
+var_265.set_GridDimensions(var_266)
+let (var_267: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(128u, 1u, 1u)
+var_265.set_BlockDimensions(var_267)
+let (var_268: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
+let (var_270: (System.Object [])) = [|var_261; var_262; var_263; var_264|]: (System.Object [])
+var_265.RunAsync(var_268, var_270)
+method_28((var_156: EnvStack6), (var_76: EnvStack6), (var_116: EnvStack6), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap2>), (var_68: ResizeArray<EnvHeap3>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap3))
+let (var_271: uint64) = method_5((var_161: (uint64 ref)))
+let (var_272: uint64) = method_5((var_145: (uint64 ref)))
+// Cuda join point
+// method_29((var_271: uint64), (var_272: uint64))
+let (var_273: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_29", var_32, var_1)
+let (var_274: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
+var_273.set_GridDimensions(var_274)
+let (var_275: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(4u, 2u, 1u)
+var_273.set_BlockDimensions(var_275)
+let (var_276: ManagedCuda.BasicTypes.CUstream) = method_15((var_85: (bool ref)), (var_86: ManagedCuda.CudaStream))
+let (var_278: (System.Object [])) = [|var_271; var_272|]: (System.Object [])
+var_273.RunAsync(var_276, var_278)
+method_33((var_68: ResizeArray<EnvHeap3>))
+method_35((var_56: ResizeArray<EnvHeap2>))
 var_47.Dispose()
 var_44.Dispose()
-let (var_245: (uint64 ref)) = var_40.mem_0
-let (var_246: uint64) = method_5((var_245: (uint64 ref)))
-let (var_247: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_246)
-let (var_248: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_247)
-var_1.FreeMemory(var_248)
-var_245 := 0UL
+let (var_279: (uint64 ref)) = var_40.mem_0
+let (var_280: uint64) = method_5((var_279: (uint64 ref)))
+let (var_281: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_280)
+let (var_282: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_281)
+var_1.FreeMemory(var_282)
+var_279 := 0UL
 var_1.Dispose()
 

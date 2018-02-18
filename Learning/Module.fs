@@ -1622,26 +1622,26 @@ inl float s ->
 
     // #Feedforward
     inl layer initializer activation hidden_size input_size s =
-        inb weight = initializer s (input_size, hidden_size) |> s.dr
-        inb bias = s.CudaTensor.zero {elem_type=float; dim=hidden_size} |> s.dr
+        inl weight = initializer (input_size, hidden_size) s |> s.dr
+        inl bias = s.CudaTensor.zero {elem_type=float; dim=hidden_size} |> s.dr
         {
         hidden_size
         weights = weight, bias
-        apply = inl s input -> s.Primitive.matmultb (input, weight) bias >>= activation s
+        apply = inl input -> matmultb (input, weight) bias >>= activation
         }
 
-    inl rec init layers input_size ret = 
+    inl rec init layers input_size s = 
         match layers with
         | x :: x' ->
-            inb {hidden_size weights apply} = init x input_size
-            inb x' = init x' hidden_size
-            ret {x' with weights=weights :: self; apply = apply >>= self}
-        | () -> ret {hidden_size=input_size; weigths=(); apply=succ}
-        | x -> x input_size ret
+            inl {hidden_size weights apply} = init x input_size s
+            inl x' = init x' hidden_size s
+            {x' with weights=weights :: self; apply = apply >>= self}
+        | () -> {hidden_size=input_size; weigths=(); apply=succ}
+        | x -> x input_size s
 
-    inl with_error error network s = {network with apply = inl s (input,label) -> self s input >>= inl input -> error s (input,label)}
+    inl with_error error network = {network with apply = inl (input,label) -> self input >>= inl input -> error (input,label)}
 
-    inl sigmoid_initializer s dim = 
+    inl sigmoid_initializer dim s = 
         inl stddev = sqrt (two / to float (Tuple.foldl (+) 0 dim))
         s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
 
@@ -1650,7 +1650,6 @@ inl float s ->
 
     inl Feedforward = {sigmoid linear init with_error} |> stack
 
-
-    { primal primals adjoint adjoints (>>=) succ s }
+    { primal primals adjoint adjoints (>>=) succ Primitive Activation Error Feedforward s }
     """) |> module_
 

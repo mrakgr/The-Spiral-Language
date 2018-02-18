@@ -377,11 +377,11 @@ inb s = CudaModules (1024*1024)
 
 inl float = float32
 open Learning float s 
-open s.Primitive.unwrap
+open Primitive
 
 inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,8}
 inl a2 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=8,2} |> s.dr
-inl o1,bck = matmult a1 a2
+inl o1,bck = matmult a1 a2 s
 bck()
 
 primal o1 |> s.CudaTensor.print
@@ -394,10 +394,10 @@ inb s = CudaModules (1024*1024)
 
 inl float = float32
 open Learning float s
-open s.Primitive.unwrap
+open Primitive
 
 inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,8} |> s.dr
-inl o1,bck = map {fwd=((*) 10f32); bck=inl {out} -> out.A * 10f32} a1
+inl o1,bck = map {fwd=((*) 10f32); bck=inl {out} -> out.A * 10f32} a1 s
 bck()
 primal o1 |> s.CudaTensor.print
     """
@@ -409,11 +409,11 @@ inb s = CudaModules (1024*1024)
 
 inl float = float32
 open Learning float s
-open s.Primitive.unwrap
+open Primitive
 
 inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=float; dim=256,256} |> s.dr
 inl l = primal a1 .span_outer |> to float
-inl o1,bck = map_redo_map {fwd={neutral_elem=0f32; redo=(+); map_out=inl x -> x/l}; bck=inl {out} -> out.A/l} a1
+inl o1,bck = map_redo_map {fwd={neutral_elem=0f32; redo=(+); map_out=inl x -> x/l}; bck=inl {out} -> out.A/l} a1 s
 bck()
 primal o1 |> s.CudaTensor.print
     """
@@ -425,11 +425,11 @@ inb s = CudaModules (1024*1024)
 
 inl float = float32
 open Learning float s
-open s.Primitive.unwrap
+open Primitive
 
 inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=float; dim=6,6} |> s.dr
 inl l = primal a1 .span_outer |> to float
-inl o1,bck = map_redo_map {fwd={neutral_elem=0f32; redo=(+); map_out=inl x -> x/l}; bck=inl {out} -> out.A/l} a1
+inl o1,bck = map_redo_map {fwd={neutral_elem=0f32; redo=(+); map_out=inl x -> x/l}; bck=inl {out} -> out.A/l} a1 s
 s.CudaTensor.set (adjoint o1) 1f32
 bck()
 adjoint a1 |> s.CudaTensor.print
@@ -442,16 +442,15 @@ inb s = CudaModules (1024*1024)
 
 inl float = float32
 open Learning float s
-open s.Primitive.unwrap
-open s.Activation.unwrap
-open s.Error.unwrap
+open Primitive
+open Activation
+open Error
 
 inl input = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,6}
 inl weight = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=6,4} |> s.dr
 inl label = s.CudaTensor.zero {elem_type=float; dim=2,4}
-inl {cost},bck = 
-    inm o1 = matmult input weight >>= sigmoid
-    square (o1,label)
+inl f = matmult input weight >>= sigmoid >>= inl o1 -> square (o1,label)
+inl {cost},bck = f s
 
 string_format "Cost is: {0}" (s.CudaTensor.get (primal cost)) |> Console.writeline
 
@@ -467,10 +466,10 @@ inb s = CudaModules (1024*1024)
 
 inl float = float32
 open Learning float s
-open s.Primitive.unwrap
-open s.Activation.unwrap
-open s.Error.unwrap
-open s.Feedforward.unwrap
+open Primitive
+open Activation
+open Error
+open Feedforward
 
 inl input_size = 6
 inl hidden_size = 4
@@ -478,8 +477,8 @@ inl batch_size = 2
 inl input = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=batch_size,input_size}
 inl label = s.CudaTensor.zero {elem_type=float; dim=batch_size,hidden_size}
 
-inl {apply} = init (sigmoid hidden_size) input_size |> with_error square
-inl {cost},bck = apply (input,label)
+inl {apply} = init (sigmoid hidden_size) input_size s |> with_error square
+inl {cost},bck = apply (input,label) s
 
 string_format "Cost is: {0}" (s.CudaTensor.get (primal cost)) |> Console.writeline
 
