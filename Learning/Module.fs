@@ -1479,14 +1479,13 @@ inl float s ->
 
     inl s = s.member_add .dr dr
 
-    //#Primitive
-    inl matmult s A B =
+    inl matmult A B s =
         inl C = s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> s.dr
         C, inl _ ->
             on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one (adjoint C) (primal B) one A)
             on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) (adjoint C) one B)
 
-    inl map s {fwd bck} in =
+    inl map {fwd bck} in s =
         inl primal, adjoint = primals in, adjoints in
         inl out = s.CudaKernel.map fwd primal |> s.dr
         out, inl _ ->
@@ -1498,7 +1497,7 @@ inl float s ->
             inb adjoint = filter_unit_and_branch adjoint 
             s.CudaKernel.map' bck {in=primal; out} adjoint
 
-    inl map_redo_map s {fwd bck} in =
+    inl map_redo_map {fwd bck} in s =
         inl primal, adjoint = primals in, adjoints in
         inl out = s.CudaKernel.map_redo_map fwd primal |> s.dr
         
@@ -1510,7 +1509,7 @@ inl float s ->
             inb adjoint = filter_unit_and_branch adjoint 
             s.CudaKernel.map' bck {in=primal} adjoint
 
-    inl d2_replicate_map s {fwd bck={bck_in bck_in'}} in in' =
+    inl d2_replicate_map {fwd bck={bck_in bck_in'}} in in' s =
         inl primal, adjoint = primals in, adjoints in
         inl primal', adjoint' = primals in', adjoints in'
         inl out = s.CudaKernel.d2_replicate_map fwd primal primal' |> s.dr
@@ -1519,7 +1518,7 @@ inl float s ->
             on_non_nil adjoint (s.CudaKernel.map_d2_redo_map' bck_in {in'=primal'; out} primal)
             on_non_nil adjoint' (s.CudaKernel.d2_replicate_map' bck_in' primal {in'=primal'; out})
 
-    inl matmultb s l bias =
+    inl matmultb l bias s =
         inl l =
             match l with
             | () -> error_type "First argument must not be empty."
@@ -1540,7 +1539,7 @@ inl float s ->
                 ) l
             on_non_nil (adjoint bias) (inl bias -> s.CudaKernel.map_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
 
-    inl add_bias s = s.Primitive.d2_replicate_map {
+    inl add_bias = d2_replicate_map {
         fwd=(+)
         bck={
             bck_in={
@@ -1557,30 +1556,26 @@ inl float s ->
         matmult map map_redo_map add_bias matmultb d2_replicate_map
         } |> stack
 
-    inl s = s.module_add .Primitive Primitive
-
     // #Operations
-    inl (>>=) a b =
-        inl a,a_bck = a
-        inl b,b_bck = b a
+    inl (>>=) a b s =
+        inl a,a_bck = a s
+        inl b,b_bck = b a s
         b, inl _ -> b_bck(); a_bck()
 
-    inl succ x = x, const ()
+    inl succ x _ = x, const ()
 
     inl multiply_by_adjoint f {d with out={A P} in} = toa_map ((*) A) (f {in out=P})
-    inl activation s d = s.Primitive.map {d with bck = multiply_by_adjoint self }
+    inl activation d = map {d with bck = multiply_by_adjoint self }
 
-    inl sigmoid s = s.Activation.activation {
+    inl sigmoid = activation {
         fwd = inl x -> one / (one + exp -x)
         bck = inl {out} -> out * (one - out)
         }
 
     inl Activation = {activation sigmoid} |> stack
 
-    inl s = s.module_add .Activation Activation
-
     //#Error
-    inl accuracy s (input,label) =
+    inl accuracy (input,label) s =
         inl input, label = primal input, primal label
         inl _ ->
             inl x = 
@@ -1590,13 +1585,14 @@ inl float s ->
                     redo=inl a b -> if fst a > fst b then a else b
                     map_out=snd
                     } (input,label) ()
-            Array.foldl (inl s x -> if x = one then s+1 else s) (dyn 0) (to_host_tensor x).bodies.ar 
+            Array.foldl (inl s x -> if x = one then s+1 else s) (dyn 0) (s.CudaTensor.to_host_tensor x).bodies.ar 
+        , const ()
 
-    inl error s {fwd bck} (input,_ as x) = 
+    inl error {fwd bck} (input,_ as x) = 
         inl batch_size = primal input .span_outer |> to float
         inl div_by_minibatch_size x = x / batch_size
         inm cost =
-            s.Primitive.map_redo_map {
+            map_redo_map {
                 fwd = {
                     map_in = fwd
                     redo = (+)
@@ -1605,17 +1601,17 @@ inl float s ->
                     }
                 bck = toa_map (inl bck -> multiply_by_adjoint bck >> div_by_minibatch_size) bck
                 } x
-        inl accuracy = s.Error.accuracy x
+        inm accuracy = accuracy x
         succ {cost accuracy}
 
-    inl square s = s.Error.error {
+    inl square = error {
         fwd = inl (x,y) -> (y - x) * (y - x)
         bck = 
             inl {in=x,y} -> two * (x - y)
             ,inl {in=x,y} -> two * (y - x)
         }
 
-    inl cross_entropy s = s.Error.error {
+    inl cross_entropy = error {
         fwd = inl x, y -> -(y * log x + (one - y) * log (one - x))
         bck = 
             inl {in=x, y} -> (x - y) / (x * (one - x))
@@ -1624,7 +1620,36 @@ inl float s ->
 
     inl Error = {accuracy error square cross_entropy} |> stack
 
-    inl s = s.module_add .Error Error
+    // #Feedforward
+    inl layer initializer activation hidden_size input_size s =
+        inb weight = initializer s (input_size, hidden_size) |> s.dr
+        inb bias = s.CudaTensor.zero {elem_type=float; dim=hidden_size} |> s.dr
+        {
+        hidden_size
+        weights = weight, bias
+        apply = inl s input -> s.Primitive.matmultb (input, weight) bias >>= activation s
+        }
+
+    inl rec init layers input_size ret = 
+        match layers with
+        | x :: x' ->
+            inb {hidden_size weights apply} = init x input_size
+            inb x' = init x' hidden_size
+            ret {x' with weights=weights :: self; apply = apply >>= self}
+        | () -> ret {hidden_size=input_size; weigths=(); apply=succ}
+        | x -> x input_size ret
+
+    inl with_error error network s = {network with apply = inl s (input,label) -> self s input >>= inl input -> error s (input,label)}
+
+    inl sigmoid_initializer s dim = 
+        inl stddev = sqrt (two / to float (Tuple.foldl (+) 0 dim))
+        s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
+
+    inl sigmoid = layer sigmoid_initializer sigmoid
+    inl linear = layer sigmoid_initializer succ
+
+    inl Feedforward = {sigmoid linear init with_error} |> stack
+
 
     { primal primals adjoint adjoints (>>=) succ s }
     """) |> module_

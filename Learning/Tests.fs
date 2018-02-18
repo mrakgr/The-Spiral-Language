@@ -459,8 +459,35 @@ s.CudaTensor.set (adjoint cost) 1f32
 bck()
 adjoint weight |> s.CudaTensor.print
     """
+
+let learning6 =
+    "learning6",[cuda_modules;learning],"Does the basic layer work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl float = float32
+open Learning float s
+open s.Primitive.unwrap
+open s.Activation.unwrap
+open s.Error.unwrap
+open s.Feedforward.unwrap
+
+inl input_size = 6
+inl hidden_size = 4
+inl batch_size = 2
+inl input = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=batch_size,input_size}
+inl label = s.CudaTensor.zero {elem_type=float; dim=batch_size,hidden_size}
+
+inl {apply} = init (sigmoid hidden_size) input_size |> with_error square
+inl {cost},bck = apply (input,label)
+
+string_format "Cost is: {0}" (s.CudaTensor.get (primal cost)) |> Console.writeline
+
+s.CudaTensor.set (adjoint cost) 1f32
+bck()
+    """
     
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning5
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning6
 |> printfn "%s"
 |> ignore
     
