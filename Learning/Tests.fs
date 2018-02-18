@@ -436,7 +436,7 @@ adjoint a1 |> s.CudaTensor.print
     """
 
 let learning5 =
-    "learning5",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;console],"Does the basic pass work?",
+    "learning5",[cuda_modules;learning],"Does the basic pass work?",
     """
 inb s = CudaModules (1024*1024)
 
@@ -446,21 +446,21 @@ open s.Primitive.unwrap
 open s.Activation.unwrap
 open s.Error.unwrap
 
-inl input = s.CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,6}
-inl weight = s.CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=6,4} |> s.dr
+inl input = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,6}
+inl weight = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=6,4} |> s.dr
 inl label = s.CudaTensor.zero {elem_type=float; dim=2,4}
 inl {cost},bck = 
     inm o1 = matmult input weight >>= sigmoid
     square (o1,label)
 
-"Cost is: {0}" (s.CudaTensor.get (primal cost)) |> string_format |> Console.writeline
+string_format "Cost is: {0}" (s.CudaTensor.get (primal cost)) |> Console.writeline
 
 s.CudaTensor.set (adjoint cost) 1f32
 bck()
 adjoint weight |> s.CudaTensor.print
     """
     
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning4
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning5
 |> printfn "%s"
 |> ignore
     

@@ -855,8 +855,8 @@ inl map_redo_map w {d with redo neutral_elem} (!zip (!flatten in)) =
     inl gridDim = lit_min 64 (divup span blockDim)
     inl elem_type = type map_in in.elem_type
 
-    inl run {map_out blockDim gridDim} (!to_dev_tensor in) =
-        inl out = w.CudaTensor.create {elem_type=type map_out in.elem_type; dim=gridDim}
+    inl run {map_out map_in blockDim gridDim} (!to_dev_tensor in) =
+        inl out = w.CudaTensor.create {elem_type=type map_in in.elem_type |> map_out; dim=gridDim}
         inl out' = to_dev_tensor out
 
         w.run {
@@ -871,10 +871,10 @@ inl map_redo_map w {d with redo neutral_elem} (!zip (!flatten in)) =
         out
 
     if gridDim = 1 then
-        run {map_out blockDim gridDim} in
+        run {map_out map_in blockDim gridDim} in
     else
-        run {map_out=id; blockDim gridDim} in
-        |> run {map_out blockDim=gridDim; gridDim=1}
+        run {map_out=id; map_in blockDim gridDim} in
+        |> run {map_out map_in=id; blockDim=gridDim; gridDim=1}
     <| 0
         
 
@@ -1603,7 +1603,7 @@ inl float s ->
                     neutral_elem = zero
                     map_out = div_by_minibatch_size
                     }
-                bck = multiply_by_adjoint bck >> inl {out={A}} -> div_by_minibatch_size A
+                bck = toa_map (inl bck -> multiply_by_adjoint bck >> div_by_minibatch_size) bck
                 } x
         inl accuracy = s.Error.accuracy x
         succ {cost accuracy}
@@ -1622,10 +1622,10 @@ inl float s ->
             ,inl {in=x, y} -> log (one - x) - log x
         }
 
-    inl Error = {square cross_entropy}
+    inl Error = {accuracy error square cross_entropy} |> stack
 
     inl s = s.module_add .Error Error
 
-    { primal primals adjoint adjoints s }
+    { primal primals adjoint adjoints (>>=) succ s }
     """) |> module_
 
