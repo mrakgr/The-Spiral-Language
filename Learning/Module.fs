@@ -3,6 +3,75 @@
 open Spiral.Types
 open Spiral.Lib
 
+let mnist =
+    (
+    "Mnist",[extern_;host_tensor],"The Mnist loader module.",
+    """
+open Extern
+met load_mnist kind (!dyn filename) =
+    inl enum ty x = FS.StaticField ty x ty
+    inl File_ty = fs [text: "System.IO.File"]
+    inl FileStream_ty = fs [text: "System.IO.FileStream"]
+    inl FileMode = enum (fs [text: "System.IO.FileMode"])
+    inl FileAccess = enum (fs [text: "System.IO.FileAccess"])
+    inl FileShare = enum (fs [text: "System.IO.FileShare"])
+    inl BinaryReader_ty = fs [text: "System.IO.BinaryReader"]
+    inl IPAddress_ty = fs [text: "System.Net.IPAddress"]
+
+    inl netword_to_host_order x = FS.StaticMethod IPAddress_ty .NetworkToHostOrder x int32
+
+    use f = FS.StaticMethod File_ty .Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read) FileStream_ty
+    use d = FS.Constructor BinaryReader_ty f
+
+    inl read_int32 x = FS.Method d .ReadInt32 x int32 |> netword_to_host_order
+    inl read_bytes n = FS.Method d .ReadBytes n (array uint8)
+
+    inl to_ints64 = Tuple.map (to int64)
+
+    inl magic_number = read_int32()
+    match kind with
+    | .label ->
+        assert (magic_number = 2049i32) "Expected a 2049i32 magic number."
+        inl n = read_int32()
+        to int64 n, read_bytes n
+    | .image ->
+        assert (magic_number = 2051i32) "Expected a 2051i32 magic number."
+        inl n, rows, cols = read_int32(), read_int32(), read_int32()
+        to_ints64 (n, rows, cols), read_bytes (n * rows * cols)
+
+
+inl load_mnist_tensors mnist_path =
+    inl mnist_files = {
+        test_images = {file = "t10k-images.idx3-ubyte"; image_size = 10000,28,28}
+        test_labels = {file = "t10k-labels.idx1-ubyte"; label_size = 10000}
+        train_images = {file = "train-images.idx3-ubyte"; image_size = 60000,28,28}
+        train_labels = {file = "train-labels.idx1-ubyte"; label_size = 60000}
+        }
+           
+    inl path_type = fs [text: "System.IO.Path"]
+    inl combine x = FS.StaticMethod path_type .Combine x string
+    
+    module_map (inl _ -> function
+        | {file image_size} ->
+            inl size, ar = load_mnist .image (combine (mnist_path, file))
+            assert (image_size = size) "Mnist dimensions do not match the expected values."
+            inl images, rows, cols = image_size
+            HostTensor.array_as_tensor ar
+            |> HostTensor.split (const (images, rows * cols))
+            |> HostTensor.map (inl x -> to float32 x / 255f32)
+            
+        | {file label_size} ->
+            inl n, ar = load_mnist .label (combine (mnist_path, file))
+            assert (label_size = n) "Mnist dimensions do not match the expected values."
+            HostTensor.init (label_size, 10) (inl a ->
+                inl x = ar a
+                inl b -> if to uint8 b = x then 1.0f32 else 0.0f32
+                )
+        ) mnist_files
+
+{load_mnist_tensors}
+    """) |> module_
+
 let resize_array =
     (
     "ResizeArray",[extern_],"The resizable array module.",
@@ -1648,7 +1717,9 @@ inl float s ->
     inl sigmoid = layer sigmoid_initializer sigmoid
     inl linear = layer sigmoid_initializer succ
 
-    inl Feedforward = {sigmoid linear init with_error} |> stack
+    inl Layer = {sigmoid linear} |> stack
+
+    inl Feedforward = {Layer init with_error} |> stack
 
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Error Feedforward s }
     """) |> module_

@@ -477,7 +477,9 @@ inl batch_size = 2
 inl input = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=batch_size,input_size}
 inl label = s.CudaTensor.zero {elem_type=float; dim=batch_size,hidden_size}
 
-inl {apply} = init (sigmoid hidden_size) input_size s |> with_error square
+inl {apply} = 
+    open Layer
+    init (sigmoid hidden_size) input_size s |> with_error square
 inl {cost},bck = apply (input,label) s
 
 string_format "Cost is: {0}" (s.CudaTensor.get (primal cost)) |> Console.writeline
@@ -485,7 +487,66 @@ string_format "Cost is: {0}" (s.CudaTensor.get (primal cost)) |> Console.writeli
 s.CudaTensor.set (adjoint cost) 1f32
 bck()
     """
-    
+
+let learning7 =
+    "learning7",[cuda_modules;learning;mnist],"Does the pass work with Mnist?",
+    """
+inb s = CudaModules (1024*1024*1024)
+
+inl float = float32
+open Learning float s
+open Primitive
+open Activation
+open Error
+open Feedforward
+
+inl { test_images test_labels train_images train_labels} =
+    inl mnist_path = @"C:\ML Datasets\Mnist"
+    Mnist.load_mnist_tensors mnist_path
+    |> s.CudaTensor.from_host_tensors
+
+inl input_size = 784
+inl hidden_size = 10
+
+inl {apply} = 
+    open Layer
+    init (sigmoid hidden_size) input_size s |> with_error square
+inl {cost},bck = apply (test_images,test_labels) s
+
+string_format "Cost is: {0}" (s.CudaTensor.get (primal cost)) |> Console.writeline
+
+s.CudaTensor.set (adjoint cost) 1f32
+bck()
+    """
+
+let learning8 =
+    "learning8",[cuda_modules;learning],"Does the add_bias work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl float = float32
+open Learning float s
+open Primitive
+open Activation
+open Error
+open Feedforward
+
+inl input_size = 32
+inl outer_dim = 6
+inl inner_dim = 16
+inl input = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=input_size,outer_dim}
+inl weight = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=outer_dim,inner_dim} |> s.dr
+inl bias = s.CudaTensor.zero {elem_type=float; dim=inner_dim} |> s.dr
+inl label = s.CudaTensor.zero {elem_type=float; dim=input_size,inner_dim}
+
+inl f = matmult input weight >>= add_bias bias >>= sigmoid >>= inl o1 -> square (o1,label)
+inl {cost},bck = f s
+string_format "Cost is: {0}" (s.CudaTensor.get (primal cost)) |> Console.writeline
+
+s.CudaTensor.set (adjoint cost) 1f32
+bck()
+    """
+
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning6
 |> printfn "%s"
 |> ignore
