@@ -1137,6 +1137,7 @@ inl rec facade data =
         unwrap = id
         /// Returns an empty tensor of the same dimension.
         empty = inl data -> facade {data with bodies=()}
+        span_outer = inl {dim} -> match dim with () -> 1 | x :: _ -> span x
         }
 
     function
@@ -1216,18 +1217,18 @@ inl array_as_tensor ar = facade {dim=map_dims (array_length ar); bodies={ar size
 inl array_to_tensor = array_as_tensor >> copy
 
 /// Asserts that all the dimensions of the tensors are equal. Returns the dimension of the first tensor if applicable.
-/// tensor structure -> (dim | unit)
+/// tensor structure -> (dim | .nil)
 inl assert_zip l =
     toa_foldl (inl s x ->
         match s with
-        | () -> x.dim
-        | s -> assert (s = x.dim) "All tensors in zip need to have the same dimensions"; s) () l
+        | .nil -> x.dim
+        | s -> assert (s = x.dim) "All tensors in zip need to have the same dimensions"; s) .nil l
 
 /// Zips all the tensors in the argument together. Their dimensions must be equal.
 /// tensor structure -> tensor
 inl zip l = 
     match assert_zip l with
-    | () -> error_type "Empty inputs to zip are not allowed."
+    | .nil -> error_type "Empty inputs to zip are not allowed."
     | dim -> facade {dim bodies=toa_map (inl x -> x.bodies) l}
 
 /// Are all subtensors structurally equal?

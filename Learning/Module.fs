@@ -319,7 +319,7 @@ inl copy span dst {src with ar size ptr_get} =
 
 inl transfer_template f tns = 
     assert_contiguous tns
-    inl f = f match tns.dim with () -> 1 | !(fst >> span) s -> s
+    inl f = f tns.span_outer
     tns.update_body <| inl body -> {body with ar = f body}
 
 inl methods = 
@@ -366,9 +366,10 @@ inl methods =
 
     clear=inl s tns ->
         assert_contiguous tns
-        inl span = tns.dim |> fst |> span
+        inl span = tns.span_outer
         inl stream = s.stream.extract
-        tns.update_body <| inl {body with size=size::_ ar} ->
+        tns.update_body <| inl {body with size ar} ->
+            inl size = match size with () -> 1 | x :: _ -> x
             FS.Method s.context .ClearMemoryAsync (CUdeviceptr (ar.ptr()), 0u8, size * span * sizeof ar.elem_type |> SizeT, stream) unit
         |> ignore
 
@@ -735,7 +736,7 @@ inl map' w f (!zip in) (!zip out) =
     inl in = flatten in |> to_dev_tensor
     inl out = flatten out |> to_dev_tensor
     inl in_a :: () = in.dim
-
+    
     inl blockDim = 128
     inl gridDim = min 64 (divup (s in_a) blockDim)
 
@@ -750,7 +751,7 @@ inl map' w f (!zip in) (!zip out) =
         }
 
 inl map w f (!zip in) =
-    inl out = create {dim=in.dim; elem_type=type f in.elem_type}
+    inl out = w.CudaTensor.create {dim=in.dim; elem_type=type f in.elem_type}
     map' w (inl in _ -> f in) in out
     out
 
@@ -1476,18 +1477,154 @@ inl float s ->
 
     inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block_toa_map=()}
 
+    inl s = s.member_add .dr dr
+
+    //#Primitive
     inl matmult s A B =
-        inl C = s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
+        inl C = s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> s.dr
         C, inl _ ->
             on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one (adjoint C) (primal B) one A)
             on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) (adjoint C) one B)
 
-    inl methods =
+    inl map s {fwd bck} in =
+        inl primal, adjoint = primals in, adjoints in
+        inl out = s.CudaKernel.map fwd primal |> s.dr
+        out, inl _ ->
+            inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
+            inl bck =
+                inl bck = filter_based_on_adjoints bck adjoint
+                inl in adjoint -> toa_map ((|>) in) bck |> toa_map2 (+) adjoint
+
+            inb adjoint = filter_unit_and_branch adjoint 
+            s.CudaKernel.map' bck {in=primal; out} adjoint
+
+    inl map_redo_map s {fwd bck} in =
+        inl primal, adjoint = primals in, adjoints in
+        inl out = s.CudaKernel.map_redo_map fwd primal |> s.dr
+        
+        out, inl _ ->
+            inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A}) |> s.CudaTensor.to_dev_tensor
+            inl bck =
+                inl bck = filter_based_on_adjoints bck adjoint
+                inl {in} adjoint -> toa_map ((|>) {in out=out.get}) bck |> toa_map2 (+) adjoint
+            inb adjoint = filter_unit_and_branch adjoint 
+            s.CudaKernel.map' bck {in=primal} adjoint
+
+    inl d2_replicate_map s {fwd bck={bck_in bck_in'}} in in' =
+        inl primal, adjoint = primals in, adjoints in
+        inl primal', adjoint' = primals in', adjoints in'
+        inl out = s.CudaKernel.d2_replicate_map fwd primal primal' |> s.dr
+        out, inl _ ->
+            inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
+            on_non_nil adjoint (s.CudaKernel.map_d2_redo_map' bck_in {in'=primal'; out} primal)
+            on_non_nil adjoint' (s.CudaKernel.d2_replicate_map' bck_in' primal {in'=primal'; out})
+
+    inl matmultb s l bias =
+        inl l =
+            match l with
+            | () -> error_type "First argument must not be empty."
+            | (_,_) :: _ -> l
+            | _ :: _ -> l :: ()
+        inl C = 
+            Tuple.foldl (inl C (A,B) ->
+                match C with
+                | () -> s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> s.dr
+                | C -> s.CudaBlas.gemm' .nT .nT one (primal A) (primal B) one (primal C)
+                ) () l
+        s.CudaKernel.d2_replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
+        C, inl _ ->
+            inl C' = adjoint C
+            Tuple.iter (inl A, B ->
+                on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A)
+                on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B)
+                ) l
+            on_non_nil (adjoint bias) (inl bias -> s.CudaKernel.map_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
+
+    inl add_bias s = s.Primitive.d2_replicate_map {
+        fwd=(+)
+        bck={
+            bck_in={
+                map_in=inl {out} _ -> out.A
+                neutral_elem=zero;redo=(+)
+                map_out=(+)
+                }
+            bck_in'=inl _ {out} adjoint -> out.A + adjoint
+            }
+        }
+
+    inl Primitive =
         {
-        dr matmult
+        matmult map map_redo_map add_bias matmultb d2_replicate_map
         } |> stack
 
-    inl s = s.module_add .Primitive methods
+    inl s = s.module_add .Primitive Primitive
+
+    // #Operations
+    inl (>>=) a b =
+        inl a,a_bck = a
+        inl b,b_bck = b a
+        b, inl _ -> b_bck(); a_bck()
+
+    inl succ x = x, const ()
+
+    inl multiply_by_adjoint f {d with out={A P} in} = toa_map ((*) A) (f {in out=P})
+    inl activation s d = s.Primitive.map {d with bck = multiply_by_adjoint self }
+
+    inl sigmoid s = s.Activation.activation {
+        fwd = inl x -> one / (one + exp -x)
+        bck = inl {out} -> out * (one - out)
+        }
+
+    inl Activation = {activation sigmoid} |> stack
+
+    inl s = s.module_add .Activation Activation
+
+    //#Error
+    inl accuracy s (input,label) =
+        inl input, label = primal input, primal label
+        inl _ ->
+            inl x = 
+                s.CudaKernel.map_d1_redo_map {
+                    map_in=const
+                    neutral_elem=-infinity,zero
+                    redo=inl a b -> if fst a > fst b then a else b
+                    map_out=snd
+                    } (input,label) ()
+            Array.foldl (inl s x -> if x = one then s+1 else s) (dyn 0) (to_host_tensor x).bodies.ar 
+
+    inl error s {fwd bck} (input,_ as x) = 
+        inl batch_size = primal input .span_outer |> to float
+        inl div_by_minibatch_size x = x / batch_size
+        inm cost =
+            s.Primitive.map_redo_map {
+                fwd = {
+                    map_in = fwd
+                    redo = (+)
+                    neutral_elem = zero
+                    map_out = div_by_minibatch_size
+                    }
+                bck = multiply_by_adjoint bck >> inl {out={A}} -> div_by_minibatch_size A
+                } x
+        inl accuracy = s.Error.accuracy x
+        succ {cost accuracy}
+
+    inl square s = s.Error.error {
+        fwd = inl (x,y) -> (y - x) * (y - x)
+        bck = 
+            inl {in=x,y} -> two * (x - y)
+            ,inl {in=x,y} -> two * (y - x)
+        }
+
+    inl cross_entropy s = s.Error.error {
+        fwd = inl x, y -> -(y * log x + (one - y) * log (one - x))
+        bck = 
+            inl {in=x, y} -> (x - y) / (x * (one - x))
+            ,inl {in=x, y} -> log (one - x) - log x
+        }
+
+    inl Error = {square cross_entropy}
+
+    inl s = s.module_add .Error Error
 
     { primal primals adjoint adjoints s }
     """) |> module_

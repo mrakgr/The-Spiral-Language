@@ -380,14 +380,87 @@ open Learning float s
 open s.Primitive.unwrap
 
 inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,8}
-inl a2 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=8,2} |> dr
+inl a2 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=8,2} |> s.dr
 inl o1,bck = matmult a1 a2
 bck()
 
 primal o1 |> s.CudaTensor.print
     """
+
+let learning2 =
+    "learning2",[cuda_modules;learning],"Does the map work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl float = float32
+open Learning float s
+open s.Primitive.unwrap
+
+inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,8} |> s.dr
+inl o1,bck = map {fwd=((*) 10f32); bck=inl {out} -> out.A * 10f32} a1
+bck()
+primal o1 |> s.CudaTensor.print
+    """
+
+let learning3 =
+    "learning3",[cuda_modules;learning],"Does the map_redo_map work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl float = float32
+open Learning float s
+open s.Primitive.unwrap
+
+inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=float; dim=256,256} |> s.dr
+inl l = primal a1 .span_outer |> to float
+inl o1,bck = map_redo_map {fwd={neutral_elem=0f32; redo=(+); map_out=inl x -> x/l}; bck=inl {out} -> out.A/l} a1
+bck()
+primal o1 |> s.CudaTensor.print
+    """
+
+let learning4 =
+    "learning4",[cuda_modules;learning],"Does the map_redo's backwards pass work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl float = float32
+open Learning float s
+open s.Primitive.unwrap
+
+inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=float; dim=6,6} |> s.dr
+inl l = primal a1 .span_outer |> to float
+inl o1,bck = map_redo_map {fwd={neutral_elem=0f32; redo=(+); map_out=inl x -> x/l}; bck=inl {out} -> out.A/l} a1
+s.CudaTensor.set (adjoint o1) 1f32
+bck()
+adjoint a1 |> s.CudaTensor.print
+    """
+
+let learning5 =
+    "learning5",[cuda;allocator;host_tensor;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;learning;console],"Does the basic pass work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl float = float32
+open Learning float s
+open s.Primitive.unwrap
+open s.Activation.unwrap
+open s.Error.unwrap
+
+inl input = s.CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,6}
+inl weight = s.CudaRandom.create_tensor {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=6,4} |> s.dr
+inl label = s.CudaTensor.zero {elem_type=float; dim=2,4}
+inl {cost},bck = 
+    inm o1 = matmult input weight >>= sigmoid
+    square (o1,label)
+
+"Cost is: {0}" (s.CudaTensor.get (primal cost)) |> string_format |> Console.writeline
+
+s.CudaTensor.set (adjoint cost) 1f32
+bck()
+adjoint weight |> s.CudaTensor.print
+    """
     
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning4
 |> printfn "%s"
 |> ignore
     
