@@ -1719,8 +1719,118 @@ inl float s ->
 
     inl Layer = {sigmoid linear} |> stack
 
-    inl Feedforward = {Layer init with_error} |> stack
+    inl run {d with network={weights apply} input label state=!dyn state} s =
+        inl dim1 x = x.dim |> fst
+        open Extern
+        open Console
 
-    { primal primals adjoint adjoints (>>=) succ Primitive Activation Error Feedforward s }
+        assert (dim1 input = dim1 label) "Training and test set need to have to equal first dimensions."
+
+        inl optimizer =
+            match d with // Take care not to pass d in by accident into run_minibatch.
+            | {optimizer} {cost},bck ->
+                s.CudaTensor.set (adjoint cost) one
+                bck() // Runs the backwards pass.
+                toa_iter optimizer weights
+            | _ _ -> ()
+
+        inl run_minibatch {state input label} = 
+            inl {cost accuracy}, _ as er = apply (input, label) s
+            optimizer er
+
+            inl running_cost =
+                match state with
+                | {running_cost} -> running_cost + to float64 (primal cost |> s.CudaTensor.get) * to float64 input.span_outer
+                
+            match state with
+            | {running_accuracy} -> { running_cost running_accuracy=running_accuracy + accuracy () }
+            | _ -> {running_cost}
+            
+        inl {from near_to} = dim1 input
+        inl span = near_to - from
+        inl by = match d with {minibatch_size} -> minibatch_size | _ -> span
+
+        inl state = Loops.for' {from near_to; state by; body=inl {next state i=from} ->
+            if macro.fs bool [text: "System.Double.IsNaN"; args: state.running_cost] then
+                state
+            else
+                inl span = if span % by = 0 then {from by} else {from near_to=from+by |> min near_to} 
+                inl f x = x.view_span (const span)
+                run_minibatch {state input=f input; label=f label}
+                |> next
+            }
+
+        writeline "-----"
+        writeline "Batch done."
+        inl spanf64 = to float64 span
+        inl cost = 
+            match state with 
+            | {running_cost} -> 
+                inl cost = running_cost / spanf64
+                string_format "Average of batch costs is {0}." cost |> writeline 
+                cost
+            | _ -> ()
+        match state with 
+        | {running_accuracy} -> 
+            inl percetange = to float64 running_accuracy / spanf64 * 100f64
+            string_format "The accuracy of the batch is {0}/{1}({2}%). " (running_accuracy,span,percetange) |> writeline 
+        | _ -> ()
+        writeline "-----"
+        cost
+
+    inl Feedforward = {Layer init with_error run} |> stack
+
+    // #Optimizer
+    inl sgd learning_rate x = 
+        inl primal, adjoint = primal x, adjoint x
+        s.CudaKernel.map' (toa_map2 (inl A P -> P - learning_rate * A)) adjoint primal
+        s.CudaTensor.clear adjoint 
+
+    inl Optimizer = {sgd}
+
+    inl grad_check {d with network={weights apply} input label} s =
+        open Extern
+
+        inl run () = 
+            inl {cost accuracy}, bck = apply (input, label) s
+            s.CudaTensor.set (adjoint cost) one
+            bck()
+        met cost () =
+            inl {cost accuracy}, bck = apply (input, label) s
+            s.CudaTensor.get (primal cost)
+        //met update () = 
+        //    toa_iter (sgd (to float 0.01)) weights
+
+        run()
+
+        inl epsilon = to float 0.001
+        inl boundary = to float 0.001
+        
+        inl rec perturb primal adjoint =
+            assert (primal.dim = adjoint.dim) "Dimensions must be equal."
+            match primal.dim with
+            | {from near_to} :: _ ->
+                Loops.for {from near_to body=inl {i} ->
+                    perturb (primal i) (adjoint i)
+                    }
+            | _ -> 
+                inl orig = s.CudaTensor.get primal
+                s.CudaTensor.set primal (orig + epsilon)
+                inl cost_plus_epsilon = cost ()
+                s.CudaTensor.set primal(orig - epsilon)
+                inl cost_minus_epsilon = cost ()
+                s.CudaTensor.set primal orig
+                inl approx_gradient = (cost_plus_epsilon - cost_minus_epsilon) / (2.0f32 * epsilon)
+
+                inl true_gradient = s.CudaTensor.get adjoint
+                
+                inl diff = abs (true_gradient - approx_gradient)
+                if diff >= boundary then
+                    Console.writeline {true_gradient approx_gradient diff}
+                    Console.writeline "--- Gradient checking failure."
+                
+        toa_iter (inl t -> perturb (primal t) (adjoint t)) weights
+
+    { primal primals adjoint adjoints (>>=) succ Primitive Activation Error Feedforward Optimizer grad_check s }
     """) |> module_
 

@@ -18,11 +18,104 @@ and Env1 =
     val mem_1: uint64
     new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
     end
+and EnvHeap2 =
+    {
+    mem_0: ResizeArray<Env1>
+    mem_1: EnvStack0
+    mem_2: uint64
+    mem_3: ResizeArray<Env1>
+    }
 let rec method_0 ((var_0: System.Diagnostics.DataReceivedEventArgs)): unit =
     let (var_1: string) = var_0.get_Data()
     let (var_2: string) = System.String.Format("{0}",var_1)
     System.Console.WriteLine(var_2)
-and method_1((var_0: (uint64 ref))): uint64 =
+and method_1((var_0: ResizeArray<Env1>), (var_1: EnvStack0), (var_2: uint64), (var_3: ResizeArray<Env1>)): unit =
+    let (var_5: (Env1 -> bool)) = method_2
+    let (var_6: int32) = var_3.RemoveAll <| System.Predicate(var_5)
+    let (var_8: (Env1 -> (Env1 -> int32))) = method_3
+    let (var_9: System.Comparison<Env1>) = System.Comparison<Env1>(var_8)
+    var_3.Sort(var_9)
+    var_0.Clear()
+    let (var_10: int32) = var_3.get_Count()
+    let (var_11: int32) = 0
+    let (var_12: Env1) = method_6((var_0: ResizeArray<Env1>), (var_10: int32), (var_1: EnvStack0), (var_11: int32))
+    let (var_13: EnvStack0) = var_12.mem_0
+    let (var_14: uint64) = var_12.mem_1
+    let (var_15: (uint64 ref)) = var_1.mem_0
+    let (var_16: uint64) = method_5((var_15: (uint64 ref)))
+    let (var_17: uint64) = (var_16 + var_2)
+    let (var_18: (uint64 ref)) = var_13.mem_0
+    let (var_19: uint64) = method_5((var_18: (uint64 ref)))
+    let (var_20: uint64) = (var_17 - var_19)
+    let (var_21: uint64) = method_5((var_18: (uint64 ref)))
+    let (var_22: uint64) = (var_21 + 256UL)
+    let (var_23: uint64) = (var_22 - 1UL)
+    let (var_24: uint64) = (var_23 &&& 18446744073709551360UL)
+    let (var_25: uint64) = (var_24 - var_21)
+    let (var_26: bool) = (var_20 >= var_25)
+    if var_26 then
+        let (var_27: (uint64 ref)) = (ref var_24)
+        let (var_28: EnvStack0) = EnvStack0((var_27: (uint64 ref)))
+        let (var_29: uint64) = (var_20 - var_25)
+        var_0.Add((Env1(var_28, var_29)))
+    else
+        ()
+and method_8((var_0: ResizeArray<Env1>), (var_1: EnvStack0), (var_2: uint64), (var_3: ResizeArray<Env1>), (var_4: uint64)): EnvStack0 =
+    let (var_5: Env1) = var_0.[0]
+    let (var_6: EnvStack0) = var_5.mem_0
+    let (var_7: uint64) = var_5.mem_1
+    let (var_8: bool) = (var_4 <= var_7)
+    let (var_44: Env1) =
+        if var_8 then
+            let (var_9: (uint64 ref)) = var_6.mem_0
+            let (var_10: uint64) = (!var_9)
+            let (var_11: uint64) = (var_10 + var_4)
+            let (var_12: (uint64 ref)) = (ref var_11)
+            let (var_13: EnvStack0) = EnvStack0((var_12: (uint64 ref)))
+            let (var_14: uint64) = (var_7 - var_4)
+            var_0.[0] <- (Env1(var_13, var_14))
+            (Env1(var_6, var_4))
+        else
+            let (var_16: (Env1 -> (Env1 -> int32))) = method_9
+            let (var_17: System.Comparison<Env1>) = System.Comparison<Env1>(var_16)
+            var_0.Sort(var_17)
+            let (var_18: Env1) = var_0.[0]
+            let (var_19: EnvStack0) = var_18.mem_0
+            let (var_20: uint64) = var_18.mem_1
+            let (var_21: bool) = (var_4 <= var_20)
+            if var_21 then
+                let (var_22: (uint64 ref)) = var_19.mem_0
+                let (var_23: uint64) = (!var_22)
+                let (var_24: uint64) = (var_23 + var_4)
+                let (var_25: (uint64 ref)) = (ref var_24)
+                let (var_26: EnvStack0) = EnvStack0((var_25: (uint64 ref)))
+                let (var_27: uint64) = (var_20 - var_4)
+                var_0.[0] <- (Env1(var_26, var_27))
+                (Env1(var_19, var_4))
+            else
+                method_1((var_0: ResizeArray<Env1>), (var_1: EnvStack0), (var_2: uint64), (var_3: ResizeArray<Env1>))
+                let (var_29: (Env1 -> (Env1 -> int32))) = method_9
+                let (var_30: System.Comparison<Env1>) = System.Comparison<Env1>(var_29)
+                var_0.Sort(var_30)
+                let (var_31: Env1) = var_0.[0]
+                let (var_32: EnvStack0) = var_31.mem_0
+                let (var_33: uint64) = var_31.mem_1
+                let (var_34: bool) = (var_4 <= var_33)
+                if var_34 then
+                    let (var_35: (uint64 ref)) = var_32.mem_0
+                    let (var_36: uint64) = (!var_35)
+                    let (var_37: uint64) = (var_36 + var_4)
+                    let (var_38: (uint64 ref)) = (ref var_37)
+                    let (var_39: EnvStack0) = EnvStack0((var_38: (uint64 ref)))
+                    let (var_40: uint64) = (var_33 - var_4)
+                    var_0.[0] <- (Env1(var_39, var_40))
+                    (Env1(var_32, var_4))
+                else
+                    (failwith "Out of memory in the designated section.")
+    let (var_45: EnvStack0) = var_44.mem_0
+    let (var_46: uint64) = var_44.mem_1
+    var_45
+and method_5((var_0: (uint64 ref))): uint64 =
     let (var_1: uint64) = (!var_0)
     let (var_2: bool) = (var_1 <> 0UL)
     let (var_3: bool) = (var_2 = false)
@@ -31,52 +124,105 @@ and method_1((var_0: (uint64 ref))): uint64 =
     else
         ()
     var_1
-and method_2((var_0: uint64), (var_1: System.Collections.Generic.Stack<Env1>), (var_2: uint64)): EnvStack0 =
-    let (var_3: int32) = var_1.get_Count()
-    let (var_4: bool) = (var_3 > 0)
+and method_2 ((var_0: Env1)): bool =
+    let (var_1: EnvStack0) = var_0.mem_0
+    let (var_2: uint64) = var_0.mem_1
+    let (var_3: (uint64 ref)) = var_1.mem_0
+    let (var_4: uint64) = (!var_3)
+    (var_4 = 0UL)
+and method_3 ((var_0: Env1)): (Env1 -> int32) =
+    let (var_1: EnvStack0) = var_0.mem_0
+    let (var_2: uint64) = var_0.mem_1
+    method_4((var_1: EnvStack0))
+and method_6((var_0: ResizeArray<Env1>), (var_1: int32), (var_2: EnvStack0), (var_3: int32)): Env1 =
+    let (var_4: bool) = (var_3 < var_1)
     if var_4 then
-        let (var_5: Env1) = var_1.Peek()
+        let (var_5: Env1) = var_0.[var_3]
         let (var_6: EnvStack0) = var_5.mem_0
         let (var_7: uint64) = var_5.mem_1
         let (var_8: (uint64 ref)) = var_6.mem_0
-        let (var_9: uint64) = (!var_8)
-        let (var_10: bool) = (var_9 = 0UL)
-        if var_10 then
-            let (var_11: Env1) = var_1.Pop()
-            let (var_12: EnvStack0) = var_11.mem_0
-            let (var_13: uint64) = var_11.mem_1
-            method_2((var_0: uint64), (var_1: System.Collections.Generic.Stack<Env1>), (var_2: uint64))
+        let (var_9: uint64) = method_5((var_8: (uint64 ref)))
+        let (var_10: (uint64 ref)) = var_2.mem_0
+        let (var_11: uint64) = method_5((var_10: (uint64 ref)))
+        let (var_12: uint64) = (var_9 - var_11)
+        let (var_13: uint64) = method_5((var_10: (uint64 ref)))
+        let (var_14: uint64) = (var_13 + 256UL)
+        let (var_15: uint64) = (var_14 - 1UL)
+        let (var_16: uint64) = (var_15 &&& 18446744073709551360UL)
+        let (var_17: uint64) = (var_16 - var_13)
+        let (var_18: bool) = (var_12 >= var_17)
+        if var_18 then
+            let (var_19: (uint64 ref)) = (ref var_16)
+            let (var_20: EnvStack0) = EnvStack0((var_19: (uint64 ref)))
+            let (var_21: uint64) = (var_12 - var_17)
+            var_0.Add((Env1(var_20, var_21)))
         else
-            method_3((var_9: uint64), (var_0: uint64), (var_2: uint64), (var_1: System.Collections.Generic.Stack<Env1>), (var_7: uint64))
+            ()
+        let (var_22: int32) = (var_3 + 1)
+        method_7((var_0: ResizeArray<Env1>), (var_1: int32), (var_6: EnvStack0), (var_7: uint64), (var_22: int32))
     else
-        method_4((var_0: uint64), (var_2: uint64), (var_1: System.Collections.Generic.Stack<Env1>))
-and method_3((var_0: uint64), (var_1: uint64), (var_2: uint64), (var_3: System.Collections.Generic.Stack<Env1>), (var_4: uint64)): EnvStack0 =
-    let (var_5: uint64) = (var_0 + var_4)
-    let (var_6: uint64) = (var_1 + 1024UL)
-    let (var_7: uint64) = (var_6 - var_5)
-    let (var_8: bool) = (var_2 <= var_7)
-    let (var_9: bool) = (var_8 = false)
-    if var_9 then
-        (failwith "Cache size has been exceeded in the allocator.")
+        (Env1(var_2, 0UL))
+and method_9 ((var_0: Env1)): (Env1 -> int32) =
+    let (var_1: EnvStack0) = var_0.mem_0
+    let (var_2: uint64) = var_0.mem_1
+    method_10((var_2: uint64))
+and method_4 ((var_1: EnvStack0)) ((var_0: Env1)): int32 =
+    let (var_2: EnvStack0) = var_0.mem_0
+    let (var_3: uint64) = var_0.mem_1
+    let (var_4: (uint64 ref)) = var_1.mem_0
+    let (var_5: uint64) = method_5((var_4: (uint64 ref)))
+    let (var_6: (uint64 ref)) = var_2.mem_0
+    let (var_7: uint64) = method_5((var_6: (uint64 ref)))
+    let (var_8: bool) = (var_5 < var_7)
+    if var_8 then
+        -1
     else
-        ()
-    let (var_10: (uint64 ref)) = (ref var_5)
-    let (var_11: EnvStack0) = EnvStack0((var_10: (uint64 ref)))
-    var_3.Push((Env1(var_11, var_2)))
-    var_11
-and method_4((var_0: uint64), (var_1: uint64), (var_2: System.Collections.Generic.Stack<Env1>)): EnvStack0 =
-    let (var_3: uint64) = (var_0 + 1024UL)
-    let (var_4: uint64) = (var_3 - var_0)
-    let (var_5: bool) = (var_1 <= var_4)
-    let (var_6: bool) = (var_5 = false)
-    if var_6 then
-        (failwith "Cache size has been exceeded in the allocator.")
+        let (var_9: bool) = (var_5 = var_7)
+        if var_9 then
+            0
+        else
+            1
+and method_7((var_0: ResizeArray<Env1>), (var_1: int32), (var_2: EnvStack0), (var_3: uint64), (var_4: int32)): Env1 =
+    let (var_5: bool) = (var_4 < var_1)
+    if var_5 then
+        let (var_6: Env1) = var_0.[var_4]
+        let (var_7: EnvStack0) = var_6.mem_0
+        let (var_8: uint64) = var_6.mem_1
+        let (var_9: (uint64 ref)) = var_7.mem_0
+        let (var_10: uint64) = method_5((var_9: (uint64 ref)))
+        let (var_11: (uint64 ref)) = var_2.mem_0
+        let (var_12: uint64) = method_5((var_11: (uint64 ref)))
+        let (var_13: uint64) = (var_12 + var_3)
+        let (var_14: uint64) = (var_10 - var_13)
+        let (var_15: uint64) = method_5((var_11: (uint64 ref)))
+        let (var_16: uint64) = (var_15 + 256UL)
+        let (var_17: uint64) = (var_16 - 1UL)
+        let (var_18: uint64) = (var_17 &&& 18446744073709551360UL)
+        let (var_19: uint64) = (var_18 - var_15)
+        let (var_20: bool) = (var_14 >= var_19)
+        if var_20 then
+            let (var_21: (uint64 ref)) = (ref var_18)
+            let (var_22: EnvStack0) = EnvStack0((var_21: (uint64 ref)))
+            let (var_23: uint64) = (var_14 - var_19)
+            var_0.Add((Env1(var_22, var_23)))
+        else
+            ()
+        let (var_24: int32) = (var_4 + 1)
+        method_7((var_0: ResizeArray<Env1>), (var_1: int32), (var_7: EnvStack0), (var_8: uint64), (var_24: int32))
     else
-        ()
-    let (var_7: (uint64 ref)) = (ref var_0)
-    let (var_8: EnvStack0) = EnvStack0((var_7: (uint64 ref)))
-    var_2.Push((Env1(var_8, var_1)))
-    var_8
+        (Env1(var_2, var_3))
+and method_10 ((var_1: uint64)) ((var_0: Env1)): int32 =
+    let (var_2: EnvStack0) = var_0.mem_0
+    let (var_3: uint64) = var_0.mem_1
+    let (var_4: bool) = (var_3 < var_1)
+    if var_4 then
+        -1
+    else
+        let (var_5: bool) = (var_3 = var_1)
+        if var_5 then
+            0
+        else
+            1
 let (var_0: string) = cuda_kernels
 let (var_1: ManagedCuda.CudaContext) = ManagedCuda.CudaContext(false)
 var_1.Synchronize()
@@ -148,30 +294,37 @@ var_5.Dispose()
 let (var_33: string) = String.concat "" [|"Compiled the kernels into the following directory: "; var_2|]
 let (var_34: string) = System.String.Format("{0}",var_33)
 System.Console.WriteLine(var_34)
-let (var_35: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(1024UL)
-let (var_36: ManagedCuda.BasicTypes.CUdeviceptr) = var_1.AllocateMemory(var_35)
-let (var_37: uint64) = uint64 var_36
-let (var_38: (uint64 ref)) = (ref var_37)
-let (var_39: EnvStack0) = EnvStack0((var_38: (uint64 ref)))
-let (var_40: System.Collections.Generic.Stack<Env1>) = System.Collections.Generic.Stack<Env1>()
-let (var_41: (uint64 ref)) = var_39.mem_0
-let (var_42: uint64) = method_1((var_41: (uint64 ref)))
-let (var_43: uint64) = 256UL
-let (var_44: EnvStack0) = method_2((var_42: uint64), (var_40: System.Collections.Generic.Stack<Env1>), (var_43: uint64))
-let (var_45: uint64) = 256UL
-let (var_46: EnvStack0) = method_2((var_42: uint64), (var_40: System.Collections.Generic.Stack<Env1>), (var_45: uint64))
-let (var_47: uint64) = 256UL
-let (var_48: EnvStack0) = method_2((var_42: uint64), (var_40: System.Collections.Generic.Stack<Env1>), (var_47: uint64))
-let (var_49: (uint64 ref)) = var_48.mem_0
-var_49 := 0UL
-let (var_50: (uint64 ref)) = var_46.mem_0
-var_50 := 0UL
-let (var_51: (uint64 ref)) = var_44.mem_0
-var_51 := 0UL
-let (var_52: uint64) = method_1((var_41: (uint64 ref)))
-let (var_53: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_52)
-let (var_54: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_53)
-var_1.FreeMemory(var_54)
-var_41 := 0UL
+let (var_35: uint64) = 1024UL
+let (var_36: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_35)
+let (var_37: ManagedCuda.BasicTypes.CUdeviceptr) = var_1.AllocateMemory(var_36)
+let (var_38: uint64) = uint64 var_37
+let (var_39: (uint64 ref)) = (ref var_38)
+let (var_40: EnvStack0) = EnvStack0((var_39: (uint64 ref)))
+let (var_41: ResizeArray<Env1>) = ResizeArray<Env1>()
+let (var_42: ResizeArray<Env1>) = ResizeArray<Env1>()
+method_1((var_41: ResizeArray<Env1>), (var_40: EnvStack0), (var_35: uint64), (var_42: ResizeArray<Env1>))
+let (var_43: EnvHeap2) = ({mem_0 = (var_41: ResizeArray<Env1>); mem_1 = (var_40: EnvStack0); mem_2 = (var_35: uint64); mem_3 = (var_42: ResizeArray<Env1>)} : EnvHeap2)
+let (var_44: ResizeArray<Env1>) = var_43.mem_0
+let (var_45: EnvStack0) = var_43.mem_1
+let (var_46: uint64) = var_43.mem_2
+let (var_47: ResizeArray<Env1>) = var_43.mem_3
+let (var_48: uint64) = 256UL
+let (var_49: EnvStack0) = method_8((var_44: ResizeArray<Env1>), (var_45: EnvStack0), (var_46: uint64), (var_47: ResizeArray<Env1>), (var_48: uint64))
+let (var_50: uint64) = 256UL
+let (var_51: EnvStack0) = method_8((var_44: ResizeArray<Env1>), (var_45: EnvStack0), (var_46: uint64), (var_47: ResizeArray<Env1>), (var_50: uint64))
+let (var_52: uint64) = 256UL
+let (var_53: EnvStack0) = method_8((var_44: ResizeArray<Env1>), (var_45: EnvStack0), (var_46: uint64), (var_47: ResizeArray<Env1>), (var_52: uint64))
+let (var_54: (uint64 ref)) = var_53.mem_0
+var_54 := 0UL
+let (var_55: (uint64 ref)) = var_51.mem_0
+var_55 := 0UL
+let (var_56: (uint64 ref)) = var_49.mem_0
+var_56 := 0UL
+let (var_57: (uint64 ref)) = var_40.mem_0
+let (var_58: uint64) = method_5((var_57: (uint64 ref)))
+let (var_59: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_58)
+let (var_60: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_59)
+var_1.FreeMemory(var_60)
+var_57 := 0UL
 var_1.Dispose()
 
