@@ -675,7 +675,6 @@ input
 |> s.CudaTensor.to_host_tensor
 |> view (inl a,_,c -> a,4,c)
 |> HostTensor.print
-
     """
 
 let tests =
