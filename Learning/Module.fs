@@ -151,22 +151,19 @@ inl sort_ptrs x = x.sort (inl {ptr=a} {ptr=b} -> compare (a()) (b()))
 inl sort_sizes x = x.sort (inl {size=a} {size=b} -> compare b a)
 
 met free_cells_refresh {section with pool free_cells used_cells} = 
-    //free_cells.iter (inl {ptr size} -> Console.writeline ("free_cell=", ptr.Try, size))
-    //used_cells.iter (inl {ptr size} -> Console.writeline ("used_cell=", ptr.Try, size))
     used_cells.filter (inl {ptr} -> ptr.Try = 0u64)
     sort_ptrs used_cells
     free_cells.clear
     inl add {ptr size} = 
         inl ptr' = round_up_to_multiple ptr
         inl d = ptr' - ptr
-        if size > d then free_cells.add {ptr = smartptr_create ptr'; size=size-d}
+        if size > d then free_cells.add {ptr = ptr'; size=size-d}
 
     inl start x = x.ptr()
     inl end x = x.ptr() + x.size
 
     Loops.for {from=0i32; near_to=used_cells.count; by=1i32; state=start pool; body=inl {state=ptr i} ->
         inl state' = used_cells i
-        //Console.writeline (state'.ptr.Try, state'.size)
         assert (start state' >= ptr) "The next pointer should be higher than the last."
         
         inl size = start state' - ptr
@@ -176,15 +173,14 @@ met free_cells_refresh {section with pool free_cells used_cells} =
     |> inl ptr -> // This is for the final free cell at the end.
         inl size = end pool - ptr
         add {ptr size}
-    //free_cells.iter (inl {ptr size} -> Console.writeline ("--free_cell=", ptr.Try, size))
 
 
-met allocate {section with used_cells free_cells} (!(to uint64 >> round_up_to_multiple >> dyn) size') =
+met allocate {section with pool used_cells free_cells} (!(to uint64 >> round_up_to_multiple >> dyn) size') =
     inl loop next =
         inl {ptr size} = free_cells 0i32
         if size' <= size then
-            free_cells.set 0i32 {ptr=smartptr_create (ptr.Try+size'); size=size-size'}
-            {ptr size=size'}
+            free_cells.set 0i32 {ptr=ptr+size'; size=size-size'}
+            {ptr=smartptr_create ptr; size=size'}
         else next()
 
     inl x =
@@ -195,25 +191,22 @@ met allocate {section with used_cells free_cells} (!(to uint64 >> round_up_to_mu
                 free_cells_refresh section
                 sort_sizes free_cells
                 loop <| inl _ ->
-                    failwith free_cells.elem_type "Out of memory in the designated section."
+                    failwith pool "Out of memory in the designated section."
     used_cells.add x
     x.ptr
 
 inl section_create s size ret =
     inl pool = allocate_global s size
-    inl elem_type = type pool
-    inl free_cells, used_cells = ResizeArray.create {elem_type}, ResizeArray.create {elem_type}
+    inl free_cells = ResizeArray.create {elem_type=type {ptr=uint64; size=uint64}}
+    inl used_cells = ResizeArray.create {elem_type=type pool}
     inl section = {pool free_cells used_cells}
     free_cells_refresh section
 
     inl allocate _ = 
         function
-        | .elem_type -> type elem_type.ptr
+        | .elem_type -> type pool.ptr
         | .refresh -> free_cells_refresh section
-        | x -> 
-            inl x = allocate section x
-            Console.writeline x.Try
-            x
+        | x -> allocate section x
         |> heap
 
     inl r = s.module_add .Section {allocate} |> ret
