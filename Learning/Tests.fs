@@ -575,25 +575,25 @@ inl is_nan = function
     | x: float64 -> macro.fs bool [text: "System.Double.IsNaN"; args: x]
     | x: float32 -> macro.fs bool [text: "System.Single.IsNaN"; args: x]
 
-Loops.for' {from=0; near_to=10;body=inl {next} -> 
+Loops.for' {from=0; near_to=1;body=inl {next} -> 
     inl train_cost =
         Console.writeline "Training:"
         run {
-            network input=train_images; label=train_labels; minibatch_size=128
+            network input=train_images; label=train_labels; minibatch_size=1280
             optimizer=Optimizer.sgd 0.25f32
             state={running_cost=0.0}
             } s
     ()
-    if is_nan train_cost then
-        Console.writeline "Training diverged. Aborting..."
-    else
-        inl test_cost =
-            Console.writeline "Test:"
-            run {
-                network input=test_images; label=test_labels; minibatch_size=128
-                state={running_cost=0.0; running_accuracy=0}
-                } s
-        next ()
+    //if is_nan train_cost then
+    //    Console.writeline "Training diverged. Aborting..."
+    //else
+    //    inl test_cost =
+    //        Console.writeline "Test:"
+    //        run {
+    //            network input=test_images; label=test_labels; minibatch_size=128
+    //            state={running_cost=0.0; running_accuracy=0}
+    //            } s
+    //    next ()
     }
     """
 

@@ -210,7 +210,10 @@ inl section_create s size ret =
         function
         | .elem_type -> type elem_type.ptr
         | .refresh -> free_cells_refresh section
-        | x -> allocate section x
+        | x -> 
+            inl x = allocate section x
+            Console.writeline x.Try
+            x
         |> heap
 
     inl r = s.module_add .Section {allocate} |> ret
