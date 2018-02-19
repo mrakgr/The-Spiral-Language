@@ -4,7 +4,7 @@ open Spiral.Lib
 open Spiral.Tests
 open System.IO
 open Spiral.Types
-open Modules
+open Module
 
 let cfg: Spiral.Types.CompilerSettings = {
     path_cuda90 = "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v9.0"

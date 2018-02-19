@@ -1,4 +1,4 @@
-﻿module Learning.Modules
+﻿module Learning.Module
 
 open Spiral.Types
 open Spiral.Lib
@@ -924,7 +924,7 @@ inl map_redo_map w {d with redo neutral_elem} (!zip (!flatten in)) =
 
     inl span = s in_a
     inl blockDim = lit_min span 256
-    inl gridDim = lit_min 64 (divup span blockDim)
+    inl gridDim = 1 //lit_min 64 (divup span blockDim)
     inl elem_type = type map_in in.elem_type
 
     inl run {map_out map_in blockDim gridDim} (!to_dev_tensor in) =
