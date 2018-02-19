@@ -917,49 +917,35 @@ inl map_inscan_map' w {d with redo neutral_elem} (!zip in) (!zip out) =
 /// Map is optional. Allocates a temporary tensor for the intermediary results.
 inl map_redo_map w {d with redo neutral_elem} (!zip (!flatten in)) =
     inl to_dev_tensor = w.CudaTensor.to_dev_tensor
-    inl map_in = match d with {map_in} -> map_in | _ -> id
-    inl map_out = match d with {map_out} -> map_out | _ -> id
-
-    inl in_a :: () = in.dim
-
-    inl span = s in_a
-    inl blockDim = lit_min span 256
-    inl gridDim = 2 //lit_min 64 (divup span blockDim)
-    inl elem_type = type map_in in.elem_type
-
     inl run {map_out map_in blockDim gridDim} (!to_dev_tensor in) =
+        inl in_a :: () = in.dim
         inl out = w.CudaTensor.create {elem_type=type map_in in.elem_type |> map_out; dim=gridDim}
         inl out' = to_dev_tensor out
 
-        //Console.writeline {blockDim gridDim}
-        
         w.run {
             blockDim gridDim
             kernel = cuda 
                 inl x = 
-                    grid_for {blockDim gridDim} .x in_a {state=dyn neutral_elem; body=inl {state i} -> 
-                        inl x = in i .get
-                        macro.cd unit [text: "printf"; args: "%i=%lld\n", i, x]
-                        redo state (map_in x) }
-                    |> inl x ->
-                        if gridDim.x = 1 then macro.cd unit [text: "printf"; args: "%i=%lld\n", threadIdx.x, x]
-                        x
+                    grid_for {blockDim gridDim} .x in_a {state=dyn neutral_elem; body=inl {state i} -> redo state (map_in (in i .get)) }
                     |> cub_block_reduce {blockDim redo} |> map_out
                 if threadIdx.x = 0 then out' blockIdx.x .set x
             }
 
         out
 
+    inl map_in = match d with {map_in} -> map_in | _ -> id
+    inl map_out = match d with {map_out} -> map_out | _ -> id
+
+    inl in_a :: () = in.dim
+    inl span = s in_a
+    inl blockDim = lit_min span 256
+    inl gridDim = lit_min 64 (divup span blockDim)
+
     if gridDim = 1 then
         run {map_out map_in blockDim gridDim} in
     else
-        inl x = run {map_out=id; map_in blockDim gridDim} in
-        inl x' = w.CudaTensor.to_host_tensor x
-        w.CudaTensor.print x
-        //Console.writeline (redo (x' 0 .get) (x' 1 .get))
-        inl x = run {map_out=id; map_in=id; blockDim=gridDim; gridDim=1} x
-        w.CudaTensor.print x
-        x
+        run {map_out=id; map_in blockDim gridDim} in
+        |> run {map_out map_in=id; blockDim=gridDim; gridDim=1}
     <| 0
         
 

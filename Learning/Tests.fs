@@ -147,12 +147,6 @@ inb s = CudaModules (1024*1024)
 
 inl h = HostTensor.init 1024 ((+) 1)
 inl a1 = s.CudaTensor.from_host_tensor h
-inl f _ =
-    s.Section.allocate.refresh
-    inb s = s.RegionMem.create'
-    s.CudaKernel.map_redo_map {neutral_elem=0; redo=(+)} a1 |> ignore
-
-f();f();f();f();f()
 
 s.CudaKernel.map_redo_map {neutral_elem=0; redo=(+)} a1
 |> s.CudaTensor.print // 524800
@@ -703,7 +697,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel2
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
 |> printfn "%s"
 |> ignore
     
