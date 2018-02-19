@@ -138,6 +138,7 @@ inl smartptr_create (ptr: uint64) =
     |> stack
 
 inl mult = 256u64
+//inl round_up_to_multiple size = (size + mult - 1u64) / mult * mult
 assert (mult <> 0u64 && (mult &&& mult - 1u64) = 0u64) "Multiple must be a power of 2." 
 inl round_up_to_multiple size = (size + mult - 1u64) &&& 0u64 - mult
 
@@ -176,6 +177,7 @@ met free_cells_refresh {section with pool free_cells used_cells} =
     |> inl ptr -> // This is for the final free cell at the end.
         inl size = end pool - ptr
         add {ptr size}
+    //free_cells.iter (inl {ptr size} -> Console.writeline ("--free_cell=", ptr.Try, size))
 
 
 met allocate {section with used_cells free_cells} (!(to uint64 >> round_up_to_multiple >> dyn) size') =
@@ -1745,13 +1747,11 @@ inl float s ->
             inb s = s.RegionMem.create'
             inl {cost accuracy}, _ as er = apply (input, label) s
             optimizer er
+            s.Section.allocate.refresh
 
             inl running_cost =
                 match state with
-                | {running_cost} -> 
-                    inl c = primal cost |> s.CudaTensor.get
-                    Console.writeline {c}
-                    running_cost + to float64 c * to float64 input.span_outer
+                | {running_cost} -> running_cost + to float64 (primal cost |> s.CudaTensor.get) * to float64 input.span_outer
                 
             match state with
             | {running_accuracy} -> { running_cost running_accuracy=running_accuracy + accuracy () }
