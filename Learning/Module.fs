@@ -151,13 +151,10 @@ inl sort_ptrs x = x.sort (inl {ptr=a} {ptr=b} -> compare (a()) (b()))
 inl sort_sizes x = x.sort (inl {size=a} {size=b} -> compare b a)
 
 met free_cells_refresh {section with pool free_cells used_cells} = 
-    //Console.writeline "In refresh."
-    //free_cells.iter Console.writeline
     used_cells.filter (inl {ptr} -> ptr.Try = 0u64)
     sort_ptrs used_cells
     free_cells.clear
     inl add {ptr size} = 
-        inl ptr = ptr()
         inl ptr' = round_up_to_multiple ptr
         inl d = ptr' - ptr
         if size >= d then free_cells.add {ptr = smartptr_create ptr'; size=size-d}
@@ -165,27 +162,17 @@ met free_cells_refresh {section with pool free_cells used_cells} =
     inl start x = x.ptr()
     inl end x = x.ptr() + x.size
 
-    Loops.for {from=0i32; near_to=used_cells.count; by=1i32; state={pool with size = 0u64}; body=inl {{state with ptr} i} ->
-        Console.writeline {i}
+    Loops.for {from=0i32; near_to=used_cells.count; by=1i32; state=start pool; body=inl {state=ptr i} ->
         inl state' = used_cells i
-        Console.writeline (state'.ptr.Try,state'.size)
-        inl start_state' = start state'
-        inl end_state = end state
-        Console.writeline {start_state' end_state}
-        assert (start_state' >= end_state) "The next pointer should be higher than the last."
+        assert (start state' >= ptr) "The next pointer should be higher than the last."
         
-        inl size = start_state' - end_state
-        Console.writeline {size}
+        inl size = start state' - ptr
         add { ptr size }
-        state'
+        end state'
         }
-    |> inl state -> // This is for the final free cell at the end.
-        inl size = end pool - start state
-        add {state with size}
-
-        //Console.writeline "In refresh's pre-end."
-        //free_cells.iter Console.writeline
-        //Console.writeline "In refresh's end."
+    |> inl ptr -> // This is for the final free cell at the end.
+        inl size = end pool - ptr
+        add {ptr size}
 
 
 met allocate {section with used_cells free_cells} (!(to uint64 >> round_up_to_multiple >> dyn) size') =
@@ -1751,6 +1738,7 @@ inl float s ->
 
         inl run_minibatch {state input label} = 
             s.Section.allocate.refresh
+            inb s = s.RegionMem.create'
             inl {cost accuracy}, _ as er = apply (input, label) s
             optimizer er
 
