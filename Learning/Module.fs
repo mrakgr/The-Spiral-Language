@@ -138,7 +138,6 @@ inl smartptr_create (ptr: uint64) =
     |> stack
 
 inl mult = 256u64
-//inl round_up_to_multiple size = (size + mult - 1u64) / mult * mult
 assert (mult <> 0u64 && (mult &&& mult - 1u64) = 0u64) "Multiple must be a power of 2." 
 inl round_up_to_multiple size = (size + mult - 1u64) &&& 0u64 - mult
 
@@ -1747,7 +1746,6 @@ inl float s ->
             inb s = s.RegionMem.create'
             inl {cost accuracy}, _ as er = apply (input, label) s
             optimizer er
-            s.Section.allocate.refresh
 
             inl running_cost =
                 match state with
