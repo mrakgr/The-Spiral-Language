@@ -924,12 +924,14 @@ inl map_redo_map w {d with redo neutral_elem} (!zip (!flatten in)) =
 
     inl span = s in_a
     inl blockDim = lit_min span 256
-    inl gridDim = 1 //lit_min 64 (divup span blockDim)
+    inl gridDim = 2 //lit_min 64 (divup span blockDim)
     inl elem_type = type map_in in.elem_type
 
-    inl run {map_out map_in blockDim gridDim} (!to_dev_tensor in) =
+    inl run message {map_out map_in blockDim gridDim} (!to_dev_tensor in) =
         inl out = w.CudaTensor.create {elem_type=type map_in in.elem_type |> map_out; dim=gridDim}
         inl out' = to_dev_tensor out
+        
+        //Console.writeline (message, out.dim)
 
         w.run {
             blockDim gridDim
@@ -943,10 +945,13 @@ inl map_redo_map w {d with redo neutral_elem} (!zip (!flatten in)) =
         out
 
     if gridDim = 1 then
-        run {map_out map_in blockDim gridDim} in
+        run "1" {map_out map_in blockDim gridDim} in
     else
-        run {map_out=id; map_in blockDim gridDim} in
-        |> run {map_out map_in=id; blockDim=gridDim; gridDim=1}
+        inl x = run "2" {map_out=id; map_in blockDim gridDim} in
+        w.CudaTensor.print x
+        inl x = run "3" {map_out=id; map_in=id; blockDim=gridDim; gridDim=1} x
+        w.CudaTensor.print x
+        x
     <| 0
         
 
