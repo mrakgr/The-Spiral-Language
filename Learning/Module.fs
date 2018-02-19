@@ -927,17 +927,23 @@ inl map_redo_map w {d with redo neutral_elem} (!zip (!flatten in)) =
     inl gridDim = 2 //lit_min 64 (divup span blockDim)
     inl elem_type = type map_in in.elem_type
 
-    inl run message {map_out map_in blockDim gridDim} (!to_dev_tensor in) =
+    inl run {map_out map_in blockDim gridDim} (!to_dev_tensor in) =
         inl out = w.CudaTensor.create {elem_type=type map_in in.elem_type |> map_out; dim=gridDim}
         inl out' = to_dev_tensor out
-        
-        //Console.writeline (message, out.dim)
 
+        //Console.writeline {blockDim gridDim}
+        
         w.run {
             blockDim gridDim
             kernel = cuda 
                 inl x = 
-                    grid_for {blockDim gridDim} .x in_a {state=dyn neutral_elem; body=inl {state i} -> redo state (map_in (in i .get)) }
+                    grid_for {blockDim gridDim} .x in_a {state=dyn neutral_elem; body=inl {state i} -> 
+                        inl x = in i .get
+                        macro.cd unit [text: "printf"; args: "%i=%lld\n", i, x]
+                        redo state (map_in x) }
+                    |> inl x ->
+                        if gridDim.x = 1 then macro.cd unit [text: "printf"; args: "%i=%lld\n", threadIdx.x, x]
+                        x
                     |> cub_block_reduce {blockDim redo} |> map_out
                 if threadIdx.x = 0 then out' blockIdx.x .set x
             }
@@ -945,11 +951,13 @@ inl map_redo_map w {d with redo neutral_elem} (!zip (!flatten in)) =
         out
 
     if gridDim = 1 then
-        run "1" {map_out map_in blockDim gridDim} in
+        run {map_out map_in blockDim gridDim} in
     else
-        inl x = run "2" {map_out=id; map_in blockDim gridDim} in
+        inl x = run {map_out=id; map_in blockDim gridDim} in
+        inl x' = w.CudaTensor.to_host_tensor x
         w.CudaTensor.print x
-        inl x = run "3" {map_out=id; map_in=id; blockDim=gridDim; gridDim=1} x
+        //Console.writeline (redo (x' 0 .get) (x' 1 .get))
+        inl x = run {map_out=id; map_in=id; blockDim=gridDim; gridDim=1} x
         w.CudaTensor.print x
         x
     <| 0
