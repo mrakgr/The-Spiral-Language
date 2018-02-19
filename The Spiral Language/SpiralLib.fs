@@ -1070,6 +1070,68 @@ inl show = show' {cutoff_near_to=1000}
 /// Total tensor size in elements.
 inl product = Tuple.foldl (inl s (!span x) -> s * x) 1
 
+/// Splits a tensor's dimensions. Works on non-contiguous tensors.
+/// Given the tensor dimensions (a,b,c) a function which maps them to (a,(q,w),c)
+/// The resulting tensor dimensions come out to (a,q,w,c).
+inl split f tns =
+    inl rec assert_dim = function
+        | d :: d', x :: x' ->
+            match x with
+            | _ :: _ -> assert (d = product x) "The product of the split dimension must equal that of the previous one."
+            | _ -> assert (d = x) "The dimensions can only be split, not shortened nor elongated."
+            assert_dim (d',x')
+        | (), () -> ()
+        | _ -> error_type "The number of dimensions must match. The split dimensions need to be nested."
+
+    inl rec update_size x = 
+        match x with
+        | init :: s', dim :: x' ->
+            inl next = update_size (s', x')
+            match dim with
+            | _ :: _ ->
+                inl _ :: size = Tuple.scanr (*) dim init
+                Tuple.append size next
+            | _ -> init :: next
+        | (), () -> ()
+
+    inl prev_dim, dim =
+        match tns.dim with
+        | dim :: () -> 
+            inl prev_dim = span dim
+            prev_dim :: (), f prev_dim :: ()
+        | dim -> 
+            inl prev_dim = Tuple.map span dim
+            prev_dim, f prev_dim
+
+    inl rec concat = function
+        | x :: x' ->
+            inl x' = concat x'
+            match x with
+            | _ :: _ -> Tuple.append x x'
+            | _ -> x :: x'
+        | () -> ()
+        
+    tns .set_dim (concat dim)
+        .update_body (inl d -> {d with size=update_size (self,dim)})
+
+/// Flattens the tensor to a single dimension.
+inl flatten tns =
+    match tns.dim with
+    | () -> tns
+    | !(Tuple.map span) dim ->
+        tns .set_dim (product dim)
+            .update_body (inl {d with size} ->
+                Tuple.zip (dim,size)
+                |> Tuple.reducel (inl d,s d',s' ->
+                    assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
+                    d*s, s'
+                    )
+                |> inl _,s -> {d with size=s :: ()}
+                )
+
+/// Flattens and then splits the tensor dimensions.
+inl reshape f tns = split (inl _ -> tns.dim |> Tuple.map span |> Tuple.unwrap |> f) (flatten tns)
+
 inl rec facade data = 
     inl Tensor = stack {
         length = inl {data with dim} -> product dim
@@ -1138,6 +1200,9 @@ inl rec facade data =
         /// Returns an empty tensor of the same dimension.
         empty = inl data -> facade {data with bodies=()}
         span_outer = inl {dim} -> match dim with () -> 1 | x :: _ -> span x
+        split = inl data f -> split f (facade data)
+        flatten = inl data f -> flatten (facade data)
+        reshape = inl data f -> reshape f (facade data)
         }
 
     function
@@ -1243,71 +1308,10 @@ inl rec equal (!zip t) =
         inl a :: b = t.get
         Tuple.forall ((=) a) b
 
-/// Splits a tensor's dimensions. Works on non-contiguous tensors.
-/// Given the tensor dimensions (a,b,c) a function which maps them to (a,(q,w),c)
-/// The resulting tensor dimensions come out to (a,q,w,c).
-inl split f tns =
-    inl rec assert_dim = function
-        | d :: d', x :: x' ->
-            match x with
-            | _ :: _ -> assert (d = product x) "The product of the split dimension must equal that of the previous one."
-            | _ -> assert (d = x) "The dimensions can only be split, not shortened nor elongated."
-            assert_dim (d',x')
-        | (), () -> ()
-        | _ -> error_type "The number of dimensions must match. The split dimensions need to be nested."
-
-    inl rec update_size x = 
-        match x with
-        | init :: s', dim :: x' ->
-            inl next = update_size (s', x')
-            match dim with
-            | _ :: _ ->
-                inl _ :: size = Tuple.scanr (*) dim init
-                Tuple.append size next
-            | _ -> init :: next
-        | (), () -> ()
-
-    inl prev_dim, dim =
-        match tns.dim with
-        | dim :: () -> 
-            inl prev_dim = span dim
-            prev_dim :: (), f prev_dim :: ()
-        | dim -> 
-            inl prev_dim = Tuple.map span dim
-            prev_dim, f prev_dim
-
-    inl rec concat = function
-        | x :: x' ->
-            inl x' = concat x'
-            match x with
-            | _ :: _ -> Tuple.append x x'
-            | _ -> x :: x'
-        | () -> ()
-        
-    tns .set_dim (concat dim)
-        .update_body (inl d -> {d with size=update_size (self,dim)})
-
-/// Flattens the tensor to a single dimension.
-inl flatten tns =
-    match tns.dim with
-    | () -> tns
-    | !(Tuple.map span) dim ->
-        tns .set_dim (product dim)
-            .update_body (inl {d with size} ->
-                Tuple.zip (dim,size)
-                |> Tuple.reducel (inl d,s d',s' ->
-                    assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
-                    d*s, s'
-                    )
-                |> inl _,s -> {d with size=s :: ()}
-                )
-
 /// Asserts that the tensor is contiguous.
 inl assert_contiguous = flatten >> ignore
 /// Asserts that the dimensions of the tensors are all equal.
 inl assert_dim l = assert_zip >> ignore
-/// Flattens and then splits the tensor dimensions.
-inl reshape f tns = split (inl _ -> tns.dim |> Tuple.map span |> Tuple.unwrap |> f) (flatten tns)
 /// Prints the tensor to the standard output.
 met print (!dyn x) = show x |> Console.writeline
 

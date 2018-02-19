@@ -1735,44 +1735,45 @@ inl float s ->
             | _ _ -> ()
 
         inl run_minibatch {state input label} = 
+            s.Section.allocate.refresh
+            inb s = s.RegionMem.create'
             inl {cost accuracy}, _ as er = apply (input, label) s
             optimizer er
 
-            inl running_cost =
-                match state with
-                | {running_cost} -> running_cost + to float64 (primal cost |> s.CudaTensor.get) * to float64 input.span_outer
-                
+            inl f running_cost = running_cost + to float64 (primal cost |> s.CudaTensor.get)
+            inl g running_accuracy = running_accuracy + accuracy () 
+
             match state with
-            | {running_accuracy} -> { running_cost running_accuracy=running_accuracy + accuracy () }
-            | _ -> {running_cost}
+            | {running_cost=!f running_cost running_accuracy=!g running_accuracy} -> {running_cost running_accuracy}
+            | {running_cost=!f running_cost} -> {running_cost}
+            | {running_accuracy=!g running_accuracy} -> {running_accuracy}
+            | state -> state
             
-        inl {from near_to} = dim1 input
-        inl span = near_to - from
+        inl span = input.span_outer
         inl by = match d with {minibatch_size} -> minibatch_size | _ -> span
 
-        inl state = Loops.for' {from near_to; state by; body=inl {next state i=from} ->
-            if macro.fs bool [text: "System.Double.IsNaN"; args: state.running_cost] then
-                state
-            else
-                inl span = if span % by = 0 then {from by} else {from near_to=from+by |> min near_to} 
-                inl f x = x.view_span (const span)
-                run_minibatch {state input=f input; label=f label}
-                |> next
+        inl input, label = 
+            inl f a,b = a - a % by
+            inl g a,b = (a/by, by), b
+            Tuple.map (inl x -> x.view_span f .split g) (input,label)
+        inl {from near_to} = dim1 input
+
+        inl state = Loops.for' {from near_to state by; body=inl {next state i} ->
+            if macro.fs bool [text: "System.Double.IsNaN"; args: state.running_cost] then state
+            else run_minibatch {state input=input i; label=label i} |> next
             }
 
         writeline "-----"
         writeline "Batch done."
-        inl spanf64 = to float64 span
         inl cost = 
             match state with 
             | {running_cost} -> 
-                inl cost = running_cost / spanf64
-                string_format "Average of batch costs is {0}." cost |> writeline 
-                cost
+                string_format "Average of batch costs is {0}." running_cost |> writeline 
+                running_cost
             | _ -> ()
         match state with 
         | {running_accuracy} -> 
-            inl percetange = to float64 running_accuracy / spanf64 * 100f64
+            inl percetange = to float64 running_accuracy / to float64 span * 100f64
             string_format "The accuracy of the batch is {0}/{1}({2}%). " (running_accuracy,span,percetange) |> writeline 
         | _ -> ()
         writeline "-----"
