@@ -151,10 +151,11 @@ inl sort_ptrs x = x.sort (inl {ptr=a} {ptr=b} -> compare (a()) (b()))
 inl sort_sizes x = x.sort (inl {size=a} {size=b} -> compare b a)
 
 met free_cells_refresh {section with pool free_cells used_cells} = 
+    //Console.writeline "In refresh."
+    //free_cells.iter Console.writeline
     used_cells.filter (inl {ptr} -> ptr.Try = 0u64)
     sort_ptrs used_cells
     free_cells.clear
-    inl near_to = used_cells.count
     inl add {ptr size} = 
         inl ptr = ptr()
         inl ptr' = round_up_to_multiple ptr
@@ -164,8 +165,8 @@ met free_cells_refresh {section with pool free_cells used_cells} =
     inl start x = x.ptr()
     inl end x = x.ptr() + x.size
 
-    Loops.for {from=0i32; near_to by=1i32; state={pool with size = 0u64}; body=inl {{state with ptr} i} ->
-        inl state' = free_cells i
+    Loops.for {from=0i32; near_to=used_cells.count; by=1i32; state={pool with size = 0u64}; body=inl {{state with ptr} i} ->
+        inl state' = used_cells i
         inl size = start state' - end state
         add { ptr size }
         state'
@@ -173,8 +174,12 @@ met free_cells_refresh {section with pool free_cells used_cells} =
     |> inl state -> // This is for the final free cell at the end.
         inl size = end pool - start state
         add {state with size}
+        //Console.writeline "In refresh's pre-end."
+        //free_cells.iter Console.writeline
+        //Console.writeline "In refresh's end."
 
-met allocate {section with free_cells} (!(to uint64 >> round_up_to_multiple >> dyn) size') =
+
+met allocate {section with used_cells free_cells} (!(to uint64 >> round_up_to_multiple >> dyn) size') =
     inl loop next =
         inl {ptr size} = free_cells 0i32
         if size' <= size then
@@ -182,7 +187,7 @@ met allocate {section with free_cells} (!(to uint64 >> round_up_to_multiple >> d
             {ptr size=size'}
         else next()
 
-    inl {ptr} =
+    inl x =
         loop <| inl _ ->
             sort_sizes free_cells
             loop <| inl _ -> 
@@ -190,7 +195,8 @@ met allocate {section with free_cells} (!(to uint64 >> round_up_to_multiple >> d
                 sort_sizes free_cells
                 loop <| inl _ ->
                     failwith free_cells.elem_type "Out of memory in the designated section."
-    ptr
+    used_cells.add x
+    x.ptr
 
 inl section_create s size ret =
     inl pool = allocate_global s size
@@ -1735,45 +1741,45 @@ inl float s ->
             | _ _ -> ()
 
         inl run_minibatch {state input label} = 
-            s.Section.allocate.refresh
-            inb s = s.RegionMem.create'
+            //s.Section.allocate.refresh
             inl {cost accuracy}, _ as er = apply (input, label) s
             optimizer er
 
-            inl f running_cost = running_cost + to float64 (primal cost |> s.CudaTensor.get)
-            inl g running_accuracy = running_accuracy + accuracy () 
-
+            inl running_cost =
+                match state with
+                | {running_cost} -> running_cost + to float64 (primal cost |> s.CudaTensor.get) * to float64 input.span_outer
+                
             match state with
-            | {running_cost=!f running_cost running_accuracy=!g running_accuracy} -> {running_cost running_accuracy}
-            | {running_cost=!f running_cost} -> {running_cost}
-            | {running_accuracy=!g running_accuracy} -> {running_accuracy}
-            | state -> state
+            | {running_accuracy} -> { running_cost running_accuracy=running_accuracy + accuracy () }
+            | _ -> {running_cost}
             
-        inl span = input.span_outer
+        inl {from near_to} = dim1 input
+        inl span = near_to - from
         inl by = match d with {minibatch_size} -> minibatch_size | _ -> span
 
-        inl input, label = 
-            inl f a,b = a - a % by
-            inl g a,b = (a/by, by), b
-            Tuple.map (inl x -> x.view_span f .split g) (input,label)
-        inl {from near_to} = dim1 input
-
-        inl state = Loops.for' {from near_to state by; body=inl {next state i} ->
-            if macro.fs bool [text: "System.Double.IsNaN"; args: state.running_cost] then state
-            else run_minibatch {state input=input i; label=label i} |> next
+        inl state = Loops.for' {from near_to; state by; body=inl {next state i=from} ->
+            if macro.fs bool [text: "System.Double.IsNaN"; args: state.running_cost] then
+                state
+            else
+                inl span = if span % by = 0 then {from by} else {from near_to=from+by |> min near_to} 
+                inl f x = x.view_span (const span)
+                run_minibatch {state input=f input; label=f label}
+                |> next
             }
 
         writeline "-----"
         writeline "Batch done."
+        inl spanf64 = to float64 span
         inl cost = 
             match state with 
             | {running_cost} -> 
-                string_format "Average of batch costs is {0}." running_cost |> writeline 
-                running_cost
+                inl cost = running_cost / spanf64
+                string_format "Average of batch costs is {0}." cost |> writeline 
+                cost
             | _ -> ()
         match state with 
         | {running_accuracy} -> 
-            inl percetange = to float64 running_accuracy / to float64 span * 100f64
+            inl percetange = to float64 running_accuracy / spanf64 * 100f64
             string_format "The accuracy of the batch is {0}/{1}({2}%). " (running_accuracy,span,percetange) |> writeline 
         | _ -> ()
         writeline "-----"
