@@ -182,6 +182,7 @@ met free_cells_refresh {section with pool free_cells used_cells} =
     |> inl state -> // This is for the final free cell at the end.
         inl size = end pool - start state
         add {state with size}
+
         //Console.writeline "In refresh's pre-end."
         //free_cells.iter Console.writeline
         //Console.writeline "In refresh's end."
