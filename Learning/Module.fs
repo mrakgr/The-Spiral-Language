@@ -166,8 +166,16 @@ met free_cells_refresh {section with pool free_cells used_cells} =
     inl end x = x.ptr() + x.size
 
     Loops.for {from=0i32; near_to=used_cells.count; by=1i32; state={pool with size = 0u64}; body=inl {{state with ptr} i} ->
+        Console.writeline {i}
         inl state' = used_cells i
-        inl size = start state' - end state
+        Console.writeline (state'.ptr.Try,state'.size)
+        inl start_state' = start state'
+        inl end_state = end state
+        Console.writeline {start_state' end_state}
+        assert (start_state' >= end_state) "The next pointer should be higher than the last."
+        
+        inl size = start_state' - end_state
+        Console.writeline {size}
         add { ptr size }
         state'
         }
@@ -1741,7 +1749,7 @@ inl float s ->
             | _ _ -> ()
 
         inl run_minibatch {state input label} = 
-            //s.Section.allocate.refresh
+            s.Section.allocate.refresh
             inl {cost accuracy}, _ as er = apply (input, label) s
             optimizer er
 
