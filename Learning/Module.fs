@@ -151,19 +151,22 @@ inl sort_ptrs x = x.sort (inl {ptr=a} {ptr=b} -> compare (a()) (b()))
 inl sort_sizes x = x.sort (inl {size=a} {size=b} -> compare b a)
 
 met free_cells_refresh {section with pool free_cells used_cells} = 
+    //free_cells.iter (inl {ptr size} -> Console.writeline ("free_cell=", ptr.Try, size))
+    //used_cells.iter (inl {ptr size} -> Console.writeline ("used_cell=", ptr.Try, size))
     used_cells.filter (inl {ptr} -> ptr.Try = 0u64)
     sort_ptrs used_cells
     free_cells.clear
     inl add {ptr size} = 
         inl ptr' = round_up_to_multiple ptr
         inl d = ptr' - ptr
-        if size >= d then free_cells.add {ptr = smartptr_create ptr'; size=size-d}
+        if size > d then free_cells.add {ptr = smartptr_create ptr'; size=size-d}
 
     inl start x = x.ptr()
     inl end x = x.ptr() + x.size
 
     Loops.for {from=0i32; near_to=used_cells.count; by=1i32; state=start pool; body=inl {state=ptr i} ->
         inl state' = used_cells i
+        //Console.writeline (state'.ptr.Try, state'.size)
         assert (start state' >= ptr) "The next pointer should be higher than the last."
         
         inl size = start state' - ptr
@@ -184,6 +187,7 @@ met allocate {section with used_cells free_cells} (!(to uint64 >> round_up_to_mu
         else next()
 
     inl x =
+        assert (free_cells.count > 0i32) "Out of memory in the designated section."
         loop <| inl _ ->
             sort_sizes free_cells
             loop <| inl _ -> 
@@ -1744,7 +1748,10 @@ inl float s ->
 
             inl running_cost =
                 match state with
-                | {running_cost} -> running_cost + to float64 (primal cost |> s.CudaTensor.get) * to float64 input.span_outer
+                | {running_cost} -> 
+                    inl c = primal cost |> s.CudaTensor.get
+                    Console.writeline {c}
+                    running_cost + to float64 c * to float64 input.span_outer
                 
             match state with
             | {running_accuracy} -> { running_cost running_accuracy=running_accuracy + accuracy () }
