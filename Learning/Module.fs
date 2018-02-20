@@ -418,30 +418,29 @@ inl array_create_cuda_global s elem_type len =
 
 inl clear' s x = s.CudaTensor.clear x; x
 
-inl methods = 
-    {
-    create=inl s data -> create {data with array_create = array_create_cuda_global s} .update_methods methods
-    create_like=inl s tns -> s.CudaTensor.create {elem_type=tns.elem_type; dim=tns.dim}
+// public methods
+inl create s data = create {data with array_create = array_create_cuda_global s} .update_methods methods
+inl create_like s tns = create s {elem_type=tns.elem_type; dim=tns.dim}
 
-    from_host_array=met s (!dyn span) (!dyn {src with ar offset size}) ->
-        copy span {array_create=array_create_cuda_global s; ptr_get=ptr_cuda} {src with ptr_get=ptr_dotnet}
+met from_host_array s (!dyn span) (!dyn {src with ar offset size}) =
+    copy span {array_create=array_create_cuda_global s; ptr_get=ptr_cuda} {src with ptr_get=ptr_dotnet}
 
-    to_host_array=met s (!dyn span) (!dyn {src with ar offset size}) ->
-        copy span {array_create ptr_get=ptr_dotnet} {src with ptr_get=ptr_cuda}
+met to_host_array (!dyn span) (!dyn {src with ar offset size}) =
+    copy span {array_create ptr_get=ptr_dotnet} {src with ptr_get=ptr_cuda}
 
-    get=inl s tns ->
-        match tns.unwrap with
-        | {bodies dim=()} -> toa_map s.CudaTensor.get_elem bodies
-        | _ -> error_type "Cannot get from tensor whose dimensions have not been applied completely."
+inl get s tns =
+    match tns.unwrap with
+    | {bodies dim=()} -> toa_map (get_elem s) bodies
+    | _ -> error_type "Cannot get from tensor whose dimensions have not been applied completely."
 
-    set=inl s tns v ->
-        match tns.unwrap with
-        | {bodies dim=()} -> toa_iter2 s.CudaTensor.set_elem bodies v
-        | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
+inl set s tns v =
+    match tns.unwrap with
+    | {bodies dim=()} -> toa_iter2 (set_elem s) bodies v
+    | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
 
-    from_host_tensor=inl s x -> transfer_template s.CudaTensor.from_host_array x .update_methods methods
-    from_host_tensors=inl s -> toa_map s.CudaTensor.from_host_tensor
-    to_host_tensor=inl s x -> transfer_template s.CudaTensor.to_host_array x .update_methods HostTensor.tensor_methods
+inl from_host_tensor s = transfer_template s.CudaTensor.from_host_array
+inl from_host_tensors s = toa_map s.CudaTensor.from_host_tensor
+inl to_host_tensor x = transfer_template to_host_array x .update_methods
 
     clear=inl s tns ->
         assert_contiguous tns
@@ -458,7 +457,7 @@ inl methods =
     print=met s (!dyn x) -> s.CudaTensor.to_host_tensor x |> HostTensor.print
     } |> stack
 
-inl s -> s.module_add .CudaTensor methods
+{methods}
     """) |> module_
 
 let cuda_random =
@@ -962,11 +961,10 @@ inl d2_replicate_map' w f (!zip in) (!zip in') (!zip out) =
     inl blockDimX = min warp_size (s dim_in)
     inl blockDimY = min 32 (s dim_in'_a)
     inl gridDim = min 64 (divup (s dim_in) blockDimX)
-
     inl in = in.to_dev_tensor
     inl in' = in'.to_dev_tensor
     inl out = out.to_dev_tensor
-
+    
     w.run {
         gridDim
         blockDim=blockDimX,blockDimY
