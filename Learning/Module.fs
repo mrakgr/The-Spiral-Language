@@ -424,7 +424,7 @@ inl methods =
     create_like=inl s tns -> s.CudaTensor.create {elem_type=tns.elem_type; dim=tns.dim}
 
     from_host_array=met s (!dyn span) (!dyn {src with ar offset size}) ->
-        copy span {array_create=s.CudaTensor.array_create_cuda_global; ptr_get=ptr_cuda} {src with ptr_get=ptr_dotnet}
+        copy span {array_create=array_create_cuda_global s; ptr_get=ptr_cuda} {src with ptr_get=ptr_dotnet}
 
     to_host_array=met s (!dyn span) (!dyn {src with ar offset size}) ->
         copy span {array_create ptr_get=ptr_dotnet} {src with ptr_get=ptr_cuda}
@@ -439,9 +439,9 @@ inl methods =
         | {bodies dim=()} -> toa_iter2 s.CudaTensor.set_elem bodies v
         | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
 
-    from_host_tensor=inl s -> transfer_template s.CudaTensor.from_host_array
+    from_host_tensor=inl s x -> transfer_template s.CudaTensor.from_host_array x .update_methods methods
     from_host_tensors=inl s -> toa_map s.CudaTensor.from_host_tensor
-    to_host_tensor=inl s -> transfer_template s.CudaTensor.to_host_array
+    to_host_tensor=inl s x -> transfer_template s.CudaTensor.to_host_array x .update_methods HostTensor.tensor_methods
 
     clear=inl s tns ->
         assert_contiguous tns
@@ -962,11 +962,10 @@ inl d2_replicate_map' w f (!zip in) (!zip in') (!zip out) =
     inl blockDimX = min warp_size (s dim_in)
     inl blockDimY = min 32 (s dim_in'_a)
     inl gridDim = min 64 (divup (s dim_in) blockDimX)
-
     inl in = in.to_dev_tensor
     inl in' = in'.to_dev_tensor
     inl out = out.to_dev_tensor
-
+    
     w.run {
         gridDim
         blockDim=blockDimX,blockDimY

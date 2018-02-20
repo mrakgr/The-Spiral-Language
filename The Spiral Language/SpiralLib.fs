@@ -1137,7 +1137,7 @@ inl rec facade data =
     | .(_) & x -> 
         if module_has_member data x then data x
         else data.methods x data
-    | i -> Tensor .apply data i
+    | i -> data.methods .apply data i
 
 inl methods = stack {
     length = inl {data with dim} -> product dim

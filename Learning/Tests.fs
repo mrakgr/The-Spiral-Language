@@ -136,6 +136,7 @@ inl h = HostTensor.init 32 (inl x -> x + 1)
 inl a1 = s.CudaTensor.from_host_tensor h
 inl o1 = s.CudaTensor.zero_like a1
 s.CudaKernel.map' (inl a _ -> a * 2) a1 o1
+
 inl a2 = s.CudaTensor.to_host_tensor o1
 HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
     """
@@ -697,7 +698,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel3
 |> printfn "%s"
 |> ignore
     
