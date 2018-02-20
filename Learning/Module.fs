@@ -166,9 +166,9 @@ met free_cells_refresh {section with pool free_cells used_cells} =
         inl state' = used_cells i
         assert (start state' >= ptr) "The next pointer should be higher than the last."
         
-        inl size = start state' - ptr
-        add { ptr size }
-        end state'
+        inl start = start state'
+        add { ptr size = start - ptr }
+        start + state'.size // end state'
         }
     |> inl ptr -> // This is for the final free cell at the end.
         inl size = end pool - ptr

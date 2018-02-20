@@ -1216,10 +1216,9 @@ and method_6((var_0: ResizeArray<Env1>), (var_1: ResizeArray<Env2>), (var_2: int
             var_0.Add((Env1(var_17, var_20)))
         else
             ()
-        let (var_21: uint64) = method_5((var_9: (uint64 ref)))
-        let (var_22: uint64) = (var_21 + var_8)
-        let (var_23: int32) = (var_4 + 1)
-        method_6((var_0: ResizeArray<Env1>), (var_1: ResizeArray<Env2>), (var_2: int32), (var_22: uint64), (var_23: int32))
+        let (var_21: uint64) = (var_13 + var_8)
+        let (var_22: int32) = (var_4 + 1)
+        method_6((var_0: ResizeArray<Env1>), (var_1: ResizeArray<Env2>), (var_2: int32), (var_21: uint64), (var_22: int32))
     else
         var_3
 and method_8((var_0: EnvHeap4), (var_1: ResizeArray<EnvHeap4>)): unit =
