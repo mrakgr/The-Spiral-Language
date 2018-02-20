@@ -669,7 +669,7 @@ inl data =
 
 inl minibatch,seq = data.dim
 inl input =
-    inl data = s.CudaTensor.to_dev_tensor data
+    inl data = data .to_dev_tensor
     s.CudaKernel.init {rev_thread_limit=32; dim=seq,minibatch,size.hot} (inl seq minibatch ->
         inl x = data minibatch seq .get
         inl hot -> if x = to uint8 hot then 1f32 else 0f32
