@@ -962,10 +962,11 @@ inl d2_replicate_map' w f (!zip in) (!zip in') (!zip out) =
     inl blockDimX = min warp_size (s dim_in)
     inl blockDimY = min 32 (s dim_in'_a)
     inl gridDim = min 64 (divup (s dim_in) blockDimX)
+
     inl in = in.to_dev_tensor
     inl in' = in'.to_dev_tensor
     inl out = out.to_dev_tensor
-    
+
     w.run {
         gridDim
         blockDim=blockDimX,blockDimY

@@ -1319,7 +1319,7 @@ met print (!dyn x) = show x |> Console.writeline
 {
 toa_map toa_map2 toa_iter toa_iter2 toa_map3 toa_iter3 create facade 
 init copy assert_size array_as_tensor array_to_tensor map zip show print
-span equal split flatten assert_contiguous assert_dim reshape tensor_methods=methods
+span equal split flatten assert_contiguous assert_dim reshape
 } |> stack
     """) |> module_
 
