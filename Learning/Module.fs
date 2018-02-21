@@ -1862,7 +1862,7 @@ inl float s ->
         Tuple.foldl_map f layers (input_size,()) |> inl a,b -> run a, b
 
     // The standard non-delayed run.
-    inl rec run layers = 
+    inl rec run_sequential layers = 
         {
         apply = inl input, state s ->
             match state with
@@ -1871,12 +1871,12 @@ inl float s ->
                     inl (input,state),bck' = apply (input, state) s
                     {layer with state},(input, apply_bck bck bck')
                     ) (input, const ()) layers
-                |> inl layers, (input, bck) -> (input, layers), bck
+                |> inl layers, (input, bck) -> (input, run_sequential layers), bck
         state = ()
         }
 
     // The recurrent error.
-    inl error {fwd bck} label (input,state) s = 
+    inl error {fwd bck} ((input,label),state) s = 
         inl state = 
             match state with 
             | () -> const zero
@@ -1895,8 +1895,18 @@ inl float s ->
                 } (input,label) s
         (a,a),bck
 
+    inl square = error square
+    inl cross_entropy = error cross_entropy
+
     inl fold_sequential cost network input =
-        ()
+        
+        Loops.for {from=input.from; near_to=input.near_to; state=network; 
+            body=inl {i} ->
+                inl label = input i
+                inl input = input (i-1)
+
+            //finally=id
+            }
 
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Error Feedforward Optimizer grad_check s }
     """) |> module_
