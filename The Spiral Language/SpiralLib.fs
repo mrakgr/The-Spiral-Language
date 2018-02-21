@@ -203,9 +203,26 @@ inl split_at n l =
 inl take n l = split_at n l |> fst
 inl drop n l = split_at n l |> snd
 
+inl rec foldl_map f s l = 
+    match l with
+    | l :: l' ->
+        inl l, s = f s l
+        inl l', s = foldl_map f s l'
+        l :: l', s
+    | () -> (), s
+
+inl rec foldr_map f l s = 
+    match l with
+    | l :: l' ->
+        inl l', s = foldr_map f l' s
+        inl l, s = f l s
+        l :: l', s
+    | () -> (), s
+
 {
 head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists split_at take drop
 filter zip unzip init repeat append concat singleton range tryFind contains intersperse wrap unwrap
+foldl_map foldr_map
 } |> stack
     """) |> module_
 

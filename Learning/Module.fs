@@ -1630,10 +1630,12 @@ inl float s ->
         } |> stack
 
     // #Operations
+    inl apply_bck bck bck' _ = bck'(); bck()
+
     inl (>>=) a b s =
         inl a,a_bck = a s
         inl b,b_bck = b a s
-        b, inl _ -> b_bck(); a_bck()
+        b, apply_bck a_bck b_bck
 
     inl succ x _ = x, const ()
 
@@ -1836,6 +1838,37 @@ inl float s ->
                     Console.writeline "--- Gradient checking failure."
                 
         toa_iter (inl t -> perturb (primal t) (adjoint t)) weights
+
+    //#Recurrent
+    /// The standard recurrent layer.
+    inl layer initializer activation hidden_size input_size s =
+        inl weights = {
+            input = initializer (input_size, hidden_size) s |> s.dr
+            state = initializer (input_size, hidden_size) s |> s.dr
+            bias = s.CudaTensor.zero {elem_type=float; dim=hidden_size} |> s.dr
+            }
+        {
+        apply = inl input, state -> 
+            match state with
+            | () -> matmultb (input, weights.input) weights.bias 
+            | _ -> matmultb ((input, weights.input),(state,weights.state)) weights.bias
+            >>= activation >>= inl x -> succ (x,x)
+        state = ()
+        input = ()
+        }, (hidden_size, weights)
+
+    // Inits the layers. Takes the runner function as the first argument and input size as the second.
+    inl init layers run input_size s = 
+        inl f x input_size, l = x input_size s |> inl layer,(input_size,l') -> layer,(input_size,l' :: l)
+        Tuple.foldl_map f layers (input_size,()) |> inl a,b -> run a, b
+
+    // The standard non-delayed run.
+    inl rec run layers input = 
+        Tuple.foldl_map (inl input,bck,s {layer with apply state} ->
+            inl (input,state),bck' = apply (input, state) s
+            {layer with state},(input,apply_bck bck bck', s)
+            ) input layers
+        |> inl layers, input -> run layers, input
 
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Error Feedforward Optimizer grad_check s }
     """) |> module_
