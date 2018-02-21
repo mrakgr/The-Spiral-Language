@@ -1679,21 +1679,21 @@ inl float s ->
         inm accuracy = accuracy x
         succ {cost accuracy}
 
-    inl square = error {
+    inl square = {
         fwd = inl (x,y) -> (y - x) * (y - x)
         bck = 
             inl {in=x,y} -> two * (x - y)
             ,inl {in=x,y} -> two * (y - x)
         }
 
-    inl cross_entropy = error {
+    inl cross_entropy = {
         fwd = inl x, y -> -(y * log x + (one - y) * log (one - x))
         bck = 
             inl {in=x, y} -> (x - y) / (x * (one - x))
             ,inl {in=x, y} -> log (one - x) - log x
         }
 
-    inl Error = {accuracy error square cross_entropy} |> stack
+    inl Error = {accuracy error square = error square; cross_entropy = error cross_entropy} |> stack
 
     // #Feedforward
     inl layer initializer activation hidden_size input_size s =
@@ -1854,21 +1854,49 @@ inl float s ->
             | _ -> matmultb ((input, weights.input),(state,weights.state)) weights.bias
             >>= activation >>= inl x -> succ (x,x)
         state = ()
-        input = ()
         }, (hidden_size, weights)
 
     // Inits the layers. Takes the runner function as the first argument and input size as the second.
-    inl init layers run input_size s = 
+    inl init run layers input_size s = 
         inl f x input_size, l = x input_size s |> inl layer,(input_size,l') -> layer,(input_size,l' :: l)
         Tuple.foldl_map f layers (input_size,()) |> inl a,b -> run a, b
 
     // The standard non-delayed run.
-    inl rec run layers input = 
-        Tuple.foldl_map (inl input,bck,s {layer with apply state} ->
-            inl (input,state),bck' = apply (input, state) s
-            {layer with state},(input,apply_bck bck bck', s)
-            ) input layers
-        |> inl layers, input -> run layers, input
+    inl rec run layers = 
+        {
+        apply = inl input, state s ->
+            match state with
+            | () | layers ->
+                Tuple.foldl_map (inl input,bck {apply state} ->
+                    inl (input,state),bck' = apply (input, state) s
+                    {layer with state},(input, apply_bck bck bck')
+                    ) (input, const ()) layers
+                |> inl layers, (input, bck) -> (input, layers), bck
+        state = ()
+        }
+
+    // The recurrent error.
+    inl error {fwd bck} label (input,state) s = 
+        inl state = 
+            match state with 
+            | () -> const zero
+            | state -> s.CudaTensor.to_dev_tensor state |> inl x _ -> x.get
+        inl batch_size = primal input .span_outer |> to float
+        inl div_by_minibatch_size x = x / batch_size
+        inl a,bck = 
+            map_redo_map {
+                fwd = {
+                    map_in = fwd
+                    redo = (+)
+                    neutral_elem = zero
+                    map_out = inl x -> div_by_minibatch_size x + state ()
+                    }
+                bck = toa_map (inl bck -> multiply_by_adjoint bck >> div_by_minibatch_size) bck
+                } (input,label) s
+        (a,a),bck
+
+    inl fold_sequential cost network input =
+        ()
 
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Error Feedforward Optimizer grad_check s }
     """) |> module_
