@@ -1870,5 +1870,28 @@ inl float s ->
             |> inl layers, (input, bck) -> (input, run layers), bck
         init run
 
+    // The recurrent error.
+    inl error {fwd bck} label input s = 
+        inl rec apply state label input =
+            inl batch_size = primal input .span_outer |> to float
+            inl div_by_minibatch_size x = x / batch_size
+            
+            map_redo_map {
+                fwd = {
+                    map_in = fwd
+                    redo = (+)
+                    neutral_elem = zero
+                    map_out = inl x -> div_by_minibatch_size x + state ()
+                    }
+                bck = toa_map (inl bck -> multiply_by_adjoint bck >> div_by_minibatch_size) bck
+                } (input,label)
+
+        inl x,bck = apply (const zero) label input
+        inl state' = s.CudaTensor.to_dev_tensor state x |> inl x _ -> x.get
+        (x, apply state'), bck
+
+    inl square = error square
+    inl cross_entropy = error cross_entropy
+
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Error Feedforward Optimizer grad_check s }
     """) |> module_
