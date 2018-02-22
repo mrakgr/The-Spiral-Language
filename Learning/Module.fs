@@ -1860,19 +1860,22 @@ inl float s ->
         inl f input_size, l x = x input_size s |> inl layer,(input_size,l') -> layer,(input_size,l' :: l)
         Tuple.foldl_map f (input_size,()) layers |> inl a,b -> run a, b
 
+    inl seq_run'' run layers input s = 
+        Tuple.foldl_map (inl input,bck layer ->
+            inl (input,layer),bck' = layer input s
+            layer, (input, apply_bck bck bck')
+            ) (input, const ()) layers
+        |> inl layers, (input, bck) -> (input, run layers), bck
+
+    inl seq_run' = seq_run'' id
+    inl rec seq_run x = seq_run'' seq_run x
+
     // The standard non-delayed run.
-    inl seq = 
-        inl rec run layers input s = 
-            Tuple.foldl_map (inl input,bck layer ->
-                inl (input,layer),bck' = layer input s
-                layer, (input, apply_bck bck bck')
-                ) (input, const ()) layers
-            |> inl layers, (input, bck) -> (input, run layers), bck
-        init run
+    inl seq = init (seq_run seq_run)
 
     // The recurrent error.
     inl error {fwd bck} label input s = 
-        inl rec apply state label input =
+        inl rec apply state label input s =
             inl batch_size = primal input .span_outer |> to float
             inl div_by_minibatch_size x = x / batch_size
             
@@ -1886,12 +1889,33 @@ inl float s ->
                 bck = toa_map (inl bck -> multiply_by_adjoint bck >> div_by_minibatch_size) bck
                 } (input,label)
 
-        inl x,bck = apply (const zero) label input
+        inl x,bck = apply (const zero) label input s
         inl state' = s.CudaTensor.to_dev_tensor state x |> inl x _ -> x.get
         (x, apply state'), bck
 
     inl square = error square
     inl cross_entropy = error cross_entropy
+
+    /// Note: Create a fresh region before diving into this one.
+    inl fold {error network input label next} s =
+        inl span = fst input.dim
+        assert (span = fst label.dim) "Input and label need to have the same outer dimension." 
+
+        s.Section.allocate.refresh
+        //inl s = s.RegionMem.create
+
+        inl body s {state=(network,error),bck i} =
+            inl input, label = input i, label i
+            inl (cost,layers), bck' = indiv join seq_run' (network, error label) input s |> stack
+            inl bck = term_cast (inl _ -> bck'(); bck()) ()
+            layers, bck
+
+        inl near_to = span.near_to - 1
+        Loops.for {from=span.from; near_to flexible_state=(network,error), const (); body=body s
+            finally=inl state -> 
+                inl s = s.RegionMem.dispose
+                next (body s {next state i=near_to}) s
+            }
 
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Error Feedforward Optimizer grad_check s }
     """) |> module_

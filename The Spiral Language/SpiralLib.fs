@@ -1220,6 +1220,8 @@ inl rec facade data =
         split = inl data f -> split f (facade data)
         flatten = inl data f -> flatten (facade data)
         reshape = inl data f -> reshape f (facade data)
+        from = inl {dim={from}::_} -> from
+        near_to = inl {dim={near_to}::_} -> near_to
         }
 
     function
