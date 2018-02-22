@@ -1840,6 +1840,35 @@ inl float s ->
         toa_iter (inl t -> perturb (primal t) (adjoint t)) weights
 
     //#Recurrent
+    /// The standard recurrent layer.
+    inl layer initializer activation hidden_size input_size s =
+        inl weights = 
+            inl f _ = initializer (input_size, hidden_size) s |> s.dr
+            {
+            input = f (); state = f ()
+            bias = s.CudaTensor.zero {elem_type=float; dim=hidden_size} |> s.dr
+            }
+
+        inl next apply = activation >>= inl x -> succ (x, apply x)
+        inl rec apply state input = matmultb ((input, weights.input),(state,weights.state)) weights.bias >>= next apply
+
+        inl input -> matmultb (input, weights.input) weights.bias >>= next apply
+        , (hidden_size, weights)
+
+    // Inits the layers. Takes the runner function as the first argument and input size as the second.
+    inl init run layers input_size s = 
+        inl f input_size, l x = x input_size s |> inl layer,(input_size,l') -> layer,(input_size,l' :: l)
+        Tuple.foldl_map f (input_size,()) layers |> inl a,b -> run a, b
+
+    // The standard non-delayed run.
+    inl seq = 
+        inl rec run layers input s = 
+            Tuple.foldl_map (inl input,bck layer ->
+                inl (input,layer),bck' = layer input s
+                layer, (input, apply_bck bck bck')
+                ) (input, const ()) layers
+            |> inl layers, (input, bck) -> (input, run layers), bck
+        init run
 
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Error Feedforward Optimizer grad_check s }
     """) |> module_
