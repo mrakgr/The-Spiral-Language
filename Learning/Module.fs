@@ -1840,65 +1840,6 @@ inl float s ->
         toa_iter (inl t -> perturb (primal t) (adjoint t)) weights
 
     //#Recurrent
-    /// The standard recurrent layer.
-    inl layer initializer activation hidden_size input_size s =
-        inl weights = 
-            inl f _ = initializer (input_size, hidden_size) s |> s.dr
-            {
-            input = f (); state = f ()
-            bias = s.CudaTensor.zero {elem_type=float; dim=hidden_size} |> s.dr
-            }
-
-        inl next apply = activation >>= inl x -> succ (x, apply x)
-        inl rec apply state input = matmultb ((input, weights.input),(state,weights.state)) weights.bias >>= next apply
-
-        inl input -> matmultb (input, weights.input) weights.bias >>= next apply
-        , (hidden_size, weights)
-
-    // Inits the layers. Takes the runner function as the first argument and input size as the second.
-    inl init run layers input_size s = 
-        inl f input_size, l x = x input_size s |> inl layer,(input_size,l') -> layer,(input_size,l' :: l)
-        Tuple.foldl_map f (input_size,()) layers |> inl a,b -> run a, b
-
-    // The standard non-delayed run.
-    inl rec run_sequential layers input = 
-        Tuple.foldl_map (inl input,bck layer ->
-            inl (input,layer),bck' = layer input s
-            layer, (input, apply_bck bck bck')
-            ) (input, const ()) layers
-        |> inl layers, (input, bck) -> (input, run_sequential layers), bck
-
-    // The recurrent error.
-    inl error {fwd bck} label input s = 
-        inl rec apply state label input =
-            inl batch_size = primal input .span_outer |> to float
-            inl div_by_minibatch_size x = x / batch_size
-            
-            map_redo_map {
-                fwd = {
-                    map_in = fwd
-                    redo = (+)
-                    neutral_elem = zero
-                    map_out = inl x -> div_by_minibatch_size x + state ()
-                    }
-                bck = toa_map (inl bck -> multiply_by_adjoint bck >> div_by_minibatch_size) bck
-                } (input,label)
-
-        inl x,bck = apply (const zero) label input
-        inl state' = s.CudaTensor.to_dev_tensor state x |> inl x _ -> x.get
-        (x, apply state'), bck
-
-    inl square = error square
-    inl cross_entropy = error cross_entropy
-
-    //inl fold_sequential cost network input =
-    //    Loops.for {from=input.from; near_to=input.near_to; state=network; 
-    //        body=inl {i} ->
-    //            inl label = input i
-    //            inl input = input (i-1)
-
-    //        //finally=id
-    //        }
 
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Error Feedforward Optimizer grad_check s }
     """) |> module_
