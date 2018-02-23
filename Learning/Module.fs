@@ -1871,50 +1871,51 @@ inl float s ->
     inl rec seq_run x = seq_run'' seq_run x
 
     // The standard non-delayed run.
-    inl seq = init (seq_run seq_run)
+    inl seq = init seq_run
 
     // The recurrent error.
-    inl error {fwd bck} label input s = 
-        inl rec apply state label input s =
+    inl error {fwd bck} = 
+        inl rec apply label input s =
             inl batch_size = primal input .span_outer |> to float
             inl div_by_minibatch_size x = x / batch_size
             
-            map_redo_map {
-                fwd = {
-                    map_in = fwd
-                    redo = (+)
-                    neutral_elem = zero
-                    map_out = inl x -> div_by_minibatch_size x + state ()
-                    }
-                bck = toa_map (inl bck -> multiply_by_adjoint bck >> div_by_minibatch_size) bck
-                } (input,label)
-
-        inl x,bck = apply (const zero) label input s
-        inl state' = s.CudaTensor.to_dev_tensor state x |> inl x _ -> x.get
-        (x, apply state'), bck
+            inl a,b = 
+                map_redo_map {
+                    fwd = {
+                        map_in = fwd
+                        redo = (+)
+                        neutral_elem = zero
+                        map_out = inl x -> div_by_minibatch_size x
+                        }
+                    bck = toa_map (inl bck -> multiply_by_adjoint bck >> div_by_minibatch_size) bck
+                    } (input,label) s
+            (a, apply), b
+        apply
 
     inl square = error square
     inl cross_entropy = error cross_entropy
 
     /// Note: Create a fresh region before diving into this one.
-    inl fold {error network input label next} s =
+    inl fold {layers input label next} s =
         inl span = fst input.dim
         assert (span = fst label.dim) "Input and label need to have the same outer dimension." 
 
         s.Section.allocate.refresh
         //inl s = s.RegionMem.create
 
-        inl body s {state=(network,error),bck i} =
+        inl body s {state={costs layers bck} i} =
             inl input, label = input i, label i
-            inl (cost,layers), bck' = indiv join seq_run' (network, error label) input s |> stack
+            inl (cost,layers), bck' = indiv join layers label input s |> stack
+            inl costs = match costs with () -> ResizeArray.create {elem_type=cost} | _ -> costs
+            costs.add cost
             inl bck = term_cast (inl _ -> bck'(); bck()) ()
-            layers, bck
+            {costs layers bck}
 
         inl near_to = span.near_to - 1
         Loops.for {from=span.from; near_to flexible_state=(network,error), const (); body=body s
             finally=inl state -> 
                 inl s = s.RegionMem.dispose
-                next (body s {next state i=near_to}) s
+                next (body s {state i=near_to}) s
             }
 
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Error Feedforward Optimizer grad_check s }
