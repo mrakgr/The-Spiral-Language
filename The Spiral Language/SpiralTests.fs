@@ -1127,7 +1127,7 @@ inl x _ =
             dyn "3"
             inl rec loop _ = dyn "..."; loop
             loop
-Loops.foru {from=0; near_to=30; state = x; body = inl {state i} -> state ()}}
+Loops.foru {from=0; near_to=30; state = x; body = inl {state i} -> state ()}
     """
 
 let parsing1 = 
@@ -1915,7 +1915,7 @@ let tests =
     test70;test71';test72;test73;test74;test75;test76';test77';test78;test79
     test80;test81;test82;test83;test84;test85;test86;test87;test88;test89
     test90;test91;test92;test93;test94;test95;test96;test97;test98;test99
-    test100;test101;test102
+    test100;test101;test102;test103
     hacker_rank_1;hacker_rank_2;hacker_rank_3;hacker_rank_4;hacker_rank_5;hacker_rank_6;hacker_rank_7;hacker_rank_8;hacker_rank_9
     parsing1;parsing2;parsing3;parsing4;parsing5;parsing6;parsing7;parsing8
     loop1;loop2;loop3;     loop5;loop6;loop7;loop8

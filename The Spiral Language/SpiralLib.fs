@@ -259,11 +259,6 @@ inl for_template kind {d with body} =
         | {near_down_to} from -> from > near_down_to
         | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` needs be present."
 
-    inl from =
-        match d with
-        | {from=(!dyn from) ^ static_from=from} -> from
-        | _ -> error_type "Only one of `from` and `static_from` field to loop needs to be present."
-
     inl to =
         match d with
         | {(to ^ near_to ^ down_to ^ near_down_to)=to} -> to
@@ -297,14 +292,24 @@ inl for_template kind {d with body} =
         inl f {state from} = 
             assert (check from) "The loop must be longer than the number of steps in which the state's type is unconverged."
             {state=body {state i=from}; from=from+by}
-        unroll f {state from} |> loop
-    | _ -> loop {from state}
+
+        inl f from _ = unroll f {state from} |> inl {state from} -> loop {state from=dyn from}
+        inl sf from _ = unroll f {state from} |> loop
+
+        match d with
+        | {from=!f f ^ static_from=!sf f} -> f () // This useless apply is necessary so tail recursive calls inside the loop do not get unboxed my accident.
+        | _ -> error_type "Only one of `from` and `static_from` field to loop needs to be present."
+    | _ -> 
+        match d with
+        | {from=(!dyn from) ^ static_from=from} -> loop {from state}
+        | _ -> error_type "Only one of `from` and `static_from` field to loop needs to be present."
+        
 
 inl for' = for_template .CPSd
 inl for = for_template .Standard
 inl foru = for_template .UnrolledState
 
-{for for' while unroll} |> stack
+{for for' foru while unroll} |> stack
     """) |> module_
 
 let extern_ =
