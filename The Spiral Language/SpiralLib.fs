@@ -230,6 +230,8 @@ let loops =
     (
     "Loops",[tuple],"The Loop module.",
     """
+inl rec unroll f x = if eq_type x (type f x) then x else unroll f (f x)
+
 inl rec while {cond body state} as d =
     inl loop_body {state cond body} as d =
         if cond state then while {d with state=body state}
@@ -277,11 +279,12 @@ inl for_template kind {d with body} =
         inl body {from} = 
             if check from then 
                 match kind with
-                | .Standard ->
-                    loop {state=body {state i=from}; from=from+by}
                 | .CPSd ->
                     inl next state = loop {state from=from+by}
                     body {next state i=from}
+                | _ ->
+                    loop {state=body {state i=from}; from=from+by}
+
             else finally state
 
         if Tuple.forall lit_is (from,to,by) then body {from}
@@ -289,12 +292,19 @@ inl for_template kind {d with body} =
             inl from = dyn from
             join body {from} : finally state
 
-    loop {from state}
+    match kind with
+    | .UnrolledState ->
+        inl f {state from} = 
+            assert (check from) "The loop must be longer than the number of steps in which the state's type is unconverged."
+            {state=body {state i=from}; from=from+by}
+        unroll f {state from} |> loop
+    | _ -> loop {from state}
 
 inl for' = for_template .CPSd
 inl for = for_template .Standard
+inl foru = for_template .UnrolledState
 
-{for for' while} |> stack
+{for for' while unroll} |> stack
     """) |> module_
 
 let extern_ =
