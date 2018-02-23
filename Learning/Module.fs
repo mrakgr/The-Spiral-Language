@@ -1912,7 +1912,7 @@ inl float s ->
             {costs layers bck}
 
         inl near_to = span.near_to - 1
-        Loops.for {from=span.from; near_to flexible_state=(network,error), const (); body=body s
+        Loops.foru {from=span.from; near_to state={costs=(); layers bck=const()}; body=body s
             finally=inl state -> 
                 inl s = s.RegionMem.dispose
                 next (body s {state i=near_to}) s

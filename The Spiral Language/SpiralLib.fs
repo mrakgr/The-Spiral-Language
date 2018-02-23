@@ -293,12 +293,9 @@ inl for_template kind {d with body} =
             assert (check from) "The loop must be longer than the number of steps in which the state's type is unconverged."
             {state=body {state i=from}; from=from+by}
 
-        inl f from _ = unroll f {state from} |> inl {state from} -> loop {state from=dyn from}
-        inl sf from _ = unroll f {state from} |> loop
-
         match d with
-        | {from=!f f ^ static_from=!sf f} -> f () // This useless apply is necessary so tail recursive calls inside the loop do not get unboxed my accident.
-        | _ -> error_type "Only one of `from` and `static_from` field to loop needs to be present."
+        | {from} -> unroll f {state from} |> inl {state from} -> loop {state from=dyn from}
+        | _ -> error_type "Only `from` field is allowed in the state unrolling loop."
     | _ -> 
         match d with
         | {from=(!dyn from) ^ static_from=from} -> loop {from state}
