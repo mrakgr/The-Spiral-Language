@@ -98,6 +98,7 @@ inl create {d with elem_type} =
     inl add y = FS.Method x .Add y ()
 
     inl iter f = FS.Method x ."ForEach <| System.Action<_>" (closure_of f (elem_type => ())) ()
+    inl to_array () = FS.Method x .ToArray() (array elem_type)
 
     function
     | .sort -> sort 
@@ -108,6 +109,7 @@ inl create {d with elem_type} =
     | .add -> add
     | .iter -> iter
     | .elem_type -> elem_type
+    | .to_array -> to_array ()
     | i -> index i
 { 
 create
@@ -1873,6 +1875,10 @@ inl float s ->
     // The standard non-delayed run.
     inl seq = init seq_run
 
+    inl rec seq_layers network error label input s = 
+        inl (cost, (network, error)), bck = seq_run' (network, error label) input s
+        (cost, seq_layers network error), bck
+
     // The recurrent error.
     inl error {fwd bck} = 
         inl rec apply label input s =
@@ -1900,23 +1906,25 @@ inl float s ->
         inl span = fst input.dim
         assert (span = fst label.dim) "Input and label need to have the same outer dimension." 
 
-        s.Section.allocate.refresh
-        //inl s = s.RegionMem.create
-
-        inl body s {state={costs layers bck} i} =
+        inl body s {state=(costs, layers), bck i} =
             inl input, label = input i, label i
             inl (cost,layers), bck' = indiv join layers label input s |> stack
             inl costs = match costs with () -> ResizeArray.create {elem_type=cost} | _ -> costs
             costs.add cost
             inl bck = term_cast (inl _ -> bck'(); bck()) ()
-            {costs layers bck}
+            (costs, layers), bck
 
         inl near_to = span.near_to - 1
-        Loops.foru {from=span.from; near_to state={costs=(); layers bck=const()}; body=body s
+        Loops.foru {from=span.from; near_to state=((), layers), const(); body=body s
             finally=inl state -> 
-                inl s = s.RegionMem.dispose
-                next (body s {state i=near_to}) s
+                inl s = s.RegionMem.create 
+                inl (costs, layers), bck = body s {state i=near_to}
+                next ((costs.to_array, layers), bck) s
             }
+
+    inl iter_char_sequence {layers input step_size} s =
+        inl span = fst input.dim 
+
 
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Error Feedforward Optimizer grad_check s }
     """) |> module_
