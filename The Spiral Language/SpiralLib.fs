@@ -298,8 +298,8 @@ inl for_template kind {d with body} =
         | _ -> error_type "Only `from` field is allowed in the state unrolling loop."
     | _ -> 
         match d with
-        | {from=(!dyn from) ^ static_from=from} -> loop {from state}
-        | _ -> error_type "Only one of `from` and `static_from` field to loop needs to be present."
+        | {from=(!dyn from) ^ static_from=(!lit_is true) & from} -> loop {from state}
+        | _ -> error_type "Only one of `from` and `static_from` field to loop needs to be present. In addition `static_from` needs to be a literal if present."
         
 
 inl for' = for_template .CPSd
