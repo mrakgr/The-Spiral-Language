@@ -211,6 +211,7 @@ inl section_create s size ret =
         | x -> allocate section x
         |> heap
 
+    inl s = s.method_add .refresh (inl s -> s.Section.allocate.refresh)
     inl r = s.module_add .Section {allocate} |> ret
 
     inl ptr = pool.ptr
@@ -1743,7 +1744,7 @@ inl float s ->
             | _ _ -> ()
 
         inl run_minibatch {state input label} = 
-            s.Section.allocate.refresh
+            s.refresh
             inb s = s.RegionMem.create'
             inl {cost accuracy}, _ as er = apply (input, label) s
             optimizer er
@@ -1862,22 +1863,25 @@ inl float s ->
         inl f input_size, l x = x input_size s |> inl layer,(input_size,l') -> layer,(input_size,l' :: l)
         Tuple.foldl_map f (input_size,()) layers |> inl a,b -> run a, b
 
-    inl seq_run'' run layers input s = 
-        Tuple.foldl_map (inl input,bck layer ->
-            inl (input,layer),bck' = layer input s
-            layer, (input, apply_bck bck bck')
-            ) (input, const ()) layers
-        |> inl layers, (input, bck) -> (input, run layers), bck
+    inl Sequential =
+        inl template run layers input s = 
+            Tuple.foldl_map (inl input,bck layer ->
+                inl (input,layer),bck' = layer input s
+                layer, (input, apply_bck bck bck')
+                ) (input, const ()) layers
+            |> inl layers, (input, bck) -> (input, run layers), bck
 
-    inl seq_run' = seq_run'' id
-    inl rec seq_run x = seq_run'' seq_run x
+        inl run' = template id
+        inl rec run x = template run x
 
-    // The standard non-delayed run.
-    inl seq = init seq_run
+        inl rec layers network error label input s = 
+            inl (cost, (network, error)), bck = run' (network, error label) input s
+            (cost, seq_layers network error), bck
 
-    inl rec seq_layers network error label input s = 
-        inl (cost, (network, error)), bck = seq_run' (network, error label) input s
-        (cost, seq_layers network error), bck
+        {run' run layers}
+
+    // The standard sequential run.
+    inl seq = init Sequential.run
 
     // The recurrent error.
     inl error {fwd bck} = 
@@ -1901,30 +1905,62 @@ inl float s ->
     inl square = error square
     inl cross_entropy = error cross_entropy
 
-    /// Note: Create a fresh region before diving into this one.
-    inl fold {layers input label next} s =
-        inl span = fst input.dim
-        assert (span = fst label.dim) "Input and label need to have the same outer dimension." 
+    inl Error = {square cross_entropy}
 
-        inl body s {state=(costs, layers), bck i} =
-            inl input, label = input i, label i
-            inl (cost,layers), bck' = indiv join layers label input s |> stack
-            inl costs = match costs with () -> ResizeArray.create {elem_type=cost} | _ -> costs
-            costs.add cost
-            inl bck = term_cast (inl _ -> bck'(); bck()) ()
-            (costs, layers), bck
+    /// Recurent sequence iterators.
+    inl Sequence =
+        /// Note: Create a fresh region before diving into this one.
+        inl fold {layers input label} s =
+            inl span = fst input.dim
+            assert (span = fst label.dim) "Input and label need to have the same outer dimension." 
 
-        inl near_to = span.near_to - 1
-        Loops.foru {from=span.from; near_to state=((), layers), const(); body=body s
-            finally=inl state -> 
-                inl s = s.RegionMem.create 
-                inl (costs, layers), bck = body s {state i=near_to}
-                next ((costs.to_array, layers), bck) s
-            }
+            inl body s {state=(costs, layers), bck i} =
+                inl input, label = input i, label i
+                inl (cost,layers), bck' = join layers label input s |> stack
+                inl costs = match costs with () -> ResizeArray.create {elem_type=cost} | _ -> costs
+                costs.add cost
+                inl bck = term_cast (inl _ -> bck'(); bck()) ()
+                (costs, layers), bck
 
-    inl iter_char_sequence {layers input step_size} s =
-        inl span = fst input.dim 
+            inl near_to = span.near_to - 1
+            Loops.foru {from=span.from; near_to state=((), layers), const(); body=body s
+                finally=inl state -> 
+                    inl s = s.RegionMem.create 
+                    inl (costs, layers), bck = body s {state i=near_to}
+                    stack ((costs.to_array, layers), bck, s)
+                }
 
+        inl iter {layers input by} s =
+            inl span = fst input.dim 
+            inl span = {span with from=self+1}
+
+            inl s = s.RegionMem.create
+
+            Loops.foru {swap with by state=0f64,layers,s; 
+                body=inl {state=cost,layers,s i} ->
+                    inl label = input.view_span (const {from=i; near_to=i+by |> min near_to})
+                    inl input = input.view_span (const {from=i-1; near_to=i+by |> min (near_to-1)})
+                    s.refresh
+                    inl ((costs, layers), bck, s') = fold {layers input label} s
+
+                    Array.iter (inl x -> s'.CudaTensor.set (adjoint x) one) costs
+                    bck()
+                    inl cost' = Array.fold (inl s x -> s + s'.CudaTensor.get x) costs
+                    s.RegionMem.clear
+
+                    stack (cost+cost', layers, s')
+                finally=inl cost,s -> s.RegionMem.clear; cost
+                }
+
+        {iter}
+
+    inl Recurrent =
+        {
+        layer
+        Error
+        Sequential seq
+        Sequence
+        }
 
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Error Feedforward Optimizer grad_check s }
     """) |> module_
