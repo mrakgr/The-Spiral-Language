@@ -1927,7 +1927,10 @@ inl float s ->
                 finally=inl state -> 
                     inl s = s.RegionMem.create 
                     inl (costs, layers), bck = body s {state i=near_to}
-                    stack ((costs.to_array, layers), bck, s)
+                    costs.iter (inl x -> s.CudaTensor.set (adjoint x) one) costs // TODO: Optimize this so set is done asynchronously.
+                    bck()
+                    inl cost = costs.foldl (inl a b -> a + s'.CudaTensor.get b) zero
+                    stack (cost, layers, s)
                 }
 
         inl iter {layers input by} s =
@@ -1941,15 +1944,11 @@ inl float s ->
                     inl label = input.view_span (const {from=i; near_to=i+by |> min near_to})
                     inl input = input.view_span (const {from=i-1; near_to=i+by |> min (near_to-1)})
                     s.refresh
-                    inl ((costs, layers), bck, s') = fold {layers input label} s
-
-                    Array.iter (inl x -> s'.CudaTensor.set (adjoint x) one) costs
-                    bck()
-                    inl cost' = Array.fold (inl s x -> s + s'.CudaTensor.get x) costs
+                    inl (cost, layers, s') = fold {layers input label} s
                     s.RegionMem.clear
 
                     stack (cost+cost', layers, s')
-                finally=inl cost,s -> s.RegionMem.clear; cost
+                finally=inl cost,layers,s -> s.RegionMem.clear; cost
                 }
 
         {iter}
