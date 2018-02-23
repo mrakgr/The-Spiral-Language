@@ -24,7 +24,7 @@ inl f a b =
 f (dyn 1) (dyn 2)
     """
 
-rewrite_test_cache tests cfg None //(Some(0,40))
-//output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example
-//|> printfn "%s"
-//|> ignore
+//rewrite_test_cache tests cfg None //(Some(0,40))
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test103
+|> printfn "%s"
+|> ignore

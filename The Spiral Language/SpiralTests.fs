@@ -1114,6 +1114,22 @@ inl x _ =
 Loops.unroll f x
     """
 
+let test103 = 
+    "test103",[loops],"Does the foru work?",
+    """
+inl f x = x ()
+inl dyn = dyn >> ignore
+inl x _ = 
+    dyn "1" 
+    inl _ ->
+        dyn "2"
+        inl _ ->
+            dyn "3"
+            inl rec loop _ = dyn "..."; loop
+            loop
+Loops.foru {from=0; near_to=30; state = x; body = inl {state i} -> state ()}}
+    """
+
 let parsing1 = 
     "parsing1",[parsing;console],"Does the Parsing module work?",
     """
