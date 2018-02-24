@@ -1669,30 +1669,6 @@ inl float s ->
 
     inl Optimizer = {sgd}
 
-    //#Error
-    inl square = {
-        fwd = inl (x,y) -> (y - x) * (y - x)
-        bck = 
-            inl {in=x,y} -> two * (x - y)
-            ,inl {in=x,y} -> two * (y - x)
-        }
-
-    inl cross_entropy = {
-        fwd = inl x, y -> -(y * log x + (one - y) * log (one - x))
-        bck = 
-            inl {in=x, y} -> (x - y) / (x * (one - x))
-            ,inl {in=x, y} -> log (one - x) - log x
-        }
-
-    inl Error = {square cross_entropy}
-
-    // #Initializer
-    inl Initializer = {
-        sigmoid = inl dim s ->
-            inl stddev = sqrt (two / to float (Tuple.foldl (+) 0 dim))
-            s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
-        }
-
     // #Accuracy
     inl accuracy label input s =
         inl input, label = primal input, primal label
@@ -1707,7 +1683,7 @@ inl float s ->
             neutral_elem=0
             }
 
-    // #Feedforward
+    //#Error
     inl error {fwd bck} label input s = 
         inl batch_size = primal input .span_outer |> to float
         inl div_by_minibatch_size x = x / batch_size
@@ -1724,8 +1700,30 @@ inl float s ->
         inl accuracy _ = accuracy label input s
         {cost accuracy}, bck
 
-    inl Error = module_map (inl _ -> error) Error |> stack
+    inl square = error {
+        fwd = inl (x,y) -> (y - x) * (y - x)
+        bck = 
+            inl {in=x,y} -> two * (x - y)
+            ,inl {in=x,y} -> two * (y - x)
+        }
 
+    inl cross_entropy = error {
+        fwd = inl x, y -> -(y * log x + (one - y) * log (one - x))
+        bck = 
+            inl {in=x, y} -> (x - y) / (x * (one - x))
+            ,inl {in=x, y} -> log (one - x) - log x
+        }
+
+    inl Error = {square cross_entropy} |> stack
+
+    // #Initializer
+    inl Initializer = {
+        sigmoid = inl dim s ->
+            inl stddev = sqrt (two / to float (Tuple.foldl (+) 0 dim))
+            s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
+        }
+
+    // #Feedforward
     inl layer initializer activation hidden_size input_size s =
         inl weights = {
             input = initializer (input_size, hidden_size) s |> s.dr
@@ -1733,7 +1731,7 @@ inl float s ->
             }
         
         inl input -> matmultb (input, weights.input) weights.bias >>= activation
-        ,(hidden_size,weights)
+        , (hidden_size, weights)
 
     inl sigmoid = layer sigmoid_initializer sigmoid
     inl linear = layer sigmoid_initializer succ
@@ -1748,18 +1746,20 @@ inl float s ->
                 input, apply_bck bck bck'
                 ) (input, const ()) layers
 
-        inl rec layers network error label input s = run (network, error label) input s
+        inl rec layers network error label input = 
+            inm cost = network >>= error label
+            succ (cost, layers network error)
+
         {run layers}
 
     // The standard sequential run.
     inl seq = init Sequential.run
 
     inl Iter =
-        inl fold {layers input label} s =
-            inl {cost accuracy}, bck = layers label input s
-            ...
-
-            
+        inl fold {layers input label state=fbck,fcost} s =
+            inl cost, bck = layers label input s
+            fbck bck, fcost cost
+        ()
 
     inl Feedforward = 
         {
@@ -1769,27 +1769,6 @@ inl float s ->
         } |> stack
 
     //#Recurrent
-    // The recurrent error.
-    inl error {fwd bck} = 
-        inl rec apply label input s =
-            inl batch_size = primal input .span_outer |> to float
-            inl div_by_minibatch_size x = x / batch_size
-            
-            inl a,b = 
-                map_redo_map {
-                    fwd = {
-                        map_in = fwd
-                        redo = (+)
-                        neutral_elem = zero
-                        map_out = div_by_minibatch_size
-                        }
-                    bck = toa_map ((<<) div_by_minibatch_size) bck
-                    } (input,label) s
-            (a, apply), b
-        apply
-
-    inl Error = module_map (inl _ -> error) Error |> stack
-
     /// The standard recurrent layer.
     inl layer initializer activation hidden_size input_size s =
         inl weights = 
@@ -1812,21 +1791,19 @@ inl float s ->
 
     /// Sequential layer combinators.
     inl Sequential =
-        inl template run layers input s = 
+        inl rec run layers input s = 
             Tuple.foldl_map (inl input,bck layer ->
                 inl (input,layer),bck' = layer input s
                 layer, (input, apply_bck bck bck')
                 ) (input, const ()) layers
             |> inl layers, (input, bck) -> (input, run layers), bck
 
-        inl run' = template id
-        inl rec run x = template run x
+        inl rec layers network error label input = 
+            inm input, network = network input
+            inm cost = error label input
+            succ (cost, layers network error)
 
-        inl rec layers network error label input s = 
-            inl (cost, (network, error)), bck = run' (network, error label) input s
-            (cost, layers network error), bck
-
-        {run' run layers}
+        {run layers}
 
     // The standard sequential run.
     inl seq = init Sequential.run
@@ -1834,13 +1811,13 @@ inl float s ->
     /// Recurent sequence iterators.
     inl Sequence =
         /// Note: Create a fresh region before diving into this one.
-        inl fold {layers input label} s =
+        inl fold {optimizer input label state=(fcosts, layers), s} =
             inl span = fst input.dim
             assert (span = fst label.dim) "Input and label need to have the same outer dimension." 
 
             inl body s {state=(costs, layers), bck i} =
                 inl input, label = input i, label i
-                inl (cost,layers), bck' = join layers label input s |> stack
+                inl ((!stack cost),layers), bck' = join layers label input s |> stack
                 inl costs = match costs with () -> ResizeArray.create {elem_type=cost} | _ -> costs
                 costs.add cost
                 inl bck = term_cast (inl _ -> bck'(); bck()) ()
@@ -1851,27 +1828,26 @@ inl float s ->
                 finally=inl state -> 
                     inl s = s.RegionMem.create 
                     inl (costs, layers), bck = body s {state i=near_to}
-                    bck()
-                    inl cost = costs.foldl (inl a b -> a + s'.CudaTensor.get b) zero
-                    stack (cost, layers, s)
+                    optimizer bck
+                    stack ((fcosts costs, layers), s)
                 }
 
-        inl iter {layers input by} s =
+        inl iter {optimizer input by state} s =
             inl span = fst input.dim 
-            inl span = {span with from=self+1}
+            inl offset = 1
+            inl span = {span with from=self+offset}
 
             inl s = s.RegionMem.create
 
-            Loops.foru {swap with by state=0f64,layers,s; 
-                body=inl {state=cost,layers,s i} ->
-                    inl label = input.view_span (const {from=i; near_to=i+by |> min near_to})
-                    inl input = input.view_span (const {from=i-1; near_to=i+by |> min (near_to-1)})
+            Loops.foru {swap with by state=stack (state,s); 
+                body=inl {state=state,s i} ->
+                    inl f input offset = input.view_span (const {from=i-offset; near_to=i-offset+by |> min (near_to-offset)})
+                    inl label, input = f input 0, f input offset
                     s.refresh
-                    inl cost, layers, s' = fold {layers input label} s
+                    inl x = fold {optimizer input label state=state,s}
                     s.RegionMem.clear
-
-                    stack (cost+cost', layers, s')
-                finally=inl cost,layers,s -> s.RegionMem.clear; cost
+                    x
+                finally=fst >> stack
                 }
 
         {iter}
