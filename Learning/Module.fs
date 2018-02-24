@@ -1645,7 +1645,7 @@ inl float s ->
     inl succ x _ = x, const ()
 
     // Inits the layers. Takes the runner function as the first argument and input size as the second.
-    inl init run layers input_size s = 
+    inl init run !(Tuple.wrap) layers input_size s = 
         inl f input_size, l x = x input_size s |> inl layer,(input_size,l') -> layer,(input_size,l' :: l)
         Tuple.foldl_map f (input_size,()) layers |> inl a,b -> run a, b
 
@@ -1738,23 +1738,19 @@ inl float s ->
 
     inl Layer = {sigmoid linear} |> stack
 
-    // Sequential layer combinators
-    inl Sequential =
-        inl run layers input s = 
-            Tuple.foldl (inl input,bck layer ->
-                inl input,bck' = layer input s
-                input, apply_bck bck bck'
-                ) (input, const ()) layers
+    /// Sequential layer combinators
+    inl body layers input s = 
+        Tuple.foldl (inl input,bck layer ->
+            inl input,bck' = layer input s
+            input, apply_bck bck bck'
+            ) (input, const ()) layers
 
-        inl rec layers network error label input = 
-            inm cost = network >>= error label
-            succ (cost, layers network error)
+    inl head network error label input = network input >>= error label
 
-        {run layers}
-
-    // The standard sequential run.
-    inl seq = init Sequential.run
-
+    inl create layers input_size s = 
+        inl network,(_,weights) = init body layers input_size s
+        head network, weights
+            
     inl Iter =
         inl fold {optimizer layers input label state} s =
             inl cost, bck = layers label input s
@@ -1779,7 +1775,7 @@ inl float s ->
     inl Feedforward = 
         {
         Layer 
-        Sequential seq
+        create
         Iter
         } |> stack
 
