@@ -211,7 +211,7 @@ inl section_create s size ret =
         | x -> allocate section x
         |> heap
 
-    inl s = s.method_add .refresh (inl s -> s.Section.allocate.refresh)
+    inl s = s.member_add .refresh (inl s -> s.Section.allocate.refresh)
     inl r = s.module_add .Section {allocate} |> ret
 
     inl ptr = pool.ptr
@@ -1733,8 +1733,8 @@ inl float s ->
         inl input -> matmultb (input, weights.input) weights.bias >>= activation
         , (hidden_size, weights)
 
-    inl sigmoid = layer sigmoid_initializer sigmoid
-    inl linear = layer sigmoid_initializer succ
+    inl sigmoid = layer Initializer.sigmoid sigmoid
+    inl linear = layer Initializer.sigmoid succ
 
     inl Layer = {sigmoid linear} |> stack
 
@@ -1799,8 +1799,8 @@ inl float s ->
         inl input -> matmultb (input, weights.input) weights.bias >>= next apply
         , (hidden_size, weights)
 
-    inl sigmoid = layer sigmoid_initializer sigmoid
-    inl linear = layer sigmoid_initializer succ
+    inl sigmoid = layer Initializer.sigmoid sigmoid
+    inl linear = layer Initializer.sigmoid succ
 
     inl Layer = {sigmoid linear} |> stack
 
