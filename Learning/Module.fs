@@ -943,8 +943,8 @@ inl map_redo_map w {d with redo neutral_elem} (!zip (!flatten in)) =
 
     inl in_a :: () = in.dim
     inl span = s in_a
-    inl blockDim = lit_min span 256
-    inl gridDim = lit_min 64 (divup span blockDim)
+    inl blockDim = lit_min span 1024
+    inl gridDim = 1 //lit_min 64 (divup span blockDim)
 
     if gridDim = 1 then
         run {map_out map_in blockDim gridDim} in
@@ -1573,12 +1573,14 @@ inl float s ->
             inb adjoint = filter_unit_and_branch adjoint 
             s.CudaKernel.map' bck {in=primal; out} adjoint
 
+    /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call to many useless kernels just to set the
+    /// adjoint to 1. The current library is intended for a narrow purpose.
     inl map_redo_map {fwd bck} in s =
         inl primal, adjoint = primals in, adjoints in
-        inl out = s.CudaKernel.map_redo_map fwd primal |> s.dr
+        inl out = s.CudaKernel.map_redo_map fwd primal
         
         out, inl _ ->
-            inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A}) |> s.CudaTensor.to_dev_tensor
+            inl out = s.CudaTensor.to_dev_tensor out
             inl bck =
                 inl bck = filter_based_on_adjoints bck adjoint
                 inl {in} adjoint -> toa_map ((|>) {in out=out.get}) bck |> toa_map2 (+) adjoint
@@ -1643,6 +1645,8 @@ inl float s ->
     inl succ x _ = x, const ()
 
     inl multiply_by_adjoint f {d with out={A P} in} = toa_map ((*) A) (f {in out=P})
+
+    // #Activation
     inl activation d = map {d with bck = multiply_by_adjoint self }
 
     inl sigmoid = activation {
@@ -1652,36 +1656,15 @@ inl float s ->
 
     inl Activation = {activation sigmoid} |> stack
 
+    // #Optimizer
+    inl sgd learning_rate x = 
+        inl primal, adjoint = primal x, adjoint x
+        s.CudaKernel.map' (toa_map2 (inl A P -> P - learning_rate * A)) adjoint primal
+        s.CudaTensor.clear adjoint 
+
+    inl Optimizer = {sgd}
+
     //#Error
-    inl accuracy (input,label) s =
-        inl input, label = primal input, primal label
-        inl _ ->
-            inl x = 
-                s.CudaKernel.map_d1_redo_map {
-                    map_in=const
-                    neutral_elem=-infinity,zero
-                    redo=inl a b -> if fst a > fst b then a else b
-                    map_out=snd
-                    } (input,label) ()
-            Array.foldl (inl s x -> if x = one then s+1 else s) (dyn 0) (s.CudaTensor.to_host_tensor x).bodies.ar 
-        , const ()
-
-    inl error {fwd bck} (input,_ as x) = 
-        inl batch_size = primal input .span_outer |> to float
-        inl div_by_minibatch_size x = x / batch_size
-        inm cost =
-            map_redo_map {
-                fwd = {
-                    map_in = fwd
-                    redo = (+)
-                    neutral_elem = zero
-                    map_out = div_by_minibatch_size
-                    }
-                bck = toa_map (inl bck -> multiply_by_adjoint bck >> div_by_minibatch_size) bck
-                } x
-        inm accuracy = accuracy x
-        succ {cost accuracy}
-
     inl square = {
         fwd = inl (x,y) -> (y - x) * (y - x)
         bck = 
@@ -1696,36 +1679,63 @@ inl float s ->
             ,inl {in=x, y} -> log (one - x) - log x
         }
 
-    inl Error = {accuracy error square = error square; cross_entropy = error cross_entropy} |> stack
+    inl Error = {square cross_entropy}
 
-    inl sigmoid_initializer dim s = 
-        inl stddev = sqrt (two / to float (Tuple.foldl (+) 0 dim))
-        s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
+    // #Initializer
+    inl Initializer = {
+        sigmoid = inl dim s ->
+            inl stddev = sqrt (two / to float (Tuple.foldl (+) 0 dim))
+            s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
+        }
 
-    // #Optimizer
-    inl sgd learning_rate x = 
-        inl primal, adjoint = primal x, adjoint x
-        s.CudaKernel.map' (toa_map2 (inl A P -> P - learning_rate * A)) adjoint primal
-        s.CudaTensor.clear adjoint 
-
-    inl Optimizer = {sgd}
+    // #Accuracy
+    inl accuracy label input s =
+        inl input, label = primal input, primal label
+        s.CudaKernel.map_d1_redo_map {
+            map_in=const
+            neutral_elem=-infinity,zero
+            redo=inl a b -> if fst a > fst b then a else b
+            map_out=snd >> to int64
+            } (input,label) ()
+        |> s.CudaKernel.map_redo_map {
+            redo=(+)
+            neutral_elem=0
+            }
 
     // #Feedforward
+    inl error {fwd bck} label input s = 
+        inl batch_size = primal input .span_outer |> to float
+        inl div_by_minibatch_size x = x / batch_size
+        inl cost,bck =
+            map_redo_map {
+                fwd = {
+                    map_in = fwd
+                    redo = (+)
+                    neutral_elem = zero
+                    map_out = div_by_minibatch_size
+                    }
+                bck = toa_map ((<<) div_by_minibatch_size) bck
+                } (input, label) s
+        inl accuracy _ = accuracy label input s
+        {cost accuracy}, bck
+
+    inl Error = module_map (inl _ -> error) Error |> stack
+
     inl layer initializer activation hidden_size input_size s =
-        inl weight = initializer (input_size, hidden_size) s |> s.dr
-        inl bias = s.CudaTensor.zero {elem_type=float; dim=hidden_size} |> s.dr
-        {
-        hidden_size
-        weights = weight, bias
-        apply = inl input -> matmultb (input, weight) bias >>= activation
-        }
+        inl weights = {
+            input = initializer (input_size, hidden_size) s |> s.dr
+            bias = s.CudaTensor.zero {elem_type=float; dim=hidden_size} |> s.dr
+            }
+        
+        inl input -> matmultb (input, weights.input) weights.bias >>= activation
+        ,(hidden_size,weights)
 
     inl sigmoid = layer sigmoid_initializer sigmoid
     inl linear = layer sigmoid_initializer succ
 
     inl Layer = {sigmoid linear} |> stack
 
-    inl Feedforward = {Layer} |> stack
+    inl Feedforward = {Layer Error} |> stack
 
     //#Recurrent
     /// The standard recurrent layer.
@@ -1748,6 +1758,7 @@ inl float s ->
         inl f input_size, l x = x input_size s |> inl layer,(input_size,l') -> layer,(input_size,l' :: l)
         Tuple.foldl_map f (input_size,()) layers |> inl a,b -> run a, b
 
+    /// Sequential layer combinators.
     inl Sequential =
         inl template run layers input s = 
             Tuple.foldl_map (inl input,bck layer ->
@@ -1780,17 +1791,14 @@ inl float s ->
                         map_in = fwd
                         redo = (+)
                         neutral_elem = zero
-                        map_out = inl x -> div_by_minibatch_size x
+                        map_out = div_by_minibatch_size
                         }
-                    bck = toa_map (inl bck -> multiply_by_adjoint bck >> div_by_minibatch_size) bck
+                    bck = toa_map ((<<) div_by_minibatch_size) bck
                     } (input,label) s
             (a, apply), b
         apply
 
-    inl square = error square
-    inl cross_entropy = error cross_entropy
-
-    inl Error = {square cross_entropy}
+    inl Error = module_map (inl _ -> error) Error |> stack
 
     /// Recurent sequence iterators.
     inl Sequence =
@@ -1812,7 +1820,6 @@ inl float s ->
                 finally=inl state -> 
                     inl s = s.RegionMem.create 
                     inl (costs, layers), bck = body s {state i=near_to}
-                    costs.iter (inl x -> s.CudaTensor.set (adjoint x) one) costs // TODO: Optimize this so set is done asynchronously.
                     bck()
                     inl cost = costs.foldl (inl a b -> a + s'.CudaTensor.get b) zero
                     stack (cost, layers, s)
@@ -1829,7 +1836,7 @@ inl float s ->
                     inl label = input.view_span (const {from=i; near_to=i+by |> min near_to})
                     inl input = input.view_span (const {from=i-1; near_to=i+by |> min (near_to-1)})
                     s.refresh
-                    inl (cost, layers, s') = fold {layers input label} s
+                    inl cost, layers, s' = fold {layers input label} s
                     s.RegionMem.clear
 
                     stack (cost+cost', layers, s')
@@ -1838,8 +1845,7 @@ inl float s ->
 
         {iter}
 
-    inl Recurrent =
-        {
+    inl Recurrent = {
         layer
         Error
         Sequential seq
