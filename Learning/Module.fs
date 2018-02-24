@@ -1644,6 +1644,11 @@ inl float s ->
 
     inl succ x _ = x, const ()
 
+    // Inits the layers. Takes the runner function as the first argument and input size as the second.
+    inl init run layers input_size s = 
+        inl f input_size, l x = x input_size s |> inl layer,(input_size,l') -> layer,(input_size,l' :: l)
+        Tuple.foldl_map f (input_size,()) layers |> inl a,b -> run a, b
+
     inl multiply_by_adjoint f {d with out={A P} in} = toa_map ((*) A) (f {in out=P})
 
     // #Activation
@@ -1735,9 +1740,56 @@ inl float s ->
 
     inl Layer = {sigmoid linear} |> stack
 
-    inl Feedforward = {Layer Error} |> stack
+    // Sequential layer combinators
+    inl Sequential =
+        inl run layers input s = 
+            Tuple.foldl (inl input,bck layer ->
+                inl input,bck' = layer input s
+                input, apply_bck bck bck'
+                ) (input, const ()) layers
+
+        inl rec layers network error label input s = run (network, error label) input s
+        {run layers}
+
+    // The standard sequential run.
+    inl seq = init Sequential.run
+
+    inl Iter =
+        inl fold {layers input label} s =
+            inl {cost accuracy}, bck = layers label input s
+            ...
+
+            
+
+    inl Feedforward = 
+        {
+        Layer 
+        Error
+        Sequential seq
+        } |> stack
 
     //#Recurrent
+    // The recurrent error.
+    inl error {fwd bck} = 
+        inl rec apply label input s =
+            inl batch_size = primal input .span_outer |> to float
+            inl div_by_minibatch_size x = x / batch_size
+            
+            inl a,b = 
+                map_redo_map {
+                    fwd = {
+                        map_in = fwd
+                        redo = (+)
+                        neutral_elem = zero
+                        map_out = div_by_minibatch_size
+                        }
+                    bck = toa_map ((<<) div_by_minibatch_size) bck
+                    } (input,label) s
+            (a, apply), b
+        apply
+
+    inl Error = module_map (inl _ -> error) Error |> stack
+
     /// The standard recurrent layer.
     inl layer initializer activation hidden_size input_size s =
         inl weights = 
@@ -1753,10 +1805,10 @@ inl float s ->
         inl input -> matmultb (input, weights.input) weights.bias >>= next apply
         , (hidden_size, weights)
 
-    // Inits the layers. Takes the runner function as the first argument and input size as the second.
-    inl init run layers input_size s = 
-        inl f input_size, l x = x input_size s |> inl layer,(input_size,l') -> layer,(input_size,l' :: l)
-        Tuple.foldl_map f (input_size,()) layers |> inl a,b -> run a, b
+    inl sigmoid = layer sigmoid_initializer sigmoid
+    inl linear = layer sigmoid_initializer succ
+
+    inl Layer = {sigmoid linear} |> stack
 
     /// Sequential layer combinators.
     inl Sequential =
@@ -1778,27 +1830,6 @@ inl float s ->
 
     // The standard sequential run.
     inl seq = init Sequential.run
-
-    // The recurrent error.
-    inl error {fwd bck} = 
-        inl rec apply label input s =
-            inl batch_size = primal input .span_outer |> to float
-            inl div_by_minibatch_size x = x / batch_size
-            
-            inl a,b = 
-                map_redo_map {
-                    fwd = {
-                        map_in = fwd
-                        redo = (+)
-                        neutral_elem = zero
-                        map_out = div_by_minibatch_size
-                        }
-                    bck = toa_map ((<<) div_by_minibatch_size) bck
-                    } (input,label) s
-            (a, apply), b
-        apply
-
-    inl Error = module_map (inl _ -> error) Error |> stack
 
     /// Recurent sequence iterators.
     inl Sequence =
