@@ -1570,7 +1570,7 @@ inl float s ->
                 inl bck = filter_based_on_adjoints bck adjoint
                 inl in adjoint -> toa_map ((|>) in) bck |> toa_map2 (+) adjoint
 
-            inb adjoint = filter_unit_and_branch adjoint 
+            inb adjoint = filter_unit_and_branch adjoint
             s.CudaKernel.map' bck {in=primal; out} adjoint
 
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call to many useless kernels just to set the
@@ -1756,16 +1756,31 @@ inl float s ->
     inl seq = init Sequential.run
 
     inl Iter =
-        inl fold {layers input label state=fbck,fcost} s =
+        inl fold {optimizer layers input label state} s =
             inl cost, bck = layers label input s
-            fbck bck, fcost cost
-        ()
+            optimizer bck
+            state cost
+
+        inl iter {optimizer layers input label state} s =
+            inl span = fst input.dim
+            assert (span = fst label.dim) "Input and label need to have the same outer dimension." 
+            
+            Loops.for {span with state 
+                body=inl {state i} ->
+                    inl label, input = label i, input i
+                    s.refresh
+                    inb s = s.RegionMem.create'
+                    fold {optimizer layers input label state} s
+                finally=stack
+                }
+        
+        {iter}
 
     inl Feedforward = 
         {
         Layer 
-        Error
         Sequential seq
+        Iter
         } |> stack
 
     //#Recurrent
@@ -1808,8 +1823,8 @@ inl float s ->
     // The standard sequential run.
     inl seq = init Sequential.run
 
-    /// Recurent sequence iterators.
-    inl Sequence =
+    /// Recurent iterators.
+    inl Iter =
         /// Note: Create a fresh region before diving into this one.
         inl fold {optimizer input label state=(fcosts, layers), s} =
             inl span = fst input.dim
@@ -1832,17 +1847,16 @@ inl float s ->
                     stack ((fcosts costs, layers), s)
                 }
 
-        inl iter {optimizer input by state} s =
+        inl iter {optimizer input label state} s =
             inl span = fst input.dim 
-            inl offset = 1
-            inl span = {span with from=self+offset}
+            assert (span = fst label.dim) "Input and label need to have the same outer dimension." 
+            assert (snd input.dim = snd label.dim) "Input and label need to have the same number of steps." 
 
             inl s = s.RegionMem.create
 
-            Loops.foru {swap with by state=stack (state,s); 
+            Loops.foru {span with state=stack (state,s); 
                 body=inl {state=state,s i} ->
-                    inl f input offset = input.view_span (const {from=i-offset; near_to=i-offset+by |> min (near_to-offset)})
-                    inl label, input = f input 0, f input offset
+                    inl label, input = label i, input i
                     s.refresh
                     inl x = fold {optimizer input label state=state,s}
                     s.RegionMem.clear
@@ -1853,11 +1867,11 @@ inl float s ->
         {iter}
 
     inl Recurrent = {
-        layer
+        Layer
         Error
         Sequential seq
-        Sequence
+        Iter
         }
 
-    { primal primals adjoint adjoints (>>=) succ Primitive Activation Error Feedforward Optimizer grad_check s }
+    { primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Feedforward Recurrent s }
     """) |> module_
