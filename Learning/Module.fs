@@ -1725,22 +1725,25 @@ inl float s ->
 
     inl gid = to string gid
 
-    inl input_layer () =
+    inl input_layer size =
         {
-        input = gid()
+        type = .input
+        gid = gid()
+        size
         }
 
     // #Feedforward
     inl layer initializer activation size sublayer =
         {
+        type = .feedforward
         gid = gid()
+        size
         sublayer
-        weights = inl input_size s -> {
-            input = initializer (input_size, size) s |> s.dr
+        weights = inl s -> {
+            input = initializer (sublayer.size, size) s |> s.dr
             bias = s.CudaTensor.zero {elem_type=float; dim=size} |> s.dr
             }
-        feedforward = inl weights input -> matmultb (input, weights.input) weights.bias >>= activation
-        size
+        apply = inl weights input -> matmultb (input, weights.input) weights.bias >>= activation
         }
 
     inl sigmoid = layer Initializer.sigmoid sigmoid
