@@ -1773,32 +1773,53 @@ inl float s ->
 
         layer_foldl f {} network
 
-    inl run network s =
-        inl rec run r network =
-            inl f r {x with type gid} =
-                match type with
-                | .input -> (r gid, const ()), r
-                | .feedforward ->
-                    if module_has_member gid r then (r gid, const ()), r
-                    else
-                        inl (x, bck), r = run r x.sublayer
-                        inl x', bck' = apply x s
-                        (x',apply_bck bck bck'), module_add gid x' r
-                | .recurrent ->
-                    inl body state = 
-                        inl (x, bck), r = run r x.sublayer
-                        inl (value, state), bck' = apply state x s
-                        (value,apply_bck bck bck'), module_add gid {value state} r
+    inl rec run r network s =
+        inl run a b = run a b s
+        inl f r {x with type gid} =
+            match type with
+            | .input -> (r gid, const ()), r
+            | .feedforward ->
+                if module_has_member gid r then (r gid, const ()), r
+                else
+                    inl (x, bck), r = run r x.sublayer
+                    inl x', bck' = apply x s
+                    (x',apply_bck bck bck'), module_add gid x' r
+            | .recurrent ->
+                inl body state = 
+                    inl (x, bck), r = run r x.sublayer
+                    inl (value, state), bck' = apply state x s
+                    (value,apply_bck bck bck'), module_add gid {value state} r
 
-                    if module_has_member gid r then
-                        match r gid with
-                        | {value} -> (value, const ()), r
-                        | {state} -> body state
-                    else body ()
+                if module_has_member gid r then
+                    match r gid with
+                    | {value} -> (value, const ()), r
+                    | {state} -> body state
+                else body ()
 
-            layer_foldl f r network
-        run {} network
+        layer_foldl f r network
+
+    inl Iter =
+        inl fold {optimizer layers input label state} s =
+            inl (cost, bck), _ = layers label input {} s
+            optimizer bck
+            state cost
+
+        inl iter {optimizer layers input label state} s =
+            inl span = fst input.dim
+            assert (span = fst label.dim) "Input and label need to have the same outer dimension." 
+            
+            Loops.for {span with state 
+                body=inl {state i} ->
+                    inl label, input = label i, input i
+                    s.refresh
+                    inb s = s.RegionMem.create'
+                    fold {optimizer layers input label state} s
+                finally=stack
+                }
         
+        {iter}
 
-    { primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Feedforward Recurrent s }
+    
+
+    { primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error init run Feedforward s }
     """) |> module_
