@@ -119,6 +119,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let case arg case = (Case,[arg;case]) |> op
     let module_is_cps arg on_fail on_succ = op(ModuleIsCPS,[arg;on_fail;on_succ])
     let module_member_cps arg name on_fail on_succ = op(ModuleMemberCPS,[arg;lit (LitString name);on_fail;on_succ])
+    let module_inject_cps arg name on_fail on_succ = op(ModuleInjectCPS,[arg;v name;on_fail;on_succ])
     let term_fun_dom_range_cps arg on_fail on_succ = op(TermFunctionDomainRangeCPS,[arg;on_fail;on_succ])
     let list_taken_cps count arg on_fail on_succ = op(ListTakeNCPS,[lit (LitInt32 count);arg;on_fail;on_succ])
     let list_taken_tail_cps count arg on_fail on_succ = op(ListTakeNTailCPS,[lit (LitInt32 (count-1));arg;on_fail;on_succ])
@@ -292,8 +293,12 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | PatModuleIs p -> module_is_cps arg on_fail (cp arg p on_succ on_fail) |> case arg
                 | PatModuleMember name -> module_member_cps arg name on_fail (inl name on_succ) |> case arg
                 | PatModuleRebind(name,b) -> 
-                    let arg' = new_pat_var()    
+                    let arg' = new_pat_var()
                     module_member_cps arg name on_fail (inl arg' (cp (v arg') b on_succ on_fail)) 
+                    |> case arg
+                | PatModuleInject(name,b) ->
+                    let arg' = new_pat_var()
+                    module_inject_cps arg name on_fail (inl arg' (cp (v arg') b on_succ on_fail)) 
                     |> case arg
                 | PatWhen (p, e) -> cp arg p (if_static e on_succ on_fail) on_fail
                 | PatTypeTermFunction(a,b) -> 
@@ -1458,6 +1463,13 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 apply_module member_miss member_miss (apply d (tev d on_succ)) d (tev d a) n
             | x -> on_type_er (trace d) <| sprintf "Expecting a string as the second argument to ModuleMemberCPS.\nGot: %s" (show_typedexpr x)
 
+        let module_inject_cps d a b on_fail on_succ =
+            match tev d b with
+            | TypeString n ->
+                let member_miss _ = tev d on_fail
+                apply_module member_miss member_miss (apply d (tev d on_succ)) d (tev d a) n
+            | x -> on_type_er (trace d) <| sprintf "Expecting a type string as the second argument to ModuleInjectCPS.\nGot: %s" (show_typedexpr x)
+
         let module_create d l =
             List.fold (fun env -> function
                 | VV(N [Lit(N(LitString n)); e]) -> Map.add n (tev d e |> destructure d) env
@@ -1662,6 +1674,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ModuleIsCPS,[a;b;c] -> module_is_cps d a b c
             | ModuleHasMember,[a;b] -> module_has_member d a b
             | ModuleMemberCPS,[a;b;c;d'] -> module_member_cps d a b c d'
+            | ModuleInjectCPS,[a;b;c;d'] -> module_inject_cps d a b c d'
             | ModuleMap,[a;b] -> module_map d a b
             | ModuleFilter,[a;b] -> module_filter d a b
             | ModuleFoldL,[a;b;c] -> module_foldl d a b c
@@ -1817,6 +1830,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let active_pat = prefixOperatorChar '!'
         let not_ = active_pat
         let part_active_pat = prefixOperatorChar '@'
+        let inject = prefixOperatorChar '$'
         let wildcard = operatorChar '_'
 
         let pbool = ((keywordString "false" >>% LitBool false) <|> (keywordString "true" >>% LitBool true)) .>> spaces
@@ -2002,27 +2016,33 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         and pat_module_body expr s =
             let pat_name = var_name |>> PatModuleMember
+
+            let inline pat_inject pat = 
+                pipe2 (inject >>. var_name) (eq' >>. patterns_template expr) (fun a b -> PatModuleInject(a, b))
+                <|> pat
+
             let inline pat_bind pat = 
-                pat .>>. opt (eq' >>. patterns_template expr) 
-                |>> function
-                    | v, None -> v
-                    | v, Some pat ->
-                        let rec loop = function
-                            | PatModuleMember name -> PatModuleRebind(name,pat)
-                            | PatModuleRebind (name,_) as v  -> PatAnd [v; PatModuleRebind(name,pat)]
-                            | PatModuleIs x -> PatModuleIs (loop x)
-                            | PatAnd l -> PatAnd <| List.map loop l
-                            | PatOr l -> PatOr <| List.map loop l
-                            | PatXor l -> PatXor <| List.map loop l
-                            | PatNot x -> PatNot (loop x)
-                            | x -> failwithf "Compiler error: Pattern %A not supported." x
-                        loop v
+                pipe2 pat (opt (eq' >>. patterns_template expr))
+                    (fun v -> function
+                        | None -> v
+                        | Some pat ->
+                            let rec loop = function
+                                | PatModuleMember name -> PatModuleRebind(name,pat)
+                                | PatModuleRebind (name,_) as v  -> PatAnd [v; PatModuleRebind(name,pat)]
+                                | PatModuleIs x -> PatModuleIs (loop x)
+                                | PatAnd l -> PatAnd <| List.map loop l
+                                | PatOr l -> PatOr <| List.map loop l
+                                | PatXor l -> PatXor <| List.map loop l
+                                | PatNot x -> PatNot (loop x)
+                                | x -> failwithf "Compiler error: Pattern %A not supported." x
+                            loop v
+                            )
             let inline pat_template sep con pat = sepBy1 pat sep |>> function [x] -> x | x -> con x
             let inline pat_not pat = (not_ >>. pat |>> PatNot) <|> pat
             let inline pat_xor pat = pat_template caret PatXor pat
             let inline pat_or pat = pat_template bar PatOr pat
             let inline pat_and pat = many pat |>> PatAnd
-            pat_and ^<| pat_or ^<| pat_xor ^<| pat_not ^<| pat_bind ^<| choice [pat_name; pat_module_inner expr; rounds (pat_module_body expr)] 
+            pat_and ^<| pat_or ^<| pat_xor ^<| pat_not ^<| pat_inject ^<| pat_bind ^<| choice [pat_name; pat_module_inner expr; rounds (pat_module_body expr)] 
             <| s
 
         and patterns_template expr s = // The order in which the pattern parsers are chained in determines their precedence.

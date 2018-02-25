@@ -157,6 +157,7 @@ type Op =
     | ModuleFoldR
     | MapGetField // Codegen only
     | ModuleMemberCPS
+    | ModuleInjectCPS
 
     // Subtype tests
     | CaseableIs
@@ -282,6 +283,7 @@ and Pattern =
     | PatModuleIs of Pattern
     | PatModuleMember of string
     | PatModuleRebind of string * Pattern
+    | PatModuleInject of string * Pattern
     | PatPos of Pos<Pattern>
     | PatTypeTermFunction of Pattern * Pattern
 
