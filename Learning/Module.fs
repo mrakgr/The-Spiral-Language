@@ -1723,151 +1723,32 @@ inl float s ->
             s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
         }
 
-    // #Feedforward
-    inl layer initializer activation hidden_size input_size s =
-        inl weights = {
-            input = initializer (input_size, hidden_size) s |> s.dr
-            bias = s.CudaTensor.zero {elem_type=float; dim=hidden_size} |> s.dr
-            }
-        
-        inl input -> matmultb (input, weights.input) weights.bias >>= activation
-        , (hidden_size, weights)
+    inl gid = to string gid
 
-    inl sigmoid = layer Initializer.sigmoid sigmoid
-    inl linear = layer Initializer.sigmoid succ
-
-    inl Layer = {sigmoid linear} |> stack
-
-    /// Sequential layer combinators
-    inl body layers input s = 
-        Tuple.foldl (inl input,bck layer ->
-            inl input,bck' = layer input s
-            input, apply_bck bck bck'
-            ) (input, const ()) layers
-
-    inl head network error label input = network input >>= error label
-
-    inl create layers input_size s = 
-        inl network,(_,weights) = init body layers input_size s
-        head network, weights
-            
-    inl Iter =
-        inl fold {optimizer layers input label state} s =
-            inl cost, bck = layers label input s
-            optimizer bck
-            state cost
-
-        inl iter {optimizer layers input label state} s =
-            inl span = fst input.dim
-            assert (span = fst label.dim) "Input and label need to have the same outer dimension." 
-            
-            Loops.for {span with state 
-                body=inl {state i} ->
-                    inl label, input = label i, input i
-                    s.refresh
-                    inb s = s.RegionMem.create'
-                    fold {optimizer layers input label state} s
-                finally=stack
-                }
-        
-        {iter}
-
-    inl Feedforward = 
+    inl input_layer () =
         {
-        Layer 
-        create
-        Iter
-        } |> stack
+        input = gid()
+        }
 
-    //#Recurrent
-    /// The standard recurrent layer.
-    inl layer initializer activation hidden_size input_size s =
-        inl weights = 
-            inl f _ = initializer (input_size, hidden_size) s |> s.dr
-            {
-            input = f (); state = f ()
-            bias = s.CudaTensor.zero {elem_type=float; dim=hidden_size} |> s.dr
+    // #Feedforward
+    inl layer initializer activation size sublayer =
+        {
+        gid = gid()
+        sublayer
+        weights = inl input_size s -> {
+            input = initializer (input_size, size) s |> s.dr
+            bias = s.CudaTensor.zero {elem_type=float; dim=size} |> s.dr
             }
-
-        inl next apply = activation >>= inl x -> succ (x, apply x)
-        inl rec apply state input = matmultb ((input, weights.input),(state,weights.state)) weights.bias >>= next apply
-
-        inl input -> matmultb (input, weights.input) weights.bias >>= next apply
-        , (hidden_size, weights)
+        feedforward = inl weights input -> matmultb (input, weights.input) weights.bias >>= activation
+        size
+        }
 
     inl sigmoid = layer Initializer.sigmoid sigmoid
     inl linear = layer Initializer.sigmoid succ
 
     inl Layer = {sigmoid linear} |> stack
 
-    /// Sequential layer combinators.
-    inl Sequential =
-        inl rec run layers input s = 
-            Tuple.foldl_map (inl input,bck layer ->
-                inl (input,layer),bck' = layer input s
-                layer, (input, apply_bck bck bck')
-                ) (input, const ()) layers
-            |> inl layers, (input, bck) -> (input, run layers), bck
 
-        inl rec layers network error label input = 
-            inm input, network = network input
-            inm cost = error label input
-            succ (cost, layers network error)
-
-        {run layers}
-
-    // The standard sequential run.
-    inl seq = init Sequential.run
-
-    /// Recurent iterators.
-    inl Iter =
-        /// Note: Create a fresh region before diving into this one.
-        inl fold {optimizer input label state=(fcosts, layers), s} =
-            inl span = fst input.dim
-            assert (span = fst label.dim) "Input and label need to have the same outer dimension." 
-
-            inl body s {state=(costs, layers), bck i} =
-                inl input, label = input i, label i
-                inl ((!stack cost),layers), bck' = join layers label input s |> stack
-                inl costs = match costs with () -> ResizeArray.create {elem_type=cost} | _ -> costs
-                costs.add cost
-                inl bck = term_cast (inl _ -> bck'(); bck()) ()
-                (costs, layers), bck
-
-            inl near_to = span.near_to - 1
-            Loops.foru {from=span.from; near_to state=((), layers), const(); body=body s
-                finally=inl state -> 
-                    inl s = s.RegionMem.create 
-                    inl (costs, layers), bck = body s {state i=near_to}
-                    optimizer bck
-                    stack ((fcosts costs, layers), s)
-                }
-
-        inl iter {optimizer input label state} s =
-            inl span = fst input.dim 
-            assert (span = fst label.dim) "Input and label need to have the same outer dimension." 
-            assert (snd input.dim = snd label.dim) "Input and label need to have the same number of steps." 
-
-            inl s = s.RegionMem.create
-
-            Loops.foru {span with state=stack (state,s); 
-                body=inl {state=state,s i} ->
-                    inl label, input = label i, input i
-                    s.refresh
-                    inl x = fold {optimizer input label state=state,s}
-                    s.RegionMem.clear
-                    x
-                finally=fst >> stack
-                }
-
-        {iter}
-
-    inl Recurrent = {
-        Layer
-        Error
-        Sequential seq
-        Iter
-        }
 
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Feedforward Recurrent s }
     """) |> module_
