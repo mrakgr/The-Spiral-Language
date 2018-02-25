@@ -65,6 +65,8 @@
     <None Include="Tests%27%27.fs%27" />
     <None Include="Module%27%27%27.fs%27" />
     <None Include="Tests%27%27%27.fs%27" />
+    <None Include="Module%27%27%27%27.fs%27" />
+    <None Include="Tests%27%27%27%27.fs%27" />
     <Compile Include="Module.fs" />
     <Compile Include="Tests.fs" />
   </ItemGroup>
