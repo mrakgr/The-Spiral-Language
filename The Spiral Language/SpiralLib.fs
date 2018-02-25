@@ -1238,7 +1238,7 @@ inl rec facade data =
 
     function
     | .(_) & x -> 
-        if module_has_member data x then data x
+        if module_has_member x data then data x
         else methods x data
     | i -> methods .apply data i
 

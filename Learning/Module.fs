@@ -1751,8 +1751,14 @@ inl float s ->
 
     inl Layer = {sigmoid linear} |> stack
 
-    inl init r network s =
-        toa_foldl (inl r {x with type gid size} ->
+    let rec layer_foldl f r = function
+        | x :: x' -> loop (loop r x) x'
+        | {x with type gid size} -> f r x
+        | {} as x -> module_foldl (const (layer_foldl f)) r x
+        | _ -> error_type "Expected a layer."
+
+    inl init network s =
+        inl f r x =
             inl weights =
                 match x with
                 | {weights} -> weights s
@@ -1763,9 +1769,35 @@ inl float s ->
                 | {apply} -> apply weights
                 | _ -> ()
 
+            module_add gid {x with weights apply} r
 
+        layer_foldl f {} network
 
-            ) r network
+    inl run network s =
+        inl rec run r network =
+            inl f r {x with type gid} =
+                match type with
+                | .input -> (r gid, const ()), r
+                | .feedforward ->
+                    if module_has_member gid r then (r gid, const ()), r
+                    else
+                        inl (x, bck), r = run r x.sublayer
+                        inl x', bck' = apply x s
+                        (x',apply_bck bck bck'), module_add gid x' r
+                | .recurrent ->
+                    inl body state = 
+                        inl (x, bck), r = run r x.sublayer
+                        inl (value, state), bck' = apply state x s
+                        (value,apply_bck bck bck'), module_add gid {value state} r
+
+                    if module_has_member gid r then
+                        match r gid with
+                        | {value} -> (value, const ()), r
+                        | {state} -> body state
+                    else body ()
+
+            layer_foldl f r network
+        run {} network
         
 
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Feedforward Recurrent s }

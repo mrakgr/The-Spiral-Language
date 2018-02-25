@@ -1440,11 +1440,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let module_has_member d a b =
             match tev d a, tev d b with
-            | (TyV(_,LayoutT(_,TyMap(C env,MapTypeModule))) | (TyT(LayoutT(_,TyMap(C env,MapTypeModule)))) | TyMap(C env,MapTypeModule)), b -> 
-                match b with
-                | TyT (LitT (LitString b)) -> TyLit (LitBool <| Map.containsKey b env)
-                | x -> on_type_er (trace d) <| sprintf "Expecting a type literal as the second argument to ModuleHasMember.\nGot: %s" (show_typedexpr x)
-            | x,_ -> on_type_er (trace d) <| sprintf "Expecting a module as the first argument to ModuleHasMember.\nGot: %s" (show_typedexpr x)
+            | a, (TyV(_,LayoutT(_,TyMap(C env,MapTypeModule))) | (TyT(LayoutT(_,TyMap(C env,MapTypeModule)))) | TyMap(C env,MapTypeModule)) -> 
+                match a with
+                | TyT (LitT (LitString a)) -> TyLit (LitBool <| Map.containsKey a env)
+                | x -> on_type_er (trace d) <| sprintf "Expecting a type literal as the first argument to ModuleHasMember.\nGot: %s" (show_typedexpr x)
+            | _,x -> on_type_er (trace d) <| sprintf "Expecting a module as the second argument to ModuleHasMember.\nGot: %s" (show_typedexpr x)
 
         let module_member_cps d a b on_fail on_succ =
             match tev d b with

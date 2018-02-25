@@ -210,8 +210,8 @@ inl module_foldl f s a = !ModuleFoldL(f,s,a)
 /// (string type_lit -> a -> state -> state) -> a module -> state -> state
 inl module_foldr f a s = !ModuleFoldR(f,s,a)
 /// Returns boolean whether the module has a member.
-/// a module -> string type_lit -> bool
-inl module_has_member m x = !ModuleHasMember(m,x)
+/// string type_lit -> a module -> bool
+inl module_has_member x m = !ModuleHasMember(x,m)
 /// Unsafe upcast. Unlike the F# compiler, Spiral won't check its correctness.
 inl (:>) a b = !UnsafeUpcastTo(b,a)
 /// Unsafe downcast. Unlike the F# compiler, Spiral won't check its correctness.
