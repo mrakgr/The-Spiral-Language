@@ -88,10 +88,22 @@ inl rev, map =
 inl iter f = foldl (const f) ()
 inl iteri f = foldl f 0
 
+inl rec map2 f a b = 
+    match a,b with
+    | a :: as', b :: bs' -> f a b :: map2 f as' bs'
+    | (), () -> ()
+    | _ -> error_type "The two tuples have uneven lengths." 
+
 inl rec iter2 f a b = 
     match a,b with
     | a :: as', b :: bs' -> f a b; iter2 f as' bs'
     | (), () -> ()
+    | _ -> error_type "The two tuples have uneven lengths." 
+
+inl rec foldl2 f s a b =
+    match a,b with
+    | a :: as', b :: bs' -> foldl2 f (f s a b) as' bs'
+    | (), () -> s
     | _ -> error_type "The two tuples have uneven lengths." 
 
 inl rec forall f = function
@@ -222,7 +234,7 @@ inl rec foldr_map f l s =
 {
 head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists split_at take drop
 filter zip unzip init repeat append concat singleton range tryFind contains intersperse wrap unwrap
-foldl_map foldr_map
+foldl_map foldr_map map2 foldl2
 } |> stack
     """) |> module_
 

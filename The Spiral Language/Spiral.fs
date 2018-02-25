@@ -18,6 +18,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let join_point_dict_closure = d0()
     let join_point_dict_type = d0()
     let join_point_dict_cuda = d0()
+    let gid = 
+        let mutable x = 0L
+        fun () ->
+            x <- x + 1L
+            TyLit (LitInt64 x)
 
     // #Smart constructors
     let trace (d: LangEnv) = d.trace
@@ -1535,7 +1540,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | PrimT CharT -> char x |> LitChar
                     | PrimT Float32T -> float32 x |> LitFloat32
                     | PrimT Float64T -> float x |> LitFloat64
-                    | _ -> on_type_er (trace d) "Cannot convert the literal to the following type: %s" tot
+                    | PrimT StringT -> string x |> LitString
+                    | _ -> on_type_er (trace d) <| sprintf "Cannot convert the literal to the following type: %s" (show_ty tot)
                     |> TyLit
                 match from with
                 | TyLit (LitInt8 a) -> conv_lit a
@@ -1549,9 +1555,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | TyLit (LitChar a) -> conv_lit a
                 | TyLit (LitFloat32 a) -> conv_lit a
                 | TyLit (LitFloat64 a) -> conv_lit a
-                | TyLit (LitBool _) -> on_type_er (trace d) "Cannot convert the a boolean literal to the following type: %s" tot
-                // The string is not supported because it can't throw an exception if the conversion fails on the Cuda side.
-                | TyLit (LitString _) -> on_type_er (trace d) "Cannot convert the a string literal to the following type: %s" tot
+                | TyLit (LitString a) -> conv_lit a
+                | TyLit (LitBool _) -> on_type_er (trace d) "Cannot convert the bool to any type."
                 | _ ->
                     let is_convertible_primt x =
                         match x with
@@ -1730,6 +1735,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | InfinityF32,[] -> TyLit (LitFloat32 infinityf)
 
             | ToVar,[x] -> to_var d x
+            | GID,[] -> gid()
             
             | x -> failwithf "Compiler error: Missing Op case. %A" x
 

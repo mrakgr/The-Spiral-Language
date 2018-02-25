@@ -1723,19 +1723,19 @@ inl float s ->
             s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
         }
 
-    inl gid = to string gid
+    inl gid = .(to string !GID())
 
-    inl input_layer size =
+    // #Feedforward
+    inl input size =
         {
-        type = .input
+        ty = .input
         gid = gid()
         size
         }
 
-    // #Feedforward
     inl layer initializer activation size sublayer =
         {
-        type = .feedforward
+        ty = .feedforward
         gid = gid()
         size
         sublayer
@@ -1749,11 +1749,11 @@ inl float s ->
     inl sigmoid = layer Initializer.sigmoid sigmoid
     inl linear = layer Initializer.sigmoid succ
 
-    inl Layer = {sigmoid linear} |> stack
+    inl Layer = {input sigmoid linear} |> stack
 
-    let rec layer_foldl f r = function
+    inl rec layer_foldl f r = function
         | x :: x' -> loop (loop r x) x'
-        | {x with type gid size} -> f r x
+        | {x with ty gid size} -> f r x
         | {} as x -> module_foldl (const (layer_foldl f)) r x
         | _ -> error_type "Expected a layer."
 
@@ -1775,28 +1775,41 @@ inl float s ->
 
     inl rec run r network s =
         inl run a b = run a b s
-        inl f r {x with type gid} =
-            match type with
+        inl f r {x with ty gid} =
+            match ty with
             | .input -> (r gid, const ()), r
             | .feedforward ->
-                if module_has_member gid r then (r gid, const ()), r
-                else
+                match r with
+                | {$gid={value}} -> (value, const ()), r
+                | _ ->
                     inl (x, bck), r = run r x.sublayer
-                    inl x', bck' = apply x s
-                    (x',apply_bck bck bck'), module_add gid x' r
+                    inl value, bck' = apply x s
+                    (value, apply_bck bck bck'), {r with $gid={value}}
             | .recurrent ->
                 inl body state = 
                     inl (x, bck), r = run r x.sublayer
                     inl (value, state), bck' = apply state x s
-                    (value,apply_bck bck bck'), module_add gid {value state} r
+                    (value,apply_bck bck bck'), {r with $gid={value state}}
 
-                if module_has_member gid r then
-                    match r gid with
+                match r with
+                | {$gid=x} ->
+                    match x with
                     | {value} -> (value, const ()), r
                     | {state} -> body state
-                else body ()
+                | _ -> body ()
 
         layer_foldl f r network
+
+    inl create ins network s =
+        inl network = init network s
+        inl x r ->
+            inl r = 
+                Tuple.foldl2 (inl r {gid} value -> 
+                    match r with
+                    | {$gid=x} -> {r with $gid={x with value}}
+                    | _ -> {r with $gid={value}}
+                    ) r ins x
+            run r network
 
     inl Iter =
         inl fold {optimizer layers input label state} s =
@@ -1819,7 +1832,12 @@ inl float s ->
         
         {iter}
 
-    
+
+    inl Feedforward = 
+        {
+        Layer 
+        Iter
+        } |> stack
 
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error init run Feedforward s }
     """) |> module_

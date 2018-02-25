@@ -478,10 +478,16 @@ inl batch_size = 2
 inl input = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=batch_size,input_size}
 inl label = s.CudaTensor.zero {elem_type=float; dim=batch_size,hidden_size}
 
-inl network,_ = 
+inl network = 
     open Layer
-    create (sigmoid hidden_size) input_size s
-inl {cost},bck = network square label input s
+    inl input = input input_size
+    inl label = input hidden_size
+    inl network =
+        input input_size
+        |> sigmoid hidden_size
+        |> error square label
+    create (input,label) network
+inl ({cost},bck),_ = network (input, label) s
 
 string_format "Cost is: {0}" (s.CudaTensor.get cost) |> Console.writeline
 bck()

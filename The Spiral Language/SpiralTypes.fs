@@ -105,6 +105,7 @@ type Value =
 
 type Op =
     | ToVar
+    | GID
     
     // Extern type constructors
     | DotNetTypeCreate
