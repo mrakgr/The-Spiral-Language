@@ -1751,7 +1751,22 @@ inl float s ->
 
     inl Layer = {sigmoid linear} |> stack
 
+    inl init r network s =
+        toa_foldl (inl r {x with type gid size} ->
+            inl weights =
+                match x with
+                | {weights} -> weights s
+                | _ -> ()
 
+            inl apply =
+                match x with
+                | {apply} -> apply weights
+                | _ -> ()
+
+
+
+            ) r network
+        
 
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Feedforward Recurrent s }
     """) |> module_
