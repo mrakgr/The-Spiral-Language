@@ -1482,7 +1482,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyMap(C env, MapTypeModule) ->
                 match tev2 d name v with
                 | TypeString name, v -> tymap(Map.add name v env |> Env, MapTypeModule)
-                | _ -> on_type_er (trace d) "Expected a type string as the second argument to ModuleAdd."
+                | _ -> on_type_er (trace d) "Expected a type string as the first argument to ModuleAdd."
             | _ -> on_type_er (trace d) "Expected a module as the third argument to ModuleAdd."
 
         let module_remove d name s =
@@ -1490,7 +1490,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyMap(C env, MapTypeModule) ->
                 match tev d name with
                 | TypeString name -> tymap(Map.remove name env |> Env, MapTypeModule)
-                | _ -> on_type_er (trace d) "Expected a type string as the second argument to ModuleRemove."
+                | _ -> on_type_er (trace d) "Expected a type string as the first argument to ModuleRemove."
             | _ -> on_type_er (trace d) "Expected a module as the second argument to ModuleRemove."
 
         let module_with (d: LangEnv) l =

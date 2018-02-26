@@ -1746,7 +1746,7 @@ inl float s ->
         apply = inl weights input -> matmultb (input, weights.input) weights.bias >>= activation
         }
 
-    let error cost label input =
+    inl error cost label input =
         {
         layer_type = .feedforward
         gid = gid()
@@ -1757,48 +1757,70 @@ inl float s ->
     inl sigmoid = layer Initializer.sigmoid sigmoid
     inl linear = layer Initializer.sigmoid succ
 
-    inl Layer = {input sigmoid linear} |> stack
-
     inl rec layer_foldl f r = function
         | {x with layer_type sublayer} -> layer_foldl f (f r x) sublayer
         | {x with layer_type} -> f r x
         | {} as x -> module_foldl (const (layer_foldl f)) r x
         | x :: x' -> layer_foldl f (layer_foldl f r x) x'
-        | _ -> error_type "Expected a layer."
+        | () -> r
+        | x -> error_type ("Expected a layer. Got", x)
 
-    inl init network s =
-        inl f r x =
-            inl weights =
-                match x with
-                | {weights} -> weights s
-                | _ -> ()
+    inl rec init r network s =
+        inl init r x = init r x s
 
-            inl apply =
-                match x with
-                | {apply} -> apply weights
-                | _ -> ()
+        match network with
+        | {x with layer_type gid} ->
+            match r with
+            | {$gid=x} -> x, r
+            | _ ->
+                inl weights =
+                    match x with
+                    | {weights} -> weights s
+                    | _ -> ()
 
-            module_add gid {x with weights apply} r
+                inl apply =
+                    match x with
+                    | {apply} -> apply weights
+                    | _ -> ()
 
-        layer_foldl f {} network
-
-    inl rec run r network s =
-        inl run a b = run a b s
-        inl f r {x with layer_type gid} =
+                inl sublayer, r =
+                    match x with
+                    | {sublayer} -> init r sublayer
+                    | _ -> (), r
+                        
+                inl x = {x with weights apply sublayer}
+                x, {r with $gid=x}
+        | x :: x' -> 
+            inl x, r = init r x
+            inl x', r = init r x'
+            x :: x', r
+        | () -> (), r
+        | {} as x ->
+            module_foldl (inl k (m,r) x ->
+                inl x,r = init r x
+                module_add k x m, r
+                ) ({},r) x
+        | x -> error_type ("Expected a layer. Got", x)
+        
+    inl rec run r x s =
+        inl run r x = run r x s
+        
+        match x with
+        | {layer_type gid} ->
             match layer_type with
-            | .input -> (r gid, const ()), r
+            | .input -> (r gid .value, const ()), r
             | .feedforward ->
                 match r with
                 | {$gid={value}} -> (value, const ()), r
                 | _ ->
-                    inl (x, bck), r = run r x.sublayer
-                    inl value, bck' = apply x s
+                    inl (value, bck), r = run r x.sublayer
+                    inl value, bck' = x.apply value s
                     (value, apply_bck bck bck'), {r with $gid={value}}
             | .recurrent ->
                 inl body state = 
-                    inl (x, bck), r = run r x.sublayer
-                    inl (value, state), bck' = apply state x s
-                    (value,apply_bck bck bck'), {r with $gid={value state}}
+                    inl (value, bck), r = run r x.sublayer
+                    inl (value, state), bck' = x.apply state value s
+                    (value, apply_bck bck bck'), {r with $gid={value state}}
 
                 match r with
                 | {$gid=x} ->
@@ -1806,19 +1828,29 @@ inl float s ->
                     | {value} -> (value, const ()), r
                     | {state} -> body state
                 | _ -> body ()
-
-        layer_foldl f r network
+        | x :: x' ->
+           inl (x,bck),r = run r x 
+           inl (x',bck'),r = run r x'
+           (x :: x', apply_bck bck bck'), r
+        | () -> ((), const ()), r
+        | {} -> 
+            module_foldl (inl k (m,bck),r x ->
+                inl (x,bck'),r = run r x
+                (module_add k x m, apply_bck bck bck'), r
+                ) (({},const()),r) x
+        | x -> error_type ("Expected a layer. Got", x)
 
     inl create ins network s =
-        inl network = init network s
+        inl network = init {} network s |> fst
         inl x r ->
-            inl r = 
-                Tuple.foldl2 (inl r {gid} value -> 
-                    match r with
-                    | {$gid=x} -> {r with $gid={x with value}}
-                    | _ -> {r with $gid={value}}
-                    ) r ins x
-            run r network
+            Tuple.foldl2 (inl r {gid} value -> 
+                match r with
+                | {$gid=x} -> {r with $gid={x with value}}
+                | _ -> {r with $gid={value}}
+                ) r ins x
+            |> inl r -> run r network //TOOD: Scrub the return values from r.
+
+    inl Layer = {input layer error create sigmoid linear} |> stack
 
     inl Iter =
         inl fold {optimizer layers input label state} s =

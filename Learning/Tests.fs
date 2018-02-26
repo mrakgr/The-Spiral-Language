@@ -486,8 +486,9 @@ inl network =
         input
         |> sigmoid hidden_size
         |> error square label
-    create (input,label) network
-inl ({cost},bck),_ = network (input, label) s
+    create (input,label) network s
+
+inl ({cost},bck),_ = network (input, label) {} s
 
 string_format "Cost is: {0}" (s.CudaTensor.get cost) |> Console.writeline
 bck()
