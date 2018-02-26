@@ -1515,14 +1515,22 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | V(N name) :: names -> layout_map name (next names)
                 | Lit(N(LitString name)) :: names -> tymap (Map.add name (layout_map name (next names)) cur_env |> Env, MapTypeModule)
                 | [] ->
+                    let bind env name e =
+                        match Map.tryFind name env with
+                        | Some v -> {d with env = env_add "self" v d.env}
+                        | None -> d
+                        |> fun d -> Map.add name (tev d e |> destructure d) env
                     List.fold (fun env -> function
-                        | VV(N [Lit(N(LitString name)); e]) ->
-                            match Map.tryFind name env with
-                            | Some v -> {d with env = env_add "self" v d.env}
-                            | None -> d
-                            |> fun d -> Map.add name (tev d e |> destructure d) env
-                        | Op(N(ModuleWithout,[Lit(N(LitString name))])) ->
-                            Map.remove name env
+                        | VV(N [Lit(N(LitString name)); e]) -> bind env name e
+                        | Op(N(ModuleWithout,[Lit(N(LitString name))])) -> Map.remove name env
+                        | VV(N [name; e]) ->
+                            match tev d name with
+                            | TypeString name -> bind env name e
+                            | x -> on_type_er (trace d) <| sprintf "Expected a type string literal in module with's injection. Got: %s" (show_typedexpr x)
+                        | Op(N(ModuleWithout,[name])) ->
+                            match tev d name with
+                            | TypeString name -> Map.remove name env
+                            | x -> on_type_er (trace d) <| sprintf "Expected a type string literal in module without's injection. Got: %s" (show_typedexpr x)
                         | x -> failwithf "impossible\nGot: %A" x
                         ) cur_env bindings
                     |> fun env -> tymap(Env env, MapTypeModule)
@@ -2147,7 +2155,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let case_module expr s =
             let mp_binding (n,e) = vv [lit_string n; e]
+            let mp_binding_inject n e = vv [v n; e]
             let mp_without n = op(ModuleWithout,[lit_string n])
+            let mp_without_inject n = op(ModuleWithout,[v n])
             let mp_create l = op(ModuleCreate,l)
             let mp_with (n,l) = 
                 match n with
@@ -2158,11 +2168,19 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let inline parse_binding_with s =
                 let i = col s
                 let line = s.Line
-                var_op_name .>>. opt (eq' >>. expr_indent i (<) (set_semicolon_level_to_line line expr)) 
-                |>> function a, None -> mp_binding (a, v a) | a, Some b -> mp_binding (a, b)
-                <| s
+                let inline body s = (eq' >>. expr_indent i (<) (set_semicolon_level_to_line line expr)) s
+                let a s = 
+                    pipe2 var_op_name (opt body)
+                        (fun a -> function
+                            | None -> mp_binding (a, v a)
+                            | Some b -> mp_binding (a, b)) s
+                let b s = pipe2 (inject >>. var_op_name) body mp_binding_inject s
+                (a <|> b) s
 
-            let parse_binding_without s = var_op_name |>> mp_without <| s
+            let parse_binding_without s = 
+                let a s = var_op_name |>> mp_without <| s
+                let b s = inject >>. var_op_name |>> mp_without_inject <| s
+                (a <|> b) s
 
             let module_create_with s = (parse_binding_with .>> optional semicolon') s
             let module_create_without s = (parse_binding_without .>> optional semicolon') s
