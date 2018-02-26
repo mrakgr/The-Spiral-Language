@@ -1440,9 +1440,9 @@ inl ret ->
         inl quote x = ("\"",x,"\"")
         inl call x = ("CALL ", x)
         inl quoted_vs_path_to_vcvars = combine(visual_studio_path, "VC/Auxiliary/Build/vcvars64.bat") |> quote
-        inl quoted_vs_path_to_cl = combine(visual_studio_path, "VC/Tools/MSVC/14.11.25503/bin/Hostx64/x64") |> quote
+        inl quoted_vs_path_to_cl = combine(visual_studio_path, "VC/Tools/MSVC/14.12.25827/bin/Hostx64/x64") |> quote
         inl quoted_cuda_toolkit_path_to_include = combine(cuda_toolkit_path,"include") |> quote
-        inl quoted_vc_path_to_include = combine(visual_studio_path, "VC/Tools/MSVC/14.11.25503/include") |> quote
+        inl quoted_vc_path_to_include = combine(visual_studio_path, "VC/Tools/MSVC/14.12.25827/include") |> quote
         inl quoted_nvcc_path = combine(cuda_toolkit_path,@"bin/nvcc.exe") |> quote
         inl quoted_cub_path_to_include = cub_path |> quote
         inl quoted_kernels_dir = kernels_dir |> quote
