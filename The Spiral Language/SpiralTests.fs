@@ -1146,6 +1146,17 @@ inl b = 4,5,6
 Tuple.foldl2 (inl s a b -> s + a + b) 0 a b
     """
 
+let test106 = 
+    "test106",[],"Does the injection pattern work?",
+    """
+inl m = {
+    a = 123
+    b = 456
+    }
+inl f i {$i=x} = x
+f .a m, f .b m
+    """
+
 let parsing1 = 
     "parsing1",[parsing;console],"Does the Parsing module work?",
     """
