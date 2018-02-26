@@ -1728,14 +1728,14 @@ inl float s ->
     // #Feedforward
     inl input size =
         {
-        ty = .input
+        layer_type = .input
         gid = gid()
         size
         }
 
     inl layer initializer activation size sublayer =
         {
-        ty = .feedforward
+        layer_type = .feedforward
         gid = gid()
         size
         sublayer
@@ -1746,15 +1746,24 @@ inl float s ->
         apply = inl weights input -> matmultb (input, weights.input) weights.bias >>= activation
         }
 
+    let error cost label input =
+        {
+        layer_type = .feedforward
+        gid = gid()
+        sublayer = input, label
+        apply = inl _ input, label -> cost label input
+        }
+
     inl sigmoid = layer Initializer.sigmoid sigmoid
     inl linear = layer Initializer.sigmoid succ
 
     inl Layer = {input sigmoid linear} |> stack
 
     inl rec layer_foldl f r = function
-        | x :: x' -> loop (loop r x) x'
-        | {x with ty gid size} -> f r x
+        | {x with layer_type sublayer} -> layer_foldl f (f r x) sublayer
+        | {x with layer_type} -> f r x
         | {} as x -> module_foldl (const (layer_foldl f)) r x
+        | x :: x' -> layer_foldl f (layer_foldl f r x) x'
         | _ -> error_type "Expected a layer."
 
     inl init network s =
@@ -1775,8 +1784,8 @@ inl float s ->
 
     inl rec run r network s =
         inl run a b = run a b s
-        inl f r {x with ty gid} =
-            match ty with
+        inl f r {x with layer_type gid} =
+            match layer_type with
             | .input -> (r gid, const ()), r
             | .feedforward ->
                 match r with
