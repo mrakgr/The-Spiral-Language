@@ -480,10 +480,10 @@ inl label = s.CudaTensor.zero {elem_type=float; dim=batch_size,hidden_size}
 
 inl network = 
     open Layer
-    inl input = input input_size
     inl label = input hidden_size
+    inl input = input input_size
     inl network =
-        input input_size
+        input
         |> sigmoid hidden_size
         |> error square label
     create (input,label) network

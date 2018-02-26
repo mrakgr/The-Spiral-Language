@@ -1723,7 +1723,7 @@ inl float s ->
             s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
         }
 
-    inl gid = .(to string !GID())
+    inl gid _ = .(to string !GID())
 
     // #Feedforward
     inl input size =
