@@ -1438,11 +1438,11 @@ inl ret ->
 
         /// Puts quotes around the string.
         inl quote x = ("\"",x,"\"")
-        inl call x = ("CALL ", x)
-        inl quoted_vs_path_to_vcvars = combine(visual_studio_path, "VC/Auxiliary/Build/vcvars64.bat") |> quote
-        inl quoted_vs_path_to_cl = combine(visual_studio_path, "VC/Tools/MSVC/14.12.25827/bin/Hostx64/x64") |> quote
+        inl vc_vars_args = " x64 -vcvars_ver=14.11"
+        inl quoted_vs_path_to_vcvars = combine(visual_studio_path, "VC/Auxiliary/Build/vcvarsall.bat") |> quote
+        inl quoted_vs_path_to_cl = combine(visual_studio_path, "VC/Tools/MSVC/14.11.25503/bin/Hostx64/x64") |> quote
         inl quoted_cuda_toolkit_path_to_include = combine(cuda_toolkit_path,"include") |> quote
-        inl quoted_vc_path_to_include = combine(visual_studio_path, "VC/Tools/MSVC/14.12.25827/include") |> quote
+        inl quoted_vc_path_to_include = combine(visual_studio_path, "VC/Tools/MSVC/14.11.25503/include") |> quote
         inl quoted_nvcc_path = combine(cuda_toolkit_path,@"bin/nvcc.exe") |> quote
         inl quoted_cub_path_to_include = cub_path |> quote
         inl quoted_kernels_dir = kernels_dir |> quote
@@ -1464,7 +1464,7 @@ inl ret ->
             inl write_to_batch = concat >> inl x -> FS.Method nvcc_router_stream .WriteLine x unit
 
             "SETLOCAL" |> write_to_batch
-            call quoted_vs_path_to_vcvars |> write_to_batch
+            ("CALL ", quoted_vs_path_to_vcvars, vc_vars_args) |> write_to_batch
             ("SET PATH=%PATH%;", quoted_vs_path_to_cl) |> write_to_batch
             (
             quoted_nvcc_path, " -gencode=arch=compute_52,code=\\\"sm_52,compute_52\\\" --use-local-env --cl-version 2017",

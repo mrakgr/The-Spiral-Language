@@ -1844,11 +1844,12 @@ inl float s ->
         inl network = init {} network s |> fst
         inl x r ->
             module_map (const (module_remove .value)) r
-            |> inl r -> Tuple.foldl2 (inl r {gid} value -> 
-                match r with
-                | {$gid=x} -> {r with $gid={x with value}}
-                | _ -> {r with $gid={value}}
-                ) r ins x
+            |> inl r -> 
+                Tuple.foldl2 (inl r {gid} value -> 
+                    match r with
+                    | {$gid=x} -> {r with $gid={x with value}}
+                    | _ -> {r with $gid={value}}
+                    ) r ins x
             |> inl r -> run r network
 
     inl Layer = {input layer error create sigmoid linear} |> stack
