@@ -1757,50 +1757,60 @@ inl float s ->
     inl sigmoid = layer Initializer.sigmoid sigmoid
     inl linear = layer Initializer.sigmoid succ
 
-    inl rec layer_foldl f r = function
-        | {x with layer_type sublayer} -> layer_foldl f (f r x) sublayer
-        | {x with layer_type} -> f r x
-        | {} as x -> module_foldl (const (layer_foldl f)) r x
-        | x :: x' -> layer_foldl f (layer_foldl f r x) x'
-        | () -> r
-        | x -> error_type ("Expected a layer. Got", x)
+    //inl rec layer_foldl f r = function
+    //    | {x with layer_type sublayer} -> layer_foldl f (f r x) sublayer
+    //    | {x with layer_type} -> f r x
+    //    | {} as x -> module_foldl (const (layer_foldl f)) r x
+    //    | x :: x' -> layer_foldl f (layer_foldl f r x) x'
+    //    | () -> r
+    //    | x -> error_type ("Expected a layer. Got", x)
 
-    inl rec init r network s =
-        inl init r x = init r x s
+    inl layer_map f network =
+        inl rec layer_map r = function
+            | {x with layer_type gid} ->
+                match r with
+                | {$gid=x} -> x, r
+                | _ ->
+                    inl x = f x
+                    inl sublayer, r =
+                        match x with
+                        | {sublayer} -> layer_map r sublayer
+                        | _ -> (), r
+                    inl x = {x with sublayer}
 
-        match network with
-        | {x with layer_type gid} ->
-            match r with
-            | {$gid=x} -> x, r
-            | _ ->
-                inl weights =
-                    match x with
-                    | {weights} -> weights s
-                    | _ -> ()
+                    x, {r with $gid=x}
+            | x :: x' -> 
+                inl x, r = layer_map r x
+                inl x', r = layer_map r x'
+                x :: x', r
+            | () -> (), r
+            | {} as x ->
+                module_foldl (inl k (m,r) x ->
+                    inl x,r = layer_map r x
+                    module_add k x m, r
+                    ) ({},r) x
+            | x -> error_type ("Expected a layer. Got", x)
+        layer_map {} network
 
-                inl apply =
-                    match x with
-                    | {apply} -> apply weights
-                    | _ -> ()
+    inl init network s = 
+        layer_map (inl x ->
+            inl weights =
+                match x with
+                | {weights} -> weights s
+                | _ -> const ()
 
-                inl sublayer, r =
-                    match x with
-                    | {sublayer} -> init r sublayer
-                    | _ -> (), r
-                        
-                inl x = {x with weights apply sublayer}
-                x, {r with $gid=x}
-        | x :: x' -> 
-            inl x, r = init r x
-            inl x', r = init r x'
-            x :: x', r
-        | () -> (), r
-        | {} as x ->
-            module_foldl (inl k (m,r) x ->
-                inl x,r = init r x
-                module_add k x m, r
-                ) ({},r) x
-        | x -> error_type ("Expected a layer. Got", x)
+            {x with weights}
+            ) network
+
+    inl optimize network optimizer (bck, s) =
+        bck ()
+        layer_map (inl x -> 
+            inl s =
+                match x with
+                | {stream} -> s .member_add .stream (const stream)
+                | _ -> s
+            x.weights () |> toa_iter (optimizer s)
+            ) network
         
     inl rec run r x s =
         inl run r x = run r x s
@@ -1841,7 +1851,7 @@ inl float s ->
         | x -> error_type ("Expected a layer. Got", x)
 
     inl create ins network s =
-        inl network = init {} network s |> fst
+        inl network = init network s |> fst
         inl x r ->
             module_map (const (module_remove .value)) r
             |> inl r -> 
