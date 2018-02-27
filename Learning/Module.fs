@@ -1870,7 +1870,6 @@ inl float s ->
                     s.refresh
                     inb s = s.RegionMem.create'
                     fold {optimizer layers input label state} s
-                finally=stack
                 }
         
         {iter}

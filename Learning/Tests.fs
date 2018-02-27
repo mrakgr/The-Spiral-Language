@@ -569,40 +569,68 @@ open Activation
 open Error
 open Feedforward
 
+inl minibatch_size = 128
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
     Mnist.load_mnist_tensors mnist_path
     |> s.CudaTensor.from_host_tensors
+    |> module_map (inl x -> 
+        x.view_span (inl a,_ -> a - a % minibatch_size)
+         .split (inl a,b -> (a/minibatch_size,minibatch_size),b)
+        )
+
 
 inl input_size = 784
 inl hidden_size = 10
 
 inl network = 
     open Layer
-    init (sigmoid hidden_size) input_size s |> with_error cross_entropy
+    inl label = input hidden_size
+    inl input = input input_size
+    inl network =
+        input
+        |> sigmoid hidden_size
+        |> error square label
+    create (input,label) network s
 
 inl is_nan = function
     | x: float64 -> macro.fs bool [text: "System.Double.IsNaN"; args: x]
     | x: float32 -> macro.fs bool [text: "System.Single.IsNaN"; args: x]
 
 Loops.for' {from=0; near_to=10;body=inl {next} -> 
+    open Iter
+    inl rec accumulate_cost x = function
+        | {cost} -> accumulate_cost (x + s.CudaTensor.get cost)
+        | .is_nan -> is_nan cost
+        | .unwrap -> x
+
+    inl rec accumulate_cost_accuracy x ac = function
+        | {cost accuracy} -> accumulate_cost_accuracy (x + s.CudaTensor.get cost) (ac + accuracy ())
+        | .is_nan -> is_nan cost
+        | .unwrap -> x, ac
+
     inl train_cost =
         Console.writeline "Training:"
-        run {
-            network input=train_images; label=train_labels; minibatch_size=128
+        iter {
+            network input=train_images; label=train_labels
             optimizer=Optimizer.sgd 0.25f32
-            state={running_cost=0.0}
-            } s
+            state=accumulate_cost 0.0
+            } s .unwrap
+
+    string_format "Cost: {0}" train_cost |> Console.writeline
     
     if is_nan train_cost then
         Console.writeline "Training diverged. Aborting..."
     else
-        inl test_cost =
+        inl cost,ac =
             Console.writeline "Test:"
             run {
-                network input=test_images; label=test_labels; minibatch_size=128
-                state={running_cost=0.0; running_accuracy=0}
-                } s
+                network input=test_images; label=test_labels
+                state=accumulate_cost_accuracy 0.0 0
+                } s .unwrap
+
+        inl total_ac = test_labels.dim |> inl a::b::_ -> HostTensor.span a * HostTensor.span b
+        string_format "Cost: {0}, Accuracy: {1}/{2}" (cost,ac,total_ac) |> Console.writeline
         next ()
     }
     """
