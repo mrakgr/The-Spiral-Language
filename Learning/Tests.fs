@@ -514,14 +514,19 @@ inl { test_images test_labels train_images train_labels} =
 inl input_size = 784
 inl hidden_size = 10
 
-inl {apply} = 
+inl network = 
     open Layer
-    init (sigmoid hidden_size) input_size s |> with_error square
-inl {cost},bck = apply (test_images,test_labels) s
+    inl label = input hidden_size
+    inl input = input input_size
+    inl network =
+        input
+        |> sigmoid hidden_size
+        |> error square label
+    create (input,label) network s
 
-string_format "Cost is: {0}" (s.CudaTensor.get (primal cost)) |> Console.writeline
+inl ({cost},bck),_ = network (test_images, test_labels) {} s
 
-s.CudaTensor.set (adjoint cost) 1f32
+string_format "Cost is: {0}" (s.CudaTensor.get cost) |> Console.writeline
 bck()
     """
 
@@ -545,11 +550,10 @@ inl weight = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_typ
 inl bias = s.CudaTensor.zero {elem_type=float; dim=inner_dim} |> s.dr
 inl label = s.CudaTensor.zero {elem_type=float; dim=input_size,inner_dim}
 
-inl f = matmult input weight >>= add_bias bias >>= sigmoid >>= inl o1 -> square (o1,label)
+inl f = matmult input weight >>= add_bias bias >>= sigmoid >>= square label
 inl {cost},bck = f s
 string_format "Cost is: {0}" (s.CudaTensor.get (primal cost)) |> Console.writeline
 
-s.CudaTensor.set (adjoint cost) 1f32
 bck()
     """
 
@@ -702,7 +706,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning6
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
 |> printfn "%s"
 |> ignore
 
