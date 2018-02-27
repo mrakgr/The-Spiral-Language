@@ -1748,10 +1748,10 @@ inl float s ->
 
     inl error cost label input =
         {
-        layer_type = .feedforward
+        layer_type = .stateless
         gid = gid()
         sublayer = input, label
-        apply = inl _ input, label -> cost label input
+        apply = inl input, label -> cost label input
         }
 
     inl sigmoid = layer Initializer.sigmoid sigmoid
@@ -1759,7 +1759,8 @@ inl float s ->
 
     inl layer_map_fold f network s =
         inl rec layer_map_fold r x s =
-            | {x with layer_type gid} ->
+            match x with
+            | {layer_type gid} ->
                 match r with
                 | {$gid=x} -> (x, s), r
                 | _ ->
@@ -1774,14 +1775,14 @@ inl float s ->
                 inl (x', s), r = layer_map_fold r x' s
                 (x :: x', s), r
             | () -> ((), s), r
-            | {} as x ->
+            | {} ->
                 module_foldl (inl k ((m,s),r) x ->
                     inl (x, s), r = layer_map_fold r x s
                     (module_add k x m, s), r
                     ) (({},s),r) x
-            | x -> error_type ("Expected a layer. Got", x)
+            | _ -> error_type ("Expected a layer. Got", x)
             
-        layer_map_fold {} network s |> snd
+        layer_map_fold {} network s |> fst
 
     inl layer_map f network =
         inl rec layer_map r = function
@@ -1806,11 +1807,11 @@ inl float s ->
                     module_add k x m, r
                     ) ({},r) x
             | x -> error_type ("Expected a layer. Got", x)
-        layer_map {} network |> snd
+        layer_map {} network |> fst
 
     inl init network s = 
         layer_map (function
-            | {weights} -> {x with weights = weights s}
+            | {x with weights} -> {x with weights = const (weights s)}
             | x -> x
             ) network
 
@@ -1827,13 +1828,16 @@ inl float s ->
         layer_map_fold (inl {x with layer_type gid} d ->
             match layer_type with
             | .input -> d.input gid, d
-            | .feedforward ->
+            | .stateless ->
                 inl value, bck = x.apply x.sublayer s
-                value, {d with bck = {self with $gid=apply_bck self bck}}
+                value, {d with bck = apply_bck self bck}
+            | .feedforward ->
+                inl value, bck = x.apply x.weights.nil x.sublayer s
+                value, {d with bck = apply_bck self bck}
             | .recurrrent ->
                 inl state = match d.state with {$gid=state} -> state | _ -> ()
-                inl (value, state), bck = x.apply state x.sublayer s
-                value, {d with bck = {self with $gid=apply_bck self bck}; state = {self with $gid=state}}
+                inl (value, state), bck = x.apply x.weights.nil state x.sublayer s
+                value, {d with bck = apply_bck self bck; state = {self with $gid=state}}
             ) x d
 
     inl create ins network s =

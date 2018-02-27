@@ -488,7 +488,7 @@ inl network =
         |> error square label
     create (input,label) network s
 
-inl ({cost},bck),_ = network (input, label) {} s
+inl {cost},{bck} = network (input, label) {bck=const ()} s
 
 string_format "Cost is: {0}" (s.CudaTensor.get cost) |> Console.writeline
 bck()
@@ -524,7 +524,7 @@ inl network =
         |> error square label
     create (input,label) network s
 
-inl ({cost},bck),_ = network (test_images, test_labels) {} s
+inl {cost},{bck} = network (test_images, test_labels) {bck=const ()} s
 
 string_format "Cost is: {0}" (s.CudaTensor.get cost) |> Console.writeline
 bck()
@@ -734,7 +734,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
 |> printfn "%s"
 |> ignore
 
