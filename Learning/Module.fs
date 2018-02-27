@@ -1800,7 +1800,7 @@ inl float s ->
                 | _ -> const ()
 
             {x with weights}
-            ) network
+            ) network |> fst
 
     inl optimize network optimizer (bck, s) =
         bck ()
@@ -1812,33 +1812,23 @@ inl float s ->
             x.weights () |> toa_iter (optimizer s)
             ) network
 
-        
     inl rec run r x s =
         inl run r x = run r x s
         
         match x with
         | {layer_type gid} ->
-            match layer_type with
-            | .input -> (r gid .value, const ()), r
-            | .feedforward ->
-                match r with
-                | {$gid={value}} -> (value, const ()), r
-                | _ ->
+            match r with
+            | {$gid=x} -> (x.value, const ()), r
+            | _ ->
+                match layer_type with
+                | .feedforward ->
                     inl (value, bck), r = run r x.sublayer
                     inl value, bck' = x.apply value s
                     (value, apply_bck bck bck'), {r with $gid={value}}
-            | .recurrent ->
-                inl body state = 
+                | .recurrent ->
                     inl (value, bck), r = run r x.sublayer
                     inl (value, state), bck' = x.apply state value s
                     (value, apply_bck bck bck'), {r with $gid={value state}}
-
-                match r with
-                | {$gid=x} ->
-                    match x with
-                    | {value} -> (value, const ()), r
-                    | {state} -> body state
-                | _ -> body ()
         | x :: x' ->
            inl (x,bck),r = run r x 
            inl (x',bck'),r = run r x'
