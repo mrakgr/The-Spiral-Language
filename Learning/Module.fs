@@ -1811,6 +1811,7 @@ inl float s ->
                 | _ -> s
             x.weights () |> toa_iter (optimizer s)
             ) network
+
         
     inl rec run r x s =
         inl run r x = run r x s
