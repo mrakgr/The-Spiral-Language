@@ -1832,27 +1832,21 @@ inl float s ->
                 value, {d with bck = {self with $gid=apply_bck self bck}}
             | .recurrrent ->
                 inl state = match d.state with {$gid=state} -> state | _ -> ()
-                inl (value, state), bck = x.apply state value s
+                inl (value, state), bck = x.apply state x.sublayer s
                 value, {d with bck = {self with $gid=apply_bck self bck}; state = {self with $gid=state}}
             ) x d
 
     inl create ins network s =
-        inl network = init network s |> fst
-        inl x r ->
-            module_map (const (module_remove .value)) r
-            |> inl r -> 
-                Tuple.foldl2 (inl r {gid} value -> 
-                    match r with
-                    | {$gid=x} -> {r with $gid={x with value}}
-                    | _ -> {r with $gid={value}}
-                    ) r ins x
-            |> inl r -> run r network
+        inl network = init network s
+        inl x d ->
+            Tuple.foldl2 (inl d {gid} value -> {d.input with $gid=value}) {d with input={}} ins x
+            |> run network
 
     inl Layer = {input layer error create sigmoid linear} |> stack
 
     inl Iter =
         inl fold {optimizer layers input label state} s =
-            inl (cost, bck), _ = layers label input {} s
+            inl cost, {bck} = layers (input,label) {bck=const ()} s
             optimizer bck
             state cost
 
