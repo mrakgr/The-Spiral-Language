@@ -1810,7 +1810,11 @@ inl float s ->
                 | {stream} -> s .member_add .stream (const stream)
                 | _ -> s
             x.weights () |> toa_iter (optimizer s)
-            ) network
+            ) network 
+
+    inl layer_map_fold f s network =
+        inl rec layer_map_fold f s x =
+        layer_map_fold f s network
 
     inl rec run r x s =
         inl run r x = run r x s
