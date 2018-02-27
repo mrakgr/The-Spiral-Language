@@ -1757,13 +1757,31 @@ inl float s ->
     inl sigmoid = layer Initializer.sigmoid sigmoid
     inl linear = layer Initializer.sigmoid succ
 
-    //inl rec layer_foldl f r = function
-    //    | {x with layer_type sublayer} -> layer_foldl f (f r x) sublayer
-    //    | {x with layer_type} -> f r x
-    //    | {} as x -> module_foldl (const (layer_foldl f)) r x
-    //    | x :: x' -> layer_foldl f (layer_foldl f r x) x'
-    //    | () -> r
-    //    | x -> error_type ("Expected a layer. Got", x)
+    inl layer_map_fold f network s =
+        inl rec layer_map_fold r x s =
+            | {x with layer_type gid} ->
+                match r with
+                | {$gid=x} -> (x, s), r
+                | _ ->
+                    inl (sublayer, s), r =
+                        match x with
+                        | {sublayer} -> layer_map_fold r sublayer s
+                        | _ -> ((), s), r
+                    inl x, s = f {x with sublayer} s
+                    (x, s), {r with $gid=x}
+            | x :: x' -> 
+                inl (x, s), r = layer_map_fold r x s
+                inl (x', s), r = layer_map_fold r x' s
+                (x :: x', s), r
+            | () -> ((), s), r
+            | {} as x ->
+                module_foldl (inl k ((m,s),r) x ->
+                    inl (x, s), r = layer_map_fold r x s
+                    (module_add k x m, s), r
+                    ) (({},s),r) x
+            | x -> error_type ("Expected a layer. Got", x)
+            
+        layer_map_fold {} network s |> snd
 
     inl layer_map f network =
         inl rec layer_map r = function
@@ -1771,13 +1789,11 @@ inl float s ->
                 match r with
                 | {$gid=x} -> x, r
                 | _ ->
-                    inl x = f x
                     inl sublayer, r =
                         match x with
                         | {sublayer} -> layer_map r sublayer
                         | _ -> (), r
-                    inl x = {x with sublayer}
-
+                    inl x = f {x with sublayer}
                     x, {r with $gid=x}
             | x :: x' -> 
                 inl x, r = layer_map r x
@@ -1790,60 +1806,35 @@ inl float s ->
                     module_add k x m, r
                     ) ({},r) x
             | x -> error_type ("Expected a layer. Got", x)
-        layer_map {} network
+        layer_map {} network |> snd
 
     inl init network s = 
-        layer_map (inl x ->
-            inl weights =
-                match x with
-                | {weights} -> weights s
-                | _ -> const ()
-
-            {x with weights}
-            ) network |> fst
+        layer_map (function
+            | {weights} -> {x with weights = weights s}
+            | x -> x
+            ) network
 
     inl optimize network optimizer (bck, s) =
         bck ()
-        layer_map (inl x -> 
-            inl s =
-                match x with
-                | {stream} -> s .member_add .stream (const stream)
-                | _ -> s
-            x.weights () |> toa_iter (optimizer s)
+        inl body weights s = weights () |> toa_iter (optimizer s)
+        layer_map (function
+            | {weights stream} -> s .member_add .stream (const stream) |> body weights
+            | {weights} -> body weights s
+            | _ -> ()
             ) network 
 
-    inl layer_map_fold f s network =
-        inl rec layer_map_fold f s x =
-        layer_map_fold f s network
-
-    inl rec run r x s =
-        inl run r x = run r x s
-        
-        match x with
-        | {layer_type gid} ->
-            match r with
-            | {$gid=x} -> (x.value, const ()), r
-            | _ ->
-                match layer_type with
-                | .feedforward ->
-                    inl (value, bck), r = run r x.sublayer
-                    inl value, bck' = x.apply value s
-                    (value, apply_bck bck bck'), {r with $gid={value}}
-                | .recurrent ->
-                    inl (value, bck), r = run r x.sublayer
-                    inl (value, state), bck' = x.apply state value s
-                    (value, apply_bck bck bck'), {r with $gid={value state}}
-        | x :: x' ->
-           inl (x,bck),r = run r x 
-           inl (x',bck'),r = run r x'
-           (x :: x', apply_bck bck bck'), r
-        | () -> ((), const ()), r
-        | {} -> 
-            module_foldl (inl k (m,bck),r x ->
-                inl (x,bck'),r = run r x
-                (module_add k x m, apply_bck bck bck'), r
-                ) (({},const()),r) x
-        | x -> error_type ("Expected a layer. Got", x)
+    inl run x d s =
+        layer_map_fold (inl {x with layer_type gid} d ->
+            match layer_type with
+            | .input -> d.input gid, d
+            | .feedforward ->
+                inl value, bck = x.apply x.sublayer s
+                value, {d with bck = {self with $gid=apply_bck self bck}}
+            | .recurrrent ->
+                inl state = match d.state with {$gid=state} -> state | _ -> ()
+                inl (value, state), bck = x.apply state value s
+                value, {d with bck = {self with $gid=apply_bck self bck}; state = {self with $gid=state}}
+            ) x d
 
     inl create ins network s =
         inl network = init network s |> fst
