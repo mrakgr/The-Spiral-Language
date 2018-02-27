@@ -1662,10 +1662,8 @@ inl float s ->
     inl Activation = {activation sigmoid} |> stack
 
     // #Optimizer
-    inl sgd learning_rate x = 
-        inl primal, adjoint = primal x, adjoint x
-        s.CudaKernel.map' (toa_map2 (inl A P -> P - learning_rate * A)) adjoint primal
-        s.CudaTensor.clear adjoint 
+    inl sgd learning_rate s {primal adjoint} = 
+        s.CudaKernel.map' (inl _ P, A -> toa_map2 (inl P A -> P - learning_rate * A, zero) P A) primal.empty (primal, adjoint)
 
     inl Optimizer = {sgd}
 
@@ -1682,6 +1680,7 @@ inl float s ->
             redo=(+)
             neutral_elem=0
             }
+        |> s.CudaTensor.get
 
     //#Error
     inl error {fwd bck} label input s = 
@@ -1842,19 +1841,21 @@ inl float s ->
 
     inl create ins network s =
         inl network = init network s
-        inl x d ->
+        function
+        | .optimize -> optimize network
+        | x d ->
             Tuple.foldl2 (inl d {gid} value -> {d.input with $gid=value}) {d with input={}} ins x
             |> run network
 
-    inl Layer = {input layer error create sigmoid linear} |> stack
+    inl Layer = {input layer error create optimize sigmoid linear} |> stack
 
     inl Iter =
-        inl fold {optimizer layers input label state} s =
-            inl cost, {bck} = layers (input,label) {bck=const ()} s
-            optimizer bck
+        inl fold {optimizer network input label state} s =
+            inl cost, {bck} = network (input,label) {bck=const ()} s
+            optimizer (bck, s)
             state cost
 
-        inl iter {optimizer layers input label state} s =
+        inl iter {optimizer network input label state} s =
             inl span = fst input.dim
             assert (span = fst label.dim) "Input and label need to have the same outer dimension." 
             
@@ -1863,7 +1864,8 @@ inl float s ->
                     inl label, input = label i, input i
                     s.refresh
                     inb s = s.RegionMem.create'
-                    fold {optimizer layers input label state} s
+                    fold {optimizer network input label state} s
+                finally=inl x -> x.unwrap
                 }
         
         {iter}
@@ -1875,5 +1877,5 @@ inl float s ->
         Iter
         } |> stack
 
-    { primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error init run Feedforward s }
+    { primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Feedforward s }
     """) |> module_

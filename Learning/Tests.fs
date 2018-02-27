@@ -574,7 +574,7 @@ inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
     Mnist.load_mnist_tensors mnist_path
     |> s.CudaTensor.from_host_tensors
-    |> module_map (inl x -> 
+    |> module_map (inl _ x -> 
         x.view_span (inl a,_ -> a - a % minibatch_size)
          .split (inl a,b -> (a/minibatch_size,minibatch_size),b)
         )
@@ -585,12 +585,13 @@ inl hidden_size = 10
 
 inl network = 
     open Layer
+    
     inl label = input hidden_size
     inl input = input input_size
     inl network =
         input
         |> sigmoid hidden_size
-        |> error square label
+        |> error cross_entropy label
     create (input,label) network s
 
 inl is_nan = function
@@ -599,38 +600,38 @@ inl is_nan = function
 
 Loops.for' {from=0; near_to=10;body=inl {next} -> 
     open Iter
-    inl rec accumulate_cost x = function
-        | {cost} -> accumulate_cost (x + s.CudaTensor.get cost)
+    inl rec accumulate_cost !dyn c !dyn x = function
+        | {cost} -> accumulate_cost (c+1) (x + to float64 (s.CudaTensor.get cost))
         | .is_nan -> is_nan cost
-        | .unwrap -> x
+        | .unwrap -> x / to float64 c
 
-    inl rec accumulate_cost_accuracy x ac = function
-        | {cost accuracy} -> accumulate_cost_accuracy (x + s.CudaTensor.get cost) (ac + accuracy ())
+    inl rec accumulate_cost_accuracy !dyn c !dyn x !dyn ac = function
+        | {cost accuracy} -> accumulate_cost_accuracy (c+1) (x + to float64 (s.CudaTensor.get cost)) (ac + accuracy ())
         | .is_nan -> is_nan cost
-        | .unwrap -> x, ac
+        | .unwrap -> x / to float64 c, ac
 
     inl train_cost =
         Console.writeline "Training:"
         iter {
             network input=train_images; label=train_labels
-            optimizer=Optimizer.sgd 0.25f32
-            state=accumulate_cost 0.0
-            } s .unwrap
+            optimizer=network.optimize (Optimizer.sgd 0.25f32)
+            state=accumulate_cost 0 0.0
+            } s
 
     string_format "Cost: {0}" train_cost |> Console.writeline
-    
     if is_nan train_cost then
         Console.writeline "Training diverged. Aborting..."
     else
         inl cost,ac =
             Console.writeline "Test:"
-            run {
+            iter {
                 network input=test_images; label=test_labels
-                state=accumulate_cost_accuracy 0.0 0
-                } s .unwrap
+                optimizer=ignore
+                state=accumulate_cost_accuracy 0 0.0 0
+                } s 
 
         inl total_ac = test_labels.dim |> inl a::b::_ -> HostTensor.span a * HostTensor.span b
-        string_format "Cost: {0}, Accuracy: {1}/{2}" (cost,ac,total_ac) |> Console.writeline
+        string_format "Cost: {0}, Accuracy: {1}/{2}" (cost, ac,total_ac) |> Console.writeline
         next ()
     }
     """
@@ -734,7 +735,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning8
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
 |> printfn "%s"
 |> ignore
 
