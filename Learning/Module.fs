@@ -1582,7 +1582,8 @@ inl float s ->
         inl primal, adjoint = primals in, adjoints in
         inl out = s.CudaKernel.map_redo_map fwd primal
         
-        out, inl _ ->
+        inl _ -> s.CudaTensor.get out
+        , inl _ ->
             inl out = s.CudaTensor.to_dev_tensor out
             inl bck =
                 inl bck = filter_based_on_adjoints bck adjoint
