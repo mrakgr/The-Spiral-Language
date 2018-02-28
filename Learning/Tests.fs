@@ -417,7 +417,7 @@ inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=fl
 inl l = primal a1 .span_outer |> to float
 /// map_redo_map assumes an adjoint of 1. No need to set to that value directly.
 inl o1,bck = map_redo_map {fwd={neutral_elem=0f32; redo=(+); map_out=inl x -> x/l}; bck=inl _ -> l} a1 s
-primal o1 |> s.CudaTensor.print
+o1() |> Console.writeline
     """
 
 let learning4 =
@@ -454,7 +454,7 @@ inl label = s.CudaTensor.zero {elem_type=float; dim=2,4}
 inl f = matmult input weight >>= sigmoid >>= square label
 inl {cost},bck = f s
 
-string_format "Cost is: {0}" (s.CudaTensor.get (primal cost)) |> Console.writeline
+string_format "Cost is: {0}" (cost()) |> Console.writeline
 
 bck()
 adjoint weight |> s.CudaTensor.print
@@ -488,9 +488,9 @@ inl network =
         |> error square label
     create (input,label) network s
 
-inl {cost},{bck} = network (input, label) {bck=const ()} s
+inl {cost},{bck} = network.run (input, label) {bck=const ()} s
 
-string_format "Cost is: {0}" (s.CudaTensor.get cost) |> Console.writeline
+string_format "Cost is: {0}" (cost ()) |> Console.writeline
 bck()
     """
 
@@ -524,9 +524,9 @@ inl network =
         |> error square label
     create (input,label) network s
 
-inl {cost},{bck} = network (test_images, test_labels) {bck=const ()} s
+inl {cost},{bck} = network.run (test_images, test_labels) {bck=const ()} s
 
-string_format "Cost is: {0}" (s.CudaTensor.get cost) |> Console.writeline
+string_format "Cost is: {0}" (cost()) |> Console.writeline
 bck()
     """
 
@@ -552,7 +552,7 @@ inl label = s.CudaTensor.zero {elem_type=float; dim=input_size,inner_dim}
 
 inl f = matmult input weight >>= add_bias bias >>= sigmoid >>= square label
 inl {cost},bck = f s
-string_format "Cost is: {0}" (s.CudaTensor.get (primal cost)) |> Console.writeline
+string_format "Cost is: {0}" (cost()) |> Console.writeline
 
 bck()
     """
@@ -598,38 +598,34 @@ inl network =
 
 Loops.for' {from=0; near_to=10;body=inl {next} -> 
     open Iter
-    inl rec accumulate_cost !dyn c !dyn x = function
-        | {cost} s -> accumulate_cost (c+1) (x + to float64 (s.CudaTensor.get cost))
-        | .is_nan -> is_nan x
-        | .unwrap -> x / to float64 c
 
-    inl rec accumulate_cost_accuracy !dyn c !dyn x !dyn ac = function
-        | {cost accuracy} s -> accumulate_cost_accuracy (c+1) (x + to float64 (s.CudaTensor.get cost)) (ac + accuracy ())
-        | .is_nan -> is_nan x
-        | .unwrap -> x / to float64 c, ac
-
-    inl train_cost =
-        Console.writeline "Training:"
+    inl cost =
+        Console.writeline "Training---"
         iter {
-            network input=train_images; label=train_labels
-            optimizer=network.optimize (Optimizer.sgd 0.25f32)
-            state=accumulate_cost 0 0.0
+            input=train_images
+            label=train_labels
+            fold=Fold.train {
+                network
+                optimizer=Optimizer.sgd 0.25f32
+                }
             } s
 
-    string_format "Cost: {0}" train_cost |> Console.writeline
+    string_format "Training-{0}" cost |> Console.writeline
+
     if is_nan train_cost then
         Console.writeline "Training diverged. Aborting..."
     else
-        inl cost,ac =
-            Console.writeline "Test:"
+        inl cost, ac, max_ac =
             iter {
-                network input=test_images; label=test_labels
-                optimizer=ignore
-                state=accumulate_cost_accuracy 0 0.0 0
+                input=test_images
+                label=test_labels
+                fold=Fold.test {
+                    network 
+                    optimizer=ignore
+                    }
                 } s 
 
-        inl total_ac = test_labels.dim |> inl a::b::_ -> HostTensor.span a * HostTensor.span b
-        string_format "Cost: {0}, Accuracy: {1}/{2}" (cost, ac, total_ac) |> Console.writeline
+        string_format "Testing-{0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
         next ()
     }
     """
