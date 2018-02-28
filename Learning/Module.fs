@@ -1507,6 +1507,9 @@ inl float s ->
         match float with
         | _: float32 -> infinityf32
         | _: float64 -> infinityf64
+    inl is_nan = function
+        | x: float64 -> macro.fs bool [text: "System.Double.IsNaN"; args: x]
+        | x: float32 -> macro.fs bool [text: "System.Single.IsNaN"; args: x]
 
     inl primal = function {primal} | primal -> primal
     inl adjoint = function {adjoint} -> adjoint | _ -> .nil
@@ -1814,7 +1817,7 @@ inl float s ->
             | x -> x
             ) network
 
-    inl optimize network optimizer (bck, s) =
+    inl optimize network optimizer bck s =
         bck ()
         inl body weights s = weights () |> toa_iter (optimizer s)
         layer_map (function
@@ -1841,34 +1844,71 @@ inl float s ->
 
     inl create ins network s =
         inl network = init network s
-        function
-        | .optimize -> optimize network
-        | x d ->
+        {
+        network
+        optimize=optimize network
+        run=inl x d ->
             Tuple.foldl2 (inl d {gid} value -> {d.input with $gid=value}) {d with input={}} ins x
             |> run network
+        }
+        |> inl d x -> d x
 
     inl Layer = {input layer error create optimize sigmoid linear} |> stack
 
     inl Iter =
-        inl fold {optimizer network input label state} s =
-            inl cost, {bck} = network (input,label) {bck=const ()} s
-            optimizer (bck, s)
-            state cost
+        inl Fold = 
+            {
+            train=inl {optimizer network} ->
+                inl rec loop c cost' = 
+                    function
+                    | .unwrap -> cost' / to float64 c
+                    | {input label} s {on_fail on_succ} ->
+                        inl {cost}, {bck} = network.run (input,label) {bck=const ()} s
+                        inl cost' = cost' + to float64 (cost ())
+                        inl state = loop (c+1) cost'
+                        if is_nan cost' then on_fail state
+                        else
+                            network.optimize optimizer bck s
+                            on_succ state
+                loop (dyn 0) (dyn 0.0)
+            test=inl {optimizer network} ->
+                inl rec loop c cost' accuracy' = 
+                    function
+                    | .unwrap -> cost' / to float64 c, accuracy'
+                    | {input label} s {on_fail on_succ} ->
+                        inl {cost accuracy}, {bck} = network.run (input,label) {bck=const ()} s
+                        inl cost' = cost' + to float64 (cost ())
+                        inl accuracy' = accuracy' + accuracy()
+                        inl state = loop (c+1) cost' accuracy'
+                        if is_nan cost' then on_fail state
+                        else
+                            network.optimize optimizer bck s
+                            on_succ state
+                loop (dyn 0) (dyn 0.0) (dyn 0)
+            }
 
-        inl iter {optimizer network input label state} s =
+        inl iter {input label fold} s =
             inl span = fst input.dim
             assert (span = fst label.dim) "Input and label need to have the same outer dimension." 
             
-            Loops.for {span with state 
-                body=inl {state i} ->
+            Loops.for' {span with 
+                state=fold
+                body=inl {next state i} ->
                     inl label, input = label i, input i
                     s.refresh
-                    inb s = s.RegionMem.create'
-                    fold {optimizer network input label state} s
-                finally=inl x -> x.unwrap
+                    inl s = s.RegionMem.create
+                    state {input label} s {
+                        on_fail=inl state ->
+                            s.RegionMem.clear
+                            state.unwrap
+                        on_succ=inl state ->
+                            s.RegionMem.clear
+                            next state
+                        }
+                finally=inl state -> state.unwrap
                 }
         
-        {iter}
+        {iter Fold}
 
 
     inl Feedforward = 

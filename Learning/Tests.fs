@@ -594,20 +594,17 @@ inl network =
         |> error cross_entropy label
     create (input,label) network s
 
-inl is_nan = function
-    | x: float64 -> macro.fs bool [text: "System.Double.IsNaN"; args: x]
-    | x: float32 -> macro.fs bool [text: "System.Single.IsNaN"; args: x]
 
 
 Loops.for' {from=0; near_to=10;body=inl {next} -> 
     open Iter
     inl rec accumulate_cost !dyn c !dyn x = function
-        | {cost} -> accumulate_cost (c+1) (x + to float64 (s.CudaTensor.get cost))
+        | {cost} s -> accumulate_cost (c+1) (x + to float64 (s.CudaTensor.get cost))
         | .is_nan -> is_nan x
         | .unwrap -> x / to float64 c
 
     inl rec accumulate_cost_accuracy !dyn c !dyn x !dyn ac = function
-        | {cost accuracy} -> accumulate_cost_accuracy (c+1) (x + to float64 (s.CudaTensor.get cost)) (ac + accuracy ())
+        | {cost accuracy} s -> accumulate_cost_accuracy (c+1) (x + to float64 (s.CudaTensor.get cost)) (ac + accuracy ())
         | .is_nan -> is_nan x
         | .unwrap -> x / to float64 c, ac
 
@@ -632,7 +629,7 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
                 } s 
 
         inl total_ac = test_labels.dim |> inl a::b::_ -> HostTensor.span a * HostTensor.span b
-        string_format "Cost: {0}, Accuracy: {1}/{2}" (cost, ac,total_ac) |> Console.writeline
+        string_format "Cost: {0}, Accuracy: {1}/{2}" (cost, ac, total_ac) |> Console.writeline
         next ()
     }
     """
