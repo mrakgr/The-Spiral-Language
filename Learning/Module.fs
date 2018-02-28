@@ -1916,7 +1916,6 @@ inl float s ->
         
         {for Body}
 
-
     inl Feedforward = 
         {
         Layer 
