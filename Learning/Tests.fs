@@ -567,7 +567,6 @@ open Learning float s
 open Primitive
 open Activation
 open Error
-open Feedforward
 
 inl minibatch_size = 128
 inl { test_images test_labels train_images train_labels} =
@@ -579,12 +578,11 @@ inl { test_images test_labels train_images train_labels} =
          .split (inl a,b -> (a/minibatch_size,minibatch_size),b)
         )
 
-
 inl input_size = 784
 inl hidden_size = 10
 
 inl network = 
-    open Layer
+    open Feedforward.Layer
     
     inl label = input hidden_size
     inl input = input input_size
@@ -595,35 +593,34 @@ inl network =
     create (input,label) network s
 
 Loops.for' {from=0; near_to=10;body=inl {next} -> 
-    open Iter
+    open Feedforward.Loops
+    open Body
 
     inl cost =
-        Console.writeline "Training---"
-        iter {
+        for {
             input=train_images
             label=train_labels
-            fold=Fold.train {
+            body=train {
                 network
                 optimizer=Optimizer.sgd 0.25f32
                 }
             } s
 
-    string_format "Training-{0}" cost |> Console.writeline
+    string_format "Training: {0}" cost |> Console.writeline
 
     if nan_is cost then
         Console.writeline "Training diverged. Aborting..."
     else
         inl cost, ac, max_ac =
-            iter {
+            for {
                 input=test_images
                 label=test_labels
-                fold=Fold.test {
+                body=test {
                     network 
-                    optimizer=ignore
                     }
                 } s 
 
-        string_format "Testing-{0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
+        string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
         next ()
     }
     """

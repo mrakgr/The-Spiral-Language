@@ -1815,8 +1815,7 @@ inl float s ->
             | x -> x
             ) network
 
-    inl optimize network optimizer bck s =
-        bck ()
+    inl optimize network optimizer s =
         inl body weights s = weights () |> toa_iter (optimizer s)
         layer_map (function
             | {weights stream} -> s .member_add .stream (const stream) |> body weights
@@ -1851,12 +1850,12 @@ inl float s ->
         }
         |> inl d x -> d x
 
-    inl Layer = {input layer error create optimize sigmoid linear} |> stack
+    inl Layer = {input error create layer sigmoid linear} |> stack
 
-    inl Iter =
-        inl Fold = 
+    inl Loops =
+        inl Body = 
             {
-            train=inl {optimizer network} ->
+            train=inl {d with network} ->
                 inl rec loop c cost' = 
                     function
                     | .unwrap -> cost' / to float64 c
@@ -1866,10 +1865,14 @@ inl float s ->
                         inl state = loop (c+1) cost'
                         if nan_is cost' then on_fail state
                         else
-                            network.optimize optimizer bck s
+                            match d with
+                            | {optimizer} ->
+                                bck()
+                                network.optimize optimizer s
+                            | _ -> ()
                             on_succ state
                 loop (dyn 0) (dyn 0.0)
-            test=inl {optimizer network} ->
+            test=inl {d with network} ->
                 inl rec loop c cost' accuracy' max_accuracy' = 
                     function
                     | .unwrap -> cost' / to float64 c, accuracy', max_accuracy'
@@ -1879,19 +1882,23 @@ inl float s ->
                         inl accuracy' = accuracy' + accuracy()
                         inl max_accuracy' = max_accuracy' + label.span_outer
                         inl state = loop (c+1) cost' accuracy' max_accuracy'
-                        if is_nan cost' then on_fail state
+                        if nan_is cost' then on_fail state
                         else
-                            network.optimize optimizer bck s
+                            match d with
+                            | {optimizer} ->
+                                bck()
+                                network.optimize optimizer s
+                            | _ -> ()
                             on_succ state
                 loop (dyn 0) (dyn 0.0) (dyn 0) (dyn 0)
             }
 
-        inl iter {input label fold} s =
+        inl for {input label body} s =
             inl span = fst input.dim
             assert (span = fst label.dim) "Input and label need to have the same outer dimension." 
             
             Loops.for' {span with 
-                state=fold
+                state=body
                 body=inl {next state i} ->
                     inl label, input = label i, input i
                     s.refresh
@@ -1907,13 +1914,13 @@ inl float s ->
                 finally=inl state -> state.unwrap
                 }
         
-        {iter Fold}
+        {for Body}
 
 
     inl Feedforward = 
         {
         Layer 
-        Iter
+        Loops
         } |> stack
 
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Feedforward s }

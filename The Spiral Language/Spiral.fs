@@ -1230,9 +1230,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let is_nan d a =
             match tev d a with
-            | TyLit (LitFloat32 x) -> System.Single.NanIs x |> LitBool |> TyLit
-            | TyLit (LitFloat64 x) -> System.Double.NanIs x |> LitBool |> TyLit
-            | a & TyT (PrimT (Float32T | Float64T)) -> TyOp(NanIs,[a],PrimT BoolT)
+            | TyLit (LitFloat32 x) -> System.Single.IsNaN x |> LitBool |> TyLit
+            | TyLit (LitFloat64 x) -> System.Double.IsNaN x |> LitBool |> TyLit
+            | a & TyType (PrimT (Float32T | Float64T)) -> TyOp(NanIs,[a],PrimT BoolT)
             | x -> on_type_er (trace d) <| sprintf "Expected a float in NanIs. Got: %s" (show_typedexpr x)
 
         let prim_un_numeric d a t =
@@ -3265,8 +3265,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | Sqrt,[x] -> sprintf "(sqrt %s)" (codegen x)
                     | NanIs,[x] -> 
                         match get_type x with
-                        | PrimT Float32T -> sprintf "(System.Single.NanIs %s)" (codegen x)
-                        | PrimT Float64T -> sprintf "(System.Double.NanIs %s)" (codegen x)
+                        | PrimT Float32T -> sprintf "(System.Single.IsNaN %s)" (codegen x)
+                        | PrimT Float64T -> sprintf "(System.Double.IsNaN %s)" (codegen x)
                         | _ -> failwith "impossible"
                     | FailWith,[x] -> sprintf "(failwith %s)" (codegen x)
                     | UnsafeUpcastTo,[a;b] -> sprintf "(%s :> %s)" (codegen b) (print_type (get_type a))
