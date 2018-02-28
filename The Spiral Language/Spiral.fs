@@ -1228,6 +1228,13 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | x -> prim_un_op_helper t x
                 ) a t
 
+        let is_nan d a =
+            match tev d a with
+            | TyLit (LitFloat32 x) -> System.Single.NanIs x |> LitBool |> TyLit
+            | TyLit (LitFloat64 x) -> System.Double.NanIs x |> LitBool |> TyLit
+            | a & TyT (PrimT (Float32T | Float64T)) -> TyOp(NanIs,[a],PrimT BoolT)
+            | x -> on_type_er (trace d) <| sprintf "Expected a float in NanIs. Got: %s" (show_typedexpr x)
+
         let prim_un_numeric d a t =
             let er a = sprintf "`is_numeric a` is false.\na=%s" (show_typedexpr a)
             let check a = is_numeric a
@@ -1745,6 +1752,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | Exp,[a] -> prim_un_floating d a Exp
             | Tanh,[a] -> prim_un_floating d a Tanh
             | Sqrt,[a] -> prim_un_floating d a Sqrt
+            | NanIs,[a] -> is_nan d a
             | FailWith,[a;b] -> failwith_ d a b
 
             | UnsafeUpcastTo,[a;b] -> unsafe_upcast_to d a b
@@ -2759,6 +2767,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | Exp,[x] -> sprintf "exp(%s)" (codegen x)
                     | Tanh,[x] -> sprintf "tanh(%s)" (codegen x)
                     | Sqrt,[x] -> sprintf "sqrt(%s)" (codegen x)
+                    | NanIs,[x] -> sprintf "NanIs(%s)" (codegen x)
                     | FailWith,[x] -> 
                         if settings.cuda_assert_enabled then
                             sprintf "printf(%s)" (codegen x) |> state
@@ -3254,6 +3263,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | Exp,[x] -> sprintf "(exp %s)" (codegen x)
                     | Tanh,[x] -> sprintf "(tanh %s)" (codegen x)
                     | Sqrt,[x] -> sprintf "(sqrt %s)" (codegen x)
+                    | NanIs,[x] -> 
+                        match get_type x with
+                        | PrimT Float32T -> sprintf "(System.Single.NanIs %s)" (codegen x)
+                        | PrimT Float64T -> sprintf "(System.Double.NanIs %s)" (codegen x)
+                        | _ -> failwith "impossible"
                     | FailWith,[x] -> sprintf "(failwith %s)" (codegen x)
                     | UnsafeUpcastTo,[a;b] -> sprintf "(%s :> %s)" (codegen b) (print_type (get_type a))
                     | UnsafeDowncastTo,[a;b] -> sprintf "(%s :?> %s)" (codegen b) (print_type (get_type a))

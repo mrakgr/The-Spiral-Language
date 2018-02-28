@@ -594,8 +594,6 @@ inl network =
         |> error cross_entropy label
     create (input,label) network s
 
-
-
 Loops.for' {from=0; near_to=10;body=inl {next} -> 
     open Iter
 
@@ -612,7 +610,7 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
 
     string_format "Training-{0}" cost |> Console.writeline
 
-    if is_nan train_cost then
+    if nan_is cost then
         Console.writeline "Training diverged. Aborting..."
     else
         inl cost, ac, max_ac =

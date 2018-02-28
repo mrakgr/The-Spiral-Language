@@ -287,6 +287,9 @@ inl module_remove name s = !ModuleRemove(name,s)
 /// Converts the argument (usually a module) to the object form.
 inl obj s x = s x s
 
+/// Checks whether the float is a nan.
+inl nan_is x = !NanIs(x)
+
 {
 type_lit_lift error_type print_static dyn (=>) cd fs log exp tanh sqrt array_create array_length array_is array
 split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
@@ -295,6 +298,6 @@ string char unit type_lit_cast type_lit_is term_cast to negate ignore id const r
 string_length lit_is box_is failwith assert max min eq_type module_values caseable_is caseable_box_is (:>)
 (:?>) (=) module_map module_filter module_foldl module_foldr module_has_member sizeof string_format string_concat
 array_create_cuda_shared array_create_cuda_local infinityf64 infinityf32 abs blittable_is threadIdx blockIdx
-lit_min lit_max var module_add module_remove obj
+lit_min lit_max var module_add module_remove obj nan_is
 }
     """) |> module_

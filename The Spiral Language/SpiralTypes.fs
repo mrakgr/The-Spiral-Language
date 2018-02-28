@@ -243,6 +243,7 @@ type Op =
     | Log
     | Exp
     | Sqrt
+    | NanIs
 
     // Infinity
     | InfinityF64

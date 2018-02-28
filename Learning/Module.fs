@@ -1507,9 +1507,6 @@ inl float s ->
         match float with
         | _: float32 -> infinityf32
         | _: float64 -> infinityf64
-    inl is_nan = function
-        | x: float64 -> macro.fs bool [text: "System.Double.IsNaN"; args: x]
-        | x: float32 -> macro.fs bool [text: "System.Single.IsNaN"; args: x]
 
     inl primal = function {primal} | primal -> primal
     inl adjoint = function {adjoint} -> adjoint | _ -> .nil
@@ -1867,7 +1864,7 @@ inl float s ->
                         inl {cost}, {bck} = network.run (input,label) {bck=const ()} s
                         inl cost' = cost' + to float64 (cost ())
                         inl state = loop (c+1) cost'
-                        if is_nan cost' then on_fail state
+                        if nan_is cost' then on_fail state
                         else
                             network.optimize optimizer bck s
                             on_succ state
