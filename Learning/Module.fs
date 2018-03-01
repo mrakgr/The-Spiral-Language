@@ -1944,6 +1944,7 @@ inl float s ->
             match state with
             | () -> matmultb (input, weights.input) weights.bias >>= activation
             | state -> matmultb ((input, weights.input), (state, weights.state)) weights.bias >>= activation
+            >>= inl x -> succ (x,x)
         }
 
     inl Body =
