@@ -1859,8 +1859,8 @@ inl float s ->
                 inl rec loop c cost' = 
                     function
                     | .unwrap -> cost' / to float64 c
-                    | {input label} s {on_fail on_succ} ->
-                        inl {cost}, {bck} = network.run (input,label) {bck=const ()} s
+                    | data s {on_fail on_succ} ->
+                        inl {cost}, {bck} = network.run data {bck=const ()} s
                         inl cost' = cost' + to float64 (cost ())
                         inl state = loop (c+1) cost'
                         if nan_is cost' then on_fail state
@@ -1876,8 +1876,8 @@ inl float s ->
                 inl rec loop c cost' accuracy' max_accuracy' = 
                     function
                     | .unwrap -> cost' / to float64 c, accuracy', max_accuracy'
-                    | {input label} s {on_fail on_succ} ->
-                        inl {cost accuracy}, {bck} = network.run (input,label) {bck=const ()} s
+                    | data s {on_fail on_succ} ->
+                        inl {cost accuracy}, {bck} = network.run data {bck=const ()} s
                         inl cost' = cost' + to float64 (cost ())
                         inl accuracy' = accuracy' + accuracy()
                         inl max_accuracy' = max_accuracy' + label.span_outer
@@ -1893,17 +1893,22 @@ inl float s ->
                 loop (dyn 0) (dyn 0.0) (dyn 0) (dyn 0)
             }
 
-        inl for {input label body} s =
-            inl span = fst input.dim
-            assert (span = fst label.dim) "Input and label need to have the same outer dimension." 
+        inl for {data body} s =
+            inl {from near_to} =
+                HostTensor.toa_foldl (inl s x ->
+                    match s with
+                    | () -> fst x.dim
+                    | s -> assert (s = fst x.dim) "The data tensors need to have the same outer dimension."; s
+                    ) () data
             
-            Loops.for' {span with 
+            Loops.for' {
+                from near_to
                 state=body
                 body=inl {next state i} ->
-                    inl label, input = label i, input i
+                    inl data = HostTensor.toa_map (inl x -> x i) data
                     s.refresh
                     inl s = s.RegionMem.create
-                    state {input label} s {
+                    state data s {
                         on_fail=inl state ->
                             s.RegionMem.clear
                             state.unwrap
