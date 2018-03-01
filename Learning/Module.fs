@@ -1873,15 +1873,14 @@ inl float s ->
                             on_succ state
                 loop (dyn 0) (dyn 0.0)
             test=inl {d with network} ->
-                inl rec loop c cost' accuracy' max_accuracy' = 
+                inl rec loop c cost' accuracy' = 
                     function
-                    | .unwrap -> cost' / to float64 c, accuracy', max_accuracy'
+                    | .unwrap -> cost' / to float64 c, accuracy'
                     | data s {on_fail on_succ} ->
                         inl {cost accuracy}, {bck} = network.run data {bck=const ()} s
                         inl cost' = cost' + to float64 (cost ())
                         inl accuracy' = accuracy' + accuracy()
-                        inl max_accuracy' = max_accuracy' + label.span_outer
-                        inl state = loop (c+1) cost' accuracy' max_accuracy'
+                        inl state = loop (c+1) cost' accuracy'
                         if nan_is cost' then on_fail state
                         else
                             match d with
@@ -1890,7 +1889,7 @@ inl float s ->
                                 network.optimize optimizer s
                             | _ -> ()
                             on_succ state
-                loop (dyn 0) (dyn 0.0) (dyn 0) (dyn 0)
+                loop (dyn 0) (dyn 0.0) (dyn 0)
             }
 
         inl for {data body} s =

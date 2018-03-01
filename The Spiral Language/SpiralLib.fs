@@ -1241,6 +1241,7 @@ inl rec facade data =
         /// Returns an empty tensor of the same dimension.
         empty = inl data -> facade {data with bodies=()}
         span_outer = inl {dim} -> match dim with () -> 1 | x :: _ -> span x
+        span_outer2 = inl {dim=a::b::_} -> span a * span b
         split = inl data f -> split f (facade data)
         flatten = inl data f -> flatten (facade data)
         reshape = inl data f -> reshape f (facade data)
@@ -1359,7 +1360,7 @@ inl assert_dim l = assert_zip >> ignore
 met print (!dyn x) = show x |> Console.writeline
 
 {
-toa_map toa_map2 toa_iter toa_iter2 toa_map3 toa_iter3 create facade 
+toa_map toa_map2 toa_iter toa_iter2 toa_map3 toa_iter3 toa_foldl create facade 
 init copy assert_size array_as_tensor array_to_tensor map zip show print
 span equal split flatten assert_contiguous assert_dim reshape
 } |> stack

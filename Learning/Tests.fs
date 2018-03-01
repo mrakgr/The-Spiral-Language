@@ -598,8 +598,7 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
 
     inl cost =
         for {
-            input=train_images
-            label=train_labels
+            data=train_images, train_labels
             body=train {
                 network
                 optimizer=Optimizer.sgd 0.25f32
@@ -611,10 +610,10 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
     if nan_is cost then
         Console.writeline "Training diverged. Aborting..."
     else
-        inl cost, ac, max_ac =
+        inl max_ac = test_labels.span_outer2
+        inl cost, ac =
             for {
-                input=test_images
-                label=test_labels
+                data=test_images, test_labels
                 body=test {
                     network 
                     }
