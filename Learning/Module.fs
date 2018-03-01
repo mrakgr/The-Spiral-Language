@@ -1852,6 +1852,13 @@ inl float s ->
 
     inl Layer = {input error create layer sigmoid linear} |> stack
 
+    inl outer data =
+        HostTensor.toa_foldl (inl s x ->
+            match s with
+            | () -> fst x.dim
+            | s -> assert (s = fst x.dim) "The data tensors need to have the same outer dimension."; s
+            ) () data
+
     inl Loops =
         inl Body = 
             {
@@ -1893,13 +1900,8 @@ inl float s ->
             }
 
         inl for {data body} s =
-            inl {from near_to} =
-                HostTensor.toa_foldl (inl s x ->
-                    match s with
-                    | () -> fst x.dim
-                    | s -> assert (s = fst x.dim) "The data tensors need to have the same outer dimension."; s
-                    ) () data
-            
+            inl {from near_to} = outer data
+           
             Loops.for' {
                 from near_to
                 state=body
@@ -1925,6 +1927,64 @@ inl float s ->
         Layer 
         Loops
         } |> stack
+
+    inl layer initializer activation size sublayer =
+        {
+        layer_type = .recurrent
+        gid = gid()
+        size
+        sublayer
+        weights = inl s -> 
+            inl f _ = initializer (sublayer.size, size) s |> s.dr
+            {
+            input = f(); state = f()
+            bias = s.CudaTensor.zero {elem_type=float; dim=size} |> s.dr
+            }
+        apply = inl weights state input -> 
+            match state with
+            | () -> matmultb (input, weights.input) weights.bias >>= activation
+            | state -> matmultb ((input, weights.input), (state, weights.state)) weights.bias >>= activation
+        }
+
+    inl Body =
+        {
+        train=inl {d with network} ->
+            inl rec loop c cost' {state region_clear} = 
+                function
+                | .unwrap -> region_clear(); cost' / to float64 c
+                | data s {on_fail on_succ} ->
+                    inl {from near_to} = outer data
+                    foru {
+                        from near_to
+                        state=const zero, {state bck=cost ()}
+                        body=inl {state=cost',d i} ->
+                            inl {cost}, d = join network.run data d s |> stack
+                            inl bck = term_cast d.bck ()
+                            inl cost _ = cost'() + cost ()
+                            term_cast cost (), {d with bck without input}
+                        finally=inl cost, {bck state} ->
+                            inl cost' = cost' + to float64 (cost ())
+                            region_clear()
+                            inl s = s.RegionMem.create
+                            inl region_clear _ = s.RegionMem.clear
+                            inl state = 
+                                HostTensor.toa_map (inl {primal} ->
+                                    primal.update_body (inl {ar} ->
+                                        s.RegionMem.assign ar
+                                        )
+                                    ) state
+                            inl state = loop (c+1) cost' {state region_clear}
+                            if nan_is cost' then on_fail state
+                            else
+                                match d with
+                                | {optimizer} ->
+                                    bck()
+                                    network.optimize optimizer s
+                                | _ -> ()
+                                on_succ state
+                        }
+            loop (dyn 0) (dyn 0.0) {state={}; region_clear=const ()}
+        }
 
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Feedforward s }
     """) |> module_
