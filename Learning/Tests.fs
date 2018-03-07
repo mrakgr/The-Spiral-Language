@@ -727,3 +727,4 @@ output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Tempor
 |> printfn "%s"
 |> ignore
 
+
