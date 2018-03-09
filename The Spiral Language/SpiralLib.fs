@@ -1125,6 +1125,7 @@ inl split f tns =
         | _ -> error_type "The number of dimensions must match. The split dimensions need to be nested."
 
     inl rec update_size x = 
+        print_static x
         match x with
         | init :: s', dim :: x' ->
             inl next = update_size (s', x')
@@ -1143,6 +1144,8 @@ inl split f tns =
         | dim -> 
             inl prev_dim = Tuple.map span dim
             prev_dim, f prev_dim
+
+    print_static {prev_dim dim}
 
     inl rec concat = function
         | x :: x' ->

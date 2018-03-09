@@ -667,6 +667,9 @@ inl input =
             )
         //.round_split' size.step
 
+print_static (input.round size.step .split (inl a :: _ -> size.step, a/size.step))
+qwe
+
 inl label = input.view_span (const {from=1})
 inl input = input.view_span (inl x :: _ -> x-1)
 ()
