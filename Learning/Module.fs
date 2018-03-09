@@ -1947,6 +1947,10 @@ inl float s ->
             >>= inl x -> succ (x,x)
         }
 
+    inl sigmoid = layer Initializer.sigmoid sigmoid
+
+    inl Layer = {input error create layer sigmoid} |> stack
+
     inl Body =
         {
         train=inl {d with network} ->
@@ -1970,9 +1974,7 @@ inl float s ->
                             inl region_clear _ = s.RegionMem.clear
                             inl state = 
                                 HostTensor.toa_map (inl {primal} ->
-                                    primal.update_body (inl {ar} ->
-                                        s.RegionMem.assign ar
-                                        )
+                                    primal.update_body (inl {x with ar} -> s.RegionMem.assign ar; x)
                                     ) state
                             inl state = loop (c+1) cost' {state region_clear}
                             if nan_is cost' then on_fail state
@@ -1986,6 +1988,8 @@ inl float s ->
                         }
             loop (dyn 0) (dyn 0.0) {state={}; region_clear=const ()}
         }
+
+    inl Loops = {for=Loops.for; Body}
 
     { primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Feedforward s }
     """) |> module_
