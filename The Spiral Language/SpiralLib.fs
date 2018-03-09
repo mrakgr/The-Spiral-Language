@@ -1115,7 +1115,7 @@ inl product = Tuple.foldl (inl s (!span x) -> s * x) 1
 /// Given the tensor dimensions (a,b,c) and a function which maps them to (a,(q,w),c)
 /// the resulting tensor dimensions come out to (a,q,w,c).
 inl split f tns =
-    let rec concat = function
+    inl rec concat = function
         | d :: d', n :: n' -> 
             inl next = concat (d',n')
             match n with
@@ -1138,13 +1138,15 @@ inl split f tns =
         | s', () -> s'
 
     inl dim' =
+        inl rec wrapped_is = function
+            | (_ :: _) :: _ -> true
+            | _ :: x' -> wrapped_is x'
+            | _ -> false
+            
         match tns.dim with
-        | dim :: () -> 
-            inl span_dim = span dim
-            f span_dim :: ()
-        | dim -> 
-            inl span_dim = Tuple.map span dim
-            f span_dim
+        | dim :: () -> span dim
+        | dim -> Tuple.map span dim
+        |> f |> inl x -> if wrapped_is x then x else x :: ()
 
     tns .set_dim (concat (tns.dim, dim'))
         .update_body (inl d -> {d with size=update_size (self,dim')})

@@ -574,8 +574,7 @@ inl { test_images test_labels train_images train_labels} =
     Mnist.load_mnist_tensors mnist_path
     |> s.CudaTensor.from_host_tensors
     |> module_map (inl _ x -> 
-        x.view_span (inl a,_ -> a - a % minibatch_size)
-         .split (inl a,b -> (a/minibatch_size,minibatch_size),b)
+        x.round_split' minibatch_size
         )
 
 inl input_size = 784
@@ -665,21 +664,17 @@ inl input =
             inl x = data minibatch seq .get
             inl hot -> if x = to uint8 hot then 1f32 else 0f32
             )
-        //.round_split' size.step
-
-print_static (input.round size.step .split (inl a :: _ -> size.step, a/size.step))
-qwe
+        .round_split' size.step
 
 inl label = input.view_span (const {from=1})
 inl input = input.view_span (inl x :: _ -> x-1)
-()
 
-//inl view f x = x.view_span f
-//input
-//|> view (const 4)
-//|> s.CudaTensor.to_host_tensor
-//|> view (inl a,_,c -> a,4,c)
-//|> HostTensor.print
+inl view f x = x.view_span f
+input
+|> inl x -> x 0 .view (const 4)
+|> s.CudaTensor.to_host_tensor
+|> view (inl a,_,c -> a,4,c)
+|> HostTensor.print
     """
 
 let tests =
