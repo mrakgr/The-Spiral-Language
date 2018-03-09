@@ -680,7 +680,7 @@ inl network =
         |> error cross_entropy label
     create (input,label) network s
 
-Loops.for' {from=0; near_to=10;body=inl {next} -> 
+Loops.for' {from=0; near_to=100;body=inl {next} -> 
     open Recurrent.Passes
     open Body
 
@@ -689,7 +689,7 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
             data=Tuple.map (inl x -> x.view_span (const 1)) training_set 
             body=train {
                 network
-                optimizer=Optimizer.sgd 0.1f32
+                optimizer=Optimizer.sgd 0.5f32
                 }
             } s
 
@@ -718,6 +718,6 @@ let tests =
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
-|> printfn "%s"
+//|> printfn "%s"
 |> ignore
 

@@ -1964,7 +1964,7 @@ inl float s ->
                         state=const zero, {state bck=const ()}
                         body=inl {state=cost',d i} ->
                             inl data = Tuple.map ((|>) i) data
-                            inl {cost}, d = indiv join network.run data d s |> stack
+                            inl {cost}, d = network.run data d s
                             inl bck = term_cast d.bck ()
                             inl cost _ = cost'() + cost ()
                             term_cast cost (), {d with bck without input}
