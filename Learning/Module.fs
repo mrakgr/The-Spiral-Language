@@ -1975,7 +1975,7 @@ inl float s ->
                             inl region_clear _ = s.RegionMem.clear
                             inl state = 
                                 HostTensor.toa_map (inl {primal} ->
-                                    primal.update_body (inl {x with ar} -> s.RegionMem.assign ar; x)
+                                    primal.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)
                                     ) state
                             inl state = loop (c+1) cost' {state region_clear}
                             if nan_is cost' then on_fail state
