@@ -712,7 +712,6 @@ let tests =
     blas1
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     learning10
-    
     |]
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
