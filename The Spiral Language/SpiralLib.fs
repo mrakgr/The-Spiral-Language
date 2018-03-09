@@ -1112,21 +1112,22 @@ inl show = show' {cutoff_near_to=1000}
 inl product = Tuple.foldl (inl s (!span x) -> s * x) 1
 
 /// Splits a tensor's dimensions. Works on non-contiguous tensors.
-/// Given the tensor dimensions (a,b,c) a function which maps them to (a,(q,w),c)
-/// The resulting tensor dimensions come out to (a,q,w,c).
+/// Given the tensor dimensions (a,b,c) and a function which maps them to (a,(q,w),c)
+/// the resulting tensor dimensions come out to (a,q,w,c).
 inl split f tns =
-    inl rec assert_dim = function
-        | d :: d', x :: x' ->
-            match x with
-            | _ :: _ -> assert (d = product x) "The product of the split dimension must equal that of the previous one."
-            | _ -> assert (d = x) "The dimensions can only be split, not shortened nor elongated."
-            assert_dim (d',x')
-        | (), () -> ()
-        | _ -> error_type "The number of dimensions must match. The split dimensions need to be nested."
+    let rec concat = function
+        | d :: d', n :: n' -> 
+            inl next = concat (d',n')
+            match n with
+            | _ :: _ -> 
+                assert (span d = product n) "The product of the split dimension must equal to that of the previous one."
+                Tuple.append n next
+            | _ -> 
+                assert (span d = span n) "The span on the new dimension must be equal to that of the previous one."
+                n :: next
+        | d', () -> d'
 
-    inl rec update_size x = 
-        print_static x
-        match x with
+    inl rec update_size = function
         | init :: s', dim :: x' ->
             inl next = update_size (s', x')
             match dim with
@@ -1134,29 +1135,19 @@ inl split f tns =
                 inl _ :: size = Tuple.scanr (*) dim init
                 Tuple.append size next
             | _ -> init :: next
-        | (), () -> ()
+        | s', () -> s'
 
-    inl prev_dim, dim =
+    inl dim' =
         match tns.dim with
         | dim :: () -> 
-            inl prev_dim = span dim
-            prev_dim :: (), f prev_dim :: ()
+            inl span_dim = span dim
+            f span_dim :: ()
         | dim -> 
-            inl prev_dim = Tuple.map span dim
-            prev_dim, f prev_dim
+            inl span_dim = Tuple.map span dim
+            f span_dim
 
-    print_static {prev_dim dim}
-
-    inl rec concat = function
-        | x :: x' ->
-            inl x' = concat x'
-            match x with
-            | _ :: _ -> Tuple.append x x'
-            | _ -> x :: x'
-        | () -> ()
-        
-    tns .set_dim (concat dim)
-        .update_body (inl d -> {d with size=update_size (self,dim)})
+    tns .set_dim (concat (tns.dim, dim'))
+        .update_body (inl d -> {d with size=update_size (self,dim')})
 
 /// Flattens the tensor to a single dimension.
 inl flatten tns =
