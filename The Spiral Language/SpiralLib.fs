@@ -1173,6 +1173,48 @@ inl flatten tns =
 /// Flattens and then splits the tensor dimensions.
 inl reshape f tns = split (inl _ -> tns.dim |> Tuple.map span |> Tuple.unwrap |> f) (flatten tns)
 
+inl view {data with dim} f =
+    inl rec new_dim = function
+        | {from near_to} :: d', {nd with from=from' near_to=near_to'} :: h' ->
+            assert (from' >= from && from' < near_to) "Lower boundary out of bounds." 
+            assert (near_to' > from && near_to' <= near_to) "Higher boundary out of bounds." 
+            inl i',nd' = new_dim (d',h')
+            from'-from :: i', nd :: nd'
+        | (), _ :: _ -> error_type "The view has more dimensions than the tensor."
+        | dim, () -> (),dim
+
+    inl indices, dim = new_dim (dim, tensor_update_dim f dim |> map_dims)
+    {data with bodies = toa_map (inl ar -> tensor_view ar indices) self; dim}
+
+inl view_span {data with dim} f =
+    inl rec new_dim = function
+        | {from near_to} :: d', h :: h' ->
+            inl check from' near_to' =
+                assert (from' >= from && from' < near_to) "Lower boundary out of bounds." 
+                assert (near_to' > from && near_to' <= near_to) "Higher boundary out of bounds." 
+            inl i, nd = 
+                match h with
+                | {from=from' by} ->
+                    assert (by >= 0) "`by` must be positive or zero."
+                    inl from' = from + from'
+                    check from' (from' + by)
+                    from', {from = 0; near_to = by}
+                | {from=from'} ->
+                    inl from = from + from'
+                    check from near_to
+                    from', {from = 0; near_to = span {from near_to}}
+                | !map_dim {nd with from=from' near_to=near_to'} ->
+                    inl from' = from + from'
+                    check from' (from + near_to')
+                    from', {from = 0; near_to = span nd}
+            inl i', nd' = new_dim (d',h')
+            i :: i', nd :: nd'
+        | (), _ :: _ -> error_type "The view has more dimensions than the tensor."
+        | dim, () -> (),dim
+
+    inl indices, dim = new_dim (dim, tensor_update_dim f dim |> Tuple.wrap)
+    {data with bodies = toa_map (inl ar -> tensor_view ar indices) self; dim}
+
 inl rec facade data = 
     inl methods = stack {
         length = inl {data with dim} -> product dim
@@ -1188,46 +1230,10 @@ inl rec facade data =
             match dim with
             | () -> toa_iter2 tensor_set bodies v
             | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
-        view = inl {data with dim} f ->
-            inl rec new_dim = function
-                | {from near_to} :: d', {nd with from=from' near_to=near_to'} :: h' ->
-                    assert (from' >= from && from' < near_to) "Lower boundary out of bounds." 
-                    assert (near_to' > from && near_to' <= near_to) "Higher boundary out of bounds." 
-                    inl i',nd' = new_dim (d',h')
-                    from'-from :: i', nd :: nd'
-                | (), _ :: _ -> error_type "The view has more dimensions than the tensor."
-                | dim, () -> (),dim
-
-            inl indices, dim = new_dim (dim, tensor_update_dim f dim |> map_dims)
-            {data with bodies = toa_map (inl ar -> tensor_view ar indices) self; dim}
-            |> facade
-    
+        // Crops the dimensions of a tensor.
+        view = inl data -> view data >> facade
         // Resizes the view towards zero.
-        view_span = inl {data with dim} f ->
-            inl rec new_dim = function
-                | {from near_to} :: d', h :: h' ->
-                    inl check from' near_to' =
-                        assert (from' >= from && from' < near_to) "Lower boundary out of bounds." 
-                        assert (near_to' > from && near_to' <= near_to) "Higher boundary out of bounds." 
-                    inl i, nd = 
-                        match h with
-                        | {from=from' by} ->
-                            assert (by >= 0) "`by` must be positive or zero."
-                            inl from' = from + from'
-                            check from' (from' + by)
-                            from', {from = 0; near_to = by}
-                        | !map_dim {nd with from=from' near_to=near_to'} ->
-                            inl from' = from + from'
-                            check from' (from + near_to')
-                            from', {from = 0; near_to = span nd}
-                    inl i', nd' = new_dim (d',h')
-                    i :: i', nd :: nd'
-                | (), _ :: _ -> error_type "The view has more dimensions than the tensor."
-                | dim, () -> (),dim
-
-            inl indices, dim = new_dim (dim, tensor_update_dim f dim |> Tuple.wrap)
-            {data with bodies = toa_map (inl ar -> tensor_view ar indices) self; dim}
-            |> facade
+        view_span = inl data -> view_span data >> facade
         /// Applies the tensor.
         apply = inl {data with dim} i ->
             match dim with
@@ -1247,6 +1253,12 @@ inl rec facade data =
         reshape = inl data f -> reshape f (facade data)
         from = inl {dim={from}::_} -> from
         near_to = inl {dim={near_to}::_} -> near_to
+        // Rounds the dimension to the multiple.
+        round = inl data mult -> view_span data (inl x :: _ | x -> x - x % mult) |> facade
+        // Rounds the dimension to a multiple and splits it so that the outermost dimension becomes the multiple.
+        round_split = inl data mult -> facade data .round mult .split (inl x :: _ | x -> mult,x/mult)
+        // Rounds the dimension to a multiple and splits it so that the dimension next to the outermost becomes the multiple.
+        round_split' = inl data mult -> facade data .round mult .split (inl x :: _ | x -> x/mult,mult)
         }
 
     function

@@ -624,37 +624,6 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
     }
     """
 
-let grad1 =
-    "grad1",[cuda_modules;learning;mnist],"Does gradient checking pass for the full network?",
-    """
-inb s = CudaModules (1024*1024*1024)
-
-inl float = float32
-open Learning float s
-open Primitive
-open Activation
-open Error
-open Feedforward
-
-inl { test_images test_labels train_images train_labels} =
-    inl mnist_path = @"C:\ML Datasets\Mnist"
-    Mnist.load_mnist_tensors mnist_path
-    |> s.CudaTensor.from_host_tensors
-
-inl input_size = 784
-inl hidden_size = 10
-
-inl network = 
-    open Layer
-    init (sigmoid hidden_size) input_size s |> with_error cross_entropy
-
-inl train_images=train_images .view_span (const 32)
-inl train_labels=train_labels .view_span (const 32)
-
-grad_check {network input=train_images; label=train_labels} s
-()
-    """
-
 let learning10 =
     "learning10",[cuda_modules;learning],"Does the full training work with the char-RNN?",
     """
@@ -686,26 +655,28 @@ inl data =
     |> HostTensor.array_as_tensor
     |> HostTensor.assert_size size.seq
     |> s.CudaTensor.from_host_tensor
-
-inl round mult x = x - x % mult
-inl view f x = x.view_span f
-inl data =
-    view (round size.minibatch) data
-    |> HostTensor.split (inl x -> size.minibatch,x/size.minibatch)
+    |> inl data -> data.round_split size.minibatch
 
 inl minibatch,seq = data.dim
 inl input =
     inl data = s.CudaTensor.to_dev_tensor data 
-    s.CudaKernel.init {rev_thread_limit=32; dim=seq,minibatch,size.hot} (inl seq minibatch ->
-        inl x = data minibatch seq .get
-        inl hot -> if x = to uint8 hot then 1f32 else 0f32
-        )
+    s.CudaKernel
+        .init {rev_thread_limit=32; dim=seq,minibatch,size.hot} (inl seq minibatch ->
+            inl x = data minibatch seq .get
+            inl hot -> if x = to uint8 hot then 1f32 else 0f32
+            )
+        //.round_split' size.step
 
-input
-|> view (const 4)
-|> s.CudaTensor.to_host_tensor
-|> view (inl a,_,c -> a,4,c)
-|> HostTensor.print
+inl label = input.view_span (const {from=1})
+inl input = input.view_span (inl x :: _ -> x-1)
+()
+
+//inl view f x = x.view_span f
+//input
+//|> view (const 4)
+//|> s.CudaTensor.to_host_tensor
+//|> view (inl a,_,c -> a,4,c)
+//|> HostTensor.print
     """
 
 let tests =
@@ -718,7 +689,7 @@ let tests =
     blas1
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     learning10
-    grad1
+    
     |]
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
