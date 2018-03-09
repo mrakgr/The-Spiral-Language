@@ -484,7 +484,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         x)
                     r
 
-            let index_tuple_args r tuple_types = 
+            let list_unseal r tuple_types = 
                 let unpack (s,i as state) typ = 
                     if is_unit typ then tyt typ :: s, i
                     else (destructure <| TyOp(ListIndex,[r;TyLit <| LitInt64 (int64 i)],typ)) :: s, i + 1
@@ -509,7 +509,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyMap _ | TyList _ | TyLit _ -> r
             | TyBox _ -> cse_recurse r
             | TyT _ -> destructure_var r (List.map (tyt >> destructure)) (Map.map (fun _ -> (tyt >> destructure)) >> Env)
-            | TyV _ -> destructure_var r (index_tuple_args r) (env_unseal r >> Env)
+            | TyV _ -> destructure_var r (list_unseal r) (env_unseal r >> Env)
             | TyOp _ -> let_insert_cse r
             | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
 

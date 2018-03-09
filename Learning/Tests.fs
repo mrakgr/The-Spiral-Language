@@ -592,7 +592,7 @@ inl network =
     create (input,label) network s
 
 Loops.for' {from=0; near_to=10;body=inl {next} -> 
-    open Feedforward.Loops
+    open Feedforward.Passes
     open Body
 
     inl cost =
@@ -633,7 +633,6 @@ open Learning float s
 open Primitive
 open Activation
 open Error
-open Feedforward
 
 inl size = {
     seq = 1115394
@@ -668,6 +667,7 @@ inl input =
 
 inl label = input.view_span (const {from=1})
 inl input = input.view_span (inl x :: _ -> x-1)
+inl training_set = input, label
 
 inl network = 
     open Recurrent.Layer
@@ -676,19 +676,30 @@ inl network =
     inl input = input size.hot
     inl network =
         input
-        |> sigmoid 256
+        |> sigmoid size.hot
         |> error cross_entropy label
     create (input,label) network s
 
-()
-    
+Loops.for' {from=0; near_to=10;body=inl {next} -> 
+    open Recurrent.Passes
+    open Body
 
-//inl view f x = x.view_span f
-//input
-//|> inl x -> x 0 .view (const 4)
-//|> s.CudaTensor.to_host_tensor
-//|> view (inl a,_,c -> a,4,c)
-//|> HostTensor.print
+    inl cost =
+        for {
+            data=Tuple.map (inl x -> x.view_span (const 1)) training_set 
+            body=train {
+                network
+                optimizer=Optimizer.sgd 0.1f32
+                }
+            } s
+
+    string_format "Training: {0}" cost |> Console.writeline
+
+    if nan_is cost then
+        Console.writeline "Training diverged. Aborting..."
+    else
+        next ()
+    }
     """
 
 let tests =

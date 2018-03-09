@@ -1605,7 +1605,7 @@ inl float s ->
             Tuple.foldl (inl C (A,B) ->
                 match C with
                 | () -> s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
-                | C -> s.CudaBlas.gemm' .nT .nT one (primal A) (primal B) one (primal C)
+                | C -> s.CudaBlas.gemm' .nT .nT one (primal A) (primal B) one (primal C); C
                 ) () l
         s.CudaKernel.d2_replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
         C, inl _ ->
@@ -1831,7 +1831,7 @@ inl float s ->
             | .feedforward ->
                 inl value, bck = x.apply x.weights.nil x.sublayer s
                 value, {d with bck = apply_bck self bck}
-            | .recurrrent ->
+            | .recurrent ->
                 inl state = match d.state with {$gid=state} -> state | _ -> ()
                 inl (value, state), bck = x.apply x.weights.nil state x.sublayer s
                 value, {d with bck = apply_bck self bck; state = {self with $gid=state}}
@@ -1878,7 +1878,7 @@ inl float s ->
             finally=inl state -> state.unwrap
             }
 
-    inl Loops =
+    inl Passes =
         inl Body = 
             {
             train=inl {d with network} ->
@@ -1923,9 +1923,10 @@ inl float s ->
     inl Feedforward = 
         {
         Layer 
-        Loops
+        Passes
         } |> stack
-
+    
+    // #Recurrent
     inl layer initializer activation size sublayer =
         {
         layer_type = .recurrent
@@ -1945,7 +1946,7 @@ inl float s ->
             >>= inl x -> succ (x,x)
         }
 
-    inl sigmoid = layer Initializer.sigmoid sigmoid
+    inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
     inl linear = layer Initializer.sigmoid succ
 
     inl Layer = {input error create layer sigmoid linear} |> stack
@@ -1958,11 +1959,12 @@ inl float s ->
                 | .unwrap -> region_clear(); cost' / to float64 c
                 | data s {on_fail on_succ} ->
                     inl {from near_to} = outer data
-                    foru {
+                    Loops.foru {
                         from near_to
-                        state=const zero, {state bck=cost ()}
+                        state=const zero, {state bck=const ()}
                         body=inl {state=cost',d i} ->
-                            inl {cost}, d = join network.run data d s |> stack
+                            inl data = Tuple.map ((|>) i) data
+                            inl {cost}, d = indiv join network.run data d s |> stack
                             inl bck = term_cast d.bck ()
                             inl cost _ = cost'() + cost ()
                             term_cast cost (), {d with bck without input}
@@ -1988,9 +1990,8 @@ inl float s ->
             loop (dyn 0) (dyn 0.0) {state={}; region_clear=const ()}
         }
 
-    inl Loops = {for Body}
-
-    inl Recurrent = {Layer Loops}
+    inl Passes = {for Body}
+    inl Recurrent = {Layer Passes}
 
     { dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Feedforward Recurrent }
     """) |> module_
