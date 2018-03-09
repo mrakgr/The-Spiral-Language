@@ -1553,17 +1553,15 @@ inl float s ->
 
     inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block_toa_map=()}
 
-    inl s = s.member_add .dr dr
-
     inl matmult A B s =
-        inl C = s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> s.dr
+        inl C = s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
         C, inl _ ->
             on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one (adjoint C) (primal B) one A)
             on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) (adjoint C) one B)
 
     inl map {fwd bck} in s =
         inl primal, adjoint = primals in, adjoints in
-        inl out = s.CudaKernel.map fwd primal |> s.dr
+        inl out = s.CudaKernel.map fwd primal |> dr s
         out, inl _ ->
             inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
             inl bck =
@@ -1591,7 +1589,7 @@ inl float s ->
     inl d2_replicate_map {fwd bck={bck_in bck_in'}} in in' s =
         inl primal, adjoint = primals in, adjoints in
         inl primal', adjoint' = primals in', adjoints in'
-        inl out = s.CudaKernel.d2_replicate_map fwd primal primal' |> s.dr
+        inl out = s.CudaKernel.d2_replicate_map fwd primal primal' |> dr s
         out, inl _ ->
             inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
             on_non_nil adjoint (s.CudaKernel.map_d2_redo_map' bck_in {in'=primal'; out} primal)
@@ -1606,7 +1604,7 @@ inl float s ->
         inl C = 
             Tuple.foldl (inl C (A,B) ->
                 match C with
-                | () -> s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> s.dr
+                | () -> s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
                 | C -> s.CudaBlas.gemm' .nT .nT one (primal A) (primal B) one (primal C)
                 ) () l
         s.CudaKernel.d2_replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
@@ -1740,8 +1738,8 @@ inl float s ->
         size
         sublayer
         weights = inl s -> {
-            input = initializer (sublayer.size, size) s |> s.dr
-            bias = s.CudaTensor.zero {elem_type=float; dim=size} |> s.dr
+            input = initializer (sublayer.size, size) s |> dr s
+            bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
             }
         apply = inl weights input -> matmultb (input, weights.input) weights.bias >>= activation
         }
@@ -1859,6 +1857,27 @@ inl float s ->
             | s -> assert (s = fst x.dim) "The data tensors need to have the same outer dimension."; s
             ) () data
 
+    inl for {data body} s =
+        inl {from near_to} = outer data
+           
+        Loops.for' {
+            from near_to
+            state=body
+            body=inl {next state i} ->
+                inl data = HostTensor.toa_map (inl x -> x i) data
+                s.refresh
+                inl s = s.RegionMem.create
+                state data s {
+                    on_fail=inl state ->
+                        s.RegionMem.clear
+                        state.unwrap
+                    on_succ=inl state ->
+                        s.RegionMem.clear
+                        next state
+                    }
+            finally=inl state -> state.unwrap
+            }
+
     inl Loops =
         inl Body = 
             {
@@ -1898,28 +1917,7 @@ inl float s ->
                             on_succ state
                 loop (dyn 0) (dyn 0.0) (dyn 0)
             }
-
-        inl for {data body} s =
-            inl {from near_to} = outer data
-           
-            Loops.for' {
-                from near_to
-                state=body
-                body=inl {next state i} ->
-                    inl data = HostTensor.toa_map (inl x -> x i) data
-                    s.refresh
-                    inl s = s.RegionMem.create
-                    state data s {
-                        on_fail=inl state ->
-                            s.RegionMem.clear
-                            state.unwrap
-                        on_succ=inl state ->
-                            s.RegionMem.clear
-                            next state
-                        }
-                finally=inl state -> state.unwrap
-                }
-        
+       
         {for Body}
 
     inl Feedforward = 
@@ -1935,10 +1933,10 @@ inl float s ->
         size
         sublayer
         weights = inl s -> 
-            inl f _ = initializer (sublayer.size, size) s |> s.dr
+            inl f _ = initializer (sublayer.size, size) s |> dr s
             {
             input = f(); state = f()
-            bias = s.CudaTensor.zero {elem_type=float; dim=size} |> s.dr
+            bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
             }
         apply = inl weights state input -> 
             match state with
@@ -1948,8 +1946,9 @@ inl float s ->
         }
 
     inl sigmoid = layer Initializer.sigmoid sigmoid
+    inl linear = layer Initializer.sigmoid succ
 
-    inl Layer = {input error create layer sigmoid} |> stack
+    inl Layer = {input error create layer sigmoid linear} |> stack
 
     inl Body =
         {
@@ -1989,7 +1988,9 @@ inl float s ->
             loop (dyn 0) (dyn 0.0) {state={}; region_clear=const ()}
         }
 
-    inl Loops = {for=Loops.for; Body}
+    inl Loops = {for Body}
 
-    { primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Feedforward s }
+    inl Recurrent = {Layer Loops}
+
+    { dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Feedforward Recurrent }
     """) |> module_

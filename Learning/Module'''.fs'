@@ -1556,14 +1556,14 @@ inl float s ->
     inl s = s.member_add .dr dr
 
     inl matmult A B s =
-        inl C = s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> s.dr
+        inl C = s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
         C, inl _ ->
             on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one (adjoint C) (primal B) one A)
             on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) (adjoint C) one B)
 
     inl map {fwd bck} in s =
         inl primal, adjoint = primals in, adjoints in
-        inl out = s.CudaKernel.map fwd primal |> s.dr
+        inl out = s.CudaKernel.map fwd primal |> dr s
         out, inl _ ->
             inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
             inl bck =
@@ -1575,7 +1575,7 @@ inl float s ->
 
     inl map_redo_map {fwd bck} in s =
         inl primal, adjoint = primals in, adjoints in
-        inl out = s.CudaKernel.map_redo_map fwd primal |> s.dr
+        inl out = s.CudaKernel.map_redo_map fwd primal |> dr s
         
         out, inl _ ->
             inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A}) |> s.CudaTensor.to_dev_tensor
@@ -1588,7 +1588,7 @@ inl float s ->
     inl d2_replicate_map {fwd bck={bck_in bck_in'}} in in' s =
         inl primal, adjoint = primals in, adjoints in
         inl primal', adjoint' = primals in', adjoints in'
-        inl out = s.CudaKernel.d2_replicate_map fwd primal primal' |> s.dr
+        inl out = s.CudaKernel.d2_replicate_map fwd primal primal' |> dr s
         out, inl _ ->
             inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
             on_non_nil adjoint (s.CudaKernel.map_d2_redo_map' bck_in {in'=primal'; out} primal)
@@ -1603,7 +1603,7 @@ inl float s ->
         inl C = 
             Tuple.foldl (inl C (A,B) ->
                 match C with
-                | () -> s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> s.dr
+                | () -> s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
                 | C -> s.CudaBlas.gemm' .nT .nT one (primal A) (primal B) one (primal C)
                 ) () l
         s.CudaKernel.d2_replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
@@ -1700,8 +1700,8 @@ inl float s ->
 
     // #Feedforward
     inl layer initializer activation hidden_size input_size s =
-        inl weight = initializer (input_size, hidden_size) s |> s.dr
-        inl bias = s.CudaTensor.zero {elem_type=float; dim=hidden_size} |> s.dr
+        inl weight = initializer (input_size, hidden_size) s |> dr s
+        inl bias = s.CudaTensor.zero {elem_type=float; dim=hidden_size} |> dr s
         {
         hidden_size
         weights = weight, bias
@@ -1846,10 +1846,10 @@ inl float s ->
     /// The standard recurrent layer.
     inl layer initializer activation hidden_size input_size s =
         inl weights = 
-            inl f _ = initializer (input_size, hidden_size) s |> s.dr
+            inl f _ = initializer (input_size, hidden_size) s |> dr s
             {
             input = f (); state = f ()
-            bias = s.CudaTensor.zero {elem_type=float; dim=hidden_size} |> s.dr
+            bias = s.CudaTensor.zero {elem_type=float; dim=hidden_size} |> dr s
             }
 
         inl next apply = activation >>= inl x -> succ (x, apply x)

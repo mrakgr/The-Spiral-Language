@@ -382,7 +382,7 @@ open Learning float s
 open Primitive
 
 inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,8}
-inl a2 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=8,2} |> s.dr
+inl a2 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=8,2} |> dr s
 inl o1,bck = matmult a1 a2 s
 bck()
 
@@ -398,7 +398,7 @@ inl float = float32
 open Learning float s
 open Primitive
 
-inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,8} |> s.dr
+inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,8} |> dr s
 inl o1,bck = map {fwd=((*) 10f32); bck=inl {out} -> out.A * 10f32} a1 s
 bck()
 primal o1 |> s.CudaTensor.print
@@ -413,7 +413,7 @@ inl float = float32
 open Learning float s
 open Primitive
 
-inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=float; dim=256,256} |> s.dr
+inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=float; dim=256,256} |> dr s
 inl l = primal a1 .span_outer |> to float
 /// map_redo_map assumes an adjoint of 1. No need to set to that value directly.
 inl o1,bck = map_redo_map {fwd={neutral_elem=0f32; redo=(+); map_out=inl x -> x/l}; bck=inl _ -> l} a1 s
@@ -429,7 +429,7 @@ inl float = float32
 open Learning float s
 open Primitive
 
-inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=float; dim=6,6} |> s.dr
+inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=float; dim=6,6} |> dr s
 inl l = primal a1 .span_outer |> to float
 /// map_redo_map assumes an adjoint of 1. No need to set to that value directly.
 inl o1,bck = map_redo_map {fwd={neutral_elem=0f32; redo=(+); map_out=inl x -> x/l}; bck=inl _ -> l} a1 s
@@ -449,7 +449,7 @@ open Activation
 open Error
 
 inl input = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,6}
-inl weight = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=6,4} |> s.dr
+inl weight = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=6,4} |> dr s
 inl label = s.CudaTensor.zero {elem_type=float; dim=2,4}
 inl f = matmult input weight >>= sigmoid >>= square label
 inl {cost},bck = f s
@@ -534,8 +534,8 @@ inl input_size = 32
 inl outer_dim = 6
 inl inner_dim = 16
 inl input = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=input_size,outer_dim}
-inl weight = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=outer_dim,inner_dim} |> s.dr
-inl bias = s.CudaTensor.zero {elem_type=float; dim=inner_dim} |> s.dr
+inl weight = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=outer_dim,inner_dim} |> dr s
+inl bias = s.CudaTensor.zero {elem_type=float; dim=inner_dim} |> dr s
 inl label = s.CudaTensor.zero {elem_type=float; dim=input_size,inner_dim}
 
 inl f = matmult input weight >>= add_bias bias >>= sigmoid >>= inl o1 -> square (o1,label)
