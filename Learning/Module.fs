@@ -1452,15 +1452,7 @@ inl init' w d f (!zip out) =
     w.run {blockDim gridDim
         kernel = cuda
             grid_for {blockDim gridDim} .x {from=0; near_to} {body=inl {i} ->
-                inl l,_ = 
-                    Tuple.foldr (inl ((!s x_span) & x) (l,i) -> 
-                        
-                        inl a = i % x_span // - x.dim.from)
-                        macro.cd () [text: "printf"; args: "i(%lli) %% x_span(%lli)=%lli\n", i, x_span, i % x_span]
-                        inl b = i / x_span
-                        a :: l, b
-                        ) d ((),i)
-                macro.cd () [text: "printf"; args: "%lli=(%lli,%lli)\n", i, fst l, snd l]
+                inl l,_ = Tuple.foldr (inl ((!s x_span) & x) (l,i) -> (i % x_span - x.dim.from) :: l, i / x_span) d ((),i)
                 inl rec loop f out = function
                     | {thread_limit=()} :: d', i :: i' -> loop (f i) (out i) (d', i')
                     | {thread_limit=by dim={near_to}} :: d', from :: i' -> forcd {from by near_to body=inl {i} -> loop (f i) (out i) (d',i')}

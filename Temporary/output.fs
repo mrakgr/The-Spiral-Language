@@ -14,11 +14,8 @@ extern "C" {
         var_5[0] = var_4;
         while (method_17(var_5)) {
             long long int var_7 = var_5[0];
-            printf("i(%lli) %% x_span(%lli)=%lli\n", var_7, 1, var_7);
             long long int var_8 = (var_7 % 32);
-            printf("i(%lli) %% x_span(%lli)=%lli\n", var_7, 32, var_8);
             long long int var_9 = (var_7 / 32);
-            printf("%lli=(%lli,%lli)\n", var_7, var_8, var_7);
             char var_10 = (var_8 >= 0);
             char var_12;
             if (var_10) {
@@ -31,25 +28,12 @@ extern "C" {
                 // "Argument out of bounds."
             } else {
             }
-            char var_14 = (var_7 >= 0);
-            char var_16;
-            if (var_14) {
-                var_16 = (var_7 < 1);
-            } else {
-                var_16 = 0;
-            }
-            char var_17 = (var_16 == 0);
-            if (var_17) {
-                // "Argument out of bounds."
-            } else {
-            }
-            long long int var_18 = (var_8 + var_7);
-            var_0[var_18] = var_8;
-            var_1[var_18] = var_7;
-            long long int var_19 = (var_7 + 1);
-            var_5[0] = var_19;
+            var_0[var_8] = var_8;
+            var_1[var_8] = 0;
+            long long int var_14 = (var_7 + 1);
+            var_5[0] = var_14;
         }
-        long long int var_20 = var_5[0];
+        long long int var_15 = var_5[0];
     }
     __device__ char method_17(long long int * var_0) {
         long long int var_1 = var_0[0];

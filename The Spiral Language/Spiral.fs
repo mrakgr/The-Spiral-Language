@@ -1076,7 +1076,23 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | _ -> failwith "Expected an arithmetic operation."
                 let op_arith_num_one a b =
                     match t with
-                    | Mult | Div | Mod -> a
+                    | Mult | Div -> a
+                    | Mod ->
+                        match get_type a with
+                        | PrimT x ->
+                            match x with
+                            | Int8T -> TyLit (LitInt8 0y)
+                            | Int16T -> TyLit (LitInt16 0s)
+                            | Int32T -> TyLit (LitInt32 0)
+                            | Int64T -> TyLit (LitInt64 0L)
+                            | UInt8T -> TyLit (LitUInt8 0uy)
+                            | UInt16T -> TyLit (LitUInt16 0us)
+                            | UInt32T -> TyLit (LitUInt32 0u)
+                            | UInt64T -> TyLit (LitUInt64 0UL)
+                            | Float32T -> TyLit (LitFloat32 0.0f)
+                            | Float64T -> TyLit (LitFloat64 0.0)
+                            | BoolT | CharT | StringT -> failwith "Compiler error: Invalid type."
+                        | _ -> failwith "Compiler error: Invalid type."
                     | Add | Sub -> prim_bin_op_helper t a b
                     | _ -> failwith "Expected an arithmetic operation."
                 let op_arith_one_num a b =
