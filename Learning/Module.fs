@@ -1653,7 +1653,7 @@ inl float s ->
     inl multiply_by_adjoint f {d with out={A P} in} = toa_map ((*) A) (f {in out=P})
 
     // #Activation
-    inl activation d = map {d with bck = multiply_by_adjoint self }
+    inl activation d = map {d with bck = toa_map multiply_by_adjoint self }
 
     inl sigmoid = activation {
         fwd = inl x -> one / (one + exp -x)
@@ -1666,13 +1666,13 @@ inl float s ->
         }
 
     inl add = activation {
-        fwd = (+)
-        bck = const one
+        fwd = inl a,b -> a+b
+        bck = const one, const one
         }
 
     inl hadmult = activation {
-        fwd = (*)
-        bck = snd, fst
+        fwd = inl a,b -> a*b
+        bck = (inl {in=_,x} -> x), (inl {in=x,_} -> x)
         }
 
     inl Activation = {activation sigmoid tanh add hadmult} |> stack
@@ -1991,7 +1991,7 @@ inl float s ->
                 dr s x
             {
             input = weights ()
-            state = weight ()
+            state = weights ()
             bias = {
                 h = bias0 ()
                 t = bias0 ()
@@ -2010,7 +2010,10 @@ inl float s ->
                 inm h = matmultb ((i, input.h), (s, state.h)) bias.h >>= tanh
                 inm t = matmultb ((i, input.t), (s, state.t)) bias.t >>= sigmoid
                 inm c = matmultb ((i, input.c), (s, state.c)) bias.c >>= sigmoid
-                add (hadmult (h,t), hadmult (s,c)) 
+                inm x1 = hadmult (h,t)
+                inm x2 = hadmult (s,c)
+                add (x1, x2) 
+            >>= sigmoid
             >>= inl x -> succ (x,x)
         }
 
