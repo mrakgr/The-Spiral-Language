@@ -626,44 +626,46 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
 let learning10 =
     "learning10",[cuda_modules;learning],"Does the full training work with the char-RNN?",
     """
-inb s = CudaModules (1024*1024*1024)
+HostTensor.init (32,1) (inl a b -> a,b)
+|> HostTensor.print
+//inb s = CudaModules (1024*1024*1024)
 
-inl float = float32
-open Learning float s
-open Primitive
-open Activation
-open Error
+//inl float = float32
+//open Learning float s
+//open Primitive
+//open Activation
+//open Error
 
-inl size = {
-    seq = 1115394
-    minibatch = 1
-    step = 4
-    hot = 128
-    }
+//inl size = {
+//    seq = 1115394
+//    minibatch = 1
+//    step = 4
+//    hot = 128
+//    }
 
-// I got this dataset from Karpathy.
-inl path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
-inl data = 
-    macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
-    |> Array.map (inl x -> 
-        inl x = to int64 x
-        assert (x < size.hot) "The inputs need to be in the [0,127] range."
-        to uint8 x
-        )
-    |> HostTensor.array_as_tensor
-    |> HostTensor.assert_size size.seq
-    |> s.CudaTensor.from_host_tensor
-    |> inl data -> data.round_split size.minibatch
-inl data = data.view_span (inl a,b -> a, 32)
-inl minibatch,seq = data.dim
+//// I got this dataset from Karpathy.
+//inl path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
+//inl data = 
+//    macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
+//    |> Array.map (inl x -> 
+//        inl x = to int64 x
+//        assert (x < size.hot) "The inputs need to be in the [0,127] range."
+//        to uint8 x
+//        )
+//    |> HostTensor.array_as_tensor
+//    |> HostTensor.assert_size size.seq
+//    |> s.CudaTensor.from_host_tensor
+//    |> inl data -> data.round_split size.minibatch
+//inl data = data.view_span (inl a,b -> a, 32)
+//inl minibatch,seq = data.dim
 
-inl input =
-    s.CudaKernel
-        .init {dim=32,2} (inl seq minibatch ->
-            seq, minibatch
-            )
+//inl input =
+//    s.CudaKernel
+//        .init {dim=32,1} (inl seq minibatch ->
+//            seq, minibatch
+//            )
 
-s.CudaTensor.print input
+//s.CudaTensor.print input
 
 //inl label = input.view_span (const {from=1})
 //inl input = input.view_span (inl x :: _ -> x-1)
