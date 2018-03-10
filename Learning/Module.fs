@@ -1927,6 +1927,7 @@ inl float s ->
         } |> stack
     
     // #Recurrent
+    /// The standard recurrent layer.
     inl layer initializer activation size sublayer =
         {
         layer_type = .recurrent
@@ -1945,6 +1946,9 @@ inl float s ->
             | state -> matmultb ((input, weights.input), (state, weights.state)) weights.bias >>= activation
             >>= inl x -> succ (x,x)
         }
+
+    /// The recurrent hightway network (LSTM) from the 'Recurrent Highway Networks' paper by Zilly.
+    //inl layer_hrn
 
     inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
     inl linear = layer Initializer.sigmoid succ
