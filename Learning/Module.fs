@@ -1948,6 +1948,7 @@ inl float s ->
         }
 
     /// The recurrent hightway network (LSTM) from the 'Recurrent Highway Networks' paper by Zilly.
+    /// The nested layers in the paper are to be standard feedforward highway layers.
     inl layer_hrn size sublayer =
         {
         layer_type = .recurrent
@@ -1956,16 +1957,33 @@ inl float s ->
         sublayer
         weights = inl s ->
             open Initializer
-            inl f _ = sigmoid (sublayer.size, size) s |> dr s
-        apply = inl weights state input ->
+            inl sigmoid _ = sigmoid (sublayer.size, size) s |> dr s
+            inl tanh _ = tanh (sublayer.size, size) s |> dr s
+            inl weights _ = {
+                h = tanh ()
+                t = sigmoid ()
+                c = sigmoid ()
+                }
+            {
+            input = weights ()
+            state = weight ()
+            }
+
+        apply = inl {input state bias} s i ->
             open Activation
-            inm h = matmultb ((input, weights.input.h), (state, weights.state.h)) weights.bias.h >>= tanh
-            inm t = matmultb ((input, weights.input.t), (state, weights.state.t)) weights.bias.t >>= sigmoid
-            inm c = matmultb ((input, weights.input.c), (state, weights.state.c)) weights.bias.c >>= sigmoid
-            hadmult ((h,t),(state,c))
+            match s with
+            | () ->
+                inm h = matmultb (i, input.h) bias.h >>= tanh
+                inm t = matmultb (i, input.t) bias.t >>= sigmoid
+                inm c = matmultb (i, input.c) bias.c >>= sigmoid
+                hadmult (h,t)
+            | s ->
+                inm h = matmultb ((i, input.h), (s, state.h)) bias.h >>= tanh
+                inm t = matmultb ((i, input.t), (s, state.t)) bias.t >>= sigmoid
+                inm c = matmultb ((i, input.c), (s, state.c)) bias.c >>= sigmoid
+                hadmult ((h,t),(s,c)) 
+            >>= inl x -> succ (x,x)
         }
-
-
 
     inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
     inl linear = layer Initializer.sigmoid succ
