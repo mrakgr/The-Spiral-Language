@@ -1951,6 +1951,7 @@ inl float s ->
     //inl layer_hrn
 
 
+
     inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
     inl linear = layer Initializer.sigmoid succ
 
