@@ -637,7 +637,7 @@ open Error
 inl size = {
     seq = 1115394
     minibatch = 1
-    step = 4
+    step = 2
     hot = 128
     }
 
@@ -658,49 +658,50 @@ inl data = data.view_span (inl a,b -> a, 32)
 inl minibatch,seq = data.dim
 
 inl input =
+    inl data = s.CudaTensor.to_dev_tensor data 
     s.CudaKernel
-        .init {dim=32,1} (inl seq minibatch ->
-            seq, minibatch
+        .init {rev_thread_limit=32; dim=seq,minibatch,size.hot} (inl seq minibatch ->
+            inl x = data minibatch seq .get
+            inl hot -> if x = to uint8 hot then 1f32 else 0f32
             )
+        .round_split' size.step
 
-s.CudaTensor.print input
+inl label = input.view_span (const {from=1})
+inl input = input.view_span (inl x :: _ -> x-1)
+inl training_set = input, label
 
-//inl label = input.view_span (const {from=1})
-//inl input = input.view_span (inl x :: _ -> x-1)
-//inl training_set = input, label
-
-//inl network = 
-//    open Recurrent.Layer
+inl network = 
+    open Recurrent.Layer
     
-//    inl label = input size.hot
-//    inl input = input size.hot
-//    inl network =
-//        input
-//        //|> sigmoid size.hot
-//        |> highway_lstm size.hot
-//        |> error cross_entropy label
-//    create (input,label) network s
+    inl label = input size.hot
+    inl input = input size.hot
+    inl network =
+        input
+        //|> sigmoid size.hot
+        |> highway_lstm size.hot
+        |> error cross_entropy label
+    create (input,label) network s
 
-//Loops.for' {from=0; near_to=100;body=inl {next} -> 
-//    open Recurrent.Passes
-//    open Body
+Loops.for' {from=0; near_to=100;body=inl {next} -> 
+    open Recurrent.Passes
+    open Body
 
-//    inl cost =
-//        for {
-//            data=Tuple.map (inl x -> x.view_span (const 1)) training_set 
-//            body=train {
-//                network
-//                optimizer=Optimizer.sgd 0.1f32
-//                }
-//            } s
+    inl cost =
+        for {
+            data=Tuple.map (inl x -> x.view_span (const 1)) training_set 
+            body=train {
+                network
+                optimizer=Optimizer.sgd 0.1f32
+                }
+            } s
 
-//    string_format "Training: {0}" cost |> Console.writeline
+    string_format "Training: {0}" cost |> Console.writeline
 
-//    if nan_is cost then
-//        Console.writeline "Training diverged. Aborting..."
-//    else
-//        next ()
-//    }
+    if nan_is cost then
+        Console.writeline "Training diverged. Aborting..."
+    else
+        next ()
+    }
     """
 
 let tests =
