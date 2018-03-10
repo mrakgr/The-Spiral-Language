@@ -395,7 +395,7 @@ inl copy span dst {src with ar size ptr_get} =
 inl transfer_template f tns = 
     assert_contiguous tns
     inl f = f tns.span_outer
-    tns.update_body <| inl body -> {body with ar = f body}
+    tns.update_body <| inl body -> {body with ar = f body; offset = 0}
 
 inl get_elem s {src with size=()} = s.CudaTensor.to_host_array 1 src 0
 met set_elem _ (!dyn {dst with size=()}) (!dyn v) =

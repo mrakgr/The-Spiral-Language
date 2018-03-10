@@ -666,41 +666,53 @@ inl input =
         .round_split' size.step
 
 inl label = input.view_span (const {from=1})
-inl input = input.view_span (inl x :: _ -> x-1)
-inl training_set = input, label
+s.CudaTensor.print (label 0)
 
-inl network = 
-    open Recurrent.Layer
+//inl input = input.view_span (inl x :: _ -> x-1)
+//inl training_set = input, label
+
+//inl network = 
+//    open Recurrent.Layer
     
-    inl label = input size.hot
-    inl input = input size.hot
-    inl network =
-        input
-        //|> sigmoid size.hot
-        |> highway_lstm size.hot
-        |> error cross_entropy label
-    create (input,label) network s
+//    inl label = input size.hot
+//    inl input = input size.hot
+//    inl network =
+//        input
+//        //|> sigmoid size.hot
+//        |> highway_lstm size.hot
+//        |> error cross_entropy label
+//    create (input,label) network s
 
-Loops.for' {from=0; near_to=100;body=inl {next} -> 
-    open Recurrent.Passes
-    open Body
+//Loops.for' {from=0; near_to=100;body=inl {next} -> 
+//    open Recurrent.Passes
+//    open Body
 
-    inl cost =
-        for {
-            data=Tuple.map (inl x -> x.view_span (const 1)) training_set 
-            body=train {
-                network
-                optimizer=Optimizer.sgd 0.1f32
-                }
-            } s
+//    inl cost =
+//        for {
+//            data=Tuple.map (inl x -> x.view_span (const 1)) training_set 
+//            body=train {
+//                network
+//                optimizer=Optimizer.sgd 0.1f32
+//                }
+//            } s
 
-    string_format "Training: {0}" cost |> Console.writeline
+//    string_format "Training: {0}" cost |> Console.writeline
 
-    if nan_is cost then
-        Console.writeline "Training diverged. Aborting..."
-    else
-        next ()
-    }
+//    if nan_is cost then
+//        Console.writeline "Training diverged. Aborting..."
+//    else
+//        next ()
+//    }
+    """
+
+let print1 =
+    "print1",[cuda_modules;learning],"Does the full training work with the char-RNN?",
+    """
+inb s = CudaModules (1024*1024*1024)
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=6,2,128} .view_span (const {from=1}) 0
+inl x = s.CudaTensor.to_host_tensor x
+HostTensor.print x
+()
     """
 
 let tests =
@@ -713,11 +725,12 @@ let tests =
     blas1
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     learning10
+    print1
     |]
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" print1
 |> printfn "%s"
 |> ignore
 

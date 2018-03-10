@@ -990,7 +990,7 @@ inl create typ n =
 
 let host_tensor =
     (
-    "HostTensor",[tuple;loops;extern_],"The host tensor module.",
+    "HostTensor",[tuple;loops;extern_;console],"The host tensor module.",
     """
 // A lot of the code in this module is made with purpose of being reused on the Cuda side.
 
