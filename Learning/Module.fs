@@ -454,7 +454,7 @@ inl methods =
         {body with ar=!UnsafeCoerceToArrayCudaGlobal(ptr,body.ar.elem_type); offset=0}
         )
 
-    print=met s (!dyn x) -> s.CudaTensor.to_host_tensor x |> HostTensor.print
+    print=met s (!zip (!dyn x)) -> s.CudaTensor.to_host_tensor x |> HostTensor.print
 
     mmap=inl s f tns -> s.CudaKernel.map' (const f) tns.empty tns
     } |> stack
@@ -1702,6 +1702,8 @@ inl float s ->
     inl error {fwd bck} label input s = 
         inl batch_size = primal input .span_outer |> to float
         inl div_by_minibatch_size x = x / batch_size
+        //s.CudaTensor.print (input.primal)
+        s.CudaTensor.print (label)
         inl cost,bck =
             map_redo_map {
                 fwd = {

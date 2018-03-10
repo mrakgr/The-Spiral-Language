@@ -636,8 +636,8 @@ open Error
 
 inl size = {
     seq = 1115394
-    minibatch = 128
-    step = 64
+    minibatch = 2
+    step = 4
     hot = 128
     }
 
