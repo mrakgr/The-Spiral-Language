@@ -636,7 +636,7 @@ open Error
 
 inl size = {
     seq = 1115394
-    minibatch = 2
+    minibatch = 1
     step = 4
     hot = 128
     }
@@ -665,9 +665,9 @@ inl input =
             )
         .round_split' size.step
 
-inl label = input.view_span (const {from=1})
-s.CudaTensor.print (label 0)
+()
 
+//inl label = input.view_span (const {from=1})
 //inl input = input.view_span (inl x :: _ -> x-1)
 //inl training_set = input, label
 
@@ -705,16 +705,6 @@ s.CudaTensor.print (label 0)
 //    }
     """
 
-let print1 =
-    "print1",[cuda_modules;learning],"Does the full training work with the char-RNN?",
-    """
-inb s = CudaModules (1024*1024*1024)
-inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=6,2,128} .view_span (const {from=1}) 0
-inl x = s.CudaTensor.to_host_tensor x
-HostTensor.print x
-()
-    """
-
 let tests =
     [|
     allocator1
@@ -725,12 +715,11 @@ let tests =
     blas1
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
     learning10
-    print1
     |]
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" print1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
 |> printfn "%s"
 |> ignore
 
