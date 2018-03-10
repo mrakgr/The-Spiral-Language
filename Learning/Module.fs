@@ -1964,9 +1964,17 @@ inl float s ->
                 t = sigmoid ()
                 c = sigmoid ()
                 }
+            inl bias init = 
+                qwe // Do not forget to initialize these properly.
+                s.CudaTensor.create {init elem_type=float; dim=size} |> dr s
             {
             input = weights ()
             state = weight ()
+            bias = {
+                h = bias zero
+                t = bias zero
+                c = bias one
+                }
             }
 
         apply = inl {input state bias} s i ->
