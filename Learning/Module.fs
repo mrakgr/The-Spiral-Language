@@ -1950,6 +1950,7 @@ inl float s ->
     /// The recurrent hightway network (LSTM) from the 'Recurrent Highway Networks' paper by Zilly.
     //inl layer_hrn
 
+
     inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
     inl linear = layer Initializer.sigmoid succ
 
