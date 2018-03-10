@@ -1948,7 +1948,22 @@ inl float s ->
         }
 
     /// The recurrent hightway network (LSTM) from the 'Recurrent Highway Networks' paper by Zilly.
-    //inl layer_hrn
+    inl layer_hrn size sublayer =
+        {
+        layer_type = .recurrent
+        gid = gid()
+        size
+        sublayer
+        weights = inl s ->
+            open Initializer
+            inl f _ = sigmoid (sublayer.size, size) s |> dr s
+        apply = inl weights state input ->
+            open Activation
+            inm h = matmultb ((input, weights.input.h), (state, weights.state.h)) weights.bias.h >>= tanh
+            inm t = matmultb ((input, weights.input.t), (state, weights.state.t)) weights.bias.t >>= sigmoid
+            inm c = matmultb ((input, weights.input.c), (state, weights.state.c)) weights.bias.c >>= sigmoid
+            hadmult ((h,t),(state,c))
+        }
 
 
 
