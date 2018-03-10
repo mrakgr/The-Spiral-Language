@@ -654,18 +654,16 @@ inl data =
     |> HostTensor.assert_size size.seq
     |> s.CudaTensor.from_host_tensor
     |> inl data -> data.round_split size.minibatch
-
+inl data = data.view_span (inl a,b -> a, 32)
 inl minibatch,seq = data.dim
-inl input =
-    inl data = s.CudaTensor.to_dev_tensor data 
-    s.CudaKernel
-        .init {rev_thread_limit=32; dim=seq,minibatch,size.hot} (inl seq minibatch ->
-            inl x = data minibatch seq .get
-            inl hot -> if x = to uint8 hot then 1f32 else 0f32
-            )
-        .round_split' size.step
 
-()
+inl input =
+    s.CudaKernel
+        .init {dim=32,2} (inl seq minibatch ->
+            seq, minibatch
+            )
+
+s.CudaTensor.print input
 
 //inl label = input.view_span (const {from=1})
 //inl input = input.view_span (inl x :: _ -> x-1)
@@ -720,6 +718,6 @@ let tests =
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
-|> printfn "%s"
+//|> printfn "%s"
 |> ignore
 
