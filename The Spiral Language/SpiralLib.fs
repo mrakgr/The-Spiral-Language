@@ -1080,7 +1080,6 @@ inl show' {cutoff_near_to} tns =
             indent ind; append "[|"
             inl cutoff =
                 Loops.for' {from near_to state=blank,cutoff; finally=snd; body=inl {next state=prefix,cutoff i} -> 
-                    Console.writeline i
                     if cutoff < cutoff_near_to then
                         append prefix
                         tns i .get |> Extern.show |> append
