@@ -1663,7 +1663,17 @@ inl float s ->
         bck = inl {out} -> one - out * out
         }
 
-    inl Activation = {activation sigmoid tanh} |> stack
+    inl add = activation {
+        fwd = (+)
+        bck = const one
+        }
+
+    inl hadmult = activation {
+        fwd = (*)
+        bck = snd, fst
+        }
+
+    inl Activation = {activation sigmoid tanh add hadmult} |> stack
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
@@ -1997,7 +2007,7 @@ inl float s ->
                 inm h = matmultb ((i, input.h), (s, state.h)) bias.h >>= tanh
                 inm t = matmultb ((i, input.t), (s, state.t)) bias.t >>= sigmoid
                 inm c = matmultb ((i, input.c), (s, state.c)) bias.c >>= sigmoid
-                hadmult ((h,t),(s,c)) 
+                add (hadmult (h,t), hadmult (s,c)) 
             >>= inl x -> succ (x,x)
         }
 
