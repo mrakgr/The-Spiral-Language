@@ -9,52 +9,51 @@ extern "C" {
     __global__ void method_16(long long int * var_0, long long int * var_1) {
         long long int var_2 = threadIdx.x;
         long long int var_3 = blockIdx.x;
-        long long int var_4 = (64 * var_3);
-        long long int var_5 = (var_2 + var_4);
-        long long int var_6[1];
-        var_6[0] = var_5;
-        while (method_17(var_6)) {
-            long long int var_8 = var_6[0];
-            long long int var_9 = (var_8 % 2);
-            long long int var_10 = (var_8 / 2);
-            long long int var_11 = (var_10 % 32);
-            long long int var_12 = (var_10 / 32);
-            char var_13 = (var_11 >= 0);
-            char var_15;
+        long long int var_4 = (var_2 + var_3);
+        long long int var_5[1];
+        var_5[0] = var_4;
+        while (method_17(var_5)) {
+            long long int var_7 = var_5[0];
+            printf("i(%lli) %% x_span(%lli)=%lli\n", var_7, 1, var_7);
+            long long int var_8 = (var_7 % 32);
+            printf("i(%lli) %% x_span(%lli)=%lli\n", var_7, 32, var_8);
+            long long int var_9 = (var_7 / 32);
+            printf("%lli=(%lli,%lli)\n", var_7, var_8, var_7);
+            char var_10 = (var_8 >= 0);
+            char var_12;
+            if (var_10) {
+                var_12 = (var_8 < 32);
+            } else {
+                var_12 = 0;
+            }
+            char var_13 = (var_12 == 0);
             if (var_13) {
-                var_15 = (var_11 < 32);
-            } else {
-                var_15 = 0;
-            }
-            char var_16 = (var_15 == 0);
-            if (var_16) {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_17 = (var_11 * 2);
-            char var_18 = (var_9 >= 0);
-            char var_20;
-            if (var_18) {
-                var_20 = (var_9 < 2);
+            char var_14 = (var_7 >= 0);
+            char var_16;
+            if (var_14) {
+                var_16 = (var_7 < 1);
             } else {
-                var_20 = 0;
+                var_16 = 0;
             }
-            char var_21 = (var_20 == 0);
-            if (var_21) {
+            char var_17 = (var_16 == 0);
+            if (var_17) {
                 // "Argument out of bounds."
             } else {
             }
-            long long int var_22 = (var_17 + var_9);
-            var_0[var_22] = var_11;
-            var_1[var_22] = var_9;
-            long long int var_23 = (var_8 + 64);
-            var_6[0] = var_23;
+            long long int var_18 = (var_8 + var_7);
+            var_0[var_18] = var_8;
+            var_1[var_18] = var_7;
+            long long int var_19 = (var_7 + 1);
+            var_5[0] = var_19;
         }
-        long long int var_24 = var_6[0];
+        long long int var_20 = var_5[0];
     }
     __device__ char method_17(long long int * var_0) {
         long long int var_1 = var_0[0];
-        return (var_1 < 64);
+        return (var_1 < 32);
     }
 }
 """
@@ -713,11 +712,11 @@ let (var_89: int64) = 1115394L
 let (var_90: int64) = 0L
 let (var_91: int64) = 1L
 let (var_92: EnvStack6) = method_10((var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_40: EnvStack0), (var_35: uint64), (var_41: ResizeArray<Env1>), (var_42: ResizeArray<Env2>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap3>), (var_68: ResizeArray<EnvHeap4>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap4), (var_89: int64), (var_82: (uint8 [])), (var_90: int64), (var_91: int64))
-let (var_93: int64) = 512L
+let (var_93: int64) = 256L
 let (var_94: EnvHeap7) = ({mem_0 = (var_40: EnvStack0); mem_1 = (var_35: uint64); mem_2 = (var_41: ResizeArray<Env1>); mem_3 = (var_42: ResizeArray<Env2>)} : EnvHeap7)
 let (var_95: EnvHeap3) = method_11((var_94: EnvHeap7), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_40: EnvStack0), (var_35: uint64), (var_41: ResizeArray<Env1>), (var_42: ResizeArray<Env2>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap3>), (var_68: ResizeArray<EnvHeap4>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap4), (var_93: int64))
 let (var_96: EnvStack8) = EnvStack8((var_95: EnvHeap3))
-let (var_97: int64) = 512L
+let (var_97: int64) = 256L
 let (var_98: EnvHeap3) = method_11((var_94: EnvHeap7), (var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_40: EnvStack0), (var_35: uint64), (var_41: ResizeArray<Env1>), (var_42: ResizeArray<Env2>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap3>), (var_68: ResizeArray<EnvHeap4>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap4), (var_97: int64))
 let (var_99: EnvStack8) = EnvStack8((var_98: EnvHeap3))
 let (var_100: EnvHeap3) = var_96.mem_0
@@ -735,7 +734,7 @@ let (var_109: uint64) = method_5((var_108: (uint64 ref)))
 let (var_110: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_16", var_32, var_1)
 let (var_111: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
 var_110.set_GridDimensions(var_111)
-let (var_112: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(64u, 1u, 1u)
+let (var_112: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(1u, 1u, 1u)
 var_110.set_BlockDimensions(var_112)
 let (var_113: (int64 ref)) = var_72.mem_0
 let (var_114: EnvHeap5) = var_72.mem_1
@@ -745,15 +744,15 @@ let (var_117: ManagedCuda.BasicTypes.CUstream) = method_18((var_115: (bool ref))
 let (var_119: (System.Object [])) = [|var_104; var_109|]: (System.Object [])
 var_110.RunAsync(var_117, var_119)
 let (var_120: int64) = 0L
-let (var_121: int64) = 2L
+let (var_121: int64) = 1L
 let (var_122: int64) = 1L
 let (var_123: int64) = 0L
-let (var_124: int64) = 2L
+let (var_124: int64) = 1L
 let (var_125: int64) = 1L
 let (var_126: int64) = 0L
 let (var_127: int64) = 32L
 let (var_128: int64) = 0L
-let (var_129: int64) = 2L
+let (var_129: int64) = 1L
 method_19((var_47: ManagedCuda.CudaBlas.CudaBlas), (var_44: ManagedCuda.CudaRand.CudaRandDevice), (var_40: EnvStack0), (var_35: uint64), (var_41: ResizeArray<Env1>), (var_42: ResizeArray<Env2>), (var_1: ManagedCuda.CudaContext), (var_56: ResizeArray<EnvHeap3>), (var_68: ResizeArray<EnvHeap4>), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_72: EnvHeap4), (var_96: EnvStack8), (var_120: int64), (var_121: int64), (var_122: int64), (var_99: EnvStack8), (var_123: int64), (var_124: int64), (var_125: int64), (var_126: int64), (var_127: int64), (var_128: int64), (var_129: int64))
 method_28((var_68: ResizeArray<EnvHeap4>))
 method_30((var_56: ResizeArray<EnvHeap3>))

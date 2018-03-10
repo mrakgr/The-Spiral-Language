@@ -1446,13 +1446,21 @@ inl init' w d f (!zip out) =
         | _ -> merge ((),dim)
     inl s = function {thread_limit=() dim} -> s dim | {thread_limit} -> thread_limit
     inl near_to = Tuple.foldl (inl a (!s b) -> a*b) 1 d
-    inl blockDim = min near_to 256
-    inl gridDim = divup near_to blockDim
+    inl blockDim = 1 //min near_to 256
+    inl gridDim = 1 //divup near_to blockDim
 
     w.run {blockDim gridDim
         kernel = cuda
             grid_for {blockDim gridDim} .x {from=0; near_to} {body=inl {i} ->
-                inl l,_ = Tuple.foldr (inl ((!s x_span) & x) (l,i) -> (i % x_span - x.dim.from) :: l, i / x_span) d ((),i)
+                inl l,_ = 
+                    Tuple.foldr (inl ((!s x_span) & x) (l,i) -> 
+                        
+                        inl a = i % x_span // - x.dim.from)
+                        macro.cd () [text: "printf"; args: "i(%lli) %% x_span(%lli)=%lli\n", i, x_span, i % x_span]
+                        inl b = i / x_span
+                        a :: l, b
+                        ) d ((),i)
+                macro.cd () [text: "printf"; args: "%lli=(%lli,%lli)\n", i, fst l, snd l]
                 inl rec loop f out = function
                     | {thread_limit=()} :: d', i :: i' -> loop (f i) (out i) (d', i')
                     | {thread_limit=by dim={near_to}} :: d', from :: i' -> forcd {from by near_to body=inl {i} -> loop (f i) (out i) (d',i')}

@@ -659,7 +659,7 @@ inl minibatch,seq = data.dim
 
 inl input =
     s.CudaKernel
-        .init {dim=32,2} (inl seq minibatch ->
+        .init {dim=32,1} (inl seq minibatch ->
             seq, minibatch
             )
 
@@ -718,6 +718,6 @@ let tests =
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
-//|> printfn "%s"
+|> printfn "%s"
 |> ignore
 
