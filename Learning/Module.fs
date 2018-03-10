@@ -455,6 +455,8 @@ inl methods =
         )
 
     print=met s (!dyn x) -> s.CudaTensor.to_host_tensor x |> HostTensor.print
+
+    mmap=inl s f tns -> s.CudaKernel.map' (const f) tns.empty tns
     } |> stack
 
 inl s -> s.module_add .CudaTensor methods
@@ -1967,7 +1969,7 @@ inl float s ->
 
     /// The recurrent hightway network (LSTM) from the 'Recurrent Highway Networks' paper by Zilly.
     /// The nested layers in the paper are to be standard feedforward highway layers.
-    inl layer_hrn size sublayer =
+    inl highway_lstm size sublayer =
         {
         layer_type = .recurrent
         gid = gid()
@@ -1982,15 +1984,17 @@ inl float s ->
                 t = sigmoid ()
                 c = sigmoid ()
                 }
+            inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
             inl bias init = 
-                qwe // Do not forget to initialize these properly.
-                s.CudaTensor.create {init elem_type=float; dim=size} |> dr s
+                inl x = s.CudaTensor.create {elem_type=float; dim=size} 
+                join s.CudaTensor.mmap (const init) x
+                dr s x
             {
             input = weights ()
             state = weight ()
             bias = {
-                h = bias zero
-                t = bias zero
+                h = bias0 ()
+                t = bias0 ()
                 c = bias one
                 }
             }
@@ -2001,7 +2005,6 @@ inl float s ->
             | () ->
                 inm h = matmultb (i, input.h) bias.h >>= tanh
                 inm t = matmultb (i, input.t) bias.t >>= sigmoid
-                inm c = matmultb (i, input.c) bias.c >>= sigmoid
                 hadmult (h,t)
             | s ->
                 inm h = matmultb ((i, input.h), (s, state.h)) bias.h >>= tanh
@@ -2014,7 +2017,7 @@ inl float s ->
     inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
     inl linear = layer Initializer.sigmoid succ
 
-    inl Layer = {input error create layer sigmoid linear} |> stack
+    inl Layer = {input error create layer sigmoid linear highway_lstm} |> stack
 
     inl Body =
         {
