@@ -1658,7 +1658,12 @@ inl float s ->
         bck = inl {out} -> out * (one - out)
         }
 
-    inl Activation = {activation sigmoid} |> stack
+    inl tanh = activation {
+        fwd = tanh
+        bck = inl {out} -> one - out * out
+        }
+
+    inl Activation = {activation sigmoid tanh} |> stack
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
@@ -1715,10 +1720,13 @@ inl float s ->
     inl Error = {square cross_entropy} |> stack
 
     // #Initializer
-    inl Initializer = {
-        sigmoid = inl dim s ->
-            inl stddev = sqrt (two / to float (Tuple.foldl (+) 0 dim))
+    inl Initializer = 
+        inl init mult dim s = 
+            inl stddev = sqrt (mult / to float32 (Tuple.foldl (+) 0 dim))
             s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
+        { // TODO: I am not sure about tanh here but it should do. Check if varying the multiple improves perforance.
+        sigmoid = init 2f32
+        tanh = init 3f32
         }
 
     inl gid _ = .(to string !GID())
