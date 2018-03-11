@@ -2051,7 +2051,7 @@ inl float s ->
             bias = {
                 h = bias0 ()
                 t = bias0 ()
-                c = bias one
+                c = bias0 ()
                 }
             }
 
