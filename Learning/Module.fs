@@ -1917,7 +1917,7 @@ inl float s ->
                 s.CudaTensor.set primal(orig - epsilon)
                 inl cost_minus_epsilon = cost ()
                 s.CudaTensor.set primal orig
-                inl approx_gradient = (cost_plus_epsilon - cost_minus_epsilon) / (two * epsilon)
+                inl approx_gradient = to float (cost_plus_epsilon - cost_minus_epsilon) / (two * epsilon)
 
                 inl true_gradient = s.CudaTensor.get adjoint
                 
@@ -1942,7 +1942,7 @@ inl float s ->
                         | {weights} -> 
                             weights ()
                             |> toa_iter (inl {primal adjoint} ->
-                                inl cost _ = for {data body} s |> to float
+                                inl cost _ = for {data body} s
                                 perturb cost primal adjoint
                                 )
                         | _ -> ()
