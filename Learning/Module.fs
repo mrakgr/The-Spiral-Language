@@ -1702,7 +1702,7 @@ inl float s ->
     inl error {fwd bck} label input s = 
         inl batch_size = primal input .span_outer |> to float
         inl div_by_minibatch_size x = x / batch_size
-        s.CudaTensor.print (input.primal, label)
+        //s.CudaTensor.print (input.primal, label) // For debugging
         inl cost,bck =
             map_redo_map {
                 fwd = {
@@ -1888,6 +1888,7 @@ inl float s ->
                 inl data = HostTensor.toa_map (inl x -> x i) data
                 s.refresh
                 inl s = s.RegionMem.create
+                //string_format "On iteration {0}" i |> Console.writeline
                 state data s {
                     on_fail=inl state ->
                         s.RegionMem.clear
@@ -2044,7 +2045,7 @@ inl float s ->
                 inl x = s.CudaTensor.create {elem_type=float; dim=size} 
                 join s.CudaTensor.mmap (const init) x
                 dr s x
-            {
+            heap {
             input = weights ()
             state = weights ()
             bias = {
@@ -2067,7 +2068,7 @@ inl float s ->
                 inm c = matmultb ((i, input.c), (s, state.c)) bias.c >>= sigmoid
                 inm x1 = hadmult (h,t)
                 inm x2 = hadmult (s,c)
-                add (x1, x2) 
+                add (x1, x2)
             >>= sigmoid
             >>= inl x -> succ (x,x)
         }
@@ -2095,13 +2096,15 @@ inl float s ->
                             term_cast cost (), {d with bck without input}
                         finally=inl cost, {bck state} ->
                             inl cost' = cost' + to float64 (cost ())
+
                             region_clear()
+                            inl region_clear _ = s.RegionMem.clear                            
                             inl s = s.RegionMem.create
-                            inl region_clear _ = s.RegionMem.clear
                             inl state = 
                                 HostTensor.toa_map (inl {primal} ->
                                     primal.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)
                                     ) state
+
                             inl state = loop (c+1) cost' {state region_clear}
                             if nan_is cost' then on_fail state
                             else
