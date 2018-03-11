@@ -636,7 +636,7 @@ open Error
 
 inl size = {
     seq = 1115394
-    minibatch = 64
+    minibatch = 1
     step = 64
     hot = 128
     }
@@ -666,8 +666,8 @@ inl input =
             )
         .round_split' size.step
 
-inl label = input.view_span (const {from=1}) .view_span (const 16)
-inl input = input.view_span (inl x :: _ -> x-1) .view_span (const 16)
+inl label = input.view_span (const {from=1}) .view_span (const 1)
+inl input = input.view_span (inl x :: _ -> x-1) .view_span (const 1)
 inl data = input, label
 
 inl network = 
@@ -677,8 +677,8 @@ inl network =
     inl input = input size.hot
     inl network =
         input
-        //|> sigmoid size.hot
-        |> highway_lstm size.hot
+        |> sigmoid size.hot
+        //|> highway_lstm size.hot
         |> error cross_entropy label
     create (input,label) network s
 
@@ -691,7 +691,7 @@ Loops.for' {from=0; near_to=100;body=inl {next} ->
             data
             body=train {
                 network
-                optimizer=Optimizer.sgd 15.0f32
+                optimizer=Optimizer.sgd 0.25f32
                 }
             } s
 
