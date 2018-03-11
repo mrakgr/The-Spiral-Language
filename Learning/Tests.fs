@@ -657,17 +657,14 @@ inl data =
 
 inl minibatch,seq = data.dim
 
-()
-
-//inl input =
-//    inl data = s.CudaTensor.to_dev_tensor data 
-//    s.CudaKernel
-//        .init {rev_thread_limit=32; dim=seq,minibatch,size.hot} (inl seq minibatch ->
-//            inl x = data minibatch seq .get
-//            inl hot -> if x = to uint8 hot then 1f32 else 0f32
-//            )
-//        .round_split' size.step
-
+inl input =
+    inl data = s.CudaTensor.to_dev_tensor data 
+    s.CudaKernel
+        .init {rev_thread_limit=32; dim=seq,minibatch,size.hot} (inl seq minibatch ->
+            inl x = data minibatch seq .get
+            inl hot -> if x = to uint8 hot then 1f32 else 0f32
+            )
+        .round_split' size.step
 
 //inl label = input.view_span (const {from=1}) .view_span (const 1)
 //inl input = input.view_span (inl x :: _ -> x-1) .view_span (const 1)

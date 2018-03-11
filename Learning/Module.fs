@@ -1446,8 +1446,8 @@ inl init' w d f (!zip out) =
         | _ -> merge ((),dim)
     inl s = function {thread_limit=() dim} -> s dim | {thread_limit} -> thread_limit
     inl near_to = Tuple.foldl (inl a (!s b) -> a*b) 1 d
-    inl blockDim = 1 //min near_to 256
-    inl gridDim = 1 //divup near_to blockDim
+    inl blockDim = min near_to 256
+    inl gridDim = divup near_to blockDim
 
     w.run {blockDim gridDim
         kernel = cuda
