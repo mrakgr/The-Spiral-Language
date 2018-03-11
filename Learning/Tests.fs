@@ -876,8 +876,8 @@ inl network =
     inl input = input size.hot
     inl network =
         input
-        |> sigmoid size.hot
-        //|> highway_lstm size.hot
+        //|> sigmoid size.hot
+        |> highway_lstm size.hot
         |> error cross_entropy label
     create (input,label) network s
 

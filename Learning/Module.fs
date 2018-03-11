@@ -1702,7 +1702,7 @@ inl float s ->
     inl error {fwd bck} label input s = 
         inl batch_size = primal input .span_outer |> to float
         inl div_by_minibatch_size x = x / batch_size
-        //s.CudaTensor.print (input.primal, label)
+        s.CudaTensor.print (input.primal, label)
         inl cost,bck =
             map_redo_map {
                 fwd = {
