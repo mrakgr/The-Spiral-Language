@@ -2024,8 +2024,7 @@ inl float s ->
     inl Layer = {input error create layer sigmoid linear highway_lstm} |> stack
 
     inl Body =
-        {
-        train=inl {d with network} ->
+        inl train {d with network} =
             inl rec loop c cost' {state region_clear} = 
                 function
                 | .unwrap -> region_clear(); cost' / to float64 c
@@ -2060,10 +2059,103 @@ inl float s ->
                                 on_succ state
                         }
             loop (dyn 0) (dyn 0.0) {state={}; region_clear=const ()}
+       
+        inl rec perturb cost primal adjoint =
+            inl epsilon = to float 0.001
+            inl boundary = to float 0.001
+
+            assert (primal.dim = adjoint.dim) "Dimensions must be equal."
+            match primal.dim with
+            | {from near_to} :: _ ->
+                Loops.for {from near_to body=inl {i} ->
+                    perturb cost (primal i) (adjoint i)
+                    }
+            | _ -> 
+                inl orig = s.CudaTensor.get primal
+                s.CudaTensor.set primal (orig + epsilon)
+                inl cost_plus_epsilon = cost ()
+                s.CudaTensor.set primal(orig - epsilon)
+                inl cost_minus_epsilon = cost ()
+                s.CudaTensor.set primal orig
+                inl approx_gradient = (cost_plus_epsilon - cost_minus_epsilon) / (2.0f32 * epsilon)
+
+                inl true_gradient = s.CudaTensor.get adjoint
+                
+                inl diff = abs (true_gradient - approx_gradient)
+                if diff >= boundary then
+                    Console.writeline {true_gradient approx_gradient diff}
+                    Console.writeline "--- Gradient checking failure."
+                    failwith () "Stopping the program."
+
+        inl grad_check {network} =
+            function
+            | .unwrap -> f.unwrap
+            | data s {on_fail on_succ} ->
+                train {network optimizer=inl _ _ -> ()} data s {
+                    on_fail
+                    on_suc=inl state ->
+                        s.RegionMem.clear
+                        inl body = train {network}
+                        inl data = toa_map (inl x -> x.round_split 1) data
+
+                        layer_map (inl {weights} ->
+                            weights ()
+                            |> toa_iter (inl {primal adjoint} ->
+                                inl cost _ = for {data body}
+                                perturb cost primal adjoint
+                                )
+                            ) network |> ignore
+                        on_succ state
+                    }
+        {
+        train grad_check
         }
 
     inl Passes = {for Body}
     inl Recurrent = {Layer Passes}
+
+    inl grad_check {d with network={weights apply} input label} s =
+        open Extern
+
+        inl run () = 
+            inl {cost accuracy}, bck = apply (input, label) s
+            s.CudaTensor.set (adjoint cost) one
+            bck()
+        met cost () =
+            inl {cost accuracy}, bck = apply (input, label) s
+            s.CudaTensor.get (primal cost)
+        //met update () = 
+        //    toa_iter (sgd (to float 0.01)) weights
+
+        run()
+
+        inl epsilon = to float 0.001
+        inl boundary = to float 0.001
+        
+        inl rec perturb primal adjoint =
+            assert (primal.dim = adjoint.dim) "Dimensions must be equal."
+            match primal.dim with
+            | {from near_to} :: _ ->
+                Loops.for {from near_to body=inl {i} ->
+                    perturb (primal i) (adjoint i)
+                    }
+            | _ -> 
+                inl orig = s.CudaTensor.get primal
+                s.CudaTensor.set primal (orig + epsilon)
+                inl cost_plus_epsilon = cost ()
+                s.CudaTensor.set primal(orig - epsilon)
+                inl cost_minus_epsilon = cost ()
+                s.CudaTensor.set primal orig
+                inl approx_gradient = (cost_plus_epsilon - cost_minus_epsilon) / (2.0f32 * epsilon)
+
+                inl true_gradient = s.CudaTensor.get adjoint
+                
+                inl diff = abs (true_gradient - approx_gradient)
+                if diff >= boundary then
+                    Console.writeline {true_gradient approx_gradient diff}
+                    Console.writeline "--- Gradient checking failure."
+                
+        toa_iter (inl t -> perturb (primal t) (adjoint t)) weights
 
     { dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Feedforward Recurrent }
     """) |> module_
