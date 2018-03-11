@@ -1951,43 +1951,46 @@ inl float s ->
                 }
 
     inl Passes =
+        inl train {d with network} =
+            inl rec loop c cost' = 
+                function
+                | .unwrap -> cost' / to float64 c
+                | data s {on_fail on_succ} ->
+                    inl {cost}, {bck} = network.run data {bck=const ()} s
+                    inl cost' = cost' + to float64 (cost ())
+                    inl state = loop (c+1) cost'
+                    if nan_is cost' then on_fail state
+                    else
+                        match d with
+                        | {optimizer} ->
+                            bck()
+                            network.optimize optimizer s
+                        | _ -> ()
+                        on_succ state
+            loop (dyn 0) (dyn 0.0)
+
+        inl test {d with network} =
+            inl rec loop c cost' accuracy' = 
+                function
+                | .unwrap -> cost' / to float64 c, accuracy'
+                | data s {on_fail on_succ} ->
+                    inl {cost accuracy}, {bck} = network.run data {bck=const ()} s
+                    inl cost' = cost' + to float64 (cost ())
+                    inl accuracy' = accuracy' + accuracy()
+                    inl state = loop (c+1) cost' accuracy'
+                    if nan_is cost' then on_fail state
+                    else
+                        match d with
+                        | {optimizer} ->
+                            bck()
+                            network.optimize optimizer s
+                        | _ -> ()
+                        on_succ state
+            loop (dyn 0) (dyn 0.0) (dyn 0)
+
         inl Body = 
             {
-            train=inl {d with network} ->
-                inl rec loop c cost' = 
-                    function
-                    | .unwrap -> cost' / to float64 c
-                    | data s {on_fail on_succ} ->
-                        inl {cost}, {bck} = network.run data {bck=const ()} s
-                        inl cost' = cost' + to float64 (cost ())
-                        inl state = loop (c+1) cost'
-                        if nan_is cost' then on_fail state
-                        else
-                            match d with
-                            | {optimizer} ->
-                                bck()
-                                network.optimize optimizer s
-                            | _ -> ()
-                            on_succ state
-                loop (dyn 0) (dyn 0.0)
-            test=inl {d with network} ->
-                inl rec loop c cost' accuracy' = 
-                    function
-                    | .unwrap -> cost' / to float64 c, accuracy'
-                    | data s {on_fail on_succ} ->
-                        inl {cost accuracy}, {bck} = network.run data {bck=const ()} s
-                        inl cost' = cost' + to float64 (cost ())
-                        inl accuracy' = accuracy' + accuracy()
-                        inl state = loop (c+1) cost' accuracy'
-                        if nan_is cost' then on_fail state
-                        else
-                            match d with
-                            | {optimizer} ->
-                                bck()
-                                network.optimize optimizer s
-                            | _ -> ()
-                            on_succ state
-                loop (dyn 0) (dyn 0.0) (dyn 0)
+            train test grad_check=grad_check train
             }
        
         {for Body}

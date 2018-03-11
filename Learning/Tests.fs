@@ -705,7 +705,7 @@ Loops.for' {from=0; near_to=100;body=inl {next} ->
     """
 
 let grad1 =
-    "grad1",[cuda_modules;learning],"Gradient checking of the char RNN?",
+    "grad1",[cuda_modules;learning],"Does Gradient checking pass for the char RNN?",
     """
 inb s = CudaModules (1024*1024*1024)
 
@@ -775,6 +775,52 @@ inl cost =
 string_format "Training: {0}" cost |> Console.writeline
     """
 
+let grad2 =
+    "grad2",[cuda_modules;learning;mnist],"Goes grad checking pass for the Mnist feedforward net?",
+    """
+inb s = CudaModules (1024*1024*1024)
+
+inl float = float32
+open Learning float s
+open Primitive
+open Activation
+open Error
+
+inl minibatch_size = 128
+inl { test_images test_labels train_images train_labels} =
+    inl mnist_path = @"C:\ML Datasets\Mnist"
+    Mnist.load_mnist_tensors mnist_path
+    |> s.CudaTensor.from_host_tensors
+    |> module_map (inl _ x -> 
+        x.round_split' minibatch_size
+        )
+
+inl input_size = 784
+inl hidden_size = 10
+
+inl network = 
+    open Feedforward.Layer
+    
+    inl label = input hidden_size
+    inl input = input input_size
+    inl network =
+        input
+        |> sigmoid hidden_size
+        |> error cross_entropy label
+    create (input,label) network s
+
+open Feedforward.Passes
+open Body
+
+inl cost =
+    for {
+        data=Tuple.map (inl x -> x.view_span (const 1)) (train_images, train_labels)
+        body=grad_check { network }
+        } s
+
+string_format "Training: {0}" cost |> Console.writeline
+    """
+
 
 let tests =
     [|
@@ -790,7 +836,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" grad1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" grad2
 |> printfn "%s"
 |> ignore
 
