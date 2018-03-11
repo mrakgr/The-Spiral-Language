@@ -870,7 +870,7 @@ inl input = input.view_span (inl x :: _ -> x-1)
 inl training_set = input, label
 
 inl network = 
-    open Feedforward.Layer
+    open Recurrent.Layer
     
     inl label = input size.hot
     inl input = input size.hot
@@ -881,16 +881,18 @@ inl network =
         |> error cross_entropy label
     create (input,label) network s
 
-open Feedforward.Passes
-open Body
+Loops.for {from=0; near_to=100; body=inl {i} ->
+    open Feedforward.Passes
+    open Body
 
-inl cost =
-    for {
-        data=Tuple.map (inl x -> x 0) training_set 
-        body=grad_check { network }
-        } s
+    inl cost =
+        for {
+            data=Tuple.map (inl x -> x 0) training_set 
+            body=train { network optimizer=Optimizer.sgd 0.25f32}
+            } s
 
-string_format "Training: {0}" cost |> Console.writeline
+    string_format "Training: {0}" cost |> Console.writeline
+    }
     """
 
 let tests =
@@ -907,6 +909,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" grad1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" grad3
 |> printfn "%s"
 |> ignore

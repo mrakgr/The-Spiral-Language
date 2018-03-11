@@ -1956,7 +1956,7 @@ inl float s ->
                 function
                 | .unwrap -> cost' / to float64 c
                 | data s {on_fail on_succ} ->
-                    inl {cost}, {bck} = network.run data {bck=const ()} s
+                    inl {cost}, {bck} = network.run data {state = {}; bck=const ()} s
                     inl cost' = cost' + to float64 (cost ())
                     inl state = loop (c+1) cost'
                     if nan_is cost' then on_fail state
@@ -1974,7 +1974,7 @@ inl float s ->
                 function
                 | .unwrap -> cost' / to float64 c, accuracy'
                 | data s {on_fail on_succ} ->
-                    inl {cost accuracy}, {bck} = network.run data {bck=const ()} s
+                    inl {cost accuracy}, {bck} = network.run data {state = {}; bck=const ()} s
                     inl cost' = cost' + to float64 (cost ())
                     inl accuracy' = accuracy' + accuracy()
                     inl state = loop (c+1) cost' accuracy'
