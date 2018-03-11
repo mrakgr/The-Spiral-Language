@@ -758,8 +758,8 @@ inl network =
     inl input = input size.hot
     inl network =
         input
-        |> sigmoid size.hot
-        //|> highway_lstm size.hot
+        //|> sigmoid size.hot
+        |> highway_lstm size.hot
         |> error cross_entropy label
     create (input,label) network s
 
@@ -836,7 +836,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" grad2
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" grad1
 |> printfn "%s"
 |> ignore
 
