@@ -2076,6 +2076,58 @@ inl float s ->
             >>= inl x -> succ (x,x)
         }
 
+    // The gated recurrent unit
+    inl gru size sublayer =
+        {
+        layer_type = .recurrent
+        gid = gid()
+        size
+        sublayer
+        weights = inl s ->
+            open Initializer
+            inl sigmoid _ = sigmoid (sublayer.size, size) s |> dr s
+            inl tanh _ = tanh (sublayer.size, size) s |> dr s
+            inl weights _ = {
+                z = sigmoid ()
+                r = sigmoid ()
+                h = tanh ()
+                }
+            inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+            heap {
+            input = weights ()
+            state = weights ()
+            bias = {
+                z = bias0 ()
+                r = bias0 ()
+                h = bias0 ()
+                }
+            }
+
+        apply = inl {input state bias} s i ->
+            open Activation
+            match s with
+            | () ->
+                inm z = matmultb (i, input.z) bias.z >>= sigmoid
+                inm q = matmultb (i, input.h) bias.h >>= tanh
+                hadmult (z,q)
+            | s ->
+                inm z = matmultb ((i, input.z), (s, state.z)) bias.z >>= sigmoid
+                inm r = matmultb ((i, input.r), (s, state.r)) bias.r >>= sigmoid
+                inm r = hadmult (s, r)
+                inm q = matmultb ((i, input.h), (r, state.h)) bias.h >>= tanh
+                activation {
+                    fwd = inl z,s,q -> (one - z) * s + z * q
+                    bck = 
+                        inl {in=z,s,q} -> q - s
+                        ,inl {in=z,s,q} -> one - z
+                        ,inl {in=z,s,q} -> z
+                    } (z,s,q)
+            >>= sigmoid
+            >>= inl x -> succ (x,x)
+        }
+
+        
+
     inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
     inl linear = layer Initializer.sigmoid succ
 
