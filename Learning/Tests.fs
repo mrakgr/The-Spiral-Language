@@ -678,8 +678,8 @@ inl network =
     inl network =
         input
         //|> sigmoid size.hot
-        |> highway_lstm size.hot
-        |> error cross_entropy label
+        |> highway_lstm size.hot |> Feedforward.Layer.sigmoid size.hot
+        |> error square label
     create (input,label) network s
 
 Loops.for' {from=0; near_to=100;body=inl {next} -> 
@@ -719,5 +719,5 @@ let tests =
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
-|> printfn "%s"
+//|> printfn "%s"
 |> ignore
