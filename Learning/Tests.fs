@@ -822,8 +822,8 @@ inl cost =
 string_format "Training: {0}" cost |> Console.writeline
     """
 
-let grad3 =
-    "grad3",[cuda_modules;learning],"Does Gradient checking pass for the char RNN?",
+let debug1 =
+    "debug1",[cuda_modules;learning],"Does the network overfit on the first example?",
     """
 inb s = CudaModules (1024*1024*1024)
 
@@ -909,6 +909,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" grad3
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
 |> printfn "%s"
 |> ignore
