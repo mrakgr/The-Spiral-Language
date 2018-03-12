@@ -1889,12 +1889,15 @@ inl float s ->
                 s.refresh
                 inl s = s.RegionMem.create
                 //string_format "On iteration {0}" i |> Console.writeline
+                macro.fs () [text: "// Executing the net..."]
                 state data s {
                     on_fail=inl state ->
                         s.RegionMem.clear
+                        macro.fs () [text: "// Done with the net..."]
                         state.unwrap
                     on_succ=inl state ->
                         s.RegionMem.clear
+                        macro.fs () [text: "// Executing the next loop..."]
                         next state
                     }
             finally=inl state -> state.unwrap
@@ -2121,8 +2124,6 @@ inl float s ->
     //                } (z,s,q)
     //        >>= inl x -> succ (x,x)
     //    }
-
-        
 
     inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
     inl linear = layer Initializer.sigmoid succ
