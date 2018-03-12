@@ -704,6 +704,12 @@ Loops.for' {from=0; near_to=5;body=inl {next} ->
     }
     """
 
+let test103 =
+    "test103",[],"",
+    """
+(=)
+    """
+
 let tests =
     [|
     allocator1
@@ -718,7 +724,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
-//|> printfn "%s"
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test103
+|> printfn "%s"
 |> ignore
 

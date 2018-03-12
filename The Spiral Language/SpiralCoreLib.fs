@@ -219,14 +219,13 @@ inl (:?>) a b = !UnsafeDowncastTo(b,a)
 
 /// Structural polymorphic equality for every type in the language (apart from functions).
 inl (=) a b =
-    inl prim_eq = (=)
     inl rec (=) a b =
         inl body = function
             | .(a), .(b) -> a = b
             | a :: as', b :: bs -> a = b && as' = bs
             | {} & a, {} & b -> module_values a = module_values b
             | (), () -> true
-            | a, b when eq_type a b -> prim_eq a b // This repeat eq_type check is because unboxed union types might lead to variables of different types to be compared.
+            | a, b when eq_type a b -> !EQ(a, b) // This repeat eq_type check is because unboxed union types might lead to variables of different types to be compared.
             | _ -> false
         if caseable_is a && caseable_is b then join (body (a, b) : bool)
         else body (a, b)

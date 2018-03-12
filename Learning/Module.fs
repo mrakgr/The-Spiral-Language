@@ -234,7 +234,6 @@ inl counter_ref_create ptr =
         count := count() - 1
         if count() = 0 then ptr.Dispose
     | x -> ptr x
-    |> heap
 
 inl assign {region_name} s r = 
     inl region = s region_name
