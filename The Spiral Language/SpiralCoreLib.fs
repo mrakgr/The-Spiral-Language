@@ -61,8 +61,6 @@ inl float32 = type 0f32
 inl string = type ""
 /// The type of a char.
 inl char = type ' '
-/// The type of a empty tuple.
-inl unit = type ()
 
 /// Casts a type literal to the term level.
 inl type_lit_cast x = !TypeLitCast(x)
@@ -174,7 +172,7 @@ inl failwith typ msg = !FailWith(typ,msg)
 inl assert c msg = 
     inl raise = 
         if lit_is c then error_type
-        else failwith unit
+        else failwith ()
     
     if c = false then raise msg
 /// Returns the maximum of the two expressions.
@@ -227,7 +225,7 @@ inl (=) a b =
             | (), () -> true
             | a, b when eq_type a b -> !EQ(a, b) // This repeat eq_type check is because unboxed union types might lead to variables of different types to be compared.
             | _ -> false
-        if caseable_is a && caseable_is b then join (body (a, b) : bool)
+        if caseable_is a && caseable_is b then join (body (a, b) : true)
         else body (a, b)
     if eq_type a b then a = b
     else error_type ("Trying to compare variables of two different types. Got:",a,b)
@@ -292,11 +290,12 @@ inl nan_is x = !NanIs(x)
 {
 type_lit_lift error_type print_static dyn (=>) cd fs log exp tanh sqrt array_create array_length array_is array
 split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
-string char unit type_lit_cast type_lit_is term_cast to negate ignore id const ref (+) (-) (*) (/) (%)
+string char type_lit_cast type_lit_is term_cast to negate ignore id const ref (+) (-) (*) (/) (%)
 (|>) (<|) (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>) fst snd not macro
 string_length lit_is box_is failwith assert max min eq_type module_values caseable_is caseable_box_is (:>)
 (:?>) (=) module_map module_filter module_foldl module_foldr module_has_member sizeof string_format string_concat
 array_create_cuda_shared array_create_cuda_local infinityf64 infinityf32 abs blittable_is threadIdx blockIdx
 lit_min lit_max var module_add module_remove obj nan_is
 }
+|> module_map (const stack)
     """) |> module_

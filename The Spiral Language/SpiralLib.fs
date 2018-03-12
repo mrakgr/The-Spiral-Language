@@ -380,7 +380,7 @@ inl closure_of = closure_of_template true
 
 inl (use) a b =
     inl r = b a
-    FS.Method a .Dispose() unit
+    FS.Method a .Dispose() ()
     r
 
 // Optimized to do more work at compile time. Will flatten nested tuples.
@@ -440,9 +440,11 @@ inl show = show' {array_cutoff = 30; show_value}
 inl assert c msg =
     if c = false then
         if lit_is c then error_type msg
-        else failwith unit (show msg)
+        else failwith () (show msg)
 
-{string_concat closure_of closure_of' FS (use) show' show assert } |> stack
+{string_concat closure_of closure_of' FS (use) show' show assert } 
+|> module_map (const stack)
+|> stack
     """) |> module_
 
 
@@ -771,8 +773,8 @@ inl run data parser ret =
 inl with_unit_ret = {
     on_type = ()
     on_succ = inl _ _ -> ()
-    on_fail = inl x _ -> failwith unit x
-    on_fatal_fail = inl x _ -> failwith unit x
+    on_fail = inl x _ -> failwith () x
+    on_fatal_fail = inl x _ -> failwith () x
     }
 
 inl run_with_unit_ret data parser = run data parser with_unit_ret
@@ -922,10 +924,10 @@ inl readline () = FS.StaticMethod console_type .ReadLine() string
 
 inl write = function
     | () -> ()
-    | x -> FS.StaticMethod console_type .Write (show x) unit
+    | x -> FS.StaticMethod console_type .Write (show x) ()
 inl writeline = function
-    | () -> FS.StaticMethod console_type .WriteLine () unit
-    | x -> FS.StaticMethod console_type .WriteLine (show x) unit
+    | () -> FS.StaticMethod console_type .WriteLine () ()
+    | x -> FS.StaticMethod console_type .WriteLine (show x) ()
 
 inl printf_template cont = 
     Parsing.sprintf_template write {
@@ -1414,7 +1416,7 @@ inl ret ->
     inl env_type = fs [text: "System.Environment"]
     inl context_type = fs [text: "ManagedCuda.CudaContext"]
     use context = FS.Constructor context_type false
-    FS.Method context .Synchronize() unit
+    FS.Method context .Synchronize() ()
 
     inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
         inl path_type = fs [text: "System.IO.Path"]
@@ -1427,14 +1429,14 @@ inl ret ->
     
         inl nvcc_router_path = combine (kernels_dir,"nvcc_router.bat")
         inl procStartInfo = FS.Constructor process_start_info_type ()
-        FS.Method procStartInfo .set_RedirectStandardOutput true unit
-        FS.Method procStartInfo .set_RedirectStandardError true unit
-        FS.Method procStartInfo .set_UseShellExecute false unit
-        FS.Method procStartInfo .set_FileName nvcc_router_path unit
+        FS.Method procStartInfo .set_RedirectStandardOutput true ()
+        FS.Method procStartInfo .set_RedirectStandardError true ()
+        FS.Method procStartInfo .set_UseShellExecute false ()
+        FS.Method procStartInfo .set_FileName nvcc_router_path ()
 
         inl process_type = fs [text: "System.Diagnostics.Process"]
         use process = FS.Constructor process_type ()
-        FS.Method process .set_StartInfo procStartInfo unit
+        FS.Method process .set_StartInfo procStartInfo ()
         inl print_to_standard_output = 
             closure_of (inl args -> FS.Method args .get_Data() string |> writeline) 
                 (fs [text: "System.Diagnostics.DataReceivedEventArgs"] => ())
@@ -1460,17 +1462,17 @@ inl ret ->
         inl input_path = combine(kernels_dir,"cuda_kernels.cu")
         inl quoted_input_path = input_path |> quote
 
-        if FS.StaticMethod file_type .Exists input_path bool then FS.StaticMethod file_type .Delete input_path unit
-        FS.StaticMethod file_type .WriteAllText(input_path,cuda_kernels) unit
+        if FS.StaticMethod file_type .Exists input_path bool then FS.StaticMethod file_type .Delete input_path ()
+        FS.StaticMethod file_type .WriteAllText(input_path,cuda_kernels) ()
    
         inl _ = 
-            if FS.StaticMethod file_type .Exists nvcc_router_path bool then FS.StaticMethod file_type .Delete nvcc_router_path unit
+            if FS.StaticMethod file_type .Exists nvcc_router_path bool then FS.StaticMethod file_type .Delete nvcc_router_path ()
             inl filestream_type = fs [text: "System.IO.FileStream"]
 
             use nvcc_router_file = FS.StaticMethod file_type .OpenWrite(nvcc_router_path) filestream_type
             use nvcc_router_stream = FS.Constructor streamwriter_type nvcc_router_file
 
-            inl write_to_batch = concat >> inl x -> FS.Method nvcc_router_stream .WriteLine x unit
+            inl write_to_batch = concat >> inl x -> FS.Method nvcc_router_stream .WriteLine x ()
 
             "SETLOCAL" |> write_to_batch
             ("CALL ", quoted_vs_path_to_vcvars, vc_vars_args) |> write_to_batch
@@ -1486,16 +1488,16 @@ inl ret ->
 
         inl stopwatch_type = fs [text: "System.Diagnostics.Stopwatch"]
         inl timer = FS.StaticMethod stopwatch_type .StartNew () stopwatch_type
-        if FS.Method process .Start() bool = false then failwith unit "NVCC failed to run."
-        FS.Method process .BeginOutputReadLine() unit
-        FS.Method process .BeginErrorReadLine() unit
-        FS.Method process .WaitForExit() unit
+        if FS.Method process .Start() bool = false then failwith () "NVCC failed to run."
+        FS.Method process .BeginOutputReadLine() ()
+        FS.Method process .BeginErrorReadLine() ()
+        FS.Method process .WaitForExit() ()
 
         inl exit_code = FS.Method process .get_ExitCode() int32
         assert (exit_code = 0i32) ("NVCC failed compilation.", exit_code)
     
         inl elapsed = FS.Method timer .get_Elapsed() (fs [text: "System.TimeSpan"])
-        !MacroFs(unit,[text: "printfn \"The time it took to compile the Cuda kernels is: %A\" "; arg: elapsed])
+        !MacroFs((),[text: "printfn \"The time it took to compile the Cuda kernels is: %A\" "; arg: elapsed])
 
         FS.Method context .LoadModulePTX target_path (fs [text: "ManagedCuda.BasicTypes.CUmodule"])
 
@@ -1542,12 +1544,12 @@ inl ret ->
         inl context = match runable with {context} | _ -> context
         inl kernel_type = fs [text: "ManagedCuda.CudaKernel"]
         inl cuda_kernel = FS.Constructor kernel_type (method_name,modules,context)
-        FS.Method cuda_kernel .set_GridDimensions(dim3 gridDim) unit
-        FS.Method cuda_kernel .set_BlockDimensions(dim3 blockDim) unit
+        FS.Method cuda_kernel .set_GridDimensions(dim3 gridDim) ()
+        FS.Method cuda_kernel .set_BlockDimensions(dim3 blockDim) ()
 
         match s.stream with
         | () -> FS.Method cuda_kernel .Run(to_obj_ar args) float32
-        | stream -> FS.Method cuda_kernel .RunAsync(stream.extract,to_obj_ar args) unit
+        | stream -> FS.Method cuda_kernel .RunAsync(stream.extract,to_obj_ar args) ()
 
     Object.member_adds { 
         run

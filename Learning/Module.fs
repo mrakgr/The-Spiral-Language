@@ -137,7 +137,6 @@ inl smartptr_create (ptr: uint64) =
         inl x = cell ()
         assert (x <> 0u64) "A Cuda memory cell that has been disposed has been tried to be accessed."
         x
-    |> stack
 
 inl mult = 256u64
 assert (mult <> 0u64 && (mult &&& mult - 1u64) = 0u64) "Multiple must be a power of 2." 
@@ -215,7 +214,7 @@ inl section_create s size ret =
     inl r = s.module_add .Section {allocate} |> ret
 
     inl ptr = pool.ptr
-    FS.Method s.context .FreeMemory (ptr() |> CUdeviceptr) unit
+    FS.Method s.context .FreeMemory (ptr() |> CUdeviceptr) ()
     ptr.Dispose
     r
 
@@ -360,7 +359,7 @@ inl CUdeviceptr = FS.Constructor CUdeviceptr_type << SizeT
 
 inl ptr_cuda {ar offset} ret = ar.ptr() + to uint64 (offset * sizeof ar.elem_type) |> ret
 inl CUResult_ty = fs [text: "ManagedCuda.BasicTypes.CUResult"]
-inl assert_curesult res = macro.fs unit [text: "if "; arg: res; text: " <> ManagedCuda.BasicTypes.CUResult.Success then raise <| new ManagedCuda.CudaException"; args: res]
+inl assert_curesult res = macro.fs () [text: "if "; arg: res; text: " <> ManagedCuda.BasicTypes.CUResult.Success then raise <| new ManagedCuda.CudaException"; args: res]
 inl memcpy dst_ptr src_ptr size = macro.fs CUResult_ty [text: "ManagedCuda.DriverAPINativeMethods.SynchronousMemcpy_v2.cuMemcpy"; args: CUdeviceptr dst_ptr, CUdeviceptr src_ptr, SizeT size] |> assert_curesult
 
 inl GCHandle_ty = fs [text: "System.Runtime.InteropServices.GCHandle"]
@@ -370,7 +369,7 @@ inl ptr_dotnet {ar offset} ret =
     inl r =
         macro.fs int64 [arg: handle; text: ".AddrOfPinnedObject().ToInt64()"] 
         |> to uint64 |> (+) (to uint64 (offset * sizeof elem_type)) |> ret
-    macro.fs unit [arg: handle; text: ".Free()"]
+    macro.fs () [arg: handle; text: ".Free()"]
     r
 
 inl copy span dst {src with ar size ptr_get} =
@@ -404,10 +403,10 @@ met set_elem _ (!dyn {dst with size=()}) (!dyn v) =
 
 inl array_create_cuda_global s elem_type len =
     inl ptr = s.RegionMem.allocate (len * sizeof elem_type)
+    inl elem_type = stack {value = elem_type}
     function // It needs to be like this rather than a module so toa_map does not split it.
-    | .elem_type -> elem_type
+    | .elem_type -> elem_type.value
     | .ptr -> ptr
-    |> stack
 
 inl clear' s x = s.CudaTensor.clear x; x
 
@@ -442,7 +441,7 @@ inl methods =
         inl stream = s.stream.extract
         tns.update_body <| inl {body with size ar} ->
             inl size = match size with () -> 1 | x :: _ -> x
-            FS.Method s.context .ClearMemoryAsync (CUdeviceptr (ar.ptr()), 0u8, size * span * sizeof ar.elem_type |> SizeT, stream) unit
+            FS.Method s.context .ClearMemoryAsync (CUdeviceptr (ar.ptr()), 0u8, size * span * sizeof ar.elem_type |> SizeT, stream) ()
         |> ignore
     
     zero=inl s -> s.CudaTensor.create >> clear' s
@@ -480,7 +479,7 @@ inl s ret ->
     open HostTensor
     
     inl fill_array s distribution (!SizeT size1d) ar =
-        FS.Method random .SetStream s.stream.extract unit
+        FS.Method random .SetStream s.stream.extract ()
         inl elem_type = ar.elem_type
         inl ar = CUdeviceptr ar
         inl gen, dot = "Generate", "."
@@ -491,7 +490,7 @@ inl s ret ->
                 match elem_type with
                 | _ : float32 -> "32" | _ : float64 -> "64"
                 | _ -> error_type ("Only 32/64 bit float types are supported. Try UInt if you need uint random numbers. Got: ", elem_type)
-            macro.fs unit [arg: random; text: dot; text: gen; text: distribution; text: bits; args: args]
+            macro.fs () [arg: random; text: dot; text: gen; text: distribution; text: bits; args: args]
         | {dst=(.Normal | .LogNormal) & distribution stddev mean} ->
             match stddev with | _: float32 -> () | _ -> error_type "Standard deviation needs to be in float32."
             match mean with | _: float32 -> () | _ -> error_type "Mean needs to be in float32."
@@ -501,14 +500,14 @@ inl s ret ->
                 match elem_type with
                 | _ : float32 -> "32" | _ : float64 -> "64"
                 | _ -> error_type ("Only 32/64 bit float types are supported. Try UInt if you need uint random numbers. Got: ", elem_type)
-            macro.fs unit [arg: random; text: dot; text: gen; text: distribution; text: bits; args: args]
+            macro.fs () [arg: random; text: dot; text: gen; text: distribution; text: bits; args: args]
         | .UInt -> // every bit random
             inl args = ar, size1d
             inl bits =
                 match elem_type with
                 | _ : uint32 -> "32" | _ : uint64 -> "64"
                 | _ -> error_type "Only 32/64 bit uint types are supported."
-            macro.fs unit [arg: random; text: dot; text: gen; text: bits; args: args]
+            macro.fs () [arg: random; text: dot; text: gen; text: bits; args: args]
 
     inl fill s op (!zip in) =
         inl in' = flatten in |> s.CudaTensor.to_dev_tensor
@@ -577,7 +576,7 @@ inl s ret ->
                     ) args
             inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
             inl status_type = fs [text: "ManagedCuda.CudaBlas.CublasStatus"]
-            inl assert_ok status = macro.fs unit [text: "if "; arg: status; text: " <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException"; args: status]
+            inl assert_ok status = macro.fs () [text: "if "; arg: status; text: " <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException"; args: status]
             FS.StaticMethod native_type method (handle :: args) status_type |> assert_ok
 
     /// General matrix-matrix multiply from cuBLAS. Inplace version
@@ -686,7 +685,7 @@ inl grid_for_items = grid_for_template {iteration_mode=.items_per_thread}
 inl grid_for = grid_for_template {iteration_mode=.std}
     
 inl warp_size = 32
-inl syncthreads () = macro.cd unit [text: "__syncthreads()"]
+inl syncthreads () = macro.cd () [text: "__syncthreads()"]
 
 inl cub_block_reduce {d with blockDim redo} x =
     inl ty = 
@@ -783,7 +782,7 @@ inl cub_block_scan {scan_type is_input_tensor return_aggregate} {d with blockDim
             | .exclusive, initial_elem ->
                 exclusive_scan initial_elem
 
-    macro.cd unit (Tuple.append block_scan call)
+    macro.cd () (Tuple.append block_scan call)
 
     if return_aggregate then 
         inl ag =
