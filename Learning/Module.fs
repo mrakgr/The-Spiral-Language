@@ -2046,7 +2046,7 @@ inl float s ->
                 inl x = s.CudaTensor.create {elem_type=float; dim=size} 
                 join s.CudaTensor.mmap (const init) x
                 dr s x
-            heap {
+            {
             input = weights ()
             state = weights ()
             bias = {
@@ -2091,7 +2091,7 @@ inl float s ->
     //            h = tanh ()
     //            }
     //        inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-    //        heap {
+    //        {
     //        input = weights ()
     //        state = weights ()
     //        bias = {
@@ -2130,7 +2130,7 @@ inl float s ->
 
     inl Body =
         inl train {d with network} =
-            inl rec loop c cost' {state region_clear} = 
+            inl rec loop c cost' state region_clear = 
                 function
                 | .unwrap -> region_clear(); cost' / to float64 c
                 | data s {on_fail on_succ} ->
@@ -2147,15 +2147,17 @@ inl float s ->
                         finally=inl cost, {bck state} ->
                             inl cost' = cost' + to float64 (cost ())
 
-                            region_clear()
-                            inl region_clear _ = s.RegionMem.clear                            
-                            inl s = s.RegionMem.create
-                            inl state = 
-                                HostTensor.toa_map (inl {primal} ->
-                                    primal.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)
-                                    ) state
+                            inl state, region_clear = 
+                                inl s = s.RegionMem.create
+                                inl state =
+                                    HostTensor.toa_map (inl {primal} ->
+                                        primal.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)
+                                        ) state
+                                region_clear()
+                                inl region_clear _ = s.RegionMem.clear        
+                                state, region_clear
 
-                            inl state = loop (c+1) cost' {state region_clear}
+                            inl state = loop (c+1) cost' state region_clear
                             if nan_is cost' then on_fail state
                             else
                                 match d with
@@ -2165,7 +2167,7 @@ inl float s ->
                                 | _ -> ()
                                 on_succ state
                         }
-            loop (dyn 0) (dyn 0.0) {state={}; region_clear=const ()}
+            loop (dyn 0) (dyn 0.0) {} (const ())
         {
         train grad_check=grad_check train
         }

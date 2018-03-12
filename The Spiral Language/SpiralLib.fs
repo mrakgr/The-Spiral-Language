@@ -11,7 +11,8 @@ inl Option x = .Some, x \/ .None
 inl some x = box (Option x) (.Some, x)
 inl none x = box (Option x) (.None)
 
-{Option some none} |> stack
+{Option some none} 
+|> stackify
     """) |> module_
 
 let lazy_ =
@@ -33,7 +34,8 @@ inl lazy f =
         )
     | .elem_type -> ty
 
-{lazy} |> stack
+{lazy} 
+|> stackify
     """) |> module_
 
 let tuple =
@@ -235,7 +237,8 @@ inl rec foldr_map f l s =
 head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists split_at take drop
 filter zip unzip init repeat append concat singleton range tryFind contains intersperse wrap unwrap
 foldl_map foldr_map map2 foldl2
-} |> stack
+} 
+|> stackify
     """) |> module_
 
 let loops =
@@ -318,7 +321,8 @@ inl for' = for_template .CPSd
 inl for = for_template .Standard
 inl foru = for_template .UnrolledState
 
-{for for' foru while unroll} |> stack
+{for for' foru while unroll} 
+|> stackify
     """) |> module_
 
 let extern_ =
@@ -443,8 +447,7 @@ inl assert c msg =
         else failwith () (show msg)
 
 {string_concat closure_of closure_of' FS (use) show' show assert } 
-|> module_map (const stack)
-|> stack
+|> stackify
     """) |> module_
 
 
@@ -530,8 +533,8 @@ inl forall f ar = for' {from=0; near_to=array_length ar; state=true; body = inl 
 /// (a -> bool) -> a array -> bool
 inl exists f ar = for' {from=0; near_to=array_length ar; state=false; body = inl {next state i} -> f (ar i) || next state}
 
-{empty singleton foldl foldr init copy map filter append concat forall exists} 
-|> stack
+{empty singleton foldl foldr init copy map filter append concat forall exists}
+|> stackify
     """) |> module_
 
 let list =
@@ -654,7 +657,8 @@ inl append = foldr cons
 /// a List List -> a List
 inl concat l & !elem_type !elem_type t = foldr append l (empty t)
 
-{List empty cons init map foldl foldr singleton head' tail' last' head tail last append concat} |> stack
+{List empty cons init map foldl foldr singleton head' tail' last' head tail last append concat} 
+|> stackify
     """) |> module_
 
 let parsing =
@@ -903,8 +907,11 @@ inl sprintf format =
         on_fail = inl msg _ -> FS.Method strb .ToString() string
         } format
 
-{run run_with_unit_ret succ fail fatal_fail state type_ tuple (>>=) (|>>) (.>>.) (.>>) (>>.) (>>%) (<|>) choice stream_char 
- ifm (<?>) pdigit pchar pstring pint64 spaces parse_int repeat parse_array sprintf sprintf_template term_cast} |> stack
+{
+run run_with_unit_ret succ fail fatal_fail state type_ tuple (>>=) (|>>) (.>>.) (.>>) (>>.) (>>%) (<|>) choice stream_char 
+ifm (<?>) pdigit pchar pstring pint64 spaces parse_int repeat parse_array sprintf sprintf_template term_cast
+} 
+|> stackify
     """) |> module_
 
 
@@ -939,6 +946,7 @@ inl printf = printf_template id
 inl printfn = printf_template writeline
 
 {readall readline write writeline printf printfn}
+|> stackify
     """) |> module_
 
 let queue =
@@ -988,6 +996,7 @@ inl create typ n =
 
 // Closures can be used as classes as their fields cannot be updated immutably.
 {create enqueue dequeue}
+|> stackify
     """) |> module_
 
 let host_tensor =
@@ -1373,7 +1382,8 @@ met print (!dyn x) = show x |> Console.writeline
 toa_map toa_map2 toa_iter toa_iter2 toa_map3 toa_iter3 toa_foldl create facade 
 init copy assert_size array_as_tensor array_to_tensor map zip show print
 span equal split flatten assert_contiguous assert_dim reshape
-} |> stack
+} 
+|> stackify
     """) |> module_
 
 let object =
@@ -1385,7 +1395,9 @@ member_add = inl s name v -> module_add name (inl s -> v (obj s)) s |> obj
 module_add = inl s name v -> module_add name (inl s name -> v name (obj s)) s |> obj
 member_adds = inl s -> module_foldl (inl name s v -> s.member_add name v) (obj s)
 unwrap = id
-} |> obj |> stack
+} 
+|> module_map (const stack)
+|> obj
     """) |> module_
 
 let cuda =
