@@ -1925,9 +1925,9 @@ and method_53((var_0: (int64 ref)), (var_1: Env7), (var_2: int64), (var_3: int64
         let (var_128: float) = (var_29 + var_127)
         let (var_137: ResizeArray<Env2>) = ResizeArray<Env2>()
         method_45((var_37: (int64 ref)), (var_38: Env7), (var_137: ResizeArray<Env2>))
-        method_46((var_32: ResizeArray<Env2>))
         let (var_138: int64) = (var_28 + 1L)
         if (System.Double.IsNaN var_128) then
+            method_46((var_32: ResizeArray<Env2>))
             method_46((var_23: ResizeArray<Env2>))
             // Done with the net...
             method_46((var_137: ResizeArray<Env2>))
@@ -1979,6 +1979,7 @@ and method_53((var_0: (int64 ref)), (var_1: Env7), (var_2: int64), (var_3: int64
             let (var_170: ManagedCuda.BasicTypes.CUstream) = method_19((var_148: (bool ref)), (var_149: ManagedCuda.CudaStream))
             let (var_172: (System.Object [])) = [|var_164; var_166|]: (System.Object [])
             var_167.RunAsync(var_170, var_172)
+            method_46((var_32: ResizeArray<Env2>))
             method_46((var_23: ResizeArray<Env2>))
             // Executing the next loop...
             let (var_173: int64) = (var_30 + 1L)

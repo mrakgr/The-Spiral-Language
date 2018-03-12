@@ -2147,24 +2147,25 @@ inl float s ->
                         finally=inl cost, {bck state} ->
                             inl cost' = cost' + to float64 (cost ())
 
-                            inl state, region_clear = 
+                            inl state = 
                                 inl s = s.RegionMem.create
                                 inl state =
                                     HostTensor.toa_map (inl {primal} ->
                                         primal.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)
                                         ) state
-                                region_clear()
                                 inl region_clear _ = s.RegionMem.clear        
-                                state, region_clear
+                                loop (c+1) cost' state region_clear
 
-                            inl state = loop (c+1) cost' state region_clear
-                            if nan_is cost' then on_fail state
+                            if nan_is cost' then 
+                                region_clear()
+                                on_fail state
                             else
                                 match d with
                                 | {optimizer} ->
                                     bck()
                                     network.optimize optimizer s
                                 | _ -> ()
+                                region_clear()
                                 on_succ state
                         }
             loop (dyn 0) (dyn 0.0) {} (const ())
