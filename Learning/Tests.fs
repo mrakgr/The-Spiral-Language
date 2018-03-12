@@ -636,7 +636,7 @@ open Error
 
 inl size = {
     seq = 1115394
-    minibatch = 1
+    minibatch = 64
     step = 64
     hot = 128
     }
@@ -666,8 +666,8 @@ inl input =
             )
         .round_split' size.step
 
-inl label = input.view_span (const {from=1}) .view_span (const 1)
-inl input = input.view_span (inl x :: _ -> x-1) .view_span (const 1)
+inl label = input.view_span (const {from=1}) //.view_span (const 16)
+inl input = input.view_span (inl x :: _ -> x-1) //.view_span (const 16)
 inl data = input, label
 
 inl network = 
@@ -677,12 +677,12 @@ inl network =
     inl input = input size.hot
     inl network =
         input
-        //|> sigmoid size.hot
-        |> highway_lstm size.hot |> Feedforward.Layer.sigmoid size.hot
+        |> sigmoid size.hot
+        //|> highway_lstm size.hot |> Feedforward.Layer.sigmoid size.hot
         |> error square label
     create (input,label) network s
 
-Loops.for' {from=0; near_to=100;body=inl {next} -> 
+Loops.for' {from=0; near_to=5;body=inl {next} -> 
     open Recurrent.Passes
     open Body
 

@@ -2025,9 +2025,6 @@ inl float s ->
 
     /// The recurrent hightway network (LSTM) from the 'Recurrent Highway Networks' paper by Zilly.
     /// The nested layers in the paper are to be standard feedforward highway layers.
-
-    /// TODO: This thing works incredibly poorly and I am not sure what the problem is.
-    // I'll try a GRU and a standard LSTM and then come back to this.
     inl highway_lstm size sublayer =
         {
         layer_type = .recurrent
