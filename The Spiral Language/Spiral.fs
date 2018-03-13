@@ -860,10 +860,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
             match fun_type with
             | MapTypeRecFunction ((pat,body),name) ->
-                let env = if pat <> "" then env_add pat args env_term else env_term
+                let env = if String.IsNullOrEmpty pat then env_term else env_add pat args env_term
                 tev {d with env = env_add name recf env} body
             | MapTypeFunction (pat,body) -> 
-                tev {d with env = if pat <> "" then env_add pat args env_term else env_term} body
+                tev {d with env = if String.IsNullOrEmpty pat then env_term else env_add pat args env_term} body
             | _ -> on_type_er (trace d) "Expected a function in function application."
 
         let term_cast d a b =
@@ -983,13 +983,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | _ -> on_type_er (trace d) <| sprintf "Type constructor application failed. %s does not intersect %s." (show_ty ty) (get_type args |> show_ty)
 
 
-        let apply_tev d expr args = 
-            match expr with
-            | FunctionFilt(N(_,N(pat,body))) -> // This branch is an optimization to avoid filtering. It is worth roughly 10%.
-                let args = tev d args
-                tev {d with env = if pat <> "" then env_add pat args d.env else d.env} body
-            | _ -> 
-                apply d (tev d expr) (tev d args)
+        let apply_tev d expr args = apply d (tev d expr) (tev d args)
 
         let list_cons d a b =
             let a, b = tev2 d a b
