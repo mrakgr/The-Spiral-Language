@@ -349,8 +349,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             )
     let expr_prepass x = expr_used_vars x |> snd // |> expr_diff_vars
 
-    let renming_time = TimeSpan()
-
     // #Renaming
     let inline renamables0() = {memo=Dictionary(HashIdentity.Reference); renamer=d0(); ref_call_args=ref []; ref_method_pars=ref []} : EnvRenamer
     let rec renamer_apply_env' (r: EnvRenamer) (C x) = Map.map (fun k -> renamer_apply_typedexpr' r) x
