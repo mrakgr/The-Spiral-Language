@@ -508,15 +508,17 @@ inl s ret ->
                 | _ -> error_type "Only 32/64 bit uint types are supported."
             macro.fs () [arg: random; text: dot; text: gen; text: bits; args: args]
 
-    inl fill s op (!zip in) =
-        inl in' = flatten in |> s.CudaTensor.to_dev_tensor
-        inl len = in'.length
-        in'.update_body (inl {ar} -> fill_array s op len ar) |> ignore
+    inl fill s op in =
+        indiv join
+            inl in' = zip in |> flatten |> s.CudaTensor.to_dev_tensor
+            inl len = in'.length
+            in'.update_body (inl {ar} -> fill_array s op len ar) |> ignore
 
     inl create s op dsc =
-        inl device_tensor = s.CudaTensor.create dsc
-        join fill s op device_tensor
-        device_tensor
+        indiv join
+            inl device_tensor = s.CudaTensor.create dsc
+            fill s op device_tensor
+            stack device_tensor
 
     ret <| s.module_add .CudaRandom {fill create}
     """) |> module_
@@ -597,12 +599,13 @@ inl s ret ->
             call {to_dev_tensor stream} .cublasSgemm_v2(transb, transa, n, m, k, alpha, {ptr=B}, ld B, {ptr=A}, ld A, beta, {ptr=C}, ld C)
 
     inl gemm s transa transb alpha A B =
-        inl m = if isnT transa then rows A else cols A
-        inl n = if isnT transb then cols B else rows B
+        indiv join
+            inl m = if isnT transa then rows A else cols A
+            inl n = if isnT transb then cols B else rows B
 
-        inl C = s.CudaTensor.create {dim=m,n; elem_type = A.elem_type}
-        gemm' s transa transb alpha A B (to alpha 0) C
-        C
+            inl C = s.CudaTensor.create {dim=m,n; elem_type = A.elem_type}
+            gemm' s transa transb alpha A B (to alpha 0) C
+            stack C
 
     ret <| s.module_add .CudaBlas {gemm' gemm}
     """) |> module_
@@ -832,10 +835,12 @@ inl map' w f in out =
                     }
             }
 
-inl map w f (!zip in) =
-    inl out = w.CudaTensor.create {dim=in.dim; elem_type=type f in.elem_type}
-    map' w (inl in _ -> f in) in out
-    out
+inl map w f in =
+    indiv join
+        inl in = zip in
+        inl out = w.CudaTensor.create {dim=in.dim; elem_type=type f in.elem_type}
+        map' w (inl in _ -> f in) in out
+        stack out
 
 /// The exclusive scan over the innermost dimension.
 /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
@@ -1004,16 +1009,18 @@ inl d2_replicate_map' w f in in' out =
                     }
             }
 
-inl d2_replicate_map w f (!zip in) in' =
-    inl in' =
-        match in' with
-        | by : int64 -> 
-            inl dim_in :: () = in.dim
-            HostTensor.create {elem_type=(); dim=by,dim_in}
-        | in' -> zip in'
-    inl out = w.CudaTensor.create {elem_type=type f in.elem_type in'.elem_type; dim=in'.dim}
-    d2_replicate_map' w (inl a b _ -> f a b) in in' out
-    out
+inl d2_replicate_map w f in in' =
+    indiv join 
+        inl in = zip in
+        inl in' =
+            match in' with
+            | by : int64 -> 
+                inl dim_in :: () = in.dim
+                HostTensor.create {elem_type=(); dim=by,dim_in}
+            | in' -> zip in'
+        inl out = w.CudaTensor.create {elem_type=type f in.elem_type in'.elem_type; dim=in'.dim}
+        d2_replicate_map' w (inl a b _ -> f a b) in in' out
+        stack out
 
 /// The inclusive scan over the innermost dimension.
 /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
@@ -1174,23 +1181,25 @@ inl map_d1_seq_broadcast' w {d with seq} in out =
                     }
             }
 
-inl map_d1_seq_broadcast w {d with seq} (!zip in) =
-    inl map_in = match d with {map_in} -> map_in | _ -> id
-    inl seq = Tuple.wrap seq
-    inl elem_type = type
-        inl ty = map_in in.elem_type 
-        Tuple.foldl (inl ty {d with map} -> 
-            inl ty' = 
-                match d with
-                | {map_redo} -> map_redo ty
-                | _ -> ty
-            map ty ty') ty seq
-    inl out = w.CudaTensor.create {elem_type dim=in.dim}
-    inl rec seq_loop = function
-        | {s with map} :: () -> {s with map = inl a b _ -> map a b} :: ()
-        | s :: s' -> s :: seq_loop s'
-    map_d1_seq_broadcast' w {d with map_in seq=seq_loop seq} in out
-    out
+inl map_d1_seq_broadcast w {d with seq} in =
+    indiv join
+        inl in = zip in
+        inl map_in = match d with {map_in} -> map_in | _ -> id
+        inl seq = Tuple.wrap seq
+        inl elem_type = type
+            inl ty = map_in in.elem_type 
+            Tuple.foldl (inl ty {d with map} -> 
+                inl ty' = 
+                    match d with
+                    | {map_redo} -> map_redo ty
+                    | _ -> ty
+                map ty ty') ty seq
+        inl out = w.CudaTensor.create {elem_type dim=in.dim}
+        inl rec seq_loop = function
+            | {s with map} :: () -> {s with map = inl a b _ -> map a b} :: ()
+            | s :: s' -> s :: seq_loop s'
+        map_d1_seq_broadcast' w {d with map_in seq=seq_loop seq} in out
+        stack out
 
 /// Maps the two inputs and then scans, maps, reduces and maps the first's inner dimension.
 inl mapi_d1_inscan_mapi_d1_reduce_mapi' w {d with scan redo} in in' out = 
@@ -1398,69 +1407,75 @@ inl map_d2_redo_map' w {d with redo neutral_elem} in in' out =
             } |> ignore
 
 inl map_dx_redo_map_template dim kernel w d in in' =
-    inl in' = 
-        match in' with
-        | () -> HostTensor.create {elem_type=(); dim}
-        | in' -> zip in'
+    indiv join
+        inl in = zip in
+        inl in' = 
+            match in' with
+            | () -> HostTensor.create {elem_type=(); dim}
+            | in' -> zip in'
 
-    inl map_in = match d with {map_in} -> map_in | _ -> const
-    inl map_out, elem_type = 
-        inl ty = type map_in in.elem_type in'.elem_type
-        match d with {map_out} -> (inl a _ -> map_out a),(type map_out ty) | _ -> const, ty
-    inl out = w.CudaTensor.create {elem_type dim=in'.dim}
-    kernel w {d with map_in map_out} in in' out
-    out
+        inl map_in = match d with {map_in} -> map_in | _ -> const
+        inl map_out, elem_type = 
+            inl ty = type map_in in.elem_type in'.elem_type
+            match d with {map_out} -> (inl a _ -> map_out a),(type map_out ty) | _ -> const, ty
+        inl out = w.CudaTensor.create {elem_type dim=in'.dim}
+        kernel w {d with map_in map_out} in in' out
+        stack out
 
-inl map_d1_redo_map w d (!zip in) = map_dx_redo_map_template (fst in.dim) map_d1_redo_map' w d in
-inl map_d2_redo_map w d (!zip in) = map_dx_redo_map_template (snd in.dim) map_d2_redo_map' w d in
+inl map_d1_redo_map w d in = map_dx_redo_map_template (fst in.dim) map_d1_redo_map' w d in
+inl map_d2_redo_map w d in = map_dx_redo_map_template (snd in.dim) map_d2_redo_map' w d in
 
-inl map_dx_scan_map_template kernel w d (!zip in) =
-    inl map_in = match d with {map_in} -> map_in | _ -> id
-    inl map_out, elem_type = 
-        inl ty = type map_in in.elem_type
-        match d with {map_out} -> (inl a _ -> map_out a), (type map_out ty) | _ -> const, ty
-    inl out = w.CudaTensor.create {elem_type dim=in.dim}
-    kernel w {d with map_in map_out} in out
-    out
+inl map_dx_scan_map_template kernel w d in =
+    indiv join
+        inl in = zip in
+        inl map_in = match d with {map_in} -> map_in | _ -> id
+        inl map_out, elem_type = 
+            inl ty = type map_in in.elem_type
+            match d with {map_out} -> (inl a _ -> map_out a), (type map_out ty) | _ -> const, ty
+        inl out = w.CudaTensor.create {elem_type dim=in.dim}
+        kernel w {d with map_in map_out} in out
+        stack out
 
 inl map_d1_exscan_map = map_dx_scan_map_template map_d1_exscan_map'
 inl map_d1_inscan_map = map_dx_scan_map_template map_d1_inscan_map'
 inl map_d2_inscan_map = map_dx_scan_map_template map_d2_inscan_map'
 inl map_inscan_map = map_dx_scan_map_template map_inscan_map'
 
-inl mapi_d1_inscan_mapi_d1_reduce_mapi w d (!zip in) in' =
-    inl in' = 
-        match in' with
-        | () -> HostTensor.create {elem_type=(); dim=fst in.dim}
-        | in' -> zip in'
+inl mapi_d1_inscan_mapi_d1_reduce_mapi w d in in' =
+    indiv join
+        inl in = zip in
+        inl in' = 
+            match in' with
+            | () -> HostTensor.create {elem_type=(); dim=fst in.dim}
+            | in' -> zip in'
 
-    inl elem_type = type
-        inl in = in.elem_type 
-        inl in' = in'.elem_type
-        match d with
-        | {mapi_in} -> mapi_in 0 0 in in'
-        | {map_in} -> map_in in in'
-        | _ -> in
-        |>
-        match d with
-        | {mapi_mid} x -> mapi_mid 0 0 x in'
-        | {map_mid} x -> map_mid x in'
-        | _ -> id
-        |>
-        match d with
-        | {mapi_out} -> mapi_out 0
-        | {map_out} -> map_out
-        | _ -> id
+        inl elem_type = type
+            inl in = in.elem_type 
+            inl in' = in'.elem_type
+            match d with
+            | {mapi_in} -> mapi_in 0 0 in in'
+            | {map_in} -> map_in in in'
+            | _ -> in
+            |>
+            match d with
+            | {mapi_mid} x -> mapi_mid 0 0 x in'
+            | {map_mid} x -> map_mid x in'
+            | _ -> id
+            |>
+            match d with
+            | {mapi_out} -> mapi_out 0
+            | {map_out} -> map_out
+            | _ -> id
 
-    inl d =
-        match d with
-        | {mapi_out} -> {d with mapi_out=inl i x _ -> mapi_out i x}
-        | {map_out} -> {d with map_out=inl x _ -> map_out x}
-        | _ -> {d with map_out=const}
+        inl d =
+            match d with
+            | {mapi_out} -> {d with mapi_out=inl i x _ -> mapi_out i x}
+            | {map_out} -> {d with map_out=inl x _ -> map_out x}
+            | _ -> {d with map_out=const}
         
-    inl out = w.CudaTensor.create {elem_type dim=in'.dim}
-    mapi_d1_inscan_mapi_d1_reduce_mapi' w d in in' out
-    out
+        inl out = w.CudaTensor.create {elem_type dim=in'.dim}
+        mapi_d1_inscan_mapi_d1_reduce_mapi' w d in in' out
+        stack out
 
 /// Creates a tensor using the given generator function.
 /// Takes in the optional {thread_limit} as the first argument in order to control the degree of parallelism.
@@ -1497,11 +1512,12 @@ inl init' w d f out =
             }
 
 inl init w {d with dim} f =
-    inl dim = Tuple.wrap dim
-    inl elem_type = type Tuple.foldl (inl f _ -> f 0) f dim
-    inl out = w.CudaTensor.create {dim elem_type}
-    init' w d f out
-    out
+    indiv join
+        inl dim = Tuple.wrap dim
+        inl elem_type = type Tuple.foldl (inl f _ -> f 0) f dim
+        inl out = w.CudaTensor.create {dim elem_type}
+        init' w d f out
+        stack out
 
 inl methods =
     {
@@ -1615,7 +1631,7 @@ inl float ->
         inl out = s.CudaKernel.map_redo_map fwd primal
         
         inl _ -> s.CudaTensor.get out
-        , inl _ -> join
+        ,inl _ -> join
             inl out = s.CudaTensor.to_dev_tensor out
             inl bck =
                 inl bck = filter_based_on_adjoints bck adjoint
@@ -1882,14 +1898,20 @@ inl float ->
             match layer_type with
             | .input -> d.input gid, d
             | .stateless ->
-                inl value, bck = x.apply x.sublayer s
+                inl value, bck = indiv join
+                    inl a, b = x.apply x.sublayer s
+                    stack (a, term_cast b ())
                 value, {d with bck = apply_bck self bck}
             | .feedforward ->
-                inl value, bck = x.apply x.weights.nil x.sublayer s
+                inl value, bck = indiv join
+                    inl a, b = x.apply x.weights.nil x.sublayer s
+                    stack (a, term_cast b ())
                 value, {d with bck = apply_bck self bck}
             | .recurrent ->
                 inl state = match d.state with {$gid=state} -> state | _ -> ()
-                inl (value, state), bck = x.apply x.weights.nil state x.sublayer s
+                inl (value, state), bck = indiv join
+                    inl a, b = x.apply x.weights.nil state x.sublayer s
+                    stack (a, term_cast b ())
                 value, {d with bck = apply_bck self bck; state = {self with $gid=state}}
             ) x d
 
