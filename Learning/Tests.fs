@@ -563,7 +563,7 @@ let learning9 =
 inb s = CudaModules (1024*1024*1024)
 
 inl float = float32
-open Learning float s
+open Learning float
 open Primitive
 open Activation
 open Error
@@ -678,7 +678,11 @@ inl network =
     inl network =
         input
         //|> sigmoid size.hot
-        |> highway_lstm size.hot |> Feedforward.Layer.sigmoid size.hot
+        |> highway_lstm size.hot 
+        |> highway_lstm size.hot 
+        |> highway_lstm size.hot 
+        |> highway_lstm size.hot 
+        |> Feedforward.Layer.sigmoid size.hot
         |> error square label
     create (input,label) network s
 

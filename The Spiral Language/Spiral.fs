@@ -585,7 +585,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyT(LayoutT(layout',_))
             | TyV(_,LayoutT(layout',_)) as a ->
                 if layout <> layout' then layout_to_none' d a |> layoutify layout d else a
-            | TyT _ | TyV _ as a -> a
+            | TyLit _ | TyT _ | TyV _ as a -> a
             | a -> 
                 let {renamer'=r}, expr = renamer_apply_typedexpr a
                 if r.Count = 0 then LayoutT(layout,expr) |> tyt
