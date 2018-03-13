@@ -983,7 +983,12 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | _ -> on_type_er (trace d) <| sprintf "Type constructor application failed. %s does not intersect %s." (show_ty ty) (get_type args |> show_ty)
 
 
-        let apply_tev d expr args = apply d (tev d expr) (tev d args)
+        let apply_tev d expr args = 
+            match expr with
+            | FunctionFilt(N(_,N(pat,body))) ->
+                let args = tev d args
+                tev {d with env = if pat <> "" then env_add pat args d.env else d.env} body
+            | _ -> apply d (tev d expr) (tev d args)
 
         let list_cons d a b =
             let a, b = tev2 d a b
