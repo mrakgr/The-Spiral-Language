@@ -985,10 +985,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let apply_tev d expr args = 
             match expr with
-            | FunctionFilt(N(_,N(pat,body))) ->
+            | FunctionFilt(N(_,N(pat,body))) -> // This branch is an optimization to avoid filtering. It is worth roughly 10%.
                 let args = tev d args
                 tev {d with env = if pat <> "" then env_add pat args d.env else d.env} body
-            | _ -> apply d (tev d expr) (tev d args)
+            | _ -> 
+                apply d (tev d expr) (tev d args)
 
         let list_cons d a b =
             let a, b = tev2 d a b
