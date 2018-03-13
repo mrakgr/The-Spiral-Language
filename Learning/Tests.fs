@@ -629,7 +629,7 @@ let learning10 =
 inb s = CudaModules (1024*1024*1024)
 
 inl float = float32
-open Learning float s
+open Learning float
 open Primitive
 open Activation
 open Error

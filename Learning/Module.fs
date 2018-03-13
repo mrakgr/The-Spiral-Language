@@ -1496,7 +1496,7 @@ let learning =
     (
     "Learning",[host_tensor;extern_],"The deep learning module.",
     """
-inl float s ->
+inl float ->
     open HostTensor
 
     // #Primitives
@@ -2145,6 +2145,8 @@ inl float s ->
                             inl cost _ = cost'() + cost ()
                             term_cast cost (), {d with bck without input}
                         finally=inl cost, {bck state} ->
+                            macro.fs () [text: "// Done with foru..."]
+
                             inl cost' = cost' + to float64 (cost ())
 
                             inl state = 
@@ -2158,14 +2160,16 @@ inl float s ->
 
                             if nan_is cost' then 
                                 region_clear()
+                                macro.fs () [text: "// Is nan..."]
                                 on_fail state
                             else
                                 match d with
                                 | {optimizer} ->
                                     bck()
-                                    network.optimize optimizer s
+                                    join network.optimize optimizer s
                                 | _ -> ()
                                 region_clear()
+                                macro.fs () [text: "// Done with body..."]
                                 on_succ state
                         }
             loop (dyn 0) (dyn 0.0) {} (const ())
