@@ -439,9 +439,11 @@ inl methods =
         assert_contiguous tns
         inl span = tns.span_outer
         inl stream = s.stream.extract
+        inl context = s.context
         tns.update_body <| inl {body with size ar} ->
-            inl size = match size with () -> 1 | x :: _ -> x
-            FS.Method s.context .ClearMemoryAsync (CUdeviceptr (ar.ptr()), 0u8, size * span * sizeof ar.elem_type |> SizeT, stream) ()
+            join
+                inl size = match size with () -> 1 | x :: _ -> x
+                FS.Method context .ClearMemoryAsync (CUdeviceptr (ar.ptr()), 0u8, size * span * sizeof ar.elem_type |> SizeT, stream) ()
         |> ignore
     
     zero=inl s -> s.CudaTensor.create >> clear' s

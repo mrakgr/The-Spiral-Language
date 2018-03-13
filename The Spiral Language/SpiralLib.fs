@@ -1532,36 +1532,40 @@ inl ret ->
     //inl ptr_to_uint (ptr: CUdeviceptr_type) = FS.Field ptr .Pointer SizeT_type |> to_uint
     //inl uint_to_ptr (x: uint64) = SizeT x |> CUdeviceptr
 
-    inl run s {runable with blockDim=!dim3 blockDim gridDim=!dim3 gridDim kernel} =
-        inl to_obj_ar args =
-            inl ty = fs [text: "System.Object"] |> array
-            !MacroFs(ty,[fs_array_args: args; text: ": "; type: ty])
+    inl run s {blockDim gridDim kernel} =
+        inl stream = s.stream
+        inl context = s.context
+        join
+            inl blockDim = dim3 blockDim
+            inl gridDim = dim3 gridDim
+            inl to_obj_ar args =
+                inl ty = fs [text: "System.Object"] |> array
+                !MacroFs(ty,[fs_array_args: args; text: ": "; type: ty])
 
-        inl kernel =
-            inl map_to_op_if_not_static {x y z} (x', y', z') = 
-                inl f x x' = if lit_is x then const x else x' 
-                f x x', f y y', f z z'
-            inl x,y,z = map_to_op_if_not_static blockDim (__blockDimX,__blockDimY,__blockDimZ)
-            inl x',y',z' = map_to_op_if_not_static gridDim (__gridDimX,__gridDimY,__gridDimZ)
-            inl _ -> // This convoluted way of swaping non-literals for ops is so they do not get called outside of the kernel.
-                inl blockDim = {x=x(); y=y(); z=z()}
-                inl gridDim = {x=x'(); y=y'(); z=z'()}
-                kernel blockDim gridDim
+            inl kernel =
+                inl map_to_op_if_not_static {x y z} (x', y', z') = 
+                    inl f x x' = if lit_is x then const x else x' 
+                    f x x', f y y', f z z'
+                inl x,y,z = map_to_op_if_not_static blockDim (__blockDimX,__blockDimY,__blockDimZ)
+                inl x',y',z' = map_to_op_if_not_static gridDim (__gridDimX,__gridDimY,__gridDimZ)
+                inl _ -> // This convoluted way of swaping non-literals for ops is so they do not get called outside of the kernel.
+                    inl blockDim = {x=x(); y=y(); z=z()}
+                    inl gridDim = {x=x'(); y=y'(); z=z'()}
+                    kernel blockDim gridDim
 
-        inl join_point_entry_cuda x = !JoinPointEntryCuda(x())
-        inl method_name, args = join_point_entry_cuda kernel
+            inl join_point_entry_cuda x = !JoinPointEntryCuda(x())
+            inl method_name, args = join_point_entry_cuda kernel
         
-        inl dim3 {x y z} = Tuple.map (to uint32) (x,y,z) |> FS.Constructor (fs [text: "ManagedCuda.VectorTypes.dim3"])
+            inl dim3 {x y z} = Tuple.map (to uint32) (x,y,z) |> FS.Constructor (fs [text: "ManagedCuda.VectorTypes.dim3"])
     
-        inl context = match runable with {context} | _ -> context
-        inl kernel_type = fs [text: "ManagedCuda.CudaKernel"]
-        inl cuda_kernel = FS.Constructor kernel_type (method_name,modules,context)
-        FS.Method cuda_kernel .set_GridDimensions(dim3 gridDim) ()
-        FS.Method cuda_kernel .set_BlockDimensions(dim3 blockDim) ()
+            inl kernel_type = fs [text: "ManagedCuda.CudaKernel"]
+            inl cuda_kernel = FS.Constructor kernel_type (method_name,modules,context)
+            FS.Method cuda_kernel .set_GridDimensions(dim3 gridDim) ()
+            FS.Method cuda_kernel .set_BlockDimensions(dim3 blockDim) ()
 
-        match s.stream with
-        | () -> FS.Method cuda_kernel .Run(to_obj_ar args) float32
-        | stream -> FS.Method cuda_kernel .RunAsync(stream.extract,to_obj_ar args) ()
+            match stream with
+            | () -> FS.Method cuda_kernel .Run(to_obj_ar args) float32
+            | stream -> FS.Method cuda_kernel .RunAsync(stream.extract,to_obj_ar args) ()
 
     Object.member_adds { 
         run

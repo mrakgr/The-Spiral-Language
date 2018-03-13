@@ -679,9 +679,6 @@ inl network =
         input
         //|> sigmoid size.hot
         |> highway_lstm size.hot 
-        |> highway_lstm size.hot 
-        |> highway_lstm size.hot 
-        |> highway_lstm size.hot 
         |> Feedforward.Layer.sigmoid size.hot
         |> error square label
     create (input,label) network s
