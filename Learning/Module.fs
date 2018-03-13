@@ -316,22 +316,20 @@ let cuda_stream =
     """
 open Extern
 inl ty x = fs [text: x]
-inl CudaStream_type = ty "ManagedCuda.CudaStream"
-inl CUstream_type = ty "ManagedCuda.BasicTypes.CUstream"
 inl dispose x = FS.Method x .Dispose () ()
 
 inl rec allocate _ =
     inl is_live = ref true
-    inl stream = FS.Constructor CudaStream_type ()
+    inl stream = FS.Constructor (ty "ManagedCuda.CudaStream") ()
     function
-    | .Dispose -> 
+    | .Dispose ->
         dispose stream
         is_live := false
     | .elem_type -> type allocate ()
     | x -> join
         assert (is_live()) "The stream has been disposed."
         match x with
-        | .extract -> macro.fs CUstream_type [arg: stream; text: ".Stream"]
+        | .extract -> macro.fs (ty "ManagedCuda.BasicTypes.CUstream") [arg: stream; text: ".Stream"]
         | .synchronize -> FS.Method stream .Synchronize() ()
         | .wait_on on ->
             inl event_type = fs [text: "ManagedCuda.CudaEvent"]
@@ -340,7 +338,6 @@ inl rec allocate _ =
             macro.fs () [arg: stream; text: ".WaitEvent "; arg: event; text: ".Event"]
             dispose event
         | () -> stream
-    |> heap
 
 inl s -> s.module_add .Stream {allocate}
     """) |> module_
@@ -402,7 +399,7 @@ met set_elem _ (!dyn {dst with size=()}) (!dyn v) =
     copy 1 {dst with ptr_get=ptr_cuda} {ar size=(); offset=0; ptr_get=ptr_dotnet}
 
 inl array_create_cuda_global s elem_type len =
-    inl ptr = s.RegionMem.allocate (len * sizeof elem_type)
+    inl ptr = join s.RegionMem.allocate (len * sizeof elem_type)
     inl elem_type = stack {value = elem_type}
     function // It needs to be like this rather than a module so toa_map does not split it.
     | .elem_type -> elem_type.value
@@ -446,8 +443,8 @@ inl methods =
                 FS.Method context .ClearMemoryAsync (CUdeviceptr (ar.ptr()), 0u8, size * span * sizeof ar.elem_type |> SizeT, stream) ()
         |> ignore
     
-    zero=inl s -> s.CudaTensor.create >> clear' s
-    zero_like=inl s -> s.CudaTensor.create_like >> clear' s
+    zero=inl s d -> join s.CudaTensor.create d |> clear' s |> stack
+    zero_like=inl s d -> join s.CudaTensor.create_like d |> clear' s |> stack
 
     to_dev_tensor = inl s tns -> tns.update_body (inl body -> 
         inb ptr = ptr_cuda body
@@ -518,7 +515,7 @@ inl s ret ->
 
     inl create s op dsc =
         inl device_tensor = s.CudaTensor.create dsc
-        fill s op device_tensor
+        join fill s op device_tensor
         device_tensor
 
     ret <| s.module_add .CudaRandom {fill create}
