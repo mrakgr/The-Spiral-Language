@@ -718,11 +718,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-//let f _ = 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
 //|> printfn "%s"
 |> ignore
-
-//System.Threading.Thread(System.Threading.ParameterizedThreadStart f,1024*1024*256).Start()
-
 
