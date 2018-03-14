@@ -132,7 +132,7 @@ Cuda SDK 8.0 + 9.0 (8.0 for the libraries and 9.0 for the NVCC compiler)
 
 The Cuda Unbound library
 
-Visual Studio 2017 C++ tools individual component (VC++ 2017 v141 toolset (x86,x64))
+Visual C++ version 15.4 v14.11 toolset
 
 ## Tutorials: Introduction to Spiral
 
