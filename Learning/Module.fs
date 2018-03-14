@@ -1104,7 +1104,7 @@ inl map_d1_redo_map' w {d with redo neutral_elem} in in' out =
                     }
             }
 
-/// Maps the input and then for every operation in the sequence broadcast maps the reduction over its inner dimensions.
+// Repeatedly reduces along the inner dimension and then maps the result of that reductions over the input in the previous step.
 inl map_d1_seq_broadcast' w {d with seq} in out = 
     inl to_dev_tensor = w.CudaTensor.to_dev_tensor
     inl run = w.run
@@ -1635,7 +1635,7 @@ inl float ->
             inl out = s.CudaTensor.to_dev_tensor out
             inl bck =
                 inl bck = filter_based_on_adjoints bck adjoint
-                inl {in} adjoint -> toa_map ((|>) {in out=out.get}) bck |> toa_map2 (+) adjoint
+                inl {in} adjoint -> toa_map ((|>) {in out=out()}) bck |> toa_map2 (+) adjoint
             inb adjoint = filter_unit_and_branch adjoint 
             s.CudaKernel.map' bck {in=primal} adjoint
 
@@ -1753,7 +1753,6 @@ inl float ->
     inl error {fwd bck} label input s = 
         inl batch_size = primal input .span_outer |> to float
         inl div_by_minibatch_size x = x / batch_size
-        //s.CudaTensor.print (input.primal, label) // For debugging
         inl cost,bck =
             map_redo_map {
                 fwd = {
@@ -1781,7 +1780,49 @@ inl float ->
             ,inl {in=x, y} -> log (one - x) - log x
         }
 
-    inl Error = {square cross_entropy} |> stack
+    inl softmax_cross_entropy label input s =
+        inl batch_size = primal input .span_outer |> to float
+        inl div_by_minibatch_size x = x / batch_size
+
+        inl softmax =
+            {
+            activation =
+                s.CudaKernel.map_d1_seq_broadcast {
+                    seq = 
+                        {
+                        redo=max
+                        map=inl a b -> exp (a - b)
+                        }
+                        ,
+                        {
+                        redo=(+)
+                        map=(/)
+                        }
+                    }
+            cost = inl label p ->
+                s.CudaKernel.map_redo_map {
+                        map_in = inl p, label -> - label * log p
+                        redo = (+)
+                        neutral_elem = zero
+                        map_out = div_by_minibatch_size
+                    } (p, label)
+                }
+            }
+
+        inl bck f =
+            inl f = f >> div_by_minibatch_size
+            s.CudaKernel.map' (inl x o -> o + f x)
+
+        inl p = softmax.activation input
+        inl cost = softmax.cost label p
+        inl bck _ = join
+            on_non_nil input.adjoint <| bck (inl p, label -> p - label) (p.primal, label.primal)
+            on_non_nil label.adjoint <| bck (inl p -> - log p) p.primal
+
+        inl accuracy _ = accuracy label p s
+        {cost accuracy}, bck
+
+    inl Error = {square cross_entropy softmax_cross_entropy} |> stackify
 
     // #Initializer
     inl Initializer = 
