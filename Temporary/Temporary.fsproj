@@ -57,7 +57,6 @@
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
-    <Content Include="tiny_shakespeare.txt" />
     <Compile Include="output.fs" />
   </ItemGroup>
   <ItemGroup>
