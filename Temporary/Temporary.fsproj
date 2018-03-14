@@ -58,6 +58,7 @@
     <None Include="App.config" />
     <Content Include="packages.config" />
     <Compile Include="output.fs" />
+    <None Include="tiny_shakespeare.data" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="CudaBlas">
