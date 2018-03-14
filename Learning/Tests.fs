@@ -25,7 +25,7 @@ inl size = {
     }
 
 // I got this dataset from Karpathy.
-inl path = @"..\..\tiny_shakespeare.txt"
+inl path = @"..\..\tiny_shakespeare.data"
 inl data = 
     macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
     |> Array.map (inl x -> 
