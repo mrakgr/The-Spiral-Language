@@ -3821,7 +3821,7 @@ let (var_69: EnvHeap4) = ({mem_0 = (var_67: (bool ref)); mem_1 = (var_68: Manage
 let (var_70: Env3) = method_7((var_69: EnvHeap4), (var_46: ManagedCuda.CudaBlas.CudaBlas), (var_43: ManagedCuda.CudaRand.CudaRandDevice), (var_39: (uint64 ref)), (var_35: uint64), (var_40: ResizeArray<Env0>), (var_41: ResizeArray<Env1>), (var_1: ManagedCuda.CudaContext), (var_55: ResizeArray<Env2>), (var_66: ResizeArray<Env3>), (var_32: ManagedCuda.BasicTypes.CUmodule))
 let (var_71: (int64 ref)) = var_70.mem_0
 let (var_72: EnvHeap4) = var_70.mem_1
-let (var_74: (char [])) = System.IO.File.ReadAllText("C:\\ML Datasets\\TinyShakespeare\\tiny_shakespeare.txt").ToCharArray()
+let (var_74: (char [])) = System.IO.File.ReadAllText("..\\..\\tiny_shakespeare.txt").ToCharArray()
 let (var_75: int64) = var_74.LongLength
 let (var_76: bool) = (var_75 >= 0L)
 let (var_77: bool) = (var_76 = false)
