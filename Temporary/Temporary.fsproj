@@ -57,6 +57,7 @@
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
+    <Compile Include="output.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="CudaBlas">
