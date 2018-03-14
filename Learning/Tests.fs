@@ -6,15 +6,6 @@ open Spiral.Types
 open Spiral.Tests
 open Module
 
-let cfg: Spiral.Types.CompilerSettings = {
-    path_cuda90 = "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v9.0"
-    path_cub = "C:/cub-1.7.4"
-    path_vs2017 = "C:/Program Files (x86)/Microsoft Visual Studio/2017/Community"
-    cuda_includes = ["cub/cub.cuh"]
-    trace_length = 40
-    cuda_assert_enabled = false
-    }
-
 let learning10 =
     "learning10",[cuda_modules;learning],"Does the full training work with the char-RNN?",
     """
@@ -95,6 +86,15 @@ Loops.for' {from=0; near_to=5;body=inl {next} ->
         next ()
     }
     """
+
+let cfg: Spiral.Types.CompilerSettings = {
+    path_cuda90 = "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v9.0"
+    path_cub = "C:/cub-1.7.4"
+    path_vs2017 = "C:/Program Files (x86)/Microsoft Visual Studio/2017/Community"
+    cuda_includes = ["cub/cub.cuh"]
+    trace_length = 40
+    cuda_assert_enabled = false
+    }
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
 //|> printfn "%s"
