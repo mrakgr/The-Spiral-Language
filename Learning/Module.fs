@@ -1801,12 +1801,11 @@ inl float ->
                     }
             cost = inl label p ->
                 s.CudaKernel.map_redo_map {
-                        map_in = inl p, label -> - label * log p
+                        map_in = inl p, label -> -label * log p
                         redo = (+)
                         neutral_elem = zero
                         map_out = div_by_minibatch_size
                     } (p, label)
-                }
             }
 
         inl bck f =
@@ -1817,7 +1816,7 @@ inl float ->
         inl cost = softmax.cost label p
         inl bck _ = join
             on_non_nil input.adjoint <| bck (inl p, label -> p - label) (p.primal, label.primal)
-            on_non_nil label.adjoint <| bck (inl p -> - log p) p.primal
+            on_non_nil label.adjoint <| bck (inl p -> -(log p)) p.primal
 
         inl accuracy _ = accuracy label p s
         {cost accuracy}, bck
