@@ -1,1 +1,9 @@
-Variable x not bound.
+module SpiralExample.Main
+let cuda_kernels = """
+
+extern "C" {
+    
+}
+"""
+
+154L

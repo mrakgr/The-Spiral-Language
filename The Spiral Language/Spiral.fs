@@ -29,13 +29,14 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
     let ty_join_point key jp_type args ret_type = TyJoinPoint(key,jp_type,args,ret_type)
 
+    let mutable expr_id = -1
     let nodify_expr (dict: Dictionary<_,_>) x =
         match dict.TryGetValue x with
-        | true, id -> id
+        | true, expr_id -> expr_id
         | false, _ ->
-            let id = dict.Count
-            dict.[x] <- id
-            id
+            expr_id <- expr_id+1
+            dict.[x] <- expr_id
+            expr_id
    
     // nodify_expr variants.
     let nodify_v = nodify_expr <| d0()
