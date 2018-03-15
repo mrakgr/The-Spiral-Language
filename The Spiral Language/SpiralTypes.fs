@@ -273,17 +273,36 @@ and Pattern =
     | PatPos of Pos<Pattern>
     | PatTypeTermFunction of Pattern * Pattern
 
-and Expr = 
-    | V of Node<string>
-    | Lit of Node<Value>
-    | Open of Node<Expr * Expr * Set<string>>
-    | Fix of Node<string * Expr>
-    | Pattern of Node<Pattern>
-    | Function of Node<FunctionCore>
-    | FunctionFilt of Node<Set<string> * Node<FunctionCore>>
-    | VV of Node<Expr list>
-    | Op of Node<Op * Expr list>
-    | ExprPos of Pos<Expr>
+
+and [<CustomEquality;CustomComparison>] Expr = 
+    | V of string * tag: int
+    | Lit of Value * tag: int
+    | Open of Expr * Expr * Set<string> * tag: int
+    | Fix of string * Expr * tag: int
+    | Pattern of Pattern * tag: int
+    | Function of string * Expr * tag: int
+    | FunctionFilt of Set<string> * string * Expr * tag: int
+    | VV of Expr list * tag: int
+    | Op of Op * Expr list * tag: int
+    | ExprPos of Pos<Expr> * tag: int
+
+    member x.Symbol =
+        match x with
+        | V(_,t) | Lit(_,t) | Open(_,_,_,t) | Fix(_,_,t) | Pattern (_,t)
+        | Function(_,_,t) | FunctionFilt(_,_,_,t) | VV(_,t) 
+        | Op(_,_,t) | ExprPos(_,t) -> t
+
+    override x.GetHashCode() = x.Symbol
+    override x.Equals(y) = 
+        match y with 
+        | :? Expr as y -> x.Symbol = y.Symbol
+        | _ -> failwith "Invalid equality for Expr."
+
+    interface IComparable with
+        member x.CompareTo(y) = 
+            match y with
+            | :? Expr as y -> compare x.Symbol y.Symbol
+            | _ -> failwith "Invalid comparison for Expr."
 
 and Ty =
     | PrimT of PrimitiveType

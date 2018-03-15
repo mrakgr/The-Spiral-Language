@@ -31,12 +31,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
     let nodify_expr (dict: Dictionary<_,_>) x =
         match dict.TryGetValue x with
-        | true, id -> Node(x,id)
+        | true, id -> id
         | false, _ ->
             let id = dict.Count
-            let x' = Node(x,id)
             dict.[x] <- id
-            x'
+            id
    
     // nodify_expr variants.
     let nodify_v = nodify_expr <| d0()
@@ -48,6 +47,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let nodify_func_filt = nodify_expr <| d0()
     let nodify_vv = nodify_expr <| d0()
     let nodify_op = nodify_expr <| d0()
+    let nodify_exprpos = nodify_expr <| d0()
 
     let listt x = ListT x
     let litt x = LitT x
@@ -63,15 +63,16 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         | ListT x -> x
         | x -> [x]
 
-    let v x = nodify_v x |> V
-    let open_ x = nodify_open x |> Open
-    let fix_ x = nodify_fix x |> Fix
-    let lit x = nodify_lit x |> Lit
-    let op x = nodify_op x |> Op
-    let pattern x = nodify_pattern x |> Pattern
-    let func x = nodify_func x |> Function
-    let func_filt x = nodify_func_filt x |> FunctionFilt
-    let vv x = nodify_vv x |> VV
+    let v x = nodify_v x |> fun id -> V(x,id)
+    let open_ (a,b,c as x) = nodify_open x |> fun id -> Open(a,b,c,id)
+    let fix_ (a,b as x) = nodify_fix x |> fun id -> Fix(a,b,id)
+    let lit x = nodify_lit x |> fun id -> Lit(x,id)
+    let op (a,b as x) = nodify_op x |> fun id -> Op(a,b,id)
+    let pattern x = nodify_pattern x |> fun id -> Pattern(x,id)
+    let func (a,b as x) = nodify_func x |> fun id -> Function(a,b,id)
+    let func_filt (a,b,c as x) = nodify_func_filt x |> fun id -> FunctionFilt(a,b,c,id)
+    let vv x = nodify_vv x |> fun id -> VV(x,id)
+    let exprpos x = nodify_exprpos x |> fun id -> ExprPos(x,id)
 
     // nodify_ty variants
     let boxed_type_dict = d0()
@@ -135,7 +136,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let type_lit_cps a b c d = op(TypeLitCPS,[a;b;c;d])
     let type_lit_cast x = (TypeLitCast,[x]) |> op
     let type_lit_is x = (TypeLitIs,[x]) |> op
-    let expr_pos pos x = ExprPos(Spiral.Types.Position(pos,x))
+    let expr_pos pos x = exprpos(Spiral.Types.Position(pos,x))
     let pat_pos pos x = PatPos(Spiral.Types.Position(pos,x))
 
     let type_get a = op(TypeGet,[a])
@@ -222,11 +223,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     // #Prepass
     let pattern_dict = d0()
     let expr_used_vars_dict = d0()
-    let rec pattern_compile (pat: Node<_>) = 
-        pat |> memoize pattern_dict (fun pat ->
-            let node = pat.Symbol
-            let pat = pat.Expression
-
+    let rec pattern_compile pat node = 
+        node |> memoize pattern_dict (fun _ ->
             let new_pat_var =
                 let mutable i = 0
                 let get_pattern_tag () = 
@@ -321,30 +319,30 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         e |> memoize expr_used_vars_dict (fun e ->
             let inline f e = expr_used_vars e
             match e with
-            | V (N n) -> Set.singleton n, e
-            | Fix(N(name,body)) ->
+            | V (n,_) -> Set.singleton n, e
+            | Fix(name,body,_) ->
                 let l, body = f body
                 if Set.contains name l then l, fix name body
                 else l, body
-            | Op(N(op',l)) ->
+            | Op(op',l,_) ->
                 let l,l' = List.map f l |> List.unzip
                 Set.unionMany l, op(op',l')
-            | VV (N l) -> 
+            | VV (l,_) -> 
                 let l,l' = List.map f l |> List.unzip
                 Set.unionMany l, vv l'
-            | FunctionFilt(N (vars,N(name,body))) ->
+            | FunctionFilt(vars,name,body,_) ->
                 Set.remove name vars, e
-            | Function(N(name,body)) ->
+            | Function(name,body,_) ->
                 let vars,body = f body
-                Set.remove name vars, func_filt(vars,nodify_func(name,body))
+                Set.remove name vars, func_filt(vars,name,body)
             | Lit _ -> Set.empty, e
-            | Pattern pat -> pattern_compile pat |> f
-            | Open (N(a,b,_)) ->
+            | Pattern (pat,node) -> pattern_compile pat node |> f
+            | Open (a,b,_,_) ->
                 let a,a' = f a
                 let b,b' = f b
                 let c = a + b
                 c, open_(a',b',c)
-            | ExprPos p -> 
+            | ExprPos (p,_) -> 
                 let vars, body = f p.Expression
                 vars, expr_pos p.Pos body
             )
@@ -1279,7 +1277,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let er l = on_type_er l <| sprintf "Only the last expression of a block is allowed to be unit. Use `ignore` if it intended to be such.\nGot: %s" (show_typedexpr x)
             if get_type x <> BListT then 
                 match a with
-                | ExprPos x -> er (x.Pos :: trace d)
+                | ExprPos (x,_) -> er (x.Pos :: trace d)
                 | _ -> er (trace d)
             else x
 
@@ -1342,9 +1340,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let module_create d l =
             let rec loop acc = function
-                | V (N x) -> x :: acc
-                | VV (N l) -> List.fold loop acc l
-                | ExprPos p -> loop acc p.Expression
+                | V (x,_) -> x :: acc
+                | VV (l,_) -> List.fold loop acc l
+                | ExprPos(p,_) -> loop acc p.Expression
                 | x -> on_type_er (trace d) <| sprintf "Only variable names are allowed in module create."
             let er n _ = on_type_er (trace d) <| sprintf "In module create, the variable %s was not found." n
             let env = List.fold (fun s n -> Map.add n (v_find d.env n (er n) id) s) Map.empty (loop [] l) |> Env
@@ -1504,7 +1502,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let module_create d l =
             List.fold (fun env -> function
-                | VV(N [Lit(N(LitString n)); e]) -> Map.add n (tev d e |> destructure d) env
+                | VV([Lit(LitString n, _); e],_) -> Map.add n (tev d e |> destructure d) env
                 | _ -> failwith "impossible"
                 ) Map.empty l
             |> fun x -> tymap(Env x, MapTypeModule)
@@ -1528,7 +1526,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let module_with (d: LangEnv) l =
             let names, bindings =
                 match l with
-                | VV (N l) :: bindings -> l, bindings
+                | VV (l, _) :: bindings -> l, bindings
                 | V _ as x :: bindings -> [x], bindings
                 | x -> failwith "Compiler error: Malformed ModuleWith."
 
@@ -1544,7 +1542,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 let inline next names env = module_with_loop env names
 
                 match names with
-                | V(N name) :: names -> layout_map name (next names)
+                | V(name, _) :: names -> layout_map name (next names)
                 | Lit(N(LitString name)) :: names -> tymap (Map.add name (layout_map name (next names)) cur_env |> Env, MapTypeModule)
                 | [] ->
                     let bind env name e =
