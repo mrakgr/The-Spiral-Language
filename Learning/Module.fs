@@ -1635,7 +1635,7 @@ inl float ->
             inl out = s.CudaTensor.to_dev_tensor out
             inl bck =
                 inl bck = filter_based_on_adjoints bck adjoint
-                inl {in} adjoint -> toa_map ((|>) {in out=out()}) bck |> toa_map2 (+) adjoint
+                inl {in} adjoint -> toa_map ((|>) {in out=out.get}) bck |> toa_map2 (+) adjoint
             inb adjoint = filter_unit_and_branch adjoint 
             s.CudaKernel.map' bck {in=primal} adjoint
 
