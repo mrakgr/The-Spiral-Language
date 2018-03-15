@@ -287,7 +287,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     if_static (eq_type arg x) on_succ on_fail |> case arg
                 | PatTypeLit x -> 
                     type_lit_cps arg (lit x) on_fail on_succ
-                    //if_static (eq_type arg (type_lit_lift x)) on_succ on_fail 
                     |> case arg
                 | PatTypeLitBind x -> 
                     if_static (type_lit_is arg) (l x (type_lit_cast arg) on_succ) on_fail 
