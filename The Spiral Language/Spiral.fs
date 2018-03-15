@@ -82,7 +82,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         | x -> x
         
     let nodify_memo_key = nodify <| d0()
-    let consify_env_term = (hashcons_add <| hashcons_create 0) >> EnvConsed
+    let hashcons_table = hashcons_create 0
+    let consify_env_term x = EnvConsed(hashcons_add hashcons_table x)
 
     let tyv x = TyV x
     let tyvv x = TyList x
@@ -1339,16 +1340,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             
             loop (tev d a)
 
-        let module_create d l =
-            let rec loop acc = function
-                | V (x,_) -> x :: acc
-                | VV (l,_) -> List.fold loop acc l
-                | ExprPos(p,_) -> loop acc p.Expression
-                | x -> on_type_er (trace d) <| sprintf "Only variable names are allowed in module create."
-            let er n _ = on_type_er (trace d) <| sprintf "In module create, the variable %s was not found." n
-            let env = List.fold (fun s n -> Map.add n (v_find d.env n (er n) id) s) Map.empty (loop [] l) |> Env
-            tymap(env, MapTypeModule)
-
         let array_create' ar_typ d size typ =
             let typ = tev_seq d typ |> get_type
 
@@ -1490,14 +1481,14 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let module_member_cps d a b on_fail on_succ =
             match tev d b with
             | TyLit(LitString n) ->
-                let member_miss _ = tev d on_fail
+                let inline member_miss _ = tev d on_fail
                 apply_module member_miss member_miss (apply d (tev d on_succ)) d (tev d a) n
             | x -> on_type_er (trace d) <| sprintf "Expecting a string as the second argument to ModuleMemberCPS.\nGot: %s" (show_typedexpr x)
 
         let module_inject_cps d a b on_fail on_succ =
             match tev d b with
             | TypeString n ->
-                let member_miss _ = tev d on_fail
+                let inline member_miss _ = tev d on_fail
                 apply_module member_miss member_miss (apply d (tev d on_succ)) d (tev d a) n
             | x -> on_type_er (trace d) <| sprintf "Expecting a type string as the second argument to ModuleInjectCPS.\nGot: %s" (show_typedexpr x)
 
@@ -1657,7 +1648,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             TyOp(op,[a],get_type t) |> make_tyv_and_push_typed_expr_even_if_unit d
 
         let to_var d x = tev d x |> make_tyv_and_push_typed_expr d
-            
            
         let inline add_trace (d: LangEnv) x = {d with trace = x :: d.trace}
 
@@ -1799,8 +1789,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let exprpos expr (s: CharStream<_>) = (expr |>> expr_pos (pos' s)) s
         let patpos expr (s: CharStream<_>) = (expr |>> pat_pos (pos' s)) s
 
-        let rec spaces_template spaces s = spaces >>. optional (followedByString "//" >>. skipRestOfLine true >>. spaces_template spaces) <| s
-        let spaces, spaces1 = spaces_template spaces, spaces_template spaces1
+        let rec spaces_template s = spaces >>. optional (followedByString "//" >>. skipRestOfLine true >>. spaces_template) <| s
+        let spaces s = spaces_template s
     
         let is_identifier_starting_char c = isAsciiLetter c || c = '_'
         let is_identifier_char c = is_identifier_starting_char c || c = ''' || isDigit c 
