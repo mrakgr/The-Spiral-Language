@@ -132,6 +132,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let error_non_unit x = (ErrorNonUnit, [x]) |> op
     let type_lit_lift' x = (TypeLitCreate,[x]) |> op
     let type_lit_lift x = type_lit_lift' (lit x)
+    let type_lit_cps a b c d = op(TypeLitCPS,[a;b;c;d])
     let type_lit_cast x = (TypeLitCast,[x]) |> op
     let type_lit_is x = (TypeLitIs,[x]) |> op
     let expr_pos pos x = ExprPos(Spiral.Types.Position(pos,x))
@@ -285,7 +286,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     let on_succ = if_static (eq arg x) on_succ on_fail
                     if_static (eq_type arg x) on_succ on_fail |> case arg
                 | PatTypeLit x -> 
-                    if_static (eq_type arg (type_lit_lift x)) on_succ on_fail 
+                    type_lit_cps arg (lit x) on_fail on_succ
+                    //if_static (eq_type arg (type_lit_lift x)) on_succ on_fail 
                     |> case arg
                 | PatTypeLitBind x -> 
                     if_static (type_lit_is arg) (l x (type_lit_cast arg) on_succ) on_fail 
@@ -1297,6 +1299,14 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyT (LitT _) -> TyLit <| LitBool true
             | _ -> TyLit <| LitBool false
 
+        let type_lit_cps d a b on_fail on_succ =
+            match tev d a with
+            | TyT (LitT a) ->
+                match tev d b with
+                | TyLit b -> if a = b then tev d on_succ else tev d on_fail
+                | _ -> failwith "Compiler error: Expected a literal as the second argument in TypeLitCps."
+            | _ -> tev d on_fail
+
         let lit_is d a = TyLit <| LitBool (tev d a |> lit_is)
 
         let box_is d a =
@@ -1696,6 +1706,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TypeLitCreate,[a] -> type_lit_create d a
             | TypeLitCast,[a] -> type_lit_cast d a
             | TypeLitIs,[a] -> type_lit_is d a
+            | TypeLitCPS,[a;b;c;d'] -> type_lit_cps d a b c d'
             | Dynamize,[a] -> dynamize d a
             | ModuleCreate,l -> module_create d l
             | ModuleAdd,[a;b;c] -> module_add d a b c

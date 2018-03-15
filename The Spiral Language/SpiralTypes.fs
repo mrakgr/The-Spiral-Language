@@ -217,6 +217,7 @@ type Op =
     | TypeLitCreate
     | TypeLitCast
     | TypeLitIs
+    | TypeLitCPS
 
     // UnOps
     | Neg

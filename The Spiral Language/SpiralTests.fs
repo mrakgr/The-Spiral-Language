@@ -225,7 +225,7 @@ inl console = fs [text: "System.Console"]
 inl int32_type = fs [text: "System.Int32"]
 inl parse_int32 str = FS.StaticMethod int32_type .Parse str int32
 inl read_line () = FS.StaticMethod console .ReadLine() string
-inl write x = FS.StaticMethod console .Write x unit
+inl write x = FS.StaticMethod console .Write x ()
 inl read_int () = read_line() |> parse_int32
 inl a, b = read_int(), read_int()
 write (a + b)
@@ -257,7 +257,7 @@ inl a = ref 0
 a := 5
 a() |> ignore
 
-inl a = ref () // Is not supposed to be printed due to being unit.
+inl a = ref () // Is not supposed to be printed due to being ().
 a := ()
 a()
 
@@ -1354,7 +1354,7 @@ open Console
 inl compare_pos (a_row,a_col) (b_row,b_col) = a_row = b_row && a_col = b_col
 inl ret = {
     some = inl state -> printfn "Success."
-    none = inl state -> failwith unit "Failure."
+    none = inl state -> failwith () "Failure."
     }
 inl princess_pos = dyn (0,0)
 inl mario_pos = dyn (1,1)
@@ -1384,7 +1384,7 @@ open Console
 inl compare_pos (a_row,a_col) (b_row,b_col) = a_row = b_row && a_col = b_col
 inl ret = {
     some = inl state -> printfn "Success."
-    none = inl state -> failwith unit "Failure."
+    none = inl state -> failwith () "Failure."
     }
 inl princess_pos = dyn (0,0)
 inl mario_pos = dyn (1,1)
@@ -1427,7 +1427,7 @@ met rec for {from=(!dyn from) near_to state body finally} =
 inl compare_pos (a_row,a_col) (b_row,b_col) = a_row = b_row && a_col = b_col
 inl ret = {
     some = inl state -> printfn "Success."
-    none = inl state -> failwith unit "Failure."
+    none = inl state -> failwith () "Failure."
     }
 inl princess_pos = dyn (0,0)
 inl mario_pos = dyn (1,1)
@@ -1502,7 +1502,7 @@ for' {from=sieve_length; to=2; by= -1; state=none int64; body = inl {next state 
     }
 |>  function
     | .Some, result -> writeline result // 6857
-    | .None -> failwith unit "No prime factor found!"
+    | .None -> failwith () "No prime factor found!"
     """
 
 let euler4 = 
@@ -1650,7 +1650,7 @@ inl parser =
                 | .Some, (_, path) -> List.foldr (inl x _ -> Console.writeline x) path ()
                 : ()
             loop start_queue
-        | _ -> failwith unit "Current position not found."
+        | _ -> failwith () "Current position not found."
     |> succ
 
 //inl str = dyn "3
@@ -1730,7 +1730,7 @@ inl main = {
         met print_solution _, path = //List.foldr (inl x _ -> Console.writeline x) path ()
             match List.last path with
             | .Some, x -> Console.writeline x
-            | .None -> failwith unit "Error: No moves taken."
+            | .None -> failwith () "Error: No moves taken."
 
         met evaluate_move state move on_fail =
             inl (pos_row, pos_col),_ as new_state = move state
@@ -1749,7 +1749,7 @@ inl main = {
             : ()
 
         loop ()
-    none = inl _ -> failwith unit "Current position not found."
+    none = inl _ -> failwith () "Current position not found."
     }
 
 run_with_unit_ret (readall()) (parser main)
