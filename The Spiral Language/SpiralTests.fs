@@ -6,9 +6,10 @@ open Main
 let test1 = 
     "test1",[],"Does it run?",
     """
-inl a = 5
-inl b = 10
-a + b
+()
+//inl a = 5
+//inl b = 10
+//a + b
     """
 
 let test2 = 

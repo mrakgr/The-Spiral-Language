@@ -1,11 +1,1 @@
-module SpiralExample.Main
-let cuda_kernels = """
-
-extern "C" {
-    
-}
-"""
-
-let (var_0: int64) = 5L
-let (var_1: int64) = 10L
-(var_0 + var_1)
+Variable x not bound.

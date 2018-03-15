@@ -1543,7 +1543,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
                 match names with
                 | V(name, _) :: names -> layout_map name (next names)
-                | Lit(N(LitString name)) :: names -> tymap (Map.add name (layout_map name (next names)) cur_env |> Env, MapTypeModule)
+                | Lit(LitString name, _) :: names -> tymap (Map.add name (layout_map name (next names)) cur_env |> Env, MapTypeModule)
                 | [] ->
                     let bind env name e =
                         match Map.tryFind name env with
@@ -1551,13 +1551,13 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         | None -> d
                         |> fun d -> Map.add name (tev d e |> destructure d) env
                     List.fold (fun env -> function
-                        | VV(N [Lit(N(LitString name)); e]) -> bind env name e
-                        | Op(N(ModuleWithout,[Lit(N(LitString name))])) -> Map.remove name env
-                        | VV(N [name; e]) ->
+                        | VV([Lit(LitString name,_); e], _) -> bind env name e
+                        | Op(ModuleWithout,[Lit(LitString name,_)],_) -> Map.remove name env
+                        | VV([name; e],_) ->
                             match tev d name with
                             | TypeString name -> bind env name e
                             | x -> on_type_er (trace d) <| sprintf "Expected a type string literal in module with's injection. Got: %s" (show_typedexpr x)
-                        | Op(N(ModuleWithout,[name])) ->
+                        | Op(ModuleWithout,[name],_) ->
                             match tev d name with
                             | TypeString name -> Map.remove name env
                             | x -> on_type_er (trace d) <| sprintf "Expected a type string literal in module without's injection. Got: %s" (show_typedexpr x)
@@ -1661,21 +1661,21 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let inline add_trace (d: LangEnv) x = {d with trace = x :: d.trace}
 
         match expr with
-        | Lit (N value) -> TyLit value
-        | V (N x) -> v_find d.env x (fun () -> on_type_er (trace d) <| sprintf "Variable %s not bound." x) (destructure d)
-        | FunctionFilt(N (vars,N (pat, body))) -> 
+        | Lit (value, _) -> TyLit value
+        | V (x, _) -> v_find d.env x (fun () -> on_type_er (trace d) <| sprintf "Variable %s not bound." x) (destructure d)
+        | FunctionFilt(vars, pat, body, _) -> 
             let env = Map.filter (fun x _ -> Set.contains x vars) (c d.env)
             tymap(Env env, MapTypeFunction (pat, body))
-        | Function core -> failwith "Function not allowed in this phase as it tends to cause stack overflows in recursive scenarios."
-        | Pattern pat -> failwith "Pattern not allowed in this phase as it tends to cause stack overflows when prepass is triggered in the match case."
-        | ExprPos p -> tev (add_trace d p.Pos) p.Expression
-        | VV (N vars) -> List.map (tev d >> destructure d) vars |> tyvv
-        | Open (N(a,b,vars)) -> module_open d a b vars
-        | Fix(N(name,body)) ->
+        | Function _ -> failwith "Function not allowed in this phase as it tends to cause stack overflows in recursive scenarios."
+        | Pattern _ -> failwith "Pattern not allowed in this phase as it tends to cause stack overflows when prepass is triggered in the match case."
+        | ExprPos (p, _) -> tev (add_trace d p.Pos) p.Expression
+        | VV (vars, _) -> List.map (tev d >> destructure d) vars |> tyvv
+        | Open (a,b,vars,_) -> module_open d a b vars
+        | Fix(name,body,_) ->
             match tev d body with
             | TyMap(env_term,MapTypeFunction core) -> tymap(env_term,MapTypeRecFunction(core,name))
             | x -> x
-        | Op(N (op,vars)) ->
+        | Op(op,vars,_) ->
             match op,vars with
             | (MacroFs | MacroCuda),[a;b] -> macro op d a b
             | Apply,[a;b] -> apply_tev d a b
@@ -2248,8 +2248,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let inbuilt_op_core c = operatorChar c >>. var_name
         let case_inbuilt_op expr =
             let rec loop = function
-                | ExprPos x -> loop x.Expression
-                | VV (N l) -> l 
+                | ExprPos (x,_) -> loop x.Expression
+                | VV (l, _) -> l 
                 | x -> [x]
             let body c = inbuilt_op_core c .>>. rounds (expr <|>% B)
             body '!' >>= fun (a, b) ->
@@ -2275,7 +2275,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             sepBy1 expr (previousCharSatisfies is_immeditate_expr >>. prefix_dot) 
             |>> List.reduce (fun a b ->
                 match b with
-                | V (N x) -> type_lit_lift (LitString x)
+                | V (x, _) -> type_lit_lift (LitString x)
                 | x -> type_lit_lift' x
                 |> ap a
                 )
@@ -2329,8 +2329,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 (set_ref >>% fun l r -> op(MutableSet,[l;B;r]) |> preturn)
                 <|> (set_array >>% fun l r -> 
                         let rec loop = function
-                            | ExprPos p -> loop p.Expression
-                            | Op(N(Apply,[a;b])) -> op(MutableSet,[a;b;r]) |> preturn
+                            | ExprPos(p,_) -> loop p.Expression
+                            | Op(Apply,[a;b],_) -> op(MutableSet,[a;b;r]) |> preturn
                             | _ -> fail "Expected two arguments on the left of <-."
                         loop l)
 

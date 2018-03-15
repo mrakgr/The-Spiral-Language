@@ -1,9 +1,1 @@
-module SpiralExample.Main
-let cuda_kernels = """
-
-extern "C" {
-    
-}
-"""
-
-154L
+Variable x not bound.

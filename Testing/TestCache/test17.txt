@@ -1,16 +1,40 @@
-module SpiralExample.Main
-let cuda_kernels = """
-
-extern "C" {
-    
-}
-"""
-
-type Tuple0 =
-    struct
-    val mem_0: int64
-    val mem_1: float
-    val mem_2: string
-    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
-    end
-Tuple0(2L, 3.400000, "123")
+Error trace on line: 29, column: 5 in file "Core".
+inl bool = type true 
+    ^
+Error trace on line: 32, column: 5 in file "Core".
+inl int64 = type 0i64 
+    ^
+Error trace on line: 34, column: 5 in file "Core".
+inl int32 = type 0i32 
+    ^
+Error trace on line: 36, column: 5 in file "Core".
+inl int16 = type 0i16 
+    ^
+Error trace on line: 38, column: 5 in file "Core".
+inl int8 = type 0i8 
+    ^
+Error trace on line: 41, column: 5 in file "Core".
+inl uint64 = type 0u64 
+    ^
+Error trace on line: 43, column: 5 in file "Core".
+inl uint32 = type 0u32 
+    ^
+Error trace on line: 45, column: 5 in file "Core".
+inl uint16 = type 0u16 
+    ^
+Error trace on line: 47, column: 5 in file "Core".
+inl uint8 = type 0u8
+    ^
+Error trace on line: 50, column: 5 in file "Core".
+inl float64 = type 0f64
+    ^
+Error trace on line: 52, column: 5 in file "Core".
+inl float32 = type 0f32
+    ^
+Error trace on line: 55, column: 5 in file "Core".
+inl string = type ""
+    ^
+Error trace on line: 57, column: 5 in file "Core".
+inl char = type ' '
+    ^
+Variable cd not bound.
