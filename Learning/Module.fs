@@ -392,8 +392,7 @@ inl transfer_template f tns =
     inl f = f tns.span_outer
     tns.update_body <| inl body -> {body with ar = f body; offset = 0}
 
-inl get_elem s {src with size=()} = s.CudaTensor.to_host_array 1 src 0
-met set_elem _ (!dyn {dst with size=()}) (!dyn v) =
+met set_elem (!dyn {dst with size=()}) (!dyn v) =
     inl ar = array_create v 1
     ar 0 <- v
     copy 1 {dst with ptr_get=ptr_cuda} {ar size=(); offset=0; ptr_get=ptr_dotnet}
@@ -407,25 +406,28 @@ inl array_create_cuda_global s elem_type len =
 
 inl clear' s x = s.CudaTensor.clear x; x
 
+met to_host_array _ (!dyn span) (!dyn {src with ar offset size}) =
+    copy span {array_create ptr_get=ptr_dotnet} {src with ptr_get=ptr_cuda}
+
+inl get_elem {src with size=()} = to_host_array () 1 src 0
+
 inl methods = 
     {
     create=inl s data -> create {data with array_create = array_create_cuda_global s}
     create_like=inl s tns -> s.CudaTensor.create {elem_type=tns.elem_type; dim=tns.dim}
 
+    to_host_array
     from_host_array=met s (!dyn span) (!dyn {src with ar offset size}) ->
         copy span {array_create=array_create_cuda_global s; ptr_get=ptr_cuda} {src with ptr_get=ptr_dotnet}
 
-    to_host_array=met s (!dyn span) (!dyn {src with ar offset size}) ->
-        copy span {array_create ptr_get=ptr_dotnet} {src with ptr_get=ptr_cuda}
-
-    get=inl s tns ->
+    get=inl _ tns ->
         match tns.unwrap with
-        | {bodies dim=()} -> toa_map (get_elem s) bodies
+        | {bodies dim=()} -> toa_map get_elem bodies
         | _ -> error_type "Cannot get from tensor whose dimensions have not been applied completely."
 
-    set=inl s tns v ->
+    set=inl _ tns v ->
         match tns.unwrap with
-        | {bodies dim=()} -> toa_iter2 (set_elem s) bodies v
+        | {bodies dim=()} -> toa_iter2 set_elem bodies v
         | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
 
     from_host_tensor=inl s -> transfer_template s.CudaTensor.from_host_array
@@ -1629,8 +1631,9 @@ inl float ->
     inl map_redo_map {fwd bck} in s =
         inl primal, adjoint = primals in, adjoints in
         inl out = s.CudaKernel.map_redo_map fwd primal
-        
-        inl _ -> s.CudaTensor.get out
+ 
+        inl get = s.CudaTensor.get
+        inl _ -> get out
         ,inl _ -> join
             inl out = s.CudaTensor.to_dev_tensor out
             inl bck =
@@ -1763,8 +1766,7 @@ inl float ->
                     }
                 bck = toa_map ((<<) div_by_minibatch_size) bck
                 } (input, label) s
-        inl accuracy _ = accuracy label input s
-        {cost accuracy}, bck
+        cost, bck
 
     inl square = error {
         fwd = inl (x,y) -> (y - x) * (y - x)
