@@ -581,15 +581,17 @@ inl input_size = 784
 inl hidden_size = 10
 
 inl network = 
+    open Layer
     open Feedforward.Layer
-    
-    inl label = input hidden_size
-    inl input = input input_size
+
+    inl label = input .label hidden_size
     inl network =
-        input
-        |> linear hidden_size
-        |> error softmax_cross_entropy label
-    create (input,label) network s
+        input .input input_size 
+        |> linear hidden_size 
+        |> init s
+    inl train = error Error.softmax_cross_entropy network label
+    inl test = parallel (train, accuracy network label)
+    {train test}
 
 Loops.for' {from=0; near_to=10;body=inl {next} -> 
     open Feedforward.Passes
@@ -597,9 +599,9 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
 
     inl cost =
         for {
-            data=train_images, train_labels
+            data={input=train_images; label=train_labels}
             body=train {
-                network
+                network=network.train
                 optimizer=Optimizer.sgd 0.25f32
                 }
             } s
@@ -612,9 +614,9 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
         inl max_ac = test_labels.span_outer2
         inl cost, ac =
             for {
-                data=test_images, test_labels
+                data={input=test_images; label=test_labels}
                 body=test {
-                    network 
+                    network=network.test
                     }
                 } s 
 

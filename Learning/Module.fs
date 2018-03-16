@@ -1632,9 +1632,7 @@ inl float ->
         inl primal, adjoint = primals in, adjoints in
         inl out = s.CudaKernel.map_redo_map fwd primal
  
-        inl get = s.CudaTensor.get
-        inl _ -> get out
-        ,inl _ -> join
+        out, inl _ -> join
             inl out = s.CudaTensor.to_dev_tensor out
             inl bck =
                 inl bck = filter_based_on_adjoints bck adjoint
@@ -1752,7 +1750,6 @@ inl float ->
                 redo=(+)
                 neutral_elem=0
                 }
-            |> s.CudaTensor.get
         {value max}
 
     //#Error
@@ -1922,10 +1919,11 @@ inl float ->
 
     // #Layers
     inl gid _ = .(to string !GID())
-    inl input size =
+    inl input name size =
         {
         layer_type = .input
         gid = gid()
+        name
         size
         }
 
@@ -1960,10 +1958,16 @@ inl float ->
         sublayer
         }
 
-    inl error error label input =
+    inl error cost label input =
         stateless
+            {
+            sublayer = input, label
+            apply = inl input, label -> cost label input
+            }
 
-    inl Layer = {input stateless non_diff feedforward recurrent parallel} |> stackify
+    inl accuracy = error accuracy
+
+    inl Layer = {input stateless non_differentiable feedforward recurrent parallel error accuracy} |> stackify
 
     // #Combinators
     inl layer_map_fold f network s =
@@ -2018,7 +2022,7 @@ inl float ->
             | x -> error_type ("Expected a layer. Got", x)
         layer_map {} network |> fst
 
-    inl init network s = 
+    inl init s network = 
         layer_map (function
             | {x with weights} -> {x with weights = const (weights s)}
             | x -> x
@@ -2035,7 +2039,7 @@ inl float ->
     inl run x d s =
         layer_map_fold (inl {x with layer_type gid} d ->
             match layer_type with
-            | .input -> d.input gid, d
+            | .input -> d.input x.name, d
             | .stateless ->
                 inl value, bck = indiv join
                     inl a, b = x.apply x.sublayer s
@@ -2058,11 +2062,9 @@ inl float ->
                 value, {d with bck = apply_bck self bck; state = {self with $gid=state}}
             ) x d
 
-    inl load ins d = Tuple.foldl2 (inl d {gid} value -> {d.input with $gid=value}) {d with input={}} ins
-
     inl Combinator = 
         {
-        layer_map_fold layer_map init optimize run load
+        layer_map_fold layer_map init optimize run
         } |> stackify
 
     // #Feedforward
@@ -2080,12 +2082,12 @@ inl float ->
     inl linear = layer Initializer.sigmoid succ
 
     inl Passes =
-        inl train {d with network load} =
+        inl train {d with network} =
             inl rec loop c cost' = 
                 function
                 | .unwrap -> cost' / to float64 c
-                | data s {on_fail on_succ} ->
-                    inl cost, {bck} = run network (load {state = {}; bck=const ()} data) s
+                | input s {on_fail on_succ} ->
+                    inl cost, {bck} = run network {input state = {}; bck=const ()} s
                     inl cost' = cost' + to float64 (s.CudaTensor.get cost)
                     inl state = loop (c+1) cost'
                     if nan_is cost' then on_fail state
@@ -2098,14 +2100,14 @@ inl float ->
                         on_succ state
             loop (dyn 0) (dyn 0.0)
 
-        inl test {d with network load} =
+        inl test {d with network} =
             inl rec loop c cost' accuracy' accuracy_max' = 
                 function
                 | .unwrap -> cost' / to float64 c, accuracy', accuracy_max'
-                | data s {on_fail on_succ} ->
-                    inl (cost, {value max}), {bck} = network.run data {state = {}; bck=const ()} s
+                | input s {on_fail on_succ} ->
+                    inl (cost, {value max}), {bck} = run network {input state = {}; bck=const ()} s
                     inl cost' = cost' + to float64 (s.CudaTensor.get cost)
-                    inl accuracy' = accuracy' + value
+                    inl accuracy' = accuracy' + s.CudaTensor.get value
                     inl accuracy_max' = accuracy_max' + max
                     inl state = loop (c+1) cost' accuracy' accuracy_max'
                     if nan_is cost' then on_fail state
@@ -2127,6 +2129,7 @@ inl float ->
 
     inl Feedforward = 
         {
+        init
         Layer={layer sigmoid linear} |> stackify
         Passes
         } |> stack
@@ -2201,18 +2204,18 @@ inl float ->
     inl linear = layer Initializer.sigmoid succ
 
     inl Body =
-        inl train {d with network load} =
+        inl train {d with network} =
             inl rec loop c cost' state region_clear = 
                 function
                 | .unwrap -> region_clear(); cost' / to float64 c
-                | data s {on_fail on_succ} ->
+                | input s {on_fail on_succ} ->
                     inl {from near_to} = outer data
                     Loops.foru {
                         from near_to
                         state=const zero, {state bck=const ()}
                         body=inl {state=cost',d i} ->
-                            inl data = Tuple.map ((|>) i) data
-                            inl cost, d = run network (load d data) s
+                            inl input = HostTensor.toa_map ((|>) i) input
+                            inl cost, d = run network {d with input} s
                             inl bck = term_cast d.bck ()
                             inl get = s.CudaTensor.get
                             inl cost _ = cost'() + get cost
@@ -2252,6 +2255,7 @@ inl float ->
 
     inl Recurrent = 
         {
+        init
         Layer = {layer sigmoid linear highway_lstm} |> stackify
         Passes = {for Body} |> stackify
         } |> stackify
