@@ -1740,33 +1740,34 @@ inl float ->
     // #Accuracy
     inl accuracy label input s =
         inl input, label = primal input, primal label
-        s.CudaKernel.map_d1_redo_map {
-            map_in=const
-            neutral_elem=-infinity,zero
-            redo=inl a b -> if fst a > fst b then a else b
-            map_out=snd >> to int64
-            } (input,label) ()
-        |> s.CudaKernel.map_redo_map {
-            redo=(+)
-            neutral_elem=0
-            }
-        |> s.CudaTensor.get
+        inl max = input .span_outer
+        inl accuracy =
+            s.CudaKernel.map_d1_redo_map {
+                map_in=const
+                neutral_elem=-infinity,zero
+                redo=inl a b -> if fst a > fst b then a else b
+                map_out=snd >> to int64
+                } (input,label) ()
+            |> s.CudaKernel.map_redo_map {
+                redo=(+)
+                neutral_elem=0
+                }
+            |> s.CudaTensor.get
+        {accuracy max}
 
     //#Error
     inl error {fwd bck} label input s = 
         inl batch_size = primal input .span_outer |> to float
         inl div_by_minibatch_size x = x / batch_size
-        inl cost,bck =
-            map_redo_map {
-                fwd = {
-                    map_in = fwd
-                    redo = (+)
-                    neutral_elem = zero
-                    map_out = div_by_minibatch_size
-                    }
-                bck = toa_map ((<<) div_by_minibatch_size) bck
-                } (input, label) s
-        cost, bck
+        map_redo_map {
+            fwd = {
+                map_in = fwd
+                redo = (+)
+                neutral_elem = zero
+                map_out = div_by_minibatch_size
+                }
+            bck = toa_map ((<<) div_by_minibatch_size) bck
+            } (input, label) s
 
     inl square = error {
         fwd = inl (x,y) -> (y - x) * (y - x)
@@ -1816,17 +1817,12 @@ inl float ->
             s.CudaKernel.map' (inl x o -> o + f x)
 
         inl p = softmax.activation (primal input)
-        inl cost =
-            softmax.cost (primal label) p
-            |> inl cost _ -> s.CudaTensor.get cost
+        inl cost = softmax.cost (primal label) p
         inl bck _ = join
             on_non_nil (adjoint input) <| bck (inl p, label -> p - label) (p, primal label)
             on_non_nil (adjoint label) <| bck (log >> negate) p
 
-        inl accuracy =
-            inl label = primal label
-            inl _ -> accuracy label p s
-        {cost accuracy}, bck
+        cost, bck
 
     inl Error = {square cross_entropy softmax_cross_entropy} |> stackify
 
@@ -1863,13 +1859,16 @@ inl float ->
         apply = inl weights input -> matmultb (input, weights.input) weights.bias >>= activation
         }
 
-    inl error cost label input =
+    inl layer_aux_template layer_type f label input = 
         {
-        layer_type = .stateless
+        layer_type
         gid = gid()
         sublayer = input, label
-        apply = inl input, label -> cost label input
+        apply = inl input, label -> f label input
         }
+
+    inl stateless = layer_aux_template .stateless
+    inl non_diff = layer_aux_template .non_diff
 
     inl sigmoid = layer Initializer.sigmoid sigmoid
     inl linear = layer Initializer.sigmoid succ
@@ -1949,6 +1948,9 @@ inl float ->
                     inl a, b = x.apply x.sublayer s
                     stack (a, term_cast b ())
                 value, {d with bck = apply_bck self bck}
+            | .non_diff ->
+                inl value = indiv join x.apply x.sublayer s |> stack
+                value, d
             | .feedforward ->
                 inl value, bck = indiv join
                     inl a, b = x.apply x.weights.nil x.sublayer s
@@ -1973,7 +1975,8 @@ inl float ->
         }
         |> inl d x -> d x
 
-    inl Layer = {input error create layer sigmoid linear} |> stack
+
+    inl Feedforward = {create layer sigmoid linear} |> stackify
 
     inl outer data =
         HostTensor.toa_foldl (inl s x ->
@@ -2286,5 +2289,7 @@ inl float ->
     inl Passes = {for Body}
     inl Recurrent = {Layer Passes}
 
-    { dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Feedforward Recurrent }
+    inl Layer = {input stateless non_diff feedforward recurrent} |> stackify
+
+    { dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Feedforward Recurrent }
     """) |> module_
