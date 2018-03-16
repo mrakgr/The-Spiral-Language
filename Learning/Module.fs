@@ -1753,7 +1753,7 @@ inl float ->
                 neutral_elem=0
                 }
             |> s.CudaTensor.get
-        {accuracy max}
+        {value max}
 
     //#Error
     inl error {fwd bck} label input s = 
@@ -1836,148 +1836,7 @@ inl float ->
         tanh = init 3f32
         }
 
-    inl gid _ = .(to string !GID())
-
-    // #Feedforward
-    inl input size =
-        {
-        layer_type = .input
-        gid = gid()
-        size
-        }
-
-    inl layer initializer activation size sublayer =
-        {
-        layer_type = .feedforward
-        gid = gid()
-        size
-        sublayer
-        weights = inl s -> {
-            input = initializer (sublayer.size, size) s |> dr s
-            bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-            }
-        apply = inl weights input -> matmultb (input, weights.input) weights.bias >>= activation
-        }
-
-    inl layer_aux_template layer_type f label input = 
-        {
-        layer_type
-        gid = gid()
-        sublayer = input, label
-        apply = inl input, label -> f label input
-        }
-
-    inl stateless = layer_aux_template .stateless
-    inl non_diff = layer_aux_template .non_diff
-
-    inl sigmoid = layer Initializer.sigmoid sigmoid
-    inl linear = layer Initializer.sigmoid succ
-
-    inl layer_map_fold f network s =
-        inl rec layer_map_fold r x s =
-            match x with
-            | {layer_type gid} ->
-                match r with
-                | {$gid=x} -> (x, s), r
-                | _ ->
-                    inl (sublayer, s), r =
-                        match x with
-                        | {sublayer} -> layer_map_fold r sublayer s
-                        | _ -> ((), s), r
-                    inl x, s = f {x with sublayer} s
-                    (x, s), {r with $gid=x}
-            | x :: x' -> 
-                inl (x, s), r = layer_map_fold r x s
-                inl (x', s), r = layer_map_fold r x' s
-                (x :: x', s), r
-            | () -> ((), s), r
-            | {} ->
-                module_foldl (inl k ((m,s),r) x ->
-                    inl (x, s), r = layer_map_fold r x s
-                    (module_add k x m, s), r
-                    ) (({},s),r) x
-            | _ -> error_type ("Expected a layer. Got", x)
-            
-        layer_map_fold {} network s |> fst
-
-    inl layer_map f network =
-        inl rec layer_map r = function
-            | {x with layer_type gid} ->
-                match r with
-                | {$gid=x} -> x, r
-                | _ ->
-                    inl sublayer, r =
-                        match x with
-                        | {sublayer} -> layer_map r sublayer
-                        | _ -> (), r
-                    inl x = f {x with sublayer}
-                    x, {r with $gid=x}
-            | x :: x' -> 
-                inl x, r = layer_map r x
-                inl x', r = layer_map r x'
-                x :: x', r
-            | () -> (), r
-            | {} as x ->
-                module_foldl (inl k (m,r) x ->
-                    inl x,r = layer_map r x
-                    module_add k x m, r
-                    ) ({},r) x
-            | x -> error_type ("Expected a layer. Got", x)
-        layer_map {} network |> fst
-
-    inl init network s = 
-        layer_map (function
-            | {x with weights} -> {x with weights = const (weights s)}
-            | x -> x
-            ) network
-
-    inl optimize network optimizer s =
-        inl body weights s = weights () |> toa_iter (optimizer s)
-        layer_map (function
-            | {weights stream} -> s .member_add .stream (const stream) |> body weights
-            | {weights} -> body weights s
-            | _ -> ()
-            ) network 
-
-    inl run x d s =
-        layer_map_fold (inl {x with layer_type gid} d ->
-            match layer_type with
-            | .input -> d.input gid, d
-            | .stateless ->
-                inl value, bck = indiv join
-                    inl a, b = x.apply x.sublayer s
-                    stack (a, term_cast b ())
-                value, {d with bck = apply_bck self bck}
-            | .non_diff ->
-                inl value = indiv join x.apply x.sublayer s |> stack
-                value, d
-            | .feedforward ->
-                inl value, bck = indiv join
-                    inl a, b = x.apply x.weights.nil x.sublayer s
-                    stack (a, term_cast b ())
-                value, {d with bck = apply_bck self bck}
-            | .recurrent ->
-                inl state = match d.state with {$gid=state} -> state | _ -> ()
-                inl (value, state), bck = indiv join
-                    inl a, b = x.apply x.weights.nil state x.sublayer s
-                    stack (a, term_cast b ())
-                value, {d with bck = apply_bck self bck; state = {self with $gid=state}}
-            ) x d
-
-    inl create ins network s =
-        inl network = init network s
-        {
-        unwrap=network
-        optimize=optimize network
-        run=inl x d ->
-            Tuple.foldl2 (inl d {gid} value -> {d.input with $gid=value}) {d with input={}} ins x
-            |> run network
-        }
-        |> inl d x -> d x
-
-
-    inl Feedforward = {create layer sigmoid linear} |> stackify
-
+    // #Loops
     inl outer data =
         HostTensor.toa_foldl (inl s x ->
             match s with
@@ -2061,184 +1920,288 @@ inl float ->
                     on_succ state
                 }
 
+    // #Layers
+    inl gid _ = .(to string !GID())
+    inl input size =
+        {
+        layer_type = .input
+        gid = gid()
+        size
+        }
+
+    inl stateful layer_type {weights apply size sublayer} =
+        {
+        layer_type
+        gid = gid()
+        size
+        sublayer
+        weights
+        apply
+        }
+
+    inl feedforward = stateful .feedforward
+    inl recurrent = stateful .recurrent
+
+    inl aux layer_type {apply sublayer} =
+        {
+        layer_type
+        gid = gid()
+        sublayer
+        apply
+        }
+
+    inl stateless = aux .stateless
+    inl non_differentiable = aux .non_differentiable
+
+    inl parallel sublayer = 
+        {
+        layer_type = .parallel
+        gid = gid ()
+        sublayer
+        }
+
+    inl error error label input =
+        stateless
+
+    inl Layer = {input stateless non_diff feedforward recurrent parallel} |> stackify
+
+    // #Combinators
+    inl layer_map_fold f network s =
+        inl rec layer_map_fold r x s =
+            match x with
+            | {layer_type gid} ->
+                match r with
+                | {$gid=x} -> (x, s), r
+                | _ ->
+                    inl (sublayer, s), r =
+                        match x with
+                        | {sublayer} -> layer_map_fold r sublayer s
+                        | _ -> ((), s), r
+                    inl x, s = f {x with sublayer} s
+                    (x, s), {r with $gid=x}
+            | x :: x' -> 
+                inl (x, s), r = layer_map_fold r x s
+                inl (x', s), r = layer_map_fold r x' s
+                (x :: x', s), r
+            | () -> ((), s), r
+            | {} ->
+                module_foldl (inl k ((m,s),r) x ->
+                    inl (x, s), r = layer_map_fold r x s
+                    (module_add k x m, s), r
+                    ) (({},s),r) x
+            | _ -> error_type ("Expected a layer. Got", x)
+            
+        layer_map_fold {} network s |> fst
+
+    inl layer_map f network =
+        inl rec layer_map r = function
+            | {x with layer_type gid} ->
+                match r with
+                | {$gid=x} -> x, r
+                | _ ->
+                    inl sublayer, r =
+                        match x with
+                        | {sublayer} -> layer_map r sublayer
+                        | _ -> (), r
+                    inl x = f {x with sublayer}
+                    x, {r with $gid=x}
+            | x :: x' -> 
+                inl x, r = layer_map r x
+                inl x', r = layer_map r x'
+                x :: x', r
+            | () -> (), r
+            | {} as x ->
+                module_foldl (inl k (m,r) x ->
+                    inl x,r = layer_map r x
+                    module_add k x m, r
+                    ) ({},r) x
+            | x -> error_type ("Expected a layer. Got", x)
+        layer_map {} network |> fst
+
+    inl init network s = 
+        layer_map (function
+            | {x with weights} -> {x with weights = const (weights s)}
+            | x -> x
+            ) network
+
+    inl optimize network optimizer s =
+        inl body weights s = weights () |> toa_iter (optimizer s)
+        layer_map (function
+            | {weights stream} -> s .member_add .stream (const stream) |> body weights
+            | {weights} -> body weights s
+            | _ -> ()
+            ) network 
+
+    inl run x d s =
+        layer_map_fold (inl {x with layer_type gid} d ->
+            match layer_type with
+            | .input -> d.input gid, d
+            | .stateless ->
+                inl value, bck = indiv join
+                    inl a, b = x.apply x.sublayer s
+                    stack (a, term_cast b ())
+                value, {d with bck = apply_bck self bck}
+            | .non_differentiable ->
+                inl value = indiv join x.apply x.sublayer s |> stack
+                value, d
+            | .parallel -> x.sublayer, d
+            | .feedforward ->
+                inl value, bck = indiv join
+                    inl a, b = x.apply x.weights.nil x.sublayer s
+                    stack (a, term_cast b ())
+                value, {d with bck = apply_bck self bck}
+            | .recurrent ->
+                inl state = match d.state with {$gid=state} -> state | _ -> ()
+                inl (value, state), bck = indiv join
+                    inl a, b = x.apply x.weights.nil state x.sublayer s
+                    stack (a, term_cast b ())
+                value, {d with bck = apply_bck self bck; state = {self with $gid=state}}
+            ) x d
+
+    inl load ins d = Tuple.foldl2 (inl d {gid} value -> {d.input with $gid=value}) {d with input={}} ins
+
+    inl Combinator = 
+        {
+        layer_map_fold layer_map init optimize run load
+        } |> stackify
+
+    // #Feedforward
+    inl layer initializer activation =
+        feedforward
+            {
+            weights = inl s -> {
+                input = initializer (sublayer.size, size) s |> dr s
+                bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+                }
+            apply = inl weights input -> matmultb (input, weights.input) weights.bias >>= activation
+            }
+
+    inl sigmoid = layer Initializer.sigmoid sigmoid
+    inl linear = layer Initializer.sigmoid succ
+
     inl Passes =
-        inl train {d with network} =
+        inl train {d with network load} =
             inl rec loop c cost' = 
                 function
                 | .unwrap -> cost' / to float64 c
                 | data s {on_fail on_succ} ->
-                    inl {cost}, {bck} = network.run data {state = {}; bck=const ()} s
-                    inl cost' = cost' + to float64 (cost ())
+                    inl cost, {bck} = run network (load {state = {}; bck=const ()} data) s
+                    inl cost' = cost' + to float64 (s.CudaTensor.get cost)
                     inl state = loop (c+1) cost'
                     if nan_is cost' then on_fail state
                     else
                         match d with
                         | {optimizer} ->
                             bck()
-                            network.optimize optimizer s
+                            optimize network optimizer s
                         | _ -> ()
                         on_succ state
             loop (dyn 0) (dyn 0.0)
 
-        inl test {d with network} =
-            inl rec loop c cost' accuracy' = 
+        inl test {d with network load} =
+            inl rec loop c cost' accuracy' accuracy_max' = 
                 function
-                | .unwrap -> cost' / to float64 c, accuracy'
+                | .unwrap -> cost' / to float64 c, accuracy', accuracy_max'
                 | data s {on_fail on_succ} ->
-                    inl {cost accuracy}, {bck} = network.run data {state = {}; bck=const ()} s
-                    inl cost' = cost' + to float64 (cost ())
-                    inl accuracy' = accuracy' + accuracy()
-                    inl state = loop (c+1) cost' accuracy'
+                    inl (cost, {value max}), {bck} = network.run data {state = {}; bck=const ()} s
+                    inl cost' = cost' + to float64 (s.CudaTensor.get cost)
+                    inl accuracy' = accuracy' + value
+                    inl accuracy_max' = accuracy_max' + max
+                    inl state = loop (c+1) cost' accuracy' accuracy_max'
                     if nan_is cost' then on_fail state
                     else
                         match d with
                         | {optimizer} ->
                             bck()
-                            network.optimize optimizer s
+                            optimize network optimizer s
                         | _ -> ()
                         on_succ state
-            loop (dyn 0) (dyn 0.0) (dyn 0)
+            loop (dyn 0) (dyn 0.0) (dyn 0) (dyn 0)
 
         inl Body = 
             {
             train test grad_check=grad_check train
             }
        
-        {for Body}
+        {for Body} |> stackify
 
     inl Feedforward = 
         {
-        Layer 
+        Layer={layer sigmoid linear} |> stackify
         Passes
         } |> stack
     
     // #Recurrent
     /// The standard recurrent layer.
     inl layer initializer activation size sublayer =
-        {
-        layer_type = .recurrent
-        gid = gid()
-        size
-        sublayer
-        weights = inl s -> 
-            inl f _ = initializer (sublayer.size, size) s |> dr s
+        recurrent 
             {
-            input = f(); state = f()
-            bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+            size sublayer
+            weights = inl s -> 
+                inl f _ = initializer (sublayer.size, size) s |> dr s
+                {
+                input = f(); state = f()
+                bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+                }
+            apply = inl weights state input -> 
+                match state with
+                | () -> matmultb (input, weights.input) weights.bias >>= activation
+                | state -> matmultb ((input, weights.input), (state, weights.state)) weights.bias >>= activation
+                >>= inl x -> succ (x,x)
             }
-        apply = inl weights state input -> 
-            match state with
-            | () -> matmultb (input, weights.input) weights.bias >>= activation
-            | state -> matmultb ((input, weights.input), (state, weights.state)) weights.bias >>= activation
-            >>= inl x -> succ (x,x)
-        }
 
     /// The recurrent hightway network (LSTM) from the 'Recurrent Highway Networks' paper by Zilly.
     /// The nested layers in the paper are to be standard feedforward highway layers.
     inl highway_lstm size sublayer =
-        {
-        layer_type = .recurrent
-        gid = gid()
-        size
-        sublayer
-        weights = inl s ->
-            open Initializer
-            inl sigmoid _ = sigmoid (sublayer.size, size) s |> dr s
-            inl tanh _ = tanh (sublayer.size, size) s |> dr s
-            inl weights _ = {
-                h = tanh ()
-                t = sigmoid ()
-                c = sigmoid ()
-                }
-            inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-            inl bias init = 
-                inl x = s.CudaTensor.create {elem_type=float; dim=size} 
-                join s.CudaTensor.mmap (const init) x
-                dr s x
+        recurrent 
             {
-            input = weights ()
-            state = weights ()
-            bias = {
-                h = bias0 ()
-                t = bias0 ()
-                c = bias0 ()
+            size sublayer
+            weights = inl s ->
+                open Initializer
+                inl sigmoid _ = sigmoid (sublayer.size, size) s |> dr s
+                inl tanh _ = tanh (sublayer.size, size) s |> dr s
+                inl weights _ = {
+                    h = tanh ()
+                    t = sigmoid ()
+                    c = sigmoid ()
+                    }
+                inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+                inl bias init = 
+                    inl x = s.CudaTensor.create {elem_type=float; dim=size} 
+                    join s.CudaTensor.mmap (const init) x
+                    dr s x
+                {
+                input = weights ()
+                state = weights ()
+                bias = {
+                    h = bias0 ()
+                    t = bias0 ()
+                    c = bias0 ()
+                    }
                 }
+
+            apply = inl {input state bias} s i ->
+                open Activation
+                match s with
+                | () ->
+                    inm h = matmultb (i, input.h) bias.h >>= tanh
+                    inm t = matmultb (i, input.t) bias.t >>= sigmoid
+                    hadmult (h,t)
+                | s ->
+                    inm h = matmultb ((i, input.h), (s, state.h)) bias.h >>= tanh
+                    inm t = matmultb ((i, input.t), (s, state.t)) bias.t >>= sigmoid
+                    inm c = matmultb ((i, input.c), (s, state.c)) bias.c >>= sigmoid
+                    inm x1 = hadmult (h,t)
+                    inm x2 = hadmult (s,c)
+                    add (x1, x2)
+                >>= inl x -> succ (x,x)
             }
-
-        apply = inl {input state bias} s i ->
-            open Activation
-            match s with
-            | () ->
-                inm h = matmultb (i, input.h) bias.h >>= tanh
-                inm t = matmultb (i, input.t) bias.t >>= sigmoid
-                hadmult (h,t)
-            | s ->
-                inm h = matmultb ((i, input.h), (s, state.h)) bias.h >>= tanh
-                inm t = matmultb ((i, input.t), (s, state.t)) bias.t >>= sigmoid
-                inm c = matmultb ((i, input.c), (s, state.c)) bias.c >>= sigmoid
-                inm x1 = hadmult (h,t)
-                inm x2 = hadmult (s,c)
-                add (x1, x2)
-            >>= inl x -> succ (x,x)
-        }
-
-    // The gated recurrent unit
-    // TODO: Test this.
-    //inl gru size sublayer =
-    //    {
-    //    layer_type = .recurrent
-    //    gid = gid()
-    //    size
-    //    sublayer
-    //    weights = inl s ->
-    //        open Initializer
-    //        inl sigmoid _ = sigmoid (sublayer.size, size) s |> dr s
-    //        inl tanh _ = tanh (sublayer.size, size) s |> dr s
-    //        inl weights _ = {
-    //            z = sigmoid ()
-    //            r = sigmoid ()
-    //            h = tanh ()
-    //            }
-    //        inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-    //        {
-    //        input = weights ()
-    //        state = weights ()
-    //        bias = {
-    //            z = bias0 ()
-    //            r = bias0 ()
-    //            h = bias0 ()
-    //            }
-    //        }
-
-    //    apply = inl {input state bias} s i ->
-    //        open Activation
-    //        match s with
-    //        | () ->
-    //            inm z = matmultb (i, input.z) bias.z >>= sigmoid
-    //            inm q = matmultb (i, input.h) bias.h >>= tanh
-    //            hadmult (z,q)
-    //        | s ->
-    //            inm z = matmultb ((i, input.z), (s, state.z)) bias.z >>= sigmoid
-    //            inm r = matmultb ((i, input.r), (s, state.r)) bias.r >>= sigmoid
-    //            inm r = hadmult (s, r)
-    //            inm q = matmultb ((i, input.h), (r, state.h)) bias.h >>= tanh
-    //            activation {
-    //                fwd = inl z,s,q -> (one - z) * s + z * q
-    //                bck = 
-    //                    inl {in=z,s,q} -> q - s
-    //                    ,inl {in=z,s,q} -> one - z
-    //                    ,inl {in=z,s,q} -> z
-    //                } (z,s,q)
-    //        >>= inl x -> succ (x,x)
-    //    }
 
     inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
     inl linear = layer Initializer.sigmoid succ
 
-    inl Layer = {input error create layer sigmoid linear highway_lstm} |> stack
-
     inl Body =
-        inl train {d with network} =
+        inl train {d with network load} =
             inl rec loop c cost' state region_clear = 
                 function
                 | .unwrap -> region_clear(); cost' / to float64 c
@@ -2249,9 +2212,10 @@ inl float ->
                         state=const zero, {state bck=const ()}
                         body=inl {state=cost',d i} ->
                             inl data = Tuple.map ((|>) i) data
-                            inl {cost}, d = network.run data d s
+                            inl cost, d = run network (load d data) s
                             inl bck = term_cast d.bck ()
-                            inl cost _ = cost'() + cost ()
+                            inl get = s.CudaTensor.get
+                            inl cost _ = cost'() + get cost
                             term_cast cost (), {d with bck without input}
                         finally=inl cost, {bck state} ->
                             macro.fs () [text: "// Done with foru..."]
@@ -2275,7 +2239,7 @@ inl float ->
                                 match d with
                                 | {optimizer} ->
                                     bck()
-                                    join network.optimize optimizer s
+                                    join optimize network optimizer s
                                 | _ -> ()
                                 region_clear()
                                 macro.fs () [text: "// Done with body..."]
@@ -2284,12 +2248,13 @@ inl float ->
             loop (dyn 0) (dyn 0.0) {} (const ())
         {
         train grad_check=grad_check train
-        }
+        } |> stackify
 
-    inl Passes = {for Body}
-    inl Recurrent = {Layer Passes}
+    inl Recurrent = 
+        {
+        Layer = {layer sigmoid linear highway_lstm} |> stackify
+        Passes = {for Body} |> stackify
+        } |> stackify
 
-    inl Layer = {input stateless non_diff feedforward recurrent} |> stackify
-
-    { dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Feedforward Recurrent }
+    { dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent }
     """) |> module_
