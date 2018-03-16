@@ -1406,12 +1406,12 @@ inl map_d2_redo_map' w {d with redo neutral_elem} in in' out =
                 }
             } |> ignore
 
-inl map_dx_redo_map_template dim kernel w d in in' =
+inl map_dx_redo_map_template select kernel w d in in' =
     indiv join
         inl in = zip in
         inl in' = 
             match in' with
-            | () -> HostTensor.create {elem_type=(); dim}
+            | () -> HostTensor.create {elem_type=(); dim=select in.dim}
             | in' -> zip in'
 
         inl map_in = match d with {map_in} -> map_in | _ -> const
@@ -1422,8 +1422,8 @@ inl map_dx_redo_map_template dim kernel w d in in' =
         kernel w {d with map_in map_out} in in' out
         stack out
 
-inl map_d1_redo_map w d in = map_dx_redo_map_template (fst in.dim) map_d1_redo_map' w d in
-inl map_d2_redo_map w d in = map_dx_redo_map_template (snd in.dim) map_d2_redo_map' w d in
+inl map_d1_redo_map w d in = map_dx_redo_map_template fst map_d1_redo_map' w d in
+inl map_d2_redo_map w d in = map_dx_redo_map_template snd map_d2_redo_map' w d in
 
 inl map_dx_scan_map_template kernel w d in =
     indiv join
@@ -1780,6 +1780,7 @@ inl float ->
             ,inl {in=x, y} -> log (one - x) - log x
         }
 
+    /// Applies a softmax and then calculates the cross entropy cost. Is intended to take a linear layer as input.
     inl softmax_cross_entropy label input s =
         inl batch_size = primal input .span_outer |> to float
         inl div_by_minibatch_size x = x / batch_size
@@ -1812,13 +1813,17 @@ inl float ->
             inl f = f >> div_by_minibatch_size
             s.CudaKernel.map' (inl x o -> o + f x)
 
-        inl p = softmax.activation input
-        inl cost = softmax.cost label p
+        inl p = softmax.activation (primal input)
+        inl cost =
+            softmax.cost (primal label) p
+            |> inl cost _ -> s.CudaTensor.get cost
         inl bck _ = join
-            on_non_nil input.adjoint <| bck (inl p, label -> p - label) (p.primal, label.primal)
-            on_non_nil label.adjoint <| bck (inl p -> -(log p)) p.primal
+            on_non_nil (adjoint input) <| bck (inl p, label -> p - label) (p, primal label)
+            on_non_nil (adjoint label) <| bck (log >> negate) p
 
-        inl accuracy _ = accuracy label p s
+        inl accuracy =
+            inl label = primal label
+            inl _ -> accuracy label p s
         {cost accuracy}, bck
 
     inl Error = {square cross_entropy softmax_cross_entropy} |> stackify

@@ -587,8 +587,8 @@ inl network =
     inl input = input input_size
     inl network =
         input
-        |> sigmoid hidden_size
-        |> error cross_entropy label
+        |> linear hidden_size
+        |> error softmax_cross_entropy label
     create (input,label) network s
 
 Loops.for' {from=0; near_to=10;body=inl {next} -> 
@@ -723,6 +723,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
-//|> printfn "%s"
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
+|> printfn "%s"
 |> ignore
