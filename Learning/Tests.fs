@@ -582,6 +582,7 @@ inl hidden_size = 10
 
 inl network = 
     open Layer
+    open Feedforward
     open Feedforward.Layer
 
     inl label = input .label hidden_size
@@ -611,8 +612,7 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
     if nan_is cost then
         Console.writeline "Training diverged. Aborting..."
     else
-        inl max_ac = test_labels.span_outer2
-        inl cost, ac =
+        inl cost, ac, max_ac =
             for {
                 data={input=test_images; label=test_labels}
                 body=test {

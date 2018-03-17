@@ -1739,7 +1739,7 @@ inl float ->
     inl accuracy label input s =
         inl input, label = primal input, primal label
         inl max = input .span_outer
-        inl accuracy =
+        inl value =
             s.CudaKernel.map_d1_redo_map {
                 map_in=const
                 neutral_elem=-infinity,zero
@@ -1965,7 +1965,12 @@ inl float ->
             apply = inl input, label -> cost label input
             }
 
-    inl accuracy = error accuracy
+    inl accuracy label input =
+        non_differentiable
+            {
+            sublayer = input, label
+            apply = inl input, label -> accuracy label input
+            }
 
     inl Layer = {input stateless non_differentiable feedforward recurrent parallel error accuracy} |> stackify
 
@@ -2068,9 +2073,10 @@ inl float ->
         } |> stackify
 
     // #Feedforward
-    inl layer initializer activation =
+    inl layer initializer activation size sublayer =
         feedforward
             {
+            size sublayer
             weights = inl s -> {
                 input = initializer (sublayer.size, size) s |> dr s
                 bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
