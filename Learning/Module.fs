@@ -1808,6 +1808,9 @@ inl float ->
             inl f = f >> div_by_minibatch_size
             s.CudaKernel.map' (inl x o -> o + f x)
 
+        //s.CudaTensor.print (primal input)
+        s.CudaTensor.print (primal label)
+
         inl p = softmax.activation (primal input)
         inl cost = softmax.cost (primal label) p
         inl bck _ = join
