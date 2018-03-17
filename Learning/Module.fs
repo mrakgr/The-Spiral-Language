@@ -2203,9 +2203,18 @@ inl float ->
     inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
     inl linear = layer Initializer.sigmoid succ
 
+    inl prune_state state s =
+        inl s = s.RegionMem.create
+        inl state =
+            HostTensor.toa_map (inl {primal} ->
+                primal.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)
+                ) state
+        inl region_clear _ = s.RegionMem.clear        
+        state, region_clear
+
     inl Body =
         inl train {d with network} =
-            inl rec loop c cost' state region_clear = 
+            inl rec loop c cost' (state, region_clear) = 
                 function
                 | .unwrap -> region_clear(); cost' / to float64 c
                 | input s {on_fail on_succ} ->
@@ -2221,22 +2230,11 @@ inl float ->
                             inl cost _ = cost'() + get cost
                             term_cast cost (), {d with bck without input}
                         finally=inl cost, {bck state} ->
-                            macro.fs () [text: "// Done with foru..."]
-
                             inl cost' = cost' + to float64 (cost ())
-
-                            inl state = 
-                                inl s = s.RegionMem.create
-                                inl state =
-                                    HostTensor.toa_map (inl {primal} ->
-                                        primal.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)
-                                        ) state
-                                inl region_clear _ = s.RegionMem.clear        
-                                loop (c+1) cost' state region_clear
+                            inl state = loop (c+1) cost' (prune_state state s)
 
                             if nan_is cost' then 
                                 region_clear()
-                                macro.fs () [text: "// Is nan..."]
                                 on_fail state
                             else
                                 match d with
@@ -2245,7 +2243,6 @@ inl float ->
                                     join optimize network optimizer s
                                 | _ -> ()
                                 region_clear()
-                                macro.fs () [text: "// Done with body..."]
                                 on_succ state
                         }
             loop (dyn 0) (dyn 0.0) {} (const ())
@@ -2253,10 +2250,32 @@ inl float ->
         train grad_check=grad_check train
         } |> stackify
 
+    inl sample near_to network input =
+        Loops.foru {
+            from=0; near_to 
+            state=(), {}, const (), input
+            body=inl {state=buffer,state,region_clear,input i} ->
+                s.refresh
+                inb s = s.RegionMem.create'
+                inl (input,piece),{state} = run network {input state} s
+                inl buffer =
+                    match buffer with
+                    | () -> ResizeArray.create {elem_type=type piece}
+                    | _ -> buffer
+                buffer.add piece
+                
+                inl state, region_clear' = prune_state state s
+                region_clear()
+                buffer, state, region_clear', input
+            finally=inl buffer,state,region_clear, input ->
+                region_clear()
+                buffer.to_array
+            }
+
     inl Recurrent = 
         {
         Layer = {Layer with init layer sigmoid linear highway_lstm} |> stackify
-        Passes = {for Body} |> stackify
+        Passes = {for sample Body} |> stackify
         } |> stackify
 
     { dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent }
