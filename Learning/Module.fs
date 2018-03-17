@@ -2130,8 +2130,7 @@ inl float ->
 
     inl Feedforward = 
         {
-        init
-        Layer={layer sigmoid linear} |> stackify
+        Layer={Layer with init layer sigmoid linear} |> stackify
         Passes
         } |> stack
     
@@ -2256,8 +2255,7 @@ inl float ->
 
     inl Recurrent = 
         {
-        init
-        Layer = {layer sigmoid linear highway_lstm} |> stackify
+        Layer = {Layer with init layer sigmoid linear highway_lstm} |> stackify
         Passes = {for Body} |> stackify
         } |> stackify
 

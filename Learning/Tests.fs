@@ -581,8 +581,6 @@ inl input_size = 784
 inl hidden_size = 10
 
 inl network = 
-    open Layer
-    open Feedforward
     open Feedforward.Layer
 
     inl label = input .label hidden_size
