@@ -1081,7 +1081,6 @@ inl map_d1_redo_map' w {d with redo neutral_elem} in in' out =
         inl in = to_dev_tensor in
         inl in' = to_dev_tensor in'
         inl out = to_dev_tensor out
-        inl map_in = match d with {map_in} -> map_in | _ -> const
         inl map_out = match d with {map_out} -> map_out | _ -> const
         
         run {
@@ -1095,8 +1094,10 @@ inl map_d1_redo_map' w {d with redo neutral_elem} in in' out =
                     inl x = 
                         grid_for .x dim_in_b {state=dyn neutral_elem; body=inl {state i} ->
                             inl in = in i 
-                            inl a = in.get
-                            redo state (map_in a in'.get)
+                            match d with
+                            | {map_in} -> redo state (map_in in.get in'.get)
+                            | {mapi_in} -> redo state (mapi_in i in.get in'.get)
+                            | _ -> redo state in.get
                             }
                         |> cub_block_reduce {blockDim redo}
 
@@ -1353,7 +1354,6 @@ inl map_d2_redo_map' w {d with redo neutral_elem} in in' out =
         inl in = to_dev_tensor in
         inl in' = to_dev_tensor in'
         inl out = to_dev_tensor out
-        inl map_in = match d with {map_in} -> map_in | _ -> const
         inl map_out = match d with {map_out} -> map_out | _ -> const
 
         run {
@@ -1370,7 +1370,10 @@ inl map_d2_redo_map' w {d with redo neutral_elem} in in' out =
                     inl state = 
                         grid_for .y dim_in_a {state=dyn neutral_elem; body=inl {state i} -> 
                             inl in = in i 
-                            redo state (map_in in.get in'.get) 
+                            match d with
+                            | {map_in} -> redo state (map_in in.get in'.get) 
+                            | {mapi_in} -> redo state (mapi_in i in.get in'.get) 
+                            | _ -> redo state in.get
                             }
                         
                     if blockDim.y > 1 then
@@ -1416,12 +1419,12 @@ inl map_dx_redo_map_template select kernel w d in in' =
             | () -> HostTensor.create {elem_type=(); dim=select in.dim}
             | in' -> zip in'
 
-        inl map_in = match d with {map_in} -> map_in | _ -> const
         inl map_out, elem_type = 
+            inl map_in = match d with {map_in} -> map_in | {mapi_in} -> mapi_in 0 | _ -> const
             inl ty = type map_in in.elem_type in'.elem_type
             match d with {map_out} -> (inl a _ -> map_out a),(type map_out ty) | _ -> const, ty
         inl out = w.CudaTensor.create {elem_type dim=in'.dim}
-        kernel w {d with map_in map_out} in in' out
+        kernel w {d with map_out} in in' out
         stack out
 
 inl map_d1_redo_map w d in = map_dx_redo_map_template fst map_d1_redo_map' w d in

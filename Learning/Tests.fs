@@ -192,6 +192,12 @@ inl o1 = f (inl a b -> a+1) ()
 inl o2 = f (inl a b -> a+b) a2
 
 Tuple.iter s.CudaTensor.print (a1,o1,o2)
+
+s.CudaKernel.map_d2_redo_map {
+    mapi_in=inl i a _ -> a, i
+    neutral_elem=-555,-1; redo=inl a b -> if fst a > fst b then a else b
+    } a1 ()
+|> s.CudaTensor.print
     """
 
 let kernel5 =
@@ -215,6 +221,15 @@ inl f a1 a2 =
 inl o1 = f (a1, a2) ()
 
 Tuple.iter s.CudaTensor.print (a1,o1)
+
+inl f a1 =
+    s.CudaKernel.map_d1_redo_map {
+        mapi_in=inl i a _ -> a,i
+        neutral_elem=-infinityf32,-1
+        redo=inl a b -> if fst a > fst b then a else b
+        } a1 ()
+
+s.CudaTensor.print (f a1)
     """
 
 let kernel6 =
@@ -723,7 +738,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel4
 |> printfn "%s"
 |> ignore
 
