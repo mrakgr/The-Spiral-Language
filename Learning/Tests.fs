@@ -590,8 +590,8 @@ inl network =
         input .input input_size 
         |> linear hidden_size 
         |> init s
-    inl train = error Error.softmax_cross_entropy network label
-    inl test = parallel (train, accuracy network label)
+    inl train = error Error.softmax_cross_entropy label network
+    inl test = parallel (train, accuracy label network)
     {train test}
 
 Loops.for' {from=0; near_to=10;body=inl {next} -> 
