@@ -1697,11 +1697,6 @@ inl float ->
 
     inl succ x _ = x, const ()
 
-    // Inits the layers. Takes the runner function as the first argument and input size as the second.
-    inl init run !(Tuple.wrap) layers input_size s = 
-        inl f input_size, l x = x input_size s |> inl layer,(input_size,l') -> layer,(input_size,l' :: l)
-        Tuple.foldl_map f (input_size,()) layers |> inl a,b -> run a, b
-
     inl multiply_by_adjoint f {d with out={A P} in} = toa_map ((*) A) (f {in out=P})
 
     // #Activation
