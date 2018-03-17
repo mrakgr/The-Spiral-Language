@@ -2072,13 +2072,13 @@ inl float ->
 
     // #Auxiliary
     inl one_hot_encode size tns s =
-        inl tns = s.CudaTensor.to_dev_tensor tns
-        inl f tns b = if b = tns.get then one else zero
-        inl f = Tuple.foldr (inl _ next tns x -> next (tns x)) tns.dim f tns
+        inl f = 
+            inl rec f tns = function
+                | x :: x' -> inl x -> f (tns x) x')
+                | () -> inl x -> if x = tns.get then one else zero
+            f (s.CudaTensor.to_dev_tensor tns) (type tns.dim)
 
-        s.CudaTensor.{rev_thread_limit=32; dim=Tuple.append x.dim (Tuple.wrap size)}
-            (inl a b ->
-                )
+        s.CudaTensor.{rev_thread_limit=32; dim=Tuple.append x.dim (Tuple.wrap size)} f
 
     // #Feedforward
     inl layer initializer activation size sublayer =
