@@ -2070,6 +2070,16 @@ inl float ->
         layer_map_fold layer_map init optimize run
         } |> stackify
 
+    // #Auxiliary
+    inl one_hot_encode size tns s =
+        inl tns = s.CudaTensor.to_dev_tensor tns
+        inl f tns b = if b = tns.get then one else zero
+        inl f = Tuple.foldr (inl _ next tns x -> next (tns x)) tns.dim f tns
+
+        s.CudaTensor.{rev_thread_limit=32; dim=Tuple.append x.dim (Tuple.wrap size)}
+            (inl a b ->
+                )
+
     // #Feedforward
     inl layer initializer activation size sublayer =
         feedforward
@@ -2260,12 +2270,12 @@ inl float ->
             body=inl {state=buffer,state,region_clear,input i} ->
                 s.refresh
                 inb s = s.RegionMem.create'
-                inl (input,piece),{state} = run network {input state} s
+                inl input,{state} = run network {input state} s
                 inl buffer =
                     match buffer with
-                    | () -> ResizeArray.create {elem_type=type piece}
+                    | () -> ResizeArray.create {elem_type=type input}
                     | _ -> buffer
-                buffer.add piece
+                buffer.add input
                 
                 inl state, region_clear' = prune_state state s
                 region_clear()
