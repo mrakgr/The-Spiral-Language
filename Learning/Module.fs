@@ -2071,14 +2071,14 @@ inl float ->
         } |> stackify
 
     // #Auxiliary
-    inl one_hot_encode size tns s =
+    inl encode_one_hot size tns s =
         inl f = 
             inl rec f tns = function
                 | x :: x' -> inl x -> f (tns x) x')
                 | () -> inl x -> if x = tns.get then one else zero
             f (s.CudaTensor.to_dev_tensor tns) (type tns.dim)
 
-        s.CudaTensor.{rev_thread_limit=32; dim=Tuple.append x.dim (Tuple.wrap size)} f
+        s.CudaTensor.init {rev_thread_limit=32; dim=Tuple.append x.dim (Tuple.wrap size)} f
 
     // #Feedforward
     inl layer initializer activation size sublayer =
