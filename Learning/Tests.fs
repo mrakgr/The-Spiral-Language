@@ -693,6 +693,7 @@ inl network =
     inl network =
         input
         |> highway_lstm 512
+        |> highway_lstm size.hot
         |> Feedforward.Layer.highway size.hot
         |> init s
     
@@ -708,7 +709,7 @@ Loops.for' {from=0; near_to=5; body=inl {next} ->
             data
             body=train {
                 network=network.train
-                optimizer=Optimizer.sgd 0.25f32
+                optimizer=Optimizer.sgd 0.1f32
                 }
             } s
 

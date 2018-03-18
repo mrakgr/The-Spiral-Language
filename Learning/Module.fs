@@ -2138,22 +2138,21 @@ inl float ->
     inl sigmoid = layer Initializer.sigmoid sigmoid
     inl linear = layer Initializer.sigmoid succ
 
-    inl highway size sublayer =
+    inl highway sublayer =
         feedforward
             {
             size sublayer
             weights = inl s ->
                 open Initializer
-                inl sigmoid sublayer_size = sigmoid (sublayer_size, size) s |> dr s
-                inl tanh sublayer_size = tanh (sublayer_size, size) s |> dr s
-                inl weights sublayer_size = {
-                    h = tanh sublayer_size
-                    t = sigmoid sublayer_size
-                    c = sigmoid sublayer_size
-                    }
-                inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+                inl sigmoid _ = sigmoid (sublayer.size, sublayer.size) s |> dr s
+                inl tanh _ = tanh (sublayer.size, sublayer.size) s |> dr s
+                inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=sublayer.size} |> dr s
                 {
-                input = weights sublayer.size
+                input = {
+                    h = tanh ()
+                    t = sigmoid ()
+                    c = sigmoid ()
+                    }
                 bias = {
                     h = bias0 ()
                     t = bias0 ()
