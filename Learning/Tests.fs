@@ -651,7 +651,7 @@ open Error
 
 inl size = {
     seq = 1115394
-    minibatch = 64
+    minibatch = 256
     step = 64
     hot = 128
     }
@@ -692,7 +692,7 @@ inl network =
     inl input = input .input size.hot
     inl network =
         input
-        |> highway_lstm 256
+        |> sigmoid 256
         |> Feedforward.Layer.linear size.hot
         |> init s
     
