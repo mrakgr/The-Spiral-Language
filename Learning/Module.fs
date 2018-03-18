@@ -1863,8 +1863,8 @@ inl float ->
             inl stddev = sqrt (mult / to float32 (Tuple.foldl (+) 0 dim))
             s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
         { // TODO: I am not sure about tanh here but it should do. Check if varying the multiple improves perforance.
-        sigmoid = init 1f32
-        tanh = init 1.5f32
+        sigmoid = init 2f32
+        tanh = init 3f32
         }
 
     // #Loops
