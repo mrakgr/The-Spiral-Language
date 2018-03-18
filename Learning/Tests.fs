@@ -171,7 +171,7 @@ Tuple.iter s.CudaTensor.print (o1,o2)
     """
 
 let kernel4 =
-    "kernel4",[cuda_modules],"Does the map_d2_redo_map' kernel work?",
+    "kernel4",[cuda_modules],"Does the mapi_d2_redo_map' kernel work?",
     """
 inb s = CudaModules (1024*1024)
 
@@ -183,7 +183,7 @@ inl h' = HostTensor.init inner_size (const 10)
 inl a1 = s.CudaTensor.from_host_tensor h
 inl a2 = s.CudaTensor.from_host_tensor h'
 inl f map_in a2 =
-    s.CudaKernel.map_d2_redo_map {
+    s.CudaKernel.mapi_d2_redo_map {
         map_in
         neutral_elem=0; redo=(+)
         map_out=inl a -> a/2
@@ -193,15 +193,15 @@ inl o2 = f (inl a b -> a+b) a2
 
 Tuple.iter s.CudaTensor.print (a1,o1,o2)
 
-s.CudaKernel.map_d2_redo_map {
-    mapi_in=inl i a _ -> a, i
+s.CudaKernel.mapi_d2_redo_map {
+    mapi_in=inl j i a _ -> a, i
     neutral_elem=-555,-1; redo=inl a b -> if fst a > fst b then a else b
     } a1 ()
 |> s.CudaTensor.print
     """
 
 let kernel5 =
-    "kernel5",[cuda_modules],"Does the map_d1_redo_map' kernel work?",
+    "kernel5",[cuda_modules],"Does the mapi_d1_redo_map' kernel work?",
     """
 inb s = CudaModules (1024*1024)
 
@@ -212,7 +212,7 @@ inl a1 = s.CudaRandom.create .Uniform {elem_type=float32; dim=outer_size,inner_s
 inl a2 = s.CudaRandom.create .Uniform {elem_type=float32; dim=outer_size,inner_size}
 inl a3 = s.CudaTensor.create {elem_type=float32; dim=1}
 inl f a1 a2 =
-    s.CudaKernel.map_d1_redo_map {
+    s.CudaKernel.mapi_d1_redo_map {
         map_in=const
         neutral_elem=-infinityf32,0f32
         redo=inl a b -> if fst a > fst b then a else b
@@ -223,8 +223,8 @@ inl o1 = f (a1, a2) ()
 Tuple.iter s.CudaTensor.print (a1,o1)
 
 inl f a1 =
-    s.CudaKernel.map_d1_redo_map {
-        mapi_in=inl i a _ -> a,i
+    s.CudaKernel.mapi_d1_redo_map {
+        mapi_in=inl j i a _ -> a,i
         neutral_elem=-infinityf32,-1
         redo=inl a b -> if fst a > fst b then a else b
         } a1 ()

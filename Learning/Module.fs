@@ -1064,7 +1064,7 @@ inl map_d1_inscan_map' w {d with redo neutral_elem} in out =
             }
 
 /// Maps the two inputs and then reduces the first's inner dimension.
-inl map_d1_redo_map' w {d with redo neutral_elem} in in' out = 
+inl mapi_d1_redo_map' w {d with redo neutral_elem} in in' out = 
     inl to_dev_tensor = w.CudaTensor.to_dev_tensor
     inl run = w.run
     join
@@ -1092,11 +1092,11 @@ inl map_d1_redo_map' w {d with redo neutral_elem} in in' out =
                     inl in, in' = in i, in' i
 
                     inl x = 
-                        grid_for .x dim_in_b {state=dyn neutral_elem; body=inl {state i} ->
-                            inl in = in i 
+                        grid_for .x dim_in_b {state=dyn neutral_elem; body=inl {state i=j} ->
+                            inl in = in j
                             match d with
                             | {map_in} -> redo state (map_in in.get in'.get)
-                            | {mapi_in} -> redo state (mapi_in i in.get in'.get)
+                            | {mapi_in} -> redo state (mapi_in i j in.get in'.get)
                             | _ -> redo state in.get
                             }
                         |> cub_block_reduce {blockDim redo}
@@ -1336,7 +1336,7 @@ inl map_d2_inscan_map' w {d with redo neutral_elem} in out =
             }
 
 /// Maps the two inputs and then reduces the first's outer dimension.
-inl map_d2_redo_map' w {d with redo neutral_elem} in in' out =
+inl mapi_d2_redo_map' w {d with redo neutral_elem} in in' out =
     inl to_dev_tensor = w.CudaTensor.to_dev_tensor
     inl run = w.run
     join
@@ -1368,11 +1368,11 @@ inl map_d2_redo_map' w {d with redo neutral_elem} in in' out =
                     inl finally result = out.set (map_out result out.get)
 
                     inl state = 
-                        grid_for .y dim_in_a {state=dyn neutral_elem; body=inl {state i} -> 
-                            inl in = in i 
+                        grid_for .y dim_in_a {state=dyn neutral_elem; body=inl {state i=j} -> 
+                            inl in = in j
                             match d with
                             | {map_in} -> redo state (map_in in.get in'.get) 
-                            | {mapi_in} -> redo state (mapi_in i in.get in'.get) 
+                            | {mapi_in} -> redo state (mapi_in i j in.get in'.get) 
                             | _ -> redo state in.get
                             }
                         
@@ -1420,15 +1420,15 @@ inl map_dx_redo_map_template select kernel w d in in' =
             | in' -> zip in'
 
         inl map_out, elem_type = 
-            inl map_in = match d with {map_in} -> map_in | {mapi_in} -> mapi_in 0 | _ -> const
+            inl map_in = match d with {map_in} -> map_in | {mapi_in} -> mapi_in 0 0 | _ -> const
             inl ty = type map_in in.elem_type in'.elem_type
             match d with {map_out} -> (inl a _ -> map_out a),(type map_out ty) | _ -> const, ty
         inl out = w.CudaTensor.create {elem_type dim=in'.dim}
         kernel w {d with map_out} in in' out
         stack out
 
-inl map_d1_redo_map w d in = map_dx_redo_map_template fst map_d1_redo_map' w d in
-inl map_d2_redo_map w d in = map_dx_redo_map_template snd map_d2_redo_map' w d in
+inl mapi_d1_redo_map w d in = map_dx_redo_map_template fst mapi_d1_redo_map' w d in
+inl mapi_d2_redo_map w d in = map_dx_redo_map_template snd mapi_d2_redo_map' w d in
 
 inl map_dx_scan_map_template kernel w d in =
     indiv join
@@ -1526,7 +1526,7 @@ inl init w {d with dim} f =
 
 inl methods =
     {
-    map' map map_redo_map d2_replicate_map' d2_replicate_map map_d1_redo_map' map_d1_redo_map map_d2_redo_map' map_d2_redo_map
+    map' map map_redo_map d2_replicate_map' d2_replicate_map mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
     map_d1_seq_broadcast' map_d1_seq_broadcast init' init
@@ -1649,7 +1649,7 @@ inl float ->
         inl out = s.CudaKernel.d2_replicate_map fwd primal primal' |> dr s
         out, inl _ -> join
             inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
-            on_non_nil adjoint (s.CudaKernel.map_d2_redo_map' bck_in {in'=primal'; out} primal)
+            on_non_nil adjoint (s.CudaKernel.mapi_d2_redo_map' bck_in {in'=primal'; out} primal)
             on_non_nil adjoint' (s.CudaKernel.d2_replicate_map' bck_in' primal {in'=primal'; out})
 
     inl matmultb l bias s = 
@@ -1671,7 +1671,7 @@ inl float ->
                 on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A)
                 on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B)
                 ) l
-            on_non_nil (adjoint bias) (inl bias -> s.CudaKernel.map_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
+            on_non_nil (adjoint bias) (inl bias -> s.CudaKernel.mapi_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
 
     inl add_bias = d2_replicate_map {
         fwd=(+)
@@ -1738,7 +1738,7 @@ inl float ->
         inl input, label = primal input, primal label
         inl max = input .span_outer
         inl value =
-            s.CudaKernel.map_d1_redo_map {
+            s.CudaKernel.mapi_d1_redo_map {
                 map_in=const
                 neutral_elem=-infinity,zero
                 redo=inl a b -> if fst a > fst b then a else b
@@ -2074,7 +2074,7 @@ inl float ->
     inl encode_one_hot size tns s =
         inl f = 
             inl rec f tns = function
-                | x :: x' -> inl x -> f (tns x) x')
+                | _ :: x' -> inl x -> f (tns x) x')
                 | () -> inl x -> if x = tns.get then one else zero
             f (s.CudaTensor.to_dev_tensor tns) (type tns.dim)
 
@@ -2275,7 +2275,7 @@ inl float ->
                     match buffer with
                     | () -> ResizeArray.create {elem_type=type input}
                     | _ -> buffer
-                buffer.add input
+                buffer.add (s.CudaTensor.get input)
                 
                 inl state, region_clear' = prune_state state s
                 region_clear()
