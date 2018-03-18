@@ -2229,9 +2229,9 @@ inl float ->
             {
             size sublayer
             weights = inl s -> 
-                inl f _ = initializer (sublayer.size, size) s |> dr s
                 {
-                input = f(); state = f()
+                input = initializer (sublayer.size, size) s |> dr s
+                state = initializer (size, size) s |> dr s
                 bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
                 }
             apply = inl weights state input -> 

@@ -692,14 +692,14 @@ inl network =
     inl input = input .input size.hot
     inl network =
         input
-        |> sigmoid 256
-        |> Feedforward.Layer.linear size.hot
+        |> highway_lstm 256
+        |> Feedforward.Layer.sigmoid size.hot
         |> init s
     
-    inl train = error Error.softmax_cross_entropy label network
+    inl train = error Error.square label network
     {train}
 
-Loops.for' {from=0; near_to=20; body=inl {next} -> 
+Loops.for' {from=0; near_to=50; body=inl {next} -> 
     open Recurrent.Passes
     open Body
 
@@ -708,7 +708,7 @@ Loops.for' {from=0; near_to=20; body=inl {next} ->
             data
             body=train {
                 network=network.train
-                //optimizer=Optimizer.sgd 0.001f32
+                optimizer=Optimizer.sgd 0.001f32
                 }
             } s
 
