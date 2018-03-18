@@ -2080,6 +2080,25 @@ inl float ->
 
         s.CudaTensor.init {rev_thread_limit=32; dim=Tuple.append x.dim (Tuple.wrap size)} f
 
+    inl sample prob s =
+        inl boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=fst prob.dim}
+        s.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
+            scan={
+                ne=0f32
+                f=(+)
+                }
+            mapi_mid=inl _ index prob boundary -> 
+                inl x = prob - boundary
+                (if x < 0f32 then infinityf32 else x), index
+            redo={
+                ne=infinityf32,0
+                f=inl a b -> if fst a < fst b then a else b
+                }
+            map_out=snd
+            } prob boundary
+
+    inl Auxiliary = {encode_one_hot sample} |> stackify
+
     // #Feedforward
     inl layer initializer activation size sublayer =
         feedforward
