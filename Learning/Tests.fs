@@ -708,7 +708,7 @@ Loops.for' {from=0; near_to=20; body=inl {next} ->
             data
             body=train {
                 network=network.train
-                optimizer=Optimizer.sgd 0.001f32
+                //optimizer=Optimizer.sgd 0.001f32
                 }
             } s
 
