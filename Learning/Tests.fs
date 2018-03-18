@@ -695,7 +695,7 @@ inl network =
         //|> highway_lstm 512
         //|> Feedforward.Layer.sigmoid size.hot
         |> sigmoid size.hot
-        |> Feedforward.Layer.sigmoid size.hot
+        |> Feedforward.Layer.highway size.hot
         |> init s
     
     inl train = error Error.square label network

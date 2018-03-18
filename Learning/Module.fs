@@ -2138,6 +2138,39 @@ inl float ->
     inl sigmoid = layer Initializer.sigmoid sigmoid
     inl linear = layer Initializer.sigmoid succ
 
+    inl highway size sublayer =
+        feedforward
+            {
+            size sublayer
+            weights = inl s ->
+                open Initializer
+                inl sigmoid sublayer_size = sigmoid (sublayer_size, size) s |> dr s
+                inl tanh sublayer_size = tanh (sublayer_size, size) s |> dr s
+                inl weights sublayer_size = {
+                    h = tanh sublayer_size
+                    t = sigmoid sublayer_size
+                    c = sigmoid sublayer_size
+                    }
+                inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+                {
+                input = weights sublayer.size
+                bias = {
+                    h = bias0 ()
+                    t = bias0 ()
+                    c = bias0 ()
+                    }
+                }
+
+            apply = inl {input bias} i ->
+                open Activation
+                inm h = matmultb (i, input.h) bias.h >>= tanh
+                inm t = matmultb (i, input.t) bias.t >>= sigmoid
+                inm c = matmultb (i, input.c) bias.c >>= sigmoid
+                inm x1 = hadmult (h,t)
+                inm x2 = hadmult (i,c)
+                add (x1, x2)
+            }
+
     inl Passes =
         inl train {d with network} =
             inl rec loop c cost' = 
@@ -2186,7 +2219,7 @@ inl float ->
 
     inl Feedforward = 
         {
-        Layer={Layer with init layer sigmoid linear} |> stackify
+        Layer={Layer with init layer sigmoid linear highway} |> stackify
         Passes
         } |> stack
     
