@@ -1863,8 +1863,8 @@ inl float ->
             inl stddev = sqrt (mult / to float32 (Tuple.foldl (+) 0 dim))
             s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
         { // TODO: I am not sure about tanh here but it should do. Check if varying the multiple improves perforance.
-        sigmoid = init 2f32
-        tanh = init 3f32
+        sigmoid = init 1f32
+        tanh = init 1.5f32
         }
 
     // #Loops
@@ -2217,12 +2217,12 @@ inl float ->
             size sublayer
             weights = inl s ->
                 open Initializer
-                inl sigmoid _ = sigmoid (sublayer.size, size) s |> dr s
-                inl tanh _ = tanh (sublayer.size, size) s |> dr s
-                inl weights _ = {
-                    h = tanh ()
-                    t = sigmoid ()
-                    c = sigmoid ()
+                inl sigmoid sublayer_size = sigmoid (sublayer_size, size) s |> dr s
+                inl tanh sublayer_size = tanh (sublayer_size, size) s |> dr s
+                inl weights sublayer_size = {
+                    h = tanh sublayer_size
+                    t = sigmoid sublayer_size
+                    c = sigmoid sublayer_size
                     }
                 inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
                 inl bias init = 
@@ -2230,8 +2230,8 @@ inl float ->
                     join s.CudaTensor.mmap (const init) x
                     dr s x
                 {
-                input = weights ()
-                state = weights ()
+                input = weights sublayer.size
+                state = weights size
                 bias = {
                     h = bias0 ()
                     t = bias0 ()

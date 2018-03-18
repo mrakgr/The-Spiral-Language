@@ -692,15 +692,16 @@ inl network =
     inl input = input .input size.hot
     inl network =
         input
-        |> highway_lstm 512
+        //|> highway_lstm 512
+        //|> Feedforward.Layer.sigmoid size.hot
+        |> sigmoid size.hot
         |> Feedforward.Layer.sigmoid size.hot
-        //|> sigmoid size.hot
         |> init s
-
+    
     inl train = error Error.square label network
     {train}
 
-Loops.for' {from=0; near_to=30; body=inl {next} -> 
+Loops.for' {from=0; near_to=5; body=inl {next} -> 
     open Recurrent.Passes
     open Body
 
