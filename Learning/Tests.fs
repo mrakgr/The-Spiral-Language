@@ -681,28 +681,25 @@ inl input =
             )
         .round_split' size.step
 
-inl label = input.view_span (const {from=1}) //.view_span (const 16)
-inl input = input.view_span (inl x :: _ -> x-1) //.view_span (const 16)
-inl data = input, label
+inl label = input.view_span (const {from=1})
+inl input = input.view_span (inl x :: _ -> x-1)
+inl data = {input label}
 
 inl network = 
     open Recurrent.Layer
     
-    inl label = input size.hot
-    inl input = input size.hot
+    inl label = input .label size.hot
+    inl input = input .input size.hot
     inl network =
         input
-        //|> sigmoid size.hot
         |> highway_lstm size.hot 
-        |> highway_lstm size.hot 
-        |> highway_lstm size.hot 
-        |> highway_lstm size.hot 
-        |> highway_lstm size.hot 
-        |> Feedforward.Layer.sigmoid size.hot
-        |> error square label
-    create (input,label) network s
+        |> Feedforward.Layer.linear size.hot
+        |> init s
 
-Loops.for' {from=0; near_to=5;body=inl {next} -> 
+    inl train = error Error.softmax_cross_entropy label network
+    {train}
+
+Loops.for' {from=0; near_to=5; body=inl {next} -> 
     open Recurrent.Passes
     open Body
 
@@ -710,7 +707,7 @@ Loops.for' {from=0; near_to=5;body=inl {next} ->
         for {
             data
             body=train {
-                network
+                network=network.train
                 optimizer=Optimizer.sgd 0.25f32
                 }
             } s

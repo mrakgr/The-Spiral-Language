@@ -2274,7 +2274,7 @@ inl float ->
                 function
                 | .unwrap -> region_clear(); cost' / to float64 c
                 | input s {on_fail on_succ} ->
-                    inl {from near_to} = outer data
+                    inl {from near_to} = outer input
                     Loops.foru {
                         from near_to
                         state=const zero, {state bck=const ()}
@@ -2301,7 +2301,7 @@ inl float ->
                                 region_clear()
                                 on_succ state
                         }
-            loop (dyn 0) (dyn 0.0) {} (const ())
+            loop (dyn 0) (dyn 0.0) ({}, const ())
         {
         train grad_check=grad_check train
         } |> stackify
