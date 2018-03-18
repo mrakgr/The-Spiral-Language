@@ -693,10 +693,11 @@ inl network =
     inl network =
         input
         |> highway_lstm size.hot 
-        |> Feedforward.Layer.linear size.hot
+        |> Feedforward.Layer.sigmoid size.hot
+        //|> sigmoid size.hot
         |> init s
 
-    inl train = error Error.softmax_cross_entropy label network
+    inl train = error Error.square label network
     {train}
 
 Loops.for' {from=0; near_to=5; body=inl {next} -> 
