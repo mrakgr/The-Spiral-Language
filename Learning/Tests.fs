@@ -692,9 +692,7 @@ inl network =
     inl input = input .input size.hot
     inl network =
         input
-        //|> highway_lstm 512
-        //|> Feedforward.Layer.sigmoid size.hot
-        |> sigmoid size.hot
+        |> highway_lstm 512
         |> Feedforward.Layer.highway size.hot
         |> init s
     
