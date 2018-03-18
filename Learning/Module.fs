@@ -1750,6 +1750,58 @@ inl float ->
                 }
         {value max}
 
+    // #Auxiliary
+    /// The softmax activation
+    inl softmax temp input s =
+        s.CudaKernel.map_d1_seq_broadcast {
+            map_in=inl x -> x / temp
+            seq = 
+                {
+                redo=max
+                map=inl a b -> exp (a - b)
+                }
+                ,
+                {
+                redo=(+)
+                map=(/)
+                }
+            } input
+
+    
+    inl encode =
+        {
+        /// The one hot encode function. Does not check that the inputs are in range.
+        one_hot = inl size tns s ->
+            inl f = 
+                inl rec f tns = function
+                    | _ :: x' -> inl x -> f (tns x) x')
+                    | () -> inl x -> if x = tns.get then one else zero
+                f (s.CudaTensor.to_dev_tensor tns) (type tns.dim)
+
+            s.CudaTensor.init {rev_thread_limit=32; dim=Tuple.append x.dim (Tuple.wrap size)} f
+        } |> stackify
+
+    /// Aplies a softmax to the inputs and then samples from them randomly. Returns the resulting indices in a 1d tensor.
+    inl sample temp x s =
+        inl boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=fst prob.dim}
+        inl prob = softmax temp x s
+        s.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
+            scan={
+                ne=0f32
+                f=(+)
+                }
+            mapi_mid=inl _ index prob boundary -> 
+                inl x = prob - boundary
+                (if x < 0f32 then infinityf32 else x), index
+            redo={
+                ne=infinityf32,0
+                f=inl a b -> if fst a < fst b then a else b
+                }
+            map_out=snd
+            } prob boundary
+
+    inl Auxiliary = {encode sample} |> stackify
+
     //#Error
     inl error {fwd bck} label input s = 
         inl batch_size = primal input .span_outer |> to float
@@ -1783,36 +1835,20 @@ inl float ->
         inl batch_size = primal input .span_outer |> to float
         inl div_by_minibatch_size x = x / batch_size
 
-        inl softmax =
-            {
-            activation =
-                s.CudaKernel.map_d1_seq_broadcast {
-                    seq = 
-                        {
-                        redo=max
-                        map=inl a b -> exp (a - b)
-                        }
-                        ,
-                        {
-                        redo=(+)
-                        map=(/)
-                        }
-                    }
-            cost = inl label p ->
-                s.CudaKernel.map_redo_map {
-                        map_in = inl p, label -> -label * log p
-                        redo = (+)
-                        neutral_elem = zero
-                        map_out = div_by_minibatch_size
-                    } (p, label)
-            }
+        inl softmax_cost label p =
+            s.CudaKernel.map_redo_map {
+                    map_in = inl p, label -> -label * log p
+                    redo = (+)
+                    neutral_elem = zero
+                    map_out = div_by_minibatch_size
+                } (p, label)
 
         inl bck f =
             inl f = f >> div_by_minibatch_size
             s.CudaKernel.map' (inl x o -> o + f x)
 
-        inl p = softmax.activation (primal input)
-        inl cost = softmax.cost (primal label) p
+        inl p = softmax one (primal input) s
+        inl cost = softmax_cost (primal label) p
         inl bck _ = join
             on_non_nil (adjoint input) <| bck (inl p, label -> p - label) (p, primal label)
             on_non_nil (adjoint label) <| bck (log >> negate) p
@@ -1915,38 +1951,6 @@ inl float ->
                     on_succ state
                 }
 
-    // #Auxiliary
-    inl encode =
-        {
-        one_hot = inl size tns s ->
-            inl f = 
-                inl rec f tns = function
-                    | _ :: x' -> inl x -> f (tns x) x')
-                    | () -> inl x -> if x = tns.get then one else zero
-                f (s.CudaTensor.to_dev_tensor tns) (type tns.dim)
-
-            s.CudaTensor.init {rev_thread_limit=32; dim=Tuple.append x.dim (Tuple.wrap size)} f
-        } |> stackify
-
-    inl sample prob s =
-        inl boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=fst prob.dim}
-        s.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
-            scan={
-                ne=0f32
-                f=(+)
-                }
-            mapi_mid=inl _ index prob boundary -> 
-                inl x = prob - boundary
-                (if x < 0f32 then infinityf32 else x), index
-            redo={
-                ne=infinityf32,0
-                f=inl a b -> if fst a < fst b then a else b
-                }
-            map_out=snd
-            } prob boundary
-
-    inl Auxiliary = {encode sample} |> stackify
-
     // #Layers
     inl gid _ = .(to string !GID())
     inl input name size =
@@ -2002,14 +2006,24 @@ inl float ->
             apply = inl input, label -> accuracy label input
             }
 
-    inl encode_1h size sublayer =
+    inl encode
+        {
+        one_hot = inl size sublayer ->
+            non_differentiable
+                {
+                sublayer
+                apply = encode.one_hot size
+                }
+        }
+
+    inl sample temp sublayer =
         non_differentiable
             {
             sublayer
-            apply = encode.one_hot size
+            apply = sample temp
             }
 
-    inl Layer = {input stateless non_differentiable feedforward recurrent parallel error accuracy} |> stackify
+    inl Layer = {input stateless non_differentiable feedforward recurrent parallel error accuracy encode sample} |> stackify
 
     // #Combinators
     inl layer_map_fold f network s =
@@ -2256,7 +2270,7 @@ inl float ->
 
     inl Body =
         inl train {d with network} =
-            inl rec loop c cost' (state, region_clear) = 
+            inl rec loop c cost' (state, region_clear) =
                 function
                 | .unwrap -> region_clear(); cost' / to float64 c
                 | input s {on_fail on_succ} ->
@@ -2304,7 +2318,7 @@ inl float ->
                     match buffer with
                     | () -> ResizeArray.create {elem_type=type input}
                     | _ -> buffer
-                buffer.add (s.CudaTensor.get input)
+                buffer.add (s.CudaTensor.to_host_tensor input |> stack)
                 
                 inl state, region_clear' = prune_state state s
                 region_clear()
