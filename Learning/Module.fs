@@ -1774,7 +1774,7 @@ inl float ->
         one_hot = inl size tns s ->
             inl f = 
                 inl rec f tns = function
-                    | _ :: x' -> inl x -> f (tns x) x')
+                    | _ :: x' -> inl x -> f (tns x) x'
                     | () -> inl x -> if x = tns.get then one else zero
                 f (s.CudaTensor.to_dev_tensor tns) (type tns.dim)
 
@@ -2006,7 +2006,7 @@ inl float ->
             apply = inl input, label -> accuracy label input
             }
 
-    inl encode
+    inl encode =
         {
         one_hot = inl size sublayer ->
             non_differentiable
