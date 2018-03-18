@@ -1915,6 +1915,38 @@ inl float ->
                     on_succ state
                 }
 
+    // #Auxiliary
+    inl encode =
+        {
+        one_hot = inl size tns s ->
+            inl f = 
+                inl rec f tns = function
+                    | _ :: x' -> inl x -> f (tns x) x')
+                    | () -> inl x -> if x = tns.get then one else zero
+                f (s.CudaTensor.to_dev_tensor tns) (type tns.dim)
+
+            s.CudaTensor.init {rev_thread_limit=32; dim=Tuple.append x.dim (Tuple.wrap size)} f
+        } |> stackify
+
+    inl sample prob s =
+        inl boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=fst prob.dim}
+        s.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
+            scan={
+                ne=0f32
+                f=(+)
+                }
+            mapi_mid=inl _ index prob boundary -> 
+                inl x = prob - boundary
+                (if x < 0f32 then infinityf32 else x), index
+            redo={
+                ne=infinityf32,0
+                f=inl a b -> if fst a < fst b then a else b
+                }
+            map_out=snd
+            } prob boundary
+
+    inl Auxiliary = {encode sample} |> stackify
+
     // #Layers
     inl gid _ = .(to string !GID())
     inl input name size =
@@ -1968,6 +2000,13 @@ inl float ->
             {
             sublayer = input, label
             apply = inl input, label -> accuracy label input
+            }
+
+    inl encode_1h size sublayer =
+        non_differentiable
+            {
+            sublayer
+            apply = encode.one_hot size
             }
 
     inl Layer = {input stateless non_differentiable feedforward recurrent parallel error accuracy} |> stackify
@@ -2069,35 +2108,6 @@ inl float ->
         {
         layer_map_fold layer_map init optimize run
         } |> stackify
-
-    // #Auxiliary
-    inl encode_one_hot size tns s =
-        inl f = 
-            inl rec f tns = function
-                | _ :: x' -> inl x -> f (tns x) x')
-                | () -> inl x -> if x = tns.get then one else zero
-            f (s.CudaTensor.to_dev_tensor tns) (type tns.dim)
-
-        s.CudaTensor.init {rev_thread_limit=32; dim=Tuple.append x.dim (Tuple.wrap size)} f
-
-    inl sample prob s =
-        inl boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=fst prob.dim}
-        s.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
-            scan={
-                ne=0f32
-                f=(+)
-                }
-            mapi_mid=inl _ index prob boundary -> 
-                inl x = prob - boundary
-                (if x < 0f32 then infinityf32 else x), index
-            redo={
-                ne=infinityf32,0
-                f=inl a b -> if fst a < fst b then a else b
-                }
-            map_out=snd
-            } prob boundary
-
-    inl Auxiliary = {encode_one_hot sample} |> stackify
 
     // #Feedforward
     inl layer initializer activation size sublayer =
