@@ -807,6 +807,58 @@ Loops.for {q with body=inl {i=j} ->
     }
     """
 
+let data2 =
+    "data2",[cuda_modules;learning],"Is the dataset transformed correctly?",
+    """
+inb s = CudaModules (1024*1024*1024)
+
+inl float = float32
+open Learning float
+open Primitive
+open Activation
+open Error
+
+inl size = {
+    seq = 1115394
+    minibatch = 64
+    step = 64
+    hot = 128
+    }
+
+// I got this dataset from Karpathy.
+inl path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
+inl data = 
+    macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
+    |> Array.map (inl x -> 
+        inl x = to int64 x
+        assert (x < size.hot) "The inputs need to be in the [0,127] range."
+        to uint8 x
+        )
+    |> HostTensor.array_as_tensor
+    |> HostTensor.assert_size size.seq
+    |> s.CudaTensor.from_host_tensor
+    |> inl data -> data.round_split size.minibatch
+
+inl minibatch,seq = data.dim
+
+inl input =
+    inl data = s.CudaTensor.to_dev_tensor data 
+    s.CudaKernel
+        .init {dim=seq,minibatch} (inl seq minibatch ->
+            data minibatch seq .get
+            )
+        .round_split' size.step
+
+inl input = s.CudaTensor.to_host_tensor input
+inl seq,a,b = input.dim
+
+Loops.for {seq with body=inl {i} ->
+    Loops.for {a with body=inl {i=j} ->
+        Console.write (input i j 0 .get |> to char)
+        }
+    }
+    """
+
 let tests =
     [|
     allocator1
@@ -821,6 +873,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" data1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" data2
 |> printfn "%s"
 |> ignore
