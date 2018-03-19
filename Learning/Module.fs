@@ -1731,7 +1731,15 @@ inl float ->
     inl sgd learning_rate s {primal adjoint} = 
         s.CudaKernel.map' (inl _ P, A -> toa_map2 (inl P A -> P - learning_rate * A, zero) P A) primal.empty (primal, adjoint)
 
-    inl Optimizer = {sgd}
+    inl clipped_sgd max learning_rate s {primal adjoint} = 
+        s.CudaKernel.map' (inl _ P, A -> 
+            toa_map2 (inl P A -> 
+                inl A = if A < -max then -max elif A > max then max else A
+                P - learning_rate * A, zero
+                ) P A
+            ) primal.empty (primal, adjoint)
+
+    inl Optimizer = {sgd clipped_sgd}
 
     // #Accuracy
     inl accuracy label input s =

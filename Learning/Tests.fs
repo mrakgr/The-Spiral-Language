@@ -652,8 +652,8 @@ open Error
 
 inl size = {
     seq = 1115394
-    minibatch = 16
-    step = 8
+    minibatch = 64
+    step = 64
     hot = 128
     }
 
@@ -682,8 +682,8 @@ inl input =
             )
         .round_split' size.step
 
-inl label = input.view_span (const {from=1}) .view_span (const 16)
-inl input = input.view_span (inl x :: _ -> x-1) .view_span (const 16)
+inl label = input.view_span (const {from=1}) //.view_span (const 16)
+inl input = input.view_span (inl x :: _ -> x-1) //.view_span (const 16)
 inl data = {input label}
 
 inl network = 
@@ -693,14 +693,14 @@ inl network =
     inl input = input .input size.hot
     inl network =
         input
-        |> sigmoid 256
+        |> highway_lstm 256
         |> Feedforward.Layer.linear size.hot
         |> init s
     
     inl train = error Error.softmax_cross_entropy label network
     {train}
 
-Loops.for' {from=0; near_to=500; body=inl {next} -> 
+Loops.for' {from=0; near_to=5; body=inl {next} -> 
     open Recurrent.Passes
     open Body
 
@@ -709,7 +709,7 @@ Loops.for' {from=0; near_to=500; body=inl {next} ->
             data
             body=train {
                 network=network.train
-                optimizer=Optimizer.sgd 0.2f32
+                optimizer=Optimizer.clipped_sgd 0.5f32 0.2f32
                 }
             } s
 
@@ -736,6 +736,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
 |> printfn "%s"
 |> ignore
