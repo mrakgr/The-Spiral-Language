@@ -651,7 +651,7 @@ open Error
 
 inl size = {
     seq = 1115394
-    minibatch = 1
+    minibatch = 16
     step = 8
     hot = 128
     }
@@ -681,8 +681,8 @@ inl input =
             )
         .round_split' size.step
 
-inl label = input.view_span (const {from=1}) .view_span (const 1)
-inl input = input.view_span (inl x :: _ -> x-1) .view_span (const 1)
+inl label = input.view_span (const {from=1}) .view_span (const 16)
+inl input = input.view_span (inl x :: _ -> x-1) .view_span (const 16)
 inl data = {input label}
 
 inl network = 
@@ -708,7 +708,7 @@ Loops.for' {from=0; near_to=500; body=inl {next} ->
             data
             body=train {
                 network=network.train
-                optimizer=Optimizer.sgd 0.1f32
+                optimizer=Optimizer.sgd 0.2f32
                 }
             } s
 
