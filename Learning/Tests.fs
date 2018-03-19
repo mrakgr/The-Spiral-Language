@@ -651,8 +651,8 @@ open Error
 
 inl size = {
     seq = 1115394
-    minibatch = 256
-    step = 64
+    minibatch = 1
+    step = 8
     hot = 128
     }
 
@@ -681,8 +681,8 @@ inl input =
             )
         .round_split' size.step
 
-inl label = input.view_span (const {from=1})
-inl input = input.view_span (inl x :: _ -> x-1)
+inl label = input.view_span (const {from=1}) .view_span (const 1)
+inl input = input.view_span (inl x :: _ -> x-1) .view_span (const 1)
 inl data = {input label}
 
 inl network = 
@@ -692,14 +692,14 @@ inl network =
     inl input = input .input size.hot
     inl network =
         input
-        |> highway_lstm 256
+        |> sigmoid 256
         |> Feedforward.Layer.sigmoid size.hot
         |> init s
     
     inl train = error Error.square label network
     {train}
 
-Loops.for' {from=0; near_to=50; body=inl {next} -> 
+Loops.for' {from=0; near_to=500; body=inl {next} -> 
     open Recurrent.Passes
     open Body
 
@@ -708,7 +708,7 @@ Loops.for' {from=0; near_to=50; body=inl {next} ->
             data
             body=train {
                 network=network.train
-                optimizer=Optimizer.sgd 0.001f32
+                optimizer=Optimizer.sgd 0.01f32
                 }
             } s
 
