@@ -724,6 +724,89 @@ Loops.for' {from=0; near_to=50; body=inl {next} ->
     }
     """
 
+let data1 =
+    "data1",[cuda_modules;learning],"Is the dataset transformed correctly?",
+    """
+inb s = CudaModules (1024*1024*1024)
+
+inl float = float32
+open Learning float
+open Primitive
+open Activation
+open Error
+
+inl size = {
+    seq = 1115394
+    minibatch = 64
+    step = 64
+    hot = 128
+    }
+
+// I got this dataset from Karpathy.
+inl path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
+inl data = 
+    macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
+    |> Array.map (inl x -> 
+        inl x = to int64 x
+        assert (x < size.hot) "The inputs need to be in the [0,127] range."
+        to uint8 x
+        )
+    |> HostTensor.array_as_tensor
+    |> HostTensor.assert_size size.seq
+    |> s.CudaTensor.from_host_tensor
+    |> inl data -> data.round_split size.minibatch
+
+inl minibatch,seq = data.dim
+
+inl input =
+    inl data = s.CudaTensor.to_dev_tensor data 
+    s.CudaKernel
+        .init {rev_thread_limit=32; dim=seq,minibatch,size.hot} (inl seq minibatch ->
+            inl x = data minibatch seq .get
+            inl hot -> if x = to uint8 hot then 1f32 else 0f32
+            )
+        .round_split' size.step
+
+inl input' =
+    inl input = s.CudaTensor.to_dev_tensor input
+    inl seq, step, minibatch, hot = input.dim |> Tuple.map HostTensor.span
+    s.CudaKernel
+        .init {dim=seq,step,minibatch} (inl seq step minibatch ->
+            inl input = input seq step minibatch
+            Loops.for {from=0; near_to=hot; state=dyn 255u8; body=inl {state i} ->
+                if input i .get = 1f32 then to uint8 i else state
+                }
+            )
+
+inl input' =
+    inl input = s.CudaTensor.to_dev_tensor input'
+    inl seq, step, minibatch = input.dim |> Tuple.map HostTensor.span
+    s.CudaKernel
+        .init {dim=seq*step,minibatch} (inl i minibatch ->
+            input (i / step) (i % step) minibatch .get
+            )
+
+inl input' =
+    inl input = s.CudaTensor.to_dev_tensor input'
+    inl seq, minibatch = input.dim |> Tuple.map HostTensor.span
+    s.CudaKernel
+        .init {dim=minibatch,seq} (inl minibatch seq ->
+            input seq minibatch .get
+            )
+
+inl a = s.CudaTensor.to_host_tensor data
+inl b = s.CudaTensor.to_host_tensor input'
+inl q,w = b.dim
+Loops.for {q with body=inl {i=j} ->
+    Loops.for {w with body=inl {i} ->
+        inl a = a j i .get
+        inl b = b j i .get
+        Console.write (to char a)
+        assert (a = b) "The two inputs must be equal."
+        }
+    }
+    """
+
 let tests =
     [|
     allocator1
@@ -738,6 +821,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" data1
 |> printfn "%s"
 |> ignore

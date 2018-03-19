@@ -1058,7 +1058,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     match t with
                     | Add -> a + b
                     | Sub -> a - b
-                    | Mult -> a * b
+                    | Mult -> a * b // TODO: Add checks for division by zero.
                     | Div -> a / b
                     | Mod -> a % b
                     | _ -> failwith "Expected an arithmetic operation."
