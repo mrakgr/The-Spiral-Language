@@ -693,10 +693,10 @@ inl network =
     inl network =
         input
         |> sigmoid 256
-        |> Feedforward.Layer.sigmoid size.hot
+        |> Feedforward.Layer.linear size.hot
         |> init s
     
-    inl train = error Error.square label network
+    inl train = error Error.softmax_cross_entropy label network
     {train}
 
 Loops.for' {from=0; near_to=500; body=inl {next} -> 
@@ -708,7 +708,7 @@ Loops.for' {from=0; near_to=500; body=inl {next} ->
             data
             body=train {
                 network=network.train
-                optimizer=Optimizer.sgd 0.01f32
+                optimizer=Optimizer.sgd 0.1f32
                 }
             } s
 

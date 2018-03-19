@@ -1806,6 +1806,7 @@ inl float ->
     inl error {fwd bck} label input s = 
         inl batch_size = primal input .span_outer |> to float
         inl div_by_minibatch_size x = x / batch_size
+        //s.CudaTensor.print (HostTensor.zip (input.primal,label))
         map_redo_map {
             fwd = {
                 map_in = fwd
