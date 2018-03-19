@@ -682,8 +682,8 @@ inl input =
             )
         .round_split' size.step
 
-inl label = input.view_span (const {from=1}) //.view_span (const 16)
-inl input = input.view_span (inl x :: _ -> x-1) //.view_span (const 16)
+inl label = input.view_span (const {from=1}) .view_span (const 1)
+inl input = input.view_span (inl x :: _ -> x-1) .view_span (const 1)
 inl data = {input label}
 
 inl network = 
@@ -693,14 +693,16 @@ inl network =
     inl input = input .input size.hot
     inl network =
         input
-        |> highway_lstm 256
+        //|> peephole_lstm 256
+        //|> sigmoid 256
+        |> lstm 256
         |> Feedforward.Layer.linear size.hot
         |> init s
     
     inl train = error Error.softmax_cross_entropy label network
     {train}
 
-Loops.for' {from=0; near_to=5; body=inl {next} -> 
+Loops.for' {from=0; near_to=50; body=inl {next} -> 
     open Recurrent.Passes
     open Body
 
@@ -709,7 +711,7 @@ Loops.for' {from=0; near_to=5; body=inl {next} ->
             data
             body=train {
                 network=network.train
-                optimizer=Optimizer.clipped_sgd 0.5f32 0.2f32
+                optimizer=Optimizer.clipped_sgd 0.5f32 0.03f32
                 }
             } s
 
