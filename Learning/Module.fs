@@ -2296,6 +2296,62 @@ inl float ->
                 >>= inl x -> succ (x,x)
             }
 
+    // The peephole LSTM
+    inl peephole_lstm size sublayer =
+        recurrent 
+            {
+            size sublayer
+            weights = inl s ->
+                open Initializer
+                inl sigmoid sublayer_size = sigmoid (sublayer_size, size) s |> dr s
+                inl tanh sublayer_size = tanh (sublayer_size, size) s |> dr s
+                inl weights sublayer_size = {
+                    f = sigmoid sublayer_size
+                    i = sigmoid sublayer_size
+                    o = sigmoid sublayer_size
+                    c = tanh sublayer_size
+                    }
+                inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+                inl bias init = 
+                    inl x = s.CudaTensor.create {elem_type=float; dim=size} 
+                    join s.CudaTensor.mmap (const init) x
+                    dr s x
+                {
+                input = weights sublayer.size
+                state = weights size
+                bias = {
+                    f = bias one
+                    i = bias0 ()
+                    o = bias0 ()
+                    c = bias0 ()
+                    }
+                }
+
+            apply = inl {input state bias} c i ->
+                open Activation
+                match c with
+                | () ->
+                    inm i = matmultb (i,input.i) bias.i >>= sigmoid
+                    inm o = matmultb (i,input.o) bias.o >>= sigmoid
+                    inm c' = matmultb (i,input.c) bias.c >>= tanh
+                    inm c = hadmult (i, c')
+                    inm h' = tanh c
+                    inm h = hadmult o h'
+                    succ (h, c)
+                | _ ->
+                    inm f = matmultb ((i,input.f),(c,state.f)) bias.f >>= sigmoid
+                    inm i = matmultb ((i,input.i),(c,state.i)) bias.i >>= sigmoid
+                    inm o = matmultb ((i,input.o),(c,state.o)) bias.o >>= sigmoid
+                    inm c' = matmultb ((i,input.c),(c,state.c)) bias.c >>= tanh
+                    inm c =
+                        inm x1 = hadmult (f,c)
+                        inm x2 = hadmult (i,c')
+                        add (x1, x2)
+                    inm h' = tanh c
+                    inm h = hadmult o h'
+                    succ (h, c)
+            }
+
     inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
     inl linear = layer Initializer.sigmoid succ
 
@@ -2370,7 +2426,7 @@ inl float ->
 
     inl Recurrent = 
         {
-        Layer = {Layer with init layer sigmoid linear highway_lstm} |> stackify
+        Layer = {Layer with init layer sigmoid linear highway_lstm peephole_lstm} |> stackify
         Passes = {for sample Body} |> stackify
         } |> stackify
 
