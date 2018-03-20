@@ -208,8 +208,8 @@ inb s = CudaModules (1024*1024)
 inl inner_size = 10
 inl outer_size = 32
 
-inl a1 = s.CudaRandom.create .Uniform {elem_type=float32; dim=outer_size,inner_size}
-inl a2 = s.CudaRandom.create .Uniform {elem_type=float32; dim=outer_size,inner_size}
+inl a1 = s.CudaRandom.create {dst=.Uniform} {elem_type=float32; dim=outer_size,inner_size}
+inl a2 = s.CudaRandom.create {dst=.Uniform} {elem_type=float32; dim=outer_size,inner_size}
 inl a3 = s.CudaTensor.create {elem_type=float32; dim=1}
 inl f a1 a2 =
     s.CudaKernel.mapi_d1_redo_map {
@@ -609,7 +609,7 @@ inl network =
     {train test}
 
 Loops.for' {from=0; near_to=30;body=inl {next} -> 
-    open Feedforward.Passes
+    open Feedforward.Pass
     open Body
 
     inl cost =
@@ -702,7 +702,7 @@ inl network =
     {train}
 
 Loops.for' {from=0; near_to=10; body=inl {next} -> 
-    open Recurrent.Passes
+    open Recurrent.Pass
     open Body
 
     inl cost =
@@ -789,18 +789,19 @@ inl network =
     
     {train body}
 
-inl sample temp near_to body x =
+inl sample temp near_to body x s =
+    inb s = s.RegionMem.create'
     inl input = s.CudaTensor.create {elem_type=x; dim=1}
     s.CudaTensor.set (input 0) x
-    Recurrent.sample temp near_to body input
-        .iter (inl x -> Console.write (x 0 .get))
+    Recurrent.Pass.sample temp near_to body input s
+        .iter (inl x -> Console.write (x 0 .get |> to char))
     Console.writeline ()
     Console.writeline "-----"
 
-
+sample 1f32 512 network.body (to int64 '\n') s
 
 //Loops.for' {from=0; near_to=1; body=inl {next} -> 
-//    open Recurrent.Passes
+//    open Recurrent.Pass
 //    open Body
 
 //    inl cost =

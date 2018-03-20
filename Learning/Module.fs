@@ -78,8 +78,8 @@ let resize_array =
     """
 open Extern
 inl create {d with elem_type} =
-    inl ty = fs [text: "ResizeArray"; types: elem_type]
     inl x =
+        inl ty = fs [text: "ResizeArray"; types: elem_type]
         match d with
         | {size} -> FS.Constructor ty (to int32 size)
         | _ -> FS.Constructor ty ()
@@ -111,6 +111,7 @@ inl create {d with elem_type} =
     | .elem_type -> elem_type
     | .to_array -> to_array ()
     | i -> index i
+    |> stack
 { 
 create
 } |> stack
@@ -485,7 +486,7 @@ inl s ret ->
         inl ar = CUdeviceptr ar
         inl gen, dot = "Generate", "."
         match distribution with
-        | .Uniform ->
+        | {dst=.Uniform & distribution} ->
             inl args = ar, size1d
             inl bits = 
                 match elem_type with
@@ -502,7 +503,7 @@ inl s ret ->
                 | _ : float32 -> "32" | _ : float64 -> "64"
                 | _ -> error_type ("Only 32/64 bit float types are supported. Try UInt if you need uint random numbers. Got: ", elem_type)
             macro.fs () [arg: random; text: dot; text: gen; text: distribution; text: bits; args: args]
-        | .UInt -> // every bit random
+        | {dst=.UInt & distribution} -> // every bit random
             inl args = ar, size1d
             inl bits =
                 match elem_type with
@@ -1791,8 +1792,8 @@ inl float ->
 
     /// Aplies a softmax to the inputs and then samples from them randomly. Returns the resulting indices in a 1d tensor.
     inl sample temp x s =
+        inl prob = softmax temp (primal x) s
         inl boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=fst prob.dim}
-        inl prob = softmax temp x s
         s.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
             scan={
                 ne=0f32
@@ -2184,7 +2185,7 @@ inl float ->
                 add (x1, x2)
             }
 
-    inl Passes =
+    inl Pass =
         inl train {d with network} =
             inl rec loop c cost' = 
                 function
@@ -2233,7 +2234,7 @@ inl float ->
     inl Feedforward = 
         {
         Layer={Layer with init layer sigmoid linear highway} |> stackify
-        Passes
+        Pass
         } |> stack
     
     // #Recurrent
@@ -2360,19 +2361,22 @@ inl float ->
         train grad_check=grad_check train
         } |> stackify
 
-    inl sample temp near_to network input =
+    inl sample temp near_to network input s =
         Loops.foru {
             from=0; near_to 
             state=(), {}, const (), input
             body=inl {state=buffer,state,region_clear,input i} ->
                 s.refresh
                 inb s = s.RegionMem.create'
-                inl input,{state} = run (sample temp network) {input={input}; state} s
+                inl input,{state} = run (sample temp network) {input={input}; bck=const (); state} s
+                Console.writeline "*a"
+                inl input_host = s.CudaTensor.to_host_tensor input |> stack
+                Console.writeline "**a"
                 inl buffer =
                     match buffer with
-                    | () -> ResizeArray.create {elem_type=type input}
+                    | () -> ResizeArray.create {elem_type=input_host}
                     | _ -> buffer
-                buffer.add (s.CudaTensor.to_host_tensor input |> stack)
+                buffer.add input_host
                 
                 inl state, region_clear' = prune_state state s
                 region_clear()
@@ -2385,7 +2389,7 @@ inl float ->
     inl Recurrent = 
         {
         Layer = {Layer with init layer sigmoid linear lstm} |> stackify
-        Passes = {for sample Body} |> stackify
+        Pass = {for sample Body} |> stackify
         } |> stackify
 
     { dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent }
