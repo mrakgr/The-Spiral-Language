@@ -917,7 +917,7 @@ ifm (<?>) pdigit pchar pstring pint64 spaces parse_int repeat parse_array sprint
 
 let console =
     (
-    "Console",[parsing;extern_],"IO printing functions.",
+    "Console",[extern_],"IO printing functions.",
     """
 open Extern
 inl console_type = fs [text: "System.Console"]
@@ -936,14 +936,8 @@ inl writeline = function
     | () -> FS.StaticMethod console_type .WriteLine () ()
     | x -> FS.StaticMethod console_type .WriteLine (show x) ()
 
-inl printf_template cont = 
-    Parsing.sprintf_template write {
-        on_succ = inl x _ -> x
-        on_fail = inl msg _ -> cont()
-        }
-
-inl printf = printf_template id
-inl printfn = printf_template writeline
+inl printf a b = string_format a b |> write
+inl printfn a b = string_format a b |> writeline
 
 {readall readline write writeline printf printfn}
 |> stackify

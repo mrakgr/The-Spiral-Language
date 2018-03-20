@@ -640,7 +640,7 @@ Loops.for' {from=0; near_to=30;body=inl {next} ->
     """
 
 let learning10 =
-    "learning10",[cuda_modules;learning],"Does the full training work with the char-RNN?",
+    "learning10",[cuda_modules;timer;learning],"Does the full training work with the char-RNN?",
     """
 inb s = CudaModules (1024*1024*1024)
 
@@ -680,7 +680,6 @@ inl input =
             inl x = data minibatch seq .get
             inl hot -> if x = to uint8 hot then 1f32 else 0f32
             )
-        
 
 inl label = input.view_span (const {from=1}) .round_split' size.step 
 inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step 
@@ -701,18 +700,20 @@ inl network =
     inl train = error Error.softmax_cross_entropy label network
     {train}
 
-Loops.for' {from=0; near_to=10; body=inl {next} -> 
+Loops.for' {from=0; near_to=10; body=inl {next i} -> 
     open Recurrent.Pass
     open Body
 
     inl cost =
-        for {
-            data
-            body=train {
-                network=network.train
-                optimizer=Optimizer.clipped_sgd 0.5f32 0.03f32
-                }
-            } s
+        Timer.timeit (string_format "iteration {0}" i)
+        <| inl _ ->
+            for {
+                data
+                body=train {
+                    network=network.train
+                    optimizer=Optimizer.clipped_sgd 0.5f32 0.03f32
+                    }
+                } s
 
     string_format "Training: {0}" cost |> Console.writeline
 
@@ -724,7 +725,7 @@ Loops.for' {from=0; near_to=10; body=inl {next} ->
     """
 
 let learning11 =
-    "learning11",[cuda_modules;learning],"Does the full training + sampling work with the char-RNN?",
+    "learning11",[cuda_modules;timer;learning],"Does the full training + sampling work with the char-RNN?",
     """
 inb s = CudaModules (1024*1024*1024)
 
@@ -777,7 +778,7 @@ inl network =
 
     inl body =
         input
-        |> lstm 256
+        |> lstm 128
         |> init s
 
     inl network = 
@@ -789,21 +790,23 @@ inl network =
     
     {train body}
 
-
-Loops.for' {from=0; near_to=100; body=inl {next} -> 
+inb _ = Timer.timeit "whole loop"
+Loops.for' {from=0; near_to=5; body=inl {next i} -> 
     open Recurrent.Pass
     open Body
 
-    inl cost =
-        for {
-            data
-            body=train {
-                network=network.train
-                optimizer=Optimizer.clipped_sgd 0.5f32 0.03f32
-                }
-            } s
+    inl cost = 
+        Timer.timeit (string_format "iteration {0}" i)
+        <| inl _ ->
+            for {
+                data
+                body=train {
+                    network=network.train
+                    optimizer=Optimizer.clipped_sgd 0.5f32 0.03f32
+                    }
+                } s
 
-    sample 1f32 2048 network.body (to int64 ' ') s
+    sample 1f32 2048 network.body (to int64 '.') s
 
     string_format "Training: {0}" cost |> Console.writeline
 

@@ -3,6 +3,25 @@
 open Spiral.Types
 open Spiral.Lib
 
+let timer =
+    (
+    "Timer",[console],"The Timer module",
+    """
+inl stopwatch_ty = fs [text: "System.Diagnostics.Stopwatch"]
+inl timespan_ty = fs [text: "System.TimeSpan"]
+inl start_new _ = macro.fs stopwatch_ty [type: stopwatch_ty; text: ".StartNew()"]
+inl elapsed x = macro.fs timespan_ty [arg: x; text: ".Elapsed"]
+inl print_timespan = string_format
+inl timeit msg f = 
+    Console.printfn "Starting timing for: {0}" msg
+    inl w = start_new ()
+    inl r = f ()
+    Console.printfn "The time was {0} for: {1}" (elapsed w, msg)
+    r
+{timeit} |> stackify
+    """
+    ) |> module_
+
 let mnist =
     (
     "Mnist",[extern_;host_tensor],"The Mnist loader module.",
