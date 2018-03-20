@@ -682,8 +682,8 @@ inl input =
             )
         
 
-inl label = input.view_span (const {from=1}) .round_split' size.step
-inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step
+inl label = input.view_span (const {from=1}) .round_split' size.step 
+inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step 
 inl data = {input label}
 
 inl network = 
@@ -693,7 +693,6 @@ inl network =
     inl input = input .input size.hot
     inl network =
         input
-        //|> peephole_lstm 256
         |> lstm 256
         //|> sigmoid 256
         |> Feedforward.Layer.linear size.hot
