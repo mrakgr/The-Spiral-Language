@@ -1982,10 +1982,11 @@ inl float ->
     inl feedforward = stateful .feedforward
     inl recurrent = stateful .recurrent
 
-    inl aux layer_type {apply sublayer} =
+    inl aux layer_type {apply sublayer size} =
         {
         layer_type
         gid = gid()
+        size
         sublayer
         apply
         }
@@ -1997,6 +1998,7 @@ inl float ->
         {
         layer_type = .parallel
         gid = gid ()
+        size = Tuple.map (inl x -> x.size) sublayer // TODO: Change this to toa_map. In fact, add toa_map to Core.
         sublayer
         }
 
@@ -2005,6 +2007,7 @@ inl float ->
             {
             sublayer = input, label
             apply = inl input, label -> cost label input
+            size = 1
             }
 
     inl accuracy label input =
@@ -2012,6 +2015,7 @@ inl float ->
             {
             sublayer = input, label
             apply = inl input, label -> accuracy label input
+            size = 1
             }
 
     inl encode =
@@ -2021,6 +2025,7 @@ inl float ->
                 {
                 sublayer
                 apply = encode.one_hot size
+                size
                 }
         }
 
@@ -2029,6 +2034,7 @@ inl float ->
             {
             sublayer
             apply = sample temp
+            size = 1
             }
 
     inl Layer = {input stateless non_differentiable feedforward recurrent parallel error accuracy encode sample} |> stackify
@@ -2361,7 +2367,7 @@ inl float ->
             body=inl {state=buffer,state,region_clear,input i} ->
                 s.refresh
                 inb s = s.RegionMem.create'
-                inl input,{state} = run network {input state} s
+                inl input,{state} = run network {input={input}; state} s
                 inl buffer =
                     match buffer with
                     | () -> ResizeArray.create {elem_type=type input}

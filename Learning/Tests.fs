@@ -691,15 +691,107 @@ inl network =
     
     inl label = input .label size.hot
     inl input = input .input size.hot
+
     inl network =
         input
         |> lstm 256
-        //|> sigmoid 256
         |> Feedforward.Layer.linear size.hot
         |> init s
     
     inl train = error Error.softmax_cross_entropy label network
     {train}
+
+Loops.for' {from=0; near_to=10; body=inl {next} -> 
+    open Recurrent.Passes
+    open Body
+
+    inl cost =
+        for {
+            data
+            body=train {
+                network=network.train
+                optimizer=Optimizer.clipped_sgd 0.5f32 0.03f32
+                }
+            } s
+
+    string_format "Training: {0}" cost |> Console.writeline
+
+    if nan_is cost then
+        Console.writeline "Training diverged. Aborting..."
+    else
+        next ()
+    }
+    """
+
+let learning11 =
+    "learning11",[cuda_modules;learning],"Does the full training + sampling work with the char-RNN?",
+    """
+inb s = CudaModules (1024*1024*1024)
+
+inl float = float32
+open Learning float
+open Primitive
+open Activation
+open Error
+
+inl size = {
+    seq = 1115394
+    minibatch = 64
+    step = 64
+    hot = 128
+    }
+
+// I got this dataset from Karpathy.
+inl path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
+inl data = 
+    macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
+    |> Array.map (inl x -> 
+        inl x = to int64 x
+        assert (x < size.hot) "The inputs need to be in the [0,127] range."
+        to uint8 x
+        )
+    |> HostTensor.array_as_tensor
+    |> HostTensor.assert_size size.seq
+    |> s.CudaTensor.from_host_tensor
+    |> inl data -> data.round_split size.minibatch
+
+inl minibatch,seq = data.dim
+
+inl input =
+    inl data = s.CudaTensor.to_dev_tensor data 
+    s.CudaKernel
+        .init {rev_thread_limit=32; dim=seq,minibatch,size.hot} (inl seq minibatch ->
+            data minibatch seq .get
+            )
+        
+
+inl label = input.view_span (const {from=1}) .round_split' size.step 
+inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step 
+inl data = {input label}
+
+inl network = 
+    open Recurrent.Layer
+    
+    inl label = input .label 1 |> encode.one_hot size.hot
+    inl input = input .input 1 |> encode.one_hot size.hot
+
+    inl body =
+        input
+        |> lstm 256
+        |> init s
+
+    inl network = 
+        body
+        |> Feedforward.Layer.linear size.hot
+        |> init s
+
+    inl train = error Error.softmax_cross_entropy label network
+    
+    inl sampler =
+        body
+        |> sample 1f32
+    
+    {train sampler}
 
 Loops.for' {from=0; near_to=10; body=inl {next} -> 
     open Recurrent.Passes
