@@ -760,7 +760,7 @@ inl minibatch,seq = data.dim
 inl input =
     inl data = s.CudaTensor.to_dev_tensor data 
     s.CudaKernel
-        .init {rev_thread_limit=32; dim=seq,minibatch,size.hot} (inl seq minibatch ->
+        .init {rev_thread_limit=32; dim=seq,minibatch} (inl seq minibatch ->
             data minibatch seq .get
             )
         
@@ -793,7 +793,7 @@ inl network =
     
     {train sampler}
 
-Loops.for' {from=0; near_to=10; body=inl {next} -> 
+Loops.for' {from=0; near_to=3; body=inl {next} -> 
     open Recurrent.Passes
     open Body
 
@@ -829,6 +829,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning11
 |> printfn "%s"
 |> ignore

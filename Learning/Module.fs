@@ -1783,10 +1783,10 @@ inl float ->
             inl f = 
                 inl rec f tns = function
                     | _ :: x' -> inl x -> f (tns x) x'
-                    | () -> inl x -> if x = tns.get then one else zero
+                    | () -> inl x -> if x = to int64 tns.get then one else zero
                 f (s.CudaTensor.to_dev_tensor tns) (type tns.dim)
 
-            s.CudaTensor.init {rev_thread_limit=32; dim=Tuple.append x.dim (Tuple.wrap size)} f
+            s.CudaKernel.init {rev_thread_limit=32; dim=Tuple.append tns.dim (size :: ())} f
         } |> stackify
 
     /// Aplies a softmax to the inputs and then samples from them randomly. Returns the resulting indices in a 1d tensor.
