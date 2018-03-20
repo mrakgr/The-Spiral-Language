@@ -2316,10 +2316,8 @@ inl float ->
 
     inl prune_state state s =
         inl s = s.RegionMem.create
-        inl state =
-            HostTensor.toa_map (inl {primal} ->
-                primal.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)
-                ) state
+        inl f primal = primal.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)
+        inl state = HostTensor.toa_map (inl {primal} | primal -> f primal) state
         inl region_clear _ = s.RegionMem.clear        
         state, region_clear
 
@@ -2361,7 +2359,7 @@ inl float ->
         train grad_check=grad_check train
         } |> stackify
 
-    inl sample temp near_to network input s =
+    inl sample' temp near_to network input s =
         Loops.foru {
             from=0; near_to 
             state=(), {}, const (), input
@@ -2369,22 +2367,30 @@ inl float ->
                 s.refresh
                 inb s = s.RegionMem.create'
                 inl input,{state} = run (sample temp network) {input={input}; bck=const (); state} s
-                Console.writeline "*a"
                 inl input_host = s.CudaTensor.to_host_tensor input |> stack
-                Console.writeline "**a"
                 inl buffer =
                     match buffer with
                     | () -> ResizeArray.create {elem_type=input_host}
                     | _ -> buffer
                 buffer.add input_host
                 
-                inl state, region_clear' = prune_state state s
+                inl (input, state), region_clear' = prune_state (input, state) s
                 region_clear()
                 buffer, state, region_clear', input
             finally=inl buffer,state,region_clear, input ->
                 region_clear()
                 buffer
             }
+
+    inl sample temp near_to body x s =
+        inb s = s.RegionMem.create'
+        inl input = s.CudaTensor.create {elem_type=x; dim=1}
+        s.CudaTensor.set (input 0) x
+        inl r = sample' temp near_to body input s
+        Console.writeline "Sample:"
+        r.iter (inl x -> Console.write (x 0 .get |> to char))
+        Console.writeline ()
+        Console.writeline "-----"
 
     inl Recurrent = 
         {

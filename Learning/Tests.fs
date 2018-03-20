@@ -789,37 +789,29 @@ inl network =
     
     {train body}
 
-inl sample temp near_to body x s =
-    inb s = s.RegionMem.create'
-    inl input = s.CudaTensor.create {elem_type=x; dim=1}
-    s.CudaTensor.set (input 0) x
-    Recurrent.Pass.sample temp near_to body input s
-        .iter (inl x -> Console.write (x 0 .get |> to char))
-    Console.writeline ()
-    Console.writeline "-----"
 
-sample 1f32 512 network.body (to int64 '\n') s
+Loops.for' {from=0; near_to=100; body=inl {next} -> 
+    open Recurrent.Pass
+    open Body
 
-//Loops.for' {from=0; near_to=1; body=inl {next} -> 
-//    open Recurrent.Pass
-//    open Body
+    inl cost =
+        for {
+            data
+            body=train {
+                network=network.train
+                optimizer=Optimizer.clipped_sgd 0.5f32 0.03f32
+                }
+            } s
 
-//    inl cost =
-//        for {
-//            data
-//            body=train {
-//                network=network.train
-//                //optimizer=Optimizer.clipped_sgd 0.5f32 0.03f32
-//                }
-//            } s
+    sample 1f32 2048 network.body (to int64 ' ') s
 
-//    string_format "Training: {0}" cost |> Console.writeline
+    string_format "Training: {0}" cost |> Console.writeline
 
-//    if nan_is cost then
-//        Console.writeline "Training diverged. Aborting..."
-//    else
-//        next ()
-//    }
+    if nan_is cost then
+        Console.writeline "Training diverged. Aborting..."
+    else
+        next ()
+    }
     """
 
 let tests =
