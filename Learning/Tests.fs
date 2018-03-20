@@ -787,32 +787,38 @@ inl network =
 
     inl train = error Error.softmax_cross_entropy label network
     
-    inl sampler =
-        body
-        |> sample 1f32
-    
-    {train sampler}
+    {train body}
 
-Loops.for' {from=0; near_to=1; body=inl {next} -> 
-    open Recurrent.Passes
-    open Body
+inl sample temp near_to body x =
+    inl input = s.CudaTensor.create {elem_type=x; dim=1}
+    s.CudaTensor.set (input 0) x
+    Recurrent.sample temp near_to body input
+        .iter (inl x -> Console.write (x 0 .get))
+    Console.writeline ()
+    Console.writeline "-----"
 
-    inl cost =
-        for {
-            data
-            body=train {
-                network=network.train
-                //optimizer=Optimizer.clipped_sgd 0.5f32 0.03f32
-                }
-            } s
 
-    string_format "Training: {0}" cost |> Console.writeline
 
-    if nan_is cost then
-        Console.writeline "Training diverged. Aborting..."
-    else
-        next ()
-    }
+//Loops.for' {from=0; near_to=1; body=inl {next} -> 
+//    open Recurrent.Passes
+//    open Body
+
+//    inl cost =
+//        for {
+//            data
+//            body=train {
+//                network=network.train
+//                //optimizer=Optimizer.clipped_sgd 0.5f32 0.03f32
+//                }
+//            } s
+
+//    string_format "Training: {0}" cost |> Console.writeline
+
+//    if nan_is cost then
+//        Console.writeline "Training diverged. Aborting..."
+//    else
+//        next ()
+//    }
     """
 
 let tests =

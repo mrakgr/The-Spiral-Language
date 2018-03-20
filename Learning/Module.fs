@@ -2360,14 +2360,14 @@ inl float ->
         train grad_check=grad_check train
         } |> stackify
 
-    inl sample near_to network input =
+    inl sample temp near_to network input =
         Loops.foru {
             from=0; near_to 
             state=(), {}, const (), input
             body=inl {state=buffer,state,region_clear,input i} ->
                 s.refresh
                 inb s = s.RegionMem.create'
-                inl input,{state} = run network {input={input}; state} s
+                inl input,{state} = run (sample temp network) {input={input}; state} s
                 inl buffer =
                     match buffer with
                     | () -> ResizeArray.create {elem_type=type input}
@@ -2379,7 +2379,7 @@ inl float ->
                 buffer, state, region_clear', input
             finally=inl buffer,state,region_clear, input ->
                 region_clear()
-                buffer.to_array
+                buffer
             }
 
     inl Recurrent = 
