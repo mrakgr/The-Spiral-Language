@@ -1058,9 +1058,13 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     match t with
                     | Add -> a + b
                     | Sub -> a - b
-                    | Mult -> a * b // TODO: Add checks for division by zero.
-                    | Div -> a / b
-                    | Mod -> a % b
+                    | Mult -> a * b
+                    | Div -> 
+                        if Unchecked.defaultof<_> = b then on_type_er (trace d) "Division by zero caught at compile time."
+                        a / b
+                    | Mod -> 
+                        if Unchecked.defaultof<_> = b then on_type_er (trace d) "Modulus by zero caught at compile time."
+                        a % b
                     | _ -> failwith "Expected an arithmetic operation."
                 let op_arith_num_zero a b =
                     match t with
