@@ -760,7 +760,7 @@ inl minibatch,seq = data.dim
 inl input =
     inl data = s.CudaTensor.to_dev_tensor data 
     s.CudaKernel
-        .init {rev_thread_limit=32; dim=seq,minibatch} (inl seq minibatch ->
+        .init {dim=seq,minibatch} (inl seq minibatch ->
             data minibatch seq .get
             )
         
@@ -793,7 +793,7 @@ inl network =
     
     {train sampler}
 
-Loops.for' {from=0; near_to=3; body=inl {next} -> 
+Loops.for' {from=0; near_to=1; body=inl {next} -> 
     open Recurrent.Passes
     open Body
 
@@ -802,7 +802,7 @@ Loops.for' {from=0; near_to=3; body=inl {next} ->
             data
             body=train {
                 network=network.train
-                optimizer=Optimizer.clipped_sgd 0.5f32 0.03f32
+                //optimizer=Optimizer.clipped_sgd 0.5f32 0.03f32
                 }
             } s
 
