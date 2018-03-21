@@ -1022,11 +1022,11 @@ inl d2_replicate_map' w f in in' out =
                 inl grid_for = grid_for {gridDim blockDim}
                 grid_for .x dim_in'_b {body=inl {i} ->
                     inl in = in i
-                    inl in' j = in' j i 
+                    inl in' j = in' j i .get
                     inl out j = out j i
                     grid_for .y dim_in'_a {body=inl {i} ->
                         inl in', out = in' i, out i
-                        out.set (f in.get in'.get out.get)
+                        out.set (f in.get in' out.get)
                         }
                     }
             }
@@ -1669,17 +1669,17 @@ inl float ->
         inl out = s.CudaKernel.d2_replicate_map fwd primal primal' |> dr s
         out, inl _ -> join
             inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
-            on_non_nil adjoint (s.CudaKernel.mapi_d2_redo_map' bck_in {in'=primal'; out} primal)
-            on_non_nil adjoint' (s.CudaKernel.d2_replicate_map' bck_in' primal {in'=primal'; out})
-
-    inl wrap_double = function
-        match l with
-        | () -> error_type "The first argument must not be empty."
-        | (_,_) :: _ -> l
-        | _ :: _ -> l :: ()
+            inl _ = filter_unit_and_branch adjoint >>! s.CudaKernel.mapi_d2_redo_map' bck_in {in'=primal'; out} primal
+            inl _ = filter_unit_and_branch adjoint' >>! s.CudaKernel.d2_replicate_map' bck_in' primal {in'=primal'; out}
+            ()
+            
 
     inl matmultb l bias s = 
-        inl l = wrap_double l
+        inl l =
+            match l with
+            | () -> error_type "The first argument must not be empty."
+            | (_,_) :: _ -> l
+            | _ :: _ -> l :: ()
         inl C = 
             Tuple.foldl (inl C (A,B) ->
                 match C with
@@ -1750,8 +1750,11 @@ inl float ->
     inl d2_replicate_activation d =
         d2_replicate_map { d with
             bck={
-                bck_in={ self with map_out=Tuple.map2 (+)}
-                bck_in'=inl x {in out=A} -> Tuple.map2 (inl x out -> out + A*x) (self x in)
+                bck_in={ self with 
+                    map_in=inl {in out} i -> HostTensor.toa_map ((*) out.A) (self {in out=out.P} i)
+                    map_out=Tuple.map2 (+)
+                    }
+                bck_in'=inl x {in out=A} -> HostTensor.toa_map2 (inl x out -> out + A*x) (self x in)
                 }
             }
 
@@ -2340,19 +2343,7 @@ inl float ->
                     succ (h, (h, c))
             }
 
-    inl mi_summation =
-        d2_replicate_activation {
-            fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4
-            bck={
-                bck_in={
-                    map_in=inl {in=b1,b2,b3,b4; out=A} (i,s) -> A*i*s, A*s, A*i, A
-                    neutral_elem=zero,zero,zero,zero;redo=Tuple.map2 (+)
-                    }
-                bck_in'=inl (b1,b2,b3,b4) (i,s) -> b1*s+b3, b1*i+b2
-                }
-            }
-
-    /// The multiplicative integration RNN.
+    /// The multiplicative integration vanilla RNN.
     inl mi size sublayer = 
         recurrent 
             {
@@ -2373,10 +2364,32 @@ inl float ->
                 b4 = bias0 ()
                 }
             apply = inl {b1 b2 b3 b4 input state} s i ->
-                inm i = matmult input i
-                inm s = matmult state s
-                // b1*i*s + b2*s + b3*i + b4
-                mi_summation (b1,b2,b3,b4) (i,s)
+                match s with
+                | () ->
+                    inm i = matmult i input
+                    d2_replicate_activation {
+                        fwd=inl (b3,b4) i -> b3*i + b4
+                        bck={
+                            bck_in={
+                                map_in=inl {in=b3,b4} i -> i, one
+                                neutral_elem=zero,zero;redo=Tuple.map2 (+)
+                                }
+                            bck_in'=inl (b3,b4) i -> b3
+                            }
+                        } (b3,b4) i
+                | _ ->
+                    inm i = matmult i input
+                    inm s = matmult s state
+                    d2_replicate_activation {
+                        fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4
+                        bck={
+                            bck_in={
+                                map_in=inl {in=b1,b2,b3,b4} (i,s) -> i*s, s, i, one
+                                neutral_elem=zero,zero,zero,zero;redo=Tuple.map2 (+)
+                                }
+                            bck_in'=inl (b1,b2,b3,b4) (i,s) -> b1*s+b3, b1*i+b2
+                            }
+                        } (b1,b2,b3,b4) (i,s)
                 >>= Activation.sigmoid 
                 >>= inl x -> succ (x,x)
             }
@@ -2464,7 +2477,7 @@ inl float ->
 
     inl Recurrent = 
         {
-        Layer = {Layer with init layer sigmoid linear lstm} |> stackify
+        Layer = {Layer with init layer sigmoid linear lstm mi} |> stackify
         Pass = {for sample Body} |> stackify
         } |> stackify
 

@@ -693,7 +693,7 @@ inl network =
 
     inl network =
         input
-        |> lstm 256
+        |> mi 128
         |> Feedforward.Layer.linear size.hot
         |> init s
     
@@ -831,6 +831,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning11
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
 |> printfn "%s"
 |> ignore
