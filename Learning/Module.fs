@@ -1109,14 +1109,14 @@ inl mapi_d1_redo_map' w {d with redo neutral_elem} in in' out =
             kernel = cuda 
                 inl grid_for = grid_for {blockDim gridDim}
                 grid_for .y dim_in_a {body=inl {i} ->
-                    inl in, in' = in i, in' i
+                    inl in, in' = in i, in' i .get
 
                     inl x = 
                         grid_for .x dim_in_b {state=dyn neutral_elem; body=inl {state i=j} ->
                             inl in = in j
                             match d with
-                            | {map_in} -> redo state (map_in in.get in'.get)
-                            | {mapi_in} -> redo state (mapi_in i j in.get in'.get)
+                            | {map_in} -> redo state (map_in in.get in')
+                            | {mapi_in} -> redo state (mapi_in i j in.get in')
                             | _ -> redo state in.get
                             }
                         |> cub_block_reduce {blockDim redo}
@@ -1374,7 +1374,7 @@ inl mapi_d2_redo_map' w {d with redo neutral_elem} in in' out =
         inl in = to_dev_tensor in
         inl in' = to_dev_tensor in'
         inl out = to_dev_tensor out
-        inl map_out = match d with {map_out} -> map_out | _ -> const
+        inl map_out = match d with {map_out} -> map_out | _ a _ _ -> a
 
         run {
             gridDim
@@ -1383,7 +1383,7 @@ inl mapi_d2_redo_map' w {d with redo neutral_elem} in in' out =
                 inl grid_for = grid_for {blockDim gridDim}
                 grid_for .x dim_in_b {body=inl {i} ->
                     inl in j = in j i
-                    inl in' = in' i
+                    inl in' = in' i .get
                     inl out = out i
                     inl finally result = out.set (map_out result out.get)
 
@@ -1391,8 +1391,8 @@ inl mapi_d2_redo_map' w {d with redo neutral_elem} in in' out =
                         grid_for .y dim_in_a {state=dyn neutral_elem; body=inl {state i=j} -> 
                             inl in = in j
                             match d with
-                            | {map_in} -> redo state (map_in in.get in'.get) 
-                            | {mapi_in} -> redo state (mapi_in i j in.get in'.get) 
+                            | {map_in} -> redo state (map_in in.get in') 
+                            | {mapi_in} -> redo state (mapi_in i j in.get in') 
                             | _ -> redo state in.get
                             }
                         
@@ -1442,7 +1442,7 @@ inl map_dx_redo_map_template select kernel w d in in' =
         inl map_out, elem_type = 
             inl map_in = match d with {map_in} -> map_in | {mapi_in} -> mapi_in 0 0 | _ -> const
             inl ty = type map_in in.elem_type in'.elem_type
-            match d with {map_out} -> (inl a _ -> map_out a),(type map_out ty) | _ -> const, ty
+            match d with {map_out} -> (inl a _ -> map_out a),(type map_out ty) | _ -> const a, ty
         inl out = w.CudaTensor.create {elem_type dim=in'.dim}
         kernel w {d with map_out} in in' out
         stack out
@@ -1672,12 +1672,14 @@ inl float ->
             on_non_nil adjoint (s.CudaKernel.mapi_d2_redo_map' bck_in {in'=primal'; out} primal)
             on_non_nil adjoint' (s.CudaKernel.d2_replicate_map' bck_in' primal {in'=primal'; out})
 
+    inl wrap_double = function
+        match l with
+        | () -> error_type "The first argument must not be empty."
+        | (_,_) :: _ -> l
+        | _ :: _ -> l :: ()
+
     inl matmultb l bias s = 
-        inl l =
-            match l with
-            | () -> error_type "First argument must not be empty."
-            | (_,_) :: _ -> l
-            | _ :: _ -> l :: ()
+        inl l = wrap_double l
         inl C = 
             Tuple.foldl (inl C (A,B) ->
                 match C with
@@ -1699,9 +1701,9 @@ inl float ->
             bck_in={
                 map_in=inl {out} _ -> out.A
                 neutral_elem=zero;redo=(+)
-                map_out=(+)
+                map_out=inl A _ adjoint -> A + adjoint
                 }
-            bck_in'=inl _ {out} adjoint -> out.A + adjoint
+            bck_in'=inl _ {out=A} adjoint -> A + adjoint
             }
         }
 
@@ -1745,7 +1747,15 @@ inl float ->
         bck = (inl {in=_,x} -> x), (inl {in=x,_} -> x)
         }
 
-    inl Activation = {activation sigmoid tanh add hadmult} |> stack
+    inl d2_replicate_activation d =
+        d2_replicate_map { d with
+            bck={
+                bck_in={ self with map_out=Tuple.map2 (+)}
+                bck_in'=inl x {in out=A} -> Tuple.map2 (inl x out -> out + A*x) (self x in)
+                }
+            }
+
+    inl Activation = {activation sigmoid tanh add hadmult d2_replicate_activation } |> stack
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
@@ -1770,7 +1780,7 @@ inl float ->
                 map_in=const
                 neutral_elem=-infinity,zero
                 redo=inl a b -> if fst a > fst b then a else b
-                map_out=snd >> to int64
+                map_out=snd a >> to int64
                 } (input,label) ()
             |> s.CudaKernel.map_redo_map {
                 redo=(+)
@@ -2330,17 +2340,45 @@ inl float ->
                     succ (h, (h, c))
             }
 
+    inl mi_summation =
+        d2_replicate_activation {
+            fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4
+            bck={
+                bck_in={
+                    map_in=inl {in=b1,b2,b3,b4; out=A} (i,s) -> A*i*s, A*s, A*i, A
+                    neutral_elem=zero,zero,zero,zero;redo=Tuple.map2 (+)
+                    }
+                bck_in'=inl (b1,b2,b3,b4) (i,s) -> b1*s+b3, b1*i+b2
+                }
+            }
+
     /// The multiplicative integration RNN.
-    inl mi activation size sublayer = 
+    inl mi size sublayer = 
         recurrent 
             {
             size sublayer
+            weights = inl s ->
+                open Initializer
+                inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+                inl bias init = 
+                    inl x = s.CudaTensor.create {elem_type=float; dim=size} 
+                    join s.CudaTensor.mmap (const (dyn init)) x
+                    dr s x
+                {
+                input = sigmoid (sublayer.size, size) s |> dr s
+                state = sigmoid (size, size) s |> dr s
+                b1 = bias one
+                b2 = bias (to float 0.5)
+                b3 = bias (to float 0.5)
+                b4 = bias0 ()
+                }
             apply = inl {b1 b2 b3 b4 input state} s i ->
                 inm i = matmult input i
                 inm s = matmult state s
-                inm is = hadmult (i,s)
-                hadmultb ((b1,is),(b2,s),(b3,i)) b4
-                >>= activation 
+                // b1*i*s + b2*s + b3*i + b4
+                mi_summation (b1,b2,b3,b4) (i,s)
+                >>= Activation.sigmoid 
+                >>= inl x -> succ (x,x)
             }
 
     inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
