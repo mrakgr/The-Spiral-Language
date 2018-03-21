@@ -2330,6 +2330,19 @@ inl float ->
                     succ (h, (h, c))
             }
 
+    /// The multiplicative integration RNN.
+    inl mi activation size sublayer = 
+        recurrent 
+            {
+            size sublayer
+            apply = inl {b1 b2 b3 b4 input state} s i ->
+                inm i = matmult input i
+                inm s = matmult state s
+                inm is = hadmult (i,s)
+                hadmultb ((b1,is),(b2,s),(b3,i)) b4
+                >>= activation 
+            }
+
     inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
     inl linear = layer Initializer.sigmoid succ
 
