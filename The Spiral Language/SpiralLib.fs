@@ -1221,7 +1221,6 @@ inl rec facade data =
         length = inl {data with dim} -> product dim
         elem_type = inl {data with bodies} -> toa_map (inl {ar} -> ar.elem_type) bodies
         update_body = inl {data with bodies} f -> {data with bodies=toa_map f bodies} |> facade
-        update_body2 = inl {data with bodies=a,b} f -> {data with bodies=toa_map2 f a b} |> facade
         set_dim = inl {data with dim} dim -> {data with dim=map_dims dim} |> facade
         get = inl {data with dim bodies} -> 
             match dim with

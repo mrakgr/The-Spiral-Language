@@ -1592,38 +1592,6 @@ inl float ->
     inl primals = toa_map primal
     inl adjoints = toa_map adjoint
 
-    inl is_not_unit = function
-        | () -> false
-        | _ -> true
-
-    inl rec filter_units = function
-        | x :: x' -> 
-            match filter_units x with
-            | () -> filter_units x'
-            | x -> x :: filter_units x'
-        | {} & x ->
-            module_filter (inl k (!filter_units (!is_not_unit x)) -> x) x
-            |> inl x -> if eq_type x {} then () else x
-        | .nil -> ()
-        | x -> x
-
-    // What this does is selectively filter out the results of applying f 
-    // where the adjoints are missing (in other words constants.)
-    inl filter_based_on_adjoints x adjoint =
-        inl rec mark_units = function
-            | x :: x', y :: y' -> mark_units (x,y) :: mark_units (x',y')
-            | (), () -> ()
-            | (), _ | _, () -> error_type "Tuple dimesions do not match."
-            | {} & x, {} & y -> module_map (inl k y -> mark_units (x k,y)) y
-            | _, .nil -> ()
-            | x, _ -> x
-        mark_units (x, adjoint) |> filter_units
-
-    inl filter_unit_and_branch x ret =
-        match filter_units x with
-        | () -> ()
-        | x -> ret x
-
     inl on_non_nil B ret =
         match B with
         | .nil -> ()
@@ -1640,14 +1608,10 @@ inl float ->
     inl map {fwd bck} in s =
         inl primal, adjoint = primals in, adjoints in
         inl out = s.CudaKernel.map fwd primal |> dr s
-        out, inl _ -> join
-            inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
-            inl bck =
-                inl bck = filter_based_on_adjoints bck adjoint
-                inl in adjoint -> toa_map ((|>) in) bck |> toa_map2 (+) adjoint
 
-            inb adjoint = filter_unit_and_branch adjoint
-            s.CudaKernel.map' bck {in=primal; out} adjoint
+        out, inl _ -> 
+            inl bck (in, out) = bck in out adjoint
+            s.CudaKernel.map' bck (primal, out) adjoint
 
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call to many useless kernels just to set the
     /// adjoint to 1. The current library is intended for a narrow purpose.
@@ -1657,11 +1621,9 @@ inl float ->
  
         out, inl _ -> join
             inl out = s.CudaTensor.to_dev_tensor out
-            inl bck =
-                inl bck = filter_based_on_adjoints bck adjoint
-                inl {in} adjoint -> toa_map ((|>) {in out=out.get}) bck |> toa_map2 (+) adjoint
-            inb adjoint = filter_unit_and_branch adjoint 
-            s.CudaKernel.map' bck {in=primal} adjoint
+            inl bck (in, out) adjoint = bck in out.get adjoint
+            s.CudaKernel.map' bck (primal, out) adjoint
+
 
     inl d2_replicate_map {fwd bck={bck_in bck_in'}} in in' s =
         inl primal, adjoint = primals in, adjoints in
