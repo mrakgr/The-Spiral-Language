@@ -442,7 +442,7 @@ inl methods =
 
     get=inl _ tns ->
         match tns.unwrap with
-        | {bodies dim=()} -> Stuct.map get_elem bodies
+        | {bodies dim=()} -> Struct.map get_elem bodies
         | _ -> error_type "Cannot get from tensor whose dimensions have not been applied completely."
 
     set=inl _ tns v ->
@@ -1604,11 +1604,10 @@ inl float ->
             on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) (adjoint C) one B)
 
     inl choose_adjoints in bck =
-        let f = function
-            | {primal adjoint} bck -> .Some, (adjoint, bck)
-            | _ _ -> .None
-        inl x = Struct.choose2 f in bck
-        Struct.map fst x, Struct.map snd x
+        Struct.choose2 (function
+            | {primal adjoint} bck -> {adjoint bck block=()}
+            | _ _ -> .nil) in bck
+        |> inl x -> Struct.map (inl x -> x.adjoint) x, Struct.map (inl x -> x.bck) x
             
     inl map {fwd bck} in s =
         inl primal = primals in
@@ -1617,7 +1616,7 @@ inl float ->
         inl adjoint, bck = choose_adjoints in bck
         out, inl _ -> 
             inl bck (in, out) = Struct.map2 (inl bck -> bck (in, out)) bck
-            s.CudaKernel.map' bck (primal, out) adjoint
+            s.CudaKernel.map' bck (primal, {out without block}) adjoint
 
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
     /// just to set the adjoint to 1. The current library is intended for a narrow purpose.
@@ -1636,6 +1635,7 @@ inl float ->
         inl primal', adjoint' = primals in', adjoints in'
         inl out = s.CudaKernel.d2_replicate_map fwd primal primal' |> dr s
         out, inl _ -> join
+            inl out = {out without block}
             s.CudaKernel.mapi_d2_redo_map' bck_in (primal', out) primal adjoint
             s.CudaKernel.d2_replicate_map' bck_in' primal (primal', out) adjoint'
 
@@ -1700,18 +1700,15 @@ inl float ->
 
     inl d2_replicate_activation {fwd bck_in bck_in'} in =
         inl neutral_elem = Struct.map (const zero) in
-        d2_replicate_map { 
-            fwd
-            bck = {
-                bck_in={
-                    map_in=inl (in, out) in' -> Struct.map ((*) out.adjoint) (bck_in in in' out.primal))
-                    neutral_elem redo=Struct.map2 (+)
-                    map_out=Struct.map2 (+)
-                    }
-                bck_in'=inl in' (in, out) -> Struct.map2 (inl x adjoint -> adjoint + out.adjoint*x) (self in in' out.primal))
+        inl bck = {
+            bck_in={
+                map_in=inl (in, out) in' -> Struct.map ((*) out.adjoint) (bck_in in in' out.primal)
+                neutral_elem redo=Struct.map2 (+)
+                map_out=Struct.map2 (+)
                 }
+            bck_in'=inl in' (in, out) -> Struct.map2 (inl x adjoint -> adjoint + out.adjoint*x) (self in in' out.primal)
             }
-            } in
+        d2_replicate_map { fwd bck } in
 
     inl Activation = {activation sigmoid tanh add hadmult d2_replicate_activation } |> stack
 
@@ -1946,46 +1943,43 @@ inl float ->
 
     // #Layers
     inl gid _ = .(to string !GID())
-    inl input name size =
-        {
+    inl layer d = {d with gid=gid(); block=()}
+    
+    inl input name size = layer {
         layer_type = .input
-        gid = gid()
         name
         size
         }
 
-    inl stateful layer_type {weights apply size sublayer} =
-        {
-        layer_type
-        gid = gid()
-        size
-        sublayer
-        weights
-        apply
-        }
+    inl stateful layer_type {weights apply size sublayer} = 
+        layer {
+            layer_type
+            size
+            sublayer
+            weights
+            apply
+            }
 
     inl feedforward = stateful .feedforward
     inl recurrent = stateful .recurrent
 
     inl aux layer_type {apply sublayer size} =
-        {
-        layer_type
-        gid = gid()
-        size
-        sublayer
-        apply
-        }
+        layer {
+            layer_type
+            size
+            sublayer
+            apply
+            }
 
     inl stateless = aux .stateless
     inl non_differentiable = aux .non_differentiable
 
     inl parallel sublayer = 
-        {
-        layer_type = .parallel
-        gid = gid ()
-        size = Struct.map (inl x -> x.size) sublayer
-        sublayer
-        }
+        layer {
+            layer_type = .parallel
+            size = Struct.map (inl x -> x.size) sublayer
+            sublayer
+            }
 
     inl error cost label input =
         stateless
