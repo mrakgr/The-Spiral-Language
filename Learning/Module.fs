@@ -420,7 +420,7 @@ met set_elem (!dyn {dst with size=()}) (!dyn v) =
 inl array_create_cuda_global s elem_type len =
     inl ptr = join s.RegionMem.allocate (len * sizeof elem_type)
     inl elem_type = stack {value = elem_type}
-    function // It needs to be like this rather than a module so toa_map does not split it.
+    function // It needs to be like this rather than a module so Struct.map does not split it.
     | .elem_type -> elem_type.value
     | .ptr -> ptr
 
@@ -442,16 +442,16 @@ inl methods =
 
     get=inl _ tns ->
         match tns.unwrap with
-        | {bodies dim=()} -> toa_map get_elem bodies
+        | {bodies dim=()} -> Stuct.map get_elem bodies
         | _ -> error_type "Cannot get from tensor whose dimensions have not been applied completely."
 
     set=inl _ tns v ->
         match tns.unwrap with
-        | {bodies dim=()} -> toa_iter2 set_elem bodies v
+        | {bodies dim=()} -> Struct.iter2 set_elem bodies v
         | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
 
     from_host_tensor=inl s -> transfer_template s.CudaTensor.from_host_array
-    from_host_tensors=inl s -> toa_map s.CudaTensor.from_host_tensor
+    from_host_tensors=inl s -> Struct.map s.CudaTensor.from_host_tensor
     to_host_tensor=inl s -> transfer_template s.CudaTensor.to_host_array
 
     clear=inl s tns ->
@@ -1587,8 +1587,8 @@ inl float ->
     inl primal = function {primal} | primal -> primal
     inl adjoint = function {adjoint} -> adjoint | _ -> .nil
 
-    inl primals = Tuple.map primal
-    inl adjoints = Tuple.map adjoint
+    inl primals = Struct.map primal
+    inl adjoints = Struct.map adjoint
 
     inl on_non_nil B ret =
         match B with
@@ -1604,11 +1604,11 @@ inl float ->
             on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) (adjoint C) one B)
 
     inl choose_adjoints in bck =
-        Tuple.choose2 (function
+        let f = function
             | {primal adjoint} bck -> .Some, (adjoint, bck)
             | _ _ -> .None
-            ) in bck
-        |> inl x -> Tuple.map fst x, Tuple.map snd x
+        inl x = Struct.choose2 f in bck
+        Struct.map fst x, Struct.map snd x
             
     inl map {fwd bck} in s =
         inl primal = primals in
@@ -1617,11 +1617,11 @@ inl float ->
         inl out = s.CudaKernel.map fwd primal |> dr s
 
         out, inl _ -> 
-            inl bck (in, out) = Tuple.map2 (inl bck -> bck (in, out)) bck
+            inl bck (in, out) = Struct.map2 (inl bck -> bck (in, out)) bck
             s.CudaKernel.map' bck (primal, out) adjoint
 
-    /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call to many useless kernels just to set the
-    /// adjoint to 1. The current library is intended for a narrow purpose.
+    /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
+    /// just to set the adjoint to 1. The current library is intended for a narrow purpose.
     inl map_redo_map {fwd bck} in s =
         inl primal = primals in, adjoints in
         inl adjoint, bck = choose_adjoints in bck
@@ -1630,7 +1630,7 @@ inl float ->
  
         out, inl _ -> join
             inl out = s.CudaTensor.to_dev_tensor out
-            inl bck (in, out) = Tuple.map2 (inl bck -> bck (in, out.get))
+            inl bck (in, out) = Struct.map2 (inl bck -> bck (in, out.get))
             s.CudaKernel.map' bck (primal, out) adjoint
 
     inl d2_replicate_map {fwd bck={bck_in bck_in'}} in in' s =
@@ -1678,7 +1678,7 @@ inl float ->
     inl succ x _ = x, const ()
 
     // #Activation
-    inl activation d = map {d with bck = Tuple.map (inl bck (in, out) adjoint -> adjoint + out.adjoint * (self in out.primal)) self}
+    inl activation d = map {d with bck = Struct.map (inl bck (in, out) adjoint -> adjoint + out.adjoint * (self in out.primal)) self}
 
     inl sigmoid = activation {
         fwd = inl x -> one / (one + exp -x)
@@ -1701,16 +1701,16 @@ inl float ->
         }
 
     inl d2_replicate_activation {fwd bck_in bck_in'} in =
-        inl neutral_elem = Tuple.map (const zero) in
+        inl neutral_elem = Struct.map (const zero) in
         d2_replicate_map { 
             fwd
             bck = {
                 bck_in={
-                    map_in=inl (in, out) in' -> Tuple.map ((*) out.adjoint) (bck_in in in' out.primal))
-                    neutral_elem redo=Tuple.map2 (+)
-                    map_out=Tuple.map2 (+)
+                    map_in=inl (in, out) in' -> Struct.map ((*) out.adjoint) (bck_in in in' out.primal))
+                    neutral_elem redo=Struct.map2 (+)
+                    map_out=Struct.map2 (+)
                     }
-                bck_in'=inl in' (in, out) -> Tuple.map2 (inl x adjoint -> adjoint + out.adjoint*x) (self in in' out.primal))
+                bck_in'=inl in' (in, out) -> Struct.map2 (inl x adjoint -> adjoint + out.adjoint*x) (self in in' out.primal))
                 }
             }
             } in
@@ -1808,21 +1808,21 @@ inl float ->
                 map_out = div_by_minibatch_size
                 }
             /// The adjoint in error is always assumed to be one.
-            bck = Tuple.map (inl bck (in, out) adjoint -> adjoint + (bck (in,out)) / batch_size) bck
+            bck = Struct.map (inl bck (in, out) adjoint -> adjoint + div_by_minibatch_size (bck in out)) bck
             } (input, label) s
 
     inl square = error {
         fwd = inl (x,y) -> (y - x) * (y - x)
         bck = 
-            inl (x,y),_ -> two * (x - y)
-            ,inl (x,y),_ -> -(two * (x - y))
+            inl (x,y) _ -> two * (x - y)
+            ,inl (x,y) _ -> -(two * (x - y))
         }
 
     inl cross_entropy = error {
         fwd = inl x, y -> -(y * log x + (one - y) * log (one - x))
         bck = 
-            inl (x, y),_ -> (x - y) / (x * (one - x))
-            ,inl (x, y),_ -> log (one - x) - log x
+            inl (x, y) _ -> (x - y) / (x * (one - x))
+            ,inl (x, y) _ -> log (one - x) - log x
         }
 
     /// Applies a softmax and then calculates the cross entropy cost. Is intended to take a linear layer as input.
@@ -1864,7 +1864,7 @@ inl float ->
 
     // #Loops
     inl outer data =
-        toa_foldl (inl s x ->
+        Struct.foldl (inl s x ->
             match s with
             | () -> fst x.dim
             | s -> assert (s = fst x.dim) "The data tensors need to have the same outer dimension."; s
@@ -1877,7 +1877,7 @@ inl float ->
             from near_to
             state=body
             body=inl {next state i} ->
-                inl data = toa_map (inl x -> x i) data
+                inl data = Struct.map (inl x -> x i) data
                 s.refresh
                 inl s = s.RegionMem.create
                 //string_format "On iteration {0}" i |> Console.writeline
@@ -1921,7 +1921,6 @@ inl float ->
                 if diff >= boundary then
                     Console.writeline {true_gradient approx_gradient diff}
                     Console.writeline "--- Gradient checking failure."
-                    //failwith () "Stopping the program."        
             
         function
         | .unwrap -> 0.0
@@ -1931,13 +1930,13 @@ inl float ->
                 on_succ=inl state ->
                     s.RegionMem.clear
                     inl body = train {network}
-                    inl data = toa_map (inl x -> x.round_split 1) data
+                    inl data = Struct.map (inl x -> x.round_split 1) data
 
                     layer_map (function
                         | {weights stream} -> error_type "Gradient checking is not supported with the wave iteration."
                         | {weights} -> 
                             weights ()
-                            |> toa_iter (inl {primal adjoint} ->
+                            |> Struct.iter (inl {primal adjoint} ->
                                 inl cost _ = for {data body} s
                                 perturb cost primal adjoint
                                 )
@@ -1985,7 +1984,7 @@ inl float ->
         {
         layer_type = .parallel
         gid = gid ()
-        size = Tuple.map (inl x -> x.size) sublayer // TODO: Change this to toa_map. In fact, add toa_map to Core.
+        size = Struct.map (inl x -> x.size) sublayer
         sublayer
         }
 
@@ -2086,7 +2085,7 @@ inl float ->
             ) network
 
     inl optimize network optimizer s =
-        inl body weights s = weights () |> toa_iter (optimizer s)
+        inl body weights s = weights () |> Struct.iter (optimizer s)
         layer_map (function
             | {weights stream} -> s .member_add .stream (const stream) |> body weights
             | {weights} -> body weights s
@@ -2297,7 +2296,7 @@ inl float ->
                     succ (h, (h, c))
             }
 
-    /// The multiplicative integration vanilla RNN.
+    /// The multiplicative integration RNN.
     inl mi size sublayer = 
         recurrent 
             {
@@ -2344,7 +2343,7 @@ inl float ->
     inl prune_state state s =
         inl s = s.RegionMem.create
         inl f primal = primal.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)
-        inl state = HostTensor.toa_map (inl {primal} | primal -> f primal) state
+        inl state = Struct.map (inl {primal} | primal -> f primal) state
         inl region_clear _ = s.RegionMem.clear        
         state, region_clear
 
@@ -2359,7 +2358,7 @@ inl float ->
                         from near_to
                         state=const zero, {state bck=const ()}
                         body=inl {state=cost',d i} ->
-                            inl input = HostTensor.toa_map ((|>) i) input
+                            inl input = Struct.map ((|>) i) input
                             inl cost, d = run network {d with input} s
                             inl bck = term_cast d.bck ()
                             inl get = s.CudaTensor.get

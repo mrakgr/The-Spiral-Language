@@ -90,9 +90,25 @@ inl rev, map =
 inl iter f = foldl (const f) ()
 inl iteri f = foldl f 0
 
+inl rec choose f = function
+    | a :: a' ->
+        match f a with
+        | .Some, x -> x :: choose f a'
+        | .None -> choose f a'
+    | () -> ()
+
 inl rec map2 f a b = 
     match a,b with
     | a :: as', b :: bs' -> f a b :: map2 f as' bs'
+    | (), () -> ()
+    | _ -> error_type "The two tuples have uneven lengths." 
+
+inl rec choose2 f a b = 
+    match a, b with
+    | a :: as', b :: bs' -> 
+        match f a b with
+        | .Some, x -> x :: choose2 f as' bs'
+        | .None -> choose2 f as' bs'
     | (), () -> ()
     | _ -> error_type "The two tuples have uneven lengths." 
 
@@ -236,7 +252,7 @@ inl rec foldr_map f l s =
 {
 head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists split_at take drop
 filter zip unzip init repeat append concat singleton range tryFind contains intersperse wrap unwrap
-foldl_map foldr_map map2 foldl2
+foldl_map foldr_map map2 foldl2 choose choose2
 } 
 |> stackify
     """) |> module_
