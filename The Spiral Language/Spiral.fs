@@ -787,37 +787,33 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let string_format d a b = 
             match tev2 d a b with
-            | TyLit(LitString format) & a, TyTuple (_ :: _ as l) ->
-                if List.forall lit_is l then
-                    let f = function
-                        | TyLit x ->
-                            match x with
-                            | LitInt8 x -> box x
-                            | LitInt16 x -> box x
-                            | LitInt32 x -> box x
-                            | LitInt64 x -> box x
-                            | LitUInt8 x -> box x
-                            | LitUInt16 x -> box x
-                            | LitUInt32 x -> box x
-                            | LitUInt64 x -> box x
-                            | LitFloat32 x -> box x
-                            | LitFloat64 x -> box x
-                            | LitString x -> box x
-                            | LitChar x -> box x
-                            | LitBool x -> box x
-                        | _ -> failwith "impossible"
-                    try 
-                        match l with
-                        | [a] -> String.Format(format,f a)
-                        | [a;b] -> String.Format(format,f a,f b)
-                        | [a;b;c] -> String.Format(format,f a,f b,f c)
-                        | l -> String.Format(format,List.toArray l |> Array.map f)
-                        |> LitString |> TyLit
-                    with :? System.FormatException as e -> on_type_er (trace d) <| sprintf "Dotnet format exception.\nMessage: %s" e.Message
-                else
-                    TyOp(StringFormat,a :: l,PrimT StringT)
-            | TyType (PrimT StringT) & a, TyTuple (_ :: _ as l) -> TyOp(StringFormat,a :: l,PrimT StringT)
-            | TyType (PrimT StringT), b -> on_type_er (trace d) <| sprintf "Expected a non-empty tuple as the second argument to string format.\nGot: %s" (show_typedexpr b)
+            | TyLit(LitString format) & a, TyTuple l when List.forall lit_is l ->
+                let f = function
+                    | TyLit x ->
+                        match x with
+                        | LitInt8 x -> box x
+                        | LitInt16 x -> box x
+                        | LitInt32 x -> box x
+                        | LitInt64 x -> box x
+                        | LitUInt8 x -> box x
+                        | LitUInt16 x -> box x
+                        | LitUInt32 x -> box x
+                        | LitUInt64 x -> box x
+                        | LitFloat32 x -> box x
+                        | LitFloat64 x -> box x
+                        | LitString x -> box x
+                        | LitChar x -> box x
+                        | LitBool x -> box x
+                    | _ -> failwith "impossible"
+                try 
+                    match l with
+                    | [a] -> String.Format(format,f a)
+                    | [a;b] -> String.Format(format,f a,f b)
+                    | [a;b;c] -> String.Format(format,f a,f b,f c)
+                    | l -> String.Format(format,List.toArray l |> Array.map f)
+                    |> LitString |> TyLit
+                with :? System.FormatException as e -> on_type_er (trace d) <| sprintf "Dotnet format exception.\nMessage: %s" e.Message
+            | TyType (PrimT StringT) & a, TyTuple l -> TyOp(StringFormat,a :: l,PrimT StringT)
             | a, _ -> on_type_er (trace d) <| sprintf "Expected a string as the first argument to string format.\nGot: %s" (show_typedexpr a)
 
         let string_concat d sep l =
@@ -3117,6 +3113,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | [a;b;c] -> sprintf "System.String.Format(%s,%s,%s,%s)" (codegen format) (codegen a) (codegen b) (codegen c)
                     | [a;b] -> sprintf "System.String.Format(%s,%s,%s)" (codegen format) (codegen a) (codegen b)
                     | [a] -> sprintf "System.String.Format(%s,%s)" (codegen format) (codegen a)
+                    | [] -> sprintf "System.String.Format(%s)" (codegen format)
                     | l -> 
                         let l = List.map codegen l |> String.concat "; "
                         sprintf "System.String.Format(%s,([|%s|] : obj[]))" (codegen format) l 

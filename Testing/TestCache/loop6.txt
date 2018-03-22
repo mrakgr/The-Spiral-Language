@@ -16,14 +16,9 @@ let rec method_0((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64),
 and method_1((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64)): unit =
     let (var_6: bool) = (var_5 < 5L)
     if var_6 then
-        System.Console.Write("I am at (")
-        let (var_7: string) = System.String.Format("{0}",var_4)
-        System.Console.Write(var_7)
-        System.Console.Write(",")
-        let (var_8: string) = System.String.Format("{0}",var_5)
-        System.Console.Write(var_8)
-        System.Console.Write(")")
-        System.Console.WriteLine()
+        let (var_7: string) = System.String.Format("I am at ({0},{1})",var_4,var_5)
+        let (var_8: string) = System.String.Format("{0}",var_7)
+        System.Console.WriteLine(var_8)
         let (var_9: bool) = (var_4 = var_0)
         let (var_11: bool) =
             if var_9 then
@@ -52,14 +47,9 @@ and method_1((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64), (va
 and method_2((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64)): unit =
     let (var_6: bool) = (var_5 < 5L)
     if var_6 then
-        System.Console.Write("I am at (")
-        let (var_7: string) = System.String.Format("{0}",var_4)
-        System.Console.Write(var_7)
-        System.Console.Write(",")
-        let (var_8: string) = System.String.Format("{0}",var_5)
-        System.Console.Write(var_8)
-        System.Console.Write(")")
-        System.Console.WriteLine()
+        let (var_7: string) = System.String.Format("I am at ({0},{1})",var_4,var_5)
+        let (var_8: string) = System.String.Format("{0}",var_7)
+        System.Console.WriteLine(var_8)
         let (var_9: bool) = (var_4 = var_0)
         let (var_11: bool) =
             if var_9 then
@@ -77,8 +67,7 @@ and method_2((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64), (va
                 else
                     false
             if var_15 then
-                System.Console.Write("Success.")
-                System.Console.WriteLine()
+                System.Console.WriteLine("Success.")
             else
                 let (var_16: int64) = (var_5 + 1L)
                 method_2((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_16: int64))
@@ -88,14 +77,9 @@ and method_2((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64), (va
 and method_4((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64)): unit =
     let (var_6: bool) = (var_5 < 5L)
     if var_6 then
-        System.Console.Write("I am at (")
-        let (var_7: string) = System.String.Format("{0}",var_4)
-        System.Console.Write(var_7)
-        System.Console.Write(",")
-        let (var_8: string) = System.String.Format("{0}",var_5)
-        System.Console.Write(var_8)
-        System.Console.Write(")")
-        System.Console.WriteLine()
+        let (var_7: string) = System.String.Format("I am at ({0},{1})",var_4,var_5)
+        let (var_8: string) = System.String.Format("{0}",var_7)
+        System.Console.WriteLine(var_8)
         let (var_9: bool) = (var_4 = var_0)
         let (var_11: bool) =
             if var_9 then
@@ -103,8 +87,7 @@ and method_4((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64), (va
             else
                 false
         if var_11 then
-            System.Console.Write("Success.")
-            System.Console.WriteLine()
+            System.Console.WriteLine("Success.")
         else
             let (var_12: bool) = (var_4 = var_2)
             let (var_14: bool) =

@@ -1572,7 +1572,7 @@ inl size ret ->
 
 let learning =
     (
-    "Learning",[host_tensor;extern_],"The deep learning module.",
+    "Learning",[struct';extern_],"The deep learning module.",
     """
 inl float ->
     // #Primitives

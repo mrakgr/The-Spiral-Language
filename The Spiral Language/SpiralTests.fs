@@ -1236,11 +1236,9 @@ let parsing6 =
     "parsing6",[parsing;console],"Do the printf's work?",
     """
 open Parsing
-open Console
 
 inl a,b,c = dyn (1,2,3)
 sprintf "%i + %i = %i" a b c |> ignore
-printfn "(%i,%i,%i)" a b c
     """
 
 let parsing7 =
@@ -1353,7 +1351,7 @@ open Loops
 open Console
 inl compare_pos (a_row,a_col) (b_row,b_col) = a_row = b_row && a_col = b_col
 inl ret = {
-    some = inl state -> printfn "Success."
+    some = inl state -> printfn "Success." ()
     none = inl state -> failwith () "Failure."
     }
 inl princess_pos = dyn (0,0)
@@ -1363,7 +1361,7 @@ for' {from=dyn 0; near_to=n; state={};
     body=inl {next=row i=r state} ->
         for' {from=dyn 0; near_to=n; state;
             body=inl {next=col i=c state} ->
-                printfn "I am at (%i,%i)" r c
+                printfn "I am at ({0},{1})" (r, c)
                 inl ret state = 
                     match state with
                     | {mario princess} -> ret .some state
@@ -1383,7 +1381,7 @@ let loop7 =
 open Console
 inl compare_pos (a_row,a_col) (b_row,b_col) = a_row = b_row && a_col = b_col
 inl ret = {
-    some = inl state -> printfn "Success."
+    some = inl state -> printfn "Success." ()
     none = inl state -> failwith () "Failure."
     }
 inl princess_pos = dyn (0,0)
@@ -1392,15 +1390,15 @@ inl n = dyn 5
 met rec row {from=r near_to state} as d =
     met rec col {from=c near_to state} as d =
         if c < near_to then
-            printfn "I am at (%i,%i)" r c
+            printfn "I am at ({0},{1})" (r, c)
             inl ret = function
                 | {mario princess} as state -> ret .some state
                 | state -> col {d with state from=c+1}
             if compare_pos (r,c) mario_pos then 
-                printfn "I've found Mario."
+                printfn "I've found Mario." ()
                 ret {state with mario=mario_pos}
             elif compare_pos (r,c) princess_pos then 
-                printfn "I've found Princess."
+                printfn "I've found Princess." ()
                 ret {state with princess=princess_pos}
             else ret state
         else 
@@ -1426,7 +1424,7 @@ met rec for {from=(!dyn from) near_to state body finally} =
 
 inl compare_pos (a_row,a_col) (b_row,b_col) = a_row = b_row && a_col = b_col
 inl ret = {
-    some = inl state -> printfn "Success."
+    some = inl state -> printfn "Success." ()
     none = inl state -> failwith () "Failure."
     }
 inl princess_pos = dyn (0,0)
@@ -1436,15 +1434,15 @@ for {from=0; near_to=n; state={};
     body = inl {next=row i=r state} ->
         for {from=0; near_to=n; state;
             body = inl {next=col i=c state} ->
-                printfn "I am at (%i,%i)" r c
+                printfn "I am at ({0},{1})" (r, c)
                 inl ret = function
                     | {mario princess} as state -> ret .some state
                     | state -> col state
                 if compare_pos (r,c) mario_pos then 
-                    printfn "I've found Mario."
+                    printfn "I've found Mario." ()
                     ret {state with mario=mario_pos}
                 elif compare_pos (r,c) princess_pos then 
-                    printfn "I've found Princess."
+                    printfn "I've found Princess." ()
                     ret {state with princess=princess_pos}
                 else ret state
             finally = row
