@@ -1553,7 +1553,7 @@ inl float s ->
         | .nil -> ()
         | B -> ret B
 
-    inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block_toa_map=()}
+    inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
 
     inl matmult A B s =
         inl C = s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s

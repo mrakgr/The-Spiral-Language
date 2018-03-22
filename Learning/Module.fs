@@ -1575,8 +1575,6 @@ let learning =
     "Learning",[host_tensor;extern_],"The deep learning module.",
     """
 inl float ->
-    open HostTensor
-
     // #Primitives
     inl zero = to float 0
     inl one = to float 1
@@ -1589,15 +1587,15 @@ inl float ->
     inl primal = function {primal} | primal -> primal
     inl adjoint = function {adjoint} -> adjoint | _ -> .nil
 
-    inl primals = toa_map primal
-    inl adjoints = toa_map adjoint
+    inl primals = Tuple.map primal
+    inl adjoints = Tuple.map adjoint
 
     inl on_non_nil B ret =
         match B with
         | .nil -> ()
         | B -> ret B
 
-    inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block_toa_map=()}
+    inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
 
     inl matmult A B s =
         inl C = s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
@@ -1605,36 +1603,43 @@ inl float ->
             on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one (adjoint C) (primal B) one A)
             on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) (adjoint C) one B)
 
+    inl choose_adjoints in bck =
+        Tuple.choose2 (function
+            | {primal adjoint} bck -> .Some, (adjoint, bck)
+            | _ _ -> .None
+            ) in bck
+        |> inl x -> Tuple.map fst x, Tuple.map snd x
+            
     inl map {fwd bck} in s =
-        inl primal, adjoint = primals in, adjoints in
+        inl primal = primals in
+        inl adjoint, bck = choose_adjoints in bck
+
         inl out = s.CudaKernel.map fwd primal |> dr s
 
         out, inl _ -> 
-            inl bck (in, out) = bck in out adjoint
+            inl bck (in, out) = Tuple.map2 (inl bck -> bck (in, out)) bck
             s.CudaKernel.map' bck (primal, out) adjoint
 
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call to many useless kernels just to set the
     /// adjoint to 1. The current library is intended for a narrow purpose.
     inl map_redo_map {fwd bck} in s =
-        inl primal, adjoint = primals in, adjoints in
+        inl primal = primals in, adjoints in
+        inl adjoint, bck = choose_adjoints in bck
+
         inl out = s.CudaKernel.map_redo_map fwd primal
  
         out, inl _ -> join
             inl out = s.CudaTensor.to_dev_tensor out
-            inl bck (in, out) adjoint = bck in out.get adjoint
+            inl bck (in, out) = Tuple.map2 (inl bck -> bck (in, out.get))
             s.CudaKernel.map' bck (primal, out) adjoint
-
 
     inl d2_replicate_map {fwd bck={bck_in bck_in'}} in in' s =
         inl primal, adjoint = primals in, adjoints in
         inl primal', adjoint' = primals in', adjoints in'
         inl out = s.CudaKernel.d2_replicate_map fwd primal primal' |> dr s
         out, inl _ -> join
-            inl out = match out with {primal adjoint} -> zip (primal, adjoint) .update_body2 (inl P A -> {P A})
-            inl _ = filter_unit_and_branch adjoint >>! s.CudaKernel.mapi_d2_redo_map' bck_in {in'=primal'; out} primal
-            inl _ = filter_unit_and_branch adjoint' >>! s.CudaKernel.d2_replicate_map' bck_in' primal {in'=primal'; out}
-            ()
-            
+            s.CudaKernel.mapi_d2_redo_map' bck_in (primal', out) primal adjoint
+            s.CudaKernel.d2_replicate_map' bck_in' primal (primal', out) adjoint'
 
     inl matmultb l bias s = 
         inl l =
@@ -1657,21 +1662,9 @@ inl float ->
                 ) l
             on_non_nil (adjoint bias) (inl bias -> s.CudaKernel.mapi_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
 
-    inl add_bias = d2_replicate_map {
-        fwd=(+)
-        bck={
-            bck_in={
-                map_in=inl {out} _ -> out.A
-                neutral_elem=zero;redo=(+)
-                map_out=inl A _ adjoint -> A + adjoint
-                }
-            bck_in'=inl _ {out=A} adjoint -> A + adjoint
-            }
-        }
-
     inl Primitive =
         {
-        matmult map map_redo_map add_bias matmultb d2_replicate_map
+        matmult map map_redo_map matmultb d2_replicate_map
         } |> stack
 
     // #Operations
@@ -1684,54 +1677,54 @@ inl float ->
 
     inl succ x _ = x, const ()
 
-    inl multiply_by_adjoint f {d with out={A P} in} = toa_map ((*) A) (f {in out=P})
-
     // #Activation
-    inl activation d = map {d with bck = toa_map multiply_by_adjoint self }
+    inl activation d = map {d with bck = Tuple.map (inl bck (in, out) adjoint -> adjoint + out.adjoint * (self in out.primal)) self}
 
     inl sigmoid = activation {
         fwd = inl x -> one / (one + exp -x)
-        bck = inl {out} -> out * (one - out)
+        bck = inl _ out -> out * (one - out)
         }
 
     inl tanh = activation {
         fwd = tanh
-        bck = inl {out} -> one - out * out
+        bck = inl _ out -> one - out * out
         }
 
     inl add = activation {
         fwd = inl a,b -> a+b
-        bck = const one, const one
+        bck = (inl _ _ -> one), (inl _ _ -> one)
         }
 
     inl hadmult = activation {
         fwd = inl a,b -> a*b
-        bck = (inl {in=_,x} -> x), (inl {in=x,_} -> x)
+        bck = (inl (_,x) _ -> x), (inl (x,_) _ -> x)
         }
 
-    inl d2_replicate_activation d =
-        d2_replicate_map { d with
-            bck={
-                bck_in={ self with 
-                    map_in=inl {in out} i -> HostTensor.toa_map ((*) out.A) (self {in out=out.P} i)
+    inl d2_replicate_activation {fwd bck_in bck_in'} in =
+        inl neutral_elem = Tuple.map (const zero) in
+        d2_replicate_map { 
+            fwd
+            bck = {
+                bck_in={
+                    map_in=inl (in, out) in' -> Tuple.map ((*) out.adjoint) (bck_in in in' out.primal))
+                    neutral_elem redo=Tuple.map2 (+)
                     map_out=Tuple.map2 (+)
                     }
-                bck_in'=inl x {in out=A} -> HostTensor.toa_map2 (inl x out -> out + A*x) (self x in)
+                bck_in'=inl in' (in, out) -> Tuple.map2 (inl x adjoint -> adjoint + out.adjoint*x) (self in in' out.primal))
                 }
             }
+            } in
 
     inl Activation = {activation sigmoid tanh add hadmult d2_replicate_activation } |> stack
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
-        s.CudaKernel.map' (inl _ P, A -> toa_map2 (inl P A -> P - learning_rate * A, zero) P A) primal.empty (primal, adjoint)
+        s.CudaKernel.map' (inl _ P, A -> P - learning_rate * A, zero) primal.empty (primal, adjoint)
 
     inl clipped_sgd max learning_rate s {primal adjoint} = 
         s.CudaKernel.map' (inl _ P, A -> 
-            toa_map2 (inl P A -> 
-                inl A = if A < -max then -max elif A > max then max else A
-                P - learning_rate * A, zero
-                ) P A
+            inl A = if A < -max then -max elif A > max then max else A
+            P - learning_rate * A, zero
             ) primal.empty (primal, adjoint)
 
     inl Optimizer = {sgd clipped_sgd}
@@ -1745,11 +1738,10 @@ inl float ->
                 map_in=const
                 neutral_elem=-infinity,zero
                 redo=inl a b -> if fst a > fst b then a else b
-                map_out=snd a >> to int64
+                map_out=snd >> to int64
                 } (input,label) ()
             |> s.CudaKernel.map_redo_map {
-                redo=(+)
-                neutral_elem=0
+                neutral_elem=0; redo=(+)
                 }
         {value max}
 
@@ -1780,7 +1772,6 @@ inl float ->
                     | _ :: x' -> inl x -> f (tns x) x'
                     | () -> inl x -> if x = to int64 tns.get then one else zero
                 f (s.CudaTensor.to_dev_tensor tns) (type tns.dim)
-
             s.CudaKernel.init {rev_thread_limit=32; dim=Tuple.append tns.dim (size :: ())} f
         } |> stackify
 
@@ -1816,21 +1807,22 @@ inl float ->
                 neutral_elem = zero
                 map_out = div_by_minibatch_size
                 }
-            bck = toa_map ((<<) div_by_minibatch_size) bck
+            /// The adjoint in error is always assumed to be one.
+            bck = Tuple.map (inl bck (in, out) adjoint -> adjoint + (bck (in,out)) / batch_size) bck
             } (input, label) s
 
     inl square = error {
         fwd = inl (x,y) -> (y - x) * (y - x)
         bck = 
-            inl {in=x,y} -> two * (x - y)
-            ,inl {in=x,y} -> two * (y - x)
+            inl (x,y),_ -> two * (x - y)
+            ,inl (x,y),_ -> -(two * (x - y))
         }
 
     inl cross_entropy = error {
         fwd = inl x, y -> -(y * log x + (one - y) * log (one - x))
         bck = 
-            inl {in=x, y} -> (x - y) / (x * (one - x))
-            ,inl {in=x, y} -> log (one - x) - log x
+            inl (x, y),_ -> (x - y) / (x * (one - x))
+            ,inl (x, y),_ -> log (one - x) - log x
         }
 
     /// Applies a softmax and then calculates the cross entropy cost. Is intended to take a linear layer as input.
@@ -1852,7 +1844,7 @@ inl float ->
 
         inl p = softmax one (primal input) s
         inl cost = softmax_cost (primal label) p
-        inl bck _ = join
+        inl bck _ = join // TODO: Fuse these two.
             on_non_nil (adjoint input) <| bck (inl p, label -> p - label) (p, primal label)
             on_non_nil (adjoint label) <| bck (log >> negate) p
 
@@ -1872,7 +1864,7 @@ inl float ->
 
     // #Loops
     inl outer data =
-        HostTensor.toa_foldl (inl s x ->
+        toa_foldl (inl s x ->
             match s with
             | () -> fst x.dim
             | s -> assert (s = fst x.dim) "The data tensors need to have the same outer dimension."; s
@@ -1885,7 +1877,7 @@ inl float ->
             from near_to
             state=body
             body=inl {next state i} ->
-                inl data = HostTensor.toa_map (inl x -> x i) data
+                inl data = toa_map (inl x -> x i) data
                 s.refresh
                 inl s = s.RegionMem.create
                 //string_format "On iteration {0}" i |> Console.writeline
@@ -2331,26 +2323,16 @@ inl float ->
                     inm i = matmult i input
                     d2_replicate_activation {
                         fwd=inl (b3,b4) i -> b3*i + b4
-                        bck={
-                            bck_in={
-                                map_in=inl {in=b3,b4} i -> i, one
-                                neutral_elem=zero,zero;redo=Tuple.map2 (+)
-                                }
-                            bck_in'=inl (b3,b4) i -> b3
-                            }
+                        bck_in=inl (b3,b4) i _ -> i, one
+                        bck_in'=inl (b3,b4) i _ -> b3
                         } (b3,b4) i
                 | _ ->
                     inm i = matmult i input
                     inm s = matmult s state
                     d2_replicate_activation {
                         fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4
-                        bck={
-                            bck_in={
-                                map_in=inl {in=b1,b2,b3,b4} (i,s) -> i*s, s, i, one
-                                neutral_elem=zero,zero,zero,zero;redo=Tuple.map2 (+)
-                                }
-                            bck_in'=inl (b1,b2,b3,b4) (i,s) -> b1*s+b3, b1*i+b2
-                            }
+                        bck_in=inl {in=b1,b2,b3,b4} (i,s) _ -> i*s, s, i, one
+                        bck_in'=inl (b1,b2,b3,b4) (i,s) _ -> b1*s+b3, b1*i+b2
                         } (b1,b2,b3,b4) (i,s)
                 >>= Activation.sigmoid 
                 >>= inl x -> succ (x,x)

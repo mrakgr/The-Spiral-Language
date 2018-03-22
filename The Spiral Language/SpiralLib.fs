@@ -1004,7 +1004,7 @@ inl toa_map f x =
         | x when caseable_box_is x -> f x
         | x :: xs -> loop x :: loop xs
         | () -> ()
-        | {!block_toa_map} & x -> module_map (inl _ -> loop) x
+        | {!block} & x -> module_map (inl _ -> loop) x
         | x -> f x
     loop x
 
@@ -1014,7 +1014,7 @@ inl toa_map2 f a b =
         | x :: xs, y :: ys -> loop (x,y) :: loop (xs,ys)
         | (), () -> ()
         | (), _ | _, () -> error_type "Tuple dimensions do not match."
-        | {!block_toa_map} & x, {!block_toa_map} & y -> module_map (inl k y -> loop (x k,y)) y
+        | {!block} & x, {!block} & y -> module_map (inl k y -> loop (x k,y)) y
         | x, y -> f x y
     loop (a,b)
 
@@ -1024,7 +1024,7 @@ inl toa_map3 f a b c =
         | x :: xs, y :: ys, z :: zs -> loop (x,y,z) :: loop (xs,ys,zs)
         | (), (), () -> ()
         | (), _, _ | _, (), _ | _, _, () -> error_type "Tuple dimensions do not match."
-        | {!block_toa_map} & x, {!block_toa_map} & y, {!block_toa_map} & z -> module_map (inl k y -> loop (x k,y k,z)) z
+        | {!block} & x, {!block} & y, {!block} & z -> module_map (inl k y -> loop (x k,y k,z)) z
         | x, y, z -> f x y z
     loop (a,b,c)
 
@@ -1033,7 +1033,7 @@ inl toa_foldl f s x =
         | x when caseable_box_is x -> f s x
         | () -> s
         | x :: xs -> loop (loop s x) xs
-        | {!block_toa_map} & x -> module_foldl (inl _ -> loop) s x
+        | {!block} & x -> module_foldl (inl _ -> loop) s x
         | x -> f s x
     loop s x
 
@@ -1278,7 +1278,7 @@ inl make_body {d with dim elem_type} =
             | _ -> 1
         inl len :: size = Tuple.scanr (inl (!span x) s -> x * s) dim init
         inl ar = match d with {array_create} | _ -> array_create elem_type len
-        {ar size offset=0; block_toa_map=()}
+        {ar size offset=0; block=()}
 
 /// Creates an empty tensor given the descriptor. {size elem_type ?layout=(.toa | .aot) ?array_create ?pad_to} -> tensor
 inl create {dsc with dim elem_type} = 
@@ -1332,7 +1332,7 @@ inl assert_size (!map_dims dim') tns =
     tns.set_dim dim'
 
 /// Reinterprets an array as a tensor. Does not copy. array -> tensor.
-inl array_as_tensor ar = facade {dim=map_dims (array_length ar); bodies={ar size=1::(); offset=0; block_toa_map=()}}
+inl array_as_tensor ar = facade {dim=map_dims (array_length ar); bodies={ar size=1::(); offset=0; block=()}}
 
 /// Reinterprets an array as a tensor. array -> tensor.
 inl array_to_tensor = array_as_tensor >> copy
