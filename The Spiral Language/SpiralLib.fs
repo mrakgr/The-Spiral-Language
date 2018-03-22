@@ -1009,13 +1009,13 @@ inl create typ n =
 |> stackify
     """) |> module_
 
-let host_tensor =
+let struct' = 
     (
-    "HostTensor",[tuple;loops;extern_;console],"The host tensor module.",
+    "Struct",[],"The Struct module.",
     """
-// A lot of the code in this module is made with purpose of being reused on the Cuda side.
-
-inl toa_map f x = 
+// The functions in this module are intended for iterating over generic types.
+// The modules always iterate over the first argument to them.
+inl map f x = 
     inl rec loop = function
         | x when caseable_box_is x -> f x
         | x :: xs -> loop x :: loop xs
@@ -1024,27 +1024,31 @@ inl toa_map f x =
         | x -> f x
     loop x
 
-inl toa_map2 f a b = 
+inl map2 f a b = 
     inl rec loop = function
         | x, y when caseable_box_is x || caseable_box_is y -> f x y
         | x :: xs, y :: ys -> loop (x,y) :: loop (xs,ys)
         | (), () -> ()
         | (), _ | _, () -> error_type "Tuple dimensions do not match."
-        | {!block} & x, {!block} & y -> module_map (inl k y -> loop (x k,y)) y
+        | {!block} & x, {!block} & y -> module_map (inl k x -> loop (x,y k)) x
         | x, y -> f x y
     loop (a,b)
 
-inl toa_map3 f a b c = 
+inl map3 f a b c = 
     inl rec loop = function
         | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z
         | x :: xs, y :: ys, z :: zs -> loop (x,y,z) :: loop (xs,ys,zs)
         | (), (), () -> ()
         | (), _, _ | _, (), _ | _, _, () -> error_type "Tuple dimensions do not match."
-        | {!block} & x, {!block} & y, {!block} & z -> module_map (inl k y -> loop (x k,y k,z)) z
+        | {!block} & x, {!block} & y, {!block} & z -> module_map (inl k x -> loop (x,y k,z k)) x
         | x, y, z -> f x y z
     loop (a,b,c)
 
-inl toa_foldl f s x = 
+inl iter f = map (inl x -> f x; ()) >> ignore
+inl iter2 f a b = map2 (inl a b -> f a b; ()) a b |> ignore
+inl iter3 f a b c = map3 (inl a b c -> f a b c; ()) a b c |> ignore
+
+inl foldl f s x = 
     inl rec loop s = function
         | x when caseable_box_is x -> f s x
         | () -> s
@@ -1053,10 +1057,86 @@ inl toa_foldl f s x =
         | x -> f s x
     loop s x
 
-inl toa_iter f = toa_map (inl x -> f x; ()) >> ignore
-inl toa_iter2 f a b = toa_map2 (inl a b -> f a b; ()) a b |> ignore
-inl toa_iter3 f a b c = toa_map3 (inl a b c -> f a b c; ()) a b c |> ignore
+inl foldl2 f s a b = 
+    inl rec loop s = function
+        | x, y when caseable_box_is x || caseable_box_is y -> f s x y
+        | x :: xs, y :: ys -> loop (loop s (x,y)) (xs,ys)
+        | (), () -> ()
+        | (), _ | _, () -> error_type "Tuple dimensions do not match."
+        | {!block} & x, {!block} & y -> module_foldl (inl k s x -> loop s (x,y k)) s x
+        | x, y -> f x y
+    loop s (a,b)
 
+inl foldl3 f s a b c = 
+    inl rec loop s = function
+        | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f s x y z
+        | x :: xs, y :: ys, z :: zs -> loop (loop s (x,y,z)) (xs,ys,zs)
+        | (), (), () -> ()
+        | (), _, _ | _, (), _ | _, _, () -> error_type "Tuple dimensions do not match."
+        | {!block} & x, {!block} & y, {!block} & z -> module_foldl (inl k s x -> loop s (x,y k,z k)) s x
+        | x, y, z -> f x y z
+    loop s (a,b,c)
+
+inl choose f x = 
+    inl rec loop = function
+        | x when caseable_box_is x -> f x
+        | () -> ()
+        | x :: xs -> 
+            match loop x with
+            | .Some, x -> x :: loop xs
+            | _ -> loop xs
+        | {!block} & x -> 
+            module_foldl (inl k s x -> 
+                match loop x with
+                | .Some, x -> module_add k x s
+                | _ -> s) {} x
+        | x -> f x
+    loop s x
+
+inl choose2 f a b = 
+    inl rec loop = function
+        | x, y when caseable_box_is x || caseable_box_is y -> f x y
+        | x :: xs, y :: ys ->
+            match loop (x,y) with
+            | .Some, x -> x :: loop (xs,ys)
+            | _ -> loop (xs,ys)
+        | (), () -> ()
+        | (), _ | _, () -> error_type "Tuple dimensions do not match."
+        | {!block} & x, {!block} & y ->
+            module_foldl (inl k s x -> 
+                match loop (x,y k) with
+                | .Some, x -> module_add k x s
+                | _ -> s) {} x
+        | x, y -> f x y
+    loop (a,b)
+
+inl choose3 f a b c = 
+    inl rec loop = function
+        | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z
+        | x :: xs, y :: ys, z :: zs -> 
+            match loop (x,y,z) with
+            | .Some, x -> x :: loop (xs,ys,zs)
+            | _ -> loop (xs,ys,zs)
+        | (), (), () -> ()
+        | (), _, _ | _, (), _ | _, _, () -> error_type "Tuple dimensions do not match."
+        | {!block} & x, {!block} & y, {!block} & z -> 
+            module_foldl (inl k s x -> 
+                match loop (x,y k,z k) with
+                | .Some, x -> module_add k x s
+                | _ -> s) {} x
+        | x, y, z -> f x y z
+    loop (a,b,c)
+
+{
+map map2 map3 iter iter2 iter3 foldl foldl2 foldl3 choose choose2 choose3
+} |> stackify
+    """) |> module_
+
+let host_tensor =
+    (
+    "HostTensor",[tuple;struct';loops;extern_;console],"The host tensor module.",
+    """
+// A lot of the code in this module is made with purpose of being reused on the Cuda side.
 inl map_dim = function
     | {from to} -> 
         assert (from <= to) "Tensor needs to be at least size 1."
@@ -1201,7 +1281,7 @@ inl view {data with dim} f =
         | dim, () -> (),dim
 
     inl indices, dim = new_dim (dim, tensor_update_dim f dim |> map_dims)
-    {data with bodies = toa_map (inl ar -> tensor_view ar indices) self; dim}
+    {data with bodies = Struct.map (inl ar -> tensor_view ar indices) self; dim}
 
 inl view_span {data with dim} f =
     inl rec new_dim = function
@@ -1230,21 +1310,21 @@ inl view_span {data with dim} f =
         | dim, () -> (),dim
 
     inl indices, dim = new_dim (dim, tensor_update_dim f dim |> Tuple.wrap)
-    {data with bodies = toa_map (inl ar -> tensor_view ar indices) self; dim}
+    {data with bodies = Struct.map (inl ar -> tensor_view ar indices) self; dim}
 
 inl rec facade data = 
     inl methods = stack {
         length = inl {data with dim} -> product dim
-        elem_type = inl {data with bodies} -> toa_map (inl {ar} -> ar.elem_type) bodies
-        update_body = inl {data with bodies} f -> {data with bodies=toa_map f bodies} |> facade
+        elem_type = inl {data with bodies} -> Struct.map (inl {ar} -> ar.elem_type) bodies
+        update_body = inl {data with bodies} f -> {data with bodies=Struct.map f bodies} |> facade
         set_dim = inl {data with dim} dim -> {data with dim=map_dims dim} |> facade
         get = inl {data with dim bodies} -> 
             match dim with
-            | () -> toa_map tensor_get bodies
+            | () -> Struct.map tensor_get bodies
             | _ -> error_type "Cannot get from tensor whose dimensions have not been applied completely."
         set = inl {data with dim bodies} v ->
             match dim with
-            | () -> toa_iter2 tensor_set bodies v
+            | () -> Struct.iter2 (inl v bodies -> tensor_set bodies v) v bodies
             | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
         // Crops the dimensions of a tensor.
         view = inl data -> view data >> facade
@@ -1256,7 +1336,7 @@ inl rec facade data =
             | () -> error_type "Cannot apply the tensor anymore."
             | {from near_to} :: dim ->
                 assert (i >= from && i < near_to) "Argument out of bounds." 
-                {data with bodies = toa_map (inl ar -> tensor_apply ar (i-from)) self; dim}
+                {data with bodies = Struct.map (inl ar -> tensor_apply ar (i-from)) self; dim}
                 |> facade
         /// Returns the tensor data.
         unwrap = id
@@ -1305,7 +1385,7 @@ inl create {dsc with dim elem_type} =
             inl create elem_type = make_body {dsc with elem_type}
             match layout with
             | .aot -> create elem_type
-            | .toa -> toa_map create elem_type
+            | .toa -> Struct.map create elem_type
 
         facade {bodies dim}
     match dim with
@@ -1356,7 +1436,7 @@ inl array_to_tensor = array_as_tensor >> copy
 /// Asserts that all the dimensions of the tensors are equal. Returns the dimension of the first tensor if applicable.
 /// tensor structure -> (tensor | .nil)
 inl assert_zip l =
-    toa_foldl (inl s x ->
+    Struct.foldl (inl s x ->
         match s with
         | .nil -> x
         | s -> assert (s.dim = x.dim) "All tensors in zip need to have the same dimensions"; s) .nil l
@@ -1366,7 +1446,7 @@ inl assert_zip l =
 inl zip l = 
     match assert_zip l with
     | .nil -> error_type "Empty inputs to zip are not allowed."
-    | !(inl x -> x.unwrap) tns -> facade {tns with bodies=toa_map (inl x -> x.bodies) l}
+    | !(inl x -> x.unwrap) tns -> facade {tns with bodies=Struct.map (inl x -> x.bodies) l}
 
 /// Are all subtensors structurally equal?
 /// tensor structure -> bool
@@ -1388,11 +1468,9 @@ inl assert_dim l = assert_zip >> ignore
 met print (!dyn x) = show x |> Console.writeline
 
 {
-toa_map toa_map2 toa_iter toa_iter2 toa_map3 toa_iter3 toa_foldl create facade 
-init copy assert_size array_as_tensor array_to_tensor map zip show print
+create facade init copy assert_size array_as_tensor array_to_tensor map zip show print
 span equal split flatten assert_contiguous assert_dim reshape
-} 
-|> stackify
+} |> stackify
     """) |> module_
 
 let object =
