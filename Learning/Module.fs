@@ -1612,10 +1612,9 @@ inl float ->
             
     inl map {fwd bck} in s =
         inl primal = primals in
-        inl adjoint, bck = choose_adjoints in bck
-
         inl out = s.CudaKernel.map fwd primal |> dr s
 
+        inl adjoint, bck = choose_adjoints in bck
         out, inl _ -> 
             inl bck (in, out) = Struct.map2 (inl bck -> bck (in, out)) bck
             s.CudaKernel.map' bck (primal, out) adjoint
@@ -1624,10 +1623,9 @@ inl float ->
     /// just to set the adjoint to 1. The current library is intended for a narrow purpose.
     inl map_redo_map {fwd bck} in s =
         inl primal = primals in, adjoints in
-        inl adjoint, bck = choose_adjoints in bck
-
         inl out = s.CudaKernel.map_redo_map fwd primal
- 
+
+        inl adjoint, bck = choose_adjoints in bck
         out, inl _ -> join
             inl out = s.CudaTensor.to_dev_tensor out
             inl bck (in, out) = Struct.map2 (inl bck -> bck (in, out.get))
@@ -1838,15 +1836,16 @@ inl float ->
                     map_out = div_by_minibatch_size
                 } (p, label)
 
-        inl bck f =
-            inl f = f >> div_by_minibatch_size
-            s.CudaKernel.map' (inl x o -> o + f x)
-
         inl p = softmax one (primal input) s
         inl cost = softmax_cost (primal label) p
-        inl bck _ = join // TODO: Fuse these two.
-            on_non_nil (adjoint input) <| bck (inl p, label -> p - label) (p, primal label)
-            on_non_nil (adjoint label) <| bck (log >> negate) p
+        inl bck =
+            inl p, label -> p - label 
+            ,inl p, label -> log p |> negate
+
+        inl adjoint, bck = choose_adjoints (input, label) bck
+        inl bck _ = join
+            inl bck (in, out) = Struct.map2 (inl bck adjoint -> adjoint + div_by_minibatch_size (bck (in, out))) bck
+            s.CudaKernel.map' bck (p, primal label) adjoint
 
         cost, bck
 
