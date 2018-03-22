@@ -1702,11 +1702,11 @@ inl float ->
         inl neutral_elem = Struct.map (const zero) in
         inl bck = {
             bck_in={
-                map_in=inl (in, out) in' -> Struct.map ((*) out.adjoint) (bck_in in in' out.primal)
+                map_in=inl (in', out) in -> Struct.map ((*) out.adjoint) (bck_in in in' out.primal)
                 neutral_elem redo=Struct.map2 (+)
                 map_out=Struct.map2 (+)
                 }
-            bck_in'=inl in' (in, out) -> Struct.map2 (inl x adjoint -> adjoint + out.adjoint*x) (self in in' out.primal)
+            bck_in'=inl in (in', out) -> Struct.map2 (inl x adjoint -> adjoint + out.adjoint*x) (bck_in' in in' out.primal)
             }
         d2_replicate_map { fwd bck } in
 
@@ -2323,7 +2323,7 @@ inl float ->
                     inm s = matmult s state
                     d2_replicate_activation {
                         fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4
-                        bck_in=inl {in=b1,b2,b3,b4} (i,s) _ -> i*s, s, i, one
+                        bck_in=inl (b1,b2,b3,b4) (i,s) _ -> i*s, s, i, one
                         bck_in'=inl (b1,b2,b3,b4) (i,s) _ -> b1*s+b3, b1*i+b2
                         } (b1,b2,b3,b4) (i,s)
                 >>= Activation.sigmoid 
