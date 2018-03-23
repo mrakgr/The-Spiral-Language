@@ -1789,6 +1789,10 @@ inl float ->
     /// Aplies a softmax to the inputs and then samples from them randomly. Returns the resulting indices in a 1d tensor.
     inl sample temp x s =
         inl prob = softmax temp (primal x) s
+        inl _ =
+            inl prob' = s.CudaTensor.to_host_tensor prob
+            inl table = HostTensor.init 128 (to char)
+            HostTensor.print (HostTensor.zip (prob' 0, table))
         inl boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=fst prob.dim}
         s.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
             scan={

@@ -743,7 +743,7 @@ open Error
 inl size = {
     seq = 1115394
     minibatch = 1
-    step = 64
+    step = 3
     hot = 128
     }
 
@@ -811,7 +811,7 @@ Loops.for' {from=0; near_to=1000; body=inl {next i} ->
                     }
                 } s
 
-    sample 0.01f32 64 network.body (to int64 'F') s
+    sample 0.01f32 3 network.body (to int64 'F') s
 
     string_format "Training: {0}" cost |> Console.writeline
 
