@@ -796,7 +796,7 @@ inl network =
     {train body}
 
 inb _ = Timer.timeit "whole loop"
-Loops.for' {from=0; near_to=1000; body=inl {next i} -> 
+Loops.for' {from=0; near_to=100; body=inl {next i} -> 
     open Recurrent.Pass
     open Body
 
@@ -810,6 +810,8 @@ Loops.for' {from=0; near_to=1000; body=inl {next i} ->
                     optimizer=Optimizer.clipped_sgd 0.5f32 0.3f32
                     }
                 } s
+
+    Console.writeline "----"
 
     sample 0.01f32 3 network.body (to int64 'F') s
 

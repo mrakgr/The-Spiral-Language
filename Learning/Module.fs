@@ -1791,8 +1791,11 @@ inl float ->
         inl prob = softmax temp (primal x) s
         inl _ =
             inl prob' = s.CudaTensor.to_host_tensor prob
-            inl table = HostTensor.init 128 (to char)
-            HostTensor.print (HostTensor.zip (prob' 0, table))
+            Array.init 128 (inl i -> prob' 0 i .get, to char i)
+            |> Array.sort_descending
+            |> Extern.show
+            |> Console.printfn "The sampled prob is {0}"
+
         inl boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=fst prob.dim}
         s.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
             scan={
@@ -2330,24 +2333,32 @@ inl float ->
                 b4 = bias0 ()
                 } |> heap
 
-            apply = inl {b1 b2 b3 b4 input state} s i ->
-                match s with
-                | () ->
-                    inm i = matmult (i, input)
-                    d2_replicate_activation {
-                        fwd=inl (b3,b4) i -> b3*i + b4 |> sigmoid_fwd
-                        bck_in=inl (b3,b4) i out -> (i, one) |> Tuple.map ((*) (sigmoid_bck out))
-                        bck_in'=inl (b3,b4) i out -> b3 * sigmoid_bck out
-                        } (b3,b4) i
-                | _ ->
-                    inm i = matmult (i, input)
-                    inm s = matmult (s, state)
-                    d2_replicate_activation {
-                        fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4 |> sigmoid_fwd
-                        bck_in=inl (b1,b2,b3,b4) (i,s) out -> (i*s, s, i, one) |> Tuple.map ((*) (sigmoid_bck out))
-                        bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2) |> Tuple.map ((*) (sigmoid_bck out))
-                        } (b1,b2,b3,b4) (i,s)
-                >>= inl x -> succ (x,x)
+            apply = inl {b1 b2 b3 b4 input state} s i ss ->
+                inl _ = 
+                    inl prob' = ss.CudaTensor.to_host_tensor i
+                    Array.init 128 (inl i -> prob' 0 i .get, to char i)
+                    |> Array.sort_descending
+                    |> Extern.show
+                    |> Console.printfn "The input is {0}"
+                inl f =
+                    match s with
+                    | () ->
+                        inm i = matmult (i, input)
+                        d2_replicate_activation {
+                            fwd=inl (b3,b4) i -> b3*i + b4 |> sigmoid_fwd
+                            bck_in=inl (b3,b4) i out -> (i, one) |> Tuple.map ((*) (sigmoid_bck out))
+                            bck_in'=inl (b3,b4) i out -> b3 * sigmoid_bck out
+                            } (b3,b4) i
+                    | _ ->
+                        inm i = matmult (i, input)
+                        inm s = matmult (s, state)
+                        d2_replicate_activation {
+                            fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4 |> sigmoid_fwd
+                            bck_in=inl (b1,b2,b3,b4) (i,s) out -> (i*s, s, i, one) |> Tuple.map ((*) (sigmoid_bck out))
+                            bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2) |> Tuple.map ((*) (sigmoid_bck out))
+                            } (b1,b2,b3,b4) (i,s)
+                    >>= inl x -> succ (x,x)
+                f ss
             }
 
     inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
@@ -2424,7 +2435,6 @@ inl float ->
     inl sample temp near_to body x s =
         inb s = s.RegionMem.create'
         inl input = s.CudaTensor.create {elem_type=x; dim=1}
-        s.CudaTensor.set (input 0) x
         inl r = sample' temp near_to body input s
         Console.writeline "Sample:"
         r.iter (inl x -> Console.write (x 0 .get |> to char))

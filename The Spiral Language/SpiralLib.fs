@@ -549,7 +549,10 @@ inl forall f ar = for' {from=0; near_to=array_length ar; state=true; body = inl 
 /// (a -> bool) -> a array -> bool
 inl exists f ar = for' {from=0; near_to=array_length ar; state=false; body = inl {next state i} -> f (ar i) || next state}
 
-{empty singleton foldl foldr init copy map filter append concat forall exists}
+inl sort ar = macro.fs ar [text: "Array.sort "; arg: ar]
+inl sort_descending ar = macro.fs ar [text: "Array.sortDescending "; arg: ar]
+
+{empty singleton foldl foldr init copy map filter append concat forall exists sort sort_descending}
 |> stackify
     """) |> module_
 
