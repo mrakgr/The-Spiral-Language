@@ -2324,7 +2324,8 @@ inl float ->
                 b2 = bias (to float 0.5)
                 b3 = bias (to float 0.5)
                 b4 = bias0 ()
-                }
+                } |> heap
+
             apply = inl {b1 b2 b3 b4 input state} s i ->
                 match s with
                 | () ->

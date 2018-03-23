@@ -742,7 +742,7 @@ open Error
 
 inl size = {
     seq = 1115394
-    minibatch = 64
+    minibatch = 1
     step = 64
     hot = 128
     }
@@ -771,8 +771,8 @@ inl input =
             )
         
 
-inl label = input.view_span (const {from=1}) .round_split' size.step 
-inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step 
+inl label = input.view_span (const {from=1}) .round_split' size.step .view_span (const 1)
+inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step .view_span (const 1)
 inl data = {input label}
 
 inl network = 
@@ -801,17 +801,17 @@ Loops.for' {from=0; near_to=1000; body=inl {next i} ->
     open Body
 
     inl cost = 
-        Timer.timeit (string_format "iteration {0}" i)
-        <| inl _ ->
+        //Timer.timeit (string_format "iteration {0}" i)
+        //<| inl _ ->
             for {
                 data
                 body=train {
                     network=network.train
-                    optimizer=Optimizer.clipped_sgd 0.5f32 0.03f32
+                    optimizer=Optimizer.clipped_sgd 0.5f32 0.3f32
                     }
                 } s
 
-    sample 1f32 2048 network.body (to int64 '.') s
+    sample 0.01f32 64 network.body (to int64 'F') s
 
     string_format "Training: {0}" cost |> Console.writeline
 
