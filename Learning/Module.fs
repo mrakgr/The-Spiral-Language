@@ -1821,7 +1821,11 @@ inl float ->
                 (if x < 0f32 then infinityf32 else x), index
             redo={
                 ne=infinityf32,0
-                f=inl a b -> if fst a < fst b then a else b
+                f=inl (av,ai as a) (bv,bi as b) -> 
+                    if av = bv then
+                        if ai < bi then a else b
+                    elif av < bv then a 
+                    else b
                 }
             map_out=snd
             } prob boundary
