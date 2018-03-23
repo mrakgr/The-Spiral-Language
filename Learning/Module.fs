@@ -1778,12 +1778,26 @@ inl float ->
         {
         /// The one hot encode function. Does not check that the inputs are in range.
         one_hot = inl size tns s ->
+            s.CudaTensor.get (tns 0)
+            |> Console.printfn "The input to one hot is {0}"
             inl f = 
                 inl rec f tns = function
                     | _ :: x' -> inl x -> f (tns x) x'
-                    | () -> inl x -> if x = to int64 tns.get then one else zero
+                    | () -> inl x -> 
+                        if x = to int64 tns.get then 
+                            macro.cd () [text: "printf"; args: "Encoding: %lli\n", x]
+                            one 
+                        else 
+                            zero
                 f (s.CudaTensor.to_dev_tensor tns) (type tns.dim)
-            s.CudaKernel.init {rev_thread_limit=32; dim=Tuple.append tns.dim (size :: ())} f
+            inl r = s.CudaKernel.init {rev_thread_limit=32; dim=Tuple.append tns.dim (size :: ())} f
+            inl _ = 
+                inl prob' = s.CudaTensor.to_host_tensor r
+                Array.init 128 (inl i -> prob' 0 i .get, to char i)
+                |> Array.sort_descending
+                |> Extern.show
+                |> Console.printfn "The encoded value is {0}"
+            r
         } |> stackify
 
     /// Aplies a softmax to the inputs and then samples from them randomly. Returns the resulting indices in a 1d tensor.
@@ -2416,6 +2430,8 @@ inl float ->
             body=inl {state=buffer,state,region_clear,input i} ->
                 s.refresh
                 inb s = s.RegionMem.create'
+                s.CudaTensor.get (input 0)
+                |> Console.printfn "Running the network with input {0}"
                 inl input,{state} = run (sample temp network) {input={input}; bck=const (); state} s
                 inl input_host = s.CudaTensor.to_host_tensor input |> stack
                 inl buffer =
@@ -2435,6 +2451,7 @@ inl float ->
     inl sample temp near_to body x s =
         inb s = s.RegionMem.create'
         inl input = s.CudaTensor.create {elem_type=x; dim=1}
+        s.CudaTensor.set (input 0) x
         inl r = sample' temp near_to body input s
         Console.writeline "Sample:"
         r.iter (inl x -> Console.write (x 0 .get |> to char))
