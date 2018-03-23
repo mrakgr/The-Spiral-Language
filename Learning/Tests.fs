@@ -784,10 +784,6 @@ inl network =
     inl body =
         input
         |> mi 128
-        |> init s
-
-    inl network = 
-        body
         |> Feedforward.Layer.linear size.hot
         |> init s
 
