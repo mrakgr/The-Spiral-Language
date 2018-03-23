@@ -320,10 +320,7 @@ inl methods_stream =
         allocate = inl s -> s.Stream.allocate
         }
     inl x = methods_template d
-    region_module_name, {x with
-        allocate = allocate_stream d 
-        create = inl s -> (self s).RegionStream.allocate
-        }
+    region_module_name, {x with allocate = allocate_stream d }
 
 inl s -> 
     inl add s (a, b) = s.module_add a (stackify b)
@@ -1567,6 +1564,7 @@ inl size ret ->
     inl s = Region s |> CudaStream |> CudaTensor |> CudaKernel
     inb s = s.RegionMem.create'
     inb s = s.RegionStream.create'
+    inl s = s.RegionStream.allocate
     ret s
     """) |> module_
 
@@ -1592,16 +1590,56 @@ inl float ->
 
     inl on_non_nil B ret =
         match B with
-        | .nil -> ()
+        | .nil -> .nil
         | B -> ret B
 
     inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
 
-    inl matmult A B s =
-        inl C = s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
+    inl parallel s l =
+        match l with
+        | x :: x' ->
+            inl x = x s
+            inb s = s.RegionStream.create'
+            inl x' = 
+                Tuple.map (inl x -> 
+                    inl s = s.RegionStream.allocate
+                    x s, s.stream
+                    ) x'
+                |> Tuple.map (inl a,b -> s.stream.wait_on b; a)
+            x :: x'
+        | x -> x s
+
+    inl matmultb l bias s = 
+        inl l =
+            match l with
+            | () -> error_type "The first argument must not be empty."
+            | (_,_) :: _ -> l
+            | _ :: _ -> l :: ()
+        inl C :: _ as C' = 
+            inl f A,B s = s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
+            Tuple.map f l |> parallel s
+        match bias with
+        | () -> s.CudaKernel.map' (inl _ -> Tuple.foldl (+) zero) (primals C') (primal C)
+        | _ -> s.CudaKernel.d2_replicate_map' (inl _ -> Tuple.foldl (+)) (primal bias) (primals C') (primal C)
         C, inl _ -> join
-            on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one (adjoint C) (primal B) one A)
-            on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) (adjoint C) one B)
+            inl C' = adjoint C
+            inl l =
+                Tuple.map (inl A, B -> 
+                    // Potentially data racey. Rather than mess with streams it would be much more preferable to fuse 
+                    // these matrix multiplications into one kernel.
+                    // This would not only speed them up significantly, but would also get rid of potential data races.
+                    on_non_nil (adjoint A) (inl A s -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A)
+                    ,on_non_nil (adjoint B) (inl B s -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B)
+                    ) l
+                |> Tuple.concat
+            inl f l = Tuple.choose id l |> parallel s |> ignore
+            match bias with
+            | () -> f l
+            | _ ->
+                inl b = on_non_nil (adjoint bias) (inl bias s -> s.CudaKernel.mapi_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
+                f (b :: l)
+
+    inl matmult l s = matmultb l () s
 
     inl choose_adjoints in bck =
         Struct.choose2 (function
@@ -1638,27 +1676,6 @@ inl float ->
             inl out = {out without block}
             s.CudaKernel.mapi_d2_redo_map' bck_in (primal', out) primal adjoint
             s.CudaKernel.d2_replicate_map' bck_in' primal (primal', out) adjoint'
-
-    inl matmultb l bias s = 
-        inl l =
-            match l with
-            | () -> error_type "The first argument must not be empty."
-            | (_,_) :: _ -> l
-            | _ :: _ -> l :: ()
-        inl C = 
-            Tuple.foldl (inl C (A,B) ->
-                match C with
-                | () -> s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
-                | C -> s.CudaBlas.gemm' .nT .nT one (primal A) (primal B) one (primal C); C
-                ) () l
-        s.CudaKernel.d2_replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
-        C, inl _ -> join
-            inl C' = adjoint C
-            Tuple.iter (inl A, B ->
-                on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A)
-                on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B)
-                ) l
-            on_non_nil (adjoint bias) (inl bias -> s.CudaKernel.mapi_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
 
     inl Primitive =
         {

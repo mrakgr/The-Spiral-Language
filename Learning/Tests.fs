@@ -48,9 +48,10 @@ inb s = Cuda
 inb s = Allocator s 1024
 inl s = CudaStream s |> Region
 inb s = s.RegionStream .create'
+inl a = s.RegionStream.allocate
 inl b = s.RegionStream.allocate
 inl c = s.RegionStream.allocate
-s.stream.wait_on b.stream
+a.stream.wait_on b.stream
 ()
     """
 
@@ -62,6 +63,7 @@ inb s = Allocator s 1024
 inl s = CudaTensor s |> CudaStream |> Region
 inb s = s.RegionMem.create'
 inb s = s.RegionStream.create'
+inl s = s.RegionStream.allcoate
 
 inl a1 = s.CudaTensor.create {dim=1,2,3; elem_type=int64}
 inl a2 = s.CudaTensor.zero {dim=1,2,3; elem_type=int64}
@@ -77,6 +79,7 @@ inb s = Allocator s 1024
 inl s = CudaTensor s |> CudaStream |> Region
 inb s = s.RegionMem.create'
 inb s = s.RegionStream.create'
+inl s = s.RegionStream.allocate
 
 inl h = HostTensor.create {elem_type=int64; dim=1,2,3}
 inl a1 = s.CudaTensor.from_host_tensor h
@@ -93,6 +96,7 @@ inb s = CudaRandom s
 inl s = Region s |> CudaStream |> CudaTensor
 inb s = s.RegionMem.create'
 inb s = s.RegionStream.create'
+inl s = s.RegionStream.allocate
 
 inl sigmoid_initializer' s x = 
     inl stddev = sqrt (2.0f32 / to float32 (Tuple.foldl (inl s x -> s + HostTensor.span x) 0 x.dim))
@@ -118,6 +122,7 @@ inb s = CudaBlas s
 inl s = Region s |> CudaStream |> CudaTensor
 inb s = s.RegionMem.create'
 inb s = s.RegionStream.create'
+inl s = s.RegionStream.allocate
 
 inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=2,3}
 inl a2 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=3,4}
