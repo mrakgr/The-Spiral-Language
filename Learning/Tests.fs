@@ -783,7 +783,7 @@ inl network =
 
     inl body =
         input
-        |> lstm 128
+        |> mi 128
         |> init s
 
     inl network = 
@@ -796,7 +796,7 @@ inl network =
     {train body}
 
 inb _ = Timer.timeit "whole loop"
-Loops.for' {from=0; near_to=5; body=inl {next i} -> 
+Loops.for' {from=0; near_to=1000; body=inl {next i} -> 
     open Recurrent.Pass
     open Body
 
@@ -836,7 +836,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning11
 |> printfn "%s"
 |> ignore
 

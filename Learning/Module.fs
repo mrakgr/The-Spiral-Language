@@ -1628,16 +1628,12 @@ inl float ->
                     // Potentially data racey. Rather than mess with streams it would be much more preferable to fuse 
                     // these matrix multiplications into one kernel.
                     // This would not only speed them up significantly, but would also get rid of potential data races.
-                    on_non_nil (adjoint A) (inl A s -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A)
-                    ,on_non_nil (adjoint B) (inl B s -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B)
+                    on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A)
+                    ,on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B)
                     ) l
-                |> Tuple.concat
-            inl f l = Tuple.choose id l |> parallel s |> ignore
             match bias with
-            | () -> f l
-            | _ ->
-                inl b = on_non_nil (adjoint bias) (inl bias s -> s.CudaKernel.mapi_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
-                f (b :: l)
+            | () -> ()
+            | _ -> on_non_nil (adjoint bias) (inl bias -> s.CudaKernel.mapi_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
 
     inl matmult l s = matmultb l () s
 
