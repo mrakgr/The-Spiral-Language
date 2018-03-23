@@ -1598,15 +1598,15 @@ inl float ->
     inl parallel s l =
         match l with
         | x :: x' ->
-            inl x = x s
             inb s = s.RegionStream.create'
             inl x' = 
                 Tuple.map (inl x -> 
-                    inl s = s.RegionStream.allocate
-                    x s, s.stream
+                    inl s' = s.RegionStream.allocate
+                    s'.stream.wait_on s.stream
+                    x s', s'.stream
                     ) x'
-                |> Tuple.map (inl a,b -> s.stream.wait_on b; a)
-            x :: x'
+            inl x = x s
+            x :: Tuple.map (inl a,b -> s.stream.wait_on b; a) x'
         | x -> x s
 
     inl matmultb l bias s = 
@@ -1619,8 +1619,8 @@ inl float ->
             inl f A,B s = s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
             Tuple.map f l |> parallel s
         match bias with
-        | () -> s.CudaKernel.map' (inl _ -> Tuple.foldl (+) zero) (primals C') (primal C)
-        | _ -> s.CudaKernel.d2_replicate_map' (inl _ -> Tuple.foldl (+)) (primal bias) (primals C') (primal C)
+        | () -> s.CudaKernel.map' (inl a _ -> Tuple.foldl (+) zero a) (primals C') (primal C)
+        | _ -> s.CudaKernel.d2_replicate_map' (inl a b _ -> Tuple.foldl (+) a b) (primal bias) (primals C') (primal C)
         C, inl _ -> join
             inl C' = adjoint C
             inl l =
@@ -2332,15 +2332,15 @@ inl float ->
             apply = inl {b1 b2 b3 b4 input state} s i ->
                 match s with
                 | () ->
-                    inm i = matmult i input
+                    inm i = matmult (i, input)
                     d2_replicate_activation {
                         fwd=inl (b3,b4) i -> b3*i + b4 |> sigmoid_fwd
                         bck_in=inl (b3,b4) i out -> (i, one) |> Tuple.map ((*) (sigmoid_bck out))
                         bck_in'=inl (b3,b4) i out -> b3 * sigmoid_bck out
                         } (b3,b4) i
                 | _ ->
-                    inm i = matmult i input
-                    inm s = matmult s state
+                    inm i = matmult (i, input)
+                    inm s = matmult (s, state)
                     d2_replicate_activation {
                         fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4 |> sigmoid_fwd
                         bck_in=inl (b1,b2,b3,b4) (i,s) out -> (i*s, s, i, one) |> Tuple.map ((*) (sigmoid_bck out))
