@@ -1678,9 +1678,12 @@ inl float ->
     // #Activation
     inl activation d = map {d with bck = Struct.map (inl bck (in, out) adjoint -> adjoint + out.adjoint * (self in out.primal)) self}
 
+    inl sigmoid_fwd x = one / (one + exp -x)
+    inl sigmoid_bck out = out * (one - out)
+
     inl sigmoid = activation {
-        fwd = inl x -> one / (one + exp -x)
-        bck = inl _ out -> out * (one - out)
+        fwd = sigmoid_fwd
+        bck = inl _ -> sigmoid_bck
         }
 
     inl tanh = activation {
@@ -2314,19 +2317,18 @@ inl float ->
                 | () ->
                     inm i = matmult i input
                     d2_replicate_activation {
-                        fwd=inl (b3,b4) i -> b3*i + b4
-                        bck_in=inl (b3,b4) i _ -> i, one
-                        bck_in'=inl (b3,b4) i _ -> b3
+                        fwd=inl (b3,b4) i -> b3*i + b4 |> sigmoid_fwd
+                        bck_in=inl (b3,b4) i out -> (i, one) |> Tuple.map ((*) (sigmoid_bck out))
+                        bck_in'=inl (b3,b4) i out -> b3 * sigmoid_bck out
                         } (b3,b4) i
                 | _ ->
                     inm i = matmult i input
                     inm s = matmult s state
                     d2_replicate_activation {
-                        fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4
-                        bck_in=inl (b1,b2,b3,b4) (i,s) _ -> i*s, s, i, one
-                        bck_in'=inl (b1,b2,b3,b4) (i,s) _ -> b1*s+b3, b1*i+b2
+                        fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4 |> sigmoid_fwd
+                        bck_in=inl (b1,b2,b3,b4) (i,s) out -> (i*s, s, i, one) |> Tuple.map ((*) (sigmoid_bck out))
+                        bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2) |> Tuple.map ((*) (sigmoid_bck out))
                         } (b1,b2,b3,b4) (i,s)
-                >>= Activation.sigmoid 
                 >>= inl x -> succ (x,x)
             }
 
