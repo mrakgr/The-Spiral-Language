@@ -787,7 +787,7 @@ inl network =
         |> Feedforward.Layer.linear size.hot
         |> init s
 
-    inl train = error Error.softmax_cross_entropy label network
+    inl train = error Error.softmax_cross_entropy label body
     
     {train body}
 
