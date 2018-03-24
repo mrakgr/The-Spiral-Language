@@ -2078,7 +2078,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         and patterns_template expr s = // The order in which the pattern parsers are chained in determines their precedence.
             let inline recurse s = patterns_template expr s
-            pat_or ^<| pat_when expr ^<| pat_as ^<| pat_tuple ^<| pat_cons ^<| pat_and ^<| pat_type expr ^<| pat_closure
+            pat_when expr ^<| pat_as ^<| pat_or ^<| pat_tuple ^<| pat_cons ^<| pat_and ^<| pat_type expr ^<| pat_closure
             ^<| choice [|pat_active expr recurse; pat_e; pat_var; pat_type_lit; pat_lit 
                          pat_rounds recurse; pat_named_tuple recurse; pat_module_outer expr|] <| s
 

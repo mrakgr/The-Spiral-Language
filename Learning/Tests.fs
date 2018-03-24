@@ -696,13 +696,14 @@ inl network =
     inl label = input .label size.hot
     inl input = input .input size.hot
 
-    inl network =
+    inl train =
         input
         |> mi 128
+        |> mi 128
         |> Feedforward.Layer.linear size.hot
-        |> init s
+        |> error Error.softmax_cross_entropy label
+        |> init_parallel s
     
-    inl train = error Error.softmax_cross_entropy label network
     {train}
 
 Loops.for' {from=0; near_to=10; body=inl {next i} -> 
@@ -835,7 +836,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning11
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
 |> printfn "%s"
 |> ignore
 

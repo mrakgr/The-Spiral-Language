@@ -590,7 +590,7 @@ inl s ret ->
         inl args = 
             Tuple.map (function 
                 | x : float64 | x : float32 -> ref x
-                | (.nT | .T) as x -> to_operation x
+                | .nT | .T as x -> to_operation x
                 | {ptr=!to_dev_tensor x} -> x.bodies.ar |> CUdeviceptr
                 | x -> x
                 ) args
@@ -1601,19 +1601,19 @@ inl float ->
             | () -> error_type "The first argument must not be empty."
             | (_,_) :: _ -> l
             | _ :: _ -> l :: ()
-        inl C :: _ as C' = 
-            inl f A,B s = s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
-            Tuple.map f l |> parallel s
+        inl C = 
+            Tuple.foldl (inl C (A,B) ->
+                match C with
+                | () -> s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
+                | C -> s.CudaBlas.gemm' .nT .nT one (primal A) (primal B) one (primal C); C
+                ) () l
         match bias with
-        | () -> s.CudaKernel.map' (inl primals _ -> Tuple.foldl (+) zero primals) (primals C') (primal C)
-        | _ -> s.CudaKernel.d2_replicate_map' (inl bias primals _ -> Tuple.foldl (+) bias primals) (primal bias) (primals C') (primal C)
+        | () -> ()
+        | _ -> s.CudaKernel.d2_replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
         C, inl _ -> join
             inl C' = adjoint C
             inl l =
                 Tuple.iter (inl A, B -> 
-                    // Potentially data racey. Rather than mess with streams it would be much more preferable to fuse 
-                    // these matrix multiplications into one kernel.
-                    // This would not only speed them up significantly, but would also get rid of potential data races.
                     on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A) |> ignore
                     on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B) |> ignore
                     ) l
@@ -2081,9 +2081,9 @@ inl float ->
 
     inl init_parallel s network = 
         layer_map (function
-            | {x with weights} -> {x with weights = const (weights s); stream=s.RegionStream.allocate}
-            | {layer_type=.input} -> x
-            | x -> {x with stream=s.RegionStream.allocate}
+            | {stream} | {layer_type=.input | .parallel} as x -> x
+            | {x with weights} -> {x with weights = const (weights s); stream=s.RegionStream.allocate.stream}
+            | x -> {x with stream=s.RegionStream.allocate.stream}
             ) network
 
     inl optimize network optimizer s =
@@ -2129,12 +2129,14 @@ inl float ->
             | .parallel -> x.sublayer, d
             | _ ->
                 inl stream = x.stream
-                inl s = s.add_member .stream (const stream)
+                inl s = s.member_add .stream (const stream)
                 inl values = Struct.map (inl {value} -> value) x.sublayer
                 inl streams = 
                     Struct.choose (function
                         | {stream=x} -> stream.wait_on x; x
                         | _ -> .nil) x.sublayer
+                    |> function .nil -> () | x -> x
+                
 
                 inl wait_bck b =
                     inl b _ =
@@ -2163,6 +2165,7 @@ inl float ->
                         stack (a, wait_bck b)
                     {value stream block=()}, {d with bck = apply_bck self bck; state = {self with $gid=state}}
                 ) x d
+        |> inl x, d -> Struct.map (inl {value} -> value) x, d
 
     inl Combinator = 
         {

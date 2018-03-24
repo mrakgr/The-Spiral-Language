@@ -48,7 +48,7 @@ inl tail x :: xs = xs
 inl rec last x :: xs = match xs with () -> x | xs -> last xs
 
 inl wrap = function
-    | (_ :: _ | ()) as x -> x
+    | _ :: _ | () as x -> x
     | x -> x :: ()
 
 inl unwrap (x :: () | x) = x
@@ -1095,7 +1095,7 @@ inl choose f x =
                 | x -> module_add k x s
                 ) {} x
         | x -> f x
-    loop s x
+    loop x
 
 inl choose2 f a b = 
     inl rec loop = function
