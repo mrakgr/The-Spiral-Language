@@ -742,8 +742,8 @@ open Error
 
 inl size = {
     seq = 1115394
-    minibatch = 1
-    step = 3
+    minibatch = 64
+    step = 64
     hot = 128
     }
 
@@ -771,8 +771,8 @@ inl input =
             )
         
 
-inl label = input.view_span (const {from=1}) .round_split' size.step .view_span (const 1)
-inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step .view_span (const 1)
+inl label = input.view_span (const {from=1}) .round_split' size.step
+inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step
 inl data = {input label}
 
 inl network = 
@@ -792,7 +792,7 @@ inl network =
     {train body}
 
 inb _ = Timer.timeit "whole loop"
-Loops.for' {from=0; near_to=100; body=inl {next i} -> 
+Loops.for' {from=0; near_to=1000; body=inl {next i} -> 
     open Recurrent.Pass
     open Body
 
@@ -809,7 +809,7 @@ Loops.for' {from=0; near_to=100; body=inl {next i} ->
 
     Console.writeline "----"
 
-    sample 0.01f32 3 network.body (to int64 'F') s
+    sample 1.0f32 2048 network.body '\n' s
 
     string_format "Training: {0}" cost |> Console.writeline
 
