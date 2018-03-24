@@ -1595,20 +1595,6 @@ inl float ->
 
     inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
 
-    inl parallel s l =
-        match l with
-        | x :: x' ->
-            inb s = s.RegionStream.create'
-            inl x' = 
-                Tuple.map (inl x -> 
-                    inl s' = s.RegionStream.allocate
-                    s'.stream.wait_on s.stream
-                    x s', s'.stream
-                    ) x'
-            inl x = x s
-            x :: Tuple.map (inl a,b -> s.stream.wait_on b; a) x'
-        | x -> x s
-
     inl matmultb l bias s = 
         inl l =
             match l with
@@ -1619,17 +1605,17 @@ inl float ->
             inl f A,B s = s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
             Tuple.map f l |> parallel s
         match bias with
-        | () -> s.CudaKernel.map' (inl a _ -> Tuple.foldl (+) zero a) (primals C') (primal C)
-        | _ -> s.CudaKernel.d2_replicate_map' (inl a b _ -> Tuple.foldl (+) a b) (primal bias) (primals C') (primal C)
+        | () -> s.CudaKernel.map' (inl primals _ -> Tuple.foldl (+) zero primals) (primals C') (primal C)
+        | _ -> s.CudaKernel.d2_replicate_map' (inl bias primals _ -> Tuple.foldl (+) bias primals) (primal bias) (primals C') (primal C)
         C, inl _ -> join
             inl C' = adjoint C
             inl l =
-                Tuple.map (inl A, B -> 
+                Tuple.iter (inl A, B -> 
                     // Potentially data racey. Rather than mess with streams it would be much more preferable to fuse 
                     // these matrix multiplications into one kernel.
                     // This would not only speed them up significantly, but would also get rid of potential data races.
-                    on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A)
-                    ,on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B)
+                    on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A) |> ignore
+                    on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B) |> ignore
                     ) l
             match bias with
             | () -> ()
