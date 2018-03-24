@@ -784,6 +784,7 @@ inl network =
     inl body =
         input
         |> mi 128
+        |> mi 128
         |> Feedforward.Layer.linear size.hot
         |> init s
 
@@ -797,13 +798,13 @@ Loops.for' {from=0; near_to=1000; body=inl {next i} ->
     open Body
 
     inl cost = 
-        //Timer.timeit (string_format "iteration {0}" i)
-        //<| inl _ ->
+        Timer.timeit (string_format "iteration {0}" i)
+        <| inl _ ->
             for {
                 data
                 body=train {
                     network=network.train
-                    optimizer=Optimizer.clipped_sgd 0.5f32 0.3f32
+                    optimizer=Optimizer.clipped_sgd 0.5f32 0.03f32
                     }
                 } s
 
