@@ -2128,7 +2128,7 @@ inl float ->
     inl run_parallel x d s =
         layer_map_fold (inl {x with layer_type gid} d ->
             match layer_type with
-            | .input -> {value=d.input x.name; block=()}, d
+            | .input -> {value=d.input x.name; stream=s.stream; block=()}, d
             | .parallel -> x.sublayer, d
             | _ ->
                 inl stream = x.stream
