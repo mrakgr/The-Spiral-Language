@@ -330,7 +330,7 @@ inl o1 = // The sampling function
             (if x < 0f32 then infinityf32 else x), index
         redo={
             ne=infinityf32,0
-            f=inl a b -> if fst a < fst b then a else b
+            f=inl a b -> if fst a <= fst b then a else b
             }
         map_out=snd
         } a1 a2
