@@ -2079,6 +2079,13 @@ inl float ->
             | x -> x
             ) network
 
+    inl init_parallel s network = 
+        layer_map (function
+            | {x with weights} -> {x with weights = const (weights s); stream=s.RegionStream.allocate}
+            | {layer_type=.input} -> x
+            | x -> {x with stream=s.RegionStream.allocate}
+            ) network
+
     inl optimize network optimizer s =
         inl body weights s = weights () |> Struct.iter (optimizer s)
         layer_map (function
@@ -2159,7 +2166,7 @@ inl float ->
 
     inl Combinator = 
         {
-        layer_map_fold layer_map init optimize run run_parallel
+        layer_map_fold layer_map init init_parallel optimize run run_parallel
         } |> stackify
 
     // #Feedforward
@@ -2459,7 +2466,7 @@ inl float ->
 
     inl Recurrent = 
         {
-        Layer = {Layer with init layer sigmoid linear lstm mi} |> stackify
+        Layer = {Layer with init init_parallel layer sigmoid linear lstm mi} |> stackify
         Pass = {for sample Body} |> stackify
         } |> stackify
 
