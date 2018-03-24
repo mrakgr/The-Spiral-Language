@@ -171,7 +171,8 @@ inl compare a b = if a < b then -1i32 elif a = b then 0i32 else 1i32
 inl sort_ptrs x = x.sort (inl {ptr=a} {ptr=b} -> compare (a()) (b()))
 inl sort_sizes x = x.sort (inl {size=a} {size=b} -> compare b a)
 
-met free_cells_refresh {section with pool free_cells used_cells} = 
+met free_cells_refresh section = 
+    inl {pool free_cells used_cells} = section
     used_cells.filter (inl {ptr} -> ptr.Try = 0u64)
     sort_ptrs used_cells
     free_cells.clear
@@ -196,7 +197,8 @@ met free_cells_refresh {section with pool free_cells used_cells} =
         add {ptr size}
 
 
-met allocate {section with pool used_cells free_cells} (!(to uint64 >> round_up_to_multiple >> dyn) size') =
+met allocate section (!(to uint64 >> round_up_to_multiple >> dyn) size') =
+    inl {pool used_cells free_cells} = section
     inl loop next =
         inl {ptr size} = free_cells 0i32
         if size' <= size then
@@ -220,15 +222,14 @@ inl section_create s size ret =
     inl pool = allocate_global s size
     inl free_cells = ResizeArray.create {elem_type=type {ptr=uint64; size=uint64}}
     inl used_cells = ResizeArray.create {elem_type=type pool}
-    inl section = {pool free_cells used_cells}
+    inl section = {pool free_cells used_cells} |> heap
     free_cells_refresh section
 
     inl allocate _ = 
         function
-        | .elem_type -> type pool.ptr
+        | .elem_type -> type section.pool.ptr
         | .refresh -> free_cells_refresh section
         | x -> allocate section x
-        |> heap
 
     inl s = s.member_add .refresh (inl s -> s.Section.allocate.refresh)
     inl r = s.module_add .Section {allocate} |> ret
@@ -336,25 +337,27 @@ inl ty x = fs [text: x]
 inl dispose x = FS.Method x .Dispose () ()
 
 inl rec allocate _ =
-    inl is_live = ref true
-    inl stream = FS.Constructor (ty "ManagedCuda.CudaStream") ()
+    inl data =
+        {
+        is_live = ref true
+        stream = FS.Constructor (ty "ManagedCuda.CudaStream") ()
+        event = FS.Constructor (fs [text: "ManagedCuda.CudaEvent"]) ()
+        } |> heap
     function
     | .Dispose ->
-        dispose stream
-        is_live := false
+        dispose data.stream
+        dispose data.event
+        data.is_live := false
     | .elem_type -> type allocate ()
     | x -> join
-        assert (is_live()) "The stream has been disposed."
+        assert (data.is_live()) "The stream has been disposed."
         match x with
-        | .extract -> macro.fs (ty "ManagedCuda.BasicTypes.CUstream") [arg: stream; text: ".Stream"]
-        | .synchronize -> FS.Method stream .Synchronize() ()
+        | .extract -> macro.fs (ty "ManagedCuda.BasicTypes.CUstream") [arg: data.stream; text: ".Stream"]
+        | .synchronize -> FS.Method data.stream .Synchronize() ()
         | .wait_on on ->
-            inl event_type = fs [text: "ManagedCuda.CudaEvent"]
-            inl event = FS.Constructor event_type ()
-            FS.Method event .Record on.extract ()
-            macro.fs () [arg: stream; text: ".WaitEvent "; arg: event; text: ".Event"]
-            dispose event
-        | () -> stream
+            FS.Method data.event .Record on.extract ()
+            macro.fs () [arg: data.stream; text: ".WaitEvent "; arg: data.event; text: ".Event"]
+        | () -> data.stream
 
 inl s -> s.module_add .Stream (stackify {allocate})
     """) |> module_
