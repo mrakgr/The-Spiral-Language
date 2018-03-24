@@ -2411,7 +2411,7 @@ inl float ->
                         state=const zero, {state bck=const ()}
                         body=inl {state=cost',d i} ->
                             inl input = Struct.map ((|>) i) input
-                            inl cost, d = run_parallel network {d with input} s
+                            inl cost, d = run network {d with input} s
                             inl bck = term_cast d.bck ()
                             inl get = s.CudaTensor.get
                             inl cost _ = cost'() + get cost

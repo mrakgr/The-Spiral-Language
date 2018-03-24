@@ -699,14 +699,13 @@ inl network =
     inl train =
         input
         |> mi 128
-        |> mi 128
         |> Feedforward.Layer.linear size.hot
         |> error Error.softmax_cross_entropy label
         |> init_parallel s
     
     {train}
 
-Loops.for' {from=0; near_to=10; body=inl {next i} -> 
+Loops.for' {from=0; near_to=2; body=inl {next i} -> 
     open Recurrent.Pass
     open Body
 
