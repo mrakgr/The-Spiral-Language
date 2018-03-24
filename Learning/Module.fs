@@ -2113,9 +2113,53 @@ inl float ->
                 value, {d with bck = apply_bck self bck; state = {self with $gid=state}}
             ) x d
 
+    /// The wavefront iteration optimization.
+    /// Requires the non-input layers to have preallocated streams.
+    inl run_parallel x d s =
+        layer_map_fold (inl {x with layer_type gid} d ->
+            match layer_type with
+            | .input -> {value=d.input x.name; block=()}, d
+            | .parallel -> x.sublayer, d
+            | _ ->
+                inl stream = x.stream
+                inl s = s.add_member .stream (const stream)
+                inl values = Struct.map (inl {value} -> value) x.sublayer
+                inl streams = 
+                    Struct.choose (function
+                        | {stream=x} -> stream.wait_on x; x
+                        | _ -> .nil) x.sublayer
+
+                inl wait_bck b =
+                    inl b _ =
+                        b ()
+                        Struct.iter (inl x -> x.wait_on stream) streams
+                    term_cast b ()
+
+                match layer_type with
+                | .stateless ->
+                    inl value, bck = indiv join
+                        inl a, b = x.apply values s
+                        stack (a, wait_bck b)
+                    {value stream block=()}, {d with bck = apply_bck self bck}
+                | .non_differentiable ->
+                    inl value = indiv join x.apply values s |> stack
+                    {value stream block=()}, d
+                | .feedforward ->
+                    inl value, bck = indiv join
+                        inl a, b = x.apply x.weights.nil values s
+                        stack (a, wait_bck b)
+                    {value stream block=()}, {d with bck = apply_bck self bck}
+                | .recurrent ->
+                    inl state = match d.state with {$gid=state} -> state | _ -> ()
+                    inl (value, state), bck = indiv join
+                        inl a, b = x.apply x.weights.nil state values s
+                        stack (a, wait_bck b)
+                    {value stream block=()}, {d with bck = apply_bck self bck; state = {self with $gid=state}}
+                ) x d
+
     inl Combinator = 
         {
-        layer_map_fold layer_map init optimize run
+        layer_map_fold layer_map init optimize run run_parallel
         } |> stackify
 
     // #Feedforward
@@ -2354,7 +2398,7 @@ inl float ->
                         state=const zero, {state bck=const ()}
                         body=inl {state=cost',d i} ->
                             inl input = Struct.map ((|>) i) input
-                            inl cost, d = run network {d with input} s
+                            inl cost, d = run_parallel network {d with input} s
                             inl bck = term_cast d.bck ()
                             inl get = s.CudaTensor.get
                             inl cost _ = cost'() + get cost
