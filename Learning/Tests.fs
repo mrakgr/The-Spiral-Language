@@ -606,41 +606,42 @@ inl network =
     inl label = input .label hidden_size
     inl network =
         input .input input_size 
-        |> sigmoid 128
+        |> sigmoid_ln 64
         |> linear hidden_size 
         |> init s
     inl train = error Error.softmax_cross_entropy label network
     inl test = parallel (train, accuracy label network)
     {train test}
 
-Loops.for' {from=0; near_to=30;body=inl {next} -> 
+Loops.for' {from=0; near_to=1;body=inl {next} -> 
     open Feedforward.Pass
     open Body
 
     inl cost =
         for {
-            data={input=train_images; label=train_labels}
-            body=train {
+            data={input=train_images .view_span (const 1); label=train_labels .view_span (const 1)}
+            body=grad_check {
                 network=network.train
-                optimizer=Optimizer.sgd 1.0f32
+                //optimizer=Optimizer.sgd 1.0f32
                 }
             } s
 
     string_format "Training: {0}" cost |> Console.writeline
+    next ()
 
-    if nan_is cost then
-        Console.writeline "Training diverged. Aborting..."
-    else
-        inl cost, ac, max_ac =
-            for {
-                data={input=test_images; label=test_labels}
-                body=test {
-                    network=network.test
-                    }
-                } s 
+    //if nan_is cost then
+    //    Console.writeline "Training diverged. Aborting..."
+    //else
+    //    inl cost, ac, max_ac =
+    //        for {
+    //            data={input=test_images; label=test_labels}
+    //            body=test {
+    //                network=network.test
+    //                }
+    //            } s 
 
-        string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
-        next ()
+    //    string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
+    //    next ()
     }
     """
 
@@ -835,7 +836,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
 |> printfn "%s"
 |> ignore
 

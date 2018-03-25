@@ -1787,41 +1787,38 @@ inl float ->
                     {
                     map_in=inl _,i -> i
                     redo=(+)
-                    map_out=inl er,i sum -> 
-                        inl mean = sum / n
-                        er,i - mean
+                    map_out=inl dr,i sum -> dr, i - sum / n
                     }
                     ,
                     {
-                    map_in=inl er,v -> v*v
+                    map_in=inl dr,v -> v*v
                     redo=(+)
-                    map_out=inl er,v vv -> 
+                    map_out=inl dr,v vv -> 
                         inl o = o .primal 0 .get
-                        er,v,sqrt (o*o + vv / n)
+                        dr,v,sqrt (o*o + vv / n)
                     }
                     ,
                     {
-                    map_in=inl er,v,div -> er * -v / (div * div)
+                    map_in=inl dr,v,div -> dr * -v / (div * div)
                     redo=(+)
-                    map_out=inl er,v,div er_div -> 
-                        inl dv_top = er * div
-                        dv_top,v,er_div * to float 0.5 / div
+                    map_out=inl dr,v,div dr_div -> 
+                        inl dv_top = dr * div
+                        dv_top,v, dr_div * to float 0.5 / div
                     }
                     ,
                     {
                     map_in=inl _,_,div' -> div'
                     // redo' does not do broadcasting to the zeroth thread.
                     redo'=(+)
-                    map_out=inl dv_top,v,div' er_div' -> 
-                        if threadIdx.x = 0 then two * o.primal 0 .get * er_div' |> atomic_add (o.adjoint 0)
-                        inl dv_div = div' * (two / n) * v 
+                    map_out=inl dv_top,v,dr_div' sum_dr_div' -> 
+                        if threadIdx.x = 0 then two * o.primal 0 .get * sum_dr_div' |> atomic_add (o.adjoint 0)
+                        inl dv_div = dr_div' * (two / n) * v 
                         dv_top + dv_div
                     }
                     ,
                     {
-                    map_in=inl er -> -er
                     redo=(+)
-                    map_out=inl er_i er_mean adjoint -> adjoint + er_i + er_mean / n
+                    map_out=inl dv dv_mean adjoint -> adjoint + dv - dv_mean / n
                     }
                 } (r.adjoint, i.primal) i.adjoint
 
@@ -1829,6 +1826,7 @@ inl float ->
 
         inl activation o i s =
             inl r = fwd o i s |> dr s
+            //s.CudaTensor.print r.primal
             r, inl _ -> bck o r i s
 
         {fwd bck init activation} |> stackify
@@ -1949,166 +1947,6 @@ inl float ->
         sigmoid = init 2f32
         tanh = init 3f32
         }
-
-    // #Loops
-    inl outer data =
-        Struct.foldl (inl s x ->
-            match s with
-            | () -> fst x.dim
-            | s -> assert (s = fst x.dim) "The data tensors need to have the same outer dimension."; s
-            ) () data
-
-    inl for {data body} s =
-        inl {from near_to} = outer data
-           
-        Loops.for' {
-            from near_to
-            state=body
-            body=inl {next state i} ->
-                inl data = Struct.map (inl x -> x i) data
-                s.refresh
-                inl s = s.RegionMem.create
-                //string_format "On iteration {0}" i |> Console.writeline
-                macro.fs () [text: "// Executing the net..."]
-                state data s {
-                    on_fail=inl state ->
-                        s.RegionMem.clear
-                        macro.fs () [text: "// Done with the net..."]
-                        state.unwrap
-                    on_succ=inl state ->
-                        s.RegionMem.clear
-                        macro.fs () [text: "// Executing the next loop..."]
-                        next state
-                    }
-            finally=inl state -> state.unwrap
-            }
-
-    inl grad_check train {network} = 
-        inl rec perturb cost primal adjoint =
-            inl epsilon = to float 0.001
-            inl boundary = to float 0.001
-
-            assert (primal.dim = adjoint.dim) "Dimensions must be equal."
-            match primal.dim with
-            | {from near_to} :: _ ->
-                Loops.for {from near_to body=inl {i} ->
-                    perturb cost (primal i) (adjoint i)
-                    }
-            | _ -> 
-                inl orig = s.CudaTensor.get primal
-                s.CudaTensor.set primal (orig + epsilon)
-                inl cost_plus_epsilon = cost ()
-                s.CudaTensor.set primal(orig - epsilon)
-                inl cost_minus_epsilon = cost ()
-                s.CudaTensor.set primal orig
-                inl approx_gradient = to float (cost_plus_epsilon - cost_minus_epsilon) / (two * epsilon)
-
-                inl true_gradient = s.CudaTensor.get adjoint
-                
-                inl diff = abs (true_gradient - approx_gradient)
-                if diff >= boundary then
-                    Console.writeline {true_gradient approx_gradient diff}
-                    Console.writeline "--- Gradient checking failure."
-            
-        function
-        | .unwrap -> 0.0
-        | data s {on_fail on_succ} ->
-            train {network optimizer=inl _ _ -> ()} data s {
-                on_fail
-                on_succ=inl state ->
-                    s.RegionMem.clear
-                    inl body = train {network}
-                    inl data = Struct.map (inl x -> x.round_split 1) data
-
-                    layer_map (function
-                        | {weights stream} -> error_type "Gradient checking is not supported with the wave iteration."
-                        | {weights} -> 
-                            weights ()
-                            |> Struct.iter (inl {primal adjoint} ->
-                                inl cost _ = for {data body} s
-                                perturb cost primal adjoint
-                                )
-                        | _ -> ()
-                        ) network.unwrap |> ignore
-                    on_succ state
-                }
-
-    // #Layers
-    inl gid _ = .(to string !GID())
-    inl layer d = {d with gid=gid(); block=()}
-    
-    inl input name size = layer {
-        layer_type = .input
-        name
-        size
-        }
-
-    inl stateful layer_type {weights apply size sublayer} = 
-        layer {
-            layer_type
-            size
-            sublayer
-            weights
-            apply
-            }
-
-    inl feedforward = stateful .feedforward
-    inl recurrent = stateful .recurrent
-
-    inl aux layer_type {apply sublayer size} =
-        layer {
-            layer_type
-            size
-            sublayer
-            apply
-            }
-
-    inl stateless = aux .stateless
-    inl non_differentiable = aux .non_differentiable
-
-    inl parallel sublayer = 
-        layer {
-            layer_type = .parallel
-            size = Struct.map (inl x -> x.size) sublayer
-            sublayer
-            }
-
-    inl error cost label input =
-        stateless
-            {
-            sublayer = input, label
-            apply = inl input, label -> cost label input
-            size = 1
-            }
-
-    inl accuracy label input =
-        non_differentiable
-            {
-            sublayer = input, label
-            apply = inl input, label -> accuracy label input
-            size = 1
-            }
-
-    inl encode =
-        {
-        one_hot = inl size sublayer ->
-            non_differentiable
-                {
-                sublayer
-                apply = encode.one_hot size
-                size
-                }
-        }
-
-    inl sample temp sublayer =
-        non_differentiable
-            {
-            sublayer
-            apply = sample temp
-            size = 1
-            }
-
-    inl Layer = {input stateless non_differentiable feedforward recurrent parallel error accuracy encode sample} |> stackify
 
     // #Combinators
     inl layer_map_fold f network s =
@@ -2262,6 +2100,167 @@ inl float ->
         layer_map_fold layer_map init init_parallel optimize run run_parallel
         } |> stackify
 
+
+    // #Loops
+    inl outer data =
+        Struct.foldl (inl s x ->
+            match s with
+            | () -> fst x.dim
+            | s -> assert (s = fst x.dim) "The data tensors need to have the same outer dimension."; s
+            ) () data
+
+    inl for {data body} s =
+        inl {from near_to} = outer data
+           
+        Loops.for' {
+            from near_to
+            state=body
+            body=inl {next state i} ->
+                inl data = Struct.map (inl x -> x i) data
+                s.refresh
+                inl s = s.RegionMem.create
+                //string_format "On iteration {0}" i |> Console.writeline
+                macro.fs () [text: "// Executing the net..."]
+                state data s {
+                    on_fail=inl state ->
+                        s.RegionMem.clear
+                        macro.fs () [text: "// Done with the net..."]
+                        state.unwrap
+                    on_succ=inl state ->
+                        s.RegionMem.clear
+                        macro.fs () [text: "// Executing the next loop..."]
+                        next state
+                    }
+            finally=inl state -> state.unwrap
+            }
+
+    inl grad_check train {network} = 
+        function
+        | .unwrap -> 0.0
+        | data s {on_fail on_succ} ->
+            inl rec perturb cost primal adjoint =
+                inl epsilon = to float 0.001
+                inl boundary = to float 0.001
+
+                assert (primal.dim = adjoint.dim) "Dimensions must be equal."
+                match primal.dim with
+                | {from near_to} :: _ ->
+                    Loops.for {from near_to body=inl {i} ->
+                        perturb cost (primal i) (adjoint i)
+                        }
+                | _ -> 
+                    inl orig = s.CudaTensor.get primal
+                    s.CudaTensor.set primal (orig + epsilon)
+                    inl cost_plus_epsilon = cost ()
+                    s.CudaTensor.set primal(orig - epsilon)
+                    inl cost_minus_epsilon = cost ()
+                    s.CudaTensor.set primal orig
+                    inl approx_gradient = to float (cost_plus_epsilon - cost_minus_epsilon) / (two * epsilon)
+
+                    inl true_gradient = s.CudaTensor.get adjoint
+                
+                    inl diff = abs (true_gradient - approx_gradient)
+                    if diff >= boundary then
+                        Console.writeline {true_gradient approx_gradient diff}
+                        Console.writeline "--- Gradient checking failure."
+
+            train {network optimizer=inl _ _ -> ()} data s {
+                on_fail
+                on_succ=inl state ->
+                    s.RegionMem.clear
+                    inl body = train {network}
+                    inl data = Struct.map (inl x -> x.round_split 1) data
+
+                    layer_map (function
+                        | {weights stream} -> error_type "Gradient checking is not supported with the wave iteration."
+                        | {weights} -> 
+                            weights ()
+                            |> Struct.iter (inl {primal adjoint} ->
+                                inl cost _ = for {data body} s
+                                perturb cost primal adjoint
+                                )
+                        | _ -> ()
+                        ) network |> ignore
+                    on_succ state
+                }
+
+    // #Layers
+    inl gid _ = .(to string !GID())
+    inl layer d = {d with gid=gid(); block=()}
+    
+    inl input name size = layer {
+        layer_type = .input
+        name
+        size
+        }
+
+    inl stateful layer_type {weights apply size sublayer} = 
+        layer {
+            layer_type
+            size
+            sublayer
+            weights
+            apply
+            }
+
+    inl feedforward = stateful .feedforward
+    inl recurrent = stateful .recurrent
+
+    inl aux layer_type {apply sublayer size} =
+        layer {
+            layer_type
+            size
+            sublayer
+            apply
+            }
+
+    inl stateless = aux .stateless
+    inl non_differentiable = aux .non_differentiable
+
+    inl parallel sublayer = 
+        layer {
+            layer_type = .parallel
+            size = Struct.map (inl x -> x.size) sublayer
+            sublayer
+            }
+
+    inl error cost label input =
+        stateless
+            {
+            sublayer = input, label
+            apply = inl input, label -> cost label input
+            size = 1
+            }
+
+    inl accuracy label input =
+        non_differentiable
+            {
+            sublayer = input, label
+            apply = inl input, label -> accuracy label input
+            size = 1
+            }
+
+    inl encode =
+        {
+        one_hot = inl size sublayer ->
+            non_differentiable
+                {
+                sublayer
+                apply = encode.one_hot size
+                size
+                }
+        }
+
+    inl sample temp sublayer =
+        non_differentiable
+            {
+            sublayer
+            apply = sample temp
+            size = 1
+            }
+
+    inl Layer = {input stateless non_differentiable feedforward recurrent parallel error accuracy encode sample} |> stackify
+
     // #Feedforward
     inl layer initializer activation size sublayer =
         feedforward
@@ -2287,10 +2286,13 @@ inl float ->
                 bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
                 o = layer_norm.init s
                 }
-            apply = inl weights input -> matmultb (input, weights.input) weights.bias >>= layer_norm.activation weights.o >>= activation
+            apply = inl weights input -> 
+                matmultb (input, weights.input) weights.bias 
+                >>= layer_norm.activation weights.o 
+                >>= activation
             }
 
-    inl sigmoid_ln = layer_ln Initializer.sigmoid sigmoid
+    inl sigmoid_ln = layer_ln Initializer.sigmoid Activation.sigmoid
 
     inl highway sublayer =
         feedforward
