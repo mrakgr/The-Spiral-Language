@@ -374,7 +374,7 @@ inl o3 = // Softmax backward
             {
             map_redo=inl in,er -> in*er
             redo=(+)
-            map=inl (in,er) sum -> er * in * (1f32 - in) - in * (sum - er * in)
+            map=inl (in,er) sum -> (er - sum) * in
             }
         } (a1,a2)
 
