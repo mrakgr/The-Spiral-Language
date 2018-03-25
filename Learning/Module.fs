@@ -1754,11 +1754,15 @@ inl float ->
         {value max}
 
     // #Auxiliary
+    inl atomic_add o x =
+        inl (),{ar offset} = o.dim, o.bodies
+        inl adr = macro.cd ar [arg: ar; text: " + "; arg: offset]
+        macro.cd () [text: "atomicAdd"; args: adr, x]
 
     inl layer_norm =
         inl fwd o i s =
-            inl o = s.CudaTensor.to_dev_tensor o
-            inl n = i.dim |> snd |> to float
+            inl o_primal = s.CudaTensor.to_dev_tensor o.primal
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
             s.CudaKernel.map_d1_seq_broadcast {
                 seq = 
                     {
@@ -1770,18 +1774,18 @@ inl float ->
                     map_in=inl v -> v*v
                     redo=(+)
                     map_out=inl v vv -> 
-                        inl o = o.primal.get
+                        inl o = o_primal 0 .get
                         v / (sqrt (o*o + vv / n))
                     }
-                } i.primal
+                } (primal i)
 
         inl bck o r i s =
-            inl o = s.CudaTensor.to_dev_tensor o
-            inl n = i.dim |> snd |> to float
+            inl o = Struct.map s.CudaTensor.to_dev_tensor {o without block}
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
             s.CudaKernel.map_d1_seq_broadcast' {
                 seq = 
                     {
-                    map_in=inl i -> i
+                    map_in=inl _,i -> i
                     redo=(+)
                     map_out=inl er,i sum -> 
                         inl mean = sum / n
@@ -1792,7 +1796,7 @@ inl float ->
                     map_in=inl er,v -> v*v
                     redo=(+)
                     map_out=inl er,v vv -> 
-                        inl o = o.primal.get
+                        inl o = o .primal 0 .get
                         er,v,sqrt (o*o + vv / n)
                     }
                     ,
@@ -1801,7 +1805,7 @@ inl float ->
                     redo=(+)
                     map_out=inl er,v,div er_div -> 
                         inl dv_top = er * div
-                        dv_top,v,er_div * 0.5 / div
+                        dv_top,v,er_div * to float 0.5 / div
                     }
                     ,
                     {
@@ -1809,7 +1813,7 @@ inl float ->
                     // redo' does not do broadcasting to the zeroth thread.
                     redo'=(+)
                     map_out=inl dv_top,v,div' er_div' -> 
-                        if threadIdx.x = 0 then two * o.primal.get * er_div' |> o.adjoint.atomic_add
+                        if threadIdx.x = 0 then two * o.primal 0 .get * er_div' |> atomic_add (o.adjoint 0)
                         inl dv_div = div' * (two / n) * v 
                         dv_top + dv_div
                     }
@@ -1819,11 +1823,9 @@ inl float ->
                     redo=(+)
                     map_out=inl er_i er_mean adjoint -> adjoint + er_i + er_mean / n
                     }
-                } (r.adjoint,i.primal) i.adjoint
+                } (r.adjoint, i.primal) i.adjoint
 
-        inl init s =
-            inl o = s.CudaTensor.zero {elem_type=float; dim=()} |> dr s
-            zip {o without block}
+        inl init s = s.CudaTensor.zero {elem_type=float; dim=1} |> dr s
 
         inl activation o i s =
             inl r = fwd o i s |> dr s
@@ -2517,7 +2519,7 @@ inl float ->
                         bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2)
                         } (b1,b2,b3,b4) (i,s)
                 >>= layer_norm.activation o
-                >>= sigmoid
+                >>= Activation.sigmoid
                 >>= inl x -> succ (x,x)
             }
 
@@ -2541,7 +2543,7 @@ inl float ->
                         state=const zero, {state bck=const ()}
                         body=inl {state=cost',d i} ->
                             inl input = Struct.map ((|>) i) input
-                            inl cost, d = run network {d with input} s
+                            inl cost, d = run_parallel network {d with input} s
                             inl bck = term_cast d.bck ()
                             inl get = s.CudaTensor.get
                             inl cost _ = cost'() + get cost
@@ -2602,7 +2604,7 @@ inl float ->
 
     inl Recurrent = 
         {
-        Layer = {Layer with init init_parallel layer sigmoid linear lstm mi} |> stackify
+        Layer = {Layer with init init_parallel layer sigmoid linear lstm mi miln} |> stackify
         Pass = {for sample Body} |> stackify
         } |> stackify
 
