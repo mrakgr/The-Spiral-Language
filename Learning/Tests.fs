@@ -852,7 +852,7 @@ inl network =
         input .input input_size 
         |> linear_ln hidden_size
         |> init s
-    inl train = error Error.softmax_cross_entropy label network
+    inl train = error Error.square label network
     inl test = parallel (train, accuracy label network)
     {train test}
 
