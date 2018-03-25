@@ -828,9 +828,9 @@ inl cub_warp_reduce redo x =
         args: x, closure_of (inl a,b -> redo a b) ((x,x) => x)
         ]
 
-inl broadcast_zero f x =
+inl broadcast_zero x =
     inl ar = array_create_cuda_shared x 1
-    if threadIdx.x = 0 then ar 0 <- f x
+    if threadIdx.x = 0 then ar 0 <- x
     syncthreads()
     ar 0
 
@@ -1182,11 +1182,7 @@ inl map_d1_seq_broadcast' w {d with seq} in out =
                                     inner_loop {body=inl {item} -> items item .get |> map_in |> items' item .set}
                                     items'.bodies.ar
                                 | _ -> items.bodies.ar
-                                |> redo 
-                                |> inl x ->
-                                    match s with
-                                    | {map_redo} -> broadcast_zero map_redo x
-                                    | _ -> broadcast_zero id x 
+                                |> redo |> broadcast_zero
 
                             match s' with
                             | () -> 
@@ -1754,6 +1750,71 @@ inl float ->
         {value max}
 
     // #Auxiliary
+
+    inl layer_norm_fwd o i s = 
+        inl o = zip o |> s.CudaTensor.to_dev_tensor
+        inl n = i.dim |> snd |> to float
+        s.CudaKernel.map_d1_seq_broadcast {
+            seq = 
+                {
+                redo=(+)
+                map_out=inl i sum -> i - sum / n
+                }
+                ,
+                {
+                map_in=inl v -> v*v
+                redo=(+)
+                map_out=inl v vv -> 
+                    inl o = o.primal.get
+                    v / (sqrt (o*o + vv / n))
+                }
+            } i.primal
+
+    inl layer_norm_bck o r i s = 
+        inl o = zip o |> s.CudaTensor.to_dev_tensor
+        inl n = i.dim |> snd |> to float
+        s.CudaKernel.map_d1_seq_broadcast {
+            seq = 
+                {
+                map_in=inl i -> i
+                redo=(+)
+                map_out=inl er,i sum -> 
+                    inl mean = sum / n
+                    er,i - mean
+                }
+                ,
+                {
+                map_in=inl er,v -> v*v
+                redo=(+)
+                map_out=inl er,v vv -> 
+                    inl o = o.primal.get
+                    er,v,sqrt (o*o + vv / n)}
+                }
+                ,
+                {
+                map_in=inl er,v,div -> er * -v / (div * div)
+                redo=(+)
+                map_out=inl er,v,div sum -> 
+                    inl dv_top = er * div
+                    dv_top,v,sum * 0.5 / div
+                }
+                ,
+                {
+                map_in=inl _,_,div' -> div'
+                redo=(+)
+                map_out=inl dv_top,v,div' sum -> 
+                    if threadIdx.x = 0 then two * o.primal.get * sum |> o.adjoint.atomic_add
+                    inl dv_div = div' * (two / n) * v 
+                    dv_top + dv_div
+                }
+                ,
+                {
+                map_in=inl er -> -er
+                redo=(+)
+                map_out=inl er sum adjoint -> adjoint + er + sum / n
+                }
+            } (r.adjoint,i.primal) i.adjoint
+
     /// The softmax activation
     inl softmax temp input s =
         s.CudaKernel.map_d1_seq_broadcast {
