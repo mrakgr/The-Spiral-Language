@@ -1801,7 +1801,8 @@ inl float ->
                 ,
                 {
                 map_in=inl _,_,div' -> div'
-                redo=(+)
+                // Does not do broadcasting to the zeroth thread.
+                redo'=(+)
                 map_out=inl dv_top,v,div' sum -> 
                     if threadIdx.x = 0 then two * o.primal.get * sum |> o.adjoint.atomic_add
                     inl dv_div = div' * (two / n) * v 
