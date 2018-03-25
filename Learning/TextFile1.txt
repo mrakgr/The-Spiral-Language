@@ -1,0 +1,67 @@
+﻿
+    inl layer_norm =
+        inl mean_fwd i s =
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.map_d1_seq_broadcast {
+                seq = 
+                    {
+                    redo=(+)
+                    map_out=inl i sum -> i - sum / n
+                    }
+                } (primal i)
+
+        inl mean_bck r i s =
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.map_d1_seq_broadcast' {
+                seq = 
+                    {
+                    redo=(+)
+                    map_out=inl dv dv_mean adjoint -> 
+                        macro.cd () [text: "printf"; args: "I am in mean. %f, %f, %f\n", adjoint, dv, dv_mean]
+                        adjoint + dv - dv_mean / n
+                    }
+                } (adjoint r) (adjoint i)
+
+        inl norm_fwd i s = 
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.map_d1_seq_broadcast {
+                seq = 
+                    {
+                    map_in=inl v -> v*v
+                    redo=(+)
+                    map_out=inl v vv -> v / sqrt (vv / n)
+                    }
+                } (primal i)
+
+        inl norm_bck r i s =
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.map_d1_seq_broadcast' {
+                seq = 
+                    {
+                    map_in=inl dr,v -> v*v
+                    redo=(+)
+                    map_out=inl dr,v vv -> dr,v,sqrt (vv / n)
+                    }
+                    ,
+                    {
+                    map_in=inl dr,v,norm -> -dr * v / (norm*norm) * to float 0.5 / norm
+                    redo=(+)
+                    map_out=inl dr,v,norm dnorm adjoint -> 
+                        inl dv = dr / norm
+                        inl dv' = dnorm * (two / n) * v
+                        //adjoint + dv + dv' + 50.3f32
+                        66f32
+                    }
+                } (adjoint r, primal i) (adjoint i)
+
+        inl init s = s.CudaTensor.zero {elem_type=float; dim=1} |> dr s
+
+        inl activation _ i s =
+            inl i' = mean_fwd i s |> dr s
+            inl r = norm_fwd i' s |> dr s
+            r, inl _ -> 
+                norm_bck r i' s
+                mean_bck i' i s
+                s.CudaTensor.print i'.adjoint
+
+        {init activation} |> stackify

@@ -60,6 +60,7 @@
     <None Include="TextFile1.fsx" />
     <Compile Include="Module.fs" />
     <Compile Include="Tests.fs" />
+    <Content Include="TextFile1.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
