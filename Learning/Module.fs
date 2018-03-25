@@ -828,9 +828,9 @@ inl cub_warp_reduce redo x =
         args: x, closure_of (inl a,b -> redo a b) ((x,x) => x)
         ]
 
-inl broadcast_zero x =
+inl broadcast_zero f x =
     inl ar = array_create_cuda_shared x 1
-    if threadIdx.x = 0 then ar 0 <- x
+    if threadIdx.x = 0 then ar 0 <- f x
     syncthreads()
     ar 0
 
@@ -1170,32 +1170,36 @@ inl map_d1_seq_broadcast' w {d with seq} in out =
                     inner_loop {body=inl {item i} -> items item .set (in i .get |> map_in)}
 
                     inl rec seq_loop items = function
-                        | {s with redo map} :: s' ->
+                        | {s with redo map_out} :: s' ->
                             inl x = 
                                 inl redo = 
                                     inl d = {blockDim redo}
                                     if num_valid % blockDim.x = 0 then cub_block_reduce d
                                     else cub_block_reduce {d with num_valid} 
                                 match s with
-                                | {map_redo} -> 
-                                    inl items' = create_items (type map_redo items.elem_type)
-                                    inner_loop {body=inl {item} -> items item .get |> map_redo |> items' item .set}
+                                | {map_in} -> 
+                                    inl items' = create_items (type map_in items.elem_type)
+                                    inner_loop {body=inl {item} -> items item .get |> map_in |> items' item .set}
                                     items'.bodies.ar
                                 | _ -> items.bodies.ar
-                                |> redo |> broadcast_zero
+                                |> redo 
+                                |> inl x ->
+                                    match s with
+                                    | {map_redo} -> broadcast_zero map_redo x
+                                    | _ -> broadcast_zero id x 
 
                             match s' with
                             | () -> 
                                 inner_loop {body=inl {item i} ->
                                     inl out = out i
-                                    map (items item .get) x
-                                    <| out .get |> out .set
+                                    map_out (items item .get) x (out .get)
+                                    |> out .set
                                     }
                             | _ ->
-                                inl items' = create_items (type map items.elem_type x)
+                                inl items' = create_items (type map_out items.elem_type x)
                                 inner_loop {body=inl {item i} ->
                                     inl out = out i
-                                    map (items item .get) x
+                                    map_out (items item .get) x
                                     |> items' item .set
                                     }
                                 seq_loop items' s'
@@ -1211,15 +1215,19 @@ inl map_d1_seq_broadcast w {d with seq} in =
         inl seq = Tuple.wrap seq
         inl elem_type = type
             inl ty = map_in in.elem_type 
-            Tuple.foldl (inl ty {d with map} -> 
+            Tuple.foldl (inl ty {d with map_out} -> 
                 inl ty' = 
                     match d with
-                    | {map_redo} -> map_redo ty
+                    | {map_in} -> map_in ty
                     | _ -> ty
-                map ty ty') ty seq
+                    |>
+                    match d with
+                    | {map_redo} -> map_redo
+                    | _ -> id
+                map_out ty ty') ty seq
         inl out = w.CudaTensor.create {elem_type dim=in.dim}
         inl rec seq_loop = function
-            | {s with map} :: () -> {s with map = inl a b _ -> map a b} :: ()
+            | {s with map_out} :: () -> {s with map_out = inl a b _ -> map_out a b} :: ()
             | s :: s' -> s :: seq_loop s'
         map_d1_seq_broadcast' w {d with map_in seq=seq_loop seq} in out
         stack out
@@ -1753,12 +1761,12 @@ inl float ->
             seq = 
                 {
                 redo=max
-                map=inl a b -> exp (a - b)
+                map_out=inl a b -> exp (a - b)
                 }
                 ,
                 {
                 redo=(+)
-                map=(/)
+                map_out=(/)
                 }
             } input
 
