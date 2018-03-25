@@ -588,7 +588,7 @@ open Primitive
 open Activation
 open Error
 
-inl minibatch_size = 128
+inl minibatch_size = 32
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
     Mnist.load_mnist_tensors mnist_path
@@ -606,8 +606,7 @@ inl network =
     inl label = input .label hidden_size
     inl network =
         input .input input_size 
-        |> sigmoid_ln 64
-        |> linear hidden_size 
+        |> linear_ln hidden_size
         |> init s
     inl train = error Error.softmax_cross_entropy label network
     inl test = parallel (train, accuracy label network)
