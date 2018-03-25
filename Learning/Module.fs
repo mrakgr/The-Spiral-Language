@@ -1170,19 +1170,23 @@ inl map_d1_seq_broadcast' w {d with seq} in out =
                     inner_loop {body=inl {item i} -> items item .set (in i .get |> map_in)}
 
                     inl rec seq_loop items = function
-                        | {s with redo map_out} :: s' ->
+                        | {s with map_out} :: s' ->
                             inl x = 
                                 inl redo = 
-                                    inl d = {blockDim redo}
-                                    if num_valid % blockDim.x = 0 then cub_block_reduce d
-                                    else cub_block_reduce {d with num_valid} 
+                                    inl f redo = 
+                                        inl d = {blockDim redo}
+                                        if num_valid % blockDim.x = 0 then cub_block_reduce d
+                                        else cub_block_reduce {d with num_valid} 
+                                    match s with
+                                    | {redo} -> f redo >> broadcast_zero
+                                    | {redo'} -> f redo'
                                 match s with
                                 | {map_in} -> 
                                     inl items' = create_items (type map_in items.elem_type)
                                     inner_loop {body=inl {item} -> items item .get |> map_in |> items' item .set}
                                     items'.bodies.ar
                                 | _ -> items.bodies.ar
-                                |> redo |> broadcast_zero
+                                |> redo 
 
                             match s' with
                             | () -> 
@@ -1751,70 +1755,81 @@ inl float ->
 
     // #Auxiliary
 
-    inl layer_norm_fwd o i s = 
-        inl o = zip o |> s.CudaTensor.to_dev_tensor
-        inl n = i.dim |> snd |> to float
-        s.CudaKernel.map_d1_seq_broadcast {
-            seq = 
-                {
-                redo=(+)
-                map_out=inl i sum -> i - sum / n
-                }
-                ,
-                {
-                map_in=inl v -> v*v
-                redo=(+)
-                map_out=inl v vv -> 
-                    inl o = o.primal.get
-                    v / (sqrt (o*o + vv / n))
-                }
-            } i.primal
+    inl layer_norm =
+        inl fwd o i s =
+            inl o = s.CudaTensor.to_dev_tensor o
+            inl n = i.dim |> snd |> to float
+            s.CudaKernel.map_d1_seq_broadcast {
+                seq = 
+                    {
+                    redo=(+)
+                    map_out=inl i sum -> i - sum / n
+                    }
+                    ,
+                    {
+                    map_in=inl v -> v*v
+                    redo=(+)
+                    map_out=inl v vv -> 
+                        inl o = o.primal.get
+                        v / (sqrt (o*o + vv / n))
+                    }
+                } i.primal
 
-    inl layer_norm_bck o r i s = 
-        inl o = zip o |> s.CudaTensor.to_dev_tensor
-        inl n = i.dim |> snd |> to float
-        s.CudaKernel.map_d1_seq_broadcast {
-            seq = 
-                {
-                map_in=inl i -> i
-                redo=(+)
-                map_out=inl er,i sum -> 
-                    inl mean = sum / n
-                    er,i - mean
-                }
-                ,
-                {
-                map_in=inl er,v -> v*v
-                redo=(+)
-                map_out=inl er,v vv -> 
-                    inl o = o.primal.get
-                    er,v,sqrt (o*o + vv / n)}
-                }
-                ,
-                {
-                map_in=inl er,v,div -> er * -v / (div * div)
-                redo=(+)
-                map_out=inl er,v,div sum -> 
-                    inl dv_top = er * div
-                    dv_top,v,sum * 0.5 / div
-                }
-                ,
-                {
-                map_in=inl _,_,div' -> div'
-                // Does not do broadcasting to the zeroth thread.
-                redo'=(+)
-                map_out=inl dv_top,v,div' sum -> 
-                    if threadIdx.x = 0 then two * o.primal.get * sum |> o.adjoint.atomic_add
-                    inl dv_div = div' * (two / n) * v 
-                    dv_top + dv_div
-                }
-                ,
-                {
-                map_in=inl er -> -er
-                redo=(+)
-                map_out=inl er sum adjoint -> adjoint + er + sum / n
-                }
-            } (r.adjoint,i.primal) i.adjoint
+        inl bck o r i s =
+            inl o = s.CudaTensor.to_dev_tensor o
+            inl n = i.dim |> snd |> to float
+            s.CudaKernel.map_d1_seq_broadcast' {
+                seq = 
+                    {
+                    map_in=inl i -> i
+                    redo=(+)
+                    map_out=inl er,i sum -> 
+                        inl mean = sum / n
+                        er,i - mean
+                    }
+                    ,
+                    {
+                    map_in=inl er,v -> v*v
+                    redo=(+)
+                    map_out=inl er,v vv -> 
+                        inl o = o.primal.get
+                        er,v,sqrt (o*o + vv / n)
+                    }
+                    ,
+                    {
+                    map_in=inl er,v,div -> er * -v / (div * div)
+                    redo=(+)
+                    map_out=inl er,v,div er_div -> 
+                        inl dv_top = er * div
+                        dv_top,v,er_div * 0.5 / div
+                    }
+                    ,
+                    {
+                    map_in=inl _,_,div' -> div'
+                    // redo' does not do broadcasting to the zeroth thread.
+                    redo'=(+)
+                    map_out=inl dv_top,v,div' er_div' -> 
+                        if threadIdx.x = 0 then two * o.primal.get * er_div' |> o.adjoint.atomic_add
+                        inl dv_div = div' * (two / n) * v 
+                        dv_top + dv_div
+                    }
+                    ,
+                    {
+                    map_in=inl er -> -er
+                    redo=(+)
+                    map_out=inl er_i er_mean adjoint -> adjoint + er_i + er_mean / n
+                    }
+                } (r.adjoint,i.primal) i.adjoint
+
+        inl init s =
+            inl o = s.CudaTensor.zero {elem_type=float; dim=()} |> dr s
+            zip {o without block}
+
+        inl activation o i s =
+            inl r = fwd o i s |> dr s
+            r, inl _ -> bck o r i s
+
+        {fwd bck init activation} |> stackify
 
     /// The softmax activation
     inl softmax temp input s =
@@ -2363,6 +2378,9 @@ inl float ->
                 >>= inl x -> succ (x,x)
             }
 
+    inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
+    inl linear = layer Initializer.sigmoid succ
+
     inl lstm size sublayer =
         recurrent 
             {
@@ -2459,8 +2477,50 @@ inl float ->
                 >>= inl x -> succ (x,x)
             }
 
-    inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
-    inl linear = layer Initializer.sigmoid succ
+    /// The multiplicative integration RNN with layer norm from the 'Normalizing the Normalizers' paper.
+    inl miln size sublayer = 
+        recurrent 
+            {
+            size sublayer
+            weights = inl s ->
+                open Initializer
+                inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+                inl bias init = 
+                    inl x = s.CudaTensor.create {elem_type=float; dim=size} 
+                    join s.CudaTensor.mmap (const (dyn init)) x
+                    dr s x
+                {
+                input = sigmoid (sublayer.size, size) s |> dr s
+                state = sigmoid (size, size) s |> dr s
+                b1 = bias one
+                b2 = bias (to float 0.5)
+                b3 = bias (to float 0.5)
+                b4 = bias0 ()
+                o = layer_norm.init s
+                } |> heap
+
+            apply = inl {b1 b2 b3 b4 input state o} s i ->
+                match s with
+                | () ->
+                    inm i = matmult (i, input)
+                    d2_replicate_activation {
+                        fwd=inl (b3,b4) i -> b3*i + b4 
+                        bck_in=inl (b3,b4) i out -> (i, one) 
+                        bck_in'=inl (b3,b4) i out -> b3 
+                        } (b3,b4) i
+                | _ ->
+                    inm i = matmult (i, input)
+                    inm s = matmult (s, state)
+                    d2_replicate_activation {
+                        fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4
+                        bck_in=inl (b1,b2,b3,b4) (i,s) out -> (i*s, s, i, one) 
+                        bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2)
+                        } (b1,b2,b3,b4) (i,s)
+                >>= layer_norm.activation o
+                >>= sigmoid
+                >>= inl x -> succ (x,x)
+            }
+
 
     inl prune_state state s =
         inl s = s.RegionMem.create
