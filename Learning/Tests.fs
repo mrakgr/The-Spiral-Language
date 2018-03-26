@@ -861,14 +861,9 @@ inl network =
     open Feedforward.Layer
 
     inl label = input .label hidden_size
-    inl network =
-        input .input input_size 
-        |> sigmoid_ln 64
-        |> linear hidden_size 
-        |> init s
+    inl network = ln_test 10 |> init s
     inl train = error Error.square label network
-    inl test = parallel (train, accuracy label network)
-    {train test}
+    {train}
 
 Loops.for {from=0; near_to=1;body=inl _ -> 
     open Feedforward.Pass
