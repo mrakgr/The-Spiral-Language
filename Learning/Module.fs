@@ -2206,6 +2206,80 @@ inl float ->
     inl sigmoid = layer Initializer.sigmoid sigmoid
     inl linear = layer Initializer.sigmoid succ
 
+    inl layer_norm =
+        inl mean_fwd i s =
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.map_d1_seq_broadcast {
+                seq = 
+                    {
+                    redo=(+)
+                    map_out=inl i sum -> i - sum / n
+                    }
+                } (primal i)
+
+        inl mean_bck r i s =
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.map_d1_seq_broadcast' {
+                seq = 
+                    {
+                    redo=(+)
+                    map_out=inl dv dv_mean adjoint -> adjoint + dv - dv_mean / n
+                    }
+                } (adjoint r) (adjoint i)
+
+        inl mean i s =
+            inl r = mean_fwd i s |> dr s
+            r, inl _ -> mean_bck r i s 
+
+        inl norm_fwd i s = 
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.map_d1_seq_broadcast {
+                seq = 
+                    {
+                    map_in=inl v -> v*v
+                    redo=(+)
+                    map_out=inl v vv -> sqrt (vv / n)
+                    }
+                } (primal i)
+
+        inl norm_bck r i s =
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.map_d1_seq_broadcast' {
+                seq = 
+                    {
+                    map_in=inl dr,v -> v*v
+                    redo=(+)
+                    map_out=inl dr,v vv -> dr,v,sqrt (vv / n)
+                    }
+                    ,
+                    {
+                    map_in=inl dr,_,norm -> dr * to float 0.5 / norm
+                    redo=(+)
+                    map_out=inl _,v,norm dr_norm adjoint -> adjoint + dr_norm * (two / n) * v 
+                    }
+                } (adjoint r, primal i) (adjoint i)
+
+        inl norm i s =
+            inl r = norm_fwd i s |> dr s
+            r, inl _ -> norm_bck r i s 
+
+        inl div_fwd a b s = s.CudaKernel.map (inl a,b -> a/b) (primal a, primal b)
+        inl div_bck r a b s =
+            s.CudaKernel.map' (inl er,b adjoint -> adjoint + er / b) (adjoint r, primal b) (adjoint a)
+            s.CudaKernel.map' (inl er,a,b adjoint -> adjoint - er * a / (b*b)) (adjoint r, primal a, primal b) (adjoint b)
+
+        inl div a b s =
+            inl r = div_fwd a b s |> dr s
+            r, inl _ -> div_bck r a b s 
+
+        inl activation i =
+            norm i
+            //inm v = mean i
+            //inm n = norm v
+            //div v n
+
+        activation
+
     // The feedforward layer with layer norm.
     inl ln_test size =
         Layer.layer
