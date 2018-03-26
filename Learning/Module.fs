@@ -1652,14 +1652,14 @@ inl float ->
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
     /// just to set the adjoint to 1. The current library is intended for a narrow purpose.
     inl map_redo_map {fwd bck} in s =
-        inl primal = primals in, adjoints in
+        inl primal = primals in
         inl out = s.CudaKernel.map_redo_map fwd primal
 
         inl adjoint, bck = choose_adjoints in bck
         out, inl _ -> join
             inl out = s.CudaTensor.to_dev_tensor out
-            inl bck (in, out) = Struct.map2 (inl bck -> bck (in, out.get))
-            s.CudaKernel.map' bck (primal, out) adjoint
+            inl bck in = Struct.map2 (inl bck -> bck (in, out.get)) bck
+            s.CudaKernel.map' bck primal adjoint
 
     inl d2_replicate_map {fwd bck={bck_in bck_in'}} in in' s =
         inl primal, adjoint = primals in, adjoints in
