@@ -2206,6 +2206,7 @@ inl float ->
     inl sigmoid = layer Initializer.sigmoid sigmoid
     inl linear = layer Initializer.sigmoid succ
 
+    // Note: It works like crap.
     inl layer_norm =
         inl fwd o i s =
             inl o_primal = s.CudaTensor.to_dev_tensor o.primal
@@ -2287,9 +2288,14 @@ inl float ->
                 input = initializer (sublayer.size, size) s |> dr s
                 bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
                 o = layer_norm.init s
+                ln = initializer (size, size) s |> dr s
+                bias_ln = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
                 }
             apply = inl weights input -> 
-                matmultb (input, weights.input) weights.bias >>= layer_norm.activation weights.o >>= activation
+                matmultb (input, weights.input) weights.bias 
+                >>= layer_norm.activation weights.o 
+                >>= inl ln -> matmultb (ln, weights.ln) weights.bias_ln
+                >>= activation
             }
 
     inl sigmoid_ln = layer_ln Initializer.sigmoid Activation.sigmoid
