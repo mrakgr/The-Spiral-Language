@@ -2251,7 +2251,7 @@ inl float ->
                     map_in=inl er,v,div -> er * -v / (div * div)
                     redo=(+)
                     map_out=inl er,v,div er_div -> 
-                        inl dv_top = er * div
+                        inl dv_top = er / div
                         dv_top,v,er_div * to float 0.5 / div
                     }
                     ,
