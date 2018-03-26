@@ -697,7 +697,7 @@ inl network =
 
     inl train =
         input
-        |> miln 0.01f32 128
+        |> miln 0.05f32 128
         |> Feedforward.Layer.linear size.hot
         |> error Error.softmax_cross_entropy label
         |> init_parallel s

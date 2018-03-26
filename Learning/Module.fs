@@ -1696,9 +1696,12 @@ inl float ->
         bck = inl _ -> sigmoid_bck
         }
 
+    inl tanh_fwd = tanh
+    inl tanh_bck out = one - out * out
+
     inl tanh = activation {
-        fwd = tanh
-        bck = inl _ out -> one - out * out
+        fwd = tanh_fwd
+        bck = inl _ -> tanh_bck
         }
 
     inl relu_fwd x = if x > zero then x else zero
@@ -2530,6 +2533,46 @@ inl float ->
                 >>= inl x -> succ (x,x)
             }
 
+    inl mi_tanh size sublayer = 
+        recurrent 
+            {
+            size sublayer
+            weights = inl s ->
+                open Initializer
+                inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+                inl bias init = 
+                    inl x = s.CudaTensor.create {elem_type=float; dim=size} 
+                    join s.CudaTensor.mmap (const (dyn init)) x
+                    dr s x
+                {
+                input = sigmoid (sublayer.size, size) s |> dr s
+                state = sigmoid (size, size) s |> dr s
+                b1 = bias one
+                b2 = bias (to float 0.5)
+                b3 = bias (to float 0.5)
+                b4 = bias0 ()
+                } |> heap
+
+            apply = inl {b1 b2 b3 b4 input state} s i ->
+                match s with
+                | () ->
+                    inm i = matmult (i, input)
+                    d2_replicate_activation {
+                        fwd=inl (b3,b4) i -> b3*i + b4 |> tanh_fwd
+                        bck_in=inl (b3,b4) i out -> (i, one) |> Tuple.map ((*) (tanh_bck out))
+                        bck_in'=inl (b3,b4) i out -> b3 * tanh_bck out
+                        } (b3,b4) i
+                | _ ->
+                    inm i = matmult (i, input)
+                    inm s = matmult (s, state)
+                    d2_replicate_activation {
+                        fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4 |> tanh_fwd
+                        bck_in=inl (b1,b2,b3,b4) (i,s) out -> (i*s, s, i, one) |> Tuple.map ((*) (tanh_bck out))
+                        bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2) |> Tuple.map ((*) (tanh_bck out))
+                        } (b1,b2,b3,b4) (i,s)
+                >>= inl x -> succ (x,x)
+            }
+
     /// The multiplicative integration RNN with layer norm from the 'Normalizing the Normalizers' paper.
     inl miln o size sublayer = 
         recurrent 
@@ -2654,7 +2697,7 @@ inl float ->
 
     inl Recurrent = 
         {
-        Layer = {Layer with init init_parallel layer sigmoid linear lstm mi mi_relu miln} |> stackify
+        Layer = {Layer with init init_parallel layer sigmoid linear lstm mi mi_relu mi_tanh miln} |> stackify
         Pass = {for sample Body} |> stackify
         } |> stackify
 
