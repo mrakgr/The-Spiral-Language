@@ -1876,6 +1876,7 @@ inl float ->
         { // TODO: I am not sure about tanh here but it should do. Check if varying the multiple improves perforance.
         sigmoid = init 2f32
         tanh = init 3f32
+        bad = init 0.01f32
         }
 
     // #Combinators
@@ -2287,13 +2288,13 @@ inl float ->
                 input = initializer (sublayer.size, size) s |> dr s
                 bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
                 o = layer_norm.init s
-                ln = initializer (size, size) s |> dr s
-                bias_ln = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+                //ln = initializer (size, size) s |> dr s
+                //bias_ln = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
                 }
             apply = inl weights input -> 
                 matmultb (input, weights.input) weights.bias 
                 >>= layer_norm.activation weights.o 
-                >>= inl ln -> matmultb (ln, weights.ln) weights.bias_ln
+                //>>= inl ln -> matmultb (ln, weights.ln) weights.bias_ln
                 >>= activation
             }
 
@@ -2521,9 +2522,11 @@ inl float ->
                 b3 = bias (to float 0.5)
                 b4 = bias0 ()
                 o = layer_norm.init s
+                ln_scale = sigmoid (size, size) s |> dr s
+                ln_bias = bias0 ()
                 } |> heap
 
-            apply = inl {b1 b2 b3 b4 input state o} s i ->
+            apply = inl {b1 b2 b3 b4 input state o ln_scale ln_bias} s i ->
                 match s with
                 | () ->
                     inm i = matmult (i, input)
@@ -2541,6 +2544,7 @@ inl float ->
                         bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2)
                         } (b1,b2,b3,b4) (i,s)
                 >>= layer_norm.activation o
+                >>= inl ln -> matmultb (ln, ln_scale) ln_bias
                 >>= Activation.sigmoid
                 >>= inl x -> succ (x,x)
             }
