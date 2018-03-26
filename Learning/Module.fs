@@ -2207,60 +2207,76 @@ inl float ->
     inl linear = layer Initializer.sigmoid succ
 
     inl layer_norm =
-        inl norm_fwd i s = 
+        inl fwd i s =
+            //inl o_primal = s.CudaTensor.to_dev_tensor o.primal
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            inl r = 
-                s.CudaKernel.map_d1_seq_broadcast {
-                    seq = 
-                        {
-                        redo=(+)
-                        map_out=inl i sum -> i - sum / n
-                        }
-                        ,
-                        {
-                        map_in=inl v -> v*v
-                        redo=(+)
-                        map_out=inl v vv -> v / sqrt (vv / n)
-                        }
-                    } (primal i)
-            //s.CudaTensor.print r
-            r 
+            s.CudaKernel.map_d1_seq_broadcast {
+                seq = 
+                    {
+                    redo=(+)
+                    map_out=inl i sum -> i - sum / n
+                    }
+                    ,
+                    {
+                    map_in=inl v -> v*v
+                    redo=(+)
+                    map_out=inl v vv -> 
+                        //inl o = o_primal 0 .get
+                        v / (sqrt (vv / n))
+                    }
+                } (primal i)
 
-        inl norm_bck r i s =
+        inl bck r i s =
+            //inl o = Struct.map s.CudaTensor.to_dev_tensor {o without block}
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
             s.CudaKernel.map_d1_seq_broadcast' {
                 seq = 
                     {
-                    map_in=inl dr,i -> i
+                    map_in=inl _,i -> i
                     redo=(+)
-                    map_out=inl dr,i sum -> dr, i - sum / n
+                    map_out=inl er,i sum -> 
+                        inl mean = sum / n
+                        er,i - mean
                     }
                     ,
                     {
-                    map_in=inl dr,v -> v*v
+                    map_in=inl er,v -> v*v
                     redo=(+)
-                    map_out=inl dr,v vv -> dr,v,sqrt (vv / n)
+                    map_out=inl er,v vv -> 
+                        //inl o = o .primal 0 .get
+                        er,v,sqrt (vv / n)
                     }
                     ,
                     {
-                    map_in=inl dr,v,norm -> -dr * v / (norm * norm)
+                    map_in=inl er,v,div -> er * -v / (div * div)
                     redo=(+)
-                    map_out=inl dr,v,norm bot -> 
-                        inl top = dr / norm
-                        inl bot = (bot * v) / (norm * n)
-                        top + bot
+                    map_out=inl er,v,div er_div -> 
+                        inl dv_top = er * div
+                        dv_top,v,er_div * to float 0.5 / div
                     }
                     ,
                     {
-                    redo=(+)
-                    map_out=inl dv dv_mean adjoint -> adjoint + dv - dv_mean / n
+                    map_in=inl _,_,div' -> div'
+                    // redo' does not do broadcasting to the zeroth thread.
+                    redo'=(+)
+                    map_out=inl dv_top,v,div' er_div' -> 
+                        //if threadIdx.x = 0 then two * o.primal 0 .get * er_div' |> atomic_add (o.adjoint 0)
+                        inl dv_div = div' * (two / n) * v 
+                        dv_top + dv_div
                     }
-                } (adjoint r, primal i) (adjoint i)
-            //s.CudaTensor.print (adjoint i)
+                    ,
+                    {
+                    map_in=inl er -> -er
+                    redo=(+)
+                    map_out=inl er_i er_mean adjoint -> adjoint + er_i + er_mean / n
+                    }
+                } (r.adjoint, i.primal) i.adjoint
+
 
         inl i s ->
-            inl r = norm_fwd i s |> dr s
-            r, inl _ -> norm_bck r i s 
+            inl r = fwd i s |> dr s
+            r, inl _ -> bck r i s
+
 
     // The feedforward layer with layer norm.
     inl ln_test size =
