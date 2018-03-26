@@ -2209,8 +2209,6 @@ inl float ->
 
     inl layer_norm =
         inl fwd o i s =
-            //s.CudaTensor.print o.primal
-            inl o_primal = s.CudaTensor.to_dev_tensor o.primal
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
             s.CudaKernel.map_d1_seq_broadcast {
                 seq = 
@@ -2222,14 +2220,11 @@ inl float ->
                     {
                     map_in=inl v -> v*v
                     redo=(+)
-                    map_out=inl v vv -> 
-                        inl o = o_primal 0 .get
-                        v / sqrt (o*o + vv / n)
+                    map_out=inl v vv -> v / sqrt (o*o + vv / n)
                     }
                 } (primal i)
 
-        inl bck o' r i s =
-            inl o = Struct.map s.CudaTensor.to_dev_tensor {o' without block}
+        inl bck o r i s =
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
             s.CudaKernel.map_d1_seq_broadcast' {
                 seq = 
@@ -2242,41 +2237,23 @@ inl float ->
                     {
                     map_in=inl dr,v -> v*v
                     redo=(+)
-                    map_out=inl dr,v vv -> 
-                        inl o = o .primal 0 .get
-                        dr,v,sqrt (o*o + vv / n)
+                    map_out=inl dr,v vv -> dr,v,sqrt (o*o + vv / n)
                     }
                     ,
                     {
                     map_in=inl dr,v,norm -> -dr * v / (norm * norm)
                     redo=(+)
-                    map_out=inl dr,v,norm dnorm -> 
-                        inl dv_top = dr / norm
-                        inl dv_norm = dnorm / norm / n * v 
-                        dv_top,v,dv_norm
-                    }
-                    ,
-                    {
-                    map_in=inl _,_,dv_norm -> dv_norm
-                    // redo' does not do broadcasting to the zeroth thread.
-                    redo'=(+)
-                    map_out=inl dv_top,v,dv_norm sum_dv_norm -> 
-                        inl dv_bot = dv_norm 
-                        dv_top + dv_bot
+                    map_out=inl dr,v,norm bot -> 
+                        inl top = dr / norm
+                        inl bot = (bot * v) / (norm * n)
+                        top + bot
                     }
                     ,
                     {
                     redo=(+)
-                    map_out=inl dv dv_mean adjoint -> adjoint + dv - dv_mean / n
+                    map_out=inl dv dv_sum adjoint -> adjoint + dv - dv_sum / n
                     }
                 } (adjoint r, primal i) (adjoint i)
-
-            //s.CudaTensor.print (o'.primal, o'.adjoint)
-
-        inl init s = 
-            inl x = s.CudaTensor.zero {elem_type=float; dim=1} 
-            s.CudaTensor.set (x 0) two
-            dr s x
 
         inl activation o i s =
             inl r = fwd o i s |> dr s
@@ -2285,21 +2262,17 @@ inl float ->
         {fwd bck init activation} |> stackify
 
     // The feedforward layer with layer norm.
-    inl layer_ln initializer activation size sublayer =
+    inl layer_ln initializer activation o size sublayer =
         feedforward
             {
             size sublayer
             weights = inl s -> {
                 input = initializer (sublayer.size, size) s |> dr s
                 bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-                o = layer_norm.init s
-                //ln = initializer (size, size) s |> dr s
-                //bias_ln = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
                 }
             apply = inl weights input -> 
                 matmultb (input, weights.input) weights.bias 
-                >>= layer_norm.activation weights.o 
-                //>>= inl ln -> matmultb (ln, weights.ln) weights.bias_ln
+                >>= layer_norm.activation o 
                 >>= activation
             }
 

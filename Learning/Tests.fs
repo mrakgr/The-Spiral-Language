@@ -602,7 +602,7 @@ inl network =
     open Feedforward.Layer
 
     inl label = input .label hidden_size
-    inl f = sigmoid_ln
+    inl f = sigmoid_ln 0.4f32
     inl network =
         input .input input_size 
         |> f 64
