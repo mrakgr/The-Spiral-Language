@@ -1701,6 +1701,14 @@ inl float ->
         bck = inl _ out -> one - out * out
         }
 
+    inl relu_fwd x = if x > zero then x else zero
+    inl relu_bck out = if out > zero then one else zero
+
+    inl relu = activation {
+        fwd = relu_fwd
+        bck = inl _ -> relu_bck
+        }
+
     inl add = activation {
         fwd = inl a,b -> a+b
         bck = (inl _ _ -> one), (inl _ _ -> one)
@@ -1723,7 +1731,7 @@ inl float ->
             }
         d2_replicate_map { fwd bck } in
 
-    inl Activation = {activation sigmoid tanh add hadmult d2_replicate_activation } |> stack
+    inl Activation = {activation sigmoid tanh relu add hadmult d2_replicate_activation } |> stack
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
@@ -2205,6 +2213,7 @@ inl float ->
             }
 
     inl sigmoid = layer Initializer.sigmoid sigmoid
+    inl relu = layer Initializer.sigmoid relu
     inl linear = layer Initializer.sigmoid succ
 
     inl layer_norm =
@@ -2277,6 +2286,7 @@ inl float ->
             }
 
     inl sigmoid_ln = layer_ln Initializer.sigmoid Activation.sigmoid
+    inl relu_ln = layer_ln Initializer.sigmoid Activation.relu
 
     inl highway sublayer =
         feedforward
@@ -2358,7 +2368,7 @@ inl float ->
 
     inl Feedforward = 
         {
-        Layer={Layer with init layer sigmoid linear highway layer_ln sigmoid_ln} |> stackify
+        Layer={Layer with init layer sigmoid relu linear highway layer_ln sigmoid_ln relu_ln} |> stackify
         Pass
         } |> stack
     
@@ -2480,8 +2490,7 @@ inl float ->
                 >>= inl x -> succ (x,x)
             }
 
-    /// The multiplicative integration RNN with layer norm from the 'Normalizing the Normalizers' paper.
-    inl miln size sublayer = 
+    inl mi_relu size sublayer = 
         recurrent 
             {
             size sublayer
@@ -2499,12 +2508,50 @@ inl float ->
                 b2 = bias (to float 0.5)
                 b3 = bias (to float 0.5)
                 b4 = bias0 ()
-                o = layer_norm.init s
-                ln_scale = sigmoid (size, size) s |> dr s
-                ln_bias = bias0 ()
                 } |> heap
 
-            apply = inl {b1 b2 b3 b4 input state o ln_scale ln_bias} s i ->
+            apply = inl {b1 b2 b3 b4 input state} s i ->
+                match s with
+                | () ->
+                    inm i = matmult (i, input)
+                    d2_replicate_activation {
+                        fwd=inl (b3,b4) i -> b3*i + b4 |> relu_fwd
+                        bck_in=inl (b3,b4) i out -> (i, one) |> Tuple.map ((*) (relu_bck out))
+                        bck_in'=inl (b3,b4) i out -> b3 * relu_bck out
+                        } (b3,b4) i
+                | _ ->
+                    inm i = matmult (i, input)
+                    inm s = matmult (s, state)
+                    d2_replicate_activation {
+                        fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4 |> relu_fwd
+                        bck_in=inl (b1,b2,b3,b4) (i,s) out -> (i*s, s, i, one) |> Tuple.map ((*) (relu_bck out))
+                        bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2) |> Tuple.map ((*) (relu_bck out))
+                        } (b1,b2,b3,b4) (i,s)
+                >>= inl x -> succ (x,x)
+            }
+
+    /// The multiplicative integration RNN with layer norm from the 'Normalizing the Normalizers' paper.
+    inl miln o size sublayer = 
+        recurrent 
+            {
+            size sublayer
+            weights = inl s ->
+                open Initializer
+                inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+                inl bias init = 
+                    inl x = s.CudaTensor.create {elem_type=float; dim=size} 
+                    join s.CudaTensor.mmap (const (dyn init)) x
+                    dr s x
+                {
+                input = sigmoid (sublayer.size, size) s |> dr s
+                state = sigmoid (size, size) s |> dr s
+                b1 = bias one
+                b2 = bias (to float 0.5)
+                b3 = bias (to float 0.5)
+                b4 = bias0 ()
+                } |> heap
+
+            apply = inl {b1 b2 b3 b4 input state} s i ->
                 match s with
                 | () ->
                     inm i = matmult (i, input)
@@ -2522,8 +2569,7 @@ inl float ->
                         bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2)
                         } (b1,b2,b3,b4) (i,s)
                 >>= layer_norm.activation o
-                >>= inl ln -> matmultb (ln, ln_scale) ln_bias
-                >>= Activation.sigmoid
+                >>= Activation.relu
                 >>= inl x -> succ (x,x)
             }
 
@@ -2608,7 +2654,7 @@ inl float ->
 
     inl Recurrent = 
         {
-        Layer = {Layer with init init_parallel layer sigmoid linear lstm mi miln} |> stackify
+        Layer = {Layer with init init_parallel layer sigmoid linear lstm mi mi_relu miln} |> stackify
         Pass = {for sample Body} |> stackify
         } |> stackify
 
