@@ -602,17 +602,17 @@ inl network =
     open Feedforward.Layer
 
     inl label = input .label hidden_size
-    inl f = relu_ln 0.33f32
+    inl f = relu_ln 0.05f32
     inl network =
         input .input input_size 
-        |> f 64
+        |> f 256
         |> linear hidden_size 
         |> init s
     inl train = error Error.softmax_cross_entropy label network
     inl test = parallel (train, accuracy label network)
     {train test}
 
-Loops.for' {from=0; near_to=30;body=inl {next} -> 
+Loops.for' {from=0; near_to=10;body=inl {next} -> 
     open Feedforward.Pass
     open Body
 
@@ -621,7 +621,7 @@ Loops.for' {from=0; near_to=30;body=inl {next} ->
             data={input=train_images; label=train_labels}
             body=train {
                 network=network.train
-                optimizer=Optimizer.sgd 0.5f32
+                optimizer=Optimizer.sgd 0.3f32
                 }
             } s
 
@@ -834,6 +834,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
 |> printfn "%s"
 |> ignore
