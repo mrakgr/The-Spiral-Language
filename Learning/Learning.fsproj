@@ -59,8 +59,6 @@
     <Content Include="packages.config" />
     <Compile Include="Module.fs" />
     <Compile Include="Tests.fs" />
-    <Content Include="TextFile1.txt" />
-    <Content Include="TextFile2.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

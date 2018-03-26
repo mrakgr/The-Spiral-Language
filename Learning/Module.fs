@@ -2278,6 +2278,24 @@ inl float ->
 
         {fwd bck init activation} |> stackify
 
+    // The feedforward layer with layer norm.
+    inl layer_ln initializer activation size sublayer =
+        feedforward
+            {
+            size sublayer
+            weights = inl s -> {
+                input = initializer (sublayer.size, size) s |> dr s
+                bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+                o = layer_norm.init s
+                }
+            apply = inl weights input -> 
+                matmultb (input, weights.input) weights.bias 
+                >>= layer_norm.activation weights.o 
+                >>= activation
+            }
+
+    inl sigmoid_ln = layer_ln Initializer.sigmoid sigmoid
+
     inl highway sublayer =
         feedforward
             {
@@ -2358,7 +2376,7 @@ inl float ->
 
     inl Feedforward = 
         {
-        Layer={Layer with init layer sigmoid linear highway ln_test} |> stackify
+        Layer={Layer with init layer sigmoid linear highway layer_ln sigmoid_ln} |> stackify
         Pass
         } |> stack
     
