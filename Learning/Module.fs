@@ -2206,7 +2206,6 @@ inl float ->
     inl sigmoid = layer Initializer.sigmoid sigmoid
     inl linear = layer Initializer.sigmoid succ
 
-    // Note: It works like crap.
     inl layer_norm =
         inl fwd o i s =
             inl o_primal = s.CudaTensor.to_dev_tensor o.primal

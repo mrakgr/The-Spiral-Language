@@ -59,6 +59,8 @@
     <Content Include="packages.config" />
     <Compile Include="Module.fs" />
     <Compile Include="Tests.fs" />
+    <Content Include="layer_norm_dump.txt" />
+    <None Include="Script1.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
