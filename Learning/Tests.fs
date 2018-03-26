@@ -836,7 +836,55 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
+let grad1 =
+    "grad1",[cuda_modules;learning;mnist],"Does the full training work with Mnist?",
+    """
+inb s = CudaModules (1024*1024*1024)
+
+inl float = float32
+open Learning float
+open Primitive
+open Activation
+open Error
+
+inl minibatch_size = 128
+inl { test_images test_labels train_images train_labels} =
+    inl mnist_path = @"C:\ML Datasets\Mnist"
+    Mnist.load_mnist_tensors mnist_path
+    |> s.CudaTensor.from_host_tensors
+    |> module_map (inl _ x -> x.round_split' minibatch_size)
+
+inl input_size = 784
+inl hidden_size = 10
+
+inl network = 
+    open Feedforward.Layer
+
+    inl label = input .label hidden_size
+    inl network =
+        input .input input_size 
+        |> sigmoid_ln 64
+        |> linear hidden_size 
+        |> init s
+    inl train = error Error.softmax_cross_entropy label network
+    inl test = parallel (train, accuracy label network)
+    {train test}
+
+Loops.for {from=0; near_to=1;body=inl _ -> 
+    open Feedforward.Pass
+    open Body
+
+    inl cost =
+        for {
+            data={input=train_images .view_span (const 1); label=train_labels .view_span (const 1)}
+            body=grad_check { network=network.train }
+            } s
+
+    string_format "Training: {0}" cost |> Console.writeline
+    }
+    """
+
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" grad1
 |> printfn "%s"
 |> ignore
 
