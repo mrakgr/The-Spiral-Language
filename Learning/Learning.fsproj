@@ -57,7 +57,6 @@
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
-    <None Include="TextFile1.fsx" />
     <Compile Include="Module.fs" />
     <Compile Include="Tests.fs" />
     <Content Include="TextFile1.txt" />
