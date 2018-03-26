@@ -2208,9 +2208,8 @@ inl float ->
     inl linear = layer Initializer.sigmoid succ
 
     inl layer_norm =
-        inl o_switch x = x
         inl fwd o i s =
-            s.CudaTensor.print o.primal
+            //s.CudaTensor.print o.primal
             inl o_primal = s.CudaTensor.to_dev_tensor o.primal
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
             s.CudaKernel.map_d1_seq_broadcast {
@@ -2225,7 +2224,7 @@ inl float ->
                     redo=(+)
                     map_out=inl v vv -> 
                         inl o = o_primal 0 .get
-                        v / sqrt (o_switch (o*o) + vv / n)
+                        v / sqrt (o*o + vv / n)
                     }
                 } (primal i)
 
@@ -2245,7 +2244,7 @@ inl float ->
                     redo=(+)
                     map_out=inl dr,v vv -> 
                         inl o = o .primal 0 .get
-                        dr,v,sqrt (o_switch (o*o) + vv / n)
+                        dr,v,sqrt (o*o + vv / n)
                     }
                     ,
                     {
@@ -2253,7 +2252,7 @@ inl float ->
                     redo=(+)
                     map_out=inl dr,v,norm dnorm -> 
                         inl dv_top = dr / norm
-                        inl dv_norm = dnorm / (two * norm)
+                        inl dv_norm = dnorm / norm / n * v 
                         dv_top,v,dv_norm
                     }
                     ,
@@ -2262,11 +2261,7 @@ inl float ->
                     // redo' does not do broadcasting to the zeroth thread.
                     redo'=(+)
                     map_out=inl dv_top,v,dv_norm sum_dv_norm -> 
-                        if threadIdx.x = 0 then 
-                            inl x = two * o.primal 0 .get * sum_dv_norm
-
-                            atomic_add (o.adjoint 0) x
-                        inl dv_bot = dv_norm * (two / n) * v 
+                        inl dv_bot = dv_norm 
                         dv_top + dv_bot
                     }
                     ,
@@ -2276,9 +2271,12 @@ inl float ->
                     }
                 } (adjoint r, primal i) (adjoint i)
 
-            s.CudaTensor.print (o'.primal, o'.adjoint)
+            //s.CudaTensor.print (o'.primal, o'.adjoint)
 
-        inl init s = s.CudaTensor.zero {elem_type=float; dim=1} |> dr s
+        inl init s = 
+            inl x = s.CudaTensor.zero {elem_type=float; dim=1} 
+            s.CudaTensor.set (x 0) two
+            dr s x
 
         inl activation o i s =
             inl r = fwd o i s |> dr s

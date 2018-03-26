@@ -588,7 +588,7 @@ open Primitive
 open Activation
 open Error
 
-inl minibatch_size = 1
+inl minibatch_size = 128
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
     Mnist.load_mnist_tensors mnist_path
@@ -618,7 +618,7 @@ Loops.for' {from=0; near_to=30;body=inl {next} ->
 
     inl cost =
         for {
-            data={input=train_images .view_span (const 1); label=train_labels .view_span (const 1)}
+            data={input=train_images; label=train_labels}
             body=train {
                 network=network.train
                 optimizer=Optimizer.sgd 0.3f32
@@ -627,20 +627,19 @@ Loops.for' {from=0; near_to=30;body=inl {next} ->
 
     string_format "Training: {0}" cost |> Console.writeline
 
-    next()
-    //if nan_is cost then
-    //    Console.writeline "Training diverged. Aborting..."
-    //else
-    //    inl cost, ac, max_ac =
-    //        for {
-    //            data={input=test_images; label=test_labels}
-    //            body=test {
-    //                network=network.test
-    //                }
-    //            } s 
+    if nan_is cost then
+        Console.writeline "Training diverged. Aborting..."
+    else
+        inl cost, ac, max_ac =
+            for {
+                data={input=test_images; label=test_labels}
+                body=test {
+                    network=network.test
+                    }
+                } s 
 
-    //    string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
-    //    next ()
+        string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
+        next ()
     }
     """
 
