@@ -2210,6 +2210,7 @@ inl float ->
     inl layer_norm =
         inl o_switch x = x
         inl fwd o i s =
+            s.CudaTensor.print o.primal
             inl o_primal = s.CudaTensor.to_dev_tensor o.primal
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
             s.CudaKernel.map_d1_seq_broadcast {
@@ -2228,8 +2229,8 @@ inl float ->
                     }
                 } (primal i)
 
-        inl bck o r i s =
-            inl o = Struct.map s.CudaTensor.to_dev_tensor {o without block}
+        inl bck o' r i s =
+            inl o = Struct.map s.CudaTensor.to_dev_tensor {o' without block}
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
             s.CudaKernel.map_d1_seq_broadcast' {
                 seq = 
@@ -2261,7 +2262,10 @@ inl float ->
                     // redo' does not do broadcasting to the zeroth thread.
                     redo'=(+)
                     map_out=inl dv_top,v,dv_norm sum_dv_norm -> 
-                        if threadIdx.x = 0 then two * o.primal 0 .get * sum_dv_norm |> atomic_add (o.adjoint 0)
+                        if threadIdx.x = 0 then 
+                            inl x = two * o.primal 0 .get * sum_dv_norm
+
+                            atomic_add (o.adjoint 0) x
                         inl dv_bot = dv_norm * (two / n) * v 
                         dv_top + dv_bot
                     }
@@ -2271,6 +2275,8 @@ inl float ->
                     map_out=inl dv dv_mean adjoint -> adjoint + dv - dv_mean / n
                     }
                 } (adjoint r, primal i) (adjoint i)
+
+            s.CudaTensor.print (o'.primal, o'.adjoint)
 
         inl init s = s.CudaTensor.zero {elem_type=float; dim=1} |> dr s
 

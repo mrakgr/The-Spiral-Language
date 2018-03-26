@@ -588,7 +588,7 @@ open Primitive
 open Activation
 open Error
 
-inl minibatch_size = 128
+inl minibatch_size = 1
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
     Mnist.load_mnist_tensors mnist_path
