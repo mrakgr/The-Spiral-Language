@@ -2257,7 +2257,7 @@ inl float ->
                     }
                     ,
                     {
-                    map_in=inl dr,v,norm -> dr * norm, -dr * v / (norm * norm)
+                    map_in=inl dr,v,norm -> dr / norm, -dr * v / (norm * norm)
                     redo=Tuple.map2 (+)
                     map_out=inl _,v,norm (top, bot) adjoint -> 
                         inl bot = (bot * v) / (norm * n)
