@@ -593,9 +593,7 @@ inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
     Mnist.load_mnist_tensors mnist_path
     |> s.CudaTensor.from_host_tensors
-    |> module_map (inl _ x -> 
-        x.round_split' minibatch_size
-        )
+    |> module_map (inl _ x -> x.round_split' minibatch_size)
 
 inl input_size = 784
 inl hidden_size = 10
@@ -613,35 +611,34 @@ inl network =
     inl test = parallel (train, accuracy label network)
     {train test}
 
-Loops.for' {from=0; near_to=1;body=inl {next} -> 
+Loops.for' {from=0; near_to=5;body=inl {next} -> 
     open Feedforward.Pass
     open Body
 
     inl cost =
         for {
             data={input=train_images .view_span (const 1); label=train_labels .view_span (const 1)}
-            body=grad_check {
+            body=train {
                 network=network.train
-                //optimizer=Optimizer.sgd 1.0f32
+                optimizer=Optimizer.sgd 1.0f32
                 }
             } s
 
     string_format "Training: {0}" cost |> Console.writeline
-    next ()
 
-    //if nan_is cost then
-    //    Console.writeline "Training diverged. Aborting..."
-    //else
-    //    inl cost, ac, max_ac =
-    //        for {
-    //            data={input=test_images; label=test_labels}
-    //            body=test {
-    //                network=network.test
-    //                }
-    //            } s 
+    if nan_is cost then
+        Console.writeline "Training diverged. Aborting..."
+    else
+        inl cost, ac, max_ac =
+            for {
+                data={input=test_images; label=test_labels}
+                body=test {
+                    network=network.test
+                    }
+                } s 
 
-    //    string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
-    //    next ()
+        string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
+        next ()
     }
     """
 
@@ -836,50 +833,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-let grad1 =
-    "grad1",[cuda_modules;learning;mnist],"Does the full training work with Mnist?",
-    """
-inb s = CudaModules (1024*1024*1024)
-
-inl float = float32
-open Learning float
-open Primitive
-open Activation
-open Error
-
-inl minibatch_size = 1
-inl { test_images test_labels train_images train_labels} =
-    inl mnist_path = @"C:\ML Datasets\Mnist"
-    Mnist.load_mnist_tensors mnist_path
-    |> s.CudaTensor.from_host_tensors
-    |> module_map (inl _ x -> x.round_split' minibatch_size)
-
-inl input_size = 784
-inl hidden_size = 10
-
-inl network = 
-    open Feedforward.Layer
-
-    inl label = input .label hidden_size
-    inl network = ln_test 10 |> init s
-    inl train = error Error.square label network
-    {train}
-
-Loops.for {from=0; near_to=1;body=inl _ -> 
-    open Feedforward.Pass
-    open Body
-
-    inl cost =
-        for {
-            data={input=train_images .view_span (const 1); label=train_labels .view_span (const 1)}
-            body=grad_check { network=network.train }
-            } s
-
-    string_format "Training: {0}" cost |> Console.writeline
-    }
-    """
-
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" grad1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
 |> printfn "%s"
 |> ignore
 

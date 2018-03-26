@@ -2278,20 +2278,6 @@ inl float ->
 
         {fwd bck init activation} |> stackify
 
-    // The feedforward layer with layer norm.
-    inl ln_test size =
-        Layer.layer
-            {
-            layer_type = .feedforward
-            size
-            weights = inl s -> 
-                {
-                input=Initializer.sigmoid (1, size) s |> dr s
-                o=layer_norm.init s
-                }
-            apply = inl weights input -> layer_norm.activation weights.o weights.input
-            }
-
     inl highway sublayer =
         feedforward
             {
