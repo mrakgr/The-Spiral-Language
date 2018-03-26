@@ -2289,12 +2289,10 @@ inl float ->
                 o = layer_norm.init s
                 }
             apply = inl weights input -> 
-                matmultb (input, weights.input) weights.bias 
-                >>= layer_norm.activation weights.o 
-                >>= activation
+                matmultb (input, weights.input) weights.bias >>= layer_norm.activation weights.o >>= activation
             }
 
-    inl sigmoid_ln = layer_ln Initializer.sigmoid sigmoid
+    inl sigmoid_ln = layer_ln Initializer.sigmoid Activation.sigmoid
 
     inl highway sublayer =
         feedforward

@@ -605,9 +605,9 @@ inl network =
     inl network =
         input .input input_size 
         |> sigmoid_ln 64
-        |> linear hidden_size 
+        |> sigmoid hidden_size 
         |> init s
-    inl train = error Error.softmax_cross_entropy label network
+    inl train = error Error.cross_entropy label network
     inl test = parallel (train, accuracy label network)
     {train test}
 
@@ -617,7 +617,7 @@ Loops.for' {from=0; near_to=5;body=inl {next} ->
 
     inl cost =
         for {
-            data={input=train_images .view_span (const 1); label=train_labels .view_span (const 1)}
+            data={input=train_images; label=train_labels}
             body=train {
                 network=network.train
                 optimizer=Optimizer.sgd 1.0f32
