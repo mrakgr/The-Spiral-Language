@@ -62,7 +62,6 @@
     <Compile Include="Spiral.fs" />
     <Compile Include="SpiralLib.fs" />
     <Compile Include="SpiralTests.fs" />
-    <Content Include="temp.txt" />
     <Content Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

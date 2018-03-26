@@ -57,10 +57,8 @@
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
-    <Content Include="TextFile1.txt" />
     <Compile Include="Module.fs" />
     <Compile Include="Tests.fs" />
-    <Content Include="TextFile2.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
