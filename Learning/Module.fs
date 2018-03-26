@@ -2207,36 +2207,16 @@ inl float ->
     inl linear = layer Initializer.sigmoid succ
 
     inl layer_norm =
-        inl mean_fwd i s =
-            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.map_d1_seq_broadcast {
-                seq = 
-                    {
-                    redo=(+)
-                    map_out=inl i sum -> i - sum / n
-                    }
-                } (primal i)
-
-        inl mean_bck r i s =
-            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.map_d1_seq_broadcast' {
-                seq = 
-                    {
-                    redo=(+)
-                    map_out=inl dv dv_mean adjoint -> adjoint + dv - dv_mean / n
-                    }
-                } (adjoint r) (adjoint i)
-            s.CudaTensor.print (adjoint i)
-
-        inl mean i s =
-            inl r = mean_fwd i s |> dr s
-            r, inl _ -> mean_bck r i s 
-
         inl norm_fwd i s = 
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
             inl r = 
                 s.CudaKernel.map_d1_seq_broadcast {
                     seq = 
+                        {
+                        redo=(+)
+                        map_out=inl i sum -> i - sum / n
+                        }
+                        ,
                         {
                         map_in=inl v -> v*v
                         redo=(+)
@@ -2251,6 +2231,12 @@ inl float ->
             s.CudaKernel.map_d1_seq_broadcast' {
                 seq = 
                     {
+                    map_in=inl dr,i -> i
+                    redo=(+)
+                    map_out=inl dr,i sum -> dr, i - sum / n
+                    }
+                    ,
+                    {
                     map_in=inl dr,v -> v*v
                     redo=(+)
                     map_out=inl dr,v vv -> dr,v,sqrt (vv / n)
@@ -2259,23 +2245,22 @@ inl float ->
                     {
                     map_in=inl dr,v,norm -> -dr * v / (norm * norm)
                     redo=(+)
-                    map_out=inl dr,v,norm bot adjoint -> 
+                    map_out=inl dr,v,norm bot -> 
                         inl top = dr / norm
                         inl bot = (bot * v) / (norm * n)
-                        adjoint + top + bot
+                        top + bot
+                    }
+                    ,
+                    {
+                    redo=(+)
+                    map_out=inl dv dv_mean adjoint -> adjoint + dv - dv_mean / n
                     }
                 } (adjoint r, primal i) (adjoint i)
             //s.CudaTensor.print (adjoint i)
 
-        inl norm i s =
+        inl i s ->
             inl r = norm_fwd i s |> dr s
             r, inl _ -> norm_bck r i s 
-
-        inl activation i =
-            inm v = mean i
-            norm v
-
-        activation
 
     // The feedforward layer with layer norm.
     inl ln_test size =
