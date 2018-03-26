@@ -2240,7 +2240,7 @@ inl float ->
                         {
                         map_in=inl v -> v*v
                         redo=(+)
-                        map_out=inl v vv -> sqrt (vv / n)
+                        map_out=inl v vv -> v / sqrt (vv / n)
                         }
                     } (primal i)
             //s.CudaTensor.print r
@@ -2257,9 +2257,12 @@ inl float ->
                     }
                     ,
                     {
-                    map_in=inl dr,_,_ -> dr
+                    map_in=inl dr,v,norm -> -dr * v / (norm * norm)
                     redo=(+)
-                    map_out=inl _,v,norm dr adjoint -> adjoint + (dr * v) / (norm * n)
+                    map_out=inl dr,v,norm bot adjoint -> 
+                        inl top = dr / norm
+                        inl bot = (bot * v) / (norm * n)
+                        adjoint + top + bot
                     }
                 } (adjoint r, primal i) (adjoint i)
             //s.CudaTensor.print (adjoint i)
@@ -2268,19 +2271,9 @@ inl float ->
             inl r = norm_fwd i s |> dr s
             r, inl _ -> norm_bck r i s 
 
-        inl div_fwd a b s = s.CudaKernel.map (inl a,b -> a/b) (primal a, primal b)
-        inl div_bck r a b s =
-            s.CudaKernel.map' (inl er,b adjoint -> adjoint + er / b) (adjoint r, primal b) (adjoint a)
-            s.CudaKernel.map' (inl er,a,b adjoint -> adjoint - er * a / (b*b)) (adjoint r, primal a, primal b) (adjoint b)
-
-        inl div a b s =
-            inl r = div_fwd a b s |> dr s
-            r, inl _ -> div_bck r a b s 
-
         inl activation i =
             inm v = mean i
-            inm n = norm v
-            div v n
+            norm v
 
         activation
 
