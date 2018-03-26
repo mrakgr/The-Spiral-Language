@@ -2226,6 +2226,7 @@ inl float ->
                     map_out=inl dv dv_mean adjoint -> adjoint + dv - dv_mean / n
                     }
                 } (adjoint r) (adjoint i)
+            s.CudaTensor.print (adjoint i)
 
         inl mean i s =
             inl r = mean_fwd i s |> dr s
@@ -2233,14 +2234,17 @@ inl float ->
 
         inl norm_fwd i s = 
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.map_d1_seq_broadcast {
-                seq = 
-                    {
-                    map_in=inl v -> v*v
-                    redo=(+)
-                    map_out=inl v vv -> sqrt (vv / n)
-                    }
-                } (primal i)
+            inl r = 
+                s.CudaKernel.map_d1_seq_broadcast {
+                    seq = 
+                        {
+                        map_in=inl v -> v*v
+                        redo=(+)
+                        map_out=inl v vv -> sqrt (vv / n)
+                        }
+                    } (primal i)
+            //s.CudaTensor.print r
+            r 
 
         inl norm_bck r i s =
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
@@ -2253,11 +2257,12 @@ inl float ->
                     }
                     ,
                     {
-                    map_in=inl dr,_,norm -> dr * to float 0.5 / norm
+                    map_in=inl dr,_,_ -> dr
                     redo=(+)
-                    map_out=inl _,v,norm dr_norm adjoint -> adjoint + dr_norm * (two / n) * v 
+                    map_out=inl _,v,norm dr adjoint -> adjoint + (dr * v) / (norm * n)
                     }
                 } (adjoint r, primal i) (adjoint i)
+            //s.CudaTensor.print (adjoint i)
 
         inl norm i s =
             inl r = norm_fwd i s |> dr s
@@ -2273,10 +2278,9 @@ inl float ->
             r, inl _ -> div_bck r a b s 
 
         inl activation i =
-            norm i
-            //inm v = mean i
-            //inm n = norm v
-            //div v n
+            inm v = mean i
+            inm n = norm v
+            div v n
 
         activation
 
