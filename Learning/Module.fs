@@ -1759,77 +1759,7 @@ inl float ->
         inl adr = macro.cd ar [arg: ar; text: " + "; arg: offset]
         macro.cd () [text: "atomicAdd"; args: adr, x]
 
-    inl layer_norm =
-        inl fwd o i s =
-            inl o_primal = s.CudaTensor.to_dev_tensor o.primal
-            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.map_d1_seq_broadcast {
-                seq = 
-                    {
-                    redo=(+)
-                    map_out=inl i sum -> i - sum / n
-                    }
-                    ,
-                    {
-                    map_in=inl v -> v*v
-                    redo=(+)
-                    map_out=inl v vv -> 
-                        inl o = o_primal 0 .get
-                        v / (sqrt (o*o + vv / n))
-                    }
-                } (primal i)
 
-        inl bck o r i s =
-            inl o = Struct.map s.CudaTensor.to_dev_tensor {o without block}
-            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.map_d1_seq_broadcast' {
-                seq = 
-                    {
-                    map_in=inl _,i -> i
-                    redo=(+)
-                    map_out=inl dr,i sum -> dr, i - sum / n
-                    }
-                    ,
-                    {
-                    map_in=inl dr,v -> v*v
-                    redo=(+)
-                    map_out=inl dr,v vv -> 
-                        inl o = o .primal 0 .get
-                        dr,v,sqrt (o*o + vv / n)
-                    }
-                    ,
-                    {
-                    map_in=inl dr,v,div -> dr * -v / (div * div)
-                    redo=(+)
-                    map_out=inl dr,v,div dr_div -> 
-                        inl dv_top = dr * div
-                        dv_top,v, dr_div * to float 0.5 / div
-                    }
-                    ,
-                    {
-                    map_in=inl _,_,div' -> div'
-                    // redo' does not do broadcasting to the zeroth thread.
-                    redo'=(+)
-                    map_out=inl dv_top,v,dr_div' sum_dr_div' -> 
-                        if threadIdx.x = 0 then two * o.primal 0 .get * sum_dr_div' |> atomic_add (o.adjoint 0)
-                        inl dv_div = dr_div' * (two / n) * v 
-                        dv_top + dv_div
-                    }
-                    ,
-                    {
-                    redo=(+)
-                    map_out=inl dv dv_mean adjoint -> adjoint + dv - dv_mean / n
-                    }
-                } (r.adjoint, i.primal) i.adjoint
-
-        inl init s = s.CudaTensor.zero {elem_type=float; dim=1} |> dr s
-
-        inl activation o i s =
-            inl r = fwd o i s |> dr s
-            //s.CudaTensor.print r.primal
-            r, inl _ -> bck o r i s
-
-        {fwd bck init activation} |> stackify
 
     /// The softmax activation
     inl softmax temp input s =
@@ -2259,7 +2189,7 @@ inl float ->
             size = 1
             }
 
-    inl Layer = {input stateless non_differentiable feedforward recurrent parallel error accuracy encode sample} |> stackify
+    inl Layer = {layer input stateless non_differentiable feedforward recurrent parallel error accuracy encode sample} |> stackify
 
     // #Feedforward
     inl layer initializer activation size sublayer =
@@ -2277,22 +2207,14 @@ inl float ->
     inl linear = layer Initializer.sigmoid succ
 
     // The feedforward layer with layer norm.
-    inl layer_ln initializer activation size sublayer =
-        feedforward
+    inl ln_test size =
+        Layer.layer
             {
-            size sublayer
-            weights = inl s -> {
-                input = initializer (sublayer.size, size) s |> dr s
-                bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-                o = layer_norm.init s
-                }
-            apply = inl weights input -> 
-                matmultb (input, weights.input) weights.bias 
-                >>= layer_norm.activation weights.o 
-                >>= activation
+            layer_type = .feedforward
+            size
+            weights = inl s -> Initializer.sigmoid (1, size) s |> dr s
+            apply = inl weights input -> layer_norm weights 
             }
-
-    inl sigmoid_ln = layer_ln Initializer.sigmoid Activation.sigmoid
 
     inl highway sublayer =
         feedforward
@@ -2374,7 +2296,7 @@ inl float ->
 
     inl Feedforward = 
         {
-        Layer={Layer with init layer sigmoid linear highway layer_ln sigmoid_ln} |> stackify
+        Layer={Layer with init layer sigmoid linear highway ln_test} |> stackify
         Pass
         } |> stack
     
