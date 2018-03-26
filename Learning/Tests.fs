@@ -606,9 +606,6 @@ inl network =
     inl network =
         input .input input_size 
         |> f 64
-        |> f 64
-        |> f 64
-        //|> f 64
         |> linear hidden_size 
         |> init s
     inl train = error Error.softmax_cross_entropy label network
@@ -621,28 +618,29 @@ Loops.for' {from=0; near_to=30;body=inl {next} ->
 
     inl cost =
         for {
-            data={input=train_images; label=train_labels}
+            data={input=train_images .view_span (const 1); label=train_labels .view_span (const 1)}
             body=train {
                 network=network.train
-                optimizer=Optimizer.sgd 0.1f32
+                optimizer=Optimizer.sgd 0.3f32
                 }
             } s
 
     string_format "Training: {0}" cost |> Console.writeline
 
-    if nan_is cost then
-        Console.writeline "Training diverged. Aborting..."
-    else
-        inl cost, ac, max_ac =
-            for {
-                data={input=test_images; label=test_labels}
-                body=test {
-                    network=network.test
-                    }
-                } s 
+    next()
+    //if nan_is cost then
+    //    Console.writeline "Training diverged. Aborting..."
+    //else
+    //    inl cost, ac, max_ac =
+    //        for {
+    //            data={input=test_images; label=test_labels}
+    //            body=test {
+    //                network=network.test
+    //                }
+    //            } s 
 
-        string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
-        next ()
+    //    string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
+    //    next ()
     }
     """
 

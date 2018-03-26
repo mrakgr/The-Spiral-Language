@@ -2208,6 +2208,7 @@ inl float ->
     inl linear = layer Initializer.sigmoid succ
 
     inl layer_norm =
+        inl o_switch x = x
         inl fwd o i s =
             inl o_primal = s.CudaTensor.to_dev_tensor o.primal
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
@@ -2223,7 +2224,7 @@ inl float ->
                     redo=(+)
                     map_out=inl v vv -> 
                         inl o = o_primal 0 .get
-                        v / sqrt (o*o + vv / n)
+                        v / sqrt (o_switch (o*o) + vv / n)
                     }
                 } (primal i)
 
@@ -2243,7 +2244,7 @@ inl float ->
                     redo=(+)
                     map_out=inl dr,v vv -> 
                         inl o = o .primal 0 .get
-                        dr,v,sqrt (o*o + vv / n)
+                        dr,v,sqrt (o_switch (o*o) + vv / n)
                     }
                     ,
                     {
