@@ -2566,12 +2566,22 @@ inl float ->
             }
 
     /// Multiplicative integration + layer normalization + relu
-    inl mi_ln_relu {fwd bck_in bck_in'} =
+    inl mi_ln_relu {entry_fwd entry_bck_in entry_bck_in'} =
+        inl n bias i = 
+            inl a,b = Struct.map (inl o -> {o without block}) i |> HostTensor.zip |> inl x -> x.dim
+            Struct.iter (inl {primal adjoint} ->
+                inl f x = 
+                    inl b' :: () = x.dim
+                    assert (b' = b) "The bias has to have a dimension equal to the input"
+                f primal; f adjoint
+                ) bias
+            HostTensor.span b |> to float
+
         inl fwd o b i w =
+            inl n = n b i
             inl b = Struct.map (inl {primal} -> w.CudaTensor.to_dev_tensor primal) b
-            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
             w.CudaKernel.mapi_d1_seq_broadcast {
-                mapi_in=inl j i' i -> Struct.map (inl x -> x i' .get) b |> inl b -> fwd b i
+                mapi_in=inl j i' i -> Struct.map (inl x -> x i' .get) b |> inl b -> entry_fwd b i
                 seq = 
                     {
                     redo=(+)
@@ -2586,16 +2596,13 @@ inl float ->
                 } (Struct.map primal i)
 
         inl bck o r b i w =
+            inl n = n b i
             inl b_primals = Struct.map (inl {primal} -> w.CudaTensor.to_dev_tensor primal) b
             inl b_adjoints = Struct.map (inl {adjoint} -> w.CudaTensor.to_dev_tensor adjoint) b
-            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            print_static {b i}
             w.CudaKernel.mapi_d1_seq_broadcast' {
                 mapi_in=inl j i' (dr,i) -> 
                     inl b_primals = Struct.map (inl x -> x i' .get) b_primals
-                    inl x = fwd b_primals i
-                    print_static {b_primals i x}
-                    stack {b_primals i}, dr, x
+                    stack {b_primals i}, dr, entry_fwd b_primals i
                 seq = 
                     {
                     map_in=inl bis,dr,i -> i
@@ -2623,14 +2630,15 @@ inl float ->
                     redo=(+)
                     mapi_out=inl _ i' {b_primals i},dv dv_sum is_adjoints -> 
                         inl dx = dv - dv_sum / n
-                        bck_in' b_primals i
-                        |> Struct.map ((*) dx)
-                        |> Struct.map2 (+) is_adjoints
 
-                        bck_in b_primals i
+                        entry_bck_in b_primals i
                         |> Struct.map ((*) dx)
                         // Note: The atomics make training non-deterministic.
                         |> Struct.iter2 (inl a -> atomic_add (a i')) b_adjoints
+
+                        entry_bck_in' b_primals i
+                        |> Struct.map ((*) dx)
+                        |> Struct.map2 (+) is_adjoints
                     }
                 } (adjoint r, Struct.map primal i) (Struct.map adjoint i)
 
@@ -2665,19 +2673,17 @@ inl float ->
                 | () ->
                     inm i = matmult (i, input)
                     mi_ln_relu {
-                        fwd=inl (b3,b4) i -> b3*i + b4 
-                        bck_in=inl (b3,b4) i -> (i, one) 
-                        bck_in'=inl (b3,b4) i -> b3 
+                        entry_fwd=inl (b3,b4) i -> b3*i + b4 
+                        entry_bck_in=inl (b3,b4) i -> (i, one) 
+                        entry_bck_in'=inl (b3,b4) i -> b3 
                         } o (b3,b4) i
                 | _ ->
                     inm i = matmult (i, input)
                     inm s = matmult (s, state)
                     mi_ln_relu {
-                        fwd=inl (b1,b2,b3,b4) (i,s) -> 
-                            print_static "qwe"
-                            b1*i*s + b2*s + b3*i + b4
-                        bck_in=inl (b1,b2,b3,b4) (i,s) -> (i*s, s, i, one) 
-                        bck_in'=inl (b1,b2,b3,b4) (i,s) -> (b1*s+b3, b1*i+b2)
+                        entry_fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4
+                        entry_bck_in=inl (b1,b2,b3,b4) (i,s) -> (i*s, s, i, one) 
+                        entry_bck_in'=inl (b1,b2,b3,b4) (i,s) -> (b1*s+b3, b1*i+b2)
                         } o (b1,b2,b3,b4) (i,s)
                 >>= inl x -> succ (x,x)
             }
