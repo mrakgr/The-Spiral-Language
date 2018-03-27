@@ -1161,16 +1161,16 @@ inl mapi_d1_seq_broadcast' w {d with seq} in out =
                         dim=items_per_thread
                         }
 
-                    inl items = create_items (type in.elem_type |> map_in)
-
                     inl inner_loop = grid_for_items dims .x dim_in_b
-
-                    inner_loop {body=inl {item i} -> 
-                        match d with
-                        | {map_in} -> map_in (in i .get)
-                        | {mapi_in} -> mapi_in j i (in i .get)
-                        |> items item .set
-                        }
+                    
+                    inl items = 
+                        inl map = 
+                            match d with
+                            | {map_in} i -> map_in (in i .get)
+                            | {mapi_in} i -> mapi_in j i (in i .get)
+                        inl items = create_items (type map (dyn 0))
+                        inner_loop {body=inl {item i} -> items item .set (map i)}
+                        items
 
                     inl rec seq_loop items = function
                         | {s with map_out} :: s' ->
@@ -1183,6 +1183,7 @@ inl mapi_d1_seq_broadcast' w {d with seq} in out =
                                     match s with
                                     | {redo} -> f redo >> broadcast_zero
                                     | {redo'} -> f redo'
+
                                 match s with
                                 | {map_in} -> 
                                     inl items' = create_items (type map_in items.elem_type)
@@ -1228,6 +1229,7 @@ inl mapi_d1_seq_broadcast w {d with seq} in =
                 match d with
                 | {map_in} -> map_in in.elem_type 
                 | {mapi_in} -> mapi_in (dyn 0) (dyn 0) in.elem_type
+                | _ -> in.elem_type
             Tuple.foldl (inl ty d -> 
                 inl ty' = 
                     match d with
@@ -2558,79 +2560,79 @@ inl float ->
             }
 
     /// Multiplicative integration + layer normalization + relu
-    inl mi_ln_relu =
-        inl fwd o b (i,s) w =
-            inl b = Tuple.map (inl {primal} -> w.CudaTensor.to_dev_tensor primal) b
-            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            w.CudaKernel.mapi_d1_seq_broadcast {
-                mapi_in=inl j i (i,s) -> 
-                    inl b1,b2,b3,b4 = Struct.map (inl x -> x i .get) b
-                    b1*i*s + b2*s + b3*i + b4
-                seq = 
-                    {
-                    redo=(+)
-                    map_out=inl i sum -> i - sum / n
-                    }
-                    ,
-                    {
-                    map_in=inl v -> v*v
-                    redo=(+)
-                    map_out=inl v vv -> v / sqrt (o*o + vv / n) |> relu_fwd
-                    }
-                } (primal i, primal s)
+    //inl mi_ln_relu =
+    //    inl fwd o b (i,s) w =
+    //        inl b = Tuple.map (inl {primal} -> w.CudaTensor.to_dev_tensor primal) b
+    //        inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+    //        w.CudaKernel.mapi_d1_seq_broadcast {
+    //            mapi_in=inl j i (i,s) -> 
+    //                inl b1,b2,b3,b4 = Struct.map (inl x -> x i .get) b
+    //                b1*i*s + b2*s + b3*i + b4
+    //            seq = 
+    //                {
+    //                redo=(+)
+    //                map_out=inl i sum -> i - sum / n
+    //                }
+    //                ,
+    //                {
+    //                map_in=inl v -> v*v
+    //                redo=(+)
+    //                map_out=inl v vv -> v / sqrt (o*o + vv / n) |> relu_fwd
+    //                }
+    //            } (primal i, primal s)
 
-        inl bck o r b (i,s) w =
-            inl b = 
-                Tuple.map (inl {primal adjoint} -> {
-                    primal=w.CudaTensor.to_dev_tensor primal
-                    adjoint=w.CudaTensor.to_dev_tensor adjoint
-                    }) b
-            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.mapi_d1_seq_broadcast' {
-                mapi_in=inl j i (dr,(i,s)) -> 
-                    inl b1,b2,b3,b4 as b_primals = Tuple.map (inl {primal} -> primal i .get) b
-                    inl b_adjoints = Tuple.map (inl {adjoint} -> adjoint i) b
-                    {b_primals b_adjoints i s}, dr, b1*i*s + b2*s + b3*i + b4
-                seq = 
-                    {
-                    map_in=inl bis,dr,i -> i
-                    redo=(+)
-                    map_out=inl bis,dr,i sum -> bis, dr, i - sum / n
-                    }
-                    ,
-                    {
-                    map_in=inl bis,dr,v -> v*v
-                    redo=(+)
-                    map_out=inl bis,dr,v vv -> bis,(if v > zero then dr else zero),v,sqrt (o*o + vv / n)
-                    }
-                    ,
-                    {
-                    map_in=inl bis,dr,v,norm -> -dr * v / (norm * norm)
-                    redo=(+)
-                    map_out=inl bis,dr,v,norm bot -> 
-                        inl top = dr / norm
-                        inl bot = (bot * v) / (norm * n)
-                        bis,top + bot
-                    }
-                    ,
-                    {
-                    map_in=snd
-                    redo=(+)
-                    map_out=inl {b_primals=b1,b2,b3,b4; b_adjoints i s},dv dv_sum is_adjoints -> 
-                        inl dx = dv - dv_sum / n
-                        (i*s, s, i, one)
-                        |> Tuple.map ((*) dx)
-                        |> Tuple.iter2 atomicAdd b_adjoints
+    //    inl bck o r b (i,s) w =
+    //        inl b = 
+    //            Tuple.map (inl {primal adjoint} -> {
+    //                primal=w.CudaTensor.to_dev_tensor primal
+    //                adjoint=w.CudaTensor.to_dev_tensor adjoint
+    //                }) b
+    //        inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+    //        s.CudaKernel.mapi_d1_seq_broadcast' {
+    //            mapi_in=inl j i (dr,(i,s)) -> 
+    //                inl b1,b2,b3,b4 as b_primals = Tuple.map (inl {primal} -> primal i .get) b
+    //                inl b_adjoints = Tuple.map (inl {adjoint} -> adjoint i) b
+    //                {b_primals b_adjoints i s}, dr, b1*i*s + b2*s + b3*i + b4
+    //            seq = 
+    //                {
+    //                map_in=inl bis,dr,i -> i
+    //                redo=(+)
+    //                map_out=inl bis,dr,i sum -> bis, dr, i - sum / n
+    //                }
+    //                ,
+    //                {
+    //                map_in=inl bis,dr,v -> v*v
+    //                redo=(+)
+    //                map_out=inl bis,dr,v vv -> bis,(if v > zero then dr else zero),v,sqrt (o*o + vv / n)
+    //                }
+    //                ,
+    //                {
+    //                map_in=inl bis,dr,v,norm -> -dr * v / (norm * norm)
+    //                redo=(+)
+    //                map_out=inl bis,dr,v,norm bot -> 
+    //                    inl top = dr / norm
+    //                    inl bot = (bot * v) / (norm * n)
+    //                    bis,top + bot
+    //                }
+    //                ,
+    //                {
+    //                map_in=snd
+    //                redo=(+)
+    //                map_out=inl {b_primals=b1,b2,b3,b4 b_adjoints i s},dv dv_sum is_adjoints -> 
+    //                    inl dx = dv - dv_sum / n
+    //                    (i*s, s, i, one)
+    //                    |> Tuple.map ((*) dx)
+    //                    |> Tuple.iter2 atomicAdd b_adjoints
                         
-                        (b1*s+b3, b1*i+b2)
-                        |> Tuple.map ((*) dx)
-                        |> Tuple.map2 (+) is_adjoints
-                    }
-                } (adjoint r, (primal i, primal s)) (adjoint i, adjoint s)
+    //                    (b1*s+b3, b1*i+b2)
+    //                    |> Tuple.map ((*) dx)
+    //                    |> Tuple.map2 (+) is_adjoints
+    //                }
+    //            } (adjoint r, (primal i, primal s)) (adjoint i, adjoint s)
 
-        inl o b i s ->
-            inl r = fwd o b i s |> dr s
-            r, inl _ -> bck o r b i s
+    //    inl o b i s ->
+    //        inl r = fwd o b i s |> dr s
+    //        r, inl _ -> bck o r b i s
 
 
     /// The multiplicative integration RNN with layer norm from the 'Normalizing the Normalizers' paper.
