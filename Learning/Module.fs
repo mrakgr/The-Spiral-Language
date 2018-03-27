@@ -2626,9 +2626,10 @@ inl float ->
                     redo=(+)
                     map_out=inl {b_primals=b1,b2,b3,b4 b_adjoints i s},dv dv_sum is_adjoints -> 
                         inl dx = dv - dv_sum / n
-                        //(i*s, s, i, one)
-                        //|> Tuple.map ((*) dx)
-                        //|> Tuple.iter2 atomic_add b_adjoints
+                        (i*s, s, i, one)
+                        |> Tuple.map ((*) dx)
+                        // Note: The atomics make training non-deterministic.
+                        |> Tuple.iter2 atomic_add b_adjoints
                         
                         (b1*s+b3, b1*i+b2)
                         |> Tuple.map ((*) dx)
