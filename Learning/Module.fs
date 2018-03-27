@@ -2566,14 +2566,12 @@ inl float ->
             }
 
     /// Multiplicative integration + layer normalization + relu
-    inl mi_ln_relu =
-        inl fwd o b (i,s) w =
-            inl b = Tuple.map (inl {primal} -> w.CudaTensor.to_dev_tensor primal) b
+    inl mi_ln_relu {fwd bck_in bck_in'} =
+        inl fwd o b i w =
+            inl b = Struct.map (inl {primal} -> w.CudaTensor.to_dev_tensor primal) b
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
             w.CudaKernel.mapi_d1_seq_broadcast {
-                mapi_in=inl j i' (i,s) -> 
-                    inl b1,b2,b3,b4 = Struct.map (inl x -> x i' .get) b
-                    b1*i*s + b2*s + b3*i + b4
+                mapi_in=inl j i' i -> Struct.map (inl x -> x i' .get) b |> inl b -> fwd b i
                 seq = 
                     {
                     redo=(+)
@@ -2585,20 +2583,19 @@ inl float ->
                     redo=(+)
                     map_out=inl v vv -> v / sqrt (o*o + vv / n) |> relu_fwd
                     }
-                } (primal i, primal s)
+                } (Struct.map primal i)
 
-        inl bck o r b (i,s) w =
-            inl b = 
-                Tuple.map (inl {primal adjoint} -> {
-                    primal=w.CudaTensor.to_dev_tensor primal
-                    adjoint=w.CudaTensor.to_dev_tensor adjoint
-                    }) b
+        inl bck o r b i w =
+            inl b_primals = Struct.map (inl {primal} -> w.CudaTensor.to_dev_tensor primal) b
+            inl b_adjoints = Struct.map (inl {adjoint} -> w.CudaTensor.to_dev_tensor adjoint) b
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            print_static {b i}
             w.CudaKernel.mapi_d1_seq_broadcast' {
-                mapi_in=inl j i' (dr,(i,s)) -> 
-                    inl b1,b2,b3,b4 as b_primals = Tuple.map (inl {primal} -> primal i' .get) b
-                    inl b_adjoints = Tuple.map (inl {adjoint} -> adjoint i') b
-                    stack {b_primals b_adjoints i s}, dr, b1*i*s + b2*s + b3*i + b4
+                mapi_in=inl j i' (dr,i) -> 
+                    inl b_primals = Struct.map (inl x -> x i' .get) b_primals
+                    inl x = fwd b_primals i
+                    print_static {b_primals i x}
+                    stack {b_primals i}, dr, x
                 seq = 
                     {
                     map_in=inl bis,dr,i -> i
@@ -2624,18 +2621,18 @@ inl float ->
                     {
                     map_in=snd
                     redo=(+)
-                    map_out=inl {b_primals=b1,b2,b3,b4 b_adjoints i s},dv dv_sum is_adjoints -> 
+                    mapi_out=inl _ i' {b_primals i},dv dv_sum is_adjoints -> 
                         inl dx = dv - dv_sum / n
-                        (i*s, s, i, one)
-                        |> Tuple.map ((*) dx)
+                        bck_in' b_primals i
+                        |> Struct.map ((*) dx)
+                        |> Struct.map2 (+) is_adjoints
+
+                        bck_in b_primals i
+                        |> Struct.map ((*) dx)
                         // Note: The atomics make training non-deterministic.
-                        |> Tuple.iter2 atomic_add b_adjoints
-                        
-                        (b1*s+b3, b1*i+b2)
-                        |> Tuple.map ((*) dx)
-                        |> Tuple.map2 (+) is_adjoints
+                        |> Struct.iter2 (inl a -> atomic_add (a i')) b_adjoints
                     }
-                } (adjoint r, (primal i, primal s)) (adjoint i, adjoint s)
+                } (adjoint r, Struct.map primal i) (Struct.map adjoint i)
 
         inl o b i s ->
             inl r = fwd o b i s |> dr s
@@ -2667,16 +2664,21 @@ inl float ->
                 match s with
                 | () ->
                     inm i = matmult (i, input)
-                    d2_replicate_activation {
+                    mi_ln_relu {
                         fwd=inl (b3,b4) i -> b3*i + b4 
-                        bck_in=inl (b3,b4) i out -> (i, one) 
-                        bck_in'=inl (b3,b4) i out -> b3 
-                        } (b3,b4) i
-                    >>= layer_norm_relu o
+                        bck_in=inl (b3,b4) i -> (i, one) 
+                        bck_in'=inl (b3,b4) i -> b3 
+                        } o (b3,b4) i
                 | _ ->
                     inm i = matmult (i, input)
                     inm s = matmult (s, state)
-                    mi_ln_relu o (b1,b2,b3,b4) (i,s)
+                    mi_ln_relu {
+                        fwd=inl (b1,b2,b3,b4) (i,s) -> 
+                            print_static "qwe"
+                            b1*i*s + b2*s + b3*i + b4
+                        bck_in=inl (b1,b2,b3,b4) (i,s) -> (i*s, s, i, one) 
+                        bck_in'=inl (b1,b2,b3,b4) (i,s) -> (b1*s+b3, b1*i+b2)
+                        } o (b1,b2,b3,b4) (i,s)
                 >>= inl x -> succ (x,x)
             }
 
