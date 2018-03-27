@@ -1168,35 +1168,36 @@ inl mapi_d1_seq_broadcast' w {d with seq} in out =
                             match d with
                             | {map_in} i -> map_in (in i .get)
                             | {mapi_in} i -> mapi_in j i (in i .get)
+                            | _ i -> in i .get
                         inl items = create_items (type map (dyn 0))
                         inner_loop {body=inl {item i} -> items item .set (map i)}
                         items
 
                     inl rec seq_loop items = function
-                        | {s with map_out} :: s' ->
+                        | d :: d' ->
                             inl x = 
                                 inl redo = 
                                     inl f redo = 
                                         inl d = {blockDim redo}
                                         if num_valid % blockDim.x = 0 then cub_block_reduce d
                                         else cub_block_reduce {d with num_valid} 
-                                    match s with
+                                    match d with
                                     | {redo} -> f redo >> broadcast_zero
                                     | {redo'} -> f redo'
 
-                                match s with
+                                match d with
                                 | {map_in} -> 
                                     inl items' = create_items (type map_in items.elem_type)
                                     inner_loop {body=inl {item} -> items item .get |> map_in |> items' item .set}
                                     items'.bodies.ar
                                 | {mapi_in} ->
-                                    inl items' = create_items (type map_in j i items.elem_type)
-                                    inner_loop {body=inl {item i} -> items item .get |> map_in j i |> items' item .set}
+                                    inl items' = create_items (type mapi_in j i items.elem_type)
+                                    inner_loop {body=inl {item i} -> items item .get |> mapi_in j i |> items' item .set}
                                     items'.bodies.ar
                                 | _ -> items.bodies.ar
                                 |> redo 
 
-                            match s' with
+                            match d' with
                             | () -> 
                                 inner_loop {body=inl {item i} ->
                                     inl out = out i
@@ -1206,7 +1207,12 @@ inl mapi_d1_seq_broadcast' w {d with seq} in out =
                                     |> out .set
                                     }
                             | _ ->
-                                inl items' = create_items (type map_out items.elem_type x)
+                                inl items' = 
+                                    match d with
+                                    | {map_out} -> type map_out items.elem_type x
+                                    | {mapi_out} -> type mapi_out (dyn 0) (dyn 0) items.elem_type x
+                                    |> create_items
+
                                 inner_loop {body=inl {item i} ->
                                     inl out = out i
                                     match d with
@@ -1214,7 +1220,7 @@ inl mapi_d1_seq_broadcast' w {d with seq} in out =
                                     | {mapi_out} -> map_out j i (items item .get) x
                                     |> items' item .set
                                     }
-                                seq_loop items' s'
+                                seq_loop items' d'
 
                         seq_loop items (Tuple.wrap seq)
                     }
