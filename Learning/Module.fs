@@ -1884,11 +1884,14 @@ inl float ->
         inl init mult dim s = 
             inl stddev = sqrt (mult / to float32 (Tuple.foldl (+) 0 dim))
             s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
-        { // TODO: I am not sure about tanh here but it should do. Check if varying the multiple improves perforance.
+        { 
+        // Note: The following inits are not intended to be optimal, but work well either way with LN.
+        // Even with LN extremely poor inits can undermine the integrity of the network, but these should work interchangeably.
         sigmoid = init 2f32
         tanh = init 3f32
+        relu = init 1f32
         bad = init 0.01f32
-        }
+        } |> stackify
 
     // #Combinators
     inl layer_map_fold f network s =
@@ -2216,7 +2219,7 @@ inl float ->
             }
 
     inl sigmoid = layer Initializer.sigmoid sigmoid
-    inl relu = layer Initializer.sigmoid relu
+    inl relu = layer Initializer.relu relu
     inl linear = layer Initializer.sigmoid succ
 
     inl layer_norm =
@@ -2279,7 +2282,7 @@ inl float ->
             {
             size sublayer
             weights = inl s -> {
-                input = Initializer.initializer (sublayer.size, size) s |> dr s
+                input = Initializer.relu (sublayer.size, size) s |> dr s
                 bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
                 }
             apply = inl weights input -> 
@@ -2503,8 +2506,8 @@ inl float ->
                     join s.CudaTensor.mmap (const (dyn init)) x
                     dr s x
                 {
-                input = sigmoid (sublayer.size, size) s |> dr s
-                state = sigmoid (size, size) s |> dr s
+                input = relu (sublayer.size, size) s |> dr s
+                state = relu (size, size) s |> dr s
                 b1 = bias one
                 b2 = bias (to float 0.5)
                 b3 = bias (to float 0.5)
@@ -2614,7 +2617,7 @@ inl float ->
 
     inl Recurrent = 
         {
-        Layer = {Layer with init init_parallel layer sigmoid linear lstm mi mi_relu mi_tanh miln} |> stackify
+        Layer = {Layer with init init_parallel layer sigmoid linear lstm mi miln} |> stackify
         Pass = {for sample Body} |> stackify
         } |> stackify
 
