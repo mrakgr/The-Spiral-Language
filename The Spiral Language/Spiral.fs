@@ -2774,7 +2774,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         let {call_args=fv},_ = renamer_apply_typedexpr a
                         match op with
                         | LayoutToStack | LayoutToPackedStack ->
-                            let args = Seq.map print_tyv fv |> String.concat ", "
+                            let args = List.map print_tyv fv |> List.rev |> String.concat ", "
                             sprintf "make_%s(%s)" (print_tag_env (layout_from_op op |> Some) t) args
                         | LayoutToHeap | LayoutToHeapMutable -> on_type_er trace "Heapify is unsupported on the Cuda side."
                         | _ -> failwith "impossible"
