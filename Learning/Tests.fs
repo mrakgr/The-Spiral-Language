@@ -602,10 +602,9 @@ inl network =
     open Feedforward.Layer
 
     inl label = input .label hidden_size
-    inl f = relu_ln 0.05f32
     inl network =
         input .input input_size 
-        |> f 256
+        |> ln 0f32 256
         |> linear hidden_size 
         |> init s
     inl train = error Error.softmax_cross_entropy label network

@@ -2274,22 +2274,19 @@ inl float ->
         {fwd bck init activation} |> stackify
 
     // The feedforward layer with layer norm.
-    inl layer_ln initializer activation o size sublayer =
+    inl ln o size sublayer =
         feedforward
             {
             size sublayer
             weights = inl s -> {
-                input = initializer (sublayer.size, size) s |> dr s
+                input = Initializer.initializer (sublayer.size, size) s |> dr s
                 bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
                 }
             apply = inl weights input -> 
                 matmultb (input, weights.input) weights.bias 
                 >>= layer_norm.activation o 
-                >>= activation
+                >>= Activation.relu
             }
-
-    inl sigmoid_ln = layer_ln Initializer.sigmoid Activation.sigmoid
-    inl relu_ln = layer_ln Initializer.sigmoid Activation.relu
 
     inl highway sublayer =
         feedforward
@@ -2371,7 +2368,7 @@ inl float ->
 
     inl Feedforward = 
         {
-        Layer={Layer with init layer sigmoid relu linear highway layer_ln sigmoid_ln relu_ln} |> stackify
+        Layer={Layer with init layer sigmoid relu linear highway ln} |> stackify
         Pass
         } |> stack
     
@@ -2454,86 +2451,6 @@ inl float ->
 
     /// The multiplicative integration RNN.
     inl mi size sublayer = 
-        recurrent 
-            {
-            size sublayer
-            weights = inl s ->
-                open Initializer
-                inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-                inl bias init = 
-                    inl x = s.CudaTensor.create {elem_type=float; dim=size} 
-                    join s.CudaTensor.mmap (const (dyn init)) x
-                    dr s x
-                {
-                input = sigmoid (sublayer.size, size) s |> dr s
-                state = sigmoid (size, size) s |> dr s
-                b1 = bias one
-                b2 = bias (to float 0.5)
-                b3 = bias (to float 0.5)
-                b4 = bias0 ()
-                } |> heap
-
-            apply = inl {b1 b2 b3 b4 input state} s i ->
-                match s with
-                | () ->
-                    inm i = matmult (i, input)
-                    d2_replicate_activation {
-                        fwd=inl (b3,b4) i -> b3*i + b4 |> sigmoid_fwd
-                        bck_in=inl (b3,b4) i out -> (i, one) |> Tuple.map ((*) (sigmoid_bck out))
-                        bck_in'=inl (b3,b4) i out -> b3 * sigmoid_bck out
-                        } (b3,b4) i
-                | _ ->
-                    inm i = matmult (i, input)
-                    inm s = matmult (s, state)
-                    d2_replicate_activation {
-                        fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4 |> sigmoid_fwd
-                        bck_in=inl (b1,b2,b3,b4) (i,s) out -> (i*s, s, i, one) |> Tuple.map ((*) (sigmoid_bck out))
-                        bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2) |> Tuple.map ((*) (sigmoid_bck out))
-                        } (b1,b2,b3,b4) (i,s)
-                >>= inl x -> succ (x,x)
-            }
-
-    inl mi_relu size sublayer = 
-        recurrent 
-            {
-            size sublayer
-            weights = inl s ->
-                open Initializer
-                inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-                inl bias init = 
-                    inl x = s.CudaTensor.create {elem_type=float; dim=size} 
-                    join s.CudaTensor.mmap (const (dyn init)) x
-                    dr s x
-                {
-                input = sigmoid (sublayer.size, size) s |> dr s
-                state = sigmoid (size, size) s |> dr s
-                b1 = bias one
-                b2 = bias (to float 0.5)
-                b3 = bias (to float 0.5)
-                b4 = bias0 ()
-                } |> heap
-
-            apply = inl {b1 b2 b3 b4 input state} s i ->
-                match s with
-                | () ->
-                    inm i = matmult (i, input)
-                    d2_replicate_activation {
-                        fwd=inl (b3,b4) i -> b3*i + b4 |> relu_fwd
-                        bck_in=inl (b3,b4) i out -> (i, one) |> Tuple.map ((*) (relu_bck out))
-                        bck_in'=inl (b3,b4) i out -> b3 * relu_bck out
-                        } (b3,b4) i
-                | _ ->
-                    inm i = matmult (i, input)
-                    inm s = matmult (s, state)
-                    d2_replicate_activation {
-                        fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4 |> relu_fwd
-                        bck_in=inl (b1,b2,b3,b4) (i,s) out -> (i*s, s, i, one) |> Tuple.map ((*) (relu_bck out))
-                        bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2) |> Tuple.map ((*) (relu_bck out))
-                        } (b1,b2,b3,b4) (i,s)
-                >>= inl x -> succ (x,x)
-            }
-
-    inl mi_tanh size sublayer = 
         recurrent 
             {
             size sublayer
