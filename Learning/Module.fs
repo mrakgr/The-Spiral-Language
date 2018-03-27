@@ -2276,6 +2276,62 @@ inl float ->
 
         {fwd bck init activation} |> stackify
 
+    /// Layer normalization fused with the relu activation.
+    inl layer_norm_relu =
+        inl fwd o i s =
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.map_d1_seq_broadcast {
+                seq = 
+                    {
+                    redo=(+)
+                    map_out=inl i sum -> i - sum / n
+                    }
+                    ,
+                    {
+                    map_in=inl v -> v*v
+                    redo=(+)
+                    map_out=inl v vv -> v / sqrt (o*o + vv / n) |> relu_fwd
+                    }
+                } (primal i)
+
+        inl bck o r i s =
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.map_d1_seq_broadcast' {
+                seq = 
+                    {
+                    map_in=inl dr,i -> i
+                    redo=(+)
+                    map_out=inl dr,i sum -> dr, i - sum / n
+                    }
+                    ,
+                    {
+                    map_in=inl dr,v -> v*v
+                    redo=(+)
+                    map_out=inl dr,v vv -> (if v > zero then dr else zero),v,sqrt (o*o + vv / n)
+                    }
+                    ,
+                    {
+                    map_in=inl dr,v,norm -> -dr * v / (norm * norm)
+                    redo=(+)
+                    map_out=inl dr,v,norm bot -> 
+                        inl top = dr / norm
+                        inl bot = (bot * v) / (norm * n)
+                        top + bot
+                    }
+                    ,
+                    {
+                    redo=(+)
+                    map_out=inl dv dv_sum adjoint -> adjoint + dv - dv_sum / n
+                    }
+                } (adjoint r, primal i) (adjoint i)
+
+        inl activation o i s =
+            inl r = fwd o i s |> dr s
+            r, inl _ -> bck o r i s
+
+        {fwd bck init activation} |> stackify
+
+
     // The feedforward layer with layer norm.
     inl ln o size sublayer =
         feedforward
@@ -2287,8 +2343,7 @@ inl float ->
                 }
             apply = inl weights input -> 
                 matmultb (input, weights.input) weights.bias 
-                >>= layer_norm.activation o 
-                >>= Activation.relu
+                >>= layer_norm_relu.activation o 
             }
 
     inl highway sublayer =
@@ -2531,8 +2586,7 @@ inl float ->
                         bck_in=inl (b1,b2,b3,b4) (i,s) out -> (i*s, s, i, one) 
                         bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2)
                         } (b1,b2,b3,b4) (i,s)
-                >>= layer_norm.activation o
-                >>= Activation.relu
+                >>= layer_norm_relu.activation o
                 >>= inl x -> succ (x,x)
             }
 
