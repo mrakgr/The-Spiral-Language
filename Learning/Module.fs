@@ -1128,7 +1128,7 @@ inl mapi_d1_redo_map' w {d with redo neutral_elem} in in' out =
             }
 
 // Repeatedly reduces along the inner dimension and then maps the result of that reductions over the input in the previous step.
-inl map_d1_seq_broadcast' w {d with seq} in out = 
+inl mapi_d1_seq_broadcast' w {d with seq} in out = 
     inl to_dev_tensor = w.CudaTensor.to_dev_tensor
     inl run = w.run
     join
@@ -1146,15 +1146,13 @@ inl map_d1_seq_broadcast' w {d with seq} in out =
         inl in = to_dev_tensor in
         inl out = to_dev_tensor out
 
-        inl map_in = match d with {map_in} -> map_in | _ -> id
-        
         run {
             blockDim
             gridDim=1,gridDimY
             kernel = cuda 
                 inl dims = {blockDim gridDim}
-                grid_for dims .y dim_in_a {body=inl {i} ->
-                    inl in, out = in i, out i
+                grid_for dims .y dim_in_a {body=inl {i=j} ->
+                    inl in, out = in j, out j
 
                     inl create_items elem_type = HostTensor.create {
                         array_create = array_create_cuda_local
@@ -1167,7 +1165,12 @@ inl map_d1_seq_broadcast' w {d with seq} in out =
 
                     inl inner_loop = grid_for_items dims .x dim_in_b
 
-                    inner_loop {body=inl {item i} -> items item .set (in i .get |> map_in)}
+                    inner_loop {body=inl {item i} -> 
+                        match d with
+                        | {map_in} -> map_in (in i .get)
+                        | {mapi_in} -> mapi_in j i (in i .get)
+                        |> items item .set
+                        }
 
                     inl rec seq_loop items = function
                         | {s with map_out} :: s' ->
@@ -1185,6 +1188,10 @@ inl map_d1_seq_broadcast' w {d with seq} in out =
                                     inl items' = create_items (type map_in items.elem_type)
                                     inner_loop {body=inl {item} -> items item .get |> map_in |> items' item .set}
                                     items'.bodies.ar
+                                | {mapi_in} ->
+                                    inl items' = create_items (type map_in j i items.elem_type)
+                                    inner_loop {body=inl {item i} -> items item .get |> map_in j i |> items' item .set}
+                                    items'.bodies.ar
                                 | _ -> items.bodies.ar
                                 |> redo 
 
@@ -1192,14 +1199,18 @@ inl map_d1_seq_broadcast' w {d with seq} in out =
                             | () -> 
                                 inner_loop {body=inl {item i} ->
                                     inl out = out i
-                                    map_out (items item .get) x (out .get)
+                                    match d with
+                                    | {map_out} -> map_out (items item .get) x (out .get)
+                                    | {mapi_out} -> mapi_out j i (items item .get) x (out .get)
                                     |> out .set
                                     }
                             | _ ->
                                 inl items' = create_items (type map_out items.elem_type x)
                                 inner_loop {body=inl {item i} ->
                                     inl out = out i
-                                    map_out (items item .get) x
+                                    match d with
+                                    | {map_out} -> map_out (items item .get) x
+                                    | {mapi_out} -> map_out j i (items item .get) x
                                     |> items' item .set
                                     }
                                 seq_loop items' s'
@@ -1208,28 +1219,31 @@ inl map_d1_seq_broadcast' w {d with seq} in out =
                     }
             }
 
-inl map_d1_seq_broadcast w {d with seq} in =
+inl mapi_d1_seq_broadcast w {d with seq} in =
     indiv join
         inl in = zip in
-        inl map_in = match d with {map_in} -> map_in | _ -> id
         inl seq = Tuple.wrap seq
         inl elem_type = type
-            inl ty = map_in in.elem_type 
-            Tuple.foldl (inl ty {d with map_out} -> 
+            inl ty = 
+                match d with
+                | {map_in} -> map_in in.elem_type 
+                | {mapi_in} -> mapi_in (dyn 0) (dyn 0) in.elem_type
+            Tuple.foldl (inl ty d -> 
                 inl ty' = 
                     match d with
                     | {map_in} -> map_in ty
+                    | {mapi_in} -> mapi_in (dyn 0) (dyn 0) ty
                     | _ -> ty
-                    |>
-                    match d with
-                    | {map_redo} -> map_redo
-                    | _ -> id
-                map_out ty ty') ty seq
+                match d with
+                | {map_out} -> map_out ty ty'
+                | {mapi_out} -> map_out (dyn 0) (dyn 0) ty ty'
+                ) ty seq
         inl out = w.CudaTensor.create {elem_type dim=in.dim}
         inl rec seq_loop = function
             | {s with map_out} :: () -> {s with map_out = inl a b _ -> map_out a b} :: ()
+            | {s with mapi_out} :: () -> {s with mapi_out = inl j i a b _ -> map_out j i a b} :: ()
             | s :: s' -> s :: seq_loop s'
-        map_d1_seq_broadcast' w {d with map_in seq=seq_loop seq} in out
+        mapi_d1_seq_broadcast' w {d with seq=seq_loop seq} in out
         stack out
 
 /// Maps the two inputs and then scans, maps, reduces and maps the first's inner dimension.
@@ -1448,7 +1462,7 @@ inl map_dx_redo_map_template select kernel w d in in' =
             | in' -> zip in'
 
         inl map_out, elem_type = 
-            inl map_in = match d with {map_in} -> map_in | {mapi_in} -> mapi_in 0 0 | _ -> const
+            inl map_in = match d with {map_in} -> map_in | {mapi_in} -> mapi_in (dyn 0) (dyn 0) | _ -> const
             inl ty = type map_in in.elem_type in'.elem_type
             match d with {map_out} -> (inl a _ -> map_out a),(type map_out ty) | _ -> const a, ty
         inl out = w.CudaTensor.create {elem_type dim=in'.dim}
@@ -1486,17 +1500,17 @@ inl mapi_d1_inscan_mapi_d1_reduce_mapi w d in in' =
             inl in = in.elem_type 
             inl in' = in'.elem_type
             match d with
-            | {mapi_in} -> mapi_in 0 0 in in'
+            | {mapi_in} -> mapi_in (dyn 0) (dyn 0) in in'
             | {map_in} -> map_in in in'
             | _ -> in
             |>
             match d with
-            | {mapi_mid} x -> mapi_mid 0 0 x in'
+            | {mapi_mid} x -> mapi_mid (dyn 0) (dyn 0) x in'
             | {map_mid} x -> map_mid x in'
             | _ -> id
             |>
             match d with
-            | {mapi_out} -> mapi_out 0
+            | {mapi_out} -> mapi_out (dyn 0)
             | {map_out} -> map_out
             | _ -> id
 
@@ -1547,7 +1561,7 @@ inl init' w d f out =
 inl init w {d with dim} f =
     indiv join
         inl dim = Tuple.wrap dim
-        inl elem_type = type Tuple.foldl (inl f _ -> f 0) f dim
+        inl elem_type = type Tuple.foldl (inl f _ -> f (dyn 0)) f dim
         inl out = w.CudaTensor.create {dim elem_type}
         init' w d f out
         stack out
@@ -1557,7 +1571,7 @@ inl methods =
     map' map map_redo_map d2_replicate_map' d2_replicate_map mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
-    map_d1_seq_broadcast' map_d1_seq_broadcast init' init
+    mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init
     } |> stackify
 
 inl s -> s.module_add .CudaKernel methods
@@ -1774,7 +1788,7 @@ inl float ->
 
     /// The softmax activation
     inl softmax temp input s =
-        s.CudaKernel.map_d1_seq_broadcast {
+        s.CudaKernel.mapi_d1_seq_broadcast {
             map_in=inl x -> x / temp
             seq = 
                 {
@@ -2225,7 +2239,7 @@ inl float ->
     inl layer_norm =
         inl fwd o i s =
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.map_d1_seq_broadcast {
+            s.CudaKernel.mapi_d1_seq_broadcast {
                 seq = 
                     {
                     redo=(+)
@@ -2241,7 +2255,7 @@ inl float ->
 
         inl bck o r i s =
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.map_d1_seq_broadcast' {
+            s.CudaKernel.mapi_d1_seq_broadcast' {
                 seq = 
                     {
                     map_in=inl dr,i -> i
@@ -2270,17 +2284,15 @@ inl float ->
                     }
                 } (adjoint r, primal i) (adjoint i)
 
-        inl activation o i s =
+        inl o i s ->
             inl r = fwd o i s |> dr s
             r, inl _ -> bck o r i s
-
-        {fwd bck init activation} |> stackify
 
     /// Layer normalization fused with the relu activation.
     inl layer_norm_relu =
         inl fwd o i s =
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.map_d1_seq_broadcast {
+            s.CudaKernel.mapi_d1_seq_broadcast {
                 seq = 
                     {
                     redo=(+)
@@ -2296,7 +2308,7 @@ inl float ->
 
         inl bck o r i s =
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.map_d1_seq_broadcast' {
+            s.CudaKernel.mapi_d1_seq_broadcast' {
                 seq = 
                     {
                     map_in=inl dr,i -> i
@@ -2325,12 +2337,9 @@ inl float ->
                     }
                 } (adjoint r, primal i) (adjoint i)
 
-        inl activation o i s =
+        inl o i s ->
             inl r = fwd o i s |> dr s
             r, inl _ -> bck o r i s
-
-        {fwd bck init activation} |> stackify
-
 
     // The feedforward layer with layer norm.
     inl ln o size sublayer =
@@ -2343,7 +2352,7 @@ inl float ->
                 }
             apply = inl weights input -> 
                 matmultb (input, weights.input) weights.bias 
-                >>= layer_norm_relu.activation o 
+                >>= layer_norm_relu o 
             }
 
     inl highway sublayer =
@@ -2548,6 +2557,65 @@ inl float ->
                 >>= inl x -> succ (x,x)
             }
 
+    /// Multiplicative integration + layer normalization + relu
+    inl mi_ln_relu =
+                        //d2_replicate_activation {
+                        //fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4
+                        //bck_in=inl (b1,b2,b3,b4) (i,s) out -> (i*s, s, i, one) 
+                        //bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2)
+                        //} (b1,b2,b3,b4) (i,s)
+        inl fwd o i s =
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.mapi_d1_seq_broadcast {
+                seq = 
+                    {
+                    redo=(+)
+                    map_out=inl i sum -> i - sum / n
+                    }
+                    ,
+                    {
+                    map_in=inl v -> v*v
+                    redo=(+)
+                    map_out=inl v vv -> v / sqrt (o*o + vv / n) |> relu_fwd
+                    }
+                } (primal i)
+
+        inl bck o r i s =
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.mapi_d1_seq_broadcast' {
+                seq = 
+                    {
+                    map_in=inl dr,i -> i
+                    redo=(+)
+                    map_out=inl dr,i sum -> dr, i - sum / n
+                    }
+                    ,
+                    {
+                    map_in=inl dr,v -> v*v
+                    redo=(+)
+                    map_out=inl dr,v vv -> (if v > zero then dr else zero),v,sqrt (o*o + vv / n)
+                    }
+                    ,
+                    {
+                    map_in=inl dr,v,norm -> -dr * v / (norm * norm)
+                    redo=(+)
+                    map_out=inl dr,v,norm bot -> 
+                        inl top = dr / norm
+                        inl bot = (bot * v) / (norm * n)
+                        top + bot
+                    }
+                    ,
+                    {
+                    redo=(+)
+                    map_out=inl dv dv_sum adjoint -> adjoint + dv - dv_sum / n
+                    }
+                } (adjoint r, primal i) (adjoint i)
+
+        inl o i s ->
+            inl r = fwd o i s |> dr s
+            r, inl _ -> bck o r i s
+
+
     /// The multiplicative integration RNN with layer norm from the 'Normalizing the Normalizers' paper.
     inl miln o size sublayer = 
         recurrent 
@@ -2586,7 +2654,7 @@ inl float ->
                         bck_in=inl (b1,b2,b3,b4) (i,s) out -> (i*s, s, i, one) 
                         bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2)
                         } (b1,b2,b3,b4) (i,s)
-                >>= layer_norm_relu.activation o
+                >>= layer_norm_relu o
                 >>= inl x -> succ (x,x)
             }
 

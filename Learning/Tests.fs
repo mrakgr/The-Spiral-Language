@@ -339,7 +339,7 @@ Tuple.iter s.CudaTensor.print (a1,o1)
     """
 
 let kernel11 =
-    "kernel11",[cuda_modules],"Does the map_d1_seq_broadcast kernel work?",
+    "kernel11",[cuda_modules],"Does the mapi_d1_seq_broadcast kernel work?",
     """
 inb s = CudaModules (1024*1024)
 
@@ -349,7 +349,7 @@ inl outer_size = 1
 inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
 inl a2 = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,inner_size}
 inl o1 = // Softmax forward
-    s.CudaKernel.map_d1_seq_broadcast {
+    s.CudaKernel.mapi_d1_seq_broadcast {
         seq = 
             {
             redo=max
@@ -369,7 +369,7 @@ inl o2 =
         } o1
 
 inl o3 = // Softmax backward
-    s.CudaKernel.map_d1_seq_broadcast {
+    s.CudaKernel.mapi_d1_seq_broadcast {
         seq = 
             {
             map_in=inl in,er -> in*er

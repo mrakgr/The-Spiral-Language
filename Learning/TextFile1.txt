@@ -1,7 +1,7 @@
 ﻿    inl layer_norm =
         inl fwd o i s =
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.map_d1_seq_broadcast {
+            s.CudaKernel.mapi_d1_seq_broadcast {
                 seq = 
                     {
                     redo=(+)
@@ -17,7 +17,7 @@
 
         inl bck o r i s =
             inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.map_d1_seq_broadcast' {
+            s.CudaKernel.mapi_d1_seq_broadcast' {
                 seq = 
                     {
                     map_in=inl dr,i -> i
