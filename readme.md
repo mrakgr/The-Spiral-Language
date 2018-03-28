@@ -45,6 +45,9 @@
             - [Why Spiral Was Created](#why-spiral-was-created)
                 - [How It Used To Be Done](#how-it-used-to-be-done)
         - [7: Object Orientation](#7-object-orientation)
+            - [Motivation](#motivation)
+            - [The Object](#the-object)
+        - [8: GPU Programming](#8-gpu-programming)
     - [User Guide: The Spiral Power](#user-guide-the-spiral-power)
         - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
         - [2: Let Insertion and Common Subexpression Elimination](#2-let-insertion-and-common-subexpression-elimination)
@@ -4952,40 +4955,37 @@ After the above is executed successfuly, a `CUmodule` object is bound to the `mo
     inl SizeT = FS.Constructor SizeT_type
     inl CUdeviceptr = FS.Constructor CUdeviceptr_type << SizeT
 
-    inl run s {blockDim gridDim kernel} =
-        inl stream = s.stream
-        inl context = s.context
-        join
-            inl blockDim = dim3 blockDim
-            inl gridDim = dim3 gridDim
-            inl to_obj_ar args =
-                inl ty = fs [text: "System.Object"] |> array
-                !MacroFs(ty,[fs_array_args: args; text: ": "; type: ty])
+    met run s {blockDim gridDim kernel} =
+        inl blockDim = dim3 blockDim
+        inl gridDim = dim3 gridDim
+        inl to_obj_ar args =
+            inl ty = fs [text: "System.Object"] |> array
+            !MacroFs(ty,[fs_array_args: args; text: ": "; type: ty])
 
-            inl kernel =
-                inl map_to_op_if_not_static {x y z} (x', y', z') = 
-                    inl f x x' = if lit_is x then const x else x' 
-                    f x x', f y y', f z z'
-                inl x,y,z = map_to_op_if_not_static blockDim (__blockDimX,__blockDimY,__blockDimZ)
-                inl x',y',z' = map_to_op_if_not_static gridDim (__gridDimX,__gridDimY,__gridDimZ)
-                inl _ -> // This convoluted way of swaping non-literals for ops is so they do not get called outside of the kernel.
-                    inl blockDim = {x=x(); y=y(); z=z()}
-                    inl gridDim = {x=x'(); y=y'(); z=z'()}
-                    kernel blockDim gridDim
+        inl kernel =
+            inl map_to_op_if_not_static {x y z} (x', y', z') = 
+                inl f x x' = if lit_is x then const x else x' 
+                f x x', f y y', f z z'
+            inl x,y,z = map_to_op_if_not_static blockDim (__blockDimX,__blockDimY,__blockDimZ)
+            inl x',y',z' = map_to_op_if_not_static gridDim (__gridDimX,__gridDimY,__gridDimZ)
+            inl _ -> // This convoluted way of swaping non-literals for ops is so they do not get called outside of the kernel.
+                inl blockDim = {x=x(); y=y(); z=z()}
+                inl gridDim = {x=x'(); y=y'(); z=z'()}
+                kernel blockDim gridDim
 
-            inl join_point_entry_cuda x = !JoinPointEntryCuda(x())
-            inl method_name, args = join_point_entry_cuda kernel
+        inl join_point_entry_cuda x = !JoinPointEntryCuda(x())
+        inl method_name, args = join_point_entry_cuda kernel
         
-            inl dim3 {x y z} = Tuple.map (to uint32) (x,y,z) |> FS.Constructor (fs [text: "ManagedCuda.VectorTypes.dim3"])
+        inl dim3 {x y z} = Tuple.map (to uint32) (x,y,z) |> FS.Constructor (fs [text: "ManagedCuda.VectorTypes.dim3"])
     
-            inl kernel_type = fs [text: "ManagedCuda.CudaKernel"]
-            inl cuda_kernel = FS.Constructor kernel_type (method_name,modules,context)
-            FS.Method cuda_kernel .set_GridDimensions(dim3 gridDim) ()
-            FS.Method cuda_kernel .set_BlockDimensions(dim3 blockDim) ()
+        inl kernel_type = fs [text: "ManagedCuda.CudaKernel"]
+        inl cuda_kernel = FS.Constructor kernel_type (method_name,modules,s.data.context)
+        FS.Method cuda_kernel .set_GridDimensions(dim3 gridDim) ()
+        FS.Method cuda_kernel .set_BlockDimensions(dim3 blockDim) ()
 
-            match stream with
-            | () -> FS.Method cuda_kernel .Run(to_obj_ar args) float32
-            | stream -> FS.Method cuda_kernel .RunAsync(stream.extract,to_obj_ar args) ()
+        match s.data.stream with
+        | () -> FS.Method cuda_kernel .Run(to_obj_ar args) float32
+        | stream -> FS.Method cuda_kernel .RunAsync(stream.extract,to_obj_ar args) ()
 ```
 
 Before moving forward, here is how the above function is used in practice.
@@ -5259,8 +5259,6 @@ This is also something that would be impossible to do without the support of a l
 
 ### 7: Object Orientation
 
-(work in progress)
-
 Spiral is a functional language at its core, but it is good at doing OO despite not having specific features for it built in like other statically typed languages. Since OO is needed for passing around contexts in various key places, this chapter will be an overview of how it is done.
 
 #### Motivation
@@ -5289,6 +5287,96 @@ inl c x = ...
 In the above fragment, `a` cannot refer to `b` or `c` as they come after it, and `b` cannot refer to `c`, but it is possible to get around that using OO in Spiral which can be useful.
 
 The OO pattern can also be used for easy immutable updates. This is not something OO is known for.
+
+#### The Object
+
+```
+/// Converts the argument (usually a module) to the object form.
+inl obj s x = s x s
+```
+
+```
+let object =
+    (
+    "Object",[loops;console;array;host_tensor;extern_],"The Object module.",
+    """
+{
+data' = {}
+data = inl {data'} -> data'
+data_add = inl s v -> {s with data'=module_foldl (inl name s v -> module_add name v s) (indiv self) v |> heap} |> obj
+member_add = inl s -> module_foldl (inl name s v -> module_add name (inl s -> v (obj s)) s) s >> obj
+module_add = inl s name v -> module_add name (inl s name -> v name (obj s)) s |> obj
+unwrap = id
+} 
+|> obj
+    """) |> module_
+```
+
+The base Object in Spiral is implemented like this. It continually wraps its members with the `obj` function in order to emulate OO access in standard statically typed OO languages. Maybe at some point remove functions will be added.
+
+What `obj` does is essentially pass itself to the function being evaluated.
+
+The main thing to keep in mind when considering `data_add`, `member_add`, `module_add` is that the first argument to them is not an object, but an unwrapped module.
+
+```
+module_add name (inl s -> v (obj s)) s
+```
+
+Hence when the module `s` is being passed into the member, it is always wrapped into an object. What would happen if the fragment was written like this...
+
+```
+module_add name v s
+```
+
+...is that then the unwrapped `s` would get passed into the member. The reason why `data_add` does not wrap `v` inside the module is to allow data fields to be accessed directly.
+
+`data_add`, `member_add`, `module_add` always return an object so their return is piped to `obj`.
+
+```
+data' = {}
+data = inl {data'} -> data'
+```
+
+The actual data is stored in the `data'` field rather than `data` because trying to access an object will pass itself to its argument as the first move and result in a type error. Hence the only way to access the data directly in that case would be to call `unwrap` first or do it like it has been done and make a member that reroutes to it.
+
+`data_add` in particular also makes sure that the `data'` is stored on the heap at all times rather than passed around as individual arguments through join points. It makes the generated code look decently nicer, speeds up compilation and improves runtime performance.
+
+Here is an example of it in use:
+
+```
+    Object
+        .member_add {run}
+        .data_add {context stream=()}
+    |> ret
+```
+
+`module_add` can be used similarly.
+
+```
+s.module_add .CudaTensor methods
+```
+
+Members can be accessed directly like...
+
+```
+s.allocate
+```
+
+Modules on the other hand require two type literals as arguments.
+
+```
+s.RegionMem.allocate
+```
+
+Data member are prefixed with `data`.
+
+```
+s.data.context
+```
+
+### 8: GPU Programming
+
+(work in progress)
 
 ...
 

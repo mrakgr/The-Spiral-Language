@@ -1481,7 +1481,7 @@ span equal split flatten assert_contiguous assert_dim reshape
 
 let object =
     (
-    "Object",[loops;console;array;host_tensor;extern_],"The object module.",
+    "Object",[loops;console;array;host_tensor;extern_],"The Object module.",
     """
 {
 data' = {}
