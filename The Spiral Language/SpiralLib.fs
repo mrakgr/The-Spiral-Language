@@ -1484,12 +1484,11 @@ let object =
     "Object",[loops;console;array;host_tensor;extern_],"The object module.",
     """
 {
-data = {}
-data_add = inl s name v -> {s with data={self with $name=v} |> heap} |> obj
-data_adds = inl s v -> {s with data=module_foldl (inl name s v -> module_add name v s) self v |> heap} |> obj
-member_add = inl s name v -> module_add name (inl s -> v (obj s)) s |> obj
+data' = {}
+data = inl {data'} -> data'
+data_add = inl s v -> {s with data'=module_foldl (inl name s v -> module_add name v s) (indiv self) v |> heap} |> obj
+member_add = inl s -> module_foldl (inl name s v -> module_add name (inl s -> v (obj s)) s) s >> obj
 module_add = inl s name v -> module_add name (inl s name -> v name (obj s)) s |> obj
-member_adds = inl s -> module_foldl (inl name s v -> s.member_add name v) (obj s)
 unwrap = id
 } 
 |> obj
@@ -1656,8 +1655,8 @@ inl ret ->
         | stream -> FS.Method cuda_kernel .RunAsync(stream.extract,to_obj_ar args) ()
 
     Object
-        .member_add .run run
-        .data_adds { context stream}
+        .member_add {run}
+        .data_add {context stream=()}
     |> ret
     """) |> module_
 

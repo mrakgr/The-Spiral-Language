@@ -223,16 +223,25 @@ inl section_create s size ret =
     inl free_cells = ResizeArray.create {elem_type=type {ptr=uint64; size=uint64}}
     inl used_cells = ResizeArray.create {elem_type=type pool}
     inl section = {pool free_cells used_cells} |> heap
-    refresh section
+    inl allocate s = 
+        function
+        | .elem_type -> type s.data.section.pool.ptr
+        | x -> allocate s x
+        
+    inl s =
+        s.member_add {
+            refresh
+            allocate
+            }
+         .data_add {section}
+    
+    refresh s
+    ret s
 
     inl ptr = pool.ptr
     FS.Method s.data.context .FreeMemory (ptr() |> CUdeviceptr) ()
     ptr.Dispose
-    s.member_adds {
-        refresh
-        allocate
-        }
-     .data_adds {section}
+    
 
 stack section_create
     """) |> module_
@@ -254,12 +263,6 @@ inl assign {region_name} s r =
     inl region = s .data region_name
     join r.inc; region.add r
 
-inl allocate d s (!dyn x) =
-    inl allocate = d.allocate s
-    join
-        inl r = allocate x |> counter_ref_create
-        assign d s r; r
-
 inl allocate_mem d s (!dyn x) =
     inl allocate = d.allocate s
     join
@@ -268,10 +271,11 @@ inl allocate_mem d s (!dyn x) =
 
 inl allocate_stream d s =
     inl allocate = d.allocate s
-    s.data_add .stream
-        join
+    s.data_add {
+        stream=join
             inl r = counter_ref_create allocate
             assign d s r; r
+        }
 
 inl clear {region_name} s =
     inl region = s .data region_name
@@ -282,7 +286,7 @@ inl clear {region_name} s =
 inl create {region_name allocate} s = 
     inl elem_type = type counter_ref_create (var (allocate s).elem_type)
     inl region = ResizeArray.create {elem_type}
-    s.data_add region_name (const region)
+    s.data_add {$region_name=region}
 
 inl create' {region_module_name} s ret =
     inl s = s region_module_name .create
@@ -452,8 +456,8 @@ inl methods =
     clear=inl s tns ->
         assert_contiguous tns
         inl span = tns.span_outer
-        inl stream = s.stream.extract
-        inl context = s.context
+        inl stream = s.data.stream.extract
+        inl context = s.data.context
         tns.update_body <| inl {body with size ar} ->
             join
                 inl size = match size with () -> 1 | x :: _ -> x
@@ -488,10 +492,10 @@ inl s ret ->
     inl SizeT = FS.Constructor SizeT_type
     inl CUdeviceptr = FS.Constructor CUdeviceptr_type << SizeT
     
-    use random = 
+    use random' = 
         inl generator_type = fs [text: "ManagedCuda.CudaRand.GeneratorType"]
         FS.Constructor (fs [text: "ManagedCuda.CudaRand.CudaRandDevice"]) (FS.StaticField generator_type .PseudoDefault generator_type)
-    inl s = data_adds {random}
+    inl s = s.data_add {random=random'}
     
     open HostTensor
     
@@ -574,16 +578,17 @@ inl s ret ->
     inl cols x = x.dim |> inl a,b -> len b
     inl ld x = x.bodies.size |> fst
 
-    use cublas =
+    use cublas' =
         inl cublas_type = fs [text: "ManagedCuda.CudaBlas.CudaBlas"]
         inl pointer_mode_type = fs [text: "ManagedCuda.CudaBlas.PointerMode"]
         inl atomics_mode_type = fs [text: "ManagedCuda.CudaBlas.AtomicsMode"]
         FS.Constructor cublas_type (enum pointer_mode_type .Host, enum atomics_mode_type .Allowed)
-    inl s = s.data_adds {cublas}
+    inl s = s.data_add {cublas=cublas'}
 
     open HostTensor
     
     inl call s method args = 
+        inl cublas = s.data.cublas
         inl stream = s.data.stream
         inl to_dev_tensor = s.CudaTensor.to_dev_tensor
         inl to_dev_tensor x = assert_contiguous x; to_dev_tensor x
@@ -1959,14 +1964,14 @@ inl float ->
     inl init_parallel s network = 
         layer_map (function
             | {stream} | {layer_type=.input | .parallel} as x -> x
-            | {x with weights} -> {x with weights = const (weights s); stream=s.RegionStream.allocate.stream}
-            | x -> {x with stream=s.RegionStream.allocate.stream}
+            | {x with weights} -> {x with weights = const (weights s); stream=s.RegionStream.allocate.data.stream}
+            | x -> {x with stream=s.RegionStream.allocate.data.stream}
             ) network
 
     inl optimize network optimizer s =
         inl body weights s = weights () |> Struct.iter (optimizer s)
         layer_map (function
-            | {weights stream} -> s .data_adds {stream} |> body weights
+            | {weights stream} -> s .data_add {stream} |> body weights
             | {weights} -> body weights s
             | _ -> ()
             ) network 
@@ -2002,11 +2007,11 @@ inl float ->
     inl run_parallel x d s =
         layer_map_fold (inl {x with layer_type gid} d ->
             match layer_type with
-            | .input -> {value=d.input x.name; stream=s.stream; block=()}, d
+            | .input -> {value=d.input x.name; stream=s.data.stream; block=()}, d
             | .parallel -> x.sublayer, d
             | _ ->
                 inl stream = x.stream
-                inl s = s.member_add .stream (const stream)
+                inl s = s.data_add {stream}
                 inl values = Struct.map (inl {value} -> value) x.sublayer
                 inl streams = 
                     Struct.choose (function

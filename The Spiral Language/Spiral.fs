@@ -1495,6 +1495,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let module_create d l =
             List.fold (fun env -> function
                 | VV([Lit(LitString n, _); e],_) -> Map.add n (tev d e |> destructure d) env
+                | VV([n; e],_) -> 
+                    match tev d n with
+                    | TypeString name -> Map.add name (tev d e |> destructure d) env
+                    | x -> on_type_er (trace d) <| sprintf "Expected a type string literal in module create's injection. Got: %s" (show_typedexpr x)
                 | _ -> failwith "impossible"
                 ) Map.empty l
             |> fun x -> tymap(Env x, MapTypeModule)
@@ -1505,7 +1509,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 match tev2 d name v with
                 | TypeString name, v -> tymap(Map.add name v env |> Env, MapTypeModule)
                 | _ -> on_type_er (trace d) "Expected a type string as the first argument to ModuleAdd."
-            | _ -> on_type_er (trace d) "Expected a module as the third argument to ModuleAdd."
+            | s -> on_type_er (trace d) <| sprintf "Expected a module as the third argument to ModuleAdd. Got: %s" (show_typedexpr s)
 
         let module_remove d name s =
             match tev d s with

@@ -20,9 +20,9 @@ let allocator1 =
     """
 inb s = Cuda
 inb s = Allocator s 1024
-inl a = s.Section.allocate 128
-inl b = s.Section.allocate 64
-inl c = s.Section.allocate 32
+inl a = s.allocate 128
+inl b = s.allocate 64
+inl c = s.allocate 32
 c.Dispose
 b.Dispose
 a.Dispose
@@ -856,7 +856,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" tutorial1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
 |> printfn "%s"
 |> ignore
 
