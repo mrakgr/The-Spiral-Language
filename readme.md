@@ -5261,6 +5261,35 @@ This is also something that would be impossible to do without the support of a l
 
 (work in progress)
 
+Spiral is a functional language at its core, but it is good at doing OO despite not having specific features for it built in like other statically typed languages. Since OO is needed for passing around contexts in various key places, this chapter will be an overview of how it is done.
+
+#### Motivation
+
+An significant amount of complexity in the Spiral's ML library comes from needing to manage Cuda memory directly. For a that a design pattern is needed to deal with it in the absence of garbage collection. Meaning all the data needs to be packed into some kind of object and passed around.
+
+In functional languages reader, state and writter monads are commonly used for this sort of dependency injection. An argument could be made that the reader pattern is a variant on the OO pattern except with the `self` argument on the opposite end.
+
+```
+inl f self a b = ... // OO pattern
+inl f a b self = ... // reader pattern
+```
+
+For some parts of the library it is much simpler to pass context in the first place and not bother with composition. The OO pattern shines there. Monads have the disadvantage of requiring all the code to be a part of the same monadic workflow. Some languages like Haskell go through great lengths to make that ergonomic, but Spiral is not such a language and it would be preferable to avoid using monads unless they are needed.
+
+It is easy to switch between the above patterns anyway.
+
+One other advantage is that OO breaks the usual top down ordering of functions.
+
+```
+inl a x = ...
+inl b x = ...
+inl c x = ...
+```
+
+In the above fragment, `a` cannot refer to `b` or `c` as they come after it, and `b` cannot refer to `c`, but it is possible to get around that using OO in Spiral which can be useful.
+
+The OO pattern can also be used for easy immutable updates. This is not something OO is known for.
+
 ...
 
 ## User Guide: The Spiral Power
