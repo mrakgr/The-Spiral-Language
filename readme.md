@@ -48,6 +48,7 @@
             - [Motivation](#motivation)
             - [The Object](#the-object)
         - [8: GPU Programming](#8-gpu-programming)
+            - [Intro](#intro-2)
     - [User Guide: The Spiral Power](#user-guide-the-spiral-power)
         - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
         - [2: Let Insertion and Common Subexpression Elimination](#2-let-insertion-and-common-subexpression-elimination)
@@ -5378,7 +5379,62 @@ s.data.context
 
 (work in progress)
 
-...
+The fun stuff starts past this point. GPU programming, deep learning, reinforcement learning, games...those are just a few areas in which Spiral's potential far exceeds those of other languages, and while the previous chapters can be considered done, these will be work in progress going into the future.
+
+GPU programming is well worth learning for those interested in drawing out as most performance as is possible from the machine, and lesson from it tranfer over into CPU programming. At some point Spiral will drop the Cuda and switch to supporting neural computing architectures, and when that happens the lesson learning in the GPU arena can be expected to transfer.
+
+Knowing how to program effectively in Spiral will never go out of date.
+
+#### Intro
+
+```
+met map' w f in out = 
+    inl in, out = zip in, zip out
+    inl to_dev_tensor = w.CudaTensor.to_dev_tensor
+    assert (in.dim = out.dim) "The input and output dimensions must be equal."
+    inl in = flatten in |> to_dev_tensor
+    inl out = flatten out |> to_dev_tensor
+    inl in_a :: () = in.dim
+    
+    inl blockDim = 128
+    inl gridDim = min 64 (divup (s in_a) blockDim)
+
+    w.run {
+        blockDim gridDim
+        kernel = cuda // Lexical scoping rocks.
+            grid_for {blockDim gridDim} .x in_a {body=inl {i} ->
+                inl out = out i
+                inl in = in i
+                out .set (f in.get out.get)
+                }
+        }
+```
+
+It actually more of a pain to set up the arguments before passing them into the kernel, that writing the kernel itself. In fact, the actual kernel could be shortened to one line without much trouble.
+
+```
+cuda grid_for {blockDim gridDim} .x in_a {body=inl {i} -> out i .set (f (in i .get) (out i .get))}
+```
+
+Lexical scoping just buys so much in this example that it is amazing. It scoops up both of the input and output tensors and allows me to pass in `in_a` as the loop dimension in one move. Considering how wide range of a functionality Spiral's tensors have compared to arrays that makes writing kernels singificantly easier.
+
+The above example is simple as the tensors are `flatten`ed to 1d before bieng shipped off into the kernel, but other kernels will make use of the tensor's full functionality.
+
+Most of the functionality in the above fragment should be obvious from reading it, but `to_dev_tensor` and `divup` require an explanation.
+
+```
+inl divup a b = (a-1)/b+1 // Integer division with rounding up. (a+b-1)/b is another variant on this.
+```
+
+So `divup 9 5 = 2` and `divup 10 5 = 2`, but `divup 11 5 = 3`.
+
+`to_dev_tensor` on the other hand does some transformation on the tensor under the hood. `CudaTensor`s have a reference to a pointer, but the device tensors need to be raw pointers. So `to_dev_tensor` strips the reference in order to allow the tensor to cross the language boundary. In addition to that, it also adds the offset to the pointer and replaces it with 0.
+
+In .NET land it is not possible to move pointers around - array pointers must always point at the beginning of it, but in C they can point to anywhere. By adding the offset to the pointer and replacing it with 0, that allows the offset to be passed through the join point as a literal and not manifest as an argument.
+
+In Spiral, some types which are not blittable like strings and chars can be passed onto the Cuda side at compile time as literals. This hold true for all types fully known at compile time.
+
+Apart from that the context is `w` in the `CudaKernel` module because `s` is taken up by the span `{near_to from} -> near_to - from` function.
 
 ## User Guide: The Spiral Power
 
