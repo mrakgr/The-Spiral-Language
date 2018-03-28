@@ -38,7 +38,13 @@
                     - [Design of the Tensor](#design-of-the-tensor)
                     - [The Tensor Facade](#the-tensor-facade)
             - [Closing Comments](#closing-comments)
-        - [6: The Cuda Backend (Sneak Peek)](#6-the-cuda-backend-sneak-peek)
+        - [6: The Cuda Backend](#6-the-cuda-backend)
+            - [Intro](#intro-1)
+            - [How Cuda Kernels Are Compiled](#how-cuda-kernels-are-compiled)
+            - [Tour Of The Standard Library Cuda Module](#tour-of-the-standard-library-cuda-module)
+            - [Why Spiral Was Created](#why-spiral-was-created)
+                - [How It Used To Be Done](#how-it-used-to-be-done)
+        - [7: Object Orientation](#7-object-orientation)
     - [User Guide: The Spiral Power](#user-guide-the-spiral-power)
         - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
         - [2: Let Insertion and Common Subexpression Elimination](#2-let-insertion-and-common-subexpression-elimination)
@@ -4611,67 +4617,417 @@ Whether it be composability or performance or lack of safety, those kinds of pro
 
 Once that fusion is done, a piece of the power that is released can be seen in this chapter - a properly done tensor type.
 
-### 6: The Cuda Backend (Sneak Peek)
+### 6: The Cuda Backend
 
-(work in progress for the time being)
+This section covers how the Cuda backend works in its entirety and is not mandatory to understanding how to program in Spiral. It can be skipped over. It does not cover GPU programming, but instead goes into some depth on what is going on under the hood when Spiral does GPU compilation.
 
-At the time of writing `12/30/2017` though the Cuda backend works just fine, the allocator, the `CudaTensor` and `CudaKernels` are all bound in the deep `Learning` module and are not even properly organized which makes it hard to properly introduce them. They are very fresh, and most of the Cuda content in the language has been written in the last two weeks before the start of the tutorials, so they need more time to mature. Out of the Cuda kernels only two `map` and `map_redo` have been written so far which are enough for activation functions and cost functions, but not biases or accuracy. The author has not even gotten to doing `init` yet.
+#### Intro
 
-Hence, this chapter will be very brief.
-
-```
-inl fact to = Loops.for {from=2; to state=dyn 1; body=inl {state i} -> state * i}
-fact 3
-```
-```
-let rec method_0((var_0: int64), (var_1: int64)): int64 =
-    let (var_2: bool) = (var_1 <= 3L)
-    if var_2 then
-        let (var_3: int64) = (var_0 * var_1)
-        let (var_4: int64) = (var_1 + 1L)
-        method_0((var_3: int64), (var_4: int64))
-    else
-        var_0
-let (var_0: int64) = 1L
-let (var_1: int64) = 2L
-method_0((var_0: int64), (var_1: int64))
-```
-
-Here is the Cuda version. The `cuda` keyword is just syntax sugar for `inl threadIdx blockIdx blockDim gridDim -> ...`. `openb` is the CPS version of `open`.
+After a successful compilation of a Spiral program, at the top of the file there is a `let cuda_kernel = ...` statement. When no GPU code is run, that results in an empty string, but otherwise there will be code there.
 
 ```
-inl fact to = Loops.for {from=2; to state=dyn 1; body=inl {state i} -> state * i}
-openb Cuda
-run {
-    blockDim=1
-    gridDim=1
-    kernel=cuda fact 3 |> ignore
-    }
+let kernel1 =
+    "kernel1",[cuda_modules],"Does the map kernel work?",
+    """
+/// Initializes all the Cuda parts
+inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+
+/// Creates a host tensor with the given generator function.
+inl h = HostTensor.init 32 (inl x -> x + 1) 
+/// Loads the tensor on the GPU based on the host tensor
+inl a1 = s.CudaTensor.from_host_tensor h
+/// Makes a tensor of the same type and dimensions as `a1` and zeroes it.
+inl o1 = s.CudaTensor.zero_like a1
+/// Calls the map operation. `a1` is the input and `o1` is the output.
+s.CudaKernel.map' (inl a _ -> a * 2) a1 o1
+
+/// Transfers the tensor back to host.
+inl a2 = s.CudaTensor.to_host_tensor o1
+/// Zips the two tensors and prints them out.
+HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
+    """
 ```
+
 ```
 let cuda_kernels = """
+#include "cub/cub.cuh"
 
 extern "C" {
-    __global__ void method_1();
-    __device__ long long int method_2(long long int var_0, long long int var_1);
+    __global__ void method_23(long long int * var_0, long long int * var_1);
+    __device__ char method_24(long long int * var_0);
     
-    __global__ void method_1() {
-        long long int var_0 = threadIdx.x;
-        long long int var_1 = threadIdx.y;
-        long long int var_2 = threadIdx.z;
+    __global__ void method_23(long long int * var_0, long long int * var_1) {
+        long long int var_2 = threadIdx.x;
         long long int var_3 = blockIdx.x;
-        long long int var_4 = blockIdx.y;
-        long long int var_5 = blockIdx.z;
-        long long int var_6 = 1;
-        long long int var_7 = 2;
-        long long int var_8 = method_2(var_6, var_7);
+        long long int var_4 = (128 * var_3);
+        long long int var_5 = (var_2 + var_4);
+        long long int var_6[1];
+        var_6[0] = var_5;
+        while (method_24(var_6)) {
+            long long int var_8 = var_6[0];
+            char var_9 = (var_8 >= 0);
+            char var_11;
+            if (var_9) {
+                var_11 = (var_8 < 32);
+            } else {
+                var_11 = 0;
+            }
+            char var_12 = (var_11 == 0);
+            if (var_12) {
+                // "Argument out of bounds."
+            } else {
+            }
+            char var_14;
+            if (var_9) {
+                var_14 = (var_8 < 32);
+            } else {
+                var_14 = 0;
+            }
+            char var_15 = (var_14 == 0);
+            if (var_15) {
+                // "Argument out of bounds."
+            } else {
+            }
+            long long int var_16 = var_0[var_8];
+            long long int var_17 = var_1[var_8];
+            long long int var_18 = (var_16 * 2); // The actual work is done on this line.
+            var_1[var_8] = var_18;
+            long long int var_19 = (var_8 + 128);
+            var_6[0] = var_19;
+        }
+        long long int var_20 = var_6[0];
     }
-    __device__ long long int method_2(long long int var_0, long long int var_1) {
+    __device__ char method_24(long long int * var_0) {
+        long long int var_1 = var_0[0];
+        return (var_1 < 32);
+    }
+}
+"""
+```
+
+What is shown above is a map kernel that multiplies all the elements of a tensor by 2. In the kernel there are a bunch of inactive range checks that can be turned on with a compiler switch.
+
+Here is the output of the above program at runtime.
+
+```
+[|[1, 2]; [2, 4]; [3, 6]; [4, 8]; [5, 10]; [6, 12]; [7, 14]; [8, 16]; [9, 18]; [10, 20]; [11, 22]; [12, 24]; [13, 26]; [14, 28]; [15, 30]; [16, 32]; [17, 34]; [18, 36]; [19, 38]; [20, 40]; [21, 42]; [22, 44]; [23, 46]; [24, 48]; [25, 50]; [26, 52]; [27, 54]; [28, 56]; [29, 58]; [30, 60]; [31, 62]; [32, 64]|]
+```
+
+#### How Cuda Kernels Are Compiled
+
+At runtime, the program takes everything in the `cuda_kernels` variable and writes them to disk into the `cuda_kernels.cu` file which is located in the same place as the executable. It also creates a little batch script called `nvcc_router.bat`. Here are its contents. The paths are those provided into the `cfg` argument to the Spiral compiler directly.
+
+```
+SETLOCAL
+CALL "C:/Program Files (x86)/Microsoft Visual Studio/2017/Community\VC/Auxiliary/Build/vcvarsall.bat" x64 -vcvars_ver=14.11
+SET PATH=%PATH%;"C:/Program Files (x86)/Microsoft Visual Studio/2017/Community\VC/Tools/MSVC/14.11.25503/bin/Hostx64/x64"
+"C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v9.0\bin/nvcc.exe" -gencode=arch=compute_52,code=\"sm_52,compute_52\" --use-local-env --cl-version 2017 -I"C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v9.0\include" -I"C:/cub-1.7.4" -I"C:/Program Files (x86)/Microsoft Visual Studio/2017/Community\VC/Tools/MSVC/14.11.25503/include" --keep-dir "C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\bin\Release" -maxrregcount=0  --machine 64 -ptx -cudart static  -o "C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\bin\Release\cuda_kernels.ptx" "C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\bin\Release\cuda_kernels.cu"
+```
+
+What this does is do some setting up and then calls NVCC (The Nvidia Cuda compiler) from the command line.
+
+It compiles the `cuda_kernels.cu` into `cuda_kernels.ptx` which is the LLVM IR assembly Cuda natively uses. It is not the actual assembly for the GPU, but an intermediate representation that various Cuda API functions use. Here is the output of the map kernel example just for show.
+
+```
+//
+// Generated by NVIDIA NVVM Compiler
+//
+// Compiler Build ID: CL-22781540
+// Cuda compilation tools, release 9.0, V9.0.176
+// Based on LLVM 3.4svn
+//
+
+.version 6.0
+.target sm_52
+.address_size 64
+
+	// .globl	method_23
+.global .align 1 .b8 _ZN69_INTERNAL_47_tmpxft_000171e4_00000000_7_cuda_kernels_cpp1_ii_b5c879af6thrust6system6detail10sequential3seqE[1];
+
+.visible .entry method_23(
+	.param .u64 method_23_param_0,
+	.param .u64 method_23_param_1
+)
+{
+	.reg .pred 	%p<3>;
+	.reg .b32 	%r<3>;
+	.reg .b64 	%rd<25>;
+
+
+	ld.param.u64 	%rd10, [method_23_param_0];
+	ld.param.u64 	%rd11, [method_23_param_1];
+	mov.u32 	%r1, %tid.x;
+	cvt.u64.u32	%rd12, %r1;
+	mov.u32 	%r2, %ctaid.x;
+	mul.wide.u32 	%rd13, %r2, 128;
+	add.s64 	%rd24, %rd13, %rd12;
+	setp.gt.s64	%p1, %rd24, 31;
+	@%p1 bra 	BB0_3;
+
+	cvta.to.global.u64 	%rd14, %rd11;
+	cvta.to.global.u64 	%rd15, %rd10;
+	add.s64 	%rd18, %rd13, %rd12;
+	shl.b64 	%rd19, %rd18, 3;
+	add.s64 	%rd23, %rd15, %rd19;
+	add.s64 	%rd22, %rd14, %rd19;
+
+BB0_2:
+	ld.global.u64 	%rd20, [%rd23];
+	shl.b64 	%rd21, %rd20, 1;
+	st.global.u64 	[%rd22], %rd21;
+	add.s64 	%rd23, %rd23, 1024;
+	add.s64 	%rd22, %rd22, 1024;
+	add.s64 	%rd24, %rd24, 128;
+	setp.lt.s64	%p2, %rd24, 32;
+	@%p2 bra 	BB0_2;
+
+BB0_3:
+	ret;
+}
+
+	// .globl	_ZN3cub11EmptyKernelIvEEvv
+.visible .entry _ZN3cub11EmptyKernelIvEEvv(
+
+)
+{
+
+
+
+	ret;
+}
+```
+
+As can be seen, the useless range checks got eliminated. And the multiply by two is converted into a left shift.
+
+```
+	ld.global.u64 	%rd20, [%rd23];
+	shl.b64 	%rd21, %rd20, 1;
+	st.global.u64 	[%rd22], %rd21;
+```
+
+This is the meat of the loop where it loads from global memory, multiplies by 2 and then stores after that. The rest is setting up the kernel and implementing the loop.
+
+What can be done with the `.ptx` file is load the kernels inside them using the [Cuda API functions](http://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__MODULE.html#group__CUDA__MODULE) accessed through the [ManagedCuda wrapper library](https://github.com/kunzmi/managedCuda).
+
+#### Tour Of The Standard Library Cuda Module
+
+The Cuda module is where the context is initialized, the kernel compilation happens at runtime and where the `run` function that actually launches the kernels resides. It will be shown here in its entirety, but there is no need to think too deeply about what is going on. It is garden variety plumbing that can be summed in a sentence or two for each part.
+
+```
+let cuda =
+    (
+    "Cuda",[loops;console;array;host_tensor;extern_;object],"The Cuda module.",
+    """
+inl ret -> 
+    open Extern
+    open Console
+
+    inl cuda_kernels = FS.Constant.cuda_kernels string
+
+    inl cuda_constant a t = !MacroCuda(t,[text: a])
+
+    inl cuda_constant_int constant () = cuda_constant constant int64
+
+    inl __blockDimX = cuda_constant_int "blockDim.x"
+    inl __blockDimY = cuda_constant_int "blockDim.y"
+    inl __blockDimZ = cuda_constant_int "blockDim.z"
+    inl __gridDimX = cuda_constant_int "gridDim.x"
+    inl __gridDimY = cuda_constant_int "gridDim.y"
+    inl __gridDimZ = cuda_constant_int "gridDim.z"
+
+    inl cuda_toolkit_path = @PathCuda
+    inl visual_studio_path = @PathVS2017
+    inl cub_path = @PathCub
+
+    inl env_type = fs [text: "System.Environment"]
+    inl context_type = fs [text: "ManagedCuda.CudaContext"]
+    use context = FS.Constructor context_type false
+    FS.Method context .Synchronize() ()
+```
+
+The only piece of functionality that happens at runtime are the last two lines where the Cuda context is created and then synchronized. The rest are merely definitions set up for later.
+
+```
+    inl compile_kernel_using_nvcc_bat_router (kernels_dir: string) =
+        inl path_type = fs [text: "System.IO.Path"]
+        inl combine x = FS.StaticMethod path_type .Combine x string
+    
+        inl file_type = fs [text: "System.IO.File"]
+        inl stream_type = fs [text: "System.IO.Stream"]
+        inl streamwriter_type = fs [text: "System.IO.StreamWriter"]
+        inl process_start_info_type = fs [text: "System.Diagnostics.ProcessStartInfo"]
+    
+        inl nvcc_router_path = combine (kernels_dir,"nvcc_router.bat")
+        inl procStartInfo = FS.Constructor process_start_info_type ()
+        FS.Method procStartInfo .set_RedirectStandardOutput true ()
+        FS.Method procStartInfo .set_RedirectStandardError true ()
+        FS.Method procStartInfo .set_UseShellExecute false ()
+        FS.Method procStartInfo .set_FileName nvcc_router_path ()
+
+        inl process_type = fs [text: "System.Diagnostics.Process"]
+        use process = FS.Constructor process_type ()
+        FS.Method process .set_StartInfo procStartInfo ()
+        inl print_to_standard_output = 
+            closure_of (inl args -> FS.Method args .get_Data() string |> writeline) 
+                (fs [text: "System.Diagnostics.DataReceivedEventArgs"] => ())
+
+        FS.Method process ."OutputDataReceived.Add" print_to_standard_output ()
+        FS.Method process ."ErrorDataReceived.Add" print_to_standard_output ()
+
+        inl concat = string_concat ""
+        inl (+) a b = concat (a, b)
+
+        /// Puts quotes around the string.
+        inl quote x = ("\"",x,"\"")
+        inl vc_vars_args = " x64 -vcvars_ver=14.11"
+        inl quoted_vs_path_to_vcvars = combine(visual_studio_path, "VC/Auxiliary/Build/vcvarsall.bat") |> quote
+        inl quoted_vs_path_to_cl = combine(visual_studio_path, "VC/Tools/MSVC/14.11.25503/bin/Hostx64/x64") |> quote
+        inl quoted_cuda_toolkit_path_to_include = combine(cuda_toolkit_path,"include") |> quote
+        inl quoted_vc_path_to_include = combine(visual_studio_path, "VC/Tools/MSVC/14.11.25503/include") |> quote
+        inl quoted_nvcc_path = combine(cuda_toolkit_path,@"bin/nvcc.exe") |> quote
+        inl quoted_cub_path_to_include = cub_path |> quote
+        inl quoted_kernels_dir = kernels_dir |> quote
+        inl target_path = combine(kernels_dir,"cuda_kernels.ptx")
+        inl quoted_target_path = target_path |> quote
+        inl input_path = combine(kernels_dir,"cuda_kernels.cu")
+        inl quoted_input_path = input_path |> quote
+
+        if FS.StaticMethod file_type .Exists input_path bool then FS.StaticMethod file_type .Delete input_path ()
+        FS.StaticMethod file_type .WriteAllText(input_path,cuda_kernels) ()
+   
+        inl _ = 
+            if FS.StaticMethod file_type .Exists nvcc_router_path bool then FS.StaticMethod file_type .Delete nvcc_router_path ()
+            inl filestream_type = fs [text: "System.IO.FileStream"]
+
+            use nvcc_router_file = FS.StaticMethod file_type .OpenWrite(nvcc_router_path) filestream_type
+            use nvcc_router_stream = FS.Constructor streamwriter_type nvcc_router_file
+
+            inl write_to_batch = concat >> inl x -> FS.Method nvcc_router_stream .WriteLine x ()
+
+            "SETLOCAL" |> write_to_batch
+            ("CALL ", quoted_vs_path_to_vcvars, vc_vars_args) |> write_to_batch
+            ("SET PATH=%PATH%;", quoted_vs_path_to_cl) |> write_to_batch
+            (
+            quoted_nvcc_path, " -gencode=arch=compute_52,code=\\\"sm_52,compute_52\\\" --use-local-env --cl-version 2017",
+            " -I", quoted_cuda_toolkit_path_to_include,
+            " -I", quoted_cub_path_to_include,
+            " -I", quoted_vc_path_to_include,
+            " --keep-dir ",quoted_kernels_dir,
+            " -maxrregcount=0  --machine 64 -ptx -cudart static  -o ",quoted_target_path," ",quoted_input_path
+            ) |> write_to_batch
+
+        inl stopwatch_type = fs [text: "System.Diagnostics.Stopwatch"]
+        inl timer = FS.StaticMethod stopwatch_type .StartNew () stopwatch_type
+        if FS.Method process .Start() bool = false then failwith () "NVCC failed to run."
+        FS.Method process .BeginOutputReadLine() ()
+        FS.Method process .BeginErrorReadLine() ()
+        FS.Method process .WaitForExit() ()
+
+        inl exit_code = FS.Method process .get_ExitCode() int32
+        assert (exit_code = 0i32) ("NVCC failed compilation.", exit_code)
+    
+        inl elapsed = FS.Method timer .get_Elapsed() (fs [text: "System.TimeSpan"])
+        !MacroFs((),[text: "printfn \"The time it took to compile the Cuda kernels is: %A\" "; arg: elapsed])
+
+        FS.Method context .LoadModulePTX target_path (fs [text: "ManagedCuda.BasicTypes.CUmodule"])
+
+    inl current_directory = FS.StaticMethod env_type .get_CurrentDirectory() string
+    inl modules = compile_kernel_using_nvcc_bat_router current_directory
+    writeline (string_concat "" ("Compiled the kernels into the following directory: ", current_directory))
+```
+
+Here is the part the actually compiles the modules. It creates that batch script and sets up the `Process` object which it then uses to launch the script from the command line. The above code fragment is messy due to heavy use of macros, but it is straightforward.
+
+After the above is executed successfuly, a `CUmodule` object is bound to the `modules` variable which holds all the kernels in binary format. This is used in the `run` function.
+
+```
+    inl dim3 = function
+        | {x y z} as m -> m
+        | x,y,z -> {x=x: int64; y=y: int64; z=z: int64}
+        | x,y -> {x=x: int64; y=y: int64; z=1}
+        | x -> {x=x: int64; y=1; z=1}
+
+    inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
+    inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
+    inl SizeT = FS.Constructor SizeT_type
+    inl CUdeviceptr = FS.Constructor CUdeviceptr_type << SizeT
+
+    inl run s {blockDim gridDim kernel} =
+        inl stream = s.stream
+        inl context = s.context
+        join
+            inl blockDim = dim3 blockDim
+            inl gridDim = dim3 gridDim
+            inl to_obj_ar args =
+                inl ty = fs [text: "System.Object"] |> array
+                !MacroFs(ty,[fs_array_args: args; text: ": "; type: ty])
+
+            inl kernel =
+                inl map_to_op_if_not_static {x y z} (x', y', z') = 
+                    inl f x x' = if lit_is x then const x else x' 
+                    f x x', f y y', f z z'
+                inl x,y,z = map_to_op_if_not_static blockDim (__blockDimX,__blockDimY,__blockDimZ)
+                inl x',y',z' = map_to_op_if_not_static gridDim (__gridDimX,__gridDimY,__gridDimZ)
+                inl _ -> // This convoluted way of swaping non-literals for ops is so they do not get called outside of the kernel.
+                    inl blockDim = {x=x(); y=y(); z=z()}
+                    inl gridDim = {x=x'(); y=y'(); z=z'()}
+                    kernel blockDim gridDim
+
+            inl join_point_entry_cuda x = !JoinPointEntryCuda(x())
+            inl method_name, args = join_point_entry_cuda kernel
+        
+            inl dim3 {x y z} = Tuple.map (to uint32) (x,y,z) |> FS.Constructor (fs [text: "ManagedCuda.VectorTypes.dim3"])
+    
+            inl kernel_type = fs [text: "ManagedCuda.CudaKernel"]
+            inl cuda_kernel = FS.Constructor kernel_type (method_name,modules,context)
+            FS.Method cuda_kernel .set_GridDimensions(dim3 gridDim) ()
+            FS.Method cuda_kernel .set_BlockDimensions(dim3 blockDim) ()
+
+            match stream with
+            | () -> FS.Method cuda_kernel .Run(to_obj_ar args) float32
+            | stream -> FS.Method cuda_kernel .RunAsync(stream.extract,to_obj_ar args) ()
+```
+
+Before moving forward, here is how the above function is used in practice.
+
+```
+let tutorial1 =
+    "tutorial1",[cuda_modules],"The placeholder for the tutorial examples",
+    """
+inb s = CudaModules (1024*1024) 
+
+inl fact to = Loops.for {from=2; to state=dyn 1; body=inl {state i} -> state * i}
+
+s.run {
+    blockDim=1
+    gridDim=1
+    kernel=inl blockDim gridDim -> 
+        fact 3 |> ignore
+    }
+    """
+```
+
+This would result in the factorial function as recursive GPU code.
+
+```
+let cuda_kernels = """
+#include "cub/cub.cuh"
+
+extern "C" {
+    __global__ void method_10();
+    __device__ long long int method_11(long long int var_0, long long int var_1);
+    
+    __global__ void method_10() {
+        long long int var_0 = 1;
+        long long int var_1 = 2;
+        long long int var_2 = method_11(var_0, var_1);
+    }
+    __device__ long long int method_11(long long int var_0, long long int var_1) {
         char var_2 = (var_1 <= 3);
         if (var_2) {
             long long int var_3 = (var_0 * var_1);
             long long int var_4 = (var_1 + 1);
-            return method_2(var_3, var_4);
+            return method_11(var_3, var_4);
         } else {
             return var_0;
         }
@@ -4679,9 +5035,233 @@ extern "C" {
 }
 """
 ```
-The rest of the output is initialization code and won't be shown.
 
-More information will be provided in the coming months.
+In the standard library the following form would be used instead.
+
+```
+    kernel=cuda
+        fact 3 |> ignore
+```
+
+`cuda` is just shorthand for `inl blockDim gridDim ->`.
+
+There are points of interest that need to be explained for `run` to be fully understood.
+
+```
+            inl kernel =
+                inl map_to_op_if_not_static {x y z} (x', y', z') = 
+                    inl f x x' = if lit_is x then const x else x' 
+                    f x x', f y y', f z z'
+                inl x,y,z = map_to_op_if_not_static blockDim (__blockDimX,__blockDimY,__blockDimZ)
+                inl x',y',z' = map_to_op_if_not_static gridDim (__gridDimX,__gridDimY,__gridDimZ)
+                inl _ -> // This convoluted way of swaping non-literals for ops is so they do not get called outside of the kernel.
+                    inl blockDim = {x=x(); y=y(); z=z()}
+                    inl gridDim = {x=x'(); y=y'(); z=z'()}
+                    kernel blockDim gridDim
+```
+
+What the above does is make sure that if the block and grid dimension sizes are known at compile time, that they are also passed into the kernel as literals. Otherwise they are used as intrinsics directly.
+
+In Cuda C code when `blockDim.x` is used directly, that is not a compile time constant, but a runtime variable. Spiral goes to an extra length in order to preserve information and substitutes literals for intrinsics whenever possible. The above code implements that.
+
+This is actually necessary for interop with the Cuda Unbound library which takes in block and grid dimensions as template parameters and requires them to be literals.
+
+```
+            inl join_point_entry_cuda x = !JoinPointEntryCuda(x())
+            inl method_name, args = join_point_entry_cuda kernel
+```
+
+The part directly after that is where the kernel gets executed. Cuda has a join point special to it and that is invoked using `!JoinPointEntryCuda(x())`. If this was a standard join point then that would be enough to call the function, but in Cuda's case things are a bit more complicated. Because all the calls have to go through the `ManagedCuda` library and then through the Cuda API, it would be very difficult to bake that call into the language directly.
+
+Instead what the Cuda join point does is compile the function and return the method name and the free variables passed into the join point.
+
+```
+            inl dim3 {x y z} = Tuple.map (to uint32) (x,y,z) |> FS.Constructor (fs [text: "ManagedCuda.VectorTypes.dim3"])
+    
+            inl kernel_type = fs [text: "ManagedCuda.CudaKernel"]
+            inl cuda_kernel = FS.Constructor kernel_type (method_name,modules,context)
+            FS.Method cuda_kernel .set_GridDimensions(dim3 gridDim) ()
+            FS.Method cuda_kernel .set_BlockDimensions(dim3 blockDim) ()
+
+            match stream with
+            | () -> FS.Method cuda_kernel .Run(to_obj_ar args) float32
+            | stream -> FS.Method cuda_kernel .RunAsync(stream.extract,to_obj_ar args) ()
+```
+
+Here is where the kernel is actually loaded.
+
+```
+inl cuda_kernel = FS.Constructor kernel_type (method_name,modules,context)
+```
+
+More specifically, on this line. It loads the kernel of `method_name` and uses the `modules` objects that holds all the compiled kernels from the previous step and the Cuda `context`.
+
+```
+            match stream with
+            | () -> FS.Method cuda_kernel .Run(to_obj_ar args) float32
+            | stream -> FS.Method cuda_kernel .RunAsync(stream.extract,to_obj_ar args) ()
+```
+
+Here is where the kernel is invoked synchronously or asynchronously depending on whether a stream was passed in.
+
+This covers everything needed to know in order to understand the Cuda backend. This is the Cuda backend in nearly its entirety.
+
+#### Why Spiral Was Created
+
+The above is simple, but unless the language supports it then it is impossible to build it as a part of a library. Being able to do the above is one of the major motivators for the creation of Spiral. It simply saves such an enormous amount of work.
+
+##### How It Used To Be Done
+
+The Spiral language originates from ML library of the same name done by author during the 2016 period.
+
+Here is how the map kernel used to look there.
+
+```
+/// o <- f(x)
+type DeviceUnaryTransformModule(op: string, unique_name : string) = 
+    let kernel_name = "Map1Kernel"+unique_name
+    let kernel_code = 
+        [|"
+        //Kernel code:
+        extern \"C\" {
+            typedef float floatType;
+            __device__ inline floatType op(floatType x)
+            {
+                return ";op;"
+            }
+        
+            // Device code
+            __global__ void ";kernel_name;"(const floatType* A, floatType* O, const int N)
+            {
+                int i = blockDim.x * blockIdx.x + threadIdx.x;
+                const int stride = blockDim.x * gridDim.x;
+                while (i < N)
+                {
+                    O[i] = op(A[i]);
+                    i += stride;
+                }
+            }
+        }
+
+        " |] |> String.concat ""
+
+    member val Kernel = load_kernel_nvrtc kernel_code kernel_name
+    member inline t.A
+            (str: CudaStream,
+                (ext_x: ^a -> CUdeviceptr, x: ^a),
+                (ext_o: ^a -> CUdeviceptr, o: ^a)) =
+        GuardSizes2(x,o)
+        let n = Size x
+        map_launcher(str, t.Kernel, n, [|ext_x x; ext_o o; n|])
+```
+
+It was used in two places.
+
+```
+let squareModule = lazy new DeviceUnaryTransformModule("x*x;","Square")
+let logModule = lazy new DeviceUnaryTransformModule("logf(x);","Log")
+```
+
+Text macros are used as operations because there is not much choice apart from that for getting some generic kernel functionality. It was not much generic functionality though. Suppose I want to pass in two arguments into the map kernel instead of one.
+
+```
+/// o <- f(x,y)
+type DeviceBinaryTransformModule(op: string, unique_name) = 
+    let kernel_name = "Map2Kernel" + unique_name
+    let kernel_code = 
+        [|"
+        //Kernel code:
+        extern \"C\" {
+            typedef float floatType;
+            __device__ inline floatType op(floatType x, floatType y)
+            {
+                return ";op;"
+            }
+        
+            // Device code
+            __global__ void ";kernel_name;"(const floatType* A, const floatType* B, floatType* O, const int N)
+            {
+                int i = blockDim.x * blockIdx.x + threadIdx.x;
+                const int stride = blockDim.x * gridDim.x;
+                while (i < N)
+                {
+                    O[i] = op(A[i],B[i]);
+                    i += stride;
+                }
+            }
+        }
+
+        " |] |> String.concat ""
+    
+    member val Kernel = load_kernel_nvrtc kernel_code kernel_name
+    member inline t.A
+            (str: CudaStream,
+                (ext_x: ^a -> CUdeviceptr, x: ^a),
+                (ext_y: ^a -> CUdeviceptr, y: ^a),
+                (ext_o: ^a -> CUdeviceptr, o: ^a)) =
+        GuardSizes3(x,y,o)
+        let n = Size x
+        map_launcher(str, t.Kernel, n, [|ext_x x; ext_y y; ext_o o; n|])
+```
+
+This one was used only for pointwise multiplication.
+
+```
+let hadamaradMultiplicationModule = lazy new DeviceBinaryTransformModule("x*y;", "HadMult")
+```
+
+There were many more of such kernels and after 6 variation on the basic map, the author lost drive to more because once he had those he could implement the rest in terms of composition.
+
+As an example of what that means, here is how binary cross entropy was implemented in the previous library.
+
+```
+let inline cross_entropy_cost (target: ^a) (activations: ^a) = context {
+    let lt = target
+    let! ll = log_ activations
+    let! rt = scalar_matrix_add 1.0f -1.0f target
+    let! rl = scalar_matrix_add 1.0f -1.0f activations >>= log_
+    return! linear_layer_hadmult [|lt, ll; rt, rl|] 
+            >>= sum
+            >>= scale (-1.0f / float32 (cols target))
+    }
+```
+
+The author could not write something like...
+
+```
+    inl cross_entropy = error {
+        fwd = inl x, y -> -(y * log x + (one - y) * log (one - x))
+        bck = 
+            inl (x, y) _ -> (x - y) / (x * (one - x))
+            ,inl (x, y) _ -> log (one - x) - log x
+        }
+```
+
+...but he did have individial operations for log and scalar matrix addition and Hadamarad multiplication so he could piece the required operation together.
+
+The difference between doing it directly and indirectly is the 6 intermediate allocations than the old library required to perform the same thing. Since GPUs are memory bound, that would make for a vast difference in performance.
+
+In the old library there simply was not a middle ground between writing all the kernels by hand and having to compose very small pieces in an inefficient manner. But the issues with the old arrangement did not stop there.
+
+Even if one is resolved to do the kernels by hand, some operations when done in composite require tracking a very large number of variables. Imagine having to deal with well over a dozen `float *` variables differentiated only by their name inside a single kernel and having no boundary or type checks to speak off. The author has had issues with swapping variables around by accident when there are just two of them of the same type in the same function. 
+
+Mentally tracking over a dozen pointers to a tensor, their offsets and sizes with only their names to differentiate them would be simply impossible. And the author quickly realized that he cuold not take responsibility for such code in old library.
+
+Machine learning code is the worst in terms of debugging difficulty. Back when he first started, the author did appreciate dimensionality checking and had errors with some matrices being incorrectly transposed. There was one particular example where he hit 96% on Mnist despite the network propagating gradients in the wrong places.
+
+It very possible for mistakes to go unnoticed because only half the network gets updated or updated incorrectly, but the network still appears to work fine.
+
+Hence more than anywhere else, being able to reason about all aspects of code is of vital importance in a machine learning context. In fact, it is absolutely important everywhere.
+
+There is also one other point worth noting. All the operation in the old library have the `lazy` prefixed behind them. The reason for that is that they are compiled individually and the author found that NVRTC required around 0.5s to compile a single operation. With 20 operations that made for some massive compile times if all of them are compiled every time. NVCC is not much better. It requires 0.7s to compile an empty file and about 2.1s for a 3k file, so compiling all the kernels in single batch is important for speed's sake.
+
+This is also something that would be impossible to do without the support of a language.
+
+### 7: Object Orientation
+
+(work in progress)
+
+...
 
 ## User Guide: The Spiral Power
 

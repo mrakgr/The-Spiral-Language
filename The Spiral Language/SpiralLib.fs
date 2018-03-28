@@ -1621,10 +1621,6 @@ inl ret ->
     inl SizeT = FS.Constructor SizeT_type
     inl CUdeviceptr = FS.Constructor CUdeviceptr_type << SizeT
 
-    //inl to_uint x = FS.UnOp .uint64 x uint64
-    //inl ptr_to_uint (ptr: CUdeviceptr_type) = FS.Field ptr .Pointer SizeT_type |> to_uint
-    //inl uint_to_ptr (x: uint64) = SizeT x |> CUdeviceptr
-
     inl run s {blockDim gridDim kernel} =
         inl stream = s.stream
         inl context = s.context

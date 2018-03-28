@@ -135,14 +135,21 @@ Tuple.iter s.CudaTensor.print (a1,a2,o1,o2,o3)
 let kernel1 =
     "kernel1",[cuda_modules],"Does the map kernel work?",
     """
-inb s = CudaModules (1024*1024)
+/// Initializes all the Cuda parts
+inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
-inl h = HostTensor.init 32 (inl x -> x + 1)
+/// Creates a host tensor with the given generator function.
+inl h = HostTensor.init 32 (inl x -> x + 1) 
+/// Loads the tensor on the GPU based on the host tensor
 inl a1 = s.CudaTensor.from_host_tensor h
+/// Makes a tensor of the same type and dimensions as `a1` and zeroes it.
 inl o1 = s.CudaTensor.zero_like a1
+/// Calls the map operation. `a1` is the input and `o1` is the output.
 s.CudaKernel.map' (inl a _ -> a * 2) a1 o1
 
+/// Transfers the tensor back to host.
 inl a2 = s.CudaTensor.to_host_tensor o1
+/// Zips the two tensors and prints them out.
 HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
     """
 
@@ -819,6 +826,22 @@ Loops.for' {from=0; near_to=1000; body=inl {next i} ->
     }
     """
 
+let tutorial1 =
+    "tutorial1",[cuda_modules],"The placeholder for the tutorial examples",
+    """
+inb s = CudaModules (1024*1024) 
+
+inl fact to = Loops.for {from=2; to state=dyn 1; body=inl {state i} -> state * i}
+
+s.run {
+    blockDim=1
+    gridDim=1
+    kernel=inl blockDim gridDim -> 
+        fact 3 |> ignore
+    }
+    """
+
+
 let tests =
     [|
     allocator1
@@ -833,7 +856,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" tutorial1
 |> printfn "%s"
 |> ignore
 
