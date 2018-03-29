@@ -600,7 +600,7 @@ inl network =
     inl label = input .label hidden_size
     inl network =
         input .input input_size 
-        |> ln 0f32 256
+        |> ln 0.1f32 256
         |> linear hidden_size 
         |> init s
     inl train = error Error.softmax_cross_entropy label network
@@ -845,7 +845,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel4
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
 |> printfn "%s"
 |> ignore
 

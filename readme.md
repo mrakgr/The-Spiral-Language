@@ -53,9 +53,11 @@
                 - [flatten](#flatten)
                 - [Cuda Loops](#cuda-loops)
             - [d2_replicate_map](#d2_replicate_map)
-            - [mapi_d2_redo_map](#mapi_d2_redo_map)
                 - [Example](#example)
+            - [mapi_d2_redo_map](#mapi_d2_redo_map)
+                - [Example](#example-1)
             - [mapi_d1_seq_broadcast](#mapi_d1_seq_broadcast)
+                - [TODO](#todo)
     - [User Guide: The Spiral Power](#user-guide-the-spiral-power)
         - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
         - [2: Let Insertion and Common Subexpression Elimination](#2-let-insertion-and-common-subexpression-elimination)
@@ -6015,7 +6017,7 @@ inl d2_replicate_map w f in in' =
 
 `in'` can also be a scalar value to indicate the size of the outermost dimension. Otherwise it is standard fare, it infers the type of the output, allocates it and passes it to the kernel, and stips the output from the mapping function.
 
-Here is a short example of it in action.
+##### Example
 
 ```
 let kernel3 =
@@ -6348,6 +6350,170 @@ Tuple.iter s.CudaTensor.print (a1,a2,o)
 It should be noted that the reduction kernel is also capable of replicating one of its arguments during the first map phase.
 
 #### mapi_d1_seq_broadcast
+
+This kernel does repeat reduction over items in registers along the inner dimension. It seems like a beast at first, but is actually simpler than the previous one since there is no need to understand how reduction works.
+
+```
+// Repeatedly reduces along the inner dimension and then maps the result of that reductions over the input in the previous step.
+met mapi_d1_seq_broadcast' w {d with seq} in out = 
+    inl to_dev_tensor = w.CudaTensor.to_dev_tensor
+    
+    inl in, out = zip in, zip out
+    inl dim_in_a, dim_in_b = in.dim
+    assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
+
+    inl num_valid = s dim_in_b
+    inl items_per_thread, blockDim =
+        assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
+        if num_valid <= 1024 then 1, num_valid
+        else divup num_valid 256, 256
+    inl gridDimY = min 64 (s dim_in_a)
+
+    inl in = to_dev_tensor in
+    inl out = to_dev_tensor out
+```
+
+This kernel will be unique so far in that it actually takes advantage of Spiral's significant ability to do local memory allocation. As the elements of the inner dimension must be known at compile time the kernel with raise a type error if that dimension is not known at compile time.
+
+```
+    inl items_per_thread, blockDim =
+        assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
+        if num_valid <= 1024 then 1, num_valid
+        else divup num_valid 256, 256
+```
+
+As usual, the number 256 is picked off the cuff and probably different problems will have different ideal best values, but for ML purposes I this setting should suffice.
+
+The actual kernel will be explained piece by piece as it is too much to take in at once.
+
+```
+    w.run {
+        blockDim
+        gridDim=1,gridDimY
+        kernel = cuda 
+            inl dims = {blockDim gridDim}
+            grid_for dims .y dim_in_a {body=inl {i=j} ->
+                inl in, out = in j, out j
+```
+
+Since kernel is in essence d1 reduction it begins by iterating over the outer dimension.
+
+```
+                /// Creates the tensor of items.
+                inl create_items elem_type = HostTensor.create {
+                    array_create = array_create_cuda_local
+                    layout=.aot
+                    elem_type
+                    dim=items_per_thread
+                    }
+```
+
+It is immediatelly followed by this function declaration. Notice that it is done in array of tuples format which is not the default for Spiral's tensors. The reason for that is that the Cub functions which accept arrays cannot accept Spiral's tensors in their default form.
+
+```
+inl inner_loop = grid_for_items dims .x dim_in_b
+```
+
+Just like `create_items` is often used, so is iterating over the inner dimension so the `grid_for_items` is partially applied for that purpose.
+
+The way this kernel is used is that it does the initial `map_in` and then iterates over a tuple of `{map_in redo map_out}` executing each in turn.
+
+```
+                inl items = 
+                    inl map = 
+                        match d with
+                        | {map_in} i -> map_in (in i .get)
+                        | {mapi_in} i -> mapi_in j i (in i .get)
+                        | _ i -> in i .get
+                    inl items = create_items (type map (dyn 0))
+                    inner_loop {body=inl {item i} -> items item .set (map i)}
+                    items
+```
+
+Having to match on whether the mapping function is `map_in` or `mapi_in` or not there at all adds a lot of noise for the reader.
+
+But what it does is create a tensor in register memory, iterates over the input here and sets the tensor to the result of mapping the input over the function.
+
+The `items` at the end is the tensor that has gone through the first phase the kernel.
+
+```
+                inl rec seq_loop items (d :: d') =
+                    match d with
+                    | {map_in} -> 
+                        inl items' = create_items (type map_in items.elem_type)
+                        inner_loop {body=inl {item} -> items item .get |> map_in |> items' item .set}
+                        items'.bodies.ar
+                    | {mapi_in} ->
+                        inl items' = create_items (type mapi_in j i items.elem_type)
+                        inner_loop {body=inl {item i} -> items item .get |> mapi_in j i |> items' item .set}
+                        items'.bodies.ar
+                    | _ -> items.bodies.ar
+                    |> inl x -> 
+```
+
+This is the function that iterates through the sequence. First, if the `map_in` or `mapi_in` are present they get are applied to every element in the items tensor.
+
+```
+                        inl block_reduce redo = 
+                            inl d = {blockDim redo}
+                            if num_valid % blockDim.x = 0 then cub_block_reduce d
+                            else cub_block_reduce {d with num_valid} 
+                        match d with
+                        | {redo} -> block_reduce redo x |> broadcast_zero
+                        | {redo'} -> block_reduce redo' x
+                    |> inl x ->
+```
+
+Then comes reduction. If the number of items does not exactly align with the block size, then a guarded reduction method is selected to make sure it does not read past the boundary. Also after the reduction is done there are two choices:
+
+1) `redo` does the reduction and the broadcasts the element to every thread in the block using shared memory.
+
+```
+inl broadcast_zero x =
+    inl ar = array_create_cuda_shared x 1
+    if threadIdx.x = 0 then ar 0 <- x
+    syncthreads()
+    ar 0
+```
+
+The first thread which holds the reduced elements first writes to a shared memory location and then all the elements read from it after synchronizing.
+
+2) `redo'` functions much like the above, but without the broadcast.
+
+After that comes the final step. There are also two branching paths at this point.
+
+```
+                        match d' with
+                        | () -> 
+                            inner_loop {body=inl {item i} ->
+                                inl out = out i
+                                match d with
+                                | {map_out} -> map_out (items item .get) x (out .get)
+                                | {mapi_out} -> mapi_out j i (items item .get) x (out .get)
+                                |> out .set
+                                }
+```
+
+If the current element in the sequence is last, then the result of appyling `map_out` or `mapi_out` to each element of `items` is feed directly into the output tensor.
+
+```
+                        | _ ->
+                            inl {items' body} =
+                                match d with
+                                | {map_out} -> 
+                                    inl items' = create_items type map_out items.elem_type x
+                                    { items' body = inl {item} -> map_out (items item .get) x |> items' item .set }
+                                | {mapi_out} -> 
+                                    inl items' = create_items type mapi_out (dyn 0) (dyn 0) items.elem_type x
+                                    { items' body = inl {i item} -> mapi_out j i (items item .get) x |> items' item .set }
+
+                            inner_loop {body}
+                            seq_loop items' d'
+```
+
+Otherwise, it needs to create a new itermediate tensor and then sets the result of applying `map_out` or `mapi_out` to each element of the `items` tensor to it. Then it passes that as input to the next operation in the sequence.
+
+##### TODO
 
 ...
 
