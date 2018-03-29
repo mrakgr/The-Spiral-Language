@@ -173,13 +173,12 @@ inb s = CudaModules (1024*1024)
 inl inner_size = 8
 inl outer_size = 8
 
-inl h = HostTensor.init inner_size (const (2,2))
+inl h = HostTensor.init inner_size (const 123)
 inl h' = HostTensor.init (outer_size,inner_size) (inl a b -> a,b)
 inl a1 = s.CudaTensor.from_host_tensor h
 inl a2 = s.CudaTensor.from_host_tensor h'
 inl o1 = s.CudaKernel.d2_replicate_map (inl a b -> a, b) a1 a2
-inl o2 = s.CudaKernel.d2_replicate_map (inl a _ -> a) a1 outer_size
-Tuple.iter s.CudaTensor.print (o1,o2)
+Tuple.iter s.CudaTensor.print (a1,a2,o1)
     """
 
 let kernel4 =
@@ -188,28 +187,18 @@ let kernel4 =
 inb s = CudaModules (1024*1024)
 
 inl inner_size = 10
-inl outer_size = 128
+inl outer_size = 4
 
 inl h = HostTensor.init (outer_size,inner_size) (inl _ x -> x)
-inl h' = HostTensor.init inner_size (const 10)
+inl h' = HostTensor.init inner_size id
 inl a1 = s.CudaTensor.from_host_tensor h
 inl a2 = s.CudaTensor.from_host_tensor h'
-inl f map_in a2 =
+inl o = 
     s.CudaKernel.mapi_d2_redo_map {
-        map_in
+        map_in=(+)
         neutral_elem=0; redo=(+)
-        map_out=inl a -> a/2
         } a1 a2
-inl o1 = f (inl a b -> a+1) ()
-inl o2 = f (inl a b -> a+b) a2
-
-Tuple.iter s.CudaTensor.print (a1,o1,o2)
-
-s.CudaKernel.mapi_d2_redo_map {
-    mapi_in=inl j i a _ -> a, i
-    neutral_elem=-555,-1; redo=inl a b -> if fst a > fst b then a else b
-    } a1 ()
-|> s.CudaTensor.print
+Tuple.iter s.CudaTensor.print (a1,a2,o)
     """
 
 let kernel5 =
@@ -856,7 +845,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel4
 |> printfn "%s"
 |> ignore
 

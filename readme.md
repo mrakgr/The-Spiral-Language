@@ -47,8 +47,15 @@
         - [7: Object Orientation](#7-object-orientation)
             - [Motivation](#motivation)
             - [The Object](#the-object)
-        - [8: GPU Programming](#8-gpu-programming)
-            - [Intro](#intro-2)
+        - [8: GPU Programming Basics](#8-gpu-programming-basics)
+            - [map](#map)
+            - [map_redo_map](#map_redo_map)
+                - [flatten](#flatten)
+                - [Cuda Loops](#cuda-loops)
+            - [d2_replicate_map](#d2_replicate_map)
+            - [mapi_d2_redo_map](#mapi_d2_redo_map)
+                - [Example](#example)
+            - [mapi_d1_seq_broadcast](#mapi_d1_seq_broadcast)
     - [User Guide: The Spiral Power](#user-guide-the-spiral-power)
         - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
         - [2: Let Insertion and Common Subexpression Elimination](#2-let-insertion-and-common-subexpression-elimination)
@@ -5375,17 +5382,19 @@ Data member are prefixed with `data`.
 s.data.context
 ```
 
-### 8: GPU Programming
+### 8: GPU Programming Basics
 
 (work in progress)
 
 The fun stuff starts past this point. GPU programming, deep learning, reinforcement learning, games...those are just a few areas in which Spiral's potential far exceeds those of other languages, and while the previous chapters can be considered done, these will be work in progress going into the future.
 
-GPU programming is well worth learning for those interested in drawing out as most performance as is possible from the machine, and lesson from it tranfer over into CPU programming. At some point Spiral will drop the Cuda and switch to supporting neural computing architectures, and when that happens the lesson learning in the GPU arena can be expected to transfer.
+GPU programming is well worth learning for those interested in drawing out as most performance as is possible from the machine, and lessons from it tranfer over into CPU programming. At some point Spiral will drop Cuda and switch to supporting neural computing architectures, and when that happens the lesson learning in the GPU arena can be expected to transfer. The reason for that will be because those architectures will be similar to GPUs except with a lot more local memory.
 
-Knowing how to program effectively in Spiral will never go out of date.
+Knowing how to program effectively will never go out of date.
 
-#### Intro
+This chapter will cover a few select kernels from the `CudaKernel` module found in the `Learning` project. There are more than will be covered in this chapter and more yet will be made in the future, but these can be counted on to illustrate how Spiral does Cuda.
+
+#### map
 
 ```
 met map' w f in out = 
@@ -5435,6 +5444,912 @@ In .NET land it is not possible to move pointers around - array pointers must al
 In Spiral, some types which are not blittable like strings and chars can be passed onto the Cuda side at compile time as literals. This hold true for all types fully known at compile time.
 
 Apart from that the context is `w` in the `CudaKernel` module because `s` is taken up by the span `{near_to from} -> near_to - from` function.
+
+The following example was already shown in the Cuda backend chapter, but here it is as a review.
+
+```
+let kernel1 =
+    "kernel1",[cuda_modules],"Does the map kernel work?",
+    """
+/// Initializes all the Cuda parts
+inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+
+/// Creates a host tensor with the given generator function.
+inl h = HostTensor.init 32 (inl x -> x + 1) 
+/// Loads the tensor on the GPU based on the host tensor
+inl a1 = s.CudaTensor.from_host_tensor h
+/// Makes a tensor of the same type and dimensions as `a1` and zeroes it.
+inl o1 = s.CudaTensor.zero_like a1
+/// Calls the map operation. `a1` is the input and `o1` is the output.
+s.CudaKernel.map' (inl a _ -> a * 2) a1 o1
+
+/// Transfers the tensor back to host.
+inl a2 = s.CudaTensor.to_host_tensor o1
+/// Zips the two tensors and prints them out.
+HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
+    """
+```
+
+The kind of code this fragment produces was described in the backend chapter, so it won't be covered here.
+
+`map'` as shown here has the notable issue of needing to have its output feed to it. It is possible to abstract that away.
+
+```
+inl map w f in =
+    indiv join
+        inl in = zip in
+        inl out = w.CudaTensor.create {dim=in.dim; elem_type=type f in.elem_type}
+        map' w (inl in _ -> f in) in out
+        stack out
+```
+
+All the functions apart from `map_redo_map` in the `CudaKernel` module have a variant that automatically allocates the output provided to them.
+
+The reason why map is written like the above instead of like...
+
+```
+inl map w f in =
+    inl in = zip in
+    inl out = w.CudaTensor.create {dim=in.dim; elem_type=type f in.elem_type}
+    map' w (inl in _ -> f in) in out
+    out
+```
+
+...is because it was found out that the variant that uses join points and layout types has significantly better compile times. This will be covered in more detail later.
+
+What `map` does is allocate the output tensor based on the input dimension and the infered output type and then passes that to `map'`. It also wraps around the input function so it throws away the output argument given to it.
+
+All auxiliary kernel variants do those and only those things.
+
+#### map_redo_map
+
+Zips, flattens the tensor to 1d, maps it, reduces it and then maps the output scalar tensor. This particular kernel is used for cost functions in the ML library.
+
+```
+/// Zips, flattens the tensor to 1d, maps, reduces it and maps it.
+/// Map is optional. Allocates a temporary tensor for the intermediary results.
+inl map_redo_map w {d with redo neutral_elem} in =
+    indiv join
+        inl to_dev_tensor = w.CudaTensor.to_dev_tensor
+   
+        inl run {map_out map_in blockDim gridDim} (!to_dev_tensor in) =
+            inl in_a :: () = in.dim
+            inl out = w.CudaTensor.create {elem_type=type map_in in.elem_type |> map_out; dim=gridDim}
+            inl out' = to_dev_tensor out
+
+            w.run {
+                blockDim gridDim
+                kernel = cuda 
+                    inl x = 
+                        grid_for {blockDim gridDim} .x in_a {state=dyn neutral_elem; body=inl {state i} -> redo state (map_in (in i .get)) }
+                        |> cub_block_reduce {blockDim redo} |> map_out
+                    if threadIdx.x = 0 then out' blockIdx.x .set x
+                }
+
+            out
+
+        inl in = zip in |> flatten
+        inl map_in = match d with {map_in} -> map_in | _ -> id
+        inl map_out = match d with {map_out} -> map_out | _ -> id
+
+        inl in_a :: () = in.dim
+        inl span = s in_a
+        inl blockDim = lit_min span 1024
+        inl gridDim = 1 //lit_min 64 (divup span blockDim)
+
+        inl r = 
+            if gridDim = 1 then
+                run {map_out map_in blockDim gridDim} in
+            else
+                run {map_out=id; map_in blockDim gridDim} in
+                |> run {map_out map_in=id; blockDim=gridDim; gridDim=1}
+        r 0 |> stack
+```
+
+The actual Cuda part of the kernel is this...
+
+```
+inl x = 
+    grid_for {blockDim gridDim} .x in_a {state=dyn neutral_elem; body=inl {state i} -> redo state (map_in (in i .get)) }
+    |> cub_block_reduce {blockDim redo} |> map_out
+if threadIdx.x = 0 then out' blockIdx.x .set x
+```
+
+The kernel can be described in 3 steps:
+
+1) The blocks iterate over the global memory and perform the maps and reductions as they go along. This means that if there is one block of 1024 iterating over a 1024*128 array, it will perform 128 reductions before moving to the next step.
+2) A block reduction. Whenever possible, Spiral offloads work to the Cuda Unbound library as writing Cuda kernels can be tricky.
+3) When that is done, only the first thread has the result of the block reduce. It writes that result to global memory after mapping it.
+
+If the gridDim is 1, then the actually kernel needs to be run only once, but otherwise it must be done twice in order to perform the inter block reduction.
+
+##### flatten
+
+```
+        inl in = zip in |> flatten
+```
+
+Like in the map, the input is zipped and then flattened. Since flatten was made after the Tensor chapter was made, it will be covered here. Here it is in full from the `HostTensor` module.
+
+```
+/// Flattens the tensor to a single dimension.
+inl flatten tns =
+    match tns.dim with
+    | () -> tns
+    | !(Tuple.map span) dim ->
+        tns .set_dim (product dim)
+            .update_body (inl {d with size} ->
+                Tuple.zip (dim,size)
+                |> Tuple.reducel (inl d,s d',s' ->
+                    assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
+                    d*s, s'
+                    )
+                |> inl _,s -> {d with size=s :: ()}
+                )
+```
+
+The dimension of the output tensor is set to the product of its spans, but in order for a tensor to be capable of being flattened it must be contiguous.
+
+```
+                |> Tuple.reducel (inl d,s d',s' ->
+                    assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
+                    d*s, s'
+                    )
+```
+
+In order for that to hold true the size of the outer dimension must equal the span of the inner dimension times its size.
+
+What that means is this - suppose there is a 2d tensor of dimensions (10,10) and size (10,1). That tensor could then be flattened to a 1d tensor of dimension 100 and size 1. But suppose a view of the tensor was taken along the inner dimension.
+
+```
+tns.view_span (inl a,b -> a, 5)
+```
+
+Now the resulting tensor would have dimensions of (10,5) and size of (10,1).
+
+Since 10 <> 5 * 1 that means that the tensor is not contiguous. This also means that tensor that have been rotated cannot be flattened. Viewing the outermost dimension would be fine though.
+
+This covers flattening.
+
+```
+        inl map_in = match d with {map_in} -> map_in | _ -> id
+        inl map_out = match d with {map_out} -> map_out | _ -> id
+```
+
+Since `map_in` and `map_out` are optional, they are replaced with the identity function if they are missing inside the kernel.
+
+```
+        inl in_a :: () = in.dim
+        inl span = s in_a
+        inl blockDim = lit_min span 1024
+        inl gridDim = 1 //lit_min 64 (divup span blockDim)
+```
+
+Here the gridDim is just set to 1 because the author was lazy and decided to leave the job of fiddling with the launch parameters for later.
+
+```
+/// The template for lit_min and lit_max.
+inl lit_comp op a b =
+    if lit_is a && lit_is b then op a b
+    elif lit_is a then a
+    elif lit_is b then b
+    else error_type "a or b needs to be a literal"
+
+/// Returns the compile time expressible maximum of the two expressions.
+inl lit_max = lit_comp max
+/// Returns the compile time expressible minimum of the two expressions.
+inl lit_min = lit_comp min
+```
+
+`lit_min` is defined in `Core` like this. A standard min function would return the minimum of the two arguments. `lit_min` on the other hand does that only between two literals. If one of the arguments is not a literal, then it just returns the literal. If both are not literals then that is a type error.
+
+```
+        inl r = 
+            if gridDim = 1 then
+                run {map_out map_in blockDim gridDim} in
+            else
+                run {map_out=id; map_in blockDim gridDim} in
+                |> run {map_out map_in=id; blockDim=gridDim; gridDim=1}
+        r 0 |> stack
+```
+
+Here is where the kernel is launched either once or twice depending on how many reductions are needed and then returned.
+
+```
+        inl run {map_out map_in blockDim gridDim} (!to_dev_tensor in) =
+            inl in_a :: () = in.dim
+            inl out = w.CudaTensor.create {elem_type=type map_in in.elem_type |> map_out; dim=gridDim}
+            inl out' = to_dev_tensor out
+```
+
+Here the `run` infers the type and creates the output before passing it into the kernel. 
+
+As can be seen the scaffoling for the actual kernels has a lot of details and needs to be covered a few times.
+
+##### Cuda Loops
+
+```
+let kernel2 =
+    "kernel2",[cuda_modules],"Does the map_redo_map kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl h = HostTensor.init 1024 ((+) 1)
+inl a1 = s.CudaTensor.from_host_tensor h
+
+s.CudaKernel.map_redo_map {neutral_elem=0; redo=(+)} a1
+|> s.CudaTensor.print // 524800
+    """
+```
+
+The above sums all the numbers between [1..1024].
+
+```
+#include "cub/cub.cuh"
+
+extern "C" {
+    __global__ void method_21(long long int * var_0, long long int * var_1);
+    __device__ char method_22(long long int * var_0, long long int * var_1);
+    
+    __global__ void method_21(long long int * var_0, long long int * var_1) {
+        long long int var_2 = threadIdx.x;
+        long long int var_3 = blockIdx.x;
+        long long int var_4 = (1024 * var_3);
+        long long int var_5 = (var_2 + var_4);
+        long long int var_6 = 0;
+        long long int var_7[1];
+        long long int var_8[1];
+        var_7[0] = var_5;
+        var_8[0] = var_6;
+        while (method_22(var_7, var_8)) {
+            long long int var_10 = var_7[0];
+            long long int var_11 = var_8[0];
+            char var_12 = (var_10 >= 0);
+            char var_14;
+            if (var_12) {
+                var_14 = (var_10 < 1024);
+            } else {
+                var_14 = 0;
+            }
+            char var_15 = (var_14 == 0);
+            if (var_15) {
+                // "Argument out of bounds."
+            } else {
+            }
+            long long int var_16 = var_0[var_10];
+            long long int var_17 = (var_11 + var_16);
+            long long int var_18 = (var_10 + 1024);
+            var_7[0] = var_18;
+            var_8[0] = var_17;
+        }
+        long long int var_19 = var_7[0];
+        long long int var_20 = var_8[0];
+        long long int var_21 = cub::BlockReduce<long long int,1024,cub::BLOCK_REDUCE_WARP_REDUCTIONS,1,1>().Sum(var_20);
+        long long int var_22 = threadIdx.x;
+        char var_23 = (var_22 == 0);
+        if (var_23) {
+            long long int var_24 = blockIdx.x;
+            char var_25 = (var_24 >= 0);
+            char var_27;
+            if (var_25) {
+                var_27 = (var_24 < 1);
+            } else {
+                var_27 = 0;
+            }
+            char var_28 = (var_27 == 0);
+            if (var_28) {
+                // "Argument out of bounds."
+            } else {
+            }
+            var_1[var_24] = var_21;
+        } else {
+        }
+    }
+    __device__ char method_22(long long int * var_0, long long int * var_1) {
+        long long int var_2 = var_0[0];
+        long long int var_3 = var_1[0];
+        return (var_2 < 1024);
+    }
+}
+```
+
+The produced kernel is of course a decent bit longer than 3 lines. The resulting output in whole is 745 LOC, so it can be pasted here due to its size. As this is a good opportunity to do so, Cuda loops will be covered here.
+
+Originally these kernels used the tail recursive loops covered in an earlier chapter. It seems like a good idea at the time since the Cuda compiler appeared to be able to perform the tail recursive optimization. Nevertheless, as the author has suspected might happen since literally nobody but him would ever try compiling Cuda loops in such a manner, when tail recursive loops are combined with tuple returns, NVCC will outright produce incorrect code that will lead to local write errors. Based on the reply to the bug report he sent, the NVCC does not support tail recursion optimization and presumably the bug won't be fixed.
+
+Hence just on the Cuda side, the language supports standard imperative loops, more specifically the while loop.
+
+```
+inl whilecd {cond state body} =
+    inl r = HostTensor.create {
+        array_create=array_create_cuda_local 
+        elem_type=state 
+        dim=()
+        }
+    r .set state
+    /// Note: While must have a join point around it.
+    !While((join cond r.get), (r.set <| body r.get))
+    r .get
+```
+
+As can be seen, Spiral's tensors can be used with Cuda local arrays without any changes even in tuple of array form.
+
+```
+    inl r = HostTensor.create {
+        array_create=array_create_cuda_local 
+        elem_type=state 
+        dim=()
+        }
+```
+
+The above fragment corresponds to this one in the code...
+
+```
+        long long int var_7[1];
+        long long int var_8[1];
+```
+
+Going forward.
+
+```
+r .set state
+```
+Is...
+```
+        var_7[0] = var_5;
+        var_8[0] = var_6;
+```
+The...
+```
+!While((join cond r.get), (r.set <| body r.get))
+```
+...is everything in the while loop. And...
+```
+r .get
+```
+Corresponds to after the while loop...
+```
+        long long int var_19 = var_7[0];
+        long long int var_20 = var_8[0];
+```
+
+Of the two variables in the tensor, one is a loop counter and the other is the actual state.
+
+```
+inl forcd {d with from body} =
+    inl finally =
+        match d with
+        | {finally} -> finally
+        | _ -> id
+
+    inl check =
+        match d with
+        | {near_to} from -> from < near_to 
+        | {to} from -> from <= to
+        | {down_to} from -> from >= down_to
+        | {near_down_to} from -> from > near_down_to
+        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` needs be present."
+
+    inl by =
+        match d with
+        | {by} -> by
+        | {to | near_to} -> 1
+        | {down_to | near_down_to} -> -1
+
+    inl to =
+        match d with
+        | {(to ^ near_to ^ down_to ^ near_down_to)=to} -> to
+        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` is allowed."
+
+    inl state = 
+        match d with
+        | {state} -> state
+        | _ -> ()
+
+    inl state = {from state}
+    whilecd {
+        state
+        cond = inl {from state} -> check from
+        body = inl {from state} -> {state=body {state i=from}; from=from+by}
+        } .state
+    |> finally
+```
+
+Most of this should be familiar from the loops chapter. Making a for loop from a while loop should not be much of a challenge by this point. It is a fairly straightforward extension of the concept.
+
+From the for loop comes the Cuda specialized grid_for loop which makes it straightforward to iterate over a tensor in a block-strided fashion.
+
+```
+inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
+    inl from = threadIdx axis + blockDim axis * blockIdx axis - dim.from
+    inl by = gridDim axis * blockDim axis
+    inl near_to = dim.near_to
+
+    match iteration_mode with
+    | .items_per_thread {d with body} ->
+        inl span = s dim
+        inl items_per_thread = divup span by
+        forcd {d with from=0;near_to=items_per_thread; body=inl {state i=item} ->
+            inl i = from + by * item
+            inl num_valid = span - by * item
+            if i < near_to then body {span num_valid item state i} else state
+            }
+    | .std d -> forcd {d with from by near_to}
+
+inl grid_for_items = grid_for_template {iteration_mode=.items_per_thread}
+inl grid_for = grid_for_template {iteration_mode=.std}
+```
+
+The `axis` argument can only be `.x`, `.y` or `.z`. In Cuda examples online, they often compulsively write out...
+
+```
+int stride = gridDim.x * blockDim.x;
+for {int i = threadIdx.x + blockDim.x * blockIdx.x; i < N; i += stride} {...}
+```
+
+Or something to that effect. `grid_for` is inteded to abstract that away so as to make the code more concise and reduce the chance of error. [Structured programming](https://en.wikipedia.org/wiki/Structured_programming) started the trend of using loops and if statements, but Cuda itself firmly remains stuck in the late 50s in terms of what it offers inside the kernel. `grid_for` is a slight, but a notable improvement over using the raw for loop.
+
+The standard `grid_for` that has been shown functions like a normal loop, but the `grid_for_items` has a special purpose to it.
+
+To understand why it is needed here is a quiz. Where are these variables allocated?
+
+```
+int a;
+int b[2];
+int c[var_11];
+```
+
+`a` and `b` are held in registers. This is despite `b` being an array. On the other hand since `c`'s size is not statically known, it is allocated in global memory or most likely the cache.
+
+Whether `b` is allocated in registers or not also depends on how it is indexed.
+
+```
+b[0]; // safe
+b[1]; // safe
+b[var_12]; // better allocate it in global memory after all
+```
+
+So the Cuda array's type depends on how it is used and the compiler will not give any indication of what is going on under the hood the programmer.
+
+Furthermore, one other important thing to keep in mind is that C compilers, and especially Cuda compilers are specialized for optimizing loops. If the loop boundaries are statically known, which they usually if one is programming in Spiral, the Cuda compiler will strongly attempt to unroll it.
+
+If it is inspected with `print_static` then `item` will show up as a runtime variable, but Cuda will know the difference after unrolling and will be able to determine at compile time what the indices into the array are.
+
+This is important because variables held in registers can be accessed orders of magnitude more quickly than in main memory, and this particular trick is used in reduce + broadcast kernels which are needed to implement softmax error and layer normalization. It is also used in the sampler.
+
+#### d2_replicate_map
+
+This function replicates the first 1d tensor so it matches the 2d second. It is used for adding biases to the result of a matrix multiply.
+
+```
+/// Replicates the 1d `in` and maps it along the outer dimension as determined by `in'`.
+met d2_replicate_map' w f in in' out =
+    inl to_dev_tensor = w.CudaTensor.to_dev_tensor
+    
+    inl in, in', out = zip in, zip in', zip out
+    inl dim_in :: () = in.dim
+    inl dim_in'_a, dim_in'_b = in'.dim
+
+    assert (dim_in = dim_in'_b) "Input's dimension must equal the second input's inner dimension."
+    assert (in'.dim = out.dim) "Second input must have the same dimension as the output."
+
+    inl blockDimX = min warp_size (s dim_in)
+    inl blockDimY = min 32 (s dim_in'_a)
+    inl gridDim = min 64 (divup (s dim_in) blockDimX)
+
+    inl in = to_dev_tensor in
+    inl in' = to_dev_tensor in'
+    inl out = to_dev_tensor out
+
+    w.run {
+        gridDim
+        blockDim=blockDimX,blockDimY
+        kernel = cuda 
+            inl grid_for = grid_for {gridDim blockDim}
+            grid_for .x dim_in'_b {body=inl {i} ->
+                inl in = in i .get
+                inl in' j = in' j i
+                inl out j = out j i
+                grid_for .y dim_in'_a {body=inl {i} ->
+                    inl in', out = in' i, out i
+                    out.set (f in in'.get out.get)
+                    }
+                }
+        }
+```
+
+The first half of the kernel is the standard fare - zips, assertions for dimension sizes, calls into `to_dev_tensor`, and determining the block and grid dimensions. The actual kernel part is a bit more interesting than last time.
+
+```
+            inl grid_for = grid_for {gridDim blockDim}
+            grid_for .x dim_in'_b {body=inl {i} ->
+                inl in = in i .get
+                inl in' j = in' j i
+                inl out j = out j i
+                grid_for .y dim_in'_a {body=inl {i} ->
+                    inl in', out = in' i, out i
+                    out.set (f in in'.get out.get)
+                    }
+                }
+```
+
+On the very first line there is an example of partial application on the loop function. `grid_for` is applied with the module holding the block and grid dimensions. Then it is used twice. First it used to iterate over the innermost dimension along the `x` axis.
+
+```
+                inl in = in i .get
+                inl in' j = in' j i
+                inl out j = out j i
+```
+
+Inside the loop, the 1d tensor is indexed into and bound to `in`. But `in'` and `out` are wrapped around instead which has the effect of implicitly rotating them. It is the same as saying, apply the innermost dimesion with `i` later.
+
+```
+                grid_for .y dim_in'_a {body=inl {i} ->
+                    inl in', out = in' i, out i
+                    out.set (f in in'.get out.get)
+                    }
+```
+
+And that is what happens in the inner loop. The same `in` gets passed into `f` `dim_in'_a` number of times which has the effect of replicating it. Of course, often in Cuda programming you do not want to just replicate a tensor along some dimension as that would be wasteful. Instead the true benefit of having flexible kernel function is that they allow fusion which minimizes the number of intermediaries. As Cuda kernels are memory bound, that has a extreme positive effect on performance.
+
+Compilers themselves are utterly incapable of performing such optimizations on their own, so the responsibility for it falls on the user.
+
+That having said, the above kernel is a somewhat trivial example of this as only replicate and a map are fused, but it is possible to go significantly further.
+
+Here is the auxiliary for it.
+
+```
+inl d2_replicate_map w f in in' =
+    indiv join 
+        inl in = zip in
+        inl in' =
+            match in' with
+            | by : int64 -> 
+                inl dim_in :: () = in.dim
+                HostTensor.create {elem_type=(); dim=by,dim_in}
+            | in' -> zip in'
+        inl out = w.CudaTensor.create {elem_type=type f in.elem_type in'.elem_type; dim=in'.dim}
+        d2_replicate_map' w (inl a b _ -> f a b) in in' out
+        stack out
+```
+
+`in'` can also be a scalar value to indicate the size of the outermost dimension. Otherwise it is standard fare, it infers the type of the output, allocates it and passes it to the kernel, and stips the output from the mapping function.
+
+Here is a short example of it in action.
+
+```
+let kernel3 =
+    "kernel3",[cuda_modules],"Does the d2_replicate_map kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl inner_size = 8
+inl outer_size = 8
+
+inl h = HostTensor.init inner_size (const 123)
+inl h' = HostTensor.init (outer_size,inner_size) (inl a b -> a,b)
+inl a1 = s.CudaTensor.from_host_tensor h
+inl a2 = s.CudaTensor.from_host_tensor h'
+inl o1 = s.CudaKernel.d2_replicate_map (inl a b -> a, b) a1 a2
+Tuple.iter s.CudaTensor.print (a1,a2,o1)
+    """
+```
+
+```
+[|123; 123; 123; 123; 123; 123; 123; 123|]
+
+[|
+    [|[0, 0]; [0, 1]; [0, 2]; [0, 3]; [0, 4]; [0, 5]; [0, 6]; [0, 7]|]
+    [|[1, 0]; [1, 1]; [1, 2]; [1, 3]; [1, 4]; [1, 5]; [1, 6]; [1, 7]|]
+    [|[2, 0]; [2, 1]; [2, 2]; [2, 3]; [2, 4]; [2, 5]; [2, 6]; [2, 7]|]
+    [|[3, 0]; [3, 1]; [3, 2]; [3, 3]; [3, 4]; [3, 5]; [3, 6]; [3, 7]|]
+    [|[4, 0]; [4, 1]; [4, 2]; [4, 3]; [4, 4]; [4, 5]; [4, 6]; [4, 7]|]
+    [|[5, 0]; [5, 1]; [5, 2]; [5, 3]; [5, 4]; [5, 5]; [5, 6]; [5, 7]|]
+    [|[6, 0]; [6, 1]; [6, 2]; [6, 3]; [6, 4]; [6, 5]; [6, 6]; [6, 7]|]
+    [|[7, 0]; [7, 1]; [7, 2]; [7, 3]; [7, 4]; [7, 5]; [7, 6]; [7, 7]|]
+|]
+
+[|
+    [|[123, [0, 0]]; [123, [0, 1]]; [123, [0, 2]]; [123, [0, 3]]; [123, [0, 4]]; [123, [0, 5]]; [123, [0, 6]]; [123, [0, 7]]|]
+    [|[123, [1, 0]]; [123, [1, 1]]; [123, [1, 2]]; [123, [1, 3]]; [123, [1, 4]]; [123, [1, 5]]; [123, [1, 6]]; [123, [1, 7]]|]
+    [|[123, [2, 0]]; [123, [2, 1]]; [123, [2, 2]]; [123, [2, 3]]; [123, [2, 4]]; [123, [2, 5]]; [123, [2, 6]]; [123, [2, 7]]|]
+    [|[123, [3, 0]]; [123, [3, 1]]; [123, [3, 2]]; [123, [3, 3]]; [123, [3, 4]]; [123, [3, 5]]; [123, [3, 6]]; [123, [3, 7]]|]
+    [|[123, [4, 0]]; [123, [4, 1]]; [123, [4, 2]]; [123, [4, 3]]; [123, [4, 4]]; [123, [4, 5]]; [123, [4, 6]]; [123, [4, 7]]|]
+    [|[123, [5, 0]]; [123, [5, 1]]; [123, [5, 2]]; [123, [5, 3]]; [123, [5, 4]]; [123, [5, 5]]; [123, [5, 6]]; [123, [5, 7]]|]
+    [|[123, [6, 0]]; [123, [6, 1]]; [123, [6, 2]]; [123, [6, 3]]; [123, [6, 4]]; [123, [6, 5]]; [123, [6, 6]]; [123, [6, 7]]|]
+    [|[123, [7, 0]]; [123, [7, 1]]; [123, [7, 2]]; [123, [7, 3]]; [123, [7, 4]]; [123, [7, 5]]; [123, [7, 6]]; [123, [7, 7]]|]
+|]
+```
+
+#### mapi_d2_redo_map
+
+The inverse of the `d2_replicate` kernel. It reduces the outermost dimension of `in` - in other worse it turn a tensor of dimensions `(a,b)` into `(b)`. It is equivalent to a transpose and then a reduce over the innermost dimension. An alternative to using this kernel would be to blast the target tensor with atomics in a regular map.
+
+```
+/// Maps the two inputs and then reduces the first's outer dimension.
+met mapi_d2_redo_map' w {d with redo neutral_elem} in in' out =
+    inl to_dev_tensor = w.CudaTensor.to_dev_tensor
+    
+    inl in, in', out = zip in, zip in', zip out
+    inl dim_in_a, dim_in_b = in.dim
+    inl dim_in' :: () = in'.dim
+
+    assert (dim_in' = dim_in_b) "Input's inner dimension must equal the output's dimension."
+    assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
+
+    inl blockDimX = lit_min warp_size (s dim_in')
+    inl blockDimY = lit_min 32 (s dim_in_a)
+    inl gridDim = min 64 (divup (s dim_in') blockDimX)
+
+    inl in = to_dev_tensor in
+    inl in' = to_dev_tensor in'
+    inl out = to_dev_tensor out
+    inl map_out = match d with {map_out} -> map_out | _ a _ _ -> a
+
+    w.run {
+        gridDim
+        blockDim=blockDimX,blockDimY
+        kernel = cuda 
+            inl grid_for = grid_for {blockDim gridDim}
+            grid_for .x dim_in_b {body=inl {i} ->
+                inl in j = in j i
+                inl in' = in' i .get
+                inl out = out i
+                inl finally result = out.set (map_out result out.get)
+
+                inl state = 
+                    grid_for .y dim_in_a {state=dyn neutral_elem; body=inl {state i=j} -> 
+                        inl in = in j
+                        match d with
+                        | {map_in} -> redo state (map_in in.get in') 
+                        | {mapi_in} -> redo state (mapi_in i j in.get in') 
+                        | _ -> redo state in.get
+                        }
+                        
+                if blockDim.y > 1 then
+                    inl near_to = blockDim.y
+                    inl ar = 
+                        HostTensor.create {
+                            array_create=array_create_cuda_shared
+                            elem_type=state
+                            dim={from=1; near_to}, blockDim.x
+                            }
+                        |> inl ar i -> ar i threadIdx.x
+
+                    whilecd {
+                        state={near_to state}
+                        cond=inl {near_to} -> near_to >= 2
+                        body=inl {near_to state} ->
+                            inl by = near_to/2 // It might be worth trying `max 1 (near_to/3)`
+                            if threadIdx.y < near_to && threadIdx.y >= by then ar threadIdx.y .set state
+                            syncthreads()
+
+                            {
+                            near_to=by 
+                            state=
+                                if threadIdx.y < by then
+                                    forcd {from=threadIdx.y+by; by near_to state 
+                                        body=inl {state i} -> redo state (ar i .get)
+                                        }
+                                else
+                                    state
+                            }
+                        }
+                    |> inl {state} -> if threadIdx.y = 0 then finally state
+                else
+                    finally state
+            }
+        } |> ignore
+```
+
+Because the Cub does not have a transposed reduction, the author had to implement it on his own.
+
+In order to understand what the kernel is doing, first is required to visualize it. Imagine a 96x32 tensor and one block of size 32x32.
+
+What that block does is covers [0,31]x[0,31] and loads from main memory, does the reduction in place with the neutral element, slides to [32,63]x[0,31] and loads from main memory, does the reduction in place with the previous state, slides to [64,95]x[0,31] and loads from main memory, and does the final inplace reduction.
+
+```
+                inl state = 
+                    grid_for .y dim_in_a {state=dyn neutral_elem; body=inl {state i=j} -> 
+                        inl in = in j
+                        match d with
+                        | {map_in} -> redo state (map_in in.get in') 
+                        | {mapi_in} -> redo state (mapi_in i j in.get in') 
+                        | _ -> redo state in.get
+                        }
+```
+
+What was described above corresponds to this piece of code.
+
+There are now 32x32 threads in a block, each having their own `state` which after blockwise reduction will be reduced to 1x32 and then stored into the output tensor.
+
+```
+                if blockDim.y > 1 then
+                    ...
+                else
+                    finally state
+```
+
+Obviously if the number of outermost threads is 1 then the tensor is already reduced and can be outputted.
+
+Otherwise a block wide reduction is performed.
+
+```
+                    inl near_to = blockDim.y
+                    inl ar = 
+                        HostTensor.create {
+                            array_create=array_create_cuda_shared
+                            elem_type=state
+                            dim={from=1; near_to}, blockDim.x
+                            }
+                        |> inl ar i -> ar i threadIdx.x
+```
+
+It starts by defining a shared memory tensor. Immediatelly after creating it wrapped with a function that applies it with `threadIdx.x` along the innermost dimension. This simple technique of functional programming is greatly useful in facilitating reasoning.
+
+Whereas previously it was needed to reason about a 2d tensor, it now becomes effectively a 1d tensor and that other dimension can be assumed taken care of and left out of mind.
+
+Describing how to reduce a 1d tensor is not too complicated. Imagine the goal is to reduce a 1d tensor of size 8. At creation the tensor is unitialized, so it will be described as thus.
+
+```
+01234567
+________
+```
+
+To reduce it in shared memory, the right half of the threads would need to write their states into it.
+
+```
+01234567
+____aaaa
+```
+
+Then a block synchronization is done and the left half of the threads (`0123`) reads from the tensor. They then performs the reduction with the `state` in their registers.
+
+```
+0123
+____
+```
+
+No need to synchronize here. `23` store their states into shared memory.
+
+```
+0123
+__bb
+```
+
+Then they synchronize. After that `01` read from `23` and perform the reduction with the state currently in their memory.
+
+```
+01
+__
+```
+
+The process is then repeated again. `1` stores...
+
+```
+01
+_c
+```
+
+...a block synchronization happens, and then `0` reads it and does the final reduction.
+
+```
+                    whilecd {
+                        state={near_to state}
+                        cond=inl {near_to} -> near_to >= 2
+                        body=inl {near_to state} ->
+                            inl by = near_to/2 // It might be worth trying `max 1 (near_to/3)`
+                            if threadIdx.y < near_to && threadIdx.y >= by then ar threadIdx.y .set state
+                            syncthreads()
+
+                            {
+                            near_to=by 
+                            state=
+                                if threadIdx.y < by then
+                                    forcd {from=threadIdx.y+by; by near_to state 
+                                        body=inl {state i} -> redo state (ar i .get)
+                                        }
+                                else
+                                    state
+                            }
+                        }
+```
+
+What was described above is what essentially happens in the code above. The action only happens along the `y` axis which makes reasoning easy. Tensor as a abstraction and stateful loops provide a definite benefit in terms reasoning. If the above was Cuda C code, then the programmer would be forced to reason about offsets, indices, mutation and various other things.
+
+```
+|> inl {state} -> if threadIdx.y = 0 then finally state
+```
+
+After the reduction is done, the `state` which is the final result is shipped of to be outputted to `finally`.
+
+```
+inl finally result = out.set (map_out result out.get)
+```
+
+It was bound to the environment around 40 lines ago.
+
+Before the explanation is done there also one subtle point that needs to be made about shared memory array sizing.
+
+```
+HostTensor.create {
+    array_create=array_create_cuda_shared
+    elem_type=state
+    dim={from=1; near_to}, blockDim.x
+    }
+```
+
+Based on the example shown...
+
+```
+01
+_c
+```
+
+0 never gets used so it should be clear why it was chosen that the outer dimension should start from 1. It is a nice way of preserving memory.
+
+```
+01234567
+_cbbaaaa
+```
+
+But on closer examination the actual access pattern is like this.
+
+Would it not be possible to reuse more memory so as to require only 4 slots instead of 7?
+
+```
+01234567
+____aaaa
+____bb
+____c
+```
+
+Something like this? It would be possible, but it would increase the overall latency of the scheme because another call to synchronize would be needed between operations. Cuda makes very little guarantees about order of execution, so without an extra synchronize at the end what might happen is the `bb`s might be written before `aaaa`s finish reading.
+
+It is easier to just use an extra bit of memory to not have to deal with data races.
+
+##### Example
+
+```
+let kernel4 =
+    "kernel4",[cuda_modules],"Does the mapi_d2_redo_map' kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl inner_size = 10
+inl outer_size = 4
+
+inl h = HostTensor.init (outer_size,inner_size) (inl _ x -> x)
+inl h' = HostTensor.init inner_size id
+inl a1 = s.CudaTensor.from_host_tensor h
+inl a2 = s.CudaTensor.from_host_tensor h'
+inl o = 
+    s.CudaKernel.mapi_d2_redo_map {
+        map_in=(+)
+        neutral_elem=0; redo=(+)
+        } a1 a2
+Tuple.iter s.CudaTensor.print (a1,a2,o)
+    """
+```
+
+```
+[|
+    [|0; 1; 2; 3; 4; 5; 6; 7; 8; 9|]
+    [|0; 1; 2; 3; 4; 5; 6; 7; 8; 9|]
+    [|0; 1; 2; 3; 4; 5; 6; 7; 8; 9|]
+    [|0; 1; 2; 3; 4; 5; 6; 7; 8; 9|]
+|]
+
+[|0; 1; 2; 3; 4; 5; 6; 7; 8; 9|]
+
+[|0; 8; 16; 24; 32; 40; 48; 56; 64; 72|]
+```
+
+It should be noted that the reduction kernel is also capable of replicating one of its arguments during the first map phase.
+
+#### mapi_d1_seq_broadcast
+
+...
 
 ## User Guide: The Spiral Power
 

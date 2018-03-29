@@ -954,13 +954,12 @@ met map_inscan_map' w {d with redo neutral_elem} in out =
                 }
         }
 
-/// Flattens the tensor to 1d, maps, reduces it and maps it.
+/// Zips, flattens the tensor to 1d, maps, reduces it and maps it.
 /// Map is optional. Allocates a temporary tensor for the intermediary results.
 inl map_redo_map w {d with redo neutral_elem} in =
     indiv join
         inl to_dev_tensor = w.CudaTensor.to_dev_tensor
    
-        inl in = zip in |> flatten
         inl run {map_out map_in blockDim gridDim} (!to_dev_tensor in) =
             inl in_a :: () = in.dim
             inl out = w.CudaTensor.create {elem_type=type map_in in.elem_type |> map_out; dim=gridDim}
@@ -977,6 +976,7 @@ inl map_redo_map w {d with redo neutral_elem} in =
 
             out
 
+        inl in = zip in |> flatten
         inl map_in = match d with {map_in} -> map_in | _ -> id
         inl map_out = match d with {map_out} -> map_out | _ -> id
 
@@ -994,7 +994,7 @@ inl map_redo_map w {d with redo neutral_elem} in =
         r 0 |> stack
         
 
-/// Replicates the 1d `in` and maps it along the outer dimension as determined by in'.
+/// Replicates the 1d `in` and maps it along the outer dimension as determined by `in'`.
 met d2_replicate_map' w f in in' out =
     inl to_dev_tensor = w.CudaTensor.to_dev_tensor
     
@@ -1019,12 +1019,12 @@ met d2_replicate_map' w f in in' out =
         kernel = cuda 
             inl grid_for = grid_for {gridDim blockDim}
             grid_for .x dim_in'_b {body=inl {i} ->
-                inl in = in i
-                inl in' j = in' j i .get
+                inl in = in i .get
+                inl in' j = in' j i
                 inl out j = out j i
                 grid_for .y dim_in'_a {body=inl {i} ->
                     inl in', out = in' i, out i
-                    out.set (f in.get in' out.get)
+                    out.set (f in in'.get out.get)
                     }
                 }
         }
@@ -1464,7 +1464,7 @@ inl map_dx_redo_map_template select kernel w d in in' =
         inl map_out, elem_type = 
             inl map_in = match d with {map_in} -> map_in | {mapi_in} -> mapi_in (dyn 0) (dyn 0) | _ -> const
             inl ty = type map_in in.elem_type in'.elem_type
-            match d with {map_out} -> (inl a _ -> map_out a),(type map_out ty) | _ -> const a, ty
+            match d with {map_out} -> (inl a _ -> map_out a),(type map_out ty) | _ -> const, ty
         inl out = w.CudaTensor.create {elem_type dim=in'.dim}
         kernel w {d with map_out} in in' out
         stack out
