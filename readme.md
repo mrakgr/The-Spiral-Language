@@ -58,7 +58,7 @@
                 - [Example](#example-1)
             - [mapi_d1_seq_broadcast](#mapi_d1_seq_broadcast)
                 - [The Softmax Activation](#the-softmax-activation)
-        - [9: Deep Learning](#9-deep-learning)
+        - [9: Deep Learning Basics](#9-deep-learning-basics)
     - [User Guide: The Spiral Power](#user-guide-the-spiral-power)
         - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
         - [2: Let Insertion and Common Subexpression Elimination](#2-let-insertion-and-common-subexpression-elimination)
@@ -6546,18 +6546,19 @@ Going forward, it is important to keep in mind that `max` and `sum` are reduce o
 Here is the forward phase.
 
 ```
-s.CudaKernel.mapi_d1_seq_broadcast {
-    seq = 
-        {
-        redo=max // max x
-        map_out=inl x max_x -> exp (x - max_x) // exp (x - replicate max_x)
-        }
-        ,
-        {
-        redo=(+) // sum z
-        map_out=inl z sum_z -> z / sum_z // z / replicate sum_z
-        }
-    } x
+inl z =
+    s.CudaKernel.mapi_d1_seq_broadcast {
+        seq = 
+            {
+            redo=max // max x
+            map_out=inl x max_x -> exp (x - max_x) // exp (x - replicate max_x)
+            }
+            ,
+            {
+            redo=(+) // sum z
+            map_out=inl z sum_z -> z / sum_z // z / replicate sum_z
+            }
+        } (primal x)
 ```
 
 The second argument in `map_out` is implicitly replicated. That is the softmax forward.
@@ -6763,21 +6764,39 @@ dx += (dz - replicate er) * z
 Those 6 steps comes out to this form which can be easily fused into a single call of the `seq_broadcast` kernel.
 
 ```
-s.CudaKernel.mapi_d1_seq_broadcast {
+s.CudaKernel.mapi_d1_seq_broadcast' {
     seq = 
         {
         map_in=inl z,dz -> z*dz
         redo=(+)
-        map_out=inl (z,dz) er -> (dz - er) * z
+        map_out=inl (z,dz) er dx -> dx + (dz - er) * z
         }
-    } (primal z, adjoint z)
+    } (primal z, adjoint z) (adjoint x)
 ```
 
-### 9: Deep Learning
+### 9: Deep Learning Basics
 
 (work in progress)
 
-...
+At the time of writing this it is almost Apiral 2018.
+
+Currently, the two dominant deep learning frameworks are without exception Tensorflow by Google and PyTorch by Facebook. Both are written in C++ and expose a Python front end from which everybody accesses them. It is by no means unusual that big corporate sponsored frameworks would be widely used, but it is interesting to look at the deep learning ecosystems in other languages. What is precisely interesting is that they are non-existent and most of the attempts at making frameworks have pettered out.
+
+In a broader sense, what ML capabilities non-Python ecosystems have tend to be on the shallower end of learning which does not need the extreme GPU capabilities Spiral has.
+
+Deep learning has been popular for half a decade at least now, and had it been possible to make a great DL library in say F# (.NET), Scala (JVM), Haskell or Racket, then one can be sure that this would already have happened. The reason for that is that languages without first class staging have very deep flaws that preclude them from having effective Cuda backends and GPU abstractions. There is very little languages contructed in the classical manner whether they be static or dynamic offer in the making of deep learning library.
+
+Statically typed languages have type systems that are simply too weak to be useful and dynamically typed languages are simply too inefficient. And Lisp macros are not a substitute for first class staged functions and join points.
+
+Hence it is easy to predict that great libraries will not get made in any of the aforementioned languages nor in any of the mainstream languages that aren't C++. At best, .NET for example might get bindings for Tensorflow or CNTK if it has not already.
+
+And though Tensorflow, CNTK and PyTorch are written in C++ that is hardly a beaming recomendation for the language. C++ is widely known enough that its quality as a language can stand for itself.
+
+Making a machine learning library is hard enough to crush most langauges, but Spiral can make it a lot easier and the hows of that is what will be covered in this chapter. However, this is a language tutorial and not a deep learning tutorial so what won't be covered is to how to actual use deep learning to do interesting things. Instead it will be about library construction.
+
+It has been a very long road for the author to get to this point so he is eager to present this!
+
+
 
 ## User Guide: The Spiral Power
 
