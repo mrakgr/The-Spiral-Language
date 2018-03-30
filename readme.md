@@ -59,6 +59,7 @@
             - [mapi_d1_seq_broadcast](#mapi_d1_seq_broadcast)
                 - [The Softmax Activation](#the-softmax-activation)
         - [9: Deep Learning Basics](#9-deep-learning-basics)
+            - [Primitives](#primitives)
     - [User Guide: The Spiral Power](#user-guide-the-spiral-power)
         - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
         - [2: Let Insertion and Common Subexpression Elimination](#2-let-insertion-and-common-subexpression-elimination)
@@ -6794,7 +6795,46 @@ And though Tensorflow, CNTK and PyTorch are written in C++ that is hardly a beam
 
 Making a machine learning library is hard enough to crush most langauges, but Spiral can make it a lot easier and the hows of that is what will be covered in this chapter. However, this is a language tutorial and not a deep learning tutorial so what won't be covered is to how to actual use deep learning to do interesting things. Instead it will be about library construction.
 
-It has been a very long road for the author to get to this point so he is eager to present this!
+It has been a very long road for the author to get to this point so he is eager to present this.
+
+#### Primitives
+
+At the time of writing the Spiral `Learning` library is quite small, but it has some advanced capabities so this is the ideal point to introduce it before it gets any bigger. The one limitation it has on it is that it is restricted to first order [automatic diffentiation](https://en.wikipedia.org/wiki/Automatic_differentiation). It would be possible to build a library that supports higher order AD in Spiral, but decision to support higher order AD is not a trivial one to make.
+
+It would add very non-negligible maintenance burden on it, and it possibly make it difficult to provide effective optimization. Higher order AD does not have a particularly good track record on practical use in deep learning anyway.
+
+For those not familiar with it, higher order AD would essentially allow adaptive learning methods and possibly metalearning methods like MAML, but while first order AD takes only a single pass per datapoint, higher order AD would require `n` passes per datapoint where the `n` is the number of parameters in the network. And approximated higher order methods require the whole dataset to be operated at once and do not allow minibatching.
+
+Spiral's ML library is intended to be of great practical use. It needs to me simple to entend and understand. It needs to be both highly flexible and performant.
+
+So the dual number it uses internally is of the primal and adjoint variety.
+
+```
+inl float ->
+    // #Primitives
+    inl zero = to float 0
+    inl one = to float 1
+    inl two = to float 2
+    inl infinity =
+        match float with
+        | _: float32 -> infinityf32
+        | _: float64 -> infinityf64
+
+    inl primal = function {primal} | primal -> primal
+    inl adjoint = function {adjoint} -> adjoint | _ -> .nil
+
+    inl primals = Struct.map primal
+    inl adjoints = Struct.map adjoint
+
+    inl on_non_nil B ret =
+        match B with
+        | .nil -> .nil
+        | B -> ret B
+
+    inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
+```
+
+The library takes the type of the floating point number it is operating on as its first argument.
 
 
 
