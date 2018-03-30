@@ -6757,10 +6757,10 @@ dx += (dz - replicate er) * v / r
 ```
 ...
 ```
-dx += (dz - er) * z
+dx += (dz - replicate er) * z
 ```
 
-Those 6 steps comes out to this form which can be easily fused into a single step using the `seq_broadcast` kernel.
+Those 6 steps comes out to this form which can be easily fused into a single call of the `seq_broadcast` kernel.
 
 ```
 s.CudaKernel.mapi_d1_seq_broadcast {
