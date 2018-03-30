@@ -348,13 +348,13 @@ inl o1 = // Softmax forward
     s.CudaKernel.mapi_d1_seq_broadcast {
         seq = 
             {
-            redo=max
-            map_out=inl a b -> a - b |> exp
+            redo=max // max x
+            map_out=inl x max_x -> exp (x - max_x) // exp (x - replicate max_x)
             }
             ,
             {
-            redo=(+)
-            map_out=(/)
+            redo=(+) // sum z
+            map_out=inl z sum_z -> z / sum_z // z / replicate sum_z
             }
         } a1
 
@@ -368,9 +368,9 @@ inl o3 = // Softmax backward
     s.CudaKernel.mapi_d1_seq_broadcast {
         seq = 
             {
-            map_in=inl in,er -> in*er
+            map_in=inl z,dz -> z*dz
             redo=(+)
-            map_out=inl (in,er) sum -> (er - sum) * in
+            map_out=inl (z,dz) er -> (dz - er) * z
             }
         } (a1,a2)
 
@@ -845,7 +845,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel11
 |> printfn "%s"
 |> ignore
 

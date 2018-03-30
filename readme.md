@@ -57,7 +57,8 @@
             - [mapi_d2_redo_map](#mapi_d2_redo_map)
                 - [Example](#example-1)
             - [mapi_d1_seq_broadcast](#mapi_d1_seq_broadcast)
-                - [TODO](#todo)
+                - [The Softmax Activation](#the-softmax-activation)
+        - [9: Deep Learning](#9-deep-learning)
     - [User Guide: The Spiral Power](#user-guide-the-spiral-power)
         - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
         - [2: Let Insertion and Common Subexpression Elimination](#2-let-insertion-and-common-subexpression-elimination)
@@ -5386,8 +5387,6 @@ s.data.context
 
 ### 8: GPU Programming Basics
 
-(work in progress)
-
 The fun stuff starts past this point. GPU programming, deep learning, reinforcement learning, games...those are just a few areas in which Spiral's potential far exceeds those of other languages, and while the previous chapters can be considered done, these will be work in progress going into the future.
 
 GPU programming is well worth learning for those interested in drawing out as most performance as is possible from the machine, and lessons from it tranfer over into CPU programming. At some point Spiral will drop Cuda and switch to supporting neural computing architectures, and when that happens the lesson learning in the GPU arena can be expected to transfer. The reason for that will be because those architectures will be similar to GPUs except with a lot more local memory.
@@ -6511,7 +6510,272 @@ If the current element in the sequence is last, then the result of appyling `map
 
 Otherwise, it needs to create a new itermediate tensor and then sets the result of applying `map_out` or `mapi_out` to each element of the `items` tensor to it. Then it passes that as input to the next operation in the sequence.
 
-##### TODO
+##### The Softmax Activation
+
+The softmax activation will be covered here and the more complex layer normalization activation will be covered in the following chapter.
+
+```
+inl softmax x = exp x / replicate (sum (exp x))
+```
+
+The above is softmax in pseudo-code. `x` is a vector type.
+
+Alternatively, it would be better to start with this...
+
+```
+inl softmax x = 
+    inl z = exp x
+    z / replicate (sum z)
+```
+
+`sum` sums up all the values of a vector into a scalar, and replicate unfolds the scalar into a vector each holding the same values.
+
+Futhermore, for numerical stability the following trick is often employed in softmax.
+
+```
+inl softmax x = 
+    inl max_x = replicate (max x)
+    inl z = exp (x - max_x)
+    z / replicate (sum z)
+```
+
+This has no effect on the way gradients are propagated during the backwards step. Derivative of  `x - max_x` with respect to `x` is just 1. `max_x` is considered to be a constant. Shifting the input to softmax by a constant does not affect the result during stable regimes, but if the inputs are unstable then they will trend towards 0 rather that towards infinity.
+
+Going forward, it is important to keep in mind that `max` and `sum` are reduce operations, and `exp` is a map operation. The kernel described in this chapter makes it possible to succintly implement both softmax's forward and backward phases.
+
+Here is the forward phase.
+
+```
+s.CudaKernel.mapi_d1_seq_broadcast {
+    seq = 
+        {
+        redo=max // max x
+        map_out=inl x max_x -> exp (x - max_x) // exp (x - replicate max_x)
+        }
+        ,
+        {
+        redo=(+) // sum z
+        map_out=inl z sum_z -> z / sum_z // z / replicate sum_z
+        }
+    } x
+```
+
+The second argument in `map_out` is implicitly replicated. That is the softmax forward.
+
+Assuming the output is present the backward step can be done in one step.
+
+```
+inl softmax x = exp x / replicate (sum (exp x))
+```
+
+Let me put this up once more. For easy of rewriting the sum will be factored out...
+
+```
+inl softmax x = 
+    inl s = replicate (sum (exp x))
+    exp x / s
+```
+
+There are [tutorials](https://eli.thegreenplace.net/2016/the-softmax-function-and-its-derivative/) that show how to take the derivative analytically, but for show it will be done here by emulating how automatic differentiation would take the trace through the above.
+
+Here are a few simple rules.
+
+```
+o = a / b
+da += do / b
+db += -do * da / (b * b)
+```
+
+This is the AD rule for propagating adjoints (gradients) through division.
+
+```
+o = replicate x
+dx += sum do
+```
+
+This is the rule for propagating gradients through `replicate`. It is a sumation.
+
+```
+o = sum x
+dx += replicate o
+```
+
+The rule for propagating gradients through summation is the opposite of the previous one.
+
+```
+o = exp x
+dx += do * exp x
+```
+
+With this last rule, we are all set to trace the derivative of the softmax with respect to its input.
+
+```
+inl v = exp x
+inl s = sum v
+inl r = replicate s
+inl z = v / r
+```
+
+This is just the softmax split into individual pieces similarly to how the compiler would do let insertion.
+
+```
+inl z = v / r
+```
+
+Starting with this, the gradients are propagated through `v` and `r`.
+
+```
+// inl z = v / r
+dv += dz / r
+dr += -dz * v / (r * r)
+```
+
+AD is sensitive to the ordering operations. The backwards pass needs to be done exactly in the opposite way of forward pass.
+
+```
+//inl r = replicate s
+ds += sum dr
+```
+...
+```
+//inl s = sum v
+dv += replicate ds
+```
+...
+```
+// inl v = exp x
+dx += dv * v
+```
+
+Here are all the steps on the same page.
+
+```
+dv += dz / r
+dr += -dz * v / (r * r)
+ds += sum dr
+dv += replicate ds
+dx += dv * v
+```
+
+A naive AD implementation would do the above in 5 different steps. The goal of making Spiral was to allow fusion of the above steps into a single one. The top part of the division...
+
+```
+dv += dz / r
+```
+
+...does not do reduction so can be implemented as a map. The bottom part is a bit more intricate.
+
+```
+dr += -dz * v / (r * r)
+```
+
+Immediatelly here is a chance to simplify a little. Recall that `z = v / r`, hence...
+
+```
+dr += -dz * z / r
+```
+
+Then comes the next step.
+
+```
+ds += sum dr
+```
+
+After substitition that becomes.
+
+```
+ds += sum (-dz * z / r) 
+```
+
+As `r` does not vary that is equivalent to...
+
+```
+ds += sum (-dz * z) / sum r
+```
+
+`sum r` is just `s`. The minus can be take out as well.
+
+```
+ds += -sum (dz * z) / s
+```
+
+For the sake of simplicity, `sum (dz * z)` will be rename to `er`.
+
+```
+inl er = sum (dz * z)
+```
+
+So the operation after all the simplification would be...
+
+```
+ds += -er / s
+```
+
+The next step is...
+
+```
+dv += replicate ds
+```
+...
+```
+dv += replicate (-er / s)
+```
+...
+```
+dv += - replicate er / replicate s
+```
+...
+```
+dv += - replicate er / r
+```
+
+There is one more step of rewriting that can be done here. Recall that there are two additions into `dv` and `dv` itself is not used inbetween.
+
+```
+dv += dz / r
+dv += - replicate er / r
+```
+
+The above can be simplified into.
+
+```
+inl dv = dz / r - replicate er / r
+```
+...
+```
+inl dv = (dz - replicate er) / r
+```
+
+Now comes the final step.
+
+```
+dx += dv * v
+```
+...
+```
+dx += (dz - replicate er) * v / r
+```
+...
+```
+dx += (dz - er) * z
+```
+
+Those 6 steps comes out to this form which can be easily fused into a single step using the `seq_broadcast` kernel.
+
+```
+s.CudaKernel.mapi_d1_seq_broadcast {
+    seq = 
+        {
+        map_in=inl z,dz -> z*dz
+        redo=(+)
+        map_out=inl (z,dz) er -> (dz - er) * z
+        }
+    } (primal z, adjoint z)
+```
+
+### 9: Deep Learning
+
+(work in progress)
 
 ...
 
