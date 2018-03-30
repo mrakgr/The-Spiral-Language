@@ -1597,14 +1597,14 @@ inl float ->
         | _: float64 -> infinityf64
 
     inl primal = function {primal} | primal -> primal
-    inl adjoint = function {adjoint} -> adjoint | _ -> .nil
+    inl adjoint = function {adjoint} -> adjoint | _ -> ()
 
     inl primals = Struct.map primal
     inl adjoints = Struct.map adjoint
 
     inl on_non_nil B ret =
         match B with
-        | .nil -> .nil
+        | () -> ()
         | B -> ret B
 
     inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
@@ -1640,7 +1640,7 @@ inl float ->
     inl choose_adjoints in bck =
         Struct.choose2 (function
             | {primal adjoint} bck -> {adjoint bck block=()}
-            | _ _ -> .nil) in bck
+            | _ _ -> ()) in bck
         |> inl x -> Struct.map (inl x -> x.adjoint) x, Struct.map (inl x -> x.bck) x
             
     inl map {fwd bck} in s =
@@ -1983,13 +1983,13 @@ inl float ->
             | .parallel -> x.sublayer, d
             | .feedforward ->
                 inl value, bck = indiv join
-                    inl a, b = x.apply x.weights.nil x.sublayer s
+                    inl a, b = x.apply (x.weights()) x.sublayer s
                     stack (a, term_cast b ())
                 value, {d with bck = apply_bck self bck}
             | .recurrent ->
                 inl state = match d.state with {$gid=state} -> state | _ -> ()
                 inl (value, state), bck = indiv join
-                    inl a, b = x.apply x.weights.nil state x.sublayer s
+                    inl a, b = x.apply (x.weights()) state x.sublayer s
                     stack (a, term_cast b ())
                 value, {d with bck = apply_bck self bck; state = {self with $gid=state}}
             ) x d
@@ -2008,8 +2008,8 @@ inl float ->
                 inl streams = 
                     Struct.choose (function
                         | {stream=x} -> stream.wait_on x; x
-                        | _ -> .nil) x.sublayer
-                    |> function .nil -> () | x -> x
+                        | _ -> ()) x.sublayer
+
                 
 
                 inl wait_bck b =
@@ -2029,13 +2029,13 @@ inl float ->
                     {value stream block=()}, d
                 | .feedforward ->
                     inl value, bck = indiv join
-                        inl a, b = x.apply x.weights.nil values s
+                        inl a, b = x.apply (x.weights()) values s
                         stack (a, wait_bck b)
                     {value stream block=()}, {d with bck = apply_bck self bck}
                 | .recurrent ->
                     inl state = match d.state with {$gid=state} -> state | _ -> ()
                     inl (value, state), bck = indiv join
-                        inl a, b = x.apply x.weights.nil state values s
+                        inl a, b = x.apply (x.weights()) state values s
                         stack (a, wait_bck b)
                     {value stream block=()}, {d with bck = apply_bck self bck; state = {self with $gid=state}}
                 ) x d

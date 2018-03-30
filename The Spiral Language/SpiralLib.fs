@@ -93,7 +93,7 @@ inl iteri f = foldl f 0
 inl rec choose f = function
     | a :: a' ->
         match f a with
-        | .nil -> choose f a'
+        | () -> choose f a'
         | x -> x :: choose f a'
     | () -> ()
 
@@ -107,7 +107,7 @@ inl rec choose2 f a b =
     match a, b with
     | a :: as', b :: bs' -> 
         match f a b with
-        | .nil -> choose2 f as' bs'
+        | () -> choose2 f as' bs'
         | x -> x :: choose2 f as' bs'
     | (), () -> ()
     | _ -> error_type "The two tuples have uneven lengths." 
@@ -1086,12 +1086,12 @@ inl choose f x =
         | () -> ()
         | x :: xs -> 
             match loop x with
-            | .nil -> loop xs
+            | () -> loop xs
             | x -> x :: loop xs
         | {!block} & x -> 
             module_foldl (inl k s x -> 
                 match loop x with
-                | .nil -> s
+                | () -> s
                 | x -> module_add k x s
                 ) {} x
         | x -> f x
@@ -1102,14 +1102,14 @@ inl choose2 f a b =
         | x, y when caseable_box_is x || caseable_box_is y -> f x y
         | x :: xs, y :: ys ->
             match loop (x,y) with
-            | .nil -> loop (xs,ys)
+            | () -> loop (xs,ys)
             | x -> x :: loop (xs,ys)
         | (), () -> ()
         | (), _ | _, () -> error_type "Tuple dimensions do not match."
         | {!block} & x, {!block} & y ->
             module_foldl (inl k s x -> 
                 match loop (x,y k) with
-                | .nil -> s
+                | () -> s
                 | x -> module_add k x s
                 ) {} x
         | x, y -> f x y
@@ -1120,14 +1120,14 @@ inl choose3 f a b c =
         | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z
         | x :: xs, y :: ys, z :: zs -> 
             match loop (x,y,z) with
-            | .nil -> loop (xs,ys,zs)
+            | () -> loop (xs,ys,zs)
             | x -> x :: loop (xs,ys,zs)
         | (), (), () -> ()
         | (), _, _ | _, (), _ | _, _, () -> error_type "Tuple dimensions do not match."
         | {!block} & x, {!block} & y, {!block} & z -> 
             module_foldl (inl k s x -> 
                 match loop (x,y k,z k) with
-                | .nil -> s
+                | () -> s
                 | x -> module_add k x s
                 ) {} x
         | x, y, z -> f x y z
@@ -1440,18 +1440,18 @@ inl array_as_tensor ar = facade {dim=map_dims (array_length ar); bodies={ar size
 inl array_to_tensor = array_as_tensor >> copy
 
 /// Asserts that all the dimensions of the tensors are equal. Returns the dimension of the first tensor if applicable.
-/// tensor structure -> (tensor | .nil)
+/// tensor structure -> (tensor | ())
 inl assert_zip l =
     Struct.foldl (inl s x ->
         match s with
-        | .nil -> x
-        | s -> assert (s.dim = x.dim) "All tensors in zip need to have the same dimensions"; s) .nil l
+        | () -> x
+        | s -> assert (s.dim = x.dim) "All tensors in zip need to have the same dimensions"; s) () l
 
 /// Zips all the tensors in the argument together. Their dimensions must be equal.
 /// tensor structure -> tensor
 inl zip l = 
     match assert_zip l with
-    | .nil -> error_type "Empty inputs to zip are not allowed."
+    | () -> error_type "Empty inputs to zip are not allowed."
     | !(inl x -> x.unwrap) tns -> facade {tns with bodies=Struct.map (inl x -> x.bodies) l}
 
 /// Are all subtensors structurally equal?

@@ -6821,22 +6821,24 @@ inl float ->
         | _: float64 -> infinityf64
 
     inl primal = function {primal} | primal -> primal
-    inl adjoint = function {adjoint} -> adjoint | _ -> .nil
+    inl adjoint = function {adjoint} -> adjoint | _ -> ()
 
     inl primals = Struct.map primal
     inl adjoints = Struct.map adjoint
 
     inl on_non_nil B ret =
         match B with
-        | .nil -> .nil
+        | () -> ()
         | B -> ret B
 
     inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
 ```
 
-The library takes the type of the floating point number it is operating on as its first argument.
+The library takes the type of the floating point number it is operating on as its first argument. This is generally used to convert literals to `float32` values at compile time and such since Spiral does not allow implicit conversions. `zero`, `one`, `two` and `infinity` are just some constants set up for convenience.
 
+`Struct.map` is just the `toa_map` from the Tensor chapter. Since functions that iterate over arbitrary types are so often used in Spiral, they have their own `Struct` module now.
 
+...
 
 ## User Guide: The Spiral Power
 
