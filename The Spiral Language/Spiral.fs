@@ -1838,8 +1838,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let pp = operatorChar ':'
         let pp' = skipChar ':' >>. spaces
         let semicolon' = operatorChar ';'
-        let semicolon = semicolon' >>=? fun _ s -> 
-            if s.Line <> s.UserState.semicolon_line then Reply(())
+        let semicolon (s: CharStream<_>) = 
+            if s.Line <> s.UserState.semicolon_line then semicolon' s
             else Reply(ReplyStatus.Error, messageError "cannot parse ; on this line") 
         let eq = operatorChar '=' 
         let eq' = skipChar '=' >>. spaces
@@ -2301,14 +2301,16 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | [ParserStatement _] -> error_statement_in_last_pos
                 | ParserStatement a :: xs -> process_parser_exprs (a >> on_succ) xs
                 | ParserExpr a :: xs -> process_parser_exprs (l "" (error_non_unit a) >> on_succ) xs
-                | [] -> preturn B
+                | [] -> on_succ B
             
-            process_parser_exprs preturn exprs
+            process_parser_exprs preturn (List.concat exprs)
 
         let indentations statements expressions (s: CharStream<Userstate>) =
             let i = col s
             let inline if_ op tr s = expr_indent i op tr s
-            let inline many_indents expr = many1 (if_ (<=) (expr .>> optional semicolon))
+
+            let inline many_semis expr = many (if_ (<) semicolon >>. if_ (<) expr)
+            let inline many_indents expr = many1 (if_ (=) (pipe2 expr (many_semis expr) (fun a b -> a :: b)))
             many_indents ((statements |>> ParserStatement) <|> (exprpos expressions |>> ParserExpr)) >>= process_parser_exprs <| s
 
         let application expr (s: CharStream<_>) =

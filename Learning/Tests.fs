@@ -845,7 +845,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel11
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" tutorial1
 |> printfn "%s"
 |> ignore
 

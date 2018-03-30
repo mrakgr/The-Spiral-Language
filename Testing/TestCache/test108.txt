@@ -1,0 +1,4 @@
+Error in test108: Ln: 3 Col: 5
+    2
+    ^
+Expecting: end of input, ',', '//', ':', ':=', ';', '<-' or '\\/'
