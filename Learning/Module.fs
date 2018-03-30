@@ -1628,8 +1628,8 @@ inl float ->
             inl C' = adjoint C
             inl l =
                 Tuple.iter (inl A, B -> 
-                    on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A) |> ignore
-                    on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B) |> ignore
+                    on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A)
+                    on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B)
                     ) l
             match bias with
             | () -> ()

@@ -60,6 +60,7 @@
                 - [The Softmax Activation](#the-softmax-activation)
         - [9: Deep Learning Basics](#9-deep-learning-basics)
             - [Primitives](#primitives)
+                - [Future Work - Matrix Multiplication](#future-work---matrix-multiplication)
     - [User Guide: The Spiral Power](#user-guide-the-spiral-power)
         - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
         - [2: Let Insertion and Common Subexpression Elimination](#2-let-insertion-and-common-subexpression-elimination)
@@ -6838,7 +6839,123 @@ The library takes the type of the floating point number it is operating on as it
 
 `Struct.map` is just the `toa_map` from the Tensor chapter. Since functions that iterate over arbitrary types are so often used in Spiral, they have their own `Struct` module now.
 
+`dr` takes in context and the primal and creates a dual with the adjoint set to zero.
+
+`on_non_nil` is just a utility function.
+
 ...
+
+##### Future Work - Matrix Multiplication
+
+This part will be unusual since usually the good parts of the library would want to be highlighted, but the quality of this function is poor. Nonetheless it is absolutely indispensable.
+
+Before it is shown, here is a short primer on how AD is done through matrix multiplication. `.T` represents matrix transpose.
+
+```
+C = A * B
+dA += C * B.T
+dB += A.T * C
+```
+
+Here is the function that implements that. It also adds the bias term.
+
+```
+    inl matmultb l bias s = 
+        inl l =
+            match l with
+            | () -> error_type "The first argument must not be empty."
+            | (_,_) :: _ -> l
+            | _ :: _ -> l :: ()
+        inl C = 
+            Tuple.foldl (inl C (A,B) ->
+                match C with
+                | () -> s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
+                | C -> s.CudaBlas.gemm' .nT .nT one (primal A) (primal B) one (primal C); C
+                ) () l
+        match bias with
+        | () -> ()
+        | _ -> s.CudaKernel.d2_replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
+        C, inl _ -> join
+            inl C' = adjoint C
+            inl l =
+                Tuple.iter (inl A, B -> 
+                    on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A)
+                    on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B)
+                    ) l
+            match bias with
+            | () -> ()
+            | _ -> on_non_nil (adjoint bias) (inl bias -> s.CudaKernel.mapi_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
+```
+
+As a rough example of how it would be used in pseudo-code:
+
+```
+// Equivalent of C = x*W + h*U + b
+inl C = matmultb ((x,W),(h,U)) b // for vanilla recurrent networks
+```
+```
+// Equivalent of C = x*W + b
+inl C = matmultb (x,W) b // for feedforward networks
+```
+
+So the function does have a bit flexibility in that it can accept an arbitrary number of terms to multiply and it does optimize memory usage a little. A naive AD implementation would create intermediaries for every multiplication, but that is all that it offers. In terms of functionality offered, this function is identical to the one found in the old ML library written in F#.
+
+Here is the first pain point:
+
+```
+                    on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A)
+                    on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B)
+```
+
+Two gemm calls in the backward steps. This is a problem because it does not at all take advantage that `C` is shared. Had the two calls been fused, that could have been taken advantage of for a significant boost in performance.
+
+Pain point two is this:
+
+```
+            Tuple.foldl (inl C (A,B) ->
+                match C with
+                | () -> s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
+                | C -> s.CudaBlas.gemm' .nT .nT one (primal A) (primal B) one (primal C); C
+                ) () l
+```
+
+It is not actually a problem had there been only two matrices to multiply, but in recurrent nets there tend to be two. This function is wasteful because it would not take advantage of any potential sharing in the inputs, but it also would need to write multiple times to the output.
+
+There is a missed fusion opportunity here. This one is actually much more severe than it appears at first glance.
+
+```
+        match bias with
+        | () -> ()
+        | _ -> s.CudaKernel.d2_replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
+```
+
+Adding bias during the linear part seems sensible at first glance, but the author has started to reconsider this design choice as a throwback to the old ML library where he never even considered fusing the bias and the activation. It depends on the complexity of the activation though, but since matrix multiply is a n^3 operation a strong case can be made that biases should not be dealt with in the linear part.
+
+There is one more point to be made - the age of shallow nets is absolutely over. The ideal network is the one that connects to many previous layers in order to allow easy gradient propagation. That means many convolutional or matrix operations done in parallel that sum up at the end.
+
+Vertically speaking that would be the [DenseNet](https://arxiv.org/abs/1608.06993) architecture.
+
+In the paper they represent the connectivity pattern by concatenating all the past inputs.
+
+```
+C = W * concat (a,b,c...)
+```
+
+This is actually a common optimization in [LSTMs for example](https://devblogs.nvidia.com/optimizing-recurrent-neural-networks-cudnn-5/), to turn multiple smaller matrix multiplies into a single big one. It is possible to make an alternative representation of the above operation.
+
+```
+C = sum(Wa*a,Wb*b,Wc*c...)
+```
+
+In other words, the operation can be done by using a large number of small matrix multiplications (or convolution operations.) And such a sufficiently fast and flexible kernel can be written in Spiral.
+
+There are also indications that this would be incredibly important in (quasi)recurrent networks.
+
+[SNAIL](https://openreview.net/forum?id=B1DmUzWAW) and [temporal convolution](https://arxiv.org/abs/1803.01271) architectures have especially good training properties due to ability to easily propagate gradients. Those general architectures would also benefit greatly for having flexible and fast matrix multiply and convolutional kernels that are not offered by the Cuda libraries.
+
+This makes the case for why ML libraries should offer their own matrix multiply primitive - based on the understanding and the knowledge accumulated during the past few years, it seems incresingly credible that the ideal nets are those that do a large number of small operations with numerious residual connections that stretch deep both into time and space.
+
+As the author does not need such networks quite yet, he is content to leave that work for the future.
 
 ## User Guide: The Spiral Power
 
