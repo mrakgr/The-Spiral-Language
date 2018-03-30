@@ -1199,17 +1199,15 @@ met mapi_d1_seq_broadcast' w {d with seq} in out =
                                 |> out .set
                                 }
                         | _ ->
-                            inl {items' body} =
-                                match d with
-                                | {map_out} -> 
-                                    inl items' = create_items type map_out items.elem_type x
-                                    { items' body = inl {item} -> map_out (items item .get) x |> items' item .set }
-                                | {mapi_out} -> 
-                                    inl items' = create_items type mapi_out (dyn 0) (dyn 0) items.elem_type x
-                                    { items' body = inl {i item} -> mapi_out j i (items item .get) x |> items' item .set }
-
-                            inner_loop {body}
-                            seq_loop items' d'
+                            match d with
+                            | {map_out} -> 
+                                inl items' = create_items type map_out items.elem_type x
+                                inner_loop {body=inl {item} -> map_out (items item .get) x |> items' item .set}
+                                seq_loop items' d'
+                            | {mapi_out} -> 
+                                inl items' = create_items type mapi_out (dyn 0) (dyn 0) items.elem_type x
+                                inner_loop {body=inl {i item} -> mapi_out j i (items item .get) x |> items' item .set}
+                                seq_loop items' d'
 
                 seq_loop items (Tuple.wrap seq)
                 }

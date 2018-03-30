@@ -5805,11 +5805,11 @@ The...
 ```
 !While((join cond r.get), (r.set <| body r.get))
 ```
-...is everything in the while loop. And...
+...is everything in the while loop. Note that since C requires the conditional a single expression the easiest way to achieve that is to stick it in a join point. Compiler tends to split expressions into statements during the code generation phase which would spill out of the conditional unless it was lifted into a function.
 ```
 r .get
 ```
-Corresponds to after the while loop...
+Corresponds to after the while loop.
 ```
         long long int var_19 = var_7[0];
         long long int var_20 = var_8[0];
@@ -5859,7 +5859,7 @@ inl forcd {d with from body} =
 
 Most of this should be familiar from the loops chapter. Making a for loop from a while loop should not be much of a challenge by this point. It is a fairly straightforward extension of the concept.
 
-From the for loop comes the Cuda specialized grid_for loop which makes it straightforward to iterate over a tensor in a block-strided fashion.
+From the for loop comes the Cuda specialized `grid_for` loop which makes it straightforward to iterate over a tensor in a block-strided fashion.
 
 ```
 inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
@@ -5913,7 +5913,7 @@ b[var_12]; // better allocate it in global memory after all
 
 So the Cuda array's type depends on how it is used and the compiler will not give any indication of what is going on under the hood the programmer.
 
-Furthermore, one other important thing to keep in mind is that C compilers, and especially Cuda compilers are specialized for optimizing loops. If the loop boundaries are statically known, which they usually if one is programming in Spiral, the Cuda compiler will strongly attempt to unroll it.
+Furthermore, one other important thing to keep in mind is that C compilers, and especially Cuda compilers are specialized for optimizing loops. If the loop boundaries are statically known, which they usually are if one is programming in Spiral, the Cuda compiler will strongly attempt to unroll it.
 
 If it is inspected with `print_static` then `item` will show up as a runtime variable, but Cuda will know the difference after unrolling and will be able to determine at compile time what the indices into the array are.
 
@@ -6498,17 +6498,15 @@ If the current element in the sequence is last, then the result of appyling `map
 
 ```
                         | _ ->
-                            inl {items' body} =
-                                match d with
-                                | {map_out} -> 
-                                    inl items' = create_items type map_out items.elem_type x
-                                    { items' body = inl {item} -> map_out (items item .get) x |> items' item .set }
-                                | {mapi_out} -> 
-                                    inl items' = create_items type mapi_out (dyn 0) (dyn 0) items.elem_type x
-                                    { items' body = inl {i item} -> mapi_out j i (items item .get) x |> items' item .set }
-
-                            inner_loop {body}
-                            seq_loop items' d'
+                            match d with
+                            | {map_out} -> 
+                                inl items' = create_items type map_out items.elem_type x
+                                inner_loop {body=inl {item} -> map_out (items item .get) x |> items' item .set}
+                                seq_loop items' d'
+                            | {mapi_out} -> 
+                                inl items' = create_items type mapi_out (dyn 0) (dyn 0) items.elem_type x
+                                inner_loop {body=inl {i item} -> mapi_out j i (items item .get) x |> items' item .set}
+                                seq_loop items' d'
 ```
 
 Otherwise, it needs to create a new itermediate tensor and then sets the result of applying `map_out` or `mapi_out` to each element of the `items` tensor to it. Then it passes that as input to the next operation in the sequence.
