@@ -60,6 +60,15 @@
                 - [The Softmax Activation](#the-softmax-activation)
         - [9: Deep Learning Basics](#9-deep-learning-basics)
             - [Primitives](#primitives)
+                - [map](#map-1)
+                - [map_redo_map](#map_redo_map-1)
+                - [d2_replicate_map](#d2_replicate_map-1)
+            - [Optimizers](#optimizers)
+            - [Operations](#operations)
+            - [Layers](#layers)
+                - [Multiplicative Integration RNN](#multiplicative-integration-rnn)
+                - [Map + Layer Norm + Relu](#map--layer-norm--relu)
+            - [Layer Combinators](#layer-combinators)
                 - [Future Work - Matrix Multiplication](#future-work---matrix-multiplication)
     - [User Guide: The Spiral Power](#user-guide-the-spiral-power)
         - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
@@ -6790,13 +6799,11 @@ Deep learning has been popular for half a decade at least now, and had it been p
 
 Statically typed languages have type systems that are simply too weak to be useful and dynamically typed languages are simply too inefficient. And Lisp macros are not a substitute for first class staged functions and join points.
 
-Hence it is easy to predict that great libraries will not get made in any of the aforementioned languages nor in any of the mainstream languages that aren't C++. At best, .NET for example might get bindings for Tensorflow or CNTK if it has not already.
+Hence it is easy to predict that great libraries will not get made in any of the aforementioned languages nor in any of the mainstream languages that aren't C++. The effort is simply too great and too strenuous in them. At best, .NET for example might get bindings for Tensorflow or CNTK if it has not already.
 
 And though Tensorflow, CNTK and PyTorch are written in C++ that is hardly a beaming recomendation for the language. C++ is widely known enough that its quality as a language can stand for itself.
 
-Making a machine learning library is hard enough to crush most langauges, but Spiral can make it a lot easier and the hows of that is what will be covered in this chapter. However, this is a language tutorial and not a deep learning tutorial so what won't be covered is to how to actual use deep learning to do interesting things. Instead it will be about library construction.
-
-It has been a very long road for the author to get to this point so he is eager to present this.
+Making a machine learning library is hard enough to crush most langauges, but Spiral can make it a lot easier and the hows of that is what will be covered in this chapter. That having said, this is a language tutorial and not a deep learning tutorial so what won't be covered is to how to actual use deep learning to do interesting things. Instead it will be about library construction.
 
 #### Primitives
 
@@ -6843,11 +6850,552 @@ The library takes the type of the floating point number it is operating on as it
 
 `on_non_nil` is just a utility function.
 
+##### map
+
+Map is useful for activation functions and pointwise operations like addition and hadamard multiplication.
+
+```
+    inl choose_adjoints in bck =
+        Struct.choose2 (function
+            | {primal adjoint} bck -> {adjoint bck block=()}
+            | _ _ -> ()) in bck
+        |> inl x -> Struct.map (inl x -> x.adjoint) x, Struct.map (inl x -> x.bck) x
+            
+    inl map {fwd bck} in s =
+        inl primal = primals in
+        inl out = s.CudaKernel.map fwd primal |> dr s
+
+        inl adjoint, bck = choose_adjoints in bck
+        out, inl _ -> 
+            inl bck (in, out) = Struct.map2 (inl bck -> bck (in, out)) bck
+            s.CudaKernel.map' bck (primal, {out without block}) adjoint
+```
+
+In order to be flexible, while `fwd` is always a single function, `bck` is intended to be the same as the number of inputs. The reason for that is that not all variables will be dual numbers and hence the gradients won't be propagated to them. Example of such variables would the inputs and the labels for the cost function.
+
+Here is an example of how the `map` primitive can be used to implement activations.
+
+```
+    inl activation d = map {d with bck = Struct.map (inl bck (in, out) adjoint -> adjoint + out.adjoint * (self in out.primal)) self}
+
+    inl sigmoid_fwd x = one / (one + exp -x)
+    inl sigmoid_bck out = out * (one - out)
+
+    inl sigmoid = activation {
+        fwd = sigmoid_fwd
+        bck = inl _ -> sigmoid_bck
+        }
+```
+
+The `activation` is there to make sure that in the backward step the adjoint is added to and that the adjoint of out multiplies whatever comes out of the function.
+
+The above could also be implemented like.
+
+```
+inl sigmoid = map {
+    fwd = inl x -> one / (one + exp -x)
+    bck = inl (in,out) adjoint -> adjoint + out.adjoint * (out.primal * (one - out.primal))
+    }
+```
+
+Though pretty much always, it is preferable to abstract what is possible in order to compress the code size, increase readability and minize the chance of error.
+
+The following piece deserve a mention as it is the way AD is done.
+
+```
+        out, inl _ -> 
+            inl bck (in, out) = Struct.map2 (inl bck -> bck (in, out)) bck
+            s.CudaKernel.map' bck (primal, {out without block}) adjoint
+```
+
+All the primitve functions return the output and the function to run in order to trigger the backward step. At the time the output is made, the adjoint is always zero, but after the forward pass is done the adjoint at the top of tape is set to 1 and propagated downwards.
+
+As a short tutorial, remember the various rules used to take the derivatives of softmax. Here are the rules for division once again. It is the same for the matrix and the scalar case if one assumes the operators are overloaded.
+
+```
+c = a / b
+da += dc / b
+db += -dc * a / (b * b)
+```
+
+Here is how this could be implemented in code in Spiral.
+
+```
+inl div a b =
+    inl primal = primal a * primal b
+    inl adjoint = ref zero
+    {primal adjoint block=()}, inl _ ->
+        adjoint a := adjoint a + adjoint / primal b
+        adjoint b := adjoint b - adjoint * primal a / (primal b * primal b)
+```
+
+The above assumes that `a` and `b` are scalars rather than tensors. Regardless, the structure is quite similar to the `map` which is intentended to be a generic interface for such functions.
+
+Being able to support aggressive inlining, Spiral is well suited for making AD libraries. That having said, this particular aspect - that is being able to inline the backward step is not particularly important for deep learning. Deep learning does with large batched operations - a single matrix multiply is already on the factor of thousands scalar operations.
+
+What the `map` really offers is easy fusion of map operations.
+
+```
+    inl hadmult = activation {
+        fwd = inl a,b -> a*b
+        bck = (inl (_,x) _ -> x), (inl (x,_) _ -> x)
+        }
+```
+
+Here is the standard hadamarad multiplication. Should an operation like `a*b + c*d` be needed then it would be trivial to make a fresh activation.
+
+```
+    inl hadmult2 = activation {
+        fwd = inl a,b,c,d -> a*b + c*d
+        bck = 
+            inl (_,b,_,_) _ -> b
+            ,inl (a,_,_,_) _ -> a
+            ,inl (_,_,_,d) _ -> d
+            ,inl (_,_,c,_) _ -> c
+        }
+```
+
+Admittedly, this example a bit unergomic, but it is a vast improvement over having to write a separate function in Cuda for this sort of thing. It would not be difficult to make a more generic hadamarad multiplication that looks something like this.
+
+```
+    inl hadmult' = activation {
+        fwd = Tuple.map (inl (a,b) -> a*b) >> Tuple.foldl (+) zero
+        bck = inl x _ -> Tuple.map (inl (a,b) -> (b,a)) x
+        }
+```
+
+The exercise for this will be left to the reader.
+
+Being able to do such generic operations so directly is wonderful. In one sweep it is possible to cover an infinite space of possible map operations. And somewhat paradoxically, it is easier to prove generic code correct, than it is specific instances of it. With this capability there is no need to worry whether one of the numerious float pointers are passed in the right order, dumb copy paste errors or array boundary violations which Cuda will not check for.
+
+Spiral's ML library is intended to cover the middle ground between what mainstream frameworks offer and what naive AD implementations offer.
+
+##### map_redo_map
+
+This one is used for the cost functions.
+
+```
+    /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
+    /// just to set the adjoint to 1. The current library is intended for a narrow purpose.
+    inl map_redo_map {fwd bck} in s =
+        inl primal = primals in
+        inl out = s.CudaKernel.map_redo_map fwd primal
+
+        inl adjoint, bck = choose_adjoints in bck
+        out, inl _ -> join
+            inl out = s.CudaTensor.to_dev_tensor out
+            inl bck in = Struct.map2 (inl bck -> bck (in, out.get)) bck
+            s.CudaKernel.map' bck primal adjoint
+```
+
+If the previous section was understood, then this one should not give any trouble. Here are the examples of two cost functions done using it.
+
+```
+    inl error {fwd bck} label input s = 
+        inl batch_size = primal input .span_outer |> to float
+        inl div_by_minibatch_size x = x / batch_size
+        map_redo_map {
+            fwd = {
+                map_in = fwd
+                redo = (+)
+                neutral_elem = zero
+                map_out = div_by_minibatch_size
+                }
+            /// The adjoint in error is always assumed to be one.
+            bck = Struct.map (inl bck (in, out) adjoint -> adjoint + div_by_minibatch_size (bck in out)) bck
+            } (input, label) s
+
+    inl square = error {
+        fwd = inl (x,y) -> (y - x) * (y - x)
+        bck = 
+            inl (x,y) _ -> two * (x - y)
+            ,inl (x,y) _ -> -(two * (x - y))
+        }
+
+    inl cross_entropy = error {
+        fwd = inl x, y -> -(y * log x + (one - y) * log (one - x))
+        bck = 
+            inl (x, y) _ -> (x - y) / (x * (one - x))
+            ,inl (x, y) _ -> log (one - x) - log x
+        }
+```
+
+One design decision that needs to be highlighted is that the adjoint for the cost function is not seeded with one. Instead it is implicitly assumed to be that in the backward step. This is so recurrent nets do not have to make numerous redundant calls just to set the cost to one. One thing the `error` does as a service is automatically divide by the batch size.
+
+Apart from the two above, the library also has the softmax cross entropy which has a more elaborate implementation due to needing to be fused with the softmax activation so it won't be shown here. As a matter of fast, that particular implementation is not actually fully fused and that bit of work will be left for the future. 
+
+There is one more primitive to be covered before the tutorial can proceed to the next step.
+
+##### d2_replicate_map
+
+```
+    inl d2_replicate_map {fwd bck={bck_in bck_in'}} in in' s =
+        inl primal, adjoint = primals in, adjoints in
+        inl primal', adjoint' = primals in', adjoints in'
+        inl out = s.CudaKernel.d2_replicate_map fwd primal primal' |> dr s
+        out, inl _ -> join
+            inl out = {out without block}
+            s.CudaKernel.mapi_d2_redo_map' bck_in (primal', out) primal adjoint
+            s.CudaKernel.d2_replicate_map' bck_in' primal (primal', out) adjoint'
+```
+
+This is is used for adding bias terms. It can also be used to implement multiplicative integration in a very easy manner.
+
+In order to actually be suitable for implementing activations of that sort, a more focused helper method is derived from it.
+
+```
+    inl d2_replicate_activation {fwd bck_in bck_in'} in =
+        inl neutral_elem = Struct.map (const zero) in
+        inl bck = {
+            bck_in={
+                map_in=inl (in', out) in -> Struct.map ((*) out.adjoint) (bck_in in in' out.primal)
+                neutral_elem redo=Struct.map2 (+)
+                map_out=Struct.map2 (+)
+                }
+            bck_in'=inl in (in', out) -> Struct.map2 (inl x adjoint -> adjoint + out.adjoint*x) (bck_in' in in' out.primal)
+            }
+        d2_replicate_map { fwd bck } in
+```
+
+This one does the important parts of multipying the backwads returns by the output adjoint and adds to the input adjoint. It is similar to the standard `activation` shown in the previous section.
+
+An example of it in use will be shown in the multiplicative integration section.
+
+#### Optimizers
+
+Only these two are here for the time being.
+
+```
+    inl sgd learning_rate s {primal adjoint} = 
+        s.CudaKernel.map' (inl _ P, A -> P - learning_rate * A, zero) primal.empty (primal, adjoint)
+
+    inl clipped_sgd max learning_rate s {primal adjoint} = 
+        s.CudaKernel.map' (inl _ P, A -> 
+            inl A = if A < -max then -max elif A > max then max else A
+            P - learning_rate * A, zero
+            ) primal.empty (primal, adjoint)
+```
+
+It is possible to do a frightening amount of stuff for deep learning with just a simple map. At any rate, the implementation of optimizers is trivialized by the generic map and extending the library with Adam and RMSProp or whatever else would not be a problem.
+
+One thing that the library does not do, but should is fuse all the map calls into a single one. That would not be hard in Spiral and will be subject of future work.
+
+#### Operations
+
+How AD operations can be combined in a monadic manner.
+
+```
+    inl apply_bck bck bck' _ = bck'(); bck()
+
+    inl (>>=) a b s =
+        inl a,a_bck = a s
+        inl b,b_bck = b a s
+        b, apply_bck a_bck b_bck
+
+    inl succ x _ = x, const ()
+```
+
+AD is just a writter monad.
+
+In essence, it relives the burden of having to deal with backwards step functions explicitly in an pure functional fashion. Remember that `inm a = b` is just syntax suggar for `b >>= inl a -> ...`
+
+```
+                    inm f = matmultb ((i,input.f),(h,state.f)) bias.f >>= sigmoid
+                    inm i' = matmultb ((i,input.i),(h,state.i)) bias.i >>= sigmoid
+                    inm o = matmultb ((i,input.o),(h,state.o)) bias.o >>= sigmoid
+                    inm c' = matmultb ((i,input.c),(h,state.c)) bias.c >>= tanh
+                    inm c =
+                        inm x1 = hadmult (f,c)
+                        inm x2 = hadmult (i',c')
+                        add (x1, x2)
+                    inm h' = tanh c
+                    inm h = hadmult (o, h')
+                    succ (h, (h, c))
+```
+
+Here is how the LSTM is implemented for example. Monadic computation saves a decent bit of boilerplate here. That having said, this is an example of a heavily unoptimized implementation. An optimized example would have only two steps rather than...21. 
+
+#### Layers
+
+##### Multiplicative Integration RNN
+
+Finally in this section it becomes possible to give an example of the `d2_replicate` activation. This RNN variant is from the paper [On Multiplicative Integration with Recurrent Neural Networks](https://arxiv.org/abs/1606.06630).
+
+In last 2016 the author was impressed by the novel notion of replacing addition with hadamarad multiplication and decided there that this is something he wanted to use. It was not until just recently however that he managed to implement it properly. It was a long and arduous journey to get it into this form.
+
+A short sumamry - the standard activation for a vanilla RNN is `f(Wx + Uh + b)`. Multiplicative integration replaces that `+` with `f(Wx .* Uh + b)`. It is possible to generalize that further by adding a bunch of bias terms so it becomes `f((Wx + b1) .* (Uh + b2) + b)`. This simplifies to `f(b1 .* Wx .* Uh + b2 .* Uh + b3 .* Wx + b4)`. The sheer amount of terms to be added and multiplied makes it challening to write a custom Cuda kernel for. The backward step would double the number of variable to 12 as well due needing to pass adjoints. Not to mention, the biases need to be replicated as well.
+
+The sheer effort needed to implement what would otherwise be a trivial map is one of the main catalysts for the author abandoning the old F# library and creating Spiral.
+
+So here it is presented, the multiplicative integration RNN in Spiral.
+
+```
+    /// The multiplicative integration RNN.
+    inl mi size sublayer = 
+        recurrent 
+            {
+            size sublayer
+            weights = inl s ->
+                open Initializer
+                {
+                input = tanh (sublayer.size, size) s |> dr s
+                state = tanh (size, size) s |> dr s
+                b1 = bias s size one
+                b2 = bias s size (to float 0.5)
+                b3 = bias s size (to float 0.5)
+                b4 = bias0 s size
+                } |> heap
+
+            apply = inl {b1 b2 b3 b4 input state} s i ->
+                match s with
+                | () ->
+                    inm i = matmult (i, input)
+                    d2_replicate_activation {
+                        fwd=inl (b3,b4) i -> b3*i + b4 |> tanh_fwd
+                        bck_in=inl (b3,b4) i out -> (i, one) |> Tuple.map ((*) (tanh_bck out))
+                        bck_in'=inl (b3,b4) i out -> b3 * tanh_bck out
+                        } (b3,b4) i
+                | _ ->
+                    inm i = matmult (i, input)
+                    inm s = matmult (s, state)
+                    d2_replicate_activation {
+                        fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4 |> tanh_fwd
+                        bck_in=inl (b1,b2,b3,b4) (i,s) out -> (i*s, s, i, one) |> Tuple.map ((*) (tanh_bck out))
+                        bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2) |> Tuple.map ((*) (tanh_bck out))
+                        } (b1,b2,b3,b4) (i,s)
+                >>= inl x -> succ (x,x)
+            }
+```
+
+The `tanh` activation is fused into the linear part. This did in fact make the network run a decent bit faster. It takes 4.6s per epoch on the `mini_shakespeare.txt` dataset. In contrast the unoptimized LSTM takes over 18s. It also trains a decent bit better than it, in terms of training error.
+
+It is quite nice, when presented in this form. The matrix multiplications are still unoptimized in the ML library, so this is probably not yet its full performance.
+
+##### Map + Layer Norm + Relu
+
+Before this is presented, layer norm will be shown on its own. This particular implementation is without the affine factor and acts like an activation instead. It is from the [Normalizing the Normalizers](https://arxiv.org/abs/1611.04520) paper. It works great with Relus even in RNNs, and not at all with sigmoid activations.
+
+Layer norm (pseudo-code): 
+```
+inl o x -> // o is some constant
+    inl v = replicate (mean x)
+    v / sqrt (o*o + replicate (mean (v*v)))
+```
+
+```
+    inl layer_norm =
+        inl fwd o i s =
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.mapi_d1_seq_broadcast {
+                seq = 
+                    {
+                    redo=(+)
+                    map_out=inl i sum -> i - sum / n
+                    }
+                    ,
+                    {
+                    map_in=inl v -> v*v
+                    redo=(+)
+                    map_out=inl v vv -> v / sqrt (o*o + vv / n)
+                    }
+                } (primal i)
+
+        inl bck o r i s =
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.mapi_d1_seq_broadcast' {
+                seq = 
+                    {
+                    map_in=inl dr,i -> i
+                    redo=(+)
+                    map_out=inl dr,i sum -> dr, i - sum / n
+                    }
+                    ,
+                    {
+                    map_in=inl dr,v -> v*v
+                    redo=(+)
+                    map_out=inl dr,v vv -> dr,v,sqrt (o*o + vv / n)
+                    }
+                    ,
+                    {
+                    map_in=inl dr,v,norm -> -dr * v / (norm * norm)
+                    redo=(+)
+                    map_out=inl dr,v,norm bot -> 
+                        inl top = dr / norm
+                        inl bot = (bot * v) / (norm * n)
+                        top + bot
+                    }
+                    ,
+                    {
+                    redo=(+)
+                    map_out=inl dv dv_sum adjoint -> adjoint + dv - dv_sum / n
+                    }
+                } (adjoint r, primal i) (adjoint i)
+
+        inl o i s ->
+            inl r = fwd o i s |> dr s
+            r, inl _ -> bck o r i s
+```
+
+The `mapi_d1_seq_broadcast` is finally used to its full effect here. The backwards steps won't be elaborated like in the softmax section as it is just math. As can be seen from the above on the backwards pass the LN is actually recalculated from the input. This is good as the cost of recalculation is pretty much nothing compared to having to do extra reads and writes from intermediaries.
+
+Immediatelly after getting the above to work, the author fused the `layer_norm` with the `relu` and found that it gave a decent speedup in the RNN. The Relu activation is really trivial to add so that specific variant of LN won't be pasted here to prevent it from bloating the size of the tutorial any further.
+
+But after that step he fused it with multiplicative integration. That came out as something really great. At this moment in time there isn't a single thing in the library that more exeplifies Spiral's approach than it. It also demonstrates the real benefit of `mapi` over the standard `map`.
+
+The function is relatively big, so it will be done in chunks.
+
+```
+    /// Map + layer normalization + relu
+    inl map_ln_relu {fwd bck_in bck_in'} =
+        inl n bias i = 
+            inl a,b = Struct.map (inl o -> {o without block}) i |> HostTensor.zip |> inl x -> x.dim
+            Struct.iter (inl {primal adjoint} ->
+                inl f x = 
+                    inl b' :: () = x.dim
+                    assert (b' = b) "The bias has to have a dimension equal to the input"
+                f primal; f adjoint
+                ) bias
+            HostTensor.span b |> to float
+```
+
+`n` returns the span of the innermost dimension. Despite that it seems more complicated, but all it is doing there are boundary checks.
+
+```
+        inl fwd' o b i w =
+            inl n = n b i
+            inl b = Struct.map (inl {primal} -> w.CudaTensor.to_dev_tensor primal) b
+            w.CudaKernel.mapi_d1_seq_broadcast {
+                mapi_in=inl j i' i -> Struct.map (inl x -> x i' .get) b |> inl b -> fwd b i
+                seq = 
+                    {
+                    redo=(+)
+                    map_out=inl i sum -> i - sum / n
+                    }
+                    ,
+                    {
+                    map_in=inl v -> v*v
+                    redo=(+)
+                    map_out=inl v vv -> v / sqrt (o*o + vv / n) |> relu_fwd
+                    }
+                } (Struct.map primal i)
+```
+
+The brilliant part of this is how instead of creating a separate `seq_broadcast` in order to replicate the biases, they are instead indexed directly in scope and passed to `fwd`. What the above does is maps the input, and then passes it to layer norm and then relu.
+
+The backward step is more involved, but fairly similar to the standard layer norm.
+
+```
+        inl bck' o r b i w =
+            inl n = n b i
+            inl b_primals = Struct.map (inl {primal} -> w.CudaTensor.to_dev_tensor primal) b
+            inl b_adjoints = Struct.map (inl {adjoint} -> w.CudaTensor.to_dev_tensor adjoint) b
+            w.CudaKernel.mapi_d1_seq_broadcast' {
+                mapi_in=inl j i' (dr,i) -> 
+                    inl b_primals = Struct.map (inl x -> x i' .get) b_primals
+                    stack {b_primals i}, dr, fwd b_primals i
+```
+
+`mapi_in` allows a great deal of extensibility in the kernel. It allows the kernel to index into tensor out of its scope. Of course, what really happens is that they get dragged through the join point and indexed into there, but this is a good way of describing it in actual code.
+
+```
+                seq = 
+                    {
+                    map_in=inl bis,dr,i -> i
+                    redo=(+)
+                    map_out=inl bis,dr,i sum -> bis, dr, i - sum / n
+                    }
+                    ,
+                    {
+                    map_in=inl bis,dr,v -> v*v
+                    redo=(+)
+                    map_out=inl bis,dr,v vv -> bis,(if v > zero then dr else zero),v,sqrt (o*o + vv / n)
+                    }
+                    ,
+                    {
+                    map_in=inl bis,dr,v,norm -> -dr * v / (norm * norm)
+                    redo=(+)
+                    map_out=inl bis,dr,v,norm bot -> 
+                        inl top = dr / norm
+                        inl bot = (bot * v) / (norm * n)
+                        bis,top + bot
+                    }
+                    ,
+                    {
+                    map_in=snd
+                    redo=(+)
+                    mapi_out=inl _ i' {b_primals i},dv dv_sum is_adjoints -> 
+                        inl dx = dv - dv_sum / n
+
+                        bck_in b_primals i
+                        |> Struct.map ((*) dx)
+                        // Note: The atomics make training non-deterministic.
+                        |> Struct.iter2 (inl a -> atomic_add (a i')) b_adjoints
+
+                        bck_in' b_primals i
+                        |> Struct.map ((*) dx)
+                        |> Struct.map2 (+) is_adjoints
+                    }
+                } (adjoint r, Struct.map primal i) (Struct.map adjoint i)
+
+        inl o b i s ->
+            inl r = fwd' o b i s |> dr s
+            r, inl _ -> bck' o r b i s
+```
+
+Propagating the adjoints into the biases is achieved through atomics. This is actual the only flaw in the whole kernel. Whereas before the training would be fully deterministic, this causes wide swings from run to run. The author saw the MIRNN range from 160 to 180 on the first epoch. With the biases frozen it gets 163 every time. That needs more investigating whether biases really should just be taken out or whether then net got lucky.
+
+What the above function allows is using LN+Relu with any kind of map operation whether it be MI or something else, in either feedforward or recurrent networks. As a result the layer with the fully fused activation looks identical to the standard one.
+
+```
+    inl miln o size sublayer = 
+        recurrent 
+            {
+            size sublayer
+            weights = inl s ->
+                open Initializer
+                {
+                input = relu (sublayer.size, size) s |> dr s
+                state = relu (size, size) s |> dr s
+                b1 = bias s size one
+                b2 = bias s size (to float 0.5)
+                b3 = bias s size (to float 0.5)
+                b4 = bias0 s size
+                } |> heap
+
+            apply = inl {b1 b2 b3 b4 input state} s i ->
+                match s with
+                | () ->
+                    inm i = matmult (i, input)
+                    map_ln_relu {
+                        fwd=inl (b3,b4) i -> b3*i + b4 
+                        bck_in=inl (b3,b4) i -> (i, one) 
+                        bck_in'=inl (b3,b4) i -> b3 
+                        } o (b3,b4) i
+                | _ ->
+                    inm i = matmult (i, input)
+                    inm s = matmult (s, state)
+                    map_ln_relu {
+                        fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4
+                        bck_in=inl (b1,b2,b3,b4) (i,s) -> (i*s, s, i, one) 
+                        bck_in'=inl (b1,b2,b3,b4) (i,s) -> (b1*s+b3, b1*i+b2)
+                        } o (b1,b2,b3,b4) (i,s)
+                >>= inl x -> succ (x,x)
+            }
+```
+
+Since it takes only one instead of two backward steps, it takes 4.3s per epoch version 4.6s for the standard `mi` RNN without layer norm. All those complicated steps shown above take basically nothing - the real overhead is in memory movement to and from global memory.
+
+Implementing layer norm was one of the other great catalysts that drove the author to create Spiral. After 1.5 years of work, it is possible to present this piece - the fused map + layer norm + relu activation. It cannot be found anywhere else.
+
+With the first part of the grand quest complete, the Spiral ML library finally exceeds the old one in scope.
+
+#### Layer Combinators
+
 ...
 
 ##### Future Work - Matrix Multiplication
 
-This part will be unusual since usually the good parts of the library would want to be highlighted, but the quality of this function is poor. Nonetheless it is absolutely indispensable.
+Usually the good parts of the library would want to be highlighted, but the quality of this function is poor. Nonetheless matrix multiplication is absolutely indispensable so it needs to be covered.
 
 Before it is shown, here is a short primer on how AD is done through matrix multiplication. `.T` represents matrix transpose.
 

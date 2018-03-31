@@ -1788,8 +1788,7 @@ inl float ->
                 map_out=(/)
                 }
             } input
-
-    
+                
     inl encode =
         {
         /// The one hot encode function. Does not check that the inputs are in range.
@@ -1840,7 +1839,7 @@ inl float ->
 
     inl square = error {
         fwd = inl (x,y) -> (y - x) * (y - x)
-        bck = 
+        bck =
             inl (x,y) _ -> two * (x - y)
             ,inl (x,y) _ -> -(two * (x - y))
         }
@@ -1869,7 +1868,7 @@ inl float ->
         inl cost = softmax_cost (primal label) p
         inl bck =
             inl p, label -> p - label 
-            ,inl p, label -> log p |> negate
+            ,inl p, label -> -(log p)
 
         inl adjoint, bck = choose_adjoints (input, label) bck
         inl bck _ = join
@@ -2503,6 +2502,12 @@ inl float ->
                     succ (h, (h, c))
             }
 
+    inl bias0 s size = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+    inl bias s size init = 
+        inl x = s.CudaTensor.create {elem_type=float; dim=size} 
+        join s.CudaTensor.mmap (const (dyn init)) x
+        dr s x
+
     /// The multiplicative integration RNN.
     inl mi size sublayer = 
         recurrent 
@@ -2510,18 +2515,13 @@ inl float ->
             size sublayer
             weights = inl s ->
                 open Initializer
-                inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-                inl bias init = 
-                    inl x = s.CudaTensor.create {elem_type=float; dim=size} 
-                    join s.CudaTensor.mmap (const (dyn init)) x
-                    dr s x
                 {
-                input = sigmoid (sublayer.size, size) s |> dr s
-                state = sigmoid (size, size) s |> dr s
-                b1 = bias one
-                b2 = bias (to float 0.5)
-                b3 = bias (to float 0.5)
-                b4 = bias0 ()
+                input = tanh (sublayer.size, size) s |> dr s
+                state = tanh (size, size) s |> dr s
+                b1 = bias s size one
+                b2 = bias s size (to float 0.5)
+                b3 = bias s size (to float 0.5)
+                b4 = bias0 s size
                 } |> heap
 
             apply = inl {b1 b2 b3 b4 input state} s i ->
@@ -2544,8 +2544,8 @@ inl float ->
                 >>= inl x -> succ (x,x)
             }
 
-    /// Multiplicative integration + layer normalization + relu
-    inl mi_ln_relu {entry_fwd entry_bck_in entry_bck_in'} =
+    /// Map + layer normalization + relu
+    inl map_ln_relu {fwd bck_in bck_in'} =
         inl n bias i = 
             inl a,b = Struct.map (inl o -> {o without block}) i |> HostTensor.zip |> inl x -> x.dim
             Struct.iter (inl {primal adjoint} ->
@@ -2556,11 +2556,11 @@ inl float ->
                 ) bias
             HostTensor.span b |> to float
 
-        inl fwd o b i w =
+        inl fwd' o b i w =
             inl n = n b i
             inl b = Struct.map (inl {primal} -> w.CudaTensor.to_dev_tensor primal) b
             w.CudaKernel.mapi_d1_seq_broadcast {
-                mapi_in=inl j i' i -> Struct.map (inl x -> x i' .get) b |> inl b -> entry_fwd b i
+                mapi_in=inl j i' i -> Struct.map (inl x -> x i' .get) b |> inl b -> fwd b i
                 seq = 
                     {
                     redo=(+)
@@ -2574,14 +2574,14 @@ inl float ->
                     }
                 } (Struct.map primal i)
 
-        inl bck o r b i w =
+        inl bck' o r b i w =
             inl n = n b i
             inl b_primals = Struct.map (inl {primal} -> w.CudaTensor.to_dev_tensor primal) b
             inl b_adjoints = Struct.map (inl {adjoint} -> w.CudaTensor.to_dev_tensor adjoint) b
             w.CudaKernel.mapi_d1_seq_broadcast' {
                 mapi_in=inl j i' (dr,i) -> 
                     inl b_primals = Struct.map (inl x -> x i' .get) b_primals
-                    stack {b_primals i}, dr, entry_fwd b_primals i
+                    stack {b_primals i}, dr, fwd b_primals i
                 seq = 
                     {
                     map_in=inl bis,dr,i -> i
@@ -2610,21 +2610,20 @@ inl float ->
                     mapi_out=inl _ i' {b_primals i},dv dv_sum is_adjoints -> 
                         inl dx = dv - dv_sum / n
 
-                        entry_bck_in b_primals i
+                        bck_in b_primals i
                         |> Struct.map ((*) dx)
                         // Note: The atomics make training non-deterministic.
                         |> Struct.iter2 (inl a -> atomic_add (a i')) b_adjoints
 
-                        entry_bck_in' b_primals i
+                        bck_in' b_primals i
                         |> Struct.map ((*) dx)
                         |> Struct.map2 (+) is_adjoints
                     }
                 } (adjoint r, Struct.map primal i) (Struct.map adjoint i)
 
         inl o b i s ->
-            inl r = fwd o b i s |> dr s
-            r, inl _ -> bck o r b i s
-
+            inl r = fwd' o b i s |> dr s
+            r, inl _ -> bck' o r b i s
 
     /// The multiplicative integration RNN with layer norm from the 'Normalizing the Normalizers' paper.
     inl miln o size sublayer = 
@@ -2633,36 +2632,31 @@ inl float ->
             size sublayer
             weights = inl s ->
                 open Initializer
-                inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-                inl bias init = 
-                    inl x = s.CudaTensor.create {elem_type=float; dim=size} 
-                    join s.CudaTensor.mmap (const (dyn init)) x
-                    dr s x
                 {
                 input = relu (sublayer.size, size) s |> dr s
                 state = relu (size, size) s |> dr s
-                b1 = bias one
-                b2 = bias (to float 0.5)
-                b3 = bias (to float 0.5)
-                b4 = bias0 ()
+                b1 = bias s size one
+                b2 = bias s size (to float 0.5)
+                b3 = bias s size (to float 0.5)
+                b4 = bias0 s size
                 } |> heap
 
             apply = inl {b1 b2 b3 b4 input state} s i ->
                 match s with
                 | () ->
                     inm i = matmult (i, input)
-                    mi_ln_relu {
-                        entry_fwd=inl (b3,b4) i -> b3*i + b4 
-                        entry_bck_in=inl (b3,b4) i -> (i, one) 
-                        entry_bck_in'=inl (b3,b4) i -> b3 
+                    map_ln_relu {
+                        fwd=inl (b3,b4) i -> b3*i + b4 
+                        bck_in=inl (b3,b4) i -> (i, one) 
+                        bck_in'=inl (b3,b4) i -> b3 
                         } o (b3,b4) i
                 | _ ->
                     inm i = matmult (i, input)
                     inm s = matmult (s, state)
-                    mi_ln_relu {
-                        entry_fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4
-                        entry_bck_in=inl (b1,b2,b3,b4) (i,s) -> (i*s, s, i, one) 
-                        entry_bck_in'=inl (b1,b2,b3,b4) (i,s) -> (b1*s+b3, b1*i+b2)
+                    map_ln_relu {
+                        fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4
+                        bck_in=inl (b1,b2,b3,b4) (i,s) -> (i*s, s, i, one) 
+                        bck_in'=inl (b1,b2,b3,b4) (i,s) -> (b1*s+b3, b1*i+b2)
                         } o (b1,b2,b3,b4) (i,s)
                 >>= inl x -> succ (x,x)
             }
