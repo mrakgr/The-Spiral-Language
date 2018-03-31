@@ -69,7 +69,9 @@
                 - [Multiplicative Integration RNN](#multiplicative-integration-rnn)
                 - [Map + Layer Norm + Relu](#map--layer-norm--relu)
             - [Layer Combinators](#layer-combinators)
-                - [Future Work - Matrix Multiplication](#future-work---matrix-multiplication)
+                - [A Note On Compilation Times](#a-note-on-compilation-times)
+            - [Loops](#loops-1)
+            - [Future Work - Matrix Multiplication](#future-work---matrix-multiplication)
     - [User Guide: The Spiral Power](#user-guide-the-spiral-power)
         - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
         - [2: Let Insertion and Common Subexpression Elimination](#2-let-insertion-and-common-subexpression-elimination)
@@ -5577,51 +5579,51 @@ If the gridDim is 1, then the actually kernel needs to be run only once, but oth
 
 ##### flatten
 
-```
-        inl in = zip in |> flatten
-```
+    ```
+            inl in = zip in |> flatten
+    ```
 
-Like in the map, the input is zipped and then flattened. Since flatten was made after the Tensor chapter was made, it will be covered here. Here it is in full from the `HostTensor` module.
+    Like in the map, the input is zipped and then flattened. Since flatten was made after the Tensor chapter was made, it will be covered here. Here it is in full from the `HostTensor` module.
 
-```
-/// Flattens the tensor to a single dimension.
-inl flatten tns =
-    match tns.dim with
-    | () -> tns
-    | !(Tuple.map span) dim ->
-        tns .set_dim (product dim)
-            .update_body (inl {d with size} ->
-                Tuple.zip (dim,size)
-                |> Tuple.reducel (inl d,s d',s' ->
-                    assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
-                    d*s, s'
+    ```
+    /// Flattens the tensor to a single dimension.
+    inl flatten tns =
+        match tns.dim with
+        | () -> tns
+        | !(Tuple.map span) dim ->
+            tns .set_dim (product dim)
+                .update_body (inl {d with size} ->
+                    Tuple.zip (dim,size)
+                    |> Tuple.reducel (inl d,s d',s' ->
+                        assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
+                        d*s, s'
+                        )
+                    |> inl _,s -> {d with size=s :: ()}
                     )
-                |> inl _,s -> {d with size=s :: ()}
-                )
-```
+    ```
 
-The dimension of the output tensor is set to the product of its spans, but in order for a tensor to be capable of being flattened it must be contiguous.
+    The dimension of the output tensor is set to the product of its spans, but in order for a tensor to be capable of being flattened it must be contiguous.
 
-```
-                |> Tuple.reducel (inl d,s d',s' ->
-                    assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
-                    d*s, s'
-                    )
-```
+    ```
+                    |> Tuple.reducel (inl d,s d',s' ->
+                        assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
+                        d*s, s'
+                        )
+    ```
 
-In order for that to hold true the size of the outer dimension must equal the span of the inner dimension times its size.
+    In order for that to hold true the size of the outer dimension must equal the span of the inner dimension times its size.
 
-What that means is this - suppose there is a 2d tensor of dimensions (10,10) and size (10,1). That tensor could then be flattened to a 1d tensor of dimension 100 and size 1. But suppose a view of the tensor was taken along the inner dimension.
+    What that means is this - suppose there is a 2d tensor of dimensions (10,10) and size (10,1). That tensor could then be flattened to a 1d tensor of dimension 100 and size 1. But suppose a view of the tensor was taken along the inner dimension.
 
-```
-tns.view_span (inl a,b -> a, 5)
-```
+    ```
+    tns.view_span (inl a,b -> a, 5)
+    ```
 
-Now the resulting tensor would have dimensions of (10,5) and size of (10,1).
+    Now the resulting tensor would have dimensions of (10,5) and size of (10,1).
 
-Since 10 <> 5 * 1 that means that the tensor is not contiguous. This also means that tensor that have been rotated cannot be flattened. Viewing the outermost dimension would be fine though.
+    Since 10 <> 5 * 1 that means that the tensor is not contiguous. This also means that tensor that have been rotated cannot be flattened. Viewing the outermost dimension would be fine though.
 
-This covers flattening.
+    This covers flattening.
 
 ```
         inl map_in = match d with {map_in} -> map_in | _ -> id
@@ -7236,7 +7238,7 @@ inl o x -> // o is some constant
             r, inl _ -> bck o r i s
 ```
 
-The `mapi_d1_seq_broadcast` is finally used to its full effect here. The backwards steps won't be elaborated like in the softmax section as it is just math. As can be seen from the above on the backwards pass the LN is actually recalculated from the input. This is good as the cost of recalculation is pretty much nothing compared to having to do extra reads and writes from intermediaries.
+The `mapi_d1_seq_broadcast` is finally used to its full effect here. The backwards steps won't be elaborated like in the softmax section. As can be seen from the above on the backwards pass the LN is actually recalculated from the input. This is good as the cost of recalculation is pretty much nothing compared to having to do extra reads and writes from intermediaries.
 
 Immediatelly after getting the above to work, the author fused the `layer_norm` with the `relu` and found that it gave a decent speedup in the RNN. The Relu activation is really trivial to add so that specific variant of LN won't be pasted here to prevent it from bloating the size of the tutorial any further.
 
@@ -7391,9 +7393,228 @@ With the first part of the grand quest complete, the Spiral ML library finally e
 
 #### Layer Combinators
 
+The primary purpose of layers is to make it easy to initialize the weights and the biases. The secondary purpose is to allow their parallel evaluation.
+
+Basic layer structure is this:
+
+```
+    inl gid _ = .(to string !GID())
+    inl layer d = {d with gid=gid(); block=()}
+```
+
+Every layer has a `layer_type` field and a `gid` field. The `gid` field holds a unique integer literal field which the evaluator uses to distinguish between the layers and cache their results so parts of the graph aren't executed more than once.
+
+```
+    inl input name size = layer {
+        layer_type = .input
+        name
+        size
+        }
+```
+
+The input layer is rather simple. It has a `name` and a `size` field.
+
+```
+    inl stateful layer_type {weights apply size sublayer} = 
+        layer {
+            layer_type
+            size
+            sublayer
+            weights
+            apply
+            }
+
+    inl feedforward = stateful .feedforward
+    inl recurrent = stateful .recurrent
+```
+
+Feedforward and recurrent layers aren't much different from each other. Only their `layer_type` field differs. There are other layer type as well.
+
+Layer combinators are used to actually run and initialize the layers. And those combinators are derived from the `layer_map` and `layer_map_fold`.
+
+```
+    inl layer_map f network =
+        inl rec layer_map r = function
+            | {x with layer_type gid} ->
+                match r with
+                | {$gid=x} -> x, r
+                | _ ->
+                    inl sublayer, r =
+                        match x with
+                        | {sublayer} -> layer_map r sublayer
+                        | _ -> (), r
+                    inl x = f {x with sublayer}
+                    x, {r with $gid=x}
+            | x :: x' -> 
+                inl x, r = layer_map r x
+                inl x', r = layer_map r x'
+                x :: x', r
+            | () -> (), r
+            | {} as x ->
+                module_foldl (inl k (m,r) x ->
+                    inl x,r = layer_map r x
+                    module_add k x m, r
+                    ) ({},r) x
+            | x -> error_type ("Expected a layer. Got", x)
+        layer_map {} network |> fst
+```
+
+`$` is the new injection pattern. `$` allows both matching and construction.
+
+```
+inl x = .a
+{$x=5} // {a=5}
+```
+
+`layer_map` does bottom up mapping while caching the results. It is different than a standard map in that is allows the layers to access the previous result through the `sublayer` field. `r` is the module it uses to cache internal state.
+
+`layer_map_fold` is similar except it also allows passing of state. This is useful for running recurrent networks.
+
+```
+    inl init s network = 
+        layer_map (function
+            | {x with weights} -> {x with weights = const (weights s)}
+            | x -> x
+            ) network
+```
+
+This is how `init` is made. If the layer has a `weigths` field it is passed in the context `s` and that return the network weights. Though rather than just setting weights to that, it wraps it in a function.
+
+This has the property that if the layer is reinitialized later, those parts that have already been initialized are not affected. The reason why this is done is that the net might have a body, but also branches that might need to be initialized separately.
+
+```
+    inl init_parallel s network = 
+        layer_map (function
+            | {stream} | {layer_type=.input | .parallel} as x -> x
+            | {x with weights} -> {x with weights = const (weights s); stream=s.RegionStream.allocate.data.stream}
+            | x -> {x with stream=s.RegionStream.allocate.data.stream}
+            ) network
+```
+
+`init_parallel` extends on the standard `init` by also allocating the layer a Cuda stream which can be used to execute layers in parallel.
+
+```
+    inl run x d s =
+        layer_map_fold (inl {x with layer_type gid} d ->
+            match layer_type with
+            | .input -> d.input x.name, d
+            | .stateless ->
+                inl value, bck = indiv join
+                    inl a, b = x.apply x.sublayer s
+                    stack (a, term_cast b ())
+                value, {d with bck = apply_bck self bck}
+            | .non_differentiable ->
+                inl value = indiv join x.apply x.sublayer s |> stack
+                value, d
+            | .parallel -> x.sublayer, d
+            | .feedforward ->
+                inl value, bck = indiv join
+                    inl a, b = x.apply (x.weights()) x.sublayer s
+                    stack (a, term_cast b ())
+                value, {d with bck = apply_bck self bck}
+            | .recurrent ->
+                inl state = match d.state with {$gid=state} -> state | _ -> ()
+                inl (value, state), bck = indiv join
+                    inl a, b = x.apply (x.weights()) state x.sublayer s
+                    stack (a, term_cast b ())
+                value, {d with bck = apply_bck self bck; state = {self with $gid=state}}
+            ) x d
+```
+
+For every layer, this function applies it and takes care to store the backward steps. It also term casts them so the compiler does not diverge for recurrent nets. Note that the results in the bottom layer are stored in the `sublayer` field as noted previously. The state on the other hand is passed through `d`.
+
+The way to imagine the graph being executed is to think of values flowing upwards from `input` layers through the `sublayer` nodes all the way up to the single node at the top. Inputs are passed vie `d` to the input fields and are accessed by name.
+
+##### A Note On Compilation Times
+
+    There is some funny stuff with `indiv join` and `stack` going on. Throughout the source code of the library there will be such patterns used throughout. They have only a single purpose - to optimize compile times.
+
+    When the author first made the LSTM work he received a shock in that it would take 4s to compile and adding another layer would add 2s to compilation. Considering that the nets he intends to train will be deep, the realization just how slow Spiral is made him lose his nerve. He first idea was to maybe rewrite the language in OCaml. He already considered it once before to do it Racket, but that fell through.
+
+    The second idea to spread join points and layout types around more readily. As it turns out that turned out to be greatly effective at crushing the compile times to around 1s and a negligible increase for each layer added. What was surprising to him not just how effective join points were at reducing compilation times, but that some of the functions which had no effect at runtime (like the kernel auxiliaries) and only did assertions and shape checking had a large impact on compile times as well.
+
+    The author thinks it might be possible to optimize compile times further, but he is at a loss as to how to do it past this point. He would welcome reviews from others on this part.
+
+    Some of the things he tried like flattening the AST that he thought would have benefit made absolutely no difference to performance. Things like optimizing the way `Op`s are represented would severely undermine the ergonomics of the compiler. Parser could be speed up significantly, but it is not a overhead. Actually it is, but it is not the one that is bothersome.
+
+    The partial evaluator is an enigma - reason tells that it is already fast for the kinds of work it is doing based on a rough comparison with other compilers. It is probably even faster than some other functional langauges. On the other hand, if the kinds of things it is doing can't be made any faster that bode ill for not just Spiral, but for the future of programming languages.
+
+    To put it like this - if Spiral was 10x slower than it was now, then it would be much less useful. If it was 100x slower then there would be no point in using it. This value estimate goes into the other direction as well. Spiral would be a lot more valuable if it were 10x faster. Performance simply matters everywhere and always - compilers are not the exception.
+
+    There might be some novel kinds of abstraction in the future that will be out of reach because the compilers are too sluggish to deal with them in practice.
+
+    The author is pessimistic on the future of software development because of this. There simply does not seem to be any replacement for the immutable data structures Spiral uses internally. They make it flexible and powerful, and they do not make it slow, but they place a ceiling on its performance.
+
+    It is just as well that he is interested in machine learning. Compared to classical programming, optimization methods have almost limitless potential to improve from here.
+
+```
+    /// The wavefront iteration optimization.
+    /// Requires the non-input layers to have preallocated streams.
+    inl run_parallel x d s =
+        layer_map_fold (inl {x with layer_type gid} d ->
+            match layer_type with
+            | .input -> {value=d.input x.name; stream=s.data.stream; block=()}, d
+            | .parallel -> x.sublayer, d
+            | _ ->
+                inl stream = x.stream
+                inl s = s.data_add {stream}
+                inl values = Struct.map (inl {value} -> value) x.sublayer
+                inl streams = 
+                    Struct.choose (function
+                        | {stream=x} -> stream.wait_on x; x
+                        | _ -> ()) x.sublayer
+
+                inl wait_bck b =
+                    inl b _ =
+                        b ()
+                        Struct.iter (inl x -> x.wait_on stream) streams
+                    term_cast b ()
+
+                match layer_type with
+                | .stateless ->
+                    inl value, bck = indiv join
+                        inl a, b = x.apply values s
+                        stack (a, wait_bck b)
+                    {value stream block=()}, {d with bck = apply_bck self bck}
+                | .non_differentiable ->
+                    inl value = indiv join x.apply values s |> stack
+                    {value stream block=()}, d
+                | .feedforward ->
+                    inl value, bck = indiv join
+                        inl a, b = x.apply (x.weights()) values s
+                        stack (a, wait_bck b)
+                    {value stream block=()}, {d with bck = apply_bck self bck}
+                | .recurrent ->
+                    inl state = match d.state with {$gid=state} -> state | _ -> ()
+                    inl (value, state), bck = indiv join
+                        inl a, b = x.apply (x.weights()) state values s
+                        stack (a, wait_bck b)
+                    {value stream block=()}, {d with bck = apply_bck self bck; state = {self with $gid=state}}
+                ) x d
+        |> inl x, d -> Struct.map (inl {value} -> value) x, d
+```
+
+The wavefront iteration is from this [NVidia blog post](https://devblogs.nvidia.com/optimizing-recurrent-neural-networks-cudnn-5/).
+
+`run_parallel` is similar to `run`, but takes advantage of streams to perform the wavefront iteration optimization. The benefit of it is nowhere near as described in blog post - it is more like 20% in practice, but it is a good 20%. Unless there is a reason not to, `run_parallel` should be used instead of `run`.
+
+The author also tried to stream gemms as per that post, but got absolutely horrible results. For one, it is quite more difficult to use streams inside the layer instead of between them like in the above function.
+
+The first attempt to do is was to allocate them dynamically in order to avoid passing them around, but as it turns out, streams are insanely expensive to allocate so that plan fell through. The second plan was to preallocate and them pass them in, but that would just be too nasty - even if it worked it could potentially lead to data races for some kinds of operations so it was scrapped. It would have made the code too convoluted to bear with.
+
+The problem with the Cublas gemm is that they are simply too inflexible, not that they need to be streamed. Resolving that will be future work.
+
+There was an episode a month or so back when the author really wanted GC for Cuda memory and seriously considered rewriting Spiral in something else. Eventually, after trying out the above optimizations and thought about Cuda streams in more depth, he realize the problem was not just Cuda memory. Even if were possible to GC it somehow, GC cleanup and allocation might cause inadverted memory sharing in the presence of streams.
+
+Streams are probably the most poorly designed of all the Cuda features; not only do they block potential GC, they are so hard to reason about that they are barely usable. Preallocating them and using them for the wavefront iteration like this is probably their one blessed use. In all the other cases, actually fusing the kernels would be a far better choice.
+
+Within the confines of the ML library there is no problem in using them for the wavefront iteration, but if memory sections are shared with something else, there might be ways of causing memory corruption. In general, that should not be a worry though.
+
+#### Loops
+
 ...
 
-##### Future Work - Matrix Multiplication
+#### Future Work - Matrix Multiplication
 
 Usually the good parts of the library would want to be highlighted, but the quality of this function is poor. Nonetheless matrix multiplication is absolutely indispensable so it needs to be covered.
 

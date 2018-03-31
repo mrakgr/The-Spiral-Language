@@ -2009,8 +2009,6 @@ inl float ->
                         | {stream=x} -> stream.wait_on x; x
                         | _ -> ()) x.sublayer
 
-                
-
                 inl wait_bck b =
                     inl b _ =
                         b ()
@@ -2044,7 +2042,6 @@ inl float ->
         {
         layer_map_fold layer_map init init_parallel optimize run run_parallel
         } |> stackify
-
 
     // #Loops
     inl outer data =
