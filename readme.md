@@ -6866,7 +6866,7 @@ Map is useful for activation functions and pointwise operations like addition an
         inl out = s.CudaKernel.map fwd primal |> dr s
 
         inl adjoint, bck = choose_adjoints in bck
-        out, inl _ -> 
+        out, inl _ -> join
             inl bck (in, out) = Struct.map2 (inl bck -> bck (in, out)) bck
             s.CudaKernel.map' bck (primal, {out without block}) adjoint
 ```
