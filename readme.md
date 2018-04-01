@@ -82,6 +82,9 @@
                 - [Deep Layer Compilation Optimizations](#deep-layer-compilation-optimizations)
                 - [Generic Convolutions](#generic-convolutions)
                 - [1D Block Scan and Reduce](#1d-block-scan-and-reduce)
+                - [Softmax Cost](#softmax-cost)
+                - [Checkpointing](#checkpointing)
+                - [Improve The Allocator](#improve-the-allocator)
     - [User Guide: The Spiral Power](#user-guide-the-spiral-power)
         - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
         - [2: Let Insertion and Common Subexpression Elimination](#2-let-insertion-and-common-subexpression-elimination)
@@ -4656,7 +4659,7 @@ Once that fusion is done, a piece of the power that is released can be seen in t
 
 ### 6: The Cuda Backend
 
-This section covers how the Cuda backend works in its entirety and is not mandatory to understanding how to program in Spiral. It can be skipped over. It does not cover GPU programming, but instead goes into some depth on what is going on under the hood when Spiral does GPU compilation.
+This section covers how the Cuda backend works in its entirety and is not mandatory for understanding how to program in Spiral. It can be skipped over. It does not cover GPU programming, but instead goes into some depth on what is going on under the hood when Spiral does GPU compilation.
 
 #### Intro
 
@@ -4752,7 +4755,7 @@ Here is the output of the above program at runtime.
 
 #### How Cuda Kernels Are Compiled
 
-At runtime, the program takes everything in the `cuda_kernels` variable and writes them to disk into the `cuda_kernels.cu` file which is located in the same place as the executable. It also creates a little batch script called `nvcc_router.bat`. Here are its contents. The paths are those provided into the `cfg` argument to the Spiral compiler directly.
+At runtime, the program takes everything in the `cuda_kernels` variable and writes them to disk into the `cuda_kernels.cu` file which is located in the same place as the executable. It also creates a little batch script called `nvcc_router.bat`. Here are its contents. The paths are those provided by the `cfg` argument to the Spiral compiler directly.
 
 ```
 SETLOCAL
@@ -4848,7 +4851,7 @@ What can be done with the `.ptx` file is load the kernels inside them using the 
 
 #### Tour Of The Standard Library Cuda Module
 
-The Cuda module is where the context is initialized, the kernel compilation happens at runtime and where the `run` function that actually launches the kernels resides. It will be shown here in its entirety, but there is no need to think too deeply about what is going on. It is garden variety plumbing that can be summed in a sentence or two for each part.
+The `Cuda` module is where the context is initialized and where the `run` function that actually launches the kernels resides. The kernel compilation to `.ptx` happens at runtime. It will be shown here in its entirety, but there is no need to think too deeply about what is going on. It is garden variety plumbing that can be summed in a sentence or two for each part.
 
 ```
 let cuda =
@@ -4975,7 +4978,7 @@ The only piece of functionality that happens at runtime are the last two lines w
 
 Here is the part the actually compiles the modules. It creates that batch script and sets up the `Process` object which it then uses to launch the script from the command line. The above code fragment is messy due to heavy use of macros, but it is straightforward.
 
-After the above is executed successfuly, a `CUmodule` object is bound to the `modules` variable which holds all the kernels in binary format. This is used in the `run` function.
+After the above is executed successfully, a `CUmodule` object is bound to the `modules` variable which holds all the kernels in binary format. This is used in the `run` function.
 
 ```
     inl dim3 = function
@@ -5077,7 +5080,7 @@ In the standard library the following form would be used instead.
         fact 3 |> ignore
 ```
 
-`cuda` is just shorthand for `inl blockDim gridDim ->`.
+`cuda` is just shorthand for `inl blockDim gridDim ->` built into the parser.
 
 There are points of interest that need to be explained for `run` to be fully understood.
 
@@ -5096,7 +5099,7 @@ There are points of interest that need to be explained for `run` to be fully und
 
 What the above does is make sure that if the block and grid dimension sizes are known at compile time, that they are also passed into the kernel as literals. Otherwise they are used as intrinsics directly.
 
-In Cuda C code when `blockDim.x` is used directly, that is not a compile time constant, but a runtime variable. Spiral goes to an extra length in order to preserve information and substitutes literals for intrinsics whenever possible. The above code implements that.
+In Cuda C code when `blockDim.x` is used directly, that is not a compile time constant, but a runtime variable. Spiral goes to an extra length in order to preserve information and intrinsics for substitutes literals whenever possible. The above code implements that.
 
 This is actually necessary for interop with the Cuda Unbound library which takes in block and grid dimensions as template parameters and requires them to be literals.
 
@@ -5107,7 +5110,7 @@ This is actually necessary for interop with the Cuda Unbound library which takes
 
 The part directly after that is where the kernel gets executed. Cuda has a join point special to it and that is invoked using `!JoinPointEntryCuda(x())`. If this was a standard join point then that would be enough to call the function, but in Cuda's case things are a bit more complicated. Because all the calls have to go through the `ManagedCuda` library and then through the Cuda API, it would be very difficult to bake that call into the language directly.
 
-Instead what the Cuda join point does is compile the function and return the method name and the free variables passed into the join point.
+Instead what the Cuda join point does is compile the function and returns the method name and the free variables passed into the join point. The method name is used to extract the kernel and the free variables are passed as arguments to the `Run` and `RunAsync` method.
 
 ```
             inl dim3 {x y z} = Tuple.map (to uint32) (x,y,z) |> FS.Constructor (fs [text: "ManagedCuda.VectorTypes.dim3"])
@@ -5271,15 +5274,15 @@ The author could not write something like...
         }
 ```
 
-...but he did have individial operations for log and scalar matrix addition and Hadamarad multiplication so he could piece the required operation together.
+...but he did have individual operations for log and scalar matrix addition and Hadamarad multiplication so he could piece the required operation together.
 
-The difference between doing it directly and indirectly is the 6 intermediate allocations than the old library required to perform the same thing. Since GPUs are memory bound, that would make for a vast difference in performance.
+The difference between doing it directly and indirectly is the 6 intermediate allocations that the old library required to perform the same thing. Since GPUs are memory bound, that would make for a vast difference in performance.
 
 In the old library there simply was not a middle ground between writing all the kernels by hand and having to compose very small pieces in an inefficient manner. But the issues with the old arrangement did not stop there.
 
-Even if one is resolved to do the kernels by hand, some operations when done in composite require tracking a very large number of variables. Imagine having to deal with well over a dozen `float *` variables differentiated only by their name inside a single kernel and having no boundary or type checks to speak off. The author has had issues with swapping variables around by accident when there are just two of them of the same type in the same function. 
+Even if one is resolved to do the kernels by hand, some operations when done in composite require tracking a very large number of variables. Imagine the horror of having to deal with well over a dozen `float *` variables differentiated only by their name inside a single kernel and having no boundary or type checks to speak off. The author has had issues with swapping variables around by accident when there are just two of them of the same type in the same function. 
 
-Mentally tracking over a dozen pointers to a tensor, their offsets and sizes with only their names to differentiate them would be simply impossible. And the author quickly realized that he cuold not take responsibility for such code in old library.
+Mentally tracking over a dozen pointers to a tensor, their offsets and sizes with only their names to differentiate them would be simply impossible. And the author quickly realized that he could not take responsibility for such code in old library.
 
 Machine learning code is the worst in terms of debugging difficulty. Back when he first started, the author did appreciate dimensionality checking and had errors with some matrices being incorrectly transposed. There was one particular example where he hit 96% on Mnist despite the network propagating gradients in the wrong places.
 
@@ -5287,9 +5290,9 @@ It very possible for mistakes to go unnoticed because only half the network gets
 
 Hence more than anywhere else, being able to reason about all aspects of code is of vital importance in a machine learning context. In fact, it is absolutely important everywhere.
 
-There is also one other point worth noting. All the operation in the old library have the `lazy` prefixed behind them. The reason for that is that they are compiled individually and the author found that NVRTC required around 0.5s to compile a single operation. With 20 operations that made for some massive compile times if all of them are compiled every time. NVCC is not much better. It requires 0.7s to compile an empty file and about 2.1s for a 3k file, so compiling all the kernels in single batch is important for speed's sake.
+There is also one other point worth noting. All the operation in the old library have the `lazy` prefixed behind them. The reason for that is that they are compiled individually and the author found that NVRTC required around 0.5s to compile a single operation. With 20> operations in the library that made for some massive compile times if all of them are compiled every time. NVCC is not much better. It requires 0.7s to compile an empty file and about 2.1s for a 3k file, so compiling all the kernels in single batch is important for speed's sake.
 
-This is also something that would be impossible to do without the support of a language.
+This is also something that would be impossible to do without the support of a language. The assembling of information is in fact the dictionary definition for the world 'compilation'.
 
 ### 7: Object Orientation
 
@@ -5297,9 +5300,9 @@ Spiral is a functional language at its core, but it is good at doing OO despite 
 
 #### Motivation
 
-An significant amount of complexity in the Spiral's ML library comes from needing to manage Cuda memory directly. For a that a design pattern is needed to deal with it in the absence of garbage collection. Meaning all the data needs to be packed into some kind of object and passed around.
+A significant amount of complexity in the Spiral's ML library comes from needing to manage Cuda memory directly. For a that a design pattern is needed to deal with it in the absence of garbage collection. Meaning all the data needs to be packed into some kind of object and passed around.
 
-In functional languages reader, state and writter monads are commonly used for this sort of dependency injection. An argument could be made that the reader pattern is a variant on the OO pattern except with the `self` argument on the opposite end.
+In functional languages reader, state and writer monads are commonly used for this sort of dependency injection. An argument could be made that the reader pattern is a variant on the OO pattern except with the `self` argument on the opposite end.
 
 ```
 inl f self a b = ... // OO pattern
@@ -5329,10 +5332,12 @@ The OO pattern can also be used for easy immutable updates. This is not somethin
 inl obj s x = s x s
 ```
 
+`obj` is defined in `Core`. In `s x s` the `s x` part selects the method from `s` and then `s` is passed into that method.
+
 ```
 let object =
     (
-    "Object",[loops;console;array;host_tensor;extern_],"The Object module.",
+    "Object",[],"The Object module.",
     """
 {
 data' = {}
@@ -5347,8 +5352,6 @@ unwrap = id
 ```
 
 The base Object in Spiral is implemented like this. It continually wraps its members with the `obj` function in order to emulate OO access in standard statically typed OO languages. Maybe at some point remove functions will be added.
-
-What `obj` does is essentially pass itself to the function being evaluated.
 
 The main thing to keep in mind when considering `data_add`, `member_add`, `module_add` is that the first argument to them is not an object, but an unwrapped module.
 
@@ -5410,13 +5413,11 @@ s.data.context
 
 ### 8: GPU Programming Basics
 
-The fun stuff starts past this point. GPU programming, deep learning, reinforcement learning, games...those are just a few areas in which Spiral's potential far exceeds those of other languages, and while the previous chapters can be considered done, these will be work in progress going into the future.
-
-GPU programming is well worth learning for those interested in drawing out as most performance as is possible from the machine, and lessons from it tranfer over into CPU programming. At some point Spiral will drop Cuda and switch to supporting neural computing architectures, and when that happens the lesson learning in the GPU arena can be expected to transfer. The reason for that will be because those architectures will be similar to GPUs except with a lot more local memory.
+GPU programming is well worth learning for those interested in drawing out as most performance as is possible from the machine, and lessons from it transfer over into CPU programming. At some point Spiral will drop Cuda and switch to supporting neural computing architectures, and when that happens the lesson learning in the GPU arena can be expected to transfer. The reason for that will be because those architectures will be similar to GPUs except with a lot more local memory.
 
 Knowing how to program effectively will never go out of date.
 
-This chapter will cover a few select kernels from the `CudaKernel` module found in the `Learning` project. There are more than will be covered in this chapter and more yet will be made in the future, but these can be counted on to illustrate how Spiral does Cuda.
+This chapter will cover a few select kernels from the `CudaKernel` module found in the `Learning` project. There are more than will be covered in this chapter and more yet will be made in the future, but these can be counted on to illustrate how Spiral does Cuda programming.
 
 #### map
 
@@ -5443,15 +5444,15 @@ met map' w f in out =
         }
 ```
 
-It actually more of a pain to set up the arguments before passing them into the kernel, that writing the kernel itself. In fact, the actual kernel could be shortened to one line without much trouble.
+It actually more of a pain to set up the arguments before passing them into the kernel than writing the kernel itself. In fact, the actual kernel could be shortened to one line without much trouble.
 
 ```
 cuda grid_for {blockDim gridDim} .x in_a {body=inl {i} -> out i .set (f (in i .get) (out i .get))}
 ```
 
-Lexical scoping just buys so much in this example that it is amazing. It scoops up both of the input and output tensors and allows me to pass in `in_a` as the loop dimension in one move. Considering how wide range of a functionality Spiral's tensors have compared to arrays that makes writing kernels singificantly easier.
+Lexical scoping just buys so much in this example that it is amazing. It scoops up both of the input and output tensors and allows me to pass in `in_a` as the loop dimension in one move. Considering how wide range of a functionality Spiral's tensors have compared to arrays that makes writing kernels significantly easier.
 
-The above example is simple as the tensors are `flatten`ed to 1d before bieng shipped off into the kernel, but other kernels will make use of the tensor's full functionality.
+The above example is simple as the tensors are `flatten`ed to 1d before being shipped off into the kernel, but other kernels will make use of the tensor's full functionality.
 
 Most of the functionality in the above fragment should be obvious from reading it, but `to_dev_tensor` and `divup` require an explanation.
 
@@ -5521,7 +5522,7 @@ inl map w f in =
 
 ...is because it was found out that the variant that uses join points and layout types has significantly better compile times. This will be covered in more detail later.
 
-What `map` does is allocate the output tensor based on the input dimension and the infered output type and then passes that to `map'`. It also wraps around the input function so it throws away the output argument given to it.
+What `map` does is allocate the output tensor based on the input dimension and the inferred output type and then passes that to `map'`. It also wraps around the input function so it throws away the output argument given to it.
 
 All auxiliary kernel variants do those and only those things.
 
@@ -5585,55 +5586,55 @@ The kernel can be described in 3 steps:
 2) A block reduction. Whenever possible, Spiral offloads work to the Cuda Unbound library as writing Cuda kernels can be tricky.
 3) When that is done, only the first thread has the result of the block reduce. It writes that result to global memory after mapping it.
 
-If the gridDim is 1, then the actually kernel needs to be run only once, but otherwise it must be done twice in order to perform the inter block reduction.
+If the `gridDim` is 1, then the actually kernel needs to be run only once, but otherwise it must be done twice in order to perform the inter block reduction.
 
 ##### flatten
 
-    ```
-            inl in = zip in |> flatten
-    ```
+```
+        inl in = zip in |> flatten
+```
 
-    Like in the map, the input is zipped and then flattened. Since flatten was made after the Tensor chapter was made, it will be covered here. Here it is in full from the `HostTensor` module.
+Like in the map, the input is zipped and then flattened. Since flatten was made after the Tensor chapter was made, it will be covered here. Here it is in full from the `HostTensor` module.
 
-    ```
-    /// Flattens the tensor to a single dimension.
-    inl flatten tns =
-        match tns.dim with
-        | () -> tns
-        | !(Tuple.map span) dim ->
-            tns .set_dim (product dim)
-                .update_body (inl {d with size} ->
-                    Tuple.zip (dim,size)
-                    |> Tuple.reducel (inl d,s d',s' ->
-                        assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
-                        d*s, s'
-                        )
-                    |> inl _,s -> {d with size=s :: ()}
+```
+/// Flattens the tensor to a single dimension.
+inl flatten tns =
+    match tns.dim with
+    | () -> tns
+    | !(Tuple.map span) dim ->
+        tns .set_dim (product dim)
+            .update_body (inl {d with size} ->
+                Tuple.zip (dim,size)
+                |> Tuple.reducel (inl d,s d',s' ->
+                    assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
+                    d*s, s'
                     )
-    ```
+                |> inl _,s -> {d with size=s :: ()}
+                )
+```
 
-    The dimension of the output tensor is set to the product of its spans, but in order for a tensor to be capable of being flattened it must be contiguous.
+The dimension of the output tensor is set to the product of its spans, but in order for a tensor to be capable of being flattened it must be contiguous.
 
-    ```
-                    |> Tuple.reducel (inl d,s d',s' ->
-                        assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
-                        d*s, s'
-                        )
-    ```
+```
+                |> Tuple.reducel (inl d,s d',s' ->
+                    assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
+                    d*s, s'
+                    )
+```
 
-    In order for that to hold true the size of the outer dimension must equal the span of the inner dimension times its size.
+In order for that to hold true the size of the outer dimension must equal the span of the inner dimension times its size.
 
-    What that means is this - suppose there is a 2d tensor of dimensions (10,10) and size (10,1). That tensor could then be flattened to a 1d tensor of dimension 100 and size 1. But suppose a view of the tensor was taken along the inner dimension.
+What that means is this - suppose there is a 2d tensor of dimensions (10,10) and size (10,1). That tensor could then be flattened to a 1d tensor of dimension 100 and size 1. But suppose a view of the tensor was taken along the inner dimension.
 
-    ```
-    tns.view_span (inl a,b -> a, 5)
-    ```
+```
+tns.view_span (inl a,b -> a, 5)
+```
 
-    Now the resulting tensor would have dimensions of (10,5) and size of (10,1).
+Now the resulting tensor would have dimensions of (10,5) and size of (10,1).
 
-    Since 10 <> 5 * 1 that means that the tensor is not contiguous. This also means that tensor that have been rotated cannot be flattened. Viewing the outermost dimension would be fine though.
+Since 10 <> 5 * 1 that means that the tensor is not contiguous. This also means that tensors that have been rotated cannot be flattened. Viewing the outermost dimension would be fine though.
 
-    This covers flattening.
+This covers flattening.
 
 ```
         inl map_in = match d with {map_in} -> map_in | _ -> id
@@ -5649,7 +5650,7 @@ Since `map_in` and `map_out` are optional, they are replaced with the identity f
         inl gridDim = 1 //lit_min 64 (divup span blockDim)
 ```
 
-Here the gridDim is just set to 1 because the author was lazy and decided to leave the job of fiddling with the launch parameters for later.
+Here the `gridDim` is just set to 1 because the author was lazy and decided to leave the job of fiddling with the launch parameters for later.
 
 ```
 /// The template for lit_min and lit_max.
@@ -5688,7 +5689,7 @@ Here is where the kernel is launched either once or twice depending on how many 
 
 Here the `run` infers the type and creates the output before passing it into the kernel. 
 
-As can be seen the scaffoling for the actual kernels has a lot of details and needs to be covered a few times.
+As can be seen the scaffolding for the actual kernels has a lot of details and needs to be covered a few times.
 
 ##### Cuda Loops
 
@@ -5982,7 +5983,7 @@ met d2_replicate_map' w f in in' out =
         }
 ```
 
-The first half of the kernel is the standard fare - zips, assertions for dimension sizes, calls into `to_dev_tensor`, and determining the block and grid dimensions. The actual kernel part is a bit more interesting than last time.
+The first half of the kernel is the standard fare - zips, assertions for dimension sizes, calls into `to_dev_tensor`, and determination of the block and grid dimensions. The actual kernel part is a bit more interesting than last time.
 
 ```
             inl grid_for = grid_for {gridDim blockDim}
@@ -6005,7 +6006,7 @@ On the very first line there is an example of partial application on the loop fu
                 inl out j = out j i
 ```
 
-Inside the loop, the 1d tensor is indexed into and bound to `in`. But `in'` and `out` are wrapped around instead which has the effect of implicitly rotating them. It is the same as saying, apply the innermost dimesion with `i` later.
+Inside the loop, the 1d tensor is indexed into and bound to `in`. But `in'` and `out` are wrapped around instead which has the effect of implicitly rotating them. It is the same as saying: "apply the innermost dimension with `i` later."
 
 ```
                 grid_for .y dim_in'_a {body=inl {i} ->
@@ -6014,7 +6015,7 @@ Inside the loop, the 1d tensor is indexed into and bound to `in`. But `in'` and 
                     }
 ```
 
-And that is what happens in the inner loop. The same `in` gets passed into `f` `dim_in'_a` number of times which has the effect of replicating it. Of course, often in Cuda programming you do not want to just replicate a tensor along some dimension as that would be wasteful. Instead the true benefit of having flexible kernel function is that they allow fusion which minimizes the number of intermediaries. As Cuda kernels are memory bound, that has a extreme positive effect on performance.
+And that is what happens in the inner loop. The same `in` gets passed into `f` `dim_in'_a` number of times which has the effect of replicating it. Of course, often in Cuda programming it is not desirable to just replicate a tensor along some dimension as that would be wasteful. Instead the true benefit of having flexible kernel function is that they allow fusion which minimizes the number of intermediaries. As Cuda kernels are memory bound, that has an extreme positive effect on performance.
 
 Compilers themselves are utterly incapable of performing such optimizations on their own, so the responsibility for it falls on the user.
 
@@ -6037,7 +6038,7 @@ inl d2_replicate_map w f in in' =
         stack out
 ```
 
-`in'` can also be a scalar value to indicate the size of the outermost dimension. Otherwise it is standard fare, it infers the type of the output, allocates it and passes it to the kernel, and stips the output from the mapping function.
+`in'` can also be a scalar value to indicate the size of the outermost dimension. Otherwise it is standard fare, it infers the type of the output, allocates it and passes it to the kernel, and strips the output from the mapping function.
 
 ##### Example
 
@@ -6087,7 +6088,7 @@ Tuple.iter s.CudaTensor.print (a1,a2,o1)
 
 #### mapi_d2_redo_map
 
-The inverse of the `d2_replicate` kernel. It reduces the outermost dimension of `in` - in other worse it turn a tensor of dimensions `(a,b)` into `(b)`. It is equivalent to a transpose and then a reduce over the innermost dimension. An alternative to using this kernel would be to blast the target tensor with atomics in a regular map.
+The inverse of the `d2_replicate` kernel. It reduces the outermost dimension of `in` - in other words it turns a tensor of dimensions `(a,b)` into `(b)`. It is equivalent to a transpose and then a reduce over the innermost dimension. An alternative to using this kernel would be to blast the target tensor with atomics in a regular map. That would work for some cases like in backwards step of `add_bias` at the cost of making training non-deterministic.
 
 ```
 /// Maps the two inputs and then reduces the first's outer dimension.
@@ -6168,7 +6169,7 @@ met mapi_d2_redo_map' w {d with redo neutral_elem} in in' out =
 
 Because the Cub does not have a transposed reduction, the author had to implement it on his own.
 
-In order to understand what the kernel is doing, first is required to visualize it. Imagine a 96x32 tensor and one block of size 32x32.
+In order to understand what the kernel is doing, first it is required to visualize it. Imagine a 96x32 tensor and one block of size 32x32.
 
 What that block does is covers [0,31]x[0,31] and loads from main memory, does the reduction in place with the neutral element, slides to [32,63]x[0,31] and loads from main memory, does the reduction in place with the previous state, slides to [64,95]x[0,31] and loads from main memory, and does the final inplace reduction.
 
@@ -6209,11 +6210,11 @@ Otherwise a block wide reduction is performed.
                         |> inl ar i -> ar i threadIdx.x
 ```
 
-It starts by defining a shared memory tensor. Immediatelly after creating it wrapped with a function that applies it with `threadIdx.x` along the innermost dimension. This simple technique of functional programming is greatly useful in facilitating reasoning.
+It starts by defining a shared memory tensor. Immediately after creating it wrapped with a function that applies it with `threadIdx.x` along the innermost dimension. This simple technique of functional programming is greatly useful in facilitating reasoning.
 
 Whereas previously it was needed to reason about a 2d tensor, it now becomes effectively a 1d tensor and that other dimension can be assumed taken care of and left out of mind.
 
-Describing how to reduce a 1d tensor is not too complicated. Imagine the goal is to reduce a 1d tensor of size 8. At creation the tensor is unitialized, so it will be described as thus.
+Describing how to reduce a 1d tensor is not too complicated. Imagine the goal is to reduce a 1d tensor of size 8. At creation the tensor is uninitialized, so it will be described as thus.
 
 ```
 01234567
@@ -6279,7 +6280,7 @@ _c
                         }
 ```
 
-What was described above is what essentially happens in the code above. The action only happens along the `y` axis which makes reasoning easy. Tensor as a abstraction and stateful loops provide a definite benefit in terms reasoning. If the above was Cuda C code, then the programmer would be forced to reason about offsets, indices, mutation and various other things.
+What was described above is what essentially happens in the code above. The action only happens along the `y` axis which makes reasoning easy. Tensor as an abstraction and stateful loops provide a definite benefit in terms reasoning. If the above was Cuda C code, then the programmer would be forced to reason about offsets, indices, mutation and various other things.
 
 ```
 |> inl {state} -> if threadIdx.y = 0 then finally state
@@ -6310,7 +6311,7 @@ Based on the example shown...
 _c
 ```
 
-0 never gets used so it should be clear why it was chosen that the outer dimension should start from 1. It is a nice way of preserving memory.
+0 never gets used so it should be clear why it was chosen that the outer dimension should start from 1. It is a nice way of preserving a pinch of memory.
 
 ```
 01234567
@@ -6330,7 +6331,7 @@ ____c
 
 Something like this? It would be possible, but it would increase the overall latency of the scheme because another call to synchronize would be needed between operations. Cuda makes very little guarantees about order of execution, so without an extra synchronize at the end what might happen is the `bb`s might be written before `aaaa`s finish reading.
 
-It is easier to just use an extra bit of memory to not have to deal with data races.
+It is easier to just use an extra tad of memory to not have to deal with data races.
 
 ##### Example
 
@@ -6404,7 +6405,7 @@ This kernel will be unique so far in that it actually takes advantage of Spiral'
         else divup num_valid 256, 256
 ```
 
-As usual, the number 256 is picked off the cuff and probably different problems will have different ideal best values, but for ML purposes I this setting should suffice.
+As usual, the number 256 is picked off the cuff and probably different problems will have different ideal best values, but for ML purposes this setting should suffice for the time being.
 
 The actual kernel will be explained piece by piece as it is too much to take in at once.
 
@@ -6430,7 +6431,7 @@ Since kernel is in essence d1 reduction it begins by iterating over the outer di
                     }
 ```
 
-It is immediatelly followed by this function declaration. Notice that it is done in array of tuples format which is not the default for Spiral's tensors. The reason for that is that the Cub functions which accept arrays cannot accept Spiral's tensors in their default form.
+It is immediately followed by this function declaration. Notice that it is done in array of tuples format which is not the default for Spiral's tensors. The reason for that is that the Cub functions which accept arrays cannot accept Spiral's tensors in their default form.
 
 ```
 inl inner_loop = grid_for_items dims .x dim_in_b
@@ -6454,7 +6455,7 @@ The way this kernel is used is that it does the initial `map_in` and then iterat
 
 Having to match on whether the mapping function is `map_in` or `mapi_in` or not there at all adds a lot of noise for the reader.
 
-But what it does is create a tensor in register memory, iterates over the input here and sets the tensor to the result of mapping the input over the function.
+But what it does is create a tensor in register memory, iterates over the input here and sets the tensor to the result of mapping the input over the function. It is a map operation just as the name implies.
 
 The `items` at the end is the tensor that has gone through the first phase the kernel.
 
@@ -6516,7 +6517,7 @@ After that comes the final step. There are also two branching paths at this poin
                                 }
 ```
 
-If the current element in the sequence is last, then the result of appyling `map_out` or `mapi_out` to each element of `items` is feed directly into the output tensor.
+If the current element in the sequence is last, then the result of applying `map_out` or `mapi_out` to each element of `items` is feed directly into the output tensor.
 
 ```
                         | _ ->
@@ -6531,7 +6532,7 @@ If the current element in the sequence is last, then the result of appyling `map
                                 seq_loop items' d'
 ```
 
-Otherwise, it needs to create a new itermediate tensor and then sets the result of applying `map_out` or `mapi_out` to each element of the `items` tensor to it. Then it passes that as input to the next operation in the sequence.
+Otherwise, it needs to create a new intermediate tensor and then sets the result of applying `map_out` or `mapi_out` to each element of the `items` tensor to it. Then it passes that as input to the next operation in the sequence.
 
 ##### The Softmax Activation
 
@@ -6553,7 +6554,7 @@ inl softmax x =
 
 `sum` sums up all the values of a vector into a scalar, and replicate unfolds the scalar into a vector each holding the same values.
 
-Futhermore, for numerical stability the following trick is often employed in softmax.
+Furthermore, for numerical stability the following trick is often employed in softmax.
 
 ```
 inl softmax x = 
@@ -6564,7 +6565,7 @@ inl softmax x =
 
 This has no effect on the way gradients are propagated during the backwards step. Derivative of  `x - max_x` with respect to `x` is just 1. `max_x` is considered to be a constant. Shifting the input to softmax by a constant does not affect the result during stable regimes, but if the inputs are unstable then they will trend towards 0 rather that towards infinity.
 
-Going forward, it is important to keep in mind that `max` and `sum` are reduce operations, and `exp` is a map operation. The kernel described in this chapter makes it possible to succintly implement both softmax's forward and backward phases.
+Going forward, it is important to keep in mind that `max` and `sum` are reduce operations, and `exp` is a map operation. The kernel described in this chapter makes it possible to succinctly implement both softmax's forward and backward phases.
 
 Here is the forward phase.
 
@@ -6574,12 +6575,12 @@ inl z =
         seq = 
             {
             redo=max // max x
-            map_out=inl x max_x -> exp (x - max_x) // exp (x - replicate max_x)
+            map_out=inl x replicate_max_x -> exp (x - replicate_max_x)
             }
             ,
             {
             redo=(+) // sum z
-            map_out=inl z sum_z -> z / sum_z // z / replicate sum_z
+            map_out=inl z replicate_sum_z -> z / replicate_sum_z
             }
         } (primal x)
 ```
@@ -6600,7 +6601,7 @@ inl softmax x =
     exp x / s
 ```
 
-There are [tutorials](https://eli.thegreenplace.net/2016/the-softmax-function-and-its-derivative/) that show how to take the derivative analytically, but for show it will be done here by emulating how automatic differentiation would take the trace through the above.
+There are [tutorials](https://eli.thegreenplace.net/2016/the-softmax-function-and-its-derivative/) that show how to take the derivative analytically, but for show it will be done here by emulating how automatic differentiation would take the trace through the above. The analysis will have the benefit of not needing to branch on the value of the index used.
 
 Here are a few simple rules.
 
@@ -6654,7 +6655,7 @@ dv += dz / r
 dr += -dz * v / (r * r)
 ```
 
-AD is sensitive to the ordering operations. The backwards pass needs to be done exactly in the opposite way of forward pass.
+AD is sensitive to the ordering of operations. The backwards pass needs to be done exactly in the opposite way of forward pass. This is why a tape is frequently used for it.
 
 ```
 //inl r = replicate s
@@ -6693,7 +6694,7 @@ dv += dz / r
 dr += -dz * v / (r * r)
 ```
 
-Immediatelly here is a chance to simplify a little. Recall that `z = v / r`, hence...
+Immediately here is a chance to simplify a little. Recall that `z = v / r`, hence...
 
 ```
 dr += -dz * z / r
@@ -6705,7 +6706,7 @@ Then comes the next step.
 ds += sum dr
 ```
 
-After substitition that becomes.
+After substitution that becomes.
 
 ```
 ds += sum (-dz * z / r) 
@@ -6753,7 +6754,7 @@ dv += - replicate er / replicate s
 dv += - replicate er / r
 ```
 
-There is one more step of rewriting that can be done here. Recall that there are two additions into `dv` and `dv` itself is not used inbetween.
+There is one more step of rewriting that can be done here. Recall that there are two additions into `dv` and `dv` itself is not used in between.
 
 ```
 dv += dz / r
@@ -6799,35 +6800,33 @@ s.CudaKernel.mapi_d1_seq_broadcast' {
 
 ### 9: Deep Learning Basics
 
-(work in progress)
+At the time of writing this it is almost April 2018.
 
-At the time of writing this it is almost Apiral 2018.
-
-Currently, the two dominant deep learning frameworks are without exception Tensorflow by Google and PyTorch by Facebook. Both are written in C++ and expose a Python front end from which everybody accesses them. It is by no means unusual that big corporate sponsored frameworks would be widely used, but it is interesting to look at the deep learning ecosystems in other languages. What is precisely interesting is that they are non-existent and most of the attempts at making frameworks have pettered out.
+Currently, the two dominant deep learning frameworks are without exception Tensorflow by Google and PyTorch by Facebook. Both are written in C++ and expose a Python front end from which the users access it. It is by no means unusual that big corporate sponsored frameworks would be widely used, but it is interesting to look at the deep learning ecosystems in other languages, or specifically the lack of such ecosystems. What is precisely interesting is that they are non-existent and most of the attempts at making frameworks have petered out.
 
 In a broader sense, what ML capabilities non-Python ecosystems have tend to be on the shallower end of learning which does not need the extreme GPU capabilities Spiral has.
 
-Deep learning has been popular for half a decade at least now, and had it been possible to make a great DL library in say F# (.NET), Scala (JVM), Haskell or Racket, then one can be sure that this would already have happened. The reason for that is that languages without first class staging have very deep flaws that preclude them from having effective Cuda backends and GPU abstractions. There is very little languages contructed in the classical manner whether they be static or dynamic offer in the making of deep learning library.
+Deep learning has been popular for half a decade at least now, and had it been possible to make a great DL library in say F# (.NET), Scala (JVM), Haskell or Racket, then one can be sure that this would already have happened. The reason for that is that languages without first class staging have very deep flaws that preclude them from having effective Cuda backends and GPU abstractions. There is very little languages constructed in the classical manner whether they be static or dynamic offer in the making of a deep learning library.
 
 Statically typed languages have type systems that are simply too weak to be useful and dynamically typed languages are simply too inefficient. And Lisp macros are not a substitute for first class staged functions and join points.
 
 Hence it is easy to predict that great libraries will not get made in any of the aforementioned languages nor in any of the mainstream languages that aren't C++. The effort is simply too great and too strenuous in them. At best, .NET for example might get bindings for Tensorflow or CNTK if it has not already.
 
-And though Tensorflow, CNTK and PyTorch are written in C++ that is hardly a beaming recomendation for the language. C++ is widely known enough that its quality as a language can stand for itself.
+And though Tensorflow, CNTK and PyTorch are written in C++ that is hardly a beaming recommendation for the language. C++ is widely known enough that its quality as a language can stand for itself.
 
 Making a machine learning library is hard enough to crush most langauges, but Spiral can make it a lot easier and the hows of that is what will be covered in this chapter. That having said, this is a language tutorial and not a deep learning tutorial so what won't be covered is to how to actual use deep learning to do interesting things. Instead it will be about library construction.
 
 #### Primitives
 
-At the time of writing the Spiral `Learning` library is quite small, but it has some advanced capabities so this is the ideal point to introduce it before it gets any bigger. The one limitation it has on it is that it is restricted to first order [automatic diffentiation](https://en.wikipedia.org/wiki/Automatic_differentiation). It would be possible to build a library that supports higher order AD in Spiral, but decision to support higher order AD is not a trivial one to make.
+At the time of writing the Spiral `Learning` library is quite small, but it has some advanced capabilities so this is the ideal point to introduce it before it gets any bigger. The one limitation it has on it is that it is restricted to first order [automatic differentiation](https://en.wikipedia.org/wiki/Automatic_differentiation). It would be possible to build a library that supports higher order AD in Spiral, but decision to support higher order AD is not a trivial one to make.
 
 It would add very non-negligible maintenance burden on it, and it possibly make it difficult to provide effective optimization. Higher order AD does not have a particularly good track record on practical use in deep learning anyway.
 
 For those not familiar with it, higher order AD would essentially allow adaptive learning methods and possibly metalearning methods like MAML, but while first order AD takes only a single pass per datapoint, higher order AD would require `n` passes per datapoint where the `n` is the number of parameters in the network. And approximated higher order methods require the whole dataset to be operated at once and do not allow minibatching.
 
-Spiral's ML library is intended to be of great practical use. It needs to me simple to entend and understand. It needs to be both highly flexible and performant.
+Spiral's ML library is intended to be of great practical use. It needs to be simple to extend and understand. It needs to be both highly flexible and performant.
 
-So the dual number it uses internally is of the primal and adjoint variety.
+So the only dual number it uses internally is of the primal and adjoint variety.
 
 ```
 inl float ->
@@ -6856,7 +6855,7 @@ inl float ->
 
 The library takes the type of the floating point number it is operating on as its first argument. This is generally used to convert literals to `float32` values at compile time and such since Spiral does not allow implicit conversions. `zero`, `one`, `two` and `infinity` are just some constants set up for convenience.
 
-`Struct.map` is just the `toa_map` from the Tensor chapter. Since functions that iterate over arbitrary types are so often used in Spiral, they have their own `Struct` module now.
+`Struct.map` is just the `toa_map` from the tensor chapter. Since functions that iterate over arbitrary types are so often used in Spiral, they have their own `Struct` module now.
 
 `dr` takes in context and the primal and creates a dual with the adjoint set to zero.
 
@@ -6864,7 +6863,7 @@ The library takes the type of the floating point number it is operating on as it
 
 ##### map
 
-Map is useful for activation functions and pointwise operations like addition and hadamard multiplication.
+Map is useful for activation functions and pointwise operations like addition and Hadamarad multiplication.
 
 ```
     inl choose_adjoints in bck =
@@ -6899,7 +6898,7 @@ Here is an example of how the `map` primitive can be used to implement activatio
         }
 ```
 
-The `activation` is there to make sure that in the backward step the adjoint is added to and that the adjoint of out multiplies whatever comes out of the function.
+The `activation` is there to make sure that in the backward step the adjoint is added to and that the adjoint of `out` multiplies whatever flows out from the function.
 
 The above could also be implemented like.
 
@@ -6910,9 +6909,9 @@ inl sigmoid = map {
     }
 ```
 
-Though pretty much always, it is preferable to abstract what is possible in order to compress the code size, increase readability and minize the chance of error.
+Though pretty much always, it is instead preferable to abstract what is possible in order to compress the code size, increase readability and minimize the chance of error. In this case this piece of advice only refers to the `activation` function. `sigmoid_fwd` and `sigmoid_bck` have been factored out due to being used in multiple places.
 
-The following piece deserve a mention as it is the way AD is done.
+The following piece deserves a mention as it is the way AD is done.
 
 ```
         out, inl _ -> 
@@ -6920,7 +6919,7 @@ The following piece deserve a mention as it is the way AD is done.
             s.CudaKernel.map' bck (primal, {out without block}) adjoint
 ```
 
-All the primitve functions return the output and the function to run in order to trigger the backward step. At the time the output is made, the adjoint is always zero, but after the forward pass is done the adjoint at the top of tape is set to 1 and propagated downwards.
+All the primitive functions return the output and the function to run in order to trigger the backward step. At the time the output is made, the adjoint of it is always zero, but after the forward pass is done the adjoint at the top of tape is set to 1 and propagated downwards and eventually through that output.
 
 As a short tutorial, remember the various rules used to take the derivatives of softmax. Here are the rules for division once again. It is the same for the matrix and the scalar case if one assumes the operators are overloaded.
 
@@ -6941,9 +6940,9 @@ inl div a b =
         adjoint b := adjoint b - adjoint * primal a / (primal b * primal b)
 ```
 
-The above assumes that `a` and `b` are scalars rather than tensors. Regardless, the structure is quite similar to the `map` which is intentended to be a generic interface for such functions.
+The above assumes that `a` and `b` are scalars rather than tensors. Regardless, the structure is quite similar to the `map` which is intended to be a generic interface for such functions.
 
-Being able to support aggressive inlining, Spiral is well suited for making AD libraries. That having said, this particular aspect - that is being able to inline the backward step is not particularly important for deep learning. Deep learning does with large batched operations - a single matrix multiply is already on the factor of thousands scalar operations.
+Being able to support aggressive inlining, Spiral is well suited for making AD libraries. That having said, this particular aspect of it - the ability to always inline the backward step is not particularly important for deep learning. Deep learning deals with large batched operations - a single matrix multiply is already on the factor of thousands scalar operations and what would take extreme optimization heroics by the compiler is generally put in by hand instead for such batched operations. 
 
 What the `map` really offers is easy fusion of map operations.
 
@@ -6954,7 +6953,7 @@ What the `map` really offers is easy fusion of map operations.
         }
 ```
 
-Here is the standard hadamarad multiplication. Should an operation like `a*b + c*d` be needed then it would be trivial to make a fresh activation.
+Here is the standard Hadamarad multiplication. Should an operation like `a*b + c*d` be needed then it would be trivial to make a fresh activation.
 
 ```
     inl hadmult2 = activation {
@@ -6967,10 +6966,10 @@ Here is the standard hadamarad multiplication. Should an operation like `a*b + c
         }
 ```
 
-Admittedly, this example a bit unergomic, but it is a vast improvement over having to write a separate function in Cuda for this sort of thing. It would not be difficult to make a more generic hadamarad multiplication that looks something like this.
+Admittedly, this example a bit unergonomic, but it is a vast improvement over having to write a separate function in Cuda for this sort of thing. It would not be difficult to make a more generic Hadamarad multiplication that looks something like this.
 
 ```
-    inl hadmult' = activation {
+    inl hadmult' = activation' {
         fwd = Tuple.map (inl (a,b) -> a*b) >> Tuple.foldl (+) zero
         bck = inl x _ -> Tuple.map (inl (a,b) -> (b,a)) x
         }
@@ -6978,7 +6977,7 @@ Admittedly, this example a bit unergomic, but it is a vast improvement over havi
 
 The exercise for this will be left to the reader.
 
-Being able to do such generic operations so directly is wonderful. In one sweep it is possible to cover an infinite space of possible map operations. And somewhat paradoxically, it is easier to prove generic code correct, than it is specific instances of it. With this capability there is no need to worry whether one of the numerious float pointers are passed in the right order, dumb copy paste errors or array boundary violations which Cuda will not check for.
+Being able to do such generic operations so directly is wonderful. In one sweep it is possible to cover an infinite space of possible map operations. And somewhat paradoxically, it is easier to prove generic code correct than it is specific instances of it. With this capability there is no need to worry whether one of the numerous float pointers are passed in the right order, dumb copy paste errors or array boundary violations which Cuda will not check for.
 
 Spiral's ML library is intended to cover the middle ground between what mainstream frameworks offer and what naive AD implementations offer.
 
@@ -7000,7 +6999,7 @@ This one is used for the cost functions.
             s.CudaKernel.map' bck primal adjoint
 ```
 
-If the previous section was understood, then this one should not give any trouble. Here are the examples of two cost functions done using it.
+If the previous section was understood, then this one should not give any trouble. Here are the examples of two cost functions done using it and the generic template for them.
 
 ```
     inl error {fwd bck} label input s = 
@@ -7034,7 +7033,7 @@ If the previous section was understood, then this one should not give any troubl
 
 One design decision that needs to be highlighted is that the adjoint for the cost function is not seeded with one. Instead it is implicitly assumed to be that in the backward step. This is so recurrent nets do not have to make numerous redundant calls just to set the cost to one. One thing the `error` does as a service is automatically divide by the batch size.
 
-Apart from the two above, the library also has the softmax cross entropy which has a more elaborate implementation due to needing to be fused with the softmax activation so it won't be shown here. As a matter of fast, that particular implementation is not actually fully fused and that bit of work will be left for the future. 
+Apart from the two above, the library also has the softmax cross entropy which has a more elaborate implementation due to how its backward step works so it won't be shown here. As a matter of fast, that particular implementation is not fully fused yet and that bit of work will be left for the future. 
 
 There is one more primitive to be covered before the tutorial can proceed to the next step.
 
@@ -7069,7 +7068,7 @@ In order to actually be suitable for implementing activations of that sort, a mo
         d2_replicate_map { fwd bck } in
 ```
 
-This one does the important parts of multipying the backwads returns by the output adjoint and adds to the input adjoint. It is similar to the standard `activation` shown in the previous section.
+This one does the important part of multiplying the backwards returns by the output adjoint and adds to the input adjoint. It is similar to the standard `activation` shown in the previous section.
 
 An example of it in use will be shown in the multiplicative integration section.
 
@@ -7088,13 +7087,11 @@ Only these two are here for the time being.
             ) primal.empty (primal, adjoint)
 ```
 
-It is possible to do a frightening amount of stuff for deep learning with just a simple map. At any rate, the implementation of optimizers is trivialized by the generic map and extending the library with Adam and RMSProp or whatever else would not be a problem.
+It is possible to do a frightening amount of stuff for deep learning with just a simple map. It covers all of the first order optimizers for one. At any rate, the implementation of optimizers is trivialized by the generic map and extending the library with Adam and RMSProp or whatever else would not be a problem.
 
-One thing that the library does not do, but should is fuse all the map calls into a single one. That would not be hard in Spiral and will be subject of future work.
+One thing that the library does not do, but should is to fuse all the map calls into a single one during the optimization phase. That would not be hard in Spiral and will be subject of future work.
 
 #### Operations
-
-How AD operations can be combined in a monadic manner.
 
 ```
     inl apply_bck bck bck' _ = bck'(); bck()
@@ -7107,9 +7104,9 @@ How AD operations can be combined in a monadic manner.
     inl succ x _ = x, const ()
 ```
 
-AD is just a writter monad.
+These are used to combine AD operations in a monadic manner. `>>=` is just a specific instance of a writer monad here.
 
-In essence, it relives the burden of having to deal with backwards step functions explicitly in an pure functional fashion. Remember that `inm a = b` is just syntax suggar for `b >>= inl a -> ...`
+In essence, it relives the burden of having to deal with backwards step functions explicitly in a pure functional fashion. Remember that `inm a = b` is just syntax suggar for `b >>= inl a -> ...`
 
 ```
                     inm f = matmultb ((i,input.f),(h,state.f)) bias.f >>= sigmoid
@@ -7125,7 +7122,7 @@ In essence, it relives the burden of having to deal with backwards step function
                     succ (h, (h, c))
 ```
 
-Here is how the LSTM is implemented for example. Monadic computation saves a decent bit of boilerplate here. That having said, this is an example of a heavily unoptimized implementation. An optimized example would have only two steps rather than...21. 
+Here is how the LSTM is implemented for example. Monadic computation saves a decent bit of boilerplate here. That having said, this is an example of a heavily unoptimized implementation of a LSTM. An optimized example would have only one or two steps rather than...21. 
 
 #### Layers
 
@@ -7133,11 +7130,11 @@ Here is how the LSTM is implemented for example. Monadic computation saves a dec
 
 Finally in this section it becomes possible to give an example of the `d2_replicate` activation. This RNN variant is from the paper [On Multiplicative Integration with Recurrent Neural Networks](https://arxiv.org/abs/1606.06630).
 
-In last 2016 the author was impressed by the novel notion of replacing addition with hadamarad multiplication and decided there that this is something he wanted to use. It was not until just recently however that he managed to implement it properly. It was a long and arduous journey to get it into this form.
+In last 2016 the author was impressed by the novel notion of replacing addition with Hadamarad multiplication and decided there that this is something he wanted to use since getting a good improvement for such a simple change seemed like a worthwhile tradeoff. It was not until just recently however that he managed to implement it properly. It was a long and arduous journey to get it into this form.
 
-A short sumamry - the standard activation for a vanilla RNN is `f(Wx + Uh + b)`. Multiplicative integration replaces that `+` with `f(Wx .* Uh + b)`. It is possible to generalize that further by adding a bunch of bias terms so it becomes `f((Wx + b1) .* (Uh + b2) + b)`. This simplifies to `f(b1 .* Wx .* Uh + b2 .* Uh + b3 .* Wx + b4)`. The sheer amount of terms to be added and multiplied makes it challening to write a custom Cuda kernel for. The backward step would double the number of variable to 12 as well due needing to pass adjoints. Not to mention, the biases need to be replicated as well.
+A short summary - the standard activation for a vanilla RNN is `f(Wx + Uh + b)`. Multiplicative integration replaces that `+` with `f(Wx .* Uh + b)`. It is possible to generalize that further by adding a bunch of bias terms so it becomes `f((Wx + b1) .* (Uh + b2) + b)`. This simplifies to `f(b1 .* Wx .* Uh + b2 .* Uh + b3 .* Wx + b4)`. The sheer amount of terms to be added and multiplied makes it challenging to write a custom Cuda kernel for. The backward step would double the number of variable to 12 as well due needing to pass adjoints. Not to mention, the biases need to be replicated as well.
 
-The sheer effort needed to implement what would otherwise be a trivial map is one of the main catalysts for the author abandoning the old F# library and creating Spiral.
+The sheer effort that would be needed to implement what would otherwise be a trivial use of `map` is one of the main catalysts for the author abandoning the old F# library and creating Spiral.
 
 So here it is presented, the multiplicative integration RNN in Spiral.
 
@@ -7250,9 +7247,9 @@ inl o x -> // o is some constant
 
 The `mapi_d1_seq_broadcast` is finally used to its full effect here. The backwards steps won't be elaborated like in the softmax section. As can be seen from the above on the backwards pass the LN is actually recalculated from the input. This is good as the cost of recalculation is pretty much nothing compared to having to do extra reads and writes from intermediaries.
 
-Immediatelly after getting the above to work, the author fused the `layer_norm` with the `relu` and found that it gave a decent speedup in the RNN. The Relu activation is really trivial to add so that specific variant of LN won't be pasted here to prevent it from bloating the size of the tutorial any further.
+Immediately after getting the above to work, the author fused the `layer_norm` with the `relu` and found that it gave a decent speedup in the RNN. The Relu activation is really trivial to add so that specific variant of LN won't be pasted here to prevent it from bloating the size of the tutorial any further.
 
-But after that step he fused it with multiplicative integration. That came out as something really great. At this moment in time there isn't a single thing in the library that more exeplifies Spiral's approach than it. It also demonstrates the real benefit of `mapi` over the standard `map`.
+But after that step he fused it with multiplicative integration. That came out as something really great. At this moment in time there isn't a single thing in the library that more exemplifies Spiral's approach than it. It also demonstrates the real benefit of `mapi` over the standard `map`.
 
 The function is relatively big, so it will be done in chunks.
 
@@ -7292,7 +7289,7 @@ The function is relatively big, so it will be done in chunks.
                 } (Struct.map primal i)
 ```
 
-The brilliant part of this is how instead of creating a separate `seq_broadcast` in order to replicate the biases, they are instead indexed directly in scope and passed to `fwd`. What the above does is maps the input, and then passes it to layer norm and then relu.
+The brilliant part of this is how instead of creating a separate `seq_broadcast` in order to replicate the biases, they are instead captured in lexical scope and passed to `fwd`. What the above does is maps the input, and then passes it to layer norm and then relu.
 
 The backward step is more involved, but fairly similar to the standard layer norm.
 
@@ -7354,7 +7351,7 @@ The backward step is more involved, but fairly similar to the standard layer nor
             r, inl _ -> bck' o r b i s
 ```
 
-Propagating the adjoints into the biases is achieved through atomics. This is actual the only flaw in the whole kernel. Whereas before the training would be fully deterministic, this causes wide swings from run to run. The author saw the MIRNN range from 160 to 180 on the first epoch. With the biases frozen it gets 163 every time. That needs more investigating whether biases really should just be taken out or whether then net got lucky.
+Propagating the adjoints into the biases is achieved through atomics. This is actual the only flaw in the whole kernel. Whereas before the training would be fully deterministic, this causes wide swings from run to run. The author saw the MIRNN range from 160 to 180 on the first epoch. With the biases frozen it gets 163 every time which makes the look like a joke, but the author intends to continue believing in their theoretical advantages.
 
 What the above function allows is using LN+Relu with any kind of map operation whether it be MI or something else, in either feedforward or recurrent networks. As a result the layer with the fully fused activation looks identical to the standard one.
 
@@ -7395,7 +7392,7 @@ What the above function allows is using LN+Relu with any kind of map operation w
             }
 ```
 
-Since it takes only one instead of two backward steps, it takes 4.3s per epoch version 4.6s for the standard `mi` RNN without layer norm. All those complicated steps shown above take basically nothing - the real overhead is in memory movement to and from global memory.
+Since it takes only one instead of two backward steps, it takes 4.3s per epoch versus 4.6s for the standard `mi` RNN without layer norm. All those complicated steps shown above take basically nothing - the real overhead is in memory movement to and from global memory.
 
 Implementing layer norm was one of the other great catalysts that drove the author to create Spiral. After 1.5 years of work, it is possible to present this piece - the fused map + layer norm + relu activation. It cannot be found anywhere else.
 
@@ -7438,7 +7435,7 @@ The input layer is rather simple. It has a `name` and a `size` field.
     inl recurrent = stateful .recurrent
 ```
 
-Feedforward and recurrent layers aren't much different from each other. Only their `layer_type` field differs. There are other layer type as well.
+Feedforward and recurrent layers aren't much different from each other. Only their `layer_type` field differs. There are other layer types as well apart from the three shown above.
 
 Layer combinators are used to actually run and initialize the layers. And those combinators are derived from the `layer_map` and `layer_map_fold`.
 
@@ -7488,7 +7485,7 @@ inl x = .a
             ) network
 ```
 
-This is how `init` is made. If the layer has a `weigths` field it is passed in the context `s` and that return the network weights. Though rather than just setting weights to that, it wraps it in a function.
+This is how `init` is made. If the layer has a `weights` field it is passed in the context `s` and that returns the network weights after the function has been evaluated. Though rather than just setting weights to that, it wraps it in a function.
 
 This has the property that if the layer is reinitialized later, those parts that have already been initialized are not affected. The reason why this is done is that the net might have a body, but also branches that might need to be initialized separately.
 
@@ -7501,7 +7498,7 @@ This has the property that if the layer is reinitialized later, those parts that
             ) network
 ```
 
-`init_parallel` extends on the standard `init` by also allocating the layer a Cuda stream which can be used to execute layers in parallel.
+`init_parallel` extends on the standard `init` by also allocating a Cuda stream and storing it into the layer which can be used to execute layers in parallel.
 
 ```
     inl run x d s =
@@ -7547,7 +7544,7 @@ The way to imagine the graph being executed is to think of values flowing upward
 
     Some of the things he tried like flattening the AST that he thought would have benefit made absolutely no difference to performance. Things like optimizing the way `Op`s are represented would severely undermine the ergonomics of the compiler. Parser could be speed up significantly, but it is not a overhead. Actually it is, but it is not the one that is bothersome.
 
-    The partial evaluator is an enigma - reason tells that it is already fast for the kinds of work it is doing based on a rough comparison with other compilers. It is probably even faster than some other functional langauges. On the other hand, if the kinds of things it is doing can't be made any faster that bode ill for not just Spiral, but for the future of programming languages.
+    The partial evaluator is an enigma - reason tells that it is already fast for the kinds of work it is doing based on a rough comparison with other compilers. It is probably even faster than most other functional languages simply due to how simple it is. On the other hand, if the kinds of things it is doing can't be made any faster that bodes ill for not just Spiral, but for the future of programming languages.
 
     To put it like this - if Spiral was 10x slower than it was now, then it would be much less useful. If it was 100x slower then there would be no point in using it. This value estimate goes into the other direction as well. Spiral would be a lot more valuable if it were 10x faster. Performance simply matters everywhere and always - compilers are not the exception.
 
@@ -7622,7 +7619,7 @@ Within the confines of the ML library there is no problem in using them for the 
 
 #### Loops
 
-The loops in this context refers to the function that run the net once. Here they are for feedforward nets.
+The loops in this context refers to the functions that run the net once. Here they are for feedforward nets.
 
 ```
         inl train {d with network} =
@@ -7644,7 +7641,7 @@ The loops in this context refers to the function that run the net once. Here the
             loop (dyn 0) (dyn 0.0)
 ```
 
-The loop has to do a bunch of things while it is running like abort early on Nans in the cost, keep track of costs, call the backwards step and the optimizer. This is something that takes care of that.
+The loop has to do a bunch of things while it is running like abort early on nans in the cost, keep track of costs, call the backwards step and the optimizer. This is something that takes care of that.
 
 ```
         inl test {d with network} =
@@ -7702,7 +7699,7 @@ Both of `train` and `test` hold their state internally and are unwrapped at the 
             }
 ```
 
-Until now, no mention whatsoever has been made about how Spiral's ML libraries manages memory, so this is a good time to do it.
+Until now, no mention whatsoever has been made about how the library manages memory, so this is a good time to do it.
 
 ```
 inl s = s.RegionMem.create
@@ -7735,15 +7732,15 @@ It is this thing that does so. It filters out all the references set to null and
                     }
 ```
 
-Note that `state` here is either `train` or `test`. The `for` loop shown is a bit unusual in the the mapping function for it is also the state. The reason for that is because it is the easiest way of initializing the state. Rather being split into two, everything `train` and `test` need are right there where it should be.
+Note that `state` here is either `train` or `test`. The `for` loop shown is a bit unusual in that the mapping function for it is also the state. The reason for that is because it is the easiest way of initializing the state. Rather being split into two, everything `train` and `test` need are right there where they should be.
 
-It is one of the aspects of Spiral's OO that would be untypable in other static functional languages.
+Doing it like that is a straightforward OO pattern in Spiral, but would be untypable in other static functional languages.
 
 The recurrent networks have their own `train` and will have `test`, but they are beyond the scope of this tutorial. They are more complicated, but have exactly the same purpose. Both feedforward and recurrent nets have their own dedicated gradient checking function which are useful for testing additions to the library.
 
 This covers all the important parts of the library. 
 
-Fundamentally, ML libraries are not something to be worked on forever which is the unfortunate situation author found himself in. Much like parser combinators resolve the need for external parser generators, so can a ML library be fashioned in a similar vein. The greatest feature Spiral offers to the user is that it easily makes it possible to craft pieces like `map_ln_relu`. It is in turn made out of flexible pieces like `seq_broadcast`. They free the user of the drudgery of low level C programming and allow more a direct expression of desire. They also enable a vast amount of code reuse. Furthermore, Spiral's approach to programming allow the library an unparalled level of integration with the language. This will be greatly useful when the time comes to make it do reinforcement learning.
+Fundamentally, ML libraries are not something to be worked on forever which is the unfortunate situation author found himself in. Much like parser combinators resolve the need for external parser generators, so can a ML library be fashioned in a similar vein. The greatest feature Spiral offers to the user is that it easily makes it possible to craft pieces like `map_ln_relu`. It is in turn made out of flexible pieces like `seq_broadcast`. They free the user of the drudgery of low level C programming and allow more a direct expression of desire. They also enable a vast amount of code reuse. Furthermore, Spiral's approach to programming allows the library an absolute level of integration with the language. This will be greatly useful when the time comes to make use of it as a module in a reinforcement learning context.
 
 `map_ln_relu` is just the tip of the iceberg and this can be considered the first unfinished release of the library. But compared to all the work that was needed to make both the language and get the library to this point, the rest should be much easier. The great up front expense has been paid in full.
 
@@ -7832,7 +7829,7 @@ Prepare the dataset, define the network and then run it. This is the part that d
             } s
 ```
 
-This is succint enough that it actually does not need any further comment. One thing that would be good to mention is that since Spiral loves statically known dimensions, the `split_round` functions tend to throw away the excess in order to keep the tensor regular. So the test set rather than having 10k examples will have 9984 examples.
+This is succinct enough that it actually does not need any further comment. One thing that would be good to mention is that since Spiral loves statically known dimensions, the `split_round` functions tend to throw away the excess in order to keep the tensor regular. So the test set rather than having 10k examples will have 9984 examples.
 
 ```
 Training: 0.309259804475129
@@ -7911,7 +7908,7 @@ inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step
 inl data = {input label}
 ```
 
-The labels are just the inputs shifted one to the left. Then they are split so that the final dimensions of the tensor are `(rest,64,64)`. Where the middle 64 is the number of steps and the innermost 64 is the minibatch size.
+The labels are just the inputs shifted one to the left. Then they are split so that the final dimensions of the tensor are `(rest,64,64)` where the middle 64 is the number of steps and the innermost 64 is the minibatch size.
 
 Define the network.
 
@@ -8223,17 +8220,17 @@ The net does not take long to start spouting Shakespearean sounding gibberish. B
 
 Based on looking at the above, it is clear even a tiny recurrent net with only 128 hidden units and a single layer is capable of learning a great deal of the structure of the dataset which is what the test intended to demonstrate.
 
-The authot is definitely curious how a net with multiple layers and dilated connections would learn. That will definitely be subject of future work.
+The author is definitely curious how a net with multiple layers and dilated connections would learn. That will definitely be subject of future work.
 
 #### Future Work
 
 Some of the loose ends currently in the library that need to be worked on when the author gets back to it.
 
-Getting to this point is a great relief to the authot because the problem is no longer making the language which could take over a year, nor the huge arduous task of catching up and exceeding the old library. Rather, the problem is that the he has nothing to use it on. So the next task on his agenda will be to work on games for the agents. And what sort of better games than the ones where dumb people are willing to wager both money and status against potentially superhuman opponents.
+Getting to this point is a great relief to the author because the problem is no longer making the language which could take over a year, nor the huge arduous task of catching up and exceeding the old library. Rather, the problem is that the he has nothing to use it on. So the next task on his agenda will be to work on games for the agents. And what sort of better games than the ones where dumb people are willing to wager both money and status against potentially superhuman opponents.
 
-The future sure looks bright. The plan is simple; while much can't be expected with a simple one layer recurrent net like the one demonstrated on the char-RNN, it is a starting point and the continual process of constantly improving on that should yield bounty. It certainly beats the reality of punding the pavement of the last 2.5 years.
+The future sure looks bright. The plan is simple; while much can't be expected with a simple one layer recurrent net like the one demonstrated on the char-RNN, it is a starting point and the continual process of constantly improving on that should yield bounty. It certainly beats the reality of pounding the pavement of the last 2.5 years.
 
-The following items are rougly in the order of priority. They describe the potential main avenues of improvement once the time is ripe.
+The following items are roughly in the order of priority. They describe the potential main avenues of improvement once the time is ripe.
 
 ##### Generic Matrix Multiplication
 
@@ -8309,7 +8306,7 @@ Pain point two is this:
                 ) () l
 ```
 
-It is not actually a problem had there been only two matrices to multiply, but in recurrent nets there tend to be two. This function is wasteful because it would not take advantage of any potential sharing in the inputs, but it also would need to write multiple times to the output.
+This is not a problem when there is only a single pair of matrices to multiply, but in recurrent nets there tends to be two pairs. This function is wasteful because it would not take advantage of any potential sharing in the inputs, but it also would need to write multiple times to the output.
 
 There is a missed fusion opportunity here. This one is actually much more severe than it appears at first glance.
 
@@ -8343,7 +8340,7 @@ There are also indications that this would be incredibly important in (quasi)rec
 
 [SNAIL](https://openreview.net/forum?id=B1DmUzWAW) and [temporal convolution](https://arxiv.org/abs/1803.01271) architectures have especially good training properties due to ability to easily propagate gradients. Those general architectures would also benefit greatly for having flexible and fast matrix multiply and convolutional kernels that are not offered by the Cuda libraries.
 
-This makes the case for why ML libraries should offer their own matrix multiply primitive - based on the understanding and the knowledge accumulated during the past few years, it seems incresingly credible that the ideal nets are those that do a large number of small operations with numerious residual connections that stretch deep both into time and space.
+This makes the case for why ML libraries should offer their own matrix multiply primitive - based on the understanding and the knowledge accumulated during the past few years, it seems increasingly credible that the ideal nets are those that do a large number of small operations with numerous residual connections that stretch deep both into time and space.
 
 As the author does not need such networks quite yet, he is content to leave that work for the future.
 
@@ -8369,7 +8366,7 @@ This might be rude to say about it, but LSTMs need ditching. While the internal 
 
 LSTM trains better than a vanilla RNN. It has more feature than it. Its defining equation is definitely bigger. But from a different perspective, LSTM does not improve the generality of a standard RNN, but rather it restricts it. Batch norm, layer norm, activation functions, residual connections...all the significant improvements over the base network are in essence constraints.
 
-Dillated connections by restricting the amount of work the net can do increase its power and shorten the gradient path. They should be the starting point for deep recurrent networks.
+Dilated connections by restricting the amount of work the net can do increase its power and shorten the gradient path. They should be the starting point for deep recurrent networks.
 
 Dilated connections will require the generic gemm and redoing the loop bodies in the library.
 
@@ -8385,7 +8382,7 @@ Dense connections will require the generic gemm and redoing the loop bodies in t
 
 In particular, deep layer of over 10 will require some modifications to how kernels are compiled. Instead of passing in arguments directly at some point it will be necessary to pass them in array in order to preserve the user's sanity. That will require implementing asynchronous memory copies from host to device among others. Without this, kernels will need to be specialized for every single argument change. For nets with 50 layers, it would not be good if there were 50 different variations of gemm.
 
-The priority of this item depends on the kinds of networks being compiled. Right now it is completely unecessary, but eventually it will be indispensable.
+The priority of this item depends on the kinds of networks being compiled. Right now it is completely unnecessary, but eventually it will be indispensable.
 
 ##### Generic Convolutions
 
@@ -8395,7 +8392,19 @@ Divisive normalization should also be implemented at some point and that can be 
 
 ##### 1D Block Scan and Reduce
 
-The author already did the transposed versions of them, but in order to take advanage of Spiral's default toa representation, it might be good to break the dependency on Cub for the 1d case. C++ is really limited in various ways, and much like the majority of statically typed languages falls flat when it comes to defining new datatypes. It is not a high priorty item and more like a homework assignment suitable for newcomers to the language should they feel like it.
+The author already did the transposed versions of them, but in order to take advantage of Spiral's default toa representation, it might be good to break the dependency on Cub for the 1d case. C++ is really limited in various ways, and much like the majority of statically typed languages falls flat when it comes to defining new datatypes. It is not a high priority item and more like a homework assignment suitable for newcomers to the language should they feel like it.
+
+##### Softmax Cost
+
+It would be better to recalculate the input much like in layer norm. Right now it is implemented inefficiently. The author is learning the language he created as he goes along much like anyone else would. He did not think through the current implementation properly.
+
+##### Checkpointing
+
+The ability to save arbitrary types to disk and load them will get added to the language and the standard library. Checkpointing for the ML library will succinctly get built on top of that. This is something that will be necessary when training times get longer.
+
+##### Improve The Allocator
+
+Allocator should be more capable of handling short term allocations. This can be done by taking the idea from the previous stack based allocator and incorporating them into the current one.
 
 ## User Guide: The Spiral Power
 

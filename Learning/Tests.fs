@@ -808,22 +808,6 @@ Loops.for' {from=0; near_to=5; body=inl {next i} ->
     }
     """
 
-let tutorial1 =
-    "tutorial1",[cuda_modules],"The placeholder for the tutorial examples",
-    """
-inb s = CudaModules (1024*1024) 
-
-inl fact to = Loops.for {from=2; to state=dyn 1; body=inl {state i} -> state * i}
-
-s.run {
-    blockDim=1
-    gridDim=1
-    kernel=inl blockDim gridDim -> 
-        fact 3 |> ignore
-    }
-    """
-
-
 let tests =
     [|
     allocator1
