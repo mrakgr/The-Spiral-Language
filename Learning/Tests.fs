@@ -580,9 +580,6 @@ inb s = CudaModules (1024*1024*1024)
 
 inl float = float32
 open Learning float
-open Primitive
-open Activation
-open Error
 
 inl minibatch_size = 128
 inl { test_images test_labels train_images train_labels} =
@@ -600,7 +597,7 @@ inl network =
     inl label = input .label hidden_size
     inl network =
         input .input input_size 
-        |> ln 0.1f32 256
+        |> ln 0.0f32 256
         |> linear hidden_size 
         |> init s
     inl train = error Error.softmax_cross_entropy label network
@@ -628,9 +625,7 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
         inl cost, ac, max_ac =
             for {
                 data={input=test_images; label=test_labels}
-                body=test {
-                    network=network.test
-                    }
+                body=test { network=network.test }
                 } s 
 
         string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
@@ -731,9 +726,6 @@ inb s = CudaModules (1024*1024*1024)
 
 inl float = float32
 open Learning float
-open Primitive
-open Activation
-open Error
 
 inl size = {
     seq = 1115394
@@ -765,7 +757,6 @@ inl input =
             data minibatch seq .get
             )
         
-
 inl label = input.view_span (const {from=1}) .round_split' size.step
 inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step
 inl data = {input label}
@@ -778,17 +769,18 @@ inl network =
 
     inl body =
         input
-        |> mi 128
-        |> mi 128
+        |> miln 0.05f32 128
         |> Feedforward.Layer.linear size.hot
-        |> init s
+        |> init_parallel s
 
-    inl train = error Error.softmax_cross_entropy label body
+    inl train = 
+        error Error.softmax_cross_entropy label body
+        |> init_parallel s
     
     {train body}
 
 inb _ = Timer.timeit "whole loop"
-Loops.for' {from=0; near_to=1000; body=inl {next i} -> 
+Loops.for' {from=0; near_to=5; body=inl {next i} -> 
     open Recurrent.Pass
     open Body
 
@@ -799,13 +791,13 @@ Loops.for' {from=0; near_to=1000; body=inl {next i} ->
                 data
                 body=train {
                     network=network.train
-                    optimizer=Optimizer.clipped_sgd 0.5f32 0.03f32
+                    optimizer=Optimizer.sgd 0.01f32
                     }
                 } s
 
     Console.writeline "----"
 
-    sample 1.0f32 2048 network.body '\n' s
+    sample 0.6f32 2048 network.body '\n' s
 
     string_format "Training: {0}" cost |> Console.writeline
 
@@ -846,7 +838,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning11
 |> printfn "%s"
 |> ignore
 

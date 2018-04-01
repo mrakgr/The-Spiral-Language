@@ -71,7 +71,11 @@
             - [Layer Combinators](#layer-combinators)
                 - [A Note On Compilation Times](#a-note-on-compilation-times)
             - [Loops](#loops-1)
-            - [Future Work - Matrix Multiplication](#future-work---matrix-multiplication)
+            - [Example - Feedforward Net On Mnist](#example---feedforward-net-on-mnist)
+            - [Example - Recurrent Net on tiny_shakespeare](#example---recurrent-net-on-tiny_shakespeare)
+            - [Future Work](#future-work)
+                - [Matrix Multiplication](#matrix-multiplication)
+                - [Fuse The Weight Updates](#fuse-the-weight-updates)
     - [User Guide: The Spiral Power](#user-guide-the-spiral-power)
         - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
         - [2: Let Insertion and Common Subexpression Elimination](#2-let-insertion-and-common-subexpression-elimination)
@@ -7612,9 +7616,618 @@ Within the confines of the ML library there is no problem in using them for the 
 
 #### Loops
 
-...
+The loops in this context refers to the function that run the net once. Here they are for feedforward nets.
 
-#### Future Work - Matrix Multiplication
+```
+        inl train {d with network} =
+            inl rec loop c cost' = 
+                function
+                | .unwrap -> cost' / to float64 c
+                | input s {on_fail on_succ} ->
+                    inl cost, {bck} = run network {input state = {}; bck=const ()} s
+                    inl cost' = cost' + to float64 (s.CudaTensor.get cost)
+                    inl state = loop (c+1) cost'
+                    if nan_is cost' then on_fail state
+                    else
+                        match d with
+                        | {optimizer} ->
+                            bck()
+                            optimize network optimizer s
+                        | _ -> ()
+                        on_succ state
+            loop (dyn 0) (dyn 0.0)
+```
+
+The loop has to do a bunch of things while it is running like abort early on Nans in the cost, keep track of costs, call the backwards step and the optimizer. This is something that takes care of that.
+
+```
+        inl test {d with network} =
+            inl rec loop c cost' accuracy' accuracy_max' = 
+                function
+                | .unwrap -> cost' / to float64 c, accuracy', accuracy_max'
+                | input s {on_fail on_succ} ->
+                    inl (cost, {value max}), {bck} = run network {input state = {}; bck=const ()} s
+                    inl cost' = cost' + to float64 (s.CudaTensor.get cost)
+                    inl accuracy' = accuracy' + s.CudaTensor.get value
+                    inl accuracy_max' = accuracy_max' + max
+                    inl state = loop (c+1) cost' accuracy' accuracy_max'
+                    if nan_is cost' then on_fail state
+                    else
+                        match d with
+                        | {optimizer} ->
+                            bck()
+                            optimize network optimizer s
+                        | _ -> ()
+                        on_succ state
+            loop (dyn 0) (dyn 0.0) (dyn 0) (dyn 0)
+```
+
+This one takes care of accuracy and the max accuracy.
+
+Both of `train` and `test` hold their state internally and are unwrapped at the end of the epoch. `train` and `test` are passed in as body for the `for` function.
+
+```
+    inl outer data =
+        Struct.foldl (inl s x ->
+            match s with
+            | () -> fst x.dim
+            | s -> assert (s = fst x.dim) "The data tensors need to have the same outer dimension."; s
+            ) () data
+
+    inl for {data body} s =
+        inl {from near_to} = outer data
+           
+        Loops.for' {
+            from near_to
+            state=body
+            body=inl {next state i} ->
+                inl data = Struct.map (inl x -> x i) data
+                s.refresh
+                inl s = s.RegionMem.create
+                state data s {
+                    on_fail=inl state ->
+                        s.RegionMem.clear
+                        state.unwrap
+                    on_succ=inl state ->
+                        s.RegionMem.clear
+                        next state
+                    }
+            finally=inl state -> state.unwrap
+            }
+```
+
+Until now, no mention whatsoever has been made about how Spiral's ML libraries manages memory, so this is a good time to do it.
+
+```
+inl s = s.RegionMem.create
+```
+
+The context has `RegionMem` and `RegionStream`. When `.create` is passed into them a new region is created. That does not actually allocate any memory or streams, but instead allocates a new region. Under the hood, the region is a resizable array that holds all the references allocated through it.
+
+```
+s.RegionMem.clear
+```
+
+When this is called, all the references in that region have their count decremented by 1 and if that count is 0, they are set to null. For feedforward nets, that means the allocation always get cleared since their references are never shared with other regions.
+
+That does not actually dispose of the memory however.
+
+```
+s.refresh
+```
+
+It is this thing that does so. It filters out all the references set to null and rebuilds the free cells. It can be thought of as the equivalent of doing a GC run. This system is nowhere as good as actual GC in terms user ease or flexibility, but it should suffice for neural network needs. It can be improved to support things like very short term allocation without having to clean up everything, but that will be future work.
+
+```
+                state data s {
+                    on_fail=inl state ->
+                        s.RegionMem.clear
+                        state.unwrap
+                    on_succ=inl state ->
+                        s.RegionMem.clear
+                        next state
+                    }
+```
+
+Note that `state` here is either `train` or `test`. The `for` loop shown is a bit unusual in the the mapping function for it is also the state. The reason for that is because it is the easiest way of initializing the state. Rather being split into two, everything `train` and `test` need are right there where it should be.
+
+It is one of the aspects of Spiral's OO that would be untypable in other static functional languages.
+
+The recurrent networks have their own `train` and will have `test`, but they are beyond the scope of this tutorial. They are more complicated, but have exactly the same purpose. Both feedforward and recurrent nets have their own dedicated gradient checking function which are useful for testing additions to the library.
+
+This covers all the important parts of the library. 
+
+Fundamentally, ML libraries are not something to be worked on forever which is the unfortunate situation author found himself in. Much like parser combinators resolve the need for external parser generators, so can a ML library be fashioned in a similar vein. The greatest feature Spiral offers to the user is that it easily makes it possible to craft pieces like `map_ln_relu`. It is in turn made out of flexible pieces like `seq_broadcast`. They free the user of the drudgery of low level C programming and allow more a direct expression of desire. They also enable a vast amount of code reuse. Furthermore, Spiral's approach to programming allow the library an unparalled level of integration with the language. This will be greatly useful when the time comes to make it do reinforcement learning.
+
+`map_ln_relu` is just the tip of the iceberg and this can be considered the first unfinished release of the library. But compared to all the work that was needed to make both the language and get the library to this point, the rest should be much easier. The great up front expense has been paid in full.
+
+#### Example - Feedforward Net On Mnist
+
+The examples are just to give a feel for how the code looks like in practice. 
+
+```
+let learning9 =
+    "learning9",[cuda_modules;learning;mnist],"Does the full training work with Mnist?",
+    """
+inb s = CudaModules (1024*1024*1024)
+
+inl float = float32
+open Learning float
+
+inl minibatch_size = 128
+inl { test_images test_labels train_images train_labels} =
+    inl mnist_path = @"C:\ML Datasets\Mnist"
+    Mnist.load_mnist_tensors mnist_path
+    |> s.CudaTensor.from_host_tensors
+    |> module_map (inl _ x -> x.round_split' minibatch_size)
+```
+
+This is a handy loader just for Mnist. Tensors have the `round_split` and `round_split'` methods in them that split the outermost dimension to `(minibatch_size,rest)` and `(rest,minibatch_size)`. So the shape of the tensors after the above would be `(rest,128,784)` after the above operation with the `rest` being statically known.
+
+```
+inl input_size = 784
+inl hidden_size = 10
+
+inl network = 
+    open Feedforward.Layer
+
+    inl label = input .label hidden_size
+    inl network =
+        input .input input_size 
+        |> ln 0.0f32 256
+        |> linear hidden_size 
+        |> init s
+    inl train = error Error.softmax_cross_entropy label network
+    inl test = parallel (train, accuracy label network)
+    {train test}
+```
+
+The layers can be easily piped using the `|>` operator. There is no danger of failing to connect layers like this and no need to write unit tests for this purpose like some other libraries require the user to do.
+
+```
+Loops.for' {from=0; near_to=10;body=inl {next} -> 
+    open Feedforward.Pass
+    open Body
+
+    inl cost =
+        for {
+            data={input=train_images; label=train_labels}
+            body=train {
+                network=network.train
+                optimizer=Optimizer.sgd 0.3f32
+                }
+            } s
+
+    string_format "Training: {0}" cost |> Console.writeline
+
+    if nan_is cost then
+        Console.writeline "Training diverged. Aborting..."
+    else
+        inl cost, ac, max_ac =
+            for {
+                data={input=test_images; label=test_labels}
+                body=test { network=network.test }
+                } s 
+
+        string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
+        next ()
+    }
+```
+
+Prepare the dataset, define the network and then run it. This is the part that does the last one. The really salient parts are those where it calls the `Learning` `for` function. The rest is just standard IO and checking for Nans.
+
+```
+        for {
+            data={input=train_images; label=train_labels}
+            body=train {
+                network=network.train
+                optimizer=Optimizer.sgd 0.3f32
+                }
+            } s
+```
+
+This is succint enough that it actually does not need any further comment. One thing that would be good to mention is that since Spiral loves statically known dimensions, the `split_round` functions tend to throw away the excess in order to keep the tensor regular. So the test set rather than having 10k examples will have 9984 examples.
+
+```
+Training: 0.309259804475129
+Testing: 0.157295000082694(9493/9984)
+Training: 0.114737567477899
+Testing: 0.111421216703139(9622/9984)
+Training: 0.0818591211150345
+Testing: 0.0956207461153658(9671/9984)
+Training: 0.0638285737313553
+Testing: 0.0879654984933157(9693/9984)
+Training: 0.0516892505001723
+Testing: 0.0810565133280575(9715/9984)
+Training: 0.042687166776731
+Testing: 0.0776575743668498(9724/9984)
+Training: 0.0355717467236667
+Testing: 0.075778437509703(9734/9984)
+Training: 0.0297816385700105
+Testing: 0.0741259951931007(9747/9984)
+Training: 0.025186768730975
+Testing: 0.0730099095739066(9750/9984)
+Training: 0.0212900042135873
+Testing: 0.0725844820121076(9749/9984)
+```
+
+Layer norm + relu works rather well as an activation given how they hit 95% in the first epoch. This is almost on par with batch norm. The Mnist test is useful for ensuring that new additions to the library are implemented correctly.
+
+#### Example - Recurrent Net on tiny_shakespeare
+
+Prepare the dataset.
+
+```
+let learning11 =
+    "learning11",[cuda_modules;timer;learning],"Does the full training + sampling work with the char-RNN?",
+    """
+inb s = CudaModules (1024*1024*1024)
+
+inl float = float32
+open Learning float
+
+inl size = {
+    seq = 1115394
+    minibatch = 64
+    step = 64
+    hot = 128
+    }
+
+// I got this dataset from Karpathy.
+inl path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
+inl data = 
+    macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
+    |> Array.map (inl x -> 
+        inl x = to int64 x
+        assert (x < size.hot) "The inputs need to be in the [0,127] range."
+        to uint8 x
+        )
+    |> HostTensor.array_as_tensor
+    |> HostTensor.assert_size size.seq
+    |> s.CudaTensor.from_host_tensor
+    |> inl data -> data.round_split size.minibatch
+
+inl minibatch,seq = data.dim
+
+inl input =
+    inl data = s.CudaTensor.to_dev_tensor data 
+    s.CudaKernel
+        .init {dim=seq,minibatch} (inl seq minibatch ->
+            data minibatch seq .get
+            )
+```
+
+This last part where the init is called transposes the dataset to the sequence of minibatches from a minibatch of sequences.
+
+```
+inl label = input.view_span (const {from=1}) .round_split' size.step
+inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step
+inl data = {input label}
+```
+
+The labels are just the inputs shifted one to the left. Then they are split so that the final dimensions of the tensor are `(rest,64,64)`. Where the middle 64 is the number of steps and the innermost 64 is the minibatch size.
+
+Define the network.
+
+```
+inl network = 
+    open Recurrent.Layer
+    
+    inl label = input .label 1 |> encode.one_hot size.hot
+    inl input = input .input 1 |> encode.one_hot size.hot
+
+    inl body =
+        input
+        |> miln 0.05f32 128
+        |> Feedforward.Layer.linear size.hot
+        |> init_parallel s
+
+    inl train = 
+        error Error.softmax_cross_entropy label body
+        |> init_parallel s
+    
+    {train body}
+```
+
+The `encode.one_hot` is a layer that does encoding into the one-hot vector.
+
+Then here is the part that runs the network. It is similar to the feedforward case.
+
+```
+inb _ = Timer.timeit "whole loop"
+Loops.for' {from=0; near_to=5; body=inl {next i} -> 
+    open Recurrent.Pass
+    open Body
+
+    inl cost = 
+        Timer.timeit (string_format "iteration {0}" i)
+        <| inl _ ->
+            for {
+                data
+                body=train {
+                    network=network.train
+                    optimizer=Optimizer.sgd 0.01f32
+                    }
+                } s
+
+    Console.writeline "----"
+
+    sample 0.6f32 2048 network.body '\n' s
+
+    string_format "Training: {0}" cost |> Console.writeline
+
+    if nan_is cost then
+        Console.writeline "Training diverged. Aborting..."
+    else
+        next ()
+    }
+```
+
+The key differences are - there is timing code, there is the `sample 0.6f32 2048 network.body '\n' s` function in the middle and there is no test pass.
+
+Here is a sample run.
+
+```
+Starting timing for: whole loop
+Starting timing for: iteration 0
+The time was 00:00:04.6501455 for: iteration 0
+----
+Sample:
+wing somest gooteded, and, singe,
+The to betith in sumese the pearated.
+Whis in sallers,D you and(ed ansting the if the thou hinser, storsuld,
+And of in coment not in whatss,
+Ind thin bevers,ing in drain,
+The trust,
+And the sake thisher, and the that the deake wast,
+And all of marst the thatpen and at cond waiching to thessirserent,:
+Sill I here.
+
+Thand the be thered lows,
+I and you cand I and tringher,
+Bre this the me that
+Thenens
+Anded I thingent then, sursted the peave were the whingerew the mane
+The be, coeld me the wave, the cour:
+I the thend bete the deact, sird you make to the at wither.
+
+Thery oreded mors beno, ripe comering thise dore siandsure,
+As::
+What now the misest wearse
+Thoughty,
+Thouping the the ceelles ourte.
+The farthersest now
+And at is wither, and that hath I with in you diantaces, the wast
+And all in,
+And the and ast yourd the the ceeptingers
+I his of the siand thend that to way, bytherest theard the not to the is thet the wime, themell the thisser:
+That thees,
+And the wantersed be,
+Ind asenoon,Theres,
+Hereest to hard wers of in the of with yishinging this the mastereds,
+And cakere thes in brony and of forderselt:
+Then to gout, store torate the that?
+
+MELIR:
+The will of fand the is's porto the thet save wed nothtont of thenciint, ind,
+To me,
+And is with in and thenesand and himing wish not strogh
+And wither,
+And to dearons and m| mair beast a the whinges and the whath, as tomes, of my then the the that wis;
+Bing, I good, make the stoll ot I me siet stome there sught.
+Thenetront,
+And the to wime betore an thou lodser:
+And she for the this in your to meang't, sien and hourituteround.
+
+LARA:
+I werainert
+ThertedE
+I laveres?
+To lading inest the thend
+Yould, will wionds
+And the hearf in goed ther,
+But our of wach, the wagk
+'ot pith and not to dearse the bute.
+
+SIINO:
+And his this fore thisest note,
+Hear'd ather's and mask?
+
+KIIIIO:
+Thend and the wout.y this, fave and lathers, buster.
+
+SIO:
+And pare, Hinged in the couthar yourstast the and it lingels, lard whe sith histound on ond thourd in
+-----
+Training: 170.018245865317
+Starting timing for: iteration 1
+The time was 00:00:04.6143145 for: iteration 1
+----
+Sample:
+Now therenowerad's forthy all the distarion theeld and and and the blainise is the trues
+Sire, on to be the onound our lord and betion singed lord.
+
+PUCES:
+Thenet is lord of the courteday,
+The and halood a mone of the coundey countien words thou with is thou all toome sonerites ourself your with the and to there and tongues enday, of not came the of apoing to fallow and that how's it that to muding bove to beting the look of singanes
+Well to beastien madys, his as to to the devend and thenese lird is bother of refore, of our to apour.
+That bunder,
+To fars to their the parioule.
+
+OUCELIO:
+Ore with it distlation of with so, and earded to him a worce whing the gooke to sourt that to the sontle upon the biend that be and it that with tayer hport and and to that of the to then the foold porn the po that is wither the with thenenoloue one to sonery come are parding the know lead in land you dirst the rad the tood comes have yet hare and the sire and stard to seariens and that revererow(
+And of then I mare
+in then the to somered his are the prother<ing thou with thy lonted, and bothing thou may horeferst
+I come to the to and that am their will then deariour and bray be and betrows thou toole afere to that and and turation you way, and the stole will sindares0er:
+I saye, and his beanied thou asear,
+And are of too hishers
+My the beis to hinging the wirl wasting the dayes, then the known the sanded, and to in not ture the wortle thou to the word.
+
+under forterald thee this thought as pake dainice lot hast to theight hather,
+Belood is ase the mahe tonest to
+So thou hathous tain to there astand them of is the downatterse: moy bearsice and thou sould to thes, to are thou and not to sunatard dearce?
+
+POUDARO:
+And took, to come beating the your a may they with the eagen,
+To to my that in fore to thereford,
+And mare the west in to thisker. I upon the power this downiald be songert as as to th|inus to piet more nother theee and and to to to thou thou and therede then of asse,A:
+To to drood,
+Nobe, becain I told the will thou how
+-----
+Training: 130.864040150362
+Starting timing for: iteration 2
+The time was 00:00:04.5930354 for: iteration 2
+----
+Sample:
+ridown of, and seeping the with of this is loved that bold that padyed and your the bedang kauch of bess thought to thou live,
+The king, thou hast, thou sire of the till this thoughtders the everied,
+For to shall my to to him the constance of toot and that therefore and sonronion
+Thou gince,
+Mard, and bard,
+And dastertart the surseding the sware.
+
+PETEN:
+Your love, the sentle,
+And but all the can to feres say is conferty this to but with that again, fallon that stome arm not I are the sealt forting the fored,
+The tonely, them thou sine now that to the sinter, m|inger down the surtion less.
+
+First toous are to mare Hartery forst, that soorerage, bard letten,
+Have of in are with of the provedious the lord:
+I other in the romaster him, art of will thy soke sound.
+
+POUMENTIO:
+Dose:
+And thou will wister all seed fare
+And souls to to dost that toome all
+sleast us this the lick, and to doingsy head!
+
+ANTIO:
+Comence are that as the make told bear,
+What hand the deal your losk to my lord!
+
+PETCANDNO:
+Ward, of the might and fortly manrrngness,
+That hawe of butise Buty are mone my loves;
+Here, make the vant;
+And hpard, the will the good, fortows and the with to the word and not hearing of the to fartor.
+
+ALIUS:
+My that I landly comenion would what every not to lord;
+These with though his ever will with father, and but with all stiding, Edward,
+And down: father, with now the encition:
+Sack met your hand of have is then in the thought your hearts,
+As my of mander stearself oftle manion the king they well.
+
+KING RUCHARD III:
+Weres the ling my fands you on the great and hpards the sile, in their comest the say as as a ment,
+The looks of soncease sir thou beangled botter'd and then throst the stant forkented to the will of hath hpard that is beit though a seem the stand the sakes of the day hearted,
+Would with and the with this the west be to the doughtere you gime hath the contence.
+
+KING IO:
+Herecome,
+The fard the cance ases to the word's wears,
+Hend with then the erterver:
+Fore fallon and the peanion'sted.
+
+GORINGLAN:
+Some th
+-----
+Training: 120.591899198644
+Starting timing for: iteration 3
+The time was 00:00:04.6190544 for: iteration 3
+----
+Sample:
+rest worther that lork
+To the seaven the pard that branch and where bray and his with the word mamallue that of the tower fast in the forsed but of is like his to the bust m|ine thy forther a thou stard thou are come to soes and but in that to with thou coot man spord and never of the world ressibing be father for the fall would were to the some stain, truch sorford,
+To be so this to the wards this say the to buny of be thy sir, strut thou falled to and to be the king.
+
+ARCISTEN:
+Sir, whose fair, his day, are my last in this this but to to thou lord.
+owe the it.
+Mare's pardous in the confort of your have with thou to be by the backers, that thou is this litter to the can poor your fail toome heart:
+And the stant should to the king of his dread of thy of the of the caunted say stay the rawell, and take thou how it that shall thou strenhon our king
+Whow a sing the to me sold abeary ware, cale to my pown.
+
+DERENTER:
+Where should of the counter be toot, the hand, be prain so entrant thou carn, it the might with the purilit the will to the sucting mistruck at is to the seaver mone too lood not diest the ere his warther of the well my lord, this counst of a son, beden the fourtion of her to adiend, thoo both of his be proms the with at before of the fail the kingl| the surse thereing be chook of this of dowers seaster is sporisher returm hus a to blousing a that to denself,H:
+How is but the shall m|ot come the horst both as of the strank we wife ble?
+And the it resign: and thy she do think not sirtus as the world hd holl me sower the gate a farle the surve say that drantly show, and thousence
+Romeos.
+
+PETROLIO:
+Thy may not some is that with tpost it that well the complain the rest mine forturess in to the to the should not mucked hpard unterding thy love is this strants of so confort did make of my lord hand the lord, lost of the shall to say the man a my lord:
+And you to the coursely man all thou gran murse to the way to the king a brotce.
+
+GLOUCESTER:
+My fall you go, I say good that for and a sind to of man if yo
+-----
+Training: 114.656255665947
+Starting timing for: iteration 4
+The time was 00:00:04.6133752 for: iteration 4
+----
+Sample:
+the king
+And rothy of thou lord, my trient our hath young rest lpettard tporcious are and most a was sould hlast tpose more his tords:
+The darther are to thou farsing in
+Sir, their command a manis me npard tpough for.
+
+QUEEN ELIZALUSNE:
+You son,
+And thou vard is fires thou worst tporst that the man well in that at hland master's son, with in his man this live.
+
+POLARUS:
+But life, word!
+
+MENENIUS:
+What where or your bear me tpought for man are th|in tpose of word and npard0ent, the deping the strunch and of happy the long widims
+There of your hast of did say, and but but is consignds husbard own beseefords of seeding, thou sound of that ment,
+And thou fortion thou man the courte, good of this with that lands to him, and are bring then Seevous not son; and one of the doth the stand it hand days
+What my mardiomer:
+And my the down that did birdured were best soining do with of therefore that kind which more thou what with you all for to than my one of minder('s sirst and with him mone to drand.
+eloss better I purstian;
+And name.
+To make are unto thy hand that shall be so.
+
+Thisineding thou day dood of what to him such mand his time; us bispited hlard and say is the blatten are in holy sings.
+
+HENRY CANIE:
+That with thou wpand with mistrous that words missenself!
+
+CORINA:
+Goother fdow you are thou have be come to to the wprown had tpought is meation, my life, monaster the call the ronds so such it, and surved the mast that fake that would thou re.
+
+KING RICHARD III:
+Bath the parton but rather constains, my exery as be in must,
+For of ma,
+this shall sir, be the promes us would and as this is to comes
+And m|orant tooblain of know m|halst whose of must hd parton it it is to have lady, and how so king send thou are sear to this reason; a word to comes with and tpough, I diveress
+And the sirrle sir;
+Why, like the sont.
+
+Second to tpatter, our farding is they but grace the part as some of cannot say, the falt our thou not thou lord.
+
+ROMEO:
+And to took in seaven of friar it thou propost stands thou am for from the last in
+-----
+Training: 110.771023666157
+The time was 00:00:25.4366961 for: whole loop
+```
+
+The net does not take long to start spouting Shakespearean sounding gibberish. Better nets and bigger datasets would improve performance no doubt. But this run is just intended to be equivalent of Mnist for recurrent nets. It would be possible to shave 0.3s from the runtime of each epoch by preprocessing the dataset more, but this way is the most convenient for when sampling is done.
+
+Based on looking at the above, it is clear even a tiny recurrent net with only 128 hidden units and a single layer is capable of learning a great deal of the structure of the dataset which is what the test intended to demonstrate.
+
+The authot is definitely curious how a net with multiple layers and dilated connections would learn. That will definitely be subject of future work.
+
+#### Future Work
+
+Some of the loose ends currently in the library that need to be worked on when the author gets back to it.
+
+Getting to this point is a great relief to the authot because the problem is no longer making the language which could take over a year, nor the huge arduous task of catching up and exceeding the old library. Rather, the problem is that the he has nothing to use it on. So the next task on his agenda will be to work on games for the agents. And what sort of better games than the ones where dumb people are willing to wager both money and status against potentially superhuman opponents.
+
+The future sure looks bright. The plan is simple; while much can't be expected with a simple one layer recurrent net like the one demonstrated on the char-RNN, but it is a simple starting point and the continual process of constantly improving on that should yield bounty.
+
+##### Matrix Multiplication
 
 Usually the good parts of the library would want to be highlighted, but the quality of this function is poor. Nonetheless matrix multiplication is absolutely indispensable so it needs to be covered.
 
@@ -7725,6 +8338,10 @@ There are also indications that this would be incredibly important in (quasi)rec
 This makes the case for why ML libraries should offer their own matrix multiply primitive - based on the understanding and the knowledge accumulated during the past few years, it seems incresingly credible that the ideal nets are those that do a large number of small operations with numerious residual connections that stretch deep both into time and space.
 
 As the author does not need such networks quite yet, he is content to leave that work for the future.
+
+##### Fuse The Weight Updates
+
+...
 
 ## User Guide: The Spiral Power
 

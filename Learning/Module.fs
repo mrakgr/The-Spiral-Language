@@ -2061,16 +2061,12 @@ inl float ->
                 inl data = Struct.map (inl x -> x i) data
                 s.refresh
                 inl s = s.RegionMem.create
-                //string_format "On iteration {0}" i |> Console.writeline
-                macro.fs () [text: "// Executing the net..."]
                 state data s {
                     on_fail=inl state ->
                         s.RegionMem.clear
-                        macro.fs () [text: "// Done with the net..."]
                         state.unwrap
                     on_succ=inl state ->
                         s.RegionMem.clear
-                        macro.fs () [text: "// Executing the next loop..."]
                         next state
                     }
             finally=inl state -> state.unwrap
