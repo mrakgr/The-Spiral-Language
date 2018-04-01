@@ -74,8 +74,14 @@
             - [Example - Feedforward Net On Mnist](#example---feedforward-net-on-mnist)
             - [Example - Recurrent Net on tiny_shakespeare](#example---recurrent-net-on-tiny_shakespeare)
             - [Future Work](#future-work)
-                - [Matrix Multiplication](#matrix-multiplication)
+                - [Generic Matrix Multiplication](#generic-matrix-multiplication)
                 - [Fuse The Weight Updates](#fuse-the-weight-updates)
+                - [Metalearning Via Optimization](#metalearning-via-optimization)
+                - [Dilated RNNs](#dilated-rnns)
+                - [Dense Connections](#dense-connections)
+                - [Deep Layer Compilation Optimizations](#deep-layer-compilation-optimizations)
+                - [Generic Convolutions](#generic-convolutions)
+                - [1D Block Scan and Reduce](#1d-block-scan-and-reduce)
     - [User Guide: The Spiral Power](#user-guide-the-spiral-power)
         - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
         - [2: Let Insertion and Common Subexpression Elimination](#2-let-insertion-and-common-subexpression-elimination)
@@ -8225,9 +8231,11 @@ Some of the loose ends currently in the library that need to be worked on when t
 
 Getting to this point is a great relief to the authot because the problem is no longer making the language which could take over a year, nor the huge arduous task of catching up and exceeding the old library. Rather, the problem is that the he has nothing to use it on. So the next task on his agenda will be to work on games for the agents. And what sort of better games than the ones where dumb people are willing to wager both money and status against potentially superhuman opponents.
 
-The future sure looks bright. The plan is simple; while much can't be expected with a simple one layer recurrent net like the one demonstrated on the char-RNN, but it is a simple starting point and the continual process of constantly improving on that should yield bounty.
+The future sure looks bright. The plan is simple; while much can't be expected with a simple one layer recurrent net like the one demonstrated on the char-RNN, it is a starting point and the continual process of constantly improving on that should yield bounty. It certainly beats the reality of punding the pavement of the last 2.5 years.
 
-##### Matrix Multiplication
+The following items are rougly in the order of priority. They describe the potential main avenues of improvement once the time is ripe.
+
+##### Generic Matrix Multiplication
 
 Usually the good parts of the library would want to be highlighted, but the quality of this function is poor. Nonetheless matrix multiplication is absolutely indispensable so it needs to be covered.
 
@@ -8341,7 +8349,53 @@ As the author does not need such networks quite yet, he is content to leave that
 
 ##### Fuse The Weight Updates
 
-...
+The way it is currently structured, the weights are updated one by one. If there are 100 weights, then the map kernel must be called 100 times, once per weight.
+
+It should be possible to fuse all those calls into a single kernel.
+
+It would improve performance and be a cool thing to do that the other libraries can't touch.
+
+##### Metalearning Via Optimization
+
+While MAML is beyond the scope of the `Learning` library, the recent [Reptile](https://blog.openai.com/reptile/) might be worth looking into. At the moment there are model based approaches to metalearning which use RNNs, and then there are optimization based approaches like Reptile. Right now the author does not understand how those two would mix together and would be interested in finding out.
+
+Hopefully, in the following months papers will come out that try to bridge that gap. The results will be interesting either way.
+
+##### Dilated RNNs
+
+[Dilated Recurrent Neural Networks](https://arxiv.org/abs/1710.02224) is one architecture that needs implementation. Very recently, like in the past two years DenseNets and temporal convolutions have emerged as an effective way to train feedforward nets and quasi-recurrent nets. Dilated connections are their recurrent counterpart.
+
+This might be rude to say about it, but LSTMs need ditching. While the internal state mechanism it uses provides a crucial insight in how to stabilize the training RNNs for long sequences, it still does mean that gradient descent can do the right thing for deep sequences.
+
+LSTM trains better than a vanilla RNN. It has more feature than it. Its defining equation is definitely bigger. But from a different perspective, LSTM does not improve the generality of a standard RNN, but rather it restricts it. Batch norm, layer norm, activation functions, residual connections...all the significant improvements over the base network are in essence constraints.
+
+Dillated connections by restricting the amount of work the net can do increase its power and shorten the gradient path. They should be the starting point for deep recurrent networks.
+
+Dilated connections will require the generic gemm and redoing the loop bodies in the library.
+
+##### Dense Connections
+
+Originally introduced in the [Densely Connected Convolutional Networks](https://arxiv.org/abs/1608.06993), the dense connections are a general method of significantly easing the training the networks in the vertical direction. They can be applied to both feedforward and recurrent networks and the author is interested in their application towards the later.
+
+Given how much improvement they demonstrate for deep networks, the author's view is that they are integral component of all modern networks and they should be a permanent fixture in any kind of net.
+
+Dense connections will require the generic gemm and redoing the loop bodies in the library.
+
+##### Deep Layer Compilation Optimizations
+
+In particular, deep layer of over 10 will require some modifications to how kernels are compiled. Instead of passing in arguments directly at some point it will be necessary to pass them in array in order to preserve the user's sanity. That will require implementing asynchronous memory copies from host to device among others. Without this, kernels will need to be specialized for every single argument change. For nets with 50 layers, it would not be good if there were 50 different variations of gemm.
+
+The priority of this item depends on the kinds of networks being compiled. Right now it is completely unecessary, but eventually it will be indispensable.
+
+##### Generic Convolutions
+
+This one should be done at some point as well for the sake of completeness, though the CuDNN one will suffice in the meantime. Probably there will be new kinds of operations in the future. There is no way that matrix multiply and convolutions are the only two possible choices. Hence mastering convolutions should be on the roadmap at some point. Doing that would also have the benefit of completely breaking the dependency on the CuDNN library.
+
+Divisive normalization should also be implemented at some point and that can be expressed in terms of the generic convolution operator.
+
+##### 1D Block Scan and Reduce
+
+The author already did the transposed versions of them, but in order to take advanage of Spiral's default toa representation, it might be good to break the dependency on Cub for the 1d case. C++ is really limited in various ways, and much like the majority of statically typed languages falls flat when it comes to defining new datatypes. It is not a high priorty item and more like a homework assignment suitable for newcomers to the language should they feel like it.
 
 ## User Guide: The Spiral Power
 
