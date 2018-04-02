@@ -8,11 +8,8 @@ let poker =
     (
     "Poker",[],"The Poker module",
     """
-//inl Player chips =
-//    {
-//    chips
-//    hand
-//    }
+inl aggrobot state = .AllIn
 
-//inl Game players = 
+inl response_raise player x =
+    player.reply (.Raise, x)
     """) |> module_
