@@ -12,17 +12,33 @@ let poker =
 inl aggrobot state = .AllIn
 
 /// The controller for the one card poker game.
-inl one_card_poker state players =
-    match state.phase.get with
+inl one_card_poker phase state =
+    inl players = state.players
+    match phase with
     | .Dealing -> 
         inl f ante player =
-            if player.chips >= ante then 
-                inl card = state [pot.add: ante; deck.take]
-                player [bet: ante; hand.set: card]
-            else player.inactive
+            if player.chips > 0 then 
+                player [bet: ante; hand.set: state.deck.take]
 
-        Tuple.foldr (inl player ante -> f ante player; 1) players 2
+        inl ante, big_ante = 1, 2
+        match players with
+        | a,b -> f ante; f big_ante
+        | _ -> error_type "Only two players supported for the time being."
 
-        state.phase.set .Betting
+        .Betting
 
+    | .Betting ->
+        met rec loop is_done =
+            if is_done then .Showdown
+            else
+                Tuple.foldl (inl is_done player ->
+                    if player.chips = 0 then is_done
+                    else is_done && betting player state
+                    ) true players
+                |> loop
+            : .Showdown
+
+        loop false
+
+    | .Showdown -> showdown Rule.one_card state
     """) |> module_
