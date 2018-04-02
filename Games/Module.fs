@@ -13,7 +13,7 @@ inl aggrobot state = .AllIn
 
 /// The controller for the one card poker game.
 inl one_card_poker state players =
-    match state.phase with
+    match state.phase.get with
     | .Dealing -> 
         inl f ante player =
             if player.chips >= ante then 
@@ -22,5 +22,7 @@ inl one_card_poker state players =
             else player.inactive
 
         Tuple.foldr (inl player ante -> f ante player; 1) players 2
+
+        state.phase.set .Betting
 
     """) |> module_
