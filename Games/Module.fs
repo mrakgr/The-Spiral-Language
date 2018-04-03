@@ -65,4 +65,3 @@ inl one_card_dealing state =
         | a :: b -> loop b
     loop state.players
     """) |> module_
-
