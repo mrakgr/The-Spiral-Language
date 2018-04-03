@@ -38,7 +38,7 @@ inl betting state =
                     {
                     fold = inl _ -> player.fold; next {d with active_players=self-1}
                     call = inl _ -> player.call limit; next {d with players_called=self+1}
-                    raise = inl x -> next {d with limit=player.raise limit x}
+                    raise = inl x -> next {d with limit=player.raise limit x; players_called=dyn 0}
                     }
             else
                 next d
@@ -65,3 +65,4 @@ inl one_card_dealing state =
         | a :: b -> loop b
     loop state.players
     """) |> module_
+
