@@ -51,12 +51,50 @@ inl betting state =
         limit = Tuple.foldl (inl s x -> if is_active x then max s x.pot else s) 0 state.players |> dyn
         }
 
-inl suit = .Spades \/ .Hearts \/ .Clubs \/ .Diamonds
-inl rank = uint8
-inl card = type rank, suit
+inl Suits = .Spades, .Clubs, .Hearts, .Diamonds
+inl Suit = Tuple.redulel (\/) Suits
+inl Ranks = .Two, .Three, .Four, .Five, .Six, .Seven, .Eight, .Nine, .Ten, .Jack, .Queen, .King, .Ace
+inl Rank = Tuple.redulel (\/) Ranks
+inl Card = type {rank=Rank; suit=Suit}
+
+inl spades, clubs, hearts, diamonds = Tuple.map (box Suit) ()
+inl two, three, four, five, six, seven, eight, nine, ten, jack, queen, king, ace = Tuple.map (box Rank) Ranks
+inl tag_rank = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) {} Ranks |> fst
+inl tag_suit = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) {} Suits |> fst
+
+inl player _ =
+    inl data = 
+        {
+        chips=dyn 0
+        hand=dyn (Option.None Card)
+        pot=dyn 0
+        } |> heapm
+
+    inl call x =
+        inl chips, pot = data.chips, data.pot
+        inl x = min chips x
+        data.chips <- chips - x
+        data.pt <- pot + x
+
+    function
+    | .hand_set x -> data.hand <- Option.some x
+    | .fold -> data.hand <- Option.None Card
+    | .call x -> call x
+    | .raise a b -> call (a + b)
+    | .pot_take x -> 
+        inl pot = data.pot
+        inl x = min pot x
+        data.pot <- pot - x; x
+    | .chips_add x ->
+        data.chips <- data.chips + x
+    | .hand_is ->
+        match data.hand with
+        | .None -> false
+        | _ -> true
+    | x -> data x
 
 inl one_card =
-    inl hand_rule = inl a b -> a.rank < b.rank
+    inl hand_rule = inl a b -> tag_rank a.rank < tag_rank b.rank
     inl dealing = inl state ->
         inl is_active x = x.chips > 0
         inl f ante player =
