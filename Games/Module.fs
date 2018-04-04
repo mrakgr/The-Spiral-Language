@@ -93,17 +93,17 @@ inl two, three, four, five, six, seven, eight, nine, ten, jack, queen, king, ace
 inl tag_rank = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) {} Ranks |> fst
 inl tag_suit = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) {} Suits |> fst
 
-inl player _ =
+inl player player_chips reply =
     inl data = 
         {
-        chips=dyn 0
+        chips=dyn player_chips
         hand=dyn (Option.None Card)
         pot=dyn 0
         } |> heapm
 
     inl call x =
         inl chips, pot = data.chips, data.pot
-        inl x = min chips x
+        inl x = min chips (x - pot)
         data.chips <- chips - x
         data.pt <- pot + x
 
@@ -122,7 +122,10 @@ inl player _ =
         match data.hand with
         | .None -> false
         | _ -> true
+    | .reply -> reply
     | x -> data x
+
+inl init {player_replies player_chips} = Tuple.map (player player_chips) player_replies
 
 inl one_card =
     inl hand_rule = inl a b -> compare (tag_rank a.rank) (tag_rank b.rank)
@@ -152,7 +155,7 @@ inl one_card =
     inl game =
         met rec loop state =
             round state
-            if is_finished state then state else loop state
+            if is_finished state then state else loop state.next_round
             : ()
         loop << init
     """) |> module_
