@@ -56,13 +56,13 @@ inl one_card_dealing state =
     inl is_active x = x.chips > 0
     inl f ante player =
         if is_active player then 
-            player.call ante
+            if ante > 0 then player.call ante
             player.hand_set state.deck.take
 
     inl ante, big_ante = 1, 2
     inl rec loop = function
-        | a :: b :: () -> f ante; f big_ante
-        | a :: b -> loop b
+        | a :: b :: () -> f ante a; f big_ante b
+        | a :: b -> f 0 a; loop b
     loop state.players
     """) |> module_
 
