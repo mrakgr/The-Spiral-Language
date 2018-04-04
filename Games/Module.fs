@@ -86,5 +86,4 @@ inl one_card =
             if is_finished state then state else loop state
             : ()
         loop << init
-    
     """) |> module_
