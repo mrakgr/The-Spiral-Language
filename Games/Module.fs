@@ -8,26 +8,52 @@ let poker =
     (
     "Poker",[],"The Poker module",
     """
+inl compare a b = if a < b then -1i32 elif a = b then 0i32 else 1i32
 inl showdown rule state =
     inl players = state.players
-    
+    inl is_active x {on_succ on_fail} = 
+        if x.pot > 0 then 
+            match x.hand with
+            | .Some, x -> on_succ x
+            | _ -> on_fail
+        else on_fail
+
     met rec loop _ =
         Tuple.redulel (inl a b ->
-            match a.hand, b.hand with
-            | (.Some,a), (.Some,b) -> if rule a b then Option.some b else Option.some a
-            | (.Some,x), _ | _,(.Some,x) -> Option.some x
-            | _ -> Option.none card
+            inl on_fail = Option.none Card
+            is_active a {
+                on_fail
+                on_succ = inl a_hand ->
+                    is_active b {
+                        on_fail
+                        on_succ = inl b_hand -> if rule a_hand b_hand = -1i32 then Option.some a_hand else Option.some b_hand
+                        }
+                }
             )
         |> function
             | .Some, winning_hand ->
-                inl losing_players_pot = 
-                    Tuple.foldl (inl s x -> 
-                            match x.hand with
-                            | .None -> s + x.pot
-                            | .Some, x -> if winning_hand = x then s else s + x.pot
-                        )
-                Tuple.foldl (inl s player -> s + player.pot_take winning_player_pot) 0 players
-                |> winning_player.chips_add
+                inl min_pot = Tuple.foldl (inl a b -> min a b.pot) 0 players
+                inl num_winners = 
+                    Tuple.foldl (inl s x ->
+                        is_active x {
+                            on_fail = s
+                            on_succ = inl hand -> if rule winning_hand hand = 0i32 then s+1 else s
+                            }
+                        ) 0 players
+                inl could_be_odd = min_pot % num_winners <> 0
+                inl pot = min_pot / num_winners
+                Tuple.foldl (inl s x ->
+                    is_active x {
+                        on_fail = s
+                        on_succ = inl hand ->
+                            if rule winning_hand hand = 0i32 then
+                                inl odd_chip = if could_be_odd && num_winners-1 <> s then 1 else 0
+                                x.chips_add (pot + odd_chip)
+                                s+1
+                            else
+                                s
+                        }
+                    ) 0 players |> ignore
                 loop ()
             | .None ->
                 ()
@@ -50,7 +76,7 @@ inl betting state =
         : ()
         
     inl players=state.players
-    met rec loop d = Tuple.foldr f loop players {d with players_called=dyn 0} : ()
+    met rec loop d = Tuple.foldr f players loop {d with players_called=dyn 0} : ()
     loop {
         active_players = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 state.players |> dyn
         limit = Tuple.foldl (inl s x -> if is_active x then max s x.pot else s) 0 state.players |> dyn
@@ -99,7 +125,7 @@ inl player _ =
     | x -> data x
 
 inl one_card =
-    inl hand_rule = inl a b -> tag_rank a.rank < tag_rank b.rank
+    inl hand_rule = inl a b -> compare (tag_rank a.rank) (tag_rank b.rank)
     inl dealing = inl state ->
         inl is_active x = x.chips > 0
         inl f ante player =
