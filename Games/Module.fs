@@ -27,7 +27,7 @@ inl showdown rule state =
             |> winning_player.chips_add
             loop ()
         : ()
-    loop()
+    loop ()
 
 inl betting state =
     inl is_active x = x.chips > 0 && x.hand_is
@@ -51,17 +51,40 @@ inl betting state =
         limit = Tuple.foldl (inl s x -> if is_active x then max s x.pot else s) 0 state.players |> dyn
         }
 
-/// One card poker dealing function.
-inl one_card_dealing state =
-    inl is_active x = x.chips > 0
-    inl f ante player =
-        if is_active player then 
-            if ante > 0 then player.call ante
-            player.hand_set state.deck.take
+inl suit = .Spades \/ .Hearts \/ .Clubs \/ .Diamonds
+inl rank = uint8
+inl card = type rank, suit
 
-    inl ante, big_ante = 1, 2
-    inl rec loop = function
-        | a :: b :: () -> f ante a; f big_ante b
-        | a :: b -> f 0 a; loop b
-    loop state.players
+inl one_card =
+    inl hand_rule = inl a b -> a.rank < b.rank
+    inl dealing = inl state ->
+        inl is_active x = x.chips > 0
+        inl f ante player =
+            if is_active player then 
+                if ante > 0 then player.call ante
+                player.hand_set state.deck.take
+
+        inl ante, big_ante = 1, 2
+        inl rec loop = function
+            | a :: b :: () -> f ante a; f big_ante b
+            | a :: b -> f 0 a; loop b
+        loop state.players
+
+    inl is_finished state =
+        inl is_active x = x.chips > 0
+        inl active_players = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 state.players
+        active_players = 1
+
+    inl round state = 
+        dealing state
+        betting state
+        showdown hand_rule state
+
+    inl game =
+        met rec loop state =
+            round state
+            if is_finished state then state else loop state
+            : ()
+        loop << init
+    
     """) |> module_
