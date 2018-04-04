@@ -12,20 +12,25 @@ inl showdown rule state =
     inl players = state.players
     
     met rec loop _ =
-        inl is_active x = x.pot > 0 && x.hand_is
-        inl winning_player = 
-            Tuple.redulel (inl a b ->
-                if is_active a && is_active b then
-                    if rule a.hand b.hand then a else b
-                elif is_active a then a
-                else b
-                )
-
-        if is_active winning_player then
-            inl winning_player_pot = winning_player.pot
-            Tuple.foldl (inl s player -> s + player.pot_take winning_player_pot) 0 players
-            |> winning_player.chips_add
-            loop ()
+        Tuple.redulel (inl a b ->
+            match a.hand, b.hand with
+            | (.Some,a), (.Some,b) -> if rule a b then Option.some b else Option.some a
+            | (.Some,x), _ | _,(.Some,x) -> Option.some x
+            | _ -> Option.none card
+            )
+        |> function
+            | .Some, winning_hand ->
+                inl losing_players_pot = 
+                    Tuple.foldl (inl s x -> 
+                            match x.hand with
+                            | .None -> s + x.pot
+                            | .Some, x -> if winning_hand = x then s else s + x.pot
+                        )
+                Tuple.foldl (inl s player -> s + player.pot_take winning_player_pot) 0 players
+                |> winning_player.chips_add
+                loop ()
+            | .None ->
+                ()
         : ()
     loop ()
 
