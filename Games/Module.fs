@@ -105,13 +105,8 @@ inl internal_representation i state =
     {
     players=
         Tuple.mapi (inl i' x -> 
-            if i' <> i then {chips=x.chips; pot=x.pot}
-            else 
-                inl hand =
-                    match x.hand with
-                    | .Some, hand -> hand
-                    | _ -> failwith Card "The internal represetantion must be built for only the active players."
-                {chips=x.chips; pot=x.pot; hand}
+            if i' <> i then {chips=x.chips; pot=x.pot; hand=Option.none Card}
+            else {chips=x.chips; pot=x.pot; hand=x.hand}
             ) state.players
     board=state.board
     }
@@ -156,7 +151,9 @@ inl player player_chips reply =
     | .hand_set x -> data.hand <- Option.some x
     | .fold -> data.hand <- Option.None Card
     | .call x -> call x
-    | .raise a b -> call (a + b)
+    | .raise a c -> 
+        inl b = a - data.pot
+        call (a + b + c)
     | .pot_take x -> 
         inl pot = data.pot
         inl x = min pot x
