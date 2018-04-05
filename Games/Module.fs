@@ -134,6 +134,7 @@ inl one_card =
     inl hand_rule = inl a b -> 
         inl f .(_) as x = tag_rank x
         compare (f a) (f b)
+
     inl dealing = inl state ->
         inl is_active x = x.chips > 0
         inl f ante player =
