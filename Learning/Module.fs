@@ -2,7 +2,7 @@
 
 open Spiral.Types
 open Spiral.Lib
-compare 0 1
+
 let timer =
     (
     "Timer",[console],"The Timer module",

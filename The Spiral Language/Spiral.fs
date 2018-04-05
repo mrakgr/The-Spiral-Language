@@ -407,7 +407,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         | LayoutToHeapMutable -> LayoutHeapMutable
         | _ -> failwith "Not a layout op."
 
-    // #Type directed partial evaluation
+    // #Partial evaluation
     let rec expr_peval (d: LangEnv) (expr: Expr): TypedExpr =
         let inline tev d expr = expr_peval d expr
         let inline apply_seq d x = !d.seq x

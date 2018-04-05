@@ -125,10 +125,15 @@ inl player player_chips reply =
     | .reply -> reply
     | x -> data x
 
-inl init {player_replies player_chips} = Tuple.map (player player_chips) player_replies
+inl init {player_replies player_chips} = 
+    inl players = Tuple.map (player player_chips) player_replies
+
+    ()
 
 inl one_card =
-    inl hand_rule = inl a b -> compare (tag_rank a.rank) (tag_rank b.rank)
+    inl hand_rule = inl a b -> 
+        inl f .(_) as x = tag_rank x
+        compare (f a) (f b)
     inl dealing = inl state ->
         inl is_active x = x.chips > 0
         inl f ante player =
