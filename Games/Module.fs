@@ -8,6 +8,26 @@ let poker =
     (
     "Poker",[],"The Poker module",
     """
+inl Suits = .Spades, .Clubs, .Hearts, .Diamonds
+inl Suit = Tuple.redulel (\/) Suits
+inl Ranks = .Two, .Three, .Four, .Five, .Six, .Seven, .Eight, .Nine, .Ten, .Jack, .Queen, .King, .Ace
+inl Rank = Tuple.redulel (\/) Ranks
+inl Card = type {rank=Rank; suit=Suit}
+
+inl spades, clubs, hearts, diamonds = Tuple.map (box Suit) ()
+inl two, three, four, five, six, seven, eight, nine, ten, jack, queen, king, ace = Tuple.map (box Rank) Ranks
+inl tag_rank = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) {} Ranks |> fst
+inl tag_suit = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) {} Suits |> fst
+
+inl deck =
+    inl unshuffled = 
+        Tuple.map (inl rank ->
+            Tuple.map (inl suit -> box Card {rank suit}) suit
+            ) rank
+        |> Tuple.concat
+    inl ty = array Card
+    inl ar = macro.fs ty [fs_array_args: unshuffled; text: ": "; type: ty]
+
 inl compare a b = if a < b then -1i32 elif a = b then 0i32 else 1i32
 inl showdown rule state =
     inl players = state.players
@@ -60,12 +80,27 @@ inl showdown rule state =
         : ()
     loop ()
 
+inl internal_representation i state =
+    {
+    players=
+        Tuple.mapi (inl i' x -> 
+            if i' <> i then {chips=x.chips; pot=x.pot}
+            else 
+                inl hand =
+                    match x.hand with
+                    | .Some, hand -> hand
+                    | _ -> failwith Card "The internal represetantion must be built for only the active players."
+                {chips=x.chips; pot=x.pot; hand}
+            ) state.players
+    board=state.board
+    }
+
 inl betting state =
     inl is_active x = x.chips > 0 && x.hand_is
-    met f player next {d with players_called limit active_players} =
+    met f {i player} next {d with players_called limit active_players} =
         if active_players > 1 && players_called < active_players then
             if is_active player then
-                player.reply state.internal_representation
+                player.reply (internal_representation i state)
                     {
                     fold = inl _ -> player.fold; next {d with active_players=self-1}
                     call = inl _ -> player.call limit; next {d with players_called=self+1}
@@ -75,23 +110,12 @@ inl betting state =
                 next d
         : ()
         
-    inl players=state.players
+    inl players=Tuple.mapi (inl i player -> {i player}) state.players
     met rec loop d = Tuple.foldr f players loop {d with players_called=dyn 0} : ()
     loop {
         active_players = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 state.players |> dyn
         limit = Tuple.foldl (inl s x -> if is_active x then max s x.pot else s) 0 state.players |> dyn
         }
-
-inl Suits = .Spades, .Clubs, .Hearts, .Diamonds
-inl Suit = Tuple.redulel (\/) Suits
-inl Ranks = .Two, .Three, .Four, .Five, .Six, .Seven, .Eight, .Nine, .Ten, .Jack, .Queen, .King, .Ace
-inl Rank = Tuple.redulel (\/) Ranks
-inl Card = type {rank=Rank; suit=Suit}
-
-inl spades, clubs, hearts, diamonds = Tuple.map (box Suit) ()
-inl two, three, four, five, six, seven, eight, nine, ten, jack, queen, king, ace = Tuple.map (box Rank) Ranks
-inl tag_rank = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) {} Ranks |> fst
-inl tag_suit = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) {} Suits |> fst
 
 inl player player_chips reply =
     inl data = 
@@ -126,9 +150,15 @@ inl player player_chips reply =
     | x -> data x
 
 inl init {player_replies player_chips} = 
-    inl players = Tuple.map (player player_chips) player_replies
+    inl rec facade d = function
+        | .move_button ->
+            inl a :: b = d.players
+            facade {d with players=Tuple.append b (a :: ())}
+        | x -> d x
 
-    ()
+    inl players = Tuple.map (player player_chips) player_replies
+    inl board = ()
+    facade {players board}
 
 inl one_card =
     inl hand_rule = inl a b -> 
@@ -161,7 +191,7 @@ inl one_card =
     inl game =
         met rec loop state =
             round state
-            if is_finished state then state else loop state.next_round
+            if is_finished state then state else loop state.move_button
             : ()
         loop << init
     """) |> module_

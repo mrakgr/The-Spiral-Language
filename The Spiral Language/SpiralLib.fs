@@ -249,10 +249,12 @@ inl rec foldr_map f l s =
         l :: l', s
     | () -> (), s
 
+inl mapi f = foldl_map (inl s x -> f s x, s + 1) 0 >> fst
+
 {
 head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists split_at take drop
 filter zip unzip init repeat append concat singleton range tryFind contains intersperse wrap unwrap
-foldl_map foldr_map map2 foldl2 choose choose2
+foldl_map foldr_map map2 foldl2 choose choose2 mapi
 } 
 |> stackify
     """) |> module_
