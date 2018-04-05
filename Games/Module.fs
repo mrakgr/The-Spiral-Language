@@ -26,7 +26,7 @@ inl deck _ =
             ar i <- ar j
             ar j <- item
 
-        Loops.for {from=0; near_to=ln-1; body=inl {i} -> swap i (rnd.next(i, ln))}
+        Loops.for {from=0; near_to=ln-1; body=inl {i} -> swap i (rnd.next(to int32 i, to int32 ln))}
 
     inl unshuffled = 
         Tuple.map (inl rank ->
@@ -133,7 +133,7 @@ inl betting state =
         limit = Tuple.foldl (inl s x -> if is_active x then max s x.pot else s) 0 state.players |> dyn
         }
 
-inl player player_chips reply =
+inl player player_chips {reply name} =
     inl data = 
         {
         chips=dyn player_chips
@@ -165,20 +165,29 @@ inl player player_chips reply =
         | .None -> false
         | _ -> true
     | .reply -> reply
+    | .name -> name
     | x -> data x
 
-inl init {player_replies player_chips} = 
+inl init {player player_chips} = 
     inl rec facade d = function
         | .move_button ->
             inl a :: b = d.players
             facade {d with players=Tuple.append b (a :: ())}
         | x -> d x
 
-    inl players = Tuple.map (player player_chips) player_replies
+    inl players = Tuple.map (player player_chips) players
     /// One card poker has no board.
     inl board = ()
     inl deck = deck()
     facade {players board deck}
+
+inl random_reply =
+    inl rnd = Random()
+    inl state {fold call raise} ->
+        match rnd.next(0i32,5i32) with
+        | 0i32 -> fold()
+        | 1i32 -> call()
+        | _ -> raise 0
 
 inl one_card =
     inl hand_rule = inl a b -> 
@@ -215,4 +224,8 @@ inl one_card =
             if is_finished state then state else loop state.move_button
             : ()
         loop << init
+
+    game
+
+one_card {player_chips=20; players={reply=random_reply; name="One"}, {reply=random_reply; name="Two"}}
     """) |> module_
