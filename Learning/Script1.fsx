@@ -1,6 +1,8 @@
 ﻿open System
 
 let rand = new Random(); //reuse this if you are generating many
+let x = byte 1
+
 let randNormal mean stdDev = 
     let u1 = 1.0-rand.NextDouble(); //uniform(0,1] random doubles
     let u2 = 1.0-rand.NextDouble();

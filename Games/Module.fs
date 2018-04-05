@@ -6,7 +6,7 @@ open Learning.Module
 
 let poker =
     (
-    "Poker",[],"The Poker module",
+    "Poker",[random],"The Poker module",
     """
 inl Suits = .Spades, .Clubs, .Hearts, .Diamonds
 inl Suit = Tuple.redulel (\/) Suits
@@ -14,19 +14,40 @@ inl Ranks = .Two, .Three, .Four, .Five, .Six, .Seven, .Eight, .Nine, .Ten, .Jack
 inl Rank = Tuple.redulel (\/) Ranks
 inl Card = type {rank=Rank; suit=Suit}
 
-inl spades, clubs, hearts, diamonds = Tuple.map (box Suit) ()
-inl two, three, four, five, six, seven, eight, nine, ten, jack, queen, king, ace = Tuple.map (box Rank) Ranks
+//inl spades, clubs, hearts, diamonds = Tuple.map (box Suit) ()
+//inl two, three, four, five, six, seven, eight, nine, ten, jack, queen, king, ace = Tuple.map (box Rank) Ranks
 inl tag_rank = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) {} Ranks |> fst
 inl tag_suit = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) {} Suits |> fst
+   
+inl deck _ =
+    inl knuth_shuffle rnd ln ar =
+        inl swap i j =
+            inl item = ar i
+            ar i <- ar j
+            ar j <- item
 
-inl deck =
+        Loops.for {from=0; near_to=ln-1; body=inl {i} -> swap i (rnd.next(i, ln))}
+
     inl unshuffled = 
         Tuple.map (inl rank ->
             Tuple.map (inl suit -> box Card {rank suit}) suit
             ) rank
         |> Tuple.concat
+
     inl ty = array Card
     inl ar = macro.fs ty [fs_array_args: unshuffled; text: ": "; type: ty]
+    inl num_cards = 52
+    assert (array_length ar = num_cards) "The number of cards in the deck must be 52."
+    inl rnd = Random()
+    inl data = heapm {ar rnd p=num_cards}
+    function
+    | .reset -> join
+        knuth_shuffle data.rnd num_cards data.ar
+        data.p <- num_cards
+    | .take -> join
+        inl x = data.p - 1
+        data.p <- x
+        data.ar x
 
 inl compare a b = if a < b then -1i32 elif a = b then 0i32 else 1i32
 inl showdown rule state =
@@ -157,8 +178,10 @@ inl init {player_replies player_chips} =
         | x -> d x
 
     inl players = Tuple.map (player player_chips) player_replies
+    /// One card poker has no board.
     inl board = ()
-    facade {players board}
+    inl deck = deck()
+    facade {players board deck}
 
 inl one_card =
     inl hand_rule = inl a b -> 
@@ -184,6 +207,7 @@ inl one_card =
         active_players = 1
 
     inl round state = 
+        state.deck.reset
         dealing state
         betting state
         showdown hand_rule state
