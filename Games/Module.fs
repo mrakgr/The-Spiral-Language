@@ -6,8 +6,10 @@ open Learning.Module
 
 let poker =
     (
-    "Poker",[random],"The Poker module",
+    "Poker",[random;console],"The Poker module",
     """
+inl log = Console.writeline
+
 inl Suits = .Spades, .Clubs, .Hearts, .Diamonds
 inl Suit = Tuple.redulel (\/) Suits
 inl Ranks = .Two, .Three, .Four, .Five, .Six, .Seven, .Eight, .Nine, .Ten, .Jack, .Queen, .King, .Ace
@@ -50,6 +52,8 @@ inl deck _ =
         data.ar x
 
 inl compare a b = if a < b then -1i32 elif a = b then 0i32 else 1i32
+inl show_hand .(x) = x
+
 inl showdown rule state =
     inl players = state.players
     inl is_active x {on_succ on_fail} = 
@@ -58,6 +62,16 @@ inl showdown rule state =
             | .Some, x -> on_succ x
             | _ -> on_fail
         else on_fail
+
+    log "Showdown:"
+    Tuple.iter (inl x ->
+        is_active x {
+            on_fail=()
+            on_succ=inl hand -> string_format "{0} shows {1}" (x.name, show_hand hand) |> log
+            }
+        )
+
+    inl old_chips = Tuple.map (inl x -> x.chips) players
 
     met rec loop _ =
         Tuple.redulel (inl a b ->
@@ -101,6 +115,13 @@ inl showdown rule state =
         : ()
     loop ()
 
+    Tuple.iter2 (inl old_chips x -> 
+        inl chips = x.chips
+        if old_chips < chips then string_format "{0} wins {1} chips." (x.name,chips-old_chips) |> log
+        elif old_chips > chips then string_format "{0} loses {1} chips." (x.name,old_chips-chips) |> log
+        else ()
+        )
+
 inl internal_representation i state =
     {
     players=
@@ -118,9 +139,24 @@ inl betting state =
             if is_active player then
                 player.reply (internal_representation i state)
                     {
-                    fold = inl _ -> player.fold; next {d with active_players=self-1}
-                    call = inl _ -> player.call limit; next {d with players_called=self+1}
-                    raise = inl x -> next {d with limit=player.raise limit x; players_called=dyn 0}
+                    fold = inl _ -> 
+                        player.fold
+                        string_format "{0} folds." player.name |> log
+                        next {d with active_players=self-1}
+                    call = inl _ -> 
+                        player.call limit
+                        if player.chips = 0 then
+                            string_format "{0} calls and is all-in!" player.name |> log
+                        else
+                            string_format "{0} calls." player.name |> log
+                        next {d with players_called=self+1}
+                    raise = inl x -> 
+                        inl limit=max limit (player.raise limit x)
+                        if player.chips = 0 then
+                            string_format "{0} raises to {1} and is all-in!" (player.name, limit) |> log
+                        else
+                            string_format "{0} raises to {1}." (player.name, limit) |> log
+                        next {d with limit players_called=dyn 0}
                     }
             else
                 next d
@@ -128,6 +164,7 @@ inl betting state =
         
     inl players=Tuple.mapi (inl i player -> {i player}) state.players
     met rec loop d = Tuple.foldr f players loop {d with players_called=dyn 0} : ()
+    log "Betting:"
     loop {
         active_players = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 state.players |> dyn
         limit = Tuple.foldl (inl s x -> if is_active x then max s x.pot else s) 0 state.players |> dyn
@@ -145,19 +182,21 @@ inl player player_chips {reply name} =
         inl chips, pot = data.chips, data.pot
         inl x = min chips (x - pot)
         data.chips <- chips - x
-        data.pt <- pot + x
+        inl pot = pot + x
+        data.pot <- pot
+        pot
 
     function
     | .hand_set x -> data.hand <- Option.some x
     | .fold -> data.hand <- Option.None Card
-    | .call x -> call x
+    | .call x -> call x |> ignore
     | .raise a c -> 
         inl b = a - data.pot
         call (a + b + c)
     | .pot_take x -> 
         inl pot = data.pot
         inl x = min pot x
-        data.pot <- pot - x; x
+        data.pot <- pot - x
     | .chips_add x ->
         data.chips <- data.chips + x
     | .hand_is ->
@@ -175,7 +214,7 @@ inl init {player player_chips} =
             facade {d with players=Tuple.append b (a :: ())}
         | x -> d x
 
-    inl players = Tuple.map (player player_chips) players
+    inl players = Tuple.map (player player_chips) (dyn players)
     /// One card poker has no board.
     inl board = ()
     inl deck = deck()
@@ -198,13 +237,16 @@ inl one_card =
         inl is_active x = x.chips > 0
         inl f ante player =
             if is_active player then 
-                if ante > 0 then player.call ante
+                if ante > 0 then 
+                    string_format "{0} antes up {1}" (player.name, ante)
+                    player.call ante
                 player.hand_set state.deck.take
 
         inl ante, big_ante = 1, 2
         inl rec loop = function
             | a :: b :: () -> f ante a; f big_ante b
             | a :: b -> f 0 a; loop b
+        log "Dealing:"
         loop state.players
 
     inl is_finished state =
@@ -213,6 +255,7 @@ inl one_card =
         active_players = 1
 
     inl round state = 
+        log "A new round is starting..."
         state.deck.reset
         dealing state
         betting state
@@ -221,7 +264,14 @@ inl one_card =
     inl game =
         met rec loop state =
             round state
-            if is_finished state then state else loop state.move_button
+            if is_finished state then 
+                log "The game is over."
+                Tuple.iter (inl x ->
+                    inl chips = x.chips
+                    if chips > 0 then string_format "{0} wins with {1} chips!" (x.name, chips)
+                    ) state.players
+            else 
+                loop state.move_button
             : ()
         loop << init
 
