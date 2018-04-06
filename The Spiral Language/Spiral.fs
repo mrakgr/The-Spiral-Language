@@ -1393,23 +1393,15 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 let module_,field,r = a,b,c
                 match field with
                 | TypeString field' ->
-                    //if typed_expr_free_var_exists r_ty then
-                    let _, r_ty = renamer_apply_typedexpr r
-                    let mutable s = 0
-                    let br =
-                        Map.exists (fun k v -> 
-                            if k = field' then 
-                                let _,v_ty = renamer_apply_typedexpr v
-                                if v_ty = r_ty then true 
-                                else on_type_er (trace d) <| sprintf "The two sides in the module set have different types.\nExpected: %s\n Got:%s" (show_typedexpr v_ty) (show_typedexpr r_ty)
-                            else 
-                                s <- s+1
-                                false) env
-                    if br then 
-                        let ar = module_
-                        let idx = sprintf "mem_%i" s |> LitString |> type_lit_create'
-                        make_tyv_and_push_typed_expr_even_if_unit d (TyOp(MutableSet,[ar;idx;r],BListT))
-                    else on_type_er (trace d) <| sprintf "The field %s is missing in the module." field'
+                    match Map.tryFind field' env with
+                    | None -> on_type_er (trace d) <| sprintf "The field %s is missing in the module." field'
+                    | Some x -> 
+                        let _,r_ty = renamer_apply_typedexpr r
+                        let _,v_ty = renamer_apply_typedexpr x
+                        if v_ty = r_ty then 
+                            if typed_expr_free_var_exists r_ty = false then TyB
+                            else make_tyv_and_push_typed_expr_even_if_unit d (TyOp(MutableSetModule,[module_;field;r],BListT))
+                        else on_type_er (trace d) <| sprintf "The two sides in the module set have different types.\nExpected: %s\n Got:%s" (show_typedexpr v_ty) (show_typedexpr r_ty)
                 | x -> on_type_er (trace d) <| sprintf "Expected a type string as the input to a mutable heap module.\nGot: %s" (show_typedexpr x)
             | _ -> on_type_er (trace d) <| sprintf "Expected a heap mutable module, reference or an array the input to mutable set.\nGot: %s" (show_typedexpr a)
 
