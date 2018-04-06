@@ -41,6 +41,7 @@ inl deck _ =
     inl num_cards = 52
     assert (array_length ar = num_cards) "The number of cards in the deck must be 52."
     inl rnd = Random()
+    macro.fs () [text: "// Making data."]
     inl data = heapm {ar rnd p=num_cards}
     function
     | .reset -> join

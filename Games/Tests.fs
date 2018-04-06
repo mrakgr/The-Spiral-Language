@@ -23,5 +23,5 @@ one_card {player_chips=5; players={reply=random_reply; name="One"}, {reply=rando
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker1
-|> printfn "%s"
+//|> printfn "%s"
 |> ignore
