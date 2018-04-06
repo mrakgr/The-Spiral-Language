@@ -57,82 +57,51 @@ inl show_hand {rank=.(a) suit=.(b)} = string_format "{0}-{1}" (a, b)
 
 inl showdown rule state =
     inl players = state.players
-    inl is_active x {on_succ on_fail} = 
-        if x.pot > 0 then 
-            match x.hand with
-            | .Some, x -> on_succ x
-            | _ -> on_fail ()
-        else on_fail ()
+    inl is_active x = x.pot > 0
 
     log "Showdown:"
     Tuple.iter (inl x ->
-        is_active x {
-            on_fail=inl _ -> ()
-            on_succ=inl hand -> string_format "{0} shows {1}" (x.name, show_hand hand) |> log
-            }
+        if is_active x then
+            match x.hand with
+            | .Some, hand -> string_format "{0} shows {1}" (x.name, show_hand hand) |> log
+            | _ -> ()
         ) players
 
     inl old_chips = Tuple.map (inl x -> x.chips + x.pot) players
 
     met rec loop _ =
-        Tuple.iter (inl x ->
-            is_active x {
-                on_fail=inl _ -> string_format "{0} is inactive and has a pot of {1}." (x.name, x.pot) |> log
-                on_succ=inl hand -> string_format "{0} is active and has {1} and pot of {2}." (x.name, show_hand hand, x.pot) |> log
-                }
-            ) players
-        Tuple.reducel (inl a b ->
-            is_active a {
-                on_fail = inl _ ->
-                    is_active b {
-                        on_fail = inl _ -> Option.none Card
-                        on_succ = inl b_hand -> Option.some b_hand
-                        }
-                on_succ = inl a_hand ->
-                    is_active b {
-                        on_fail = inl _ -> Option.some a_hand
-                        on_succ = inl b_hand -> if rule a_hand b_hand = -1i32 then Option.some a_hand else Option.some b_hand
-                        }
-                }
-            ) players
+        inl players = Tuple.map (inl player -> {player is_active=is_active player}) players
+        inl foldl f s = Tuple.foldl (inl s {player is_active} -> if is_active then f s player else s) s players
+
+        foldl (inl s player ->
+            match s, player.hand with
+            | (.Some, a), (.Some, b) -> if rule a b = 1i32 then Option.some a else Option.some b
+            | (.Some, x), _ | _, (.Some, x) -> Option.some x
+            | _ -> Option.none Card
+            ) (Option.none Card)
         |> function
             | .Some, winning_hand ->
                 string_format "The winning hand is {0}" (show_hand winning_hand) |> log
-                inl min_pot = 
-                    Tuple.map (inl x -> x.pot) players 
-                    |> Tuple.reducel (inl a b -> 
-                        if a > 0 && b > 0 then min a b
-                        elif a > 0 then a
-                        else b
+                inl min_pot = foldl (inl s player -> min s player.pot) (macro.fs int64 [text: "System.Int64.MaxValue"])
+                inl foldl_winners f = 
+                    foldl (inl s x ->
+                        match x.hand with
+                        | .Some, hand -> if rule winning_hand hand = 0i32 then f s x else s
+                        | _ -> s
                         )
-                inl num_winners = 
-                    Tuple.foldl (inl s x ->
-                        is_active x {
-                            on_fail = inl _ -> s
-                            on_succ = inl hand -> if rule winning_hand hand = 0i32 then s+1 else s
-                            }
-                        ) 0 players
-                inl pot = Tuple.foldl (inl s x -> s + x.pot_take min_pot) 0 players
+                inl num_winners = foldl_winners (inl s _ -> s + 1) 0
+                inl pot = foldl (inl s x -> s + x.pot_take min_pot) 0
                 inl could_be_odd = pot % num_winners <> 0
                 inl pot = pot / num_winners
-                string_format "Pot size is {0}" pot |> log
-                Tuple.foldl (inl s x ->
-                    is_active x {
-                        on_fail = inl _ -> s
-                        on_succ = inl hand ->
-                            if rule winning_hand hand = 0i32 then
-                                inl odd_chip = if could_be_odd && num_winners-1 <> s then 1 else 0
-                                string_format "{0} has {1} chips before addition." (x.name,x.chips) |> log
-                                x.chips_add (pot + odd_chip)
-                                string_format "{0} has {1} chips after addition." (x.name,x.chips) |> log
-                                s+1
-                            else
-                                s
-                        }
-                    ) 0 players |> ignore
+                foldl_winners (inl s x ->
+                    inl s = s - 1
+                    inl odd_chip = if could_be_odd && s = 0 then 1 else 0
+                    x.chips_add (pot + odd_chip)
+                    s
+                    ) num_winners |> ignore
                 loop ()
             | .None ->
-                log "The hand is none."
+                ()
         : ()
     loop ()
 
@@ -155,7 +124,7 @@ inl internal_representation i state =
 
 inl betting state =
     inl is_active x = x.chips > 0 && x.hand_is
-    met f {i player} next {d with players_called limit players_active} =
+    met f {i player} next {d with players_called call_level players_active min_raise} =
         if players_active > 1 && players_called < players_active then
             if is_active player then
                 player.reply (internal_representation i state)
@@ -165,7 +134,7 @@ inl betting state =
                         string_format "{0} folds." player.name |> log
                         next {d with players_active=self-1}
                     call = inl _ -> 
-                        player.call limit
+                        player.call call_level |> ignore
                         if player.chips = 0 then
                             string_format "{0} calls and is all-in!" player.name |> log
                             next {d with players_active=self-1}
@@ -173,13 +142,22 @@ inl betting state =
                             string_format "{0} calls." player.name |> log
                             next {d with players_called=self+1}
                     raise = inl x -> 
-                        inl limit=max limit (player.raise limit x)
-                        if player.chips = 0 then
-                            string_format "{0} raises to {1} and is all-in!" (player.name, limit) |> log
-                            next {d with limit players_called=dyn 0; players_active=self-1}
-                        else
-                            string_format "{0} raises to {1}." (player.name, limit) |> log
-                            next {d with limit players_called=dyn 0}
+                        inl pot = x.pot
+                        inl call_level' = player.call (min_raise + call_level + x)
+                        if call_level' > call_level then
+                            inl min_raise = call_level' - pot
+                            if player.chips = 0 then
+                                string_format "{0} raises to {1} and is all-in!" (player.name, call_level') |> log
+                                next {d with min_raise 
+                                    call_level=call_level'
+                                    players_called=dyn 0; players_active=self-1
+                                    }
+                            else
+                                string_format "{0} raises to {1}." (player.name, call_level') |> log
+                                next {d with min_raise 
+                                    call_level=call_level'
+                                    players_called=dyn 0
+                                    }
                     }
             else
                 next d
@@ -212,10 +190,7 @@ inl player player_chips {reply name} =
     function
     | .hand_set x -> data.hand <- dyn (Option.some x)
     | .fold -> data.hand <- dyn (Option.none Card)
-    | .call x -> call x |> ignore
-    | .raise a c -> 
-        inl b = a - data.pot
-        call (a + b + c)
+    | .call x -> call x
     | .pot_take x -> 
         inl pot = data.pot
         inl x = min pot x
