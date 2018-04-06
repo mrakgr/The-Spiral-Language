@@ -71,7 +71,7 @@ inl showdown rule state =
             }
         )
 
-    inl old_chips = Tuple.map (inl x -> x.chips) players
+    inl old_chips = Tuple.map (inl x -> x.chips + x.pot) players
 
     met rec loop _ =
         Tuple.redulel (inl a b ->
