@@ -1675,7 +1675,7 @@ stack inl seed ->
         | () -> macro ty [type: ty]
     inl next = stack inl ((min : int32, max : int32) | (max : int32) | () as x) -> macro.fs int32 [arg: rnd; text: ".Next"; args: x]
     inl next_double = stack inl _ -> macro.fs float64 [arg: rnd; text: ".NextDouble()"]
-    inl next_bytes = stack inl (ar: array uint8) -> macro.fs () [arg: rnd; text: ".NextBytes"; args: ar]
+    inl next_bytes = stack inl (ar: (array uint8)) -> macro.fs () [arg: rnd; text: ".NextBytes"; args: ar]
     function
     | .next -> next
     | .next_double -> next_double()
