@@ -77,7 +77,7 @@ inl showdown rule state =
     met rec loop _ =
         Tuple.iter (inl x ->
             is_active x {
-                on_fail=inl _ -> ()
+                on_fail=inl _ -> string_format "{0} is inactive and has a pot of {1}." (x.name, x.pot) |> log
                 on_succ=inl hand -> string_format "{0} is active and has {1} and pot of {2}." (x.name, show_hand hand, x.pot) |> log
                 }
             ) players
@@ -90,7 +90,7 @@ inl showdown rule state =
                         }
                 on_succ = inl a_hand ->
                     is_active b {
-                        on_fail = inl _ -> Option.none Card
+                        on_fail = inl _ -> Option.some a_hand
                         on_succ = inl b_hand -> if rule a_hand b_hand = -1i32 then Option.some a_hand else Option.some b_hand
                         }
                 }
@@ -112,17 +112,19 @@ inl showdown rule state =
                             on_succ = inl hand -> if rule winning_hand hand = 0i32 then s+1 else s
                             }
                         ) 0 players
-                Tuple.iter (inl x -> x.pot_take min_pot) players
-                inl could_be_odd = min_pot % num_winners <> 0
-                inl pot = min_pot / num_winners
-                string_format "Pot size is {0}" min_pot |> log
+                inl pot = Tuple.foldl (inl s x -> s + x.pot_take min_pot) 0 players
+                inl could_be_odd = pot % num_winners <> 0
+                inl pot = pot / num_winners
+                string_format "Pot size is {0}" pot |> log
                 Tuple.foldl (inl s x ->
                     is_active x {
                         on_fail = inl _ -> s
                         on_succ = inl hand ->
                             if rule winning_hand hand = 0i32 then
                                 inl odd_chip = if could_be_odd && num_winners-1 <> s then 1 else 0
+                                string_format "{0} has {1} chips before addition." (x.name,x.chips) |> log
                                 x.chips_add (pot + odd_chip)
+                                string_format "{0} has {1} chips after addition." (x.name,x.chips) |> log
                                 s+1
                             else
                                 s
@@ -218,6 +220,7 @@ inl player player_chips {reply name} =
         inl pot = data.pot
         inl x = min pot x
         data.pot <- pot - x
+        x
     | .chips_add x ->
         data.chips <- data.chips + x
     | .hand_is ->
