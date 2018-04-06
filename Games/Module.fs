@@ -41,7 +41,6 @@ inl deck _ =
     inl num_cards = 52
     assert (array_length ar = num_cards) "The number of cards in the deck must be 52."
     inl rnd = Random()
-    macro.fs () [text: "// Making data."]
     inl data = heapm {ar rnd p=dyn num_cards}
     function
     | .reset -> join
@@ -74,22 +73,24 @@ inl showdown rule state =
         inl foldl f s = Tuple.foldl (inl s {player is_active} -> if is_active then f s player else s) s players
 
         foldl (inl s player ->
-            match s, player.hand with
-            | (.Some, a), (.Some, b) -> if rule a b = 1i32 then Option.some a else Option.some b
-            | (.Some, x), _ | _, (.Some, x) -> Option.some x
-            | _ -> Option.none Card
+            match s with
+            | .Some, a ->
+                match player.hand with
+                | .Some, b -> if rule a b = 1i32 then Option.some a else Option.some b
+                | .None -> Option.some a
+            | .None -> player.hand
             ) (Option.none Card)
         |> function
             | .Some, winning_hand ->
-                string_format "The winning hand is {0}" (show_hand winning_hand) |> log
-                inl min_pot = foldl (inl s player -> min s player.pot) (macro.fs int64 [text: "System.Int64.MaxValue"])
                 inl foldl_winners f = 
                     foldl (inl s x ->
                         match x.hand with
                         | .Some, hand -> if rule winning_hand hand = 0i32 then f s x else s
                         | _ -> s
                         )
+
                 inl num_winners = foldl_winners (inl s _ -> s + 1) 0
+                inl min_pot = foldl (inl s player -> min s player.pot) (macro.fs int64 [text: "System.Int64.MaxValue"])
                 inl pot = foldl (inl s x -> s + x.pot_take min_pot) 0
                 inl could_be_odd = pot % num_winners <> 0
                 inl pot = pot / num_winners
@@ -125,7 +126,7 @@ inl internal_representation i state =
 inl betting state =
     inl is_active x = x.chips > 0 && x.hand_is
     met f {i player} next {d with players_called min_raise call_level players_active min_raise} =
-        if players_active > 1 && players_called < players_active then
+        if players_called < players_active then
             if is_active player then
                 player.reply (internal_representation i state)
                     {
@@ -145,11 +146,11 @@ inl betting state =
                         inl call_level' = player.call (call_level + min_raise + x)
                         inl d = {d with
                             call_level = call_level'
-                            min_raise = call_level'-cell_level
+                            min_raise = call_level'-call_level
                             }
                         inl next d =
-                            if call_level' < call_level + min_raise then next d 
-                            else next {d with players_called=dyn 0} 
+                            if call_level' < call_level + min_raise then next d //next {d with players_called=dyn 0}  // For HU rules
+                            else next {d with players_called=dyn 1} 
                         
                         if player.chips = 0 then
                             string_format "{0} raises to {1} and is all-in!" (player.name, call_level') |> log
@@ -163,11 +164,13 @@ inl betting state =
         : ()
         
     inl players=Tuple.mapi (inl i player -> {i player}) state.players
-    met rec loop d = Tuple.foldr f players loop {d with players_called=dyn 0} : ()
+    met rec loop d = Tuple.foldr f players loop d : ()
     log "Betting:"
     loop {
+        min_raise=dyn 2
+        call_level = Tuple.foldl (inl s x -> if is_active x then max s x.pot else s) 0 state.players |> dyn
         players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 state.players |> dyn
-        limit = Tuple.foldl (inl s x -> if is_active x then max s x.pot else s) 0 state.players |> dyn
+        players_called = dyn 0
         }
 
 inl player player_chips {reply name} =
@@ -237,7 +240,7 @@ inl one_card =
             if is_active player then 
                 if ante > 0 then 
                     string_format "{0} antes up {1}" (player.name, ante) |> log
-                    player.call ante
+                    player.call ante |> ignore
                 player.hand_set state.deck.take
 
         inl ante, big_ante = 1, 2
