@@ -1395,12 +1395,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | TypeString field' ->
                     match Map.tryFind field' env with
                     | None -> on_type_er (trace d) <| sprintf "The field %s is missing in the module." field'
-                    | Some x -> 
+                    | Some v -> 
                         let _,r_ty = renamer_apply_typedexpr r
-                        let _,v_ty = renamer_apply_typedexpr x
-                        if v_ty = r_ty then 
-                            if typed_expr_free_var_exists r_ty = false then TyB
-                            else make_tyv_and_push_typed_expr_even_if_unit d (TyOp(MutableSetModule,[module_;field;r],BListT))
+                        let _,v_ty = renamer_apply_typedexpr v
+                        if v_ty = r_ty then make_tyv_and_push_typed_expr_even_if_unit d (TyOp(MutableSet,[module_;v;r],BListT))
                         else on_type_er (trace d) <| sprintf "The two sides in the module set have different types.\nExpected: %s\n Got:%s" (show_typedexpr v_ty) (show_typedexpr r_ty)
                 | x -> on_type_er (trace d) <| sprintf "Expected a type string as the input to a mutable heap module.\nGot: %s" (show_typedexpr x)
             | _ -> on_type_er (trace d) <| sprintf "Expected a heap mutable module, reference or an array the input to mutable set.\nGot: %s" (show_typedexpr a)
@@ -3102,7 +3100,13 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let array_length ar = sprintf "%s.LongLength" (codegen ar)
             let reference_index x = sprintf "(!%s)" (codegen x)
 
-            let layout_heap_mutable_set module_ field r = sprintf "%s.%s <- %s" (codegen module_) field (codegen r) |> state
+            let layout_heap_mutable_set module_ l r = 
+                let {call_args=l},_ = renamer_apply_typedexpr l
+                let {call_args=r},_ = renamer_apply_typedexpr r
+                let module_ = codegen module_
+                List.iter2 (fun l r ->
+                    sprintf "%s.%s <- %s" module_ (print_tyv l) (print_tyv r) |> state
+                    ) l r
             let array_set ar idx r = sprintf "%s <- %s" (array_index ar idx) (codegen r) |> state
             let reference_set l r = sprintf "%s := %s" (codegen l) (codegen r) |> state
 
@@ -3179,10 +3183,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         match get_type ar with
                         | ArrayT(ArtDotNetReference,_) -> reference_set ar b
                         | ArrayT(ArtDotNetHeap,_) -> array_set ar idx b
-                        | LayoutT(LayoutHeapMutable,_) -> 
-                            match idx with
-                            | TypeString field -> layout_heap_mutable_set ar field b
-                            | _ -> failwith "impossible"
+                        | LayoutT(LayoutHeapMutable,_) -> layout_heap_mutable_set ar idx b
                         | _ -> failwith "impossible"
                     | _ ->
                         let b = codegen' trace b

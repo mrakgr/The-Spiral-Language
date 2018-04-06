@@ -142,7 +142,6 @@ type Op =
     | MapGetField // Codegen only
     | ModuleMemberCPS
     | ModuleInjectCPS
-    | MutableSetModule
 
     // Subtype tests
     | CaseableIs
