@@ -1,4 +1,4 @@
-﻿module Poker.Module
+﻿module Games.Module
 
 open Spiral.Types
 open Spiral.Lib
@@ -277,6 +277,8 @@ inl one_card =
 
     game
 
-one_card {player_chips=20; players={reply=random_reply; name="One"}, {reply=random_reply; name="Two"}}
+{
+one_poker
+} |> stackify
     """) |> module_
 
