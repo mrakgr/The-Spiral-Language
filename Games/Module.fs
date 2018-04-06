@@ -61,13 +61,13 @@ inl showdown rule state =
         if x.pot > 0 then 
             match x.hand with
             | .Some, x -> on_succ x
-            | _ -> on_fail
-        else on_fail
+            | _ -> on_fail ()
+        else on_fail ()
 
     log "Showdown:"
     Tuple.iter (inl x ->
         is_active x {
-            on_fail=()
+            on_fail=inl _ -> ()
             on_succ=inl hand -> string_format "{0} shows {1}" (x.name, show_hand hand) |> log
             }
         ) players
@@ -75,32 +75,43 @@ inl showdown rule state =
     inl old_chips = Tuple.map (inl x -> x.chips + x.pot) players
 
     met rec loop _ =
+        Tuple.iter (inl x ->
+            is_active x {
+                on_fail=inl _ -> ()
+                on_succ=inl _ -> string_format "{0} is active." x.name |> log
+                }
+            ) players
         Tuple.reducel (inl a b ->
-            inl on_fail = Option.none Card
             is_active a {
-                on_fail
+                on_fail = inl _ ->
+                    is_active b {
+                        on_fail = inl _ -> Option.none Card
+                        on_succ = inl b_hand -> Option.some b_hand
+                        }
                 on_succ = inl a_hand ->
                     is_active b {
-                        on_fail
+                        on_fail = inl _ -> Option.none Card
                         on_succ = inl b_hand -> if rule a_hand b_hand = -1i32 then Option.some a_hand else Option.some b_hand
                         }
                 }
             ) players
         |> function
             | .Some, winning_hand ->
+                string_format "The winning hand is {0}" (show_hand winning_hand) |> log
                 inl min_pot = Tuple.foldl (inl a b -> min a b.pot) 0 players
                 inl num_winners = 
                     Tuple.foldl (inl s x ->
                         is_active x {
-                            on_fail = s
+                            on_fail = inl _ -> s
                             on_succ = inl hand -> if rule winning_hand hand = 0i32 then s+1 else s
                             }
                         ) 0 players
                 inl could_be_odd = min_pot % num_winners <> 0
                 inl pot = min_pot / num_winners
+                string_format "Pot size is {0}" min_pot |> log
                 Tuple.foldl (inl s x ->
                     is_active x {
-                        on_fail = s
+                        on_fail = inl _ -> s
                         on_succ = inl hand ->
                             if rule winning_hand hand = 0i32 then
                                 inl odd_chip = if could_be_odd && num_winners-1 <> s then 1 else 0
@@ -112,7 +123,7 @@ inl showdown rule state =
                     ) 0 players |> ignore
                 loop ()
             | .None ->
-                ()
+                log "The hand is none."
         : ()
     loop ()
 
@@ -135,29 +146,31 @@ inl internal_representation i state =
 
 inl betting state =
     inl is_active x = x.chips > 0 && x.hand_is
-    met f {i player} next {d with players_called limit active_players} =
-        if active_players > 1 && players_called < active_players then
+    met f {i player} next {d with players_called limit players_active} =
+        if players_active > 1 && players_called < players_active then
             if is_active player then
                 player.reply (internal_representation i state)
                     {
                     fold = inl _ -> 
                         player.fold
                         string_format "{0} folds." player.name |> log
-                        next {d with active_players=self-1}
+                        next {d with players_active=self-1}
                     call = inl _ -> 
                         player.call limit
                         if player.chips = 0 then
                             string_format "{0} calls and is all-in!" player.name |> log
+                            next {d with players_active=self-1}
                         else
                             string_format "{0} calls." player.name |> log
-                        next {d with players_called=self+1}
+                            next {d with players_called=self+1}
                     raise = inl x -> 
                         inl limit=max limit (player.raise limit x)
                         if player.chips = 0 then
                             string_format "{0} raises to {1} and is all-in!" (player.name, limit) |> log
+                            next {d with limit players_called=dyn 0; players_active=self-1}
                         else
                             string_format "{0} raises to {1}." (player.name, limit) |> log
-                        next {d with limit players_called=dyn 0}
+                            next {d with limit players_called=dyn 0}
                     }
             else
                 next d
@@ -167,7 +180,7 @@ inl betting state =
     met rec loop d = Tuple.foldr f players loop {d with players_called=dyn 0} : ()
     log "Betting:"
     loop {
-        active_players = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 state.players |> dyn
+        players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 state.players |> dyn
         limit = Tuple.foldl (inl s x -> if is_active x then max s x.pot else s) 0 state.players |> dyn
         }
 
@@ -252,11 +265,15 @@ inl one_card =
 
     inl is_finished state =
         inl is_active x = x.chips > 0
-        inl active_players = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 state.players
-        active_players = 1
+        inl players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 state.players
+        players_active = 1
 
     inl round state = 
         log "A new round is starting..."
+        log "Chips counts:"
+        Tuple.iter (inl x ->
+            string_format "{0} has {1} chips." (x.name,x.chips) |> log
+            ) state.players
         state.deck.reset
         dealing state
         betting state
