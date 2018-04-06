@@ -625,7 +625,8 @@ and show_typedexpr = function
     | TyMap (_, (MapTypeFunction _ | MapTypeRecFunction _)) -> "<function>"
     | TyBox (a,b) -> sprintf "(boxed_type %s with %s)" (show_ty b) (show_typedexpr a)
     | TyLit v -> sprintf "lit %s" (show_value v)
-    | _ -> failwith "Compiler error: The other typed expressions are forbidden to be printed as type errors. They should never appear in bindings."
+    | TyOp(x,_,t) -> sprintf "<op %A of type %s>" x (show_ty t)
+    | x -> failwithf "Compiler error: The other typed expressions are forbidden to be printed as type errors. They should never appear in bindings. Got: %A" x
 
 let inline codegen_macro codegen print_type x = codegen_macro' show_typedexpr codegen print_type x
 

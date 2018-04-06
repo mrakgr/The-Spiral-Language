@@ -6,20 +6,20 @@ open Learning.Module
 
 let poker =
     (
-    "Poker",[random;console],"The Poker module",
+    "Poker",[random;console;option],"The Poker module",
     """
 inl log = Console.writeline
 
 inl Suits = .Spades, .Clubs, .Hearts, .Diamonds
-inl Suit = Tuple.redulel (\/) Suits
+inl Suit = Tuple.reducel (inl a b -> a \/ b) Suits
 inl Ranks = .Two, .Three, .Four, .Five, .Six, .Seven, .Eight, .Nine, .Ten, .Jack, .Queen, .King, .Ace
-inl Rank = Tuple.redulel (\/) Ranks
+inl Rank = Tuple.reducel (inl a b -> a \/ b) Ranks
 inl Card = type {rank=Rank; suit=Suit}
 
 //inl spades, clubs, hearts, diamonds = Tuple.map (box Suit) ()
 //inl two, three, four, five, six, seven, eight, nine, ten, jack, queen, king, ace = Tuple.map (box Rank) Ranks
-inl tag_rank = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) {} Ranks |> fst
-inl tag_suit = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) {} Suits |> fst
+inl tag_rank = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) ({},0i32) Ranks |> fst
+inl tag_suit = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) ({},0i32) Suits |> fst
    
 inl deck _ =
     inl knuth_shuffle rnd ln ar =
@@ -32,8 +32,8 @@ inl deck _ =
 
     inl unshuffled = 
         Tuple.map (inl rank ->
-            Tuple.map (inl suit -> box Card {rank suit}) suit
-            ) rank
+            Tuple.map (inl suit -> box Card {rank=box Rank rank; suit=box Suit suit}) Suits
+            ) Ranks
         |> Tuple.concat
 
     inl ty = array Card
@@ -52,7 +52,7 @@ inl deck _ =
         data.ar x
 
 inl compare a b = if a < b then -1i32 elif a = b then 0i32 else 1i32
-inl show_hand .(x) = x
+inl show_hand {rank=.(a) suit=.(b)} = string_format "{0}-{1}" (a, b)
 
 inl showdown rule state =
     inl players = state.players
@@ -69,12 +69,12 @@ inl showdown rule state =
             on_fail=()
             on_succ=inl hand -> string_format "{0} shows {1}" (x.name, show_hand hand) |> log
             }
-        )
+        ) players
 
     inl old_chips = Tuple.map (inl x -> x.chips + x.pot) players
 
     met rec loop _ =
-        Tuple.redulel (inl a b ->
+        Tuple.reducel (inl a b ->
             inl on_fail = Option.none Card
             is_active a {
                 on_fail
@@ -84,7 +84,7 @@ inl showdown rule state =
                         on_succ = inl b_hand -> if rule a_hand b_hand = -1i32 then Option.some a_hand else Option.some b_hand
                         }
                 }
-            )
+            ) players
         |> function
             | .Some, winning_hand ->
                 inl min_pot = Tuple.foldl (inl a b -> min a b.pot) 0 players
@@ -120,7 +120,7 @@ inl showdown rule state =
         if old_chips < chips then string_format "{0} wins {1} chips." (x.name,chips-old_chips) |> log
         elif old_chips > chips then string_format "{0} loses {1} chips." (x.name,old_chips-chips) |> log
         else ()
-        )
+        ) old_chips players
 
 inl internal_representation i state =
     {
@@ -174,7 +174,7 @@ inl player player_chips {reply name} =
     inl data = 
         {
         chips=dyn player_chips
-        hand=dyn (Option.None Card)
+        hand=dyn (Option.none Card)
         pot=dyn 0
         } |> heapm
 
@@ -188,7 +188,7 @@ inl player player_chips {reply name} =
 
     function
     | .hand_set x -> data.hand <- Option.some x
-    | .fold -> data.hand <- Option.None Card
+    | .fold -> data.hand <- Option.none Card
     | .call x -> call x |> ignore
     | .raise a c -> 
         inl b = a - data.pot
@@ -207,7 +207,7 @@ inl player player_chips {reply name} =
     | .name -> name
     | x -> data x
 
-inl init {player player_chips} = 
+inl init {players player_chips} = 
     inl rec facade d = function
         | .move_button ->
             inl a :: b = d.players
@@ -230,7 +230,7 @@ inl random_reply =
 
 inl one_card =
     inl hand_rule = inl a b -> 
-        inl f .(_) as x = tag_rank x
+        inl f {rank=.(_) as x} = tag_rank x
         compare (f a) (f b)
 
     inl dealing = inl state ->
@@ -238,7 +238,7 @@ inl one_card =
         inl f ante player =
             if is_active player then 
                 if ante > 0 then 
-                    string_format "{0} antes up {1}" (player.name, ante)
+                    string_format "{0} antes up {1}" (player.name, ante) |> log
                     player.call ante
                 player.hand_set state.deck.take
 
@@ -268,7 +268,7 @@ inl one_card =
                 log "The game is over."
                 Tuple.iter (inl x ->
                     inl chips = x.chips
-                    if chips > 0 then string_format "{0} wins with {1} chips!" (x.name, chips)
+                    if chips > 0 then string_format "{0} wins with {1} chips!" (x.name, chips) |> log
                     ) state.players
             else 
                 loop state.move_button
@@ -278,6 +278,7 @@ inl one_card =
     game
 
 {
-one_poker
+random_reply
+one_card
 } |> stackify
     """) |> module_

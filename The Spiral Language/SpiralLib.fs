@@ -1671,8 +1671,8 @@ stack inl seed ->
     inl ty = fs [text: "System.Random"]
     inl rnd = 
         match seed with
-        | seed : int32 -> macro ty [type: ty; args: x]
-        | () -> macro ty [type: ty]
+        | seed : int32 -> macro.fs ty [type: ty; args: x]
+        | () -> macro.fs ty [type: ty]
     inl next = stack inl ((min : int32, max : int32) | (max : int32) | () as x) -> macro.fs int32 [arg: rnd; text: ".Next"; args: x]
     inl next_double = stack inl _ -> macro.fs float64 [arg: rnd; text: ".NextDouble()"]
     inl next_bytes = stack inl (ar: (array uint8)) -> macro.fs () [arg: rnd; text: ".NextBytes"; args: ar]
