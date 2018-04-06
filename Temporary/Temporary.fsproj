@@ -58,6 +58,8 @@
     <None Include="App.config" />
     <Content Include="packages.config" />
     <Compile Include="output.fs" />
+    <Content Include="TextFile1.txt" />
+    <Content Include="TextFile2.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="CudaBlas">
