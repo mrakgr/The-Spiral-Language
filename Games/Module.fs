@@ -124,7 +124,7 @@ inl internal_representation i state =
 
 inl betting state =
     inl is_active x = x.chips > 0 && x.hand_is
-    met f {i player} next {d with players_called call_level players_active min_raise} =
+    met f {i player} next {d with players_called min_raise call_level players_active min_raise} =
         if players_active > 1 && players_called < players_active then
             if is_active player then
                 player.reply (internal_representation i state)
@@ -142,22 +142,21 @@ inl betting state =
                             string_format "{0} calls." player.name |> log
                             next {d with players_called=self+1}
                     raise = inl x -> 
-                        inl pot = x.pot
-                        inl call_level' = player.call (min_raise + call_level + x)
-                        if call_level' > call_level then
-                            inl min_raise = call_level' - pot
-                            if player.chips = 0 then
-                                string_format "{0} raises to {1} and is all-in!" (player.name, call_level') |> log
-                                next {d with min_raise 
-                                    call_level=call_level'
-                                    players_called=dyn 0; players_active=self-1
-                                    }
-                            else
-                                string_format "{0} raises to {1}." (player.name, call_level') |> log
-                                next {d with min_raise 
-                                    call_level=call_level'
-                                    players_called=dyn 0
-                                    }
+                        inl call_level' = player.call (call_level + min_raise + x)
+                        inl d = {d with
+                            call_level = call_level'
+                            min_raise = call_level'-cell_level
+                            }
+                        inl next d =
+                            if call_level' < call_level + min_raise then next d 
+                            else next {d with players_called=dyn 0} 
+                        
+                        if player.chips = 0 then
+                            string_format "{0} raises to {1} and is all-in!" (player.name, call_level') |> log
+                            next {d with players_active=self-1}
+                        else
+                            string_format "{0} raises to {1}." (player.name, call_level') |> log
+                            next d
                     }
             else
                 next d
