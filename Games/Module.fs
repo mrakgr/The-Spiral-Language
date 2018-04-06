@@ -281,4 +281,3 @@ inl one_card =
 one_poker
 } |> stackify
     """) |> module_
-
