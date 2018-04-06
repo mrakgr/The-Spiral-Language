@@ -767,7 +767,8 @@ and method_21((var_0: EnvHeapMutable2), (var_1: int64), (var_2: int64), (var_3: 
         method_22((var_6: (Tuple1 [])), (var_15: (Tuple1 [])), (var_4: int64), (var_7: int64))
         let (var_16: int64) = 0L
         method_24((var_6: (Tuple1 [])), (var_15: (Tuple1 [])), (var_4: int64), (var_7: int64), (var_16: int64))
-        var_0.mem_1 <- 0L
+        let (var_17: int64) = 0L
+        var_0.mem_1 <- var_17
         var_0.mem_2 <- var_7
         var_0.mem_0 <- var_15
     else

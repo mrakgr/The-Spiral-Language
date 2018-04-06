@@ -34,7 +34,8 @@ let rec method_0((var_0: EnvHeapMutable0), (var_1: int64)): unit =
         method_1((var_4: (int64 [])), (var_13: (int64 [])), (var_2: int64), (var_5: int64))
         let (var_14: int64) = 0L
         method_3((var_4: (int64 [])), (var_13: (int64 [])), (var_2: int64), (var_5: int64), (var_14: int64))
-        var_0.mem_1 <- 0L
+        let (var_15: int64) = 0L
+        var_0.mem_1 <- var_15
         var_0.mem_2 <- var_5
         var_0.mem_0 <- var_13
     else

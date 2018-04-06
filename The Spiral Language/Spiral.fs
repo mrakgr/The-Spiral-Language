@@ -1399,7 +1399,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         let _,r_ty = renamer_apply_typedexpr r
                         let _,v_ty = renamer_apply_typedexpr v
                         if v_ty = r_ty then make_tyv_and_push_typed_expr_even_if_unit d (TyOp(MutableSet,[module_;v;r],BListT))
-                        else on_type_er (trace d) <| sprintf "The two sides in the module set have different types.\nExpected: %s\n Got:%s" (show_typedexpr v_ty) (show_typedexpr r_ty)
+                        else on_type_er (trace d) <| sprintf "The two sides in the module set have different types.\nExpected: %s\n     Got: %s" (show_typedexpr v_ty) (show_typedexpr r_ty)
                 | x -> on_type_er (trace d) <| sprintf "Expected a type string as the input to a mutable heap module.\nGot: %s" (show_typedexpr x)
             | _ -> on_type_er (trace d) <| sprintf "Expected a heap mutable module, reference or an array the input to mutable set.\nGot: %s" (show_typedexpr a)
 
@@ -3104,8 +3104,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 let {call_args=l},_ = renamer_apply_typedexpr l
                 let {call_args=r},_ = renamer_apply_typedexpr r
                 let module_ = codegen module_
-                List.iter2 (fun l r ->
-                    sprintf "%s.%s <- %s" module_ (print_tyv l) (print_tyv r) |> state
+                List.iter2 (fun (l,_) r ->
+                    sprintf "%s.mem_%i <- %s" module_ l (print_tyv r) |> state
                     ) l r
             let array_set ar idx r = sprintf "%s <- %s" (array_index ar idx) (codegen r) |> state
             let reference_set l r = sprintf "%s := %s" (codegen l) (codegen r) |> state

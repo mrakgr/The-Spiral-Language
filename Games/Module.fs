@@ -42,11 +42,11 @@ inl deck _ =
     assert (array_length ar = num_cards) "The number of cards in the deck must be 52."
     inl rnd = Random()
     macro.fs () [text: "// Making data."]
-    inl data = heapm {ar rnd p=num_cards}
+    inl data = heapm {ar rnd p=dyn num_cards}
     function
     | .reset -> join
         knuth_shuffle data.rnd num_cards data.ar
-        data.p <- num_cards
+        data.p <- dyn num_cards
     | .take -> join
         inl x = data.p - 1
         data.p <- x
@@ -188,8 +188,8 @@ inl player player_chips {reply name} =
         pot
 
     function
-    | .hand_set x -> data.hand <- Option.some x
-    | .fold -> data.hand <- Option.none Card
+    | .hand_set x -> data.hand <- dyn (Option.some x)
+    | .fold -> data.hand <- dyn (Option.none Card)
     | .call x -> call x |> ignore
     | .raise a c -> 
         inl b = a - data.pot

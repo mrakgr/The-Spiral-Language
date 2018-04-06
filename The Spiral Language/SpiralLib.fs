@@ -988,10 +988,10 @@ met enqueue queue (!dyn v) =
     inl to = add_one len to
     if from = to then 
         inl {from to ar} = resize {len from to ar}
-        queue.from <- from
-        queue.to <- to
+        queue.from <- dyn from
+        queue.to <- dyn to
         queue.ar <- ar
-    else queue.to <- to
+    else queue.to <- dyn to
 
 met dequeue queue =
     inl {from to ar} = queue
