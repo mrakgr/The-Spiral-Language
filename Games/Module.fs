@@ -78,7 +78,7 @@ inl showdown rule state =
         Tuple.iter (inl x ->
             is_active x {
                 on_fail=inl _ -> ()
-                on_succ=inl _ -> string_format "{0} is active." x.name |> log
+                on_succ=inl hand -> string_format "{0} is active and has {1} and pot of {2}." (x.name, show_hand hand, x.pot) |> log
                 }
             ) players
         Tuple.reducel (inl a b ->
@@ -98,7 +98,13 @@ inl showdown rule state =
         |> function
             | .Some, winning_hand ->
                 string_format "The winning hand is {0}" (show_hand winning_hand) |> log
-                inl min_pot = Tuple.foldl (inl a b -> min a b.pot) 0 players
+                inl min_pot = 
+                    Tuple.map (inl x -> x.pot) players 
+                    |> Tuple.reducel (inl a b -> 
+                        if a > 0 && b > 0 then min a b
+                        elif a > 0 then a
+                        else b
+                        )
                 inl num_winners = 
                     Tuple.foldl (inl s x ->
                         is_active x {
@@ -106,6 +112,7 @@ inl showdown rule state =
                             on_succ = inl hand -> if rule winning_hand hand = 0i32 then s+1 else s
                             }
                         ) 0 players
+                Tuple.iter (inl x -> x.pot_take min_pot) players
                 inl could_be_odd = min_pot % num_winners <> 0
                 inl pot = min_pot / num_winners
                 string_format "Pot size is {0}" min_pot |> log
