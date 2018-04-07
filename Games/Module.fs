@@ -8,8 +8,6 @@ let poker =
     (
     "Poker",[random;console;option],"The Poker module",
     """
-inl log = Console.writeline
-
 inl Suits = .Spades, .Clubs, .Hearts, .Diamonds
 inl Suit = Tuple.reducel (inl a b -> a \/ b) Suits
 inl Ranks = .Two, .Three, .Four, .Five, .Six, .Seven, .Eight, .Nine, .Ten, .Jack, .Queen, .King, .Ace
@@ -52,271 +50,275 @@ inl deck _ =
         data.ar x
 
 inl compare a b = if a < b then -1i32 elif a = b then 0i32 else 1i32
-met show_hand x =
-    inl {rank=.(a) suit=.(b)} = x 
-    string_format "{0}-{1}" (a, b)
 
-met showdown rule state =
-    inl players = state.players
-    inl is_active x = x.pot > 0
+inl log ->
+    met show_hand x =
+        inl {rank=.(a) suit=.(b)} = x 
+        string_format "{0}-{1}" (a, b)
 
-    log "Showdown:"
-    Tuple.iter (met x ->
-        if is_active x then
-            match x.hand with
-            | .Some, hand -> string_format "{0} shows {1}" (x.name, show_hand hand) |> log
-            | _ -> ()
-        ) players
+    met showdown rule state =
+        inl players = state.players
+        inl is_active x = x.pot > 0
 
-    inl old_chips = Tuple.map (inl x -> x.chips + x.pot) players
+        log "Showdown:" ()
+        Tuple.iter (met x ->
+            if is_active x then
+                match x.hand with
+                | .Some, hand -> log "{0} shows {1}" (x.name, show_hand hand)
+                | _ -> ()
+            ) players
 
-    met rec loop _ =
-        inl players = Tuple.map (inl player -> {player is_active=is_active player}) players
-        inl foldl f s = Tuple.foldl (met s {player is_active} -> if is_active then f s player else s) s players
+        inl old_chips = Tuple.map (inl x -> x.chips + x.pot) players
 
-        foldl (inl s player ->
-            match s with
-            | .Some, a ->
-                match player.hand with
-                | .Some, b -> if rule a b = 1i32 then Option.some a else Option.some b
-                | .None -> Option.some a
-            | .None -> player.hand
-            ) (Option.none Card)
-        |> function
-            | .Some, winning_hand ->
-                inl foldl_winners f = 
-                    foldl (inl s x ->
-                        match x.hand with
-                        | .Some, hand -> if rule winning_hand hand = 0i32 then f s x else s
-                        | _ -> s
-                        )
+        met rec loop _ =
+            inl players = Tuple.map (inl player -> {player is_active=is_active player}) players
+            inl foldl f s = Tuple.foldl (met s {player is_active} -> if is_active then f s player else s) s players
 
-                inl num_winners = foldl_winners (inl s _ -> s + 1) 0
-                inl min_pot = foldl (inl s player -> min s player.pot) (macro.fs int64 [text: "System.Int64.MaxValue"])
-                inl pot = foldl (inl s x -> s + x.pot_take min_pot) 0
-                inl could_be_odd = pot % num_winners <> 0
-                inl pot = pot / num_winners
-                foldl_winners (inl s x ->
-                    inl s = s - 1
-                    inl odd_chip = if could_be_odd && s = 0 then 1 else 0
-                    x.chips_add (pot + odd_chip)
-                    s
-                    ) num_winners |> ignore
-                loop ()
-            | .None ->
-                ()
-        : ()
-    loop ()
+            foldl (inl s player ->
+                match s with
+                | .Some, a ->
+                    match player.hand with
+                    | .Some, b -> if rule a b = 1i32 then Option.some a else Option.some b
+                    | .None -> Option.some a
+                | .None -> player.hand
+                ) (Option.none Card)
+            |> function
+                | .Some, winning_hand ->
+                    inl foldl_winners f = 
+                        foldl (inl s x ->
+                            match x.hand with
+                            | .Some, hand -> if rule winning_hand hand = 0i32 then f s x else s
+                            | _ -> s
+                            )
 
-    Tuple.iter2 (met old_chips x -> 
-        inl chips = x.chips
-        if old_chips < chips then string_format "{0} wins {1} chips." (x.name,chips-old_chips) |> log
-        elif old_chips > chips then string_format "{0} loses {1} chips." (x.name,old_chips-chips) |> log
-        else ()
-        ) old_chips players
+                    inl num_winners = foldl_winners (inl s _ -> s + 1) 0
+                    inl min_pot = foldl (inl s player -> min s player.pot) (macro.fs int64 [text: "System.Int64.MaxValue"])
+                    inl pot = foldl (inl s x -> s + x.pot_take min_pot) 0
+                    inl could_be_odd = pot % num_winners <> 0
+                    inl pot = pot / num_winners
+                    foldl_winners (inl s x ->
+                        inl s = s - 1
+                        inl odd_chip = if could_be_odd && s = 0 then 1 else 0
+                        x.chips_add (pot + odd_chip)
+                        s
+                        ) num_winners |> ignore
+                    loop ()
+                | .None ->
+                    ()
+            : ()
+        loop ()
 
-inl internal_representation (!dyn i) state =
-    {
-    players=
-        Tuple.mapi (inl (!dyn i') x -> join
-            if i' <> i then heap {chips=x.chips; pot=x.pot; hand=dyn (Option.none Card)}
-            else heap {chips=x.chips; pot=x.pot; hand=x.hand}
-            ) state.players
-    board=state.board
-    }
+        Tuple.iter2 (met old_chips x -> 
+            inl chips = x.chips
+            if old_chips < chips then log "{0} wins {1} chips." (x.name,chips-old_chips)
+            elif old_chips > chips then log "{0} loses {1} chips." (x.name,old_chips-chips)
+            else ()
+            ) old_chips players
 
-met betting state =
-    inl is_active x = x.chips > 0 && x.hand_is
-    met betting {internal_representation player} {d with players_called min_raise call_level players_active min_raise} =
-        inl on_succ=Option.some
-        inl on_fail=Option.none d
-        if players_called < players_active then
-            if is_active player then
-                player.reply internal_representation
-                    {
-                    fold = inl _ -> 
-                        player.fold
-                        string_format "{0} folds." player.name |> log
-                        on_succ {d with players_active=self-1}
-                    call = inl _ -> 
-                        player.call call_level |> ignore
-                        if player.chips = 0 then
-                            string_format "{0} calls and is all-in!" player.name |> log
-                            on_succ {d with players_active=self-1}
-                        else
-                            string_format "{0} calls." player.name |> log
-                            on_succ {d with players_called=self+1}
-                    raise = inl x -> 
-                        inl call_level' = player.call (call_level + min_raise + x)
-                        inl d = {d with
-                            call_level = call_level'
-                            min_raise = call_level'-call_level
-                            }
-                        inl on_succ d =
-                            if call_level' < call_level + min_raise then on_succ d //on_succ {d with players_called=dyn 0}  // For HU rules
-                            else on_succ {d with players_called=dyn 1} 
-                        
-                        if player.chips = 0 then
-                            string_format "{0} raises to {1} and is all-in!" (player.name, call_level') |> log
-                            on_succ {d with players_active=self-1}
-                        else
-                            string_format "{0} raises to {1}." (player.name, call_level') |> log
-                            on_succ d
-                    }
-            else
-                on_succ d
-        else
-            on_fail
-        
-    inl players=state.players
-    inl num_players=Tuple.foldl (inl s x -> s + 1) 0 players
-    met rec loop d = 
-        Tuple.foldr (inl player (i, next) ->
-            inl next d =
-                inl internal_representation = internal_representation i state
-                match betting { internal_representation player } d with
-                | .Some, d -> next d
-                | .None -> ()
-            i-1, next
-            ) players (num_players,loop) |> snd <| d
-        : ()
-
-    log "Betting:"
-    loop {
-        min_raise=dyn 2
-        call_level = Tuple.foldl (inl s x -> if is_active x then max s x.pot else s) 0 state.players |> dyn
-        players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 state.players |> dyn
-        players_called = dyn 0
+    inl internal_representation (!dyn i) state =
+        {
+        players=
+            Tuple.mapi (met (!dyn i') x ->
+                if i' <> i then heap {chips=x.chips; pot=x.pot; hand=dyn (Option.none Card)}
+                else heap {chips=x.chips; pot=x.pot; hand=x.hand}
+                ) state.players
+        board=state.board
         }
 
-inl player player_chips {reply name} =
-    inl data = 
-        {
-        chips=dyn player_chips
-        hand=dyn (Option.none Card)
-        pot=dyn 0
-        name=dyn name
-        reply
-        } |> heapm
-
-    met call x =
-        inl chips, pot = data.chips, data.pot
-        inl x = min chips (x - pot)
-        data.chips <- chips - x
-        inl pot = pot + x
-        data.pot <- pot
-        pot
-
-    function
-    | .hand_set x -> join data.hand <- dyn (Option.some x)
-    | .fold -> join data.hand <- dyn (Option.none Card)
-    | .call x -> call x
-    | .pot_take x -> join
-        inl pot = data.pot
-        inl x = min pot x
-        data.pot <- pot - x
-        x
-    | .chips_add x -> join data.chips <- data.chips + x
-    | .hand_is -> join
-        match data.hand with
-        | .None -> false
-        | _ -> true
-    | x -> data x
-
-inl init {players player_chips} = 
-    inl rec facade d = function
-        | .move_button ->
-            inl a :: b = d.players
-            facade {d with players=Tuple.append b (a :: ())}
-        | x -> d x
-
-    inl players = Tuple.map (player player_chips) players
-    /// One card poker has no board.
-    inl board = ()
-    inl deck = deck()
-    facade {players board deck}
-
-inl one_card =
-    met hand_rule a b =
-        inl f {rank=.(_) as x} = tag_rank x
-        compare (f a) (f b)
-
-    met dealing state = 
-        inl is_active x = x.chips > 0
-        met f ante player =
-            if is_active player then 
-                if ante > 0 then 
-                    string_format "{0} antes up {1}" (player.name, ante) |> log
-                    player.call ante |> ignore
-                player.hand_set state.deck.take
-
-        inl ante, big_ante = 1, 2
-        inl rec loop = function
-            | a :: b :: () -> f ante a; f big_ante b
-            | a :: b -> f 0 a; loop b
-        log "Dealing:"
-        loop state.players
-
-    inl is_finished state =
-        inl is_active x = x.chips > 0
-        inl players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 state.players
-        players_active = 1
-
-    inl round state = 
-        log "A new round is starting..."
-        log "Chip counts:"
-        Tuple.iter (inl x ->
-            string_format "{0} has {1} chips." (x.name,x.chips) |> log
-            ) state.players
-        state.deck.reset
-        dealing state
-        betting state
-        showdown hand_rule state
-
-    inl game =
-        met rec loop state =
-            round state
-            if is_finished state then 
-                log "The game is over."
-                Tuple.iter (inl x ->
-                    inl chips = x.chips
-                    if chips > 0 then string_format "{0} wins with {1} chips!" (x.name, chips) |> log
-                    ) state.players
-            else 
-                loop state.move_button
+    met betting state =
+        inl is_active x = x.chips > 0 && x.hand_is
+        met betting {internal_representation player} {d with players_called min_raise call_level players_active min_raise} =
+            inl on_succ=Option.some
+            inl on_fail=Option.none d
+            if players_called < players_active then
+                if is_active player then
+                    player.reply internal_representation
+                        {
+                        fold = inl _ -> 
+                            player.fold
+                            log "{0} folds." player.name
+                            on_succ {d with players_active=self-1}
+                        call = inl _ -> 
+                            player.call call_level |> ignore
+                            if player.chips = 0 then
+                                log "{0} calls and is all-in!" player.name
+                                on_succ {d with players_active=self-1}
+                            else
+                                log "{0} calls." player.name
+                                on_succ {d with players_called=self+1}
+                        raise = inl x -> 
+                            inl call_level' = player.call (call_level + min_raise + x)
+                            inl d = {d with
+                                call_level = call_level'
+                                min_raise = call_level'-call_level
+                                }
+                            inl on_succ d =
+                                if call_level' < call_level + min_raise then on_succ d //on_succ {d with players_called=dyn 0}  // For HU rules
+                                else on_succ {d with players_called=dyn 1} 
+                        
+                            if player.chips = 0 then
+                                log "{0} raises to {1} and is all-in!" (player.name, call_level')
+                                on_succ {d with players_active=self-1}
+                            else
+                                log "{0} raises to {1}." (player.name, call_level')
+                                on_succ d
+                        }
+                else
+                    on_succ d
+            else
+                on_fail
+        
+        inl players=state.players
+        inl num_players=Tuple.foldl (inl s x -> s + 1) 0 players
+        met rec loop d = 
+            Tuple.foldr (inl player (i, next) ->
+                inl i = i - 1
+                inl next d =
+                    inl internal_representation = internal_representation i state
+                    match betting { internal_representation player } d with
+                    | .Some, d -> next d
+                    | .None -> ()
+                i, next
+                ) players (num_players,loop) |> snd <| d
             : ()
-        loop << init
 
-    game
+        log "Betting:" ()
+        loop {
+            min_raise=dyn 2
+            call_level = Tuple.foldl (inl s x -> if is_active x then max s x.pot else s) 0 state.players |> dyn
+            players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 state.players |> dyn
+            players_called = dyn 0
+            }
 
-inl reply_random =
-    inl rnd = Random()
-    inl _ {fold call raise} ->
-        match rnd.next(0i32,5i32) with
-        | 0i32 -> fold()
-        | 1i32 -> call()
-        | _ -> raise 0
+    inl player player_chips {reply name} =
+        inl data = 
+            {
+            chips=dyn player_chips
+            hand=dyn (Option.none Card)
+            pot=dyn 0
+            name=dyn name
+            reply
+            } |> heapm
 
-inl reply_rules {players} {fold call raise} =
-    inl limit = Tuple.foldl (inl s x -> max s x.pot) 0 players
-    Tuple.iter (inl x ->
-        inl hand =
-            match x.hand with
-            | .Some, x -> show_hand x
-            | .None -> "None"
-        string_format "pot: {0}, chips: {1}, hand: {2}" (x.pot,x.chips,hand) |> log
-        ) players
-    inl self = Tuple.find (inl x -> match x.hand with .Some, _ -> true | _ -> false) players
-    match self.hand with
-    | .Some, x ->
-        match x.rank with
-        | .Queen | .King | .Aces -> raise 0
-        | _ -> if self.pot < limit then fold() else call()
-    | .None -> failwith (type fold()) "No self in the internal representation."
+        met call x =
+            inl chips, pot = data.chips, data.pot
+            inl x = min chips (x - pot)
+            data.chips <- chips - x
+            inl pot = pot + x
+            data.pot <- pot
+            pot
 
-{
-reply_random reply_rules
-one_card
-} |> stackify
+        function
+        | .hand_set x -> join data.hand <- dyn (Option.some x)
+        | .fold -> join data.hand <- dyn (Option.none Card)
+        | .call x -> call x
+        | .pot_take x -> join
+            inl pot = data.pot
+            inl x = min pot x
+            data.pot <- pot - x
+            x
+        | .chips_add x -> join data.chips <- data.chips + x
+        | .hand_is -> join
+            match data.hand with
+            | .None -> false
+            | _ -> true
+        | .data -> data
+        | x -> data x
+
+    inl one_card =
+        inl init {players player_chips} = 
+            inl rec facade d = function
+                | .move_button ->
+                    inl a :: b = d.players
+                    facade {d with players=Tuple.append b (a :: ())}
+                | x -> d x
+
+            inl players = Tuple.map (player player_chips) players
+            /// One card poker has no board.
+            inl board = ()
+            inl deck = deck()
+            facade {players board deck}
+
+        met hand_rule a b =
+            inl f {rank=.(_) as x} = tag_rank x
+            compare (f a) (f b)
+
+        met dealing state = 
+            inl is_active x = x.chips > 0
+            met f ante player =
+                if is_active player then 
+                    if ante > 0 then 
+                        inl ante = player.call ante
+                        log "{0} antes up {1}" (player.name, ante)
+                    player.hand_set state.deck.take
+
+            inl ante, big_ante = 1, 2
+            inl rec loop = function
+                | a :: b :: () -> f ante a; f big_ante b
+                | a :: b -> f 0 a; loop b
+            log "Dealing:" ()
+            loop state.players
+
+        inl is_finished state =
+            inl is_active x = x.chips > 0
+            inl players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 state.players
+            players_active = 1
+
+        inl round state = 
+            log "A new round is starting..." ()
+            log "Chip counts:" ()
+            Tuple.iter (inl x ->
+                log "{0} has {1} chips." (x.name,x.chips)
+                ) state.players
+            state.deck.reset
+            dealing state
+            betting state
+            showdown hand_rule state
+
+        inl game =
+            met rec loop state =
+                round state
+                if is_finished state then 
+                    log "The game is over." ()
+                    Tuple.iter (inl x ->
+                        inl chips = x.chips
+                        if chips > 0 then log "{0} wins with {1} chips!" (x.name, chips)
+                        ) state.players
+                else 
+                    loop state.move_button
+                : ()
+            loop
+
+        {game init}
+
+    inl reply_random =
+        inl rnd = Random()
+        inl _ {fold call raise} ->
+            match rnd.next(0i32,5i32) with
+            | 0i32 -> fold()
+            | 1i32 -> call()
+            | _ -> raise 0
+
+    inl reply_rules {players} {fold call raise} =
+        inl limit = Tuple.foldl (inl s x -> max s x.pot) 0 players
+        Tuple.iter (inl x ->
+            inl hand =
+                match x.hand with
+                | .Some, x -> show_hand x
+                | .None -> "None"
+            log "pot: {0}, chips: {1}, hand: {2}" (x.pot,x.chips,hand)
+            ) players
+        inl self = Tuple.find (inl x -> match x.hand with .Some, _ -> true | _ -> false) players
+        match self.hand with
+        | .Some, x ->
+            match x.rank with
+            | .Queen | .King | .Ace -> raise 0
+            | _ -> if self.pot = limit || self.chips = 0 then call() else fold()
+        | .None -> failwith (type fold()) "No self in the internal representation."
+
+    {
+    reply_random reply_rules
+    one_card
+    } |> stackify
     """) |> module_
 
