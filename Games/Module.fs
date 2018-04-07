@@ -299,6 +299,13 @@ inl reply_random =
 
 inl reply_rules {players} {fold call raise} =
     inl limit = Tuple.foldl (inl s x -> max s x.pot) 0 players
+    Tuple.iter (inl x ->
+        inl hand =
+            match x.hand with
+            | .Some, x -> show_hand x
+            | .None -> "None"
+        string_format "pot: {0}, chips: {1}, hand: {2}" (x.pot,x.chips,hand) |> log
+        ) players
     inl self = Tuple.find (inl x -> match x.hand with .Some, _ -> true | _ -> false) players
     match self.hand with
     | .Some, x ->
