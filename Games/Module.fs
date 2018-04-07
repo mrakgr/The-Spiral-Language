@@ -218,6 +218,7 @@ inl log ->
             data.pot <- pot - x
             x
         | .chips_add x -> join data.chips <- data.chips + x
+        | .chips_set x -> join data.chips <- x
         | .hand_is -> join
             match data.hand with
             | .None -> false
@@ -312,8 +313,8 @@ inl log ->
         match self.hand with
         | .Some, x ->
             match x.rank with
-            | .Queen | .King | .Ace -> raise 0
-            | _ -> if self.pot = limit || self.chips = 0 then call() else fold()
+            | .Ten | .Jack | .Queen | .King | .Ace -> raise 0
+            | _ -> if self.pot >= limit || self.chips = 0 then call() else fold()
         | .None -> failwith (type fold()) "No self in the internal representation."
 
     {

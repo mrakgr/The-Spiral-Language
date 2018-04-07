@@ -36,10 +36,10 @@ let poker3 =
     """
 inl log _ _ = ()
 open Poker log
-inl player_chips = dyn 5
+inl player_chips = dyn 6
 inl state = one_card.init {player_chips players={reply=reply_rules; name="One"}, {reply=reply_random; name="Two"}}
 Loops.for {from=0; near_to=10000; state=dyn {a=0; b=0}; body=inl {state=s i} ->
-    Tuple.iter (inl x -> x.data.chips <- player_chips) state.players
+    Tuple.iter (inl x -> x.chips_set player_chips) state.players
     one_card.game state
     inl a,b = state.players
     if a.chips = 0 then 
