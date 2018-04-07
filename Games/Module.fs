@@ -302,13 +302,6 @@ inl log ->
 
     inl reply_rules {players} {fold call raise} =
         inl limit = Tuple.foldl (inl s x -> max s x.pot) 0 players
-        Tuple.iter (inl x ->
-            inl hand =
-                match x.hand with
-                | .Some, x -> show_hand x
-                | .None -> "None"
-            log "pot: {0}, chips: {1}, hand: {2}" (x.pot,x.chips,hand)
-            ) players
         inl self = Tuple.find (inl x -> match x.hand with .Some, _ -> true | _ -> false) players
         match self.hand with
         | .Some, x ->
@@ -316,6 +309,27 @@ inl log ->
             | .Ten | .Jack | .Queen | .King | .Ace -> raise 0
             | _ -> if self.pot >= limit || self.chips = 0 then call() else fold()
         | .None -> failwith (type fold()) "No self in the internal representation."
+
+    inl Actions = .Fold, .Call, (.Raise, 0)
+    inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
+    inl td_buffer state =
+        inl x = Dictionary (state,Action) ()
+        function
+        | .max_action state ->
+            Tuple.foldl (inl {s with value} action -> 
+                inl value' =
+                    buffer (state,action) {
+                        on_fail = const -infinityf64
+                        on_succ = id
+                        }
+                if value > value' then {action=box Action action; value=value'} else s
+                ) {action=box Action .Fold; value=-infinityf64} Actions .action
+
+    inl reply_td_learning buffer {players} {fold call raise} =
+        match buffer.max_action with
+        | .Fold -> fold ()
+        | .Call -> call ()
+        | .Raise -> raise 0
 
     {
     reply_random reply_rules
