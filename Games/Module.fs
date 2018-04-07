@@ -14,6 +14,10 @@ inl Ranks = .Two, .Three, .Four, .Five, .Six, .Seven, .Eight, .Nine, .Ten, .Jack
 inl Rank = Tuple.reducel (inl a b -> a \/ b) Ranks
 inl Card = type {rank=Rank; suit=Suit}
 
+inl num_cards = 
+    inl l = Tuple.foldl (inl s _ -> s+1) 0
+    l Suits * l Ranks
+
 //inl spades, clubs, hearts, diamonds = Tuple.map (box Suit) ()
 //inl two, three, four, five, six, seven, eight, nine, ten, jack, queen, king, ace = Tuple.map (box Rank) Ranks
 inl tag_rank = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) ({},0i32) Ranks |> fst
@@ -313,7 +317,7 @@ inl log ->
     inl Actions = .Fold, .Call, (.Raise, 0)
     inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
     inl td_buffer state =
-        inl x = Dictionary (state,Action) ()
+        inl x = Dictionary ((state,Action),float64) ()
         function
         | .max_action state ->
             Tuple.foldl (inl {s with value} action -> 
