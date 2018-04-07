@@ -19,7 +19,7 @@ let poker1 =
     "poker1",[poker],"Does the poker game work?",
     """
 open Poker
-one_card {player_chips=5; players={reply=random_reply; name="One"}, {reply=random_reply; name="Two"}}
+one_card {player_chips=5; players={reply=reply_random; name="One"}, {reply=reply_random; name="Two"}}
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker1

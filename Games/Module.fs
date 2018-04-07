@@ -236,14 +236,6 @@ inl init {players player_chips} =
     inl deck = deck()
     facade {players board deck}
 
-inl random_reply =
-    inl rnd = Random()
-    inl state {fold call raise} ->
-        match rnd.next(0i32,5i32) with
-        | 0i32 -> fold()
-        | 1i32 -> call()
-        | _ -> raise 0
-
 inl one_card =
     met hand_rule a b =
         inl f {rank=.(_) as x} = tag_rank x
@@ -272,7 +264,7 @@ inl one_card =
 
     inl round state = 
         log "A new round is starting..."
-        log "Chips counts:"
+        log "Chip counts:"
         Tuple.iter (inl x ->
             string_format "{0} has {1} chips." (x.name,x.chips) |> log
             ) state.players
@@ -297,8 +289,27 @@ inl one_card =
 
     game
 
+inl reply_random =
+    inl rnd = Random()
+    inl _ {fold call raise} ->
+        match rnd.next(0i32,5i32) with
+        | 0i32 -> fold()
+        | 1i32 -> call()
+        | _ -> raise 0
+
+inl reply_rules rep {fold call raise} =
+    inl limit = Tuple.foldl (inl s x -> max s x.pot) 0 rep
+    inl self = Tuple.find (inl s x -> match x.hand with .Some, _ -> true | _ -> false) rep
+    match self.hand with
+    | .Some, x ->
+        match x.rank with
+        | .Queen | .King | .Aces -> raise 0
+        | _ -> if self.pot < limit then fold() else call()
+    | .None -> failwith () "No self in the internal representation."
+
 {
-random_reply
+reply_random reply_rules
 one_card
 } |> stackify
     """) |> module_
+
