@@ -251,9 +251,9 @@ inl rec foldr_map f l s =
 
 inl mapi f = foldl_map (inl s x -> f s x, s + 1) 0 >> fst
 
-inl find f = function
-    | x :: x' -> if f x then x else find f x'
+inl rec find f = function
     | x :: () -> if f x then x else failwith x "Key cannot be found."
+    | x :: x' -> if f x then x else find f x'
     | _ -> error_type "Expected a non-empty tuple as input to this."
 
 {

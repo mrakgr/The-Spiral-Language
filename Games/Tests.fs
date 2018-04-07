@@ -22,7 +22,14 @@ open Poker
 one_card {player_chips=5; players={reply=reply_random; name="One"}, {reply=reply_random; name="Two"}}
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker1
+let poker2 =
+    "poker2",[poker],"Does the rules based player work?",
+    """
+open Poker
+one_card {player_chips=5; players={reply=reply_rules; name="One"}, {reply=reply_random; name="Two"}}
+    """
+
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker2
 |> printfn "%s"
 |> ignore
 

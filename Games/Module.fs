@@ -297,15 +297,15 @@ inl reply_random =
         | 1i32 -> call()
         | _ -> raise 0
 
-inl reply_rules rep {fold call raise} =
-    inl limit = Tuple.foldl (inl s x -> max s x.pot) 0 rep
-    inl self = Tuple.find (inl s x -> match x.hand with .Some, _ -> true | _ -> false) rep
+inl reply_rules {players} {fold call raise} =
+    inl limit = Tuple.foldl (inl s x -> max s x.pot) 0 players
+    inl self = Tuple.find (inl x -> match x.hand with .Some, _ -> true | _ -> false) players
     match self.hand with
     | .Some, x ->
         match x.rank with
         | .Queen | .King | .Aces -> raise 0
         | _ -> if self.pot < limit then fold() else call()
-    | .None -> failwith () "No self in the internal representation."
+    | .None -> failwith (type fold()) "No self in the internal representation."
 
 {
 reply_random reply_rules
