@@ -256,10 +256,18 @@ inl rec find f = function
     | x :: x' -> if f x then x else find f x'
     | _ -> error_type "Expected a non-empty tuple as input to this."
 
+inl rec foldl_map2 f s a b = 
+    match a,b with
+    | a :: a', b :: b' ->
+        inl l, s = f s a b
+        inl l', s = foldl_map2 f s a' b'
+        l :: l', s
+    | () -> (), s
+
 {
 head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists split_at take drop
 filter zip unzip init repeat append concat singleton range tryFind contains intersperse wrap unwrap
-foldl_map foldr_map map2 foldl2 choose choose2 mapi find
+foldl_map foldl_map2 foldr_map map2 foldl2 choose choose2 mapi find
 } 
 |> stackify
     """) |> module_
