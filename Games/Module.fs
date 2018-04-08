@@ -90,7 +90,7 @@ met show_card x =
     inl {rank=.(a) suit=.(b)} = x 
     string_format "{0}-{1}" (a, b)
 
-inl log ->
+inl one_card log =
     inl Hand = Card // for one card poker
     inl show_hand = show_card
 
@@ -158,7 +158,9 @@ inl log ->
 
         Tuple.iter (met player reward -> 
             player.reply.unwrap reward
-            if reward > 0 then log "{0} wins {1} chips." (x.name,reward)
+            if reward = 1 then log "{0} wins {1} chip." (x.name,reward)
+            elif reward = -1 then log "{0} loses {1} chip." (x.name,-reward)
+            elif reward > 0 then log "{0} wins {1} chips." (x.name,reward)
             elif reward < 0 then log "{0} loses {1} chips." (x.name,-reward)
             else ()
             ) players rewards
@@ -166,14 +168,10 @@ inl log ->
         new_chips
 
     inl internal_representation i {board players} =
-        {
-        players=
-            Tuple.mapi (inl i' {chips pot hand} ->
-                if i' <> i then {chips pot hand=dyn (Option.none Hand)}
-                else {chips pot hand}
-                ) players
-        board
-        }
+        Tuple.mapi (inl i' {chips pot hand} ->
+            if i' <> i then {chips pot hand=dyn (Option.none Hand)}
+            else {chips pot hand}
+            ) players
 
     inl hand_is = function
         | .Some, _ -> true
@@ -193,12 +191,12 @@ inl log ->
                 if is_active player then
                     player.reply internal_representation
                         {
-                        fold = inl player -> 
-                            inl player = fold player
+                        fold = inl reply -> 
+                            inl player = fold {player with reply}
                             log "{0} folds." player.name
                             on_succ (player, {d with players_active=self-1})
-                        call = inl player -> 
-                            inl player,_ = call player call_level
+                        call = inl reply -> 
+                            inl player,_ = call {player with reply} call_level
                             inl on_succ d = player, d
                             if player.chips = 0 then
                                 log "{0} calls and is all-in!" player.name
@@ -206,11 +204,13 @@ inl log ->
                             else
                                 log "{0} calls." player.name
                                 on_succ {d with players_called=self+1}
-                        raise = inl player x -> 
+                        raise = inl reply x -> 
                             assert (x > 0) "Cannot raise to negative amounts."
-                            inl player, call_level' = call player (call_level + min_raise + x)
+                            inl player, call_level' = call {player with reply} (call_level + min_raise + x)
                             inl on_succ {gt lte} =
-                                if call_level' > call_level then on_succ (player, gt {d with call_level = call_level'; min_raise = call_level'-call_level} )
+                                if call_level' > call_level then 
+                                    {d with call_level = call_level'; min_raise = max min_raise (call_level'-call_level)}
+                                    |> inl d -> on_succ (player, gt d)
                                 else on_succ (player, lte d)
                                 
                             if player.chips = 0 then
@@ -253,5 +253,31 @@ inl log ->
             players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 state.players |> dyn
             players_called = dyn 0
             }
+
+    inl dealing {players deck} = 
+        met f ante deck player =
+            inl player, ante = call {player with pot=0} ante
+            inl hand, deck =
+                if ante > 0 then 
+                    log "{0} antes up {1}" (player.name, ante)
+                    inl card,deck = deck()
+                    Option.some card, deck
+                else
+                    Option.none Hand, deck
+            {player with hand}, deck
+
+        inl ante, big_ante = 1, 2
+        inl rec loop deck = function
+            | a :: b :: () -> 
+                inl a, deck = f ante deck a
+                inl b, deck = f big_ante deck b
+                a :: b :: (), deck
+            | a :: b -> 
+                inl a, deck = f 0 a
+                inl b, deck = loop deck b
+                a :: b, deck
+        log "Dealing:" ()
+        inl players, deck = loop deck players
+        {players deck}
 
     """) |> module_
