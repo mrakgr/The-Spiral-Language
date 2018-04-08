@@ -86,13 +86,21 @@ inl deck _ =
 
 inl compare a b = if a < b then -1i32 elif a = b then 0i32 else 1i32
 
-met show_hand x =
+met show_card x =
     inl {rank=.(a) suit=.(b)} = x 
     string_format "{0}-{1}" (a, b)
 
 inl log ->
-    met showdown rule {state with players} =
+    inl Hand = Card // for one card poker
+    inl show_hand = show_card
+
+    met showdown rule players =
         inl is_active {pot} = pot > 0
+        inl iterator_template is_active =
+            {
+            foldl = inl f s players -> Tuple.foldl2 (inl s player is_active -> if is_active then f s player else s) s players is_active
+            foldl_map = inl f s players -> Tuple.foldl_map2 (inl s player is_active -> if is_active then f s player else player,s) s players is_active
+            }
 
         log "Showdown:" ()
         Tuple.iter (met x ->
@@ -106,8 +114,7 @@ inl log ->
 
         met rec loop players =
             inl is_active = Tuple.map is_active players
-            inl foldl f s players = Tuple.foldl2 (met s player is_active -> if is_active then f s player else s) s players is_active
-            inl foldl_map f s players = Tuple.foldl_map2 (met s player is_active -> if is_active then f s player else player,s) s players is_active
+            inl {foldl foldl_map} = iterator_template is_active
 
             foldl (inl s player ->
                 match s with
@@ -116,35 +123,28 @@ inl log ->
                     | .Some, b -> if rule a b = 1i32 then Option.some a else Option.some b
                     | .None -> Option.some a
                 | .None -> player.hand
-                ) (Option.none Card)
+                ) (Option.none Hand)
             |> function
                 | .Some, winning_hand ->
-                    inl foldl_winners t f = 
-                        foldl (inl s x ->
-                            match x.hand with
-                            | .Some, hand -> if rule winning_hand hand = 0i32 then f s x else s
-                            | _ -> s
-                            )
-                    inl foldl_map_winners t f = 
-                        foldl_map (inl s x ->
-                            match x.hand with
-                            | .Some, hand -> if rule winning_hand hand = 0i32 then f s x else x, s
-                            | _ -> s
-                            )
-
-                    inl pot_take x {player with pot} -> 
-                        inl x = min pot x
-                        x, {player with pot=pot-x}
-
-                    inl num_winners = foldl_winners (inl s _ -> s + 1) 0 players
                     inl min_pot = foldl (inl s {pot} -> min s pot) (macro.fs int64 [text: "System.Int64.MaxValue"]) players
-                    inl pot, players = 
-                        foldl (inl s x -> 
-                            inl s', player = pot_take min_pot x
-                            player, s + s') 0 players
+                    inl players, pot = 
+                        foldl_map (inl s {player with pot} -> 
+                            inl taken = min min_pot pot
+                            {player with pot=pot-taken}, s + taken) 0 players
+
+                    inl winners = 
+                        foldl_map (inl _ x ->
+                            match x.hand with
+                            | .Some, hand -> if rule winning_hand hand = 0i32 then true, () else false, ()
+                            | _ -> false
+                            ) () players |> fst
+                    inl {foldl foldl_map} = iterator_template winners
+
+                    inl num_winners = foldl (inl s _ -> s + 1) 0 players
+
                     inl could_be_odd = pot % num_winners <> 0
                     inl pot = pot / num_winners
-                    foldl_map_winners (inl s x ->
+                    foldl_map (inl s x ->
                         inl odd_chip = if s && could_be_odd then 0 else 1
                         {x with chips=self + pot + odd_chip}, false
                         ) true players 
@@ -153,18 +153,18 @@ inl log ->
                 | .None ->
                     Tuple.map (inl x -> x.chips) players
             : Tuple.map (inl x -> x.chips) players
-        inl chips =
+        inl new_chips =
             Tuple.map (inl {hand chips pot} -> {hand chips pot}) players
             |> loop 
 
-        inl rewards = 
-            ...
-
-        Tuple.iter2 (met old_chips x -> 
-            inl chips = x.chips
-            if old_chips < chips then log "{0} wins {1} chips." (x.name,chips-old_chips)
-            elif old_chips > chips then log "{0} loses {1} chips." (x.name,old_chips-chips)
+        inl rewards = Tuple.map2 (inl old new -> new - old) old_chips new_chips
+        Tuple.iter (met player reward -> 
+            player.reward reward
+            if reward > 0 then log "{0} wins {1} chips." (x.name,reward)
+            elif reward < 0 then log "{0} loses {1} chips." (x.name,-reward)
             else ()
-            ) old_chips players
+            ) players rewards
+
+        new_chips
 
     """) |> module_
