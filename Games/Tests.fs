@@ -15,22 +15,6 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_assert_enabled = false
     }
 
-let dict1 =
-    "dict1",[dictionary],"",
-    """
-inl x = Dictionary {elem_type=string,int64}
-x.set "One" 1
-x "One" {
-    on_succ = id
-    on_fail = const -1
-    } |> ignore
-
-x "Two" {
-    on_succ = id
-    on_fail = const -1
-    } |> ignore
-    """
-
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" dict1
 |> printfn "%s"
 |> ignore
