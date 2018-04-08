@@ -159,12 +159,91 @@ inl log ->
 
         inl rewards = Tuple.map2 (inl old new -> new - old) old_chips new_chips
         Tuple.iter (met player reward -> 
-            player.reward reward
+            player.reply.reward reward
             if reward > 0 then log "{0} wins {1} chips." (x.name,reward)
             elif reward < 0 then log "{0} loses {1} chips." (x.name,-reward)
             else ()
             ) players rewards
 
         new_chips
+
+    inl internal_representation (!dyn i) {board players} =
+        {
+        players=
+            Tuple.mapi (met (!dyn i') {chips pot hand} ->
+                if i' <> i then heap {chips pot hand=dyn (Option.none Hand)}
+                else heap {chips pot hand}
+                ) players
+        board
+        }
+
+    inl hand_is = function
+        | .Some, _ -> true
+        | _ -> false
+
+    met betting state =
+        inl is_active {chips hand} = chips > 0 && hand_is hand
+        met betting {internal_representation player} {d with players_called min_raise call_level players_active min_raise} =
+            inl on_succ=Option.some
+            inl on_fail=Option.none d
+            if players_called < players_active then
+                if is_active player then
+                    player.reply internal_representation
+                        {
+                        fold = inl player -> 
+                            inl player = fold player
+                            log "{0} folds." player.name
+                            on_succ {d with players_active=self-1}
+                        call = inl player -> 
+                            inl player,_ = call player call_level
+                            if player.chips = 0 then
+                                log "{0} calls and is all-in!" player.name
+                                on_succ {d with players_active=self-1}
+                            else
+                                log "{0} calls." player.name
+                                on_succ {d with players_called=self+1}
+                        raise = inl player x -> 
+                            inl player, call_level' = call player (call_level + min_raise + x)
+                            inl d = {d with
+                                call_level = call_level'
+                                min_raise = call_level'-call_level
+                                }
+                            inl on_succ d =
+                                if call_level' < call_level + min_raise then on_succ d //on_succ {d with players_called=dyn 0}  // For HU rules
+                                else on_succ {d with players_called=dyn 1} 
+                        
+                            if player.chips = 0 then
+                                log "{0} raises to {1} and is all-in!" (player.name, call_level')
+                                on_succ {d with players_active=self-1}
+                            else
+                                log "{0} raises to {1}." (player.name, call_level')
+                                on_succ d
+                        }
+                else
+                    on_succ d
+            else
+                on_fail
+        
+        inl players=state.players
+        inl num_players=Tuple.foldl (inl s x -> s + 1) 0 players
+        met rec loop d = 
+            Tuple.foldr (inl player (i, next) ->
+                inl i = i - 1
+                inl next d =
+                    inl internal_representation = internal_representation i state
+                    match betting { internal_representation player } d with
+                    | .Some, d -> next d
+                    | .None -> ()
+                i, next
+                ) players (num_players,loop) |> snd <| d
+            : ()
+
+        log "Betting:" ()
+        loop {
+            min_raise=dyn 2
+            call_level = Tuple.foldl (inl s x -> if is_active x then max s x.pot else s) 0 state.players |> dyn
+            players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 state.players |> dyn
+            players_called = dyn 0
+            }
 
     """) |> module_
