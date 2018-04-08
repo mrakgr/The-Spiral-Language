@@ -94,7 +94,7 @@ inl log ->
     inl Hand = Card // for one card poker
     inl show_hand = show_card
 
-    met showdown rule players =
+    inl showdown rule players =
         inl is_active {pot} = pot > 0
         inl iterator_template is_active =
             {
@@ -153,13 +153,11 @@ inl log ->
                 | .None ->
                     Tuple.map (inl x -> x.chips) players
             : Tuple.map (inl x -> x.chips) players
-        inl new_chips =
-            Tuple.map (inl {hand chips pot} -> {hand chips pot}) players
-            |> loop 
-
+        inl new_chips = Tuple.map (inl {hand chips pot} -> {hand chips pot}) players |> loop
         inl rewards = Tuple.map2 (inl old new -> new - old) old_chips new_chips
+
         Tuple.iter (met player reward -> 
-            player.reply.reward reward
+            player.reply.unwrap reward
             if reward > 0 then log "{0} wins {1} chips." (x.name,reward)
             elif reward < 0 then log "{0} loses {1} chips." (x.name,-reward)
             else ()
@@ -167,12 +165,12 @@ inl log ->
 
         new_chips
 
-    inl internal_representation (!dyn i) {board players} =
+    inl internal_representation i {board players} =
         {
         players=
-            Tuple.mapi (met (!dyn i') {chips pot hand} ->
-                if i' <> i then heap {chips pot hand=dyn (Option.none Hand)}
-                else heap {chips pot hand}
+            Tuple.mapi (inl i' {chips pot hand} ->
+                if i' <> i then {chips pot hand=dyn (Option.none Hand)}
+                else {chips pot hand}
                 ) players
         board
         }
@@ -181,11 +179,16 @@ inl log ->
         | .Some, _ -> true
         | _ -> false
 
-    met betting state =
+    inl fold player = {player with hand = Option.none Hand}
+    inl call {player with chips} x = 
+        inl x = min chips x
+        {player with chips=self-x; pot=self+x}
+
+    inl betting state =
         inl is_active {chips hand} = chips > 0 && hand_is hand
-        met betting {internal_representation player} {d with players_called min_raise call_level players_active min_raise} =
+        met betting {internal_representation player} {d with min_raise call_level players_called players_active} =
             inl on_succ=Option.some
-            inl on_fail=Option.none d
+            inl on_fail=Option.none (player,d)
             if players_called < players_active then
                 if is_active player then
                     player.reply internal_representation
@@ -193,9 +196,10 @@ inl log ->
                         fold = inl player -> 
                             inl player = fold player
                             log "{0} folds." player.name
-                            on_succ {d with players_active=self-1}
+                            on_succ (player, {d with players_active=self-1})
                         call = inl player -> 
                             inl player,_ = call player call_level
+                            inl on_succ d = player, d
                             if player.chips = 0 then
                                 log "{0} calls and is all-in!" player.name
                                 on_succ {d with players_active=self-1}
@@ -203,43 +207,47 @@ inl log ->
                                 log "{0} calls." player.name
                                 on_succ {d with players_called=self+1}
                         raise = inl player x -> 
+                            assert (x > 0) "Cannot raise to negative amounts."
                             inl player, call_level' = call player (call_level + min_raise + x)
-                            inl d = {d with
-                                call_level = call_level'
-                                min_raise = call_level'-call_level
-                                }
-                            inl on_succ d =
-                                if call_level' < call_level + min_raise then on_succ d //on_succ {d with players_called=dyn 0}  // For HU rules
-                                else on_succ {d with players_called=dyn 1} 
-                        
+                            inl on_succ {gt lte} =
+                                if call_level' > call_level then on_succ (player, gt {d with call_level = call_level'; min_raise = call_level'-call_level} )
+                                else on_succ (player, lte d)
+                                
                             if player.chips = 0 then
-                                log "{0} raises to {1} and is all-in!" (player.name, call_level')
-                                on_succ {d with players_active=self-1}
+                                on_succ {
+                                    gt = inl d -> 
+                                        log "{0} raises to {1} and is all-in!" (player.name, call_level')
+                                        {d with players_active=self-1; players_called=dyn 0}
+                                    lte = inl d -> 
+                                        log "{0} calls and is all-in!" player.name
+                                        {d with players_active=self-1}
+                                    }
                             else
                                 log "{0} raises to {1}." (player.name, call_level')
-                                on_succ d
+                                on_succ {
+                                    gt = inl d -> {d with players_called=dyn 1}
+                                    lte = inl _ -> failwith on_fail "Should not be possible to raise to less than the call level without running out of chips."
+                                    }
                         }
                 else
-                    on_succ d
+                    on_succ (player,d)
             else
                 on_fail
-        
-        inl players=state.players
-        inl num_players=Tuple.foldl (inl s x -> s + 1) 0 players
-        met rec loop d = 
-            Tuple.foldr (inl player (i, next) ->
-                inl i = i - 1
-                inl next d =
+
+        met rec loop players d =
+            inl rec loop2 (s, i, d) = function
+                | player :: x' ->
                     inl internal_representation = internal_representation i state
                     match betting { internal_representation player } d with
-                    | .Some, d -> next d
-                    | .None -> ()
-                i, next
-                ) players (num_players,loop) |> snd <| d
-            : ()
-
+                    | .Some, (player, d) -> loop2 (player :: s, i+1, d) x'
+                    | .None -> Tuple.append (Tuple.rev s) x'
+                | () -> loop (Tuple.rev s) d
+            loop2 ((),dyn 0,d)
+            : players
+        
         log "Betting:" ()
-        loop {
+        loop state.players
+            {
             min_raise=dyn 2
             call_level = Tuple.foldl (inl s x -> if is_active x then max s x.pot else s) 0 state.players |> dyn
             players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 state.players |> dyn
