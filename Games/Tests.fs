@@ -15,7 +15,15 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_assert_enabled = false
     }
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" dict1
+let poker1 =
+    "poker1",[poker],"Does the poker game work?",
+    """
+open Poker Console.printfn
+one_card 5 ({reply=reply_random; name="One"}, {reply=reply_random; name="Two"})
+|> ignore
+    """
+
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker1
 |> printfn "%s"
 |> ignore
 

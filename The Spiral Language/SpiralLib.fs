@@ -262,7 +262,7 @@ inl rec foldl_map2 f s a b =
         inl l, s = f s a b
         inl l', s = foldl_map2 f s a' b'
         l :: l', s
-    | () -> (), s
+    | (), () -> (), s
 
 {
 head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists split_at take drop
@@ -1691,4 +1691,5 @@ stack inl seed ->
     | .next -> next
     | .next_double -> next_double()
     | .next_bytes -> next_bytes
+    |> stack
     """) |> module_
