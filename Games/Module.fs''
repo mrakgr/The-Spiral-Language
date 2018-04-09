@@ -307,9 +307,8 @@ inl log ->
         Tuple.iter (inl {name chips} ->
             log "{0} has {1} chips." (name,chips)
             ) players
-        Tuple.map (inl player -> {player with hand=box Hand {rank=box Rank .Ace; suit=box Suit .Hearts} |> Option.some |> dyn; pot=dyn 0}) players
-        |> betting
-        |> ignore
+        inl new_chips = dealing players (deck()) |> fst |> betting |> showdown hand_rule
+        Tuple.map2 (inl x chips -> {x with chips}) players new_chips
 
     inl game chips players =
         inl is_active {chips} = chips > 0
@@ -317,13 +316,24 @@ inl log ->
             inl players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 players
             players_active = 1
 
-        inl loop players = round players
+        met rec loop players =
+            inl a :: b as players = round players
+            if is_finished players then 
+                log "The game is over." ()
+                Tuple.map (inl {name chips} ->
+                    if chips > 0 then log "{0} wins with {1} chips!" (name, chips)
+                    {name chips}
+                    ) players
+            else 
+                loop (Tuple.append b (a :: ()))
+            : Tuple.map (inl {name chips} -> {name chips}) players
         Tuple.map (inl x -> {x with chips}) players
         |> Tuple.map (module_map (inl _ x -> join x))
-        |> Tuple.map (function
-            | {chips name reply trace} -> {chips name reply trace}
-            | {chips name reply} -> {chips name reply}
-            )
+        //|> Tuple.map (function
+        //    | {chips name reply trace} -> {chips=join chips; name=join name; reply=join reply; trace=join trace}
+        //    | {chips name reply} -> {chips=join chips; name=join name; reply=join reply}
+        //    )
+        |> function a,b -> a,b | x -> x
         |> loop
 
     inl reply_random =
@@ -333,6 +343,17 @@ inl log ->
             | 0i32 -> fold ()
             | 1i32 -> call ()
             | _ -> raise () 0
+
+    inl reply_rules players {fold call raise} =
+        inl limit = Tuple.foldl (inl s x -> max s x.pot) 0 players
+        /// TODO: Replace find with pick.
+        inl self = Tuple.find (inl x -> match x.hand with .Some, _ -> true | _ -> false) players
+        match self.hand with
+        | .Some, x ->
+            match x.rank with
+            | .Ten | .Jack | .Queen | .King | .Ace -> raise () 0
+            | _ -> if self.pot >= limit || self.chips = 0 then call () else fold ()
+        | .None -> failwith (type fold ()) "No self in the internal representation."
 
     inl Actions = .Fold, .Call, (.Raise, 0)
     inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
@@ -360,5 +381,5 @@ inl log ->
             | .Call -> call trace
             | .Raise, x -> raise trace x
 
-    {one_card=game; reply_random reply_q}
+    {one_card=game; reply_random reply_rules reply_q}
     """) |> module_
