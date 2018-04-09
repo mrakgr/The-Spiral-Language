@@ -68,6 +68,7 @@ inl unshuffled =
 
 inl deck _ =
     met knuth_shuffle rnd ln ar =
+        macro.fs () [text: "//In Knuth shuffle"]
         inl swap i j =
             inl item = ar i
             ar i <- ar j
@@ -87,6 +88,7 @@ inl deck _ =
 inl compare a b = if a < b then -1i32 elif a = b then 0i32 else 1i32
 
 met show_card x =
+    macro.fs () [text: "//In show_card."]
     inl {rank=.(a) suit=.(b)} = x 
     string_format "{0}-{1}" (a, b)
 
@@ -104,6 +106,7 @@ inl log ->
 
         log "Showdown:" ()
         Tuple.iter (met x ->
+            macro.fs () [text: "//In showdown's card show."]
             if is_active x then
                 match x.hand with
                 | .Some, hand -> log "{0} shows {1}" (x.name, show_hand hand)
@@ -160,6 +163,7 @@ inl log ->
         inl rewards = Tuple.map2 (inl old new -> new - old) old_chips new_chips
 
         Tuple.iter2 (met {d with name reply} reward -> 
+            macro.fs () [text: "//In the reward part."]
             match d with
             | {trace} -> trace (to float64 reward)
             | _ -> ()
@@ -246,6 +250,7 @@ inl log ->
                 on_fail
 
         met rec loop players (!dyn d) =
+            macro.fs () [text: "//In betting's loop."]
             inl rec loop2 (s, i, d) = function
                 | player :: x' as l ->
                     inl l = Tuple.append (Tuple.rev s) l
@@ -298,7 +303,9 @@ inl log ->
         loop deck players
 
     inl hand_rule a b =
-        met f x = match x with {rank=.(_) as x} -> tag_rank x
+        met f x = 
+            macro.fs () [text: "//In hand_rule"]
+            match x with {rank=.(_) as x} -> tag_rank x
         compare (f a) (f b)
 
     inl round players = 
@@ -327,13 +334,8 @@ inl log ->
             else 
                 loop (Tuple.append b (a :: ()))
             : Tuple.map (inl {name chips} -> {name chips}) players
-        Tuple.map (inl x -> {x with chips}) players
-        |> Tuple.map (module_map (inl _ x -> join x))
-        //|> Tuple.map (function
-        //    | {chips name reply trace} -> {chips=join chips; name=join name; reply=join reply; trace=join trace}
-        //    | {chips name reply} -> {chips=join chips; name=join name; reply=join reply}
-        //    )
-        |> function a,b -> a,b | x -> x
+
+        Tuple.map (inl x -> dyn {x with chips}) players
         |> loop
 
     inl reply_random =

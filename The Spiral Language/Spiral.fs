@@ -480,7 +480,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 cse_eval 
                     cse_recurse
                     (fun r ->
-                        let x = make_tyv_and_push_typed_expr d r
+                        let x = make_tyv_and_push_typed_expr d r |> destructure
                         cse_add d r x
                         x)
                     r
@@ -511,7 +511,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyBox _ -> cse_recurse r
             | TyT _ -> destructure_var r (List.map (tyt >> destructure)) (Map.map (fun _ -> (tyt >> destructure)) >> Env)
             | TyV _ -> destructure_var r (list_unseal r) (env_unseal r >> Env)
-            | TyOp _ -> let_insert_cse r |> destructure
+            | TyOp _ -> let_insert_cse r
             | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
 
         let if_static (d: LangEnv) (cond: Expr) (tr: Expr) (fl: Expr): TypedExpr =
@@ -1440,10 +1440,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     let f k x = 
                         match apply d (apply d op (type_lit_create' (LitString k))) x with
                         | TyLit (LitBool x) -> x
-                        | x -> on_type_er (trace d) "Expected a bool literal in ModuleFold.\nGot: %s" (show_typedexpr x)
+                        | x -> on_type_er (trace d) "Expected a bool literal in ModuleFilter.\nGot: %s" (show_typedexpr x)
                     tymap(Map.filter f env |> Env, MapTypeModule)
                 else
-                    let f k x = apply d (apply d op (type_lit_create' (LitString k))) x
+                    let f k x = apply d (apply d op (type_lit_create' (LitString k))) x |> destructure d
                     tymap(Map.map f env |> Env, MapTypeModule)
             | _, x ->
                 on_type_er (trace d) <| sprintf "Expected a module in module map. Got: %s" (show_typedexpr x)
