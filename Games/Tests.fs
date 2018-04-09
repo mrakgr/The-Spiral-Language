@@ -5,6 +5,7 @@ open Spiral.Tests
 open System.IO
 open Spiral.Types
 open Module
+open Learning.Module
 
 let cfg: Spiral.Types.CompilerSettings = {
     path_cuda90 = "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v9.0"
@@ -48,24 +49,25 @@ Loops.for {from=0; near_to=10000; state=dyn {a=0; b=0}; body=inl {state=s i} ->
     """
 
 let poker4 =
-    "poker4",[loops;poker],"What is the winrate of the RL based players against the random one?",
+    "poker4",[loops;poker;timer],"What is the winrate of the RL based players against the random one?",
     """
 inl log _ _ = ()
 open Poker log
-Loops.for {from=0; near_to=10000; state=dyn {a=0; b=0}; body=inl {state=s i} ->
-    inl init = 
-    inl learning_rate = 
-    inl a,b = 
-        one_card 6 (
-            {reply=reply_q {init=10f64; 0.05f64; learning_rate num_players=2}; name="One"; trace=term_cast (inl _ -> ()) float64}, 
-            {reply=reply_random; name="Two"})
-    match a.name with
-    | "One" -> if a.chips > 0 then {s with a=self+1} else {s with b=self+1}
-    | _ -> if a.chips > 0 then {s with b=self+1} else {s with a=self+1}
+inl one = {reply=reply_q {init=5f64; learning_rate=0.03f64; num_players=2}; name="One"; trace=term_cast (inl _ -> ()) float64}
+inl two = {reply=reply_random; name="Two"}
+Loops.for {from=0; near_to=100; body=inl {i} ->
+    Timer.time_it (string_format "iteration {0}" i)
+    <| inl _ ->
+        Loops.for {from=0; near_to=10000; state=dyn {a=0; b=0}; body=inl {state=s i} ->
+            inl a,b = one_card 10 (one, two)
+            match a.name with
+            | "One" -> if a.chips > 0 then {s with a=self+1} else {s with b=self+1}
+            | _ -> if a.chips > 0 then {s with b=self+1} else {s with a=self+1}
+            }
+        |> inl {a b} ->
+            inl total = a + b
+            Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,total)
     }
-|> inl {a b} ->
-    inl total = a + b
-    Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,total)
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker4

@@ -700,7 +700,7 @@ Loops.for' {from=0; near_to=5; body=inl {next i} ->
     open Body
 
     inl cost =
-        Timer.timeit (string_format "iteration {0}" i)
+        Timer.time_it (string_format "iteration {0}" i)
         <| inl _ ->
             for {
                 data
@@ -779,13 +779,13 @@ inl network =
     
     {train body}
 
-inb _ = Timer.timeit "whole loop"
+inb _ = Timer.time_it "whole loop"
 Loops.for' {from=0; near_to=5; body=inl {next i} -> 
     open Recurrent.Pass
     open Body
 
     inl cost = 
-        Timer.timeit (string_format "iteration {0}" i)
+        Timer.time_it (string_format "iteration {0}" i)
         <| inl _ ->
             for {
                 data

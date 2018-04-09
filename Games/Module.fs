@@ -27,6 +27,8 @@ stack inl {d with elem_type} ->
         | .structural -> macro.fs ty [type: ty; iter: "(",",",")", [arg: capacity; text: "HashIdentity.Structural"]]
         | .reference -> macro.fs ty [type: ty; iter: "(",",",")", [arg: capacity; text: "HashIdentity.Reference"]]
     function
+    | .count ->
+        macro.fs int32 [arg: x; text: ".Count"]
     | .set i v ->
         assert (eq_type key i) {msg="The index's type is not the equal to that of the key."; key i}
         assert (eq_type value v) {msg="The second argument's type is not the equal to that of the value."; value v}
@@ -356,8 +358,11 @@ inl log ->
                     ) (-infinityf64, box .Fold) Actions
 
             inl trace v' =
-                dict.set (players, a) (v - learning_rate * (v' - v))
-                v
+                dict.set (players, a) (v + learning_rate * (v' - v))
+                // This last line determines what kind of updates are done.
+                // Returning v' means doing Monte Carlo updates.
+                // Returning v means doing Q learning.
+                v'
 
             match a with
             | .Fold -> fold trace
