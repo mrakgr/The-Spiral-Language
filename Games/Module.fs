@@ -153,8 +153,8 @@ inl log ->
                     |> fst
                     |> loop
                 | .None ->
-                    Tuple.map (inl x -> x.chips) players
-            : Tuple.map (inl x -> x.chips) players
+                    Tuple.map (inl {chips pot} -> chips + pot) players
+            : Tuple.map (const 0) players
         inl new_chips = Tuple.map (inl {hand chips pot} -> {hand chips pot}) players |> loop
         inl rewards = Tuple.map2 (inl old new -> new - old) old_chips new_chips
 
@@ -312,7 +312,7 @@ inl log ->
                     ) players
             else 
                 loop (Tuple.append b (a :: ()))
-            : Tuple.map (inl {chips} -> chips) players
+            : Tuple.map (const 0) players
         Tuple.map (inl x -> dyn {x with chips=starting_chips}) players
         |> loop
 
