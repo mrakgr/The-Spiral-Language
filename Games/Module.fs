@@ -327,23 +327,13 @@ inl log ->
             else 
                 loop (Tuple.append b (a :: ()))
             : Tuple.map (inl {name chips} -> {name chips}) players
-        Tuple.map (inl x -> dyn {x with chips}) players
-        |> inl l ->
-            Tuple.map (inl x -> 
-                inl x = 
-                    join 
-                        macro.fs () [text: "//Free vars"]
-                        x
-                inl x = dyn x
-                inl x = 
-                    join 
-                        macro.fs () [text: "//Free vars2"]
-                        x
-                inl x = dyn x
-                x
-                ) l
-            
-            
+        Tuple.map (inl x -> {x with chips}) players
+        |> Tuple.map (module_map (inl _ x -> join x))
+        //|> Tuple.map (function
+        //    | {chips name reply trace} -> {chips=join chips; name=join name; reply=join reply; trace=join trace}
+        //    | {chips name reply} -> {chips=join chips; name=join name; reply=join reply}
+        //    )
+        |> function a,b -> a,b | x -> x
         |> loop
 
     inl reply_random =
