@@ -23,7 +23,31 @@ one_card 5 ({reply=reply_random; name="One"}, {reply=reply_random; name="Two"})
 |> ignore
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker1
+let poker2 =
+    "poker2",[poker],"Does the rules based player work?",
+    """
+open Poker Console.printfn
+one_card 5 ({reply=reply_rules; name="One"}, {reply=reply_random; name="Two"})
+|> ignore
+    """
+
+let poker3 =
+    "poker3",[loops;poker],"What is the winrate of the rules based players against the random one?",
+    """
+inl log _ _ = ()
+open Poker log
+Loops.for {from=0; near_to=10000; state=dyn {a=0; b=0}; body=inl {state=s i} ->
+    inl a,b = one_card 6 ({reply=reply_rules; name="One"}, {reply=reply_random; name="Two"})
+    match a.name with
+    | "One" -> if a.chips > 0 then {s with a=self+1} else {s with b=self+1}
+    | _ -> if a.chips > 0 then {s with b=self+1} else {s with a=self+1}
+    }
+|> inl {a b} ->
+    inl total = a + b
+    Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,total)
+    """
+
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker3
 |> printfn "%s"
 |> ignore
 

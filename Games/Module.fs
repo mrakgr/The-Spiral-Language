@@ -59,6 +59,12 @@ met tag_rank = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) ({},0i32) Rank
 met tag_suit = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) ({},0i32) Suits |> fst
    
 inl rnd = Random()
+inl unshuffled = 
+    Tuple.map (inl rank ->
+        Tuple.map (inl suit -> box Card {rank=box Rank rank; suit=box Suit suit}) Suits
+        ) Ranks
+    |> Tuple.concat
+
 inl deck _ =
     met knuth_shuffle rnd ln ar =
         inl swap i j =
@@ -68,14 +74,7 @@ inl deck _ =
 
         Loops.for {from=0; near_to=ln-1; body=inl {i} -> swap i (rnd.next(to int32 i, to int32 ln))}
 
-    inl unshuffled = 
-        Tuple.map (inl rank ->
-            Tuple.map (inl suit -> box Card {rank=box Rank rank; suit=box Suit suit}) Suits
-            ) Ranks
-        |> Tuple.concat
-
-    inl ty = array Card
-    inl ar = macro.fs ty [fs_array_args: unshuffled; text: ": "; type: ty]
+    inl ar = macro.fs (array Card) [fs_array_args: unshuffled]
     assert (array_length ar = num_cards) "The number of cards in the deck must be 52."
     knuth_shuffle rnd num_cards ar
 
@@ -307,11 +306,11 @@ inl log ->
                 log "The game is over." ()
                 Tuple.map (inl {name chips} ->
                     if chips > 0 then log "{0} wins with {1} chips!" (name, chips)
-                    chips
+                    {name chips}
                     ) players
             else 
                 loop (Tuple.append b (a :: ()))
-            : Tuple.map (const 0) players
+            : Tuple.map (inl {name chips} -> {name chips}) players
         Tuple.map (inl x -> dyn {x with chips}) players
         |> loop
 
@@ -332,7 +331,7 @@ inl log ->
             match x.rank with
             | .Ten | .Jack | .Queen | .King | .Ace -> raise () 0
             | _ -> if self.pot >= limit || self.chips = 0 then call () else fold ()
-        | .None -> failwith (type fold (reply ())) "No self in the internal representation."
+        | .None -> failwith (type fold ()) "No self in the internal representation."
 
     {one_card=game; reply_random reply_rules}
     """) |> module_
