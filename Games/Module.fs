@@ -10,11 +10,10 @@ let dictionary =
     (
     "Dictionary",[],"The Dictionary module.",
     """
-inl ty elem_type = fs [text: "System.Collections.Generic.Dictionary"; types: elem_type]
-inl {d with elem_type} ->
+stack inl {d with elem_type} ->
     inl elem_type = type elem_type
     inl key, value = elem_type
-    inl ty = ty elem_type
+    inl ty = fs [text: "System.Collections.Generic.Dictionary"; types: elem_type]
     inl capacity = 
         match d with
         | {capacity} -> capacity : int32
@@ -27,23 +26,23 @@ inl {d with elem_type} ->
         match id with
         | .structural -> macro.fs ty [type: ty; iter: "(",",",")", [arg: capacity; text: "HashIdentity.Structural"]]
         | .reference -> macro.fs ty [type: ty; iter: "(",",",")", [arg: capacity; text: "HashIdentity.Reference"]]
-    inl elem_type = stack {key value}
     function
     | .set i v ->
-        assert (eq_type elem_type.key i) {msg="The index's type is not the equal to that of the key."; key i}
-        assert (eq_type elem_type.value v) {msg="The second argument's type is not the equal to that of the value."; value v}
+        assert (eq_type key i) {msg="The index's type is not the equal to that of the key."; key i}
+        assert (eq_type value v) {msg="The second argument's type is not the equal to that of the value."; value v}
         macro.fs () [arg: x; text: ".["; arg: i; text: "] <- "; arg: v]
     | i {on_succ on_fail} ->
         assert (eq_type key i) {msg="The index's type is not the equal to that of the key."; key i}
         macro.fs () [arg: x; text: ".TryGetValue"; args: i; text: " |> fun (a,b) -> ";]
         inl a = macro.fs bool [text: "a"]
-        inl b = macro.fs elem_type.value [text: "b"]
+        inl b = macro.fs value [text: "b"]
         if a then on_succ b else on_fail ()
+    |> stack
     """) |> module_
 
 let poker =
     (
-    "Poker",[random;console;option],"The Poker module.",
+    "Poker",[random;console;option;dictionary],"The Poker module.",
     """
 inl Suits = .Spades, .Clubs, .Hearts, .Diamonds
 inl Suit = Tuple.reducel (inl a b -> a \/ b) Suits
@@ -157,7 +156,10 @@ inl log ->
         inl new_chips = Tuple.map (inl {hand chips pot} -> {hand chips pot}) players |> loop
         inl rewards = Tuple.map2 (inl old new -> new - old) old_chips new_chips
 
-        Tuple.iter2 (met {name reply} reward -> 
+        Tuple.iter2 (met {d with name reply} reward -> 
+            match d with
+            | {trace} -> trace (to float64 reward)
+            | _ -> ()
             if reward = 1 then log "{0} wins {1} chip." (name,reward)
             elif reward = -1 then log "{0} loses {1} chip." (name,-reward)
             elif reward > 0 then log "{0} wins {1} chips." (name,reward)
@@ -189,14 +191,19 @@ inl log ->
             inl on_fail=Option.none (player,d)
             if players_called < players_active && (players_active <> 1 || player.pot < call_level) then
                 if is_active player then 
+                    inl update_player trace = 
+                        match trace with
+                        | () -> player
+                        | _ -> {player with trace = term_cast (trace >> self) float64}
+
                     player.reply internal_representation
                         {
-                        fold = inl reply -> 
-                            inl player = fold player
+                        fold = inl trace -> 
+                            inl player = fold (update_player trace)
                             log "{0} folds." player.name
                             on_succ (player, {d with players_active=self-1})
-                        call = inl reply -> 
-                            inl player = call player call_level
+                        call = inl trace -> 
+                            inl player = call (update_player trace) call_level
                             inl on_succ d = on_succ (player, d)
                             if player.chips = 0 then
                                 log "{0} calls and is all-in!" player.name
@@ -204,9 +211,9 @@ inl log ->
                             else
                                 log "{0} calls." player.name
                                 on_succ {d with players_called=self+1}
-                        raise = inl reply x -> 
+                        raise = inl trace x -> 
                             assert (x >= 0) "Cannot raise to negative amounts."
-                            inl player = call player (call_level + min_raise + x)
+                            inl player = call (update_player trace) (call_level + min_raise + x)
                             inl call_level' = player.pot
                             inl on_succ {gt lte} =
                                 if call_level' > call_level then 
@@ -333,5 +340,28 @@ inl log ->
             | _ -> if self.pot >= limit || self.chips = 0 then call () else fold ()
         | .None -> failwith (type fold ()) "No self in the internal representation."
 
-    {one_card=game; reply_random reply_rules}
+    inl Actions = .Fold, .Call, (.Raise, 0)
+    inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
+    inl Rep = type {pot=int64; chips=int64; hand=Option.none Hand}
+    inl dict = Dictionary {elem_type=((Rep,Rep),Action),float64}
+    inl init = 10f64
+    inl learning_rate = 0.05f64
+
+    inl reply_q players {fold call raise} =
+        inl v, a = 
+            Tuple.foldl (inl (s,a) (!(box Action) x) ->
+                inl v = dict (players, box Action x) { on_fail=const init; on_succ=id }
+                if v > s then v,x else s,a
+                ) (-infinityf64, box Action .Fold) Actions
+
+        inl trace v' =
+            dict.set (players, a) (v - learning_rate * (v' - v))
+            v
+
+        match a with
+        | .Fold -> fold trace
+        | .Call -> call trace
+        | .Raise, x -> raise trace x
+
+    {one_card=game; reply_random reply_rules reply_q}
     """) |> module_
