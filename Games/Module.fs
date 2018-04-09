@@ -58,6 +58,7 @@ inl num_cards =
 met tag_rank = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) ({},0i32) Ranks |> fst
 met tag_suit = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) ({},0i32) Suits |> fst
    
+inl rnd = Random()
 inl deck _ =
     met knuth_shuffle rnd ln ar =
         inl swap i j =
@@ -76,7 +77,6 @@ inl deck _ =
     inl ty = array Card
     inl ar = macro.fs ty [fs_array_args: unshuffled; text: ": "; type: ty]
     assert (array_length ar = num_cards) "The number of cards in the deck must be 52."
-    inl rnd = Random()
     knuth_shuffle rnd num_cards ar
 
     inl rec facade p _ =
@@ -146,10 +146,10 @@ inl log ->
 
                     inl could_be_odd = pot % num_winners <> 0
                     inl pot = pot / num_winners
-                    foldl_map (inl s x ->
-                        inl odd_chip = if s && could_be_odd then 0 else 1
-                        {x with chips=self + pot + odd_chip}, false
-                        ) true players 
+                    foldl_map (inl s {x with chips} ->
+                        inl odd_chip = if could_be_odd then s else 0
+                        {x with chips=chips + pot + odd_chip}, 1
+                        ) 0 players 
                     |> fst
                     |> loop
                 | .None ->
@@ -181,15 +181,15 @@ inl log ->
     inl fold player = {player with hand = Option.none Hand}
     inl call {player with pot chips} x = 
         inl x = min chips (x - pot)
-        {player with chips=self-x; pot=self+x}, x
+        {player with chips=self-x; pot=self+x}
 
     inl betting players =
         inl is_active {chips hand} = chips > 0 && hand_is hand
         met betting {internal_representation player} {d with min_raise call_level players_called players_active} =
             inl on_succ=Option.some
             inl on_fail=Option.none (player,d)
-            if players_called < players_active then
-                inl true_branch _ =
+            if players_called < players_active && (players_active <> 1 || player.pot < call_level) then
+                if is_active player then 
                     player.reply internal_representation
                         {
                         fold = inl reply -> 
@@ -197,7 +197,7 @@ inl log ->
                             log "{0} folds." player.name
                             on_succ (player, {d with players_active=self-1})
                         call = inl reply -> 
-                            inl player,_ = call player call_level
+                            inl player = call player call_level
                             inl on_succ d = on_succ (player, d)
                             if player.chips = 0 then
                                 log "{0} calls and is all-in!" player.name
@@ -207,7 +207,8 @@ inl log ->
                                 on_succ {d with players_called=self+1}
                         raise = inl reply x -> 
                             assert (x >= 0) "Cannot raise to negative amounts."
-                            inl player, call_level' = call player (call_level + min_raise + x)
+                            inl player = call player (call_level + min_raise + x)
+                            inl call_level' = player.pot
                             inl on_succ {gt lte} =
                                 if call_level' > call_level then 
                                     {d with call_level = call_level'; min_raise = max min_raise (call_level'-call_level)}
@@ -230,8 +231,6 @@ inl log ->
                                     lte = inl d -> failwith d "Should not be possible to raise to less than the call level without running out of chips."
                                     }
                         }
-
-                if is_active player then true_branch ()
                 else on_succ (player,d)
             else
                 on_fail
@@ -259,7 +258,8 @@ inl log ->
 
     inl dealing players deck = 
         met f ante deck player =
-            inl player, ante = call {player with pot=0} ante
+            inl player = call {player with pot=0} ante
+            inl ante = player.pot
             inl hand, deck =
                 if ante > 0 then 
                     log "{0} antes up {1}" (player.name, ante)
