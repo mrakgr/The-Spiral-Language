@@ -8747,7 +8747,7 @@ let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr =
         cse_eval 
             cse_recurse
             (fun r ->
-                let x = make_tyv_and_push_typed_expr d r
+                let x = make_tyv_and_push_typed_expr d r |> destructure
                 cse_add d r x
                 x)
             r
@@ -8802,7 +8802,7 @@ let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr =
         cse_eval 
             cse_recurse // on_succ
             (fun r -> // on_fail
-                let x = make_tyv_and_push_typed_expr d r
+                let x = make_tyv_and_push_typed_expr d r |> destructure
                 cse_add d r x
                 x)
             r
@@ -8828,7 +8828,7 @@ let rec destructure (d: LangEnv) (r: TypedExpr): TypedExpr =
         match Map.tryFind r !d.cse_env with
         | Some x -> cse_recurse x
         | None -> 
-            let x = make_tyv_and_push_typed_expr d r
+            let x = make_tyv_and_push_typed_expr d r |> destructure
             cse_add d r x
             x
     

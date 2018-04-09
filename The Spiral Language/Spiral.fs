@@ -480,7 +480,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 cse_eval 
                     cse_recurse
                     (fun r ->
-                        let x = make_tyv_and_push_typed_expr d r |> destructure
+                        let x = make_tyv_and_push_typed_expr d r
                         cse_add d r x
                         x)
                     r
@@ -511,7 +511,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TyBox _ -> cse_recurse r
             | TyT _ -> destructure_var r (List.map (tyt >> destructure)) (Map.map (fun _ -> (tyt >> destructure)) >> Env)
             | TyV _ -> destructure_var r (list_unseal r) (env_unseal r >> Env)
-            | TyOp _ -> let_insert_cse r
+            | TyOp _ -> let_insert_cse r |> destructure
             | TyJoinPoint _ | TyLet _ | TyState _ -> on_type_er (trace d) "Compiler error: This should never appear in destructure. It should go directly into d.seq."
 
         let if_static (d: LangEnv) (cond: Expr) (tr: Expr) (fl: Expr): TypedExpr =
