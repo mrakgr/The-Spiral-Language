@@ -159,7 +159,6 @@ inl log ->
         inl rewards = Tuple.map2 (inl old new -> new - old) old_chips new_chips
 
         Tuple.iter2 (met {name reply} reward -> 
-            //player.reply.unwrap reward
             if reward = 1 then log "{0} wins {1} chip." (name,reward)
             elif reward = -1 then log "{0} loses {1} chip." (name,-reward)
             elif reward > 0 then log "{0} wins {1} chips." (name,reward)
@@ -296,7 +295,7 @@ inl log ->
         inl new_chips = dealing players (deck()) |> fst |> betting |> showdown hand_rule
         Tuple.map2 (inl x chips -> {x with chips}) players new_chips
 
-    inl game starting_chips players =
+    inl game chips players =
         inl is_active {chips} = chips > 0
         inl is_finished players =
             inl players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 players
@@ -313,7 +312,7 @@ inl log ->
             else 
                 loop (Tuple.append b (a :: ()))
             : Tuple.map (const 0) players
-        Tuple.map (inl x -> dyn {x with chips=starting_chips}) players
+        Tuple.map (inl x -> dyn {x with chips}) players
         |> loop
 
     inl reply_random =
