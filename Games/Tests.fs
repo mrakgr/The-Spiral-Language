@@ -53,7 +53,12 @@ let poker4 =
 inl log _ _ = ()
 open Poker log
 Loops.for {from=0; near_to=10000; state=dyn {a=0; b=0}; body=inl {state=s i} ->
-    inl a,b = one_card 6 ({reply=reply_q; name="One"; trace=term_cast (inl _ -> ()) float64}, {reply=reply_random; name="Two"})
+    inl init = 
+    inl learning_rate = 
+    inl a,b = 
+        one_card 6 (
+            {reply=reply_q {init=10f64; 0.05f64; learning_rate num_players=2}; name="One"; trace=term_cast (inl _ -> ()) float64}, 
+            {reply=reply_random; name="Two"})
     match a.name with
     | "One" -> if a.chips > 0 then {s with a=self+1} else {s with b=self+1}
     | _ -> if a.chips > 0 then {s with b=self+1} else {s with a=self+1}
@@ -64,5 +69,5 @@ Loops.for {from=0; near_to=10000; state=dyn {a=0; b=0}; body=inl {state=s i} ->
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker4
-|> printfn "%s"
+//|> printfn "%s"
 |> ignore

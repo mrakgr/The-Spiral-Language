@@ -33,7 +33,7 @@ stack inl {d with elem_type} ->
         macro.fs () [arg: x; text: ".["; arg: i; text: "] <- "; arg: v]
     | i {on_succ on_fail} ->
         assert (eq_type key i) {msg="The index's type is not the equal to that of the key."; key i}
-        macro.fs () [arg: x; text: ".TryGetValue"; args: i; text: " |> fun (a,b) -> ";]
+        macro.fs () [arg: x; text: ".TryGetValue"; text: " <| "; arg: i; text: " |> fun (a,b) -> ";]
         inl a = macro.fs bool [text: "a"]
         inl b = macro.fs value [text: "b"]
         if a then on_succ b else on_fail ()
@@ -273,6 +273,7 @@ inl log ->
                     Option.some card, deck
                 else
                     Option.none Hand, deck
+            macro.fs () [text : "//In dealing"]
             {player with hand}, deck
 
         inl ante, big_ante = 1, 2
@@ -343,25 +344,25 @@ inl log ->
     inl Actions = .Fold, .Call, (.Raise, 0)
     inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
     inl Rep = type {pot=int64; chips=int64; hand=Option.none Hand}
-    inl dict = Dictionary {elem_type=((Rep,Rep),Action),float64}
-    inl init = 10f64
-    inl learning_rate = 0.05f64
 
-    inl reply_q players {fold call raise} =
-        inl v, a = 
-            Tuple.foldl (inl (s,a) (!(box Action) x) ->
-                inl v = dict (players, box Action x) { on_fail=const init; on_succ=id }
-                if v > s then v,x else s,a
-                ) (-infinityf64, box Action .Fold) Actions
+    inl reply_q {init learning_rate num_players} =
+        inl dict = Dictionary {elem_type=(Tuple.repeat num_players Rep,Action),float64}
+        inl box = stack inl x -> box Action x
+        inl players {fold call raise} ->
+            inl v, a = 
+                Tuple.foldl (inl (s,a) (!box x) ->
+                    inl v = dict (players, x) { on_fail=const init; on_succ=id }
+                    if v > s then v,x else s,a
+                    ) (-infinityf64, box .Fold) Actions
 
-        inl trace v' =
-            dict.set (players, a) (v - learning_rate * (v' - v))
-            v
+            inl trace v' =
+                dict.set (players, a) (v - learning_rate * (v' - v))
+                v
 
-        match a with
-        | .Fold -> fold trace
-        | .Call -> call trace
-        | .Raise, x -> raise trace x
+            match a with
+            | .Fold -> fold trace
+            | .Call -> call trace
+            | .Raise, x -> raise trace x
 
     {one_card=game; reply_random reply_rules reply_q}
     """) |> module_
