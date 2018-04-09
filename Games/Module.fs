@@ -56,8 +56,8 @@ inl num_cards =
     inl l = Tuple.foldl (inl s _ -> s+1) 0
     l Suits * l Ranks
 
-met tag_rank = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) ({},0i32) Ranks |> fst
-met tag_suit = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) ({},0i32) Suits |> fst
+inl tag_rank = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) ({},0i32) Ranks |> fst
+inl tag_suit = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) ({},0i32) Suits |> fst
    
 inl rnd = Random()
 inl unshuffled = 
@@ -113,6 +113,7 @@ inl log ->
         inl old_chips = Tuple.map (inl {chips pot} -> chips + pot) players
 
         met rec loop players =
+            macro.fs () [text: "//In showdown"]
             inl is_active = Tuple.map is_active players
             inl {foldl foldl_map} = iterator_template is_active
 
@@ -189,6 +190,7 @@ inl log ->
     inl betting players =
         inl is_active {chips hand} = chips > 0 && hand_is hand
         met betting {internal_representation player} {d with min_raise call_level players_called players_active} =
+            macro.fs () [text: "//In betting"]
             inl on_succ=Option.some
             inl on_fail=Option.none (player,d)
             if players_called < players_active && (players_active <> 1 || player.pot < call_level) then
@@ -265,18 +267,22 @@ inl log ->
             }
 
     inl dealing players deck = 
-        met f ante deck player =
-            inl player = call {player with pot=0} ante
-            inl ante = player.pot
+        met f ante deck {name chips} =
+            macro.fs () [text: "//In dealing"]
+            inl player = call {chips pot=0} ante
             inl hand, deck =
+                inl ante = player.pot
                 if ante > 0 then 
-                    log "{0} antes up {1}" (player.name, ante)
+                    log "{0} antes up {1}" (name, ante)
                     inl card,deck = deck()
                     Option.some card, deck
                 else
                     Option.none Hand, deck
-            macro.fs () [text : "//In dealing"]
             {player with hand}, deck
+
+        inl f ante deck {player with name chips} =
+            inl {hand chips pot}, deck = f ante deck {name chips}
+            {player with hand chips pot}, deck
 
         inl ante, big_ante = 1, 2
         inl rec loop deck = function
@@ -292,7 +298,7 @@ inl log ->
         loop deck players
 
     inl hand_rule a b =
-        inl f {rank=.(_) as x} = tag_rank x
+        met f x = match x with {rank=.(_) as x} -> tag_rank x
         compare (f a) (f b)
 
     inl round players = 
@@ -322,6 +328,22 @@ inl log ->
                 loop (Tuple.append b (a :: ()))
             : Tuple.map (inl {name chips} -> {name chips}) players
         Tuple.map (inl x -> dyn {x with chips}) players
+        |> inl l ->
+            Tuple.map (inl x -> 
+                inl x = 
+                    join 
+                        macro.fs () [text: "//Free vars"]
+                        x
+                inl x = dyn x
+                inl x = 
+                    join 
+                        macro.fs () [text: "//Free vars2"]
+                        x
+                inl x = dyn x
+                x
+                ) l
+            
+            
         |> loop
 
     inl reply_random =
