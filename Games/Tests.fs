@@ -26,6 +26,17 @@ inl b = {reply=reply_random; name="Two"}
 one_card 10 (a, b) |> ignore
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker4
-|> printfn "%s"
+let test110 =
+    "test110",[],"",
+    """
+inl q = {q=1;w=2;e=3}
+inl w = {a=q;b=q}
+inl e = {z=w;x=w}
+inl e = join e
+inl e = join e
+()
+    """
+
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test110
+//|> printfn "%s"
 |> ignore
