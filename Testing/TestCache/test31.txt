@@ -33,8 +33,10 @@ let (var_0: Union0) = (Union0Case0(Tuple2(Tuple1(2L, 3L))))
 match var_0 with
 | Union0Case0(var_1) ->
     let (var_3: Tuple1) = var_1.mem_0
-    (Union3Case0(Tuple2(var_3)))
+    let (var_4: int64) = var_3.mem_0
+    let (var_5: int64) = var_3.mem_1
+    (Union3Case0(Tuple2(Tuple1(var_4, var_5))))
 | Union0Case1(var_2) ->
-    let (var_4: string) = var_2.mem_0
-    (Union3Case1(Tuple4(var_4)))
+    let (var_6: string) = var_2.mem_0
+    (Union3Case1(Tuple4(var_6)))
 

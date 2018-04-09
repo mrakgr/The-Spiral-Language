@@ -66,6 +66,24 @@ inl unshuffled =
         ) Ranks
     |> Tuple.concat
 
+inl deck _ =
+    met knuth_shuffle rnd ln ar =
+        inl swap i j =
+            inl item = ar i
+            ar i <- ar j
+            ar j <- item
+
+        Loops.for {from=0; near_to=ln-1; body=inl {i} -> swap i (rnd.next(to int32 i, to int32 ln))}
+
+    inl ar = macro.fs (array Card) [fs_array_args: unshuffled]
+    assert (array_length ar = num_cards) "The number of cards in the deck must be 52."
+    knuth_shuffle rnd num_cards ar
+
+    inl rec facade p _ =
+        inl x = p - 1
+        ar x, facade x
+    facade (dyn num_cards)
+
 inl compare a b = if a < b then -1i32 elif a = b then 0i32 else 1i32
 
 met show_card x =
@@ -75,6 +93,84 @@ met show_card x =
 inl log ->
     inl Hand = Card // for one card poker
     inl show_hand = show_card
+
+    inl showdown rule players =
+        inl is_active {pot} = pot > 0
+        inl iterator_template is_active =
+            {
+            foldl = inl f s players -> Tuple.foldl2 (inl s player is_active -> if is_active then f s player else s) s players is_active
+            foldl_map = inl f s players -> Tuple.foldl_map2 (inl s player is_active -> if is_active then f s player else player,s) s players is_active
+            }
+
+        log "Showdown:" ()
+        Tuple.iter (met x ->
+            if is_active x then
+                match x.hand with
+                | .Some, hand -> log "{0} shows {1}" (x.name, show_hand hand)
+                | _ -> ()
+            ) players
+
+        inl old_chips = Tuple.map (inl {chips pot} -> chips + pot) players
+
+        met rec loop players =
+            macro.fs () [text: "//In showdown"]
+            inl is_active = Tuple.map is_active players
+            inl {foldl foldl_map} = iterator_template is_active
+
+            foldl (inl s player ->
+                match s with
+                | .Some, a ->
+                    match player.hand with
+                    | .Some, b -> if rule a b = 1i32 then Option.some a else Option.some b
+                    | .None -> Option.some a
+                | .None -> player.hand
+                ) (Option.none Hand) players
+            |> function
+                | .Some, winning_hand ->
+                    inl min_pot = foldl (inl s {pot} -> min s pot) (macro.fs int64 [text: "System.Int64.MaxValue"]) players
+                    inl players, pot = 
+                        foldl_map (inl s {player with pot} -> 
+                            inl taken = min min_pot pot
+                            {player with pot=pot-taken}, s + taken
+                            ) 0 players
+                    
+                    inl winners = 
+                        Tuple.map2 (inl is_active x ->
+                            if is_active then
+                                match x.hand with
+                                | .Some, hand -> rule winning_hand hand = 0i32
+                                | _ -> false
+                            else false
+                            ) is_active players
+                    inl {foldl foldl_map} = iterator_template winners
+                    inl num_winners = foldl (inl s _ -> s + 1) 0 players
+
+                    inl could_be_odd = pot % num_winners <> 0
+                    inl pot = pot / num_winners
+                    foldl_map (inl s {x with chips} ->
+                        inl odd_chip = if could_be_odd then s else 0
+                        {x with chips=chips + pot + odd_chip}, 1
+                        ) 0 players 
+                    |> fst
+                    |> loop
+                | .None ->
+                    Tuple.map (inl {chips pot} -> chips + pot) players
+            : Tuple.map (const 0) players
+        inl new_chips = Tuple.map (inl {hand chips pot} -> {hand chips pot}) players |> loop
+        inl rewards = Tuple.map2 (inl old new -> new - old) old_chips new_chips
+
+        Tuple.iter2 (met {d with name reply} reward -> 
+            match d with
+            | {trace} -> trace (to float64 reward)
+            | _ -> ()
+            if reward = 1 then log "{0} wins {1} chip." (name,reward)
+            elif reward = -1 then log "{0} loses {1} chip." (name,-reward)
+            elif reward > 0 then log "{0} wins {1} chips." (name,reward)
+            elif reward < 0 then log "{0} loses {1} chips." (name,-reward)
+            else ()
+            ) players rewards
+
+        new_chips
 
     inl internal_representation i players =
         Tuple.mapi (inl i' {chips pot hand} ->
@@ -161,6 +257,7 @@ inl log ->
             loop2 ((),dyn 0,d) players
             : players
         
+        log "Betting:" ()
         loop players
             {
             min_raise=2
@@ -169,30 +266,75 @@ inl log ->
             players_called = 0
             }
 
+    inl dealing players deck = 
+        met f ante deck {name chips} =
+            macro.fs () [text: "//In dealing"]
+            inl player = call {chips pot=0} ante
+            inl hand, deck =
+                inl ante = player.pot
+                if ante > 0 then 
+                    log "{0} antes up {1}" (name, ante)
+                    inl card,deck = deck()
+                    Option.some card, deck
+                else
+                    Option.none Hand, deck
+            {player with hand}, deck
+
+        inl f ante deck {player with name chips} =
+            inl {hand chips pot}, deck = f ante deck {name chips}
+            {player with hand chips pot}, deck
+
+        inl ante, big_ante = 1, 2
+        inl rec loop deck = function
+            | a :: b :: () -> 
+                inl a, deck = f ante deck a
+                inl b, deck = f big_ante deck b
+                a :: b :: (), deck
+            | a :: b -> 
+                inl a, deck = f 0 a
+                inl b, deck = loop deck b
+                a :: b, deck
+        log "Dealing:" ()
+        loop deck players
+
+    inl hand_rule a b =
+        met f x = match x with {rank=.(_) as x} -> tag_rank x
+        compare (f a) (f b)
+
     inl round players = 
-        Tuple.map (inl player -> {player with hand=box Hand {rank=box Rank .Ace; suit=box Suit .Hearts} |> Option.some |> dyn; pot=dyn 0}) players
-        |> betting
-        |> ignore
+        log "A new round is starting..." ()
+        log "Chip counts:" ()
+        Tuple.iter (inl {name chips} ->
+            log "{0} has {1} chips." (name,chips)
+            ) players
+        inl new_chips = dealing players (deck()) |> fst |> betting |> showdown hand_rule
+        Tuple.map2 (inl x chips -> {x with chips}) players new_chips
 
     inl game chips players =
+        inl is_active {chips} = chips > 0
+        inl is_finished players =
+            inl players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 players
+            players_active = 1
+
+        met rec loop players =
+            inl a :: b as players = round players
+            if is_finished players then 
+                log "The game is over." ()
+                Tuple.map (inl {name chips} ->
+                    if chips > 0 then log "{0} wins with {1} chips!" (name, chips)
+                    {name chips}
+                    ) players
+            else 
+                loop (Tuple.append b (a :: ()))
+            : Tuple.map (inl {name chips} -> {name chips}) players
         Tuple.map (inl x -> {x with chips}) players
-        |> Tuple.map (inl x ->
-                inl x = 
-                    join 
-                        macro.fs () [text: "//Free vars"]
-                        x
-                inl x = 
-                    join 
-                        macro.fs () [text: "//Free vars2"]
-                        x
-                x
-                )
-        //|> Tuple.map (module_map (inl _ x -> join x))
+        |> Tuple.map (module_map (inl _ x -> join x))
         //|> Tuple.map (function
-        //    | {chips name reply trace} -> {chips name reply trace}
-        //    | {chips name reply} -> {chips name reply}
+        //    | {chips name reply trace} -> {chips=join chips; name=join name; reply=join reply; trace=join trace}
+        //    | {chips name reply} -> {chips=join chips; name=join name; reply=join reply}
         //    )
-        |> round
+        |> function a,b -> a,b | x -> x
+        |> loop
 
     inl reply_random =
         inl rnd = Random()
@@ -201,6 +343,17 @@ inl log ->
             | 0i32 -> fold ()
             | 1i32 -> call ()
             | _ -> raise () 0
+
+    inl reply_rules players {fold call raise} =
+        inl limit = Tuple.foldl (inl s x -> max s x.pot) 0 players
+        /// TODO: Replace find with pick.
+        inl self = Tuple.find (inl x -> match x.hand with .Some, _ -> true | _ -> false) players
+        match self.hand with
+        | .Some, x ->
+            match x.rank with
+            | .Ten | .Jack | .Queen | .King | .Ace -> raise () 0
+            | _ -> if self.pot >= limit || self.chips = 0 then call () else fold ()
+        | .None -> failwith (type fold ()) "No self in the internal representation."
 
     inl Actions = .Fold, .Call, (.Raise, 0)
     inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
@@ -228,5 +381,5 @@ inl log ->
             | .Call -> call trace
             | .Raise, x -> raise trace x
 
-    {one_card=game; reply_random reply_q}
+    {one_card=game; reply_random reply_rules reply_q}
     """) |> module_

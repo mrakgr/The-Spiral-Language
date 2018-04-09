@@ -24,9 +24,9 @@ let rec method_0(): Tuple0 =
 let (var_0: Tuple0) = method_0()
 let (var_1: int64) = var_0.mem_0
 let (var_2: Tuple1) = var_0.mem_1
-let (var_3: Tuple1) = var_0.mem_2
-let (var_4: int64) = var_2.mem_0
-let (var_5: int64) = var_2.mem_1
-let (var_6: int64) = var_3.mem_0
-let (var_7: int64) = var_3.mem_1
-(var_4 + var_7)
+let (var_3: int64) = var_2.mem_0
+let (var_4: int64) = var_2.mem_1
+let (var_5: Tuple1) = var_0.mem_2
+let (var_6: int64) = var_5.mem_0
+let (var_7: int64) = var_5.mem_1
+(var_3 + var_7)
