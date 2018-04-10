@@ -46,7 +46,7 @@ let poker =
     (
     "Poker",[random;console;option;dictionary],"The Poker module.",
     """
-inl Suits = .Spades, .Clubs, .Hearts, .Diamonds
+inl Suits = .Spades :: () //, .Clubs, .Hearts, .Diamonds
 inl Suit = Tuple.reducel (inl a b -> a \/ b) Suits
 inl Ranks = .Two, .Three, .Four, .Five, .Six, .Seven, .Eight, .Nine, .Ten, .Jack, .Queen, .King, .Ace
 inl Rank = Tuple.reducel (inl a b -> a \/ b) Ranks
