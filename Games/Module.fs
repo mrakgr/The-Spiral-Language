@@ -195,8 +195,8 @@ inl log ->
         inl is_active {chips hand} = chips > 0 && hand_is hand
         met betting {internal_representation player} {d with min_raise call_level players_called players_active} =
             macro.fs () [text: "//In betting"]
-            inl on_succ=Option.some
-            inl on_fail=Option.none (player,d)
+            inl on_succ player,d = Option.some ({player without reply name}, d)
+            inl on_fail=Option.none ({player without reply name},d)
             if players_called < players_active && (players_active <> 1 || player.pot < call_level) then
                 if is_active player then 
                     inl update_player trace = 
@@ -255,8 +255,9 @@ inl log ->
                 | player :: x' as l ->
                     inl l = Tuple.append (Tuple.rev s) l
                     inl internal_representation = internal_representation i l
+                    inl {reply name} = player
                     match betting { internal_representation player } d with
-                    | .Some, (player, d) -> loop2 (player :: s, i+1, d) x'
+                    | .Some, (player, d) -> loop2 ({player with reply name} :: s, i+1, d) x'
                     | .None -> l
                 | () -> loop (Tuple.rev s) d
             loop2 ((),dyn 0,d) players
