@@ -464,8 +464,8 @@ inl methods =
                 FS.Method context .ClearMemoryAsync (CUdeviceptr (ar.ptr()), 0u8, size * span * sizeof ar.elem_type |> SizeT, stream) ()
         |> ignore
     
-    zero=inl s d -> join s.CudaTensor.create d |> clear' s |> stack
-    zero_like=inl s d -> join s.CudaTensor.create_like d |> clear' s |> stack
+    zero=inl s d -> indiv join s.CudaTensor.create d |> clear' s |> stack
+    zero_like=inl s d -> indiv join s.CudaTensor.create_like d |> clear' s |> stack
 
     to_dev_tensor = inl _ tns -> tns.update_body (inl body -> 
         inb ptr = ptr_cuda body
