@@ -1844,6 +1844,13 @@ inl float ->
             ,inl (x,y) _ -> -(two * (x - y))
         }
 
+    inl sparse_square = error {
+        fwd = inl (x,y) -> y * (y - x) * (y - x)
+        bck =
+            inl (x,y) _ -> two * (x - y) * y
+            ,inl (x,y) _ -> (x - y) * (x - 3 * y)
+        }
+
     inl cross_entropy = error {
         fwd = inl x, y -> -(y * log x + (one - y) * log (one - x))
         bck = 
@@ -1877,7 +1884,7 @@ inl float ->
 
         cost, bck
 
-    inl Error = {square cross_entropy softmax_cross_entropy} |> stackify
+    inl Error = {square sparse_square cross_entropy softmax_cross_entropy} |> stackify
 
     // #Initializer
     inl Initializer = 
