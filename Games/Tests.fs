@@ -53,7 +53,7 @@ let poker4 =
     """
 inl log _ _ = ()
 open Poker log
-inl a = {reply=reply_q {init=5f64; learning_rate=0.03f64; num_players=2}; name="One"; trace=term_cast (inl _ -> ()) float64}
+inl a = {reply=reply_q {init=5f64; learning_rate=0.03f64; num_players=2}; name="One"; trace=term_cast (inl _ -> ()) int64}
 inl b = {reply=reply_random; name="Two"}
 Loops.for {from=0; near_to=100; body=inl {i} ->
     Timer.time_it (string_format "iteration {0}" i)

@@ -165,7 +165,7 @@ inl log ->
         Tuple.iter2 (met {d with name reply} reward -> 
             macro.fs () [text: "//In the reward part."]
             match d with
-            | {trace} -> trace (to float64 reward)
+            | {trace} -> trace reward
             | _ -> ()
             if reward = 1 then log "{0} wins {1} chip." (name,reward)
             elif reward = -1 then log "{0} loses {1} chip." (name,-reward)
@@ -373,11 +373,25 @@ inl log ->
                     ) (-infinityf64, box .Fold) Actions
 
             inl trace v' =
-                dict.set (players, a) (v + learning_rate * (v' - v))
+                dict.set (players, a) (v + learning_rate * (to float64 v' - v))
                 // This last line determines what kind of updates are done.
                 // Returning v' means doing Monte Carlo updates.
                 // Returning v means doing Q learning.
                 v'
+
+            match a with
+            | .Fold -> fold trace
+            | .Call -> call trace
+            | .Raise, x -> raise trace x
+
+    inl reply_pg {init learning_rate num_players} =
+        inl net = Learning.RL.Online.PG.Feedforward0 {init learning_rate state=Tuple.repeat num_players Rep; action=Action}
+        inl players {fold call raise} ->
+            inl a,bck = net.sample 1.0f64 players
+
+            inl trace reward = 
+                bck reward
+                reward
 
             match a with
             | .Fold -> fold trace
