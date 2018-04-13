@@ -384,19 +384,5 @@ inl log ->
             | .Call -> call trace
             | .Raise, x -> raise trace x
 
-    inl reply_pg {init learning_rate num_players} =
-        inl net = Learning.RL.Online.PG.Feedforward0 {init learning_rate state=Tuple.repeat num_players Rep; action=Action}
-        inl players {fold call raise} ->
-            inl a,bck = net.sample 1.0f64 players
-
-            inl trace reward = 
-                bck reward
-                reward
-
-            match a with
-            | .Fold -> fold trace
-            | .Call -> call trace
-            | .Raise, x -> raise trace x
-
     {one_card=game; reply_random reply_rules reply_q}
     """) |> module_
