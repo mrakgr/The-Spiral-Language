@@ -8406,6 +8406,12 @@ The ability to save arbitrary types to disk and load them will get added to the 
 
 Allocator should be more capable of handling short term allocations. This can be done by taking the idea from the previous stack based allocator and incorporating them into the current one.
 
+##### Plastic Neurons
+
+The results in the [Differentiable Plasticity](https://arxiv.org/abs/1804.02464) are amazing and have completely convinced the author that these kinds of neurons are an essential architectural feature for what I want to do. Adding them to the library would be trivial with a generic gemm kernel, which just puts more weight on implementing it.
+
+The author expected there would be novel architectural discoveries necessitating the generic gemm beyond dense connections, but he was surprised how quickly it happened.
+
 ## User Guide: The Spiral Power
 
 While the tutorial was meant to be a light introduction to the language, the user guide is intended to be an in depth guide not just into the language, but into the workings of the compiler. It is not intended to be exhaustive, but to cover the core language features and their implementation for the sake of making the user more confident in traversing the Spiral's source should that be needed. 
