@@ -70,6 +70,28 @@ Loops.for {from=0; near_to=100; body=inl {i} ->
     }
     """
 
+let poker5 =
+    "poker5",[loops;poker;timer],"What is the winrate of the deep Q learning feedforward based player against the random one?",
+    """
+inl log _ _ = ()
+open Poker log
+inl a = {reply=reply_dq {scale=1.0/10.0; init=0f64; learning_rate=0.03f64; num_players=2}; name="One"; trace=term_cast (inl _ -> ()) int64}
+inl b = {reply=reply_random; name="Two"}
+Loops.for {from=0; near_to=100; body=inl {i} ->
+    Timer.time_it (string_format "iteration {0}" i)
+    <| inl _ ->
+        Loops.for {from=0; near_to=10000; state=dyn {a=0; b=0}; body=inl {state=s i} ->
+            inl a,b = one_card 10 (a, b)
+            match a.name with
+            | "One" -> if a.chips > 0 then {s with a=self+1} else {s with b=self+1}
+            | _ -> if a.chips > 0 then {s with b=self+1} else {s with a=self+1}
+            }
+        |> inl {a b} ->
+            inl total = a + b
+            Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,total)
+    }
+    """
+
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker4
 //|> printfn "%s"
 |> ignore
