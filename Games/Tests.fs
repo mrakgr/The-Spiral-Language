@@ -126,20 +126,20 @@ inl Serializer =
     {
     encode = inl ranges template ty ->
         assert (eq_type template ty) "The variable to be encoded does not fit the template type."
-        inl rec loop a b s = 
+        inl rec loop a b (i,s as is) = 
             match a,b with
             | {!block}, {!block} ->
-                module_foldr (inl k a -> loop a (b k)) a s
+                module_foldr (inl k a -> loop a (b k)) a is
             | _ :: _, _ :: _ -> 
-                Tuple.foldr2 (inl a b s -> loop a b s) a b s
+                Tuple.foldr2 loop a b is
             | a, b when lit_is a -> 
                 assert (a = b) "The variable to be encoded must equal the literal."
-                s
+                i, s
             | a, x : int64 -> 
                 in_range ranges x
-                s+x
+                s * x + i, s * span ranges a
 
-        loop template ty 0
+        loop template ty (0, 1) |> fst
     }
 
 inl template = 0, int64, int64
