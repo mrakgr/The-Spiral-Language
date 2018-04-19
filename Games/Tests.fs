@@ -94,10 +94,8 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
     """
 
 let encoder1 =
-    "encoder1",[loops;poker;timer],"Does the one-hot encoder work?",
+    "encoder1",[tuple],"Does the one-hot encoder work?",
     """
-open Poker log
-inl state_type = Rep
 inl Serializer = 
     inl range ranges = function
         | x : int64 ->
@@ -122,17 +120,32 @@ inl Serializer =
             inl {from near_to} = range ranges int64
             assert (x >= from) "x must be greater or equal to its lower bound."
             assert (x < near_to) "x must be lesser than its lower bound."
-            x
+            ()
         | _ -> error_type "Only int64 ranges supported for now."
 
     {
-    encode = inl ranges ty ->
-        inl var_is = caseable_box_in >> not
-        match ty with
-        | x : int64 -> 
-            assert (in_range ranges x) "x is out of range."
-            x
+    encode = inl ranges template ty ->
+        assert (eq_type template ty) "The variable to be encoded does not fit the template type."
+        inl rec loop a b s = 
+            match a,b with
+            | {!block}, {!block} ->
+                module_foldr (inl k a -> loop a (b k)) a s
+            | _ :: _, _ :: _ -> 
+                Tuple.foldr2 (inl a b s -> loop a b s) a b s
+            | a, b when lit_is a -> 
+                assert (a = b) "The variable to be encoded must equal the literal."
+                s
+            | a, x : int64 -> 
+                in_range ranges x
+                s+x
+
+        loop template ty 0
     }
+
+inl template = 0, int64, int64
+inl range = {int64=2}
+
+Serializer.encode range template (0,1,1)
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" encoder1

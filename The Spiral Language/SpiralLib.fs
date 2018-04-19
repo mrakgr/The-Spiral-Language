@@ -124,6 +124,11 @@ inl rec foldl2 f s a b =
     | (), () -> s
     | _ -> error_type "The two tuples have uneven lengths." 
 
+inl rec foldr2 f a b s = 
+    match a,b with
+    | a :: a', b :: b' -> f a b (foldr2 f a' b' s)
+    | (), () -> s
+
 inl rec forall f = function
     | x :: xs -> f x && forall f xs
     | () -> true
@@ -267,7 +272,7 @@ inl rec foldl_map2 f s a b =
 {
 head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists split_at take drop
 filter zip unzip init repeat append concat singleton range tryFind contains intersperse wrap unwrap
-foldl_map foldl_map2 foldr_map map2 foldl2 choose choose2 mapi find
+foldl_map foldl_map2 foldr_map map2 foldl2 foldr2 choose choose2 mapi find
 } 
 |> stackify
     """) |> module_
