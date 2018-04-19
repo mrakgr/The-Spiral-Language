@@ -73,9 +73,10 @@ Loops.for {from=0; near_to=100; body=inl {i} ->
 let poker5 =
     "poker5",[loops;poker;timer],"What is the winrate of the deep Q learning feedforward based player against the random one?",
     """
+inb s = CudaModules (1024*1024*1024)
 inl log _ _ = ()
 open Poker log
-inl a = {reply=reply_dq {scale=10.0; init=0f64; learning_rate=0.01f64; num_players=2}; name="One"; trace=term_cast (inl _ -> ()) float64}
+inl a = {reply=reply_dq {scale=10.0; init=0f64; learning_rate=0.01f64; num_players=2} s; name="One"; trace=term_cast (inl _ -> ()) float64}
 inl b = {reply=reply_random; name="Two"}
 Loops.for {from=0; near_to=10; body=inl {i} ->
     Timer.time_it (string_format "iteration {0}" i)
