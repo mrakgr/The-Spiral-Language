@@ -2739,5 +2739,18 @@ inl float ->
         Pass = {for sample Body} |> stackify
         } |> stackify
 
+    inl RL =
+        inl dq_net =
+            inl net = 
+                open Feedforward.Layer
+                inl label = input .label hidden_size
+                inl network =
+                    input .input input_size 
+                    |> linear hidden_size 
+                    |> init s
+                error Error.square label network
+        
+        {dq_net}
+
     { dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent }
     """) |> module_
