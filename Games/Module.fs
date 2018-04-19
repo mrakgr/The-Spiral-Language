@@ -165,7 +165,7 @@ inl log ->
         Tuple.iter2 (met {d with name reply} reward -> 
             macro.fs () [text: "//In the reward part."]
             match d with
-            | {trace} -> trace reward
+            | {trace} -> trace (to float64 reward)
             | _ -> ()
             if reward = 1 then log "{0} wins {1} chip." (name,reward)
             elif reward = -1 then log "{0} loses {1} chip." (name,-reward)
@@ -362,27 +362,34 @@ inl log ->
     inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
     inl Rep = type {pot=int64; chips=int64; hand=Option.none Hand}
 
+    inl reply {fold call raise} a trace =
+        match a with
+        | .Fold -> fold trace
+        | .Call -> call trace
+        | .Raise, x -> raise trace x
+
     inl reply_q {init learning_rate num_players} =
         inl dict = Dictionary {elem_type=(Tuple.repeat num_players Rep,Action),float64}
         inl box = stack (box Action)
-        inl players {fold call raise} ->
+        inl players k ->
             inl v, a = 
                 Tuple.foldl (inl (s,a) (!box x) ->
                     inl v = dict (players, x) { on_fail=const init; on_succ=id }
                     if v > s then v,x else s,a
                     ) (-infinityf64, box .Fold) Actions
 
-            inl trace v' =
-                dict.set (players, a) (v + learning_rate * (to float64 v' - v))
+            reply k a <| inl v' ->
+                dict.set (players, a) (v + learning_rate * (v' - v))
                 // This last line determines what kind of updates are done.
                 // Returning v' means doing Monte Carlo updates.
                 // Returning v means doing Q learning.
                 v'
 
-            match a with
-            | .Fold -> fold trace
-            | .Call -> call trace
-            | .Raise, x -> raise trace x
+    inl reply_dq {init scale learning_rate num_players} =
+        inl net = Learning.RL.dq_square_net {init scale learning_rate state_type=Tuple.repeat num_players Rep; action_type=Action}
+        inl players k ->
+            inl v, a, train = net.max_action players
+            reply k a <| inl v' -> train v'; v'
 
     {one_card=game; reply_random reply_rules reply_q}
     """) |> module_

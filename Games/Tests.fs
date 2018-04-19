@@ -53,7 +53,7 @@ let poker4 =
     """
 inl log _ _ = ()
 open Poker log
-inl a = {reply=reply_q {init=5f64; learning_rate=0.03f64; num_players=2}; name="One"; trace=term_cast (inl _ -> ()) int64}
+inl a = {reply=reply_q {init=5f64; learning_rate=0.03f64; num_players=2}; name="One"; trace=term_cast (inl _ -> ()) float64}
 inl b = {reply=reply_random; name="Two"}
 Loops.for {from=0; near_to=100; body=inl {i} ->
     Timer.time_it (string_format "iteration {0}" i)
@@ -75,12 +75,12 @@ let poker5 =
     """
 inl log _ _ = ()
 open Poker log
-inl a = {reply=reply_dq {scale=1.0/10.0; init=0f64; learning_rate=0.03f64; num_players=2}; name="One"; trace=term_cast (inl _ -> ()) int64}
+inl a = {reply=reply_dq {scale=10.0; init=0f64; learning_rate=0.01f64; num_players=2}; name="One"; trace=term_cast (inl _ -> ()) float64}
 inl b = {reply=reply_random; name="Two"}
-Loops.for {from=0; near_to=100; body=inl {i} ->
+Loops.for {from=0; near_to=10; body=inl {i} ->
     Timer.time_it (string_format "iteration {0}" i)
     <| inl _ ->
-        Loops.for {from=0; near_to=10000; state=dyn {a=0; b=0}; body=inl {state=s i} ->
+        Loops.for {from=0; near_to=100; state=dyn {a=0; b=0}; body=inl {state=s i} ->
             inl a,b = one_card 10 (a, b)
             match a.name with
             | "One" -> if a.chips > 0 then {s with a=self+1} else {s with b=self+1}
