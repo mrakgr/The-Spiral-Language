@@ -93,6 +93,48 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
     }
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker4
-//|> printfn "%s"
+let encoder1 =
+    "encoder1",[loops;poker;timer],"Does the one-hot encoder work?",
+    """
+open Poker log
+inl state_type = Rep
+inl Serializer = 
+    inl range ranges = function
+        | x : int64 ->
+            match ranges.int64 with
+            | {from near_to} as r -> r
+            | near_to ->
+                assert (near_to >= 0) "Integer ranges go from 0."
+                {from=0; near_to}
+        | _ -> error_type "Only int64 ranges supported for now."
+
+    inl span ranges = function
+        | x : int64 ->
+            match ranges.int64 with
+            | {from near_to} as r -> near_to - from
+            | near_to ->
+                assert (near_to >= 0) "Integer ranges go from 0."
+                near_to
+        | _ -> error_type "Only int64 ranges supported for now."
+
+    inl in_range ranges = function
+        | x : int64 ->
+            inl {from near_to} = range ranges int64
+            assert (x >= from) "x must be greater or equal to its lower bound."
+            assert (x < near_to) "x must be lesser than its lower bound."
+            x
+        | _ -> error_type "Only int64 ranges supported for now."
+
+    {
+    encode = inl ranges ty ->
+        inl var_is = caseable_box_in >> not
+        match ty with
+        | x : int64 -> 
+            assert (in_range ranges x) "x is out of range."
+            x
+    }
+    """
+
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" encoder1
+|> printfn "%s"
 |> ignore

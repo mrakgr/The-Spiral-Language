@@ -2749,6 +2749,7 @@ inl float ->
                     |> linear hidden_size 
                     |> init s
                 error Error.square label network
+            ()
         
         {dq_net}
 
