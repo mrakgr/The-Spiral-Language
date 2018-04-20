@@ -97,50 +97,7 @@ let encoder1 =
     "encoder1",[tuple],"Does the one-hot encoder work?",
     """
 inl Serializer = 
-    inl range ranges = function
-        | x : int64 ->
-            match ranges.int64 with
-            | {from near_to} as r -> r
-            | near_to ->
-                assert (near_to >= 0) "Integer ranges go from 0."
-                {from=0; near_to}
-        | _ -> error_type "Only int64 ranges supported for now."
-
-    inl span ranges = function
-        | x : int64 ->
-            match ranges.int64 with
-            | {from near_to} as r -> near_to - from
-            | near_to ->
-                assert (near_to >= 0) "Integer ranges go from 0."
-                near_to
-        | _ -> error_type "Only int64 ranges supported for now."
-
-    inl in_range ranges = function
-        | x : int64 ->
-            inl {from near_to} = range ranges int64
-            assert (x >= from) "x must be greater or equal to its lower bound."
-            assert (x < near_to) "x must be lesser than its lower bound."
-            ()
-        | _ -> error_type "Only int64 ranges supported for now."
-
-    {
-    encode = inl ranges template ty ->
-        assert (eq_type template ty) "The variable to be encoded does not fit the template type."
-        inl rec loop a b (i,s as is) = 
-            match a,b with
-            | {!block}, {!block} ->
-                module_foldr (inl k a -> loop a (b k)) a is
-            | _ :: _, _ :: _ -> 
-                Tuple.foldr2 loop a b is
-            | a, b when lit_is a -> 
-                assert (a = b) "The variable to be encoded must equal the literal."
-                i, s
-            | a, x : int64 -> 
-                in_range ranges x
-                s * x + i, s * span ranges a
-
-        loop template ty (0, 1) |> fst
-    }
+    ...
 
 inl template = 0, int64, int64
 inl range = {int64=2}
