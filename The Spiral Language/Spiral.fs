@@ -769,7 +769,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         on_type_er (trace d) <| sprintf "All the cases in pattern matching clause with dynamic data must have the same type.\nGot: %s" (listt l |> show_ty)
                 | _ -> failwith "There should always be at least one clause here."
             | _ -> tev d case
-           
+          
         let type_union d l = List.fold (fun s x -> Set.union s (tev d x |> get_type |> set_field)) Set.empty l |> uniont |> tyt
 
         let (|TyLitIndex|_|) = function
@@ -947,6 +947,37 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         if arg_ty <> clo_arg_ty then on_type_er (trace d) <| sprintf "Cannot apply an argument of type %s to closure (%s => %s)." (show_ty arg_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
                         else TyOp(Apply,[closure;args],clo_ret_ty) |> make_tyv_and_push_typed_expr_even_if_unit d
                     | _ -> on_type_er (trace d) <| sprintf "Invalid use of apply. %s and %s" (show_typedexpr a) (show_typedexpr b)
+
+        let case_foldl_map d s v case =
+            let inline assume d s x branch = 
+                let branch = apply d (tev d branch) s
+                let d = {d with seq=ref id}
+                match apply d branch x with
+                | TyList [a;b] -> 
+                    if typed_expr_free_var_exists b then on_type_er (trace d) "The return of a case must not have a free variable."
+                    apply_seq d a, b
+                | x -> on_type_er (trace d) "Expected a value * state tuple as the return from a case branch."
+            match tev d v |> make_tyv_and_push_typed_expr_even_if_unit d |> destructure d with
+            | (TyV(_, t & (UnionT _ | RecT _)) | TyT(t & (UnionT _ | RecT _))) as v ->
+                let make_up_vars_for_ty (l: Ty list): TypedExpr list = List.map (make_up_vars_for_ty d) l
+                let map_to_cases (l: TypedExpr list) = 
+                    List.mapFold (fun s x -> 
+                        let x',s = assume d s x case
+                        (x,x'),s) (tev d s) l
+
+                let cases,state = case_type d t |> make_up_vars_for_ty |> map_to_cases
+                            
+                match cases with
+                | (_, TyType p) :: cases as cases' -> 
+                    if List.forall (fun (_, TyType x) -> x = p) cases then 
+                        TyOp(Case,v :: List.collect (fun (a,b) -> [a;b]) cases', p) 
+                        |> make_tyv_and_push_typed_expr_even_if_unit d
+                        |> fun x -> tyvv [x;state]
+                    else 
+                        let l = List.map (snd >> get_type) cases'
+                        on_type_er (trace d) <| sprintf "All the cases in pattern matching clause with dynamic data must have the same type.\nGot: %s" (listt l |> show_ty)
+                | _ -> failwith "There should always be at least one clause here."
+            | x -> on_type_er (trace d) <| sprintf "CaseFoldLMap needs an union type as input.\nGot: %A" x
 
         let term_fun_type_create d a b =
             let a = tev_seq d a
