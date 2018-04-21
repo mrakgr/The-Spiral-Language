@@ -93,41 +93,6 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
     }
     """
 
-let serializer =
-    (
-    "Serializer",[tuple],"The Serializer module.",
-    """
-inl rec template f x =
-    inl encode = template f
-    inl prod (i,s) x = 
-        inl i',s' = encode x
-        i + i' * s, s * s'
-
-    inl sum s x =
-        inl i',s' = encode x
-        s + i', s + s'
-
-    match x with
-    | x when caseable_box_is x -> case_foldl_map sum 0 x
-    | _ :: _ as x -> Tuple.foldl prod (0,1) x
-    | .(_) | () -> 0,1
-    | {!block} as x -> module_foldl (const prod) (0,1) x
-    | x -> f x
-
-inl assert_range r x =
-    inl {from near_to} = match r with {from near_to} -> r | near_to -> {from=0; near_to}
-    assert (x >= from) "x must be greater or equal to its lower bound."
-    assert (x < near_to) "x must be lesser than its lower bound."
-    x, near_to - from
-
-inl encode = template << assert_range
-
-{
-template 
-encode
-} |> stackify
-    """) |> module_
-
 let encoder1 =
     "encoder1",[serializer;option],"Does the one-hot encoder work?",
     """

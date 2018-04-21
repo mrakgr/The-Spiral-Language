@@ -3,8 +3,6 @@
 open Spiral.Types
 open Spiral.Lib
 open Learning.Module
-open System.Collections.Generic
-open System.Security.Policy
 
 let dictionary =
     (
@@ -385,8 +383,8 @@ inl log ->
                 // Returning v means doing Q learning.
                 v'
 
-    inl reply_dq {init scale learning_rate num_players} s =
-        inl net = Learning.RL.dq_square_net {init scale learning_rate state_type=Tuple.repeat num_players Rep; action_type=Action} s
+    inl reply_dq {init reward_range learning_rate num_players} s =
+        inl net = Learning.RL.dq_square_net {init reward_range learning_rate state_type=Tuple.repeat num_players Rep; action_type=Action} s
         inl players k ->
             inl v, a, train = net.max_action players
             reply k a <| inl v' -> train v'; v'

@@ -3,6 +3,45 @@
 open Spiral.Types
 open Spiral.Lib
 
+let serializer =
+    (
+    "Serializer",[tuple],"The Serializer module.",
+    """
+inl rec template f x =
+    inl encode = template f
+    inl prod (i,s) x = 
+        inl i',s' = encode x
+        i + i' * s, s * s'
+
+    inl sum s x =
+        inl i',s' = encode x
+        s + i', s + s'
+
+    match x with
+    | x when caseable_box_is x -> case_foldl_map sum 0 x
+    | _ :: _ as x -> Tuple.foldl prod (0,1) x
+    | .(_) | () -> 0,1
+    | {!block} as x -> module_foldl (const prod) (0,1) x
+    | x -> f x
+
+inl assert_range r x =
+    inl {from near_to} = match r with {from near_to} -> r | near_to -> {from=0; near_to}
+    assert (x >= from) "x must be greater or equal to its lower bound."
+    assert (x < near_to) "x must be lesser than its lower bound."
+    x, near_to - from
+
+inl encode = template << assert_range
+inl span reward_range elem_type =
+    type Serializer.encode reward_range elem_type |> snd |> type_lit_lift
+    |> type_lit_cast
+
+{
+template 
+encode
+span
+} |> stackify
+    """) |> module_
+
 let timer =
     (
     "Timer",[console],"The Timer module",
@@ -1584,7 +1623,7 @@ inl size ret ->
 
 let learning =
     (
-    "Learning",[struct';extern_],"The deep learning module.",
+    "Learning",[struct';extern_;serializer],"The deep learning module.",
     """
 inl float ->
     // #Primitives
@@ -1998,7 +2037,12 @@ inl float ->
     inl run_parallel x d s =
         layer_map_fold (inl {x with layer_type gid} d ->
             match layer_type with
-            | .input -> {value=d.input x.name; stream=s.data.stream; block=()}, d
+            | .input -> 
+                inl value = 
+                    match x with
+                    | {map} -> map (d.input x.name) s
+                    | _ -> d.input x.name
+                {value stream=s.data.stream; block=()}, d
             | .parallel -> x.sublayer, d
             | _ ->
                 inl stream = x.stream
@@ -2131,6 +2175,20 @@ inl float ->
         name
         size
         }
+
+    inl rl_input {name reward_range elem_type} = 
+        inl size = Tuple.foldl (inl s x -> s + Serializer.span reward_range x) 0 elem_type
+
+        inl map x s = 
+            assert (eq_type ty x) "The template type and the input type must be the same."
+            Tuple.foldl_map (inl s x -> 
+                inl i, s' = Serializer.encode reward_range x
+                s + i, s + s') 0 x 
+            |> inl i,size' ->
+                assert (size = size') "The two sizes must match."
+                s.CudaTensor.one_hot {dim=1,size} i
+
+        layer { name size map layer_type = .input }
 
     inl stateful layer_type {weights apply size sublayer} = 
         layer {
@@ -2739,13 +2797,13 @@ inl float ->
         Pass = {for sample Body} |> stackify
         } |> stackify
 
-    inl RL =
-        inl dq_net =
+    inl RL reward_range =
+        inl dq_net {state_type action_type} =
             inl net = 
                 open Feedforward.Layer
-                inl label = input .label hidden_size
+                inl label = reward .label action_type
                 inl network =
-                    input .input input_size 
+                    input .input state_type
                     |> linear hidden_size 
                     |> init s
                 error Error.square label network
