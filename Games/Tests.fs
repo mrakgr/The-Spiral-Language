@@ -97,24 +97,22 @@ let serializer =
     (
     "Serializer",[tuple],"The Serializer module.",
     """
-inl template f =
-    inl rec encode x =
-        inl prod (i,s) x = 
-            inl i',s' = encode x
-            i + i' * s, s * s'
+inl rec template f x =
+    inl encode = template f
+    inl prod (i,s) x = 
+        inl i',s' = encode x
+        i + i' * s, s * s'
 
-        inl sum s x =
-            inl i',s' = encode x
-            s + i', s + s'
+    inl sum s x =
+        inl i',s' = encode x
+        s + i', s + s'
 
-        match x with
-        | x when caseable_box_is x -> case_foldl_map sum 0 x
-        | _ :: _ as x -> Tuple.foldl prod (0,1) x
-        | .(_) | () -> 0,1
-        | {!block} as x -> module_foldl (const prod) (0,1) x
-        | x -> f x
-
-    {encode}
+    match x with
+    | x when caseable_box_is x -> case_foldl_map sum 0 x
+    | _ :: _ as x -> Tuple.foldl prod (0,1) x
+    | .(_) | () -> 0,1
+    | {!block} as x -> module_foldl (const prod) (0,1) x
+    | x -> f x
 
 inl assert_range r x =
     inl {from near_to} = match r with {from near_to} -> r | near_to -> {from=0; near_to}
@@ -122,27 +120,32 @@ inl assert_range r x =
     assert (x < near_to) "x must be lesser than its lower bound."
     x, near_to - from
 
-inl f r = function
-    | x when lit_is x -> 0,1
-    | x : int64 -> assert_range r x
-
-inl default = template << f
+inl encode = template << assert_range
 
 {
 template 
-default
+encode
 } |> stackify
     """) |> module_
 
 let encoder1 =
     "encoder1",[serializer;option],"Does the one-hot encoder work?",
     """
-inl a = Serializer.default 2 .encode (0,dyn 1,dyn 1)
-inl b = Serializer.default 10 .encode (Option.none int64)
-inl c = Serializer.default 10 .encode (Option.some 5)
+inl a = Serializer.encode 2 (0,dyn 1,dyn 1)
+inl b = Serializer.encode 10 (Option.none int64)
+inl c = Serializer.encode 10 (Option.some 5)
 ()
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" encoder1
+let encoder2 =
+    "encoder2",[serializer;option],"Does the one-hot encoder work for nesten union types?",
+    """
+inl Y = (.a,.123) \/ (.b,int64)
+inl y = box Y (.b,3)
+inl a = Serializer.encode 10 (dyn 1,Option.some y)
+()
+    """
+
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" encoder2
 |> printfn "%s"
 |> ignore
