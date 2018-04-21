@@ -8,9 +8,22 @@ let serializer =
     "Serializer",[tuple],"The Serializer module.",
     """
 inl Decoder =
-    inl rec decode f ty x =
-        match ty with
-        | x -> f x
+    inl rec decode f n x =
+        inl decode = decode f
+        inl sum ty (n,s) x =
+            inl i, s' = decode n x
+            box ty i, (n - n', s + s')
+        inl prod (n,s) x = 
+            inl i,s' = decode n x
+            i, (n / n', s * s')
+
+        match x with
+        | x when caseable_box_is x -> case_foldl_map (sum x) (n,0) x |> inl a, (n, s) -> a, s
+        | _ :: _ -> Tuple.foldl_map prod (n,1) x |> inl a, (n, s) -> a, s
+        | .(_) | () -> x, 1
+        | {!block} -> module_foldl_map (const prod) (n,1) x |> inl a, (n, s) -> a, s
+        | _ -> f x
+
     ()
 
 inl Encoder =
