@@ -149,3 +149,4 @@ inl a = Serializer.encode 10 (dyn 1,Option.some y)
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" encoder2
 |> printfn "%s"
 |> ignore
+
