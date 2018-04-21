@@ -151,6 +151,7 @@ type Op =
 
     // Braching
     | Case
+    | CaseFoldLMap
     | IfStatic
     | While
 

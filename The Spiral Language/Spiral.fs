@@ -948,8 +948,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         else TyOp(Apply,[closure;args],clo_ret_ty) |> make_tyv_and_push_typed_expr_even_if_unit d
                     | _ -> on_type_er (trace d) <| sprintf "Invalid use of apply. %s and %s" (show_typedexpr a) (show_typedexpr b)
 
-        let case_foldl_map d s v case =
-            let inline assume d s x branch = 
+        let case_foldl_map d case s v =
+            let inline assume d branch s x = 
                 let branch = apply d (tev d branch) s
                 let d = {d with seq=ref id}
                 match apply d branch x with
@@ -957,12 +957,16 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     if typed_expr_free_var_exists b then on_type_er (trace d) "The return of a case must not have a free variable."
                     apply_seq d a, b
                 | x -> on_type_er (trace d) "Expected a value * state tuple as the return from a case branch."
+
             match tev d v |> make_tyv_and_push_typed_expr_even_if_unit d |> destructure d with
+            | TyT _ | TyV _ as x -> x
+            | x -> make_tyv_and_push_typed_expr_even_if_unit d x |> destructure d
+            |> function
             | (TyV(_, t & (UnionT _ | RecT _)) | TyT(t & (UnionT _ | RecT _))) as v ->
                 let make_up_vars_for_ty (l: Ty list): TypedExpr list = List.map (make_up_vars_for_ty d) l
                 let map_to_cases (l: TypedExpr list) = 
                     List.mapFold (fun s x -> 
-                        let x',s = assume d s x case
+                        let x',s = assume d case s x
                         (x,x'),s) (tev d s) l
 
                 let cases,state = case_type d t |> make_up_vars_for_ty |> map_to_cases
