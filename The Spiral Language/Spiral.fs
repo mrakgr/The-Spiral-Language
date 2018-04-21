@@ -1707,6 +1707,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | StringFormat,[a;b] -> string_format d a b
             | StringConcat,[a;b] -> string_concat d a b
             | Case,[v;case] -> case_ d v case
+            | CaseFoldLMap,[a;b;c] -> case_foldl_map d a b c
             | IfStatic,[cond;tr;fl] -> if_static d cond tr fl
             | While,[cond;body] -> while_ d cond body
             | JoinPointEntryMethod,[a] -> join_point_method d a
