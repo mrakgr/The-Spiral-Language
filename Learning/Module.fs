@@ -7,39 +7,48 @@ let serializer =
     (
     "Serializer",[tuple],"The Serializer module.",
     """
-inl rec template f x =
-    inl encode = template f
-    inl prod (i,s) x = 
-        inl i',s' = encode x
-        i + i' * s, s * s'
+inl Decoder =
+    inl rec decode f ty x =
+        match ty with
+        | x -> f x
+    ()
 
-    inl sum s x =
-        inl i',s' = encode x
-        s + i', s + s'
+inl Encoder =
+    inl rec template f x =
+        inl encode = template f
+        inl prod (i,s) x = 
+            inl i',s' = encode x
+            i + i' * s, s * s'
 
-    match x with
-    | x when caseable_box_is x -> case_foldl_map sum 0 x
-    | _ :: _ as x -> Tuple.foldl prod (0,1) x
-    | .(_) | () -> 0,1
-    | {!block} as x -> module_foldl (const prod) (0,1) x
-    | x -> f x
+        inl sum s x =
+            inl i',s' = encode x
+            s + i', s + s'
 
-inl assert_range r x =
-    inl {from near_to} = match r with {from near_to} -> r | near_to -> {from=0; near_to}
-    assert (x >= from) "x must be greater or equal to its lower bound."
-    assert (x < near_to) "x must be lesser than its lower bound."
-    x, near_to - from
+        match x with
+        | x when caseable_box_is x -> case_foldl_map sum 0 x
+        | _ :: _ as x -> Tuple.foldl prod (0,1) x
+        | .(_) | () -> 0,1
+        | {!block} as x -> module_foldl (const prod) (0,1) x
+        | x -> f x
 
-inl encode = template << assert_range
-inl span reward_range elem_type =
-    type Serializer.encode reward_range elem_type |> snd |> type_lit_lift
-    |> type_lit_cast
+    inl assert_range r x =
+        inl {from near_to} = match r with {from near_to} -> r | near_to -> {from=0; near_to}
+        assert (x >= from) "x must be greater or equal to its lower bound."
+        assert (x < near_to) "x must be lesser than its lower bound."
+        x, near_to - from
 
-{
-template 
-encode
-span
-} |> stackify
+    inl encode = template << assert_range
+    inl span reward_range elem_type =
+        type Serializer.encode reward_range elem_type |> snd |> type_lit_lift
+        |> type_lit_cast
+
+    {
+    template 
+    encode
+    span
+    } |> stackify
+
+{Encoder Decoder}
     """) |> module_
 
 let timer =
@@ -2189,11 +2198,25 @@ inl float ->
             Tuple.foldl_map (inl s x -> 
                 inl i, s' = Serializer.encode int_range x
                 s + i, s + s') 0 x 
-            |> inl i,size' ->
+            |> inl i,size' -> // TODO: This should be tensor based. I'll fix it later, but let me assume that it is for now.
                 assert (size = size') "The two sizes must match."
                 s.CudaTensor.one_hot {dim=1,size} i
 
         layer { name size map layer_type = .input }
+
+    inl rl_output {int_range elem_type cost} sublayer =
+        inl size = Serializer.span elem_type
+
+        inl weights s = {
+            input = initializer (sublayer.size, size) s |> dr s
+            bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+            }
+
+        feedforward
+            {
+            size sublayer weights
+            apply = inl weights input -> matmultb (input, weights.input) weights.bias >>= decode
+            }
 
     inl stateful layer_type {weights apply size sublayer} = 
         layer {
