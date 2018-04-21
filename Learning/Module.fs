@@ -2009,7 +2009,12 @@ inl float ->
     inl run x d s =
         layer_map_fold (inl {x with layer_type gid} d ->
             match layer_type with
-            | .input -> d.input x.name, d
+            | .input -> 
+                inl value = 
+                    match x with
+                    | {map} -> map (d.input x.name) s
+                    | _ -> d.input x.name
+                value, d
             | .stateless ->
                 inl value, bck = indiv join
                     inl a, b = x.apply x.sublayer s
@@ -2176,13 +2181,13 @@ inl float ->
         size
         }
 
-    inl rl_input {name reward_range elem_type} = 
-        inl size = Tuple.foldl (inl s x -> s + Serializer.span reward_range x) 0 elem_type
+    inl rl_input {name int_range elem_type} = 
+        inl size = Tuple.foldl (inl s x -> s + Serializer.span int_range x) 0 elem_type
 
         inl map x s = 
             assert (eq_type ty x) "The template type and the input type must be the same."
             Tuple.foldl_map (inl s x -> 
-                inl i, s' = Serializer.encode reward_range x
+                inl i, s' = Serializer.encode int_range x
                 s + i, s + s') 0 x 
             |> inl i,size' ->
                 assert (size = size') "The two sizes must match."
@@ -2797,16 +2802,15 @@ inl float ->
         Pass = {for sample Body} |> stackify
         } |> stackify
 
-    inl RL reward_range =
+    inl RL int_range =
         inl dq_net {state_type action_type} =
             inl net = 
-                open Feedforward.Layer
-                inl label = reward .label action_type
                 inl network =
-                    input .input state_type
-                    |> linear hidden_size 
+                    rl_input {name=.input; elem_type=state_type; int_range}
+                    |> Feedforward.Layer.linear hidden_size 
+                    |> rl_output {cost=Error.square; elem_type=action_type}
                     |> init s
-                error Error.square label network
+                ()
             ()
         
         {dq_net}
