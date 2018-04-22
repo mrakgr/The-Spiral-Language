@@ -94,20 +94,35 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
     """
 
 let encoder1 =
-    "encoder1",[serializer;option],"Does the one-hot encoder work?",
+    "encoder1",[serializer_one_hot;option],"Does the one-hot encoder work?",
     """
-inl a = Serializer.encode 2 (0,dyn 1,dyn 1)
-inl b = Serializer.encode 10 (Option.none int64)
-inl c = Serializer.encode 10 (Option.some 5)
+inl a = SerializerOneHot.encode 2 (0,dyn 1,dyn 1)
+inl b = SerializerOneHot.encode 10 (Option.none int64)
+inl c = SerializerOneHot.encode 10 (Option.some 5)
 ()
     """
 
 let encoder2 =
-    "encoder2",[serializer;option],"Does the one-hot encoder work for nesten union types?",
+    "encoder2",[serializer_one_hot;option],"Does the one-hot encoder work for nesten union types?",
     """
 inl Y = (.a,.123) \/ (.b,int64)
 inl y = box Y (.b,3)
-inl a = Serializer.encode 10 (dyn 1,Option.some y)
+inl a = SerializerOneHot.encode 10 (dyn 1,Option.some y)
+()
+    """
+
+let decoder1 =
+    "decoder1",[serializer_one_hot;option],"Does the one-hot decoder work?",
+    """
+inl a' = 0, dyn 1, dyn 1
+inl a = SerializerOneHot.encode 2 a'
+inl b' = Option.none int64
+inl b = SerializerOneHot.encode 10 b'
+inl c' = Option.some 5
+inl c = SerializerOneHot.encode 10 c'
+assert (a' = SerializerOneHot.decode a a') "a"
+assert (b' = SerializerOneHot.decode b b') "b"
+assert (c' = SerializerOneHot.decode c c') "c"
 ()
     """
 

@@ -3,12 +3,14 @@
 open Spiral.Types
 open Spiral.Lib
 
-let serializer =
+let serializer_one_hot =
     (
-    "Serializer",[tuple],"The Serializer module.",
+    "SerializerOneHot",[tuple],"The Serializer module.",
     """
-inl rec template f x =
-    inl encode = template f
+/// The functions here are used for transforming arbitrary types into the one-hot format.
+/// Useful in RL contexts since union types are not blittable.
+inl rec encode_template f x =
+    inl encode = encode_template f
     inl prod (i,s) x = 
         inl i',s' = encode x
         i + i' * s, s * s'
@@ -30,42 +32,56 @@ inl assert_range r x =
     assert (x < near_to) "x must be lesser than its lower bound."
     x, near_to - from
 
-inl encode = template << assert_range
+inl encode = encode_template << assert_range
 inl span reward_range elem_type =
     type Serializer.encode reward_range elem_type |> snd |> type_lit_lift
     |> type_lit_cast
 
-inl rec decode reward_range n x =
-    inl decode = decode reward_range
+inl rec decode_template f n x =
+    inl decode = decode_template f
     inl prod (n,s) x = 
         inl i,s' = decode n x
         i, (n / n', s * s')
 
     match x with
     | x when caseable_box_is x -> 
-        inl s = span reward_range x
-        inl box = box x
-        inl rec loop n (x :: x') =
-            inl s = span reward_range x
-            inl i _ = decode n x |> fst |> box
+        inl i, (_, s) = 
+            Tuple.foldl_map (inl (n,s) x ->
+                inl i, s' = decode n x
+                (i, s), (n - s', s + s')
+                ) (n, 0) (split x')
+        
+        inl rec loop n ((i,s) :: x') =
+            inl i _ = i () |> box x
             match x' with
-            | () -> i ()
+            | () -> i () 
             | _ -> if n < s then i () else loop (n - s) x'
 
-        loop (n % s) (split x), s
-    | _ :: _ -> Tuple.foldl_map prod (n,1) x |> inl a, (n, s) -> a, s
-    | .(_) | () -> x, 1
-    | {!block} -> module_foldl_map (const prod) (n,1) x |> inl a, (n, s) -> a, s
-    | _ -> 
-        inl s = span reward_range x
-        n % s, s
+        inl i _ = loop (n % s) i
+        i, s
+
+    inl module_foldl_map f s =
+        module_foldl (inl k (m,s) x ->
+            inl x = f s x
+            inl m = module_add k x m
+            m, x
+            ) ({}, s)
+
+    | _ :: _ -> Tuple.foldl_map prod (n,1) x |> inl a, (n, s) -> (inl _ -> Tuple.map (inl x -> x()) a), s
+    | .(_) | () -> const x, 1
+    | {!block} -> module_foldl_map (const prod) (n,1) x |> inl a, (n, s) -> (inl _ -> module_map (inl _ x -> x()) a), s
+    | _ -> f n x
+
+inl decode r = 
+    inl {from near_to} = match r with {from near_to} -> r | near_to -> {from=0; near_to}
+    inl s = near_to - from
+    decode_template (inl n (x: int64) -> (inl _ -> n % s), s)
 
 {
-template 
 encode
+decode
 span
 } |> stackify
-
     """) |> module_
 
 let timer =
@@ -1649,7 +1665,7 @@ inl size ret ->
 
 let learning =
     (
-    "Learning",[struct';extern_;serializer],"The deep learning module.",
+    "Learning",[struct';extern_;serializer_one_hot],"The deep learning module.",
     """
 inl float ->
     // #Primitives
@@ -2208,12 +2224,12 @@ inl float ->
         }
 
     inl rl_input {name int_range elem_type} = 
-        inl size = Tuple.foldl (inl s x -> s + Serializer.span int_range x) 0 elem_type
+        inl size = Tuple.foldl (inl s x -> s + SerializerOneHot.span int_range x) 0 elem_type
 
         inl map x s = 
             assert (eq_type ty x) "The template type and the input type must be the same."
             Tuple.foldl_map (inl s x -> 
-                inl i, s' = Serializer.encode int_range x
+                inl i, s' = SerializerOneHot.encode int_range x
                 s + i, s + s') 0 x 
             |> inl i,size' -> // TODO: This should be tensor based. I'll fix it later, but let me assume that it is for now.
                 assert (size = size') "The two sizes must match."
@@ -2222,7 +2238,7 @@ inl float ->
         layer { name size map layer_type = .input }
 
     inl rl_output {int_range elem_type cost} sublayer =
-        inl size = Serializer.span elem_type
+        inl size = SerializerOneHot.span elem_type
 
         inl weights s = {
             input = initializer (sublayer.size, size) s |> dr s
