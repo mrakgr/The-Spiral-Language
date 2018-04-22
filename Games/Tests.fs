@@ -143,3 +143,4 @@ test "j3" 5 (Option.some (box Q {a b c}))
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" decoder1
 |> printfn "%s"
 |> ignore
+
