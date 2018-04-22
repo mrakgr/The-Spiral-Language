@@ -5,7 +5,7 @@ open Spiral.Lib
 
 let serializer_one_hot =
     (
-    "SerializerOneHot",[tuple],"The Serializer module.",
+    "SerializerOneHot",[tuple;console],"The Serializer module.",
     """
 /// The functions here are used for transforming arbitrary types into the one-hot format.
 /// Useful in RL contexts since union types are not blittable.
@@ -29,27 +29,44 @@ inl rec encode_template f x =
 inl assert_range r x =
     inl {from near_to} = match r with {from near_to} -> r | near_to -> {from=0; near_to}
     assert (x >= from) "x must be greater or equal to its lower bound."
-    assert (x < near_to) "x must be lesser than its lower bound."
+    assert (x < near_to) "x must be lesser than its upper bound."
     x, near_to - from
 
-inl encode = encode_template << assert_range
 inl span reward_range elem_type =
-    type Serializer.encode reward_range elem_type |> snd |> type_lit_lift
+    type encode_template (assert_range reward_range) elem_type |> snd |> type_lit_lift
     |> type_lit_cast
+
+inl encode r = encode_template (assert_range r) >> fst
 
 inl rec decode_template f n x =
     inl decode = decode_template f
     inl prod (n,s) x = 
         inl i,s' = decode n x
-        i, (n / n', s * s')
+        i, (n / s', s * s')
+
+    inl module_foldl_map f s =
+        module_foldl (inl k (m,s) x ->
+            inl x = f s x
+            inl m = module_add k x m
+            m, x
+            ) ({}, s)
 
     match x with
     | x when caseable_box_is x -> 
         inl i, (_, s) = 
+            inl span =
+                type
+                    Tuple.foldl (inl s x ->
+                        inl _, s' = decode 0 x
+                        s + s'
+                        ) 0 (split x)
+                    |> type_lit_lift
+                |> type_lit_cast
+                
             Tuple.foldl_map (inl (n,s) x ->
                 inl i, s' = decode n x
-                (i, s), (n - s', s + s')
-                ) (n, 0) (split x')
+                (i, s'), (n - s', s + s')
+                ) (n % span, 0) (split x)
         
         inl rec loop n ((i,s) :: x') =
             inl i _ = i () |> box x
@@ -59,23 +76,15 @@ inl rec decode_template f n x =
 
         inl i _ = loop (n % s) i
         i, s
-
-    inl module_foldl_map f s =
-        module_foldl (inl k (m,s) x ->
-            inl x = f s x
-            inl m = module_add k x m
-            m, x
-            ) ({}, s)
-
     | _ :: _ -> Tuple.foldl_map prod (n,1) x |> inl a, (n, s) -> (inl _ -> Tuple.map (inl x -> x()) a), s
     | .(_) | () -> const x, 1
     | {!block} -> module_foldl_map (const prod) (n,1) x |> inl a, (n, s) -> (inl _ -> module_map (inl _ x -> x()) a), s
     | _ -> f n x
 
-inl decode r = 
+inl decode r a b = 
     inl {from near_to} = match r with {from near_to} -> r | near_to -> {from=0; near_to}
     inl s = near_to - from
-    decode_template (inl n (x: int64) -> (inl _ -> n % s), s)
+    decode_template (inl n (x: int64) -> (inl _ -> n % s), s) a b |> inl a,_ -> a()
 
 {
 encode
