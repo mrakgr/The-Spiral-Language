@@ -54,19 +54,10 @@ inl rec decode_template f n x =
     match x with
     | x when caseable_box_is x -> 
         inl i, (_, s) = 
-            inl span =
-                type
-                    Tuple.foldl (inl s x ->
-                        inl _, s' = decode 0 x
-                        s + s'
-                        ) 0 (split x)
-                    |> type_lit_lift
-                |> type_lit_cast
-                
             Tuple.foldl_map (inl (n,s) x ->
                 inl i, s' = decode n x
                 (i, s'), (n - s', s + s')
-                ) (n % span, 0) (split x)
+                ) (n, 0) (split x)
         
         inl rec loop n ((i,s) :: x') =
             inl i _ = i () |> box x
