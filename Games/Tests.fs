@@ -116,21 +116,22 @@ let decoder1 =
     """
 inl test msg r x' =
     inl x = SerializerOneHot.encode r x'
-    assert (x' = SerializerOneHot.decode r x x') msg
+    inl r = x' = SerializerOneHot.decode r x x'
+    assert r msg
 
-test "a" 2 (0, dyn 1, dyn 1)
-test "b" 10 (Option.none int64)
-test "c" 10 (Option.some 5)
+//test "a" 2 (0, dyn 1, dyn 1)
+//test "b" 10 (Option.none int64)
+//test "c" 10 (Option.some 5)
 
-inl Action = .Fold \/ .Call \/ (.Raise, int64)
-test "d" 10 (dyn 1,Option.some (box Action (.Raise,7)))
-test "e" 10 (dyn 1,Option.some (box Action .Call))
-test "g" 10 (dyn 1,Option.none Action)
+//inl Action = .Fold \/ .Call \/ (.Raise, int64)
+//test "d" 10 (dyn 1,Option.some (box Action (.Raise,7)))
+//test "e" 10 (dyn 1,Option.some (box Action .Call))
+//test "g" 10 (dyn 1,Option.none Action)
 
 inl Q = (int64,int64,int64) \/ (int64,int64) \/ int64
-test "h1" 5 (Option.some (box Q (3)))
-test "h2" 5 (Option.some (box Q (3,2)))
-test "h3" 5 (Option.some (box Q (3,2,1)))
+test "h1" 5 (join Option.some (box Q (3)))
+//test "h2" 5 (Option.some (box Q (3,2)))
+//test "h3" 5 (Option.some (box Q (3,2,1)))
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" decoder1
