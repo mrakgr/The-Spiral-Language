@@ -450,7 +450,8 @@ inl CUdeviceptr = FS.Constructor CUdeviceptr_type << SizeT
 inl ptr_cuda {ar offset} ret = ar.ptr() + to uint64 (offset * sizeof ar.elem_type) |> ret
 inl CUResult_ty = fs [text: "ManagedCuda.BasicTypes.CUResult"]
 inl assert_curesult res = macro.fs () [text: "if "; arg: res; text: " <> ManagedCuda.BasicTypes.CUResult.Success then raise <| new ManagedCuda.CudaException"; args: res]
-inl memcpy dst_ptr src_ptr size stream = macro.fs CUResult_ty [text: "ManagedCuda.DriverAPINativeMethods.AsynchronousMemcpy_v2.cuMemcpy"; args: CUdeviceptr dst_ptr, CUdeviceptr src_ptr, SizeT size, stream] |> assert_curesult
+//inl memcpy dst_ptr src_ptr size = macro.fs CUResult_ty [text: "ManagedCuda.DriverAPINativeMethods.SynchronousMemcpy_v2.cuMemcpy"; args: CUdeviceptr dst_ptr, CUdeviceptr src_ptr, SizeT size] |> assert_curesult
+inl memcpy_async dst_ptr src_ptr size stream = macro.fs CUResult_ty [text: "ManagedCuda.DriverAPINativeMethods.AsynchronousMemcpy_v2.cuMemcpyAsync"; args: CUdeviceptr dst_ptr, CUdeviceptr src_ptr, SizeT size, stream] |> assert_curesult
 
 inl GCHandle_ty = fs [text: "System.Runtime.InteropServices.GCHandle"]
 inl ptr_dotnet {ar offset} ret =
@@ -463,12 +464,12 @@ inl ptr_dotnet {ar offset} ret =
     r
 
 inl copy s span dst {src with ar size ptr_get} =
-    inl stream = s.stream.extract
+    inl stream = s.data.stream.extract
     inl elem_type = ar.elem_type 
     assert (blittable_is elem_type) "The host array type must be blittable."
     inl span_size = match size with () -> span | size :: _ -> span * size
     inb src = ptr_get src
-    inl memcpy dst = memcpy dst src (span_size * sizeof elem_type) stream
+    inl memcpy dst = memcpy_async dst src (span_size * sizeof elem_type) stream
     match dst with
     | {ar size=size' ptr_get} -> 
         assert (size' = size) "The source and the destination must have the same sizes."

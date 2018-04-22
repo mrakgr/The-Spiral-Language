@@ -817,11 +817,11 @@ let tests =
     random1
     blas1
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
-    learning10
+    learning10;learning11
     |]
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning11
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
 //|> printfn "%s"
 |> ignore
