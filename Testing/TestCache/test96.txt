@@ -183,6 +183,5 @@ let (var_9: int64) = 0L
 method_3((var_2: System.Text.StringBuilder), (var_9: int64))
 let (var_10: System.Text.StringBuilder) = var_2.AppendLine("|]")
 let (var_11: string) = var_2.ToString()
-let (var_12: string) = System.String.Format("{0}",var_11)
-System.Console.WriteLine(var_12)
+System.Console.WriteLine(var_11)
 

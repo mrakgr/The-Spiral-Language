@@ -134,7 +134,7 @@ test "h1" 5 (join Option.some (box Q (3)))
 //test "h3" 5 (Option.some (box Q (3,2,1)))
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" decoder1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" test111
 |> printfn "%s"
 |> ignore
 

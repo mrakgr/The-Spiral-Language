@@ -904,8 +904,7 @@ and method_22((var_0: Rec5)): unit =
         let (var_2: string) = var_1.mem_0
         let (var_3: Rec5) = var_1.mem_1
         method_22((var_3: Rec5))
-        let (var_4: string) = System.String.Format("{0}",var_2)
-        System.Console.WriteLine(var_4)
+        System.Console.WriteLine(var_2)
 and method_8((var_0: ((Union0 []) [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64)): Env1 =
     let (var_5: bool) = (var_4 < var_2)
     if var_5 then

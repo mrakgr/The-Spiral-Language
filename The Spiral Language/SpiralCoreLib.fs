@@ -215,14 +215,16 @@ inl (:>) a b = !UnsafeUpcastTo(b,a)
 /// Unsafe downcast. Unlike the F# compiler, Spiral won't check its correctness.
 inl (:?>) a b = !UnsafeDowncastTo(b,a)
 
-/// Structural polymorphic equality for every type in the language (apart from functions).
+/// Structural polymorphic equality for every type in the language (apart from functions.)
 inl (=) a b =
     inl rec (=) a b =
-        inl body = function
+        inl body a,b = 
+            match a,b with
             | .(a), .(b) -> a = b
             | a :: as', b :: bs -> a = b && as' = bs
             | {} & a, {} & b -> module_values a = module_values b
             | (), () -> true
+            | a, () -> false // Just in case `b` has not been `Case`d up to this point. This can happen for `(int64, int64) \/ int64` kind of types.
             | a, b when eq_type a b -> !EQ(a, b) // This repeat eq_type check is because unboxed union types might lead to variables of different types to be compared.
             | _ -> false
         if caseable_is a && caseable_is b then join (body (a, b) : true)
