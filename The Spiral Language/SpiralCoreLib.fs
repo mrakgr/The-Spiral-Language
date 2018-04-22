@@ -295,6 +295,14 @@ inl stackify = module_map (const stack) >> stack
 /// Case that folds a literal through its branches.
 inl case_foldl_map f s x = !CaseFoldLMap(f,s,x)
 
+/// Does a map operation over a module while threading state.
+inl module_foldl_map f s =
+    module_foldl (inl k (m,s) x ->
+        inl x, s = f k s x
+        inl m = module_add k x m
+        m, s
+        ) ({}, s)
+
 {
 type_lit_lift error_type print_static dyn (=>) cd fs log exp tanh sqrt array_create array_length array_is array
 split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
@@ -303,7 +311,7 @@ string char type_lit_cast type_lit_is term_cast to negate ignore id const ref (+
 string_length lit_is box_is failwith assert max min eq_type module_values caseable_is caseable_box_is (:>)
 (:?>) (=) module_map module_filter module_foldl module_foldr module_has_member sizeof string_format string_concat
 array_create_cuda_shared array_create_cuda_local infinityf64 infinityf32 abs blittable_is threadIdx blockIdx
-lit_min lit_max var module_add module_remove obj nan_is stackify case_foldl_map
+lit_min lit_max var module_add module_remove obj nan_is stackify case_foldl_map module_foldl_map
 }
 |> module_map (const stack)
     """) |> module_

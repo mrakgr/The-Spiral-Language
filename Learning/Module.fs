@@ -44,13 +44,6 @@ inl rec decode_template f n x =
         inl i,s' = decode n x
         i, (n / s', s * s')
 
-    inl module_foldl_map f s =
-        module_foldl (inl k (m,s) x ->
-            inl x = f s x
-            inl m = module_add k x m
-            m, x
-            ) ({}, s)
-
     match x with
     | x when caseable_box_is x -> 
         inl i, (_, s) = 

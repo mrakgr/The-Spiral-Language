@@ -132,6 +132,12 @@ inl Q = (int64,int64,int64) \/ (int64,int64) \/ int64
 test "h1" 5 (join Option.some (box Q (3)))
 test "h2" 5 (Option.some (box Q (3,2)))
 test "h3" 5 (Option.some (box Q (3,2,1)))
+
+inl Q = {a=int64; b=int64; c=int64} \/ {a=int64; b=int64} \/ {a=int64}
+inl a,b,c = 3,2,1
+test "j1" 5 (join Option.some (box Q {a}))
+test "j2" 5 (Option.some (box Q {a b}))
+test "j3" 5 (Option.some (box Q {a b c}))
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" decoder1
