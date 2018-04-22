@@ -10,7 +10,7 @@ let serializer =
 inl Decoder =
     inl rec decode f n x =
         inl decode = decode f
-        inl sum ty (n,s) x =
+        inl sum ty (n,s) x = // TODO: Fix this.
             inl i, s' = decode n x
             box ty i, (n - n', s + s')
         inl prod (n,s) x = 
