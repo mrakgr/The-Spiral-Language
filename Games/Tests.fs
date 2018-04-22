@@ -93,8 +93,8 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
     }
     """
 
-let encoder1 =
-    "encoder1",[serializer_one_hot;option],"Does the one-hot encoder work?",
+let serializer1 =
+    "serializer1",[serializer_one_hot;option],"Does the one-hot encoder work?",
     """
 inl a = SerializerOneHot.encode 2 (0,dyn 1,dyn 1)
 inl b = SerializerOneHot.encode 10 (Option.none int64)
@@ -102,8 +102,8 @@ inl c = SerializerOneHot.encode 10 (Option.some 5)
 ()
     """
 
-let encoder2 =
-    "encoder2",[serializer_one_hot;option],"Does the one-hot encoder work for nesten union types?",
+let serializer2 =
+    "serializer2",[serializer_one_hot;option],"Does the one-hot encoder work for nesten union types?",
     """
 inl Y = (.a,.123) \/ (.b,int64)
 inl y = box Y (.b,3)
@@ -111,8 +111,8 @@ inl a = SerializerOneHot.encode 10 (dyn 1,Option.some y)
 ()
     """
 
-let decoder1 =
-    "decoder1",[serializer_one_hot;option],"Does the one-hot decoder work?",
+let serializer3 =
+    "serializer3",[serializer_one_hot;option],"Does the one-hot decoder work?",
     """
 inl test msg r x' =
     inl x = SerializerOneHot.encode r x'
@@ -140,7 +140,7 @@ test "j2" 5 (Option.some (box Q {a b}))
 test "j3" 5 (Option.some (box Q {a b c}))
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" decoder1
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer3
 |> printfn "%s"
 |> ignore
 
