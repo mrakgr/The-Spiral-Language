@@ -7,61 +7,65 @@ let serializer =
     (
     "Serializer",[tuple],"The Serializer module.",
     """
-inl Decoder =
-    inl rec decode f n x =
-        inl decode = decode f
-        inl sum ty (n,s) x = // TODO: Fix this.
-            inl i, s' = decode n x
-            box ty i, (n - n', s + s')
-        inl prod (n,s) x = 
-            inl i,s' = decode n x
-            i, (n / n', s * s')
+inl rec template f x =
+    inl encode = template f
+    inl prod (i,s) x = 
+        inl i',s' = encode x
+        i + i' * s, s * s'
 
-        match x with
-        | x when caseable_box_is x -> case_foldl_map (sum x) (n,0) x |> inl a, (n, s) -> a, s
-        | _ :: _ -> Tuple.foldl_map prod (n,1) x |> inl a, (n, s) -> a, s
-        | .(_) | () -> x, 1
-        | {!block} -> module_foldl_map (const prod) (n,1) x |> inl a, (n, s) -> a, s
-        | _ -> f x
+    inl sum s x =
+        inl i',s' = encode x
+        s + i', s + s'
 
-    ()
+    match x with
+    | x when caseable_box_is x -> case_foldl_map sum 0 x
+    | _ :: _ as x -> Tuple.foldl prod (0,1) x
+    | .(_) | () -> 0,1
+    | {!block} as x -> module_foldl (const prod) (0,1) x
+    | x -> f x
 
-inl Encoder =
-    inl rec template f x =
-        inl encode = template f
-        inl prod (i,s) x = 
-            inl i',s' = encode x
-            i + i' * s, s * s'
+inl assert_range r x =
+    inl {from near_to} = match r with {from near_to} -> r | near_to -> {from=0; near_to}
+    assert (x >= from) "x must be greater or equal to its lower bound."
+    assert (x < near_to) "x must be lesser than its lower bound."
+    x, near_to - from
 
-        inl sum s x =
-            inl i',s' = encode x
-            s + i', s + s'
+inl encode = template << assert_range
+inl span reward_range elem_type =
+    type Serializer.encode reward_range elem_type |> snd |> type_lit_lift
+    |> type_lit_cast
 
-        match x with
-        | x when caseable_box_is x -> case_foldl_map sum 0 x
-        | _ :: _ as x -> Tuple.foldl prod (0,1) x
-        | .(_) | () -> 0,1
-        | {!block} as x -> module_foldl (const prod) (0,1) x
-        | x -> f x
+inl rec decode reward_range n x =
+    inl decode = decode reward_range
+    inl prod (n,s) x = 
+        inl i,s' = decode n x
+        i, (n / n', s * s')
 
-    inl assert_range r x =
-        inl {from near_to} = match r with {from near_to} -> r | near_to -> {from=0; near_to}
-        assert (x >= from) "x must be greater or equal to its lower bound."
-        assert (x < near_to) "x must be lesser than its lower bound."
-        x, near_to - from
+    match x with
+    | x when caseable_box_is x -> 
+        inl s = span reward_range x
+        inl box = box x
+        inl rec loop n (x :: x') =
+            inl s = span reward_range x
+            inl i _ = decode n x |> fst |> box
+            match x' with
+            | () -> i ()
+            | _ -> if n < s then i () else loop (n - s) x'
 
-    inl encode = template << assert_range
-    inl span reward_range elem_type =
-        type Serializer.encode reward_range elem_type |> snd |> type_lit_lift
-        |> type_lit_cast
+        loop (n % s) (split x), s
+    | _ :: _ -> Tuple.foldl_map prod (n,1) x |> inl a, (n, s) -> a, s
+    | .(_) | () -> x, 1
+    | {!block} -> module_foldl_map (const prod) (n,1) x |> inl a, (n, s) -> a, s
+    | _ -> 
+        inl s = span reward_range x
+        n % s, s
 
-    {
-    template 
-    encode
-    span
-    } |> stackify
+{
+template 
+encode
+span
+} |> stackify
 
-{Encoder Decoder}
     """) |> module_
 
 let timer =
