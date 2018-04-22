@@ -450,7 +450,7 @@ inl CUdeviceptr = FS.Constructor CUdeviceptr_type << SizeT
 inl ptr_cuda {ar offset} ret = ar.ptr() + to uint64 (offset * sizeof ar.elem_type) |> ret
 inl CUResult_ty = fs [text: "ManagedCuda.BasicTypes.CUResult"]
 inl assert_curesult res = macro.fs () [text: "if "; arg: res; text: " <> ManagedCuda.BasicTypes.CUResult.Success then raise <| new ManagedCuda.CudaException"; args: res]
-inl memcpy dst_ptr src_ptr size = macro.fs CUResult_ty [text: "ManagedCuda.DriverAPINativeMethods.SynchronousMemcpy_v2.cuMemcpy"; args: CUdeviceptr dst_ptr, CUdeviceptr src_ptr, SizeT size] |> assert_curesult
+inl memcpy dst_ptr src_ptr size stream = macro.fs CUResult_ty [text: "ManagedCuda.DriverAPINativeMethods.AsynchronousMemcpy_v2.cuMemcpy"; args: CUdeviceptr dst_ptr, CUdeviceptr src_ptr, SizeT size, stream] |> assert_curesult
 
 inl GCHandle_ty = fs [text: "System.Runtime.InteropServices.GCHandle"]
 inl ptr_dotnet {ar offset} ret =
@@ -462,12 +462,13 @@ inl ptr_dotnet {ar offset} ret =
     macro.fs () [arg: handle; text: ".Free()"]
     r
 
-inl copy span dst {src with ar size ptr_get} =
+inl copy s span dst {src with ar size ptr_get} =
+    inl stream = s.stream.extract
     inl elem_type = ar.elem_type 
     assert (blittable_is elem_type) "The host array type must be blittable."
     inl span_size = match size with () -> span | size :: _ -> span * size
     inb src = ptr_get src
-    inl memcpy dst = memcpy dst src (span_size * sizeof elem_type)
+    inl memcpy dst = memcpy dst src (span_size * sizeof elem_type) stream
     match dst with
     | {ar size=size' ptr_get} -> 
         assert (size' = size) "The source and the destination must have the same sizes."
@@ -485,11 +486,6 @@ inl transfer_template f tns =
     inl f = f tns.span_outer
     tns.update_body <| inl body -> {body with ar = f body; offset = 0}
 
-met set_elem (!dyn {dst with size=()}) (!dyn v) =
-    inl ar = array_create v 1
-    ar 0 <- v
-    copy 1 {dst with ptr_get=ptr_cuda} {ar size=(); offset=0; ptr_get=ptr_dotnet}
-
 inl array_create_cuda_global s elem_type len =
     inl ptr = join s.RegionMem.allocate (len * sizeof elem_type)
     inl elem_type = stack {value = elem_type}
@@ -499,28 +495,34 @@ inl array_create_cuda_global s elem_type len =
 
 inl clear' s x = s.CudaTensor.clear x; x
 
-met to_host_array _ (!dyn span) (!dyn {src with ar offset size}) =
-    copy span {array_create ptr_get=ptr_dotnet} {src with ptr_get=ptr_cuda}
+met to_host_array s (!dyn span) (!dyn {src with ar offset size}) =
+    copy s span {array_create ptr_get=ptr_dotnet} {src with ptr_get=ptr_cuda}
 
-inl get_elem {src with size=()} = to_host_array () 1 src 0
+met from_host_array s (!dyn span) (!dyn {src with ar offset size}) =
+    copy s span {array_create=array_create_cuda_global s; ptr_get=ptr_cuda} {src with ptr_get=ptr_dotnet}
+
+inl get_elem s {src with size=()} = to_host_array s 1 src 0
+
+met set_elem s (!dyn {dst with size=()}) (!dyn v) =
+    inl ar = array_create v 1
+    ar 0 <- v
+    copy s 1 {dst with ptr_get=ptr_cuda} {ar size=(); offset=0; ptr_get=ptr_dotnet}
 
 inl methods = 
     {
     create=inl s data -> create {data with array_create = array_create_cuda_global s}
     create_like=inl s tns -> s.CudaTensor.create {elem_type=tns.elem_type; dim=tns.dim}
 
-    to_host_array
-    from_host_array=met s (!dyn span) (!dyn {src with ar offset size}) ->
-        copy span {array_create=array_create_cuda_global s; ptr_get=ptr_cuda} {src with ptr_get=ptr_dotnet}
+    to_host_array from_host_array
 
-    get=inl _ tns ->
+    get=inl s tns ->
         match tns.unwrap with
-        | {bodies dim=()} -> Struct.map get_elem bodies
+        | {bodies dim=()} -> Struct.map (get_elem s) bodies
         | _ -> error_type "Cannot get from tensor whose dimensions have not been applied completely."
 
-    set=inl _ tns v ->
+    set=inl s tns v ->
         match tns.unwrap with
-        | {bodies dim=()} -> Struct.iter2 set_elem bodies v
+        | {bodies dim=()} -> Struct.iter2 (set_elem s) bodies v
         | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
 
     from_host_tensor=inl s -> transfer_template s.CudaTensor.from_host_array
