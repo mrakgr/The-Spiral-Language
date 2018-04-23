@@ -2816,5 +2816,7 @@ inl float ->
         Pass = {for sample Body} |> stackify
         } |> stackify
 
+    inl RL = ()
+
     { dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent }
     """) |> module_
