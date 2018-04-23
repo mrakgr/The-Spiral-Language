@@ -1755,7 +1755,7 @@ inl float ->
         } |> stack
 
     // #Operations
-    inl apply_bck bck bck' x = bck' >> bck
+    inl apply_bck = (<<)
 
     inl (>>=) a b s =
         inl a,a_bck = a s
@@ -2045,27 +2045,24 @@ inl float ->
 
     inl run x d s =
         layer_map_fold (inl {x with layer_type gid} d ->
+            inl ret a, b = 
+                inl i = match x with {bck_type} -> bck_type | _ -> ()
+                stack (a, term_cast b i)
             match layer_type with
             | .input -> d.input x.name, d
             | .stateless ->
-                inl value, bck = indiv join
-                    inl a, b = x.apply x.sublayer s
-                    stack (a, term_cast b ())
+                inl value, bck = indiv join x.apply x.sublayer s |> ret
                 value, {d with bck = apply_bck self bck}
             | .non_differentiable ->
                 inl value = indiv join x.apply x.sublayer s |> stack
                 value, d
             | .parallel -> x.sublayer, d
             | .feedforward ->
-                inl value, bck = indiv join
-                    inl a, b = x.apply (x.weights()) x.sublayer s
-                    stack (a, term_cast b ())
+                inl value, bck = indiv join x.apply (x.weights()) x.sublayer s |> ret
                 value, {d with bck = apply_bck self bck}
             | .recurrent ->
                 inl state = match d.state with {$gid=state} -> state | _ -> ()
-                inl (value, state), bck = indiv join
-                    inl a, b = x.apply (x.weights()) state x.sublayer s
-                    stack (a, term_cast b ())
+                inl (value, state), bck = indiv join x.apply (x.weights()) state x.sublayer s |> ret
                 value, {d with bck = apply_bck self bck; state = {self with $gid=state}}
             ) x d
 
@@ -2085,31 +2082,24 @@ inl float ->
                         | {stream=x} -> stream.wait_on x; x
                         | _ -> ()) x.sublayer
 
-                inl wait_bck b =
-                    inl b _ =
-                        b ()
-                        Struct.iter (inl x -> x.wait_on stream) streams
-                    term_cast b ()
+                inl ret a, b =
+                    inl b x = b x; Struct.iter (inl x -> x.wait_on stream) streams
+                    inl i = match x with {bck_type} -> bck_type | _ -> ()
+                    stack (a, term_cast b i)
 
                 match layer_type with
                 | .stateless ->
-                    inl value, bck = indiv join
-                        inl a, b = x.apply values s
-                        stack (a, wait_bck b)
+                    inl value, bck = indiv join x.apply values s |> ret
                     {value stream block=()}, {d with bck = apply_bck self bck}
                 | .non_differentiable ->
                     inl value = indiv join x.apply values s |> stack
                     {value stream block=()}, d
                 | .feedforward ->
-                    inl value, bck = indiv join
-                        inl a, b = x.apply (x.weights()) values s
-                        stack (a, wait_bck b)
+                    inl value, bck = indiv join x.apply (x.weights()) values s |> ret
                     {value stream block=()}, {d with bck = apply_bck self bck}
                 | .recurrent ->
                     inl state = match d.state with {$gid=state} -> state | _ -> ()
-                    inl (value, state), bck = indiv join
-                        inl a, b = x.apply (x.weights()) state values s
-                        stack (a, wait_bck b)
+                    inl (value, state), bck = indiv join x.apply (x.weights()) state values s |> ret
                     {value stream block=()}, {d with bck = apply_bck self bck; state = {self with $gid=state}}
                 ) x d
         |> inl x, d -> Struct.map (inl {value} -> value) x, d
@@ -2834,7 +2824,7 @@ inl float ->
                     ) 0 i
                 |> one_hot_tensor
             inl x,{bck} = run net {input={input=i}; bck=const()} s
-            inl action = SerializerOneHot.decode reward_range x action_type
+            inl action = SerializerOneHot.decode reward_range (s.CudaTensor.get x) action_type
             action, bck
         ()
 
