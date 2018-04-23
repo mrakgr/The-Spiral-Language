@@ -2045,9 +2045,7 @@ inl float ->
 
     inl run x d s =
         layer_map_fold (inl {x with layer_type gid} d ->
-            inl ret a, b = 
-                inl i = match x with {bck_type} -> bck_type | _ -> ()
-                stack (a, term_cast b i)
+            inl ret a, b = stack (a, term_cast b ())
             match layer_type with
             | .input -> d.input x.name, d
             | .stateless ->
@@ -2059,6 +2057,11 @@ inl float ->
             | .parallel -> x.sublayer, d
             | .feedforward ->
                 inl value, bck = indiv join x.apply (x.weights()) x.sublayer s |> ret
+                value, {d with bck = apply_bck self bck}
+            | .action ->
+                inl value, bck = indiv join 
+                    inl (v,a),b = x.apply (x.weights()) x.sublayer s
+                    stack ((v,a), term_cast b v)
                 value, {d with bck = apply_bck self bck}
             | .recurrent ->
                 inl state = match d.state with {$gid=state} -> state | _ -> ()
@@ -2082,10 +2085,8 @@ inl float ->
                         | {stream=x} -> stream.wait_on x; x
                         | _ -> ()) x.sublayer
 
-                inl ret a, b =
-                    inl b x = b x; Struct.iter (inl x -> x.wait_on stream) streams
-                    inl i = match x with {bck_type} -> bck_type | _ -> ()
-                    stack (a, term_cast b i)
+                inl wait_bck b x = b x; Struct.iter (inl x -> x.wait_on stream) streams
+                inl ret a, b = stack (a, term_cast (wait_bck b) ())
 
                 match layer_type with
                 | .stateless ->
@@ -2096,6 +2097,11 @@ inl float ->
                     {value stream block=()}, d
                 | .feedforward ->
                     inl value, bck = indiv join x.apply (x.weights()) values s |> ret
+                    {value stream block=()}, {d with bck = apply_bck self bck}
+                | .action ->
+                    inl value, bck = indiv join 
+                        inl (v,a),b = x.apply (x.weights()) values s
+                        stack ((v,a), term_cast (wait_bck b) v)
                     {value stream block=()}, {d with bck = apply_bck self bck}
                 | .recurrent ->
                     inl state = match d.state with {$gid=state} -> state | _ -> ()
