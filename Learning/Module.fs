@@ -2806,6 +2806,26 @@ inl float ->
         } |> stackify
 
     inl RL = 
+        inl greedy_square sublayer =
+            layer {
+                layer_type = .action
+                size=1
+                sublayer
+                weights = const ()
+                apply = inl w x s ->
+                    inl v,a =
+                        s.CudaKernel.mapi_d1_redo_map {
+                            mapi_in=inl j i a _ -> a, i
+                            neutral_elem=-infinityf32,-1
+                            redo=inl a b -> if fst a > fst b then a else b
+                            } x ()
+                        |> HostTensor.unzip
+                    inl bck reward =
+                        assert (reward.elem_type = float) "The type of the reward tensor must be the default float."
+                        ()
+                    (v,a),bck
+                }
+
         inl init {reward_range state_type action_type} k s =
             inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span reward_range x) 0
             inl state_size = size state_type

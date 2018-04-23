@@ -202,7 +202,7 @@ Tuple.iter s.CudaTensor.print (a1,a2,o)
     """
 
 let kernel5 =
-    "kernel5",[cuda_modules],"Does the mapi_d1_redo_map' kernel work?",
+    "kernel5",[cuda_modules],"Does the mapi_d1_redo_map kernel work?",
     """
 inb s = CudaModules (1024*1024)
 
