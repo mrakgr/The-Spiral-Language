@@ -140,6 +140,15 @@ test "j2" 5 (Option.some (box Q {a b}))
 test "j3" 5 (Option.some (box Q {a b c}))
     """
 
+let serializer4 =
+    "serializer4",[serializer_one_hot;option],"Do serialization functions work on the GPU?",
+    """
+inl Action = .Fold \/ .Call \/ (.Raise, int64)
+inl encode = SerializerOneHot.encode 10
+inl x = (.Raise, 7) |> box Action |> Option.some |> dyn |> encode
+()
+    """
+
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer3
 |> printfn "%s"
 |> ignore

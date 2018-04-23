@@ -2047,12 +2047,7 @@ inl float ->
     inl run x d s =
         layer_map_fold (inl {x with layer_type gid} d ->
             match layer_type with
-            | .input -> 
-                inl value = 
-                    match x with
-                    | {map} -> map (d.input x.name) s
-                    | _ -> d.input x.name
-                value, d
+            | .input -> d.input x.name, d
             | .stateless ->
                 inl value, bck = indiv join
                     inl a, b = x.apply x.sublayer s
@@ -2080,12 +2075,7 @@ inl float ->
     inl run_parallel x d s =
         layer_map_fold (inl {x with layer_type gid} d ->
             match layer_type with
-            | .input -> 
-                inl value = 
-                    match x with
-                    | {map} -> map (d.input x.name) s
-                    | _ -> d.input x.name
-                {value stream=s.data.stream; block=()}, d
+            | .input -> {value=d.input x.name; stream=s.data.stream; block=()}, d
             | .parallel -> x.sublayer, d
             | _ ->
                 inl stream = x.stream
@@ -2218,34 +2208,6 @@ inl float ->
         name
         size
         }
-
-    inl rl_input {name int_range elem_type} = 
-        inl size = Tuple.foldl (inl s x -> s + SerializerOneHot.span int_range x) 0 elem_type
-
-        inl map x s = 
-            assert (eq_type ty x) "The template type and the input type must be the same."
-            Tuple.foldl_map (inl s x -> 
-                inl i, s' = SerializerOneHot.encode int_range x
-                s + i, s + s') 0 x 
-            |> inl i,size' -> // TODO: This should be tensor based. I'll fix it later, but let me assume that it is for now.
-                assert (size = size') "The two sizes must match."
-                s.CudaTensor.one_hot {dim=1,size} i
-
-        layer { name size map layer_type = .input }
-
-    inl rl_output {int_range elem_type cost} sublayer =
-        inl size = SerializerOneHot.span elem_type
-
-        inl weights s = {
-            input = initializer (sublayer.size, size) s |> dr s
-            bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-            }
-
-        feedforward
-            {
-            size sublayer weights
-            apply = inl weights input -> matmultb (input, weights.input) weights.bias >>= decode
-            }
 
     inl stateful layer_type {weights apply size sublayer} = 
         layer {
@@ -2853,19 +2815,6 @@ inl float ->
         Layer = {Layer with init init_parallel layer sigmoid linear lstm mi miln} |> stackify
         Pass = {for sample Body} |> stackify
         } |> stackify
-
-    inl RL int_range =
-        inl dq_net {state_type action_type} =
-            inl net = 
-                inl network =
-                    rl_input {name=.input; elem_type=state_type; int_range}
-                    |> Feedforward.Layer.linear hidden_size 
-                    |> rl_output {cost=Error.square; elem_type=action_type}
-                    |> init s
-                ()
-            ()
-        
-        {dq_net}
 
     { dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent }
     """) |> module_
