@@ -140,20 +140,30 @@ test "j2" 5 (Option.some (box Q {a b}))
 test "j3" 5 (Option.some (box Q {a b c}))
     """
 
-//let serializer4 =
-//    "serializer4",[serializer_one_hot;option],"Do serialization functions work on the GPU?",
-//    """
-//inl Action = .Fold \/ .Call \/ (.Raise, int64)
-//inl encode = SerializerOneHot.encode 10
-//inl x = (.Raise, 7) |> box Action |> Option.some |> dyn |> encode
-//()
-//    """
-
 let serializer4 =
-    "serializer4",[serializer_one_hot;option],"Does init function work?",
+    "serializer4",[serializer_one_hot;option],"Does greedy square selector function work?",
     """
 inb s = CudaModules (1024*1024)
-inl init l,s = s.CudaKernel.init {dim=1,s} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
+
+inl selector_greedy_square x s =
+    inl v,a =
+        s.CudaKernel.mapi_d1_redo_map {
+            mapi_in=inl j i a _ -> a, i
+            neutral_elem=-infinityf32,-1
+            redo=inl a b -> if fst a > fst b then a else b
+            } x ()
+        |> HostTensor.unzip
+
+    inl {adjoint} as v = dr s v
+
+    (v, a), inl _ ->
+        inl a, adjoint = Tuple.map s.CudaTensor.to_dev_tensor (a, adjoint)
+        s.CudaKernel.init' (inl j ->
+            inl a, adjoint = Tuple.map (inl x -> x j) (a, adjoint)
+            inl i x -> if i = a then x + adjoint else x
+            ) (adjoint x)
+
+()
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer4

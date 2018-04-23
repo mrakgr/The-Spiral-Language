@@ -1618,7 +1618,7 @@ met init' w d f out =
                 inl rec loop f out = function
                     | {thread_limit=()} :: d', i :: i' -> loop (f i) (out i) (d', i')
                     | {thread_limit=by dim={near_to}} :: d', from :: i' -> forcd {from by near_to body=inl {i} -> loop (f i) (out i) (d',i')}
-                    | (), () -> out.set f
+                    | (), () -> out.set (f out.get)
                 loop f out (d,l)
                 }
         }
@@ -1627,6 +1627,11 @@ inl init w {d with dim} f =
     indiv join
         inl dim = Tuple.wrap dim
         inl elem_type = type Tuple.foldl (inl f _ -> f (dyn 0)) f dim
+        inl f = // Shifts the arguments one to the left.
+            inl rec loop f = function
+                | _ :: x' -> inl x -> loop (f x) x'
+                | _ -> inl _ -> f
+            loop f (type dim)
         inl out = w.CudaTensor.create {dim elem_type}
         init' w d f out
         stack out
@@ -2819,13 +2824,7 @@ inl float ->
                 sublayer
                 weights = const ()
                 apply = inl w x s ->
-                    inl v,a =
-                        s.CudaKernel.mapi_d1_redo_map {
-                            mapi_in=inl j i a _ -> a, i
-                            neutral_elem=-infinityf32,-1
-                            redo=inl a b -> if fst a > fst b then a else b
-                            } x ()
-                        |> HostTensor.unzip
+                    inl v,a = selector_greedy_square // Is unfinished
                     inl bck reward =
                         assert (reward.elem_type = float) "The type of the reward tensor must be the default float."
                         ()
