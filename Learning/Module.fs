@@ -2815,6 +2815,7 @@ inl float ->
             inl output = Feedforward.Layer.linear action_size |> action_selector
             k input output |> init s
 
+        /// For online learning.
         inl action {reward_range state_type action_type net} i s =
             assert (eq_type state_type i) "The input must be equal to the state type."
             inl i = 
@@ -2822,8 +2823,8 @@ inl float ->
                     inl i, s' = SerializerOneHot.encode' reward_range x
                     s + i, s + s'
                     ) 0 i
-                |> one_hot_tensor
-            inl x,{bck} = run net {input={input=i}; bck=const()} s
+                |> inl l,size -> s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
+            inl x,{bck} = run net {input={input}; bck=const()} s
             inl action = SerializerOneHot.decode reward_range (s.CudaTensor.get x) action_type
             action, bck
         ()

@@ -140,16 +140,23 @@ test "j2" 5 (Option.some (box Q {a b}))
 test "j3" 5 (Option.some (box Q {a b c}))
     """
 
+//let serializer4 =
+//    "serializer4",[serializer_one_hot;option],"Do serialization functions work on the GPU?",
+//    """
+//inl Action = .Fold \/ .Call \/ (.Raise, int64)
+//inl encode = SerializerOneHot.encode 10
+//inl x = (.Raise, 7) |> box Action |> Option.some |> dyn |> encode
+//()
+//    """
+
 let serializer4 =
-    "serializer4",[serializer_one_hot;option],"Do serialization functions work on the GPU?",
+    "serializer4",[serializer_one_hot;option],"Does init function work?",
     """
-inl Action = .Fold \/ .Call \/ (.Raise, int64)
-inl encode = SerializerOneHot.encode 10
-inl x = (.Raise, 7) |> box Action |> Option.some |> dyn |> encode
-()
+inb s = CudaModules (1024*1024)
+inl init l,s = s.CudaKernel.init {dim=1,s} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer3
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer4
 |> printfn "%s"
 |> ignore
 
