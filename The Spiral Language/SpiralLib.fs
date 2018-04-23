@@ -1087,7 +1087,7 @@ inl foldl2 f s a b =
         | (), () -> ()
         | (), _ | _, () -> error_type "Tuple dimensions do not match."
         | {!block} & x, {!block} & y -> module_foldl (inl k s x -> loop s (x,y k)) s x
-        | x, y -> f x y
+        | x, y -> f s x y
     loop s (a,b)
 
 inl foldl3 f s a b c = 
@@ -1097,7 +1097,7 @@ inl foldl3 f s a b c =
         | (), (), () -> ()
         | (), _, _ | _, (), _ | _, _, () -> error_type "Tuple dimensions do not match."
         | {!block} & x, {!block} & y, {!block} & z -> module_foldl (inl k s x -> loop s (x,y k,z k)) s x
-        | x, y, z -> f x y z
+        | x, y, z -> f s x y z
     loop s (a,b,c)
 
 inl choose f x = 
@@ -1153,8 +1153,58 @@ inl choose3 f a b c =
         | x, y, z -> f x y z
     loop (a,b,c)
 
+inl foldl_map f s x = 
+    inl rec loop s = function
+        | x when caseable_box_is x -> f s x
+        | () -> (), s
+        | x :: xs -> 
+            inl x, s = loop s x
+            x :: loop s xs
+        | {!block} & x -> 
+            module_foldl (inl k s v -> 
+                inl x, s = loop s v
+                inl m = module_add k x m
+                m, s
+                ) ({},s) x
+        | x -> f s x
+    loop s x
+
+inl foldl2_map f s a b = 
+    inl rec loop s = function
+        | x, y when caseable_box_is x || caseable_box_is y -> f s x y
+        | x :: xs, y :: ys -> 
+            inl x, s = loop s (x,y)
+            x :: loop s (xs,ys)
+        | (), () -> (), s
+        | (), _ | _, () -> error_type "Tuple dimensions do not match."
+        | {!block} & x, {!block} & y -> 
+            module_foldl (inl k s v -> 
+                inl x, s = loop s (v, y k)
+                inl m = module_add k x m
+                m, s
+                ) ({},s) x
+        | x, y -> f s x y
+    loop s (a,b)
+
+inl foldl3_map f s a b c = 
+    inl rec loop s = function
+        | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f s x y z
+        | x :: xs, y :: ys, z :: zs -> 
+            inl x, s = loop s (x,y,z)
+            x :: loop s (xs,ys,zs)
+        | (), (), () -> (), s
+        | (), _, _ | _, (), _ | _, _, () -> error_type "Tuple dimensions do not match."
+        | {!block} & x, {!block} & y, {!block} & z ->
+            module_foldl (inl k s v -> 
+                inl x, s = loop s (v, y k, z k)
+                inl m = module_add k x m
+                m, s
+                ) ({},s) x
+        | x, y, z -> f s x y z
+    loop s (a,b,c)
+
 {
-map map2 map3 iter iter2 iter3 foldl foldl2 foldl3 choose choose2 choose3
+map map2 map3 iter iter2 iter3 foldl foldl2 foldl3 choose choose2 choose3 foldl_map foldl2_map foldl3_map
 } |> stackify
     """) |> module_
 

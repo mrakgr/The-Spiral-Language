@@ -2807,7 +2807,7 @@ inl float ->
 
     inl RL = 
         inl init {reward_range state_type action_type} k s =
-            inl size = Tuple.foldl (inl s x -> s + SerializerOneHot.span reward_range x) 0
+            inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span reward_range x) 0
             inl state_size = size state_type
             inl action_size = size action_type
 
