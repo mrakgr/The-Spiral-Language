@@ -36,7 +36,8 @@ inl span reward_range elem_type =
     type encode_template (assert_range reward_range) elem_type |> snd |> type_lit_lift
     |> type_lit_cast
 
-inl encode r = encode_template (assert_range r) >> fst
+inl encode' r = encode_template (assert_range r)
+inl encode r = encode' r >> fst
 
 inl rec decode_template f n x =
     inl decode = decode_template f
@@ -65,16 +66,14 @@ inl rec decode_template f n x =
     | {!block} -> module_foldl_map (const prod) (n,1) x |> inl a, (n, s) -> (inl _ -> module_map (inl _ x -> x()) a), s
     | _ -> f n x
 
-inl decode r a b = 
+inl decode' r a b = 
     inl {from near_to} = match r with {from near_to} -> r | near_to -> {from=0; near_to}
     inl s = near_to - from
-    decode_template (inl n (x: int64) -> (inl _ -> n % s), s) a b |> inl a,_ -> a()
+    decode_template (inl n (x: int64) -> (inl _ -> n % s), s) a b |> inl a,b -> a(), b
 
-{
-encode
-decode
-span
-} |> stackify
+inl decode r a b = decode' r a b |> fst
+
+{ encode' encode decode' decode span } |> stackify
     """) |> module_
 
 let timer =
@@ -1756,7 +1755,7 @@ inl float ->
         } |> stack
 
     // #Operations
-    inl apply_bck bck bck' _ = bck'(); bck()
+    inl apply_bck bck bck' x = bck' >> bck
 
     inl (>>=) a b s =
         inl a,a_bck = a s
@@ -2816,7 +2815,28 @@ inl float ->
         Pass = {for sample Body} |> stackify
         } |> stackify
 
-    inl RL = ()
+    inl RL = 
+        inl init {reward_range state_type action_type} k s =
+            inl size = Tuple.foldl (inl s x -> s + SerializerOneHot.span reward_range x) 0
+            inl state_size = size state_type
+            inl action_size = size action_type
+
+            inl input = input .input state_size
+            inl output = Feedforward.Layer.linear action_size |> action_selector
+            k input output |> init s
+
+        inl action {reward_range state_type action_type net} i s =
+            assert (eq_type state_type i) "The input must be equal to the state type."
+            inl i = 
+                Struct.foldl_map (inl s x -> 
+                    inl i, s' = SerializerOneHot.encode' reward_range x
+                    s + i, s + s'
+                    ) 0 i
+                |> one_hot_tensor
+            inl x,{bck} = run net {input={input=i}; bck=const()} s
+            inl action = SerializerOneHot.decode reward_range x action_type
+            action, bck
+        ()
 
     { dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent }
     """) |> module_
