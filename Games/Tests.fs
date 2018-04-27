@@ -169,4 +169,3 @@ inl selector_greedy_square x s =
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer4
 |> printfn "%s"
 |> ignore
-
