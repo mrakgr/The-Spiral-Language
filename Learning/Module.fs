@@ -2842,25 +2842,27 @@ inl float ->
         inl greedy_square sublayer =
             layer {
                 layer_type = .action
-                size=1
+                size = 1
                 sublayer
                 weights = const ()
                 apply = inl w x s ->
-                    inl (v,a),bck = selector.greedy x s
+                    inl (v,a),bck = Selector.greedy x s
                     inl bck reward =
                         assert (reward.elem_type = float) "The type of the reward tensor must be the default float."
-                        () // Is unfinished
+                        inl reward = s.CudaTensor.from_host_tensor reward
+                        inl er, bck = Error.square reward v s
+                        s.CudaTensor.print er
+                        bck()
                     (v,a),bck
                 }
 
-        inl init {reward_range state_type action_type} k s =
+        inl greedy_square_init {reward_range state_type action_type} k s =
             inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span reward_range x) 0
             inl state_size = size state_type
             inl action_size = size action_type
 
             inl input = input .input state_size
-            inl output = Feedforward.Layer.linear action_size |> action_selector
-            k input output |> init s
+            Feedforward.Layer.linear action_size |> greedy_square |> init s
 
         /// For online learning.
         inl action {reward_range state_type action_type net} i s =
@@ -2874,10 +2876,10 @@ inl float ->
             inl x,{bck} = run net {input={input}; bck=const()} s
             inl action = SerializerOneHot.decode reward_range (s.CudaTensor.get x) action_type
             action, bck
-        ()
+        {greedy_square greedy_square_init action}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent
-    Selector
+    Selector RL
     }
     """) |> module_
