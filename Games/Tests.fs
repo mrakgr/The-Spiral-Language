@@ -141,32 +141,24 @@ test "j3" 5 (Option.some (box Q {a b c}))
     """
 
 let serializer4 =
-    "serializer4",[serializer_one_hot;option],"Does greedy square selector function work?",
+    "serializer4",[cuda_modules;learning;serializer_one_hot;option],"Does greedy square selector function work?",
     """
 inb s = CudaModules (1024*1024)
 
 inl float = float32
 open Learning float
 
-inl selector_greedy_square x s =
-    inl v,a =
-        s.CudaKernel.mapi_d1_redo_map {
-            mapi_in=inl j i a _ -> a, i
-            neutral_elem=-infinityf32,-1
-            redo=inl a b -> if fst a > fst b then a else b
-            } x ()
-        |> HostTensor.unzip
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=2,3} |> dr s
+s.CudaTensor.print x.primal
+inl (v,a),bck = Selector.greedy x s
+s.CudaTensor.print (v.primal,a)
 
-    inl {adjoint} as v = dr s v
+s.CudaRandom.fill {dst=.Normal; stddev=1f32; mean=0f32} v.adjoint
+s.CudaTensor.print x.adjoint
+s.CudaTensor.print v.adjoint
 
-    (v, a), inl _ ->
-        inl a, adjoint = Tuple.map s.CudaTensor.to_dev_tensor (a, adjoint)
-        s.CudaKernel.init' (inl j ->
-            inl a, adjoint = Tuple.map (inl x -> x j) (a, adjoint)
-            inl i x -> if i = a then x + adjoint else x
-            ) (adjoint x)
-
-
+bck()
+s.CudaTensor.print x.adjoint
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer4

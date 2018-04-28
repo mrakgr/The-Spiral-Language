@@ -2816,6 +2816,28 @@ inl float ->
         Pass = {for sample Body} |> stackify
         } |> stackify
 
+    /// The differentiable action selectors.
+    inl Selector =
+        {
+        greedy = inl x s ->
+            inl v,a =
+                s.CudaKernel.mapi_d1_redo_map {
+                    mapi_in=inl j i a _ -> a, i
+                    neutral_elem=-infinityf32,-1
+                    redo=inl a b -> if fst a > fst b then a else b
+                    } (primal x) ()
+                |> HostTensor.unzip
+
+            inl {adjoint=adj} as v = dr s v
+
+            (v, a), inl _ ->
+                inl a, adj = Tuple.map s.CudaTensor.to_dev_tensor (a, adj)
+                s.CudaKernel.init' () (inl j ->
+                    inl a, adj = Tuple.map (inl x -> x j .get) (a, adj)
+                    inl i x -> if i = a then x + adj else x
+                    ) (adjoint x)
+        }
+
     inl RL = 
         inl greedy_square sublayer =
             layer {
@@ -2824,10 +2846,10 @@ inl float ->
                 sublayer
                 weights = const ()
                 apply = inl w x s ->
-                    inl v,a = selector_greedy_square // Is unfinished
+                    inl (v,a),bck = selector.greedy x s
                     inl bck reward =
                         assert (reward.elem_type = float) "The type of the reward tensor must be the default float."
-                        ()
+                        () // Is unfinished
                     (v,a),bck
                 }
 
@@ -2848,11 +2870,14 @@ inl float ->
                     inl i, s' = SerializerOneHot.encode' reward_range x
                     s + i, s + s'
                     ) 0 i
-                |> inl l,size -> s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
+                |> inl l,size -> s.CudaKernel.init () {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
             inl x,{bck} = run net {input={input}; bck=const()} s
             inl action = SerializerOneHot.decode reward_range (s.CudaTensor.get x) action_type
             action, bck
         ()
 
-    { dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent }
+    { 
+    dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent
+    Selector
+    }
     """) |> module_

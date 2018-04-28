@@ -1528,7 +1528,7 @@ inl zip l =
 /// tensor -> tensor structure
 inl unzip tns =
     inl {bodies dim} = tns.unwrap
-    Struct.map (inl bodies -> facade {x with bodies dim}) bodies
+    Struct.map (inl bodies -> facade {bodies dim}) bodies
 
 /// Are all subtensors structurally equal?
 /// tensor structure -> bool
