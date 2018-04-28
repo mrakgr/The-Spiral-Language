@@ -1524,6 +1524,12 @@ inl zip l =
     | () -> error_type "Empty inputs to zip are not allowed."
     | !(inl x -> x.unwrap) tns -> facade {tns with bodies=Struct.map (inl x -> x.bodies) l}
 
+/// Unzips all the elements of a tensor.
+/// tensor -> tensor structure
+inl unzip tns =
+    inl {bodies dim} = tns.unwrap
+    Struct.map (inl bodies -> facade {x with bodies dim}) bodies
+
 /// Are all subtensors structurally equal?
 /// tensor structure -> bool
 inl rec equal (!zip t) =
@@ -1545,7 +1551,7 @@ met print (!dyn x) = show x |> Console.writeline
 
 {
 create facade init copy assert_size array_as_tensor array_to_tensor map zip show print
-span equal split flatten assert_contiguous assert_dim reshape
+span equal split flatten assert_contiguous assert_dim reshape unzip
 } |> stackify
     """) |> module_
 

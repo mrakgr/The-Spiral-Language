@@ -145,6 +145,9 @@ let serializer4 =
     """
 inb s = CudaModules (1024*1024)
 
+inl float = float32
+open Learning float
+
 inl selector_greedy_square x s =
     inl v,a =
         s.CudaKernel.mapi_d1_redo_map {
@@ -163,7 +166,7 @@ inl selector_greedy_square x s =
             inl i x -> if i = a then x + adjoint else x
             ) (adjoint x)
 
-...
+
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer4
