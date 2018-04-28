@@ -474,7 +474,9 @@ inl rec show' cfg =
         | .DotNetReference -> show (ar ())
     | x -> cfg.show_value x
 
-inl show_value = function x : string -> x | x -> string_format "{0}" x
+inl show_value = function 
+    | .(x) & x : string | x : string -> x
+    | x -> string_format "{0}" x
 inl show = show' {array_cutoff = 30; show_value}
 
 inl assert c msg =

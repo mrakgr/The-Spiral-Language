@@ -2848,7 +2848,7 @@ inl float ->
                 apply = inl w x s ->
                     inl (v,a),bck = Selector.greedy x s
                     inl bck reward =
-                        assert (reward.elem_type = float) "The type of the reward tensor must be the default float."
+                        assert (eq_type reward.elem_type float) "The type of the reward tensor must be the default float."
                         inl reward = s.CudaTensor.from_host_tensor reward
                         inl er, bck = Error.square reward v s
                         s.CudaTensor.print er

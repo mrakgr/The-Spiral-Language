@@ -181,9 +181,9 @@ open Learning float
 inl d = {reward_range=10; state_type=Rep; action_type=Action}
 
 inl net = RL.greedy_square_init d s
-inl i = {pot=0; chips=9; hand=Option.none Card}
-inl action = RL.action {d with net} i s
-()
+inl i = {pot=9; chips=0; hand=Option.some <| box Card {rank=box Rank .Five; suit=.Spades}}
+inl action, bck = RL.action {d with net} i s
+Console.writeline action
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer5

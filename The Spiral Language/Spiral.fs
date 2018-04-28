@@ -813,7 +813,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | l -> String.Format(format,List.toArray l |> Array.map f)
                     |> LitString |> TyLit
                 with :? System.FormatException as e -> on_type_er (trace d) <| sprintf "Dotnet format exception.\nMessage: %s" e.Message
-            | TyType (PrimT StringT) & a, TyTuple l -> TyOp(StringFormat,a :: l,PrimT StringT)
+            | TyType (PrimT StringT) & a, TyTuple l -> 
+                List.map (function TyT(LitT x) -> TyLit x | x -> x) l
+                |> fun l -> TyOp(StringFormat,a :: l,PrimT StringT)
             | a, _ -> on_type_er (trace d) <| sprintf "Expected a string as the first argument to string format.\nGot: %s" (show_typedexpr a)
 
         let string_concat d sep l =
