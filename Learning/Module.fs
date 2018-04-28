@@ -2862,7 +2862,7 @@ inl float ->
             inl action_size = size action_type
 
             inl input = input .input state_size
-            Feedforward.Layer.linear action_size |> greedy_square |> init s
+            Feedforward.Layer.linear action_size |> init s
 
         /// For online learning.
         inl action {reward_range state_type action_type net} i s =
@@ -2873,7 +2873,7 @@ inl float ->
                     s + i, s + s'
                     ) 0 i
                 |> inl l,size -> s.CudaKernel.init () {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
-            inl x,{bck} = run net {input={input}; bck=const()} s
+            inl x,{bck} = run (greedy_square net) {input={input}; bck=const()} s
             inl action = SerializerOneHot.decode reward_range (s.CudaTensor.get x) action_type
             action, bck
         {greedy_square greedy_square_init action}
