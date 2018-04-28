@@ -161,7 +161,32 @@ bck()
 s.CudaTensor.print x.adjoint
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer4
+let serializer5 = 
+    "serializer5",[cuda_modules;learning;option],"Does greedy square init function work?",
+    """
+inl Suits = .Spades :: () //, .Clubs, .Hearts, .Diamonds
+inl Suit = Tuple.reducel (inl a b -> a \/ b) Suits
+inl Ranks = .Two, .Three, .Four, .Five, .Six, .Seven, .Eight, .Nine, .Ten, .Jack, .Queen, .King, .Ace
+inl Rank = Tuple.reducel (inl a b -> a \/ b) Ranks
+inl Card = type {rank=Rank; suit=Suit}
+
+inl Rep = type {pot=int64; chips=int64; hand=Option.none Card}
+inl Action = .Fold \/ .Call \/ (.Raise, int64)
+
+inb s = CudaModules (1024*1024)
+
+inl float = float32
+open Learning float
+
+inl d = {reward_range=10; state_type=Rep; action_type=Action}
+
+inl net = RL.greedy_square_init d s
+inl i = {pot=0; chips=9; hand=Option.none Card}
+inl action = RL.action {d with net} i s
+()
+    """
+
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer5
 |> printfn "%s"
 |> ignore
 

@@ -1161,7 +1161,7 @@ inl foldl_map f s x =
             inl x, s = loop s x
             x :: loop s xs
         | {!block} & x -> 
-            module_foldl (inl k s v -> 
+            module_foldl (inl k (m,s) v -> 
                 inl x, s = loop s v
                 inl m = module_add k x m
                 m, s
@@ -1178,7 +1178,7 @@ inl foldl2_map f s a b =
         | (), () -> (), s
         | (), _ | _, () -> error_type "Tuple dimensions do not match."
         | {!block} & x, {!block} & y -> 
-            module_foldl (inl k s v -> 
+            module_foldl (inl k (m,s) v -> 
                 inl x, s = loop s (v, y k)
                 inl m = module_add k x m
                 m, s
@@ -1195,7 +1195,7 @@ inl foldl3_map f s a b c =
         | (), (), () -> (), s
         | (), _, _ | _, (), _ | _, _, () -> error_type "Tuple dimensions do not match."
         | {!block} & x, {!block} & y, {!block} & z ->
-            module_foldl (inl k s v -> 
+            module_foldl (inl k (m,s) v -> 
                 inl x, s = loop s (v, y k, z k)
                 inl m = module_add k x m
                 m, s

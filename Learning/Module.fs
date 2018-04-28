@@ -2066,7 +2066,7 @@ inl float ->
             | .action ->
                 inl value, bck = indiv join 
                     inl (v,a),b = x.apply (x.weights()) x.sublayer s
-                    stack ((v,a), term_cast b v)
+                    stack ((v,a), term_cast b (primal v))
                 value, {d with bck = apply_bck self bck}
             | .recurrent ->
                 inl state = match d.state with {$gid=state} -> state | _ -> ()
@@ -2106,7 +2106,7 @@ inl float ->
                 | .action ->
                     inl value, bck = indiv join 
                         inl (v,a),b = x.apply (x.weights()) values s
-                        stack ((v,a), term_cast (wait_bck b) v)
+                        stack ((v,a), term_cast (wait_bck b) (primal v))
                     {value stream block=()}, {d with bck = apply_bck self bck}
                 | .recurrent ->
                     inl state = match d.state with {$gid=state} -> state | _ -> ()
@@ -2840,7 +2840,7 @@ inl float ->
 
     inl RL = 
         inl greedy_square sublayer =
-            layer {
+            Layer.layer {
                 layer_type = .action
                 size = 1
                 sublayer
@@ -2856,25 +2856,27 @@ inl float ->
                     (v,a),bck
                 }
 
-        inl greedy_square_init {reward_range state_type action_type} k s =
+        inl greedy_square_init {reward_range state_type action_type} s =
             inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span reward_range x) 0
             inl state_size = size state_type
             inl action_size = size action_type
 
             inl input = input .input state_size
-            Feedforward.Layer.linear action_size |> init s
+
+            Feedforward.Layer.linear action_size input 
+            |> init s
 
         /// For online learning.
         inl action {reward_range state_type action_type net} i s =
             assert (eq_type state_type i) "The input must be equal to the state type."
-            inl i = 
+            inl input = 
                 Struct.foldl_map (inl s x -> 
                     inl i, s' = SerializerOneHot.encode' reward_range x
                     s + i, s + s'
                     ) 0 i
-                |> inl l,size -> s.CudaKernel.init () {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
-            inl x,{bck} = run (greedy_square net) {input={input}; bck=const()} s
-            inl action = SerializerOneHot.decode reward_range (s.CudaTensor.get x) action_type
+                |> inl l,size -> s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
+            inl (v,a),{bck} = run (greedy_square net) {input={input}; bck=const()} s
+            inl action = SerializerOneHot.decode reward_range (s.CudaTensor.get (a 0)) action_type
             action, bck
         {greedy_square greedy_square_init action}
 

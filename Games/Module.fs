@@ -389,5 +389,5 @@ inl log ->
             inl v, a, train = net.max_action players
             reply k a <| inl v' -> train v'; v'
 
-    {one_card=game; reply_random reply_rules reply_q Rep Action}
+    {one_card=game; reply_random reply_rules reply_q}
     """) |> module_
