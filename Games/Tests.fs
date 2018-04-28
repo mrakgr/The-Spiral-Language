@@ -163,7 +163,7 @@ inl selector_greedy_square x s =
             inl i x -> if i = a then x + adjoint else x
             ) (adjoint x)
 
-()
+...
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer4
