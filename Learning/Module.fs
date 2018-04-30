@@ -525,9 +525,11 @@ inl methods =
         | {bodies dim=()} -> Struct.iter2 (set_elem s) bodies v
         | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
 
+    from_scalar = inl s -> HostTensor.from_scalar >> s.CudaTensor.from_host_tensor
     from_host_tensor=inl s -> transfer_template s.CudaTensor.from_host_array
     from_host_tensors=inl s -> Struct.map s.CudaTensor.from_host_tensor
     to_host_tensor=inl s -> transfer_template s.CudaTensor.to_host_array
+
 
     clear=inl s tns ->
         assert_contiguous tns
@@ -2050,7 +2052,8 @@ inl float ->
 
     inl run x d s =
         layer_map_fold (inl {x with layer_type gid} d ->
-            inl ret a, b = stack (a, term_cast b ())
+            inl ret' t a, b = stack (a, term_cast b t)
+            inl ret = ret' ()
             match layer_type with
             | .input -> d.input x.name, d
             | .stateless ->
@@ -2064,9 +2067,7 @@ inl float ->
                 inl value, bck = indiv join x.apply (x.weights()) x.sublayer s |> ret
                 value, {d with bck = apply_bck self bck}
             | .action ->
-                inl value, bck = indiv join 
-                    inl (v,a),b = x.apply (x.weights()) x.sublayer s
-                    stack ((v,a), term_cast b (primal v))
+                inl value, bck = indiv join x.apply (x.weights()) x.sublayer s |> ret' float
                 value, {d with bck = apply_bck self bck}
             | .recurrent ->
                 inl state = match d.state with {$gid=state} -> state | _ -> ()
@@ -2091,7 +2092,8 @@ inl float ->
                         | _ -> ()) x.sublayer
 
                 inl wait_bck b x = b x; Struct.iter (inl x -> x.wait_on stream) streams
-                inl ret a, b = stack (a, term_cast (wait_bck b) ())
+                inl ret' t a, b = stack (a, term_cast (wait_bck b) t)
+                inl ret = ret' ()
 
                 match layer_type with
                 | .stateless ->
@@ -2104,9 +2106,7 @@ inl float ->
                     inl value, bck = indiv join x.apply (x.weights()) values s |> ret
                     {value stream block=()}, {d with bck = apply_bck self bck}
                 | .action ->
-                    inl value, bck = indiv join 
-                        inl (v,a),b = x.apply (x.weights()) values s
-                        stack ((v,a), term_cast (wait_bck b) (primal v))
+                    inl value, bck = indiv join x.apply (x.weights()) values s |> ret' float
                     {value stream block=()}, {d with bck = apply_bck self bck}
                 | .recurrent ->
                     inl state = match d.state with {$gid=state} -> state | _ -> ()
@@ -2847,9 +2847,8 @@ inl float ->
                 weights = const ()
                 apply = inl w x s ->
                     inl (v,a),bck = Selector.greedy x s
-                    inl bck reward =
-                        assert (eq_type reward.elem_type float) "The type of the reward tensor must be the default float."
-                        inl reward = s.CudaTensor.from_host_tensor reward
+                    inl bck (reward: float) =
+                        inl reward = s.CudaTensor.from_scalar reward .split (inl _ -> 1,1)
                         inl er, bck = Error.square reward v s
                         s.CudaTensor.print er
                         bck()

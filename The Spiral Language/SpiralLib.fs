@@ -1551,9 +1551,16 @@ inl assert_dim l = assert_zip >> ignore
 /// Prints the tensor to the standard output.
 met print (!dyn x) = show x |> Console.writeline
 
+/// Creates a tensor from a scalar.
+/// x -> x tensor
+inl from_scalar x =
+    inl t = create {dim=(); elem_type=type x}
+    t .set x
+    t
+
 {
 create facade init copy assert_size array_as_tensor array_to_tensor map zip show print
-span equal split flatten assert_contiguous assert_dim reshape unzip
+span equal split flatten assert_contiguous assert_dim reshape unzip from_scalar
 } |> stackify
     """) |> module_
 
