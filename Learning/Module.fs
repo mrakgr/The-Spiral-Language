@@ -2290,6 +2290,7 @@ inl float ->
 
     inl sigmoid = layer Initializer.sigmoid sigmoid
     inl relu = layer Initializer.relu relu
+    inl tanh = layer Initializer.tanh tanh
     inl linear = layer Initializer.sigmoid succ
 
     inl layer_norm =
@@ -2491,7 +2492,7 @@ inl float ->
 
     inl Feedforward = 
         {
-        Layer={Layer with init layer sigmoid relu linear highway ln} |> stackify
+        Layer={Layer with init layer sigmoid tanh relu linear highway ln} |> stackify
         Pass
         } |> stack
     
@@ -2850,7 +2851,6 @@ inl float ->
                     inl bck (reward: float64) =
                         inl reward = s.CudaTensor.from_scalar (to float reward) .split 1
                         inl er, bck' = Error.square reward v s
-                        s.CudaTensor.print er
                         bck'()
                         bck()
                     (v,a),bck
@@ -2861,9 +2861,9 @@ inl float ->
             inl state_size = size state_type
             inl action_size = size action_type
 
-            inl input = input .input state_size
-
-            Feedforward.Layer.linear action_size input 
+            input .input state_size
+            |> Feedforward.Layer.relu 256
+            |> Feedforward.Layer.linear action_size
             |> init s
 
         /// For online learning.

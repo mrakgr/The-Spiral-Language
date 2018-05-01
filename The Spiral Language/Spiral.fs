@@ -2820,7 +2820,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | Exp,[x] -> sprintf "exp(%s)" (codegen x)
                     | Tanh,[x] -> sprintf "tanh(%s)" (codegen x)
                     | Sqrt,[x] -> sprintf "sqrt(%s)" (codegen x)
-                    | NanIs,[x] -> sprintf "NanIs(%s)" (codegen x)
+                    | NanIs,[x] -> sprintf "isnan(%s)" (codegen x)
                     | FailWith,[x] -> 
                         if settings.cuda_assert_enabled then
                             sprintf "printf(%s)" (codegen x) |> state
