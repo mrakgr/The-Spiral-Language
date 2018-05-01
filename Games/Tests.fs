@@ -70,29 +70,6 @@ Loops.for {from=0; near_to=100; body=inl {i} ->
     }
     """
 
-let poker5 =
-    "poker5",[loops;poker;timer],"What is the winrate of the deep Q learning feedforward based player against the random one?",
-    """
-inb s = CudaModules (1024*1024*1024)
-inl log _ _ = ()
-open Poker log
-inl a = {reply=reply_dq {scale=10.0; init=0f64; learning_rate=0.01f64; num_players=2} s; name="One"; trace=term_cast (inl _ -> ()) float64}
-inl b = {reply=reply_random; name="Two"}
-Loops.for {from=0; near_to=10; body=inl {i} ->
-    Timer.time_it (string_format "iteration {0}" i)
-    <| inl _ ->
-        Loops.for {from=0; near_to=100; state=dyn {a=0; b=0}; body=inl {state=s i} ->
-            inl a,b = one_card 10 (a, b)
-            match a.name with
-            | "One" -> if a.chips > 0 then {s with a=self+1} else {s with b=self+1}
-            | _ -> if a.chips > 0 then {s with b=self+1} else {s with a=self+1}
-            }
-        |> inl {a b} ->
-            inl total = a + b
-            Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,total)
-    }
-    """
-
 let serializer1 =
     "serializer1",[serializer_one_hot;option],"Does the one-hot encoder work?",
     """
@@ -178,7 +155,7 @@ inb s = CudaModules (1024*1024)
 inl float = float32
 open Learning float
 
-inl d = {reward_range=10; state_type=Rep; action_type=Action}
+inl d = {bias=0.0; scale=1.0; range=10; state_type=Rep; action_type=Action}
 
 inl net = RL.greedy_square_init d s
 inl i = {pot=9; chips=0; hand=Option.some <| box Card {rank=box Rank .Five; suit=.Spades}}
@@ -217,7 +194,33 @@ Loops.for {from=0; near_to=10; body=inl _ ->
     }
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer6
+let poker5 =
+    "poker5",[cuda_modules;loops;poker;timer],"What is the winrate of the deep Q learning feedforward based player against the random one?",
+    """
+inb s = CudaModules (1024*1024*1024)
+inl log _ _ = ()
+open Poker log
+inl a = {reply=reply_dq {bias=-1.0; scale=10.0; range=32; num_players=2} s; name="One"; trace=term_cast (inl _ -> ()) float64}
+inl b = {reply=reply_random; name="Two"}
+Loops.for {from=0; near_to=1; body=inl {i} ->
+    Timer.time_it (string_format "iteration {0}" i)
+    <| inl _ ->
+        Loops.for {from=0; near_to=100; state=dyn {a=0; b=0}; body=inl {state i} ->
+            s.refresh
+            inb s = s.RegionMem.create'
+            inl a,b = one_card 10 ({a with reply=self s}, b)
+            a.optimize s 0.2f32
+            match a.name with
+            | "One" -> if a.chips > 0 then {state with a=self+1} else {state with b=self+1}
+            | _ -> if a.chips > 0 then {state with b=self+1} else {state with a=self+1}
+            }
+        |> inl {a b} ->
+            inl total = a + b
+            Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,total)
+    }
+    """
+
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker5
 |> printfn "%s"
 |> ignore
 

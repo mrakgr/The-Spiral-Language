@@ -42,7 +42,7 @@ stack inl {d with elem_type} ->
 
 let poker =
     (
-    "Poker",[random;console;option;dictionary],"The Poker module.",
+    "Poker",[learning;random;console;option;dictionary],"The Poker module.",
     """
 inl Suits = .Spades :: () //, .Clubs, .Hearts, .Diamonds
 inl Suit = Tuple.reducel (inl a b -> a \/ b) Suits
@@ -356,7 +356,7 @@ inl log ->
             | _ -> if self.pot >= limit || self.chips = 0 then call () else fold ()
         | .None -> failwith (type fold ()) "No self in the internal representation."
 
-    inl Actions = .Fold, .Call, (.Raise, 0)
+    inl Actions = .Fold, .Call, (.Raise, .0)
     inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
     inl Rep = type {pot=int64; chips=int64; hand=Option.none Hand}
 
@@ -364,7 +364,7 @@ inl log ->
         match a with
         | .Fold -> fold trace
         | .Call -> call trace
-        | .Raise, x -> raise trace x
+        | .Raise, .(x) -> raise trace x
 
     inl reply_q {init learning_rate num_players} =
         inl dict = Dictionary {elem_type=(Tuple.repeat num_players Rep,Action),float64}
@@ -383,11 +383,15 @@ inl log ->
                 // Returning v means doing Q learning.
                 v'
 
-    inl reply_dq {init reward_range learning_rate num_players} s =
-        inl net = Learning.RL.dq_square_net {init reward_range learning_rate state_type=Tuple.repeat num_players Rep; action_type=Action} s
-        inl players k ->
-            inl v, a, train = net.max_action players
-            reply k a <| inl v' -> train v'; v'
+    inl reply_dq {bias scale range num_players} s =
+        open Learning float32
+        inl d = {range state_type=Tuple.repeat num_players Rep; action_type=Action}
+        inl net = RL.greedy_square_init d s
+        function
+        | .optimize s learning_rate -> Combinator.optimize net (Optimizer.sgd learning_rate) s
+        | s players k ->
+            inl a, bck = RL.action {d with net} players s
+            reply k a <| inl v' -> bck (v' / scale + bias); v'
 
-    {one_card=game; reply_random reply_rules reply_q}
+    {one_card=game; reply_random reply_rules reply_q reply_dq}
     """) |> module_

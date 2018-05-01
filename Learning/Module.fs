@@ -32,8 +32,8 @@ inl assert_range r x =
     assert (x < near_to) "x must be lesser than its upper bound."
     x, near_to - from
 
-inl span reward_range elem_type =
-    type encode_template (assert_range reward_range) elem_type |> snd |> type_lit_lift
+inl span r elem_type =
+    type encode_template (assert_range r) elem_type |> snd |> type_lit_lift
     |> type_lit_cast
 
 inl encode' r = encode_template (assert_range r)
@@ -2856,8 +2856,8 @@ inl float ->
                     (v,a),bck
                 }
 
-        inl greedy_square_init {reward_range state_type action_type} s =
-            inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span reward_range x) 0
+        inl greedy_square_init {range state_type action_type} s =
+            inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span range x) 0
             inl state_size = size state_type
             inl action_size = size action_type
 
@@ -2867,16 +2867,18 @@ inl float ->
             |> init s
 
         /// For online learning.
-        inl action {reward_range state_type action_type net} i s =
+        inl action {range state_type action_type net} i s =
             assert (eq_type state_type i) "The input must be equal to the state type."
             inl input = 
                 Struct.foldl_map (inl s x -> 
-                    inl i, s' = SerializerOneHot.encode' reward_range x
+                    inl i, s' = SerializerOneHot.encode' range x
                     s + i, s + s'
                     ) 0 i
-                |> inl l,size -> s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
+                |> inl l,size -> 
+                    s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
+            
             inl (v,a),{bck} = run (greedy_square net) {input={input}; bck=const()} s
-            inl action = SerializerOneHot.decode reward_range (s.CudaTensor.get (a 0)) action_type
+            inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
             action, bck
         {greedy_square greedy_square_init action}
 
