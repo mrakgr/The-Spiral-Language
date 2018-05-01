@@ -2067,7 +2067,7 @@ inl float ->
                 inl value, bck = indiv join x.apply (x.weights()) x.sublayer s |> ret
                 value, {d with bck = apply_bck self bck}
             | .action ->
-                inl value, bck = indiv join x.apply (x.weights()) x.sublayer s |> ret' float
+                inl value, bck = indiv join x.apply (x.weights()) x.sublayer s |> ret' float64
                 value, {d with bck = apply_bck self bck}
             | .recurrent ->
                 inl state = match d.state with {$gid=state} -> state | _ -> ()
@@ -2106,7 +2106,7 @@ inl float ->
                     inl value, bck = indiv join x.apply (x.weights()) values s |> ret
                     {value stream block=()}, {d with bck = apply_bck self bck}
                 | .action ->
-                    inl value, bck = indiv join x.apply (x.weights()) values s |> ret' float
+                    inl value, bck = indiv join x.apply (x.weights()) values s |> ret' float64
                     {value stream block=()}, {d with bck = apply_bck self bck}
                 | .recurrent ->
                     inl state = match d.state with {$gid=state} -> state | _ -> ()
@@ -2847,10 +2847,11 @@ inl float ->
                 weights = const ()
                 apply = inl w x s ->
                     inl (v,a),bck = Selector.greedy x s
-                    inl bck (reward: float) =
-                        inl reward = s.CudaTensor.from_scalar reward .split 1
-                        inl er, bck = Error.square reward v s
+                    inl bck (reward: float64) =
+                        inl reward = s.CudaTensor.from_scalar (to float reward) .split 1
+                        inl er, bck' = Error.square reward v s
                         s.CudaTensor.print er
+                        bck'()
                         bck()
                     (v,a),bck
                 }

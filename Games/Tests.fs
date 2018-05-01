@@ -186,7 +186,38 @@ inl action, bck = RL.action {d with net} i s
 Console.writeline action
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer5
+let serializer6 = 
+    "serializer6",[cuda_modules;learning;option],"Does greedy square bck function work?",
+    """
+inl Suits = .Spades :: () //, .Clubs, .Hearts, .Diamonds
+inl Suit = Tuple.reducel (inl a b -> a \/ b) Suits
+inl Ranks = .Two, .Three, .Four, .Five, .Six, .Seven, .Eight, .Nine, .Ten, .Jack, .Queen, .King, .Ace
+inl Rank = Tuple.reducel (inl a b -> a \/ b) Ranks
+inl Card = type {rank=Rank; suit=Suit}
+
+inl Rep = type {pot=int64; chips=int64; hand=Option.none Card}
+inl Action = .Fold \/ .Call \/ (.Raise, int64)
+
+inb s = CudaModules (1024*1024)
+
+inl float = float32
+open Learning float
+
+inl d = {reward_range=10; state_type=Rep; action_type=Action}
+
+inl net = RL.greedy_square_init d s
+inl i = {pot=9; chips=0; hand=Option.some <| box Card {rank=box Rank .Five; suit=.Spades}}
+Loops.for {from=0; near_to=10; body=inl _ ->
+    s.refresh
+    inb s = s.RegionMem.create'
+    inl action, bck = RL.action {d with net} i s
+    Console.writeline action
+    bck -1.0
+    Combinator.optimize net (Optimizer.sgd 0.2f32) s
+    }
+    """
+
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer6
 |> printfn "%s"
 |> ignore
 
