@@ -2848,7 +2848,7 @@ inl float ->
                 apply = inl w x s ->
                     inl (v,a),bck = Selector.greedy x s
                     inl bck (reward: float) =
-                        inl reward = s.CudaTensor.from_scalar reward .split (inl _ -> 1,1)
+                        inl reward = s.CudaTensor.from_scalar reward .split 1
                         inl er, bck = Error.square reward v s
                         s.CudaTensor.print er
                         bck()

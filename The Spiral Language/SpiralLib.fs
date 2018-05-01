@@ -1316,19 +1316,25 @@ inl split f tns =
             | _ -> init :: next
         | s', () -> s'
 
-    inl dim' =
-        inl rec wrapped_is = function
-            | (_ :: _) :: _ -> true
-            | _ :: x' -> wrapped_is x'
-            | _ -> false
+    match tns.dim with
+    | () ->
+        inl f = Tuple.wrap f
+        assert (product f = 1) "The product of new dimensions for the scalar tensor must be 1."
+        tns .set_dim f .update_body (inl d -> {d with size=f})
+    | dim ->
+        inl dim' =
+            inl rec wrapped_is = function
+                | (_ :: _) :: _ -> true
+                | _ :: x' -> wrapped_is x'
+                | _ -> false
             
-        match tns.dim with
-        | dim :: () -> span dim
-        | dim -> Tuple.map span dim
-        |> f |> inl x -> if wrapped_is x then x else x :: ()
+            match dim with
+            | dim :: () -> span dim
+            | dim -> Tuple.map span dim
+            |> f |> inl x -> if wrapped_is x then x else x :: ()
 
-    tns .set_dim (concat (tns.dim, dim'))
-        .update_body (inl d -> {d with size=update_size (self,dim')})
+        tns .set_dim (concat (dim, dim'))
+            .update_body (inl d -> {d with size=update_size (self,dim')})
 
 /// Flattens the tensor to a single dimension.
 inl flatten tns =
