@@ -2869,20 +2869,13 @@ inl float ->
         /// For online learning.
         inl action {range state_type action_type net} i s =
             assert (eq_type state_type i) "The input must be equal to the state type."
-            inl r = s.CudaKernel.init {dim=dyn 1} (inl _ -> 1)
-            qwe
             inl input = 
                 Struct.foldl_map (inl s x -> 
                     inl i, s' = SerializerOneHot.encode' range x
                     s + i, s + s'
                     ) 0 i
                 |> inl l,size -> 
-                    print_static {size}
-                    inl r = s.CudaKernel.init {dim=dyn 1} (inl _ -> 1)
-                    qwe
-                    r
-                    //s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
-            qwe
+                    s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
             inl (v,a),{bck} = run (greedy_square net) {input={input}; bck=const()} s
             inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
             action, bck
