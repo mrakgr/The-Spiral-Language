@@ -195,13 +195,40 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
     """
 
 let poker5 =
-    "poker5",[cuda_modules;loops;poker;timer],"What is the winrate of the deep Q learning feedforward based player against the random one?",
+    "poker5",[cuda_modules;loops;poker;timer],"What is the winrate of the deep Q learning (square error feedforward) player against the random one?",
     """
 inb s = CudaModules (1024*1024*1024)
 inl log _ _ = ()
 open Poker log
 inl stack_size = 10
 inl a' = {reply=reply_dq {bias=0.0; scale=to float64 stack_size; range=32; num_players=2} s; name="One"; trace=term_cast (inl _ -> ()) float64}
+inl b' = {reply=reply_random; name="Two"}
+Loops.for {from=0; near_to=10; body=inl {i} ->
+    Timer.time_it (string_format "iteration {0}" i)
+    <| inl _ ->
+        Loops.for {from=0; near_to=1000; state=dyn {a=0; b=0}; body=inl {state i} ->
+            s.refresh
+            inb s = s.RegionMem.create'
+            inl a,b = one_card stack_size ({a' with reply=self s |> heap}, b')
+            a'.reply.optimize s 0.01f32
+            match a.name with
+            | "One" -> if a.chips > 0 then {state with a=self+1} else {state with b=self+1}
+            | _ -> if a.chips > 0 then {state with b=self+1} else {state with a=self+1}
+            }
+        |> inl {a b} ->
+            inl total = a + b
+            Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,total)
+    }
+    """
+
+let poker6 =
+    "poker6",[cuda_modules;loops;poker;timer],"What is the winrate of the deep Q learning (QR feedforward) player against the random one?",
+    """
+inb s = CudaModules (1024*1024*1024)
+inl log _ _ = ()
+open Poker log
+inl stack_size = 10
+inl a' = {reply=reply_dq {distribution_size=64; bias=0.0; scale=to float64 stack_size; range=32; num_players=2} s; name="One"; trace=term_cast (inl _ -> ()) float64}
 inl b' = {reply=reply_random; name="Two"}
 Loops.for {from=0; near_to=10; body=inl {i} ->
     Timer.time_it (string_format "iteration {0}" i)

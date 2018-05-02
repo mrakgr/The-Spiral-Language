@@ -383,10 +383,10 @@ inl log ->
                 // Returning v means doing Q learning.
                 v'
 
-    inl reply_dq {bias scale range num_players} s =
+    inl reply_dq {d with bias scale range num_players} s =
         open Learning float32
         inl d = {range state_type=Tuple.repeat num_players Rep; action_type=Action}
-        inl net = RL.greedy_square_init d s
+        inl net = match d with {distribution_size} -> RL.qr_init d s | _ -> RL.square_init d s
         function
         | .optimize s learning_rate -> Combinator.optimize net (Optimizer.sgd learning_rate) s
         | s players k ->

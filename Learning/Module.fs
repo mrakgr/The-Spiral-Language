@@ -2837,6 +2837,26 @@ inl float ->
                     inl a, adj = Tuple.map (inl x -> x j .get) (a, adj)
                     inl i x -> if i = a then x + adj else x
                     ) (adjoint x)
+
+        qr = inl dist_size x s ->
+            inl x' = x.split (inl a,b -> a,(b/dist_size,dist_size))
+            inl x = x.reshape (inl a,b,c -> a*b,c)
+            inl v,a =
+                s.CudaKernel.mapi_d1_redo_map { // TODO: On hold until the author figures out how QR is supposed to work.
+                    mapi_in=inl j i a _ -> a, to float i / dist_size + to float 0.5
+                    neutral_elem=-infinityf32,-1
+                    redo=inl a b -> if fst a > fst b then a else b
+                    } (primal x) ()
+                |> HostTensor.unzip
+
+            inl {adjoint=adj} as v = dr s v
+
+            (v, a), inl _ ->
+                inl a, adj = Tuple.map s.CudaTensor.to_dev_tensor (a, adj)
+                s.CudaKernel.init' () (inl j ->
+                    inl a, adj = Tuple.map (inl x -> x j .get) (a, adj)
+                    inl i x -> if i = a then x + adj else x
+                    ) (adjoint x)
         }
 
     inl RL = 
@@ -2856,21 +2876,46 @@ inl float ->
                     (v,a),bck
                 }
 
-        inl greedy_square_init {range state_type action_type} s =
+        inl greedy_qr distribution_size sublayer =
+            Layer.layer {
+                layer_type = .action
+                size = 1
+                sublayer
+                weights = const ()
+                apply = inl w x s ->
+                    inl (v,a),bck = Selector.qr distribution_size x s
+                    inl bck (reward: float64) =
+                        inl reward = s.CudaTensor.from_scalar (to float reward) .split 1
+                        inl er, bck' = Error.square reward v s
+                        bck'()
+                        bck()
+                    (v,a),bck
+                }
+
+        inl square_init {range state_type action_type} s =
             inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span range x) 0
             inl state_size = size state_type
             inl action_size = size action_type
 
             input .input state_size
             //|> Feedforward.Layer.ln 0f32 256
-            //|> Feedforward.Layer.ln 0f32 256
             //|> Feedforward.Layer.relu 256
+            |> Feedforward.Layer.linear action_size
+            |> init s
+
+        inl qr_init {distribution_size range state_type action_type} s =
+            inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span range x) 0
+            inl state_size = size state_type
+            inl action_size = size action_type * distribution_size
+
+            input .input state_size
+            //|> Feedforward.Layer.ln 0f32 256
             //|> Feedforward.Layer.relu 256
             |> Feedforward.Layer.linear action_size
             |> init s
 
         /// For online learning.
-        inl action {range state_type action_type net} i s =
+        inl action {d with range state_type action_type net} i s =
             assert (eq_type state_type i) "The input must be equal to the state type."
             inl input = 
                 Struct.foldl_map (inl s x -> 
@@ -2879,10 +2924,12 @@ inl float ->
                     ) 0 i
                 |> inl l,size -> 
                     s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
-            inl (v,a),{bck} = run (greedy_square net) {input={input}; bck=const()} s
+            inl (v,a),{bck} = 
+                match d with {distribution_size} -> greedy_qr distribution_size | _ -> greedy_square
+                |> inl runner -> run (runner net) {input={input}; bck=const()} s
             inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
             action, bck
-        {greedy_square greedy_square_init action}
+        {greedy_square square_init action}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent
