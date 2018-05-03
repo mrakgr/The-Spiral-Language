@@ -1201,28 +1201,29 @@ met mapi_d1_redo_map' w {d with redo neutral_elem} in in' out =
                 }
         }
 
-inl ddef = // TODO: Refactor everything to use this pattern. There is too much code duplication in other parts of this module.
+inl ddef def_map_out = // TODO: Refactor everything to use this pattern. There is too much code duplication in other parts of this module.
     function
-    | {map_out} -> d
-    | _ -> {d with map_out=cost}
-    |> function
+    | {d with map_out} -> d
+    | d -> {d with map_out=def_map_out}
+    >> function
     | {d.redo_mid with mapi_in} -> d
     | {d.redo_mid with map_in} -> {d.redo_mid without map_in with mapi_in=inl _ _ -> map_in}
-    | {d.redo_mid} -> {d.redo_mid with mapi_in=inl _ _ x -> x}
-    |> function
+    | {d with redo_mid} -> {d.redo_mid with mapi_in=inl _ _ x -> x}
+    >> function
     | {d.redo_in with mapi_in} -> d
     | {d.redo_in with map_in} -> {d.redo_in without map_in with mapi_in=inl _ _ _ -> map_in}
-    | {d.redo_in} -> {d.redo_in with mapi_in=inl _ _ _ x -> x}        
+    | {d with redo_in} -> {d.redo_in with mapi_in=inl _ _ _ x -> x}        
 
 /// Maps the input and then reduces twice, first along the inner dimension and then along the middle. Takes 3d tensors.
 met mapi_d1_dredo_map' w d in out = 
-    inl d = ddef d
+    inl {d with redo_mid redo_in map_out} = ddef const d
     inl to_dev_tensor = w.CudaTensor.to_dev_tensor
     
     inl in, out = zip in, zip out
     inl dim_in_a, dim_in_b, dim_in_c = in.dim
+    inl out_a :: () = out.dim
 
-    assert (dim_in_a = out.dim) "Input's outermost and output's dimension must be equal."
+    assert (dim_in_a = out_a) "Input's outermost and output's dimension must be equal."
 
     inl blockDimX = lit_min 1024 (s dim_in_c)
     inl blockDimY = lit_min (1024 / blockDimX) (s dim_in_b)
@@ -1244,33 +1245,32 @@ met mapi_d1_dredo_map' w d in out =
                             inl in = in j
                             inl {d with redo neutral_elem mapi_in} = redo_in
                             grid_for .x dim_in_c {state=dyn neutral_elem; body=inl {state i=k} ->
-                                inl in = in k
-                                redo state (mapi_in i j k in.get)
+                                inl in = in k .get
+                                redo state (mapi_in i j k in)
                                 }
                             |> cub_block_reduce {blockDim={blockDim with y=1}; redo}
                         redo state (mapi_in i j x)
                         }
                     |> cub_block_reduce {blockDim={blockDim with x=1}; redo}
-
                 if threadIdx.x = 0 then
                     inl out = out i
                     out.set (map_out x out.get)
                 }
         }
 
-inl map_d1_dredo_map w d in =
+inl mapi_d1_dredo_map w d in =
     indiv join
-        inl d = ddef d
+        inl d = ddef id d
         inl in = zip in
 
+        inl {redo_in redo_mid map_out} = d
         inl elem_type = 
-            inl {redo_in redo_mid map_out} = d
             type 
                 redo_in.mapi_in (dyn 0) (dyn 0) (dyn 0) in.elem_type
-                |> redo_mid.mapi_in (dyn 0) (dyn 0) (dyn 0)
-                |> inl x -> map_out x x
+                |> redo_mid.mapi_in (dyn 0) (dyn 0)
+                |> map_out
         inl out = w.CudaTensor.create {elem_type dim=fst in.dim}
-        mapi_d1_dredo_map' w d in out
+        mapi_d1_dredo_map' w {d with map_out = inl a _ -> map_out a} in out
         stack out
 
 // Repeatedly reduces along the inner dimension and then maps the result of that reductions over the input in the previous step.
@@ -1715,7 +1715,7 @@ inl methods =
     map' map map_redo_map d2_replicate_map' d2_replicate_map mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
-    mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init
+    mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map
     } |> stackify
 
 inl s -> s.module_add .CudaKernel methods
@@ -1967,9 +1967,9 @@ inl float ->
                 }
             mapi_mid=inl _ index prob boundary -> 
                 inl x = prob - boundary
-                (if x < 0f32 then infinityf32 else x), index
+                (if x < 0f32 then infinity else x), index
             redo={
-                ne=infinityf32,0
+                ne=infinity,0
                 f=inl a b -> if fst a <= fst b then a else b
                 }
             map_out=snd
@@ -2896,7 +2896,7 @@ inl float ->
             inl v,a =
                 s.CudaKernel.mapi_d1_redo_map {
                     mapi_in=inl j i a _ -> a, i
-                    neutral_elem=-infinityf32,-1
+                    neutral_elem=-infinity,-1
                     redo=inl a b -> if fst a > fst b then a else b
                     } (primal x) ()
                 |> HostTensor.unzip
@@ -2921,10 +2921,10 @@ inl float ->
                         }
                     redo_mid = {
                         mapi_in=inl j i a -> a / b, j
-                        neutral_elem=-infinityf32,-1
+                        neutral_elem=-infinity,-1
                         redo=inl a b -> if fst a > fst b then a else b
                         }
-                    } (primal x) ()
+                    } (primal x)
                 |> HostTensor.unzip
 
             inl {adjoint=adj} as v = dr s v

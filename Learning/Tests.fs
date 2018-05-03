@@ -388,6 +388,31 @@ inl o1 = s.CudaKernel.init {rev_thread_limit=32; dim=2,2,128} (inl a b c -> a, b
 s.CudaTensor.print o1
     """
 
+let kernel13 =
+    "kernel13",[cuda_modules],"Does the mapi_d1_dredo_map kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=6,12,256}
+s.CudaTensor.print x
+inl a,b,c = x.dim
+inl b = to float32 (HostTensor.span b)
+inl v =
+    s.CudaKernel.mapi_d1_dredo_map { 
+        redo_in = {
+            neutral_elem=0f32
+            redo=(+)
+            }
+        redo_mid = {
+            mapi_in=inl j i a -> a, i
+            neutral_elem=-infinityf32,-1
+            redo=inl a b -> if fst a > fst b then a else b
+            }
+        map_out = inl a, i -> a / b, i
+        } x
+s.CudaTensor.print v
+    """
+
 let learning1 =
     "learning1",[cuda_modules;learning],"Does the matmult work?",
     """
@@ -822,6 +847,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
-//|> printfn "%s"
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel13
+|> printfn "%s"
 |> ignore
