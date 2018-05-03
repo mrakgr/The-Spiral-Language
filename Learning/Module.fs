@@ -1201,6 +1201,78 @@ met mapi_d1_redo_map' w {d with redo neutral_elem} in in' out =
                 }
         }
 
+inl ddef = // TODO: Refactor everything to use this pattern. There is too much code duplication in other parts of this module.
+    function
+    | {map_out} -> d
+    | _ -> {d with map_out=cost}
+    |> function
+    | {d.redo_mid with mapi_in} -> d
+    | {d.redo_mid with map_in} -> {d.redo_mid without map_in with mapi_in=inl _ _ -> map_in}
+    | {d.redo_mid} -> {d.redo_mid with mapi_in=inl _ _ x -> x}
+    |> function
+    | {d.redo_in with mapi_in} -> d
+    | {d.redo_in with map_in} -> {d.redo_in without map_in with mapi_in=inl _ _ _ -> map_in}
+    | {d.redo_in} -> {d.redo_in with mapi_in=inl _ _ _ x -> x}        
+
+/// Maps the input and then reduces twice, first along the inner dimension and then along the middle. Takes 3d tensors.
+met mapi_d1_dredo_map' w d in out = 
+    inl d = ddef d
+    inl to_dev_tensor = w.CudaTensor.to_dev_tensor
+    
+    inl in, out = zip in, zip out
+    inl dim_in_a, dim_in_b, dim_in_c = in.dim
+
+    assert (dim_in_a = out.dim) "Input's outermost and output's dimension must be equal."
+
+    inl blockDimX = lit_min 1024 (s dim_in_c)
+    inl blockDimY = lit_min (1024 / blockDimX) (s dim_in_b)
+    inl gridDimZ = lit_min 64 (s dim_in_a)
+
+    inl in, out = to_dev_tensor in, to_dev_tensor out
+        
+    w.run {
+        blockDim=blockDimX,blockDimY
+        gridDim=1,1,gridDimZ
+        kernel = cuda 
+            inl grid_for = grid_for {blockDim gridDim}
+            grid_for .z dim_in_a {body=inl {i} ->
+                inl x = 
+                    inl in = in i
+                    inl {mapi_in redo neutral_elem} = redo_mid
+                    grid_for .y dim_in_b {state=dyn neutral_elem; body=inl {state i=j} ->
+                        inl x = 
+                            inl in = in j
+                            inl {d with redo neutral_elem mapi_in} = redo_in
+                            grid_for .x dim_in_c {state=dyn neutral_elem; body=inl {state i=k} ->
+                                inl in = in k
+                                redo state (mapi_in i j k in.get)
+                                }
+                            |> cub_block_reduce {blockDim={blockDim with y=1}; redo}
+                        redo state (mapi_in i j x)
+                        }
+                    |> cub_block_reduce {blockDim={blockDim with x=1}; redo}
+
+                if threadIdx.x = 0 then
+                    inl out = out i
+                    out.set (map_out x out.get)
+                }
+        }
+
+inl map_d1_dredo_map w d in =
+    indiv join
+        inl d = ddef d
+        inl in = zip in
+
+        inl elem_type = 
+            inl {redo_in redo_mid map_out} = d
+            type 
+                redo_in.mapi_in (dyn 0) (dyn 0) (dyn 0) in.elem_type
+                |> redo_mid.mapi_in (dyn 0) (dyn 0) (dyn 0)
+                |> inl x -> map_out x x
+        inl out = w.CudaTensor.create {elem_type dim=fst in.dim}
+        mapi_d1_dredo_map' w d in out
+        stack out
+
 // Repeatedly reduces along the inner dimension and then maps the result of that reductions over the input in the previous step.
 met mapi_d1_seq_broadcast' w {d with seq} in out = 
     inl to_dev_tensor = w.CudaTensor.to_dev_tensor
@@ -2838,14 +2910,20 @@ inl float ->
                     inl i x -> if i = a then x + adj else x
                     ) (adjoint x)
 
-        qr = inl dist_size x s ->
-            inl x' = x.split (inl a,b -> a,(b/dist_size,dist_size))
-            inl x = x.reshape (inl a,b,c -> a*b,c)
+        greedy_qr = inl x s ->
+            inl a,b,c = x.dim
+            inl b = to float b
             inl v,a =
-                s.CudaKernel.mapi_d1_redo_map { // TODO: On hold until the author figures out how QR is supposed to work.
-                    mapi_in=inl j i a _ -> a, to float i / dist_size + to float 0.5
-                    neutral_elem=-infinityf32,-1
-                    redo=inl a b -> if fst a > fst b then a else b
+                s.CudaKernel.mapi_d1_dredo_map { 
+                    redo_in = {
+                        neutral_elem=zero
+                        redo=(+)
+                        }
+                    redo_mid = {
+                        mapi_in=inl j i a -> a / b, j
+                        neutral_elem=-infinityf32,-1
+                        redo=inl a b -> if fst a > fst b then a else b
+                        }
                     } (primal x) ()
                 |> HostTensor.unzip
 
@@ -2853,9 +2931,9 @@ inl float ->
 
             (v, a), inl _ ->
                 inl a, adj = Tuple.map s.CudaTensor.to_dev_tensor (a, adj)
-                s.CudaKernel.init' () (inl j ->
-                    inl a, adj = Tuple.map (inl x -> x j .get) (a, adj)
-                    inl i x -> if i = a then x + adj else x
+                s.CudaKernel.init' () (inl k -> 
+                    inl a, adj = Tuple.map (inl x -> x k .get) (a, adj)
+                    inl j i x -> if j = a then x + adj else x
                     ) (adjoint x)
         }
 

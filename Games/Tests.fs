@@ -258,7 +258,7 @@ open Learning float
 
 inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=2,3,4} |> dr s
 s.CudaTensor.print x.primal
-inl (v,a),bck = Selector.qr x s
+inl (v,a),bck = Selector.greedy_qr x s
 s.CudaTensor.print (v.primal,a)
 
 s.CudaRandom.fill {dst=.Normal; stddev=1f32; mean=0f32} v.adjoint
