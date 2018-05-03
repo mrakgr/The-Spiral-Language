@@ -1692,12 +1692,9 @@ inl mapi_d1_inscan_mapi_d1_reduce_mapi w d in in' =
         mapi_d1_inscan_mapi_d1_reduce_mapi' w d in in' out
         stack out
 
-/// Creates a tensor using the given generator function.
-/// Takes in the optional {thread_limit} as the first argument in order to control the degree of parallelism.
-met init' w d f out =
-    inl out = w.CudaTensor.to_dev_tensor out |> zip
-
-    inl dim = out.dim
+/// Iterates over the dimensions.
+/// Takes in the optional {thread_limit} or {rev_thread_limit} as the first argument in order to control the degree of parallelism.
+met iter w d f dim =
     inl rec merge = function
         | thread_limit :: l', dim :: d' -> {dim thread_limit} :: merge (l', d')
         | (), d' -> Tuple.map (inl dim -> {dim thread_limit=()}) d'
@@ -1715,13 +1712,26 @@ met init' w d f out =
         kernel = cuda
             grid_for {blockDim gridDim} .x {from=0; near_to} {body=inl {i} ->
                 inl l,_ = Tuple.foldr (inl ((!s x_span) & x) (l,i) -> (i % x_span - x.dim.from) :: l, i / x_span) d ((),i)
-                inl rec loop f out = function
-                    | {thread_limit=()} :: d', i :: i' -> loop (f i) (out i) (d', i')
-                    | {thread_limit=by dim={near_to}} :: d', from :: i' -> forcd {from by near_to body=inl {i} -> loop (f i) (out i) (d',i')}
-                    | (), () -> out.set (f out.get)
-                loop f out (d,l)
+                inl rec loop f = function
+                    | {thread_limit=()} :: d', i :: i' -> loop (f i) (d', i')
+                    | {thread_limit=by dim={near_to}} :: d', from :: i' -> forcd {from by near_to body=inl {i} -> loop (f i) (d',i')}
+                    | (), () -> f; () // The output of f should be unit.
+                loop f (d,l)
                 }
         }
+
+/// Creates a tensor using the given generator function.
+/// Takes in the optional {thread_limit} or {rev_thread_limit} as the first argument in order to control the degree of parallelism.
+met init' w d f out =
+    inl out = w.CudaTensor.to_dev_tensor out |> zip
+    inl rec loop f out = function
+        | _ :: x' -> inl i -> loop (f i) (out i) x'
+        | _ -> out.set (f out.get)
+
+    inl dim = out.dim
+    inl f = loop f out (type dim)
+
+    iter w d f dim
 
 inl init w {d with dim} f =
     indiv join
