@@ -2928,7 +2928,7 @@ inl float ->
     /// The differentiable action selectors.
     inl Selector =
         {
-        greedy = inl x s ->
+        greedy_square = inl x s ->
             inl v,a =
                 s.CudaKernel.mapi_d1_redo_map {
                     mapi_in=inl j i a _ -> a, i
@@ -2941,25 +2941,28 @@ inl float ->
 
             (v, a), inl _ ->
                 inl a, adj = Tuple.map s.CudaTensor.to_dev_tensor (a, adj)
-                s.CudaKernel.init' () (inl j ->
+                inl x = adjoint x
+                s.CudaKernel.iter () (inl j ->
                     inl a, adj = Tuple.map (inl x -> x j .get) (a, adj)
-                    inl i x -> if i = a then x + adj else x
-                    ) (adjoint x)
+                    inl x = x j a
+                    x.set (x.get + adj)
+                    ) a.dim
 
         greedy_qr = inl x s ->
-            inl a,b,c = x.dim
-            inl b = to float b
+            inl dim_a,dim_b,dim_c = x.dim
             inl v,a =
+                inl dim_b = to float dim_b
                 s.CudaKernel.mapi_d1_dredo_map { 
                     redo_in = {
-                        neutral_elem=zero
+                        neutral_elem=0f32
                         redo=(+)
                         }
                     redo_mid = {
-                        mapi_in=inl j i a -> a / b, j
-                        neutral_elem=-infinity,-1
+                        mapi_in=inl j i a -> a, i
+                        neutral_elem=-infinityf32,-1
                         redo=inl a b -> if fst a > fst b then a else b
                         }
+                    map_out = inl a, i -> a / dim_b, i
                     } (primal x)
                 |> HostTensor.unzip
 
@@ -2967,10 +2970,12 @@ inl float ->
 
             (v, a), inl _ ->
                 inl a, adj = Tuple.map s.CudaTensor.to_dev_tensor (a, adj)
-                s.CudaKernel.init' () (inl k -> 
-                    inl a, adj = Tuple.map (inl x -> x k .get) (a, adj)
-                    inl j i x -> if j = a then x + adj else x
-                    ) (adjoint x)
+                inl x = adjoint x
+                s.CudaKernel.iter () (inl j i ->
+                    inl a, adj = Tuple.map (inl x -> x j .get) (a, adj)
+                    inl x = x j a i
+                    x.set (x.get + adj)
+                    ) (dim_a,dim_c)
         }
 
     inl RL = 
@@ -2981,7 +2986,7 @@ inl float ->
                 sublayer
                 weights = const ()
                 apply = inl w x s ->
-                    inl (v,a),bck = Selector.greedy x s
+                    inl (v,a),bck = Selector.greedy_square x s
                     inl bck (reward: float64) =
                         inl reward = s.CudaTensor.from_scalar (to float reward) .split 1
                         inl er, bck' = Error.square reward v s
@@ -2997,7 +3002,7 @@ inl float ->
                 sublayer
                 weights = const ()
                 apply = inl w x s ->
-                    inl (v,a),bck = Selector.qr distribution_size x s
+                    inl (v,a),bck = Selector.greedy_qr distribution_size x s
                     inl bck (reward: float64) =
                         inl reward = s.CudaTensor.from_scalar (to float reward) .split 1
                         inl er, bck' = Error.square reward v s
