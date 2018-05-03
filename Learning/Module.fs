@@ -2941,7 +2941,7 @@ inl float ->
 
             (v, a), inl _ ->
                 inl a, adj = Tuple.map s.CudaTensor.to_dev_tensor (a, adj)
-                inl x = adjoint x
+                inl x = adjoint x |> s.CudaTensor.to_dev_tensor
                 s.CudaKernel.iter () (inl j ->
                     inl a, adj = Tuple.map (inl x -> x j .get) (a, adj)
                     inl x = x j a
@@ -2970,7 +2970,7 @@ inl float ->
 
             (v, a), inl _ ->
                 inl a, adj = Tuple.map s.CudaTensor.to_dev_tensor (a, adj)
-                inl x = adjoint x
+                inl x = adjoint x |> s.CudaTensor.to_dev_tensor
                 s.CudaKernel.iter () (inl j i ->
                     inl a, adj = Tuple.map (inl x -> x j .get) (a, adj)
                     inl x = x j a i
