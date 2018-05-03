@@ -2028,11 +2028,14 @@ inl float ->
             bck = Struct.map (inl bck (in, out) adjoint -> adjoint + div_by_minibatch_size (bck in out)) bck
             } (input, label) s
 
+    inl square_bck (x,y) = two * (x - y)
+    inl sqaure_bck' (x,y) = -(two * (x - y))
+
     inl square = error {
         fwd = inl (x,y) -> (y - x) * (y - x)
         bck =
-            inl (x,y) _ -> two * (x - y)
-            ,inl (x,y) _ -> -(two * (x - y))
+            inl x _ -> square_bck x
+            ,inl x _ -> sqaure_bck' x
         }
 
     inl cross_entropy = error {
@@ -2939,19 +2942,19 @@ inl float ->
 
             inl {adjoint=adj} as v = dr s v
 
-            (v, a), inl _ ->
+            (v, a), inl (reward: float64) ->
                 inl a, adj = Tuple.map s.CudaTensor.to_dev_tensor (a, adj)
                 inl x = adjoint x |> s.CudaTensor.to_dev_tensor
                 s.CudaKernel.iter () (inl j ->
                     inl a, adj = Tuple.map (inl x -> x j .get) (a, adj)
                     inl x = x j a
-                    x.set (x.get + adj)
+                    x.set (adj + square_bck (x.get, reward))
                     ) a.dim
 
         greedy_qr = inl x s ->
-            inl dim_a,dim_b,dim_c = x.dim
+            inl dim_a,dim_b,dim_c = (primal x).dim
+            inl dim_b = to float (HostTensor.span dim_b)
             inl v,a =
-                inl dim_b = to float dim_b
                 s.CudaKernel.mapi_d1_dredo_map { 
                     redo_in = {
                         neutral_elem=0f32
@@ -2968,13 +2971,14 @@ inl float ->
 
             inl {adjoint=adj} as v = dr s v
 
-            (v, a), inl _ ->
+            (v, a), inl (reward: float64) ->
                 inl a, adj = Tuple.map s.CudaTensor.to_dev_tensor (a, adj)
                 inl x = adjoint x |> s.CudaTensor.to_dev_tensor
-                s.CudaKernel.iter () (inl j i ->
+                s.CudaKernel.iter () (inl j i -> // TODO: Plug QR in here.
                     inl a, adj = Tuple.map (inl x -> x j .get) (a, adj)
                     inl x = x j a i
-                    x.set (x.get + adj)
+                    inl quantile = (to float i - to float 0.5) / dim_b
+                    x.set (adj + hubert_qr_bck quantile (x.get, reward))
                     ) (dim_a,dim_c)
         }
 
@@ -2985,30 +2989,16 @@ inl float ->
                 size = 1
                 sublayer
                 weights = const ()
-                apply = inl w x s ->
-                    inl (v,a),bck = Selector.greedy_square x s
-                    inl bck (reward: float64) =
-                        inl reward = s.CudaTensor.from_scalar (to float reward) .split 1
-                        inl er, bck' = Error.square reward v s
-                        bck'()
-                        bck()
-                    (v,a),bck
+                apply = inl _ -> Selector.greedy_square
                 }
 
-        inl greedy_qr distribution_size sublayer =
+        inl greedy_qr dist_size sublayer =
             Layer.layer {
                 layer_type = .action
                 size = 1
                 sublayer
                 weights = const ()
-                apply = inl w x s ->
-                    inl (v,a),bck = Selector.greedy_qr distribution_size x s
-                    inl bck (reward: float64) =
-                        inl reward = s.CudaTensor.from_scalar (to float reward) .split 1
-                        inl er, bck' = Error.square reward v s
-                        bck'()
-                        bck()
-                    (v,a),bck
+                apply = inl _ x -> Selector.greedy_qr (x.split (inl a,b -> a,(dist_size,dist_size/b)))
                 }
 
         inl square_init {range state_type action_type} s =
