@@ -413,6 +413,17 @@ inl v =
 s.CudaTensor.print v
     """
 
+let kernel14 =
+    "kernel14",[cuda_modules],"Does the iter kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+inl x = s.CudaTensor.create {elem_type=int64,int64,int64; dim=2,2,128}
+inl _ = 
+    inl x = s.CudaTensor.to_dev_tensor x
+    s.CudaKernel.iter {rev_thread_limit=32} (inl a b c -> x a b c .set (a, b, c)) x.dim
+s.CudaTensor.print x
+    """
+
 let learning1 =
     "learning1",[cuda_modules;learning],"Does the matmult work?",
     """
@@ -838,7 +849,7 @@ let tests =
     allocator1
     tensor1;tensor2
     kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
-    kernel10;kernel11;kernel12
+    kernel10;kernel11;kernel12;kernel13;kernel14
     random1
     blas1
     learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
@@ -847,6 +858,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel13
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel4
 |> printfn "%s"
 |> ignore

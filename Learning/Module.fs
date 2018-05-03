@@ -1694,9 +1694,9 @@ inl mapi_d1_inscan_mapi_d1_reduce_mapi w d in in' =
 
 /// Iterates over the dimensions.
 /// Takes in the optional {thread_limit} or {rev_thread_limit} as the first argument in order to control the degree of parallelism.
-met iter w d f dim =
+met iter w d f (!(Tuple.wrap) dim) =
     inl rec merge = function
-        | thread_limit :: l', dim :: d' -> {dim thread_limit} :: merge (l', d')
+        | thread_limit :: l', dim :: d' -> {dim thread_limit=min thread_limit (s dim)} :: merge (l', d')
         | (), d' -> Tuple.map (inl dim -> {dim thread_limit=()}) d'
     inl d = 
         match d with
@@ -1751,7 +1751,7 @@ inl methods =
     map' map map_redo_map d2_replicate_map' d2_replicate_map mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
-    mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map
+    mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter
     } |> stackify
 
 inl s -> s.module_add .CudaKernel methods
