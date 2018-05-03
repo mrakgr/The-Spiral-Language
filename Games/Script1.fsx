@@ -1,4 +1,3 @@
-﻿let a = 0.1
-let d = 0.9
-let r = 0.0
-let f = a * (r + d * 8.0 - 3.0) * 1.0
+﻿let f n i = (float i - 0.5) / float n
+
+f 3 1
