@@ -1214,6 +1214,60 @@ inl ddef def_map_out = // TODO: Refactor everything to use this pattern. There i
     | {d.redo_in with map_in} -> {d.redo_in without map_in with mapi_in=inl _ _ _ -> map_in}
     | {d with redo_in} -> {d.redo_in with mapi_in=inl _ _ _ x -> x}        
 
+
+inl block_reduce_body ar near_to threadIdx redo state =
+    whilecd {
+        state={near_to state}
+        cond=inl {near_to} -> near_to >= 2
+        body=inl {near_to state} ->
+            inl by = near_to/2 // It might be worth trying `max 1 (near_to/3)`
+            if threadIdx < near_to && threadIdx >= by then ar threadIdx .set state
+            syncthreads()
+
+            {
+            near_to=by
+            state=
+                if threadIdx < by then
+                    forcd {from=threadIdx + by; by near_to state 
+                        body=inl {state i} -> redo state (ar i .get)
+                        }
+                else
+                    state
+            }
+        }
+    |> inl {state} -> state
+
+
+/// Only to be used with the other blockDims held to a single dimension. 
+/// If the rest are not held to 1 then this algorithm will cause errors.
+inl block_reduce_1d (near_to, threadIdx) redo state =
+    if near_to > 1 then
+        inl ar = 
+            HostTensor.create {
+                array_create=array_create_cuda_shared
+                elem_type=state
+                dim={from=1; near_to}
+                }
+
+        block_reduce_body ar near_to threadIdx redo state
+    else
+        state
+
+/// The third dimension should be held to 1 similarly to the 1d case.
+inl block_reduce_2d (blockDimY, threadIdxY) (near_to, threadIdx) redo state =
+    if near_to > 1 then
+        inl ar = 
+            HostTensor.create {
+                array_create=array_create_cuda_shared
+                elem_type=state
+                dim={from=1; near_to}, blockDimY
+                }
+            |> inl ar i -> ar i threadIdxY
+
+        block_reduce_body ar near_to threadIdx redo state
+    else
+        state
+
 /// Maps the input and then reduces twice, first along the inner dimension and then along the middle. Takes 3d tensors.
 met mapi_d1_dredo_map' w d in out = 
     inl {d with redo_mid redo_in map_out} = ddef const d
@@ -1237,9 +1291,9 @@ met mapi_d1_dredo_map' w d in out =
         kernel = cuda 
             inl grid_for = grid_for {blockDim gridDim}
             grid_for .z dim_in_a {body=inl {i} ->
+                inl {mapi_in redo neutral_elem} = redo_mid
                 inl x = 
                     inl in = in i
-                    inl {mapi_in redo neutral_elem} = redo_mid
                     grid_for .y dim_in_b {state=dyn neutral_elem; body=inl {state i=j} ->
                         inl x = 
                             inl in = in j
@@ -1248,13 +1302,15 @@ met mapi_d1_dredo_map' w d in out =
                                 inl in = in k .get
                                 redo state (mapi_in i j k in)
                                 }
-                            |> cub_block_reduce {blockDim={blockDim with y=1}; redo}
+                            |> block_reduce_2d (blockDim.y,threadIdx.y) (blockDim.x, threadIdx.x) redo
                         redo state (mapi_in i j x)
                         }
-                    |> cub_block_reduce {blockDim={blockDim with x=1}; redo}
+
                 if threadIdx.x = 0 then
-                    inl out = out i
-                    out.set (map_out x out.get)
+                    inl x = block_reduce_1d (blockDim.y, threadIdx.y) redo x
+                    if threadIdx.y = 0 then
+                        inl out = out i
+                        out.set (map_out x out.get)
                 }
         }
 
@@ -1549,49 +1605,19 @@ met mapi_d2_redo_map' w {d with redo neutral_elem} in in' out =
                 inl in j = in j i
                 inl in' = in' i .get
                 inl out = out i
-                inl finally result = out.set (map_out result out.get)
 
-                inl state = 
-                    grid_for .y dim_in_a {state=dyn neutral_elem; body=inl {state i=j} -> 
-                        inl in = in j
-                        match d with
-                        | {map_in} -> redo state (map_in in.get in') 
-                        | {mapi_in} -> redo state (mapi_in i j in.get in') 
-                        | _ -> redo state in.get
-                        }
-                        
-                if blockDim.y > 1 then
-                    inl near_to = blockDim.y
-                    inl ar = 
-                        HostTensor.create {
-                            array_create=array_create_cuda_shared
-                            elem_type=state
-                            dim={from=1; near_to}, blockDim.x
-                            }
-                        |> inl ar i -> ar i threadIdx.x
-
-                    whilecd {
-                        state={near_to state}
-                        cond=inl {near_to} -> near_to >= 2
-                        body=inl {near_to state} ->
-                            inl by = near_to/2 // It might be worth trying `max 1 (near_to/3)`
-                            if threadIdx.y < near_to && threadIdx.y >= by then ar threadIdx.y .set state
-                            syncthreads()
-
-                            {
-                            near_to=by 
-                            state=
-                                if threadIdx.y < by then
-                                    forcd {from=threadIdx.y+by; by near_to state 
-                                        body=inl {state i} -> redo state (ar i .get)
-                                        }
-                                else
-                                    state
-                            }
-                        }
-                    |> inl {state} -> if threadIdx.y = 0 then finally state
-                else
-                    finally state
+                grid_for .y dim_in_a {state=dyn neutral_elem; body=inl {state i=j} -> 
+                    inl in = in j
+                    match d with
+                    | {map_in} -> redo state (map_in in.get in') 
+                    | {mapi_in} -> redo state (mapi_in i j in.get in') 
+                    | _ -> redo state in.get
+                    }
+                |> block_reduce_2d (blockDim.x,threadIdx.x) (blockDim.y, threadIdx.y) redo
+                |> inl result ->
+                    inl finally result = out.set (map_out result out.get)
+                    if blockDim.y > 1 then if threadIdx.y = 0 then finally result
+                    else finally result
             }
         } |> ignore
 
