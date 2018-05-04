@@ -245,7 +245,7 @@ inb s = CudaModules (1024*1024*1024)
 inl log _ _ = ()
 open Poker log
 inl stack_size = 10
-inl a' = {reply=reply_dq {distribution_size=64; bias=0.0; scale=to float64 stack_size; range=32; num_players=2} s; name="One"; trace=term_cast (inl _ -> ()) float64}
+inl a' = {reply=reply_dq {distribution_size=1; bias=0.0; scale=to float64 stack_size; range=32; num_players=2} s; name="One"; trace=term_cast (inl _ -> ()) float64}
 inl b' = {reply=reply_random; name="Two"}
 Loops.for {from=0; near_to=30; body=inl {i} ->
     Timer.time_it (string_format "iteration {0}" i)
@@ -254,7 +254,7 @@ Loops.for {from=0; near_to=30; body=inl {i} ->
             s.refresh
             inb s = s.RegionMem.create'
             inl a,b = one_card stack_size ({a' with reply=self s |> heap}, b')
-            a'.reply.optimize s 0.001f32
+            a'.reply.optimize s 0.01f32
             match a.name with
             | "One" -> if a.chips > 0 then {state with a=self+1} else {state with b=self+1}
             | _ -> if a.chips > 0 then {state with b=self+1} else {state with a=self+1}
