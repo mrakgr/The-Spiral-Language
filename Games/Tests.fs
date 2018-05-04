@@ -112,7 +112,7 @@ s.CudaRandom.fill {dst=.Normal; stddev=1f32; mean=0f32} v.adjoint
 s.CudaTensor.print x.adjoint
 s.CudaTensor.print v.adjoint
 
-bck()
+bck 0.0
 s.CudaTensor.print x.adjoint
     """
 
@@ -269,6 +269,6 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
     }
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker5
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer4
 |> printfn "%s"
 |> ignore
