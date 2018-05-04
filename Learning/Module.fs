@@ -2940,16 +2940,13 @@ inl float ->
                     } (primal x) ()
                 |> HostTensor.unzip
 
-            inl {adjoint=adj} as v = dr s v
-
             (v, a), inl (reward: float64) ->
                 inl reward = to float reward
-                inl a, adj = Tuple.map s.CudaTensor.to_dev_tensor (a, adj)
-                inl x = adjoint x |> s.CudaTensor.to_dev_tensor
+                inl a, x, v = Tuple.map s.CudaTensor.to_dev_tensor (a, adjoint x, v)
                 s.CudaKernel.iter () (inl j ->
-                    inl a, adj = Tuple.map (inl x -> x j .get) (a, adj)
+                    inl a, v = Tuple.map (inl x -> x j .get) (a, v)
                     inl x = x j a
-                    x.set (adj + square_bck (x.get, reward))
+                    x.set (x.get + square_bck (v, reward))
                     ) a.dim
 
         greedy_qr = inl x s ->
