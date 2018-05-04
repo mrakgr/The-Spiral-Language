@@ -135,7 +135,7 @@ open Learning float
 
 inl d = {bias=0.0; scale=1.0; range=10; state_type=Rep; action_type=Action}
 
-inl net = RL.greedy_square_init d s
+inl net = RL.square_init d s
 inl i = {pot=9; chips=0; hand=Option.some <| box Card {rank=box Rank .Five; suit=.Spades}}
 inl action, bck = RL.action {d with net} i s
 Console.writeline action
@@ -158,9 +158,9 @@ inb s = CudaModules (1024*1024)
 inl float = float32
 open Learning float
 
-inl d = {reward_range=10; state_type=Rep; action_type=Action}
+inl d = {range=10; state_type=Rep; action_type=Action}
 
-inl net = RL.greedy_square_init d s
+inl net = RL.square_init d s
 inl i = {pot=9; chips=0; hand=Option.some <| box Card {rank=box Rank .Five; suit=.Spades}}
 Loops.for {from=0; near_to=10; body=inl _ ->
     s.refresh
@@ -269,6 +269,6 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
     }
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer4
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer6
 |> printfn "%s"
 |> ignore

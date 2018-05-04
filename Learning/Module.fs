@@ -2949,8 +2949,7 @@ inl float ->
                 s.CudaKernel.iter () (inl j ->
                     inl a, adj = Tuple.map (inl x -> x j .get) (a, adj)
                     inl x = x j a
-                    //x.set (adj + square_bck (x.get, reward))
-                    x.set (adj + x.get)
+                    x.set (adj + square_bck (x.get, reward))
                     ) a.dim
 
         greedy_qr = inl x s ->
