@@ -2990,7 +2990,7 @@ inl float ->
                     x.set (x.get + square_bck (v, reward))
                     ) a.dim
 
-        greedy_qr = inl x s ->
+        greedy_qr = inl k x s ->
             inl dim_a,dim_b,dim_c = (primal x).dim
             inl dim_c' = to float (HostTensor.span dim_c)
             inl v,a =
@@ -3018,7 +3018,7 @@ inl float ->
                     inl i ->
                         inl x_a, x_p = Tuple.map (inl x -> x i) (x_a, x_p)
                         inl quantile = (to float i - to float 0.5) / dim_c'
-                        x_a.set (x_a.get + HQR.bck_a one quantile (x_p.get, reward))
+                        x_a.set (x_a.get + HQR.bck_a k quantile (x_p.get, reward))
                     ) (dim_a,dim_c)
         }
 
@@ -3032,7 +3032,7 @@ inl float ->
                 apply = inl _ -> Selector.greedy_square
                 }
 
-        inl greedy_qr dist_size sublayer =
+        inl greedy_qr k dist_size sublayer =
             Layer.layer {
                 layer_type = .action
                 size = 1
@@ -3044,7 +3044,7 @@ inl float ->
                         | {primal adjoint block} as x -> {x with primal=f self; adjoint=f self}
                         | x -> f x
                         ) x
-                    |> inl x -> Selector.greedy_qr x s
+                    |> inl x -> Selector.greedy_qr k x s
                 }
 
         inl square_init {range state_type action_type} s =
@@ -3080,7 +3080,7 @@ inl float ->
                 |> inl l,size -> 
                     s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
             inl (v,a),{bck} = 
-                match d with {distribution_size} -> greedy_qr distribution_size | _ -> greedy_square
+                match d with {distribution_size} -> greedy_qr one distribution_size | _ -> greedy_square
                 |> inl runner -> run (runner net) {input={input}; bck=const()} s
             inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
             action, bck
