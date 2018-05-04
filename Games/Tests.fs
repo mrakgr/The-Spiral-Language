@@ -172,6 +172,27 @@ Loops.for {from=0; near_to=10; body=inl _ ->
     }
     """
 
+let serializer7 =
+    "serializer7",[cuda_modules;learning;serializer_one_hot;option],"Does greedy QR selector function work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl float = float32
+open Learning float
+
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=2,3,4} |> dr s
+s.CudaTensor.print x.primal
+inl (v,a),bck = Selector.greedy_qr x s
+s.CudaTensor.print (v.primal,a)
+
+s.CudaRandom.fill {dst=.Normal; stddev=1f32; mean=0f32} v.adjoint
+s.CudaTensor.print x.adjoint
+s.CudaTensor.print v.adjoint
+
+bck()
+s.CudaTensor.print x.adjoint
+    """
+
 let poker4 =
     "poker4",[loops;poker;timer],"What is the winrate of the RL based players against the random one?",
     """
@@ -248,27 +269,6 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
     }
     """
 
-let serializer7 =
-    "serializer7",[cuda_modules;learning;serializer_one_hot;option],"Does greedy QR selector function work?",
-    """
-inb s = CudaModules (1024*1024)
-
-inl float = float32
-open Learning float
-
-inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=2,3,4} |> dr s
-s.CudaTensor.print x.primal
-inl (v,a),bck = Selector.greedy_qr x s
-s.CudaTensor.print (v.primal,a)
-
-s.CudaRandom.fill {dst=.Normal; stddev=1f32; mean=0f32} v.adjoint
-s.CudaTensor.print x.adjoint
-s.CudaTensor.print v.adjoint
-
-bck()
-s.CudaTensor.print x.adjoint
-    """
-
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer7
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker5
 |> printfn "%s"
 |> ignore
