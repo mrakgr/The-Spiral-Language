@@ -2928,6 +2928,35 @@ inl float ->
         Pass = {for sample Body} |> stackify
         } |> stackify
 
+    /// The Hubert quantile regression functions.
+    inl HQR =
+        inl L k u = 
+            inl abs_u = abs u
+            if abs_u <= k then u * u / two
+            else k * (abs_u - k / two)
+
+        inl fwd k q (a,b) = 
+            inl u = b - a
+            inl d = q - if u < 0 then one else zero
+            if k = zero then u * d
+            else L k u * abs d
+
+        inl L' k u =
+            inl abs_u = abs u
+            inl abs_u' = if u >= 0 then one else -one
+            if abs_u <= k then u
+            else k * abs_u'
+
+        inl bck_b k q (a,b) =
+            inl u = b - a
+            inl d = q - if u < 0 then one else zero
+            if k = zero then d
+            else L' k u * abs d
+
+        inl bck_a k q (a,b) = -(bck_a k q (a,b))
+
+        {fwd bck_a bck_b}
+
     /// The differentiable action selectors.
     inl Selector =
         {
@@ -2969,14 +2998,15 @@ inl float ->
 
             (v, a), inl (reward: float64) ->
                 inl reward = to float reward
-                inl a, x, v = Tuple.map s.CudaTensor.to_dev_tensor (a, adjoint x, v)
+                inl a, x_a, x_p = Tuple.map s.CudaTensor.to_dev_tensor (a, adjoint x, primal x)
 
                 s.CudaKernel.iter () (inl j ->
-                    inl a, v = Tuple.map (inl x -> x j .get) (a, v)
+                    inl a = a j .get
+                    inl x_a, x_p = Tuple.map (inl x -> x j a) (x_a, x_p)
                     inl i ->
-                        inl x = x j a i
+                        inl x_a, x_p = Tuple.map (inl x -> x i) (x_a, x_p)
                         inl quantile = (to float i - to float 0.5) / dim_b
-                        x.set (x.get + hubert_qr_bck quantile (v, reward))
+                        x_a.set (x_a.get + HQR.bck_a one quantile (x_p.get, reward))
                     ) (dim_a,dim_c)
         }
 
