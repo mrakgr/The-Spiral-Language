@@ -2937,23 +2937,24 @@ inl float ->
 
         inl fwd k q (a,b) = 
             inl u = b - a
-            inl d = q - if u < 0 then one else zero
+            inl d = q - if u < zero then one else zero
             if k = zero then u * d
             else L k u * abs d
 
         inl L' k u =
             inl abs_u = abs u
-            inl abs_u' = if u >= 0 then one else -one
             if abs_u <= k then u
-            else k * abs_u'
+            else 
+                inl abs_u' = if u >= zero then one else -one
+                k * abs_u'
 
         inl bck_b k q (a,b) =
             inl u = b - a
-            inl d = q - if u < 0 then one else zero
+            inl d = q - if u < zero then one else zero
             if k = zero then d
             else L' k u * abs d
 
-        inl bck_a k q (a,b) = -(bck_a k q (a,b))
+        inl bck_a k q (a,b) = -(bck_b k q (a,b))
 
         {fwd bck_a bck_b}
 
@@ -3026,7 +3027,13 @@ inl float ->
                 size = 1
                 sublayer
                 weights = const ()
-                apply = inl _ x -> Selector.greedy_qr (x.split (inl a,b -> a,(dist_size,dist_size/b)))
+                apply = inl _ x s -> 
+                    inl f x = x.split (inl a,b -> a,(dist_size,b/dist_size))
+                    Struct.map (function
+                        | {primal adjoint block} as x -> {x with primal=f self; adjoint=f self}
+                        | x -> f x
+                        ) x
+                    |> inl x -> Selector.greedy_qr x s
                 }
 
         inl square_init {range state_type action_type} s =
@@ -3066,7 +3073,7 @@ inl float ->
                 |> inl runner -> run (runner net) {input={input}; bck=const()} s
             inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
             action, bck
-        {greedy_square square_init action}
+        {square_init qr_init action}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent

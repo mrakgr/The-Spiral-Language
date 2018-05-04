@@ -385,7 +385,7 @@ inl log ->
 
     inl reply_dq {d with bias scale range num_players} s =
         open Learning float32
-        inl d = {range state_type=Tuple.repeat num_players Rep; action_type=Action}
+        inl d = {d with state_type=Tuple.repeat num_players Rep; action_type=Action}
         inl net = match d with {distribution_size} -> RL.qr_init d s | _ -> RL.square_init d s
         function
         | .optimize s learning_rate -> Combinator.optimize net (Optimizer.sgd learning_rate) s

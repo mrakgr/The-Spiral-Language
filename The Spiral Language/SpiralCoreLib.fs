@@ -265,9 +265,7 @@ inl infinityf32 = !InfinityF32()
 // Note for future language designers - make nan = nan return true!
 
 /// Returns the absolute value.
-inl abs x = 
-    inl x' = -x
-    if x' < x then x else x'
+inl abs x = if x >= to x 0 then x else -x
 
 /// Checks whether the type can move past language boundaries.
 inl blittable_is x = !BlittableIs(x)

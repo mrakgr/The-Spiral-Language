@@ -183,13 +183,9 @@ open Learning float
 inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=2,3,4} |> dr s
 s.CudaTensor.print x.primal
 inl (v,a),bck = Selector.greedy_qr x s
-s.CudaTensor.print (v.primal,a)
-
-s.CudaRandom.fill {dst=.Normal; stddev=1f32; mean=0f32} v.adjoint
 s.CudaTensor.print x.adjoint
-s.CudaTensor.print v.adjoint
 
-bck()
+bck -1.0
 s.CudaTensor.print x.adjoint
     """
 
@@ -269,6 +265,6 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
     }
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker5
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker6
 |> printfn "%s"
 |> ignore
