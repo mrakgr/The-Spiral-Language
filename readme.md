@@ -1297,7 +1297,7 @@ inl unop name arg return_type =
         ]
 inl readline() = static_method console .ReadLine() string
 inl writeline x = static_method console .WriteLine x string
-inl int x = unop "int" x int64
+inl int x = unop "int" x int32
 inl a, b = readline(), readline()
 writeline (int a + int b)
 ```
@@ -1593,7 +1593,7 @@ let (var_0: int64) = 0L
 method_0((var_0: int64))
 ```
 
-The above loop can further improved in terms of functionality. Notice that its body has has a type `unit` which is represented by an empty tuple in Spiral. That is a throwback to C that has no place in modern language such as Spiral.
+The above loop can further improved in terms of functionality. Notice that its body has a type `unit` which is represented by an empty tuple in Spiral. That is a throwback to C that has no place in modern language such as Spiral.
 
 ```
 open Console
@@ -1765,7 +1765,7 @@ inl for {d with state body} =
         | {to} from -> from <= to
         | {down_to} from -> from >= down_to
         | {near_down_to} from -> from > near_down_to
-        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` needs be present."
+        | _ -> error_type "One of `to`,`near_to`,`down_to`,`near_down_to` needs be present."
 
 
     inl from =
@@ -2493,7 +2493,7 @@ Modules with no free variables such as the `Array` module whose fields are entir
 
 ### 3: Union Types and Lists
 
-Discriminated union types in Spiral take direct inspiration from F#'s own. That having said, the lack of type inference and the aggressive unboxing of them by the Spiral evaluator makes them less convenient to work with. Nonetheless, union types capture the essence of dynamism and are absolutely essential in a modern language.
+Discriminated union types in Spiral take direct inspiration from F#'s own. Having said that, the lack of type inference and the aggressive unboxing of them by the Spiral evaluator makes them less convenient to work with. Nonetheless, union types capture the essence of dynamism and are absolutely essential in a modern language.
 
 Since Spiral has first class types, type string literals take the place of case names. Furthermore, types can be defined anywhere in the program rather than only at the top level like in F#.
 
@@ -2832,7 +2832,7 @@ print_static (Option int64) // type (union {[type_lit (Some), int64] | type_lit 
 print_static (Option int64 |> split) // [type ([type_lit (Some), int64]), type (type_lit (None))]
 ```
 
-This is a bit of a hack. Spiral has union and not sum types, meaning they are not ordered. Or better put, they are ordered, just not based on how the were input.
+This is a bit of a hack. Spiral has union and not sum types, meaning they are not ordered. Or better put, they are ordered, just not based on how the were entered.
 
 The above example works for lists and is how they are implemented in the standard library, but there are alternative ways of implementing the basic list.
 
@@ -3397,9 +3397,9 @@ Now the result is what one might want.
 
 In the future this might not be an issue and in fact, it might just get fixed as a natural process of making the compiler run faster. The way patterns work now is inefficient from a compilation speed perspective and there is room for improvement there. In fact, since pattern matching is so ubiquitous in Spiral, that would be the first thing one would want to optimize in order to speed up compilation.
 
-The way they work now though has the great combination of them being both elegant, highly effective and simple to implement.
+The way they work now though has the great combination of them being elegant, highly effective and simple to implement.
 
-It is difficult to imagine what could be added to Spiral for it generate better code for runtime at this point. Spiral's one pass is THE optimization pass to optimize these patterns at runtime, but it does not have any capacity to optimize its own compilation.
+It is difficult to imagine what could be added to Spiral for it to generate better code for runtime at this point. Spiral's one pass is THE optimization pass to optimize these patterns at runtime, but it does not have any capacity to optimize its own compilation.
 
 Right now Spiral's worst problem is its poor library support. The libraries are always in text and have to be parsed and prepassed from the scratch on every compilation. The way most languages solve that is by inventing an intermediate bytecode format, but without a doubt there exists a language design that would allow both the language to be fused to libraries, and to optimize both itself and the programs it is applied to. Without a doubt, such a language would significantly exceed Spiral in quality.
 
