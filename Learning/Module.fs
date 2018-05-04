@@ -1329,6 +1329,63 @@ inl mapi_d1_dredo_map w d in =
         mapi_d1_dredo_map' w {d with map_out = inl a _ -> map_out a} in out
         stack out
 
+met iteri_d1_seq_broadcast' w {d with seq mapi_in} (dim_a, dim_b) = 
+    inl num_valid = s dim_b
+    inl items_per_thread, blockDim =
+        assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
+        if num_valid <= 1024 then 1, num_valid
+        else divup num_valid 256, 256
+    inl gridDimY = min 64 (s dim_a)
+
+    w.run {
+        blockDim
+        gridDim=1,gridDimY
+        kernel = cuda 
+            inl dims = {blockDim gridDim}
+            inl inner_loop = grid_for_items dims .x dim_b
+            inl create_items map = 
+                inl elem_type = type map {item=dyn 0; i=dyn 0}
+                inl items = HostTensor.create {
+                    array_create = array_create_cuda_local
+                    layout=.aot
+                    elem_type
+                    dim=items_per_thread
+                    }
+
+                inner_loop {body=inl {x with item i} -> items item .set (map x)}
+                items
+
+            grid_for dims .y dim_a {body=inl {i=j} ->
+                inl items = 
+                    inl map = mapi_in j
+                    create_items <| inl {item i} -> map i
+
+                inl rec seq_loop items (d :: d') =
+                    match d with
+                    | {mapi_in} ->
+                        inl map = mapi_in j
+                        create_items <| inl {item i} -> map i (items item .get)
+                    | _ -> items
+                    |> inl x -> 
+                        inl x = x.bodies.ar
+                        inl block_reduce redo = 
+                            inl d = {blockDim redo}
+                            if num_valid % blockDim.x = 0 then cub_block_reduce d
+                            else cub_block_reduce {d with num_valid} 
+                        match d with
+                        | {redo} -> block_reduce redo x |> broadcast_zero
+                        | {redo'} -> block_reduce redo' x
+                    |> inl x ->
+                        inl map = d.mapi_out j
+                        inl body {item i} = map i (items item .get) x
+                        match d' with
+                        | () -> inner_loop {body}
+                        | _ -> seq_loop (create_items body) d'
+
+                seq_loop items (Tuple.wrap seq)
+                }
+        }
+
 // Repeatedly reduces along the inner dimension and then maps the result of that reductions over the input in the previous step.
 met mapi_d1_seq_broadcast' w {d with seq} in out = 
     inl to_dev_tensor = w.CudaTensor.to_dev_tensor
