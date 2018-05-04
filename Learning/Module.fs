@@ -2967,17 +2967,16 @@ inl float ->
                     } (primal x)
                 |> HostTensor.unzip
 
-            inl {adjoint=adj} as v = dr s v
-
             (v, a), inl (reward: float64) ->
                 inl reward = to float reward
-                inl a, adj = Tuple.map s.CudaTensor.to_dev_tensor (a, adj)
-                inl x = adjoint x |> s.CudaTensor.to_dev_tensor
-                s.CudaKernel.iter () (inl j i -> // TODO: Plug QR in here.
-                    inl a, adj = Tuple.map (inl x -> x j .get) (a, adj)
-                    inl x = x j a i
-                    inl quantile = (to float i - to float 0.5) / dim_b
-                    x.set (adj + hubert_qr_bck quantile (x.get, reward))
+                inl a, x, v = Tuple.map s.CudaTensor.to_dev_tensor (a, adjoint x, v)
+
+                s.CudaKernel.iter () (inl j ->
+                    inl a, v = Tuple.map (inl x -> x j .get) (a, v)
+                    inl i ->
+                        inl x = x j a i
+                        inl quantile = (to float i - to float 0.5) / dim_b
+                        x.set (x.get + hubert_qr_bck quantile (v, reward))
                     ) (dim_a,dim_c)
         }
 
