@@ -189,6 +189,46 @@ bck -1.0
 s.CudaTensor.print x.adjoint
     """
 
+let serializer8 =
+    "serializer8",[cuda_modules;learning],"Does QR cost function work?",
+    """
+// It does, just worse that MSE with Monte Carlo updates.
+inb s = CudaModules (1024*1024*1024)
+
+inl float = float32
+open Learning float
+
+inl minibatch_size = 1
+
+inl input_size = 128
+inl hidden_size = 1
+
+inl network = 
+    open Feedforward.Layer
+
+    inl label = input .label hidden_size
+    inl network =
+        input .input input_size 
+        |> relu 128
+        |> linear hidden_size 
+        |> init s
+    error (Error.hubert_qr 1.0f32) label network
+
+inl train_images = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=1,minibatch_size,input_size}
+inl train_labels = s.CudaKernel.init {dim=1,minibatch_size,hidden_size} (inl _ _ _ -> 10f32)
+
+open Feedforward.Pass
+open Body
+
+inl cost =
+    for {
+        data={input=train_images; label=train_labels}
+        body=grad_check { network }
+        } s
+
+string_format "Training: {0}" cost |> Console.writeline
+    """
+
 let poker4 =
     "poker4",[loops;poker;timer],"What is the winrate of the RL based players against the random one?",
     """
@@ -265,6 +305,6 @@ Loops.for {from=0; near_to=30; body=inl {i} ->
     }
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker6
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" serializer8
 |> printfn "%s"
 |> ignore

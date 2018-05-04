@@ -2071,7 +2071,48 @@ inl float ->
 
         cost, bck
 
-    inl Error = {square cross_entropy softmax_cross_entropy} |> stackify
+    /// The Hubert quantile regression functions.
+    inl HQR =
+        inl L k u = 
+            inl abs_u = abs u
+            if abs_u <= k then u * u / two
+            else k * (abs_u - k / two)
+
+        inl fwd k q (a,b) = 
+            inl u = b - a
+            inl d = q - if u < zero then one else zero
+            if k = zero then u * d
+            else L k u * abs d
+
+        inl L' k u =
+            inl abs_u = abs u
+            if abs_u <= k then u
+            else 
+                inl abs_u' = if u >= zero then one else -one
+                k * abs_u'
+
+        inl bck_b k q (a,b) =
+            inl u = b - a
+            inl d = q - if u < zero then one else zero
+            if k = zero then d
+            else L' k u * abs d
+
+        inl bck_a k q (a,b) = -(bck_b k q (a,b))
+
+        {fwd bck_a bck_b}
+
+    /// Though it say qr, this instance of it is just the mean function.
+    /// Is here so it can be put in through the gradient checker.
+    inl hubert_qr k =
+        inl half = to float 0.5
+        error {
+            fwd = HQR.fwd k half
+            bck = 
+                inl x _ -> HQR.bck_a k half x
+                ,inl x _ -> HQR.bck_b k half x
+            }
+
+    inl Error = {square cross_entropy softmax_cross_entropy hubert_qr} |> stackify
 
     // #Initializer
     inl Initializer = 
@@ -2927,36 +2968,6 @@ inl float ->
         Layer = {Layer with init init_parallel layer sigmoid linear lstm mi miln} |> stackify
         Pass = {for sample Body} |> stackify
         } |> stackify
-
-    /// The Hubert quantile regression functions.
-    inl HQR =
-        inl L k u = 
-            inl abs_u = abs u
-            if abs_u <= k then u * u / two
-            else k * (abs_u - k / two)
-
-        inl fwd k q (a,b) = 
-            inl u = b - a
-            inl d = q - if u < zero then one else zero
-            if k = zero then u * d
-            else L k u * abs d
-
-        inl L' k u =
-            inl abs_u = abs u
-            if abs_u <= k then u
-            else 
-                inl abs_u' = if u >= zero then one else -one
-                k * abs_u'
-
-        inl bck_b k q (a,b) =
-            inl u = b - a
-            inl d = q - if u < zero then one else zero
-            if k = zero then d
-            else L' k u * abs d
-
-        inl bck_a k q (a,b) = -(bck_b k q (a,b))
-
-        {fwd bck_a bck_b}
 
     /// The differentiable action selectors.
     inl Selector =
