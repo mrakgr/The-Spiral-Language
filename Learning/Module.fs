@@ -2071,19 +2071,33 @@ inl float ->
 
         cost, bck
 
-    inl softmax_cross_entropy_alt label input s =
+    inl softmax_cross_entropy_alt label input s = // TODO: Is unfinished.
+        assert (label.dim = input.dim) "Labels and inputs must have equal dimensions."
+        inl label = s.CudaTensor.to_dev_tensor label
+        
         inl batch_size = primal input .span_outer |> to float
         inl div_by_minibatch_size x = x / batch_size
 
-        inl softmax_cost label p =
-            s.CudaKernel.map_redo_map {
-                    map_in = inl p, label -> -label * log p
-                    redo = (+)
-                    neutral_elem = zero
-                    map_out = div_by_minibatch_size
-                } (p, label)
+        /// The softmax activation
+        inl softmax temp (input, label) s = 
+            s.CudaKernel.mapi_d1_seq_broadcast {
+                map_in=inl x -> x / temp
+                seq = 
+                    {
+                    redo=max
+                    map_out=inl a b -> exp (a - b)
+                    }
+                    ,
+                    {
+                    redo=(+)
+                    mapi_out=inl j i x sum_x ->
+                        inl p = x / sum_x
+                        inl label = label j i .get
+                        -label * log p
+                    }
+                } input
 
-        inl p = softmax one (primal input) s
+        inl p = softmax one (primal input, primal label) s
         inl cost = softmax_cost (primal label) p
         inl bck =
             inl p, label -> p - label 
