@@ -2071,6 +2071,32 @@ inl float ->
 
         cost, bck
 
+    inl softmax_cross_entropy_alt label input s =
+        inl batch_size = primal input .span_outer |> to float
+        inl div_by_minibatch_size x = x / batch_size
+
+        inl softmax_cost label p =
+            s.CudaKernel.map_redo_map {
+                    map_in = inl p, label -> -label * log p
+                    redo = (+)
+                    neutral_elem = zero
+                    map_out = div_by_minibatch_size
+                } (p, label)
+
+        inl p = softmax one (primal input) s
+        inl cost = softmax_cost (primal label) p
+        inl bck =
+            inl p, label -> p - label 
+            ,inl p, label -> -(log p)
+
+        inl adjoint, bck = choose_adjoints (input, label) bck
+        inl bck _ = join
+            inl bck (in, out) = Struct.map2 (inl bck adjoint -> adjoint + div_by_minibatch_size (bck (in, out))) bck
+            s.CudaKernel.map' bck (p, primal label) adjoint
+
+        cost, bck
+
+
     /// The Hubert quantile regression functions.
     inl HQR =
         inl L k u = 
