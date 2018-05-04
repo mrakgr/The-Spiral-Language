@@ -2981,7 +2981,7 @@ inl float ->
 
         greedy_qr = inl x s ->
             inl dim_a,dim_b,dim_c = (primal x).dim
-            inl dim_b = to float (HostTensor.span dim_b)
+            inl dim_c' = to float (HostTensor.span dim_c)
             inl v,a =
                 s.CudaKernel.mapi_d1_dredo_map { 
                     redo_in = {
@@ -2993,7 +2993,7 @@ inl float ->
                         neutral_elem=-infinityf32,-1
                         redo=inl a b -> if fst a > fst b then a else b
                         }
-                    map_out = inl a, i -> a / dim_b, i
+                    map_out = inl a, i -> a / dim_c', i
                     } (primal x)
                 |> HostTensor.unzip
 
@@ -3006,7 +3006,7 @@ inl float ->
                     inl x_a, x_p = Tuple.map (inl x -> x j a) (x_a, x_p)
                     inl i ->
                         inl x_a, x_p = Tuple.map (inl x -> x i) (x_a, x_p)
-                        inl quantile = (to float i - to float 0.5) / dim_b
+                        inl quantile = (to float i - to float 0.5) / dim_c'
                         x_a.set (x_a.get + HQR.bck_a one quantile (x_p.get, reward))
                     ) (dim_a,dim_c)
         }

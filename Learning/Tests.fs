@@ -396,7 +396,7 @@ inb s = CudaModules (1024*1024)
 inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=6,12,256}
 s.CudaTensor.print x
 inl a,b,c = x.dim
-inl b = to float32 (HostTensor.span b)
+inl c = to float32 (HostTensor.span c)
 inl v =
     s.CudaKernel.mapi_d1_dredo_map { 
         redo_in = {
@@ -408,7 +408,7 @@ inl v =
             neutral_elem=-infinityf32,-1
             redo=inl a b -> if fst a > fst b then a else b
             }
-        map_out = inl a, i -> a / b, i
+        map_out = inl a, i -> a / c, i
         } x
 s.CudaTensor.print v
     """
