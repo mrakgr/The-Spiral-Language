@@ -305,6 +305,24 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
     }
     """
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker6
+let example =
+    "",[],"",
+    """
+inl npc = 
+    {
+    health = dyn 0
+    mana = dyn 0
+    max_health = 40
+    max_mana = 30
+    } |> stack
+
+inl ar = array_create npc 3
+ar 0 <- {npc with health = dyn 10; mana = dyn 20}
+ar 1 <- {npc with health = dyn 20; mana = dyn 10}
+//ar 2 <- {npc with health = dyn 10; mana = dyn 20; max_health = 50} // Gives a type error
+()
+    """
+
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" example
 |> printfn "%s"
 |> ignore
