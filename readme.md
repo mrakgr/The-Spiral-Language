@@ -7106,7 +7106,7 @@ One thing that the library does not do, but should is to fuse all the map calls 
 
 These are used to combine AD operations in a monadic manner. `>>=` is just a specific instance of a writer monad here.
 
-In essence, it relives the burden of having to deal with backwards step functions explicitly in a pure functional fashion. Remember that `inm a = b` is just syntax suggar for `b >>= inl a -> ...`
+In essence, it relives the burden of having to deal with backwards step functions explicitly in a pure functional fashion. Remember that `inm a = b` is just syntax sugar for `b >>= inl a -> ...`
 
 ```
                     inm f = matmultb ((i,input.f),(h,state.f)) bias.f >>= sigmoid
