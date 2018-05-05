@@ -373,7 +373,7 @@ inl methods_template d =
     clear = clear d
     create = create d 
     create' = create' d
-    } |> stack
+    }
 
 inl methods_mem = 
     inl region_module_name = .RegionMem
@@ -2523,7 +2523,7 @@ inl float ->
             size = 1
             }
 
-    inl Layer = {layer input stateless non_differentiable feedforward recurrent parallel error accuracy encode sample} |> stackify
+    inl Layer = {layer input stateless non_differentiable feedforward recurrent parallel error accuracy encode sample} |> module_map (const stack)
 
     // #Feedforward
     inl layer initializer activation size sublayer =

@@ -1154,12 +1154,13 @@ inl npc =
     mana = dyn 0
     max_health = 40
     max_mana = 30
-    } |> stack
+    }
 
-inl ar = array_create npc 3
-ar 0 <- {npc with health = dyn 10; mana = dyn 20}
-ar 1 <- {npc with health = dyn 20; mana = dyn 10}
-//ar 2 <- {npc with health = dyn 10; mana = dyn 20; max_health = 50} // Gives a type error
+inl ar = array_create (type stack npc) 3
+ar 0 <- stack {npc with health = dyn 10; mana = dyn 20}
+ar 1 <- stack {npc with health = dyn 20; mana = dyn 10}
+//ar 2 <- {npc with health = dyn 10; mana = dyn 20} // Gives a type error as the module here is not a layout type.
+//ar 2 <- stack {npc with health = dyn 10; mana = dyn 20; max_health = 50} // Gives a type error as max health is an incorrect literal.
 ()
 ```
 ```
@@ -1171,18 +1172,15 @@ type EnvStack0 =
     end
 let (var_0: int64) = 0L
 let (var_1: int64) = 0L
-let (var_2: EnvStack0) = EnvStack0((var_0: int64), (var_1: int64))
 let (var_3: (EnvStack0 [])) = Array.zeroCreate<EnvStack0> (System.Convert.ToInt32(3L))
-let (var_4: int64) = var_2.mem_0
-let (var_5: int64) = var_2.mem_1
-let (var_6: int64) = 10L
+let (var_4: int64) = 10L
+let (var_5: int64) = 20L
+let (var_6: EnvStack0) = EnvStack0((var_4: int64), (var_5: int64))
+var_3.[int32 0L] <- var_6
 let (var_7: int64) = 20L
-let (var_8: EnvStack0) = EnvStack0((var_6: int64), (var_7: int64))
-var_3.[int32 0L] <- var_8
-let (var_9: int64) = 20L
-let (var_10: int64) = 10L
-let (var_11: EnvStack0) = EnvStack0((var_9: int64), (var_10: int64))
-var_3.[int32 1L] <- var_11
+let (var_8: int64) = 10L
+let (var_9: EnvStack0) = EnvStack0((var_7: int64), (var_8: int64))
+var_3.[int32 1L] <- var_9
 ```
 
 In layout types, literals and naked types become a part of the bigger type and are tracked at the type level. The individual variables are flattened and the intermediate structures are erased in the generated code, very similarly to how the arguments are handled at join points.

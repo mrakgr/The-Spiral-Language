@@ -484,18 +484,6 @@ let test38 =
 box int64 (dyn 1)
     """
 
-let test39 =
-    "test39",[],"Does a nested heapified module work?",
-    """
-inl m = heap {a=dyn 1; b=dyn 2; c' = {q=dyn 3; w=dyn 4}}
-inl m' = {m.c' with q=dyn 6}
-inl add c d = 
-    inl {a b {c' with q w}} = m
-    a + b + c + d + q + w
-met f g c d = g c d
-f (heap add) (dyn 3) (dyn 4)
-    """
-
 let test40 =
     "test40",[],"Does this compile into just one method? Are the arguments reversed in the method call?",
     """
@@ -504,18 +492,6 @@ met rec f a b =
     else a + b
     : 0
 f (dyn 1) (dyn 2)
-    """
-
-let test41 =
-    "test41",[],"Does a nested heapified module work?",
-    """
-inl m = heap {a=dyn 1; b=dyn 2; c' = stack {q=dyn 3; w=dyn 4}}
-inl m' = {m.c' with q=dyn 9}
-inl add c d = 
-    inl {a b {c' with q w}} = m'
-    a + b + c + d + q + w
-met f g c d = g c d
-f (heap add) (dyn 3) (dyn 4) // 23
     """
 
 let test42 =
@@ -1977,8 +1953,8 @@ let tests =
     test1;test2;test3;test4;test5;test6;test7;test8;test9
     test10;test11;test12;test13;test14;test15;test16;test17;test18;test19
     test20;test21;test22;test23;test24;test25;test26;test27;test28;test29
-    test30;test31;test32;test33;test34;test35;test36;test37;test38;test39
-    test40;test41;test42;test43;test44;test45;test46;test47;test48;test49
+    test30;test31;test32;test33;test34;test35;test36;test37;test38
+    test40;       test42;test43;test44;test45;test46;test47;test48;test49
     test50;test51;test52;test53;test54;test55;test56;test57;test58;test59
     test60';test61;test62;test63;test64;test65;test66;test67;test68;test69
     test70;test71';test72;test73;test74;test75;test76';test77';test78;test79
