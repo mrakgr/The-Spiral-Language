@@ -314,12 +314,12 @@ inl npc =
     mana = dyn 0
     max_health = 40
     max_mana = 30
-    } |> stack
+    }
 
-inl ar = array_create npc 3
-ar 0 <- {npc with health = dyn 10; mana = dyn 20}
-ar 1 <- {npc with health = dyn 20; mana = dyn 10}
-//ar 2 <- {npc with health = dyn 10; mana = dyn 20; max_health = 50} // Gives a type error
+inl ar = array_create (stack npc) 3
+ar 0 <- stack {npc with health = dyn 10; mana = dyn 20}
+ar 1 <- stack {npc with health = dyn 20; mana = dyn 10}
+//ar 2 <- stack {npc with health = dyn 10; mana = dyn 20; max_health = 50} // Gives a type error
 ()
     """
 
