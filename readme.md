@@ -7130,9 +7130,9 @@ Here is how the LSTM is implemented for example. Monadic computation saves a dec
 
 Finally in this section it becomes possible to give an example of the `d2_replicate` activation. This RNN variant is from the paper [On Multiplicative Integration with Recurrent Neural Networks](https://arxiv.org/abs/1606.06630).
 
-In last 2016 the author was impressed by the novel notion of replacing addition with Hadamarad multiplication and decided there that this is something he wanted to use since getting a good improvement for such a simple change seemed like a worthwhile tradeoff. It was not until just recently however that he managed to implement it properly. It was a long and arduous journey to get it into this form.
+In 2016 the author was impressed by the novel notion of replacing addition with Hadamarad multiplication and decided there that this is something he wanted to use since getting a good improvement for such a simple change seemed like a worthwhile tradeoff. It was not until just recently however that he managed to implement it properly. It was a long and arduous journey to get it into this form.
 
-A short summary - the standard activation for a vanilla RNN is `f(Wx + Uh + b)`. Multiplicative integration replaces that `+` with `f(Wx .* Uh + b)`. It is possible to generalize that further by adding a bunch of bias terms so it becomes `f((Wx + b1) .* (Uh + b2) + b)`. This simplifies to `f(b1 .* Wx .* Uh + b2 .* Uh + b3 .* Wx + b4)`. The sheer amount of terms to be added and multiplied makes it challenging to write a custom Cuda kernel for. The backward step would double the number of variable to 12 as well due needing to pass adjoints. Not to mention, the biases need to be replicated as well.
+A short summary - the standard activation for a vanilla RNN is `f(Wx + Uh + b)`. Multiplicative integration replaces that `+` with `f(Wx .* Uh + b)`. It is possible to generalize that further by adding a bunch of bias terms so it becomes `f((Wx + b1) .* (Uh + b2) + b)`. This simplifies to `f(b1 .* Wx .* Uh + b2 .* Uh + b3 .* Wx + b4)`. The sheer amount of terms to be added and multiplied makes it challenging to write a custom Cuda kernel for. The backward step would double the number of variables to 12 as well due needing to pass adjoints. Not to mention, the biases need to be replicated as well.
 
 The sheer effort that would be needed to implement what would otherwise be a trivial use of `map` is one of the main catalysts for the author abandoning the old F# library and creating Spiral.
 
@@ -7351,7 +7351,7 @@ The backward step is more involved, but fairly similar to the standard layer nor
             r, inl _ -> bck' o r b i s
 ```
 
-Propagating the adjoints into the biases is achieved through atomics. This is actual the only flaw in the whole kernel. Whereas before the training would be fully deterministic, this causes wide swings from run to run. The author saw the MIRNN range from 160 to 180 on the first epoch. With the biases frozen it gets 163 every time which makes the look like a joke, but the author intends to continue believing in their theoretical advantages.
+Propagating the adjoints into the biases is achieved through atomics. This is actual the only flaw in the whole kernel. Whereas before the training would be fully deterministic, this causes wide swings from run to run. The author saw the MIRNN range from 160 to 180 on the first epoch. With the biases frozen it gets 163 every time which makes it look like a joke, but the author intends to continue believing in their theoretical advantages.
 
 What the above function allows is using LN+Relu with any kind of map operation whether it be MI or something else, in either feedforward or recurrent networks. As a result the layer with the fully fused activation looks identical to the standard one.
 
@@ -7542,7 +7542,7 @@ The way to imagine the graph being executed is to think of values flowing upward
 
     The author thinks it might be possible to optimize compile times further, but he is at a loss as to how to do it past this point. He would welcome reviews from others on this part.
 
-    Some of the things he tried like flattening the AST that he thought would have benefit made absolutely no difference to performance. Things like optimizing the way `Op`s are represented would severely undermine the ergonomics of the compiler. Parser could be speed up significantly, but it is not a overhead. Actually it is, but it is not the one that is bothersome.
+    Some of the things he tried like flattening the AST that he thought would have benefit made absolutely no difference to performance. Things like optimizing the way `Op`s are represented would severely undermine the ergonomics of the compiler. Parser could be sped up significantly, but it is not a overhead. Actually it is, but it is not the one that is bothersome.
 
     The partial evaluator is an enigma - reason tells that it is already fast for the kinds of work it is doing based on a rough comparison with other compilers. It is probably even faster than most other functional languages simply due to how simple it is. On the other hand, if the kinds of things it is doing can't be made any faster that bodes ill for not just Spiral, but for the future of programming languages.
 
@@ -8228,7 +8228,7 @@ Some of the loose ends currently in the library that need to be worked on when t
 
 Getting to this point is a great relief to the author because the problem is no longer making the language which could take over a year, nor the huge arduous task of catching up and exceeding the old library. Rather, the problem is that the he has nothing to use it on. So the next task on his agenda will be to work on games for the agents. And what sort of better games than the ones where dumb people are willing to wager both money and status against potentially superhuman opponents.
 
-The future sure looks bright. The plan is simple; while much can't be expected with a simple one layer recurrent net like the one demonstrated on the char-RNN, it is a starting point and the continual process of constantly improving on that should yield bounty. It certainly beats the reality of pounding the pavement of the last 2.5 years.
+The future sure looks bright. The plan is simple; while much can't be expected with a simple one layer recurrent net like the one demonstrated on the char-RNN, it is a starting point and the continual process of constantly improving on that should yield bounty. It certainly beats the reality of pounding the pavement for the last 2.5 years.
 
 The following items are roughly in the order of priority. They describe the potential main avenues of improvement once the time is ripe.
 
