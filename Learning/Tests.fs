@@ -374,9 +374,11 @@ inl o3 = // Softmax backward
             }
         } (a1,a2)
 
-Tuple.iter s.CudaTensor.print (a1,o3)
-//    [|0.2925366; -0.718359; 0.09999694; -0.3931978|]
-//    [|0.5028772; -1.234876; 0.1718971; -0.6759161|]
+Tuple.iter s.CudaTensor.print (a1,o1,o2,o3)
+//  [|0.2925366; -0.718359; 0.09999694; -0.3931978|]
+//  [|0.3714055; 0.1351518; 0.3063581; 0.1870845|]
+//  [|0.3714055; 0.5065573; 0.8129154; 0.9999999|]
+//  [|0.5028772; -1.234876; 0.1718971; -0.6759161|]
     """
 
 let kernel12 =
@@ -761,6 +763,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel11
 |> printfn "%s"
 |> ignore

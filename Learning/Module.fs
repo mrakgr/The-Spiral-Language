@@ -1386,95 +1386,51 @@ met iteri_d1_seq_broadcast' w {d with seq mapi_in} (dim_a, dim_b) =
                 }
         }
 
+inl ddef fout in out = function
+    | {d with mapi_in} -> {d with mapi_in = inl j i -> mapi_in j i (in j i .get)}
+    | {d with map_in} -> {d without map_in with mapi_in = inl j i -> map_in (in j i .get)}
+    | d -> {d with mapi_in = inl _ _ x -> x}
+    >> function
+    | d ->
+        inl fin = function
+            | {mapi_in} as x -> x
+            | {map_in} as x-> {x without map_in with mapi_in = inl _ _ -> map_in}
+            | x -> x
+        inl rec loop = function
+            | x :: () ->
+                fin x
+                |> function
+                | {mapi_out} as x -> {x with mapi_out = inl j i a b -> 
+                    inl out = out j i
+                    out .set (fout (mapi_out j i) a b out.get)
+                    }
+                | {map_out} as x -> {x without map_out with mapi_out = inl j i a b -> 
+                    inl out = out j i
+                    out .set (fout map_out a b out.get)
+                    }
+                | _ -> error_type "The map_out or mapi_out in every item of the sequence."
+                |> inl x -> x :: ()
+            | x :: x' ->
+                fin x
+                |> function
+                | {mapi_out} as x -> x
+                | {map_out} as x -> {x without the map_out with mapi_out = inl j i a b -> map_out a b}
+                | _ -> error_type "The map_out or mapi_out in every item of the sequence."
+                |> inl x -> x :: loop x'
+                
+        {d with seq = loop (Tuple.wrap self)}
+
 // Repeatedly reduces along the inner dimension and then maps the result of that reductions over the input in the previous step.
 met mapi_d1_seq_broadcast' w {d with seq} in out = 
     inl to_dev_tensor = w.CudaTensor.to_dev_tensor
     
     inl in, out = zip in, zip out
-    inl dim_in_a, dim_in_b = in.dim
     assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
-
-    inl num_valid = s dim_in_b
-    inl items_per_thread, blockDim =
-        assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
-        if num_valid <= 1024 then 1, num_valid
-        else divup num_valid 256, 256
-    inl gridDimY = min 64 (s dim_in_a)
 
     inl in = to_dev_tensor in
     inl out = to_dev_tensor out
 
-    w.run {
-        blockDim
-        gridDim=1,gridDimY
-        kernel = cuda 
-            inl dims = {blockDim gridDim}
-            grid_for dims .y dim_in_a {body=inl {i=j} ->
-                inl in, out = in j, out j
-
-                /// Creates the tensor of items.
-                inl create_items elem_type = HostTensor.create {
-                    array_create = array_create_cuda_local
-                    layout=.aot
-                    elem_type
-                    dim=items_per_thread
-                    }
-
-                inl inner_loop = grid_for_items dims .x dim_in_b
-                    
-                inl items = 
-                    inl map = 
-                        match d with
-                        | {map_in} i -> map_in (in i .get)
-                        | {mapi_in} i -> mapi_in j i (in i .get)
-                        | _ i -> in i .get
-                    inl items = create_items (type map (dyn 0))
-                    inner_loop {body=inl {item i} -> items item .set (map i)}
-                    items
-
-                inl rec seq_loop items (d :: d') =
-                    match d with
-                    | {map_in} -> 
-                        inl items' = create_items (type map_in items.elem_type)
-                        inner_loop {body=inl {item} -> items item .get |> map_in |> items' item .set}
-                        items'.bodies.ar
-                    | {mapi_in} ->
-                        inl items' = create_items (type mapi_in j i items.elem_type)
-                        inner_loop {body=inl {item i} -> items item .get |> mapi_in j i |> items' item .set}
-                        items'.bodies.ar
-                    | _ -> items.bodies.ar
-                    |> inl x -> 
-                        inl block_reduce redo = 
-                            inl d = {blockDim redo}
-                            if num_valid % blockDim.x = 0 then cub_block_reduce d
-                            else cub_block_reduce {d with num_valid} 
-                        match d with
-                        | {redo} -> block_reduce redo x |> broadcast_zero
-                        | {redo'} -> block_reduce redo' x
-                    |> inl x ->
-                        match d' with
-                        | () -> 
-                            inner_loop {body=inl {item i} ->
-                                inl out = out i
-                                match d with
-                                | {map_out} -> map_out (items item .get) x (out .get)
-                                | {mapi_out} -> mapi_out j i (items item .get) x (out .get)
-                                |> out .set
-                                }
-                        | _ ->
-                            match d with
-                            | {map_out} -> 
-                                inl items' = create_items type map_out items.elem_type x
-                                inner_loop {body=inl {item} -> map_out (items item .get) x |> items' item .set}
-                                seq_loop items' d'
-                            | {mapi_out} -> 
-                                inl items' = create_items type mapi_out (dyn 0) (dyn 0) items.elem_type x
-                                inner_loop {body=inl {i item} -> mapi_out j i (items item .get) x |> items' item .set}
-                                seq_loop items' d'
-
-                seq_loop items (Tuple.wrap seq)
-                }
-        }
+    iteri_d1_seq_broadcast w (ddef (inl f a b c -> f a b c) in out d) in.dim
 
 inl mapi_d1_seq_broadcast w {d with seq} in =
     indiv join
@@ -1496,12 +1452,11 @@ inl mapi_d1_seq_broadcast w {d with seq} in =
                 | {map_out} -> map_out ty ty'
                 | {mapi_out} -> map_out (dyn 0) (dyn 0) ty ty'
                 ) ty seq
+        
         inl out = w.CudaTensor.create {elem_type dim=in.dim}
-        inl rec seq_loop = function
-            | {s with map_out} :: () -> {s with map_out = inl a b _ -> map_out a b} :: ()
-            | {s with mapi_out} :: () -> {s with mapi_out = inl j i a b _ -> map_out j i a b} :: ()
-            | s :: s' -> s :: seq_loop s'
-        mapi_d1_seq_broadcast' w {d with seq=seq_loop seq} in out
+        inl to_dev_tensor = w.CudaTensor.to_dev_tensor
+
+        iteri_d1_seq_broadcast w (ddef (inl f a b c -> f a b) (to_dev_tensor in) (to_dev_tensor out) d) in.dim
         stack out
 
 /// Maps the two inputs and then scans, maps, reduces and maps the first's inner dimension.
