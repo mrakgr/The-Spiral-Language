@@ -1807,7 +1807,7 @@ inl float ->
     inl primals = Struct.map primal
     inl adjoints = Struct.map adjoint
 
-    inl on_non_nil B ret =
+    inl on_non_nil ret B =
         match B with
         | () -> ()
         | B -> ret B
@@ -1833,12 +1833,12 @@ inl float ->
             inl C' = adjoint C
             inl l =
                 Tuple.iter (inl A, B -> 
-                    on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A)
-                    on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B)
+                    on_non_nil (inl A -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A) (adjoint A)
+                    on_non_nil (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B) (adjoint B)
                     ) l
             match bias with
             | () -> ()
-            | _ -> on_non_nil (adjoint bias) (inl bias -> s.CudaKernel.mapi_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
+            | _ -> on_non_nil (inl bias -> s.CudaKernel.mapi_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias) (adjoint bias)
 
     inl matmult l s = matmultb l () s
 
@@ -2085,17 +2085,19 @@ inl float ->
 
         cost, bck
 
-    inl softmax_cross_entropy_alt label input s = // TODO: Is unfinished.
-        assert (label.dim = input.dim) "Labels and inputs must have equal dimensions."
-        inl label = s.CudaTensor.to_dev_tensor label
+    inl softmax_cross_entropy_alt label input s =
+        assert ((primal label).dim = (primal input).dim) "Labels and inputs must have equal dimensions."
+        inl to_dev_tensor = s.CudaTensor.to_dev_tensor
         
         inl batch_size = primal input .span_outer |> to float
-        inl div_by_minibatch_size x = x / batch_size
 
-        /// The softmax activation
-        inl softmax temp (input, label) s = 
+        inl cost = s.CudaTensor.zero {elem_type=float; dim=()}
+        inl temp = one
+
+        inl _ = 
+            inl input, label, cost = Tuple.map (primal >> to_dev_tensor) (input, label, cost)
             s.CudaKernel.iteri_d1_seq_broadcast {
-                map_in=inl x -> x / temp
+                mapi_in=inl j i -> input j i .get / temp
                 seq = 
                     {
                     redo=max
@@ -2109,18 +2111,39 @@ inl float ->
                         inl label = label j i .get
                         -label * log p
                     }
-                } input.dim
+                    ,
+                    {
+                    redo'=(+)
+                    mapi_out=inl j i _ c -> if threadIdx.x = 0 then atomic_add cost (c / batch_size)
+                    }
+                } (primal input).dim
 
-        inl p = softmax one (primal input, primal label) s
-        inl cost = softmax_cost (primal label) p
-        inl bck =
-            inl p, label -> p - label 
-            ,inl p, label -> -(log p)
-
-        inl adjoint, bck = choose_adjoints (input, label) bck
         inl bck _ = join
-            inl bck (in, out) = Struct.map2 (inl bck adjoint -> adjoint + div_by_minibatch_size (bck (in, out))) bck
-            s.CudaKernel.map' bck (p, primal label) adjoint
+            match Tuple.map (adjoint >> on_non_nil to_dev_tensor) (input, label) with
+            | (), () -> ()
+            | input', label' ->
+                inl input, label = Tuple.map (primal >> to_dev_tensor) (input, label)
+                s.CudaKernel.iteri_d1_seq_broadcast {
+                    mapi_in=inl j i -> input j i .get / temp
+                    seq = 
+                        {
+                        redo=max
+                        map_out=inl a b -> exp (a - b)
+                        }
+                        ,
+                        {
+                        redo=(+)
+                        mapi_out=inl j i x sum_x ->
+                            inl get x = x j i .get
+                            inl set x = x j i .set
+                            inl ret f = on_non_nil (inl x -> set x (get x + f () / batch_size))
+
+                            inl p = x / sum_x
+                            inl label = get label
+                            ret (inl _ -> (p - label) / temp) input'
+                            ret (inl _ -> -(log p)) label'
+                        }
+                    } input.dim
 
         cost, bck
 
