@@ -1329,7 +1329,8 @@ inl mapi_d1_dredo_map w d in =
         mapi_d1_dredo_map' w {d with map_out = inl a _ -> map_out a} in out
         stack out
 
-met iteri_d1_seq_broadcast' w {d with seq mapi_in} (dim_a, dim_b) = 
+/// Does a sequence of maps, reductions and maps in registers.
+met iteri_d1_seq_broadcast w {d with seq mapi_in} (dim_a, dim_b) = 
     inl num_valid = s dim_b
     inl items_per_thread, blockDim =
         assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
@@ -1386,10 +1387,11 @@ met iteri_d1_seq_broadcast' w {d with seq mapi_in} (dim_a, dim_b) =
                 }
         }
 
-inl ddef fout in out = function
+inl ddef fout in out = 
+    function
     | {d with mapi_in} -> {d with mapi_in = inl j i -> mapi_in j i (in j i .get)}
     | {d with map_in} -> {d without map_in with mapi_in = inl j i -> map_in (in j i .get)}
-    | d -> {d with mapi_in = inl _ _ x -> x}
+    | d -> {d with mapi_in = inl j i -> in j i .get}
     >> function
     | d ->
         inl fin = function
@@ -1763,7 +1765,7 @@ inl methods =
     map' map map_redo_map d2_replicate_map' d2_replicate_map mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
-    mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter
+    mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter iteri_d1_seq_broadcast
     } |> stackify
 
 inl s -> s.module_add .CudaKernel methods
@@ -2092,7 +2094,7 @@ inl float ->
 
         /// The softmax activation
         inl softmax temp (input, label) s = 
-            s.CudaKernel.mapi_d1_seq_broadcast {
+            s.CudaKernel.iteri_d1_seq_broadcast {
                 map_in=inl x -> x / temp
                 seq = 
                     {
@@ -2107,7 +2109,7 @@ inl float ->
                         inl label = label j i .get
                         -label * log p
                     }
-                } input
+                } input.dim
 
         inl p = softmax one (primal input, primal label) s
         inl cost = softmax_cost (primal label) p
