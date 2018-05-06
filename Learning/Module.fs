@@ -1237,36 +1237,46 @@ inl block_reduce_body ar near_to threadIdx redo state =
         }
     |> inl {state} -> state
 
+inl block_reduce_template dim ar (near_to, threadIdx) redo state =
+    if near_to > 1 then
+        inl ar = 
+            HostTensor.create {
+                array_create=array_create_cuda_shared
+                elem_type=state
+                dim
+                }
+            |> ar
+
+        block_reduce_body ar near_to threadIdx redo state
+    else
+        state
 
 /// Only to be used with the other blockDims held to a single dimension. 
 /// If the rest are not held to 1 then this algorithm will cause errors.
-inl block_reduce_1d (near_to, threadIdx) redo state =
-    if near_to > 1 then
-        inl ar = 
-            HostTensor.create {
-                array_create=array_create_cuda_shared
-                elem_type=state
-                dim={from=1; near_to}
-                }
-
-        block_reduce_body ar near_to threadIdx redo state
-    else
-        state
+inl block_reduce_1d (near_to, threadIdxX as x) =
+    block_reduce_template {from=1; near_to} id x
+        
+/// The third dimension should be held to 1 similarly to the 1d case.
+/// Does a block reduction in a transposed manner.
+inl block_reduce_2dt (blockDimY, threadIdxY) (near_to, threadIdxX as x) =
+    block_reduce_template 
+        ({from=1; near_to}, blockDimY) 
+        (inl ar i -> ar i threadIdxY)
+        x
 
 /// The third dimension should be held to 1 similarly to the 1d case.
-inl block_reduce_2d (blockDimY, threadIdxY) (near_to, threadIdx) redo state =
-    if near_to > 1 then
-        inl ar = 
-            HostTensor.create {
-                array_create=array_create_cuda_shared
-                elem_type=state
-                dim={from=1; near_to}, blockDimY
-                }
-            |> inl ar i -> ar i threadIdxY
+inl block_reduce_2d (blockDimY, threadIdxY) (near_to, threadIdxX as x) =
+    block_reduce_template 
+        (blockDimY, {from=1; near_to}) 
+        (inl ar -> ar threadIdxY)
+        x
 
-        block_reduce_body ar near_to threadIdx redo state
-    else
-        state
+/// Reduces only one of the dimensions of a block.
+inl block_reduce_3d (blockDimZ, threadIdxZ) (blockDimY, threadIdxY) (near_to, threadIdxX as x) =
+    block_reduce_template
+        (blockDimZ, blockDimY, {from=1; near_to})
+        (inl ar -> ar threadIdxZ threadIdxY)
+        x
 
 /// Maps the input and then reduces twice, first along the inner dimension and then along the middle. Takes 3d tensors.
 met mapi_d1_dredo_map' w d in out = 
@@ -1345,11 +1355,10 @@ met iteri_d1_seq_broadcast w {d with seq mapi_in} (dim_a, dim_b) =
             inl dims = {blockDim gridDim}
             inl inner_loop = grid_for_items dims .x dim_b
             inl create_items map = 
-                inl elem_type = type map {item=dyn 0; i=dyn 0}
                 inl items = HostTensor.create {
                     array_create = array_create_cuda_local
                     layout=.aot
-                    elem_type
+                    elem_type=type map {item=dyn 0; i=dyn 0}
                     dim=items_per_thread
                     }
 
@@ -1361,7 +1370,7 @@ met iteri_d1_seq_broadcast w {d with seq mapi_in} (dim_a, dim_b) =
                     inl map = mapi_in j
                     create_items <| inl {item i} -> map i
 
-                inl rec seq_loop items (d :: d') =
+                inl rec seq_redo items (d :: d') =
                     match d with
                     | {mapi_in} ->
                         inl map = mapi_in j
@@ -1381,9 +1390,9 @@ met iteri_d1_seq_broadcast w {d with seq mapi_in} (dim_a, dim_b) =
                         inl body {item i} = map i (items item .get) x
                         match d' with
                         | () -> inner_loop {body}
-                        | _ -> seq_loop (create_items body) d'
+                        | _ -> seq_redo (create_items body) d'
 
-                seq_loop items (Tuple.wrap seq)
+                seq_redo items (Tuple.wrap seq)
                 }
         }
 
@@ -1627,7 +1636,7 @@ met mapi_d2_redo_map' w {d with redo neutral_elem} in in' out =
                     | {mapi_in} -> redo state (mapi_in i j in.get in') 
                     | _ -> redo state in.get
                     }
-                |> block_reduce_2d (blockDim.x,threadIdx.x) (blockDim.y, threadIdx.y) redo
+                |> block_reduce_2dt (blockDim.x,threadIdx.x) (blockDim.y, threadIdx.y) redo
                 |> inl result ->
                     inl finally result = out.set (map_out result out.get)
                     if blockDim.y > 1 then if threadIdx.y = 0 then finally result
@@ -3081,23 +3090,23 @@ inl float ->
                         x_a.set (x_a.get + HQR.bck_a k quantile (x_p.get, reward))
                     ) (dim_a,dim_c)
 
-        greedy_kl = inl x s -> // Is unfinished
-            inl dim_a,dim_b,dim_c = (primal x).dim
-            inl v,a =
-                s.CudaKernel.mapi_d1_dredo_map { 
-                    redo_in = {
-                        mapi_in = inl j i x -> to float i * x
-                        neutral_elem=0f32
-                        redo=(+)
-                        }
-                    redo_mid = {
-                        mapi_in=inl j i a -> a, i
-                        neutral_elem=-infinityf32,-1
-                        redo=inl a b -> if fst a > fst b then a else b
-                        }
-                    map_out = inl a, i -> a / dim_c', i
-                    } (primal x)
-                |> HostTensor.unzip
+        //greedy_kl = inl x s -> // Is unfinished
+        //    inl dim_a,dim_b,dim_c = (primal x).dim
+        //    inl v,a =
+        //        s.CudaKernel.mapi_d1_dredo_map { 
+        //            redo_in = {
+        //                mapi_in = inl j i x -> to float i * x
+        //                neutral_elem=0f32
+        //                redo=(+)
+        //                }
+        //            redo_mid = {
+        //                mapi_in=inl j i a -> a, i
+        //                neutral_elem=-infinityf32,-1
+        //                redo=inl a b -> if fst a > fst b then a else b
+        //                }
+        //            map_out = inl a, i -> a / dim_c', i
+        //            } (primal x)
+        //        |> HostTensor.unzip
         }
 
     inl RL = 
