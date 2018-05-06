@@ -2085,7 +2085,7 @@ inl float ->
 
         cost, bck
 
-    inl softmax_cross_entropy_alt label input s =
+    inl softmax_cross_entropy' label input s =
         assert ((primal label).dim = (primal input).dim) "Labels and inputs must have equal dimensions."
         inl to_dev_tensor = s.CudaTensor.to_dev_tensor
         
@@ -2096,54 +2096,56 @@ inl float ->
 
         inl _ = 
             inl input, label, cost = Tuple.map (primal >> to_dev_tensor) (input, label, cost)
-            s.CudaKernel.iteri_d1_seq_broadcast {
-                mapi_in=inl j i -> input j i .get / temp
-                seq = 
-                    {
-                    redo=max
-                    map_out=inl a b -> exp (a - b)
-                    }
-                    ,
-                    {
-                    redo=(+)
-                    mapi_out=inl j i x sum_x ->
-                        inl p = x / sum_x
-                        inl label = label j i .get
-                        -label * log p
-                    }
-                    ,
-                    {
-                    redo'=(+)
-                    mapi_out=inl j i _ c -> if threadIdx.x = 0 then atomic_add cost (c / batch_size)
-                    }
-                } (primal input).dim
+            ()
+            //s.CudaKernel.iteri_d1_seq_broadcast {
+            //    mapi_in=inl j i -> input j i .get / temp
+            //    seq = 
+            //        {
+            //        redo=max
+            //        mapi_out=inl _ _ a b -> exp (a - b)
+            //        }
+            //        ,
+            //        {
+            //        redo=(+)
+            //        mapi_out=inl j i x sum_x ->
+            //            inl p = x / sum_x
+            //            inl label = label j i .get
+            //            -label * log p
+            //        }
+            //        ,
+            //        {
+            //        redo'=(+)
+            //        mapi_out=inl j i _ c -> if threadIdx.x = 0 then atomic_add cost (c / batch_size)
+            //        }
+            //    } (primal input).dim
 
         inl bck _ = join
             match Tuple.map (adjoint >> on_non_nil to_dev_tensor) (input, label) with
             | (), () -> ()
             | input', label' ->
                 inl input, label = Tuple.map (primal >> to_dev_tensor) (input, label)
-                s.CudaKernel.iteri_d1_seq_broadcast {
-                    mapi_in=inl j i -> input j i .get / temp
-                    seq = 
-                        {
-                        redo=max
-                        map_out=inl a b -> exp (a - b)
-                        }
-                        ,
-                        {
-                        redo=(+)
-                        mapi_out=inl j i x sum_x ->
-                            inl get x = x j i .get
-                            inl set x = x j i .set
-                            inl ret f = on_non_nil (inl x -> set x (get x + f () / batch_size))
+                ()
+                //s.CudaKernel.iteri_d1_seq_broadcast {
+                //    mapi_in=inl j i -> input j i .get / temp
+                //    seq = 
+                //        {
+                //        redo=max
+                //        mapi_out=inl _ _ a b -> exp (a - b)
+                //        }
+                //        ,
+                //        {
+                //        redo=(+)
+                //        mapi_out=inl j i x sum_x ->
+                //            inl get x = x j i .get
+                //            inl set x = x j i .set
+                //            inl ret f = on_non_nil (inl x -> set x (get x + f () / batch_size))
 
-                            inl p = x / sum_x
-                            inl label = get label
-                            ret (inl _ -> (p - label) / temp) input'
-                            ret (inl _ -> -(log p)) label'
-                        }
-                    } input.dim
+                //            inl p = x / sum_x
+                //            inl label = get label
+                //            ret (inl _ -> (p - label) / temp) input'
+                //            ret (inl _ -> -(log p)) label'
+                //        }
+                //    } input.dim
 
         cost, bck
 
@@ -2981,7 +2983,8 @@ inl float ->
                         state=const zero, {state bck=const ()}
                         body=inl {state=cost',d i} ->
                             inl input = Struct.map ((|>) i) input
-                            inl cost, d = run_parallel network {d with input} s
+                            inl cost, d = run network {d with input} s
+
                             inl bck = term_cast d.bck ()
                             inl get = s.CudaTensor.get
                             inl cost _ = cost'() + get cost
