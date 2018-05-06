@@ -3080,6 +3080,24 @@ inl float ->
                         inl quantile = (to float i - to float 0.5) / dim_c'
                         x_a.set (x_a.get + HQR.bck_a k quantile (x_p.get, reward))
                     ) (dim_a,dim_c)
+
+        greedy_kl = inl x s -> // Is unfinished
+            inl dim_a,dim_b,dim_c = (primal x).dim
+            inl v,a =
+                s.CudaKernel.mapi_d1_dredo_map { 
+                    redo_in = {
+                        mapi_in = inl j i x -> to float i * x
+                        neutral_elem=0f32
+                        redo=(+)
+                        }
+                    redo_mid = {
+                        mapi_in=inl j i a -> a, i
+                        neutral_elem=-infinityf32,-1
+                        redo=inl a b -> if fst a > fst b then a else b
+                        }
+                    map_out = inl a, i -> a / dim_c', i
+                    } (primal x)
+                |> HostTensor.unzip
         }
 
     inl RL = 
