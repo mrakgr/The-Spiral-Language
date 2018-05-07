@@ -2068,40 +2068,6 @@ inl float ->
             ,inl (x, y) _ -> log (one - x) - log x
         }
 
-    inl sigmoid_cross_entropy label input s =
-        inl dim = (primal input).dim
-        assert ((primal label).dim = dim) "Labels and inputs must have equal dimensions."
-        inl to_dev_tensor = s.CudaTensor.to_dev_tensor
-        inl batch_size = primal input .span_outer |> to float
-
-        inl cost = 
-            s.CudaKernel.map_redo_map {
-                map_in = inl x,y -> 
-                    inl x = sigmoid_fwd x
-                    -(y * log x + (one - y) * log (one - x))
-                neutral_elem = zero
-                redo = (+)
-                map_out = inl x -> x / batch_size
-                } (primal input, primal label)
-
-        inl bck _ = join
-            match Tuple.map (adjoint >> on_non_nil to_dev_tensor) (input, label) with
-            | (), () -> ()
-            | input', label' ->
-                inl input, label = Tuple.map (primal >> to_dev_tensor) (input, label)
-                s.CudaKernel.iter () (inl j i ->
-                    inl get x = x j i .get
-                    inl set x = x j i .set
-                    inl ret f = on_non_nil (inl x -> set x (get x + f () / batch_size))
-
-                    inl input, label = get input, get label
-                    inl x = sigmoid_fwd input
-                    ret (inl _ -> (label - x) * input) input'
-                    ret (inl _ -> log (one - x) - log x) label'
-                    ) dim
-
-        cost, bck
-
     /// Applies a softmax and then calculates the cross entropy cost. Is intended to take a linear layer as input.
     inl softmax_cross_entropy label input s =
         assert ((primal label).dim = (primal input).dim) "Labels and inputs must have equal dimensions."
