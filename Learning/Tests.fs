@@ -541,7 +541,7 @@ inl network =
         |> ln 0.0f32 256
         |> linear hidden_size 
         |> init s
-    inl train = error Error.softmax_cross_entropy label network
+    inl train = error Error.sigmoid_cross_entropy label network
     inl test = parallel (train, accuracy label network)
     {train test}
 
@@ -554,7 +554,7 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
             data={input=train_images; label=train_labels}
             body=train {
                 network=network.train
-                optimizer=Optimizer.sgd 0.3f32
+                optimizer=Optimizer.sgd 0.003f32
                 }
             } s
 
@@ -763,6 +763,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning9
 |> printfn "%s"
 |> ignore

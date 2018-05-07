@@ -2074,21 +2074,22 @@ inl float ->
         inl to_dev_tensor = s.CudaTensor.to_dev_tensor
         inl batch_size = primal input .span_outer |> to float
 
-        inl cost = s.Cudakernel.map_redo_map {
-            map_in = inl x,y -> 
-                inl x = sigmoid_fwd x
-                -(y * log x + (one - y) * log (one - x))
-            neutral_elem = zero
-            redo = (+)
-            map_out = inl x -> x / batch_size
-            } (primal input, primal label)
+        inl cost = 
+            s.CudaKernel.map_redo_map {
+                map_in = inl x,y -> 
+                    inl x = sigmoid_fwd x
+                    -(y * log x + (one - y) * log (one - x))
+                neutral_elem = zero
+                redo = (+)
+                map_out = inl x -> x / batch_size
+                } (primal input, primal label)
 
         inl bck _ = join
             match Tuple.map (adjoint >> on_non_nil to_dev_tensor) (input, label) with
             | (), () -> ()
             | input', label' ->
                 inl input, label = Tuple.map (primal >> to_dev_tensor) (input, label)
-                s.CudaKernel.iter (inl j i ->
+                s.CudaKernel.iter () (inl j i ->
                     inl get x = x j i .get
                     inl set x = x j i .set
                     inl ret f = on_non_nil (inl x -> set x (get x + f () / batch_size))
@@ -2211,7 +2212,7 @@ inl float ->
                 ,inl x _ -> HQR.bck_b k half x
             }
 
-    inl Error = {square cross_entropy softmax_cross_entropy hubert_qr} |> stackify
+    inl Error = {square cross_entropy sigmoid_cross_entropy softmax_cross_entropy hubert_qr} |> stackify
 
     // #Initializer
     inl Initializer = 
