@@ -2096,7 +2096,7 @@ inl float ->
 
                     inl input, label = get input, get label
                     inl x = sigmoid_fwd input
-                    ret (inl _ -> (x - label) * input) input'
+                    ret (inl _ -> (label - x) * input) input'
                     ret (inl _ -> log (one - x) - log x) label'
                     ) dim
 
