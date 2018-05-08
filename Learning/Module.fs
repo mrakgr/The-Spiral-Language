@@ -1500,7 +1500,7 @@ met iteri_dd1_seq_broadcast w {d with seq mapi_in} (dim_a, dim_b, dim_c) =
 
                 grid_for dims .y dim_b {body=inl {i=j} ->
                     inl items = 
-                        inl map = map j
+                        inl map = mapi_in j
                         create_items <| inl {item i} -> map i
 
                     inl rec seq_redo items (d :: d') =

@@ -426,6 +426,51 @@ inl _ =
 s.CudaTensor.print x
     """
 
+let kernel15 =
+    "kernel15",[cuda_modules],"Does the iteri_dd1_seq_broadcast kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl inner_size = 4
+inl middle_size = 3
+inl outer_size = 2
+
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
+inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
+inl to_dev_tensor = s.CudaTensor.to_dev_tensor
+inl _ = // Softmax forward
+    inl x = to_dev_tensor x
+    inl o = to_dev_tensor o
+    inl index c x next = 
+        inl f i = Struct.map ((|>) i)
+        inl rec loop c x =
+            if c > 0 then inl i -> loop (c-1) (f i x)
+            else next x
+        assert (lit_is c && c >= 0) "c must be a literal greater or equal to zero."
+        loop c x
+
+    s.CudaKernel.iteri_dd1_seq_broadcast {
+        mapi_in =
+            inb x = index 3 x
+            x.get
+        seq = 
+            {
+            redo=max // max x
+            map_out=inl x max_x -> exp (x - max_x) // exp (x - replicate max_x)
+            }
+            ,
+            {
+            redo=(+) // sum z
+            mapi_out=
+                inb o = index 3 o
+                inl z sum_z -> o.set (z / sum_z)
+            }
+        } x.dim
+
+s.CudaTensor.print x
+s.CudaTensor.print o
+    """
+
 let learning1 =
     "learning1",[cuda_modules;learning],"Does the matmult work?",
     """
@@ -754,7 +799,7 @@ let tests =
     allocator1
     tensor1;tensor2
     kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
-    kernel10;kernel11;kernel12;kernel13;kernel14
+    kernel10;kernel11;kernel12;kernel13;kernel14;kernel15
     random1
     blas1
     learning1;learning2;learning3;learning4;learning5;                               learning9
@@ -763,7 +808,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" learning10
+output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" kernel15
 |> printfn "%s"
 |> ignore
 
