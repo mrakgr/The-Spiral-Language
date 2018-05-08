@@ -431,9 +431,9 @@ let kernel15 =
     """
 inb s = CudaModules (1024*1024)
 
-inl inner_size = {from=-31; near_to=33}
-inl middle_size = 1
-inl outer_size = 1
+inl inner_size = {from=-32; near_to=32}
+inl middle_size = 3
+inl outer_size = 2
 
 inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
 inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
@@ -455,22 +455,20 @@ inl _ = // Softmax forward
             x.get
         seq = 
             {
-            redo=max // max x
+            redo=max
             map_out=inl x max_x -> exp (x - max_x) // exp (x - replicate max_x)
             }
             ,
             {
-            redo=(+) // sum z
-            mapi_out=inl q w e ->
-                inl o = o q w e
-                macro.cd () [text: "printf"; args: "%lli,%lli,%lli\n", q, w, e]
+            redo=(+)
+            mapi_out=
+                inb o = index 3 o
                 inl z sum_z -> o.set (z / sum_z)
             }
         } x.dim
 
 s.CudaTensor.print x
 s.CudaTensor.print o
-()
     """
 
 let learning1 =
