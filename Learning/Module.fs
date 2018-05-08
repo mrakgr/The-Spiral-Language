@@ -3106,15 +3106,16 @@ inl float ->
 
     /// The differentiable action selectors.
     inl Selector =
+        inl reduce_actions x = 
+            s.CudaKernel.mapi_d1_redo_map {
+                mapi_in=inl j i a _ -> a, i
+                neutral_elem=-infinity,-1
+                redo=inl a b -> if fst a > fst b then a else b
+                } (primal x) ()
+            |> HostTensor.unzip
         {
         greedy_square = inl x s ->
-            inl v,a =
-                s.CudaKernel.mapi_d1_redo_map {
-                    mapi_in=inl j i a _ -> a, i
-                    neutral_elem=-infinity,-1
-                    redo=inl a b -> if fst a > fst b then a else b
-                    } (primal x) ()
-                |> HostTensor.unzip
+            inl v,a = reduce_actions x
 
             (v, a), inl (reward: float64) ->
                 inl reward = to float reward
@@ -3156,23 +3157,76 @@ inl float ->
                         x_a.set (x_a.get + HQR.bck_a k quantile (x_p.get, reward))
                     ) (dim_a,dim_c)
 
-        //greedy_kl = inl x s -> // Is unfinished
-        //    inl dim_a,dim_b,dim_c = (primal x).dim
-        //    inl v,a =
-        //        s.CudaKernel.mapi_d1_dredo_map { 
-        //            redo_in = {
-        //                mapi_in = inl j i x -> to float i * x
-        //                neutral_elem=0f32
-        //                redo=(+)
-        //                }
-        //            redo_mid = {
-        //                mapi_in=inl j i a -> a, i
-        //                neutral_elem=-infinityf32,-1
-        //                redo=inl a b -> if fst a > fst b then a else b
-        //                }
-        //            map_out = inl a, i -> a / dim_c', i
-        //            } (primal x)
-        //        |> HostTensor.unzip
+        greedy_kl = inl x s ->
+            inl dim_a,dim_b,dim_c as dim = (primal x).dim
+
+            inl index c x next = 
+                inl f i = Struct.map ((|>) i)
+                inl rec loop c x =
+                    if c > 0 then inl i -> loop (c-1) (f i x)
+                    else next x
+                assert (lit_is c && c >= 0) "c must be a literal greater or equal to zero."
+                loop c x
+
+            inl v,a =
+                inl o = s.CudaTensor.create {elem_type=float; dim=dim_a, dim_b}
+                inl _ = 
+                    inl x,o = Tuple.map s.CudaTensor.to_dev_tensor (primal x, o)
+                    s.CudaKernel.iteri_dd1_seq_broadcast { 
+                        mapi_in =
+                            inb x = index 3 x
+                            x.get
+                        seq = 
+                            {
+                            redo=max // max x
+                            map_out=inl x max_x -> exp (x - max_x) 
+                            }
+                            ,
+                            {
+                            redo=(+)
+                            map_out=inl z sum_z -> z / sum_z
+                            }
+                            ,
+                            {
+                            mapi_in=inl k j i x -> to float i * x
+                            redo'=(+)
+                            mapi_out=
+                                inb o = index 2 o
+                                inl _ _ sum -> if threadIdx.x = 0 then o.set sum
+                            }
+                        } dim
+
+               reduce_actions o
+
+            (v, a), inl (reward: float64) ->
+                inl reward = to int64 reward
+                assert (dim_c.from >= reward && dim_c.near_to < reward) "The reward must be in range."
+                inl a, x_p, x_a = Tuple.map s.CudaTensor.to_dev_tensor (a, primal x, adjoint x)
+                s.CudaKernel.iteri_d1_seq_broadcast { 
+                    mapi_in = inl j ->
+                        inl a = a j .get
+                        inl x_p = x_p j a
+                        inl i -> a, x_p i .get
+                    seq = 
+                        {
+                        map_in=snd
+                        redo=max
+                        map_out=inl (a,x) max_x -> a, exp (x - max_x) 
+                        }
+                        ,
+                        {
+                        map_in=snd
+                        redo=(+)
+                        mapi_out=inl j ->
+                            inl x_a = x_a j
+                            inl i (a,z) sum_z -> 
+                                inl p = z / sum_z
+                                inl reward = if i = reward then one else zero
+                                inl o = p - reward
+                                inl x_a = x_a a i
+                                x_a .set (x_a .get + o)
+                        }
+                    } (dim_a, dim_c)
         }
 
     inl RL = 
@@ -3192,12 +3246,27 @@ inl float ->
                 sublayer
                 weights = const ()
                 apply = inl _ x s -> 
-                    inl f x = x.split (inl a,b -> a,(dist_size,b/dist_size))
+                    inl f x = x.split (inl a,b -> a,(dist_size,b/dist_size)) // TODO: Did I mess this up?
                     Struct.map (function
                         | {primal adjoint block} as x -> {x with primal=f self; adjoint=f self}
                         | x -> f x
                         ) x
                     |> inl x -> Selector.greedy_qr k x s
+                }
+
+        inl greedy_kl {reward_range with from near_to} sublayer =
+            Layer.layer {
+                layer_type = .action
+                size = 1
+                sublayer
+                weights = const ()
+                apply = inl _ x s -> 
+                    inl f x = x.split (inl a,b -> a, (reward_range, b / HostTensor.span reward_range))
+                    Struct.map (function
+                        | {primal adjoint block} as x -> {x with primal=f self; adjoint=f self}
+                        | x -> f x
+                        ) x
+                    |> inl x -> Selector.greedy_kl x s
                 }
 
         inl square_init {range state_type action_type} s =
