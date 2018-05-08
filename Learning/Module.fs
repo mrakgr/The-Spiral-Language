@@ -3173,9 +3173,9 @@ inl float ->
                 inl _ = 
                     inl x,o = Tuple.map s.CudaTensor.to_dev_tensor (primal x, o)
                     s.CudaKernel.iteri_dd1_seq_broadcast { 
-                        mapi_in = inl k j i ->
-                            macro.cd () [text: "printf"; args: "(%lli,%lli,%lli)", k, j, i]
-                            x k j i .get
+                        mapi_in =
+                            inb x = index 3 x
+                            x.get
                         seq = 
                             {
                             redo=max
@@ -3186,7 +3186,6 @@ inl float ->
                             redo=(+)
                             mapi_out=inl k j i z sum_z -> 
                                 inl z = z / sum_z
-                                //macro.cd () [text: "printf"; args: "(%lli,%lli,%lli) at z=%f\n", k, j, i, z]
                                 z * to float i
                             }
                             ,
@@ -3198,7 +3197,7 @@ inl float ->
                             }
                         } dim
                 reduce_actions o s            
-            Console.printfn "{0}, {1}" (s.CudaTensor.get (v 0), s.CudaTensor.get (a 0))
+            //Console.printfn "{0}, {1}" (s.CudaTensor.get (v 0), s.CudaTensor.get (a 0))
 
             (v, a), inl (reward: float64) ->
                 inl reward = to int64 reward
@@ -3300,8 +3299,8 @@ inl float ->
             inl action_size = size action_type * HostTensor.span reward_range
 
             input .input state_size
-            //|> Feedforward.Layer.ln 0f32 256
-            //|> Feedforward.Layer.relu 256
+            |> Feedforward.Layer.ln 0f32 256
+            |> Feedforward.Layer.ln 0f32 256
             |> Feedforward.Layer.linear action_size
             |> init s
 
