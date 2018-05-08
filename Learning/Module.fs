@@ -1201,7 +1201,7 @@ met mapi_d1_redo_map' w {d with redo neutral_elem} in in' out =
                 }
         }
 
-inl ddef def_map_out = // TODO: Refactor everything to use this pattern. There is too much code duplication in other parts of this module.
+inl ddef def_map_out =
     function
     | {d with map_out} -> d
     | d -> {d with map_out=def_map_out}
@@ -1375,6 +1375,7 @@ met iteri_d1_seq_broadcast w {d with seq mapi_in} (dim_a, dim_b) =
                     | {mapi_in} ->
                         inl map = mapi_in j
                         create_items <| inl {item i} -> map i (items item .get)
+                    | {map_in=map} -> create_items <| inl {item i} -> map (items item .get)
                     | _ -> items
                     |> inl x -> 
                         inl x = x.bodies.ar
@@ -1386,7 +1387,10 @@ met iteri_d1_seq_broadcast w {d with seq mapi_in} (dim_a, dim_b) =
                         | {redo} -> block_reduce redo x |> broadcast_zero
                         | {redo'} -> block_reduce redo' x
                     |> inl x ->
-                        inl map = d.mapi_out j
+                        inl map =
+                            match d with
+                            | {mapi_out} -> mapi_out j
+                            | {map_out} -> const map_out
                         inl body {item i} = map i (items item .get) x
                         match d' with
                         | () -> inner_loop {body}
@@ -1399,37 +1403,22 @@ met iteri_d1_seq_broadcast w {d with seq mapi_in} (dim_a, dim_b) =
 inl ddef fout in out = 
     function
     | {d with mapi_in} -> {d with mapi_in = inl j i -> mapi_in j i (in j i .get)}
-    | {d with map_in} -> {d without map_in with mapi_in = inl j i -> map_in (in j i .get)}
+    | {d with map_in} -> {d without map_in with mapi_in = map_in (in j i .get)}
     | d -> {d with mapi_in = inl j i -> in j i .get}
     >> function
-    | d ->
-        inl fin = function
-            | {mapi_in} as x -> x
-            | {map_in} as x-> {x without map_in with mapi_in = inl _ _ -> map_in}
-            | x -> x
-        inl rec loop = function
-            | x :: () ->
-                fin x
-                |> function
-                | {mapi_out} as x -> {x with mapi_out = inl j i a b -> 
-                    inl out = out j i
-                    out .set (fout (mapi_out j i) a b out.get)
-                    }
-                | {map_out} as x -> {x without map_out with mapi_out = inl j i a b -> 
-                    inl out = out j i
-                    out .set (fout map_out a b out.get)
-                    }
-                | _ -> error_type "The map_out or mapi_out in every item of the sequence."
-                |> inl x -> x :: ()
-            | x :: x' ->
-                fin x
-                |> function
-                | {mapi_out} as x -> x
-                | {map_out} as x -> {x without the map_out with mapi_out = inl j i a b -> map_out a b}
-                | _ -> error_type "The map_out or mapi_out in every item of the sequence."
-                |> inl x -> x :: loop x'
-                
-        {d with seq = loop (Tuple.wrap self)}
+    | {d with seq} ->
+        inl f = function
+            | {mapi_out} as x -> {x with mapi_out = inl j i a b -> 
+                inl out = out j i
+                out .set (fout (mapi_out j i) a b out.get)
+                }
+            | {map_out} as x -> {x without map_out with mapi_out = inl j i a b -> 
+                inl out = out j i
+                out .set (fout map_out a b out.get)
+                }
+            | _ -> error_type "The map_out or mapi_out in is needed in every item of the sequence."
+
+        {d with seq = Tuple.map_last f (Tuple.wrap seq)}
 
 // Repeatedly reduces along the inner dimension and then maps the result of that reductions over the input in the previous step.
 met mapi_d1_seq_broadcast' w {d with seq} in out = 
@@ -1469,6 +1458,82 @@ inl mapi_d1_seq_broadcast w {d with seq} in =
 
         iteri_d1_seq_broadcast w (ddef (inl f a b c -> f a b) (to_dev_tensor in) (to_dev_tensor out) d) in.dim
         stack out
+
+/// Does a sequence of maps, reductions and maps in registers.
+met iteri_dd1_seq_broadcast w {d with seq mapi_in} (dim_a, dim_b, dim_c) = 
+    inl num_valid = s dim_c
+    inl items_per_thread, blockDim =
+        assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
+        if num_valid <= 1024 then 1, num_valid
+        else divup num_valid 256, 256
+    inl gridDimY = s dim_b
+    inl gridDimZ = s dim_a
+
+    w.run {
+        blockDim
+        gridDim=1,gridDimY,gridDimZ
+        kernel = cuda 
+            inl dims = {blockDim gridDim}
+            inl inner_loop = grid_for_items dims .x dim_c
+            inl create_items map = 
+                inl items = HostTensor.create {
+                    array_create = array_create_cuda_local
+                    layout=.aot
+                    elem_type=type map {item=dyn 0; i=dyn 0}
+                    dim=items_per_thread
+                    }
+
+                inner_loop {body=inl {x with item i} -> items item .set (map x)}
+                items
+
+            grid_for dims .z dim_a {body=inl {i=k} ->
+                inl mapi_in = mapi_in k
+                inl seq = 
+                    Tuple.map (
+                        function
+                        | {d with mapi_in} -> {d with mapi_in = self k}
+                        | d -> d
+                        >> function
+                        | {d with mapi_out} -> {d with mapi_out = self k}
+                        | d -> d
+                        ) (Tuple.wrap seq)
+
+                grid_for dims .y dim_b {body=inl {i=j} ->
+                    inl items = 
+                        inl map = map j
+                        create_items <| inl {item i} -> map i
+
+                    inl rec seq_redo items (d :: d') =
+                        match d with
+                        | {mapi_in} ->
+                            inl map = mapi_in j
+                            create_items <| inl {item i} -> map i (items item .get)
+                        | {map_in=map} -> create_items <| inl {item i} -> map (items item .get)
+                        | _ -> items
+                        |> inl x -> 
+                            inl x = x.bodies.ar
+                            inl block_reduce redo = 
+                                inl d = {blockDim redo}
+                                if num_valid % blockDim.x = 0 then cub_block_reduce d
+                                else cub_block_reduce {d with num_valid} 
+                            match d with
+                            | {redo} -> block_reduce redo x |> broadcast_zero
+                            | {redo'} -> block_reduce redo' x
+                        |> inl x ->
+                            inl map =
+                                match d with
+                                | {mapi_out} -> mapi_out j
+                                | {map_out} -> const map_out
+
+                            inl body {item i} = map i (items item .get) x
+                            match d' with
+                            | () -> inner_loop {body}
+                            | _ -> seq_redo (create_items body) d'
+
+                    seq_redo items seq
+                    }
+                }
+        }
 
 /// Maps the two inputs and then scans, maps, reduces and maps the first's inner dimension.
 met mapi_d1_inscan_mapi_d1_reduce_mapi' w {d with scan redo} in in' out = 
@@ -1775,6 +1840,7 @@ inl methods =
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
     mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter iteri_d1_seq_broadcast
+    iteri_dd1_seq_broadcast
     } |> stackify
 
 inl s -> s.module_add .CudaKernel methods
@@ -2178,7 +2244,7 @@ inl float ->
                 ,inl x _ -> HQR.bck_b k half x
             }
 
-    inl Error = {square cross_entropy sigmoid_cross_entropy softmax_cross_entropy hubert_qr} |> stackify
+    inl Error = {square cross_entropy softmax_cross_entropy hubert_qr} |> stackify
 
     // #Initializer
     inl Initializer = 

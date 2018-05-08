@@ -269,10 +269,16 @@ inl rec foldl_map2 f s a b =
         l :: l', s
     | (), () -> (), s
 
+inl rec map_last f = function
+    | x :: () -> f x :: ()
+    | x :: x' -> x :: map_last f x'
+    | () -> error_type "Must not be an empty tuple."
+    | _ -> error_type "Must be a tuple"
+
 {
 head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists split_at take drop
 filter zip unzip init repeat append concat singleton range tryFind contains intersperse wrap unwrap
-foldl_map foldl_map2 foldr_map map2 foldl2 foldr2 choose choose2 mapi find
+foldl_map foldl_map2 foldr_map map2 foldl2 foldr2 choose choose2 mapi find map_last
 } 
 |> stackify
     """) |> module_
