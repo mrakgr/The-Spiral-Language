@@ -3173,9 +3173,9 @@ inl float ->
                 inl _ = 
                     inl x,o = Tuple.map s.CudaTensor.to_dev_tensor (primal x, o)
                     s.CudaKernel.iteri_dd1_seq_broadcast { 
-                        mapi_in =
-                            inb x = index 3 x
-                            x.get
+                        mapi_in = inl k j i ->
+                            macro.cd () [text: "printf"; args: "(%lli,%lli,%lli)", k, j, i]
+                            x k j i .get
                         seq = 
                             {
                             redo=max
@@ -3186,7 +3186,7 @@ inl float ->
                             redo=(+)
                             mapi_out=inl k j i z sum_z -> 
                                 inl z = z / sum_z
-                                macro.cd () [text: "printf"; args: "(%lli,%lli,%lli) at z=%f\n", k, j, i, z]
+                                //macro.cd () [text: "printf"; args: "(%lli,%lli,%lli) at z=%f\n", k, j, i, z]
                                 z * to float i
                             }
                             ,
