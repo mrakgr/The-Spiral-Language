@@ -1320,7 +1320,7 @@ inl split f tns =
             inl next = update_size (s', x')
             match dim with
             | _ :: _ ->
-                inl _ :: size = Tuple.scanr (*) dim init
+                inl _ :: size = Tuple.scanr (inl x s -> span x * s) dim init
                 Tuple.append size next
             | _ -> init :: next
         | s', () -> s'

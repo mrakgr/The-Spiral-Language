@@ -3108,7 +3108,7 @@ inl float ->
     inl Selector =
         inl reduce_actions x s = 
             s.CudaKernel.mapi_d1_redo_map {
-                mapi_in=inl j i a _ -> a, i
+                mapi_in=inl j i v _ -> v, i
                 neutral_elem=-infinity,-1
                 redo=inl a b -> if fst a > fst b then a else b
                 } (primal x) ()
@@ -3157,76 +3157,86 @@ inl float ->
                         x_a.set (x_a.get + HQR.bck_a k quantile (x_p.get, reward))
                     ) (dim_a,dim_c)
 
-        //greedy_kl = inl x s ->
-        //    inl dim_a,dim_b,dim_c as dim = (primal x).dim
+        greedy_kl = inl x s ->
+            inl dim_a,dim_b,dim_c as dim = (primal x).dim
 
-        //    inl index c x next = 
-        //        inl f i = Struct.map ((|>) i)
-        //        inl rec loop c x =
-        //            if c > 0 then inl i -> loop (c-1) (f i x)
-        //            else next x
-        //        assert (lit_is c && c >= 0) "c must be a literal greater or equal to zero."
-        //        loop c x
+            inl index c x next = 
+                inl f i = Struct.map ((|>) i)
+                inl rec loop c x =
+                    if c > 0 then inl i -> loop (c-1) (f i x)
+                    else next x
+                assert (lit_is c && c >= 0) "c must be a literal greater or equal to zero."
+                loop c x
 
-        //    inl v,a =
-        //        inl o = s.CudaTensor.create {elem_type=float; dim=dim_a, dim_b}
-        //        inl _ = 
-        //            inl x,o = Tuple.map s.CudaTensor.to_dev_tensor (primal x, o)
-        //            s.CudaKernel.iteri_dd1_seq_broadcast { 
-        //                mapi_in =
-        //                    inb x = index 3 x
-        //                    x.get
-        //                seq = 
-        //                    {
-        //                    redo=max // max x
-        //                    map_out=inl x max_x -> exp (x - max_x) 
-        //                    }
-        //                    ,
-        //                    {
-        //                    redo=(+)
-        //                    map_out=inl z sum_z -> z / sum_z
-        //                    }
-        //                    ,
-        //                    {
-        //                    mapi_in=inl k j i x -> to float i * x
-        //                    redo'=(+)
-        //                    mapi_out=
-        //                        inb o = index 2 o
-        //                        inl _ _ sum -> if threadIdx.x = 0 then o.set sum
-        //                    }
-        //                } dim
+            inl v,a =
+                inl o = s.CudaTensor.create {elem_type=float; dim=dim_a, dim_b}
+                inl _ = 
+                    inl x,o = Tuple.map s.CudaTensor.to_dev_tensor (primal x, o)
+                    s.CudaKernel.iteri_dd1_seq_broadcast { 
+                        mapi_in =
+                            inb x = index 3 x
+                            inl x = x.get
+                            macro.cd () [text: "printf"; args: "x=%f at %lld\n", x, threadIdx.x]
+                            x
+                        seq = 
+                            {
+                            redo=max
+                            map_out=inl x max_x -> exp (x - max_x) 
+                            }
+                            ,
+                            {
+                            redo=(+)
+                            map_out=inl z sum_z -> z / sum_z
+                            }
+                            ,
+                            {
+                            mapi_in=inl k j i x -> 
+                                //macro.cd () [text: "printf"; args: "x=%f\n", x]
+                                to float i * x
+                            redo'=(+)
+                            mapi_out=
+                                inb o = index 2 o
+                                inl _ _ sum -> 
+                                    if threadIdx.x = 0 then 
+                                        macro.cd () [text: "printf"; args: "sum=%f\n", sum]
+                                        o.set sum
+                            }
+                        } dim
+                s.CudaTensor.print (primal o)
+                reduce_actions o s
+            
+            Console.printfn "{0}, {1}" (s.CudaTensor.get (v 0), s.CudaTensor.get (a 0))
 
-        //       reduce_actions o s // qwe
+            (v, a), inl (reward: float64) ->
+                inl reward = to int64 reward
 
-        //    (v, a), inl (reward: float64) ->
-        //        inl reward = to int64 reward
-        //        assert (dim_c.from >= reward && dim_c.near_to < reward) "The reward must be in range."
-        //        inl a, x_p, x_a = Tuple.map s.CudaTensor.to_dev_tensor (a, primal x, adjoint x)
-        //        s.CudaKernel.iteri_d1_seq_broadcast { 
-        //            mapi_in = inl j ->
-        //                inl a = a j .get
-        //                inl x_p = x_p j a
-        //                inl i -> a, x_p i .get
-        //            seq = 
-        //                {
-        //                map_in=snd
-        //                redo=max
-        //                map_out=inl (a,x) max_x -> a, exp (x - max_x) 
-        //                }
-        //                ,
-        //                {
-        //                map_in=snd
-        //                redo=(+)
-        //                mapi_out=inl j ->
-        //                    inl x_a = x_a j
-        //                    inl i (a,z) sum_z -> 
-        //                        inl p = z / sum_z
-        //                        inl reward = if i = reward then one else zero
-        //                        inl o = p - reward
-        //                        inl x_a = x_a a i
-        //                        x_a .set (x_a .get + o)
-        //                }
-        //            } (dim_a, dim_c)
+                assert (dim_c.from <= reward && reward < dim_c.near_to) "The reward must be in range."
+                inl a, x_p, x_a = Tuple.map s.CudaTensor.to_dev_tensor (a, primal x, adjoint x)
+                s.CudaKernel.iteri_d1_seq_broadcast { 
+                    mapi_in = inl j ->
+                        inl a = a j .get
+                        inl x_p = x_p j a
+                        inl i -> a, x_p i .get
+                    seq = 
+                        {
+                        map_in=snd
+                        redo=max
+                        map_out=inl (a,x) max_x -> a, exp (x - max_x) 
+                        }
+                        ,
+                        {
+                        map_in=snd
+                        redo=(+)
+                        mapi_out=inl j ->
+                            inl x_a = x_a j
+                            inl i (a,z) sum_z -> 
+                                inl p = z / sum_z
+                                inl reward = if i = reward then one else zero
+                                inl o = p - reward
+                                inl x_a = x_a a i
+                                x_a .set (x_a .get + o)
+                        }
+                    } (dim_a, dim_c)
         }
 
     inl RL = 
@@ -3261,7 +3271,7 @@ inl float ->
                 sublayer
                 weights = const ()
                 apply = inl _ x s -> 
-                    inl f x = x.split (inl a,b -> a, (reward_range, b / HostTensor.span reward_range))
+                    inl f x = x.split (inl a,b -> a, (b / HostTensor.span reward_range, reward_range))
                     Struct.map (function
                         | {primal adjoint block} as x -> {x with primal=f self; adjoint=f self}
                         | x -> f x
@@ -3291,6 +3301,17 @@ inl float ->
             |> Feedforward.Layer.linear action_size
             |> init s
 
+        inl kl_init {reward_range range state_type action_type} s =
+            inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span range x) 0
+            inl state_size = size state_type
+            inl action_size = size action_type * HostTensor.span reward_range
+
+            input .input state_size
+            //|> Feedforward.Layer.ln 0f32 256
+            //|> Feedforward.Layer.relu 256
+            |> Feedforward.Layer.linear action_size
+            |> init s
+
         /// For online learning.
         inl action {d with range state_type action_type net} i s =
             assert (eq_type state_type i) "The input must be equal to the state type."
@@ -3302,11 +3323,14 @@ inl float ->
                 |> inl l,size -> 
                     s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
             inl (v,a),{bck} = 
-                match d with {distribution_size} -> greedy_qr one distribution_size | _ -> greedy_square
+                match d with 
+                | {distribution_size} -> greedy_qr one distribution_size
+                | {reward_range} -> greedy_kl reward_range
+                | _ -> greedy_square
                 |> inl runner -> run (runner net) {input={input}; bck=const()} s
             inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
             action, bck
-        {square_init qr_init action}
+        {square_init qr_init kl_init action}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent
