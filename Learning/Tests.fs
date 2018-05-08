@@ -431,9 +431,9 @@ let kernel15 =
     """
 inb s = CudaModules (1024*1024)
 
-inl inner_size = 4
-inl middle_size = 3
-inl outer_size = 2
+inl inner_size = {from=-31; near_to=33}
+inl middle_size = 1
+inl outer_size = 1
 
 inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
 inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
