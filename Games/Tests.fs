@@ -294,7 +294,7 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
             s.refresh
             inb s = s.RegionMem.create'
             inl a,b = one_card stack_size ({a' with reply=self s |> heap}, b')
-            a'.reply.optimize s 0.01f32
+            a'.reply.optimize s 0.03f32
             match a.name with
             | "One" -> if a.chips > 0 then {state with a=self+1} else {state with b=self+1}
             | _ -> if a.chips > 0 then {state with b=self+1} else {state with a=self+1}
@@ -306,6 +306,6 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker6
-|> printfn "%s"
+//|> printfn "%s"
 |> ignore
 
