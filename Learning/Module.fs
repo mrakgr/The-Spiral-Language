@@ -3175,9 +3175,7 @@ inl float ->
                     s.CudaKernel.iteri_dd1_seq_broadcast { 
                         mapi_in =
                             inb x = index 3 x
-                            inl x = x.get
-                            macro.cd () [text: "printf"; args: "x=%f at %lld\n", x, threadIdx.x]
-                            x
+                            x.get
                         seq = 
                             {
                             redo=max
@@ -3186,25 +3184,20 @@ inl float ->
                             ,
                             {
                             redo=(+)
-                            map_out=inl z sum_z -> z / sum_z
+                            mapi_out=inl k j i z sum_z -> 
+                                inl z = z / sum_z
+                                macro.cd () [text: "printf"; args: "(%lli,%lli,%lli) at z=%f\n", k, j, i, z]
+                                z * to float i
                             }
                             ,
                             {
-                            mapi_in=inl k j i x -> 
-                                //macro.cd () [text: "printf"; args: "x=%f\n", x]
-                                to float i * x
                             redo'=(+)
                             mapi_out=
                                 inb o = index 2 o
-                                inl _ _ sum -> 
-                                    if threadIdx.x = 0 then 
-                                        macro.cd () [text: "printf"; args: "sum=%f\n", sum]
-                                        o.set sum
+                                inl _ _ sum -> if threadIdx.x = 0 then o.set sum
                             }
                         } dim
-                s.CudaTensor.print (primal o)
-                reduce_actions o s
-            
+                reduce_actions o s            
             Console.printfn "{0}, {1}" (s.CudaTensor.get (v 0), s.CudaTensor.get (a 0))
 
             (v, a), inl (reward: float64) ->

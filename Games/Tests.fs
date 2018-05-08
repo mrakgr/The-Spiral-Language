@@ -333,6 +333,6 @@ Loops.for {from=0; near_to=1; body=inl {i} ->
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker7
-|> printfn "%s"
+//|> printfn "%s"
 |> ignore
 
