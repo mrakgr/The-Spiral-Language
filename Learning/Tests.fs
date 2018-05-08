@@ -461,14 +461,16 @@ inl _ = // Softmax forward
             ,
             {
             redo=(+) // sum z
-            mapi_out=
-                inb o = index 3 o
+            mapi_out=inl q w e ->
+                inl o = o q w e
+                macro.cd () [text: "printf"; args: "%lli,%lli,%lli\n", q, w, e]
                 inl z sum_z -> o.set (z / sum_z)
             }
         } x.dim
 
 s.CudaTensor.print x
 s.CudaTensor.print o
+()
     """
 
 let learning1 =

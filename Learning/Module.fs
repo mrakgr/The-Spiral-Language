@@ -773,7 +773,7 @@ inl divup a b = (a-1)/b+1 // Integer division with rounding up. (a+b-1)/b is ano
 inl s = span
 
 inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
-    inl from = threadIdx axis + blockDim axis * blockIdx axis - dim.from
+    inl from = threadIdx axis + blockDim axis * blockIdx axis + dim.from
     inl by = gridDim axis * blockDim axis
     inl near_to = dim.near_to
 
@@ -783,6 +783,7 @@ inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
         inl items_per_thread = divup span by
         forcd {d with from=0;near_to=items_per_thread; body=inl {state i=item} ->
             inl i = from + by * item
+            macro.cd () [text: "printf"; args: "i=%lli\n", i]
             inl num_valid = span - by * item
             if i < near_to then body {span num_valid item state i} else state
             }
