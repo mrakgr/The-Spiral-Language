@@ -1799,7 +1799,7 @@ met iter w d f (!(Tuple.wrap) dim) =
     w.run {blockDim gridDim
         kernel = cuda
             grid_for {blockDim gridDim} .x {from=0; near_to} {body=inl {i} ->
-                inl l,_ = Tuple.foldr (inl ((!s x_span) & x) (l,i) -> (i % x_span - x.dim.from) :: l, i / x_span) d ((),i)
+                inl l,_ = Tuple.foldr (inl ((!s x_span) & x) (l,i) -> (i % x_span + x.dim.from) :: l, i / x_span) d ((),i)
                 inl rec loop f = function
                     | {thread_limit=()} :: d', i :: i' -> loop (f i) (d', i')
                     | {thread_limit=by dim={near_to}} :: d', from :: i' -> forcd {from by near_to body=inl {i} -> loop (f i) (d',i')}
@@ -3305,6 +3305,7 @@ inl float ->
             |> init s
 
         /// For online learning.
+        /// TODO: So gid's do not get constantly reassigned, it might be good to put a join point here.
         inl action {d with range state_type action_type net} i s =
             assert (eq_type state_type i) "The input must be equal to the state type."
             inl input = 
