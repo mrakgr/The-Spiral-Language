@@ -118,6 +118,12 @@ inl rec iter2 f a b =
     | (), () -> ()
     | _ -> error_type "The two tuples have uneven lengths." 
 
+inl rec map3 f a b c = 
+    match a,b,c with
+    | a :: as', b :: bs', c :: cs' -> f a b c :: map2 f as' bs' cs'
+    | (), (), () -> ()
+    | _ -> error_type "The three tuples have uneven lengths." 
+
 inl rec foldl2 f s a b =
     match a,b with
     | a :: as', b :: bs' -> foldl2 f (f s a b) as' bs'
@@ -278,7 +284,7 @@ inl rec map_last f = function
 {
 head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists split_at take drop
 filter zip unzip init repeat append concat singleton range tryFind contains intersperse wrap unwrap
-foldl_map foldl_map2 foldr_map map2 foldl2 foldr2 choose choose2 mapi find map_last
+foldl_map foldl_map2 foldr_map map2 foldl2 foldr2 choose choose2 mapi find map_last map3
 } 
 |> stackify
     """) |> module_
