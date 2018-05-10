@@ -120,7 +120,7 @@ inl rec iter2 f a b =
 
 inl rec map3 f a b c = 
     match a,b,c with
-    | a :: as', b :: bs', c :: cs' -> f a b c :: map2 f as' bs' cs'
+    | a :: as', b :: bs', c :: cs' -> f a b c :: map3 f as' bs' cs'
     | (), (), () -> ()
     | _ -> error_type "The three tuples have uneven lengths." 
 

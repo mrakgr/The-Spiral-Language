@@ -42,7 +42,7 @@ stack inl {d with elem_type} ->
 
 let poker =
     (
-    "Poker",[learning;random;console;option;dictionary],"The Poker module.",
+    "Poker",[learning;random;console;option;dictionary;list],"The Poker module.",
     """
 inl Suits = .Spades :: () //, .Clubs, .Hearts, .Diamonds
 inl Suit = Tuple.reducel (inl a b -> a \/ b) Suits
@@ -244,7 +244,7 @@ inl log ->
                 on_fail
 
         met rec loop players (!dyn d) =
-            macro.fs () [text: "//In betting's loop."]
+            macro.fs () [text: "// In betting's loop."]
             inl rec loop2 (s, i, d) = function
                 | player :: x' as l ->
                     inl l = Tuple.append (Tuple.rev s) l
@@ -268,7 +268,7 @@ inl log ->
 
     inl dealing players deck = 
         met f ante deck {name chips} =
-            macro.fs () [text: "//In dealing"]
+            macro.fs () [text: "// In dealing."]
             inl player = call {chips pot=0} ante
             inl hand, deck =
                 inl ante = player.pot
@@ -299,7 +299,7 @@ inl log ->
 
     inl hand_rule a b =
         met f x = 
-            macro.fs () [text: "//In hand_rule"]
+            macro.fs () [text: "// In hand_rule."]
             match x with {rank=.(_) as x} -> tag_rank x
         compare (f a) (f b)
 
@@ -336,13 +336,20 @@ inl log ->
         Tuple.map (inl x -> dyn {x with chips}) players
         |> loop
 
-    inl reply_random =
+    inl reply_random {name} =
         inl rnd = Random()
-        inl _ {fold call raise} ->
+        inl reply = inl _ _ {fold call raise} ->
             match rnd.next(0i32,5i32) with
             | 0i32 -> fold {state=(); bet=()}
             | 1i32 -> call {state=(); bet=()}
             | _ -> raise {state=(); bet=()} 0
+
+        inl rec trace = function
+            | .add_bet _ -> trace
+            | .add_reward _ -> trace
+            | .process -> ()
+
+        {reply name trace state=()}
 
     inl Actions = .Fold, .Call, (.Raise, .0)
     inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
@@ -354,9 +361,35 @@ inl log ->
         | .Call -> call bet
         | .Raise, .(x) -> raise bet x
 
-    inl reply_q {init learning_rate num_players} =
+    inl reply_q {init learning_rate num_players name} =
         inl state_type = Tuple.repeat num_players Rep
         inl action_type = Action
+        inl bet_type = .Bet, state_type, action_type, float64 => ()
+        inl reward_type = .Reward, float64
+        inl trace_type = bet_type \/ reward_type
+
+        inl add_bet = stack inl l (state,action,bck) ->
+            inl bck = term_cast bck float64
+            inl x = box trace_type (.Bet,state,box action_type action,bck)
+            List.cons x l
+
+        inl add_reward = stack inl l x -> 
+            inl x = box trace_type (.Reward, to float64 x)
+            List.cons x l
+
+        inl process = stack inl l ->
+            List.foldl (inl s x -> 
+                match x with
+                | .Reward,x -> s + x
+                | .Bet,_,_,bck -> bck s; s
+                ) (dyn 0.0) l 
+            |> ignore
+
+        inl rec trace (!dyn l) = function
+            | .add_bet -> add_bet l >> trace
+            | .add_reward -> add_reward l >> trace
+            | .process -> process l
+
         inl box = stack (box Action)
 
         inl dict = Dictionary {elem_type=(state_type,Action),float64}
@@ -366,11 +399,10 @@ inl log ->
                     inl v = dict (rep, x) { on_fail=const init; on_succ=id }
                     if v > s then v,x else s,a
                     ) (-infinityf64, box .Fold) Actions
-
             inl bck v' = dict.set (rep, a) (v + learning_rate * (v' - v))
             reply k a {state bet=rep,a,bck}
 
-        {state_type action_type reply}
+        {reply name state=(); trace=trace (List.empty trace_type)}
 
 
     inl reply_dmc {d with bias scale range num_players} s =
@@ -391,5 +423,5 @@ inl log ->
 
         {action_type state_type reply net}
 
-    {one_card=game; reply_random reply_rules reply_q reply_dmc}
+    {one_card=game; reply_random reply_q reply_dmc}
     """) |> module_

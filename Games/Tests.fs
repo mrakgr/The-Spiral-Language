@@ -17,55 +17,31 @@ let cfg: Spiral.Types.CompilerSettings = {
     }
 
 let poker4 =
-    "poker4",[loops;poker;timer;list],"What is the winrate of the RL based players against the random one?",
+    "poker4",[loops;poker;timer],"What is the winrate of the RL based players against the random one?",
     """
 inl log _ _ = ()
 open Poker log
 
-inl {state_type action_type reply} = reply_q {init=5f64; learning_rate=0.03f64; num_players=2}
+inl a = reply_q {init=5f64; learning_rate=0.03f64; num_players=2; name="One"}
+inl b = reply_random {name="Two"}
 
-inl bet_type = .Bet, state_type, action_type, float64 => ()
-inl reward_type = .Reward, float64
-inl trace_type = bet_type \/ reward_type
+met f (!dyn near_to) (!dyn nb) = 
+    Loops.for {from=0; near_to body=inl {i} ->
+        Timer.time_it (string_format "iteration {0}" i)
+        <| inl _ ->
+            Loops.for {from=0; near_to=nb; state=dyn {a=0; b=0}; body=inl {state=s i} ->
+                inl a,b = one_card 10 (a, b)
+                match a.name with
+                | "One" -> if a.chips > 0 then {s with a=self+1} else {s with b=self+1}
+                | _ -> if a.chips > 0 then {s with b=self+1} else {s with a=self+1}
+                }
+            |> inl {a b} ->
+                inl total = a + b
+                Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,total)
+        }
 
-inl rec trace l = function
-    | .add_bet (state,action,bck) -> 
-        inl bck = term_cast bck float64
-        inl x = box trace_type (.Bet,state,action,bck)
-        List.cons x l |> dyn |> trace
-    | .add_reward x -> 
-        inl x = box trace_type (.Reward, x)
-        List.cons x l |> dyn |> trace
-    | .process -> 
-        List.foldl (inl s x -> 
-            match x with
-            | .Reward, x -> s + x
-            | .Bet,(_,_,bck) -> bck s; s
-            ) (dyn 0) l 
-        |> ignore
-        
-inl a = {reply name="One"; state=(); trace=trace (List.empty trace_type)}
-
-inl rec trace = function
-    | .add_bet _ -> trace
-    | .add_reward _ -> trace
-    | .process -> ()
-
-inl b = {reply=reply_random; name="Two"; state=(); trace}
-
-Loops.for {from=0; near_to=10; body=inl {i} ->
-    Timer.time_it (string_format "iteration {0}" i)
-    <| inl _ ->
-        Loops.for {from=0; near_to=1000; state=dyn {a=0; b=0}; body=inl {state=s i} ->
-            inl a,b = one_card 10 (a, b)
-            match a.name with
-            | "One" -> if a.chips > 0 then {s with a=self+1} else {s with b=self+1}
-            | _ -> if a.chips > 0 then {s with b=self+1} else {s with a=self+1}
-            }
-        |> inl {a b} ->
-            inl total = a + b
-            Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,total)
-    }
+f 10 10000
+f 10 1000
     """
 
 output_test_to_temp cfg @"C:\Users\Marko\Source\Repos\The Spiral Language\Temporary\output.fs" poker4
