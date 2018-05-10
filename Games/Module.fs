@@ -56,7 +56,7 @@ inl num_cards =
 
 inl tag_rank = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) ({},0i32) Ranks |> fst
 inl tag_suit = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) ({},0i32) Suits |> fst
-
+   
 inl rnd = Random()
 inl unshuffled = 
     Tuple.map (inl rank ->
@@ -160,17 +160,19 @@ inl log ->
         inl new_chips = Tuple.map (inl {hand chips pot} -> {hand chips pot}) players |> loop
         inl rewards = Tuple.map2 (inl old new -> new - old) old_chips new_chips
 
-        Tuple.map3 (met {d with agent} reward chips -> 
+        Tuple.iter2 (met {d with name reply} reward -> 
             macro.fs () [text: "//In the reward part."]
-			inl name = agent .name
-			inl agent = agent .reward reward
+            match d with
+            | {trace} -> trace (to float64 reward)
+            | _ -> ()
             if reward = 1 then log "{0} wins {1} chip." (name,reward)
             elif reward = -1 then log "{0} loses {1} chip." (name,-reward)
             elif reward > 0 then log "{0} wins {1} chips." (name,reward)
             elif reward < 0 then log "{0} loses {1} chips." (name,-reward)
             else ()
-			{agent chips}
-            ) players rewards new_chips
+            ) players rewards
+
+        new_chips
 
     inl internal_representation i players =
         Tuple.mapi (inl i' {chips pot hand} ->
@@ -191,33 +193,33 @@ inl log ->
         inl is_active {chips hand} = chips > 0 && hand_is hand
         met betting {internal_representation player} {d with min_raise call_level players_called players_active} =
             macro.fs () [text: "//In betting"]
-            inl on_succ=Option.some
-            inl on_fail=Option.none (player,d)
+            inl on_succ player,d = Option.some ({player without reply name}, d)
+            inl on_fail=Option.none ({player without reply name},d)
             if players_called < players_active && (players_active <> 1 || player.pot < call_level) then
-                if is_active player then
-                    inl update_player trace =
+                if is_active player then 
+                    inl update_player trace = 
                         match trace with
                         | () -> player
                         | _ -> {player with trace = term_cast (trace >> self) float64}
 
-                    player .agent .bet internal_representation
+                    player.reply internal_representation
                         {
-                        fold = inl agent -> 
-                            inl player = fold {player with agent}
-                            log "{0} folds." agent.name
+                        fold = inl trace -> 
+                            inl player = fold (update_player trace)
+                            log "{0} folds." player.name
                             on_succ (player, {d with players_active=self-1})
-                        call = inl agent -> 
-                            inl player = call {player with agent} call_level
+                        call = inl trace -> 
+                            inl player = call (update_player trace) call_level
                             inl on_succ d = on_succ (player, d)
                             if player.chips = 0 then
-                                log "{0} calls and is all-in!" agent.name
+                                log "{0} calls and is all-in!" player.name
                                 on_succ {d with players_active=self-1}
                             else
-                                log "{0} calls." agent.name
+                                log "{0} calls." player.name
                                 on_succ {d with players_called=self+1}
-                        raise = inl agent x -> 
+                        raise = inl trace x -> 
                             assert (x >= 0) "Cannot raise to negative amounts."
-                            inl player = call {player with agent} (call_level + min_raise + x)
+                            inl player = call (update_player trace) (call_level + min_raise + x)
                             inl call_level' = player.pot
                             inl on_succ {gt lte} =
                                 if call_level' > call_level then 
@@ -228,14 +230,14 @@ inl log ->
                             if player.chips = 0 then
                                 on_succ {
                                     gt = inl d -> 
-                                        log "{0} raises to {1} and is all-in!" (agent.name, call_level')
+                                        log "{0} raises to {1} and is all-in!" (player.name, call_level')
                                         {d with players_active=self-1; players_called=0}
                                     lte = inl d -> 
-                                        log "{0} calls and is all-in!" agent.name
+                                        log "{0} calls and is all-in!" player.name
                                         {d with players_active=self-1}
                                     }
                             else
-                                log "{0} raises to {1}." (agent.name, call_level')
+                                log "{0} raises to {1}." (player.name, call_level')
                                 on_succ {
                                     gt = inl d -> {d with players_called=1}
                                     lte = inl d -> failwith d "Should not be possible to raise to less than the call level without running out of chips."
@@ -253,7 +255,7 @@ inl log ->
                     inl internal_representation = internal_representation i l
                     inl {reply name} = player
                     match betting { internal_representation player } d with
-                    | .Some, (player, d) -> loop2 (player :: s, i+1, d) x'
+                    | .Some, (player, d) -> loop2 ({player with reply name} :: s, i+1, d) x'
                     | .None -> l
                 | () -> loop (Tuple.rev s) d
             loop2 ((),dyn 0,d) players
@@ -282,8 +284,7 @@ inl log ->
                     Option.none Hand, deck
             {player with hand}, deck
 
-        inl f ante deck {player with agent chips} =
-			inl name = agent.name
+        inl f ante deck {player with name chips} =
             inl {hand chips pot}, deck = f ante deck {name chips}
             {player with hand chips pot}, deck
 
@@ -309,8 +310,8 @@ inl log ->
     inl round players = 
         log "A new round is starting..." ()
         log "Chip counts:" ()
-        Tuple.iter (inl {agent chips} ->
-            log "{0} has {1} chips." (agent.name,chips)
+        Tuple.iter (inl {name chips} ->
+            log "{0} has {1} chips." (name,chips)
             ) players
         inl new_chips = dealing players (deck()) |> fst |> betting |> showdown hand_rule
         Tuple.map2 (inl x chips -> {x with chips}) players new_chips
@@ -325,21 +326,76 @@ inl log ->
             inl a :: b as players = round players
             if is_finished players then 
                 log "The game is over." ()
-                Tuple.map (inl {agent chips} ->
-					inl name = agent.name
+                Tuple.map (inl {name chips} ->
                     if chips > 0 then log "{0} wins with {1} chips!" (name, chips)
-                    {agent chips}
+                    {name chips}
                     ) players
             else 
                 loop (Tuple.append b (a :: ()))
-            : Tuple.map (inl {agent chips} -> {agent chips}) players
+            : Tuple.map (inl {name chips} -> {name chips}) players
 
         Tuple.map (inl x -> dyn {x with chips}) players
         |> loop
+
+    inl reply_random =
+        inl rnd = Random()
+        inl _ {fold call raise} ->
+            match rnd.next(0i32,5i32) with
+            | 0i32 -> fold ()
+            | 1i32 -> call ()
+            | _ -> raise () 0
+
+    inl reply_rules players {fold call raise} =
+        inl limit = Tuple.foldl (inl s x -> max s x.pot) 0 players
+        /// TODO: Replace find with pick.
+        inl self = Tuple.find (inl x -> match x.hand with .Some, _ -> true | _ -> false) players
+        match self.hand with
+        | .Some, x ->
+            match x.rank with
+            | .Ten | .Jack | .Queen | .King | .Ace -> raise () 0
+            | _ -> if self.pot >= limit || self.chips = 0 then call () else fold ()
+        | .None -> failwith (type fold ()) "No self in the internal representation."
 
     inl Actions = .Fold, .Call, (.Raise, .0)
     inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
     inl Rep = type {pot=int64; chips=int64; hand=Option.none Hand}
 
-    {one_card=game}
+    inl reply {fold call raise} a trace =
+        match a with
+        | .Fold -> fold trace
+        | .Call -> call trace
+        | .Raise, .(x) -> raise trace x
+
+    inl reply_q {init learning_rate num_players} =
+        inl dict = Dictionary {elem_type=(Tuple.repeat num_players Rep,Action),float64}
+        inl box = stack (box Action)
+        inl players k ->
+            inl v, a = 
+                Tuple.foldl (inl (s,a) (!box x) ->
+                    inl v = dict (players, x) { on_fail=const init; on_succ=id }
+                    if v > s then v,x else s,a
+                    ) (-infinityf64, box .Fold) Actions
+
+            reply k a <| inl v' ->
+                dict.set (players, a) (v + learning_rate * (v' - v))
+                // This last line determines what kind of updates are done.
+                // Returning v' means doing Monte Carlo updates.
+                // Returning v means doing Q learning.
+                v'
+
+    inl reply_dmc {d with bias scale range num_players} s =
+        open Learning float32
+        inl d = {d with state_type=Tuple.repeat num_players Rep; action_type=Action}
+        inl net =
+            match d with 
+            | {distribution_size} -> RL.qr_init d s 
+            | {reward_range} -> RL.kl_init d s
+            | _ -> RL.square_init d s
+        function
+        | .optimize s learning_rate -> Combinator.optimize net (Optimizer.sgd learning_rate) s
+        | s players k ->
+            inl a, bck = RL.action {d with net} players s
+            reply k a <| inl v' -> bck (v' / scale + bias); v'
+
+    {one_card=game; reply_random reply_rules reply_q reply_dmc}
     """) |> module_
