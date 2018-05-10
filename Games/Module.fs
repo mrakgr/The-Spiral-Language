@@ -364,6 +364,7 @@ inl log ->
     inl reply_q {init learning_rate num_players name} =
         inl state_type = Tuple.repeat num_players Rep
         inl action_type = Action
+
         inl bet_type = .Bet, state_type, action_type, float64 => ()
         inl reward_type = .Reward, float64
         inl trace_type = bet_type \/ reward_type
@@ -416,12 +417,48 @@ inl log ->
             | {reward_range} -> RL.kl_init d s
             | _ -> RL.square_init d s
 
-        inl reply s rep state k =
-            inl a, {bck state} = RL.action {d with net state} rep s
-            inl bck v' = bck (v' / scale + bias)
-            reply k a {state bet=rep,a,bck}
+        inl net_state_type =
+            type
+                inl f state = 
+                    inl _, {state} = RL.action {d with net state} (var state_type) s    
+                    state
+                let rec loop x =
+                    inl x' = f x
+                    if eq_type x x' then x
+                    else x \/ f x'
+                loop {}
 
-        {action_type state_type reply net}
+        inl reply s rep state k =
+            match state with
+            | _,_ as state | _ -> // Unbox the state.
+                inl a, {bck state} = RL.action {d with net state} rep s
+                inl state = box net_state_type state |> dyn
+                inl bck v' = bck (v' / scale + bias)
+                reply k a {state bet=rep,a,bck}
+
+        inl add_bet = stack inl l (state,action,bck) ->
+            inl bck = term_cast bck float64
+            inl x = box trace_type (.Bet,state,box action_type action,bck)
+            List.cons x l
+
+        inl add_reward = stack inl l x -> 
+            inl x = box trace_type (.Reward, to float64 x)
+            List.cons x l
+
+        inl process = stack inl l ->
+            List.foldl (inl s x -> 
+                match x with
+                | .Reward,x -> s + x
+                | .Bet,_,_,bck -> bck s; s
+                ) (dyn 0.0) l 
+            |> ignore
+
+        inl rec trace (!dyn l) = function
+            | .add_bet -> add_bet l >> trace
+            | .add_reward -> add_reward l >> trace
+            | .process -> process l
+
+        {reply net state=box net_state_type {} |> dyn; trace=trace (List.empty trace_type)}
 
     {one_card=game; reply_random reply_q reply_dmc}
     """) |> module_
