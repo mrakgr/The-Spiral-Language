@@ -303,15 +303,15 @@ inl log ->
             match x with {rank=.(_) as x} -> tag_rank x
         compare (f a) (f b)
 
-    inl round players = 
+    inl round players =
         log "A new round is starting..." ()
         log "Chip counts:" ()
         Tuple.iter (inl {name chips} ->
             log "{0} has {1} chips." (name,chips)
             ) players
         dealing players (deck()) |> fst |> betting |> showdown hand_rule
-        |> Tuple.map2 (inl {x with reply} {trace state chips} -> 
-            reply.process_trace trace
+        |> Tuple.map2 (inl {x with reply} {trace state chips} ->
+            trace.process
             {x with state chips}
             ) players
 
@@ -355,17 +355,22 @@ inl log ->
         | .Raise, .(x) -> raise bet x
 
     inl reply_q {init learning_rate num_players} =
-        inl dict = Dictionary {elem_type=(Tuple.repeat num_players Rep,Action),float64}
+        inl state_type = Tuple.repeat num_players Rep
+        inl action_type = Action
         inl box = stack (box Action)
-        inl players bet k ->
+
+        inl dict = Dictionary {elem_type=(state_type,Action),float64}
+        inl reply rep state k =
             inl v, a = 
                 Tuple.foldl (inl (s,a) (!box x) ->
-                    inl v = dict (players, x) { on_fail=const init; on_succ=id }
+                    inl v = dict (rep, x) { on_fail=const init; on_succ=id }
                     if v > s then v,x else s,a
                     ) (-infinityf64, box .Fold) Actions
 
-            inl bck v' = dict.set (players, a) (v + learning_rate * (v' - v))
-            reply k a {state=(); bet=players,a,bck}
+            inl bck v' = dict.set (rep, a) (v + learning_rate * (v' - v))
+            reply k a {state bet=rep,a,bck}
+
+        {state_type action_type reply}
 
 
     inl reply_dmc {d with bias scale range num_players} s =
@@ -378,15 +383,13 @@ inl log ->
             | {distribution_size} -> RL.qr_init d s 
             | {reward_range} -> RL.kl_init d s
             | _ -> RL.square_init d s
-        {
-        action_type state_type
-        reply = function
-            | .net -> net
-            | s players k ->
-                inl a, {bck state} = RL.action {d with net} players s
-                inl bck v' = bck (v' / scale + bias)
-                reply k a {state bet=players,a,bck}
-        }
+
+        inl reply s rep state k =
+            inl a, {bck state} = RL.action {d with net state} rep s
+            inl bck v' = bck (v' / scale + bias)
+            reply k a {state bet=rep,a,bck}
+
+        {action_type state_type reply net}
 
     {one_card=game; reply_random reply_rules reply_q reply_dmc}
     """) |> module_
