@@ -3315,14 +3315,14 @@ inl float ->
                     ) 0 i
                 |> inl l,size -> 
                     s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
-            inl (v,a),{bck} = 
+            inl (v,a),{state bck} = 
                 match d with 
                 | {distribution_size} -> greedy_qr one distribution_size
                 | {reward_range} -> greedy_kl reward_range
                 | _ -> greedy_square
                 |> inl runner -> run (runner net) {state input={input}; bck=const()} s
             inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
-            action, bck
+            action, {bck state}
         {square_init qr_init kl_init action}
 
     { 

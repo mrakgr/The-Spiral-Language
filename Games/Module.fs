@@ -406,7 +406,7 @@ inl log ->
         {reply name state=(); trace=trace (List.empty trace_type)}
 
 
-    inl reply_dmc {d with bias scale range num_players} s =
+    inl reply_dmc {d with bias scale range num_players name} s =
         open Learning float32
         inl state_type = Tuple.repeat num_players Rep
         inl action_type = Action
@@ -422,7 +422,7 @@ inl log ->
                 inl f state = 
                     inl _, {state} = RL.action {d with net state} (var state_type) s    
                     state
-                let rec loop x =
+                inl rec loop x =
                     inl x' = f x
                     if eq_type x x' then x
                     else x \/ f x'
@@ -430,11 +430,15 @@ inl log ->
 
         inl reply s rep state k =
             match state with
-            | _,_ as state | _ -> // Unbox the state.
+            | _,_ | _ -> // Unbox the state.
                 inl a, {bck state} = RL.action {d with net state} rep s
                 inl state = box net_state_type state |> dyn
                 inl bck v' = bck (v' / scale + bias)
                 reply k a {state bet=rep,a,bck}
+
+        inl bet_type = .Bet, state_type, action_type, float64 => ()
+        inl reward_type = .Reward, float64
+        inl trace_type = bet_type \/ reward_type
 
         inl add_bet = stack inl l (state,action,bck) ->
             inl bck = term_cast bck float64
@@ -458,7 +462,9 @@ inl log ->
             | .add_reward -> add_reward l >> trace
             | .process -> process l
 
-        {reply net state=box net_state_type {} |> dyn; trace=trace (List.empty trace_type)}
+        inl optimize net learning_rate s = Combinator.optimize net (Optimizer.sgd learning_rate) s
+
+        {reply optimize name net state=box net_state_type {} |> dyn; trace=trace (List.empty trace_type)}
 
     {one_card=game; reply_random reply_q reply_dmc}
     """) |> module_
