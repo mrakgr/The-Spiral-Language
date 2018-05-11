@@ -71,6 +71,60 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
     }
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) poker5
+let poker6 =
+    "poker6",[cuda_modules;loops;poker;timer],"What is the winrate of the deep MC learning (QR feedforward) player against the random one?",
+    """
+inb s = CudaModules (1024*1024*1024)
+inl log _ _ = ()
+open Poker log
+inl stack_size = 10
+inl a' = reply_dmc {distribution_size=64; bias=0.0; scale=to float64 stack_size; range=32; num_players=2; name="One"} s
+inl b' = reply_random {name="Two"}
+Loops.for {from=0; near_to=10; body=inl {i} ->
+    Timer.time_it (string_format "iteration {0}" i)
+    <| inl _ ->
+        Loops.for {from=0; near_to=1000; state=dyn {a=0; b=0}; body=inl {state i} ->
+            s.refresh
+            inb s = s.RegionMem.create'
+            inl a,b = one_card stack_size ({a' with reply=self s |> heap}, b')
+            a'.optimize a'.net 0.01f32 s
+            match a.name with
+            | "One" -> if a.chips > 0 then {state with a=self+1} else {state with b=self+1}
+            | _ -> if a.chips > 0 then {state with b=self+1} else {state with a=self+1}
+            }
+        |> inl {a b} ->
+            inl total = a + b
+            Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,total)
+    }
+    """
+
+let poker7 =
+    "poker7",[cuda_modules;loops;poker;timer],"What is the winrate of the deep MC learning (KL feedforward) player against the random one?",
+    """
+inb s = CudaModules (1024*1024*1024)
+inl log _ _ = ()
+open Poker log
+inl stack_size = 10
+inl a' = reply_dmc {reward_range={from=-32; near_to=32}; bias=0.0; scale=to float64 stack_size; range=32; num_players=2; name="One"} s
+inl b' = reply_random {name="Two"}
+Loops.for {from=0; near_to=10; body=inl {i} ->
+    Timer.time_it (string_format "iteration {0}" i)
+    <| inl _ ->
+        Loops.for {from=0; near_to=1000; state=dyn {a=0; b=0}; body=inl {state i} ->
+            s.refresh
+            inb s = s.RegionMem.create'
+            inl a,b = one_card stack_size ({a' with reply=self s |> heap}, b')
+            a'.optimize a'.net 0.01f32 s
+            match a.name with
+            | "One" -> if a.chips > 0 then {state with a=self+1} else {state with b=self+1}
+            | _ -> if a.chips > 0 then {state with b=self+1} else {state with a=self+1}
+            }
+        |> inl {a b} ->
+            inl total = a + b
+            Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,total)
+    }
+    """
+
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) poker7
 |> printfn "%s"
 |> ignore
