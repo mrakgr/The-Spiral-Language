@@ -11,7 +11,7 @@ let serializer_one_hot =
 /// Useful in RL contexts since union types are not blittable.
 inl rec encode_template f x =
     inl encode = encode_template f
-    inl prod (i,s) x = 
+    inl prod (i,s) x =
         inl i',s' = encode x
         i + i' * s, s * s'
 
@@ -3300,8 +3300,8 @@ inl float ->
             inl action_size = size action_type * HostTensor.span reward_range
 
             input .input state_size
-            //|> Feedforward.Layer.ln 0f32 256
-            //|> Feedforward.Layer.ln 0f32 256
+            |> Feedforward.Layer.ln 0f32 256
+            |> Feedforward.Layer.ln 0f32 256
             //|> Feedforward.Layer.relu 256
             |> Feedforward.Layer.linear action_size
             |> init s
