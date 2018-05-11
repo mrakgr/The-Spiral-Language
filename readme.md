@@ -2830,7 +2830,7 @@ print_static (Option int64) // type (union {[type_lit (Some), int64] | type_lit 
 print_static (Option int64 |> split) // [type ([type_lit (Some), int64]), type (type_lit (None))]
 ```
 
-This is a bit of a hack. Spiral has union and not sum types, meaning they are not ordered. Or better put, they are ordered, just not based on how the were entered.
+This is a bit of a hack. Spiral has union and not sum types, meaning they are not ordered. Or better put, they are ordered, just not based on how they were entered.
 
 The above example works for lists and is how they are implemented in the standard library, but there are alternative ways of implementing the basic list.
 

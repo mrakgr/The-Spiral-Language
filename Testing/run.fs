@@ -4,7 +4,7 @@
 #r @"..\packages\ManagedCuda-CUBLAS.8.0.22\lib\net46\CudaBlas.dll"
 #r @"..\packages\ManagedCuda-CURAND.8.0.22\lib\net46\CudaRand.dll"
 #r @"Microsoft.CSharp"
-#r @"..\The Spiral Language\bin\Debug\The_Spiral_Language.dll"
+#r @"..\The Spiral Language\bin\Release\The_Spiral_Language.dll"
 #endif
 
 open Spiral.Lib
