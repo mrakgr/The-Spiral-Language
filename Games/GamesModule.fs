@@ -407,7 +407,6 @@ inl log ->
 
         {reply name state=(); trace=trace_mc {state_type action_type}}
 
-
     inl reply_dmc {d with bias scale range num_players name} s =
         open Learning float32
         inl state_type = Tuple.repeat num_players Rep
@@ -418,30 +417,35 @@ inl log ->
             | {distribution_size} -> RL.qr_init d s 
             | {reward_range} -> RL.kl_init d s
             | _ -> RL.square_init d s
+            |> heap
 
         inl net_state_type =
             type
                 inl f state = 
+                    inl net = indiv net
                     inl _, {state} = RL.action {d with net state} (var state_type) s    
-                    state
+                    heap state
                 inl rec loop x =
                     inl x' = f x
                     if eq_type x x' then x
                     else x \/ f x'
-                loop {}
+                loop (heap {})
 
         inl reply s rep state k =
             match state with
             | _,_ | _ -> // Unbox the state.
+                inl net = indiv net
                 inl a, {bck state} = RL.action {d with net state} rep s
-                inl state = box net_state_type state |> dyn
+                inl state = box net_state_type (heap state) |> dyn
                 inl bck v' = bck (v' / scale + bias)
                 reply k a {state bet=rep,a,bck}
 
-        inl optimize net learning_rate s = Combinator.optimize net (Optimizer.sgd learning_rate) s
+        inl optimize learning_rate s = 
+            inl net=indiv net
+            Combinator.optimize net (Optimizer.sgd learning_rate) s
         inl trace = trace_mc {state_type action_type}
 
-        {reply optimize name net trace state=box net_state_type {} |> dyn}
+        {reply optimize name trace state=box net_state_type (heap {}) |> dyn}
 
     {one_card=game; reply_random reply_q reply_dmc}
     """) |> module_
