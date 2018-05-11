@@ -62,8 +62,8 @@
     <None Include="Tests.fs%27%27" />
     <None Include="Module.fs%27" />
     <None Include="Tests.fs%27" />
-    <Compile Include="Module.fs" />
-    <Compile Include="Tests.fs" />
+    <Compile Include="GamesModule.fs" />
+    <Compile Include="GamesTests.fs" />
     <None Include="Script1.fsx" />
   </ItemGroup>
   <ItemGroup>
