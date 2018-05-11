@@ -3305,24 +3305,24 @@ inl float ->
             |> init s
 
         /// For online learning.
-        /// TODO: So gid's do not get constantly reassigned, it might be good to put a join point here.
         inl action {d with range state_type action_type net state} i s =
-            assert (eq_type state_type i) "The input must be equal to the state type."
-            inl input = 
-                Struct.foldl_map (inl s x -> 
-                    inl i, s' = SerializerOneHot.encode' range x
-                    s + i, s + s'
-                    ) 0 i
-                |> inl l,size -> 
-                    s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
-            inl (v,a),{state bck} = 
-                match d with 
-                | {distribution_size} -> greedy_qr one distribution_size
-                | {reward_range} -> greedy_kl reward_range
-                | _ -> greedy_square
-                |> inl runner -> run (runner net) {state input={input}; bck=const()} s
-            inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
-            action, {bck state}
+            indiv join
+                assert (eq_type state_type i) "The input must be equal to the state type."
+                inl input = 
+                    Struct.foldl_map (inl s x -> 
+                        inl i, s' = SerializerOneHot.encode' range x
+                        s + i, s + s'
+                        ) 0 i
+                    |> inl l,size -> 
+                        s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
+                inl (v,a),{state bck} = 
+                    match d with 
+                    | {distribution_size} -> greedy_qr one distribution_size
+                    | {reward_range} -> greedy_kl reward_range
+                    | _ -> greedy_square
+                    |> inl runner -> run (runner net) {state input={input}; bck=const()} s
+                inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
+                stack (action, {bck state})
         {square_init qr_init kl_init action}
 
     { 
