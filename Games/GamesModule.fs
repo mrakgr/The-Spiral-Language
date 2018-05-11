@@ -422,7 +422,7 @@ inl log ->
         inl net_state_type =
             type
                 inl f state = 
-                    inl net = indiv net
+                    inl net, state = indiv net, indiv state
                     inl _, {state} = RL.action {d with net state} (var state_type) s    
                     heap state
                 inl rec loop x =
@@ -434,7 +434,7 @@ inl log ->
         inl reply s rep state k =
             match state with
             | _,_ | _ -> // Unbox the state.
-                inl net = indiv net
+                inl net, state = indiv net, indiv state
                 inl a, {bck state} = RL.action {d with net state} rep s
                 inl state = box net_state_type (heap state) |> dyn
                 inl bck v' = bck (v' / scale + bias)

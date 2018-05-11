@@ -3281,6 +3281,7 @@ inl float ->
             input .input state_size
             //|> Feedforward.Layer.ln 0f32 256
             //|> Feedforward.Layer.relu 256
+            |> Recurrent.Layer.mi 256
             |> Feedforward.Layer.linear action_size
             |> init s
 
@@ -3301,8 +3302,9 @@ inl float ->
             inl action_size = size action_type * HostTensor.span reward_range
 
             input .input state_size
-            |> Feedforward.Layer.ln 0f32 256
-            |> Feedforward.Layer.ln 0f32 256
+            |> Recurrent.Layer.miln 0.05f32 256
+            |> Recurrent.Layer.miln 0.05f32 256
+            //|> Feedforward.Layer.ln 0f32 256
             //|> Feedforward.Layer.relu 256
             |> Feedforward.Layer.linear action_size
             |> init s
