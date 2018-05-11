@@ -2678,7 +2678,7 @@ inl float ->
                     }
                 } (adjoint r, primal i) (adjoint i)
 
-        inl o i s ->
+        stack inl o i s ->
             inl r = fwd o i s |> dr s
             r, inl _ -> bck o r i s
 
@@ -2687,10 +2687,11 @@ inl float ->
         feedforward
             {
             size sublayer
-            weights = inl s -> {
+            weights = inl s -> 
+                {
                 input = Initializer.relu (sublayer.size, size) s |> dr s
                 bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-                }
+                } |> heap
             apply = inl weights input -> 
                 matmultb (input, weights.input) weights.bias 
                 >>= layer_norm_relu o 
@@ -3299,8 +3300,8 @@ inl float ->
             inl action_size = size action_type * HostTensor.span reward_range
 
             input .input state_size
-            |> Feedforward.Layer.ln 0f32 256
-            |> Feedforward.Layer.ln 0f32 256
+            //|> Feedforward.Layer.ln 0f32 256
+            //|> Feedforward.Layer.relu 256
             |> Feedforward.Layer.linear action_size
             |> init s
 
