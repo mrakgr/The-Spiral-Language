@@ -2565,10 +2565,11 @@ inl float ->
         feedforward
             {
             size sublayer
-            weights = inl s -> {
+            weights = inl s -> 
+                {
                 input = initializer (sublayer.size, size) s |> dr s
                 bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-                }
+                } |> heap
             apply = inl weights input -> matmultb (input, weights.input) weights.bias >>= activation
             }
 
@@ -2717,7 +2718,7 @@ inl float ->
                     t = bias0 ()
                     c = bias0 ()
                     }
-                }
+                } |> heap
 
             apply = inl {input bias} i ->
                 open Activation
@@ -2792,7 +2793,7 @@ inl float ->
                 input = initializer (sublayer.size, size) s |> dr s
                 state = initializer (size, size) s |> dr s
                 bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-                }
+                } |> heap
             apply = inl weights state input -> 
                 match state with
                 | () -> matmultb (input, weights.input) weights.bias >>= activation
@@ -2831,7 +2832,7 @@ inl float ->
                     o = bias0 ()
                     c = bias0 ()
                     }
-                }
+                } |> heap
 
             apply = inl {input state bias} c i ->
                 open Activation
