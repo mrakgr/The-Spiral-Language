@@ -63,7 +63,7 @@ inb s = Allocator s 1024
 inl s = CudaTensor s |> CudaStream |> Region
 inb s = s.RegionMem.create'
 inb s = s.RegionStream.create'
-inl s = s.RegionStream.allcoate
+inl s = s.RegionStream.allocate
 
 inl a1 = s.CudaTensor.create {dim=1,2,3; elem_type=int64}
 inl a2 = s.CudaTensor.zero {dim=1,2,3; elem_type=int64}
@@ -374,9 +374,11 @@ inl o3 = // Softmax backward
             }
         } (a1,a2)
 
-Tuple.iter s.CudaTensor.print (a1,o3)
-//    [|0.2925366; -0.718359; 0.09999694; -0.3931978|]
-//    [|0.5028772; -1.234876; 0.1718971; -0.6759161|]
+Tuple.iter s.CudaTensor.print (a1,o1,o2,o3)
+//  [|0.2925366; -0.718359; 0.09999694; -0.3931978|]
+//  [|0.3714055; 0.1351518; 0.3063581; 0.1870845|]
+//  [|0.3714055; 0.5065573; 0.8129154; 0.9999999|]
+//  [|0.5028772; -1.234876; 0.1718971; -0.6759161|]
     """
 
 let kernel12 =
@@ -424,18 +426,63 @@ inl _ =
 s.CudaTensor.print x
     """
 
+let kernel15 =
+    "kernel15",[cuda_modules],"Does the iteri_dd1_seq_broadcast kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl inner_size = {from=-32; near_to=32}
+inl middle_size = 3
+inl outer_size = 2
+
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
+inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
+inl to_dev_tensor = s.CudaTensor.to_dev_tensor
+inl _ = // Softmax forward
+    inl x = to_dev_tensor x
+    inl o = to_dev_tensor o
+    inl index c x next = 
+        inl f i = Struct.map ((|>) i)
+        inl rec loop c x =
+            if c > 0 then inl i -> loop (c-1) (f i x)
+            else next x
+        assert (lit_is c && c >= 0) "c must be a literal greater or equal to zero."
+        loop c x
+
+    s.CudaKernel.iteri_dd1_seq_broadcast {
+        mapi_in =
+            inb x = index 3 x
+            x.get
+        seq = 
+            {
+            redo=max
+            map_out=inl x max_x -> exp (x - max_x) // exp (x - replicate max_x)
+            }
+            ,
+            {
+            redo=(+)
+            mapi_out=
+                inb o = index 3 o
+                inl z sum_z -> o.set (z / sum_z)
+            }
+        } x.dim
+
+s.CudaTensor.print x
+s.CudaTensor.print o
+    """
+
 let learning1 =
     "learning1",[cuda_modules;learning],"Does the matmult work?",
     """
 inb s = CudaModules (1024*1024)
 
 inl float = float32
-open Learning float s 
+open Learning float
 open Primitive
 
 inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,8}
 inl a2 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=8,2} |> dr s
-inl o1,bck = matmult a1 a2 s
+inl o1,bck = matmult (a1, a2) s
 bck()
 
 primal o1 |> s.CudaTensor.print
@@ -447,11 +494,11 @@ let learning2 =
 inb s = CudaModules (1024*1024)
 
 inl float = float32
-open Learning float s
+open Learning float
 open Primitive
 
 inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,8} |> dr s
-inl o1,bck = map {fwd=((*) 10f32); bck=inl {out} -> out.A * 10f32} a1 s
+inl o1,bck = map {fwd=((*) 10f32); bck=inl (in,out) adjoint -> out.adjoint * 10f32} a1 s
 bck()
 primal o1 |> s.CudaTensor.print
     """
@@ -462,14 +509,14 @@ let learning3 =
 inb s = CudaModules (1024*1024)
 
 inl float = float32
-open Learning float s
+open Learning float
 open Primitive
 
 inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=float; dim=256,256} |> dr s
 inl l = primal a1 .span_outer |> to float
 /// map_redo_map assumes an adjoint of 1. No need to set to that value directly.
 inl o1,bck = map_redo_map {fwd={neutral_elem=0f32; redo=(+); map_out=inl x -> x/l}; bck=inl _ -> l} a1 s
-o1() |> Console.writeline
+s.CudaTensor.print o1
     """
 
 let learning4 =
@@ -478,13 +525,13 @@ let learning4 =
 inb s = CudaModules (1024*1024)
 
 inl float = float32
-open Learning float s
+open Learning float
 open Primitive
 
 inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=1f32} {elem_type=float; dim=6,6} |> dr s
 inl l = primal a1 .span_outer |> to float
 /// map_redo_map assumes an adjoint of 1. No need to set to that value directly.
-inl o1,bck = map_redo_map {fwd={neutral_elem=0f32; redo=(+); map_out=inl x -> x/l}; bck=inl _ -> l} a1 s
+inl o1,bck = map_redo_map {fwd={neutral_elem=0f32; redo=(+); map_out=inl x -> x/l}; bck=inl _ _ -> l} a1 s
 bck()
 adjoint a1 |> s.CudaTensor.print
     """
@@ -495,7 +542,7 @@ let learning5 =
 inb s = CudaModules (1024*1024)
 
 inl float = float32
-open Learning float s
+open Learning float
 open Primitive
 open Activation
 open Error
@@ -503,110 +550,13 @@ open Error
 inl input = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=2,6}
 inl weight = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=6,4} |> dr s
 inl label = s.CudaTensor.zero {elem_type=float; dim=2,4}
-inl f = matmult input weight >>= sigmoid >>= square label
-inl {cost},bck = f s
+inl f = matmult (input, weight) >>= sigmoid >>= square label
+inl cost,bck = f s
 
-string_format "Cost is: {0}" (cost()) |> Console.writeline
+Console.printfn "Cost is: {0}" (s.CudaTensor.get cost)
 
 bck()
 adjoint weight |> s.CudaTensor.print
-    """
-
-let learning6 =
-    "learning6",[cuda_modules;learning],"Does the basic layer work?",
-    """
-inb s = CudaModules (1024*1024)
-
-inl float = float32
-open Learning float s
-open Primitive
-open Activation
-open Error
-open Feedforward
-
-inl input_size = 6
-inl hidden_size = 4
-inl batch_size = 2
-inl input = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=batch_size,input_size}
-inl label = s.CudaTensor.zero {elem_type=float; dim=batch_size,hidden_size}
-
-inl network = 
-    open Layer
-    inl label = input hidden_size
-    inl input = input input_size
-    inl network =
-        input
-        |> sigmoid hidden_size
-        |> error square label
-    create (input,label) network s
-
-inl {cost},{bck} = network.run (input, label) {bck=const ()} s
-
-string_format "Cost is: {0}" (cost ()) |> Console.writeline
-bck()
-    """
-
-let learning7 =
-    "learning7",[cuda_modules;learning;mnist],"Does the pass work with Mnist?",
-    """
-inb s = CudaModules (1024*1024*1024)
-
-inl float = float32
-open Learning float s
-open Primitive
-open Activation
-open Error
-open Feedforward
-
-inl { test_images test_labels train_images train_labels} =
-    inl mnist_path = @"C:\ML Datasets\Mnist"
-    Mnist.load_mnist_tensors mnist_path
-    |> s.CudaTensor.from_host_tensors
-
-inl input_size = 784
-inl hidden_size = 10
-
-inl network = 
-    open Layer
-    inl label = input hidden_size
-    inl input = input input_size
-    inl network =
-        input
-        |> sigmoid hidden_size
-        |> error square label
-    create (input,label) network s
-
-inl {cost},{bck} = network.run (test_images, test_labels) {bck=const ()} s
-
-string_format "Cost is: {0}" (cost()) |> Console.writeline
-bck()
-    """
-
-let learning8 =
-    "learning8",[cuda_modules;learning],"Does the add_bias work?",
-    """
-inb s = CudaModules (1024*1024)
-
-inl float = float32
-open Learning float s
-open Primitive
-open Activation
-open Error
-open Feedforward
-
-inl input_size = 32
-inl outer_dim = 6
-inl inner_dim = 16
-inl input = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=input_size,outer_dim}
-inl weight = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float; dim=outer_dim,inner_dim} |> dr s
-inl bias = s.CudaTensor.zero {elem_type=float; dim=inner_dim} |> dr s
-inl label = s.CudaTensor.zero {elem_type=float; dim=input_size,inner_dim}
-
-inl f = matmult input weight >>= add_bias bias >>= sigmoid >>= square label
-inl {cost},bck = f s
-string_format "Cost is: {0}" (cost()) |> Console.writeline
-
-bck()
     """
 
 let learning9 =
@@ -849,10 +799,10 @@ let tests =
     allocator1
     tensor1;tensor2
     kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
-    kernel10;kernel11;kernel12;kernel13;kernel14
+    kernel10;kernel11;kernel12;kernel13;kernel14;kernel15
     random1
     blas1
-    learning1;learning2;learning3;learning4;learning5;learning6;learning7;learning8;learning9
+    learning1;learning2;learning3;learning4;learning5;                               learning9
     learning10;learning11
     |]
 

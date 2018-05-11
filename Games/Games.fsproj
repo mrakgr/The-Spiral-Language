@@ -58,6 +58,8 @@
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
+    <None Include="Module.fs%27%27" />
+    <None Include="Tests.fs%27%27" />
     <None Include="Module.fs%27" />
     <None Include="Tests.fs%27" />
     <Compile Include="Module.fs" />

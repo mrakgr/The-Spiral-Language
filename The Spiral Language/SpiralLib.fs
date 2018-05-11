@@ -118,6 +118,12 @@ inl rec iter2 f a b =
     | (), () -> ()
     | _ -> error_type "The two tuples have uneven lengths." 
 
+inl rec map3 f a b c = 
+    match a,b,c with
+    | a :: as', b :: bs', c :: cs' -> f a b c :: map3 f as' bs' cs'
+    | (), (), () -> ()
+    | _ -> error_type "The three tuples have uneven lengths." 
+
 inl rec foldl2 f s a b =
     match a,b with
     | a :: as', b :: bs' -> foldl2 f (f s a b) as' bs'
@@ -269,10 +275,16 @@ inl rec foldl_map2 f s a b =
         l :: l', s
     | (), () -> (), s
 
+inl rec map_last f = function
+    | x :: () -> f x :: ()
+    | x :: x' -> x :: map_last f x'
+    | () -> error_type "Must not be an empty tuple."
+    | _ -> error_type "Must be a tuple"
+
 {
 head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists split_at take drop
 filter zip unzip init repeat append concat singleton range tryFind contains intersperse wrap unwrap
-foldl_map foldl_map2 foldr_map map2 foldl2 foldr2 choose choose2 mapi find
+foldl_map foldl_map2 foldr_map map2 foldl2 foldr2 choose choose2 mapi find map_last map3
 } 
 |> stackify
     """) |> module_
@@ -1314,7 +1326,7 @@ inl split f tns =
             inl next = update_size (s', x')
             match dim with
             | _ :: _ ->
-                inl _ :: size = Tuple.scanr (*) dim init
+                inl _ :: size = Tuple.scanr (inl x s -> span x * s) dim init
                 Tuple.append size next
             | _ -> init :: next
         | s', () -> s'

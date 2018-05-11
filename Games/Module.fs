@@ -42,7 +42,7 @@ stack inl {d with elem_type} ->
 
 let poker =
     (
-    "Poker",[learning;random;console;option;dictionary],"The Poker module.",
+    "Poker",[learning;random;console;option;dictionary;list],"The Poker module.",
     """
 inl Suits = .Spades :: () //, .Clubs, .Hearts, .Diamonds
 inl Suit = Tuple.reducel (inl a b -> a \/ b) Suits
@@ -158,21 +158,18 @@ inl log ->
                     Tuple.map (inl {chips pot} -> chips + pot) players
             : Tuple.map (const 0) players
         inl new_chips = Tuple.map (inl {hand chips pot} -> {hand chips pot}) players |> loop
-        inl rewards = Tuple.map2 (inl old new -> new - old) old_chips new_chips
 
-        Tuple.iter2 (met {d with name reply} reward -> 
+        Tuple.map3 (met {d with name reply trace state} old_chips chips -> 
             macro.fs () [text: "//In the reward part."]
-            match d with
-            | {trace} -> trace (to float64 reward)
-            | _ -> ()
+            inl reward = chips - old_chips
+            inl trace = trace .add_reward reward
             if reward = 1 then log "{0} wins {1} chip." (name,reward)
             elif reward = -1 then log "{0} loses {1} chip." (name,-reward)
             elif reward > 0 then log "{0} wins {1} chips." (name,reward)
             elif reward < 0 then log "{0} loses {1} chips." (name,-reward)
             else ()
-            ) players rewards
-
-        new_chips
+            {state trace chips}
+            ) players old_chips new_chips
 
     inl internal_representation i players =
         Tuple.mapi (inl i' {chips pot hand} ->
@@ -197,19 +194,18 @@ inl log ->
             inl on_fail=Option.none ({player without reply name},d)
             if players_called < players_active && (players_active <> 1 || player.pot < call_level) then
                 if is_active player then 
-                    inl update_player trace = 
-                        match trace with
-                        | () -> player
-                        | _ -> {player with trace = term_cast (trace >> self) float64}
+                    inl update_player {state bet} = {player with trace = self.add_bet bet; state}
 
-                    player.reply internal_representation
+                    player.reply 
+                        internal_representation
+                        player.state
                         {
-                        fold = inl trace -> 
-                            inl player = fold (update_player trace)
+                        fold = inl bet -> 
+                            inl player = fold (update_player bet)
                             log "{0} folds." player.name
                             on_succ (player, {d with players_active=self-1})
-                        call = inl trace -> 
-                            inl player = call (update_player trace) call_level
+                        call = inl bet -> 
+                            inl player = call (update_player bet) call_level
                             inl on_succ d = on_succ (player, d)
                             if player.chips = 0 then
                                 log "{0} calls and is all-in!" player.name
@@ -217,9 +213,9 @@ inl log ->
                             else
                                 log "{0} calls." player.name
                                 on_succ {d with players_called=self+1}
-                        raise = inl trace x -> 
+                        raise = inl bet x -> 
                             assert (x >= 0) "Cannot raise to negative amounts."
-                            inl player = call (update_player trace) (call_level + min_raise + x)
+                            inl player = call (update_player bet) (call_level + min_raise + x)
                             inl call_level' = player.pot
                             inl on_succ {gt lte} =
                                 if call_level' > call_level then 
@@ -248,7 +244,7 @@ inl log ->
                 on_fail
 
         met rec loop players (!dyn d) =
-            macro.fs () [text: "//In betting's loop."]
+            macro.fs () [text: "// In betting's loop."]
             inl rec loop2 (s, i, d) = function
                 | player :: x' as l ->
                     inl l = Tuple.append (Tuple.rev s) l
@@ -272,7 +268,7 @@ inl log ->
 
     inl dealing players deck = 
         met f ante deck {name chips} =
-            macro.fs () [text: "//In dealing"]
+            macro.fs () [text: "// In dealing."]
             inl player = call {chips pot=0} ante
             inl hand, deck =
                 inl ante = player.pot
@@ -303,18 +299,21 @@ inl log ->
 
     inl hand_rule a b =
         met f x = 
-            macro.fs () [text: "//In hand_rule"]
+            macro.fs () [text: "// In hand_rule."]
             match x with {rank=.(_) as x} -> tag_rank x
         compare (f a) (f b)
 
-    inl round players = 
+    inl round players =
         log "A new round is starting..." ()
         log "Chip counts:" ()
         Tuple.iter (inl {name chips} ->
             log "{0} has {1} chips." (name,chips)
             ) players
-        inl new_chips = dealing players (deck()) |> fst |> betting |> showdown hand_rule
-        Tuple.map2 (inl x chips -> {x with chips}) players new_chips
+        dealing players (deck()) |> fst |> betting |> showdown hand_rule
+        |> Tuple.map2 (inl {x with reply} {trace state chips} ->
+            trace.process
+            {x with state chips}
+            ) players
 
     inl game chips players =
         inl is_active {chips} = chips > 0
@@ -324,74 +323,148 @@ inl log ->
 
         met rec loop players =
             inl a :: b as players = round players
-            if is_finished players then 
+            if is_finished players then
                 log "The game is over." ()
                 Tuple.map (inl {name chips} ->
                     if chips > 0 then log "{0} wins with {1} chips!" (name, chips)
                     {name chips}
                     ) players
-            else 
+            else
                 loop (Tuple.append b (a :: ()))
             : Tuple.map (inl {name chips} -> {name chips}) players
 
         Tuple.map (inl x -> dyn {x with chips}) players
         |> loop
 
-    inl reply_random =
+    inl reply_random {name} =
         inl rnd = Random()
-        inl _ {fold call raise} ->
+        inl reply = inl _ _ {fold call raise} ->
             match rnd.next(0i32,5i32) with
-            | 0i32 -> fold ()
-            | 1i32 -> call ()
-            | _ -> raise () 0
+            | 0i32 -> fold {state=(); bet=()}
+            | 1i32 -> call {state=(); bet=()}
+            | _ -> raise {state=(); bet=()} 0
 
-    inl reply_rules players {fold call raise} =
-        inl limit = Tuple.foldl (inl s x -> max s x.pot) 0 players
-        /// TODO: Replace find with pick.
-        inl self = Tuple.find (inl x -> match x.hand with .Some, _ -> true | _ -> false) players
-        match self.hand with
-        | .Some, x ->
-            match x.rank with
-            | .Ten | .Jack | .Queen | .King | .Ace -> raise () 0
-            | _ -> if self.pot >= limit || self.chips = 0 then call () else fold ()
-        | .None -> failwith (type fold ()) "No self in the internal representation."
+        inl rec trace = function
+            | .add_bet _ -> trace
+            | .add_reward _ -> trace
+            | .process -> ()
+
+        {reply name trace state=()}
 
     inl Actions = .Fold, .Call, (.Raise, .0)
     inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
     inl Rep = type {pot=int64; chips=int64; hand=Option.none Hand}
 
-    inl reply {fold call raise} a trace =
+    inl reply {fold call raise} a bet =
         match a with
-        | .Fold -> fold trace
-        | .Call -> call trace
-        | .Raise, .(x) -> raise trace x
+        | .Fold -> fold bet
+        | .Call -> call bet
+        | .Raise, .(x) -> raise bet x
 
-    inl reply_q {init learning_rate num_players} =
-        inl dict = Dictionary {elem_type=(Tuple.repeat num_players Rep,Action),float64}
+    inl reply_q {init learning_rate num_players name} =
+        inl state_type = Tuple.repeat num_players Rep
+        inl action_type = Action
+
+        inl bet_type = .Bet, state_type, action_type, float64 => ()
+        inl reward_type = .Reward, float64
+        inl trace_type = bet_type \/ reward_type
+
+        inl add_bet = stack inl l (state,action,bck) ->
+            inl bck = term_cast bck float64
+            inl x = box trace_type (.Bet,state,box action_type action,bck)
+            List.cons x l
+
+        inl add_reward = stack inl l x -> 
+            inl x = box trace_type (.Reward, to float64 x)
+            List.cons x l
+
+        inl process = stack inl l ->
+            List.foldl (inl s x -> 
+                match x with
+                | .Reward,x -> s + x
+                | .Bet,_,_,bck -> bck s; s
+                ) (dyn 0.0) l 
+            |> ignore
+
+        inl rec trace (!dyn l) = function
+            | .add_bet -> add_bet l >> trace
+            | .add_reward -> add_reward l >> trace
+            | .process -> process l
+
         inl box = stack (box Action)
-        inl players k ->
+
+        inl dict = Dictionary {elem_type=(state_type,Action),float64}
+        inl reply rep state k =
             inl v, a = 
                 Tuple.foldl (inl (s,a) (!box x) ->
-                    inl v = dict (players, x) { on_fail=const init; on_succ=id }
+                    inl v = dict (rep, x) { on_fail=const init; on_succ=id }
                     if v > s then v,x else s,a
                     ) (-infinityf64, box .Fold) Actions
+            inl bck v' = dict.set (rep, a) (v + learning_rate * (v' - v))
+            reply k a {state bet=rep,a,bck}
 
-            reply k a <| inl v' ->
-                dict.set (players, a) (v + learning_rate * (v' - v))
-                // This last line determines what kind of updates are done.
-                // Returning v' means doing Monte Carlo updates.
-                // Returning v means doing Q learning.
-                v'
+        {reply name state=(); trace=trace (List.empty trace_type)}
 
-    inl reply_dq {d with bias scale range num_players} s =
+
+    inl reply_dmc {d with bias scale range num_players name} s =
         open Learning float32
-        inl d = {d with state_type=Tuple.repeat num_players Rep; action_type=Action}
-        inl net = match d with {distribution_size} -> RL.qr_init d s | _ -> RL.square_init d s
-        function
-        | .optimize s learning_rate -> Combinator.optimize net (Optimizer.sgd learning_rate) s
-        | s players k ->
-            inl a, bck = RL.action {d with net} players s
-            reply k a <| inl v' -> bck (v' / scale + bias); v'
+        inl state_type = Tuple.repeat num_players Rep
+        inl action_type = Action
+        inl d = {d with state_type action_type}
+        inl net =
+            match d with 
+            | {distribution_size} -> RL.qr_init d s 
+            | {reward_range} -> RL.kl_init d s
+            | _ -> RL.square_init d s
 
-    {one_card=game; reply_random reply_rules reply_q reply_dq}
+        inl net_state_type =
+            type
+                inl f state = 
+                    inl _, {state} = RL.action {d with net state} (var state_type) s    
+                    state
+                inl rec loop x =
+                    inl x' = f x
+                    if eq_type x x' then x
+                    else x \/ f x'
+                loop {}
+
+        inl reply s rep state k =
+            match state with
+            | _,_ | _ -> // Unbox the state.
+                inl a, {bck state} = RL.action {d with net state} rep s
+                inl state = box net_state_type state |> dyn
+                inl bck v' = bck (v' / scale + bias)
+                reply k a {state bet=rep,a,bck}
+
+        inl bet_type = .Bet, state_type, action_type, float64 => ()
+        inl reward_type = .Reward, float64
+        inl trace_type = bet_type \/ reward_type
+
+        inl add_bet = stack inl l (state,action,bck) ->
+            inl bck = term_cast bck float64
+            inl x = box trace_type (.Bet,state,box action_type action,bck)
+            List.cons x l
+
+        inl add_reward = stack inl l x -> 
+            inl x = box trace_type (.Reward, to float64 x)
+            List.cons x l
+
+        inl process = stack inl l ->
+            List.foldl (inl s x -> 
+                match x with
+                | .Reward,x -> s + x
+                | .Bet,_,_,bck -> bck s; s
+                ) (dyn 0.0) l 
+            |> ignore
+
+        inl rec trace (!dyn l) = function
+            | .add_bet -> add_bet l >> trace
+            | .add_reward -> add_reward l >> trace
+            | .process -> process l
+
+        inl optimize net learning_rate s = Combinator.optimize net (Optimizer.sgd learning_rate) s
+
+        {reply optimize name net state=box net_state_type {} |> dyn; trace=trace (List.empty trace_type)}
+
+    {one_card=game; reply_random reply_q reply_dmc}
     """) |> module_

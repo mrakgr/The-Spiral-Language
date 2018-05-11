@@ -1557,20 +1557,19 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | V _ as x :: bindings -> [x], bindings
                 | x -> failwith "Compiler error: Malformed ModuleWith."
 
-            let rec module_with_loop (C cur_env) names = 
-                let inline layout_map name on_succ  =
+            let rec module_with_loop names (C cur_env) = 
+                let inline layout_map name (on_succ: EnvTerm -> TypedExpr) =
                     match Map.tryFind name cur_env with
                     | Some recf ->
-                        match layout_to_none' d recf with
+                        match recf with
                         | TyMap(env,MapTypeModule) -> on_succ env
+                        | TyType(LayoutT(_,TyMap(_,MapTypeModule))) -> on_type_er (trace d) "For the sake of consistency directly updating a layout type is disallowed. Unpack it using 'indiv' first."
                         | _ -> on_type_er (trace d) <| sprintf "Variable %s is not a module." name
                     | _ -> on_type_er (trace d) <| sprintf "Module %s is not bound in the environment." name
 
-                let inline next names env = module_with_loop env names
-
                 match names with
-                | V(name, _) :: names -> layout_map name (next names)
-                | Lit(LitString name, _) :: names -> tymap (Map.add name (layout_map name (next names)) cur_env |> Env, MapTypeModule)
+                | V(name, _) :: names -> layout_map name (module_with_loop names)
+                | Lit(LitString name, _) :: names -> tymap (Map.add name (layout_map name (module_with_loop names)) cur_env |> Env, MapTypeModule)
                 | [] ->
                     let bind env name e =
                         match Map.tryFind name env with
@@ -1592,7 +1591,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         ) cur_env bindings
                     |> fun env -> tymap(Env env, MapTypeModule)
                 | x -> failwithf "Compiler error: Malformed ModuleWith."
-            module_with_loop d.env names
+            module_with_loop names d.env
 
         let failwith_ d typ a =
             match tev2 d typ a with

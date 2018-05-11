@@ -373,7 +373,7 @@ inl methods_template d =
     clear = clear d
     create = create d 
     create' = create' d
-    } |> stack
+    }
 
 inl methods_mem = 
     inl region_module_name = .RegionMem
@@ -773,7 +773,7 @@ inl divup a b = (a-1)/b+1 // Integer division with rounding up. (a+b-1)/b is ano
 inl s = span
 
 inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
-    inl from = threadIdx axis + blockDim axis * blockIdx axis - dim.from
+    inl from = threadIdx axis + blockDim axis * blockIdx axis + dim.from
     inl by = gridDim axis * blockDim axis
     inl near_to = dim.near_to
 
@@ -1201,7 +1201,7 @@ met mapi_d1_redo_map' w {d with redo neutral_elem} in in' out =
                 }
         }
 
-inl ddef def_map_out = // TODO: Refactor everything to use this pattern. There is too much code duplication in other parts of this module.
+inl ddef def_map_out =
     function
     | {d with map_out} -> d
     | d -> {d with map_out=def_map_out}
@@ -1237,36 +1237,46 @@ inl block_reduce_body ar near_to threadIdx redo state =
         }
     |> inl {state} -> state
 
+inl block_reduce_template dim ar (near_to, threadIdx) redo state =
+    if near_to > 1 then
+        inl ar = 
+            HostTensor.create {
+                array_create=array_create_cuda_shared
+                elem_type=state
+                dim
+                }
+            |> ar
+
+        block_reduce_body ar near_to threadIdx redo state
+    else
+        state
 
 /// Only to be used with the other blockDims held to a single dimension. 
 /// If the rest are not held to 1 then this algorithm will cause errors.
-inl block_reduce_1d (near_to, threadIdx) redo state =
-    if near_to > 1 then
-        inl ar = 
-            HostTensor.create {
-                array_create=array_create_cuda_shared
-                elem_type=state
-                dim={from=1; near_to}
-                }
-
-        block_reduce_body ar near_to threadIdx redo state
-    else
-        state
+inl block_reduce_1d (near_to, threadIdxX as x) =
+    block_reduce_template {from=1; near_to} id x
+        
+/// The third dimension should be held to 1 similarly to the 1d case.
+/// Does a block reduction in a transposed manner.
+inl block_reduce_2dt (blockDimY, threadIdxY) (near_to, threadIdxX as x) =
+    block_reduce_template 
+        ({from=1; near_to}, blockDimY) 
+        (inl ar i -> ar i threadIdxY)
+        x
 
 /// The third dimension should be held to 1 similarly to the 1d case.
-inl block_reduce_2d (blockDimY, threadIdxY) (near_to, threadIdx) redo state =
-    if near_to > 1 then
-        inl ar = 
-            HostTensor.create {
-                array_create=array_create_cuda_shared
-                elem_type=state
-                dim={from=1; near_to}, blockDimY
-                }
-            |> inl ar i -> ar i threadIdxY
+inl block_reduce_2d (blockDimY, threadIdxY) (near_to, threadIdxX as x) =
+    block_reduce_template 
+        (blockDimY, {from=1; near_to}) 
+        (inl ar -> ar threadIdxY)
+        x
 
-        block_reduce_body ar near_to threadIdx redo state
-    else
-        state
+/// Reduces only one of the dimensions of a block.
+inl block_reduce_3d (blockDimZ, threadIdxZ) (blockDimY, threadIdxY) (near_to, threadIdxX as x) =
+    block_reduce_template
+        (blockDimZ, blockDimY, {from=1; near_to})
+        (inl ar -> ar threadIdxZ threadIdxY)
+        x
 
 /// Maps the input and then reduces twice, first along the inner dimension and then along the middle. Takes 3d tensors.
 met mapi_d1_dredo_map' w d in out = 
@@ -1329,7 +1339,8 @@ inl mapi_d1_dredo_map w d in =
         mapi_d1_dredo_map' w {d with map_out = inl a _ -> map_out a} in out
         stack out
 
-met iteri_d1_seq_broadcast' w {d with seq mapi_in} (dim_a, dim_b) = 
+/// Does a sequence of maps, reductions and maps in registers.
+met iteri_d1_seq_broadcast w {d with seq mapi_in} (dim_a, dim_b) = 
     inl num_valid = s dim_b
     inl items_per_thread, blockDim =
         assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
@@ -1344,11 +1355,10 @@ met iteri_d1_seq_broadcast' w {d with seq mapi_in} (dim_a, dim_b) =
             inl dims = {blockDim gridDim}
             inl inner_loop = grid_for_items dims .x dim_b
             inl create_items map = 
-                inl elem_type = type map {item=dyn 0; i=dyn 0}
                 inl items = HostTensor.create {
                     array_create = array_create_cuda_local
                     layout=.aot
-                    elem_type
+                    elem_type=type map {item=dyn 0; i=dyn 0}
                     dim=items_per_thread
                     }
 
@@ -1360,11 +1370,12 @@ met iteri_d1_seq_broadcast' w {d with seq mapi_in} (dim_a, dim_b) =
                     inl map = mapi_in j
                     create_items <| inl {item i} -> map i
 
-                inl rec seq_loop items (d :: d') =
+                inl rec seq_redo items (d :: d') =
                     match d with
                     | {mapi_in} ->
                         inl map = mapi_in j
                         create_items <| inl {item i} -> map i (items item .get)
+                    | {map_in=map} -> create_items <| inl {item i} -> map (items item .get)
                     | _ -> items
                     |> inl x -> 
                         inl x = x.bodies.ar
@@ -1376,105 +1387,50 @@ met iteri_d1_seq_broadcast' w {d with seq mapi_in} (dim_a, dim_b) =
                         | {redo} -> block_reduce redo x |> broadcast_zero
                         | {redo'} -> block_reduce redo' x
                     |> inl x ->
-                        inl map = d.mapi_out j
+                        inl map =
+                            match d with
+                            | {mapi_out} -> mapi_out j
+                            | {map_out} -> const map_out
                         inl body {item i} = map i (items item .get) x
                         match d' with
                         | () -> inner_loop {body}
-                        | _ -> seq_loop (create_items body) d'
+                        | _ -> seq_redo (create_items body) d'
 
-                seq_loop items (Tuple.wrap seq)
+                seq_redo items (Tuple.wrap seq)
                 }
         }
+
+inl ddef fout in out = 
+    function
+    | {d with mapi_in} -> {d with mapi_in = inl j i -> mapi_in j i (in j i .get)}
+    | {d with map_in} -> {d without map_in with mapi_in = map_in (in j i .get)}
+    | d -> {d with mapi_in = inl j i -> in j i .get}
+    >> function
+    | {d with seq} ->
+        inl f = function
+            | {mapi_out} as x -> {x with mapi_out = inl j i a b -> 
+                inl out = out j i
+                out .set (fout (mapi_out j i) a b out.get)
+                }
+            | {map_out} as x -> {x without map_out with mapi_out = inl j i a b -> 
+                inl out = out j i
+                out .set (fout map_out a b out.get)
+                }
+            | _ -> error_type "The map_out or mapi_out in is needed in every item of the sequence."
+
+        {d with seq = Tuple.map_last f (Tuple.wrap seq)}
 
 // Repeatedly reduces along the inner dimension and then maps the result of that reductions over the input in the previous step.
 met mapi_d1_seq_broadcast' w {d with seq} in out = 
     inl to_dev_tensor = w.CudaTensor.to_dev_tensor
     
     inl in, out = zip in, zip out
-    inl dim_in_a, dim_in_b = in.dim
     assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
-
-    inl num_valid = s dim_in_b
-    inl items_per_thread, blockDim =
-        assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
-        if num_valid <= 1024 then 1, num_valid
-        else divup num_valid 256, 256
-    inl gridDimY = min 64 (s dim_in_a)
 
     inl in = to_dev_tensor in
     inl out = to_dev_tensor out
 
-    w.run {
-        blockDim
-        gridDim=1,gridDimY
-        kernel = cuda 
-            inl dims = {blockDim gridDim}
-            grid_for dims .y dim_in_a {body=inl {i=j} ->
-                inl in, out = in j, out j
-
-                /// Creates the tensor of items.
-                inl create_items elem_type = HostTensor.create {
-                    array_create = array_create_cuda_local
-                    layout=.aot
-                    elem_type
-                    dim=items_per_thread
-                    }
-
-                inl inner_loop = grid_for_items dims .x dim_in_b
-                    
-                inl items = 
-                    inl map = 
-                        match d with
-                        | {map_in} i -> map_in (in i .get)
-                        | {mapi_in} i -> mapi_in j i (in i .get)
-                        | _ i -> in i .get
-                    inl items = create_items (type map (dyn 0))
-                    inner_loop {body=inl {item i} -> items item .set (map i)}
-                    items
-
-                inl rec seq_loop items (d :: d') =
-                    match d with
-                    | {map_in} -> 
-                        inl items' = create_items (type map_in items.elem_type)
-                        inner_loop {body=inl {item} -> items item .get |> map_in |> items' item .set}
-                        items'.bodies.ar
-                    | {mapi_in} ->
-                        inl items' = create_items (type mapi_in j i items.elem_type)
-                        inner_loop {body=inl {item i} -> items item .get |> mapi_in j i |> items' item .set}
-                        items'.bodies.ar
-                    | _ -> items.bodies.ar
-                    |> inl x -> 
-                        inl block_reduce redo = 
-                            inl d = {blockDim redo}
-                            if num_valid % blockDim.x = 0 then cub_block_reduce d
-                            else cub_block_reduce {d with num_valid} 
-                        match d with
-                        | {redo} -> block_reduce redo x |> broadcast_zero
-                        | {redo'} -> block_reduce redo' x
-                    |> inl x ->
-                        match d' with
-                        | () -> 
-                            inner_loop {body=inl {item i} ->
-                                inl out = out i
-                                match d with
-                                | {map_out} -> map_out (items item .get) x (out .get)
-                                | {mapi_out} -> mapi_out j i (items item .get) x (out .get)
-                                |> out .set
-                                }
-                        | _ ->
-                            match d with
-                            | {map_out} -> 
-                                inl items' = create_items type map_out items.elem_type x
-                                inner_loop {body=inl {item} -> map_out (items item .get) x |> items' item .set}
-                                seq_loop items' d'
-                            | {mapi_out} -> 
-                                inl items' = create_items type mapi_out (dyn 0) (dyn 0) items.elem_type x
-                                inner_loop {body=inl {i item} -> mapi_out j i (items item .get) x |> items' item .set}
-                                seq_loop items' d'
-
-                seq_loop items (Tuple.wrap seq)
-                }
-        }
+    iteri_d1_seq_broadcast w (ddef (inl f a b c -> f a b c) in out d) in.dim
 
 inl mapi_d1_seq_broadcast w {d with seq} in =
     indiv join
@@ -1496,13 +1452,88 @@ inl mapi_d1_seq_broadcast w {d with seq} in =
                 | {map_out} -> map_out ty ty'
                 | {mapi_out} -> map_out (dyn 0) (dyn 0) ty ty'
                 ) ty seq
+        
         inl out = w.CudaTensor.create {elem_type dim=in.dim}
-        inl rec seq_loop = function
-            | {s with map_out} :: () -> {s with map_out = inl a b _ -> map_out a b} :: ()
-            | {s with mapi_out} :: () -> {s with mapi_out = inl j i a b _ -> map_out j i a b} :: ()
-            | s :: s' -> s :: seq_loop s'
-        mapi_d1_seq_broadcast' w {d with seq=seq_loop seq} in out
+        inl to_dev_tensor = w.CudaTensor.to_dev_tensor
+
+        iteri_d1_seq_broadcast w (ddef (inl f a b c -> f a b) (to_dev_tensor in) (to_dev_tensor out) d) in.dim
         stack out
+
+/// Does a sequence of maps, reductions and maps in registers.
+met iteri_dd1_seq_broadcast w {d with seq mapi_in} (dim_a, dim_b, dim_c) = 
+    inl num_valid = s dim_c
+    inl items_per_thread, blockDim =
+        assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
+        if num_valid <= 1024 then 1, num_valid
+        else divup num_valid 256, 256
+    inl gridDimY = s dim_b
+    inl gridDimZ = s dim_a
+
+    w.run {
+        blockDim
+        gridDim=1,gridDimY,gridDimZ
+        kernel = cuda 
+            inl dims = {blockDim gridDim}
+            inl inner_loop = grid_for_items dims .x dim_c
+            inl create_items map = 
+                inl items = HostTensor.create {
+                    array_create = array_create_cuda_local
+                    layout=.aot
+                    elem_type=type map {item=dyn 0; i=dyn 0}
+                    dim=items_per_thread
+                    }
+
+                inner_loop {body=inl {x with item i} -> items item .set (map x)}
+                items
+
+            grid_for dims .z dim_a {body=inl {i=k} ->
+                inl mapi_in = mapi_in k
+                inl seq = 
+                    Tuple.map (
+                        function
+                        | {d with mapi_in} -> {d with mapi_in = self k}
+                        | d -> d
+                        >> function
+                        | {d with mapi_out} -> {d with mapi_out = self k}
+                        | d -> d
+                        ) (Tuple.wrap seq)
+
+                grid_for dims .y dim_b {body=inl {i=j} ->
+                    inl items = 
+                        inl map = mapi_in j
+                        create_items <| inl {item i} -> map i
+
+                    inl rec seq_redo items (d :: d') =
+                        match d with
+                        | {mapi_in} ->
+                            inl map = mapi_in j
+                            create_items <| inl {item i} -> map i (items item .get)
+                        | {map_in=map} -> create_items <| inl {item i} -> map (items item .get)
+                        | _ -> items
+                        |> inl x -> 
+                            inl x = x.bodies.ar
+                            inl block_reduce redo = 
+                                inl d = {blockDim redo}
+                                if num_valid % blockDim.x = 0 then cub_block_reduce d
+                                else cub_block_reduce {d with num_valid} 
+                            match d with
+                            | {redo} -> block_reduce redo x |> broadcast_zero
+                            | {redo'} -> block_reduce redo' x
+                        |> inl x ->
+                            inl map =
+                                match d with
+                                | {mapi_out} -> mapi_out j
+                                | {map_out} -> const map_out
+
+                            inl body {item i} = map i (items item .get) x
+                            match d' with
+                            | () -> inner_loop {body}
+                            | _ -> seq_redo (create_items body) d'
+
+                    seq_redo items seq
+                    }
+                }
+        }
 
 /// Maps the two inputs and then scans, maps, reduces and maps the first's inner dimension.
 met mapi_d1_inscan_mapi_d1_reduce_mapi' w {d with scan redo} in in' out = 
@@ -1670,7 +1701,7 @@ met mapi_d2_redo_map' w {d with redo neutral_elem} in in' out =
                     | {mapi_in} -> redo state (mapi_in i j in.get in') 
                     | _ -> redo state in.get
                     }
-                |> block_reduce_2d (blockDim.x,threadIdx.x) (blockDim.y, threadIdx.y) redo
+                |> block_reduce_2dt (blockDim.x,threadIdx.x) (blockDim.y, threadIdx.y) redo
                 |> inl result ->
                     inl finally result = out.set (map_out result out.get)
                     if blockDim.y > 1 then if threadIdx.y = 0 then finally result
@@ -1768,7 +1799,7 @@ met iter w d f (!(Tuple.wrap) dim) =
     w.run {blockDim gridDim
         kernel = cuda
             grid_for {blockDim gridDim} .x {from=0; near_to} {body=inl {i} ->
-                inl l,_ = Tuple.foldr (inl ((!s x_span) & x) (l,i) -> (i % x_span - x.dim.from) :: l, i / x_span) d ((),i)
+                inl l,_ = Tuple.foldr (inl ((!s x_span) & x) (l,i) -> (i % x_span + x.dim.from) :: l, i / x_span) d ((),i)
                 inl rec loop f = function
                     | {thread_limit=()} :: d', i :: i' -> loop (f i) (d', i')
                     | {thread_limit=by dim={near_to}} :: d', from :: i' -> forcd {from by near_to body=inl {i} -> loop (f i) (d',i')}
@@ -1808,7 +1839,8 @@ inl methods =
     map' map map_redo_map d2_replicate_map' d2_replicate_map mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
-    mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter
+    mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter iteri_d1_seq_broadcast
+    iteri_dd1_seq_broadcast
     } |> stackify
 
 inl s -> s.module_add .CudaKernel methods
@@ -1850,7 +1882,7 @@ inl float ->
     inl primals = Struct.map primal
     inl adjoints = Struct.map adjoint
 
-    inl on_non_nil B ret =
+    inl on_non_nil ret B =
         match B with
         | () -> ()
         | B -> ret B
@@ -1876,12 +1908,12 @@ inl float ->
             inl C' = adjoint C
             inl l =
                 Tuple.iter (inl A, B -> 
-                    on_non_nil (adjoint A) (inl A -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A)
-                    on_non_nil (adjoint B) (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B)
+                    on_non_nil (inl A -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A) (adjoint A)
+                    on_non_nil (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B) (adjoint B)
                     ) l
             match bias with
             | () -> ()
-            | _ -> on_non_nil (adjoint bias) (inl bias -> s.CudaKernel.mapi_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias)
+            | _ -> on_non_nil (inl bias -> s.CudaKernel.mapi_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias) (adjoint bias)
 
     inl matmult l s = matmultb l () s
 
@@ -2096,7 +2128,7 @@ inl float ->
         }
 
     inl cross_entropy = error {
-        fwd = inl x, y -> -(y * log x + (one - y) * log (one - x))
+        fwd = inl x,y -> -(y * log x + (one - y) * log (one - x))
         bck = 
             inl (x, y) _ -> (x - y) / (x * (one - x))
             ,inl (x, y) _ -> log (one - x) - log x
@@ -2104,66 +2136,69 @@ inl float ->
 
     /// Applies a softmax and then calculates the cross entropy cost. Is intended to take a linear layer as input.
     inl softmax_cross_entropy label input s =
-        inl batch_size = primal input .span_outer |> to float
-        inl div_by_minibatch_size x = x / batch_size
-
-        inl softmax_cost label p =
-            s.CudaKernel.map_redo_map {
-                    map_in = inl p, label -> -label * log p
-                    redo = (+)
-                    neutral_elem = zero
-                    map_out = div_by_minibatch_size
-                } (p, label)
-
-        inl p = softmax one (primal input) s
-        inl cost = softmax_cost (primal label) p
-        inl bck =
-            inl p, label -> p - label 
-            ,inl p, label -> -(log p)
-
-        inl adjoint, bck = choose_adjoints (input, label) bck
-        inl bck _ = join
-            inl bck (in, out) = Struct.map2 (inl bck adjoint -> adjoint + div_by_minibatch_size (bck (in, out))) bck
-            s.CudaKernel.map' bck (p, primal label) adjoint
-
-        cost, bck
-
-    inl softmax_cross_entropy_alt label input s = // TODO: Is unfinished.
-        assert (label.dim = input.dim) "Labels and inputs must have equal dimensions."
-        inl label = s.CudaTensor.to_dev_tensor label
+        assert ((primal label).dim = (primal input).dim) "Labels and inputs must have equal dimensions."
+        inl to_dev_tensor = s.CudaTensor.to_dev_tensor
         
         inl batch_size = primal input .span_outer |> to float
-        inl div_by_minibatch_size x = x / batch_size
 
-        /// The softmax activation
-        inl softmax temp (input, label) s = 
-            s.CudaKernel.mapi_d1_seq_broadcast {
-                map_in=inl x -> x / temp
-                seq = 
-                    {
-                    redo=max
-                    map_out=inl a b -> exp (a - b)
-                    }
-                    ,
-                    {
-                    redo=(+)
-                    mapi_out=inl j i x sum_x ->
-                        inl p = x / sum_x
-                        inl label = label j i .get
-                        -label * log p
-                    }
-                } input
+        inl temp = one
 
-        inl p = softmax one (primal input, primal label) s
-        inl cost = softmax_cost (primal label) p
-        inl bck =
-            inl p, label -> p - label 
-            ,inl p, label -> -(log p)
+        inl cost = 
+            inl cost = s.CudaTensor.create {elem_type=float; dim=primal input .dim |> fst}
+            inl _ =
+                inl input, label, cost = Tuple.map (primal >> to_dev_tensor) (input, label, cost)
+                s.CudaKernel.iteri_d1_seq_broadcast {
+                    mapi_in=inl j i -> input j i .get / temp
+                    seq = 
+                        {
+                        redo=max
+                        mapi_out=inl _ _ a b -> exp (a - b)
+                        }
+                        ,
+                        {
+                        redo=(+)
+                        mapi_out=inl j i x sum_x ->
+                            inl p = x / sum_x
+                            inl label = label j i .get
+                            -label * log p
+                        }
+                        ,
+                        {
+                        redo'=(+)
+                        mapi_out=inl j i _ c -> if threadIdx.x = 0 then cost j .set (c / batch_size)
+                        }
+                    } (primal input).dim
+            s.CudaKernel.map_redo_map {
+                redo = (+)
+                neutral_elem = zero
+                } cost
 
-        inl adjoint, bck = choose_adjoints (input, label) bck
         inl bck _ = join
-            inl bck (in, out) = Struct.map2 (inl bck adjoint -> adjoint + div_by_minibatch_size (bck (in, out))) bck
-            s.CudaKernel.map' bck (p, primal label) adjoint
+            match Tuple.map (adjoint >> on_non_nil to_dev_tensor) (input, label) with
+            | (), () -> ()
+            | input', label' ->
+                inl input, label = Tuple.map (primal >> to_dev_tensor) (input, label)
+                s.CudaKernel.iteri_d1_seq_broadcast {
+                    mapi_in=inl j i -> input j i .get / temp
+                    seq = 
+                        {
+                        redo=max
+                        mapi_out=inl _ _ a b -> exp (a - b)
+                        }
+                        ,
+                        {
+                        redo=(+)
+                        mapi_out=inl j i x sum_x ->
+                            inl get x = x j i .get
+                            inl set x = x j i .set
+                            inl ret f = on_non_nil (inl x -> set x (get x + f () / batch_size))
+
+                            inl p = x / sum_x
+                            inl label = get label
+                            ret (inl _ -> (p - label) / temp) input'
+                            ret (inl _ -> -(log p)) label'
+                        }
+                    } input.dim
 
         cost, bck
 
@@ -2523,7 +2558,7 @@ inl float ->
             size = 1
             }
 
-    inl Layer = {layer input stateless non_differentiable feedforward recurrent parallel error accuracy encode sample} |> stackify
+    inl Layer = {layer input stateless non_differentiable feedforward recurrent parallel error accuracy encode sample} |> module_map (const stack)
 
     // #Feedforward
     inl layer initializer activation size sublayer =
@@ -3001,7 +3036,10 @@ inl float ->
                         state=const zero, {state bck=const ()}
                         body=inl {state=cost',d i} ->
                             inl input = Struct.map ((|>) i) input
+                            
+                            // Note: Now that the memory transfers are async, run_parallel has a race condition, but it won't be an issue in practice.
                             inl cost, d = run_parallel network {d with input} s
+
                             inl bck = term_cast d.bck ()
                             inl get = s.CudaTensor.get
                             inl cost _ = cost'() + get cost
@@ -3068,15 +3106,16 @@ inl float ->
 
     /// The differentiable action selectors.
     inl Selector =
+        inl reduce_actions x s = 
+            s.CudaKernel.mapi_d1_redo_map {
+                mapi_in=inl j i v _ -> v, i
+                neutral_elem=-infinity,-1
+                redo=inl a b -> if fst a > fst b then a else b
+                } (primal x) ()
+            |> HostTensor.unzip
         {
         greedy_square = inl x s ->
-            inl v,a =
-                s.CudaKernel.mapi_d1_redo_map {
-                    mapi_in=inl j i a _ -> a, i
-                    neutral_elem=-infinity,-1
-                    redo=inl a b -> if fst a > fst b then a else b
-                    } (primal x) ()
-                |> HostTensor.unzip
+            inl v,a = reduce_actions x s
 
             (v, a), inl (reward: float64) ->
                 inl reward = to float reward
@@ -3088,7 +3127,7 @@ inl float ->
                     ) a.dim
 
         greedy_qr = inl k x s ->
-            inl dim_a,dim_b,dim_c = (primal x).dim
+            inl dim_a,dim_b,dim_c as dim = (primal x).dim
             inl dim_c' = to float (HostTensor.span dim_c)
             inl v,a =
                 s.CudaKernel.mapi_d1_dredo_map { 
@@ -3117,6 +3156,79 @@ inl float ->
                         inl quantile = (to float i - to float 0.5) / dim_c'
                         x_a.set (x_a.get + HQR.bck_a k quantile (x_p.get, reward))
                     ) (dim_a,dim_c)
+
+        greedy_kl = inl x s ->
+            inl dim_a,dim_b,dim_c as dim = (primal x).dim
+
+            inl index c x next = 
+                inl f i = Struct.map ((|>) i)
+                inl rec loop c x =
+                    if c > 0 then inl i -> loop (c-1) (f i x)
+                    else next x
+                assert (lit_is c && c >= 0) "c must be a literal greater or equal to zero."
+                loop c x
+
+            inl v,a =
+                inl o = s.CudaTensor.create {elem_type=float; dim=dim_a, dim_b}
+                inl _ = 
+                    inl x,o = Tuple.map s.CudaTensor.to_dev_tensor (primal x, o)
+                    s.CudaKernel.iteri_dd1_seq_broadcast { 
+                        mapi_in =
+                            inb x = index 3 x
+                            x.get
+                        seq = 
+                            {
+                            redo=max
+                            map_out=inl x max_x -> exp (x - max_x) 
+                            }
+                            ,
+                            {
+                            redo=(+)
+                            mapi_out=inl k j i z sum_z -> 
+                                inl z = z / sum_z
+                                z * to float i
+                            }
+                            ,
+                            {
+                            redo'=(+)
+                            mapi_out=
+                                inb o = index 2 o
+                                inl _ _ sum -> if threadIdx.x = 0 then o.set sum
+                            }
+                        } dim
+                reduce_actions o s            
+            //Console.printfn "{0}, {1}" (s.CudaTensor.get (v 0), s.CudaTensor.get (a 0))
+
+            (v, a), inl (reward: float64) ->
+                inl reward = to int64 reward
+
+                assert (dim_c.from <= reward && reward < dim_c.near_to) "The reward must be in range."
+                inl a, x_p, x_a = Tuple.map s.CudaTensor.to_dev_tensor (a, primal x, adjoint x)
+                s.CudaKernel.iteri_d1_seq_broadcast { 
+                    mapi_in = inl j ->
+                        inl a = a j .get
+                        inl x_p = x_p j a
+                        inl i -> a, x_p i .get
+                    seq = 
+                        {
+                        map_in=snd
+                        redo=max
+                        map_out=inl (a,x) max_x -> a, exp (x - max_x) 
+                        }
+                        ,
+                        {
+                        map_in=snd
+                        redo=(+)
+                        mapi_out=inl j ->
+                            inl x_a = x_a j
+                            inl i (a,z) sum_z -> 
+                                inl p = z / sum_z
+                                inl reward = if i = reward then one else zero
+                                inl o = p - reward
+                                inl x_a = x_a a i
+                                x_a .set (x_a .get + o)
+                        }
+                    } (dim_a, dim_c)
         }
 
     inl RL = 
@@ -3136,12 +3248,27 @@ inl float ->
                 sublayer
                 weights = const ()
                 apply = inl _ x s -> 
-                    inl f x = x.split (inl a,b -> a,(dist_size,b/dist_size))
+                    inl f x = x.split (inl a,b -> a,(b/dist_size,dist_size))
                     Struct.map (function
                         | {primal adjoint block} as x -> {x with primal=f self; adjoint=f self}
                         | x -> f x
                         ) x
                     |> inl x -> Selector.greedy_qr k x s
+                }
+
+        inl greedy_kl {reward_range with from near_to} sublayer =
+            Layer.layer {
+                layer_type = .action
+                size = 1
+                sublayer
+                weights = const ()
+                apply = inl _ x s -> 
+                    inl f x = x.split (inl a,b -> a, (b / HostTensor.span reward_range, reward_range))
+                    Struct.map (function
+                        | {primal adjoint block} as x -> {x with primal=f self; adjoint=f self}
+                        | x -> f x
+                        ) x
+                    |> inl x -> Selector.greedy_kl x s
                 }
 
         inl square_init {range state_type action_type} s =
@@ -3166,8 +3293,20 @@ inl float ->
             |> Feedforward.Layer.linear action_size
             |> init s
 
+        inl kl_init {reward_range range state_type action_type} s =
+            inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span range x) 0
+            inl state_size = size state_type
+            inl action_size = size action_type * HostTensor.span reward_range
+
+            input .input state_size
+            |> Feedforward.Layer.ln 0f32 256
+            |> Feedforward.Layer.ln 0f32 256
+            |> Feedforward.Layer.linear action_size
+            |> init s
+
         /// For online learning.
-        inl action {d with range state_type action_type net} i s =
+        /// TODO: So gid's do not get constantly reassigned, it might be good to put a join point here.
+        inl action {d with range state_type action_type net state} i s =
             assert (eq_type state_type i) "The input must be equal to the state type."
             inl input = 
                 Struct.foldl_map (inl s x -> 
@@ -3176,12 +3315,15 @@ inl float ->
                     ) 0 i
                 |> inl l,size -> 
                     s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
-            inl (v,a),{bck} = 
-                match d with {distribution_size} -> greedy_qr one distribution_size | _ -> greedy_square
-                |> inl runner -> run (runner net) {input={input}; bck=const()} s
+            inl (v,a),{state bck} = 
+                match d with 
+                | {distribution_size} -> greedy_qr one distribution_size
+                | {reward_range} -> greedy_kl reward_range
+                | _ -> greedy_square
+                |> inl runner -> run (runner net) {state input={input}; bck=const()} s
             inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
-            action, bck
-        {square_init qr_init action}
+            action, {bck state}
+        {square_init qr_init kl_init action}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent
