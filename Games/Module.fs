@@ -361,10 +361,7 @@ inl log ->
         | .Call -> call bet
         | .Raise, .(x) -> raise bet x
 
-    inl reply_q {init learning_rate num_players name} =
-        inl state_type = Tuple.repeat num_players Rep
-        inl action_type = Action
-
+    inl rec trace_mc {state_type action_type} =
         inl bet_type = .Bet, state_type, action_type, float64 => ()
         inl reward_type = .Reward, float64
         inl trace_type = bet_type \/ reward_type
@@ -391,8 +388,13 @@ inl log ->
             | .add_reward -> add_reward l >> trace
             | .process -> process l
 
-        inl box = stack (box Action)
+        trace
 
+    inl reply_q {init learning_rate num_players name} =
+        inl state_type = Tuple.repeat num_players Rep
+        inl action_type = Action
+
+        inl box = stack (box Action)
         inl dict = Dictionary {elem_type=(state_type,Action),float64}
         inl reply rep state k =
             inl v, a = 
@@ -403,7 +405,7 @@ inl log ->
             inl bck v' = dict.set (rep, a) (v + learning_rate * (v' - v))
             reply k a {state bet=rep,a,bck}
 
-        {reply name state=(); trace=trace (List.empty trace_type)}
+        {reply name state=(); trace=trace_mc {state_type action_type} (List.empty trace_type)}
 
 
     inl reply_dmc {d with bias scale range num_players name} s =
@@ -436,35 +438,10 @@ inl log ->
                 inl bck v' = bck (v' / scale + bias)
                 reply k a {state bet=rep,a,bck}
 
-        inl bet_type = .Bet, state_type, action_type, float64 => ()
-        inl reward_type = .Reward, float64
-        inl trace_type = bet_type \/ reward_type
-
-        inl add_bet = stack inl l (state,action,bck) ->
-            inl bck = term_cast bck float64
-            inl x = box trace_type (.Bet,state,box action_type action,bck)
-            List.cons x l
-
-        inl add_reward = stack inl l x -> 
-            inl x = box trace_type (.Reward, to float64 x)
-            List.cons x l
-
-        inl process = stack inl l ->
-            List.foldl (inl s x -> 
-                match x with
-                | .Reward,x -> s + x
-                | .Bet,_,_,bck -> bck s; s
-                ) (dyn 0.0) l 
-            |> ignore
-
-        inl rec trace (!dyn l) = function
-            | .add_bet -> add_bet l >> trace
-            | .add_reward -> add_reward l >> trace
-            | .process -> process l
-
         inl optimize net learning_rate s = Combinator.optimize net (Optimizer.sgd learning_rate) s
+        inl trace = trace_mc {state_type action_type} (List.empty trace_type)
 
-        {reply optimize name net state=box net_state_type {} |> dyn; trace=trace (List.empty trace_type)}
+        {reply optimize name net trace state=box net_state_type {} |> dyn}
 
     {one_card=game; reply_random reply_q reply_dmc}
     """) |> module_
