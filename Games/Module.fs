@@ -388,7 +388,7 @@ inl log ->
             | .add_reward -> add_reward l >> trace
             | .process -> process l
 
-        trace
+        trace (List.empty trace_type)
 
     inl reply_q {init learning_rate num_players name} =
         inl state_type = Tuple.repeat num_players Rep
@@ -405,7 +405,7 @@ inl log ->
             inl bck v' = dict.set (rep, a) (v + learning_rate * (v' - v))
             reply k a {state bet=rep,a,bck}
 
-        {reply name state=(); trace=trace_mc {state_type action_type} (List.empty trace_type)}
+        {reply name state=(); trace=trace_mc {state_type action_type}}
 
 
     inl reply_dmc {d with bias scale range num_players name} s =
@@ -439,7 +439,7 @@ inl log ->
                 reply k a {state bet=rep,a,bck}
 
         inl optimize net learning_rate s = Combinator.optimize net (Optimizer.sgd learning_rate) s
-        inl trace = trace_mc {state_type action_type} (List.empty trace_type)
+        inl trace = trace_mc {state_type action_type}
 
         {reply optimize name net trace state=box net_state_type {} |> dyn}
 
