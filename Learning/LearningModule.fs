@@ -3115,11 +3115,8 @@ inl float ->
                 redo=inl a b -> if fst a > fst b then a else b
                 } (primal x) ()
             |> HostTensor.unzip
-        {
-        greedy_square = inl x s ->
-            inl v,a = reduce_actions x s
 
-            (v, a), inl (reward: float64) ->
+        inl greedy_square_bck x v a = inl (reward: float64) ->
                 inl reward = to float reward
                 inl a, x, v = Tuple.map s.CudaTensor.to_dev_tensor (a, adjoint x, v)
                 s.CudaKernel.iter () (inl j ->
@@ -3127,6 +3124,15 @@ inl float ->
                     inl x = x j a
                     x.set (x.get + square_bck (v, reward))
                     ) a.dim
+
+        {
+        greedy_square = inl x s ->
+            inl v,a = reduce_actions x s
+            a, greedy_square_bck x v a
+
+        greedy_square' = inl a x s ->
+            inl v,_ = reduce_actions x s
+            a, greedy_square_bck x v a
 
         greedy_qr = inl k x s ->
             inl dim_a,dim_b,dim_c as dim = (primal x).dim
@@ -3146,7 +3152,7 @@ inl float ->
                     } (primal x)
                 |> HostTensor.unzip
 
-            (v, a), inl (reward: float64) ->
+            a, inl (reward: float64) ->
                 inl reward = to float reward
                 inl a, x_a, x_p = Tuple.map s.CudaTensor.to_dev_tensor (a, adjoint x, primal x)
 
@@ -3201,7 +3207,7 @@ inl float ->
                 reduce_actions o s            
             //Console.printfn "{0}, {1}" (s.CudaTensor.get (v 0), s.CudaTensor.get (a 0))
 
-            (v, a), inl (reward: float64) ->
+            a, inl (reward: float64) ->
                 inl reward = to int64 reward
 
                 assert (dim_c.from <= reward && reward < dim_c.near_to) "The reward must be in range."
@@ -3241,6 +3247,15 @@ inl float ->
                 sublayer
                 weights = const ()
                 apply = inl _ -> Selector.greedy_square
+                }
+
+        inl greedy_square' action sublayer =
+            Layer.layer {
+                layer_type = .action
+                size = 1
+                sublayer
+                weights = const ()
+                apply = inl _ -> Selector.greedy_square' action
                 }
 
         inl greedy_qr k dist_size sublayer =
@@ -3313,17 +3328,22 @@ inl float ->
         inl action {d with range state_type action_type net state} i s =
             indiv join
                 assert (eq_type state_type i) "The input must be equal to the state type."
+                inl one_hot_tensor l, size = s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
                 inl input = 
                     Struct.foldl_map (inl s x -> 
                         inl i, s' = SerializerOneHot.encode' range x
                         s + i, s + s'
                         ) 0 i
-                    |> inl l,size -> 
-                        s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
-                inl (v,a),{state bck} = 
+                    |> one_hot_tensor
+                        
+                inl a, {state bck} = 
                     match d with 
                     | {distribution_size} -> greedy_qr one distribution_size
                     | {reward_range} -> greedy_kl reward_range
+                    | {action} ->
+                        SerializerOneHot.encode range action 
+                        |> one_hot_tensor
+                        |> greedy_square'
                     | _ -> greedy_square
                     |> inl runner -> run (runner net) {state input={input}; bck=const()} s
                 inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type

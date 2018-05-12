@@ -447,5 +447,107 @@ inl log ->
 
         {reply optimize name trace state=box net_state_type (heap {}) |> dyn}
 
+    /// Does Reptile updates.
+    inl rec trace_meta_mc {state_type action_type net learning_rate optimize} s =
+        inl bet_type = .Bet, state_type, action_type, float64 => ()
+        inl sar_type = state_type, action_type, float64
+        inl reward_type = .Reward, float64
+        inl trace_type = bet_type \/ reward_type
+
+        inl add_bet = stack inl l (state,action,bck) ->
+            inl bck = term_cast bck float64
+            inl x = box trace_type (.Bet,state,box action_type action,bck)
+            List.cons x l
+
+        inl add_reward = stack inl l x -> 
+            inl x = box trace_type (.Reward, to float64 x)
+            List.cons x l
+
+        inl process = stack inl l ->
+            inl net' =
+                layer_map (function
+                    | {x with weights} -> {x with weights_backup = s.CudaKernel.map id weights}
+                    | x -> x
+                    ) net
+
+            inl sar, _ = 
+                List.foldl (inl (l,r) x -> 
+                    match x with
+                    | .Reward,x -> l, r + x
+                    | .Bet,s,a,bck -> 
+                        bck r
+                        optimize learnin_rate s
+                        List.cons (s,a,r) l, r
+                    ) (List.empty sar_type, dyn 0.0) l 
+
+            met step _ =
+                List.foldl (inl state (s',action,r) ->
+                    inl a, {bck state} = RL.action {d with net state action} s' s
+                    bck r
+                    optimize learning_rate s
+                    state
+                    ) {} sar
+                |> ignore
+
+            step ()
+            step ()
+            step ()
+
+            layer_map (function
+                | {x with weights weights_backup} -> 
+                    s.CudaKernel.map' (inl b w -> // The serial Reptile meta-update.
+                        b + (w - b) / learning_rate
+                        ) weights_backup weights
+                | x -> ()
+                ) net'
+
+        inl rec trace (!dyn l) = function
+            | .add_bet -> add_bet l >> trace
+            | .add_reward -> add_reward l >> trace
+            | .process -> process l
+
+        trace (List.empty trace_type)
+
+    inl reply_meta_dmc {d with bias scale range num_players name learning_rate} s =
+        open Learning float32
+        inl state_type = Tuple.repeat num_players Rep
+        inl action_type = Action
+        inl d = {d with state_type action_type}
+        inl net =
+            match d with 
+            | {distribution_size} -> RL.qr_init d s 
+            | {reward_range} -> RL.kl_init d s
+            | _ -> RL.square_init d s
+            |> heap
+
+        inl net_state_type =
+            type
+                inl f state = 
+                    inl net, state = indiv net, indiv state
+                    inl _, {state} = RL.action {d with net state} (var state_type) s
+                    heap state
+                inl rec loop x =
+                    inl x' = f x
+                    if eq_type x x' then x
+                    else x \/ f x'
+                loop (heap {})
+
+        inl reply s rep state k =
+            match state with
+            | _,_ | _ -> // Unbox the state.
+                inl net, state = indiv net, indiv state
+                inl a, {bck state} = RL.action {d with net state} rep s
+                inl state = box net_state_type (heap state) |> dyn
+                inl bck v' = bck (v' / scale + bias)
+                reply k a {state bet=rep,a,bck}
+
+        inl optimize learning_rate s = 
+            inl net = indiv net
+            Combinator.optimize net (Optimizer.sgd learning_rate) s
+        inl trace s = trace_meta_mc {state_type action_type net learning_rate optimize} s
+
+        {reply name trace state=box net_state_type (heap {}) |> dyn}
+
+
     {one_card=game; reply_random reply_q reply_dmc}
     """) |> module_
