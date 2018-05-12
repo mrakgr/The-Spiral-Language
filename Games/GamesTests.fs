@@ -140,7 +140,7 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
         Loops.for {from=0; near_to=1000; state=dyn {a=0; b=0}; body=inl {state i} ->
             s.refresh
             inb s = s.RegionMem.create'
-            inl a,b = one_card stack_size ({a' with reply=self s |> heap}, b')
+            inl a,b = one_card stack_size ({a' with reply=self s |> heap; trace=self s}, b')
             match a.name with
             | "One" -> if a.chips > 0 then {state with a=self+1} else {state with b=self+1}
             | _ -> if a.chips > 0 then {state with b=self+1} else {state with a=self+1}
@@ -151,6 +151,6 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
     }
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) poker5
-//|> printfn "%s"
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) poker8
+|> printfn "%s"
 |> ignore

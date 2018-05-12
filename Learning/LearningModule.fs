@@ -3116,23 +3116,32 @@ inl float ->
                 } (primal x) ()
             |> HostTensor.unzip
 
-        inl greedy_square_bck x v a s = inl (reward: float64) ->
+        inl greedy_square_bck_template x v a s = inl (reward: float64) ->
                 inl reward = to float reward
-                inl a, x, v = Tuple.map s.CudaTensor.to_dev_tensor (a, adjoint x, v)
                 s.CudaKernel.iter () (inl j ->
-                    inl a, v = Tuple.map (inl x -> x j .get) (a, v)
+                    inl a, v = Tuple.map (inl x -> x j) (a, v)
                     inl x = x j a
                     x.set (x.get + square_bck (v, reward))
-                    ) a.dim
+                    ) (fst x.dim)
+
+        inl greedy_square_bck x v a s = inl (reward: float64) ->
+            inl a, x, v = Tuple.map s.CudaTensor.to_dev_tensor (a, adjoint x, v)
+            inl f x j = x j .get
+            greedy_square_bck_template x (f v) (f a) s reward
+
+        inl greedy_square_bck' x v (a: int64) s = inl (reward: float64) ->
+            inl x, v = Tuple.map s.CudaTensor.to_dev_tensor (adjoint x, v)
+            greedy_square_bck_template x (inl j -> v j .get) (const a) s reward
 
         {
         greedy_square = inl x s ->
             inl v,a = reduce_actions x s
             a, greedy_square_bck x v a s
 
-        greedy_square' = inl a x s ->
+        greedy_square' = inl (a: int64) x s ->
+            assert ((primal x).span_outer = 1) "This is for online learning only."
             inl v,_ = reduce_actions x s
-            a, greedy_square_bck x v a s
+            a, greedy_square_bck' x v a s
 
         greedy_qr = inl k x s ->
             inl dim_a,dim_b,dim_c as dim = (primal x).dim
@@ -3340,13 +3349,13 @@ inl float ->
                     match d with 
                     | {distribution_size} -> greedy_qr one distribution_size
                     | {reward_range} -> greedy_kl reward_range
-                    | {action} ->
-                        SerializerOneHot.encode range action 
-                        |> one_hot_tensor
-                        |> greedy_square'
+                    | {action} -> SerializerOneHot.encode range action |> greedy_square'
                     | _ -> greedy_square
                     |> inl runner -> run (runner net) {state input={input}; bck=const()} s
-                inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
+                inl action = 
+                    match a with
+                    | a: int64 -> SerializerOneHot.decode range a action_type
+                    | _ -> SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
                 stack (action, {bck state})
         {square_init qr_init kl_init action}
 
