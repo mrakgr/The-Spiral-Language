@@ -3116,7 +3116,7 @@ inl float ->
                 } (primal x) ()
             |> HostTensor.unzip
 
-        inl greedy_square_bck x v a = inl (reward: float64) ->
+        inl greedy_square_bck x v a s = inl (reward: float64) ->
                 inl reward = to float reward
                 inl a, x, v = Tuple.map s.CudaTensor.to_dev_tensor (a, adjoint x, v)
                 s.CudaKernel.iter () (inl j ->
@@ -3128,11 +3128,11 @@ inl float ->
         {
         greedy_square = inl x s ->
             inl v,a = reduce_actions x s
-            a, greedy_square_bck x v a
+            a, greedy_square_bck x v a s
 
         greedy_square' = inl a x s ->
             inl v,_ = reduce_actions x s
-            a, greedy_square_bck x v a
+            a, greedy_square_bck x v a s
 
         greedy_qr = inl k x s ->
             inl dim_a,dim_b,dim_c as dim = (primal x).dim
