@@ -482,27 +482,27 @@ inl log ->
                         match x with
                         | .Reward,x -> l, r + x
                         | .Bet,s',a,bck -> 
-                            bck r
+                            bck (r / scale + bias)
                             List.cons (s',a,r) l, r
                         ) (List.empty sar_type, dyn 0.0) l 
 
                 optimize learning_rate s
 
-                //met step _ =
-                //    List.foldl (inl state (s',action,r) ->
-                //        match state with
-                //        | _,_ | _ ->
-                //            inl state = indiv state
-                //            inl a, {bck state} = RL.action {d with net state action state_type action_type} s' s
-                //            bck r // TODO: Do not forget to put in scale and bias here.
-                //            box net_state_type (heap state)
-                //        ) (box net_state_type (heap {})) sar
-                //    |> ignore
-                //    optimize learning_rate s
+                met step _ =
+                    List.foldl (inl state (s',action,r) ->
+                        match state with
+                        | _,_ | _ ->
+                            inl state = indiv state
+                            inl a, {bck state} = RL.action {d with net state action state_type action_type} s' s
+                            bck (r / scale + bias) // TODO: Do not forget to put in scale and bias here.
+                            box net_state_type (heap state)
+                        ) (box net_state_type (heap {})) sar
+                    |> ignore
+                    optimize learning_rate s
 
-                //step ()
-                //step ()
-                //step ()
+                step ()
+                step ()
+                step ()
 
                 Combinator.layer_map (function
                     | {x with weights weights_backup} -> 
@@ -549,7 +549,6 @@ inl log ->
                 inl net, state = indiv net, indiv state
                 inl a, {bck state} = RL.action {d with net state} rep s
                 inl state = box net_state_type (heap state) |> dyn
-                inl bck v' = bck (v' / scale + bias)
                 reply k a {state bet=rep,a,bck}
 
         inl optimize learning_rate s = 
