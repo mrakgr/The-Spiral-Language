@@ -361,7 +361,7 @@ inl log ->
         | .Call -> call bet
         | .Raise, .(x) -> raise bet x
 
-    inl rec trace_mc {state_type action_type} =
+    inl rec trace_mc {state_type action_type learning_rate optimize} s =
         inl bet_type = .Bet, state_type, action_type, float64 => ()
         inl reward_type = .Reward, float64
         inl trace_type = bet_type \/ reward_type
@@ -382,6 +382,7 @@ inl log ->
                 | .Bet,_,_,bck -> bck s; s
                 ) (dyn 0.0) l 
             |> ignore
+            optimize learning_rate s
 
         inl rec trace (!dyn l) = function
             | .add_bet -> add_bet l >> trace
@@ -407,7 +408,7 @@ inl log ->
 
         {reply name state=(); trace=trace_mc {state_type action_type}}
 
-    inl reply_dmc {d with bias scale range num_players name} s =
+    inl reply_dmc {d with bias scale range num_players name learning_rate} s =
         open Learning float32
         inl state_type = Tuple.repeat num_players Rep
         inl action_type = Action
@@ -443,7 +444,7 @@ inl log ->
         inl optimize learning_rate s = 
             inl net=indiv net
             Combinator.optimize net (Optimizer.sgd learning_rate) s
-        inl trace = trace_mc {state_type action_type}
+        inl trace s = trace_mc {state_type action_type optimize learning_rate} s
 
         {reply optimize name trace state=box net_state_type (heap {}) |> dyn}
 

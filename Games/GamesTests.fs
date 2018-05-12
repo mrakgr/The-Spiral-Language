@@ -51,16 +51,15 @@ inb s = CudaModules (1024*1024*1024)
 inl log _ _ = ()
 open Poker log
 inl stack_size = 10
-inl a' = reply_dmc {bias=0.0; scale=to float64 stack_size; range=32; num_players=2; name="One"} s
+inl a' = reply_dmc {bias=0.0; scale=to float64 stack_size; range=32; num_players=2; name="One"; learning_rate=0.01f32} s
 inl b' = reply_random {name="Two"}
 Loops.for {from=0; near_to=10; body=inl {i} ->
     Timer.time_it (string_format "iteration {0}" i)
     <| inl _ ->
-        Loops.for {from=0; near_to=100; state=dyn {a=0; b=0}; body=inl {state i} ->
+        Loops.for {from=0; near_to=1000; state=dyn {a=0; b=0}; body=inl {state i} ->
             s.refresh
             inb s = s.RegionMem.create'
-            inl a,b = one_card stack_size ({a' with reply=self s |> heap}, b')
-            a'.optimize 0.01f32 s
+            inl a,b = one_card stack_size ({a' with trace=self s; reply=self s |> heap}, b')
             match a.name with
             | "One" -> if a.chips > 0 then {state with a=self+1} else {state with b=self+1}
             | _ -> if a.chips > 0 then {state with b=self+1} else {state with a=self+1}
