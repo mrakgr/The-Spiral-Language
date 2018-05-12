@@ -482,9 +482,10 @@ inl log ->
                         | .Reward,x -> l, r + x
                         | .Bet,s',a,bck -> 
                             bck r
-                            optimize learning_rate s
                             List.cons (s',a,r) l, r
                         ) (List.empty sar_type, dyn 0.0) l 
+
+                optimize learning_rate s
 
                 met step _ =
                     List.foldl (inl state (s',action,r) ->
@@ -492,15 +493,16 @@ inl log ->
                         | _,_ | _ ->
                             inl state = indiv state
                             inl a, {bck state} = RL.action {d with net state action state_type action_type} s' s
-                            bck r
-                            optimize learning_rate s
+                            bck r // TODO: Do not forget to put in scale and bias here.
                             box net_state_type (heap state)
                         ) (box net_state_type (heap {})) sar
                     |> ignore
+                    optimize learning_rate s
 
-                step ()
-                step ()
-                step ()
+                //step ()
+                //step ()
+                //step ()
+
                 Combinator.layer_map (function
                     | {x with weights weights_backup} -> 
                         Struct.map2 (
