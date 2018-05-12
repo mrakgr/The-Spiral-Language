@@ -488,17 +488,17 @@ inl log ->
 
                 optimize learning_rate s
 
-                met step _ =
-                    List.foldl (inl state (s',action,r) ->
-                        match state with
-                        | _,_ | _ ->
-                            inl state = indiv state
-                            inl a, {bck state} = RL.action {d with net state action state_type action_type} s' s
-                            bck r // TODO: Do not forget to put in scale and bias here.
-                            box net_state_type (heap state)
-                        ) (box net_state_type (heap {})) sar
-                    |> ignore
-                    optimize learning_rate s
+                //met step _ =
+                //    List.foldl (inl state (s',action,r) ->
+                //        match state with
+                //        | _,_ | _ ->
+                //            inl state = indiv state
+                //            inl a, {bck state} = RL.action {d with net state action state_type action_type} s' s
+                //            bck r // TODO: Do not forget to put in scale and bias here.
+                //            box net_state_type (heap state)
+                //        ) (box net_state_type (heap {})) sar
+                //    |> ignore
+                //    optimize learning_rate s
 
                 //step ()
                 //step ()
