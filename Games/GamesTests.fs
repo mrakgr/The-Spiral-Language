@@ -51,7 +51,7 @@ inb s = CudaModules (1024*1024*1024)
 inl log _ _ = ()
 open Poker log
 inl stack_size = 10
-inl a' = reply_dmc {bias=0.0; scale=to float64 stack_size; range=32; num_players=2; name="One"; learning_rate=0.01f32} s
+inl a' = reply_dmc {bias=0.0; scale=to float64 stack_size; range=32; num_players=2; name="One"; learning_rate=0.012f32} s
 inl b' = reply_random {name="Two"}
 Loops.for {from=0; near_to=10; body=inl {i} ->
     Timer.time_it (string_format "iteration {0}" i)
@@ -131,7 +131,7 @@ inb s = CudaModules (1024*1024*1024)
 inl log _ _ = ()
 open Poker log
 inl stack_size = 10
-inl a' = reply_meta_dmc {bias=0.0; scale=to float64 stack_size; range=32; num_players=2; name="One"; learning_rate=0.01f32} s
+inl a' = reply_meta_dmc {bias=0.0; scale=to float64 stack_size; range=32; num_players=2; name="One"; meta_lr=0.3f32; learning_rate=0.003f32} s
 inl b' = reply_random {name="Two"}
 Loops.for {from=0; near_to=10; body=inl {i} ->
     Timer.time_it (string_format "iteration {0}" i)
@@ -150,6 +150,6 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
     }
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) poker8
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) poker5
 |> printfn "%s"
 |> ignore

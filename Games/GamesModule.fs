@@ -448,11 +448,11 @@ inl log ->
 
         {reply optimize name trace state=box net_state_type (heap {}) |> dyn}
 
-    inl reply_meta_dmc {d with bias scale range num_players name learning_rate} s =
+    inl reply_meta_dmc {d with bias scale range num_players name meta_lr learning_rate} s =
         open Learning float32
 
         /// Does Reptile updates.
-        inl rec trace_meta_mc {state_type action_type net_state_type net learning_rate optimize} s =
+        inl rec trace_meta_mc {state_type action_type net_state_type net meta_lr learning_rate optimize} s =
             inl bet_type = .Bet, state_type, action_type, float64 => ()
             inl sar_type = state_type, action_type, float64
             inl reward_type = .Reward, float64
@@ -508,7 +508,7 @@ inl log ->
                     | {x with weights weights_backup} -> 
                         Struct.map2 (
                             // The serial Reptile meta-update.
-                            s.CudaKernel.map' (inl b w -> b + (w - b) / learning_rate) // Should I really divide by learning rate here?
+                            s.CudaKernel.map' (inl b w -> b + meta_lr * (w - b))
                             ) weights_backup (Struct.map primal (weights ()))
                     | x -> ()
                     ) net'
@@ -554,7 +554,7 @@ inl log ->
         inl optimize learning_rate s = 
             inl net = indiv net
             Combinator.optimize net (Optimizer.sgd learning_rate) s
-        inl trace s = trace_meta_mc {state_type action_type net_state_type net learning_rate optimize} s
+        inl trace s = trace_meta_mc {state_type action_type net_state_type net meta_lr learning_rate optimize} s
 
         {reply name trace state=box net_state_type (heap {}) |> dyn}
 
