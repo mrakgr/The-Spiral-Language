@@ -508,7 +508,7 @@ inl log ->
                     | {x with weights weights_backup} -> 
                         Struct.map2 (
                             // The serial Reptile meta-update.
-                            s.CudaKernel.map' (inl b w -> b + (w - b) / learning_rate) 
+                            s.CudaKernel.map' (inl b w -> b + (w - b) / learning_rate) // Should I really divide by learning rate here?
                             ) weights_backup (Struct.map primal (weights ()))
                     | x -> ()
                     ) net'
