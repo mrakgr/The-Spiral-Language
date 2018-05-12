@@ -56,7 +56,7 @@ inl b' = reply_random {name="Two"}
 Loops.for {from=0; near_to=10; body=inl {i} ->
     Timer.time_it (string_format "iteration {0}" i)
     <| inl _ ->
-        Loops.for {from=0; near_to=1000; state=dyn {a=0; b=0}; body=inl {state i} ->
+        Loops.for {from=0; near_to=100; state=dyn {a=0; b=0}; body=inl {state i} ->
             s.refresh
             inb s = s.RegionMem.create'
             inl a,b = one_card stack_size ({a' with reply=self s |> heap}, b')
@@ -151,6 +151,6 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
     }
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) poker8
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) poker5
 |> printfn "%s"
 |> ignore
