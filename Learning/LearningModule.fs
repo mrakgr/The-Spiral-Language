@@ -2351,8 +2351,9 @@ inl float ->
                 inl value, bck = indiv join x.apply (x.weights()) x.sublayer s |> ret
                 value, {d with bck = apply_bck self bck}
             | .action ->
-                inl value, bck = indiv join x.apply (x.weights()) x.sublayer s |> ret' float64
-                value, {d with bck = apply_bck self bck}
+                inl state = match d.state with {$gid=state} -> state | _ -> ()
+                inl (value, state), bck = indiv join x.apply (x.weights()) state x.sublayer s |> ret' float64
+                value, {d with bck = apply_bck self bck; state = {self with $gid=state}}
             | .recurrent ->
                 inl state = match d.state with {$gid=state} -> state | _ -> ()
                 inl (value, state), bck = indiv join x.apply (x.weights()) state x.sublayer s |> ret
@@ -2390,8 +2391,9 @@ inl float ->
                     inl value, bck = indiv join x.apply (x.weights()) values s |> ret
                     {value stream block=()}, {d with bck = apply_bck self bck}
                 | .action ->
-                    inl value, bck = indiv join x.apply (x.weights()) values s |> ret' float64
-                    {value stream block=()}, {d with bck = apply_bck self bck}
+                    inl state = match d.state with {$gid=state} -> state | _ -> ()
+                    inl (value, state), bck = indiv join x.apply (x.weights()) state values s |> ret' float64
+                    {value stream block=()}, {d with bck = apply_bck self bck; state = {self with $gid=state}}
                 | .recurrent ->
                     inl state = match d.state with {$gid=state} -> state | _ -> ()
                     inl (value, state), bck = indiv join x.apply (x.weights()) state values s |> ret
@@ -3118,7 +3120,7 @@ inl float ->
 
         {
         greedy_square = inl prev x s ->
-            inl v, a = reduce_actions x s 
+            inl v, a = reduce_actions x s
             (a,v), inl (reward: float64) ->
                 match prev with
                 | () -> ()
@@ -3129,7 +3131,7 @@ inl float ->
                     s.CudaKernel.iter () (inl j ->
                         inl a, v, prev_p, prev_a = Tuple.map (inl x -> x j) (a, v, prev_p, prev_a)
                         prev_a.set (prev_a.get + square_bck (prev_p, v + reward))
-                        ) (fst x.dim)
+                        ) (fst prev_p.dim)
         }
 
     inl RL = 
