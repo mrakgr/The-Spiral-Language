@@ -443,8 +443,9 @@ inl log ->
         inl action_type = Action
         inl d = {d with state_type action_type}
         inl net =
-            RL.square_init d s 
-            |> RL.greedy_square
+            match d with
+            | {distribution_size} -> RL.qr_init d s |> RL.greedy_qr distribution_size
+            | _ -> RL.square_init d s |> RL.greedy_square
             |> heap
 
         inl net_state_type =
