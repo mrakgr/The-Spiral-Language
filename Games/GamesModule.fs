@@ -443,10 +443,8 @@ inl log ->
         inl action_type = Action
         inl d = {d with state_type action_type}
         inl net =
-            match d with 
-            | {distribution_size} -> RL.qr_init d s 
-            | {reward_range} -> RL.kl_init d s
-            | _ -> RL.square_init d s
+            RL.square_init d s 
+            |> RL.greedy_square
             |> heap
 
         inl net_state_type =
@@ -473,7 +471,7 @@ inl log ->
         inl optimize learning_rate s = 
             inl net=indiv net
             Combinator.optimize net (Optimizer.sgd learning_rate) s
-        inl trace s = trace_dq {state_type action_type optimize learning_rate} s
+        inl trace = trace_dq {state_type action_type optimize learning_rate}
 
         {reply optimize name trace state=box net_state_type (heap {}) |> dyn}
 

@@ -3121,7 +3121,7 @@ inl float ->
         {
         greedy_square = inl prev x s ->
             inl v, a = reduce_actions x s
-            (a,v), inl (reward: float64) ->
+            (a, dr s v), inl (reward: float64) ->
                 match prev with
                 | () -> ()
                 | {primal adjoint} -> 
@@ -3130,7 +3130,7 @@ inl float ->
                     inl reward = to float reward
                     s.CudaKernel.iter () (inl j ->
                         inl a, v, prev_p, prev_a = Tuple.map (inl x -> x j) (a, v, prev_p, prev_a)
-                        prev_a.set (prev_a.get + square_bck (prev_p, v + reward))
+                        prev_a.set (prev_a.get + square_bck (prev_p.get, v + reward))
                         ) (fst prev_p.dim)
         }
 
@@ -3168,18 +3168,10 @@ inl float ->
                         ) 0 i
                     |> one_hot_tensor
                         
-                inl a, {state bck} = 
-                    match d with 
-                    | {distribution_size} -> greedy_qr one distribution_size
-                    | {action} -> SerializerOneHot.encode range action |> greedy_square'
-                    | _ -> greedy_square
-                    |> inl runner -> run (runner net) {state input={input}; bck=const()} s
-                inl action = 
-                    match a with
-                    | a: int64 -> SerializerOneHot.decode range a action_type
-                    | _ -> SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
+                inl a, {state bck} = run net {state input={input}; bck=const()} s
+                inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
                 stack (action, {bck state})
-        {square_init action}
+        {square_init greedy_square action}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent
