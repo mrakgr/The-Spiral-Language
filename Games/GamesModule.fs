@@ -424,8 +424,8 @@ inl log ->
         inl process = stack inl l ->
             List.foldl (inl r x -> 
                 match x with
-                | .Reward,x -> r + x
-                | .Bet,_,_,bck -> bck r; r
+                | .Reward,x -> x
+                | .Bet,_,_,bck -> bck r; 0.0
                 ) (dyn 0.0) l 
             |> ignore
             optimize learning_rate s
