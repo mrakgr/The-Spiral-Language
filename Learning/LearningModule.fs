@@ -3121,17 +3121,18 @@ inl float ->
         {
         greedy_square = inl prev x s ->
             inl v, a = reduce_actions x s
-            (a, dr s v), inl (reward: float64) ->
+            (a, (v, a, adjoint x)), inl (reward: float64) ->
                 match prev with
                 | () -> ()
-                | {primal adjoint} -> 
-                    inl v, a = Tuple.map (s.CudaTensor.to_dev_tensor >> inl x j -> x j .get) (v, a)
-                    inl prev_p, prev_a = s.CudaTensor.to_dev_tensor primal, s.CudaTensor.to_dev_tensor adjoint
+                | prev_v, prev_a, prev_x_a -> 
+                    inl v, prev_v, prev_a = Tuple.map (s.CudaTensor.to_dev_tensor >> inl x j -> x j .get) (v, prev_v, prev_a)
+                    inl prev_x_a = s.CudaTensor.to_dev_tensor prev_x_a
                     inl reward = to float reward
                     s.CudaKernel.iter () (inl j ->
-                        inl a, v, prev_p, prev_a = Tuple.map (inl x -> x j) (a, v, prev_p, prev_a)
-                        prev_a.set (prev_a.get + square_bck (prev_p.get, v + reward))
-                        ) (fst prev_p.dim)
+                        inl v, prev_v, prev_a = Tuple.map (inl x -> x j) (v, prev_v, prev_a)
+                        inl prev_x_a = prev_x_a j prev_a
+                        prev_x_a.set (prev_x_a.get + square_bck (prev_v, v + reward))
+                        ) (fst prev_x_a.dim)
         }
 
     inl RL = 
@@ -3151,8 +3152,8 @@ inl float ->
 
             input .input state_size
             //|> Feedforward.Layer.ln 0f32 256
-            //|> Feedforward.Layer.relu 256
-            //|> Recurrent.Layer.mi 256
+            //|> Feedforward.Layer.tanh 256
+            |> Recurrent.Layer.mi 256
             |> Feedforward.Layer.linear action_size
             |> init s
 
