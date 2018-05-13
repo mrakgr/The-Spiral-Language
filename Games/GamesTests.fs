@@ -79,7 +79,7 @@ open Poker log
 inl stack_size = 10
 inl a' = reply_dq {distribution_size=64; bias=0.0; scale=to float64 stack_size; range=32; num_players=2; name="One"; learning_rate=0.01f32} s
 inl b' = reply_random {name="Two"}
-Loops.for {from=0; near_to=10; body=inl {i} ->
+Loops.for {from=0; near_to=5; body=inl {i} ->
     Timer.time_it (string_format "iteration {0}" i)
     <| inl _ ->
         Loops.for {from=0; near_to=1000; state=dyn {a=0; b=0}; body=inl {state i} ->
