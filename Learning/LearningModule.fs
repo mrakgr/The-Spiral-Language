@@ -3179,7 +3179,7 @@ inl float ->
                     | a: int64 -> SerializerOneHot.decode range a action_type
                     | _ -> SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
                 stack (action, {bck state})
-        {square_init qr_init action}
+        {square_init action}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent

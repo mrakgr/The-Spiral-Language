@@ -407,5 +407,75 @@ inl log ->
 
         {reply name state=(); trace=trace_mc {state_type action_type}}
 
-    {one_card=game; reply_random reply_mc}
+    inl rec trace_dq {state_type action_type learning_rate optimize} s =
+        inl bet_type = .Bet, state_type, action_type, float64 => ()
+        inl reward_type = .Reward, float64
+        inl trace_type = bet_type \/ reward_type
+
+        inl add_bet = stack inl l (state,action,bck) ->
+            inl bck = term_cast bck float64
+            inl x = box trace_type (.Bet,state,box action_type action,bck)
+            List.cons x l
+
+        inl add_reward = stack inl l x -> 
+            inl x = box trace_type (.Reward, to float64 x)
+            List.cons x l
+
+        inl process = stack inl l ->
+            List.foldl (inl r x -> 
+                match x with
+                | .Reward,x -> r + x
+                | .Bet,_,_,bck -> bck r; r
+                ) (dyn 0.0) l 
+            |> ignore
+            optimize learning_rate s
+
+        inl rec trace (!dyn l) = function
+            | .add_bet -> add_bet l >> trace
+            | .add_reward -> add_reward l >> trace
+            | .process -> process l
+
+        trace (List.empty trace_type)
+
+    inl reply_dq {d with bias scale range num_players name learning_rate} s =
+        open Learning float32
+        inl state_type = Tuple.repeat num_players Rep
+        inl action_type = Action
+        inl d = {d with state_type action_type}
+        inl net =
+            match d with 
+            | {distribution_size} -> RL.qr_init d s 
+            | {reward_range} -> RL.kl_init d s
+            | _ -> RL.square_init d s
+            |> heap
+
+        inl net_state_type =
+            type
+                inl f state = 
+                    inl net, state = indiv net, indiv state
+                    inl _, {state} = RL.action {d with net state} (var state_type) s    
+                    heap state
+                inl rec loop x =
+                    inl x' = f x
+                    if eq_type x x' then x
+                    else x \/ f x'
+                loop (heap {})
+
+        inl reply s rep state k =
+            match state with
+            | _,_ | _ -> // Unbox the state.
+                inl net, state = indiv net, indiv state
+                inl a, {bck state} = RL.action {d with net state} rep s
+                inl state = box net_state_type (heap state) |> dyn
+                inl bck v' = bck (v' / scale + bias)
+                reply k a {state bet=rep,a,bck}
+
+        inl optimize learning_rate s = 
+            inl net=indiv net
+            Combinator.optimize net (Optimizer.sgd learning_rate) s
+        inl trace s = trace_dq {state_type action_type optimize learning_rate} s
+
+        {reply optimize name trace state=box net_state_type (heap {}) |> dyn}
+
+    {one_card=game; reply_random reply_mc reply_dq}
     """) |> module_
