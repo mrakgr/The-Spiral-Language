@@ -281,10 +281,12 @@ inl rec map_last f = function
     | () -> error_type "Must not be an empty tuple."
     | _ -> error_type "Must be a tuple"
 
+inl length = Tuple.foldl (inl s _ -> s+1) 0
+
 {
 head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists split_at take drop
 filter zip unzip init repeat append concat singleton range tryFind contains intersperse wrap unwrap
-foldl_map foldl_map2 foldr_map map2 foldl2 foldr2 choose choose2 mapi find map_last map3
+foldl_map foldl_map2 foldr_map map2 foldl2 foldr2 choose choose2 mapi find map_last map3 length
 } 
 |> stackify
     """) |> module_

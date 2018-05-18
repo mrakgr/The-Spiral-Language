@@ -92,9 +92,14 @@ met show_card x =
     inl {rank=.(a) suit=.(b)} = x 
     string_format "{0}-{1}" (a, b)
 
-inl log ->
+inl {log num_players} ->
     inl Hand = Card // for one card poker
     inl show_hand = show_card
+
+    inl Actions = .Fold, .Call, (.Raise, .0)
+    inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
+    inl Rep = type {pot=int64; chips=int64; hand=Option.none Hand}
+    inl State = Tuple.repeat num_players Rep
 
     inl hand_rule a b =
         met f x = 
@@ -288,6 +293,7 @@ inl log ->
         showdown players
 
     inl game chips players =
+        assert (Tuple.length player = num_players) "The number of players needs to be equal to the defined one."
         inl is_active x = x.chips > 0
         inl is_finished players =
             inl players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 players
@@ -319,10 +325,87 @@ inl log ->
             | 1i32 -> call ()
             | _ -> raise 0
 
-    inl Actions = .Fold, .Call, (.Raise, .0)
-    inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
-    inl Rep = type {pot=int64; chips=int64; hand=Option.none Hand}
+    inl rec trace_mc _ =
+        inl bet_type = .Bet, state_type, action_type, float64 => ()
+        inl reward_type = .Reward, float64
+        inl elem_type = bet_type \/ reward_type
+
+        inl r = ResizeArray.create {elem_type}
+
+        inl add_bet = inl (state,action,bck) ->
+            inl bck = term_cast bck float64
+            inl x = box elem_type (.Bet,state,box action_type action,bck)
+            r.add x
+
+        inl add_reward = inl x -> 
+            inl x = box elem_type (.Reward, to float64 x)
+            r.add x
+
+        inl process = inl _ ->
+            r.foldl (inl r x -> 
+                match x with
+                | .Reward,x -> r + x
+                | .Bet,_,_,bck -> bck r; r
+                ) (dyn 0.0)
+            |> ignore
+            
+            r.clear
+
+        function
+        | .add_bet -> add_bet
+        | .add_reward -> add_reward
+        | .process -> process ()
+        |> stack
+
+    inl reply_mc {init learning_rate} =
+        inl box = stack (box Action)
+        inl dict = Dictionary {elem_type=(State,Action),float64}
+        stack inl x rep k ->
+            inl v, a = 
+                Tuple.foldl (inl (s,a) (!box x) ->
+                    inl v = dict (rep, x) { on_fail=const init; on_succ=id }
+                    if v > s then v,x else s,a
+                    ) (-infinityf64, box .Fold) Actions
+            inl bck v' = dict.set (rep, a) (v + learning_rate * (v' - v))
+            x.trace.add_bet (rep,a,bck)
+            reply k a
+
+    inl basic_methods = 
+        {
+        chips=inl s -> s.data.chips ()
+        pot=inl s -> s.data.pot_hand.pot
+        hand=inl s -> s.data.pot_hand.hand
+        hand_is=inl s -> 
+            match s.data.pot_hand.hand with
+            | .Some, _ -> true
+            | .None -> false
+        chips_give=inl s v -> s.data.chips := s.chips + v
+        pot_take=inl s v -> 
+            inl pot = s.pot - v |> max 0
+            s.data.hand_pot.pot <- pot
+            pot
+        pot_give=inl s v -> s.data.hand_pot.pot <- s.pot + v
+        call=inl s v ->
+            inl x = min s.chips (v - s.pot)
+            s.chips_give (-x)
+            s.pot_give x
+        fold=inl s -> s.data.hand_pot.hand <- Option.none Hand |> dyn
+        win=inl s -> s.data.win := win + 1
+        }
+
+    inl player_mc {name learning_rate init} = 
+        inl methods = {basic_methods with
+            bet=reply_mc {learning_rate init}
+            trace=trace_mc ()
+            showdown=inl s v -> s.trace.add_reward v; s.trace.process
+            game_over=inl s -> ()
+            }
+
+        Object
+            .member_add methods
+            .data_add {name}
 
 
+    {player_mc}
 
     """) |> module_

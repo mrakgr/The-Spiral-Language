@@ -166,7 +166,7 @@ inl load_mnist_tensors mnist_path =
 
 let resize_array =
     (
-    "ResizeArray",[extern_],"The resizable array module.",
+    "ResizeArray",[extern_; loops],"The resizable array module.",
     """
 open Extern
 inl create {d with elem_type} =
@@ -200,6 +200,7 @@ inl create {d with elem_type} =
     | .count -> count ()
     | .add -> add
     | .iter -> iter
+    | .foldl f state x -> Loops.for {from=0i32; by=1i32; near_to=count(); state; body=inl {i} -> f state (index i)}
     | .elem_type -> elem_type
     | .to_array -> to_array ()
     | i -> index i
