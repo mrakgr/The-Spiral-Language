@@ -172,5 +172,108 @@ inl log ->
                 elif reward < 0 then log "{0} loses {1} chips." (name,-reward)
                 else ()
                 ) players old_chips
-...
+
+    inl internal_representation i players =
+        Tuple.mapi (inl i' x ->
+            if i' <> i then {chips=x.chips; pot=x.pot; hand=dyn (Option.none Hand)}
+            else {chips=x.chips; pot=x.pot; hand=x.hand}
+            ) players
+
+    inl betting players =
+        inl is_active x = x.chips > 0 && x.hand_is
+        met betting {internal_representation player} {d with min_raise call_level players_called players_active} =
+            macro.fs () [text: "//In betting"]
+            inl on_succ = Option.some
+            inl on_fail = Option.none d
+            if players_called < players_active && (players_active <> 1 || player.pot < call_level) then
+                if is_active player then 
+                    player.bet
+                        internal_representation
+                        {
+                        fold = inl _ -> 
+                            player.fold
+                            log "{0} folds." player.name
+                            on_succ (player, {d with players_active=self-1})
+                        call = inl _ -> 
+                            player.call call_level
+                            if player.chips = 0 then
+                                log "{0} calls and is all-in!" player.name
+                                on_succ {d with players_active=self-1}
+                            else
+                                log "{0} calls." player.name
+                                on_succ {d with players_called=self+1}
+                        raise = inl x -> 
+                            assert (x >= 0) "Cannot raise to negative amounts."
+                            player.call (call_level + min_raise + x)
+                            inl call_level' = player.pot
+                            inl on_succ {gt lte} =
+                                if call_level' > call_level then 
+                                    {d with call_level = call_level'; min_raise = max min_raise (call_level'-call_level)}
+                                    |> inl d -> on_succ (gt d)
+                                else on_succ (lte d)
+                                
+                            if player.chips = 0 then
+                                on_succ {
+                                    gt = inl d -> 
+                                        log "{0} raises to {1} and is all-in!" (player.name, call_level')
+                                        {d with players_active=self-1; players_called=0}
+                                    lte = inl d -> 
+                                        log "{0} calls and is all-in!" player.name
+                                        {d with players_active=self-1}
+                                    }
+                            else
+                                log "{0} raises to {1}." (player.name, call_level')
+                                on_succ {
+                                    gt = inl d -> {d with players_called=1}
+                                    lte = inl d -> failwith d "Should not be possible to raise to less than the call level without running out of chips."
+                                    }
+                        }
+                else on_succ d
+            else
+                on_fail
+
+        met rec loop players (!dyn d) =
+            macro.fs () [text: "// In betting's loop."]
+            Tuple.foldr (inl player next (i, d) ->
+                inl internal_representation = internal_representation i players
+                match betting { internal_representation player } d with
+                | .Some, d -> next (i+1, d)
+                | .None -> ()
+                ) players (inl _,d -> loop players d) (dyn 0, d)
+            : ()
+        
+        log "Betting:" ()
+        loop players
+            {
+            min_raise=2
+            call_level = Tuple.foldl (inl s x -> if is_active x then max s x.pot else s) 0 players
+            players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 players
+            players_called = 0
+            }
+
+    inl dealing players deck =
+        met f (!dyn ante) x =
+            macro.fs () [text: "// In dealing."]
+            inl hand = deck () |> Option.some |> dyn
+            inl pot = dyn 0
+            x.data_add {pot_hand = heapm {pot hand}}
+            x.call ante
+            inl ante = x.pot
+            if ante > 0 then log "{0} antes up {1}" (x.name, ante)
+            x
+
+        inl ante, big_ante = 1, 2
+        inl rec loop = function
+            | a :: b :: () -> 
+                inl a = f ante a
+                inl b = f big_ante b
+                a :: b :: ()
+            | a :: b -> 
+                inl a = f 0 a
+                inl b = loop b
+                a :: b
+        log "Dealing:" ()
+        loop players
+
+    
     """) |> module_
