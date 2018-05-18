@@ -78,10 +78,12 @@ inl deck _ =
     assert (array_length ar = num_cards) "The number of cards in the deck must be 52."
     knuth_shuffle rnd num_cards ar
 
-    inl rec facade p _ =
-        inl x = p - 1
-        ar x, facade x
-    facade (dyn num_cards)
+    inl deck = heapm {deck p=dyn num_cards}
+
+    inl _ ->
+        inl x = deck.p - 1
+        deck.p <- x
+        ar x
 
 inl compare a b = if a < b then -1i32 elif a = b then 0i32 else 1i32
 
@@ -275,5 +277,52 @@ inl log ->
         log "Dealing:" ()
         loop players
 
-    
+    inl round players =
+        log "A new round is starting..." ()
+        log "Chip counts:" ()
+        Tuple.iter (inl x ->
+            log "{0} has {1} chips." (x.name,x.chips)
+            ) players
+        inl players = dealing players (deck()) // Adds pot and hand fields to the players.
+        betting players
+        showdown players
+
+    inl game chips players =
+        inl is_active x = x.chips > 0
+        inl is_finished players =
+            inl players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 players
+            players_active = 1
+
+        met rec loop players =
+            inl a :: b as players = round players
+            if is_finished players then
+                log "The game is over." ()
+                Tuple.iter (inl x ->
+                    inl chips = x.chips
+                    if chips > 0 then 
+                        log "{0} wins with {1} chips!" (x.name, chips)
+                        x.win
+                    x.game_over
+                    ) players
+            else
+                loop (Tuple.append b (a :: ()))
+            : ()
+
+        Tuple.map (inl x -> x.data_add {chips=ref chips}) players
+        |> loop
+
+    inl reply_random {name} =
+        inl rnd = Random()
+        inl _ {fold call raise} ->
+            match rnd.next(0i32,5i32) with
+            | 0i32 -> fold ()
+            | 1i32 -> call ()
+            | _ -> raise 0
+
+    inl Actions = .Fold, .Call, (.Raise, .0)
+    inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
+    inl Rep = type {pot=int64; chips=int64; hand=Option.none Hand}
+
+
+
     """) |> module_
