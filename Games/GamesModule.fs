@@ -94,7 +94,40 @@ inl log ->
     inl Hand = Card // for one card poker
     inl show_hand = show_card
 
-    inl showdown rule players =
-        
+    inl hand_rule a b =
+        met f x = 
+            macro.fs () [text: "// In hand_rule."]
+            match x with {rank=.(_) as x} -> tag_rank x
+        compare (f a) (f b)
+
+    inl showdown = function
+        | a,b as players -> 
+            met win a b = 
+                inl pot = min a.pot b.pot
+                a.pot_take pot + b.pot_take pot
+                |> a.chips_give
+
+            inl tie = Tuple.iter (inl x -> x.pot_take |> x.chips_give)
+
+            match a with
+            | .Some, a' ->
+                match b.hand with
+                | .Some, b' -> 
+                    match hand_rule a' b' with
+                    | 1i32 -> win a b
+                    | 0i32 -> tie players
+                    | _ -> win b a
+                | .None -> win a b
+            | .None -> win b a
+        | players -> 
+            met rec loop players = 
+                inl active = get_active players
+                if array_length active > 0 then
+                    inl winners = get_winners active
+                    inl min_pot = get_min_pot active
+                    give_pot winners min_pot
+                    loop players
+                : ()
+            loop players
 ...
     """) |> module_
