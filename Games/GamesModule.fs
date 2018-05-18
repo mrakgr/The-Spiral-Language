@@ -160,6 +160,17 @@ inl log ->
                     |> give_pot winners
                     loop players
                 : ()
+            inl old_chips = Tuple.map (inl x -> x.chips) players
             loop <| Array.from_tuple players
+            Tuple.iter2 (inl x old_chips ->
+                inl reward = x.chips - old_chips
+                x.showdown reward
+                inl name = x.name
+                if reward = 1 then log "{0} wins {1} chip." (name,reward)
+                elif reward = -1 then log "{0} loses {1} chip." (name,-reward)
+                elif reward > 0 then log "{0} wins {1} chips." (name,reward)
+                elif reward < 0 then log "{0} loses {1} chips." (name,-reward)
+                else ()
+                ) players old_chips
 ...
     """) |> module_
