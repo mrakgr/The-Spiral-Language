@@ -90,5 +90,11 @@ met show_card x =
     inl {rank=.(a) suit=.(b)} = x 
     string_format "{0}-{1}" (a, b)
 
+inl log ->
+    inl Hand = Card // for one card poker
+    inl show_hand = show_card
+
+    inl showdown rule players =
+        
 ...
     """) |> module_
