@@ -107,7 +107,7 @@ inl log ->
                 a.pot_take pot + b.pot_take pot
                 |> a.chips_give
 
-            inl tie = Tuple.iter (inl x -> x.pot_take |> x.chips_give)
+            inl tie = Tuple.iter (inl x -> x.pot_take x.pot |> x.chips_give)
 
             match a with
             | .Some, a' ->
@@ -119,15 +119,47 @@ inl log ->
                     | _ -> win b a
                 | .None -> win a b
             | .None -> win b a
+
         | players -> 
+            inl get_active = Array.filter (inl x -> x.pot > 0)
+            inl get_winners active = 
+                inl win_hand =
+                    Array.foldl (inl s player ->
+                        match s with
+                        | .Some, a ->
+                            match player.hand with
+                            | .Some, b -> if rule a b = 1i32 then Option.some a else Option.some b
+                            | .None -> Option.some a
+                        | .None -> player.hand
+                        ) (Option.none Hand) active
+
+                Array.filter (inl x -> 
+                    match x.hand with
+                    | .Some, x -> win_hand = x
+                    | .None -> false
+                    ) active
+
+            inl get_min_pot active = Array.foldl (inl s x -> min s x.pot) (macro.fs int64 [text: "System.Int64.MaxValue"]) active
+            inl take_min_pot active min_pot = Array.foldl (inl s x -> s + x.pot_take min_pot) (dyn 0) active
+            inl give_pot winners pot = 
+                inl num_winners = array_length winners
+                inl could_be_odd = pot % num_winners <> 0
+                inl pot = pot / num_winners
+                Array.foldl (inl s x -> 
+                    inl odd_chip = if could_be_odd then s else 0
+                    x.chips_give (pot + odd_chip)
+                    1
+                    ) (dyn 0) winners
+
             met rec loop players = 
                 inl active = get_active players
                 if array_length active > 0 then
                     inl winners = get_winners active
-                    inl min_pot = get_min_pot active
-                    give_pot winners min_pot
+                    get_min_pot active
+                    |> take_min_pot active
+                    |> give_pot winners
                     loop players
                 : ()
-            loop players
+            loop <| Array.from_tuple players
 ...
     """) |> module_
