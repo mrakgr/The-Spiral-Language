@@ -317,13 +317,48 @@ inl {log num_players} ->
         Tuple.map (inl x -> x.data_add {chips=ref chips}) players
         |> loop
 
-    inl reply_random {name} =
+    inl basic_methods = 
+        {
+        chips=inl s -> s.data.chips ()
+        pot=inl s -> s.data.pot_hand.pot
+        hand=inl s -> s.data.pot_hand.hand
+        hand_is=inl s -> 
+            match s.data.pot_hand.hand with
+            | .Some, _ -> true
+            | .None -> false
+        chips_give=inl s v -> s.data.chips := s.chips + v
+        pot_take=inl s v -> 
+            inl pot = s.pot - v |> max 0
+            s.data.hand_pot.pot <- pot
+            pot
+        pot_give=inl s v -> s.data.hand_pot.pot <- s.pot + v
+        call=inl s v ->
+            inl x = min s.chips (v - s.pot)
+            s.chips_give (-x)
+            s.pot_give x
+        fold=inl s -> s.data.hand_pot.hand <- Option.none Hand |> dyn
+        win=inl s -> s.data.win := win + 1
+        name=inl s -> s.data.name
+        }
+
+    inl reply_random _ =
         inl rnd = Random()
         inl _ {fold call raise} ->
             match rnd.next(0i32,5i32) with
             | 0i32 -> fold ()
             | 1i32 -> call ()
             | _ -> raise 0
+
+    inl player_random {name} =
+        inl methods = {basic_methods with
+            bet=reply_random ()
+            showdown=inl s v -> ()
+            game_over=inl s -> ()
+            }
+
+        Object
+            .member_add methods
+            .data_add {name}
 
     inl rec trace_mc _ =
         inl bet_type = .Bet, state_type, action_type, float64 => ()
@@ -351,10 +386,10 @@ inl {log num_players} ->
             
             r.clear
 
-        function
-        | .add_bet -> add_bet
-        | .add_reward -> add_reward
-        | .process -> process ()
+        inl _ -> function
+            | .add_bet -> add_bet
+            | .add_reward -> add_reward
+            | .process -> process ()
         |> stack
 
     inl reply_mc {init learning_rate} =
@@ -370,30 +405,6 @@ inl {log num_players} ->
             x.trace.add_bet (rep,a,bck)
             reply k a
 
-    inl basic_methods = 
-        {
-        chips=inl s -> s.data.chips ()
-        pot=inl s -> s.data.pot_hand.pot
-        hand=inl s -> s.data.pot_hand.hand
-        hand_is=inl s -> 
-            match s.data.pot_hand.hand with
-            | .Some, _ -> true
-            | .None -> false
-        chips_give=inl s v -> s.data.chips := s.chips + v
-        pot_take=inl s v -> 
-            inl pot = s.pot - v |> max 0
-            s.data.hand_pot.pot <- pot
-            pot
-        pot_give=inl s v -> s.data.hand_pot.pot <- s.pot + v
-        call=inl s v ->
-            inl x = min s.chips (v - s.pot)
-            s.chips_give (-x)
-            s.pot_give x
-        fold=inl s -> s.data.hand_pot.hand <- Option.none Hand |> dyn
-        win=inl s -> s.data.win := win + 1
-        name=inl s -> s.data.name
-        }
-
     inl player_mc {name learning_rate init} = 
         inl methods = {basic_methods with
             bet=reply_mc {learning_rate init}
@@ -406,7 +417,6 @@ inl {log num_players} ->
             .member_add methods
             .data_add {name}
 
-
-    {player_mc}
+    {player_random player_mc}
 
     """) |> module_
