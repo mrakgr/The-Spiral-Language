@@ -374,7 +374,7 @@ inl {d with num_players} ->
             .data_add {name; win=ref 0}
 
     inl rec trace_mc _ =
-        inl bet_type = .Bet, state_type, action_type, float64 => ()
+        inl bet_type = .Bet, State, Action, float64 => ()
         inl reward_type = .Reward, float64
         inl elem_type = bet_type \/ reward_type
 
@@ -382,7 +382,7 @@ inl {d with num_players} ->
 
         inl add_bet = inl (state,action,bck) ->
             inl bck = term_cast bck float64
-            inl x = box elem_type (.Bet,state,box action_type action,bck)
+            inl x = box elem_type (.Bet,state,box Action action,bck)
             r.add x
 
         inl add_reward = inl x -> 
@@ -404,6 +404,12 @@ inl {d with num_players} ->
             | .add_reward -> add_reward
             | .process -> process ()
         |> stack
+
+    inl reply {fold call raise} a =
+        match a with
+        | .Fold -> fold ()
+        | .Call -> call ()
+        | .Raise, .(x) -> raise x
 
     inl reply_mc {init learning_rate} =
         inl box = stack (box Action)
