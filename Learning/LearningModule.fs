@@ -3121,127 +3121,34 @@ inl float ->
             |> HostTensor.unzip
 
         {
-        greedy_square = inl prev x s ->
-            inl v, a = reduce_actions x s
-            (a, (v, a, adjoint x)), inl (reward: float64) ->
-                match prev with
-                | () -> ()
-                | prev_v, prev_a, prev_x_a -> 
-                    inl dim_a, dim_b = prev_x_a.dim
-                    inl v, prev_v, prev_a = Tuple.map (s.CudaTensor.to_dev_tensor >> inl x j -> x j .get) (v, prev_v, prev_a)
-                    inl prev_x_a = s.CudaTensor.to_dev_tensor prev_x_a
-                    inl reward = to float reward
-                    s.CudaKernel.iter () (inl j ->
-                        inl span_a = HostTensor.span dim_a |> to float
-                        inl v, prev_v, prev_a = Tuple.map (inl x -> x j) (v, prev_v, prev_a)
-                        inl prev_x_a = prev_x_a j prev_a
-                        prev_x_a.set (prev_x_a.get + square_bck (prev_v, v + reward) / span_a)
-                        ) dim_a
+        greedy_pg=inl (x,z) s ->
+            /// TODO: This is all wrong. I am being way too impatient today.
+            /// z is assumed to be the output of a softmax activation...
+            inl v,a = reduce_action x s
+            inl v = dr s v
+            (v,a), inl (reward: float64) ->
+                inl to_dev_tensor = s.CudaTensor.to_dev_tensor
+                inl dim_a, dim_b = primal x .dim
+                assert (dim_a = 1) "Batch size must be 1 for now."
+                inl reward = to float reward
+                inl f x = Tuple.map to_dev_tensor (primal x, adjoint x)
+                inl x_p, x_a as x = f x
+                inl v_a = to_dev_tensor (adjoint v)
+                inl a = to_dev_tensor a
+                s.CudaKernel.iter () (inl j ->
+                    inl index x i = Struct.map (inl x -> x i) x
+                    inl a = a j .get
+                    inl x = index x j
+                    inl v_a = v_a j .get
 
-        greedy_qr = inl prev x s ->
-            inl x_p = primal x
-            inl a =
-                s.CudaKernel.mapi_d1_dredo_map { 
-                    redo_in = {
-                        neutral_elem=0f32
-                        redo=(+)
-                        }
-                    redo_mid = {
-                        mapi_in=inl j i a -> a, i
-                        neutral_elem=-infinityf32,-1
-                        redo=inl a b -> if fst a > fst b then a else b
-                        }
-                    map_out = snd
-                    } x_p
-
-            (a, (a, x)), inl (reward: float64) ->
-                match prev with
-                | () -> ()
-                | prev_a, {x with primal adjoint} -> 
-                    inl dim_a, bim_b, dim_c = primal.dim
-                    inl prev_a, a = Struct.map (s.CudaTensor.to_dev_tensor >> inl x j -> x j .get) (prev_a, a)
-                    inl prev_x_p, prev_x_a, x_p = Struct.map s.CudaTensor.to_dev_tensor (primal, adjoint, x_p)
-                    inl reward = to float reward
-                    
-                    // Note: Not optimized yet.
-                    s.CudaKernel.iter () (inl k ->
-                        inl span_a, span_c = Tuple.map (HostTensor.span >> to float) (dim_a, dim_c)
-                        inl prev_a, prev_x_p, prev_x_a, x_p, a = Struct.map (inl x -> x k) (prev_a, prev_x_p, prev_x_a, x_p, a)
-                        inl x_p = x_p a
-                        inl prev_x_p, prev_x_a = Struct.map (inl x -> x prev_a) (prev_x_p, prev_x_a)
-                        inl i ->
-                        inl quantile = (to float i - to float 0.5) / span_c
-                        inl x_p = x_p i .get
-                        inl j ->
-                        inl prev_x_p, prev_x_a = Struct.map (inl x -> x j) (prev_x_p, prev_x_a)
-                        prev_x_a.set (prev_x_a.get + HQR.bck_a one quantile (prev_x_p.get, x_p + reward) / (span_c * span_a))
-                        ) (dim_a, dim_c, dim_c)
+                    inl i ->
+                        inl x = index x i
+                        /// The reverse of a softmax activation + the gradient from v_a when a=i.
+                        /// TODO: This is wrong at the moment. Fix it.
+                        inl x = x_a.get + x_p.get - reward
+                        if a = i then x_a.set (x + v_a) else x_a.set x
+                    ) (dim_a, dim_b)
         }
-
-    inl RL = 
-        inl greedy_square sublayer =
-            Layer.layer {
-                layer_type = .action
-                size = 1
-                sublayer
-                weights = const ()
-                apply = inl _ -> Selector.greedy_square
-                }
-
-        inl greedy_qr dist_size sublayer =
-            Layer.layer {
-                layer_type = .action
-                size = 1
-                sublayer
-                weights = const ()
-                apply = inl _ prev x s -> 
-                    inl f x = x.split (inl a,b -> a,(b/dist_size,dist_size))
-                    Struct.map (function
-                        | {primal adjoint block} as x -> {x with primal=f self; adjoint=f self}
-                        | x -> f x
-                        ) x
-                    |> inl x -> Selector.greedy_qr prev x s
-                }
-
-        inl square_init {range state_type action_type} s =
-            inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span range x) 0
-            inl state_size = size state_type
-            inl action_size = size action_type
-
-            input .input state_size
-            //|> Feedforward.Layer.ln 0f32 256
-            //|> Feedforward.Layer.tanh 256
-            //|> Recurrent.Layer.mi 256
-            |> Feedforward.Layer.linear action_size
-            |> init s
-
-        inl qr_init {distribution_size range state_type action_type} s =
-            inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span range x) 0
-            inl state_size = size state_type
-            inl action_size = size action_type * distribution_size
-
-            input .input state_size
-            //|> Feedforward.Layer.ln 0f32 256
-            //|> Feedforward.Layer.relu 256
-            |> Feedforward.Layer.linear action_size
-            |> init s
-
-        /// For online learning.
-        inl action {d with range state_type action_type net state} i s =
-            indiv join
-                assert (eq_type state_type i) "The input must be equal to the state type."
-                inl one_hot_tensor l, size = s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
-                inl input = 
-                    Struct.foldl_map (inl s x -> 
-                        inl i, s' = SerializerOneHot.encode' range x
-                        s + i, s + s'
-                        ) 0 i
-                    |> one_hot_tensor
-                        
-                inl a, {state bck} = run net {state input={input}; bck=const()} s
-                inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
-                stack (action, {bck state})
-        {square_init qr_init greedy_square greedy_qr action}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent
