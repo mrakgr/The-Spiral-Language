@@ -391,6 +391,7 @@ inl {log num_players} ->
             s.pot_give x
         fold=inl s -> s.data.hand_pot.hand <- Option.none Hand |> dyn
         win=inl s -> s.data.win := win + 1
+        name=inl s -> s.data.name
         }
 
     inl player_mc {name learning_rate init} = 
