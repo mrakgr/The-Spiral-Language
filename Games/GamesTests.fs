@@ -16,7 +16,17 @@ let cfg: Spiral.Types.CompilerSettings = {
     cuda_assert_enabled = false
     }
 
-//output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker6
-//|> printfn "%s"
-//|> ignore
+let poker1 =
+    "poker1",[poker],"Does the poker game work?",
+    """
+open Poker {log=Console.printfn; num_players=2}
+inl a = player_random {name="One"}
+inl b = player_random {name="Two"}
+
+game 10 (a,b)
+    """
+
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker1
+|> printfn "%s"
+|> ignore
 

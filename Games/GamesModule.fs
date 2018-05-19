@@ -42,7 +42,7 @@ stack inl {d with elem_type} ->
 
 let poker =
     (
-    "Poker",[learning;random;console;option;dictionary;list],"The Poker module.",
+    "Poker",[learning;random;console;option;dictionary;resize_array;object],"The Poker module.",
     """
 inl Suits = .Spades :: () //, .Clubs, .Hearts, .Diamonds
 inl Suit = Tuple.reducel (inl a b -> a \/ b) Suits
@@ -78,12 +78,12 @@ inl deck _ =
     assert (array_length ar = num_cards) "The number of cards in the deck must be 52."
     knuth_shuffle rnd num_cards ar
 
-    inl deck = heapm {deck p=dyn num_cards}
+    inl deck = heapm {ar p=dyn num_cards}
 
     inl _ ->
         inl x = deck.p - 1
         deck.p <- x
-        ar x
+        deck.ar x
 
 inl compare a b = if a < b then -1i32 elif a = b then 0i32 else 1i32
 
@@ -107,16 +107,18 @@ inl {log num_players} ->
             match x with {rank=.(_) as x} -> tag_rank x
         compare (f a) (f b)
 
-    inl showdown = function
-        | a,b as players -> 
+    inl showdown players = 
+        inl old_chips = Tuple.map (inl x -> x.chips + x.pot) players
+        match players with
+        | a,b -> 
             met win a b = 
-                inl pot = min a.pot b.pot
-                a.pot_take pot + b.pot_take pot
-                |> a.chips_give
+                inl min_pot = min a.pot b.pot
+                a.chips_give (a.pot_take min_pot + b.pot_take min_pot + a.pot_take a.pot)
+                b.chips_give (b.pot_take b.pot)
 
             inl tie = Tuple.iter (inl x -> x.pot_take x.pot |> x.chips_give)
 
-            match a with
+            match a.hand with
             | .Some, a' ->
                 match b.hand with
                 | .Some, b' -> 
@@ -127,7 +129,7 @@ inl {log num_players} ->
                 | .None -> win a b
             | .None -> win b a
 
-        | players -> 
+        | _ -> 
             inl get_active = Array.filter (inl x -> x.pot > 0)
             inl get_winners active = 
                 inl win_hand =
@@ -167,18 +169,21 @@ inl {log num_players} ->
                     |> give_pot winners
                     loop players
                 : ()
-            inl old_chips = Tuple.map (inl x -> x.chips) players
+            
             loop <| Array.from_tuple players
-            Tuple.iter2 (inl x old_chips ->
-                inl reward = x.chips - old_chips
-                x.showdown reward
-                inl name = x.name
-                if reward = 1 then log "{0} wins {1} chip." (name,reward)
-                elif reward = -1 then log "{0} loses {1} chip." (name,-reward)
-                elif reward > 0 then log "{0} wins {1} chips." (name,reward)
-                elif reward < 0 then log "{0} loses {1} chips." (name,-reward)
-                else ()
-                ) players old_chips
+        Tuple.iter2 (inl x old_chips ->
+            inl reward = x.chips - old_chips
+            match x.hand with
+            | .Some, hand -> log "{0} shows {1}" (x.name, show_hand hand)
+            | _ -> ()
+            x.showdown reward
+            inl name = x.name
+            if reward = 1 then log "{0} wins {1} chip." (name,reward)
+            elif reward = -1 then log "{0} loses {1} chip." (name,-reward)
+            elif reward > 0 then log "{0} wins {1} chips." (name,reward)
+            elif reward < 0 then log "{0} loses {1} chips." (name,-reward)
+            else ()
+            ) players old_chips
 
     inl internal_representation i players =
         Tuple.mapi (inl i' x ->
@@ -200,7 +205,7 @@ inl {log num_players} ->
                         fold = inl _ -> 
                             player.fold
                             log "{0} folds." player.name
-                            on_succ (player, {d with players_active=self-1})
+                            on_succ {d with players_active=self-1}
                         call = inl _ -> 
                             player.call call_level
                             if player.chips = 0 then
@@ -259,11 +264,11 @@ inl {log num_players} ->
             }
 
     inl dealing players deck =
-        met f (!dyn ante) x =
-            macro.fs () [text: "// In dealing."]
+        macro.fs () [text: "// In dealing."]
+        inl f ante x =
             inl hand = deck () |> Option.some |> dyn
             inl pot = dyn 0
-            x.data_add {pot_hand = heapm {pot hand}}
+            inl x = x.data_add {pot_hand = heapm {pot hand}}
             x.call ante
             inl ante = x.pot
             if ante > 0 then log "{0} antes up {1}" (x.name, ante)
@@ -293,14 +298,15 @@ inl {log num_players} ->
         showdown players
 
     inl game chips players =
-        assert (Tuple.length player = num_players) "The number of players needs to be equal to the defined one."
+        assert (Tuple.length players = num_players) "The number of players needs to be equal to the defined one."
         inl is_active x = x.chips > 0
         inl is_finished players =
             inl players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 players
-            players_active = 1
+            players_active <= 1
 
         met rec loop players =
-            inl a :: b as players = round players
+            inl a :: b = players
+            round players
             if is_finished players then
                 log "The game is over." ()
                 Tuple.iter (inl x ->
@@ -328,22 +334,25 @@ inl {log num_players} ->
             | .None -> false
         chips_give=inl s v -> s.data.chips := s.chips + v
         pot_take=inl s v -> 
-            inl pot = s.pot - v |> max 0
-            s.data.hand_pot.pot <- pot
-            pot
-        pot_give=inl s v -> s.data.hand_pot.pot <- s.pot + v
+            inl pot = s.pot 
+            inl pot' = pot - v |> max 0
+            s.data.pot_hand.pot <- pot'
+            pot - pot'
+        pot_give=inl s v -> s.data.pot_hand.pot <- s.pot + v
         call=inl s v ->
             inl x = min s.chips (v - s.pot)
             s.chips_give (-x)
             s.pot_give x
-        fold=inl s -> s.data.hand_pot.hand <- Option.none Hand |> dyn
-        win=inl s -> s.data.win := win + 1
+        fold=inl s -> s.data.pot_hand.hand <- Option.none Hand |> dyn
+        win=inl s -> 
+            inl win=s.data.win
+            win := win() + 1
         name=inl s -> s.data.name
         }
 
     inl reply_random _ =
         inl rnd = Random()
-        inl _ {fold call raise} ->
+        inl _ _ {fold call raise} ->
             match rnd.next(0i32,5i32) with
             | 0i32 -> fold ()
             | 1i32 -> call ()
@@ -358,7 +367,7 @@ inl {log num_players} ->
 
         Object
             .member_add methods
-            .data_add {name}
+            .data_add {name; win=ref 0}
 
     inl rec trace_mc _ =
         inl bet_type = .Bet, state_type, action_type, float64 => ()
@@ -415,8 +424,8 @@ inl {log num_players} ->
 
         Object
             .member_add methods
-            .data_add {name}
+            .data_add {name; win=ref 0}
 
-    {player_random player_mc}
+    {player_random player_mc game}
 
     """) |> module_

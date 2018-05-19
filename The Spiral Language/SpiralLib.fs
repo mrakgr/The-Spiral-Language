@@ -281,7 +281,7 @@ inl rec map_last f = function
     | () -> error_type "Must not be an empty tuple."
     | _ -> error_type "Must be a tuple"
 
-inl length = Tuple.foldl (inl s _ -> s+1) 0
+inl length = foldl (inl s _ -> s+1) 0
 
 {
 head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists split_at take drop
