@@ -390,7 +390,7 @@ inl {d with num_players} ->
             r.add x
 
         inl process = inl _ ->
-            r.foldl (inl r x -> 
+            r.foldr (inl r x -> 
                 match x with
                 | .Reward,x -> r + x
                 | .Bet,_,_,bck -> bck r; r

@@ -29,9 +29,10 @@ game 10 (a,b)
 let poker2 =
     "poker2",[loops;poker;timer],"What is the winrate of the tabular (MC) RL based player against the random one?",
     """
+//open Poker {log=Console.printfn; num_players=2}
 open Poker {num_players=2}
 
-inl a = player_mc {init=5f64; learning_rate=0.03f64; name="One"}
+inl a = player_mc {init=10f64; learning_rate=0.02f64; name="One"}
 inl b = player_random {name="Two"}
 
 met f (!dyn near_to) (!dyn near_to_inner) = 
@@ -46,8 +47,7 @@ met f (!dyn near_to) (!dyn near_to_inner) =
             Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
         }
 
-f 10 10000
-f 10 1000
+f 10 100000
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker2
