@@ -92,7 +92,11 @@ met show_card x =
     inl {rank=.(a) suit=.(b)} = x 
     string_format "{0}-{1}" (a, b)
 
-inl {log num_players} ->
+inl {d with num_players} ->
+    inl log =
+        match d with
+        | {log} -> log
+        | _ _ _ -> ()
     inl Hand = Card // for one card poker
     inl show_hand = show_card
 
