@@ -2342,13 +2342,16 @@ inl float ->
             | .feedforward ->
                 inl value, bck = indiv join x.apply (x.weights()) x.sublayer s |> ret
                 value, {d with bck = apply_bck self bck}
-            | .action ->
-                inl state = match d.state with {$gid=state} -> state | _ -> ()
-                inl (value, state), bck = indiv join x.apply (x.weights()) state x.sublayer s |> ret' float64
-                value, {d with bck = apply_bck self bck; state = {self with $gid=state}}
+            | .action_ff ->
+                inl value, bck = indiv join x.apply x.sublayer s |> ret' float64
+                value, {d with bck = apply_bck self bck}
             | .recurrent ->
                 inl state = match d.state with {$gid=state} -> state | _ -> ()
                 inl (value, state), bck = indiv join x.apply (x.weights()) state x.sublayer s |> ret
+                value, {d with bck = apply_bck self bck; state = {self with $gid=state}}
+            | .action_rnn ->
+                inl state = match d.state with {$gid=state} -> state | _ -> ()
+                inl (value, state), bck = indiv join x.apply state x.sublayer s |> ret' float64
                 value, {d with bck = apply_bck self bck; state = {self with $gid=state}}
             ) x d
 
@@ -2382,10 +2385,6 @@ inl float ->
                 | .feedforward ->
                     inl value, bck = indiv join x.apply (x.weights()) values s |> ret
                     {value stream block=()}, {d with bck = apply_bck self bck}
-                | .action ->
-                    inl state = match d.state with {$gid=state} -> state | _ -> ()
-                    inl (value, state), bck = indiv join x.apply (x.weights()) state values s |> ret' float64
-                    {value stream block=()}, {d with bck = apply_bck self bck; state = {self with $gid=state}}
                 | .recurrent ->
                     inl state = match d.state with {$gid=state} -> state | _ -> ()
                     inl (value, state), bck = indiv join x.apply (x.weights()) state values s |> ret
@@ -3138,6 +3137,45 @@ inl float ->
                         x_a.set (x_a.get + (p - label) * reward / batch_size) 
                     ) (dim_a, dim_b)
         }
+
+    inl RL =
+        inl greedy_pg sublayer =
+            Layer.layer {
+                layer_type = .action_ff
+                size = 1
+                sublayer
+                apply = Selector.greedy_pg
+                }
+
+        inl pg_init {range state_type action_type} s =
+            inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span range x) 0
+            inl state_size = size state_type
+            inl action_size = size action_type
+
+            input .input state_size
+            //|> Feedforward.Layer.ln 0f32 256
+            //|> Feedforward.Layer.tanh 256
+            //|> Recurrent.Layer.mi 256
+            |> Feedforward.Layer.linear action_size
+            |> init s
+
+        /// For online learning.
+        inl action {range state_type action_type net state} i s =
+            indiv join
+                assert (eq_type state_type i) "The input must be equal to the state type."
+                inl one_hot_tensor l, size = s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
+                inl input = 
+                    Struct.foldl_map (inl s x -> 
+                        inl i, s' = SerializerOneHot.encode' range x
+                        s + i, s + s'
+                        ) 0 i
+                    |> one_hot_tensor
+                        
+                inl a, {state bck} = run net {state input={input}; bck=const()} s
+                inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
+                stack (action, {bck state})
+
+        {pg_init action}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent
