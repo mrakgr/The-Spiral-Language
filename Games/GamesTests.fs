@@ -50,6 +50,31 @@ met f (!dyn near_to) (!dyn near_to_inner) =
 f 10 100000
     """
 
+let poker3 =
+    "poker3",[cuda_modules;loops;poker;timer],"What is the winrate of the vanilla PG player against the random one?",
+    """
+inb s = CudaModules (1024*1024*1024)
+inl num_players = 2
+open Poker {num_players}
+inl stack_size = 10
+inl a = player_pg {scale=to float64 stack_size; range=stack_size*num_players+1; learning_rate=0.01f32; name="One"} s
+inl b = player_random {name="Two"}
+
+met f (!dyn near_to) (!dyn near_to_inner) = 
+    Loops.for {from=0; near_to body=inl {i} ->
+        Timer.time_it (string_format "iteration {0}" i)
+        <| inl _ ->
+            inl a = a.data_add {win=ref 0}
+            inl b = b.data_add {win=ref 0}
+            Loops.for {from=0; near_to=near_to_inner; body=inl {state=s i} -> game stack_size (a, b)}
+            inl a = a.data.win ()
+            inl b = b.data.win ()
+            Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
+        }
+
+f 3 1000
+    """
+
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker2
 |> printfn "%s"
 |> ignore
