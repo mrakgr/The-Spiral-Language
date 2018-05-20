@@ -2070,9 +2070,7 @@ inl float ->
             s.CudaKernel.init {rev_thread_limit=32; dim=Tuple.append tns.dim (size :: ())} f
         } |> stackify
 
-    /// Aplies a softmax to the inputs and then samples from them randomly. Returns the resulting indices in a 1d tensor.
-    inl sample temp x s =
-        inl prob = softmax temp (primal x) s
+    inl sample' prob s =
         inl boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=fst prob.dim}
         s.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
             scan={
@@ -2088,6 +2086,11 @@ inl float ->
                 }
             map_out=snd
             } prob boundary
+
+    /// Aplies a softmax to the inputs and then samples from them randomly. Returns the resulting indices in a 1d tensor.
+    inl sample temp x s =
+        inl prob = softmax temp (primal x) s
+        sample' prob s
 
     inl Auxiliary = {encode sample} |> stackify
 
@@ -3099,17 +3102,41 @@ inl float ->
 
     /// The differentiable action selectors.
     inl Selector =
-        inl reduce_actions x s = 
+        inl reduce_actions_template map_out x s = 
             s.CudaKernel.mapi_d1_redo_map {
                 mapi_in=inl j i v _ -> v, i
                 neutral_elem=-infinity,-1
                 redo=inl a b -> if fst a > fst b then a else b
+                map_out
                 } (primal x) ()
-            |> HostTensor.unzip
+
+        inl reduce_actions = reduce_actions_template snd
 
         {
         greedy_pg=inl x s ->
-            ...
+            inl dim_a, dim_b = x.dim
+            assert (HostTensor.span dim_a = 1) "Only a single dimension for now."
+
+            inl p = softmax one (primal x) s
+            inl a = reduce_actions p s
+            
+            a, inl (reward: float64) ->
+                inl batch_size = to float dim_a
+                inl reward = to float reward
+                inl x_a = to_dev_tensor (adjoint x)
+                inl p = to_dev_tensor p
+                inl a = to_dev_tensor a
+                s.CudaKernel.iter () (inl j ->
+                    inl x_a = x j
+                    inl p = p j
+                    inl a = a j .get
+
+                    inl i ->
+                        inl p = p i .get
+                        inl x_a = x_a i
+                        inl label = if a = i then one else zero
+                        x_a.set (x_a.get + (p - label) * reward / batch_size) 
+                    ) (dim_a, dim_b)
         }
 
     { 
