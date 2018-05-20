@@ -421,7 +421,7 @@ let kernel14 =
 inb s = CudaModules (1024*1024)
 inl x = s.CudaTensor.create {elem_type=int64,int64,int64; dim=2,2,128}
 inl _ = 
-    inl x = s.CudaTensor.to_dev_tensor x
+    inl x = CudaAux.to_dev_tensor x
     s.CudaKernel.iter {rev_thread_limit=32} (inl a b c -> x a b c .set (a, b, c)) x.dim
 s.CudaTensor.print x
     """
@@ -437,7 +437,7 @@ inl outer_size = 2
 
 inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
 inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
-inl to_dev_tensor = s.CudaTensor.to_dev_tensor
+inl to_dev_tensor = CudaAux.to_dev_tensor
 inl _ = // Softmax forward
     inl x = to_dev_tensor x
     inl o = to_dev_tensor o
@@ -654,7 +654,7 @@ inl data =
 inl minibatch,seq = data.dim
 
 inl input =
-    inl data = s.CudaTensor.to_dev_tensor data 
+    inl data = CudaAux.to_dev_tensor data 
     s.CudaKernel
         .init {rev_thread_limit=32; dim=seq,minibatch,size.hot} (inl seq minibatch ->
             inl x = data minibatch seq .get
@@ -737,7 +737,7 @@ inl data =
 inl minibatch,seq = data.dim
 
 inl input =
-    inl data = s.CudaTensor.to_dev_tensor data 
+    inl data = CudaAux.to_dev_tensor data 
     s.CudaKernel
         .init {dim=seq,minibatch} (inl seq minibatch ->
             data minibatch seq .get
@@ -808,6 +808,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) learning9
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) kernel14
 |> printfn "%s"
 |> ignore

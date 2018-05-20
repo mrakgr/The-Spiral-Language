@@ -436,9 +436,23 @@ inl rec allocate _ =
 inl s -> s.module_add .Stream (stackify {allocate})
     """) |> module_
 
+let cuda_aux =
+    (
+    "CudaAux",[],"The Cuda auxiliaries module.",
+    """
+inl ptr_cuda {ar offset} ret = ar.ptr() + to uint64 (offset * sizeof ar.elem_type) |> ret
+inl to_dev_tensor tns = 
+    tns.update_body (inl body -> 
+        inb ptr = ptr_cuda body
+        {body with ar=!UnsafeCoerceToArrayCudaGlobal(ptr,body.ar.elem_type); offset=0}
+        )
+{ptr_cuda to_dev_tensor} |> stackify
+    """
+    ) |> module_
+
 let cuda_tensor = 
     (
-    "CudaTensor",[extern_;host_tensor],"The Cuda tensor module.",
+    "CudaTensor",[extern_;host_tensor;cuda_aux],"The Cuda tensor module.",
     """
 open HostTensor
 open Extern
@@ -448,7 +462,7 @@ inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
 inl SizeT = FS.Constructor SizeT_type
 inl CUdeviceptr = FS.Constructor CUdeviceptr_type << SizeT
 
-inl ptr_cuda {ar offset} ret = ar.ptr() + to uint64 (offset * sizeof ar.elem_type) |> ret
+inl ptr_cuda = CudaAux.ptr_cuda
 inl CUResult_ty = fs [text: "ManagedCuda.BasicTypes.CUResult"]
 inl assert_curesult res = macro.fs () [text: "if "; arg: res; text: " <> ManagedCuda.BasicTypes.CUResult.Success then raise <| new ManagedCuda.CudaException"; args: res]
 //inl memcpy dst_ptr src_ptr size = macro.fs CUResult_ty [text: "ManagedCuda.DriverAPINativeMethods.SynchronousMemcpy_v2.cuMemcpy"; args: CUdeviceptr dst_ptr, CUdeviceptr src_ptr, SizeT size] |> assert_curesult
@@ -547,11 +561,6 @@ inl methods =
     zero=inl s d -> indiv join s.CudaTensor.create d |> clear' s |> stack
     zero_like=inl s d -> indiv join s.CudaTensor.create_like d |> clear' s |> stack
 
-    to_dev_tensor = inl _ tns -> tns.update_body (inl body -> 
-        inb ptr = ptr_cuda body
-        {body with ar=!UnsafeCoerceToArrayCudaGlobal(ptr,body.ar.elem_type); offset=0}
-        )
-
     print=met s (!zip (!dyn x)) -> s.CudaTensor.to_host_tensor x |> HostTensor.print
 
     mmap=inl s f tns -> s.CudaKernel.map' (const f) tns.empty tns
@@ -613,7 +622,7 @@ inl s ret ->
 
     inl fill s op in =
         indiv join
-            inl in' = zip in |> flatten |> s.CudaTensor.to_dev_tensor
+            inl in' = zip in |> flatten |> CudaAux.to_dev_tensor
             inl len = in'.length
             in'.update_body (inl {ar} -> fill_array s op len ar) |> ignore
 
@@ -670,7 +679,7 @@ inl s ret ->
     inl call s method args = 
         inl cublas = s.data.cublas
         inl stream = s.data.stream
-        inl to_dev_tensor = s.CudaTensor.to_dev_tensor
+        inl to_dev_tensor = CudaAux.to_dev_tensor
         inl to_dev_tensor x = assert_contiguous x; to_dev_tensor x
         inl args = Tuple.map (function x : int64 -> to int32 x | x -> x) args
         inl handle = FS.Method cublas .get_CublasHandle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
@@ -916,9 +925,10 @@ inl broadcast_zero x =
     syncthreads()
     ar 0
 
+inl to_dev_tensor = CudaAux.to_dev_tensor
+
 met map' w f in out = 
     inl in, out = zip in, zip out
-    inl to_dev_tensor = w.CudaTensor.to_dev_tensor
     assert (in.dim = out.dim) "The input and output dimensions must be equal."
     inl in = flatten in |> to_dev_tensor
     inl out = flatten out |> to_dev_tensor
@@ -947,8 +957,6 @@ inl map w f in =
 /// The exclusive scan over the innermost dimension.
 /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
 met map_d1_exscan_map' w {d with redo neutral_elem} in out =
-    inl to_dev_tensor = w.CudaTensor.to_dev_tensor
-    
     inl in, out = zip in, zip out
     inl dim_in_a, dim_in_b = in.dim
     assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
@@ -983,8 +991,6 @@ met map_d1_exscan_map' w {d with redo neutral_elem} in out =
 
 /// Inclusive scan over the entire tensor.
 met map_inscan_map' w {d with redo neutral_elem} in out =
-    inl to_dev_tensor = w.CudaTensor.to_dev_tensor
-        
     inl in, out = zip in, zip out
     assert (in.dim = out.dim) "The input and output dimensions must be equal."
     inl in = flatten in |> to_dev_tensor
@@ -1038,8 +1044,6 @@ met map_inscan_map' w {d with redo neutral_elem} in out =
 /// Map is optional. Allocates a temporary tensor for the intermediary results.
 inl map_redo_map w {d with redo neutral_elem} in =
     indiv join
-        inl to_dev_tensor = w.CudaTensor.to_dev_tensor
-   
         inl run {map_out map_in blockDim gridDim} (!to_dev_tensor in) =
             inl in_a :: () = in.dim
             inl out = w.CudaTensor.create {elem_type=type map_in in.elem_type |> map_out; dim=gridDim}
@@ -1076,8 +1080,6 @@ inl map_redo_map w {d with redo neutral_elem} in =
 
 /// Replicates the 1d `in` and maps it along the outer dimension as determined by `in'`.
 met d2_replicate_map' w f in in' out =
-    inl to_dev_tensor = w.CudaTensor.to_dev_tensor
-    
     inl in, in', out = zip in, zip in', zip out
     inl dim_in :: () = in.dim
     inl dim_in'_a, dim_in'_b = in'.dim
@@ -1125,8 +1127,6 @@ inl d2_replicate_map w f in in' =
 /// The inclusive scan over the innermost dimension.
 /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
 met map_d1_inscan_map' w {d with redo neutral_elem} in out =
-    inl to_dev_tensor = w.CudaTensor.to_dev_tensor
-    
     inl in, out = zip in, zip out
     inl dim_in_a, dim_in_b = in.dim
     assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
@@ -1162,8 +1162,6 @@ met map_d1_inscan_map' w {d with redo neutral_elem} in out =
 
 /// Maps the two inputs and then reduces the first's inner dimension.
 met mapi_d1_redo_map' w {d with redo neutral_elem} in in' out = 
-    inl to_dev_tensor = w.CudaTensor.to_dev_tensor
-    
     inl in, in', out = zip in, zip in', zip out
     inl dim_in_a, dim_in_b = in.dim
     inl dim_in' :: () = in'.dim
@@ -1283,8 +1281,6 @@ inl block_reduce_3d (blockDimZ, threadIdxZ) (blockDimY, threadIdxY) (near_to, th
 /// Maps the input and then reduces twice, first along the inner dimension and then along the middle. Takes 3d tensors.
 met mapi_d1_dredo_map' w d in out = 
     inl {d with redo_mid redo_in map_out} = ddef const d
-    inl to_dev_tensor = w.CudaTensor.to_dev_tensor
-    
     inl in, out = zip in, zip out
     inl dim_in_a, dim_in_b, dim_in_c = in.dim
     inl out_a :: () = out.dim
@@ -1424,8 +1420,6 @@ inl ddef fout in out =
 
 // Repeatedly reduces along the inner dimension and then maps the result of that reductions over the input in the previous step.
 met mapi_d1_seq_broadcast' w {d with seq} in out = 
-    inl to_dev_tensor = w.CudaTensor.to_dev_tensor
-    
     inl in, out = zip in, zip out
     assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
 
@@ -1456,7 +1450,6 @@ inl mapi_d1_seq_broadcast w {d with seq} in =
                 ) ty seq
         
         inl out = w.CudaTensor.create {elem_type dim=in.dim}
-        inl to_dev_tensor = w.CudaTensor.to_dev_tensor
 
         iteri_d1_seq_broadcast w (ddef (inl f a b c -> f a b) (to_dev_tensor in) (to_dev_tensor out) d) in.dim
         stack out
@@ -1539,8 +1532,6 @@ met iteri_dd1_seq_broadcast w {d with seq mapi_in} (dim_a, dim_b, dim_c) =
 
 /// Maps the two inputs and then scans, maps, reduces and maps the first's inner dimension.
 met mapi_d1_inscan_mapi_d1_reduce_mapi' w {d with scan redo} in in' out = 
-    inl to_dev_tensor = w.CudaTensor.to_dev_tensor
-    
     inl in, in', out = zip in, zip in', zip out
     inl dim_in_a, dim_in_b = in.dim
     inl dim_in' :: () = in'.dim
@@ -1598,8 +1589,6 @@ met mapi_d1_inscan_mapi_d1_reduce_mapi' w {d with scan redo} in in' out =
 /// The inclusive scan over the outermost dimension.
 /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
 met map_d2_inscan_map' w {d with redo neutral_elem} in out =
-    inl to_dev_tensor = w.CudaTensor.to_dev_tensor
-    
     inl in, out = zip in, zip out
     inl dim_in_a, dim_in_b = in.dim
     assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
@@ -1668,8 +1657,6 @@ met map_d2_inscan_map' w {d with redo neutral_elem} in out =
 
 /// Maps the two inputs and then reduces the first's outer dimension.
 met mapi_d2_redo_map' w {d with redo neutral_elem} in in' out =
-    inl to_dev_tensor = w.CudaTensor.to_dev_tensor
-    
     inl in, in', out = zip in, zip in', zip out
     inl dim_in_a, dim_in_b = in.dim
     inl dim_in' :: () = in'.dim
@@ -1813,7 +1800,7 @@ met iter w d f (!(Tuple.wrap) dim) =
 /// Creates a tensor using the given generator function.
 /// Takes in the optional {thread_limit} or {rev_thread_limit} as the first argument in order to control the degree of parallelism.
 met init' w d f out =
-    inl out = w.CudaTensor.to_dev_tensor out |> zip
+    inl out = to_dev_tensor out |> zip
     inl rec loop f out = function
         | _ :: x' -> inl i -> loop (f i) (out i) x'
         | _ -> out.set (f out.get)
@@ -1942,7 +1929,7 @@ inl float ->
 
         inl adjoint, bck = choose_adjoints in bck
         out, inl _ -> join
-            inl out = s.CudaTensor.to_dev_tensor out
+            inl out = CudaAux.to_dev_tensor out
             inl bck in = Struct.map2 (inl bck -> bck (in, out.get)) bck
             s.CudaKernel.map' bck primal adjoint
 
@@ -2079,7 +2066,7 @@ inl float ->
                 inl rec f tns = function
                     | _ :: x' -> inl x -> f (tns x) x'
                     | () -> inl x -> if x = to int64 tns.get then one else zero
-                f (s.CudaTensor.to_dev_tensor tns) (type tns.dim)
+                f (CudaAux.to_dev_tensor tns) (type tns.dim)
             s.CudaKernel.init {rev_thread_limit=32; dim=Tuple.append tns.dim (size :: ())} f
         } |> stackify
 
@@ -2139,7 +2126,7 @@ inl float ->
     /// Applies a softmax and then calculates the cross entropy cost. Is intended to take a linear layer as input.
     inl softmax_cross_entropy label input s =
         assert ((primal label).dim = (primal input).dim) "Labels and inputs must have equal dimensions."
-        inl to_dev_tensor = s.CudaTensor.to_dev_tensor
+        inl to_dev_tensor = CudaAux.to_dev_tensor
         
         inl batch_size = primal input .span_outer |> to float
 
@@ -2919,7 +2906,7 @@ inl float ->
 
         inl fwd' o b i w =
             inl n = n b i
-            inl b = Struct.map (inl {primal} -> w.CudaTensor.to_dev_tensor primal) b
+            inl b = Struct.map (inl {primal} -> to_dev_tensor primal) b
             w.CudaKernel.mapi_d1_seq_broadcast {
                 mapi_in=inl j i' i -> Struct.map (inl x -> x i' .get) b |> inl b -> fwd b i
                 seq = 
@@ -2937,8 +2924,8 @@ inl float ->
 
         inl bck' o r b i w =
             inl n = n b i
-            inl b_primals = Struct.map (inl {primal} -> w.CudaTensor.to_dev_tensor primal) b
-            inl b_adjoints = Struct.map (inl {adjoint} -> w.CudaTensor.to_dev_tensor adjoint) b
+            inl b_primals = Struct.map (inl {primal} -> to_dev_tensor primal) b
+            inl b_adjoints = Struct.map (inl {adjoint} -> to_dev_tensor adjoint) b
             w.CudaKernel.mapi_d1_seq_broadcast' {
                 mapi_in=inl j i' (dr,i) -> 
                     inl b_primals = Struct.map (inl x -> x i' .get) b_primals
@@ -3121,33 +3108,8 @@ inl float ->
             |> HostTensor.unzip
 
         {
-        greedy_pg=inl (x,z) s ->
-            /// TODO: This is all wrong. I am being way too impatient today.
-            /// z is assumed to be the output of a softmax activation...
-            inl v,a = reduce_action x s
-            inl v = dr s v
-            (v,a), inl (reward: float64) ->
-                inl to_dev_tensor = s.CudaTensor.to_dev_tensor
-                inl dim_a, dim_b = primal x .dim
-                assert (dim_a = 1) "Batch size must be 1 for now."
-                inl reward = to float reward
-                inl f x = Tuple.map to_dev_tensor (primal x, adjoint x)
-                inl x_p, x_a as x = f x
-                inl v_a = to_dev_tensor (adjoint v)
-                inl a = to_dev_tensor a
-                s.CudaKernel.iter () (inl j ->
-                    inl index x i = Struct.map (inl x -> x i) x
-                    inl a = a j .get
-                    inl x = index x j
-                    inl v_a = v_a j .get
-
-                    inl i ->
-                        inl x = index x i
-                        /// The reverse of a softmax activation + the gradient from v_a when a=i.
-                        /// TODO: This is wrong at the moment. Fix it.
-                        inl x = x_a.get + x_p.get - reward
-                        if a = i then x_a.set (x + v_a) else x_a.set x
-                    ) (dim_a, dim_b)
+        greedy_pg=inl x s ->
+            ...
         }
 
     { 
