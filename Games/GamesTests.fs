@@ -19,7 +19,11 @@ let cfg: Spiral.Types.CompilerSettings = {
 let poker1 =
     "poker1",[poker],"Does the poker game work?",
     """
-open Poker {log=Console.printfn; num_players=2}
+inl log = Console.printfn
+inl num_players = 2
+inl max_stack_size = 32
+open Poker {log max_stack_size num_players}
+
 inl a = player_random {name="One"}
 inl b = player_random {name="Two"}
 
@@ -29,8 +33,9 @@ game 10 (a,b)
 let poker2 =
     "poker2",[loops;poker;timer],"What is the winrate of the tabular (MC) RL based player against the random one?",
     """
-//open Poker {log=Console.printfn; num_players=2}
-open Poker {num_players=2}
+inl num_players = 2
+inl max_stack_size = 32
+open Poker {max_stack_size num_players}
 
 inl a = player_mc {init=10f64; learning_rate=0.02f64; name="One"}
 inl b = player_random {name="Two"}
@@ -55,16 +60,18 @@ let poker3 =
     """
 inb s = CudaModules (1024*1024*1024)
 inl num_players = 2
-open Poker {num_players}
-inl stack_size = 10
-inl a = player_pg {scale=to float64 stack_size; range=stack_size*num_players+1; learning_rate=0.01f32; name="One"} s
+inl max_stack_size = 32
+open Poker {max_stack_size num_players}
+inl a = player_pg {learning_rate=0.01f32; name="One"} s
 inl b = player_random {name="Two"}
 
 met f (!dyn near_to) (!dyn near_to_inner) = 
     Loops.for {from=0; near_to body=inl {i} ->
         Timer.time_it (string_format "iteration {0}" i)
         <| inl _ ->
-            inl a = a.data_add {win=ref 0}
+            s.refresh
+            inb s = s.RegionMem.create'
+            inl a = a.data_add {win=ref 0; state=ref (box_net_state a.net {}); cuda=s}
             inl b = b.data_add {win=ref 0}
             Loops.for {from=0; near_to=near_to_inner; body=inl {state=s i} -> game stack_size (a, b)}
             inl a = a.data.win ()

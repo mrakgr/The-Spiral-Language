@@ -92,7 +92,8 @@ met show_card x =
     inl {rank=.(a) suit=.(b)} = x 
     string_format "{0}-{1}" (a, b)
 
-inl {d with num_players} ->
+inl {d with max_stack_size num_players} ->
+    inl range = max_stack_size+1
     inl log =
         match d with
         | {log} -> log
@@ -303,6 +304,7 @@ inl {d with num_players} ->
 
     inl game chips players =
         assert (Tuple.length players = num_players) "The number of players needs to be equal to the defined one."
+        assert (chips * num_players < max_stack_size) "The potential largest stack size needs to be in range."
         inl is_active x = x.chips > 0
         inl is_finished players =
             inl players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 players
@@ -352,6 +354,9 @@ inl {d with num_players} ->
             inl win=s.data.win
             win := win() + 1
         name=inl s -> s.data.name
+        cuda=inl s -> s.data.cuda
+        state=inl s -> s.data.state
+        net=inl s -> s.data.net
         }
 
     inl reply_random _ =
@@ -436,6 +441,53 @@ inl {d with num_players} ->
             .member_add methods
             .data_add {name; win=ref 0}
 
-    {player_random player_mc game}
+    inl net_state_type net =
+        type join
+            inl f state = 
+                inl net, state = indiv net, indiv state
+                inl _, {state} = RL.action {d with net state} (var state_type) s    
+                heap state
+            inl rec loop x =
+                inl x' = f x
+                if eq_type x x' then x
+                else x \/ f x'
+            loop (heap {})
+
+    inl box_net_state net x = box (net_state_type net) (heap x)
+
+    inl player_pg {name learning_rate} s =
+        open Learning float32
+        inl d = {range action_type=Action; state_type=State}
+        inl net =
+            RL.pg_init d
+            |> RL.greedy_pg
+            |> heap
+
+        inl bet x rep k =
+            match state () with
+            | _,_ | _ -> // Unbox the state.
+                inl net, state = indiv x.net, indiv (x.state ())
+                inl a, {bck state} = RL.action {d with net state} rep x.cuda
+                x.state := box_net_state x.net state
+                inl bck v' = bck (v' / to float max_stack_size)
+                x.trace.add_bet (rep,a,bck)
+                reply k a
+
+        inl optimize s = 
+            inl net=indiv s.net
+            Combinator.optimize net (Optimizer.sgd learning_rate) s.cuda
+
+        inl methods = {basic_methods with
+            bet
+            trace=trace_mc ()
+            showdown=inl s v -> s.trace.add_reward v; s.trace.process; optimize s
+            game_over=inl s -> ()
+            }
+
+        Object
+            .member_add methods
+            .data_add {name; win=ref 0; net}
+
+    {player_random player_mc player_pg box_net_state game}
 
     """) |> module_
