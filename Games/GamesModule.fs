@@ -157,13 +157,13 @@ inl {d with max_stack_size num_players} ->
             inl take_min_pot active min_pot = Array.foldl (inl s x -> s + x.pot_take min_pot) (dyn 0) active
             inl give_pot winners pot = 
                 inl num_winners = array_length winners
-                inl could_be_odd = pot % num_winners <> 0
+                inl odd_chips = pot % num_winners
                 inl pot = pot / num_winners
                 Array.foldl (inl s x -> 
-                    inl odd_chip = if could_be_odd then s else 0
+                    inl odd_chip = if s > 0 then 1 else 0
                     x.chips_give (pot + odd_chip)
-                    1
-                    ) (dyn 0) winners
+                    s-1
+                    ) odd_chips winners
 
             met rec loop players = 
                 inl active = get_active players
