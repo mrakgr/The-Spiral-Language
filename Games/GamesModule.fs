@@ -385,7 +385,7 @@ inl {d with max_stack_size num_players} ->
     inl reward_type = .Reward, float64
     inl elem_type = bet_type \/ reward_type
 
-    inl trace_template f =
+    inl trace_template f _ =
         inl r = ResizeArray.create {elem_type}
 
         inl add_bet = inl (state,action,bck) ->
