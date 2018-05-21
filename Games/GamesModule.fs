@@ -354,7 +354,7 @@ inl {d with max_stack_size num_players} ->
             inl win=s.data.win
             win := win() + 1
         name=inl s -> s.data.name
-        cuda=inl s -> s.data.cuda
+        cd=inl s -> s.data.cd
         state=inl s -> s.data.state
         net=inl s -> s.data.net
         }
@@ -463,11 +463,11 @@ inl {d with max_stack_size num_players} ->
             |> RL.greedy_pg
             |> heap
 
-        inl bet x rep k =
-            match state () with
-            | _,_ | _ -> // Unbox the state.
-                inl net, state = indiv x.net, indiv (x.state ())
-                inl a, {bck state} = RL.action {d with net state} rep x.cuda
+        inl bet x rep k = 
+            match x.state () with
+            | (_,_ | _) as state -> // Unbox the state.
+                inl net, state = indiv x.net, indiv state
+                inl a, {bck state} = RL.action {d with net state} rep x.cd
                 x.state := box_net_state x.net state
                 inl bck v' = bck (v' / to float max_stack_size)
                 x.trace.add_bet (rep,a,bck)
@@ -475,7 +475,7 @@ inl {d with max_stack_size num_players} ->
 
         inl optimize s = 
             inl net=indiv s.net
-            Combinator.optimize net (Optimizer.sgd learning_rate) s.cuda
+            Combinator.optimize net (Optimizer.sgd learning_rate) s.cd
 
         inl methods = {basic_methods with
             bet
