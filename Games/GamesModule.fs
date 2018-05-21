@@ -519,13 +519,6 @@ inl {d with max_stack_size num_players} ->
             |> heap
         player_ff net w s
 
-    inl player_mutator w s =
-        inl net =
-            RL.greedy_init d s
-            |> RL.greedy_layer Selector.sampling_mutator
-            |> heap
-        player_ff net w s
-
     {player_random player_rules player_mc player_pg player_dmc player_mutator box_net_state game}
 
     """) |> module_
