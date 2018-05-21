@@ -118,7 +118,7 @@ inl num_players = 2
 inl stack_size = 10
 inl max_stack_size = num_players * stack_size
 open Poker {max_stack_size num_players}
-inl a = player_mutator {learning_rate=0.01f32; name="One"; shift=0.0f32} s
+inl a = player_mutator {learning_rate=0.01f32; name="One"; shift=0.6f32} s // Note: Here the rewards are shifted in the wrong direction!
 inl b = player_random {name="Two"}
 
 met f game (!dyn near_to) (!dyn near_to_inner) = 
@@ -136,8 +136,8 @@ met f game (!dyn near_to) (!dyn near_to_inner) =
         }
 
 f game 10 1000
-open Poker {max_stack_size num_players log=Console.printfn}
-f game 10 1
+//open Poker {max_stack_size num_players log=Console.printfn}
+//f game 10 1
     """
 
 

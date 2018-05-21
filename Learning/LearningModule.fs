@@ -3202,8 +3202,9 @@ inl float ->
             //|> Feedforward.Layer.ln 0f32 256
             //|> Feedforward.Layer.tanh 256
             //|> Recurrent.Layer.mi 256
-            |> Recurrent.Layer.miln 0.0f32 256
-            |> Recurrent.Layer.miln 0.0f32 action_size
+            //|> Recurrent.Layer.tanh 256
+            |> Recurrent.Layer.mi 256
+            |> Recurrent.Layer.mi action_size
             //|> Feedforward.Layer.ln 0f32 action_size
             |> init s
 
