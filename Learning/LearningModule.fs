@@ -2078,7 +2078,7 @@ inl float ->
             s.CudaKernel.init {rev_thread_limit=32; dim=Tuple.append tns.dim (size :: ())} f
         } |> stackify
 
-    inl sample' prob s =
+    inl sample_body prob s =
         inl boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=fst prob.dim}
         s.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
             scan={
@@ -2098,7 +2098,7 @@ inl float ->
     /// Aplies a softmax to the inputs and then samples from them randomly. Returns the resulting indices in a 1d tensor.
     inl sample temp x s =
         inl prob = softmax temp (primal x) s
-        sample' prob s
+        sample_body prob s
 
     inl Auxiliary = {encode sample} |> stackify
 
@@ -3078,7 +3078,7 @@ inl float ->
                 s.refresh
                 inb s = s.RegionMem.create'
                 inl input,{state} = run (sample temp network) {input={input}; bck=const (); state} s
-                inl input_host = s.CudaTensor.to_host_tensor input |> stack
+                inl input_host = to_host_tensor input |> stack
                 inl buffer =
                     match buffer with
                     | () -> ResizeArray.create {elem_type=input_host}
@@ -3117,20 +3117,19 @@ inl float ->
                 neutral_elem=-infinity,-1
                 redo=inl a b -> if fst a > fst b then a else b
                 map_out
-                } (primal x) ()
+                } x ()
 
         inl reduce_actions = reduce_actions_template snd
         inl reduce_actions' = reduce_actions_template id
 
-        {
-        greedy_pg = inl x s ->
+        inl pg selector x s =
             inl dim_a, dim_b = primal x .dim
             inl batch_size = HostTensor.span dim_a
             assert (batch_size = 1) "Only a single dimension for now."
 
             inl p = softmax one (primal x) s
-            inl a = reduce_actions p s
-            
+            inl a = selector p s
+
             a, inl (reward: float64) ->
                 inl batch_size = to float batch_size
                 inl reward = to float reward
@@ -3149,6 +3148,9 @@ inl float ->
                         x_a.set (x_a.get + (p - label) * reward / batch_size) 
                     ) (dim_a, dim_b)
 
+        {
+        greedy_pg = pg reduce_actions
+        sampling_pg = pg sample_body
         greedy_mutator = inl shift x s ->
             inl dim_a, dim_b = primal x .dim
             inl batch_size = HostTensor.span dim_a
@@ -3203,9 +3205,10 @@ inl float ->
             //|> Feedforward.Layer.tanh 256
             //|> Recurrent.Layer.mi 256
             //|> Recurrent.Layer.tanh 256
-            |> Recurrent.Layer.mi 256
-            |> Recurrent.Layer.mi action_size
+            //|> Recurrent.Layer.mi 256
+            //|> Recurrent.Layer.mi action_size
             //|> Feedforward.Layer.ln 0f32 action_size
+            |> Feedforward.Layer.linear action_size
             |> init s
 
         /// For online learning.

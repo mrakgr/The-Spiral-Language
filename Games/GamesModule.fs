@@ -496,7 +496,7 @@ inl {d with max_stack_size num_players} ->
     inl player_ff net {name learning_rate} s =
         inl methods = {basic_methods with
             bet
-            trace=trace_direct ()
+            trace=trace_mc ()
             showdown=inl s v -> s.trace.add_reward v; s.trace.process; optimize learning_rate s
             game_over=inl s -> ()
             }
@@ -508,7 +508,7 @@ inl {d with max_stack_size num_players} ->
     inl player_pg w s =
         inl net =
             RL.greedy_init d s
-            |> RL.greedy_layer Selector.greedy_pg
+            |> RL.greedy_layer Selector.sampling_pg
             |> heap
         player_ff net w s
 
