@@ -95,6 +95,7 @@ met show_card x =
 inl {d with max_stack_size num_players} ->
     //inl range = max_stack_size+1
     inl range = 32 // TODO: In debugging mode.
+    inl scale = max_stack_size / num_players |> to float64
 
     inl log =
         match d with
@@ -466,7 +467,7 @@ inl {d with max_stack_size num_players} ->
             inl net, state = indiv x.net, indiv state
             inl a, {bck state} = RL.action {d with net state} rep x.cd
             x.state := box_net_state x.net state x.cd
-            inl bck v' = bck (v' / to float64 max_stack_size)
+            inl bck v' = bck (v' / scale)
             x.trace.add_bet (rep,a,bck)
             reply k a
 
