@@ -30,86 +30,6 @@ inl b = player_random {name="Two"}
 game 10 (a,b)
     """
 
-let poker2 =
-    "poker2",[loops;poker;timer],"What is the winrate of the tabular (MC) RL based player against the random one?",
-    """
-inl num_players = 2
-inl max_stack_size = 32
-open Poker {max_stack_size num_players}
-
-inl a = player_mc {init=10f64; learning_rate=0.02f64; name="One"}
-inl b = player_random {name="Two"}
-
-met f (!dyn near_to) (!dyn near_to_inner) = 
-    Loops.for {from=0; near_to body=inl {i} ->
-        Timer.time_it (string_format "iteration {0}" i)
-        <| inl _ ->
-            inl a = a.data_add {win=ref 0}
-            inl b = b.data_add {win=ref 0}
-            Loops.for {from=0; near_to=near_to_inner; body=inl {state=s i} -> game 10 (a, b)}
-            inl a = a.data.win ()
-            inl b = b.data.win ()
-            Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
-        }
-
-f 10 100000
-    """
-
-let poker3 =
-    "poker3",[cuda_modules;loops;poker;timer],"What is the winrate of the vanilla PG player against the random one?",
-    """
-inb s = CudaModules (1024*1024*1024)
-inl num_players = 2
-inl max_stack_size = 32
-open Poker {max_stack_size num_players}
-inl a = player_pg {learning_rate=0.001f32; name="One"} s
-inl b = player_random {name="Two"}
-
-met f (!dyn near_to) (!dyn near_to_inner) = 
-    Loops.for {from=0; near_to body=inl {i} ->
-        Timer.time_it (string_format "iteration {0}" i)
-        <| inl _ ->
-            s.refresh
-            inb s = s.RegionMem.create'
-            inl a = a.data_add {win=ref 0; state=ref (box_net_state a.net {} s); cd=s}
-            inl b = b.data_add {win=ref 0}
-            Loops.for {from=0; near_to=near_to_inner; body=inl {state=s i} -> game 10 (a, b)}
-            inl a = a.data.win ()
-            inl b = b.data.win ()
-            Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
-        }
-
-f 10 1000
-    """
-
-let poker4 =
-    "poker4",[cuda_modules;loops;poker;timer],"What is the winrate of the deep MC player against the random one?",
-    """
-inb s = CudaModules (1024*1024*1024)
-inl num_players = 2
-inl stack_size = 10
-inl max_stack_size = num_players * stack_size
-open Poker {max_stack_size num_players}
-inl a = player_dmc {learning_rate=0.01f32; name="One"} s
-inl b = player_random {name="Two"}
-
-met f (!dyn near_to) (!dyn near_to_inner) = 
-    Loops.for {from=0; near_to body=inl {i} ->
-        Timer.time_it (string_format "iteration {0}" i)
-        <| inl _ ->
-            s.refresh
-            inb s = s.RegionMem.create'
-            inl a = a.data_add {win=ref 0; state=ref (box_net_state a.net {} s); cd=s}
-            inl b = b.data_add {win=ref 0}
-            Loops.for {from=0; near_to=near_to_inner; body=inl {state=s i} -> game stack_size (a, b)}
-            inl a = a.data.win ()
-            inl b = b.data.win ()
-            Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
-        }
-
-f 10 1000
-    """
-
 let poker6 =
     "poker6",[cuda_modules;loops;poker;timer],"What is the winrate of the mutator player against the random one?",
     """
@@ -118,7 +38,11 @@ inl num_players = 2
 inl stack_size = 10
 inl max_stack_size = num_players * stack_size
 open Poker {max_stack_size num_players}
-inl a = player_mutator {learning_rate=0.01f32; name="One"; shift=0.6f32} s // Note: Here the rewards are shifted in the wrong direction!
+//inl a = player_mc {init=10f64; learning_rate=0.02f64; name="One"}
+//inl a = player_pg {learning_rate=0.001f32; name="One"} s
+//inl a = player_dmc {learning_rate=0.01f32; name="One"} s
+//inl a = player_mutator {learning_rate=0.01f32; name="One"; shift=0.6f32} s // Note: Here the rewards are shifted in the wrong direction!
+inl a = player_rules {name="One"}
 inl b = player_random {name="Two"}
 
 met f game (!dyn near_to) (!dyn near_to_inner) = 
@@ -127,7 +51,8 @@ met f game (!dyn near_to) (!dyn near_to_inner) =
         <| inl _ ->
             s.refresh
             inb s = s.RegionMem.create'
-            inl a = a.data_add {win=ref 0; state=ref (box_net_state a.net {} s); cd=s}
+            //inl a = a.data_add {win=ref 0; state=ref (box_net_state a.net {} s); cd=s}
+            inl a = a.data_add {win=ref 0}
             inl b = b.data_add {win=ref 0}
             Loops.for {from=0; near_to=near_to_inner; body=inl {state=s i} -> game stack_size (a, b)}
             inl a = a.data.win ()

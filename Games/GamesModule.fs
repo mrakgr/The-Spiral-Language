@@ -369,9 +369,9 @@ inl {d with max_stack_size num_players} ->
             | 1i32 -> call ()
             | _ -> raise 0
 
-    inl player_random {name} =
+    inl player_stateless bet {name} =
         inl methods = {basic_methods with
-            bet=reply_random ()
+            bet
             showdown=inl s v -> ()
             game_over=inl s -> ()
             }
@@ -380,6 +380,20 @@ inl {d with max_stack_size num_players} ->
             .member_add methods
             .data_add {name; win=ref 0}
 
+    inl player_random = player_stateless (reply_random ())
+
+    inl reply_rules _ players {fold call raise} =
+        inl limit = Tuple.foldl (inl s x -> max s x.pot) 0 players
+        /// TODO: Replace find with pick.
+        inl self = Tuple.find (inl x -> match x.hand with .Some, _ -> true | _ -> false) players
+        match self.hand with
+        | .Some, x ->
+            match x.rank with
+            | .Ten | .Jack | .Queen | .King | .Ace -> raise 0
+            | _ -> if self.pot >= limit || self.chips = 0 then call () else fold ()
+        | .None -> failwith (type fold ()) "No self in the internal representation."
+
+    inl player_rules = player_stateless reply_rules
 
     inl bet_type = .Bet, State, Action, float64 => ()
     inl reward_type = .Reward, float64
@@ -516,6 +530,6 @@ inl {d with max_stack_size num_players} ->
             |> heap
         player_ff net w s
 
-    {player_random player_mc player_pg player_dmc player_mutator box_net_state game}
+    {player_random player_rules player_mc player_pg player_dmc player_mutator box_net_state game}
 
     """) |> module_
