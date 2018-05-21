@@ -3164,7 +3164,7 @@ inl float ->
                 s.CudaKernel.iter () (inl j ->
                     inl a = a j .get
                     inl x_a = x_a j a
-                    x_a.set (x_a.get + (reward + shift) / batch_size)
+                    x_a.set (x_a.get - (reward + shift) / batch_size)
                     ) dim_a
 
         greedy_square = inl x s ->
@@ -3201,8 +3201,10 @@ inl float ->
             input .input state_size
             //|> Feedforward.Layer.ln 0f32 256
             //|> Feedforward.Layer.tanh 256
+            //|> Recurrent.Layer.mi 256
+            |> Recurrent.Layer.miln 0.0f32 256
             |> Recurrent.Layer.miln 0.0f32 action_size
-            //|> Feedforward.Layer.linear action_size
+            //|> Feedforward.Layer.ln 0f32 action_size
             |> init s
 
         /// For online learning.

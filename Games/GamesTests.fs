@@ -118,10 +118,10 @@ inl num_players = 2
 inl stack_size = 10
 inl max_stack_size = num_players * stack_size
 open Poker {max_stack_size num_players}
-inl a = player_mutator {learning_rate=0.01f32; name="One"; shift=-0.5f32} s
+inl a = player_mutator {learning_rate=0.01f32; name="One"; shift=0.0f32} s
 inl b = player_random {name="Two"}
 
-met f (!dyn near_to) (!dyn near_to_inner) = 
+met f game (!dyn near_to) (!dyn near_to_inner) = 
     Loops.for {from=0; near_to body=inl {i} ->
         Timer.time_it (string_format "iteration {0}" i)
         <| inl _ ->
@@ -135,7 +135,9 @@ met f (!dyn near_to) (!dyn near_to_inner) =
             Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
         }
 
-f 10 1000
+f game 10 1000
+open Poker {max_stack_size num_players log=Console.printfn}
+f game 10 1
     """
 
 
