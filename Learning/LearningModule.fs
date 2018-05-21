@@ -2881,10 +2881,10 @@ inl float ->
                 } |> heap
 
             apply = inl {b1 b2 b3 b4 input state} s i ->
-                //inl fwd = tanh_fwd
-                //inl bck = tanh_bck
-                inl fwd = id // TODO: Do not forget this is linear. Change it back.
-                inl bck = id
+                inl fwd = tanh_fwd
+                inl bck = tanh_bck
+                //inl fwd = id // TODO: Do not forget this is linear. Change it back.
+                //inl bck = id
                 match s with
                 | () ->
                     inm i = matmult (i, input)
@@ -3191,9 +3191,8 @@ inl float ->
             input .input state_size
             //|> Feedforward.Layer.ln 0f32 256
             //|> Feedforward.Layer.tanh 256
-            //|> Recurrent.Layer.mi 256
-            //|> Recurrent.Layer.mi action_size
-            |> Feedforward.Layer.linear action_size
+            |> Recurrent.Layer.mi action_size
+            //|> Feedforward.Layer.linear action_size
             |> init s
 
         inl greedy_init {range state_type action_type} s =
@@ -3204,8 +3203,8 @@ inl float ->
             input .input state_size
             //|> Feedforward.Layer.ln 0f32 256
             //|> Feedforward.Layer.tanh 256
-            //|> Recurrent.Layer.mi 256
-            |> Feedforward.Layer.linear action_size
+            |> Recurrent.Layer.mi action_size
+            //|> Feedforward.Layer.linear action_size
             |> init s
 
         /// For online learning.
