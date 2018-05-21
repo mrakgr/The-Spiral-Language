@@ -493,18 +493,25 @@ inl {d with max_stack_size num_players} ->
 
     inl player_pg w s =
         inl net =
-            RL.pg_init d s
-            |> RL.greedy_pg
+            RL.greedy_init d s
+            |> RL.greedy_layer Selector.greedy_pg
             |> heap
         player_ff net w s
 
     inl player_dmc w s =
         inl net =
             RL.greedy_init d s
-            |> RL.greedy_square
+            |> RL.greedy_layer Selector.greedy_square
             |> heap
         player_ff net w s
 
-    {player_random player_mc player_pg player_dmc box_net_state game}
+    inl player_mutator w s =
+        inl net =
+            RL.greedy_init d s
+            |> RL.greedy_layer Selector.greedy_mutator
+            |> heap
+        player_ff net w s
+
+    {player_random player_mc player_pg player_dmc player_mutator box_net_state game}
 
     """) |> module_
