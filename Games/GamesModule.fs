@@ -94,8 +94,7 @@ met show_card x =
 
 inl {d with max_stack_size num_players} ->
     inl range = max_stack_size+1
-    inl scale = max_stack_size |> to float64
-    //inl scale = max_stack_size / num_players |> to float64
+    inl scale = max_stack_size / num_players |> to float64
 
     inl log =
         match d with
