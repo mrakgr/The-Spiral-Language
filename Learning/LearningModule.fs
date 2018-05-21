@@ -212,9 +212,24 @@ create
     """
     ) |> module_
 
+let cuda_aux =
+    (
+    "CudaAux",[],"The Cuda auxiliaries module.",
+    """
+inl ptr_cuda {ar offset} ret = ar.ptr() + to uint64 (offset * sizeof ar.elem_type) |> ret
+inl to_dev_tensor tns = 
+    tns.update_body (inl body -> 
+        inb ptr = ptr_cuda body
+        {body with ar=!UnsafeCoerceToArrayCudaGlobal(ptr,body.ar.elem_type); offset=0}
+        )
+inl allocator_block_size = 256u64
+{ptr_cuda to_dev_tensor allocator_block_size} |> stackify
+    """
+    ) |> module_
+
 let allocator = 
     (
-    "Allocator",[resize_array;loops;option;extern_;console],"The section based GPU memory allocator module.",
+    "Allocator",[resize_array;loops;option;extern_;console;cuda_aux],"The section based GPU memory allocator module.",
     """
 open Extern
 
@@ -233,7 +248,7 @@ inl smartptr_create (ptr: uint64) =
         assert (x <> 0u64) "A Cuda memory cell that has been disposed has been tried to be accessed."
         x
 
-inl mult = 256u64
+inl mult = CudaAux.allocator_block_size
 assert (mult <> 0u64 && (mult &&& mult - 1u64) = 0u64) "Multiple must be a power of 2." 
 inl round_up_to_multiple size = (size + mult - 1u64) &&& 0u64 - mult
 
@@ -436,20 +451,6 @@ inl rec allocate _ =
 inl s -> s.module_add .Stream (stackify {allocate})
     """) |> module_
 
-let cuda_aux =
-    (
-    "CudaAux",[],"The Cuda auxiliaries module.",
-    """
-inl ptr_cuda {ar offset} ret = ar.ptr() + to uint64 (offset * sizeof ar.elem_type) |> ret
-inl to_dev_tensor tns = 
-    tns.update_body (inl body -> 
-        inb ptr = ptr_cuda body
-        {body with ar=!UnsafeCoerceToArrayCudaGlobal(ptr,body.ar.elem_type); offset=0}
-        )
-{ptr_cuda to_dev_tensor} |> stackify
-    """
-    ) |> module_
-
 let cuda_tensor = 
     (
     "CudaTensor",[extern_;host_tensor;cuda_aux],"The Cuda tensor module.",
@@ -588,7 +589,11 @@ inl s ret ->
     
     open HostTensor
     
-    inl fill_array s distribution (!SizeT size1d) ar =
+    inl fill_array s distribution size1d ar =
+        // The allocator always allocates in blocks of 256 so incrementing the odd sizes by 1 won't be a problem.
+        // The reason why this is necessary is because CudaRandom will throw exceptions on odds sizes.
+        assert (CudaAux.allocator_block_size = 256u64) "The block size must be 256 (or a multiple of 2.)"
+        inl size1d = SizeT (size1d + size1d % 2)
         inl random = s.data.random
         FS.Method random .SetStream s.data.stream.extract ()
         inl elem_type = ar.elem_type
@@ -1853,7 +1858,7 @@ inl size ret ->
 
 let learning =
     (
-    "Learning",[struct';extern_;serializer_one_hot],"The deep learning module.",
+    "Learning",[struct';extern_;serializer_one_hot;cuda_aux],"The deep learning module.",
     """
 inl float ->
     // #Primitives
@@ -2876,21 +2881,25 @@ inl float ->
                 } |> heap
 
             apply = inl {b1 b2 b3 b4 input state} s i ->
+                //inl fwd = tanh_fwd
+                //inl bck = tanh_bck
+                inl fwd = id // TODO: Do not forget this is linear. Change it back.
+                inl bck = id
                 match s with
                 | () ->
                     inm i = matmult (i, input)
                     d2_replicate_activation {
-                        fwd=inl (b3,b4) i -> b3*i + b4 |> tanh_fwd
-                        bck_in=inl (b3,b4) i out -> (i, one) |> Tuple.map ((*) (tanh_bck out))
-                        bck_in'=inl (b3,b4) i out -> b3 * tanh_bck out
+                        fwd=inl (b3,b4) i -> b3*i + b4 |> fwd
+                        bck_in=inl (b3,b4) i out -> (i, one) |> Tuple.map ((*) (bck out))
+                        bck_in'=inl (b3,b4) i out -> b3 * bck out
                         } (b3,b4) i
                 | _ ->
                     inm i = matmult (i, input)
                     inm s = matmult (s, state)
                     d2_replicate_activation {
-                        fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4 |> tanh_fwd
-                        bck_in=inl (b1,b2,b3,b4) (i,s) out -> (i*s, s, i, one) |> Tuple.map ((*) (tanh_bck out))
-                        bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2) |> Tuple.map ((*) (tanh_bck out))
+                        fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4 |> fwd
+                        bck_in=inl (b1,b2,b3,b4) (i,s) out -> (i*s, s, i, one) |> Tuple.map ((*) (bck out))
+                        bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2) |> Tuple.map ((*) (bck out))
                         } (b1,b2,b3,b4) (i,s)
                 >>= inl x -> succ (x,x)
             }
@@ -3183,6 +3192,7 @@ inl float ->
             //|> Feedforward.Layer.ln 0f32 256
             //|> Feedforward.Layer.tanh 256
             //|> Recurrent.Layer.mi 256
+            //|> Recurrent.Layer.mi action_size
             |> Feedforward.Layer.linear action_size
             |> init s
 

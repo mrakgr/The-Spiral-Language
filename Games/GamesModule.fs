@@ -380,11 +380,12 @@ inl {d with max_stack_size num_players} ->
             .member_add methods
             .data_add {name; win=ref 0}
 
-    inl rec trace_mc _ =
-        inl bet_type = .Bet, State, Action, float64 => ()
-        inl reward_type = .Reward, float64
-        inl elem_type = bet_type \/ reward_type
 
+    inl bet_type = .Bet, State, Action, float64 => ()
+    inl reward_type = .Reward, float64
+    inl elem_type = bet_type \/ reward_type
+
+    inl trace_template f =
         inl r = ResizeArray.create {elem_type}
 
         inl add_bet = inl (state,action,bck) ->
@@ -397,13 +398,7 @@ inl {d with max_stack_size num_players} ->
             r.add x
 
         inl process = inl _ ->
-            r.foldr (inl r x -> 
-                match x with
-                | .Reward,x -> r + x
-                | .Bet,_,_,bck -> bck r; r
-                ) (dyn 0.0)
-            |> ignore
-            
+            r.foldr f (dyn 0.0) |> ignore
             r.clear
 
         inl _ -> function
@@ -411,6 +406,16 @@ inl {d with max_stack_size num_players} ->
             | .add_reward -> add_reward
             | .process -> process ()
         |> stack
+
+    inl trace_mc = trace_template <| inl r x -> 
+        match x with
+        | .Reward,x -> r + x
+        | .Bet,_,_,bck -> bck r; r
+
+    inl trace_direct = trace_template <| inl r x -> 
+        match x with
+        | .Reward,x -> r
+        | .Bet,_,_,bck -> bck r; 0.0
 
     inl reply {fold call raise} a =
         match a with
@@ -438,7 +443,7 @@ inl {d with max_stack_size num_players} ->
             showdown=inl s v -> s.trace.add_reward v; s.trace.process
             game_over=inl s -> ()
             }
-
+        
         Object
             .member_add methods
             .data_add {name; win=ref 0}
@@ -477,7 +482,7 @@ inl {d with max_stack_size num_players} ->
     inl player_ff net {name learning_rate} s =
         inl methods = {basic_methods with
             bet
-            trace=trace_mc ()
+            trace=trace_direct ()
             showdown=inl s v -> s.trace.add_reward v; s.trace.process; optimize learning_rate s
             game_over=inl s -> ()
             }
