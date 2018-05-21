@@ -441,11 +441,14 @@ inl {d with max_stack_size num_players} ->
             .member_add methods
             .data_add {name; win=ref 0}
 
-    inl net_state_type net =
+    open Learning float32
+    inl d = {range action_type=Action; state_type=State}
+
+    inl net_state_type net s =
         type join
             inl f state = 
                 inl net, state = indiv net, indiv state
-                inl _, {state} = RL.action {d with net state} (var state_type) s    
+                inl _, {state} = RL.action {d with net state} (var d.state_type) s    
                 heap state
             inl rec loop x =
                 inl x' = f x
@@ -453,13 +456,11 @@ inl {d with max_stack_size num_players} ->
                 else x \/ f x'
             loop (heap {})
 
-    inl box_net_state net x = box (net_state_type net) (heap x)
+    inl box_net_state net x s = box (net_state_type net s) (heap x)
 
     inl player_pg {name learning_rate} s =
-        open Learning float32
-        inl d = {range action_type=Action; state_type=State}
         inl net =
-            RL.pg_init d
+            RL.pg_init d s
             |> RL.greedy_pg
             |> heap
 
@@ -468,8 +469,8 @@ inl {d with max_stack_size num_players} ->
             | (_,_ | _) as state -> // Unbox the state.
                 inl net, state = indiv x.net, indiv state
                 inl a, {bck state} = RL.action {d with net state} rep x.cd
-                x.state := box_net_state x.net state
-                inl bck v' = bck (v' / to float max_stack_size)
+                x.state := box_net_state x.net state x.cd
+                inl bck v' = bck (v' / to float64 max_stack_size)
                 x.trace.add_bet (rep,a,bck)
                 reply k a
 

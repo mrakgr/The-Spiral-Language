@@ -71,9 +71,9 @@ met f (!dyn near_to) (!dyn near_to_inner) =
         <| inl _ ->
             s.refresh
             inb s = s.RegionMem.create'
-            inl a = a.data_add {win=ref 0; state=ref (box_net_state a.net {}); cd=s}
+            inl a = a.data_add {win=ref 0; state=ref (box_net_state a.net {} s); cd=s}
             inl b = b.data_add {win=ref 0}
-            Loops.for {from=0; near_to=near_to_inner; body=inl {state=s i} -> game stack_size (a, b)}
+            Loops.for {from=0; near_to=near_to_inner; body=inl {state=s i} -> game 10 (a, b)}
             inl a = a.data.win ()
             inl b = b.data.win ()
             Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)

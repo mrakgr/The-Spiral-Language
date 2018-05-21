@@ -1401,7 +1401,7 @@ met iteri_d1_seq_broadcast w {d with seq mapi_in} (dim_a, dim_b) =
 inl ddef fout in out = 
     function
     | {d with mapi_in} -> {d with mapi_in = inl j i -> mapi_in j i (in j i .get)}
-    | {d with map_in} -> {d without map_in with mapi_in = map_in (in j i .get)}
+    | {d with map_in} -> {d without map_in with mapi_in = inl j i -> map_in (in j i .get)}
     | d -> {d with mapi_in = inl j i -> in j i .get}
     >> function
     | {d with seq} ->
@@ -1857,7 +1857,10 @@ let learning =
     """
 inl float ->
     // #Primitives
+    inl to_dev_tensor = CudaAux.to_dev_tensor
+    
     inl zero = to float 0
+    inl half = to float 0.5
     inl one = to float 1
     inl two = to float 2
     inl infinity =
@@ -1929,7 +1932,7 @@ inl float ->
 
         inl adjoint, bck = choose_adjoints in bck
         out, inl _ -> join
-            inl out = CudaAux.to_dev_tensor out
+            inl out = to_dev_tensor out
             inl bck in = Struct.map2 (inl bck -> bck (in, out.get)) bck
             s.CudaKernel.map' bck primal adjoint
 
@@ -2066,7 +2069,7 @@ inl float ->
                 inl rec f tns = function
                     | _ :: x' -> inl x -> f (tns x) x'
                     | () -> inl x -> if x = to int64 tns.get then one else zero
-                f (CudaAux.to_dev_tensor tns) (type tns.dim)
+                f (to_dev_tensor tns) (type tns.dim)
             s.CudaKernel.init {rev_thread_limit=32; dim=Tuple.append tns.dim (size :: ())} f
         } |> stackify
 
@@ -2129,7 +2132,6 @@ inl float ->
     /// Applies a softmax and then calculates the cross entropy cost. Is intended to take a linear layer as input.
     inl softmax_cross_entropy label input s =
         assert ((primal label).dim = (primal input).dim) "Labels and inputs must have equal dimensions."
-        inl to_dev_tensor = CudaAux.to_dev_tensor
         
         inl batch_size = primal input .span_outer |> to float
 
@@ -2228,7 +2230,6 @@ inl float ->
     /// Though it say qr, this instance of it is just the mean function.
     /// Is here so it can be put in through the gradient checker.
     inl hubert_qr k =
-        inl half = to float 0.5
         error {
             fwd = HQR.fwd k half
             bck = 
@@ -2869,8 +2870,8 @@ inl float ->
                 input = tanh (sublayer.size, size) s |> dr s
                 state = tanh (size, size) s |> dr s
                 b1 = bias s size one
-                b2 = bias s size (to float 0.5)
-                b3 = bias s size (to float 0.5)
+                b2 = bias s size half
+                b3 = bias s size half
                 b4 = bias0 s size
                 } |> heap
 
@@ -2986,8 +2987,8 @@ inl float ->
                 input = relu (sublayer.size, size) s |> dr s
                 state = relu (size, size) s |> dr s
                 b1 = bias s size one
-                b2 = bias s size (to float 0.5)
-                b3 = bias s size (to float 0.5)
+                b2 = bias s size half
+                b3 = bias s size half
                 b4 = bias0 s size
                 } |> heap
 
@@ -3113,20 +3114,21 @@ inl float ->
 
         {
         greedy_pg=inl x s ->
-            inl dim_a, dim_b = x.dim
-            assert (HostTensor.span dim_a = 1) "Only a single dimension for now."
+            inl dim_a, dim_b = primal x .dim
+            inl batch_size = HostTensor.span dim_a
+            assert (batch_size = 1) "Only a single dimension for now."
 
             inl p = softmax one (primal x) s
             inl a = reduce_actions p s
             
             a, inl (reward: float64) ->
-                inl batch_size = to float dim_a
+                inl batch_size = to float batch_size
                 inl reward = to float reward
                 inl x_a = to_dev_tensor (adjoint x)
                 inl p = to_dev_tensor p
                 inl a = to_dev_tensor a
                 s.CudaKernel.iter () (inl j ->
-                    inl x_a = x j
+                    inl x_a = x_a j
                     inl p = p j
                     inl a = a j .get
 
@@ -3170,12 +3172,12 @@ inl float ->
                         s + i, s + s'
                         ) 0 i
                     |> one_hot_tensor
-                        
+
                 inl a, {state bck} = run net {state input={input}; bck=const()} s
                 inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
                 stack (action, {bck state})
 
-        {pg_init action}
+        {pg_init greedy_pg action}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent
