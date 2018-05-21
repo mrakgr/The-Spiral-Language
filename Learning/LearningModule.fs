@@ -3148,15 +3148,12 @@ inl float ->
                         x_a.set (x_a.get + (p - label) * reward / batch_size) 
                     ) (dim_a, dim_b)
 
-        {
-        greedy_pg = pg reduce_actions
-        sampling_pg = pg sample_body
-        greedy_mutator = inl shift x s ->
+        inl mutator selector x s =
             inl dim_a, dim_b = primal x .dim
             inl batch_size = HostTensor.span dim_a
             assert (batch_size = 1) "Only a single dimension for now."
 
-            inl a = reduce_actions x s
+            inl a = selector (primal x) s
             
             a, inl (reward: float64) ->
                 inl batch_size = to float batch_size
@@ -3166,8 +3163,14 @@ inl float ->
                 s.CudaKernel.iter () (inl j ->
                     inl a = a j .get
                     inl x_a = x_a j a
-                    x_a.set (x_a.get - (reward + shift) / batch_size)
+                    x_a.set (x_a.get - reward / batch_size)
                     ) dim_a
+
+        {
+        greedy_pg = pg reduce_actions
+        sampling_pg = pg sample_body
+        greedy_mutator = mutator reduce_actions
+        sampling_mutator = mutator (inl x s -> softmax one x s |> inl x -> sample_body x s)
 
         greedy_square = inl x s ->
             inl dim_a, dim_b = primal x .dim
