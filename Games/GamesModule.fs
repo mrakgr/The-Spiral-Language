@@ -506,9 +506,13 @@ inl {d with max_stack_size num_players} ->
         player_ff net w s
 
     inl player_mutator w s =
+        inl shift =
+            match w with
+            | {shift} -> shift
+            | _ -> 0f32
         inl net =
             RL.greedy_init d s
-            |> RL.greedy_layer Selector.greedy_mutator
+            |> RL.greedy_layer (Selector.greedy_mutator shift)
             |> heap
         player_ff net w s
 
