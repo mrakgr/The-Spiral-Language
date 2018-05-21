@@ -3166,7 +3166,26 @@ inl float ->
                     inl a, v = Tuple.map (inl x -> x j .get) (a, v)
                     inl x = x j a
                     x.set (x.get + square_bck (v, reward) / batch_size)
-                    ) (fst x.dim)
+                    ) dim_a
+
+        sampling_square = inl temp x s ->
+            inl dim_a, dim_b = primal x .dim
+            inl batch_size = HostTensor.span dim_a
+            assert (batch_size = 1) "Only a single dimension for now."
+
+            inl p = softmax temp (primal x) s
+            inl a = sample_body p s
+
+            a,inl (reward: float64) ->
+                inl batch_size = to float batch_size
+                inl reward = to float reward
+                inl a,x_p,x_a = Tuple.map to_dev_tensor (a,primal x,adjoint x)
+                s.CudaKernel.iter () (inl j ->
+                    inl a = a j .get
+                    inl x_p,x_a = Tuple.map (inl x -> x j a) (x_p,x_a)
+                    inl v = x_p.get
+                    x_a.set (x_a.get + square_bck (v, reward) / batch_size)
+                    ) dim_a
         }
 
     inl RL =

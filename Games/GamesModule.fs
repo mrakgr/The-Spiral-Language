@@ -515,10 +515,10 @@ inl {d with max_stack_size num_players} ->
     inl player_dmc w s =
         inl net =
             RL.greedy_init d s
-            |> RL.greedy_layer Selector.greedy_square
+            |> RL.greedy_layer (Selector.sampling_square (to float32 1))
             |> heap
         player_ff net w s
 
-    {player_random player_rules player_mc player_pg player_dmc player_mutator box_net_state game}
+    {player_random player_rules player_mc player_pg player_dmc box_net_state game}
 
     """) |> module_
