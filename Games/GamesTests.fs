@@ -62,7 +62,7 @@ inb s = CudaModules (1024*1024*1024)
 inl num_players = 2
 inl max_stack_size = 32
 open Poker {max_stack_size num_players}
-inl a = player_pg {learning_rate=0.01f32; name="One"} s
+inl a = player_pg {learning_rate=3.0f32; name="One"} s
 inl b = player_random {name="Two"}
 
 met f (!dyn near_to) (!dyn near_to_inner) = 
@@ -79,7 +79,7 @@ met f (!dyn near_to) (!dyn near_to_inner) =
             Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
         }
 
-f 3 1000
+f 10 1000
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3

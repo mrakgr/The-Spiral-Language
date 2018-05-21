@@ -61,6 +61,7 @@
     <Compile Include="LearningTests.fs" />
     <None Include="Script1.fsx" />
     <Content Include="q-learning.txt" />
+    <Content Include="mc.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
