@@ -3147,12 +3147,13 @@ inl float ->
 
             inl v,a = reduce_actions' x s |> HostTensor.unzip
             a,inl (reward: float64) ->
+                inl batch_size = to float batch_size
                 inl reward = to float reward
                 inl v,a,x = Tuple.map to_dev_tensor (v,a,adjoint x)
                 s.CudaKernel.iter () (inl j ->
                     inl a, v = Tuple.map (inl x -> x j .get) (a, v)
                     inl x = x j a
-                    x.set (x.get + square_bck (v, reward))
+                    x.set (x.get + square_bck (v, reward) / batch_size)
                     ) (fst x.dim)
         }
 

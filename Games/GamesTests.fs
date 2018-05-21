@@ -110,7 +110,7 @@ met f (!dyn near_to) (!dyn near_to_inner) =
 f 10 1000
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker4
 |> printfn "%s"
 |> ignore
 
