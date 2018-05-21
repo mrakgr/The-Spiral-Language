@@ -93,7 +93,9 @@ met show_card x =
     string_format "{0}-{1}" (a, b)
 
 inl {d with max_stack_size num_players} ->
-    inl range = max_stack_size+1
+    //inl range = max_stack_size+1
+    inl range = 32 // TODO: In debugging mode.
+
     inl log =
         match d with
         | {log} -> log
