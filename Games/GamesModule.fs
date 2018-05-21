@@ -304,7 +304,7 @@ inl {d with max_stack_size num_players} ->
 
     inl game chips players =
         assert (Tuple.length players = num_players) "The number of players needs to be equal to the defined one."
-        assert (chips * num_players < max_stack_size) "The potential largest stack size needs to be in range."
+        assert (chips * num_players <= max_stack_size) "The potential largest stack size needs to be in range."
         inl is_active x = x.chips > 0
         inl is_finished players =
             inl players_active = Tuple.foldl (inl s x -> if is_active x then s+1 else s) 0 players
@@ -468,7 +468,7 @@ inl {d with max_stack_size num_players} ->
             x.trace.add_bet (rep,a,bck)
             reply k a
 
-    inl optimize s = 
+    inl optimize learning_rate s = 
         inl net=indiv s.net
         Combinator.optimize net (Optimizer.sgd learning_rate) s.cd
 
@@ -476,7 +476,7 @@ inl {d with max_stack_size num_players} ->
         inl methods = {basic_methods with
             bet
             trace=trace_mc ()
-            showdown=inl s v -> s.trace.add_reward v; s.trace.process; optimize s
+            showdown=inl s v -> s.trace.add_reward v; s.trace.process; optimize learning_rate s
             game_over=inl s -> ()
             }
 
@@ -493,8 +493,8 @@ inl {d with max_stack_size num_players} ->
 
     inl player_dmc w s =
         inl net =
-            RL.mc_init d s
-            |> RL.greedy_mc
+            RL.greedy_init d s
+            |> RL.greedy_square
             |> heap
         player_ff net w s
 

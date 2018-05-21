@@ -3145,7 +3145,7 @@ inl float ->
             inl batch_size = HostTensor.span dim_a
             assert (batch_size = 1) "Only a single dimension for now."
 
-            inl v,a = reduce_actions' x s
+            inl v,a = reduce_actions' x s |> HostTensor.unzip
             a,inl (reward: float64) ->
                 inl reward = to float reward
                 inl v,a,x = Tuple.map to_dev_tensor (v,a,adjoint x)
@@ -3185,7 +3185,7 @@ inl float ->
             |> Feedforward.Layer.linear action_size
             |> init s
 
-        inl mc_init {range state_type action_type} s =
+        inl greedy_init {range state_type action_type} s =
             inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span range x) 0
             inl state_size = size state_type
             inl action_size = size action_type
@@ -3213,7 +3213,7 @@ inl float ->
                 inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
                 stack (action, {bck state})
 
-        {pg_init mc_init greedy_pg greedy_square action}
+        {pg_init greedy_init greedy_pg greedy_square action}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent
