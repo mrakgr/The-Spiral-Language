@@ -458,26 +458,21 @@ inl {d with max_stack_size num_players} ->
 
     inl box_net_state net x s = box (net_state_type net s) (heap x)
 
-    inl player_pg {name learning_rate} s =
-        inl net =
-            RL.pg_init d s
-            |> RL.greedy_pg
-            |> heap
+    inl bet x rep k = 
+        match x.state () with
+        | (_,_ | _) as state -> // Unbox the state.
+            inl net, state = indiv x.net, indiv state
+            inl a, {bck state} = RL.action {d with net state} rep x.cd
+            x.state := box_net_state x.net state x.cd
+            inl bck v' = bck (v' / to float64 max_stack_size)
+            x.trace.add_bet (rep,a,bck)
+            reply k a
 
-        inl bet x rep k = 
-            match x.state () with
-            | (_,_ | _) as state -> // Unbox the state.
-                inl net, state = indiv x.net, indiv state
-                inl a, {bck state} = RL.action {d with net state} rep x.cd
-                x.state := box_net_state x.net state x.cd
-                inl bck v' = bck (v' / to float64 max_stack_size)
-                x.trace.add_bet (rep,a,bck)
-                reply k a
+    inl optimize s = 
+        inl net=indiv s.net
+        Combinator.optimize net (Optimizer.sgd learning_rate) s.cd
 
-        inl optimize s = 
-            inl net=indiv s.net
-            Combinator.optimize net (Optimizer.sgd learning_rate) s.cd
-
+    inl player_ff net {name learning_rate} s =
         inl methods = {basic_methods with
             bet
             trace=trace_mc ()
@@ -489,6 +484,20 @@ inl {d with max_stack_size num_players} ->
             .member_add methods
             .data_add {name; win=ref 0; net}
 
-    {player_random player_mc player_pg box_net_state game}
+    inl player_pg w s =
+        inl net =
+            RL.pg_init d s
+            |> RL.greedy_pg
+            |> heap
+        player_ff net w s
+
+    inl player_dmc w s =
+        inl net =
+            RL.mc_init d s
+            |> RL.greedy_mc
+            |> heap
+        player_ff net w s
+
+    {player_random player_mc player_pg player_dmc box_net_state game}
 
     """) |> module_

@@ -3111,9 +3111,10 @@ inl float ->
                 } (primal x) ()
 
         inl reduce_actions = reduce_actions_template snd
+        inl reduce_actions' = reduce_actions_template id
 
         {
-        greedy_pg=inl x s ->
+        greedy_pg = inl x s ->
             inl dim_a, dim_b = primal x .dim
             inl batch_size = HostTensor.span dim_a
             assert (batch_size = 1) "Only a single dimension for now."
@@ -3138,6 +3139,21 @@ inl float ->
                         inl label = if a = i then one else zero
                         x_a.set (x_a.get + (p - label) * reward / batch_size) 
                     ) (dim_a, dim_b)
+
+        greedy_square = inl x s ->
+            inl dim_a, dim_b = primal x .dim
+            inl batch_size = HostTensor.span dim_a
+            assert (batch_size = 1) "Only a single dimension for now."
+
+            inl v,a = reduce_actions' x s
+            a,inl (reward: float64) ->
+                inl reward = to float reward
+                inl v,a,x = Tuple.map to_dev_tensor (v,a,adjoint x)
+                s.CudaKernel.iter () (inl j ->
+                    inl a, v = Tuple.map (inl x -> x j .get) (a, v)
+                    inl x = x j a
+                    x.set (x.get + square_bck (v, reward))
+                    ) (fst x.dim)
         }
 
     inl RL =
@@ -3149,7 +3165,27 @@ inl float ->
                 apply = Selector.greedy_pg
                 }
 
+        inl greedy_square sublayer =
+            Layer.layer {
+                layer_type = .action_ff
+                size = 1
+                sublayer
+                apply = Selector.greedy_square
+                }
+
         inl pg_init {range state_type action_type} s =
+            inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span range x) 0
+            inl state_size = size state_type
+            inl action_size = size action_type
+
+            input .input state_size
+            //|> Feedforward.Layer.ln 0f32 256
+            //|> Feedforward.Layer.tanh 256
+            //|> Recurrent.Layer.mi 256
+            |> Feedforward.Layer.linear action_size
+            |> init s
+
+        inl mc_init {range state_type action_type} s =
             inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span range x) 0
             inl state_size = size state_type
             inl action_size = size action_type
@@ -3177,7 +3213,7 @@ inl float ->
                 inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
                 stack (action, {bck state})
 
-        {pg_init greedy_pg action}
+        {pg_init mc_init greedy_pg greedy_square action}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent
