@@ -3173,7 +3173,7 @@ inl float ->
             //|> Recurrent.Layer.mi 256
             //|> Recurrent.Layer.tanh 256
             //|> Recurrent.Layer.mi 256
-            //|> Recurrent.Layer.mi action_size
+            |> Recurrent.Layer.miln 0f32 256
             //|> Feedforward.Layer.ln 0f32 action_size
             |> Feedforward.Layer.linear action_size
             |> init s
