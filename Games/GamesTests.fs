@@ -39,7 +39,7 @@ inl stack_size = 10
 inl max_stack_size = num_players * stack_size
 open Poker {max_stack_size num_players}
 //inl a = player_mc {init=10f64; learning_rate=0.02f64; name="One"}
-inl a = player_pg {learning_rate=0.01f32; name="One"} s
+inl a = player_pg {learning_rate=0.003f32; name="One"} s
 //inl a = player_rules {name="One"}
 //inl b = player_random {name="Two"}
 inl b = player_rules {name="Two"}
