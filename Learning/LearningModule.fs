@@ -2332,12 +2332,44 @@ inl float ->
             | _ -> ()
             ) network 
 
+    inl direct_association input assoc s =
+        match input with
+        | {primal adjoint} -> 
+            inl input = dr s primal
+            input, inl _ -> join
+                inl adjoint = to_device_tensor adjoint
+                s.CudaKernel.mapi_d1_redo_map' {
+                    mapi_in=inl j i a _ ->
+                        inl adjoint = adjoint j i
+                        adjoint.set (adjoint.get + a)
+                        a
+                    neutral_elem=zero
+                    redo=(+)
+                    map_out=(+)
+                    } (adjoint input) assoc
+        | input -> 
+            inl input = dr s input
+            input, inl _ -> join
+                s.CudaKernel.mapi_d1_redo_map' {
+                    neutral_elem=zero
+                    redo=(+)
+                    map_out=(+)
+                    } (adjoint input) assoc
+
     inl run x d s =
         layer_map_fold (inl {x with layer_type gid} d ->
             inl ret' t a, b = stack (a, term_cast b t)
             inl ret = ret' ()
             match layer_type with
-            | .input -> d.input x.name, d
+            | .input -> 
+                inl name = x.name
+                inl input = d.input name
+                match d with
+                | {state={$name=assoc}} -> 
+                    inl value, bck = indiv join direct_association input assoc s |> ret
+                    value, {d with bck = apply_bck self bck}
+                | _ ->
+                    input, d
             | .stateless ->
                 inl value, bck = indiv join x.apply x.sublayer s |> ret
                 value, {d with bck = apply_bck self bck}
@@ -2360,6 +2392,9 @@ inl float ->
                 inl (value, state), bck = indiv join x.apply state x.sublayer s |> ret' float64
                 value, {d with bck = apply_bck self bck; state = {self with $gid=state}}
             ) x d
+        |> function
+            | {value assoc}, d -> value, {d with state=module_foldl (inl k m x -> module_add k x m) self assoc}
+            | x -> x
 
     /// The wavefront iteration optimization.
     /// Requires the non-input layers to have preallocated streams.
@@ -3122,13 +3157,13 @@ inl float ->
         inl reduce_actions = reduce_actions_template snd
         inl reduce_actions' = reduce_actions_template id
 
-        inl pg selector x s =
+        inl sampling_pg x s =
             inl dim_a, dim_b = primal x .dim
             inl batch_size = HostTensor.span dim_a
             assert (batch_size = 1) "Only a single dimension for now."
 
             inl p = softmax one (primal x) s
-            inl a = selector p s
+            inl a = sample_body p s
 
             a, inl (reward: float64) ->
                 inl batch_size = to float batch_size
@@ -3148,9 +3183,39 @@ inl float ->
                         x_a.set (x_a.get + (p - label) * reward / batch_size) 
                     ) (dim_a, dim_b)
 
+        inl associative_pg x s =
+            inl dim_a, dim_b = primal x .dim
+            inl batch_size = HostTensor.span dim_a
+            assert (batch_size = 1) "Only a single dimension for now."
+
+            inl p = softmax one (primal x) s
+            inl a = sample_body p s
+            inl assoc = s.CudaTensor.zero {elem_dim=float; dim=a.dim}
+
+            {a assoc={input=assoc}}, inl (reward: float64) ->
+                inl batch_size = to float batch_size
+                inl reward = to float reward
+                inl x_a = to_dev_tensor (adjoint x)
+                inl p = to_dev_tensor p
+                inl a = to_dev_tensor a
+                inl assoc = to_dev_tensor assoc
+                s.CudaKernel.iter () (inl j ->
+                    inl x_a = x_a j
+                    inl p = p j
+                    inl a = a j .get
+                    inl assoc = assoc j
+
+                    inl i ->
+                        inl p = p i .get
+                        inl x_a = x_a i
+                        inl label = if a = i then one else zero
+                        inl assoc = if a = i then assoc.get else zero
+                        x_a.set (x_a.get + assoc + (p - label) * reward / batch_size) 
+                    ) (dim_a, dim_b)
+
         {
-        greedy_pg = pg reduce_actions
-        sampling_pg = pg sample_body
+        sampling_pg
+        associative_pg
         }
 
     inl RL =
