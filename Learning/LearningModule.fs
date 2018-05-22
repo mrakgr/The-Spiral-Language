@@ -1911,7 +1911,10 @@ inl float ->
             inl C' = adjoint C
             inl l =
                 Tuple.iter (inl A, B -> 
-                    on_non_nil (inl A -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A) (adjoint A)
+                    on_non_nil (inl A -> 
+                        s.CudaBlas.gemm' .nT .T one C' (primal B) one A
+                        s.CudaTensor.print A
+                        ) (adjoint A)
                     on_non_nil (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B) (adjoint B)
                     ) l
             match bias with
@@ -2358,7 +2361,7 @@ inl float ->
             inl input = dr s input
             input, inl _ -> join
                 inl adjoint = adjoint input
-                s.CudaTensor.print adjoint
+                //s.CudaTensor.print adjoint
                 s.CudaKernel.mapi_d1_redo_map' {
                     neutral_elem=zero
                     redo=(+)
@@ -3204,6 +3207,7 @@ inl float ->
             {value=a; assoc={input=assoc}}, inl (reward: float64) ->
                 inl batch_size = to float batch_size
                 inl reward = to float reward
+                Console.printfn "reward = {0}" reward
                 inl x_a = to_dev_tensor (adjoint x)
                 inl p = to_dev_tensor p
                 inl a = to_dev_tensor a
