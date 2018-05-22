@@ -3151,45 +3151,10 @@ inl float ->
         {
         greedy_pg = pg reduce_actions
         sampling_pg = pg sample_body
-
-        greedy_square = inl x s ->
-            inl dim_a, dim_b = primal x .dim
-            inl batch_size = HostTensor.span dim_a
-            assert (batch_size = 1) "Only a single dimension for now."
-
-            inl v,a = reduce_actions' x s |> HostTensor.unzip
-            a,inl (reward: float64) ->
-                inl batch_size = to float batch_size
-                inl reward = to float reward
-                inl v,a,x = Tuple.map to_dev_tensor (v,a,adjoint x)
-                s.CudaKernel.iter () (inl j ->
-                    inl a, v = Tuple.map (inl x -> x j .get) (a, v)
-                    inl x = x j a
-                    x.set (x.get + square_bck (v, reward) / batch_size)
-                    ) dim_a
-
-        sampling_square = inl temp x s ->
-            inl dim_a, dim_b = primal x .dim
-            inl batch_size = HostTensor.span dim_a
-            assert (batch_size = 1) "Only a single dimension for now."
-
-            inl p = softmax temp (primal x) s
-            inl a = sample_body p s
-
-            a,inl (reward: float64) ->
-                inl batch_size = to float batch_size
-                inl reward = to float reward
-                inl a,x_p,x_a = Tuple.map to_dev_tensor (a,primal x,adjoint x)
-                s.CudaKernel.iter () (inl j ->
-                    inl a = a j .get
-                    inl x_p,x_a = Tuple.map (inl x -> x j a) (x_p,x_a)
-                    inl v = x_p.get
-                    x_a.set (x_a.get + square_bck (v, reward) / batch_size)
-                    ) dim_a
         }
 
     inl RL =
-        inl greedy_layer apply sublayer =
+        inl layer apply sublayer =
             Layer.layer {
                 layer_type = .action_ff
                 size = 1
@@ -3197,7 +3162,7 @@ inl float ->
                 apply
                 }
 
-        inl greedy_init {range state_type action_type} s =
+        inl init {range state_type action_type} s =
             inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span range x) 0
             inl state_size = size state_type
             inl action_size = size action_type
@@ -3229,7 +3194,7 @@ inl float ->
                 inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
                 stack (action, {bck state})
 
-        {greedy_init greedy_layer Selector action}
+        {init layer Selector action}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent

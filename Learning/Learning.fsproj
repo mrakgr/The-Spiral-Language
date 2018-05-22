@@ -62,6 +62,7 @@
     <None Include="Script1.fsx" />
     <Content Include="q-learning.txt" />
     <Content Include="mc.txt" />
+    <Content Include="dmc.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
