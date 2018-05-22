@@ -1167,8 +1167,14 @@ met map_d1_inscan_map' w {d with redo neutral_elem} in out =
 
 /// Maps the two inputs and then reduces the first's inner dimension.
 met mapi_d1_redo_map' w {d with redo neutral_elem} in in' out = 
-    inl in, in', out = zip in, zip in', zip out
+    inl in = zip in
     inl dim_in_a, dim_in_b = in.dim
+    inl in' =
+        match in' with
+        | () -> HostTensor.create {dim=dim_in_a; elem_type=()}
+        | x -> zip in'
+    inl out = zip out
+    
     inl dim_in' :: () = in'.dim
 
     assert (dim_in' = dim_in_a) "Input's outer dimension must equal the output's dimension."
@@ -2334,27 +2340,30 @@ inl float ->
 
     inl direct_association input assoc s =
         match input with
-        | {primal adjoint} -> 
+        | {primal adjoint=adjoint'} -> 
             inl input = dr s primal
             input, inl _ -> join
-                inl adjoint = to_device_tensor adjoint
+                inl adjoint = adjoint input
+                inl adjoint' = to_device_tensor adjoint'
                 s.CudaKernel.mapi_d1_redo_map' {
                     mapi_in=inl j i a _ ->
-                        inl adjoint = adjoint j i
-                        adjoint.set (adjoint.get + a)
+                        inl adjoint' = adjoint' j i
+                        adjoint'.set (adjoint'.get + a)
                         a
                     neutral_elem=zero
                     redo=(+)
                     map_out=(+)
-                    } (adjoint input) assoc
+                    } adjoint () assoc
         | input -> 
             inl input = dr s input
             input, inl _ -> join
+                inl adjoint = adjoint input
+                s.CudaTensor.print adjoint
                 s.CudaKernel.mapi_d1_redo_map' {
                     neutral_elem=zero
                     redo=(+)
                     map_out=(+)
-                    } (adjoint input) assoc
+                    } adjoint () assoc
 
     inl run x d s =
         layer_map_fold (inl {x with layer_type gid} d ->
@@ -3190,14 +3199,15 @@ inl float ->
 
             inl p = softmax one (primal x) s
             inl a = sample_body p s
-            inl assoc = s.CudaTensor.zero {elem_dim=float; dim=a.dim}
+            inl assoc = s.CudaTensor.zero {elem_type=float; dim=a.dim}
 
-            {a assoc={input=assoc}}, inl (reward: float64) ->
+            {value=a; assoc={input=assoc}}, inl (reward: float64) ->
                 inl batch_size = to float batch_size
                 inl reward = to float reward
                 inl x_a = to_dev_tensor (adjoint x)
                 inl p = to_dev_tensor p
                 inl a = to_dev_tensor a
+                s.CudaTensor.print assoc
                 inl assoc = to_dev_tensor assoc
                 s.CudaKernel.iter () (inl j ->
                     inl x_a = x_a j
@@ -3238,7 +3248,7 @@ inl float ->
             //|> Recurrent.Layer.mi 256
             //|> Recurrent.Layer.tanh 256
             //|> Recurrent.Layer.mi 256
-            |> Recurrent.Layer.miln 0f32 256
+            //|> Recurrent.Layer.miln 0f32 256
             //|> Recurrent.Layer.mi action_size
             //|> Feedforward.Layer.ln 0f32 256
             |> Feedforward.Layer.linear action_size

@@ -496,7 +496,7 @@ inl {d with max_stack_size num_players} ->
     inl player_ff net {name learning_rate} s =
         inl methods = {basic_methods with
             bet
-            trace=trace_mc ()
+            trace=trace_direct ()
             showdown=inl s v -> s.trace.add_reward v; s.trace.process; optimize learning_rate s
             game_over=inl s -> ()
             }
@@ -508,7 +508,7 @@ inl {d with max_stack_size num_players} ->
     inl player_pg w s =
         inl net =
             RL.init d s
-            |> RL.layer Selector.sampling_pg
+            |> RL.layer Selector.associative_pg
             |> heap
         player_ff net w s
 
