@@ -428,7 +428,7 @@ inl {d with max_stack_size num_players} ->
 
     inl trace_direct = trace_template <| inl r x -> 
         match x with
-        | .Reward,x -> r
+        | .Reward, r -> r
         | .Bet,_,_,bck -> bck r; 0.0
 
     inl reply {fold call raise} a =
