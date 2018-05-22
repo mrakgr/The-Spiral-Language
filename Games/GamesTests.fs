@@ -69,3 +69,4 @@ f game 40 1000
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker6
 |> printfn "%s"
 |> ignore
+
