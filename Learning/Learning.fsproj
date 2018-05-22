@@ -63,6 +63,7 @@
     <Content Include="q-learning.txt" />
     <Content Include="mc.txt" />
     <Content Include="dmc.txt" />
+    <Content Include="associative.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
