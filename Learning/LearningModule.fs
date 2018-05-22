@@ -2341,19 +2341,20 @@ inl float ->
     inl direct_association input assoc s =
         match input with
         | {primal adjoint=adjoint'} -> 
-            inl input = dr s primal
-            input, inl _ -> join
-                inl adjoint = adjoint input
-                inl adjoint' = to_device_tensor adjoint'
-                s.CudaKernel.mapi_d1_redo_map' {
-                    mapi_in=inl j i a _ ->
-                        inl adjoint' = adjoint' j i
-                        adjoint'.set (adjoint'.get + a)
-                        a
-                    neutral_elem=zero
-                    redo=(+)
-                    map_out=(+)
-                    } adjoint () assoc
+            //inl input = dr s primal
+            //input, inl _ -> join
+            //    inl adjoint = adjoint input
+            //    inl adjoint' = to_device_tensor adjoint'
+            //    s.CudaKernel.mapi_d1_redo_map' {
+            //        mapi_in=inl j i a _ ->
+            //            inl adjoint' = adjoint' j i
+            //            adjoint'.set (adjoint'.get + a)
+            //            a
+            //        neutral_elem=zero
+            //        redo=(+)
+            //        map_out=(+)
+            //        } adjoint () assoc
+            error_type "Untested. Try uncommenting the above..."
         | input -> 
             inl input = dr s input
             input, inl _ -> join
@@ -3206,6 +3207,7 @@ inl float ->
                 inl x_a = to_dev_tensor (adjoint x)
                 inl p = to_dev_tensor p
                 inl a = to_dev_tensor a
+                s.CudaTensor.print assoc
                 inl assoc = to_dev_tensor assoc
                 s.CudaKernel.iter () (inl j ->
                     inl x_a = x_a j
