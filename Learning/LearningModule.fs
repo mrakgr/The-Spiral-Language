@@ -2133,11 +2133,17 @@ inl float ->
             ,inl x _ -> sqaure_bck' x
         }
 
-    inl cross_entropy = error {
-        fwd = inl x,y -> -(y * log x + (one - y) * log (one - x))
+    inl sigmoid_cross_entropy = error {
+        fwd = inl x,y -> 
+            inl x = sigmoid_fwd x
+            -(y * log x + (one - y) * log (one - x))
         bck = 
-            inl (x, y) _ -> (x - y) / (x * (one - x))
-            ,inl (x, y) _ -> log (one - x) - log x
+            inl (x, y) _ -> 
+                inl x = sigmoid_fwd x
+                x - y
+            ,inl (x, y) _ -> 
+                inl x = sigmoid_fwd x
+                log (one - x) - log x
         }
 
     /// Applies a softmax and then calculates the cross entropy cost. Is intended to take a linear layer as input.
@@ -2248,7 +2254,7 @@ inl float ->
                 ,inl x _ -> HQR.bck_b k half x
             }
 
-    inl Error = {square cross_entropy softmax_cross_entropy hubert_qr} |> stackify
+    inl Error = {square sigmoid_cross_entropy softmax_cross_entropy hubert_qr} |> stackify
 
     // #Initializer
     inl Initializer = 
