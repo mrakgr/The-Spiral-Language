@@ -8,8 +8,8 @@
         - [Intro](#intro)
         - [Design Philosophy](#design-philosophy)
     - [Dependencies](#dependencies)
-        - [For the compiler:](#for-the-compiler)
-        - [For the Cuda using Spiral libraries:](#for-the-cuda-using-spiral-libraries)
+                - [For the compiler:](#for-the-compiler)
+                - [For the Cuda using Spiral libraries:](#for-the-cuda-using-spiral-libraries)
     - [Tutorials: Introduction to Spiral](#tutorials-introduction-to-spiral)
         - [0: The way to use the language](#0-the-way-to-use-the-language)
         - [1: Inlineables, Methods and Join Points](#1-inlineables-methods-and-join-points)
@@ -85,6 +85,7 @@
                 - [Softmax Cost](#softmax-cost)
                 - [Checkpointing](#checkpointing)
                 - [Improve The Allocator](#improve-the-allocator)
+                - [Plastic Neurons](#plastic-neurons)
     - [User Guide: The Spiral Power](#user-guide-the-spiral-power)
         - [1: Data Structures, Abstraction and Destructuring](#1-data-structures-abstraction-and-destructuring)
         - [2: Let Insertion and Common Subexpression Elimination](#2-let-insertion-and-common-subexpression-elimination)
@@ -6620,7 +6621,7 @@ This is the rule for propagating gradients through `replicate`. It is a sumation
 
 ```
 o = sum x
-dx += replicate o
+dx += replicate do
 ```
 
 The rule for propagating gradients through summation is the opposite of the previous one.
@@ -6680,110 +6681,63 @@ dv += replicate ds
 dx += dv * v
 ```
 
-A naive AD implementation would do the above in 5 different steps. The goal of making Spiral was to allow fusion of the above steps into a single one. The top part of the division...
+A naive AD implementation would do the above in 5 different steps. The goal of making Spiral was to allow fusion of the above steps into a single one. To start things off `dr` will be folded into `ds` which will then be folded into `dv`.
 
 ```
 dv += dz / r
-```
-
-...does not do reduction so can be implemented as a map. The bottom part is a bit more intricate.
-
-```
-dr += -dz * v / (r * r)
-```
-
-Immediately here is a chance to simplify a little. Recall that `z = v / r`, hence...
-
-```
-dr += -dz * z / r
-```
-
-Then comes the next step.
-
-```
-ds += sum dr
-```
-
-After substitution that becomes.
-
-```
-ds += sum (-dz * z / r) 
-```
-
-As `r` does not vary that is equivalent to...
-
-```
-ds += sum (-dz * z) / sum r
-```
-
-`sum r` is just `s`. The minus can be take out as well.
-
-```
-ds += -sum (dz * z) / s
-```
-
-For the sake of simplicity, `sum (dz * z)` will be rename to `er`.
-
-```
-inl er = sum (dz * z)
-```
-
-So the operation after all the simplification would be...
-
-```
-ds += -er / s
-```
-
-The next step is...
-
-```
-dv += replicate ds
-```
-...
-```
-dv += replicate (-er / s)
-```
-...
-```
-dv += - replicate er / replicate s
-```
-...
-```
-dv += - replicate er / r
-```
-
-There is one more step of rewriting that can be done here. Recall that there are two additions into `dv` and `dv` itself is not used in between.
-
-```
-dv += dz / r
-dv += - replicate er / r
-```
-
-The above can be simplified into.
-
-```
-inl dv = dz / r - replicate er / r
-```
-...
-```
-inl dv = (dz - replicate er) / r
-```
-
-Now comes the final step.
-
-```
+dv += replicate (sum (-dz * v / (r * r)))
 dx += dv * v
 ```
-...
+
+Both of `dv`s can now be folded into `dx`.
+
 ```
-dx += (dz - replicate er) * v / r
-```
-...
-```
-dx += (dz - replicate er) * z
+dx += (dz / r + replicate (sum (-dz * v / (r * r)))) * v
 ```
 
-Those 6 steps comes out to this form which can be easily fused into a single call of the `seq_broadcast` kernel.
+Since `z = v / r` the above can be simplified further.
+
+```
+dx += (dz / r + replicate (sum (-dz * z / r))) * v
+```
+
+A valid operation here would be `sum (a * replicate b) = sum a / b`. `r` is `replicate s`. It is possible to take it out a level.
+
+```
+dx += (dz / r + replicate (sum (-dz * z) / s)) * v
+```
+
+A valid operation here would be `replicate (a * b) = replicate a * replicate b`.
+
+```
+dx += (dz / r + replicate (sum (-dz * z)) / replicate s) * v
+```
+
+`r = replicate s` as per original definition.
+
+```
+dx += (dz / r + replicate (sum (-dz * z)) / r) * v
+```
+
+The above can be simplified using the distributive law.
+
+```
+dx += (dz + replicate (sum (-dz * z))) * v / r
+```
+
+Since `z = v / r` the above can be simplified further.
+
+```
+dx += (dz + replicate (sum (-dz * z))) * z
+```
+
+Since the `-` is a constant it is possible to factor it out.
+
+```
+dx += (dz - replicate (sum (dz * z))) * z
+```
+
+In this simplified form, all the steps can easily be implemented in a single kernel. `er` is `replicate (sum (dz * z))`
 
 ```
 s.CudaKernel.mapi_d1_seq_broadcast' {
