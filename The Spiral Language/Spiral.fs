@@ -2289,7 +2289,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 match a with
                 | "CubPath" -> f settings.cub_path
                 | "CudaPath" -> f settings.cuda_path
-                | "CudaNVCCTarget" -> f settings.cuda_nvcc_options
+                | "CudaNVCCOptions" -> f settings.cuda_nvcc_options
                 | "VSPath" -> f settings.vs_path
                 | "VSPathVcvars" -> f settings.vs_path_vcvars
                 | "VcvarsArgs" -> f settings.vcvars_args

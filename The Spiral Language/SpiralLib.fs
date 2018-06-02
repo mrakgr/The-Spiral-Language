@@ -1625,7 +1625,7 @@ inl ret ->
 
     inl cub_path = @CubPath
     inl cuda_toolkit_path = @CudaPath
-    inl nvcc_options_target = @CudaNVCCTarget
+    inl nvcc_options = @CudaNVCCOptions
     inl visual_studio_path = @VSPath
     inl vs_path_vcvars = @VSPathVcvars
     inl vcvars_args = @VcvarsArgs
@@ -1697,7 +1697,7 @@ inl ret ->
             ("CALL ", quoted_vs_path_to_vcvars, vcvars_args) |> write_to_batch
             ("SET PATH=%PATH%;", quoted_vs_path_to_cl) |> write_to_batch
             (
-            quoted_nvcc_path, " ", nvcc_options_target, " --use-local-env --cl-version 2017",
+            quoted_nvcc_path, " ", nvcc_options, " --use-local-env --cl-version 2017",
             " -I", quoted_cuda_toolkit_path_to_include,
             " -I", quoted_cub_path_to_include,
             " -I", quoted_vc_path_to_include,
