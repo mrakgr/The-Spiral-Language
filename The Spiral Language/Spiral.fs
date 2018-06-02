@@ -2285,10 +2285,16 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let case_parser_macro expr = 
             inbuilt_op_core '@' >>= fun a ->
+                let f x = LitString x |> lit |> preturn
                 match a with
-                | "PathCuda" -> settings.path_cuda90 |> LitString |> lit |> preturn
-                | "PathCub" -> settings.path_cub |> LitString |> lit |> preturn
-                | "PathVS2017" -> settings.path_vs2017 |> LitString |> lit |> preturn
+                | "CubPath" -> f settings.cub_path
+                | "CudaPath" -> f settings.cuda_path
+                | "CudaNVCCTarget" -> f settings.cuda_nvcc_options
+                | "VSPath" -> f settings.vs_path
+                | "VSPathVcvars" -> f settings.vs_path_vcvars
+                | "VcvarsArgs" -> f settings.vcvars_args
+                | "VSPathCL" -> f settings.vs_path_cl
+                | "VSPathInclude" -> f settings.vs_path_include
                 | a -> failFatally <| sprintf "%s is not a valid parser macro." a
 
         let case_lit_lift expr = 

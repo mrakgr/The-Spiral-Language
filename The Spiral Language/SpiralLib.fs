@@ -1623,14 +1623,14 @@ inl ret ->
     inl __gridDimY = cuda_constant_int "gridDim.y"
     inl __gridDimZ = cuda_constant_int "gridDim.z"
 
-    inl cuda_toolkit_path = @PathCuda
-    inl visual_studio_path = @PathVS2017
-    inl cub_path = @PathCub
-    inl nvcc_options_target = "-gencode=arch=compute_52,code=\\\"sm_52,compute_52\\\""
-    inl vs_path_vcvars = "VC/Auxiliary/Build/vcvarsall.bat"
-    inl vcvars_args = " x64 -vcvars_ver=14.11"
-    inl vs_path_cl = "VC/Tools/MSVC/14.11.25503/bin/Hostx64/x64"
-    inl vs_path_include = "VC/Tools/MSVC/14.11.25503/include"
+    inl cub_path = @CubPath
+    inl cuda_toolkit_path = @CudaPath
+    inl nvcc_options_target = @CudaNVCCTarget
+    inl visual_studio_path = @VSPath
+    inl vs_path_vcvars = @VSPathVcvars
+    inl vcvars_args = @VcvarsArgs
+    inl vs_path_cl = @VSPathCL
+    inl vs_path_include = @VSPathInclude
 
     inl env_type = fs [text: "System.Environment"]
     inl context_type = fs [text: "ManagedCuda.CudaContext"]
@@ -1697,7 +1697,7 @@ inl ret ->
             ("CALL ", quoted_vs_path_to_vcvars, vcvars_args) |> write_to_batch
             ("SET PATH=%PATH%;", quoted_vs_path_to_cl) |> write_to_batch
             (
-            quoted_nvcc_path, ," ", nvcc_options_target, " --use-local-env --cl-version 2017",
+            quoted_nvcc_path, " ", nvcc_options_target, " --use-local-env --cl-version 2017",
             " -I", quoted_cuda_toolkit_path_to_include,
             " -I", quoted_cub_path_to_include,
             " -I", quoted_vc_path_to_include,
