@@ -54,16 +54,18 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="AssemblyInfo.fs" />
-    <None Include="App.config" />
-    <Content Include="packages.config" />
-    <Compile Include="LearningModule.fs" />
-    <Compile Include="LearningTests.fs" />
-    <None Include="Script1.fsx" />
     <Content Include="q-learning.txt" />
     <Content Include="mc.txt" />
     <Content Include="dmc.txt" />
     <Content Include="associative.txt" />
+    <Compile Include="AssemblyInfo.fs" />
+    <None Include="App.config" />
+    <Content Include="packages.config" />
+    <Compile Include="CudaModule.fs" />
+    <Compile Include="LearningModule.fs" />
+    <Compile Include="LearningTests.fs" />
+    <Compile Include="LearningNGModule.fs" />
+    <None Include="Script1.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

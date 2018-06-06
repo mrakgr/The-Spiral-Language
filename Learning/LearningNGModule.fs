@@ -1,5 +1,7 @@
-﻿[<AutoOpen>]
-module Learning.Module.Learning
+﻿// The experimental module for relative natural gradient related work.
+
+[<AutoOpen>]
+module Learning.Module.LearningNG
 
 open Spiral.Types
 open Spiral.Lib
