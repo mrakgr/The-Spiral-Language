@@ -601,18 +601,22 @@ inl float ->
     inl tanh = layer Initializer.tanh tanh
     inl linear = layer Initializer.sigmoid succ
 
-    inl prong_layer initializer activation {size lr} sublayer =
+    inl rng {size lr} sublayer =
         feedforward
             {
             size sublayer
             weights = inl s -> 
+                inl initializer = Initializer.sigmoid
                 {
                 input = initializer (sublayer.size, size) s |> dr s
                 bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
                 } |> heap
-            apply = inl weights input -> 
-                
-                matmultb (input, weights.input) weights.bias >>= activation
+            apply = inl weights input -> matmultb (input, weights.input) weights.bias >>= sigmoid
+            optimizer = inl weights s x z ->
+                inl o = weights.o
+                inl S = weights.S
+                // - size * log (sqr o) - (log << det) (I + 1 / o * dot V V) + o^2 * reduce_mean (z * dot x x) +
+                // sum {from=1; near_to=S.dim_outer} (inl s -> reduce_mean (z * sqr (dot (S s) x))) + C1
             }
 
     inl Pass =
