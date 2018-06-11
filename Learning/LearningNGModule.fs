@@ -473,13 +473,6 @@ inl float ->
             | x -> x
             ) network
 
-    inl init_parallel s network = 
-        layer_map (function
-            | {stream} | {layer_type=.input | .parallel} as x -> x
-            | {x with weights} -> {x with weights = const (weights s); stream=s.RegionStream.allocate.data.stream}
-            | x -> {x with stream=s.RegionStream.allocate.data.stream}
-            ) network
-
     inl optimize network optimizer s =
         inl body weights s = weights () |> Struct.iter (optimizer s)
         layer_map (function
@@ -519,43 +512,6 @@ inl float ->
         |> function
             | {value assoc}, d -> value, {d with state=module_foldl (inl k m x -> module_add k x m) self assoc}
             | x -> x
-
-    /// The wavefront iteration optimization.
-    /// Requires the non-input layers to have preallocated streams.
-    inl run_parallel x d s =
-        layer_map_fold (inl {x with layer_type gid} d ->
-            match layer_type with
-            | .input -> {value=d.input x.name; stream=s.data.stream; block=()}, d
-            | .parallel -> x.sublayer, d
-            | _ ->
-                inl stream = x.stream
-                inl s = s.data_add {stream}
-                inl values = Struct.map (inl {value} -> value) x.sublayer
-                inl streams = 
-                    Struct.choose (function
-                        | {stream=x} -> stream.wait_on x; x
-                        | _ -> ()) x.sublayer
-
-                inl wait_bck b x = b x; Struct.iter (inl x -> x.wait_on stream) streams
-                inl ret' t a, b = stack (a, term_cast (wait_bck b) t)
-                inl ret = ret' ()
-
-                match layer_type with
-                | .stateless ->
-                    inl value, bck = indiv join x.apply values s |> ret
-                    {value stream block=()}, {d with bck = apply_bck self bck}
-                | .non_differentiable ->
-                    inl value = indiv join x.apply values s |> stack
-                    {value stream block=()}, d
-                | .feedforward ->
-                    inl value, bck = indiv join x.apply (x.weights()) values s |> ret
-                    {value stream block=()}, {d with bck = apply_bck self bck}
-                | .recurrent ->
-                    inl state = match d.state with {$gid=state} -> state | _ -> ()
-                    inl (value, state), bck = indiv join x.apply (x.weights()) state values s |> ret
-                    {value stream block=()}, {d with bck = apply_bck self bck; state = {self with $gid=state}}
-                ) x d
-        |> inl x, d -> Struct.map (inl {value} -> value) x, d
 
     inl Combinator = 
         {
@@ -624,7 +580,7 @@ inl float ->
             train {network optimizer=inl _ _ -> ()} data s {
                 on_fail
                 on_succ=inl state ->
-                    s.RegionMem.clear
+                    s.RegionMem.clear 
                     inl body = train {network}
                     inl data = Struct.map (inl x -> x.round_split 1) data
 
@@ -856,38 +812,6 @@ inl float ->
                 >>= layer_norm_relu o 
             }
 
-    inl highway sublayer =
-        feedforward
-            {
-            size sublayer
-            weights = inl s ->
-                open Initializer
-                inl sigmoid _ = sigmoid (sublayer.size, sublayer.size) s |> dr s
-                inl tanh _ = tanh (sublayer.size, sublayer.size) s |> dr s
-                inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=sublayer.size} |> dr s
-                {
-                input = {
-                    h = tanh ()
-                    t = sigmoid ()
-                    c = sigmoid ()
-                    }
-                bias = {
-                    h = bias0 ()
-                    t = bias0 ()
-                    c = bias0 ()
-                    }
-                } |> heap
-
-            apply = inl {input bias} i ->
-                open Activation
-                inm h = matmultb (i, input.h) bias.h >>= tanh
-                inm t = matmultb (i, input.t) bias.t >>= sigmoid
-                inm c = matmultb (i, input.c) bias.c >>= sigmoid
-                inm x1 = hadmult (h,t)
-                inm x2 = hadmult (i,c)
-                add (x1, x2)
-            }
-
     inl Pass =
         inl train {d with network} =
             inl rec loop c cost' = 
@@ -962,61 +886,6 @@ inl float ->
     inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
     inl linear = layer Initializer.sigmoid succ
 
-    inl lstm size sublayer =
-        recurrent 
-            {
-            size sublayer
-            weights = inl s ->
-                open Initializer
-                inl sigmoid sublayer_size = sigmoid (sublayer_size, size) s |> dr s
-                inl tanh sublayer_size = tanh (sublayer_size, size) s |> dr s
-                inl weights sublayer_size = {
-                    f = sigmoid sublayer_size
-                    i = sigmoid sublayer_size
-                    o = sigmoid sublayer_size
-                    c = tanh sublayer_size
-                    }
-                inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-                inl bias init = 
-                    inl x = s.CudaTensor.create {elem_type=float; dim=size} 
-                    join s.CudaTensor.mmap (const init) x
-                    dr s x
-                {
-                input = weights sublayer.size
-                state = weights size
-                bias = {
-                    f = bias one
-                    i = bias0 ()
-                    o = bias0 ()
-                    c = bias0 ()
-                    }
-                } |> heap
-
-            apply = inl {input state bias} c i ->
-                open Activation
-                match c with
-                | () ->
-                    inm i' = matmultb (i,input.i) bias.i >>= sigmoid
-                    inm o = matmultb (i,input.o) bias.o >>= sigmoid
-                    inm c' = matmultb (i,input.c) bias.c >>= tanh
-                    inm c = hadmult (i', c')
-                    inm h' = tanh c
-                    inm h = hadmult (o, h')
-                    succ (h, (h, c))
-                | h, c ->
-                    inm f = matmultb ((i,input.f),(h,state.f)) bias.f >>= sigmoid
-                    inm i' = matmultb ((i,input.i),(h,state.i)) bias.i >>= sigmoid
-                    inm o = matmultb ((i,input.o),(h,state.o)) bias.o >>= sigmoid
-                    inm c' = matmultb ((i,input.c),(h,state.c)) bias.c >>= tanh
-                    inm c =
-                        inm x1 = hadmult (f,c)
-                        inm x2 = hadmult (i',c')
-                        add (x1, x2)
-                    inm h' = tanh c
-                    inm h = hadmult (o, h')
-                    succ (h, (h, c))
-            }
-
     inl bias0 s size = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
     inl bias s size init = 
         inl x = s.CudaTensor.create {elem_type=float; dim=size} 
@@ -1042,8 +911,6 @@ inl float ->
             apply = inl {b1 b2 b3 b4 input state} s i ->
                 inl fwd = tanh_fwd
                 inl bck = tanh_bck
-                //inl fwd = id // TODO: Do not forget this is linear. Change it back.
-                //inl bck = id
                 match s with
                 | () ->
                     inm i = matmult (i, input)
@@ -1201,8 +1068,7 @@ inl float ->
                         body=inl {state=cost',d i} ->
                             inl input = Struct.map ((|>) i) input
                             
-                            // Note: Now that the memory transfers are async, run_parallel has a race condition, but it won't be an issue in practice.
-                            inl cost, d = run_parallel network {d with input} s
+                            inl cost, d = run network {d with input} s
 
                             inl bck = term_cast d.bck ()
                             inl get = s.CudaTensor.get
@@ -1268,90 +1134,7 @@ inl float ->
         Pass = {for sample Body} |> stackify
         } |> stackify
 
-    /// The differentiable action selectors.
-    inl Selector =
-        inl reduce_actions_template map_out x s = 
-            s.CudaKernel.mapi_d1_redo_map {
-                mapi_in=inl j i v _ -> v, i
-                neutral_elem=-infinity,-1
-                redo=inl a b -> if fst a > fst b then a else b
-                map_out
-                } x ()
-
-        inl reduce_actions = reduce_actions_template snd
-        inl reduce_actions' = reduce_actions_template id
-
-        inl sampling_pg x s =
-            inl dim_a, dim_b = primal x .dim
-            inl batch_size = HostTensor.span dim_a
-            assert (batch_size = 1) "Only a single dimension for now."
-
-            inl p = softmax one (primal x) s
-            inl a = sample_body p s
-
-            a, inl (reward: float64) ->
-                inl batch_size = to float batch_size
-                inl reward = to float reward
-                inl x_a = to_dev_tensor (adjoint x)
-                inl p = to_dev_tensor p
-                inl a = to_dev_tensor a
-                s.CudaKernel.iter () (inl j ->
-                    inl x_a = x_a j
-                    inl p = p j
-                    inl a = a j .get
-
-                    inl i ->
-                        inl p = p i .get
-                        inl x_a = x_a i
-                        inl label = if a = i then one else zero
-                        x_a.set (x_a.get + (p - label) * reward / batch_size) 
-                    ) (dim_a, dim_b)
-
-        {
-        sampling_pg
-        }
-
-    inl RL =
-        inl layer apply sublayer =
-            Layer.layer {
-                layer_type = .action_ff
-                size = 1
-                sublayer
-                apply
-                }
-
-        inl init {range state_type action_type} s =
-            inl size = Struct.foldl (inl s x -> s + SerializerOneHot.span range x) 0
-            inl state_size = size state_type
-            inl action_size = size action_type
-
-            input .input state_size
-            //|> Feedforward.Layer.tanh 256
-            //|> Recurrent.Layer.miln 0f32 256
-            |> Feedforward.Layer.ln 0f32 256
-            |> Feedforward.Layer.linear action_size
-            |> init s
-
-        /// For online learning.
-        inl action {range state_type action_type net state} i s =
-            indiv join
-                assert (eq_type state_type i) "The input must be equal to the state type."
-                inl one_hot_tensor l, size = s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
-                inl input = 
-                    Struct.foldl_map (inl s x -> 
-                        inl i, s' = SerializerOneHot.encode' range x
-                        s + i, s + s'
-                        ) 0 i
-                    |> one_hot_tensor
-
-                inl a, {state bck} = run net {state input={input}; bck=const()} s
-                inl action = SerializerOneHot.decode range (s.CudaTensor.get (a 0)) action_type
-                stack (action, {bck state})
-
-        {init layer Selector action}
-
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent
-    Selector RL
     }
     """) |> module_
