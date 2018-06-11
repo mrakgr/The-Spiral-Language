@@ -1,10 +1,10 @@
 ﻿// The experimental module for relative natural gradient related work.
-
 [<AutoOpen>]
-module Learning.Module.LearningNG
+module Learning.Experimental.Lib
 
 open Spiral.Types
 open Spiral.Lib
+open Learning.Cuda
 
 let learning =
     (

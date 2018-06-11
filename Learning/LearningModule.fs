@@ -1,8 +1,9 @@
 ﻿[<AutoOpen>]
-module Learning.Module.Learning
+module Learning.Main.Lib
 
 open Spiral.Types
 open Spiral.Lib
+open Learning.Cuda
 
 let learning =
     (

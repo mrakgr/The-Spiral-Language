@@ -1,10 +1,10 @@
-﻿module Learning.Tests
+﻿module Learning.Main.Tests
 
 open Spiral.Lib
 open Spiral.Tests
 open System.IO
 open Spiral.Types
-open Module
+open Learning.Cuda
 
 let cfg = Spiral.Types.cfg_default
 

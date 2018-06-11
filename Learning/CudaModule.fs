@@ -1,5 +1,5 @@
 ﻿[<AutoOpen>]
-module Learning.Module.Cuda
+module Learning.Cuda
 
 open Spiral.Types
 open Spiral.Lib
