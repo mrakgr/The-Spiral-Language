@@ -357,48 +357,7 @@ inl float ->
 
         cost, bck
 
-
-    /// The Hubert quantile regression functions.
-    inl HQR =
-        inl L k u = 
-            inl abs_u = abs u
-            if abs_u <= k then u * u / two
-            else k * (abs_u - k / two)
-
-        inl fwd k q (a,b) = 
-            inl u = b - a
-            inl d = q - if u < zero then one else zero
-            if k = zero then u * d
-            else L k u * abs d
-
-        inl L' k u =
-            inl abs_u = abs u
-            if abs_u <= k then u
-            else 
-                inl abs_u' = if u >= zero then one else -one
-                k * abs_u'
-
-        inl bck_b k q (a,b) =
-            inl u = b - a
-            inl d = q - if u < zero then one else zero
-            if k = zero then d
-            else L' k u * abs d
-
-        inl bck_a k q (a,b) = -(bck_b k q (a,b))
-
-        {fwd bck_a bck_b}
-
-    /// Though it say qr, this instance of it is just the mean function.
-    /// Is here so it can be put in through the gradient checker.
-    inl hubert_qr k =
-        error {
-            fwd = HQR.fwd k half
-            bck = 
-                inl x _ -> HQR.bck_a k half x
-                ,inl x _ -> HQR.bck_b k half x
-            }
-
-    inl Error = {square sigmoid_cross_entropy softmax_cross_entropy hubert_qr} |> stackify
+    inl Error = {square sigmoid_cross_entropy softmax_cross_entropy} |> stackify
 
     // #Initializer
     inl Initializer = 
@@ -547,56 +506,6 @@ inl float ->
             finally=inl state -> state.unwrap
             }
 
-    inl grad_check train {network} = 
-        function
-        | .unwrap -> 0.0
-        | data s {on_fail on_succ} ->
-            inl rec perturb cost primal adjoint =
-                inl epsilon = to float 0.001
-                inl boundary = to float 0.001
-
-                assert (primal.dim = adjoint.dim) "Dimensions must be equal."
-                match primal.dim with
-                | {from near_to} :: _ ->
-                    Loops.for {from near_to body=inl {i} ->
-                        perturb cost (primal i) (adjoint i)
-                        }
-                | _ -> 
-                    inl orig = s.CudaTensor.get primal
-                    s.CudaTensor.set primal (orig + epsilon)
-                    inl cost_plus_epsilon = cost ()
-                    s.CudaTensor.set primal(orig - epsilon)
-                    inl cost_minus_epsilon = cost ()
-                    s.CudaTensor.set primal orig
-                    inl approx_gradient = to float (cost_plus_epsilon - cost_minus_epsilon) / (two * epsilon)
-
-                    inl true_gradient = s.CudaTensor.get adjoint
-                
-                    inl diff = abs (true_gradient - approx_gradient)
-                    if diff >= boundary then
-                        Console.writeline {true_gradient approx_gradient diff}
-                        Console.writeline "--- Gradient checking failure."
-
-            train {network optimizer=inl _ _ -> ()} data s {
-                on_fail
-                on_succ=inl state ->
-                    s.RegionMem.clear 
-                    inl body = train {network}
-                    inl data = Struct.map (inl x -> x.round_split 1) data
-
-                    layer_map (function
-                        | {weights stream} -> error_type "Gradient checking is not supported with the wave iteration."
-                        | {weights} -> 
-                            weights ()
-                            |> Struct.iter (inl {primal adjoint} ->
-                                inl cost _ = for {data body} s
-                                perturb cost primal adjoint
-                                )
-                        | _ -> ()
-                        ) network |> ignore
-                    on_succ state
-                }
-
     // #Layers
     inl gid _ = .(to string !GID())
     inl layer d = {d with gid=gid(); block=()}
@@ -664,7 +573,7 @@ inl float ->
                 }
         }
 
-    inl sample temp sublayer =
+    inl sampling temp sublayer =
         non_differentiable
             {
             sublayer
@@ -672,7 +581,7 @@ inl float ->
             size = 1
             }
 
-    inl Layer = {layer input stateless non_differentiable feedforward recurrent parallel error accuracy encode sample} |> module_map (const stack)
+    inl Layer = {layer input stateless non_differentiable feedforward recurrent parallel error accuracy encode sampling} |> module_map (const stack)
 
     // #Feedforward
     inl layer initializer activation size sublayer =
@@ -691,126 +600,6 @@ inl float ->
     inl relu = layer Initializer.relu relu
     inl tanh = layer Initializer.tanh tanh
     inl linear = layer Initializer.sigmoid succ
-
-    inl layer_norm =
-        inl fwd o i s =
-            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.mapi_d1_seq_broadcast {
-                seq = 
-                    {
-                    redo=(+)
-                    map_out=inl i sum -> i - sum / n
-                    }
-                    ,
-                    {
-                    map_in=inl v -> v*v
-                    redo=(+)
-                    map_out=inl v vv -> v / sqrt (o*o + vv / n)
-                    }
-                } (primal i)
-
-        inl bck o r i s =
-            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.mapi_d1_seq_broadcast' {
-                seq = 
-                    {
-                    map_in=inl dr,i -> i
-                    redo=(+)
-                    map_out=inl dr,i sum -> dr, i - sum / n
-                    }
-                    ,
-                    {
-                    map_in=inl dr,v -> v*v
-                    redo=(+)
-                    map_out=inl dr,v vv -> dr,v,sqrt (o*o + vv / n)
-                    }
-                    ,
-                    {
-                    map_in=inl dr,v,norm -> -dr * v / (norm * norm)
-                    redo=(+)
-                    map_out=inl dr,v,norm bot -> 
-                        inl top = dr / norm
-                        inl bot = (bot * v) / (norm * n)
-                        top + bot
-                    }
-                    ,
-                    {
-                    redo=(+)
-                    map_out=inl dv dv_sum adjoint -> adjoint + dv - dv_sum / n
-                    }
-                } (adjoint r, primal i) (adjoint i)
-
-        inl o i s ->
-            inl r = fwd o i s |> dr s
-            r, inl _ -> bck o r i s
-
-    /// Layer normalization fused with the relu activation.
-    inl layer_norm_relu =
-        inl fwd o i s =
-            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.mapi_d1_seq_broadcast {
-                seq = 
-                    {
-                    redo=(+)
-                    map_out=inl i sum -> i - sum / n
-                    }
-                    ,
-                    {
-                    map_in=inl v -> v*v
-                    redo=(+)
-                    map_out=inl v vv -> v / sqrt (o*o + vv / n) |> relu_fwd
-                    }
-                } (primal i)
-
-        inl bck o r i s =
-            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.mapi_d1_seq_broadcast' {
-                seq = 
-                    {
-                    map_in=inl dr,i -> i
-                    redo=(+)
-                    map_out=inl dr,i sum -> dr, i - sum / n
-                    }
-                    ,
-                    {
-                    map_in=inl dr,v -> v*v
-                    redo=(+)
-                    map_out=inl dr,v vv -> (if v > zero then dr else zero),v,sqrt (o*o + vv / n)
-                    }
-                    ,
-                    {
-                    map_in=inl dr,v,norm -> -dr * v / (norm * norm)
-                    redo=(+)
-                    map_out=inl dr,v,norm bot -> 
-                        inl top = dr / norm
-                        inl bot = (bot * v) / (norm * n)
-                        top + bot
-                    }
-                    ,
-                    {
-                    redo=(+)
-                    map_out=inl dv dv_sum adjoint -> adjoint + dv - dv_sum / n
-                    }
-                } (adjoint r, primal i) (adjoint i)
-
-        stack inl o i s ->
-            inl r = fwd o i s |> dr s
-            r, inl _ -> bck o r i s
-
-    // The feedforward layer with layer norm.
-    inl ln o size sublayer =
-        feedforward
-            {
-            size sublayer
-            weights = inl s -> 
-                {
-                input = Initializer.relu (sublayer.size, size) s |> dr s
-                bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-                } |> heap
-            apply = inl weights input -> 
-                matmultb (input, weights.input) weights.bias 
-                >>= layer_norm_relu o 
-            }
 
     inl Pass =
         inl train {d with network} =
@@ -853,288 +642,18 @@ inl float ->
 
         inl Body = 
             {
-            train test grad_check=grad_check train
+            train test
             }
        
         {for Body} |> stackify
 
     inl Feedforward = 
         {
-        Layer={Layer with init layer sigmoid tanh relu linear highway ln} |> stackify
+        Layer={Layer with init layer sigmoid tanh relu linear } |> stackify
         Pass
         } |> stack
     
-    // #Recurrent
-    /// The standard recurrent layer.
-    inl layer initializer activation size sublayer =
-        recurrent 
-            {
-            size sublayer
-            weights = inl s -> 
-                {
-                input = initializer (sublayer.size, size) s |> dr s
-                state = initializer (size, size) s |> dr s
-                bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-                } |> heap
-            apply = inl weights state input -> 
-                match state with
-                | () -> matmultb (input, weights.input) weights.bias >>= activation
-                | state -> matmultb ((input, weights.input), (state, weights.state)) weights.bias >>= activation
-                >>= inl x -> succ (x,x)
-            }
-
-    inl sigmoid = layer Initializer.sigmoid Activation.sigmoid
-    inl linear = layer Initializer.sigmoid succ
-
-    inl bias0 s size = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-    inl bias s size init = 
-        inl x = s.CudaTensor.create {elem_type=float; dim=size} 
-        join s.CudaTensor.mmap (const (dyn init)) x
-        dr s x
-
-    /// The multiplicative integration RNN.
-    inl mi size sublayer = 
-        recurrent 
-            {
-            size sublayer
-            weights = inl s ->
-                open Initializer
-                {
-                input = tanh (sublayer.size, size) s |> dr s
-                state = tanh (size, size) s |> dr s
-                b1 = bias s size one
-                b2 = bias s size half
-                b3 = bias s size half
-                b4 = bias0 s size
-                } |> heap
-
-            apply = inl {b1 b2 b3 b4 input state} s i ->
-                inl fwd = tanh_fwd
-                inl bck = tanh_bck
-                match s with
-                | () ->
-                    inm i = matmult (i, input)
-                    d2_replicate_activation {
-                        fwd=inl (b3,b4) i -> b3*i + b4 |> fwd
-                        bck_in=inl (b3,b4) i out -> (i, one) |> Tuple.map ((*) (bck out))
-                        bck_in'=inl (b3,b4) i out -> b3 * bck out
-                        } (b3,b4) i
-                | _ ->
-                    inm i = matmult (i, input)
-                    inm s = matmult (s, state)
-                    d2_replicate_activation {
-                        fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4 |> fwd
-                        bck_in=inl (b1,b2,b3,b4) (i,s) out -> (i*s, s, i, one) |> Tuple.map ((*) (bck out))
-                        bck_in'=inl (b1,b2,b3,b4) (i,s) out -> (b1*s+b3, b1*i+b2) |> Tuple.map ((*) (bck out))
-                        } (b1,b2,b3,b4) (i,s)
-                >>= inl x -> succ (x,x)
-            }
-
-    /// Map + layer normalization + relu
-    inl map_ln_relu {fwd bck_in bck_in'} =
-        inl n bias i = 
-            inl a,b = Struct.map (inl o -> {o without block}) i |> HostTensor.zip |> inl x -> x.dim
-            Struct.iter (inl {primal adjoint} ->
-                inl f x = 
-                    inl b' :: () = x.dim
-                    assert (b' = b) "The bias has to have a dimension equal to the input"
-                f primal; f adjoint
-                ) bias
-            HostTensor.span b |> to float
-
-        inl fwd' o b i w =
-            inl n = n b i
-            inl b = Struct.map (inl {primal} -> to_dev_tensor primal) b
-            w.CudaKernel.mapi_d1_seq_broadcast {
-                mapi_in=inl j i' i -> Struct.map (inl x -> x i' .get) b |> inl b -> fwd b i
-                seq = 
-                    {
-                    redo=(+)
-                    map_out=inl i sum -> i - sum / n
-                    }
-                    ,
-                    {
-                    map_in=inl v -> v*v
-                    redo=(+)
-                    map_out=inl v vv -> v / sqrt (o*o + vv / n) |> relu_fwd
-                    }
-                } (Struct.map primal i)
-
-        inl bck' o r b i w =
-            inl n = n b i
-            inl b_primals = Struct.map (inl {primal} -> to_dev_tensor primal) b
-            inl b_adjoints = Struct.map (inl {adjoint} -> to_dev_tensor adjoint) b
-            w.CudaKernel.mapi_d1_seq_broadcast' {
-                mapi_in=inl j i' (dr,i) -> 
-                    inl b_primals = Struct.map (inl x -> x i' .get) b_primals
-                    stack {b_primals i}, dr, fwd b_primals i
-                seq = 
-                    {
-                    map_in=inl bis,dr,i -> i
-                    redo=(+)
-                    map_out=inl bis,dr,i sum -> bis, dr, i - sum / n
-                    }
-                    ,
-                    {
-                    map_in=inl bis,dr,v -> v*v
-                    redo=(+)
-                    map_out=inl bis,dr,v vv -> bis,(if v > zero then dr else zero),v,sqrt (o*o + vv / n)
-                    }
-                    ,
-                    {
-                    map_in=inl bis,dr,v,norm -> -dr * v / (norm * norm)
-                    redo=(+)
-                    map_out=inl bis,dr,v,norm bot -> 
-                        inl top = dr / norm
-                        inl bot = (bot * v) / (norm * n)
-                        bis,top + bot
-                    }
-                    ,
-                    {
-                    map_in=snd
-                    redo=(+)
-                    mapi_out=inl _ i' {b_primals i},dv dv_sum is_adjoints -> 
-                        inl dx = dv - dv_sum / n
-
-                        bck_in b_primals i
-                        |> Struct.map ((*) dx)
-                        // Note: The atomics make training non-deterministic.
-                        |> Struct.iter2 (inl a -> atomic_add (a i')) b_adjoints
-
-                        bck_in' b_primals i
-                        |> Struct.map ((*) dx)
-                        |> Struct.map2 (+) is_adjoints
-                    }
-                } (adjoint r, Struct.map primal i) (Struct.map adjoint i)
-
-        inl o b i s ->
-            inl r = fwd' o b i s |> dr s
-            r, inl _ -> bck' o r b i s
-
-    /// The multiplicative integration RNN with layer norm from the 'Normalizing the Normalizers' paper.
-    inl miln o size sublayer = 
-        recurrent 
-            {
-            size sublayer
-            weights = inl s ->
-                open Initializer
-                {
-                input = relu (sublayer.size, size) s |> dr s
-                state = relu (size, size) s |> dr s
-                b1 = bias s size one
-                b2 = bias s size half
-                b3 = bias s size half
-                b4 = bias0 s size
-                } |> heap
-
-            apply = inl {b1 b2 b3 b4 input state} s i ->
-                match s with
-                | () ->
-                    inm i = matmult (i, input)
-                    map_ln_relu {
-                        fwd=inl (b3,b4) i -> b3*i + b4 
-                        bck_in=inl (b3,b4) i -> (i, one) 
-                        bck_in'=inl (b3,b4) i -> b3 
-                        } o (b3,b4) i
-                | _ ->
-                    inm i = matmult (i, input)
-                    inm s = matmult (s, state)
-                    map_ln_relu {
-                        fwd=inl (b1,b2,b3,b4) (i,s) -> b1*i*s + b2*s + b3*i + b4
-                        bck_in=inl (b1,b2,b3,b4) (i,s) -> (i*s, s, i, one) 
-                        bck_in'=inl (b1,b2,b3,b4) (i,s) -> (b1*s+b3, b1*i+b2)
-                        } o (b1,b2,b3,b4) (i,s)
-                >>= inl x -> succ (x,x)
-            }
-
-
-    inl prune_state state s =
-        inl s = s.RegionMem.create
-        inl f primal = primal.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)
-        inl state = Struct.map (inl {primal} | primal -> f primal) state
-        inl region_clear _ = s.RegionMem.clear        
-        state, region_clear
-
-    inl Body =
-        inl train {d with network} =
-            inl rec loop c cost' (state, region_clear) =
-                function
-                | .unwrap -> region_clear(); cost' / to float64 c
-                | input s {on_fail on_succ} ->
-                    inl {from near_to} = outer input
-                    Loops.foru {
-                        from near_to
-                        state=const zero, {state bck=const ()}
-                        body=inl {state=cost',d i} ->
-                            inl input = Struct.map ((|>) i) input
-                            
-                            inl cost, d = run network {d with input} s
-
-                            inl bck = term_cast d.bck ()
-                            inl get = s.CudaTensor.get
-                            inl cost _ = cost'() + get cost
-                            term_cast cost (), {d with bck without input}
-                        finally=inl cost, {bck state} ->
-                            inl cost' = cost' + to float64 (cost ())
-                            inl state = loop (c+1) cost' (prune_state state s)
-
-                            if nan_is cost' then 
-                                region_clear()
-                                on_fail state
-                            else
-                                match d with
-                                | {optimizer} ->
-                                    bck()
-                                    join optimize network optimizer s
-                                | _ -> ()
-                                region_clear()
-                                on_succ state
-                        }
-            loop (dyn 0) (dyn 0.0) ({}, const ())
-        {
-        train grad_check=grad_check train
-        } |> stackify
-
-    inl sample' temp near_to network input s =
-        Loops.foru {
-            from=0; near_to 
-            state=(), {}, const (), input
-            body=inl {state=buffer,state,region_clear,input i} ->
-                s.refresh
-                inb s = s.RegionMem.create'
-                inl input,{state} = run (sample temp network) {input={input}; bck=const (); state} s
-                inl input_host = to_host_tensor input |> stack
-                inl buffer =
-                    match buffer with
-                    | () -> ResizeArray.create {elem_type=input_host}
-                    | _ -> buffer
-                buffer.add input_host
-                
-                inl (input, state), region_clear' = prune_state (input, state) s
-                region_clear()
-                buffer, state, region_clear', input
-            finally=inl buffer,state,region_clear, input ->
-                region_clear()
-                buffer
-            }
-
-    inl sample temp near_to body x s =
-        inb s = s.RegionMem.create'
-        inl input = s.CudaTensor.create {elem_type=int64; dim=1}
-        s.CudaTensor.set (input 0) (to int64 x)
-        inl r = sample' temp near_to body input s
-        Console.writeline "Sample:"
-        r.iter (inl x -> Console.write (x 0 .get |> to char))
-        Console.writeline ()
-        Console.writeline "-----"
-
-    inl Recurrent = 
-        {
-        Layer = {Layer with init init_parallel layer sigmoid linear lstm mi miln} |> stackify
-        Pass = {for sample Body} |> stackify
-        } |> stackify
-
     { 
-    dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward Recurrent
+    dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error Layer Combinator Feedforward
     }
     """) |> module_
