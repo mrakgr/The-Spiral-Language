@@ -2,7 +2,9 @@
 
 open Spiral.Types
 open Spiral.Lib
-open Learning.Module
+open Learning
+open Learning.Main
+open Learning.Main.Lib
 
 let dictionary =
     (
