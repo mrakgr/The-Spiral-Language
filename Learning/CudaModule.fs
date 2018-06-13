@@ -519,6 +519,11 @@ met to_host_array s (!dyn span) (!dyn {src with ar offset size}) =
 met from_host_array s (!dyn span) (!dyn {src with ar offset size}) =
     copy s span {array_create=array_create_cuda_global s; ptr_get=ptr_cuda} {src with ptr_get=ptr_dotnet}
 
+/// For interfacing with Cuda APIs.
+met from_cudadevptr_array s ar =
+    inl dst = copy s (array_length ar) {array_create=array_create_cuda_global s; ptr_get=ptr_cuda} {ar size=(); offset=0; ptr_get=ptr_dotnet}
+    CUdeviceptr dst.ptr.Try
+
 inl get_elem s {src with size=()} = to_host_array s 1 src 0
 
 met set_elem s (!dyn {dst with size=()}) (!dyn v) =
@@ -531,7 +536,7 @@ inl methods =
     create=inl s data -> create {data with array_create = array_create_cuda_global s}
     create_like=inl s tns -> s.CudaTensor.create {elem_type=tns.elem_type; dim=tns.dim}
 
-    to_host_array from_host_array
+    to_host_array from_host_array from_cudadevptr_array
 
     get=inl s tns ->
         match tns.unwrap with
@@ -689,18 +694,13 @@ inl s ret ->
         inl handle = FS.Method cublas .get_CublasHandle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
         FS.Method cublas .set_Stream stream.extract ()
         inl args = 
-            inl strip ptr = (to_dev_tensor ptr).bodies.ar |> CUdeviceptr
+            inl strip ptr = (to_dev_tensor ptr).bodies.ar
             Tuple.map (function
                 | x : float64 | x : float32 -> ref x
                 | x : int64 -> to int32 x
                 | .nT | .T as x -> to_operation x
-                | {ptr} -> strip ptr
-                | {ptr_ar} -> 
-                    
-                    //inl x = Array.map strip ptr_ar |> s.CudaTensor.from_host_array
-                    //print_static x.unwrap
-                    //qwe
-                    //x
+                | {ptr} -> strip ptr |> CUdeviceptr
+                | {ptr_ar} -> Array.map strip ptr_ar |> s.CudaTensor.from_cudadevptr_array
                 | x -> x
                 ) args
         inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
@@ -739,7 +739,7 @@ inl s ret ->
         assert (eq_type info.elem_type int32) "The info array must be of type int32."
         assert (batch_size > 0) "A, Ainv and info must have at least one element."
         assert (batch_size = array_length Ainv) "A and Ainv arrays must have the same size."
-        assert (batch_size = array_length info) "A and info arrays must have the same size."
+        assert (batch_size = info.span_outer) "A and info arrays must have the same size."
         inl n_size x =
             inl assert_dim x =
                 match x.dim with
@@ -767,7 +767,7 @@ inl s ret ->
         assert (n = n') "The two arrays must have tensors of equal dimension."
                 
         // TODO: Adapt it for other float types.
-        call s .cublasSmatinvBatched (n,{ptr_ar=A},lda,{ptr_ar=Ainv},lda_inv,info,batch_size)
+        call s .cublasSmatinvBatched (n,{ptr_ar=A},lda,{ptr_ar=Ainv},lda_inv,{ptr=info},batch_size)
 
     /// Inverts the matrices of the (3d tensor | 2d tensor array) A.
     inl matinv_batched s A ret =
@@ -776,7 +776,7 @@ inl s ret ->
             | @array_is _ ->
                 inl batch_size = array_length A
                 inl Ainv = Array.map (stack << s.CudaTensor.create_like) A
-                inl info = array_create int32 batch_size
+                inl info = s.CudaTensor.create {elem_type=int32; dim=batch_size}
                 matinv_batched' s A Ainv info
                 (Ainv, info) |> ret |> stack
             | _ ->
@@ -785,14 +785,15 @@ inl s ret ->
                     | a,b,c -> HostTensor.span a
                     | _ -> error_type "The tensor A needs to be 3d."
                 inl Ainv = s.CudaTensor.create_like A
-                inl info = array_create int32 batch_size
+                inl info = s.CudaTensor.create {elem_type=int32; dim=batch_size}
                 inl f x = Array.init batch_size (stack << x)
                 matinv_batched' s (f A) (f Ainv) info
                 (Ainv, info) |> ret |> stack
 
     inl matinv_batch_asserted s A = 
         matinv_batched s A (inl Ainv, info ->
-            Array.iter (inl x -> assert (x = 0i32) "The matrix inversion failed.") info
+            inl r = s.CudaKernel.map_redo_map {redo=(+); neutral_elem=0i32} info
+            assert (s.CudaTensor.get r = 0i32) "The matrix inversion failed."
             Ainv
             )
 
