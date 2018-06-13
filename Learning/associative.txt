@@ -3180,7 +3180,7 @@ inl float ->
                 inl x_a = to_dev_tensor (adjoint x)
                 inl p = to_dev_tensor p
                 inl a = to_dev_tensor a
-                s.CudaKernel.iter () (inl j ->
+                s.CudaKernel.iter {dim=dim_a, dim_b} (inl j ->
                     inl x_a = x_a j
                     inl p = p j
                     inl a = a j .get
@@ -3190,7 +3190,7 @@ inl float ->
                         inl x_a = x_a i
                         inl label = if a = i then one else zero
                         x_a.set (x_a.get + (p - label) * reward / batch_size) 
-                    ) (dim_a, dim_b)
+                    ) 
 
         inl associative_pg x s =
             inl dim_a, dim_b = primal x .dim
@@ -3209,7 +3209,7 @@ inl float ->
                 inl a = to_dev_tensor a
                 s.CudaTensor.print assoc
                 inl assoc = to_dev_tensor assoc
-                s.CudaKernel.iter () (inl j ->
+                s.CudaKernel.iter {dim=dim_a, dim_b} (inl j ->
                     inl x_a = x_a j
                     inl p = p j
                     inl a = a j .get
@@ -3221,7 +3221,7 @@ inl float ->
                         inl label = if a = i then one else zero
                         inl assoc = if a = i then assoc.get else zero
                         x_a.set (x_a.get + assoc + (p - label) * reward / batch_size) 
-                    ) (dim_a, dim_b)
+                    )
 
         {
         sampling_pg

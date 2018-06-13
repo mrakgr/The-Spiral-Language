@@ -25,7 +25,7 @@
                 inl x_a = to_dev_tensor (adjoint x)
                 inl p = to_dev_tensor p
                 inl a = to_dev_tensor a
-                s.CudaKernel.iter () (inl j ->
+                s.CudaKernel.iter {dim=dim_a, dim_b} (inl j ->
                     inl x_a = x_a j
                     inl p = p j
                     inl a = a j .get
@@ -35,7 +35,7 @@
                         inl x_a = x_a i
                         inl label = if a = i then one else zero
                         x_a.set (x_a.get + (p - label) * reward / batch_size) 
-                    ) (dim_a, dim_b)
+                    )
 
         {
         greedy_pg = pg reduce_actions
@@ -51,11 +51,11 @@
                 inl batch_size = to float batch_size
                 inl reward = to float reward
                 inl v,a,x = Tuple.map to_dev_tensor (v,a,adjoint x)
-                s.CudaKernel.iter () (inl j ->
+                s.CudaKernel.iter {dim=dim_a} (inl j ->
                     inl a, v = Tuple.map (inl x -> x j .get) (a, v)
                     inl x = x j a
                     x.set (x.get + square_bck (v, reward) / batch_size)
-                    ) dim_a
+                    ) 
 
         sampling_square = inl temp x s ->
             inl dim_a, dim_b = primal x .dim
@@ -69,12 +69,12 @@
                 inl batch_size = to float batch_size
                 inl reward = to float reward
                 inl a,x_p,x_a = Tuple.map to_dev_tensor (a,primal x,adjoint x)
-                s.CudaKernel.iter () (inl j ->
+                s.CudaKernel.iter {dim=dim_a} (inl j ->
                     inl a = a j .get
                     inl x_p,x_a = Tuple.map (inl x -> x j a) (x_p,x_a)
                     inl v = x_p.get
                     x_a.set (x_a.get + square_bck (v, reward) / batch_size)
-                    ) dim_a
+                    ) 
         }
 
     inl RL =

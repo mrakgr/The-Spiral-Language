@@ -431,7 +431,7 @@ inb s = CudaModules (1024*1024)
 inl x = s.CudaTensor.create {elem_type=int64,int64,int64; dim=2,2,128}
 inl _ = 
     inl x = CudaAux.to_dev_tensor x
-    s.CudaKernel.iter {rev_thread_limit=32} (inl a b c -> x a b c .set (a, b, c)) x.dim
+    s.CudaKernel.iter {rev_thread_limit=32; dim=x.dim} (inl a b c -> x a b c .set (a, b, c))
 s.CudaTensor.print x
     """
 

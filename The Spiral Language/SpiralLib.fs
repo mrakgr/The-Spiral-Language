@@ -1587,7 +1587,7 @@ inl from_scalar x =
 
 {
 create facade init copy assert_size array_as_tensor array_to_tensor map zip show print
-span equal split flatten assert_contiguous assert_dim reshape unzip from_scalar
+span equal split flatten assert_contiguous assert_dim reshape unzip from_scalar map_dim map_dims
 } |> stackify
     """) |> module_
 

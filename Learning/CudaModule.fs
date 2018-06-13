@@ -733,10 +733,12 @@ inl s ret ->
             gemm' s transa transb alpha A B (to alpha 0) C
             stack C
 
-    /// cuda -> 2d float32 tensor array -> 2d float32 tensor array -> int32 array -> unit
+    /// cuda -> 2d float32 cuda_tensor array -> 2d float32 cuda_tensor array -> 1d int32 cuda_tensor -> unit
     met matinv_batched_array' s A Ainv info =
         inl batch_size = array_length A
-        assert (eq_type info.elem_type int32) "The info array must be of type int32."
+        assert (eq_type A.elem_type.elem_type float32) "The A tensor must be of type float32."
+        assert (eq_type Ainv.elem_type.elem_type float32) "The Ainv tensor must be of type float32."
+        assert (eq_type info.elem_type int32) "The info tensor must be of type int32."
         assert (batch_size > 0) "A, Ainv and info must have at least one element."
         assert (batch_size = array_length Ainv) "A and Ainv arrays must have the same size."
         assert (batch_size = info.span_outer) "A and info arrays must have the same size."
@@ -769,25 +771,63 @@ inl s ret ->
         // TODO: Adapt it for other float types.
         call s .cublasSmatinvBatched (n,{ptr_ar=A},lda,{ptr_ar=Ainv},lda_inv,{ptr=info},batch_size)
 
-    /// Inverts the matrices of the (3d tensor | 2d tensor array) A.
-    inl matinv_batched_array s A ret =
+    /// cuda -> 1d uint64 tensor -> 1d uint64 tensor -> 1d int32 cuda_tensor -> unit
+    met matinv_batched' s n A lda Ainv lda_inv info batch_size =
+        assert (eq_type A.elem_type uint64) "The A tensor must be of type uint64."
+        assert (eq_type Ainv.elem_type uint64) "The Ainv tensor must be of type uint64."
+        assert (eq_type info.elem_type int32) "The info tensor must be of type int32."
+
+        inl a :: () = A.dim
+        inl b :: () = Ainv.dim
+        inl c :: () = info.dim
+
+        assert (batch_size = HostTensor.span a) "A must be equal to batch size."
+        assert (batch_size = HostTensor.span b) "Ainv must be equal to batch size."
+        assert (batch_size = HostTensor.span c) "info must be equal to batch size."
+
+        // TODO: Adapt it for other float types.
+        call s .cublasSmatinvBatched (n,{ptr=A},lda,{ptr=Ainv},lda_inv,{ptr=info},batch_size)
+
+    /// Inverts the matrices of the (3d cuda_tensor | 2d cuda_tensor array) A.
+    inl matinv_batched s A ret =
         indiv join
             match A with
             | @array_is _ ->
                 inl batch_size = array_length A
                 inl Ainv = Array.map (stack << s.CudaTensor.create_like) A
                 inl info = s.CudaTensor.create {elem_type=int32; dim=batch_size}
-                matinv_batched' s A Ainv info
+                matinv_batched_array' s A Ainv info
                 (Ainv, info) |> ret |> stack
             | _ ->
-                inl batch_size =
+                inl batch_size, n =
                     match A.dim with
-                    | a,b,c -> HostTensor.span a
+                    | a,b,c ->  
+                        inl s = HostTensor.span
+                        inl n = s b
+                        assert (n = s c) "The (sub)matrix needs to be square."
+                        s a, n
                     | _ -> error_type "The tensor A needs to be 3d."
+
+                inl ld x = 
+                    inl x = x 0
+                    assert_contiguous x
+                    ld x
+
+                assert (eq_type a.elem_type float32) "Only float32 matrices can be inverted for now."
+                inl lda = ld A
                 inl Ainv = s.CudaTensor.create_like A
+                inl lda_inv = ld Ainv
                 inl info = s.CudaTensor.create {elem_type=int32; dim=batch_size}
-                inl f x = Array.init batch_size (stack << x)
-                matinv_batched' s (f A) (f Ainv) info
+                inl f x = 
+                    inl a = s.CudaTensor.create {elem_type=uint64; dim=batch_size}
+                    inl _ = 
+                        inl a,x = Tuple.map CudaAux.to_dev_tensor (a,x)
+                        inl address_at o =
+                            inl (),{ar offset} = o.dim, o.bodies
+                            macro.cd uint64 [text: "(unsigned long long) "; arg: ar; text: " + "; arg: offset]
+                        s.CudaKernel.iter {dim=batch_size} (inl i -> a i .set (address_at (x i 0 0)))
+                    a
+                matinv_batched' s n (f A) lda (f Ainv) lda_inv info batch_size
                 (Ainv, info) |> ret |> stack
 
     inl matinv_batch_asserted s A = 
@@ -797,7 +837,7 @@ inl s ret ->
             Ainv
             )
 
-    ret <| s.module_add .CudaBlas {gemm' gemm matinv_batched' matinv_batched matinv_batch_asserted}
+    ret <| s.module_add .CudaBlas {gemm' gemm matinv_batched matinv_batch_asserted}
     """) |> module_
 
 let cuda_kernel =
@@ -1854,7 +1894,8 @@ inl mapi_d1_inscan_mapi_d1_reduce_mapi w d in in' =
 
 /// Iterates over the dimensions.
 /// Takes in the optional {thread_limit} or {rev_thread_limit} as the first argument in order to control the degree of parallelism.
-met iter w d f (!(Tuple.wrap) dim) =
+met iter w {d with dim} f =
+    inl dim = HostTensor.map_dims dim
     inl rec merge = function
         | thread_limit :: l', dim :: d' -> {dim thread_limit=min thread_limit (s dim)} :: merge (l', d')
         | (), d' -> Tuple.map (inl dim -> {dim thread_limit=()}) d'
@@ -1891,7 +1932,7 @@ met init' w d f out =
     inl dim = out.dim
     inl f = loop f out (type dim)
 
-    iter w d f dim
+    iter w {d with dim} f
 
 inl init w {d with dim} f =
     indiv join

@@ -19,12 +19,12 @@
                     inl v, prev_v, prev_a = Tuple.map (s.CudaTensor.to_dev_tensor >> inl x j -> x j .get) (v, prev_v, prev_a)
                     inl prev_x_a = s.CudaTensor.to_dev_tensor prev_x_a
                     inl reward = to float reward
-                    s.CudaKernel.iter () (inl j ->
+                    s.CudaKernel.iter {dim=dim_a} (inl j ->
                         inl span_a = HostTensor.span dim_a |> to float
                         inl v, prev_v, prev_a = Tuple.map (inl x -> x j) (v, prev_v, prev_a)
                         inl prev_x_a = prev_x_a j prev_a
                         prev_x_a.set (prev_x_a.get + square_bck (prev_v, v + reward) / span_a)
-                        ) dim_a
+                        ) 
 
         greedy_qr = inl prev x s ->
             inl x_p = primal x
@@ -52,7 +52,7 @@
                     inl reward = to float reward
                     
                     // Note: Not optimized yet.
-                    s.CudaKernel.iter () (inl k ->
+                    s.CudaKernel.iter {dim=dim_a, dim_c, dim_c} (inl k ->
                         inl span_a, span_c = Tuple.map (HostTensor.span >> to float) (dim_a, dim_c)
                         inl prev_a, prev_x_p, prev_x_a, x_p, a = Struct.map (inl x -> x k) (prev_a, prev_x_p, prev_x_a, x_p, a)
                         inl x_p = x_p a
@@ -63,7 +63,7 @@
                         inl j ->
                         inl prev_x_p, prev_x_a = Struct.map (inl x -> x j) (prev_x_p, prev_x_a)
                         prev_x_a.set (prev_x_a.get + HQR.bck_a one quantile (prev_x_p.get, x_p + reward) / (span_c * span_a))
-                        ) (dim_a, dim_c, dim_c)
+                        ) 
         }
 
     inl RL = 

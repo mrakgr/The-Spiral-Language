@@ -10,11 +10,11 @@
 
         inl greedy_square_bck_template x v a s = inl (reward: float64) ->
                 inl reward = to float reward
-                s.CudaKernel.iter () (inl j ->
+                s.CudaKernel.iter {dim=fst x.dim} (inl j ->
                     inl a, v = Tuple.map (inl x -> x j) (a, v)
                     inl x = x j a
                     x.set (x.get + square_bck (v, reward))
-                    ) (fst x.dim)
+                    )
 
         inl greedy_square_bck x v a s = inl (reward: float64) ->
             inl a, x, v = Tuple.map s.CudaTensor.to_dev_tensor (a, adjoint x, v)
@@ -57,14 +57,14 @@
                 inl reward = to float reward
                 inl a, x_a, x_p = Tuple.map s.CudaTensor.to_dev_tensor (a, adjoint x, primal x)
 
-                s.CudaKernel.iter () (inl j ->
+                s.CudaKernel.iter {dim=dim_a,dim_c} (inl j ->
                     inl a = a j .get
                     inl x_a, x_p = Tuple.map (inl x -> x j a) (x_a, x_p)
                     inl i ->
                         inl x_a, x_p = Tuple.map (inl x -> x i) (x_a, x_p)
                         inl quantile = (to float i - to float 0.5) / dim_c'
                         x_a.set (x_a.get + HQR.bck_a k quantile (x_p.get, reward))
-                    ) (dim_a,dim_c)
+                    )
 
         greedy_kl = inl x s ->
             inl dim_a,dim_b,dim_c as dim = (primal x).dim

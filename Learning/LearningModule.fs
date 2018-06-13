@@ -1294,7 +1294,7 @@ inl float ->
                 inl x_a = to_dev_tensor (adjoint x)
                 inl p = to_dev_tensor p
                 inl a = to_dev_tensor a
-                s.CudaKernel.iter () (inl j ->
+                s.CudaKernel.iter {dim=dim_a, dim_b} (inl j ->
                     inl x_a = x_a j
                     inl p = p j
                     inl a = a j .get
@@ -1304,7 +1304,7 @@ inl float ->
                         inl x_a = x_a i
                         inl label = if a = i then one else zero
                         x_a.set (x_a.get + (p - label) * reward / batch_size) 
-                    ) (dim_a, dim_b)
+                    )
 
         {
         sampling_pg
