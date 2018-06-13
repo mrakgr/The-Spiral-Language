@@ -729,9 +729,8 @@ inl s ret ->
             gemm' s transa transb alpha A B (to alpha 0) C
             stack C
 
-    ret <| s.module_add .CudaBlas {gemm' gemm}
-
-    met matinv_batched s A Ainv info =
+    /// cuda -> 2d float32 tensor array -> 2d float32 tensor array -> int32 array -> unit
+    met matinv_batched' s A Ainv info =
         inl batch_size = array_length A
         assert (eq_type info.elem_type int32) "The info array must be of type int32."
         assert (batch_size > 0) "A, Ainv and info must have at least one element."
@@ -766,6 +765,34 @@ inl s ret ->
         // TODO: Adapt it for other float types.
         call s .cublasSmatinvBatched (n,{ptr_ar=A},lda,{ptr_ar=Ainv},lda_inv,info,batch_size)
 
+    /// Inverts the matrices of the (3d tensor | 2d tensor array) A.
+    inl matinv_batched s A ret =
+        indiv join
+            match A with
+            | @array_is _ ->
+                inl batch_size = array_length A
+                inl Ainv = Array.map (stack << s.CudaTensor.create_like) A
+                inl info = array_create int32 batch_size
+                matinv_batched' s A Ainv info
+                (Ainv, info) |> ret |> stack
+            | _ ->
+                inl batch_size =
+                    match A.dim with
+                    | a,b,c -> HostTensor.span a
+                    | _ -> error_type "The tensor A needs to be 3d."
+                inl Ainv = s.CudaTensor.create_like A
+                inl info = array_create int32 batch_size
+                inl f x = Array.init batch_size (stack << x)
+                matinv_batched' s (f A) (f Ainv) info
+                (Ainv, info) |> ret |> stack
+
+    inl matinv_batch_asserted s A = 
+        matinv_batched s a (inl Ainv, info ->
+            Array.iter (inl x -> assert (x = 0) "The matrix inversion failed.") info
+            Ainv
+            )
+
+    ret <| s.module_add .CudaBlas {gemm' gemm matinv_batched' matinv_batched matinv_batch_asserted}
     """) |> module_
 
 let cuda_kernel =
