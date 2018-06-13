@@ -734,7 +734,7 @@ inl s ret ->
             stack C
 
     /// cuda -> 2d float32 tensor array -> 2d float32 tensor array -> int32 array -> unit
-    met matinv_batched' s A Ainv info =
+    met matinv_batched_array' s A Ainv info =
         inl batch_size = array_length A
         assert (eq_type info.elem_type int32) "The info array must be of type int32."
         assert (batch_size > 0) "A, Ainv and info must have at least one element."
@@ -770,7 +770,7 @@ inl s ret ->
         call s .cublasSmatinvBatched (n,{ptr_ar=A},lda,{ptr_ar=Ainv},lda_inv,{ptr=info},batch_size)
 
     /// Inverts the matrices of the (3d tensor | 2d tensor array) A.
-    inl matinv_batched s A ret =
+    inl matinv_batched_array s A ret =
         indiv join
             match A with
             | @array_is _ ->
