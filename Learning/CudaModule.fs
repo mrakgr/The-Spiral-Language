@@ -687,14 +687,16 @@ inl s ret ->
         inl stream = s.data.stream
         inl to_dev_tensor = CudaAux.to_dev_tensor
         inl to_dev_tensor x = assert_contiguous x; to_dev_tensor x
-        inl args = Tuple.map (function x : int64 -> to int32 x | x -> x) args
         inl handle = FS.Method cublas .get_CublasHandle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
         FS.Method cublas .set_Stream stream.extract ()
         inl args = 
-            Tuple.map (function 
+            inl strip ptr = (to_dev_tensor ptr).bodies.ar |> CUdeviceptr
+            Tuple.map (function
                 | x : float64 | x : float32 -> ref x
+                | x : int64 -> to int32 x
                 | .nT | .T as x -> to_operation x
-                | {ptr=!to_dev_tensor x} -> x.bodies.ar |> CUdeviceptr
+                | {ptr} -> strip ptr
+                | {ptr_ar} -> Array.map strip ptr_ar
                 | x -> x
                 ) args
         inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
@@ -714,7 +716,8 @@ inl s ret ->
         
         assert (m = rows C && n = cols C) "Output matrix dimensions do not match in GEMM."
 
-        // The arguments are switched in order to convert from column major (which CuBlas uses) to row major (which Spiral's tensor use)
+        // The arguments are switched in order to convert from column major (which CuBlas uses) to row major (which Spiral's tensors use)
+        // TODO: Adapt it for other float types.
         call s .cublasSgemm_v2(transb, transa, n, m, k, alpha, {ptr=B}, ld B, {ptr=A}, ld A, beta, {ptr=C}, ld C)
 
     inl gemm s transa transb alpha A B =
@@ -727,6 +730,42 @@ inl s ret ->
             stack C
 
     ret <| s.module_add .CudaBlas {gemm' gemm}
+
+    met matinv_batched s A Ainv info =
+        inl batch_size = array_length A
+        assert (eq_type info.elem_type int32) "The info array must be of type int32."
+        assert (batch_size > 0) "A, Ainv and info must have at least one element."
+        assert (batch_size = array_length Ainv) "A and Ainv arrays must have the same size."
+        assert (batch_size = array_length info) "A and info arrays must have the same size."
+        inl n_size x =
+            inl assert_dim x =
+                match x.dim with
+                | a, b -> 
+                    inl a = HostTensor.span a
+                    assert (a = HostTensor.span b) "The tensor must be a square matrix."
+                    a, ld x
+                | _ -> error_type "The tensor must have two dimensions."
+
+            inl n, size = assert_dim (x 0)
+
+            if lit_is size && lit_is n then ()
+            else 
+                Loops.for {from=1; near_to=batch_size; body=inl {i} ->
+                    inl n', size' = assert_dim (x i)
+                    assert (n = n') "The spans of all the tensors in the array must match."
+                    assert (size = size') "The leading dimensions of all the tensors in the array must match."
+                    }
+                
+            n, size
+
+        inl n,lda = ld A
+        inl n',lda_inv = ld Ainv
+
+        assert (n = n') "The two arrays must have tensors of equal dimension."
+                
+        // TODO: Adapt it for other float types.
+        call s .cublasSmatinvBatched (n,{ptr_ar=A},lda,{ptr_ar=Ainv},lda_inv,info,batch_size)
+
     """) |> module_
 
 let cuda_kernel =
