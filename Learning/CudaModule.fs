@@ -548,7 +548,6 @@ inl methods =
     from_host_tensors=inl s -> Struct.map s.CudaTensor.from_host_tensor
     to_host_tensor=inl s -> transfer_template s.CudaTensor.to_host_array
 
-
     clear=inl s tns ->
         assert_contiguous tns
         inl span = tns.span_outer
@@ -696,7 +695,12 @@ inl s ret ->
                 | x : int64 -> to int32 x
                 | .nT | .T as x -> to_operation x
                 | {ptr} -> strip ptr
-                | {ptr_ar} -> Array.map strip ptr_ar
+                | {ptr_ar} -> 
+                    
+                    //inl x = Array.map strip ptr_ar |> s.CudaTensor.from_host_array
+                    //print_static x.unwrap
+                    //qwe
+                    //x
                 | x -> x
                 ) args
         inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
@@ -757,8 +761,8 @@ inl s ret ->
                 
             n, size
 
-        inl n,lda = ld A
-        inl n',lda_inv = ld Ainv
+        inl n,lda = n_size A
+        inl n',lda_inv = n_size Ainv
 
         assert (n = n') "The two arrays must have tensors of equal dimension."
                 
@@ -787,8 +791,8 @@ inl s ret ->
                 (Ainv, info) |> ret |> stack
 
     inl matinv_batch_asserted s A = 
-        matinv_batched s a (inl Ainv, info ->
-            Array.iter (inl x -> assert (x = 0) "The matrix inversion failed.") info
+        matinv_batched s A (inl Ainv, info ->
+            Array.iter (inl x -> assert (x = 0i32) "The matrix inversion failed.") info
             Ainv
             )
 

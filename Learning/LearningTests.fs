@@ -125,6 +125,16 @@ inl o3 = s.CudaBlas.gemm .T .nT 1f32 a1 o1
 Tuple.iter s.CudaTensor.print (a1,a2,o1,o2,o3)
     """
 
+let blas2 =
+    "blas2",[cuda_modules],"Does the matinv_batched work?",
+    """
+inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+
+inl a = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=3f32} {elem_type=float32; dim=3,3,3}
+s.CudaBlas.matinv_batch_asserted a
+|> s.CudaTensor.print
+    """
+
 let kernel1 =
     "kernel1",[cuda_modules],"Does the map kernel work?",
     """
@@ -801,6 +811,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) learning9
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) blas2
 |> printfn "%s"
 |> ignore

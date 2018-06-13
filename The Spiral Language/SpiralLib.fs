@@ -535,7 +535,7 @@ inl foldr f ar state = for {from=array_length ar-1; down_to=0; state; body=inl {
 inl init = 
     inl body is_static n f =
         assert (n >= 0) "The input to init needs to be greater or equal to 0."
-        inl typ = type (f 0)
+        inl typ = type (f (dyn 0))
         inl ar = array_create typ n
         inl d = 
             inl d = {near_to=n; body=inl {i} -> ar i <- f i}
@@ -588,7 +588,11 @@ inl exists f ar = for' {from=0; near_to=array_length ar; state=false; body = inl
 inl sort ar = macro.fs ar [text: "Array.sort "; arg: ar]
 inl sort_descending ar = macro.fs ar [text: "Array.sortDescending "; arg: ar]
 
-{empty singleton foldl foldr init copy map filter append concat forall exists sort sort_descending}
+/// Applies the function to every element of the array.
+/// (a -> unit) -> a array -> unit
+inl iter f x = for {from=0; near_to=array_length x; body=inl {i} -> f (x i)}
+
+{empty singleton foldl foldr init copy map filter append concat forall exists sort sort_descending iter}
 |> stackify
     """) |> module_
 
