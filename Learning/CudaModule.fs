@@ -813,7 +813,7 @@ inl s ret ->
                     assert_contiguous x
                     ld x
 
-                assert (eq_type a.elem_type float32) "Only float32 matrices can be inverted for now."
+                assert (eq_type A.elem_type float32) "Only float32 matrices can be inverted for now."
                 inl lda = ld A
                 inl Ainv = s.CudaTensor.create_like A
                 inl lda_inv = ld Ainv
@@ -824,8 +824,9 @@ inl s ret ->
                         inl a,x = Tuple.map CudaAux.to_dev_tensor (a,x)
                         inl address_at o =
                             inl (),{ar offset} = o.dim, o.bodies
-                            macro.cd uint64 [text: "(unsigned long long) "; arg: ar; text: " + "; arg: offset]
+                            macro.cd uint64 [text: "(unsigned long long) ("; arg: ar; text: " + "; arg: offset; text: ")"]
                         s.CudaKernel.iter {dim=batch_size} (inl i -> a i .set (address_at (x i 0 0)))
+                    s.CudaTensor.print a
                     a
                 matinv_batched' s n (f A) lda (f Ainv) lda_inv info batch_size
                 (Ainv, info) |> ret |> stack
