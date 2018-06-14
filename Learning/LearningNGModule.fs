@@ -650,6 +650,8 @@ inl float ->
                                     inl I = if j = k then one else zero
                                     I + 1 / (o*o) * vtv j k .get
                             )
+
+                    // (I + 1 / o^2 * V^T V)^-1
                     inl i_oo_vtv_inv = s.CudaBlas.matinv_batched_asserted i_oo_vtv
                     
                     // d o^-2 * v / d o = -2 * o^-3 * v
@@ -668,7 +670,6 @@ inl float ->
                     inl v_bck_inner =
                         inl o,vtv = Tuple.map CudaAux.to_dev_tensor (o,vtv)
                         ()
-
                 ()
                 // - size * log (sqr o) - (log << det) (I + 1 / o * dot V V) + o^2 * reduce_mean (z * dot x x) +
                 // sum {from=1; near_to=S.dim_outer} (inl s -> reduce_mean (z * sqr (dot (S s) x))) + C1
