@@ -668,6 +668,7 @@ inl float ->
                     inl v_bck_inner =
                         inl o,vtv = Tuple.map CudaAux.to_dev_tensor (o,vtv)
                         ()
+
                 ()
                 // - size * log (sqr o) - (log << det) (I + 1 / o * dot V V) + o^2 * reduce_mean (z * dot x x) +
                 // sum {from=1; near_to=S.dim_outer} (inl s -> reduce_mean (z * sqr (dot (S s) x))) + C1
