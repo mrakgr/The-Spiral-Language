@@ -689,8 +689,7 @@ inl s ret ->
     inl call s method args = 
         inl cublas = s.data.cublas
         inl stream = s.data.stream
-        inl to_dev_tensor = CudaAux.to_dev_tensor
-        inl to_dev_tensor x = assert_contiguous x; to_dev_tensor x
+        inl to_dev_tensor x = assert_contiguous x; CudaAux.to_dev_tensor x
         inl handle = FS.Method cublas .get_CublasHandle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
         FS.Method cublas .set_Stream stream.extract ()
         inl args = 
@@ -710,6 +709,12 @@ inl s ret ->
 
     /// General matrix-matrix multiply from cuBLAS. Inplace version
     met gemm' s transa transb alpha A B beta C =
+        assert (eq_type A.elem_type float32) "A must be of type float32."
+        assert (eq_type B.elem_type float32) "B must be of type float32."
+        assert (eq_type C.elem_type float32) "C must be of type float32."
+        assert (eq_type alpha float32) "alpha must be of type float32."
+        assert (eq_type beta float32) "beta must be of type float32."
+
         inl a_col = if isnT transa then cols A else rows A
         inl b_row = if isnT transb then rows B else cols B
         assert (a_col = b_row) "Colums of a does not match rows of b in GEMM."
