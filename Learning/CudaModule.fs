@@ -831,7 +831,7 @@ inl s ret ->
                             inl (),{ar offset} = o.dim, o.bodies
                             macro.cd uint64 [text: "(unsigned long long) ("; arg: ar; text: " + "; arg: offset; text: ")"]
                         s.CudaKernel.iter {dim=batch_size} (inl i -> 
-                            Struct.map2 (inl a x -> a i .set (address_at (x i 0 0))) a x
+                            Struct.iter2 (inl a x -> a i .set (address_at (x i 0 0))) a x
                             )
                     a
 
