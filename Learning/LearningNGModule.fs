@@ -601,16 +601,26 @@ inl float ->
     inl tanh = layer Initializer.tanh tanh
     inl linear = layer Initializer.sigmoid succ
 
+    inl bias init = 
+        inl x = s.CudaTensor.create {elem_type=float; dim=size} 
+        join s.CudaTensor.mmap (const init) x
+        dr s x
+
     inl rng {size lr v_num} sublayer =
         feedforward
             {
             size sublayer
             weights = inl s -> 
                 inl initializer = Initializer.sigmoid
+                inl bias init = 
+                    inl x = s.CudaTensor.create {elem_type=float; dim=size} 
+                    join s.CudaTensor.mmap (const init) x
+                    x
+
                 {
                 input = initializer (sublayer.size, size) s |> dr s
                 bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-                o = s.CudaTensor.zero {elem_type=float; dim=size}
+                o = bias one
                 v = initializer (size, v_num, sublayer.size) s
                 } |> heap
             apply = inl weights input -> matmultb (input, weights.input) weights.bias >>= sigmoid
@@ -624,6 +634,10 @@ inl float ->
                         inl o2 = o*o
                         -(to float size) / o2 * two * o 
                         ) o
+
+                // c2 = - (log << det) (I + 1 / o^2 * V^T V)
+                inl c2_bck = ()
+                    
 
                 ()
                 // - size * log (sqr o) - (log << det) (I + 1 / o * dot V V) + o^2 * reduce_mean (z * dot x x) +
