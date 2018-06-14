@@ -833,6 +833,7 @@ inl s ret ->
                         s.CudaKernel.iter {dim=batch_size} (inl i -> a i .set (address_at (x i 0 0)))
                     s.CudaTensor.print a
                     a
+
                 matinv_batched' s n (f A) lda (f Ainv) lda_inv info batch_size
                 (Ainv, info) |> ret |> stack
 
