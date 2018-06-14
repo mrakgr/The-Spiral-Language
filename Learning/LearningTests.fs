@@ -126,7 +126,7 @@ Tuple.iter s.CudaTensor.print (a1,a2,o1,o2,o3)
     """
 
 let blas2 =
-    "blas2",[cuda_modules],"Does the matinv_batched work?",
+    "blas2",[cuda_modules],"Do the matinv_batched and gemm_strided_batched work?",
     """
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
@@ -134,20 +134,8 @@ inl a = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=3f32} {elem_type=flo
 s.CudaTensor.print a
 inl a' = s.CudaBlas.matinv_batched_asserted a
 s.CudaTensor.print a'
-inl f i = 
-    inl o = s.CudaBlas.gemm .nT .nT 1f32 (a i) (a' i)
-    s.CudaTensor.print o
-    
-f 0; f 1; f 2
-    """
-
-let blas3 =
-    "blas3",[cuda_modules],"Does the gemm_batched work?",
-    """
-inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
-
-inl a = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=3f32} {elem_type=float32; dim=3,3,3}
-s.CudaTensor.print a
+inl o = s.CudaBlas.gemm_strided_batched .nT .nT 1f32 a a'
+s.CudaTensor.print o
     """
 
 let kernel1 =
@@ -826,6 +814,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) blas3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) blas2
 |> printfn "%s"
 |> ignore

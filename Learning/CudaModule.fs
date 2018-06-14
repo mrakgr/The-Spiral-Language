@@ -844,12 +844,17 @@ inl s ret ->
                     matinv_batched' s n A lda Ainv lda_inv info batch_size
                 (Ainv, info) |> ret |> stack
 
-    inl matinv_batch_asserted s A = 
+    inl matinv_batched_asserted s A = 
         matinv_batched s A (inl Ainv, info ->
-            inl r = s.CudaKernel.map_redo_map {redo=(+); neutral_elem=0i32} info
+            inl r = s.CudaKernel.map_redo_map {redo=max; neutral_elem=0i32} info
             assert (s.CudaTensor.get r = 0i32) "The matrix inversion failed."
             Ainv
             )
+
+    inl rows x = x.dim |> inl _,a,b -> len a
+    inl cols x = x.dim |> inl _,a,b -> len b
+    inl ld x = match x.bodies.size with stride,ld,_ -> ld 
+    inl stride x = match x.bodies.size with stride,ld,_ -> stride
 
     met gemm_strided_batched' s transa transb alpha A B beta C =
         assert (eq_type A.elem_type float32) "A must be of type float32."
@@ -861,9 +866,6 @@ inl s ret ->
         assert (batch_size = B.span_outer) "A and B must have the same outer span."
         assert (batch_size = C.span_outer) "A and C must have the same outer span."
 
-        inl rows x = x.dim |> inl _,a,b -> len a
-        inl cols x = x.dim |> inl _,a,b -> len b
-
         inl a_col = if isnT transa then cols A else rows A
         inl b_row = if isnT transb then rows B else cols B
         assert (a_col = b_row) "Colums of a does not match rows of b in GEMMStridedBatched."
@@ -874,14 +876,21 @@ inl s ret ->
         
         assert (m = rows C && n = cols C) "Output matrix dimensions do not match in GEMMStridedBatched."
 
-        inl ld x = match x.bodies.size with stride,ld,_ -> ld 
-        inl stride x = match x.bodies.size with stride,ld,_ -> stride
         // The arguments are switched in order to convert from column major (which CuBlas uses) to row major (which Spiral's tensors use)
         // TODO: Adapt it for other float types.
         inl f = to int32
-        call s .cublasSgemmStridedBatched(transb, transa, f n, f m, f k, alpha, {ptr=B}, f (ld B), stride B, {ptr=A}, ld A, stride A, beta, {ptr=C}, ld C, stride C, f batch_size)
+        call s .cublasSgemmStridedBatched(transb, transa, f n, f m, f k, alpha, {ptr=B}, f (ld B), stride B, {ptr=A}, f (ld A), stride A, beta, {ptr=C}, f (ld C), stride C, f batch_size)
 
-    ret <| s.module_add .CudaBlas {gemm' gemm matinv_batched matinv_batched_asserted}
+    inl gemm_strided_batched s transa transb alpha A B =
+        indiv join
+            inl m = if isnT transa then rows A else cols A
+            inl n = if isnT transb then cols B else rows B
+
+            inl C = s.CudaTensor.create {dim=A.span_outer,m,n; elem_type = A.elem_type}
+            gemm_strided_batched' s transa transb alpha A B (to alpha 0) C
+            stack C
+
+    ret <| s.module_add .CudaBlas {gemm' gemm matinv_batched matinv_batched_asserted gemm_strided_batched' gemm_strided_batched}
     """) |> module_
 
 let cuda_kernel =
