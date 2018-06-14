@@ -793,6 +793,10 @@ inl s ret ->
         // TODO: Adapt it for other float types.
         call s .cublasSmatinvBatched (n,{ptr=A},lda,{ptr=Ainv},lda_inv,{ptr=info},batch_size)
 
+    inl address_at o =
+        inl (),{ar offset} = o.dim, o.bodies
+        macro.cd uint64 [text: "(unsigned long long) ("; arg: ar; text: " + "; arg: offset; text: ")"]
+
     /// Inverts the matrices of the (3d cuda_tensor | 2d cuda_tensor array) A.
     inl matinv_batched s A ret =
         indiv join
@@ -827,9 +831,6 @@ inl s ret ->
                     inl a = Struct.map (inl _ -> s.CudaTensor.create {elem_type=uint64; dim=batch_size}) x
                     inl _ = 
                         inl a,x = Struct.map CudaAux.to_dev_tensor (a,x)
-                        inl address_at o =
-                            inl (),{ar offset} = o.dim, o.bodies
-                            macro.cd uint64 [text: "(unsigned long long) ("; arg: ar; text: " + "; arg: offset; text: ")"]
                         s.CudaKernel.iter {dim=batch_size} (inl i -> 
                             Struct.iter2 (inl a x -> a i .set (address_at (x i 0 0))) a x
                             )
