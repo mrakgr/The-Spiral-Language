@@ -823,18 +823,21 @@ inl s ret ->
                 inl Ainv = s.CudaTensor.create_like A
                 inl lda_inv = ld Ainv
                 inl info = s.CudaTensor.create {elem_type=int32; dim=batch_size}
-                inl f x = 
-                    inl a = s.CudaTensor.create {elem_type=uint64; dim=batch_size}
+                inl d3_to_pointers x = 
+                    inl a = Struct.map (inl _ -> s.CudaTensor.create {elem_type=uint64; dim=batch_size}) x
                     inl _ = 
-                        inl a,x = Tuple.map CudaAux.to_dev_tensor (a,x)
+                        inl a,x = Struct.map CudaAux.to_dev_tensor (a,x)
                         inl address_at o =
                             inl (),{ar offset} = o.dim, o.bodies
                             macro.cd uint64 [text: "(unsigned long long) ("; arg: ar; text: " + "; arg: offset; text: ")"]
-                        s.CudaKernel.iter {dim=batch_size} (inl i -> a i .set (address_at (x i 0 0)))
-                    s.CudaTensor.print a
+                        s.CudaKernel.iter {dim=batch_size} (inl i -> 
+                            Struct.map2 (inl a x -> a i .set (address_at (x i 0 0))) a x
+                            )
                     a
 
-                matinv_batched' s n (f A) lda (f Ainv) lda_inv info batch_size
+                inl _ =
+                    inl A, Ainv = d3_to_pointers (A, Ainv)
+                    matinv_batched' s n A lda Ainv lda_inv info batch_size
                 (Ainv, info) |> ret |> stack
 
     inl matinv_batch_asserted s A = 
