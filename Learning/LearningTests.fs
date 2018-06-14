@@ -810,13 +810,13 @@ let tests =
     kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
     kernel10;kernel11;kernel12;kernel13;kernel14;kernel15
     random1
-    blas1
+    blas1;blas2
     learning1;learning2;learning3;learning4;learning5;                               learning9
     learning10;learning11
     |]
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) blas2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) learning11
 |> printfn "%s"
 |> ignore

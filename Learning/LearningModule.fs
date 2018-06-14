@@ -1236,7 +1236,7 @@ inl float ->
                 s.refresh
                 inb s = s.RegionMem.create'
                 inl input,{state} = run (sample temp network) {input={input}; bck=const (); state} s
-                inl input_host = to_host_tensor input |> stack
+                inl input_host = s.CudaTensor.to_host_tensor input |> stack
                 inl buffer =
                     match buffer with
                     | () -> ResizeArray.create {elem_type=input_host}
