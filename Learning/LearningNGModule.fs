@@ -629,14 +629,14 @@ inl float ->
                 inl v = weights.v
 
                 // c1 = - size * log (sqr o)
-                inl c1_bck =
+                inl c1 =
                     s.CudaKernel.map (inl o -> 
                         inl o2 = o*o
                         -(to float size) / o2 * two * o 
                         ) o
 
                 // c2 = - (log << det) (I + 1 / o^2 * V^T V)
-                inl c2_bck =
+                inl c2 =
                     // V^T V
                     inl vtv = s.CudaBlas.gemm_strided_batched .T .nT 1f32 v v
                     // I + 1 / o^2 * V^T V
@@ -652,24 +652,50 @@ inl float ->
                             )
 
                     // (I + 1 / o^2 * V^T V)^-1
+                    // Is the error when at the top which is the case here.
                     inl i_oo_vtv_inv = s.CudaBlas.matinv_batched_asserted i_oo_vtv
                     
-                    // d o^-2 * v / d o = -2 * o^-3 * v
-                    inl o_bck_inner = 
-                        inl o,vtv = Tuple.map CudaAux.to_dev_tensor (o,vtv)
-                        s.CudaKernel.init {dim=vtv.dim} (
-                            inl i ->
-                                inl o = o i .get
-                                inl vtv = vtv i
-                                inl j k ->
-                                    inl I = if j = k then one else zero
-                                    -two / (o*o*o) * vtv j k .get
-                            )
+                    // d -(log << det) (I + 1 / o^2 * V^T V) / d o
+                    inl o_bck = 
+                        // d o^-2 * vtv / d o = -2 * o^-3 * vtv
+                        inl o_bck_inner = 
+                            inl o,vtv = Tuple.map CudaAux.to_dev_tensor (o,vtv)
+                            s.CudaKernel.init {dim=vtv.dim} (
+                                inl i ->
+                                    inl o = o i .get
+                                    inl vtv = vtv i
 
-                    // d c * V^T V / d V = ?
-                    inl v_bck_inner =
-                        inl o,vtv = Tuple.map CudaAux.to_dev_tensor (o,vtv)
-                        ()
+                                    // Note that left should be -two / (o*o*o)
+                                    // The result is rescaled by the negative sign at the top.
+                                    inl left = two / (o*o*o)
+                                    inl j k -> left * vtv j k .get
+                                )
+
+                        s.CudaBlas.gemm_strided_batched .nT T one i_oo_vtv_inv o_bck_inner
+                        |> inl x -> x.reshape (inl a,b,c -> a,b*c)
+                        |> s.CudaKernel.mapi_d1_redo_map {neutral_elem=zero; redo=(+)}
+
+                    // d -(log << det) (I + 1 / o^2 * V^T V) / d V
+                    inl v_bck =
+                        inl rescaled_i_oo_vtv_inv = 
+                            inl o,i_oo_vtv_inv = Tuple.map CudaAux.to_dev_tensor (o,i_oo_vtv_inv)
+                            s.CudaKernel.init {dim=i_oo_vtv_inv.dim} (
+                                inl i ->
+                                    inl o = o i .get
+                                    inl i_oo_vtv_inv = i_oo_vtv_inv i
+
+                                    inl j k -> 
+                                        // The rescaling by the derivative should be
+                                        // one / (o*o) * i_oo_vtv_inv j k .get
+                                        // The rescaling by the negative sign at the top and the adjustment 
+                                        // for the following matrix multiplication times the derivative is added to the formula.
+                                        -two / (o*o) * i_oo_vtv_inv j k .get
+                                )
+                            
+                        /// TODO: Reverse all the transposes when done. Spiral does it in row major order.
+                        s.CudaBlas.gemm_strided_batched .nT T one rescaled_i_oo_vtv_inv v
+
+                    o_bck, v_bck
                 ()
                 // - size * log (sqr o) - (log << det) (I + 1 / o * dot V V) + o^2 * reduce_mean (z * dot x x) +
                 // sum {from=1; near_to=S.dim_outer} (inl s -> reduce_mean (z * sqr (dot (S s) x))) + C1
