@@ -601,7 +601,7 @@ inl float ->
     inl tanh = layer Initializer.tanh tanh
     inl linear = layer Initializer.sigmoid succ
 
-    inl rng {size lr} sublayer =
+    inl rng {size lr v_num} sublayer =
         feedforward
             {
             size sublayer
@@ -610,13 +610,25 @@ inl float ->
                 {
                 input = initializer (sublayer.size, size) s |> dr s
                 bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+                o = s.CudaTensor.zero {elem_type=float; dim=size}
+                v = initializer (size, v_num, sublayer.size) s
                 } |> heap
             apply = inl weights input -> matmultb (input, weights.input) weights.bias >>= sigmoid
             optimizer = inl weights s x z ->
                 inl o = weights.o
-                inl S = weights.S
+                inl v = weights.v
+
+                // c1 = - size * log (sqr o)
+                inl c1_bck =
+                    s.CudaKernel.map (inl o -> 
+                        inl o2 = o*o
+                        -(to float size) / o2 * two * o 
+                        ) o
+
+                ()
                 // - size * log (sqr o) - (log << det) (I + 1 / o * dot V V) + o^2 * reduce_mean (z * dot x x) +
                 // sum {from=1; near_to=S.dim_outer} (inl s -> reduce_mean (z * sqr (dot (S s) x))) + C1
+                ()
             }
 
     inl Pass =
