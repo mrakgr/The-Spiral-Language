@@ -696,7 +696,30 @@ inl float ->
                         s.CudaBlas.gemm_strided_batched .nT T one rescaled_i_oo_vtv_inv v
 
                     o_bck, v_bck
-                ()
+                
+                // o^2 * reduce_mean (z * dot x x)
+                inl c3 = 
+                    s.CudaKernel.mapi_d1_redo_map {
+                        map_in=inl x -> x*x
+                        neutral_elem=zero; redo=(+)
+                        } x
+                    |> inl x ->
+                        inl x,o = Tuple.map CudaAux.to_dev_tensor (x,o)
+                        s.CudaKernel.mapi_d2_redo_map {
+                            mapi_in=inl i ->
+                                inl x = x i .get
+                                inl _ z -> x * z
+                            neutral_elem=zero; redo=(+)
+                            mapi_out=inl i ->
+                                inl o = o i .get * two
+                                inl _ r -> o * r
+                            } z
+
+                // sum {from=1; near_to=S.dim_outer} (inl s -> reduce_mean (z * sqr (dot (S s) x)))
+                inl c4 =
+                    // d (z * sqr (dot (S s) x))) / d s = z * two * dot (S s) x * x
+                    ()
+
                 // - size * log (sqr o) - (log << det) (I + 1 / o * dot V V) + o^2 * reduce_mean (z * dot x x) +
                 // sum {from=1; near_to=S.dim_outer} (inl s -> reduce_mean (z * sqr (dot (S s) x))) + C1
                 ()
