@@ -693,10 +693,11 @@ inl s ret ->
         inl handle = FS.Method cublas .get_CublasHandle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
         FS.Method cublas .set_Stream stream.extract ()
         inl args = 
-            inl strip ptr = (to_dev_tensor ptr).bodies.ar
+            inl strip ptr = 
+                assert (Tuple.last ptr.bodies.size = 1) "The stride of the innermost dimension should always be 1."
+                (to_dev_tensor ptr).bodies.ar
             Tuple.map (function
                 | x : float64 | x : float32 -> ref x
-                | x : int64 -> to int32 x
                 | .nT | .T as x -> to_operation x
                 | {ptr} -> strip ptr |> CUdeviceptr
                 | {ptr_ar} -> Array.map strip ptr_ar |> s.CudaTensor.from_cudadevptr_array
@@ -727,7 +728,8 @@ inl s ret ->
 
         // The arguments are switched in order to convert from column major (which CuBlas uses) to row major (which Spiral's tensors use)
         // TODO: Adapt it for other float types.
-        call s .cublasSgemm_v2(transb, transa, n, m, k, alpha, {ptr=B}, ld B, {ptr=A}, ld A, beta, {ptr=C}, ld C)
+        inl f = to int32
+        call s .cublasSgemm_v2(transb, transa, f n, f m, f k, alpha, {ptr=B}, f (ld B), {ptr=A}, f (ld A), beta, {ptr=C}, f (ld C))
 
     inl gemm s transa transb alpha A B =
         indiv join
@@ -751,8 +753,8 @@ inl s ret ->
             inl assert_dim x =
                 match x.dim with
                 | a, b -> 
-                    inl a = HostTensor.span a
-                    assert (a = HostTensor.span b) "The tensor must be a square matrix."
+                    inl a = len a
+                    assert (a = len b) "The tensor must be a square matrix."
                     a, ld x
                 | _ -> error_type "The tensor must have two dimensions."
 
@@ -774,7 +776,8 @@ inl s ret ->
         assert (n = n') "The two arrays must have tensors of equal dimension."
                 
         // TODO: Adapt it for other float types.
-        call s .cublasSmatinvBatched (n,{ptr_ar=A},lda,{ptr_ar=Ainv},lda_inv,{ptr=info},batch_size)
+        inl f = to int32
+        call s .cublasSmatinvBatched (f n,{ptr_ar=A},f lda,{ptr_ar=Ainv},f lda_inv,{ptr=info},f batch_size)
 
     /// cuda -> 1d uint64 tensor -> 1d uint64 tensor -> 1d int32 cuda_tensor -> unit
     met matinv_batched' s n A lda Ainv lda_inv info batch_size =
@@ -786,12 +789,13 @@ inl s ret ->
         inl b :: () = Ainv.dim
         inl c :: () = info.dim
 
-        assert (batch_size = HostTensor.span a) "A must be equal to batch size."
-        assert (batch_size = HostTensor.span b) "Ainv must be equal to batch size."
-        assert (batch_size = HostTensor.span c) "info must be equal to batch size."
+        assert (batch_size = len a) "A must be equal to batch size."
+        assert (batch_size = len b) "Ainv must be equal to batch size."
+        assert (batch_size = len c) "info must be equal to batch size."
 
         // TODO: Adapt it for other float types.
-        call s .cublasSmatinvBatched (n,{ptr=A},lda,{ptr=Ainv},lda_inv,{ptr=info},batch_size)
+        inl f = to int32
+        call s .cublasSmatinvBatched (f n,{ptr=A},f lda,{ptr=Ainv},f lda_inv,{ptr=info},f batch_size)
 
     inl address_at o =
         inl (),{ar offset} = o.dim, o.bodies
@@ -811,10 +815,9 @@ inl s ret ->
                 inl batch_size, n =
                     match A.dim with
                     | a,b,c ->  
-                        inl s = HostTensor.span
-                        inl n = s b
-                        assert (n = s c) "The (sub)matrix needs to be square."
-                        s a, n
+                        inl n = len b
+                        assert (n = len c) "The (sub)matrix needs to be square."
+                        len a, n
                     | _ -> error_type "The tensor A needs to be 3d."
 
                 inl ld x = 
@@ -848,7 +851,37 @@ inl s ret ->
             Ainv
             )
 
-    ret <| s.module_add .CudaBlas {gemm' gemm matinv_batched matinv_batch_asserted}
+    met gemm_strided_batched' s transa transb alpha A B beta C =
+        assert (eq_type A.elem_type float32) "A must be of type float32."
+        assert (eq_type B.elem_type float32) "B must be of type float32."
+        assert (eq_type C.elem_type float32) "C must be of type float32."
+        assert (eq_type alpha float32) "alpha must be of type float32."
+        assert (eq_type beta float32) "beta must be of type float32."
+        inl batch_size = A.span_outer
+        assert (batch_size = B.span_outer) "A and B must have the same outer span."
+        assert (batch_size = C.span_outer) "A and C must have the same outer span."
+
+        inl rows x = x.dim |> inl _,a,b -> len a
+        inl cols x = x.dim |> inl _,a,b -> len b
+
+        inl a_col = if isnT transa then cols A else rows A
+        inl b_row = if isnT transb then rows B else cols B
+        assert (a_col = b_row) "Colums of a does not match rows of b in GEMMStridedBatched."
+
+        inl m = if isnT transa then rows A else cols A
+        inl n = if isnT transb then cols B else rows B
+        inl k = a_col
+        
+        assert (m = rows C && n = cols C) "Output matrix dimensions do not match in GEMMStridedBatched."
+
+        inl ld x = match x.bodies.size with stride,ld,_ -> ld 
+        inl stride x = match x.bodies.size with stride,ld,_ -> stride
+        // The arguments are switched in order to convert from column major (which CuBlas uses) to row major (which Spiral's tensors use)
+        // TODO: Adapt it for other float types.
+        inl f = to int32
+        call s .cublasSgemmStridedBatched(transb, transa, f n, f m, f k, alpha, {ptr=B}, f (ld B), stride B, {ptr=A}, ld A, stride A, beta, {ptr=C}, ld C, stride C, f batch_size)
+
+    ret <| s.module_add .CudaBlas {gemm' gemm matinv_batched matinv_batched_asserted}
     """) |> module_
 
 let cuda_kernel =

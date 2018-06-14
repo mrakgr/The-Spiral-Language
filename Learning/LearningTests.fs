@@ -132,7 +132,7 @@ inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the he
 
 inl a = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=3f32} {elem_type=float32; dim=3,3,3}
 s.CudaTensor.print a
-inl a' = s.CudaBlas.matinv_batch_asserted a
+inl a' = s.CudaBlas.matinv_batched_asserted a
 s.CudaTensor.print a'
 inl f i = 
     inl o = s.CudaBlas.gemm .nT .nT 1f32 (a i) (a' i)
