@@ -511,13 +511,29 @@ inl o =
     //            }
     //    }
 
-    iter {
-        dim=outer_size, middle_size, inner_size
-        body=inl i j k ->
-            inl x, o = x i j, o i j
-            redo (+) (x k .get)
-            |> o .set
-        }
+    //iter {
+    //    dim=outer_size, middle_size, inner_size
+    //    body=inl i j k ->
+    //        inl x, o = x i j, o i j
+    //        redo (+) (x k .get)
+    //        |> o .set
+    //    }
+
+    //factory [
+    //    iter: outer_size
+    //    iter: middle_size
+    //    redo: inner_size
+    //    ] (
+    //    inl i ->
+    //        inl x, o = x i, o i
+    //        inl j ->
+    //            inl x, o = x j, o j
+    //            {
+    //            init = inl k -> x k .get
+    //            redo = (+)
+
+    //            }
+    //    )
 
 s.CudaTensor.print x
 s.CudaTensor.print o
