@@ -706,7 +706,7 @@ inl float ->
                     |> inl x ->
                         inl x,o = Tuple.map CudaAux.to_dev_tensor (x,o)
                         s.CudaKernel.mapi_d2_redo_map {
-                            mapi_in=inl i ->
+                            mapi_in=inl i -> // TODO: The order of dimensions is probably wrong here.
                                 inl x = x i .get
                                 inl _ z -> x * z
                             neutral_elem=zero; redo=(+)
