@@ -718,6 +718,7 @@ inl float ->
                 // sum {from=1; near_to=S.dim_outer} (inl s -> reduce_mean (z * sqr (dot (S s) x)))
                 inl c4 =
                     // d (z * sqr (dot (S s) x))) / d s = z * two * dot (S s) x * x
+                    inl xv = ()
                     ()
 
 
