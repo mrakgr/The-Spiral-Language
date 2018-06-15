@@ -625,6 +625,7 @@ inl float ->
                 } |> heap
             apply = inl weights input -> matmultb (input, weights.input) weights.bias >>= sigmoid
             optimizer = inl weights s x z ->
+                
                 ()
             }
 
