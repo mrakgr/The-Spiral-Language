@@ -485,15 +485,29 @@ inl inner_size = 6
 inl middle_size = 3
 inl outer_size = 2
 inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
-//inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
+inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,middle_size}
 
 inl o = 
     inl x = CudaAux.to_dev_tensor x
-    s.CudaKernel.init_d1_redo_map {
-        dim=(outer_size,middle_size),inner_size
-        init=inl i j k -> x i j k .get
-        neutral_elem=0f32
-        redo=(+)
+    //s.CudaKernel.init_d1_redo_map {
+    //    dim=(outer_size,middle_size),inner_size
+    //    init=inl i j k -> x i j k .get
+    //    neutral_elem=0f32
+    //    redo=(+)
+    //    }
+    iter {
+        dim=outer_size
+        body=inl {i} ->
+            inl x, o = x i, o i
+            iter {
+                dim=middle_size
+                body=inl {i} ->
+                    redo {
+                        dim=inner_size
+                        body=(+)
+                        } (x i)
+                    |> o i .set
+                }
         }
 
 s.CudaTensor.print x
