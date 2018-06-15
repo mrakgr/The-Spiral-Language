@@ -489,7 +489,7 @@ inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=flo
 
 inl o = 
     inl x = CudaAux.to_dev_tensor x
-    s.CudaKernel {
+    s.CudaKernel.init_d1_redo_map {
         dim=(outer_size,middle_size),inner_size
         init=inl i j k -> x i j k .get
         neutral_elem=0f32

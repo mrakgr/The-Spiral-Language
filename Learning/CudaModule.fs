@@ -1330,6 +1330,39 @@ met map_d1_inscan_map' w {d with redo neutral_elem} in out =
                 }
         }
 
+inl index_to_tuple d i =
+    Tuple.foldr (inl x (l,i) -> 
+        inl span, from = match x with {from near_to} -> near_to - from, from | x -> x, 0
+        (i % span + from) :: l, i / span
+        ) d ((),i)
+    |> fst
+
+met init_d1_redo_map w d f =
+    inl outer,inner = Tuple.map Tuple.wrap d.dim
+    inl dim = Tuple.append outer inner
+    inl elem_type = type Tuple.foldl (|>) f dim
+    inl out = w.CudaTensor.create {elem_type dim}
+
+    inl span = Tuple.foldl (inl a b -> a * s b) 1
+    inl span_outer, span_inner = Tuple.map span (outer,inner)
+
+    inl blockDimX = lit_min 1024 span_inner
+    inl gridDimX = 1
+
+    inl blockDimY = 1
+    inl gridDimY = lit_min 64 span_outer
+
+    inl out = to_dev_tensor out
+    w.run {
+        blockDim
+        gridDim=1,gridDimY
+        kernel = cuda 
+            inl grid_for = grid_for {blockDim gridDim}
+            grid_for .y dim_in_a {body=inl {i} ->
+                ()
+                }
+        }
+
 /// Maps the two inputs and then reduces the first's inner dimension.
 met mapi_d1_redo_map' w {d with redo neutral_elem} in in' out = 
     inl in = zip in
