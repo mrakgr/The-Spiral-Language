@@ -495,19 +495,28 @@ inl o =
     //    neutral_elem=0f32
     //    redo=(+)
     //    }
+
+    //iter {
+    //    dim=outer_size
+    //    body=inl {i} ->
+    //        inl x, o = x i, o i
+    //        iter {
+    //            dim=middle_size
+    //            body=inl {i} ->
+    //                redo {
+    //                    dim=inner_size
+    //                    body=(+)
+    //                    } (x i)
+    //                |> o i .set
+    //            }
+    //    }
+
     iter {
-        dim=outer_size
-        body=inl {i} ->
-            inl x, o = x i, o i
-            iter {
-                dim=middle_size
-                body=inl {i} ->
-                    redo {
-                        dim=inner_size
-                        body=(+)
-                        } (x i)
-                    |> o i .set
-                }
+        dim=outer_size, middle_size, inner_size
+        body=inl i j k ->
+            inl x, o = x i j, o i j
+            redo (+) (x k .get)
+            |> o .set
         }
 
 s.CudaTensor.print x
