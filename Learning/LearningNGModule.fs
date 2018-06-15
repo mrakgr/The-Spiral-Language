@@ -627,6 +627,8 @@ inl float ->
             optimizer = inl weights s x z ->
                 inl o = weights.o
                 inl v = weights.v
+                inl batch_num, z_num = z.dim
+                inl _, v_num, x_num = v.dim
 
                 // c1 = - size * log (sqr o)
                 inl c1 =
@@ -715,11 +717,75 @@ inl float ->
                                 inl _ r -> o * r
                             } z
 
-                // sum {from=1; near_to=S.dim_outer} (inl s -> reduce_mean (z * sqr (dot (S s) x)))
+                // sum {from=1; near_to=S.dim_outer} (inl i -> reduce_mean (z * sqr (dot (v i) x)))
+                //```
+                //z = batch_num x z_num
+                //v = z_num x v_num x x_num
+                //x = batch_num x x_num
+                //```
+                //The double sum can be simplified into a series of matrix multiplications. The imporant thing is to keep track of dimensions.
+                //```
+                //xv = batch_num x z_num x v_num
+                //```
+                //The first operation is `x * transpose v`. Since `v` is 3d, the first two dimensions of it are flattened
+                //before being passed into the gemm kernel.
+                //```
+                //z_rep = batch_num x z_num x v_num
+                //```
+                //Since each `z` element touches each of the `xv`s, it is replicated `v_num` times so the dimensions match up.
+                //In actual code, rather than do that the init kernel is used instead to do that implicitly.
+                //`z_rep` is then used in an Hadamard multiplication with `xv`.
+                //```
+                //zxv = batch_num x z_num x v_num
+                //```
+                //The derivative of the fourth term requires a multiplication by another x.
+                //```
+                //zxv_rep = batch_num x z_num x v_num x x_num
+                //```
+                //In the code, the replication is done implicitly inside the kernel.
+                //```
+                //zxvx = batch_num x z_num x v_num x x_num
+                //```
+                //The finally to get the derivative with respect to v, the batch dimension needs to be reduced.
+                //```
+                //zxvx' = z_num x v_num x x_num
+                //```
                 inl c4 =
-                    // d (z * sqr (dot (S s) x))) / d s = z * two * dot (S s) x * x
-                    inl xv = ()
-                    ()
+                    // d (sqr (x v)) / d v = two * dot (S s) x * x
+                    inl xv =
+                        inl v = v.reshape (inl z_num,v_num,x_num -> z_num * v_num, x_num)
+                        s.CudaBlas.gemm .nT T one x v
+                            .reshape (inl batch_num, zv_num -> batch_num, v_num, zv_num / v_num)
+                    // d (sqr (x v)) / d v = two * dot (S s) x * x
+                    inl zxv = 
+                        inl z,xv = Tuple.map CudaAux.to_dev_tensor (z,xv)
+                        s.CudaKernel.init {dim=batch_num,z_num,v_num} (inl b ->
+                            inl z = z b
+                            inl xv = xv b
+                            inl z' ->
+                                inl z = z z' .get
+                                inl xv = xv z'
+                                inl v' ->
+                                    inl xv = xv v' .get
+                                    /// The rescaling for the mean of the batch size and derivative of sqr is done here.
+                                    two / to float batch_num * z * xv 
+                            )
+                    inl zxvx =
+                        inl zxv, x = Tuple.map CudaAux.to_dev_tensor (zxv,x)
+                        s.CudaKernel.init {dim=batch_num, z_num, v_num, x_num} (
+                            inl b ->
+                                inl zxv = zxv b
+                                inl x = x b
+                                inl z ->
+                                    inl zxv = zxv z
+                                    inl v ->
+                                        inl zxv = zxv v .get
+                                        inl x' ->
+                                            inl x = x x' .get
+                                            zxv * x
+                            )
+                        |> s.CudaKernel.mapi_d2_redo_map {neutral_elem=zero; redo=(+)}
+                    zxvx
 
 
                 // - size * log (sqr o) - (log << det) (I + 1 / o * dot V V) + o^2 * reduce_mean (z * dot x x) +
