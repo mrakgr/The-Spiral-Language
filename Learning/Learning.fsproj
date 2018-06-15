@@ -66,7 +66,7 @@
     <Compile Include="LearningNGTests.fs" />
     <Compile Include="LearningModule.fs" />
     <Compile Include="LearningTests.fs" />
-    <None Include="Script1.fsx" />
+    <Content Include="rng_optimization_pass_sketch.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
