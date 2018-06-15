@@ -477,6 +477,29 @@ s.CudaTensor.print x
 s.CudaTensor.print o
     """
 
+let kernel16 =
+    "kernel16",[cuda_modules],"Does the init_d1_redo_map kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+inl inner_size = 6
+inl middle_size = 3
+inl outer_size = 2
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
+//inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
+
+inl o = 
+    inl x = CudaAux.to_dev_tensor x
+    s.CudaKernel {
+        dim=(outer_size,middle_size),inner_size
+        init=inl i j k -> x i j k .get
+        neutral_elem=0f32
+        redo=(+)
+        }
+
+s.CudaTensor.print x
+s.CudaTensor.print o
+    """
+
 let learning1 =
     "learning1",[cuda_modules;learning],"Does the matmult work?",
     """
