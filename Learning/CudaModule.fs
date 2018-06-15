@@ -953,7 +953,20 @@ inl forcd {d with from body} =
 inl divup a b = (a-1)/b+1 // Integer division with rounding up. (a+b-1)/b is another variant on this.
 inl s = span
 
+inl index_to_tuple d i =
+    Tuple.foldr (inl x (l,i) -> 
+        inl span, from = match x with {from near_to} -> near_to - from, from | x -> x, 0
+        (i % span + from) :: l, i / span
+        ) d ((),i)
+    |> fst
+
 inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
+    inl dim, index_convert =
+        match dim with
+        | {from near_to} -> dim, id
+        | _ :: _ -> {from=0; near_to=Tuple.foldl (inl a b -> a * s b) 1 dim}, index_to_tuple dim
+        | near_to : int64 -> {from=0; near_to}, id
+
     inl from = threadIdx axis + blockDim axis * blockIdx axis + dim.from
     inl by = gridDim axis * blockDim axis
     inl near_to = dim.near_to
@@ -965,9 +978,9 @@ inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
         forcd {d with from=0;near_to=items_per_thread; body=inl {state i=item} ->
             inl i = from + by * item
             inl num_valid = span - by * item
-            if i < near_to then body {span num_valid item state i} else state
+            if i < near_to then body {span num_valid item state i=index_convert i} else state
             }
-    | .std d -> forcd {d with from by near_to}
+    | .std d -> forcd {d with from by near_to body=inl d -> self {d with i = index_convert self}}
 
 inl grid_for_items = grid_for_template {iteration_mode=.items_per_thread}
 inl grid_for = grid_for_template {iteration_mode=.std}
@@ -1330,38 +1343,56 @@ met map_d1_inscan_map' w {d with redo neutral_elem} in out =
                 }
         }
 
-//inl index_to_tuple d i =
-//    Tuple.foldr (inl x (l,i) -> 
-//        inl span, from = match x with {from near_to} -> near_to - from, from | x -> x, 0
-//        (i % span + from) :: l, i / span
-//        ) d ((),i)
-//    |> fst
+met init_d1_redo_outit' w {d with dim=outer,inner init redo neutral_elem outit} =
+    inl span = Tuple.foldl (inl a b -> a * s b) 1 << Tuple.wrap
+    inl span_outer, span_inner = Tuple.map span (outer,inner)
 
-//met init_d1_redo_map w d f =
-//    inl outer,inner = Tuple.map Tuple.wrap d.dim
-//    inl dim = Tuple.append outer inner
-//    inl elem_type = type Tuple.foldl (|>) f dim
-//    inl out = w.CudaTensor.create {elem_type dim}
+    inl blockDimX = lit_min 1024 span_inner
+    inl gridDimX = 1
 
-//    inl span = Tuple.foldl (inl a b -> a * s b) 1
-//    inl span_outer, span_inner = Tuple.map span (outer,inner)
+    inl blockDimY = 1
+    inl gridDimY = lit_min 64 span_outer
 
-//    inl blockDimX = lit_min 1024 span_inner
-//    inl gridDimX = 1
+    w.run {
+        blockDim=blockDimX,blockDimY
+        gridDim=gridDimX,gridDimY
+        kernel = cuda 
+            inl grid_for = grid_for {blockDim gridDim}
+            grid_for .y outer {body=inl {i} ->
+                inl init = init i
 
-//    inl blockDimY = 1
-//    inl gridDimY = lit_min 64 span_outer
+                inl x =
+                    grid_for .x inner {state=dyn neutral_elem; body=inl {state i=j} -> redo state (init j) }
+                    |> cub_block_reduce {blockDim redo}
 
-//    inl out = to_dev_tensor out
-//    w.run {
-//        blockDim
-//        gridDim=1,gridDimY
-//        kernel = cuda 
-//            inl grid_for = grid_for {blockDim gridDim}
-//            grid_for .y dim_in_a {body=inl {i} ->
-//                ()
-//                }
-//        }
+                if threadIdx.x = 0 then outit i x
+                }
+        }
+
+met init_d1_redo_outit w {d with dim init redo neutral_elem} =
+    inl outer, inner = dim
+    inl f = function
+        | _ :: _ as x -> Tuple.map (const (dyn 0)) x
+        | x -> dyn 0
+    inl elem_type = type init (f outer) (f inner)
+    inl out = w.CudaTensor.create {elem_type dim=outer}
+
+    inl outit =
+        inl out = to_dev_tensor out
+        inl i x -> 
+            inl out = Tuple.foldl (inl out i -> out i) out (Tuple.wrap i)
+            out .set x
+    init_d1_redo_outit' w {d with dim init redo neutral_elem outit}
+    out
+
+/// Maps the two inputs and then reduces the first's inner dimension.
+// TODO: Replace the other library function with this one.
+//met mapi_d1_redo_map'_alt w {d with redo neutral_elem} in in' out = 
+//    inl init i = 
+//        inl in, in' = in i, in' i .get
+//        inl j -> in j .get
+
+//    inl outit i x = out i .set x
 
 /// Maps the two inputs and then reduces the first's inner dimension.
 met mapi_d1_redo_map' w {d with redo neutral_elem} in in' out = 
@@ -2039,7 +2070,7 @@ inl methods =
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
     mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter iteri_d1_seq_broadcast
-    iteri_dd1_seq_broadcast
+    iteri_dd1_seq_broadcast init_d1_redo_outit' init_d1_redo_outit
     } |> stackify
 
 inl s -> s.module_add .CudaKernel methods

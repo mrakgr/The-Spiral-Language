@@ -478,7 +478,7 @@ s.CudaTensor.print o
     """
 
 let kernel16 =
-    "kernel16",[cuda_modules],"Does the init_d1_redo_map kernel work?",
+    "kernel16",[cuda_modules],"Does the init_d1_redo_outit kernel work?",
     """
 inb s = CudaModules (1024*1024)
 inl inner_size = 6
@@ -489,51 +489,14 @@ inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=flo
 
 inl o = 
     inl x = CudaAux.to_dev_tensor x
-    //s.CudaKernel.init_d1_redo_map {
-    //    dim=(outer_size,middle_size),inner_size
-    //    init=inl i j k -> x i j k .get
-    //    neutral_elem=0f32
-    //    redo=(+)
-    //    }
-
-    //iter {
-    //    dim=outer_size
-    //    body=inl {i} ->
-    //        inl x, o = x i, o i
-    //        iter {
-    //            dim=middle_size
-    //            body=inl {i} ->
-    //                redo {
-    //                    dim=inner_size
-    //                    body=(+)
-    //                    } (x i)
-    //                |> o i .set
-    //            }
-    //    }
-
-    //iter {
-    //    dim=outer_size, middle_size, inner_size
-    //    body=inl i j k ->
-    //        inl x, o = x i j, o i j
-    //        redo (+) (x k .get)
-    //        |> o .set
-    //    }
-
-    //factory [
-    //    iter: outer_size
-    //    iter: middle_size
-    //    redo: inner_size
-    //    ] (
-    //    inl i ->
-    //        inl x, o = x i, o i
-    //        inl j ->
-    //            inl x, o = x j, o j
-    //            {
-    //            init = inl k -> x k .get
-    //            redo = (+)
-
-    //            }
-    //    )
+    s.CudaKernel.init_d1_redo_outit {
+        dim=(outer_size,middle_size),inner_size
+        init=inl (i, j) -> 
+            inl x = x i j 
+            inl k -> x k .get
+        neutral_elem=0f32
+        redo=(+)
+        }
 
 s.CudaTensor.print x
 s.CudaTensor.print o
@@ -876,6 +839,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) blas2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) kernel16
 |> printfn "%s"
 |> ignore
