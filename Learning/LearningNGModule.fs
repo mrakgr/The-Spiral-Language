@@ -620,12 +620,48 @@ inl float ->
                 {
                 input = initializer (sublayer.size, size) s |> dr s
                 bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-                o = bias one
-                v = initializer (size, v_num, sublayer.size) s
+                o = bias one |> dr s
+                v = initializer (size, v_num, sublayer.size) s |> dr s
                 } |> heap
             apply = inl weights input -> matmultb (input, weights.input) weights.bias >>= sigmoid
             optimizer = inl weights s x z ->
-                
+                inl o = weights.o
+                inl v = weights.v
+                inl batch_num, z_num = z.dim
+                inl z_num v_num, x_num = v.dim
+
+                inl size = to float size
+
+                // c1 = - size * log (sqr o)
+                inl c1 = 
+                    map {
+                        fwd = inl o -> -size * log (o*o)
+                        bck = inl o -> -size * two / o
+                        }
+                    //s.CudaKernel.map (inl o -> -size * two / o) o
+
+                // c2 = - (log << det) (I + 1 / o^2 * V^T V)
+                //z = batch_num x z_num
+                //v = z_num x v_num x x_num
+                //x = batch_num x x_num
+                // TODO: This is broken. There is a step missing in the backward pass, namely multiplying by i_oo_vtv.
+                inl c2 =
+                    // V^T V
+                    // Adjusted as Spiral is in row major format.
+                    // vtv = z_num x v_num x v_num
+                    inm vtv = gemm_strided_batched .nT .T 1f32 v v
+                    // I + 1 / o^2 * V^T V
+                    // i_oo_vtv = z_num x v_num x v_num
+                    inm i_oo_vtv = 
+                        mapi {dim=vtv.dim} (
+                            inl i ->
+                                inl o = o i .get
+                                inl vtv = vtv i
+                                inl j k ->
+                                    inl I = if j = k then one else zero
+                                    I + 1 / (o*o) * vtv j k .get
+                            )
+
                 ()
             }
 
