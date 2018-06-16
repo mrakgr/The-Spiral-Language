@@ -1374,7 +1374,7 @@ met init_d1_redo_outit' w {dim=outer,inner init redo neutral_elem outit} =
                 }
         }
 
-inl init_d1_redo_outit w {dim init redo neutral_elem} =
+inl init_d1_redo_outit w {d with dim init redo neutral_elem} =
     indiv join
         inl outer, inner = dim
         inl f = function
@@ -1385,9 +1385,10 @@ inl init_d1_redo_outit w {dim init redo neutral_elem} =
 
         inl outit =
             inl out = to_dev_tensor out
+            inl outit = match d with {outit} -> outit | _ -> id
             inl i x -> 
                 inl out = Tuple.foldl (inl out i -> out i) out (Tuple.wrap i)
-                out .set x
+                out .set (outit x)
         init_d1_redo_outit' w {dim init redo neutral_elem outit}
         stack out
 
@@ -1921,7 +1922,7 @@ met init_d2_redo_outit' w {dim=outer, inner init redo neutral_elem outit} =
             }
         }
 
-inl init_d2_redo_outit w {dim init redo neutral_elem} =
+inl init_d2_redo_outit w {d with dim init redo neutral_elem} =
     indiv join
         inl outer, inner = dim
         inl f = function
@@ -1932,9 +1933,10 @@ inl init_d2_redo_outit w {dim init redo neutral_elem} =
 
         inl outit =
             inl out = to_dev_tensor out
+            inl outit = match d with {outit} -> outit | _ -> id
             inl i x -> 
                 inl out = Tuple.foldl (inl out i -> out i) out (Tuple.wrap i)
-                out .set x
+                out .set (outit x)
         init_d2_redo_outit' w {dim init redo neutral_elem outit}
         stack out
 

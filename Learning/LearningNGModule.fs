@@ -606,63 +606,69 @@ inl float ->
         join s.CudaTensor.mmap (const init) x
         dr s x
 
-    inl rng {size lr v_num} sublayer =
+    /// The relative NG approximation based on the L2 cost.
+    inl rng {size lr_g_inv lr_weights} sublayer =
         feedforward
             {
             size sublayer
             weights = inl s -> 
                 inl initializer = Initializer.sigmoid
-                inl bias init = 
-                    inl x = s.CudaTensor.create {elem_type=float; dim=size} 
-                    join s.CudaTensor.mmap (const init) x
-                    x
 
                 {
                 input = initializer (sublayer.size, size) s |> dr s
-                bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-                o = bias one |> dr s
-                v = initializer (size, v_num, sublayer.size) s |> dr s
+                g_inv = s.CudaTensor.init {dim=size,sublayer.size,sublayer.size} (inl i j k -> if j = k then one else zero)
                 } |> heap
-            apply = inl weights input -> matmultb (input, weights.input) weights.bias >>= sigmoid
+
+            apply = inl weights input -> matmultb (input, weights.input) () >>= sigmoid
             optimizer = inl weights s x z ->
-                inl o = weights.o
-                inl v = weights.v
-                inl batch_num, z_num = z.dim
-                inl z_num v_num, x_num = v.dim
+                s.refresh
+                inl s = s.RegionMem.create
 
-                inl size = to float size
+                inl g_inv = weights.g_inv
+                inl g_dim = g_inv.dim
+                inl batch_dim, _ = z.dim
+                inl batch_size = to float batch_dim
 
-                // c1 = - size * log (sqr o)
-                inl c1 = 
-                    map {
-                        fwd = inl o -> -size * log (o*o)
-                        bck = inl o -> -size * two / o
+                /// reduce_mean (z * x * x^t)
+                inl g =
+                    inl z,x = to_dev_tensor (z,x)
+                    s.CudaKernel.init_d2_redo_outit {
+                        dim=batch_dim,g_dim
+                        init=inl batch,cur,lower1,lower2 ->
+                            inl z = z batch cur .get
+                            inl x1 = x batch lower1 .get
+                            inl x2 = x batch lower2 .get
+                            z * x1 * x2
+                        neutral_elem=0f32
+                        redo=(+)
+                        outit=inl x -> x / batch_size
                         }
-                    //s.CudaKernel.map (inl o -> -size * two / o) o
 
-                // c2 = - (log << det) (I + 1 / o^2 * V^T V)
-                //z = batch_num x z_num
-                //v = z_num x v_num x x_num
-                //x = batch_num x x_num
-                // TODO: This is broken. There is a step missing in the backward pass, namely multiplying by i_oo_vtv.
-                inl c2 =
-                    // V^T V
-                    // Adjusted as Spiral is in row major format.
-                    // vtv = z_num x v_num x v_num
-                    inm vtv = gemm_strided_batched .nT .T 1f32 v v
-                    // I + 1 / o^2 * V^T V
-                    // i_oo_vtv = z_num x v_num x v_num
-                    inm i_oo_vtv = 
-                        mapi {dim=vtv.dim} (
-                            inl i ->
-                                inl o = o i .get
-                                inl vtv = vtv i
-                                inl j k ->
-                                    inl I = if j = k then one else zero
-                                    I + 1 / (o*o) * vtv j k .get
-                            )
+                inl g_inv_times_g = s.CudaKernel.gemm_strided_batched .nT .nT one g_inv g
 
-                ()
+                /// The cost is `||g'^-1 g - I||`
+                /// The gradient of g_inv_times_g is therefore just two * (g_inv_times_g - I)
+                inl grad_g_inv_times_g =
+                    inl g_inv_times_g = to_dev_tensor g_inv_times_g
+                    s.CudaKernel.init {dim=g_dim} (inl cur lower1 lower2 ->
+                        inl x = g_inv_times_g cur lower1 lower2 .get
+                        inl i = if lower1 = lower2 then one else zero
+                        two * (x - i)
+                        )
+
+                inl grad_g_inv = s.CudaBlas.gemm_strided_batched .nT .T one grad_g_inv_times_g g
+
+                sgd lr_g_inv {primal=g_inv; adjoint=grad_g_inv}
+
+                inl weights =
+                    {weights with 
+                    adjoint=
+                        inl self = self.reshape (inl a,b -> a,b,1)
+                        s.CudaBlas.gemm_strided_batched .nT .nT one g_inv self 
+                            .reshape (inl a,b,c -> a,b)
+                    }
+
+                sgd lr_weights weights
             }
 
     inl Pass =
