@@ -215,14 +215,17 @@ create
 
 let cuda_aux =
     (
-    "CudaAux",[],"The Cuda auxiliaries module.",
+    "CudaAux",[struct'],"The Cuda auxiliaries module.",
     """
 inl ptr_cuda {ar offset} ret = ar.ptr() + to uint64 (offset * sizeof ar.elem_type) |> ret
-inl to_dev_tensor tns = 
-    tns.update_body (inl body -> 
-        inb ptr = ptr_cuda body
-        {body with ar=!UnsafeCoerceToArrayCudaGlobal(ptr,body.ar.elem_type); offset=0}
-        )
+inl rec to_dev_tensor tns = 
+    Struct.map <| function
+        | {block} as x -> to_dev_tensor {x without block}
+        | x ->
+            tns.update_body (inl body -> 
+            inb ptr = ptr_cuda body
+            {body with ar=!UnsafeCoerceToArrayCudaGlobal(ptr,body.ar.elem_type); offset=0}
+            ) x
 inl allocator_block_size = 256u64
 {ptr_cuda to_dev_tensor allocator_block_size} |> stackify
     """
@@ -833,7 +836,7 @@ inl s ret ->
                 inl d3_to_pointers x = 
                     inl a = Struct.map (inl _ -> s.CudaTensor.create {elem_type=uint64; dim=batch_size}) x
                     inl _ = 
-                        inl a,x = Struct.map CudaAux.to_dev_tensor (a,x)
+                        inl a,x = CudaAux.to_dev_tensor (a,x)
                         s.CudaKernel.iter {dim=batch_size} (inl i -> 
                             Struct.iter2 (inl a x -> a i .set (address_at (x i 0 0))) a x
                             )
@@ -1382,22 +1385,13 @@ met init_d1_redo_outit w {d with dim init redo neutral_elem} =
         inl i x -> 
             inl out = Tuple.foldl (inl out i -> out i) out (Tuple.wrap i)
             out .set x
-    init_d1_redo_outit' w {d with dim init redo neutral_elem outit}
+    init_d1_redo_outit' w {dim init redo neutral_elem outit}
     out
-
-/// Maps the two inputs and then reduces the first's inner dimension.
-// TODO: Replace the other library function with this one.
-//met mapi_d1_redo_map'_alt w {d with redo neutral_elem} in in' out = 
-//    inl init i = 
-//        inl in, in' = in i, in' i .get
-//        inl j -> in j .get
-
-//    inl outit i x = out i .set x
 
 /// Maps the two inputs and then reduces the first's inner dimension.
 met mapi_d1_redo_map' w {d with redo neutral_elem} in in' out = 
     inl in = zip in
-    inl dim_in_a, dim_in_b = in.dim
+    inl dim_in_a, dim_in_b as dim = in.dim
     inl in' =
         match in' with
         | () -> HostTensor.create {dim=dim_in_a; elem_type=()}
@@ -1409,37 +1403,33 @@ met mapi_d1_redo_map' w {d with redo neutral_elem} in in' out =
     assert (dim_in' = dim_in_a) "Input's outer dimension must equal the output's dimension."
     assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-    inl blockDim = lit_min 1024 (s dim_in_b)
-    inl gridDimY = lit_min 64 (s dim_in')
-
-    inl in = to_dev_tensor in
-    inl in' = to_dev_tensor in'
-    inl out = to_dev_tensor out
-    inl map_out = match d with {map_out} -> map_out | _ -> const
-        
-    w.run {
-        blockDim
-        gridDim=1,gridDimY
-        kernel = cuda 
-            inl grid_for = grid_for {blockDim gridDim}
-            grid_for .y dim_in_a {body=inl {i} ->
+    inl in, in', out = to_dev_tensor (in, in', out)
+    inl init =
+        match d with
+        | {map_in} ->
+            inl i ->
                 inl in, in' = in i, in' i .get
+                inl j -> map_in (in j .get) in'
+        | {mapi_in} ->
+            inl i ->
+                inl in, in' = in i, in' i .get
+                inl mapi_in = mapi_in i
+                inl j -> mapi_in j (in j .get) in'
+        | _ ->
+            match in' with
+            | () ->
+                inl i ->
+                    inl in = in i
+                    inl j -> in j .get
+            | _ -> error_type "The redo is missing the map_in argument."
 
-                inl x = 
-                    grid_for .x dim_in_b {state=dyn neutral_elem; body=inl {state i=j} ->
-                        inl in = in j
-                        match d with
-                        | {map_in} -> redo state (map_in in.get in')
-                        | {mapi_in} -> redo state (mapi_in i j in.get in')
-                        | _ -> redo state in.get
-                        }
-                    |> cub_block_reduce {blockDim redo}
+    inl outit =
+        match d with
+        | {map_out} -> inl i x -> out i .set (map_out x)
+        | {mapi_out} -> inl i x -> out i .set (mapi_out i x)
+        | _ -> inl i x -> out i .set x
 
-                if threadIdx.x = 0 then
-                    inl out = out i
-                    out.set (map_out x out.get)
-                }
-        }
+    init_d1_redo_outit' w {dim init redo neutral_elem outit}
 
 inl ddef def_map_out =
     function
