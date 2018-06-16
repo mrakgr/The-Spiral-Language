@@ -1919,7 +1919,7 @@ met init_d2_redo_outit' w {dim init redo neutral_elem outit} =
 /// Maps the two inputs and then reduces the first's outer dimension.
 met mapi_d2_redo_map' w {d with redo neutral_elem} in in' out =
     inl in, in', out = zip in, zip in', zip out
-    inl dim_in_a, dim_in_b = in.dim
+    inl dim_in_a, dim_in_b as dim = in.dim
     inl dim_in' :: () = in'.dim
 
     assert (dim_in' = dim_in_b) "Input's inner dimension must equal the output's dimension."
@@ -1932,15 +1932,17 @@ met mapi_d2_redo_map' w {d with redo neutral_elem} in in' out =
         | {map_in} -> 
             inl i ->
                 inl in j = in j i
+                inl in' = in' i .get
                 inl j ->
-                    inl in, in' = in j .get, in' j .get
+                    inl in = in j .get
                     map_in in in'
         | {mapi_in} ->
             inl i -> // TODO: Note that the kernel iterates in the opposite order. `i` is the inner dimension here.
                 inl in j = in j i
+                inl in' = in' i .get
                 inl mapi_in = mapi_in i
                 inl j ->
-                    inl in, in' = in j .get, in' j .get
+                    inl in = in j .get
                     mapi_in j in in'
         | _ ->
             match in' with
@@ -1952,8 +1954,12 @@ met mapi_d2_redo_map' w {d with redo neutral_elem} in in' out =
 
     inl outit =
         match d with
-        | {map_out} -> inl i x -> out i .set (map_out x)
-        | {mapi_out} -> inl i x -> out i .set (mapi_out i x)
+        | {map_out} -> inl i x -> 
+            inl out = out i
+            out .set (map_out x out.get)
+        | {mapi_out} -> inl i x -> 
+            inl out = out i
+            out .set (mapi_out i x out.get)
         | _ -> inl i x -> out i .set x
 
     init_d2_redo_outit' w {dim init redo neutral_elem outit}

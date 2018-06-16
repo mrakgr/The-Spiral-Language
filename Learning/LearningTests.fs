@@ -487,7 +487,7 @@ inl outer_size = 2
 inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
 inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,middle_size}
 
-inl o = 
+inl o =
     inl x = CudaAux.to_dev_tensor x
     s.CudaKernel.init_d1_redo_outit {
         dim=(outer_size,middle_size),inner_size
@@ -839,6 +839,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) kernel5
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) kernel4
 |> printfn "%s"
 |> ignore
