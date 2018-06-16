@@ -1346,7 +1346,7 @@ met map_d1_inscan_map' w {d with redo neutral_elem} in out =
                 }
         }
 
-met init_d1_redo_outit' w {d with dim=outer,inner init redo neutral_elem outit} =
+met init_d1_redo_outit' w {dim=outer,inner init redo neutral_elem outit} =
     inl span = Tuple.foldl (inl a b -> a * s b) 1 << Tuple.wrap
     inl span_outer, span_inner = Tuple.map span (outer,inner)
 
@@ -1372,7 +1372,7 @@ met init_d1_redo_outit' w {d with dim=outer,inner init redo neutral_elem outit} 
                 }
         }
 
-met init_d1_redo_outit w {d with dim init redo neutral_elem} =
+met init_d1_redo_outit w {dim init redo neutral_elem} =
     inl outer, inner = dim
     inl f = function
         | _ :: _ as x -> Tuple.map (const (dyn 0)) x
@@ -1889,6 +1889,33 @@ met map_d2_inscan_map' w {d with redo neutral_elem} in out =
                 }
         }
 
+/// Does a reduction based on data from the init function and pipes it into the outit function.
+/// Warning - the index arguments will be passed in the opposite order compared to the d1 kernel into `init`.
+met init_d2_redo_outit' w {dim init redo neutral_elem outit} =
+    inl outer, inner = dim
+    inl blockDimX = lit_min warp_size (s inner)
+    inl gridDimX = min 64 (divup (s inner) blockDimX)
+    
+    inl blockDimY = lit_min 32 (s outer)
+    inl gridDimY = 1
+
+    w.run {
+        gridDim=gridDimX,gridDimY
+        blockDim=blockDimX,blockDimY
+        kernel = cuda
+            inl grid_for = grid_for {blockDim gridDim}
+            grid_for .x inner {body=inl {i} ->
+                inl init = init i
+
+                grid_for .y outer {state=dyn neutral_elem; body=inl {state i=j} -> redo state (init j)}
+                |> block_reduce_2dt (blockDim.x,threadIdx.x) (blockDim.y, threadIdx.y) redo
+                |> inl result ->
+                    inl finally result = outit i result
+                    if blockDim.y > 1 then if threadIdx.y = 0 then finally result
+                    else finally result
+            }
+        }
+
 /// Maps the two inputs and then reduces the first's outer dimension.
 met mapi_d2_redo_map' w {d with redo neutral_elem} in in' out =
     inl in, in', out = zip in, zip in', zip out
@@ -1898,39 +1925,38 @@ met mapi_d2_redo_map' w {d with redo neutral_elem} in in' out =
     assert (dim_in' = dim_in_b) "Input's inner dimension must equal the output's dimension."
     assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
 
-    inl blockDimX = lit_min warp_size (s dim_in')
-    inl blockDimY = lit_min 32 (s dim_in_a)
-    inl gridDim = min 64 (divup (s dim_in') blockDimX)
+    inl in,in',out = to_dev_tensor (in,in',out)
 
-    inl in = to_dev_tensor in
-    inl in' = to_dev_tensor in'
-    inl out = to_dev_tensor out
-    inl map_out = match d with {map_out} -> map_out | _ a _ _ -> a
-
-    w.run {
-        gridDim
-        blockDim=blockDimX,blockDimY
-        kernel = cuda 
-            inl grid_for = grid_for {blockDim gridDim}
-            grid_for .x dim_in_b {body=inl {i} ->
+    inl init =
+        match d with
+        | {map_in} -> 
+            inl i ->
                 inl in j = in j i
-                inl in' = in' i .get
-                inl out = out i
+                inl j ->
+                    inl in, in' = in j .get, in' j .get
+                    map_in in in'
+        | {mapi_in} ->
+            inl i -> // TODO: Note that the kernel iterates in the opposite order. `i` is the inner dimension here.
+                inl in j = in j i
+                inl mapi_in = mapi_in i
+                inl j ->
+                    inl in, in' = in j .get, in' j .get
+                    mapi_in j in in'
+        | _ ->
+            match in' with
+            | () ->
+                inl i ->
+                    inl in = in i
+                    inl j -> in j .get
+            | _ -> error_type "The redo is missing the map_in argument."
 
-                grid_for .y dim_in_a {state=dyn neutral_elem; body=inl {state i=j} -> 
-                    inl in = in j
-                    match d with
-                    | {map_in} -> redo state (map_in in.get in') 
-                    | {mapi_in} -> redo state (mapi_in i j in.get in') 
-                    | _ -> redo state in.get
-                    }
-                |> block_reduce_2dt (blockDim.x,threadIdx.x) (blockDim.y, threadIdx.y) redo
-                |> inl result ->
-                    inl finally result = out.set (map_out result out.get)
-                    if blockDim.y > 1 then if threadIdx.y = 0 then finally result
-                    else finally result
-            }
-        } |> ignore
+    inl outit =
+        match d with
+        | {map_out} -> inl i x -> out i .set (map_out x)
+        | {mapi_out} -> inl i x -> out i .set (mapi_out i x)
+        | _ -> inl i x -> out i .set x
+
+    init_d2_redo_outit' w {dim init redo neutral_elem outit}
 
 inl map_dx_redo_map_template select kernel w d in in' =
     indiv join
