@@ -218,14 +218,14 @@ let cuda_aux =
     "CudaAux",[struct'],"The Cuda auxiliaries module.",
     """
 inl ptr_cuda {ar offset} ret = ar.ptr() + to uint64 (offset * sizeof ar.elem_type) |> ret
-inl rec to_dev_tensor tns = 
+inl rec to_dev_tensor = 
     Struct.map <| function
         | {block} as x -> to_dev_tensor {x without block}
         | x ->
-            tns.update_body (inl body -> 
-            inb ptr = ptr_cuda body
-            {body with ar=!UnsafeCoerceToArrayCudaGlobal(ptr,body.ar.elem_type); offset=0}
-            ) x
+            x.update_body (inl body -> 
+                inb ptr = ptr_cuda body
+                {body with ar=!UnsafeCoerceToArrayCudaGlobal(ptr,body.ar.elem_type); offset=0}
+                )
 inl allocator_block_size = 256u64
 {ptr_cuda to_dev_tensor allocator_block_size} |> stackify
     """
@@ -1425,8 +1425,12 @@ met mapi_d1_redo_map' w {d with redo neutral_elem} in in' out =
 
     inl outit =
         match d with
-        | {map_out} -> inl i x -> out i .set (map_out x)
-        | {mapi_out} -> inl i x -> out i .set (mapi_out i x)
+        | {map_out} -> inl i x -> 
+            inl out = out i
+            out .set (map_out x out.get)
+        | {mapi_out} -> inl i x -> 
+            inl out = out i
+            out .set (mapi_out i x out.get)
         | _ -> inl i x -> out i .set x
 
     init_d1_redo_outit' w {dim init redo neutral_elem outit}
