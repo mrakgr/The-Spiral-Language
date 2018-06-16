@@ -1374,21 +1374,22 @@ met init_d1_redo_outit' w {dim=outer,inner init redo neutral_elem outit} =
                 }
         }
 
-met init_d1_redo_outit w {dim init redo neutral_elem} =
-    inl outer, inner = dim
-    inl f = function
-        | _ :: _ as x -> Tuple.map (const (dyn 0)) x
-        | x -> dyn 0
-    inl elem_type = type init (f outer) (f inner)
-    inl out = w.CudaTensor.create {elem_type dim=outer}
+inl init_d1_redo_outit w {dim init redo neutral_elem} =
+    indiv join
+        inl outer, inner = dim
+        inl f = function
+            | _ :: _ as x -> Tuple.map (const (dyn 0)) x
+            | x -> dyn 0
+        inl elem_type = type init (f outer) (f inner)
+        inl out = w.CudaTensor.create {elem_type dim=outer}
 
-    inl outit =
-        inl out = to_dev_tensor out
-        inl i x -> 
-            inl out = Tuple.foldl (inl out i -> out i) out (Tuple.wrap i)
-            out .set x
-    init_d1_redo_outit' w {dim init redo neutral_elem outit}
-    out
+        inl outit =
+            inl out = to_dev_tensor out
+            inl i x -> 
+                inl out = Tuple.foldl (inl out i -> out i) out (Tuple.wrap i)
+                out .set x
+        init_d1_redo_outit' w {dim init redo neutral_elem outit}
+        stack out
 
 /// Maps the two inputs and then reduces the first's inner dimension.
 met mapi_d1_redo_map' w {d with redo neutral_elem} in in' out = 
@@ -1893,12 +1894,14 @@ met map_d2_inscan_map' w {d with redo neutral_elem} in out =
 
 /// Does a reduction based on data from the init function and pipes it into the outit function.
 /// Warning - the index arguments will be passed in the opposite order compared to the d1 kernel into `init`.
-met init_d2_redo_outit' w {dim init redo neutral_elem outit} =
-    inl outer, inner = dim
-    inl blockDimX = lit_min warp_size (s inner)
-    inl gridDimX = min 64 (divup (s inner) blockDimX)
+met init_d2_redo_outit' w {dim=outer, inner init redo neutral_elem outit} =
+    inl span = Tuple.foldl (inl a b -> a * s b) 1 << Tuple.wrap
+    inl span_outer, span_inner = Tuple.map span (outer,inner)
+
+    inl blockDimX = lit_min warp_size span_inner
+    inl gridDimX = min 64 (divup span_inner blockDimX)
     
-    inl blockDimY = lit_min 32 (s outer)
+    inl blockDimY = lit_min 32 span_outer
     inl gridDimY = 1
 
     w.run {
@@ -1917,6 +1920,23 @@ met init_d2_redo_outit' w {dim init redo neutral_elem outit} =
                     else finally result
             }
         }
+
+inl init_d2_redo_outit w {dim init redo neutral_elem} =
+    indiv join
+        inl outer, inner = dim
+        inl f = function
+            | _ :: _ as x -> Tuple.map (const (dyn 0)) x
+            | x -> dyn 0
+        inl elem_type = type init (f inner) (f outer)
+        inl out = w.CudaTensor.create {elem_type dim=inner}
+
+        inl outit =
+            inl out = to_dev_tensor out
+            inl i x -> 
+                inl out = Tuple.foldl (inl out i -> out i) out (Tuple.wrap i)
+                out .set x
+        init_d2_redo_outit' w {dim init redo neutral_elem outit}
+        stack out
 
 /// Maps the two inputs and then reduces the first's outer dimension.
 met mapi_d2_redo_map' w {d with redo neutral_elem} in in' out =
@@ -2098,7 +2118,7 @@ inl methods =
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
     mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter iteri_d1_seq_broadcast
-    iteri_dd1_seq_broadcast init_d1_redo_outit' init_d1_redo_outit
+    iteri_dd1_seq_broadcast init_d1_redo_outit' init_d1_redo_outit init_d2_redo_outit' init_d2_redo_outit
     } |> stackify
 
 inl s -> s.module_add .CudaKernel methods

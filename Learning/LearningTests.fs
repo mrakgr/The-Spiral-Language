@@ -502,6 +502,30 @@ s.CudaTensor.print x
 s.CudaTensor.print o
     """
 
+let kernel17 =
+    "kernel17",[cuda_modules],"Does the init_d2_redo_outit kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+inl inner_size = 6
+inl middle_size = 3
+inl outer_size = 2
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
+inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=inner_size}
+
+inl o =
+    inl x = CudaAux.to_dev_tensor x
+    s.CudaKernel.init_d2_redo_outit {
+        dim=(outer_size,middle_size),inner_size
+        // Note that the arguments are in reverse order compared to init_d1_redo_outit.
+        init=inl inner (outer,mid) -> x outer mid inner .get
+        neutral_elem=0f32
+        redo=(+)
+        }
+
+s.CudaTensor.print x
+s.CudaTensor.print o
+    """
+
 let learning1 =
     "learning1",[cuda_modules;learning],"Does the matmult work?",
     """
@@ -839,6 +863,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) kernel4
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) kernel17
 |> printfn "%s"
 |> ignore
