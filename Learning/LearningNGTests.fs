@@ -16,7 +16,7 @@ inb s = CudaModules (1024*1024*1024)
 inl float = float32
 open Learning float
 
-inl minibatch_size = 128
+inl minibatch_size = 32
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
     Mnist.load_mnist_tensors mnist_path
@@ -32,10 +32,10 @@ inl network =
     inl label = input .label hidden_size
     inl network =
         input .input input_size 
-        |> rng {size=256; lr=0.3f32}
-        |> linear {size=hidden_size; lr=0.3f32}
+        //|> rng 1.0f32 10
+        |> sigmoid 10
         |> init s
-    inl train = error Error.softmax_cross_entropy label network
+    inl train = error Error.square label network
     inl test = parallel (train, accuracy label network)
     {train test}
 
@@ -65,6 +65,6 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
     }
     """
 
-//output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) relative_ng1
-//|> printfn "%s"
-//|> ignore
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) relative_ng1
+|> printfn "%s"
+|> ignore

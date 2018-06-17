@@ -724,7 +724,7 @@ inl float ->
 
     inl Feedforward = 
         {
-        Layer={Layer with init layer sigmoid tanh relu linear } |> stackify
+        Layer={Layer with init layer sigmoid tanh relu linear eng } |> stackify
         Pass
         } |> stack
     
