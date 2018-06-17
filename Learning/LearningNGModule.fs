@@ -616,7 +616,7 @@ inl float ->
                 inl z,b = (matmultb (x, weights.input) () >>= Activation.sigmoid) s
                 inl optimizer () =
                     s.refresh
-                    inl s = s.RegionMem.create
+                    inb s = s.RegionMem.create'
 
                     inl g_inv = weights.g_inv
                     inl g_dim = primal g_inv .dim
@@ -656,7 +656,7 @@ inl float ->
 
             optimizer = inl optimizer weights s ->
                 s.refresh
-                inl s = s.RegionMem.create
+                inb s = s.RegionMem.create'
 
                 optimizer {sub_lr=lr_g_inv; input=weights.g_inv} s
 
