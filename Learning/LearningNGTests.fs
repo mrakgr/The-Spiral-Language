@@ -22,7 +22,7 @@ inl { test_images test_labels train_images train_labels} =
     Mnist.load_mnist_tensors mnist_path
     |> inl { x with test_images train_images } ->
         inl f t =
-            inl m = 2
+            inl m = 4
             inl t = t .reshape (inl a,_ -> a,28,28)
             inl batch,x,y = t .dim
             HostTensor.init (batch, HostTensor.span x / m, HostTensor.span y / m) (inl batch x y -> t batch (x*m) (y*m) .get)

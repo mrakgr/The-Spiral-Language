@@ -1576,7 +1576,11 @@ inl assert_contiguous = flatten >> ignore
 /// Asserts that the dimensions of the tensors are all equal.
 inl assert_dim l = assert_zip >> ignore
 /// Prints the tensor to the standard output.
-met print (!dyn x) = show x |> Console.writeline
+met print (!dyn x) = 
+    match x with
+    | {cutoff input} -> show' {cutoff_near_to=cutoff} input
+    | x -> show x 
+    |> Console.writeline
 
 /// Creates a tensor from a scalar.
 /// x -> x tensor

@@ -627,23 +627,6 @@ inl float ->
                             outit=inl x -> x / batch_size
                             }
 
-                    inl g' =
-                        inl g = s.CudaTensor.to_host_tensor g
-                        inl z = s.CudaTensor.to_host_tensor (primal z)
-                        inl x = s.CudaTensor.to_host_tensor (primal x)
-                        HostTensor.init g_dim (inl cur lower1 lower2 -> 
-                            Loops.for {batch_dim with state=dyn zero; body=inl {state i=batch} ->
-                                inl z = z batch cur .get
-                                inl x1 = x batch lower1 .get
-                                inl x2 = x batch lower2 .get
-                                state + z * x1 * x2
-                                } / batch_size
-                            )
-
-                    HostTensor.print g'
-                    s.synchronize
-                    
-
                     inl g_inv_times_g = s.CudaBlas.gemm_strided_batched .nT .nT one (primal g_inv) g
 
                     /// The cost is `||g'^-1 g - I||`
@@ -664,10 +647,7 @@ inl float ->
                 s.refresh
                 inb s = s.RegionMem.create'
                 
-                //s.CudaTensor.print weights.g_inv.adjoint
-
                 optimizer s {sub_lr=lr_g_inv; input=weights.g_inv}
-                
 
                 inl project_adjoint x =
                     {x with

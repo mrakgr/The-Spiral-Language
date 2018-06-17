@@ -573,7 +573,10 @@ inl methods =
     zero=inl s d -> indiv join s.CudaTensor.create d |> clear' s |> stack
     zero_like=inl s d -> indiv join s.CudaTensor.create_like d |> clear' s |> stack
 
-    print=met s (!zip (!dyn x)) -> s.CudaTensor.to_host_tensor x |> HostTensor.print
+    print=met s (!dyn x) -> 
+        match x with
+        | {cutoff input} -> HostTensor.print {cutoff input=s.CudaTensor.to_host_tensor (zip input)} 
+        | x -> s.CudaTensor.to_host_tensor (zip x) |> HostTensor.print
 
     mmap=inl s f tns -> s.CudaKernel.map' (const f) tns.empty tns
     } |> stackify
