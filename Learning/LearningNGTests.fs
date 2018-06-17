@@ -46,7 +46,10 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
     inl cost =
         for {
             data={input=train_images; label=train_labels}
-            body=train { network=network.train }
+            body=train {
+                network=network.train
+                optimizer=Optimizer.sgd 0.3f32
+                }
             } s
 
     Console.printfn "Training: {0}" cost

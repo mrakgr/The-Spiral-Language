@@ -472,7 +472,7 @@ inl float ->
 
     inl Combinator = 
         {
-        layer_map_fold layer_map init init_parallel optimize run run_parallel
+        layer_map_fold layer_map init optimize run
         } |> stackify
 
     // #Loops
@@ -582,7 +582,7 @@ inl float ->
     inl Layer = {layer input stateless non_differentiable feedforward recurrent parallel error accuracy encode sampling} |> module_map (const stack)
 
     // #Feedforward
-    inl layer initializer activation {size lr} sublayer =
+    inl layer initializer activation size sublayer =
         feedforward
             {
             size sublayer
@@ -724,7 +724,7 @@ inl float ->
 
     inl Feedforward = 
         {
-        Layer={Layer with init layer sigmoid tanh relu linear eng } |> stackify
+        Layer={Layer with init layer sigmoid tanh relu linear rng } |> stackify
         Pass
         } |> stack
     
