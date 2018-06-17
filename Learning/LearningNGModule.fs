@@ -167,16 +167,13 @@ inl float ->
     inl Activation = {activation sigmoid tanh relu add hadmult d2_replicate_activation } |> stack
 
     // #Optimizer
-    inl sgd learning_rate s {primal adjoint} = 
-        s.CudaKernel.map' (inl _ P, A -> P - learning_rate * A, zero) primal.empty (primal, adjoint)
+    inl sgd learning_rate s x = 
+        inl f learning_rate {primal adjoint} = s.CudaKernel.map' (inl _ P, A -> P - learning_rate * A, zero) primal.empty (primal, adjoint)
+        match x with
+        | {sub_lr input={primal adjoint}} -> f (sub_lr * learning_rate) x
+        | x -> f learning_rate x
 
-    inl clipped_sgd max learning_rate s {primal adjoint} = 
-        s.CudaKernel.map' (inl _ P, A -> 
-            inl A = if A < -max then -max elif A > max then max else A
-            P - learning_rate * A, zero
-            ) primal.empty (primal, adjoint)
-
-    inl Optimizer = {sgd clipped_sgd}
+    inl Optimizer = {sgd}
 
     // #Accuracy
     inl accuracy label input s =
@@ -437,6 +434,7 @@ inl float ->
         layer_map (function
             | {weights stream} -> s .data_add {stream} |> body weights
             | {weights} -> body weights s
+            | {optimize} -> optimize optimizer weights s
             | _ -> ()
             ) network 
 
@@ -601,13 +599,8 @@ inl float ->
     inl tanh = layer Initializer.tanh tanh
     inl linear = layer Initializer.sigmoid succ
 
-    inl bias init = 
-        inl x = s.CudaTensor.create {elem_type=float; dim=size} 
-        join s.CudaTensor.mmap (const init) x
-        dr s x
-
     /// The relative NG approximation based on the L2 cost.
-    inl rng {size lr_g_inv lr_weights} sublayer =
+    inl rng lr_g_inv sublayer =
         feedforward
             {
             size sublayer
@@ -616,59 +609,71 @@ inl float ->
 
                 {
                 input = initializer (sublayer.size, size) s |> dr s
-                g_inv = s.CudaTensor.init {dim=size,sublayer.size,sublayer.size} (inl i j k -> if j = k then one else zero)
+                g_inv = s.CudaTensor.init {dim=size,sublayer.size,sublayer.size} (inl i j k -> if j = k then one else zero) |> dr s
                 } |> heap
 
-            apply = inl weights input -> matmultb (input, weights.input) () >>= sigmoid
-            optimizer = inl weights s x z ->
+            apply = inl weights x s -> 
+                inl z,b = (matmultb (input, weights.input) () >>= sigmoid) s
+                inl optimizer () =
+                    s.refresh
+                    inl s = s.RegionMem.create
+
+                    inl g_inv = weights.g_inv
+                    inl g_dim = g_inv.dim
+                    inl batch_dim, _ = z.dim
+                    inl batch_size = to float batch_dim
+
+                    /// reduce_mean (z * x * x^t)
+                    inl g =
+                        inl z,x = to_dev_tensor (z,x)
+                        s.CudaKernel.init_d2_redo_outit {
+                            dim=batch_dim,g_dim
+                            init=inl batch,cur,lower1,lower2 ->
+                                inl z = z batch cur .get
+                                inl x1 = x batch lower1 .get
+                                inl x2 = x batch lower2 .get
+                                z * x1 * x2
+                            neutral_elem=0f32
+                            redo=(+)
+                            outit=inl x -> x / batch_size
+                            }
+
+                    inl g_inv_times_g = s.CudaKernel.gemm_strided_batched .nT .nT one (primal g_inv) g
+
+                    /// The cost is `||g'^-1 g - I||`
+                    /// The gradient of g_inv_times_g is therefore just two * (g_inv_times_g - I)
+                    inl grad_g_inv_times_g =
+                        inl g_inv_times_g = to_dev_tensor g_inv_times_g
+                        s.CudaKernel.init {dim=g_dim} (inl cur lower1 lower2 ->
+                            inl x = g_inv_times_g cur lower1 lower2 .get
+                            inl i = if lower1 = lower2 then one else zero
+                            two * (x - i)
+                            )
+
+                    s.CudaBlas.gemm_strided_batched' .nT .T one grad_g_inv_times_g g one (adjoint g_inv)
+
+                z, apply_bck optimizer b
+
+            optimizer = inl optimizer weights s ->
                 s.refresh
                 inl s = s.RegionMem.create
 
-                inl g_inv = weights.g_inv
-                inl g_dim = g_inv.dim
-                inl batch_dim, _ = z.dim
-                inl batch_size = to float batch_dim
+                optimizer {sub_lr=lr_g_inv; input=weights.g_inv} s
 
-                /// reduce_mean (z * x * x^t)
-                inl g =
-                    inl z,x = to_dev_tensor (z,x)
-                    s.CudaKernel.init_d2_redo_outit {
-                        dim=batch_dim,g_dim
-                        init=inl batch,cur,lower1,lower2 ->
-                            inl z = z batch cur .get
-                            inl x1 = x batch lower1 .get
-                            inl x2 = x batch lower2 .get
-                            z * x1 * x2
-                        neutral_elem=0f32
-                        redo=(+)
-                        outit=inl x -> x / batch_size
-                        }
-
-                inl g_inv_times_g = s.CudaKernel.gemm_strided_batched .nT .nT one g_inv g
-
-                /// The cost is `||g'^-1 g - I||`
-                /// The gradient of g_inv_times_g is therefore just two * (g_inv_times_g - I)
-                inl grad_g_inv_times_g =
-                    inl g_inv_times_g = to_dev_tensor g_inv_times_g
-                    s.CudaKernel.init {dim=g_dim} (inl cur lower1 lower2 ->
-                        inl x = g_inv_times_g cur lower1 lower2 .get
-                        inl i = if lower1 = lower2 then one else zero
-                        two * (x - i)
-                        )
-
-                inl grad_g_inv = s.CudaBlas.gemm_strided_batched .nT .T one grad_g_inv_times_g g
-
-                sgd lr_g_inv {primal=g_inv; adjoint=grad_g_inv}
-
-                inl weights =
-                    {weights with 
+                inl project_adjoint x =
+                    {x with
                     adjoint=
                         inl self = self.reshape (inl a,b -> a,b,1)
-                        s.CudaBlas.gemm_strided_batched .nT .nT one g_inv self 
-                            .reshape (inl a,b,c -> a,b)
+                        inl x = 
+                            s.CudaBlas.gemm_strided_batched .nT .nT one (primal weights.g_inv) self
+                                .reshape (inl a,b,c -> a,b)
+                        s.CudaTensor.clear self
+                        x
                     }
 
-                sgd lr_weights weights
+                f weights.input
+
+                optimizer s (project_adjoint weights.input)
             }
 
     inl Pass =
