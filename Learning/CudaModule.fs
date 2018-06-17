@@ -1937,7 +1937,8 @@ inl init_d2_redo_outit w {d with dim init redo neutral_elem} =
             inl outit = match d with {outit} -> outit | _ -> id
             inl i x -> 
                 inl out = Tuple.foldl (inl out i -> out i) out (Tuple.wrap i)
-                out .set (outit x)
+                //out .set (outit x)
+                ()
         init_d2_redo_outit' w {dim init redo neutral_elem outit}
         stack out
 
