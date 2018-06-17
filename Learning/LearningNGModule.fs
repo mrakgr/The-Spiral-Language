@@ -600,7 +600,7 @@ inl float ->
     inl linear = layer Initializer.sigmoid succ
 
     /// The relative NG approximation based on the L2 cost.
-    inl rng lr_g_inv sublayer =
+    inl rng lr_g_inv size sublayer =
         feedforward
             {
             size sublayer
@@ -609,26 +609,26 @@ inl float ->
 
                 {
                 input = initializer (sublayer.size, size) s |> dr s
-                g_inv = s.CudaTensor.init {dim=size,sublayer.size,sublayer.size} (inl i j k -> if j = k then one else zero) |> dr s
+                g_inv = s.CudaKernel.init {dim=size,sublayer.size,sublayer.size} (inl i j k -> if j = k then one else zero) |> dr s
                 } |> heap
 
             apply = inl weights x s -> 
-                inl z,b = (matmultb (input, weights.input) () >>= sigmoid) s
+                inl z,b = (matmultb (x, weights.input) () >>= Activation.sigmoid) s
                 inl optimizer () =
                     s.refresh
                     inl s = s.RegionMem.create
 
                     inl g_inv = weights.g_inv
-                    inl g_dim = g_inv.dim
-                    inl batch_dim, _ = z.dim
-                    inl batch_size = to float batch_dim
+                    inl g_dim = primal g_inv .dim
+                    inl batch_dim, _ = primal z .dim
+                    inl batch_size = to float <| HostTensor.span batch_dim
 
                     /// reduce_mean (z * x * x^t)
                     inl g =
-                        inl z,x = to_dev_tensor (z,x)
+                        inl z,x = CudaAux.to_dev_tensor (primal z,x)
                         s.CudaKernel.init_d2_redo_outit {
                             dim=batch_dim,g_dim
-                            init=inl batch,cur,lower1,lower2 ->
+                            init=inl (cur,lower1,lower2) batch ->
                                 inl z = z batch cur .get
                                 inl x1 = x batch lower1 .get
                                 inl x2 = x batch lower2 .get
@@ -638,7 +638,7 @@ inl float ->
                             outit=inl x -> x / batch_size
                             }
 
-                    inl g_inv_times_g = s.CudaKernel.gemm_strided_batched .nT .nT one (primal g_inv) g
+                    inl g_inv_times_g = s.CudaBlas.gemm_strided_batched .nT .nT one (primal g_inv) g
 
                     /// The cost is `||g'^-1 g - I||`
                     /// The gradient of g_inv_times_g is therefore just two * (g_inv_times_g - I)

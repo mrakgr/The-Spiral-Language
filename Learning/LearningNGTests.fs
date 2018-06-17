@@ -32,8 +32,8 @@ inl network =
     inl label = input .label hidden_size
     inl network =
         input .input input_size 
-        //|> rng 1.0f32 10
-        |> sigmoid 10
+        |> rng 1.0f32 10
+        //|> sigmoid 10
         |> init s
     inl train = error Error.square label network
     inl test = parallel (train, accuracy label network)
