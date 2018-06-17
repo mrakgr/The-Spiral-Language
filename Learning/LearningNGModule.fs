@@ -615,28 +615,34 @@ inl float ->
                     /// reduce_mean (z * x * x^t)
                     inl g =
                         inl z,x = CudaAux.to_dev_tensor (primal z,primal x)
-                        inl batch = batch_dim
-                        inl cur,lower1,lower2 = g_dim
-                        assert (z.dim = (batch,cur)) "qwe"
-                        assert (x.dim = (batch,lower1)) "asd"
-                        assert (x.dim = (batch,lower2)) "zxc"
                         s.CudaKernel.init_d2_redo_outit {
                             dim=batch_dim,g_dim
                             init=inl (cur,lower1,lower2) batch ->
-                                inl z = one //z batch cur .get
-                                inl x1 = one //x batch lower1 .get
-                                inl x2 = one //x batch lower2 .get
-                                inl r = z * x1 * x2
-                                macro.cd () [text:"printf"; args: "(batch=%lli,cur=%lli,lower1=%lli,lower2=%lli) (%f,%f,%f,%f)\n",batch,cur,lower1,lower2,z,x1,x2,r]
-                                r
+                                inl z = z batch cur .get
+                                inl x1 = x batch lower1 .get
+                                inl x2 = x batch lower2 .get
+                                z * x1 * x2
                             neutral_elem=0f32
                             redo=(+)
                             outit=inl x -> x / batch_size
                             }
 
+                    inl g' =
+                        inl g = s.CudaTensor.to_host_tensor g
+                        inl z = s.CudaTensor.to_host_tensor (primal z)
+                        inl x = s.CudaTensor.to_host_tensor (primal x)
+                        HostTensor.init g_dim (inl cur lower1 lower2 -> 
+                            Loops.for {batch_dim with state=dyn zero; body=inl {state i=batch} ->
+                                inl z = z batch cur .get
+                                inl x1 = x batch lower1 .get
+                                inl x2 = x batch lower2 .get
+                                state + z * x1 * x2
+                                } / batch_size
+                            )
+
+                    HostTensor.print g'
                     s.synchronize
-                    failwith () "stop"
-                    //s.CudaTensor.print (primal g)
+                    
 
                     inl g_inv_times_g = s.CudaBlas.gemm_strided_batched .nT .nT one (primal g_inv) g
 

@@ -80,6 +80,36 @@ Loops.for' {from=0; near_to=1;body=inl {next} ->
     }
     """
 
+let kernel17 =
+    "kernel17",[cuda_modules],"Does the init_d2_redo_outit kernel work?",
+    """
+inb s = CudaModules (1024*1024*1024)
+inl outer = 2
+inl inner = 10,196,196
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=Tuple.append (Tuple.wrap outer) inner}
+
+inl one = 1f32
+inl o =
+    inl x = CudaAux.to_dev_tensor (z,x)
+    s.CudaKernel.init_d2_redo_outit {
+        dim=outer,inner
+        // Note that the arguments are in reverse order compared to init_d1_redo_outit.
+        init=inl (cur,lower1,lower2) batch -> 
+            inl z = z batch cur .get
+            inl x1 = x batch lower1 .get
+            inl x2 = x batch lower2 .get
+            inl r = z * x1 * x2
+            macro.cd () [text:"printf"; args: "(batch=%lli,cur=%lli,lower1=%lli,lower2=%lli) (%f,%f,%f,%f)\n",batch,cur,lower1,lower2,z,x1,x2,r]
+            r
+        neutral_elem=0f32
+        redo=(+)
+        }
+
+s.synchronize
+s.CudaTensor.print x
+s.CudaTensor.print o
+    """
+
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) relative_ng1
 |> printfn "%s"
 |> ignore
