@@ -6,7 +6,7 @@ open System.IO
 open Spiral.Types
 open Learning.Cuda
 
-let cfg = Spiral.Types.cfg_default
+let cfg = {Spiral.Types.cfg_default with cuda_assert_enabled=true}
 
 let relative_ng1 =
     "relative_ng1",[cuda_modules;learning;mnist],"Does the full training work with Mnist using relative natural gradient?",
@@ -16,19 +16,22 @@ inb s = CudaModules (1024*1024*1024)
 inl float = float32
 open Learning float
 
-inl minibatch_size = 32
+inl minibatch_size = 2
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
     Mnist.load_mnist_tensors mnist_path
     |> inl { x with test_images train_images } ->
         inl f t =
-            inl batch,x,y = t.dim
-            HostTensor.init (batch,x/2,y/2) (inl batch x y -> t batch (x*2) (y*2) .get)
+            inl m = 2
+            inl t = t .reshape (inl a,_ -> a,28,28)
+            inl batch,x,y = t .dim
+            HostTensor.init (batch, HostTensor.span x / m, HostTensor.span y / m) (inl batch x y -> t batch (x*m) (y*m) .get)
+                .reshape (inl a,b,c -> a,b*c)
         {x with test_images=f self; train_images=f self}
     |> s.CudaTensor.from_host_tensors
-    |> module_map (inl _ x -> x.round_split' minibatch_size)
+    |> module_map (inl _ x -> x.round_split' minibatch_size .view_span (const 1))
 
-inl input_size = train_images.dim |> snd |> HostTensor.span
+inl input_size = train_images.dim |> inl _,_,x -> HostTensor.span x
 inl hidden_size = 10
 
 inl network = 
@@ -37,14 +40,18 @@ inl network =
     inl label = input .label hidden_size
     inl network =
         input .input input_size 
-        |> rng 1.0f32 10
+        //|> rng 0.02f32 64
+        //|> rng 0.02f32 64
+        |> rng 0.02f32 10
+        //|> sigmoid 64
+        //|> sigmoid 64
         //|> sigmoid 10
         |> init s
     inl train = error Error.square label network
     inl test = parallel (train, accuracy label network)
     {train test}
 
-Loops.for' {from=0; near_to=10;body=inl {next} -> 
+Loops.for' {from=0; near_to=1;body=inl {next} -> 
     open Feedforward.Pass
     open Body
 

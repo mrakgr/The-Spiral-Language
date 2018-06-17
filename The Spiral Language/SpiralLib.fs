@@ -1770,9 +1770,11 @@ inl ret ->
         match s.data.stream with
         | () -> FS.Method cuda_kernel .Run(to_obj_ar args) float32
         | stream -> FS.Method cuda_kernel .RunAsync(stream.extract,to_obj_ar args) ()
+        
+    inl synchronize s = FS.Method s.data.context .Synchronize() ()
 
     Object
-        .member_add {run}
+        .member_add {run synchronize}
         .data_add {context stream=()}
     |> ret
     """) |> module_

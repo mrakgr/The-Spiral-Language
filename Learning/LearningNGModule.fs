@@ -170,7 +170,7 @@ inl float ->
     inl sgd learning_rate s x = 
         inl f learning_rate {primal adjoint} = s.CudaKernel.map' (inl _ P, A -> P - learning_rate * A, zero) primal.empty (primal, adjoint)
         match x with
-        | {sub_lr input={primal adjoint}} -> f (sub_lr * learning_rate) x
+        | {sub_lr input} -> f (sub_lr) input
         | x -> f learning_rate x
 
     inl Optimizer = {sgd}
@@ -432,9 +432,9 @@ inl float ->
     inl optimize network optimizer s =
         inl body weights s = weights () |> Struct.iter (optimizer s)
         layer_map (function
-            | {weights stream} -> s .data_add {stream} |> body weights
+            | {weights optimize} -> optimize optimizer (weights ()) s
+            | {weights stream} -> error_type "Streams not allowed in this experimental module."
             | {weights} -> body weights s
-            | {optimize} -> optimize optimizer weights s
             | _ -> ()
             ) network 
 
@@ -514,25 +514,12 @@ inl float ->
         size
         }
 
-    inl stateful layer_type {weights apply size sublayer} = 
-        layer {
-            layer_type
-            size
-            sublayer
-            weights
-            apply
-            }
+    inl stateful layer_type {d with weights apply size sublayer} = layer {d with layer_type}
 
     inl feedforward = stateful .feedforward
     inl recurrent = stateful .recurrent
 
-    inl aux layer_type {apply sublayer size} =
-        layer {
-            layer_type
-            size
-            sublayer
-            apply
-            }
+    inl aux layer_type {d with apply sublayer size} = layer {d with layer_type}
 
     inl stateless = aux .stateless
     inl non_differentiable = aux .non_differentiable
@@ -623,20 +610,33 @@ inl float ->
                     inl batch_dim, _ = primal z .dim
                     inl batch_size = to float <| HostTensor.span batch_dim
 
+                    s.synchronize
+
                     /// reduce_mean (z * x * x^t)
                     inl g =
-                        inl z,x = CudaAux.to_dev_tensor (primal z,x)
+                        inl z,x = CudaAux.to_dev_tensor (primal z,primal x)
+                        inl batch = batch_dim
+                        inl cur,lower1,lower2 = g_dim
+                        assert (z.dim = (batch,cur)) "qwe"
+                        assert (x.dim = (batch,lower1)) "asd"
+                        assert (x.dim = (batch,lower2)) "zxc"
                         s.CudaKernel.init_d2_redo_outit {
                             dim=batch_dim,g_dim
                             init=inl (cur,lower1,lower2) batch ->
-                                inl z = z batch cur .get
-                                inl x1 = x batch lower1 .get
-                                inl x2 = x batch lower2 .get
-                                z * x1 * x2
+                                inl z = one //z batch cur .get
+                                inl x1 = one //x batch lower1 .get
+                                inl x2 = one //x batch lower2 .get
+                                inl r = z * x1 * x2
+                                macro.cd () [text:"printf"; args: "(batch=%lli,cur=%lli,lower1=%lli,lower2=%lli) (%f,%f,%f,%f)\n",batch,cur,lower1,lower2,z,x1,x2,r]
+                                r
                             neutral_elem=0f32
                             redo=(+)
                             outit=inl x -> x / batch_size
                             }
+
+                    s.synchronize
+                    failwith () "stop"
+                    //s.CudaTensor.print (primal g)
 
                     inl g_inv_times_g = s.CudaBlas.gemm_strided_batched .nT .nT one (primal g_inv) g
 
@@ -654,24 +654,30 @@ inl float ->
 
                 z, apply_bck optimizer b
 
-            optimizer = inl optimizer weights s ->
+            optimize = inl optimizer weights s ->
                 s.refresh
                 inb s = s.RegionMem.create'
+                
+                //s.CudaTensor.print weights.g_inv.adjoint
 
-                optimizer {sub_lr=lr_g_inv; input=weights.g_inv} s
+                optimizer s {sub_lr=lr_g_inv; input=weights.g_inv}
+                
 
                 inl project_adjoint x =
                     {x with
                     adjoint=
-                        inl self = self.reshape (inl a,b -> a,b,1)
+                        /// Dirty, inefficient transpose when in a pinch.
+                        inl transpose self =
+                            inl a,b = self.dim
+                            inl self = to_dev_tensor self
+                            s.CudaKernel.init {dim=b,a} (inl b a -> self a b .get)
                         inl x = 
+                            inl self = transpose self .reshape (inl a,b -> a,b,1)
                             s.CudaBlas.gemm_strided_batched .nT .nT one (primal weights.g_inv) self
                                 .reshape (inl a,b,c -> a,b)
                         s.CudaTensor.clear self
-                        x
+                        transpose x
                     }
-
-                f weights.input
 
                 optimizer s (project_adjoint weights.input)
             }

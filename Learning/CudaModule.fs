@@ -1900,10 +1900,10 @@ met init_d2_redo_outit' w {dim=outer, inner init redo neutral_elem outit} =
     inl span = Tuple.foldl (inl a b -> a * s b) 1 << Tuple.wrap
     inl span_outer, span_inner = Tuple.map span (outer,inner)
 
-    inl blockDimX = lit_min warp_size span_inner
-    inl gridDimX = min 64 (divup span_inner blockDimX)
+    inl blockDimX = 1 // lit_min warp_size span_inner
+    inl gridDimX = 1 // min 64 (divup span_inner blockDimX)
     
-    inl blockDimY = lit_min 32 span_outer
+    inl blockDimY = 1 //lit_min 32 span_outer
     inl gridDimY = 1
 
     w.run {
