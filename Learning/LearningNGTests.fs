@@ -20,10 +20,15 @@ inl minibatch_size = 32
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
     Mnist.load_mnist_tensors mnist_path
+    |> inl { x with test_images train_images } ->
+        inl f t =
+            inl batch,x,y = t.dim
+            HostTensor.init (batch,x/2,y/2) (inl batch x y -> t batch (x*2) (y*2) .get)
+        {x with test_images=f self; train_images=f self}
     |> s.CudaTensor.from_host_tensors
     |> module_map (inl _ x -> x.round_split' minibatch_size)
 
-inl input_size = 784
+inl input_size = train_images.dim |> snd |> HostTensor.span
 inl hidden_size = 10
 
 inl network = 
