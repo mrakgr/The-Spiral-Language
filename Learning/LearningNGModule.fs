@@ -586,7 +586,7 @@ inl float ->
     inl tanh = layer Initializer.tanh tanh
     inl linear = layer Initializer.sigmoid succ
 
-    /// The relative NG approximation based on the L2 cost.
+    /// The relative natural gradient implementation based on the L2 cost for approximating the RFIM inverse.
     inl rng lr_g_inv size sublayer =
         feedforward
             {
@@ -609,8 +609,6 @@ inl float ->
                     inl g_dim = primal g_inv .dim
                     inl batch_dim, _ = primal z .dim
                     inl batch_size = to float <| HostTensor.span batch_dim
-
-                    s.synchronize
 
                     /// reduce_mean (z * x * x^t)
                     inl g =

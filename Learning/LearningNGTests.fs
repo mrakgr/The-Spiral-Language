@@ -40,9 +40,9 @@ inl network =
     inl label = input .label hidden_size
     inl network =
         input .input input_size 
-        |> rng 0.00f32 64
-        |> rng 0.00f32 64
-        |> rng 0.00f32 10
+        |> rng 0.005f32 64
+        |> rng 0.005f32 64
+        |> rng 0.005f32 10
         //|> sigmoid 64
         //|> sigmoid 64
         //|> sigmoid 10
@@ -51,7 +51,7 @@ inl network =
     inl test = parallel (train, accuracy label network)
     {train test}
 
-Loops.for' {from=0; near_to=10;body=inl {next} -> 
+Loops.for' {from=0; near_to=3;body=inl {next} -> 
     open Feedforward.Pass
     open Body
 
