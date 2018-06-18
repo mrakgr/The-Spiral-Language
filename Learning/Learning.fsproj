@@ -64,9 +64,6 @@
     <Compile Include="CudaModule.fs" />
     <Compile Include="LearningModule.fs" />
     <Compile Include="LearningTests.fs" />
-    <Compile Include="LearningNGModule.fs" />
-    <Compile Include="LearningNGTests.fs" />
-    <Content Include="rng_optimization_pass_sketch.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

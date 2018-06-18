@@ -863,7 +863,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-//output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) kernel17
-//|> printfn "%s"
-//|> ignore
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) kernel17
+|> printfn "%s"
+|> ignore
 
