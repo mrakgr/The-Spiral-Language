@@ -16,20 +16,20 @@ inb s = CudaModules (1024*1024*1024)
 inl float = float32
 open Learning float
 
-inl minibatch_size = 2
+inl minibatch_size = 32
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
     Mnist.load_mnist_tensors mnist_path
     |> inl { x with test_images train_images } ->
         inl f t =
-            inl m = 4
+            inl m = 2
             inl t = t .reshape (inl a,_ -> a,28,28)
             inl batch,x,y = t .dim
             HostTensor.init (batch, HostTensor.span x / m, HostTensor.span y / m) (inl batch x y -> t batch (x*m) (y*m) .get)
                 .reshape (inl a,b,c -> a,b*c)
         {x with test_images=f self; train_images=f self}
     |> s.CudaTensor.from_host_tensors
-    |> module_map (inl _ x -> x.round_split' minibatch_size .view_span (const 1))
+    |> module_map (inl _ x -> x.round_split' minibatch_size)
 
 inl input_size = train_images.dim |> inl _,_,x -> HostTensor.span x
 inl hidden_size = 10
@@ -40,9 +40,9 @@ inl network =
     inl label = input .label hidden_size
     inl network =
         input .input input_size 
-        //|> rng 0.02f32 64
-        //|> rng 0.02f32 64
-        |> rng 0.02f32 10
+        |> rng 0.00f32 64
+        |> rng 0.00f32 64
+        |> rng 0.00f32 10
         //|> sigmoid 64
         //|> sigmoid 64
         //|> sigmoid 10
@@ -51,7 +51,7 @@ inl network =
     inl test = parallel (train, accuracy label network)
     {train test}
 
-Loops.for' {from=0; near_to=1;body=inl {next} -> 
+Loops.for' {from=0; near_to=10;body=inl {next} -> 
     open Feedforward.Pass
     open Body
 
@@ -80,36 +80,7 @@ Loops.for' {from=0; near_to=1;body=inl {next} ->
     }
     """
 
-let kernel17 =
-    "kernel17",[cuda_modules],"Does the init_d2_redo_outit kernel work?",
-    """
-inb s = CudaModules (1024*1024*1024)
-inl outer = 2
-inl inner = 10,196,196
-inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=Tuple.append (Tuple.wrap outer) inner}
-
-inl one = 1f32
-inl o =
-    inl x = CudaAux.to_dev_tensor (z,x)
-    s.CudaKernel.init_d2_redo_outit {
-        dim=outer,inner
-        // Note that the arguments are in reverse order compared to init_d1_redo_outit.
-        init=inl (cur,lower1,lower2) batch -> 
-            inl z = z batch cur .get
-            inl x1 = x batch lower1 .get
-            inl x2 = x batch lower2 .get
-            inl r = z * x1 * x2
-            macro.cd () [text:"printf"; args: "(batch=%lli,cur=%lli,lower1=%lli,lower2=%lli) (%f,%f,%f,%f)\n",batch,cur,lower1,lower2,z,x1,x2,r]
-            r
-        neutral_elem=0f32
-        redo=(+)
-        }
-
-s.synchronize
-s.CudaTensor.print x
-s.CudaTensor.print o
-    """
-
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) relative_ng1
 |> printfn "%s"
 |> ignore
+
