@@ -604,7 +604,8 @@ inl float ->
 
                 {
                 input = initializer (sublayer.size, size) s |> dr s
-                g_inv = s.CudaKernel.init {dim=size,sublayer.size,sublayer.size} (inl i j k -> if j = k then one else zero) |> dr s
+                //g_inv = s.CudaKernel.init {dim=size,sublayer.size,sublayer.size} (inl i j k -> if j = k then one else zero) |> dr s
+                g_inv = s.CudaKernel.init {dim=size,sublayer.size,sublayer.size} (inl i j k -> zero) |> dr s
                 } |> heap
 
             apply = inl weights x s -> 
