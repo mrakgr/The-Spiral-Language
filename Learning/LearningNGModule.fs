@@ -649,10 +649,10 @@ inl float ->
                         map_in=inl x -> 
                             inl x = x / two
                             x*x
-                        sum=(+); neutral_elem=zero
+                        redo=(+); neutral_elem=zero
                         map_out=inl x -> x / batch_size
-                        }
-                    |> Console.writeline
+                        } grad_g_inv_times_g
+                    |> s.CudaTensor.print
 
                     s.CudaBlas.gemm_strided_batched' .nT .T one grad_g_inv_times_g g one (adjoint g_inv)
 
