@@ -604,9 +604,7 @@ inl float ->
 
                 {
                 input = initializer (sublayer.size, size) s |> dr s
-                //g_inv = s.CudaKernel.init {dim=size,sublayer.size,sublayer.size} (inl i j k -> if j = k then one else zero) |> dr s
-                //g_inv = s.CudaKernel.init {dim=size,sublayer.size,sublayer.size} (inl i j k -> zero) |> dr s
-                g_inv = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=3f32} {elem_type=float; dim=size,sublayer.size,sublayer.size} s |> dr s
+                g_inv = s.CudaKernel.init {dim=size,sublayer.size,sublayer.size} (inl i j k -> if j = k then one else zero) |> dr s
                 } |> heap
 
             apply = inl weights x s -> 

@@ -40,7 +40,7 @@ inl network =
     inl label = input .label hidden_size
     inl network =
         input .input input_size 
-        |> rng 0.00f32 10
+        |> rng 0.01f32 10
         //|> sigmoid 10
         |> init s
     inl train = error Error.rng_cross_entropy label network
