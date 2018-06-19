@@ -287,6 +287,14 @@ inl float ->
                 log (one - x) - log x
         }
 
+    /// The rng method always uses a sigmoid in this library.
+    inl rng_cross_entropy = error {
+        fwd = inl x,y -> -(y * log x + (one - y) * log (one - x))
+        bck = 
+            inl (x, y) _ -> x - y
+            ,inl (x, y) _ -> log (one - x) - log x
+        }
+
     /// Applies a softmax and then calculates the cross entropy cost. Is intended to take a linear layer as input.
     inl softmax_cross_entropy label input s =
         assert ((primal label).dim = (primal input).dim) "Labels and inputs must have equal dimensions."
@@ -354,7 +362,7 @@ inl float ->
 
         cost, bck
 
-    inl Error = {square sigmoid_cross_entropy softmax_cross_entropy} |> stackify
+    inl Error = {square sigmoid_cross_entropy rng_cross_entropy softmax_cross_entropy} |> stackify
 
     // #Initializer
     inl Initializer = 
@@ -625,7 +633,7 @@ inl float ->
                             outit=inl x -> x / batch_size
                             }
 
-                    inl g_inv_times_g = s.CudaBlas.gemm_strided_batched .nT .nT one (primal g_inv) g
+                    inl g_inv_times_g = s.CudaBlas.gemm_strided_batched .nT .T one (primal g_inv) g
 
                     /// The cost is `||g'^-1 g - I||`
                     /// The gradient of g_inv_times_g is therefore just two * (g_inv_times_g - I)
@@ -636,6 +644,15 @@ inl float ->
                             inl i = if lower1 = lower2 then one else zero
                             two * (x - i)
                             )
+
+                    s.CudaKernel.map_redo_map {
+                        map_in=inl x -> 
+                            inl x = x / two
+                            x*x
+                        sum=(+); neutral_elem=zero
+                        map_out=inl x -> x / batch_size
+                        }
+                    |> Console.writeline
 
                     s.CudaBlas.gemm_strided_batched' .nT .T one grad_g_inv_times_g g one (adjoint g_inv)
 
