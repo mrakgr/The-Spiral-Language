@@ -64,8 +64,6 @@
     <Compile Include="CudaModule.fs" />
     <Compile Include="LearningModule.fs" />
     <Compile Include="LearningTests.fs" />
-    <Compile Include="LearningNGModule.fs" />
-    <Compile Include="LearningNGTests.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
