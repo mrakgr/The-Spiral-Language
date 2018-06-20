@@ -650,7 +650,6 @@ inl float ->
                             inl x = x / two
                             x*x
                         redo=(+); neutral_elem=zero
-                        map_out=inl x -> x / batch_size
                         } grad_g_inv_times_g
                     |> s.CudaTensor.print
 
