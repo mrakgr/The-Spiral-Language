@@ -154,6 +154,23 @@ inl o2 = s.CudaBlas.trmm .Left .Lower .nT .NonUnit 1f32 a1 a2
 Tuple.iter s.CudaTensor.print (a1,a2,o1,o2)
     """
 
+let blas4 =
+    "blas4",[cuda_modules],"Does the trsm work?",
+    """
+inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+
+inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=3,3}
+s.CudaTensor.set (a1 0 1) 0f32
+s.CudaTensor.set (a1 0 2) 0f32
+s.CudaTensor.set (a1 1 2) 0f32
+
+inl a2 = s.CudaKernel.init {dim=3,3} (inl a b -> if a = b then 1f32 else 0f32)
+inl o1 = s.CudaBlas.trsm .Left .Lower .nT .NonUnit 1f32 a1 a2
+inl o2 = s.CudaBlas.trinv .Lower a1
+inl r1 = s.CudaBlas.gemm .nT .nT 1f32 a1 o2
+Tuple.iter s.CudaTensor.print (a1,a2,o1,o2,r1)
+    """
+
 let kernel1 =
     "kernel1",[cuda_modules],"Does the map kernel work?",
     """
@@ -872,13 +889,13 @@ let tests =
     kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
     kernel10;kernel11;kernel12;kernel13;kernel14;kernel15
     random1
-    blas1;blas2
+    blas1;blas2;blas3;blas4
     learning1;learning2;learning3;learning4;learning5;                               learning9
     learning10;learning11
     |]
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) blas3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) blas4
 |> printfn "%s"
 |> ignore

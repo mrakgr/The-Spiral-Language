@@ -774,6 +774,52 @@ inl s ret ->
             trmm' s side uplo trans diag alpha A B C
             stack C
 
+    /// Triangular matrix solve. Overwrittes B with the result.
+    met trsm' s side uplo trans diag alpha A B =
+        assert (eq_type A.elem_type float32) "A must be of type float32."
+        assert (eq_type B.elem_type float32) "B must be of type float32."
+        assert (eq_type alpha float32) "alpha must be of type float32."
+
+        inl assert_side A B =
+            inl a_row, a_col = if isnT trans then rows A, cols A else cols A, rows A
+            inl b_row, b_col = rows B, cols B
+            assert (a_col = b_row) "Colums of A does not match rows of B in TRMM."
+
+        match side with
+        | .Left -> assert_side A B
+        | .Right -> assert_side B A
+
+        inl m = rows B
+        inl n = cols B
+
+        inl f = to int32
+        call s .cublasStrsm_v2(opposite_side side, opposite_fill uplo, trans, diag, f n, f m, alpha, {ptr=A}, f (ld A), {ptr=B}, f (ld B))
+
+    inl trsm s side uplo trans diag alpha A B =
+        indiv join
+            inl get_dims A B =
+                inl a_row = if isnT trans then rows A else cols A
+                inl b_col = cols B
+                a_row, b_col
+
+            inl B =
+                inl dim =
+                    match side with
+                    | .Left -> get_dims A B
+                    | .Right -> get_dims B A
+                inl B = CudaAux.to_dev_tensor B
+                s.CudaKernel.init {dim} (inl a b -> B a b .get)
+            trsm' s side uplo trans diag alpha A B
+            stack B
+
+    /// The triangular matrix inverse
+    inl trinv s uplo A =
+        indiv join
+            inl float = A.elem_type
+            inl B = s.CudaKernel.init {dim=A.dim} (inl a b -> if a = b then to float 1 else to float 0)
+            trsm' s .Left uplo .nT .NonUnit (to float 1) A B
+            stack B
+
     /// General matrix-matrix multiply from cuBLAS. Inplace version
     met gemm' s transa transb alpha A B beta C =
         assert (eq_type A.elem_type float32) "A must be of type float32."
@@ -956,7 +1002,7 @@ inl s ret ->
             gemm_strided_batched' s transa transb alpha A B (to alpha 0) C
             stack C
 
-    ret <| s.module_add .CudaBlas {trmm' trmm gemm' gemm matinv_batched matinv_batched_asserted gemm_strided_batched' gemm_strided_batched}
+    ret <| s.module_add .CudaBlas {trmm' trmm trsm' trsm trinv gemm' gemm matinv_batched matinv_batched_asserted gemm_strided_batched' gemm_strided_batched}
     """) |> module_
 
 let cuda_kernel =
