@@ -683,7 +683,7 @@ inl s ret ->
     inl to_fill_mode .Lower | .Upper as x = enum fill_mode_type x
 
     inl diag_type = fs [text: "ManagedCuda.CudaBlas.DiagType"]
-    inl to_diag_type .NonUnit | .Unit as x = enum fill_mode_type x
+    inl to_diag_type .NonUnit | .Unit as x = enum diag_type x
 
     inl isT = function
         | .T -> true
@@ -753,13 +753,15 @@ inl s ret ->
         inl n = cols B
 
         inl f = to int32
-        call s .cublasStrmm_v2(opposite_side side, uplo, trans, diag, f m, f n, alpha, {ptr=A}, f (ld lda), B, f (ld ldb), C, f (ld ldc))
+        print_static {ldb = f (ld B)}
+        qwe
+        call s .cublasStrmm_v2(opposite_side side, uplo, trans, diag, f m, f n, alpha, {ptr=A}, f (ld A), {ptr=B}, f (ld B), {ptr=C}, f (ld C))
 
     inl trmm s side uplo trans diag alpha A B =
         indiv join
             inl get_dims A B =
-                inl a_row, _ = if isnT trans then rows A else cols A
-                inl _, b_col = cols B
+                inl a_row = if isnT trans then rows A else cols A
+                inl b_col = cols B
                 a_row, b_col
 
             inl C =
@@ -953,7 +955,7 @@ inl s ret ->
             gemm_strided_batched' s transa transb alpha A B (to alpha 0) C
             stack C
 
-    ret <| s.module_add .CudaBlas {gemm' gemm matinv_batched matinv_batched_asserted gemm_strided_batched' gemm_strided_batched}
+    ret <| s.module_add .CudaBlas {trmm' trmm gemm' gemm matinv_batched matinv_batched_asserted gemm_strided_batched' gemm_strided_batched}
     """) |> module_
 
 let cuda_kernel =

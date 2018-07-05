@@ -138,6 +138,22 @@ inl o = s.CudaBlas.gemm_strided_batched .nT .nT 1f32 a a'
 s.CudaTensor.print o
     """
 
+let blas3 =
+    "blas3",[cuda_modules],"Does the trmm work?",
+    """
+inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+
+inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=3,3}
+s.CudaTensor.set (a1 1 0) 0f32
+s.CudaTensor.set (a1 2 0) 0f32
+s.CudaTensor.set (a1 2 1) 0f32
+
+inl a2 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=3,2}
+inl o1 = s.CudaBlas.gemm .nT .nT 1f32 a1 a2
+inl o2 = s.CudaBlas.trmm .Left .Upper .nT .NonUnit 1f32 a1 a2
+Tuple.iter s.CudaTensor.print (a1,a2,o1,o2)
+    """
+
 let kernel1 =
     "kernel1",[cuda_modules],"Does the map kernel work?",
     """
@@ -863,6 +879,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning10
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) blas3
 |> printfn "%s"
 |> ignore
