@@ -673,6 +673,18 @@ inl s ret ->
         | .T -> enum operation_type .Transpose
         | .nT -> enum operation_type .NonTranspose
 
+    inl side_type = fs [text: "ManagedCuda.CudaBlas.SideMode"]
+    inl to_side_mode .Left | .Right as x = enum side_type x
+    inl opposite_side = function
+        | .Left -> .Right
+        | .Right -> .Left
+
+    inl fill_mode_type = fs [text: "ManagedCuda.CudaBlas.FillMode"]
+    inl to_fill_mode .Lower | .Upper as x = enum fill_mode_type x
+
+    inl diag_type = fs [text: "ManagedCuda.CudaBlas.DiagType"]
+    inl to_diag_type .NonUnit | .Unit as x = enum fill_mode_type x
+
     inl isT = function
         | .T -> true
         | _ -> false
@@ -707,15 +719,57 @@ inl s ret ->
                 (to_dev_tensor ptr).bodies.ar
             Tuple.map (function
                 | x : float64 | x : float32 -> ref x
-                | .nT | .T as x -> to_operation x
                 | {ptr} -> strip ptr |> CUdeviceptr
                 | {ptr_ar} -> Array.map strip ptr_ar |> s.CudaTensor.from_cudadevptr_array
+                | .nT | .T as x -> to_operation x
+                | .Left | .Right as x -> to_side_mode x
+                | .Lower | .Upper as x -> to_fill_mode x
+                | .NonUnit | .Unit as x -> to_diag_type x
                 | x -> x
                 ) args
         inl native_type = fs [text: "ManagedCuda.CudaBlas.CudaBlasNativeMethods"]
         inl status_type = fs [text: "ManagedCuda.CudaBlas.CublasStatus"]
         inl assert_ok status = macro.fs () [text: "if "; arg: status; text: " <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException"; args: status]
         FS.StaticMethod native_type method (handle :: args) status_type |> assert_ok
+
+    /// Triangular matrix-matrix multiply from cuBLAS. Inplace version
+    met trmm' s side uplo trans diag alpha A B C =
+        assert (eq_type A.elem_type float32) "A must be of type float32."
+        assert (eq_type B.elem_type float32) "B must be of type float32."
+        assert (eq_type C.elem_type float32) "C must be of type float32."
+        assert (eq_type alpha float32) "alpha must be of type float32."
+
+        inl assert_side A B =
+            inl a_row, a_col = if isnT trans then rows A, cols A else cols A, rows A
+            inl b_row, b_col = rows B, cols B
+            assert (a_col = b_row) "Colums of A does not match rows of B in GEMM."
+            assert (a_row = rows C && b_col = cols C) "Output matrix dimensions do not match in GEMM."
+
+        match side with
+        | .Left -> assert_side A B
+        | .Right -> assert_side B A
+
+        inl m = rows B
+        inl n = cols B
+
+        inl f = to int32
+        call s .cublasStrmm_v2(opposite_side side, uplo, trans, diag, f m, f n, alpha, {ptr=A}, f (ld lda), B, f (ld ldb), C, f (ld ldc))
+
+    inl trmm s side uplo trans diag alpha A B =
+        indiv join
+            inl get_dims A B =
+                inl a_row, _ = if isnT trans then rows A else cols A
+                inl _, b_col = cols B
+                a_row, b_col
+
+            inl C =
+                inl dim =
+                    match side with
+                    | .Left -> get_dims A B
+                    | .Right -> get_dims B A
+                s.CudaTensor.create {dim elem_type = A.elem_type}
+            trmm' s side uplo trans diag alpha A B C
+            stack C
 
     /// General matrix-matrix multiply from cuBLAS. Inplace version
     met gemm' s transa transb alpha A B beta C =
@@ -727,7 +781,7 @@ inl s ret ->
 
         inl a_col = if isnT transa then cols A else rows A
         inl b_row = if isnT transb then rows B else cols B
-        assert (a_col = b_row) "Colums of a does not match rows of b in GEMM."
+        assert (a_col = b_row) "Colums of A does not match rows of B in GEMM."
 
         inl m = if isnT transa then rows A else cols A
         inl n = if isnT transb then cols B else rows B
