@@ -749,12 +749,10 @@ inl s ret ->
         | .Left -> assert_side A B
         | .Right -> assert_side B A
 
-        inl m = rows B
-        inl n = cols B
+        inl m = cols B
+        inl n = rows B
 
         inl f = to int32
-        print_static {ldb = f (ld B)}
-        qwe
         call s .cublasStrmm_v2(opposite_side side, uplo, trans, diag, f m, f n, alpha, {ptr=A}, f (ld A), {ptr=B}, f (ld B), {ptr=C}, f (ld C))
 
     inl trmm s side uplo trans diag alpha A B =
