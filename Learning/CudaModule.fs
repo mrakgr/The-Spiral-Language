@@ -742,18 +742,18 @@ inl s ret ->
         inl assert_side A B =
             inl a_row, a_col = if isnT trans then rows A, cols A else cols A, rows A
             inl b_row, b_col = rows B, cols B
-            assert (a_col = b_row) "Colums of A does not match rows of B in GEMM."
-            assert (a_row = rows C && b_col = cols C) "Output matrix dimensions do not match in GEMM."
+            assert (a_col = b_row) "Colums of A does not match rows of B in TRMM."
+            assert (a_row = rows C && b_col = cols C) "Output matrix dimensions do not match in TRMM."
 
         match side with
         | .Left -> assert_side A B
         | .Right -> assert_side B A
 
-        inl m = cols B
-        inl n = rows B
+        inl m = rows B
+        inl n = cols B
 
         inl f = to int32
-        call s .cublasStrmm_v2(opposite_side side, uplo, trans, diag, f m, f n, alpha, {ptr=A}, f (ld A), {ptr=B}, f (ld B), {ptr=C}, f (ld C))
+        call s .cublasStrmm_v2(opposite_side side, uplo, trans, diag, f n, f m, alpha, {ptr=A}, f (ld A), {ptr=B}, f (ld B), {ptr=C}, f (ld C))
 
     inl trmm s side uplo trans diag alpha A B =
         indiv join
