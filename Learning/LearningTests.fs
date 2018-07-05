@@ -144,11 +144,11 @@ let blas3 =
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
 inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=3,3}
-s.CudaTensor.set (a1 1 0) 0f32
-s.CudaTensor.set (a1 2 0) 0f32
-s.CudaTensor.set (a1 2 1) 0f32
+s.CudaTensor.set (a1 0 1) 0f32
+s.CudaTensor.set (a1 0 2) 0f32
+s.CudaTensor.set (a1 1 2) 0f32
 
-inl a2 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=3,1}
+inl a2 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=3,4}
 inl o1 = s.CudaBlas.gemm .nT .nT 1f32 a1 a2
 inl o2 = s.CudaBlas.trmm .Left .Lower .nT .NonUnit 1f32 a1 a2
 Tuple.iter s.CudaTensor.print (a1,a2,o1,o2)

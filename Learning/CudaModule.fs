@@ -681,6 +681,9 @@ inl s ret ->
 
     inl fill_mode_type = fs [text: "ManagedCuda.CudaBlas.FillMode"]
     inl to_fill_mode .Lower | .Upper as x = enum fill_mode_type x
+    inl opposite_fill = function
+        | .Lower -> .Upper
+        | .Upper -> .Lower
 
     inl diag_type = fs [text: "ManagedCuda.CudaBlas.DiagType"]
     inl to_diag_type .NonUnit | .Unit as x = enum diag_type x
@@ -753,7 +756,7 @@ inl s ret ->
         inl n = cols B
 
         inl f = to int32
-        call s .cublasStrmm_v2(opposite_side side, uplo, trans, diag, f n, f m, alpha, {ptr=A}, f (ld A), {ptr=B}, f (ld B), {ptr=C}, f (ld C))
+        call s .cublasStrmm_v2(opposite_side side, opposite_fill uplo, trans, diag, f n, f m, alpha, {ptr=A}, f (ld A), {ptr=B}, f (ld B), {ptr=C}, f (ld C))
 
     inl trmm s side uplo trans diag alpha A B =
         indiv join
