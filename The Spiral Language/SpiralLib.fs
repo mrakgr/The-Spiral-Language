@@ -1072,7 +1072,6 @@ inl map2 f a b =
         | x, y when caseable_box_is x || caseable_box_is y -> f x y
         | x :: xs, y :: ys -> loop (x,y) :: loop (xs,ys)
         | (), () -> ()
-        | (), _ | _, () -> error_type "Tuple dimensions do not match."
         | {!block} & x, {!block} & y -> module_map (inl k x -> loop (x,y k)) x
         | x, y -> f x y
     loop (a,b)
@@ -1082,7 +1081,6 @@ inl map3 f a b c =
         | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z
         | x :: xs, y :: ys, z :: zs -> loop (x,y,z) :: loop (xs,ys,zs)
         | (), (), () -> ()
-        | (), _, _ | _, (), _ | _, _, () -> error_type "Tuple dimensions do not match."
         | {!block} & x, {!block} & y, {!block} & z -> module_map (inl k x -> loop (x,y k,z k)) x
         | x, y, z -> f x y z
     loop (a,b,c)
@@ -1105,7 +1103,6 @@ inl foldl2 f s a b =
         | x, y when caseable_box_is x || caseable_box_is y -> f s x y
         | x :: xs, y :: ys -> loop (loop s (x,y)) (xs,ys)
         | (), () -> ()
-        | (), _ | _, () -> error_type "Tuple dimensions do not match."
         | {!block} & x, {!block} & y -> module_foldl (inl k s x -> loop s (x,y k)) s x
         | x, y -> f s x y
     loop s (a,b)
@@ -1115,7 +1112,6 @@ inl foldl3 f s a b c =
         | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f s x y z
         | x :: xs, y :: ys, z :: zs -> loop (loop s (x,y,z)) (xs,ys,zs)
         | (), (), () -> ()
-        | (), _, _ | _, (), _ | _, _, () -> error_type "Tuple dimensions do not match."
         | {!block} & x, {!block} & y, {!block} & z -> module_foldl (inl k s x -> loop s (x,y k,z k)) s x
         | x, y, z -> f s x y z
     loop s (a,b,c)
@@ -1145,7 +1141,6 @@ inl choose2 f a b =
             | () -> loop (xs,ys)
             | x -> x :: loop (xs,ys)
         | (), () -> ()
-        | (), _ | _, () -> error_type "Tuple dimensions do not match."
         | {!block} & x, {!block} & y ->
             module_foldl (inl k s x -> 
                 match loop (x,y k) with
@@ -1163,7 +1158,6 @@ inl choose3 f a b c =
             | () -> loop (xs,ys,zs)
             | x -> x :: loop (xs,ys,zs)
         | (), (), () -> ()
-        | (), _, _ | _, (), _ | _, _, () -> error_type "Tuple dimensions do not match."
         | {!block} & x, {!block} & y, {!block} & z -> 
             module_foldl (inl k s x -> 
                 match loop (x,y k,z k) with
@@ -1198,7 +1192,6 @@ inl foldl2_map f s a b =
             inl x', s = loop s (xs,ys)
             x :: x', s
         | (), () -> (), s
-        | (), _ | _, () -> error_type "Tuple dimensions do not match."
         | {!block} & x, {!block} & y -> 
             module_foldl (inl k (m,s) v -> 
                 inl x, s = loop s (v, y k)
@@ -1216,7 +1209,6 @@ inl foldl3_map f s a b c =
             inl x', s = loop s (xs,ys,zs)
             x :: x', s
         | (), (), () -> (), s
-        | (), _, _ | _, (), _ | _, _, () -> error_type "Tuple dimensions do not match."
         | {!block} & x, {!block} & y, {!block} & z ->
             module_foldl (inl k (m,s) v -> 
                 inl x, s = loop s (v, y k, z k)

@@ -1719,6 +1719,7 @@ inl mapi_d1_dredo_map w d in =
         stack out
 
 /// Does a (repeating) sequence of maps, reductions and maps in registers.
+/// Is used for the iterative A z z^t update in the ML library.
 met init_d1_seq_broadcast w {d with seq init} (dim_a, dim_b) = 
     inl num_valid = s dim_b
     inl items_per_thread, blockDim =
@@ -1745,13 +1746,7 @@ met init_d1_seq_broadcast w {d with seq init} (dim_a, dim_b) =
                 items
 
             grid_for dims .y dim_a {body=inl {i=j} ->
-                inl body n items d =
-                    inl items =
-                        match d with
-                        | {init} ->
-                            inl map = match n with () -> init j | _ -> init n j
-                            create_items <| inl {item i} -> map i (items item .get)
-                        | _ -> items
+                inl body n items =
                     match d with
                     | {mapi_in} ->
                         inl map = match n with () -> mapi j | _ -> mapi_in n j
@@ -1784,13 +1779,74 @@ met init_d1_seq_broadcast w {d with seq init} (dim_a, dim_b) =
 
                 Tuple.foldl (inl state d ->
                     match d with
-                    | {from near_to} -> forcd {from near_to state body=inl {i state} -> body i state d}
-                    | _ -> body () state d
-                    ) items (Tuple.wrap seq)
+                    | {from near_to} -> forcd {from near_to state body=inl {i state} -> body i state}
+                    | _ -> body () state
+                    ) items d
                 |> inl items -> type
                     match items.elem_type with
                     | () -> ()
                     | _ -> error_type "The elem type of the last operation in the sequence must be unit."
+                }
+        }
+
+/// Does a sequence of maps, reductions and maps in registers.
+met iteri_d1_seq_broadcast w {d with seq mapi_in} (dim_a, dim_b) = 
+    inl num_valid = s dim_b
+    inl items_per_thread, blockDim =
+        assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
+        if num_valid <= 1024 then 1, num_valid
+        else divup num_valid 256, 256
+    inl gridDimY = min 64 (s dim_a)
+
+    w.run {
+        blockDim
+        gridDim=1,gridDimY
+        kernel = cuda 
+            inl dims = {blockDim gridDim}
+            inl inner_loop = grid_for_items dims .x dim_b
+            inl create_items map = 
+                inl items = HostTensor.create {
+                    array_create = array_create_cuda_local
+                    layout=.aot
+                    elem_type=type map {item=dyn 0; i=dyn 0}
+                    dim=items_per_thread
+                    }
+
+                inner_loop {body=inl {x with item i} -> items item .set (map x)}
+                items
+
+            grid_for dims .y dim_a {body=inl {i=j} ->
+                inl items = 
+                    inl map = mapi_in j
+                    create_items <| inl {item i} -> map i
+
+                inl rec seq_redo items (d :: d') =
+                    match d with
+                    | {mapi_in} ->
+                        inl map = mapi_in j
+                        create_items <| inl {item i} -> map i (items item .get)
+                    | {map_in=map} -> create_items <| inl {item i} -> map (items item .get)
+                    | _ -> items
+                    |> inl x -> 
+                        inl x = x.bodies.ar
+                        inl block_reduce redo = 
+                            inl d = {blockDim redo}
+                            if num_valid % blockDim.x = 0 then cub_block_reduce d
+                            else cub_block_reduce {d with num_valid} 
+                        match d with
+                        | {redo} -> block_reduce redo x |> broadcast_zero
+                        | {redo'} -> block_reduce redo' x
+                    |> inl x ->
+                        inl map =
+                            match d with
+                            | {mapi_out} -> mapi_out j
+                            | {map_out} -> const map_out
+                        inl body {item i} = map i (items item .get) x
+                        match d' with
+                        | () -> inner_loop {body}
+                        | _ -> seq_redo (create_items body) d'
+
+                seq_redo items (Tuple.wrap seq)
                 }
         }
 
@@ -1802,10 +1858,6 @@ inl ddef fout in out =
     >> function
     | {d with seq} ->
         inl f = function
-            | {from near_to mapi_out} as x -> {x with mapi_out = inl n j i a b -> 
-                inl out = out j i
-                out .set (fout (mapi_out n j i) a b out.get)
-                }
             | {mapi_out} as x -> {x with mapi_out = inl j i a b -> 
                 inl out = out j i
                 out .set (fout (mapi_out j i) a b out.get)
@@ -1826,40 +1878,33 @@ met mapi_d1_seq_broadcast' w {d with seq} in out =
     inl in = to_dev_tensor in
     inl out = to_dev_tensor out
 
-    init_d1_seq_broadcast w (ddef (inl f a b c -> f a b c) in out d) in.dim
+    iteri_d1_seq_broadcast w (ddef (inl f a b c -> f a b c) in out d) in.dim
 
 inl mapi_d1_seq_broadcast w {d with seq} in =
     indiv join
         inl in = zip in
         inl seq = Tuple.wrap seq
         inl elem_type = type
-            inl ty =
+            inl ty = 
                 match d with
-                | {map_in} -> map_in in.elem_type
+                | {map_in} -> map_in in.elem_type 
                 | {mapi_in} -> mapi_in (dyn 0) (dyn 0) in.elem_type
                 | _ -> in.elem_type
             Tuple.foldl (inl ty d -> 
-                inl ty' =
-                    match d with
-                    | {init} -> init (dyn 0) (dyn 0) ty
-                    | {from near_to init} -> init (dyn 0) (dyn 0) (dyn 0) ty
-                    | _ -> ty
                 inl ty' = 
                     match d with
                     | {map_in} -> map_in ty
                     | {mapi_in} -> mapi_in (dyn 0) (dyn 0) ty
-                    | {from near_to mapi_in} -> mapi_in (dyn 0) (dyn 0) (dyn 0) ty
                     | _ -> ty
                 match d with
                 | {map_out} -> map_out ty ty'
                 | {mapi_out} -> map_out (dyn 0) (dyn 0) ty ty'
-                | {from near_to mapi_out} -> map_out (dyn 0) (dyn 0) (dyn 0) ty ty'
                 | _ -> ty'
                 ) ty seq
         
         inl out = w.CudaTensor.create {elem_type dim=in.dim}
 
-        init_d1_seq_broadcast w (ddef (inl f a b c -> f a b) (to_dev_tensor in) (to_dev_tensor out) d) in.dim
+        iteri_d1_seq_broadcast w (ddef (inl f a b c -> f a b) (to_dev_tensor in) (to_dev_tensor out) d) in.dim
         stack out
 
 /// Does a sequence of maps, reductions and maps in registers.
@@ -2289,7 +2334,8 @@ inl methods =
     map' map map_redo_map d2_replicate_map' d2_replicate_map mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
-    mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter init_d1_seq_broadcast
+    mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter iteri_d1_seq_broadcast
+    init_d1_seq_broadcast
     iteri_dd1_seq_broadcast init_d1_redo_outit' init_d1_redo_outit init_d2_redo_outit' init_d2_redo_outit
     } |> stackify
 

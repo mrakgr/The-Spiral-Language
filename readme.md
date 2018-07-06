@@ -6592,7 +6592,7 @@ Assuming the output is present the backward step can be done in one step.
 inl softmax x = exp x / replicate (sum (exp x))
 ```
 
-Let me put this up once more. For easy of rewriting the sum will be factored out...
+For ease of rewriting the sum will be factored out...
 
 ```
 inl softmax x = 
