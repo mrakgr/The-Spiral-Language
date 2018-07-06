@@ -588,22 +588,27 @@ inb s = CudaModules (1024*1024)
 inl n = 3
 inl k = 1
 inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
-inl z = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=k,n}
+inl z = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=k,n}
 
 inl cholesky_update s A z =
-    inl z = CudaAux.to_dev_tensor z
-    inl dim_k, dim_a = z.dim
-    assert (fst A.dim = dim_a) "The outer dimension of A must match the inner dimension of z."
-    assert (snd A.dim = dim_a) "The inner dimension of A must match the inner dimension of z."
-    s.CudaKernel.mapi_d1_seq_broadcast {
-        seq = 
-            {dim_k with
-            init=inl n i j A -> A, z n j .get
-            map_in=inl A,z -> A*z
-            redo=(+)
-            map_out=inl (A,z) Az -> Az*z
-            }
-        } A
+    inl _ =
+        inl A = CudaAux.to_dev_tensor A
+        inl z = CudaAux.to_dev_tensor z
+        inl dim_k, dim_a = z.dim
+        assert (fst A.dim = dim_a) "The outer dimension of A must match the inner dimension of z."
+        assert (snd A.dim = dim_a) "The inner dimension of A must match the inner dimension of z."
+        s.CudaKernel.init_d1_seq_broadcast {
+            init=inl i j -> A i j .get
+            seq = 
+                {dim_k with
+                init=inl n i j A -> A, z n j .get
+                map_in=inl A,z -> A*z
+                redo=(+)
+                mapi_out=inl _ i j (_,z) Az -> Az*z
+                }
+            outit=inl i j x -> A i j .set x
+            } A.dim
+    A
 
 s.CudaTensor.print A
 s.CudaTensor.print z

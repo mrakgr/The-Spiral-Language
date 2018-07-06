@@ -1784,7 +1784,9 @@ met init_d1_seq_broadcast w {d with seq init} (dim_a, dim_b) =
 
                 Tuple.foldl (inl state d ->
                     match d with
-                    | {from near_to} -> forcd {from near_to state body=inl {i state} -> body i state d}
+                    | {from near_to} -> 
+                        error_type "Not done yet."
+                        forcd {from near_to state body=inl {i state} -> body i state d}
                     | _ -> body () state d
                     ) items (Tuple.wrap seq)
                 |> inl items -> type
