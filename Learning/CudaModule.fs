@@ -1718,9 +1718,9 @@ inl mapi_d1_dredo_map w d in =
         mapi_d1_dredo_map' w {d with map_out = inl a _ -> map_out a} in out
         stack out
 
-/// Does a repeating sequence of maps, reductions and maps in registers.
+/// Does a (repeating) sequence of maps, reductions and maps in registers.
 /// Is used for the iterative A z z^t update in the ML library.
-met init_d1_repeat_broadcast w {d with seq init} (dim_a, dim_b) = 
+met init_d1_seq_broadcast w {d with seq init} (dim_a, dim_b) = 
     inl num_valid = s dim_b
     inl items_per_thread, blockDim =
         assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
@@ -1782,7 +1782,7 @@ met init_d1_repeat_broadcast w {d with seq init} (dim_a, dim_b) =
                     | {from near_to} -> forcd {from near_to state body=inl {i state} -> body i state}
                     | _ -> body () state
                     ) items d
-                |> items -> type
+                |> inl items -> type
                     match items.elem_type with
                     | () -> ()
                     | _ -> error_type "The elem type of the last operation in the sequence must be unit."
