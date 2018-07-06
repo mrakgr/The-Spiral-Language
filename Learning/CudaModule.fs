@@ -820,6 +820,42 @@ inl s ret ->
             trsm' s .Left uplo .nT .NonUnit (to float 1) A B
             stack B
 
+    /// The symmetric matrix multiply. Inplace version.
+    inl symm' s side uplo alpha A B beta C =
+        assert (eq_type A.elem_type float32) "A must be of type float32."
+        assert (eq_type B.elem_type float32) "B must be of type float32."
+        assert (eq_type C.elem_type float32) "C must be of type float32."
+        assert (eq_type alpha float32) "alpha must be of type float32."
+        assert (eq_type beta float32) "beta must be of type float32."
+
+        inl assert_side A B =
+            assert (cols A = rows B) "Colums of A does not match rows of B in SYMM."
+            assert (rows A = rows C && cols B = cols C) "Output matrix dimensions do not match in SYMM."
+
+        match side with
+        | .Left -> assert_side A B
+        | .Right -> assert_side B A
+
+        inl m = rows B
+        inl n = cols B
+
+        inl f = to int32
+        call s .cublasSsymm_v2(opposite_side side, opposite_fill uplo, f n, f m, alpha, {ptr=A}, f (ld A), {ptr=B}, f (ld B), beta, {ptr=C}, f (ld C))
+
+    inl symm s side uplo alpha A B =
+        indiv join
+            inl get_dims A B = rows A, cols B
+            inl elem_type = A.elem_type
+
+            inl C =
+                inl dim =
+                    match side with
+                    | .Left -> get_dims A B
+                    | .Right -> get_dims B A
+                s.CudaTensor.create {dim elem_type}
+            symm' s side uplo alpha A B (to elem_type 0) C
+            stack C
+
     /// General matrix-matrix multiply from cuBLAS. Inplace version
     met gemm' s transa transb alpha A B beta C =
         assert (eq_type A.elem_type float32) "A must be of type float32."
@@ -1002,7 +1038,7 @@ inl s ret ->
             gemm_strided_batched' s transa transb alpha A B (to alpha 0) C
             stack C
 
-    ret <| s.module_add .CudaBlas {trmm' trmm trsm' trsm trinv gemm' gemm matinv_batched matinv_batched_asserted gemm_strided_batched' gemm_strided_batched}
+    ret <| s.module_add .CudaBlas {trmm' trmm trsm' trsm trinv symm' symm gemm' gemm matinv_batched matinv_batched_asserted gemm_strided_batched' gemm_strided_batched}
     """) |> module_
 
 let cuda_kernel =
