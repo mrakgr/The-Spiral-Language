@@ -581,6 +581,78 @@ s.CudaTensor.print x
 s.CudaTensor.print o
     """
 
+let cholesky1 =
+    "cholesky1",[cuda_modules],"Does the symmetric Cholesky update kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+inl A = s.CudaKernel.init {dim=8,8} (inl a b -> if a = b then 1f32 else 0f32)
+inl z = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=1,8}
+
+inl cholesky_update w A z A' =
+    inl s = HostTensor.span
+    inl dim_a, dim_b = A.dim
+    inl num_valid = s dim_b
+    inl items_per_thread, blockDim =
+        assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
+        if num_valid <= 1024 then 1, num_valid
+        else divup num_valid 256, 256
+    inl gridDimY = min 64 (s dim_a)
+    
+    w.run {
+        blockDim
+        gridDim=1,gridDimY
+        kernel = cuda 
+            inl dims = {blockDim gridDim}
+            inl inner_loop = grid_for_items dims .x dim_b
+            inl create_items map = 
+                inl items = HostTensor.create {
+                    array_create = array_create_cuda_local
+                    layout=.aot
+                    elem_type=type map {item=dyn 0; i=dyn 0}
+                    dim=items_per_thread
+                    }
+
+                inner_loop {body=inl {x with item i} -> items item .set (map x)}
+                items
+
+            grid_for dims .y dim_a {body=inl {i=j} ->
+                inl items = 
+                    inl map = mapi_in j
+                    create_items <| inl {item i} -> map i
+
+                inl rec seq_redo items (d :: d') =
+                    match d with
+                    | {mapi_in} ->
+                        inl map = mapi_in j
+                        create_items <| inl {item i} -> map i (items item .get)
+                    | {map_in=map} -> create_items <| inl {item i} -> map (items item .get)
+                    | _ -> items
+                    |> inl x -> 
+                        inl x = x.bodies.ar
+                        inl block_reduce redo = 
+                            inl d = {blockDim redo}
+                            if num_valid % blockDim.x = 0 then cub_block_reduce d
+                            else cub_block_reduce {d with num_valid} 
+                        match d with
+                        | {redo} -> block_reduce redo x |> broadcast_zero
+                        | {redo'} -> block_reduce redo' x
+                    |> inl x ->
+                        inl map =
+                            match d with
+                            | {mapi_out} -> mapi_out j
+                            | {map_out} -> const map_out
+                        inl body {item i} = map i (items item .get) x
+                        match d' with
+                        | () -> inner_loop {body}
+                        | _ -> seq_redo (create_items body) d'
+
+                seq_redo items (Tuple.wrap seq)
+                }
+        }
+
+()
+    """
+
 let learning1 =
     "learning1",[cuda_modules;learning],"Does the matmult work?",
     """
@@ -909,7 +981,8 @@ let tests =
     allocator1
     tensor1;tensor2
     kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
-    kernel10;kernel11;kernel12;kernel13;kernel14;kernel15
+    kernel10;kernel11;kernel12;kernel13;kernel14;kernel15;kernel16;kernel17
+    cholesky1
     random1
     blas1;blas2;blas3;blas4;blas5
     learning1;learning2;learning3;learning4;learning5;                               learning9
@@ -918,7 +991,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) blas5
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky1
 |> printfn "%s"
 |> ignore
 
