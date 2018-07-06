@@ -1810,6 +1810,10 @@ inl ddef fout in out =
                 inl out = out j i
                 out .set (fout (mapi_out j i) a b out.get)
                 }
+            | {from near_to map_out} as x -> {x without map_out with mapi_out = inl n j i a b -> 
+                inl out = out j i
+                out .set (fout map_out a b out.get)
+                }
             | {map_out} as x -> {x without map_out with mapi_out = inl j i a b -> 
                 inl out = out j i
                 out .set (fout map_out a b out.get)
@@ -1839,21 +1843,21 @@ inl mapi_d1_seq_broadcast w {d with seq} in =
                 | {mapi_in} -> mapi_in (dyn 0) (dyn 0) in.elem_type
                 | _ -> in.elem_type
             Tuple.foldl (inl ty d -> 
-                inl ty' =
+                inl ty =
                     match d with
-                    | {init} -> init (dyn 0) (dyn 0) ty
                     | {from near_to init} -> init (dyn 0) (dyn 0) (dyn 0) ty
+                    | {init} -> init (dyn 0) (dyn 0) ty
                     | _ -> ty
                 inl ty' = 
                     match d with
                     | {map_in} -> map_in ty
-                    | {mapi_in} -> mapi_in (dyn 0) (dyn 0) ty
                     | {from near_to mapi_in} -> mapi_in (dyn 0) (dyn 0) (dyn 0) ty
+                    | {mapi_in} -> mapi_in (dyn 0) (dyn 0) ty
                     | _ -> ty
                 match d with
                 | {map_out} -> map_out ty ty'
-                | {mapi_out} -> map_out (dyn 0) (dyn 0) ty ty'
                 | {from near_to mapi_out} -> map_out (dyn 0) (dyn 0) (dyn 0) ty ty'
+                | {mapi_out} -> map_out (dyn 0) (dyn 0) ty ty'
                 | _ -> ty'
                 ) ty seq
         

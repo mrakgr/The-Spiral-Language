@@ -6,7 +6,7 @@ open System.IO
 open Spiral.Types
 open Learning.Cuda
 
-let cfg = Spiral.Types.cfg_default
+let cfg = {Spiral.Types.cfg_default with trace_length=160}
 
 let allocator1 =
     "allocator1",[allocator;cuda],"Does the allocator work?",
@@ -605,7 +605,9 @@ inl cholesky_update s A z =
             }
         } A
 
-()
+s.CudaTensor.print A
+s.CudaTensor.print z
+s.CudaTensor.print (cholesky_update s A z)
     """
 
 let learning1 =
@@ -946,7 +948,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel11
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky1
 |> printfn "%s"
 |> ignore
 
