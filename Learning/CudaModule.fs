@@ -1791,6 +1791,8 @@ met init_d1_seq_broadcast w {d with seq init} (dim_a, dim_b) =
                                 inl items' = body i items d
                                 inner_loop {body=inl {item} -> items item .set (items' item .get)}
                                 }
+                            //inl items = body 0 items d
+                            //inl items = body 1 items d
                             items
                         | _ -> body () items d
                         ) items (Tuple.wrap seq)

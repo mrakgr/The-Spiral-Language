@@ -603,14 +603,19 @@ inl cholesky_update s A z =
     s.CudaKernel.mapi_d1_seq_broadcast {
         seq = 
             {dim_k with
-            init=inl n i j A -> A, z n j .get
+            init=inl n i j A -> 
+                inl z = z n j .get
+                A, z
             map_in=inl A,z -> A*z
             redo=(+)
             map_out=inl (A,z) Az -> Az*z
             }
         } A
 
-inl view from z = z .view_span (const {from near_to=from+1})
+inl view from z = 
+    inl z = z .view_span (const {from near_to=from})
+    print_static z.dim
+    z
 
 s.CudaTensor.print A
 s.CudaTensor.print z
@@ -619,9 +624,8 @@ inl u1 = cholesky_update s A z
 s.CudaTensor.print u1
 
 inl u2 = cholesky_update s A (view 0 z)
-inl u3 = cholesky_update s A (view 1 z)
 s.CudaTensor.print u2
-s.CudaTensor.print u3
+qwe
 
 //inl mult from A z =
 //    inl z = view from z
@@ -969,6 +973,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning9
 |> printfn "%s"
 |> ignore
