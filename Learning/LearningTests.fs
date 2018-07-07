@@ -586,33 +586,49 @@ let cholesky1 =
     """
 inb s = CudaModules (1024*1024)
 inl n = 3
-inl k = 1
-inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
+inl k = 2
+inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=n,n}
+inl sym a1 r c = s.CudaTensor.set (a1 r c) (s.CudaTensor.get (a1 c r))
+sym A 0 1
+sym A 0 2
+sym A 1 2
+
 inl z = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=k,n}
 
 inl cholesky_update s A z =
-    inl _ =
-        inl A = CudaAux.to_dev_tensor A
-        inl z = CudaAux.to_dev_tensor z
-        inl dim_k, dim_a = z.dim
-        assert (fst A.dim = dim_a) "The outer dimension of A must match the inner dimension of z."
-        assert (snd A.dim = dim_a) "The inner dimension of A must match the inner dimension of z."
-        s.CudaKernel.init_d1_seq_broadcast {
-            init=inl i j -> A i j .get
-            seq = 
-                {dim_k with
-                init=inl n i j A -> A, z n j .get
-                map_in=inl A,z -> A*z
-                redo=(+)
-                mapi_out=inl _ i j (_,z) Az -> Az*z
-                }
-            outit=inl i j x -> A i j .set x
-            } A.dim
-    A
+    inl z = CudaAux.to_dev_tensor z
+    inl dim_k, dim_a = z.dim
+    assert (fst A.dim = dim_a) "The outer dimension of A must match the inner dimension of z."
+    assert (snd A.dim = dim_a) "The inner dimension of A must match the inner dimension of z."
+    s.CudaKernel.mapi_d1_seq_broadcast {
+        seq = 
+            {dim_k with
+            init=inl n i j A -> A, z n j .get
+            map_in=inl A,z -> A*z
+            redo=(+)
+            map_out=inl (A,z) Az -> Az*z
+            }
+        } A
+
+inl view from z = z .view_span (const {from near_to=from+1})
 
 s.CudaTensor.print A
 s.CudaTensor.print z
-s.CudaTensor.print (cholesky_update s A z)
+
+inl u1 = cholesky_update s A z
+s.CudaTensor.print u1
+
+inl u2 = cholesky_update s A (view 0 z)
+inl u3 = cholesky_update s A (view 1 z)
+s.CudaTensor.print u2
+s.CudaTensor.print u3
+
+//inl mult from A z =
+//    inl z = view from z
+//    s.CudaBlas.gemm .nT .nT 1f32 (s.CudaBlas.gemm .nT .T 1f32 A z) z
+
+//Loops.for {from=0; near_to=k; state=A; body=inl {state i} -> mult i A z}
+//|> s.CudaTensor.print
     """
 
 let learning1 =

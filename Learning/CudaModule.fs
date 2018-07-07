@@ -1783,17 +1783,22 @@ met init_d1_seq_broadcast w {d with seq init} (dim_a, dim_b) =
                     inl init = init j
                     create_items <| inl {item i} -> init i
 
-                Tuple.foldl (inl items d ->
-                    match d with
-                    | {from near_to} -> 
-                        forcd {from near_to body=inl {i} -> 
-                            inl items' = body i items d
-                            inner_loop {body=inl {item} -> items item .set (items' item .get)}
-                            }
-                        items
-                    | _ -> body () state d
-                    ) items (Tuple.wrap seq)
-                |> inl items -> type
+                inl items =
+                    Tuple.foldl (inl items d ->
+                        match d with
+                        | {from near_to} -> 
+                            forcd {from near_to body=inl {i} ->
+                                inl items' = body i items d
+                                inner_loop {body=inl {item} -> items item .set (items' item .get)}
+                                }
+                            items
+                        | _ -> body () items d
+                        ) items (Tuple.wrap seq)
+                match d with
+                | {outit} -> 
+                    inl outit = outit j
+                    inner_loop {body=inl {x with item i} -> outit i (items item .get)}
+                | _ -> type
                     match items.elem_type with
                     | () -> ()
                     | _ -> error_type "The elem type of the last operation in the sequence must be unit."
@@ -1810,23 +1815,25 @@ inl ddef fout in out =
         inl f = function
             | {from near_to mapi_out} as x -> {x with mapi_out = inl n j i a b -> 
                 inl out = out j i
-                out .set (fout (mapi_out n j i) a b out.get)
+                fout (mapi_out n j i) a b out.get
                 }
             | {mapi_out} as x -> {x with mapi_out = inl j i a b -> 
                 inl out = out j i
-                out .set (fout (mapi_out j i) a b out.get)
+                fout (mapi_out j i) a b out.get
                 }
             | {from near_to map_out} as x -> {x without map_out with mapi_out = inl n j i a b -> 
                 inl out = out j i
-                out .set (fout map_out a b out.get)
+                fout map_out a b out.get
                 }
             | {map_out} as x -> {x without map_out with mapi_out = inl j i a b -> 
                 inl out = out j i
-                out .set (fout map_out a b out.get)
+                fout map_out a b out.get
                 }
             | x -> x
-
         {d with seq = Tuple.map_last f (Tuple.wrap seq)}
+    >> function
+        | {outit} as x -> {x with outit=inl j i a -> out j i .set (outit j i a)}
+        | x -> {x with outit=inl j i a -> out j i .set a}
 
 // Repeatedly reduces along the inner dimension and then maps the result of that reductions over the input in the previous step.
 met mapi_d1_seq_broadcast' w {d with seq} in out = 
