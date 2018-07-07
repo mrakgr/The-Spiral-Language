@@ -596,7 +596,7 @@ s.CudaTensor.print o
     """
 
 let cholesky1 =
-    "cholesky1",[cuda_modules],"Does the symmetric Cholesky update kernel work?",
+    "cholesky1",[cuda_modules],"Does the Cholesky update kernel work?",
     """
 inb s = CudaModules (1024*1024)
 inl n = 3
@@ -652,6 +652,46 @@ Loops.for {range with state=A; body=inl {state i} ->
     s.CudaTensor.print A
     A
     } |> ignore
+    """
+
+let cholesky2 =
+    "cholesky2",[cuda_modules],"Does the constant factor for the Cholesky kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+inl one = 1f32
+inl zero = 0f32
+
+inl nan_to_zero x = if nan_is x then zero else x
+
+inl scaled_update alpha beta z =
+    s.CudaKernel.mapi_d1_redo_map {
+        map_in=inl a _ -> a*a
+        neutral_elem=zero
+        redo=(+)
+        map_out=inl norm -> sqrt alpha / norm * (sqrt (one + beta / alpha * norm) - one) |> nan_to_zero
+        } z ()
+
+inl scaled_inverse_update alpha beta z =
+    s.CudaKernel.mapi_d1_redo_map {
+        map_in=inl a _ -> a*a
+        neutral_elem=zero
+        redo=(+)
+        map_out=inl norm -> -one / (sqrt alpha / norm) * (one - one / sqrt (one + beta / alpha * norm)) |> nan_to_zero
+        } z ()
+
+inl n = 3
+inl k = 4
+inl z = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=k,n}
+s.CudaTensor.set (z 3 0) zero
+s.CudaTensor.set (z 3 1) zero
+s.CudaTensor.set (z 3 2) zero
+
+inl alpha = 0.999f32
+inl beta = one - alpha
+
+s.CudaTensor.print z
+s.CudaTensor.print (scaled_update alpha beta z)
+s.CudaTensor.print (scaled_inverse_update alpha beta z)
     """
 
 let learning1 =
@@ -992,7 +1032,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) blas6
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky2
 |> printfn "%s"
 |> ignore
 
