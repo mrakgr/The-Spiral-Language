@@ -856,23 +856,24 @@ inl s ret ->
             symm' s side uplo alpha A B (to elem_type 0) C
             stack C
 
-    inl rc trans A = if isnT trans then row A, col A else col A, row A
+    inl rc trans A = if isnT trans then rows A, cols A else cols A, rows A
 
     /// The matrix addition function.
     met geam' s transa transb alpha A beta B C =
-        assert (rc transa A = C.dim) "The dimensions of A and C must match."
-        assert (rc transb B = C.dim) "The dimensions of B and C must match."
-
-        inl m,n = C.dim
+        inl m,n as dim_c = rc .nT C
+        assert (rc transa A = dim_c) "The dimensions of A and C must match."
+        assert (rc transb B = dim_c) "The dimensions of B and C must match."
 
         inl f = to int32
-        call s cublasSgeam(transa, transb, f m, f n, alpha, {ptr=A}, f (ld A), beta, {ptr=B}, f (ld B), {ptr=C}, f (ld C))
+        call s .cublasSgeam(transa, transb, f n, f m, alpha, {ptr=A}, f (ld A), beta, {ptr=B}, f (ld B), {ptr=C}, f (ld C))
 
     inl geam s transa transb alpha A beta B =
         indiv join
             inl C = s.CudaTensor.create {dim=rc transa A; elem_type = A.elem_type}
-            gemm' s transa transb alpha A B (to alpha 0) C
+            geam' s transa transb alpha A beta B C
             stack C
+
+    inl transpose s A = geam s .T .T 1f32 A 0f32 A
 
     /// General matrix-matrix multiply from cuBLAS. Inplace version
     met gemm' s transa transb alpha A B beta C =
@@ -1056,7 +1057,7 @@ inl s ret ->
             gemm_strided_batched' s transa transb alpha A B (to alpha 0) C
             stack C
 
-    ret <| s.module_add .CudaBlas {trmm' trmm trsm' trsm trinv symm' symm geam' geam gemm' gemm matinv_batched matinv_batched_asserted gemm_strided_batched' gemm_strided_batched}
+    ret <| s.module_add .CudaBlas {trmm' trmm trsm' trsm trinv symm' symm geam' geam transpose gemm' gemm matinv_batched matinv_batched_asserted gemm_strided_batched' gemm_strided_batched}
     """) |> module_
 
 let cuda_kernel =

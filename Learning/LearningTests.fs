@@ -172,7 +172,7 @@ Tuple.iter s.CudaTensor.print (a1,a2,o1,o2,r1)
     """
 
 let blas5 =
-    "blas5",[cuda_modules],"Does the trsm work?",
+    "blas5",[cuda_modules],"Does the symm work?",
     """
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
@@ -191,6 +191,20 @@ s.CudaTensor.set (a1 1 2) 0f32
 
 inl o2 = s.CudaBlas.symm .Left .Lower 1f32 a1 a2
 Tuple.iter s.CudaTensor.print (a1,a2,o1,o2)
+    """
+
+let blas6 =
+    "blas6",[cuda_modules],"Does the geam work?",
+    """
+inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+
+inl A = s.CudaKernel.init {dim=3,5} (inl a b -> to float32 (a+b))
+inl B = s.CudaKernel.init {dim=3,5} (inl a b -> to float32 (100+a+b))
+inl C = s.CudaBlas.geam .T .T 1f32 A 1f32 B
+s.CudaTensor.print A
+s.CudaTensor.print B
+s.CudaTensor.print C
+s.CudaTensor.print (s.CudaBlas.transpose C)
     """
 
 let kernel1 =
@@ -978,7 +992,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) blas6
 |> printfn "%s"
 |> ignore
 
