@@ -1758,15 +1758,16 @@ met init_d1_seq_broadcast w {d with seq init} (dim_a, dim_b) =
                         create_items <| inl {item i} -> map i (items item .get)
                     | {map_in=map} -> create_items <| inl {item i} -> map (items item .get)
                     | _ -> items
-                    |> inl x -> 
-                        inl x = x.bodies.ar
+                    |> inl items -> 
+                        inl items = items.bodies.ar
                         inl block_reduce redo = 
                             inl d = {blockDim redo}
                             if num_valid % blockDim.x = 0 then cub_block_reduce d
                             else cub_block_reduce {d with num_valid} 
                         match d with
-                        | {redo} -> block_reduce redo x |> broadcast_zero
-                        | {redo'} -> block_reduce redo' x
+                        | {redo} -> block_reduce redo items |> broadcast_zero
+                        | {redo'} -> block_reduce redo' items
+                        | _ -> items
                     |> inl x ->
                         inl body map {item i} = map i (items item .get) x
                         match d with
@@ -1782,11 +1783,14 @@ met init_d1_seq_broadcast w {d with seq init} (dim_a, dim_b) =
                     inl init = init j
                     create_items <| inl {item i} -> init i
 
-                Tuple.foldl (inl state d ->
+                Tuple.foldl (inl items d ->
                     match d with
                     | {from near_to} -> 
-                        error_type "Not done yet."
-                        forcd {from near_to state body=inl {i state} -> body i state d}
+                        forcd {from near_to body=inl {i} -> 
+                            inl items' = body i items d
+                            inner_loop {body=inl {item} -> items item .set (items' item .get)}
+                            }
+                        items
                     | _ -> body () state d
                     ) items (Tuple.wrap seq)
                 |> inl items -> type
