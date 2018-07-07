@@ -586,7 +586,7 @@ let cholesky1 =
     """
 inb s = CudaModules (1024*1024)
 inl n = 3
-inl k = 2
+inl k = 3
 inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=n,n}
 inl sym a1 r c = s.CudaTensor.set (a1 r c) (s.CudaTensor.get (a1 c r))
 sym A 0 1
@@ -620,17 +620,25 @@ s.CudaTensor.print z
 inl u1 = cholesky_update s A z
 s.CudaTensor.print u1
 
-inl u2 = cholesky_update s A (view 0 z)
-inl u3 = cholesky_update s u2 (view 1 z)
-//s.CudaTensor.print u2
-s.CudaTensor.print u3
+Console.writeline "---"
 
-inl mult from A z =
-    inl z = view from z
-    s.CudaBlas.gemm .nT .nT 1f32 (s.CudaBlas.gemm .nT .T 1f32 A z) z
+inl range = fst (z .view_span (const {from=2; near_to=3})).dim
 
-Loops.for {from=0; near_to=k; state=A; body=inl {state i} -> mult i A z}
-|> s.CudaTensor.print
+Loops.for {range with state=A; body=inl {state i} -> 
+    inl z = view i z
+    inl A = cholesky_update s state z
+    s.CudaTensor.print A
+    A
+    } |> ignore
+
+Console.writeline "---"
+
+Loops.for {range with state=A; body=inl {state i} -> 
+    inl z = view i z
+    inl A = s.CudaBlas.gemm .nT .nT 1f32 (s.CudaBlas.gemm .nT .T 1f32 A z) z
+    s.CudaTensor.print A
+    A
+    } |> ignore
     """
 
 let learning1 =
