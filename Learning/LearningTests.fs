@@ -622,8 +622,7 @@ s.CudaTensor.print u1
 
 Console.writeline "---"
 
-inl range = fst (z .view_span (const {from=2; near_to=3})).dim
-
+inl range = fst z.dim
 Loops.for {range with state=A; body=inl {state i} -> 
     inl z = view i z
     inl A = cholesky_update s state z
@@ -635,7 +634,7 @@ Console.writeline "---"
 
 Loops.for {range with state=A; body=inl {state i} -> 
     inl z = view i z
-    inl A = s.CudaBlas.gemm .nT .nT 1f32 (s.CudaBlas.gemm .nT .T 1f32 A z) z
+    inl A = s.CudaBlas.gemm .nT .nT 1f32 (s.CudaBlas.gemm .nT .T 1f32 state z) z
     s.CudaTensor.print A
     A
     } |> ignore
