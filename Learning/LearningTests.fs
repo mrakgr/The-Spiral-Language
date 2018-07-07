@@ -612,10 +612,7 @@ inl cholesky_update s A z =
             }
         } A
 
-inl view from z = 
-    inl z = z .view_span (const {from near_to=from})
-    print_static z.dim
-    z
+inl view from z = z .view_span (const {from near_to=from+1})
 
 s.CudaTensor.print A
 s.CudaTensor.print z
@@ -624,15 +621,16 @@ inl u1 = cholesky_update s A z
 s.CudaTensor.print u1
 
 inl u2 = cholesky_update s A (view 0 z)
-s.CudaTensor.print u2
-qwe
+inl u3 = cholesky_update s u2 (view 1 z)
+//s.CudaTensor.print u2
+s.CudaTensor.print u3
 
-//inl mult from A z =
-//    inl z = view from z
-//    s.CudaBlas.gemm .nT .nT 1f32 (s.CudaBlas.gemm .nT .T 1f32 A z) z
+inl mult from A z =
+    inl z = view from z
+    s.CudaBlas.gemm .nT .nT 1f32 (s.CudaBlas.gemm .nT .T 1f32 A z) z
 
-//Loops.for {from=0; near_to=k; state=A; body=inl {state i} -> mult i A z}
-//|> s.CudaTensor.print
+Loops.for {from=0; near_to=k; state=A; body=inl {state i} -> mult i A z}
+|> s.CudaTensor.print
     """
 
 let learning1 =
@@ -973,6 +971,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning9
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky1
 |> printfn "%s"
 |> ignore

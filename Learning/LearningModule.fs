@@ -301,8 +301,8 @@ inl float ->
             inl cost = s.CudaTensor.create {elem_type=float; dim=primal input .dim |> fst}
             inl _ =
                 inl input, label, cost = Tuple.map (primal >> to_dev_tensor) (input, label, cost)
-                s.CudaKernel.iteri_d1_seq_broadcast {
-                    mapi_in=inl j i -> input j i .get / temp
+                s.CudaKernel.init_d1_seq_broadcast {
+                    init=inl j i -> input j i .get / temp
                     seq = 
                         {
                         redo=max
@@ -332,8 +332,8 @@ inl float ->
             | (), () -> ()
             | input', label' ->
                 inl input, label = Tuple.map (primal >> to_dev_tensor) (input, label)
-                s.CudaKernel.iteri_d1_seq_broadcast {
-                    mapi_in=inl j i -> input j i .get / temp
+                s.CudaKernel.init_d1_seq_broadcast {
+                    init=inl j i -> input j i .get / temp
                     seq = 
                         {
                         redo=max

@@ -1386,6 +1386,11 @@ inl view_span {data with dim} f =
             inl check from' near_to' =
                 assert (from' >= from && from' < near_to) "Lower boundary out of bounds." 
                 assert (near_to' > from && near_to' <= near_to) "Higher boundary out of bounds." 
+            inl case_from_near_to {nd with from=from' near_to=near_to'} =
+                inl from' = from + from'
+                check from' (from + near_to')
+                from', {from = 0; near_to = span nd}
+
             inl i, nd = 
                 match h with
                 | {from=from' by} ->
@@ -1393,14 +1398,12 @@ inl view_span {data with dim} f =
                     inl from' = from + from'
                     check from' (from' + by)
                     from', {from = 0; near_to = by}
+                | {from near_to} -> case_from_near_to h
                 | {from=from'} ->
                     inl from = from + from'
                     check from near_to
                     from', {from = 0; near_to = span {from near_to}}
-                | !map_dim {nd with from=from' near_to=near_to'} ->
-                    inl from' = from + from'
-                    check from' (from + near_to')
-                    from', {from = 0; near_to = span nd}
+                | _ -> case_from_near_to (map_dim h)
             inl i', nd' = new_dim (d',h')
             i :: i', nd :: nd'
         | (), _ :: _ -> error_type "The view has more dimensions than the tensor."
