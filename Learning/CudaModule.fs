@@ -2324,7 +2324,7 @@ inl inplace_transpose w A =
     inl dim_a, dim_b = A.dim
     assert (s dim_a = s dim_b) "The inplace transpose is only applicable to square matrices."
 
-    inl blockDim = 2 //warp_size
+    inl blockDim = warp_size
 
     inl blocks_per_row = divup (s dim_b) blockDim
     inl num_blocks = blocks_per_row * (blocks_per_row + 1) / 2
@@ -2342,16 +2342,18 @@ inl inplace_transpose w A =
                     if i < near_to then next (A i)
                     ) axis ret A
 
-            inl block_transposed_load y x A ret =
+            inl block_transposed_load y x A =
                 inl t = HostTensor.create {
                     array_create = array_create_cuda_shared
                     elem_type = A.elem_type
                     dim = blockDim.y, blockDim.x+1
                     }
 
-                inb A = thread_apply {y x} A (.y,.x)
-                t threadIdx.x threadIdx.y .set A.get
-                ret t
+                inl _ =
+                    inb A = thread_apply {y x} A (.y,.x)
+                    t threadIdx.x threadIdx.y .set A.get
+
+                t
 
             inl block_store y x t A = 
                 inb A = thread_apply {y x} A (.y,.x) 
@@ -2366,13 +2368,13 @@ inl inplace_transpose w A =
                 |> inl {y x} -> {x=x+y; y} // Switches from upper left/lower right to a upper right/lower left representation.
 
             if y < x then
-                inb s = block_transposed_load x y A
-                inb d = block_transposed_load y x A
+                inl s = block_transposed_load x y A
+                inl d = block_transposed_load y x A
                 syncthreads()
                 block_store y x s A
                 block_store x y d A
             else // y = x
-                inb s = block_transposed_load x y A
+                inl s = block_transposed_load x y A
                 syncthreads()
                 block_store x y s A
         }
