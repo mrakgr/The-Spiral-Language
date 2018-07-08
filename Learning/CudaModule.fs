@@ -2320,13 +2320,75 @@ inl init w {d with dim} f =
         init' w d f out
         stack out
 
+inl inplace_transpose w A =
+    inl dim_a, dim_b = A.dim
+    assert (s dim_a = s dim_b) "The inplace transpose is only applicable to square matrices."
+
+    inl blockDimX = 1 //warp_size
+    inl blockDimY = 1 //warp_size
+
+    inl blocks_per_row = divup (s dim_b) blockDimX
+    inl num_blocks = blocks_per_row * (blocks_per_row + 1) / 2
+
+    inl A = to_dev_tensor A
+
+    w.run {
+        blockDim=blockDimX,blockDimY
+        gridDim=num_blocks
+        kernel=cuda
+            inl thread_apply blockDim A axis ret = 
+                Tuple.foldr (inl axis next A -> 
+                    inl {from near_to} :: _ = A.dim
+                    inl i = blockDim axis * blockIdx axis + threadIdx axis + from
+                    if i < near_to then next (A i)
+                    ) axis ret A
+
+            inl block_transposed_load y x A ret =
+                inl t = HostTensor.create {
+                    array_create = array_create_cuda_shared
+                    elem_type = A.elem_type
+                    dim = blockDim.y, blockDim.x+1
+                    }
+
+                inb A = thread_apply {y x} A (.y,.x)
+                t threadIdx.x threadIdx.y .set A.get
+                ret t
+
+            inl block_store y x t A = 
+                inb A = thread_apply {y x} A (.y,.x) 
+                A.set (t threadIdx.y threadIdx.x .get)
+
+            inl {y x} =
+                whilecd {
+                    state={y=0; x=blockIdx.x}
+                    cond=inl {y x} -> blocks_per_row <= x
+                    body=inl {y x} -> {y = y + 1; x = x - (blocks_per_row - y)}
+                    }
+                |> inl {y x} -> {x=x+y; y} // Switches from upper left/lower right to a upper right/lower left representation.
+
+            if threadIdx.x = 0 && threadIdx.y = 0 then
+                macro.cd () [text: "printf"; args: "(%lli,%lli)\n", y, x]
+           
+            if y < x then
+                inb s = block_transposed_load x y A
+                inb d = block_transposed_load y x A
+                syncthreads()
+                block_store y x s A
+                block_store x y d A
+                ()
+            else // x = y
+                inb s = block_transposed_load x y A
+                syncthreads()
+                block_store x y s A
+        }
+
 inl methods =
     {
     map' map map_redo_map d2_replicate_map' d2_replicate_map mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
     mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter init_d1_seq_broadcast
-    iteri_dd1_seq_broadcast init_d1_redo_outit' init_d1_redo_outit init_d2_redo_outit' init_d2_redo_outit
+    iteri_dd1_seq_broadcast init_d1_redo_outit' init_d1_redo_outit init_d2_redo_outit' init_d2_redo_outit inplace_transpose
     } |> stackify
 
 inl s -> s.module_add .CudaKernel methods
