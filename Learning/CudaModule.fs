@@ -2399,6 +2399,7 @@ let cholesky =
 /// They are intended to be used for iterative whitening in projected natural gradient methods.
 inl {alpha beta float} ->
     inl one = to float 1
+    inl zero = to float 0
 
     /// A(i+1) = alpha * A(i) + c(i) * A(i) z(i)^t z(i)
     /// The update loops over the outer dimension of z which can be more than one.
@@ -2419,7 +2420,7 @@ inl {alpha beta float} ->
                     c, A, z
                 map_in=inl c,A,z -> A*z
                 redo=(+)
-                map_out=inl (c,A,z) Az -> alpha * A + c*Az*z
+                map_out=inl (c,A,z) Az -> alpha * A + c * Az * z
                 }
             }
 
@@ -2430,6 +2431,7 @@ inl {alpha beta float} ->
     inl iterative_product = iterative_product_template false
 
     inl nan_to_zero x = if nan_is x then zero else x
+
     /// The c(i) part of the cost for the standard Cholesky update.
     inl cost_factor s z =
         s.CudaKernel.mapi_d1_redo_map {
@@ -2449,20 +2451,20 @@ inl {alpha beta float} ->
             } z ()
 
     inl cholesky_template is_inplace s A z =
-        inl c = scaled_update s z
-        cholesky_template is_inplace s (sqrt alpha) c A z
+        inl c = cost_factor s z
+        iterative_product_template is_inplace s (sqrt alpha) c A z
 
     inl cholesky' = cholesky_template true
     inl cholesky = cholesky_template false
 
     inl inverse_cholesky' s A z =
-        inl c = scaled_update s z
+        inl c = inverse_cost_factor s z
         s.CudaKernel.inplace_transpose A
         iterative_product' s (one / sqrt alpha) c A z
         s.CudaKernel.inplace_transpose A
 
     inl inverse_cholesky s A z =
-        inl c = scaled_update s z
+        inl c = inverse_cost_factor s z
         s.CudaKernel.inplace_transpose A
         inl A' = iterative_product s (one / sqrt alpha) c A z
         s.CudaKernel.inplace_transpose A

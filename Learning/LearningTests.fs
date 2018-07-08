@@ -708,9 +708,54 @@ s.CudaTensor.print A
     """
 
 let cholesky4 = 
-    "cholesky4",[cuda_modules],"Does the Cholesky update work?",
+    "cholesky4",[cholesky; cuda_modules],"Does the Cholesky update work?",
     """
+inb s = CudaModules (1024*1024)
+inl zero = 0f32
+inl one = 1f32
+inl k = 3
+inl n = 3
+inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
+inl A_inv = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
+inl z = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=k,n}
 
+s.CudaTensor.print A
+s.CudaTensor.print A_inv
+s.CudaTensor.print z
+Console.writeline "---"
+
+inl alpha = 0.9f32
+inl beta = 1f32 - alpha
+
+open Cholesky {alpha beta float=float32}
+//cholesky' s A z
+//inverse_cholesky' s A_inv z
+
+s.CudaTensor.print (cholesky s A z)
+//s.CudaTensor.print A_inv
+//s.CudaTensor.print (s.CudaBlas.gemm .nT .nT 1f32 A A_inv)
+
+inl standard_update s A z =
+    inl Azz A z =
+        inl Az = s.CudaBlas.gemm .nT .T 1f32 A z
+        s.CudaBlas.gemm .nT .nT 1f32 Az z
+    inl norm = 
+        s.CudaKernel.mapi_d1_redo_map {
+            map_in=inl a _ -> a*a
+            neutral_elem=zero
+            redo=(+)
+            } z ()
+    inl k = fst z.dim
+    Loops.for {k with state=stack A; body=inl {i} ->
+        inl z = z .view_span (const {from=i; near_to=i+1})
+        inl Azz = Azz A z
+        inl norm = norm i |> s.CudaTensor.get
+        inl c = sqrt alpha / norm * (sqrt (one + beta / alpha * norm) - one)
+        s.CudaKernel.map (inl A, Azz -> sqrt alpha * A + c * Azz) (A, Azz)
+        |> stack
+        }
+
+s.CudaTensor.print (standard_update s A z)
     """
 
 
@@ -1052,7 +1097,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky4
 |> printfn "%s"
 |> ignore
 
