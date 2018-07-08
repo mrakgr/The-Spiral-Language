@@ -699,7 +699,7 @@ let cholesky3 =
     """
 inb s = CudaModules (1024*1024)
 
-inl n = 4
+inl n = 3
 inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=n,n}
 
 s.CudaTensor.print A

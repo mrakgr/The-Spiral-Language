@@ -2324,19 +2324,18 @@ inl inplace_transpose w A =
     inl dim_a, dim_b = A.dim
     assert (s dim_a = s dim_b) "The inplace transpose is only applicable to square matrices."
 
-    inl blockDimX = 1 //warp_size
-    inl blockDimY = 1 //warp_size
+    inl blockDim = 2 //warp_size
 
-    inl blocks_per_row = divup (s dim_b) blockDimX
+    inl blocks_per_row = divup (s dim_b) blockDim
     inl num_blocks = blocks_per_row * (blocks_per_row + 1) / 2
 
     inl A = to_dev_tensor A
 
     w.run {
-        blockDim=blockDimX,blockDimY
+        blockDim=blockDim,blockDim
         gridDim=num_blocks
         kernel=cuda
-            inl thread_apply blockDim A axis ret = 
+            inl thread_apply blockIdx A axis ret = 
                 Tuple.foldr (inl axis next A -> 
                     inl {from near_to} :: _ = A.dim
                     inl i = blockDim axis * blockIdx axis + threadIdx axis + from
@@ -2361,22 +2360,18 @@ inl inplace_transpose w A =
             inl {y x} =
                 whilecd {
                     state={y=0; x=blockIdx.x}
-                    cond=inl {y x} -> blocks_per_row <= x
+                    cond=inl {y x} -> blocks_per_row - y <= x
                     body=inl {y x} -> {y = y + 1; x = x - (blocks_per_row - y)}
                     }
                 |> inl {y x} -> {x=x+y; y} // Switches from upper left/lower right to a upper right/lower left representation.
 
-            if threadIdx.x = 0 && threadIdx.y = 0 then
-                macro.cd () [text: "printf"; args: "(%lli,%lli)\n", y, x]
-           
             if y < x then
                 inb s = block_transposed_load x y A
                 inb d = block_transposed_load y x A
                 syncthreads()
                 block_store y x s A
                 block_store x y d A
-                ()
-            else // x = y
+            else // y = x
                 inb s = block_transposed_load x y A
                 syncthreads()
                 block_store x y s A
