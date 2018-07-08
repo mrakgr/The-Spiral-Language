@@ -1062,7 +1062,7 @@ inl s ret ->
 
 let cuda_kernel =
     (
-    "CudaKernel",[lazy_;host_tensor;cuda_tensor],"The Cuda kernels module.",
+    "CudaKernel",[host_tensor;cuda_tensor],"The Cuda kernels module.",
     """
 open HostTensor
 open Extern
