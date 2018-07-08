@@ -596,7 +596,7 @@ s.CudaTensor.print o
     """
 
 let cholesky1 =
-    "cholesky1",[cuda_modules],"Does the Cholesky update kernel work?",
+    "cholesky1",[cuda_modules],"Does the A z^t z part of the Cholesky update work?",
     """
 inb s = CudaModules (1024*1024)
 inl n = 3
@@ -655,7 +655,7 @@ Loops.for {range with state=A; body=inl {state i} ->
     """
 
 let cholesky2 =
-    "cholesky2",[cuda_modules],"Does the constant factor for the Cholesky kernel work?",
+    "cholesky2",[cuda_modules],"Does the constant factor part for the Cholesky kernel work?",
     """
 inb s = CudaModules (1024*1024)
 inl one = 1f32
@@ -706,6 +706,13 @@ s.CudaTensor.print A
 s.CudaKernel.inplace_transpose A
 s.CudaTensor.print A
     """
+
+let cholesky4 = 
+    "cholesky4",[cuda_modules],"Does the Cholesky update work?",
+    """
+
+    """
+
 
 let learning1 =
     "learning1",[cuda_modules;learning],"Does the matmult work?",
