@@ -569,6 +569,26 @@ inl methods =
                 inl size = match size with () -> 1 | x :: _ -> x
                 FS.Method context .ClearMemoryAsync (CUdeviceptr (ar.ptr()), 0u8, size * span * sizeof ar.elem_type |> SizeT, stream) ()
         |> ignore
+
+    copy' = inl s dst src ->
+        assert_contiguous dst
+        assert_contiguous src
+        inl stream = s.data.stream.extract
+        assert (eq_type dst.elem_type src.elem_type) "The two tensors must have the same type."
+        assert (dst.dim = src.dim) "The two tensors must have the same dimensions."
+        inl span = dst.span_outer
+        Struct.iter2 (inl dst src ->
+            inl size = match dst.size with () -> 1 | x :: _ -> x
+            inl elem_type_size = sizeof dst.ar.elem_type
+            inb dst = ptr_cuda dst
+            inb src = ptr_cuda src
+            memcpy_async dst src (span * size * elem_type_size) stream
+            ) dst.bodies src.bodies
+
+    copy = inl s src -> 
+        inl dst = s.CudaTensor.create_like src
+        s.CudaTensor.copy' dst src
+        dst
     
     zero=inl s d -> indiv join s.CudaTensor.create d |> clear' s |> stack
     zero_like=inl s d -> indiv join s.CudaTensor.create_like d |> clear' s |> stack

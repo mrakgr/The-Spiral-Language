@@ -891,8 +891,8 @@ inl float ->
             optimize = inl optimizer weights s ->
                 optimizer s weights.input
                 optimizer s weights.bias
-                copy s weights.U_inv
-                copy s weights.means
+                s.CudaTensor.copy' weights.U_inv.value weights.U_inv.copy
+                s.CudaTensor.copy' weights.mean.value weights.mean.copy
             }
 
 

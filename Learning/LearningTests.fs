@@ -80,6 +80,19 @@ inl a2 = s.CudaTensor.to_host_tensor a1
 ()
     """
 
+let tensor3 =
+    "tensor3",[cuda_modules],"Does the Cuda tensor copy work?",
+    """
+inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+
+inl a = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=3f32} {elem_type=float32; dim=5,5}
+inl b = s.CudaTensor.copy a
+
+s.CudaTensor.print a
+s.CudaTensor.print b
+()
+    """
+
 let random1 =
     "random1",[cuda;allocator;region;cuda_stream;host_tensor;cuda_tensor;cuda_random;console],"Does the create_tensor work?",
     """
@@ -1077,7 +1090,7 @@ let bprong1 =
 let tests =
     [|
     allocator1
-    tensor1;tensor2
+    tensor1;tensor2;tensor3
     kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
     kernel10;kernel11;kernel12;kernel13;kernel14;kernel15;kernel16;kernel17
     cholesky1;cholesky2;cholesky3;cholesky4
