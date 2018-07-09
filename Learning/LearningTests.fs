@@ -1061,22 +1061,35 @@ Loops.for' {from=0; near_to=5; body=inl {next i} ->
     }
     """
 
+let bprong1 =
+    "bprong1",[cuda_modules;learning],"Does the projected natural gradient without the reprojection step work?",
+    """
+// The tests in this series will follow the implementation of 'A Neural Network model with Bidirectional Whitening' by Fujimoto and Ohira.
+// There are similar papers on the same theme and the aim will be improve on them by replacing the explicit matrix decomposition
+// step for the whitening matrices with an iterative Cholesky procedure. This will help to prevent the optimization procedure from
+// degenerating into SGD by taking too long to update the whitening parameters.
+
+// In the 'Natural Neural Networks' paper by Desjardins from which the descend from such updates are only done every few thousands steps.
+// Here they will be done at every step.
+    """
+
 let tests =
     [|
     allocator1
     tensor1;tensor2
     kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
     kernel10;kernel11;kernel12;kernel13;kernel14;kernel15;kernel16;kernel17
-    cholesky1
+    cholesky1;cholesky2;cholesky3;cholesky4
     random1
     blas1;blas2;blas3;blas4;blas5
     learning1;learning2;learning3;learning4;learning5;                               learning9
     learning10;learning11
+    bprong1
     |]
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky4
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) bprong1
 |> printfn "%s"
 |> ignore
 
