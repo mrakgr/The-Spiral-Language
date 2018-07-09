@@ -2447,7 +2447,7 @@ inl {alpha beta float} ->
             map_in=inl a _ -> a*a
             neutral_elem=zero
             redo=(+)
-            map_out=inl norm -> -one / (sqrt alpha * norm) * (one - one / sqrt (one + beta / alpha * norm)) |> nan_to_zero
+            map_out=inl norm -> -one / sqrt alpha / norm * (one - one / sqrt (one + beta / alpha * norm)) |> nan_to_zero
             } z ()
 
     inl cholesky_template is_inplace s A z =
