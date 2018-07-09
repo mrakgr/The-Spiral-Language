@@ -1071,6 +1071,7 @@ let bprong1 =
 
 // In the 'Natural Neural Networks' paper by Desjardins from which the descend from such updates are only done every few thousands steps.
 // Here they will be done at every step.
+
     """
 
 let tests =

@@ -357,9 +357,7 @@ inl float ->
                             ret (inl _ -> -(log p)) label'
                         }
                     } input.dim
-
         cost, bck
-
 
     /// The Hubert quantile regression functions.
     inl HQR =
@@ -391,17 +389,7 @@ inl float ->
 
         {fwd bck_a bck_b}
 
-    /// Though it say qr, this instance of it is just the mean function.
-    /// Is here so it can be put in through the gradient checker.
-    inl hubert_qr k =
-        error {
-            fwd = HQR.fwd k half
-            bck = 
-                inl x _ -> HQR.bck_a k half x
-                ,inl x _ -> HQR.bck_b k half x
-            }
-
-    inl Error = {square sigmoid_cross_entropy softmax_cross_entropy hubert_qr} |> stackify
+    inl Error = {square sigmoid_cross_entropy softmax_cross_entropy} |> stackify
 
     // #Initializer
     inl Initializer = 
@@ -859,37 +847,33 @@ inl float ->
                 >>= layer_norm_relu o 
             }
 
-    inl highway sublayer =
-        feedforward
-            {
+    /// The projected natural gradient layer without reprojection during the optimization stage.
+    inl prong' prong_lr size sublayer =
+        feedforward {
             size sublayer
-            weights = inl s ->
-                open Initializer
-                inl sigmoid _ = sigmoid (sublayer.size, sublayer.size) s |> dr s
-                inl tanh _ = tanh (sublayer.size, sublayer.size) s |> dr s
-                inl bias0 _ = s.CudaTensor.zero {elem_type=float; dim=sublayer.size} |> dr s
+            weights = inl s -> 
                 {
-                input = {
-                    h = tanh ()
-                    t = sigmoid ()
-                    c = sigmoid ()
+                input = Initializer.relu (sublayer.size, size) s |> dr s
+                bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+                U_inv = {
+                    value = s.CudaKernel.init {dim=sublayer.size,sublayer.size} (inl a b -> if a = b then one else zero)
+                    copy = s.CudaKernel.init {dim=sublayer.size,sublayer.size} (inl a b -> if a = b then one else zero)
                     }
-                bias = {
-                    h = bias0 ()
-                    t = bias0 ()
-                    c = bias0 ()
+                means = {
+                    value = s.CudaTensor.zero {elem_type=float; dim=size}
+                    copy = s.CudaTensor.zero {elem_type=float; dim=size}
                     }
                 } |> heap
-
-            apply = inl {input bias} i ->
-                open Activation
-                inm h = matmultb (i, input.h) bias.h >>= tanh
-                inm t = matmultb (i, input.t) bias.t >>= sigmoid
-                inm c = matmultb (i, input.c) bias.c >>= sigmoid
-                inm x1 = hadmult (h,t)
-                inm x2 = hadmult (i,c)
-                add (x1, x2)
+            apply = inl weights input -> 
+                front_whiten' prong_lr weights input
+                >>= layer_norm_relu 0f32
+            optimize = inl lr weights ->
+                sgd lr s weights.input
+                sgd lr s weights.bias
+                copy s weights.U_inv
+                copy s weights.means
             }
+
 
     inl Pass =
         inl train {d with network} =
