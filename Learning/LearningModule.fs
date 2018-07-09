@@ -644,25 +644,12 @@ inl float ->
         size
         }
 
-    inl stateful layer_type {weights apply size sublayer} = 
-        layer {
-            layer_type
-            size
-            sublayer
-            weights
-            apply
-            }
+    inl stateful layer_type {d with weights apply size sublayer} = layer {d with layer_type}
 
     inl feedforward = stateful .feedforward
     inl recurrent = stateful .recurrent
 
-    inl aux layer_type {apply sublayer size} =
-        layer {
-            layer_type
-            size
-            sublayer
-            apply
-            }
+    inl aux layer_type {d with apply sublayer size} = layer {d with layer_type}
 
     inl stateless = aux .stateless
     inl non_differentiable = aux .non_differentiable
