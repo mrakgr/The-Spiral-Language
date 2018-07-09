@@ -41,11 +41,14 @@ inl float ->
             | () -> error_type "The first argument must not be empty."
             | (_,_) :: _ -> l
             | _ :: _ -> l :: ()
+        inl f = function {T} -> T, .T | nT -> nT, .nT
+        inl f' = function {T} -> T, .nT | nT -> nT, .T
         inl C = 
             Tuple.foldl (inl C (A,B) ->
+                inl (A,TA),(B,TB) = f A, f B
                 match C with
-                | () -> s.CudaBlas.gemm .nT .nT one (primal A) (primal B) |> dr s
-                | C -> s.CudaBlas.gemm' .nT .nT one (primal A) (primal B) one (primal C); C
+                | () -> s.CudaBlas.gemm TA TB one (primal A) (primal B) |> dr s
+                | C -> s.CudaBlas.gemm' TA TB one (primal A) (primal B) one (primal C); C
                 ) () l
         match bias with
         | () -> ()
@@ -54,8 +57,9 @@ inl float ->
             inl C' = adjoint C
             inl l =
                 Tuple.iter (inl A, B -> 
-                    on_non_nil (inl A -> s.CudaBlas.gemm' .nT .T one C' (primal B) one A) (adjoint A)
-                    on_non_nil (inl B -> s.CudaBlas.gemm' .T .nT one (primal A) C' one B) (adjoint B)
+                    inl (A,TA),(B,TB) = f' A, f' B
+                    on_non_nil (inl A -> s.CudaBlas.gemm' .nT TB one C' (primal B) one A) (adjoint A)
+                    on_non_nil (inl B -> s.CudaBlas.gemm' TA .nT one (primal A) C' one B) (adjoint B)
                     ) l
             match bias with
             | () -> ()

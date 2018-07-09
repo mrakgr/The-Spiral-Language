@@ -2320,6 +2320,8 @@ inl init w {d with dim} f =
         init' w d f out
         stack out
 
+// TODO: Rather than launching num_blocks, it would be better to iterate in a strided fashion so to avoid potentially 
+// recomputing the indices for large matrices.
 inl inplace_transpose w A =
     inl dim_a, dim_b = A.dim
     assert (s dim_a = s dim_b) "The inplace transpose is only applicable to square matrices."
@@ -2457,19 +2459,13 @@ inl {alpha beta float} ->
     inl cholesky' = cholesky_template true
     inl cholesky = cholesky_template false
 
-    inl inverse_cholesky' s A z =
+    /// Note: Compared to cholesky, the A here needs to be transposed.
+    inl inverse_cholesky_template is_inplace s A z =
         inl c = inverse_cost_factor s z
-        s.CudaKernel.inplace_transpose A
-        iterative_product' s (one / sqrt alpha) c A z
-        s.CudaKernel.inplace_transpose A
+        iterative_product_template is_inplace s (one / sqrt alpha) c A z
 
-    inl inverse_cholesky s A z =
-        inl c = inverse_cost_factor s z
-        s.CudaKernel.inplace_transpose A
-        inl A' = iterative_product s (one / sqrt alpha) c A z
-        s.CudaKernel.inplace_transpose A
-        s.CudaKernel.inplace_transpose A'
-        A'
+    inl inverse_cholesky' = inverse_cholesky_template true
+    inl inverse_cholesky = inverse_cholesky_template false
 
     {iterative_product' iterative_product cost_factor inverse_cost_factor cholesky' cholesky inverse_cholesky' inverse_cholesky}
     |> stackify

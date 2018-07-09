@@ -734,7 +734,7 @@ inverse_cholesky' s A_inv z
 //s.CudaTensor.print (cholesky s A z)
 s.CudaTensor.print A
 s.CudaTensor.print A_inv
-s.CudaTensor.print (s.CudaBlas.gemm .nT .nT 1f32 A A_inv)
+s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 A A_inv)
     """
 
 
@@ -1089,7 +1089,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) bprong1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky4
 |> printfn "%s"
 |> ignore
 
