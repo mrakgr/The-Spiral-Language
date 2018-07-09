@@ -6,7 +6,7 @@ open System.IO
 open Spiral.Types
 open Learning.Cuda
 
-let cfg = {Spiral.Types.cfg_default with trace_length=160; cuda_assert_enabled=true}
+let cfg = {Spiral.Types.cfg_default with trace_length=160; cuda_assert_enabled=false}
 
 let allocator1 =
     "allocator1",[allocator;cuda],"Does the allocator work?",
@@ -844,13 +844,13 @@ inl { test_images test_labels train_images train_labels} =
 inl input_size = 784
 inl hidden_size = 10
 
-inl network = 
+inl network =
     open Feedforward.Layer
 
     inl label = input .label hidden_size
     inl network =
         input .input input_size 
-        |> ln 0.0f32 256
+        |> prong' 0.0f32 256
         |> linear hidden_size 
         |> init s
     inl train = error Error.softmax_cross_entropy label network
@@ -1090,7 +1090,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky4
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning9
 |> printfn "%s"
 |> ignore
 

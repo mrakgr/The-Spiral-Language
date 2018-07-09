@@ -7,7 +7,7 @@ open Learning.Cuda
 
 let learning =
     (
-    "Learning",[struct';extern_;serializer_one_hot;cuda_aux],"The deep learning module.",
+    "Learning",[struct';extern_;serializer_one_hot;cuda_aux; cholesky],"The deep learning module.",
     """
 inl float ->
     // #Primitives
@@ -474,8 +474,10 @@ inl float ->
     inl optimize network optimizer s =
         inl body weights s = weights () |> Struct.iter (optimizer s)
         layer_map (function
-            | {weights stream} -> s .data_add {stream} |> body weights
-            | {weights} -> body weights s
+            | {weights stream optimize} -> optimize optimizer (weights ()) (s .data_add {stream})
+            | {weights optimize} -> optimize optimizer (weights ()) s
+            | {weights stream} -> body weights (s .data_add {stream})
+            | {weights} as x -> body weights s
             | _ -> ()
             ) network 
 
@@ -847,6 +849,38 @@ inl float ->
                 >>= layer_norm_relu o 
             }
 
+    inl center beta {value copy} input s =
+        inl primal, adjoint = primal input, adjoint input
+        inl x = s.CudaKernel.d2_replicate_map (inl value primal -> primal - value) value primal |> dr s
+        x, inl _ -> join
+            inl size = to float primal.span_outer
+            inl copy,adjoint,x = Tuple.map to_dev_tensor (copy,adjoint,x)
+            s.CudaKernel.init_d2_redo_outit' {
+                dim=x.primal.dim
+                /// Note: In this functions i is the inner dimension.
+                init=inl i j -> x.primal j i .get
+                redo=(+)
+                neutral_elem=zero
+                outit=inl i x ->
+                    inl copy = copy i
+                    copy .set (copy .get + beta / size * x)
+                    match adjoint with
+                    | () -> ()
+                    | adjoint -> 
+                        inl adjoint = adjoint i
+                        adjoint .set (adjoint .get + x.adjoint i .get)
+                }
+
+    inl front_whiten' beta {mean U_inv bias input} x s =
+        inl x,bck = center beta mean x s
+        inl z,bck' = matmultb (x, U_inv.value) () s
+        inl x,bck'' = matmultb (z, input) bias s
+        x, inl _ -> join
+            bck''()
+            Cholesky {float beta alpha=one-beta} .inverse_cholesky' s U_inv.copy (primal z)
+            bck'()
+            bck()
+
     /// The projected natural gradient layer without reprojection during the optimization stage.
     inl prong' prong_lr size sublayer =
         feedforward {
@@ -859,17 +893,17 @@ inl float ->
                     value = s.CudaKernel.init {dim=sublayer.size,sublayer.size} (inl a b -> if a = b then one else zero)
                     copy = s.CudaKernel.init {dim=sublayer.size,sublayer.size} (inl a b -> if a = b then one else zero)
                     }
-                means = {
-                    value = s.CudaTensor.zero {elem_type=float; dim=size}
-                    copy = s.CudaTensor.zero {elem_type=float; dim=size}
+                mean = {
+                    value = s.CudaTensor.zero {elem_type=float; dim=sublayer.size}
+                    copy = s.CudaTensor.zero {elem_type=float; dim=sublayer.size}
                     }
                 } |> heap
             apply = inl weights input -> 
                 front_whiten' prong_lr weights input
                 >>= layer_norm_relu 0f32
-            optimize = inl lr weights ->
-                sgd lr s weights.input
-                sgd lr s weights.bias
+            optimize = inl optimizer weights s ->
+                optimizer s weights.input
+                optimizer s weights.bias
                 copy s weights.U_inv
                 copy s weights.means
             }
@@ -923,7 +957,7 @@ inl float ->
 
     inl Feedforward = 
         {
-        Layer={Layer with init layer sigmoid tanh relu linear highway ln} |> stackify
+        Layer={Layer with init layer sigmoid tanh relu linear ln prong'} |> stackify
         Pass
         } |> stack
     
