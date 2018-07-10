@@ -760,6 +760,7 @@ inl k = 5
 inl n = 6
 inl C = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
 inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
+inl A' = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
 inl z = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=k,n}
 
 s.CudaTensor.print C
@@ -772,6 +773,23 @@ inl beta = 1f32 - alpha
 
 open Cholesky {alpha beta float=float32}
 
+inl cholesky_p s A z =
+    inl range :: _ = z.dim
+    Loops.for {range with body=inl {state i} ->
+        inl z = z .view_span (const {from=i; near_to=i+1})
+        inl zz = s.CudaBlas.gemm .T .nT one z z
+        inl Azz = s.CudaBlas.gemm .nT .nT one A zz
+        inl norm = 
+            s.CudaKernel.mapi_d1_redo_map {
+                map_in=inl x _ -> x*x
+                neutral_elem=zero
+                redo=(+)
+                } z ()
+        inl norm = s.CudaTensor.get (norm 0)
+        inl c = sqrt alpha / norm * (sqrt (one + beta / alpha * norm) - one)
+        s.CudaBlas.geam' .nT .nT (sqrt alpha) A c Azz A
+        }
+
 inl update_covariance s C z =
     inl range :: _ = z.dim
     Loops.for {range with body=inl {state i} ->
@@ -782,11 +800,13 @@ inl update_covariance s C z =
 Loops.for {from=0; near_to=128; body=inl _ ->
     update_covariance s C z
     cholesky' s A z
+    cholesky_p s A' z
     }
 
 s.CudaTensor.print C
 s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 A A)
 s.CudaTensor.print A
+s.CudaTensor.print A'
     """
 
 
