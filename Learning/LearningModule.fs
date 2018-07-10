@@ -858,11 +858,15 @@ inl float ->
                         adjoint .set (adjoint .get + x.adjoint i .get)
                 }
 
-    inl front_whiten' beta {U input} x s =
+    inl front_whiten' beta {U U_inv input} x s =
         inl z = s.CudaBlas.gemm .nT .nT 1f32 (primal x) (primal input) |> dr s
         z, inl _ -> join
             on_non_nil (s.CudaBlas.gemm' .nT .T 1f32 (adjoint z) (primal input) 1f32) (adjoint x)
-            Cholesky {float beta alpha=one-beta} .inverse_cholesky' s U.copy (primal x)
+            inl Cholesky = Cholesky {float beta alpha=one-beta}
+            Cholesky.inverse_cholesky' s U.copy (primal x)
+            Cholesky.cholesky' s U_inv.copy (primal x)
+            //inl O = s.CudaBlas.gemm .T .nT 1f32 U.copy U_inv.copy
+            s.CudaTensor.print U_inv.copy
             //inl x = s.CudaBlas.gemm .nT .nT 1f32 (primal x) U.value
             on_non_nil (s.CudaBlas.gemm' .T .nT 1f32 (primal x) (adjoint z) 1f32) (adjoint input)
             
