@@ -858,15 +858,14 @@ inl float ->
                         adjoint .set (adjoint .get + x.adjoint i .get)
                 }
 
-    inl front_whiten' beta {mean U_inv bias input} x s =
-        inl x,bck = center beta mean x s
-        inl z,bck' = matmultb (x, U_inv.value) () s
-        inl x,bck'' = matmultb (z, input) bias s
-        x, inl _ -> join
-            bck''()
-            Cholesky {float beta alpha=one-beta} .inverse_cholesky' s U_inv.copy (primal z)
-            bck'()
-            bck()
+    inl front_whiten' beta {U input} x s =
+        inl z = s.CudaBlas.gemm .nT .nT 1f32 (primal x) (primal input) |> dr s
+        z, inl _ -> join
+            on_non_nil (s.CudaBlas.gemm' .nT .T 1f32 (adjoint z) (primal input) 1f32) (adjoint x)
+            Cholesky {float beta alpha=one-beta} .inverse_cholesky' s U.copy (primal x)
+            //inl x = s.CudaBlas.gemm .nT .nT 1f32 (primal x) U.value
+            on_non_nil (s.CudaBlas.gemm' .T .nT 1f32 (primal x) (adjoint z) 1f32) (adjoint input)
+            
 
     /// The projected natural gradient layer without reprojection during the optimization stage.
     inl prong' prong_lr size sublayer =
@@ -875,14 +874,13 @@ inl float ->
             weights = inl s -> 
                 {
                 input = Initializer.relu (sublayer.size, size) s |> dr s
-                bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
-                U_inv = {
+                U = {
                     value = s.CudaKernel.init {dim=sublayer.size,sublayer.size} (inl a b -> if a = b then one else zero)
                     copy = s.CudaKernel.init {dim=sublayer.size,sublayer.size} (inl a b -> if a = b then one else zero)
                     }
-                mean = {
-                    value = s.CudaTensor.zero {elem_type=float; dim=sublayer.size}
-                    copy = s.CudaTensor.zero {elem_type=float; dim=sublayer.size}
+                U_inv = {
+                    value = s.CudaKernel.init {dim=sublayer.size,sublayer.size} (inl a b -> if a = b then one else zero)
+                    copy = s.CudaKernel.init {dim=sublayer.size,sublayer.size} (inl a b -> if a = b then one else zero)
                     }
                 } |> heap
             apply = inl weights input -> 
@@ -890,9 +888,8 @@ inl float ->
                 >>= layer_norm_relu 0f32
             optimize = inl optimizer weights s ->
                 optimizer s weights.input
-                optimizer s weights.bias
-                s.CudaTensor.copy' weights.U_inv.value weights.U_inv.copy
-                s.CudaTensor.copy' weights.mean.value weights.mean.copy
+                //optimizer s weights.bias
+                //s.CudaTensor.copy' weights.U.value weights.U.copy
             }
 
 
