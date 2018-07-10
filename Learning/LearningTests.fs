@@ -750,6 +750,46 @@ s.CudaTensor.print A_inv
 s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 A A_inv)
     """
 
+let cholesky5 = 
+    "cholesky5",[cholesky; cuda_modules],"Does the Cholesky update track the covariance matrix?",
+    """
+inb s = CudaModules (1024*1024)
+inl zero = 0f32
+inl one = 1f32
+inl k = 5
+inl n = 6
+inl C = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
+inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
+inl z = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=k,n}
+
+s.CudaTensor.print C
+s.CudaTensor.print A
+s.CudaTensor.print z
+Console.writeline "---"
+
+inl alpha = 0.95f32
+inl beta = 1f32 - alpha
+
+open Cholesky {alpha beta float=float32}
+
+inl update_covariance s C z =
+    inl range :: _ = z.dim
+    Loops.for {range with body=inl {state i} ->
+        inl z = z .view_span (const {from=i; near_to=i+1})
+        s.CudaBlas.gemm' .T .nT beta z z alpha C
+        }
+
+Loops.for {from=0; near_to=128; body=inl _ ->
+    update_covariance s C z
+    cholesky' s A z
+    }
+
+s.CudaTensor.print C
+s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 A A)
+s.CudaTensor.print A
+    """
+
+
 
 let learning1 =
     "learning1",[cuda_modules;learning],"Does the matmult work?",
@@ -1103,7 +1143,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning9
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky5
 |> printfn "%s"
 |> ignore
 
