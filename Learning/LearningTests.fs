@@ -779,7 +779,7 @@ inl cholesky_p s A z =
         inl z = z .view_span (const {from=i; near_to=i+1})
         inl zz = s.CudaBlas.gemm .T .nT one z z
         inl Azz = s.CudaBlas.gemm .nT .nT one A zz
-        inl norm = 
+        inl norm =
             s.CudaKernel.mapi_d1_redo_map {
                 map_in=inl x _ -> x*x
                 neutral_elem=zero
@@ -806,9 +806,10 @@ Loops.for {from=0; near_to=128; body=inl _ ->
 s.CudaTensor.print C
 s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 A A)
 s.CudaTensor.print A
+s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 A' A')
 s.CudaTensor.print A'
-    """
 
+    """
 
 
 let learning1 =
