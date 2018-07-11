@@ -653,7 +653,7 @@ s.CudaTensor.print C_inv
 
 Console.writeline "---"
 
-inl beta = 0.0001f32
+inl beta = 0.01f32
 inl alpha = one - beta
 
 inl cholesky_inverse s A x =
@@ -672,7 +672,6 @@ inl cholesky_inverse s A x =
         inl norm = s.CudaTensor.get (norm 0)
         inl c = -one / sqrt alpha / norm * (one - one / sqrt (one + beta / alpha * norm))
         s.CudaBlas.geam' .nT .nT (one / sqrt alpha) A c zzA A
-        //s.CudaKernel.map' (inl zzA A -> A + beta * (zzA - A)) zzA A // The EASS update works is trash.
         }
 
 Loops.for {from=0; near_to=1024; body=inl _ ->
@@ -706,13 +705,13 @@ s.CudaTensor.print C_inv
 
 Console.writeline "---"
 
-inl beta = 0.0001f32
+inl beta = 0.01f32
 inl alpha = one - beta
 
 inl cholesky_inverse s A x =
-    inl range :: _ = x.dim
-    Loops.for {range with body=inl {state i} ->
-        inl x = x .view_span (const {from=i; near_to=i+1})
+    //inl range :: _ = x.dim
+    //Loops.for {range with body=inl {state i} ->
+        //inl x = x .view_span (const {from=i; near_to=i+1})
         inl z = s.CudaBlas.gemm .nT .nT one x A
         inl _ =
             s.CudaKernel.mapi_d1_seq_broadcast' {
@@ -721,16 +720,16 @@ inl cholesky_inverse s A x =
                     neutral_elem=zero
                     redo=(+)            
                     mapi_out=inl i j _ norm z ->
-                        inl c = -one / sqrt alpha / norm * (one - one / sqrt (one + beta / alpha * norm))
-                        z * sqrt c
+                        inl c = one / sqrt alpha / norm * (one - one / sqrt (one + beta / alpha * norm))
+                        z * sqrt c // In order for square root to work the minus was moved.
                     }
                 } z z
         inl zz = s.CudaBlas.gemm .T .nT one z z
         inl zzA = s.CudaBlas.gemm .nT .nT one zz A
-        s.CudaBlas.geam' .nT .nT (one / sqrt alpha) A (one / to float32 x.span_outer) zzA A
-        }
+        s.CudaBlas.geam' .nT .nT (one / sqrt alpha) A (-one / to float32 x.span_outer) zzA A
+        //}
 
-Loops.for {from=0; near_to=16; body=inl _ ->
+Loops.for {from=0; near_to=1024; body=inl _ ->
     cholesky_inverse s A x
     }
 
