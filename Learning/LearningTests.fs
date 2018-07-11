@@ -616,55 +616,58 @@ inl zero = 0f32
 inl one = 1f32
 inl k = 1
 inl n = 3
-inl C = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
-inl C_white = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
+
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=2f32} {elem_type=float32; dim=k,n}
+inl C = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=2f32} {elem_type=float32; dim=n,n}
+    //s.CudaBlas.gemm .T .nT (one / to float32 k) x x
+inl C_white = s.CudaBlas.matinv_batched_asserted (C.split (inl a,b -> (1,a),b)) .reshape (inl a,b,c -> b,c)
 inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
-inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=k,n}
 
-s.CudaTensor.print C
-s.CudaTensor.print C_white
-s.CudaTensor.print A
+
 s.CudaTensor.print x
-Console.writeline "---"
-
-inl alpha = 0.95f32
-inl beta = 1f32 - alpha
-
-inl cholesky_inverse s A x =
-    inl range :: _ = x.dim
-    Loops.for {range with body=inl {state i} ->
-        inl z = s.CudaBlas.gemm .nT .nT one x A
-        inl z = z .view_span (const {from=i; near_to=i+1})
-        inl zz = s.CudaBlas.gemm .T .nT one z z
-        inl zzA = s.CudaBlas.gemm .nT .nT one zz A
-        inl norm =
-            s.CudaKernel.mapi_d1_redo_map {
-                map_in=inl x _ -> x*x
-                neutral_elem=zero
-                redo=(+)
-                } z ()
-        inl norm = s.CudaTensor.get (norm 0)
-        //inl c = -one / sqrt alpha / norm * (one - one / sqrt (one + beta / alpha * norm))
-        //s.CudaBlas.geam' .nT .nT (one / sqrt alpha) A c zzA A
-        s.CudaKernel.map' (inl zzA A -> A + beta * (zzA - A)) zzA A
-        }
-
-inl update_covariance s C x =
-    inl range :: _ = x.dim
-    Loops.for {range with body=inl {state i} ->
-        inl x = x .view_span (const {from=i; near_to=i+1})
-        s.CudaBlas.gemm' .T .nT beta x x alpha C
-        }
-
-Loops.for {from=0; near_to=128; body=inl _ ->
-    update_covariance s C x
-    cholesky_inverse s A x
-    update_covariance s C_white (s.CudaBlas.gemm .nT .nT one x A)
-    }
-
 s.CudaTensor.print C
 s.CudaTensor.print C_white
-s.CudaTensor.print A
+s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_white)
+
+//Console.writeline "---"
+
+//inl lr = 0.1f32
+
+//inl cholesky_inverse s A x =
+//    inl range :: _ = x.dim
+//    Loops.for {range with body=inl {state i} ->
+//        inl z = s.CudaBlas.gemm .nT .nT one x A
+//        inl z = z .view_span (const {from=i; near_to=i+1})
+//        inl zz = s.CudaBlas.gemm .T .nT one z z
+//        inl zzA = s.CudaBlas.gemm .nT .nT one zz A
+//        inl norm =
+//            s.CudaKernel.mapi_d1_redo_map {
+//                map_in=inl x _ -> x*x
+//                neutral_elem=zero
+//                redo=(+)
+//                } z ()
+//        inl norm = s.CudaTensor.get (norm 0)
+//        //inl c = -one / sqrt alpha / norm * (one - one / sqrt (one + beta / alpha * norm))
+//        //s.CudaBlas.geam' .nT .nT (one / sqrt alpha) A c zzA A
+//        s.CudaKernel.map' (inl zzA A -> A + beta * (zzA - A)) zzA A
+//        }
+
+//inl update_covariance s C x =
+//    inl range :: _ = x.dim
+//    Loops.for {range with body=inl {state i} ->
+//        inl x = x .view_span (const {from=i; near_to=i+1})
+//        s.CudaBlas.gemm' .T .nT beta x x alpha C
+//        }
+
+//Loops.for {from=0; near_to=128; body=inl _ ->
+//    update_covariance s C x
+//    cholesky_inverse s A x
+//    update_covariance s C_white (s.CudaBlas.gemm .nT .nT one x A)
+//    }
+
+//s.CudaTensor.print C
+//s.CudaTensor.print C_white
+//s.CudaTensor.print A
     """
 
 
