@@ -1871,7 +1871,8 @@ inl ddef fout in out =
             | x -> x
         {d with seq = Tuple.map_last f (Tuple.wrap seq)}
     >> function
-        | {outit} as x -> {x with outit=inl j i a -> out j i .set (outit j i a)}
+        | {mapi_out} as x -> {x without mapi_out with outit=inl j i a -> out j i .set (mapi_out j i a)}
+        | {map_out} as x -> {x without map_out with outit=inl j i a -> out j i .set (map_out a)}
         | x -> {x with outit=inl j i a -> out j i .set a}
 
 // Repeatedly reduces along the inner dimension and then maps the result of that reductions over the input in the previous step.
@@ -1912,6 +1913,10 @@ inl mapi_d1_seq_broadcast w {d with seq} in =
                 | {mapi_out} -> map_out (dyn 0) (dyn 0) ty ty'
                 | _ -> ty'
                 ) ty seq
+            match d with
+            | {map_out} -> map_out ty
+            | {mapi_out} -> map_out (dyn 0) (dyn 0) ty
+            | _ -> ty
         
         inl out = w.CudaTensor.create {elem_type dim=in.dim}
 
@@ -2419,12 +2424,15 @@ let cholesky =
     """
 /// The update functions here are based on the 'Efficient covariance matrix update for variable metric evolution strategies' by Suttorp et al.
 /// They are intended to be used for iterative whitening in projected natural gradient methods.
+
+/// Note: Unlike the updates in the paper, these two are unprincipled batch variants for the factor updates that 
+/// are not intended to be real time inverses of each other. Hence they are not to be used as such in PRONG reprojection steps.
 inl {alpha beta float} ->
     inl one = to float 1
     inl zero = to float 0
 
-    /// A(i+1) = alpha * A(i) + c(i) * A(i) z(i)^t z(i)
-    /// The update loops over the outer dimension of z which can be more than one.
+    /// A(i+1) = alpha * A(i) + mean(inl i -> c(i) * A(i) * z(i)^t * z(i))
+    /// The update loops over the outer dimension of z which can be more than one and averages them.
     inl iterative_product_template is_inplace s alpha c A z =
         inl c = CudaAux.to_dev_tensor c
         inl z = CudaAux.to_dev_tensor z
@@ -2433,17 +2441,21 @@ inl {alpha beta float} ->
         assert (fst A.dim = dim_a) "The outer dimension of A must match the inner dimension of z."
         assert (snd A.dim = dim_a) "The inner dimension of A must match the inner dimension of z."
 
+        inl size = to float z.span_outer
+
         inl d = {
+            map_in=inl A -> {A sum=zero}
             seq = 
                 {dim_k with
-                init=inl n i j A -> 
+                init=inl n i j {A sum} -> 
                     inl z = z n j .get
                     inl c = c n .get
-                    c, A, z
-                map_in=inl c,A,z -> A*z
+                    {c A z sum}
+                map_in=inl {A z} -> A*z
                 redo=(+)
-                map_out=inl (c,A,z) Az -> alpha * A + c * Az * z
+                map_out=inl {c A z sum} Az -> {A sum=sum + c * Az * z}
                 }
+            map_out=inl {A sum} -> alpha * A + sum / size
             }
 
         if is_inplace then s.CudaKernel.mapi_d1_seq_broadcast' {d.seq with map_out=inl a b c -> self a b} A A
@@ -2472,22 +2484,24 @@ inl {alpha beta float} ->
             map_out=inl norm -> -one / sqrt alpha / norm * (one - one / sqrt (one + beta / alpha * norm)) |> nan_to_zero
             } z ()
 
-    inl cholesky_template is_inplace s A z =
+    /// Note: `z` needs to be whitened. `z = x * A_inv`
+    inl update_template is_inplace s A z =
         inl c = cost_factor s z
         iterative_product_template is_inplace s (sqrt alpha) c A z
 
-    inl cholesky' = cholesky_template true
-    inl cholesky = cholesky_template false
+    inl update' = update_template true
+    inl update = update_template false
 
-    /// Note: Compared to cholesky, the A here needs to be transposed.
-    inl inverse_cholesky_template is_inplace s A z =
+    /// Note: Compared to the standard Cholesky update, the A here is implicitly transposed.
+    /// Note: `z` needs to be whitened. `z = x * A_inv`
+    inl update_inverse_template is_inplace s A_inv z =
         inl c = inverse_cost_factor s z
-        iterative_product_template is_inplace s (one / sqrt alpha) c A z
+        iterative_product_template is_inplace s (one / sqrt alpha) c A_inv z
 
-    inl inverse_cholesky' = inverse_cholesky_template true
-    inl inverse_cholesky = inverse_cholesky_template false
+    inl update_inverse' = update_inverse_template true
+    inl update_inverse = update_inverse_template false
 
-    {iterative_product' iterative_product cost_factor inverse_cost_factor cholesky' cholesky inverse_cholesky' inverse_cholesky}
+    {iterative_product' iterative_product cost_factor inverse_cost_factor update' update update_inverse' update_inverse}
     |> stackify
     """
     ) |> module_
