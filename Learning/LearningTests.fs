@@ -631,7 +631,7 @@ s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_inv)
     """
 
 let cholesky2 =
-    "cholesky2",[cuda_modules],"What is the minimum example?",
+    "cholesky2",[cuda_modules],"Does the inverse Cholesky update work?",
     """
 inb s = CudaModules (1024*1024*16)
 inl zero = 0f32
@@ -682,6 +682,62 @@ Loops.for {from=0; near_to=1024; body=inl _ ->
 //s.CudaTensor.print A
 s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one A A)
     """
+
+let cholesky3 =
+    "cholesky3",[cuda_modules],"Does the inverse Cholesky update work in batch mode?",
+    """
+inb s = CudaModules (1024*1024*16)
+inl zero = 0f32
+inl one = 1f32
+
+// k=1 is not invertible.
+inl k = 3
+inl n = 3
+
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=k,n}
+inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
+inl C_inv = s.CudaBlas.matinv_batched_asserted (C.split (inl a,b -> (1,a),b)) .reshape (inl a,b,c -> b,c)
+inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
+
+s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_inv)
+s.CudaTensor.print x
+s.CudaTensor.print C
+s.CudaTensor.print C_inv
+
+Console.writeline "---"
+
+inl beta = 0.0001f32
+inl alpha = one - beta
+
+inl cholesky_inverse s A x =
+    inl range :: _ = x.dim
+    Loops.for {range with body=inl {state i} ->
+        inl x = x .view_span (const {from=i; near_to=i+1})
+        inl z = s.CudaBlas.gemm .nT .nT one x A
+        inl _ =
+            s.CudaKernel.mapi_d1_seq_broadcast' {
+                seq={
+                    map_in=inl z -> z*z
+                    neutral_elem=zero
+                    redo=(+)            
+                    mapi_out=inl i j _ norm z ->
+                        inl c = -one / sqrt alpha / norm * (one - one / sqrt (one + beta / alpha * norm))
+                        z * sqrt c
+                    }
+                } z z
+        inl zz = s.CudaBlas.gemm .T .nT one z z
+        inl zzA = s.CudaBlas.gemm .nT .nT one zz A
+        s.CudaBlas.geam' .nT .nT (one / sqrt alpha) A (one / to float32 x.span_outer) zzA A
+        }
+
+Loops.for {from=0; near_to=16; body=inl _ ->
+    cholesky_inverse s A x
+    }
+
+//s.CudaTensor.print A
+s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one A A)
+    """
+
 
 
 let learning1 =
@@ -1022,6 +1078,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky3
 |> printfn "%s"
 |> ignore
