@@ -609,205 +609,8 @@ s.CudaTensor.print o
     """
 
 let cholesky1 =
-    "cholesky1",[cuda_modules],"Does the A z^t z part of the Cholesky update work?",
+    "cholesky1",[cuda_modules],"Does the inverse Cholesky update work?",
     """
-inb s = CudaModules (1024*1024)
-inl n = 3
-inl k = 3
-inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=n,n}
-inl sym a1 r c = s.CudaTensor.set (a1 r c) (s.CudaTensor.get (a1 c r))
-sym A 0 1
-sym A 0 2
-sym A 1 2
-
-inl z = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=k,n}
-
-inl cholesky_update s A z =
-    inl z = CudaAux.to_dev_tensor z
-    inl dim_k, dim_a = z.dim
-    assert (fst A.dim = dim_a) "The outer dimension of A must match the inner dimension of z."
-    assert (snd A.dim = dim_a) "The inner dimension of A must match the inner dimension of z."
-    s.CudaKernel.mapi_d1_seq_broadcast {
-        seq = 
-            {dim_k with
-            init=inl n i j A -> 
-                inl z = z n j .get
-                A, z
-            map_in=inl A,z -> A*z
-            redo=(+)
-            map_out=inl (A,z) Az -> Az*z
-            }
-        } A
-
-inl view from z = z .view_span (const {from near_to=from+1})
-
-s.CudaTensor.print A
-s.CudaTensor.print z
-
-inl u1 = cholesky_update s A z
-s.CudaTensor.print u1
-
-Console.writeline "---"
-
-inl range = fst z.dim
-Loops.for {range with state=A; body=inl {state i} -> 
-    inl z = view i z
-    inl A = cholesky_update s state z
-    s.CudaTensor.print A
-    A
-    } |> ignore
-
-Console.writeline "---"
-
-Loops.for {range with state=A; body=inl {state i} -> 
-    inl z = view i z
-    inl A = s.CudaBlas.gemm .nT .nT 1f32 (s.CudaBlas.gemm .nT .T 1f32 state z) z
-    s.CudaTensor.print A
-    A
-    } |> ignore
-    """
-
-let cholesky2 =
-    "cholesky2",[cuda_modules],"Does the constant factor part for the Cholesky kernel work?",
-    """
-inb s = CudaModules (1024*1024)
-inl one = 1f32
-inl zero = 0f32
-
-inl nan_to_zero x = if nan_is x then zero else x
-
-inl scaled_update alpha beta z =
-    s.CudaKernel.mapi_d1_redo_map {
-        map_in=inl a _ -> a*a
-        neutral_elem=zero
-        redo=(+)
-        map_out=inl norm -> sqrt alpha / norm * (sqrt (one + beta / alpha * norm) - one) |> nan_to_zero
-        } z ()
-
-inl scaled_inverse_update alpha beta z =
-    s.CudaKernel.mapi_d1_redo_map {
-        map_in=inl a _ -> a*a
-        neutral_elem=zero
-        redo=(+)
-        map_out=inl norm -> -one / (sqrt alpha / norm) * (one - one / sqrt (one + beta / alpha * norm)) |> nan_to_zero
-        } z ()
-
-inl n = 3
-inl k = 4
-inl z = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=k,n}
-s.CudaTensor.set (z 3 0) zero
-s.CudaTensor.set (z 3 1) zero
-s.CudaTensor.set (z 3 2) zero
-
-inl alpha = 0.999f32
-inl beta = one - alpha
-
-s.CudaTensor.print z
-s.CudaTensor.print (scaled_update alpha beta z)
-s.CudaTensor.print (scaled_inverse_update alpha beta z)
-    """
-
-let cholesky3 =
-    "cholesky3",[cuda_modules],"Does the inplace_transpose work?",
-    """
-inb s = CudaModules (1024*1024)
-
-inl n = 3
-inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=n,n}
-
-s.CudaTensor.print A
-s.CudaKernel.inplace_transpose A
-s.CudaTensor.print A
-    """
-
-let cholesky4 = 
-    "cholesky4",[cholesky; cuda_modules],"Does the Cholesky update work?",
-    """
-inb s = CudaModules (1024*1024)
-inl zero = 0f32
-inl one = 1f32
-inl k = 5
-inl n = 6
-inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
-inl A_inv = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
-inl z = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=k,n}
-
-s.CudaTensor.print A
-s.CudaTensor.print A_inv
-s.CudaTensor.print z
-Console.writeline "---"
-
-inl alpha = 0.9f32
-inl beta = 1f32 - alpha
-
-open Cholesky {alpha beta float=float32}
-cholesky' s A z
-inverse_cholesky' s A_inv z
-
-//s.CudaTensor.print (cholesky s A z)
-s.CudaTensor.print A
-s.CudaTensor.print A_inv
-s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 A A_inv)
-    """
-
-let cholesky5 = 
-    "cholesky5",[cholesky; cuda_modules],"Does the Cholesky update track the covariance matrix?",
-    """
-inb s = CudaModules (1024*1024)
-inl zero = 0f32
-inl one = 1f32
-inl k = 5
-inl n = 6
-inl C = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
-inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
-inl A' = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
-inl z = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=k,n}
-
-s.CudaTensor.print C
-s.CudaTensor.print A
-s.CudaTensor.print z
-Console.writeline "---"
-
-inl alpha = 0.95f32
-inl beta = 1f32 - alpha
-
-open Cholesky {alpha beta float=float32}
-
-inl cholesky_p s A z =
-    inl range :: _ = z.dim
-    Loops.for {range with body=inl {state i} ->
-        inl z = z .view_span (const {from=i; near_to=i+1})
-        inl zz = s.CudaBlas.gemm .T .nT one z z
-        inl Azz = s.CudaBlas.gemm .nT .nT one A zz
-        inl norm =
-            s.CudaKernel.mapi_d1_redo_map {
-                map_in=inl x _ -> x*x
-                neutral_elem=zero
-                redo=(+)
-                } z ()
-        inl norm = s.CudaTensor.get (norm 0)
-        inl c = sqrt alpha / norm * (sqrt (one + beta / alpha * norm) - one)
-        s.CudaBlas.geam' .nT .nT (sqrt alpha) A c Azz A
-        }
-
-inl update_covariance s C z =
-    inl range :: _ = z.dim
-    Loops.for {range with body=inl {state i} ->
-        inl z = z .view_span (const {from=i; near_to=i+1})
-        s.CudaBlas.gemm' .T .nT beta z z alpha C
-        }
-
-Loops.for {from=0; near_to=128; body=inl _ ->
-    update_covariance s C z
-    cholesky' s A z
-    cholesky_p s A' z
-    }
-
-s.CudaTensor.print C
-s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 A A)
-s.CudaTensor.print A
-s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 A' A')
-s.CudaTensor.print A'
 
     """
 
@@ -1135,36 +938,21 @@ Loops.for' {from=0; near_to=5; body=inl {next i} ->
     }
     """
 
-let bprong1 =
-    "bprong1",[cuda_modules;learning],"Does the projected natural gradient without the reprojection step work?",
-    """
-// The tests in this series will follow the implementation of 'A Neural Network model with Bidirectional Whitening' by Fujimoto and Ohira.
-// There are similar papers on the same theme and the aim will be improve on them by replacing the explicit matrix decomposition
-// step for the whitening matrices with an iterative Cholesky procedure. This will help to prevent the optimization procedure from
-// degenerating into SGD by taking too long to update the whitening parameters.
-
-// In the 'Natural Neural Networks' paper by Desjardins from which the descend from such updates are only done every few thousands steps.
-// Here they will be done at every step.
-
-    """
-
 let tests =
     [|
     allocator1
     tensor1;tensor2;tensor3
     kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
     kernel10;kernel11;kernel12;kernel13;kernel14;kernel15;kernel16;kernel17
-    cholesky1;cholesky2;cholesky3;cholesky4
+    cholesky1
     random1
     blas1;blas2;blas3;blas4;blas5
     learning1;learning2;learning3;learning4;learning5;                               learning9
     learning10;learning11
-    bprong1
     |]
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky5
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky1
 |> printfn "%s"
 |> ignore
-
