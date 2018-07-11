@@ -761,10 +761,11 @@ inl zero = 0f32
 inl one = 1f32
 
 // k=1 is not invertible.
-inl k = 64
+inl k = 8
 inl n = 8
 
 inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=3f32} {elem_type=float32; dim=k,n}
+
 inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
 inl C_inv = s.CudaBlas.matinv_batched_asserted (C.split (inl a,b -> (1,a),b)) .reshape (inl a,b,c -> b,c)
 inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
