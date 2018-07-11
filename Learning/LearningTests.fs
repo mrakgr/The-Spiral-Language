@@ -653,7 +653,7 @@ s.CudaTensor.print C_inv
 
 Console.writeline "---"
 
-inl beta = 0.01f32
+inl beta = 0.0001f32
 inl alpha = one - beta
 
 inl cholesky_inverse s A x =
@@ -672,10 +672,10 @@ inl cholesky_inverse s A x =
         inl norm = s.CudaTensor.get (norm 0)
         inl c = -one / sqrt alpha / norm * (one - one / sqrt (one + beta / alpha * norm))
         s.CudaBlas.geam' .nT .nT (one / sqrt alpha) A c zzA A
-        //s.CudaKernel.map' (inl zzA A -> A + beta * (zzA - A)) zzA A
+        //s.CudaKernel.map' (inl zzA A -> A + beta * (zzA - A)) zzA A // The EASS update works is trash.
         }
 
-Loops.for {from=0; near_to=1280; body=inl _ ->
+Loops.for {from=0; near_to=1024; body=inl _ ->
     cholesky_inverse s A x
     }
 
