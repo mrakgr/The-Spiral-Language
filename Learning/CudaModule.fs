@@ -927,6 +927,8 @@ inl s ret ->
             gemm' s transa transb alpha A B (to alpha 0) C
             stack C
 
+    /// Note: matinv will raise an invalid value exception if the matrix passed into it is greater than 32.
+
     /// cuda -> 2d float32 cuda_tensor array -> 2d float32 cuda_tensor array -> 1d int32 cuda_tensor -> unit
     met matinv_batched_array' s A Ainv info =
         inl batch_size = array_length A

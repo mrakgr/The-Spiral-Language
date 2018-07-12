@@ -767,8 +767,8 @@ inl zero = 0f32
 inl one = 1f32
 
 // k=1 is not invertible.
-inl k = 8
-inl n = 8
+inl k = 48
+inl n = 48
 
 inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=3f32} {elem_type=float32; dim=k,n}
 
@@ -809,6 +809,9 @@ let cholesky5 =
     "cholesky5",[cuda_modules;cholesky;mnist],"Does the inverse Cholesky update from the library work in batch mode?",
     """
 inb s = CudaModules (1024*1024*1024)
+inl zero = 0f32
+inl one = 1f32
+
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
     Mnist.load_mnist_tensors mnist_path
@@ -823,6 +826,7 @@ inl { test_images test_labels train_images train_labels} =
     |> s.CudaTensor.from_host_tensors
 
 inl k = 14*14
+inl n = k
 inl x = train_images .view_span (const k)
 
 inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
@@ -1196,6 +1200,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) blas2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky4
 |> printfn "%s"
 |> ignore
