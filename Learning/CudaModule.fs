@@ -2497,7 +2497,7 @@ inl {alpha beta float} ->
             map_out=inl norm -> -one / sqrt alpha / norm * (one - one / sqrt (one + beta / alpha * norm)) |> nan_to_zero
             } z ()
 
-    /// Note: `z` needs to be whitened. `z = x * A_inv`
+    /// Note: `z` needs to be whitened by multiplying it with the inverse factor. `z = x * A_inv`
     inl update_template is_inplace s A z =
         inl c = cost_factor s z
         iterative_product_template is_inplace s (sqrt alpha) c A z
@@ -2505,7 +2505,6 @@ inl {alpha beta float} ->
     inl update' = update_template true
     inl update = update_template false
 
-    /// Note: Compared to the standard Cholesky update, the A here is implicitly transposed.
     /// Note: `z` needs to be whitened. `z = x * A_inv`
     inl update_inverse_template is_inplace s A_inv z =
         inl c = inverse_cost_factor s z

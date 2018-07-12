@@ -807,13 +807,13 @@ s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C AA)
     """
 
 let cholesky5 =
-    "cholesky5",[cuda_modules;cholesky;mnist],"Does the inverse Cholesky update from the library work in batch mode?",
+    "cholesky5",[cuda_modules;cholesky;mnist],"Does the inverse Cholesky update from the library work in batch mode on Mnist?",
     """
 inb s = CudaModules (1024*1024*1024)
 inl zero = 0f32
 inl one = 1f32
 
-inl m = 4
+inl m = 5
 inl k = (28/m)*(28/m)
 inl n = k
 
@@ -829,15 +829,95 @@ inl { test_images test_labels train_images train_labels} =
         {x with test_images=f self; train_images=f self}
     |> s.CudaTensor.from_host_tensors
 
-inl r = s.CudaRandom.create {dst=.Normal; stddev=0.1f32; mean=0f32} {elem_type=float32; dim=k,n}
 inl x = train_images .view_span (const k)
-inl x = s.CudaBleas.geam .nT .nT one r one x
+inl r = s.CudaRandom.create {dst=.Normal; stddev=0.0001f32; mean=0f32} {elem_type=float32; dim=k,n}
+inl x = s.CudaBlas.geam .nT .nT one r one x
 
 inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
+inl C_inv = s.CudaBlas.matinv_batched_asserted (C.split (inl a,b -> (1,a),b)) .reshape (inl a,b,c -> b,c)
 inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
 
-s.CudaTensor.print x
-s.CudaTensor.print C
+inl v x = x
+s.CudaTensor.print (v x)
+s.CudaTensor.print (v C)
+
+Console.writeline "---"
+
+inl beta = 0.001f32
+inl alpha = one - beta
+
+inl cholesky_inverse' s A x =
+    inl range :: _ = x.dim
+    Loops.for {range with body=inl {state i} ->
+        inl z = s.CudaBlas.gemm .nT .nT one x A
+        inl z = z .view_span (const {from=i; near_to=i+1})
+        inl zz = s.CudaBlas.gemm .T .nT one z z
+        inl zzA = s.CudaBlas.gemm .nT .nT one zz A
+        inl norm =
+            s.CudaKernel.mapi_d1_redo_map {
+                map_in=inl x _ -> x*x
+                neutral_elem=zero
+                redo=(+)
+                } z ()
+        inl norm = s.CudaTensor.get (norm 0)
+        inl c = -one / sqrt alpha / norm * (one - one / sqrt (one + beta / alpha * norm))
+        s.CudaBlas.geam' .nT .nT (one / sqrt alpha) A c zzA A
+        }
+
+inl cholesky_inverse s A x =
+    inl range :: _ = x.dim
+    Loops.for {range with body=inl {state i} ->
+        inl z = s.CudaBlas.gemm .nT .T one x A
+        inl z = z .view_span (const {from=i; near_to=i+1})
+        Cholesky {alpha beta float=float32} .update_inverse' s A z
+        }
+
+inl cholesky_inverse_r s A x =
+    inl z = s.CudaBlas.gemm .nT .T one x A
+    Cholesky {alpha beta float=float32} .update_inverse' s A z
+
+Loops.for {from=0; near_to=100000; body=inl _ ->
+    s.refresh
+    inb s = s.RegionMem.create'
+    cholesky_inverse_r s A x
+    }
+
+s.CudaTensor.print (v C_inv)
+Console.writeline "///"
+inl AA = s.CudaBlas.gemm .nT .nT one A A
+s.CudaTensor.print (v AA)
+
+//Console.writeline "***"
+//s.CudaTensor.print A
+    """
+
+let cholesky6 =
+    "cholesky6",[cuda_modules;cholesky;mnist],"Does the inverse Cholesky update from the library work in batch mode on Mnist with random projections?",
+    """
+inb s = CudaModules (1024*1024*1024)
+inl zero = 0f32
+inl one = 1f32
+
+inl k = 32
+inl n = 8
+
+inl { test_images test_labels train_images train_labels} =
+    inl mnist_path = @"C:\ML Datasets\Mnist"
+    Mnist.load_mnist_tensors mnist_path
+    |> s.CudaTensor.from_host_tensors
+
+inl x = train_images .view_span (const k)
+
+inl P = s.CudaRandom.create {dst=.Normal; stddev=0.1f32; mean=0f32} {elem_type=float32; dim=28*28,n}
+inl x = s.CudaBlas.gemm .nT .nT one x P
+
+inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
+inl C_inv = s.CudaBlas.matinv_batched_asserted (C.split (inl a,b -> (1,a),b)) .reshape (inl a,b,c -> b,c)
+inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
+
+inl v x = x
+s.CudaTensor.print (v x)
+s.CudaTensor.print (v C)
 
 Console.writeline "---"
 
@@ -845,21 +925,30 @@ inl beta = 0.001f32
 inl alpha = one - beta
 
 inl cholesky_inverse s A x =
+    inl range :: _ = x.dim
+    Loops.for {range with body=inl {state i} ->
+        inl z = s.CudaBlas.gemm .nT .T one x A
+        inl z = z .view_span (const {from=i; near_to=i+1})
+        Cholesky {alpha beta float=float32} .update_inverse' s A z
+        }
+
+inl cholesky_inverse_r s A x =
     inl z = s.CudaBlas.gemm .nT .T one x A
     Cholesky {alpha beta float=float32} .update_inverse' s A z
 
-Loops.for {from=0; near_to=1000; body=inl _ ->
+Loops.for {from=0; near_to=10000; body=inl _ ->
     s.refresh
     inb s = s.RegionMem.create'
-    cholesky_inverse s A x
+    cholesky_inverse_r s A x
     }
 
-Console.writeline "---"
+s.CudaTensor.print (v C_inv)
+Console.writeline "///"
 inl AA = s.CudaBlas.gemm .nT .nT one A A
-s.CudaTensor.print AA
+s.CudaTensor.print (v AA)
 
-Console.writeline "***"
-s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C AA)
+//Console.writeline "***"
+//s.CudaTensor.print A
     """
 
 let learning1 =
@@ -1200,6 +1289,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky5
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky6
 |> printfn "%s"
 |> ignore
