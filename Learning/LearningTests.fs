@@ -830,11 +830,11 @@ inl { test_images test_labels train_images train_labels} =
     |> s.CudaTensor.from_host_tensors
 
 inl x = train_images .view_span (const k)
-inl r = s.CudaRandom.create {dst=.Normal; stddev=0.0001f32; mean=0f32} {elem_type=float32; dim=k,n}
-inl x = s.CudaBlas.geam .nT .nT one r one x
+//inl r = s.CudaRandom.create {dst=.Normal; stddev=0.0001f32; mean=0f32} {elem_type=float32; dim=k,n}
+//inl x = s.CudaBlas.geam .nT .nT one r one x
 
 inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
-inl C_inv = s.CudaBlas.matinv_batched_asserted (C.split (inl a,b -> (1,a),b)) .reshape (inl a,b,c -> b,c)
+//inl C_inv = s.CudaBlas.matinv_batched_asserted (C.split (inl a,b -> (1,a),b)) .reshape (inl a,b,c -> b,c)
 inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
 
 inl v x = x
@@ -876,19 +876,19 @@ inl cholesky_inverse_r s A x =
     inl z = s.CudaBlas.gemm .nT .T one x A
     Cholesky {alpha beta float=float32} .update_inverse' s A z
 
-Loops.for {from=0; near_to=100000; body=inl _ ->
+Loops.for {from=0; near_to=1000; body=inl _ ->
     s.refresh
     inb s = s.RegionMem.create'
     cholesky_inverse_r s A x
     }
 
-s.CudaTensor.print (v C_inv)
+//s.CudaTensor.print (v C_inv)
 Console.writeline "///"
 inl AA = s.CudaBlas.gemm .nT .nT one A A
 s.CudaTensor.print (v AA)
 
-//Console.writeline "***"
-//s.CudaTensor.print A
+Console.writeline "***"
+s.CudaTensor.print A
     """
 
 let cholesky6 =
@@ -898,7 +898,7 @@ inb s = CudaModules (1024*1024*1024)
 inl zero = 0f32
 inl one = 1f32
 
-inl k = 32
+inl k = 96
 inl n = 8
 
 inl { test_images test_labels train_images train_labels} =
@@ -921,7 +921,7 @@ s.CudaTensor.print (v C)
 
 Console.writeline "---"
 
-inl beta = 0.001f32
+inl beta = 0.01f32
 inl alpha = one - beta
 
 inl cholesky_inverse s A x =
@@ -947,8 +947,8 @@ Console.writeline "///"
 inl AA = s.CudaBlas.gemm .nT .nT one A A
 s.CudaTensor.print (v AA)
 
-//Console.writeline "***"
-//s.CudaTensor.print A
+Console.writeline "***"
+s.CudaTensor.print A
     """
 
 let learning1 =
