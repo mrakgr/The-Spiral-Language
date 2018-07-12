@@ -966,8 +966,8 @@ inl s ret ->
         inl f = to int32
         call s .cublasSmatinvBatched (f n,{ptr_ar=A},f lda,{ptr_ar=Ainv},f lda_inv,{ptr=info},f batch_size)
 
-    /// cuda -> 1d uint64 tensor -> 1d uint64 tensor -> 1d int32 cuda_tensor -> unit
-    met matinv_batched' s n A lda Ainv lda_inv info batch_size =
+    /// cuda -> int64 -> 1d uint64 tensor -> int64 -> 1d uint64 tensor -> int64 -> 1d int32 cuda_tensor -> unit
+    met matinv_batched' s n A lda Ainv lda_inv info =
         assert (eq_type A.elem_type uint64) "The A tensor must be of type uint64."
         assert (eq_type Ainv.elem_type uint64) "The Ainv tensor must be of type uint64."
         assert (eq_type info.elem_type int32) "The info tensor must be of type int32."
@@ -976,7 +976,7 @@ inl s ret ->
         inl b :: () = Ainv.dim
         inl c :: () = info.dim
 
-        assert (batch_size = len a) "A must be equal to batch size."
+        inl batch_size = len a
         assert (batch_size = len b) "Ainv must be equal to batch size."
         assert (batch_size = len c) "info must be equal to batch size."
 
@@ -984,9 +984,22 @@ inl s ret ->
         inl f = to int32
         call s .cublasSmatinvBatched (f n,{ptr=A},f lda,{ptr=Ainv},f lda_inv,{ptr=info},f batch_size)
 
-    inl address_at o =
-        inl (),{ar offset} = o.dim, o.bodies
-        macro.cd uint64 [text: "(unsigned long long) ("; arg: ar; text: " + "; arg: offset; text: ")"]
+    //met geqrf_batched' s m n A lda tau info batch_size =
+    //    assert (eq_type A.elem_type uint64) "The A tensor must be of type uint64."
+    //    assert (eq_type tau.elem_type uint64) "The Ainv tensor must be of type uint64."
+    //    assert (eq_type info.elem_type int32) "The info tensor must be of type int32."
+
+    //    inl a :: () = A.dim
+    //    inl b :: () = tau.dim
+    //    inl c :: () = info.dim
+
+    //    inl batch_size = len a
+    //    assert (batch_size = len b) "Ainv must be equal to batch size."
+    //    assert (batch_size = len c) "info must be equal to batch size."
+
+    //    // TODO: Adapt it for other float types.
+    //    inl f = to int32
+    //    call s .cublasSgeqrfBatched (f m, f n,{ptr=A},f lda,{ptr=Ainv},f lda_inv,{ptr=info},f batch_size)
 
     /// Inverts the matrices of the (3d cuda_tensor | 2d cuda_tensor array) A.
     inl matinv_batched s A ret =
@@ -1017,18 +1030,9 @@ inl s ret ->
                 inl Ainv = s.CudaTensor.create_like A
                 inl lda_inv = ld Ainv
                 inl info = s.CudaTensor.create {elem_type=int32; dim=batch_size}
-                inl d3_to_pointers x = 
-                    inl a = Struct.map (inl _ -> s.CudaTensor.create {elem_type=uint64; dim=batch_size}) x
-                    inl _ = 
-                        inl a,x = CudaAux.to_dev_tensor (a,x)
-                        s.CudaKernel.iter {dim=batch_size} (inl i -> 
-                            Struct.iter2 (inl a x -> a i .set (address_at (x i 0 0))) a x
-                            )
-                    a
-
                 inl _ =
-                    inl A, Ainv = d3_to_pointers (A, Ainv)
-                    matinv_batched' s n A lda Ainv lda_inv info batch_size
+                    inl A, Ainv = s.CudaKernel.tensor_to_pointers (A, Ainv)
+                    matinv_batched' s n A lda Ainv lda_inv info
                 (Ainv, info) |> ret |> stack
 
     inl matinv_batched_asserted s A = 
@@ -2406,6 +2410,29 @@ inl inplace_transpose w A =
                 block_store x y s A
         }
 
+inl address_at o =
+    inl {ar offset} = o.bodies
+    macro.cd uint64 [text: "(unsigned long long) ("; arg: ar; text: " + "; arg: offset; text: ")"]
+
+/// Turns the outermost dimension of the tensor(s) into tensor of pointers to the inner ones.
+/// They are represented as uint64.
+/// All the tensors passed as input must have the same outer dimension.
+inl tensor_to_pointers w x = 
+    indiv join
+        inl dim = 
+            Struct.foldl (inl s x -> 
+                match s with
+                | () -> x.span_outer
+                | _ -> assert (s = x.span_outer) "All the tensors passed as input must have the same outer dimension."; s
+                ) () x
+        inl a = Struct.map (inl x -> w.CudaTensor.create {elem_type=uint64; dim}) x
+        inl _ = 
+            inl a,x = CudaAux.to_dev_tensor (a,x)
+            w.CudaKernel.iter {dim} (inl i -> 
+                Struct.iter2 (inl a x -> a i .set (address_at (x i))) a x
+                )
+        a
+
 inl methods =
     {
     map' map map_redo_map d2_replicate_map' d2_replicate_map mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
@@ -2413,6 +2440,7 @@ inl methods =
     map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
     mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter init_d1_seq_broadcast
     iteri_dd1_seq_broadcast init_d1_redo_outit' init_d1_redo_outit init_d2_redo_outit' init_d2_redo_outit inplace_transpose
+    tensor_to_pointers
     } |> stackify
 
 inl s -> s.module_add .CudaKernel methods
