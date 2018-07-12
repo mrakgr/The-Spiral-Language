@@ -984,23 +984,6 @@ inl s ret ->
         inl f = to int32
         call s .cublasSmatinvBatched (f n,{ptr=A},f lda,{ptr=Ainv},f lda_inv,{ptr=info},f batch_size)
 
-    //met geqrf_batched' s m n A lda tau info batch_size =
-    //    assert (eq_type A.elem_type uint64) "The A tensor must be of type uint64."
-    //    assert (eq_type tau.elem_type uint64) "The Ainv tensor must be of type uint64."
-    //    assert (eq_type info.elem_type int32) "The info tensor must be of type int32."
-
-    //    inl a :: () = A.dim
-    //    inl b :: () = tau.dim
-    //    inl c :: () = info.dim
-
-    //    inl batch_size = len a
-    //    assert (batch_size = len b) "Ainv must be equal to batch size."
-    //    assert (batch_size = len c) "info must be equal to batch size."
-
-    //    // TODO: Adapt it for other float types.
-    //    inl f = to int32
-    //    call s .cublasSgeqrfBatched (f m, f n,{ptr=A},f lda,{ptr=Ainv},f lda_inv,{ptr=info},f batch_size)
-
     /// Inverts the matrices of the (3d cuda_tensor | 2d cuda_tensor array) A.
     inl matinv_batched s A ret =
         indiv join
