@@ -937,10 +937,11 @@ inl cholesky_inverse_r s A x =
     inl z = s.CudaBlas.gemm .nT .T one x A
     Cholesky {alpha beta float=float32} .update_inverse' s A z
 
+inl by = 4
 Loops.for {from=0; near_to=1000; body=inl _ ->
     s.refresh
     inb s = s.RegionMem.create'
-    cholesky_inverse s 1 A x
+    cholesky_inverse s by A x
     }
 
 s.CudaTensor.print (v C_inv)
@@ -950,7 +951,10 @@ s.CudaTensor.print (v AA)
 
 Console.writeline "***"
 s.CudaTensor.print A
-s.CudaTensor.print (s.CudaBlas.geam .nT .T one A -one A)
+inl A_diff = s.CudaBlas.geam .nT .T one A -one A
+s.CudaTensor.print A_diff
+inl max_abs_diff = s.CudaKernel.map_redo_map {map_in=abs; redo=max; neutral_elem=-infinityf32} A_diff
+Console.printfn "The absolute maximum of A_diff is {0} with step size {1}" (s.CudaTensor.get max_abs_diff, by)
     """
 
 let learning1 =
