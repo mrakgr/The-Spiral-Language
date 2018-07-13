@@ -125,7 +125,7 @@ As the world inexorably hurls towards the black maw of tomorrow, the power to fa
 
 Throughout the history of programming languages, the choice was between fast or expressive; the two traditions are crystallized by the C and the Lisp family of languages. There has been a lot of effort into this, but always as languages developed and moved forward they stepped away from the bare metal and in turn lost some of that core vitality that is needed for performance.
 
-The culprit for this is the heap allocation by default dogma introduced by Lisp decades ago. It is a clutch for languages with weak type systems.
+The culprit for this is the heap allocation by default dogma introduced by Lisp decades ago. It is a crutch for languages with weak type systems.
 
 Abstraction by heap allocation is a dead end. It works moderately well on the current generation of computers where CPU is still the dominant driver of computation.
 
@@ -1048,7 +1048,7 @@ type Env0 =
 (Env0(2L, 3L, 4L))
 ```
 
-Like with tuples which are represented by immutable lists in Spiral, the modules in Spiral allow anything immutable maps might do. For example, they can be mapped over(`module_map`), folded(`module_foldl`,``module_fold`), and filtered(`module_filter`). Here is the fold example.
+Like with tuples which are represented by immutable lists in Spiral, the modules in Spiral allow anything immutable maps might do. For example, they can be mapped over(`module_map`), folded(`module_foldl`,`module_fold`), and filtered(`module_filter`). Here is the fold example.
 
 ```
 inl m = {a=1; b=2; c=3}
