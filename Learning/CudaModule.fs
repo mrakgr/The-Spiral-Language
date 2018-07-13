@@ -2438,8 +2438,8 @@ let cholesky =
 /// The update functions here are based on the 'Efficient covariance matrix update for variable metric evolution strategies' by Suttorp et al.
 /// They are intended to be used for iterative whitening in projected natural gradient methods.
 
-/// Note: Unlike the updates in the paper, these two are unprincipled batch variants for the factor updates that 
-/// are not intended to be real time inverses of each other. Hence they are not to be used as such in PRONG reprojection steps.
+/// Note: Unlike the updates in the paper, these two also do minibatch averaging of the updates. It seems to work well, but it is not supported
+/// by math yet.
 inl {alpha beta float} ->
     inl one = to float 1
     inl zero = to float 0
