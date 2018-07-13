@@ -921,7 +921,7 @@ s.CudaTensor.print (v C)
 
 Console.writeline "---"
 
-inl beta = 0.01f32
+inl beta = 0.001f32
 inl alpha = one - beta
 
 inl cholesky_inverse s A x =
@@ -939,7 +939,7 @@ inl cholesky_inverse_r s A x =
 Loops.for {from=0; near_to=1000; body=inl _ ->
     s.refresh
     inb s = s.RegionMem.create'
-    cholesky_inverse_r s A x
+    cholesky_inverse s A x
     }
 
 s.CudaTensor.print (v C_inv)
@@ -949,6 +949,7 @@ s.CudaTensor.print (v AA)
 
 Console.writeline "***"
 s.CudaTensor.print A
+s.CudaTensor.print (s.CudaBlas.geam .nT .T one A -one A)
     """
 
 let learning1 =
