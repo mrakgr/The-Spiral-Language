@@ -924,12 +924,13 @@ Console.writeline "---"
 inl beta = 0.001f32
 inl alpha = one - beta
 
-inl cholesky_inverse s A x =
-    inl range :: _ = x.dim
-    Loops.for {range with body=inl {state i} ->
-        inl z = s.CudaBlas.gemm .nT .T one x A
-        inl z = z .view_span (const {from=i; near_to=i+1})
-        Cholesky {alpha beta float=float32} .update_inverse' s A z
+inl cholesky_inverse s by A x =
+    inl {range with near_to} :: _ = x.dim
+    inl z = s.CudaBlas.gemm .nT .T one x A
+    Loops.for {range with by body=inl {state i} ->
+        if i + by <= near_to then
+            inl z = z .view_span (const {from=i; near_to=i+by})
+            Cholesky {alpha beta float=float32} .update_inverse' s A z
         }
 
 inl cholesky_inverse_r s A x =
@@ -939,7 +940,7 @@ inl cholesky_inverse_r s A x =
 Loops.for {from=0; near_to=1000; body=inl _ ->
     s.refresh
     inb s = s.RegionMem.create'
-    cholesky_inverse s A x
+    cholesky_inverse s 2 A x
     }
 
 s.CudaTensor.print (v C_inv)
