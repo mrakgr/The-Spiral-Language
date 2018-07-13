@@ -940,7 +940,7 @@ inl cholesky_inverse_r s A x =
 Loops.for {from=0; near_to=1000; body=inl _ ->
     s.refresh
     inb s = s.RegionMem.create'
-    cholesky_inverse s 2 A x
+    cholesky_inverse s 1 A x
     }
 
 s.CudaTensor.print (v C_inv)
