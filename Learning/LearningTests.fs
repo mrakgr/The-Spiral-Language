@@ -924,10 +924,10 @@ inl alpha = one - beta
 
 inl cholesky_inverse s by A x =
     inl {range with near_to} :: _ = x.dim
-    inl z = s.CudaBlas.gemm .nT .T one x A
     Loops.for {range with by body=inl {state i} ->
         if i + by <= near_to then
-            inl z = z .view_span (const {from=i; near_to=i+by})
+            inl x = x .view_span (const {from=i; near_to=i+by})
+            inl z = s.CudaBlas.gemm .nT .T one x A
             Cholesky {alpha beta float=float32} .update_inverse' s A z
         }
 
@@ -954,7 +954,7 @@ Loops.for {from=1; to=32; body=inl {i=by} ->
     inl A_diff = s.CudaBlas.geam .nT .T one A -one A
     //s.CudaTensor.print A_diff
     inl max_abs_diff = s.CudaKernel.map_redo_map {map_in=abs; redo=max; neutral_elem=-infinityf32} A_diff
-    Console.printf "{1}, {0}" (s.CudaTensor.get max_abs_diff, by)
+    Console.printfn "{1}, {0}" (s.CudaTensor.get max_abs_diff, by)
     }
     """
 
@@ -981,36 +981,31 @@ inl x = s.CudaBlas.gemm .nT .nT one x P
 inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
 inl A_inv = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
 
-inl v x = x
-s.CudaTensor.print (v x)
+s.CudaTensor.print x
 
 Console.writeline "---"
 
 inl beta = 0.001f32
 inl alpha = one - beta
 
-inl cholesky f s by A z =
+inl by = 32
+Loops.for {from=0; near_to=96000; body=inl _ ->
+    s.refresh
+    inb s = s.RegionMem.create'
     inl {range with near_to} :: _ = x.dim
     Loops.for {range with by body=inl {state i} ->
         if i + by <= near_to then
-            inl z = z .view_span (const {from=i; near_to=i+by})
-            Cholesky {alpha beta float=float32} f s A z
+            inl x = x .view_span (const {from=i; near_to=i+by})
+            inl z = s.CudaBlas.gemm .nT .T one x A_inv
+            Cholesky {alpha beta float=float32} .update' s A z
+            Cholesky {alpha beta float=float32} .update_inverse' s A z
         }
-
-inl by = 1
-Loops.for {from=0; near_to=300; body=inl _ ->
-    s.refresh
-    inb s = s.RegionMem.create'
-    inl z = s.CudaBlas.gemm .nT .T one x A_inv
-    cholesky .update_inverse' s by A_inv z
-    cholesky .update' s by A z
     }
 
 s.CudaTensor.print A_inv
 s.CudaTensor.print A
 Console.writeline "***"
 s.CudaTensor.print (s.CudaBlas.gemm .nT .T one A A_inv)
-
     """
 
 let learning1 =
