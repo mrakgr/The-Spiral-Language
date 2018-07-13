@@ -125,7 +125,7 @@ As the world inexorably hurls towards the black maw of tomorrow, the power to fa
 
 Throughout the history of programming languages, the choice was between fast or expressive; the two traditions are crystallized by the C and the Lisp family of languages. There has been a lot of effort into this, but always as languages developed and moved forward they stepped away from the bare metal and in turn lost some of that core vitality that is needed for performance.
 
-The culprit for this is the heap allocation by default dogma introduced by Lisp decades ago. It is a clutch for languages with weak type systems.
+The culprit for this is the heap allocation by default dogma introduced by Lisp decades ago. It is a crutch for languages with weak type systems.
 
 Abstraction by heap allocation is a dead end. It works moderately well on the current generation of computers where CPU is still the dominant driver of computation.
 
