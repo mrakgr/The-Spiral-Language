@@ -1048,7 +1048,7 @@ type Env0 =
 (Env0(2L, 3L, 4L))
 ```
 
-Like with tuples which are represented by immutable lists in Spiral, the modules in Spiral allow anything immutable maps might do. For example, they can be mapped over(`module_map`), folded(`module_foldl`,``module_fold`), and filtered(`module_filter`). Here is the fold example.
+Like with tuples which are represented by immutable lists in Spiral, the modules in Spiral allow anything immutable maps might do. For example, they can be mapped over(`module_map`), folded(`module_foldl`,`module_fold`), and filtered(`module_filter`). Here is the fold example.
 
 ```
 inl m = {a=1; b=2; c=3}
