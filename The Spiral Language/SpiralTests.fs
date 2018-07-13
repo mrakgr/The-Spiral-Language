@@ -1984,8 +1984,8 @@ let output_test_to_string cfg test =
 let output_test_to_temp cfg path test = 
     match spiral_peval cfg (module_ test) with
     | Succ (x,_) | Fail x -> 
-        if File.Exists path then File.WriteAllText(path,x)
-        else failwithf "File %s not found.\nNote to new users: In order to prevent files being made in the middle of nowhere this check was inserted.\nWhat you should do is create a new F# project with an F# file and point the compiler to it instead." path
+        if Directory.Exists <| Path.GetDirectoryName path then File.WriteAllText(path,x)
+        else failwithf "File %s not found.\nNote to new users: In order to prevent files being made in the middle of nowhere this check was inserted.\nWhat you should do is create a new F# project and point the compiler to a file in that directory instead." path
         x
 
 let make_test_path_from_name name =
