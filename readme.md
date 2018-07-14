@@ -129,7 +129,7 @@ The culprit for this is the heap allocation by default dogma introduced by Lisp 
 
 Abstraction by heap allocation is a dead end. It works moderately well on the current generation of computers where CPU is still the dominant driver of computation.
 
-It cannot work for devices like GPUs and the rest coming down the line. Many of the most important computational devices of the future won't support heap allocation so an alternative is needed to draw out their full power. It is of absolute importance that a language for that task have excellent control over inlining. Inlining therefore must comes as guarantee in the language and be a part of the type system.
+It cannot work for devices like GPUs and the rest coming down the line. Many of the most important computational devices of the future won't support heap allocation so an alternative is needed to draw out their full power. It is of absolute importance that a language for that task have excellent control over inlining. Inlining, therefore, must come as a guarantee in the language and be a part of the type system.
 
 Inlining is a trade-off that expresses the exchange of memory for computation. It should be the default instead of heap allocating.
 
@@ -145,11 +145,11 @@ A language good enough at propagating information so as to be capable of express
 
 Spiral is such a language.
 
-Statically typed and with a lightweight, very powerful type system giving it expressiveness of dynamic languages and the speed of C, Spiral is the crystallization of staged functional programming. It boasts of having intensional polymorphism and first class staging. It was made for the sake of making a deep learning library which was too difficult to do in F# itself for its author.
+Statically typed and with a lightweight, very powerful type system giving it expressiveness of dynamic languages and the speed of C, Spiral is the crystallization of staged functional programming. It boasts of having intensional polymorphism and first-class staging. It was made for the sake of making a deep learning library which was too difficult to do in F# itself for its author.
 
 ### Design Philosophy
 
-Automatically doing type inference, inlining and other optimizations requires restrictions and heuristics in order to ensure termination. Languages that make the choice of automating the important parts of their internals invariably hamstring their expressiveness. Even if they end up doing well on some low level benchmarks, they perform poorly when high level abstractions are required.
+Automatically doing type inference, inlining and other optimizations require restrictions and heuristics in order to ensure termination. Languages that make the choice of automating the important parts of their internals invariably hamstring their expressiveness. Even if they end up doing well on some low-level benchmarks, they perform poorly when high-level abstractions are required.
 
 Spiral is different. The power of Spiral lies in its novel kind of language design, not compiler smartness. Spiral is a static language without any restrictions on either type inference or optimizations.
 
@@ -191,7 +191,7 @@ Modifying the Cuda configuration options in the `run.fs` file unless usage of li
 
 ### 1: Inlineables, Methods and Join Points
 
-Spiral has great many similarities to other languages of the ML family, most notably F# with whom it shares the most similarity and a great deal of syntax, but in terms of semantics, it is different at its core.
+Spiral has a great many similarities to other languages of the ML family, most notably F# with whom it shares the most similarity and a great deal of syntax, but in terms of semantics, it is different at its core.
 
 ```
 inl x = 2 // Define a 64-bit integer in Spiral.
@@ -207,7 +207,7 @@ let x = 2
 ()
 ```
 
-If a program like the above was disassembled, `x` would compile down to a public method in F#. In Spiral in contrast, there would be nothing.
+If a program like the above was disassembled, `x` would compile down to a public method in F#. In Spiral, by contrast, there would be nothing.
 
 ```
 module SpiralExample.Main
@@ -219,7 +219,7 @@ extern "C" {
 """
 ```
 
-It is not absolutely nothing though. If the program used Cuda kernels in it, they would gathered at the top of the file inside the `cuda_kernels` variable. For interests of brevity, the unremarkable top part will be cut out during the tutorials.
+It is not absolutely nothing though. If the program used Cuda kernels in it, they would be gathered at the top of the file inside the `cuda_kernels` variable. For interests of brevity, the unremarkable top part will be cut out during the tutorials.
 
 ```
 inl x = dyn 2
@@ -228,9 +228,9 @@ inl x = dyn 2
 let (var_0: int64) = 2L // Generated F# code.
 ```
 
-The reason Spiral is generating nothing is because `2` as defined is a literal and gets tracked as such by the partial evaluator inside the environment. In order to have it appear in the generated code, it is necessary to cast it from the type to the term level using `dyn`amize function. From here on out, the literal will be bound to a variable and the binding `x` will track `var_0` instead.
+The reason Spiral is generating nothing is that `2` as defined is a literal and gets tracked as such by the partial evaluator inside the environment. In order to have it appear in the generated code, it is necessary to cast it from the type to the term level using `dyn`amize function. From here on out, the literal will be bound to a variable and the binding `x` will track `var_0` instead.
 
-Being able to do this is useful for various reasons. For example, without it constructs such as runtime loops would be impossible to write in Spiral because the partial evaluator would diverge. Despite its static typing features, the language would essentially be constrained to being an interpreter for a pure dynamic functional language.
+Being able to do this is useful for a variety of reasons. For example, without it constructs such as runtime loops would be impossible to write in Spiral because the partial evaluator would diverge. Despite its static typing features, the language would essentially be constrained to being an interpreter for a pure dynamic functional language.
 
 ```
 inl x = dyn 2
@@ -256,7 +256,7 @@ inl y = 3
 25L
 ```
 
-Without `dyn`, all the arithmetic operations get evaluated at compile time. This is due to the simple fact that a variable added to a literal is a variable. In general if an operation has a variable as one of its inputs, then its output will also be a variable. The evaluator term casts the literals when necessary. For an operation to be evaluated at compile time, the partial evaluator must have support for it internally.
+Without `dyn`, all the arithmetic operations get evaluated at compile time. This is due to the simple fact that a variable added to a literal is a variable. In general, if an operation has a variable as one of its inputs, then its output will also be a variable. The evaluator term casts the literals when necessary. For an operation to be evaluated at compile time, the partial evaluator must have support for it internally.
 
 `inl` can also be used to define functions.
 
@@ -357,7 +357,7 @@ inl (+) a b = !Add(a,b)
 a=lit 1i64, b=lit qwe
 ```
 
-Since in order to achieve code reuse methods are necessary, Spiral makes it possible to make use of them with the `met` keyword. It works much like `inl`.
+Since methods are necessary to achieve code reuse, Spiral makes it possible to make use of them with the `met` keyword. It works much like `inl`.
 
 ```
 inl mult a b = a * b
@@ -401,7 +401,7 @@ and method_2(): float =
 method_0()
 ```
 
-The result would not be as one might expect since the methods would get specialized to the literal arguments passed to them. Instead it would be better to use `dyn` here. But rather than letting the caller `f` do the term casting operation, it would be better if the callee `mult` did it.
+The result would not be as one might expect since the methods would get specialized to the literal arguments passed to them. Instead, it would be better to use `dyn` here. But rather than letting the caller `f` do the term casting operation, it would be better if the callee `mult` did it.
 
 ```
 met mult (!dyn a) (!dyn b) = a * b
@@ -431,7 +431,7 @@ and method_2((var_0: float), (var_1: float)): float =
 method_0()
 ```
 
-`!` on the left (the pattern) side of the expression is the active pattern unary operator. It takes a function as its first argument, applies the input to it and rebinds the result to second argument of the pattern (in this case `a` and `b` respectively) before the body is evaluated.
+`!` on the left (the pattern) side of the expression is the active pattern unary operator. It takes a function as its first argument, applies the input to it and rebinds the result to the second argument of the pattern (in this case `a` and `b` respectively) before the body is evaluated.
 
 #### Recursion, Destructuring and Pattern Matching
 
@@ -450,7 +450,7 @@ sum (1,2,3)
 6L
 ```
 
-In the ML family of languages, `::` is the list cons pattern. In Spiral it is the the tuple cons pattern. Tuple are fully fledged heterogeneous lists in Spiral and can be treated as such.
+In the ML family of languages, `::` is the list cons pattern. In Spiral it is the tuple cons pattern. Tuples are fully fledged heterogeneous lists in Spiral and can be treated as such.
 
 ```
 inl a = 2,3
@@ -570,7 +570,7 @@ inl f _ = join 1
 
 The above two code fragments are identical in Spiral. `met` is just syntax sugar for a function with a join point around its body.
 
-Being able to do this is quite powerful as it allows more fine grained control over inlining.
+Being able to do this is quite powerful as it allows more fine-grained control over inlining.
 
 ```
 inl rec foldl f s = function
@@ -607,7 +607,7 @@ Tuple0(10L, var_1)
 ```
 The `lit_is` always resolves at compile time to either `true` or `false` just like other structure testing functions. In combination with `forall` that allows for testing of whether all the arguments of `l` are known at compile time. Then using a static if, the two branches amount to either summing them all at compile time, or term casting them and pushing the work to runtime.
 
-This ensures that the sum function does not get specialized to every arbitrary literal passed into it.
+This ensures that the sum function does not get specialized for every arbitrary literal passed into it.
 
 ```
 if true then 1 else "qwe" // Not a type error.
@@ -672,7 +672,7 @@ As can be seen, the two generated code fragments are identical. `:` on the patte
 
 `type` is a keyword and like `join` it enters a new scope.
 
-The types themselves can do more than be passed around or be matched on.
+The types themselves can do more than being passed around or matched on.
 
 ```
 inl int64_type = type 1
@@ -714,7 +714,7 @@ These kinds of errors are easier to locate when they are shown in generated code
 
 ##### Intensional Recursion
 
-Spiral in general does not need type annotations. The only exceptions are recursive functions when used in tandem with join points.
+Spiral, in general, does not need type annotations. The only exceptions are recursive functions when used in tandem with join points.
 
 ```
 met rec fact (!dyn x) = if x > 1 then x * fact (x-1) else 1
@@ -745,7 +745,7 @@ let (var_0: int64) = 3L
 method_0((var_0: int64))
 ```
 
-`:` has the lowest precedence of all Spiral's constructs so it will get applied before any of the statements. It does not necessarily have to be put directly into the function. As reminder, on the pattern side `:` is not a type annotation, but a type equality test.
+`:` has the lowest precedence of all Spiral's constructs so it will get applied before any of the statements. It does not necessarily have to be put directly into the function. As a reminder, on the pattern side `:` is not a type annotation, but a type equality test.
 
 ```
 inl rec fact x =
@@ -865,7 +865,7 @@ All the information in type literals is preserved at all times.
 
 ##### Term Casting of Functions
 
-Spiral's functions as flexible as they are have the notable weakness of not being able to emulate recursive datatypes. For that they need to be cast to the term level.
+Spiral's functions, as flexible as they are, have the notable weakness of not being able to emulate recursive datatypes. For that, they need to be cast to the term level.
 
 Consider a silly example like the following where the function is used as a counter.
 
@@ -919,7 +919,7 @@ All the features of Spiral with the exception of heap allocated modules and clos
 
 ##### `<function>` error message
 
-Don't be fooled by the `<function>` during type errors. As was repeatedly stated, functions are not at all opaque - they are fully transparent to the evaluator. The reason why they get printed like that is simply because they have a tendency to suck everything into the environment. And except for very small examples, trying to print out the raw AST of its body is worthless even for debugging as it is so convoluted.
+Don't be fooled by the `<function>` during type errors. As was repeatedly stated, functions are not at all opaque - they are fully transparent to the evaluator. The reason why they get printed like that is simply that they have a tendency to suck everything into the environment. And except for very small examples, trying to print out the raw AST of its body is worthless even for debugging as it is so convoluted.
 
 ```
 if dyn true then
@@ -1077,7 +1077,7 @@ type Tuple0 =
 Tuple0(2L, 1L)
 ```
 
-Last, but not least, Spiral's modules and functions support several kinds of layouts. By default, like tuples they have a transparent structure whose variables are tracked on an individual basis. Here is the heap layout.
+Last, but not least, Spiral's modules and functions support several kinds of layouts. By default, like tuples, they have a transparent structure whose variables are tracked on an individual basis. Here is the heap layout.
 
 ```
 {a=1; b=2; c=3} |> dyn |> heap
@@ -1195,11 +1195,11 @@ Layout types are there in order to allow finer control of the boxed representati
 #### Macros
 ##### Solve Me
 
-Modules are beautiful and elegant part of Spiral. Macros are definitely ugly, but they are the only way for Spiral to interop with other languages' libraries and are as such indispensable.
+Modules are beautiful and elegant part of Spiral. Macros are definitely ugly, but they are the only way for Spiral to interop with other languages' libraries and as such are indispensable.
 
 In Spiral they have the interesting property of also acting as types.
 
-So far all the examples given in the tutorial were relatively unmotivated. Macros make it is possible to do IO among other thing which allow the language to be applied to real world problems.
+So far all the examples given in the tutorial were relatively unmotivated. Macros make it is possible to do IO among other things which allows the language to be applied to real-world problems.
 
 As a very basic demonstration of them, let us start with this HackerRank problem.
 
