@@ -900,9 +900,9 @@ inl one = 1f32
 
 inl k = 2048
 inl n = 512
-inl beta = 0.00005f32
+inl beta = 0.001f32
 inl alpha = one - beta
-inl num_passes = 200
+inl num_passes = 1000
 
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
@@ -911,7 +911,7 @@ inl { test_images test_labels train_images train_labels} =
 
 inl x = train_images .view_span (const k)
 
-inl P = s.CudaRandom.create {dst=.Normal; stddev=0.1f32; mean=0f32} {elem_type=float32; dim=28*28,n}
+inl P = s.CudaRandom.create {dst=.Normal; stddev=sqrt (one / to float32 n); mean=0f32} {elem_type=float32; dim=28*28,n}
 inl x = s.CudaBlas.gemm .nT .nT one x P
 
 inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
@@ -957,9 +957,7 @@ Loops.for {from=1; to=32; body=inl {i=by} ->
     Console.printfn "{1}, {0}" (s.CudaTensor.get max_abs_diff, by)
     }
 
-inl ty =
-    match x.elem_type with
-    | float32 -> "Float32"
+inl ty = match x.elem_type with float32 -> "Float32"
 Console.printfn "{1} passes over {2} examples randomly projected to a {3} dimensional space. Learning rate is {0}. {4} types are used for all the matrices." (beta,num_passes,k,n,ty)
     """
 
