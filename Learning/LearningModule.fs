@@ -848,7 +848,7 @@ inl float ->
             on_non_nil (s.CudaBlas.gemm' .T .nT one x_whitened_primal z_whitened_adjoint one) (adjoint input)
             on_non_nil (inl bias -> bck_add_bias z_whitened_adjoint bias s) (adjoint bias)
             inl update = Cholesky {alpha=one-beta; beta float=float32} .update_inverse'
-            update s front_whiten x_whitened_primal
+            //update s front_whiten x_whitened_primal
             update s back_whiten z_whitened_adjoint
             //s.CudaTensor.print back_whiten
             ()
