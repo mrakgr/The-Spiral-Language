@@ -1884,29 +1884,30 @@ inl mapi_d1_seq_broadcast w {d with seq} in =
                 | {map_in} -> map_in in.elem_type
                 | {mapi_in} -> mapi_in (dyn 0) (dyn 0) in.elem_type
                 | _ -> in.elem_type
-            Tuple.foldl (inl ty d -> 
-                inl ty =
+            inl ty =
+                Tuple.foldl (inl ty d -> 
+                    inl ty =
+                        match d with
+                        | {from near_to init} -> init (dyn 0) (dyn 0) (dyn 0) ty
+                        | {init} -> init (dyn 0) (dyn 0) ty
+                        | _ -> ty
+                    inl ty' = 
+                        match d with
+                        | {map_in} -> map_in ty
+                        | {from near_to mapi_in} -> mapi_in (dyn 0) (dyn 0) (dyn 0) ty
+                        | {mapi_in} -> mapi_in (dyn 0) (dyn 0) ty
+                        | _ -> ty
                     match d with
-                    | {from near_to init} -> init (dyn 0) (dyn 0) (dyn 0) ty
-                    | {init} -> init (dyn 0) (dyn 0) ty
-                    | _ -> ty
-                inl ty' = 
-                    match d with
-                    | {map_in} -> map_in ty
-                    | {from near_to mapi_in} -> mapi_in (dyn 0) (dyn 0) (dyn 0) ty
-                    | {mapi_in} -> mapi_in (dyn 0) (dyn 0) ty
-                    | _ -> ty
-                match d with
-                | {map_out} -> map_out ty ty'
-                | {from near_to mapi_out} -> map_out (dyn 0) (dyn 0) (dyn 0) ty ty'
-                | {mapi_out} -> map_out (dyn 0) (dyn 0) ty ty'
-                | _ -> ty'
-                ) ty seq
+                    | {map_out} -> map_out ty ty'
+                    | {from near_to mapi_out} -> map_out (dyn 0) (dyn 0) (dyn 0) ty ty'
+                    | {mapi_out} -> map_out (dyn 0) (dyn 0) ty ty'
+                    | _ -> ty'
+                    ) ty seq
             match d with
             | {map_out} -> map_out ty
             | {mapi_out} -> map_out (dyn 0) (dyn 0) ty
             | _ -> ty
-        
+
         inl out = w.CudaTensor.create {elem_type dim=in.dim}
 
         init_d1_seq_broadcast w (ddef (inl f a b c -> f a b) (to_dev_tensor in) (to_dev_tensor out) d) in.dim

@@ -64,7 +64,7 @@ inl float ->
                     on_non_nil (inl A -> s.CudaBlas.gemm' .nT TB one C' (primal B) one A) (adjoint A)
                     on_non_nil (inl B -> s.CudaBlas.gemm' TA .nT one (primal A) C' one B) (adjoint B)
                     ) l
-            on_non_nil (inl bias -> bck_add_bias bias C' s) (adjoint bias)
+            on_non_nil (inl bias -> bck_add_bias C' bias s) (adjoint bias)
 
     inl matmult l s = matmultb l () s
 
@@ -838,13 +838,13 @@ inl float ->
             }
 
     inl whiten beta {input bias front_whiten back_whiten} x s =
-        inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input)
+        inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         fwd_add_bias (primal z) (primal bias) s
         z, inl _ -> join
-            inl z_whitened_adjoint = s.CudaBlas.gemm .nT .T (adjoint z) back_whiten
-            inl x_whitened_primal = s.CudaBlas.gemm .nT .T (primal x) front_whiten
-            on_non_nil (s.CudaBlas.gemm' .nT .T 1f32 z_whitened_adjoint (primal input) 1f32) (adjoint x)
-            on_non_nil (s.CudaBlas.gemm' .T .nT 1f32 x_whitened_primal z_whitened_adjoint 1f32) (adjoint input)
+            inl z_whitened_adjoint = s.CudaBlas.gemm .nT .T one (adjoint z) back_whiten
+            inl x_whitened_primal = s.CudaBlas.gemm .nT .T one (primal x) front_whiten
+            on_non_nil (s.CudaBlas.gemm' .nT .T one z_whitened_adjoint (primal input) one) (adjoint x)
+            on_non_nil (s.CudaBlas.gemm' .T .nT one x_whitened_primal z_whitened_adjoint one) (adjoint input)
             on_non_nil (inl bias -> bck_add_bias z_whitened_adjoint bias s) (adjoint bias)
             inl update = Cholesky {alpha=one-beta; beta float=float32} .update_inverse'
             update s front_whiten x_whitened_primal
@@ -863,7 +863,7 @@ inl float ->
                 } |> heap
             apply = inl weights input -> 
                 whiten prong_lr weights input
-                >>= layer_norm_relu 0f32
+                //>>= layer_norm_relu 0f32
             optimize = inl optimizer weights s ->
                 optimizer s weights.input
                 optimizer s weights.bias
@@ -919,7 +919,7 @@ inl float ->
 
     inl Feedforward = 
         {
-        Layer={Layer with init layer sigmoid tanh relu linear ln prong'} |> stackify
+        Layer={Layer with init layer sigmoid tanh relu linear ln prong} |> stackify
         Pass
         } |> stack
     

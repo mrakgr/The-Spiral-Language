@@ -1123,7 +1123,8 @@ inl network =
     inl label = input .label hidden_size
     inl network =
         input .input input_size
-        |> prong' 0.001f32 256
+        |> prong 0.0001f32 256
+        //|> ln 0f32 256
         |> linear hidden_size
         |> init s
     inl train = error Error.softmax_cross_entropy label network
@@ -1349,6 +1350,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky6
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning9
 |> printfn "%s"
 |> ignore
