@@ -849,6 +849,7 @@ inl float ->
             inl update = Cholesky {alpha=one-beta; beta float=float32} .update_inverse'
             update s front_whiten x_whitened_primal
             update s back_whiten z_whitened_adjoint
+            ()
 
     inl prong prong_lr size sublayer =
         feedforward {
@@ -863,7 +864,7 @@ inl float ->
                 } |> heap
             apply = inl weights input -> 
                 whiten prong_lr weights input
-                //>>= layer_norm_relu 0f32
+                >>= layer_norm_relu 0f32
             optimize = inl optimizer weights s ->
                 optimizer s weights.input
                 optimizer s weights.bias

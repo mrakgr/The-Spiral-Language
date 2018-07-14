@@ -1123,7 +1123,7 @@ inl network =
     inl label = input .label hidden_size
     inl network =
         input .input input_size
-        |> prong 0.0001f32 256
+        |> prong 0.001f32 256
         //|> ln 0f32 256
         |> linear hidden_size
         |> init s
@@ -1140,7 +1140,7 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
             data={input=train_images; label=train_labels}
             body=train {
                 network=network.train
-                optimizer=Optimizer.sgd 0.005f32
+                optimizer=Optimizer.sgd 0.1f32
                 }
             } s
 
