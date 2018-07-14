@@ -2448,6 +2448,8 @@ inl {alpha beta float} ->
     /// A(i+1) = alpha * A(i) + mean(inl i -> c(i) * A(i) * z(i)^t * z(i))
     /// The update loops over the outer dimension of z which can be more than one and averages them.
     inl iterative_product_template is_inplace s alpha c A z =
+        //s.CudaTensor.print c
+        //s.CudaTensor.print z
         inl c = CudaAux.to_dev_tensor c
         inl z = CudaAux.to_dev_tensor z
         inl dim_k, dim_a = z.dim

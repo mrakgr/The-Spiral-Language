@@ -1167,12 +1167,12 @@ inb s = CudaModules (1024*1024*1024)
 inl float = float32
 open Learning float
 
-inl minibatch_size = 128
+inl minibatch_size = 1
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
     Mnist.load_mnist_tensors mnist_path
     |> s.CudaTensor.from_host_tensors
-    |> module_map (inl _ x -> x.round_split' minibatch_size .view_span (const 1))
+    |> module_map (inl _ x -> x.round_split' minibatch_size) // .view_span (const 1))
 
 inl input_size = 784
 inl hidden_size = 10
@@ -1203,7 +1203,7 @@ Loops.for' {from=0; near_to=1;body=inl {next} ->
             data={input=train_images; label=train_labels}
             body=train {
                 network=network.train
-                optimizer=Optimizer.sgd 0.5f32
+                optimizer=Optimizer.sgd 0.001f32
                 }
             } s
 
