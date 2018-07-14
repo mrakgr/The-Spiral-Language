@@ -902,7 +902,7 @@ inl k = 2048
 inl n = 512
 inl beta = 0.001f32
 inl alpha = one - beta
-inl num_passes = 1000
+inl num_passes = 100
 
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
@@ -958,7 +958,7 @@ Loops.for {from=1; to=32; body=inl {i=by} ->
     }
 
 inl ty = match x.elem_type with float32 -> "Float32"
-Console.printfn "{1} passes over {2} examples randomly projected to a {3} dimensional space. Learning rate is {0}. {4} types are used for all the matrices." (beta,num_passes,k,n,ty)
+Console.printfn "{1} passes over {2} Mnist examples randomly projected to a {3} dimensional space. Learning rate is {0}. {4} types are used for all the matrices." (beta,num_passes,k,n,ty)
     """
 
 let cholesky7 =
