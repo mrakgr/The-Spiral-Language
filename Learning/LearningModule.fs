@@ -850,6 +850,7 @@ inl float ->
             inl update = Cholesky {alpha=one-beta; beta float=float32} .update_inverse'
             update s front_whiten x_whitened_primal
             update s back_whiten z_whitened_adjoint
+            //s.CudaTensor.print back_whiten
             ()
 
     inl prong activation prong_lr size sublayer =
