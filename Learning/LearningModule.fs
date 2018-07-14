@@ -168,7 +168,113 @@ inl float ->
             }
         d2_replicate_map { fwd bck } in
 
-    inl Activation = {activation sigmoid tanh relu add hadmult d2_replicate_activation } |> stack
+    inl layer_norm =
+        inl fwd o i s =
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.mapi_d1_seq_broadcast {
+                seq = 
+                    {
+                    redo=(+)
+                    map_out=inl i sum -> i - sum / n
+                    }
+                    ,
+                    {
+                    map_in=inl v -> v*v
+                    redo=(+)
+                    map_out=inl v vv -> v / sqrt (o*o + vv / n)
+                    }
+                } (primal i)
+
+        inl bck o r i s =
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.mapi_d1_seq_broadcast' {
+                seq = 
+                    {
+                    map_in=inl dr,i -> i
+                    redo=(+)
+                    map_out=inl dr,i sum -> dr, i - sum / n
+                    }
+                    ,
+                    {
+                    map_in=inl dr,v -> v*v
+                    redo=(+)
+                    map_out=inl dr,v vv -> dr,v,sqrt (o*o + vv / n)
+                    }
+                    ,
+                    {
+                    map_in=inl dr,v,norm -> -dr * v / (norm * norm)
+                    redo=(+)
+                    map_out=inl dr,v,norm bot -> 
+                        inl top = dr / norm
+                        inl bot = (bot * v) / (norm * n)
+                        top + bot
+                    }
+                    ,
+                    {
+                    redo=(+)
+                    map_out=inl dv dv_sum adjoint -> adjoint + dv - dv_sum / n
+                    }
+                } (adjoint r, primal i) (adjoint i)
+
+        inl o i s ->
+            inl r = fwd o i s |> dr s
+            r, inl _ -> bck o r i s
+
+    /// Layer normalization fused with the relu activation.
+    inl layer_norm_relu =
+        inl fwd o i s =
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.mapi_d1_seq_broadcast {
+                seq = 
+                    {
+                    redo=(+)
+                    map_out=inl i sum -> i - sum / n
+                    }
+                    ,
+                    {
+                    map_in=inl v -> v*v
+                    redo=(+)
+                    map_out=inl v vv -> v / sqrt (o*o + vv / n) |> relu_fwd
+                    }
+                } (primal i)
+
+        inl bck o r i s =
+            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
+            s.CudaKernel.mapi_d1_seq_broadcast' {
+                seq = 
+                    {
+                    map_in=inl dr,i -> i
+                    redo=(+)
+                    map_out=inl dr,i sum -> dr, i - sum / n
+                    }
+                    ,
+                    {
+                    map_in=inl dr,v -> v*v
+                    redo=(+)
+                    map_out=inl dr,v vv -> (if v > zero then dr else zero),v,sqrt (o*o + vv / n)
+                    }
+                    ,
+                    {
+                    map_in=inl dr,v,norm -> -dr * v / (norm * norm)
+                    redo=(+)
+                    map_out=inl dr,v,norm bot -> 
+                        inl top = dr / norm
+                        inl bot = (bot * v) / (norm * n)
+                        top + bot
+                    }
+                    ,
+                    {
+                    redo=(+)
+                    map_out=inl dv dv_sum adjoint -> adjoint + dv - dv_sum / n
+                    }
+                } (adjoint r, primal i) (adjoint i)
+
+        stack inl o i s ->
+            inl r = fwd o i s |> dr s
+            r, inl _ -> bck o r i s
+
+    inl linear = succ
+    inl Activation = {activation linear sigmoid tanh relu add hadmult d2_replicate_activation layer_norm layer_norm_relu} |> stack
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
@@ -717,111 +823,6 @@ inl float ->
     inl tanh = layer Initializer.tanh tanh
     inl linear = layer Initializer.sigmoid succ
 
-    inl layer_norm =
-        inl fwd o i s =
-            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.mapi_d1_seq_broadcast {
-                seq = 
-                    {
-                    redo=(+)
-                    map_out=inl i sum -> i - sum / n
-                    }
-                    ,
-                    {
-                    map_in=inl v -> v*v
-                    redo=(+)
-                    map_out=inl v vv -> v / sqrt (o*o + vv / n)
-                    }
-                } (primal i)
-
-        inl bck o r i s =
-            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.mapi_d1_seq_broadcast' {
-                seq = 
-                    {
-                    map_in=inl dr,i -> i
-                    redo=(+)
-                    map_out=inl dr,i sum -> dr, i - sum / n
-                    }
-                    ,
-                    {
-                    map_in=inl dr,v -> v*v
-                    redo=(+)
-                    map_out=inl dr,v vv -> dr,v,sqrt (o*o + vv / n)
-                    }
-                    ,
-                    {
-                    map_in=inl dr,v,norm -> -dr * v / (norm * norm)
-                    redo=(+)
-                    map_out=inl dr,v,norm bot -> 
-                        inl top = dr / norm
-                        inl bot = (bot * v) / (norm * n)
-                        top + bot
-                    }
-                    ,
-                    {
-                    redo=(+)
-                    map_out=inl dv dv_sum adjoint -> adjoint + dv - dv_sum / n
-                    }
-                } (adjoint r, primal i) (adjoint i)
-
-        inl o i s ->
-            inl r = fwd o i s |> dr s
-            r, inl _ -> bck o r i s
-
-    /// Layer normalization fused with the relu activation.
-    inl layer_norm_relu =
-        inl fwd o i s =
-            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.mapi_d1_seq_broadcast {
-                seq = 
-                    {
-                    redo=(+)
-                    map_out=inl i sum -> i - sum / n
-                    }
-                    ,
-                    {
-                    map_in=inl v -> v*v
-                    redo=(+)
-                    map_out=inl v vv -> v / sqrt (o*o + vv / n) |> relu_fwd
-                    }
-                } (primal i)
-
-        inl bck o r i s =
-            inl n = (primal i).dim |> snd |> HostTensor.span |> to float
-            s.CudaKernel.mapi_d1_seq_broadcast' {
-                seq = 
-                    {
-                    map_in=inl dr,i -> i
-                    redo=(+)
-                    map_out=inl dr,i sum -> dr, i - sum / n
-                    }
-                    ,
-                    {
-                    map_in=inl dr,v -> v*v
-                    redo=(+)
-                    map_out=inl dr,v vv -> (if v > zero then dr else zero),v,sqrt (o*o + vv / n)
-                    }
-                    ,
-                    {
-                    map_in=inl dr,v,norm -> -dr * v / (norm * norm)
-                    redo=(+)
-                    map_out=inl dr,v,norm bot -> 
-                        inl top = dr / norm
-                        inl bot = (bot * v) / (norm * n)
-                        top + bot
-                    }
-                    ,
-                    {
-                    redo=(+)
-                    map_out=inl dv dv_sum adjoint -> adjoint + dv - dv_sum / n
-                    }
-                } (adjoint r, primal i) (adjoint i)
-
-        stack inl o i s ->
-            inl r = fwd o i s |> dr s
-            r, inl _ -> bck o r i s
-
     // The feedforward layer with layer norm.
     inl ln o size sublayer =
         feedforward
@@ -851,7 +852,7 @@ inl float ->
             update s back_whiten z_whitened_adjoint
             ()
 
-    inl prong prong_lr size sublayer =
+    inl prong activation prong_lr size sublayer =
         feedforward {
             size sublayer
             weights = inl s -> 
@@ -864,7 +865,7 @@ inl float ->
                 } |> heap
             apply = inl weights input -> 
                 whiten prong_lr weights input
-                >>= layer_norm_relu 0f32
+                >>= activation // layer_norm_relu 0f32
             optimize = inl optimizer weights s ->
                 optimizer s weights.input
                 optimizer s weights.bias
