@@ -898,8 +898,8 @@ inb s = CudaModules (1024*1024*1024)
 inl zero = 0f32
 inl one = 1f32
 
-inl k = 96
-inl n = 8
+inl k = 512
+inl n = 256
 
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
@@ -938,7 +938,7 @@ inl cholesky_inverse_r s A x =
 Loops.for {from=1; to=32; body=inl {i=by} ->
     inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
 
-    Loops.for {from=0; near_to=1000; body=inl _ ->
+    Loops.for {from=0; near_to=100; body=inl _ ->
         s.refresh
         inb s = s.RegionMem.create'
         cholesky_inverse s by A x
