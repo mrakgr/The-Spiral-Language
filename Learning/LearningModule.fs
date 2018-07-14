@@ -35,6 +35,9 @@ inl float ->
 
     inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
 
+    inl fwd_add_bias C bias s = s.CudaKernel.d2_replicate_map' (inl a _ b -> a+b) bias C.empty C
+    inl bck_add_bias C bias s = s.CudaKernel.mapi_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C bias.empty bias
+
     inl matmultb l bias s = 
         inl l =
             match l with
@@ -52,7 +55,7 @@ inl float ->
                 ) () l
         match bias with
         | () -> ()
-        | _ -> s.CudaKernel.d2_replicate_map' (inl a b _ -> a+b) (primal bias) (primal C) (primal C)
+        | _ -> fwd_add_bias (primal C) (primal bias) s
         C, inl _ -> join
             inl C' = adjoint C
             inl l =
@@ -61,9 +64,7 @@ inl float ->
                     on_non_nil (inl A -> s.CudaBlas.gemm' .nT TB one C' (primal B) one A) (adjoint A)
                     on_non_nil (inl B -> s.CudaBlas.gemm' TA .nT one (primal A) C' one B) (adjoint B)
                     ) l
-            match bias with
-            | () -> ()
-            | _ -> on_non_nil (inl bias -> s.CudaKernel.mapi_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C' bias.empty bias) (adjoint bias)
+            on_non_nil (inl bias -> bck_add_bias bias C' s) (adjoint bias)
 
     inl matmult l s = matmultb l () s
 
@@ -836,64 +837,37 @@ inl float ->
                 >>= layer_norm_relu o 
             }
 
-    inl center beta {value copy} input s =
-        inl primal, adjoint = primal input, adjoint input
-        inl x = s.CudaKernel.d2_replicate_map (inl value primal -> primal - value) value primal |> dr s
-        x, inl _ -> join
-            inl size = to float primal.span_outer
-            inl copy,adjoint,x = Tuple.map to_dev_tensor (copy,adjoint,x)
-            s.CudaKernel.init_d2_redo_outit' {
-                dim=x.primal.dim
-                /// Note: In this functions i is the inner dimension.
-                init=inl i j -> x.primal j i .get
-                redo=(+)
-                neutral_elem=zero
-                outit=inl i x ->
-                    inl copy = copy i
-                    copy .set (copy .get + beta / size * x)
-                    match adjoint with
-                    | () -> ()
-                    | adjoint -> 
-                        inl adjoint = adjoint i
-                        adjoint .set (adjoint .get + x.adjoint i .get)
-                }
-
-    inl front_whiten' beta {U U_inv input} x s =
-        inl z = s.CudaBlas.gemm .nT .nT 1f32 (primal x) (primal input) |> dr s
+    inl whiten beta {input bias front_whiten back_whiten} x s =
+        inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input)
+        fwd_add_bias (primal z) (primal bias) s
         z, inl _ -> join
-            on_non_nil (s.CudaBlas.gemm' .nT .T 1f32 (adjoint z) (primal input) 1f32) (adjoint x)
-            inl Cholesky = Cholesky {float beta alpha=one-beta}
-            Cholesky.inverse_cholesky' s U.copy (primal x)
-            Cholesky.cholesky' s U_inv.copy (primal x)
-            //inl O = s.CudaBlas.gemm .T .nT 1f32 U.copy U_inv.copy
-            s.CudaTensor.print U_inv.copy
-            //inl x = s.CudaBlas.gemm .nT .nT 1f32 (primal x) U.value
-            on_non_nil (s.CudaBlas.gemm' .T .nT 1f32 (primal x) (adjoint z) 1f32) (adjoint input)
-            
+            inl z_whitened_adjoint = s.CudaBlas.gemm .nT .T (adjoint z) back_whiten
+            inl x_whitened_primal = s.CudaBlas.gemm .nT .T (primal x) front_whiten
+            on_non_nil (s.CudaBlas.gemm' .nT .T 1f32 z_whitened_adjoint (primal input) 1f32) (adjoint x)
+            on_non_nil (s.CudaBlas.gemm' .T .nT 1f32 x_whitened_primal z_whitened_adjoint 1f32) (adjoint input)
+            on_non_nil (inl bias -> bck_add_bias z_whitened_adjoint bias s) (adjoint bias)
+            inl update = Cholesky {alpha=one-beta; beta float=float32} .update_inverse'
+            update s front_whiten x_whitened_primal
+            update s back_whiten z_whitened_adjoint
 
-    /// The projected natural gradient layer without reprojection during the optimization stage.
-    inl prong' prong_lr size sublayer =
+    inl prong prong_lr size sublayer =
         feedforward {
             size sublayer
             weights = inl s -> 
                 {
                 input = Initializer.relu (sublayer.size, size) s |> dr s
-                U = {
-                    value = s.CudaKernel.init {dim=sublayer.size,sublayer.size} (inl a b -> if a = b then one else zero)
-                    copy = s.CudaKernel.init {dim=sublayer.size,sublayer.size} (inl a b -> if a = b then one else zero)
-                    }
-                U_inv = {
-                    value = s.CudaKernel.init {dim=sublayer.size,sublayer.size} (inl a b -> if a = b then one else zero)
-                    copy = s.CudaKernel.init {dim=sublayer.size,sublayer.size} (inl a b -> if a = b then one else zero)
-                    }
+                bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+                //center = s.CudaTensor.zero {elem_type=float; dim=sublayer.size} |> dr s
+                front_whiten = s.CudaKernel.init {dim=sublayer.size,sublayer.size} (inl a b -> if a = b then one else zero)
+                back_whiten = s.CudaKernel.init {dim=size,size} (inl a b -> if a = b then one else zero)
                 } |> heap
             apply = inl weights input -> 
-                front_whiten' prong_lr weights input
+                whiten prong_lr weights input
                 >>= layer_norm_relu 0f32
             optimize = inl optimizer weights s ->
                 optimizer s weights.input
-                //optimizer s weights.bias
-                //s.CudaTensor.copy' weights.U.value weights.U.copy
+                optimizer s weights.bias
+                //reproject_bias s weights
             }
 
 
