@@ -898,8 +898,11 @@ inb s = CudaModules (1024*1024*1024)
 inl zero = 0f32
 inl one = 1f32
 
-inl k = 512
-inl n = 256
+inl k = 2048
+inl n = 512
+inl beta = 0.00005f32
+inl alpha = one - beta
+inl num_passes = 200
 
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
@@ -912,15 +915,12 @@ inl P = s.CudaRandom.create {dst=.Normal; stddev=0.1f32; mean=0f32} {elem_type=f
 inl x = s.CudaBlas.gemm .nT .nT one x P
 
 inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
-inl C_inv = s.CudaBlas.matinv_batched_asserted (C.split (inl a,b -> (1,a),b)) .reshape (inl a,b,c -> b,c)
+//inl C_inv = s.CudaBlas.matinv_batched_asserted (C.split (inl a,b -> (1,a),b)) .reshape (inl a,b,c -> b,c)
 
 s.CudaTensor.print x
 s.CudaTensor.print C
 
 Console.writeline "---"
-
-inl beta = 0.001f32
-inl alpha = one - beta
 
 inl cholesky_inverse s by A x =
     inl {range with near_to} :: _ = x.dim
@@ -938,7 +938,7 @@ inl cholesky_inverse_r s A x =
 Loops.for {from=1; to=32; body=inl {i=by} ->
     inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
 
-    Loops.for {from=0; near_to=100; body=inl _ ->
+    Loops.for {from=0; near_to=num_passes; body=inl _ ->
         s.refresh
         inb s = s.RegionMem.create'
         cholesky_inverse s by A x
@@ -956,6 +956,11 @@ Loops.for {from=1; to=32; body=inl {i=by} ->
     inl max_abs_diff = s.CudaKernel.map_redo_map {map_in=abs; redo=max; neutral_elem=-infinityf32} A_diff
     Console.printfn "{1}, {0}" (s.CudaTensor.get max_abs_diff, by)
     }
+
+inl ty =
+    match x.elem_type with
+    | float32 -> "Float32"
+Console.printfn "{1} passes over {2} examples randomly projected to a {3} dimensional space. Learning rate is {0}. {4} types are used for all the matrices." (beta,num_passes,k,n,ty)
     """
 
 let cholesky7 =
@@ -1346,7 +1351,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky7
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky6
 |> printfn "%s"
 |> ignore
 
