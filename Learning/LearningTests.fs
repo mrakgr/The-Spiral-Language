@@ -696,7 +696,7 @@ inl n = 512
 inl beta = 0.0001f32
 inl alpha = one - beta
 inl by = 1
-inl num_passes = 300
+inl num_passes = 50
 
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
@@ -723,10 +723,14 @@ Loops.for {from=0; near_to=num_passes; body=inl _ ->
     inl {range with near_to} :: _ = x.dim
     Loops.for {range with by body=inl {state i} ->
         if i + by <= near_to then
+            s.refresh
+            inb s = s.RegionMem.create'
             inl x = x .view_span (const {from=i; near_to=i+by})
             inl z = s.CudaBlas.gemm .nT .T one x A_inv
             Cholesky {alpha beta float=float32} .update' s A z
             Cholesky {alpha beta float=float32} .update_inverse' s A_inv z
+            //inl A_inv' = s.CudaBlas.geam .nT .T 0.5f32 A_inv 0.5f32 A_inv
+            //s.CudaBlas.geam' .nT .nT zero A_inv' one A_inv' A_inv
         }
     }
 
