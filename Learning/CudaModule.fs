@@ -2450,12 +2450,17 @@ inl {alpha beta float} ->
     inl iterative_product_template is_inplace s alpha c A z =
         //s.CudaTensor.print c
         //s.CudaTensor.print z
-        inl c = CudaAux.to_dev_tensor c
         inl z = CudaAux.to_dev_tensor z
         inl dim_k, dim_a = z.dim
-        assert (dim_k = fst c.dim) "The dimension of c and the outer dimension z needs to match."
         assert (fst A.dim = dim_a) "The outer dimension of A must match the inner dimension of z."
         assert (snd A.dim = dim_a) "The inner dimension of A must match the inner dimension of z."
+        inl c = 
+            match c with
+            | () -> ()
+            | _ -> 
+                assert (dim_k = fst c.dim) "The dimension of c and the outer dimension z needs to match."
+                CudaAux.to_dev_tensor c
+
 
         inl size = to float z.span_outer
 
@@ -2465,11 +2470,19 @@ inl {alpha beta float} ->
                 {dim_k with
                 init=inl n i j {A sum} -> 
                     inl z = z n j .get
-                    inl c = c n .get
+                    inl c = 
+                        match c with
+                        | () -> ()
+                        | _ -> c n .get
                     {c A z sum}
                 map_in=inl {A z} -> A*z
                 redo=(+)
-                map_out=inl {c A z sum} Az -> {A sum=sum + c * Az * z}
+                map_out=inl {c A z sum} Az -> 
+                    inl c =
+                        match c with
+                        | () -> 1f32
+                        | _ -> c
+                    {A sum=sum + c * Az * z}
                 }
             map_out=inl {A sum} -> alpha * A + sum / size
             }
@@ -2516,7 +2529,14 @@ inl {alpha beta float} ->
     inl update_inverse' = update_inverse_template true
     inl update_inverse = update_inverse_template false
 
-    {iterative_product' iterative_product cost_factor inverse_cost_factor update' update update_inverse' update_inverse}
+    inl update_eass' s = iterative_product_template true s alpha ()
+    inl update_eass s = iterative_product_template false s alpha ()
+        
+
+    {
+    iterative_product' iterative_product cost_factor inverse_cost_factor update' update update_inverse' update_inverse
+    update_eass' update_eass
+    }
     |> stackify
     """
     ) |> module_

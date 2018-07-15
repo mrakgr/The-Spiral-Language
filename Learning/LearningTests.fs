@@ -693,7 +693,7 @@ inl one = 1f32
 
 inl k = 1024
 inl n = 512
-inl beta = 0.0001f32
+inl beta = 0.001f32
 inl alpha = one - beta
 inl by = 1
 inl num_passes = 50
@@ -729,6 +729,7 @@ Loops.for {from=0; near_to=num_passes; body=inl _ ->
             inl z = s.CudaBlas.gemm .nT .T one x A_inv
             Cholesky {alpha beta float=float32} .update' s A z
             Cholesky {alpha beta float=float32} .update_inverse' s A_inv z
+            //Cholesky {alpha beta float=float32} .update_eass' s A_inv z // This one is too unstable.
             //inl A_inv' = s.CudaBlas.geam .nT .T 0.5f32 A_inv 0.5f32 A_inv
             //s.CudaBlas.geam' .nT .nT zero A_inv' one A_inv' A_inv
         }
