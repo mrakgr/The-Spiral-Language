@@ -900,9 +900,9 @@ inl one = 1f32
 
 inl k = 256
 inl n = 32
-inl beta = 0.01f32
+inl beta = 0.0001f32
 inl alpha = one - beta
-inl num_passes = 100
+inl num_passes = 1
 
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
@@ -915,7 +915,7 @@ inl P = s.CudaRandom.create {dst=.Normal; stddev=sqrt (one / to float32 n); mean
 inl x = s.CudaBlas.gemm .nT .nT one x P
 
 inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
-//inl C_inv = s.CudaBlas.matinv_batched_asserted (C.split (inl a,b -> (1,a),b)) .reshape (inl a,b,c -> b,c)
+inl C_inv = s.CudaBlas.matinv_batched_asserted (C.split (inl a,b -> (1,a),b)) .reshape (inl a,b,c -> b,c)
 
 s.CudaTensor.print x
 s.CudaTensor.print C
@@ -928,14 +928,16 @@ inl cholesky_inverse s by A x =
         if i + by <= near_to then
             inl x = x .view_span (const {from=i; near_to=i+by})
             inl z = s.CudaBlas.gemm .nT .T one x A
-            Cholesky {alpha beta float=float32} .update_inverse' s A z
+            //Cholesky {alpha beta float=float32} .update_inverse' s A z
+            Cholesky {alpha beta float=float32} .update' s A z
+            s.CudaTensor.print A
         }
 
 inl cholesky_inverse_r s A x =
     inl z = s.CudaBlas.gemm .nT .T one x A
     Cholesky {alpha beta float=float32} .update_inverse' s A z
 
-Loops.for {from=1; to=32; body=inl {i=by} ->
+Loops.for {from=1; to=1; body=inl {i=by} ->
     inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
 
     Loops.for {from=0; near_to=num_passes; body=inl _ ->
