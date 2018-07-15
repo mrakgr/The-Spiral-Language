@@ -898,9 +898,9 @@ inb s = CudaModules (1024*1024*1024)
 inl zero = 0f32
 inl one = 1f32
 
-inl k = 2048
-inl n = 512
-inl beta = 0.001f32
+inl k = 256
+inl n = 32
+inl beta = 0.01f32
 inl alpha = one - beta
 inl num_passes = 100
 
@@ -1413,6 +1413,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) prong1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky6
 |> printfn "%s"
 |> ignore
