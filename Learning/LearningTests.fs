@@ -898,11 +898,11 @@ inb s = CudaModules (1024*1024*1024)
 inl zero = 0f32
 inl one = 1f32
 
-inl k = 256
-inl n = 32
-inl beta = 0.0001f32
+inl k = 2048
+inl n = 512
+inl beta = 0.001f32
 inl alpha = one - beta
-inl num_passes = 1
+inl num_passes = 100
 
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
@@ -915,7 +915,7 @@ inl P = s.CudaRandom.create {dst=.Normal; stddev=sqrt (one / to float32 n); mean
 inl x = s.CudaBlas.gemm .nT .nT one x P
 
 inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
-inl C_inv = s.CudaBlas.matinv_batched_asserted (C.split (inl a,b -> (1,a),b)) .reshape (inl a,b,c -> b,c)
+//inl C_inv = s.CudaBlas.matinv_batched_asserted (C.split (inl a,b -> (1,a),b)) .reshape (inl a,b,c -> b,c)
 
 s.CudaTensor.print x
 s.CudaTensor.print C
@@ -928,16 +928,14 @@ inl cholesky_inverse s by A x =
         if i + by <= near_to then
             inl x = x .view_span (const {from=i; near_to=i+by})
             inl z = s.CudaBlas.gemm .nT .T one x A
-            //Cholesky {alpha beta float=float32} .update_inverse' s A z
-            Cholesky {alpha beta float=float32} .update' s A z
-            s.CudaTensor.print A
+            Cholesky {alpha beta float=float32} .update_inverse' s A z
         }
 
 inl cholesky_inverse_r s A x =
     inl z = s.CudaBlas.gemm .nT .T one x A
     Cholesky {alpha beta float=float32} .update_inverse' s A z
 
-Loops.for {from=1; to=1; body=inl {i=by} ->
+Loops.for {from=1; to=32; body=inl {i=by} ->
     inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
 
     Loops.for {from=0; near_to=num_passes; body=inl _ ->
@@ -1012,6 +1010,52 @@ s.CudaTensor.print A
 Console.writeline "***"
 s.CudaTensor.print (s.CudaBlas.gemm .nT .T one A A_inv)
     """
+
+let cholesky8 =
+    "cholesky8",[cuda_modules;cholesky;mnist],"Does the regular Cholesky update from the library track the standard update well?",
+    """
+inb s = CudaModules (1024*1024*1024)
+inl zero = 0f32
+inl one = 1f32
+
+inl k = 256
+inl n = 32
+inl beta = 0.01f32
+inl alpha = one - beta
+inl num_passes = 1
+
+inl { test_images test_labels train_images train_labels} =
+    inl mnist_path = @"C:\ML Datasets\Mnist"
+    Mnist.load_mnist_tensors mnist_path
+    |> s.CudaTensor.from_host_tensors
+
+inl x = train_images .view_span (const k)
+
+inl P = s.CudaRandom.create {dst=.Normal; stddev=sqrt (one / to float32 n); mean=0f32} {elem_type=float32; dim=28*28,n}
+inl x = s.CudaBlas.gemm .nT .nT one x P
+
+inl cholesky s by A_inv C A x =
+    inl {range with near_to} :: _ = x.dim
+    Loops.for {range with by body=inl {state i} ->
+        if i + by <= near_to then
+            inl x = x .view_span (const {from=i; near_to=i+by})
+            inl z = s.CudaBlas.gemm .nT .T one x A
+            Cholesky {alpha beta float=float32} .update' s A z
+            s.CudaBlas.gemm .T .nT beta x x alpha C
+            s.CudaTensor.print A
+            s.CudaTensor.print C
+        }
+
+inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
+inl C = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
+
+Loops.for {from=0; near_to=num_passes; body=inl _ ->
+    s.refresh
+    inb s = s.RegionMem.create'
+    cholesky s 1 C A x
+    }
+    """
+
 
 let learning1 =
     "learning1",[cuda_modules;learning],"Does the matmult work?",
@@ -1415,6 +1459,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky6
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cholesky8
 |> printfn "%s"
 |> ignore
