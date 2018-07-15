@@ -968,8 +968,8 @@ inb s = CudaModules (1024*1024*1024)
 inl zero = 0f32
 inl one = 1f32
 
-inl k = 96
-inl n = 8
+inl k = 256
+inl n = 32
 
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
@@ -978,7 +978,7 @@ inl { test_images test_labels train_images train_labels} =
 
 inl x = train_images .view_span (const k)
 
-inl P = s.CudaRandom.create {dst=.Normal; stddev=0.1f32; mean=0f32} {elem_type=float32; dim=28*28,n}
+inl P = s.CudaRandom.create {dst=.Normal; stddev=sqrt (one / to float32 n); mean=0f32} {elem_type=float32; dim=28*28,n}
 inl x = s.CudaBlas.gemm .nT .nT one x P
 
 inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then 1f32 else 0f32)
@@ -991,8 +991,8 @@ Console.writeline "---"
 inl beta = 0.001f32
 inl alpha = one - beta
 
-inl by = 32
-Loops.for {from=0; near_to=96000; body=inl _ ->
+inl by = 1
+Loops.for {from=0; near_to=100; body=inl _ ->
     s.refresh
     inb s = s.RegionMem.create'
     inl {range with near_to} :: _ = x.dim
@@ -1000,15 +1000,15 @@ Loops.for {from=0; near_to=96000; body=inl _ ->
         if i + by <= near_to then
             inl x = x .view_span (const {from=i; near_to=i+by})
             inl z = s.CudaBlas.gemm .nT .T one x A_inv
-            Cholesky {alpha beta float=float32} .update' s A z
+            //Cholesky {alpha beta float=float32} .update' s A z
             Cholesky {alpha beta float=float32} .update_inverse' s A_inv z
         }
     }
 
 s.CudaTensor.print A_inv
 s.CudaTensor.print A
-Console.writeline "***"
-s.CudaTensor.print (s.CudaBlas.gemm .nT .T one A A_inv)
+//Console.writeline "***"
+//s.CudaTensor.print (s.CudaBlas.gemm .nT .T one A A_inv)
     """
 
 let learning1 =
