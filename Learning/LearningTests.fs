@@ -1223,7 +1223,6 @@ Loops.for' {from=0; near_to=1;body=inl {next} ->
     }
     """
 
-
 let learning10 =
     "learning10",[cuda_modules;timer;learning],"Does the full training work with the char-RNN?",
     """
