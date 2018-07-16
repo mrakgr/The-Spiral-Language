@@ -7,7 +7,7 @@ open Learning.Cuda
 
 let learning =
     (
-    "Learning",[struct';extern_;serializer_one_hot;cuda_aux; cholesky],"The deep learning module.",
+    "Learning",[struct';extern_;serializer_one_hot;cuda_aux],"The deep learning module.",
     """
 inl float ->
     // #Primitives
