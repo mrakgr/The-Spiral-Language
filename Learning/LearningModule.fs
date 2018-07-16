@@ -838,6 +838,7 @@ inl float ->
                 >>= layer_norm_relu o 
             }
 
+    /// TODO: Does not work for now.
     inl whiten beta {input bias front_whiten back_whiten} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         fwd_add_bias (primal z) (primal bias) s
