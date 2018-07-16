@@ -4646,7 +4646,9 @@ The tensor tutorial should have been rather clear and straightforward and unless
 
 The number of languages in which a tensor can be implemented in such a manner can at the time of writing, 2 days to 2018, be literally counted on one finger. Being able to implement tensors like this is what essentially convinced the author that now that he has Spiral, it might be a good idea challenge the other deep learning frameworks for supremacy even though they have big corporate sponsorship.
 
-There is no need to consider how tensors are made in a language made for numeric computation like Julia. Take PyTorch for instance, and go to the [tour of its internals](http://pytorch.org/blog/). It is essentially a tour of poor programming practices: using C macros for everything including making tensors type generic, the absolutely fearsome `static PyTypeObject py_FloatType` which is badly in need of modules or at least SML records, the friction between different components that just jumps out.
+Even in language like Julia which is made for numeric computation such generic functionality would require heavy use of macros. The kind of metaprogramming Julia allows could be a lot worse.
+
+Take PyTorch for instance, and go to the [tour of its internals](http://pytorch.org/blog/). It is essentially a tour of poor programming practices: using C macros for everything including making tensors type generic, the absolutely fearsome `static PyTypeObject py_FloatType` which is badly in need of modules or at least SML records, the friction between different components that just jumps out.
 
 From what has been heard of PyTorch in action by the author, there has been nothing but praise.
 
