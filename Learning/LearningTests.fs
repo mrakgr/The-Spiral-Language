@@ -252,11 +252,11 @@ let kernel2 =
     """
 inb s = CudaModules (1024*1024)
 
-inl h = HostTensor.init 1024 ((+) 1)
+inl h = HostTensor.init 2048 ((+) 1)
 inl a1 = s.CudaTensor.from_host_tensor h
 
 s.CudaKernel.map_redo_map {neutral_elem=0; redo=(+)} a1
-|> s.CudaTensor.print // 524800
+|> s.CudaTensor.print // 2098176
     """
 
 let kernel3 =

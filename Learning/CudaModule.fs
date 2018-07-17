@@ -1426,7 +1426,7 @@ inl map_redo_map w {d with redo neutral_elem} in =
         inl in_a :: () = in.dim
         inl span = s in_a
         inl blockDim = lit_min span 1024
-        inl gridDim = 1 //lit_min 64 (divup span blockDim)
+        inl gridDim = lit_min 64 (divup span blockDim)
 
         inl r = 
             if gridDim = 1 then
