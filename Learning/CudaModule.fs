@@ -2437,9 +2437,94 @@ inl methods =
 inl s -> s.module_add .CudaKernel methods
     """) |> module_
 
+let cuda_solve =
+    (
+    "CudaSolve",[extern_],"The CudaSolve module.",
+    """
+inl s ret ->
+    open Extern
+
+    inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
+    inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
+    inl SizeT = FS.Constructor SizeT_type
+    inl CUdeviceptr = FS.Constructor CUdeviceptr_type << SizeT
+
+    inl dense_native_type = fs [text: "ManagedCuda.CudaSolve.CudaSolveNativeMethods.Dense"]
+    inl status_type = fs [text: "ManagedCuda.CudaSolve.cusolverStatus"]
+
+    inl assert_ok status = macro.fs () [text: "if "; arg: status; text: " <> ManagedCuda.CudaSolve.cusolverStatus.Success then raise <| new ManagedCuda.CudaSolve.CudaSolveException"; args: status]
+    inl dense_handle =
+        inl cusolver_type = fs [text: "ManagedCuda.CudaSolve.cusolverDnHandle"]
+        FS.Constructor cusolver_type () |> ref
+    FS.StaticMethod dense_native_type .cusolverDnCreate dense_handle status_type |> assert_ok
+    inl s = s.data_add {cusolve_dense_handle=dense_handle}
+
+    inl enum ty x = FS.StaticField ty x ty
+
+    inl fill_mode_type = fs [text: "ManagedCuda.CudaBlas.FillMode"]
+    inl to_fill_mode .Lower | .Upper as x = enum fill_mode_type x
+    inl opposite_fill = function
+        | .Lower -> .Upper
+        | .Upper -> .Lower
+
+    inl dense_call' handle method args =
+        FS.StaticMethod dense_native_type method (handle :: args) status_type |> assert_ok    
+
+    inl dense_call s method args =
+        inl stream = s.data.stream
+        inl handle = s.data.cusolve_dense_handle ()
+        dense_call' handle .cusolverDnSetStream (stream.extract :: ())
+        inl to_dev_tensor x = HostTensor.assert_contiguous x; CudaAux.to_dev_tensor x
+
+        inl args =
+            inl strip ptr = 
+                assert (Tuple.last ptr.bodies.size = 1) "The stride of the innermost dimension should always be 1."
+                (to_dev_tensor ptr).bodies.ar
+            Tuple.map (function
+                | x : float64 | x : float32 -> ref x
+                | {ptr} -> strip ptr |> CUdeviceptr
+                | {ptr_ar} -> Array.map strip ptr_ar |> s.CudaTensor.from_cudadevptr_array
+                | .Lower | .Upper as x -> to_fill_mode x
+                | x -> x
+                ) (Tuple.wrap args)
+        dense_call' handle method args
+
+    inl span = HostTensor.span
+    inl ld x = x.bodies.size |> fst
+
+    inl i32 = to int32
+
+    /// The Cholesky decomposition function.
+    met potrf' s uplo A =
+        assert (eq_type A.elem_type float32) "The type of matrix A must be float32."
+        inl n, n' = A.dim |> Tuple.map span
+        assert (n = n') "The matrix A must be square."
+        inl lda = ld A
+        inl Lwork = 
+            inl Lwork = ref 0i32
+            dense_call s .cusolverDnSpotrf_bufferSize(opposite_fill uplo, i32 n, {ptr=A}, i32 lda, Lwork)
+            Lwork()
+        inb workspace = s.CudaTensor.create_temp {elem_type=float32; dim=to int64 Lwork}
+        inb dev_info = s.CudaTensor.create_temp {elem_type=int32; dim=1}
+
+        dense_call s .cusolverDnSpotrf(opposite_fill uplo, i32 n, {ptr=A}, i32 lda, {ptr=workspace}, Lwork, {ptr=dev_info})
+        dev_info 0 |> s.CudaTensor.get
+
+    inl potrf s uplo A {on_succ on_fail} =
+        indiv join
+            inl A = s.CudaTensor.copy A
+            inl result = potrf' s uplo A
+            if result = 0i32 then on_succ A
+            else on_fail result
+        
+    ret <| s.module_add .CudaSolve {potrf' potrf}
+    
+    dense_call s .cusolverDnDestroy()
+    """) |> module_
+
 let cuda_modules =
     (
-    "CudaModules",[cuda;allocator;region;cuda_stream;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;console],"All the cuda modules in one.",
+    "CudaModules",[cuda;allocator;region;cuda_stream;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;cuda_solve;console],"All the cuda modules in one.",
     """
 inl size ret ->
     inb s = Cuda
@@ -2450,5 +2535,6 @@ inl size ret ->
     inb s = s.RegionMem.create'
     inb s = s.RegionStream.create'
     inl s = s.RegionStream.allocate
+    inb s = CudaSolve s
     ret s
     """) |> module_
