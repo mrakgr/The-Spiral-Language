@@ -220,12 +220,6 @@ s.CudaTensor.print C
 s.CudaTensor.print (s.CudaBlas.transpose C)
     """
 
-let blas7 =
-    "blas7",[cuda_modules],"Does the geqrfBatched work?",
-    """
-
-    """
-
 let kernel1 =
     "kernel1",[cuda_modules],"Does the map kernel work?",
     """
@@ -1001,6 +995,14 @@ Loops.for' {from=0; near_to=5; body=inl {next i} ->
     }
     """
 
+let cusolver1 =
+    "cusolver1",[cuda_modules],"Does the Cholesky decomposition (...) work?",
+    """
+inb s = CudaModules (1024*1024)
+()
+
+    """
+
 let tests =
     [|
     allocator1
@@ -1008,14 +1010,15 @@ let tests =
     kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
     kernel10;kernel11;kernel12;kernel13;kernel14;kernel15;kernel16;kernel17
     random1
-    blas1;blas2;blas3;blas4;blas5;blas6;blas7
+    blas1;blas2;blas3;blas4;blas5;blas6
+    cusolver1
     learning1;learning2;learning3;learning4;learning5;                               learning9
     learning10;learning11
     |]
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning9
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cusolver1
 |> printfn "%s"
 |> ignore
 
