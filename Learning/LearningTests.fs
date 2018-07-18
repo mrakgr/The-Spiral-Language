@@ -1016,7 +1016,8 @@ inl CudaSolve =
         inl dense_handle =
             inl cusolver_type = fs [text: "ManagedCuda.CudaSolve.cusolverDnHandle"]
             FS.Constructor cusolver_type ()
-        FS.StaticMethod dense_native_type .cusolverDnHandle (ref handle) status_type |> assert_ok
+            |> ref
+        FS.StaticMethod dense_native_type .cusolverDnCreate dense_handle status_type |> assert_ok
         inl s = s.data_add {cusolve_dense_handle=dense_handle}
 
         inl enum ty x = FS.StaticField ty x ty
@@ -1032,9 +1033,9 @@ inl CudaSolve =
 
         inl dense_call s method args =
             inl stream = s.data.stream
-            inl handle = s.data.cusolve_dense_handle
-            dense_call' handle .cusolverDnSetStream stream.extract
-            inl to_dev_tensor x = assert_contiguous x; CudaAux.to_dev_tensor x
+            inl handle = s.data.cusolve_dense_handle ()
+            dense_call' handle .cusolverDnSetStream (stream.extract :: ())
+            inl to_dev_tensor x = HostTensor.assert_contiguous x; CudaAux.to_dev_tensor x
 
             inl args =
                 inl strip ptr = 
@@ -1046,7 +1047,7 @@ inl CudaSolve =
                     | {ptr_ar} -> Array.map strip ptr_ar |> s.CudaTensor.from_cudadevptr_array
                     | .Lower | .Upper as x -> to_fill_mode x
                     | x -> x
-                    ) args
+                    ) (Tuple.wrap args)
             dense_call' handle method args
 
         inl span = HostTensor.span
@@ -1055,41 +1056,45 @@ inl CudaSolve =
         inl i32 = to int32
 
         /// The Cholesky decomposition function.
-        met portf' s uplo A =
+        met potrf' s uplo A =
             assert (eq_type A.elem_type float32) "The type of matrix A must be float32."
-            inl n, n' = A.dim
-            assert (span n = span n') "The matrix A must be square."
+            inl n, n' = A.dim |> Tuple.map span
+            assert (n = n') "The matrix A must be square."
             inl lda = ld A
             inl Lwork = 
                 inl Lwork = ref 0i32
-                dense_call .cusolverDnSpotrf_bufferSize(opposite_fill uplo, i32 n, {ptr=A}, i32 lda, Lwork)
+                dense_call s .cusolverDnSpotrf_bufferSize(opposite_fill uplo, i32 n, {ptr=A}, i32 lda, Lwork)
                 Lwork()
-            inb workspace = s.CudaTensor.create_temp {elem_type=float32; dim=Lwork}
+            inb workspace = s.CudaTensor.create_temp {elem_type=float32; dim=to int64 Lwork}
             inb dev_info = s.CudaTensor.create_temp {elem_type=int32; dim=1}
 
-            dense_call .cusolverDnSpotrs(opposite_fill uplo, i32 n, {ptr=A}, i32 lda, {ptr=workspace}, Lwork, {ptr=dev_info})
+            dense_call s .cusolverDnSpotrf(opposite_fill uplo, i32 n, {ptr=A}, i32 lda, {ptr=workspace}, Lwork, {ptr=dev_info})
             dev_info 0 |> s.CudaTensor.get
 
         inl potrf s uplo A {on_succ on_fail} =
             indiv join
                 inl A' = s.CudaTensor.create_like A
-                inl result = portf' s uplo A'
-                if result = 0 then on_succ A'
+                inl result = potrf' s uplo A'
+                if result = 0i32 then on_succ A'
                 else on_fail result
         
-        ret <| s.module_add .CudaSolve {portf' portf}
+        ret <| s.module_add .CudaSolve {potrf' potrf}
     
         dense_call s .cusolverDnDestroy()
 
 inb s = CudaSolve s
 
 inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=5,5}
-inl S = s.CudaBlas.gemm .nT .nT 1f32 A A
+inl S = s.CudaBlas.gemm .nT .T 1f32 A A
+s.CudaTensor.print S
 
-inl O = portf s .Lower S {
-    on_succ=stack
-    on_fail=failwith S << string_format "Cholesky decomposition failed on element {0}."
-    }
+inl O = 
+    s.CudaSolve.potrf .Lower S {
+        on_succ=stack
+        on_fail=inl result ->
+            if result > 0 then failwith (type stack S) (string_format "The leading minor of order {0} is not positive definite." result)
+            else failwith (type stack S) (string_format "The {0}-th parameter is wrong." result)
+        }
 
 s.CudaTensor.print O
     """

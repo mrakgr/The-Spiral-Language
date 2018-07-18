@@ -61,17 +61,8 @@
     <None Include="Script1.fsx" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="CudaBlas">
-      <HintPath>..\packages\ManagedCuda-CUBLAS.8.0.22\lib\net46\CudaBlas.dll</HintPath>
-    </Reference>
-    <Reference Include="CudaRand">
-      <HintPath>..\packages\ManagedCuda-CURAND.8.0.22\lib\net46\CudaRand.dll</HintPath>
-    </Reference>
     <Reference Include="FSharp.Core">
       <HintPath>..\packages\FSharp.Core.4.2.3\lib\net45\FSharp.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="ManagedCuda">
-      <HintPath>..\packages\ManagedCuda-80.8.0.22\lib\net46\ManagedCuda.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="mscorlib" />

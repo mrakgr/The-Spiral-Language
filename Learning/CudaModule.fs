@@ -542,9 +542,10 @@ inl methods =
     create=inl s data -> create {data with array_create = array_create_cuda_global s}
     create_like=inl s tns -> s.CudaTensor.create {elem_type=tns.elem_type; dim=tns.dim}
     create_temp=inl s data ret ->
-        inl tns = s.create data
-        ret tns
-        tns.update_body <| inl {ar} -> ar.Dispose
+        inl tns = s.CudaTensor.create data
+        inl x = ret tns
+        Struct.iter (inl {ar} -> ar.ptr.Dispose) tns.bodies
+        x
 
     to_host_array from_host_array from_cudadevptr_array
 
