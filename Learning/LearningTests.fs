@@ -999,7 +999,35 @@ let cusolver1 =
     "cusolver1",[cuda_modules],"Does the Cholesky decomposition (...) work?",
     """
 inb s = CudaModules (1024*1024)
-()
+
+inl CudaSolve =
+    inl s ret ->
+        open Extern
+        inl dense_native_type = fs [text: "ManagedCuda.CudaSolve.CudaSolveNativeMethods.Dense"]
+        inl status_type = fs [text: "ManagedCuda.CudaSolve.cusolverStatus"]
+
+        inl assert_ok status = macro.fs () [text: "if "; arg: status; text: " <> ManagedCuda.CudaSolve.cusolverStatus.Success then raise <| new ManagedCuda.CudaSolve.CudaSolveException"; args: status]
+        inl dense_handle =
+            inl cusolver_type = fs [text: "ManagedCuda.CudaSolve.cusolverDnHandle"]
+            FS.Constructor cusolver_type ()
+
+        inl s = s.data_add {cusolve_dense_handle=dense_handle}
+    
+        FS.StaticMethod dense_native_type .cusolverDnHandle (ref handle) status_type |> assert_ok
+
+        inl dense_call' handle method args =
+            FS.StaticMethod dense_native_type method (handle :: args) status_type |> assert_ok    
+
+        inl dense_call s method args =
+            inl stream = s.data.stream
+            inl handle = s.data.cusolve_dense_handle
+            dense_call' handle .cusolverDnSetStream stream.extract
+            dense_call' handle method args
+        
+        ret <| s.module_add .CudaSolve {}
+    
+        dense_call s .cusolverDnDestroy()
+
 
     """
 
