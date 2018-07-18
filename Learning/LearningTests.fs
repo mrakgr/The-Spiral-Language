@@ -996,13 +996,19 @@ Loops.for' {from=0; near_to=5; body=inl {next i} ->
     """
 
 let cusolver1 =
-    "cusolver1",[cuda_modules],"Does the Cholesky decomposition (...) work?",
+    "cusolver1",[cuda_modules],"Does the Cholesky decomposition (potrf) work?",
     """
 inb s = CudaModules (1024*1024)
 
 inl CudaSolve =
     inl s ret ->
         open Extern
+
+        inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
+        inl CUdeviceptr_type = fs [text: "ManagedCuda.BasicTypes.CUdeviceptr"]
+        inl SizeT = FS.Constructor SizeT_type
+        inl CUdeviceptr = FS.Constructor CUdeviceptr_type << SizeT
+
         inl dense_native_type = fs [text: "ManagedCuda.CudaSolve.CudaSolveNativeMethods.Dense"]
         inl status_type = fs [text: "ManagedCuda.CudaSolve.cusolverStatus"]
 
@@ -1010,10 +1016,16 @@ inl CudaSolve =
         inl dense_handle =
             inl cusolver_type = fs [text: "ManagedCuda.CudaSolve.cusolverDnHandle"]
             FS.Constructor cusolver_type ()
-
-        inl s = s.data_add {cusolve_dense_handle=dense_handle}
-    
         FS.StaticMethod dense_native_type .cusolverDnHandle (ref handle) status_type |> assert_ok
+        inl s = s.data_add {cusolve_dense_handle=dense_handle}
+
+        inl enum ty x = FS.StaticField ty x ty
+
+        inl fill_mode_type = fs [text: "ManagedCuda.CudaBlas.FillMode"]
+        inl to_fill_mode .Lower | .Upper as x = enum fill_mode_type x
+        inl opposite_fill = function
+            | .Lower -> .Upper
+            | .Upper -> .Lower
 
         inl dense_call' handle method args =
             FS.StaticMethod dense_native_type method (handle :: args) status_type |> assert_ok    
@@ -1022,12 +1034,56 @@ inl CudaSolve =
             inl stream = s.data.stream
             inl handle = s.data.cusolve_dense_handle
             dense_call' handle .cusolverDnSetStream stream.extract
+            inl to_dev_tensor x = assert_contiguous x; CudaAux.to_dev_tensor x
+
+            inl args =
+                inl strip ptr = 
+                    assert (Tuple.last ptr.bodies.size = 1) "The stride of the innermost dimension should always be 1."
+                    (to_dev_tensor ptr).bodies.ar
+                Tuple.map (function
+                    | x : float64 | x : float32 -> ref x
+                    | {ptr} -> strip ptr |> CUdeviceptr
+                    | {ptr_ar} -> Array.map strip ptr_ar |> s.CudaTensor.from_cudadevptr_array
+                    | .Lower | .Upper as x -> to_fill_mode x
+                    | x -> x
+                    ) args
             dense_call' handle method args
+
+        inl span = HostTensor.span
+        inl ld x = x.bodies.size |> fst
+
+        inl i32 = to int32
+
+        /// The Cholesky decomposition function.
+        met portf' s uplo A =
+            assert (eq_type A.elem_type float32) "The type of matrix A must be float32."
+            inl n, n' = A.dim
+            assert (span n = span n') "The matrix A must be square."
+            inl lda = ld A
+            inl Lwork = 
+                inl Lwork = ref 0i32
+                dense_call .cusolverDnSpotrf_bufferSize(opposite_fill uplo, i32 n, {ptr=A}, i32 lda, Lwork)
+                Lwork()
+            inb workspace = s.CudaTensor.create_temp {elem_type=float32; dim=Lwork}
+            inb dev_info = s.CudaTensor.create_temp {elem_type=int32; dim=1}
+
+            dense_call .cusolverDnSpotrs(opposite_fill uplo, i32 n, {ptr=A}, i32 lda, {ptr=workspace}, Lwork, {ptr=dev_info})
+            dev_info 0 |> s.CudaTensor.get
+
+        inl potrf s uplo A {on_succ on_fail} =
+            indiv join
+                inl A' = s.CudaTensor.create_like A
+                inl result = portf' s uplo A'
+                if result = 0 then on_succ A'
+                else on_fail result
         
-        ret <| s.module_add .CudaSolve {}
+        ret <| s.module_add .CudaSolve {portf' portf}
     
         dense_call s .cusolverDnDestroy()
 
+inb s = CudaSolve s
+
+()
 
     """
 

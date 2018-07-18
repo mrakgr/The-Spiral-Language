@@ -252,7 +252,7 @@ inl smartptr_create (ptr: uint64) =
     | .Try -> cell()
     | () -> join 
         inl x = cell ()
-        assert (x <> 0u64) "A Cuda memory cell that has been disposed has been tried to be accessed."
+        assert (x <> 0u64) "A disposed Cuda memory cell has been tried to be accessed."
         x
 
 inl mult = CudaAux.allocator_block_size
@@ -541,6 +541,10 @@ inl methods =
     {
     create=inl s data -> create {data with array_create = array_create_cuda_global s}
     create_like=inl s tns -> s.CudaTensor.create {elem_type=tns.elem_type; dim=tns.dim}
+    create_temp=inl s data ret ->
+        inl tns = s.create data
+        ret tns
+        tns.update_body <| inl {ar} -> ar.Dispose
 
     to_host_array from_host_array from_cudadevptr_array
 
