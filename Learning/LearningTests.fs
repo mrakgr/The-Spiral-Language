@@ -1083,8 +1083,15 @@ inl CudaSolve =
 
 inb s = CudaSolve s
 
-()
+inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=5,5}
+inl S = s.CudaBlas.gemm .nT .nT 1f32 A A
 
+inl O = portf s .Lower S {
+    on_succ=stack
+    on_fail=failwith S << string_format "Cholesky decomposition failed on element {0}."
+    }
+
+s.CudaTensor.print O
     """
 
 let tests =
