@@ -2295,7 +2295,7 @@ met iter w {d with dim} f =
     inl d = 
         match d with
         | {thread_limit} -> merge (Tuple.wrap thread_limit,dim)
-        | {rev_thread_limit} -> merge (Tuple.wrap rev_thread_limit,Tuple.rev dim) |> Tuple.rev
+        | {rev_thread_limit} -> merge (Tuple.wrap rev_thread_limit, Tuple.rev dim) |> Tuple.rev
         | _ -> merge ((),dim)
     inl s = function {thread_limit=() dim} -> s dim | {thread_limit} -> thread_limit
     inl near_to = Tuple.foldl (inl a (!s b) -> a*b) 1 d

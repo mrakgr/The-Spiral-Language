@@ -1073,9 +1073,9 @@ inl CudaSolve =
 
         inl potrf s uplo A {on_succ on_fail} =
             indiv join
-                inl A' = s.CudaTensor.create_like A
-                inl result = potrf' s uplo A'
-                if result = 0i32 then on_succ A'
+                inl A = s.CudaTensor.copy A
+                inl result = potrf' s uplo A
+                if result = 0i32 then on_succ A
                 else on_fail result
         
         ret <| s.module_add .CudaSolve {potrf' potrf}
@@ -1084,19 +1084,29 @@ inl CudaSolve =
 
 inb s = CudaSolve s
 
-inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=5,5}
-inl S = s.CudaBlas.gemm .nT .T 1f32 A A
+inl n = 5
+inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=n,n}
+
+inl zero_out_upper x =
+    inl _ =
+        inl x = CudaAux.to_dev_tensor x
+        s.CudaKernel.iter {dim=n,n} (inl a b -> if a < b then x a b .set 0f32)
+    x
+
+inl S = s.CudaBlas.gemm .nT .T 1f32 A A |> zero_out_upper
+
 s.CudaTensor.print S
 
 inl O = 
     s.CudaSolve.potrf .Lower S {
         on_succ=stack
         on_fail=inl result ->
-            if result > 0 then failwith (type stack S) (string_format "The leading minor of order {0} is not positive definite." result)
+            if result > 0i32 then failwith (type stack S) (string_format "The leading minor of order {0} is not positive definite." result)
             else failwith (type stack S) (string_format "The {0}-th parameter is wrong." result)
         }
 
 s.CudaTensor.print O
+s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 O O |> zero_out_upper)
     """
 
 let tests =
