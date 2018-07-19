@@ -189,6 +189,7 @@ inl create {d with elem_type} =
     inl clear () = FS.Method x .Clear() ()
     inl count () = FS.Method x .get_Count() int32
     inl add y = FS.Method x .Add y ()
+    inl remove_at y = FS.Method () .RemoveAt y ()
 
     inl iter f = FS.Method x ."ForEach <| System.Action<_>" (closure_of f (elem_type => ())) ()
     inl to_array () = FS.Method x .ToArray() (array elem_type)
@@ -200,6 +201,7 @@ inl create {d with elem_type} =
     | .clear -> clear ()
     | .count -> count ()
     | .add -> add
+    | .remove_at -> remove_at
     | .iter -> iter
     | .foldl f state -> Loops.for {from=0i32; by=1i32; near_to=count(); state body=inl {state i} -> f state (index i)}
     | .foldr f state -> Loops.for {from=count() - 1i32; by=-1i32; down_to=0i32; state body=inl {state i} -> f state (index i)}
@@ -273,7 +275,7 @@ met refresh s =
     used_cells.filter (inl {ptr} -> ptr.Try = 0u64)
     sort_ptrs used_cells
     free_cells.clear
-    inl add {ptr size} = 
+    inl add {ptr size} =
         inl ptr' = round_up_to_multiple ptr
         inl d = ptr' - ptr
         if size > d then free_cells.add {ptr = ptr'; size=size-d}
@@ -296,6 +298,18 @@ met refresh s =
 
 met allocate s (!(to uint64 >> round_up_to_multiple >> dyn) size') =
     inl {pool used_cells free_cells} = s.data.section
+
+    met rec clear_top_if_nil () =
+        inl i = used_cells.count-1i32
+        inl {ptr size} = used_cells i
+        if ptr.Try = 0u64 then
+            used_cells.remove_at i
+            free_cells.set 0i32 {ptr=ptr-size'; size=size+size'}
+            clear_top_if_nil ()
+        else
+            ()
+        : ()
+
     inl loop next =
         inl {ptr size} = free_cells 0i32
         if size' <= size then
@@ -305,6 +319,7 @@ met allocate s (!(to uint64 >> round_up_to_multiple >> dyn) size') =
 
     inl x =
         assert (free_cells.count > 0i32) "Out of memory in the designated section."
+        clear_top_if_nil()
         loop <| inl _ ->
             sort_sizes free_cells
             loop <| inl _ -> 
