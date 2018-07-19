@@ -12,12 +12,24 @@ let allocator1 =
     "allocator1",[allocator;cuda],"Does the allocator work?",
     """
 inb s = Cuda
-inb s = Allocator s 1024
+inb s = Allocator s (1024*256)
 inl a = s.allocate 128
 inl b = s.allocate 64
 inl c = s.allocate 32
+inl print_pointer c = Console.printfn "{0}" c.Try
+print_pointer a
+print_pointer b
+print_pointer c
+
 c.Dispose
 b.Dispose
+
+inl b = s.allocate 64
+inl c = s.allocate 32
+
+print_pointer b
+print_pointer c
+
 a.Dispose
     """
 

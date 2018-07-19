@@ -189,7 +189,7 @@ inl create {d with elem_type} =
     inl clear () = FS.Method x .Clear() ()
     inl count () = FS.Method x .get_Count() int32
     inl add y = FS.Method x .Add y ()
-    inl remove_at y = FS.Method () .RemoveAt y ()
+    inl remove_at y = FS.Method x .RemoveAt y ()
 
     inl iter f = FS.Method x ."ForEach <| System.Action<_>" (closure_of f (elem_type => ())) ()
     inl to_array () = FS.Method x .ToArray() (array elem_type)
@@ -299,27 +299,30 @@ met refresh s =
 met allocate s (!(to uint64 >> round_up_to_multiple >> dyn) size') =
     inl {pool used_cells free_cells} = s.data.section
 
-    //met rec clear_top_if_nil () =
-    //    inl i = used_cells.count-1i32
-    //    inl {ptr size} = used_cells i
-    //    if ptr.Try = 0u64 then
-    //        used_cells.remove_at i
-    //        free_cells.set 0i32 {ptr=ptr-size'; size=size+size'}
-    //        clear_top_if_nil ()
-    //    else
-    //        ()
-    //    : ()
+    met rec clear_top_if_nil () =
+        inl i = used_cells.count-1i32
+        if i >= 0i32 then
+            inl {ptr size} = free_cells 0i32
+            inl {ptr=ptr' size=size'} = used_cells i
+            if ptr'.Try = 0u64 then
+                used_cells.remove_at i
+                free_cells.set 0i32 {ptr=ptr-size'; size=size+size'}
+                clear_top_if_nil ()
+            else
+                ()
+        : ()
 
     inl loop next =
-        inl {ptr size} = free_cells 0i32
-        if size' <= size then
-            free_cells.set 0i32 {ptr=ptr+size'; size=size-size'}
-            {ptr=smartptr_create ptr; size=size'}
-        else next()
+        if free_cells.count > 0i32 then
+            inl {ptr size} = free_cells 0i32
+            if size' <= size then
+                free_cells.set 0i32 {ptr=ptr+size'; size=size-size'}
+                {ptr=smartptr_create ptr; size=size'}
+            else join next()
+        else join next()
 
     inl x =
-        assert (free_cells.count > 0i32) "Out of memory in the designated section."
-        //clear_top_if_nil()
+        clear_top_if_nil()
         loop <| inl _ ->
             sort_sizes free_cells
             loop <| inl _ -> 
