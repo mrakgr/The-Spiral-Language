@@ -1037,6 +1037,39 @@ s.CudaTensor.print O
 s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 O O |> zero_out_upper)
     """
 
+let inverse1 =
+    "inverse1",[cuda_modules;mnist],"Does the inverse Sherman Morrison update work?",
+    """
+inb s = CudaModules (1024*1024*1024)
+inl zero = 0f32
+inl one = 1f32
+
+inl k = 2048
+inl n = 512
+inl beta = 0.001f32
+inl alpha = one - beta
+inl num_passes = 100
+
+inl { test_images test_labels train_images train_labels} =
+    inl mnist_path = @"C:\ML Datasets\Mnist"
+    Mnist.load_mnist_tensors mnist_path
+    |> s.CudaTensor.from_host_tensors
+
+inl x = train_images .view_span (const k)
+
+//inl P = s.CudaRandom.create {dst=.Normal; stddev=sqrt (one / to float32 n); mean=0f32} {elem_type=float32; dim=28*28,n}
+//inl x = s.CudaBlas.gemm .nT .nT one x P
+
+inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
+
+s.CudaTensor.print x
+s.CudaTensor.print C
+
+Console.writeline "---"
+
+
+    """
+
 let tests =
     [|
     allocator1
@@ -1052,6 +1085,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) allocator1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) inverse1
 |> printfn "%s"
 |> ignore
