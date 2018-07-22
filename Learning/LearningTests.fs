@@ -1044,10 +1044,10 @@ inb s = CudaModules (1024*1024*1024)
 inl zero = 0f32
 inl one = 1f32
 
-inl k = 1
-inl n = 2
-inl beta = 1f32 //one / to float32 k
-inl alpha = 1f32 //one - beta
+inl k = 2
+inl n = 4
+inl beta = one / to float32 k
+inl alpha = one - beta
 inl num_passes = 1
 
 inl { test_images test_labels train_images train_labels} =
@@ -1081,17 +1081,15 @@ inl sherman_morrison alpha beta s A u v =
     inl Au = s.CudaBlas.gemm .nT .T one A u
     inl vA = s.CudaBlas.gemm .nT .nT one v A
     inl vAu = s.CudaBlas.gemm .nT .T one vA u
-    inl constant = s.CudaKernel.map (inl vAu -> beta / (one + beta * vAu)) vAu 0 0
+    inl constant = s.CudaKernel.map (inl vAu -> -beta / alpha / (alpha + beta * vAu)) vAu 0 0
     s.CudaBlas.gemm' .nT .nT (s.CudaTensor.get constant) Au vA (one / alpha) A
 
-//Loops.for {from=0; near_to=num_passes; body=inl {i} ->    
 Loops.for {from=0; near_to=k; body=inl {i} ->
     s.refresh
     inb s = s.RegionMem.create'
     inl x = x i .reshape (inl x -> 1, x)
     sherman_morrison alpha beta s A x x
     }
-    //}
 
 Console.writeline "-----"
 s.CudaTensor.print A
