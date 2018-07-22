@@ -1044,11 +1044,11 @@ inb s = CudaModules (1024*1024*1024)
 inl zero = 0f32
 inl one = 1f32
 
-inl k = 2048
-inl n = 512
-inl beta = 0.001f32
-inl alpha = one - beta
-inl num_passes = 100
+inl k = 1
+inl n = 2
+inl beta = 1f32 //one / to float32 k
+inl alpha = 1f32 //one - beta
+inl num_passes = 1
 
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
@@ -1057,16 +1057,46 @@ inl { test_images test_labels train_images train_labels} =
 
 inl x = train_images .view_span (const k)
 
-//inl P = s.CudaRandom.create {dst=.Normal; stddev=sqrt (one / to float32 n); mean=0f32} {elem_type=float32; dim=28*28,n}
-//inl x = s.CudaBlas.gemm .nT .nT one x P
+inl P = s.CudaRandom.create {dst=.Normal; stddev=sqrt (one / to float32 n); mean=0f32} {elem_type=float32; dim=28*28,n}
+inl x = s.CudaBlas.gemm .nT .nT one x P
 
-inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
+inl C = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then one else zero)
+Loops.for {from=0; near_to=k; body=inl {i} ->
+    s.refresh
+    inb s = s.RegionMem.create'
+    inl x = x i .reshape (inl x -> 1, x)
+    s.CudaBlas.gemm' .T .nT beta x x alpha C
+    }
+
+inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then one else zero)
 
 s.CudaTensor.print x
 s.CudaTensor.print C
 
 Console.writeline "---"
 
+inl sherman_morrison alpha beta s A u v =
+    assert (u.span_outer = 1) "u must be a vector."
+    assert (v.span_outer = 1) "v must be a vector."
+    inl Au = s.CudaBlas.gemm .nT .T one A u
+    inl vA = s.CudaBlas.gemm .nT .nT one v A
+    inl vAu = s.CudaBlas.gemm .nT .T one vA u
+    inl constant = s.CudaKernel.map (inl vAu -> beta / (one + beta * vAu)) vAu 0 0
+    s.CudaBlas.gemm' .nT .nT (s.CudaTensor.get constant) Au vA (one / alpha) A
+
+//Loops.for {from=0; near_to=num_passes; body=inl {i} ->    
+Loops.for {from=0; near_to=k; body=inl {i} ->
+    s.refresh
+    inb s = s.RegionMem.create'
+    inl x = x i .reshape (inl x -> 1, x)
+    sherman_morrison alpha beta s A x x
+    }
+    //}
+
+Console.writeline "-----"
+s.CudaTensor.print A
+
+s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C A)
     """
 
 let tests =
