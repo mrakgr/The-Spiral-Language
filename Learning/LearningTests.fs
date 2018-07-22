@@ -1067,7 +1067,6 @@ s.CudaTensor.print C
 
 Console.writeline "---"
 
-
     """
 
 let tests =
