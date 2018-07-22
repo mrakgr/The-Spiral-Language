@@ -1156,6 +1156,76 @@ s.CudaTensor.print A
 s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C A)
     """
 
+let inverse3 =
+    "inverse3",[cuda_modules;mnist],"Does the Sherman Morrison symmetric update work on a bigger example?",
+    """
+inb s = CudaModules (1024*1024*1024)
+inl zero = 0f32
+inl one = 1f32
+
+inl k = 10240
+inl n = 28*28
+inl beta = 0.1f32 //one / to float32 k
+inl alpha = one - beta
+//inl num_passes = 1
+
+inl { test_images test_labels train_images train_labels} =
+    inl mnist_path = @"C:\ML Datasets\Mnist"
+    Mnist.load_mnist_tensors mnist_path
+    |> s.CudaTensor.from_host_tensors
+
+inl x = train_images .view_span (const k)
+
+//inl _ =
+//    inb r = s.CudaRandom.create {dst=.Normal; stddev=0.01f32; mean=0f32} {dim=x.dim; elem_type=float32} |> CudaAux.temporary
+//    s.CudaBlas.geam' .nT .nT one x one r x
+
+inl x = 
+    if n <> 28*28 then 
+        inb P = s.CudaRandom.create {dst=.Normal; stddev=sqrt (one / to float32 n); mean=0f32} {elem_type=float32; dim=28*28,n} |> CudaAux.temporary
+        s.CudaBlas.gemm .nT .nT one x P
+    else
+        x
+
+inl C = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then one else zero)
+Loops.for {from=0; near_to=k; body=inl {i} ->
+    s.refresh
+    inb s = s.RegionMem.create'
+    inl x = x i .reshape (inl x -> 1, x)
+    s.CudaBlas.gemm' .T .nT beta x x alpha C
+    }
+
+inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then one else zero)
+
+s.CudaTensor.print x
+s.CudaTensor.print C
+
+Console.writeline "---"
+
+inl sherman_morrison_symm alpha beta s A u =
+    assert (u.span_outer = 1) "u must be a vector."
+    inb uA = s.CudaBlas.gemm .nT .nT one u A |> CudaAux.temporary
+    inb uAu = s.CudaBlas.gemm .nT .T one uA u |> CudaAux.temporary
+    inb constant = s.CudaKernel.map (inl uAu -> -beta / alpha / (alpha + beta * uAu)) uAu 0 0 |> CudaAux.temporary
+    s.CudaBlas.gemm' .T .nT (s.CudaTensor.get constant) uA uA (one / alpha) A
+    s.CudaKernel.map' (inl A _ -> 
+        inl max = 1000f32
+        if A < -max then -max elif A > max then max else A
+        ) A A
+
+Loops.for {from=0; near_to=k; body=inl {i} ->
+    s.refresh
+    inb s = s.RegionMem.create'
+    inl x = x i .reshape (inl x -> 1, x)
+    sherman_morrison_symm alpha beta s A x
+    }
+
+Console.writeline "-----"
+s.CudaTensor.print A
+
+//s.CudaTensor.print {cutoff=999; input=s.CudaBlas.gemm .nT .nT one C A}
+    """
+
 
 let tests =
     [|
@@ -1172,6 +1242,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) inverse2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) inverse3
 |> printfn "%s"
 |> ignore
