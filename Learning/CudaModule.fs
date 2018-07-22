@@ -232,7 +232,11 @@ inl rec to_dev_tensor x =
                 )
         ) x
 inl allocator_block_size = 256u64
-{ptr_cuda to_dev_tensor allocator_block_size} |> stackify
+inl temporary tns ret =
+        inl x = ret tns
+        Struct.iter (inl {ar} -> ar.ptr.Dispose) tns.bodies
+        x
+{ptr_cuda to_dev_tensor allocator_block_size temporary} |> stackify
     """
     ) |> module_
 
@@ -559,11 +563,6 @@ inl methods =
     {
     create=inl s data -> create {data with array_create = array_create_cuda_global s}
     create_like=inl s tns -> s.CudaTensor.create {elem_type=tns.elem_type; dim=tns.dim}
-    create_temp=inl s data ret ->
-        inl tns = s.CudaTensor.create data
-        inl x = ret tns
-        Struct.iter (inl {ar} -> ar.ptr.Dispose) tns.bodies
-        x
 
     to_host_array from_host_array from_cudadevptr_array
 
@@ -2522,8 +2521,8 @@ inl s ret ->
             inl Lwork = ref 0i32
             dense_call s .cusolverDnSpotrf_bufferSize(opposite_fill uplo, i32 n, {ptr=A}, i32 lda, Lwork)
             Lwork()
-        inb workspace = s.CudaTensor.create_temp {elem_type=float32; dim=to int64 Lwork}
-        inb dev_info = s.CudaTensor.create_temp {elem_type=int32; dim=1}
+        inb workspace = s.CudaTensor.create {elem_type=float32; dim=to int64 Lwork} |> CudaAux.temporary
+        inb dev_info = s.CudaTensor.create {elem_type=int32; dim=1} |> CudaAux.temporary
 
         dense_call s .cusolverDnSpotrf(opposite_fill uplo, i32 n, {ptr=A}, i32 lda, {ptr=workspace}, Lwork, {ptr=dev_info})
         dev_info 0 |> s.CudaTensor.get

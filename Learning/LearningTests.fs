@@ -1138,9 +1138,9 @@ Console.writeline "---"
 inl sherman_morrison_symm alpha beta s A u v =
     assert (u.span_outer = 1) "u must be a vector."
     assert (v.span_outer = 1) "v must be a vector."
-    inl vA = s.CudaBlas.gemm .nT .nT one v A
-    inl vAu = s.CudaBlas.gemm .nT .T one vA u
-    inl constant = s.CudaKernel.map (inl vAu -> -beta / alpha / (alpha + beta * vAu)) vAu 0 0
+    inb vA = s.CudaBlas.gemm .nT .nT one v A |> CudaAux.temporary
+    inb vAu = s.CudaBlas.gemm .nT .T one vA u |> CudaAux.temporary
+    inb constant = s.CudaKernel.map (inl vAu -> -beta / alpha / (alpha + beta * vAu)) vAu 0 0 |> CudaAux.temporary
     s.CudaBlas.gemm' .T .nT (s.CudaTensor.get constant) vA vA (one / alpha) A
 
 Loops.for {from=0; near_to=k; body=inl {i} ->
