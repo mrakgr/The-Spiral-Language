@@ -861,76 +861,77 @@ inl float ->
         | {clip} -> s.CudaKernel.map' (inl A _ -> if A < -clip then -clip elif A > clip then clip else A) A A
         | _ -> ()
 
-    //inl whiten beta {input bias front_whiten back_whiten back_covariance} x s =
-    //    inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
-    //    fwd_add_bias (primal z) (primal bias) s
-    //    z, inl _ -> join
-    //        inb z_whitened_adjoint = s.CudaBlas.gemm .nT .T one (adjoint z) back_whiten |> CudaAux.temporary
-    //        inb x_whitened_primal = s.CudaBlas.gemm .nT .T one (primal x) front_whiten |> CudaAux.temporary
-    //        on_non_nil (s.CudaBlas.gemm' .nT .T one z_whitened_adjoint (primal input) one) (adjoint x)
-    //        on_non_nil (s.CudaBlas.gemm' .T .nT one x_whitened_primal z_whitened_adjoint one) (adjoint input)
-    //        on_non_nil (inl bias -> bck_add_bias z_whitened_adjoint bias s) (adjoint bias)
-    //        inl alpha = one - beta
-    //        inl update = sherman_morrison_symm {clip=1000f32; alpha beta}
-    //        //update s front_whiten x_whitened_primal (primal x)
-    //        update_covariance {alpha beta} s back_covariance (adjoint z)
-    //        update s back_whiten z_whitened_adjoint (adjoint z)
-    //        Console.writeline "-----"
-    //        Console.writeline "Back covariance:"
-    //        s.CudaTensor.print back_covariance
-    //        inl back_covariance = back_covariance.reshape (inl x -> 1 :: x)
-    //        s.CudaBlas.matinv_batched back_covariance (inl Ainv, info ->
-    //            inl r = s.CudaKernel.map_redo_map {redo=max; neutral_elem=0i32} info |> s.CudaTensor.get
-    //            if r = 0i32 then
-    //                Console.writeline "The matrix inversion failed."
-    //            else
-    //                Console.writeline "Inverted back covariance:"
-    //                s.CudaTensor.print Ainv
-    //            )
-    //        Console.writeline "Inverted (online) back covariance:"
-    //        s.CudaTensor.print back_whiten
-    //        ()
-
-    inl whiten beta {input bias front_whiten back_covariance} x s =
+    inl whiten lr {d with input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         fwd_add_bias (primal z) (primal bias) s
         z, inl _ -> join
-            inb back_covariance = regularize_covariance s back_covariance |> CudaAux.temporary
-            inb back_whiten = 
-                inl back_covariance = back_covariance.reshape (inl x -> 1 :: x)
-                s.CudaBlas.matinv_batched_asserted back_covariance .reshape (inl _,b,c -> b,c)
-                |> CudaAux.temporary
-            inb z_whitened_adjoint = s.CudaBlas.gemm .nT .T one (adjoint z) back_whiten |> CudaAux.temporary
-            inb x_whitened_primal = s.CudaBlas.gemm .nT .T one (primal x) front_whiten |> CudaAux.temporary
-            on_non_nil (s.CudaBlas.gemm' .nT .T one z_whitened_adjoint (primal input) one) (adjoint x)
-            on_non_nil (s.CudaBlas.gemm' .T .nT one x_whitened_primal z_whitened_adjoint one) (adjoint input)
-            on_non_nil (inl bias -> bck_add_bias z_whitened_adjoint bias s) (adjoint bias)
-            inl alpha = one - beta
-            //inl update = sherman_morrison_symm {clip=1000f32; alpha beta}
-            //update s front_whiten x_whitened_primal (primal x)
-            update_covariance {alpha beta} s back_covariance (adjoint z)
-            //update s back_whiten z_whitened_adjoint (adjoint z)
+            
+            inl update beta = 
+                inl alpha = one - beta
+                sherman_morrison_symm {alpha beta}
+
+            inb z_precise_adjoint = 
+                match d with
+                | {back_precision} ret -> 
+                    inb z_precise_adjoint = s.CudaBlas.gemm .nT .T one (adjoint z) back_precision |> CudaAux.temporary
+                    ret z_precise_adjoint
+                    update lr.back s back_precision z_precise_adjoint (adjoint z)
+                | _ ret -> ret <| adjoint z
+            on_non_nil (s.CudaBlas.gemm' .nT .T one z_precise_adjoint (primal input) one) (adjoint x)
+            bck_add_bias z_precise_adjoint (adjoint bias) s 
+            
+            inb x_precise_primal = 
+                match d with
+                | {front_precision} ret -> 
+                    inb x_precise_primal = s.CudaBlas.gemm .nT .T one (primal x) front_precision |> CudaAux.temporary
+                    ret x_precise_primal
+                    update lr.front s front_precision x_precise_primal (primal x)
+                | _ ret -> ret <| primal x
+
+            s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
+            
+
             //Console.writeline "-----"
             //Console.writeline "Back covariance:"
             //s.CudaTensor.print back_covariance
-            //Console.writeline "Inverted back covariance:"
+            //inl back_covariance = back_covariance.reshape (inl x -> 1 :: x)
+            //s.CudaBlas.matinv_batched back_covariance (inl Ainv, info ->
+            //    inl r = s.CudaKernel.map_redo_map {redo=max; neutral_elem=0i32} info |> s.CudaTensor.get
+            //    if r = 0i32 then
+            //        Console.writeline "The matrix inversion failed."
+            //    else
+            //        Console.writeline "Inverted back covariance:"
+            //        s.CudaTensor.print Ainv
+            //    )
+            //Console.writeline "Inverted (online) back covariance:"
             //s.CudaTensor.print back_whiten
             ()
 
-    inl prong activation prong_lr size sublayer =
+    inl prong {w with activation size} sublayer =
+        inl lr = 
+            match w with
+            | {lr} -> lr
+            | _ -> ()
         feedforward {
             size sublayer
             weights = inl s -> 
-                {
-                input = Initializer.relu (sublayer.size, size) s |> dr s
-                bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+                inl d =
+                    {
+                    input = Initializer.relu (sublayer.size, size) s |> dr s
+                    bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
+                    }
                 //center = s.CudaTensor.zero {elem_type=float; dim=sublayer.size} |> dr s
-                front_whiten = s.CudaKernel.init {dim=sublayer.size,sublayer.size} (inl a b -> if a = b then one else zero)
-                back_whiten = s.CudaKernel.init {dim=size,size} (inl a b -> if a = b then one else zero)
-                back_covariance = s.CudaKernel.init {dim=size,size} (inl a b -> if a = b then one else zero)
-                } |> heap
+                inl d =
+                    match lr with
+                    | {front} -> {d with front_precision=s.CudaKernel.init {dim=sublayer.size,sublayer.size} (inl a b -> if a = b then one else zero)}
+                    | _ -> d
+                inl d =
+                    match lr with
+                    | {back} -> {d with back_precision=s.CudaKernel.init {dim=size,size} (inl a b -> if a = b then one else zero)}
+                    | _ -> d
+                heap d
             apply = inl weights input -> 
-                whiten prong_lr weights input
+                whiten lr weights input
                 >>= activation // layer_norm_relu 0f32
             optimize = inl optimizer weights s ->
                 optimizer s weights.input

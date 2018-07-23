@@ -795,9 +795,8 @@ inl network =
         //|> relu 256
         //|> relu 256
         //|> linear hidden_size
-        //|> prong Activation.relu prong_lr 256
-        //|> prong Activation.relu prong_lr 256
-        |> prong Activation.linear prong_lr hidden_size
+        |> prong {activation=Activation.relu; size=256} //; lr={back=0.001f32}}
+        |> prong {activation=Activation.linear; size=hidden_size} //; lr={front=0.001f32}}
         |> init s
     inl train = error Error.softmax_cross_entropy label network
     inl test = parallel (train, accuracy label network)
