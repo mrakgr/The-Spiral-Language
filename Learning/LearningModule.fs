@@ -838,6 +838,13 @@ inl float ->
                 >>= layer_norm_relu o 
             }
 
+    inl update_covariance {alpha beta} s C x =
+        inl dim = fst x.dim
+        Loops.for {dim with body=inl {i} ->
+            inl x = x i .reshape (inl x -> 1, x)
+            s.CudaBlas.gemm' .T .nT beta x x alpha C
+            }
+
     inl sherman_morrison_symm {d with alpha beta} s A uA u =
         assert (u.span_outer = 1) "u must be a vector."
         inb uAu = s.CudaBlas.gemm .nT .T one uA u |> CudaAux.temporary
@@ -847,7 +854,7 @@ inl float ->
         | {clip} -> s.CudaKernel.map' (inl A _ -> if A < -clip then -clip elif A > clip then clip else A) A A
         | _ -> ()
 
-    inl whiten beta {input bias front_whiten back_whiten} x s =
+    inl whiten beta {input bias front_whiten back_whiten back_covariance} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         fwd_add_bias (primal z) (primal bias) s
         z, inl _ -> join
@@ -858,7 +865,9 @@ inl float ->
             on_non_nil (inl bias -> bck_add_bias z_whitened_adjoint bias s) (adjoint bias)
             inl update = sherman_morrison_symm {clip=1000f32; alpha=one-beta; beta}
             //update s front_whiten x_whitened_primal (primal x)
+            update_covariance {alpha beta} s back_covariance (adjoint z)
             update s back_whiten z_whitened_adjoint (adjoint z)
+            s.CudaTensor.print back_covariance
             s.CudaTensor.print back_whiten
             ()
 
@@ -872,6 +881,7 @@ inl float ->
                 //center = s.CudaTensor.zero {elem_type=float; dim=sublayer.size} |> dr s
                 front_whiten = s.CudaKernel.init {dim=sublayer.size,sublayer.size} (inl a b -> if a = b then one else zero)
                 back_whiten = s.CudaKernel.init {dim=size,size} (inl a b -> if a = b then one else zero)
+                back_covariance = s.CudaKernel.init {dim=size,size} (inl a b -> if a = b then one else zero)
                 } |> heap
             apply = inl weights input -> 
                 whiten prong_lr weights input
