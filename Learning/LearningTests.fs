@@ -812,7 +812,7 @@ Loops.for' {from=0; near_to=1;body=inl {next} ->
             data={input=train_images; label=train_labels}
             body=train {
                 network=network.train
-                //optimizer=Optimizer.sgd 0.01f32
+                optimizer=Optimizer.sgd 0.0f32
                 }
             } s
 
