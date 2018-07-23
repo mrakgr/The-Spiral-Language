@@ -865,17 +865,21 @@ inl float ->
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         fwd_add_bias (primal z) (primal bias) s
         z, inl _ -> join
-            
             inl update beta = 
                 inl alpha = one - beta
                 sherman_morrison_symm {alpha beta}
 
+            inl add_noise stddev s x =
+                inb r = s.CudaRandom.create {dst=.Normal; stddev mean=0f32} {dim=x.dim; elem_type=float} |> CudaAux.temporary
+                s.CudaBlas.geam .nT .nT one x one r
+
             inb z_precise_adjoint = 
                 match d with
                 | {back_precision} ret -> 
-                    inb z_precise_adjoint = s.CudaBlas.gemm .nT .T one (adjoint z) back_precision |> CudaAux.temporary
+                    inb adjoint_z = add_noise 0.1f32 s (adjoint z) |> CudaAux.temporary
+                    inb z_precise_adjoint = s.CudaBlas.gemm .nT .T one adjoint_z back_precision |> CudaAux.temporary
                     ret z_precise_adjoint
-                    update lr.back s back_precision z_precise_adjoint (adjoint z)
+                    update lr.back s back_precision z_precise_adjoint adjoint_z
                 | _ ret -> ret <| adjoint z
             on_non_nil (s.CudaBlas.gemm' .nT .T one z_precise_adjoint (primal input) one) (adjoint x)
             bck_add_bias z_precise_adjoint (adjoint bias) s 
@@ -883,9 +887,10 @@ inl float ->
             inb x_precise_primal = 
                 match d with
                 | {front_precision} ret -> 
-                    inb x_precise_primal = s.CudaBlas.gemm .nT .T one (primal x) front_precision |> CudaAux.temporary
+                    inb primal_x = add_noise 0.1f32 s (primal x) |> CudaAux.temporary
+                    inb x_precise_primal = s.CudaBlas.gemm .nT .T one primal_x front_precision |> CudaAux.temporary
                     ret x_precise_primal
-                    update lr.front s front_precision x_precise_primal (primal x)
+                    update lr.front s front_precision x_precise_primal primal_x
                 | _ ret -> ret <| primal x
 
             s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
