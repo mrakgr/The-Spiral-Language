@@ -854,7 +854,7 @@ inl float ->
         | {clip} -> s.CudaKernel.map' (inl A _ -> if A < -clip then -clip elif A > clip then clip else A) A A
         | _ -> ()
 
-    inl whiten beta {input bias front_whiten back_whiten back_covariance} x s =
+    inl whiten beta {input bias front_whiten back_whiten} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         fwd_add_bias (primal z) (primal bias) s
         z, inl _ -> join
@@ -863,11 +863,24 @@ inl float ->
             on_non_nil (s.CudaBlas.gemm' .nT .T one z_whitened_adjoint (primal input) one) (adjoint x)
             on_non_nil (s.CudaBlas.gemm' .T .nT one x_whitened_primal z_whitened_adjoint one) (adjoint input)
             on_non_nil (inl bias -> bck_add_bias z_whitened_adjoint bias s) (adjoint bias)
-            inl update = sherman_morrison_symm {clip=1000f32; alpha=one-beta; beta}
+            inl alpha = one - beta
+            inl update = sherman_morrison_symm {clip=1000f32; alpha beta}
             //update s front_whiten x_whitened_primal (primal x)
             update_covariance {alpha beta} s back_covariance (adjoint z)
             update s back_whiten z_whitened_adjoint (adjoint z)
+            Console.writeline "-----"
+            Console.writeline "Back covariance:"
             s.CudaTensor.print back_covariance
+            inl back_covariance = back_covariance.reshape (inl x -> 1 :: x)
+            s.CudaBlas.matinv_batched back_covariance (inl Ainv, info ->
+                inl r = s.CudaKernel.map_redo_map {redo=max; neutral_elem=0i32} info |> s.CudaTensor.get
+                if r = 0i32 then
+                    Console.writeline "The matrix inversion failed."
+                else
+                    Console.writeline "Inverted back covariance:"
+                    s.CudaTensor.print Ainv
+                )
+            Console.writeline "Inverted (online) back covariance:"
             s.CudaTensor.print back_whiten
             ()
 
@@ -881,7 +894,7 @@ inl float ->
                 //center = s.CudaTensor.zero {elem_type=float; dim=sublayer.size} |> dr s
                 front_whiten = s.CudaKernel.init {dim=sublayer.size,sublayer.size} (inl a b -> if a = b then one else zero)
                 back_whiten = s.CudaKernel.init {dim=size,size} (inl a b -> if a = b then one else zero)
-                back_covariance = s.CudaKernel.init {dim=size,size} (inl a b -> if a = b then one else zero)
+                //back_covariance = s.CudaKernel.init {dim=size,size} (inl a b -> if a = b then one else zero)
                 } |> heap
             apply = inl weights input -> 
                 whiten prong_lr weights input
