@@ -788,15 +788,15 @@ inl hidden_size = 10
 
 inl network =
     open Feedforward.Layer
-    inl prong_lr = 0.0001f32
+    inl prong_lr = 0.001f32
     inl label = input .label hidden_size
     inl network =
         input .input input_size
         //|> relu 256
         //|> relu 256
         //|> linear hidden_size
-        |> prong Activation.relu prong_lr 256
-        |> prong Activation.relu prong_lr 256
+        //|> prong Activation.relu prong_lr 256
+        //|> prong Activation.relu prong_lr 256
         |> prong Activation.linear prong_lr hidden_size
         |> init s
     inl train = error Error.softmax_cross_entropy label network
@@ -812,7 +812,7 @@ Loops.for' {from=0; near_to=1;body=inl {next} ->
             data={input=train_images; label=train_labels}
             body=train {
                 network=network.train
-                optimizer=Optimizer.sgd 0.001f32
+                //optimizer=Optimizer.sgd 0.01f32
                 }
             } s
 
@@ -1202,22 +1202,21 @@ s.CudaTensor.print C
 
 Console.writeline "---"
 
-inl sherman_morrison_symm alpha beta s A u =
+inl sherman_morrison_symm {d with alpha beta} s A u =
     assert (u.span_outer = 1) "u must be a vector."
     inb uA = s.CudaBlas.gemm .nT .nT one u A |> CudaAux.temporary
     inb uAu = s.CudaBlas.gemm .nT .T one uA u |> CudaAux.temporary
     inb constant = s.CudaKernel.map (inl uAu -> -beta / alpha / (alpha + beta * uAu)) uAu 0 0 |> CudaAux.temporary
     s.CudaBlas.gemm' .T .nT (s.CudaTensor.get constant) uA uA (one / alpha) A
-    s.CudaKernel.map' (inl A _ -> 
-        inl max = 1000f32
-        if A < -max then -max elif A > max then max else A
-        ) A A
+    match d with
+    | {clip} -> s.CudaKernel.map' (inl A _ -> if A < -clip then -clip elif A > clip then clip else A) A A
+    | _ -> ()
 
 Loops.for {from=0; near_to=k; body=inl {i} ->
     s.refresh
     inb s = s.RegionMem.create'
     inl x = x i .reshape (inl x -> 1, x)
-    sherman_morrison_symm alpha beta s A x
+    sherman_morrison_symm {clip=1000f32; alpha beta} s A x
     }
 
 Console.writeline "-----"
@@ -1238,10 +1237,12 @@ let tests =
     cusolver1
     learning1;learning2;learning3;learning4;learning5;                               learning9
     learning10;learning11
+    inverse1;inverse2;inverse3
+    prong1
     |]
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) inverse3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) prong1
 |> printfn "%s"
 |> ignore

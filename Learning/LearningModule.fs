@@ -838,20 +838,28 @@ inl float ->
                 >>= layer_norm_relu o 
             }
 
-    /// TODO: Does not work for now.
+    inl sherman_morrison_symm {d with alpha beta} s A uA u =
+        assert (u.span_outer = 1) "u must be a vector."
+        inb uAu = s.CudaBlas.gemm .nT .T one uA u |> CudaAux.temporary
+        inb constant = s.CudaKernel.map (inl uAu -> -beta / alpha / (alpha + beta * uAu)) uAu 0 0 |> CudaAux.temporary
+        s.CudaBlas.gemm' .T .nT (s.CudaTensor.get constant) uA uA (one / alpha) A
+        match d with
+        | {clip} -> s.CudaKernel.map' (inl A _ -> if A < -clip then -clip elif A > clip then clip else A) A A
+        | _ -> ()
+
     inl whiten beta {input bias front_whiten back_whiten} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         fwd_add_bias (primal z) (primal bias) s
         z, inl _ -> join
-            inl z_whitened_adjoint = s.CudaBlas.gemm .nT .T one (adjoint z) back_whiten
-            inl x_whitened_primal = s.CudaBlas.gemm .nT .T one (primal x) front_whiten
+            inb z_whitened_adjoint = s.CudaBlas.gemm .nT .T one (adjoint z) back_whiten |> CudaAux.temporary
+            inb x_whitened_primal = s.CudaBlas.gemm .nT .T one (primal x) front_whiten |> CudaAux.temporary
             on_non_nil (s.CudaBlas.gemm' .nT .T one z_whitened_adjoint (primal input) one) (adjoint x)
             on_non_nil (s.CudaBlas.gemm' .T .nT one x_whitened_primal z_whitened_adjoint one) (adjoint input)
             on_non_nil (inl bias -> bck_add_bias z_whitened_adjoint bias s) (adjoint bias)
-            inl update = Cholesky {alpha=one-beta; beta float=float32} .update_inverse'
-            update s front_whiten x_whitened_primal
-            update s back_whiten z_whitened_adjoint
-            //s.CudaTensor.print back_whiten
+            inl update = sherman_morrison_symm {clip=1000f32; alpha=one-beta; beta}
+            //update s front_whiten x_whitened_primal (primal x)
+            update s back_whiten z_whitened_adjoint (adjoint z)
+            s.CudaTensor.print back_whiten
             ()
 
     inl prong activation prong_lr size sublayer =
