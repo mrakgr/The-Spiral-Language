@@ -1014,13 +1014,7 @@ inb s = CudaModules (1024*1024)
 inl n = 5
 inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=n,n}
 
-inl zero_out_upper x =
-    inl _ =
-        inl x = CudaAux.to_dev_tensor x
-        s.CudaKernel.iter {dim=n,n} (inl a b -> if a < b then x a b .set 0f32)
-    x
-
-inl S = s.CudaBlas.gemm .nT .T 1f32 A A |> zero_out_upper
+inl S = s.CudaBlas.gemm .nT .T 1f32 A A
 s.CudaTensor.print S
 
 inl O = 
@@ -1033,7 +1027,7 @@ inl O =
         }
 
 s.CudaTensor.print O
-s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 O O |> zero_out_upper)
+s.CudaTensor.print (s.CudaBlas.symm .Right .Lower 1f32 O O)
     """
 
 let inverse1 =
@@ -1085,6 +1079,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) inverse1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) blas5
 |> printfn "%s"
 |> ignore

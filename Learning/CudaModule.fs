@@ -2522,7 +2522,7 @@ inl s ret ->
             dense_call s .cusolverDnSpotrf_bufferSize(opposite_fill uplo, i32 n, {ptr=A}, i32 lda, Lwork)
             Lwork()
         inb workspace = s.CudaTensor.create {elem_type=float32; dim=to int64 Lwork} |> CudaAux.temporary
-        inb dev_info = s.CudaTensor.create {elem_type=int32; dim=1} |> CudaAux.temporary
+        inl dev_info = s.CudaTensor.create {elem_type=int32; dim=1}
 
         dense_call s .cusolverDnSpotrf(opposite_fill uplo, i32 n, {ptr=A}, i32 lda, {ptr=workspace}, Lwork, {ptr=dev_info})
         dev_info 0
@@ -2532,10 +2532,10 @@ inl s ret ->
             inl A = 
                 inl A = CudaAux.to_dev_tensor A
                 s.CudaKernel.init {dim=A.dim} (inl a b ->
-                    inl check = match uplo with .Lower -> a <= b | .Upper -> a >= b
-                    if check then A a b .get else zero
+                    inl check = match uplo with .Lower -> a >= b | .Upper -> a <= b
+                    if check then A a b .get else 0f32
                     )
-            inl result = potrf' s uplo A
+            inb result = potrf' s uplo A |> CudaAux.temporary
             match d with
             | {on_succ on_fail} ->
                 inl result = s.CudaTensor.get result
