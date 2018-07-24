@@ -1058,16 +1058,33 @@ inl x =
 
 inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
 s.CudaTensor.print C
+Console.writeline "-----"
 
-inl C_sqr = s.CudaSolve.potrf .Lower C .assert
-inl C_sqr_inv = s.CudaBlas.trinv .Lower C_sqr
-//s.CudaTensor.print C_inv
-//s.CudaTensor.print (s.CudaBlas.gemm .nT .nT 1f32 C_sqr C_sqr_inv)
+// The standard implementation
+inl cholesky_inverse_std s C =
+    inb C_sqr = s.CudaSolve.potrf .Lower C .assert |> CudaAux.temporary
+    inb C_sqr_inv = s.CudaBlas.trinv .Lower C_sqr |> CudaAux.temporary
+    s.CudaBlas.trmm .Left .Lower .T .NonUnit 1f32 C_sqr_inv C_sqr_inv
 
-inl C_inv = s.CudaBlas.trmm .Left .Lower .T .NonUnit 1f32 C_sqr_inv C_sqr_inv
-//inl C_inv = s.CudaBlas.gemm .T .nT 1f32 C_sqr_inv C_sqr_inv
-s.CudaTensor.print (s.CudaBlas.gemm .nT .nT 1f32 C C_inv)
-//s.CudaTensor.print (s.CudaBlas.symm .Left .Lower 1f32 C C_inv)
+// TODO: Work in progress.
+// From the 'Matrix Inversion Using Cholesky Decomposition' paper by Aravindh Krishnamoorthy and Deepak Menon.
+inl cholesky_inverse_direct s C =
+    inb C_sqr = s.CudaSolve.potrf .Lower C .assert |> CudaAux.temporary
+    inl S = 
+        inl C_sqr = CudaAux.to_dev_tensor C_sqr
+        s.CudaKernel.init {dim=C.dim} (inl a b -> if a = b then one / C_sqr a b .get else zero)
+    s.CudaBlas.trsm' .Left .Lower .T .NonUnit one C_sqr S
+    S
+    //s.CudaTensor.print S
+    //s.CudaTensor.print (s.CudaBlas.symm .Left .Lower one S C)
+
+inl C_inv = cholesky_inverse_std s C
+s.CudaTensor.print C_inv
+s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_inv)
+Console.writeline "-----"
+inl C_inv = cholesky_inverse_direct s C
+s.CudaTensor.print C_inv
+s.CudaTensor.print (s.CudaBlas.gemm .T .nT one C_inv C)
     """
 
 
