@@ -1036,18 +1036,17 @@ s.CudaTensor.print O
 s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 O O |> zero_out_upper)
     """
 
-let inverse1 =
-    "inverse1",[cuda_modules;mnist],"Does the Sherman Morrison update work?",
+let jacobi1 =
+    "jacobi1",[cuda_modules;mnist],"Does the weighted Jacobi iteration work?",
     """
 inb s = CudaModules (1024*1024*1024)
 inl zero = 0f32
 inl one = 1f32
 
-inl k = 2
-inl n = 4
-inl beta = one / to float32 k
+inl k = 8
+inl n = 8
+inl beta = 0.66f32
 inl alpha = one - beta
-inl num_passes = 1
 
 inl { test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
@@ -1055,129 +1054,6 @@ inl { test_images test_labels train_images train_labels} =
     |> s.CudaTensor.from_host_tensors
 
 inl x = train_images .view_span (const k)
-
-inl P = s.CudaRandom.create {dst=.Normal; stddev=sqrt (one / to float32 n); mean=0f32} {elem_type=float32; dim=28*28,n}
-inl x = s.CudaBlas.gemm .nT .nT one x P
-
-inl C = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then one else zero)
-Loops.for {from=0; near_to=k; body=inl {i} ->
-    s.refresh
-    inb s = s.RegionMem.create'
-    inl x = x i .reshape (inl x -> 1, x)
-    s.CudaBlas.gemm' .T .nT beta x x alpha C
-    }
-
-inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then one else zero)
-
-s.CudaTensor.print x
-s.CudaTensor.print C
-
-Console.writeline "---"
-
-inl sherman_morrison alpha beta s A u v =
-    assert (u.span_outer = 1) "u must be a vector."
-    assert (v.span_outer = 1) "v must be a vector."
-    inl Au = s.CudaBlas.gemm .nT .T one A u
-    inl vA = s.CudaBlas.gemm .nT .nT one v A
-    inl vAu = s.CudaBlas.gemm .nT .T one vA u
-    inl constant = s.CudaKernel.map (inl vAu -> -beta / alpha / (alpha + beta * vAu)) vAu 0 0
-    s.CudaBlas.gemm' .nT .nT (s.CudaTensor.get constant) Au vA (one / alpha) A
-
-Loops.for {from=0; near_to=k; body=inl {i} ->
-    s.refresh
-    inb s = s.RegionMem.create'
-    inl x = x i .reshape (inl x -> 1, x)
-    sherman_morrison alpha beta s A x x
-    }
-
-Console.writeline "-----"
-s.CudaTensor.print A
-
-s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C A)
-    """
-
-let inverse2 =
-    "inverse2",[cuda_modules;mnist],"Does the Sherman Morrison symmetric update work?",
-    """
-inb s = CudaModules (1024*1024*1024)
-inl zero = 0f32
-inl one = 1f32
-
-inl k = 2
-inl n = 4
-inl beta = one / to float32 k
-inl alpha = one - beta
-inl num_passes = 1
-
-inl { test_images test_labels train_images train_labels} =
-    inl mnist_path = @"C:\ML Datasets\Mnist"
-    Mnist.load_mnist_tensors mnist_path
-    |> s.CudaTensor.from_host_tensors
-
-inl x = train_images .view_span (const k)
-
-inl P = s.CudaRandom.create {dst=.Normal; stddev=sqrt (one / to float32 n); mean=0f32} {elem_type=float32; dim=28*28,n}
-inl x = s.CudaBlas.gemm .nT .nT one x P
-
-inl C = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then one else zero)
-Loops.for {from=0; near_to=k; body=inl {i} ->
-    s.refresh
-    inb s = s.RegionMem.create'
-    inl x = x i .reshape (inl x -> 1, x)
-    s.CudaBlas.gemm' .T .nT beta x x alpha C
-    }
-
-inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then one else zero)
-
-s.CudaTensor.print x
-s.CudaTensor.print C
-
-Console.writeline "---"
-
-inl sherman_morrison_symm alpha beta s A u v =
-    assert (u.span_outer = 1) "u must be a vector."
-    assert (v.span_outer = 1) "v must be a vector."
-    inb vA = s.CudaBlas.gemm .nT .nT one v A |> CudaAux.temporary
-    inb vAu = s.CudaBlas.gemm .nT .T one vA u |> CudaAux.temporary
-    inb constant = s.CudaKernel.map (inl vAu -> -beta / alpha / (alpha + beta * vAu)) vAu 0 0 |> CudaAux.temporary
-    s.CudaBlas.gemm' .T .nT (s.CudaTensor.get constant) vA vA (one / alpha) A
-
-Loops.for {from=0; near_to=k; body=inl {i} ->
-    s.refresh
-    inb s = s.RegionMem.create'
-    inl x = x i .reshape (inl x -> 1, x)
-    sherman_morrison_symm alpha beta s A x x
-    }
-
-Console.writeline "-----"
-s.CudaTensor.print A
-
-s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C A)
-    """
-
-let inverse3 =
-    "inverse3",[cuda_modules;mnist],"Does the Sherman Morrison symmetric update work on a bigger example?",
-    """
-inb s = CudaModules (1024*1024*1024)
-inl zero = 0f32
-inl one = 1f32
-
-inl k = 10240
-inl n = 28*28
-inl beta = 0.1f32 //one / to float32 k
-inl alpha = one - beta
-//inl num_passes = 1
-
-inl { test_images test_labels train_images train_labels} =
-    inl mnist_path = @"C:\ML Datasets\Mnist"
-    Mnist.load_mnist_tensors mnist_path
-    |> s.CudaTensor.from_host_tensors
-
-inl x = train_images .view_span (const k)
-
-//inl _ =
-//    inb r = s.CudaRandom.create {dst=.Normal; stddev=0.01f32; mean=0f32} {dim=x.dim; elem_type=float32} |> CudaAux.temporary
-//    s.CudaBlas.geam' .nT .nT one x one r x
 
 inl x = 
     if n <> 28*28 then 
@@ -1186,13 +1062,7 @@ inl x =
     else
         x
 
-inl C = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then one else zero)
-Loops.for {from=0; near_to=k; body=inl {i} ->
-    s.refresh
-    inb s = s.RegionMem.create'
-    inl x = x i .reshape (inl x -> 1, x)
-    s.CudaBlas.gemm' .T .nT beta x x alpha C
-    }
+inl C = s.CudaBlas.gemm .T .nT (to float32 k) x x
 
 inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then one else zero)
 
@@ -1201,27 +1071,14 @@ s.CudaTensor.print C
 
 Console.writeline "---"
 
-inl sherman_morrison_symm {d with alpha beta} s A u =
-    assert (u.span_outer = 1) "u must be a vector."
-    inb uA = s.CudaBlas.gemm .nT .nT one u A |> CudaAux.temporary
-    inb uAu = s.CudaBlas.gemm .nT .T one uA u |> CudaAux.temporary
-    inb constant = s.CudaKernel.map (inl uAu -> -beta / alpha / (alpha + beta * uAu)) uAu 0 0 |> CudaAux.temporary
-    s.CudaBlas.gemm' .T .nT (s.CudaTensor.get constant) uA uA (one / alpha) A
-    match d with
-    | {clip} -> s.CudaKernel.map' (inl A _ -> if A < -clip then -clip elif A > clip then clip else A) A A
-    | _ -> ()
+inl jacobi {w} s {D R} X B =
+    inb RX = s.CudaBlas.gemm .nT .nT one R X |> CudaAux.temporary
+    s.CudaBlas.d2_replicate_map (inl D {RX B} X ->
+        w * (B - RX) / D + (one - w) * X
+        ) D {RX B} X
 
-Loops.for {from=0; near_to=k; body=inl {i} ->
-    s.refresh
-    inb s = s.RegionMem.create'
-    inl x = x i .reshape (inl x -> 1, x)
-    sherman_morrison_symm {clip=1000f32; alpha beta} s A x
-    }
 
-Console.writeline "-----"
-s.CudaTensor.print A
 
-//s.CudaTensor.print {cutoff=999; input=s.CudaBlas.gemm .nT .nT one C A}
     """
 
 
