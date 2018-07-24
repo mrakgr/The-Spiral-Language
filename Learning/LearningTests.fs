@@ -207,14 +207,14 @@ sym a1 0 1
 sym a1 0 2
 sym a1 1 2
 
-inl a2 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=3,4}
-inl o1 = s.CudaBlas.gemm .nT .nT 1f32 a1 a2
+inl a2 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=4,3}
+inl o1 = s.CudaBlas.gemm .nT .nT 1f32 a2 a1
 
 s.CudaTensor.set (a1 0 1) 0f32
 s.CudaTensor.set (a1 0 2) 0f32
 s.CudaTensor.set (a1 1 2) 0f32
 
-inl o2 = s.CudaBlas.symm .Left .Lower 1f32 a1 a2
+inl o2 = s.CudaBlas.symm .Right .Lower 1f32 a1 a2
 Tuple.iter s.CudaTensor.print (a1,a2,o1,o2)
     """
 
@@ -1027,7 +1027,7 @@ inl O =
         }
 
 s.CudaTensor.print O
-s.CudaTensor.print (s.CudaBlas.symm .Right .Lower 1f32 O O)
+s.CudaTensor.print (s.CudaBlas.trmm .Right .Lower .T .NonUnit 1f32 O O)
     """
 
 let inverse1 =
@@ -1057,8 +1057,17 @@ inl x =
         x
 
 inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
-inl sqr_C = s.CudaSolve.potrf .Lower C .assert
+s.CudaTensor.print C
 
+inl C_sqr = s.CudaSolve.potrf .Lower C .assert
+inl C_sqr_inv = s.CudaBlas.trinv .Lower C_sqr
+//s.CudaTensor.print C_inv
+//s.CudaTensor.print (s.CudaBlas.gemm .nT .nT 1f32 C_sqr C_sqr_inv)
+
+/// TODO: Why isn't this working?
+inl C_inv = s.CudaBlas.trmm .Right .Lower .T .NonUnit 1f32 C_sqr_inv C_sqr_inv
+s.CudaTensor.print (s.CudaBlas.gemm .nT .nT 1f32 C C_inv)
+//s.CudaTensor.print (s.CudaBlas.symm .Left .Lower 1f32 C C_inv)
     """
 
 
@@ -1079,6 +1088,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) blas5
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) inverse1
 |> printfn "%s"
 |> ignore

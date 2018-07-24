@@ -2533,7 +2533,7 @@ inl s ret ->
                 inl A = CudaAux.to_dev_tensor A
                 s.CudaKernel.init {dim=A.dim} (inl a b ->
                     inl check = match uplo with .Lower -> a >= b | .Upper -> a <= b
-                    if check then A a b .get else 0f32
+                    if check then A a b .get else to A.elem_type 0f32
                     )
             inb result = potrf' s uplo A |> CudaAux.temporary
             match d with
