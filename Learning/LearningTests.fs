@@ -1063,7 +1063,7 @@ inl x =
         x
 
 inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
-()
+inl sqr_C = s.CudaSolve.potrf .Lower C .assert
 
     """
 

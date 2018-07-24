@@ -2525,15 +2525,30 @@ inl s ret ->
         inb dev_info = s.CudaTensor.create {elem_type=int32; dim=1} |> CudaAux.temporary
 
         dense_call s .cusolverDnSpotrf(opposite_fill uplo, i32 n, {ptr=A}, i32 lda, {ptr=workspace}, Lwork, {ptr=dev_info})
-        dev_info 0 |> s.CudaTensor.get
+        dev_info 0
 
-    inl potrf s uplo A {on_succ on_fail} =
+    inl potrf s uplo A d =
         indiv join
-            inl A = s.CudaTensor.copy A
+            inl A = 
+                inl A = CudaAux.to_dev_tensor A
+                s.CudaKernel.init {dim=A.dim} (inl a b ->
+                    inl check = match uplo with .Lower -> a <= b | .Upper -> a >= b
+                    if check then A a b .get else zero
+                    )
             inl result = potrf' s uplo A
-            if result = 0i32 then on_succ A
-            else on_fail result
-        
+            match d with
+            | {on_succ on_fail} ->
+                inl result = s.CudaTensor.get result
+                if result = 0i32 then on_succ A
+                else on_fail result
+            | .assert ->
+                inl result = s.CudaTensor.get result
+                inl A = stack A
+                if result = 0i32 then A
+                elif result > 0i32 then failwith A (string_format "The leading minor of order {0} is not positive definite." result)
+                else failwith A (string_format "The {0}-th parameter is wrong." result)
+            | ret -> ret result
+
     ret <| s.module_add .CudaSolve {potrf' potrf}
     
     dense_call s .cusolverDnDestroy()
