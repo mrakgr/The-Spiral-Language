@@ -1036,8 +1036,8 @@ s.CudaTensor.print O
 s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 O O |> zero_out_upper)
     """
 
-let jacobi1 =
-    "jacobi1",[cuda_modules;mnist],"Does the weighted Jacobi iteration work?",
+let inverse1 =
+    "inverse1",[cuda_modules;mnist],"Does the matrix inverse using the Cholesky decomposition work?",
     """
 inb s = CudaModules (1024*1024*1024)
 inl zero = 0f32
@@ -1063,41 +1063,7 @@ inl x =
         x
 
 inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
-inl D,R = 
-    inl C = CudaAux.to_dev_tensor C
-    inl D = s.CudaKernel.init {dim=n} (inl i -> C i i .get)
-    inl R = s.CudaKernel.init {dim=n,n} (inl a b -> if a <> b then C a b .get else zero)
-    D,R
-
-inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then one else zero)
-inl I = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then one else zero)
-
-Console.writeline "Inputs:"
-s.CudaTensor.print x
-
-Console.writeline "Covariances:"
-
-s.CudaTensor.print D
-s.CudaTensor.print R
-
-inl jacobi s {D R w epsilon} X B =
-    inb RX = s.CudaBlas.gemm .nT .nT one R X |> CudaAux.temporary
-    s.CudaKernel.d2_replicate_map' (inl D {RX B} X ->
-        w * (B - RX) / (D + epsilon) + (one - w) * X
-        ) D {RX B} X
-
-Loops.for {from=0; near_to=500; body=inl {i} ->
-    Loops.for {from=0; near_to=50; body=inl {i} ->
-        jacobi s {D R w=0.0001f32; epsilon=0.00001f32} A I
-        }
-    Console.printfn "At iteration {0}:" i
-    //Console.writeline "Inverse:"
-    //s.CudaTensor.print A
-
-    Console.writeline "C * C^-1:"
-    inb T = s.CudaBlas.gemm .nT .nT one C A |> CudaAux.temporary
-    s.CudaTensor.print T
-    }
+()
 
     """
 
@@ -1113,11 +1079,12 @@ let tests =
     cusolver1
     learning1;learning2;learning3;learning4;learning5;                               learning9
     learning10;learning11
+    inverse1
     prong1
     |]
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) jacobi1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) inverse1
 |> printfn "%s"
 |> ignore
