@@ -191,7 +191,7 @@ inl create {d with elem_type} =
     inl add y = FS.Method x .Add y ()
     inl remove_at y = FS.Method x .RemoveAt y ()
 
-    inl iter f = FS.Method x ."ForEach <| System.Action<_>" (closure_of f (elem_type => ())) ()
+    inl iter f = Loops.for {from=0i32; near_to=count(); by=1i32; body=inl {i} -> f (index i)}
     inl to_array () = FS.Method x .ToArray() (array elem_type)
 
     function
@@ -207,6 +207,7 @@ inl create {d with elem_type} =
     | .foldr f state -> Loops.for {from=count() - 1i32; by=-1i32; down_to=0i32; state body=inl {state i} -> f state (index i)}
     | .elem_type -> elem_type
     | .to_array -> to_array ()
+    | .last ->  index (count()-1i32)
     | i -> index i
     |> stack
 { 
@@ -272,7 +273,7 @@ inl allocate_global s =
 
 /// Linear search to find the index of the largest free cell.
 inl find_index_of_largest_free_cell free_cells =
-    Loops.for {from=0i32; near_to=free_cells.count; by=1i32; state={size=0u64; index=0}; body=inl {state i} ->
+    Loops.for {from=0i32; near_to=free_cells.used_cells.count; by=1i32; state={size=0u64; index=0i32}; body=inl {state i} ->
         inl used_cells = free_cells.used_cells i
         inl size' =
             if used_cells.count > 0i32 then
@@ -286,6 +287,7 @@ inl find_index_of_largest_free_cell free_cells =
         if state.size < size' then {index=i; size=size'}
         else state
         }
+    |> inl {index} -> index
 
 met refresh s =
     inl {pool free_cells} = s.data.section
@@ -293,7 +295,7 @@ met refresh s =
 
     // Adds a element into the free cell at the last position. Splits the cells when needed.
     inl add {ar with ptr size} =
-        inl last = free_cells.count-1i32
+        inl last = free_cells.used_cells.count-1i32
         inl global_ptr = free_cells.ptr last
         inl global_size = free_cells.size last
 
@@ -320,8 +322,9 @@ met refresh s =
 
     // Filters out the nils and adds the rest to the array.
     free_cells.used_cells.iter <| inl x ->
+        print_static x
         x.iter <| inl x -> 
-            if x .ptr .Try <> 064 then used_cells.add x
+            if x .ptr .Try <> 0u64 then used_cells.add x
 
     // Clear the free cells
     free_cells.used_cells.clear
@@ -337,7 +340,7 @@ met refresh s =
     used_cells.iter add
 
     inl _ = // Set the size of the last free cell so it goes to the end of the pool.
-        inl last = free_cells.count-1i32
+        inl last = free_cells.used_cells.count-1i32
         inl ptr = free_cells.ptr last
         inl pool_ptr_end = pool.ptr.Try + pool.size
         free_cells.size .set last (pool_ptr_end - ptr) 
@@ -357,12 +360,12 @@ met allocate s (!(to uint64 >> round_up_to_multiple >> dyn) size') =
                 used_cells.remove_at i
                 clear_top_if_nil ()
         else
-            if index > 0 then 
+            if index > 0i32 then 
                 // Merge the cell with the previous one.
                 inl size = free_cells.size index
-                free_cells.size .set (index-1) (free_cells.size (index-1) + size)
+                free_cells.size .set (index-1i32) (free_cells.size (index-1i32) + size)
                 Tuple.iter (inl x -> free_cells x .remove_at index) (.size,.used_cells,.ptr)
-                free_cells.index := index - 1
+                free_cells.index := index - 1i32
                 
                 clear_top_if_nil ()
         : ()
@@ -371,15 +374,16 @@ met allocate s (!(to uint64 >> round_up_to_multiple >> dyn) size') =
         clear_top_if_nil()
 
         /// Try allocating memory.
-        met size_remaining =
+        met size_remaining, ptr =
             inl index = free_cells.index()
             inl used_cells = free_cells.used_cells index
-            inl cell_end = free_cells.ptr index + free_cells.size index
+            inl free_cell_ptr = free_cells.ptr index
+            inl free_cell_end = free_cell_ptr + free_cells.size index
             if used_cells.count > 0i32 then
-                inl {ptr size} = used_cells.last
-                cell_end - (ptr.Try + size)
+                inl used_cell_end = used_cells.last |> inl {ptr size} -> ptr.Try + size
+                free_cell_end - used_cell_end, used_cell_end
             else
-                cell_end
+                free_cell_end, free_cell_ptr
         if size_remaining >= size' then {ptr=smartptr_create ptr; size=size'}
         else next ()
 
@@ -401,10 +405,10 @@ inl section_create s size ret =
     inl pool = allocate_global s size
     inl free_cells = 
             {
-            used_cells=ResizeArray.create {elem_type=pool}
+            used_cells=ResizeArray.create {elem_type=type ResizeArray.create {elem_type=pool}}
             size=ResizeArray.create {elem_type=uint64}
             ptr=ResizeArray.create {elem_type=uint64}
-            index=ref int64
+            index=ref int32
             }
     inl section = {pool free_cells} |> heap
     inl allocate s = function
