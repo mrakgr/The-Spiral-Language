@@ -339,7 +339,7 @@ met refresh s =
 
     used_cells.iter add
 
-    inl _ = // Do not forget to set the size of the last free cell so it goes to the end of the pool.
+    inl _ = // Set the size of the last free cell so it goes to the end of the pool.
         inl last = free_cells.count-1i32
         inl ptr = free_cells.ptr last
         inl pool_ptr_end = pool.ptr.Try + pool.size
