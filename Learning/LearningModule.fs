@@ -1099,8 +1099,6 @@ inl float ->
             apply = inl {b1 b2 b3 b4 input state} s i ->
                 inl fwd = tanh_fwd
                 inl bck = tanh_bck
-                //inl fwd = id // TODO: Do not forget this is linear. Change it back.
-                //inl bck = id
                 match s with
                 | () ->
                     inm i = matmult (i, input)

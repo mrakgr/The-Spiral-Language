@@ -739,7 +739,7 @@ inl network =
     inl test = parallel (train, accuracy label network)
     {train test}
 
-Loops.for' {from=0; near_to=1;body=inl {next} -> 
+Loops.for' {from=0; near_to=10;body=inl {next} -> 
     open Feedforward.Pass
     open Body
 
@@ -885,8 +885,8 @@ inl network =
 
     inl train =
         input
-        |> miln 0.05f32 128
-        //|> mi 128
+        //|> miln 0.05f32 128
+        |> mi 128
         |> Feedforward.Layer.linear size.hot
         |> error Error.softmax_cross_entropy label
         |> init_parallel s
@@ -1090,7 +1090,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) inverse1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning9
 |> printfn "%s"
 |> ignore
 
