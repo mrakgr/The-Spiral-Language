@@ -185,10 +185,14 @@ inl create {d with elem_type} =
         FS.Method x .Sort c ()
 
     inl index i = macro.fs elem_type [arg: x; text: ".["; arg: to int32 i; text: "]"]
-    inl set i v = macro.fs () [arg: x; text: ".["; arg: to int32 i; text: "] <- "; arg: v]
+    inl set i v = 
+        assert (eq_type elem_type v) ("The type set to the ResizeArray must match its element type.", elem_type, v)
+        macro.fs () [arg: x; text: ".["; arg: to int32 i; text: "] <- "; arg: v]
     inl clear () = FS.Method x .Clear() ()
     inl count () = FS.Method x .get_Count() int32
-    inl add y = FS.Method x .Add y ()
+    inl add y = 
+        assert (eq_type elem_type y) ("The type added to the ResizeArray must match its element type.", elem_type, y)
+        FS.Method x .Add y ()
     inl remove_at y = FS.Method x .RemoveAt y ()
 
     inl iter f = Loops.for {from=0i32; near_to=count(); by=1i32; body=inl {i} -> f (index i)}
@@ -405,10 +409,10 @@ inl section_create s size ret =
     inl pool = allocate_global s size
     inl free_cells = 
             {
-            used_cells=ResizeArray.create {elem_type=type ResizeArray.create {elem_type=pool}}
+            used_cells=ResizeArray.create {elem_type=type ResizeArray.create {elem_type=type pool}}
             size=ResizeArray.create {elem_type=uint64}
             ptr=ResizeArray.create {elem_type=uint64}
-            index=ref int32
+            index=ref 0i32
             }
     inl section = {pool free_cells} |> heap
     inl allocate s = function
