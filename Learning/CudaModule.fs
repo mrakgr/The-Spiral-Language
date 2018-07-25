@@ -291,7 +291,7 @@ met refresh s =
     inl {pool free_cells} = s.data.section
     inl pool_type = type pool
 
-    /// Adds a element into the free cell in the last position.
+    // Adds a element into the free cell at the last position. Splits the cells when needed.
     inl add {ar with ptr size} =
         inl last = free_cells.count-1i32
         inl global_ptr = free_cells.ptr last
@@ -300,6 +300,7 @@ met refresh s =
         inl ptr = ptr.Try
         inl global_ptr_end = global_ptr + global_size
         if global_ptr_end < ptr then
+            // If there is a gap then make a new cell and add the current element to it.
             free_cells.size.set last (ptr-global_ptr)
             inl used_cells = ResizeArray.create {elem_type=pool_type}
             used_cells.add ar
@@ -308,23 +309,19 @@ met refresh s =
             free_cells.size.add size
             free_cells.used_cells.add used_cells
         elif global_ptr_end = ptr then
+            // Add the current element to the current cell.
             free_cells.size.set last (global_size+size)
-
             inl used_cells = free_cells.used_cells last
             used_cells.add ar
         else
-            failwith () "This branch should be impossible."
+            failwith () "The elements should always be ordered."
 
     inl used_cells = ResizeArray.create {elem_type=pool_type}
 
     // Filters out the nils and adds the rest to the array.
-    Loops.for {from=0i32; near_to=free_cells.used_cells.count; by=1i32; body=inl {i} ->
-        inl x = free_cells.used_cells i
-        Loops.for {from=0i32; near_to=x.count; by=1i32; body=inl {i} ->
-            inl x = x i
+    free_cells.used_cells.iter <| inl x ->
+        x.iter <| inl x -> 
             if x .ptr .Try <> 064 then used_cells.add x
-            }
-        }
 
     // Clear the free cells
     free_cells.used_cells.clear
@@ -350,53 +347,72 @@ met allocate s (!(to uint64 >> round_up_to_multiple >> dyn) size') =
     inl {pool free_cells} = s.data.section
 
     met rec clear_top_if_nil () =
-        inl {used_cells} = free_cells.head
+        inl index = free_cells.index()
+        inl used_cells = free_cells.used_cells index
         inl i = used_cells.count-1i32
         if i >= 0i32 then
+            // Remove the empty pointers.
             inl {ptr} = used_cells i
             if ptr.Try = 0u64 then
                 used_cells.remove_at i
                 clear_top_if_nil ()
-            else
-                ()
+        else
+            if index > 0 then 
+                // Merge the cell with the previous one.
+                inl size = free_cells.size index
+                free_cells.size .set (index-1) (free_cells.size (index-1) + size)
+                Tuple.iter (inl x -> free_cells x .remove_at index) (.size,.used_cells,.ptr)
+                free_cells.index := index - 1
+                
+                clear_top_if_nil ()
         : ()
 
     inl loop next =
-        if free_cells.count > 0i32 then
-            inl {ptr size} = free_cells 0i32
-            if size' <= size then
-                free_cells.set 0i32 {ptr=ptr+size'; size=size-size'}
-                {ptr=smartptr_create ptr; size=size'}
-            else join next()
-        else join next()
+        clear_top_if_nil()
+
+        /// Try allocating memory.
+        met size_remaining =
+            inl index = free_cells.index()
+            inl used_cells = free_cells.used_cells index
+            inl cell_end = free_cells.ptr index + free_cells.size index
+            if used_cells.count > 0i32 then
+                inl {ptr size} = used_cells.last
+                cell_end - (ptr.Try + size)
+            else
+                cell_end
+        if size_remaining >= size' then {ptr=smartptr_create ptr; size=size'}
+        else next ()
 
     inl x =
-        clear_top_if_nil()
         loop <| inl _ ->
-            sort_sizes free_cells
+            // Try a bigger cell.
+            free_cells.index := find_index_of_largest_free_cell free_cells
             loop <| inl _ -> 
+                // Do a GC.
                 refresh s
-                sort_sizes free_cells
                 loop <| inl _ ->
                     failwith pool "Out of memory in the designated section."
-    used_cells.add x
+
+    inl index = free_cells.index()
+    free_cells.used_cells index .add x
     x.ptr
 
 inl section_create s size ret =
     inl pool = allocate_global s size
-    inl free_cells = ResizeArray.create {elem_type=type {ptr=uint64; size=uint64}}
-    inl used_cells = ResizeArray.create {elem_type=type pool}
-    inl section = {pool free_cells used_cells} |> heap
-    inl allocate s = 
-        function
+    inl free_cells = 
+            {
+            used_cells=ResizeArray.create {elem_type=pool}
+            size=ResizeArray.create {elem_type=uint64}
+            ptr=ResizeArray.create {elem_type=uint64}
+            index=ref int64
+            }
+    inl section = {pool free_cells} |> heap
+    inl allocate s = function
         | .elem_type -> type s.data.section.pool.ptr
         | x -> allocate s x
         
     inl s =
-        s.member_add {
-            refresh
-            allocate
-            }
+        s.member_add {refresh allocate}
          .data_add {section}
     
     refresh s
