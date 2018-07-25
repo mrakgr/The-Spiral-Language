@@ -1257,7 +1257,7 @@ inl float ->
                             inl input = Struct.map ((|>) i) input
                             
                             // Note: Now that the memory transfers are async, run_parallel has a race condition, but it won't be an issue in practice.
-                            inl cost, d = run_parallel network {d with input} s
+                            inl cost, d = run network {d with input} s
 
                             inl bck = term_cast d.bck ()
                             inl get = s.CudaTensor.get
