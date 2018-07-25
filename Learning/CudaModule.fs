@@ -284,7 +284,6 @@ inl find_index_of_largest_free_cell free_cells =
                 inl {ptr size} = used_cells.last
                 inl ptr_end = ptr.Try + size
                 inl free_cell_end = free_cells.ptr i + free_cells.size i
-                assert (free_cell_end > ptr_end) "This should always hold."
                 free_cell_end - ptr_end
             else
                 free_cells .size i
@@ -326,7 +325,6 @@ met refresh s =
 
     // Filters out the nils and adds the rest to the array.
     free_cells.used_cells.iter <| inl x ->
-        print_static x
         x.iter <| inl x -> 
             if x .ptr .Try <> 0u64 then used_cells.add x
 
