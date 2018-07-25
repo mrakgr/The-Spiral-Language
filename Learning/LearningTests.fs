@@ -885,16 +885,16 @@ inl network =
 
     inl train =
         input
-        //|> miln 0.05f32 128
-        //|> mi 128
-        |> sigmoid 128
+        //|> miln 0.05f32 128 // The miln layer uses atomics and so will cause non-reproducible runs.
+        |> mi 128
         |> Feedforward.Layer.linear size.hot
         |> error Error.softmax_cross_entropy label
+        // Note: init_parallel can cause slight deviations from run to run even without run_parallel in the training function.
         |> init_parallel s
     
     {train}
 
-Loops.for' {from=0; near_to=1; body=inl {next i} -> 
+Loops.for' {from=0; near_to=5; body=inl {next i} -> 
     open Recurrent.Pass
     open Body
 
@@ -1072,7 +1072,6 @@ inl C_inv = cholesky_inverse_std s C
 s.CudaTensor.print C_inv
 s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_inv)
     """
-
 
 let tests =
     [|
