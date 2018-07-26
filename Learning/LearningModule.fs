@@ -456,7 +456,7 @@ inl float ->
                         mapi_out=inl j i x sum_x ->
                             inl get x = x j i .get
                             inl set x = x j i .set
-                            inl ret f = on_non_nil (inl x -> set x (get x + f () / batch_size))
+                            inl ret f = on_non_nil (inl x -> set x (get x + f ())) // TODO: Do not forget that you removed the division by the minibatch size.
 
                             inl p = x / sum_x
                             inl label = get label
@@ -847,8 +847,13 @@ inl float ->
     inl update_covariance epsilon lr s cov x =
         inl k = x.span_outer
         inl alpha = Math.pow (one - lr) k
-        inl beta = one - alpha
-        s.CudaBlas.gemm' .T .nT (beta / to float k) x x alpha cov
+        inl beta = (one - alpha) / to float k
+        s.CudaBlas.gemm' .T .nT beta x x alpha cov
+        inl cov = CudaAux.to_dev_tensor cov
+        s.CudaKernel.init {dim=cov.dim} (inl a b -> 
+            inl x = cov a b .get
+            if a = b then x + epsilon else x
+            )
 
     inl whiten {epsilon lr} {d with input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
@@ -857,7 +862,7 @@ inl float ->
             inb x_precise_primal = 
                 match d with
                 | {front_covariance} ret -> 
-                    //update_covariance epsilon.front lr.front s front_covariance (primal x)
+                    inb front_covariance = update_covariance epsilon.front lr.front s front_covariance (primal x) |> CudaAux.temporary
                     inb front_precision = cholesky_inverse s front_covariance |> CudaAux.temporary
 
                     inb x_precise_primal = s.CudaBlas.gemm .nT .T one (primal x) front_precision |> CudaAux.temporary
@@ -867,7 +872,7 @@ inl float ->
             inb z_precise_adjoint = 
                 match d with
                 | {back_covariance} ret ->
-                    update_covariance epsilon.back lr.back s back_covariance (adjoint z)
+                    inb front_covariance = update_covariance epsilon.back lr.back s back_covariance (adjoint z) |> CudaAux.temporary
                     inb back_precision = cholesky_inverse s back_covariance |> CudaAux.temporary
 
                     inb z_precise_adjoint = s.CudaBlas.gemm .nT .T one (adjoint z) back_precision |> CudaAux.temporary
@@ -886,7 +891,7 @@ inl float ->
             | _ -> ()
 
         inl epsilon = 
-            inl default = 1.0f32
+            inl default = Math.pow 10f32 -6
             match w with
             | {epsilon} -> 
                 match epsilon with
@@ -900,7 +905,7 @@ inl float ->
             weights = inl s -> 
                 inl d =
                     {
-                    input = Initializer.relu (sublayer.size, size) s |> dr s
+                    input = Initializer.tanh (sublayer.size, size) s |> dr s
                     bias = s.CudaTensor.zero {elem_type=float; dim=size} |> dr s
                     }
                 //center = s.CudaTensor.zero {elem_type=float; dim=sublayer.size} |> dr s
