@@ -872,7 +872,7 @@ inl float ->
             inb z_precise_adjoint = 
                 match d with
                 | {back_covariance} ret ->
-                    inb front_covariance = update_covariance epsilon.back lr.back s back_covariance (adjoint z) |> CudaAux.temporary
+                    inb back_covariance = update_covariance epsilon.back lr.back s back_covariance (adjoint z) |> CudaAux.temporary
                     inb back_precision = cholesky_inverse s back_covariance |> CudaAux.temporary
 
                     inb z_precise_adjoint = s.CudaBlas.gemm .nT .T one (adjoint z) back_precision |> CudaAux.temporary
@@ -891,7 +891,7 @@ inl float ->
             | _ -> ()
 
         inl epsilon = 
-            inl default = Math.pow 10f32 0
+            inl default = Math.pow 10f32 -6
             match w with
             | {epsilon} -> 
                 match epsilon with
