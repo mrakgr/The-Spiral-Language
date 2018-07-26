@@ -7,7 +7,7 @@ open Learning.Cuda
 
 let learning =
     (
-    "Learning",[struct';extern_;serializer_one_hot;cuda_aux],"The deep learning module.",
+    "Learning",[struct';extern_;serializer_one_hot;cuda_aux;math],"The deep learning module.",
     """
 inl float ->
     // #Primitives
@@ -843,6 +843,12 @@ inl float ->
         inb C_sqr_inv = s.CudaBlas.trinv .Lower C_sqr |> CudaAux.temporary
         s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 C_sqr_inv C_sqr_inv C_sqr
         C_sqr
+
+    inl update_covariance epsilon lr cov x =
+        inl k = x.span_outer
+        inl alpha = Math.pow (one - lr) k
+        inl beta = one - alpha
+        s.symm' .Left .Lower (alpha / to float k) cov cov beta x
 
     inl whiten {epsilon lr} {d with input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s

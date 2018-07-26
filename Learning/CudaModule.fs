@@ -241,6 +241,7 @@ inl temporary tns ret =
     inl x = ret tns
     Struct.iter (inl {ar} -> ar.ptr.Dispose) tns.bodies
     x
+
 {ptr_cuda to_dev_tensor allocator_block_size temporary} |> stackify
     """
     ) |> module_
