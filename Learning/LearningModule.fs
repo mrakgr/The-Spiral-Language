@@ -844,29 +844,17 @@ inl float ->
         s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 C_sqr_inv C_sqr_inv C_sqr
         C_sqr
 
-    //inl update_covariance epsilon lr s cov x =
-    //    inl k = x.span_outer
-    //    inl alpha = Math.pow (one - lr) k
-    //    inl beta = (one - alpha) / to float k
-    //    s.CudaBlas.gemm' .T .nT beta x x alpha cov
-    //    inl cov = CudaAux.to_dev_tensor cov
-    //    s.CudaKernel.init {dim=cov.dim} (inl a b -> 
-    //        inl x = cov a b .get
-    //        if a = b then x + epsilon else x
-    //        )
-
-    inl update_covariance epsilon lr s cov x =
+    inl update_covariance identity_coef lr s cov x =
         inl k = x.span_outer
         inl alpha = Math.pow (one - lr) k
-        inl beta, epsilon = 
-            inl x = one - alpha
-            x * (one - epsilon), x * epsilon
+        inl epsilon = (one - alpha) * identity_coef
+        inl beta = one - alpha - epsilon
         inb update = s.CudaBlas.gemm .T .nT one x x |> CudaAux.temporary
         inl update, cov = CudaAux.to_dev_tensor (update, cov)
         s.CudaKernel.iter {dim=cov.dim} (inl a b -> 
             inl update, cov = update a b .get, cov a b
-            inl epsilon = if a = b then epsilon else zero
-            cov .set (alpha * cov .get + beta / to float k * update + epsilon)
+            inl identity = if a = b then epsilon else zero
+            cov .set (alpha * cov .get + beta / to float k * update + identity)
             )
 
     inl whiten {epsilon lr} {d with input bias} x s =

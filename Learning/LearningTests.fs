@@ -802,7 +802,7 @@ inl network =
     inl test = parallel (train, accuracy label network)
     {train test}
 
-Loops.for' {from=0; near_to=10;body=inl {next} -> 
+Loops.for' {from=0; near_to=10; body=inl {next} -> 
     open Feedforward.Pass
     open Body
 
@@ -811,7 +811,7 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
             data={input=train_images; label=train_labels}
             body=train {
                 network=network.train
-                optimizer=Optimizer.sgd (0.1f32 / to float32 minibatch_size)
+                optimizer=Optimizer.sgd (0.01f32 / to float32 minibatch_size)
                 }
             } s
 
