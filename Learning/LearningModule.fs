@@ -886,7 +886,7 @@ inl float ->
             | _ -> ()
 
         inl epsilon = 
-            inl default = 0.0001f32
+            inl default = 1.0f32
             match w with
             | {epsilon} -> 
                 match epsilon with
