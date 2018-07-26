@@ -337,7 +337,7 @@ met refresh s =
     free_cells.ptr.add <| pool.ptr()
     free_cells.size.add 0u64
     free_cells.used_cells.add <| ResizeArray.create {elem_type=pool_type}
-    free_cells.index := find_index_of_largest_free_cell free_cells
+    free_cells.index := 0i32
 
     used_cells.iter add
 
