@@ -811,7 +811,7 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
             data={input=train_images; label=train_labels}
             body=train {
                 network=network.train
-                optimizer=Optimizer.sgd (0.005f32 / to float32 minibatch_size)
+                optimizer=Optimizer.sgd (0.0f32 / to float32 minibatch_size)
                 }
             } s
 
