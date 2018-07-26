@@ -891,7 +891,7 @@ inl float ->
             | _ -> ()
 
         inl epsilon = 
-            inl default = Math.pow 10f32 -6
+            inl default = Math.pow 10f32 0
             match w with
             | {epsilon} -> 
                 match epsilon with
