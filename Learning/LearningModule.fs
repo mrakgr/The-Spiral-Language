@@ -848,7 +848,7 @@ inl float ->
         inl k = x.span_outer
         inl alpha = Math.pow (one - lr) k
         inl beta = one - alpha
-        s.CudaBlas.gemm' .T .nT (alpha / to float k) x x beta cov
+        s.CudaBlas.gemm' .T .nT (beta / to float k) x x alpha cov
 
     inl whiten {epsilon lr} {d with input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
@@ -857,7 +857,7 @@ inl float ->
             inb x_precise_primal = 
                 match d with
                 | {front_covariance} ret -> 
-                    update_covariance epsilon.front lr.front s front_covariance (primal x)
+                    //update_covariance epsilon.front lr.front s front_covariance (primal x)
                     inb front_precision = cholesky_inverse s front_covariance |> CudaAux.temporary
 
                     inb x_precise_primal = s.CudaBlas.gemm .nT .T one (primal x) front_precision |> CudaAux.temporary

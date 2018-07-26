@@ -798,8 +798,8 @@ inl network =
         //|> relu 256
         //|> relu 256
         //|> linear hidden_size
-        |> prong {activation=Activation.relu; size=256; lr=0.001f32}
-        |> prong {activation=Activation.relu; size=256; lr=0.001f32}
+        //|> prong {activation=Activation.relu; size=256; lr=0.001f32}
+        //|> prong {activation=Activation.relu; size=256; lr=0.001f32}
         |> prong {activation=Activation.linear; size=hidden_size; lr=0.001f32}
         |> init s
     inl train = error Error.softmax_cross_entropy label network
@@ -815,7 +815,7 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
             data={input=train_images; label=train_labels}
             body=train {
                 network=network.train
-                optimizer=Optimizer.sgd 0.5f32
+                optimizer=Optimizer.sgd 0.01f32
                 }
             } s
 
