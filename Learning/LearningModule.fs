@@ -844,11 +844,11 @@ inl float ->
         s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 C_sqr_inv C_sqr_inv C_sqr
         C_sqr
 
-    inl update_covariance epsilon lr cov x =
+    inl update_covariance epsilon lr s cov x =
         inl k = x.span_outer
         inl alpha = Math.pow (one - lr) k
         inl beta = one - alpha
-        s.symm' .Left .Lower (alpha / to float k) cov cov beta x
+        s.CudaBlas.gemm' .T .nT (alpha / to float k) x x beta cov
 
     inl whiten {epsilon lr} {d with input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
@@ -857,7 +857,7 @@ inl float ->
             inb x_precise_primal = 
                 match d with
                 | {front_covariance} ret -> 
-                    update_covariance epsilon.front lr.front front_covariance (primal x)
+                    update_covariance epsilon.front lr.front s front_covariance (primal x)
                     inb front_precision = cholesky_inverse s front_covariance |> CudaAux.temporary
 
                     inb x_precise_primal = s.CudaBlas.gemm .nT .T one (primal x) front_precision |> CudaAux.temporary
@@ -867,7 +867,7 @@ inl float ->
             inb z_precise_adjoint = 
                 match d with
                 | {back_covariance} ret ->
-                    update_covariance epsilon.back lr.back back_covariance (adjoint z)
+                    update_covariance epsilon.back lr.back s back_covariance (adjoint z)
                     inb back_precision = cholesky_inverse s back_covariance |> CudaAux.temporary
 
                     inb z_precise_adjoint = s.CudaBlas.gemm .nT .T one (adjoint z) back_precision |> CudaAux.temporary
@@ -888,8 +888,11 @@ inl float ->
         inl epsilon = 
             inl default = 0.0001f32
             match w with
-            | {w.epsilon with front | back} -> epsilon
-            | {epsilon} -> {front=epsilon; back=epsilon}
+            | {epsilon} -> 
+                match epsilon with
+                | {front back} -> epsilon
+                | {front} -> {front back=default}
+                | {back} -> {back front=default}
             | _ -> {front=default; back=default}
 
         feedforward {

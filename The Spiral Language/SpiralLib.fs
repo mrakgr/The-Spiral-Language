@@ -1802,23 +1802,23 @@ let math =
     "Math",[],"The Math module.",
     """
 /// The partially evaluated power function using repeated squaring.
-inl rec power (n: float64 | n: float32) (k: int64) =
-    if k < 0 then to n 1 / power n -k
+inl rec pow (n: float64 | n: float32) (k: int64) =
+    if k < 0 then to n 1 / pow n -k
     elif k=1 then n
     elif k=0 then to n 1
     else
-        inl rec power n k =
+        inl rec pow n k =
             inl body () =
                 if k = 2 then n*n
-                elif k % 2 = 1 then n * power n (k-1)
+                elif k % 2 = 1 then n * pow n (k-1)
                 else 
-                    inl x = power n (k/2)
+                    inl x = pow n (k/2)
                     x*x
         
             if lit_is k then body ()
             else join body() : n
 
-        power n k
+        pow n k
 
-{power} |> stackify
+{pow} |> stackify
     """) |> module_
