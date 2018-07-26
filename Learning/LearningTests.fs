@@ -1061,14 +1061,13 @@ inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
 s.CudaTensor.print C
 Console.writeline "-----"
 
-// The standard implementation
-inl cholesky_inverse_std s C =
+inl cholesky_inverse s C =
     inl C_sqr = s.CudaSolve.potrf .Lower C .assert
     inb C_sqr_inv = s.CudaBlas.trinv .Lower C_sqr |> CudaAux.temporary
     s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 C_sqr_inv C_sqr_inv C_sqr
     C_sqr
 
-inl C_inv = cholesky_inverse_std s C
+inl C_inv = cholesky_inverse s C
 s.CudaTensor.print C_inv
 s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_inv)
     """

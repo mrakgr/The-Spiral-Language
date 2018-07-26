@@ -838,12 +838,54 @@ inl float ->
                 >>= layer_norm_relu o 
             }
 
+    inl cholesky_inverse s C =
+        inl C_sqr = s.CudaSolve.potrf .Lower C .assert
+        inb C_sqr_inv = s.CudaBlas.trinv .Lower C_sqr |> CudaAux.temporary
+        s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 C_sqr_inv C_sqr_inv C_sqr
+        C_sqr
+
+    inl whiten {epsilon lr} {d with input bias} x s =
+        inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
+        fwd_add_bias (primal z) (primal bias) s
+        z, inl _ -> join
+            inb x_precise_primal = 
+                match d with
+                | {front_covariance} ret -> 
+                    update_covariance epsilon.front lr.front front_covariance (primal x)
+                    inb front_precision = cholesky_inverse s front_covariance |> CudaAux.temporary
+
+                    inb x_precise_primal = s.CudaBlas.gemm .nT .T one (primal x) front_precision |> CudaAux.temporary
+                    ret x_precise_primal
+                | _ ret -> ret <| primal x
+
+            inb z_precise_adjoint = 
+                match d with
+                | {back_covariance} ret ->
+                    update_covariance epsilon.back lr.back back_covariance (adjoint z)
+                    inb back_precision = cholesky_inverse s back_covariance |> CudaAux.temporary
+
+                    inb z_precise_adjoint = s.CudaBlas.gemm .nT .T one (adjoint z) back_precision |> CudaAux.temporary
+                    ret z_precise_adjoint
+                | _ ret -> ret <| adjoint z
+            
+            s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
+            on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
+            bck_add_bias z_precise_adjoint (adjoint bias) s 
 
     inl prong {w with activation size} sublayer =
         inl lr = 
             match w with
-            | {lr} -> lr
+            | {w.lr with front | back} -> lr
+            | {lr} -> {front=lr; back=lr}
             | _ -> ()
+
+        inl epsilon = 
+            inl default = 0.0001f32
+            match w with
+            | {w.epsilon with front | back} -> epsilon
+            | {epsilon} -> {front=epsilon; back=epsilon}
+            | _ -> {front=default; back=default}
+
         feedforward {
             size sublayer
             weights = inl s -> 
@@ -856,15 +898,15 @@ inl float ->
                 inl f x = s.CudaKernel.init {dim=x,x} (inl a b -> if a = b then one else zero)
                 inl d =
                     match lr with
-                    | {front} -> {d with front_covariance=f sublayer.size; front_precision=f sublayer.size}
+                    | {front} -> {d with front_covariance=f sublayer.size} //; front_precision=f sublayer.size}
                     | _ -> d
                 inl d =
                     match lr with
-                    | {back} -> {d with back_covariance=f size; back_precision=f size}
+                    | {back} -> {d with back_covariance=f size} //; back_precision=f size}
                     | _ -> d
                 heap d
             apply = inl weights input -> 
-                whiten lr weights input
+                whiten {epsilon lr} weights input
                 >>= activation // layer_norm_relu 0f32
             optimize = inl optimizer weights s ->
                 optimizer s weights.input
