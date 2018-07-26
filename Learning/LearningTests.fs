@@ -791,12 +791,12 @@ inl hidden_size = 10
 
 inl network =
     open Feedforward.Layer
-    inl prong_lr = 0.001f32
+    inl lr = Math.pow 10f32 -3
     inl label = input .label hidden_size
     inl network =
         input .input input_size
         //|> linear hidden_size
-        |> prong {activation=Activation.linear; size=hidden_size; lr=0.001f32}
+        |> prong {activation=Activation.linear; size=hidden_size; lr}
         |> init s
     inl train = error Error.softmax_cross_entropy label network
     inl test = parallel (train, accuracy label network)
@@ -811,7 +811,7 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
             data={input=train_images; label=train_labels}
             body=train {
                 network=network.train
-                optimizer=Optimizer.sgd (0.0f32 / to float32 minibatch_size)
+                optimizer=Optimizer.sgd (0.1f32 / to float32 minibatch_size)
                 }
             } s
 
