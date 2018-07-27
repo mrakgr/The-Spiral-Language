@@ -796,7 +796,7 @@ inl {test_images test_labels train_images train_labels} =
     |> module_map (inl _ x -> x.round_split' minibatch_size) // .view_span (const 1))
 
 /// Temporary measure to make the test go faster.
-inl train_images, train_labels = Tuple.map (inl x -> x.view_span (inl x :: _ -> x/100)) (train_images,train_labels)
+inl train_images, train_labels = Tuple.map (inl x -> x.view_span (inl x :: _ -> x/10)) (train_images,train_labels)
 
 inl input_size = 784
 inl hidden_size = 10
@@ -807,8 +807,8 @@ inl network =
     inl label = input .label hidden_size
     inl network =
         input .input input_size
-        //|> linear hidden_size
-        |> prong {lr activation=Activation.linear; size=hidden_size; k=128}
+        |> linear hidden_size
+        //|> prong {lr activation=Activation.linear; size=hidden_size; k=128}
         |> init s
     inl train = error Error.softmax_cross_entropy label network
     inl test = parallel (train, accuracy label network)

@@ -838,10 +838,10 @@ inl float ->
                 >>= layer_norm_relu o 
             }
 
-    inl cholesky_symm_inverse s C C_inv = // TODO: Make all of this inplace.
-        inb C_sqr = s.CudaSolve.potrf .Lower C .assert |> CudaAux.temporary
-        inb C_sqr_inv = s.CudaBlas.trinv .Lower C_sqr |> CudaAux.temporary
-        s.CudaBlas.trmm' .Left .Lower .T .NonUnit one C_sqr_inv C_sqr_inv C_inv
+    inl cholesky_symm_inverse s C C_inv =
+        inb C_sqrt = s.CudaSolve.potrf .Lower C .assert |> CudaAux.temporary
+        inb C_sqrt_inv = s.CudaBlas.trinv .Lower C_sqrt |> CudaAux.temporary
+        s.CudaBlas.trmm' .Left .Lower .T .NonUnit one C_sqrt_inv C_sqrt_inv C_inv
 
     inl update_covariance identity_coef lr s cov x =
         inl k = x.span_outer

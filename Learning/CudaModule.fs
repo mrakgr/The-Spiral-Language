@@ -2631,10 +2631,10 @@ inl s ret ->
         indiv join
             inl A = 
                 inl A = CudaAux.to_dev_tensor A
-                s.CudaKernel.init {dim=A.dim} (inl a b ->
+                s.CudaKernel.init {dim=A.dim} <| inl a b ->
                     inl check = match uplo with .Lower -> a >= b | .Upper -> a <= b
                     if check then A a b .get else to A.elem_type 0f32
-                    )
+                    
             inb result = potrf' s uplo A |> CudaAux.temporary
             match d with
             | {on_succ on_fail} ->
@@ -2647,7 +2647,7 @@ inl s ret ->
                 if result = 0i32 then A
                 elif result > 0i32 then failwith A (string_format "The leading minor of order {0} is not positive definite." result)
                 else failwith A (string_format "The {0}-th parameter is wrong." result)
-            | ret -> ret result
+            | ret -> ret (A,result)
 
     ret <| s.module_add .CudaSolve {potrf' potrf}
     
