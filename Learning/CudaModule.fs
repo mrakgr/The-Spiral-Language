@@ -782,6 +782,9 @@ inl s ret ->
     inl to_operation = function
         | .T -> enum operation_type .Transpose
         | .nT -> enum operation_type .NonTranspose
+    inl opposite_operation = function
+        | .T -> .nT
+        | .nT -> .T
 
     inl side_type = fs [text: "ManagedCuda.CudaBlas.SideMode"]
     inl to_side_mode .Left | .Right as x = enum side_type x
@@ -985,6 +988,28 @@ inl s ret ->
 
     inl transpose s A = geam s .T .T 1f32 A 0f32 A
 
+    /// The symmetric rank-k update
+    met syrk' s uplo trans alpha A beta C =
+        assert (eq_type A.elem_type float32) "A must be of type float32."
+        assert (eq_type C.elem_type float32) "C must be of type float32."
+        assert (eq_type alpha float32) "alpha must be of type float32."
+        assert (eq_type beta float32) "beta must be of type float32."
+
+        inl m = if isnT trans then rows A else cols A
+        inl k = if isnT trans then cols A else rows A
+
+        assert (m = rows C && m = cols C) "The rows and columns of C must match."
+
+        inl f = to int32
+        call s .cublasSsyrk_v2(opposite_fill uplo, opposite_operation trans, f m, f k, alpha, {ptr=A}, f (ld A), beta, {ptr=C}, f (ld C))
+
+    inl syrk s uplo trans alpha A =
+        indiv join
+            inl m = if isnT trans then rows A else cols A
+            inl C = s.CudaTensor.create {dim=m,m; elem_type = A.elem_type}
+            syrk' s uplo trans alpha A (to alpha 0) C
+            stack C
+
     /// General matrix-matrix multiply from cuBLAS. Inplace version
     met gemm' s transa transb alpha A B beta C =
         assert (eq_type A.elem_type float32) "A must be of type float32."
@@ -1156,7 +1181,14 @@ inl s ret ->
             gemm_strided_batched' s transa transb alpha A B (to alpha 0) C
             stack C
 
-    ret <| s.module_add .CudaBlas {trmm' trmm trsm' trsm trinv symm' symm geam' geam transpose gemm' gemm matinv_batched matinv_batched_asserted gemm_strided_batched' gemm_strided_batched}
+    inl modules =
+        {
+        trmm' trmm trsm' trsm trinv symm' symm geam' geam transpose gemm' gemm matinv_batched matinv_batched_asserted 
+        gemm_strided_batched' gemm_strided_batched syrk' syrk
+        }
+
+    ret <| s.module_add .CudaBlas modules
+
     """) |> module_
 
 let cuda_kernel =

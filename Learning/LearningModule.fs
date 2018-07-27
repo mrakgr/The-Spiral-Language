@@ -851,10 +851,11 @@ inl float ->
         inl _ =
             inl cov = CudaAux.to_dev_tensor cov
             s.CudaKernel.iter {dim=cov.dim} <| inl a b -> 
-                inl cov = cov a b
-                inl identity = if a = b then epsilon else zero
-                cov .set (alpha * cov .get + identity)
-        s.CudaBlas.gemm' .T .nT (beta / to float k) x x one cov // TODO: Replace gemm' here with syrk'
+                if b <= a then
+                    inl cov = cov a b
+                    inl identity = if a = b then epsilon else zero
+                    cov .set (alpha * cov .get + identity)
+        s.CudaBlas.syrk' .Lower .T (beta / to float k) x one cov
 
     inl whiten {epsilon lr k} {d with input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
