@@ -861,7 +861,7 @@ inl float ->
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         fwd_add_bias (primal z) (primal bias) s
         z, inl _ -> join
-            inl is_update = k x.span_outer
+            inl is_update = k (primal x).span_outer
             inb x_precise_primal = 
                 match d with
                 | {front_covariance front_precision} ret -> 
