@@ -1022,13 +1022,17 @@ inl s ret ->
         assert_1d y "y must be a vector"
 
         inl m, n = rows A, cols A
+
+        inl dim_a, dim_b = if isT trans then cols A, rows A else rows A, cols A
+        assert (dim_b = x.span_outer) "The inner dimension of A must match the span of x."
+        assert (dim_a = y.span_outer) "The outer dimension of A must match the span of y."
         
         inl f = to int32
-        call .cublasSgemv_v2(opposite_operation trans, f m, f n, alpha, {ptr=A}, f (ld A), {ptr=x}, f (ld x), beta, {ptr=y}, f (ld y))
+        call s .cublasSgemv_v2(opposite_operation trans, f n, f m, alpha, {ptr=A}, f (ld A), {ptr=x}, f (ld x), beta, {ptr=y}, f (ld y))
         
     inl gemv s trans alpha A x =
         indiv join
-            inl dim = if isnT trans then cols A else rows A
+            inl dim = if isT trans then cols A else rows A
             inl y = s.CudaTensor.create {elem_type=x.elem_type; dim}
             gemv' s trans alpha A x (to alpha 0) y
             stack y
@@ -1051,10 +1055,15 @@ inl s ret ->
         
         assert (m = rows C && n = cols C) "Output matrix dimensions do not match in GEMM."
 
-        // The arguments are switched in order to convert from column major (which CuBlas uses) to row major (which Spiral's tensors use)
-        // TODO: Adapt it for other float types.
-        inl f = to int32
-        call s .cublasSgemm_v2(transb, transa, f n, f m, f k, alpha, {ptr=B}, f (ld B), {ptr=A}, f (ld A), beta, {ptr=C}, f (ld C))
+        // If the vector is on the left side call gemv with the arguments switched and transposed
+        if m = 1 then gemv' s (opposite_operation transb) alpha B (A.reshape snd) beta (C.reshape snd)
+        // If the vector is on the right side or both are vectors call gemv normally.
+        elif n = 1 then gemv' s transa alpha A (B.reshape fst) beta (C.reshape fst)
+        else
+            // The arguments are switched in order to convert from column major (which CuBlas uses) to row major (which Spiral's tensors use)
+            // TODO: Adapt it for other float types.
+            inl f = to int32
+            call s .cublasSgemm_v2(transb, transa, f n, f m, f k, alpha, {ptr=B}, f (ld B), {ptr=A}, f (ld A), beta, {ptr=C}, f (ld C))
 
     inl gemm s transa transb alpha A B =
         indiv join

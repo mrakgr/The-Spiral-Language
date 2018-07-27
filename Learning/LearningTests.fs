@@ -249,9 +249,11 @@ let blas8 =
     """
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
-inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=4,3}
-inl y = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=1,3}
-inl o = s.CudaBlas.gemv y x
+inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=4,3}
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=4}
+inl o = s.CudaBlas.gemv .T 1f32 A x
+s.CudaTensor.print o
+inl o = s.CudaBlas.gemm .T .nT 1f32 A (x.split (inl x -> x,1))
 s.CudaTensor.print o
     """
 
