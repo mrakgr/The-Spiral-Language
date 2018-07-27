@@ -838,87 +838,54 @@ inl float ->
                 >>= layer_norm_relu o 
             }
 
-    //inl cholesky_inverse s C =
-    //    inl C_sqr = s.CudaSolve.potrf .Lower C .assert
-    //    inb C_sqr_inv = s.CudaBlas.trinv .Lower C_sqr |> CudaAux.temporary
-    //    s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 C_sqr_inv C_sqr_inv C_sqr
-    //    C_sqr
+    inl cholesky_inverse s C C_inv =
+        inb C_sqr = s.CudaSolve.potrf .Lower C .assert |> CudaAux.temporary
+        inb C_sqr_inv = s.CudaBlas.trinv .Lower C_sqr |> CudaAux.temporary
+        s.CudaBlas.trmm' .Left .Lower .T .NonUnit one C_sqr_inv C_sqr_inv C_inv
 
-    //inl update_covariance identity_coef lr s cov x =
-    //    inl k = x.span_outer
-    //    inl alpha = Math.pow (one - lr) k
-    //    inl epsilon = (one - alpha) * identity_coef
-    //    inl beta = one - alpha - epsilon
-    //    inb update = s.CudaBlas.gemm .T .nT one x x |> CudaAux.temporary
-    //    inl update, cov = CudaAux.to_dev_tensor (update, cov)
-    //    s.CudaKernel.iter {dim=cov.dim} <| inl a b -> 
-    //        inl update, cov = update a b .get, cov a b
-    //        inl identity = if a = b then epsilon else zero
-    //        cov .set (alpha * cov .get + beta / to float k * update + identity)
-
-    //inl whiten {epsilon lr} {d with input bias} x s =
-    //    inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
-    //    fwd_add_bias (primal z) (primal bias) s
-    //    z, inl _ -> join
-    //        inb x_precise_primal = 
-    //            match d with
-    //            | {front_covariance} ret -> 
-    //                update_covariance epsilon.front lr.front s front_covariance (primal x)
-    //                inb front_precision = cholesky_inverse s front_covariance |> CudaAux.temporary
-
-    //                inb x_precise_primal = s.CudaBlas.gemm .nT .T one (primal x) front_precision |> CudaAux.temporary
-    //                ret x_precise_primal
-    //            | _ ret -> ret <| primal x
-
-    //        inb z_precise_adjoint = 
-    //            match d with
-    //            | {back_covariance} ret ->
-    //                update_covariance epsilon.back lr.back s back_covariance (adjoint z)
-    //                inb back_precision = cholesky_inverse s back_covariance |> CudaAux.temporary
-
-    //                inb z_precise_adjoint = s.CudaBlas.gemm .nT .T one (adjoint z) back_precision |> CudaAux.temporary
-    //                ret z_precise_adjoint
-    //            | _ ret -> ret <| adjoint z
-            
-    //        s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
-    //        on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
-    //        bck_add_bias z_precise_adjoint (adjoint bias) s 
-
-    inl sherman_morrison_symm identity_coef lr s A u =
-        assert (u.span_outer = 1) "u must be a vector."
-        inl alpha = one - lr
+    inl update_covariance identity_coef lr s cov x =
+        inl k = x.span_outer
+        inl alpha = Math.pow (one - lr) k
         inl epsilon = (one - alpha) * identity_coef
         inl beta = one - alpha - epsilon
-        inb uA = s.CudaBlas.gemm .nT .T one u A |> CudaAux.temporary
-        inb uAu = s.CudaBlas.gemm .nT .T one uA u |> CudaAux.temporary
-        inb constant = s.CudaKernel.map (inl uAu -> one + uAu) uAu 0 0 |> CudaAux.temporary
-        inb update = s.CudaBlas.gemm .T .nT one uA uA |> CudaAux.temporary
-        inl update, A, constant = CudaAux.to_dev_tensor (update, A, constant)
-        s.CudaKernel.iter {dim=A.dim} <| inl a b -> 
-            inl update, A, constant = update a b .get, A a b, constant .get
+        inb update = s.CudaBlas.gemm .T .nT one x x |> CudaAux.temporary
+        inl update, cov = CudaAux.to_dev_tensor (update, cov)
+        s.CudaKernel.iter {dim=cov.dim} <| inl a b -> 
+            inl update, cov = update a b .get, cov a b
             inl identity = if a = b then epsilon else zero
-            A .set (alpha * A .get + beta / constant * update + identity)
+            cov .set (alpha * cov .get + beta / to float k * update + identity)
 
-    inl whiten {epsilon lr} {d with input bias} x s =
+    inl whiten {epsilon lr k counter} {d with input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         fwd_add_bias (primal z) (primal bias) s
         z, inl _ -> join
-            inb z_precise_adjoint = 
-                match d with
-                | {back_precision} ret -> 
-                    sherman_morrison_symm epsilon.back lr.back s back_precision (adjoint z)
-                    inb z_precise_adjoint = s.CudaBlas.gemm .nT .T one (adjoint z) back_precision |> CudaAux.temporary
-                    ret z_precise_adjoint
-                | _ ret -> ret <| adjoint z
-            
+            inl is_update =
+                inl k' = counter()-1
+                counter := k'
+                k' <= 0
+
             inb x_precise_primal = 
                 match d with
-                | {front_precision} ret -> 
-                    sherman_morrison_symm epsilon.front lr.front s front_precision (primal x)
-                    inb x_precise_primal = s.CudaBlas.gemm .nT .T one (primal x) front_precision |> CudaAux.temporary
+                | {front_covariance front_precision} ret -> 
+                    update_covariance epsilon.front lr.front s front_covariance (primal x)
+                    if is_update then cholesky_inverse s front_covariance front_precision
+
+                    inb x_precise_primal = s.CudaBlas.symm .Right .Lower one front_precision (primal x) |> CudaAux.temporary
                     ret x_precise_primal
                 | _ ret -> ret <| primal x
 
+            inb z_precise_adjoint = 
+                match d with
+                | {back_covariance back_precision} ret ->
+                    update_covariance epsilon.back lr.back s back_covariance (adjoint z)
+                    if is_update then cholesky_inverse s back_covariance back_precision
+
+                    inb z_precise_adjoint = s.CudaBlas.symm .Right .Lower one back_precision (adjoint z) |> CudaAux.temporary
+                    ret z_precise_adjoint
+                | _ ret -> ret <| adjoint z
+
+            if is_update then counter := k
+            
             s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
             on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
             bck_add_bias z_precise_adjoint (adjoint bias) s 
@@ -940,6 +907,13 @@ inl float ->
                 | {back} -> {back front=default}
             | _ -> {front=default; back=default}
 
+        inl k =
+            match w with
+            | {k} -> k
+            | _ -> 1
+
+        inl counter = ref k
+
         feedforward {
             size sublayer
             weights = inl s -> 
@@ -960,7 +934,7 @@ inl float ->
                     | _ -> d
                 heap d
             apply = inl weights input -> 
-                whiten {epsilon lr} weights input
+                whiten {epsilon lr k counter} weights input
                 >>= activation // layer_norm_relu 0f32
             optimize = inl optimizer weights s ->
                 optimizer s weights.input

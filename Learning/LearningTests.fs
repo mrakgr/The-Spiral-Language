@@ -796,7 +796,7 @@ inl network =
     inl network =
         input .input input_size
         //|> linear hidden_size
-        |> prong {activation=Activation.linear; size=hidden_size; lr}
+        |> prong {lr activation=Activation.linear; size=hidden_size; k=512}
         |> init s
     inl train = error Error.softmax_cross_entropy label network
     inl test = parallel (train, accuracy label network)
