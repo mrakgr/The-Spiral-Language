@@ -1207,7 +1207,7 @@ inl s ret ->
     inl modules =
         {
         trmm' trmm trsm' trsm trinv symm' symm geam' geam transpose gemm' gemm matinv_batched matinv_batched_asserted 
-        gemm_strided_batched' gemm_strided_batched syrk' syrk
+        gemm_strided_batched' gemm_strided_batched syrk' syrk gemv' gemv
         }
 
     ret <| s.module_add .CudaBlas modules
