@@ -933,6 +933,33 @@ inl s ret ->
             trsm' s .Left uplo .nT .NonUnit (to float 1) A B
             stack B
 
+    /// Symmetric matrix vector product.
+    met symv' s uplo alpha A x beta y =
+        assert (eq_type A.elem_type float32) "A must be of type float32."
+        assert (eq_type x.elem_type float32) "x must be of type float32."
+        assert (eq_type y.elem_type float32) "y must be of type float32."
+        assert (eq_type alpha float32) "alpha must be of type float32."
+        assert (eq_type beta float32) "beta must be of type float32."
+
+        inl assert_1d x msg = match x.dim with x :: () -> () | _ -> error_type msg
+        assert_1d x "x must be a vector"
+        assert_1d y "y must be a vector"
+
+        inl m, n = rows A, cols A
+        assert (m = n) "A must be a square matrix."
+        assert (m = x.span_outer) "The inner dimension of A must match the span of x."
+        assert (m = y.span_outer) "The outer dimension of A must match the span of y."
+        
+        inl f = to int32
+        call s .cublasSsymv_v2(opposite_fill uplo, f m, alpha, {ptr=A}, f (ld A), {ptr=x}, f (ld x), beta, {ptr=y}, f (ld y))
+
+    inl symv s uplo alpha A x =
+        indiv join
+            inl dim = rows A
+            inl y = s.CudaTensor.create {elem_type=x.elem_type; dim}
+            symv' s uplo alpha A x (to alpha 0) y
+            stack y
+
     /// The symmetric matrix multiply. Inplace version.
     met symm' s side uplo alpha A B beta C =
         assert (eq_type A.elem_type float32) "A must be of type float32."
@@ -952,8 +979,11 @@ inl s ret ->
         inl m = rows B
         inl n = cols B
 
-        inl f = to int32
-        call s .cublasSsymm_v2(opposite_side side, opposite_fill uplo, f n, f m, alpha, {ptr=A}, f (ld A), {ptr=B}, f (ld B), beta, {ptr=C}, f (ld C))
+        if n = 1 then symv' s .Lower alpha A (B.reshape fst) beta (C.reshape fst)
+        elif m = 1 then symv' s .Lower alpha A (B.reshape snd) beta (C.reshape snd)
+        else
+            inl f = to int32
+            call s .cublasSsymm_v2(opposite_side side, opposite_fill uplo, f n, f m, alpha, {ptr=A}, f (ld A), {ptr=B}, f (ld B), beta, {ptr=C}, f (ld C))
 
     inl symm s side uplo alpha A B =
         indiv join
@@ -988,6 +1018,29 @@ inl s ret ->
 
     inl transpose s A = geam s .T .T 1f32 A 0f32 A
 
+    /// Symmetric rank one update.
+    met syr' s uplo alpha x A =
+        assert (eq_type A.elem_type float32) "A must be of type float32."
+        assert (eq_type x.elem_type float32) "x must be of type float32."
+        assert (eq_type alpha float32) "alpha must be of type float32."
+
+        inl assert_1d x msg = match x.dim with x :: () -> () | _ -> error_type msg
+        assert_1d x "x must be a vector"
+
+        inl m, n = rows A, cols A
+        assert (m = n) "A must be a square matrix."
+        assert (m = x.span_outer) "The inner dimension of A must match the span of x."
+        
+        inl f = to int32
+        call s .cublasSsyr_v2(opposite_fill uplo, f m, alpha, {ptr=x}, f (ld x), {ptr=A}, f (ld A))
+
+    inl syr s uplo alpha x =
+        indiv join
+            inl dim = x.span_outer
+            inl A = s.CudaTensor.create {elem_type=x.elem_type; dim=dim,dim}
+            syr' s uplo alpha x A
+            stack A
+
     /// The symmetric rank-k update
     met syrk' s uplo trans alpha A beta C =
         assert (eq_type A.elem_type float32) "A must be of type float32."
@@ -1000,8 +1053,11 @@ inl s ret ->
 
         assert (m = rows C && m = cols C) "The rows and columns of C must match."
 
-        inl f = to int32
-        call s .cublasSsyrk_v2(opposite_fill uplo, opposite_operation trans, f m, f k, alpha, {ptr=A}, f (ld A), beta, {ptr=C}, f (ld C))
+        if (rows A = 1 || cols A = 1) && beta = to beta 1 then
+            syr' s uplo alpha (A.reshape (inl a,b -> a+b-1)) C
+        else
+            inl f = to int32
+            call s .cublasSsyrk_v2(opposite_fill uplo, opposite_operation trans, f m, f k, alpha, {ptr=A}, f (ld A), beta, {ptr=C}, f (ld C))
 
     inl syrk s uplo trans alpha A =
         indiv join
@@ -1010,6 +1066,7 @@ inl s ret ->
             syrk' s uplo trans alpha A (to alpha 0) C
             stack C
 
+    /// General matrix vector product
     met gemv' s trans alpha A x beta y =
         assert (eq_type A.elem_type float32) "A must be of type float32."
         assert (eq_type x.elem_type float32) "x must be of type float32."
@@ -1216,7 +1273,7 @@ inl s ret ->
     inl modules =
         {
         trmm' trmm trsm' trsm trinv symm' symm geam' geam transpose gemm' gemm matinv_batched matinv_batched_asserted 
-        gemm_strided_batched' gemm_strided_batched syrk' syrk gemv' gemv
+        gemm_strided_batched' gemm_strided_batched syrk' syrk gemv' gemv symv' symv syr' syr
         }
 
     ret <| s.module_add .CudaBlas modules

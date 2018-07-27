@@ -257,6 +257,31 @@ inl o = s.CudaBlas.gemm .T .nT 1f32 A (x.split (inl x -> x,1))
 s.CudaTensor.print o
     """
 
+let blas9 =
+    "blas9",[cuda_modules],"Does the symv work?",
+    """
+inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+
+inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=4,4}
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=4}
+inl o = s.CudaBlas.symv .Lower 1f32 A x
+s.CudaTensor.print o
+inl o = s.CudaBlas.symm .Right .Lower 1f32 A (x.split (inl x -> 1,x))
+s.CudaTensor.print o
+    """
+
+let blas10 =
+    "blas10",[cuda_modules],"Does the syr work?",
+    """
+inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=4}
+inl o = s.CudaBlas.syr .Lower 1f32 x
+s.CudaTensor.print o
+inl o = s.CudaBlas.syrk .Lower .T 1f32 (x.reshape (inl x -> 1,x))
+s.CudaTensor.print o
+    """
+
 let kernel1 =
     "kernel1",[cuda_modules],"Does the map kernel work?",
     """
@@ -823,20 +848,20 @@ inl network =
     inl label = input .label hidden_size
     inl network =
         input .input input_size
-        |> tanh 256
-        |> tanh 256
-        |> tanh 256
-        |> linear hidden_size
-        //|> prong {lr activation=Activation.tanh; size=256; k=64}
-        //|> prong {lr activation=Activation.tanh; size=256; k=64}
-        //|> prong {lr activation=Activation.tanh; size=256; k=64}
-        //|> prong {lr activation=Activation.linear; size=hidden_size; k=64}
+        //|> tanh 256
+        //|> tanh 256
+        //|> tanh 256
+        //|> linear hidden_size
+        |> prong {lr activation=Activation.tanh; size=256; k=64}
+        |> prong {lr activation=Activation.tanh; size=256; k=64}
+        |> prong {lr activation=Activation.tanh; size=256; k=64}
+        |> prong {lr activation=Activation.linear; size=hidden_size; k=64}
         |> init s
     inl train = error Error.softmax_cross_entropy label network
     inl test = parallel (train, accuracy label network)
     {train test}
 
-Loops.for' {from=0; near_to=2; body=inl {i next} -> 
+Loops.for' {from=0; near_to=1; body=inl {i next} -> 
     open Feedforward.Pass
     open Body
 
@@ -1115,7 +1140,7 @@ let tests =
     kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
     kernel10;kernel11;kernel12;kernel13;kernel14;kernel15;kernel16;kernel17
     random1
-    blas1;blas2;blas3;blas4;blas5;blas6;blas7;blas8
+    blas1;blas2;blas3;blas4;blas5;blas6;blas7;blas8;blas9
     cusolver1
     learning1;learning2;learning3;learning4;learning5;                               learning9
     learning10;learning11
@@ -1125,7 +1150,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) blas8
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) prong1
 |> printfn "%s"
 |> ignore
 
