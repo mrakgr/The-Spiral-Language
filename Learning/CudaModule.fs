@@ -848,6 +848,29 @@ inl s ret ->
         inl assert_ok status = macro.fs () [text: "if "; arg: status; text: " <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException"; args: status]
         FS.StaticMethod native_type method (handle :: args) status_type |> assert_ok
 
+    /// Triangular matrix-vector multiply.
+    met trmv' s uplo trans diag A x =
+        assert (eq_type A.elem_type float32) "A must be of type float32."
+        assert (eq_type x.elem_type float32) "B must be of type float32."
+
+        inl assert_1d x msg = match x.dim with x :: () -> () | _ -> error_type msg
+        assert_1d x "x must be a vector"
+
+        inl m = rows A
+        inl n = cols A
+
+        assert (m = n) "A must be a square matrix."
+        assert (m = x.span_outer) "The span of x must match the dimensions of A."
+
+        inl f = to int32
+        call s .cublasStrmv_v2(opposite_fill uplo, opposite_operation trans, diag, f n, {ptr=A}, f (ld A), {ptr=x}, f (ld x))
+
+    inl trmv s uplo trans diag A x =
+        indiv join
+            inl x = s.CudaTensor.copy x
+            trmv' s uplo trans diag A x
+            stack x
+
     /// Triangular matrix-matrix multiply from cuBLAS. Inplace version
     met trmm' s side uplo trans diag alpha A B C =
         assert (eq_type A.elem_type float32) "A must be of type float32."
@@ -1273,7 +1296,7 @@ inl s ret ->
     inl modules =
         {
         trmm' trmm trsm' trsm trinv symm' symm geam' geam transpose gemm' gemm matinv_batched matinv_batched_asserted 
-        gemm_strided_batched' gemm_strided_batched syrk' syrk gemv' gemv symv' symv syr' syr
+        gemm_strided_batched' gemm_strided_batched syrk' syrk gemv' gemv symv' symv syr' syr trmv' trmv
         }
 
     ret <| s.module_add .CudaBlas modules

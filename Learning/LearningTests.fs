@@ -282,6 +282,19 @@ inl o = s.CudaBlas.syrk .Lower .T 1f32 (x.reshape (inl x -> 1,x))
 s.CudaTensor.print o
     """
 
+let blas11 =
+    "blas11",[cuda_modules],"Does the symv work?",
+    """
+inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+
+inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=4,4}
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=4}
+inl o = s.CudaBlas.trmm .Left .Lower .nT .NonUnit 1f32 A (x.reshape (inl x -> x,1))
+s.CudaTensor.print o
+inl o = s.CudaBlas.trmv .Lower .nT .NonUnit A x
+s.CudaTensor.print o
+    """
+
 let kernel1 =
     "kernel1",[cuda_modules],"Does the map kernel work?",
     """
@@ -1150,7 +1163,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) prong1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) blas11
 |> printfn "%s"
 |> ignore
 
