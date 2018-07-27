@@ -851,11 +851,10 @@ inl float ->
         inl beta = one - alpha - epsilon
         inb update = s.CudaBlas.gemm .T .nT one x x |> CudaAux.temporary
         inl update, cov = CudaAux.to_dev_tensor (update, cov)
-        s.CudaKernel.iter {dim=cov.dim} (inl a b -> 
+        s.CudaKernel.iter {dim=cov.dim} <| inl a b -> 
             inl update, cov = update a b .get, cov a b
             inl identity = if a = b then epsilon else zero
             cov .set (alpha * cov .get + beta / to float k * update + identity)
-            )
 
     inl whiten {epsilon lr} {d with input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
