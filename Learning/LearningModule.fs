@@ -838,7 +838,7 @@ inl float ->
                 >>= layer_norm_relu o 
             }
 
-    inl cholesky_inverse s C C_inv =
+    inl cholesky_symm_inverse s C C_inv = // TODO: Make all of this inplace.
         inb C_sqr = s.CudaSolve.potrf .Lower C .assert |> CudaAux.temporary
         inb C_sqr_inv = s.CudaBlas.trinv .Lower C_sqr |> CudaAux.temporary
         s.CudaBlas.trmm' .Left .Lower .T .NonUnit one C_sqr_inv C_sqr_inv C_inv
@@ -848,27 +848,24 @@ inl float ->
         inl alpha = Math.pow (one - lr) k
         inl epsilon = (one - alpha) * identity_coef
         inl beta = one - alpha - epsilon
-        inb update = s.CudaBlas.gemm .T .nT one x x |> CudaAux.temporary
-        inl update, cov = CudaAux.to_dev_tensor (update, cov)
-        s.CudaKernel.iter {dim=cov.dim} <| inl a b -> 
-            inl update, cov = update a b .get, cov a b
-            inl identity = if a = b then epsilon else zero
-            cov .set (alpha * cov .get + beta / to float k * update + identity)
+        inl _ =
+            inl cov = CudaAux.to_dev_tensor cov
+            s.CudaKernel.iter {dim=cov.dim} <| inl a b -> 
+                inl cov = cov a b
+                inl identity = if a = b then epsilon else zero
+                cov .set (alpha * cov .get + identity)
+        s.CudaBlas.gemm' .T .nT (beta / to float k) x x one cov // TODO: Replace gemm' here with syrk'
 
-    inl whiten {epsilon lr k counter} {d with input bias} x s =
+    inl whiten {epsilon lr k} {d with input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         fwd_add_bias (primal z) (primal bias) s
         z, inl _ -> join
-            inl is_update =
-                inl k' = counter()-1
-                counter := k'
-                k' <= 0
-
+            inl is_update = k x.span_outer
             inb x_precise_primal = 
                 match d with
                 | {front_covariance front_precision} ret -> 
                     update_covariance epsilon.front lr.front s front_covariance (primal x)
-                    if is_update then cholesky_inverse s front_covariance front_precision
+                    if is_update then cholesky_symm_inverse s front_covariance front_precision
 
                     inb x_precise_primal = s.CudaBlas.symm .Right .Lower one front_precision (primal x) |> CudaAux.temporary
                     ret x_precise_primal
@@ -878,14 +875,12 @@ inl float ->
                 match d with
                 | {back_covariance back_precision} ret ->
                     update_covariance epsilon.back lr.back s back_covariance (adjoint z)
-                    if is_update then cholesky_inverse s back_covariance back_precision
+                    if is_update then cholesky_symm_inverse s back_covariance back_precision
 
                     inb z_precise_adjoint = s.CudaBlas.symm .Right .Lower one back_precision (adjoint z) |> CudaAux.temporary
                     ret z_precise_adjoint
                 | _ ret -> ret <| adjoint z
 
-            if is_update then counter := k
-            
             s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
             on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
             bck_add_bias z_precise_adjoint (adjoint bias) s 
@@ -909,10 +904,15 @@ inl float ->
 
         inl k =
             match w with
-            | {k} -> k
-            | _ -> 1
-
-        inl counter = ref k
+            | {k} -> 
+                if lit_is k && k <= 1 then inl _ -> true
+                else
+                    inl counter = ref k
+                    inl span ->
+                        inl x = counter()-span
+                        if x <= 0 then counter := k; true
+                        else counter := x; false
+            | _ -> inl _ -> true
 
         feedforward {
             size sublayer
@@ -934,7 +934,7 @@ inl float ->
                     | _ -> d
                 heap d
             apply = inl weights input -> 
-                whiten {epsilon lr k counter} weights input
+                whiten {epsilon lr k} weights input
                 >>= activation // layer_norm_relu 0f32
             optimize = inl optimizer weights s ->
                 optimizer s weights.input

@@ -777,7 +777,7 @@ inl float = float32
 open Learning float
 
 inl minibatch_size = 1
-inl { test_images test_labels train_images train_labels} =
+inl {test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
     Mnist.load_mnist_tensors mnist_path
     |> s.CudaTensor.from_host_tensors
@@ -796,7 +796,7 @@ inl network =
     inl network =
         input .input input_size
         //|> linear hidden_size
-        |> prong {lr activation=Activation.linear; size=hidden_size; k=512}
+        |> prong {lr activation=Activation.linear; size=hidden_size; k=128}
         |> init s
     inl train = error Error.softmax_cross_entropy label network
     inl test = parallel (train, accuracy label network)
