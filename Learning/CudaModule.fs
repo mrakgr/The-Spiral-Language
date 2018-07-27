@@ -1010,7 +1010,7 @@ inl s ret ->
             syrk' s uplo trans alpha A (to alpha 0) C
             stack C
 
-    inl gemv'' s trans alpha A x beta y = // Work in progess.
+    met gemv' s trans alpha A x beta y =
         assert (eq_type A.elem_type float32) "A must be of type float32."
         assert (eq_type x.elem_type float32) "x must be of type float32."
         assert (eq_type y.elem_type float32) "y must be of type float32."
@@ -1026,7 +1026,12 @@ inl s ret ->
         inl f = to int32
         call .cublasSgemv_v2(opposite_operation trans, f m, f n, alpha, {ptr=A}, f (ld A), {ptr=x}, f (ld x), beta, {ptr=y}, f (ld y))
         
-
+    inl gemv s trans alpha A x =
+        indiv join
+            inl dim = if isnT trans then cols A else rows A
+            inl y = s.CudaTensor.create {elem_type=x.elem_type; dim}
+            gemv' s trans alpha A x (to alpha 0) y
+            stack y
 
     /// General matrix-matrix multiply from cuBLAS. Inplace version
     met gemm' s transa transb alpha A B beta C =
