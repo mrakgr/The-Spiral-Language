@@ -781,7 +781,7 @@ Loops.for' {from=0; near_to=10;body=inl {next} ->
     """
 
 let prong1 =
-    "prong1",[cuda_modules;learning;mnist],"Does the full PRONG training work with Mnist?",
+    "prong1",[cuda_modules;learning;mnist;timer],"Does the full PRONG training work with Mnist?",
     """
 inb s = CudaModules (1024*1024*1024)
 
@@ -810,31 +810,33 @@ inl network =
     inl label = input .label hidden_size
     inl network =
         input .input input_size
-        //|> tanh 256
-        //|> tanh 256
-        //|> tanh 256
-        //|> linear hidden_size
-        |> prong {lr activation=Activation.tanh; size=256; k=64}
-        |> prong {lr activation=Activation.tanh; size=256; k=64}
-        |> prong {lr activation=Activation.tanh; size=256; k=64}
-        |> prong {lr activation=Activation.linear; size=hidden_size; k=64}
+        |> tanh 256
+        |> tanh 256
+        |> tanh 256
+        |> linear hidden_size
+        //|> prong {lr activation=Activation.tanh; size=256; k=64}
+        //|> prong {lr activation=Activation.tanh; size=256; k=64}
+        //|> prong {lr activation=Activation.tanh; size=256; k=64}
+        //|> prong {lr activation=Activation.linear; size=hidden_size; k=64}
         |> init s
     inl train = error Error.softmax_cross_entropy label network
     inl test = parallel (train, accuracy label network)
     {train test}
 
-Loops.for' {from=0; near_to=5; body=inl {next} -> 
+Loops.for' {from=0; near_to=2; body=inl {i next} -> 
     open Feedforward.Pass
     open Body
 
     inl cost =
-        for {
-            data={input=train_images; label=train_labels}
-            body=train {
-                network=network.train
-                optimizer=Optimizer.sgd (0.0001f32 / to float32 train_minibatch_size)
-                }
-            } s
+        Timer.time_it (string_format "iteration {0}" i)
+        <| inl _ ->
+            for {
+                data={input=train_images; label=train_labels}
+                body=train {
+                    network=network.train
+                    optimizer=Optimizer.sgd (0.0001f32 / to float32 train_minibatch_size)
+                    }
+                } s
 
     string_format "Training: {0}" cost |> Console.writeline
 
