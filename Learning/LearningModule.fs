@@ -843,6 +843,7 @@ inl float ->
         inb C_sqrt_inv = s.CudaBlas.trinv .Lower C_sqrt |> CudaAux.temporary
         s.CudaBlas.trmm' .Left .Lower .T .NonUnit one C_sqrt_inv C_sqrt_inv C_inv
 
+    /// Updates the covariance such that cov(t+1) = alpha * cov t + beta / k * x^T * x + epsilon * I
     inl update_covariance identity_coef lr s cov x =
         inl k = x.span_outer
         inl alpha = Math.pow (one - lr) k
@@ -855,7 +856,7 @@ inl float ->
                     inl cov = cov a b
                     inl identity = if a = b then epsilon else zero
                     cov .set (alpha * cov .get + identity)
-        s.CudaBlas.syrk' .Lower .T (beta / to float k) x one cov
+        s.CudaBlas.syrk' .Lower .T (beta / to float k) x one cov // symmetric rank-k update. (beta / to float k) * x * x^T + cov
 
     inl whiten {epsilon lr k} {d with input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s

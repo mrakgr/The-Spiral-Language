@@ -1010,6 +1010,24 @@ inl s ret ->
             syrk' s uplo trans alpha A (to alpha 0) C
             stack C
 
+    inl gemv'' s trans alpha A x beta y = // Work in progess.
+        assert (eq_type A.elem_type float32) "A must be of type float32."
+        assert (eq_type x.elem_type float32) "x must be of type float32."
+        assert (eq_type y.elem_type float32) "y must be of type float32."
+        assert (eq_type alpha float32) "alpha must be of type float32."
+        assert (eq_type beta float32) "beta must be of type float32."
+
+        inl assert_1d x msg = match x.dim with x :: () -> () | _ -> error_type msg
+        assert_1d x "x must be a vector"
+        assert_1d y "y must be a vector"
+
+        inl m, n = rows A, cols A
+        
+        inl f = to int32
+        call .cublasSgemv_v2(opposite_operation trans, f m, f n, alpha, {ptr=A}, f (ld A), {ptr=x}, f (ld x), beta, {ptr=y}, f (ld y))
+        
+
+
     /// General matrix-matrix multiply from cuBLAS. Inplace version
     met gemm' s transa transb alpha A B beta C =
         assert (eq_type A.elem_type float32) "A must be of type float32."

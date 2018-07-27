@@ -244,6 +244,17 @@ inl o = s.CudaBlas.syrk .Lower .T 1f32 x
 s.CudaTensor.print o
     """
 
+let blas8 =
+    "blas8",[cuda_modules],"Does the gemv work?",
+    """
+inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=4,3}
+inl y = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=1,3}
+inl o = s.CudaBlas.gemv y x
+s.CudaTensor.print o
+    """
+
 let kernel1 =
     "kernel1",[cuda_modules],"Does the map kernel work?",
     """
@@ -1102,7 +1113,7 @@ let tests =
     kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
     kernel10;kernel11;kernel12;kernel13;kernel14;kernel15;kernel16;kernel17
     random1
-    blas1;blas2;blas3;blas4;blas5;blas6;blas7
+    blas1;blas2;blas3;blas4;blas5;blas6;blas7;blas8
     cusolver1
     learning1;learning2;learning3;learning4;learning5;                               learning9
     learning10;learning11
@@ -1112,7 +1123,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) prong1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) blas8
 |> printfn "%s"
 |> ignore
 
