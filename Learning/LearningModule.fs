@@ -1252,8 +1252,9 @@ inl float ->
                             inl input = Struct.map ((|>) i) input
                             
                             // Note: Now that the memory transfers are async, run_parallel has a race condition, but it won't be an issue in practice.
-                            // Comment it out if fully reproducible runs are needed, like for debugging for example.
+                            // Comment it out if fully reproducible runs are needed like for debugging.
                             // Also init_parallel can cause slight deviations from run to run even without run_parallel.
+                            // Apart from that one only needs to look out for functions that use atomics.
                             inl cost, d = run_parallel network {d with input} s
                             //inl cost, d = run network {d with input} s
                             
@@ -1344,13 +1345,9 @@ inl float ->
 
             a, inl (reward: float64) ->
                 inl reward = to float reward
-                inl x_a = to_dev_tensor (adjoint x)
-                inl p = to_dev_tensor p
-                inl a = to_dev_tensor a
+                inl x_a, p, a = to_dev_tensor (adjoint x, p, a)
                 s.CudaKernel.iter {dim=dim_a, dim_b} (inl j ->
-                    inl x_a = x_a j
-                    inl p = p j
-                    inl a = a j .get
+                    inl x_a, p, a = x_a j, p j, a j .get
 
                     inl i ->
                         inl p = p i .get
