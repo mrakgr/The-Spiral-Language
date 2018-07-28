@@ -428,7 +428,6 @@ inl section_create s size ret =
     inl ptr = pool.ptr
     FS.Method s.data.context .FreeMemory (ptr() |> CUdeviceptr) ()
     ptr.Dispose
-    
 
 stack section_create
     """) |> module_
