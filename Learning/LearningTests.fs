@@ -979,7 +979,7 @@ Loops.for' {from=0; near_to=5; body=inl {next i} ->
                 data
                 body=train {
                     network=network.train
-                    optimizer=Optimizer.sgd 0.01f32 / to float32 size.minibatch
+                    optimizer=Optimizer.sgd (0.01f32 / to float32 size.minibatch)
                     }
                 } s
 
@@ -1064,7 +1064,7 @@ Loops.for' {from=0; near_to=5; body=inl {next i} ->
                 data
                 body=train {
                     network=network.train
-                    optimizer=Optimizer.sgd 0.01f32 / to float32 size.minibatch
+                    optimizer=Optimizer.sgd (0.01f32 / to float32 size.minibatch)
                     }
                 } s
 
