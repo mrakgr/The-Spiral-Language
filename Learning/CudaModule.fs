@@ -1002,11 +1002,8 @@ inl s ret ->
         inl m = rows B
         inl n = cols B
 
-        if n = 1 then symv' s .Lower alpha A (B.reshape fst) beta (C.reshape fst)
-        elif m = 1 then symv' s .Lower alpha A (B.reshape snd) beta (C.reshape snd)
-        else
-            inl f = to int32
-            call s .cublasSsymm_v2(opposite_side side, opposite_fill uplo, f n, f m, alpha, {ptr=A}, f (ld A), {ptr=B}, f (ld B), beta, {ptr=C}, f (ld C))
+        inl f = to int32
+        call s .cublasSsymm_v2(opposite_side side, opposite_fill uplo, f n, f m, alpha, {ptr=A}, f (ld A), {ptr=B}, f (ld B), beta, {ptr=C}, f (ld C))
 
     inl symm s side uplo alpha A B =
         indiv join
@@ -1076,11 +1073,8 @@ inl s ret ->
 
         assert (m = rows C && m = cols C) "The rows and columns of C must match."
 
-        if (rows A = 1 || cols A = 1) && beta = to beta 1 then
-            syr' s uplo alpha (A.reshape (inl a,b -> a+b-1)) C
-        else
-            inl f = to int32
-            call s .cublasSsyrk_v2(opposite_fill uplo, opposite_operation trans, f m, f k, alpha, {ptr=A}, f (ld A), beta, {ptr=C}, f (ld C))
+        inl f = to int32
+        call s .cublasSsyrk_v2(opposite_fill uplo, opposite_operation trans, f m, f k, alpha, {ptr=A}, f (ld A), beta, {ptr=C}, f (ld C))
 
     inl syrk s uplo trans alpha A =
         indiv join
@@ -1135,15 +1129,10 @@ inl s ret ->
         
         assert (m = rows C && n = cols C) "Output matrix dimensions do not match in GEMM."
 
-        // If the vector is on the left side call gemv with the arguments switched and transposed
-        if m = 1 then gemv' s (opposite_operation transb) alpha B (A.reshape snd) beta (C.reshape snd)
-        // If the vector is on the right side or both are vectors call gemv normally.
-        elif n = 1 then gemv' s transa alpha A (B.reshape fst) beta (C.reshape fst)
-        else
-            // The arguments are switched in order to convert from column major (which CuBlas uses) to row major (which Spiral's tensors use)
-            // TODO: Adapt it for other float types.
-            inl f = to int32
-            call s .cublasSgemm_v2(transb, transa, f n, f m, f k, alpha, {ptr=B}, f (ld B), {ptr=A}, f (ld A), beta, {ptr=C}, f (ld C))
+        // The arguments are switched in order to convert from column major (which CuBlas uses) to row major (which Spiral's tensors use)
+        // TODO: Adapt it for other float types.
+        inl f = to int32
+        call s .cublasSgemm_v2(transb, transa, f n, f m, f k, alpha, {ptr=B}, f (ld B), {ptr=A}, f (ld A), beta, {ptr=C}, f (ld C))
 
     inl gemm s transa transb alpha A B =
         indiv join
@@ -1300,7 +1289,6 @@ inl s ret ->
         }
 
     ret <| s.module_add .CudaBlas modules
-
     """) |> module_
 
 let cuda_kernel =
