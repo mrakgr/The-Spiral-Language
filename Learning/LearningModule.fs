@@ -364,17 +364,14 @@ inl float ->
 
     //#Error
     inl error {fwd bck} label input s = 
-        inl batch_size = primal input .span_outer |> to float
-        inl div_by_minibatch_size x = x / batch_size
         map_redo_map {
             fwd = {
                 map_in = fwd
                 redo = (+)
                 neutral_elem = zero
-                map_out = div_by_minibatch_size
                 }
             /// The adjoint in error is always assumed to be one.
-            bck = Struct.map (inl bck (in, out) adjoint -> adjoint + div_by_minibatch_size (bck in out)) bck
+            bck = Struct.map (inl bck (in, out) adjoint -> adjoint + (bck in out)) bck
             } (input, label) s
 
     inl square_bck (x,y) = two * (x - y)
@@ -404,8 +401,6 @@ inl float ->
     inl softmax_cross_entropy label input s =
         assert ((primal label).dim = (primal input).dim) "Labels and inputs must have equal dimensions."
         
-        inl batch_size = primal input .span_outer |> to float
-
         inl temp = one
 
         inl cost = 
@@ -430,7 +425,7 @@ inl float ->
                         ,
                         {
                         redo'=(+)
-                        mapi_out=inl j i _ c -> if threadIdx.x = 0 then cost j .set (c / batch_size)
+                        mapi_out=inl j i _ c -> if threadIdx.x = 0 then cost j .set c
                         }
                     } (primal input).dim
             s.CudaKernel.map_redo_map {
@@ -456,7 +451,7 @@ inl float ->
                         mapi_out=inl j i x sum_x ->
                             inl get x = x j i .get
                             inl set x = x j i .set
-                            inl ret f = on_non_nil (inl x -> set x (get x + f ())) // TODO: Do not forget that you removed the division by the minibatch size.
+                            inl ret f = on_non_nil (inl x -> set x (get x + f ()))
 
                             inl p = x / sum_x
                             inl label = get label
@@ -1342,14 +1337,12 @@ inl float ->
 
         inl sampling_pg x s =
             inl dim_a, dim_b = primal x .dim
-            inl batch_size = HostTensor.span dim_a
-            assert (batch_size = 1) "Only a single dimension for now."
+            assert (HostTensor.span dim_a = 1) "Only a single dimension for now."
 
             inl p = softmax one (primal x) s
             inl a = sample_body p s
 
             a, inl (reward: float64) ->
-                inl batch_size = to float batch_size
                 inl reward = to float reward
                 inl x_a = to_dev_tensor (adjoint x)
                 inl p = to_dev_tensor p
@@ -1363,7 +1356,7 @@ inl float ->
                         inl p = p i .get
                         inl x_a = x_a i
                         inl label = if a = i then one else zero
-                        x_a.set (x_a.get + (p - label) * reward / batch_size) 
+                        x_a.set (x_a.get + (p - label) * reward) 
                     )
 
         {

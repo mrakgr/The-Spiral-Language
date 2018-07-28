@@ -1073,8 +1073,11 @@ inl s ret ->
 
         assert (m = rows C && m = cols C) "The rows and columns of C must match."
 
-        inl f = to int32
-        call s .cublasSsyrk_v2(opposite_fill uplo, opposite_operation trans, f m, f k, alpha, {ptr=A}, f (ld A), beta, {ptr=C}, f (ld C))
+        if (rows A = 1 || cols A = 1) && beta = to beta 1 then
+            syr' s uplo alpha (A.reshape (inl a,b -> a+b-1)) C
+        else
+            inl f = to int32
+            call s .cublasSsyrk_v2(opposite_fill uplo, opposite_operation trans, f m, f k, alpha, {ptr=A}, f (ld A), beta, {ptr=C}, f (ld C))
 
     inl syrk s uplo trans alpha A =
         indiv join
