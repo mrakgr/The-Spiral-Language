@@ -6,7 +6,7 @@ open System.IO
 open Spiral.Types
 open Learning.Cuda
 
-let cfg = {Spiral.Types.cfg_default with trace_length=160; cuda_assert_enabled=false}
+let cfg = {Spiral.Types.cfg_default with trace_length=40; cuda_assert_enabled=false}
 
 let learning1 =
     "learning1",[cuda_modules;learning;mnist;timer],"Does the training work with Mnist?",
@@ -117,3 +117,4 @@ let tests =
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
 |> printfn "%s"
 |> ignore
+
