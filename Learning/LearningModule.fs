@@ -183,22 +183,6 @@ inl float ->
 
     inl Optimizer = {sgd clipped_sgd}
 
-    // #Accuracy
-    inl accuracy label input s =
-        inl input, label = primal input, primal label
-        inl max = input .span_outer
-        inl value =
-            s.CudaKernel.mapi_d1_redo_map {
-                map_in=const
-                neutral_elem=-infinity,zero
-                redo=inl a b -> if fst a > fst b then a else b
-                map_out=snd >> to int64
-                } (input,label) ()
-            |> s.CudaKernel.map_redo_map {
-                neutral_elem=0; redo=(+)
-                }
-        {value max}
-
     // #Auxiliary
     inl atomic_add o x =
         inl (),{ar offset} = o.dim, o.bodies
@@ -356,27 +340,26 @@ inl float ->
                     } input.dim
         cost, bck
 
-    inl Error = {square sigmoid_cross_entropy softmax_cross_entropy} |> stackify
+    inl accuracy label input s =
+        inl input, label = primal input, primal label
+        s.CudaKernel.mapi_d1_redo_map {
+            map_in=const
+            neutral_elem=-infinity,zero
+            redo=inl a b -> if fst a > fst b then a else b
+            map_out=snd >> to int64
+            } (input,label) ()
+        |> s.CudaKernel.map_redo_map {
+            neutral_elem=0; redo=(+)
+            }
+
+    inl Error = {square sigmoid_cross_entropy softmax_cross_entropy accuracy} |> stackify
 
     // #Initializer
-    inl Initializer = 
-        inl init mult dim s = 
-            inl stddev = sqrt (mult / to float32 (Tuple.foldl (+) 0 dim))
-            s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
-        { 
-        // Note: The following inits are not intended to be optimal, but work well either way with LN.
-        // Even with LN extremely poor inits can undermine the integrity of the network, but these should work interchangeably.
-        sigmoid = init 2f32
-        tanh = init 3f32
-        relu = init 1f32
-        bad = init 0.01f32
-        } |> stackify
-
 	inl initialize s dsc =
-        Struct.map (function
-            | {sigmoid=dim} -> Initializer.sigmoid dim s |> dr s
-            | {tanh=dim} -> Initializer.tanh dim s |> dr s
-            | {relu=dim} -> Initializer.relu dim s |> dr s
+        Struct.map (function // Rough and possibly poorly tuned inits. Recommended to be used together with PRONG or layer/batch norm.
+            | {sigmoid=dim} -> init 2f32 dim s |> dr s
+            | {tanh=dim} -> init 3f32 dim s |> dr s
+            | {relu=dim} -> init 1f32 dim s |> dr s
             | {bias=dim} -> s.CudaTensor.zero {elem_type=float; dim} |> dr s
             | {identity=dim} -> s.CudaKernel.init {dim} (inl a b -> if a = b then one else zero)
             ) dsc
@@ -384,7 +367,12 @@ inl float ->
 	inl init s = 
 		Struct.foldl_map (inl sublayer_size {x with init} -> 
             inl {dsc size} = init sublayer_size
-			{x without init with weigths=initialize s dsc}, size
+            inl weigths = initialize s dsc |> heap
+            inl optimize =
+                match x with
+                | {optimize} -> optimize
+                | _ optimizer -> Struct.iter optimizer weights
+			{x without init with optimize weigths}, size
 			)
 
     inl run s input = 
@@ -414,5 +402,39 @@ inl float ->
 
             layer, {input=out; bck=apply_bck bck bck'}
 			) input
-	()
+
+    inl Initializer = {
+        bias = inl dim -> {bias=dim; block=()}
+        relu = inl dim -> {relu=dim; block=()}
+        tanh = inl dim -> {tanh=dim; block=()}
+        sigmoid = inl dim -> {sigmoid=dim; block=()}
+        identity = inl dim -> {identity=dim; block=()}
+        }
+
+    // #Feedforward
+    inl layer initializer activation size =
+            {
+            init = inl sublayer_size -> 
+                {
+                dsc = 
+                    {
+                    input = initializer (sublayer_size, size)
+                    bias = bias size
+                    }
+                size
+                }
+
+            apply = inl {weights input} -> matmultb (input, weights.input) weights.bias >>= activation
+            block = ()
+            }
+
+    inl sigmoid = layer Initializer.sigmoid sigmoid
+    inl relu = layer Initializer.relu relu
+    inl tanh = layer Initializer.tanh tanh
+    inl linear = layer Initializer.sigmoid succ
+
+    inl Feedforward = {sigmoid relu tanh linear} |> stackify
+    { 
+    dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward 
+    }
     """) |> module_
