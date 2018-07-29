@@ -61,11 +61,13 @@
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
+    <None Include="LearningModule.fs%27" />
+    <None Include="LearningTests.fs%27" />
     <Compile Include="CudaModule.fs" />
-    <Compile Include="LearningModule.fs" />
-    <Compile Include="LearningTests.fs" />
+    <Compile Include="CudaTests.fs" />
     <Content Include="TextFile1.txt" />
     <None Include="Script1.fsx" />
+    <Compile Include="LearningModule.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
