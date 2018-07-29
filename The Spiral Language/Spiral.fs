@@ -18,11 +18,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let join_point_dict_closure = d0()
     let join_point_dict_type = d0()
     let join_point_dict_cuda = d0()
-    let gid = 
-        let mutable x = 0L
-        fun () ->
-            x <- x + 1L
-            TyLit (LitInt64 x)
 
     // #Smart constructors
     let trace (d: LangEnv) = d.trace
@@ -1814,7 +1809,6 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | InfinityF32,[] -> TyLit (LitFloat32 infinityf)
 
             | ToVar,[x] -> to_var d x
-            | GID,[] -> gid()
             
             | x -> failwithf "Compiler error: Missing Op case. %A" x
 

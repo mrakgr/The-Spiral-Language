@@ -372,5 +372,47 @@ inl float ->
         bad = init 0.01f32
         } |> stackify
 
+	inl initialize s dsc =
+        Struct.map (function
+            | {sigmoid=dim} -> Initializer.sigmoid dim s |> dr s
+            | {tanh=dim} -> Initializer.tanh dim s |> dr s
+            | {relu=dim} -> Initializer.relu dim s |> dr s
+            | {bias=dim} -> s.CudaTensor.zero {elem_type=float; dim} |> dr s
+            | {identity=dim} -> s.CudaKernel.init {dim} (inl a b -> if a = b then one else zero)
+            ) dsc
+
+	inl init s = 
+		Struct.foldl_map (inl sublayer_size {x with init} -> 
+            inl {dsc size} = init sublayer_size
+			{x without init with weigths=initialize s dsc}, size
+			)
+
+    inl run s input = 
+        inl input =
+            match input with
+            | {x with input bck} -> x
+            | {input} -> {input bck=inl _ -> ()}
+		Struct.foldl_map (inl {input bck} {layer with apply} -> 
+            inl input = 
+                inl input = {input}
+                inl input =
+                    match layer with
+                    | {weights} -> {input with weights}
+                    | _ -> input
+                match layer with {state} -> {input with state} | _ -> input
+
+			inl {x with out bck=bck'} = 
+                indiv join
+                    match apply input s with
+                    | {x with bck} -> stack {x with bck = term_cast () bck}
+                    | _ -> stack {x with bck = inl _ -> ()}
+
+            inl layer =
+                match x with
+                | {state} -> {layer with state}
+                | _ -> layer
+
+            layer, {input=out; bck=apply_bck bck bck'}
+			) input
 	()
     """) |> module_
