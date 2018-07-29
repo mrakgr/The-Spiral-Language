@@ -35,7 +35,8 @@ inl label_size = 10
 inl network,_ =
     open Feedforward
     inl network =
-        tanh 256,
+        relu 256,
+        relu 256,
         linear label_size
     init s input_size network
 
@@ -59,6 +60,7 @@ inl train {data={input label} network optimizer final} s =
         if nan_is cost then state
         else next state
         }
+    |> inl cost -> cost / to float64 (HostTensor.span range)
 
 inl test {data={input label} network final} s =
     inl range = fst input.dim
@@ -77,15 +79,16 @@ inl test {data={input label} network final} s =
         if nan_is cost then state
         else next state
         }
+    |> inl cost -> {cost with cost = self / to float64 (HostTensor.span range)}
 
 Loops.for' {from=0; near_to=5; body=inl {i next} -> 
     inl cost =
-        Timer.time_it (string_format "iteration {0}" i)
-        <| inl _ ->
+        //Timer.time_it (string_format "iteration {0}" i)
+        //<| inl _ ->
             train {
                 data={input=train_images; label=train_labels}
                 network
-                optimizer=Optimizer.sgd (0.01f32 / to float32 train_minibatch_size)
+                optimizer=Optimizer.sgd (0.3f32 / to float32 train_minibatch_size)
                 final=Error.softmax_cross_entropy
                 } s
 
