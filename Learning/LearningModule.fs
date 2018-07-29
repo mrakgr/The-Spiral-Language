@@ -450,6 +450,52 @@ inl float ->
     inl linear = layer Initializer.sigmoid succ
 
     inl Feedforward = {sigmoid relu tanh linear} |> stackify
+
+    inl RL =
+        inl sampling_pg x s =
+            inl dim_a, dim_b = primal x .dim
+            assert (HostTensor.span dim_a = 1) "Only a single dimension for now."
+
+            inl p = softmax one (primal x) s
+            inl out = sample_body p s
+
+            {
+            out
+            bck=inl {reward} -> join
+                inl reward = to float reward
+                inl x_a, p, out = to_dev_tensor (adjoint x, p, out)
+                s.CudaKernel.iter {dim=dim_a, dim_b} (inl j ->
+                    inl x_a, p, out = x_a j, p j, out j .get
+
+                    inl i ->
+                        inl p = p i .get
+                        inl x_a = x_a i
+                        inl label = if out = i then one else zero
+                        x_a.set (x_a.get + (p - label) * reward) 
+                    )
+            }
+
+        /// For online learning.
+        inl action {range state_type action_type final} {network input} s =
+            indiv join
+                assert (eq_type state_type input) "The input must be equal to the state type."
+                inl one_hot_tensor l, size = s.CudaKernel.init {dim=1,size} (inl _ x -> Struct.foldl (inl s x' -> if x = x' then one else s) zero l)
+                inl input = 
+                    Struct.foldl_map (inl s x -> 
+                        inl i, s' = SerializerOneHot.encode' range x
+                        s + i, s + s'
+                        ) 0 input
+                    |> one_hot_tensor
+
+                inl network, {input bck} = run s {input} network
+                inl {out bck=bck'} = final input s
+                inl bck = heap (apply_bck bck bck')
+
+                inl action = SerializerOneHot.decode range (s.CudaTensor.get (out 0)) action_type
+                stack {action network bck}
+        
+        {action sampling_pg}
+
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward 
     }

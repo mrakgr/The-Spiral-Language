@@ -5,7 +5,8 @@ open Spiral.Tests
 open System.IO
 open Spiral.Types
 open Module
-open Learning
+open Learning.Cuda
+open Learning.Main
 
 let cfg = Spiral.Types.cfg_default
 
