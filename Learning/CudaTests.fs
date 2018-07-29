@@ -1,4 +1,4 @@
-﻿module Learning.Main.Tests
+﻿module Learning.Cuda.Tests
 
 open Spiral.Lib
 open Spiral.Tests
