@@ -3,7 +3,7 @@ module Learning.Main.Lib
 
 open Spiral.Types
 open Spiral.Lib
-open Learning.Cuda
+open Learning.Cuda.Lib
 
 let learning =
     (
@@ -56,7 +56,9 @@ inl float ->
         match bias with
         | () -> ()
         | _ -> fwd_add_bias (primal C) (primal bias) s
-        C, inl _ -> join
+        {
+        out=C
+        bck=inl _ -> join
             inl C' = adjoint C
             inl l =
                 Tuple.iter (inl A, B -> 
@@ -65,6 +67,7 @@ inl float ->
                     on_non_nil (inl B -> s.CudaBlas.gemm' TA .nT one (primal A) C' one B) (adjoint B)
                     ) l
             on_non_nil (inl bias -> bck_add_bias C' bias s) (adjoint bias)
+        }
 
     inl matmult l s = matmultb l () s
 
@@ -79,9 +82,12 @@ inl float ->
         inl out = s.CudaKernel.map fwd primal |> dr s
 
         inl adjoint, bck = choose_adjoints in bck
-        out, inl _ -> join
+        {
+        out
+        bck=inl _ -> join
             inl bck (in, out) = Struct.map2 (inl bck -> bck (in, out)) bck
             s.CudaKernel.map' bck (primal, {out without block}) adjoint
+        }
 
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
     /// just to set the adjoint to 1. The current library is intended for a narrow purpose.
@@ -90,19 +96,25 @@ inl float ->
         inl out = s.CudaKernel.map_redo_map fwd primal
 
         inl adjoint, bck = choose_adjoints in bck
-        out, inl _ -> join
+        {
+        out
+        bck=inl _ -> join
             inl out = to_dev_tensor out
             inl bck in = Struct.map2 (inl bck -> bck (in, out.get)) bck
             s.CudaKernel.map' bck primal adjoint
+        }
 
     inl d2_replicate_map {fwd bck={bck_in bck_in'}} in in' s =
         inl primal, adjoint = primals in, adjoints in
         inl primal', adjoint' = primals in', adjoints in'
         inl out = s.CudaKernel.d2_replicate_map fwd primal primal' |> dr s
-        out, inl _ -> join
+        {
+        out
+        bck=inl _ -> join
             inl out = {out without block}
             s.CudaKernel.mapi_d2_redo_map' bck_in (primal', out) primal adjoint
             s.CudaKernel.d2_replicate_map' bck_in' primal (primal', out) adjoint'
+        }
 
     inl Primitive =
         {
@@ -113,11 +125,11 @@ inl float ->
     inl apply_bck = (<<)
 
     inl (>>=) a b s =
-        inl a,a_bck = a s
-        inl b,b_bck = b a s
-        b, apply_bck a_bck b_bck
+        inl {out=a bck=a_bck} = a s
+        inl {out=b bck=b_bck} = b a s
+        {out=b; bck=apply_bck a_bck b_bck}
 
-    inl succ x _ = x, const ()
+    inl succ out _ = {out bck=const ()}
 
     // #Activation
     inl activation d = map {d with bck = Struct.map (inl bck (in, out) adjoint -> adjoint + out.adjoint * (self in out.primal)) self}
@@ -338,7 +350,7 @@ inl float ->
                             ret (inl _ -> -(log p)) label'
                         }
                     } input.dim
-        cost, bck
+        {out=cost; bck}
 
     inl accuracy label input s =
         inl input, label = primal input, primal label
@@ -355,32 +367,36 @@ inl float ->
     inl Error = {square sigmoid_cross_entropy softmax_cross_entropy accuracy} |> stackify
 
     // #Initializer
-	inl initialize s dsc =
+    inl initialize s =
+        inl init mult dim s = 
+            inl stddev = sqrt (mult / to float32 (Tuple.foldl (+) 0 dim))
+            s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
+
         Struct.map (function // Rough and possibly poorly tuned inits. Recommended to be used together with PRONG or layer/batch norm.
             | {sigmoid=dim} -> init 2f32 dim s |> dr s
             | {tanh=dim} -> init 3f32 dim s |> dr s
             | {relu=dim} -> init 1f32 dim s |> dr s
             | {bias=dim} -> s.CudaTensor.zero {elem_type=float; dim} |> dr s
             | {identity=dim} -> s.CudaKernel.init {dim} (inl a b -> if a = b then one else zero)
-            ) dsc
+            )
 
-	inl init s = 
-		Struct.foldl_map (inl sublayer_size {x with init} -> 
+    inl init s = 
+        Struct.foldl_map (inl sublayer_size {x with init} -> 
             inl {dsc size} = init sublayer_size
-            inl weigths = initialize s dsc |> heap
+            inl weights = initialize s dsc |> heap
             inl optimize =
                 match x with
-                | {optimize} -> optimize
-                | _ optimizer -> Struct.iter optimizer weights
-			{x without init with optimize weigths}, size
-			)
+                | {optimize} optimizer -> optimize (optimizer s)
+                | _ optimizer -> Struct.iter (optimizer s) weights
+            {x without init with optimize weights}, size
+            )
 
     inl run s input = 
         inl input =
             match input with
             | {x with input bck} -> x
             | {input} -> {input bck=inl _ -> ()}
-		Struct.foldl_map (inl {input bck} {layer with apply} -> 
+        Struct.foldl_map (inl {input bck} {layer with apply} -> 
             inl input = 
                 inl input = {input}
                 inl input =
@@ -389,10 +405,10 @@ inl float ->
                     | _ -> input
                 match layer with {state} -> {input with state} | _ -> input
 
-			inl {x with out bck=bck'} = 
+            inl {x with out bck=bck'} = 
                 indiv join
                     match apply input s with
-                    | {x with bck} -> stack {x with bck = term_cast () bck}
+                    | {x with bck} -> stack {x with bck = term_cast bck ()}
                     | _ -> stack {x with bck = inl _ -> ()}
 
             inl layer =
@@ -401,7 +417,7 @@ inl float ->
                 | _ -> layer
 
             layer, {input=out; bck=apply_bck bck bck'}
-			) input
+            ) input
 
     inl Initializer = {
         bias = inl dim -> {bias=dim; block=()}
@@ -419,7 +435,7 @@ inl float ->
                 dsc = 
                     {
                     input = initializer (sublayer_size, size)
-                    bias = bias size
+                    bias = Initializer.bias size
                     }
                 size
                 }

@@ -32,28 +32,28 @@ inl {test_images test_labels} = module_map (inl _ x -> x.round_split' test_minib
 inl input_size = 784
 inl label_size = 10
 
-inl network =
-    open Feedforward.Layer
+inl network,_ =
+    open Feedforward
     inl network =
         tanh 256,
         linear label_size
-    init input_size network
+    init s input_size network
 
 inl optimizer = Optimizer.sgd (0.01f32 / to float32 train_minibatch_size)
 
 inl train {data={input label} network optimizer final} s =
     inl range = fst input.dim
     assert (range = fst label.dim) "The input and label must have the same outer dimension."
-    Loops.for' {range with state=0.0; body=inl {i next state} ->
+    Loops.for' {range with state=dyn 0.0; body=inl {i next state} ->
         inl input, label = input i, label i
         inb s = s.RegionMem.create'
-        inl network, {input bck} = run s network {input}
-        inl {input bck=bck'} = final label input
+        inl network, {input bck} = run s {input} network
+        inl {out bck=bck'} = final label input s
 
         bck'(); bck()
-        Struct.iter (inl {optimize} -> optimizer optimizer)
+        Struct.iter (inl {optimize} -> optimize optimizer) network
 
-        inl cost = s.CudaTensor.get input |> to float64
+        inl cost = s.CudaTensor.get out |> to float64
         inl state = state + cost
 
         if nan_is cost then state
@@ -63,15 +63,15 @@ inl train {data={input label} network optimizer final} s =
 inl test {data={input label} network final} s =
     inl range = fst input.dim
     assert (range = fst label.dim) "The input and label must have the same outer dimension."
-    Loops.for' {range with state={cost=0.0;ac=0;max_ac=0}; body=inl {i next state} ->
+    Loops.for' {range with state=dyn {cost=0.0;ac=0;max_ac=0}; body=inl {i next state} ->
         inl input, label = input i, label i
         inb s = s.RegionMem.create'
-        inl network, {input bck} = run s network {input}
-        inl {input bck=bck'} = final label input
+        inl network, {input bck} = run s {input} network
+        inl {out bck=bck'} = final label input s
 
-        inl cost = s.CudaTensor.get input |> to float64
-        inl ac = accuracy label input s
-        inl max_ac = input.span_outer
+        inl cost = out |> s.CudaTensor.get |> to float64
+        inl ac = Error.accuracy label input s |> s.CudaTensor.get
+        inl max_ac = (primal input).span_outer
         inl state = {state with cost=self+cost; ac=self+ac; max_ac=self+max_ac}
 
         if nan_is cost then state
@@ -84,7 +84,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
         <| inl _ ->
             train {
                 data={input=train_images; label=train_labels}
-                network=network.train
+                network
                 optimizer=Optimizer.sgd (0.01f32 / to float32 train_minibatch_size)
                 final=Error.softmax_cross_entropy
                 } s
