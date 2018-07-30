@@ -364,5 +364,36 @@ inl {d with max_stack_size num_players} ->
         }
 
     {basic_methods Action State game}
+    """) |> module_
 
+let player_random =
+    (
+    "PlayerRandom",[random],"The player which selects actions at random.",
+    """
+inl {State Action} ->
+    inl rnd = Random()
+    inl action state = {out = Union.length Action |> to int32 |> rnd.next |> to int64 |> Union.create Action}
+
+    {action}
+    """) |> module_
+
+let player_tabular_mc =
+    (
+    "PlayerTabularMC",[dictionary],"The tabular MC player.",
+    """
+inl {State Action init learning_rate} ->
+    inl dict = Dictionary {elem_type=(State,Action),float64}
+    inl action state =
+        inl v, a =
+            Tuple.foldl (inl (s,a) (!box x) ->
+                inl v = dict (rep, x) { on_fail=const init; on_succ=id }
+                if v > s then v,x else s,a
+                ) (-infinityf64, Union.head Action |> box Action) (split Action)
+
+        {
+        out=a
+        bck=inl v' -> dict.set (state, a) (v + learning_rate * (v' - v))
+        }
+
+    {action}
     """) |> module_
