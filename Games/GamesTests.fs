@@ -24,8 +24,8 @@ inl b = player_random {name="Two"}
 game 10 (a,b)
     """
 
-let poker6 =
-    "poker6",[cuda_modules;loops;poker;timer],"What is the winrate of the deep RL player against the random one?",
+let poker2 =
+    "poker2",[cuda_modules;loops;poker;timer],"What is the winrate of the deep RL player against the random one?",
     """
 inb s = CudaModules (1024*1024*1024)
 inl num_players = 2
@@ -58,7 +58,7 @@ f game 15 1000
 //f game 10 1
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker6
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker1
 |> printfn "%s"
 |> ignore
 

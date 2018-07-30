@@ -497,6 +497,6 @@ inl float ->
         {action sampling_pg}
 
     { 
-    dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward 
+    dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward RL
     }
     """) |> module_
