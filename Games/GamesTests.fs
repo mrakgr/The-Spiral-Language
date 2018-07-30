@@ -10,20 +10,6 @@ open Learning.Main
 
 let cfg = Spiral.Types.cfg_default
 
-let poker1 =
-    "poker1",[poker],"Does the poker game work?",
-    """
-inl log = Console.printfn
-inl num_players = 2
-inl max_stack_size = 32
-open Poker {log max_stack_size num_players}
-
-inl a = player_random {name="One"}
-inl b = player_random {name="Two"}
-
-game 10 (a,b)
-    """
-
 let poker2 =
     "poker2",[cuda_modules;loops;poker;timer],"What is the winrate of the deep RL player against the random one?",
     """
@@ -58,6 +44,21 @@ f game 15 1000
 //f game 10 1
     """
 
+let poker1 =
+    "poker1",[poker],"Does the poker game work?",
+    """
+inl log = Console.printfn
+inl num_players = 2
+inl max_stack_size = 32
+open Poker {log max_stack_size num_players}
+
+inl a = player_random {name="One"}
+inl b = player_random {name="Two"}
+
+game 10 (a,b)
+    """
+
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker1
 |> printfn "%s"
 |> ignore
+
