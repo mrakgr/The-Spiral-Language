@@ -439,42 +439,34 @@ inl rec to_sparse ty x =
     
 inl to_sparse ty x = to_sparse ty x |> inl index,length -> {index length}
 
+inl from_sparse ty i = 
+    inl prod (i,s) ty = 
+        inl x, s' = from_sparse ty i
+        x, (i / s', s * s')
 
-
-
-//inl rec decode_template f n x =
-//    inl decode = decode_template f
-//    inl prod (n,s) x = 
-//        inl i,s' = decode n x
-//        i, (n / s', s * s')
-
-//    match x with
-//    | x when caseable_box_is x -> 
-//        inl i, (_, s) = 
-//            Tuple.foldl_map (inl (n,s) x ->
-//                inl i, s' = decode n x
-//                (i, s'), (n - s', s + s')
-//                ) (n, 0) (split x)
+    match ty with
+    | _ when caseable_box_is ty -> 
+        inl x, (_, s) = 
+            Tuple.foldl_map (inl (i,s) ty ->
+                inl x, s' = from_sparse ty i
+                (x, s'), (i - s', s + s')
+                ) (i, 0) (split ty)
         
-//        inl rec loop n ((i,s) :: x') =
-//            inl i _ = i () |> box x
-//            match x' with
-//            | () -> i () 
-//            | _ -> if n < s then i () else loop (n - s) x'
+        inl rec loop ((x,s) :: x') i =
+            inl x _ = x () |> box x
+            match x' with
+            | () -> x () 
+            | _ -> if n < s then x () else loop x' (i - s)
 
-//        inl i _ = loop (n % s) i
-//        i, s
-//    | _ :: _ -> Tuple.foldl_map prod (n,1) x |> inl a, (n, s) -> (inl _ -> Tuple.map (inl x -> x()) a), s
-//    | .(_) | () -> const x, 1
-//    | {!block} -> module_foldl_map (const prod) (n,1) x |> inl a, (n, s) -> (inl _ -> module_map (inl _ x -> x()) a), s
-//    | _ -> f n x
+        (inl _ -> loop x (i % s)), s
+    | _ :: _ -> Tuple.foldl_map prod (i,1) x |> inl x, (i, s) -> (inl _ -> Tuple.map (inl x -> x()) x), s
+    | .(_) | () -> const ty, 1
+    | {!block} -> module_foldl_map prod (i,1) x |> inl x, (i, s) -> (inl _ -> module_map (inl x -> x()) x), s
+    | {from=.(from) near_to=.(near_to) block=()} -> 
+        inl s = near_to - from
+        (inl _ -> i % s), s
 
-//inl decode' r a b = 
-//    inl {from near_to} = match r with {from near_to} -> r | near_to -> {from=0; near_to}
-//    inl s = near_to - from
-//    decode_template (inl n (x: int64) -> (inl _ -> n % s), s) a b |> inl a,b -> a(), b
+inl from_sparse ty i = from_sparse ty i |> inl x,length -> x()
 
-//inl decode r a b = decode' r a b |> fst
-
-{ to_sparse } |> stackify
+{to_sparse from_sparse} |> stackify
     """) |> module_
