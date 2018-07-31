@@ -486,5 +486,40 @@ inl from_sparse ty i =
     assert (i < s) "The input to this function must be less than the size of the type."
     x()
 
+inl rec to_dense ar ty x =
+    inl to_dense = to_dense ar
+    inl prod s ty x =
+        inl s' = to_dense ty x
+        s + s'
+
+    inl sum s ty x =
+        inl i',s' = to_sparse ty x
+        s + i', s + s'
+
+    inl assert_range {from near_to} x =
+        assert (eq_type 0 x) "x must be the int64 type."
+        assert (x >= from) "x must be greater or equal to its lower bound."
+        assert (x < near_to) "x must be lesser than its upper bound."
+        x, near_to - from
+
+    match ty, x with
+    | _, _ when caseable_box_is ty && caseable_box_is x ->
+        inl ty = split ty
+        assert (Tuple.length ty = Tuple.length (split x)) "The two types must equal each other."
+        case_foldl_map (inl (ty :: ty', s) x ->
+            inl (i',s') = sum s ty x
+            i', (ty', s')
+            ) (ty,0) x
+        |> inl i,((),s) -> i,s
+    | _ :: _, _ :: _ -> Tuple.foldl2 prod (0,1) ty x
+    | .(a), .(b) ->
+        assert (a = b) "The two types must equal each other."
+        0,1
+    | (),() -> 0,1
+    | {!block}, {!block} ->
+        assert (module_length ty = module_length x) "The two types must equal each other."
+        module_foldl (inl k s x -> prod s (ty k) x) (0,1) x
+    | {from=.(from) near_to=.(near_to) block=()}, _ -> assert_range {from near_to} x
+
 {to_sparse from_sparse box} |> stackify
     """) |> module_
