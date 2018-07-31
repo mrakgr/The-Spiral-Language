@@ -138,6 +138,7 @@ type Op =
     | ModuleFilter
     | ModuleFoldL
     | ModuleFoldR
+    | ModuleLength
     | MapGetField // Codegen only
     | ModuleMemberCPS
     | ModuleInjectCPS

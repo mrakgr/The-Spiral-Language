@@ -210,6 +210,9 @@ inl module_foldr f a s = !ModuleFoldR(f,s,a)
 /// Returns boolean whether the module has a member.
 /// string type_lit -> a module -> bool
 inl module_has_member x m = !ModuleHasMember(x,m)
+/// Returns the module length.
+/// module -> int64
+inl module_length m = !ModuleLength(m)
 /// Unsafe upcast. Unlike the F# compiler, Spiral won't check its correctness.
 inl (:>) a b = !UnsafeUpcastTo(b,a)
 /// Unsafe downcast. Unlike the F# compiler, Spiral won't check its correctness.
@@ -309,7 +312,7 @@ string char type_lit_cast type_lit_is term_cast to negate ignore id const ref (+
 string_length lit_is box_is failwith assert max min eq_type module_values caseable_is caseable_box_is (:>)
 (:?>) (=) module_map module_filter module_foldl module_foldr module_has_member sizeof string_format string_concat
 array_create_cuda_shared array_create_cuda_local infinityf64 infinityf32 abs blittable_is threadIdx blockIdx
-lit_min lit_max var module_add module_remove obj nan_is stackify case_foldl_map module_foldl_map
+lit_min lit_max var module_add module_remove obj nan_is stackify case_foldl_map module_foldl_map module_length
 }
 |> module_map (const stack)
     """) |> module_

@@ -24,7 +24,17 @@ inl b = player_random {name="Two"}
 game 10 (a,b)
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker1
+let union1 =
+    "union1",[union;option;extern_;console],"Does the to_sparse work?",
+    """
+inl r x = {from=.0; near_to=.(x); block=()}
+inl a = Union.to_sparse (r 2,r 2,r 2) (0,dyn 1,dyn 1)
+inl b = Union.to_sparse (Option.none (r 10)) (Option.none int64)
+inl c = Union.to_sparse (Option.none (r 10)) (Option.some 5)
+Console.writeline (a,b,c)
+    """
+
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union1
 |> printfn "%s"
 |> ignore
 

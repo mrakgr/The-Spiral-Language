@@ -402,62 +402,77 @@ let union =
     (
     "Union",[tuple;console],"The Union module.",
     """
-/// The functions here are used for transforming arbitrary types into the one-hot format.
-/// Useful in RL contexts since union types are not blittable.
-inl rec to_sparse x =
-    inl prod {index=i length=s} x =
-        inl {index=i' length=s'} = to_sparse x
-        {index=i + i' * s; length=s * s'}
+/// The transforms the argument into an index given a template.
+inl rec to_sparse ty x =
+    inl prod (i,s) ty x =
+        inl i', s' = to_sparse ty x
+        i + i' * s, s * s'
 
-    inl sum index x =
-        inl {index=i' length=s'} = to_sparse x
-        {index=s + i'; length=s + s'}
+    inl sum s ty x =
+        inl i',s' = to_sparse ty x
+        s + i', s + s'
 
-    inl assert_range {from by near_to} x =
+    inl assert_range {from near_to} x =
+        assert (eq_type 0 x) "x must be the int64 type."
         assert (x >= from) "x must be greater or equal to its lower bound."
         assert (x < near_to) "x must be lesser than its upper bound."
-        {index=x; length=near_to - from}
+        x, near_to - from
 
-    match x with
-    | x when caseable_box_is x -> case_foldl_map sum 0 x
-    | _ :: _ as x -> Tuple.foldl prod {index=0; length=1} x
-    | .(_) | () -> {index=0; length=1}
-    | {from=.(from) near_to=.(near_to) block=()} -> assert_range {from near_to} x
-    | {!block} as x -> module_foldl (const prod) {index=0; length=1} x
+    match ty, x with
+    | _, _ when caseable_box_is ty && caseable_box_is x ->
+        inl ty = split ty
+        assert (Tuple.length ty = Tuple.length (split x)) "The two types must equal each other."
+        case_foldl_map (inl (ty :: ty', s) x ->
+            inl (i',s') = sum s ty x
+            i', (ty', s')
+            ) (ty,0) x
+        |> inl i,((),s) -> i,s
+    | _ :: _, _ :: _ -> Tuple.foldl2 prod (0,1) ty x
+    | .(a), .(b) ->
+        assert (a = b) "The two types must equal each other."
+        0,1
+    | (),() -> 0,1
+    | {!block}, {!block} ->
+        assert (module_length ty = module_length x) "The two types must equal each other."
+        module_foldl (inl k s x -> prod s (ty k) x) (0,1) x
+    | {from=.(from) near_to=.(near_to) block=()}, _ -> assert_range {from near_to} x
+    
+inl to_sparse ty x = to_sparse ty x |> inl index,length -> {index length}
 
-inl rec decode_template f n x =
-    inl decode = decode_template f
-    inl prod (n,s) x = 
-        inl i,s' = decode n x
-        i, (n / s', s * s')
 
-    match x with
-    | x when caseable_box_is x -> 
-        inl i, (_, s) = 
-            Tuple.foldl_map (inl (n,s) x ->
-                inl i, s' = decode n x
-                (i, s'), (n - s', s + s')
-                ) (n, 0) (split x)
+//inl rec decode_template f n x =
+//    inl decode = decode_template f
+//    inl prod (n,s) x = 
+//        inl i,s' = decode n x
+//        i, (n / s', s * s')
+
+//    match x with
+//    | x when caseable_box_is x -> 
+//        inl i, (_, s) = 
+//            Tuple.foldl_map (inl (n,s) x ->
+//                inl i, s' = decode n x
+//                (i, s'), (n - s', s + s')
+//                ) (n, 0) (split x)
         
-        inl rec loop n ((i,s) :: x') =
-            inl i _ = i () |> box x
-            match x' with
-            | () -> i () 
-            | _ -> if n < s then i () else loop (n - s) x'
+//        inl rec loop n ((i,s) :: x') =
+//            inl i _ = i () |> box x
+//            match x' with
+//            | () -> i () 
+//            | _ -> if n < s then i () else loop (n - s) x'
 
-        inl i _ = loop (n % s) i
-        i, s
-    | _ :: _ -> Tuple.foldl_map prod (n,1) x |> inl a, (n, s) -> (inl _ -> Tuple.map (inl x -> x()) a), s
-    | .(_) | () -> const x, 1
-    | {!block} -> module_foldl_map (const prod) (n,1) x |> inl a, (n, s) -> (inl _ -> module_map (inl _ x -> x()) a), s
-    | _ -> f n x
+//        inl i _ = loop (n % s) i
+//        i, s
+//    | _ :: _ -> Tuple.foldl_map prod (n,1) x |> inl a, (n, s) -> (inl _ -> Tuple.map (inl x -> x()) a), s
+//    | .(_) | () -> const x, 1
+//    | {!block} -> module_foldl_map (const prod) (n,1) x |> inl a, (n, s) -> (inl _ -> module_map (inl _ x -> x()) a), s
+//    | _ -> f n x
 
-inl decode' r a b = 
-    inl {from near_to} = match r with {from near_to} -> r | near_to -> {from=0; near_to}
-    inl s = near_to - from
-    decode_template (inl n (x: int64) -> (inl _ -> n % s), s) a b |> inl a,b -> a(), b
+//inl decode' r a b = 
+//    inl {from near_to} = match r with {from near_to} -> r | near_to -> {from=0; near_to}
+//    inl s = near_to - from
+//    decode_template (inl n (x: int64) -> (inl _ -> n % s), s) a b |> inl a,b -> a(), b
 
-inl decode r a b = decode' r a b |> fst
+//inl decode r a b = decode' r a b |> fst
 
-{ encode' encode decode' decode span } |> stackify
+{ to_sparse } |> stackify
     """) |> module_

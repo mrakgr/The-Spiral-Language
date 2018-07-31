@@ -1496,6 +1496,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let inline ap a b = apply d a b
             module_fold_template (fun fold_op s env -> Map.foldBack (fun k v s -> ap (ap (ap fold_op (type_lit_create' (LitString k))) v) s) env s) d
 
+        let module_length d a =
+            match tev d a with
+            | TyMap(C env, MapTypeModule) -> TyLit (LitInt64 (int64 env.Count))
+            | x -> on_type_er (trace d) <| sprintf "Expected a module on module length. Got: %s" (show_typedexpr x)
+
         let module_has_member d a b =
             match tev d a, tev d b with
             | a, (TyV(_,LayoutT(_,TyMap(C env,MapTypeModule))) | (TyT(LayoutT(_,TyMap(C env,MapTypeModule)))) | TyMap(C env,MapTypeModule)) -> 
@@ -1739,6 +1744,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ModuleFilter,[a;b] -> module_filter d a b
             | ModuleFoldL,[a;b;c] -> module_foldl d a b c
             | ModuleFoldR,[a;b;c] -> module_foldr d a b c
+            | ModuleLength,[a] -> module_length d a
             | LitIs,[a] -> lit_is d a
             | CaseableIs,[a] -> caseable_is d a
             | BoxIs,[a] -> box_is d a
