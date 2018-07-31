@@ -388,7 +388,7 @@ inl {State Action init learning_rate} ->
             Tuple.foldl (inl (s,a) (!box x) ->
                 inl v = dict (rep, x) { on_fail=const init; on_succ=id }
                 if v > s then v,x else s,a
-                ) (-infinityf64, Union.head Action |> box Action) (split Action)
+                ) (-infinityf64, Union.head Action |> Union.create Action) (split Action)
 
         {
         out=a
