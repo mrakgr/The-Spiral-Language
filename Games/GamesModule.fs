@@ -372,7 +372,7 @@ let player_random =
     """
 inl {State Action} ->
     inl rnd = Random()
-    inl action state = {out = Union.length Action |> to int32 |> rnd.next |> to int64 |> Union.create Action}
+    inl action state = {out = Union.to_sparse Action .length |> to int32 |> rnd.next |> to int64 |> Union.create Action}
 
     {action}
     """) |> module_
@@ -396,4 +396,68 @@ inl {State Action init learning_rate} ->
         }
 
     {action}
+    """) |> module_
+
+let union =
+    (
+    "Union",[tuple;console],"The Union module.",
+    """
+/// The functions here are used for transforming arbitrary types into the one-hot format.
+/// Useful in RL contexts since union types are not blittable.
+inl rec to_sparse x =
+    inl prod {index=i length=s} x =
+        inl {index=i' length=s'} = to_sparse x
+        {index=i + i' * s; length=s * s'}
+
+    inl sum index x =
+        inl {index=i' length=s'} = to_sparse x
+        {index=s + i'; length=s + s'}
+
+    inl assert_range {from by near_to} x =
+        assert (x >= from) "x must be greater or equal to its lower bound."
+        assert (x < near_to) "x must be lesser than its upper bound."
+        {index=x; length=near_to - from}
+
+    match x with
+    | x when caseable_box_is x -> case_foldl_map sum 0 x
+    | _ :: _ as x -> Tuple.foldl prod {index=0; length=1} x
+    | .(_) | () -> {index=0; length=1}
+    | {from=.(from) near_to=.(near_to) block=()} -> assert_range {from near_to} x
+    | {!block} as x -> module_foldl (const prod) {index=0; length=1} x
+
+inl rec decode_template f n x =
+    inl decode = decode_template f
+    inl prod (n,s) x = 
+        inl i,s' = decode n x
+        i, (n / s', s * s')
+
+    match x with
+    | x when caseable_box_is x -> 
+        inl i, (_, s) = 
+            Tuple.foldl_map (inl (n,s) x ->
+                inl i, s' = decode n x
+                (i, s'), (n - s', s + s')
+                ) (n, 0) (split x)
+        
+        inl rec loop n ((i,s) :: x') =
+            inl i _ = i () |> box x
+            match x' with
+            | () -> i () 
+            | _ -> if n < s then i () else loop (n - s) x'
+
+        inl i _ = loop (n % s) i
+        i, s
+    | _ :: _ -> Tuple.foldl_map prod (n,1) x |> inl a, (n, s) -> (inl _ -> Tuple.map (inl x -> x()) a), s
+    | .(_) | () -> const x, 1
+    | {!block} -> module_foldl_map (const prod) (n,1) x |> inl a, (n, s) -> (inl _ -> module_map (inl _ x -> x()) a), s
+    | _ -> f n x
+
+inl decode' r a b = 
+    inl {from near_to} = match r with {from near_to} -> r | near_to -> {from=0; near_to}
+    inl s = near_to - from
+    decode_template (inl n (x: int64) -> (inl _ -> n % s), s) a b |> inl a,b -> a(), b
+
+inl decode r a b = decode' r a b |> fst
+
+{ encode' encode decode' decode span } |> stackify
     """) |> module_
