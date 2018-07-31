@@ -30,7 +30,7 @@ let union1 =
 inl r x = {from=.0; near_to=.(x); block=()}
 inl a = Union.to_sparse (r 2,r 2,r 2) (0,dyn 1,dyn 1)
 inl b = Union.to_sparse (Option.none (r 10)) (dyn (Option.none int64))
-inl c = Union.to_sparse (Option.none (r 10)) (dyn (Option.some 5))
+inl c = Union.to_sparse (Option.none (r 10)) ((Option.some 5))
 Console.writeline (a,b,c)
     """
 
