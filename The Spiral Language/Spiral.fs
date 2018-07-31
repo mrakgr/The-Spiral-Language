@@ -955,27 +955,40 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     apply_seq d a, b
                 | x -> on_type_er (trace d) "Expected a value * state tuple as the return from a case branch."
 
-            match tev d v |> make_tyv_and_push_typed_expr_even_if_unit d |> destructure d with
-            | TyT _ | TyV _ as x -> x
-            | x -> make_tyv_and_push_typed_expr_even_if_unit d x |> destructure d
-            |> function
-            | (TyV(_, t & (UnionT _ | RecT _)) | TyT(t & (UnionT _ | RecT _))) as v ->
-                let make_up_vars_for_ty (l: Ty list): TypedExpr list = List.map (make_up_vars_for_ty d) l
-                let map_to_cases (l: TypedExpr list) = 
-                    List.mapFold (fun s x -> 
-                        let x',s = assume d case s x
-                        (x,x'),s) (tev d s) l
+            let make_up_vars_for_ty (l: Ty list): TypedExpr list = List.map (make_up_vars_for_ty d) l
+            let map_to_cases (l: TypedExpr list) = 
+                List.mapFold (fun s x -> 
+                    let x',s' = assume d case s x
+                    (x,x',s),s'
+                    ) (tev d s) l
 
-                let cases,state = case_type d t |> make_up_vars_for_ty |> map_to_cases
+            match tev d v with
+            | TyBox(v,t) ->
+                let t = case_type d t
+                let cases,state = make_up_vars_for_ty t |> map_to_cases
                             
                 match cases with
-                | (_, TyType p) :: cases as cases' -> 
-                    if List.forall (fun (_, TyType x) -> x = p) cases then 
-                        TyOp(Case,v :: List.collect (fun (a,b) -> [a;b]) cases', p) 
+                | (_, TyType p,_) :: cases' ->
+                    if List.forall (fun (_, TyType x,_) -> x = p) cases' then
+                        let v_ty = get_type v
+                        let _,_,s = cases.[List.findIndex (fun t -> v_ty = t) t]
+                        let x',_ = assume d case s v
+                        tyvv [x';state]
+                    else
+                        let l = List.map (fun (_,b,_) -> get_type b) cases
+                        on_type_er (trace d) <| sprintf "All the cases in pattern matching clause with dynamic data must have the same type.\nGot: %s" (listt l |> show_ty)
+                | _ -> failwith "There should always be at least one clause here."
+            | (TyV(_, t & (UnionT _ | RecT _)) | TyT(t & (UnionT _ | RecT _))) as v ->
+                let cases,state = case_type d t |> make_up_vars_for_ty |> map_to_cases
+
+                match cases with
+                | (_, TyType p,_) :: cases' -> 
+                    if List.forall (fun (_, TyType x,_) -> x = p) cases' then 
+                        TyOp(Case,v :: List.collect (fun (a,b,_) -> [a;b]) cases, p) 
                         |> make_tyv_and_push_typed_expr_even_if_unit d
                         |> fun x -> tyvv [x;state]
                     else 
-                        let l = List.map (snd >> get_type) cases'
+                        let l = List.map (fun (_,b,_) -> get_type b) cases
                         on_type_er (trace d) <| sprintf "All the cases in pattern matching clause with dynamic data must have the same type.\nGot: %s" (listt l |> show_ty)
                 | _ -> failwith "There should always be at least one clause here."
             | x -> on_type_er (trace d) <| sprintf "CaseFoldLMap needs an union type as input.\nGot: %A" x
