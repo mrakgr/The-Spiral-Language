@@ -402,7 +402,9 @@ let union =
     (
     "Union",[tuple;console],"The Union module.",
     """
-/// The transforms the argument into an index given a template.
+/// The transforms the argument into an index given a type template.
+/// It is a one-hot encode function.
+/// type -> x -> int64
 inl rec to_sparse ty x =
     inl prod (i,s) ty x =
         inl i', s' = to_sparse ty x
@@ -437,9 +439,22 @@ inl rec to_sparse ty x =
         module_foldl (inl k s x -> prod s (ty k) x) (0,1) x
     | {from=.(from) near_to=.(near_to) block=()}, _ -> assert_range {from near_to} x
     
-inl to_sparse ty x = to_sparse ty x |> inl index,length -> {index length}
+inl to_sparse ty x = to_sparse ty x
 
-inl from_sparse ty i = 
+inl rec boxy ty =
+    match ty with
+    | _ when caseable_box_is ty -> Tuple.map boxy (split ty) |> Tuple.reducel (inl a b -> a \/ b)
+    | _ :: _ -> Tuple.map boxy ty
+    | .(_) | () -> ty
+    | {!block} -> module_map boxy ty
+    | {from=.(from) near_to=.(near_to) block=()} -> int64
+
+/// Works much the same as a regular box, but converts the special integer ranges into int64 types.
+inl box ty = box (boxy ty)
+
+/// Converts an index into a union type.
+/// type -> int64 -> x
+inl rec from_sparse ty i = 
     inl prod (i,s) ty = 
         inl x, s' = from_sparse ty i
         x, (i / s', s * s')
@@ -451,22 +466,25 @@ inl from_sparse ty i =
                 inl x, s' = from_sparse ty i
                 (x, s'), (i - s', s + s')
                 ) (i, 0) (split ty)
-        
+
         inl rec loop ((x,s) :: x') i =
-            inl x _ = x () |> box x
+            inl x _ = x () |> box ty
             match x' with
             | () -> x () 
-            | _ -> if n < s then x () else loop x' (i - s)
+            | _ -> if i < s then x () else loop x' (i - s)
 
         (inl _ -> loop x (i % s)), s
-    | _ :: _ -> Tuple.foldl_map prod (i,1) x |> inl x, (i, s) -> (inl _ -> Tuple.map (inl x -> x()) x), s
+    | _ :: _ -> Tuple.foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> Tuple.map (inl x -> x()) x), s
     | .(_) | () -> const ty, 1
-    | {!block} -> module_foldl_map prod (i,1) x |> inl x, (i, s) -> (inl _ -> module_map (inl x -> x()) x), s
+    | {!block} -> module_foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> module_map (inl _ x -> x()) x), s
     | {from=.(from) near_to=.(near_to) block=()} -> 
         inl s = near_to - from
         (inl _ -> i % s), s
 
-inl from_sparse ty i = from_sparse ty i |> inl x,length -> x()
+inl from_sparse ty i = 
+    inl x,s = from_sparse ty i
+    assert (i < s) "The input to this function must be less than the size of the type."
+    x()
 
-{to_sparse from_sparse} |> stackify
+{to_sparse from_sparse box} |> stackify
     """) |> module_

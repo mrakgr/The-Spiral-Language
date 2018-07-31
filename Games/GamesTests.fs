@@ -38,7 +38,15 @@ let union2 =
     "union2",[union;option;extern_;console],"Does the from_sparse work?",
     """
 inl r x = {from=.0; near_to=.(x); block=()}
-()
+inl test ty x =
+    inl a = Union.to_sparse ty x
+    inl b = Union.from_sparse ty (fst a)
+    assert (b = x) "The input and output should be equal." 
+    Console.writeline b
+
+test (r 2,r 2,r 2) (0,dyn 1,dyn 1)
+test (Option.none (r 10)) (Option.none int64)
+test (Option.none (r 10)) (Option.some 5)
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union2
