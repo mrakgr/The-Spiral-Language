@@ -34,7 +34,14 @@ inl c = Union.to_sparse (Option.none (r 10)) (Option.some 5)
 Console.writeline (a,b,c)
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union1
+let union2 =
+    "union2",[union;option;extern_;console],"Does the from_sparse work?",
+    """
+inl r x = {from=.0; near_to=.(x); block=()}
+()
+    """
+
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union2
 |> printfn "%s"
 |> ignore
 
