@@ -52,4 +52,3 @@ test (Option.none (r 10)) (Option.some 5)
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union1
 |> printfn "%s"
 |> ignore
-
