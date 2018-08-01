@@ -514,47 +514,26 @@ inl rec from_sparse_form ty =
 /// Converts an index into a union type.
 /// type -> int64 -> x
 inl rec from_sparse ty i =
-    inl prod (i,s) ty =
-        inl x, s' = from_sparse ty i
-        x, (i / s', s * s')
+    inl prod i ty =
+        inl x = from_sparse ty i
+        x, i / ty.s
 
     inl {x s conv} = ty
     match x with
     | _ when caseable_box_is ty -> 
-        inl rec loop i = function
-            | x :: x' -> if i < s then box conv (from_sparse x i) else loop (i - x.s) x'
-            | () -> box conv (from_sparse x i)
-
-    //match ty with
-    //| {union_type=x; size=s; block=()} -> 
-    //    inl rec loop = function
-    //        | x :: () ->
-    //            box ty
-        //inl x, (_, s) =
-        //    Tuple.foldl_map (inl (i,s) ty ->
-        //        inl x, s' = from_sparse ty i
-        //        (x, s'), (i - s', s + s')
-        //        ) (i, 0) (split ty)
-
-        //inl rec loop ((x,s) :: x') i =
-        //    inl x _ = x () |> box ty
-        //    match x' with
-        //    | () -> x ()
-        //    | _ -> if i < s then x () else loop x' (i - s)
-
-        //(inl _ -> loop x (i % s)), s
-    //| _ :: _ -> Tuple.foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> Tuple.map (inl x -> x()) x), s
-    //| .(_) | () -> const ty, 1
-    //| {!block} -> module_foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> module_map (inl _ x -> x()) x), s
-    //| {from=.(from) near_to=.(near_to) block=()} -> 
-    //    inl s = near_to - from
-    //    (inl _ -> i % s), s
+        Tuple.foldr (inl x next i ->
+            if i < x.s then box conv (from_sparse x i) else next (i - x.s)
+            ) x (inl i -> box conv (from_sparse x i)) (i % s)
+    | _ :: _ -> Tuple.foldl_map prod i ty |> fst
+    | .(_) | () -> ty
+    | {!block} -> module_foldl_map prod i ty |> fst
+    | {from=.(from) near_to=.(near_to) block=()} -> i % (near_to - from)
 
 inl from_sparse ty i = 
     assert (i >= 0) "i needs to be greater or equal to zero."
-    inl x,s = from_sparse ty i
-    assert (i < s) "The input to this function must be less than the size of the type."
-    x()
+    inl ty = from_sparse_form ty
+    assert (i < ty.s) "The input to this function must be less than the size of the type."
+    from_sparse ty i
 
 inl from_dense true_is ty ar =
     inl rec from_dense ty i {on_succ on_fail} =
