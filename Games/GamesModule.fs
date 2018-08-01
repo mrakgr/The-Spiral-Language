@@ -535,64 +535,64 @@ inl from_sparse ty i =
     assert (i < ty.s) "The input to this function must be less than the size of the type."
     from_sparse ty i
 
-inl from_dense true_is ty ar =
-    inl rec from_dense ty i {on_succ on_fail} =
-        //match ty with
-        //    inl x, (_, s) =
-        //        Tuple.foldl_map (inl (i,s) ty ->
-        //            inl x, s' = from_sparse ty i
-        //            (x, s'), (i - s', s + s')
-        //            ) (i, 0) (split ty)
+//inl from_dense true_is ty ar =
+//    inl rec from_dense ty i {on_succ on_fail} =
+//        //match ty with
+//        //    inl x, (_, s) =
+//        //        Tuple.foldl_map (inl (i,s) ty ->
+//        //            inl x, s' = from_sparse ty i
+//        //            (x, s'), (i - s', s + s')
+//        //            ) (i, 0) (split ty)
 
-        //    inl rec loop ((x,s) :: x') i =
-        //        inl x _ = x () |> box ty
-        //        match x' with
-        //        | () -> x () 
-        //        | _ -> if i < s then x () else loop x' (i - s)
+//        //    inl rec loop ((x,s) :: x') i =
+//        //        inl x _ = x () |> box ty
+//        //        match x' with
+//        //        | () -> x () 
+//        //        | _ -> if i < s then x () else loop x' (i - s)
 
-        //    (inl _ -> loop x (i % s)), s
-        match ty with
-        | _ when caseable_box_is ty -> 
-            Tuple.foldr (inl ty' next i ->
-                to_dense ty' i {
-                    on_succ = inl ty' i ->  
-                        inl ty = box ty ty'
+//        //    (inl _ -> loop x (i % s)), s
+//        match ty with
+//        | _ when caseable_box_is ty -> 
+//            Tuple.foldr (inl ty' next i ->
+//                to_dense ty' i {
+//                    on_succ = inl ty' i ->  
+//                        inl ty = box ty ty'
 
-                    }
-                )
-        | _ :: _ ->
-            Tuple.foldr (inl ty next (s,i) ->
-                to_dense ty i {
-                    on_succ = inl ty i -> next (ty :: s, i)
-                    on_fail
-                    }
-                ) ty (inl s,i -> on_succ (Tuple.rev s) i) ((),i)
-        | .(_) | () -> on_succ ty i
-        | {!block} ->
-            module_foldr (inl _ ty next (s,i) ->
-                to_dense ty i {
-                    on_succ = inl ty i -> next (ty :: s, i)
-                    on_fail
-                    }
-                ) ty (inl s,i -> on_succ (Tuple.rev s) i) ((),i)
-        | {from=.(from) near_to=.(near_to) block=()} -> 
-            assert (eq_type 0 x) "x must be the int64 type."
-            assert (x >= from) "x must be greater or equal to its lower bound."
-            assert (x < near_to) "x must be lesser than its upper bound."
-            inl s = near_to - from
-            inl i' = i + s
-            if s = 1 then 
-                on_succ 0 i 
-            else 
-                Loops.for' {from=i'; near_to=i'+s; 
-                    body=inl {i next} -> if true_is (ar i) then on_succ s i else next ()
-                    finally=on_fail
-                    }
+//                    }
+//                )
+//        | _ :: _ ->
+//            Tuple.foldr (inl ty next (s,i) ->
+//                to_dense ty i {
+//                    on_succ = inl ty i -> next (ty :: s, i)
+//                    on_fail
+//                    }
+//                ) ty (inl s,i -> on_succ (Tuple.rev s) i) ((),i)
+//        | .(_) | () -> on_succ ty i
+//        | {!block} ->
+//            module_foldr (inl _ ty next (s,i) ->
+//                to_dense ty i {
+//                    on_succ = inl ty i -> next (ty :: s, i)
+//                    on_fail
+//                    }
+//                ) ty (inl s,i -> on_succ (Tuple.rev s) i) ((),i)
+//        | {from=.(from) near_to=.(near_to) block=()} -> 
+//            assert (eq_type 0 x) "x must be the int64 type."
+//            assert (x >= from) "x must be greater or equal to its lower bound."
+//            assert (x < near_to) "x must be lesser than its upper bound."
+//            inl s = near_to - from
+//            inl i' = i + s
+//            if s = 1 then 
+//                on_succ 0 i 
+//            else 
+//                Loops.for' {from=i'; near_to=i'+s; 
+//                    body=inl {i next} -> if true_is (ar i) then on_succ s i else next ()
+//                    finally=on_fail
+//                    }
 
-    from_dense ty 0 {
-        on_succ=inl ty i -> ty
-        on_fail=inl _ -> failwith ty "The array is not a valid representation of the type."
-        }
+//    from_dense ty 0 {
+//        on_succ=inl ty i -> ty
+//        on_fail=inl _ -> failwith ty "The array is not a valid representation of the type."
+//        }
 
 //inl from_dense ty ar =
 //    inl rec from_dense ty i = 
@@ -618,5 +618,5 @@ inl from_dense true_is ty ar =
 //            inl s = near_to - from
 //            (inl _ -> i % s), s
 
-{to_sparse from_sparse box to_dense} |> stackify
+{to_sparse to_dense from_sparse} |> stackify
     """) |> module_
