@@ -545,7 +545,14 @@ inl from_dense true_is ty ar =
 
         //    (inl _ -> loop x (i % s)), s
         | _ :: _ -> //Tuple.foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> Tuple.map (inl x -> x()) x), s
-
+            inl rec loop s,i = function
+                | x :: x' ->
+                    to_dense x i {
+                        on_succ = inl ty i -> loop (ty :: s, i) x'
+                        on_fail
+                        }
+                | () -> on_succ (Tuple.rev s) i
+            loop ((),i) ty
         | .(_) | () -> on_succ ty i
         | {!block} -> module_foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> module_map (inl _ x -> x()) x), s
         | {from=.(from) near_to=.(near_to) block=()} -> 
