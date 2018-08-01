@@ -454,8 +454,8 @@ inl box ty = box (boxy ty)
 
 /// Converts an index into a union type.
 /// type -> int64 -> x
-inl rec from_sparse ty i = 
-    inl prod (i,s) ty = 
+inl rec from_sparse ty i =
+    inl prod (i,s) ty =
         inl x, s' = from_sparse ty i
         x, (i / s', s * s')
 
@@ -525,6 +525,30 @@ inl to_dense ty x =
     inl ar = array_create float32 s
     to_dense (inl i -> ar i <- 1f32) ty x |> ignore
     ar
+
+//inl from_dense ty ar =
+//    inl rec from_dense ty i = 
+//        match ty with
+//        | _ when caseable_box_is ty -> 
+//            inl x, (_, s) = 
+//                Tuple.foldl_map (inl (i,s) ty ->
+//                    inl x, s' = from_dense ty i
+//                    (x, s'), (i - s', s + s')
+//                    ) (i, 0) (split ty)
+
+//            inl rec loop ((x,s) :: x') i =
+//                inl x _ = x () |> box ty
+//                match x' with
+//                | () -> x () 
+//                | _ -> if i < s then x () else loop x' (i - s)
+
+//            (inl _ -> loop x (i % s)), s
+//        | _ :: _ -> Tuple.foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> Tuple.map (inl x -> x()) x), s
+//        | .(_) | () -> const ty, 1
+//        | {!block} -> module_foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> module_map (inl _ x -> x()) x), s
+//        | {from=.(from) near_to=.(near_to) block=()} -> 
+//            inl s = near_to - from
+//            (inl _ -> i % s), s
 
 {to_sparse from_sparse box to_dense} |> stackify
     """) |> module_
