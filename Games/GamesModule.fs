@@ -527,6 +527,9 @@ inl to_dense ty x =
     to_dense (inl i -> ar i <- 1f32) ty x |> ignore
     ar
 
+inl from_dense ty ar =
+    ()
+
 //inl from_dense ty ar =
 //    inl rec from_dense ty i = 
 //        match ty with
