@@ -482,6 +482,7 @@ inl rec from_sparse ty i =
         (inl _ -> i % s), s
 
 inl from_sparse ty i = 
+    assert (i >= 0) "i needs to be greater or equal to zero."
     inl x,s = from_sparse ty i
     assert (i < s) "The input to this function must be less than the size of the type."
     x()
