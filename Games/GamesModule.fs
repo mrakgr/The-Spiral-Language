@@ -544,17 +544,21 @@ inl from_dense true_is ty ar =
         //        | _ -> if i < s then x () else loop x' (i - s)
 
         //    (inl _ -> loop x (i % s)), s
-        | _ :: _ -> //Tuple.foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> Tuple.map (inl x -> x()) x), s
-            inl rec loop s,i = function
-                | x :: x' ->
-                    to_dense x i {
-                        on_succ = inl ty i -> loop (ty :: s, i) x'
-                        on_fail
-                        }
-                | () -> on_succ (Tuple.rev s) i
-            loop ((),i) ty
+        | _ :: _ ->
+            Tuple.foldr (inl ty next (s,i) ->
+                to_dense ty i {
+                    on_succ = inl ty i -> next (ty :: s, i)
+                    on_fail
+                    }
+                ) ty (inl s,i -> on_succ (Tuple.rev s) i) ((),i)
         | .(_) | () -> on_succ ty i
-        | {!block} -> module_foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> module_map (inl _ x -> x()) x), s
+        | {!block} ->
+            module_foldr (inl _ ty next (s,i) ->
+                to_dense ty i {
+                    on_succ = inl ty i -> next (ty :: s, i)
+                    on_fail
+                    }
+                ) ty (inl s,i -> on_succ (Tuple.rev s) i) ((),i)
         | {from=.(from) near_to=.(near_to) block=()} -> 
             assert (eq_type 0 x) "x must be the int64 type."
             assert (x >= from) "x must be greater or equal to its lower bound."
@@ -565,7 +569,7 @@ inl from_dense true_is ty ar =
                 on_succ ty i 
             else 
                 Loops.for' {from=i'; near_to=i'+s; 
-                    body=inl {i next} -> if true_is (ar i) then on_succ ty i else next ()
+                    body=inl {i next} -> if true_is (ar i) then on_succ s i else next ()
                     finally=on_fail
                     }
 
