@@ -527,8 +527,45 @@ inl to_dense ty x =
     to_dense (inl i -> ar i <- 1f32) ty x |> ignore
     ar
 
-inl from_dense ty ar =
-    ()
+inl from_dense true_is ty ar =
+    inl rec from_dense ty i {on_succ on_fail} =
+        match ty with
+        //| _ when caseable_box_is ty -> 
+        //    inl x, (_, s) =
+        //        Tuple.foldl_map (inl (i,s) ty ->
+        //            inl x, s' = from_sparse ty i
+        //            (x, s'), (i - s', s + s')
+        //            ) (i, 0) (split ty)
+
+        //    inl rec loop ((x,s) :: x') i =
+        //        inl x _ = x () |> box ty
+        //        match x' with
+        //        | () -> x () 
+        //        | _ -> if i < s then x () else loop x' (i - s)
+
+        //    (inl _ -> loop x (i % s)), s
+        | _ :: _ -> //Tuple.foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> Tuple.map (inl x -> x()) x), s
+            Tuple.foldr
+        | .(_) | () -> on_succ ty i
+        | {!block} -> module_foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> module_map (inl _ x -> x()) x), s
+        | {from=.(from) near_to=.(near_to) block=()} -> 
+            assert (eq_type 0 x) "x must be the int64 type."
+            assert (x >= from) "x must be greater or equal to its lower bound."
+            assert (x < near_to) "x must be lesser than its upper bound."
+            inl s = near_to - from
+            inl i' = i + s
+            if s < 2 then 
+                on_succ ty i 
+            else 
+                Loops.for' {from=i'; near_to=i'+s; 
+                    body=inl {i next} -> if true_is (ar i) then on_succ ty i else next ()
+                    finally=on_fail
+                    }
+
+    from_dense ty 0 {
+        on_succ=inl ty i -> ty
+        on_fail=inl _ -> failwith ty "The array is not a valid representation of the type."
+        }
 
 //inl from_dense ty ar =
 //    inl rec from_dense ty i = 
