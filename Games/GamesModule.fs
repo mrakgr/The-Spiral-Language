@@ -486,40 +486,45 @@ inl from_sparse ty i =
     assert (i < s) "The input to this function must be less than the size of the type."
     x()
 
-inl rec to_dense ar ty x =
-    inl to_dense = to_dense ar
-    inl prod s ty x =
-        inl s' = to_dense ty x
-        s + s'
+inl to_dense f ty x =
+    inl rec to_dense i ty x =
+        inl sum i ty x =
+            inl i' = to_dense i ty x
+            if i = i' then f i; i + 1 else i'
 
-    inl sum s ty x =
-        inl i',s' = to_sparse ty x
-        s + i', s + s'
+        inl assert_range i {from near_to} x =
+            assert (eq_type 0 x) "x must be the int64 type."
+            assert (x >= from) "x must be greater or equal to its lower bound."
+            assert (x < near_to) "x must be lesser than its upper bound."
+            inl s = near_to - from
+            inl i' = i + s
+            if s < 2 then i else f x; i'
 
-    inl assert_range {from near_to} x =
-        assert (eq_type 0 x) "x must be the int64 type."
-        assert (x >= from) "x must be greater or equal to its lower bound."
-        assert (x < near_to) "x must be lesser than its upper bound."
-        x, near_to - from
+        match ty, x with
+        | _, _ when caseable_box_is ty && caseable_box_is x ->
+            inl ty = split ty
+            assert (Tuple.length ty = Tuple.length (split x)) "The two types must equal each other."
+            case_foldl_map (inl (ty :: ty', i) x ->
+                inl i' = sum i ty x
+                (), (ty',i')
+                ) (ty,i) x
+            |> inl (),((),i) -> i
+        | _ :: _, _ :: _ -> Tuple.foldl2 to_dense i ty x
+        | .(a), .(b) ->
+            assert (a = b) "The two types must equal each other."
+            i
+        | (),() -> i
+        | {!block}, {!block} ->
+            assert (module_length ty = module_length x) "The two types must equal each other."
+            module_foldl (inl k i x -> to_dense i (ty k) x) i x
+        | {from=.(from) near_to=.(near_to) block=()}, _ -> assert_range i {from near_to} x
+    to_dense 0 ty x
 
-    match ty, x with
-    | _, _ when caseable_box_is ty && caseable_box_is x ->
-        inl ty = split ty
-        assert (Tuple.length ty = Tuple.length (split x)) "The two types must equal each other."
-        case_foldl_map (inl (ty :: ty', s) x ->
-            inl (i',s') = sum s ty x
-            i', (ty', s')
-            ) (ty,0) x
-        |> inl i,((),s) -> i,s
-    | _ :: _, _ :: _ -> Tuple.foldl2 prod (0,1) ty x
-    | .(a), .(b) ->
-        assert (a = b) "The two types must equal each other."
-        0,1
-    | (),() -> 0,1
-    | {!block}, {!block} ->
-        assert (module_length ty = module_length x) "The two types must equal each other."
-        module_foldl (inl k s x -> prod s (ty k) x) (0,1) x
-    | {from=.(from) near_to=.(near_to) block=()}, _ -> assert_range {from near_to} x
+inl to_dense ty x =
+    inl s = to_dense (inl _ -> ()) ty x
+    inl ar = array_create float32 s
+    to_dense (inl i -> ar i <- 1f32) ty x
+    ar
 
-{to_sparse from_sparse box} |> stackify
+{to_sparse from_sparse box to_dense} |> stackify
     """) |> module_
