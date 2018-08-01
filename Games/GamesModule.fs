@@ -452,6 +452,25 @@ inl rec boxy ty =
 /// Works much the same as a regular box, but converts the special integer ranges into int64 types.
 inl box ty = box (boxy ty)
 
+/// A simplifying rewrite in order to embed the total size of the caseable_box_is case directly where the from_sparse function needs it.
+inl rec from_sparse_form ty =
+    inl prod s v =
+        inl x,s' = from_sparse_form v
+        x, s * s'
+
+    match ty with
+    | _ when caseable_box_is ty -> 
+        inl x,s =
+            Tuple.foldl_map (inl s v ->  
+                inl x, s' = from_sparse_form v
+                x, s + s'
+                ) 0 ty
+        {union_type=x; size=s; block=()}, s
+    | _ :: _ -> Tuple.foldl_map prod 1 ty
+    | .(_) | () -> ty, 1
+    | {!block} -> module_foldl_map (const prod) 1 ty
+    | {from=.(from) near_to=.(near_to) block=()} -> ty, near_to - from
+
 /// Converts an index into a union type.
 /// type -> int64 -> x
 inl rec from_sparse ty i =
