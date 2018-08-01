@@ -444,6 +444,7 @@ inl to_sparse ty x = to_sparse ty x
 inl rec boxy ty =
     match ty with
     | _ when caseable_box_is ty -> Tuple.map boxy (split ty) |> Tuple.reducel (inl a b -> a \/ b)
+    //| {union_type=x; size=s; block=()} -> Tuple.map boxy x |> Tuple.reducel (inl a b -> a \/ b)
     | _ :: _ -> Tuple.map boxy ty
     | .(_) | () -> ty
     | {!block} -> module_map boxy ty
@@ -479,20 +480,23 @@ inl rec from_sparse ty i =
         x, (i / s', s * s')
 
     match ty with
-    | _ when caseable_box_is ty -> 
-        inl x, (_, s) = 
-            Tuple.foldl_map (inl (i,s) ty ->
-                inl x, s' = from_sparse ty i
-                (x, s'), (i - s', s + s')
-                ) (i, 0) (split ty)
+    | {union_type=x; size=s; block=()} -> 
+        inl rec loop = function
+            | x :: () ->
+                box ty
+        //inl x, (_, s) =
+        //    Tuple.foldl_map (inl (i,s) ty ->
+        //        inl x, s' = from_sparse ty i
+        //        (x, s'), (i - s', s + s')
+        //        ) (i, 0) (split ty)
 
-        inl rec loop ((x,s) :: x') i =
-            inl x _ = x () |> box ty
-            match x' with
-            | () -> x () 
-            | _ -> if i < s then x () else loop x' (i - s)
+        //inl rec loop ((x,s) :: x') i =
+        //    inl x _ = x () |> box ty
+        //    match x' with
+        //    | () -> x ()
+        //    | _ -> if i < s then x () else loop x' (i - s)
 
-        (inl _ -> loop x (i % s)), s
+        //(inl _ -> loop x (i % s)), s
     | _ :: _ -> Tuple.foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> Tuple.map (inl x -> x()) x), s
     | .(_) | () -> const ty, 1
     | {!block} -> module_foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> module_map (inl _ x -> x()) x), s
