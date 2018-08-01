@@ -498,7 +498,7 @@ inl to_dense f ty x =
             assert (x < near_to) "x must be lesser than its upper bound."
             inl s = near_to - from
             inl i' = i + s
-            if s < 2 then i else f x; i'
+            if s < 2 then i else f (i+x); i'
 
         match ty, x with
         | _, _ when caseable_box_is ty && caseable_box_is x ->
@@ -523,7 +523,7 @@ inl to_dense f ty x =
 inl to_dense ty x =
     inl s = to_dense (inl _ -> ()) ty x
     inl ar = array_create float32 s
-    to_dense (inl i -> ar i <- 1f32) ty x
+    to_dense (inl i -> ar i <- 1f32) ty x |> ignore
     ar
 
 {to_sparse from_sparse box to_dense} |> stackify

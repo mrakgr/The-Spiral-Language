@@ -49,7 +49,17 @@ test (Option.none (r 10)) (Option.none int64)
 test (Option.none (r 10)) (Option.some 5)
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union1
+let union3 =
+    "union3",[union;option;extern_;console],"Does the to_dense work?",
+    """
+inl r x = {from=.0; near_to=.(x); block=()}
+inl a = Union.to_dense (r 2,r 2,r 2) (0,dyn 0,dyn 0)
+inl b = Union.to_dense (Option.none (r 10)) (dyn (Option.none int64))
+inl c = Union.to_dense (Option.none (r 10)) ((Option.some 2))
+Console.writeline (a,b,c)
+    """
+
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union3
 |> printfn "%s"
 |> ignore
 
