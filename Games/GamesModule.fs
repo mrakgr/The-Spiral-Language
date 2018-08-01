@@ -499,7 +499,7 @@ inl to_dense f ty x =
             assert (x < near_to) "x must be lesser than its upper bound."
             inl s = near_to - from
             inl i' = i + s
-            if s < 2 then i else f (i+x); i'
+            if s = 1 then i else f (i+x); i'
 
         match ty, x with
         | _, _ when caseable_box_is ty && caseable_box_is x ->
@@ -529,8 +529,7 @@ inl to_dense ty x =
 
 inl from_dense true_is ty ar =
     inl rec from_dense ty i {on_succ on_fail} =
-        match ty with
-        //| _ when caseable_box_is ty -> 
+        //match ty with
         //    inl x, (_, s) =
         //        Tuple.foldl_map (inl (i,s) ty ->
         //            inl x, s' = from_sparse ty i
@@ -544,6 +543,15 @@ inl from_dense true_is ty ar =
         //        | _ -> if i < s then x () else loop x' (i - s)
 
         //    (inl _ -> loop x (i % s)), s
+        match ty with
+        | _ when caseable_box_is ty -> 
+            Tuple.foldr (inl ty' next i ->
+                to_dense ty' i {
+                    on_succ = inl ty' i ->  
+                        inl ty = box ty ty'
+
+                    }
+                )
         | _ :: _ ->
             Tuple.foldr (inl ty next (s,i) ->
                 to_dense ty i {
@@ -565,8 +573,8 @@ inl from_dense true_is ty ar =
             assert (x < near_to) "x must be lesser than its upper bound."
             inl s = near_to - from
             inl i' = i + s
-            if s < 2 then 
-                on_succ ty i 
+            if s = 1 then 
+                on_succ 0 i 
             else 
                 Loops.for' {from=i'; near_to=i'+s; 
                     body=inl {i next} -> if true_is (ar i) then on_succ s i else next ()
