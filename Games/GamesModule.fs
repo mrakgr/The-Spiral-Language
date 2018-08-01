@@ -441,75 +441,6 @@ inl rec to_sparse ty x =
     
 inl to_sparse ty x = to_sparse ty x
 
-inl rec boxy ty =
-    match ty with
-    | _ when caseable_box_is ty -> Tuple.map boxy (split ty) |> Tuple.reducel (inl a b -> a \/ b)
-    //| {union_type=x; size=s; block=()} -> Tuple.map boxy x |> Tuple.reducel (inl a b -> a \/ b)
-    | _ :: _ -> Tuple.map boxy ty
-    | .(_) | () -> ty
-    | {!block} -> module_map boxy ty
-    | {from=.(from) near_to=.(near_to) block=()} -> int64
-
-/// Works much the same as a regular box, but converts the special integer ranges into int64 types.
-inl box ty = box (boxy ty)
-
-/// A simplifying rewrite in order to embed the total size of the caseable_box_is case directly where the from_sparse function needs it.
-inl rec from_sparse_form ty =
-    inl prod s v =
-        inl x,s' = from_sparse_form v
-        x, s * s'
-
-    match ty with
-    | _ when caseable_box_is ty -> 
-        inl x,s =
-            Tuple.foldl_map (inl s v ->  
-                inl x, s' = from_sparse_form v
-                x, s + s'
-                ) 0 ty
-        {union_type=x; size=s; block=()}, s
-    | _ :: _ -> Tuple.foldl_map prod 1 ty
-    | .(_) | () -> ty, 1
-    | {!block} -> module_foldl_map (const prod) 1 ty
-    | {from=.(from) near_to=.(near_to) block=()} -> ty, near_to - from
-
-/// Converts an index into a union type.
-/// type -> int64 -> x
-inl rec from_sparse ty i =
-    inl prod (i,s) ty =
-        inl x, s' = from_sparse ty i
-        x, (i / s', s * s')
-
-    match ty with
-    | {union_type=x; size=s; block=()} -> 
-        inl rec loop = function
-            | x :: () ->
-                box ty
-        //inl x, (_, s) =
-        //    Tuple.foldl_map (inl (i,s) ty ->
-        //        inl x, s' = from_sparse ty i
-        //        (x, s'), (i - s', s + s')
-        //        ) (i, 0) (split ty)
-
-        //inl rec loop ((x,s) :: x') i =
-        //    inl x _ = x () |> box ty
-        //    match x' with
-        //    | () -> x ()
-        //    | _ -> if i < s then x () else loop x' (i - s)
-
-        //(inl _ -> loop x (i % s)), s
-    | _ :: _ -> Tuple.foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> Tuple.map (inl x -> x()) x), s
-    | .(_) | () -> const ty, 1
-    | {!block} -> module_foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> module_map (inl _ x -> x()) x), s
-    | {from=.(from) near_to=.(near_to) block=()} -> 
-        inl s = near_to - from
-        (inl _ -> i % s), s
-
-inl from_sparse ty i = 
-    assert (i >= 0) "i needs to be greater or equal to zero."
-    inl x,s = from_sparse ty i
-    assert (i < s) "The input to this function must be less than the size of the type."
-    x()
-
 inl to_dense f ty x =
     inl rec to_dense i ty x =
         inl sum i ty x =
@@ -549,6 +480,81 @@ inl to_dense ty x =
     inl ar = array_create float32 s
     to_dense (inl i -> ar i <- 1f32) ty x |> ignore
     ar
+
+/// A simplifying rewrite in order to embed the sizes and the conversion types for the caseable_box_is case.
+inl rec from_sparse_form ty =
+    inl prod s v =
+        inl x = from_sparse_form v
+        x, s * x.s
+
+    match ty with
+    | _ when caseable_box_is ty -> 
+        inl x,s =
+            Tuple.foldl_map (inl s v ->  
+                inl x = from_sparse_form v
+                x, s + x.s
+                ) 0 ty
+        inl conv = 
+            Tuple.map (inl x -> x.conv) x
+            |> Tuple.redulel (inl a b -> a \/ b)
+        inl x = Tuple.redulel (inl a b -> a \/ b) x
+        {conv s x}
+    | _ :: _ -> 
+        inl x, s = Tuple.foldl_map prod 1 ty
+        inl conv = Tuple.map (inl x -> x.conv) x
+        {conv s x}
+    | .(_) | () -> {conv=ty; s=1; x=ty}
+    | {!block} -> 
+        inl x, s = module_foldl_map (const prod) 1 ty
+        inl conv = module_map (inl k x -> x.conv) x
+        {conv s x}
+    | {from=.(from) near_to=.(near_to) block=()} -> 
+        {s=near_to - from; conv=int64; x=ty}
+
+/// Converts an index into a union type.
+/// type -> int64 -> x
+inl rec from_sparse ty i =
+    inl prod (i,s) ty =
+        inl x, s' = from_sparse ty i
+        x, (i / s', s * s')
+
+    inl {x s conv} = ty
+    match x with
+    | _ when caseable_box_is ty -> 
+        inl rec loop i = function
+            | x :: x' -> if i < s then box conv (from_sparse x i) else loop (i - x.s) x'
+            | () -> box conv (from_sparse x i)
+
+    //match ty with
+    //| {union_type=x; size=s; block=()} -> 
+    //    inl rec loop = function
+    //        | x :: () ->
+    //            box ty
+        //inl x, (_, s) =
+        //    Tuple.foldl_map (inl (i,s) ty ->
+        //        inl x, s' = from_sparse ty i
+        //        (x, s'), (i - s', s + s')
+        //        ) (i, 0) (split ty)
+
+        //inl rec loop ((x,s) :: x') i =
+        //    inl x _ = x () |> box ty
+        //    match x' with
+        //    | () -> x ()
+        //    | _ -> if i < s then x () else loop x' (i - s)
+
+        //(inl _ -> loop x (i % s)), s
+    //| _ :: _ -> Tuple.foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> Tuple.map (inl x -> x()) x), s
+    //| .(_) | () -> const ty, 1
+    //| {!block} -> module_foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> module_map (inl _ x -> x()) x), s
+    //| {from=.(from) near_to=.(near_to) block=()} -> 
+    //    inl s = near_to - from
+    //    (inl _ -> i % s), s
+
+inl from_sparse ty i = 
+    assert (i >= 0) "i needs to be greater or equal to zero."
+    inl x,s = from_sparse ty i
+    assert (i < s) "The input to this function must be less than the size of the type."
+    x()
 
 inl from_dense true_is ty ar =
     inl rec from_dense ty i {on_succ on_fail} =
