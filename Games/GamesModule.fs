@@ -402,221 +402,247 @@ let union =
     (
     "Union",[tuple;console;option],"The Union module.",
     """
-/// The transforms the argument into an index given a type template.
-/// It is a one-hot encode function.
-/// type -> x -> int64
-inl rec to_sparse ty x =
-    inl prod (i,s) ty x =
-        inl i', s' = to_sparse ty x
+///// The transforms the argument into an index given a type template.
+///// It is a one-hot encode function.
+///// type -> x -> int64
+//inl rec to_sparse ty x =
+//    inl prod (i,s) ty x =
+//        inl i', s' = to_sparse ty x
+//        i + i' * s, s * s'
+
+//    inl sum s ty x =
+//        inl i',s' = to_sparse ty x
+//        s + i', s + s'
+
+//    inl assert_range {from near_to} x =
+//        assert (eq_type 0 x) "x must be the int64 type."
+//        assert (x >= from) "x must be greater or equal to its lower bound."
+//        assert (x < near_to) "x must be lesser than its upper bound."
+//        x, near_to - from
+
+//    match ty, x with
+//    | _, _ when caseable_box_is ty && caseable_box_is x ->
+//        inl ty = split ty
+//        assert (Tuple.length ty = Tuple.length (split x)) "The two types must equal each other."
+//        case_foldl_map (inl (ty :: ty', s) x ->
+//            inl (i',s') = sum s ty x
+//            i', (ty', s')
+//            ) (ty,0) x
+//        |> inl i,((),s) -> i,s
+//    | _ :: _, _ :: _ -> Tuple.foldl2 prod (0,1) ty x
+//    | .(a), .(b) ->
+//        assert (a = b) "The two types must equal each other."
+//        0,1
+//    | (),() -> 0,1
+//    | {!block}, {!block} ->
+//        assert (module_length ty = module_length x) "The two types must equal each other."
+//        module_foldl (inl k s x -> prod s (ty k) x) (0,1) x
+//    | {from=.(from) near_to=.(near_to) block=()}, _ -> assert_range {from near_to} x
+    
+//inl to_sparse ty x = to_sparse ty x
+
+//inl to_dense f ty x =
+//    inl rec to_dense i ty x =
+//        inl sum i ty x =
+//            inl i' = to_dense i ty x
+//            if i = i' then f i; i + 1 else i'
+
+//        inl assert_range i {from near_to} x =
+//            assert (eq_type 0 x) "x must be the int64 type."
+//            assert (x >= from) "x must be greater or equal to its lower bound."
+//            assert (x < near_to) "x must be lesser than its upper bound."
+//            inl s = near_to - from
+//            inl i' = i + s
+//            if s = 1 then i else f (i+x); i'
+
+//        match ty, x with
+//        | _, _ when caseable_box_is ty && caseable_box_is x ->
+//            print_static {ty x}
+//            inl ty = split ty
+//            assert (Tuple.length ty = Tuple.length (split x)) "The two types must equal each other."
+//            case_foldl_map (inl (ty :: ty', i) x ->
+//                inl i' = sum i ty x
+//                (), (ty',i')
+//                ) (ty,i) x
+//            |> inl (),((),i) -> i
+//        | _ :: _, _ :: _ -> Tuple.foldl2 to_dense i ty x
+//        | .(a), .(b) ->
+//            assert (a = b) "The two types must equal each other."
+//            f i; i+1
+//        | (),() -> f i; i+1
+//        | {!block}, {!block} ->
+//            assert (module_length ty = module_length x) "The two types must equal each other."
+//            module_foldl (inl k i x -> to_dense i (ty k) x) i x
+//        | {from=.(from) near_to=.(near_to) block=()}, _ -> assert_range i {from near_to} x
+//    to_dense 0 ty x
+
+//inl to_dense ty x =
+//    inl s = to_dense (inl _ -> ()) ty x
+//    inl ar = array_create float32 s
+//    to_dense (inl i -> ar i <- 1f32) ty x |> ignore
+//    ar
+
+///// A simplifying rewrite in order to embed the sizes and the conversion types for the caseable_box_is case.
+//inl from_form op =
+//    inl op, init =
+//        match op with
+//        | .add -> (+), 0
+//        | .mult -> (*), 1
+
+//    inl rec from_form ty =
+//        inl prod s v =
+//            inl x = from_form v
+//            x, op s x.s
+
+//        match ty with
+//        | _ when caseable_box_is ty -> 
+//            inl x,s =
+//                Tuple.foldl_map (inl s v ->
+//                    inl x = from_form v
+//                    x, s + x.s
+//                    ) 0 (split ty)
+//            inl conv =
+//                Tuple.map (inl x -> x.conv) x
+//                |> Tuple.reducel (inl a b -> a \/ b)
+//            {conv s union_type=x}
+//        | _ :: _ -> 
+//            inl x, s = Tuple.foldl_map prod init ty
+//            inl conv = Tuple.map (inl x -> x.conv) x
+//            {conv s x}
+//        | .(_) | () -> {conv=ty; s=1; x=ty}
+//        | {!block} -> 
+//            inl x, s = module_foldl_map (const prod) init ty
+//            inl conv = module_map (inl k x -> x.conv) x
+//            {conv s x}
+//        | {from=.(from) near_to=.(near_to) block=()} -> 
+//            {s=near_to - from; conv=int64; x=ty}
+
+//    from_form
+
+//inl from_sparse_form = from_form .mult
+
+///// Converts an index into a union type.
+///// type -> int64 -> x
+//inl rec from_sparse ty i =
+//    inl prod i ty =
+//        inl x = from_sparse ty i
+//        x, i / ty.s
+
+//    inl {s conv} = ty
+//    match ty with
+//    | {union_type=x} ->
+//        Tuple.foldr (inl x next i ->
+//            if i < x.s then box conv (from_sparse x i) else next (i - x.s)
+//            ) x (inl i -> box conv (from_sparse x i)) (i % s)
+//    | {x} ->
+//        match x with
+//        | _ :: _ -> Tuple.foldl_map prod i x |> fst
+//        | .(_) | () -> x
+//        | {!block} -> module_foldl_map prod i x |> fst
+//        | {from=.(from) near_to=.(near_to) block=()} -> i % (near_to - from)
+
+//inl from_sparse ty i = 
+//    assert (i >= 0) "i needs to be greater or equal to zero."
+//    inl ty = from_sparse_form ty
+//    assert (i < ty.s) "The input to this function must be less than the size of the type."
+//    from_sparse ty i
+
+//inl from_dense_form = from_form .add
+
+//inl from_dense true_is ty ar =
+//    inl fatal_fail conv _ = failwith conv "The array is in the wrong format."
+
+//    inl rec from_dense ty i =
+//        inl peek i {on_succ on_fail} = if true_is (ar i) then on_succ i else on_fail ()
+//        inl find {from near_to} {on_succ on_fail} =
+//            Loops.for' {from near_to 
+//                body=inl {next i} -> peek i {on_succ on_fail=next}
+//                finally=on_fail
+//                }
+
+//        inl {s conv} = ty
+//        match ty with
+//        | {union_type=x} ->
+//            inl next _ = function
+//                | .find -> Option.none conv
+//                | .found, v -> Option.some v
+
+//            Tuple.foldr (inl x next i state ->
+//                inl r = indiv join stack (from_dense x i)
+//                match state with
+//                | .find ->
+//                    match r with
+//                    | .Some, v -> next (i + x.s) (.found, box conv v)
+//                    | .None -> next (i + x.s) state
+//                | .found, v -> 
+//                    match r with
+//                    | .Some, v -> fatal_fail (Option.none conv) ()
+//                    | .None -> next (i + x.s) state
+//                ) x next i .find
+//        | {x} ->
+//            match x with
+//            | _ :: _ -> 
+//                Tuple.foldr (inl x next i l on_fail ->
+//                    inl r = indiv join stack (from_dense x i)
+//                    match r with
+//                    | .Some, v -> next (i + x.s) (v :: l) (fatal_fail (Option.none conv)) // qwe
+//                    | .None -> on_fail()
+//                    ) x (inl i l on_fail -> Option.some (Tuple.rev l)) i () (inl _ -> Option.none conv)
+//            | .(_) | () -> peek i {on_succ=(inl _ -> Option.some x); on_fail=(inl _ -> Option.none x)}
+//            | {!block} -> 
+//                module_foldr (inl k x next i m on_fail ->
+//                    inl r = indiv join stack (from_dense x i)
+//                    match r with
+//                    | .Some, v -> next (i + x.s) (module_add k v m) (fatal_fail (Option.none conv))
+//                    | .None -> on_fail()
+//                    ) x (inl i m on_fail -> Option.some m) i {} (inl _ -> Option.none conv)
+//            | {from=.(from) near_to=.(near_to) block=()} -> 
+//                inl from, near_to = i+from, i+near_to
+//                find {from near_to} {
+//                    on_succ=inl i' ->
+//                        find {from=i'+1; near_to} {
+//                            on_succ=fatal_fail (Option.none conv)
+//                            on_fail=inl _ -> Option.some (i' - i)
+//                            }
+//                    on_fail=inl _ -> Option.none conv
+//                    }
+
+//    match from_dense ty 0 with
+//    | .Some, v -> v
+//    | .None -> fatal_fail ty.conv ()
+
+//inl from_dense ty ar = 
+//    inl ty = from_dense_form ty
+//    assert (array_length ar = ty.s) "The length of the array must be equal to the size of the type."
+//    from_dense ((=) 1f32) ty ar
+
+//inl box ty = box (from_sparse_form ty .conv)
+
+//{to_sparse to_dense from_sparse from_dense box} |> stackify
+
+/// The bounded integer type's constructor.
+inl int {from near_to} value =
+    assert (value >= from) "Value must be greater or equal to from."
+    assert (value < near_to) "Value must be less than near_to."
+    {from near_to value block=()}
+
+/// Transforms the argument into an index. Accepts only bound integers as values as parts of tuples, modules or unions.
+/// x -> int64
+inl rec to_one_hot x =
+    inl prod (i,s) x =
+        inl i', s' = to_one_hot x
         i + i' * s, s * s'
 
-    inl sum s ty x =
-        inl i',s' = to_sparse ty x
+    inl sum s x =
+        inl i',s' = to_one_hot x
         s + i', s + s'
 
-    inl assert_range {from near_to} x =
-        assert (eq_type 0 x) "x must be the int64 type."
-        assert (x >= from) "x must be greater or equal to its lower bound."
-        assert (x < near_to) "x must be lesser than its upper bound."
-        x, near_to - from
+    match x with
+    | _ when caseable_box_is x -> case_foldl_map sum 0 x
+    | _ :: _ -> Tuple.foldl prod (0,1) x
+    | .(_) | () -> 0,1
+    | {!block} -> module_foldl (const prod) (0,1) x
+    | {from=.(from) near_to=.(near_to) value block=()} -> value, near_to - from
 
-    match ty, x with
-    | _, _ when caseable_box_is ty && caseable_box_is x ->
-        inl ty = split ty
-        assert (Tuple.length ty = Tuple.length (split x)) "The two types must equal each other."
-        case_foldl_map (inl (ty :: ty', s) x ->
-            inl (i',s') = sum s ty x
-            i', (ty', s')
-            ) (ty,0) x
-        |> inl i,((),s) -> i,s
-    | _ :: _, _ :: _ -> Tuple.foldl2 prod (0,1) ty x
-    | .(a), .(b) ->
-        assert (a = b) "The two types must equal each other."
-        0,1
-    | (),() -> 0,1
-    | {!block}, {!block} ->
-        assert (module_length ty = module_length x) "The two types must equal each other."
-        module_foldl (inl k s x -> prod s (ty k) x) (0,1) x
-    | {from=.(from) near_to=.(near_to) block=()}, _ -> assert_range {from near_to} x
-    
-inl to_sparse ty x = to_sparse ty x
-
-inl to_dense f ty x =
-    inl rec to_dense i ty x =
-        inl sum i ty x =
-            inl i' = to_dense i ty x
-            if i = i' then f i; i + 1 else i'
-
-        inl assert_range i {from near_to} x =
-            assert (eq_type 0 x) "x must be the int64 type."
-            assert (x >= from) "x must be greater or equal to its lower bound."
-            assert (x < near_to) "x must be lesser than its upper bound."
-            inl s = near_to - from
-            inl i' = i + s
-            if s = 1 then i else f (i+x); i'
-
-        match ty, x with
-        | _, _ when caseable_box_is ty && caseable_box_is x ->
-            print_static {ty x}
-            inl ty = split ty
-            assert (Tuple.length ty = Tuple.length (split x)) "The two types must equal each other."
-            case_foldl_map (inl (ty :: ty', i) x ->
-                inl i' = sum i ty x
-                (), (ty',i')
-                ) (ty,i) x
-            |> inl (),((),i) -> i
-        | _ :: _, _ :: _ -> Tuple.foldl2 to_dense i ty x
-        | .(a), .(b) ->
-            assert (a = b) "The two types must equal each other."
-            f i; i+1
-        | (),() -> f i; i+1
-        | {!block}, {!block} ->
-            assert (module_length ty = module_length x) "The two types must equal each other."
-            module_foldl (inl k i x -> to_dense i (ty k) x) i x
-        | {from=.(from) near_to=.(near_to) block=()}, _ -> assert_range i {from near_to} x
-    to_dense 0 ty x
-
-inl to_dense ty x =
-    inl s = to_dense (inl _ -> ()) ty x
-    inl ar = array_create float32 s
-    to_dense (inl i -> ar i <- 1f32) ty x |> ignore
-    ar
-
-/// A simplifying rewrite in order to embed the sizes and the conversion types for the caseable_box_is case.
-inl from_form op =
-    inl op, init =
-        match op with
-        | .add -> (+), 0
-        | .mult -> (*), 1
-
-    inl rec from_form ty =
-        inl prod s v =
-            inl x = from_form v
-            x, op s x.s
-
-        match ty with
-        | _ when caseable_box_is ty -> 
-            inl x,s =
-                Tuple.foldl_map (inl s v ->
-                    inl x = from_form v
-                    x, s + x.s
-                    ) 0 (split ty)
-            inl conv =
-                Tuple.map (inl x -> x.conv) x
-                |> Tuple.reducel (inl a b -> a \/ b)
-            {conv s union_type=x}
-        | _ :: _ -> 
-            inl x, s = Tuple.foldl_map prod init ty
-            inl conv = Tuple.map (inl x -> x.conv) x
-            {conv s x}
-        | .(_) | () -> {conv=ty; s=1; x=ty}
-        | {!block} -> 
-            inl x, s = module_foldl_map (const prod) init ty
-            inl conv = module_map (inl k x -> x.conv) x
-            {conv s x}
-        | {from=.(from) near_to=.(near_to) block=()} -> 
-            {s=near_to - from; conv=int64; x=ty}
-
-    from_form
-
-inl from_sparse_form = from_form .mult
-
-/// Converts an index into a union type.
-/// type -> int64 -> x
-inl rec from_sparse ty i =
-    inl prod i ty =
-        inl x = from_sparse ty i
-        x, i / ty.s
-
-    inl {s conv} = ty
-    match ty with
-    | {union_type=x} ->
-        Tuple.foldr (inl x next i ->
-            if i < x.s then box conv (from_sparse x i) else next (i - x.s)
-            ) x (inl i -> box conv (from_sparse x i)) (i % s)
-    | {x} ->
-        match x with
-        | _ :: _ -> Tuple.foldl_map prod i x |> fst
-        | .(_) | () -> x
-        | {!block} -> module_foldl_map prod i x |> fst
-        | {from=.(from) near_to=.(near_to) block=()} -> i % (near_to - from)
-
-inl from_sparse ty i = 
-    assert (i >= 0) "i needs to be greater or equal to zero."
-    inl ty = from_sparse_form ty
-    assert (i < ty.s) "The input to this function must be less than the size of the type."
-    from_sparse ty i
-
-inl from_dense_form = from_form .add
-
-inl from_dense true_is ty ar =
-    inl fatal_fail conv _ = failwith conv "The array is in the wrong format."
-
-    inl rec from_dense ty i =
-        inl peek i {on_succ on_fail} = if true_is (ar i) then on_succ i else on_fail ()
-        inl find {from near_to} {on_succ on_fail} =
-            Loops.for' {from near_to 
-                body=inl {next i} -> peek i {on_succ on_fail=next}
-                finally=on_fail
-                }
-
-        inl {s conv} = ty
-        match ty with
-        | {union_type=x} ->
-            inl next _ = function
-                | .find -> Option.none conv
-                | .found, v -> Option.some v
-
-            Tuple.foldr (inl x next i state ->
-                inl r = indiv join stack (from_dense x i)
-                match state with
-                | .find ->
-                    match r with
-                    | .Some, v -> next (i + x.s) (.found, box conv v)
-                    | .None -> next (i + x.s) state
-                | .found, v -> 
-                    match r with
-                    | .Some, v -> fatal_fail (Option.none conv) ()
-                    | .None -> next (i + x.s) state
-                ) x next i .find
-        | {x} ->
-            match x with
-            | _ :: _ -> 
-                Tuple.foldr (inl x next i l on_fail ->
-                    inl r = indiv join stack (from_dense x i)
-                    match r with
-                    | .Some, v -> next (i + x.s) (v :: l) (fatal_fail (Option.none conv)) // qwe
-                    | .None -> on_fail()
-                    ) x (inl i l on_fail -> Option.some (Tuple.rev l)) i () (inl _ -> Option.none conv)
-            | .(_) | () -> peek i {on_succ=(inl _ -> Option.some x); on_fail=(inl _ -> Option.none x)}
-            | {!block} -> 
-                module_foldr (inl k x next i m on_fail ->
-                    inl r = indiv join stack (from_dense x i)
-                    match r with
-                    | .Some, v -> next (i + x.s) (module_add k v m) (fatal_fail (Option.none conv))
-                    | .None -> on_fail()
-                    ) x (inl i m on_fail -> Option.some m) i {} (inl _ -> Option.none conv)
-            | {from=.(from) near_to=.(near_to) block=()} -> 
-                inl from, near_to = i+from, i+near_to
-                find {from near_to} {
-                    on_succ=inl i' ->
-                        find {from=i'+1; near_to} {
-                            on_succ=fatal_fail (Option.none conv)
-                            on_fail=inl _ -> Option.some (i' - i)
-                            }
-                    on_fail=inl _ -> Option.none conv
-                    }
-
-    match from_dense ty 0 with
-    | .Some, v -> v
-    | .None -> fatal_fail ty.conv ()
-
-inl from_dense ty ar = 
-    inl ty = from_dense_form ty
-    assert (array_length ar = ty.s) "The length of the array must be equal to the size of the type."
-    from_dense ((=) 1f32) ty ar
-
-inl box ty = box (from_sparse_form ty .conv)
-
-{to_sparse to_dense from_sparse from_dense box} |> stackify
+{to_one_hot} |> stackify
     """) |> module_

@@ -88,7 +88,7 @@ test Q (Union.box Q (dyn (3,2)))
 //test "j3" 5 (Option.some (box Q {a b c}))
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union4
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union1
 |> printfn "%s"
 |> ignore
 
