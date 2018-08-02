@@ -644,5 +644,24 @@ inl rec to_one_hot x =
     | {!block} -> module_foldl (const prod) (0,1) x
     | {from=.(from) near_to=.(near_to) value block=()} -> value, near_to - from
 
+inl to_dense f x =
+    inl rec to_dense i x =
+        match x with
+        | _ when caseable_box_is x -> case_foldl_map to_dense i x |> snd
+        | _ :: _ -> Tuple.foldl to_dense i x
+        | .(_) | () -> f i; i+1
+        | {!block} -> module_foldl (inl k i x -> to_dense i (ty k) x) i x
+        | {from=.(from) near_to=.(near_to) value block=()} -> f (i + value); i + near_to - from
+    to_dense 0 x
+
+/// Converts an argument to a dense representation. Accepts only bound integers as values as parts of tuples, modules or unions.
+/// The output float32 array will contain only 1s or 0s as elements.
+/// x -> float32 array
+inl to_dense x =
+    inl s = to_dense (inl _ -> ()) x
+    inl ar = array_create float32 s
+    to_dense (inl i -> ar i <- 1f32) x |> ignore
+    ar
+
 {to_one_hot} |> stackify
     """) |> module_
