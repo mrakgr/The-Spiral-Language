@@ -467,8 +467,8 @@ inl to_dense f ty x =
         | _ :: _, _ :: _ -> Tuple.foldl2 to_dense i ty x
         | .(a), .(b) ->
             assert (a = b) "The two types must equal each other."
-            i
-        | (),() -> i
+            f i; i+1
+        | (),() -> f i; i+1
         | {!block}, {!block} ->
             assert (module_length ty = module_length x) "The two types must equal each other."
             module_foldl (inl k i x -> to_dense i (ty k) x) i x
@@ -612,7 +612,6 @@ inl from_dense true_is ty ar =
 
 inl from_dense ty ar = 
     inl ty = from_dense_form ty
-    Console.writeline (array_length ar, ty.s)
     assert (array_length ar = ty.s) "The length of the array must be equal to the size of the type."
     from_dense ((=) 1f32) ty ar
 

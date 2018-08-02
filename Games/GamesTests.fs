@@ -55,7 +55,7 @@ let union3 =
 inl r x = {from=.0; near_to=.(x); block=()}
 inl a = Union.to_dense (r 2,r 2,r 2) (0,dyn 0,dyn 0)
 inl b = Union.to_dense (Option.none (r 10)) (dyn (Option.none int64))
-inl c = Union.to_dense (Option.none (r 10)) ((Option.some 2))
+inl c = Union.to_dense (Option.none (r 10)) ((Option.some 9))
 Console.writeline (a,b,c)
     """
 
@@ -69,9 +69,9 @@ inl test ty x =
     assert (b = x) "The input and output should be equal." 
     Console.writeline b
 
-//test (r 2,r 2,r 2) (0,dyn 1,dyn 1)
+test (r 2,r 2,r 2) (0,dyn 1,dyn 1)
 test (Option.none (r 10)) (Option.none int64)
-//test (Option.none (r 10)) (Option.some 5)
+test (Option.none (r 10)) (dyn (Option.some 5))
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union4
