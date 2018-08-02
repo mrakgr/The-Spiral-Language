@@ -59,7 +59,7 @@ inl c = Union.to_dense (Option.none (r 10)) ((Option.some 2))
 Console.writeline (a,b,c)
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union2
 |> printfn "%s"
 |> ignore
 

@@ -482,34 +482,43 @@ inl to_dense ty x =
     ar
 
 /// A simplifying rewrite in order to embed the sizes and the conversion types for the caseable_box_is case.
-inl rec from_sparse_form ty =
-    inl prod s v =
-        inl x = from_sparse_form v
-        x, s * x.s
+inl from_form op =
+    inl op, init =
+        match op with
+        | .add -> (+), 0
+        | .mult -> (*), 1
 
-    match ty with
-    | _ when caseable_box_is ty -> 
-        inl x,s =
-            Tuple.foldl_map (inl s v ->  
-                inl x = from_sparse_form v
-                x, s + x.s
-                ) 0 ty
-        inl conv = 
-            Tuple.map (inl x -> x.conv) x
-            |> Tuple.redulel (inl a b -> a \/ b)
-        inl x = Tuple.redulel (inl a b -> a \/ b) x
-        {conv s x}
-    | _ :: _ -> 
-        inl x, s = Tuple.foldl_map prod 1 ty
-        inl conv = Tuple.map (inl x -> x.conv) x
-        {conv s x}
-    | .(_) | () -> {conv=ty; s=1; x=ty}
-    | {!block} -> 
-        inl x, s = module_foldl_map (const prod) 1 ty
-        inl conv = module_map (inl k x -> x.conv) x
-        {conv s x}
-    | {from=.(from) near_to=.(near_to) block=()} -> 
-        {s=near_to - from; conv=int64; x=ty}
+    inl rec from_form ty =
+        inl prod s v =
+            inl x = from_form v
+            x, op s x.s
+
+        match ty with
+        | _ when caseable_box_is ty -> 
+            inl x,s =
+                Tuple.foldl_map (inl s v ->
+                    inl x = from_form v
+                    x, s + x.s
+                    ) 0 (split ty)
+            inl conv =
+                Tuple.map (inl x -> x.conv) x
+                |> Tuple.reducel (inl a b -> a \/ b)
+            {conv s union_type=x}
+        | _ :: _ -> 
+            inl x, s = Tuple.foldl_map prod init ty
+            inl conv = Tuple.map (inl x -> x.conv) x
+            {conv s x}
+        | .(_) | () -> {conv=ty; s=1; x=ty}
+        | {!block} -> 
+            inl x, s = module_foldl_map (const prod) init ty
+            inl conv = module_map (inl k x -> x.conv) x
+            {conv s x}
+        | {from=.(from) near_to=.(near_to) block=()} -> 
+            {s=near_to - from; conv=int64; x=ty}
+
+    from_form
+
+inl from_sparse_form = from_form .mult
 
 /// Converts an index into a union type.
 /// type -> int64 -> x
@@ -518,16 +527,18 @@ inl rec from_sparse ty i =
         inl x = from_sparse ty i
         x, i / ty.s
 
-    inl {x s conv} = ty
-    match x with
-    | _ when caseable_box_is ty -> 
+    inl {s conv} = ty
+    match ty with
+    | {union_type=x} ->
         Tuple.foldr (inl x next i ->
             if i < x.s then box conv (from_sparse x i) else next (i - x.s)
             ) x (inl i -> box conv (from_sparse x i)) (i % s)
-    | _ :: _ -> Tuple.foldl_map prod i ty |> fst
-    | .(_) | () -> ty
-    | {!block} -> module_foldl_map prod i ty |> fst
-    | {from=.(from) near_to=.(near_to) block=()} -> i % (near_to - from)
+    | {x} ->
+        match x with
+        | _ :: _ -> Tuple.foldl_map prod i x |> fst
+        | .(_) | () -> x
+        | {!block} -> module_foldl_map prod i x |> fst
+        | {from=.(from) near_to=.(near_to) block=()} -> i % (near_to - from)
 
 inl from_sparse ty i = 
     assert (i >= 0) "i needs to be greater or equal to zero."
@@ -535,88 +546,37 @@ inl from_sparse ty i =
     assert (i < ty.s) "The input to this function must be less than the size of the type."
     from_sparse ty i
 
-//inl from_dense true_is ty ar =
-//    inl rec from_dense ty i {on_succ on_fail} =
-//        //match ty with
-//        //    inl x, (_, s) =
-//        //        Tuple.foldl_map (inl (i,s) ty ->
-//        //            inl x, s' = from_sparse ty i
-//        //            (x, s'), (i - s', s + s')
-//        //            ) (i, 0) (split ty)
+inl from_dense_form = from_form .add
 
-//        //    inl rec loop ((x,s) :: x') i =
-//        //        inl x _ = x () |> box ty
-//        //        match x' with
-//        //        | () -> x () 
-//        //        | _ -> if i < s then x () else loop x' (i - s)
+inl rec from_dense ty i {on_succ on_fail} =
+    inl fatal_fail _ = failwith ty.conv "The array is in the wrong format."
 
-//        //    (inl _ -> loop x (i % s)), s
-//        match ty with
-//        | _ when caseable_box_is ty -> 
-//            Tuple.foldr (inl ty' next i ->
-//                to_dense ty' i {
-//                    on_succ = inl ty' i ->  
-//                        inl ty = box ty ty'
+    inl {s conv} = ty
+    match ty with
+    | {union_type=x} ->
 
-//                    }
-//                )
-//        | _ :: _ ->
-//            Tuple.foldr (inl ty next (s,i) ->
-//                to_dense ty i {
-//                    on_succ = inl ty i -> next (ty :: s, i)
-//                    on_fail
-//                    }
-//                ) ty (inl s,i -> on_succ (Tuple.rev s) i) ((),i)
-//        | .(_) | () -> on_succ ty i
-//        | {!block} ->
-//            module_foldr (inl _ ty next (s,i) ->
-//                to_dense ty i {
-//                    on_succ = inl ty i -> next (ty :: s, i)
-//                    on_fail
-//                    }
-//                ) ty (inl s,i -> on_succ (Tuple.rev s) i) ((),i)
-//        | {from=.(from) near_to=.(near_to) block=()} -> 
-//            assert (eq_type 0 x) "x must be the int64 type."
-//            assert (x >= from) "x must be greater or equal to its lower bound."
-//            assert (x < near_to) "x must be lesser than its upper bound."
-//            inl s = near_to - from
-//            inl i' = i + s
-//            if s = 1 then 
-//                on_succ 0 i 
-//            else 
-//                Loops.for' {from=i'; near_to=i'+s; 
-//                    body=inl {i next} -> if true_is (ar i) then on_succ s i else next ()
-//                    finally=on_fail
-//                    }
-
-//    from_dense ty 0 {
-//        on_succ=inl ty i -> ty
-//        on_fail=inl _ -> failwith ty "The array is not a valid representation of the type."
-//        }
-
-//inl from_dense ty ar =
-//    inl rec from_dense ty i = 
-//        match ty with
-//        | _ when caseable_box_is ty -> 
-//            inl x, (_, s) = 
-//                Tuple.foldl_map (inl (i,s) ty ->
-//                    inl x, s' = from_dense ty i
-//                    (x, s'), (i - s', s + s')
-//                    ) (i, 0) (split ty)
-
-//            inl rec loop ((x,s) :: x') i =
-//                inl x _ = x () |> box ty
-//                match x' with
-//                | () -> x () 
-//                | _ -> if i < s then x () else loop x' (i - s)
-
-//            (inl _ -> loop x (i % s)), s
-//        | _ :: _ -> Tuple.foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> Tuple.map (inl x -> x()) x), s
-//        | .(_) | () -> const ty, 1
-//        | {!block} -> module_foldl_map prod (i,1) ty |> inl x, (i, s) -> (inl _ -> module_map (inl _ x -> x()) x), s
-//        | {from=.(from) near_to=.(near_to) block=()} -> 
-//            inl s = near_to - from
-//            (inl _ -> i % s), s
+    | {x} ->
+        match x with
+        | x :: x' -> 
+            from_dense x i {
+                on_succ=inl v ->
+                    Tuple.foldr (inl x next i v ->
+                        from_dense x i {
+                            on_succ=inl v' -> next (i + x.s) (v :: v')
+                            on_fail=fatal_fail
+                            }
+                        ) x' (inl i v' -> on_succ v') (i + x.s) v
+                on_fail
+                }
+        | .(_) | () -> x
+        | {!block} -> 
+            module_foldr (inl k x next i m on_fail ->
+                from_dense x i {
+                    on_succ=inl i v -> next (i + x.s) (module_add k v m) fatal_fail
+                    on_fail
+                    }
+                ) x (inl i m on_fail -> on_succ m) i {} on_fail
+        | {from=.(from) near_to=.(near_to) block=()} -> i % (near_to - from)
 
 {to_sparse to_dense from_sparse} |> stackify
     """) |> module_
