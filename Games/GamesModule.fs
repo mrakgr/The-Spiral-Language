@@ -560,10 +560,9 @@ inl from_dense true_is ty ar =
                 }
 
         inl {s conv} = ty
-        inl fatal_fail = fatal_fail conv
-
         match ty with
         | {union_type=x} ->
+            inl fail_type = type on_fail()
             inl next _ = function
                 | .find -> on_fail ()
                 | .found, v -> on_succ v
@@ -572,14 +571,14 @@ inl from_dense true_is ty ar =
                 inl on_fail _ = next (i + x.s) state
                 match state with
                 | .find -> from_dense x i {on_fail on_succ=inl v -> next (i + x.s) (.found, v)}
-                | .found, v -> from_dense x i {on_fail on_succ=fatal_fail}
+                | .found, v -> from_dense x i {on_succ=fatal_fail fail_type; on_fail=next (i + x.s) state}
                 ) x next i .find
         | {x} ->
             match x with
             | _ :: _ -> 
                 Tuple.foldr (inl x next i l on_fail ->
                     from_dense x i {
-                        on_succ=inl v -> next (i + x.s) (v :: l) fatal_fail
+                        on_succ=inl v -> next (i + x.s) (v :: l) (fatal_fail conv)
                         on_fail
                         }
                     ) x (inl i l on_fail -> on_succ (Tuple.rev l)) i () on_fail
@@ -587,23 +586,22 @@ inl from_dense true_is ty ar =
             | {!block} -> 
                 module_foldr (inl k x next i m on_fail ->
                     from_dense x i {
-                        on_succ=inl i v -> next (i + x.s) (module_add k v m) fatal_fail
+                        on_succ=inl i v -> next (i + x.s) (module_add k v m) (fatal_fail conv)
                         on_fail
                         }
                     ) x (inl i m on_fail -> on_succ m) i {} on_fail
             | {from=.(from) near_to=.(near_to) block=()} -> 
                 inl from, near_to = i+from, i+near_to
-
                 find {from near_to} {
                     on_succ=inl i' ->
-                        find {from=i+1; near_to} {
-                            on_succ=fatal_fail
+                        find {from=i'+1; near_to} {
+                            on_succ=fatal_fail (type on_fail())
                             on_fail=inl _ -> on_succ (i' - i)
                             }
                     on_fail
                     }
 
-    from_dense ty i {
+    from_dense ty 0 {
         on_succ=id
         on_fail=fatal_fail ty.conv
         }
@@ -611,7 +609,7 @@ inl from_dense true_is ty ar =
 inl from_dense ty ar = 
     inl ty = from_dense_form ty
     assert (array_length ar = ty.s) "The length of the array must be equal to the size of the type."
-    from_dense ty ar
+    from_dense ((=) 1f32) ty ar
 
 {to_sparse to_dense from_sparse from_dense} |> stackify
     """) |> module_

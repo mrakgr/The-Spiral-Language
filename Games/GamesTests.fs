@@ -59,7 +59,22 @@ inl c = Union.to_dense (Option.none (r 10)) ((Option.some 2))
 Console.writeline (a,b,c)
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union2
+let union4 =
+    "union4",[union;option;extern_;console],"Does the from_dense work?",
+    """
+inl r x = {from=.0; near_to=.(x); block=()}
+inl test ty x =
+    inl a = Union.to_dense ty x
+    inl b = Union.from_dense ty a
+    assert (b = x) "The input and output should be equal." 
+    Console.writeline b
+
+test (r 2,r 2,r 2) (0,dyn 1,dyn 1)
+test (Option.none (r 10)) (Option.none int64)
+//test (Option.none (r 10)) (Option.some 5)
+    """
+
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union4
 |> printfn "%s"
 |> ignore
 
