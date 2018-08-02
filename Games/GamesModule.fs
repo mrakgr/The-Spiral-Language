@@ -551,7 +551,7 @@ inl from_dense_form = from_form .add
 inl from_dense true_is ty ar =
     inl fatal_fail conv _ = failwith conv "The array is in the wrong format."
 
-    inl rec from_dense ty i {on_succ on_fail} =
+    inl rec from_dense ty i =
         inl peek i {on_succ on_fail} = if true_is (ar i) then on_succ i else on_fail ()
         inl find {from near_to} {on_succ on_fail} =
             Loops.for' {from near_to 
@@ -562,49 +562,53 @@ inl from_dense true_is ty ar =
         inl {s conv} = ty
         match ty with
         | {union_type=x} ->
-            inl fail_type = type on_fail()
             inl next _ = function
-                | .find -> on_fail ()
-                | .found, v -> on_succ v
+                | .find -> Option.none conv
+                | .found, v -> Option.some v
 
             Tuple.foldr (inl x next i state ->
-                inl on_fail _ = next (i + x.s) state
+                inl r = indiv join stack (from_dense x i)
                 match state with
-                | .find -> from_dense x i {on_fail on_succ=inl v -> next (i + x.s) (.found, v)}
-                | .found, v -> from_dense x i {on_succ=fatal_fail fail_type; on_fail=next (i + x.s) state}
+                | .find ->
+                    match r with
+                    | .Some, v -> next (i + x.s) (.found, box conv v)
+                    | .None -> next (i + x.s) state
+                | .found, v -> 
+                    match r with
+                    | .Some, v -> fatal_fail conv
+                    | .None -> next (i + x.s) state
                 ) x next i .find
         | {x} ->
             match x with
             | _ :: _ -> 
                 Tuple.foldr (inl x next i l on_fail ->
-                    from_dense x i {
-                        on_succ=inl v -> next (i + x.s) (v :: l) (fatal_fail conv)
-                        on_fail
-                        }
-                    ) x (inl i l on_fail -> on_succ (Tuple.rev l)) i () on_fail
-            | .(_) | () -> peek i {on_succ on_fail}
+                    inl r = indiv join stack (from_dense x i)
+                    match r with
+                    | .Some, v -> next (i + x.s) (v :: l) (fatal_fail conv)
+                    | .None -> on_fail()
+                    ) x (inl i l on_fail -> Option.some (Tuple.rev l)) i () (inl _ -> Option.none conv)
+            | .(_) | () -> peek i {on_succ=Option.some; on_fail=inl _ -> Option.none i}
             | {!block} -> 
                 module_foldr (inl k x next i m on_fail ->
-                    from_dense x i {
-                        on_succ=inl i v -> next (i + x.s) (module_add k v m) (fatal_fail conv)
-                        on_fail
-                        }
-                    ) x (inl i m on_fail -> on_succ m) i {} on_fail
+                    inl r = indiv join stack (from_dense x i)
+                    match r with
+                    | .Some, v -> next (i + x.s) (module_add k v m) (fatal_fail conv)
+                    | .None -> on_fail()
+                    ) x (inl i m on_fail -> Option.some m) i {} (inl _ -> Option.none conv)
             | {from=.(from) near_to=.(near_to) block=()} -> 
                 inl from, near_to = i+from, i+near_to
                 find {from near_to} {
                     on_succ=inl i' ->
                         find {from=i'+1; near_to} {
-                            on_succ=fatal_fail (type on_fail())
-                            on_fail=inl _ -> on_succ (i' - i)
+                            on_succ=fatal_fail (Option.none conv)
+                            on_fail=inl _ -> Option.some (i' - i)
                             }
-                    on_fail
+                    on_fail=Option.none conv
                     }
 
-    from_dense ty 0 {
-        on_succ=id
-        on_fail=fatal_fail ty.conv
-        }
+    match from_dense ty 0 with
+    | .Some, v -> v
+    | .None -> fatal_fail ty.conv ()
 
 inl from_dense ty ar = 
     inl ty = from_dense_form ty
