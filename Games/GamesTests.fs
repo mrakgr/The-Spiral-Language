@@ -62,3 +62,4 @@ Console.writeline (a,b,c)
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union3
 |> printfn "%s"
 |> ignore
+
