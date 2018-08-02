@@ -548,35 +548,70 @@ inl from_sparse ty i =
 
 inl from_dense_form = from_form .add
 
-inl rec from_dense ty i {on_succ on_fail} =
-    inl fatal_fail _ = failwith ty.conv "The array is in the wrong format."
+inl from_dense true_is ty ar =
+    inl fatal_fail conv _ = failwith conv "The array is in the wrong format."
 
-    inl {s conv} = ty
-    match ty with
-    | {union_type=x} ->
-
-    | {x} ->
-        match x with
-        | x :: x' -> 
-            from_dense x i {
-                on_succ=inl v ->
-                    Tuple.foldr (inl x next i v ->
-                        from_dense x i {
-                            on_succ=inl v' -> next (i + x.s) (v :: v')
-                            on_fail=fatal_fail
-                            }
-                        ) x' (inl i v' -> on_succ v') (i + x.s) v
-                on_fail
+    inl rec from_dense ty i {on_succ on_fail} =
+        inl peek i {on_succ on_fail} = if true_is (ar i) then on_succ i else on_fail ()
+        inl find {from near_to} {on_succ on_fail} =
+            Loops.for' {from near_to 
+                body=inl {next i} -> peek i {on_succ on_fail=next}
+                finally=on_fail
                 }
-        | .(_) | () -> x
-        | {!block} -> 
-            module_foldr (inl k x next i m on_fail ->
-                from_dense x i {
-                    on_succ=inl i v -> next (i + x.s) (module_add k v m) fatal_fail
+
+        inl {s conv} = ty
+        inl fatal_fail = fatal_fail conv
+
+        match ty with
+        | {union_type=x} ->
+            inl next _ = function
+                | .find -> on_fail ()
+                | .found, v -> on_succ v
+
+            Tuple.foldr (inl x next i state ->
+                inl on_fail _ = next (i + x.s) state
+                match state with
+                | .find -> from_dense x i {on_fail on_succ=inl v -> next (i + x.s) (.found, v)}
+                | .found, v -> from_dense x i {on_fail on_succ=fatal_fail}
+                ) x next i .find
+        | {x} ->
+            match x with
+            | _ :: _ -> 
+                Tuple.foldr (inl x next i l on_fail ->
+                    from_dense x i {
+                        on_succ=inl v -> next (i + x.s) (v :: l) fatal_fail
+                        on_fail
+                        }
+                    ) x (inl i l on_fail -> on_succ (Tuple.rev l)) i () on_fail
+            | .(_) | () -> peek i {on_succ on_fail}
+            | {!block} -> 
+                module_foldr (inl k x next i m on_fail ->
+                    from_dense x i {
+                        on_succ=inl i v -> next (i + x.s) (module_add k v m) fatal_fail
+                        on_fail
+                        }
+                    ) x (inl i m on_fail -> on_succ m) i {} on_fail
+            | {from=.(from) near_to=.(near_to) block=()} -> 
+                inl from, near_to = i+from, i+near_to
+
+                find {from near_to} {
+                    on_succ=inl i' ->
+                        find {from=i+1; near_to} {
+                            on_succ=fatal_fail
+                            on_fail=inl _ -> on_succ (i' - i)
+                            }
                     on_fail
                     }
-                ) x (inl i m on_fail -> on_succ m) i {} on_fail
-        | {from=.(from) near_to=.(near_to) block=()} -> i % (near_to - from)
 
-{to_sparse to_dense from_sparse} |> stackify
+    from_dense ty i {
+        on_succ=id
+        on_fail=fatal_fail ty.conv
+        }
+
+inl from_dense ty ar = 
+    inl ty = from_dense_form ty
+    assert (array_length ar = ty.s) "The length of the array must be equal to the size of the type."
+    from_dense ty ar
+
+{to_sparse to_dense from_sparse from_dense} |> stackify
     """) |> module_
