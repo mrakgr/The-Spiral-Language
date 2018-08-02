@@ -69,9 +69,23 @@ inl test ty x =
     assert (b = x) "The input and output should be equal." 
     Console.writeline b
 
-test (r 2,r 2,r 2) (0,dyn 1,dyn 1)
-test (Option.none (r 10)) (Option.none int64)
-test (Option.none (r 10)) (dyn (Option.some 5))
+//test (r 2,r 2,r 2) (0,dyn 1,dyn 1)
+//test (Option.none (r 10)) (Option.none int64)
+//test (Option.none (r 10)) (dyn (Option.some 5))
+//inl Y = (.a,.123) \/ (.b,r 10)
+//test Y (Union.box Y (.b, 3))
+
+//inl Action = .Fold \/ .Call \/ (.Raise, r 10)
+//test Action (Union.box Action (dyn (.Raise,7)))
+
+inl Q = (r 5,r 5,r 5) \/ (r 5,r 5) \/ r 5
+test Q (Union.box Q (dyn (3,2)))
+
+//inl Q = {a=int64; b=int64; c=int64} \/ {a=int64; b=int64} \/ {a=int64}
+//inl a,b,c = 3,2,1
+//test "j1" 5 (join Option.some (box Q {a}))
+//test "j2" 5 (Option.some (box Q {a b}))
+//test "j3" 5 (Option.some (box Q {a b c}))
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union4

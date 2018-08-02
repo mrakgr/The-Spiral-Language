@@ -457,6 +457,7 @@ inl to_dense f ty x =
 
         match ty, x with
         | _, _ when caseable_box_is ty && caseable_box_is x ->
+            print_static {ty x}
             inl ty = split ty
             assert (Tuple.length ty = Tuple.length (split x)) "The two types must equal each other."
             case_foldl_map (inl (ty :: ty', i) x ->
@@ -615,5 +616,7 @@ inl from_dense ty ar =
     assert (array_length ar = ty.s) "The length of the array must be equal to the size of the type."
     from_dense ((=) 1f32) ty ar
 
-{to_sparse to_dense from_sparse from_dense} |> stackify
+inl box ty = box (from_sparse_form ty .conv)
+
+{to_sparse to_dense from_sparse from_dense box} |> stackify
     """) |> module_
