@@ -555,7 +555,7 @@ inl from_dense true_is ty ar =
                     | .None -> on_fail()
                     ) x (inl i m on_fail -> Option.some m) i {} (inl _ -> Option.none conv)
             | {from=.(from) near_to=.(near_to) value block=()} -> 
-                find {from=i; near_to=i+near_to} {
+                find {from=i; near_to=i+near_to-from} {
                     on_succ=inl i' ->
                         find {from=i'+1; near_to} {
                             on_succ=fatal_fail (Option.none conv)
