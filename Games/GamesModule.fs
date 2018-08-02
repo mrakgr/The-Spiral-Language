@@ -400,7 +400,7 @@ inl {State Action init learning_rate} ->
 
 let union =
     (
-    "Union",[tuple;console],"The Union module.",
+    "Union",[tuple;console;option],"The Union module.",
     """
 /// The transforms the argument into an index given a type template.
 /// It is a one-hot encode function.
@@ -575,7 +575,7 @@ inl from_dense true_is ty ar =
                     | .None -> next (i + x.s) state
                 | .found, v -> 
                     match r with
-                    | .Some, v -> fatal_fail conv
+                    | .Some, v -> fatal_fail (Option.none conv) ()
                     | .None -> next (i + x.s) state
                 ) x next i .find
         | {x} ->
@@ -584,15 +584,15 @@ inl from_dense true_is ty ar =
                 Tuple.foldr (inl x next i l on_fail ->
                     inl r = indiv join stack (from_dense x i)
                     match r with
-                    | .Some, v -> next (i + x.s) (v :: l) (fatal_fail conv)
+                    | .Some, v -> next (i + x.s) (v :: l) (fatal_fail (Option.none conv)) // qwe
                     | .None -> on_fail()
                     ) x (inl i l on_fail -> Option.some (Tuple.rev l)) i () (inl _ -> Option.none conv)
-            | .(_) | () -> peek i {on_succ=Option.some; on_fail=inl _ -> Option.none i}
+            | .(_) | () -> peek i {on_succ=(inl _ -> Option.some x); on_fail=(inl _ -> Option.none x)}
             | {!block} -> 
                 module_foldr (inl k x next i m on_fail ->
                     inl r = indiv join stack (from_dense x i)
                     match r with
-                    | .Some, v -> next (i + x.s) (module_add k v m) (fatal_fail conv)
+                    | .Some, v -> next (i + x.s) (module_add k v m) (fatal_fail (Option.none conv))
                     | .None -> on_fail()
                     ) x (inl i m on_fail -> Option.some m) i {} (inl _ -> Option.none conv)
             | {from=.(from) near_to=.(near_to) block=()} -> 
@@ -603,7 +603,7 @@ inl from_dense true_is ty ar =
                             on_succ=fatal_fail (Option.none conv)
                             on_fail=inl _ -> Option.some (i' - i)
                             }
-                    on_fail=Option.none conv
+                    on_fail=inl _ -> Option.none conv
                     }
 
     match from_dense ty 0 with
@@ -612,6 +612,7 @@ inl from_dense true_is ty ar =
 
 inl from_dense ty ar = 
     inl ty = from_dense_form ty
+    Console.writeline (array_length ar, ty.s)
     assert (array_length ar = ty.s) "The length of the array must be equal to the size of the type."
     from_dense ((=) 1f32) ty ar
 

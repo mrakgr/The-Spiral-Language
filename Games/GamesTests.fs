@@ -69,7 +69,7 @@ inl test ty x =
     assert (b = x) "The input and output should be equal." 
     Console.writeline b
 
-test (r 2,r 2,r 2) (0,dyn 1,dyn 1)
+//test (r 2,r 2,r 2) (0,dyn 1,dyn 1)
 test (Option.none (r 10)) (Option.none int64)
 //test (Option.none (r 10)) (Option.some 5)
     """
