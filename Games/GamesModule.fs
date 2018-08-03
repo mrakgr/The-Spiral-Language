@@ -410,7 +410,6 @@ inl int {from near_to} value =
     {from=.(from); near_to=.(near_to); value block=()}
 
 /// Transforms the argument into an index. Accepts only bound integers as values as parts of tuples, modules or unions.
-/// x -> int64
 inl rec to_one_hot x =
     inl prod (i,s) x =
         inl i', s' = to_one_hot x
@@ -427,13 +426,16 @@ inl rec to_one_hot x =
     | {!block} -> module_foldl (const prod) (0,1) x
     | {from=.(from) near_to=.(near_to) value block=()} -> value - from, near_to - from
 
+/// x -> int64
+inl to_one_hot = to_one_hot >> fst
+
 inl to_dense f x =
     inl rec to_dense i x =
         match x with
         | _ when caseable_box_is x -> case_foldl_map (inl i x -> (), to_dense i x) i x |> snd
         | _ :: _ -> Tuple.foldl to_dense i x
         | .(_) | () -> f i; i+1
-        | {!block} -> module_foldl (inl k i x -> to_dense i (ty k) x) i x
+        | {!block} -> module_foldl (const to_dense) i x
         | {from=.(from) near_to=.(near_to) value block=()} -> f (i + value - from); i + near_to - from
     to_dense 0 x
 
@@ -497,7 +499,7 @@ inl rec from_one_hot ty i =
         match x with
         | _ :: _ -> Tuple.foldl_map prod i x |> fst
         | .(_) | () -> x
-        | {!block} -> module_foldl_map prod i x |> fst
+        | {!block} -> module_foldl_map (const prod) i x |> fst
         | {from=.(from) near_to=.(near_to) value block=()} -> {x with value=i % (near_to - from) + from}
 
 inl from_one_hot ty i = 
@@ -560,14 +562,14 @@ inl from_dense true_is ty ar =
                     on_succ=inl i' ->
                         find {from=i'+1; near_to} {
                             on_succ=fatal_fail (Option.none conv)
-                            on_fail=inl _ -> Option.some (i' - i + from)
+                            on_fail=inl _ -> Option.some ({x with value=i' - i + from})
                             }
                     on_fail=inl _ -> Option.none conv
                     }
 
     match from_dense ty 0 with
     | .Some, v -> v
-    | .None -> fatal_fail ty.conv ()
+    | .None -> fatal_fail ty.ty ()
 
 inl from_dense ty ar = 
     inl ty = from_dense_form (type ty)

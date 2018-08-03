@@ -40,15 +40,30 @@ let union2 =
     """
 inl test x =
     inl a = Union.to_one_hot x
-    inl b = Union.from_one_hot x (fst a)
+    inl b = Union.from_one_hot x a
     assert (b = x) "The input and output should be equal." 
     Console.writeline b
 
-inl r = Union.int {from=0; near_to=2}
+inl r = Union.int {from=-1; near_to=2}
 test (r 0, r (dyn 1), r (dyn 1))
-inl r = Union.int {from=0; near_to=10}
+inl r = Union.int {from=-2; near_to=10}
 test (dyn (Option.none (r int64)))
 test (Option.some (r 9))
+
+inl Y = (.a,.123) \/ (.b, r int64)
+test (box Y (.b, r 3))
+
+inl Action = .Fold \/ .Call \/ (.Raise, r int64)
+test (box Action (dyn (.Raise, r 7)))
+
+inl Q = (r int64,r int64,r int64) \/ (r int64,r int64) \/ r int64
+test (box Q (dyn (r 3, r 2)))
+
+inl Q = {a=r int64; b=r int64; c=r int64} \/ {a=r int64; b=r int64} \/ {a=r int64}
+inl a,b,c = r 3, r 2, r 1
+test (join Option.some (box Q {a}))
+test (Option.some (box Q {a b}))
+test (dyn <| Option.some (box Q {a b c}))
     """
 
 let union3 =
@@ -65,33 +80,35 @@ Console.writeline (a,b,c)
 let union4 =
     "union4",[union;option;extern_;console],"Does the from_dense work?",
     """
-inl r x = {from=.0; near_to=.(x); block=()}
-inl test ty x =
-    inl a = Union.to_dense ty x
-    inl b = Union.from_dense ty a
+inl test x =
+    inl a = Union.to_dense x
+    inl b = Union.from_dense x a
     assert (b = x) "The input and output should be equal." 
     Console.writeline b
 
-//test (r 2,r 2,r 2) (0,dyn 1,dyn 1)
-//test (Option.none (r 10)) (Option.none int64)
-//test (Option.none (r 10)) (dyn (Option.some 5))
-//inl Y = (.a,.123) \/ (.b,r 10)
-//test Y (Union.box Y (.b, 3))
+inl r = Union.int {from=-1; near_to=2}
+test (r 0, r (dyn 1), r (dyn 1))
+inl r = Union.int {from=-2; near_to=10}
+test (dyn (Option.none (r int64)))
+test (Option.some (r 9))
 
-//inl Action = .Fold \/ .Call \/ (.Raise, r 10)
-//test Action (Union.box Action (dyn (.Raise,7)))
+inl Y = (.a,.123) \/ (.b, r int64)
+test (box Y (.b, r 3))
 
-inl Q = (r 5,r 5,r 5) \/ (r 5,r 5) \/ r 5
-test Q (Union.box Q (dyn (3,2)))
+inl Action = .Fold \/ .Call \/ (.Raise, r int64)
+test (box Action (dyn (.Raise, r 7)))
 
-//inl Q = {a=int64; b=int64; c=int64} \/ {a=int64; b=int64} \/ {a=int64}
-//inl a,b,c = 3,2,1
-//test "j1" 5 (join Option.some (box Q {a}))
-//test "j2" 5 (Option.some (box Q {a b}))
-//test "j3" 5 (Option.some (box Q {a b c}))
+inl Q = (r int64,r int64,r int64) \/ (r int64,r int64) \/ r int64
+test (box Q (dyn (r 3, r 2)))
+
+inl Q = {a=r int64; b=r int64; c=r int64} \/ {a=r int64; b=r int64} \/ {a=r int64}
+inl a,b,c = r 3, r 2, r 1
+test (join Option.some (box Q {a}))
+test (Option.some (box Q {a b}))
+test (dyn <| Option.some (box Q {a b c}))
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union2
 |> printfn "%s"
 |> ignore
 
