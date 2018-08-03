@@ -111,4 +111,3 @@ test (dyn <| Option.some (box Q {a b c}))
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union2
 |> printfn "%s"
 |> ignore
-
