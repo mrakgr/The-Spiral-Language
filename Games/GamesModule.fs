@@ -430,7 +430,7 @@ inl rec to_one_hot x =
 inl to_dense f x =
     inl rec to_dense i x =
         match x with
-        | _ when caseable_box_is x -> case_foldl_map to_dense i x |> snd
+        | _ when caseable_box_is x -> case_foldl_map (inl i x -> (), to_dense i x) i x |> snd
         | _ :: _ -> Tuple.foldl to_dense i x
         | .(_) | () -> f i; i+1
         | {!block} -> module_foldl (inl k i x -> to_dense i (ty k) x) i x
@@ -487,12 +487,12 @@ inl rec from_one_hot ty i =
         inl x = from_one_hot ty i
         x, i / ty.s
 
-    inl {s conv} = ty
+    inl {s ty=conv} = ty
     match ty with
     | {union_type=x} ->
         Tuple.foldr (inl x next i ->
             if i < x.s then box conv (from_one_hot x i) else next (i - x.s)
-            ) x (inl i -> box conv (from_one_hot x i)) (i % s)
+            ) x (inl i -> failwith conv "impossible") (i % s)
     | {x} ->
         match x with
         | _ :: _ -> Tuple.foldl_map prod i x |> fst
@@ -502,7 +502,7 @@ inl rec from_one_hot ty i =
 
 inl from_one_hot ty i = 
     assert (i >= 0) "i needs to be greater or equal to zero."
-    inl ty = from_one_hot_form ty
+    inl ty = from_one_hot_form (type ty)
     assert (i < ty.s) "The input to this function must be less than the size of the type."
     from_one_hot ty i
 
@@ -570,7 +570,7 @@ inl from_dense true_is ty ar =
     | .None -> fatal_fail ty.conv ()
 
 inl from_dense ty ar = 
-    inl ty = from_dense_form ty
+    inl ty = from_dense_form (type ty)
     assert (array_length ar = ty.s) "The length of the array must be equal to the size of the type."
     from_dense ((=) 1f32) ty ar
 

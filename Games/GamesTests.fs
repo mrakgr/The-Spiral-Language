@@ -38,25 +38,27 @@ Console.writeline (a,b,c)
 let union2 =
     "union2",[union;option;extern_;console],"Does the from_sparse work?",
     """
-inl r x = {from=.0; near_to=.(x); block=()}
-inl test ty x =
-    inl a = Union.to_sparse ty x
-    inl b = Union.from_sparse ty (fst a)
+inl test x =
+    inl a = Union.to_one_hot x
+    inl b = Union.from_one_hot x (fst a)
     assert (b = x) "The input and output should be equal." 
     Console.writeline b
 
-test (r 2,r 2,r 2) (0,dyn 1,dyn 1)
-test (Option.none (r 10)) (Option.none int64)
-test (Option.none (r 10)) (Option.some 5)
+inl r = Union.int {from=0; near_to=2}
+test (r 0, r (dyn 1), r (dyn 1))
+inl r = Union.int {from=0; near_to=10}
+test (dyn (Option.none (r int64)))
+test (Option.some (r 9))
     """
 
 let union3 =
     "union3",[union;option;extern_;console],"Does the to_dense work?",
     """
-inl r x = {from=.0; near_to=.(x); block=()}
-inl a = Union.to_dense (r 2,r 2,r 2) (0,dyn 0,dyn 0)
-inl b = Union.to_dense (Option.none (r 10)) (dyn (Option.none int64))
-inl c = Union.to_dense (Option.none (r 10)) ((Option.some 9))
+inl r = Union.int {from=0; near_to=2}
+inl a = Union.to_dense (r 0, r (dyn 1), r (dyn 1))
+inl r = Union.int {from=0; near_to=10}
+inl b = Union.to_dense (dyn (Option.none (r int64)))
+inl c = Union.to_dense (Option.some (r 9))
 Console.writeline (a,b,c)
     """
 
@@ -89,7 +91,7 @@ test Q (Union.box Q (dyn (3,2)))
 //test "j3" 5 (Option.some (box Q {a b c}))
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union3
 |> printfn "%s"
 |> ignore
 
