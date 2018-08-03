@@ -57,7 +57,7 @@ inl float ->
         | () -> ()
         | _ -> fwd_add_bias (primal C) (primal bias) s
         {
-        x=C
+        out=C
         bck=inl _ -> join
             inl C' = adjoint C
             inl l =
@@ -83,7 +83,7 @@ inl float ->
 
         inl adjoint, bck = choose_adjoints in bck
         {
-        x=out
+        out
         bck=inl _ -> join
             inl bck (in, out) = Struct.map2 (inl bck -> bck (in, out)) bck
             s.CudaKernel.map' bck (primal, {out without block}) adjoint
@@ -97,7 +97,7 @@ inl float ->
 
         inl adjoint, bck = choose_adjoints in bck
         {
-        x=out
+        out
         bck=inl _ -> join
             inl out = to_dev_tensor out
             inl bck in = Struct.map2 (inl bck -> bck (in, out.get)) bck
@@ -109,7 +109,7 @@ inl float ->
         inl primal', adjoint' = primals in', adjoints in'
         inl out = s.CudaKernel.d2_replicate_map fwd primal primal' |> dr s
         {
-        x=out
+        out
         bck=inl _ -> join
             inl out = {out without block}
             s.CudaKernel.mapi_d2_redo_map' bck_in (primal', out) primal adjoint
@@ -125,11 +125,11 @@ inl float ->
     inl apply_bck = (<<)
 
     inl (>>=) a b s =
-        inl {x=a bck=a_bck} = a s
-        inl {x=b bck=b_bck} = b a s
-        {x=b; bck=apply_bck a_bck b_bck}
+        inl {out=a bck=a_bck} = a s
+        inl {out=b bck=b_bck} = b a s
+        {out=b; bck=apply_bck a_bck b_bck}
 
-    inl succ x _ = {x bck=const ()}
+    inl succ out _ = {out bck=const ()}
 
     // #Activation
     inl activation d = map {d with bck = Struct.map (inl bck (in, out) adjoint -> adjoint + out.adjoint * (self in out.primal)) self}
@@ -350,7 +350,7 @@ inl float ->
                             ret (inl _ -> -(log p)) label'
                         }
                     } input.dim
-        {x=cost; bck}
+        {out=cost; bck}
 
     inl accuracy label input s =
         inl input, label = primal input, primal label
@@ -391,38 +391,33 @@ inl float ->
             {x without init with optimize weights}, size
             )
 
-    inl run s v = 
-        inl v =
-            match v with
-            | {v with x bck} -> v
-            | {x} -> {x bck=inl _ -> ()}
-        Struct.foldl_map (inl {x bck} {layer with apply} -> 
-            inl x = 
-                inl x = {x}
-                inl x =
+    inl run s input = 
+        inl input =
+            match input with
+            | {x with input bck} -> x
+            | {input} -> {input bck=inl _ -> ()}
+        Struct.foldl_map (inl {input bck} {layer with apply} -> 
+            inl input = 
+                inl input = {input}
+                inl input =
                     match layer with
-                    | {weights} -> {x with weights}
-                    | _ -> x
-                match layer with {state} -> {x with state} | _ -> x
+                    | {weights} -> {input with weights}
+                    | _ -> input
+                match layer with {state} -> {input with state} | _ -> input
 
-            inl {v with x} = 
+            inl {x with out bck=bck'} = 
                 indiv join
-                    match apply x s with
-                    | {v with bck} -> stack {v with bck = term_cast bck ()}
-                    | v -> stack v
+                    match apply input s with
+                    | {x with bck} -> stack {x with bck = term_cast bck ()}
+                    | _ -> stack {x with bck = inl _ -> ()}
 
             inl layer =
-                match v with
+                match x with
                 | {state} -> {layer with state}
                 | _ -> layer
 
-            inl bck =
-                match v with
-                | {bck=bck'} -> apply_bck bck bck'
-                | _ -> bck
-
-            layer, {x bck}
-            ) v
+            layer, {input=out; bck=apply_bck bck bck'}
+            ) input
 
     inl Initializer = {
         bias = inl dim -> {bias=dim; block=()}
@@ -465,7 +460,7 @@ inl float ->
             inl out = sample_body p s
 
             {
-            x=out
+            out
             bck=inl {reward} -> join
                 inl reward = to float reward
                 inl x_a, p, out = to_dev_tensor (adjoint x, p, out)
@@ -486,12 +481,12 @@ inl float ->
                 assert (eq_type state_type input) "The input must be equal to the state type."
                 inl input = s.CudaTensor.from_host_array (Union.from_dense input) .reshape (inl x -> 1,x)
 
-                inl network, {x bck} = run s {x=input} network
-                inl {x bck=bck'} = final x s
+                inl network, {input bck} = run s {input} network
+                inl {out bck=bck'} = final input s
                 inl bck = heap (apply_bck bck bck')
 
                 inl action = Union.to_one_hot action_type (s.CudaTensor.get (out 0))
-                stack {value network bck}
+                stack {action network bck}
         
         {action sampling_pg}
 
