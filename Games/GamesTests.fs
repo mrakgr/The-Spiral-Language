@@ -27,10 +27,11 @@ game 10 (a,b)
 let union1 =
     "union1",[union;option;extern_;console],"Does the to_sparse work?",
     """
-inl r x = {from=.0; near_to=.(x); block=()}
-inl a = Union.to_sparse (r 2,r 2,r 2) (0,dyn 1,dyn 1)
-inl b = Union.to_sparse (Option.none (r 10)) (dyn (Option.none int64))
-inl c = Union.to_sparse (Option.none (r 10)) ((Option.some 5))
+inl r = Union.int {from=0; near_to=2}
+inl a = Union.to_one_hot (r 0, r (dyn 1), r (dyn 1))
+inl r = Union.int {from=0; near_to=10}
+inl b = Union.to_one_hot (dyn (Option.none (r int64)))
+inl c = Union.to_one_hot ((Option.some (r 9)))
 Console.writeline (a,b,c)
     """
 

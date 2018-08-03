@@ -404,9 +404,10 @@ let union =
     """
 /// The bounded integer type's constructor.
 inl int {from near_to} value =
-    assert (value >= from) "Value must be greater or equal to from."
-    assert (value < near_to) "Value must be less than near_to."
-    {from near_to value block=()}
+    if type_is value = false then
+        assert (value >= from) "Value must be greater or equal to from."
+        assert (value < near_to) "Value must be less than near_to."
+    {from=.(from); near_to=.(near_to); value block=()}
 
 /// Transforms the argument into an index. Accepts only bound integers as values as parts of tuples, modules or unions.
 /// x -> int64
@@ -573,5 +574,5 @@ inl from_dense ty ar =
     assert (array_length ar = ty.s) "The length of the array must be equal to the size of the type."
     from_dense ((=) 1f32) ty ar
 
-{to_one_hot to_dense from_one_hot from_dense} |> stackify
+{int to_one_hot to_dense from_one_hot from_dense} |> stackify
     """) |> module_

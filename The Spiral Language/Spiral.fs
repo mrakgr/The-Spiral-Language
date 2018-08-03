@@ -1354,6 +1354,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | _ -> tev d on_fail
 
         let lit_is d a = TyLit <| LitBool (tev d a |> lit_is)
+        let type_is d a = TyLit <| LitBool (tev d a |> type_is)
 
         let box_is d a =
             match tev d a with
@@ -1761,6 +1762,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ModuleFoldR,[a;b;c] -> module_foldr d a b c
             | ModuleLength,[a] -> module_length d a
             | LitIs,[a] -> lit_is d a
+            | TypeIs,[a] -> type_is d a
             | CaseableIs,[a] -> caseable_is d a
             | BoxIs,[a] -> box_is d a
             | CaseableBoxIs,[a] -> caseable_box_is d a

@@ -160,6 +160,8 @@ inl string_format a b = !StringFormat(a,b)
 inl string_concat a b = !StringConcat(a,b)
 /// Returns boolean whether the expression is a literal.
 inl lit_is x = !LitIs(x)
+/// Returns boolean whether the expression is a naked type.
+inl type_is x = !TypeIs(x)
 /// Returns boolean whether the expression is a box (but not an union type.)
 inl box_is x = !BoxIs(x)
 /// Returns boolean whether the expression is a union or a recursive type (excluding boxes.)
@@ -313,6 +315,7 @@ string_length lit_is box_is failwith assert max min eq_type module_values caseab
 (:?>) (=) module_map module_filter module_foldl module_foldr module_has_member sizeof string_format string_concat
 array_create_cuda_shared array_create_cuda_local infinityf64 infinityf32 abs blittable_is threadIdx blockIdx
 lit_min lit_max var module_add module_remove obj nan_is stackify case_foldl_map module_foldl_map module_length
+type_is
 }
 |> module_map (const stack)
     """) |> module_
