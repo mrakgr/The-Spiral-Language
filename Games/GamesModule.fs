@@ -559,7 +559,7 @@ inl from_dense true_is ty ar =
                     on_succ=inl i' ->
                         find {from=i'+1; near_to} {
                             on_succ=fatal_fail (Option.none conv)
-                            on_fail=inl _ -> Option.some (i' - from)
+                            on_fail=inl _ -> Option.some (i' - i + from)
                             }
                     on_fail=inl _ -> Option.none conv
                     }
