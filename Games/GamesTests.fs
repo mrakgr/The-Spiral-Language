@@ -110,7 +110,7 @@ inl player_random {name} =
     inl player = PlayerRandom {Action State}
 
     inl methods = {basic_methods with
-        bet=inl s rep {fold call raise} -> s.action rep .action
+        bet=inl s rep -> s.action rep .action
         showdown=inl s v -> ()
         game_over=inl s -> ()
         }

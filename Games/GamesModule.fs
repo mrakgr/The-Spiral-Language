@@ -105,10 +105,10 @@ inl {d with max_stack_size num_players} ->
     inl Hand = Card // for one card poker
     inl show_hand = show_card
 
-    inl Actions = .Fold, .Call, (.Raise, Union.int {from=0; near_to=3} int64)
+    inl Actions = .Fold, .Call, {raise=type Union.int {from=0; near_to=3} int64}
     inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
     inl Rep = type {
-        pot=Union.int {from=0; near_to=max_stack_size*2} int64
+        pot=Union.int {from=0; near_to=max_stack_size} int64
         chips=Union.int {from=0; near_to=max_stack_size} int64
         hand=Option.none Hand
         }
@@ -225,7 +225,7 @@ inl {d with max_stack_size num_players} ->
                         else
                             log "{0} calls." player.name
                             on_succ {d with players_called=self+1}
-                    | .Raise, {value=x} ->
+                    | {raise={value=x}} ->
                         assert (x >= 0) "Cannot raise to negative amounts."
                         player.call (call_level + min_raise + x)
                         inl call_level' = player.pot
