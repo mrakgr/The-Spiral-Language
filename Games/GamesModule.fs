@@ -376,7 +376,7 @@ let player_random =
     """
 inl {State Action} ->
     inl rnd = Random()
-    inl action state = {out = Union.length_one_hot Action |> to int32 |> rnd.next |> to int64 |> Union.from_one_hot Action}
+    inl action state = {action = Union.length_one_hot Action |> to int32 |> rnd.next |> to int64 |> Union.from_one_hot Action}
 
     {action}
     """) |> module_
@@ -403,7 +403,7 @@ inl {State Action init learning_rate} ->
                 }
 
         {
-        out=Union.from_one_hot Action a
+        action=Union.from_one_hot Action a
         bck=inl v' -> ar a <- v + learning_rate * (v' - v)
         }
 

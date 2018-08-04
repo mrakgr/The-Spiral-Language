@@ -106,6 +106,19 @@ inl num_players = 2
 inl max_stack_size = 32
 open Poker {log max_stack_size num_players}
 
+inl player_random {name} =
+    inl player = PlayerRandom {Action State}
+
+    inl methods = {basic_methods with
+        bet=inl s rep {fold call raise} -> s.action rep .action
+        showdown=inl s v -> ()
+        game_over=inl s -> ()
+        }
+
+    Object
+        .member_add methods
+        .data_add {name; win=ref 0}
+
 inl a = player_random {name="One"}
 inl b = player_random {name="Two"}
 
