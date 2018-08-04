@@ -10,20 +10,6 @@ open Learning.Main
 
 let cfg = Spiral.Types.cfg_default
 
-let poker1 =
-    "poker1",[poker],"Does the poker game work?",
-    """
-inl log = Console.printfn
-inl num_players = 2
-inl max_stack_size = 32
-open Poker {log max_stack_size num_players}
-
-inl a = player_random {name="One"}
-inl b = player_random {name="Two"}
-
-game 10 (a,b)
-    """
-
 let union1 =
     "union1",[union;option;extern_;console],"Does the to_sparse work?",
     """
@@ -106,6 +92,20 @@ inl a,b,c = r 3, r 2, r 1
 test (join Option.some (box Q {a}))
 test (Option.some (box Q {a b}))
 test (dyn <| Option.some (box Q {a b c}))
+    """
+
+let poker1 =
+    "poker1",[poker],"Does the poker game work?",
+    """
+inl log = Console.printfn
+inl num_players = 2
+inl max_stack_size = 32
+open Poker {log max_stack_size num_players}
+
+inl a = player_random {name="One"}
+inl b = player_random {name="Two"}
+
+game 10 (a,b)
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union2
