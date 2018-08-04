@@ -98,28 +98,37 @@ test (Option.some (box Q {a b}))
 test (dyn <| Option.some (box Q {a b c}))
     """
 
-let poker_players = ""
+let poker_players =
+    (
+    "PokerPlayers",[player_random;player_tabular_mc],"The poker players module.",
+    """
+inl {basic_methods State Action} ->
+    inl player_random {name} =
+        inl {action} = PlayerRandom {Action State}
+
+        inl methods = {basic_methods with
+            bet=inl s rep -> action rep .action
+            showdown=inl s v -> ()
+            game_over=inl s -> ()
+            }
+
+        Object
+            .member_add methods
+            .data_add {name; win=ref 0}
+
+    {
+    player_random
+    } |> stackify
+    """) |> module_
 
 let poker1 =
-    "poker1",[poker;player_random],"Does the poker game work?",
+    "poker1",[poker;poker_players],"Does the poker game work?",
     """
 inl log = Console.printfn
 inl num_players = 2
 inl max_stack_size = 32
 open Poker {log max_stack_size num_players}
-
-inl player_random {name} =
-    inl {action} = PlayerRandom {Action State}
-
-    inl methods = {basic_methods with
-        bet=inl s rep -> action rep .action
-        showdown=inl s v -> ()
-        game_over=inl s -> ()
-        }
-
-    Object
-        .member_add methods
-        .data_add {name; win=ref 0}
+open PokerPlayers {basic_methods State Action}
 
 inl a = player_random {name="One"}
 inl b = player_random {name="Two"}
