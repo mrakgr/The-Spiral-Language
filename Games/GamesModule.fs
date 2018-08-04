@@ -385,8 +385,12 @@ inl {State Action init learning_rate} ->
     inl action state =
         assert (eq_type State state) "The input to this function must have a type equal to State."
         inl ar = 
-            dict (Union.to_one_hot state |> to int32) {
-                on_fail = inl _ -> Array.init near_to (const init)
+            inl i = Union.to_one_hot state |> to int32
+            dict i {
+                on_fail = inl _ -> 
+                    inl ar = Array.init near_to (const init)
+                    dict.set i ar
+                    ar
                 on_succ = id
                 }
 
@@ -398,10 +402,7 @@ inl {State Action init learning_rate} ->
 
         {
         action=Union.from_one_hot Action a
-        bck=inl v' -> 
-            inl update = v + learning_rate * (v' - v)
-            //Console.writeline (ar a, v', update)
-            ar a <- update
+        bck=inl v' -> ar a <- v + learning_rate * (v' - v)
         }
 
     {action}
