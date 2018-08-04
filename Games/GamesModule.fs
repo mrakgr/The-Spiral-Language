@@ -212,47 +212,44 @@ inl {d with max_stack_size num_players} ->
             inl on_fail = Option.none d
             if players_called < players_active && (players_active <> 1 || player.pot < call_level) then
                 if is_active player then 
-                    player.bet
-                        internal_representation
-                        {
-                        fold = inl _ -> 
-                            player.fold
-                            log "{0} folds." player.name
+                    match player.bet internal_representation with
+                    | .Fold ->
+                        player.fold
+                        log "{0} folds." player.name
+                        on_succ {d with players_active=self-1}
+                    | .Call ->
+                        player.call call_level
+                        if player.chips = 0 then
+                            log "{0} calls and is all-in!" player.name
                             on_succ {d with players_active=self-1}
-                        call = inl _ -> 
-                            player.call call_level
-                            if player.chips = 0 then
-                                log "{0} calls and is all-in!" player.name
-                                on_succ {d with players_active=self-1}
-                            else
-                                log "{0} calls." player.name
-                                on_succ {d with players_called=self+1}
-                        raise = inl x -> 
-                            assert (x >= 0) "Cannot raise to negative amounts."
-                            player.call (call_level + min_raise + x)
-                            inl call_level' = player.pot
-                            inl on_succ {gt lte} =
-                                if call_level' > call_level then 
-                                    {d with call_level = call_level'; min_raise = max min_raise (call_level'-call_level)}
-                                    |> inl d -> on_succ (gt d)
-                                else on_succ (lte d)
+                        else
+                            log "{0} calls." player.name
+                            on_succ {d with players_called=self+1}
+                    | .Raise, {value=x} ->
+                        assert (x >= 0) "Cannot raise to negative amounts."
+                        player.call (call_level + min_raise + x)
+                        inl call_level' = player.pot
+                        inl on_succ {gt lte} =
+                            if call_level' > call_level then 
+                                {d with call_level = call_level'; min_raise = max min_raise (call_level'-call_level)}
+                                |> inl d -> on_succ (gt d)
+                            else on_succ (lte d)
                                 
-                            if player.chips = 0 then
-                                on_succ {
-                                    gt = inl d -> 
-                                        log "{0} raises to {1} and is all-in!" (player.name, call_level')
-                                        {d with players_active=self-1; players_called=0}
-                                    lte = inl d -> 
-                                        log "{0} calls and is all-in!" player.name
-                                        {d with players_active=self-1}
-                                    }
-                            else
-                                log "{0} raises to {1}." (player.name, call_level')
-                                on_succ {
-                                    gt = inl d -> {d with players_called=1}
-                                    lte = inl d -> failwith d "Should not be possible to raise to less than the call level without running out of chips."
-                                    }
-                        }
+                        if player.chips = 0 then
+                            on_succ {
+                                gt = inl d -> 
+                                    log "{0} raises to {1} and is all-in!" (player.name, call_level')
+                                    {d with players_active=self-1; players_called=0}
+                                lte = inl d -> 
+                                    log "{0} calls and is all-in!" player.name
+                                    {d with players_active=self-1}
+                                }
+                        else
+                            log "{0} raises to {1}." (player.name, call_level')
+                            on_succ {
+                                gt = inl d -> {d with players_called=1}
+                                lte = inl d -> failwith d "Should not be possible to raise to less than the call level without running out of chips."
+                                }
                 else on_succ d
             else
                 on_fail
