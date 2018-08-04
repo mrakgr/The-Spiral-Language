@@ -95,7 +95,7 @@ test (dyn <| Option.some (box Q {a b c}))
     """
 
 let poker1 =
-    "poker1",[poker],"Does the poker game work?",
+    "poker1",[poker;player_random],"Does the poker game work?",
     """
 inl log = Console.printfn
 inl num_players = 2
@@ -108,6 +108,6 @@ inl b = player_random {name="Two"}
 game 10 (a,b)
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) union2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker1
 |> printfn "%s"
 |> ignore
