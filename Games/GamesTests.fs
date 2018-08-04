@@ -107,14 +107,14 @@ inl {basic_methods State Action} ->
         inl {action} = PlayerRandom {Action State}
 
         inl methods = {basic_methods with
-            bet=inl s rep -> action rep .action
+            bet=inl s rep -> s.data.action rep .action
             showdown=inl s v -> ()
             game_over=inl s -> ()
             }
 
         Object
             .member_add methods
-            .data_add {name; win=ref 0}
+            .data_add {name; win=ref 0; action}
 
     inl player_rules {name} =
         inl methods = {basic_methods with
@@ -138,8 +138,25 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0}
 
+    inl player_tabular_mc {name init learning_rate} =
+        inl {action} = PlayerTabularMC {Action State init learning_rate}
+        inl trace = ResizeArray.create {elem_type=type heap (action State .bck)}
+
+        inl methods = {basic_methods with
+            bet=inl s rep -> 
+                inl {action bck} = s.data.action rep
+                s.data.trace.add (heap bck)
+                action
+            showdown=inl s v -> s.data.trace.foldr (inl bck v -> bck v; v) (dyn (to float32 v)) |> ignore; s.data.trace.clear
+            game_over=inl s -> ()
+            }
+
+        Object
+            .member_add methods
+            .data_add {name; win=ref 0; action trace}
+
     {
-    player_random player_rules
+    player_random player_rules player_tabular_mc
     } |> stackify
     """) |> module_
 
@@ -154,8 +171,9 @@ open PokerPlayers {basic_methods State Action}
 
 inl a = player_random {name="One"}
 inl b = player_rules {name="Two"}
+inl c = player_tabular_mc {name="Three"; init=8f32; learning_rate=0.01f32}
 
-game 10 (a,b)
+game 10 (a,c)
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker1

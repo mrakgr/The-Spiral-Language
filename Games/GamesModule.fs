@@ -107,11 +107,8 @@ inl {d with max_stack_size num_players} ->
 
     inl Actions = .Fold, .Call, {raise=type Union.int {from=0; near_to=3} int64}
     inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
-    inl Rep = type {
-        pot=Union.int {from=0; near_to=max_stack_size} int64
-        chips=Union.int {from=0; near_to=max_stack_size} int64
-        hand=Option.none Hand
-        }
+    inl Chips = Union.int {from=0; near_to=max_stack_size}
+    inl Rep = type {pot=Chips int64; chips=Chips int64; hand=Option.none Hand}
     inl State = Tuple.repeat num_players Rep
 
     inl hand_rule a b =
@@ -200,8 +197,8 @@ inl {d with max_stack_size num_players} ->
 
     inl internal_representation i players =
         Tuple.mapi (inl i' x ->
-            if i' <> i then {chips=x.chips; pot=x.pot; hand=dyn (Option.none Hand)}
-            else {chips=x.chips; pot=x.pot; hand=x.hand}
+            if i' <> i then {chips=Chips x.chips; pot=Chips x.pot; hand=dyn (Option.none Hand)}
+            else {chips=Chips x.chips; pot=Chips x.pot; hand=x.hand}
             ) players
 
     inl betting players =
@@ -380,7 +377,7 @@ inl {State Action} ->
 
 let player_tabular_mc =
     (
-    "PlayerTabularMC",[dictionary],"The tabular MC player.",
+    "PlayerTabularMC",[dictionary;array],"The tabular MC player.",
     """
 inl {State Action init learning_rate} ->
     inl near_to = Union.length_one_hot Action
@@ -394,7 +391,7 @@ inl {State Action init learning_rate} ->
                 }
 
         inl v, a =
-            Loops.for' {from=0; near_to state=dyn (-infinityf64, 0); body=inl {state=s,a i} ->
+            Loops.for' {from=0; near_to state=dyn (-infinityf32, 0); body=inl {state=s,a i} ->
                 inl v = ar i
                 if v > s then v,i else s,a
                 }

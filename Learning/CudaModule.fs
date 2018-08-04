@@ -135,7 +135,7 @@ inl create {d with elem_type} =
     | .remove_at -> remove_at
     | .iter -> iter
     | .foldl f state -> Loops.for {from=0i32; by=1i32; near_to=count(); state body=inl {state i} -> f state (index i)}
-    | .foldr f state -> Loops.for {from=count() - 1i32; by=-1i32; down_to=0i32; state body=inl {state i} -> f state (index i)}
+    | .foldr f state -> Loops.for {from=count() - 1i32; by=-1i32; down_to=0i32; state body=inl {state i} -> f (index i) state}
     | .elem_type -> elem_type
     | .to_array -> to_array ()
     | .last ->  index (count()-1i32)
