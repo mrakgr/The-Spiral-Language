@@ -186,7 +186,8 @@ inl max_stack_size = num_players * stack_size
 open Poker {max_stack_size num_players}
 open PokerPlayers {basic_methods State Action}
 
-inl a = player_tabular_mc {name="One"; init=10f32; learning_rate=0.02f32}
+inl a = player_tabular_mc {name="One"; init=10f32; learning_rate=0.01f32}
+//inl a = player_random {name="One"}
 inl b = player_rules {name="Two"}
 
 met f game (!dyn near_to) (!dyn near_to_inner) = 
@@ -204,7 +205,7 @@ met f game (!dyn near_to) (!dyn near_to_inner) =
             Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
         }
 
-f game 15 100000
+f game 5 100000
 //open Poker {max_stack_size num_players log=Console.printfn}
 //f game 10 1
     """

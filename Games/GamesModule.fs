@@ -395,7 +395,7 @@ inl {State Action init learning_rate} ->
                 }
 
         inl v, a =
-            Loops.for' {from=0; near_to state=dyn (-infinityf32, 0); body=inl {state=s,a i} ->
+            Loops.for {from=0; near_to state=dyn (-infinityf32, 0); body=inl {state=s,a i} ->
                 inl v = ar i
                 if v > s then v,i else s,a
                 }
