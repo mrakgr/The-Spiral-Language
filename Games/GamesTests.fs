@@ -16,7 +16,7 @@ let union1 =
 inl r = Union.int {from=0; near_to=2}
 inl a = Union.to_one_hot (r 0, r (dyn 1), r (dyn 1))
 inl r = Union.int {from=0; near_to=10}
-inl b = Union.to_one_hot (dyn (Option.none (r int64)))
+inl b = Union.to_one_hot (dyn (Option.none (type r int64)))
 inl c = Union.to_one_hot ((Option.some (r 9)))
 Console.writeline (a,b,c)
     """
@@ -33,7 +33,7 @@ inl test x =
 inl r = Union.int {from=-1; near_to=2}
 test (r 0, r (dyn 1), r (dyn 1))
 inl r = Union.int {from=-2; near_to=10}
-test (dyn (Option.none (r int64)))
+test (dyn (Option.none (type r int64)))
 test (Option.some (r 9))
 
 inl Y = (.a,.123) \/ (.b, r int64)
@@ -58,7 +58,7 @@ let union3 =
 inl r = Union.int {from=0; near_to=2}
 inl a = Union.to_dense (r 0, r (dyn 1), r (dyn 1))
 inl r = Union.int {from=0; near_to=10}
-inl b = Union.to_dense (dyn (Option.none (r int64)))
+inl b = Union.to_dense (dyn (Option.none (type r int64)))
 inl c = Union.to_dense (Option.some (r 9))
 Console.writeline (a,b,c)
     """
@@ -75,7 +75,7 @@ inl test x =
 inl r = Union.int {from=-1; near_to=2}
 test (r 0, r (dyn 1), r (dyn 1))
 inl r = Union.int {from=-2; near_to=10}
-test (dyn (Option.none (r int64)))
+test (dyn (Option.none (type r int64)))
 test (Option.some (r 9))
 
 inl Y = (.a,.123) \/ (.b, r int64)
