@@ -107,10 +107,10 @@ inl max_stack_size = 32
 open Poker {log max_stack_size num_players}
 
 inl player_random {name} =
-    inl player = PlayerRandom {Action State}
+    inl {action} = PlayerRandom {Action State}
 
     inl methods = {basic_methods with
-        bet=inl s rep -> s.action rep .action
+        bet=inl s rep -> action rep .action
         showdown=inl s v -> ()
         game_over=inl s -> ()
         }
