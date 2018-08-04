@@ -98,6 +98,8 @@ test (Option.some (box Q {a b}))
 test (dyn <| Option.some (box Q {a b c}))
     """
 
+let poker_players = ""
+
 let poker1 =
     "poker1",[poker;player_random],"Does the poker game work?",
     """
