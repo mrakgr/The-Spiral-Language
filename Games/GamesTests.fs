@@ -33,19 +33,21 @@ inl test x =
 inl r = Union.int {from=-1; near_to=2}
 test (r 0, r (dyn 1), r (dyn 1))
 inl r = Union.int {from=-2; near_to=10}
-test (dyn (Option.none (type r int64)))
+inl rint64 = type r int64
+
+test (dyn (Option.none rint64))
 test (Option.some (r 9))
 
-inl Y = (.a,.123) \/ (.b, r int64)
+inl Y = (.a,.123) \/ (.b, rint64)
 test (box Y (.b, r 3))
 
-inl Action = .Fold \/ .Call \/ (.Raise, r int64)
+inl Action = .Fold \/ .Call \/ (.Raise, rint64)
 test (box Action (dyn (.Raise, r 7)))
 
-inl Q = (r int64,r int64,r int64) \/ (r int64,r int64) \/ r int64
+inl Q = (rint64, rint64, rint64) \/ (rint64, rint64) \/ rint64
 test (box Q (dyn (r 3, r 2)))
 
-inl Q = {a=r int64; b=r int64; c=r int64} \/ {a=r int64; b=r int64} \/ {a=r int64}
+inl Q = {a=rint64; b=rint64; c=rint64} \/ {a=rint64; b=rint64} \/ {a=rint64}
 inl a,b,c = r 3, r 2, r 1
 test (join Option.some (box Q {a}))
 test (Option.some (box Q {a b}))
@@ -75,19 +77,21 @@ inl test x =
 inl r = Union.int {from=-1; near_to=2}
 test (r 0, r (dyn 1), r (dyn 1))
 inl r = Union.int {from=-2; near_to=10}
-test (dyn (Option.none (type r int64)))
+inl rint64 = type r int64
+
+test (dyn (Option.none rint64))
 test (Option.some (r 9))
 
-inl Y = (.a,.123) \/ (.b, r int64)
+inl Y = (.a,.123) \/ (.b, rint64)
 test (box Y (.b, r 3))
 
-inl Action = .Fold \/ .Call \/ (.Raise, r int64)
+inl Action = .Fold \/ .Call \/ (.Raise, rint64)
 test (box Action (dyn (.Raise, r 7)))
 
-inl Q = (r int64,r int64,r int64) \/ (r int64,r int64) \/ r int64
+inl Q = (rint64, rint64, rint64) \/ (rint64, rint64) \/ rint64
 test (box Q (dyn (r 3, r 2)))
 
-inl Q = {a=r int64; b=r int64; c=r int64} \/ {a=r int64; b=r int64} \/ {a=r int64}
+inl Q = {a=rint64; b=rint64; c=rint64} \/ {a=rint64; b=rint64} \/ {a=rint64}
 inl a,b,c = r 3, r 2, r 1
 test (join Option.some (box Q {a}))
 test (Option.some (box Q {a b}))
