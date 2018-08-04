@@ -398,7 +398,10 @@ inl {State Action init learning_rate} ->
 
         {
         action=Union.from_one_hot Action a
-        bck=inl v' -> ar a <- v + learning_rate * (v' - v)
+        bck=inl v' -> 
+            inl update = v + learning_rate * (v' - v)
+            //Console.writeline (ar a, v', update)
+            ar a <- update
         }
 
     {action}

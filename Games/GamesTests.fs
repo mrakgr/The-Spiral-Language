@@ -119,7 +119,7 @@ inl {basic_methods State Action} ->
     inl player_rules {name} =
         inl methods = {basic_methods with
             bet=inl s players -> 
-                inl limit = Tuple.foldl (inl s x -> max s x.pot) 0 players
+                inl limit = Tuple.foldl (inl s x -> max s x.pot.value) 0 players
                 /// TODO: Replace find with pick.
                 inl self = Tuple.find (inl x -> match x.hand with .Some, _ -> true | _ -> false) players
                 match self.hand with
@@ -128,7 +128,7 @@ inl {basic_methods State Action} ->
                     | .Ten | .Jack | .Queen | .King | .Ace -> 
                         inl {raise} = Tuple.find (function {raise} -> true | _ -> false) (split Action)
                         box Action {raise={raise with value=0}}
-                    | _ -> if self.pot >= limit || self.chips = 0 then box Action .Call else box Action .Fold
+                    | _ -> if self.pot.value >= limit || self.chips.value = 0 then box Action .Call else box Action .Fold
                 | .None -> failwith Action "No self in the internal representation."
             showdown=inl s v -> ()
             game_over=inl s -> ()
@@ -176,6 +176,39 @@ inl c = player_tabular_mc {name="Three"; init=8f32; learning_rate=0.01f32}
 game 10 (a,c)
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker1
+let poker2 =
+    "poker2",[cuda_modules;loops;poker;poker_players;timer],"The iterative test.",
+    """
+//inb s = CudaModules (1024*1024*1024)
+inl num_players = 2
+inl stack_size = 10
+inl max_stack_size = num_players * stack_size
+open Poker {max_stack_size num_players}
+open PokerPlayers {basic_methods State Action}
+
+inl a = player_tabular_mc {name="One"; init=10f32; learning_rate=0.02f32}
+inl b = player_rules {name="Two"}
+
+met f game (!dyn near_to) (!dyn near_to_inner) = 
+    Loops.for {from=0; near_to body=inl {i} ->
+        Timer.time_it (string_format "iteration {0}" i)
+        <| inl _ ->
+            //s.refresh
+            //inb s = s.RegionMem.create'
+            //inl a = a.data_add {win=ref 0; state=ref (box_net_state a.net {} s); cd=s}
+            inl a = a.data_add {win=ref 0}
+            inl b = b.data_add {win=ref 0}
+            Loops.for {from=0; near_to=near_to_inner; body=inl {state=s i} -> game stack_size (a, b)}
+            inl a = a.data.win ()
+            inl b = b.data.win ()
+            Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
+        }
+
+f game 15 10000
+//open Poker {max_stack_size num_players log=Console.printfn}
+//f game 10 1
+    """
+
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker2
 |> printfn "%s"
 |> ignore
