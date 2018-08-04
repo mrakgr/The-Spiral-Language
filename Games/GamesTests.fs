@@ -116,8 +116,30 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0}
 
+    inl player_rules {name} =
+        inl methods = {basic_methods with
+            bet=inl s players -> 
+                inl limit = Tuple.foldl (inl s x -> max s x.pot) 0 players
+                /// TODO: Replace find with pick.
+                inl self = Tuple.find (inl x -> match x.hand with .Some, _ -> true | _ -> false) players
+                match self.hand with
+                | .Some, x ->
+                    match x.rank with
+                    | .Ten | .Jack | .Queen | .King | .Ace -> 
+                        inl raise = Tuple.find (function {raise} -> true | _ -> false) (split Action)
+                        box Action {raise with value=0}
+                    | _ -> if self.pot >= limit || self.chips = 0 then box Action .Call else box Action .Fold
+                | .None -> failwith Action "No self in the internal representation."
+            showdown=inl s v -> ()
+            game_over=inl s -> ()
+            }
+
+        Object
+            .member_add methods
+            .data_add {name; win=ref 0}
+
     {
-    player_random
+    player_random player_rules
     } |> stackify
     """) |> module_
 
