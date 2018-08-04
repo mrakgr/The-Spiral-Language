@@ -126,8 +126,8 @@ inl {basic_methods State Action} ->
                 | .Some, x ->
                     match x.rank with
                     | .Ten | .Jack | .Queen | .King | .Ace -> 
-                        inl raise = Tuple.find (function {raise} -> true | _ -> false) (split Action)
-                        box Action {raise with value=0}
+                        inl {raise} = Tuple.find (function {raise} -> true | _ -> false) (split Action)
+                        box Action {raise={raise with value=0}}
                     | _ -> if self.pot >= limit || self.chips = 0 then box Action .Call else box Action .Fold
                 | .None -> failwith Action "No self in the internal representation."
             showdown=inl s v -> ()
@@ -153,7 +153,7 @@ open Poker {log max_stack_size num_players}
 open PokerPlayers {basic_methods State Action}
 
 inl a = player_random {name="One"}
-inl b = player_random {name="Two"}
+inl b = player_rules {name="Two"}
 
 game 10 (a,b)
     """
