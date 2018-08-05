@@ -184,6 +184,9 @@ inl from_dense ty ar =
     assert (array_length ar = ty.s) "The length of the array must be equal to the size of the type."
     from_dense ((=) 1f32) ty ar
 
+inl rec unroll f x =
+    
+
 {int to_one_hot to_dense from_one_hot from_dense length_one_hot length_dense} |> stackify
     """) |> module_
 
@@ -658,17 +661,17 @@ inl float ->
             }
 
         /// For online learning.
-        inl action {state_type action_type final} {network input} s =
+        inl action {State Action final} {net input} s =
             indiv join
-                assert (eq_type state_type input) "The input must be equal to the state type."
+                assert (eq_type State input) "The input must be equal to the state type."
                 inl input = s.CudaTensor.from_host_array (Union.from_dense input) .reshape (inl x -> 1,x)
 
-                inl network, {input bck} = run s {input} network
+                inl net, {input bck} = run s {input} net
                 inl {out bck=bck'} = final input s
                 inl bck = heap (apply_bck bck bck')
 
-                inl action = Union.to_one_hot action_type (s.CudaTensor.get (out 0))
-                stack {action network bck}
+                inl action = Union.to_one_hot Action (s.CudaTensor.get (out 0))
+                stack {action net bck}
         
         {action sampling_pg}
 

@@ -410,3 +410,13 @@ inl {State Action init learning_rate} ->
 
     {action}
     """) |> module_
+
+let player_pg =
+    (
+    "PlayerPG",[dictionary;array],"The PG player.",
+    """
+inl {State Action learning_rate} ->
+    inl action = RL.action {State Action final=RL.sampling_pg}
+
+    {action}
+    """) |> module_

@@ -172,6 +172,25 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0; action trace}
 
+    inl player_pg {name net cd learning_rate} =
+        inl {action} = PlayerPG {Action State}
+        inl trace = ResizeArray.create {elem_type=type (action {net input=State} cd bck)}
+        inl net_type =
+            
+
+        inl methods = {basic_methods with
+            bet=inl s rep -> 
+                inl {action bck} = s.data.action rep
+                s.data.trace.add (heap bck)
+                action
+            showdown=inl s v -> s.data.trace.foldr (inl bck v -> bck v |> ignore; v) (dyn (to float32 v)) |> ignore; s.data.trace.clear
+            game_over=inl s -> ()
+            }
+
+        Object
+            .member_add methods
+            .data_add {name; win=ref 0; action trace}
+
     {
     player_random player_rules player_tabular_mc player_tabular_sarsa
     } |> stackify
