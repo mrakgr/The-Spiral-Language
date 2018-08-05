@@ -519,7 +519,7 @@ inl {basic_methods State Action} ->
                 inl net_type = type net
                 s.data.net := box net_type s.data.starting_net
                 inl optimizer = Learning.Optimizer.sgd learning_rate
-                match s.data.net () with
+                match net with
                 | () | !indiv net -> // This is in order to trigger unboxing.
                     Struct.iter (inl {optimize} -> optimize optimizer) net
             game_over=inl s -> ()

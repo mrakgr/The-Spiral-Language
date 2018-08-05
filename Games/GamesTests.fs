@@ -157,9 +157,11 @@ inl stack_size = 10
 inl max_stack_size = num_players * stack_size
 open Poker {max_stack_size num_players}
 open PokerPlayers {basic_methods State Action}
-open Learning float32
 
-inl a = player_pg {name="One"; actor=Feedforward.tanh 256; learning_rate=0.002f32} s
+inl a = 
+    open (Learning float32).Feedforward
+    //player_pg {name="One"; actor=tanh 256; learning_rate=0.001f32} s
+    player_pg {name="One"; actor=(); learning_rate=0.003f32} s
 inl b = player_rules {name="Two"}
 
 met f game (!dyn near_to) (!dyn near_to_inner) = 
