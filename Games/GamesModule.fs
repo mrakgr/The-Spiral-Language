@@ -494,7 +494,7 @@ inl {basic_methods State Action} ->
 
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
-        
+
         inl net,_ = 
             inl linear = Learning.Feedforward.linear
             Tuple.append (Tuple.wrap actor) (linear num_actions :: ())
