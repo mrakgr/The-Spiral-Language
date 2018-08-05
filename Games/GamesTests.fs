@@ -100,7 +100,7 @@ test (dyn <| Option.some (box Q {a b c}))
 
 let poker_players =
     (
-    "PokerPlayers",[player_random;player_tabular_mc],"The poker players module.",
+    "PokerPlayers",[player_random;player_tabular],"The poker players module.",
     """
 inl {basic_methods State Action} ->
     inl player_random {name} =
@@ -139,7 +139,7 @@ inl {basic_methods State Action} ->
             .data_add {name; win=ref 0}
 
     inl player_tabular_mc {name init learning_rate} =
-        inl {action} = PlayerTabularMC {Action State init learning_rate}
+        inl {action} = PlayerTabular {Action State init learning_rate}
         inl trace = ResizeArray.create {elem_type=type heap (action State .bck)}
 
         inl methods = {basic_methods with
@@ -147,7 +147,24 @@ inl {basic_methods State Action} ->
                 inl {action bck} = s.data.action rep
                 s.data.trace.add (heap bck)
                 action
-            showdown=inl s v -> s.data.trace.foldr (inl bck v -> bck v; v) (dyn (to float32 v)) |> ignore; s.data.trace.clear
+            showdown=inl s v -> s.data.trace.foldr (inl bck v -> bck v |> ignore; v) (dyn (to float32 v)) |> ignore; s.data.trace.clear
+            game_over=inl s -> ()
+            }
+
+        Object
+            .member_add methods
+            .data_add {name; win=ref 0; action trace}
+
+    inl player_tabular_sarsa {name init learning_rate} =
+        inl {action} = PlayerTabular {Action State init learning_rate}
+        inl trace = ResizeArray.create {elem_type=type heap (action State .bck)}
+
+        inl methods = {basic_methods with
+            bet=inl s rep -> 
+                inl {action bck} = s.data.action rep
+                s.data.trace.add (heap bck)
+                action
+            showdown=inl s v -> s.data.trace.foldr (inl bck v -> bck v) (dyn (to float32 v)) |> ignore; s.data.trace.clear
             game_over=inl s -> ()
             }
 
@@ -156,7 +173,7 @@ inl {basic_methods State Action} ->
             .data_add {name; win=ref 0; action trace}
 
     {
-    player_random player_rules player_tabular_mc
+    player_random player_rules player_tabular_mc player_tabular_sarsa
     } |> stackify
     """) |> module_
 
@@ -186,7 +203,7 @@ inl max_stack_size = num_players * stack_size
 open Poker {max_stack_size num_players}
 open PokerPlayers {basic_methods State Action}
 
-inl a = player_tabular_mc {name="One"; init=10f32; learning_rate=0.01f32}
+inl a = player_tabular_sarsa {name="One"; init=10f32; learning_rate=0.01f32}
 //inl a = player_random {name="One"}
 inl b = player_rules {name="Two"}
 
@@ -205,7 +222,7 @@ met f game (!dyn near_to) (!dyn near_to_inner) =
             Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
         }
 
-f game 5 100000
+f game 30 100000
 //open Poker {max_stack_size num_players log=Console.printfn}
 //f game 10 1
     """

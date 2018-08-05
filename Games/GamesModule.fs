@@ -105,7 +105,7 @@ inl {d with max_stack_size num_players} ->
     inl Hand = Card // for one card poker
     inl show_hand = show_card
 
-    inl Actions = .Fold, .Call, {raise=type Union.int {from=0; near_to=1} int64}
+    inl Actions = .Fold, .Call, {raise=type Union.int {from=0; near_to=3} int64}
     inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
     inl Chips = Union.int {from=0; near_to=max_stack_size}
     inl Rep = type {pot=Chips int64; chips=Chips int64; hand=Option.none Hand}
@@ -375,9 +375,9 @@ inl {State Action} ->
     {action}
     """) |> module_
 
-let player_tabular_mc =
+let player_tabular =
     (
-    "PlayerTabularMC",[dictionary;array],"The tabular MC player.",
+    "PlayerTabular",[dictionary;array],"The tabular player.",
     """
 inl {State Action init learning_rate} ->
     inl near_to = Union.length_one_hot Action
@@ -402,7 +402,10 @@ inl {State Action init learning_rate} ->
 
         {
         action=Union.from_one_hot Action a
-        bck=inl v' -> ar a <- v + learning_rate * (v' - v)
+        bck=inl v' -> 
+            inl x = v + learning_rate * (v' - v)
+            ar a <- x
+            x
         }
 
     {action}
