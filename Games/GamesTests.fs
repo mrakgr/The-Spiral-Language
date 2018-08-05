@@ -169,7 +169,7 @@ inl net,_ =
         linear num_actions
     init s input_size network
 
-inl a = player_pg {name="One"; net learning_rate=0.01f32} s
+inl a = player_pg {name="One"; net learning_rate=0.002f32} s
 inl b = player_rules {name="Two"}
 
 met f game (!dyn near_to) (!dyn near_to_inner) = 
@@ -186,7 +186,7 @@ met f game (!dyn near_to) (!dyn near_to_inner) =
             Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
         }
 
-f game 5 1000
+f game 15 1000
 //open Poker {max_stack_size num_players log=Console.printfn}
 //f game 10 1
     """
