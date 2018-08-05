@@ -98,116 +98,6 @@ test (Option.some (box Q {a b}))
 test (dyn <| Option.some (box Q {a b c}))
     """
 
-let poker_players =
-    (
-    "PokerPlayers",[player_random;player_tabular],"The poker players module.",
-    """
-inl {basic_methods State Action} ->
-    inl player_random {name} =
-        inl {action} = PlayerRandom {Action State}
-
-        inl methods = {basic_methods with
-            bet=inl s rep -> s.data.action rep .action
-            showdown=inl s v -> ()
-            game_over=inl s -> ()
-            }
-
-        Object
-            .member_add methods
-            .data_add {name; win=ref 0; action}
-
-    inl player_rules {name} =
-        inl methods = {basic_methods with
-            bet=inl s players -> 
-                inl limit = Tuple.foldl (inl s x -> max s x.pot.value) 0 players
-                /// TODO: Replace find with pick.
-                inl self = Tuple.find (inl x -> match x.hand with .Some, _ -> true | _ -> false) players
-                match self.hand with
-                | .Some, x ->
-                    match x.rank with
-                    | .Ten | .Jack | .Queen | .King | .Ace -> 
-                        inl {raise} = Tuple.find (function {raise} -> true | _ -> false) (split Action)
-                        box Action {raise={raise with value=0}}
-                    | _ -> if self.pot.value >= limit || self.chips.value = 0 then box Action .Call else box Action .Fold
-                | .None -> failwith Action "No self in the internal representation."
-            showdown=inl s v -> ()
-            game_over=inl s -> ()
-            }
-
-        Object
-            .member_add methods
-            .data_add {name; win=ref 0}
-
-    inl player_tabular_mc {name init learning_rate} =
-        inl {action} = PlayerTabular {Action State init learning_rate}
-        inl trace = ResizeArray.create {elem_type=type heap (action State .bck)}
-
-        inl methods = {basic_methods with
-            bet=inl s rep -> 
-                inl {action bck} = s.data.action rep
-                s.data.trace.add (heap bck)
-                action
-            showdown=inl s v -> s.data.trace.foldr (inl bck v -> bck v |> ignore; v) (dyn (to float32 v)) |> ignore; s.data.trace.clear
-            game_over=inl s -> ()
-            }
-
-        Object
-            .member_add methods
-            .data_add {name; win=ref 0; action trace}
-
-    inl player_tabular_sarsa {name init learning_rate} =
-        inl {action} = PlayerTabular {Action State init learning_rate}
-        inl trace = ResizeArray.create {elem_type=type heap (action State .bck)}
-
-        inl methods = {basic_methods with
-            bet=inl s rep -> 
-                inl {action bck} = s.data.action rep
-                s.data.trace.add (heap bck)
-                action
-            showdown=inl s v -> s.data.trace.foldr (inl bck v -> bck v) (dyn (to float32 v)) |> ignore; s.data.trace.clear
-            game_over=inl s -> ()
-            }
-
-        Object
-            .member_add methods
-            .data_add {name; win=ref 0; action trace}
-
-    inl player_pg {name net cd learning_rate} =
-        inl {action} = PlayerPG {Action State}
-        inl trace = ResizeArray.create {elem_type=type heap (action {net input=State} cd .bck)}
-        inl net_type = Union.unroll (inl x -> action x cd .net) {net input=State}
-        inl starting_net = net
-        inl net = ref (box net_type net)
-
-        inl methods = {basic_methods with
-            bet=inl s rep ->
-                match s.data.net () with
-                | () | net -> // This is in order to trigger unboxing.
-                    inl cd = s.data.cd
-                    inl {action net bck} = s.data.action {net input=rep} cd
-                    s.data.net := box net_type net
-                    s.data.trace.add (heap bck)
-                    action
-            showdown=inl s v -> 
-                s.data.trace.foldr (inl bck v -> bck v |> ignore; v) (dyn (to float32 v)) |> ignore
-                s.data.trace.clear
-                s.data.net := box net_type s.data.starting_net
-                inl optimizer = Optimizer.sgd learning_rate
-                match s.data.net () with
-                | () | net -> // This is in order to trigger unboxing.
-                    Struct.iter (inl {optimize} -> optimize optimizer) net
-            game_over=inl s -> ()
-            }
-
-        Object
-            .member_add methods
-            .data_add {name; win=ref 0; action trace net starting_net}
-
-    {
-    player_random player_rules player_tabular_mc player_tabular_sarsa player_pg
-    } |> stackify
-    """) |> module_
-
 let poker1 =
     "poker1",[poker;poker_players],"Does the poker game work?",
     """
@@ -274,10 +164,12 @@ inl num_actions = Union.length_one_hot Action
 
 inl net,_ =
     open Feedforward
-    inl network = linear num_actions
+    inl network = 
+        relu 256,
+        linear num_actions
     init s input_size network
 
-inl a = player_pg {name="One"; net learning_rate=0.01f32}
+inl a = player_pg {name="One"; net learning_rate=0.01f32} s
 inl b = player_rules {name="Two"}
 
 met f game (!dyn near_to) (!dyn near_to_inner) = 

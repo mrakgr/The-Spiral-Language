@@ -666,13 +666,15 @@ inl float ->
         inl action {State Action final} {net input} s =
             indiv join
                 assert (eq_type State input) "The input must be equal to the state type."
-                inl input = s.CudaTensor.from_host_array (Union.from_dense input) .reshape (inl x -> 1,x)
+                inl input = 
+                    inl tns = Union.to_dense input |> HostTensor.array_as_tensor
+                    s.CudaTensor.from_host_tensor tns .reshape (inl x -> 1,x)
 
                 inl net, {input bck} = run s {input} net
                 inl {out bck=bck'} = final input s
                 inl bck = heap (apply_bck bck bck')
 
-                inl action = Union.to_one_hot Action (s.CudaTensor.get (out 0))
+                inl action = Union.from_one_hot Action (s.CudaTensor.get (out 0))
                 stack {action net bck}
         
         {action sampling_pg}
