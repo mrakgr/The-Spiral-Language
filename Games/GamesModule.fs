@@ -110,7 +110,7 @@ inl {d with max_stack_size num_players} ->
 
     inl Actions = .Fold, .Call, {raise=type Union.int {from=0; near_to=1} int64}
     inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
-    inl Chips = Union.int {from=0; near_to=max_stack_size}
+    inl Chips = Union.int {from=0; near_to=max_stack_size+1}
     inl Rep = type {pot=Chips int64; chips=Chips int64; hand=Option.none Hand}
     inl State = Tuple.repeat num_players Rep
 
