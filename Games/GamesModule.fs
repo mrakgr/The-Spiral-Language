@@ -515,7 +515,7 @@ inl {basic_methods State Action} ->
                 match net with
                 | () | !indiv net -> // This is in order to trigger unboxing.
                     inl {action net bck} = s.data.action {net input=rep} s.data.cd
-                    Console.writeline action
+                    //Console.writeline action
                     s.data.net := box net_type (heap net)
                     s.data.trace.add (heap bck)
                     action
