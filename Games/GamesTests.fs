@@ -160,8 +160,7 @@ open PokerPlayers {basic_methods State Action}
 
 inl a = 
     open (Learning float32).Feedforward
-    //player_pg {name="One"; actor=tanh 256; learning_rate=0.001f32} s
-    player_pg {name="One"; actor=(); learning_rate=0.003f32} s
+    player_pg {name="One"; actor=tanh 256; learning_rate=0.0003f32} s
 inl b = player_rules {name="Two"}
 
 met f game (!dyn near_to) (!dyn near_to_inner) = 
@@ -178,7 +177,7 @@ met f game (!dyn near_to) (!dyn near_to_inner) =
             Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
         }
 
-f game 15 1000
+f game 100 1000
 //open Poker {max_stack_size num_players log=Console.printfn}
 //f game 10 1
     """
