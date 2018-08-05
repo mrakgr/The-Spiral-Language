@@ -108,7 +108,7 @@ inl {d with max_stack_size num_players} ->
     inl Hand = Card // for one card poker
     inl show_hand = show_card
 
-    inl Actions = .Fold, .Call, {raise=type Union.int {from=0; near_to=1} int64}
+    inl Actions = .Fold, .Call, (.Raise, .0) // {raise=type Union.int {from=0; near_to=1} int64}
     inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
     inl Chips = Union.int {from=0; near_to=max_stack_size+1}
     inl NilHand = type Hand \/ ()
