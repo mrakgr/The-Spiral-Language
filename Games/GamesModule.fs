@@ -411,20 +411,9 @@ inl {State Action init learning_rate} ->
     {action}
     """) |> module_
 
-let player_pg =
-    (
-    "PlayerPG",[dictionary;array;learning],"The PG player.",
-    """
-inl {State Action} ->
-    inl Learning = Learning float32
-    inl action = Learning.RL.action {State Action final=Learning.RL.sampling_pg}
-
-    {action}
-    """) |> module_
-
 let poker_players =
     (
-    "PokerPlayers",[player_random;player_tabular;player_pg],"The poker players module.",
+    "PokerPlayers",[player_random;player_tabular],"The poker players module.",
     """
 inl {basic_methods State Action} ->
     inl player_random {name} =
@@ -497,8 +486,17 @@ inl {basic_methods State Action} ->
             .data_add {name; win=ref 0; action trace}
 
     inl Learning = Learning float32
-    inl player_pg {name net learning_rate} cd =
-        inl {action} = PlayerPG {State Action}
+    inl player_pg {name actor learning_rate} cd =
+        inl action = Learning.RL.action {State Action final=Learning.RL.sampling_pg}
+
+        inl input_size = Union.length_dense State
+        inl num_actions = Union.length_one_hot Action
+        
+        inl net,_ = 
+            inl linear = Learning.Feedforward.linear
+            Tuple.append (Tuple.wrap actor) (linear num_actions :: ())
+            |> Learning.init cd input_size
+
         inl trace = ResizeArray.create {elem_type=type heap (action {net input=State} cd .bck)}
         inl starting_net = heap net
         inl net_type = Union.unroll (inl !indiv net -> action {net input=State} cd .net |> heap) starting_net
@@ -506,16 +504,19 @@ inl {basic_methods State Action} ->
 
         inl methods = {basic_methods with
             bet=inl s rep ->
-                match s.data.net () with
+                inl net = s.data.net ()
+                inl net_type = type net
+                match net with
                 | () | !indiv net -> // This is in order to trigger unboxing.
-                    inl cd = s.data.cd
-                    inl {action net bck} = s.data.action {net input=rep} cd
+                    inl {action net bck} = s.data.action {net input=rep} s.data.cd
                     s.data.net := box net_type (heap net)
                     s.data.trace.add (heap bck)
                     action
             showdown=inl s v -> 
                 s.data.trace.foldr (inl bck reward -> bck {reward} |> ignore; reward) (dyn (to float32 v)) |> ignore
                 s.data.trace.clear
+                inl net = s.data.net ()
+                inl net_type = type net
                 s.data.net := box net_type s.data.starting_net
                 inl optimizer = Learning.Optimizer.sgd learning_rate
                 match s.data.net () with
