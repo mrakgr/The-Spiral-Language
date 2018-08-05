@@ -299,6 +299,6 @@ f game 5 1000
 //f game 10 1
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3
 |> printfn "%s"
 |> ignore
