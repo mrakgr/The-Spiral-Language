@@ -560,10 +560,7 @@ inl float ->
             s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
 
         Struct.map (function // Rough and possibly poorly tuned inits. Recommended to be used together with PRONG or layer/batch norm.
-            | {sigmoid=dim} -> 
-                inl x = init 2f32 dim s |> dr s
-                s.CudaTensor.print (primal x)
-                x
+            | {sigmoid=dim} -> init 2f32 dim s |> dr s
             | {tanh=dim} -> init 3f32 dim s |> dr s
             | {relu=dim} -> init 1f32 dim s |> dr s
             | {bias=dim} -> s.CudaTensor.zero {elem_type=float; dim} |> dr s
