@@ -59,7 +59,7 @@ inl num_cards =
 inl tag_rank = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) ({},0i32) Ranks |> fst
 inl tag_suit = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) ({},0i32) Suits |> fst
    
-inl rnd = Random()
+inl rnd = Random(42i32)
 inl unshuffled = 
     Tuple.map (inl rank ->
         box Card {rank=box Rank rank}
@@ -373,7 +373,7 @@ let player_random =
     "PlayerRandom",[random],"The player which selects actions at random.",
     """
 inl {State Action} ->
-    inl rnd = Random()
+    inl rnd = Random(42i32)
     inl action state = {action = Union.length_one_hot Action |> to int32 |> rnd.next |> to int64 |> Union.from_one_hot Action}
 
     {action}
