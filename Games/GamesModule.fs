@@ -50,7 +50,7 @@ inl Suits = .Spades :: () //, .Clubs, .Hearts, .Diamonds
 inl Suit = Tuple.reducel (inl a b -> a \/ b) Suits
 inl Ranks = .Two, .Three, .Four, .Five, .Six, .Seven, .Eight, .Nine, .Ten, .Jack, .Queen, .King, .Ace
 inl Rank = Tuple.reducel (inl a b -> a \/ b) Ranks
-inl Card = type {rank=Rank; suit=Suit}
+inl Card = type {rank=Rank}
 
 inl num_cards = 
     inl l = Tuple.foldl (inl s _ -> s+1) 0
@@ -62,9 +62,10 @@ inl tag_suit = Tuple.foldl (inl (s,v) k -> {s with $k=v}, v+1i32) ({},0i32) Suit
 inl rnd = Random()
 inl unshuffled = 
     Tuple.map (inl rank ->
-        Tuple.map (inl suit -> box Card {rank=box Rank rank; suit=box Suit suit}) Suits
+        box Card {rank=box Rank rank}
+        //Tuple.map (inl suit -> box Card {rank=box Rank rank; suit=box Suit suit}) Suits
         ) Ranks
-    |> Tuple.concat
+    //|> Tuple.concat
 
 inl deck _ =
     met knuth_shuffle rnd ln ar =
@@ -91,8 +92,10 @@ inl compare a b = if a < b then -1i32 elif a = b then 0i32 else 1i32
 
 met show_card x =
     macro.fs () [text: "//In show_card."]
-    inl {rank=.(a) suit=.(b)} = x 
-    string_format "{0}-{1}" (a, b)
+    inl {rank=.(a)} = x 
+    a
+    //inl {rank=.(a) suit=.(b)} = x 
+    //string_format "{0}-{1}" (a, b)
 
 inl {d with max_stack_size num_players} ->
     inl range = max_stack_size+1
