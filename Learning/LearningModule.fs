@@ -670,6 +670,8 @@ inl float ->
                     inl tns = Union.to_dense input |> HostTensor.array_as_tensor
                     s.CudaTensor.from_host_tensor tns .reshape (inl x -> 1,x)
 
+                s.CudaTensor.print input
+
                 inl net, {input bck} = run s {input} net
                 inl {out bck=bck'} = final input s
                 inl bck = heap (apply_bck bck bck')
