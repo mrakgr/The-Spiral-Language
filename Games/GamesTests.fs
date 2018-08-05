@@ -174,25 +174,37 @@ inl {basic_methods State Action} ->
 
     inl player_pg {name net cd learning_rate} =
         inl {action} = PlayerPG {Action State}
-        inl trace = ResizeArray.create {elem_type=type (action {net input=State} cd bck)}
-        inl net_type =
-            
+        inl trace = ResizeArray.create {elem_type=type heap (action {net input=State} cd .bck)}
+        inl net_type = Union.unroll (inl x -> action x cd .net) {net input=State}
+        inl starting_net = net
+        inl net = ref (box net_type net)
 
         inl methods = {basic_methods with
-            bet=inl s rep -> 
-                inl {action bck} = s.data.action rep
-                s.data.trace.add (heap bck)
-                action
-            showdown=inl s v -> s.data.trace.foldr (inl bck v -> bck v |> ignore; v) (dyn (to float32 v)) |> ignore; s.data.trace.clear
+            bet=inl s rep ->
+                match s.data.net () with
+                | () | net -> // This is in order to trigger unboxing.
+                    inl cd = s.data.cd
+                    inl {action net bck} = s.data.action {net input=rep} cd
+                    s.data.net := box net_type net
+                    s.data.trace.add (heap bck)
+                    action
+            showdown=inl s v -> 
+                s.data.trace.foldr (inl bck v -> bck v |> ignore; v) (dyn (to float32 v)) |> ignore
+                s.data.trace.clear
+                s.data.net := box net_type s.data.starting_net
+                inl optimizer = Optimizer.sgd learning_rate
+                match s.data.net () with
+                | () | net -> // This is in order to trigger unboxing.
+                    Struct.iter (inl {optimize} -> optimize optimizer) net
             game_over=inl s -> ()
             }
 
         Object
             .member_add methods
-            .data_add {name; win=ref 0; action trace}
+            .data_add {name; win=ref 0; action trace net starting_net}
 
     {
-    player_random player_rules player_tabular_mc player_tabular_sarsa
+    player_random player_rules player_tabular_mc player_tabular_sarsa player_pg
     } |> stackify
     """) |> module_
 
@@ -242,6 +254,47 @@ met f game (!dyn near_to) (!dyn near_to_inner) =
         }
 
 f game 30 100000
+//open Poker {max_stack_size num_players log=Console.printfn}
+//f game 10 1
+    """
+
+let poker3 =
+    "poker3",[cuda_modules;loops;poker;poker_players;timer],"The iterative test for NNs.",
+    """
+inb s = CudaModules (1024*1024*1024)
+inl num_players = 2
+inl stack_size = 10
+inl max_stack_size = num_players * stack_size
+open Poker {max_stack_size num_players}
+open PokerPlayers {basic_methods State Action}
+open Learning float32
+
+inl input_size = Union.length_dense State
+inl num_actions = Union.length_one_hot Action
+
+inl net,_ =
+    open Feedforward
+    inl network = linear num_actions
+    init s input_size network
+
+inl a = player_pg {name="One"; net learning_rate=0.01f32}
+inl b = player_rules {name="Two"}
+
+met f game (!dyn near_to) (!dyn near_to_inner) = 
+    Loops.for {from=0; near_to body=inl {i} ->
+        Timer.time_it (string_format "iteration {0}" i)
+        <| inl _ ->
+            s.refresh
+            inb s = s.RegionMem.create'
+            inl a = a.data_add {win=ref 0; cd=s}
+            inl b = b.data_add {win=ref 0; cd=s}
+            Loops.for {from=0; near_to=near_to_inner; body=inl {state=s i} -> game stack_size (a, b)}
+            inl a = a.data.win ()
+            inl b = b.data.win ()
+            Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
+        }
+
+f game 5 1000
 //open Poker {max_stack_size num_players log=Console.printfn}
 //f game 10 1
     """

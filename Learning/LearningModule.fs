@@ -185,9 +185,11 @@ inl from_dense ty ar =
     from_dense ((=) 1f32) ty ar
 
 inl rec unroll f x =
-    
+    inl x' = type f x
+    if eq_type x x' then x
+    else x \/ unroll f x'
 
-{int to_one_hot to_dense from_one_hot from_dense length_one_hot length_dense} |> stackify
+{int to_one_hot to_dense from_one_hot from_dense length_one_hot length_dense unroll} |> stackify
     """) |> module_
 
 let learning =
