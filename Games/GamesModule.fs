@@ -111,7 +111,8 @@ inl {d with max_stack_size num_players} ->
     inl Actions = .Fold, .Call, {raise=type Union.int {from=0; near_to=1} int64}
     inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
     inl Chips = Union.int {from=0; near_to=max_stack_size+1}
-    inl Rep = type {pot=Chips int64; chips=Chips int64; hand=type Hand \/ ()}
+    inl NilHand = type Hand \/ ()
+    inl Rep = type {pot=Chips int64; chips=Chips int64; hand=NilHand}
     inl State = Tuple.repeat num_players Rep
 
     inl hand_rule a b =
@@ -132,33 +133,32 @@ inl {d with max_stack_size num_players} ->
             inl tie = Tuple.iter (inl x -> x.pot_take x.pot |> x.chips_give)
 
             match a.hand with
-            | .Some, a' ->
+            | () -> win b a
+            | a' ->
                 match b.hand with
-                | .Some, b' -> 
+                | () -> win a b
+                | b' -> 
                     match hand_rule a' b' with
                     | 1i32 -> win a b
                     | 0i32 -> tie players
                     | _ -> win b a
-                | .None -> win a b
-            | .None -> win b a
-
         | _ -> 
             inl get_active = Array.filter (inl x -> x.pot > 0)
             inl get_winners active = 
                 inl win_hand =
                     Array.foldl (inl s player ->
                         match s with
-                        | .Some, a ->
+                        | () -> player.hand
+                        | a ->
                             match player.hand with
-                            | .Some, b -> if rule a b = 1i32 then Option.some a else Option.some b
-                            | .None -> Option.some a
-                        | .None -> player.hand
-                        ) (Option.none Hand) active
+                            | () -> box NilHand a
+                            | b -> if rule a b = 1i32 then box NilHand a else box NilHand b
+                        ) (box NilHand ()) active
 
                 Array.filter (inl x -> 
                     match x.hand with
-                    | .Some, x -> win_hand = x
-                    | .None -> false
+                    | () -> false
+                    | x -> win_hand = x
                     ) active
 
             inl get_min_pot active = Array.foldl (inl s x -> min s x.pot) (macro.fs int64 [text: "System.Int64.MaxValue"]) active
@@ -187,8 +187,9 @@ inl {d with max_stack_size num_players} ->
         Tuple.iter2 (inl x old_chips ->
             inl reward = x.chips - old_chips
             match x.hand with
-            | .Some, hand -> log "{0} shows {1}" (x.name, show_hand hand)
-            | _ -> ()
+            | () -> ()
+            | hand -> log "{0} shows {1}" (x.name, show_hand hand)
+            
             x.showdown reward
             inl name = x.name
             if reward = 1 then log "{0} wins {1} chip." (name,reward)
@@ -200,7 +201,7 @@ inl {d with max_stack_size num_players} ->
 
     inl internal_representation i players =
         Tuple.mapi (inl i' x ->
-            if i' <> i then {chips=Chips x.chips; pot=Chips x.pot; hand=dyn (Option.none Hand)}
+            if i' <> i then {chips=Chips x.chips; pot=Chips x.pot; hand=dyn (box NilHand ())}
             else {chips=Chips x.chips; pot=Chips x.pot; hand=x.hand}
             ) players
 
@@ -276,7 +277,7 @@ inl {d with max_stack_size num_players} ->
     inl dealing players deck =
         macro.fs () [text: "// In dealing."]
         inl f ante x =
-            inl hand = deck () |> Option.some |> dyn
+            inl hand = deck () |> box NilHand |> dyn
             inl pot = dyn 0
             inl x = x.data_add {pot_hand = heapm {pot hand}}
             x.call ante
@@ -341,8 +342,8 @@ inl {d with max_stack_size num_players} ->
         hand=inl s -> s.data.pot_hand.hand
         hand_is=inl s -> 
             match s.data.pot_hand.hand with
-            | .Some, _ -> true
-            | .None -> false
+            | () -> false
+            | _ -> true
         chips_give=inl s v -> s.data.chips := s.chips + v
         pot_take=inl s v -> 
             inl pot = s.pot 
@@ -354,7 +355,7 @@ inl {d with max_stack_size num_players} ->
             inl x = min s.chips (v - s.pot)
             s.chips_give (-x)
             s.pot_give x
-        fold=inl s -> s.data.pot_hand.hand <- Option.none Hand |> dyn
+        fold=inl s -> s.data.pot_hand.hand <- box NilHand () |> dyn
         win=inl s -> 
             inl win=s.data.win
             win := win() + 1
@@ -437,15 +438,15 @@ inl {basic_methods State Action} ->
             bet=inl s players -> 
                 inl limit = Tuple.foldl (inl s x -> max s x.pot.value) 0 players
                 /// TODO: Replace find with pick.
-                inl self = Tuple.find (inl x -> match x.hand with .Some, _ -> true | _ -> false) players
+                inl self = Tuple.find (inl x -> match x.hand with () -> false | _ -> true) players
                 match self.hand with
-                | .Some, x ->
+                | () -> failwith Action "No self in the internal representation."
+                | x ->
                     match x.rank with
                     | .Ten | .Jack | .Queen | .King | .Ace -> 
                         inl {raise} = Tuple.find (function {raise} -> true | _ -> false) (split Action)
                         box Action {raise={raise with value=0}}
                     | _ -> if self.pot.value >= limit || self.chips.value = 0 then box Action .Call else box Action .Fold
-                | .None -> failwith Action "No self in the internal representation."
             showdown=inl s v -> ()
             game_over=inl s -> ()
             }
