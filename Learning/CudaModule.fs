@@ -687,7 +687,9 @@ inl s ret ->
             fill s op device_tensor
             stack device_tensor
 
-    ret <| s.module_add .CudaRandom {fill create}
+    inl set_pseudorandom_seed s (v: uint64) = macro.fs () [arg: s.data.random; text: ".SetPseudoRandomGeneratorSeed"; args: v]
+
+    ret <| s.module_add .CudaRandom {fill create set_pseudorandom_seed}
     """) |> module_
 
 let cuda_blas =

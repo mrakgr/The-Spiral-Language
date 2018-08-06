@@ -158,28 +158,36 @@ inl max_stack_size = num_players * stack_size
 open Poker {max_stack_size num_players}
 open PokerPlayers {basic_methods State Action}
 
-inl a = 
-    open (Learning float32).Feedforward
-    player_pg {name="One"; actor=tanh 256; learning_rate=0.0003f32} s
-inl b = player_rules {name="Two"}
+Loops.for {from=0; near_to=20; body=inl {i} ->
+    inb s = s.RegionMem.create'
+    s.CudaRandom.set_pseudorandom_seed (to uint64 i)
 
-met f game (!dyn near_to) (!dyn near_to_inner) = 
-    Loops.for {from=0; near_to body=inl {i} ->
-        Timer.time_it (string_format "iteration {0}" i)
-        <| inl _ ->
-            s.refresh
-            inb s = s.RegionMem.create'
-            inl a = a.data_add {win=ref 0; cd=s}
-            inl b = b.data_add {win=ref 0; cd=s}
-            Loops.for {from=0; near_to=near_to_inner; body=inl {state=s i} -> game stack_size (a, b)}
-            inl a = a.data.win ()
-            inl b = b.data.win ()
-            Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
-        }
+    Console.writeline "------"
+    Console.printfn "The CudaRandom pseudorandom seed is {0}" i
 
-f game 15 1000
-//open Poker {max_stack_size num_players log=Console.printfn}
-//f game 10 1
+    inl a = 
+        open (Learning float32).Feedforward
+        player_pg {name="One"; actor=tanh 256; learning_rate=0.0003f32} s
+    inl b = player_rules {name="Two"}
+
+    met f game (!dyn near_to) (!dyn near_to_inner) = 
+        Loops.for {from=0; near_to body=inl {i} ->
+            Timer.time_it (string_format "iteration {0}" i)
+            <| inl _ ->
+                s.refresh
+                inb s = s.RegionMem.create'
+                inl a = a.data_add {win=ref 0; cd=s}
+                inl b = b.data_add {win=ref 0; cd=s}
+                Loops.for {from=0; near_to=near_to_inner; body=inl {state=s i} -> game stack_size (a, b)}
+                inl a = a.data.win ()
+                inl b = b.data.win ()
+                Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
+            }
+
+    f game 15 1000
+    //open Poker {max_stack_size num_players log=Console.printfn}
+    //f game 10 1
+    }
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3
