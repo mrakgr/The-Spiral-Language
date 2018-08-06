@@ -107,7 +107,7 @@ inl {d with max_stack_size num_players} ->
     inl Hand = Card // for one card poker
     inl show_hand = show_card
 
-    inl Actions = .Fold, .Call, (.Raise, .0) // {raise=type Union.int {from=0; near_to=1} int64}
+    inl Actions = .Fold, .Call, {raise=type Union.int {from=0; near_to=3} int64}
     inl Action = Tuple.reducel (inl a b -> a \/ b) Actions
     inl Chips = Union.int {from=0; near_to=max_stack_size+1}
     inl NilHand = type Hand \/ ()
@@ -225,8 +225,7 @@ inl {d with max_stack_size num_players} ->
                         else
                             log "{0} calls." player.name
                             on_succ {d with players_called=self+1}
-                    //| {raise={value=x}} ->
-                    | .Raise,.(x) ->
+                    | {raise={value=x}} ->
                         assert (x >= 0) "Cannot raise to negative amounts."
                         player.call (call_level + min_raise + x)
                         inl call_level' = player.pot
@@ -444,9 +443,8 @@ inl {basic_methods State Action} ->
                 | x ->
                     match x.rank with
                     | .Ten | .Jack | .Queen | .King | .Ace -> 
-                        //inl {raise} = Tuple.find (function {raise} -> true | _ -> false) (split Action)
-                        //box Action {raise={raise with value=0}}
-                        box Action (.Raise,.0)
+                        inl {raise} = Tuple.find (function {raise} -> true | _ -> false) (split Action)
+                        box Action {raise={raise with value=0}}
                     | _ -> if self.pot.value >= limit || self.chips.value = 0 then box Action .Call else box Action .Fold
             showdown=inl s v -> ()
             game_over=inl s -> ()
