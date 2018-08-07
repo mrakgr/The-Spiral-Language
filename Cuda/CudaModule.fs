@@ -164,6 +164,7 @@ inl rec to_dev_tensor x =
                 )
         ) x
 inl allocator_block_size = 256u64
+
 inl temporary tns ret =
     inl x = ret tns
     Struct.iter (inl {ar} -> ar.ptr.Dispose) tns.bodies
