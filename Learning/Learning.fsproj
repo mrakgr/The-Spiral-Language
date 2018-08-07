@@ -63,8 +63,6 @@
     <Content Include="packages.config" />
     <None Include="LearningModule.fs%27" />
     <None Include="LearningTests.fs%27" />
-    <Compile Include="CudaModule.fs" />
-    <Compile Include="CudaTests.fs" />
     <Content Include="TextFile1.txt" />
     <None Include="Script1.fsx" />
     <Compile Include="LearningModule.fs" />
@@ -86,6 +84,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Cuda\Cuda.fsproj">
+      <Name>Cuda</Name>
+      <Project>{65203654-5ef9-4ce1-a56b-0eba11ff03a0}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\The Spiral Language\The Spiral Language.fsproj">
       <Name>The Spiral Language</Name>
       <Project>{91c9628b-20cf-46aa-ad73-56456a532819}</Project>

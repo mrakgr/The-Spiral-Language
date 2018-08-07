@@ -1,9 +1,9 @@
 ﻿[<AutoOpen>]
-module Learning.Main.Lib
+module Learning.Lib
 
 open Spiral.Types
 open Spiral.Lib
-open Learning.Cuda.Lib
+open Cuda.Lib
 
 let union =
     (

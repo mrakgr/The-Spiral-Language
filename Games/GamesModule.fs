@@ -3,8 +3,8 @@
 open Spiral.Types
 open Spiral.Lib
 open Learning
-open Learning.Main.Lib
-open Learning.Cuda.Lib
+open Learning.Lib
+open Cuda.Lib
 
 let dictionary =
     (

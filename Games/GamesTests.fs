@@ -3,10 +3,9 @@
 open Spiral.Lib
 open Spiral.Tests
 open System.IO
-open Spiral.Types
 open Module
-open Learning.Cuda
-open Learning.Main
+open Cuda.Lib
+open Learning.Lib
 
 let cfg = Spiral.Types.cfg_default
 

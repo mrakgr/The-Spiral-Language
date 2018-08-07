@@ -1,10 +1,9 @@
-﻿module Learning.Cuda.Tests
+﻿module Cuda.Tests
 
 open Spiral.Lib
 open Spiral.Tests
 open System.IO
 open Spiral.Types
-open Learning.Cuda
 
 let cfg = {Spiral.Types.cfg_default with trace_length=160; cuda_assert_enabled=false}
 
@@ -761,6 +760,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-//output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cusolver1
-//|> printfn "%s"
-//|> ignore
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cusolver1
+|> printfn "%s"
+|> ignore

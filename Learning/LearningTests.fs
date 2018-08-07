@@ -1,10 +1,10 @@
-﻿module Learning.Main.Tests
+﻿module Learning.Tests
 
 open Spiral.Lib
 open Spiral.Tests
 open System.IO
 open Spiral.Types
-open Learning.Cuda
+open Cuda.Lib
 
 let cfg = {Spiral.Types.cfg_default with trace_length=40; cuda_assert_enabled=false}
 
