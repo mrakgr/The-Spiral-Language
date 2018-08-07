@@ -711,16 +711,17 @@ let cusolver2 =
     """
 inb s = CudaModules (1024*1024)
 
-inl n = 5
-inl dim = n,n
+inl n = 3
+inl m = 4
+inl dim = n,m
 inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim}
 
 inl {out ipiv} = s.CudaSolve.getrf A .assert
 
 inl perm ipiv =
     inl p = s.CudaTensor.to_host_tensor ipiv
-    inl ar = HostTensor.init n id
     inl range :: () = p.dim
+    inl ar = HostTensor.init range id
     Loops.for {range with body=inl {i} ->
         inl swap a b =
             inl x = ar a .get
@@ -732,9 +733,12 @@ inl perm ipiv =
         }
 
     inl ipiv = CudaAux.to_dev_tensor (s.CudaTensor.from_host_tensor ar)
-    s.CudaKernel.init {dim=range,range} <| inl a b ->
-        inl p = ipiv a .get
-        if b = p then 1f32 else 0f32
+    s.CudaKernel.init {dim=m,m} <| inl a b ->
+        if a < range.near_to then
+            inl p = ipiv a .get
+            if b = p then 1f32 else 0f32
+        else // TODO: This can't be right.
+            if a = b then 1f32 else 0f32
 
 inl lu O =
     inl dim = O.dim
@@ -763,7 +767,7 @@ s.CudaTensor.print U
 inl p = perm ipiv
 s.CudaTensor.print p
 s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 p A)
-s.CudaTensor.print (s.CudaBlas.gemm .T .T 1f32 L U)
+//s.CudaTensor.print (s.CudaBlas.gemm .T .T 1f32 L U)
     """
 
 let inverse1 =

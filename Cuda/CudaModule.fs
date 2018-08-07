@@ -2682,21 +2682,22 @@ inl s ret ->
             | ret -> ret (A,result)
 
     /// The LU composition.
-    met getrf' s A =
-        assert (eq_type A.elem_type float32) "The type of matrix A must be float32."
-        inl n, m = A.dim |> Tuple.map span
+    inl getrf' s A =
+        indiv join
+            assert (eq_type A.elem_type float32) "The type of matrix A must be float32."
+            inl n, m = A.dim |> Tuple.map span
         
-        inl lda = ld A
-        inl Lwork = 
-            inl Lwork = ref 0i32
-            dense_call s .cusolverDnSgetrf_bufferSize(i32 n, i32 m, {ptr=A}, i32 lda, Lwork)
-            Lwork()
-        inb workspace = s.CudaTensor.create {elem_type=float32; dim=to int64 Lwork} |> CudaAux.temporary
-        inl ipiv = s.CudaTensor.create {elem_type=int32; dim=min n m}
-        inl info = s.CudaTensor.create {elem_type=int32; dim=1}
+            inl lda = ld A
+            inl Lwork = 
+                inl Lwork = ref 0i32
+                dense_call s .cusolverDnSgetrf_bufferSize(i32 n, i32 m, {ptr=A}, i32 lda, Lwork)
+                Lwork()
+            inb workspace = s.CudaTensor.create {elem_type=float32; dim=to int64 Lwork} |> CudaAux.temporary
+            inl ipiv = s.CudaTensor.create {elem_type=int32; dim=min n m}
+            inl info = s.CudaTensor.create {elem_type=int32; dim=1}
 
-        dense_call s .cusolverDnSgetrf(i32 n, i32 m, {ptr=A}, i32 lda, {ptr=workspace}, {ptr=ipiv}, {ptr=info})
-        {ipiv info=info 0}
+            dense_call s .cusolverDnSgetrf(i32 n, i32 m, {ptr=A}, i32 lda, {ptr=workspace}, {ptr=ipiv}, {ptr=info})
+            stack {ipiv info=info 0}
 
     inl getrf s A d =
         indiv join
