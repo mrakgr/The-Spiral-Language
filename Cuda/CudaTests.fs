@@ -706,6 +706,17 @@ s.CudaTensor.print O
 s.CudaTensor.print (s.CudaBlas.trmm .Right .Lower .T .NonUnit 1f32 O O)
     """
 
+let cusolver2 =
+    "cusolver2",[cuda_modules],"Does the LU decomposition (getrf) work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl n = 5
+inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=n,n}
+
+() // TODO: Work in progress.
+    """
+
 let inverse1 =
     "inverse1",[cuda_modules;mnist],"Does the matrix inverse using the Cholesky decomposition work?",
     """
@@ -755,11 +766,12 @@ let tests =
     kernel10;kernel11;kernel12;kernel13;kernel14;kernel15;kernel16;kernel17
     random1
     blas1;blas2;blas3;blas4;blas5;blas6;blas7;blas8;blas9
-    cusolver1
+    cusolver1;cusolver2
+    inverse1
     |]
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cusolver1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cusolver2
 |> printfn "%s"
 |> ignore
