@@ -324,7 +324,7 @@ inl f _ = 1 + "qwe" // Does not give a type error
 
 Undecidability manifests in Spiral like so - the body of the function is not evaluated until it is applied. That means that type errors can lurk in functions that are unused.
 
-That having said, Spiral is a statically typed language and any type errors for code on the execution path will get reported at compile time along with the trace for it.
+That being said, Spiral is a statically typed language and any type errors for code on the execution path will get reported at compile time along with the trace for it.
 
 ```
 inl f _ = 1 + "qwe" // Does not give a type error
@@ -3069,7 +3069,7 @@ inl tail l =
     | () -> none (List t)
 ```
 
-As the above are straightforward so there is no need to run them. That having said, it would be interesting to know how it might be possible to implement them in continuation passing style for greater efficiency.
+As the above are straightforward so there is no need to run them. That being said, it would be interesting to know how it might be possible to implement them in continuation passing style for greater efficiency.
 
 ```
 /// Returns the first element of the list.
@@ -6020,7 +6020,7 @@ And that is what happens in the inner loop. The same `in` gets passed into `f` `
 
 Compilers themselves are utterly incapable of performing such optimizations on their own, so the responsibility for it falls on the user.
 
-That having said, the above kernel is a somewhat trivial example of this as only replicate and a map are fused, but it is possible to go significantly further.
+That being said, the above kernel is a somewhat trivial example of this as only replicate and a map are fused, but it is possible to go significantly further.
 
 Here is the auxiliary for it.
 
@@ -6768,7 +6768,7 @@ Hence it is easy to predict that great libraries will not get made in any of the
 
 And though Tensorflow, CNTK and PyTorch are written in C++ that is hardly a beaming recommendation for the language. C++ is widely known enough that its quality as a language can stand for itself.
 
-Making a machine learning library is hard enough to crush most langauges, but Spiral can make it a lot easier and the hows of that is what will be covered in this chapter. That having said, this is a language tutorial and not a deep learning tutorial so what won't be covered is to how to actual use deep learning to do interesting things. Instead it will be about library construction.
+Making a machine learning library is hard enough to crush most langauges, but Spiral can make it a lot easier and the hows of that is what will be covered in this chapter. That being said, this is a language tutorial and not a deep learning tutorial so what won't be covered is to how to actual use deep learning to do interesting things. Instead it will be about library construction.
 
 #### Primitives
 
@@ -6896,7 +6896,7 @@ inl div a b =
 
 The above assumes that `a` and `b` are scalars rather than tensors. Regardless, the structure is quite similar to the `map` which is intended to be a generic interface for such functions.
 
-Being able to support aggressive inlining, Spiral is well suited for making AD libraries. That having said, this particular aspect of it - the ability to always inline the backward step is not particularly important for deep learning. Deep learning deals with large batched operations - a single matrix multiply is already on the factor of thousands scalar operations and what would take extreme optimization heroics by the compiler is generally put in by hand instead for such batched operations. 
+Being able to support aggressive inlining, Spiral is well suited for making AD libraries. That being said, this particular aspect of it - the ability to always inline the backward step is not particularly important for deep learning. Deep learning deals with large batched operations - a single matrix multiply is already on the factor of thousands scalar operations and what would take extreme optimization heroics by the compiler is generally put in by hand instead for such batched operations. 
 
 What the `map` really offers is easy fusion of map operations.
 
@@ -7076,7 +7076,7 @@ In essence, it relives the burden of having to deal with backwards step function
                     succ (h, (h, c))
 ```
 
-Here is how the LSTM is implemented for example. Monadic computation saves a decent bit of boilerplate here. That having said, this is an example of a heavily unoptimized implementation of a LSTM. An optimized example would have only one or two steps rather than...21. 
+Here is how the LSTM is implemented for example. Monadic computation saves a decent bit of boilerplate here. That being said, this is an example of a heavily unoptimized implementation of a LSTM. An optimized example would have only one or two steps rather than...21. 
 
 #### Layers
 
