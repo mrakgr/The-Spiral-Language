@@ -711,46 +711,59 @@ let cusolver2 =
     """
 inb s = CudaModules (1024*1024)
 
-inl n = 3
+inl n = 5
 inl dim = n,n
 inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim}
 
 inl {out ipiv} = s.CudaSolve.getrf A .assert
 
 inl perm ipiv =
-    inl ipiv = CudaAux.to_dev_tensor ipiv
-    s.CudaKernel.init {dim} <| inl a b ->
+    inl p = s.CudaTensor.to_host_tensor ipiv
+    inl ar = HostTensor.init n id
+    inl range :: () = p.dim
+    Loops.for {range with body=inl {i} ->
+        inl swap a b =
+            inl x = ar a .get
+            inl y = ar b .get
+            ar a .set y
+            ar b .set x
+
+        swap i (to int64 (p i .get) - 1)
+        }
+
+    inl ipiv = CudaAux.to_dev_tensor (s.CudaTensor.from_host_tensor ar)
+    s.CudaKernel.init {dim=range,range} <| inl a b ->
         inl p = ipiv a .get
-        if to int32 b = p then 1f32 else 0f32
+        if b = p then 1f32 else 0f32
 
 inl lu O =
     inl dim = O.dim
-    inb O = s.CudaBlas.transpose O |> CudaAux.temporary
     inl O = CudaAux.to_dev_tensor O
+
+    /// Note: The are transposed. getrf loads the array assuming a column major format while Spiral uses the row major.
     inl L =
         s.CudaKernel.init {dim} <| inl a b ->
-            if a = b then 1f32 
-            elif a > b then O a b .get
+            if a = b then 1f32
+            elif a < b then O a b .get
             else 0f32
-            
+
     inl U =
         s.CudaKernel.init {dim} <| inl a b ->
-            if a <= b then O a b .get
+            if a >= b then O a b .get
             else 0f32
 
-    L, U
+    { L U }
 
-inl L, U = lu out
+inl {L U} = lu out
 
 s.CudaTensor.print ipiv
 s.CudaTensor.print L
 s.CudaTensor.print U
 
-s.CudaTensor.print (perm ipiv)
-s.CudaTensor.print A
-s.CudaTensor.print (s.CudaBlas.gemm .nT .nT 1f32 L U)
-
-() // TODO: Work in progress.
+inl p = perm ipiv
+s.CudaTensor.print p
+s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 p A)
+s.CudaTensor.print (s.CudaBlas.gemm .T .T 1f32 L U)
     """
 
 let inverse1 =
