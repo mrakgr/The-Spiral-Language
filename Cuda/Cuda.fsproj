@@ -6,7 +6,7 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>65203654-5ef9-4ce1-a56b-0eba11ff03a0</ProjectGuid>
-    <OutputType>Library</OutputType>
+    <OutputType>Exe</OutputType>
     <RootNamespace>Cuda</RootNamespace>
     <AssemblyName>Cuda</AssemblyName>
     <UseStandardResourceNames>true</UseStandardResourceNames>

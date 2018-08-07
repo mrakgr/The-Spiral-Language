@@ -2693,10 +2693,10 @@ inl s ret ->
             Lwork()
         inb workspace = s.CudaTensor.create {elem_type=float32; dim=to int64 Lwork} |> CudaAux.temporary
         inl ipiv = s.CudaTensor.create {elem_type=int32; dim=min n m}
-        inl info = s.CudaTensor.create {elem_type=int32; dim=1} 0
+        inl info = s.CudaTensor.create {elem_type=int32; dim=1}
 
         dense_call s .cusolverDnSgetrf(i32 n, i32 m, {ptr=A}, i32 lda, {ptr=workspace}, {ptr=ipiv}, {ptr=info})
-        {ipiv info}
+        {ipiv info=info 0}
 
     inl getrf s A d =
         indiv join
@@ -2704,9 +2704,10 @@ inl s ret ->
                     
             inl {ipiv info} = getrf' s A
             inb info = CudaAux.temporary info
-            inb ipiv = CudaAux.temporary ipiv
+
             match d with
             | {on_succ on_fail} ->
+                inb ipiv = CudaAux.temporary ipiv
                 inl result = s.CudaTensor.get info
                 if result = 0i32 then on_succ {out=A; ipiv}
                 else on_fail result
@@ -2716,9 +2717,11 @@ inl s ret ->
                 if result = 0i32 then r
                 elif result > 0i32 then failwith r (string_format "The leading minor of order {0} is not positive definite." result)
                 else failwith r (string_format "The {0}-th parameter is wrong." result)
-            | ret -> ret {out=A; ipiv info}
+            | ret -> 
+                inb ipiv = CudaAux.temporary ipiv
+                ret {out=A; ipiv info}
 
-    ret <| s.module_add .CudaSolve {potrf' potrf}
+    ret <| s.module_add .CudaSolve {potrf' potrf getrf' getrf}
     
     dense_call s .cusolverDnDestroy()
     """) |> module_

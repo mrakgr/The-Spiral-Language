@@ -712,7 +712,36 @@ let cusolver2 =
 inb s = CudaModules (1024*1024)
 
 inl n = 5
-inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=n,n}
+inl dim = n,n
+inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim}
+
+inl {out ipiv} = s.CudaSolve.getrf A .assert
+
+inl lu O =
+    inl dim = O.dim
+    inb O = s.CudaBlas.transpose O |> CudaAux.temporary
+    inl O = CudaAux.to_dev_tensor O
+    inl L =
+        s.CudaKernel.init {dim} <| inl a b ->
+            if a = b then 1f32 
+            elif a > b then O a b .get
+            else 0f32
+            
+    inl U =
+        s.CudaKernel.init {dim} <| inl a b ->
+            if a <= b then O a b .get
+            else 0f32
+
+    L, U
+
+inl L, U = lu out
+
+s.CudaTensor.print ipiv
+s.CudaTensor.print L
+s.CudaTensor.print U
+
+s.CudaTensor.print A
+s.CudaTensor.print (s.CudaBlas.gemm .nT .nT 1f32 L U)
 
 () // TODO: Work in progress.
     """
