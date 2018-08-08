@@ -2616,6 +2616,14 @@ inl s ret ->
         | .Lower -> .Upper
         | .Upper -> .Lower
 
+    inl operation_type = fs [text: "ManagedCuda.CudaBlas.Operation"]
+    inl to_operation = function
+        | .T -> enum operation_type .Transpose
+        | .nT -> enum operation_type .NonTranspose
+    inl opposite_operation = function
+        | .T -> .nT
+        | .nT -> .T
+
     inl dense_call' handle method args =
         FS.StaticMethod dense_native_type method (handle :: args) status_type |> assert_ok    
 
@@ -2634,6 +2642,7 @@ inl s ret ->
                 | {ptr} -> strip ptr |> CUdeviceptr
                 | {ptr_ar} -> Array.map strip ptr_ar |> s.CudaTensor.from_cudadevptr_array
                 | .Lower | .Upper as x -> to_fill_mode x
+                | .nT | .T as x -> to_operation x
                 | x -> x
                 ) (Tuple.wrap args)
         dense_call' handle method args
@@ -2644,7 +2653,8 @@ inl s ret ->
     inl i32 = to int32
 
     /// TODO: Implement the callback trick for asynchronous error checking.
-    inl handle_error d =
+    /// For the CuSolve functions.
+    inl handle_error s d =
         match d with
         | {info} ->
             inb info = CudaAux.temporary info
@@ -2689,7 +2699,7 @@ inl s ret ->
                     inl check = match uplo with .Lower -> a >= b | .Upper -> a <= b
                     if check then A a b .get else to A.elem_type 0f32
 
-            handle_error { 
+            handle_error s { 
                 info = potrf' s uplo A
                 pos = "The leading minor of order {0} is not positive definite."
                 }
@@ -2715,12 +2725,12 @@ inl s ret ->
             dense_call s .cusolverDnSgetrf(i32 n, i32 m, {ptr=A}, i32 lda, {ptr=workspace}, {ptr=ipiv}, {ptr=info})
             stack {ipiv info=info 0}
 
-    inl getrf s A d =
+    inl getrf s A =
         indiv join
             inl A = s.CudaTensor.copy A
             inl {ipiv info} = getrf' s A
-            handle_error { info pos = "U({0},{0}) = 0."}
-            stack {out=A; ipiv}
+            handle_error s { info pos = "U({0},{0}) = 0."}
+            stack (A, ipiv)
 
     inl getrs' s trans A ipiv B =
         indiv join
@@ -2733,16 +2743,16 @@ inl s ret ->
             assert (n = n') "The two matrices must have the same outer dimension."
 
             inl info = s.CudaTensor.create {elem_type=int32; dim=1}
-            dense_call s .cusolverDnSgetrs(trans, i32 n, i32 nrhs, {ptr=A}, i32 (ld A), {ptr=ipiv}, {ptr=info}, {ptr=B}, i32 (ld B), {ptr=info})
+            dense_call s .cusolverDnSgetrs(trans, i32 n, i32 nrhs, {ptr=A}, i32 (ld A), {ptr=ipiv}, {ptr=B}, i32 (ld B), {ptr=info})
             stack (info 0)
 
     inl getrs s trans A ipiv B =
         indiv join
             inl B = s.CudaTensor.copy B
-            handle_error { info = getrs' s trans A ipiv B }
+            handle_error s { info = getrs' s trans A ipiv B }
             B
 
-    ret <| s.module_add .CudaSolve {potrf' potrf getrf' getrf getrs' getrs}
+    ret <| s.module_add .CudaSolve {potrf' potrf getrf' getrf getrs' getrs handle_error}
     
     dense_call s .cusolverDnDestroy()
     """) |> module_

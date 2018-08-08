@@ -840,10 +840,10 @@ s.CudaTensor.print C
 Console.writeline "-----"
 
 inl lu_inverse s A =
-    inl {out=A ipiv} = s.CudaSolve.getrf C .assert
+    inl A, ipiv = s.CudaSolve.getrf C
     inb ipiv = CudaAux.temporary ipiv
     inl B = s.CudaKernel.init {dim=C.dim} (inl a b -> if a = b then 1f32 else 0f32)
-    s.CudaSolve.getrs' .nT A ipiv B .assert
+    s.CudaSolve.handle_error {info = s.CudaSolve.getrs' .nT A ipiv B}
     B
 
 inl C_inv = lu_inverse s C
@@ -865,6 +865,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) inverse2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cusolver2
 |> printfn "%s"
 |> ignore
