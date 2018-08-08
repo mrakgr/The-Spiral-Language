@@ -693,14 +693,7 @@ inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=flo
 inl S = s.CudaBlas.gemm .nT .T 1f32 A A
 s.CudaTensor.print S
 
-inl O = 
-    s.CudaSolve.potrf .Lower S {
-        on_succ=stack
-        on_fail=inl result ->
-            inl ty = type stack S
-            if result > 0i32 then failwith ty (string_format "The leading minor of order {0} is not positive definite." result)
-            else failwith ty (string_format "The {0}-th parameter is wrong." result)
-        }
+inl O = s.CudaSolve.potrf .Lower S
 
 s.CudaTensor.print O
 s.CudaTensor.print (s.CudaBlas.trmm .Right .Lower .T .NonUnit 1f32 O O)
@@ -717,7 +710,7 @@ inl n = 5
 inl dim = n,n
 inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim}
 
-inl {out ipiv} = s.CudaSolve.getrf A .assert
+inl out, ipiv = s.CudaSolve.getrf A
 
 inl perm ipiv =
     inl p = s.CudaTensor.to_host_tensor ipiv
@@ -799,7 +792,7 @@ s.CudaTensor.print C
 Console.writeline "-----"
 
 inl cholesky_inverse s C =
-    inl C_sqr = s.CudaSolve.potrf .Lower C .assert
+    inl C_sqr = s.CudaSolve.potrf .Lower C
     inb C_sqr_inv = s.CudaBlas.trinv .Lower C_sqr |> CudaAux.temporary
     s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 C_sqr_inv C_sqr_inv C_sqr
     C_sqr
@@ -865,6 +858,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cusolver2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) inverse1
 |> printfn "%s"
 |> ignore
