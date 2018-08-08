@@ -802,6 +802,139 @@ s.CudaTensor.print C_inv
 s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_inv)
     """
 
+// TODO: Do not forget to uncomment the assert in the getrf function when this is done.
+let cusolver3 =
+    "cusolver3",[cuda_modules],"Does the LU decomposition (getrf) work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl n = 2
+inl m = 5
+inl dim = n,m
+//inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim}
+inl A = s.CudaKernel.init {dim} (inl a b -> to float32 (a+b*2+1))
+
+inl out, ipiv = s.CudaSolve.getrf A
+
+inl perm ipiv =
+    inl p = s.CudaTensor.to_host_tensor ipiv
+    inl range :: () = p.dim
+    inl ar = HostTensor.init (max n m) id
+    Loops.for {range with body=inl {i} ->
+        inl swap a b =
+            inl x = ar a .get
+            inl y = ar b .get
+            ar a .set y
+            ar b .set x
+
+        swap i (to int64 (p i .get) - 1)
+        }
+
+    inl ipiv = CudaAux.to_dev_tensor (s.CudaTensor.from_host_tensor ar)
+    s.CudaKernel.init {dim=m,m} <| inl a b ->
+        inl p = ipiv a .get
+        if b = p then 1f32 else 0f32
+
+inl lu O =
+    inl dim = O.dim
+    inl O = CudaAux.to_dev_tensor O
+
+    /// Note: The are transposed. getrf loads the array assuming a column major format while Spiral uses the row major.
+    inl L =
+        s.CudaKernel.init {dim=m,m} <| inl a b ->
+            if a = b then 1f32
+            elif a < b && a < n then O a b .get
+            else 0f32
+
+    inl U =
+        s.CudaKernel.init {dim} <| inl a b ->
+            if a >= b then O a b .get
+            else 0f32
+
+    { L U }
+
+inl {L U} = lu out
+
+// The reason for all the transposes is because Spiral tensors are row major while the Cuda library
+// functions are all column major.
+Console.writeline "LU decomposition of A (transposed):"
+s.CudaTensor.print out
+Console.writeline "ipiv:"
+s.CudaTensor.print ipiv
+Console.writeline "L (transposed):"
+s.CudaTensor.print L
+Console.writeline "U (transposed):"
+s.CudaTensor.print U
+
+
+inl P = perm ipiv
+Console.writeline "The permutation matrix P:"
+s.CudaTensor.print P
+Console.writeline "The original matrix A:"
+s.CudaTensor.print A
+Console.writeline "P * A^T:"
+s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 P A)
+Console.writeline "L^T * U^T:"
+s.CudaTensor.print (s.CudaBlas.gemm .T .T 1f32 L U)
+
+//LU decomposition of A (transposed):
+//[|
+//    [|3; 0.3333333; 5; 7; 9|]
+//    [|4; 0.6666666; 6; 8; 10|]
+//|]
+
+//ipiv:
+//[|2; 2|]
+
+//L (transposed):
+//[|
+//    [|1; 0.3333333; 5; 7; 9|]
+//    [|0; 1; 6; 8; 10|]
+//    [|0; 0; 1; 0; 0|]
+//    [|0; 0; 0; 1; 0|]
+//    [|0; 0; 0; 0; 1|]
+//|]
+
+//U (transposed):
+//[|
+//    [|3; 0; 0; 0; 0|]
+//    [|4; 0.6666666; 0; 0; 0|]
+//|]
+
+//The permutation matrix P:
+//[|
+//    [|0; 1; 0; 0; 0|]
+//    [|1; 0; 0; 0; 0|]
+//    [|0; 0; 1; 0; 0|]
+//    [|0; 0; 0; 1; 0|]
+//    [|0; 0; 0; 0; 1|]
+//|]
+
+//The original matrix A:
+//[|
+//    [|1; 3; 5; 7; 9|]
+//    [|2; 4; 6; 8; 10|]
+//|]
+
+//P * A^T:
+//[|
+//    [|3; 4|]
+//    [|1; 2|]
+//    [|5; 6|]
+//    [|7; 8|]
+//    [|9; 10|]
+//|]
+
+//L^T * U^T:
+//[|
+//    [|3; 4|]
+//    [|1; 2|]
+//    [|15; 24|]
+//    [|21; 33.33333|]
+//    [|27; 42.66667|]
+//|]
+    """
+
 let inverse2 =
     "inverse2",[cuda_modules;mnist],"Does the matrix inverse using the LU decomposition work?",
     """

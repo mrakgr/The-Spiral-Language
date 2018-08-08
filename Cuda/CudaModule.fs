@@ -2711,7 +2711,7 @@ inl s ret ->
         indiv join
             assert (eq_type A.elem_type float32) "The type of matrix A must be float32."
             inl n, m = A.dim |> Tuple.map span
-            assert (n = m) "The matrix A must be square. (The documentation for getrf does not state this requirement, but will silently leave the entries on the off square unsolved.)"
+            //assert (n = m) "The matrix A must be square. (The documentation for getrf does not state this requirement, but will silently leave the entries on the off square unsolved.)"
         
             inl lda = ld A
             inl Lwork = 
