@@ -699,68 +699,6 @@ s.CudaTensor.print O
 s.CudaTensor.print (s.CudaBlas.trmm .Right .Lower .T .NonUnit 1f32 O O)
     """
 
-let cusolver2 =
-    "cusolver2",[cuda_modules],"Does the LU decomposition (getrf) work?",
-    """
-// Note: Though getrf should support non-square matrices, what it does is leave the elements on the off-square part 
-// unsolved. For that reason it has been restricted to only square matrices in the Spiral library.
-inb s = CudaModules (1024*1024)
-
-inl n = 5
-inl dim = n,n
-inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim}
-
-inl out, ipiv = s.CudaSolve.getrf A
-
-inl perm ipiv =
-    inl p = s.CudaTensor.to_host_tensor ipiv
-    inl range :: () = p.dim
-    inl ar = HostTensor.init range id
-    Loops.for {range with body=inl {i} ->
-        inl swap a b =
-            inl x = ar a .get
-            inl y = ar b .get
-            ar a .set y
-            ar b .set x
-
-        swap i (to int64 (p i .get) - 1)
-        }
-
-    inl ipiv = CudaAux.to_dev_tensor (s.CudaTensor.from_host_tensor ar)
-    s.CudaKernel.init {dim=range,range} <| inl a b ->
-        inl p = ipiv a .get
-        if b = p then 1f32 else 0f32
-
-inl lu O =
-    inl dim = O.dim
-    inl O = CudaAux.to_dev_tensor O
-
-    /// Note: The are transposed. getrf loads the array assuming a column major format while Spiral uses the row major.
-    inl L =
-        s.CudaKernel.init {dim} <| inl a b ->
-            if a = b then 1f32
-            elif a < b && a < n then O a b .get
-            else 0f32
-
-    inl U =
-        s.CudaKernel.init {dim} <| inl a b ->
-            if a >= b then O a b .get
-            else 0f32
-
-    { L U }
-
-inl {L U} = lu out
-
-s.CudaTensor.print ipiv
-s.CudaTensor.print L
-s.CudaTensor.print U
-
-inl p = perm ipiv
-s.CudaTensor.print p
-s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 p A)
-s.CudaTensor.print (s.CudaBlas.gemm .T .T 1f32 L U)
-    """
-
 let inverse1 =
     "inverse1",[cuda_modules;mnist],"Does the matrix inverse using the Cholesky decomposition work?",
     """
@@ -802,9 +740,8 @@ s.CudaTensor.print C_inv
 s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_inv)
     """
 
-// TODO: Do not forget to uncomment the assert in the getrf function when this is done.
-let cusolver3 =
-    "cusolver3",[cuda_modules],"Does the LU decomposition (getrf) work?",
+let cusolver2 =
+    "cusolver2",[cuda_modules],"Does the LU decomposition (getrf) work?",
     """
 inb s = CudaModules (1024*1024)
 
@@ -872,67 +809,8 @@ Console.writeline "The permutation matrix P:"
 s.CudaTensor.print P
 Console.writeline "The original matrix A:"
 s.CudaTensor.print A
-Console.writeline "P * A^T:"
-s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 P A)
-Console.writeline "L^T * U^T:"
-s.CudaTensor.print (s.CudaBlas.gemm .T .T 1f32 L U)
-
-//LU decomposition of A (transposed):
-//[|
-//    [|3; 0.3333333; 5; 7; 9|]
-//    [|4; 0.6666666; 6; 8; 10|]
-//|]
-
-//ipiv:
-//[|2; 2|]
-
-//L (transposed):
-//[|
-//    [|1; 0.3333333; 5; 7; 9|]
-//    [|0; 1; 6; 8; 10|]
-//    [|0; 0; 1; 0; 0|]
-//    [|0; 0; 0; 1; 0|]
-//    [|0; 0; 0; 0; 1|]
-//|]
-
-//U (transposed):
-//[|
-//    [|3; 0; 0; 0; 0|]
-//    [|4; 0.6666666; 0; 0; 0|]
-//|]
-
-//The permutation matrix P:
-//[|
-//    [|0; 1; 0; 0; 0|]
-//    [|1; 0; 0; 0; 0|]
-//    [|0; 0; 1; 0; 0|]
-//    [|0; 0; 0; 1; 0|]
-//    [|0; 0; 0; 0; 1|]
-//|]
-
-//The original matrix A:
-//[|
-//    [|1; 3; 5; 7; 9|]
-//    [|2; 4; 6; 8; 10|]
-//|]
-
-//P * A^T:
-//[|
-//    [|3; 4|]
-//    [|1; 2|]
-//    [|5; 6|]
-//    [|7; 8|]
-//    [|9; 10|]
-//|]
-
-//L^T * U^T:
-//[|
-//    [|3; 4|]
-//    [|1; 2|]
-//    [|15; 24|]
-//    [|21; 33.33333|]
-//    [|27; 42.66667|]
-//|]
+Console.writeline "P^-1 * L * U:"
+s.CudaTensor.print (s.CudaBlas.gemm .nT .nT 1f32 (s.CudaBlas.gemm .nT .nT 1f32 U L) P)
     """
 
 let inverse2 =
@@ -991,6 +869,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cusolver3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cusolver2
 |> printfn "%s"
 |> ignore
