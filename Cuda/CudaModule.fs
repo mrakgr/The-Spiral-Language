@@ -2643,8 +2643,29 @@ inl s ret ->
 
     inl i32 = to int32
 
+    /// TODO: Implement the callback trick for asynchronous error checking.
+    inl handle_error d =
+        match d with
+        | {info} ->
+            inb info = CudaAux.temporary info
+
+            inl error_pos_msg = 
+                match d with
+                | {pos} -> pos
+                | _ -> "Something went wrong with positive error {0}."
+
+            inl error_neg_msg =
+                match d with
+                | {neg} -> neg
+                | _ -> "The {0}-th parameter is wrong."
+            
+            inl info = s.CudaTensor.get info
+
+            if info > 0i32 then failwith () (string_format error_pos_msg info)
+            if info < 0i32 then failwith () (string_format error_neg_msg -info)
+
     /// The Cholesky decomposition.
-    inl potrf'' s uplo A =
+    inl potrf' s uplo A =
         indiv join
             assert (eq_type A.elem_type float32) "The type of matrix A must be float32."
             inl n, n' = A.dim |> Tuple.map span
@@ -2660,31 +2681,23 @@ inl s ret ->
             dense_call s .cusolverDnSpotrf(opposite_fill uplo, i32 n, {ptr=A}, i32 lda, {ptr=workspace}, Lwork, {ptr=dev_info})
             stack (dev_info 0)
 
-    inl potrf' s uplo A d =
+    inl potrf s uplo A =
         indiv join
-            inb result = potrf'' s uplo A |> CudaAux.temporary
-            match d with
-            | {on_succ on_fail} ->
-                inl result = s.CudaTensor.get result
-                if result = 0i32 then on_succ A
-                else on_fail result
-            | .assert ->
-                inl result = s.CudaTensor.get result
-                inl A = stack A
-                if result = 0i32 then A
-                elif result > 0i32 then failwith A (string_format "The leading minor of order {0} is not positive definite." result)
-                else failwith A (string_format "The {0}-th parameter is wrong." -result)
+            inl A = 
+                inl A = CudaAux.to_dev_tensor A
+                s.CudaKernel.init {dim=A.dim} <| inl a b ->
+                    inl check = match uplo with .Lower -> a >= b | .Upper -> a <= b
+                    if check then A a b .get else to A.elem_type 0f32
 
-    inl potrf s uplo A d =
-        inl A = 
-            inl A = CudaAux.to_dev_tensor A
-            s.CudaKernel.init {dim=A.dim} <| inl a b ->
-                inl check = match uplo with .Lower -> a >= b | .Upper -> a <= b
-                if check then A a b .get else to A.elem_type 0f32
-        potrf' s uplo A d
+            handle_error { 
+                info = potrf' s uplo A
+                pos = "The leading minor of order {0} is not positive definite."
+                }
+
+            stack A
 
     /// The LU decomposition.
-    inl getrf'' s A =
+    inl getrf' s A =
         indiv join
             assert (eq_type A.elem_type float32) "The type of matrix A must be float32."
             inl n, m = A.dim |> Tuple.map span
@@ -2702,28 +2715,14 @@ inl s ret ->
             dense_call s .cusolverDnSgetrf(i32 n, i32 m, {ptr=A}, i32 lda, {ptr=workspace}, {ptr=ipiv}, {ptr=info})
             stack {ipiv info=info 0}
 
-    inl getrf' s A d =
-        indiv join
-            inl {ipiv info} = getrf'' s A
-            inb info = CudaAux.temporary info
-
-            match d with
-            | {on_succ on_fail} ->
-                inl result = s.CudaTensor.get info
-                if result = 0i32 then on_succ {out=A; ipiv}
-                else on_fail result
-            | .assert ->
-                inl result = s.CudaTensor.get info
-                inl r = {out=stack A; ipiv=stack ipiv}
-                if result = 0i32 then r
-                elif result > 0i32 then failwith r (string_format "U({0},{0}) = 0." result)
-                else failwith r (string_format "The {0}-th parameter is wrong." -result)
-
     inl getrf s A d =
-        inl A = s.CudaTensor.copy A
-        getrf' s A d
+        indiv join
+            inl A = s.CudaTensor.copy A
+            inl {ipiv info} = getrf' s A
+            handle_error { info pos = "U({0},{0}) = 0."}
+            stack {out=A; ipiv}
 
-    inl getrs'' s trans A ipiv B =
+    inl getrs' s trans A ipiv B =
         indiv join
             assert (eq_type A.elem_type float32) "The type of matrix A must be float32."
             assert (eq_type B.elem_type float32) "The type of matrix B must be float32."
@@ -2737,25 +2736,13 @@ inl s ret ->
             dense_call s .cusolverDnSgetrs(trans, i32 n, i32 nrhs, {ptr=A}, i32 (ld A), {ptr=ipiv}, {ptr=info}, {ptr=B}, i32 (ld B), {ptr=info})
             stack (info 0)
 
-    inl getrs' s trans A ipiv B d =
+    inl getrs s trans A ipiv B =
         indiv join
-            inb result = getrs'' s trans A ipiv B |> CudaAux.temporary
-            match d with
-            | {on_succ on_fail} ->
-                inl result = s.CudaTensor.get result
-                if result = 0i32 then on_succ B
-                else on_fail result
-            | .assert ->
-                inl result = s.CudaTensor.get result
-                inl B = stack B
-                if result = 0i32 then B
-                else failwith B (string_format "The {0}-th parameter is wrong." -result)
+            inl B = s.CudaTensor.copy B
+            handle_error { info = getrs' s trans A ipiv B }
+            B
 
-    inl getrs s trans A ipiv B d =
-        inl B = s.CudaTensor.copy B
-        getrs' trans A ipiv B d
-
-    ret <| s.module_add .CudaSolve {potrf' potrf getrf'' getrf' getrf getrs'' getrs' getrs}
+    ret <| s.module_add .CudaSolve {potrf' potrf getrf' getrf getrs' getrs}
     
     dense_call s .cusolverDnDestroy()
     """) |> module_
