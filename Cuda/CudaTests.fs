@@ -809,6 +809,49 @@ s.CudaTensor.print C_inv
 s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_inv)
     """
 
+let inverse2 =
+    "inverse2",[cuda_modules;mnist],"Does the matrix inverse using the LU decomposition work?",
+    """
+inb s = CudaModules (1024*1024*1024)
+inl zero = 0f32
+inl one = 1f32
+
+inl k = 8
+inl n = 8
+inl beta = 0.66f32
+inl alpha = one - beta
+
+inl { test_images test_labels train_images train_labels} =
+    inl mnist_path = @"C:\ML Datasets\Mnist"
+    Mnist.load_mnist_tensors mnist_path
+    |> s.CudaTensor.from_host_tensors
+
+inl x = train_images .view_span (const k)
+
+inl x = 
+    if n <> 28*28 then 
+        inb P = s.CudaRandom.create {dst=.Normal; stddev=sqrt (one / to float32 n); mean=0f32} {elem_type=float32; dim=28*28,n} |> CudaAux.temporary
+        s.CudaBlas.gemm .nT .nT one x P
+    else
+        x
+
+inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
+s.CudaTensor.print C
+Console.writeline "-----"
+
+inl lu_inverse s C =
+    inl {out=C_sqr ipiv} = s.CudaSolve.getrf C .assert
+    inb ipiv = CudaAux.temporary ipiv
+    //inb C_sqr_inv = s.CudaBlas.trinv .Lower C_sqr |> CudaAux.temporary
+    //s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 C_sqr_inv C_sqr_inv C_sqr
+    //C_sqr
+    () // TODO: Work in progress.
+
+inl C_inv = cholesky_inverse s C
+s.CudaTensor.print C_inv
+s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_inv)
+    """
+
 let tests =
     [|
     allocator1
@@ -818,12 +861,11 @@ let tests =
     random1
     blas1;blas2;blas3;blas4;blas5;blas6;blas7;blas8;blas9
     cusolver1;cusolver2
-    inverse1
+    inverse1;inverse2
     |]
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cusolver2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) inverse2
 |> printfn "%s"
 |> ignore
-
