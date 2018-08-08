@@ -2722,7 +2722,7 @@ inl s ret ->
             inl ipiv = s.CudaTensor.create {elem_type=int32; dim=min n m}
             inl info = s.CudaTensor.create {elem_type=int32; dim=1}
 
-            dense_call s .cusolverDnSgetrf(i32 n, i32 m, {ptr=A}, i32 lda, {ptr=workspace}, {ptr=ipiv}, {ptr=info})
+            dense_call s .cusolverDnSgetrf(i32 m, i32 n, {ptr=A}, i32 lda, {ptr=workspace}, {ptr=ipiv}, {ptr=info})
             stack {ipiv info=info 0}
 
     inl getrf s A =
