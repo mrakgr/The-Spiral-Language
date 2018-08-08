@@ -839,15 +839,14 @@ inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
 s.CudaTensor.print C
 Console.writeline "-----"
 
-inl lu_inverse s C =
-    inl {out=C_sqr ipiv} = s.CudaSolve.getrf C .assert
+inl lu_inverse s A =
+    inl {out=A ipiv} = s.CudaSolve.getrf C .assert
     inb ipiv = CudaAux.temporary ipiv
-    //inb C_sqr_inv = s.CudaBlas.trinv .Lower C_sqr |> CudaAux.temporary
-    //s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 C_sqr_inv C_sqr_inv C_sqr
-    //C_sqr
-    () // TODO: Work in progress.
+    inl B = s.CudaKernel.init {dim=C.dim} (inl a b -> if a = b then 1f32 else 0f32)
+    s.CudaSolve.getrs' .nT A ipiv B .assert
+    B
 
-inl C_inv = cholesky_inverse s C
+inl C_inv = lu_inverse s C
 s.CudaTensor.print C_inv
 s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_inv)
     """

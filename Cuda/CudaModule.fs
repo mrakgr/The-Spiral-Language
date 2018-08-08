@@ -2644,7 +2644,7 @@ inl s ret ->
     inl i32 = to int32
 
     /// The Cholesky decomposition.
-    inl potrf' s uplo A =
+    inl potrf'' s uplo A =
         indiv join
             assert (eq_type A.elem_type float32) "The type of matrix A must be float32."
             inl n, n' = A.dim |> Tuple.map span
@@ -2660,15 +2660,9 @@ inl s ret ->
             dense_call s .cusolverDnSpotrf(opposite_fill uplo, i32 n, {ptr=A}, i32 lda, {ptr=workspace}, Lwork, {ptr=dev_info})
             stack (dev_info 0)
 
-    inl potrf s uplo A d =
+    inl potrf' s uplo A d =
         indiv join
-            inl A = 
-                inl A = CudaAux.to_dev_tensor A
-                s.CudaKernel.init {dim=A.dim} <| inl a b ->
-                    inl check = match uplo with .Lower -> a >= b | .Upper -> a <= b
-                    if check then A a b .get else to A.elem_type 0f32
-                    
-            inb result = potrf' s uplo A |> CudaAux.temporary
+            inb result = potrf'' s uplo A |> CudaAux.temporary
             match d with
             | {on_succ on_fail} ->
                 inl result = s.CudaTensor.get result
@@ -2680,10 +2674,17 @@ inl s ret ->
                 if result = 0i32 then A
                 elif result > 0i32 then failwith A (string_format "The leading minor of order {0} is not positive definite." result)
                 else failwith A (string_format "The {0}-th parameter is wrong." -result)
-            | ret -> ret (A,result)
 
-    /// The LU composition.
-    inl getrf' s A =
+    inl potrf s uplo A d =
+        inl A = 
+            inl A = CudaAux.to_dev_tensor A
+            s.CudaKernel.init {dim=A.dim} <| inl a b ->
+                inl check = match uplo with .Lower -> a >= b | .Upper -> a <= b
+                if check then A a b .get else to A.elem_type 0f32
+        potrf' s uplo A d
+
+    /// The LU decomposition.
+    inl getrf'' s A =
         indiv join
             assert (eq_type A.elem_type float32) "The type of matrix A must be float32."
             inl n, m = A.dim |> Tuple.map span
@@ -2701,16 +2702,13 @@ inl s ret ->
             dense_call s .cusolverDnSgetrf(i32 n, i32 m, {ptr=A}, i32 lda, {ptr=workspace}, {ptr=ipiv}, {ptr=info})
             stack {ipiv info=info 0}
 
-    inl getrf s A d =
+    inl getrf' s A d =
         indiv join
-            inl A = s.CudaTensor.copy A
-                    
-            inl {ipiv info} = getrf' s A
+            inl {ipiv info} = getrf'' s A
             inb info = CudaAux.temporary info
 
             match d with
             | {on_succ on_fail} ->
-                inb ipiv = CudaAux.temporary ipiv
                 inl result = s.CudaTensor.get info
                 if result = 0i32 then on_succ {out=A; ipiv}
                 else on_fail result
@@ -2720,42 +2718,44 @@ inl s ret ->
                 if result = 0i32 then r
                 elif result > 0i32 then failwith r (string_format "U({0},{0}) = 0." result)
                 else failwith r (string_format "The {0}-th parameter is wrong." -result)
-            | ret -> 
-                inb ipiv = CudaAux.temporary ipiv
-                ret {out=A; ipiv info}
 
-    inl getrs' s trans A ipiv B =
+    inl getrf s A d =
+        inl A = s.CudaTensor.copy A
+        getrf' s A d
+
+    inl getrs'' s trans A ipiv B =
         indiv join
             assert (eq_type A.elem_type float32) "The type of matrix A must be float32."
             assert (eq_type B.elem_type float32) "The type of matrix B must be float32."
             inl n, m = A.dim |> Tuple.map span
             assert (n = m) "The matrix A must be square. (The documentation for getrf does not state this requirement, but will silently leave the entries on the off square unsolved.)"
 
-            inl n',nrhs = B.dim
+            inl n',nrhs = B.dim |> Tuple.map span
             assert (n = n') "The two matrices must have the same outer dimension."
 
             inl info = s.CudaTensor.create {elem_type=int32; dim=1}
             dense_call s .cusolverDnSgetrs(trans, i32 n, i32 nrhs, {ptr=A}, i32 (ld A), {ptr=ipiv}, {ptr=info}, {ptr=B}, i32 (ld B), {ptr=info})
             stack (info 0)
 
+    inl getrs' s trans A ipiv B d =
+        indiv join
+            inb result = getrs'' s trans A ipiv B |> CudaAux.temporary
+            match d with
+            | {on_succ on_fail} ->
+                inl result = s.CudaTensor.get result
+                if result = 0i32 then on_succ B
+                else on_fail result
+            | .assert ->
+                inl result = s.CudaTensor.get result
+                inl B = stack B
+                if result = 0i32 then B
+                else failwith B (string_format "The {0}-th parameter is wrong." -result)
+
     inl getrs s trans A ipiv B d =
         inl B = s.CudaTensor.copy B
+        getrs' trans A ipiv B d
 
-        inb result = getrs' s A ipiv B |> CudaAux.temporary
-        match d with
-        | {on_succ on_fail} ->
-            inl result = s.CudaTensor.get result
-            if result = 0i32 then on_succ B
-            else on_fail result
-        | .assert ->
-            inl result = s.CudaTensor.get result
-            inl B = stack B
-            if result = 0i32 then B
-            else failwith A (string_format "The {0}-th parameter is wrong." -result)
-        | ret -> ret (A,result)
-
-
-    ret <| s.module_add .CudaSolve {potrf' potrf getrf' getrf}
+    ret <| s.module_add .CudaSolve {potrf' potrf getrf'' getrf' getrf getrs'' getrs' getrs}
     
     dense_call s .cusolverDnDestroy()
     """) |> module_
