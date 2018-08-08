@@ -712,16 +712,17 @@ let cusolver2 =
 inb s = CudaModules (1024*1024)
 
 inl n = 3
-inl m = 4
+inl m = 5
 inl dim = n,m
-inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim}
+//inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim}
+inl A = s.CudaKernel.init {dim=2,5} (inl a b -> to float32 (a+b*2+1))
 
 inl {out ipiv} = s.CudaSolve.getrf A .assert
 
 inl perm ipiv =
     inl p = s.CudaTensor.to_host_tensor ipiv
     inl range :: () = p.dim
-    inl ar = HostTensor.init range id
+    inl ar = HostTensor.init (max n m) id
     Loops.for {range with body=inl {i} ->
         inl swap a b =
             inl x = ar a .get
@@ -734,11 +735,8 @@ inl perm ipiv =
 
     inl ipiv = CudaAux.to_dev_tensor (s.CudaTensor.from_host_tensor ar)
     s.CudaKernel.init {dim=m,m} <| inl a b ->
-        if a < range.near_to then
-            inl p = ipiv a .get
-            if b = p then 1f32 else 0f32
-        else // TODO: This can't be right.
-            if a = b then 1f32 else 0f32
+        inl p = ipiv a .get
+        if b = p then 1f32 else 0f32
 
 inl lu O =
     inl dim = O.dim
@@ -746,9 +744,9 @@ inl lu O =
 
     /// Note: The are transposed. getrf loads the array assuming a column major format while Spiral uses the row major.
     inl L =
-        s.CudaKernel.init {dim} <| inl a b ->
+        s.CudaKernel.init {dim=m,m} <| inl a b ->
             if a = b then 1f32
-            elif a < b then O a b .get
+            elif a < b && a < n then O a b .get
             else 0f32
 
     inl U =
@@ -767,7 +765,7 @@ s.CudaTensor.print U
 inl p = perm ipiv
 s.CudaTensor.print p
 s.CudaTensor.print (s.CudaBlas.gemm .nT .T 1f32 p A)
-//s.CudaTensor.print (s.CudaBlas.gemm .T .T 1f32 L U)
+s.CudaTensor.print (s.CudaBlas.gemm .T .T 1f32 L U)
     """
 
 let inverse1 =
@@ -828,4 +826,3 @@ let tests =
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cusolver2
 |> printfn "%s"
 |> ignore
-
