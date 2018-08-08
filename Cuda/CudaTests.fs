@@ -709,20 +709,20 @@ s.CudaTensor.print (s.CudaBlas.trmm .Right .Lower .T .NonUnit 1f32 O O)
 let cusolver2 =
     "cusolver2",[cuda_modules],"Does the LU decomposition (getrf) work?",
     """
+// Note: Though getrf should support non-square matrices, what it does is leave the elements on the off-square part 
+// unsolved. For that reason it has been restricted to only square matrices in the Spiral library.
 inb s = CudaModules (1024*1024)
 
-inl n = 3
-inl m = 5
-inl dim = n,m
-//inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim}
-inl A = s.CudaKernel.init {dim=2,5} (inl a b -> to float32 (a+b*2+1))
+inl n = 5
+inl dim = n,n
+inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim}
 
 inl {out ipiv} = s.CudaSolve.getrf A .assert
 
 inl perm ipiv =
     inl p = s.CudaTensor.to_host_tensor ipiv
     inl range :: () = p.dim
-    inl ar = HostTensor.init (max n m) id
+    inl ar = HostTensor.init range id
     Loops.for {range with body=inl {i} ->
         inl swap a b =
             inl x = ar a .get
@@ -734,7 +734,7 @@ inl perm ipiv =
         }
 
     inl ipiv = CudaAux.to_dev_tensor (s.CudaTensor.from_host_tensor ar)
-    s.CudaKernel.init {dim=m,m} <| inl a b ->
+    s.CudaKernel.init {dim=range,range} <| inl a b ->
         inl p = ipiv a .get
         if b = p then 1f32 else 0f32
 
@@ -744,7 +744,7 @@ inl lu O =
 
     /// Note: The are transposed. getrf loads the array assuming a column major format while Spiral uses the row major.
     inl L =
-        s.CudaKernel.init {dim=m,m} <| inl a b ->
+        s.CudaKernel.init {dim} <| inl a b ->
             if a = b then 1f32
             elif a < b && a < n then O a b .get
             else 0f32
