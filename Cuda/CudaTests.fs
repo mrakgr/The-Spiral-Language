@@ -729,13 +729,7 @@ inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
 s.CudaTensor.print C
 Console.writeline "-----"
 
-inl cholesky_inverse s C =
-    inl C_sqr = s.CudaSolve.potrf .Lower C
-    inb C_sqr_inv = s.CudaBlas.trinv .Lower C_sqr |> CudaAux.temporary
-    s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 C_sqr_inv C_sqr_inv C_sqr
-    C_sqr
-
-inl C_inv = cholesky_inverse s C
+inl C_inv = s.CudaSolve.cholesky_inverse C
 s.CudaTensor.print C_inv
 s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_inv)
     """
@@ -843,16 +837,31 @@ inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
 s.CudaTensor.print C
 Console.writeline "-----"
 
-inl lu_inverse s A =
-    inl A, ipiv = s.CudaSolve.getrf C
-    inb ipiv = CudaAux.temporary ipiv
-    inl B = s.CudaKernel.init {dim=C.dim} (inl a b -> if a = b then 1f32 else 0f32)
-    s.CudaSolve.handle_error {info = s.CudaSolve.getrs' .nT A ipiv B}
-    B
-
-inl C_inv = lu_inverse s C
+inl C_inv = s.CudaSolve.lu_inverse C
 s.CudaTensor.print C_inv
 s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_inv)
+    """
+
+let zap1 =
+    "zap1",[cuda_modules;mnist],"Does the Zap update work?",
+    """
+inb s = CudaModules (1024*1024*1024)
+
+inl n = 16
+
+inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then -1f32 else 0f23)
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=1,n}
+
+// TODO: Work in progress.
+
+inl basis s a = concat s a
+inl q W s a = s.CudaBlas.gemm .nT .nT (basis s a) W
+
+inl update_zap {beta A W s a r s'} =
+    inl a_best = max_Q W Actions
+    inl d = reward + beta * ()
+    ()
+()
     """
 
 let tests =
@@ -869,7 +878,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) cusolver2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) inverse2
 |> printfn "%s"
 |> ignore
 

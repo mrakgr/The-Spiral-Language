@@ -2707,6 +2707,12 @@ inl s ret ->
 
             stack A
 
+    inl cholesky_inverse s C =
+        inl C_sqr = s.CudaSolve.potrf .Lower C
+        inb C_sqr_inv = s.CudaBlas.trinv .Lower C_sqr |> CudaAux.temporary
+        s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 C_sqr_inv C_sqr_inv C_sqr
+        C_sqr
+
     /// The LU decomposition.
     inl getrf' s A =
         indiv join
@@ -2752,7 +2758,14 @@ inl s ret ->
             handle_error s { info = getrs' s trans A ipiv B }
             B
 
-    ret <| s.module_add .CudaSolve {potrf' potrf getrf' getrf getrs' getrs handle_error}
+    inl lu_inverse s C =
+        inl A, ipiv = s.CudaSolve.getrf C
+        inb ipiv = CudaAux.temporary ipiv
+        inl B = s.CudaKernel.init {dim=C.dim} (inl a b -> if a = b then 1f32 else 0f32)
+        handle_error s {info = s.CudaSolve.getrs' .nT A ipiv B}
+        B
+
+    ret <| s.module_add .CudaSolve {potrf' potrf getrf' getrf getrs' getrs cholesky_inverse lu_inverse}
     
     dense_call s .cusolverDnDestroy()
     """) |> module_
