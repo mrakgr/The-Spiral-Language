@@ -2657,21 +2657,23 @@ inl s ret ->
         inl error_pos_msg = 
             match d with
             | {pos} -> pos
-            | _ -> "Something went wrong with positive error {0}."
+            | _ -> "Something went wrong with positive error %d."
 
         inl error_neg_msg =
             match d with
             | {neg} -> neg
-            | _ -> "The {0}-th parameter is wrong."
+            | _ -> "The %d-th parameter is wrong."
             
-        inl callback _ = 
-            inb info = CudaAux.temporary info
-            inl info = s.CudaTensor.get info
+        inb info = CudaAux.temporary info
+        inl info = CudaAux.to_dev_tensor info
 
-            if info > 0i32 then failwith () (string_format error_pos_msg info)
-            if info < 0i32 then failwith () (string_format error_neg_msg -info)
-
-        s.data.stream.add_callback (term_cast callback ())
+        s.CudaKernel.iter {dim=1} <| inl _ ->
+            inl msg x = macro.cd () [text: "printf"; args: x]
+            inl info = info.get
+            if info > 0i32 then msg "WARNING!!!\n"; msg (error_pos_msg, info); msg "\n"
+            if info < 0i32 then msg "WARNING!!!\n"; msg (error_neg_msg, -info); msg "\n"
+            macro.cd () [text: "int is_info_zero = "; arg: info = 0i32]
+            macro.cd () [text: "assert(is_info_zero)"]
 
     /// The Cholesky decomposition.
     inl potrf' s uplo A =
@@ -2700,7 +2702,7 @@ inl s ret ->
 
             handle_error s { 
                 info = potrf' s uplo A
-                pos = "The leading minor of order {0} is not positive definite."
+                pos = "The leading minor of order %d is not positive definite."
                 }
 
             stack A
@@ -2727,7 +2729,7 @@ inl s ret ->
         indiv join
             inl A = s.CudaTensor.copy A
             inl {ipiv info} = getrf' s A
-            handle_error s { info pos = "U({0},{0}) = 0."}
+            handle_error s { info pos = "U(x,x) = 0 where x = %d."}
             stack (A, ipiv)
 
     inl getrs' s trans A ipiv B =

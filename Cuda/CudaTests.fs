@@ -5,7 +5,7 @@ open Spiral.Tests
 open System.IO
 open Spiral.Types
 
-let cfg = {Spiral.Types.cfg_default with trace_length=160; cuda_assert_enabled=false}
+let cfg = {Spiral.Types.cfg_default with trace_length=160; cuda_assert_enabled=true}
 
 let allocator1 =
     "allocator1",[allocator;cuda],"Does the allocator work?",
