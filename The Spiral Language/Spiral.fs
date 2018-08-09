@@ -2412,7 +2412,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let right_associative_ops =
                 let f str prec = add_infix_operator Associativity.Right str prec
                 f "||" 20; f "&&" 30; f "::" 50; f "^^^" 45
-                f "=>" 0; f ":>" 35; f ":?>" 35
+                f "=>" 0; f ":>" 35; f ":?>" 35; f "**" 80
          
             dict_operator
 
