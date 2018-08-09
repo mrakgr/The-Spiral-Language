@@ -532,6 +532,50 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0; action trace net starting_net}
 
+    inl player_zap_q {name init beta} cd =
+        inl input_size = Union.length_dense State
+        inl num_actions = Union.length_one_hot Action
+
+        inl W = cd.CudaTensor.init {dim=(input_size+num_actions), 1} (inl _ _ -> init)
+
+        inl W_state = W.view_span (inl a,b -> {from=0; near_to=input_size}, b)
+        inl W_action = W.view_span (inl a,b -> {from=input_size; near_to=a}, b)
+
+        inl values s = 
+            inl W_action = CudaAux.to_dev_tensor W_action
+            inl v = cd.CudaBlas.gemm .nT .nT 1f32 s W_state |> CudaAux.to_dev_tensor
+            cd.CudaKernel.init {dim=fst v.dim, num_actions} (inl a b -> v a 0 .get + W_action b 0 .get)
+
+        inl max_value_action s =
+            inl W_action = CudaAux.to_dev_tensor W_action
+            inl v = cd.CudaBlas.gemm .nT .nT 1f32 s W_state |> CudaAux.to_dev_tensor
+            cd.CudaKernel.init_d1_redo_outit {
+                dim=fst v.dim, num_actions
+                init=inl a b -> v a 0 .get + W_action b 0 .get
+                neutral_elem=-infinityf32, 0
+                redo=inl a b -> if fst a > fst b then a else b
+                }
+
+        inl value s a =
+            assert (fst s.dim = fst a.dim) "The outer dimensions of s and a must match."
+            inl a = CudaAux.to_dev_tensor W_action
+            inl v = cd.CudaBlas.gemm .nT .nT 1f32 s W_state |> CudaAux.to_dev_tensor
+            cd.CudaKernel.init {dim=fst v.dim, 1} (inl i -> v i 0 .get + W_action (a i .get) 0 .get)
+
+
+        inl basis s a =
+            assert (fst s.dim = fst a.dim) "The outer dimensions of s and a must match."
+            inl s,a = CudaAux.to_dev_tensor (s,a)
+            cd.CudaKernel.init {dim=fst s.dim, input_size + num_actions} <| inl i j ->
+                if j < input_size then s i j .get
+                else
+                    inl j = j - input_size
+                    if a i .get = j then 1f32 else 0f32
+
+        /// The generic parallel update.
+        //inl zap_update rewards states actions states' =
+            
+        ()
     {
     player_random player_rules player_tabular_mc player_tabular_sarsa player_pg
     } |> stackify
