@@ -449,6 +449,7 @@ open Extern
 inl ty x = fs [text: x]
 inl dispose x = FS.Method x .Dispose () ()
 
+macro.fs () [text: "type unit_to_unit_delegate = delegate of unit -> unit"]
 inl rec allocate _ =
     inl data =
         {
@@ -470,6 +471,28 @@ inl rec allocate _ =
         | .wait_on on ->
             FS.Method data.event .Record on.extract ()
             macro.fs () [arg: data.stream; text: ".WaitEvent "; arg: data.event; text: ".Event"]
+        | .add_callback (callback: (() => ())) ->
+            inl ty = {
+                str = fs [text: "ManagedCuda.BasicTypes.CUstream"]
+                res = fs [text: "ManagedCuda.BasicTypes.CUResult"]
+                p = fs [text: "System.IntPtr"]
+                unit_to_unit_delegate = fs [text: "unit_to_unit_delegate"]
+                }
+
+            inl callb str res p =
+                inl t = macro.fs ty.unit_to_unit_delegate [text: "System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer"; args: p]
+                macro.fs () [arg: t; text: ".Invoke()"]
+            inl callb = Extern.closure_of callb (ty.str => ty.res => ty.p => ())
+            
+            macro.fs () 
+                [
+                arg: data.stream
+                text: ".AddCallback(ManagedCuda.BasicTypes.CUstreamCallback"
+                args: callb
+                text: ",System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate"
+                args: macro.fs ty.unit_to_unit_delegate [text: "new "; type: ty.unit_to_unit_delegate; args: callback]
+                text: ",ManagedCuda.BasicTypes.CUStreamAddCallbackFlags.None)"
+                ]
         | () -> data.stream
 
 inl s -> s.module_add .Stream (stackify {allocate})
@@ -2654,25 +2677,26 @@ inl s ret ->
 
     /// TODO: Implement the callback trick for asynchronous error checking.
     /// For the CuSolve functions.
-    inl handle_error s d =
-        match d with
-        | {info} ->
-            inb info = CudaAux.temporary info
+    inl handle_error s {d with info} =
+        inl test _ = Console.writeline "I am in a callback."
+        s.data.stream.add_callback (term_cast test ())
 
-            inl error_pos_msg = 
-                match d with
-                | {pos} -> pos
-                | _ -> "Something went wrong with positive error {0}."
+        inb info = CudaAux.temporary info
 
-            inl error_neg_msg =
-                match d with
-                | {neg} -> neg
-                | _ -> "The {0}-th parameter is wrong."
+        inl error_pos_msg = 
+            match d with
+            | {pos} -> pos
+            | _ -> "Something went wrong with positive error {0}."
+
+        inl error_neg_msg =
+            match d with
+            | {neg} -> neg
+            | _ -> "The {0}-th parameter is wrong."
             
-            inl info = s.CudaTensor.get info
+        inl info = s.CudaTensor.get info
 
-            if info > 0i32 then failwith () (string_format error_pos_msg info)
-            if info < 0i32 then failwith () (string_format error_neg_msg -info)
+        if info > 0i32 then failwith () (string_format error_pos_msg info)
+        if info < 0i32 then failwith () (string_format error_neg_msg -info)
 
     /// The Cholesky decomposition.
     inl potrf' s uplo A =
