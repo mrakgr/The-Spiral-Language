@@ -1198,6 +1198,16 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | _ -> prim_bin_op_helper t a b
                 ) a b t
 
+        let power d a b =
+            match tev2 d a b with
+            | TyLit (LitFloat64 a), TyLit (LitFloat64 b) -> a ** b |> LitFloat64 |> TyLit
+            | TyLit (LitFloat32 a), TyLit (LitFloat32 b) -> float32 (float a ** float b) |> LitFloat32 |> TyLit
+            | a, b ->
+                match get_type a, get_type b with
+                | PrimT Float64T, PrimT Float64T -> TyOp(Pow,[a;b],PrimT Float64T)
+                | PrimT Float32T, PrimT Float32T -> TyOp(Pow,[a;b],PrimT Float32T)
+                | a, b -> on_type_er (trace d) <| sprintf "The arguments to Pow must both be either float32 or float64. Got: %s and %s" (show_ty a) (show_ty b)
+
         let prim_comp_op d a b t = 
             let er a b = sprintf "(is_char a || is_string a || is_numeric a || is_bool a) && get_type a = get_type b` is false.\na=%s, b=%s" (show_typedexpr a) (show_typedexpr b)
             let check a b = (is_char a || is_string a || is_numeric a || is_bool a) && get_type a = get_type b
@@ -1779,6 +1789,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | Mult,[a;b] -> prim_arith_op d a b Mult
             | Div,[a;b] -> prim_arith_op d a b Div
             | Mod,[a;b] -> prim_arith_op d a b Mod
+            | Pow,[a;b] -> power d a b
 
             | LT,[a;b] -> prim_comp_op d a b LT
             | LTE,[a;b] -> prim_comp_op d a b LTE
@@ -2812,6 +2823,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | Mult,[a;b] -> sprintf "(%s * %s)" (codegen a) (codegen b)
                     | Div,[a;b] -> sprintf "(%s / %s)" (codegen a) (codegen b)
                     | Mod,[a;b] -> sprintf "(%s %% %s)" (codegen a) (codegen b)
+                    | Pow,[a;b] -> 
+                        match get_type a, get_type b with
+                        | PrimT Float64T, PrimT Float64T -> sprintf "(%s ** %s)" (codegen a) (codegen b)
+                        | PrimT Float32T, PrimT Float32T -> sprintf "(float32 (float %s ** float %s))" (codegen a) (codegen b)
+                        | _, _ -> failwith "impossible"
                     | LT,[a;b] -> sprintf "(%s < %s)" (codegen a) (codegen b)
                     | LTE,[a;b] -> sprintf "(%s <= %s)" (codegen a) (codegen b)
                     | EQ,[a;b] -> sprintf "(%s == %s)" (codegen a) (codegen b)
@@ -3311,6 +3327,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | Mult,[a;b] -> sprintf "(%s * %s)" (codegen a) (codegen b)
                     | Div,[a;b] -> sprintf "(%s / %s)" (codegen a) (codegen b)
                     | Mod,[a;b] -> sprintf "(%s %% %s)" (codegen a) (codegen b)
+                    | Pow,[a;b] -> sprintf "pow(%s, %s)" (codegen a) (codegen b)
                     | LT,[a;b] -> sprintf "(%s < %s)" (codegen a) (codegen b)
                     | LTE,[a;b] -> sprintf "(%s <= %s)" (codegen a) (codegen b)
                     | EQ,[a;b] -> sprintf "(%s = %s)" (codegen a) (codegen b)

@@ -1803,7 +1803,7 @@ let math =
     """
 /// The partially evaluated power function using repeated squaring.
 /// Note that the second argument for the function needs to be an integer.
-/// The language already has an inbuilt operator ** for floats.
+/// The language already has an inbuilt operator ** for floats as the second argument.
 inl rec pow (n: float64 | n: float32) (k: int64) =
     if k < 0 then to n 1 / pow n -k
     elif k=1 then n

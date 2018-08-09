@@ -161,6 +161,7 @@ type Op =
     | Mult 
     | Div 
     | Mod 
+    | Pow
     | LTE 
     | LT 
     | EQ 
