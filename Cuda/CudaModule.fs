@@ -2670,8 +2670,8 @@ inl s ret ->
         s.CudaKernel.iter {dim=1} <| inl _ ->
             inl msg x = macro.cd () [text: "printf"; args: x]
             inl info = info.get
-            if info > 0i32 then msg "WARNING!!!\n"; msg (error_pos_msg, info); msg "\n"
-            if info < 0i32 then msg "WARNING!!!\n"; msg (error_neg_msg, -info); msg "\n"
+            if info > 0i32 then msg "CuSolve function failed!\n"; msg (error_pos_msg, info); msg "\n"
+            if info < 0i32 then msg "CuSolve function failed!\n"; msg (error_neg_msg, -info); msg "\n"
             macro.cd () [text: "int is_info_zero = "; arg: info = 0i32]
             macro.cd () [text: "assert(is_info_zero)"]
 
