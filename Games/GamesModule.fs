@@ -610,32 +610,43 @@ inl {basic_methods State Action} ->
             s.CudaBlas.gemm' .T .nT (beta / to float k) eligibility basis one A
 
         /// The generic parallel update.
-        inl zap_update reward state action state' action' =
-            inb max_value_action = max_value_action state' |> CudaAux.temporary
-            inl max_value, max_action = HostTensor.unzip max_value_action
+        inl zap_update {reward state action} = function // TODO: Work in progress.
+            | {reward} -> {reward state action}
+            | {reward state=state' action=action'} ->
+                inb max_value_action = max_value_action state' |> CudaAux.temporary
+                inl max_value, max_action = HostTensor.unzip max_value_action
 
-            inb value = value state action |> CudaAux.temporary
-            inb d = cd.CudaKernel.map (inl r,v',v -> reward + discount_factor * v' - v) (max_value', value) |> CudaAux.temporary
-            inb basis_max = basis state' max_action' |> CudaAux.temporary
-            inb basis_next = basis state' action' |> CudaAux.temporary
-            inb basis_cur = basis state action |> CudaAux.temporary
+                inb value = value state action |> CudaAux.temporary
+                inb d = 
+                    match reward with
+                    | _: float32 -> cd.CudaKernel.map (inl v',v -> reward + discount_factor * v' - v) (max_value', value)
+                    | _ -> cd.CudaKernel.map (inl r,v',v -> r + discount_factor * v' - v) (reward,max_value', value)
+                    |> CudaAux.temporary
+
+                inb basis_max = basis state' max_action' |> CudaAux.temporary
+                inb basis_next = basis state' action' |> CudaAux.temporary
+                inb basis_cur = basis state action |> CudaAux.temporary
                 
-            inl eligibility = eligibility basis.cur
-            inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> discount_factor * basis_max - basis_cur) (basis_max, basis_cur) |> CudaAux.temporary
-            update_steady_state identity_coef (learning_rate ** 0.85) cd A eligibility basis_update
+                inl eligibility = eligibility basis.cur
+                inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> discount_factor * basis_max - basis_cur) (basis_max, basis_cur) |> CudaAux.temporary
+                update_steady_state identity_coef (learning_rate ** 0.85) cd A eligibility basis_update
 
-            inl _ = // W(n+1) = W - alpha * A_inv * eligibility * d
-                inl A_inv = A_inv state.span_outer
-                inb weight_update = cd.CudaBlas.gemm .nT .T one A_inv eligibility |> CudaAux.temporary
-                inl d = CudaAux.to_dev_tensor d
+                inl _ = // W(n+1) = W - alpha * A_inv * eligibility * d
+                    inl A_inv = A_inv state.span_outer
+                    inb update = cd.CudaBlas.gemm .nT .T one A_inv eligibility |> CudaAux.temporary
+                    inl d = CudaAux.to_dev_tensor d
 
-                if d.span_outer > 1 then 
-                    cd.CudaKernel.init_d2_redo_outit {
-                        init=inl inner outer -> update outer inner .get
-                        }
-                else cd.CudaKernel.map' (inl W, update -> W - learning_rate * update * d 0 .get) (W, update)
+                    inl span = d.span_outer
+                    if span > 1 then 
+                        cd.CudaKernel.mapi_d1_redo_map' {
+                            mapi_in=inl i j update -> update * d j .get
+                            neutral_elem=0f32
+                            redo=(+)
+                            map_out=inl W update -> (W - learning_rate * update) / to float32 span
+                            } update W
+                    else cd.CudaKernel.map' (inl update W -> W - learning_rate * update * d 0 .get) update W
 
-            cd.CudaKernel.map' (inl eligibility, basis_next -> eligibility_factor * discount_factor * eligibility + basis_next) (eligibility, basis_next)
+                cd.CudaKernel.map' (inl eligibility, basis_next -> eligibility_factor * discount_factor * eligibility + basis_next) (eligibility, basis_next)
 
         ()
     {
