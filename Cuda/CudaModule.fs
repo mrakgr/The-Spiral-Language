@@ -587,7 +587,11 @@ inl methods =
                 FS.Method context .ClearMemoryAsync (CUdeviceptr (ar.ptr()), 0u8, size * span * sizeof ar.elem_type |> SizeT, stream) ()
         |> ignore
 
-    copy' = inl s dst src ->
+    copy = inl s {d with from=src} ->
+        inl dst =
+            match d with
+            | {to} -> to
+            | _ -> s.CudaTensor.create_like src
         assert_contiguous dst
         assert_contiguous src
         inl stream = s.data.stream.extract
@@ -601,12 +605,7 @@ inl methods =
             inb src = ptr_cuda src
             memcpy_async dst src (span * size * elem_type_size) stream
             ) dst.bodies src.bodies
-
-    copy = inl s src -> 
-        inl dst = s.CudaTensor.create_like src
-        s.CudaTensor.copy' dst src
-        dst
-    
+  
     zero=inl s d -> indiv join s.CudaTensor.create d |> clear' s |> stack
     zero_like=inl s d -> indiv join s.CudaTensor.create_like d |> clear' s |> stack
 

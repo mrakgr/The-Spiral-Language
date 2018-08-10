@@ -532,14 +532,36 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0; action trace net starting_net}
 
-    inl player_zap_q {name init beta} cd =
+    inl player_zap_q {name init steps_until_inverse_update learning_rate discount_factor eligibility_factor} cd =
+        inl identity_coef = 0.05f32
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
+        inl size = input_size+num_actions
 
-        inl W = cd.CudaTensor.init {dim=(input_size+num_actions), 1} (inl _ _ -> init)
+        inl W = cd.CudaTensor.init {dim=size, 1} (inl _ _ -> init) // Weights
+        inl A = cd.CudaTensor.init {dim=size, size} (inl a b -> if a = b then -1f32 else 0f32) // The steady state matrix
+        inl A_inv = 
+            inl k = ref steps_until_inverse_update
+            inl A_inv = cd.CudaTensor.init {dim=size, size} (inl a b -> if a = b then -1f32 else 0f32) // The steady state matrix's inverse
+            inl i ->
+                inl x = k() - i
+                if x <= 0 then 
+                    s.CudaSolve.lu_inverse {from=A; to=A_inv}
+                    k := steps_until_inverse_update
+                else
+                    k := x
+                A_inv
 
         inl W_state = W.view_span (inl a,b -> {from=0; near_to=input_size}, b)
         inl W_action = W.view_span (inl a,b -> {from=input_size; near_to=a}, b)
+        inl eligibility = // The eligibility is a pain as it needs to be initialized to first basis.
+            inl init_is_not = ref true
+            inl eligibility = s.CudaTensor.create {dim=1, size; elem_type=float32}
+            inl basis ->
+                if init_is_not() then 
+                    s.CudaTensor.copy {from=basis; to=eligibility}
+                    init_is := false
+                eligibility
 
         inl values s = 
             inl W_action = CudaAux.to_dev_tensor W_action
@@ -562,7 +584,6 @@ inl {basic_methods State Action} ->
             inl v = cd.CudaBlas.gemm .nT .nT 1f32 s W_state |> CudaAux.to_dev_tensor
             cd.CudaKernel.init {dim=fst v.dim, 1} (inl i -> v i 0 .get + W_action (a i .get) 0 .get)
 
-
         inl basis s a =
             assert (fst s.dim = fst a.dim) "The outer dimensions of s and a must match."
             inl s,a = CudaAux.to_dev_tensor (s,a)
@@ -572,9 +593,50 @@ inl {basic_methods State Action} ->
                     inl j = j - input_size
                     if a i .get = j then 1f32 else 0f32
 
+        /// Updates the state state matrix such that A(t+1) = alpha * A(t) + beta / k * eligibility^T * basis + epsilon * -I
+        inl update_steady_state identity_coef lr s A eligibility basis =
+            inl k = x.span_outer
+            inl alpha = Math.pow (one - lr) k
+            inl epsilon = (one - alpha) * identity_coef
+            inl beta = one - alpha - epsilon
+            inl _ =
+                inl A = CudaAux.to_dev_tensor A
+                s.CudaKernel.iter {dim=A.dim} <| inl a b -> 
+                    if b <= a then
+                        inl A = A a b
+                        inl identity = if a = b then -epsilon else zero
+                        A .set (alpha * A .get + identity)
+
+            s.CudaBlas.gemm' .T .nT (beta / to float k) eligibility basis one A
+
         /// The generic parallel update.
-        //inl zap_update rewards states actions states' =
-            
+        inl zap_update reward state action state' action' =
+            inb max_value_action = max_value_action state' |> CudaAux.temporary
+            inl max_value, max_action = HostTensor.unzip max_value_action
+
+            inb value = value state action |> CudaAux.temporary
+            inb d = cd.CudaKernel.map (inl r,v',v -> reward + discount_factor * v' - v) (max_value', value) |> CudaAux.temporary
+            inb basis_max = basis state' max_action' |> CudaAux.temporary
+            inb basis_next = basis state' action' |> CudaAux.temporary
+            inb basis_cur = basis state action |> CudaAux.temporary
+                
+            inl eligibility = eligibility basis.cur
+            inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> discount_factor * basis_max - basis_cur) (basis_max, basis_cur) |> CudaAux.temporary
+            update_steady_state identity_coef (learning_rate ** 0.85) cd A eligibility basis_update
+
+            inl _ = // W(n+1) = W - alpha * A_inv * eligibility * d
+                inl A_inv = A_inv state.span_outer
+                inb weight_update = cd.CudaBlas.gemm .nT .T one A_inv eligibility |> CudaAux.temporary
+                inl d = CudaAux.to_dev_tensor d
+
+                if d.span_outer > 1 then 
+                    cd.CudaKernel.init_d2_redo_outit {
+                        init=inl inner outer -> update outer inner .get
+                        }
+                else cd.CudaKernel.map' (inl W, update -> W - learning_rate * update * d 0 .get) (W, update)
+
+            cd.CudaKernel.map' (inl eligibility, basis_next -> eligibility_factor * discount_factor * eligibility + basis_next) (eligibility, basis_next)
+
         ()
     {
     player_random player_rules player_tabular_mc player_tabular_sarsa player_pg
