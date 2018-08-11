@@ -607,8 +607,10 @@ inl {basic_methods State Action} ->
                     inl j = j - input_size
                     if a i .get = j then one else zero
 
-        /// Updates the state state matrix such that A(t+1) = alpha * A(t) + beta / k * multiplier * a^T * b + epsilon * -I
-        inl update_steady_state A multiplier a b =
+        /// Updates the state state matrix such that A(t+1) = alpha * A(t) + beta / k * a^T * b + epsilon * I
+        /// Was changed from the paper to have positive eigenvalues in order to mirror the covariance matrix updates 
+        /// used in natural gradient methods.
+        inl update_steady_state A a b =
             inl k = x.span_outer
             inl alpha = Math.pow (one - steady_state_learning_rate) k
             inl epsilon = (one - alpha) * identity_coef
@@ -618,10 +620,10 @@ inl {basic_methods State Action} ->
                 cd.CudaKernel.iter {dim=A.dim} <| inl a b -> 
                     if b <= a then
                         inl A = A a b
-                        inl identity = if a = b then -epsilon else zero
+                        inl identity = if a = b then epsilon else zero
                         A .set (alpha * A .get + identity)
 
-            cd.CudaBlas.gemm' .T .nT (beta / to float k * multiplier) a b one A
+            cd.CudaBlas.gemm' .T .nT (beta / to float k) a b one A
 
         // W(n+1) = W - learning_rate * A_inv * basis_cur * d
         inl update_weights basis_cur d =
@@ -652,30 +654,30 @@ inl {basic_methods State Action} ->
                     inb max_value' = max_value' |> CudaAux.temporary
                     inb value = value state action |> CudaAux.temporary
                     match reward with
-                    | _: float32 -> 
+                    | _: float32 -> // The way `d` is calculated is changed from the paper so it mirrors the squared error's backward pass.
                         assert (value.span_outer = 1) "The size of value must be 1."
-                        cd.CudaKernel.map (inl v',v -> reward + discount_factor * v' - v) (max_value', value)
-                    | _ -> cd.CudaKernel.map (inl r,v',v -> r + discount_factor * v' - v) (reward,max_value', value)
+                        cd.CudaKernel.map (inl v',v -> v - (reward + discount_factor * v')) (max_value', value)
+                    | _ -> cd.CudaKernel.map (inl r,v',v -> v - (r + discount_factor * v')) (reward,max_value', value)
                     |> CudaAux.temporary
 
                 inb basis_max = basis state' max_action' |> CudaAux.temporary
                 inb basis_cur = basis state action |> CudaAux.temporary
                 
-                inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> discount_factor * basis_max - basis_cur) (basis_max, basis_cur) |> CudaAux.temporary
-                update_steady_state (learning_rate ** 0.85) one basis_cur basis_update
+                inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (basis_max, basis_cur) |> CudaAux.temporary
+                update_steady_state (learning_rate ** 0.85) basis_cur basis_update
                 update_weights basis_cur d
             | {reward} ->
                 inb d = 
                     inb value = value state action |> CudaAux.temporary
                     match reward with
-                    | _: float32 -> 
+                    | _: float32 -> // The way `d` is calculated is changed from the paper so it mirrors the squared error's backward pass.
                         assert (value.span_outer = 1) "The size of value must be 1."
-                        cd.CudaKernel.map (inl v -> reward - v) value
-                    | _ -> cd.CudaKernel.map (inl r,v -> r - v) (reward, value)
+                        cd.CudaKernel.map (inl v -> v - reward) value
+                    | _ -> cd.CudaKernel.map (inl r,v -> v - r) (reward, value)
                     |> CudaAux.temporary
 
                 inb basis_cur = basis state action |> CudaAux.temporary
-                update_steady_state (learning_rate ** 0.85) -one basis_cur basis_cur
+                update_steady_state (learning_rate ** 0.85) basis_cur basis_cur
                 update_weights basis_cur d
             {reward state}
         ()
