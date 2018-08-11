@@ -629,17 +629,21 @@ inl {basic_methods State Action} ->
         inl update_weights basis_cur d =
             inl A_inv = A_inv state.span_outer
             inb update = cd.CudaBlas.gemm .nT .T one A_inv basis_cur |> CudaAux.temporary
-            inl d = CudaAux.to_dev_tensor d
+            inl update, d = CudaAux.to_dev_tensor (update, d)
 
-            inl span = d.span_outer
-            if span > 1 then 
-                cd.CudaKernel.mapi_d1_redo_map' {
-                    mapi_in=inl i j update -> update * d j .get
+            inl d_span = d.span_outer
+            assert (HostTensor.span (snd update.dim) = d_span) "The inner dimension of the update must be equal to the span of d."
+            assert (fst update.dim = fst W.dim) "The outer dimensions of the update and W must match."
+            if d_span > 1 then 
+                cd.CudaKernel.init_d1_redo_outit {
+                    dim=update.dim
+                    init=inl i j -> update i j .get * d j .get
                     neutral_elem=zero
                     redo=(+)
-                    map_out=inl W update -> (W - learning_rate * update) / to float32 span
-                    } update W
-            else cd.CudaKernel.map' (inl update W -> W - learning_rate * update * d 0 .get) update W
+                    outit=inl i update -> W i 0 .set <| (W i 0 .get - learning_rate * update) / to float32 span
+                    }
+            else
+                cd.CudaKernel.map' (inl update W -> W - learning_rate * update * d 0 .get) update W
             
         // state,state' = cuda float32 2d tensor
         // action,action' = cuda float32 2d tensor | int64
