@@ -672,7 +672,7 @@ inl float ->
 
                 inl net, {input bck} = run s {input} net
                 inl {out bck=bck'} = final input s
-                inl bck = heap (apply_bck bck bck')
+                inl bck = apply_bck bck bck'
 
                 inl action = Union.from_one_hot Action (s.CudaTensor.get (out 0))
                 stack {action net bck}

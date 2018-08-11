@@ -684,7 +684,42 @@ inl {basic_methods State Action} ->
                 update_steady_state (learning_rate ** 0.85) basis_cur basis_cur
                 update_weights basis_cur d
             {reward state}
-        ()
+
+        inl action input cd =
+            assert (eq_type State input) "The input must be equal to the state type."
+            inl state = 
+                inl tns = Union.to_dense input |> HostTensor.array_as_tensor
+                s.CudaTensor.from_host_tensor tns .reshape (inl x -> 1,x)
+
+            inl action =
+                max_value_action state 
+                |> HostTensor.unzip 
+
+            inl bck = zap_update {state action}
+
+            inl action = 
+                action
+                |> inl _, x -> cd.CudaTensor.get (x 0)
+                |> Union.from_one_hot Action
+
+            {action bck}
+
+        inl trace = ResizeArray.create {elem_type=type heap (action {input=State} cd .bck)}
+
+        inl methods = {basic_methods with
+            bet=inl s input ->
+                inl {action bck} = s.data.action input s.data.cd
+                s.data.trace.add (heap bck)
+                action
+            showdown=inl s v -> 
+                s.data.trace.foldr (inl bck reward -> bck {reward} |> ignore; reward) (dyn (to float32 v)) |> ignore
+                s.data.trace.clear
+            game_over=inl s -> ()
+            }
+
+        Object
+            .member_add methods
+            .data_add {name; win=ref 0; action trace}
     {
     player_random player_rules player_tabular_mc player_tabular_sarsa player_pg
     } |> stackify
