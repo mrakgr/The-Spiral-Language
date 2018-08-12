@@ -534,6 +534,8 @@ inl {basic_methods State Action} ->
 
     // This is the Zap-Q(0) version of the algorithm. It does not use eligiblity traces for the sake of supporting
     // backward chaining and recurrent networks.
+
+    // TODO: Does not work yet. I am not sure if this is because the algorithm is bad or because I made an error somewhere.
     inl player_zap_q {name steps_until_inverse_update learning_rate discount_factor} cd =
         inl one = 1f32
         inl zero = 0f32
@@ -636,11 +638,12 @@ inl {basic_methods State Action} ->
 
         // W(n+1) = W - learning_rate * A_inv * basis_cur * d
         met update_weights basis_cur d =
-            inl q = cd.CudaTensor.get (d 0)
-            if nan_is q then
-                failwith () "Nan..."
-            //else
-            //    Console.writeline q
+            inl _ =
+                inl d = CudaAux.to_dev_tensor d
+                cd.CudaKernel.iter {dim=d.dim} <| inl i ->
+                    if nan_is (d i .get) then
+                        macro.cd () [text: "bool d_is_nan = false;"]
+                        macro.cd () [text: "assert(d_is_nan);"]
             inl d = d.reshape (inl a -> a,1)
             inl A_inv = A_inv basis_cur.span_outer
             inb update = cd.CudaBlas.gemm .T .nT one basis_cur d |> CudaAux.temporary
