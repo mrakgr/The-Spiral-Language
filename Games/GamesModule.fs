@@ -534,10 +534,11 @@ inl {basic_methods State Action} ->
 
     // This is the Zap-Q(0) version of the algorithm. It does not use eligiblity traces for the sake of supporting
     // backward chaining and recurrent networks.
-    inl player_zap_q {name init steps_until_inverse_update learning_rate discount_factor} cd =
+    inl player_zap_q {name steps_until_inverse_update learning_rate discount_factor} cd =
         inl one = 1f32
         inl zero = 0f32
 
+        inl random_action_chance = 0.15
         inl identity_coef = 0.05f32
         inl steady_state_learning_rate = learning_rate ** 0.85f32
 
@@ -545,7 +546,7 @@ inl {basic_methods State Action} ->
         inl num_actions = Union.length_one_hot Action
         inl size = input_size+num_actions
 
-        inl W = cd.CudaKernel.init {dim=size, 1} (inl _ _ -> zero) // Weights
+        inl W = cd.CudaTensor.zero {dim=size, 1; elem_type=float32} // Weights
         inl A = cd.CudaKernel.init {dim=size, size} (inl a b -> if a = b then one else zero) // The steady state matrix
         inl A_inv = 
             inl k = ref steps_until_inverse_update
@@ -672,15 +673,24 @@ inl {basic_methods State Action} ->
                 update_weights basis_cur d
             {reward state}
 
+        inl rnd = Random(42i32)
         inl action input cd =
             assert (eq_type State input) "The input must be equal to the state type."
             inl state = 
                 inl tns = Union.to_dense input |> HostTensor.array_as_tensor
                 cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1,x)
 
-            inl _,action =
-                max_value_action state 
-                |> HostTensor.unzip 
+            inl action =
+                if rnd.next_double < random_action_chance then
+                    inl x = num_actions |> to int32 |> rnd.next |> to int64
+                    cd.CudaKernel.init {dim=1} (const x)
+                    |> stack
+                else
+                    max_value_action state 
+                    |> HostTensor.unzip 
+                    |> snd
+                    |> stack
+                |> indiv
 
             inl bck = zap_update {state action}
 
