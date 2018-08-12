@@ -539,17 +539,17 @@ inl {basic_methods State Action} ->
         inl zero = 0f32
 
         inl identity_coef = 0.05f32
-        inl steady_state_learning_rate = learning_rate ** 0.85
+        inl steady_state_learning_rate = learning_rate ** 0.85f32
 
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
         inl size = input_size+num_actions
 
-        inl W = cd.CudaTensor.init {dim=size, 1} (inl _ _ -> init) // Weights
-        inl A = cd.CudaTensor.init {dim=size, size} (inl a b -> if a = b then -one else zero) // The steady state matrix
+        inl W = cd.CudaKernel.init {dim=size, 1} (inl _ _ -> init) // Weights
+        inl A = cd.CudaKernel.init {dim=size, size} (inl a b -> if a = b then one else zero) // The steady state matrix
         inl A_inv = 
             inl k = ref steps_until_inverse_update
-            inl A_inv = cd.CudaTensor.init {dim=size, size} (inl a b -> if a = b then -one else zero) // The steady state matrix's inverse
+            inl A_inv = cd.CudaKernel.init {dim=size, size} (inl a b -> if a = b then one else zero) // The steady state matrix's inverse
             inl i ->
                 inl x = k() - i
                 if x <= 0 then 
@@ -572,7 +572,7 @@ inl {basic_methods State Action} ->
             inl v = cd.CudaBlas.gemm .nT .nT one s W_state |> CudaAux.to_dev_tensor
             cd.CudaKernel.init_d1_redo_outit {
                 dim=fst v.dim, num_actions
-                init=inl a b -> v a 0 .get + W_action b 0 .get
+                init=inl a b -> v a 0 .get + W_action b 0 .get, b
                 neutral_elem=-infinityf32, 0
                 redo=inl a b -> if fst a > fst b then a else b
                 }
@@ -589,7 +589,7 @@ inl {basic_methods State Action} ->
             
             inb v = cd.CudaBlas.gemm .nT .nT one s W_state |> CudaAux.temporary
             inl W_action,v = CudaAux.to_dev_tensor (W_action,v)
-            cd.CudaKernel.init {dim=fst v.dim, 1} (inl i -> v i 0 .get + W_action (a i .get) 0 .get)
+            cd.CudaKernel.init {dim=fst v.dim, 1} (inl i _ -> v i 0 .get + W_action (a i .get) 0 .get)
 
         inl basis s a =
             inl a = 
@@ -610,8 +610,8 @@ inl {basic_methods State Action} ->
         /// Updates the state state matrix such that A(t+1) = alpha * A(t) + beta / k * a^T * b + epsilon * I
         /// Was changed from the paper to have positive eigenvalues in order to mirror the covariance matrix updates 
         /// used in natural gradient methods.
-        inl update_steady_state A a b =
-            inl k = x.span_outer
+        inl update_steady_state a b =
+            inl k = a.span_outer
             inl alpha = Math.pow (one - steady_state_learning_rate) k
             inl epsilon = (one - alpha) * identity_coef
             inl beta = one - alpha - epsilon
@@ -623,21 +623,20 @@ inl {basic_methods State Action} ->
                         inl identity = if a = b then epsilon else zero
                         A .set (alpha * A .get + identity)
 
-            cd.CudaBlas.gemm' .T .nT (beta / to float k) a b one A
+            cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
 
         // W(n+1) = W - learning_rate * A_inv * basis_cur * d
         inl update_weights basis_cur d =
-            inl A_inv = A_inv state.span_outer
-            inl d = d.reshape (inl a -> a,1)
+            inl A_inv = A_inv basis_cur.span_outer
             inb update = cd.CudaBlas.gemm .T .nT one basis_cur d |> CudaAux.temporary
-            cd.CudaBlas.gemm .nT .nT -learning_rate A_inv update one W // TODO: Is this the right order to use A_inv?
+            cd.CudaBlas.gemm' .nT .nT -learning_rate A_inv update one W // TODO: Is this the right order to use A_inv?
             
         // state,state' = cuda float32 2d tensor
         // action,action' = cuda float32 2d tensor | int64
         // reward = cuda float32 2d tensor | float32
-        met zap_update {state action} d = 
+        met zap_update {state action} {d with reward} =
             match d with
-            | {reward state=state'} ->
+            | {state=state'} ->
                 inl max_value', max_action' = max_value_action state' |> HostTensor.unzip
                 inb max_action' = max_action' |> CudaAux.temporary
                 
@@ -655,9 +654,9 @@ inl {basic_methods State Action} ->
                 inb basis_cur = basis state action |> CudaAux.temporary
                 
                 inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (basis_max, basis_cur) |> CudaAux.temporary
-                update_steady_state (learning_rate ** 0.85) basis_cur basis_update
+                update_steady_state basis_cur basis_update
                 update_weights basis_cur d
-            | {reward} ->
+            | _ ->
                 inb d = 
                     inb value = value state action |> CudaAux.temporary
                     match reward with
@@ -668,7 +667,7 @@ inl {basic_methods State Action} ->
                     |> CudaAux.temporary
 
                 inb basis_cur = basis state action |> CudaAux.temporary
-                update_steady_state (learning_rate ** 0.85) basis_cur basis_cur
+                update_steady_state basis_cur basis_cur
                 update_weights basis_cur d
             {reward state}
 
@@ -676,22 +675,21 @@ inl {basic_methods State Action} ->
             assert (eq_type State input) "The input must be equal to the state type."
             inl state = 
                 inl tns = Union.to_dense input |> HostTensor.array_as_tensor
-                s.CudaTensor.from_host_tensor tns .reshape (inl x -> 1,x)
+                cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1,x)
 
-            inl action =
+            inl _,action =
                 max_value_action state 
                 |> HostTensor.unzip 
 
             inl bck = zap_update {state action}
 
             inl action = 
-                action
-                |> inl _, x -> cd.CudaTensor.get (x 0)
+                cd.CudaTensor.get (action 0)
                 |> Union.from_one_hot Action
 
             {action bck}
 
-        inl trace = ResizeArray.create {elem_type=type heap (action {input=State} cd .bck)}
+        inl trace = ResizeArray.create {elem_type=type heap (action State cd .bck)}
 
         inl methods = {basic_methods with
             bet=inl s input ->
@@ -708,6 +706,6 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0; action trace}
     {
-    player_random player_rules player_tabular_mc player_tabular_sarsa player_pg
+    player_random player_rules player_tabular_mc player_tabular_sarsa player_pg player_zap_q
     } |> stackify
     """) |> module_

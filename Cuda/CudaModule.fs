@@ -2777,7 +2777,9 @@ inl s ret ->
         | {to} ->
             inl _ =
                 inl to = CudaAux.to_dev_tensor to
-                s.CudaKernel.iter {dim=from.dim} (inl a b -> if a = b then to.set 1f32 else to.set 0f32)
+                s.CudaKernel.iter {dim=from.dim} <| inl a b -> 
+                    inl to = to a b
+                    if a = b then to .set 1f32 else to .set 0f32
             handle_error s {info = s.CudaSolve.getrs' .nT A ipiv to}
         | _ ->
             inl to = s.CudaKernel.init {dim=from.dim} (inl a b -> if a = b then 1f32 else 0f32)
