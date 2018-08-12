@@ -535,7 +535,7 @@ inl {basic_methods State Action} ->
     // This is the Zap-Q(0) version of the algorithm. It does not use eligiblity traces for the sake of supporting
     // backward chaining and recurrent networks.
 
-    // TODO: Does not work yet. I am not sure if this is because the algorithm is bad or because I made an error somewhere.
+    // TODO: Does not work yet.
     inl player_zap_q {name steps_until_inverse_update learning_rate discount_factor} cd =
         inl one = 1f32
         inl zero = 0f32
@@ -703,11 +703,11 @@ inl {basic_methods State Action} ->
                     cd.CudaKernel.init {dim=1} (const x)
                     |> stack
                 else
-                    inl v,a = max_value_action state |> HostTensor.unzip 
-                    inb v = CudaAux.temporary // TODO: Fix this memory bug.
-                    stack a
+                    max_value_action state 
+                    |> HostTensor.unzip 
+                    |> snd
+                    |> stack
                 |> indiv
-
 
             inl bck = zap_update {state action}
 
