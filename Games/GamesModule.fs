@@ -708,7 +708,7 @@ inl {basic_methods State Action} ->
                 s.data.trace.add (heap bck)
                 action
             showdown=inl s v -> 
-                s.data.trace.foldr (inl bck reward -> bck {reward} |> ignore; reward) (dyn (to float32 v)) |> ignore
+                s.data.trace.foldr (inl bck reward -> bck {reward}) (dyn (to float32 v)) |> ignore
                 s.data.trace.clear
             game_over=inl s -> ()
             }
