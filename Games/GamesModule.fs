@@ -564,54 +564,62 @@ inl {basic_methods State Action} ->
         inl W_action = W.view_span (inl a,b -> {from=input_size; near_to=a}, b)
 
         inl values s = 
-            inl W_action = CudaAux.to_dev_tensor W_action
-            inl v = cd.CudaBlas.gemm .nT .nT one s W_state |> CudaAux.to_dev_tensor
-            cd.CudaKernel.init {dim=fst v.dim, num_actions} (inl a b -> v a 0 .get + W_action b 0 .get)
+            indiv join
+                inl W_action = CudaAux.to_dev_tensor W_action
+                inl v = cd.CudaBlas.gemm .nT .nT one s W_state |> CudaAux.to_dev_tensor
+                cd.CudaKernel.init {dim=fst v.dim, num_actions} (inl a b -> v a 0 .get + W_action b 0 .get)
+                |> stack
 
         inl max_value_action s =
-            inl W_action = CudaAux.to_dev_tensor W_action
-            inl v = cd.CudaBlas.gemm .nT .nT one s W_state |> CudaAux.to_dev_tensor
-            cd.CudaKernel.init_d1_redo_outit {
-                dim=fst v.dim, num_actions
-                init=inl a b -> v a 0 .get + W_action b 0 .get, b
-                neutral_elem=-infinityf32, 0
-                redo=inl a b -> if fst a > fst b then a else b
-                }
+            indiv join
+                inl W_action = CudaAux.to_dev_tensor W_action
+                inl v = cd.CudaBlas.gemm .nT .nT one s W_state |> CudaAux.to_dev_tensor
+                cd.CudaKernel.init_d1_redo_outit {
+                    dim=fst v.dim, num_actions
+                    init=inl a b -> v a 0 .get + W_action b 0 .get, b
+                    neutral_elem=-infinityf32, 0
+                    redo=inl a b -> if fst a > fst b then a else b
+                    }
+                |> stack
 
         inl value s a =
-            inl a = 
-                match a with
-                | _: int64 ->
-                    assert (fst s.dim = 1) "The outer dimensions of s and a must match."
-                    inl _ _ -> a
-                | _ ->
-                    assert (fst s.dim = fst a.dim) "The outer dimensions of s and a must match."
-                    CudaAux.to_dev_tensor a
+            indiv join
+                inl a = 
+                    match a with
+                    | _: int64 ->
+                        assert (fst s.dim = 1) "The outer dimensions of s and a must match."
+                        inl _ _ -> a
+                    | _ ->
+                        assert (fst s.dim = fst a.dim) "The outer dimensions of s and a must match."
+                        CudaAux.to_dev_tensor a
             
-            inb v = cd.CudaBlas.gemm .nT .nT one s W_state |> CudaAux.temporary
-            inl W_action,v = CudaAux.to_dev_tensor (W_action,v)
-            cd.CudaKernel.init {dim=fst v.dim} (inl i -> v i 0 .get + W_action (a i .get) 0 .get)
+                inb v = cd.CudaBlas.gemm .nT .nT one s W_state |> CudaAux.temporary
+                inl W_action,v = CudaAux.to_dev_tensor (W_action,v)
+                cd.CudaKernel.init {dim=fst v.dim} (inl i -> v i 0 .get + W_action (a i .get) 0 .get)
+                |> stack
 
         inl basis s a =
-            inl a = 
-                match a with
-                | _: int64 ->
-                    assert (fst s.dim = 1) "The outer dimensions of s and a must match."
-                    inl _ _ -> a
-                | _ ->
-                    assert (fst s.dim = fst a.dim) "The outer dimensions of s and a must match."
-                    CudaAux.to_dev_tensor a
-            inl s = CudaAux.to_dev_tensor s
-            cd.CudaKernel.init {dim=fst s.dim, input_size + num_actions} <| inl i j ->
-                if j < input_size then s i j .get
-                else
-                    inl j = j - input_size
-                    if a i .get = j then one else zero
+            indiv join
+                inl a = 
+                    match a with
+                    | _: int64 ->
+                        assert (fst s.dim = 1) "The outer dimensions of s and a must match."
+                        inl _ _ -> a
+                    | _ ->
+                        assert (fst s.dim = fst a.dim) "The outer dimensions of s and a must match."
+                        CudaAux.to_dev_tensor a
+                inl s = CudaAux.to_dev_tensor s
+                cd.CudaKernel.init {dim=fst s.dim, input_size + num_actions} <| inl i j ->
+                    if j < input_size then s i j .get
+                    else
+                        inl j = j - input_size
+                        if a i .get = j then one else zero
+                |> stack
 
         /// Updates the state state matrix such that A(t+1) = alpha * A(t) + beta / k * a^T * b + epsilon * I
         /// Was changed from the paper to have positive eigenvalues in order to mirror the covariance matrix updates 
         /// used in natural gradient methods.
-        inl update_steady_state a b =
+        met update_steady_state a b =
             inl k = a.span_outer
             inl alpha = Math.pow (one - steady_state_learning_rate) k
             inl epsilon = (one - alpha) * identity_coef
@@ -625,10 +633,14 @@ inl {basic_methods State Action} ->
                         A .set (alpha * A .get + identity)
 
             cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
-            ()
 
         // W(n+1) = W - learning_rate * A_inv * basis_cur * d
-        inl update_weights basis_cur d =
+        met update_weights basis_cur d =
+            inl q = cd.CudaTensor.get (d 0)
+            if nan_is q then
+                failwith () "Nan..."
+            //else
+            //    Console.writeline q
             inl d = d.reshape (inl a -> a,1)
             inl A_inv = A_inv basis_cur.span_outer
             inb update = cd.CudaBlas.gemm .T .nT one basis_cur d |> CudaAux.temporary
@@ -673,7 +685,6 @@ inl {basic_methods State Action} ->
                 update_steady_state basis_cur basis_cur
                 update_weights basis_cur d
 
-            print_static state.dim
             {state}
 
         inl rnd = Random(42i32)
@@ -681,7 +692,7 @@ inl {basic_methods State Action} ->
             assert (eq_type State input) "The input must be equal to the state type."
             inl state = 
                 inl tns = Union.to_dense input |> HostTensor.array_as_tensor
-                cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1,x)
+                cd.CudaTensor.from_host_tensor tns .reshape (inl _ -> 1, input_size)
 
             inl action =
                 if rnd.next_double < random_action_chance then

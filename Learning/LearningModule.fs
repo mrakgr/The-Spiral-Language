@@ -668,7 +668,7 @@ inl float ->
                 assert (eq_type State input) "The input must be equal to the state type."
                 inl input = 
                     inl tns = Union.to_dense input |> HostTensor.array_as_tensor
-                    s.CudaTensor.from_host_tensor tns .reshape (inl x -> 1,x)
+                    s.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
 
                 inl net, {input bck} = run s {input} net
                 inl {out bck=bck'} = final input s
