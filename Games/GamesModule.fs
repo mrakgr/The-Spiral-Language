@@ -672,6 +672,7 @@ inl {basic_methods State Action} ->
                 inb basis_cur = basis state action |> CudaAux.temporary
                 update_steady_state basis_cur basis_cur
                 update_weights basis_cur d
+
             {state}
 
         inl rnd = Random(42i32)
