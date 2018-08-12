@@ -673,6 +673,7 @@ inl {basic_methods State Action} ->
                 update_steady_state basis_cur basis_cur
                 update_weights basis_cur d
 
+            print_static state.dim
             {state}
 
         inl rnd = Random(42i32)
