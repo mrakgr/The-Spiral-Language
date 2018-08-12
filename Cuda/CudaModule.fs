@@ -576,7 +576,7 @@ inl methods =
     from_host_tensors=inl s -> Struct.map s.CudaTensor.from_host_tensor
     to_host_tensor=inl s -> transfer_template s.CudaTensor.to_host_array
 
-    clear=inl s tns ->
+    clear=met s tns ->
         assert_contiguous tns
         inl span = tns.span_outer
         inl stream = s.data.stream.extract
@@ -587,24 +587,28 @@ inl methods =
                 FS.Method context .ClearMemoryAsync (CUdeviceptr (ar.ptr()), 0u8, size * span * sizeof ar.elem_type |> SizeT, stream) ()
         |> ignore
 
-    copy = inl s {d with from=src} ->
-        inl dst =
-            match d with
-            | {to} -> to
-            | _ -> s.CudaTensor.create_like src
-        assert_contiguous dst
-        assert_contiguous src
-        inl stream = s.data.stream.extract
-        assert (eq_type dst.elem_type src.elem_type) "The two tensors must have the same type."
-        assert (dst.dim = src.dim) "The two tensors must have the same dimensions."
-        inl span = dst.span_outer
-        Struct.iter2 (inl dst src ->
-            inl size = match dst.size with () -> 1 | x :: _ -> x
-            inl elem_type_size = sizeof dst.ar.elem_type
-            inb dst = ptr_cuda dst
-            inb src = ptr_cuda src
-            memcpy_async dst src (span * size * elem_type_size) stream
-            ) dst.bodies src.bodies
+    copy=inl s d ->
+        met body src dst = 
+            assert_contiguous dst
+            assert_contiguous src
+            inl stream = s.data.stream.extract
+            assert (eq_type dst.elem_type src.elem_type) "The two tensors must have the same type."
+            assert (dst.dim = src.dim) "The two tensors must have the same dimensions."
+            inl span = dst.span_outer
+            Struct.iter2 (inl dst src ->
+                inl size = match dst.size with () -> 1 | x :: _ -> x
+                inl elem_type_size = sizeof dst.ar.elem_type
+                inb dst = ptr_cuda dst
+                inb src = ptr_cuda src
+                memcpy_async dst src (span * size * elem_type_size) stream
+                ) dst.bodies src.bodies
+
+        match d with
+        | {from to} -> body from to
+        | {from} -> 
+            inl to = s.CudaTensor.create_like src
+            body from to
+            to
   
     zero=inl s d -> indiv join s.CudaTensor.create d |> clear' s |> stack
     zero_like=inl s d -> indiv join s.CudaTensor.create_like d |> clear' s |> stack
@@ -2706,11 +2710,20 @@ inl s ret ->
 
             stack A
 
-    inl cholesky_inverse s C =
-        inl C_sqr = s.CudaSolve.potrf .Lower C
-        inb C_sqr_inv = s.CudaBlas.trinv .Lower C_sqr |> CudaAux.temporary
-        s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 C_sqr_inv C_sqr_inv C_sqr
-        C_sqr
+    inl cholesky_inverse s = 
+        inl body C_sqrt = 
+            inb C_sqrt_inv = s.CudaBlas.trinv .Lower C_sqrt |> CudaAux.temporary
+            s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 C_sqrt_inv C_sqrt_inv C_sqrt
+
+        function
+        | {from to} ->
+            s.CudaTensor.copy {from to}
+            s.CudaSolve.potrf' .Lower to
+            body to
+        | {from} -> 
+            inl C_sqrt = s.CudaSolve.potrf .Lower from
+            body C_sqrt
+            C_sqrt
 
     /// The LU decomposition.
     inl getrf' s A =
@@ -2757,12 +2770,18 @@ inl s ret ->
             handle_error s { info = getrs' s trans A ipiv B }
             B
 
-    inl lu_inverse s C =
-        inl A, ipiv = s.CudaSolve.getrf C
+    inl lu_inverse s {d with from} =
+        inl A, ipiv = s.CudaSolve.getrf from
         inb ipiv = CudaAux.temporary ipiv
-        inl B = s.CudaKernel.init {dim=C.dim} (inl a b -> if a = b then 1f32 else 0f32)
-        handle_error s {info = s.CudaSolve.getrs' .nT A ipiv B}
-        B
+        match d with
+        | {to} ->
+            inl to = CudaAux.to_dev_tensor
+            s.CudaKernel.iter {dim=from.dim} (inl a b -> if a = b then to.set 1f32 else to.set 0f32)
+            handle_error s {info = s.CudaSolve.getrs' .nT A ipiv to}
+        | _ ->
+            inl to = s.CudaKernel.init {dim=from.dim} (inl a b -> if a = b then 1f32 else 0f32)
+            handle_error s {info = s.CudaSolve.getrs' .nT A ipiv to}
+            to
 
     ret <| s.module_add .CudaSolve {potrf' potrf getrf' getrf getrs' getrs cholesky_inverse lu_inverse}
     

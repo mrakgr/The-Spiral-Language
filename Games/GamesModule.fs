@@ -628,22 +628,9 @@ inl {basic_methods State Action} ->
         // W(n+1) = W - learning_rate * A_inv * basis_cur * d
         inl update_weights basis_cur d =
             inl A_inv = A_inv state.span_outer
-            inb update = cd.CudaBlas.gemm .nT .T one A_inv basis_cur |> CudaAux.temporary
-            inl update, d = CudaAux.to_dev_tensor (update, d)
-
-            inl d_span = d.span_outer
-            assert (HostTensor.span (snd update.dim) = d_span) "The inner dimension of the update must be equal to the span of d."
-            assert (fst update.dim = fst W.dim) "The outer dimensions of the update and W must match."
-            if d_span > 1 then 
-                cd.CudaKernel.init_d1_redo_outit {
-                    dim=update.dim
-                    init=inl i j -> update i j .get * d j .get
-                    neutral_elem=zero
-                    redo=(+)
-                    outit=inl i update -> W i 0 .set <| (W i 0 .get - learning_rate * update) / to float32 span
-                    }
-            else
-                cd.CudaKernel.map' (inl update W -> W - learning_rate * update * d 0 .get) update W
+            inl d = d.reshape (inl a -> a,1)
+            inb update = cd.CudaBlas.gemm .T .nT one basis_cur d |> CudaAux.temporary
+            cd.CudaBlas.gemm .nT .nT -learning_rate A_inv update one W // TODO: Is this the right order to use A_inv?
             
         // state,state' = cuda float32 2d tensor
         // action,action' = cuda float32 2d tensor | int64
