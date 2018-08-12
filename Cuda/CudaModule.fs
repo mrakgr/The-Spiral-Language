@@ -605,8 +605,8 @@ inl methods =
 
         match d with
         | {from to} -> body from to
-        | {from} -> 
-            inl to = s.CudaTensor.create_like src
+        | {from} | from -> 
+            inl to = s.CudaTensor.create_like from
             body from to
             to
   
@@ -799,7 +799,7 @@ inl s ret ->
 
     inl trmv s uplo trans diag A x =
         indiv join
-            inl x = s.CudaTensor.copy x
+            inl x = s.CudaTensor.copy {from=x}
             trmv' s uplo trans diag A x
             stack x
 
@@ -2720,7 +2720,7 @@ inl s ret ->
             s.CudaTensor.copy {from to}
             s.CudaSolve.potrf' .Lower to
             body to
-        | {from} -> 
+        | {from} | from -> 
             inl C_sqrt = s.CudaSolve.potrf .Lower from
             body C_sqrt
             C_sqrt
@@ -2745,7 +2745,7 @@ inl s ret ->
 
     inl getrf s A =
         indiv join
-            inl A = s.CudaTensor.copy A
+            inl A = s.CudaTensor.copy {from=A}
             inl {ipiv info} = getrf' s A
             handle_error s { info pos = "U(x,x) = 0 where x = %d."}
             stack (A, ipiv)
@@ -2766,17 +2766,18 @@ inl s ret ->
 
     inl getrs s trans A ipiv B =
         indiv join
-            inl B = s.CudaTensor.copy B
+            inl B = s.CudaTensor.copy {from=B}
             handle_error s { info = getrs' s trans A ipiv B }
             B
 
-    inl lu_inverse s {d with from} =
+    inl lu_inverse s ({from} | from as d) =
         inl A, ipiv = s.CudaSolve.getrf from
         inb ipiv = CudaAux.temporary ipiv
         match d with
         | {to} ->
-            inl to = CudaAux.to_dev_tensor
-            s.CudaKernel.iter {dim=from.dim} (inl a b -> if a = b then to.set 1f32 else to.set 0f32)
+            inl _ =
+                inl to = CudaAux.to_dev_tensor to
+                s.CudaKernel.iter {dim=from.dim} (inl a b -> if a = b then to.set 1f32 else to.set 0f32)
             handle_error s {info = s.CudaSolve.getrs' .nT A ipiv to}
         | _ ->
             inl to = s.CudaKernel.init {dim=from.dim} (inl a b -> if a = b then 1f32 else 0f32)

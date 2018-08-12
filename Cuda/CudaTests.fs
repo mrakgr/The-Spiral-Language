@@ -842,28 +842,6 @@ s.CudaTensor.print C_inv
 s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_inv)
     """
 
-let zap1 =
-    "zap1",[cuda_modules;mnist],"Does the Zap update work?",
-    """
-inb s = CudaModules (1024*1024*1024)
-
-inl n = 16
-
-inl A = s.CudaKernel.init {dim=n,n} (inl a b -> if a = b then -1f32 else 0f23)
-inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=1,n}
-
-// TODO: Work in progress.
-
-inl basis s a = concat s a
-inl q W s a = s.CudaBlas.gemm .nT .nT (basis s a) W
-
-inl update_zap {beta A W s a r s'} =
-    inl a_best = max_Q W Actions
-    inl d = reward + beta * ()
-    ()
-()
-    """
-
 let tests =
     [|
     allocator1
@@ -876,9 +854,8 @@ let tests =
     inverse1;inverse2
     |]
 
-//rewrite_test_cache tests cfg None //(Some(0,40))
+//rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) inverse2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) inverse1
 |> printfn "%s"
 |> ignore
-
