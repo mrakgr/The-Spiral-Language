@@ -703,11 +703,11 @@ inl {basic_methods State Action} ->
                     cd.CudaKernel.init {dim=1} (const x)
                     |> stack
                 else
-                    max_value_action state 
-                    |> HostTensor.unzip 
-                    |> snd
-                    |> stack
+                    inl v,a = max_value_action state |> HostTensor.unzip 
+                    inb v = CudaAux.temporary // TODO: Fix this memory bug.
+                    stack a
                 |> indiv
+
 
             inl bck = zap_update {state action}
 
