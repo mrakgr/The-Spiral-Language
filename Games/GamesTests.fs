@@ -167,7 +167,7 @@ Loops.for {from=0; near_to=1; body=inl {i} ->
     //inl a = 
     //    open (Learning float32).Feedforward
     //    player_pg {name="One"; actor=tanh 256; learning_rate=0.0003f32} s
-    inl a = player_zap_q {name="One"; init=3f32; steps_until_inverse_update=128; learning_rate=0.01f32; discount_factor=0.99f32} s
+    inl a = player_zap_q {name="One"; steps_until_inverse_update=128; learning_rate=0.001f32; discount_factor=0.99f32} s
     inl b = player_rules {name="Two"}
 
     met f game (!dyn near_to) (!dyn near_to_inner) = 

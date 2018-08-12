@@ -545,7 +545,7 @@ inl {basic_methods State Action} ->
         inl num_actions = Union.length_one_hot Action
         inl size = input_size+num_actions
 
-        inl W = cd.CudaKernel.init {dim=size, 1} (inl _ _ -> init) // Weights
+        inl W = cd.CudaKernel.init {dim=size, 1} (inl _ _ -> zero) // Weights
         inl A = cd.CudaKernel.init {dim=size, size} (inl a b -> if a = b then one else zero) // The steady state matrix
         inl A_inv = 
             inl k = ref steps_until_inverse_update
@@ -624,6 +624,7 @@ inl {basic_methods State Action} ->
                         A .set (alpha * A .get + identity)
 
             cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
+            ()
 
         // W(n+1) = W - learning_rate * A_inv * basis_cur * d
         inl update_weights basis_cur d =
