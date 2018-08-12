@@ -655,26 +655,25 @@ inl {basic_methods State Action} ->
         met zap_update {state action} d =
             match d with
             | {reward state=state'} ->
-                //inl max_value', max_action' = max_value_action state' |> HostTensor.unzip
-                //inb max_action' = max_action' |> CudaAux.temporary
+                inl max_value', max_action' = max_value_action state' |> HostTensor.unzip
+                inb max_action' = max_action' |> CudaAux.temporary
                 
-                //inb d = 
-                //    inb max_value' = max_value' |> CudaAux.temporary
-                //    inb value = value state action |> CudaAux.temporary
-                //    match reward with
-                //    | _: float32 -> // The way `d` is calculated is changed from the paper so it mirrors the squared error's backward pass.
-                //        assert (value.span_outer = 1) "The size of value must be 1."
-                //        cd.CudaKernel.map (inl v',v -> v - (reward + discount_factor * v')) (max_value', value)
-                //    | _ -> cd.CudaKernel.map (inl r,v',v -> v - (r + discount_factor * v')) (reward,max_value', value)
-                //    |> CudaAux.temporary
+                inb d = 
+                    inb max_value' = max_value' |> CudaAux.temporary
+                    inb value = value state action |> CudaAux.temporary
+                    match reward with
+                    | _: float32 -> // The way `d` is calculated is changed from the paper so it mirrors the squared error's backward pass.
+                        assert (value.span_outer = 1) "The size of value must be 1."
+                        cd.CudaKernel.map (inl v',v -> v - (reward + discount_factor * v')) (max_value', value)
+                    | _ -> cd.CudaKernel.map (inl r,v',v -> v - (r + discount_factor * v')) (reward,max_value', value)
+                    |> CudaAux.temporary
 
-                //inb basis_max = basis state' max_action' |> CudaAux.temporary
-                //inb basis_cur = basis state action |> CudaAux.temporary
+                inb basis_max = basis state' max_action' |> CudaAux.temporary
+                inb basis_cur = basis state action |> CudaAux.temporary
                 
-                //inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (basis_max, basis_cur) |> CudaAux.temporary
-                //update_steady_state basis_cur basis_update
-                //update_weights basis_cur d
-                ()
+                inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (basis_max, basis_cur) |> CudaAux.temporary
+                update_steady_state basis_cur basis_update
+                update_weights basis_cur d
             | {reward} ->
                 inb d = 
                     inb value = value state action |> CudaAux.temporary
