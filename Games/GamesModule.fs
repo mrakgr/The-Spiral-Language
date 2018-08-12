@@ -542,7 +542,7 @@ inl {basic_methods State Action} ->
 
         inl random_action_chance = 0.15
         inl identity_coef = 0.05f32
-        inl steady_state_learning_rate = 0.01f32 //learning_rate ** 0.85f32
+        inl steady_state_learning_rate = learning_rate ** 0.85f32
 
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
@@ -629,10 +629,9 @@ inl {basic_methods State Action} ->
             inl _ =
                 inl A = CudaAux.to_dev_tensor A
                 cd.CudaKernel.iter {dim=A.dim} <| inl a b -> 
-                    if b <= a then
-                        inl A = A a b
-                        inl identity = if a = b then epsilon else zero
-                        A .set (alpha * A .get + identity)
+                    inl A = A a b
+                    inl identity = if a = b then epsilon else zero
+                    A .set (alpha * A .get + identity)
 
             cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
 
@@ -644,7 +643,7 @@ inl {basic_methods State Action} ->
                     if nan_is (d i .get) then
                         macro.cd () [text: "bool d_is_nan = false;"]
                         macro.cd () [text: "assert(d_is_nan);"]
-            cd.CudaTensor.print d
+            //cd.CudaTensor.print d
             inl d = d.reshape (inl a -> a,1)
             inl A_inv = A_inv basis_cur.span_outer
             inb update = cd.CudaBlas.gemm .T .nT one basis_cur d |> CudaAux.temporary
@@ -687,7 +686,7 @@ inl {basic_methods State Action} ->
                     |> CudaAux.temporary
 
                 inb basis_cur = basis state action |> CudaAux.temporary
-                //update_steady_state basis_cur basis_cur
+                update_steady_state basis_cur basis_cur
                 update_weights basis_cur d
 
             {state}
