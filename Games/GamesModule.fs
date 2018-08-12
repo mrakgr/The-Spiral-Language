@@ -637,9 +637,9 @@ inl {basic_methods State Action} ->
         // state,state' = cuda float32 2d tensor
         // action,action' = cuda float32 2d tensor | int64
         // reward = cuda float32 2d tensor | float32
-        met zap_update {state action} {d with reward} =
+        met zap_update {state action} d =
             match d with
-            | {state=state'} ->
+            | {reward state=state'} ->
                 inl max_value', max_action' = max_value_action state' |> HostTensor.unzip
                 inb max_action' = max_action' |> CudaAux.temporary
                 
@@ -659,7 +659,7 @@ inl {basic_methods State Action} ->
                 inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (basis_max, basis_cur) |> CudaAux.temporary
                 update_steady_state basis_cur basis_update
                 update_weights basis_cur d
-            | _ ->
+            | {reward} ->
                 inb d = 
                     inb value = value state action |> CudaAux.temporary
                     match reward with
@@ -672,7 +672,7 @@ inl {basic_methods State Action} ->
                 inb basis_cur = basis state action |> CudaAux.temporary
                 update_steady_state basis_cur basis_cur
                 update_weights basis_cur d
-            {reward state}
+            {state}
 
         inl rnd = Random(42i32)
         inl action input cd =
@@ -712,7 +712,7 @@ inl {basic_methods State Action} ->
                 inl trace = s.data.trace
                 Loops.for' {from=trace.count - 1i32; by=-1i32; down_to=0i32; 
                     state={reward=to float32 v}
-                    body=inl {state i next} -> (trace i) state |> next
+                    body=inl {state i next} -> (trace i) state |> inl d -> {d with reward=zero} |> next
                     finally=ignore
                     }
                 trace.clear
