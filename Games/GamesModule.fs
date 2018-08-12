@@ -590,7 +590,7 @@ inl {basic_methods State Action} ->
             
             inb v = cd.CudaBlas.gemm .nT .nT one s W_state |> CudaAux.temporary
             inl W_action,v = CudaAux.to_dev_tensor (W_action,v)
-            cd.CudaKernel.init {dim=fst v.dim, 1} (inl i _ -> v i 0 .get + W_action (a i .get) 0 .get)
+            cd.CudaKernel.init {dim=fst v.dim} (inl i -> v i 0 .get + W_action (a i .get) 0 .get)
 
         inl basis s a =
             inl a = 
@@ -629,6 +629,7 @@ inl {basic_methods State Action} ->
 
         // W(n+1) = W - learning_rate * A_inv * basis_cur * d
         inl update_weights basis_cur d =
+            inl d = d.reshape (inl a -> a,1)
             inl A_inv = A_inv basis_cur.span_outer
             inb update = cd.CudaBlas.gemm .T .nT one basis_cur d |> CudaAux.temporary
             cd.CudaBlas.gemm' .nT .nT -learning_rate A_inv update one W // TODO: Is this the right order to use A_inv?
@@ -665,7 +666,7 @@ inl {basic_methods State Action} ->
                     | _: float32 -> // The way `d` is calculated is changed from the paper so it mirrors the squared error's backward pass.
                         assert (value.span_outer = 1) "The size of value must be 1."
                         cd.CudaKernel.map (inl v -> v - reward) value
-                    | _ -> cd.CudaKernel.map (inl r,v -> v - r) (reward, value)
+                    | _ -> cd.CudaKernel.map (inl r, v -> v - r) (reward, value)
                     |> CudaAux.temporary
 
                 inb basis_cur = basis state action |> CudaAux.temporary
@@ -708,8 +709,13 @@ inl {basic_methods State Action} ->
                 s.data.trace.add (heap bck)
                 action
             showdown=inl s v -> 
-                s.data.trace.foldr (inl bck reward -> bck {reward}) (dyn (to float32 v)) |> ignore
-                s.data.trace.clear
+                inl trace = s.data.trace
+                Loops.for' {from=trace.count - 1i32; by=-1i32; down_to=0i32; 
+                    state={reward=to float32 v}
+                    body=inl {state i next} -> (trace i) state |> next
+                    finally=ignore
+                    }
+                trace.clear
             game_over=inl s -> ()
             }
 
