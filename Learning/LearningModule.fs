@@ -189,6 +189,19 @@ inl rec unroll f x =
     if eq_type x x' then x
     else x \/ unroll f x'
 
+inl mutable_function f {init with state input} =
+    inl ty = unroll f init
+    inl init_state = box ty state
+    inl state = ref init_state
+    function
+    | .reset -> state := init_state
+    | .state -> state()
+    | input -> 
+        inl {state=state' out} = f {state=state(); input}
+        state := box ty state'
+        out
+    |> state
+
 {int to_one_hot to_dense from_one_hot from_dense length_one_hot length_dense unroll} |> stackify
     """) |> module_
 
