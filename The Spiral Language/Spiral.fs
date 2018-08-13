@@ -1038,26 +1038,38 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let list_taken (d: LangEnv) (a: Expr) (arg: Expr) (on_fail: Expr) (on_succ: Expr) = 
             match tev d a with
             | TyLitIndex c -> 
-                match tev d arg with
-                | TyList args -> 
+                let inline loop f args = 
                     let rec loop = function
-                        | 0,[] -> List.fold (fun on_succ arg -> apply d on_succ arg) (tev d on_succ) args
+                        | 0,[] -> List.fold (fun on_succ arg -> apply d on_succ (f arg)) (tev d on_succ) args
                         | _,[] | 0, _ -> tev d on_fail
                         | c,_ :: x' -> loop (c-1,x')
-                    loop (c,args)
+                    loop (c, args)
+                match tev d arg with
+                | TyList args -> loop id args
+                | recf & TyT (LayoutT (t, TyList args))
+                | recf & TyV (_, LayoutT (t, TyList args)) ->
+                    match t with
+                    | LayoutHeapMutable -> loop (layout_boxed_unseal_mutable d recf) args
+                    | _ -> loop (layout_boxed_unseal d recf) args
                 | _ -> tev d on_fail
             | x -> on_type_er (trace d) "Expected an int literal as the first input to ListTakeN.\nGot: %s" (show_typedexpr x)
 
         let list_taken_tail d a arg on_fail on_succ = 
             match tev d a with
             | TyLitIndex c -> 
-                match tev d arg with
-                | TyList args -> 
+                let inline loop f =
                     let rec loop args = function
-                        | 0,x' -> List.foldBack (fun arg on_succ -> apply d on_succ arg) (tyvv x' :: args) (tev d on_succ)
+                        | 0,x' -> List.foldBack (fun arg on_succ -> apply d on_succ (f arg)) (tyvv x' :: args) (tev d on_succ)
                         | _,[] -> tev d on_fail
                         | c,x :: x' -> loop (x :: args) (c-1,x')
-                    loop [] (c,args)
+                    loop
+                match tev d arg with
+                | TyList args -> loop id [] (c,args)
+                | recf & TyT (LayoutT (t, TyList args))
+                | recf & TyV (_, LayoutT (t, TyList args)) ->
+                    match t with
+                    | LayoutHeapMutable -> loop (layout_boxed_unseal_mutable d recf) [] (c,args)
+                    | _ -> loop (layout_boxed_unseal d recf) [] (c,args)
                 | _ -> tev d on_fail
             | x -> on_type_er (trace d) "Expected an int literal as the first input to ListTakeNTail.\nGot: %s" (show_typedexpr x)
 
@@ -1588,7 +1600,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | Some recf ->
                         match recf with
                         | TyMap(env,MapTypeModule) -> on_succ env
-                        | TyType(LayoutT(_,TyMap(_,MapTypeModule))) -> on_type_er (trace d) "For the sake of consistency directly updating a layout type is disallowed. Unpack it using 'indiv' first. Unpacking (only on) module types can also be done using pattern matching."
+                        | TyType(LayoutT(_,TyMap(_,MapTypeModule))) -> on_type_er (trace d) "For the sake of consistency directly updating a layout type is disallowed. Unseal it using 'indiv' first."
                         | _ -> on_type_er (trace d) <| sprintf "Variable %s is not a module." name
                     | _ -> on_type_er (trace d) <| sprintf "Module %s is not bound in the environment." name
 

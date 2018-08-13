@@ -487,13 +487,14 @@ box int64 (dyn 1)
 let test39 =
     "test39",[],"Does the mutable layout type get unpacked multiple times?",
     """
-inl q = type (heapm <| dyn {a=1;b=2;c=3}) \/ (heapm <| dyn {a=1;b=2})
+inl q = type (heapm <| dyn {a=1;b=2;c=3}) \/ (heapm <| dyn {a=1;b=2}) \/ (heap <| dyn (1,2,3))
 match box q (heapm <| dyn {a=1;b=2;c=3}) |> dyn with
 | {x with a} ->
     inl {b} = x
     match x with
     | {c} -> a+b+c
     | _ -> a+b
+| a,b,c -> a*b*c
     """
 
 let test40 =
