@@ -532,11 +532,11 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0; action trace net starting_net}
 
-    // This is the Zap-Q(0) version of the algorithm. It does not use eligiblity traces for the sake of supporting
+    // This is the Zap-AC with TD(0) for the critic version of the algorithm. It does not use eligiblity traces for the sake of supporting
     // backward chaining and recurrent networks.
 
-    // TODO: Does not work yet.
-    inl player_zap_q {name steps_until_inverse_update learning_rate discount_factor} cd =
+    // TODO: Work in progress. Will be linear for the time being.
+    inl player_zap_ac {name steps_until_inverse_update learning_rate discount_factor} cd =
         inl one = 1f32
         inl zero = 0f32
 
@@ -546,10 +546,10 @@ inl {basic_methods State Action} ->
 
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
-        inl size = input_size+num_actions
 
-        inl W = cd.CudaTensor.zero {dim=size, 1; elem_type=float32} // Weights
-        inl A = cd.CudaKernel.init {dim=size, size} (inl a b -> if a = b then one else zero) // The steady state matrix
+        inl W_actor = cd.CudaTensor.zero {dim=input_size, num_actions; elem_type=float32}
+        inl W_critic = cd.CudaTensor.zero {dim=input_size, 1; elem_type=float32}
+        inl A = cd.CudaKernel.init {dim=input_size, input_size} (inl a b -> if a = b then one else zero) // The steady state matrix
         inl A_inv = 
             inl k = ref steps_until_inverse_update
             inl A_inv = cd.CudaKernel.init {dim=size, size} (inl a b -> if a = b then one else zero) // The steady state matrix's inverse
@@ -562,66 +562,12 @@ inl {basic_methods State Action} ->
                     k := x
                 A_inv
 
-        inl W_state = W.view_span (inl a,b -> {from=0; near_to=input_size}, b)
-        inl W_action = W.view_span (inl a,b -> {from=input_size; near_to=a}, b)
-
-        inl values s = 
-            indiv join
-                inl W_action = CudaAux.to_dev_tensor W_action
-                inl v = cd.CudaBlas.gemm .nT .nT one s W_state |> CudaAux.to_dev_tensor
-                cd.CudaKernel.init {dim=fst v.dim, num_actions} (inl a b -> v a 0 .get + W_action b 0 .get)
-                |> stack
-
-        inl max_value_action s =
-            indiv join
-                inl W_action = CudaAux.to_dev_tensor W_action
-                inl v = cd.CudaBlas.gemm .nT .nT one s W_state |> CudaAux.to_dev_tensor
-                cd.CudaKernel.init_d1_redo_outit {
-                    dim=fst v.dim, num_actions
-                    init=inl a b -> v a 0 .get + W_action b 0 .get, b
-                    neutral_elem=-infinityf32, 0
-                    redo=inl a b -> if fst a > fst b then a else b
-                    }
-                |> stack
-
-        inl value s a =
-            indiv join
-                inl a = 
-                    match a with
-                    | _: int64 ->
-                        assert (fst s.dim = 1) "The outer dimensions of s and a must match."
-                        inl _ _ -> a
-                    | _ ->
-                        assert (fst s.dim = fst a.dim) "The outer dimensions of s and a must match."
-                        CudaAux.to_dev_tensor a
-            
-                inb v = cd.CudaBlas.gemm .nT .nT one s W_state |> CudaAux.temporary
-                inl W_action,v = CudaAux.to_dev_tensor (W_action,v)
-                cd.CudaKernel.init {dim=fst v.dim} (inl i -> v i 0 .get + W_action (a i .get) 0 .get)
-                |> stack
-
-        inl basis s a =
-            indiv join
-                inl a = 
-                    match a with
-                    | _: int64 ->
-                        assert (fst s.dim = 1) "The outer dimensions of s and a must match."
-                        inl _ _ -> a
-                    | _ ->
-                        assert (fst s.dim = fst a.dim) "The outer dimensions of s and a must match."
-                        CudaAux.to_dev_tensor a
-                inl s = CudaAux.to_dev_tensor s
-                cd.CudaKernel.init {dim=fst s.dim, input_size + num_actions} <| inl i j ->
-                    if j < input_size then s i j .get
-                    else
-                        inl j = j - input_size
-                        if a i .get = j then one else zero
-                |> stack
+        inl value s cd = cd.CudaBlas.gemm .nT .nT one s W_critic
 
         /// Updates the state state matrix such that A(t+1) = alpha * A(t) + beta / k * a^T * b + epsilon * I
         /// Was changed from the paper to have positive eigenvalues in order to mirror the covariance matrix updates 
         /// used in natural gradient methods.
-        met update_steady_state a b =
+        met update_steady_state a b cd =
             inl k = a.span_outer
             inl alpha = Math.pow (one - steady_state_learning_rate) k
             inl epsilon = (one - alpha) * identity_coef
@@ -635,81 +581,62 @@ inl {basic_methods State Action} ->
 
             cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
 
-        // W(n+1) = W - learning_rate * A_inv * basis_cur * d
-        met update_weights basis_cur d =
+        // W(n+1) = W - learning_rate * A_inv * basis_cur^T * d
+        met update_weights basis_cur d cd =
             inl _ =
                 inl d = CudaAux.to_dev_tensor d
                 cd.CudaKernel.iter {dim=d.dim} <| inl i ->
                     if nan_is (d i .get) then
                         macro.cd () [text: "bool d_is_nan = false;"]
                         macro.cd () [text: "assert(d_is_nan);"]
-            //cd.CudaTensor.print d
             inl d = d.reshape (inl a -> a,1)
             inl A_inv = A_inv basis_cur.span_outer
             inb update = cd.CudaBlas.gemm .T .nT one basis_cur d |> CudaAux.temporary
-            cd.CudaBlas.gemm' .nT .nT -learning_rate A_inv update one W // TODO: Is this the right order to use A_inv?
+            cd.CudaBlas.gemm' .nT .nT -learning_rate A_inv update one W_critic
             
         // state,state' = cuda float32 2d tensor
         // action,action' = cuda float32 2d tensor | int64
         // reward = cuda float32 2d tensor | float32
-        met zap_update {state action} d =
+        met zap_update state d cd =
             match d with
             | {reward state=state'} ->
-                inl max_value', max_action' = max_value_action state' |> HostTensor.unzip
-                inb max_action' = max_action' |> CudaAux.temporary
+                inb value' = value state' cd |> CudaAux.temporary
+                inb value = value state cd |> CudaAux.temporary
                 
                 inb d = 
-                    inb max_value' = max_value' |> CudaAux.temporary
-                    inb value = value state action |> CudaAux.temporary
                     match reward with
                     | _: float32 -> // The way `d` is calculated is changed from the paper so it mirrors the squared error's backward pass.
                         assert (value.span_outer = 1) "The size of value must be 1."
-                        cd.CudaKernel.map (inl v',v -> v - (reward + discount_factor * v')) (max_value', value)
-                    | _ -> cd.CudaKernel.map (inl r,v',v -> v - (r + discount_factor * v')) (reward,max_value', value)
+                        cd.CudaKernel.map (inl v',v -> v - (reward + discount_factor * v')) (value', value.flatten)
+                    | _ -> cd.CudaKernel.map (inl r,v',v -> v - (r + discount_factor * v')) (reward, value'.flatten, value.flatten)
                     |> CudaAux.temporary
-
-                inb basis_max = basis state' max_action' |> CudaAux.temporary
-                inb basis_cur = basis state action |> CudaAux.temporary
                 
-                inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (basis_max, basis_cur) |> CudaAux.temporary
-                update_steady_state basis_cur basis_update
-                update_weights basis_cur d
+                inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (state', state) |> CudaAux.temporary
+                update_steady_state state basis_update cd
+                update_weights state d cd
             | {reward} ->
+                inb value = value state action cd |> CudaAux.temporary
                 inb d = 
-                    inb value = value state action |> CudaAux.temporary
                     match reward with
                     | _: float32 -> // The way `d` is calculated is changed from the paper so it mirrors the squared error's backward pass.
                         assert (value.span_outer = 1) "The size of value must be 1."
-                        cd.CudaKernel.map (inl v -> v - reward) value
-                    | _ -> cd.CudaKernel.map (inl r, v -> v - r) (reward, value)
+                        cd.CudaKernel.map (inl v -> v - reward) value.flatten
+                    | _ -> cd.CudaKernel.map (inl r, v -> v - r) (reward, value.flatten)
                     |> CudaAux.temporary
 
-                inb basis_cur = basis state action |> CudaAux.temporary
-                update_steady_state basis_cur basis_cur
-                update_weights basis_cur d
+                update_steady_state state state cd
+                update_weights state d cd
 
             {state}
 
-        inl rnd = Random(42i32)
         inl action input cd =
             assert (eq_type State input) "The input must be equal to the state type."
             inl state = 
                 inl tns = Union.to_dense input |> HostTensor.array_as_tensor
                 cd.CudaTensor.from_host_tensor tns .reshape (inl _ -> 1, input_size)
 
-            inl action =
-                if rnd.next_double < random_action_chance then
-                    inl x = num_actions |> to int32 |> rnd.next |> to int64
-                    cd.CudaKernel.init {dim=1} (const x)
-                    |> stack
-                else
-                    max_value_action state 
-                    |> HostTensor.unzip 
-                    |> snd
-                    |> stack
-                |> indiv
-
-            inl bck = zap_update {state action}
+            inl action = () // TODO: Work in progress.
+            inl bck = zap_update state
 
             inl action = 
                 cd.CudaTensor.get (action 0)
@@ -728,7 +655,7 @@ inl {basic_methods State Action} ->
                 inl trace = s.data.trace
                 Loops.for' {from=trace.count - 1i32; by=-1i32; down_to=0i32; 
                     state={reward=to float32 v}
-                    body=inl {state i next} -> (trace i) state |> inl d -> {d with reward=zero} |> next
+                    body=inl {state i next} -> (trace i) state s |> inl d -> {d with reward=zero} |> next
                     finally=ignore
                     }
                 trace.clear
