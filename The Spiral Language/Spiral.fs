@@ -744,7 +744,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let case_ d v case =
             let inline assume d v x branch = tev_assume (cse_add' d v x) d branch
-            match tev d v with
+            match tev d v |> layout_to_none' d with
             | a & TyBox(b,_) -> 
                 cse_add d a b
                 let r = tev d case

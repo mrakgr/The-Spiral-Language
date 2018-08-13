@@ -484,6 +484,13 @@ let test38 =
 box int64 (dyn 1)
     """
 
+let test39 =
+    "test39",[],"Does the mutable layout type get unpacked multiple times?",
+    """
+inl _ = heapm <| dyn {a=1;b=2;c=3}
+()
+    """
+
 let test40 =
     "test40",[],"Does this compile into just one method? Are the arguments reversed in the method call?",
     """
