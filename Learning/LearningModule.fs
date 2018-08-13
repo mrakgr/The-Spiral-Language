@@ -649,17 +649,24 @@ inl float ->
             {
             out
             bck=inl {reward} -> join
-                inl reward = to float reward
+                inl reward = 
+                    match reward with
+                    | _: float32 | _: float64 ->
+                        inl reward = to float reward
+                        inl _ _ -> reward
+                    | _ ->
+                        CudaAux.to_dev_tensor reward
+
+                    
                 inl x_a, p, out = to_dev_tensor (adjoint x, p, out)
-                s.CudaKernel.iter {dim=dim_a, dim_b} (inl j ->
-                    inl x_a, p, out = x_a j, p j, out j .get
+                s.CudaKernel.iter {dim=dim_a, dim_b} <| inl j ->
+                    inl x_a, p, out, reward = x_a j, p j, out j .get, reward j .get
 
                     inl i ->
                         inl p = p i .get
                         inl x_a = x_a i
                         inl label = if out = i then one else zero
                         x_a.set (x_a.get + (p - label) * reward) 
-                    )
             }
 
         /// For online learning.

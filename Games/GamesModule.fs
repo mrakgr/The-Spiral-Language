@@ -562,7 +562,7 @@ inl {basic_methods State Action} ->
                     k := x
                 A_inv
 
-        inl value s cd = cd.CudaBlas.gemm .nT .nT one s W_critic
+        inl value s cd = cd.CudaBlas.gemm .nT .nT one s W_critic .flatten
 
         /// Updates the state state matrix such that A(t+1) = alpha * A(t) + beta / k * a^T * b + epsilon * I
         /// Was changed from the paper to have positive eigenvalues in order to mirror the covariance matrix updates 
@@ -581,53 +581,52 @@ inl {basic_methods State Action} ->
 
             cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
 
-        // W(n+1) = W - learning_rate * A_inv * basis_cur^T * d
-        met update_weights basis_cur d cd =
+        // W(n+1) = W + learning_rate * A_inv * basis_cur^T * cost
+        met update_weights basis_cur cost cd =
             inl _ =
-                inl d = CudaAux.to_dev_tensor d
-                cd.CudaKernel.iter {dim=d.dim} <| inl i ->
-                    if nan_is (d i .get) then
-                        macro.cd () [text: "bool d_is_nan = false;"]
-                        macro.cd () [text: "assert(d_is_nan);"]
-            inl d = d.reshape (inl a -> a,1)
+                inl cost = CudaAux.to_dev_tensor cost
+                cd.CudaKernel.iter {dim=cost.dim} <| inl i ->
+                    if nan_is (cost i .get) then
+                        macro.cd () [text: "bool cost_is_nan = false;"]
+                        macro.cd () [text: "assert(cost_is_nan);"]
+            inl cost = cost.reshape (inl a -> a,1)
             inl A_inv = A_inv basis_cur.span_outer
-            inb update = cd.CudaBlas.gemm .T .nT one basis_cur d |> CudaAux.temporary
-            cd.CudaBlas.gemm' .nT .nT -learning_rate A_inv update one W_critic
+            inb update = cd.CudaBlas.gemm .T .nT one basis_cur cost |> CudaAux.temporary
+            cd.CudaBlas.gemm' .nT .nT learning_rate A_inv update one W_critic
             
         // state,state' = cuda float32 2d tensor
         // action,action' = cuda float32 2d tensor | int64
         // reward = cuda float32 2d tensor | float32
-        met zap_update state d cd =
-            match d with
-            | {reward state=state'} ->
-                inb value' = value state' cd |> CudaAux.temporary
-                inb value = value state cd |> CudaAux.temporary
+        met zap_update cd state d =
+            inb value = value state cd |> CudaAux.temporary
+            inl cost =
+                match d with
+                | {reward state=state'} ->
+                    inb value' = value state' cd |> CudaAux.temporary
+                    inl cost = 
+                        match reward with
+                        | _: float32 ->
+                            assert (value.span_outer = 1) "The size of value must be 1."
+                            cd.CudaKernel.map (inl v',v -> (reward + discount_factor * v') - v) (value', value)
+                        | _ -> cd.CudaKernel.map (inl r,v',v -> (r + discount_factor * v') - v) (reward, value', value)
                 
-                inb d = 
-                    match reward with
-                    | _: float32 -> // The way `d` is calculated is changed from the paper so it mirrors the squared error's backward pass.
-                        assert (value.span_outer = 1) "The size of value must be 1."
-                        cd.CudaKernel.map (inl v',v -> v - (reward + discount_factor * v')) (value', value.flatten)
-                    | _ -> cd.CudaKernel.map (inl r,v',v -> v - (r + discount_factor * v')) (reward, value'.flatten, value.flatten)
-                    |> CudaAux.temporary
-                
-                inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (state', state) |> CudaAux.temporary
-                update_steady_state state basis_update cd
-                update_weights state d cd
-            | {reward} ->
-                inb value = value state action cd |> CudaAux.temporary
-                inb d = 
-                    match reward with
-                    | _: float32 -> // The way `d` is calculated is changed from the paper so it mirrors the squared error's backward pass.
-                        assert (value.span_outer = 1) "The size of value must be 1."
-                        cd.CudaKernel.map (inl v -> v - reward) value.flatten
-                    | _ -> cd.CudaKernel.map (inl r, v -> v - r) (reward, value.flatten)
-                    |> CudaAux.temporary
+                    inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (state', state) |> CudaAux.temporary
+                    update_steady_state state basis_update cd
+                    update_weights state cost cd
+                    cost
+                | {reward} ->
+                    inl cost = 
+                        match reward with
+                        | _: float32 ->
+                            assert (value.span_outer = 1) "The size of value must be 1."
+                            cd.CudaKernel.map (inl v -> reward - v) value
+                        | _ -> cd.CudaKernel.map (inl r, v -> r - v) (reward, value)
 
-                update_steady_state state state cd
-                update_weights state d cd
+                    update_steady_state state state cd
+                    update_weights state cost cd
+                    cost
 
-            {state}
+            {state cost}
 
         inl action input cd =
             assert (eq_type State input) "The input must be equal to the state type."
@@ -635,12 +634,19 @@ inl {basic_methods State Action} ->
                 inl tns = Union.to_dense input |> HostTensor.array_as_tensor
                 cd.CudaTensor.from_host_tensor tns .reshape (inl _ -> 1, input_size)
 
-            inl action = () // TODO: Work in progress.
-            inl bck = zap_update state
-
+            inl {out=action bck=bck_actor} = 
+                inl x = cd.CudaBlas.gemm .nT .nT one input W_actor
+                Learning.RL.sampling_pg x cd
             inl action = 
                 cd.CudaTensor.get (action 0)
                 |> Union.from_one_hot Action
+
+            inl bck_zap = zap_update cd (Learning.primal state)
+
+            inl bck state' =
+                inl {cost state} = bck_zap state'
+                bck_actor {reward=cost}
+                {state}
 
             {action bck}
 
@@ -651,11 +657,11 @@ inl {basic_methods State Action} ->
                 inl {action bck} = s.data.action input s.data.cd
                 s.data.trace.add (heap bck)
                 action
-            showdown=inl s v -> 
+            showdown=inl s v ->
                 inl trace = s.data.trace
                 Loops.for' {from=trace.count - 1i32; by=-1i32; down_to=0i32; 
                     state={reward=to float32 v}
-                    body=inl {state i next} -> (trace i) state s |> inl d -> {d with reward=zero} |> next
+                    body=inl {state i next} -> (trace i) state |> inl d -> {d with reward=zero} |> next
                     finally=ignore
                     }
                 trace.clear
