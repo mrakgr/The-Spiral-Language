@@ -416,7 +416,7 @@ inl {State Action init learning_rate} ->
 
 let poker_players =
     (
-    "PokerPlayers",[player_random;player_tabular],"The poker players module.",
+    "PokerPlayers",[player_random;player_tabular;list],"The poker players module.",
     """
 inl {basic_methods State Action} ->
     inl player_random {name} =
@@ -511,24 +511,21 @@ inl {basic_methods State Action} ->
             {state={net}; input={input=State; cd}}
 
         inl methods = {basic_methods with
-            bet=inl s rep -> s.data.net {input=rep; cd}
-                
+            bet=inl s input -> s.data.net {input cd=s.data.cd}
             showdown=inl s v -> 
-                inl state = s.data.net.reset
+                inl {state with net} = s.data.net.reset
+                inl optimizer = Learning.Optimizer.sgd learning_rate
+                Struct.iter (inl {optimize} -> optimize optimizer) net
+
                 match state with
                 | {bck} -> List.foldl (inl reward bck -> bck {reward} |> ignore; reward) (dyn (to float32 v)) bck |> ignore
                 | _ -> ()
-
-                match state with
-                | {net} ->
-                    inl optimizer = Learning.Optimizer.sgd learning_rate
-                    Struct.iter (inl {optimize} -> optimize optimizer) net
             game_over=inl s -> ()
             }
 
         Object
             .member_add methods
-            .data_add {name; win=ref 0; action trace net starting_net}
+            .data_add {name; win=ref 0; net}
 
     // This is the Zap-AC with TD(0) for the critic version of the algorithm. It does not use eligiblity traces for the sake of supporting
     // backward chaining and recurrent networks.
