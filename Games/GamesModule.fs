@@ -629,23 +629,25 @@ inl {basic_methods State Action} ->
             {state cost}
 
         inl action input cd =
+            open Learning
             assert (eq_type State input) "The input must be equal to the state type."
             inl state = 
                 inl tns = Union.to_dense input |> HostTensor.array_as_tensor
                 cd.CudaTensor.from_host_tensor tns .reshape (inl _ -> 1, input_size)
 
-            inl {out=action bck=bck_actor} = 
-                inl x = cd.CudaBlas.gemm .nT .nT one input W_actor
-                Learning.RL.sampling_pg x cd
+            inl x = cd.CudaBlas.gemm .nT .nT one input W_actor |> dr cd
+            inl {out=action bck=bck_actor} = RL.sampling_pg x cd
             inl action = 
                 cd.CudaTensor.get (action 0)
                 |> Union.from_one_hot Action
 
-            inl bck_zap = zap_update cd (Learning.primal state)
+            inl bck_zap = zap_update cd (primal state) // TODO: Later I will turn this into a deep variant.
 
+            /// The actor and the critic are both updated online on the backward pass.
             inl bck state' =
                 inl {cost state} = bck_zap state'
                 bck_actor {reward=cost}
+                cd.CudaBlas.gemm' .T .nT -learning_rate input (adjoint x) one W_actor 
                 {state}
 
             {action bck}
