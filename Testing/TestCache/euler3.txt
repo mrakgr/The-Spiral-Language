@@ -1,5 +1,6 @@
 module SpiralExample.Main
 let cuda_kernels = """
+#include <assert.h>
 
 extern "C" {
     
@@ -73,17 +74,17 @@ if var_6 then
     (failwith "The input to init needs to be greater or equal to 0.")
 else
     ()
-let (var_7: (bool [])) = Array.zeroCreate<bool> (System.Convert.ToInt32(var_4))
-let (var_8: int64) = 0L
-method_0((var_7: (bool [])), (var_4: int64), (var_8: int64))
-let (var_9: int64) = 2L
-method_1((var_7: (bool [])), (var_3: int64), (var_9: int64))
-let (var_10: Union0) = method_3((var_7: (bool [])), (var_0: int64), (var_3: int64))
-match var_10 with
-| Union0Case0(var_11) ->
-    let (var_12: int64) = var_11.mem_0
-    let (var_13: string) = System.String.Format("{0}",var_12)
-    System.Console.WriteLine(var_13)
+let (var_8: (bool [])) = Array.zeroCreate<bool> (System.Convert.ToInt32(var_4))
+let (var_9: int64) = 0L
+method_0((var_8: (bool [])), (var_4: int64), (var_9: int64))
+let (var_10: int64) = 2L
+method_1((var_8: (bool [])), (var_3: int64), (var_10: int64))
+let (var_11: Union0) = method_3((var_8: (bool [])), (var_0: int64), (var_3: int64))
+match var_11 with
+| Union0Case0(var_12) ->
+    let (var_13: int64) = var_12.mem_0
+    let (var_14: string) = System.String.Format("{0}",var_13)
+    System.Console.WriteLine(var_14)
 | Union0Case1 ->
     (failwith "No prime factor found!")
 

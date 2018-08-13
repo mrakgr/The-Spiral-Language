@@ -1,5 +1,6 @@
 module SpiralExample.Main
 let cuda_kernels = """
+#include <assert.h>
 
 extern "C" {
     
@@ -58,8 +59,8 @@ and method_2((var_0: System.Text.StringBuilder), (var_1: (EnvPackedStack0 [])), 
         method_2((var_0: System.Text.StringBuilder), (var_1: (EnvPackedStack0 [])), (var_2: int64), (var_17: string), (var_18: int64))
     else
         var_3
-let (var_3: (EnvPackedStack0 [])) = Array.zeroCreate<EnvPackedStack0> (System.Convert.ToInt32(8L))
-let (var_4: int64) = 0L
-method_0((var_3: (EnvPackedStack0 [])), (var_4: int64))
-let (var_5: int64) = 30L
-method_1((var_3: (EnvPackedStack0 [])), (var_5: int64))
+let (var_4: (EnvPackedStack0 [])) = Array.zeroCreate<EnvPackedStack0> (System.Convert.ToInt32(8L))
+let (var_5: int64) = 0L
+method_0((var_4: (EnvPackedStack0 [])), (var_5: int64))
+let (var_6: int64) = 30L
+method_1((var_4: (EnvPackedStack0 [])), (var_6: int64))

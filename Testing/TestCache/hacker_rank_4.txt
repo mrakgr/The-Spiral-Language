@@ -1,5 +1,6 @@
 module SpiralExample.Main
 let cuda_kernels = """
+#include <assert.h>
 
 extern "C" {
     
@@ -350,31 +351,31 @@ and method_10((var_0: Union2), (var_1: Union2)): bool =
             false
         | Union2Case1 ->
             true
-let (var_0: (Union0 [])) = Array.zeroCreate<Union0> (System.Convert.ToInt32(101L))
-let (var_1: int64) = 0L
-method_0((var_0: (Union0 [])), (var_1: int64))
-let (var_2: System.IO.Stream) = System.Console.OpenStandardInput()
-let (var_3: System.IO.StreamReader) = System.IO.StreamReader(var_2)
-let (var_4: string) = var_3.ReadToEnd()
-let (var_5: int64) = 0L
-let (var_6: bool) = (var_5 >= 0L)
-let (var_9: bool) =
-    if var_6 then
-        let (var_7: int64) = (int64 var_4.Length)
-        (var_5 < var_7)
+let (var_1: (Union0 [])) = Array.zeroCreate<Union0> (System.Convert.ToInt32(101L))
+let (var_2: int64) = 0L
+method_0((var_1: (Union0 [])), (var_2: int64))
+let (var_3: System.IO.Stream) = System.Console.OpenStandardInput()
+let (var_4: System.IO.StreamReader) = System.IO.StreamReader(var_3)
+let (var_5: string) = var_4.ReadToEnd()
+let (var_6: int64) = 0L
+let (var_7: bool) = (var_6 >= 0L)
+let (var_10: bool) =
+    if var_7 then
+        let (var_8: int64) = (int64 var_5.Length)
+        (var_6 < var_8)
     else
         false
-if var_9 then
-    let (var_10: char) = var_4.[int32 var_5]
-    let (var_11: bool) = ('-' = var_10)
-    let (var_12: int64) = (var_5 + 1L)
-    if var_11 then
-        let (var_13: bool) = false
-        method_1((var_13: bool), (var_0: (Union0 [])), (var_4: string), (var_12: int64))
+if var_10 then
+    let (var_11: char) = var_5.[int32 var_6]
+    let (var_12: bool) = ('-' = var_11)
+    let (var_13: int64) = (var_6 + 1L)
+    if var_12 then
+        let (var_14: bool) = false
+        method_1((var_14: bool), (var_1: (Union0 [])), (var_5: string), (var_13: int64))
     else
-        let (var_14: bool) = true
-        method_1((var_14: bool), (var_0: (Union0 [])), (var_4: string), (var_5: int64))
+        let (var_15: bool) = true
+        method_1((var_15: bool), (var_1: (Union0 [])), (var_5: string), (var_6: int64))
 else
-    let (var_15: bool) = true
-    method_1((var_15: bool), (var_0: (Union0 [])), (var_4: string), (var_5: int64))
+    let (var_16: bool) = true
+    method_1((var_16: bool), (var_1: (Union0 [])), (var_5: string), (var_6: int64))
 

@@ -1,5 +1,6 @@
 module SpiralExample.Main
 let cuda_kernels = """
+#include <assert.h>
 
 extern "C" {
     
@@ -393,29 +394,29 @@ and method_17((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64)
         (failwith "The input to init needs to be greater or equal to 0.")
     else
         ()
-    let (var_164: ((Tuple4 []) [])) = Array.zeroCreate<(Tuple4 [])> (System.Convert.ToInt32(var_10))
-    let (var_165: int64) = 0L
-    method_18((var_164: ((Tuple4 []) [])), (var_9: (Tuple4 [])), (var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: string), (var_5: string), (var_6: string), (var_7: string), (var_8: (Union6 ref)), (var_10: int64), (var_165: int64))
+    let (var_165: ((Tuple4 []) [])) = Array.zeroCreate<(Tuple4 [])> (System.Convert.ToInt32(var_10))
     let (var_166: int64) = 0L
-    let (var_167: int64) = var_164.LongLength
-    let (var_168: int64) = 0L
-    let (var_169: int64) = method_19((var_164: ((Tuple4 []) [])), (var_167: int64), (var_166: int64), (var_168: int64))
-    let (var_170: (Tuple4 [])) = Array.zeroCreate<Tuple4> (System.Convert.ToInt32(var_169))
-    let (var_171: int64) = 0L
-    let (var_172: int64) = var_164.LongLength
-    let (var_173: int64) = 0L
-    let (var_174: int64) = method_20((var_164: ((Tuple4 []) [])), (var_170: (Tuple4 [])), (var_172: int64), (var_171: int64), (var_173: int64))
-    let (var_175: Union6) = (!var_8)
-    match var_175 with
-    | Union6Case0(var_176) ->
-        let (var_177: Tuple4) = var_176.mem_0
-        let (var_178: Tuple3) = var_177.mem_0
-        let (var_179: int64) = var_178.mem_0
-        let (var_180: int64) = var_178.mem_1
-        let (var_181: Rec5) = var_177.mem_1
-        method_22((var_181: Rec5))
+    method_18((var_165: ((Tuple4 []) [])), (var_9: (Tuple4 [])), (var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: string), (var_5: string), (var_6: string), (var_7: string), (var_8: (Union6 ref)), (var_10: int64), (var_166: int64))
+    let (var_167: int64) = 0L
+    let (var_168: int64) = var_165.LongLength
+    let (var_169: int64) = 0L
+    let (var_170: int64) = method_19((var_165: ((Tuple4 []) [])), (var_168: int64), (var_167: int64), (var_169: int64))
+    let (var_171: (Tuple4 [])) = Array.zeroCreate<Tuple4> (System.Convert.ToInt32(var_170))
+    let (var_172: int64) = 0L
+    let (var_173: int64) = var_165.LongLength
+    let (var_174: int64) = 0L
+    let (var_175: int64) = method_20((var_165: ((Tuple4 []) [])), (var_171: (Tuple4 [])), (var_173: int64), (var_172: int64), (var_174: int64))
+    let (var_176: Union6) = (!var_8)
+    match var_176 with
+    | Union6Case0(var_177) ->
+        let (var_178: Tuple4) = var_177.mem_0
+        let (var_179: Tuple3) = var_178.mem_0
+        let (var_180: int64) = var_179.mem_0
+        let (var_181: int64) = var_179.mem_1
+        let (var_182: Rec5) = var_178.mem_1
+        method_22((var_182: Rec5))
     | Union6Case1 ->
-        method_17((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: string), (var_5: string), (var_6: string), (var_7: string), (var_8: (Union6 ref)), (var_170: (Tuple4 [])))
+        method_17((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: string), (var_5: string), (var_6: string), (var_7: string), (var_8: (Union6 ref)), (var_171: (Tuple4 [])))
 and method_5((var_0: (Union0 [])), (var_1: ((Union0 []) [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: bool), (var_6: string), (var_7: int64), (var_8: int64)): unit =
     let (var_9: int64) = (var_7 + 1L)
     let (var_10: bool) = (var_8 >= 0L)
