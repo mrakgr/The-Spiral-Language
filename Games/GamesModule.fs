@@ -535,7 +535,7 @@ inl {basic_methods State Action} ->
     // This is the Zap-AC with TD(0) for the critic version of the algorithm. It does not use eligiblity traces for the sake of supporting
     // backward chaining and recurrent networks.
 
-    // TODO: Work in progress. Will be linear for the time being.
+    // TODO: Work in progress. 
     inl player_zap_ac {name steps_until_inverse_update learning_rate discount_factor} cd =
         inl one = 1f32
         inl zero = 0f32
@@ -674,6 +674,6 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0; action trace}
     {
-    player_random player_rules player_tabular_mc player_tabular_sarsa player_pg player_zap_q
+    player_random player_rules player_tabular_mc player_tabular_sarsa player_pg player_zap_ac
     } |> stackify
     """) |> module_
