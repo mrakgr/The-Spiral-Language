@@ -744,7 +744,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let case_ d v case =
             let inline assume d v x branch = tev_assume (cse_add' d v x) d branch
-            match tev d v |> layout_to_none' d with
+            match tev d v with
             | a & TyBox(b,_) -> 
                 cse_add d a b
                 let r = tev d case
@@ -1588,7 +1588,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | Some recf ->
                         match recf with
                         | TyMap(env,MapTypeModule) -> on_succ env
-                        | TyType(LayoutT(_,TyMap(_,MapTypeModule))) -> on_type_er (trace d) "For the sake of consistency directly updating a layout type is disallowed. Unpack it using 'indiv' first."
+                        | TyType(LayoutT(_,TyMap(_,MapTypeModule))) -> on_type_er (trace d) "For the sake of consistency directly updating a layout type is disallowed. Unpack it using 'indiv' first. Unpacking (only on) module types can also be done using pattern matching."
                         | _ -> on_type_er (trace d) <| sprintf "Variable %s is not a module." name
                     | _ -> on_type_er (trace d) <| sprintf "Module %s is not bound in the environment." name
 

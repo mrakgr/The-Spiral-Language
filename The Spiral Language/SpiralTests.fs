@@ -487,8 +487,13 @@ box int64 (dyn 1)
 let test39 =
     "test39",[],"Does the mutable layout type get unpacked multiple times?",
     """
-inl _ = heapm <| dyn {a=1;b=2;c=3}
-()
+inl q = type (heapm <| dyn {a=1;b=2;c=3}) \/ (heapm <| dyn {a=1;b=2})
+match box q (heapm <| dyn {a=1;b=2;c=3}) |> dyn with
+| {x with a} ->
+    inl {b} = x
+    match x with
+    | {c} -> a+b+c
+    | _ -> a+b
     """
 
 let test40 =
@@ -1960,7 +1965,7 @@ let tests =
     test1;test2;test3;test4;test5;test6;test7;test8;test9
     test10;test11;test12;test13;test14;test15;test16;test17;test18;test19
     test20;test21;test22;test23;test24;test25;test26;test27;test28;test29
-    test30;test31;test32;test33;test34;test35;test36;test37;test38
+    test30;test31;test32;test33;test34;test35;test36;test37;test38;test39
     test40;       test42;test43;test44;test45;test46;test47;test48;test49
     test50;test51;test52;test53;test54;test55;test56;test57;test58;test59
     test60';test61;test62;test63;test64;test65;test66;test67;test68;test69
