@@ -205,8 +205,7 @@ inl mutable_function f {init with state input} =
         inl {state=state' out} = f {state=state(); input}
         inl a,b = split ty
         inl x = state' |> dyn |> heap
-        inl f {net} = heap net
-        print_static (eq_type (f b) (f x))
+        
         state := box ty x
         out
     |> stack
