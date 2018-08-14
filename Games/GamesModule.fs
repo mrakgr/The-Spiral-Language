@@ -519,6 +519,7 @@ inl {basic_methods State Action} ->
                 inl {state with net} = s.data.net.reset
                 inl optimizer = Learning.Optimizer.sgd learning_rate
                 Struct.iter (inl {optimize} -> optimize optimizer) net
+                Console.writeline "In showdown."
 
                 match state with
                 | {bck} -> List.foldl (inl reward bck -> bck {reward} |> ignore; reward) (dyn (to float32 v)) bck |> ignore
