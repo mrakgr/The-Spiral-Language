@@ -502,14 +502,14 @@ inl {basic_methods State Action} ->
         
         inl net = 
             Union.mutable_function 
-                (inl {state={state with net} input={input cd}} ->
+                (inl {state={state with net} input={input cd}} -> join
                     inl {action bck net} = action {net input} cd
-                    inl bck =
-                        match state with
-                        | {bck=bck'} -> List.cons (heap bck) bck'
-                        | _ -> List.singleton (heap bck)
-                        |> dyn
-                    {state={net bck q=1,2,3}; out=action}
+                    //inl bck =
+                    //    match state with
+                    //    | {bck=bck'} -> List.cons (heap bck) bck'
+                    //    | _ -> List.singleton (heap bck)
+                    //    |> dyn
+                    {state={net} |> heap; out=action}
                     )
                 {state={net}; input={input=State; cd}}
 

@@ -189,21 +189,20 @@ inl rec unroll f x =
     if eq_type x x' then x
     else x \/ unroll f x'
 
-inl mutable_function f {init with state input} =
-    inl f = f >> inl {state out} -> {state=state |> heap; out}
+inl mutable_function f {init with state=(!heap state) input} =
+    inl f = f >> inl x -> {x with state=heap self}
     inl rec unroll_state state =
         inl state' = f {state input} .state
         if eq_type state state' then state
         else state \/ unroll_state state'
     
-    inl state = state |> heap
     inl ty = type unroll_state state
     inl init_state = box ty state
     inl state = ref init_state
     function
     | .reset -> state := init_state; state()
     | input -> 
-        inl {state=state' out} = f {state=state(); input}
+        inl {state=state' out} = match state() with (() | _) as state -> f {state input}
         state := box ty state'
         out
     |> stack
