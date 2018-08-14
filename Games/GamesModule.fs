@@ -509,9 +509,9 @@ inl {basic_methods State Action} ->
                         | {bck=bck'} -> List.cons (heap bck) bck'
                         | _ -> List.singleton (heap bck)
                         |> dyn
-                    {state={net bck} |> heap; out=action}
+                    {state={net bck q=1,2,3}; out=action}
                     )
-                {state={net} |> heap; input={input=State; cd}}
+                {state={net}; input={input=State; cd}}
 
         inl methods = {basic_methods with
             bet=inl s input -> s.data.net {input cd=s.data.cd}
