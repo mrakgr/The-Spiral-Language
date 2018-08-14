@@ -200,7 +200,10 @@ inl mutable_function f {init with state=(!heap state) input} =
     inl init_state = box ty state
     inl state = ref init_state
     function
-    | .reset -> state := init_state; state()
+    | .reset -> 
+        inl x = state()
+        state := init_state
+        x
     | input -> 
         // That useless seeming pattern match is to trigger uncasing of 
         // the union type so it can be converted to a layout type in this scope.
