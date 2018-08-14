@@ -191,22 +191,19 @@ inl rec unroll f x =
 
 inl mutable_function f {init with state input} =
     inl rec unroll_state state =
-        inl state' = type f {state input} |> inl {state} -> state |> dyn |> heap
+        inl state' = f {state input} |> inl {state} -> (join state) |> heap
         if eq_type state state' then state
         else state \/ unroll_state state'
     
-    inl state = state |> dyn |> heap
-    inl ty = unroll_state state
+    inl state = (join state) |> heap
+    inl ty = type join unroll_state state
     inl init_state = box ty state
     inl state = ref init_state
     function
     | .reset -> state := init_state; state()
     | input -> 
         inl {state=state' out} = f {state=state(); input}
-        inl a,b = split ty
-        inl x = state' |> dyn |> heap
-        
-        state := box ty x
+        state := box ty ((join state') |> heap)
         out
     |> stack
 
