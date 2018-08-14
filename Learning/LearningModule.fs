@@ -185,13 +185,17 @@ inl from_dense ty ar =
     from_dense ((=) 1f32) ty ar
 
 inl rec unroll f x =
-    inl f = heap << f
     inl x' = type f x
     if eq_type x x' then x
     else x \/ unroll f x'
 
 inl mutable_function f {init with state input} =
-    inl ty = unroll f init
+    inl rec unroll_state state =
+        inl {state=state'} = type f {state input} |> heap
+        if eq_type state state' then state
+        else state \/ unroll_state state'
+
+    inl ty = unroll_state state
     inl init_state = box ty (heap state)
     inl state = ref init_state
     function
@@ -200,7 +204,7 @@ inl mutable_function f {init with state input} =
         inl {state=state' out} = f {state=state(); input}
         state := box ty (heap state')
         out
-    |> state
+    |> stack
 
 {int to_one_hot to_dense from_one_hot from_dense length_one_hot length_dense unroll mutable_function} |> stackify
     """) |> module_
