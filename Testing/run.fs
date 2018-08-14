@@ -49,8 +49,8 @@ inl ty = .Up \/ .Down
 inl x = dyn (box ty .Up)
 inl r =
     match x with
-    | .Up -> {q=1;block=()}
-    | .Down -> {q=2;block=()}
+    | .Up -> {q=1;block=(1,(),3)}
+    | .Down -> {q=2;block=(2,(),4)}
 print_static r
     """
 

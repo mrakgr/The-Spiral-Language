@@ -482,14 +482,14 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
             let list_unseal r tuple_types = 
                 let unpack (s,i as state) typ = 
-                    if is_unit typ then tyt typ :: s, i
+                    if is_unit typ then (tyt typ |> destructure) :: s, i
                     else (destructure <| TyOp(ListIndex,[r;TyLit <| LitInt64 (int64 i)],typ)) :: s, i + 1
                 List.fold unpack ([],0) tuple_types
                 |> fst |> List.rev
 
             let env_unseal r x =
                 let unseal (m,i as state) (k: string) typ = 
-                    if is_unit typ then Map.add k (tyt typ) m, i
+                    if is_unit typ then Map.add k (tyt typ |> destructure) m, i
                     else
                         let r = TyOp(MapGetField,[r; tyv(i,typ)], typ) |> destructure 
                         Map.add k r m, i + 1
