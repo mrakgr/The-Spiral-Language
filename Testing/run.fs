@@ -42,8 +42,20 @@ test ()
 //sin(var_1)
     """
 
+let test41 =
+    "test41",[],"Does result in a `type ()`?",
+    """
+inl ty = .Up \/ .Down
+inl x = dyn (box ty .Up)
+inl r =
+    match x with
+    | .Up -> {q=1;block=()}
+    | .Down -> {q=2;block=()}
+print_static r
+    """
+
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test41
 |> printfn "%s"
 |> ignore
 

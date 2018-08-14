@@ -955,7 +955,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     let d = {d with seq=ref id}
                     match apply d case x with
                     | TyList [a;b] -> 
-                        if typed_expr_free_var_exists b then on_type_er (trace d) "The return of a case must not have a free variable."
+                        if typed_expr_free_var_exists b then on_type_er (trace d) "The state returned from a case must not have a free variable."
                         (x,apply_seq d a,s),b
                     | x -> on_type_er (trace d) "Expected a value * state tuple as the return from a case branch."
                     ) s l
@@ -972,7 +972,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         let _,_,s = cases.[List.findIndex (fun t -> v_ty = t) t]
                         match apply d (apply d case s) v with
                         | TyList [a;b] -> 
-                            if typed_expr_free_var_exists b then on_type_er (trace d) "The return of a case must not have a free variable."
+                            if typed_expr_free_var_exists b then on_type_er (trace d) "The state returned from a case must not have a free variable."
                             tyvv [a;state]
                         | x -> on_type_er (trace d) "Expected a value * state tuple as the return from a case branch."
                     else
