@@ -541,32 +541,38 @@ inl {basic_methods State Action} ->
             Tuple.append (Tuple.wrap actor) (linear num_actions :: ())
             |> Learning.init cd input_size
 
-        inl net = 
-            Union.mutable_function <| inl {state={state with net} input={input cd}} ->
-                inl {action bck net} = action {net input} cd
-                inl bck =
-                    match state with
-                    | {bck} -> List.cons (heap bck) bck
-                    | _ -> List.singleton (heap bck)
-                {state={net bck}; out=action}
-            {state={net}; input={input=State; cd}}
+        inl trace = ResizeArray.create {elem_type=type heap (action {net input=State} cd .bck)}
+        inl starting_net = heap net
+        inl net_type = Union.unroll (inl !indiv net -> action {net input=State} cd .net |> heap) starting_net
+        inl net = ref (box net_type starting_net)
 
         inl methods = {basic_methods with
-            bet=inl s input -> s.data.net {input cd=s.data.cd}
+            bet=inl s rep ->
+                inl net = s.data.net ()
+                inl net_type = type net
+                match net with
+                | () | !indiv net -> // This is in order to trigger unboxing.
+                    inl {action net bck} = s.data.action {net input=rep} s.data.cd
+                    s.data.net := box net_type (heap net)
+                    s.data.trace.add (heap bck)
+                    action
             showdown=inl s v -> 
-                inl {state with net} = s.data.net.reset
+                s.data.trace.foldr (inl bck reward -> bck {reward} |> ignore; reward) (dyn (to float32 v)) |> ignore
+                s.data.trace.clear
+                inl net = s.data.net ()
+                inl net_type = type net
+                s.data.net := box net_type s.data.starting_net
                 inl optimizer = Learning.Optimizer.sgd learning_rate
-                Struct.iter (inl {optimize} -> optimize optimizer) net
-
-                match state with
-                | {bck} -> List.foldl (inl reward bck -> bck {reward} |> ignore; reward) (dyn (to float32 v)) bck |> ignore
-                | _ -> ()
+                match net with
+                | () | !indiv net -> // This is in order to trigger unboxing.
+                    Struct.iter (inl {optimize} -> optimize optimizer) net
             game_over=inl s -> ()
             }
 
         Object
             .member_add methods
-            .data_add {name; win=ref 0; net}
+            .data_add {name; win=ref 0; action trace net starting_net}
+
 
     // This is the Zap-AC with TD(0) for the critic version of the algorithm. It does not use eligiblity traces for the sake of supporting
     // backward chaining and recurrent networks.
