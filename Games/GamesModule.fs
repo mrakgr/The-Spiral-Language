@@ -508,7 +508,6 @@ inl {basic_methods State Action} ->
                         match state with
                         | {bck=bck'} -> List.cons (heap bck) bck'
                         | _ -> List.singleton (heap bck)
-                        |> dyn
                     {state={net bck}; out=action}
                     )
                 {state={net}; input={input=State; cd}}

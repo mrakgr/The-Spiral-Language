@@ -191,11 +191,11 @@ inl rec unroll f x =
 
 inl mutable_function f {init with state input} =
     inl rec unroll_state state =
-        inl state' = type f {state input} |> inl {state} -> heap state
+        inl state' = type f {state input} |> inl {state} -> state |> dyn |> heap
         if eq_type state state' then state
         else state \/ unroll_state state'
     
-    inl state = heap state
+    inl state = state |> dyn |> heap
     inl ty = unroll_state state
     inl init_state = box ty state
     inl state = ref init_state
@@ -203,7 +203,11 @@ inl mutable_function f {init with state input} =
     | .reset -> state := init_state; state()
     | input -> 
         inl {state=state' out} = f {state=state(); input}
-        state := box ty (heap state')
+        inl a,b = split ty
+        inl x = state' |> dyn |> heap
+        inl f {net} = heap net
+        print_static (eq_type (f b) (f x))
+        state := box ty x
         out
     |> stack
 
@@ -610,18 +614,19 @@ inl float ->
                     | _ -> input
                 match layer with {state} -> {input with state} | _ -> input
 
-            inl {x with out bck=bck'} = 
-                indiv join
-                    match apply input s with
-                    | {x with bck} -> stack {x with bck = term_cast bck ()}
-                    | _ -> stack {x with bck = inl _ -> ()}
+            inl {x with out} = indiv join apply input s |> stack
+                
+            inl bck = 
+                match x with
+                | {bck=bck'} -> term_cast (apply_bck bck bck')
+                | _ -> bck
 
             inl layer =
                 match x with
                 | {state} -> {layer with state}
                 | _ -> layer
 
-            layer, {input=out; bck=apply_bck bck bck'}
+            layer, {input=out; bck}
             ) input
 
     inl Initializer = {
