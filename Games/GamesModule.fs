@@ -499,16 +499,19 @@ inl {basic_methods State Action} ->
             inl linear = Learning.Feedforward.linear
             Tuple.append (Tuple.wrap actor) (linear num_actions :: ())
             |> Learning.init cd input_size
-
+        
         inl net = 
-            Union.mutable_function <| inl {state={state with net} input={input cd}} ->
-                inl {action bck net} = action {net input} cd
-                inl bck =
-                    match state with
-                    | {bck} -> List.cons (heap bck) bck
-                    | _ -> List.singleton (heap bck)
-                {state={net bck}; out=action}
-            {state={net}; input={input=State; cd}}
+            Union.mutable_function 
+                (inl {state={state with net} input={input cd}} ->
+                    inl {action bck net} = action {net input} cd
+                    inl bck =
+                        match state with
+                        | {bck=bck'} -> List.cons (heap bck) bck'
+                        | _ -> List.singleton (heap bck)
+                        |> dyn
+                    {state={net bck}; out=action}
+                    )
+                {state={net}; input={input=State; cd}}
 
         inl methods = {basic_methods with
             bet=inl s input -> s.data.net {input cd=s.data.cd}
