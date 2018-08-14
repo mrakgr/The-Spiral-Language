@@ -192,17 +192,21 @@ inl rec unroll f x =
 inl mutable_function f {init with state=(!heap state) input} =
     inl f = f >> inl x -> {x with state=heap self}
     inl rec unroll_state state =
-        inl state' = f {state input} .state
+        inl state' = type f {state input} .state
         if eq_type state state' then state
         else state \/ unroll_state state'
     
-    inl ty = type unroll_state state
+    inl ty = unroll_state state
     inl init_state = box ty state
     inl state = ref init_state
     function
     | .reset -> state := init_state; state()
     | input -> 
-        inl {state=state' out} = match state() with (() | _) as state -> f {state input}
+        // That useless seeming pattern match is to trigger uncasing of 
+        // the union type so it can be converted to a layout type in this scope.
+        // In order for this and unroll_state to be the same it is necessary for state to
+        // be passed as a regular argument into f rather than an union type.
+        inl {state=state' out} = match state() with () | _ as state -> f {state input}
         state := box ty state'
         out
     |> stack
