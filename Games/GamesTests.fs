@@ -157,42 +157,45 @@ inl max_stack_size = num_players * stack_size
 open Poker {max_stack_size num_players}
 open PokerPlayers {basic_methods State Action}
 
-Loops.for {from=0; near_to=1; body=inl {i} ->
-    inb s = s.RegionMem.create'
-    s.CudaRandom.set_pseudorandom_seed (to uint64 i)
+Tuple.iter (inl !dyn critic_learning_rate ->
+    Console.printfn "The critic_learning_rate is {0}" critic_learning_rate
+    Loops.for {from=0; near_to=20; body=inl {i} ->
+        inb s = s.RegionMem.create'
+        s.CudaRandom.set_pseudorandom_seed (to uint64 i)
 
-    Console.writeline "------"
-    Console.printfn "The CudaRandom pseudorandom seed is {0}" i
+        Console.writeline "------"
+        Console.printfn "The CudaRandom pseudorandom seed is {0}" i
 
-    //inl a = 
-    //    open (Learning float32).Feedforward
-    //    player_pg {name="One"; actor=tanh 256; learning_rate=0.001f32} s
-    //inl a = 
-    //    open (Learning float32).Feedforward
-    //    player_pg {name="One"; actor=(); learning_rate=0.001f32} s
-    inl a = 
-        inl learning_rate = {actor=0.001f32; critic=0.001f32; shared=0.001f32}
-        player_zap_ac {name="One"; learning_rate discount_factor=0.99f32; steps_until_inverse_update=128} s
-    inl b = player_rules {name="Two"}
+        //inl a = 
+        //    open (Learning float32).Feedforward
+        //    player_pg {name="One"; actor=tanh 256; learning_rate=0.001f32} s
+        //inl a = 
+        //    open (Learning float32).Feedforward
+        //    player_pg {name="One"; actor=(); learning_rate=0.001f32} s
+        inl a = 
+            inl learning_rate = {actor=0.001f32; critic=critic_learning_rate; shared=0.001f32}
+            player_zap_ac {name="One"; learning_rate discount_factor=0.99f32; steps_until_inverse_update=128} s
+        inl b = player_rules {name="Two"}
 
-    met f game (!dyn near_to) (!dyn near_to_inner) = 
-        Loops.for {from=0; near_to body=inl {i} ->
-            Timer.time_it (string_format "iteration {0}" i)
-            <| inl _ ->
-                s.refresh
-                inb s = s.RegionMem.create'
-                inl a = a.data_add {win=ref 0; cd=s}
-                inl b = b.data_add {win=ref 0; cd=s}
-                Loops.for {from=0; near_to=near_to_inner; body=inl {state=s i} -> game stack_size (a, b)}
-                inl a = a.data.win ()
-                inl b = b.data.win ()
-                Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
-            }
+        met f game (!dyn near_to) (!dyn near_to_inner) = 
+            Loops.for {from=0; near_to body=inl {i} ->
+                Timer.time_it (string_format "iteration {0}" i)
+                <| inl _ ->
+                    s.refresh
+                    inb s = s.RegionMem.create'
+                    inl a = a.data_add {win=ref 0; cd=s}
+                    inl b = b.data_add {win=ref 0; cd=s}
+                    Loops.for {from=0; near_to=near_to_inner; body=inl {state=s i} -> game stack_size (a, b)}
+                    inl a = a.data.win ()
+                    inl b = b.data.win ()
+                    Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
+                }
 
-    f game 15 1000
-    //open Poker {max_stack_size num_players log=Console.printfn}
-    //f game 10 1
-    }
+        f game 15 1000
+        //open Poker {max_stack_size num_players log=Console.printfn}
+        //f game 10 1
+        }
+    ) (0.0003f32, 0.001f32, 0.003f32, 0.01f32)
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3
