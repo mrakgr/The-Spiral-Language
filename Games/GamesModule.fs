@@ -545,7 +545,7 @@ inl {basic_methods State Action} ->
 
         inl critic = 
             match d with
-            | {critic} -> Tuple.append (Tuple.wrap critic) (Feedforward.zap :: ())
+            | {critic} -> critic
             | _ -> ()
 
         inl shared =
@@ -553,16 +553,31 @@ inl {basic_methods State Action} ->
             | {shared} -> shared
             | _ -> ()
 
-        inl shared,size = init cd input_size shared
-        inl actor,critic = Tuple.map (init cd size >> fst) (actor,critic)
+        inl shared, shared_size = init cd input_size shared
+        inl actor, _ = init cd shared_size actor
+        inl critic, critic_size = init cd shared_size critic
+        inl zap = RL.zap critic_size
 
         inl run = 
             Union.mutable_function 
                 (inl {state={state with net} input={input cd}} ->
-                    //inl input = Union.from_dense // TODO: ....
-                    inl shared, x = run cd input shared
-                    inl {action net=actor bck} = action {net input} cd
-                    inl bck = () // TODO: Work in progress.
+                    assert (eq_type State input) "The input must be equal to the state type."
+                    inl input = 
+                        inl tns = Union.to_dense input |> HostTensor.array_as_tensor
+                        s.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
+                    inl shared, shared_out = run cd input shared
+                    inl actor, actor_out = run cd shared_out actor
+                    inl {out bck=actor_bck} = RL.sampling_pg actor_out cd
+                    
+                    inl bck x = 
+                        inl critic, critic_out = run cd shared_out critic
+                        inl {cost state} = zap critic_out x
+                        Struct.foldr (inl {bck} _ -> bck()) critic ()
+                        actor_bck {reward=cost}
+                        Struct.foldr (inl {bck} _ -> bck()) actor ()
+
+
+                    inl action = Union.from_one_hot Action (s.CudaTensor.get (out 0))
                     {state={net bck}; out=action}
                     )
                 {state={shared actor critic}; input={input=State; cd}}
