@@ -588,7 +588,7 @@ inl float ->
     inl initialize s =
         inl init mult dim s = 
             inl stddev = sqrt (mult / to float32 (Tuple.foldl (+) 0 dim))
-            s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=type zero}
+            s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=float}
 
         Struct.map (function // Rough and possibly poorly tuned inits. Recommended to be used together with PRONG or layer/batch norm.
             | {sigmoid=dim} -> init 2f32 dim s |> dr s
@@ -643,12 +643,13 @@ inl float ->
             block = ()
             }
 
-    inl sigmoid = layer Initializer.sigmoid sigmoid
-    inl relu = layer Initializer.relu relu
-    inl tanh = layer Initializer.tanh tanh
-    inl linear = layer Initializer.sigmoid succ
-
-    inl Feedforward = {sigmoid relu tanh linear} |> stackify
+    inl Feedforward = 
+        inl sigmoid = layer Initializer.sigmoid sigmoid
+        inl relu = layer Initializer.relu relu
+        inl tanh = layer Initializer.tanh tanh
+        inl linear = layer Initializer.sigmoid succ
+        inl zero = layer Initializer.bias succ        
+        {sigmoid relu tanh linear zero} |> stackify
 
     inl RL =
         inl sampling_pg x s =
@@ -697,7 +698,12 @@ inl float ->
 
         /// The Zap TD(0) layer. It does not use eligiblity traces for the sake of supporting
         // backward chaining and recurrent networks.
-        inl zap {size steps_until_inverse_update learning_rate discount_factor} cd =
+        inl zap {d with size steps_until_inverse_update learning_rate discount_factor} cd =
+            inl use_steady_state =
+                match d with
+                | {use_steady_state} -> use_steady_state
+                | _ -> true
+
             inl identity_coef = 0.05f32
             inl steady_state_learning_rate = learning_rate ** 0.85f32
 
@@ -707,12 +713,13 @@ inl float ->
                 inl k = ref steps_until_inverse_update
                 inl A_inv = cd.CudaKernel.init {dim=size, size} (inl a b -> if a = b then one else zero) // The steady state matrix's inverse
                 inl i ->
-                    inl x = k() - i
-                    if x <= 0 then 
-                        cd.CudaSolve.lu_inverse {from=A; to=A_inv}
-                        k := steps_until_inverse_update
-                    else
-                        k := x
+                    if use_steady_state then
+                        inl x = k() - i
+                        if x <= 0 then 
+                            cd.CudaSolve.lu_inverse {from=A; to=A_inv}
+                            k := steps_until_inverse_update
+                        else
+                            k := x
                     A_inv
 
             inl value s cd = cd.CudaBlas.gemm .nT .nT one s W .flatten
@@ -721,18 +728,19 @@ inl float ->
             /// Was changed from the paper to have positive eigenvalues in order to mirror the covariance matrix updates 
             /// used in natural gradient methods.
             met update_steady_state a b cd =
-                inl k = a.span_outer
-                inl alpha = Math.pow (one - steady_state_learning_rate) k
-                inl epsilon = (one - alpha) * identity_coef
-                inl beta = one - alpha - epsilon
-                inl _ =
-                    inl A = CudaAux.to_dev_tensor A
-                    cd.CudaKernel.iter {dim=A.dim} <| inl a b -> 
-                        inl A = A a b
-                        inl identity = if a = b then epsilon else zero
-                        A .set (alpha * A .get + identity)
+                if use_steady_state then
+                    inl k = a.span_outer
+                    inl alpha = Math.pow (one - steady_state_learning_rate) k
+                    inl epsilon = (one - alpha) * identity_coef
+                    inl beta = one - alpha - epsilon
+                    inl _ =
+                        inl A = CudaAux.to_dev_tensor A
+                        cd.CudaKernel.iter {dim=A.dim} <| inl a b -> 
+                            inl A = A a b
+                            inl identity = if a = b then epsilon else zero
+                            A .set (alpha * A .get + identity)
 
-                cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
+                    cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
 
             // W(n+1) = W + learning_rate * A_inv * basis_cur^T * cost
             met update_weights basis_cur cost cd =

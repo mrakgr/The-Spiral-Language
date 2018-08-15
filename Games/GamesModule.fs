@@ -535,7 +535,7 @@ inl {basic_methods State Action} ->
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
 
-        inl actor = match d with {actor} -> actor :: Feedforward.linear num_actions :: () | _ -> Feedforward.linear num_actions
+        inl actor = match d with {actor} -> actor :: Feedforward.zero num_actions :: () | _ -> Feedforward.zero num_actions
         inl critic = match d with {critic} -> critic | _ -> ()
         inl shared = match d with {shared} -> shared | _ -> ()
 

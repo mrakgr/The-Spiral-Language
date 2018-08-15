@@ -159,7 +159,7 @@ open PokerPlayers {basic_methods State Action}
 
 Struct.iter (inl !dyn critic_learning_rate ->
     Console.printfn "The critic_learning_rate is {0}" critic_learning_rate
-    Loops.for {from=0; near_to=1; body=inl {i} ->
+    Loops.for {from=0; near_to=5; body=inl {i} ->
         s.refresh
         inb s = s.RegionMem.create'
         s.CudaRandom.set_pseudorandom_seed (to uint64 i)
