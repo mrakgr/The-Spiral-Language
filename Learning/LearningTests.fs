@@ -40,19 +40,20 @@ inl network,_ =
         linear label_size
     init s input_size network
 
-inl optimizer = Optimizer.sgd (0.01f32 / to float32 train_minibatch_size)
-
-inl train {data={input label} network optimizer final} s =
+inl train {data={input label} network learning_rate final} s =
     inl range = fst input.dim
     assert (range = fst label.dim) "The input and label must have the same outer dimension."
     Loops.for' {range with state=dyn 0.0; body=inl {i next state} ->
         inl input, label = input i, label i
         inb s = s.RegionMem.create'
         inl network, input = run s input network
-        inl {out bck=bck'} = final label input s
+        inl {out bck} = final label input s
 
-        bck'(); Struct.foldr (inl {bck} _ -> bck()) network ()
-        Struct.iter (inl {optimize} -> optimize optimizer) network
+        bck(); Struct.foldr (inl {bck} _ -> bck()) network ()
+        Struct.iter (function 
+            | {optimize} -> optimize learning_rate
+            | {weights} -> Struct.iter (Optimizer.sgd learning_rate s) weights
+            ) network
 
         inl cost = s.CudaTensor.get out |> to float64
         inl state = state + cost
@@ -88,7 +89,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
             train {
                 data={input=train_images; label=train_labels}
                 network
-                optimizer=Optimizer.sgd (0.3f32 / to float32 train_minibatch_size)
+                learning_rate = 0.3f32 / to float32 train_minibatch_size
                 final=Error.softmax_cross_entropy
                 } s
 
