@@ -490,17 +490,18 @@ inl {basic_methods State Action} ->
 
     inl Learning = Learning float32
     inl player_pg {name actor learning_rate} cd =
-        inl action = Learning.RL.action {State Action final=Learning.RL.sampling_pg}
+        open Learning
+        inl action = RL.action {State Action final=RL.sampling_pg}
 
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
 
         inl net,_ = 
-            inl linear = Learning.Feedforward.linear
+            inl linear = Feedforward.linear
             Tuple.append (Tuple.wrap actor) (linear num_actions :: ())
-            |> Learning.init cd input_size
+            |> init cd input_size
 
-        inl net = 
+        inl run = 
             Union.mutable_function 
                 (inl {state={state with net} input={input cd}} ->
                     inl {action net} = action {net input} cd
@@ -509,25 +510,25 @@ inl {basic_methods State Action} ->
                 {state={net}; input={input=State; cd}}
 
         inl methods = {basic_methods with
-            bet=inl s input -> s.data.net {input cd=s.data.cd}
+            bet=inl s input -> s.data.run {input cd=s.data.cd}
             showdown=inl s reward -> 
-                inl l = s.data.net.reset
+                inl l = s.data.run.reset
                 inl reward = dyn (to float32 reward)
-                inl fold f = List.foldl (const f) () l
-                fold <| function
+                List.foldl (inl _ -> function
                     | {net bck} -> bck {reward}; Struct.foldr (inl {bck} _ -> bck()) net ()
                     | _ -> ()
-                        
-                fold <| Struct.iter (function 
+                    ) () l
+
+                Struct.iter (function
                     | {optimize} -> optimize learning_rate
-                    | {weights} -> Struct.iter (Optimizer.sgd learning_rate s) weights
-                    )
+                    | {weights} -> Struct.iter (Optimizer.sgd learning_rate s.data.cd) weights
+                    ) s.data.net
             game_over=inl s -> ()
             }
 
         Object
             .member_add methods
-            .data_add {name; win=ref 0; net}
+            .data_add {name; win=ref 0; net run}
 
     // This is the Zap-AC with TD(0) for the critic version of the algorithm. It does not use eligiblity traces for the sake of supporting
     // backward chaining and recurrent networks.

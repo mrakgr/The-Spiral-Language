@@ -197,9 +197,9 @@ inl mutable_function f {state=(!heap state) input} =
         else state \/ unroll_state state'
     
     inl ty = unroll_state state
-    inl state = box ty state |> dyn
+    inl state = List.singleton (box ty state) |> dyn
     inl store = ref state
-    inl is_unused = ref true
+    inl is_in_use = ref false
     function
     | .reset -> 
         inl x = store()
