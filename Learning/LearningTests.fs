@@ -48,10 +48,10 @@ inl train {data={input label} network optimizer final} s =
     Loops.for' {range with state=dyn 0.0; body=inl {i next state} ->
         inl input, label = input i, label i
         inb s = s.RegionMem.create'
-        inl network, {input bck} = run s {input} network
+        inl network, input = run s input network
         inl {out bck=bck'} = final label input s
 
-        bck'(); bck()
+        bck'(); Struct.foldr (inl {bck} _ -> bck()) network ()
         Struct.iter (inl {optimize} -> optimize optimizer) network
 
         inl cost = s.CudaTensor.get out |> to float64
@@ -68,8 +68,8 @@ inl test {data={input label} network final} s =
     Loops.for' {range with state=dyn {cost=0.0;ac=0;max_ac=0}; body=inl {i next state} ->
         inl input, label = input i, label i
         inb s = s.RegionMem.create'
-        inl network, {input bck} = run s {input} network
-        inl {out bck=bck'} = final label input s
+        inl network, input = run s input network
+        inl {out} = final label input s
 
         inl cost = out |> s.CudaTensor.get |> to float64
         inl ac = Error.accuracy label input s |> s.CudaTensor.get
