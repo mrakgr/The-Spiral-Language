@@ -499,30 +499,29 @@ inl {basic_methods State Action} ->
             inl linear = Learning.Feedforward.linear
             Tuple.append (Tuple.wrap actor) (linear num_actions :: ())
             |> Learning.init cd input_size
-        
+
         inl net = 
             Union.mutable_function 
                 (inl {state={state with net} input={input cd}} ->
-                    inl {action bck net} = action {net input} cd
-                    inl bck =
-                        match state with
-                        | {bck=bck'} -> List.cons (heap bck) bck'
-                        | _ -> List.singleton (heap bck)
-                        |> dyn
-                    {state={net bck}; out=action}
+                    inl {action net} = action {net input} cd
+                    {state={net}; out=action}
                     )
                 {state={net}; input={input=State; cd}}
 
         inl methods = {basic_methods with
             bet=inl s input -> s.data.net {input cd=s.data.cd}
             showdown=inl s reward -> 
-                match s.data.net.reset with
-                | {net bck} -> 
-                    inl reward = dyn (to float32 reward)
-                    List.foldl (inl _ bck -> bck {reward}) () bck
-                    inl optimizer = Learning.Optimizer.sgd learning_rate
-                    Struct.iter (inl {optimize} -> optimize optimizer) net
-                | _ -> ()
+                inl l = s.data.net.reset
+                inl reward = dyn (to float32 reward)
+                inl fold f = List.foldl (const f) () l
+                fold <| function
+                    | {net bck} -> bck {reward}; Struct.foldr (inl {bck} _ -> bck()) net ()
+                    | _ -> ()
+                        
+                fold <| Struct.iter (function 
+                    | {optimize} -> optimize learning_rate
+                    | {weights} -> Struct.iter (Optimizer.sgd learning_rate s) weights
+                    )
             game_over=inl s -> ()
             }
 

@@ -7,7 +7,7 @@ open Cuda.Lib
 
 let union =
     (
-    "Union",[tuple;console;option],"The Union module.",
+    "Union",[tuple;console;option;list],"The Union module.",
     """
 /// The bounded integer type's constructor.
 inl int {from near_to} value =
@@ -197,7 +197,7 @@ inl mutable_function f {init with state=(!heap state) input} =
         else state \/ unroll_state state'
     
     inl ty = unroll_state state
-    inl init_state = box ty state
+    inl init_state = List.singleton (box ty state) |> dyn
     inl state = ref init_state
     function
     | .reset -> 
@@ -209,17 +209,22 @@ inl mutable_function f {init with state=(!heap state) input} =
         // the union type so it can be converted to a layout type in this scope.
         // In order for this and unroll_state to be the same it is necessary for state to
         // be passed as a regular argument into f rather than an union type.
-        inl {state=state' out} = match state() with () | _ as state -> f {state input}
-        state := box ty state'
+        inl l = state()
+        inl {state=state' out} = 
+            match List.head l with () | _ as state -> 
+                print_static state
+                qwe
+                f {state input}
+        state := List.cons (box ty state') l
         out
-    |> stack
+    |> heap
 
 {int to_one_hot to_dense from_one_hot from_dense length_one_hot length_dense unroll mutable_function} |> stackify
     """) |> module_
 
 let learning =
     (
-    "Learning",[struct';extern_;cuda_aux;math;union],"The deep learning module.",
+    "Learning",[struct';extern_;cuda_aux;math;union;list],"The deep learning module.",
     """
 inl float ->
     // #Primitives
@@ -592,12 +597,13 @@ inl float ->
             | {identity=dim} -> s.CudaKernel.init {dim} (inl a b -> if a = b then one else zero)
             )
 
-    inl init s = 
+    inl init s size dsc = 
         Struct.foldl_map (inl sublayer_size {x with init} -> 
             inl {dsc size} = init sublayer_size
             inl weights = initialize s dsc |> heap
             {x without init with weights}, size
-            )
+            ) size dsc
+        |> inl net, size -> heap net, size
 
     inl run s input = 
         Struct.foldl_map (inl input {layer with apply} -> 
@@ -683,9 +689,8 @@ inl float ->
                     inl tns = Union.to_dense input |> HostTensor.array_as_tensor
                     s.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
 
-                inl net, {input bck} = run s {input} net
-                inl {out bck=bck'} = final input s
-                inl bck = apply_bck bck bck'
+                inl net, input = run s input net
+                inl {out bck} = final input s
 
                 inl action = Union.from_one_hot Action (s.CudaTensor.get (out 0))
                 stack {action net bck}
