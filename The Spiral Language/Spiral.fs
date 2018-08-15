@@ -2835,11 +2835,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | Mult,[a;b] -> sprintf "(%s * %s)" (codegen a) (codegen b)
                     | Div,[a;b] -> sprintf "(%s / %s)" (codegen a) (codegen b)
                     | Mod,[a;b] -> sprintf "(%s %% %s)" (codegen a) (codegen b)
-                    | Pow,[a;b] -> 
-                        match get_type a, get_type b with
-                        | PrimT Float64T, PrimT Float64T -> sprintf "(%s ** %s)" (codegen a) (codegen b)
-                        | PrimT Float32T, PrimT Float32T -> sprintf "(float32 (float %s ** float %s))" (codegen a) (codegen b)
-                        | _, _ -> failwith "impossible"
+                    | Pow,[a;b] -> sprintf "pow(%s, %s)" (codegen a) (codegen b)
                     | LT,[a;b] -> sprintf "(%s < %s)" (codegen a) (codegen b)
                     | LTE,[a;b] -> sprintf "(%s <= %s)" (codegen a) (codegen b)
                     | EQ,[a;b] -> sprintf "(%s == %s)" (codegen a) (codegen b)
@@ -3339,7 +3335,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                     | Mult,[a;b] -> sprintf "(%s * %s)" (codegen a) (codegen b)
                     | Div,[a;b] -> sprintf "(%s / %s)" (codegen a) (codegen b)
                     | Mod,[a;b] -> sprintf "(%s %% %s)" (codegen a) (codegen b)
-                    | Pow,[a;b] -> sprintf "pow(%s, %s)" (codegen a) (codegen b)
+                    | Pow,[a;b] -> 
+                        match get_type a, get_type b with
+                        | PrimT Float64T, PrimT Float64T -> sprintf "(%s ** %s)" (codegen a) (codegen b)
+                        | PrimT Float32T, PrimT Float32T -> sprintf "(float32 (float %s ** float %s))" (codegen a) (codegen b)
+                        | _, _ -> failwith "impossible"
                     | LT,[a;b] -> sprintf "(%s < %s)" (codegen a) (codegen b)
                     | LTE,[a;b] -> sprintf "(%s <= %s)" (codegen a) (codegen b)
                     | EQ,[a;b] -> sprintf "(%s = %s)" (codegen a) (codegen b)
