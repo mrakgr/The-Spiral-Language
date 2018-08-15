@@ -695,8 +695,94 @@ inl float ->
 
                 inl action = Union.from_one_hot Action (s.CudaTensor.get (out 0))
                 stack {action net bck}
+
+        /// The Zap TD(0) layer. It does not use eligiblity traces for the sake of supporting
+        // backward chaining and recurrent networks.
+        inl zap {size steps_until_inverse_update learning_rate discount_factor} cd =
+            inl identity_coef = 0.05f32
+            inl steady_state_learning_rate = learning_rate ** 0.85f32
+
+            inl W = cd.CudaTensor.zero {dim=size, 1; elem_type=float32}
+            inl A = cd.CudaKernel.init {dim=size, size} (inl a b -> if a = b then one else zero) // The steady state matrix
+            inl A_inv = 
+                inl k = ref steps_until_inverse_update
+                inl A_inv = cd.CudaKernel.init {dim=size, size} (inl a b -> if a = b then one else zero) // The steady state matrix's inverse
+                inl i ->
+                    inl x = k() - i
+                    if x <= 0 then 
+                        cd.CudaSolve.lu_inverse {from=A; to=A_inv}
+                        k := steps_until_inverse_update
+                    else
+                        k := x
+                    A_inv
+
+            inl value s cd = cd.CudaBlas.gemm .nT .nT one s W .flatten
+
+            /// Updates the state state matrix such that A(t+1) = alpha * A(t) + beta / k * a^T * b + epsilon * I
+            /// Was changed from the paper to have positive eigenvalues in order to mirror the covariance matrix updates 
+            /// used in natural gradient methods.
+            met update_steady_state a b cd =
+                inl k = a.span_outer
+                inl alpha = Math.pow (one - steady_state_learning_rate) k
+                inl epsilon = (one - alpha) * identity_coef
+                inl beta = one - alpha - epsilon
+                inl _ =
+                    inl A = CudaAux.to_dev_tensor A
+                    cd.CudaKernel.iter {dim=A.dim} <| inl a b -> 
+                        inl A = A a b
+                        inl identity = if a = b then epsilon else zero
+                        A .set (alpha * A .get + identity)
+
+                cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
+
+            // W(n+1) = W + learning_rate * A_inv * basis_cur^T * cost
+            met update_weights basis_cur cost cd =
+                inl _ =
+                    inl cost = CudaAux.to_dev_tensor cost
+                    cd.CudaKernel.iter {dim=cost.dim} <| inl i ->
+                        if nan_is (cost i .get) then
+                            macro.cd () [text: "bool cost_is_nan = false;"]
+                            macro.cd () [text: "assert(cost_is_nan);"]
+                inl cost = cost.reshape (inl a -> a,1)
+                inl A_inv = A_inv basis_cur.span_outer
+                inb update = cd.CudaBlas.gemm .T .nT one basis_cur cost |> CudaAux.temporary
+                cd.CudaBlas.gemm' .nT .nT learning_rate A_inv update one W
+            
+            // state,state' = cuda float32 2d tensor
+            // action,action' = cuda float32 2d tensor | int64
+            // reward = cuda float32 2d tensor | float32
+            met zap_update cd state d =
+                inb value = value state cd |> CudaAux.temporary
+                inl cost =
+                    match d with
+                    | {reward state=state'} ->
+                        inb value' = value state' cd |> CudaAux.temporary
+                        inl cost = 
+                            match reward with
+                            | _: float32 ->
+                                assert (value.span_outer = 1) "The size of value must be 1."
+                                cd.CudaKernel.map (inl v',v -> (reward + discount_factor * v') - v) (value', value)
+                            | _ -> cd.CudaKernel.map (inl r,v',v -> (r + discount_factor * v') - v) (reward, value', value)
+                
+                        inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (state', state) |> CudaAux.temporary
+                        update_steady_state state basis_update cd
+                        update_weights state cost cd
+                        cost
+                    | {reward} ->
+                        inl cost = 
+                            match reward with
+                            | _: float32 ->
+                                assert (value.span_outer = 1) "The size of value must be 1."
+                                cd.CudaKernel.map (inl v -> reward - v) value
+                            | _ -> cd.CudaKernel.map (inl r, v -> r - v) (reward, value)
+
+                        update_steady_state state state cd
+                        update_weights state cost cd
+                        cost
+                {state cost}
+            heap zap_update
         
-        {action sampling_pg}
+        {action sampling_pg zap}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward RL

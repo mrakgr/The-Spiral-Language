@@ -528,12 +528,14 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0; net run}
 
-    inl player_ac {d with name learning_rate} cd =
+    /// This player uses PG with a Zap TD(0) linear layer as the critic. Automatically adds the Zap layer 
+    /// to the critic and a linear layer for the actor. 
+    inl player_zap_ac {d with name learning_rate discount_factor steps_until_inverse_update} cd =
         open Learning
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
 
-        inl actor = match d with {actor} -> actor :: Feedforward.linear num_actions :: () | _ -> ()
+        inl actor = match d with {actor} -> actor :: Feedforward.linear num_actions :: () | _ -> Feedforward.linear num_actions
         inl critic = match d with {critic} -> critic | _ -> ()
         inl shared = match d with {shared} -> shared | _ -> ()
 
@@ -546,7 +548,12 @@ inl {basic_methods State Action} ->
             | {block_critic_gradients} -> block_critic_gradients
             | _ -> true
 
-        inl zap = RL.zap {learning_rate=learning_rate.critic; size=critic_size; block_gradients=block_critic_gradients} 
+        inl zap = 
+            RL.zap {steps_until_inverse_update discount_factor 
+                learning_rate=learning_rate.critic
+                size=critic_size
+                block_gradients=block_critic_gradients
+                } cd
 
         inl run = 
             Union.mutable_function 
@@ -563,7 +570,7 @@ inl {basic_methods State Action} ->
                         else run cd shared_out critic
                     
                     inl bck x = 
-                        inl {cost state} = zap critic_out x
+                        inl {cost state} = zap cd critic_out x
                         Struct.foldr (inl {bck} _ -> bck()) critic ()
                         actor_bck {reward=cost}
                         Struct.foldr (inl {bck} _ -> bck()) actor ()
@@ -588,7 +595,7 @@ inl {basic_methods State Action} ->
                     | {optimize} -> optimize learning_rate
                     | {weights} -> Struct.iter (Optimizer.sgd learning_rate s.data.cd) weights
 
-                f learning_rate.actor s.data.shared
+                f learning_rate.shared s.data.shared
                 f learning_rate.actor s.data.actor
                 if block_critic_gradients = false then f learning_rate.critic s.data.critic
             game_over=inl s -> ()
@@ -598,147 +605,6 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0; shared actor critic run}
 
-    // This is the Zap-AC with TD(0) for the critic version of the algorithm. It does not use eligiblity traces for the sake of supporting
-    // backward chaining and recurrent networks.
-
-    // TODO: Work in progress. 
-    inl player_zap_ac {name steps_until_inverse_update learning_rate discount_factor} cd =
-        inl one = 1f32
-        inl zero = 0f32
-
-        inl random_action_chance = 0.15
-        inl identity_coef = 0.05f32
-        inl steady_state_learning_rate = learning_rate ** 0.85f32
-
-        inl input_size = Union.length_dense State
-        inl num_actions = Union.length_one_hot Action
-
-        inl W_actor = cd.CudaTensor.zero {dim=input_size, num_actions; elem_type=float32}
-        inl W_critic = cd.CudaTensor.zero {dim=input_size, 1; elem_type=float32}
-        inl A = cd.CudaKernel.init {dim=input_size, input_size} (inl a b -> if a = b then one else zero) // The steady state matrix
-        inl A_inv = 
-            inl k = ref steps_until_inverse_update
-            inl A_inv = cd.CudaKernel.init {dim=size, size} (inl a b -> if a = b then one else zero) // The steady state matrix's inverse
-            inl i ->
-                inl x = k() - i
-                if x <= 0 then 
-                    cd.CudaSolve.lu_inverse {from=A; to=A_inv}
-                    k := steps_until_inverse_update
-                else
-                    k := x
-                A_inv
-
-        inl value s cd = cd.CudaBlas.gemm .nT .nT one s W_critic .flatten
-
-        /// Updates the state state matrix such that A(t+1) = alpha * A(t) + beta / k * a^T * b + epsilon * I
-        /// Was changed from the paper to have positive eigenvalues in order to mirror the covariance matrix updates 
-        /// used in natural gradient methods.
-        met update_steady_state a b cd =
-            inl k = a.span_outer
-            inl alpha = Math.pow (one - steady_state_learning_rate) k
-            inl epsilon = (one - alpha) * identity_coef
-            inl beta = one - alpha - epsilon
-            inl _ =
-                inl A = CudaAux.to_dev_tensor A
-                cd.CudaKernel.iter {dim=A.dim} <| inl a b -> 
-                    inl A = A a b
-                    inl identity = if a = b then epsilon else zero
-                    A .set (alpha * A .get + identity)
-
-            cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
-
-        // W(n+1) = W + learning_rate * A_inv * basis_cur^T * cost
-        met update_weights basis_cur cost cd =
-            inl _ =
-                inl cost = CudaAux.to_dev_tensor cost
-                cd.CudaKernel.iter {dim=cost.dim} <| inl i ->
-                    if nan_is (cost i .get) then
-                        macro.cd () [text: "bool cost_is_nan = false;"]
-                        macro.cd () [text: "assert(cost_is_nan);"]
-            inl cost = cost.reshape (inl a -> a,1)
-            inl A_inv = A_inv basis_cur.span_outer
-            inb update = cd.CudaBlas.gemm .T .nT one basis_cur cost |> CudaAux.temporary
-            cd.CudaBlas.gemm' .nT .nT learning_rate A_inv update one W_critic
-            
-        // state,state' = cuda float32 2d tensor
-        // action,action' = cuda float32 2d tensor | int64
-        // reward = cuda float32 2d tensor | float32
-        met zap_update cd state d =
-            inb value = value state cd |> CudaAux.temporary
-            inl cost =
-                match d with
-                | {reward state=state'} ->
-                    inb value' = value state' cd |> CudaAux.temporary
-                    inl cost = 
-                        match reward with
-                        | _: float32 ->
-                            assert (value.span_outer = 1) "The size of value must be 1."
-                            cd.CudaKernel.map (inl v',v -> (reward + discount_factor * v') - v) (value', value)
-                        | _ -> cd.CudaKernel.map (inl r,v',v -> (r + discount_factor * v') - v) (reward, value', value)
-                
-                    inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (state', state) |> CudaAux.temporary
-                    update_steady_state state basis_update cd
-                    update_weights state cost cd
-                    cost
-                | {reward} ->
-                    inl cost = 
-                        match reward with
-                        | _: float32 ->
-                            assert (value.span_outer = 1) "The size of value must be 1."
-                            cd.CudaKernel.map (inl v -> reward - v) value
-                        | _ -> cd.CudaKernel.map (inl r, v -> r - v) (reward, value)
-
-                    update_steady_state state state cd
-                    update_weights state cost cd
-                    cost
-
-            {state cost}
-
-        inl action input cd =
-            open Learning
-            assert (eq_type State input) "The input must be equal to the state type."
-            inl state = 
-                inl tns = Union.to_dense input |> HostTensor.array_as_tensor
-                cd.CudaTensor.from_host_tensor tns .reshape (inl _ -> 1, input_size)
-
-            inl x = cd.CudaBlas.gemm .nT .nT one input W_actor |> dr cd
-            inl {out=action bck=bck_actor} = RL.sampling_pg x cd
-            inl action = 
-                cd.CudaTensor.get (action 0)
-                |> Union.from_one_hot Action
-
-            inl bck_zap = zap_update cd (primal state) // TODO: Later I will turn this into a deep variant.
-
-            /// The actor and the critic are both updated online on the backward pass.
-            inl bck state' =
-                inl {cost state} = bck_zap state'
-                bck_actor {reward=cost}
-                cd.CudaBlas.gemm' .T .nT -learning_rate input (adjoint x) one W_actor 
-                {state}
-
-            {action bck}
-
-        inl trace = ResizeArray.create {elem_type=type heap (action State cd .bck)}
-
-        inl methods = {basic_methods with
-            bet=inl s input ->
-                inl {action bck} = s.data.action input s.data.cd
-                s.data.trace.add (heap bck)
-                action
-            showdown=inl s v ->
-                inl trace = s.data.trace
-                Loops.for' {from=trace.count - 1i32; by=-1i32; down_to=0i32; 
-                    state={reward=to float32 v}
-                    body=inl {state i next} -> (trace i) state |> inl d -> {d with reward=zero} |> next
-                    finally=ignore
-                    }
-                trace.clear
-            game_over=inl s -> ()
-            }
-
-        Object
-            .member_add methods
-            .data_add {name; win=ref 0; action trace}
     {
     player_random player_rules player_tabular_mc player_tabular_sarsa player_pg player_zap_ac
     } |> stackify
