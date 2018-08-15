@@ -1245,6 +1245,40 @@ inl foldr3 f a b c s =
         | x, y, z -> f x y z s
     loop s (a,b,c)
 
+inl foldr_map f a s = 
+    inl rec loop s = function
+        | x when caseable_box_is x -> f x s
+        | x :: xs -> 
+            inl x', s = loop s xs
+            inl x, s = loop s x
+            x :: x', s
+        | () -> (), s
+        | {!block} & x ->
+            module_foldr (inl k v (m,s) -> 
+                inl x, s = loop s v
+                inl m = module_add k x m
+                m, s
+                ) x ({},s)
+        | x -> f x s
+    loop s a
+
+inl foldr2_map f a b s = 
+    inl rec loop s = function
+        | x, y when caseable_box_is x || caseable_box_is y -> f x y s
+        | x :: xs, y :: ys -> 
+            inl x', s = loop s (xs,ys)
+            inl x, s = loop s (x,y)
+            x :: x', s
+        | (), () -> (), s
+        | {!block} & x, {!block} & y ->
+            module_foldr (inl k v (m,s) -> 
+                inl x, s = loop s (v, y k)
+                inl m = module_add k x m
+                m, s
+                ) x ({},s)
+        | x, y -> f x y s
+    loop s (a,b)
+
 inl foldr3_map f a b c s = 
     inl rec loop s = function
         | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z s
@@ -1264,7 +1298,7 @@ inl foldr3_map f a b c s =
 
 {
 map map2 map3 iter iter2 iter3 foldl foldl2 foldl3 choose choose2 choose3 foldl_map foldl2_map foldl3_map
-foldr foldr2 foldr3
+foldr foldr2 foldr3 foldr_map foldr2_map foldr3_map
 } |> stackify
     """) |> module_
 
