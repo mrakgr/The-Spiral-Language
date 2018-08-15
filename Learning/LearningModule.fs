@@ -604,7 +604,6 @@ inl float ->
             inl weights = initialize s dsc |> heap
             {x without init with weights}, size
             ) size dsc
-        |> inl net, size -> heap net, size
 
     inl run s input = 
         Struct.foldl_map (inl input {layer with apply} -> 
@@ -667,7 +666,7 @@ inl float ->
                         inl reward = to float reward
                         inl _ _ -> reward
                     | _ ->
-                        assert (dim_a = reward.dim) "Reward's dimensions must be equal to that of the input's outer dimnesion."
+                        assert (dim_a = fst reward.dim) "Reward's dimensions must be equal to that of the input's outer dimnesion."
                         CudaAux.to_dev_tensor reward
 
                     
@@ -751,35 +750,36 @@ inl float ->
             // state,state' = cuda float32 2d tensor
             // action,action' = cuda float32 2d tensor | int64
             // reward = cuda float32 2d tensor | float32
-            met zap_update cd state d =
-                inb value = value state cd |> CudaAux.temporary
-                inl cost =
-                    match d with
-                    | {reward state=state'} ->
-                        inb value' = value state' cd |> CudaAux.temporary
-                        inl cost = 
-                            match reward with
-                            | _: float32 ->
-                                assert (value.span_outer = 1) "The size of value must be 1."
-                                cd.CudaKernel.map (inl v',v -> (reward + discount_factor * v') - v) (value', value)
-                            | _ -> cd.CudaKernel.map (inl r,v',v -> (r + discount_factor * v') - v) (reward, value', value)
+            inl zap_update cd state d =
+                indiv join
+                    inb v = value state cd |> CudaAux.temporary
+                    inl cost =
+                        match d with
+                        | {reward state=state'} ->
+                            inb v' = value state' cd |> CudaAux.temporary
+                            inl cost = 
+                                match reward with
+                                | _: float32 ->
+                                    assert (v.span_outer = 1) "The size of v must be 1."
+                                    cd.CudaKernel.map (inl v',v -> (reward + discount_factor * v') - v) (v', v)
+                                | _ -> cd.CudaKernel.map (inl r,v',v -> (r + discount_factor * v') - v) (reward, v', v)
                 
-                        inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (state', state) |> CudaAux.temporary
-                        update_steady_state state basis_update cd
-                        update_weights state cost cd
-                        cost
-                    | {reward} ->
-                        inl cost = 
-                            match reward with
-                            | _: float32 ->
-                                assert (value.span_outer = 1) "The size of value must be 1."
-                                cd.CudaKernel.map (inl v -> reward - v) value
-                            | _ -> cd.CudaKernel.map (inl r, v -> r - v) (reward, value)
+                            inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (state', state) |> CudaAux.temporary
+                            update_steady_state state basis_update cd
+                            update_weights state cost cd
+                            cost
+                        | {reward} ->
+                            inl cost = 
+                                match reward with
+                                | _: float32 ->
+                                    assert (v.span_outer = 1) "The size of v must be 1."
+                                    cd.CudaKernel.map (inl v -> reward - v) v
+                                | _ -> cd.CudaKernel.map (inl r, v -> r - v) (reward, v)
 
-                        update_steady_state state state cd
-                        update_weights state cost cd
-                        cost
-                {state cost}
+                            update_steady_state state state cd
+                            update_weights state cost cd
+                            cost
+                    stack {state cost}
             heap zap_update
         
         {action sampling_pg zap}

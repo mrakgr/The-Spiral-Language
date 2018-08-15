@@ -561,7 +561,7 @@ inl {basic_methods State Action} ->
                     assert (eq_type State input) "The input must be equal to the state type."
                     inl input = 
                         inl tns = Union.to_dense input |> HostTensor.array_as_tensor
-                        s.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
+                        cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
                     inl shared, shared_out = run cd input shared
                     inl actor, actor_out = run cd shared_out actor
                     inl {out bck=actor_bck} = RL.sampling_pg actor_out cd
@@ -576,7 +576,7 @@ inl {basic_methods State Action} ->
                         Struct.foldr (inl {bck} _ -> bck()) actor ()
                         {state}
 
-                    inl action = Union.from_one_hot Action (s.CudaTensor.get (out 0))
+                    inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
                     {state={actor critic shared bck}; out=action}
                     )
                 {state={shared actor critic}; input={input=State; cd}}

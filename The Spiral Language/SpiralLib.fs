@@ -647,10 +647,9 @@ inl rec map f l =
     else join loop l : List t
 
 /// The CPS'd version of foldl.
-/// (s -> e) -> (s -> a -> s) -> s -> a List -> e
 inl rec foldl' finally f s l =
     inl loop = function
-        | x, xs -> foldl' f (f s x) xs
+        | x, xs -> f (inl s -> foldl' finally f s xs) s x
         | () -> finally s
     if box_is l then loop l
     else join loop l : finally s
@@ -660,7 +659,7 @@ inl rec foldl' finally f s l =
 /// Then, it feeds this result into the function f along with the second element, and so on. It returns the final result. 
 /// If the input function is f and the elements are i0...iN, then this function computes f (... (f s i0) i1 ...) iN.
 /// (s -> a -> s) -> s -> a List -> s
-inl foldl = foldl' id
+inl foldl f = foldl' id (inl next a b -> next (f a b))
 
 /// Applies a function to each element of the collection, threading an accumulator argument through the computation. 
 /// If the input function is f and the elements are i0...iN, then this function computes f i0 (...(f iN s)).
@@ -1528,7 +1527,7 @@ inl rec facade data =
         span_outer = inl {dim} -> match dim with () -> 1 | x :: _ -> span x
         span_outer2 = inl {dim=a::b::_} -> span a * span b
         split = inl data f -> split f (facade data)
-        flatten = inl data f -> flatten (facade data)
+        flatten = inl data -> flatten (facade data)
         reshape = inl data f -> reshape f (facade data)
         from = inl {dim={from}::_} -> from
         near_to = inl {dim={near_to}::_} -> near_to
