@@ -168,7 +168,7 @@ Loops.for {from=0; near_to=1; body=inl {i} ->
     //    open (Learning float32).Feedforward
     //    player_pg {name="One"; actor=tanh 256; learning_rate=0.001f32} s
     inl a = 
-        inl learning_rate = {actor=0.001f32; critic=0.00f32; shared=0.001f32}
+        inl learning_rate = {actor=0.001f32; critic=0.01f32; shared=0.001f32}
         player_zap_ac {name="One"; learning_rate discount_factor=0.99f32; steps_until_inverse_update=128} s
     inl b = player_rules {name="Two"}
 
