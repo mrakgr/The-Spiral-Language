@@ -654,8 +654,6 @@ inl float ->
     inl RL =
         inl sampling_pg x s =
             inl dim_a, dim_b = primal x .dim
-            assert (HostTensor.span dim_a = 1) "Only a single dimension for now."
-
             inl p = softmax one (primal x) s
             inl out = sample_body p s
 
@@ -665,9 +663,11 @@ inl float ->
                 inl reward = 
                     match reward with
                     | _: float32 | _: float64 ->
+                        assert (HostTensor.span dim_a = 1) "In the scalar reward case, the outer dimension of the input must be 1."
                         inl reward = to float reward
                         inl _ _ -> reward
                     | _ ->
+                        assert (dim_a = reward.dim) "Reward's dimensions must be equal to that of the input's outer dimnesion."
                         CudaAux.to_dev_tensor reward
 
                     

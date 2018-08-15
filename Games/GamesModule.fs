@@ -505,6 +505,7 @@ inl {basic_methods State Action} ->
             Union.mutable_function 
                 (inl {state={state with net} input={input cd}} ->
                     inl {action net bck} = action {net input} cd
+                    inl bck x = bck x; Struct.foldr (inl {bck} _ -> bck()) net ()
                     {state={net bck}; out=action}
                     )
                 {state={net}; input={input=State; cd}}
@@ -514,10 +515,7 @@ inl {basic_methods State Action} ->
             showdown=inl s reward -> 
                 inl l = s.data.run.reset
                 inl reward = dyn (to float32 reward)
-                List.foldl (inl _ -> function
-                    | {net bck} -> bck {reward}; Struct.foldr (inl {bck} _ -> bck()) net ()
-                    | _ -> ()
-                    ) () l
+                List.foldl (inl _ -> function {bck} -> bck {reward} | _ -> ()) () l
 
                 Struct.iter (function
                     | {optimize} -> optimize learning_rate
@@ -530,17 +528,14 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0; net run}
 
-    inl player_ac {d with name learning_rate} cd =
+    inl player_ac {d with name actor_learning_rate critic_learning_rate} cd =
         open Learning
-        inl action = RL.action {State Action final=RL.sampling_pg}
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
 
         inl actor =
             match d with
-            | {actor} ->
-                inl linear = Feedforward.linear
-                Tuple.append (Tuple.wrap actor) (linear num_actions :: ())
+            | {actor} -> Tuple.append (Tuple.wrap actor) (Feedforward.linear num_actions :: ())
             | _ -> ()
 
         inl critic = 
@@ -555,12 +550,18 @@ inl {basic_methods State Action} ->
 
         inl shared, shared_size = init cd input_size shared
         inl actor, _ = init cd shared_size actor
-        inl critic, critic_size = init cd shared_size critic
-        inl zap = RL.zap critic_size
+        inl critic, critic_size = init cd shared_size critic 
+
+        inl block_critic_gradients = // TODO: Note that zap does not support propagating gradients yet.
+            match d with
+            | {block_critic_gradients} -> block_critic_gradients
+            | _ -> true
+
+        inl zap = RL.zap {learning_rate=critic_learning_rate; size=critic_size; block_gradients=block_critic_gradients} 
 
         inl run = 
             Union.mutable_function 
-                (inl {state={state with net} input={input cd}} ->
+                (inl {state={state with shared actor critic} input={input cd}} ->
                     assert (eq_type State input) "The input must be equal to the state type."
                     inl input = 
                         inl tns = Union.to_dense input |> HostTensor.array_as_tensor
@@ -568,17 +569,19 @@ inl {basic_methods State Action} ->
                     inl shared, shared_out = run cd input shared
                     inl actor, actor_out = run cd shared_out actor
                     inl {out bck=actor_bck} = RL.sampling_pg actor_out cd
+                    inl critic, critic_out = 
+                        if block_critic_gradients then run cd (primal shared_out) critic
+                        else run cd shared_out critic
                     
                     inl bck x = 
-                        inl critic, critic_out = run cd shared_out critic
                         inl {cost state} = zap critic_out x
                         Struct.foldr (inl {bck} _ -> bck()) critic ()
                         actor_bck {reward=cost}
                         Struct.foldr (inl {bck} _ -> bck()) actor ()
-
+                        {state}
 
                     inl action = Union.from_one_hot Action (s.CudaTensor.get (out 0))
-                    {state={net bck}; out=action}
+                    {state={actor critic shared bck}; out=action}
                     )
                 {state={shared actor critic}; input={input=State; cd}}
             
