@@ -598,6 +598,7 @@ inl {basic_methods State Action} ->
                 f learning_rate.shared s.data.shared
                 f learning_rate.actor s.data.actor
                 if block_critic_gradients = false then f learning_rate.critic s.data.critic
+                s.data.cd.RegionMem.clear
             game_over=inl s -> ()
             }
 

@@ -765,7 +765,7 @@ inl float ->
                                 | _ -> cd.CudaKernel.map (inl r,v',v -> (r + discount_factor * v') - v) (reward, v', v)
                 
                             inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (state', state) |> CudaAux.temporary
-                            //update_steady_state state basis_update cd
+                            update_steady_state state basis_update cd
                             update_weights state cost cd
                             cost
                         | {reward} ->
@@ -776,7 +776,7 @@ inl float ->
                                     cd.CudaKernel.map (inl v -> reward - v) v
                                 | _ -> cd.CudaKernel.map (inl r, v -> r - v) (reward, v)
 
-                            //update_steady_state state state cd
+                            update_steady_state state state cd
                             update_weights state cost cd
                             cost
                     stack {state cost}
