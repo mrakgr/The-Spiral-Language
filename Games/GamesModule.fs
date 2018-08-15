@@ -586,9 +586,9 @@ inl {basic_methods State Action} ->
             showdown=inl s reward -> 
                 inl l = s.data.run.reset
                 inl reward = dyn (to float32 reward)
-                List.foldl' ignore (inl x -> function 
-                    | {bck} -> bck x |> inl x -> {x with reward=0f32}
-                    | _ -> x
+                List.foldl' ignore (inl next x -> function 
+                    | {bck} -> bck x |> inl x -> next {x with reward=0f32}
+                    | _ -> next x
                     ) {reward} l
 
                 inl f learning_rate = Struct.iter <| function
