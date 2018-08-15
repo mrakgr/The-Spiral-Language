@@ -530,12 +530,43 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0; net run}
 
-    inl player_ac {name actor critic shared learning_rate} cd =
+    inl player_ac {d with name learning_rate} cd =
         open Learning
+        inl action = RL.action {State Action final=RL.sampling_pg}
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
 
-        inl shared,(actor,critic) as net = init cd input_size (shared,(actor,critic)) |> fst
+        inl actor =
+            match d with
+            | {actor} ->
+                inl linear = Feedforward.linear
+                Tuple.append (Tuple.wrap actor) (linear num_actions :: ())
+            | _ -> ()
+
+        inl critic = 
+            match d with
+            | {critic} -> Tuple.append (Tuple.wrap critic) (Feedforward.zap :: ())
+            | _ -> ()
+
+        inl shared =
+            match d with
+            | {shared} -> shared
+            | _ -> ()
+
+        inl shared,size = init cd input_size shared
+        inl actor,critic = Tuple.map (init cd size >> fst) (actor,critic)
+
+        inl run = 
+            Union.mutable_function 
+                (inl {state={state with net} input={input cd}} ->
+                    //inl input = Union.from_dense // TODO: ....
+                    inl shared, x = run cd input shared
+                    inl {action net=actor bck} = action {net input} cd
+                    inl bck = () // TODO: Work in progress.
+                    {state={net bck}; out=action}
+                    )
+                {state={shared actor critic}; input={input=State; cd}}
+            
         ()
                 
 
