@@ -530,6 +530,9 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0; net run}
 
+    inl player_ac {name actor critic shared learning_rate} cd =
+        ()
+
     // This is the Zap-AC with TD(0) for the critic version of the algorithm. It does not use eligiblity traces for the sake of supporting
     // backward chaining and recurrent networks.
 
