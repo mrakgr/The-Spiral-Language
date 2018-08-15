@@ -504,8 +504,8 @@ inl {basic_methods State Action} ->
         inl run = 
             Union.mutable_function 
                 (inl {state={state with net} input={input cd}} ->
-                    inl {action net} = action {net input} cd
-                    {state={net}; out=action}
+                    inl {action net bck} = action {net input} cd
+                    {state={net bck}; out=action}
                     )
                 {state={net}; input={input=State; cd}}
 
