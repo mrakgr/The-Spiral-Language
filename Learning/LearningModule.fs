@@ -604,32 +604,16 @@ inl float ->
             )
 
     inl run s input = 
-        inl input =
-            match input with
-            | {x with input bck} -> x
-            | {input} -> {input bck=inl _ -> ()}
-        Struct.foldl_map (inl {input bck} {layer with apply} -> 
+        Struct.foldl_map (inl input {layer with apply} -> 
             inl input = 
                 inl input = {input}
-                inl input =
-                    match layer with
-                    | {weights} -> {input with weights}
-                    | _ -> input
+                inl input = match layer with {weights} -> {input with weights} | _ -> input
                 match layer with {state} -> {input with state} | _ -> input
 
             inl {x with out} = indiv join apply input s |> stack
-                
-            inl bck = 
-                match x with
-                | {bck=bck'} -> term_cast (apply_bck bck bck') ()
-                | _ -> bck
-
-            inl layer =
-                match x with
-                | {state} -> {layer with state}
-                | _ -> layer
-
-            layer, {input=out; bck}
+            inl layer = match x with {bck} -> {layer with bck=heap bck} | _ -> layer
+            inl layer = match x with {state} -> {layer with state=heap state} | _ -> layer
+            layer, out
             ) input
 
     inl Initializer = {
