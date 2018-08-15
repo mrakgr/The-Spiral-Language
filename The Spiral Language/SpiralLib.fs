@@ -646,17 +646,21 @@ inl rec map f l =
     if box_is l then loop l
     else join loop l : List t
 
+/// The CPS'd version of foldl.
+/// (s -> e) -> (s -> a -> s) -> s -> a List -> e
+inl rec foldl' finally f s l =
+    inl loop = function
+        | x, xs -> foldl' f (f s x) xs
+        | () -> finally s
+    if box_is l then loop l
+    else join loop l : finally s
+
 /// Applies a function f to each element of the collection, threading an accumulator argument through the computation. 
 /// The fold function takes the second argument, and applies the function f to it and the first element of the list. 
 /// Then, it feeds this result into the function f along with the second element, and so on. It returns the final result. 
 /// If the input function is f and the elements are i0...iN, then this function computes f (... (f s i0) i1 ...) iN.
 /// (s -> a -> s) -> s -> a List -> s
-inl rec foldl f s l = 
-    inl loop = function
-        | x, xs -> foldl f (f s x) xs
-        | () -> s
-    if box_is l then loop l
-    else join loop l : s
+inl foldl = foldl' id
 
 /// Applies a function to each element of the collection, threading an accumulator argument through the computation. 
 /// If the input function is f and the elements are i0...iN, then this function computes f i0 (...(f iN s)).
@@ -716,7 +720,7 @@ inl append = foldr cons
 /// a List List -> a List
 inl concat l & !elem_type !elem_type t = foldr append l (empty t)
 
-{List empty cons init map foldl foldr singleton head' tail' last' head tail last append concat} 
+{List empty cons init map foldl' foldl foldr singleton head' tail' last' head tail last append concat} 
 |> stackify
     """) |> module_
 

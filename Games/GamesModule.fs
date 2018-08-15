@@ -528,25 +528,14 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0; net run}
 
-    inl player_ac {d with name actor_learning_rate critic_learning_rate} cd =
+    inl player_ac {d with name learning_rate} cd =
         open Learning
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
 
-        inl actor =
-            match d with
-            | {actor} -> Tuple.append (Tuple.wrap actor) (Feedforward.linear num_actions :: ())
-            | _ -> ()
-
-        inl critic = 
-            match d with
-            | {critic} -> critic
-            | _ -> ()
-
-        inl shared =
-            match d with
-            | {shared} -> shared
-            | _ -> ()
+        inl actor = match d with {actor} -> actor :: Feedforward.linear num_actions :: () | _ -> ()
+        inl critic = match d with {critic} -> critic | _ -> ()
+        inl shared = match d with {shared} -> shared | _ -> ()
 
         inl shared, shared_size = init cd input_size shared
         inl actor, _ = init cd shared_size actor
@@ -557,7 +546,7 @@ inl {basic_methods State Action} ->
             | {block_critic_gradients} -> block_critic_gradients
             | _ -> true
 
-        inl zap = RL.zap {learning_rate=critic_learning_rate; size=critic_size; block_gradients=block_critic_gradients} 
+        inl zap = RL.zap {learning_rate=learning_rate.critic; size=critic_size; block_gradients=block_critic_gradients} 
 
         inl run = 
             Union.mutable_function 
@@ -585,8 +574,29 @@ inl {basic_methods State Action} ->
                     )
                 {state={shared actor critic}; input={input=State; cd}}
             
-        ()
-                
+        inl methods = {basic_methods with
+            bet=inl s input -> s.data.run {input cd=s.data.cd}
+            showdown=inl s reward -> 
+                inl l = s.data.run.reset
+                inl reward = dyn (to float32 reward)
+                List.foldl' ignore (inl x -> function 
+                    | {bck} -> bck x |> inl x -> {x with reward=0f32}
+                    | _ -> x
+                    ) {reward} l
+
+                inl f learning_rate = Struct.iter <| function
+                    | {optimize} -> optimize learning_rate
+                    | {weights} -> Struct.iter (Optimizer.sgd learning_rate s.data.cd) weights
+
+                f learning_rate.actor s.data.shared
+                f learning_rate.actor s.data.actor
+                if block_critic_gradients = false then f learning_rate.critic s.data.critic
+            game_over=inl s -> ()
+            }
+
+        Object
+            .member_add methods
+            .data_add {name; win=ref 0; shared actor critic run}
 
     // This is the Zap-AC with TD(0) for the critic version of the algorithm. It does not use eligiblity traces for the sake of supporting
     // backward chaining and recurrent networks.
