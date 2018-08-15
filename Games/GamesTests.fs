@@ -206,7 +206,6 @@ Struct.iter (inl use_steady_state ->
             }
         ) (0.0003f32, 0.001f32, 0.003f32, 0.01f32)
     ) (false, true)
-    
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3
