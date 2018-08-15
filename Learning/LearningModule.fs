@@ -596,11 +596,7 @@ inl float ->
         Struct.foldl_map (inl sublayer_size {x with init} -> 
             inl {dsc size} = init sublayer_size
             inl weights = initialize s dsc |> heap
-            inl optimize =
-                match x with
-                | {optimize} optimizer -> optimize (optimizer s)
-                | _ optimizer -> Struct.iter (optimizer s) weights
-            {x without init with optimize weights}, size
+            {x without init with weights}, size
             )
 
     inl run s input = 
