@@ -531,6 +531,11 @@ inl {basic_methods State Action} ->
     /// This player uses PG with a Zap TD(0) linear layer as the critic. Automatically adds the Zap layer 
     /// to the critic and a linear layer for the actor. 
     inl player_zap_ac {d with name learning_rate discount_factor steps_until_inverse_update} cd =
+        inl use_steady_state =
+            match d with
+            | {use_steady_state} -> use_steady_state
+            | _ -> true
+
         open Learning
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
@@ -553,6 +558,7 @@ inl {basic_methods State Action} ->
                 learning_rate=learning_rate.critic
                 size=critic_size
                 block_gradients=block_critic_gradients
+                use_steady_state
                 } cd
 
         inl run = 
@@ -598,7 +604,6 @@ inl {basic_methods State Action} ->
                 f learning_rate.shared s.data.shared
                 f learning_rate.actor s.data.actor
                 if block_critic_gradients = false then f learning_rate.critic s.data.critic
-                s.data.cd.RegionMem.clear
             game_over=inl s -> ()
             }
 

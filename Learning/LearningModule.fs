@@ -698,19 +698,14 @@ inl float ->
 
         /// The Zap TD(0) layer. It does not use eligiblity traces for the sake of supporting
         // backward chaining and recurrent networks.
-        inl zap {d with size steps_until_inverse_update learning_rate discount_factor} cd =
-            inl use_steady_state =
-                match d with
-                | {use_steady_state} -> use_steady_state
-                | _ -> true
-
+        inl zap {use_steady_state size steps_until_inverse_update learning_rate discount_factor} cd =
             inl identity_coef = 0.05f32
             inl steady_state_learning_rate = learning_rate ** 0.85f32
 
             inl W = cd.CudaTensor.zero {dim=size, 1; elem_type=float32}
             inl A = cd.CudaKernel.init {dim=size, size} (inl a b -> if a = b then one else zero) // The steady state matrix
             inl A_inv = 
-                inl k = ref steps_until_inverse_update
+                inl k = if use_steady_state then ref steps_until_inverse_update else ()
                 inl A_inv = cd.CudaKernel.init {dim=size, size} (inl a b -> if a = b then one else zero) // The steady state matrix's inverse
                 inl i ->
                     if use_steady_state then

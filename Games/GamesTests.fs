@@ -151,54 +151,62 @@ let poker3 =
     "poker3",[cuda_modules;loops;poker;poker_players;timer],"The iterative test for NN based players.",
     """
 inb s = CudaModules (1024*1024*1024)
-inl num_players = 2
-inl stack_size = 10
-inl max_stack_size = num_players * stack_size
-open Poker {max_stack_size num_players}
-open PokerPlayers {basic_methods State Action}
+Struct.iter (inl use_steady_state ->
+    Console.printfn "use_steady_state is set to: {0}" use_steady_state
+    Struct.iter (inl !dyn critic_learning_rate ->
+        Console.printfn "The critic_learning_rate is {0}" critic_learning_rate
+        Loops.for {from=0; near_to=5; body=inl {i} ->
+            inl num_players = 2
+            inl stack_size = 10
+            inl max_stack_size = num_players * stack_size
+            open Poker {max_stack_size num_players}
+            open PokerPlayers {basic_methods State Action}
 
-Struct.iter (inl !dyn critic_learning_rate ->
-    Console.printfn "The critic_learning_rate is {0}" critic_learning_rate
-    Loops.for {from=0; near_to=5; body=inl {i} ->
-        s.refresh
-        inb s = s.RegionMem.create'
-        s.CudaRandom.set_pseudorandom_seed (to uint64 i)
+            s.refresh
+            inb s = s.RegionMem.create'
+            s.CudaRandom.set_pseudorandom_seed (to uint64 i)
 
-        Console.writeline "------"
-        Console.printfn "The CudaRandom pseudorandom seed is {0}" i
+            Console.writeline "------"
+            Console.printfn "The CudaRandom pseudorandom seed is {0}" i
 
-        //inl a = 
-        //    open (Learning float32).Feedforward
-        //    player_pg {name="One"; actor=tanh 256; learning_rate=0.001f32} s
-        //inl a = 
-        //    open (Learning float32).Feedforward
-        //    player_pg {name="One"; actor=(); learning_rate=0.001f32} s
-        inl a = 
-            open (Learning float32).Feedforward
-            inl learning_rate = {actor=0.001f32; critic=critic_learning_rate; shared=0.001f32}
-            player_zap_ac {name="One"; actor=tanh 256; learning_rate discount_factor=0.99f32; steps_until_inverse_update=128} s
-        inl b = player_rules {name="Two"}
+            //inl a = 
+            //    open (Learning float32).Feedforward
+            //    player_pg {name="One"; actor=tanh 256; learning_rate=0.001f32} s
+            //inl a = 
+            //    open (Learning float32).Feedforward
+            //    player_pg {name="One"; actor=(); learning_rate=0.001f32} s
+            inl a = 
+                open (Learning float32).Feedforward
+                inl learning_rate = {actor=0.001f32; critic=critic_learning_rate; shared=0.001f32}
+                player_zap_ac {name="One"; shared=tanh 256; learning_rate discount_factor=0.99f32; steps_until_inverse_update=128; use_steady_state} s
+            inl b = player_rules {name="Two"}
 
-        met f game (!dyn near_to) (!dyn near_to_inner) = 
-            Loops.for {from=0; near_to body=inl {i} ->
-                Timer.time_it (string_format "iteration {0}" i)
-                <| inl _ ->
-                    s.refresh
-                    inb s = s.RegionMem.create'
-                    inl a = a.data_add {win=ref 0; cd=s}
-                    inb s' = s.RegionMem.create'
-                    inl b = b.data_add {win=ref 0; cd=s'}
-                    Loops.for {from=0; near_to=near_to_inner; body=inl {state=s i} -> game stack_size (a, b)}
-                    inl a = a.data.win ()
-                    inl b = b.data.win ()
-                    Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
-                }
+            met f game (!dyn near_to) (!dyn near_to_inner) = 
+                Loops.for {from=0; near_to body=inl {i} ->
+                    Timer.time_it (string_format "iteration {0}" i)
+                    <| inl _ ->
+                        inl a = a.data_add {win=ref 0}
+                        inl b = b.data_add {win=ref 0}
+                        Loops.for {from=0; near_to=near_to_inner; body=inl {i} -> 
+                            s.refresh
+                            inb cd = s.RegionMem.create'
+                            inl a = a.data_add {cd}
+                            inb cd = s.RegionMem.create'
+                            inl b = b.data_add {cd}
+                            game stack_size (a, b)
+                            }
+                        inl a = a.data.win ()
+                        inl b = b.data.win ()
+                        Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
+                    }
 
-        f game 15 1000
-        //open Poker {max_stack_size num_players log=Console.printfn}
-        //f game 10 1
-        }
-    ) (0.0003f32, 0.001f32, 0.003f32, 0.01f32)
+            f game 15 1000
+            //open Poker {max_stack_size num_players log=Console.printfn}
+            //f game 10 1
+            }
+        ) (0.0003f32, 0.001f32, 0.003f32, 0.01f32)
+    ) (false, true)
+    
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3
