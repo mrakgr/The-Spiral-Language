@@ -603,21 +603,21 @@ let list =
 inl rec List x = join_type () \/ x, List x
 
 /// Creates an empty list with the given type.
-/// t -> List t
+/// t -> t List
 inl empty x = box (List x) ()
 
 /// Creates a single element list with the given type.
-/// x -> List x
+/// x -> x List
 inl singleton x = box (List x) (x, empty x)
 
 /// Immutable appends an element to the head of the list.
-/// x -> List x -> List x
+/// x -> x List -> x List
 inl cons a b = 
     inl t = List a
     box t (a, box t b)
 
 /// Creates a list by calling the given generator on each index.
-/// ?(.static) -> int -> (int -> a) -> List a
+/// ?(.static) -> int -> (int -> a) -> a List
 inl init =
     inl body is_static n f =
         inl t = type (f 0)
@@ -637,7 +637,7 @@ inl elem_type l =
     | _ -> error_type "Expected a List in elem_type."
 
 /// Builds a new list whose elements are the results of applying the given function to each of the elements of the list.
-/// (a List -> b List) -> a List -> List b
+/// (a List -> b List) -> a List -> b List
 inl rec map f l = 
     inl t = elem_type l
     inl loop = function

@@ -189,7 +189,7 @@ inl rec unroll f x =
     if eq_type x x' then x
     else x \/ unroll f x'
 
-inl mutable_function f {init with state=(!heap state) input} =
+inl mutable_function f {state=(!heap state) input} =
     inl f = f >> inl x -> {x with state=heap self}
     inl rec unroll_state state =
         inl state' = type f {state input} .state
@@ -197,25 +197,26 @@ inl mutable_function f {init with state=(!heap state) input} =
         else state \/ unroll_state state'
     
     inl ty = unroll_state state
-    inl init_state = List.singleton (box ty state) |> dyn
-    inl state = ref init_state
+    inl state = box ty state |> dyn
+    inl store = ref state
+    inl is_unused = ref true
     function
     | .reset -> 
-        inl x = state()
-        state := init_state
+        inl x = store()
+        store := state
         x
     | input -> 
-        // That useless seeming pattern match is to trigger uncasing of 
+        if is_in_use() then failwith () "The mutable function is already in use."
+        is_in_use := true
+        inl try_head l = List.head' l {some=id; none=inl ty -> failwith ty "The list should always be non-empty."}
+        inl l = store()
+        // That useless seeming pattern match is to trigger the uncasing of 
         // the union type so it can be converted to a layout type in this scope.
         // In order for this and unroll_state to be the same it is necessary for state to
         // be passed as a regular argument into f rather than an union type.
-        inl l = state()
-        inl {state=state' out} = 
-            match List.head l with () | _ as state -> 
-                print_static state
-                qwe
-                f {state input}
-        state := List.cons (box ty state') l
+        inl {state out} = match try_head l with () | _ as state -> f {state input}
+        store := List.cons (box ty state) l
+        is_in_use := false
         out
     |> heap
 
