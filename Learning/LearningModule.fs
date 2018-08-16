@@ -644,7 +644,9 @@ inl float ->
     inl whiten {epsilon lr k} {d with input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         fwd_add_bias (primal z) (primal bias) s
-        z, inl _ -> join
+        {
+        out=z
+        bck=inl _ -> join
             inl is_update = k (primal x).span_outer
             inb x_precise_primal = 
                 match d with
@@ -669,8 +671,9 @@ inl float ->
             s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
             on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
             bck_add_bias z_precise_adjoint (adjoint bias) s 
+        }
 
-    inl prong {w with activation size} sublayer =
+    inl prong {w with activation size} =
         inl lr = 
             match w with
             | {w.learning_rate with front | back} -> learning_rate
@@ -699,48 +702,48 @@ inl float ->
                         else counter := x; false
             | _ -> inl _ -> true
 
-        feedforward {
-            init = inl sublayer_size -> {
-                size
-                dsc =
-                    inl d =
-                        {
-                        input = Initializer.tanh (sublayer.size, size) s
-                        bias = Initializer.bias size
-                        }
-                    inl f x = Initializer.identity (x,x)
-                    inl d =
-                        match lr with
-                        | {front} -> {d with front_covariance=f sublayer.size; front_precision=f sublayer.size}
-                        | _ -> d
+        {
+        init = inl sublayer_size -> {
+            size
+            dsc =
+                inl d =
+                    {
+                    input = Initializer.tanh (sublayer_size, size)
+                    bias = Initializer.bias size
+                    }
+                inl f x = Initializer.identity (x,x)
+                inl d =
                     match lr with
-                    | {back} -> {d with back_covariance=f size; back_precision=f size}
+                    | {front} -> {d with front_covariance=f sublayer_size; front_precision=f sublayer_size}
                     | _ -> d
-                }
-                
-            apply = inl {weights input} -> whiten {epsilon lr k} weights input >>= activation
-            optimize = inl {learning_rate weights} s ->
-                Optimizer.sgd learning_rate s weights.input
-                Optimizer.sgd learning_rate s weights.bias
-            block=()
+                match lr with
+                | {back} -> {d with back_covariance=f size; back_precision=f size}
+                | _ -> d
             }
+                
+        apply = inl {weights input} -> whiten {epsilon lr k} weights input >>= activation
+        optimize = inl {learning_rate weights} s ->
+            Optimizer.sgd learning_rate s weights.input
+            Optimizer.sgd learning_rate s weights.bias
+        block=()
+        }
 
     // #Feedforward
     inl layer initializer activation size =
+        {
+        init = inl sublayer_size -> 
             {
-            init = inl sublayer_size -> 
+            dsc = 
                 {
-                dsc = 
-                    {
-                    input = initializer (sublayer_size, size)
-                    bias = Initializer.bias size
-                    }
-                size
+                input = initializer (sublayer_size, size)
+                bias = Initializer.bias size
                 }
-
-            apply = inl {weights input} -> matmultb (input, weights.input) weights.bias >>= activation
-            block = ()
+            size
             }
+
+        apply = inl {weights input} -> matmultb (input, weights.input) weights.bias >>= activation
+        block = ()
+        }
 
     inl Feedforward = 
         inl sigmoid = layer Initializer.sigmoid sigmoid

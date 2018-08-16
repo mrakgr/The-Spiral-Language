@@ -35,13 +35,13 @@ inl label_size = 10
 inl network,_ =
     open Feedforward
     //inl network =
-    //    relu 256,
-    //    relu 256,
+    //    tanh 256,
     //    linear label_size
     inl learning_rate = Math.pow 10f32 -3
+    inl steps_until_inverse_update=128
     inl network =
-        prong {learning_rate activation=Activation.tanh; size=256; steps_until_inverse_update=128},
-        prong {learning_rate activation=Activation.linear; size=label_size; steps_until_inverse_update=128}
+        prong {learning_rate steps_until_inverse_update activation=Activation.tanh; size=256},
+        prong {learning_rate steps_until_inverse_update activation=Activation.linear; size=label_size}
 
     init s input_size network
 
@@ -94,7 +94,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
             train {
                 data={input=train_images; label=train_labels}
                 network
-                learning_rate = 0.3f32 / to float32 train_minibatch_size
+                learning_rate = 0.01f32 / to float32 train_minibatch_size
                 final=Error.softmax_cross_entropy
                 } s
 

@@ -2695,14 +2695,25 @@ inl s ret ->
             dense_call s .cusolverDnSpotrf(opposite_fill uplo, i32 n, {ptr=A}, i32 lda, {ptr=workspace}, Lwork, {ptr=dev_info})
             stack (dev_info 0)
 
+    inl symm_copy s uplo = 
+        inl body {from to=to'} =
+            inl from,to' = CudaAux.to_dev_tensor (from,to')
+            s.CudaKernel.iter {dim=from.dim} <| inl a b ->
+                inl check = match uplo with .Lower -> a >= b | .Upper -> a <= b
+                if check then to' a b .set (from a b .get)
+
+        function
+        | {from to} ->  
+            assert (from.dim = to.dim) "`to` and `from` must have the same dimensions."
+            body {from to}
+        | {from} -> 
+            inl to = s.CudaTensor.create_like from
+            body {from to}
+            to
+
     inl potrf s uplo A =
         indiv join
-            inl A = 
-                inl A = CudaAux.to_dev_tensor A
-                s.CudaKernel.init {dim=A.dim} <| inl a b ->
-                    inl check = match uplo with .Lower -> a >= b | .Upper -> a <= b
-                    if check then A a b .get else to A.elem_type 0f32
-
+            inl A = symm_copy s uplo {from=A}
             handle_error s { 
                 info = potrf' s uplo A
                 pos = "The leading minor of order %d is not positive definite."
@@ -2717,11 +2728,14 @@ inl s ret ->
 
         function
         | {from to} ->
-            s.CudaTensor.copy {from to}
-            s.CudaSolve.potrf' .Lower to
+            symm_copy s .Lower {from to}
+            handle_error s { 
+                info = potrf' s .Lower to
+                pos = "The leading minor of order %d is not positive definite."
+                }
             body to
         | {from} | from -> 
-            inl C_sqrt = s.CudaSolve.potrf .Lower from
+            inl C_sqrt = potrf s .Lower from
             body C_sqrt
             C_sqrt
 
