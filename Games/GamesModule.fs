@@ -497,8 +497,10 @@ inl {basic_methods State Action} ->
         inl num_actions = Union.length_one_hot Action
 
         inl net,_ = 
-            inl linear = Feedforward.linear
-            Tuple.append (Tuple.wrap actor) (linear num_actions :: ())
+            inl learning_rate = learning_rate ** 0.85
+            inl steps_until_inverse_update = 128
+            inl prong = Feedforward.prong {learning_rate steps_until_inverse_update activation=Activation.linear; size=num_actions}
+            Tuple.append (Tuple.wrap actor) (prong :: ())
             |> init cd input_size
 
         inl run = 
