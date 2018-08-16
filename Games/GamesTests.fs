@@ -178,7 +178,7 @@ Struct.iter (inl use_steady_state ->
             inl a = 
                 open (Learning float32).Feedforward
                 inl learning_rate = {actor=0.001f32; critic=critic_learning_rate; shared=0.001f32}
-                player_zap_ac {name="One"; shared=tanh 256; learning_rate discount_factor=0.99f32; steps_until_inverse_update=128; use_steady_state} s
+                player_zap_ac {name="One"; actor=tanh 256; learning_rate discount_factor=0.99f32; steps_until_inverse_update=128; use_steady_state} s
             inl b = player_rules {name="Two"}
 
             met f game (!dyn near_to) (!dyn near_to_inner) = 
