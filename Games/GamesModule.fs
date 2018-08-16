@@ -518,7 +518,7 @@ inl {basic_methods State Action} ->
                 List.foldl (inl _ -> function {bck} -> bck {reward} | _ -> ()) () l
 
                 Struct.iter (function
-                    | {optimize} -> optimize learning_rate
+                    | {optimize weights} -> optimize {learning_rate weights} s.data.cd
                     | {weights} -> Struct.iter (Optimizer.sgd learning_rate s.data.cd) weights
                     ) s.data.net
             game_over=inl s -> ()
@@ -598,7 +598,7 @@ inl {basic_methods State Action} ->
                     ) {reward} l
 
                 inl f learning_rate = Struct.iter <| function
-                    | {optimize} -> optimize learning_rate
+                    | {optimize weights} -> optimize {learning_rate weights} s.data.cd
                     | {weights} -> Struct.iter (Optimizer.sgd learning_rate s.data.cd) weights
 
                 f learning_rate.shared s.data.shared

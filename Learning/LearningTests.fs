@@ -34,10 +34,15 @@ inl label_size = 10
 
 inl network,_ =
     open Feedforward
+    //inl network =
+    //    relu 256,
+    //    relu 256,
+    //    linear label_size
+    inl learning_rate = Math.pow 10f32 -3
     inl network =
-        relu 256,
-        relu 256,
-        linear label_size
+        prong {learning_rate activation=Activation.tanh; size=256; steps_until_inverse_update=128},
+        prong {learning_rate activation=Activation.linear; size=label_size; steps_until_inverse_update=128}
+
     init s input_size network
 
 inl train {data={input label} network learning_rate final} s =
@@ -51,7 +56,7 @@ inl train {data={input label} network learning_rate final} s =
 
         bck(); Struct.foldr (inl {bck} _ -> bck()) network ()
         Struct.iter (function 
-            | {optimize} -> optimize learning_rate
+            | {optimize weights} -> optimize {learning_rate weights} s
             | {weights} -> Struct.iter (Optimizer.sgd learning_rate s) weights
             ) network
 

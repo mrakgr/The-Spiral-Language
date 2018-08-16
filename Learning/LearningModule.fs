@@ -626,6 +626,105 @@ inl float ->
         identity = inl dim -> {identity=dim; block=()}
         }
 
+    /// Updates the covariance such that cov(t+1) = alpha * cov t + beta / k * x^T * x + epsilon * I
+    inl update_covariance identity_coef lr s cov x =
+        inl k = x.span_outer
+        inl alpha = Math.pow (one - lr) k
+        inl epsilon = (one - alpha) * identity_coef
+        inl beta = one - alpha - epsilon
+        inl _ =
+            inl cov = CudaAux.to_dev_tensor cov
+            s.CudaKernel.iter {dim=cov.dim} <| inl a b -> 
+                if b <= a then
+                    inl cov = cov a b
+                    inl identity = if a = b then epsilon else zero
+                    cov .set (alpha * cov .get + identity)
+        s.CudaBlas.syrk' .Lower .T (beta / to float k) x one cov // symmetric rank-k update. (beta / to float k) * x * x^T + cov
+
+    inl whiten {epsilon lr k} {d with input bias} x s =
+        inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
+        fwd_add_bias (primal z) (primal bias) s
+        z, inl _ -> join
+            inl is_update = k (primal x).span_outer
+            inb x_precise_primal = 
+                match d with
+                | {front_covariance front_precision} ret -> 
+                    update_covariance epsilon.front lr.front s front_covariance (primal x)
+                    if is_update then s.CudaSolve.cholesky_inverse {from=front_covariance; to=front_precision}
+
+                    inb x_precise_primal = s.CudaBlas.symm .Right .Lower one front_precision (primal x) |> CudaAux.temporary
+                    ret x_precise_primal
+                | _ ret -> ret <| primal x
+
+            inb z_precise_adjoint = 
+                match d with
+                | {back_covariance back_precision} ret ->
+                    update_covariance epsilon.back lr.back s back_covariance (adjoint z)
+                    if is_update then s.CudaSolve.cholesky_inverse {from=back_covariance; to=back_precision}
+
+                    inb z_precise_adjoint = s.CudaBlas.symm .Right .Lower one back_precision (adjoint z) |> CudaAux.temporary
+                    ret z_precise_adjoint
+                | _ ret -> ret <| adjoint z
+
+            s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
+            on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
+            bck_add_bias z_precise_adjoint (adjoint bias) s 
+
+    inl prong {w with activation size} sublayer =
+        inl lr = 
+            match w with
+            | {w.learning_rate with front | back} -> learning_rate
+            | {learning_rate} -> {front=learning_rate; back=learning_rate}
+            | _ -> ()
+
+        inl epsilon = 
+            inl default = 0.05f32
+            match w with
+            | {epsilon} -> 
+                match epsilon with
+                | {front back} -> epsilon
+                | {front} -> {front back=default}
+                | {back} -> {back front=default}
+            | _ -> {front=default; back=default}
+
+        inl k =
+            match w with
+            | {steps_until_inverse_update=k} -> 
+                if lit_is k && k <= 1 then inl _ -> true
+                else
+                    inl counter = ref k
+                    inl span ->
+                        inl x = counter()-span
+                        if x <= 0 then counter := k; true
+                        else counter := x; false
+            | _ -> inl _ -> true
+
+        feedforward {
+            init = inl sublayer_size -> {
+                size
+                dsc =
+                    inl d =
+                        {
+                        input = Initializer.tanh (sublayer.size, size) s
+                        bias = Initializer.bias size
+                        }
+                    inl f x = Initializer.identity (x,x)
+                    inl d =
+                        match lr with
+                        | {front} -> {d with front_covariance=f sublayer.size; front_precision=f sublayer.size}
+                        | _ -> d
+                    match lr with
+                    | {back} -> {d with back_covariance=f size; back_precision=f size}
+                    | _ -> d
+                }
+                
+            apply = inl {weights input} -> whiten {epsilon lr k} weights input >>= activation
+            optimize = inl {learning_rate weights} s ->
+                Optimizer.sgd learning_rate s weights.input
+                Optimizer.sgd learning_rate s weights.bias
+            block=()
+            }
+
     // #Feedforward
     inl layer initializer activation size =
             {
@@ -649,7 +748,7 @@ inl float ->
         inl tanh = layer Initializer.tanh tanh
         inl linear = layer Initializer.sigmoid succ
         inl zero = layer Initializer.bias succ        
-        {sigmoid relu tanh linear zero} |> stackify
+        {sigmoid relu tanh linear zero prong} |> stackify
 
     inl RL =
         inl sampling_pg x s =
