@@ -169,16 +169,15 @@ Struct.iter (inl use_steady_state ->
             Console.writeline "------"
             Console.printfn "The CudaRandom pseudorandom seed is {0}" i
 
-            //inl a = 
-            //    open (Learning float32).Feedforward
-            //    player_pg {name="One"; actor=tanh 256; learning_rate=0.001f32} s
-            //inl a = 
-            //    open (Learning float32).Feedforward
-            //    player_pg {name="One"; actor=(); learning_rate=0.001f32} s
             inl a = 
-                open (Learning float32).Feedforward
-                inl learning_rate = {actor=0.001f32; critic=critic_learning_rate; shared=0.001f32}
-                player_zap_ac {name="One"; actor=tanh 256; learning_rate discount_factor=0.99f32; steps_until_inverse_update=128; use_steady_state} s
+                open Learning float32
+                inl learning_rate = {actor=0.0003f32; critic=critic_learning_rate; shared=0.001f32}
+                inl steps_until_inverse_update = 128
+                inl actor = 
+                    inl learning_rate = learning_rate.actor ** 0.85f32
+                    open Feedforward
+                    prong {learning_rate steps_until_inverse_update activation=Activation.tanh; size=256}
+                player_zap_ac {name="One"; actor learning_rate discount_factor=0.99f32; steps_until_inverse_update use_steady_state} s
             inl b = player_rules {name="Two"}
 
             met f game (!dyn near_to) (!dyn near_to_inner) = 
@@ -204,7 +203,7 @@ Struct.iter (inl use_steady_state ->
             //open Poker {max_stack_size num_players log=Console.printfn}
             //f game 10 1
             }
-        ) (0.0003f32, 0.001f32, 0.003f32, 0.01f32)
+        ) (0.0001f32, 0.0003f32, 0.001f32, 0.003f32, 0.01f32)
     ) (false, true)
     """
 
@@ -264,7 +263,7 @@ Struct.iter (inl !dyn learning_rate ->
     ) (0.0001f32, 0.0003f32, 0.001f32, 0.003f32, 0.01f32)
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker4
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3
 |> printfn "%s"
 |> ignore
 
