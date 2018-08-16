@@ -214,7 +214,7 @@ let poker4 =
 inb s = CudaModules (1024*1024*1024)
 Struct.iter (inl !dyn learning_rate ->
     Console.printfn "The learning_rate is {0}" learning_rate
-    Loops.for {from=0; near_to=4; body=inl {i} ->
+    Loops.for {from=0; near_to=20; body=inl {i} ->
         inl num_players = 2
         inl stack_size = 10
         inl max_stack_size = num_players * stack_size
@@ -231,7 +231,7 @@ Struct.iter (inl !dyn learning_rate ->
         inl a = 
             open (Learning float32)
             inl actor = 
-                inl learning_rate = learning_rate ** 0.85
+                inl learning_rate = learning_rate ** 0.85f32
                 inl steps_until_inverse_update = 128
                 open Feedforward
                 prong {learning_rate steps_until_inverse_update activation=Activation.tanh; size=256}
@@ -261,7 +261,7 @@ Struct.iter (inl !dyn learning_rate ->
         //open Poker {max_stack_size num_players log=Console.printfn}
         //f game 10 1
         }
-    ) (0.0003f32, 0.001f32, 0.003f32, 0.01f32)
+    ) (0.0001f32, 0.0003f32, 0.001f32, 0.003f32, 0.01f32)
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker4
