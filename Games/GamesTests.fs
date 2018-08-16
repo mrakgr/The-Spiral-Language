@@ -155,7 +155,7 @@ Struct.iter (inl use_steady_state ->
     Console.printfn "use_steady_state is set to: {0}" use_steady_state
     Struct.iter (inl !dyn critic_learning_rate ->
         Console.printfn "The critic_learning_rate is {0}" critic_learning_rate
-        Loops.for {from=0; near_to=5; body=inl {i} ->
+        Loops.for {from=0; near_to=10; body=inl {i} ->
             inl num_players = 2
             inl stack_size = 10
             inl max_stack_size = num_players * stack_size
@@ -203,7 +203,7 @@ Struct.iter (inl use_steady_state ->
             //open Poker {max_stack_size num_players log=Console.printfn}
             //f game 10 1
             }
-        ) (0.0001f32, 0.0003f32, 0.001f32, 0.003f32, 0.01f32)
+        ) (0.00003f32, 0.0001f32)
     ) (false, true)
     """
 
@@ -266,4 +266,3 @@ Struct.iter (inl !dyn learning_rate ->
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3
 |> printfn "%s"
 |> ignore
-
