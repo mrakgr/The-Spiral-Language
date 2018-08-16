@@ -229,10 +229,11 @@ Struct.iter (inl !dyn learning_rate ->
         Console.printfn "The CudaRandom pseudorandom seed is {0}" i
 
         inl a = 
-            open (Learning float32).Feedforward
+            open (Learning float32)
             inl actor = 
                 inl learning_rate = Math.pow 10f32 -3
                 inl steps_until_inverse_update=128
+                open Feedforward
                 prong {learning_rate steps_until_inverse_update activation=Activation.tanh; size=256}
             player_pg {name="One"; actor learning_rate} s
         inl b = player_rules {name="Two"}
