@@ -657,7 +657,7 @@ inl float ->
             inl is_update = k (primal x).span_outer
             inb x_precise_primal = 
                 match d with
-                | {covariance precision} ret -> 
+                | {front={covariance precision}} ret -> 
                     update_covariance epsilon.front lr.front s covariance (primal x)
                     if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
 
@@ -668,7 +668,7 @@ inl float ->
             inb z_precise_adjoint = 
                 match d with
                 | {back={covariance precision centering}} ret ->
-                    //update_centering lr.back s centering (adjoint z)
+                    update_centering lr.back s centering (adjoint z)
                     inb z = center s centering (adjoint z) |> CudaAux.temporary
                     update_covariance epsilon.back lr.back s covariance z
                     if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
