@@ -595,6 +595,7 @@ inl float ->
             | {tanh=dim} -> init 3f32 dim s |> dr s
             | {relu=dim} -> init 1f32 dim s |> dr s
             | {bias=dim} -> s.CudaTensor.zero {elem_type=float; dim} |> dr s
+            | {zero=dim} -> s.CudaTensor.zero {elem_type=float; dim}
             | {identity=dim} -> s.CudaKernel.init {dim} (inl a b -> if a = b then one else zero)
             )
 
@@ -618,13 +619,7 @@ inl float ->
             layer, out
             ) input
 
-    inl Initializer = {
-        bias = inl dim -> {bias=dim; block=()}
-        relu = inl dim -> {relu=dim; block=()}
-        tanh = inl dim -> {tanh=dim; block=()}
-        sigmoid = inl dim -> {sigmoid=dim; block=()}
-        identity = inl dim -> {identity=dim; block=()}
-        }
+    inl Initializer x dim = {$x=dim; block=()}
 
     /// Updates the covariance such that cov(t+1) = alpha * cov t + beta / k * x^T * x + epsilon * I
     inl update_covariance identity_coef lr s cov x =
@@ -645,12 +640,13 @@ inl float ->
         inl k = x.span_outer
         inl alpha = Math.pow (one - lr) k
         s.CudaKernel.mapi_d2_redo_map' {
+            map_in=const
             neutral_elem=zero
             redo=(+)
             map_out=inl x cent -> x * (one - alpha) + cent * alpha
-            } x () cent
+            } x cent.empty cent
 
-    inl center s cent x = s.CudaKernel.d2_replicate_map' (inl cent _ x -> x - cent) cent x.empty x
+    inl center s = s.CudaKernel.d2_replicate_map (inl cent x -> x - cent)
 
     inl whiten {epsilon lr k} {d with input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
@@ -661,23 +657,23 @@ inl float ->
             inl is_update = k (primal x).span_outer
             inb x_precise_primal = 
                 match d with
-                | {front_covariance front_precision} ret -> 
-                    update_covariance epsilon.front lr.front s front_covariance (primal x)
-                    if is_update then s.CudaSolve.cholesky_inverse {from=front_covariance; to=front_precision}
+                | {covariance precision} ret -> 
+                    update_covariance epsilon.front lr.front s covariance (primal x)
+                    if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
 
-                    inb x_precise_primal = s.CudaBlas.symm .Right .Lower one front_precision (primal x) |> CudaAux.temporary
+                    inb x_precise_primal = s.CudaBlas.symm .Right .Lower one precision (primal x) |> CudaAux.temporary
                     ret x_precise_primal
                 | _ ret -> ret <| primal x
 
             inb z_precise_adjoint = 
                 match d with
-                | {back_covariance back_precision back_centering} ret ->
-                    update_centering s back_centering (adjoint z)
-                    inb z = center s back_centering (adjoint z) |> CudaAux.temporary
-                    update_covariance epsilon.back lr.back s back_covariance ()
-                    if is_update then s.CudaSolve.cholesky_inverse {from=back_covariance; to=back_precision}
+                | {back={covariance precision centering}} ret ->
+                    //update_centering lr.back s centering (adjoint z)
+                    inb z = center s centering (adjoint z) |> CudaAux.temporary
+                    update_covariance epsilon.back lr.back s covariance z
+                    if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
 
-                    inb z_precise_adjoint = s.CudaBlas.symm .Right .Lower one back_precision z |> CudaAux.temporary
+                    inb z_precise_adjoint = s.CudaBlas.symm .Right .Lower one precision z |> CudaAux.temporary
                     ret z_precise_adjoint
                 | _ ret -> ret <| adjoint z
 
@@ -727,10 +723,10 @@ inl float ->
                 inl f x = Initializer.identity (x,x)
                 inl d =
                     match lr with
-                    | {front} -> {d with front_covariance=f sublayer_size; front_precision=f sublayer_size}
+                    | {front} -> {d with front={covariance=f sublayer_size; precision=f sublayer_size}}
                     | _ -> d
                 match lr with
-                | {back} -> {d with back_covariance=f size; back_precision=f size; back_centering=Initializer.zero size}
+                | {back} -> {d with back={covariance=f size; precision=f size; centering=Initializer.zero size}}
                 | _ -> d
             }
                 
