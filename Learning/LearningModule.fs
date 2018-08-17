@@ -636,18 +636,6 @@ inl float ->
                     cov .set (alpha * cov .get + identity)
         s.CudaBlas.syrk' .Lower .T (beta / to float k) x one cov // symmetric rank-k update. (beta / to float k) * x * x^T + cov
 
-    inl update_centering lr s cent x =
-        inl k = x.span_outer
-        inl alpha = Math.pow (one - lr) k
-        s.CudaKernel.mapi_d2_redo_map' {
-            map_in=const
-            neutral_elem=zero
-            redo=(+)
-            map_out=inl x cent -> x / to float k * (one - alpha) + cent * alpha
-            } x cent.empty cent
-
-    inl center s = s.CudaKernel.d2_replicate_map (inl cent x -> x - cent)
-
     inl whiten {epsilon lr k} {d with input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         fwd_add_bias (primal z) (primal bias) s
@@ -658,8 +646,6 @@ inl float ->
             inb x_precise_primal = 
                 match d with
                 | {front={covariance precision centering}} ret -> 
-                    //update_centering lr.front s centering (primal x)
-                    //inb x = center s centering (primal x) |> CudaAux.temporary
                     inl x = primal x
                     update_covariance epsilon.front lr.front s covariance x
                     if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
@@ -671,8 +657,6 @@ inl float ->
             inb z_precise_adjoint = 
                 match d with
                 | {back={covariance precision centering}} ret ->
-                    //update_centering lr.back s centering (adjoint z)
-                    //inb z = center s centering (adjoint z) |> CudaAux.temporary
                     inl z = adjoint z
                     update_covariance epsilon.back lr.back s covariance z
                     if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
