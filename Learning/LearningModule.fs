@@ -641,6 +641,17 @@ inl float ->
                     cov .set (alpha * cov .get + identity)
         s.CudaBlas.syrk' .Lower .T (beta / to float k) x one cov // symmetric rank-k update. (beta / to float k) * x * x^T + cov
 
+    inl update_centering lr s cent x =
+        inl k = x.span_outer
+        inl alpha = Math.pow (one - lr) k
+        s.CudaKernel.mapi_d2_redo_map' {
+            neutral_elem=zero
+            redo=(+)
+            map_out=inl x cent -> x * (one - alpha) + cent * alpha
+            } x () cent
+
+    inl center s cent x = s.CudaKernel.d2_replicate_map' (inl cent _ x -> x - cent) cent x.empty x
+
     inl whiten {epsilon lr k} {d with input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         fwd_add_bias (primal z) (primal bias) s
@@ -660,11 +671,13 @@ inl float ->
 
             inb z_precise_adjoint = 
                 match d with
-                | {back_covariance back_precision} ret ->
-                    update_covariance epsilon.back lr.back s back_covariance (adjoint z)
+                | {back_covariance back_precision back_centering} ret ->
+                    update_centering s back_centering (adjoint z)
+                    inb z = center s back_centering (adjoint z) |> CudaAux.temporary
+                    update_covariance epsilon.back lr.back s back_covariance ()
                     if is_update then s.CudaSolve.cholesky_inverse {from=back_covariance; to=back_precision}
 
-                    inb z_precise_adjoint = s.CudaBlas.symm .Right .Lower one back_precision (adjoint z) |> CudaAux.temporary
+                    inb z_precise_adjoint = s.CudaBlas.symm .Right .Lower one back_precision z |> CudaAux.temporary
                     ret z_precise_adjoint
                 | _ ret -> ret <| adjoint z
 
@@ -717,7 +730,7 @@ inl float ->
                     | {front} -> {d with front_covariance=f sublayer_size; front_precision=f sublayer_size}
                     | _ -> d
                 match lr with
-                | {back} -> {d with back_covariance=f size; back_precision=f size}
+                | {back} -> {d with back_covariance=f size; back_precision=f size; back_centering=Initializer.zero size}
                 | _ -> d
             }
                 
