@@ -411,7 +411,13 @@ inl float ->
             P - learning_rate * A, zero
             ) primal.empty (primal, adjoint)
 
-    inl Optimizer = {sgd clipped_sgd}
+    inl standard learning_rate s = 
+        Struct.iter (function 
+            | {optimize weights} -> optimize {learning_rate weights} s
+            | {weights} -> Struct.iter (Optimizer.sgd learning_rate s) weights
+            )
+
+    inl Optimizer = {sgd clipped_sgd standard}
 
     // #Auxiliary
     inl atomic_add o x =
@@ -678,7 +684,7 @@ inl float ->
             | _ -> ()
 
         inl epsilon = 
-            inl default = 0.01f32
+            inl default = 0.001f32
             match w with
             | {epsilon} -> 
                 match epsilon with

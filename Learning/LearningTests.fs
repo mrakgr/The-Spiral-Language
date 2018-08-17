@@ -16,7 +16,7 @@ inb s = CudaModules (1024*1024*1024)
 inl float = float32
 open Learning float
 
-inl train_minibatch_size = 1
+inl train_minibatch_size = 128
 inl test_minibatch_size = 128
 inl {test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
@@ -56,10 +56,7 @@ inl train {data={input label} network learning_rate final} s =
             inl {out bck} = final label input s
 
             bck(); Struct.foldr (inl {bck} _ -> bck()) network ()
-            Struct.iter (function 
-                | {optimize weights} -> optimize {learning_rate weights} s
-                | {weights} -> Struct.iter (Optimizer.sgd learning_rate s) weights
-                ) network
+            Optimizer.standard learning_rate s network
 
             inl cost = s.CudaTensor.get out |> to float64
             state + cost
@@ -95,7 +92,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
             train {
                 data={input=train_images; label=train_labels}
                 network
-                learning_rate = 0.0001f32 / to float32 train_minibatch_size
+                learning_rate = 0.00001f32 /// to float32 train_minibatch_size
                 final=Error.softmax_cross_entropy
                 } s
 
