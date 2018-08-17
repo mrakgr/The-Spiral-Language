@@ -686,7 +686,7 @@ inl float ->
         inl epsilon = 
             inl i = -3
             inl default = 2f32 ** to float32 i
-            Console.printfn "The epsilon is 2f32 ** {0}" i
+            //Console.printfn "The epsilon is 2f32 ** {0}" i
             match w with
             | {epsilon} -> 
                 match epsilon with
@@ -811,7 +811,7 @@ inl float ->
         /// The Zap TD(0) layer. It does not use eligiblity traces for the sake of supporting
         // backward chaining and recurrent networks.
         inl zap {use_steady_state size steps_until_inverse_update learning_rate discount_factor} cd =
-            inl identity_coef = 2f32 ** -10f32
+            inl identity_coef = 2f32 ** -3f32
             inl steady_state_learning_rate = learning_rate ** 0.85f32
 
             inl W = cd.CudaTensor.zero {dim=size, 1; elem_type=float32}
