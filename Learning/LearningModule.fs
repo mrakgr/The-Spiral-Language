@@ -684,8 +684,8 @@ inl float ->
             | _ -> ()
 
         inl epsilon = 
-            inl i = -2f32
-            inl default = 2f32 ** i
+            inl i = -3
+            inl default = 2f32 ** to float32 i
             Console.printfn "The epsilon is 2f32 ** {0}" i
             match w with
             | {epsilon} -> 
