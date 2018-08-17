@@ -643,7 +643,7 @@ inl float ->
             map_in=const
             neutral_elem=zero
             redo=(+)
-            map_out=inl x cent -> x * (one - alpha) + cent * alpha
+            map_out=inl x cent -> x / to float k * (one - alpha) + cent * alpha
             } x cent.empty cent
 
     inl center s = s.CudaKernel.d2_replicate_map (inl cent x -> x - cent)
@@ -657,19 +657,23 @@ inl float ->
             inl is_update = k (primal x).span_outer
             inb x_precise_primal = 
                 match d with
-                | {front={covariance precision}} ret -> 
-                    update_covariance epsilon.front lr.front s covariance (primal x)
+                | {front={covariance precision centering}} ret -> 
+                    //update_centering lr.front s centering (primal x)
+                    //inb x = center s centering (primal x) |> CudaAux.temporary
+                    inl x = primal x
+                    update_covariance epsilon.front lr.front s covariance x
                     if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
 
-                    inb x_precise_primal = s.CudaBlas.symm .Right .Lower one precision (primal x) |> CudaAux.temporary
+                    inb x_precise_primal = s.CudaBlas.symm .Right .Lower one precision x |> CudaAux.temporary
                     ret x_precise_primal
                 | _ ret -> ret <| primal x
 
             inb z_precise_adjoint = 
                 match d with
                 | {back={covariance precision centering}} ret ->
-                    update_centering lr.back s centering (adjoint z)
-                    inb z = center s centering (adjoint z) |> CudaAux.temporary
+                    //update_centering lr.back s centering (adjoint z)
+                    //inb z = center s centering (adjoint z) |> CudaAux.temporary
+                    inl z = adjoint z
                     update_covariance epsilon.back lr.back s covariance z
                     if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
 
@@ -723,7 +727,7 @@ inl float ->
                 inl f x = Initializer.identity (x,x)
                 inl d =
                     match lr with
-                    | {front} -> {d with front={covariance=f sublayer_size; precision=f sublayer_size}}
+                    | {front} -> {d with front={covariance=f sublayer_size; precision=f sublayer_size; centering=Initializer.zero sublayer_size}}
                     | _ -> d
                 match lr with
                 | {back} -> {d with back={covariance=f size; precision=f size; centering=Initializer.zero size}}
