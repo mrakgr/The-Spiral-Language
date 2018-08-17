@@ -213,8 +213,8 @@ let poker4 =
 inb s = CudaModules (1024*1024*1024)
 Struct.iter (inl i ->
     inl learning_rate = 2f32 ** to float32 i |> dyn
-    Console.printfn "The learning_rate is {0}" learning_rate
-    Loops.for {from=0; near_to=2; body=inl {i} ->
+    Console.printfn "The learning_rate is 2 ** {0}" i
+    Loops.for {from=0; near_to=1; body=inl {i} ->
         inl num_players = 2
         inl stack_size = 10
         inl max_stack_size = num_players * stack_size
@@ -257,7 +257,7 @@ Struct.iter (inl i ->
                     Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
                 }
 
-        f game 15 1000
+        f game 30 1000
         //open Poker {max_stack_size num_players log=Console.printfn}
         //f game 10 1
         }
