@@ -684,7 +684,7 @@ inl float ->
             | _ -> ()
 
         inl epsilon = 
-            inl default = 2f32 ** 0f32
+            inl default = 2f32 ** -2f32
             match w with
             | {epsilon} -> 
                 match epsilon with
