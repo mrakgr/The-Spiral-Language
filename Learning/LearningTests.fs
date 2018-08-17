@@ -16,7 +16,7 @@ inb s = CudaModules (1024*1024*1024)
 inl float = float32
 open Learning float
 
-inl train_minibatch_size = 128
+inl train_minibatch_size = 1
 inl test_minibatch_size = 128
 inl {test_images test_labels train_images train_labels} =
     inl mnist_path = @"C:\ML Datasets\Mnist"
@@ -50,21 +50,21 @@ inl train {data={input label} network learning_rate final} s =
     assert (range = fst label.dim) "The input and label must have the same outer dimension."
     Loops.for' {range with state=dyn 0.0; body=inl {i next state} ->
         inl input, label = input i, label i
-        inb s = s.RegionMem.create'
-        inl network, input = run s input network
-        inl {out bck} = final label input s
+        inl state =
+            inb s = s.RegionMem.create'
+            inl network, input = run s input network
+            inl {out bck} = final label input s
 
-        bck(); Struct.foldr (inl {bck} _ -> bck()) network ()
-        Struct.iter (function 
-            | {optimize weights} -> optimize {learning_rate weights} s
-            | {weights} -> Struct.iter (Optimizer.sgd learning_rate s) weights
-            ) network
+            bck(); Struct.foldr (inl {bck} _ -> bck()) network ()
+            Struct.iter (function 
+                | {optimize weights} -> optimize {learning_rate weights} s
+                | {weights} -> Struct.iter (Optimizer.sgd learning_rate s) weights
+                ) network
 
-        inl cost = s.CudaTensor.get out |> to float64
-        inl state = state + cost
+            inl cost = s.CudaTensor.get out |> to float64
+            state + cost
 
-        if nan_is cost then state
-        else next state
+        if nan_is state then state else next state
         }
     |> inl cost -> cost / to float64 (HostTensor.span range)
 
@@ -73,16 +73,17 @@ inl test {data={input label} network final} s =
     assert (range = fst label.dim) "The input and label must have the same outer dimension."
     Loops.for' {range with state=dyn {cost=0.0;ac=0;max_ac=0}; body=inl {i next state} ->
         inl input, label = input i, label i
-        inb s = s.RegionMem.create'
-        inl network, input = run s input network
-        inl {out} = final label input s
+        inl state =
+            inb s = s.RegionMem.create'
+            inl network, input = run s input network
+            inl {out} = final label input s
 
-        inl cost = out |> s.CudaTensor.get |> to float64
-        inl ac = Error.accuracy label input s |> s.CudaTensor.get
-        inl max_ac = (primal input).span_outer
-        inl state = {state with cost=self+cost; ac=self+ac; max_ac=self+max_ac}
+            inl cost = out |> s.CudaTensor.get |> to float64
+            inl ac = Error.accuracy label input s |> s.CudaTensor.get
+            inl max_ac = (primal input).span_outer
+            {state with cost=self+cost; ac=self+ac; max_ac=self+max_ac}
 
-        if nan_is cost then state
+        if nan_is state.cost then state
         else next state
         }
     |> inl cost -> {cost with cost = self / to float64 (HostTensor.span range)}
@@ -94,7 +95,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
             train {
                 data={input=train_images; label=train_labels}
                 network
-                learning_rate = 0.01f32 / to float32 train_minibatch_size
+                learning_rate = 0.0001f32 / to float32 train_minibatch_size
                 final=Error.softmax_cross_entropy
                 } s
 
