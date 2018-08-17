@@ -684,7 +684,7 @@ inl float ->
             | _ -> ()
 
         inl epsilon = 
-            inl default = 2f32 ** -10f32
+            inl default = 2f32 ** 0f32
             match w with
             | {epsilon} -> 
                 match epsilon with
@@ -705,13 +705,18 @@ inl float ->
                         else counter := x; false
             | _ -> inl _ -> true
 
+        inl initializer =
+            match w with
+            | {initializer} -> initializer
+            | _ -> Initializer.tanh
+
         {
         init = inl sublayer_size -> {
             size
             dsc =
                 inl d =
                     {
-                    input = Initializer.tanh (sublayer_size, size)
+                    input = initializer (sublayer_size, size)
                     bias = Initializer.bias size
                     }
                 inl f x = Initializer.identity (x,x)
@@ -804,7 +809,7 @@ inl float ->
         /// The Zap TD(0) layer. It does not use eligiblity traces for the sake of supporting
         // backward chaining and recurrent networks.
         inl zap {use_steady_state size steps_until_inverse_update learning_rate discount_factor} cd =
-            inl identity_coef = 0.05f32
+            inl identity_coef = 2f32 ** -10f32
             inl steady_state_learning_rate = learning_rate ** 0.85f32
 
             inl W = cd.CudaTensor.zero {dim=size, 1; elem_type=float32}

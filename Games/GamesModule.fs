@@ -499,7 +499,7 @@ inl {basic_methods State Action} ->
         inl net,_ = 
             inl learning_rate = learning_rate ** 0.85f32
             inl steps_until_inverse_update = 128
-            inl prong = Feedforward.prong {learning_rate steps_until_inverse_update activation=Activation.linear; size=num_actions}
+            inl prong = Feedforward.prong {learning_rate steps_until_inverse_update activation=Activation.linear; size=num_actions; initializer=Initializer.bias}
             Tuple.append (Tuple.wrap actor) (prong :: ())
             |> init cd input_size
 
@@ -545,7 +545,7 @@ inl {basic_methods State Action} ->
         inl actor = 
             inl learning_rate = learning_rate.actor ** 0.85f32
             inl steps_until_inverse_update = 128
-            inl prong = Feedforward.prong {learning_rate steps_until_inverse_update activation=Activation.linear; size=num_actions}
+            inl prong = Feedforward.prong {learning_rate steps_until_inverse_update activation=Activation.linear; size=num_actions; initializer=Initializer.bias}
             match d with {actor} -> actor :: prong :: () | _ -> prong
         inl critic = match d with {critic} -> critic | _ -> ()
         inl shared = match d with {shared} -> shared | _ -> ()

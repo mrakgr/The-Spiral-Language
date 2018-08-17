@@ -211,9 +211,10 @@ let poker4 =
     "poker4",[cuda_modules;loops;poker;poker_players;timer],"The iterative test for NN MC based players.",
     """
 inb s = CudaModules (1024*1024*1024)
-Struct.iter (inl !dyn learning_rate ->
+Struct.iter (inl i ->
+    inl learning_rate = 2f32 ** to float32 i |> dyn
     Console.printfn "The learning_rate is {0}" learning_rate
-    Loops.for {from=0; near_to=20; body=inl {i} ->
+    Loops.for {from=0; near_to=2; body=inl {i} ->
         inl num_players = 2
         inl stack_size = 10
         inl max_stack_size = num_players * stack_size
@@ -260,9 +261,9 @@ Struct.iter (inl !dyn learning_rate ->
         //open Poker {max_stack_size num_players log=Console.printfn}
         //f game 10 1
         }
-    ) (0.0001f32, 0.0003f32, 0.001f32, 0.003f32, 0.01f32)
+    ) (-10)
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker4
 |> printfn "%s"
 |> ignore
