@@ -684,7 +684,7 @@ inl float ->
             | _ -> ()
 
         inl epsilon = 
-            inl default = 0.001f32
+            inl default = Math.pow 2f32 -12
             match w with
             | {epsilon} -> 
                 match epsilon with
