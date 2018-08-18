@@ -534,13 +534,19 @@ inl {basic_methods State Action} ->
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
 
-        inl prong =
-            inl learning_rate = learning_rate.actor ** 0.85f32
-            inl steps_until_inverse_update = 128
-            Feedforward.prong {learning_rate steps_until_inverse_update activation=Activation.linear; size=1; initializer=Initializer.bias}
+        inl learning_rate = {
+            actor=learning_rate
+            critic=learning_rate ** 0.85f32
+            shared=learning_rate
+            }
 
-        inl actor = match d with {actor} -> Tuple.append (Tuple.wrap actor) ({prong with size=num_actions} :: ()) | _ -> {prong with size=num_actions}
-        inl critic = match d with {critic} -> critic :: prong :: () | _ -> prong
+        inl prong learning_rate size =
+            inl learning_rate = learning_rate ** 0.85f32
+            inl steps_until_inverse_update = 128
+            Feedforward.prong {learning_rate steps_until_inverse_update activation=Activation.linear; size initializer=Initializer.bias}
+
+        inl actor = match d with {actor} -> Tuple.append (Tuple.wrap actor) (prong learning_rate.actor num_actions :: ()) | _ -> prong learning_rate.actor num_actions
+        inl critic = match d with {critic} -> critic :: prong learning_rate.critic 1 :: () | _ -> prong learning_rate.critic 1
         inl shared = match d with {shared} -> shared | _ -> ()
 
         inl shared, shared_size = init cd input_size shared
@@ -562,15 +568,14 @@ inl {basic_methods State Action} ->
                     inl shared, shared_out = run cd input shared
                     inl actor, actor_out = run cd shared_out actor
                     inl {out bck=actor_bck} = RL.sampling_pg actor_out cd
-                    //inl critic, critic_out = 
-                    //    if block_critic_gradients then run cd (primal shared_out) critic
-                    //    else run cd shared_out critic
+                    inl critic, critic_out = 
+                        if block_critic_gradients then run cd (primal shared_out) critic
+                        else run cd shared_out critic
                     
                     inl bck x = 
-                        //inl {cost} = RL.mc cd critic_out x
-                        //Struct.foldr (inl {bck} _ -> bck()) critic ()
-                        //actor_bck {reward=cost.flatten}
-                        actor_bck x
+                        inl {cost} = RL.mc cd critic_out x
+                        Struct.foldr (inl {bck} _ -> bck()) critic ()
+                        actor_bck {reward=cost.flatten}
                         Struct.foldr (inl {bck} _ -> bck()) actor ()
 
                     inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
