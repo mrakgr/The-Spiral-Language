@@ -260,6 +260,6 @@ Struct.iter (inl i ->
     ) (-9)
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker4
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3
 |> printfn "%s"
 |> ignore
