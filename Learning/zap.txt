@@ -1,0 +1,84 @@
+﻿    /// The Zap TD(0) layer. It does not use eligiblity traces for the sake of supporting
+    // backward chaining and recurrent networks.
+    inl zap {use_steady_state size steps_until_inverse_update learning_rate discount_factor} cd =
+        inl identity_coef = 2f32 ** -3f32
+
+        //inl cost_cov = cd.CudaKernel.init {dim=1,1} (inl _ _ -> 1f32)
+        //inl W = cd.CudaTensor.zero {dim=size, 1; elem_type=float32}
+        //inl A = cd.CudaKernel.init {dim=size, size} (inl a b -> if a = b then one else zero) // The steady state matrix
+
+
+        //inl value s cd = cd.CudaBlas.gemm .nT .nT one s W .flatten
+
+        // W(n+1) = W + learning_rate * A_inv * basis_cur^T * cost
+        met update_weights basis_cur cost cd =
+            inl cost =
+                inl cost_cov = CudaAux.to_dev_tensor cost_cov
+                cd.CudaKernel.map (inl cost -> cost / cost_cov 0 0 .get) cost
+
+            inl A_inv = A_inv basis_cur.span_outer
+            inb update = cd.CudaBlas.gemm .T .nT one basis_cur cost |> CudaAux.temporary
+            cd.CudaBlas.gemm' .nT .nT learning_rate A_inv update one W
+            
+        // state,state' = cuda float32 2d tensor
+        // action,action' = cuda float32 2d tensor | int64
+        // reward = cuda float32 2d tensor | float32
+        //inl zap_update cd v state d =
+        //    indiv join
+                //inb v = value state cd |> CudaAux.temporary
+
+
+        inl apply {weights input} s =
+            inl v, bck = whiten {max_k=steps_until_inverse_update} weights input s
+            inl bck d =
+                inl cost =
+                    match d with
+                    | {reward state=state'} ->
+                        inb v' = value state' cd |> CudaAux.temporary
+                        inl cost = td s {discount_factor reward v' v}
+                
+                        inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (state', state) |> CudaAux.temporary
+                        if use_steady_state then update_steady_state identity_coef steady_state_learning_rate cd A state basis_update
+                        update_covariance covariance_identity_coef steady_state_learning_rate cd cost_cov cost
+                        update_weights state cost cd
+                        cost
+                    | {reward} ->
+                        inl cost = td s {discount_factor reward v v'=()}
+
+                        if use_steady_state then update_steady_state identity_coef steady_state_learning_rate cd A state state
+                        update_covariance covariance_identity_coef steady_state_learning_rate cd cost_cov cost
+                        update_weights state cost cd
+                        cost
+                stack {state cost}
+
+                inl {cost} = mc s v d
+                bck()
+                ()
+
+        {
+        init = inl sublayer_size -> {
+            size
+            dsc =
+                {
+                zap = {
+                    A = Initializer.identity (sublayer_size,sublayer_size)
+                    A_inv = Initializer.identity (sublayer_size,sublayer_size)        
+                    k = Initializer.reference steps_until_inverse_update
+                    }
+                input = Initializer.bias (sublayer_size, size)
+                back = 
+                    {
+                    covariance=Initializer.identity (size,size) 
+                    precision=covariance=Initializer.identity (size,size)
+                    lr=learning_rate ** 0.85f32
+                    epsilon=2f32 ** -5f32
+                    }
+                k = Initializer.reference steps_until_inverse_update
+                }
+            }
+                
+        apply
+        optimize = inl {learning_rate weights} s -> Optimizer.sgd learning_rate s weights.input
+        block=()
+        }
+
