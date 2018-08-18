@@ -562,14 +562,15 @@ inl {basic_methods State Action} ->
                     inl shared, shared_out = run cd input shared
                     inl actor, actor_out = run cd shared_out actor
                     inl {out bck=actor_bck} = RL.sampling_pg actor_out cd
-                    inl critic, critic_out = 
-                        if block_critic_gradients then run cd (primal shared_out) critic
-                        else run cd shared_out critic
+                    //inl critic, critic_out = 
+                    //    if block_critic_gradients then run cd (primal shared_out) critic
+                    //    else run cd shared_out critic
                     
                     inl bck x = 
-                        inl {cost} = RL.mc cd critic_out x
-                        Struct.foldr (inl {bck} _ -> bck()) critic ()
-                        actor_bck {reward=cost.flatten}
+                        //inl {cost} = RL.mc cd critic_out x
+                        //Struct.foldr (inl {bck} _ -> bck()) critic ()
+                        //actor_bck {reward=cost.flatten}
+                        actor_bck x
                         Struct.foldr (inl {bck} _ -> bck()) actor ()
 
                     inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
@@ -589,7 +590,7 @@ inl {basic_methods State Action} ->
 
                 f learning_rate.shared s.data.shared
                 f learning_rate.actor s.data.actor
-                if block_critic_gradients = false then f learning_rate.critic s.data.critic
+                f learning_rate.critic s.data.critic
             game_over=inl s -> ()
             }
 
@@ -675,7 +676,7 @@ inl {basic_methods State Action} ->
 
                 f learning_rate.shared s.data.shared
                 f learning_rate.actor s.data.actor
-                if block_critic_gradients = false then f learning_rate.critic s.data.critic
+                f learning_rate.critic s.data.critic
             game_over=inl s -> ()
             }
 

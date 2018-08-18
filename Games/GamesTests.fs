@@ -237,7 +237,7 @@ Struct.iter (inl i ->
                 prong {learning_rate steps_until_inverse_update activation=Activation.tanh; size=256}
             //player_pg {name="One"; actor learning_rate} s
             inl learning_rate = {actor=learning_rate; critic=learning_rate; shared=learning_rate}
-            player_mc_ac {name="One"; shared=actor; learning_rate} s
+            player_mc_ac {name="One"; actor learning_rate} s
         inl b = player_rules {name="Two"}
 
         met f game (!dyn near_to) (!dyn near_to_inner) = 
@@ -259,11 +259,11 @@ Struct.iter (inl i ->
                     Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
                 }
 
-        f game 15 1000
+        f game 3 1000
         //open Poker {max_stack_size num_players log=Console.printfn}
         //f game 10 1
         }
-    ) (-12)
+    ) (-11)
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker4
