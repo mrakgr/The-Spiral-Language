@@ -228,6 +228,7 @@ Struct.iter (inl i ->
                 inl learning_rate = learning_rate ** 0.85f32
                 inl steps_until_inverse_update = 128
                 open Feedforward
+                prong {learning_rate steps_until_inverse_update activation=Activation.tanh; size=256},
                 prong {learning_rate steps_until_inverse_update activation=Activation.tanh; size=256}
             //player_pg {name="One"; actor learning_rate} s
             player_mc_ac {name="One"; shared=actor; learning_rate; block_critic_gradients=true} s
