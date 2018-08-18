@@ -642,6 +642,23 @@ inl float ->
                     cov .set (alpha * cov .get + identity)
         s.CudaBlas.syrk' .Lower .T (beta / to float k) x one cov // symmetric rank-k update. (beta / to float k) * x * x^T + cov
 
+        /// Updates the state state matrix such that A(t+1) = alpha * A(t) + beta / k * a^T * b + epsilon * I
+        /// Was changed from the Zap paper to have positive eigenvalues in order to mirror the covariance matrix updates 
+        /// used in natural gradient methods.
+        met update_steady_state identity_coef steady_state_learning_rate cd A a b =
+            inl k = a.span_outer
+            inl alpha = Math.pow (one - steady_state_learning_rate) k
+            inl epsilon = (one - alpha) * identity_coef
+            inl beta = one - alpha - epsilon
+            inl _ =
+                inl A = CudaAux.to_dev_tensor A
+                cd.CudaKernel.iter {dim=A.dim} <| inl a b -> 
+                    inl A = A a b
+                    inl identity = if a = b then epsilon else zero
+                    A .set (alpha * A .get + identity)
+
+            cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
+
     inl whiten {epsilon lr k} {d with input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         fwd_add_bias (primal z) (primal bias) s
@@ -814,7 +831,7 @@ inl float ->
             inl identity_coef = 2f32 ** -3f32
             inl steady_state_learning_rate = learning_rate ** 0.85f32
 
-            inl d_cov = cd.CudaTensor.zero {dim=1; elem_type=float32}
+            inl cost_cov = cd.CudaKernel.init {dim=1,1} (inl _ _ -> 1f32)
             inl W = cd.CudaTensor.zero {dim=size, 1; elem_type=float32}
             inl A = cd.CudaKernel.init {dim=size, size} (inl a b -> if a = b then one else zero) // The steady state matrix
             inl A_inv = 
@@ -832,24 +849,6 @@ inl float ->
 
             inl value s cd = cd.CudaBlas.gemm .nT .nT one s W .flatten
 
-            /// Updates the state state matrix such that A(t+1) = alpha * A(t) + beta / k * a^T * b + epsilon * I
-            /// Was changed from the paper to have positive eigenvalues in order to mirror the covariance matrix updates 
-            /// used in natural gradient methods.
-            met update_steady_state a b cd =
-                if use_steady_state then
-                    inl k = a.span_outer
-                    inl alpha = Math.pow (one - steady_state_learning_rate) k
-                    inl epsilon = (one - alpha) * identity_coef
-                    inl beta = one - alpha - epsilon
-                    inl _ =
-                        inl A = CudaAux.to_dev_tensor A
-                        cd.CudaKernel.iter {dim=A.dim} <| inl a b -> 
-                            inl A = A a b
-                            inl identity = if a = b then epsilon else zero
-                            A .set (alpha * A .get + identity)
-
-                    cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
-
             // W(n+1) = W + learning_rate * A_inv * basis_cur^T * cost
             met update_weights basis_cur cost cd =
                 inl _ =
@@ -858,7 +857,13 @@ inl float ->
                         if nan_is (cost i .get) then
                             macro.cd () [text: "bool cost_is_nan = false;"]
                             macro.cd () [text: "assert(cost_is_nan);"]
+
+                inl cost =
+                    inl cost_cov = CudaAux.to_dev_tensor cost_cov
+                    cd.CudaKernel.map (inl cost -> cost / cost_cov 0 0 .get) cost
+
                 inl cost = cost.reshape (inl a -> a,1)
+                
                 inl A_inv = A_inv basis_cur.span_outer
                 inb update = cd.CudaBlas.gemm .T .nT one basis_cur cost |> CudaAux.temporary
                 cd.CudaBlas.gemm' .nT .nT learning_rate A_inv update one W
@@ -881,7 +886,8 @@ inl float ->
                                 | _ -> cd.CudaKernel.map (inl r,v',v -> (r + discount_factor * v') - v) (reward, v', v)
                 
                             inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (state', state) |> CudaAux.temporary
-                            update_steady_state state basis_update cd
+                            if use_steady_state then update_steady_state identity_coef steady_state_learning_rate cd A state basis_update
+                            update_covariance (2f32 ** -10f32) steady_state_learning_rate cd cost_cov cost
                             update_weights state cost cd
                             cost
                         | {reward} ->
@@ -892,7 +898,8 @@ inl float ->
                                     cd.CudaKernel.map (inl v -> reward - v) v
                                 | _ -> cd.CudaKernel.map (inl r, v -> r - v) (reward, v)
 
-                            update_steady_state state state cd
+                            if use_steady_state then update_steady_state identity_coef steady_state_learning_rate cd A state state
+                            update_covariance (2f32 ** -10f32) steady_state_learning_rate cd cost_cov cost
                             update_weights state cost cd
                             cost
                     stack {state cost}
