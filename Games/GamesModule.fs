@@ -536,7 +536,7 @@ inl {basic_methods State Action} ->
 
         inl learning_rate = {
             actor=learning_rate
-            critic=learning_rate // ** 0.85f32
+            critic=learning_rate ** 0.75f32
             shared=learning_rate
             }
 
