@@ -230,7 +230,7 @@ Struct.iter (inl i ->
                 open Feedforward
                 prong {learning_rate steps_until_inverse_update activation=Activation.tanh; size=256}
             //player_pg {name="One"; actor learning_rate} s
-            player_mc_ac {name="One"; actor; learning_rate; block_critic_gradients=false} s
+            player_mc_ac {name="One"; shared=actor; learning_rate; block_critic_gradients=false} s
         inl b = player_rules {name="Two"}
 
         met f game (!dyn near_to) (!dyn near_to_inner) = 
@@ -256,7 +256,7 @@ Struct.iter (inl i ->
         //open Poker {max_stack_size num_players log=Console.printfn}
         //f game 10 1
         }
-    ) (-10)
+    ) (-9)
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker4
