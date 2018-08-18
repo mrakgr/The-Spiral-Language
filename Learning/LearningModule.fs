@@ -814,6 +814,7 @@ inl float ->
             inl identity_coef = 2f32 ** -3f32
             inl steady_state_learning_rate = learning_rate ** 0.85f32
 
+            inl d_cov = cd.CudaTensor.zero {dim=1; elem_type=float32}
             inl W = cd.CudaTensor.zero {dim=size, 1; elem_type=float32}
             inl A = cd.CudaKernel.init {dim=size, size} (inl a b -> if a = b then one else zero) // The steady state matrix
             inl A_inv = 
