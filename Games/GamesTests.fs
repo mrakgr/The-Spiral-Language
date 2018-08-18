@@ -230,7 +230,7 @@ Struct.iter (inl i ->
                 open Feedforward
                 prong {learning_rate steps_until_inverse_update activation=Activation.tanh; size=256}
             //player_pg {name="One"; actor learning_rate} s
-            player_mc_ac {name="One"; shared=actor; learning_rate; block_critic_gradients=false} s
+            player_mc_ac {name="One"; shared=actor; learning_rate; block_critic_gradients=true} s
         inl b = player_rules {name="Two"}
 
         met f game (!dyn near_to) (!dyn near_to_inner) = 
