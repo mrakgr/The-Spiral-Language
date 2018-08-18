@@ -900,8 +900,8 @@ inl float ->
         inl mc s input {reward} =
             match reward with
             | _: float32 ->
-                assert (input.span_outer = 1) "The outer dimension of input must be size 1."
-                inl cost = s.CudaKernel.map (inl input -> reward - input) input
+                assert ((primal input).span_outer = 1) "The outer dimension of input must be size 1."
+                inl cost = s.CudaKernel.map (inl input -> reward - input) (primal input)
                 on_non_nil (s.CudaKernel.map' (inl input out -> out - two * (reward - input)) (primal input)) (adjoint input)
                 {cost}
             | _ -> 

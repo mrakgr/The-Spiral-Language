@@ -534,12 +534,13 @@ inl {basic_methods State Action} ->
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
 
-        inl actor,critic' = 
-            inl learning_rate = learning_rate ** 0.85f32
+        inl prong =
+            inl learning_rate = learning_rate.actor ** 0.85f32
             inl steps_until_inverse_update = 128
-            inl prong = Feedforward.prong {learning_rate steps_until_inverse_update activation=Activation.linear; size=num_actions; initializer=Initializer.bias}
-            Tuple.append (Tuple.wrap actor) (prong :: ()), {prong with size=1}
-        inl critic = match d with {critic} -> critic :: critic' :: () | _ -> critic'
+            Feedforward.prong {learning_rate steps_until_inverse_update activation=Activation.linear; size=1; initializer=Initializer.bias}
+
+        inl actor = match d with {actor} -> Tuple.append (Tuple.wrap actor) ({prong with size=num_actions} :: ()) | _ -> {prong with size=num_actions}
+        inl critic = match d with {critic} -> critic :: prong :: () | _ -> prong
         inl shared = match d with {shared} -> shared | _ -> ()
 
         inl shared, shared_size = init cd input_size shared
@@ -568,7 +569,7 @@ inl {basic_methods State Action} ->
                     inl bck x = 
                         inl {cost} = RL.mc cd critic_out x
                         Struct.foldr (inl {bck} _ -> bck()) critic ()
-                        actor_bck {reward=cost}
+                        actor_bck {reward=cost.flatten}
                         Struct.foldr (inl {bck} _ -> bck()) actor ()
 
                     inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
@@ -583,7 +584,12 @@ inl {basic_methods State Action} ->
                 inl reward = dyn (to float32 reward)
                 List.foldl (inl _ -> function {bck} -> bck {reward} | _ -> ()) () l
 
-                Optimizer.standard learning_rate s.data.cd s.data.net
+                inl cd = s.data.cd
+                inl f learning_rate = Optimizer.standard learning_rate cd
+
+                f learning_rate.shared s.data.shared
+                f learning_rate.actor s.data.actor
+                if block_critic_gradients = false then f learning_rate.critic s.data.critic
             game_over=inl s -> ()
             }
 
@@ -678,6 +684,6 @@ inl {basic_methods State Action} ->
             .data_add {name; win=ref 0; shared actor critic run}
 
     {
-    player_random player_rules player_tabular_mc player_tabular_sarsa player_pg player_zap_ac
+    player_random player_rules player_tabular_mc player_tabular_sarsa player_pg player_mc_ac player_zap_ac
     } |> stackify
     """) |> module_
