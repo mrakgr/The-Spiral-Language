@@ -615,6 +615,12 @@ inl {basic_methods State Action} ->
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
 
+        inl learning_rate = {
+            actor=learning_rate
+            critic=learning_rate ** 0.85f32
+            shared=learning_rate
+            }
+
         inl actor = 
             inl learning_rate = learning_rate.actor ** 0.85f32
             inl steps_until_inverse_update = 128
