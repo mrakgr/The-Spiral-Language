@@ -896,8 +896,20 @@ inl float ->
                             cost
                     stack {state cost}
             heap zap_update
+
+        inl mc s input {reward} =
+            match reward with
+            | _: float32 ->
+                assert (input.span_outer = 1) "The outer dimension of input must be size 1."
+                inl cost = s.CudaKernel.map (inl input -> reward - input) input
+                on_non_nil (s.CudaKernel.map' (inl input out -> out - two * (reward - input)) (primal input)) (adjoint input)
+                {cost}
+            | _ -> 
+                inl {cost} = cd.CudaKernel.map (inl r, input -> r - input) (reward, primal input)
+                on_non_nil (s.CudaKernel.map' (inl r, input out -> out - two * (r - input)) (reward, primal input)) (adjoint input)
+                {cost}
         
-        {action sampling_pg zap}
+        {action sampling_pg zap mc}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward RL
