@@ -754,12 +754,12 @@ inl float ->
         }
 
     inl prong_template config {w with size} =
-        // 2 ** -3 is a sensible default for RL.
+        // 2 ** -3 is a sensible default.
         // There is a relation between the epsilon parameter and the learning rate.
-        // Up to 2 ** -2, every 2x increase in epsilon also allows a 2x increase in the learning rate
-        // which is good as it allow faster training even in the RL case. The networks can be trained with epsilons
-        // of 2 ** -10 and lower, but all that seems to do is make the network overfit which is bad even in the RL domain.
-        // On the poker game it lowers the winrate instead. High learning rates seem to be necessary for generalization.
+        // Tests on the poker game show that up to 2 ** -2, every 2x increase in epsilon also allows a 2x increase in the learning rate.
+        // The networks can be trained with epsilons of 2 ** -10 and lower, but all that seems to do is make the network overfit 
+        // and forces the learning rates to go low. Unlike on Mnist where overfitting lowers the test accuracy, on the poker game 
+        // it lowers the winrate instead. High learning rates seem to be necessary for generalization.
         inl default_epsilon = 2f32 ** -3f32 
         inl f front =
             match w with
@@ -805,16 +805,31 @@ inl float ->
         apply = inl {weights input} -> whiten config {steps_until_inverse_update learning_rate_modifier} weights input >>= activation
         optimize=inl {weights={input bias front back} learning_rate} s ->
             match config with
-            | {mode=.update} ->
-                inl covariance = CudaAux.to_dev_tensor back.covariance
-                s.CudaKernel.map' (inl x o -> o - learning_rate * x / covariance 0 0 .get) bias.adjoint bias.primal
-
-                inb input_adjoint = s.CudaKernel.map (inl x -> x / covariance 0 0 .get) input.adjoint |> CudaAux.temporary
+            | {mode=.update} -> // In update mode, the reprojection is done during the optimization pass.
                 if weights.k < 0 then
                     weights.k := steps_until_inverse_update
-                    s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
+                    inl {covariance precision} = front
+                    match config with
+                    | {front_mode=.zap} -> s.CudaSolve.lu_inverse {from=covariance; to=precision}
+                    | {front_mode=.prong} -> s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
+                    if back.covariance.length <> 1 then 
+                        inl {covariance precision} = back
+                        s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
+                    else
+                        () // Just divide by covariance directly.
+                
+                if covariance.length <> 1 then 
+                    inl {precision} = back
+                    s.CudaTensor.gemm' .nT .nT -learning_rate (bias.adjoint.reshape (inl x -> 1,x)) precision one bias.primal
+                else
+                    inl covariance = CudaAux.to_dev_tensor back.covariance
+                    s.CudaKernel.map' (inl x o -> o - learning_rate * x / covariance 0 0 .get) bias.adjoint bias.primal
 
+                inb input_adjoint = s.CudaKernel.map (inl x -> x / covariance 0 0 .get) input.adjoint |> CudaAux.temporary
                 s.CudaTensor.gemm' .nT .nT -learning_rate precision input_adjoint one input.primal
+
+                s.CudaTensor.clear input.adjoint
+                s.CudaTensor.clear bias.adjoint
             | {mode=.optimize} ->
                 Optimizer.sgd learning_rate s input
                 Optimizer.sgd learning_rate s bias
@@ -919,7 +934,6 @@ inl float ->
             inl default w = 
                 inl default =
                     {
-                    steps_until_inverse_update=128
                     initializer=Initializer.bias
                     activation=Activation.linear
                     back={epsilon=2f32 ** -10f32} // TODO: Do not forget this high epsilon experiment.
@@ -935,8 +949,20 @@ inl float ->
                 optimize
                 }
 
-            {pg mc}
+            // Both the MC and the TD layers do their reprojection steps on the optimization pass unlike
+            // the vanilla PRONG layers.
+            inl mc (!default w) =
+                inl x = prong_template {front_mode=.prong; mode=.update} {w with size=1}
+                {x with apply=inl x -> self x >>= mc}
 
+            // The TD layer uses the Zap update from the 'Fastest Convergence for Q-Learning' paper by Devray and Meyn 
+            // in place of the standard PRONG update. It works better than standard TD, but is still a net negative in an AC
+            // agent.
+            inl td (!default w) =
+                inl x = prong_template {front_mode=.zap; mode=.update} {w with size=1}
+                {x with apply=inl x -> self x >>= td}
+
+            {pg mc td}
 
         /// For online learning.
         inl action {State Action final} {net input} s =
