@@ -805,7 +805,13 @@ inl float ->
                 |> f .back back (init size)
             }
                 
-        apply = inl {weights input} -> whiten config {steps_until_inverse_update learning_rate_modifier} weights input >>= activation
+        apply = inl {weights input} s -> 
+            inl {out=a bck=bck_a} = whiten config {steps_until_inverse_update learning_rate_modifier} weights input s
+            inl {out=b bck=bck_b} = activation a s
+            {
+            out=b
+            bck=inl x -> bck_b(); bck_a x
+            }
         optimize=inl {weights={input bias front back} learning_rate} s ->
             match config with
             | {mode=.update} -> // In update mode, the reprojection is done during the optimization pass.
