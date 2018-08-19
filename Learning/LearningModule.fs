@@ -798,8 +798,8 @@ inl float ->
         {sigmoid relu tanh linear zero prong} |> stackify
 
     inl RL =
-        inl Error =
-            inl td s {discount_factor reward v' v} =
+        inl Cost = // The cost functions for RL act more like activations.
+            inl td v s {discount_factor reward v'} =
                 inl cost =
                     inl input =
                         match reward with
@@ -826,10 +826,10 @@ inl float ->
 
                 { cost bck = inl _ -> on_non_nil (s.CudaKernel.map' (inl cost out -> out - two * cost) cost) (adjoint v) }
 
-            inl mc s {discount_factor reward v} =
+            inl mc v s {discount_factor reward} =
                 match reward with
-                | _: float32 -> td s {discount_factor reward=discount_factor * reward; v'=(); v}
-                | _ -> td s {discount_factor reward=zero; v'=reward; v}
+                | _: float32 -> td v s {discount_factor reward=discount_factor * reward; v'=()}
+                | _ -> td s v {discount_factor reward=zero; v'=reward}
 
             {td mc}
 
@@ -870,7 +870,7 @@ inl float ->
                     {
                     initializer=Initializer.bias
                     activation=Activation.linear
-                    back={epsilon=2f32 ** -10f32} // TODO: Do not forget this delayed experiment.
+                    back={epsilon=2f32 ** -10f32} // TODO: Do not forget this experiment.
                     }
 
                 module_foldl (inl k w x -> match w with {$k} -> w | _ -> {w with $k=x}) w defaults
