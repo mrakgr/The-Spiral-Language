@@ -661,7 +661,7 @@ inl float ->
 
         cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
 
-    inl whiten {k_max learning_rate_modifier} weights x s =
+    inl whiten {steps_until_inverse_update learning_rate_modifier} weights x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal weights.input) |> dr s
         match weights with
         | {bias} -> fwd_add_bias (primal z) (primal bias) s
@@ -676,7 +676,7 @@ inl float ->
                     inl span = (primal x).span_outer
                     inl k = weights.k
                     inl x = k() - span
-                    if x <= 0 then k := k_max; true
+                    if x <= 0 then k := steps_until_inverse_update; true
                     else k := x; false
 
                 inb x_precise_primal = 
@@ -733,25 +733,16 @@ inl float ->
         inl front = f .front
         inl back = f .back
 
-        inl initializer =
-            match w with
-            | {initializer} -> initializer
-            | _ -> Initializer.tanh
+        inl {initializer steps_until_inverse_update learning_rate_modifier activation} =
+            inl default =
+                {
+                initializer=Initializer.tanh
+                steps_until_inverse_update=128
+                learning_rate_modifier=inl x -> x ** 0.85f32 // A sensible default for PRONG. Taken from the Zap paper.
+                activation=Activation.tanh
+                }
 
-        inl k_max = 
-            match w with
-            | {steps_until_inverse_update} -> steps_until_inverse_update
-            | _ -> 128
-
-        inl learning_rate_modifier
-            match w with
-            | {learning_rate_modifier} -> learning_rate_modifier
-            | _ -> inl x -> x ** 0.85f32 // A sensible default for PRONG. Taken from the Zap paper.
-
-        inl activation =
-            match w with
-            | {activation} -> activation
-            | _ -> Activation.tanh
+            module_foldl (inl k def x -> match w with {$k=x} -> {def with $k=x} | _ -> {w with $k=x}) {} defaults
 
         {
         init = inl sublayer_size -> {
@@ -774,7 +765,7 @@ inl float ->
                 f .back back d (init size)
             }
                 
-        apply = inl {weights input} -> whiten {k_max learning_rate_modifier} weights input >>= activation
+        apply = inl {weights input} -> whiten {steps_until_inverse_update learning_rate_modifier} weights input >>= activation
         optimize = inl {learning_rate weights} s ->
             Optimizer.sgd learning_rate s weights.input
             Optimizer.sgd learning_rate s weights.bias
