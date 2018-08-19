@@ -798,7 +798,7 @@ inl float ->
         {sigmoid relu tanh linear zero prong} |> stackify
 
     inl RL =
-        inl Cost = // The cost functions for RL act more like activations.
+        inl Value = // The value functions for RL act more like activations.
             inl td v s {discount_factor reward v'} =
                 inl cost =
                     inl input =
@@ -870,26 +870,24 @@ inl float ->
                     {
                     initializer=Initializer.bias
                     activation=Activation.linear
-                    back={epsilon=2f32 ** -10f32} // TODO: Do not forget this experiment.
+                    back={epsilon=2f32 ** -10f32} // TODO: Do not forget this high epsilon experiment.
                     }
 
                 module_foldl (inl k w x -> match w with {$k} -> w | _ -> {w with $k=x}) w defaults
 
-            inl pg !default w =
+            inl layer activation (!default w) =
                 inl {init apply optimize} = prong w
                 {
                 init=init >> inl x -> {x with size=1}
-                apply=inl {weights input} -> apply {weights input} >>= sampling_pg
+                apply=inl x -> apply x >>= activation
                 optimize
                 }
-            inl mc !default w =
-                inl {init apply optimize} = prong w
-                {
-                init=init >> inl x -> {x with size=1}
-                apply=inl {weights input} -> apply {weights input} >>= mc
-                optimize
-                }
-            {pg}
+
+            inl pg = layer sampling_pg
+            inl mc w = layer Value.mc {w with size=1}
+            inl td w = layer Value.td {w with size=1}
+
+            {pg mc td}
 
 
         /// For online learning.
