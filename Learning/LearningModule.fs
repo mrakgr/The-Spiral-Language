@@ -668,51 +668,65 @@ inl float ->
         | _ -> ()
         {
         out=z
-        bck=inl _ -> join
-            inl is_update = 
-                inl span = (primal x).span_outer
-                inl k = weights.k
-                inl x = k() - span
-                if x <= 0 then k := k_max; true
-                else k := x; false
+        bck=inl x -> join
+            match x with
+            | {learning_rate} ->
+                inl is_update = 
+                    inl span = (primal x).span_outer
+                    inl k = weights.k
+                    inl x = k() - span
+                    if x <= 0 then k := k_max; true
+                    else k := x; false
 
-            inb x_precise_primal = 
+                inb x_precise_primal = 
+                    match weights with
+                    | {front={covariance precision epsilon}} ret -> 
+                        inl x = primal x
+                        update_covariance {identity_coef=epsilon; learning_rate} s covariance x
+                        if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
+
+                        inb x_precise_primal = s.CudaBlas.symm .Right .Lower one precision x |> CudaAux.temporary
+                        ret x_precise_primal
+                    | {front} -> error_type "front is improperly formed."
+                    | _ ret -> ret <| primal x
+
+                inb z_precise_adjoint = 
+                    match weights with
+                    | {back={covariance precision epsilon}} ret ->
+                        inl z = adjoint z
+                        update_covariance {identity_coef=epsilon; learning_rate} s covariance z
+                        if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
+
+                        inb z_precise_adjoint = s.CudaBlas.symm .Right .Lower one precision z |> CudaAux.temporary
+                        ret z_precise_adjoint
+                    | {back} -> error_type "back is improperly formed."
+                    | _ ret -> ret <| adjoint z
+
+                s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint weights.input)
+                on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal weights.input) one) (adjoint x)
                 match weights with
-                | {front={covariance precision learning_rate epsilon}} ret -> 
-                    inl x = primal x
-                    update_covariance {identity_coef=epsilon; learning_rate} s covariance x
-                    if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
-
-                    inb x_precise_primal = s.CudaBlas.symm .Right .Lower one precision x |> CudaAux.temporary
-                    ret x_precise_primal
-                | {front} -> error_type "front is improperly formed."
-                | _ ret -> ret <| primal x
-
-            inb z_precise_adjoint = 
+                | {bias} -> bck_add_bias z_precise_adjoint (adjoint bias) s 
+                | _ -> ()
+            | _ ->
+                s.CudaBlas.gemm' .T .nT one (primal x) (adjoint z) one (adjoint weights.input)
+                on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal weights.input) one) (adjoint x)
                 match weights with
-                | {back={covariance precision learning_rate epsilon}} ret ->
-                    inl z = adjoint z
-                    update_covariance {identity_coef=epsilon; learning_rate} s covariance z
-                    if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
-
-                    inb z_precise_adjoint = s.CudaBlas.symm .Right .Lower one precision z |> CudaAux.temporary
-                    ret z_precise_adjoint
-                | {back} -> error_type "back is improperly formed."
-                | _ ret -> ret <| adjoint z
-
-            s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint weights.input)
-            on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal weights.input) one) (adjoint x)
-            match weights with
-            | {bias} -> bck_add_bias z_precise_adjoint (adjoint bias) s 
-            | _ -> ()
+                | {bias} -> bck_add_bias z_precise_adjoint (adjoint bias) s 
+                | _ -> ()
         }
 
     inl prong {w with activation size} =
-        inl default_epsilon = 2f32 ** -3f32
+        // 2 ** -3 is a sensible default for RL.
+        // There is a relation between the epsilon parameter and the learning rate.
+        // Up to 2 ** -2, every 2x increase in epsilon also allows a 2x increase in the learning rate
+        // which is good as it allow faster training even in the RL case. The networks can be trained with epsilons
+        // of 2 ** -10 and lower, but all that seems to do is make the network overfit which is bad even in the RL domain.
+        // On the poker game it lowers the winrate instead. High learning rates seem to be necessary for generalization.
+        inl default_epsilon = 2f32 ** -3f32 
         inl f front =
             match w with
-            | {$front={x with learning_rate epsilon}} -> x
-            | {$front={x with learning_rate}} -> {learning_rate epsilon=default_epsilon}
+            | {$front={x with epsilon}} -> x
+            | {$front=()} -> {epsilon=default_epsilon}
             | _ -> ()
 
         inl front = f .front
