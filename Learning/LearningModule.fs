@@ -887,7 +887,7 @@ inl float ->
             inl mc w = layer Value.mc {w with size=1}
             inl td w = layer Value.td {w with size=1}
 
-            {pg mc td}
+            {pg mc td ac_td}
 
 
         /// For online learning.
