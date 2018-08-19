@@ -746,11 +746,14 @@ inl float ->
                 | {bias} -> bck_add_bias z_precise_adjoint (adjoint bias) s 
                 | _ -> ()
             | _ ->
-                s.CudaBlas.gemm' .T .nT one (primal x) (adjoint z) one (adjoint weights.input)
-                on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal weights.input) one) (adjoint x)
-                match weights with
-                | {bias} -> bck_add_bias (adjoint z) (adjoint bias) s 
-                | _ -> ()
+                match config with
+                | {allow_no_learning_rate=true} -> ()
+                    s.CudaBlas.gemm' .T .nT one (primal x) (adjoint z) one (adjoint weights.input)
+                    on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal weights.input) one) (adjoint x)
+                    match weights with
+                    | {bias} -> bck_add_bias (adjoint z) (adjoint bias) s 
+                    | _ -> ()
+                | _ -> error_type "Since it would be too easy to forget to pass in the learning rate this check was added as an precaution."
         }
 
     inl prong_template config {w with size} =
