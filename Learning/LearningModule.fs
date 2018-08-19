@@ -753,7 +753,7 @@ inl float ->
                 | _ -> ()
         }
 
-    inl prong {w with size} =
+    inl prong_template config {w with size} =
         // 2 ** -3 is a sensible default for RL.
         // There is a relation between the epsilon parameter and the learning rate.
         // Up to 2 ** -2, every 2x increase in epsilon also allows a 2x increase in the learning rate
@@ -802,10 +802,26 @@ inl float ->
                 |> f .back back (init size)
             }
                 
-        apply = inl {weights input} -> whiten {steps_until_inverse_update learning_rate_modifier} weights input >>= activation
-        optimize
+        apply = inl {weights input} -> whiten config {steps_until_inverse_update learning_rate_modifier} weights input >>= activation
+        optimize=inl {weights={input bias front back} learning_rate} s ->
+            match config with
+            | {mode=.update} ->
+                inl covariance = CudaAux.to_dev_tensor back.covariance
+                s.CudaKernel.map' (inl x o -> o - learning_rate * x / covariance 0 0 .get) bias.adjoint bias.primal
+
+                inb input_adjoint = s.CudaKernel.map (inl x -> x / covariance 0 0 .get) input.adjoint |> CudaAux.temporary
+                if weights.k < 0 then
+                    weights.k := steps_until_inverse_update
+                    s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
+
+                s.CudaTensor.gemm' .nT .nT -learning_rate precision input_adjoint one input.primal
+            | {mode=.optimize} ->
+                Optimizer.sgd learning_rate s input
+                Optimizer.sgd learning_rate s bias
         block=()
         }
+
+    inl prong = prong_template {front_mode=.prong; mode=.optimize}
 
     // #Feedforward
     inl layer initializer activation size =
