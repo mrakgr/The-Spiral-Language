@@ -756,33 +756,6 @@ inl float ->
         block=()
         }
 
-    inl td s {discount_factor reward v' v} =
-        inl cost =
-            inl input =
-                match reward with
-                | _: float32 -> assert ((primal v).span_total = 1) "The size of v must be 1."; {v=primal v}
-                | _ -> {reward v=primal v}
-
-            inl {cost input} =
-                match v' with
-                | () -> {
-                    cost = inl {reward v} -> reward - v
-                    input
-                    }
-                | _ -> {
-                    cost = inl {reward v' v} -> (reward + discount_factor * v') - v
-                    input = {input with v'}
-                    }
-
-            inl cost = 
-                match reward with
-                | _: float32 -> inl x -> cost {x with reward}
-                | _ -> cost
-
-            cd.CudaKernel.map cost input
-
-        { cost bck = inl _ -> on_non_nil (s.CudaKernel.map' (inl cost out -> out - two * cost) cost) (adjoint v) }
-
     inl mc s {discount_factor reward v} =
         match reward with
         | _: float32 -> td s {discount_factor reward=discount_factor * reward; v'=(); v}
@@ -814,6 +787,33 @@ inl float ->
         {sigmoid relu tanh linear zero prong} |> stackify
 
     inl RL =
+        inl td s {discount_factor reward v' v} =
+            inl cost =
+                inl input =
+                    match reward with
+                    | _: float32 -> assert ((primal v).length = 1) "The length of v must be 1."; {v=primal v}
+                    | _ -> {reward v=primal v}
+
+                inl {cost input} =
+                    match v' with
+                    | () -> {
+                        cost = inl {reward v} -> reward - v
+                        input
+                        }
+                    | _ -> {
+                        cost = inl {reward v' v} -> (reward + discount_factor * v') - v
+                        input = {input with v'}
+                        }
+
+                inl cost = 
+                    match reward with
+                    | _: float32 -> inl x -> cost {x with reward}
+                    | _ -> cost
+
+                cd.CudaKernel.map cost input
+
+            { cost bck = inl _ -> on_non_nil (s.CudaKernel.map' (inl cost out -> out - two * cost) cost) (adjoint v) }
+
         inl sampling_pg x s =
             inl dim_a, dim_b = primal x .dim
             inl p = softmax one (primal x) s
