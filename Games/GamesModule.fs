@@ -491,7 +491,7 @@ inl {basic_methods State Action} ->
     inl Learning = Learning float32
     inl player_pg {name actor learning_rate} cd =
         open Learning
-        inl action = RL.action {State Action}
+        inl action = RL.action {State Action final=RL.sampling_pg}
 
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
@@ -502,7 +502,7 @@ inl {basic_methods State Action} ->
             Union.mutable_function 
                 (inl {state={state with net} input={input cd}} ->
                     inl {action net bck} = action {net input} cd
-                    inl bck = Struct.foldr (inl {bck} x -> bck {x with learning_rate}; {}) net
+                    inl bck x = bck {x with learning_rate}; Struct.foldr (inl {bck} x -> bck {learning_rate}) net
                     {state={net bck}; out=action}
                     )
                 {state={net}; input={input=State; cd}}
@@ -557,19 +557,17 @@ inl {basic_methods State Action} ->
                         cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
                     inl shared, shared_out = run cd input shared
                     inl actor, actor_out = run cd shared_out actor
+                    inl {out bck=actor_bck} = RL.sampling_pg actor_out cd
                     inl critic, critic_out = 
                         if block_critic_gradients then run cd (primal shared_out) critic
                         else run cd shared_out critic
                     
                     inl bck x = 
-                        inl reverse = Struct.foldl (inl s x -> x :: s) ()
-                        inl {bck=actor_bck} :: actor = reverse actor
-                        inl {bck=critic_bck} :: critic = reverse critic
-                        inl {value} = critic_bck {x learning_rate=learning_rate.critic}
-                        actor_bck {reward=value; learning_rate=learning_rate.actor}
-                        Struct.foldl (inl {bck} _ -> bck {learning_rate=learning_rate.critic}) () critic
-                        Struct.foldl (inl {bck} _ -> bck {learning_rate=learning_rate.actor}) () actor
-                        Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.shared}) shared ()
+                        inl {value} = RL.mc critic_out cd x
+                        actor_bck {reward=value}
+                        Struct.foldr (inl {bck} _ -> bck {learing_rate=learing_rate.critic}) critic ()
+                        Struct.foldr (inl {bck} _ -> bck {learing_rate=learing_rate.actor}) actor ()
+                        Struct.foldr (inl {bck} _ -> bck {learing_rate=learing_rate.shared}) shared ()
                         
                     inl action = Union.from_one_hot Action (cd.CudaTensor.get (actor_out 0 0))
                     {state={actor critic shared bck}; out=action}

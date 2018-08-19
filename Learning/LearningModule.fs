@@ -950,18 +950,16 @@ inl float ->
 
                 module_foldl (inl k w x -> match w with {$k=_} -> w | _ -> {w with $k=x}) w defaults
 
-            inl pg (!default w) =
-                inl x = prong w
-                {x with init={self with size=1}}
+            inl pg = default >> prong
 
             // Both the MC and the TD layers do their reprojection steps on the optimization pass unlike
             // the vanilla PRONG layers.
-            inl mc (!default w) = prong_template {front_mode=.prong; mode=.update} {w with size=1}
+            inl mc (!default {w with !size}) = prong_template {front_mode=.prong; mode=.update} {w with size=1}
 
             // The TD layer uses the Zap update from the 'Fastest Convergence for Q-Learning' paper by Devray and Meyn 
             // in place of the standard PRONG update. It works better than standard TD, but is still a net negative in an AC
             // agent.
-            inl td (!default w) = prong_template {front_mode=.zap; mode=.update} {w with size=1}
+            inl td (!default {w with !size}) = prong_template {front_mode=.zap; mode=.update} {w with size=1}
 
             {pg mc td}
 
@@ -973,7 +971,9 @@ inl float ->
                     inl tns = Union.to_dense input |> HostTensor.array_as_tensor
                     s.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
 
-                inl net, action = run s input net
+                inl net, input = run s input net
+                inl {out bck} = final input s
+
                 inl action = Union.from_one_hot Action (s.CudaTensor.get (out 0))
                 stack {action net bck}
        
