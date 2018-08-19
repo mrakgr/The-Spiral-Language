@@ -661,7 +661,7 @@ inl float ->
 
         cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
 
-    inl whiten_template config {steps_until_inverse_update learning_rate_modifier} weights x s =
+    inl whiten {steps_until_inverse_update learning_rate_modifier} weights x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal weights.input) |> dr s
         match weights with
         | {bias} -> fwd_add_bias (primal z) (primal bias) s
@@ -683,28 +683,11 @@ inl float ->
                     match weights with
                     | {front={covariance precision epsilon}} ret -> 
                         inl x = primal x
-                        match config with
-                        | {front_mode=.prong} ->
-                            update_covariance {identity_coef=epsilon; learning_rate} s covariance x
-                            if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
+                        update_covariance {identity_coef=epsilon; learning_rate} s covariance x
+                        if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
 
-                            inb x_precise_primal = s.CudaBlas.symm .Right .Lower one precision x |> CudaAux.temporary
-                            ret x_precise_primal
-                        | {front_mode=.zap} ->
-                            // Zap is quite similar to PRONG's front pass.
-                            inl steady_state = covariance
-                            inl steady_state_inverse = precision
-
-                            match d with
-                            | {state=state' discount_factor} ->
-                                inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (state', x) |> CudaAux.temporary
-                                update_steady_state {identity_coef=epsilon; learning_rate} s steady_state x basis_update
-                            | {state} -> error_type "Do not forget the discount factor."
-                            | _ -> update_steady_state {identity_coef=epsilon; learning_rate} s steady_state x x
-
-                            if is_update then s.CudaSolve.lu_inverse {from=steady_state; to=steady_state_inverse}
-                            inb x_precise_primal = s.CudaBlas.gemm .nT .nT one steady_state_inverse x |> CudaAux.temporary
-                            ret x_precise_primal
+                        inb x_precise_primal = s.CudaBlas.symm .Right .Lower one precision x |> CudaAux.temporary
+                        ret x_precise_primal
                     | {front} -> error_type "front is improperly formed."
                     | _ ret -> ret <| primal x
 
@@ -713,15 +696,10 @@ inl float ->
                     | {back={covariance precision epsilon}} ret ->
                         inl z = adjoint z
                         update_covariance {identity_coef=epsilon; learning_rate} s covariance z
-                        if covariance.length = 1 then
-                            inl covariance = CudaAux.to_dev_tensor covariance
-                            inb z_precise_adjoint = s.CudaKernel.map (inl z -> z / covariance 0 0 .get) z |> CudaAux.temporary
-                            ret z_precise_adjoint
-                        else
-                            if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
+                        if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
 
-                            inb z_precise_adjoint = s.CudaBlas.symm .Right .Lower one precision z |> CudaAux.temporary
-                            ret z_precise_adjoint
+                        inb z_precise_adjoint = s.CudaBlas.symm .Right .Lower one precision z |> CudaAux.temporary
+                        ret z_precise_adjoint
                     | {back} -> error_type "back is improperly formed."
                     | _ ret -> ret <| adjoint z
 
@@ -738,9 +716,50 @@ inl float ->
                 | _ -> ()
         }
 
-    inl whiten = whiten_template {front_mode=.prong}
+    inl whiten_update_only config {steps_until_inverse_update learning_rate_modifier} weights x s =
+        inl {out=z bck} = 
+            inl bias = match weights with {bias} -> bias | _ -> ()
+            matmultb (x,weights.input) bias
+        {
+        out=z
+        bck=inl d -> join
+            bck d
+            match d with
+            | {learning_rate} ->
+                inl learning_rate = learning_rate_modifier learning_rate
+                inl _ = 
+                    inl span = (primal x).span_outer
+                    inl k = weights.k
+                    k := k() - span
 
-    inl prong_template whiten {w with size} =
+                match weights with
+                | {front={covariance precision epsilon}} -> 
+                    inl x = primal x
+                    match config with
+                    | {front_mode=.prong} ->
+                        update_covariance {identity_coef=epsilon; learning_rate} s covariance x
+                    | {front_mode=.zap} ->
+                        // Zap is quite similar to PRONG's front pass.
+                        inl steady_state = covariance
+                        inl steady_state_inverse = precision
+
+                        match d with
+                        | {state=state' discount_factor} ->
+                            inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (state', x) |> CudaAux.temporary
+                            update_steady_state {identity_coef=epsilon; learning_rate} s steady_state x basis_update
+                        | {state} -> error_type "Do not forget the discount factor."
+                        | _ -> update_steady_state {identity_coef=epsilon; learning_rate} s steady_state x x
+                | {front} -> error_type "front is improperly formed."
+                | _ -> ()
+
+                match weights with
+                | {back={covariance precision epsilon}} -> update_covariance {identity_coef=epsilon; learning_rate} s covariance (adjoint z)
+                | {back} -> error_type "back is improperly formed."
+                | _ -> ()
+            | _ -> ()
+        }
+
+    inl prong_template {optimize whiten} {w with size} =
         // 2 ** -3 is a sensible default for RL.
         // There is a relation between the epsilon parameter and the learning rate.
         // Up to 2 ** -2, every 2x increase in epsilon also allows a 2x increase in the learning rate
@@ -790,13 +809,15 @@ inl float ->
             }
                 
         apply = inl {weights input} -> whiten {steps_until_inverse_update learning_rate_modifier} weights input >>= activation
-        optimize = inl {learning_rate weights} s ->
-            Optimizer.sgd learning_rate s weights.input
-            Optimizer.sgd learning_rate s weights.bias
+        optimize
         block=()
         }
 
-    inl prong = prong_template whiten
+    inl prong = prong_template {whiten
+        optimize = inl {learning_rate weights} s ->
+            Optimizer.sgd learning_rate s weights.input
+            Optimizer.sgd learning_rate s weights.bias
+        }
 
     // #Feedforward
     inl layer initializer activation size =
@@ -894,6 +915,7 @@ inl float ->
             inl default w = 
                 inl default =
                     {
+                    steps_until_inverse_update=128
                     initializer=Initializer.bias
                     activation=Activation.linear
                     back={epsilon=2f32 ** -10f32} // TODO: Do not forget this high epsilon experiment.
@@ -910,25 +932,25 @@ inl float ->
                 }
 
             inl mc (!default w) =
-                inl {init apply optimize} = prong {w with size=1}
-                {
-                init optimize
-                apply=inl x -> apply x >>= mc
-                }
-            inl td (!default w) =
-                inl {init apply optimize} = prong {w with front=(); size=1}
-                {
-                init optimize
-                apply=inl x s -> 
-                    inl bck = (apply x >>= td) s
-                    {
-                    out=inl d ->
-                        inl x = bck d
-                        () // TODO: Work in progress.
-                    }
-                }
+                inl {init apply optimize} = 
+                    prong_template 
+                        {
+                        whiten=whiten_update_only {front_mode=.prong}
+                        optimize=inl {weights={input bias front back} learning_rate} s ->
+                            inl covariance = CudaAux.to_dev_tensor back.covariance
+                            s.CudaKernel.map' (inl x o -> o - learning_rate * x / covariance 0 0 .get) bias.adjoint bias.primal
 
-            {pg mc td}
+                            inb input_adjoint = s.CudaKernel.map (inl x -> x / covariance 0 0 .get) input.adjoint |> CudaAux.temporary
+                            if weights.k < 0 then
+                                weights.k := w.steps_until_inverse_update
+                                s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
+
+                            s.CudaTensor.gemm' .nT .nT -learning_rate precision input_adjoint one input.primal
+                        }
+                        {w with size=1}
+                { init optimize apply=inl x -> apply x >>= mc }
+
+            {pg mc}
 
 
         /// For online learning.
