@@ -414,7 +414,7 @@ inl float ->
     inl standard learning_rate s = 
         Struct.iter (function 
             | {optimize weights} -> optimize {learning_rate weights} s
-            | {weights} -> Struct.iter (Optimizer.sgd learning_rate s) weights
+            | {weights} -> Struct.iter (sgd learning_rate s) weights
             )
 
     inl Optimizer = {sgd clipped_sgd standard}
@@ -768,7 +768,7 @@ inl float ->
             match w with
             | {$front={x with epsilon}} -> x
             | {$front=()} -> ()
-            | _ -> {$front={epsilon=default_epsilon}}
+            | _ -> {epsilon=default_epsilon}
 
         inl front = f .front
         inl back = f .back
@@ -951,25 +951,17 @@ inl float ->
                 module_foldl (inl k w x -> match w with {$k=_} -> w | _ -> {w with $k=x}) w defaults
 
             inl pg (!default w) =
-                inl {init apply optimize} = prong w
-                {
-                init=init >> inl x -> {x with size=1}
-                apply=inl x -> apply x >>= sampling_pg
-                optimize
-                }
+                inl x = prong w
+                {x with init={self with size=1}}
 
             // Both the MC and the TD layers do their reprojection steps on the optimization pass unlike
             // the vanilla PRONG layers.
-            inl mc (!default w) =
-                inl x = prong_template {front_mode=.prong; mode=.update} {w with size=1}
-                {x with apply=inl x -> self x >>= mc}
+            inl mc (!default w) = prong_template {front_mode=.prong; mode=.update} {w with size=1}
 
             // The TD layer uses the Zap update from the 'Fastest Convergence for Q-Learning' paper by Devray and Meyn 
             // in place of the standard PRONG update. It works better than standard TD, but is still a net negative in an AC
             // agent.
-            inl td (!default w) =
-                inl x = prong_template {front_mode=.zap; mode=.update} {w with size=1}
-                {x with apply=inl x -> self x >>= td}
+            inl td (!default w) = prong_template {front_mode=.zap; mode=.update} {w with size=1}
 
             {pg mc td}
 
