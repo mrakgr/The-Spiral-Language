@@ -630,9 +630,9 @@ inl float ->
     inl Initializer x dim = {$x=dim; block=()}
 
     /// Updates the covariance such that cov(t+1) = alpha * cov t + beta / k * x^T * x + epsilon * I
-    met update_covariance {identity_coef lr} s cov x =
+    met update_covariance {identity_coef learning_rate} s cov x =
         inl k = x.span_outer
-        inl alpha = Math.pow (one - lr) k
+        inl alpha = Math.pow (one - learning_rate) k
         inl epsilon = (one - alpha) * identity_coef
         inl beta = one - alpha - epsilon
         inl _ =
@@ -647,9 +647,9 @@ inl float ->
     /// Updates the state state matrix such that A(t+1) = alpha * A(t) + beta / k * a^T * b + epsilon * I
     /// Was changed from the Zap paper to have positive eigenvalues in order to mirror the covariance matrix updates 
     /// used in natural gradient methods.
-    met update_steady_state {identity_coef lr} cd A a b =
+    met update_steady_state {identity_coef learning_rate} cd A a b =
         inl k = a.span_outer
-        inl alpha = Math.pow (one - lr) k
+        inl alpha = Math.pow (one - learning_rate) k
         inl epsilon = (one - alpha) * identity_coef
         inl beta = one - alpha - epsilon
         inl _ =
@@ -678,9 +678,9 @@ inl float ->
 
             inb x_precise_primal = 
                 match weights with
-                | {front={covariance precision lr epsilon}} ret -> 
+                | {front={covariance precision learning_rate epsilon}} ret -> 
                     inl x = primal x
-                    update_covariance {identity_coef=epsilon; lr} s covariance x
+                    update_covariance {identity_coef=epsilon; learning_rate} s covariance x
                     if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
 
                     inb x_precise_primal = s.CudaBlas.symm .Right .Lower one precision x |> CudaAux.temporary
@@ -690,9 +690,9 @@ inl float ->
 
             inb z_precise_adjoint = 
                 match weights with
-                | {back={covariance precision lr epsilon}} ret ->
+                | {back={covariance precision learning_rate epsilon}} ret ->
                     inl z = adjoint z
-                    update_covariance {identity_coef=epsilon; lr} s covariance z
+                    update_covariance {identity_coef=epsilon; learning_rate} s covariance z
                     if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
 
                     inb z_precise_adjoint = s.CudaBlas.symm .Right .Lower one precision z |> CudaAux.temporary
@@ -708,22 +708,15 @@ inl float ->
         }
 
     inl prong {w with activation size} =
-        inl lr = 
+        inl default_epsilon = 2f32 ** -3f32
+        inl f front =
             match w with
-            | {w.learning_rate with front | back} -> learning_rate
-            | {learning_rate} -> {front=learning_rate; back=learning_rate}
+            | {$front={x with learning_rate epsilon}} -> x
+            | {$front={x with learning_rate}} -> {learning_rate epsilon=default_epsilon}
             | _ -> ()
 
-        inl epsilon = 
-            inl i = -3
-            inl default = 2f32 ** to float32 i
-            match w with
-            | {epsilon} -> 
-                match epsilon with
-                | {front back} -> epsilon
-                | {front} -> {front back=default}
-                | {back} -> {back front=default}
-            | _ -> {front=default; back=default}
+        inl front = f .front
+        inl back = f .back
 
         inl initializer =
             match w with
@@ -745,14 +738,15 @@ inl float ->
                     bias = Initializer.bias size
                     k = Initializer.reference k_max
                     }
-                inl f x = Initializer.identity (x,x)
-                inl d =
-                    match lr with
-                    | {front} -> {d with front={covariance=f sublayer_size; precision=f sublayer_size; lr=front; epsilon=epsilon.front}}
-                    | _ -> d
-                match lr with
-                | {back} -> {d with back={covariance=f size; precision=f size; lr=back; epsilon=epsilon.back}}
-                | _ -> d
+                
+                inl init x = Initializer.identity (x,x)
+                inl f name front d init =
+                    match front with
+                    | () -> d
+                    | front -> {d with $name={front with covariance=init; precision=init}}
+
+                inl d = f .front front d (init sublayer_size)
+                f .back back d (init size)
             }
                 
         apply = inl {weights input} -> whiten {k_max} weights input >>= activation
