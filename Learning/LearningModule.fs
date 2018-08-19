@@ -747,7 +747,7 @@ inl float ->
                 | _ -> ()
             | _ ->
                 match config with
-                | {allow_no_learning_rate=true} -> ()
+                | {allow_no_learning_rate=true} ->
                     s.CudaBlas.gemm' .T .nT one (primal x) (adjoint z) one (adjoint weights.input)
                     on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal weights.input) one) (adjoint x)
                     match weights with
