@@ -866,31 +866,31 @@ inl float ->
     inl RL =
         inl Value = // The value functions for RL act more like activations.
             inl td v s {discount_factor reward v'} =
-                inl cost =
+                inl value =
                     inl input =
                         match reward with
                         | _: float32 -> assert ((primal v).length = 1) "The length of v must be 1."; {v=primal v}
                         | _ -> {reward v=primal v}
 
-                    inl {cost input} =
+                    inl {value input} =
                         match v' with
                         | () -> {
-                            cost = inl {reward v} -> reward - v
+                            value = inl {reward v} -> reward - v
                             input
                             }
                         | _ -> {
-                            cost = inl {reward v' v} -> (reward + discount_factor * v') - v
+                            value = inl {reward v' v} -> (reward + discount_factor * v') - v
                             input = {input with v'}
                             }
 
-                    inl cost = 
+                    inl value = 
                         match reward with
-                        | _: float32 -> inl x -> cost {x with reward}
-                        | _ -> cost
+                        | _: float32 -> inl x -> value {x with reward}
+                        | _ -> value
 
-                    cd.CudaKernel.map cost input
+                    cd.CudaKernel.map value input
 
-                { cost bck = inl _ -> on_non_nil (s.CudaKernel.map' (inl cost out -> out - two * cost) cost) (adjoint v) }
+                { value bck = inl _ -> on_non_nil (s.CudaKernel.map' (inl value out -> out - two * value) value) (adjoint v) }
 
             inl mc v s {discount_factor reward} =
                 match reward with
@@ -972,9 +972,7 @@ inl float ->
                     inl tns = Union.to_dense input |> HostTensor.array_as_tensor
                     s.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
 
-                inl net, input = run s input net
-                inl {out bck} = final input s
-
+                inl net, action = run s input net
                 inl action = Union.from_one_hot Action (s.CudaTensor.get (out 0))
                 stack {action net bck}
        

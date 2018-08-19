@@ -491,23 +491,18 @@ inl {basic_methods State Action} ->
     inl Learning = Learning float32
     inl player_pg {name actor learning_rate} cd =
         open Learning
-        inl action = RL.action {State Action final=RL.sampling_pg}
+        inl action = RL.action {State Action}
 
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
 
-        inl net,_ = 
-            inl learning_rate = learning_rate ** 0.85f32
-            inl steps_until_inverse_update = 128
-            inl prong = Feedforward.prong {learning_rate steps_until_inverse_update activation=Activation.linear; size=num_actions; initializer=Initializer.bias}
-            Tuple.append (Tuple.wrap actor) (prong :: ())
-            |> init cd input_size
+        inl net,_ = Tuple.append (Tuple.wrap actor) (RL.Layer.pg {size=num_actions} :: ()) |> init cd input_size
 
         inl run = 
             Union.mutable_function 
                 (inl {state={state with net} input={input cd}} ->
                     inl {action net bck} = action {net input} cd
-                    inl bck x = bck x; Struct.foldr (inl {bck} _ -> bck()) net ()
+                    inl bck x = Struct.foldr (inl {bck} _ -> bck {x with learning_rate}) net ()
                     {state={net bck}; out=action}
                     )
                 {state={net}; input={input=State; cd}}
@@ -540,13 +535,8 @@ inl {basic_methods State Action} ->
             shared=learning_rate
             }
 
-        inl prong learning_rate size =
-            inl learning_rate = learning_rate ** 0.85f32
-            inl steps_until_inverse_update = 128
-            Feedforward.prong {learning_rate steps_until_inverse_update activation=Activation.linear; size initializer=Initializer.bias}
-
-        inl actor = match d with {actor} -> Tuple.append (Tuple.wrap actor) (prong learning_rate.actor num_actions :: ()) | _ -> prong learning_rate.actor num_actions
-        inl critic = match d with {critic} -> critic :: prong learning_rate.critic 1 :: () | _ -> prong learning_rate.critic 1
+        inl actor = match d with {actor} -> Tuple.append (Tuple.wrap actor) (RL.Layer.pg {size=num_actions}  :: ()) | _ -> RL.Layer.pg {size=num_actions}
+        inl critic = match d with {critic} -> critic :: RL.Layer.mc {} :: () | _ -> RL.Layer.mc {}
         inl shared = match d with {shared} -> shared | _ -> ()
 
         inl shared, shared_size = init cd input_size shared
@@ -567,16 +557,21 @@ inl {basic_methods State Action} ->
                         cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
                     inl shared, shared_out = run cd input shared
                     inl actor, actor_out = run cd shared_out actor
-                    inl {out bck=actor_bck} = RL.sampling_pg actor_out cd
                     inl critic, critic_out = 
                         if block_critic_gradients then run cd (primal shared_out) critic
                         else run cd shared_out critic
                     
                     inl bck x = 
-                        inl {cost} = RL.mc cd critic_out x
-                        Struct.foldr (inl {bck} _ -> bck()) critic ()
-                        actor_bck {reward=cost.flatten}
-                        Struct.foldr (inl {bck} _ -> bck()) actor ()
+                        inl reverse = Struct.foldl (inl s x -> x :: s) ()
+                        inl {bck=actor_bck} :: actor = reverse actor
+                        inl {bck=critic_bck} :: critic = reverse critic
+                        inl {value} = critic_bck x
+                        Struct.foldl (inl {bck} _ -> bck {learning_rate=learning_rate.critic}) () critic
+                        actor_bck {reward=value}
+                        Struct.foldl (inl {bck} _ -> bck {learning_rate=learning_rate.actor}) () actor
+                        Struct.foldl (inl {bck} _ -> bck {learning_rate=learning_rate.actor}) actor ()
+                        // ...
+
 
                     inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
                     {state={actor critic shared bck}; out=action}
