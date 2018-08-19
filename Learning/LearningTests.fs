@@ -37,11 +37,9 @@ inl network,_ =
     //inl network =
     //    tanh 256,
     //    linear label_size
-    inl learning_rate = Math.pow 10f32 -3
-    inl steps_until_inverse_update=128
     inl network =
-        prong {learning_rate steps_until_inverse_update activation=Activation.tanh; size=256},
-        prong {learning_rate steps_until_inverse_update activation=Activation.linear; size=label_size}
+        prong {activation=Activation.tanh; size=256},
+        prong {activation=Activation.linear; size=label_size}
 
     init s input_size network
 
@@ -55,7 +53,7 @@ inl train {data={input label} network learning_rate final} s =
             inl network, input = run s input network
             inl {out bck} = final label input s
 
-            bck(); Struct.foldr (inl {bck} _ -> bck()) network ()
+            bck {learning_rate}; Struct.foldr (inl {bck} _ -> bck {learning_rate}) network ()
             Optimizer.standard learning_rate s network
 
             inl cost = s.CudaTensor.get out |> to float64
@@ -92,7 +90,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
             train {
                 data={input=train_images; label=train_labels}
                 network
-                learning_rate = 2f32 ** -16f32 /// to float32 train_minibatch_size
+                learning_rate = 2f32 ** -8f32
                 final=Error.softmax_cross_entropy
                 } s
 

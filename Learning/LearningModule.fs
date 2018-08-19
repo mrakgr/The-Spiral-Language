@@ -749,7 +749,7 @@ inl float ->
                 s.CudaBlas.gemm' .T .nT one (primal x) (adjoint z) one (adjoint weights.input)
                 on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal weights.input) one) (adjoint x)
                 match weights with
-                | {bias} -> bck_add_bias z_precise_adjoint (adjoint bias) s 
+                | {bias} -> bck_add_bias (adjoint z) (adjoint bias) s 
                 | _ -> ()
         }
 
@@ -771,7 +771,7 @@ inl float ->
         inl back = f .back
 
         inl {initializer steps_until_inverse_update learning_rate_modifier activation} =
-            inl default =
+            inl defaults =
                 {
                 initializer=Initializer.tanh
                 steps_until_inverse_update=128
@@ -789,7 +789,7 @@ inl float ->
                     {
                     input = initializer (sublayer_size, size)
                     bias = Initializer.bias size
-                    k = Initializer.reference k_max
+                    k = Initializer.reference steps_until_inverse_update
                     }
                 
                 inl init x = Initializer.identity (x,x)
@@ -932,14 +932,14 @@ inl float ->
 
         inl Layer =
             inl default w = 
-                inl default =
+                inl defaults =
                     {
                     initializer=Initializer.bias
                     activation=Activation.linear
                     back={epsilon=2f32 ** -10f32} // TODO: Do not forget this high epsilon experiment.
                     }
 
-                module_foldl (inl k w x -> match w with {$k} -> w | _ -> {w with $k=x}) w defaults
+                module_foldl (inl k w x -> match w with {$k=_} -> w | _ -> {w with $k=x}) w defaults
 
             inl pg (!default w) =
                 inl {init apply optimize} = prong w
