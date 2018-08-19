@@ -727,8 +727,8 @@ inl float ->
         inl f front =
             match w with
             | {$front={x with epsilon}} -> x
-            | {$front=()} -> {epsilon=default_epsilon}
-            | _ -> ()
+            | {$front=()} -> ()
+            | _ -> {$front={epsilon=default_epsilon}}
 
         inl front = f .front
         inl back = f .back
@@ -756,13 +756,13 @@ inl float ->
                     }
                 
                 inl init x = Initializer.identity (x,x)
-                inl f name front d init =
+                inl f name front init d =
                     match front with
                     | () -> d
                     | front -> {d with $name={front with covariance=init; precision=init}}
 
-                inl d = f .front front d (init sublayer_size)
-                f .back back d (init size)
+                f .front front (init sublayer_size) d
+                |> f .back back (init size)
             }
                 
         apply = inl {weights input} -> whiten {steps_until_inverse_update learning_rate_modifier} weights input >>= activation
@@ -865,21 +865,28 @@ inl float ->
             }
 
         inl Layer =
-            inl pg w =
-                inl w =
-                    inl default =
-                        {
-                        initializer=Initializer.bias
-                        activation=Activation.linear
-                        back={epsilon=2f32 ** -10f32} // TODO: Do not forget this delayed experiment.
-                        }
+            inl default w = 
+                inl default =
+                    {
+                    initializer=Initializer.bias
+                    activation=Activation.linear
+                    back={epsilon=2f32 ** -10f32} // TODO: Do not forget this delayed experiment.
+                    }
 
-                    module_foldl (inl k w x -> match w with {$k} -> w | _ -> {w with $k=x}) w defaults
+                module_foldl (inl k w x -> match w with {$k} -> w | _ -> {w with $k=x}) w defaults
 
+            inl pg !default w =
                 inl {init apply optimize} = prong w
                 {
                 init=init >> inl x -> {x with size=1}
                 apply=inl {weights input} -> apply {weights input} >>= sampling_pg
+                optimize
+                }
+            inl mc !default w =
+                inl {init apply optimize} = prong w
+                {
+                init=init >> inl x -> {x with size=1}
+                apply=inl {weights input} -> apply {weights input} >>= mc
                 optimize
                 }
             {pg}
