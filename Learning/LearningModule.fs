@@ -661,7 +661,7 @@ inl float ->
 
         cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
 
-    inl whiten {k_max} weights x s =
+    inl whiten {k_max learning_rate_modifier} weights x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal weights.input) |> dr s
         match weights with
         | {bias} -> fwd_add_bias (primal z) (primal bias) s
@@ -671,6 +671,7 @@ inl float ->
         bck=inl x -> join
             match x with
             | {learning_rate} ->
+                inl learning_rate = learning_rate_modifier learning_rate
                 inl is_update = 
                     inl span = (primal x).span_outer
                     inl k = weights.k
@@ -715,7 +716,7 @@ inl float ->
                 | _ -> ()
         }
 
-    inl prong {w with activation size} =
+    inl prong {w with size} =
         // 2 ** -3 is a sensible default for RL.
         // There is a relation between the epsilon parameter and the learning rate.
         // Up to 2 ** -2, every 2x increase in epsilon also allows a 2x increase in the learning rate
@@ -742,6 +743,16 @@ inl float ->
             | {steps_until_inverse_update} -> steps_until_inverse_update
             | _ -> 128
 
+        inl learning_rate_modifier
+            match w with
+            | {learning_rate_modifier} -> learning_rate_modifier
+            | _ -> inl x -> x ** 0.85f32 // A sensible default for PRONG. Taken from the Zap paper.
+
+        inl activation =
+            match w with
+            | {activation} -> activation
+            | _ -> Activation.tanh
+
         {
         init = inl sublayer_size -> {
             size
@@ -763,7 +774,7 @@ inl float ->
                 f .back back d (init size)
             }
                 
-        apply = inl {weights input} -> whiten {k_max} weights input >>= activation
+        apply = inl {weights input} -> whiten {k_max learning_rate_modifier} weights input >>= activation
         optimize = inl {learning_rate weights} s ->
             Optimizer.sgd learning_rate s weights.input
             Optimizer.sgd learning_rate s weights.bias
