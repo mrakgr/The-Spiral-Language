@@ -565,9 +565,9 @@ inl {basic_methods State Action} ->
                     inl bck x = 
                         inl {value} = RL.Value.mc critic_out cd x
                         actor_bck {discount_factor reward=value}
-                        Struct.foldr (inl {bck} _ -> bck {learing_rate=learing_rate.critic}) critic ()
-                        Struct.foldr (inl {bck} _ -> bck {learing_rate=learing_rate.actor}) actor ()
-                        Struct.foldr (inl {bck} _ -> bck {learing_rate=learing_rate.shared}) shared ()
+                        Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.critic}) critic ()
+                        Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.actor}) actor ()
+                        Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.shared}) shared ()
                         
                     inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
                     {state={actor critic shared bck}; out=action}
@@ -586,6 +586,7 @@ inl {basic_methods State Action} ->
                     | _ -> ()
                     original*discount_factor
                     ) discount_factor l
+                |> ignore
 
                 inl cd = s.data.cd
                 inl f learning_rate = Optimizer.standard learning_rate cd

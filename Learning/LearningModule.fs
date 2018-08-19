@@ -812,29 +812,36 @@ inl float ->
             out=b
             bck=inl x -> bck_b(); bck_a x
             }
-        optimize=inl {weights={input bias front back} learning_rate} s ->
+        optimize=inl {weights={input bias front back k} learning_rate} s ->
             match config with
             | {mode=.update} -> // In update mode, the reprojection is done during the optimization pass.
-                if weights.k < 0 then
-                    weights.k := steps_until_inverse_update
+                if k() <= 0 then
+                    k := steps_until_inverse_update
                     inl {covariance precision} = front
                     match config with
                     | {front_mode=.zap} -> s.CudaSolve.lu_inverse {from=covariance; to=precision}
                     | {front_mode=.prong} -> s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
-                    if back.covariance.length <> 1 then 
-                        inl {covariance precision} = back
+                    inl {covariance} = back
+                    if covariance.length <> 1 then 
                         s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
                     else
                         () // Just divide by covariance directly.
                 
-                if covariance.length <> 1 then 
+                inb input_adjoint =
                     inl {precision} = back
-                    s.CudaTensor.gemm' .nT .nT -learning_rate (bias.adjoint.reshape (inl x -> 1,x)) precision one bias.primal
-                else
-                    inl covariance = CudaAux.to_dev_tensor back.covariance
-                    s.CudaKernel.map' (inl x o -> o - learning_rate * x / covariance 0 0 .get) bias.adjoint bias.primal
-
-                inb input_adjoint = s.CudaKernel.map (inl x -> x / covariance 0 0 .get) input.adjoint |> CudaAux.temporary
+                    inl reshape x = x.reshape (inl x -> 1,x)
+                    inl l = back.covariance.length
+                    assert (lit_is l) ""
+                    if back.covariance.length <> 1 then 
+                        s.CudaTensor.gemm' .nT .nT -learning_rate (adjoint bias |> reshape) precision one (primal bias |> reshape)
+                        s.CudaTensor.gemm .nT .nT one input.adjoint precision
+                    else
+                        inl covariance = CudaAux.to_dev_tensor back.covariance
+                        s.CudaKernel.map' (inl x o -> o - learning_rate * x / covariance 0 0 .get) bias.adjoint bias.primal
+                        s.CudaKernel.map (inl x -> x / covariance 0 0 .get) input.adjoint
+                    |> CudaAux.temporary
+                
+                inl {front} = back
                 s.CudaTensor.gemm' .nT .nT -learning_rate precision input_adjoint one input.primal
 
                 s.CudaTensor.clear input.adjoint
@@ -897,7 +904,7 @@ inl float ->
                         | _: float32 -> inl x -> value {x with reward}
                         | _ -> value
 
-                    cd.CudaKernel.map value input
+                    s.CudaKernel.map value input
 
                 { value bck = inl _ -> on_non_nil (s.CudaKernel.map' (inl value out -> out - two * value) value) (adjoint v) }
 
@@ -925,12 +932,13 @@ inl float ->
                         inl _ _ -> reward
                     | _ ->
                         assert (dim_a = fst reward.dim) "Reward's dimensions must be equal to that of the input's outer dimnesion."
+                        assert (snd reward.dim = {from=0; near_to=1}) "Reward's second dimension must be {from=0; near_to=1}." 
                         CudaAux.to_dev_tensor reward
 
                     
                 inl x_a, p, out = to_dev_tensor (adjoint x, p, out)
                 s.CudaKernel.iter {dim=dim_a, dim_b} <| inl j ->
-                    inl x_a, p, out, reward = x_a j, p j, out j .get, reward j .get
+                    inl x_a, p, out, reward = x_a j, p j, out j .get, reward j 0 .get
 
                     inl i ->
                         inl p = p i .get
