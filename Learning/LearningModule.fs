@@ -839,6 +839,7 @@ inl float ->
 
             { cost bck = inl _ -> on_non_nil (s.CudaKernel.map' (inl cost out -> out - two * cost) cost) (adjoint v) }
 
+        /// The PG activation.
         inl sampling_pg x s =
             inl dim_a, dim_b = primal x .dim
             inl p = softmax one (primal x) s
@@ -868,6 +869,11 @@ inl float ->
                         inl label = if out = i then one else zero
                         x_a.set (x_a.get + (p - label) * reward) 
             }
+
+        /// The PG layer.
+        inl pg {d with size} =
+            inl layer = prong {size activation=Activation.linear; initializer=Initializer.bias}
+
 
         /// For online learning.
         inl action {State Action final} {net input} s =
