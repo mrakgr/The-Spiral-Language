@@ -522,7 +522,7 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0; net run}
 
-    inl player_mc_ac {d with name learning_rate} cd =
+    inl player_mc_ac {d with name learning_rate discount_factor} cd =
         open Learning
         inl action = RL.action {State Action final=RL.sampling_pg}
 
@@ -561,15 +561,15 @@ inl {basic_methods State Action} ->
                     inl critic, critic_out = 
                         if block_critic_gradients then run cd (primal shared_out) critic
                         else run cd shared_out critic
-                    
+
                     inl bck x = 
-                        inl {value} = RL.mc critic_out cd x
-                        actor_bck {reward=value}
+                        inl {value} = RL.Value.mc critic_out cd x
+                        actor_bck {discount_factor reward=value}
                         Struct.foldr (inl {bck} _ -> bck {learing_rate=learing_rate.critic}) critic ()
                         Struct.foldr (inl {bck} _ -> bck {learing_rate=learing_rate.actor}) actor ()
                         Struct.foldr (inl {bck} _ -> bck {learing_rate=learing_rate.shared}) shared ()
                         
-                    inl action = Union.from_one_hot Action (cd.CudaTensor.get (actor_out 0 0))
+                    inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
                     {state={actor critic shared bck}; out=action}
                     )
                 {state={shared actor critic}; input={input=State; cd}}
@@ -579,7 +579,13 @@ inl {basic_methods State Action} ->
             showdown=inl s reward -> 
                 inl l = s.data.run.reset
                 inl reward = dyn (to float32 reward)
-                List.foldl (inl _ -> function {bck} -> bck {reward} | _ -> ()) () l
+                inl original = discount_factor
+                List.foldl (inl discount_factor x -> 
+                    match x with
+                    | {bck} -> bck {discount_factor reward} 
+                    | _ -> ()
+                    original*discount_factor
+                    ) discount_factor l
 
                 inl cd = s.data.cd
                 inl f learning_rate = Optimizer.standard learning_rate cd
