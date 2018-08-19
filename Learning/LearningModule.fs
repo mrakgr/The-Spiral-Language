@@ -875,19 +875,34 @@ inl float ->
 
                 module_foldl (inl k w x -> match w with {$k} -> w | _ -> {w with $k=x}) w defaults
 
-            inl layer activation (!default w) =
+            inl pg (!default w) =
                 inl {init apply optimize} = prong w
                 {
                 init=init >> inl x -> {x with size=1}
-                apply=inl x -> apply x >>= activation
+                apply=inl x -> apply x >>= sampling_pg
                 optimize
                 }
 
-            inl pg = layer sampling_pg
-            inl mc w = layer Value.mc {w with size=1}
-            inl td w = layer Value.td {w with size=1}
+            inl mc (!default w) =
+                inl {init apply optimize} = prong {w with size=1}
+                {
+                init optimize
+                apply=inl x -> apply x >>= mc
+                }
+            inl td (!default w) =
+                inl {init apply optimize} = prong {w with front=(); size=1}
+                {
+                init optimize
+                apply=inl x s -> 
+                    inl bck = (apply x >>= td) s
+                    {
+                    out=inl d ->
+                        inl x = bck d
+                        () // TODO: Work in progress.
+                    }
+                }
 
-            {pg mc td ac_td}
+            {pg mc td}
 
 
         /// For online learning.
