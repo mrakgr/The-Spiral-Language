@@ -742,7 +742,7 @@ inl float ->
                 activation=Activation.tanh
                 }
 
-            module_foldl (inl k def x -> match w with {$k=x} -> {def with $k=x} | _ -> {w with $k=x}) {} defaults
+            module_foldl (inl k def x -> match w with {$k=x} -> {def with $k=x} | _ -> {def with $k=x}) {} defaults
 
         {
         init = inl sublayer_size -> {
@@ -772,11 +772,6 @@ inl float ->
         block=()
         }
 
-    inl mc s {discount_factor reward v} =
-        match reward with
-        | _: float32 -> td s {discount_factor reward=discount_factor * reward; v'=(); v}
-        | _ -> td s {discount_factor reward=zero; v'=reward; v}
-
     // #Feedforward
     inl layer initializer activation size =
         {
@@ -803,32 +798,40 @@ inl float ->
         {sigmoid relu tanh linear zero prong} |> stackify
 
     inl RL =
-        inl td s {discount_factor reward v' v} =
-            inl cost =
-                inl input =
-                    match reward with
-                    | _: float32 -> assert ((primal v).length = 1) "The length of v must be 1."; {v=primal v}
-                    | _ -> {reward v=primal v}
+        inl Error =
+            inl td s {discount_factor reward v' v} =
+                inl cost =
+                    inl input =
+                        match reward with
+                        | _: float32 -> assert ((primal v).length = 1) "The length of v must be 1."; {v=primal v}
+                        | _ -> {reward v=primal v}
 
-                inl {cost input} =
-                    match v' with
-                    | () -> {
-                        cost = inl {reward v} -> reward - v
-                        input
-                        }
-                    | _ -> {
-                        cost = inl {reward v' v} -> (reward + discount_factor * v') - v
-                        input = {input with v'}
-                        }
+                    inl {cost input} =
+                        match v' with
+                        | () -> {
+                            cost = inl {reward v} -> reward - v
+                            input
+                            }
+                        | _ -> {
+                            cost = inl {reward v' v} -> (reward + discount_factor * v') - v
+                            input = {input with v'}
+                            }
 
-                inl cost = 
-                    match reward with
-                    | _: float32 -> inl x -> cost {x with reward}
-                    | _ -> cost
+                    inl cost = 
+                        match reward with
+                        | _: float32 -> inl x -> cost {x with reward}
+                        | _ -> cost
 
-                cd.CudaKernel.map cost input
+                    cd.CudaKernel.map cost input
 
-            { cost bck = inl _ -> on_non_nil (s.CudaKernel.map' (inl cost out -> out - two * cost) cost) (adjoint v) }
+                { cost bck = inl _ -> on_non_nil (s.CudaKernel.map' (inl cost out -> out - two * cost) cost) (adjoint v) }
+
+            inl mc s {discount_factor reward v} =
+                match reward with
+                | _: float32 -> td s {discount_factor reward=discount_factor * reward; v'=(); v}
+                | _ -> td s {discount_factor reward=zero; v'=reward; v}
+
+            {td mc}
 
         /// The PG activation.
         inl sampling_pg x s =
@@ -861,9 +864,25 @@ inl float ->
                         x_a.set (x_a.get + (p - label) * reward) 
             }
 
-        /// The PG layer.
-        inl pg {d with size} =
-            inl layer = prong {size activation=Activation.linear; initializer=Initializer.bias}
+        inl Layer =
+            inl pg w =
+                inl w =
+                    inl default =
+                        {
+                        initializer=Initializer.bias
+                        activation=Activation.linear
+                        back={epsilon=2f32 ** -10f32} // TODO: Do not forget this delayed experiment.
+                        }
+
+                    module_foldl (inl k w x -> match w with {$k} -> w | _ -> {w with $k=x}) w defaults
+
+                inl {init apply optimize} = prong w
+                {
+                init=init >> inl x -> {x with size=1}
+                apply=inl {weights input} -> apply {weights input} >>= sampling_pg
+                optimize
+                }
+            {pg}
 
 
         /// For online learning.
@@ -880,7 +899,7 @@ inl float ->
                 inl action = Union.from_one_hot Action (s.CudaTensor.get (out 0))
                 stack {action net bck}
        
-        {action sampling_pg mc td}
+        {action sampling_pg Layer Error}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward RL
