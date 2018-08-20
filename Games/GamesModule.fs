@@ -623,7 +623,7 @@ inl {basic_methods State Action} ->
         inl actor, _ = init cd shared_size actor
         inl critic, critic_size = init cd shared_size critic 
 
-        inl block_critic_gradients = // TODO: Note that zap does not support propagating gradients yet.
+        inl block_critic_gradients =
             match d with
             | {block_critic_gradients} -> block_critic_gradients
             | _ -> true
@@ -641,15 +641,15 @@ inl {basic_methods State Action} ->
                     inl critic, critic_out = 
                         if block_critic_gradients then run cd (primal shared_out) critic
                         else run cd shared_out critic
-                    
+
                     inl bck {x with reward} = 
                         inl {value bck=critic_cost_bck} = 
                             inl value' = match x with {value'} -> value' | _ -> ()
                             RL.Value.td critic_out cd {discount_factor reward value'}
                         critic_cost_bck {learning_rate=learning_rate.critic}
                         match x with
-                        | {state=()} -> critic.bck {learning_rate=learning_rate.critic}
-                        | _ -> critic.bck {learning_rate=learning_rate.critic; state discount_factor}
+                        | {state} -> critic.bck {learning_rate=learning_rate.critic; state discount_factor}
+                        | _ -> critic.bck {learning_rate=learning_rate.critic}
                         actor_bck {discount_factor reward=value}
                         
                         Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.actor}) actor ()
