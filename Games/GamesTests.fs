@@ -226,8 +226,9 @@ Struct.iter (inl i ->
             open (Learning float32)
             inl actor = 
                 open Feedforward
-                prong {activation=Activation.tanh; size=256},
-                prong {activation=Activation.tanh; size=256}
+                //prong {activation=Activation.tanh; size=256},
+                //prong {activation=Activation.tanh; size=256}
+                ()
             //player_pg {name="One"; actor learning_rate} s
             player_mc_ac {name="One"; shared=actor; learning_rate block_critic_gradients=true; discount_factor=1f32} s
         inl b = player_rules {name="Two"}

@@ -839,7 +839,7 @@ inl float ->
                         s.CudaKernel.map (inl x -> x / covariance 0 0 .get) input.adjoint
                     |> CudaAux.temporary
                 
-                inl {front} = back
+                inl {precision} = front
                 match config with
                 | {front_mode=.zap} -> s.CudaTensor.gemm' .nT .nT -learning_rate precision input_adjoint one input.primal
                 | {front_mode=.prong} -> s.CudaBlas.symm' .Left .Lower -learning_rate precision input_adjoint one input.primal
