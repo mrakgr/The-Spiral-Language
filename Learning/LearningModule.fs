@@ -881,7 +881,7 @@ inl float ->
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
-            inl td v s {discount_factor reward v'} =
+            inl td v s {discount_factor reward value'=v'} =
                 inl value =
                     inl input =
                         match reward with
@@ -910,8 +910,8 @@ inl float ->
 
             inl mc v s {discount_factor reward} =
                 match reward with
-                | _: float32 -> td v s {discount_factor reward=discount_factor * reward; v'=()}
-                | _ -> td s v {discount_factor reward=zero; v'=reward}
+                | _: float32 -> td v s {discount_factor reward=discount_factor * reward; value'=()}
+                | _ -> td s v {discount_factor reward=zero; value'=reward}
 
             {td mc}
 

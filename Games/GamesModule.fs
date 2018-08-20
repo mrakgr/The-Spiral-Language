@@ -602,98 +602,83 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0; actor shared critic run}
 
-    // TODO: Work in progress.
-    /// This player uses PG with a Zap TD(0) linear layer as the critic. Automatically adds the Zap layer 
-    /// to the critic and a linear layer for the actor. 
-    //inl player_zap_ac {d with name learning_rate discount_factor steps_until_inverse_update} cd =
-    //    inl use_steady_state =
-    //        match d with
-    //        | {use_steady_state} -> use_steady_state
-    //        | _ -> true
+    / This player uses PG with a Zap TD(0) linear layer as the critic. Automatically adds the Zap layer 
+    / to the critic and a linear layer for the actor. 
+    inl player_zap_ac {d with name learning_rate discount_factor !critic} cd =
+        open Learning
+        inl input_size = Union.length_dense State
+        inl num_actions = Union.length_one_hot Action
 
-    //    open Learning
-    //    inl input_size = Union.length_dense State
-    //    inl num_actions = Union.length_one_hot Action
+        inl learning_rate = {
+            actor=learning_rate
+            critic=learning_rate ** 0.85f32
+            shared=learning_rate
+            }
 
-    //    inl learning_rate = {
-    //        actor=learning_rate
-    //        critic=learning_rate ** 0.85f32
-    //        shared=learning_rate
-    //        }
+        inl actor = match d with {actor} -> Tuple.append (Tuple.wrap actor) (RL.Layer.pg {size=num_actions}  :: ()) | _ -> RL.Layer.pg {size=num_actions}
+        inl critic = RL.Layer.td {}
+        inl shared = match d with {shared} -> shared | _ -> ()
 
-    //    inl actor = 
-    //        inl learning_rate = learning_rate.actor ** 0.85f32
-    //        inl steps_until_inverse_update = 128
-    //        inl prong = Feedforward.prong {learning_rate steps_until_inverse_update activation=Activation.linear; size=num_actions; initializer=Initializer.bias}
-    //        match d with {actor} -> actor :: prong :: () | _ -> prong
-    //    inl critic = match d with {critic} -> critic | _ -> ()
-    //    inl shared = match d with {shared} -> shared | _ -> ()
+        inl shared, shared_size = init cd input_size shared
+        inl actor, _ = init cd shared_size actor
+        inl critic, critic_size = init cd shared_size critic 
 
-    //    inl shared, shared_size = init cd input_size shared
-    //    inl actor, _ = init cd shared_size actor
-    //    inl critic, critic_size = init cd shared_size critic 
+        inl block_critic_gradients = // TODO: Note that zap does not support propagating gradients yet.
+            match d with
+            | {block_critic_gradients} -> block_critic_gradients
+            | _ -> true
 
-    //    inl block_critic_gradients = // TODO: Note that zap does not support propagating gradients yet.
-    //        match d with
-    //        | {block_critic_gradients} -> block_critic_gradients
-    //        | _ -> true
-
-    //    inl zap = 
-    //        RL.zap {steps_until_inverse_update discount_factor 
-    //            learning_rate=learning_rate.critic
-    //            size=critic_size
-    //            block_gradients=block_critic_gradients
-    //            use_steady_state
-    //            } cd
-
-    //    inl run = 
-    //        Union.mutable_function 
-    //            (inl {state={state with shared actor critic} input={input cd}} ->
-    //                assert (eq_type State input) "The input must be equal to the state type."
-    //                inl input = 
-    //                    inl tns = Union.to_dense input |> HostTensor.array_as_tensor
-    //                    cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
-    //                inl shared, shared_out = run cd input shared
-    //                inl actor, actor_out = run cd shared_out actor
-    //                inl {out bck=actor_bck} = RL.sampling_pg actor_out cd
-    //                inl critic, critic_out = 
-    //                    if block_critic_gradients then run cd (primal shared_out) critic
-    //                    else run cd shared_out critic
+        inl run = 
+            Union.mutable_function 
+                (inl {state={state with shared actor critic} input={input cd}} ->
+                    assert (eq_type State input) "The input must be equal to the state type."
+                    inl input = 
+                        inl tns = Union.to_dense input |> HostTensor.array_as_tensor
+                        cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
+                    inl shared, shared_out = run cd input shared
+                    inl actor, actor_out = run cd shared_out actor
+                    inl {out bck=actor_bck} = RL.sampling_pg actor_out cd
+                    inl critic, critic_out = 
+                        if block_critic_gradients then run cd (primal shared_out) critic
+                        else run cd shared_out critic
                     
-    //                inl bck x = 
-    //                    inl {cost state} = zap cd critic_out x
-    //                    Struct.foldr (inl {bck} _ -> bck()) critic ()
-    //                    actor_bck {reward=cost}
-    //                    Struct.foldr (inl {bck} _ -> bck()) actor ()
-    //                    {state}
+                    inl bck {discount_factor reward value state} = 
+                        inl {value bck=critic_cost_bck} = RL.Value.td critic_out cd {discount_factor reward value'=value}
+                        critic_cost_bck {learning_rate=learning_rate.critic}
+                        critic.bck {learning_rate=learning_rate.critic state}
+                        actor_bck {discount_factor reward=value}
+                        
+                        Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.actor}) actor ()
+                        Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.shared}) shared ()
+                        {state=shared_out; value}
 
-    //                inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
-    //                {state={actor critic shared bck}; out=action}
-    //                )
-    //            {state={shared actor critic}; input={input=State; cd}}
+                    inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
+                    {state={actor critic shared bck}; out=action}
+                    )
+                {state={shared actor critic}; input={input=State; cd}}
             
-    //    inl methods = {basic_methods with
-    //        bet=inl s input -> s.data.run {input cd=s.data.cd}
-    //        showdown=inl s reward -> 
-    //            inl l = s.data.run.reset
-    //            inl reward = dyn (to float32 reward)
-    //            List.foldl' ignore (inl next x -> function 
-    //                | {bck} -> bck x |> inl x -> next {x with reward=0f32}
-    //                | _ -> next x
-    //                ) {reward} l
+        inl methods = {basic_methods with
+            bet=inl s input -> s.data.run {input cd=s.data.cd}
+            showdown=inl s reward -> 
+                inl l = s.data.run.reset
+                inl reward = dyn (to float32 reward)
+                List.foldl' ignore (inl next x -> function 
+                    | {bck} -> bck x |> inl x -> next {x with reward=0f32}
+                    | _ -> next x
+                    ) {reward} l
 
-    //            inl cd = s.data.cd
-    //            inl f learning_rate = Optimizer.standard learning_rate cd
+                inl cd = s.data.cd
+                inl f learning_rate = Optimizer.standard learning_rate cd
 
-    //            f learning_rate.shared s.data.shared
-    //            f learning_rate.actor s.data.actor
-    //            f learning_rate.critic s.data.critic
-    //        game_over=inl s -> ()
-    //        }
+                f learning_rate.shared s.data.shared
+                f learning_rate.actor s.data.actor
+                f learning_rate.critic s.data.critic
+            game_over=inl s -> ()
+            }
 
-    //    Object
-    //        .member_add methods
-    //        .data_add {name; win=ref 0; shared actor critic run}
+        Object
+            .member_add methods
+            .data_add {name; win=ref 0; shared actor critic run}
 
     {
     player_random player_rules player_tabular_mc player_tabular_sarsa player_pg player_mc_ac
