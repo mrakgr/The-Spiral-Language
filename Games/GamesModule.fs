@@ -602,8 +602,8 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0; actor shared critic run}
 
-    / This player uses PG with a Zap TD(0) linear layer as the critic. Automatically adds the Zap layer 
-    / to the critic and a linear layer for the actor. 
+    // This player uses PG with a Zap TD(0) linear layer as the critic. Automatically adds the Zap layer 
+    // to the critic and a linear layer for the actor. 
     inl player_zap_ac {d with name learning_rate discount_factor !critic} cd =
         open Learning
         inl input_size = Union.length_dense State
@@ -642,21 +642,22 @@ inl {basic_methods State Action} ->
                         if block_critic_gradients then run cd (primal shared_out) critic
                         else run cd shared_out critic
                     
-                    inl bck {discount_factor reward value state} = 
-                        inl {value bck=critic_cost_bck} = RL.Value.td critic_out cd {discount_factor reward value'=value}
+                    inl bck x = 
+                        inl {value bck=critic_cost_bck} = RL.Value.td critic_out cd {x with discount_factor}
                         critic_cost_bck {learning_rate=learning_rate.critic}
-                        critic.bck {learning_rate=learning_rate.critic state}
-                        actor_bck {discount_factor reward=value}
+                        //critic.bck {learning_rate=learning_rate.critic state}
+                        //actor_bck {discount_factor reward=value}
                         
-                        Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.actor}) actor ()
-                        Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.shared}) shared ()
-                        {state=shared_out; value}
+                        //Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.actor}) actor ()
+                        //Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.shared}) shared ()
+                        //{state=shared_out; value'=value}
+                        {value'=()}
 
                     inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
                     {state={actor critic shared bck}; out=action}
                     )
                 {state={shared actor critic}; input={input=State; cd}}
-            
+
         inl methods = {basic_methods with
             bet=inl s input -> s.data.run {input cd=s.data.cd}
             showdown=inl s reward -> 
@@ -665,7 +666,7 @@ inl {basic_methods State Action} ->
                 List.foldl' ignore (inl next x -> function 
                     | {bck} -> bck x |> inl x -> next {x with reward=0f32}
                     | _ -> next x
-                    ) {reward} l
+                    ) {reward value'=()} l
 
                 inl cd = s.data.cd
                 inl f learning_rate = Optimizer.standard learning_rate cd
@@ -681,6 +682,6 @@ inl {basic_methods State Action} ->
             .data_add {name; win=ref 0; shared actor critic run}
 
     {
-    player_random player_rules player_tabular_mc player_tabular_sarsa player_pg player_mc_ac
+    player_random player_rules player_tabular_mc player_tabular_sarsa player_pg player_mc_ac player_zap_ac
     } |> stackify
     """) |> module_

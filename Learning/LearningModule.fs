@@ -841,7 +841,7 @@ inl float ->
                 
                 inl {precision} = front
                 match config with
-                | {front_mode=.zap} -> s.CudaTensor.gemm' .nT .nT -learning_rate precision input_adjoint one input.primal
+                | {front_mode=.zap} -> s.CudaBlas.gemm' .nT .nT -learning_rate precision input_adjoint one input.primal
                 | {front_mode=.prong} -> s.CudaBlas.symm' .Left .Lower -learning_rate precision input_adjoint one input.primal
 
                 s.CudaTensor.clear input.adjoint
