@@ -642,16 +642,19 @@ inl {basic_methods State Action} ->
                         if block_critic_gradients then run cd (primal shared_out) critic
                         else run cd shared_out critic
                     
-                    inl bck x = 
-                        inl {value bck=critic_cost_bck} = RL.Value.td critic_out cd {x with discount_factor}
+                    inl bck {x with reward} = 
+                        inl {value bck=critic_cost_bck} = 
+                            inl value' = match x with {value'} -> value' | _ -> ()
+                            RL.Value.td critic_out cd {discount_factor reward value'}
                         critic_cost_bck {learning_rate=learning_rate.critic}
-                        critic.bck {learning_rate=learning_rate.critic state}
-                        //actor_bck {discount_factor reward=value}
+                        match x with
+                        | {state=()} -> critic.bck {learning_rate=learning_rate.critic}
+                        | _ -> critic.bck {learning_rate=learning_rate.critic; state discount_factor}
+                        actor_bck {discount_factor reward=value}
                         
-                        //Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.actor}) actor ()
-                        //Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.shared}) shared ()
-                        //{state=shared_out; value'=value}
-                        {value'=()}
+                        Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.actor}) actor ()
+                        Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.shared}) shared ()
+                        {state=primal shared_out; value'=value}
 
                     inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
                     {state={actor critic shared bck}; out=action}
@@ -666,7 +669,7 @@ inl {basic_methods State Action} ->
                 List.foldl' ignore (inl next x -> function 
                     | {bck} -> bck x |> inl x -> next {x with reward=0f32}
                     | _ -> next x
-                    ) {reward value'=()} l
+                    ) {reward} l
 
                 inl cd = s.data.cd
                 inl f learning_rate = Optimizer.standard learning_rate cd

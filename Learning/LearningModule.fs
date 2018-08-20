@@ -705,12 +705,12 @@ inl float ->
 
                             match d with
                             | {state=state' discount_factor} ->
-                                inb basis_update = cd.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (state', x) |> CudaAux.temporary
+                                inb basis_update = s.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (state', primal x) |> CudaAux.temporary
                                 update_steady_state {identity_coef=epsilon; learning_rate} s steady_state x basis_update
                             | {state} -> error_type "Do not forget the discount factor."
                             | _ -> update_steady_state {identity_coef=epsilon; learning_rate} s steady_state x x
 
-                            match mode with
+                            match config with
                             | {mode=.optimize} ->
                                 if is_update then s.CudaSolve.lu_inverse {from=steady_state; to=steady_state_inverse}
                                 inb x_precise_primal = s.CudaBlas.gemm .nT .nT one steady_state_inverse x |> CudaAux.temporary
