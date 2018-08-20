@@ -567,7 +567,7 @@ inl {basic_methods State Action} ->
                         actor_bck {discount_factor reward=value}
                         Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.critic}) critic ()
                         Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.actor}) actor ()
-                        //Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.shared}) shared ()
+                        Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.shared}) shared ()
                         
                     inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
                     {state={actor critic shared bck}; out=action}
