@@ -953,7 +953,6 @@ inl float ->
                     {
                     initializer=Initializer.bias
                     activation=Activation.linear
-                    //back={epsilon=2f32 ** -10f32} // TODO: Do not forget this high epsilon experiment.
                     }
 
                 module_foldl (inl k w x -> match w with {$k=_} -> w | _ -> {w with $k=x}) w defaults
