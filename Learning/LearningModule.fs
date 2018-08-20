@@ -746,14 +746,13 @@ inl float ->
                 | {bias} -> bck_add_bias z_precise_adjoint (adjoint bias) s 
                 | _ -> ()
             | _ ->
-                match config with
-                | {allow_no_learning_rate=true} ->
-                    s.CudaBlas.gemm' .T .nT one (primal x) (adjoint z) one (adjoint weights.input)
-                    on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal weights.input) one) (adjoint x)
-                    match weights with
-                    | {bias} -> bck_add_bias (adjoint z) (adjoint bias) s 
-                    | _ -> ()
-                | _ -> error_type "Since it would be too easy to forget to pass in the learning rate this check was added as an precaution."
+                error_type "Since it would be too easy to forget to pass in the learning rate at this point this stop was added as an precaution."
+                s.CudaBlas.gemm' .T .nT one (primal x) (adjoint z) one (adjoint weights.input)
+                on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal weights.input) one) (adjoint x)
+                match weights with
+                | {bias} -> bck_add_bias (adjoint z) (adjoint bias) s
+                | _ -> ()
+                
         }
 
     inl prong_template config {w with size} =
@@ -831,10 +830,9 @@ inl float ->
                     inl {precision} = back
                     inl reshape x = x.reshape (inl x -> 1,x)
                     inl l = back.covariance.length
-                    assert (lit_is l) ""
                     if back.covariance.length <> 1 then 
                         s.CudaTensor.gemm' .nT .nT -learning_rate (adjoint bias |> reshape) precision one (primal bias |> reshape)
-                        s.CudaTensor.gemm .nT .nT one input.adjoint precision
+                        s.CudaBlas.symm .Right .Lower one precision input.adjoint
                     else
                         inl covariance = CudaAux.to_dev_tensor back.covariance
                         s.CudaKernel.map' (inl x o -> o - learning_rate * x / covariance 0 0 .get) bias.adjoint bias.primal
@@ -842,7 +840,9 @@ inl float ->
                     |> CudaAux.temporary
                 
                 inl {front} = back
-                s.CudaTensor.gemm' .nT .nT -learning_rate precision input_adjoint one input.primal
+                match config with
+                | {front_mode=.zap} -> s.CudaTensor.gemm' .nT .nT -learning_rate precision input_adjoint one input.primal
+                | {front_mode=.prong} -> s.CudaBlas.symm' .Left .Lower -learning_rate precision input_adjoint one input.primal
 
                 s.CudaTensor.clear input.adjoint
                 s.CudaTensor.clear bias.adjoint
