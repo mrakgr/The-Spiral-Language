@@ -208,7 +208,7 @@ inb s = CudaModules (1024*1024*1024)
 Struct.iter (inl i ->
     inl learning_rate = 2f32 ** to float32 i |> dyn
     Console.printfn "The learning_rate is 2 ** {0}" i
-    Loops.for {from=0; near_to=20; body=inl {i} ->
+    Loops.for {from=0; near_to=1; body=inl {i} ->
         inl num_players = 2
         inl stack_size = 10
         inl max_stack_size = num_players * stack_size
@@ -226,11 +226,11 @@ Struct.iter (inl i ->
             open (Learning float32)
             inl actor = 
                 open Feedforward
-                //prong {activation=Activation.tanh; size=256},
-                //prong {activation=Activation.tanh; size=256}
-                ()
+                prong {activation=Activation.tanh; size=256},
+                prong {activation=Activation.tanh; size=256}
+                //()
             //player_pg {name="One"; actor learning_rate} s
-            player_mc_ac {name="One"; shared=actor; learning_rate block_critic_gradients=true; discount_factor=1f32} s
+            player_mc_ac {learning_rate name="One"; shared=actor; block_critic_gradients=true; discount_factor=1f32} s
         inl b = player_rules {name="Two"}
 
         met f game (!dyn near_to) (!dyn near_to_inner) = 
