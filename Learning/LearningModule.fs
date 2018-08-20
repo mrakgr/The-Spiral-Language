@@ -713,7 +713,7 @@ inl float ->
                             match config with
                             | {mode=.optimize} ->
                                 if is_update then s.CudaSolve.lu_inverse {from=steady_state; to=steady_state_inverse}
-                                inb x_precise_primal = s.CudaBlas.gemm .nT .nT one steady_state_inverse x |> CudaAux.temporary
+                                inb x_precise_primal = s.CudaBlas.gemm .nT .T one x steady_state_inverse |> CudaAux.temporary
                                 ret x_precise_primal
                             | {mode=.update} ->
                                 ret x
