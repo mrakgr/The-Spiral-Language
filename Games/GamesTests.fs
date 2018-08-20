@@ -167,7 +167,7 @@ Loops.for {from=0; near_to=1; body=inl {i} ->
 
     inl a = 
         open Learning float32
-        inl learning_rate = 2f32 ** -11.5f32
+        inl learning_rate = 2f32 ** -12f32
         inl actor = 
             open Feedforward
             prong {activation=Activation.tanh; size=256},
