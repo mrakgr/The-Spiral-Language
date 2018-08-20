@@ -563,7 +563,8 @@ inl {basic_methods State Action} ->
                         else run cd shared_out critic
 
                     inl bck x = 
-                        inl {value} = RL.Value.mc critic_out cd x
+                        inl {value bck} = RL.Value.mc critic_out cd x
+                        bck {learning_rate=learning_rate.critic}
                         actor_bck {discount_factor reward=value}
                         Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.critic}) critic ()
                         Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.actor}) actor ()
