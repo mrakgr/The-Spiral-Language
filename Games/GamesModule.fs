@@ -645,7 +645,7 @@ inl {basic_methods State Action} ->
                     inl bck x = 
                         inl {value bck=critic_cost_bck} = RL.Value.td critic_out cd {x with discount_factor}
                         critic_cost_bck {learning_rate=learning_rate.critic}
-                        //critic.bck {learning_rate=learning_rate.critic state}
+                        critic.bck {learning_rate=learning_rate.critic state}
                         //actor_bck {discount_factor reward=value}
                         
                         //Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.actor}) actor ()
