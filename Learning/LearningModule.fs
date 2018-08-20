@@ -964,8 +964,8 @@ inl float ->
             inl mc (!default {w with !size}) = prong_template {front_mode=.prong; mode=.update} {w with size=1}
 
             // The TD layer uses the Zap update from the 'Fastest Convergence for Q-Learning' paper by Devray and Meyn 
-            // in place of the standard PRONG update. It works better than standard TD, but is still a net negative in an AC
-            // agent.
+            // in place of the standard PRONG update. It works better than standard TD, but is still a net negative in 
+            // an AC agent.
             inl td (!default {w with !size}) = prong_template {front_mode=.zap; mode=.update} {w with size=1}
 
             {pg mc td}

@@ -150,8 +150,9 @@ f game 30 100000
 let poker3 =
     "poker3",[cuda_modules;loops;poker;poker_players;timer],"The iterative test for NN TD(0) based players.",
     """
+// TD(0) works worse than MC, but right now it is in a halfway usable condition.
 inb s = CudaModules (1024*1024*1024)
-Loops.for {from=0; near_to=1; body=inl {i} ->
+Loops.for {from=0; near_to=10; body=inl {i} ->
     inl num_players = 2
     inl stack_size = 10
     inl max_stack_size = num_players * stack_size
@@ -167,7 +168,7 @@ Loops.for {from=0; near_to=1; body=inl {i} ->
 
     inl a = 
         open Learning float32
-        inl learning_rate = 2f32 ** -12f32
+        inl learning_rate = 2f32 ** -11.5f32
         inl actor = 
             open Feedforward
             prong {activation=Activation.tanh; size=256},
@@ -194,7 +195,7 @@ Loops.for {from=0; near_to=1; body=inl {i} ->
                 Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
             }
 
-    f game 15 1000
+    f game 30 1000
     //open Poker {max_stack_size num_players log=Console.printfn}
     //f game 10 1
     }
