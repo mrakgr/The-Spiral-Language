@@ -167,13 +167,11 @@ Loops.for {from=0; near_to=1; body=inl {i} ->
 
     inl a = 
         open Learning float32
-        inl learning_rate = 2f32 ** -9f32
-        inl steps_until_inverse_update = 128
+        inl learning_rate = 2f32 ** -11f32
         inl actor = 
-            inl learning_rate = learning_rate ** 0.85f32
             open Feedforward
-            prong {learning_rate steps_until_inverse_update activation=Activation.tanh; size=256}
-        player_zap_ac {name="One"; shared=actor; learning_rate discount_factor=0.99f32; steps_until_inverse_update} s
+            prong {activation=Activation.tanh; size=256}
+        player_zap_ac {name="One"; shared=actor; learning_rate discount_factor=0.99f32} s
     inl b = player_rules {name="Two"}
 
     met f game (!dyn near_to) (!dyn near_to_inner) = 
