@@ -604,7 +604,7 @@ inl {basic_methods State Action} ->
 
     // This player uses PG with a Zap TD(0) linear layer as the critic. Automatically adds the Zap layer 
     // to the critic and a linear layer for the actor. 
-    inl player_zap_ac {d with name learning_rate discount_factor !critic} cd =
+    inl player_td_ac {d with name learning_rate discount_factor !critic} cd =
         open Learning
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
@@ -685,6 +685,6 @@ inl {basic_methods State Action} ->
             .data_add {name; win=ref 0; shared actor critic run}
 
     {
-    player_random player_rules player_tabular_mc player_tabular_sarsa player_pg player_mc_ac player_zap_ac
+    player_random player_rules player_tabular_mc player_tabular_sarsa player_pg player_mc_ac player_td_ac
     } |> stackify
     """) |> module_

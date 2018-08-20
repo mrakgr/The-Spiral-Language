@@ -173,7 +173,7 @@ Loops.for {from=0; near_to=10; body=inl {i} ->
             open Feedforward
             prong {activation=Activation.tanh; size=256},
             prong {activation=Activation.tanh; size=256}
-        player_zap_ac {name="One"; shared=actor; learning_rate discount_factor=1f32} s
+        player_td_ac {name="One"; shared=actor; learning_rate discount_factor=1f32} s
     inl b = player_rules {name="Two"}
 
     met f game (!dyn near_to) (!dyn near_to_inner) = 
@@ -228,8 +228,7 @@ Struct.iter (inl i ->
                 open Feedforward
                 prong {activation=Activation.tanh; size=256},
                 prong {activation=Activation.tanh; size=256}
-            //player_pg {name="One"; actor learning_rate} s
-            player_mc_ac {learning_rate name="One"; shared=actor; block_critic_gradients=false; discount_factor=1f32} s
+            player_mc_ac {learning_rate name="One"; shared=actor; block_critic_gradients=true; discount_factor=1f32} s
         inl b = player_rules {name="Two"}
 
         met f game (!dyn near_to) (!dyn near_to_inner) = 
@@ -255,9 +254,9 @@ Struct.iter (inl i ->
         //open Poker {max_stack_size num_players log=Console.printfn}
         //f game 10 1
         }
-    ) (-11.5)
+    ) (-11.25)
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker4
 |> printfn "%s"
 |> ignore
