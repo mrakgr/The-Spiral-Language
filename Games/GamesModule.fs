@@ -503,10 +503,7 @@ inl {basic_methods State Action} ->
             Union.mutable_function 
                 (inl {state={state with net} input={input cd}} ->
                     inl {action net bck} = action {net input} cd
-                    inl bck x = 
-                        bck {x with learning_rate}
-                        qwe
-                        Struct.foldr (inl {bck} x -> bck {learning_rate}) net
+                    inl bck x = bck {x with learning_rate}; Struct.foldr (inl {bck} _ -> bck {learning_rate}) net ()
                     {state={net bck}; out=action}
                     )
                 {state={net}; input={input=State; cd}}
@@ -569,7 +566,7 @@ inl {basic_methods State Action} ->
                     inl bck x = 
                         inl {value bck=critic_bck} = RL.Value.mc critic_out cd x
                         critic_bck {learning_rate=learning_rate.critic}
-                        actor_bck {discount_factor reward=value}
+                        actor_bck {reward=value}
                         Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.critic}) critic ()
                         Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.actor}) actor ()
                         Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.shared}) shared ()

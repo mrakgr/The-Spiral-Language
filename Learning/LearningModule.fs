@@ -929,13 +929,12 @@ inl float ->
                     | _: float32 | _: float64 ->
                         assert (HostTensor.span dim_a = 1) "In the scalar reward case, the outer dimension of the input must be 1."
                         inl reward = to float reward
-                        inl _ _ -> reward
+                        inl _ _ _ -> reward
                     | _ ->
                         assert (dim_a = fst reward.dim) "Reward's dimensions must be equal to that of the input's outer dimnesion."
                         assert (snd reward.dim = {from=0; near_to=1}) "Reward's second dimension must be {from=0; near_to=1}." 
                         CudaAux.to_dev_tensor reward
 
-                    
                 inl x_a, p, out = to_dev_tensor (adjoint x, p, out)
                 s.CudaKernel.iter {dim=dim_a, dim_b} <| inl j ->
                     inl x_a, p, out, reward = x_a j, p j, out j .get, reward j 0 .get
