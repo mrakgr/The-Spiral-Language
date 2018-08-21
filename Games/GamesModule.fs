@@ -496,13 +496,17 @@ inl {basic_methods State Action} ->
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
 
-        inl net,_ = Tuple.append (Tuple.wrap actor) (RL.Layer.pg {size=num_actions} :: ()) |> init cd input_size
+        //inl net,_ = Tuple.append (Tuple.wrap actor) (RL.Layer.pg {size=num_actions} :: ()) |> init cd input_size
+        inl net,_ = Tuple.append (Tuple.wrap actor) (Feedforward.linear num_actions :: ()) |> init cd input_size
 
         inl run = 
             Union.mutable_function 
                 (inl {state={state with net} input={input cd}} ->
                     inl {action net bck} = action {net input} cd
-                    inl bck x = bck {x with learning_rate}; Struct.foldr (inl {bck} x -> bck {learning_rate}) net
+                    inl bck x = 
+                        bck {x with learning_rate}
+                        qwe
+                        Struct.foldr (inl {bck} x -> bck {learning_rate}) net
                     {state={net bck}; out=action}
                     )
                 {state={net}; input={input=State; cd}}
