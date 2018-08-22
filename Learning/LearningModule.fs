@@ -343,14 +343,12 @@ inl float ->
         } |> stack
 
     // #Operations
-    inl apply_bck = (<<)
-
     inl (>>=) a b s =
         inl {out=a bck=a_bck} = a s
         inl {out=b bck=b_bck} = b a s
-        {out=b; bck=apply_bck a_bck b_bck}
+        {out=b; bck=a_bck, b_bck}
 
-    inl succ out _ = {out bck=const ()}
+    inl succ out _ = {out bck=()}
 
     // #Activation
     inl activation d = map {d with bck = inl (in, out) adjoint ->
@@ -610,7 +608,8 @@ inl float ->
     inl Error = {square sigmoid_cross_entropy softmax_cross_entropy accuracy} |> stackify
 
     // #Initializer
-    inl initialize s =
+    inl Initializer x dim = {$x=dim; block=()}
+    inl rec initialize s x =
         inl init mult dim s = 
             inl stddev = sqrt (mult / to float32 (Tuple.foldl (+) 0 dim))
             s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=float}
@@ -624,12 +623,45 @@ inl float ->
             | {identity=dim} -> s.CudaKernel.init {dim} (inl a b -> if a = b then one else zero)
             | {reference=x} -> ref x
             | {constant={dim init}} -> 
-                inl rec loop = function
+                inl rec loop = function // TODO: Redesign the init kernel.
                     | _ :: x' -> inl x -> loop x'
                     | () -> init
                 s.CudaKernel.init {dim} (loop type dim) |> dr s
+            | {prong={d with sublayer_size size}} -> {
+                // 2 ** -3 is a sensible default.
+                // There is a relation between the epsilon parameter and the learning rate.
+                // Tests on the poker game show that up to 2 ** -2, every 2x increase in epsilon also allows a 2x increase in the learning rate.
+                // The networks can be trained with epsilons of 2 ** -10 and lower, but all that seems to do is make the network overfit 
+                // and forces the learning rates to go low. Unlike on Mnist where overfitting lowers the test accuracy, on the poker game 
+                // it lowers the winrate instead. High learning rates seem to be necessary for generalization.
+                inl default_epsilon = match d with {default_epsilon} -> default_epsilon | _ -> to float (2.0 ** -3.0)
+
+                front = {
+                    covariance = Initializer.identity (sublayer_size, sublayer_size)
+                    precision = Initializer.identity (sublayer_size, sublayer_size)
+                    epsilon = match d with {epsilon={front}} -> front | _ -> default_epsilon
+                    }
+                back = {
+                    covariance = Initializer.identity (size, size)
+                    precision = Initializer.identity (size, size)
+                    epsilon = match d with {epsilon={back}} -> back | _ -> default_epsilon
+                    }
+                k = match d with {steps_until_inverse_update} -> steps_until_inverse_update | _ -> 128 
+                    |> Initializer.counter 
+                } |> initialize s
+            | {counter=init} ->
+                inl r = ref init
+                inl mod y =
+                    inl x = r() + y
+                    r := x
+                    x <= 0
+                function
+                | .dec x -> mod -x
+                | .mod -> mod
+                | .reset -> r := init
+                |> stack
             | x -> x
-            )
+            ) x
 
     inl init s size dsc = 
         Struct.foldl_map (inl sublayer_size {x with init} -> 
@@ -650,8 +682,6 @@ inl float ->
             inl layer = match x with {state} -> {layer with state=heap state} | _ -> layer
             layer, out
             ) input
-
-    inl Initializer x dim = {$x=dim; block=()}
 
     /// Updates the covariance such that cov(t+1) = alpha * cov t + beta / k * x^T * x + epsilon * I
     met update_covariance {identity_coef learning_rate} s cov x =
@@ -685,30 +715,27 @@ inl float ->
 
         cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
 
-    inl whiten config {steps_until_inverse_update learning_rate_modifier} weights x s =
-        inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal weights.input) |> dr s
-        match weights with
-        | {bias} -> fwd_add_bias (primal z) (primal bias) s
-        | _ -> ()
+    inl naturalize config {prong input bias} x s =
+        inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
+        fwd_add_bias (primal z) (primal bias) s
         {
         out=z
         bck=inl d -> join
+            inl finally x_precise_primal z_precise_adjoint =
+                s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint weights.input)
+                on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal weights.input) one) (adjoint x)
+                bck_add_bias z_precise_adjoint (adjoint bias) s 
+
             match d with
             | {learning_rate} ->
-                inl learning_rate = learning_rate_modifier learning_rate
-                inl is_update = 
-                    inl span = (primal x).span_outer
-                    inl k = weights.k
-                    inl x = k() - span
-                    match config with
-                    | {mode=.optimize} ->
-                        if x <= 0 then k := steps_until_inverse_update; true
-                        else k := x; false
-                    | {mode=.update} ->
-                        k := x
+                inl k = prong.k
+                inl is_update = prong.k.dec (primal x).span_outer
+                match config with
+                | {mode=.optimize} -> if is_update then k.reset
+                | {mode=.update} -> ()
 
                 inb x_precise_primal = 
-                    match weights with
+                    match prong with // qwe
                     | {front={covariance precision epsilon}} ret -> 
                         inl x = primal x
                         match config with
@@ -764,19 +791,10 @@ inl float ->
                     | {back} -> error_type "back is improperly formed."
                     | _ ret -> ret <| adjoint z
 
-                s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint weights.input)
-                on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal weights.input) one) (adjoint x)
-                match weights with
-                | {bias} -> bck_add_bias z_precise_adjoint (adjoint bias) s 
-                | _ -> ()
+                finally x_precise_primal z_precise_adjoint
             | _ ->
                 error_type "Since it would be too easy to forget to pass in the learning rate at this point this stop was added as an precaution."
-                s.CudaBlas.gemm' .T .nT one (primal x) (adjoint z) one (adjoint weights.input)
-                on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal weights.input) one) (adjoint x)
-                match weights with
-                | {bias} -> bck_add_bias (adjoint z) (adjoint bias) s
-                | _ -> ()
-                
+                finally (primal x) (adjoint z)
         }
 
     inl prong {w with size} = 
