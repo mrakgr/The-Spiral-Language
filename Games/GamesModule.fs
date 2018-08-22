@@ -537,11 +537,11 @@ inl {basic_methods State Action} ->
             }
 
         // The RL layers use the PRONG updates.
-        //inl actor = match d with {actor} -> Tuple.append (Tuple.wrap actor) (RL.Layer.pg {size=num_actions}  :: ()) | _ -> RL.Layer.pg {size=num_actions}
-        //inl critic = match d with {critic} -> critic :: RL.Layer.mc {} :: () | _ -> RL.Layer.mc {}
+        inl actor = match d with {actor} -> Tuple.append (Tuple.wrap actor) (RL.Layer.pg {size=num_actions}  :: ()) | _ -> RL.Layer.pg {size=num_actions}
+        inl critic = match d with {critic} -> critic :: RL.Layer.mc {} :: () | _ -> RL.Layer.mc {}
         // The feedforward linear layers do not use PRONG updates.
-        inl actor = match d with {actor} -> Tuple.append (Tuple.wrap actor) (Feedforward.linear num_actions  :: ()) | _ -> Feedforward.linear num_actions
-        inl critic = match d with {critic} -> critic :: Feedforward.linear 1 :: () | _ -> Feedforward.linear 1
+        //inl actor = match d with {actor} -> Tuple.append (Tuple.wrap actor) (Feedforward.linear num_actions  :: ()) | _ -> Feedforward.linear num_actions
+        //inl critic = match d with {critic} -> critic :: Feedforward.linear 1 :: () | _ -> Feedforward.linear 1
         inl shared = match d with {shared} -> shared | _ -> ()
 
         inl shared, shared_size = init cd input_size shared
