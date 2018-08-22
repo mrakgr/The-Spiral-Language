@@ -202,6 +202,7 @@ inl mutable_function f {state=(!heap state) input} =
     inl is_in_use = ref false
     function
     | .reset -> 
+        if is_in_use() then failwith () "The mutable function is already in use."
         inl x = store()
         store := state
         x
@@ -214,10 +215,12 @@ inl mutable_function f {state=(!heap state) input} =
         // the union type so it can be converted to a layout type in this scope.
         // In order for this and unroll_state to be the same it is necessary for state to
         // be passed as a regular argument into f rather than an union type.
-        inl {state out} = match try_head l with () | _ as state -> f {state input}
-        store := List.cons (box ty state) l
-        is_in_use := false
-        out
+        match try_head l with () | _ as state -> 
+            inl {state out} = f {state input}
+            store := List.cons (box ty state) l
+            is_in_use := false
+            stack out
+        |> indiv
     |> heap
 
 {int to_one_hot to_dense from_one_hot from_dense length_one_hot length_dense unroll mutable_function} |> stackify
