@@ -398,12 +398,15 @@ inl float ->
             }
         d2_replicate_map { fwd bck } in
 
-    inl hadmultb l b =
-        d2_replicate_activation {
-            fwd=inl b l -> b + Tuple.map (inl a,b -> a*b) l
-            bck_in=inl b l out -> out
-            bck_in'=inl b l out -> Tuple.map (inl a,b -> out*b,a*out)
-            } b l
+    inl hadmultb (x1,x2) b =
+        activation {
+            fwd=inl {b x1 x2} -> b + x1 * x2
+            bck={
+                b=inl _ _ -> one
+                x1=inl {x2} _ -> x2
+                x2=inl {x1} _ -> x1
+                }
+            } {b x1 x2}
 
     inl linear = succ
     inl Activation = {activation linear sigmoid tanh relu add hadmult hadmultb d2_replicate_activation } |> stack
@@ -615,7 +618,7 @@ inl float ->
                 inl rec loop = function
                     | _ :: x' -> inl x -> loop x'
                     | () -> init
-                s.CudaKernel.init {dim} (loop type dim)
+                s.CudaKernel.init {dim} (loop type dim) |> dr s
             | x -> x
             )
 
@@ -922,7 +925,7 @@ inl float ->
                 input = {
                     bias = initializer (sublayer_size, size)
                     alpha = initializer (sublayer_size, size)
-                    n = Initializer.constant {size=sublayer_size, size; init=to float 0.5}
+                    n = Initializer.constant {dim=sublayer_size, size; init=to float 0.5}
                     }
                 bias = Initializer.bias size
                 }
@@ -936,8 +939,10 @@ inl float ->
                     match d with
                     | {state} ->
                         inm H = hebb weights.input.n state
-                        succ (hadmultb (weights.input.alpha, H) weights.input.bias, H)
-                    | _ -> succ (weights.input, ())
+                        //inm W = hadmultb (weights.input.alpha, H) weights.input.bias 
+                        //succ (W, H)
+                        succ (weights.input.alpha, ())
+                    | _ -> succ (weights.input.bias, ())
                 inm out = matmultb (input, W) weights.bias >>= activation
                 succ {out state={out input H}}
             inl {out={out state} bck} = apply s
