@@ -887,16 +887,26 @@ inl float ->
         {sigmoid relu tanh linear zero prong} |> stackify
 
     // #Recurrent
-    inl hebb n {in out H} = 
-        inm x = matmult ({T=in},out)
-        map {
-            fwd=inl {n x H} -> n * x + (1 - n) * H
-            bck={
-                n=inl {n x H} _ -> x - H
-                x=inl {n x H} _ -> n
-                H=inl {n x H} _ -> -n
-                }
-            } {in out H}
+    inl hebb n {input out H} = 
+        inm x = matmult ({T=input},out)
+        match H with
+        | () ->
+            map {
+                fwd=inl {n x} -> n * x
+                bck={
+                    n=inl {n x} _ -> x
+                    x=inl {n x} _ -> n
+                    }
+                } {n x}
+        | _ ->
+            map {
+                fwd=inl {n x H} -> n * x + (one - n) * H
+                bck={
+                    n=inl {n x H} _ -> x - H
+                    x=inl {n x H} _ -> n
+                    H=inl {n x H} _ -> -n
+                    }
+                } {n x H}
 
     inl plastic_hebb initializer activation size =
         {
@@ -916,15 +926,18 @@ inl float ->
 
         apply = inl {d with weights input} -> 
             assert (input.span_outer = 1) "The differentirable plasticity layer supports only online learning for now."
-            inm W = 
+            inm W, H = 
                 match d with
-                | {} as state ->
-                    inm H = hebb weights.n state
-                    hadmultb (weights.input.alpha, H) weights.input.bias
-                | _ -> succ weights.input
-            matmultb (input, W) weights.bias >>= activation
+                | {state} ->
+                    inm H = hebb weights.input.n state
+                    succ (hadmultb (weights.input.alpha, H) weights.input.bias, H)
+                | _ -> succ (weights.input, ())
+            inm out = matmultb (input, W) weights.bias >>= activation
+            {out state={out input H}}
         block = ()
         }
+
+    inl RNN = {plastic_hebb}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
@@ -1033,6 +1046,6 @@ inl float ->
         {action sampling_pg Layer Value}
 
     { 
-    dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward RL
+    dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward RNN RL
     }
     """) |> module_

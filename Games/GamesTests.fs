@@ -225,7 +225,9 @@ Struct.iter (inl i ->
         inl a = 
             open (Learning float32)
             inl actor =
-                Feedforward.tanh 256
+                RNN.plastic_hebb Initializer.tanh Activation.tanh 256
+            //inl actor =
+            //    Feedforward.tanh 256
             //inl actor = 
             //    open Feedforward
             //    prong {activation=Activation.tanh; size=256},
