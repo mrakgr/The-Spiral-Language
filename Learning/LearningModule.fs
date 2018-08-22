@@ -879,6 +879,27 @@ inl float ->
         inl zero = layer Initializer.bias succ        
         {sigmoid relu tanh linear zero prong} |> stackify
 
+    // #Recurrent
+    inl plastic_hebb initializer activation size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                input = {
+                    bias = initializer (sublayer_size, size)
+                    alpha = initializer (sublayer_size, size)
+                    }
+                n = Initializer.constant {size=1; init=to float 0.5}
+                bias = Initializer.bias size
+                }
+            size
+            }
+
+        apply = inl {weights input} -> matmultb (input, weights.input) weights.bias >>= activation
+        block = ()
+        }
+
     inl RL =
         inl Value = // The value functions for RL act more like activations.
             inl td v s {discount_factor reward value'=v'} =
