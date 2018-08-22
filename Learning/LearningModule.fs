@@ -896,7 +896,11 @@ inl float ->
             size
             }
 
-        apply = inl {weights input} -> matmultb (input, weights.input) weights.bias >>= activation
+        apply = inl {state weights input} -> 
+            assert (input.span_outer = 1) "The differentirable plasticity layer supports only online learning for now."
+            inm H = hebb weights.n state
+            inm W = hadmultb (weights.input.alpha, H) weights.input.bias
+            matmultb (input, W) weights.bias >>= activation
         block = ()
         }
 
