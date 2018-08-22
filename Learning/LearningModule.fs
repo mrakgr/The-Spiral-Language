@@ -779,104 +779,22 @@ inl float ->
                 
         }
 
-    inl prong_template config {w with size} =
-        // 2 ** -3 is a sensible default.
-        // There is a relation between the epsilon parameter and the learning rate.
-        // Tests on the poker game show that up to 2 ** -2, every 2x increase in epsilon also allows a 2x increase in the learning rate.
-        // The networks can be trained with epsilons of 2 ** -10 and lower, but all that seems to do is make the network overfit 
-        // and forces the learning rates to go low. Unlike on Mnist where overfitting lowers the test accuracy, on the poker game 
-        // it lowers the winrate instead. High learning rates seem to be necessary for generalization.
-        inl default_epsilon = 2f32 ** -3f32 
-        inl f front =
-            match w with
-            | {$front={x with epsilon}} -> x
-            | {$front=()} -> ()
-            | _ -> {epsilon=default_epsilon}
-
-        inl front = f .front
-        inl back = f .back
-
-        inl {initializer steps_until_inverse_update learning_rate_modifier activation} =
-            inl defaults =
-                {
-                initializer=Initializer.tanh
-                steps_until_inverse_update=128
-                learning_rate_modifier=inl x -> x ** 0.85f32 // A sensible default for PRONG. Taken from the Zap paper.
-                activation=Activation.tanh
-                }
-
-            module_foldl (inl k def x -> match w with {$k=x} -> {def with $k=x} | _ -> {def with $k=x}) {} defaults
-
+    inl prong {w with size} = 
         {
         init = inl sublayer_size -> {
             size
-            dsc =
-                inl d =
-                    {
-                    input = initializer (sublayer_size, size)
-                    bias = Initializer.bias size
-                    k = Initializer.reference steps_until_inverse_update
-                    }
-                
-                inl init x = Initializer.identity (x,x)
-                inl f name front init d =
-                    match front with
-                    | () -> d
-                    | front -> {d with $name={front with covariance=init; precision=init}}
-
-                f .front front (init sublayer_size) d
-                |> f .back back (init size)
+            dsc = {
+                input = Initializer.tanh (sublayer_size, size)
+                bias = Initializer.bias size
+                prong = Initializer.prong sublayer_size w
+                }
             }
-                
-        apply = inl {weights input} s -> 
-            inl {out=a bck=bck_a} = whiten config {steps_until_inverse_update learning_rate_modifier} weights input s
-            inl {out=b bck=bck_b} = activation a s
-            {
-            out=b
-            bck=inl x -> bck_b(); bck_a x
-            }
-        optimize=inl {weights={input bias front back k} learning_rate} s ->
-            match config with
-            | {mode=.update} -> // In update mode, the reprojection is done during the optimization pass.
-                if k() <= 0 then
-                    k := steps_until_inverse_update
-                    inl {covariance precision} = front
-                    match config with
-                    | {front_mode=.zap} -> s.CudaSolve.lu_inverse {from=covariance; to=precision}
-                    | {front_mode=.prong} -> s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
-                    inl {covariance} = back
-                    if covariance.length <> 1 then 
-                        s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
-                    else
-                        () // Just divide by covariance directly.
-                
-                inb input_adjoint =
-                    inl {precision} = back
-                    inl reshape x = x.reshape (inl x -> 1,x)
-                    inl l = back.covariance.length
-                    if back.covariance.length <> 1 then 
-                        s.CudaTensor.gemm' .nT .nT -learning_rate (adjoint bias |> reshape) precision one (primal bias |> reshape)
-                        s.CudaBlas.symm .Right .Lower one precision input.adjoint
-                    else
-                        inl covariance = CudaAux.to_dev_tensor back.covariance
-                        s.CudaKernel.map' (inl x o -> o - learning_rate * x / covariance 0 0 .get) bias.adjoint bias.primal
-                        s.CudaKernel.map (inl x -> x / covariance 0 0 .get) input.adjoint
-                    |> CudaAux.temporary
-                
-                inl {precision} = front
-                match config with
-                | {front_mode=.zap} -> s.CudaBlas.gemm' .nT .nT -learning_rate precision input_adjoint one input.primal
-                | {front_mode=.prong} -> s.CudaBlas.symm' .Left .Lower -learning_rate precision input_adjoint one input.primal
-
-                s.CudaTensor.clear input.adjoint
-                s.CudaTensor.clear bias.adjoint
-            | {mode=.optimize} ->
-                Optimizer.sgd learning_rate s input
-                Optimizer.sgd learning_rate s bias
-        block=()
+        apply = inl {weights input} ->
+            whiten {front_mode=.prong; mode=.optimize} weights input 
+            >>= Activation.tanh
+        optimize=inl {weights={input bias} learning_rate} s ->
+            Tuple.map (Optimizer.sgd learning_rate s) (input, bias)
         }
-
-    inl prong = prong_template {front_mode=.prong; mode=.optimize}
 
     // #Feedforward
     inl layer initializer activation size =
