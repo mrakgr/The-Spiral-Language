@@ -939,9 +939,8 @@ inl float ->
                     match d with
                     | {state} ->
                         inm H = hebb weights.input.n state
-                        //inm W = hadmultb (weights.input.alpha, H) weights.input.bias 
-                        //succ (W, H)
-                        succ (weights.input.alpha, ())
+                        inm W = hadmultb (weights.input.alpha, H) weights.input.bias 
+                        succ (W, H)
                     | _ -> succ (weights.input.bias, ())
                 inm out = matmultb (input, W) weights.bias >>= activation
                 succ {out state={out input H}}
