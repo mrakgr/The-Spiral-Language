@@ -611,6 +611,11 @@ inl float ->
             | {zero=dim} -> s.CudaTensor.zero {elem_type=float; dim}
             | {identity=dim} -> s.CudaKernel.init {dim} (inl a b -> if a = b then one else zero)
             | {reference=x} -> ref x
+            | {constant={dim init}} -> 
+                inl rec loop = function
+                    | _ :: x' -> inl x -> loop x'
+                    | () -> init
+                s.CudaKernel.init {dim} (loop type dim)
             | x -> x
             )
 
