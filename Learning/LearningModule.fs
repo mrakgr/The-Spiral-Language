@@ -307,7 +307,7 @@ inl float ->
         out
         bck=inl _ -> join
             inl bck (in, out) = Struct.map2 (inl bck -> bck (in, out)) bck
-            s.CudaKernel.map' bck (primal, {out without block}) adjoint
+            on_non_nil (inl x -> s.CudaKernel.map' bck (primal, {out without block}) x) adjoint
         }
 
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
@@ -353,7 +353,9 @@ inl float ->
     inl succ out _ = {out bck=const ()}
 
     // #Activation
-    inl activation d = map {d with bck = Struct.map (inl bck (in, out) adjoint -> adjoint + out.adjoint * (self in out.primal)) self}
+    inl activation d = map {d with bck = inl (in, out) adjoint ->
+        Struct.map2 (inl bck adjoint -> adjoint + out.adjoint * (bck in out.primal)) self adjoint
+        }
 
     inl sigmoid_fwd x = one / (one + exp -x)
     inl sigmoid_bck out = out * (one - out)
@@ -384,10 +386,14 @@ inl float ->
         bck = (inl _ _ -> one), (inl _ _ -> one)
         }
 
-    inl hadmult = activation {
-        fwd = inl a,b -> a*b
-        bck = (inl (_,x) _ -> x), (inl (x,_) _ -> x)
-        }
+    inl hadmult (a,b) = 
+        activation {
+            fwd = inl {a b} -> a*b
+            bck = {
+                a = inl {b} _ -> b
+                b = inl {a} _ -> a
+                }
+            } {a b}
 
     inl d2_replicate_activation {fwd bck_in bck_in'} in =
         inl neutral_elem = Struct.map (const zero) in
@@ -902,7 +908,7 @@ inl float ->
         inm x = matmult ({T=input},out)
         match H with
         | () ->
-            map {
+            activation {
                 fwd=inl {n x} -> n * x
                 bck={
                     n=inl {n x} _ -> x
@@ -910,7 +916,7 @@ inl float ->
                     }
                 } {n x}
         | _ ->
-            map {
+            activation {
                 fwd=inl {n x H} -> n * x + (one - n) * H
                 bck={
                     n=inl {n x H} _ -> x - H
