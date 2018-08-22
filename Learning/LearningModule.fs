@@ -398,8 +398,15 @@ inl float ->
             }
         d2_replicate_map { fwd bck } in
 
+    inl hadmultb l b =
+        d2_replicate_activation {
+            fwd=inl b l -> b + Tuple.map (inl a,b -> a*b) l
+            bck_in=inl b l out -> out
+            bck_in'=inl b l out -> Tuple.map (inl a,b -> out*b,a*out)
+            } b l
+
     inl linear = succ
-    inl Activation = {activation linear sigmoid tanh relu add hadmult d2_replicate_activation } |> stack
+    inl Activation = {activation linear sigmoid tanh relu add hadmult hadmultb d2_replicate_activation } |> stack
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
@@ -880,6 +887,17 @@ inl float ->
         {sigmoid relu tanh linear zero prong} |> stackify
 
     // #Recurrent
+    inl hebb n {in out H} = 
+        inm x = matmult ({T=in},out)
+        map {
+            fwd=inl {n x H} -> n * x + (1 - n) * H
+            bck={
+                n=inl {n x H} _ -> x - H
+                x=inl {n x H} _ -> n
+                H=inl {n x H} _ -> -n
+                }
+            } {in out H}
+
     inl plastic_hebb initializer activation size =
         {
         init = inl sublayer_size -> 
@@ -889,17 +907,21 @@ inl float ->
                 input = {
                     bias = initializer (sublayer_size, size)
                     alpha = initializer (sublayer_size, size)
+                    n = Initializer.constant {size=sublayer_size, size; init=to float 0.5}
                     }
-                n = Initializer.constant {size=1; init=to float 0.5}
                 bias = Initializer.bias size
                 }
             size
             }
 
-        apply = inl {state weights input} -> 
+        apply = inl {d with weights input} -> 
             assert (input.span_outer = 1) "The differentirable plasticity layer supports only online learning for now."
-            inm H = hebb weights.n state
-            inm W = hadmultb (weights.input.alpha, H) weights.input.bias
+            inm W = 
+                match d with
+                | {} as state ->
+                    inm H = hebb weights.n state
+                    hadmultb (weights.input.alpha, H) weights.input.bias
+                | _ -> succ weights.input
             matmultb (input, W) weights.bias >>= activation
         block = ()
         }
