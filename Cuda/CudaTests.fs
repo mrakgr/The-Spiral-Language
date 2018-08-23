@@ -410,24 +410,6 @@ inl o1 =
 Tuple.iter s.CudaTensor.print (a1,o1)
     """
 
-let kernel8 =
-    "kernel8",[cuda_modules],"Does the map_d1_exscan_map kernel work?",
-    """
-inb s = CudaModules (1024*1024)
-
-inl inner_size = 10
-inl outer_size = 10
-
-inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
-inl o1 = 
-    s.CudaKernel.map_d1_exscan_map {
-        neutral_elem=0f32
-        redo=(+)
-        } a1
-
-Tuple.iter s.CudaTensor.print (a1,o1)
-    """
-
 let kernel9 =
     "kernel9",[cuda_modules],"Does the map_inscan_map kernel work?",
     """
@@ -842,13 +824,36 @@ inl a2 = s.CudaTensor.to_host_tensor o1
 HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
     """
 
+let kernel4' =
+    "kernel4'",[cuda_modules],"Does the init_exscan kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl inner_size = 10
+inl outer_size = 10
+
+inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
+inl o1 = s.CudaTensor.create_like a1
+inl _ =
+    inl a1, o1 = CudaAux.to_dev_tensor (a1,o1)
+    s.CudaKernel.init_exscan {
+        dim=a1.dim
+        init=inl a b -> a1 a b .get
+        neutral_elem=0f32
+        redo=(+)
+        outit=inl a b -> o1 a b .set
+        } a1
+
+Tuple.iter s.CudaTensor.print (a1,o1)
+    """
+
 let tests =
     [|
     allocator1
     tensor1;tensor2;tensor3;
-             kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
+             kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel9
     kernel10;kernel11;       kernel13;       kernel15;kernel16;kernel17
-    kernel1';kernel2';kernel3'
+    kernel1';kernel2';kernel3';kernel4'
     random1
     blas1;blas2;blas3;blas4;blas5;blas6;blas7;blas8;blas9
     cusolver1;cusolver2
