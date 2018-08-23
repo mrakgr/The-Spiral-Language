@@ -808,7 +808,7 @@ inb s = CudaModules (1024*1024)
 inl x = s.CudaTensor.create {elem_type=int64,int64,int64; dim=2,2,128}
 inl _ = 
     inl x = CudaAux.to_dev_tensor x
-    s.CudaKernel.iter {rev_thread_limit=32; dim=x.dim} (inl a b c -> x a b c .set (a, b, c))
+    s.CudaKernel.iter {dim=x.dim} (inl a, b, c -> x a b c .set (a, b, c))
 s.CudaTensor.print x
     """
 
@@ -817,7 +817,7 @@ let kernel2' =
     """
 inb s = CudaModules (1024*1024)
 
-inl o1 = s.CudaKernel.init {rev_thread_limit=32; dim=2,2,128} (inl a b c -> a, b, c)
+inl o1 = s.CudaKernel.init {dim=2,2,128} id
 s.CudaTensor.print o1
     """
 
@@ -847,7 +847,7 @@ let tests =
     allocator1
     tensor1;tensor2;tensor3;
              kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
-    kernel10;kernel11;      kernel13;       kernel15;kernel16;kernel17
+    kernel10;kernel11;       kernel13;       kernel15;kernel16;kernel17
     kernel1';kernel2';kernel3'
     random1
     blas1;blas2;blas3;blas4;blas5;blas6;blas7;blas8;blas9
@@ -857,6 +857,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel1'
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel3'
 |> printfn "%s"
 |> ignore

@@ -1454,7 +1454,7 @@ met iter w {d with dim} f =
 met init' w d f out =
     inl out = to_dev_tensor out |> zip
     inl dim = out.dim
-    iter w {d with dim} (inl in -> out.set (f in))
+    iter w {d with dim} (inl i -> out i .set (f i))
 
 inl init w {d with dim} f =
     indiv join
@@ -1468,7 +1468,7 @@ met map' w f in out =
     inl dim = in.dim
     assert (dim = out.dim) "The input and output dimensions must be equal."
     inl in, out = to_dev_tensor (in, out)
-    iter' w {dim} <| inl i -> 
+    iter w {dim} <| inl i -> 
         inl out = out i
         out .set (f (in i .get) out.get)
 
@@ -1484,7 +1484,7 @@ met mapi' w f in out =
     inl dim = in.dim
     assert (dim = out.dim) "The input and output dimensions must be equal."
     inl in, out = to_dev_tensor (in, out)
-    iter' w {dim} <| inl i -> 
+    iter w {dim} <| inl i -> 
         inl out = out i
         out .set (f i (in i .get) out.get)
 

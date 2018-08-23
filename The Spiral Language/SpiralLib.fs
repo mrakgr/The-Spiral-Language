@@ -1512,14 +1512,16 @@ inl rec facade data =
         view = inl data -> view data >> facade
         // Resizes the view towards zero.
         view_span = inl data -> view_span data >> facade
-        /// Applies the tensor.
-        apply = inl {data with dim} i ->
-            match dim with
-            | () -> error_type "Cannot apply the tensor anymore."
-            | {from near_to} :: dim ->
-                assert (i >= from && i < near_to) "Argument out of bounds." 
-                {data with bodies = Struct.map (inl ar -> tensor_apply ar (i-from)) self; dim}
-                |> facade
+        /// Applies the tensor. `i` can be a tuple.
+        apply = inl data i ->
+            Tuple.foldl (inl {data with dim} i ->
+                match dim with
+                | () -> error_type "Cannot apply the tensor anymore."
+                | {from near_to} :: dim ->
+                    assert (i >= from && i < near_to) "Argument out of bounds." 
+                    {data with bodies = Struct.map (inl ar -> tensor_apply ar (i-from)) self; dim}
+                    |> facade
+                ) data (Tuple.wrap i)
         /// Returns the tensor data.
         unwrap = id
         /// Returns an empty tensor of the same dimension.
