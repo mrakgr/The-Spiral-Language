@@ -1507,9 +1507,7 @@ met init_exscan w {d with dim=a,b redo neutral_elem init outit} =
 
                 grid_for .x b {state=dyn neutral_elem; body=inl {state=prefix i} ->
                     inl in, out = in i, out i
-                    inl state, prefix = 
-                        cub_block_scan {scan_type=.exclusive,prefix; is_input_tensor=false; return_aggregate=true}
-                            {blockDim redo} (map_in in.get)
+                    inl state, prefix = cub_block_scan {scan_type=.exclusive,prefix; is_input_tensor=false; return_aggregate=true} {blockDim redo} in
                     out state
                     prefix
                     } |> ignore
@@ -2407,7 +2405,6 @@ inl map_dx_scan_map_template kernel w d in =
         kernel w {d with map_in map_out} in out
         stack out
 
-inl map_d1_exscan_map = map_dx_scan_map_template map_d1_exscan_map'
 inl map_d1_inscan_map = map_dx_scan_map_template map_d1_inscan_map'
 inl map_d2_inscan_map = map_dx_scan_map_template map_d2_inscan_map'
 inl map_inscan_map = map_dx_scan_map_template map_inscan_map'
@@ -2534,9 +2531,9 @@ inl tensor_to_pointers w x =
 
 inl methods =
     {
-    map' map map_redo_map d2_replicate_map' d2_replicate_map mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
+    map' map init_exscan map_redo_map d2_replicate_map' d2_replicate_map mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
-    map_d1_exscan_map' map_d1_exscan_map mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
+    mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
     mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter init_d1_seq_broadcast
     iteri_dd1_seq_broadcast init_d1_redo_outit' init_d1_redo_outit init_d2_redo_outit' init_d2_redo_outit inplace_transpose
     tensor_to_pointers

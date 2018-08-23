@@ -842,7 +842,7 @@ inl _ =
         neutral_elem=0f32
         redo=(+)
         outit=inl a b -> o1 a b .set
-        } a1
+        }
 
 Tuple.iter s.CudaTensor.print (a1,o1)
     """
@@ -862,6 +862,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel3'
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel4'
 |> printfn "%s"
 |> ignore

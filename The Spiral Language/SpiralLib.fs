@@ -1383,7 +1383,7 @@ inl show' {cutoff_near_to} tns =
 inl show = show' {cutoff_near_to=1000}
 
 /// Total tensor size in elements.
-inl length = Tuple.foldl (inl s (!span x) -> s * x) 1
+inl length = Tuple.foldl (inl s (!span x) -> s * x) 1 << Tuple.wrap
 
 /// Splits a tensor's dimensions. Works on non-contiguous tensors.
 /// Given the tensor dimensions (a,b,c) and a function which maps them to (a,(q,w),c)
