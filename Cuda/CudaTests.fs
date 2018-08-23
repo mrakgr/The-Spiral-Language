@@ -294,27 +294,6 @@ inl o = s.CudaBlas.trmv .Lower .nT .NonUnit A x
 s.CudaTensor.print o
     """
 
-let kernel1 =
-    "kernel1",[cuda_modules],"Does the map kernel work?",
-    """
-/// Initializes all the Cuda parts
-inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
-
-/// Creates a host tensor with the given generator function.
-inl h = HostTensor.init 32 (inl x -> x + 1) 
-/// Loads the tensor on the GPU based on the host tensor
-inl a1 = s.CudaTensor.from_host_tensor h
-/// Makes a tensor of the same type and dimensions as `a1` and zeroes it.
-inl o1 = s.CudaTensor.zero_like a1
-/// Calls the map operation. `a1` is the input and `o1` is the output.
-s.CudaKernel.map' (inl a _ -> a * 2) a1 o1
-
-/// Transfers the tensor back to host.
-inl a2 = s.CudaTensor.to_host_tensor o1
-/// Zips the two tensors and prints them out.
-HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
-    """
-
 let kernel2 =
     "kernel2",[cuda_modules],"Does the map_redo_map kernel work?",
     """
@@ -543,15 +522,6 @@ Tuple.iter s.CudaTensor.print (a1,o1,o2,o3)
 //  [|0.5028772; -1.234876; 0.1718971; -0.6759161|]
     """
 
-let kernel12 =
-    "kernel12",[cuda_modules],"Does the init kernel work?",
-    """
-inb s = CudaModules (1024*1024)
-
-inl o1 = s.CudaKernel.init {rev_thread_limit=32; dim=2,2,128} (inl a b c -> a, b, c)
-s.CudaTensor.print o1
-    """
-
 let kernel13 =
     "kernel13",[cuda_modules],"Does the mapi_d1_dredo_map kernel work?",
     """
@@ -575,17 +545,6 @@ inl v =
         map_out = inl a, i -> a / c, i
         } x
 s.CudaTensor.print v
-    """
-
-let kernel14 =
-    "kernel14",[cuda_modules],"Does the iter kernel work?",
-    """
-inb s = CudaModules (1024*1024)
-inl x = s.CudaTensor.create {elem_type=int64,int64,int64; dim=2,2,128}
-inl _ = 
-    inl x = CudaAux.to_dev_tensor x
-    s.CudaKernel.iter {rev_thread_limit=32; dim=x.dim} (inl a b c -> x a b c .set (a, b, c))
-s.CudaTensor.print x
     """
 
 let kernel15 =
@@ -842,12 +801,54 @@ s.CudaTensor.print C_inv
 s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_inv)
     """
 
+let kernel1' =
+    "kernel1'",[cuda_modules],"Does the iter kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+inl x = s.CudaTensor.create {elem_type=int64,int64,int64; dim=2,2,128}
+inl _ = 
+    inl x = CudaAux.to_dev_tensor x
+    s.CudaKernel.iter {rev_thread_limit=32; dim=x.dim} (inl a b c -> x a b c .set (a, b, c))
+s.CudaTensor.print x
+    """
+
+let kernel2' =
+    "kernel2'",[cuda_modules],"Does the init kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl o1 = s.CudaKernel.init {rev_thread_limit=32; dim=2,2,128} (inl a b c -> a, b, c)
+s.CudaTensor.print o1
+    """
+
+let kernel3' =
+    "kernel3'",[cuda_modules],"Does the map kernel work?",
+    """
+/// Initializes all the Cuda parts
+inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+
+/// Creates a host tensor with the given generator function.
+inl h = HostTensor.init 32 (inl x -> x + 1) 
+/// Loads the tensor on the GPU based on the host tensor
+inl a1 = s.CudaTensor.from_host_tensor h
+/// Makes a tensor of the same type and dimensions as `a1` and zeroes it.
+inl o1 = s.CudaTensor.zero_like a1
+/// Calls the map operation. `a1` is the input and `o1` is the output.
+s.CudaKernel.map' (inl a _ -> a * 2) a1 o1
+
+/// Transfers the tensor back to host.
+inl a2 = s.CudaTensor.to_host_tensor o1
+/// Zips the two tensors and prints them out.
+HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
+    """
+
 let tests =
     [|
     allocator1
-    tensor1;tensor2;tensor3
-    kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
-    kernel10;kernel11;kernel12;kernel13;kernel14;kernel15;kernel16;kernel17
+    tensor1;tensor2;tensor3;
+             kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
+    kernel10;kernel11;      kernel13;       kernel15;kernel16;kernel17
+    kernel1';kernel2';kernel3'
     random1
     blas1;blas2;blas3;blas4;blas5;blas6;blas7;blas8;blas9
     cusolver1;cusolver2
@@ -856,6 +857,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel1'
 |> printfn "%s"
 |> ignore
