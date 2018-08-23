@@ -1442,6 +1442,27 @@ inl broadcast_zero x =
 
 inl to_dev_tensor = CudaAux.to_dev_tensor
 
+met iter w {d with dim} f =
+    inl l = length dim
+    inl blockDim = min l <| match d with {threads} -> threads | _ -> 1024
+    inl gridDim = divup l blockDim
+    w.run {blockDim gridDim // Lexical scoping rocks.
+        kernel = cuda grid_for {blockDim gridDim} .x dim {body=inl {i} -> f i}
+        }
+
+/// Creates a tensor using the given generator function.
+met init' w d f out =
+    inl out = to_dev_tensor out |> zip
+    inl dim = out.dim
+    iter w {d with dim} (inl in -> out.set (f in))
+
+inl init w {d with dim} f =
+    indiv join
+        inl elem_type = type f (dyn dim)
+        inl out = w.CudaTensor.create {dim elem_type}
+        init' w d f out
+        stack out
+
 met map' w f in out = 
     inl in, out = zip in, zip out
     assert (in.dim = out.dim) "The input and output dimensions must be equal."
@@ -2434,27 +2455,6 @@ inl mapi_d1_inscan_mapi_d1_reduce_mapi w d in in' =
         
         inl out = w.CudaTensor.create {elem_type dim=in'.dim}
         mapi_d1_inscan_mapi_d1_reduce_mapi' w d in in' out
-        stack out
-
-met iter w {d with dim} f =
-    inl l = length dim
-    inl blockDim = min l <| match d with {threads} -> threads | _ -> 1024
-    inl gridDim = divup l blockDim
-    w.run {blockDim gridDim
-        kernel = cuda grid_for {blockDim gridDim} .x dim {body=inl {i} -> f i}
-        }
-
-/// Creates a tensor using the given generator function.
-met init' w d f out =
-    inl out = to_dev_tensor out |> zip
-    inl dim = out.dim
-    iter w {d with dim} (inl in -> out.set (f in))
-
-inl init w {d with dim} f =
-    indiv join
-        inl elem_type = type f (dyn dim)
-        inl out = w.CudaTensor.create {dim elem_type}
-        init' w d f out
         stack out
 
 // TODO: Rather than launching num_blocks, it would be better to iterate in a strided fashion so to avoid potentially 
