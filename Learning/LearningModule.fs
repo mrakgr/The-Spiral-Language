@@ -458,18 +458,6 @@ inl float ->
                 }
             } input
                 
-    inl encode =
-        {
-        /// The one hot encode function. Does not check that the inputs are in range.
-        one_hot = inl size tns s ->
-            inl f = 
-                inl rec f tns = function
-                    | _ :: x' -> inl x -> f (tns x) x'
-                    | () -> inl x -> if x = to int64 tns.get then one else zero
-                f (to_dev_tensor tns) (type tns.dim)
-            s.CudaKernel.init {rev_thread_limit=32; dim=Tuple.append tns.dim (size :: ())} f
-        } |> stackify
-
     inl sample_body prob s =
         inl boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=fst prob.dim}
         s.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
@@ -486,13 +474,6 @@ inl float ->
                 }
             map_out=snd
             } prob boundary
-
-    /// Aplies a softmax to the inputs and then samples from them randomly. Returns the resulting indices in a 1d tensor.
-    inl sample temp x s =
-        inl prob = softmax temp (primal x) s
-        sample_body prob s
-
-    inl Auxiliary = {encode sample} |> stackify
 
     //#Error
     inl error {fwd bck} label input s = 
@@ -620,13 +601,9 @@ inl float ->
             | {relu=dim} -> init 1f32 dim s |> dr s
             | {bias=dim} -> s.CudaTensor.zero {elem_type=float; dim} |> dr s
             | {zero=dim} -> s.CudaTensor.zero {elem_type=float; dim}
-            | {identity=dim} -> s.CudaKernel.init {dim} (inl a b -> if a = b then one else zero)
+            | {identity=dim} -> s.CudaKernel.init {dim} (inl a, b -> if a = b then one else zero)
             | {reference=x} -> ref x
-            | {constant={dim init}} -> 
-                inl rec loop = function // TODO: Redesign the init kernel.
-                    | _ :: x' -> inl x -> loop x'
-                    | () -> init
-                s.CudaKernel.init {dim} (loop type dim) |> dr s
+            | {constant={dim init}} -> s.CudaKernel.init {dim} (const init) |> dr s
             | {prong={d with sublayer_size size}} -> 
                 // 2 ** -3 is a sensible default.
                 // There is a relation between the epsilon parameter and the learning rate.
@@ -692,7 +669,7 @@ inl float ->
         inl beta = one - alpha - epsilon
         inl _ =
             inl cov = CudaAux.to_dev_tensor cov
-            s.CudaKernel.iter {dim=cov.dim} <| inl a b -> 
+            s.CudaKernel.iter {dim=cov.dim} <| inl a, b -> 
                 if b <= a then
                     inl cov = cov a b
                     inl identity = if a = b then epsilon else zero
@@ -709,7 +686,7 @@ inl float ->
         inl beta = one - alpha - epsilon
         inl _ =
             inl A = CudaAux.to_dev_tensor A
-            cd.CudaKernel.iter {dim=A.dim} <| inl a b -> 
+            cd.CudaKernel.iter {dim=A.dim} <| inl a, b -> 
                 inl A = A a b
                 inl identity = if a = b then epsilon else zero
                 A .set (alpha * A .get + identity)

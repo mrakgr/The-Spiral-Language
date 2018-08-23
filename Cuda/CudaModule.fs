@@ -876,7 +876,7 @@ inl s ret ->
                     | .Left -> get_dims A B
                     | .Right -> get_dims B A
                 inl B = CudaAux.to_dev_tensor B
-                s.CudaKernel.init {dim} (inl a b -> B a b .get)
+                s.CudaKernel.init {dim} (inl a, b -> B a, b .get)
             trsm' s side uplo trans diag alpha A B
             stack B
 
@@ -884,7 +884,7 @@ inl s ret ->
     inl trinv s uplo A =
         indiv join
             inl float = A.elem_type
-            inl B = s.CudaKernel.init {dim=A.dim} (inl a b -> if a = b then to float 1 else to float 0)
+            inl B = s.CudaKernel.init {dim=A.dim} (inl a, b -> if a = b then to float 1 else to float 0)
             trsm' s .Left uplo .nT .NonUnit (to float 1) A B
             stack B
 
@@ -2438,63 +2438,21 @@ inl mapi_d1_inscan_mapi_d1_reduce_mapi w d in in' =
 
 met iter w {d with dim} f =
     inl l = length dim
-    inl blockDim = min l <| match d with {num_threads} -> num_threads | _ -> 256
+    inl blockDim = min l <| match d with {threads} -> threads | _ -> 1024
     inl gridDim = divup l blockDim
     w.run {blockDim gridDim
         kernel = cuda grid_for {blockDim gridDim} .x dim {body=inl {i} -> f i}
         }
 
-/// Iterates over the dimensions.
-/// Takes in the optional {thread_limit} or {rev_thread_limit} as the first argument in order to control the degree of parallelism.
-met iter w {d with dim} f =
-    inl dim = HostTensor.map_dims dim
-    inl rec merge = function
-        | thread_limit :: l', dim :: d' -> {dim thread_limit=min thread_limit (s dim)} :: merge (l', d')
-        | (), d' -> Tuple.map (inl dim -> {dim thread_limit=()}) d'
-    inl d = 
-        match d with
-        | {thread_limit} -> merge (Tuple.wrap thread_limit,dim)
-        | {rev_thread_limit} -> merge (Tuple.wrap rev_thread_limit, Tuple.rev dim) |> Tuple.rev
-        | _ -> merge ((),dim)
-    inl s = function {thread_limit=() dim} -> s dim | {thread_limit} -> thread_limit
-    inl near_to = Tuple.foldl (inl a (!s b) -> a*b) 1 d
-    inl blockDim = min near_to 256
-    inl gridDim = divup near_to blockDim
-
-    w.run {blockDim gridDim
-        kernel = cuda
-            grid_for {blockDim gridDim} .x {from=0; near_to} {body=inl {i} ->
-                inl l,_ = Tuple.foldr (inl ((!s x_span) & x) (l,i) -> (i % x_span + x.dim.from) :: l, i / x_span) d ((),i)
-                inl rec loop f = function
-                    | {thread_limit=()} :: d', i :: i' -> loop (f i) (d', i')
-                    | {thread_limit=by dim={near_to}} :: d', from :: i' -> forcd {from by near_to body=inl {i} -> loop (f i) (d',i')}
-                    | (), () -> f; () // The output of f should be unit.
-                loop f (d,l)
-                }
-        }
-
 /// Creates a tensor using the given generator function.
-/// Takes in the optional {thread_limit} or {rev_thread_limit} as the first argument in order to control the degree of parallelism.
 met init' w d f out =
     inl out = to_dev_tensor out |> zip
-    inl rec loop f out = function
-        | _ :: x' -> inl i -> loop (f i) (out i) x'
-        | _ -> out.set (f out.get)
-
     inl dim = out.dim
-    inl f = loop f out (type dim)
-
-    iter w {d with dim} f
+    iter w {d with dim} (inl in -> out.set (f in))
 
 inl init w {d with dim} f =
     indiv join
-        inl dim = Tuple.wrap dim
-        inl elem_type = type Tuple.foldl (inl f _ -> f (dyn 0)) f dim
-        inl f = // Shifts the arguments one to the left.
-            inl rec loop f = function
-                | _ :: x' -> inl x -> loop (f x) x'
-                | _ -> inl _ -> f
-            loop f (type dim)
+        inl elem_type = type f (dyn dim)
         inl out = w.CudaTensor.create {dim elem_type}
         init' w d f out
         stack out
@@ -2705,7 +2663,7 @@ inl s ret ->
     inl symm_copy s uplo = 
         inl body {from to=to'} =
             inl from,to' = CudaAux.to_dev_tensor (from,to')
-            s.CudaKernel.iter {dim=from.dim} <| inl a b ->
+            s.CudaKernel.iter {dim=from.dim} <| inl a, b ->
                 inl check = match uplo with .Lower -> a >= b | .Upper -> a <= b
                 if check then to' a b .set (from a b .get)
 
@@ -2798,12 +2756,12 @@ inl s ret ->
         | {to} ->
             inl _ =
                 inl to = CudaAux.to_dev_tensor to
-                s.CudaKernel.iter {dim=from.dim} <| inl a b -> 
+                s.CudaKernel.iter {dim=from.dim} <| inl a, b -> 
                     inl to = to a b
                     if a = b then to .set 1f32 else to .set 0f32
             handle_error s {info = s.CudaSolve.getrs' .nT A ipiv to}
         | _ ->
-            inl to = s.CudaKernel.init {dim=from.dim} (inl a b -> if a = b then 1f32 else 0f32)
+            inl to = s.CudaKernel.init {dim=from.dim} (inl a, b -> if a = b then 1f32 else 0f32)
             handle_error s {info = s.CudaSolve.getrs' .nT A ipiv to}
             to
 
