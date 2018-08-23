@@ -808,7 +808,7 @@ inl float ->
                 }
             }
         apply = inl {weights input} ->
-            whiten {front_mode=.prong; mode=.optimize} weights input 
+            naturalize {front_mode=.prong; mode=.optimize} weights input 
             >>= Activation.tanh
         optimize=inl {weights={input bias} learning_rate} s ->
             Tuple.map (Optimizer.sgd learning_rate s) (input, bias)
@@ -979,12 +979,7 @@ inl float ->
             // the vanilla PRONG layers.
             inl mc (!default {w with !size}) = prong_template {front_mode=.prong; mode=.update} {w with size=1}
 
-            // The TD layer uses the Zap update from the 'Fastest Convergence for Q-Learning' paper by Devray and Meyn 
-            // in place of the standard PRONG update. It works better than standard TD, but is still a net negative in 
-            // an AC agent.
-            inl td (!default {w with !size}) = prong_template {front_mode=.zap; mode=.update} {w with size=1}
-
-            {pg mc td}
+            {pg mc}
 
         /// For online learning.
         inl action {State Action final} {net input} s =
