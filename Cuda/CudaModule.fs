@@ -1497,23 +1497,20 @@ inl mapi w f in =
 
 /// The exclusive scan over the innermost dimension.
 met init_exscan w {d with dim=a,b redo neutral_elem init outit} =
-    inl blockDim = lit_min 1024 (length b)
-    inl gridDimY = lit_min 64 (length a)
-
     w.run {
-        blockDim
-        gridDim = 1, gridDimY
+        blockDim = {x = min 1024 (length b)}
+        gridDim = {y = min 256 (length a)}
         kernel = cuda 
             inl grid_for = grid_for {blockDim gridDim}
-            grid_for .y dim_in_a {body=inl {i} ->
-                inl in, out = in i, out i
+            grid_for .y a {body=inl {i} ->
+                inl in, out = init i, outit i
 
-                grid_for .x dim_in_b {state=dyn neutral_elem; body=inl {state=prefix i} ->
+                grid_for .x b {state=dyn neutral_elem; body=inl {state=prefix i} ->
                     inl in, out = in i, out i
                     inl state, prefix = 
                         cub_block_scan {scan_type=.exclusive,prefix; is_input_tensor=false; return_aggregate=true}
                             {blockDim redo} (map_in in.get)
-                    out.set (map_out state out.get)
+                    out state
                     prefix
                     } |> ignore
                 }

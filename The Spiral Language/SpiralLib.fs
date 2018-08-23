@@ -1812,9 +1812,12 @@ inl ret ->
     writeline (string_concat "" ("Compiled the kernels into the following directory: ", current_directory))
 
     inl dim3 = function
-        | {x y z} as m -> m
-        | x,y,z -> {x=x: int64; y=y: int64; z=z: int64}
-        | x,y -> {x=x: int64; y=y: int64; z=1}
+        | {} as m ->
+            inl m = match m with {x=x: int64} -> m | _ -> {m with x=1}
+            inl m = match m with {y=y: int64} -> m | _ -> {m with y=1}
+            match m with {z=z: int64} -> m | _ -> {m with z=1}
+        | z,y,x -> {x=x: int64; y=y: int64; z=z: int64}
+        | y,x -> {x=x: int64; y=y: int64; z=1}
         | x -> {x=x: int64; y=1; z=1}
 
     inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
