@@ -1514,54 +1514,42 @@ met init_exscan w {d with dim=a,b redo neutral_elem init outit} =
                 }
         }
 
-/// Inclusive scan over the entire tensor.
-met map_inscan_map' w {d with redo neutral_elem} in out =
-    inl in, out = zip in, zip out
-    assert (in.dim = out.dim) "The input and output dimensions must be equal."
-    inl in = flatten in |> to_dev_tensor
-    inl out = flatten out |> to_dev_tensor
-    inl in_a :: () = in.dim
+/// Inclusive scan.
+met inscan w {d with dim redo neutral_elem init outit} =
+    inl l = length dim
+    inl blockDim = min 1024 l
+    inl gridDim = divup l blockDim
 
-    inl near_to = s in_a
-    inl blockDim = lit_min 1024 near_to
-    inl num_blocks = divup near_to blockDim
-    inl gridDim = lit_min 64 num_blocks
+    inb prefix = w.CudaTensor.create {elem_type=type init (dyn dim); dim=gridDim} |> temporary
+    inl prefix = to_dev_tensor prefix
 
-    inl map_in = match d with {map_in} -> map_in | _ -> id
-    inl map_out = match d with {map_out} -> map_out | _ -> const
-
-    /// TODO: Optimize the case where the size of temp is just 1.
-    inl temp = w.CudaTensor.create {elem_type=type map_in in.elem_type; dim=1,num_blocks}
-
-    inl _ = // First perform the reduction to get the aggregates.
-        inl temp = to_dev_tensor (temp 0)
-        w.run {
-            blockDim gridDim
-            kernel = cuda
-                grid_for_items {blockDim gridDim} .x in_a {body=inl {num_valid item i} ->
-                    inl temp = temp item
-                    inl x = in i .get |> map_in |> cub_block_reduce {num_valid blockDim redo}
-                    if threadIdx.x = 0 then temp .set x
-                    }
-            }
-
-    // Scan the aggregates to get the prefixes.
-    w.CudaKernel.map_d1_exscan_map' {redo neutral_elem} temp temp
-
-    // The actual scan.
-    inl temp = to_dev_tensor (temp 0)
+    // First perform the reduction to get the aggregates.
     w.run {
         blockDim gridDim
         kernel = cuda
-            grid_for_items {blockDim gridDim} .x in_a {body=inl {num_valid item i} ->
-                inl prefix, out = temp item .get, out i
-                in i .get 
-                |> map_in
+            grid_for_items {blockDim gridDim} .x dim {body=inl {num_valid item i} ->
+                inl x = init i |> cub_block_reduce {num_valid blockDim redo}
+                if threadIdx.x = 0 then prefix item .set x
+                }
+        }
+
+    // Scan the aggregates to get the prefixes.
+    init_exscan w {dim=1,gridDim; redo neutral_elem
+        init = inl a b -> prefix b .get
+        outit = inl a b -> prefix b .set
+        }
+
+    // The actual scan.
+    w.run {
+        blockDim gridDim
+        kernel = cuda
+            grid_for_items {blockDim gridDim} .x dim {body=inl {num_valid item i} ->
+                init i
                 |> cub_block_scan
                     {scan_type=.inclusive; return_aggregate=false; is_input_tensor=false}
                     {blockDim redo}
-                |> redo prefix
-                |> inl x -> out .set (map_out x out.get)
+                |> redo (prefix item .get)
+                |> outit i
                 }
         }
 
