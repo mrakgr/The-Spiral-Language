@@ -1496,20 +1496,9 @@ inl mapi w f in =
         stack out
 
 /// The exclusive scan over the innermost dimension.
-/// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
-met map_d1_exscan_map' w {d with redo neutral_elem} in out =
-    inl in, out = zip in, zip out
-    inl dim_in_a, dim_in_b = in.dim
-    assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
-
-    inl blockDim = lit_min 1024 (s dim_in_b)
-    inl gridDimY = lit_min 64 (s dim_in_a)
-
-    inl in = to_dev_tensor in
-    inl out = to_dev_tensor out
-
-    inl map_in = match d with {map_in} -> map_in | _ -> id
-    inl map_out = match d with {map_out} -> map_out | _ -> const
+met init_exscan w {d with dim=a,b redo neutral_elem init outit} =
+    inl blockDim = lit_min 1024 (length b)
+    inl gridDimY = lit_min 64 (length a)
 
     w.run {
         blockDim
