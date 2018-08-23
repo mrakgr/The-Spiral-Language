@@ -1284,7 +1284,6 @@ inl forcd {d with from body} =
     |> finally
 
 inl divup a b = (a-1)/b+1 // Integer division with rounding up. (a+b-1)/b is another variant on this.
-inl s = span
 
 inl index_to_tuple d i =
     Tuple.foldr (inl x (l,i) -> 
@@ -1297,7 +1296,7 @@ inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
     inl dim, index_convert =
         match dim with
         | {from near_to} -> dim, id
-        | _ :: _ -> {from=0; near_to=Tuple.foldl (inl a b -> a * s b) 1 dim}, index_to_tuple dim
+        | _ :: _ -> {from=0; near_to=length dim}, index_to_tuple dim
         | near_to : int64 -> {from=0; near_to}, id
 
     inl from = threadIdx axis + blockDim axis * blockIdx axis + dim.from
@@ -2436,6 +2435,14 @@ inl mapi_d1_inscan_mapi_d1_reduce_mapi w d in in' =
         inl out = w.CudaTensor.create {elem_type dim=in'.dim}
         mapi_d1_inscan_mapi_d1_reduce_mapi' w d in in' out
         stack out
+
+met iter w {d with dim} f =
+    inl l = length dim
+    inl blockDim = min l <| match d with {num_threads} -> num_threads | _ -> 256
+    inl gridDim = divup l blockDim
+    w.run {blockDim gridDim
+        kernel = cuda grid_for {blockDim gridDim} .x dim {body=inl {i} -> f i}
+        }
 
 /// Iterates over the dimensions.
 /// Takes in the optional {thread_limit} or {rev_thread_limit} as the first argument in order to control the degree of parallelism.

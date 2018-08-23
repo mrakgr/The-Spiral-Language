@@ -1383,7 +1383,7 @@ inl show' {cutoff_near_to} tns =
 inl show = show' {cutoff_near_to=1000}
 
 /// Total tensor size in elements.
-inl product = Tuple.foldl (inl s (!span x) -> s * x) 1
+inl length = Tuple.foldl (inl s (!span x) -> s * x) 1
 
 /// Splits a tensor's dimensions. Works on non-contiguous tensors.
 /// Given the tensor dimensions (a,b,c) and a function which maps them to (a,(q,w),c)
@@ -1394,7 +1394,7 @@ inl split f tns =
             inl next = concat (d',n')
             match n with
             | _ :: _ -> 
-                assert (span d = product n) "The product of the split dimension must equal to that of the previous one."
+                assert (span d = length n) "The length of the split dimension must equal to that of the previous one."
                 Tuple.append n next
             | _ -> 
                 assert (span d = span n) "The span on the new dimension must be equal to that of the previous one."
@@ -1414,7 +1414,7 @@ inl split f tns =
     match tns.dim with
     | () ->
         inl f = Tuple.wrap f
-        assert (product f = 1) "The product of new dimensions for the scalar tensor must be 1."
+        assert (length f = 1) "The length of new dimensions for the scalar tensor must be 1."
         tns .set_dim f .update_body (inl d -> {d with size=f})
     | dim ->
         inl dim' =
@@ -1436,7 +1436,7 @@ inl flatten tns =
     match tns.dim with
     | () -> tns
     | !(Tuple.map span) dim ->
-        tns .set_dim (product dim)
+        tns .set_dim (length dim)
             .update_body (inl {d with size} ->
                 Tuple.zip (dim,size)
                 |> Tuple.reducel (inl d,s d',s' ->
@@ -1496,7 +1496,7 @@ inl view_span {data with dim} f =
 
 inl rec facade data = 
     inl methods = stack {
-        length = inl {data with dim} -> product dim
+        length = inl {data with dim} -> length dim
         elem_type = inl {data with bodies} -> Struct.map (inl {ar} -> ar.elem_type) bodies
         update_body = inl {data with bodies} f -> {data with bodies=Struct.map f bodies} |> facade
         set_dim = inl {data with dim} dim -> {data with dim=map_dims dim} |> facade
@@ -1667,7 +1667,7 @@ inl from_scalar x =
     t
 
 {
-create facade init copy assert_size array_as_tensor array_to_tensor map zip show print
+create facade init copy assert_size array_as_tensor array_to_tensor map zip show print length
 span equal split flatten assert_contiguous assert_dim reshape unzip from_scalar map_dim map_dims
 } |> stackify
     """) |> module_
