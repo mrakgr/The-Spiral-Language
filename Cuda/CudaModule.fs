@@ -1443,7 +1443,7 @@ inl broadcast_zero x =
 inl to_dev_tensor = CudaAux.to_dev_tensor
 inl temporary = CudaAux.temporary
 
-met iter w {d with dim} f =
+met iter w {dim} f =
     inl l = length dim
     inl blockDim = min l <| match d with {threads} -> threads | _ -> 1024
     inl gridDim = divup l blockDim
@@ -1499,7 +1499,7 @@ inl mapi w f in =
         stack out
 
 /// The exclusive scan over the innermost dimension.
-met init_exscan w {d with dim=a,b redo neutral_elem init outit} =
+met init_exscan w {dim=a,b redo neutral_elem init outit} =
     w.run {
         blockDim = {x = min 1024 (length b)}
         gridDim = {y = min 256 (length a)}
@@ -1518,7 +1518,8 @@ met init_exscan w {d with dim=a,b redo neutral_elem init outit} =
         }
 
 /// Inclusive scan.
-met inscan w {d with dim redo neutral_elem init outit} =
+/// Note: Not fully optimized.
+met inscan w {dim redo neutral_elem init outit} =
     inl l = length dim
     inl blockDim = min 1024 l
     inl gridDim = divup l blockDim
@@ -1556,43 +1557,28 @@ met inscan w {d with dim redo neutral_elem init outit} =
                 }
         }
 
-/// Zips, flattens the tensor to 1d, maps, reduces it and maps it.
-/// Map is optional. Allocates a temporary tensor for the intermediary results.
-inl map_redo_map w {d with redo neutral_elem} in =
-    indiv join
-        inl run {map_out map_in blockDim gridDim} (!to_dev_tensor in) =
-            inl in_a :: () = in.dim
-            inl out = w.CudaTensor.create {elem_type=type map_in in.elem_type |> map_out; dim=gridDim}
-            inl out' = to_dev_tensor out
+met redo w {redo neutral_elem dim init outit} =
+    inl run {dim blockDim gridDim init outit} =
+        w.run {
+            blockDim gridDim
+            kernel = cuda 
+                inl x = 
+                    grid_for {blockDim gridDim} .x dim {state=dyn neutral_elem; body=inl {state i} -> redo state (init i) }
+                    |> cub_block_reduce {blockDim redo}
+                if threadIdx.x = 0 then outit blockIdx.x x
+            }
 
-            w.run {
-                blockDim gridDim
-                kernel = cuda 
-                    inl x = 
-                        grid_for {blockDim gridDim} .x in_a {state=dyn neutral_elem; body=inl {state i} -> redo state (map_in (in i .get)) }
-                        |> cub_block_reduce {blockDim redo} |> map_out
-                    if threadIdx.x = 0 then out' blockIdx.x .set x
-                }
+    inl l = length dim
+    inl blockDim = min l 1024
+    inl gridDim = min 128 (divup l blockDim)
 
-            out
-
-        inl in = zip in |> flatten
-        inl map_in = match d with {map_in} -> map_in | _ -> id
-        inl map_out = match d with {map_out} -> map_out | _ -> id
-
-        inl in_a :: () = in.dim
-        inl span = s in_a
-        inl blockDim = lit_min span 1024
-        inl gridDim = lit_min 64 (divup span blockDim)
-
-        inl r = 
-            if gridDim = 1 then
-                run {map_out map_in blockDim gridDim} in
-            else
-                run {map_out=id; map_in blockDim gridDim} in
-                |> run {map_out map_in=id; blockDim=gridDim; gridDim=1}
-        r 0 |> stack
-        
+    if gridDim = 1 then
+        run {map_out map_in blockDim gridDim init outit}
+    else
+        inb temp = w.CudaTensor.create {elem_type=neutral_elem; dim=gridDim} |> temporary
+        inl temp = to_dev_tensor temp
+        run {blockDim gridDim dim init outit=inl i -> temp i .set}
+        run {outit blockDim=gridDim; gridDim=1; dim=temp.dim; init=inl i -> temp i .get}
 
 /// Replicates the 1d `in` and maps it along the outer dimension as determined by `in'`.
 met d2_replicate_map' w f in in' out =
@@ -2521,7 +2507,7 @@ inl tensor_to_pointers w x =
 
 inl methods =
     {
-    map' map init_exscan inscan map_redo_map d2_replicate_map' d2_replicate_map mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
+    map' map init_exscan inscan redo d2_replicate_map' d2_replicate_map mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map 
     mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
     mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter init_d1_seq_broadcast

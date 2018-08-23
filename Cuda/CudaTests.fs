@@ -841,13 +841,13 @@ Tuple.iter s.CudaTensor.print (a1,o1)
     """
 
 let kernel6 =
-    "kernel6",[cuda_modules],"Does the map_redo_map kernel work?",
+    "kernel6",[cuda_modules],"Does the redo kernel work?",
     """
 inb s = CudaModules (1024*1024)
 
 inl h = HostTensor.init 2048 ((+) 1)
 inl a1 = s.CudaTensor.from_host_tensor h
-inl o1 = s.CudaTensor.create_like a1
+inl o1 = s.CudaTensor.create {dim=1; elem_type=int64}
 
 inl _ =
     inl a1,o1 = CudaAux.to_dev_tensor (a1,o1)
