@@ -1465,29 +1465,34 @@ inl init w {d with dim} f =
 
 met map' w f in out = 
     inl in, out = zip in, zip out
-    assert (in.dim = out.dim) "The input and output dimensions must be equal."
-    inl in = flatten in |> to_dev_tensor
-    inl out = flatten out |> to_dev_tensor
-    inl in_a :: () = in.dim
-    
-    inl blockDim = 128
-    inl gridDim = min 64 (divup (s in_a) blockDim)
-
-    w.run {
-        blockDim gridDim
-        kernel = cuda // Lexical scoping rocks.
-            grid_for {blockDim gridDim} .x in_a {body=inl {i} ->
-                inl out = out i
-                inl in = in i
-                out .set (f in.get out.get)
-                }
-        }
+    inl dim = in.dim
+    assert (dim = out.dim) "The input and output dimensions must be equal."
+    inl in, out = to_dev_tensor (in, out)
+    iter' w {dim} <| inl i -> 
+        inl out = out i
+        out .set (f (in i .get) out.get)
 
 inl map w f in =
     indiv join
         inl in = zip in
         inl out = w.CudaTensor.create {dim=in.dim; elem_type=type f in.elem_type}
         map' w (inl in _ -> f in) in out
+        stack out
+
+met mapi' w f in out = 
+    inl in, out = zip in, zip out
+    inl dim = in.dim
+    assert (dim = out.dim) "The input and output dimensions must be equal."
+    inl in, out = to_dev_tensor (in, out)
+    iter' w {dim} <| inl i -> 
+        inl out = out i
+        out .set (f i (in i .get) out.get)
+
+inl mapi w f in =
+    indiv join
+        inl in = zip in
+        inl out = w.CudaTensor.create {dim=in.dim; elem_type=type f in.elem_type}
+        mapi' w (inl i in _ -> f i in) in out
         stack out
 
 /// The exclusive scan over the innermost dimension.
