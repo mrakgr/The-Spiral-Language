@@ -294,316 +294,304 @@ inl o = s.CudaBlas.trmv .Lower .nT .NonUnit A x
 s.CudaTensor.print o
     """
 
-let kernel2 =
-    "kernel2",[cuda_modules],"Does the map_redo_map kernel work?",
-    """
-inb s = CudaModules (1024*1024)
+//let kernel3 =
+//    "kernel3",[cuda_modules],"Does the d2_replicate_map kernel work?",
+//    """
+//inb s = CudaModules (1024*1024)
 
-inl h = HostTensor.init 2048 ((+) 1)
-inl a1 = s.CudaTensor.from_host_tensor h
+//inl inner_size = 8
+//inl outer_size = 8
 
-s.CudaKernel.map_redo_map {neutral_elem=0; redo=(+)} a1
-|> s.CudaTensor.print // 2098176
-    """
+//inl h = HostTensor.init inner_size (const 123)
+//inl h' = HostTensor.init (outer_size,inner_size) (inl a b -> a,b)
+//inl a1 = s.CudaTensor.from_host_tensor h
+//inl a2 = s.CudaTensor.from_host_tensor h'
+//inl o1 = s.CudaKernel.d2_replicate_map (inl a b -> a, b) a1 a2
+//Tuple.iter s.CudaTensor.print (a1,a2,o1)
+//    """
 
-let kernel3 =
-    "kernel3",[cuda_modules],"Does the d2_replicate_map kernel work?",
-    """
-inb s = CudaModules (1024*1024)
+//let kernel4 =
+//    "kernel4",[cuda_modules],"Does the mapi_d2_redo_map kernel work?",
+//    """
+//inb s = CudaModules (1024*1024)
 
-inl inner_size = 8
-inl outer_size = 8
+//inl inner_size = 10
+//inl outer_size = 4
 
-inl h = HostTensor.init inner_size (const 123)
-inl h' = HostTensor.init (outer_size,inner_size) (inl a b -> a,b)
-inl a1 = s.CudaTensor.from_host_tensor h
-inl a2 = s.CudaTensor.from_host_tensor h'
-inl o1 = s.CudaKernel.d2_replicate_map (inl a b -> a, b) a1 a2
-Tuple.iter s.CudaTensor.print (a1,a2,o1)
-    """
+//inl h = HostTensor.init (outer_size,inner_size) (inl _ x -> x)
+//inl h' = HostTensor.init inner_size id
+//inl a1 = s.CudaTensor.from_host_tensor h
+//inl a2 = s.CudaTensor.from_host_tensor h'
+//inl o = 
+//    s.CudaKernel.mapi_d2_redo_map {
+//        map_in=(+)
+//        neutral_elem=0; redo=(+)
+//        } a1 a2
+//Tuple.iter s.CudaTensor.print (a1,a2,o)
+//    """
 
-let kernel4 =
-    "kernel4",[cuda_modules],"Does the mapi_d2_redo_map kernel work?",
-    """
-inb s = CudaModules (1024*1024)
+//let kernel5 =
+//    "kernel5",[cuda_modules],"Does the mapi_d1_redo_map kernel work?",
+//    """
+//inb s = CudaModules (1024*1024)
 
-inl inner_size = 10
-inl outer_size = 4
+//inl inner_size = 10
+//inl outer_size = 32
 
-inl h = HostTensor.init (outer_size,inner_size) (inl _ x -> x)
-inl h' = HostTensor.init inner_size id
-inl a1 = s.CudaTensor.from_host_tensor h
-inl a2 = s.CudaTensor.from_host_tensor h'
-inl o = 
-    s.CudaKernel.mapi_d2_redo_map {
-        map_in=(+)
-        neutral_elem=0; redo=(+)
-        } a1 a2
-Tuple.iter s.CudaTensor.print (a1,a2,o)
-    """
+//inl a1 = s.CudaRandom.create {dst=.Uniform} {elem_type=float32; dim=outer_size,inner_size}
+//inl a2 = s.CudaRandom.create {dst=.Uniform} {elem_type=float32; dim=outer_size,inner_size}
+//inl a3 = s.CudaTensor.create {elem_type=float32; dim=1}
+//inl f a1 a2 =
+//    s.CudaKernel.mapi_d1_redo_map {
+//        map_in=const
+//        neutral_elem=-infinityf32,0f32
+//        redo=inl a b -> if fst a > fst b then a else b
+//        map_out=snd
+//        } a1 a2
+//inl o1 = f (a1, a2) ()
 
-let kernel5 =
-    "kernel5",[cuda_modules],"Does the mapi_d1_redo_map kernel work?",
-    """
-inb s = CudaModules (1024*1024)
+//Tuple.iter s.CudaTensor.print (a1,o1)
 
-inl inner_size = 10
-inl outer_size = 32
+//inl f a1 =
+//    s.CudaKernel.mapi_d1_redo_map {
+//        mapi_in=inl j i a _ -> a,i
+//        neutral_elem=-infinityf32,-1
+//        redo=inl a b -> if fst a > fst b then a else b
+//        } a1 ()
 
-inl a1 = s.CudaRandom.create {dst=.Uniform} {elem_type=float32; dim=outer_size,inner_size}
-inl a2 = s.CudaRandom.create {dst=.Uniform} {elem_type=float32; dim=outer_size,inner_size}
-inl a3 = s.CudaTensor.create {elem_type=float32; dim=1}
-inl f a1 a2 =
-    s.CudaKernel.mapi_d1_redo_map {
-        map_in=const
-        neutral_elem=-infinityf32,0f32
-        redo=inl a b -> if fst a > fst b then a else b
-        map_out=snd
-        } a1 a2
-inl o1 = f (a1, a2) ()
+//s.CudaTensor.print (f a1)
+//    """
 
-Tuple.iter s.CudaTensor.print (a1,o1)
+//let kernel6 =
+//    "kernel6",[cuda_modules],"Does the map_d1_inscan_map kernel work?",
+//    """
+//inb s = CudaModules (1024*1024)
 
-inl f a1 =
-    s.CudaKernel.mapi_d1_redo_map {
-        mapi_in=inl j i a _ -> a,i
-        neutral_elem=-infinityf32,-1
-        redo=inl a b -> if fst a > fst b then a else b
-        } a1 ()
+//inl inner_size = 50
+//inl outer_size = 3
 
-s.CudaTensor.print (f a1)
-    """
+//inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
+//inl o1 = 
+//    s.CudaKernel.map_d1_inscan_map {
+//        neutral_elem=-infinityf32
+//        redo=max
+//        } a1
 
-let kernel6 =
-    "kernel6",[cuda_modules],"Does the map_d1_inscan_map kernel work?",
-    """
-inb s = CudaModules (1024*1024)
+//Tuple.iter s.CudaTensor.print (a1,o1)
+//    """
 
-inl inner_size = 50
-inl outer_size = 3
+//let kernel7 =
+//    "kernel7",[cuda_modules],"Does the map_d2_inscan_map kernel work?",
+//    """
+//inb s = CudaModules (1024*1024)
 
-inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
-inl o1 = 
-    s.CudaKernel.map_d1_inscan_map {
-        neutral_elem=-infinityf32
-        redo=max
-        } a1
+//inl inner_size = 6
+//inl outer_size = 64
 
-Tuple.iter s.CudaTensor.print (a1,o1)
-    """
+//inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
+//inl o1 = 
+//    s.CudaKernel.map_d2_inscan_map {
+//        neutral_elem=-infinityf32
+//        redo=max
+//        } a1
 
-let kernel7 =
-    "kernel7",[cuda_modules],"Does the map_d2_inscan_map kernel work?",
-    """
-inb s = CudaModules (1024*1024)
+//Tuple.iter s.CudaTensor.print (a1,o1)
+//    """
 
-inl inner_size = 6
-inl outer_size = 64
+//let kernel10 =
+//    "kernel10",[cuda_modules],"Does the mapi_d1_inscan_mapi_d1_reduce_mapi kernel work?",
+//    """
+//inb s = CudaModules (1024*1024)
 
-inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
-inl o1 = 
-    s.CudaKernel.map_d2_inscan_map {
-        neutral_elem=-infinityf32
-        redo=max
-        } a1
+//inl inner_size = 10
+//inl outer_size = 6
 
-Tuple.iter s.CudaTensor.print (a1,o1)
-    """
+//inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
+//inl a2 = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=0f32} {elem_type=float32; dim=outer_size}
+//inl o1 = // The sampling function
+//    s.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
+//        scan={
+//            ne=0f32
+//            f=(+)
+//            }
+//        mapi_mid=inl _ index prob boundary -> 
+//            inl x = prob - boundary
+//            (if x < 0f32 then infinityf32 else x), index
+//        redo={
+//            ne=infinityf32,0
+//            f=inl a b -> if fst a <= fst b then a else b
+//            }
+//        map_out=snd
+//        } a1 a2
 
-let kernel10 =
-    "kernel10",[cuda_modules],"Does the mapi_d1_inscan_mapi_d1_reduce_mapi kernel work?",
-    """
-inb s = CudaModules (1024*1024)
+//Tuple.iter s.CudaTensor.print (a1,o1)
+//    """
 
-inl inner_size = 10
-inl outer_size = 6
+//let kernel11 =
+//    "kernel11",[cuda_modules],"Does the mapi_d1_seq_broadcast kernel work?",
+//    """
+//inb s = CudaModules (1024*1024)
 
-inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
-inl a2 = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=0f32} {elem_type=float32; dim=outer_size}
-inl o1 = // The sampling function
-    s.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
-        scan={
-            ne=0f32
-            f=(+)
-            }
-        mapi_mid=inl _ index prob boundary -> 
-            inl x = prob - boundary
-            (if x < 0f32 then infinityf32 else x), index
-        redo={
-            ne=infinityf32,0
-            f=inl a b -> if fst a <= fst b then a else b
-            }
-        map_out=snd
-        } a1 a2
+//inl inner_size = 4
+//inl outer_size = 1
 
-Tuple.iter s.CudaTensor.print (a1,o1)
-    """
+//inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
+//inl a2 = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,inner_size}
+//inl o1 = // Softmax forward
+//    s.CudaKernel.mapi_d1_seq_broadcast {
+//        seq = 
+//            {
+//            redo=max // max x
+//            map_out=inl x max_x -> exp (x - max_x) // exp (x - replicate max_x)
+//            }
+//            ,
+//            {
+//            redo=(+) // sum z
+//            map_out=inl z sum_z -> z / sum_z // z / replicate sum_z
+//            }
+//        } a1
 
-let kernel11 =
-    "kernel11",[cuda_modules],"Does the mapi_d1_seq_broadcast kernel work?",
-    """
-inb s = CudaModules (1024*1024)
+//inl o2 = 
+//    s.CudaKernel.map_d1_inscan_map {
+//        redo=(+)
+//        neutral_elem=0f32
+//        } o1
 
-inl inner_size = 4
-inl outer_size = 1
+//inl o3 = // Softmax backward
+//    s.CudaKernel.mapi_d1_seq_broadcast {
+//        seq = 
+//            {
+//            map_in=inl z,dz -> z*dz
+//            redo=(+)
+//            map_out=inl (z,dz) er -> (dz - er) * z
+//            }
+//        } (a1,a2)
 
-inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
-inl a2 = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,inner_size}
-inl o1 = // Softmax forward
-    s.CudaKernel.mapi_d1_seq_broadcast {
-        seq = 
-            {
-            redo=max // max x
-            map_out=inl x max_x -> exp (x - max_x) // exp (x - replicate max_x)
-            }
-            ,
-            {
-            redo=(+) // sum z
-            map_out=inl z sum_z -> z / sum_z // z / replicate sum_z
-            }
-        } a1
+//Tuple.iter s.CudaTensor.print (a1,o1,o2,o3)
+////  [|0.2925366; -0.718359; 0.09999694; -0.3931978|]
+////  [|0.3714055; 0.1351518; 0.3063581; 0.1870845|]
+////  [|0.3714055; 0.5065573; 0.8129154; 0.9999999|]
+////  [|0.5028772; -1.234876; 0.1718971; -0.6759161|]
+//    """
 
-inl o2 = 
-    s.CudaKernel.map_d1_inscan_map {
-        redo=(+)
-        neutral_elem=0f32
-        } o1
+//let kernel13 =
+//    "kernel13",[cuda_modules],"Does the mapi_d1_dredo_map kernel work?",
+//    """
+//inb s = CudaModules (1024*1024)
 
-inl o3 = // Softmax backward
-    s.CudaKernel.mapi_d1_seq_broadcast {
-        seq = 
-            {
-            map_in=inl z,dz -> z*dz
-            redo=(+)
-            map_out=inl (z,dz) er -> (dz - er) * z
-            }
-        } (a1,a2)
+//inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=6,12,256}
+//s.CudaTensor.print x
+//inl a,b,c = x.dim
+//inl c = to float32 (HostTensor.span c)
+//inl v =
+//    s.CudaKernel.mapi_d1_dredo_map { 
+//        redo_in = {
+//            neutral_elem=0f32
+//            redo=(+)
+//            }
+//        redo_mid = {
+//            mapi_in=inl j i a -> a, i
+//            neutral_elem=-infinityf32,-1
+//            redo=inl a b -> if fst a > fst b then a else b
+//            }
+//        map_out = inl a, i -> a / c, i
+//        } x
+//s.CudaTensor.print v
+//    """
 
-Tuple.iter s.CudaTensor.print (a1,o1,o2,o3)
-//  [|0.2925366; -0.718359; 0.09999694; -0.3931978|]
-//  [|0.3714055; 0.1351518; 0.3063581; 0.1870845|]
-//  [|0.3714055; 0.5065573; 0.8129154; 0.9999999|]
-//  [|0.5028772; -1.234876; 0.1718971; -0.6759161|]
-    """
+//let kernel15 =
+//    "kernel15",[cuda_modules],"Does the iteri_dd1_seq_broadcast kernel work?",
+//    """
+//inb s = CudaModules (1024*1024)
 
-let kernel13 =
-    "kernel13",[cuda_modules],"Does the mapi_d1_dredo_map kernel work?",
-    """
-inb s = CudaModules (1024*1024)
+//inl inner_size = {from=-32; near_to=32}
+//inl middle_size = 3
+//inl outer_size = 2
 
-inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=6,12,256}
-s.CudaTensor.print x
-inl a,b,c = x.dim
-inl c = to float32 (HostTensor.span c)
-inl v =
-    s.CudaKernel.mapi_d1_dredo_map { 
-        redo_in = {
-            neutral_elem=0f32
-            redo=(+)
-            }
-        redo_mid = {
-            mapi_in=inl j i a -> a, i
-            neutral_elem=-infinityf32,-1
-            redo=inl a b -> if fst a > fst b then a else b
-            }
-        map_out = inl a, i -> a / c, i
-        } x
-s.CudaTensor.print v
-    """
+//inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
+//inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
+//inl to_dev_tensor = CudaAux.to_dev_tensor
+//inl _ = // Softmax forward
+//    inl x = to_dev_tensor x
+//    inl o = to_dev_tensor o
+//    inl index c x next = 
+//        inl f i = Struct.map ((|>) i)
+//        inl rec loop c x =
+//            if c > 0 then inl i -> loop (c-1) (f i x)
+//            else next x
+//        assert (lit_is c && c >= 0) "c must be a literal greater or equal to zero."
+//        loop c x
 
-let kernel15 =
-    "kernel15",[cuda_modules],"Does the iteri_dd1_seq_broadcast kernel work?",
-    """
-inb s = CudaModules (1024*1024)
+//    s.CudaKernel.iteri_dd1_seq_broadcast {
+//        mapi_in =
+//            inb x = index 3 x
+//            x.get
+//        seq = 
+//            {
+//            redo=max
+//            map_out=inl x max_x -> exp (x - max_x) // exp (x - replicate max_x)
+//            }
+//            ,
+//            {
+//            redo=(+)
+//            mapi_out=
+//                inb o = index 3 o
+//                inl z sum_z -> o.set (z / sum_z)
+//            }
+//        } x.dim
 
-inl inner_size = {from=-32; near_to=32}
-inl middle_size = 3
-inl outer_size = 2
+//s.CudaTensor.print x
+//s.CudaTensor.print o
+//    """
 
-inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
-inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
-inl to_dev_tensor = CudaAux.to_dev_tensor
-inl _ = // Softmax forward
-    inl x = to_dev_tensor x
-    inl o = to_dev_tensor o
-    inl index c x next = 
-        inl f i = Struct.map ((|>) i)
-        inl rec loop c x =
-            if c > 0 then inl i -> loop (c-1) (f i x)
-            else next x
-        assert (lit_is c && c >= 0) "c must be a literal greater or equal to zero."
-        loop c x
+//let kernel16 =
+//    "kernel16",[cuda_modules],"Does the init_d1_redo_outit kernel work?",
+//    """
+//inb s = CudaModules (1024*1024)
+//inl inner_size = 6
+//inl middle_size = 3
+//inl outer_size = 2
+//inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
+//inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,middle_size}
 
-    s.CudaKernel.iteri_dd1_seq_broadcast {
-        mapi_in =
-            inb x = index 3 x
-            x.get
-        seq = 
-            {
-            redo=max
-            map_out=inl x max_x -> exp (x - max_x) // exp (x - replicate max_x)
-            }
-            ,
-            {
-            redo=(+)
-            mapi_out=
-                inb o = index 3 o
-                inl z sum_z -> o.set (z / sum_z)
-            }
-        } x.dim
+//inl o =
+//    inl x = CudaAux.to_dev_tensor x
+//    s.CudaKernel.init_d1_redo_outit {
+//        dim=(outer_size,middle_size),inner_size
+//        init=inl (i, j) -> 
+//            inl x = x i j 
+//            inl k -> x k .get
+//        neutral_elem=0f32
+//        redo=(+)
+//        }
 
-s.CudaTensor.print x
-s.CudaTensor.print o
-    """
+//s.CudaTensor.print x
+//s.CudaTensor.print o
+//    """
 
-let kernel16 =
-    "kernel16",[cuda_modules],"Does the init_d1_redo_outit kernel work?",
-    """
-inb s = CudaModules (1024*1024)
-inl inner_size = 6
-inl middle_size = 3
-inl outer_size = 2
-inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
-inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,middle_size}
+//let kernel17 =
+//    "kernel17",[cuda_modules],"Does the init_d2_redo_outit kernel work?",
+//    """
+//inb s = CudaModules (1024*1024)
+//inl inner_size = 6
+//inl middle_size = 3
+//inl outer_size = 2
+//inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
+//inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=inner_size}
 
-inl o =
-    inl x = CudaAux.to_dev_tensor x
-    s.CudaKernel.init_d1_redo_outit {
-        dim=(outer_size,middle_size),inner_size
-        init=inl (i, j) -> 
-            inl x = x i j 
-            inl k -> x k .get
-        neutral_elem=0f32
-        redo=(+)
-        }
+//inl o =
+//    inl x = CudaAux.to_dev_tensor x
+//    s.CudaKernel.init_d2_redo_outit {
+//        dim=(outer_size,middle_size),inner_size
+//        // Note that the arguments are in reverse order compared to init_d1_redo_outit.
+//        init=inl inner (outer,mid) -> x outer mid inner .get
+//        neutral_elem=0f32
+//        redo=(+)
+//        }
 
-s.CudaTensor.print x
-s.CudaTensor.print o
-    """
-
-let kernel17 =
-    "kernel17",[cuda_modules],"Does the init_d2_redo_outit kernel work?",
-    """
-inb s = CudaModules (1024*1024)
-inl inner_size = 6
-inl middle_size = 3
-inl outer_size = 2
-inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
-inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=inner_size}
-
-inl o =
-    inl x = CudaAux.to_dev_tensor x
-    s.CudaKernel.init_d2_redo_outit {
-        dim=(outer_size,middle_size),inner_size
-        // Note that the arguments are in reverse order compared to init_d1_redo_outit.
-        init=inl inner (outer,mid) -> x outer mid inner .get
-        neutral_elem=0f32
-        redo=(+)
-        }
-
-s.CudaTensor.print x
-s.CudaTensor.print o
-    """
+//s.CudaTensor.print x
+//s.CudaTensor.print o
+//    """
 
 let cusolver1 =
     "cusolver1",[cuda_modules],"Does the Cholesky decomposition (potrf) work?",
@@ -765,8 +753,8 @@ s.CudaTensor.print C_inv
 s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_inv)
     """
 
-let kernel1' =
-    "kernel1'",[cuda_modules],"Does the iter kernel work?",
+let kernel1 =
+    "kernel1",[cuda_modules],"Does the iter kernel work?",
     """
 inb s = CudaModules (1024*1024)
 inl x = s.CudaTensor.create {elem_type=int64,int64,int64; dim=2,2,128}
@@ -776,8 +764,8 @@ inl _ =
 s.CudaTensor.print x
     """
 
-let kernel2' =
-    "kernel2'",[cuda_modules],"Does the init kernel work?",
+let kernel2 =
+    "kernel2",[cuda_modules],"Does the init kernel work?",
     """
 inb s = CudaModules (1024*1024)
 
@@ -785,8 +773,8 @@ inl o1 = s.CudaKernel.init {dim=2,2,128} id
 s.CudaTensor.print o1
     """
 
-let kernel3' =
-    "kernel3'",[cuda_modules],"Does the map kernel work?",
+let kernel3 =
+    "kernel3",[cuda_modules],"Does the map kernel work?",
     """
 /// Initializes all the Cuda parts
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
@@ -806,8 +794,8 @@ inl a2 = s.CudaTensor.to_host_tensor o1
 HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
     """
 
-let kernel4' =
-    "kernel4'",[cuda_modules],"Does the init_exscan kernel work?",
+let kernel4 =
+    "kernel4",[cuda_modules],"Does the init_exscan kernel work?",
     """
 inb s = CudaModules (1024*1024)
 
@@ -829,8 +817,8 @@ inl _ =
 Tuple.iter s.CudaTensor.print (a1,o1)
     """
 
-let kernel5' =
-    "kernel5'",[cuda_modules],"Does the inscan kernel work?",
+let kernel5 =
+    "kernel5",[cuda_modules],"Does the inscan kernel work?",
     """
 inb s = CudaModules (1024*1024)
 
@@ -852,13 +840,30 @@ inl _ =
 Tuple.iter s.CudaTensor.print (a1,o1)
     """
 
+let kernel6 =
+    "kernel6",[cuda_modules],"Does the map_redo_map kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl h = HostTensor.init 2048 ((+) 1)
+inl a1 = s.CudaTensor.from_host_tensor h
+inl o1 = s.CudaTensor.create_like a1
+
+inl _ =
+    inl a1,o1 = CudaAux.to_dev_tensor (a1,o1)
+    s.CudaKernel.redo {neutral_elem=0; redo=(+)
+        dim=a1.dim
+        init=inl i -> a1 i .get
+        outit=inl i -> o1 i .set
+        }
+s.CudaTensor.print o1 // 2098176
+    """
+
 let tests =
     [|
     allocator1
     tensor1;tensor2;tensor3;
-             kernel2;kernel3;kernel4;kernel5;kernel6;kernel7
-    kernel10;kernel11;       kernel13;       kernel15;kernel16;kernel17
-    kernel1';kernel2';kernel3';kernel4';kernel5'
+    kernel1;kernel2;kernel3;kernel4;kernel5;kernel6
     random1
     blas1;blas2;blas3;blas4;blas5;blas6;blas7;blas8;blas9
     cusolver1;cusolver2
@@ -867,6 +872,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel5'
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel6
 |> printfn "%s"
 |> ignore
