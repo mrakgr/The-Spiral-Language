@@ -1520,8 +1520,8 @@ inl rec facade data =
                 | {from near_to} :: dim ->
                     assert (i >= from && i < near_to) "Argument out of bounds." 
                     {data with bodies = Struct.map (inl ar -> tensor_apply ar (i-from)) self; dim}
-                    |> facade
                 ) data (Tuple.wrap i)
+            |> facade
         /// Returns the tensor data.
         unwrap = id
         /// Returns an empty tensor of the same dimension.

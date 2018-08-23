@@ -1305,7 +1305,7 @@ inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
 
     match iteration_mode with
     | .items_per_thread {d with body} ->
-        inl span = s dim
+        inl span = span dim
         inl items_per_thread = divup span by
         forcd {d with from=0;near_to=items_per_thread; body=inl {state i=item} ->
             inl i = from + by * item
@@ -1441,6 +1441,7 @@ inl broadcast_zero x =
     ar 0
 
 inl to_dev_tensor = CudaAux.to_dev_tensor
+inl temporary = CudaAux.temporary
 
 met iter w {d with dim} f =
     inl l = length dim
@@ -1456,9 +1457,11 @@ met init' w d f out =
     inl dim = out.dim
     iter w {d with dim} (inl i -> out i .set (f i))
 
+inl index_example dim = Tuple.map (inl _ -> var 0) (Tuple.wrap dim) |> Tuple.unwrap
+
 inl init w {d with dim} f =
     indiv join
-        inl elem_type = type f (dyn dim)
+        inl elem_type = type f (index_example dim)
         inl out = w.CudaTensor.create {dim elem_type}
         init' w d f out
         stack out
@@ -1520,7 +1523,7 @@ met inscan w {d with dim redo neutral_elem init outit} =
     inl blockDim = min 1024 l
     inl gridDim = divup l blockDim
 
-    inb prefix = w.CudaTensor.create {elem_type=type init (dyn dim); dim=gridDim} |> temporary
+    inb prefix = w.CudaTensor.create {elem_type=type init (index_example dim); dim=gridDim} |> temporary
     inl prefix = to_dev_tensor prefix
 
     // First perform the reduction to get the aggregates.
@@ -2395,7 +2398,6 @@ inl map_dx_scan_map_template kernel w d in =
 
 inl map_d1_inscan_map = map_dx_scan_map_template map_d1_inscan_map'
 inl map_d2_inscan_map = map_dx_scan_map_template map_d2_inscan_map'
-inl map_inscan_map = map_dx_scan_map_template map_inscan_map'
 
 inl mapi_d1_inscan_mapi_d1_reduce_mapi w d in in' =
     indiv join
@@ -2519,8 +2521,8 @@ inl tensor_to_pointers w x =
 
 inl methods =
     {
-    map' map init_exscan map_redo_map d2_replicate_map' d2_replicate_map mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
-    map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map map_inscan_map' map_inscan_map 
+    map' map init_exscan inscan map_redo_map d2_replicate_map' d2_replicate_map mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
+    map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map 
     mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
     mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter init_d1_seq_broadcast
     iteri_dd1_seq_broadcast init_d1_redo_outit' init_d1_redo_outit init_d2_redo_outit' init_d2_redo_outit inplace_transpose
