@@ -34,12 +34,12 @@ inl label_size = 10
 
 inl network,_ =
     open Feedforward
-    inl network =
-        relu 256,
-        linear label_size
     //inl network =
-    //    prong {activation=Activation.relu; size=256},
-    //    prong {activation=Activation.linear; size=label_size}
+    //    relu 256,
+    //    linear label_size
+    inl network =
+        prong {activation=Activation.relu; size=256},
+        prong {activation=Activation.linear; size=label_size}
 
     init s input_size network
 
@@ -57,7 +57,8 @@ inl train {data={input label} network learning_rate final} s =
                 inl learning_rate = learning_rate ** 0.85f32
                 inl apply bck = bck {learning_rate} |> ignore
                 apply bck
-                Struct.foldr (inl {bck} _ -> Tuple.iter apply bck) network ()
+                Struct.foldr (inl {bck} _ -> Struct.foldr (inl bck _ -> apply bck) bck ()) network ()
+
             Optimizer.standard learning_rate s network
 
             inl cost = s.CudaTensor.get out |> to float64
@@ -94,7 +95,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
             train {
                 data={input=train_images; label=train_labels}
                 network
-                learning_rate = 2f32 ** -7f32
+                learning_rate = 2f32 ** -8.5f32
                 final=Error.softmax_cross_entropy
                 } s
 

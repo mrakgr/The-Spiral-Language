@@ -627,7 +627,7 @@ inl float ->
                     | _ :: x' -> inl x -> loop x'
                     | () -> init
                 s.CudaKernel.init {dim} (loop type dim) |> dr s
-            | {prong={d with sublayer_size size}} -> {
+            | {prong={d with sublayer_size size}} -> 
                 // 2 ** -3 is a sensible default.
                 // There is a relation between the epsilon parameter and the learning rate.
                 // Tests on the poker game show that up to 2 ** -2, every 2x increase in epsilon also allows a 2x increase in the learning rate.
@@ -636,6 +636,7 @@ inl float ->
                 // it lowers the winrate instead. High learning rates seem to be necessary for generalization.
                 inl default_epsilon = match d with {default_epsilon} -> default_epsilon | _ -> to float (2.0 ** -3.0)
 
+                {
                 front = {
                     covariance = Initializer.identity (sublayer_size, sublayer_size)
                     precision = Initializer.identity (sublayer_size, sublayer_size)
@@ -722,9 +723,9 @@ inl float ->
         out=z
         bck=inl d -> join
             inl finally x_precise_primal z_precise_adjoint =
-                s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint weights.input)
-                on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal weights.input) one) (adjoint x)
-                bck_add_bias z_precise_adjoint (adjoint bias) s 
+                s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
+                on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
+                bck_add_bias z_precise_adjoint (adjoint bias) s
 
             match d with
             | {learning_rate} ->
@@ -735,7 +736,7 @@ inl float ->
                 | {mode=.update} -> ()
 
                 inb x_precise_primal = 
-                    match prong with // qwe
+                    match prong with
                     | {front={covariance precision epsilon}} ret -> 
                         inl x = primal x
                         match config with
@@ -772,7 +773,7 @@ inl float ->
                     | _ ret -> ret <| primal x
 
                 inb z_precise_adjoint = 
-                    match weights with
+                    match prong with
                     | {back={covariance precision epsilon}} ret ->
                         inl z = adjoint z
                         update_covariance {identity_coef=epsilon; learning_rate} s covariance z
@@ -797,21 +798,22 @@ inl float ->
                 finally (primal x) (adjoint z)
         }
 
-    inl prong {w with size} = 
+    inl prong {w with activation size} = 
         {
         init = inl sublayer_size -> {
             size
             dsc = {
                 input = Initializer.tanh (sublayer_size, size)
                 bias = Initializer.bias size
-                prong = Initializer.prong sublayer_size w
+                prong = Initializer.prong {w with sublayer_size}
                 }
             }
         apply = inl {weights input} ->
             naturalize {front_mode=.prong; mode=.optimize} weights input 
-            >>= Activation.tanh
+            >>= activation
         optimize=inl {weights={input bias} learning_rate} s ->
-            Tuple.map (Optimizer.sgd learning_rate s) (input, bias)
+            Tuple.iter (Optimizer.sgd learning_rate s) (input, bias)
+        block=()
         }
 
     // #Feedforward
