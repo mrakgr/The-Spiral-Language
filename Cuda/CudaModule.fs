@@ -1580,6 +1580,19 @@ met redo w {redo neutral_elem dim init outit} =
         run {blockDim gridDim dim init outit=inl i -> temp i .set}
         run {outit blockDim=gridDim; gridDim=1; dim=temp.dim; init=inl i -> temp i .get}
 
+met iter2 w {dim=b,a} f =
+    inl l = length a
+    inl blockDimx = min l <| match d with {threads} -> threads | _ -> 1024
+    inl gridDimx = 
+    w.run {blockDim 
+        gridDim={x=divup l blockDim; y=min 256 (span b)}
+        kernel = cuda 
+            inl grid_for = grid_for {blockDim gridDim} 
+            grid_for .y b {body=inl {i} ->
+                inl f = f i
+                grid_for .x a {body=inl {i} -> f i}
+                }
+        }
 
 
 /// The inclusive scan over the innermost dimension.
