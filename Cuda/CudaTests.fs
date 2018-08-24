@@ -294,22 +294,6 @@ inl o = s.CudaBlas.trmv .Lower .nT .NonUnit A x
 s.CudaTensor.print o
     """
 
-//let kernel3 =
-//    "kernel3",[cuda_modules],"Does the d2_replicate_map kernel work?",
-//    """
-//inb s = CudaModules (1024*1024)
-
-//inl inner_size = 8
-//inl outer_size = 8
-
-//inl h = HostTensor.init inner_size (const 123)
-//inl h' = HostTensor.init (outer_size,inner_size) (inl a b -> a,b)
-//inl a1 = s.CudaTensor.from_host_tensor h
-//inl a2 = s.CudaTensor.from_host_tensor h'
-//inl o1 = s.CudaKernel.d2_replicate_map (inl a b -> a, b) a1 a2
-//Tuple.iter s.CudaTensor.print (a1,a2,o1)
-//    """
-
 //let kernel4 =
 //    "kernel4",[cuda_modules],"Does the mapi_d2_redo_map kernel work?",
 //    """
@@ -859,11 +843,35 @@ inl _ =
 s.CudaTensor.print o1 // 2098176
     """
 
+let kernel7 =
+    "kernel7",[cuda_modules],"Does the iter2 kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl inner_size = 8
+inl outer_size = 8
+
+inl h = HostTensor.init inner_size (const 123)
+inl h' = HostTensor.init (outer_size,inner_size) (inl a b -> a,b)
+inl a1 = s.CudaTensor.from_host_tensor h
+inl a2 = s.CudaTensor.from_host_tensor h'
+inl o1 = s.CudaTensor.create {elem_type=a1.elem_type,a2.elem_type; dim=a2.dim}
+inl _ =
+    inl a1,a2,o1 = CudaAux.to_dev_tensor (a1,a2,o1)
+    s.CudaKernel.iter2 {dim=o1.dim} (inl b -> 
+        inl a2,o1 = a2 b, o1 b
+        inl a -> 
+            inl a1, a2, o1 = a1 a .get, a2 a .get, o1 a
+            o1 .set (a1, a2)
+            )
+Tuple.iter s.CudaTensor.print (a1,a2,o1)
+    """
+
 let tests =
     [|
     allocator1
     tensor1;tensor2;tensor3;
-    kernel1;kernel2;kernel3;kernel4;kernel5;kernel6
+    kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7
     random1
     blas1;blas2;blas3;blas4;blas5;blas6;blas7;blas8;blas9
     cusolver1;cusolver2
@@ -872,6 +880,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel6
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel7
 |> printfn "%s"
 |> ignore

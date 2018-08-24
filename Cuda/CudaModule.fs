@@ -1443,7 +1443,7 @@ inl broadcast_zero x =
 inl to_dev_tensor = CudaAux.to_dev_tensor
 inl temporary = CudaAux.temporary
 
-met iter w {dim} f =
+met iter w {d with dim} f =
     inl l = length dim
     inl blockDim = min l <| match d with {threads} -> threads | _ -> 1024
     inl gridDim = divup l blockDim
@@ -1580,9 +1580,9 @@ met redo w {redo neutral_elem dim init outit} =
         run {blockDim gridDim dim init outit=inl i -> temp i .set}
         run {outit blockDim=gridDim; gridDim=1; dim=temp.dim; init=inl i -> temp i .get}
 
-met iter2 w {dim=b,a} f =
+met iter2 w {d with dim=b,a} f =
     inl l = length a
-    inl blockDimx = min l <| match d with {threads} -> threads | _ -> 1024
+    inl blockDim = min l <| match d with {threads} -> threads | _ -> 1024
     w.run {blockDim 
         gridDim={x=divup l blockDim; y=min 256 (span b)}
         kernel = cuda 
@@ -1593,9 +1593,9 @@ met iter2 w {dim=b,a} f =
                 }
         }
 
-met iter3 w {dim=c,b,a} f =
+met iter3 w {d with dim=c,b,a} f =
     inl l = length a
-    inl blockDimx = min l <| match d with {threads} -> threads | _ -> 1024
+    inl blockDim = min l <| match d with {threads} -> threads | _ -> 1024
     w.run {blockDim 
         gridDim={x=divup l blockDim; y=min 256 (span b); z=min 256 (span c)}
         kernel = cuda 
@@ -1610,36 +1610,22 @@ met iter3 w {dim=c,b,a} f =
         }
 
 /// The inclusive scan over the innermost dimension.
-/// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
-met map_d1_inscan_map' w {d with redo neutral_elem} in out =
-    inl in, out = zip in, zip out
-    inl dim_in_a, dim_in_b = in.dim
-    assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
-
-    inl blockDim = lit_min 1024 (s dim_in_b)
-    inl gridDimY = lit_min 64 (s dim_in_a)
-
-    inl in = to_dev_tensor in
-    inl out = to_dev_tensor out
-
-    inl map_in = match d with {map_in} -> map_in | _ -> id
-    inl map_out = match d with {map_out} -> map_out | _ -> const
-
+met init_inscan w {d with redo neutral_elem dim=b,a init outit} =
     w.run {
-        blockDim
-        gridDim = 1, gridDimY
+        blockDim = min 1024 (span a)
+        gridDim = {y=min 264 (span b)}
         kernel = cuda 
             inl grid_for = grid_for {blockDim gridDim}
-            grid_for .y dim_in_a {body=inl {i} ->
-                inl in, out = in i, out i
+            grid_for .y b {body=inl {i} ->
+                inl in, out = init i, outit i
 
-                grid_for .x dim_in_b {state=dyn neutral_elem; body=inl {state=prefix i} ->
+                grid_for .x a {state=dyn neutral_elem; body=inl {state=prefix i} ->
                     inl in, out = in i, out i
                     inl state', ag = 
                         cub_block_scan
                             {scan_type=.inclusive; is_input_tensor=false; return_aggregate=true}
                             {blockDim redo} (map_in in.get)
-                    out.set (map_out (redo prefix state') out.get)
+                    out (redo prefix state')
                     redo prefix ag
                     } |> ignore
                 }
@@ -2490,7 +2476,10 @@ inl tensor_to_pointers w x =
 
 inl methods =
     {
-    map' map init_exscan inscan redo d2_replicate_map' d2_replicate_map mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
+    iter init' init map' map init_exscan inscan redo
+    iter2 iter3
+    
+    mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
     map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map 
     mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
     mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter init_d1_seq_broadcast
