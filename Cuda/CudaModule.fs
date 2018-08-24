@@ -1580,51 +1580,7 @@ met redo w {redo neutral_elem dim init outit} =
         run {blockDim gridDim dim init outit=inl i -> temp i .set}
         run {outit blockDim=gridDim; gridDim=1; dim=temp.dim; init=inl i -> temp i .get}
 
-/// Replicates the 1d `in` and maps it along the outer dimension as determined by `in'`.
-met d2_replicate_map' w f in in' out =
-    inl in, in', out = zip in, zip in', zip out
-    inl dim_in :: () = in.dim
-    inl dim_in'_a, dim_in'_b = in'.dim
 
-    assert (dim_in = dim_in'_b) "Input's dimension must equal the second input's inner dimension."
-    assert (in'.dim = out.dim) "Second input must have the same dimension as the output."
-
-    inl blockDimX = min warp_size (s dim_in)
-    inl blockDimY = min 32 (s dim_in'_a)
-    inl gridDim = min 64 (divup (s dim_in) blockDimX)
-
-    inl in = to_dev_tensor in
-    inl in' = to_dev_tensor in'
-    inl out = to_dev_tensor out
-
-    w.run {
-        gridDim
-        blockDim=blockDimX,blockDimY
-        kernel = cuda 
-            inl grid_for = grid_for {gridDim blockDim}
-            grid_for .x dim_in'_b {body=inl {i} ->
-                inl in = in i .get
-                inl in' j = in' j i
-                inl out j = out j i
-                grid_for .y dim_in'_a {body=inl {i} ->
-                    inl in', out = in' i, out i
-                    out.set (f in in'.get out.get)
-                    }
-                }
-        }
-
-inl d2_replicate_map w f in in' =
-    indiv join 
-        inl in = zip in
-        inl in' =
-            match in' with
-            | by : int64 -> 
-                inl dim_in :: () = in.dim
-                HostTensor.create {elem_type=(); dim=by,dim_in}
-            | in' -> zip in'
-        inl out = w.CudaTensor.create {elem_type=type f in.elem_type in'.elem_type; dim=in'.dim}
-        d2_replicate_map' w (inl a b _ -> f a b) in in' out
-        stack out
 
 /// The inclusive scan over the innermost dimension.
 /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
