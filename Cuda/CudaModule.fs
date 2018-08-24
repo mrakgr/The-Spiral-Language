@@ -1661,7 +1661,6 @@ inl ddef def_map_out =
     | {d.redo_in with map_in} -> {d.redo_in without map_in with mapi_in=inl _ _ _ -> map_in}
     | {d with redo_in} -> {d.redo_in with mapi_in=inl _ _ _ x -> x}        
 
-
 inl block_reduce_body ar near_to threadIdx redo state =
     whilecd {
         state={near_to state}

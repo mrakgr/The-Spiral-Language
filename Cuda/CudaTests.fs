@@ -314,38 +314,6 @@ s.CudaTensor.print o
 //Tuple.iter s.CudaTensor.print (a1,a2,o)
 //    """
 
-//let kernel5 =
-//    "kernel5",[cuda_modules],"Does the mapi_d1_redo_map kernel work?",
-//    """
-//inb s = CudaModules (1024*1024)
-
-//inl inner_size = 10
-//inl outer_size = 32
-
-//inl a1 = s.CudaRandom.create {dst=.Uniform} {elem_type=float32; dim=outer_size,inner_size}
-//inl a2 = s.CudaRandom.create {dst=.Uniform} {elem_type=float32; dim=outer_size,inner_size}
-//inl a3 = s.CudaTensor.create {elem_type=float32; dim=1}
-//inl f a1 a2 =
-//    s.CudaKernel.mapi_d1_redo_map {
-//        map_in=const
-//        neutral_elem=-infinityf32,0f32
-//        redo=inl a b -> if fst a > fst b then a else b
-//        map_out=snd
-//        } a1 a2
-//inl o1 = f (a1, a2) ()
-
-//Tuple.iter s.CudaTensor.print (a1,o1)
-
-//inl f a1 =
-//    s.CudaKernel.mapi_d1_redo_map {
-//        mapi_in=inl j i a _ -> a,i
-//        neutral_elem=-infinityf32,-1
-//        redo=inl a b -> if fst a > fst b then a else b
-//        } a1 ()
-
-//s.CudaTensor.print (f a1)
-//    """
-
 //let kernel7 =
 //    "kernel7",[cuda_modules],"Does the map_d2_inscan_map kernel work?",
 //    """
@@ -872,6 +840,51 @@ inl _ =
 Tuple.iter s.CudaTensor.print (a1,o1)
     """
 
+let kernel9 =
+    "kernel9",[cuda_modules],"Does the init_redo kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl inner_size = 10
+inl outer_size = 32
+
+inl a1 = s.CudaRandom.create {dst=.Uniform} {elem_type=float32; dim=outer_size,inner_size}
+inl a2 = s.CudaRandom.create {dst=.Uniform} {elem_type=float32; dim=outer_size,inner_size}
+inl a3 = s.CudaTensor.create {elem_type=float32; dim=1}
+inl f a1 a2 =
+    inl a1,a2 = CudaAux.to_dev_tensor (a1,a2)
+    inl o1 = s.CudaTensor.create {elem_type=float32; dim=outer_size} 
+    inl _ = 
+        inl o1 = CudaAux.to_dev_tensor o1
+        s.CudaKernel.init_redo {
+            dim=a1.dim
+            init=inl b a -> a1 b a .get, a2 b a .get
+            neutral_elem=-infinityf32,0f32
+            redo=inl a b -> if fst a > fst b then a else b
+            outit=inl b -> o1 b .set << snd
+            } 
+    o1
+inl o1 = f (a1, a2) ()
+
+Tuple.iter s.CudaTensor.print (a1,o1)
+
+inl f a1 =
+    inl a1 = CudaAux.to_dev_tensor a1
+    inl o1 = s.CudaTensor.create {elem_type=float32; dim=outer_size}
+    inl _ = 
+        inl o1 = CudaAux.to_dev_tensor o1
+        s.CudaKernel.mapi_d1_redo_map {
+            dim=a1.dim
+            init=inl b a -> a1 b a .get, a
+            neutral_elem=-infinityf32,-1
+            redo=inl a b -> if fst a > fst b then a else b
+            outit=inl b -> o1 b .set
+            }
+    o1
+
+s.CudaTensor.print (f a1)
+    """
+
 let tests =
     [|
     allocator1
@@ -885,7 +898,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel8
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel9
 |> printfn "%s"
 |> ignore
 
