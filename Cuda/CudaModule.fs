@@ -1501,7 +1501,7 @@ inl mapi w f in =
 /// The exclusive scan over the innermost dimension.
 met init_exscan w {dim=b,a redo neutral_elem init outit} =
     w.run {
-        blockDim = {x = min 1024 (length a)}
+        blockDim = {x = lit_min 1024 (length a)}
         gridDim = {y = min 256 (length b)}
         kernel = cuda 
             inl grid_for = grid_for {blockDim gridDim}
@@ -1521,7 +1521,7 @@ met init_exscan w {dim=b,a redo neutral_elem init outit} =
 /// Note: Not fully optimized.
 met inscan w {dim redo neutral_elem init outit} =
     inl l = length dim
-    inl blockDim = min 1024 l
+    inl blockDim = lit_min 1024 l
     inl gridDim = divup l blockDim
 
     inb prefix = w.CudaTensor.create {elem_type=type init (index_example dim); dim=gridDim} |> temporary
@@ -1612,7 +1612,7 @@ met iter3 w {d with dim=c,b,a} f =
 /// The inclusive scan over the innermost dimension.
 met init_inscan w {d with redo neutral_elem dim=b,a init outit} =
     w.run {
-        blockDim = min 1024 (length a)
+        blockDim = lit_min 1024 (length a)
         gridDim = {y=min 264 (length b)}
         kernel = cuda 
             inl grid_for = grid_for {blockDim gridDim}
@@ -1631,96 +1631,22 @@ met init_inscan w {d with redo neutral_elem dim=b,a init outit} =
                 }
         }
 
-met init_d1_redo_outit' w {dim=outer,inner init redo neutral_elem outit} =
-    inl span = Tuple.foldl (inl a b -> a * s b) 1 << Tuple.wrap
-    inl span_outer, span_inner = Tuple.map span (outer,inner)
-
-    inl blockDimX = lit_min 1024 span_inner
-    inl gridDimX = 1
-
-    inl blockDimY = 1
-    inl gridDimY = lit_min 64 span_outer
-
+met init_redo w {dim=b,a init redo neutral_elem outit} =
     w.run {
-        blockDim=blockDimX,blockDimY
-        gridDim=gridDimX,gridDimY
+        blockDim = lit_min 1024 (length a)
+        gridDim = {y = min 256 (length b)}
         kernel = cuda 
             inl grid_for = grid_for {blockDim gridDim}
-            grid_for .y outer {body=inl {i} ->
+            grid_for .y b {body=inl {i} ->
                 inl init = init i
 
                 inl x =
-                    grid_for .x inner {state=dyn neutral_elem; body=inl {state i=j} -> redo state (init j) }
+                    grid_for .x a {state=dyn neutral_elem; body=inl {state i=j} -> redo state (init j) }
                     |> cub_block_reduce {blockDim redo}
 
                 if threadIdx.x = 0 then outit i x
                 }
         }
-
-inl init_d1_redo_outit w {d with dim init redo neutral_elem} =
-    indiv join
-        inl outer, inner = dim
-        inl f = function
-            | _ :: _ as x -> Tuple.map (const (dyn 0)) x
-            | x -> dyn 0
-        inl elem_type = type init (f outer) (f inner)
-        inl out = w.CudaTensor.create {elem_type dim=outer}
-
-        inl outit =
-            inl out = to_dev_tensor out
-            inl outit = match d with {outit} -> outit | _ -> id
-            inl i x -> 
-                inl out = Tuple.foldl (inl out i -> out i) out (Tuple.wrap i)
-                out .set (outit x)
-        init_d1_redo_outit' w {dim init redo neutral_elem outit}
-        stack out
-
-/// Maps the two inputs and then reduces the first's inner dimension.
-met mapi_d1_redo_map' w {d with redo neutral_elem} in in' out = 
-    inl in = zip in
-    inl dim_in_a, dim_in_b as dim = in.dim
-    inl in' =
-        match in' with
-        | () -> HostTensor.create {dim=dim_in_a; elem_type=()}
-        | x -> zip in'
-    inl out = zip out
-    
-    inl dim_in' :: () = in'.dim
-
-    assert (dim_in' = dim_in_a) "Input's outer dimension must equal the output's dimension."
-    assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
-
-    inl in, in', out = to_dev_tensor (in, in', out)
-    inl init =
-        match d with
-        | {map_in} ->
-            inl i ->
-                inl in, in' = in i, in' i .get
-                inl j -> map_in (in j .get) in'
-        | {mapi_in} ->
-            inl i ->
-                inl in, in' = in i, in' i .get
-                inl mapi_in = mapi_in i
-                inl j -> mapi_in j (in j .get) in'
-        | _ ->
-            match in' with
-            | () ->
-                inl i ->
-                    inl in = in i
-                    inl j -> in j .get
-            | _ -> error_type "The redo is missing the map_in argument."
-
-    inl outit =
-        match d with
-        | {map_out} -> inl i x -> 
-            inl out = out i
-            out .set (map_out x out.get)
-        | {mapi_out} -> inl i x -> 
-            inl out = out i
-            out .set (mapi_out i x out.get)
-        | _ -> inl i x -> out i .set x
-
-    init_d1_redo_outit' w {dim init redo neutral_elem outit}
 
 inl ddef def_map_out =
     function
