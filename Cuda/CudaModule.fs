@@ -2262,7 +2262,6 @@ inl map_dx_redo_map_template select kernel w d in in' =
         kernel w {d with map_out} in in' out
         stack out
 
-inl mapi_d1_redo_map w d in = map_dx_redo_map_template fst mapi_d1_redo_map' w d in
 inl mapi_d2_redo_map w d in = map_dx_redo_map_template snd mapi_d2_redo_map' w d in
 
 inl map_dx_scan_map_template kernel w d in =
@@ -2401,14 +2400,9 @@ inl tensor_to_pointers w x =
 inl methods =
     {
     iter init' init map' map init_exscan inscan redo
-    iter2 iter3 init_inscan
-    
-    mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
-    map_d2_inscan_map' map_d2_inscan_map 
-    mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
-    mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter init_d1_seq_broadcast
-    iteri_dd1_seq_broadcast init_d1_redo_outit' init_d1_redo_outit init_d2_redo_outit' init_d2_redo_outit inplace_transpose
-    tensor_to_pointers
+    iter2 iter3 init_inscan init_redo
+   
+    inplace_transpose tensor_to_pointers
     } |> stackify
 
 inl s -> s.module_add .CudaKernel methods

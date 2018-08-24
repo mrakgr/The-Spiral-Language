@@ -851,7 +851,7 @@ inl outer_size = 32
 inl a1 = s.CudaRandom.create {dst=.Uniform} {elem_type=float32; dim=outer_size,inner_size}
 inl a2 = s.CudaRandom.create {dst=.Uniform} {elem_type=float32; dim=outer_size,inner_size}
 inl a3 = s.CudaTensor.create {elem_type=float32; dim=1}
-inl f a1 a2 =
+inl f (a1, a2) =
     inl a1,a2 = CudaAux.to_dev_tensor (a1,a2)
     inl o1 = s.CudaTensor.create {elem_type=float32; dim=outer_size} 
     inl _ = 
@@ -864,21 +864,21 @@ inl f a1 a2 =
             outit=inl b -> o1 b .set << snd
             } 
     o1
-inl o1 = f (a1, a2) ()
+inl o1 = f (a1, a2)
 
 Tuple.iter s.CudaTensor.print (a1,o1)
 
 inl f a1 =
     inl a1 = CudaAux.to_dev_tensor a1
-    inl o1 = s.CudaTensor.create {elem_type=float32; dim=outer_size}
+    inl o1 = s.CudaTensor.create {elem_type=int64; dim=outer_size}
     inl _ = 
         inl o1 = CudaAux.to_dev_tensor o1
-        s.CudaKernel.mapi_d1_redo_map {
+        s.CudaKernel.init_redo {
             dim=a1.dim
             init=inl b a -> a1 b a .get, a
             neutral_elem=-infinityf32,-1
             redo=inl a b -> if fst a > fst b then a else b
-            outit=inl b -> o1 b .set
+            outit=inl b -> o1 b .set << snd
             }
     o1
 
@@ -889,7 +889,7 @@ let tests =
     [|
     allocator1
     tensor1;tensor2;tensor3;
-    kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7
+    kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
     random1
     blas1;blas2;blas3;blas4;blas5;blas6;blas7;blas8;blas9
     cusolver1;cusolver2
