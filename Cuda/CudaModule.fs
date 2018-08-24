@@ -1711,40 +1711,6 @@ inl block_reduce_3d (blockDimZ, threadIdxZ) (blockDimY, threadIdxY) (near_to, th
         (inl ar -> ar threadIdxZ threadIdxY)
         x
 
-/// Maps the input and then reduces twice, first along the inner dimension and then along the middle.
-met init_redo_redo w {d with dim=c,b,a init outit} = 
-    assert (dim_in_a = out_a) "Input's outermost and output's dimension must be equal."
-    inl x = lit_min 1024 (length a)
-    inl y = lit_min (1024 / x) (length b)
-    w.run {
-        blockDim={y x}
-        gridDim={z=min 64 (length c); y=min 64 (divup (length b) y)}
-        kernel = cuda 
-            inl grid_for = grid_for {blockDim gridDim}
-            grid_for .z c {body=inl {i} ->
-                inl {mapi_in redo neutral_elem} = redo_mid
-                inl x = 
-                    inl in = in i
-                    grid_for .y b {state=dyn neutral_elem; body=inl {state i=j} ->
-                        inl x = 
-                            inl in = in j
-                            inl {d with redo neutral_elem mapi_in} = redo_in
-                            grid_for .x a {state=dyn neutral_elem; body=inl {state i=k} ->
-                                inl in = in k .get
-                                redo state (mapi_in i j k in)
-                                }
-                            |> block_reduce_2d (blockDim.y,threadIdx.y) (blockDim.x, threadIdx.x) redo
-                        redo state (mapi_in i j x)
-                        }
-
-                if threadIdx.x = 0 then
-                    inl x = block_reduce_1d (blockDim.y, threadIdx.y) redo x
-                    if threadIdx.y = 0 then
-                        inl out = out i
-                        out.set (map_out x out.get)
-                }
-        }
-
 inl mapi_d1_dredo_map w d in =
     indiv join
         inl d = ddef id d
