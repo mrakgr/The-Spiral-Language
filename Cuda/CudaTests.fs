@@ -346,24 +346,6 @@ s.CudaTensor.print o
 //s.CudaTensor.print (f a1)
 //    """
 
-//let kernel6 =
-//    "kernel6",[cuda_modules],"Does the map_d1_inscan_map kernel work?",
-//    """
-//inb s = CudaModules (1024*1024)
-
-//inl inner_size = 50
-//inl outer_size = 3
-
-//inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
-//inl o1 = 
-//    s.CudaKernel.map_d1_inscan_map {
-//        neutral_elem=-infinityf32
-//        redo=max
-//        } a1
-
-//Tuple.iter s.CudaTensor.print (a1,o1)
-//    """
-
 //let kernel7 =
 //    "kernel7",[cuda_modules],"Does the map_d2_inscan_map kernel work?",
 //    """
@@ -867,6 +849,29 @@ inl _ =
 Tuple.iter s.CudaTensor.print (a1,a2,o1)
     """
 
+let kernel8 =
+    "kernel8",[cuda_modules],"Does the init_inscan kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl inner_size = 50
+inl outer_size = 3
+
+inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
+inl o1 = s.CudaTensor.create_like a1
+inl _ = 
+    inl a1, o1 = CudaAux.to_dev_tensor (a1,o1)
+    s.CudaKernel.init_inscan {
+        dim=a1.dim
+        neutral_elem=-infinityf32
+        redo=max
+        init=inl a b -> a1 a b .get
+        outit=inl a b -> o1 a b .set
+        }
+
+Tuple.iter s.CudaTensor.print (a1,o1)
+    """
+
 let tests =
     [|
     allocator1
@@ -880,7 +885,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel7
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel8
 |> printfn "%s"
 |> ignore
 

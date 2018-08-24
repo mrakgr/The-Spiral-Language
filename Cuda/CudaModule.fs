@@ -1584,7 +1584,7 @@ met iter2 w {d with dim=b,a} f =
     inl l = length a
     inl blockDim = min l <| match d with {threads} -> threads | _ -> 1024
     w.run {blockDim 
-        gridDim={x=divup l blockDim; y=min 256 (span b)}
+        gridDim={x=divup l blockDim; y=min 256 (length b)}
         kernel = cuda 
             inl grid_for = grid_for {blockDim gridDim} 
             grid_for .y b {body=inl {i} ->
@@ -1597,7 +1597,7 @@ met iter3 w {d with dim=c,b,a} f =
     inl l = length a
     inl blockDim = min l <| match d with {threads} -> threads | _ -> 1024
     w.run {blockDim 
-        gridDim={x=divup l blockDim; y=min 256 (span b); z=min 256 (span c)}
+        gridDim={x=divup l blockDim; y=min 256 (length b); z=min 256 (length c)}
         kernel = cuda 
             inl grid_for = grid_for {blockDim gridDim} 
             grid_for .z c {body=inl {i} ->
@@ -1612,8 +1612,8 @@ met iter3 w {d with dim=c,b,a} f =
 /// The inclusive scan over the innermost dimension.
 met init_inscan w {d with redo neutral_elem dim=b,a init outit} =
     w.run {
-        blockDim = min 1024 (span a)
-        gridDim = {y=min 264 (span b)}
+        blockDim = min 1024 (length a)
+        gridDim = {y=min 264 (length b)}
         kernel = cuda 
             inl grid_for = grid_for {blockDim gridDim}
             grid_for .y b {body=inl {i} ->
@@ -1624,7 +1624,7 @@ met init_inscan w {d with redo neutral_elem dim=b,a init outit} =
                     inl state', ag = 
                         cub_block_scan
                             {scan_type=.inclusive; is_input_tensor=false; return_aggregate=true}
-                            {blockDim redo} (map_in in.get)
+                            {blockDim redo} in
                     out (redo prefix state')
                     redo prefix ag
                     } |> ignore
@@ -2351,7 +2351,6 @@ inl map_dx_scan_map_template kernel w d in =
         kernel w {d with map_in map_out} in out
         stack out
 
-inl map_d1_inscan_map = map_dx_scan_map_template map_d1_inscan_map'
 inl map_d2_inscan_map = map_dx_scan_map_template map_d2_inscan_map'
 
 inl mapi_d1_inscan_mapi_d1_reduce_mapi w d in in' =
@@ -2477,10 +2476,10 @@ inl tensor_to_pointers w x =
 inl methods =
     {
     iter init' init map' map init_exscan inscan redo
-    iter2 iter3
+    iter2 iter3 init_inscan
     
     mapi_d1_redo_map' mapi_d1_redo_map mapi_d2_redo_map' mapi_d2_redo_map
-    map_d1_inscan_map' map_d1_inscan_map map_d2_inscan_map' map_d2_inscan_map 
+    map_d2_inscan_map' map_d2_inscan_map 
     mapi_d1_inscan_mapi_d1_reduce_mapi' mapi_d1_inscan_mapi_d1_reduce_mapi
     mapi_d1_seq_broadcast' mapi_d1_seq_broadcast init' init mapi_d1_dredo_map' mapi_d1_dredo_map iter init_d1_seq_broadcast
     iteri_dd1_seq_broadcast init_d1_redo_outit' init_d1_redo_outit init_d2_redo_outit' init_d2_redo_outit inplace_transpose
