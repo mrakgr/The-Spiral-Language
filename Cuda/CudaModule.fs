@@ -1499,16 +1499,16 @@ inl mapi w f in =
         stack out
 
 /// The exclusive scan over the innermost dimension.
-met init_exscan w {dim=a,b redo neutral_elem init outit} =
+met init_exscan w {dim=b,a redo neutral_elem init outit} =
     w.run {
-        blockDim = {x = min 1024 (length b)}
-        gridDim = {y = min 256 (length a)}
+        blockDim = {x = min 1024 (length a)}
+        gridDim = {y = min 256 (length b)}
         kernel = cuda 
             inl grid_for = grid_for {blockDim gridDim}
-            grid_for .y a {body=inl {i} ->
+            grid_for .y b {body=inl {i} ->
                 inl in, out = init i, outit i
 
-                grid_for .x b {state=dyn neutral_elem; body=inl {state=prefix i} ->
+                grid_for .x a {state=dyn neutral_elem; body=inl {state=prefix i} ->
                     inl in, out = in i, out i
                     inl state, prefix = cub_block_scan {scan_type=.exclusive,prefix; is_input_tensor=false; return_aggregate=true} {blockDim redo} in
                     out state
@@ -1583,7 +1583,6 @@ met redo w {redo neutral_elem dim init outit} =
 met iter2 w {dim=b,a} f =
     inl l = length a
     inl blockDimx = min l <| match d with {threads} -> threads | _ -> 1024
-    inl gridDimx = 
     w.run {blockDim 
         gridDim={x=divup l blockDim; y=min 256 (span b)}
         kernel = cuda 
@@ -1594,6 +1593,21 @@ met iter2 w {dim=b,a} f =
                 }
         }
 
+met iter3 w {dim=c,b,a} f =
+    inl l = length a
+    inl blockDimx = min l <| match d with {threads} -> threads | _ -> 1024
+    w.run {blockDim 
+        gridDim={x=divup l blockDim; y=min 256 (span b); z=min 256 (span c)}
+        kernel = cuda 
+            inl grid_for = grid_for {blockDim gridDim} 
+            grid_for .z c {body=inl {i} ->
+                inl f = f i
+                grid_for .y b {body=inl {i} ->
+                    inl f = f i
+                    grid_for .x a {body=inl {i} -> f i}
+                    }
+                }
+        }
 
 /// The inclusive scan over the innermost dimension.
 /// Accepts the optional map_in and map_out arguments for the mapping before the scan and after it.
