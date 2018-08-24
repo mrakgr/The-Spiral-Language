@@ -1648,19 +1648,6 @@ met init_redo w {dim=b,a init redo neutral_elem outit} =
                 }
         }
 
-inl ddef def_map_out =
-    function
-    | {d with map_out} -> d
-    | d -> {d with map_out=def_map_out}
-    >> function
-    | {d.redo_mid with mapi_in} -> d
-    | {d.redo_mid with map_in} -> {d.redo_mid without map_in with mapi_in=inl _ _ -> map_in}
-    | {d with redo_mid} -> {d.redo_mid with mapi_in=inl _ _ x -> x}
-    >> function
-    | {d.redo_in with mapi_in} -> d
-    | {d.redo_in with map_in} -> {d.redo_in without map_in with mapi_in=inl _ _ _ -> map_in}
-    | {d with redo_in} -> {d.redo_in with mapi_in=inl _ _ _ x -> x}        
-
 inl block_reduce_body ar near_to threadIdx redo state =
     whilecd {
         state={near_to state}
@@ -1724,35 +1711,25 @@ inl block_reduce_3d (blockDimZ, threadIdxZ) (blockDimY, threadIdxY) (near_to, th
         (inl ar -> ar threadIdxZ threadIdxY)
         x
 
-/// Maps the input and then reduces twice, first along the inner dimension and then along the middle. Takes 3d tensors.
-met mapi_d1_dredo_map' w d in out = 
-    inl {d with redo_mid redo_in map_out} = ddef const d
-    inl in, out = zip in, zip out
-    inl dim_in_a, dim_in_b, dim_in_c = in.dim
-    inl out_a :: () = out.dim
-
+/// Maps the input and then reduces twice, first along the inner dimension and then along the middle.
+met init_redo_redo w {d with dim=c,b,a init outit} = 
     assert (dim_in_a = out_a) "Input's outermost and output's dimension must be equal."
-
-    inl blockDimX = lit_min 1024 (s dim_in_c)
-    inl blockDimY = lit_min (1024 / blockDimX) (s dim_in_b)
-    inl gridDimZ = lit_min 64 (s dim_in_a)
-
-    inl in, out = to_dev_tensor in, to_dev_tensor out
-        
+    inl x = lit_min 1024 (length a)
+    inl y = lit_min (1024 / x) (length b)
     w.run {
-        blockDim=blockDimX,blockDimY
-        gridDim=1,1,gridDimZ
+        blockDim={y x}
+        gridDim={z=min 64 (length c); y=min 64 (divup (length b) y)}
         kernel = cuda 
             inl grid_for = grid_for {blockDim gridDim}
-            grid_for .z dim_in_a {body=inl {i} ->
+            grid_for .z c {body=inl {i} ->
                 inl {mapi_in redo neutral_elem} = redo_mid
                 inl x = 
                     inl in = in i
-                    grid_for .y dim_in_b {state=dyn neutral_elem; body=inl {state i=j} ->
+                    grid_for .y b {state=dyn neutral_elem; body=inl {state i=j} ->
                         inl x = 
                             inl in = in j
                             inl {d with redo neutral_elem mapi_in} = redo_in
-                            grid_for .x dim_in_c {state=dyn neutral_elem; body=inl {state i=k} ->
+                            grid_for .x a {state=dyn neutral_elem; body=inl {state i=k} ->
                                 inl in = in k .get
                                 redo state (mapi_in i j k in)
                                 }

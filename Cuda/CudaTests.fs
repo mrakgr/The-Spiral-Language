@@ -408,31 +408,6 @@ s.CudaTensor.print o
 ////  [|0.5028772; -1.234876; 0.1718971; -0.6759161|]
 //    """
 
-//let kernel13 =
-//    "kernel13",[cuda_modules],"Does the mapi_d1_dredo_map kernel work?",
-//    """
-//inb s = CudaModules (1024*1024)
-
-//inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=6,12,256}
-//s.CudaTensor.print x
-//inl a,b,c = x.dim
-//inl c = to float32 (HostTensor.span c)
-//inl v =
-//    s.CudaKernel.mapi_d1_dredo_map { 
-//        redo_in = {
-//            neutral_elem=0f32
-//            redo=(+)
-//            }
-//        redo_mid = {
-//            mapi_in=inl j i a -> a, i
-//            neutral_elem=-infinityf32,-1
-//            redo=inl a b -> if fst a > fst b then a else b
-//            }
-//        map_out = inl a, i -> a / c, i
-//        } x
-//s.CudaTensor.print v
-//    """
-
 //let kernel15 =
 //    "kernel15",[cuda_modules],"Does the iteri_dd1_seq_broadcast kernel work?",
 //    """
@@ -884,6 +859,32 @@ inl f a1 =
 
 s.CudaTensor.print (f a1)
     """
+
+let kernel10 =
+    "kernel10",[cuda_modules],"Does the init_redo_redo kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=6,12,256}
+s.CudaTensor.print x
+inl a,b,c = x.dim
+inl c = to float32 (HostTensor.span c)
+inl v =
+    s.CudaKernel.mapi_d1_dredo_map { 
+        redo_in = {
+            neutral_elem=0f32
+            redo=(+)
+            }
+        redo_mid = {
+            mapi_in=inl j i a -> a, i
+            neutral_elem=-infinityf32,-1
+            redo=inl a b -> if fst a > fst b then a else b
+            }
+        map_out = inl a, i -> a / c, i
+        } x
+s.CudaTensor.print v
+    """
+
 
 let tests =
     [|
