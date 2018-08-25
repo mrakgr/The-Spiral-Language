@@ -1768,6 +1768,11 @@ met init_seq w {dim=b,a init} =
                         if num_valid % blockDim.x = 0 then cub_block_reduce d
                         else cub_block_reduce {d with num_valid} 
 
+                    inl thread = {
+                        redo = inl {redo num_valid} -> cub_block_reduce {blockDim redo num_valid}
+                        inscan = inl {redo num_valid} -> cub_block_scan {scan_type=.inclusive; is_input_tensor=false; return_aggregate=true} {num_valid blockDim redo}
+                        }
+
                     inl block = {
                         load=inl (!zip tns) -> create_items (inl {i} -> tns i .get)
                         store=inl {from=(!zip from) to=(!zip to)} -> inner_loop {body=inl {item i} -> to i .set (from item .get)}
@@ -1776,6 +1781,12 @@ met init_seq w {dim=b,a init} =
                         uter=inl redo items -> block_reduce redo items.bodies.ar |> broadcast_zero
                         redo=inl redo items -> block_reduce redo items.bodies.ar
                         }
+
+                    inl grid = {
+                        for = grid_for
+                        for_items = grid_for_items
+                        }
+
                     {block} x
                 }
         }

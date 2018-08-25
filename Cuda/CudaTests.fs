@@ -332,35 +332,6 @@ s.CudaTensor.print o
 //Tuple.iter s.CudaTensor.print (a1,o1)
 //    """
 
-//let kernel10 =
-//    "kernel10",[cuda_modules],"Does the mapi_d1_inscan_mapi_d1_reduce_mapi kernel work?",
-//    """
-//inb s = CudaModules (1024*1024)
-
-//inl inner_size = 10
-//inl outer_size = 6
-
-//inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
-//inl a2 = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=0f32} {elem_type=float32; dim=outer_size}
-//inl o1 = // The sampling function
-//    s.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
-//        scan={
-//            ne=0f32
-//            f=(+)
-//            }
-//        mapi_mid=inl _ index prob boundary -> 
-//            inl x = prob - boundary
-//            (if x < 0f32 then infinityf32 else x), index
-//        redo={
-//            ne=infinityf32,0
-//            f=inl a b -> if fst a <= fst b then a else b
-//            }
-//        map_out=snd
-//        } a1 a2
-
-//Tuple.iter s.CudaTensor.print (a1,o1)
-//    """
-
 //let kernel15 =
 //    "kernel15",[cuda_modules],"Does the iteri_dd1_seq_broadcast kernel work?",
 //    """
@@ -909,6 +880,65 @@ Tuple.iter s.CudaTensor.print (a1,o1,o2,o3)
 //  [|0.5028772; -1.234876; 0.1718971; -0.6759161|]
     """
 
+let kernel12 =
+    "kernel12",[cuda_modules],"Does the sampling function work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl inner_size = 10
+inl outer_size = 6
+
+inl prob = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
+inl boundary = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=0f32} {elem_type=float32; dim=outer_size}
+inl output = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=0f32} {elem_type=int64; dim=outer_size}
+inl _ =
+    inl inputs = Tuple.map CudaAux.to_dev_tensor (prob,boundary)
+    s.CudaKernel.init_seq { // The sampling function
+        dim=a1.dim
+        init=inl b k ->
+            inl prob,boundary,to = Tuple.map (inl x -> x b) inputs
+            inl boundary = boundary.get
+            k.store_scalar {to
+                from=
+                    k.grid.for_items .x inner_size {
+                        state=dyn {scan=0f32; redo=infinityf32,0}
+                        body=inl {state i=a num_valid} ->
+                            inl prob = prob a .get
+                    
+                            inl prob_at_i, scan = 
+                                inl f = (+)
+                                k.thread.inscan f prob |> Tuple.map (f state.scan)
+
+                            inl distance_from_boundary, a = 
+                                inl x = prob_at_i - boundary    
+                                (if x < 0f32 then infinityf32 else x), a
+
+                            inl redo =
+                                inl redo a b = if fst a <= fst b then a else b
+                                k.thread.redo {num_valid redo} (distance_from_boundary, a) |> redo state.redo
+
+                            {scan redo}
+                        } .redo |> snd
+                }
+        }
+//inl o1 = 
+//    s.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
+//        scan={
+//            ne=0f32
+//            f=(+)
+//            }
+//        mapi_mid=inl _ index prob boundary -> 
+//            inl x = prob - boundary
+//            (if x < 0f32 then infinityf32 else x), index
+//        redo={
+//            ne=infinityf32,0
+//            f=inl a b -> if fst a <= fst b then a else b
+//            }
+//        map_out=snd
+//        } a1 a2
+
+Tuple.iter s.CudaTensor.print (prob,boundary,output)
+    """
 
 let tests =
     [|
@@ -924,6 +954,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel11
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel12
 |> printfn "%s"
 |> ignore
