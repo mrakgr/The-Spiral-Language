@@ -1748,8 +1748,9 @@ met init_seq w {dim=b,a init} =
         gridDim={y=min 256 (length b)}
         kernel = cuda
             inl dims = {blockDim gridDim}
-            inl grid_for = grid_for {blockDim gridDim}
-            inl inner_loop = grid_for_items dims .x a
+            inl grid_for = grid_for dims
+            inl grid_for_items = grid_for_items dims
+            inl inner_loop = grid_for_items .x a
             inl create_items map = 
                 inl items = HostTensor.create {
                     array_create = array_create_cuda_local
@@ -1787,7 +1788,7 @@ met init_seq w {dim=b,a init} =
                         for_items = grid_for_items
                         }
 
-                    {block} x
+                    {grid block thread} x
                 }
         }
 

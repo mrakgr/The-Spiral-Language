@@ -832,85 +832,94 @@ inl o1 = s.CudaTensor.create_like a1
 inl o2 = s.CudaTensor.create_like a1
 inl o3 = s.CudaTensor.create_like a1
 
-inl _ = // Softmax forward
-    inl a1,o1 = CudaAux.to_dev_tensor (a1,o1)
+inl softmax_forward input s =
+    inl output = s.CudaTensor.create_like input
+    inl ins = CudaAux.to_dev_tensor (input,output)
     s.CudaKernel.init_seq {
-        dim=a1.dim
+        dim=input.dim
         init=inl b k ->
-            inl a1,o1 = Tuple.map (inl x -> x b) (a1,o1)
-            inl x = k.block.load a1
+            inl input,output = Tuple.map (inl x -> x b) ins
+            inl x = k.block.load input
             inl max_x = k.block.uter max x
             inl z = k.block.map (inl x -> exp (x - max_x)) x
             inl sum_z = k.block.uter (+) z
             k.block.store {
                 from=k.block.map (inl z -> z / sum_z) z
-                to=o1
+                to=output
                 }
         }
+    output
 
-inl _ = 
-    inl o1,o2 = CudaAux.to_dev_tensor (o1,o2)
-    s.CudaKernel.init_inscan {
-        dim=o1.dim
-        redo=(+)
-        neutral_elem=0f32
-        init=inl b a -> o1 b a .get
-        outit=inl b a -> o2 b a .set
-        }
+inl probs input s = 
+    inl output = s.CudaTensor.create_like input
+    inl _ =
+        inl input,output = CudaAux.to_dev_tensor (input,output)
+        s.CudaKernel.init_inscan {
+            dim=input.dim
+            redo=(+)
+            neutral_elem=0f32
+            init=inl b a -> input b a .get
+            outit=inl b a -> output b a .set
+            }
+    output
 
-inl _ = // Softmax backward
-    inl inputs = a1,a2,o3
-    inl inputs = CudaAux.to_dev_tensor inputs
+inl softmax_backward z dz s =
+    inl output = s.CudaTensor.create_like z
+    inl inputs = CudaAux.to_dev_tensor (z,dz,output)
     s.CudaKernel.init_seq {
-        dim=a1.dim
+        dim=z.dim
         init=inl b k ->
-            inl a1,a2,o3 = Tuple.map (inl x -> x b) inputs
-            inl z,dz = Tuple.map k.block.load (a1,a2)
+            inl z,dz,output = Tuple.map (inl x -> x b) inputs
+            inl z,dz = Tuple.map k.block.load (z,dz)
             inl er = k.block.map (inl z,dz -> z*dz) (z,dz) |> k.block.uter (+)
             k.block.store {
                 from=k.block.map (inl {dz z} -> (dz - er) * z) {dz z}
-                to=o3 // Do not forget than the real softmax backwards needs to add to adjoint rather than writing to it directly.
+                to=output // Do not forget than the real softmax backwards needs to add to adjoint rather than writing to it directly.
                 }
         }
+    output
+
+inl o1 = softmax_forward a1 s
+inl o2 = probs o1 s
+inl o3 = softmax_backward a1 a2 s
 
 Tuple.iter s.CudaTensor.print (a1,o1,o2,o3)
 //  [|0.2925366; -0.718359; 0.09999694; -0.3931978|]
 //  [|0.3714055; 0.1351518; 0.3063581; 0.1870845|]
 //  [|0.3714055; 0.5065573; 0.8129154; 0.9999999|]
 //  [|0.5028772; -1.234876; 0.1718971; -0.6759161|]
-    """
 
-let kernel12 =
-    "kernel12",[cuda_modules],"Does the sampling function work?",
-    """
-inb s = CudaModules (1024*1024)
+Console.writeline "-----"
 
 inl inner_size = 10
 inl outer_size = 6
 
-inl prob = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
-inl boundary = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=0f32} {elem_type=float32; dim=outer_size}
-inl output = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=0f32} {elem_type=int64; dim=outer_size}
+inl prob = softmax_forward (s.CudaRandom.create {dst=.Uniform} {elem_type=float32; dim=outer_size,inner_size}) s
+inl scan_prob = probs prob s
+//inl boundary = s.CudaRandom.create {dst=.Uniform} {dim=outer_size; elem_type=float32}
+inl boundary = s.CudaKernel.init {dim=outer_size} (const 0f32)
+inl output = s.CudaTensor.create {elem_type=int64; dim=outer_size}
 inl _ =
-    inl inputs = Tuple.map CudaAux.to_dev_tensor (prob,boundary)
+    //inl f i = Tuple.map (inl x -> x.view_span (const {from=i; near_to=i+1}))
+    inl inputs = Tuple.map CudaAux.to_dev_tensor ((prob,boundary,output))
     s.CudaKernel.init_seq { // The sampling function
-        dim=a1.dim
+        dim=fst inputs .dim
         init=inl b k ->
             inl prob,boundary,to = Tuple.map (inl x -> x b) inputs
             inl boundary = boundary.get
-            k.store_scalar {to
+            k.block.store_scalar {to
                 from=
                     k.grid.for_items .x inner_size {
                         state=dyn {scan=0f32; redo=infinityf32,0}
                         body=inl {state i=a num_valid} ->
                             inl prob = prob a .get
                     
-                            inl prob_at_i, scan = 
-                                inl f = (+)
-                                k.thread.inscan f prob |> Tuple.map (f state.scan)
+                            inl prob_at_a, scan = 
+                                inl redo = (+) // TODO: Work in progress.
+                                k.thread.exscan {neutral_elem=0f32; redo} prob |> Tuple.map (redo state.scan)
 
                             inl distance_from_boundary, a = 
-                                inl x = prob_at_i - boundary    
+                                inl x = prob_at_a - boundary
                                 (if x < 0f32 then infinityf32 else x), a
 
                             inl redo =
@@ -921,23 +930,8 @@ inl _ =
                         } .redo |> snd
                 }
         }
-//inl o1 = 
-//    s.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
-//        scan={
-//            ne=0f32
-//            f=(+)
-//            }
-//        mapi_mid=inl _ index prob boundary -> 
-//            inl x = prob - boundary
-//            (if x < 0f32 then infinityf32 else x), index
-//        redo={
-//            ne=infinityf32,0
-//            f=inl a b -> if fst a <= fst b then a else b
-//            }
-//        map_out=snd
-//        } a1 a2
 
-Tuple.iter s.CudaTensor.print (prob,boundary,output)
+Tuple.iter s.CudaTensor.print (prob,scan_prob,boundary,output)
     """
 
 let tests =
@@ -954,6 +948,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel12
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel11
 |> printfn "%s"
 |> ignore
