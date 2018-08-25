@@ -865,24 +865,32 @@ let kernel10 =
     """
 inb s = CudaModules (1024*1024)
 
-inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=6,12,256}
-s.CudaTensor.print x
-inl a,b,c = x.dim
-inl c = to float32 (HostTensor.span c)
-inl v =
-    s.CudaKernel.mapi_d1_dredo_map { 
-        redo_in = {
-            neutral_elem=0f32
-            redo=(+)
-            }
-        redo_mid = {
-            mapi_in=inl j i a -> a, i
-            neutral_elem=-infinityf32,-1
-            redo=inl a b -> if fst a > fst b then a else b
-            }
-        map_out = inl a, i -> a / c, i
-        } x
-s.CudaTensor.print v
+inl c,b,a = 6,12,256
+inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=c,b,a}
+s.CudaTensor.print a1
+inl o1 = s.CudaTensor.create {elem_type=float32,int64; dim=c}
+inl _ =
+    inl a1,o1 = CudaAux.to_dev_tensor (a1,o1)
+    s.CudaKernel.init_redo_redo {
+        dim=c,b,a
+        init=inl c' k ->
+            inl a1 = a1 c'
+            k {
+                neutral_elem=-infinityf32,-1
+                redo=inl a b -> if fst a > fst b then a else b
+                init=inl b k -> 
+                    inl a1 = a1 b
+                    k {
+                        neutral_elem=0f32
+                        redo=(+)
+                        init=inl a -> a1 a .get
+                        }
+                outit=
+                    inl a,b -> a / c', b
+                    >> o1 c' .set
+                }
+        }
+s.CudaTensor.print o1
     """
 
 
