@@ -868,9 +868,11 @@ inl _ = // Softmax forward
         init=inl i k ->
             inl a1,o1 = Tuple.map (inl x -> x i) (a1,a2,o1)
             inl x = k.block.load a1
-            inl z = k.block.map (inl x, max_x -> exp (x - max_x)) (x, k.block.redo max x)
+            inl max_x = k.block.uter max x
+            inl z = k.block.map (inl x -> exp (x - max_x)) x
+            inl sum_z = k.block.uter (+) z
             k.block.store {
-                from=k.block.map (inl z, sum_z -> z / sum_z) (z, k.block.redo (+) z)
+                from=k.block.map (inl z -> z / sum_z) z
                 to=o1
                 }
         }
@@ -893,9 +895,9 @@ inl _ = // Softmax backward
         init=inl b k ->
             inl a1,a2,o3 = Tuple.map (inl x -> x i) inputs
             inl z,dz = Tuple.map k.block.load (a1,a2)
-            inl er = k.block.map (inl z,dz -> z*dz) (z,dz) |> k.block.redo (+)
+            inl er = k.block.map (inl z,dz -> z*dz) (z,dz) |> k.block.uter (+)
             k.block.store {
-                from=k.block.map (inl {dz z er} -> (dz - er) * z) {dz z er}
+                from=k.block.map (inl {dz z} -> (dz - er) * z) {dz z}
                 to=o3 // Do not forget than the real softmax backwards needs to add to adjoint rather than writing to it directly.
                 }
         }
