@@ -1648,31 +1648,6 @@ met init_redo w {dim=b,a init redo neutral_elem outit} =
                 }
         }
 
-/// Maps the input and then reduces twice, first along the inner dimension and then along the middle.
-met init_redo_redo w {dim=c,b,a; init} = 
-    assert (dim_in_a = out_a) "Input's outermost and output's dimension must be equal."
-    inl x = lit_min 1024 (length a)
-    inl y = lit_min (1024 / x) (length b)
-    w.run {
-        blockDim={y x}
-        gridDim={z=min 64 (length c)}
-        kernel = cuda 
-            inl grid_for = grid_for {blockDim gridDim}
-            grid_for .z c {body=inl {i} ->
-                init i <| inl {neutral_elem redo init outit} ->
-                    inl x = 
-                        grid_for .y b {state=dyn neutral_elem; body=inl {state i} ->
-                            init i <| inl {neutral_elem redo init} ->
-                                grid_for .x a {state=dyn neutral_elem; body=inl {state i} -> redo state (init i)}
-                                |> block_reduce_2d (blockDim.y, threadIdx.y) (blockDim.x, threadIdx.x) redo
-                                |> redo state
-                            }
-                    if threadIdx.x = 0 then
-                        inl x = block_reduce_1d (blockDim.y, threadIdx.y) redo x
-                        if threadIdx.y = 0 then outit x
-                    }
-        }
-
 inl block_reduce_body ar near_to threadIdx redo state =
     whilecd {
         state={near_to state}
@@ -1736,20 +1711,29 @@ inl block_reduce_3d (blockDimZ, threadIdxZ) (blockDimY, threadIdxY) (near_to, th
         (inl ar -> ar threadIdxZ threadIdxY)
         x
 
-inl mapi_d1_dredo_map w d in =
-    indiv join
-        inl d = ddef id d
-        inl in = zip in
-
-        inl {redo_in redo_mid map_out} = d
-        inl elem_type = 
-            type 
-                redo_in.mapi_in (dyn 0) (dyn 0) (dyn 0) in.elem_type
-                |> redo_mid.mapi_in (dyn 0) (dyn 0)
-                |> map_out
-        inl out = w.CudaTensor.create {elem_type dim=fst in.dim}
-        mapi_d1_dredo_map' w {d with map_out = inl a _ -> map_out a} in out
-        stack out
+/// Maps the input and then reduces twice, first along the inner dimension and then along the middle.
+met init_redo_redo w {dim=c,b,a init} = 
+    inl x = lit_min 1024 (length a)
+    inl y = lit_min (1024 / x) (length b)
+    w.run {
+        blockDim={y x}
+        gridDim={z=min 64 (length c)}
+        kernel = cuda 
+            inl grid_for = grid_for {blockDim gridDim}
+            grid_for .z c {body=inl {i} ->
+                init i <| inl {neutral_elem redo init outit} ->
+                    inl x = 
+                        grid_for .y b {state=dyn neutral_elem; body=inl {state i} ->
+                            init i <| inl {neutral_elem redo init} ->
+                                grid_for .x a {state=dyn neutral_elem; body=inl {state i} -> redo state (init i)}
+                                |> block_reduce_2d (blockDim.y, threadIdx.y) (blockDim.x, threadIdx.x) redo
+                            |> redo state
+                            }
+                    if threadIdx.x = 0 then
+                        inl x = block_reduce_1d (blockDim.y, threadIdx.y) redo x
+                        if threadIdx.y = 0 then outit x
+                    }
+        }
 
 /// Does a (repeating) sequence of maps, reductions and maps in registers.
 met init_d1_seq_broadcast w {d with seq init} (dim_a, dim_b) = 
@@ -2368,7 +2352,7 @@ inl tensor_to_pointers w x =
 inl methods =
     {
     iter init' init map' map init_exscan inscan redo
-    iter2 iter3 init_inscan init_redo
+    iter2 iter3 init_inscan init_redo init_redo_redo
    
     inplace_transpose tensor_to_pointers
     } |> stackify

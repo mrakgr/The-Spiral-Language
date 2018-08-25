@@ -885,8 +885,9 @@ inl _ =
                         redo=(+)
                         init=inl a -> a1 a .get
                         }
+                    |> inl x -> x, b
                 outit=
-                    inl a,b -> a / c', b
+                    inl a,b -> a / to float32 c, b
                     >> o1 c' .set
                 }
         }
@@ -907,7 +908,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel9
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel10
 |> printfn "%s"
 |> ignore
 
