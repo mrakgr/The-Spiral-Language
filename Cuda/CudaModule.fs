@@ -1735,18 +1735,17 @@ met init_redo_redo w {dim=c,b,a init} =
                     }
         }
 
-/// Does a (repeating) sequence of maps, reductions and maps in registers.
-met init_d1_seq_broadcast w {d with seq init} (dim_a, dim_b) = 
-    inl num_valid = s dim_b
+/// Does arbitrary operations over the innermost dimension using registers.
+met init_seq w {dim=b,a init} =
+    inl num_valid = length a
     inl items_per_thread, blockDim =
         assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
         if num_valid <= 1024 then 1, num_valid
         else divup num_valid 256, 256
-    inl gridDimY = min 64 (s dim_a)
 
     w.run {
         blockDim
-        gridDim=1,gridDimY
+        gridDim={y=min 64 (length b)}
         kernel = cuda
             inl dims = {blockDim gridDim}
             inl inner_loop = grid_for_items dims .x dim_b
