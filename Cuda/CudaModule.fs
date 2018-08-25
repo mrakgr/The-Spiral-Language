@@ -1749,16 +1749,32 @@ met init_seq w {dim=b,a init} =
         kernel = cuda
             inl dims = {blockDim gridDim}
             inl grid_for = grid_for {blockDim gridDim}
+            inl inner_loop = grid_for_items dims .x a
+            inl create_items map = 
+                inl items = HostTensor.create {
+                    array_create = array_create_cuda_local
+                    layout=.aot
+                    elem_type=type map {item=var 0; i=var 0}
+                    dim=items_per_thread
+                    }
+
+                inner_loop {body=inl {x with item i} -> items item .set (map x)}
+                items
+
             grid_for .y b {body=inl {i} ->
                 init i <| inl x ->
+                    inl block_reduce redo = 
+                        inl d = {blockDim redo}
+                        if num_valid % blockDim.x = 0 then cub_block_reduce d
+                        else cub_block_reduce {d with num_valid} 
+
                     inl block = {
-                        store=...
-                        store_fst=...
-                        map=...
-                        redo=...
-                        redo'=...
-                        broadcast=...
-                        load=...
+                        load=inl tns -> create_items (inl {i} -> tns i .get)
+                        store=inl {from to} -> inner_loop {body=inl {item i} -> to i .set (from item .get)}
+                        store_scalar=inl {from to} -> if threadIdx.x = 0 then to .set from}
+                        map=inl f tns -> create_items (inl {item} -> f (tns item .get))
+                        uter=inl redo items -> block_reduce redo items.bodies.ar |> broadcast_zero
+                        redo=inl redo items -> block_reduce redo items.bodies.ar
                         }
                     {block} x
                 }
