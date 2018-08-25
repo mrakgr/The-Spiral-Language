@@ -1,0 +1,77 @@
+﻿    w.run {
+        blockDim
+        gridDim={y=min 64 (length b)}
+        kernel = cuda
+            inl dims = {blockDim gridDim}
+            inl inner_loop = grid_for_items dims .x dim_b
+            inl create_items map = 
+                inl items = HostTensor.create {
+                    array_create = array_create_cuda_local
+                    layout=.aot
+                    elem_type=type map {item=dyn 0; i=dyn 0}
+                    dim=items_per_thread
+                    }
+
+                inner_loop {body=inl {x with item i} -> items item .set (map x)}
+                items
+
+            grid_for dims .y dim_a {body=inl {i=j} ->
+                inl body n items d =
+                    inl items =
+                        match d with
+                        | {init} ->
+                            inl map = match n with () -> init j | _ -> init n j
+                            create_items <| inl {item i} -> map i (items item .get)
+                        | _ -> items
+                    match d with
+                    | {mapi_in} ->
+                        inl map = match n with () -> mapi j | _ -> mapi_in n j
+                        create_items <| inl {item i} -> map i (items item .get)
+                    | {map_in=map} -> create_items <| inl {item i} -> map (items item .get)
+                    | _ -> items
+                    |> inl items -> 
+                        inl items = items.bodies.ar
+                        inl block_reduce redo = 
+                            inl d = {blockDim redo}
+                            if num_valid % blockDim.x = 0 then cub_block_reduce d
+                            else cub_block_reduce {d with num_valid} 
+                        match d with
+                        | {redo} -> block_reduce redo items |> broadcast_zero
+                        | {redo'} -> block_reduce redo' items
+                        | _ -> items
+                    |> inl x ->
+                        inl body map {item i} = map i (items item .get) x
+                        match d with
+                        | {mapi_out} -> 
+                            inl map = match n with () -> mapi_out j | _ -> mapi_out n j
+                            create_items (body map)
+                        | {map_out} -> 
+                            inl map = const map_out
+                            create_items (body map)
+                        | () -> items
+
+                inl items = 
+                    inl init = init j
+                    create_items <| inl {item i} -> init i
+
+                inl items =
+                    Tuple.foldl (inl items d ->
+                        match d with
+                        | {from near_to} -> 
+                            forcd {from near_to body=inl {i} ->
+                                inl items' = body i items d
+                                inner_loop {body=inl {item} -> items item .set (items' item .get)}
+                                }
+                            items
+                        | _ -> body () items d
+                        ) items (Tuple.wrap seq)
+                match d with
+                | {outit} -> 
+                    inl outit = outit j
+                    inner_loop {body=inl {x with item i} -> outit i (items item .get)}
+                | _ -> type
+                    match items.elem_type with
+                    | () -> ()
+                    | _ -> error_type "The elem type of the last operation in the sequence must be unit."
+                }
+        }

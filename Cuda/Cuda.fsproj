@@ -59,6 +59,7 @@
     <Content Include="packages.config" />
     <Compile Include="CudaModule.fs" />
     <Compile Include="CudaTests.fs" />
+    <Content Include="TextFile1.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
