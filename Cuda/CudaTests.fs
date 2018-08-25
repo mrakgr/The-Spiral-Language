@@ -361,53 +361,6 @@ s.CudaTensor.print o
 //Tuple.iter s.CudaTensor.print (a1,o1)
 //    """
 
-//let kernel11 =
-//    "kernel11",[cuda_modules],"Does the mapi_d1_seq_broadcast kernel work?",
-//    """
-//inb s = CudaModules (1024*1024)
-
-//inl inner_size = 4
-//inl outer_size = 1
-
-//inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
-//inl a2 = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,inner_size}
-//inl o1 = // Softmax forward
-//    s.CudaKernel.mapi_d1_seq_broadcast {
-//        seq = 
-//            {
-//            redo=max // max x
-//            map_out=inl x max_x -> exp (x - max_x) // exp (x - replicate max_x)
-//            }
-//            ,
-//            {
-//            redo=(+) // sum z
-//            map_out=inl z sum_z -> z / sum_z // z / replicate sum_z
-//            }
-//        } a1
-
-//inl o2 = 
-//    s.CudaKernel.map_d1_inscan_map {
-//        redo=(+)
-//        neutral_elem=0f32
-//        } o1
-
-//inl o3 = // Softmax backward
-//    s.CudaKernel.mapi_d1_seq_broadcast {
-//        seq = 
-//            {
-//            map_in=inl z,dz -> z*dz
-//            redo=(+)
-//            map_out=inl (z,dz) er -> (dz - er) * z
-//            }
-//        } (a1,a2)
-
-//Tuple.iter s.CudaTensor.print (a1,o1,o2,o3)
-////  [|0.2925366; -0.718359; 0.09999694; -0.3931978|]
-////  [|0.3714055; 0.1351518; 0.3063581; 0.1870845|]
-////  [|0.3714055; 0.5065573; 0.8129154; 0.9999999|]
-////  [|0.5028772; -1.234876; 0.1718971; -0.6759161|]
-//    """
-
 //let kernel15 =
 //    "kernel15",[cuda_modules],"Does the iteri_dd1_seq_broadcast kernel work?",
 //    """
@@ -894,13 +847,73 @@ inl _ =
 s.CudaTensor.print o1
     """
 
+let kernel11 =
+    "kernel11",[cuda_modules],"Does the init_seq kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl inner_size = 4
+inl outer_size = 1
+
+inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
+inl a2 = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,inner_size}
+inl o1 = s.CudaTensor.create_like a1
+inl o2 = s.CudaTensor.create_like a1
+inl o3 = s.CudaTensor.create_like a1
+
+inl _ = // Softmax forward
+    inl a1,o1 = CudaAux.to_dev_tensor (a1,o1)
+    s.CudaKernel.init {
+        dim=a1.dim
+        init=inl i k ->
+            inl a1,o1 = Tuple.map (inl x -> x i) (a1,a2,o1)
+            inl x = k.block.load a1
+            inl z = k.block.map (inl x, max_x -> exp (x - max_x)) (x, k.block.redo max x)
+            k.block.store {
+                from=k.block.map (inl z, sum_z -> z / sum_z) (z, k.block.redo (+) z)
+                to=o1
+                }
+        }
+
+inl _ = 
+    inl o1,o2 = CudaAux.to_dev_tensor (o1,o2)
+    s.CudaKernel.init_inscan {
+        dim=o1.dim
+        redo=(+)
+        neutral_elem=0f32
+        init=inl b a -> o1 b a .get
+        outit=inl b a -> o2 b a .set
+        }
+
+inl _ = // Softmax backward
+    inl inputs = a1,a2,o3
+    inl inputs = CudaAux.to_dev_tensor inputs
+    s.CudaKernel.init_seq {
+        dim=a1.dim
+        init=inl b k ->
+            inl a1,a2,o3 = Tuple.map (inl x -> x i) inputs
+            inl z,dz = Tuple.map k.block.load (a1,a2)
+            inl er = k.block.map (inl z,dz -> z*dz) (z,dz) |> k.block.redo (+)
+            k.block.store {
+                from=k.block.map (inl {dz z er} -> (dz - er) * z) {dz z er}
+                to=o3 // Do not forget than the real softmax backwards needs to add to adjoint rather than writing to it directly.
+                }
+        }
+
+Tuple.iter s.CudaTensor.print (a1,o1,o2,o3)
+//  [|0.2925366; -0.718359; 0.09999694; -0.3931978|]
+//  [|0.3714055; 0.1351518; 0.3063581; 0.1870845|]
+//  [|0.3714055; 0.5065573; 0.8129154; 0.9999999|]
+//  [|0.5028772; -1.234876; 0.1718971; -0.6759161|]
+    """
+
 
 let tests =
     [|
     allocator1
     tensor1;tensor2;tensor3;
     kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
-    kernel10
+    kernel10;kernel11
     random1
     blas1;blas2;blas3;blas4;blas5;blas6;blas7;blas8;blas9
     cusolver1;cusolver2
@@ -909,6 +922,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel10
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel11
 |> printfn "%s"
 |> ignore
