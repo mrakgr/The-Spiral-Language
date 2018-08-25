@@ -863,10 +863,10 @@ inl o3 = s.CudaTensor.create_like a1
 
 inl _ = // Softmax forward
     inl a1,o1 = CudaAux.to_dev_tensor (a1,o1)
-    s.CudaKernel.init {
+    s.CudaKernel.init_seq {
         dim=a1.dim
-        init=inl i k ->
-            inl a1,o1 = Tuple.map (inl x -> x i) (a1,a2,o1)
+        init=inl b k ->
+            inl a1,o1 = Tuple.map (inl x -> x b) (a1,o1)
             inl x = k.block.load a1
             inl max_x = k.block.uter max x
             inl z = k.block.map (inl x -> exp (x - max_x)) x
@@ -893,7 +893,7 @@ inl _ = // Softmax backward
     s.CudaKernel.init_seq {
         dim=a1.dim
         init=inl b k ->
-            inl a1,a2,o3 = Tuple.map (inl x -> x i) inputs
+            inl a1,a2,o3 = Tuple.map (inl x -> x b) inputs
             inl z,dz = Tuple.map k.block.load (a1,a2)
             inl er = k.block.map (inl z,dz -> z*dz) (z,dz) |> k.block.uter (+)
             k.block.store {

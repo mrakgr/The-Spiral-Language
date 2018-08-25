@@ -1769,10 +1769,10 @@ met init_seq w {dim=b,a init} =
                         else cub_block_reduce {d with num_valid} 
 
                     inl block = {
-                        load=inl tns -> create_items (inl {i} -> tns i .get)
-                        store=inl {from to} -> inner_loop {body=inl {item i} -> to i .set (from item .get)}
-                        store_scalar=inl {from to} -> if threadIdx.x = 0 then to .set from}
-                        map=inl f tns -> create_items (inl {item} -> f (tns item .get))
+                        load=inl (!zip tns) -> create_items (inl {i} -> tns i .get)
+                        store=inl {from=(!zip from) to=(!zip to)} -> inner_loop {body=inl {item i} -> to i .set (from item .get)}
+                        store_scalar=inl {from to} -> if threadIdx.x = 0 then to .set from
+                        map=inl f (!zip tns) -> create_items (inl {item} -> f (tns item .get))
                         uter=inl redo items -> block_reduce redo items.bodies.ar |> broadcast_zero
                         redo=inl redo items -> block_reduce redo items.bodies.ar
                         }
@@ -2309,8 +2309,8 @@ inl tensor_to_pointers w x =
 
 inl methods =
     {
-    iter init' init map' map init_exscan inscan redo
-    iter2 iter3 init_inscan init_redo init_redo_redo
+    iter init' init map' map init_exscan inscan redo iter2 iter3 init_inscan init_redo init_redo_redo
+    init_seq
    
     inplace_transpose tensor_to_pointers
     } |> stackify
