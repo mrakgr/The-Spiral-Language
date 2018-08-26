@@ -1451,51 +1451,33 @@ met iter w {d with dim} f =
         kernel = cuda grid_for {blockDim gridDim} .x dim {body=inl {i} -> f i}
         }
 
-/// Creates a tensor using the given generator function.
-met init' w d f out =
-    inl out = to_dev_tensor out |> zip
-    inl dim = out.dim
-    iter w {d with dim} (inl i -> out i .set (f i))
-
 inl index_example dim = Tuple.map (inl _ -> var 0) (Tuple.wrap dim) |> Tuple.unwrap
 
 inl init w {d with dim} f =
     indiv join
         inl elem_type = type f (index_example dim)
         inl out = w.CudaTensor.create {dim elem_type}
-        init' w d f out
+        inl _ =
+            inl out = to_dev_tensor out |> zip
+            iter w d (inl i -> out i .set (f i))
         stack out
-
-met map' w f in out = 
-    inl in, out = zip in, zip out
-    inl dim = in.dim
-    assert (dim = out.dim) "The input and output dimensions must be equal."
-    inl in, out = to_dev_tensor (in, out)
-    iter w {dim} <| inl i -> 
-        inl out = out i
-        out .set (f (in i .get) out.get)
 
 inl map w f in =
     indiv join
         inl in = zip in
         inl out = w.CudaTensor.create {dim=in.dim; elem_type=type f in.elem_type}
-        map' w (inl in _ -> f in) in out
+        inl _ =
+            inl in, out = to_dev_tensor (in, out)
+            iter w {dim} <| inl i -> out i .set (f (in i .get))
         stack out
-
-met mapi' w f in out = 
-    inl in, out = zip in, zip out
-    inl dim = in.dim
-    assert (dim = out.dim) "The input and output dimensions must be equal."
-    inl in, out = to_dev_tensor (in, out)
-    iter w {dim} <| inl i -> 
-        inl out = out i
-        out .set (f i (in i .get) out.get)
 
 inl mapi w f in =
     indiv join
         inl in = zip in
         inl out = w.CudaTensor.create {dim=in.dim; elem_type=type f in.elem_type}
-        mapi' w (inl i in _ -> f i in) in out
+        inl _ =
+            inl in, out = to_dev_tensor (in, out)
+            iter w {dim} <| inl i -> out i .set (f i (in i .get))
         stack out
 
 /// The exclusive scan over the innermost dimension.
@@ -1793,16 +1775,16 @@ met init_seq w {dim=b,a init} =
                 }
         }
 
-/// The inclusive scan over the outermost dimension.
-// Note that dimension are iterated in reverse order.
+// The inclusive scan over the outermost dimension.
+// Note that dimension are iterated in reverse order and hence the arguments are passed as such into `init` as well.
+// The first argument to init is the inner dimension and then the outer. `outit` is iterated over the inner dimension.
 met inscan_init w {dim=b,a init outit redo neutral_elem} =
     inl la, lb = length a, length b
     inl x = lit_min warp_size la
     inl y = lit_min (1024 / x) lb
     inl blockDim = {x y}
     inl x = min 256 (divup la x)
-    inl y = min 256 (divup lb y)
-    inl gridDim = {x y}
+    inl gridDim = {x}
 
     w.run {blockDim gridDim
         kernel = cuda 
@@ -1851,225 +1833,30 @@ met inscan_init w {dim=b,a init outit redo neutral_elem} =
                 }
         }
 
-/// Does a reduction based on data from the init function and pipes it into the outit function.
-/// Warning - the index arguments will be passed in the opposite order compared to the d1 kernel into `init`.
-met init_d2_redo_outit' w {dim=outer, inner init redo neutral_elem outit} =
-    inl span = Tuple.foldl (inl a b -> a * s b) 1 << Tuple.wrap
-    inl span_outer, span_inner = Tuple.map span (outer,inner)
+// Does a reduction based on data from the init function and pipes it into the outit function.
+// Note that dimension are iterated in reverse order and hence the arguments are passed as such into `init` as well.
+// The first argument to init is the inner dimension and then the outer. `outit` is iterated over the inner dimension.
+met redo_init w {dim=b, a init redo neutral_elem outit} =
+    inl la, lb = length b, length a
+    inl x = lit_min warp_size la
+    inl y = lit_min (1024 / x) lb
+    inl blockDim = {x y}
+    inl x = min 256 (divup la x)
+    inl gridDim = {x}
 
-    inl blockDimX = lit_min warp_size span_inner
-    inl gridDimX = min 64 (divup span_inner blockDimX)
-    
-    inl blockDimY = lit_min 32 span_outer
-    inl gridDimY = 1
-
-    w.run {
-        gridDim=gridDimX,gridDimY
-        blockDim=blockDimX,blockDimY
+    w.run {blockDim gridDim
         kernel = cuda
             inl grid_for = grid_for {blockDim gridDim}
-            grid_for .x inner {body=inl {i} ->
+            grid_for .x a {body=inl {i} ->
                 inl init = init i
 
-                grid_for .y outer {state=dyn neutral_elem; body=inl {state i=j} -> redo state (init j)}
+                grid_for .y b {state=dyn neutral_elem; body=inl {state i=j} -> redo state (init j)}
                 |> block_reduce_2dt (blockDim.x,threadIdx.x) (blockDim.y, threadIdx.y) redo
                 |> inl result ->
                     inl finally result = outit i result
                     if blockDim.y > 1 then if threadIdx.y = 0 then finally result
                     else finally result
             }
-        }
-
-inl init_d2_redo_outit w {d with dim init redo neutral_elem} =
-    indiv join
-        inl outer, inner = dim
-        inl f = function
-            | _ :: _ as x -> Tuple.map (const (dyn 0)) x
-            | x -> dyn 0
-        inl elem_type = type init (f inner) (f outer)
-        inl out = w.CudaTensor.create {elem_type dim=inner}
-
-        inl outit =
-            inl out = to_dev_tensor out
-            inl outit = match d with {outit} -> outit | _ -> id
-            inl i x -> 
-                inl out = Tuple.foldl (inl out i -> out i) out (Tuple.wrap i)
-                out .set (outit x)
-        init_d2_redo_outit' w {dim init redo neutral_elem outit}
-        stack out
-
-/// Maps the two inputs and then reduces the first's outer dimension.
-met mapi_d2_redo_map' w {d with redo neutral_elem} in in' out =
-    inl in, in', out = zip in, zip in', zip out
-    inl dim_in_a, dim_in_b as dim = in.dim
-    inl dim_in' :: () = in'.dim
-
-    assert (dim_in' = dim_in_b) "Input's inner dimension must equal the output's dimension."
-    assert (in'.dim = out.dim) "Input and output's dimensions must be equal."
-
-    inl in,in',out = to_dev_tensor (in,in',out)
-
-    inl init =
-        match d with
-        | {map_in} -> 
-            inl i ->
-                inl in j = in j i
-                inl in' = in' i .get
-                inl j ->
-                    inl in = in j .get
-                    map_in in in'
-        | {mapi_in} ->
-            inl i -> // TODO: Note that the kernel iterates in the opposite order. `i` is the inner dimension here.
-                inl in j = in j i
-                inl in' = in' i .get
-                inl mapi_in = mapi_in i
-                inl j ->
-                    inl in = in j .get
-                    mapi_in j in in'
-        | _ ->
-            match in' with
-            | () ->
-                inl i ->
-                    inl in = in i
-                    inl j -> in j .get
-            | _ -> error_type "The redo is missing the map_in argument."
-
-    inl outit =
-        match d with
-        | {map_out} -> inl i x -> 
-            inl out = out i
-            out .set (map_out x out.get)
-        | {mapi_out} -> inl i x -> 
-            inl out = out i
-            out .set (mapi_out i x out.get)
-        | _ -> inl i x -> out i .set x
-
-    init_d2_redo_outit' w {dim init redo neutral_elem outit}
-
-inl map_dx_redo_map_template select kernel w d in in' =
-    indiv join
-        inl in = zip in
-        inl in' = 
-            match in' with
-            | () -> HostTensor.create {elem_type=(); dim=select in.dim}
-            | in' -> zip in'
-
-        inl map_out, elem_type = 
-            inl map_in = match d with {map_in} -> map_in | {mapi_in} -> mapi_in (dyn 0) (dyn 0) | _ -> const
-            inl ty = type map_in in.elem_type in'.elem_type
-            match d with {map_out} -> (inl a _ -> map_out a),(type map_out ty) | _ -> const, ty
-        inl out = w.CudaTensor.create {elem_type dim=in'.dim}
-        kernel w {d with map_out} in in' out
-        stack out
-
-inl mapi_d2_redo_map w d in = map_dx_redo_map_template snd mapi_d2_redo_map' w d in
-
-inl map_dx_scan_map_template kernel w d in =
-    indiv join
-        inl in = zip in
-        inl map_in = match d with {map_in} -> map_in | _ -> id
-        inl map_out, elem_type = 
-            inl ty = type map_in in.elem_type
-            match d with {map_out} -> (inl a _ -> map_out a), (type map_out ty) | _ -> const, ty
-        inl out = w.CudaTensor.create {elem_type dim=in.dim}
-        kernel w {d with map_in map_out} in out
-        stack out
-
-inl mapi_d1_inscan_mapi_d1_reduce_mapi w d in in' =
-    indiv join
-        inl in = zip in
-        inl in' = 
-            match in' with
-            | () -> HostTensor.create {elem_type=(); dim=fst in.dim}
-            | in' -> zip in'
-
-        inl elem_type = type
-            inl in = in.elem_type 
-            inl in' = in'.elem_type
-            match d with
-            | {mapi_in} -> mapi_in (dyn 0) (dyn 0) in in'
-            | {map_in} -> map_in in in'
-            | _ -> in
-            |>
-            match d with
-            | {mapi_mid} x -> mapi_mid (dyn 0) (dyn 0) x in'
-            | {map_mid} x -> map_mid x in'
-            | _ -> id
-            |>
-            match d with
-            | {mapi_out} -> mapi_out (dyn 0)
-            | {map_out} -> map_out
-            | _ -> id
-
-        inl d =
-            match d with
-            | {mapi_out} -> {d with mapi_out=inl i x _ -> mapi_out i x}
-            | {map_out} -> {d with map_out=inl x _ -> map_out x}
-            | _ -> {d with map_out=const}
-        
-        inl out = w.CudaTensor.create {elem_type dim=in'.dim}
-        mapi_d1_inscan_mapi_d1_reduce_mapi' w d in in' out
-        stack out
-
-// TODO: Rather than launching num_blocks, it would be better to iterate in a strided fashion so to avoid potentially 
-// recomputing the indices for large matrices.
-inl inplace_transpose w A =
-    inl dim_a, dim_b = A.dim
-    assert (s dim_a = s dim_b) "The inplace transpose is only applicable to square matrices."
-
-    inl blockDim = warp_size
-
-    inl blocks_per_row = divup (s dim_b) blockDim
-    inl num_blocks = blocks_per_row * (blocks_per_row + 1) / 2
-
-    inl A = to_dev_tensor A
-
-    w.run {
-        blockDim=blockDim,blockDim
-        gridDim=num_blocks
-        kernel=cuda
-            inl thread_apply blockIdx A axis ret = 
-                Tuple.foldr (inl axis next A -> 
-                    inl {from near_to} :: _ = A.dim
-                    inl i = blockDim axis * blockIdx axis + threadIdx axis + from
-                    if i < near_to then next (A i)
-                    ) axis ret A
-
-            inl block_transposed_load y x A =
-                inl t = HostTensor.create {
-                    array_create = array_create_cuda_shared
-                    elem_type = A.elem_type
-                    dim = blockDim.y, blockDim.x+1
-                    }
-
-                inl _ =
-                    inb A = thread_apply {y x} A (.y,.x)
-                    t threadIdx.x threadIdx.y .set A.get
-
-                t
-
-            inl block_store y x t A = 
-                inb A = thread_apply {y x} A (.y,.x) 
-                A.set (t threadIdx.y threadIdx.x .get)
-
-            inl {y x} =
-                whilecd {
-                    state={y=0; x=blockIdx.x}
-                    cond=inl {y x} -> blocks_per_row - y <= x
-                    body=inl {y x} -> {y = y + 1; x = x - (blocks_per_row - y)}
-                    }
-                |> inl {y x} -> {x=x+y; y} // Switches from upper left/lower right to a upper right/lower left representation.
-
-            if y < x then
-                inl s = block_transposed_load x y A
-                inl d = block_transposed_load y x A
-                syncthreads()
-                block_store y x s A
-                block_store x y d A
-            else // y = x
-                inl s = block_transposed_load x y A
-                syncthreads()
-                block_store x y s A
         }
 
 inl address_at o =
@@ -2079,10 +1866,10 @@ inl address_at o =
 /// Turns the outermost dimension of the tensor(s) into tensor of pointers to the inner ones.
 /// They are represented as uint64.
 /// All the tensors passed as input must have the same outer dimension.
-inl tensor_to_pointers w x = 
+inl tensor_to_pointers w x =
     indiv join
-        inl dim = 
-            Struct.foldl (inl s x -> 
+        inl dim =
+            Struct.foldl (inl s x ->
                 match s with
                 | () -> x.span_outer
                 | _ -> assert (s = x.span_outer) "All the tensors passed as input must have the same outer dimension."; s
@@ -2097,8 +1884,8 @@ inl tensor_to_pointers w x =
 
 inl methods =
     {
-    iter init' init map' map init_exscan inscan redo iter2 iter3 init_inscan init_redo init_redo_redo
-    init_seq inscan_init
+    iter init map init_exscan inscan redo iter2 iter3 init_inscan init_redo init_redo_redo
+    init_seq inscan_init redo_init
    
     inplace_transpose tensor_to_pointers
     } |> stackify

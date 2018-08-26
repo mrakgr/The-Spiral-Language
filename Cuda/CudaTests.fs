@@ -294,120 +294,6 @@ inl o = s.CudaBlas.trmv .Lower .nT .NonUnit A x
 s.CudaTensor.print o
     """
 
-//let kernel4 =
-//    "kernel4",[cuda_modules],"Does the mapi_d2_redo_map kernel work?",
-//    """
-//inb s = CudaModules (1024*1024)
-
-//inl inner_size = 10
-//inl outer_size = 4
-
-//inl h = HostTensor.init (outer_size,inner_size) (inl _ x -> x)
-//inl h' = HostTensor.init inner_size id
-//inl a1 = s.CudaTensor.from_host_tensor h
-//inl a2 = s.CudaTensor.from_host_tensor h'
-//inl o = 
-//    s.CudaKernel.mapi_d2_redo_map {
-//        map_in=(+)
-//        neutral_elem=0; redo=(+)
-//        } a1 a2
-//Tuple.iter s.CudaTensor.print (a1,a2,o)
-//    """
-
-//let kernel15 =
-//    "kernel15",[cuda_modules],"Does the iteri_dd1_seq_broadcast kernel work?",
-//    """
-//inb s = CudaModules (1024*1024)
-
-//inl inner_size = {from=-32; near_to=32}
-//inl middle_size = 3
-//inl outer_size = 2
-
-//inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
-//inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
-//inl to_dev_tensor = CudaAux.to_dev_tensor
-//inl _ = // Softmax forward
-//    inl x = to_dev_tensor x
-//    inl o = to_dev_tensor o
-//    inl index c x next = 
-//        inl f i = Struct.map ((|>) i)
-//        inl rec loop c x =
-//            if c > 0 then inl i -> loop (c-1) (f i x)
-//            else next x
-//        assert (lit_is c && c >= 0) "c must be a literal greater or equal to zero."
-//        loop c x
-
-//    s.CudaKernel.iteri_dd1_seq_broadcast {
-//        mapi_in =
-//            inb x = index 3 x
-//            x.get
-//        seq = 
-//            {
-//            redo=max
-//            map_out=inl x max_x -> exp (x - max_x) // exp (x - replicate max_x)
-//            }
-//            ,
-//            {
-//            redo=(+)
-//            mapi_out=
-//                inb o = index 3 o
-//                inl z sum_z -> o.set (z / sum_z)
-//            }
-//        } x.dim
-
-//s.CudaTensor.print x
-//s.CudaTensor.print o
-//    """
-
-//let kernel16 =
-//    "kernel16",[cuda_modules],"Does the init_d1_redo_outit kernel work?",
-//    """
-//inb s = CudaModules (1024*1024)
-//inl inner_size = 6
-//inl middle_size = 3
-//inl outer_size = 2
-//inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
-//inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,middle_size}
-
-//inl o =
-//    inl x = CudaAux.to_dev_tensor x
-//    s.CudaKernel.init_d1_redo_outit {
-//        dim=(outer_size,middle_size),inner_size
-//        init=inl (i, j) -> 
-//            inl x = x i j 
-//            inl k -> x k .get
-//        neutral_elem=0f32
-//        redo=(+)
-//        }
-
-//s.CudaTensor.print x
-//s.CudaTensor.print o
-//    """
-
-//let kernel17 =
-//    "kernel17",[cuda_modules],"Does the init_d2_redo_outit kernel work?",
-//    """
-//inb s = CudaModules (1024*1024)
-//inl inner_size = 6
-//inl middle_size = 3
-//inl outer_size = 2
-//inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
-//inl o = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=inner_size}
-
-//inl o =
-//    inl x = CudaAux.to_dev_tensor x
-//    s.CudaKernel.init_d2_redo_outit {
-//        dim=(outer_size,middle_size),inner_size
-//        // Note that the arguments are in reverse order compared to init_d1_redo_outit.
-//        init=inl inner (outer,mid) -> x outer mid inner .get
-//        neutral_elem=0f32
-//        redo=(+)
-//        }
-
-//s.CudaTensor.print x
-//s.CudaTensor.print o
-//    """
-
 let cusolver1 =
     "cusolver1",[cuda_modules],"Does the Cholesky decomposition (potrf) work?",
     """
@@ -958,12 +844,38 @@ inl _ =
 Tuple.iter s.CudaTensor.print (a1,o1)
     """
 
+let kernel13 =
+    "kernel13",[cuda_modules],"Does the redo_init kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+inl inner_size = 5
+inl middle_size = 3
+inl outer_size = 2
+inl x = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,middle_size,inner_size}
+inl o = s.CudaTensor.create {elem_type=float32; dim=inner_size}
+
+inl _ =
+    inl x,o = CudaAux.to_dev_tensor (x,o)
+    s.CudaKernel.redo_init {
+        dim=(outer_size,middle_size),inner_size
+        // Note that the arguments are in reverse order compared to init_redo.
+        init=inl inner (outer,mid) -> x outer mid inner .get
+        outit=inl inner -> o inner .set
+        neutral_elem=-infinityf32
+        redo=max
+        }
+
+s.CudaTensor.print x
+s.CudaTensor.print o
+    """
+
+
 let tests =
     [|
     allocator1
     tensor1;tensor2;tensor3;
     kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
-    kernel10;kernel11;kernel12
+    kernel10;kernel11;kernel12;kernel13
     random1
     blas1;blas2;blas3;blas4;blas5;blas6;blas7;blas8;blas9
     cusolver1;cusolver2
@@ -972,6 +884,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel12
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel13
 |> printfn "%s"
 |> ignore
