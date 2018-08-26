@@ -1613,7 +1613,7 @@ met iter3 w {d with dim=c,b,a} f =
 met init_inscan w {d with redo neutral_elem dim=b,a init outit} =
     w.run {
         blockDim = lit_min 1024 (length a)
-        gridDim = {y=min 264 (length b)}
+        gridDim = {y=min 256 (length b)}
         kernel = cuda 
             inl grid_for = grid_for {blockDim gridDim}
             grid_for .y b {body=inl {i} ->
@@ -1794,39 +1794,29 @@ met init_seq w {dim=b,a init} =
         }
 
 /// The inclusive scan over the outermost dimension.
-met map_d2_inscan_map' w {d with redo neutral_elem} in out =
-    inl in, out = zip in, zip out
-    inl dim_in_a, dim_in_b = in.dim
-    assert (in.dim = out.dim) "The input and the output dimensions need to be equal"
+// Note that dimension are iterated in reverse order.
+met inscan_init w {dim=b,a init outit redo neutral_elem} =
+    inl la, lb = length a, length b
+    inl x = lit_min warp_size la
+    inl y = lit_min (1024 / x) lb
+    inl blockDim = {x y}
+    inl x = min 256 (divup la x)
+    inl y = min 256 (divup lb y)
+    inl gridDim = {x y}
 
-    inl blockDimX = lit_min warp_size (s dim_in_b)
-    inl blockDimY = lit_min 32 (s dim_in_a)
-    inl gridDim = min 64 (divup (s dim_in_b) blockDimX)
-
-    inl in = to_dev_tensor in
-    inl out = to_dev_tensor out
-
-    inl map_in = match d with {map_in} -> map_in | _ -> id
-    inl map_out = match d with {map_out} -> map_out | _ -> const
-
-    w.run {
-        gridDim
-        blockDim=blockDimX,blockDimY
+    w.run {blockDim gridDim
         kernel = cuda 
             inl grid_for = grid_for {blockDim gridDim}
-            grid_for .x dim_in_b {body=inl {i} ->
-                inl in j = in j i
-                inl out j = out j i
-
-                grid_for .y dim_in_a {state=dyn neutral_elem; body=inl {state=prefix i} -> 
-                    inl in, out = in i, out i
+            grid_for .x a {body=inl {i} -> 
+                inl init,outit = init i, outit i
+                grid_for .y b {state=dyn neutral_elem; body=inl {state=prefix i} -> 
+                    inl state = init i
 
                     inl state, prefix = // block inclusive transposed scan
-                        inl state = map_in in.get
                         inl near_to = blockDim.y
                         if near_to > 1 then
                             inl from = 1
-                            inl to = near_to-from
+                            inl to = near_to - from
 
                             inl ar = 
                                 HostTensor.create {
@@ -1855,7 +1845,7 @@ met map_d2_inscan_map' w {d with redo neutral_elem} in out =
                             inl x = redo prefix state
                             x, x
 
-                    out.set (map_out state out.get)
+                    outit state
                     prefix
                     } |> ignore
                 }
