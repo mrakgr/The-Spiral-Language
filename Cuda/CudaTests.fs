@@ -484,8 +484,10 @@ inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the he
 inl h = HostTensor.init 32 (inl x -> x + 1) 
 /// Loads the tensor on the GPU based on the host tensor
 inl a1 = s.CudaTensor.from_host_tensor h
+/// Makes a tensor of the same type and dimensions as `a1` and zeroes it.
+inl o1 = s.CudaTensor.zero_like a1
 /// Calls the map operation. `a1` is the input and `o1` is the output.
-inl o1 = s.CudaKernel.map (inl a -> a * 2) a1
+s.CudaKernel.map {outit=o1; map=inl a -> a * 2} a1
 
 /// Transfers the tensor back to host.
 inl a2 = s.CudaTensor.to_host_tensor o1
@@ -885,4 +887,3 @@ let tests =
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel3
 |> printfn "%s"
 |> ignore
-

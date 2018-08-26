@@ -1462,25 +1462,24 @@ inl init w {d with dim} f =
             iter w d (inl i -> out i .set (f i))
         stack out
 
-inl map w f in =
+inl map w d in =
     indiv join
+        inl map = match d with {map} -> const map | {mapi} -> mapi
         inl in = zip in
         inl dim = in.dim
-        inl out = w.CudaTensor.create {dim elem_type=type f in.elem_type}
+        inl out = 
+            match d with
+            | {outit} -> 
+                inl outit=zip outit
+                assert (dim = outit.dim) "The input and the output must have the same dimensions."
+                outit
+            | _ -> w.CudaTensor.create {dim elem_type=type map (index_example dim) in.elem_type}
         inl _ =
             inl in, out = to_dev_tensor (in, out)
-            iter w {dim} <| inl i -> out i .set (f (in i .get))
-        stack out
-
-inl mapi w f in =
-    indiv join
-        inl in = zip in
-        inl dim = in.dim
-        inl out = w.CudaTensor.create {dim elem_type=type f (index_example dim) in.elem_type}
-        inl _ =
-            inl in, out = to_dev_tensor (in, out)
-            iter w {dim} <| inl i -> out i .set (f i (in i .get))
-        stack out
+            iter w {dim} <| inl i -> out i .set (map i (in i .get))
+        match d with
+        | {outit} -> ()
+        | _ -> stack out
 
 /// The exclusive scan over the innermost dimension.
 met init_exscan w {dim=b,a redo neutral_elem init outit} =
