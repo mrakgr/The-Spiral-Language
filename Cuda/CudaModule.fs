@@ -1772,6 +1772,7 @@ met init_seq w {dim=b,a init} =
                     inl thread = {
                         redo = inl {redo num_valid} -> cub_block_reduce {blockDim redo num_valid}
                         inscan = inl redo -> cub_block_scan {scan_type=.inclusive; is_input_tensor=false; return_aggregate=true} {blockDim redo}
+                        exscan = inl {prefix redo} -> cub_block_scan {scan_type=.exclusive,prefix; is_input_tensor=false; return_aggregate=true} {blockDim redo}
                         }
 
                     inl block = {

@@ -828,9 +828,6 @@ inl outer_size = 1
 
 inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
 inl a2 = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=float32; dim=outer_size,inner_size}
-inl o1 = s.CudaTensor.create_like a1
-inl o2 = s.CudaTensor.create_like a1
-inl o3 = s.CudaTensor.create_like a1
 
 inl softmax_forward input s =
     inl output = s.CudaTensor.create_like input
@@ -854,7 +851,7 @@ inl probs input s =
     inl output = s.CudaTensor.create_like input
     inl _ =
         inl input,output = CudaAux.to_dev_tensor (input,output)
-        s.CudaKernel.init_inscan {
+        s.CudaKernel.init_exscan {
             dim=input.dim
             redo=(+)
             neutral_elem=0f32
@@ -864,6 +861,7 @@ inl probs input s =
     output
 
 inl softmax_backward z dz s =
+    assert (z.dim = dz.dim) "The dimensions of output and its adjoint must be the same."
     inl output = s.CudaTensor.create_like z
     inl inputs = CudaAux.to_dev_tensor (z,dz,output)
     s.CudaKernel.init_seq {
@@ -896,12 +894,14 @@ inl outer_size = 6
 
 inl prob = softmax_forward (s.CudaRandom.create {dst=.Uniform} {elem_type=float32; dim=outer_size,inner_size}) s
 inl scan_prob = probs prob s
-//inl boundary = s.CudaRandom.create {dst=.Uniform} {dim=outer_size; elem_type=float32}
-inl boundary = s.CudaKernel.init {dim=outer_size} (const 0f32)
-inl output = s.CudaTensor.create {elem_type=int64; dim=outer_size}
-inl _ =
-    //inl f i = Tuple.map (inl x -> x.view_span (const {from=i; near_to=i+1}))
-    inl inputs = Tuple.map CudaAux.to_dev_tensor ((prob,boundary,output))
+inl boundary = s.CudaKernel.init {dim=outer_size} (const 0.2f32)
+
+inl sample prob boundary =
+    inl b, a = prob.dim
+    inl b' :: () = boundary.dim
+    assert (b = b') "The outer dimensions of prob and boundary must match."
+    inl output = s.CudaTensor.create {elem_type=int64; dim=boundary.dim}
+    inl inputs = Tuple.map CudaAux.to_dev_tensor (prob,boundary,output)
     s.CudaKernel.init_seq { // The sampling function
         dim=fst inputs .dim
         init=inl b k ->
@@ -915,11 +915,11 @@ inl _ =
                             inl prob = prob a .get
                     
                             inl prob_at_a, scan = 
-                                inl redo = (+) // TODO: Work in progress.
-                                k.thread.exscan {neutral_elem=0f32; redo} prob |> Tuple.map (redo state.scan)
+                                inl redo = (+)
+                                k.thread.exscan {prefix=state.scan; redo} prob |> Tuple.map (redo state.scan)
 
                             inl distance_from_boundary, a = 
-                                inl x = prob_at_a - boundary
+                                inl x = boundary - prob_at_a
                                 (if x < 0f32 then infinityf32 else x), a
 
                             inl redo =
@@ -930,8 +930,27 @@ inl _ =
                         } .redo |> snd
                 }
         }
+    output
 
-Tuple.iter s.CudaTensor.print (prob,scan_prob,boundary,output)
+Tuple.iter s.CudaTensor.print (prob,scan_prob,boundary,sample prob boundary)
+//[|
+//    [|0.1448696; 0.08975142; 0.1119456; 0.06411155; 0.09191942; 0.09595577; 0.1248195; 0.07712746; 0.1172963; 0.08220332|]
+//    [|0.1265654; 0.0857431; 0.08812442; 0.1440635; 0.07469794; 0.09993364; 0.0788334; 0.1179571; 0.08706164; 0.0970199|]
+//    [|0.06908347; 0.131681; 0.1043008; 0.1380333; 0.09747635; 0.09509689; 0.07800347; 0.1126144; 0.07219322; 0.1015171|]
+//    [|0.1177737; 0.09522544; 0.08323706; 0.09908337; 0.07187302; 0.1231938; 0.08701994; 0.1426689; 0.08100419; 0.09892052|]
+//    [|0.06105581; 0.1009913; 0.121569; 0.08423346; 0.07607485; 0.1581762; 0.1482701; 0.07125104; 0.0708849; 0.1074934|]
+//    [|0.109375; 0.05619004; 0.1118484; 0.1379087; 0.1251823; 0.09930393; 0.07038308; 0.05500374; 0.1239332; 0.1108716|]
+//|]
+//[|
+//    [|0; 0.1448696; 0.2346211; 0.3465667; 0.4106782; 0.5025976; 0.5985534; 0.7233729; 0.8005004; 0.9177967|]
+//    [|0; 0.1265654; 0.2123085; 0.3004329; 0.4444964; 0.5191944; 0.619128; 0.6979614; 0.8159185; 0.9029801|]
+//    [|0; 0.06908347; 0.2007645; 0.3050653; 0.4430985; 0.5405749; 0.6356718; 0.7136753; 0.8262897; 0.8984829|]
+//    [|0; 0.1177737; 0.2129992; 0.2962362; 0.3953196; 0.4671926; 0.5903865; 0.6774064; 0.8200753; 0.9010795|]
+//    [|0; 0.06105581; 0.1620471; 0.283616; 0.3678495; 0.4439244; 0.6021006; 0.7503706; 0.8216217; 0.8925066|]
+//    [|0; 0.109375; 0.1655651; 0.2774135; 0.4153222; 0.5405045; 0.6398084; 0.7101915; 0.7651953; 0.8891283|]
+//|]
+//[|0.2; 0.2; 0.2; 0.2; 0.2; 0.2|]
+//[|1; 1; 1; 1; 2; 2|]
     """
 
 let tests =
