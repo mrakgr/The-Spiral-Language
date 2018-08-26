@@ -1465,7 +1465,8 @@ inl init w {d with dim} f =
 inl map w f in =
     indiv join
         inl in = zip in
-        inl out = w.CudaTensor.create {dim=in.dim; elem_type=type f in.elem_type}
+        inl dim = in.dim
+        inl out = w.CudaTensor.create {dim elem_type=type f in.elem_type}
         inl _ =
             inl in, out = to_dev_tensor (in, out)
             iter w {dim} <| inl i -> out i .set (f (in i .get))
@@ -1474,7 +1475,8 @@ inl map w f in =
 inl mapi w f in =
     indiv join
         inl in = zip in
-        inl out = w.CudaTensor.create {dim=in.dim; elem_type=type f in.elem_type}
+        inl dim = in.dim
+        inl out = w.CudaTensor.create {dim elem_type=type f (index_example dim) in.elem_type}
         inl _ =
             inl in, out = to_dev_tensor (in, out)
             iter w {dim} <| inl i -> out i .set (f i (in i .get))
@@ -1887,7 +1889,7 @@ inl methods =
     iter init map init_exscan inscan redo iter2 iter3 init_inscan init_redo init_redo_redo
     init_seq inscan_init redo_init
    
-    inplace_transpose tensor_to_pointers
+    tensor_to_pointers
     } |> stackify
 
 inl s -> s.module_add .CudaKernel methods
