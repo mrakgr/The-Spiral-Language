@@ -314,24 +314,6 @@ s.CudaTensor.print o
 //Tuple.iter s.CudaTensor.print (a1,a2,o)
 //    """
 
-//let kernel7 =
-//    "kernel7",[cuda_modules],"Does the map_d2_inscan_map kernel work?",
-//    """
-//inb s = CudaModules (1024*1024)
-
-//inl inner_size = 6
-//inl outer_size = 64
-
-//inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=outer_size,inner_size}
-//inl o1 = 
-//    s.CudaKernel.map_d2_inscan_map {
-//        neutral_elem=-infinityf32
-//        redo=max
-//        } a1
-
-//Tuple.iter s.CudaTensor.print (a1,o1)
-//    """
-
 //let kernel15 =
 //    "kernel15",[cuda_modules],"Does the iteri_dd1_seq_broadcast kernel work?",
 //    """
@@ -953,12 +935,35 @@ Tuple.iter s.CudaTensor.print (prob,scan_prob,boundary,sample prob boundary)
 //[|1; 1; 1; 1; 2; 2|]
     """
 
+let kernel12 =
+    "kernel12",[cuda_modules],"Does the inscan_init kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl a = 6
+inl b = 64
+
+inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=b,a}
+inl o1 = s.CudaTensor.create {elem_type=float32; dim=a}
+inl _ = 
+    inl a1,o1 = CudaAux.to_dev_tensor (a1,o1)
+    s.CudaKernel.inscan_init {
+        dim=a1.dim
+        neutral_elem=-infinityf32
+        redo=max
+        init=inl a b -> a1 b a .get // Note: This kernel has reversed dimensions in init.
+        outit=inl a -> o1 a .get
+        }
+
+Tuple.iter s.CudaTensor.print (a1,o1)
+    """
+
 let tests =
     [|
     allocator1
     tensor1;tensor2;tensor3;
     kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
-    kernel10;kernel11
+    kernel10;kernel11;kernel12
     random1
     blas1;blas2;blas3;blas4;blas5;blas6;blas7;blas8;blas9
     cusolver1;cusolver2
@@ -967,7 +972,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel11
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel12
 |> printfn "%s"
 |> ignore
 
