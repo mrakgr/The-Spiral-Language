@@ -256,23 +256,12 @@ inl float ->
 
     inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
 
-    inl add_bias x C bias = 
-        inl b,a as dim = C.dim
-        inl a' :: () = bias.dim
-        assert (a = a') "The inner dimension of C and bias must be the same."
-        {
-        fwd = inl s ->
-            inl {C a} = CudaAux.to_dev_tensor {C a o}
-            s.CudaKernel.iter2 {dim} <| inl b a -> C b a .set (C b a .get + bias a .get)
-        bck = inl s -> 
-            s.CudaKernel.redo_init {
-                dim
-                neutral_elem=zero
-                redo=(+)
-                init=inl a b -> C b a .get
-                outit=inl a x -> bias a .set (bias a .get + x)
-                }
-        } x
+    inl Kernels = {
+        d2_replicate_map'=inl s in in' out -> () // TODO: Work in progress.
+        }
+
+    inl fwd_add_bias C bias s = s.CudaKernel.d2_replicate_map' (inl a _ b -> a+b) bias C.empty C
+    inl bck_add_bias C bias s = s.CudaKernel.mapi_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C bias.empty bias
 
     inl matmultb l bias s = 
         inl l =
@@ -315,27 +304,21 @@ inl float ->
             
     inl map {fwd bck} in s =
         inl primal = primals in
-        inl out = s.CudaKernel.map {map=fwd} primal |> dr s
+        inl out = s.CudaKernel.map fwd primal |> dr s
 
         inl adjoint, bck = choose_adjoints in bck
         {
         out
         bck=inl _ -> join
             inl bck (in, out) = Struct.map2 (inl bck -> bck (in, out)) bck
-            on_non_nil (inl outit -> s.CudaKernel.map {map=bck; outit} (primal, {out without block})) adjoint
+            on_non_nil (inl x -> s.CudaKernel.map' bck (primal, {out without block}) x) adjoint
         }
 
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
     /// just to set the adjoint to 1. The current library is intended for a narrow purpose.
-    inl map_redo_map {fwd={map_in redo neutral_elem} bck} in s =
+    inl map_redo_map {fwd bck} in s =
         inl primal = primals in
-        inl out = 
-            inl elem_type = type map_in primal.elem_type
-            inl o = s.CudaTensor.create {dim=1; elem_type}
-            inl _ =
-                inl primal, o = CudaAux.to_dev_tensor (primal, o)
-                s.CudaKernel.redo {redo neutral_lem dim=in.dim; init=inl i -> primal i .get |> map_in; outit=inl i -> o i .set}
-            o
+        inl out = s.CudaKernel.map_redo_map fwd primal
 
         inl adjoint, bck = choose_adjoints in bck
         {
@@ -343,7 +326,7 @@ inl float ->
         bck=inl _ -> join
             inl out = to_dev_tensor out
             inl bck in = Struct.map2 (inl bck -> bck (in, out.get)) bck
-            s.CudaKernel.map' {map=bck; outit=adjoint} primal
+            s.CudaKernel.map' bck primal adjoint
         }
 
     inl d2_replicate_map {fwd bck={bck_in bck_in'}} in in' s =
