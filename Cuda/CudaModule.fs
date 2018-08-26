@@ -1975,8 +1975,6 @@ inl map_dx_scan_map_template kernel w d in =
         kernel w {d with map_in map_out} in out
         stack out
 
-inl map_d2_inscan_map = map_dx_scan_map_template map_d2_inscan_map'
-
 inl mapi_d1_inscan_mapi_d1_reduce_mapi w d in in' =
     indiv join
         inl in = zip in
@@ -2100,7 +2098,7 @@ inl tensor_to_pointers w x =
 inl methods =
     {
     iter init' init map' map init_exscan inscan redo iter2 iter3 init_inscan init_redo init_redo_redo
-    init_seq
+    init_seq inscan_init
    
     inplace_transpose tensor_to_pointers
     } |> stackify
