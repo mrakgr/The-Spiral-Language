@@ -1989,6 +1989,31 @@ inl redo_map w d in =
         | {out} -> ()
         | _ -> stack out
 
+inl redo w d in =
+    indiv join
+        inl {neutral_elem redo} = d
+        inl map = match d with {map} -> (inl _ -> map) | {mapi} -> mapi | _ -> (inl _ -> id)
+        inl map_out = match d with {map_out} -> map_out | _ -> id
+        inl in = zip in
+        inl dim = in.dim
+        inl out = 
+            match d with
+            | {out} -> 
+                inl out=zip out
+                inl {from=0 near_to=1} :: () = out.dim
+                out
+            | _ -> w.CudaTensor.create {dim=1; elem_type=type map (index_example dim) in.elem_type |> map_out}
+        inl _ =
+            inl in, out = to_dev_tensor (in, out)
+            w.CudaKernel.redo {
+                neutral_elem redo dim
+                init=inl i -> map i (in i .get)
+                outit=inl i x -> out i .set (map_out x)
+                }
+        match d with
+        | {out} -> ()
+        | _ -> stack out
+
 inl address_at o =
     inl {ar offset} = o.bodies
     macro.cd uint64 [text: "(unsigned long long) ("; arg: ar; text: " + "; arg: offset; text: ")"]
@@ -2014,7 +2039,7 @@ inl tensor_to_pointers w x =
 
 inl methods =
     {
-    map init map_map redo_map
+    map init map_map redo_map redo
     tensor_to_pointers
     } |> stackify
 

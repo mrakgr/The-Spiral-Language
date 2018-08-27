@@ -840,7 +840,7 @@ s.CudaTensor.print o
     """
 
 let fun1 =
-    "fun1",[cuda_modules],"Does the init kernel work?",
+    "fun1",[cuda_modules],"Does the init function work?",
     """
 inb s = CudaModules (1024*1024)
 
@@ -849,7 +849,7 @@ s.CudaTensor.print o1
     """
 
 let fun2 =
-    "fun2",[cuda_modules],"Does the map kernel work?",
+    "fun2",[cuda_modules],"Does the map function work?",
     """
 /// Initializes all the Cuda parts
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
@@ -870,7 +870,7 @@ HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
     """
 
 let fun3 =
-    "fun3",[cuda_modules],"Does the map_map kernel work?",
+    "fun3",[cuda_modules],"Does the map_map function work?",
     """
 /// Initializes all the Cuda parts
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
@@ -883,7 +883,7 @@ s.CudaFun.map_map {in_inner=a2; map=inl {in in_inner} -> in+in_inner} a1
     """
 
 let fun4 =
-    "fun4",[cuda_modules],"Does the redo_map kernel work?",
+    "fun4",[cuda_modules],"Does the redo_map function work?",
     """
 /// Initializes all the Cuda parts
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
@@ -895,6 +895,18 @@ s.CudaFun.redo_map {neutral_elem=0; redo=(+); mid=a2
     map=inl {in} -> in
     map_out=inl {mid out} -> mid + out
     } a1
+|> s.CudaTensor.print
+    """
+
+let fun5 =
+    "fun5",[cuda_modules],"Does the redo function work?",
+    """
+/// Initializes all the Cuda parts
+inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+
+inl a1 = s.CudaFun.init {dim=2049} id
+
+s.CudaFun.redo {neutral_elem=0; redo=(+)} a1
 |> s.CudaTensor.print
     """
 
@@ -913,7 +925,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) fun4
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) fun5
 |> printfn "%s"
 |> ignore
 
