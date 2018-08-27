@@ -926,9 +926,9 @@ let tests =
     [|
     allocator1
     tensor1;tensor2;tensor3;
-    kernel1;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
-    kernel10;kernel11;kernel12;kernel13
-    fun1;fun2
+    kernel1;                  kernel4;kernel5;kernel6;kernel7;kernel8;kernel9;kernel10
+    kernel11;kernel12;kernel13
+    fun1;fun2;fun3;fun4;fun5;fun6
     random1
     blas1;blas2;blas3;blas4;blas5;blas6;blas7;blas8;blas9
     cusolver1;cusolver2
