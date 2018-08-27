@@ -1859,7 +1859,9 @@ inl init w {d with dim} f =
         inl _ =
             inl out = to_dev_tensor out |> zip
             iter w d (inl i -> out i .set (f i))
-        stack out
+        match d with
+        | {outit} -> ()
+        | _ -> stack out
 
 inl map w d in =
     indiv join
