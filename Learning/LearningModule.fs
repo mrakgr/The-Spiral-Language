@@ -256,10 +256,6 @@ inl float ->
 
     inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
 
-    inl Kernels = {
-        d2_replicate_map'=inl s in in' out -> () // TODO: Work in progress.
-        }
-
     inl fwd_add_bias C bias s = s.CudaKernel.d2_replicate_map' (inl a _ b -> a+b) bias C.empty C
     inl bck_add_bias C bias s = s.CudaKernel.mapi_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C bias.empty bias
 

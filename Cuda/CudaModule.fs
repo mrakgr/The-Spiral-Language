@@ -1451,36 +1451,6 @@ met iter w {d with dim} f =
         kernel = cuda grid_for {blockDim gridDim} .x dim {body=inl {i} -> f i}
         }
 
-inl index_example dim = Tuple.map (inl _ -> var 0) (Tuple.wrap dim) |> Tuple.unwrap
-
-inl init w {d with dim} f =
-    indiv join
-        inl elem_type = type f (index_example dim)
-        inl out = w.CudaTensor.create {dim elem_type}
-        inl _ =
-            inl out = to_dev_tensor out |> zip
-            iter w d (inl i -> out i .set (f i))
-        stack out
-
-inl map w d in =
-    indiv join
-        inl map = match d with {map} -> const map | {mapi} -> mapi
-        inl in = zip in
-        inl dim = in.dim
-        inl out = 
-            match d with
-            | {outit} -> 
-                inl outit=zip outit
-                assert (dim = outit.dim) "The input and the output must have the same dimensions."
-                outit
-            | _ -> w.CudaTensor.create {dim elem_type=type map (index_example dim) in.elem_type}
-        inl _ =
-            inl in, out = to_dev_tensor (in, out)
-            iter w {dim} <| inl i -> out i .set (map i (in i .get))
-        match d with
-        | {outit} -> ()
-        | _ -> stack out
-
 /// The exclusive scan over the innermost dimension.
 met init_exscan w {dim=b,a redo neutral_elem init outit} =
     w.run {
@@ -1860,6 +1830,56 @@ met redo_init w {dim=b, a init redo neutral_elem outit} =
             }
         }
 
+inl methods =
+    {
+    iter init_exscan inscan redo iter2 iter3 init_inscan init_redo init_redo_redo
+    init_seq inscan_init redo_init
+    } |> stackify
+
+inl s -> s.module_add .CudaKernel methods
+    """) |> module_
+
+let cuda_fun =
+    (
+    "CudaFun",[host_tensor;cuda_tensor],"The CudaFun module.",
+    """
+open HostTensor
+inl index_example dim = Tuple.map (inl _ -> var 0) (Tuple.wrap dim) |> Tuple.unwrap
+
+inl init w {d with dim} f =
+    indiv join
+        inl elem_type = type f (index_example dim)
+        inl out =            
+            match d with
+            | {outit} -> 
+                inl outit=zip outit
+                assert (dim = outit.dim) "The input and the output must have the same dimensions."
+                outit
+            | _ -> w.CudaTensor.create {dim elem_type}
+        inl _ =
+            inl out = to_dev_tensor out |> zip
+            iter w d (inl i -> out i .set (f i))
+        stack out
+
+inl map w d in =
+    indiv join
+        inl map = match d with {map} -> const map | {mapi} -> mapi
+        inl in = zip in
+        inl dim = in.dim
+        inl out = 
+            match d with
+            | {outit} -> 
+                inl outit=zip outit
+                assert (dim = outit.dim) "The input and the output must have the same dimensions."
+                outit
+            | _ -> w.CudaTensor.create {dim elem_type=type map (index_example dim) in.elem_type}
+        inl _ =
+            inl in, out = to_dev_tensor (in, out)
+            iter w {dim} <| inl i -> out i .set (map i (in i .get))
+        match d with
+        | {outit} -> ()
+        | _ -> stack out
+
 inl address_at o =
     inl {ar offset} = o.bodies
     macro.cd uint64 [text: "(unsigned long long) ("; arg: ar; text: " + "; arg: offset; text: ")"]
@@ -1885,13 +1905,10 @@ inl tensor_to_pointers w x =
 
 inl methods =
     {
-    iter init map init_exscan inscan redo iter2 iter3 init_inscan init_redo init_redo_redo
-    init_seq inscan_init redo_init
-   
     tensor_to_pointers
     } |> stackify
 
-inl s -> s.module_add .CudaKernel methods
+inl s -> s.module_add .CudaFun methods
     """) |> module_
 
 let cuda_solve =
