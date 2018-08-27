@@ -1853,16 +1853,16 @@ inl init w {d with dim} f =
         inl elem_type = type f (index_example dim)
         inl out =            
             match d with
-            | {outit} -> 
-                inl outit=zip outit
-                assert (dim = outit.dim) "The input and the output must have the same dimensions."
-                outit
+            | {out} -> 
+                inl out=zip out
+                assert (dim = out.dim) "The input and the output must have the same dimensions."
+                out
             | _ -> w.CudaTensor.create {dim elem_type}
         inl _ =
             inl out = to_dev_tensor out |> zip
-            iter w d (inl i -> out i .set (f i))
+            w.CudaKernel.iter d (inl i -> out i .set (f i))
         match d with
-        | {outit} -> ()
+        | {out} -> ()
         | _ -> stack out
 
 inl map w d in =
@@ -1872,16 +1872,16 @@ inl map w d in =
         inl dim = in.dim
         inl out = 
             match d with
-            | {outit} -> 
-                inl outit=zip outit
-                assert (dim = outit.dim) "The input and the output must have the same dimensions."
-                outit
+            | {out} -> 
+                inl out=zip out
+                assert (dim = out.dim) "The input and the output must have the same dimensions."
+                out
             | _ -> w.CudaTensor.create {dim elem_type=type map (index_example dim) in.elem_type}
         inl _ =
             inl in, out = to_dev_tensor (in, out)
-            iter w {dim} <| inl i -> out i .set (map i (in i .get))
+            w.CudaKernel.iter {dim} <| inl i -> out i .set (map i (in i .get))
         match d with
-        | {outit} -> ()
+        | {out} -> ()
         | _ -> stack out
 
 inl map_map w d in =
@@ -1902,26 +1902,74 @@ inl map_map w d in =
         | _ -> ()
         inl out = 
             match d with
-            | {outit} -> 
-                inl outit=zip outit
-                assert (dim = outit.dim) "The input and the output must have the same dimensions."
-                outit
+            | {out} -> 
+                inl out=zip out
+                assert (dim = out.dim) "The input and the output must have the same dimensions."
+                out
             | _ -> w.CudaTensor.create {dim elem_type=type map (index_example b) (index_example a) (module_map (inl x -> x.elem_type) in)}
         inl _ =
             inl in, out = to_dev_tensor (in, out)
-            iter2 w {dim} <| inl i ->
-                inl out, map = out i, map i
+            w.CudaKernel.iter2 {dim} <| inl i ->
+                inl out, map = out i, map i, map_out i
                 inl in =
                     {in with in=self i}
                     |> function {in_outer} as in -> {in with in_outer=self i} | in -> in
                 inl i ->
-                    inl out, map = out i, map i
+                    inl out, map = out i, map i, map_out i
                     inl in =
                         {in with in=self i}
                         |> function {in_inner} as in -> {in with in_inner=self i} | in -> in
-                    out .set (map in.get)
+                    out.set (map in.get)
         match d with
-        | {outit} -> ()
+        | {out} -> ()
+        | _ -> stack out
+
+// Note that the dimension get passed in reverse order into `map`. The kernel iterates over the inner and then over the outer dimension.
+inl redo_map w d in =
+    indiv join
+        inl {neutral_elem redo} = d
+        inl map = match d with {map} -> (inl _ _ -> map) | {mapi} -> mapi
+        inl in = match d with {in_inner} -> {in=zip in; in'=zip in'} | _ -> {in=zip in}
+        inl in = match d with {in_outer} -> {in with in_outer=zip in_outer} | _ -> in
+        inl b,a as dim = in.in.dim
+        match in with
+        | {in_inner} ->
+            inl a' :: () = in_inner.dim
+            assert (a = a') "The inner dimension of the two inputs must be the same."
+        | _ -> ()
+        match in with
+        | {in_outer} ->
+            inl b' :: () = in_outer.dim
+            assert (b = b') "The outer dimension of the two inputs must be the same."
+        | _ -> ()
+        inl out = 
+            match d with
+            | {out} -> 
+                inl out=zip out
+                inl a' :: () = out.dim
+                assert (a = a') "The input and the output must have the same dimensions."
+                out
+            | _ -> w.CudaTensor.create {dim elem_type=type map (index_example a) (index_example b) (module_map (inl x -> x.elem_type) in)}
+        inl map_out = match d with {map_out} -> (inl _ -> map_out) | {mapi_out} -> mapi_out
+        inl _ =
+            inl in, out = to_dev_tensor (in, out)
+            w.CudaKernel.redo_init {
+                dim neutral_elem redo
+                init=inl a -> 
+                    inl map = map a
+                    inl in =
+                        {in with in=inl b -> self b a}
+                        |> function {in_inner} as in -> {in with in_inner=self a} | in -> in
+                    inl b ->
+                        inl map = map b
+                        inl in =
+                            {in with in=self b}
+                            |> function {in_outer} as in -> {in with in_outer=self b} | in -> in
+                        map in
+                outit=inl a x -> out a .set (map_out a x)
+                }
+        match d with
+        | {out} -> ()
         | _ -> stack out
 
 inl address_at o =
