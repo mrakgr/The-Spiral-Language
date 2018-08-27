@@ -325,8 +325,8 @@ inl float ->
         out
         bck=inl _ -> join
             inl out = to_dev_tensor out
-            inl bck in = Struct.map2 (inl bck -> bck (in, out.get)) bck
-            s.CudaFun.map {out=adjoint; map=bck} primal
+            inl bck {in adjoint} = Struct.map2 (inl bck -> bck (in, out.get)) bck adjoint
+            s.CudaFun.map {out=adjoint; map=bck} {in=primal; adjoint}
         }
 
     inl d2_replicate_map {fwd bck={bck_in bck_in'}} in in' s =
@@ -511,7 +511,7 @@ inl float ->
                 neutral_elem = zero
                 }
             /// The adjoint in error is always assumed to be one.
-            bck = Struct.map (inl bck (in, out) adjoint -> adjoint + (bck in out)) bck
+            bck = Struct.map (inl bck {in out adjoint} -> adjoint + (bck in out)) bck
             } (input, label) s
 
     inl square_bck (x,y) = two * (x - y)
