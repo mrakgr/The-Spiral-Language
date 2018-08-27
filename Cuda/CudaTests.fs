@@ -838,7 +838,7 @@ inl _ =
         neutral_elem=-infinityf32
         redo=max
         init=inl a b -> a1 b a .get // Note: This kernel has reversed dimensions in init.
-        outit=inl a -> o1 a .set // TODO: This can't be right.
+        outit=inl a -> o1 a .set
         }
 
 Tuple.iter s.CudaTensor.print (a1,o1)
