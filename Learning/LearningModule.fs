@@ -259,7 +259,7 @@ inl float ->
     inl fwd_add_bias C bias s = s.CudaFun.map_map (out=C; in_inner=bias; map_out=map=inl {in in_inner} -> in+in_inner) C
     inl bck_add_bias C bias s = 
         s.CudaFun.redo_map {out=bias; mid=bias; neutral_elem=zero; redo=(+);
-            map_in=inl {in} -> in
+            map=inl {in} -> in
             map_out=inl {mid out} -> mid + out
             } C
 
@@ -333,7 +333,7 @@ inl float ->
         inl primal, adjoint = primals in, adjoints in
         inl primal', adjoint' = primals in', adjoints in'
         inl out = s.CudaFun.map_map {map=fwd; in_inner=primal} primal' |> dr s
-        {
+        { // TODO: This can't be right.
         out
         bck=inl _ -> join
             inl out = {out without block}
@@ -401,7 +401,7 @@ inl float ->
         inl neutral_elem = Struct.map (const zero) in
         inl bck = {
             bck_in={
-                map_in=inl (in', out) in -> Struct.map ((*) out.adjoint) (bck_in in in' out.primal)
+                map=inl (in', out) in -> Struct.map ((*) out.adjoint) (bck_in in in' out.primal)
                 neutral_elem redo=Struct.map2 (+)
                 map_out=Struct.map2 (+)
                 }
@@ -546,59 +546,45 @@ inl float ->
         inl cost = 
             inl cost = s.CudaTensor.create {elem_type=float; dim=primal input .dim |> fst}
             inl _ =
-                inl input, label, cost = Tuple.map (primal >> to_dev_tensor) (input, label, cost)
-                s.CudaKernel.init_d1_seq_broadcast {
-                    init=inl j i -> input j i .get / temp
-                    seq = 
-                        {
-                        redo=max
-                        mapi_out=inl _ _ a b -> exp (a - b)
-                        }
-                        ,
-                        {
-                        redo=(+)
-                        mapi_out=inl j i x sum_x ->
-                            inl p = x / sum_x
-                            inl label = label j i .get
-                            -label * log p
-                        }
-                        ,
-                        {
-                        redo'=(+)
-                        mapi_out=inl j i _ c -> if threadIdx.x = 0 then cost j .set c
-                        }
-                    } (primal input).dim
-            s.CudaKernel.map_redo_map {
+                inl input, label, cost as ins = Tuple.map (primal >> to_dev_tensor) (input, label, cost)
+                s.CudaKernel.init_seq {
+                    dim=input.dim
+                    init=inl b k ->
+                        inl input,label,to = Tuple.map (inl x -> x b) ins
+                        inl x = k.block.load input |> k.block.map (inl x -> x / temp)
+                        inl max_x = k.block.uter max x
+                        inl z = k.block.map (inl x -> exp (x - max_x)) x
+                        inl sum_z = k.block.uter (+) z
+                        inl prob = k.block.map (inl z -> z / sum_z) z
+                        inl label = k.block.load label
+                        inl costs = k.block.map (inl {prob label} -> -label * log prob) {prob label}
+                        k.block.store_scalar { to from = k.block.redo (+) costs }
+                    }
+            s.CudaKernel.redo {
                 redo = (+)
                 neutral_elem = zero
                 } cost
 
         inl bck _ = join
-            match Tuple.map (adjoint >> on_non_nil to_dev_tensor) (input, label) with
-            | (), () -> ()
-            | input', label' ->
-                inl input, label = Tuple.map (primal >> to_dev_tensor) (input, label)
-                s.CudaKernel.init_d1_seq_broadcast {
-                    init=inl j i -> input j i .get / temp
-                    seq = 
-                        {
-                        redo=max
-                        mapi_out=inl _ _ a b -> exp (a - b)
-                        }
-                        ,
-                        {
-                        redo=(+)
-                        mapi_out=inl j i x sum_x ->
-                            inl get x = x j i .get
-                            inl set x = x j i .set
-                            inl ret f = on_non_nil (inl x -> set x (get x + f ()))
-
-                            inl p = x / sum_x
-                            inl label = get label
-                            ret (inl _ -> (p - label) / temp) input'
-                            ret (inl _ -> -(log p)) label'
-                        }
-                    } input.dim
+            inl input, label as ins = to_dev_tensor (input, label)
+            s.CudaKernel.init_seq {
+                dim=primal input .dim
+                init=inl b k ->
+                    inl p,a = Struct.map (inl x -> x b) ({input=primal input; label=primal label}, {input=adjoint input; label=adjoint label})
+                    inl x = k.block.load p.input |> k.block.map (inl x -> x / temp)
+                    inl max_x = k.block.uter max x
+                    inl z = k.block.map (inl x -> exp (x - max_x)) x
+                    inl sum_z = k.block.uter (+) z
+                    inl prob = k.block.map (inl z -> z / sum_z) z
+                    inl label = k.block.load p.label
+                    inl ret {map in} = 
+                        on_non_nil <| inl to ->
+                            k.block.store {
+                                to from=k.block.map {map=inl {in out} -> out + map in} {in out=k.block.load to}
+                                }
+                    ret {in={prob label} map=inl {prob label} -> (prob - label) / temp} a.input
+                    ret {in=prob; map=inl prob -> -(log prob)} a.label
+                }
         {out=cost; bck}
 
     inl accuracy label input s =
