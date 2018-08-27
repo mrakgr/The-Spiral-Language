@@ -256,8 +256,12 @@ inl float ->
 
     inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
 
-    inl fwd_add_bias C bias s = s.CudaKernel.d2_replicate_map' (inl a _ b -> a+b) bias C.empty C
-    inl bck_add_bias C bias s = s.CudaKernel.mapi_d2_redo_map' {map_in=const;neutral_elem=zero;redo=(+);map_out=(+)} C bias.empty bias
+    inl fwd_add_bias C bias s = s.CudaFun.map_map (out=C; in_inner=bias; map_out=map=inl {in in_inner} -> in+in_inner) C
+    inl bck_add_bias C bias s = 
+        s.CudaFun.redo_map {out=bias; mid=bias; neutral_elem=zero; redo=(+);
+            map_in=inl {in} -> in
+            map_out=inl {mid out} -> mid + out
+            } C
 
     inl matmultb l bias s = 
         inl l =
@@ -300,21 +304,21 @@ inl float ->
             
     inl map {fwd bck} in s =
         inl primal = primals in
-        inl out = s.CudaKernel.map fwd primal |> dr s
+        inl out = s.CudaFun.map {map=fwd} primal |> dr s
 
         inl adjoint, bck = choose_adjoints in bck
         {
         out
         bck=inl _ -> join
             inl bck (in, out) = Struct.map2 (inl bck -> bck (in, out)) bck
-            on_non_nil (inl x -> s.CudaKernel.map' bck (primal, {out without block}) x) adjoint
+            on_non_nil (inl x -> s.CudaFun.map {map=bck; out=x} (primal, {out without block}) x) adjoint
         }
 
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
     /// just to set the adjoint to 1. The current library is intended for a narrow purpose.
     inl map_redo_map {fwd bck} in s =
         inl primal = primals in
-        inl out = s.CudaKernel.map_redo_map fwd primal
+        inl out = s.CudaFun.redo fwd primal
 
         inl adjoint, bck = choose_adjoints in bck
         {
@@ -322,19 +326,19 @@ inl float ->
         bck=inl _ -> join
             inl out = to_dev_tensor out
             inl bck in = Struct.map2 (inl bck -> bck (in, out.get)) bck
-            s.CudaKernel.map' bck primal adjoint
+            s.CudaFun.map {out=adjoint; map=bck} primal
         }
 
     inl d2_replicate_map {fwd bck={bck_in bck_in'}} in in' s =
         inl primal, adjoint = primals in, adjoints in
         inl primal', adjoint' = primals in', adjoints in'
-        inl out = s.CudaKernel.d2_replicate_map fwd primal primal' |> dr s
+        inl out = s.CudaFun.map_map {map=fwd; in_inner=primal} primal' |> dr s
         {
         out
         bck=inl _ -> join
             inl out = {out without block}
-            s.CudaKernel.mapi_d2_redo_map' bck_in (primal', out) primal adjoint
-            s.CudaKernel.d2_replicate_map' bck_in' primal (primal', out) adjoint'
+            s.CudaFun.redo_map {bck_in with out=adjoint; mid=primal} (primal', out)
+            s.CudaFun.map_map {bck_in' with out=adjoint'; in_inner=primal} (primal', out)
         }
 
     inl Primitive =
@@ -420,13 +424,15 @@ inl float ->
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
-        s.CudaKernel.map' (inl _ P, A -> P - learning_rate * A, zero) primal.empty (primal, adjoint)
+        s.CudaFun.map {out=primal,adjoint; map=inl P, A -> P - learning_rate * A, zero} (primal, adjoint)
 
     inl clipped_sgd max learning_rate s {primal adjoint} = 
-        s.CudaKernel.map' (inl _ P, A -> 
-            inl A = if A < -max then -max elif A > max then max else A
-            P - learning_rate * A, zero
-            ) primal.empty (primal, adjoint)
+        s.CudaFun.map {
+            out=primal,adjoint
+            map=inl P, A -> 
+                inl A = if A < -max then -max elif A > max then max else A
+                P - learning_rate * A, zero
+            } (primal, adjoint)
 
     inl standard learning_rate s = 
         Struct.iter (function 
@@ -444,42 +450,63 @@ inl float ->
 
     /// The softmax activation
     inl softmax temp input s =
-        s.CudaKernel.mapi_d1_seq_broadcast {
-            map_in=inl x -> x / temp
-            seq = 
-                {
-                redo=max
-                map_out=inl a b -> exp (a - b)
-                }
-                ,
-                {
-                redo=(+)
-                map_out=(/)
-                }
-            } input
+        inl output = s.CudaTensor.create_like input
+        inl ins = CudaAux.to_dev_tensor (input,output)
+        s.CudaKernel.init_seq {
+            dim=input.dim
+            init=inl b k ->
+                inl input,output = Tuple.map (inl x -> x b) ins
+                inl x = k.block.load input |> k.block.map (inl x -> x / temp)
+                inl max_x = k.block.uter max x
+                inl z = k.block.map (inl x -> exp (x - max_x)) x
+                inl sum_z = k.block.uter (+) z
+                k.block.store {
+                    from=k.block.map (inl z -> z / sum_z) z
+                    to=output
+                    }
+            }
+        output
                 
     inl sample_body prob s =
-        inl boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=fst prob.dim}
-        s.CudaKernel.mapi_d1_inscan_mapi_d1_reduce_mapi {
-            scan={
-                ne=0f32
-                f=(+)
-                }
-            mapi_mid=inl _ index prob boundary -> 
-                inl x = prob - boundary
-                (if x < 0f32 then infinity else x), index
-            redo={
-                ne=infinity,0
-                f=inl a b -> if fst a <= fst b then a else b
-                }
-            map_out=snd
-            } prob boundary
+        inl b, a as dim = prob.dim
+        inl boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=b}
+        inl output = s.CudaTensor.create {elem_type=int64; dim=boundary.dim}
+        inl inputs = Tuple.map CudaAux.to_dev_tensor (prob,boundary,output)
+        s.CudaKernel.init_seq { // The sampling function
+            dim
+            init=inl b k ->
+                inl prob,boundary,to = Tuple.map (inl x -> x b) inputs
+                inl boundary = boundary.get
+                k.block.store_scalar {to
+                    from=
+                        k.grid.for_items .x inner_size {
+                            state=dyn {scan=0f32; redo=infinityf32,0}
+                            body=inl {state i=a num_valid} ->
+                                inl prob = prob a .get
+                    
+                                inl prob_at_a, scan = 
+                                    inl redo = (+)
+                                    k.thread.exscan {prefix=state.scan; redo} prob |> Tuple.map (redo state.scan)
+
+                                inl distance_from_boundary, a = 
+                                    inl x = boundary - prob_at_a
+                                    (if x < 0f32 then infinityf32 else x), a
+
+                                inl redo =
+                                    inl redo a b = if fst a <= fst b then a else b
+                                    k.thread.redo {num_valid redo} (distance_from_boundary, a) |> redo state.redo
+
+                                {scan redo}
+                            } .redo |> snd
+                    }
+            }
+        output
 
     //#Error
     inl error {fwd bck} label input s = 
         map_redo_map {
             fwd = {
-                map_in = fwd
+                map = fwd
                 redo = (+)
                 neutral_elem = zero
                 }
@@ -510,7 +537,7 @@ inl float ->
                 log (one - x) - log x
         }
 
-    /// Applies a softmax and then calculates the cross entropy cost. Is intended to take a linear layer as input.
+    /// Applies a softmax and then calculates the cross entropy cost. Is intended to take the output of a linear layer as input.
     inl softmax_cross_entropy label input s =
         assert ((primal label).dim = (primal input).dim) "Labels and inputs must have equal dimensions."
         
@@ -576,13 +603,13 @@ inl float ->
 
     inl accuracy label input s =
         inl input, label = primal input, primal label
-        s.CudaKernel.mapi_d1_redo_map {
-            map_in=const
+        s.CudaFun.init_redo {
+            map=inl {in} -> in
             neutral_elem=-infinity,zero
             redo=inl a b -> if fst a > fst b then a else b
             map_out=snd >> to int64
-            } (input,label) ()
-        |> s.CudaKernel.map_redo_map {
+            } (input,label)
+        |> s.CudaFun.redo {
             neutral_elem=0; redo=(+)
             }
 
@@ -734,7 +761,9 @@ inl float ->
 
                             match d with
                             | {state=state' discount_factor} ->
-                                inb basis_update = s.CudaKernel.map (inl basis_max, basis_cur -> basis_cur - discount_factor * basis_max) (state', primal x) |> CudaAux.temporary
+                                inb basis_update = 
+                                    inl map basis_max, basis_cur = basis_cur - discount_factor * basis_max
+                                    s.CudaFun.map {map} (state', primal x) |> CudaAux.temporary
                                 update_steady_state {identity_coef=epsilon; learning_rate} s steady_state x basis_update
                             | {state} -> error_type "Do not forget the discount factor."
                             | _ -> update_steady_state {identity_coef=epsilon; learning_rate} s steady_state x x
@@ -758,7 +787,7 @@ inl float ->
                         | {mode=.optimize} ->
                             if covariance.length = 1 then
                                 inl covariance = CudaAux.to_dev_tensor covariance
-                                inb z_precise_adjoint = s.CudaKernel.map (inl z -> z / covariance 0 0 .get) z |> CudaAux.temporary
+                                inb z_precise_adjoint = s.CudaFun.map {map=inl z -> z / covariance 0 0 .get} z |> CudaAux.temporary
                                 ret z_precise_adjoint
                             else
                                 if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
@@ -900,14 +929,14 @@ inl float ->
                         | _: float32 -> inl x -> value {x with reward}
                         | _ -> value
 
-                    s.CudaKernel.map value input
+                    s.CudaFun.map {map=value} input
 
-                { value bck = inl _ -> on_non_nil (s.CudaKernel.map' (inl value out -> out - two * value) value) (adjoint v) }
+                { value bck = inl _ -> on_non_nil (inl out -> s.CudaFun.map' {out map=inl {value out} -> out - two * value} {value out}) (adjoint v) }
 
             inl mc v s {discount_factor reward} =
                 match reward with
                 | _: float32 -> td v s {discount_factor reward=discount_factor * reward; value'=()}
-                | _ -> td s v {discount_factor reward=zero; value'=reward}
+                | _ -> td v s {discount_factor reward=zero; value'=reward}
 
             {td mc}
 
