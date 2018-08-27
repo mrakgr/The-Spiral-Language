@@ -2029,8 +2029,8 @@ inl map_redo w d in =
         | _ -> ()
         match in with
         | {mid} ->
-            inl a' :: () = mid.dim
-            assert (a = a') "The inner dimension of the two inputs must be the same."
+            inl b' :: () = mid.dim
+            assert (b = b') "The inner dimension of the two inputs must be the same."
         | _ -> ()
         match in with
         | {in_outer} ->
