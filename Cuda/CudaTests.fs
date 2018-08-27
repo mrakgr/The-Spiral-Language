@@ -465,36 +465,6 @@ inl _ =
 s.CudaTensor.print x
     """
 
-let kernel2 =
-    "kernel2",[cuda_modules],"Does the init kernel work?",
-    """
-inb s = CudaModules (1024*1024)
-
-inl o1 = s.CudaKernel.init {dim=2,2,128} id
-s.CudaTensor.print o1
-    """
-
-let kernel3 =
-    "kernel3",[cuda_modules],"Does the map kernel work?",
-    """
-/// Initializes all the Cuda parts
-inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
-
-/// Creates a host tensor with the given generator function.
-inl h = HostTensor.init 32 (inl x -> x + 1) 
-/// Loads the tensor on the GPU based on the host tensor
-inl a1 = s.CudaTensor.from_host_tensor h
-/// Makes a tensor of the same type and dimensions as `a1` and zeroes it.
-inl o1 = s.CudaTensor.zero_like a1
-/// Calls the map operation. `a1` is the input and `o1` is the output.
-s.CudaKernel.map {outit=o1; map=inl a -> a * 2} a1
-
-/// Transfers the tensor back to host.
-inl a2 = s.CudaTensor.to_host_tensor o1
-/// Zips the two tensors and prints them out.
-HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
-    """
-
 let kernel4 =
     "kernel4",[cuda_modules],"Does the init_exscan kernel work?",
     """
@@ -869,13 +839,72 @@ s.CudaTensor.print x
 s.CudaTensor.print o
     """
 
+let fun1 =
+    "fun1",[cuda_modules],"Does the init kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl o1 = s.CudaFun.init {dim=2,2,128} id
+s.CudaTensor.print o1
+    """
+
+let fun2 =
+    "fun2",[cuda_modules],"Does the map kernel work?",
+    """
+/// Initializes all the Cuda parts
+inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+
+/// Creates a host tensor with the given generator function.
+inl h = HostTensor.init 32 (inl x -> x + 1) 
+/// Loads the tensor on the GPU based on the host tensor
+inl a1 = s.CudaTensor.from_host_tensor h
+/// Makes a tensor of the same type and dimensions as `a1` and zeroes it.
+inl o1 = s.CudaTensor.zero_like a1
+/// Calls the map operation. `a1` is the input and `o1` is the output.
+s.CudaFun.map {out=o1; map=inl a -> a * 2} a1
+
+/// Transfers the tensor back to host.
+inl a2 = s.CudaTensor.to_host_tensor o1
+/// Zips the two tensors and prints them out.
+HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
+    """
+
+let fun3 =
+    "fun3",[cuda_modules],"Does the map_map kernel work?",
+    """
+/// Initializes all the Cuda parts
+inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+
+inl a1 = s.CudaFun.init {dim=10,5} (const 2)
+inl a2 = s.CudaFun.init {dim=5} id
+
+s.CudaFun.map_map {in_inner=a2; map=inl {in in_inner} -> in+in_inner} a1
+|> s.CudaTensor.print
+    """
+
+let fun4 =
+    "fun4",[cuda_modules],"Does the redo_map kernel work?",
+    """
+/// Initializes all the Cuda parts
+inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+
+inl a1 = s.CudaFun.init {dim=10,5} (const 2)
+inl a2 = s.CudaFun.init {dim=5} id
+
+s.CudaFun.redo_map {neutral_elem=0; redo=(+); mid=a2
+    map=inl {in} -> in
+    map_out=inl {mid out} -> mid + out
+    } a1
+|> s.CudaTensor.print
+    """
 
 let tests =
     [|
     allocator1
     tensor1;tensor2;tensor3;
-    kernel1;kernel2;kernel3;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
+    kernel1;kernel4;kernel5;kernel6;kernel7;kernel8;kernel9
     kernel10;kernel11;kernel12;kernel13
+    fun1;fun2
     random1
     blas1;blas2;blas3;blas4;blas5;blas6;blas7;blas8;blas9
     cusolver1;cusolver2
@@ -884,7 +913,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) fun4
 |> printfn "%s"
 |> ignore
 

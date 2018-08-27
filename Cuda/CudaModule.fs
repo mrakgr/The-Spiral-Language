@@ -1887,7 +1887,7 @@ inl map w d in =
 inl map_map w d in =
     indiv join
         inl map = match d with {map} -> (inl _ _ -> map) | {mapi} -> mapi
-        inl in = match d with {in_inner} -> {in=zip in; in'=zip in'} | _ -> {in=zip in}
+        inl in = match d with {in_inner} -> {in=zip in; in_inner=zip in_inner} | _ -> {in=zip in}
         inl in = match d with {in_outer} -> {in with in_outer=zip in_outer} | _ -> in
         inl b,a as dim = in.in.dim
         match in with
@@ -1906,20 +1906,20 @@ inl map_map w d in =
                 inl out=zip out
                 assert (dim = out.dim) "The input and the output must have the same dimensions."
                 out
-            | _ -> w.CudaTensor.create {dim elem_type=type map (index_example b) (index_example a) (module_map (inl x -> x.elem_type) in)}
+            | _ -> w.CudaTensor.create {dim elem_type=type map (index_example b) (index_example a) (module_map (inl _ x -> x.elem_type) in)}
         inl _ =
             inl in, out = to_dev_tensor (in, out)
             w.CudaKernel.iter2 {dim} <| inl i ->
-                inl out, map = out i, map i, map_out i
+                inl out, map = out i, map i
                 inl in =
                     {in with in=self i}
-                    |> function {in_outer} as in -> {in with in_outer=self i} | in -> in
+                    |> function {in_outer} as in -> {in with in_outer=self i .get} | in -> in
                 inl i ->
-                    inl out, map = out i, map i, map_out i
+                    inl out, map = out i, map i
                     inl in =
-                        {in with in=self i}
-                        |> function {in_inner} as in -> {in with in_inner=self i} | in -> in
-                    out.set (map in.get)
+                        {in with in=self i .get}
+                        |> function {in_inner} as in -> {in with in_inner=self i .get} | in -> in
+                    out.set (map in)
         match d with
         | {out} -> ()
         | _ -> stack out
@@ -1929,8 +1929,9 @@ inl redo_map w d in =
     indiv join
         inl {neutral_elem redo} = d
         inl map = match d with {map} -> (inl _ _ -> map) | {mapi} -> mapi
-        inl in = match d with {in_inner} -> {in=zip in; in'=zip in'} | _ -> {in=zip in}
+        inl in = match d with {in_inner} -> {in=zip in; in_inner=zip in_inner} | _ -> {in=zip in}
         inl in = match d with {in_outer} -> {in with in_outer=zip in_outer} | _ -> in
+        inl in = match d with {mid} -> {in with mid=zip mid} | _ -> in
         inl b,a as dim = in.in.dim
         match in with
         | {in_inner} ->
@@ -1938,10 +1939,16 @@ inl redo_map w d in =
             assert (a = a') "The inner dimension of the two inputs must be the same."
         | _ -> ()
         match in with
+        | {mid} ->
+            inl a' :: () = mid.dim
+            assert (a = a') "The inner dimension of the two inputs must be the same."
+        | _ -> ()
+        match in with
         | {in_outer} ->
             inl b' :: () = in_outer.dim
             assert (b = b') "The outer dimension of the two inputs must be the same."
         | _ -> ()
+        inl map_out = match d with {map_out} -> (inl _ -> map_out) | {mapi_out} -> mapi_out | _ -> (inl _ {out} -> out)
         inl out = 
             match d with
             | {out} -> 
@@ -1949,8 +1956,13 @@ inl redo_map w d in =
                 inl a' :: () = out.dim
                 assert (a = a') "The input and the output must have the same dimensions."
                 out
-            | _ -> w.CudaTensor.create {dim elem_type=type map (index_example a) (index_example b) (module_map (inl x -> x.elem_type) in)}
-        inl map_out = match d with {map_out} -> (inl _ -> map_out) | {mapi_out} -> mapi_out
+            | _ -> w.CudaTensor.create {dim=a;
+                elem_type=type 
+                    inl in = module_map (inl _ x -> x.elem_type) in
+                    inl out = map (index_example a) (index_example b) in
+                    match in with {mid} -> {mid out} | _ -> {out}
+                    |> map_out (index_example a)
+                    }
         inl _ =
             inl in, out = to_dev_tensor (in, out)
             w.CudaKernel.redo_init {
@@ -1959,14 +1971,19 @@ inl redo_map w d in =
                     inl map = map a
                     inl in =
                         {in with in=inl b -> self b a}
-                        |> function {in_inner} as in -> {in with in_inner=self a} | in -> in
+                        |> function {in_inner} as in -> {in with in_inner=self a .get} | in -> in
                     inl b ->
                         inl map = map b
                         inl in =
-                            {in with in=self b}
-                            |> function {in_outer} as in -> {in with in_outer=self b} | in -> in
+                            {in with in=self b .get}
+                            |> function {in_outer} as in -> {in with in_outer=self b .get} | in -> in
                         map in
-                outit=inl a x -> out a .set (map_out a x)
+                outit=inl a -> 
+                    inl o = out a
+                    inl out ->
+                        inl x = {out}
+                        match in with {mid} -> {x with mid=mid a .get} | _ -> x
+                        |> map_out a |> o .set
                 }
         match d with
         | {out} -> ()
@@ -1997,6 +2014,7 @@ inl tensor_to_pointers w x =
 
 inl methods =
     {
+    map init map_map redo_map
     tensor_to_pointers
     } |> stackify
 
@@ -2221,14 +2239,14 @@ inl s ret ->
 
 let cuda_modules =
     (
-    "CudaModules",[cuda;allocator;region;cuda_stream;cuda_tensor;cuda_kernel;cuda_random;cuda_blas;cuda_solve;console],"All the cuda modules in one.",
+    "CudaModules",[cuda;allocator;region;cuda_stream;cuda_tensor;cuda_kernel;cuda_fun;cuda_random;cuda_blas;cuda_solve;console],"All the cuda modules in one.",
     """
 inl size ret ->
     inb s = Cuda
     inb s = Allocator s size
     inb s = CudaRandom s
     inb s = CudaBlas s
-    inl s = Region s |> CudaStream |> CudaTensor |> CudaKernel
+    inl s = Region s |> CudaStream |> CudaTensor |> CudaKernel |> CudaFun
     inb s = s.RegionMem.create'
     inb s = s.RegionStream.create'
     inl s = s.RegionStream.allocate
