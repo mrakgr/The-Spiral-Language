@@ -2054,7 +2054,7 @@ inl map_redo w d in =
                     }
         inl _ =
             inl in, out = to_dev_tensor (in, out)
-            w.CudaKernel.redo_init {
+            w.CudaKernel.init_redo {
                 dim neutral_elem redo
                 init=inl b -> 
                     inl map = map b
