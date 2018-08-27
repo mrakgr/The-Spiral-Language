@@ -2014,6 +2014,70 @@ inl redo w d in =
         | {out} -> ()
         | _ -> stack out
 
+inl map_redo w d in =
+    indiv join
+        inl {neutral_elem redo} = d
+        inl map = match d with {map} -> (inl _ _ -> map) | {mapi} -> mapi
+        inl in = match d with {in_inner} -> {in=zip in; in_inner=zip in_inner} | _ -> {in=zip in}
+        inl in = match d with {in_outer} -> {in with in_outer=zip in_outer} | _ -> in
+        inl in = match d with {mid} -> {in with mid=zip mid} | _ -> in
+        inl b,a as dim = in.in.dim
+        match in with
+        | {in_inner} ->
+            inl a' :: () = in_inner.dim
+            assert (a = a') "The inner dimension of the two inputs must be the same."
+        | _ -> ()
+        match in with
+        | {mid} ->
+            inl a' :: () = mid.dim
+            assert (a = a') "The inner dimension of the two inputs must be the same."
+        | _ -> ()
+        match in with
+        | {in_outer} ->
+            inl b' :: () = in_outer.dim
+            assert (b = b') "The outer dimension of the two inputs must be the same."
+        | _ -> ()
+        inl map_out = match d with {map_out} -> (inl _ -> map_out) | {mapi_out} -> mapi_out | _ -> (inl _ {out} -> out)
+        inl out = 
+            match d with
+            | {out} -> 
+                inl out=zip out
+                inl b' :: () = out.dim
+                assert (b = b') "The input and the output must have the same dimensions."
+                out
+            | _ -> w.CudaTensor.create {dim=b;
+                elem_type=type 
+                    inl in = module_map (inl _ x -> x.elem_type) in
+                    inl out = map (index_example b) (index_example a) in
+                    match in with {mid} -> {mid out} | _ -> {out}
+                    |> map_out (index_example b)
+                    }
+        inl _ =
+            inl in, out = to_dev_tensor (in, out)
+            w.CudaKernel.redo_init {
+                dim neutral_elem redo
+                init=inl b -> 
+                    inl map = map b
+                    inl in =
+                        {in with in=self b}
+                        |> function {in_outer} as in -> {in with in_outer=self b .get} | in -> in
+                    inl a ->
+                        inl map = map a
+                        inl in =
+                            {in with in=self a .get}
+                            |> function {in_inner} as in -> {in with in_inner=self a .get} | in -> in
+                        map in
+                outit=inl b -> 
+                    inl o = out b
+                    inl out ->
+                        inl x = {out}
+                        match in with {mid} -> {x with mid=mid b .get} | _ -> x
+                        |> map_out b |> o .set
+                }
+        match d with
+        | {out} -> ()
+        | _ -> stack out
+
 inl address_at o =
     inl {ar offset} = o.bodies
     macro.cd uint64 [text: "(unsigned long long) ("; arg: ar; text: " + "; arg: offset; text: ")"]
@@ -2039,7 +2103,7 @@ inl tensor_to_pointers w x =
 
 inl methods =
     {
-    map init map_map redo_map redo
+    map init map_map redo_map redo map_redo
     tensor_to_pointers
     } |> stackify
 

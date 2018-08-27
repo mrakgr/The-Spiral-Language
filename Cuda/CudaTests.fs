@@ -872,8 +872,7 @@ HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
 let fun3 =
     "fun3",[cuda_modules],"Does the map_map function work?",
     """
-/// Initializes all the Cuda parts
-inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+inb s = CudaModules (1024*1024)
 
 inl a1 = s.CudaFun.init {dim=10,5} (const 2)
 inl a2 = s.CudaFun.init {dim=5} id
@@ -885,8 +884,7 @@ s.CudaFun.map_map {in_inner=a2; map=inl {in in_inner} -> in+in_inner} a1
 let fun4 =
     "fun4",[cuda_modules],"Does the redo_map function work?",
     """
-/// Initializes all the Cuda parts
-inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+inb s = CudaModules (1024*1024)
 
 inl a1 = s.CudaFun.init {dim=10,5} (const 2)
 inl a2 = s.CudaFun.init {dim=5} id
@@ -901,13 +899,20 @@ s.CudaFun.redo_map {neutral_elem=0; redo=(+); mid=a2
 let fun5 =
     "fun5",[cuda_modules],"Does the redo function work?",
     """
-/// Initializes all the Cuda parts
-inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
+inb s = CudaModules (1024*1024)
 
 inl a1 = s.CudaFun.init {dim=2049} id
 
 s.CudaFun.redo {neutral_elem=0; redo=(+)} a1
 |> s.CudaTensor.print
+    """
+
+let fun6 =
+    "fun6",[cuda_modules],"Does the map_redo function work?",
+    """
+inb s = CudaModules (1024*1024)
+
+()
     """
 
 let tests =
