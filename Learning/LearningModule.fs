@@ -333,7 +333,7 @@ inl float ->
                     ) x (adjoints in)
         }
 
-    inl broadcast_activation {fwd bck={bck_in bck_in_inner} in_inner in} s =
+    inl broadcasting_activation {fwd bck={bck_in bck_in_inner} in_inner in} s =
         inl primal = primals in |> HostTensor.zip
         inl primal_inner = primals in_inner |> HostTensor.zip
         inl out = s.CudaFun.map_map {map=fwd; in_inner=primal_inner} primal |> dr s
@@ -370,11 +370,12 @@ inl float ->
                             | () -> ()
                             | z -> z .set (z .get + out * x)
                             ) x z
+            ()
         }
 
     inl Primitive =
         {
-        matmult map redo matmultb map_map
+        matmult activation error matmultb broadcasting_activation
         } |> stack
 
     // #Operations
@@ -386,10 +387,6 @@ inl float ->
     inl succ out _ = {out bck=()}
 
     // #Activation
-    inl activation d = map {d with bck = inl primal adjoint ->
-        Struct.map2 (inl bck adjoint -> adjoint.in + adjoint.out * (bck primal)) self adjoint
-        }
-
     inl sigmoid_fwd x = one / (one + exp -x)
     inl sigmoid_bck out = out * (one - out)
 
@@ -426,10 +423,13 @@ inl float ->
             } {a b}
 
     inl hadmultb (x1,x2) b =
-        activation {
-            fwd=inl {b x1 x2} -> b + x1 * x2
-            bck=inl {in={x1 x2}} -> { b = one; x1 = x2; x2 = x1 }
-            } {b x1 x2}
+        broadcasting_activation {
+            fwd=inl {in_inner=b in={x1 x2}} -> b + x1 * x2
+            bck_in=inl {in={x1 x2}} -> {x1 = x2; x2 = x1 }
+            bck_in_inner=inl _ -> one
+            in_inner=b
+            in={x1 x2}
+            }
 
     inl linear = succ
     inl Activation = {activation linear sigmoid tanh relu add hadmult hadmultb d2_replicate_activation } |> stack
@@ -524,7 +524,7 @@ inl float ->
             fwd = inl {x y} -> 
                 inl x = sigmoid_fwd x
                 -(y * log x + (one - y) * log (one - x))
-            bck = inl {in={x,y}} -> 
+            bck = inl {in={x y}} -> 
                 inl x = sigmoid_fwd x
                 { x = x - y; y = log (one - x) - log x }
             } {x y}
