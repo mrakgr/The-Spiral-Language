@@ -322,33 +322,71 @@ inl float ->
 
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
     /// just to set the adjoint to 1. The current library is intended for a narrow purpose.
-    inl redo {fwd bck} in s =
-        inl primal = primals in
+    inl error {fwd bck} in s =
+        inl primal = primals in |> HostTensor.zip
         inl out = s.CudaFun.redo fwd primal
-
-        inl adjoint, bck = choose_adjoints in bck
+        
         {
         out
         bck=inl _ -> join
-            inl out = to_dev_tensor out
-            inl bck {primal adjoint} = 
-                inl out = out.get
-                Struct.map2 (inl bck -> bck {primal={in=primal; out}) bck adjoint
-            s.CudaFun.map {out=adjoint; map=bck} {primal adjoint}
+            inl in = to_dev_tensor in // As none of the cost functions I've ran into use the `out`, I've removed it for the time being.
+            s.CudaKernel.iter {dim=primal.dim} <| inl i ->
+                inl in = Struct.map (inl x -> x i) in
+                inl x = bck {in=Struct.map (inl x -> x .get) (primals in)}
+                Struct.iter2 (inl x -> function
+                    | () -> ()
+                    | z -> z .set (z .get + x) // The adjoint is set to 0.
+                    ) x (adjoints in)
         }
 
-    inl map_map {fwd bck={bck_in bck_in_inner} in_inner} in s =
-        inl primal, adjoint = primals in, adjoints in
-        inl primal_inner, adjoint_inner = primals in_inner, adjoints in_inner
+    inl broadcast_activation {fwd bck={bck_in bck_in_inner} in_inner in} s =
+        inl primal = primals in |> HostTensor.zip
+        inl primal_inner = primals in_inner |> HostTensor.zip
         inl out = s.CudaFun.map_map {map=fwd; in_inner=primal_inner} primal |> dr s
 
         {
         out
         bck=inl _ -> join
-            inl ins = {primal={in=primal; out=out.primal}; adjoint={in=adjoint; out=out.adjoint}}
-            inl inners = {primal=primal_inner; adjoint=adjoint_inner}
-            s.CudaFun.redo_map {bck_in_inner with out=adjoint_inner; mid=adjoint_inner; in_inner=inners} ins
-            s.CudaFun.map_map {bck_in with out=adjoint; in_inner=inners.primal} ins
+            inl in_out = to_dev_tensor {in out}
+            inl p, a = to_dev_tensor (primals ins, adjoints ins)
+            inl f op = Struct.map (inl x -> x op)
+            inl _ =
+                inl a = {a without in}
+                s.CudaKernel.redo_map {
+                    dim=primal.dim
+                    neutral_elem=Struct.map (const zero) primal_inner.elem_type; redo=Struct.map2 (+)
+                    init=inl a ->
+                        inl 
+                        inl {primal={in out in_inner}} = ins
+                        inl {in out} = Struct.map (inl x b -> x a) {in out}
+                        inl in_inner = Struct.map (inl x -> x a .get) ins.in_inner
+                        inl b ->
+                            inl in, out = Struct.map (inl x -> x b .get) (in, out)
+                            Struct.map ((*) ins.adjoint.out) (map {in in_inner out})
+                    outit=inl a x ->
+                        inl {adjoint={in_inner}} = ins
+                        inl in_inner = Struct.map (inl x -> x a) in_inner
+                        Struct.iter2 (inl x -> function
+                            | () -> ()
+                            | z -> z .set (z .get + x)
+                            ) x in_inner
+                    }
+            inl _ =
+                inl in_inner = to_dev_tensor (primal in_inner)
+                inl ins = to_dev_tensor {primal={p without in_inner}; adjoint={a without in_inner}}
+                s.CudaKernel.iter2 {dim=primal.dim} <| inl i ->
+                    inl ins = Struct.map (inl x -> x i) ins
+                    inl i ->
+                        inl in_inner = in_inner i .get
+                        inl ins = Struct.map (inl x -> x i) ins
+                        inl x = 
+                            inl primal = Struct.map (inl x -> x.get) ins.primal
+                            bck {primal with in_inner}
+                        inl z, out = ins.adjoint.in, ins.adjoint.out
+                        Struct.iter2 (inl x -> function
+                            | () -> ()
+                            | z -> z .set (z .get + out * x)
+                            ) x z
         }
 
     inl Primitive =
