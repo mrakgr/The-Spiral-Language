@@ -316,7 +316,7 @@ inl float ->
 
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
     /// just to set the adjoint to 1. The current library is intended for a narrow purpose.
-    inl map_redo_map {fwd bck} in s =
+    inl redo {fwd bck} in s =
         inl primal = primals in
         inl out = s.CudaFun.redo fwd primal
 
@@ -325,25 +325,29 @@ inl float ->
         out
         bck=inl _ -> join
             inl out = to_dev_tensor out
-            inl bck {in adjoint} = Struct.map2 (inl bck -> bck (in, out.get)) bck adjoint
-            s.CudaFun.map {out=adjoint; map=bck} {in=primal; adjoint}
+            inl bck {primal adjoint} = 
+                inl out = out.get
+                Struct.map2 (inl bck -> bck {primal={in=primal; out}) bck adjoint
+            s.CudaFun.map {out=adjoint; map=bck} {primal adjoint}
         }
 
-    inl d2_replicate_map {fwd bck={bck_in bck_in'}} in in' s =
+    inl map_map {fwd bck={bck_in bck_in_inner} in_inner} in s =
         inl primal, adjoint = primals in, adjoints in
-        inl primal', adjoint' = primals in', adjoints in'
-        inl out = s.CudaFun.map_map {map=fwd; in_inner=primal} primal' |> dr s
-        { // TODO: This can't be right.
+        inl primal_inner, adjoint_inner = primals in_inner, adjoints in_inner
+        inl out = s.CudaFun.map_map {map=fwd; in_inner=primal_inner} primal |> dr s
+
+        {
         out
         bck=inl _ -> join
-            inl out = {out without block}
-            s.CudaFun.redo_map {bck_in with out=adjoint; mid=primal} (primal', out)
-            s.CudaFun.map_map {bck_in' with out=adjoint'; in_inner=primal} (primal', out)
+            s.CudaFun.redo_map {bck_in with out=adjoint_inner; mid={primal=primal_inner; adjoint=adjoint_inner}}  
+                {primal={in=primal; out=out.primal}; adjoint={in=adjoint; out=out_adjoint}} 
+            s.CudaFun.map_map {bck_in_inner with out=adjoint; in_inner={primal=primal_inner; adjoint=adjoint_inner}} 
+                {primal={in=primal; out=out.primal}; adjoint={in=adjoint; out=out_adjoint}} 
         }
 
     inl Primitive =
         {
-        matmult map map_redo_map matmultb d2_replicate_map
+        matmult map redo matmultb map_map
         } |> stack
 
     // #Operations
@@ -355,9 +359,7 @@ inl float ->
     inl succ out _ = {out bck=()}
 
     // #Activation
-    inl activation d = map {d with bck = inl primal adjoint ->
-        Struct.map2 (inl bck adjoint -> adjoint.in + adjoint.out * (bck primal)) self adjoint
-        }
+    inl activation d = map {d with bck = inl primal adjoint -> adjoint.in + adjoint.out * (bck primal)}
 
     inl sigmoid_fwd x = one / (one + exp -x)
     inl sigmoid_bck out = out * (one - out)
@@ -397,11 +399,13 @@ inl float ->
                 }
             } {a b}
 
-    inl d2_replicate_activation {fwd bck_in bck_in'} in =
+    inl map_map_activation {fwd bck_in bck_in_inner} in =
         inl neutral_elem = Struct.map (const zero) in
         inl bck = {
             bck_in={
-                map=inl (in', out) in -> Struct.map ((*) out.adjoint) (bck_in in in' out.primal)
+                map=inl {primal} -> 
+                    (bck_in primal{in=in.primal; in_inner=in_inner.primal})
+                    //Struct.map ((*) out.adjoint) (bck_in in in' out.primal)
                 neutral_elem redo=Struct.map2 (+)
                 map_out=Struct.map2 (+)
                 }
