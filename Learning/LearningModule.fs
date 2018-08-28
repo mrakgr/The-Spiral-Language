@@ -339,10 +339,10 @@ inl float ->
         {
         out
         bck=inl _ -> join
-            inl ins = {primal={in=primal; out=out.primal}; adjoint={in=adjoint; out=out_adjoint}}
+            inl ins = {primal={in=primal; out=out.primal}; adjoint={in=adjoint; out=out.adjoint}}
             inl inners = {primal=primal_inner; adjoint=adjoint_inner}
-            s.CudaFun.redo_map {bck_in with out=adjoint_inner; mid=inners; in_inner=inners} ins
-            s.CudaFun.map_map {bck_in_inner with out=adjoint; in_inner=inners} ins
+            s.CudaFun.redo_map {bck_in_inner with out=adjoint_inner; mid=adjoint_inner; in_inner=inners} ins
+            s.CudaFun.map_map {bck_in with out=adjoint; in_inner=inners.primal} ins
         }
 
     inl Primitive =
@@ -359,14 +359,16 @@ inl float ->
     inl succ out _ = {out bck=()}
 
     // #Activation
-    inl activation d = map {d with bck = inl primal adjoint -> adjoint.in + adjoint.out * (bck primal)}
+    inl activation d = map {d with bck = inl primal adjoint ->
+        Struct.map2 (inl bck adjoint -> adjoint.in + adjoint.out * (bck primal)) self adjoint
+        }
 
     inl sigmoid_fwd x = one / (one + exp -x)
     inl sigmoid_bck out = out * (one - out)
 
     inl sigmoid = activation {
         fwd = sigmoid_fwd
-        bck = inl _ -> sigmoid_bck
+        bck = inl {out} -> sigmoid_bck out
         }
 
     inl tanh_fwd = tanh
@@ -374,7 +376,7 @@ inl float ->
 
     inl tanh = activation {
         fwd = tanh_fwd
-        bck = inl _ -> tanh_bck
+        bck = inl {out} -> tanh_bck out
         }
 
     inl relu_fwd x = if x > zero then x else zero
@@ -382,44 +384,48 @@ inl float ->
 
     inl relu = activation {
         fwd = relu_fwd
-        bck = inl _ -> relu_bck
+        bck = inl {out} -> relu_bck out
         }
 
     inl add = activation {
         fwd = inl a,b -> a+b
-        bck = (inl _ _ -> one), (inl _ _ -> one)
+        bck = (inl _ -> one), (inl _ -> one)
         }
 
     inl hadmult (a,b) = 
         activation {
             fwd = inl {a b} -> a*b
             bck = {
-                a = inl {b} _ -> b
-                b = inl {a} _ -> a
+                a = inl {in={b}} -> b
+                b = inl {in={a}} -> a
                 }
             } {a b}
 
-    inl map_map_activation {fwd bck_in bck_in_inner} in =
+    inl broadcasting_activation {fwd bck_in bck_in_inner} in =
         inl neutral_elem = Struct.map (const zero) in
         inl bck = {
-            bck_in={
-                map=inl {primal} -> 
-                    (bck_in primal{in=in.primal; in_inner=in_inner.primal})
-                    //Struct.map ((*) out.adjoint) (bck_in in in' out.primal)
+            bck_in_inner={
+                map=inl {in in_inner} -> 
+                    inl primal = in.primal
+                    bck_in_inner {primal with in_inner}
+                    |> Struct.map ((*) in.adjoint.out)
                 neutral_elem redo=Struct.map2 (+)
-                map_out=Struct.map2 (+)
+                map_out=inl {mid out} -> Struct.map2 (+) mid out
                 }
-            bck_in'=inl in (in', out) -> Struct.map2 (inl x adjoint -> adjoint + out.adjoint*x) (bck_in' in in' out.primal)
+            bck_in=inl {in in_inner} -> 
+                inl primal = in.primal
+                bck_in {primal with in_inner}
+                |> Struct.map2 (inl {in out} x -> in + out*x) in.adjoint
             }
-        d2_replicate_map { fwd bck } in
+        map_map { fwd bck } in
 
     inl hadmultb (x1,x2) b =
         activation {
             fwd=inl {b x1 x2} -> b + x1 * x2
             bck={
-                b=inl _ _ -> one
-                x1=inl {x2} _ -> x2
-                x2=inl {x1} _ -> x1
+                b=inl _ -> one
+                x1=inl {in={x2}} -> x2
+                x2=inl {in={x1}} -> x1
                 }
             } {b x1 x2}
 
@@ -447,11 +453,6 @@ inl float ->
     inl Optimizer = {sgd clipped_sgd standard}
 
     // #Auxiliary
-    inl atomic_add o x =
-        inl (),{ar offset} = o.dim, o.bodies
-        inl adr = macro.cd ar [arg: ar; text: " + "; arg: offset]
-        macro.cd () [text: "atomicAdd"; args: adr, x]
-
     /// The softmax activation
     inl softmax temp input s =
         inl output = s.CudaTensor.create_like input
@@ -508,14 +509,14 @@ inl float ->
 
     //#Error
     inl error {fwd bck} label input s = 
-        map_redo_map {
+        redo {
             fwd = {
                 map = fwd
                 redo = (+)
                 neutral_elem = zero
                 }
             /// The adjoint in error is always assumed to be one.
-            bck = Struct.map (inl bck {in out adjoint} -> adjoint + (bck in out)) bck
+            bck = Struct.map (inl bck {in out adjoint} -> adjoint + bck {in out}) bck
             } (input, label) s
 
     inl square_bck (x,y) = two * (x - y)
@@ -524,8 +525,8 @@ inl float ->
     inl square = error {
         fwd = inl (x,y) -> (y - x) * (y - x)
         bck =
-            inl x _ -> square_bck x
-            ,inl x _ -> sqaure_bck' x
+            inl {in=x} -> square_bck x
+            ,inl {in=x} -> sqaure_bck' x
         }
 
     inl sigmoid_cross_entropy = error {
@@ -533,10 +534,10 @@ inl float ->
             inl x = sigmoid_fwd x
             -(y * log x + (one - y) * log (one - x))
         bck = 
-            inl (x, y) _ -> 
+            inl {in=x,y} -> 
                 inl x = sigmoid_fwd x
                 x - y
-            ,inl (x, y) _ -> 
+            ,inl {in=x,y} -> 
                 inl x = sigmoid_fwd x
                 log (one - x) - log x
         }

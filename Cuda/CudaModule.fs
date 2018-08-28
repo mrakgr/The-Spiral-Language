@@ -170,7 +170,12 @@ inl temporary tns ret =
     Struct.iter (inl {ar} -> ar.ptr.Dispose) tns.bodies
     x
 
-{ptr_cuda to_dev_tensor allocator_block_size temporary} |> stackify
+inl atomic_add o x =
+    inl (),{ar offset} = o.dim, o.bodies
+    inl adr = macro.cd ar [arg: ar; text: " + "; arg: offset]
+    macro.cd () [text: "atomicAdd"; args: adr, x]
+
+{ptr_cuda to_dev_tensor allocator_block_size temporary atomic_add} |> stackify
     """
     ) |> module_
 
