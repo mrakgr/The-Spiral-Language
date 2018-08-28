@@ -339,10 +339,10 @@ inl float ->
         {
         out
         bck=inl _ -> join
-            s.CudaFun.redo_map {bck_in with out=adjoint_inner; mid={primal=primal_inner; adjoint=adjoint_inner}}  
-                {primal={in=primal; out=out.primal}; adjoint={in=adjoint; out=out_adjoint}} 
-            s.CudaFun.map_map {bck_in_inner with out=adjoint; in_inner={primal=primal_inner; adjoint=adjoint_inner}} 
-                {primal={in=primal; out=out.primal}; adjoint={in=adjoint; out=out_adjoint}} 
+            inl ins = {primal={in=primal; out=out.primal}; adjoint={in=adjoint; out=out_adjoint}}
+            inl inners = {primal=primal_inner; adjoint=adjoint_inner}
+            s.CudaFun.redo_map {bck_in with out=adjoint_inner; mid=inners; in_inner=inners} ins
+            s.CudaFun.map_map {bck_in_inner with out=adjoint; in_inner=inners} ins
         }
 
     inl Primitive =
