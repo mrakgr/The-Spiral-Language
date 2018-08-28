@@ -296,19 +296,6 @@ inl float ->
 
     inl matmult l s = matmultb l () s
 
-    inl choose_adjoints in bck =
-        Struct.choose2 (function
-            | {primal adjoint} bck -> {adjoint bck block=()}
-            | _ _ -> ()) in bck
-        |> inl x -> Struct.map (inl x -> x.adjoint) x, Struct.map (inl x -> x.bck) x
-
-    inl Util =
-        inl pa f = function
-            | {primal adjoint} -> {primal=f primal; adjoint=f adjoint; block=()}
-            | x -> f x
-        inl map f = Struct.map (inl x -> pa f x)
-        {map}
-            
     inl activation {fwd bck} in s =
         inl primal = primals in |> HostTensor.zip
         inl out = s.CudaFun.map {map=fwd} primal |> dr s
@@ -318,7 +305,7 @@ inl float ->
         bck=inl _ -> join
             inl ins = to_dev_tensor {in out}
             s.CudaKernel.iter {dim=primal.dim} <| inl i ->
-                inl {in out} = Util.map (inl x -> x i) ins
+                inl {in out} = Struct.map' (inl x -> x i) ins
                 inl x = bck {in=Struct.map (inl x -> x .get) (primals in); out=primal out .get}
                 inl out = adjoint out .get
                 Struct.iter2 (inl x -> function
@@ -338,7 +325,7 @@ inl float ->
         bck=inl _ -> join
             inl in = to_dev_tensor in // As none of the cost functions I've ran into use the `out`, I've removed it for the time being.
             s.CudaKernel.iter {dim=primal.dim} <| inl i ->
-                inl in = Util.map (inl x -> x i) in
+                inl in = Struct.map' (inl x -> x i) in
                 inl x = bck {in=Struct.map (inl x -> x .get) (primals in)}
                 Struct.iter2 (inl x -> function
                     | () -> ()
@@ -356,33 +343,29 @@ inl float ->
         bck=inl _ -> join
             inl ins = to_dev_tensor {in in_inner out}
             inl _ =
-                inl ins = {ins with in=primal self}
+                inl ins = {ins with in=primals self}
                 s.CudaKernel.redo_map {
                     dim=primal.dim
                     neutral_elem=Struct.map (const zero) primal_inner.elem_type; redo=Struct.map2 (+)
                     init=inl a ->
-                        inl in_inner = Struct.map (inl x -> x a) (primal ins.in_inner)
+                        inl in_inner = Struct.map (inl x -> x a) (primals ins.in_inner)
                         inl b ->
-                            inl {in out} = Util.map (inl x -> x b a .get) {ins without in_inner}
+                            inl {in out} = Struct.map' (inl x -> x b a .get) {ins without in_inner}
                             Struct.map ((*) (adjoint out)) (bck_in_inner <| primals {in in_inner out})
                     outit=inl a x ->
                         Struct.iter2 (inl x -> function
                             | () -> ()
                             | z -> z .set (z .get + x)
-                            ) x (adjoint ins.in_inner |> Struct.map (inl x -> x a))
+                            ) x (Struct.map (inl x -> x a) (adjoints ins.in_inner))
                     }
             inl _ =
-                inl in_inner = to_dev_tensor (primal in_inner)
-                inl ins = to_dev_tensor {primal={p without in_inner}; adjoint={a without in_inner}}
+                inl ins = {ins with in_inner=primals self}
                 s.CudaKernel.iter2 {dim=primal.dim} <| inl i ->
-                    inl ins = Struct.map (inl x -> x i) ins
+                    inl {in out} = Struct.map' (inl x -> x i) {ins without in_inner}
                     inl i ->
-                        inl in_inner = in_inner i .get
-                        inl ins = Struct.map (inl x -> x i) ins
-                        inl x = 
-                            inl primal = Struct.map (inl x -> x.get) ins.primal
-                            bck {primal with in_inner}
-                        inl z, out = ins.adjoint.in, ins.adjoint.out
+                        inl ins = Struct.map' (inl x -> x i) {ins with in out}
+                        inl x = bck_in (Struct.map (inl x -> x .get) (primals ins))
+                        inl z, out = adjoints ins.in, adjoint ins.out
                         Struct.iter2 (inl x -> function
                             | () -> ()
                             | z -> z .set (z .get + out * x)
@@ -433,44 +416,19 @@ inl float ->
 
     inl add = activation {
         fwd = inl a,b -> a+b
-        bck = (inl _ -> one), (inl _ -> one)
+        bck = inl _ -> one, one
         }
 
     inl hadmult (a,b) = 
         activation {
             fwd = inl {a b} -> a*b
-            bck = {
-                a = inl {in={b}} -> b
-                b = inl {in={a}} -> a
-                }
+            bck = inl {in={a b}} -> { a = b; b = a }
             } {a b}
-
-    inl broadcasting_activation {fwd bck_in bck_in_inner} in =
-        inl neutral_elem = Struct.map (const zero) in
-        inl bck = {
-            bck_in_inner={
-                map=inl {in in_inner} -> 
-                    inl primal = in.primal
-                    bck_in_inner {primal with in_inner}
-                    |> Struct.map ((*) in.adjoint.out)
-                neutral_elem redo=Struct.map2 (+)
-                map_out=inl {mid out} -> Struct.map2 (+) mid out
-                }
-            bck_in=inl {in in_inner} -> 
-                inl primal = in.primal
-                bck_in {primal with in_inner}
-                |> Struct.map2 (inl {in out} x -> in + out*x) in.adjoint
-            }
-        map_map { fwd bck } in
 
     inl hadmultb (x1,x2) b =
         activation {
             fwd=inl {b x1 x2} -> b + x1 * x2
-            bck={
-                b=inl _ -> one
-                x1=inl {in={x2}} -> x2
-                x2=inl {in={x1}} -> x1
-                }
+            bck=inl {in={x1 x2}} -> { b = one; x1 = x2; x2 = x1 }
             } {b x1 x2}
 
     inl linear = succ
@@ -552,39 +510,21 @@ inl float ->
         output
 
     //#Error
-    inl error {fwd bck} label input s = 
-        redo {
-            fwd = {
-                map = fwd
-                redo = (+)
-                neutral_elem = zero
-                }
-            /// The adjoint in error is always assumed to be one.
-            bck = Struct.map (inl bck {in out adjoint} -> adjoint + bck {in out}) bck
-            } (input, label) s
+    inl square (x,y) = 
+        error {
+            fwd = inl {x y} -> (y - x) * (y - x)
+            bck = inl {in={x y}} -> {x = two * (x - y); y = -(two * (x - y))}
+            } {x y}
 
-    inl square_bck (x,y) = two * (x - y)
-    inl sqaure_bck' (x,y) = -(two * (x - y))
-
-    inl square = error {
-        fwd = inl (x,y) -> (y - x) * (y - x)
-        bck =
-            inl {in=x} -> square_bck x
-            ,inl {in=x} -> sqaure_bck' x
-        }
-
-    inl sigmoid_cross_entropy = error {
-        fwd = inl x,y -> 
-            inl x = sigmoid_fwd x
-            -(y * log x + (one - y) * log (one - x))
-        bck = 
-            inl {in=x,y} -> 
+    inl sigmoid_cross_entropy (x,y) = 
+        error {
+            fwd = inl {x y} -> 
                 inl x = sigmoid_fwd x
-                x - y
-            ,inl {in=x,y} -> 
+                -(y * log x + (one - y) * log (one - x))
+            bck = inl {in={x,y}} -> 
                 inl x = sigmoid_fwd x
-                log (one - x) - log x
-        }
+                { x = x - y; y = log (one - x) - log x }
+            } {x y}
 
     /// Applies a softmax and then calculates the cross entropy cost. Is intended to take the output of a linear layer as input.
     inl softmax_cross_entropy label input s =
