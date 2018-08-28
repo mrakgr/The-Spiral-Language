@@ -6,7 +6,7 @@ open System.IO
 open Spiral.Types
 open Cuda.Lib
 
-let cfg = {Spiral.Types.cfg_default with trace_length=40; cuda_assert_enabled=true}
+let cfg = {Spiral.Types.cfg_default with trace_length=40; cuda_assert_enabled=false}
 
 let learning1 =
     "learning1",[cuda_modules;learning;mnist;timer],"Does the training work with Mnist?",
@@ -34,12 +34,12 @@ inl label_size = 10
 
 inl network,_ =
     open Feedforward
-    //inl network =
-    //    relu 256,
-    //    linear label_size
     inl network =
-        prong {activation=Activation.relu; size=256},
-        prong {activation=Activation.linear; size=label_size}
+        relu 256,
+        linear label_size
+    //inl network =
+    //    prong {activation=Activation.relu; size=256},
+    //    prong {activation=Activation.linear; size=label_size}
 
     init s input_size network
 
@@ -88,7 +88,7 @@ inl test {data={input label} network final} s =
         }
     |> inl cost -> {cost with cost = self / to float64 (HostTensor.span range)}
 
-Loops.for' {from=0; near_to=5; body=inl {i next} -> 
+Loops.for' {from=0; near_to=20; body=inl {i next} -> 
     inl cost =
         //Timer.time_it (string_format "iteration {0}" i)
         //<| inl _ ->
