@@ -310,8 +310,8 @@ inl float ->
         {
         out
         bck=inl _ -> join
-            inl bck (in, out) = Struct.map2 (inl bck -> bck (in, out)) bck
-            on_non_nil (inl x -> s.CudaFun.map {map=bck; out=x} (primal, {out without block}) x) adjoint
+            inl bck {primal adjoint} = Struct.map2 (inl bck -> bck primal) bck adjoint
+            on_non_nil (inl adjoint -> s.CudaFun.map {map=bck; out=adjoint} {primal={in=primal; out=out.primal}; adjoint={out=out.adjoint; in=adjoint}}) adjoint
         }
 
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
@@ -355,8 +355,8 @@ inl float ->
     inl succ out _ = {out bck=()}
 
     // #Activation
-    inl activation d = map {d with bck = inl (in, out) adjoint ->
-        Struct.map2 (inl bck adjoint -> adjoint + out.adjoint * (bck in out.primal)) self adjoint
+    inl activation d = map {d with bck = inl primal adjoint ->
+        Struct.map2 (inl bck adjoint -> adjoint.in + adjoint.out * (bck primal)) self adjoint
         }
 
     inl sigmoid_fwd x = one / (one + exp -x)
