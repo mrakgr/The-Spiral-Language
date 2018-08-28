@@ -454,6 +454,13 @@ inl float ->
 
     inl Optimizer = {sgd clipped_sgd standard}
 
+    inl softmax_body temp k input =
+        inl x = k.block.map (inl x -> x / temp) (k.block.load input)
+        inl max_x = k.block.uter max x
+        inl z = k.block.map (inl x -> exp (x - max_x)) x
+        inl sum_z = k.block.uter (+) z
+        k.block.map (inl z -> z / sum_z) z
+
     // #Auxiliary
     /// The softmax activation
     inl softmax temp input s =
@@ -463,12 +470,8 @@ inl float ->
             dim=input.dim
             init=inl b k ->
                 inl input,output = Tuple.map (inl x -> x b) ins
-                inl x = k.block.load input |> k.block.map (inl x -> x / temp)
-                inl max_x = k.block.uter max x
-                inl z = k.block.map (inl x -> exp (x - max_x)) x
-                inl sum_z = k.block.uter (+) z
                 k.block.store {
-                    from=k.block.map (inl z -> z / sum_z) z
+                    from=softmax_body temp k input
                     to=output
                     }
             }
@@ -535,16 +538,12 @@ inl float ->
         inl cost = 
             inl cost = s.CudaTensor.create {elem_type=float; dim=primal input .dim |> fst}
             inl _ =
-                inl input, label, cost as ins = Tuple.map (primal >> to_dev_tensor) (input, label, cost)
+                inl input, label, cost as ins = to_dev_tensor (primals (input, label, cost))
                 s.CudaKernel.init_seq {
                     dim=input.dim
                     init=inl b k ->
                         inl input,label,to = Tuple.map (inl x -> x b) ins
-                        inl x = k.block.load input |> k.block.map (inl x -> x / temp)
-                        inl max_x = k.block.uter max x
-                        inl z = k.block.map (inl x -> exp (x - max_x)) x
-                        inl sum_z = k.block.uter (+) z
-                        inl prob = k.block.map (inl z -> z / sum_z) z
+                        inl prob = softmax_body temp k input
                         inl label = k.block.load label
                         inl costs = k.block.map (inl {prob label} -> -label * log prob) {prob label}
                         k.block.store_scalar { to from = k.block.redo (+) costs }
@@ -555,24 +554,20 @@ inl float ->
                 } cost
 
         inl bck _ = join
-            inl input, label as ins = to_dev_tensor (input, label)
+            inl ins = to_dev_tensor (input, label)
             s.CudaKernel.init_seq {
                 dim=primal input .dim
                 init=inl b k ->
-                    inl p,a = Struct.map (inl x -> x b) ({input=primal input; label=primal label}, {input=adjoint input; label=adjoint label})
-                    inl x = k.block.load p.input |> k.block.map (inl x -> x / temp)
-                    inl max_x = k.block.uter max x
-                    inl z = k.block.map (inl x -> exp (x - max_x)) x
-                    inl sum_z = k.block.uter (+) z
-                    inl prob = k.block.map (inl z -> z / sum_z) z
-                    inl label = k.block.load p.label
+                    inl input, label = Struct.map' (inl x -> x b) ins
+                    inl prob = softmax_body temp k (primal input)
+                    inl label = k.block.load (primal label)
                     inl ret {map in} = 
                         on_non_nil <| inl to ->
                             k.block.store {
                                 to from=k.block.map {map=inl {in out} -> out + map in} {in out=k.block.load to}
                                 }
-                    ret {in={prob label} map=inl {prob label} -> (prob - label) / temp} a.input
-                    ret {in=prob; map=inl prob -> -(log prob)} a.label
+                    ret {in={prob label} map=inl {prob label} -> (prob - label) / temp} (adjoint input)
+                    ret {in=prob; map=inl prob -> -(log prob)} (adjoint label)
                 }
         {out=cost; bck}
 
@@ -593,7 +588,7 @@ inl float ->
     // #Initializer
     inl Initializer x dim = {$x=dim; block=()}
     inl rec initialize s x =
-        inl init mult dim s = 
+        inl init mult dim s =
             inl stddev = sqrt (mult / to float32 (Tuple.foldl (+) 0 dim))
             s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=float}
 
@@ -936,7 +931,7 @@ inl float ->
                         CudaAux.to_dev_tensor reward
 
                 inl x_a, p, out = to_dev_tensor (adjoint x, p, out)
-                s.CudaKernel.iter {dim=dim_a, dim_b} <| inl j ->
+                s.CudaKernel.iter2 {dim=dim_a, dim_b} <| inl j ->
                     inl x_a, p, out, reward = x_a j, p j, out j .get, reward j 0 .get
 
                     inl i ->
