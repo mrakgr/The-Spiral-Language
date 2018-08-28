@@ -301,6 +301,13 @@ inl float ->
             | {primal adjoint} bck -> {adjoint bck block=()}
             | _ _ -> ()) in bck
         |> inl x -> Struct.map (inl x -> x.adjoint) x, Struct.map (inl x -> x.bck) x
+
+    inl Util =
+        inl pa f = function
+            | {primal adjoint} -> {primal=f primal; adjoint=f adjoint; block=()}
+            | x -> f x
+        inl map f = Struct.map (inl x -> pa f x)
+        {map}
             
     inl activation {fwd bck} in s =
         inl primal = primals in |> HostTensor.zip
@@ -309,9 +316,9 @@ inl float ->
         {
         out
         bck=inl _ -> join
-            inl ins = to_dev_tensor (in,out)
+            inl ins = to_dev_tensor {in out}
             s.CudaKernel.iter {dim=primal.dim} <| inl i ->
-                inl in, out = Struct.map (inl x -> x i) ins
+                inl {in out} = Util.map (inl x -> x i) ins
                 inl x = bck {in=Struct.map (inl x -> x .get) (primals in); out=primal out .get}
                 inl out = adjoint out .get
                 Struct.iter2 (inl x -> function
@@ -331,7 +338,7 @@ inl float ->
         bck=inl _ -> join
             inl in = to_dev_tensor in // As none of the cost functions I've ran into use the `out`, I've removed it for the time being.
             s.CudaKernel.iter {dim=primal.dim} <| inl i ->
-                inl in = Struct.map (inl x -> x i) in
+                inl in = Util.map (inl x -> x i) in
                 inl x = bck {in=Struct.map (inl x -> x .get) (primals in)}
                 Struct.iter2 (inl x -> function
                     | () -> ()
@@ -347,28 +354,22 @@ inl float ->
         {
         out
         bck=inl _ -> join
-            inl ins = {in in_inner out}
-            inl p, a = primals ins, adjoints ins
-            inl ins = to_dev_tensor 
+            inl ins = to_dev_tensor {in in_inner out}
             inl _ =
-                inl {in out} = in_out
-                inl in = {in without adjoint}
-                inl in_out = {in out}
+                inl ins = {ins with in=primal self}
                 s.CudaKernel.redo_map {
                     dim=primal.dim
                     neutral_elem=Struct.map (const zero) primal_inner.elem_type; redo=Struct.map2 (+)
                     init=inl a ->
-                        inl in_inner = Struct.map (inl x -> x a) in_inner
+                        inl in_inner = Struct.map (inl x -> x a) (primal ins.in_inner)
                         inl b ->
-                            inl {in out} = Struct.map (inl x -> x b a .get) in_out
-                            Struct.map ((*) (adjoint out)) (map {in=primal in; in_inner=primal out})
+                            inl {in out} = Util.map (inl x -> x b a .get) {ins without in_inner}
+                            Struct.map ((*) (adjoint out)) (bck_in_inner <| primals {in in_inner out})
                     outit=inl a x ->
-                        inl {adjoint={in_inner}} = ins
-                        inl in_inner = Struct.map (inl x -> x a) in_inner
                         Struct.iter2 (inl x -> function
                             | () -> ()
                             | z -> z .set (z .get + x)
-                            ) x in_inner
+                            ) x (adjoint ins.in_inner |> Struct.map (inl x -> x a))
                     }
             inl _ =
                 inl in_inner = to_dev_tensor (primal in_inner)

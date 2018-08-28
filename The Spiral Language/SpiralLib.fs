@@ -1061,6 +1061,15 @@ let struct' =
     """
 // The functions in this module are intended for iterating over generic types.
 // The modules always iterate over the first argument to them.
+inl map' f x = 
+    inl rec loop = function
+        | x when caseable_box_is x -> f x
+        | x :: xs -> loop x :: loop xs
+        | () -> ()
+        | {} & x -> module_map (inl _ -> loop) x
+        | x -> f x
+    loop x
+
 inl map f x = 
     inl rec loop = function
         | x when caseable_box_is x -> f x
@@ -1070,6 +1079,15 @@ inl map f x =
         | x -> f x
     loop x
 
+inl map2' f a b = 
+    inl rec loop = function
+        | x, y when caseable_box_is x || caseable_box_is y -> f x y
+        | x :: xs, y :: ys -> loop (x,y) :: loop (xs,ys)
+        | (), () -> ()
+        | {} & x, {} & y -> module_map (inl k x -> loop (x,y k)) x
+        | x, y -> f x y
+    loop (a,b)
+
 inl map2 f a b = 
     inl rec loop = function
         | x, y when caseable_box_is x || caseable_box_is y -> f x y
@@ -1078,6 +1096,15 @@ inl map2 f a b =
         | {!block} & x, {!block} & y -> module_map (inl k x -> loop (x,y k)) x
         | x, y -> f x y
     loop (a,b)
+
+inl map3' f a b c = 
+    inl rec loop = function
+        | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z
+        | x :: xs, y :: ys, z :: zs -> loop (x,y,z) :: loop (xs,ys,zs)
+        | (), (), () -> ()
+        | {} & x, {} & y, {} & z -> module_map (inl k x -> loop (x,y k,z k)) x
+        | x, y, z -> f x y z
+    loop (a,b,c)
 
 inl map3 f a b c = 
     inl rec loop = function
@@ -1300,8 +1327,8 @@ inl foldr3_map f a b c s =
     loop s (a,b,c)
 
 {
-map map2 map3 iter iter2 iter3 foldl foldl2 foldl3 choose choose2 choose3 foldl_map foldl2_map foldl3_map
-foldr foldr2 foldr3 foldr_map foldr2_map foldr3_map
+map' map map2' map2 map3' map3 iter iter2 iter3 foldl foldl2 foldl3 choose choose2 choose3 
+foldl_map foldl2_map foldl3_map foldr foldr2 foldr3 foldr_map foldr2_map foldr3_map
 } |> stackify
     """) |> module_
 

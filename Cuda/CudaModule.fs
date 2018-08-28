@@ -152,17 +152,12 @@ let cuda_aux =
     "CudaAux",[struct'],"The Cuda auxiliaries module.",
     """
 inl ptr_cuda {ar offset} ret = ar.ptr() + to uint64 (offset * sizeof ar.elem_type) |> ret
-inl rec to_dev_tensor x = 
-    Struct.map (function
-        | {block} as x -> 
-            inl x = to_dev_tensor {x without block}
-            {x with block}
-        | x ->
-            x.update_body (inl body -> 
-                inb ptr = ptr_cuda body
-                {body with ar=!UnsafeCoerceToArrayCudaGlobal(ptr,body.ar.elem_type); offset=0}
-                )
-        ) x
+inl to_dev_tensor = 
+    Struct.map' <| inl x ->
+        x.update_body <| inl body -> 
+            inb ptr = ptr_cuda body
+            {body with ar=!UnsafeCoerceToArrayCudaGlobal(ptr,body.ar.elem_type); offset=0}
+        
 inl allocator_block_size = 256u64
 
 inl temporary tns ret =
