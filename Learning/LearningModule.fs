@@ -303,15 +303,21 @@ inl float ->
         |> inl x -> Struct.map (inl x -> x.adjoint) x, Struct.map (inl x -> x.bck) x
             
     inl map {fwd bck} in s =
-        inl primal = primals in
+        inl primal = primals in |> HostTensor.zip
         inl out = s.CudaFun.map {map=fwd} primal |> dr s
 
-        inl adjoint, bck = choose_adjoints in bck
         {
         out
         bck=inl _ -> join
-            inl bck {primal adjoint} = Struct.map2 (inl bck -> bck primal) bck adjoint
-            on_non_nil (inl adjoint -> s.CudaFun.map {map=bck; out=adjoint} {primal={in=primal; out=out.primal}; adjoint={out=out.adjoint; in=adjoint}}) adjoint
+            inl ins = to_dev_tensor (in,out)
+            s.CudaKernel.iter {dim=primal.dim} <| inl i ->
+                inl in, out = Struct.map (inl x -> x i) ins
+                inl x = bck {in=Struct.map (inl x -> x .get) (primals in); out=primal out .get}
+                inl out = adjoint out .get
+                Struct.iter2 (inl x -> function
+                    | () -> ()
+                    | z -> z .set (z .get + out * x)
+                    ) x (adjoints in)
         }
 
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
