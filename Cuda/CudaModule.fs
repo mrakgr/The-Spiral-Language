@@ -156,7 +156,7 @@ inl rec to_dev_tensor x =
     Struct.map (function
         | {block} as x -> 
             inl x = to_dev_tensor {x without block}
-            x //{x with block}
+            {x with block}
         | x ->
             x.update_body (inl body -> 
                 inb ptr = ptr_cuda body

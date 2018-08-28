@@ -347,22 +347,21 @@ inl float ->
         {
         out
         bck=inl _ -> join
-            inl in_out = to_dev_tensor {in out}
-            inl p, a = to_dev_tensor (primals ins, adjoints ins)
-            inl f op = Struct.map (inl x -> x op)
+            inl ins = {in in_inner out}
+            inl p, a = primals ins, adjoints ins
+            inl ins = to_dev_tensor 
             inl _ =
-                inl a = {a without in}
+                inl {in out} = in_out
+                inl in = {in without adjoint}
+                inl in_out = {in out}
                 s.CudaKernel.redo_map {
                     dim=primal.dim
                     neutral_elem=Struct.map (const zero) primal_inner.elem_type; redo=Struct.map2 (+)
                     init=inl a ->
-                        inl 
-                        inl {primal={in out in_inner}} = ins
-                        inl {in out} = Struct.map (inl x b -> x a) {in out}
-                        inl in_inner = Struct.map (inl x -> x a .get) ins.in_inner
+                        inl in_inner = Struct.map (inl x -> x a) in_inner
                         inl b ->
-                            inl in, out = Struct.map (inl x -> x b .get) (in, out)
-                            Struct.map ((*) ins.adjoint.out) (map {in in_inner out})
+                            inl {in out} = Struct.map (inl x -> x b a .get) in_out
+                            Struct.map ((*) (adjoint out)) (map {in=primal in; in_inner=primal out})
                     outit=inl a x ->
                         inl {adjoint={in_inner}} = ins
                         inl in_inner = Struct.map (inl x -> x a) in_inner
