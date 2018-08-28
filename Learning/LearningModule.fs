@@ -302,7 +302,7 @@ inl float ->
             | _ _ -> ()) in bck
         |> inl x -> Struct.map (inl x -> x.adjoint) x, Struct.map (inl x -> x.bck) x
             
-    inl map {fwd bck} in s =
+    inl activation {fwd bck} in s =
         inl primal = primals in |> HostTensor.zip
         inl out = s.CudaFun.map {map=fwd} primal |> dr s
 
