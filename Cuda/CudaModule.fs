@@ -884,7 +884,7 @@ inl s ret ->
     inl trinv s uplo A =
         indiv join
             inl float = A.elem_type
-            inl B = s.CudaKernel.init {dim=A.dim} (inl a, b -> if a = b then to float 1 else to float 0)
+            inl B = s.CudaFun.init {dim=A.dim} (inl a, b -> if a = b then to float 1 else to float 0)
             trsm' s .Left uplo .nT .NonUnit (to float 1) A B
             stack B
 
@@ -1526,7 +1526,7 @@ met redo w {redo neutral_elem dim init outit} =
     inl gridDim = min 128 (divup l blockDim)
 
     if gridDim = 1 then
-        run {map_out map_in blockDim gridDim init outit}
+        run {dim blockDim gridDim init outit}
     else
         inb temp = w.CudaTensor.create {elem_type=neutral_elem; dim=gridDim} |> temporary
         inl temp = to_dev_tensor temp

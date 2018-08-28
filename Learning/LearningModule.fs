@@ -256,7 +256,7 @@ inl float ->
 
     inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
 
-    inl fwd_add_bias C bias s = s.CudaFun.map_map (out=C; in_inner=bias; map_out=map=inl {in in_inner} -> in+in_inner) C
+    inl fwd_add_bias C bias s = s.CudaFun.map_map {out=C; in_inner=bias; map=inl {in in_inner} -> in+in_inner} C
     inl bck_add_bias C bias s = 
         s.CudaFun.redo_map {out=bias; mid=bias; neutral_elem=zero; redo=(+);
             map=inl {in} -> in
@@ -297,14 +297,15 @@ inl float ->
     inl matmult l s = matmultb l () s
 
     inl activation {fwd bck} in s =
-        inl primal = primals in |> HostTensor.zip
-        inl out = s.CudaFun.map {map=fwd} primal |> dr s
+        inl x = primals in |> HostTensor.zip
+        inl dim = x.dim
+        inl out = s.CudaFun.map {map=fwd} x |> dr s
 
         {
         out
         bck=inl _ -> join
             inl ins = to_dev_tensor {in out}
-            s.CudaKernel.iter {dim=primal.dim} <| inl i ->
+            s.CudaKernel.iter {dim} <| inl i ->
                 inl {in out} = Struct.map' (inl x -> x i) ins
                 inl x = bck {in=Struct.map (inl x -> x .get) (primals in); out=primal out .get}
                 inl out = adjoint out .get
@@ -317,14 +318,15 @@ inl float ->
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
     /// just to set the adjoint to 1. The current library is intended for a narrow purpose.
     inl error {fwd bck} in s =
-        inl primal = primals in |> HostTensor.zip
-        inl out = s.CudaFun.redo fwd primal
+        inl x = primals in |> HostTensor.zip
+        inl dim = x.dim
+        inl out = s.CudaFun.redo fwd x 0
         
         {
         out
         bck=inl _ -> join
             inl in = to_dev_tensor in // As none of the cost functions I've ran into use the `out`, I've removed it for the time being.
-            s.CudaKernel.iter {dim=primal.dim} <| inl i ->
+            s.CudaKernel.iter {dim} <| inl i ->
                 inl in = Struct.map' (inl x -> x i) in
                 inl x = bck {in=Struct.map (inl x -> x .get) (primals in)}
                 Struct.iter2 (inl x -> function
@@ -334,9 +336,10 @@ inl float ->
         }
 
     inl broadcasting_activation {fwd bck={bck_in bck_in_inner} in_inner in} s =
-        inl primal = primals in |> HostTensor.zip
-        inl primal_inner = primals in_inner |> HostTensor.zip
-        inl out = s.CudaFun.map_map {map=fwd; in_inner=primal_inner} primal |> dr s
+        inl x = primals in |> HostTensor.zip
+        inl dim = x.dim
+        inl x_inner = primals in_inner |> HostTensor.zip
+        inl out = s.CudaFun.map_map {map=fwd; in_inner=x_inner} x |> dr s
 
         {
         out
@@ -345,7 +348,7 @@ inl float ->
             inl _ =
                 inl ins = {ins with in=primals self}
                 s.CudaKernel.redo_map {
-                    dim=primal.dim
+                    dim
                     neutral_elem=Struct.map (const zero) primal_inner.elem_type; redo=Struct.map2 (+)
                     init=inl a ->
                         inl in_inner = Struct.map (inl x -> x a) (primals ins.in_inner)
@@ -360,7 +363,7 @@ inl float ->
                     }
             inl _ =
                 inl ins = {ins with in_inner=primals self}
-                s.CudaKernel.iter2 {dim=primal.dim} <| inl i ->
+                s.CudaKernel.iter2 {dim} <| inl i ->
                     inl {in out} = Struct.map' (inl x -> x i) {ins without in_inner}
                     inl i ->
                         inl ins = Struct.map' (inl x -> x i) {ins with in out}
@@ -432,7 +435,7 @@ inl float ->
             }
 
     inl linear = succ
-    inl Activation = {activation linear sigmoid tanh relu add hadmult hadmultb d2_replicate_activation } |> stack
+    inl Activation = {linear sigmoid tanh relu add hadmult hadmultb } |> stack
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
@@ -548,10 +551,10 @@ inl float ->
                         inl costs = k.block.map (inl {prob label} -> -label * log prob) {prob label}
                         k.block.store_scalar { to from = k.block.redo (+) costs }
                     }
-            s.CudaKernel.redo {
+            s.CudaFun.redo {
                 redo = (+)
                 neutral_elem = zero
-                } cost
+                } cost 0
 
         inl bck _ = join
             inl ins = to_dev_tensor (input, label)
@@ -564,24 +567,25 @@ inl float ->
                     inl ret {map in} = 
                         on_non_nil <| inl to ->
                             k.block.store {
-                                to from=k.block.map {map=inl {in out} -> out + map in} {in out=k.block.load to}
+                                to from=k.block.map (inl {in out} -> out + map in) {in out=k.block.load to}
                                 }
-                    ret {in={prob label} map=inl {prob label} -> (prob - label) / temp} (adjoint input)
+                    ret {in={prob label}; map=inl {prob label} -> (prob - label) / temp} (adjoint input)
                     ret {in=prob; map=inl prob -> -(log prob)} (adjoint label)
                 }
         {out=cost; bck}
 
     inl accuracy label input s =
         inl input, label = primal input, primal label
-        s.CudaFun.init_redo {
+        s.CudaFun.map_redo {
             map=inl {in} -> in
             neutral_elem=-infinity,zero
             redo=inl a b -> if fst a > fst b then a else b
-            map_out=snd >> to int64
+            map_out=inl {out=_,x} -> to int64 x
             } (input,label)
         |> s.CudaFun.redo {
             neutral_elem=0; redo=(+)
             }
+        |> inl x -> x 0
 
     inl Error = {square sigmoid_cross_entropy softmax_cross_entropy accuracy} |> stackify
 
@@ -598,9 +602,9 @@ inl float ->
             | {relu=dim} -> init 1f32 dim s |> dr s
             | {bias=dim} -> s.CudaTensor.zero {elem_type=float; dim} |> dr s
             | {zero=dim} -> s.CudaTensor.zero {elem_type=float; dim}
-            | {identity=dim} -> s.CudaKernel.init {dim} (inl a, b -> if a = b then one else zero)
+            | {identity=dim} -> s.CudaFun.init {dim} (inl a, b -> if a = b then one else zero)
             | {reference=x} -> ref x
-            | {constant={dim init}} -> s.CudaKernel.init {dim} (const init) |> dr s
+            | {constant={dim init}} -> s.CudaFun.init {dim} (const init) |> dr s
             | {prong={d with sublayer_size size}} -> 
                 // 2 ** -3 is a sensible default.
                 // There is a relation between the epsilon parameter and the learning rate.
