@@ -38,7 +38,7 @@ inl network,_ =
     //    relu 256,
     //    linear label_size
     inl network =
-        prong {activation=Activation.relu; size=256},
+        prong {activation=Activation.tanh; size=256},
         prong {activation=Activation.linear; size=label_size}
 
     init s input_size network

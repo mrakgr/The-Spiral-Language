@@ -684,7 +684,7 @@ inl float ->
         inl beta = one - alpha
         s.CudaFun.redo_map {neutral_elem=zero; redo=(+); mid=center; out=center;
             map=inl {in} -> in
-            map_out=inl {mid out} -> alpha * mid + beta * out
+            map_out=inl {mid out} -> alpha * mid + beta / to float k * out 
             } x
 
     /// Updates the state state matrix such that A(t+1) = alpha * A(t) + beta / k * a^T * b + epsilon * I
@@ -717,7 +717,7 @@ inl float ->
                 | {front={center}} -> // Input centering using just the biases.
                     inl f x = x.reshape (inl a -> 1,a)
                     inl x = s.CudaBlas.gemm .nT .T one (f center) x_precise_primal
-                    s.CudaFun.map {out=x; map=inl x -> one } x
+                    s.CudaFun.map {out=x; map=inl x -> one - x} x
                     s.CudaBlas.gemm' .nT .nT one x z_precise_adjoint one (f (adjoint bias))
                 | _ -> bck_add_bias z_precise_adjoint (adjoint bias) s
 
