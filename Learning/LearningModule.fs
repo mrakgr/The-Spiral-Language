@@ -682,7 +682,7 @@ inl float ->
         inl k = x.span_outer
         inl alpha = Math.pow (one - learning_rate) k
         inl beta = one - alpha
-        s.CudaFun.map_redo {neutral_elem=0; redo=(+); mid=center; out=center;
+        s.CudaFun.redo_map {neutral_elem=zero; redo=(+); mid=center; out=center;
             map=inl {in} -> in
             map_out=inl {mid out} -> alpha * mid + beta * out
             } x
@@ -715,9 +715,10 @@ inl float ->
                 on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
                 match prong with
                 | {front={center}} -> // Input centering using just the biases.
-                    inl x = s.CudaBlas.gemm .nT .T one center x_precise_primal
-                    s.CudaFun.map {out=x; map=inl x -> 1 - x} x
-                    s.CudaBlas.gemm' .nT .nT x z_precise_adjoint one (adjoint bias)
+                    inl f x = x.reshape (inl a -> 1,a)
+                    inl x = s.CudaBlas.gemm .nT .T one (f center) x_precise_primal
+                    s.CudaFun.map {out=x; map=inl x -> one - x} x
+                    s.CudaBlas.gemm' .nT .nT one x z_precise_adjoint one (f (adjoint bias))
                 | _ -> bck_add_bias z_precise_adjoint (adjoint bias) s
 
             match d with

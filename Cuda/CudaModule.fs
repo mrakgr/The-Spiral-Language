@@ -1173,7 +1173,7 @@ inl s ret ->
 
     inl matinv_batched_asserted s A = 
         matinv_batched s A (inl Ainv, info ->
-            inl r = s.CudaKernel.map_redo_map {redo=max; neutral_elem=0i32} info
+            inl r = s.CudaKernel.redo {redo=max; neutral_elem=0i32} info
             assert (s.CudaTensor.get r = 0i32) "The matrix inversion failed."
             Ainv
             )
