@@ -278,9 +278,9 @@ inl float ->
                 | () -> s.CudaBlas.gemm TA TB one (primal A) (primal B) |> dr s
                 | C -> s.CudaBlas.gemm' TA TB one (primal A) (primal B) one (primal C); C
                 ) () l
-        match bias with
-        | () -> ()
-        | _ -> fwd_add_bias (primal C) (primal bias) s
+        //match bias with
+        //| () -> ()
+        //| _ -> fwd_add_bias (primal C) (primal bias) s
         {
         out=C
         bck=inl _ -> join
@@ -291,7 +291,8 @@ inl float ->
                     on_non_nil (inl A -> s.CudaBlas.gemm' .nT TB one C' (primal B) one A) (adjoint A)
                     on_non_nil (inl B -> s.CudaBlas.gemm' TA .nT one (primal A) C' one B) (adjoint B)
                     ) l
-            on_non_nil (inl bias -> bck_add_bias C' bias s) (adjoint bias)
+            //on_non_nil (inl bias -> bck_add_bias C' bias s) (adjoint bias)
+            ()
         }
 
     inl matmult l s = matmultb l () s
