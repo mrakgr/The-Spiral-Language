@@ -291,8 +291,7 @@ inl float ->
                     on_non_nil (inl A -> s.CudaBlas.gemm' .nT TB one C' (primal B) one A) (adjoint A)
                     on_non_nil (inl B -> s.CudaBlas.gemm' TA .nT one (primal A) C' one B) (adjoint B)
                     ) l
-            //on_non_nil (inl bias -> bck_add_bias C' bias s) (adjoint bias)
-            ()
+            on_non_nil (inl bias -> bck_add_bias C' bias s) (adjoint bias)
         }
 
     inl matmult l s = matmultb l () s
@@ -601,9 +600,7 @@ inl float ->
             | {sigmoid=dim} -> init 2f32 dim s |> dr s
             | {tanh=dim} -> init 3f32 dim s |> dr s
             | {relu=dim} -> init 1f32 dim s |> dr s
-            | {bias=dim} -> 
-                s.CudaFun.init {dim} (const <| 0.01f32) |> dr s
-                //s.CudaTensor.zero {elem_type=float; dim} |> dr s
+            | {bias=dim} -> s.CudaTensor.zero {elem_type=float; dim} |> dr s
             | {zero=dim} -> s.CudaTensor.zero {elem_type=float; dim}
             | {identity=dim} -> s.CudaFun.init {dim} (inl a, b -> if a = b then one else zero)
             | {reference=x} -> ref x
