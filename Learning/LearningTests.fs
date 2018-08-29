@@ -88,7 +88,7 @@ inl test {data={input label} network final} s =
         }
     |> inl cost -> {cost with cost = self / to float64 (HostTensor.span range)}
 
-Loops.for' {from=0; near_to=20; body=inl {i next} -> 
+Loops.for' {from=0; near_to=5; body=inl {i next} -> 
     inl cost =
         //Timer.time_it (string_format "iteration {0}" i)
         //<| inl _ ->

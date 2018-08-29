@@ -320,7 +320,7 @@ inl float ->
     inl error {fwd bck} in s =
         inl x = primals in |> HostTensor.zip
         inl dim = x.dim
-        inl out = s.CudaFun.redo fwd x 0
+        inl out = s.CudaFun.redo {redo=(+); neutral_elem=zero; map=fwd} x 0
         
         {
         out
@@ -516,13 +516,13 @@ inl float ->
         output
 
     //#Error
-    inl square (x,y) = 
+    inl square y x = 
         error {
             fwd = inl {x y} -> (y - x) * (y - x)
             bck = inl {in={x y}} -> {x = two * (x - y); y = -(two * (x - y))}
             } {x y}
 
-    inl sigmoid_cross_entropy (x,y) = 
+    inl sigmoid_cross_entropy y x = 
         error {
             fwd = inl {x y} -> 
                 inl x = sigmoid_fwd x
