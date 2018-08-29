@@ -486,6 +486,7 @@ inl float ->
         output
                 
     inl sample_body prob s =
+        s.CudaTensor.print prob
         inl b, a as dim = prob.dim
         inl boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=b}
         inl output = s.CudaTensor.create {elem_type=int64; dim=boundary.dim}
@@ -518,6 +519,7 @@ inl float ->
                             } .redo |> snd
                     }
             }
+        s.CudaTensor.print output
         output
 
     //#Error
