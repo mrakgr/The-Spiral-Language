@@ -730,7 +730,7 @@ inl float ->
                 match prong with
                 | {front={covariance precision epsilon center}} ret -> 
                     inl x = primal x
-                    update_center {learning_rate} s center x
+                    //update_center {learning_rate} s center x
                     inb x = s.CudaFun.map_map {in_inner=center; map=inl {in in_inner} -> in-in_inner} x |> CudaAux.temporary
                     match config with
                     | {front_mode=.prong} ->
