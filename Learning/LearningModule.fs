@@ -512,7 +512,7 @@ inl float ->
                                     (if x < 0f32 then infinityf32 else x), a
 
                                 inl redo =
-                                    inl redo a b = if fst a <= fst b then a else b
+                                    inl redo a b = if fst a < fst b then a else b
                                     k.thread.redo {num_valid redo} (distance_from_boundary, a) |> redo state.redo
 
                                 {scan redo}
