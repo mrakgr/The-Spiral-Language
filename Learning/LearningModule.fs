@@ -494,7 +494,7 @@ inl float ->
                 inl boundary = boundary.get
                 k.block.store_scalar {to
                     from=
-                        k.grid.for_items .x inner_size {
+                        k.grid.for_items .x a {
                             state=dyn {scan=0f32; redo=infinityf32,0}
                             body=inl {state i=a num_valid} ->
                                 inl prob = prob a .get
@@ -728,11 +728,11 @@ inl float ->
 
             inb x_centered =
                 match prong with
-                | {front={center}} ret -> 
-                    inl x = primal x
-                    update_center {learning_rate} s center x
-                    inb x = s.CudaFun.map_map {in_inner=center; map=inl {in in_inner} -> in-in_inner} x |> CudaAux.temporary
-                    ret x
+                //| {front={center}} ret -> 
+                //    inl x = primal x
+                //    update_center {learning_rate} s center x
+                //    inb x = s.CudaFun.map_map {in_inner=center; map=inl {in in_inner} -> in-in_inner} x |> CudaAux.temporary
+                //    ret x
                 | _ ret -> 
                     ret (primal x)
 
@@ -920,7 +920,7 @@ inl float ->
 
                     s.CudaFun.map {map=value} input
 
-                { value bck = inl _ -> on_non_nil (inl out -> s.CudaFun.map' {out map=inl {value out} -> out - two * value} {value out}) (adjoint v) }
+                { value bck = inl _ -> on_non_nil (inl out -> s.CudaFun.map {out map=inl {value out} -> out - two * value} {value out}) (adjoint v) }
 
             inl mc v s {discount_factor reward} =
                 match reward with
@@ -974,7 +974,8 @@ inl float ->
 
             // Both the MC and the TD layers do their reprojection steps on the optimization pass unlike
             // the vanilla PRONG layers.
-            inl mc (!default {w with !size}) = prong_template {front_mode=.prong; mode=.update} {w with size=1}
+            inl mc (!default {w with !size}) = prong {w with size=1}
+                //prong_template {front_mode=.prong; mode=.update} {w with size=1}
 
             {pg mc}
 

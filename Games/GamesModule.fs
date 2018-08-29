@@ -571,9 +571,8 @@ inl {basic_methods State Action} ->
                         inl {value bck=critic_bck} = RL.Value.mc critic_out cd x
                         critic_bck {learning_rate=learning_rate.critic}
                         actor_bck {reward=value}
-                        Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.critic}) critic ()
-                        Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.actor}) actor ()
-                        Struct.foldr (inl {bck} _ -> bck {learning_rate=learning_rate.shared}) shared ()
+                        inl f learning_rate network = Struct.foldr (inl {bck} -> Struct.foldr (inl bck _ -> bck {learning_rate=learning_rate}) bck) network ()
+                        f learning_rate.critic critic; f learning_rate.actor actor; f learning_rate.shared shared
                         
                     inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
                     {state={actor critic shared bck}; out=action}
