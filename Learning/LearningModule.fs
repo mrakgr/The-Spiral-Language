@@ -304,15 +304,16 @@ inl float ->
         {
         out
         bck=inl _ -> join
-            inl ins = to_dev_tensor {in out}
-            s.CudaKernel.iter {dim} <| inl i ->
-                inl {in out} = Struct.map' (inl x -> x i) ins
-                inl x = bck {in=Struct.map (inl x -> x .get) (primals in); out=primal out .get}
-                inl out = adjoint out .get
-                Struct.iter2 (inl x -> function
-                    | () -> ()
-                    | z -> z .set (z .get + out * x)
-                    ) x (adjoints in)
+            if Struct.is_empty in = false then
+                inl ins = to_dev_tensor {in out}
+                s.CudaKernel.iter {dim} <| inl i ->
+                    inl {in out} = Struct.map' (inl x -> x i) ins
+                    inl x = bck {in=Struct.map (inl x -> x .get) (primals in); out=primal out .get}
+                    inl out = adjoint out .get
+                    Struct.iter2 (inl x -> function
+                        | () -> ()
+                        | z -> z .set (z .get + out * x)
+                        ) x (adjoints in)
         }
 
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
@@ -325,14 +326,15 @@ inl float ->
         {
         out
         bck=inl _ -> join
-            inl in = to_dev_tensor in // As none of the cost functions I've ran into use the `out`, I've removed it for the time being.
-            s.CudaKernel.iter {dim} <| inl i ->
-                inl in = Struct.map' (inl x -> x i) in
-                inl x = bck {in=Struct.map (inl x -> x .get) (primals in)}
-                Struct.iter2 (inl x -> function
-                    | () -> ()
-                    | z -> z .set (z .get + x) // The adjoint is set to 0.
-                    ) x (adjoints in)
+            if Struct.is_empty in = false then
+                inl in = to_dev_tensor in // As none of the cost functions I've ran into use the `out`, I've removed it for the time being.
+                s.CudaKernel.iter {dim} <| inl i ->
+                    inl in = Struct.map' (inl x -> x i) in
+                    inl x = bck {in=Struct.map (inl x -> x .get) (primals in)}
+                    Struct.iter2 (inl x -> function
+                        | () -> ()
+                        | z -> z .set (z .get + x) // The adjoint is set to 0.
+                        ) x (adjoints in)
         }
 
     inl broadcasting_activation {fwd bck_in bck_in_inner in in_inner} s =
@@ -716,7 +718,7 @@ inl float ->
 
     inl naturalize config {prong input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
-        fwd_add_bias (primal z) (primal bias) s
+        //fwd_add_bias (primal z) (primal bias) s
         {
         out=z
         bck=inl {learning_rate} -> join
@@ -797,7 +799,7 @@ inl float ->
 
             s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
             on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
-            bck_add_bias z_precise_adjoint (adjoint bias) s
+            //bck_add_bias z_precise_adjoint (adjoint bias) s
         }
 
     inl prong {w with activation size} = 
