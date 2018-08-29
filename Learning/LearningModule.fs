@@ -278,9 +278,9 @@ inl float ->
                 | () -> s.CudaBlas.gemm TA TB one (primal A) (primal B) |> dr s
                 | C -> s.CudaBlas.gemm' TA TB one (primal A) (primal B) one (primal C); C
                 ) () l
-        //match bias with
-        //| () -> ()
-        //| _ -> fwd_add_bias (primal C) (primal bias) s
+        match bias with
+        | () -> ()
+        | _ -> fwd_add_bias (primal C) (primal bias) s
         {
         out=C
         bck=inl _ -> join
@@ -601,7 +601,9 @@ inl float ->
             | {sigmoid=dim} -> init 2f32 dim s |> dr s
             | {tanh=dim} -> init 3f32 dim s |> dr s
             | {relu=dim} -> init 1f32 dim s |> dr s
-            | {bias=dim} -> s.CudaTensor.zero {elem_type=float; dim} |> dr s
+            | {bias=dim} -> 
+                s.CudaFun.init {dim} (const <| 0.01f32) |> dr s
+                //s.CudaTensor.zero {elem_type=float; dim} |> dr s
             | {zero=dim} -> s.CudaTensor.zero {elem_type=float; dim}
             | {identity=dim} -> s.CudaFun.init {dim} (inl a, b -> if a = b then one else zero)
             | {reference=x} -> ref x
