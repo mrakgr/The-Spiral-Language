@@ -1070,6 +1070,13 @@ inl map' f x =
         | x -> f x
     loop x
 
+inl rec is_empty = function
+    | x when caseable_box_is x -> false
+    | x :: xs -> is_empty x && is_empty xs
+    | () -> true
+    | {} & x -> module_foldl (inl k s x -> s && is_empty x) true x
+    | x -> false
+
 inl map f x = 
     inl rec loop = function
         | x when caseable_box_is x -> f x
@@ -1328,7 +1335,7 @@ inl foldr3_map f a b c s =
 
 {
 map' map map2' map2 map3' map3 iter iter2 iter3 foldl foldl2 foldl3 choose choose2 choose3 
-foldl_map foldl2_map foldl3_map foldr foldr2 foldr3 foldr_map foldr2_map foldr3_map
+foldl_map foldl2_map foldl3_map foldr foldr2 foldr3 foldr_map foldr2_map foldr3_map is_empty
 } |> stackify
     """) |> module_
 

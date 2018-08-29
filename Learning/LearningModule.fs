@@ -335,7 +335,7 @@ inl float ->
                     ) x (adjoints in)
         }
 
-    inl broadcasting_activation {fwd bck={bck_in bck_in_inner} in_inner in} s =
+    inl broadcasting_activation {fwd bck_in bck_in_inner in in_inner} s =
         inl x = primals in |> HostTensor.zip
         inl dim = x.dim
         inl x_inner = primals in_inner |> HostTensor.zip
@@ -347,32 +347,34 @@ inl float ->
             inl ins = to_dev_tensor {in in_inner out}
             inl _ =
                 inl ins = {ins with in=primals self}
-                s.CudaKernel.redo_map {
-                    dim
-                    neutral_elem=Struct.map (const zero) primal_inner.elem_type; redo=Struct.map2 (+)
-                    init=inl a ->
-                        inl in_inner = Struct.map (inl x -> x a) (primals ins.in_inner)
-                        inl b ->
-                            inl {in out} = Struct.map' (inl x -> x b a .get) {ins without in_inner}
-                            Struct.map ((*) (adjoint out)) (bck_in_inner <| primals {in in_inner out})
-                    outit=inl a x ->
-                        Struct.iter2 (inl x -> function
-                            | () -> ()
-                            | z -> z .set (z .get + x)
-                            ) x (Struct.map (inl x -> x a) (adjoints ins.in_inner))
-                    }
+                if Struct.is_empty (adjoints ins.in_inner) = false then
+                    s.CudaFun.redo_map {
+                        dim
+                        neutral_elem=Struct.map (const zero) x_inner.elem_type; redo=Struct.map2 (+)
+                        init=inl a ->
+                            inl in_inner = Struct.map (inl x -> x a) (primals ins.in_inner)
+                            inl b ->
+                                inl {in out} = Struct.map' (inl x -> x b a .get) {ins without in_inner}
+                                Struct.map ((*) (adjoint out)) (bck_in_inner <| primals {in in_inner out})
+                        outit=inl a x ->
+                            Struct.iter2 (inl x -> function
+                                | () -> ()
+                                | z -> z .set (z .get + x)
+                                ) x (Struct.map (inl x -> x a) (adjoints ins.in_inner))
+                        }
             inl _ =
                 inl ins = {ins with in_inner=primals self}
-                s.CudaKernel.iter2 {dim} <| inl i ->
-                    inl {in out} = Struct.map' (inl x -> x i) {ins without in_inner}
-                    inl i ->
-                        inl ins = Struct.map' (inl x -> x i) {ins with in out}
-                        inl x = bck_in (Struct.map (inl x -> x .get) (primals ins))
-                        inl z, out = adjoints ins.in, adjoint ins.out
-                        Struct.iter2 (inl x -> function
-                            | () -> ()
-                            | z -> z .set (z .get + out * x)
-                            ) x z
+                if Struct.is_empty (adjoints ins.in) = false then
+                    s.CudaKernel.iter2 {dim} <| inl i ->
+                        inl {in out} = Struct.map' (inl x -> x i) {ins without in_inner}
+                        inl i ->
+                            inl ins = Struct.map' (inl x -> x i) {ins with in out}
+                            inl x = bck_in (Struct.map (inl x -> x .get) (primals ins))
+                            inl z, out = adjoints ins.in, adjoint ins.out .get
+                            Struct.iter2 (inl x -> function
+                                | () -> ()
+                                | z -> z .set (z .get + out * x)
+                                ) x z
             ()
         }
 
@@ -430,8 +432,8 @@ inl float ->
             fwd=inl {in_inner=b in={x1 x2}} -> b + x1 * x2
             bck_in=inl {in={x1 x2}} -> {x1 = x2; x2 = x1 }
             bck_in_inner=inl _ -> one
-            in_inner=b
             in={x1 x2}
+            in_inner=b
             }
 
     inl linear = succ
@@ -704,7 +706,16 @@ inl float ->
 
         cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
 
+    inl center in in_inner =
+        broadcasting_activation {
+            fwd=inl {in_inner in} -> in - in_inner
+            bck_in=inl _ -> one
+            bck_in_inner=inl _ -> -one
+            in_inner in
+            }
+
     inl naturalize config {prong input bias} x s =
+        inl {out=x bck=bck_center} = center x prong.front.center s
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         fwd_add_bias (primal z) (primal bias) s
         {
@@ -714,12 +725,13 @@ inl float ->
                 s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
                 on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
                 match prong with
-                | {front={center}} -> // Input centering using just the biases.
-                    inl f x = x.reshape (inl a -> 1,a)
-                    inl x = s.CudaBlas.gemm .nT .T one (f center) x_precise_primal |> CudaAux.temporary
-                    s.CudaFun.map {out=x; map=inl x -> one + x} x
-                    s.CudaBlas.gemm' .nT .nT one x z_precise_adjoint one (f (adjoint bias))
+                //| {front={center}} -> // Input centering using just the biases.
+                //    inl f x = x.reshape (inl a -> 1,a)
+                //    inb x = s.CudaBlas.gemm .nT .T one (f center) x_precise_primal |> CudaAux.temporary
+                //    s.CudaFun.map {out=x; map=inl x -> one - x} x
+                //    s.CudaBlas.gemm' .nT .nT one x z_precise_adjoint one (f (adjoint bias))
                 | _ -> bck_add_bias z_precise_adjoint (adjoint bias) s
+                bck_center()
 
             match d with
             | {learning_rate} ->
@@ -733,10 +745,10 @@ inl float ->
                     match prong with
                     | {front={covariance precision epsilon center}} ret -> 
                         inl x = primal x
+                        update_center {learning_rate} s center x
                         match config with
                         | {front_mode=.prong} ->
                             update_covariance {identity_coef=epsilon; learning_rate} s covariance x
-                            update_center {learning_rate} s center x
 
                             match config with
                             | {mode=.optimize} ->
