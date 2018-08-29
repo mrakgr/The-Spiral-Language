@@ -34,12 +34,12 @@ inl label_size = 10
 
 inl network,_ =
     open Feedforward
-    //inl network =
-    //    relu 256,
-    //    linear label_size
     inl network =
-        prong {activation=Activation.relu; size=256},
-        prong {activation=Activation.linear; size=label_size}
+        relu 256,
+        linear label_size
+    //inl network =
+    //    prong {activation=Activation.relu; size=256},
+    //    prong {activation=Activation.linear; size=label_size}
 
     init s input_size network
 
@@ -95,7 +95,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
             train {
                 data={input=train_images; label=train_labels}
                 network
-                learning_rate = 2f32 ** -9.75f32
+                learning_rate = 2f32 ** -6.5f32
                 final = Error.softmax_cross_entropy
                 } s
 
