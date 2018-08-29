@@ -96,7 +96,7 @@ Loops.for' {from=0; near_to=20; body=inl {i next} ->
                 data={input=train_images; label=train_labels}
                 network
                 learning_rate = 2f32 ** -8.5f32
-                final=Error.softmax_cross_entropy
+                final = Error.softmax_cross_entropy
                 } s
 
     string_format "Training: {0}" (cost / to float64 train_minibatch_size) |> Console.writeline
