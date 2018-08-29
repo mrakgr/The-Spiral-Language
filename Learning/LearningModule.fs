@@ -703,7 +703,7 @@ inl float ->
             inl finally x_precise_primal z_precise_adjoint =
                 s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
                 on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
-                //bck_add_bias z_precise_adjoint (adjoint bias) s
+                bck_add_bias z_precise_adjoint (adjoint bias) s
 
             match d with
             | {learning_rate} ->

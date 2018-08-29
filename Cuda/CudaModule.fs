@@ -1825,7 +1825,8 @@ met redo_init w {dim=b, a init redo neutral_elem outit} =
                 |> block_reduce_2dt (blockDim.x,threadIdx.x) (blockDim.y, threadIdx.y) redo
                 |> inl result ->
                     inl finally result = outit i result
-                    if blockDim.y > 1 then if threadIdx.y = 0 then finally result
+                    if blockDim.y > 1 then 
+                        if threadIdx.y = 0 then finally result
                     else finally result
             }
         }
@@ -1968,6 +1969,7 @@ inl redo_map w d in =
             w.CudaKernel.redo_init {
                 dim neutral_elem redo
                 init=inl a -> 
+                    inl in = {in without mid}
                     inl map = map a
                     inl in =
                         {in with in=inl b -> self b a}
