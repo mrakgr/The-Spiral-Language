@@ -38,7 +38,7 @@ inl network,_ =
     //    relu 256,
     //    linear label_size
     inl network =
-        prong {activation=Activation.tanh; size=256},
+        prong {activation=Activation.relu; size=256},
         prong {activation=Activation.linear; size=label_size}
 
     init s input_size network
@@ -95,7 +95,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
             train {
                 data={input=train_images; label=train_labels}
                 network
-                learning_rate = 2f32 ** -8.5f32
+                learning_rate = 2f32 ** -9.25f32
                 final = Error.softmax_cross_entropy
                 } s
 

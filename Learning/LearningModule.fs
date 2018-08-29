@@ -797,13 +797,7 @@ inl float ->
 
             s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
             on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
-            match prong with
-            | {front={center}} -> // Input centering using just the biases.
-                inl f x = x.reshape (inl a -> 1,a)
-                inb x = s.CudaBlas.gemm .nT .T one (f center) x_centered |> CudaAux.temporary
-                s.CudaFun.map {out=x; map=inl x -> one - x} x
-                s.CudaBlas.gemm' .nT .nT one x z_precise_adjoint one (f (adjoint bias))
-            | _ -> bck_add_bias z_precise_adjoint (adjoint bias) s
+            bck_add_bias z_precise_adjoint (adjoint bias) s
         }
 
     inl prong {w with activation size} = 
