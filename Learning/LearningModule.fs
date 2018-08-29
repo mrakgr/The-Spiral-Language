@@ -618,6 +618,7 @@ inl float ->
                 front = {
                     covariance = Initializer.identity (sublayer_size, sublayer_size)
                     precision = Initializer.identity (sublayer_size, sublayer_size)
+                    center = Initializer.zero sublayer_size
                     epsilon = match d with {epsilon={front}} -> front | _ -> default_epsilon
                     }
                 back = {
@@ -677,6 +678,15 @@ inl float ->
                     cov .set (alpha * cov .get + identity)
         s.CudaBlas.syrk' .Lower .T (beta / to float k) x one cov // symmetric rank-k update. (beta / to float k) * x * x^T + cov
 
+    met update_center {learning_rate} s center x =
+        inl k = x.span_outer
+        inl alpha = Math.pow (one - learning_rate) k
+        inl beta = one - alpha
+        s.CudaFun.map_redo {neutral_elem=0; redo=(+); mid=center; out=center;
+            map=inl {in} -> in
+            map_out=inl {mid out} -> alpha * mid + beta * out
+            } x
+
     /// Updates the state state matrix such that A(t+1) = alpha * A(t) + beta / k * a^T * b + epsilon * I
     /// Was changed from the Zap paper to have positive eigenvalues in order to mirror the covariance matrix updates 
     /// used in natural gradient methods.
@@ -703,7 +713,12 @@ inl float ->
             inl finally x_precise_primal z_precise_adjoint =
                 s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
                 on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
-                bck_add_bias z_precise_adjoint (adjoint bias) s
+                match prong with
+                | {front={center}} -> // Input centering using just the biases.
+                    inl x = s.CudaBlas.gemm .nT .T one center x_precise_primal
+                    s.CudaFun.map {out=x; map=inl x -> 1 - x} x
+                    s.CudaBlas.gemm' .nT .nT x z_precise_adjoint one (adjoint bias)
+                | _ -> bck_add_bias z_precise_adjoint (adjoint bias) s
 
             match d with
             | {learning_rate} ->
@@ -715,11 +730,12 @@ inl float ->
 
                 inb x_precise_primal = 
                     match prong with
-                    | {front={covariance precision epsilon}} ret -> 
+                    | {front={covariance precision epsilon center}} ret -> 
                         inl x = primal x
                         match config with
                         | {front_mode=.prong} ->
                             update_covariance {identity_coef=epsilon; learning_rate} s covariance x
+                            update_center {learning_rate} s center x
 
                             match config with
                             | {mode=.optimize} ->
