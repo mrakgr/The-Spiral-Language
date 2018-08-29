@@ -715,96 +715,87 @@ inl float ->
             }
 
     inl naturalize config {prong input bias} x s =
-        inl {out=x bck=bck_center} = center x prong.front.center s
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         fwd_add_bias (primal z) (primal bias) s
         {
         out=z
-        bck=inl d -> join
-            inl finally x_precise_primal z_precise_adjoint =
-                s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
-                on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
+        bck=inl {learning_rate} -> join
+            inl k = prong.k
+            inl is_update = prong.k.dec (primal x).span_outer
+            match config with
+            | {mode=.optimize} -> if is_update then k.reset
+            | {mode=.update} -> ()
+
+            inb x_precise_primal = 
                 match prong with
-                //| {front={center}} -> // Input centering using just the biases.
-                //    inl f x = x.reshape (inl a -> 1,a)
-                //    inb x = s.CudaBlas.gemm .nT .T one (f center) x_precise_primal |> CudaAux.temporary
-                //    s.CudaFun.map {out=x; map=inl x -> one - x} x
-                //    s.CudaBlas.gemm' .nT .nT one x z_precise_adjoint one (f (adjoint bias))
-                | _ -> bck_add_bias z_precise_adjoint (adjoint bias) s
-                bck_center()
+                | {front={covariance precision epsilon center}} ret -> 
+                    inl x = primal x
+                    update_center {learning_rate} s center x
+                    inb x = s.CudaFun.map_map {in_inner=center; map=inl {in in_inner} -> in-in_inner} x |> CudaAux.temporary
+                    match config with
+                    | {front_mode=.prong} ->
+                        update_covariance {identity_coef=epsilon; learning_rate} s covariance x
 
-            match d with
-            | {learning_rate} ->
-                inl k = prong.k
-                inl is_update = prong.k.dec (primal x).span_outer
-                match config with
-                | {mode=.optimize} -> if is_update then k.reset
-                | {mode=.update} -> ()
-
-                inb x_precise_primal = 
-                    match prong with
-                    | {front={covariance precision epsilon center}} ret -> 
-                        inl x = primal x
-                        update_center {learning_rate} s center x
-                        match config with
-                        | {front_mode=.prong} ->
-                            update_covariance {identity_coef=epsilon; learning_rate} s covariance x
-
-                            match config with
-                            | {mode=.optimize} ->
-                                if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
-                                inb x_precise_primal = s.CudaBlas.symm .Right .Lower one precision x |> CudaAux.temporary
-                                ret x_precise_primal
-                            | {mode=.update} ->
-                                ret x
-                        | {front_mode=.zap} ->
-                            // Zap is quite similar to PRONG's front pass.
-                            inl steady_state = covariance
-                            inl steady_state_inverse = precision
-
-                            match d with
-                            | {state=state' discount_factor} ->
-                                inb basis_update = 
-                                    inl map basis_max, basis_cur = basis_cur - discount_factor * basis_max
-                                    s.CudaFun.map {map} (state', primal x) |> CudaAux.temporary
-                                update_steady_state {identity_coef=epsilon; learning_rate} s steady_state x basis_update
-                            | {state} -> error_type "Do not forget the discount factor."
-                            | _ -> update_steady_state {identity_coef=epsilon; learning_rate} s steady_state x x
-
-                            match config with
-                            | {mode=.optimize} ->
-                                if is_update then s.CudaSolve.lu_inverse {from=steady_state; to=steady_state_inverse}
-                                inb x_precise_primal = s.CudaBlas.gemm .nT .T one x steady_state_inverse |> CudaAux.temporary
-                                ret x_precise_primal
-                            | {mode=.update} ->
-                                ret x
-                    | {front} -> error_type "front is improperly formed."
-                    | _ ret -> ret <| primal x
-
-                inb z_precise_adjoint = 
-                    match prong with
-                    | {back={covariance precision epsilon}} ret ->
-                        inl z = adjoint z
-                        update_covariance {identity_coef=epsilon; learning_rate} s covariance z
                         match config with
                         | {mode=.optimize} ->
-                            if covariance.length = 1 then
-                                inl covariance = CudaAux.to_dev_tensor covariance
-                                inb z_precise_adjoint = s.CudaFun.map {map=inl z -> z / covariance 0 0 .get} z |> CudaAux.temporary
-                                ret z_precise_adjoint
-                            else
-                                if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
-                                inb z_precise_adjoint = s.CudaBlas.symm .Right .Lower one precision z |> CudaAux.temporary
-                                ret z_precise_adjoint
+                            if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
+                            inb x_precise_primal = s.CudaBlas.symm .Right .Lower one precision x |> CudaAux.temporary
+                            ret x_precise_primal
                         | {mode=.update} ->
-                            ret z
-                    | {back} -> error_type "back is improperly formed."
-                    | _ ret -> ret <| adjoint z
+                            ret x
+                    | {front_mode=.zap} ->
+                        // Zap is quite similar to PRONG's front pass.
+                        inl steady_state = covariance
+                        inl steady_state_inverse = precision
 
-                finally x_precise_primal z_precise_adjoint
-            | _ ->
-                error_type "Since it would be too easy to forget to pass in the learning rate at this point this stop was added as an precaution."
-                finally (primal x) (adjoint z)
+                        match d with
+                        | {state=state' discount_factor} ->
+                            inb basis_update = 
+                                inl map basis_max, basis_cur = basis_cur - discount_factor * basis_max
+                                s.CudaFun.map {map} (state', primal x) |> CudaAux.temporary
+                            update_steady_state {identity_coef=epsilon; learning_rate} s steady_state x basis_update
+                        | {state} -> error_type "Do not forget the discount factor."
+                        | _ -> update_steady_state {identity_coef=epsilon; learning_rate} s steady_state x x
+
+                        match config with
+                        | {mode=.optimize} ->
+                            if is_update then s.CudaSolve.lu_inverse {from=steady_state; to=steady_state_inverse}
+                            inb x_precise_primal = s.CudaBlas.gemm .nT .T one x steady_state_inverse |> CudaAux.temporary
+                            ret x_precise_primal
+                        | {mode=.update} ->
+                            ret x
+                | {front} -> error_type "front is improperly formed."
+                | _ ret -> ret <| primal x
+
+            inb z_precise_adjoint = 
+                match prong with
+                | {back={covariance precision epsilon}} ret ->
+                    inl z = adjoint z
+                    update_covariance {identity_coef=epsilon; learning_rate} s covariance z
+                    match config with
+                    | {mode=.optimize} ->
+                        if covariance.length = 1 then
+                            inl covariance = CudaAux.to_dev_tensor covariance
+                            inb z_precise_adjoint = s.CudaFun.map {map=inl z -> z / covariance 0 0 .get} z |> CudaAux.temporary
+                            ret z_precise_adjoint
+                        else
+                            if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
+                            inb z_precise_adjoint = s.CudaBlas.symm .Right .Lower one precision z |> CudaAux.temporary
+                            ret z_precise_adjoint
+                    | {mode=.update} ->
+                        ret z
+                | {back} -> error_type "back is improperly formed."
+                | _ ret -> ret <| adjoint z
+
+            s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
+            on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
+            match prong with
+            | {front={center}} -> // Input centering using just the biases.
+                inl f x = x.reshape (inl a -> 1,a)
+                inb x = s.CudaBlas.gemm .nT .T one (f center) (primal x) |> CudaAux.temporary
+                s.CudaFun.map {out=x; map=inl x -> one - x} x
+                s.CudaBlas.gemm' .nT .nT one x z_precise_adjoint one (f (adjoint bias))
+            | _ -> bck_add_bias z_precise_adjoint (adjoint bias) s
         }
 
     inl prong {w with activation size} = 
