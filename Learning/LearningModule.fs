@@ -728,11 +728,11 @@ inl float ->
 
             inb x_centered =
                 match prong with
-                | {front={center}} ret -> 
-                    inl x = primal x
-                    update_center {learning_rate} s center x
-                    inb x = s.CudaFun.map_map {in_inner=center; map=inl {in in_inner} -> in-in_inner} x |> CudaAux.temporary
-                    ret x
+                //| {front={center}} ret -> 
+                //    inl x = primal x
+                //    update_center {learning_rate} s center x
+                //    inb x = s.CudaFun.map_map {in_inner=center; map=inl {in in_inner} -> in-in_inner} x |> CudaAux.temporary
+                //    ret x
                 | _ ret -> 
                     ret (primal x)
 
