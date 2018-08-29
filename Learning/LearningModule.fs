@@ -717,7 +717,7 @@ inl float ->
                 | {front={center}} -> // Input centering using just the biases.
                     inl f x = x.reshape (inl a -> 1,a)
                     inl x = s.CudaBlas.gemm .nT .T one (f center) x_precise_primal
-                    s.CudaFun.map {out=x; map=inl x -> one - x} x
+                    s.CudaFun.map {out=x; map=inl x -> one } x
                     s.CudaBlas.gemm' .nT .nT one x z_precise_adjoint one (f (adjoint bias))
                 | _ -> bck_add_bias z_precise_adjoint (adjoint bias) s
 
