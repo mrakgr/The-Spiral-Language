@@ -116,6 +116,116 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
     }
     """
 
+let learning2 =
+    "learning2",[cuda_modules;timer;learning],"Does the full training work with the char-RNN?",
+    """
+inb s = CudaModules (1024*1024*1024)
+
+inl float = float32
+open Learning float
+
+inl size = {
+    seq = 1115394
+    minibatch = 64
+    step = 64
+    hot = 128
+    }
+
+// I got this dataset from Karpathy.
+inl path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
+inl data = 
+    macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
+    |> Array.map (inl x -> 
+        inl x = to int64 x
+        assert (x < size.hot) "The inputs need to be in the [0,127] range."
+        to uint8 x
+        )
+    |> HostTensor.array_as_tensor
+    |> HostTensor.assert_size size.seq
+    |> s.CudaTensor.from_host_tensor
+    |> inl data -> data.round_split size.minibatch
+
+inl minibatch,seq = data.dim
+
+inl input =
+    inl data = CudaAux.to_dev_tensor data
+    s.CudaFun.init {dim=seq,minibatch,size.hot} <| inl seq, minibatch, hot ->
+        if data minibatch seq .get = to uint8 hot then 1f32 else 0f32
+
+inl label = input.view_span (const {from=1}) .round_split' size.step 
+inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step 
+inl data = {input label}
+
+inl network,_ =
+    open Feedforward
+    inl network =
+        relu 256,
+        linear label_size
+    //inl network =
+    //    prong {activation=Activation.relu; size=256},
+    //    prong {activation=Activation.linear; size=label_size}
+
+    init s size.hot network
+
+inl train {data={input label} network learning_rate final} s = // TODO: Work in progress.
+    inl s = s.RegionMem.create
+    inl range = fst input.dim
+    assert (range = fst label.dim) "The input and label must have the same outer(1) dimension."
+    Loops.for' {range with state={cost=dyn 0.0; network s}; 
+        body=inl {i next state} ->
+            s.refresh
+
+            inl input, label = input i, label i
+            inl range = fst input.dim
+            assert (range = fst label.dim) "The input and label must have the same outer(2) dimension."
+
+            Loops.for' {range with state={cost network s}; 
+                body=inl {i next state={d with network s}} ->
+                    inl input, label = input i, label i
+                    inl network, input = run s input network
+                    inl {out bck} = final label input s
+                    inl prev = 
+                        inl x = heap {network out bck}
+                        dyn match d with {prev} -> List.cons x prev | _ -> List.singleton x
+                    inl network = Struct.map (inl x -> {x without bck})
+
+                    next {d with prev network}
+                finally=inl {state with cost network s prev}
+                    List.foldr (inl {network bck} _ ->
+                        inl learning_rate = learning_rate ** 0.85f32
+                        inl apply bck = bck {learning_rate} |> ignore
+                        apply bck
+                        Struct.foldr (inl {bck} -> Struct.foldr (inl bck _ -> apply bck) bck) network ()
+                        ) prev ()
+
+                    Optimizer.standard learning_rate s network
+
+                    inl cost = List.foldr (inl {out} cost -> cost + (s.CudaTensor.get out |> to float64)) prev cost
+
+                    inl {network s} = recurrent_truncate network s
+                    if nan_is cost then s.RegionMem.clear; cost 
+                    else next {cost network s}
+                }
+        finally=inl {cost s} -> s.RegionMem.clear; cost
+        }
+    |> inl cost -> cost / to float64 input.span_outer2
+
+Loops.for' {from=0; near_to=5; body=inl {i next} -> 
+    inl cost =
+        Timer.time_it (string_format "iteration {0}" i)
+        <| inl _ ->
+            train {
+                data network
+                learning_rate = 2f32 ** -7f32
+                final = Error.softmax_cross_entropy
+                } s
+
+    string_format "Training: {0}" cost |> Console.writeline
+
+    if nan_is cost then Console.writeline "Training diverged. Aborting..."
+    else next ()
+    }
+    """
 
 let tests =
     [|
