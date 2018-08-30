@@ -292,7 +292,6 @@ inl float ->
                     on_non_nil (inl B -> s.CudaBlas.gemm' TA .nT one (primal A) C' one B) (adjoint B)
                     ) l
             on_non_nil (inl bias -> bck_add_bias C' bias s) (adjoint bias)
-            ()
         }
 
     inl matmult l s = matmultb l () s
@@ -719,7 +718,7 @@ inl float ->
 
     inl naturalize config {prong input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
-        //fwd_add_bias (primal z) (primal bias) s
+        fwd_add_bias (primal z) (primal bias) s
         {
         out=z
         bck=inl {learning_rate} -> join
@@ -731,11 +730,11 @@ inl float ->
 
             inb x_centered =
                 match prong with
-                //| {front={center}} ret -> 
-                //    inl x = primal x
-                //    update_center {learning_rate} s center x
-                //    inb x = s.CudaFun.map_map {in_inner=center; map=inl {in in_inner} -> in-in_inner} x |> CudaAux.temporary
-                //    ret x
+                | {front={center}} ret -> 
+                    inl x = primal x
+                    update_center {learning_rate} s center x
+                    inb x = s.CudaFun.map_map {in_inner=center; map=inl {in in_inner} -> in-in_inner} x |> CudaAux.temporary
+                    ret x
                 | _ ret -> 
                     ret (primal x)
 
@@ -800,7 +799,7 @@ inl float ->
 
             s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
             on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
-            //bck_add_bias z_precise_adjoint (adjoint bias) s
+            bck_add_bias z_precise_adjoint (adjoint bias) s
         }
 
     inl prong {w with activation size} = 
