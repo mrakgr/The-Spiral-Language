@@ -1808,7 +1808,6 @@ met inscan_init w {dim=b,a init outit redo neutral_elem} =
 // Note that dimension are iterated in reverse order and hence the arguments are passed as such into `init` as well.
 // The first argument to init is the inner dimension and then the outer. `outit` is iterated over the inner dimension.
 met redo_init w {dim=b, a init redo neutral_elem outit} =
-    qwe
     print_static {b a}
     inl la, lb = length b, length a
     inl x = lit_min warp_size la
