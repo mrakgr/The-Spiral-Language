@@ -159,7 +159,7 @@ inl data = {input label}
 inl network,_ =
     open Feedforward
     inl network =
-        relu 256,
+        relu 128,
         linear size.hot
     //inl network =
     //    prong {activation=Activation.relu; size=256},
