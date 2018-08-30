@@ -1445,7 +1445,7 @@ inl temporary = CudaAux.temporary
 
 met iter w {d with dim} f =
     inl l = length dim
-    inl blockDim = lit_min l <| match d with {threads} -> threads | _ -> 1024
+    inl blockDim = lit_min l <| match d with {threads} -> threads | _ -> 32
     inl gridDim = divup l blockDim
     w.run {blockDim gridDim // Lexical scoping rocks.
         kernel = cuda grid_for {blockDim gridDim} .x dim {body=inl {i} -> f i}
@@ -1535,7 +1535,7 @@ met redo w {redo neutral_elem dim init outit} =
 
 met iter2 w {d with dim=b,a} f =
     inl l = length a
-    inl blockDim = lit_min l <| match d with {threads} -> threads | _ -> 1024
+    inl blockDim = lit_min l <| match d with {threads} -> threads | _ -> 32
     w.run {blockDim 
         gridDim={x=divup l blockDim; y=min 256 (length b)}
         kernel = cuda 
@@ -1548,7 +1548,7 @@ met iter2 w {d with dim=b,a} f =
 
 met iter3 w {d with dim=c,b,a} f =
     inl l = length a
-    inl blockDim = lit_min l <| match d with {threads} -> threads | _ -> 1024
+    inl blockDim = lit_min l <| match d with {threads} -> threads | _ -> 32
     w.run {blockDim 
         gridDim={x=divup l blockDim; y=min 256 (length b); z=min 256 (length c)}
         kernel = cuda 
