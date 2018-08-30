@@ -1808,7 +1808,6 @@ met inscan_init w {dim=b,a init outit redo neutral_elem} =
 // Note that dimension are iterated in reverse order and hence the arguments are passed as such into `init` as well.
 // The first argument to init is the inner dimension and then the outer. `outit` is iterated over the inner dimension.
 met redo_init w {dim=b, a init redo neutral_elem outit} =
-    print_static {b a}
     inl length = {b=length b; a=length a}
     inl x = lit_min warp_size length.a
     inl y = lit_min (1024 / x) length.b
@@ -1816,22 +1815,19 @@ met redo_init w {dim=b, a init redo neutral_elem outit} =
     inl x = min 256 (divup length.a x)
     inl gridDim = {x}
 
-    print_static {blockDim gridDim}
-    //qwe
-
     w.run {blockDim gridDim
         kernel = cuda
             inl grid_for = grid_for {blockDim gridDim}
             grid_for .x a {body=inl {i} ->
                 inl init = init i
+                inl finally result = outit i result
 
-                grid_for .y b {state=dyn neutral_elem; body=inl {state i=j} -> redo state (init j)}
-                |> block_reduce_2dt (blockDim.x,threadIdx.x) (blockDim.y, threadIdx.y) redo
-                |> inl result ->
-                    inl finally result = outit i result
-                    if blockDim.y > 1 then 
-                        if threadIdx.y = 0 then finally result
-                    else finally result
+                if blockDim.y > 1 then
+                    grid_for .y b {state=dyn neutral_elem; body=inl {state i=j} -> redo state (init j)}
+                    |> block_reduce_2dt (blockDim.x,threadIdx.x) (blockDim.y, threadIdx.y) redo
+                    |> inl result -> if threadIdx.y = 0 then finally result
+                else 
+                    finally (init 0) // Note: if the neutral_elem is non-associative this will cause an error.
             }
         }
 
