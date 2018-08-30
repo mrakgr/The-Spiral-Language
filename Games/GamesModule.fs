@@ -503,7 +503,9 @@ inl {basic_methods State Action} ->
             Union.mutable_function 
                 (inl {state={state with net} input={input cd}} ->
                     inl {action net bck} = action {net input} cd
-                    inl bck x = bck {x with learning_rate}; Struct.foldr (inl {bck} _ -> bck {learning_rate}) net ()
+                    inl bck x = 
+                        Struct.foldr (inl bck _ -> bck {x with learning_rate}) bck ()
+                        Struct.foldr (inl {bck} -> Struct.foldr (inl bck _ -> bck {learning_rate}) bck) net ()
                     {state={net bck}; out=action}
                     )
                 {state={net}; input={input=State; cd}}

@@ -1817,7 +1817,7 @@ met redo_init w {dim=b, a init redo neutral_elem outit} =
     inl gridDim = {x}
 
     print_static {blockDim gridDim}
-    qwe
+    //qwe
 
     w.run {blockDim gridDim
         kernel = cuda
