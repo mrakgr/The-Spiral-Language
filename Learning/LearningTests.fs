@@ -160,7 +160,7 @@ inl network,_ =
     open Feedforward
     inl network =
         relu 256,
-        linear label_size
+        linear size.hot
     //inl network =
     //    prong {activation=Activation.relu; size=256},
     //    prong {activation=Activation.linear; size=label_size}
