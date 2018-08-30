@@ -562,7 +562,6 @@ inl {basic_methods State Action} ->
                         cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
                     inl shared, shared_out = run cd input shared
                     inl actor, actor_out = run cd shared_out actor
-                    cd.CudaTensor.print (primal actor_out)
                     inl {out bck=actor_bck} = RL.sampling_pg actor_out cd
                     inl critic, critic_out = 
                         if block_critic_gradients then run cd (primal shared_out) critic
