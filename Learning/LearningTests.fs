@@ -167,6 +167,15 @@ inl network,_ =
 
     init s size.hot network
 
+inl truncate network s =
+    inl s = s.RegionMem.create
+    inl network = 
+        Struct.map (function
+            | {state} as d -> {d without bck with state = Struct.map (inl x -> x.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)) (primals state) |> heap}
+            | d -> {d without bck}
+            ) network
+    {network s}
+
 inl train {data={input label} network learning_rate final} s = // TODO: Work in progress.
     inl s = s.RegionMem.create
     inl range = fst input.dim
@@ -185,16 +194,15 @@ inl train {data={input label} network learning_rate final} s = // TODO: Work in 
                     inl network, input = run s input network
                     inl {out bck} = final label input s
                     inl prev = 
-                        inl x = heap {network out bck}
+                        inl bck = Struct.map (inl {bck} -> bck) network, bck
+                        inl x = heap {out bck}
                         dyn match d with {prev} -> List.cons x prev | _ -> List.singleton x
                     inl network = Struct.map (inl x -> {x without bck})
-
                     next {d with prev network}
-                finally=inl {state with cost network s prev}
-                    List.foldr (inl {network bck} _ ->
+                finally=inl {state with cost network s prev} ->
+                    List.foldr (inl {bck} _ ->
                         inl learning_rate = learning_rate ** 0.85f32
                         inl apply bck = bck {learning_rate} |> ignore
-                        apply bck
                         Struct.foldr (inl {bck} -> Struct.foldr (inl bck _ -> apply bck) bck) network ()
                         ) prev ()
 
@@ -202,7 +210,7 @@ inl train {data={input label} network learning_rate final} s = // TODO: Work in 
 
                     inl cost = List.foldr (inl {out} cost -> cost + (s.CudaTensor.get out |> to float64)) prev cost
 
-                    inl {network s} = recurrent_truncate network s
+                    inl {network s} = truncate network s
                     if nan_is cost then s.RegionMem.clear; cost 
                     else next {cost network s}
                 }
