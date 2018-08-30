@@ -893,7 +893,57 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {plastic_hebb}
+    inl mi size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                input = {
+                    bias = Initializer.bias size
+                    weight = Initializer.tanh (sublayer_size, size)
+                    }
+                state = {
+                    bias = Initializer.bias size
+                    weight = Initializer.tanh (sublayer_size, size)
+                    }
+                }
+            size
+            }
+
+        apply = inl {d with weights input} s -> 
+            inl apply =
+                inm right = matmultb (input, weights.input.weight) weights.input.bias
+                inm out =
+                    match d with
+                    | {state} ->
+                        inm left = matmultb (state, weights.state.weight) weights.state.bias
+                        activation {
+                            fwd=inl {left right} -> left * right |> tanh_fwd
+                            bck=inl {in out} ->
+                                inl out = tanh_bck out
+                                {
+                                left = out * right
+                                right = out * left
+                                }
+                            } {left right}
+                    | _ -> 
+                        broadcasting_activation {
+                            fwd=inl {in=right; in_inner=left} -> left * right |> tanh_fwd
+                            bck_in=inl {in=right; in_inner=left} ->
+                                inl out = tanh_bck out
+                                out * left
+                            bck_in_inner=inl {in=right; in_inner=left} ->
+                                inl out = tanh_bck out
+                                out * right
+                            }
+                succ {out state={out}}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        block = ()
+        }
+
+    inl RNN = {plastic_hebb mi}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
