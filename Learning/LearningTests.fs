@@ -188,7 +188,7 @@ inl train {data={input label} network learning_rate final} s = // TODO: Work in 
             inl range = fst input.dim
             assert (range = fst label.dim) "The input and label must have the same outer(2) dimension."
 
-            Loops.for' {range with state={cost network s}; 
+            Loops.for' {range with state
                 body=inl {i next state={d with network s}} ->
                     inl input, label = input i, label i
                     inl network, input = run s input network
@@ -197,18 +197,23 @@ inl train {data={input label} network learning_rate final} s = // TODO: Work in 
                         inl bck = Struct.map (inl {bck} -> bck) network, bck
                         inl x = heap {out bck}
                         dyn match d with {prev} -> List.cons x prev | _ -> List.singleton x
-                    inl network = Struct.map (inl x -> {x without bck})
+                    inl network = Struct.map (inl x -> {x without bck}) network
                     next {d with prev network}
-                finally=inl {state with cost network s prev} ->
-                    List.foldr (inl {bck} _ ->
-                        inl learning_rate = learning_rate ** 0.85f32
-                        inl apply bck = bck {learning_rate} |> ignore
-                        Struct.foldr (inl {bck} -> Struct.foldr (inl bck _ -> apply bck) bck) network ()
-                        ) prev ()
+                finally=inl {state with cost network s} ->
+                    inl cost =
+                        match state with
+                        | {prev} ->
+                            List.foldr (inl {bck} _ ->
+                                inl learning_rate = learning_rate ** 0.85f32
+                                inl apply bck = bck {learning_rate} |> ignore
+                                Struct.foldr (inl bck _ -> apply bck) bck ()
+                                ) prev ()
 
-                    Optimizer.standard learning_rate s network
+                            Optimizer.standard learning_rate s network
 
-                    inl cost = List.foldr (inl {out} cost -> cost + (s.CudaTensor.get out |> to float64)) prev cost
+                            List.foldr (inl {out} cost -> cost + (s.CudaTensor.get out |> to float64)) prev cost
+                        | _ ->
+                            cost
 
                     inl {network s} = truncate network s
                     if nan_is cost then s.RegionMem.clear; cost 
@@ -242,6 +247,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
 |> printfn "%s"
 |> ignore
