@@ -905,7 +905,7 @@ inl float ->
                     }
                 state = {
                     bias = Initializer.bias size
-                    weight = Initializer.tanh (sublayer_size, size)
+                    weight = Initializer.tanh (size, size)
                     }
                 }
             size
@@ -920,7 +920,7 @@ inl float ->
                         inm left = matmultb (state, weights.state.weight) weights.state.bias
                         activation {
                             fwd=inl {left right} -> left * right |> tanh_fwd
-                            bck=inl {in out} ->
+                            bck=inl {in={left right} out} ->
                                 inl out = tanh_bck out
                                 {
                                 left = out * right
@@ -929,15 +929,17 @@ inl float ->
                             } {left right}
                     | _ -> 
                         broadcasting_activation {
-                            fwd=inl {in=right; in_inner=left} -> left * right |> tanh_fwd
-                            bck_in=inl {in=right; in_inner=left} ->
+                            fwd=inl {in=right in_inner=left} -> left * right |> tanh_fwd
+                            bck_in=inl {in=right in_inner=left} ->
                                 inl out = tanh_bck out
                                 out * left
-                            bck_in_inner=inl {in=right; in_inner=left} ->
+                            bck_in_inner=inl {in=right in_inner=left} ->
                                 inl out = tanh_bck out
                                 out * right
+                            in=right
+                            in_inner=weights.state.bias
                             }
-                succ {out state={out}}
+                succ {out state=out}
             inl {out={out state} bck} = apply s
             {out state bck}
         block = ()

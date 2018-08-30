@@ -158,8 +158,10 @@ inl data = {input label}
 
 inl network,_ =
     open Feedforward
+    open RNN
     inl network =
-        relu 128,
+        //relu 128,
+        mi 128,
         linear size.hot
     //inl network =
     //    prong {activation=Activation.relu; size=256},
