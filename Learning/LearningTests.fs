@@ -167,13 +167,15 @@ inl network,_ =
 
     init s size.hot network
 
-inl truncate network s =
-    inl s = s.RegionMem.create
+inl truncate network s' =
+    inl s = s'.RegionMem.create
     inl network = 
         Struct.map (function
             | {state} as d -> {d without bck with state = Struct.map (inl x -> x.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)) (primals state) |> heap}
             | d -> {d without bck}
             ) network
+    s'.RegionMem.clear
+    s.refresh
     {network s}
 
 inl train {data={input label} network learning_rate final} s = // TODO: Work in progress.
@@ -182,8 +184,6 @@ inl train {data={input label} network learning_rate final} s = // TODO: Work in 
     assert (range = fst label.dim) "The input and label must have the same outer(1) dimension."
     Loops.for' {range with state={cost=dyn 0.0; network s}; 
         body=inl {i next state} ->
-            s.refresh
-
             inl input, label = input i, label i
             inl range = fst input.dim
             assert (range = fst label.dim) "The input and label must have the same outer(2) dimension."
@@ -216,7 +216,7 @@ inl train {data={input label} network learning_rate final} s = // TODO: Work in 
                             cost
 
                     inl {network s} = truncate network s
-                    if nan_is cost then s.RegionMem.clear; cost 
+                    if nan_is cost then cost 
                     else next {cost network s}
                 }
         finally=inl {cost s} -> s.RegionMem.clear; cost
@@ -229,7 +229,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
         <| inl _ ->
             train {
                 data network
-                learning_rate = 2f32 ** -7f32
+                learning_rate = 2f32 ** -12f32
                 final = Error.softmax_cross_entropy
                 } s
 
