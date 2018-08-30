@@ -291,7 +291,7 @@ inl float ->
                     on_non_nil (inl A -> s.CudaBlas.gemm' .nT TB one C' (primal B) one A) (adjoint A)
                     on_non_nil (inl B -> s.CudaBlas.gemm' TA .nT one (primal A) C' one B) (adjoint B)
                     ) l
-            //on_non_nil (inl bias -> bck_add_bias C' bias s) (adjoint bias)
+            on_non_nil (inl bias -> bck_add_bias C' bias s) (adjoint bias)
             ()
         }
 
