@@ -245,7 +245,7 @@ inl infer f (!heap state) =
                 if eq_type prev cur then cur else loop cur
             loop state
 
-    ty, Struct.map (inl {map} -> inl {state=()} | _ as x -> map x |> inl d -> {d with state=box ty self}) f
+    ty, Struct.map (inl {map} {state input} -> match state with () | _ -> map {state input} |> inl d -> {d with state=box ty self}) f
 
 {int to_one_hot to_dense from_one_hot from_dense length_one_hot length_dense unroll mutable_function infer} |> stackify
     """) |> module_
@@ -954,10 +954,10 @@ inl float ->
                     | _ -> 
                         broadcasting_activation {
                             fwd=inl {in=right in_inner=left} -> left * right |> tanh_fwd
-                            bck_in=inl {in=right in_inner=left} ->
+                            bck_in=inl {in=right in_inner=left out} ->
                                 inl out = tanh_bck out
                                 out * left
-                            bck_in_inner=inl {in=right in_inner=left} ->
+                            bck_in_inner=inl {in=right in_inner=left out} ->
                                 inl out = tanh_bck out
                                 out * right
                             in=right
