@@ -1139,7 +1139,7 @@ inl foldl2 f s a b =
     inl rec loop s = function
         | x, y when caseable_box_is x || caseable_box_is y -> f s x y
         | x :: xs, y :: ys -> loop (loop s (x,y)) (xs,ys)
-        | (), () -> ()
+        | (), () -> s
         | {!block} & x, {!block} & y -> module_foldl (inl k s x -> loop s (x,y k)) s x
         | x, y -> f s x y
     loop s (a,b)
@@ -1148,7 +1148,7 @@ inl foldl3 f s a b c =
     inl rec loop s = function
         | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f s x y z
         | x :: xs, y :: ys, z :: zs -> loop (loop s (x,y,z)) (xs,ys,zs)
-        | (), (), () -> ()
+        | (), (), () -> s
         | {!block} & x, {!block} & y, {!block} & z -> module_foldl (inl k s x -> loop s (x,y k,z k)) s x
         | x, y, z -> f s x y z
     loop s (a,b,c)
@@ -1259,7 +1259,7 @@ inl foldr f a s =
     inl rec loop s = function
         | x when caseable_box_is x -> f x s
         | x :: xs -> loop (loop s xs) x
-        | () -> ()
+        | () -> s
         | {!block} & x -> module_foldr (inl k x s -> loop s x) x s
         | x -> f x s
     loop s a
@@ -1268,7 +1268,7 @@ inl foldr2 f a b s =
     inl rec loop s = function
         | x, y when caseable_box_is x || caseable_box_is y -> f x y s
         | x :: xs, y :: ys -> loop (loop s (xs,ys)) (x,y)
-        | (), () -> ()
+        | (), () -> s
         | {!block} & x, {!block} & y -> module_foldr (inl k x s -> loop s (x,y k)) x s
         | x, y -> f x y s
     loop s (a,b)
@@ -1277,7 +1277,7 @@ inl foldr3 f a b c s =
     inl rec loop s = function
         | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z s
         | x :: xs, y :: ys, z :: zs -> loop (loop s (xs,ys,zs)) (x,y,z)
-        | (), (), () -> ()
+        | (), (), () -> s
         | {!block} & x, {!block} & y, {!block} & z -> module_foldr (inl k x s -> loop s (x,y k,z k)) x s
         | x, y, z -> f x y z s
     loop s (a,b,c)

@@ -156,14 +156,16 @@ inl label = input.view_span (const {from=1}) .round_split' size.step
 inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step 
 inl data = {input label}
 
-inl learning_rate = 2f32 ** -12f32
+inl learning_rate = 2f32 ** -13f32, 2f32 ** -12f32, 2f32 ** -12f32
 
 inl network,_ =
     open Feedforward
     open RNN
     inl network =
         mi_prong 128,
-        prong {activation=Activation.tanh; size=128},
+        //prong {activation=Activation.tanh; size=128},
+        mi_prong 128,
+        mi_prong 128,
         mi_prong 128,
         prong {activation=Activation.linear; size=size.hot}
     //inl network =
@@ -251,8 +253,9 @@ inl train {data={input label} network learning_rate final} s = // TODO: Work in 
         }
     |> inl cost -> cost / to float64 input.span_outer2
 
-Loops.for' {from=0; near_to=5; body=inl {i next} -> 
-    inl cost =
+inl f (!dyn learning_rate) next i =
+    Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
+    met cost =
         Timer.time_it (string_format "iteration {0}" i)
         <| inl _ ->
             train {
@@ -264,8 +267,10 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
     string_format "Training: {0}" cost |> Console.writeline
 
     if nan_is cost then Console.writeline "Training diverged. Aborting..."
-    else next ()
-    }
+    else next (i+1)
+
+//Loops.for' {from=0; near_to=5; body=inl {i next} -> f learning_rate next i}
+Tuple.foldr f learning_rate ignore 0
     """
 
 let tests =
