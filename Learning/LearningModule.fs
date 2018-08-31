@@ -643,6 +643,8 @@ inl float ->
                 inl default_epsilon = match d with {default_epsilon} -> default_epsilon | _ -> to float (2.0 ** -3.0)
 
                 {
+                input = Initializer.tanh (sublayer_size, size)
+                bias = Initializer.bias size
                 front = {
                     covariance = Initializer.identity (sublayer_size, sublayer_size)
                     precision = Initializer.identity (sublayer_size, sublayer_size)
@@ -740,7 +742,7 @@ inl float ->
             in_inner in
             }
 
-    inl naturalize config {prong input bias} x s =
+    inl natural_matmultb_template config {weights with input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         fwd_add_bias (primal z) (primal bias) s
         {
@@ -753,7 +755,7 @@ inl float ->
             | {mode=.update} -> ()
 
             inb x_centered =
-                match prong with
+                match weights with
                 | {front={center}} ret -> 
                     inl x = primal x
                     update_center {learning_rate} s center x
@@ -763,7 +765,7 @@ inl float ->
                     ret (primal x)
 
             inb x_precise_primal = 
-                match prong with
+                match weights with
                 | {front={covariance precision epsilon}} ret -> 
                     inl x = x_centered
                     match config with
@@ -802,7 +804,7 @@ inl float ->
                 | _ ret -> ret <| primal x
 
             inb z_precise_adjoint = 
-                match prong with
+                match weights with
                 | {back={covariance precision epsilon}} ret ->
                     inl z = adjoint z
                     update_covariance {identity_coef=epsilon; learning_rate} s covariance z
@@ -826,22 +828,14 @@ inl float ->
             bck_add_bias z_precise_adjoint (adjoint bias) s
         }
 
+    inl natural_matmultb = natural_matmultb_template {front_mode=.prong; mode=.optimize}
+
     inl prong {w with activation size} = 
         {
-        init = inl sublayer_size -> {
-            size
-            dsc = {
-                input = Initializer.tanh (sublayer_size, size)
-                bias = Initializer.bias size
-                prong = Initializer.prong {w with sublayer_size}
-                }
-            }
-        apply = inl {weights input} ->
-            naturalize {front_mode=.prong; mode=.optimize} weights input 
-            >>= activation
-        optimize=inl {weights={input bias} learning_rate} s ->
-            Tuple.iter (Optimizer.sgd learning_rate s) (input, bias)
-        block=()
+        init = inl sublayer_size -> { size dsc = Initializer.prong {w with sublayer_size} }
+        apply = inl {weights input} -> natural_matmultb weights input >>= activation
+        optimize = inl {weights={input bias} learning_rate} s -> Tuple.iter (Optimizer.sgd learning_rate s) (input, bias)
+        block = ()
         }
 
     // #Feedforward
