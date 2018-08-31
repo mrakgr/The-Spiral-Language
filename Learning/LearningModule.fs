@@ -232,7 +232,10 @@ inl infer f (!heap state) =
             else state \/ loop f state'
 
         Tuple.map (inl state ->
-            Struct.foldl (inl state f -> match state with () | _ -> loop f state) state f
+            Struct.foldl (inl state f -> 
+                print_static state
+                match state with () | _ -> loop f state
+                ) state f
             ) (split state |> Tuple.wrap)
         |> Tuple.reducel (inl a b -> a \/ b)
     
