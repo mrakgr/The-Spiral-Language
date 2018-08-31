@@ -643,8 +643,14 @@ inl float ->
                 inl default_epsilon = match d with {default_epsilon} -> default_epsilon | _ -> to float (2.0 ** -3.0)
 
                 {
-                input = Initializer.tanh (sublayer_size, size)
-                bias = Initializer.bias size
+                input = 
+                    match d with
+                    | {initializer={input}} -> input
+                    | _ -> Initializer.tanh (sublayer_size, size)
+                bias = 
+                    match d with
+                    | {initializer={bias}} -> bias
+                    | _ -> Initializer.bias size
                 front = {
                     covariance = Initializer.identity (sublayer_size, sublayer_size)
                     precision = Initializer.identity (sublayer_size, sublayer_size)
@@ -911,6 +917,58 @@ inl float ->
         block = ()
         }
 
+    inl mi size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                input = {
+                    bias = Initializer.bias size
+                    weight = Initializer.tanh (sublayer_size, size)
+                    }
+                state = {
+                    bias = Initializer.constant {dim=size; init=one}
+                    weight = Initializer.tanh (size, size)
+                    }
+                }
+            size
+            }
+
+        apply = inl {d with weights input} s -> 
+            inl apply =
+                inm right = matmultb (input, weights.input.weight) weights.input.bias
+                inm out =
+                    match d with
+                    | {state} ->
+                        inm left = matmultb (state, weights.state.weight) weights.state.bias
+                        activation {
+                            fwd=inl {left right} -> left * right |> tanh_fwd
+                            bck=inl {in={left right} out} ->
+                                inl out = tanh_bck out
+                                {
+                                left = out * right
+                                right = out * left
+                                }
+                            } {left right}
+                    | _ -> 
+                        broadcasting_activation {
+                            fwd=inl {in=right in_inner=left} -> left * right |> tanh_fwd
+                            bck_in=inl {in=right in_inner=left out} ->
+                                inl out = tanh_bck out
+                                out * left
+                            bck_in_inner=inl {in=right in_inner=left out} ->
+                                inl out = tanh_bck out
+                                out * right
+                            in=right
+                            in_inner=weights.state.bias
+                            }
+                succ {out state=out}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        block = ()
+        }
+
     inl mi_prong size =
         {
         init = inl sublayer_size -> 
@@ -918,7 +976,7 @@ inl float ->
             dsc = 
                 {
                 input = Initializer.prong {sublayer_size size}
-                state = Initializer.prong {sublayer_size=size; size}
+                state = Initializer.prong {sublayer_size=size; initializer={bias=Initializer.constant {dim=size; init=one}}; size}
                 }
             size
             }
@@ -929,7 +987,7 @@ inl float ->
                 inm left =
                     inm state =
                         match d with
-                        | {state} -> succ state
+                        {state} -> succ state
                         | _ -> inl s -> {out=s.CudaTensor.zero {elem_type=float; dim=primal right .dim}; bck=()}
                     natural_matmultb weights.state state
                 activation {

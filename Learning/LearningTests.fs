@@ -161,15 +161,16 @@ inl learning_rate = 2f32 ** -11f32
 inl network,_ =
     open Feedforward
     open RNN
-    //inl network =
-    //    mi_prong 128,
-    //    mi_prong 128,
-    //    prong {activation=Activation.linear; size=size.hot}
     inl network =
-        mi 128,
-        linear 128,
-        mi 128,
-        linear size.hot
+        mi_prong 128,
+        prong {activation=Activation.tanh; size=128},
+        mi_prong 128,
+        prong {activation=Activation.linear; size=size.hot}
+    //inl network =
+    //    mi 128,
+    //    linear 128,
+    //    mi 128,
+    //    linear size.hot
 
     init s size.hot network
 
