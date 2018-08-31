@@ -160,8 +160,8 @@ inl network,_ =
     open Feedforward
     open RNN
     inl network =
-        //relu 128,
-        mi 128,
+        relu 128,
+        //mi 128,
         linear size.hot
     //inl network =
     //    prong {activation=Activation.relu; size=256},
@@ -231,11 +231,11 @@ inl train {data={input label} network learning_rate final} s = // TODO: Work in 
                         ) () prev_states
 
                     Optimizer.standard learning_rate s network
-                    inl cost =
-                        List.foldl (inl cost -> function
-                            | {out} -> cost + out()
-                            | _ -> cost
-                            ) cost prev_states
+                    //inl cost =
+                    //    List.foldl (inl cost -> function
+                    //        | {prev={out}} -> cost + out()
+                    //        | _ -> cost
+                    //        ) cost prev_states
 
                     inl {state} = truncate {state input=()}
 
