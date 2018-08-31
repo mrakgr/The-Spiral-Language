@@ -3033,7 +3033,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         "module SpiralExample.Main" |> state_new
         sprintf "let %s = \"\"\"" cuda_kernels_name |> state_new
         settings.cuda_includes |> List.iter (sprintf "#include \"%s\"" >> state_new)
-        if settings.cuda_assert_enabled then "#define NDEBUG" |> state_new
+        //if settings.cuda_assert_enabled = false then "#define NDEBUG" |> state_new
         "#include <assert.h>" |> state_new
         state_new ""
         "extern \"C\" {" |> state_new

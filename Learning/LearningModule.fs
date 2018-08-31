@@ -748,8 +748,8 @@ inl float ->
         {
         out=z
         bck=inl {learning_rate} -> join
-            inl k = prong.k
-            inl is_update = prong.k.dec (primal x).span_outer
+            inl k = weights.k
+            inl is_update = k.dec (primal x).span_outer
             match config with
             | {mode=.optimize} -> if is_update then k.reset
             | {mode=.update} -> ()
@@ -963,7 +963,47 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {plastic_hebb mi}
+    inl mi_prong size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                input = Initializer.prong {sublayer_size size}
+                state = Initializer.prong {sublayer_size=size; size}
+                }
+            size
+            }
+
+        apply = inl {d with weights input} s -> 
+            inl apply =
+                inm right = natural_matmultb weights.input input
+                inm left =
+                    inm state =
+                        match d with
+                        {state} -> succ state
+                        | _ -> inl s -> {out=s.CudaTensor.zero {elem_type=float; dim=primal right .dim}; bck=()}
+                    natural_matmultb weights.state state
+                activation {
+                    fwd=inl {left right} -> left * right |> tanh_fwd
+                    bck=inl {in={left right} out} ->
+                        inl out = tanh_bck out
+                        {
+                        left = out * right
+                        right = out * left
+                        }
+                    } {left right}
+                >>= inl out -> succ {out state=out}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        optimize=inl {weights={input state} learning_rate} s -> 
+            Tuple.iter (inl {input bias} ->
+                Tuple.iter (Optimizer.sgd learning_rate s) (input, bias)
+                ) (input,state)
+        block = ()
+        }
+
+    inl RNN = {plastic_hebb mi mi_prong}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
