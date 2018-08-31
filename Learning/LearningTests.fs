@@ -162,7 +162,7 @@ inl network,_ =
     inl network =
         //relu 128,
         mi_prong 128,
-        linear size.hot
+        prong {activation=Activation.linear; size=size.hot}
     //inl network =
     //    prong {activation=Activation.relu; size=256},
     //    prong {activation=Activation.linear; size=label_size}
@@ -252,7 +252,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
         <| inl _ ->
             train {
                 data network
-                learning_rate = 2f32 ** -10f32
+                learning_rate = 2f32 ** -12f32
                 final = Error.softmax_cross_entropy
                 } s
 
