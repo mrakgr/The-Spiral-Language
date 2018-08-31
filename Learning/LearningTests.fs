@@ -156,16 +156,19 @@ inl label = input.view_span (const {from=1}) .round_split' size.step
 inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step 
 inl data = {input label}
 
+inl learning_rate = 2f32 ** -9f32
+
 inl network,_ =
     open Feedforward
     open RNN
-    inl network =
-        //relu 128,
-        mi_prong 128,
-        prong {activation=Activation.linear; size=size.hot}
     //inl network =
-    //    prong {activation=Activation.relu; size=256},
-    //    prong {activation=Activation.linear; size=label_size}
+    //    mi_prong 128,
+    //    mi_prong 128,
+    //    prong {activation=Activation.linear; size=size.hot}
+    inl network =
+        mi 128,
+        mi 128,
+        linear size.hot
 
     init s size.hot network
 
@@ -252,7 +255,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
         <| inl _ ->
             train {
                 data network
-                learning_rate = 2f32 ** -12.5f32
+                learning_rate
                 final = Error.softmax_cross_entropy
                 } s
 
