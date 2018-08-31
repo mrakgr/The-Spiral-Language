@@ -242,7 +242,7 @@ inl train {data={input label} network learning_rate final} s = // TODO: Work in 
                     if nan_is cost then (match state with {s} -> s.RegionMem.clear); cost 
                     else next {cost state prev_states=empty_states}
                 }
-        finally=inl {cost state={s}} -> s.RegionMem.clear; cost
+        finally=inl {cost state} -> (match state with {s} -> s.RegionMem.clear); cost
         }
     |> inl cost -> cost / to float64 input.span_outer2
 
