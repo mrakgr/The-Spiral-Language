@@ -182,46 +182,67 @@ inl truncate network s' =
 
 inl train {data={input label} network learning_rate final} s = // TODO: Work in progress.
     inl s = s.RegionMem.create
+
+    inl ty, {run truncate} = 
+        Union.infer {
+            run={
+                map=inl {state={network s} input={input label}} ->
+                    inl network, input = run s input network
+                    inl {out bck} = final label input s
+                    inl out _ = s.CudaTensor.get out |> to float64
+                    inl prev = {out bck=Struct.map (inl {bck} -> bck) network, bck}
+                    inl network = Struct.map (inl x -> {x without bck}) network
+                    {state={network s prev}}
+                input=const {input=input (dyn 0) (dyn 0); label=label (dyn 0) (dyn 0)}
+                block=()
+                }
+            truncate={
+                map=inl {state={network s}} -> {state=truncate network s}
+                input=const ()
+                block=()
+                }
+            } {network s}
+
+    inl empty_states = List.empty ty |> dyn
+    inl state = box ty {network s} |> dyn
+
     inl range = fst input.dim
     assert (range = fst label.dim) "The input and label must have the same outer(1) dimension."
-    Loops.for' {range with state={cost=dyn 0.0; network s}; 
+    Loops.for' {range with state={cost=dyn 0.0; state prev_states=empty_states}; 
         body=inl {i next state} ->
             inl input, label = input i, label i
             inl range = fst input.dim
             assert (range = fst label.dim) "The input and label must have the same outer(2) dimension."
 
             Loops.for' {range with state
-                body=inl {i next state={d with network s}} ->
+                body=inl {i next state={d with state prev_states}} ->
+                    inl prev_states = List.cons state prev_states |> dyn
                     inl input, label = input i, label i
-                    inl network, input = run s input network
-                    inl {out bck} = final label input s
-                    inl prev = 
-                        inl bck = Struct.map (inl {bck} -> bck) network, bck
-                        inl x = heap {out bck}
-                        dyn match d with {prev} -> List.cons x prev | _ -> List.singleton x
-                    inl network = Struct.map (inl x -> {x without bck}) network
-                    next {d with prev network}
-                finally=inl {state with cost network s} ->
+                    inl {state} = run {state input={input label}}
+                    next {d with prev_states state}
+                finally=inl {state with cost state prev_states} ->
+                    inl prev_states = List.cons state prev_states |> dyn
+                    List.foldl (inl _ -> function
+                        | {prev={bck}} ->
+                            inl learning_rate = learning_rate ** 0.85f32
+                            inl apply bck = bck {learning_rate} |> ignore
+                            Struct.foldr (inl bck _ -> apply bck) bck ()
+                        | _ -> ()
+                        ) () prev_states
+
+                    Optimizer.standard learning_rate s network
                     inl cost =
-                        match state with
-                        | {prev} ->
-                            List.foldr (inl {bck} _ ->
-                                inl learning_rate = learning_rate ** 0.85f32
-                                inl apply bck = bck {learning_rate} |> ignore
-                                Struct.foldr (inl bck _ -> apply bck) bck ()
-                                ) prev ()
+                        List.foldl (inl cost -> function
+                            | {out} -> cost + out()
+                            | _ -> cost
+                            ) cost prev_states
 
-                            Optimizer.standard learning_rate s network
+                    inl state = truncate {state input=()}
 
-                            List.foldr (inl {out} cost -> cost + (s.CudaTensor.get out |> to float64)) prev cost
-                        | _ ->
-                            cost
-
-                    inl {network s} = truncate network s
-                    if nan_is cost then cost 
-                    else next {cost network s}
+                    if nan_is cost then state.s.RegionMem.clear; cost 
+                    else next {cost state prev_states=empty_states}
                 }
-        finally=inl {cost s} -> s.RegionMem.clear; cost
+        finally=inl {cost state} -> state.s.RegionMem.clear; cost
         }
     |> inl cost -> cost / to float64 input.span_outer2
 
@@ -244,7 +265,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
 
 let tests =
     [|
-    learning1
+    learning1;learning2
     |]
 
 //rewrite_test_cache tests cfg None
