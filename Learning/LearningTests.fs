@@ -252,7 +252,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
         <| inl _ ->
             train {
                 data network
-                learning_rate = 2f32 ** -12f32
+                learning_rate = 2f32 ** -12.5f32
                 final = Error.softmax_cross_entropy
                 } s
 
