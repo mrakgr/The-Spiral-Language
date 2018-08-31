@@ -223,7 +223,26 @@ inl mutable_function f {state=(!heap state) input} =
         |> indiv
     |> heap
 
-{int to_one_hot to_dense from_one_hot from_dense length_one_hot length_dense unroll mutable_function} |> stackify
+inl infer f {state=(!heap state) input} =
+    inl f = Struct.map (met f x -> f x |> inl {state out} -> {state=heap state; out=heap out}) f
+    inl unroll_state f state =
+        inl rec loop f state =
+            inl state' = f {state input} .state
+            if eq_type state state' then state
+            else state \/ loop f state'
+
+        Struct.foldl (inl state f -> match state with () | _ -> loop f state) state f
+    
+    inl ty =
+        type
+            inl rec loop prev =
+                inl cur = unroll_state f prev
+                if eq_type prev cur then cur else loop cur
+            loop state
+    
+    ty, f
+
+{int to_one_hot to_dense from_one_hot from_dense length_one_hot length_dense unroll mutable_function infer} |> stackify
     """) |> module_
 
 let learning =
