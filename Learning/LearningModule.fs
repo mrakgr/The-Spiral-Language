@@ -230,15 +230,14 @@ inl infer f (!heap state) =
             inl state' = map {state input=input ()} .state
             if eq_type state state' then state
             else state \/ loop f state'
+        
+        Struct.foldl (inl state f -> 
+            split state
+            |> Tuple.wrap
+            |> Tuple.map (loop f)
+            |> Tuple.reducel (inl a b -> a \/ b)
+            ) state f
 
-        Tuple.map (inl state ->
-            Struct.foldl (inl state f -> 
-                print_static state
-                match state with () | _ -> loop f state
-                ) state f
-            ) (split state |> Tuple.wrap)
-        |> Tuple.reducel (inl a b -> a \/ b)
-    
     inl ty =
         type
             inl rec loop prev =
@@ -246,7 +245,7 @@ inl infer f (!heap state) =
                 if eq_type prev cur then cur else loop cur
             loop state
 
-    ty, Struct.map (inl {map} -> map) f
+    ty, Struct.map (inl {map} -> inl {state=()} | _ as x -> map x |> inl d -> {d with state=box ty self}) f
 
 {int to_one_hot to_dense from_one_hot from_dense length_one_hot length_dense unroll mutable_function infer} |> stackify
     """) |> module_

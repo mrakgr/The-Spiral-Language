@@ -204,7 +204,7 @@ inl train {data={input label} network learning_rate final} s = // TODO: Work in 
             } {network s}
 
     inl empty_states = List.empty ty |> dyn
-    inl state = box ty {network s} |> dyn
+    inl state = {network s} |> heap |> box ty |> dyn
 
     inl range = fst input.dim
     assert (range = fst label.dim) "The input and label must have the same outer(1) dimension."
