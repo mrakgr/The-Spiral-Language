@@ -164,12 +164,12 @@ inl network,_ =
     open Feedforward
     open RNN
     inl network =
-        mi_prong 128,
-        //prong {activation=Activation.tanh; size=128},
-        prong {activation=Activation.linear; size=size.hot}
+        plastic_hebb Initializer.tanh Activation.tanh 128,
+        linear size.hot
     //inl network =
-    //    mi 128,
-    //    linear 128,
+    //    mi_prong 128,
+    //    prong {activation=Activation.linear; size=size.hot}
+    //inl network =
     //    mi 128,
     //    linear size.hot
 
