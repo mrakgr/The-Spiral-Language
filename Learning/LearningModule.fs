@@ -913,6 +913,7 @@ inl float ->
                         succ (W, H)
                     | _ -> succ (weights.input.bias, ())
                 inm out = matmultb (input, W) weights.bias >>= activation
+                inm _ = print out
                 succ {out state={out input H}}
             inl {out={out state} bck} = apply s
             {out state bck}
