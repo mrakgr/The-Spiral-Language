@@ -10766,3 +10766,32 @@ inl (use) a b =
 1) Passing `nan`s through join points causes the compiler to diverge. Since join points use structural equality for memoization and `nan = nan` is always `false`. That means that they cannot be compared and will always result in a new entry to their dictionary at join point boundaries. Note to numerical standards designers - don't do this again! Comparing `nan`s should be invalid, but returning `false` is not the answer.
 
 2) `.NET` will happily marshal non [`blittable`](https://docs.microsoft.com/en-us/dotnet/framework/interop/blittable-and-non-blittable-types) types past language boundaries corrupting memory and writing past the ends of the arrays. Spiral will give a type error at join points, but it is still possible to corrupt memory using transfer functions which aren't doing proper checking.
+
+3) This one happens rarely, but the way pattern matching is compiled can lead to surprises. Not only is Spiral overzealous in unboxing union types, but sometimes that same process can cause unintentional shadowing.
+
+```
+inl from = 1
+
+match {from = 2} with
+| {from=from'} -> print_static {from from'}
+```
+
+```
+{from=lit 1i64; from'=lit 2i64}
+```
+
+This is what would be expected.
+
+```
+inl from = 1
+
+match {from = 2} with
+| {from near_to} -> () // This branch binds the from in the module and shadows the one in scope.
+| {from=from'} -> print_static {from from'}
+```
+
+```
+{from=lit 2i64; from'=lit 2i64}
+```
+
+Unfortunately there is no good way of fixing this. It is one of the consequences of how Spiral's patterns are compiled and there is no good alternative (as far as the author knows) to how it is done now.

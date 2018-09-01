@@ -1514,7 +1514,8 @@ inl view_span {data with dim} f =
                     inl from' = from + from'
                     check from' (from' + by)
                     from', {from = 0; near_to = by}
-                | {from near_to} -> case_from_near_to h
+                // Note: Do not remove from' or it will shadow it in the next branch.
+                | {from=from' near_to} -> case_from_near_to h
                 | {from=from'} ->
                     inl from = from + from'
                     check from near_to
