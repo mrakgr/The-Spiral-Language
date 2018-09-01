@@ -124,39 +124,58 @@ inb s = CudaModules (1024*1024*1024)
 inl float = float32
 open Learning float
 
+//inl size = {
+//    seq = 1115394
+//    minibatch = 1
+//    step = 64
+//    hot = 128
+//    }
+
+//// I got this dataset from Karpathy.
+//inl path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
+//inl data = 
+//    macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
+//    |> Array.map (inl x -> 
+//        inl x = to int64 x
+//        assert (x < size.hot) "The inputs need to be in the [0,127] range."
+//        to uint8 x
+//        )
+//    |> HostTensor.array_as_tensor
+//    |> HostTensor.assert_size size.seq
+//    |> s.CudaTensor.from_host_tensor
+//    |> inl data -> data.round_split size.minibatch
+
+//inl input =
+//    inl minibatch,seq = data.dim
+//    inl data = CudaAux.to_dev_tensor data
+//    s.CudaFun.init {dim=seq,minibatch,size.hot} <| inl seq, minibatch, hot ->
+//        if data minibatch seq .get = to uint8 hot then 1f32 else 0f32
+
+//inl input = input.view_span (inl x :: _ -> x / 64) // Am using only 1/64th of the dataset here.
+
 inl size = {
-    seq = 1115394
+    step = 4
     minibatch = 1
-    step = 64
-    hot = 128
+    hot = 3
     }
 
-// I got this dataset from Karpathy.
-inl path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
+inl input = HostTensor.init (size.step,size.minibatch,size.hot) (inl step mini hot -> 0f32)
+input 0 0 0 .set 1f32
+input 1 0 1 .set 1f32
+input 2 0 0 .set 1f32
+input 3 0 2 .set 1f32
+inl input = s.CudaTensor.from_host_tensor input
+
+inl label = input.view_span (const {from=1}) 
+inl input = input.view_span (inl x :: _ -> x-1) 
+
+print_static input.dim
+print_static label.dim
+
 inl data = 
-    macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
-    |> Array.map (inl x -> 
-        inl x = to int64 x
-        assert (x < size.hot) "The inputs need to be in the [0,127] range."
-        to uint8 x
-        )
-    |> HostTensor.array_as_tensor
-    |> HostTensor.assert_size size.seq
-    |> s.CudaTensor.from_host_tensor
-    |> inl data -> data.round_split size.minibatch
-
-inl minibatch,seq = data.dim
-
-inl input =
-    inl data = CudaAux.to_dev_tensor data
-    s.CudaFun.init {dim=seq,minibatch,size.hot} <| inl seq, minibatch, hot ->
-        if data minibatch seq .get = to uint8 hot then 1f32 else 0f32
-
-inl input = input.view_span (inl x :: _ -> x / 64) // Am using only 1/64th of the dataset here.
-
-inl label = input.view_span (const {from=1}) .round_split' size.step 
-inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step 
-inl data = {input label}
+    {input label} 
+    |> Struct.map (inl x -> x.reshape (inl x -> 1 :: x))
+    //|> Struct.map (inl x -> x.round_split' size.step)
 
 inl learning_rate = 2f32 ** -5.5f32
 
@@ -166,12 +185,12 @@ inl network,_ =
     //inl network =
     //    mi_prong 128,
     //    prong {activation=Activation.linear; size=size.hot}
-    inl network =
-        plastic_hebb Initializer.tanh Activation.tanh 128,
-        linear size.hot
     //inl network =
-    //    mi 128,
+    //    plastic_hebb Initializer.tanh Activation.tanh 128,
     //    linear size.hot
+    inl network =
+        mi 128,
+        linear size.hot
 
     init s size.hot network
 
@@ -255,8 +274,8 @@ met train {data={input label} network learning_rate final} s =
 inl f (!dyn learning_rate) next i =
     Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
     inl cost =
-        Timer.time_it (string_format "iteration {0}" i)
-        <| inl _ ->
+        //Timer.time_it (string_format "iteration {0}" i)
+        //<| inl _ ->
             train {
                 data network
                 learning_rate
@@ -268,7 +287,7 @@ inl f (!dyn learning_rate) next i =
     if nan_is cost then Console.writeline "Training diverged. Aborting..."
     else next ()
 
-Loops.for' {from=0; near_to=5; body=inl {i next} -> f learning_rate next i}
+Loops.for' {from=0; near_to=50; body=inl {i next} -> f learning_rate next i}
 //Struct.foldr f learning_rate ignore 0
     """
 
