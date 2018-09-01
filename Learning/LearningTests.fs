@@ -156,7 +156,7 @@ inl label = input.view_span (const {from=1}) .round_split' size.step
 inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step 
 inl data = {input label}
 
-inl learning_rate = 2f32 ** -13f32, 2f32 ** -13f32, 2f32 ** -12f32
+inl learning_rate = 2f32 ** -13.5f32
 
 inl network,_ =
     open Feedforward
@@ -267,10 +267,10 @@ inl f (!dyn learning_rate) next i =
     string_format "Training: {0}" cost |> Console.writeline
 
     if nan_is cost then Console.writeline "Training diverged. Aborting..."
-    else next (i+1)
+    else next ()
 
-//Loops.for' {from=0; near_to=5; body=inl {i next} -> f learning_rate next i}
-Struct.foldr f learning_rate ignore 0
+Loops.for' {from=0; near_to=5; body=inl {i next} -> f learning_rate next i}
+//Struct.foldr f learning_rate ignore 0
     """
 
 let tests =
