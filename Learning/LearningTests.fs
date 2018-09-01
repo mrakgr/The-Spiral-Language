@@ -187,7 +187,7 @@ inl truncate network s' =
     s.refresh
     {network s}
 
-inl train {data={input label} network learning_rate final} s = // TODO: Work in progress.
+met train {data={input label} network learning_rate final} s =
     inl s = s.RegionMem.create
 
     inl ty, {run truncate} = 
@@ -255,7 +255,7 @@ inl train {data={input label} network learning_rate final} s = // TODO: Work in 
 
 inl f (!dyn learning_rate) next i =
     Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
-    met cost =
+    inl cost =
         Timer.time_it (string_format "iteration {0}" i)
         <| inl _ ->
             train {
@@ -270,7 +270,7 @@ inl f (!dyn learning_rate) next i =
     else next (i+1)
 
 //Loops.for' {from=0; near_to=5; body=inl {i next} -> f learning_rate next i}
-Tuple.foldr f learning_rate ignore 0
+Struct.foldr f learning_rate ignore 0
     """
 
 let tests =
