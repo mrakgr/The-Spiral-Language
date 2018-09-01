@@ -126,7 +126,7 @@ open Learning float
 
 inl size = {
     seq = 1115394
-    minibatch = 64
+    minibatch = 1
     step = 64
     hot = 128
     }
@@ -152,6 +152,8 @@ inl input =
     s.CudaFun.init {dim=seq,minibatch,size.hot} <| inl seq, minibatch, hot ->
         if data minibatch seq .get = to uint8 hot then 1f32 else 0f32
 
+inl input = input.view_span (inl x :: _ -> x / 64) // Am using only 1/64th of the dataset here.
+
 inl label = input.view_span (const {from=1}) .round_split' size.step 
 inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step 
 inl data = {input label}
@@ -164,9 +166,6 @@ inl network,_ =
     inl network =
         mi_prong 128,
         //prong {activation=Activation.tanh; size=128},
-        mi_prong 128,
-        mi_prong 128,
-        mi_prong 128,
         prong {activation=Activation.linear; size=size.hot}
     //inl network =
     //    mi 128,
