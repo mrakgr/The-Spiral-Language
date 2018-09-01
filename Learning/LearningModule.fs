@@ -866,6 +866,10 @@ inl float ->
         inl zero = layer Initializer.bias succ        
         {sigmoid relu tanh linear zero prong} |> stackify
 
+    inl print x s =
+        s.CudaTensor.print (primal x)
+        {out=(); bck=()}
+
     // #Recurrent
     inl hebb n {input out H} = 
         inm x = matmult ({T=input},out)
@@ -905,6 +909,7 @@ inl float ->
                     | {state} ->
                         inm H = hebb weights.input.n state
                         inm W = hadmultb (weights.input.alpha, H) weights.input.bias 
+                        //inm _ = print W
                         succ (W, H)
                     | _ -> succ (weights.input.bias, ())
                 inm out = matmultb (input, W) weights.bias >>= activation
@@ -984,7 +989,7 @@ inl float ->
                 inm left =
                     inm state =
                         match d with
-                        {state} -> succ state
+                        | {state} -> succ state
                         | _ -> inl s -> {out=s.CudaTensor.zero {elem_type=float; dim=primal right .dim}; bck=()}
                     natural_matmultb weights.state state
                 activation {

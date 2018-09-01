@@ -174,7 +174,7 @@ inl data =
     |> Struct.map (inl x -> x.reshape (inl x -> 1 :: x))
     //|> Struct.map (inl x -> x.round_split' size.step)
 
-inl learning_rate = 2f32 ** -1f32
+inl learning_rate = 2f32 ** -2f32
 
 inl network,_ =
     open Feedforward
@@ -183,7 +183,7 @@ inl network,_ =
     //    mi_prong 128,
     //    prong {activation=Activation.linear; size=size.hot}
     inl network =
-        plastic_hebb Initializer.tanh Activation.tanh 128,
+        plastic_hebb Initializer.tanh Activation.tanh 4,
         linear size.hot
     //inl network =
     //    mi 128,
