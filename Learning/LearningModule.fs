@@ -878,7 +878,7 @@ inl float ->
         | _ ->
             activation {
                 fwd=inl {n x H} -> n * x + (one - n) * H
-                bck=inl {in={n x H}} -> { n=x - H; x=n; H=-n }
+                bck=inl {in={n x H}} -> { n=x-H; x=n; H=one-n }
                 } {n x H}
 
     inl plastic_hebb initializer activation size =

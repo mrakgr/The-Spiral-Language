@@ -158,7 +158,7 @@ inl label = input.view_span (const {from=1}) .round_split' size.step
 inl input = input.view_span (inl x :: _ -> x-1) .round_split' size.step 
 inl data = {input label}
 
-inl learning_rate = 2f32 ** -5f32
+inl learning_rate = 2f32 ** -5.5f32
 
 inl network,_ =
     open Feedforward
@@ -166,12 +166,12 @@ inl network,_ =
     //inl network =
     //    mi_prong 128,
     //    prong {activation=Activation.linear; size=size.hot}
-    //inl network =
-    //    plastic_hebb Initializer.tanh Activation.tanh 128,
-    //    linear size.hot
     inl network =
-        tanh 128,
+        plastic_hebb Initializer.tanh Activation.tanh 128,
         linear size.hot
+    //inl network =
+    //    mi 128,
+    //    linear size.hot
 
     init s size.hot network
 
