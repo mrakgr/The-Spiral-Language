@@ -909,7 +909,6 @@ inl float ->
                     | {state} ->
                         inm H = hebb weights.input.n state
                         inm W = hadmultb (weights.input.alpha, H) weights.input.bias 
-                        //inm _ = print W
                         succ (W, H)
                     | _ -> succ (weights.input.bias, ())
                 inm out = matmultb (input, W) weights.bias >>= activation
