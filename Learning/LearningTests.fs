@@ -166,8 +166,6 @@ input 2 0 0 .set 1f32
 input 3 0 2 .set 1f32
 inl input = s.CudaTensor.from_host_tensor input
 
-
-
 inl label = input.view_span (const {from=1}) 
 print_static label.dim
 
