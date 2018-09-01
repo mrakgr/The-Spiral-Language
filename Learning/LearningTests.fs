@@ -174,7 +174,7 @@ inl data =
     |> Struct.map (inl x -> x.reshape (inl x -> 1 :: x))
     //|> Struct.map (inl x -> x.round_split' size.step)
 
-inl learning_rate = 2f32 ** -5.5f32
+inl learning_rate = 2f32 ** -1f32
 
 inl network,_ =
     open Feedforward
