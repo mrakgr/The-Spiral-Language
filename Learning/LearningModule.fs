@@ -454,13 +454,10 @@ inl float ->
             } {a b}
 
     inl hadmultb (x1,x2) b =
-        broadcasting_activation {
-            fwd=inl {in_inner=b in={x1 x2}} -> b + x1 * x2
-            bck_in=inl {in={x1 x2}} -> {x1 = x2; x2 = x1 }
-            bck_in_inner=inl _ -> one
-            in={x1 x2}
-            in_inner=b
-            }
+        activation {
+            fwd=inl {b x1 x2} -> b + x1 * x2
+            bck=inl {in={b x1 x2}} -> {b = one; x1 = x2; x2 = x1 }
+            } {x1 x2 b}
 
     inl linear = succ
     inl Activation = {linear sigmoid tanh relu add hadmult hadmultb } |> stack
