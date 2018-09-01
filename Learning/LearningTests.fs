@@ -164,7 +164,7 @@ input 0 0 0 .set 1f32
 input 1 0 1 .set 1f32
 input 2 0 0 .set 1f32
 input 3 0 2 .set 1f32
-inl input = s.CudaTensor.from_host_tensor input
+inl input = s.CudaTensor.from_host_tensor input 
 
 inl label = input.view_span (const {from=1}) 
 inl input = input.view_span (inl x :: _ -> x-1) 
