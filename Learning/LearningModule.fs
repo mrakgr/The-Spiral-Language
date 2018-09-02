@@ -896,7 +896,7 @@ inl float ->
                 bck=inl {in={n x}} -> { n=x; x=n }
                 } {n x}
 
-    inl plastic_hebb =
+    inl plastic_hebb' =
         {
         init = inl sublayer_size -> 
             {
@@ -920,6 +920,44 @@ inl float ->
                     | {state={H out}} -> 
                         inm W = hadmultb (weights.input.alpha, H) weights.input.bias 
                         matmultb (out, W) (f input)
+                    | _ -> 
+                        succ input
+                    >>= Activation.tanh
+
+                inm H = 
+                    match d with
+                    | {state={H}} -> hebb {n=weights.input.n; input out H}
+                    | _ -> hebb {n=weights.input.n; input out}
+                succ {out state={out H}}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        block = ()
+        }
+
+    inl plastic_hebb =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                input = {
+                    bias = Initializer.tanh (sublayer_size, sublayer_size)
+                    alpha = Initializer.tanh (sublayer_size, sublayer_size)
+                    n = Initializer.constant {dim=sublayer_size, sublayer_size; init=to float 0.5}
+                    }
+                bias = Initializer.bias sublayer_size
+                }
+            size=sublayer_size
+            }
+
+        apply = inl {d with weights input} s -> 
+            assert (primal input .span_outer = 1) "The differentirable plasticity layer supports only online learning for now."
+            inl apply =
+                inm out =
+                    match d with
+                    | {state={H out}} -> 
+                        inm W = hadmultb (weights.input.alpha, H) weights.input.bias 
+                        matmultb (input, W) weights.bias
                     | _ -> 
                         succ input
                     >>= Activation.tanh
