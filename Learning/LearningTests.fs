@@ -180,7 +180,7 @@ inl network,_ =
     open Feedforward
     open RNN
     //inl network =
-    //    mi_prong 128,
+    //    mi_prong 128, 
     //    prong {activation=Activation.linear; size=size.hot}
     inl network =
         plastic_hebb Initializer.tanh Activation.tanh 4,
