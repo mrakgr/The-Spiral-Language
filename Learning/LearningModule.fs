@@ -1064,7 +1064,7 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {plastic_hebb mi mi_prong}
+    inl RNN = {plastic_hebb' plastic_hebb mi mi_prong}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
