@@ -312,8 +312,16 @@ inl float ->
             inl l =
                 Tuple.iter (inl A, B -> 
                     inl (A,TA),(B,TB) = f' A, f' B
-                    on_non_nil (inl A -> s.CudaBlas.gemm' .nT TB one C' (primal B) one A) (adjoint A)
-                    on_non_nil (inl B -> s.CudaBlas.gemm' TA .nT one (primal A) C' one B) (adjoint B)
+                    on_non_nil (inl A -> 
+                        match TA with // Note: TA and TB are opposite of what they should be.
+                        | .T -> s.CudaBlas.gemm' .nT TB one C' (primal B) one A
+                        | .nT -> s.CudaBlas.gemm' .nT TB one (primal B) C' one A
+                        ) (adjoint A)
+                    on_non_nil (inl B -> 
+                        match TB with
+                        | .T -> s.CudaBlas.gemm' TA .nT one (primal A) C' one B
+                        | .nT -> s.CudaBlas.gemm' TA .nT one C' (primal A) one B
+                        ) (adjoint B)
                     ) l
             on_non_nil (inl bias -> bck_add_bias C' bias s) (adjoint bias)
         }
@@ -870,50 +878,57 @@ inl float ->
         s.CudaTensor.print (primal x)
         {out=(); bck=()}
 
+    inl zero dim s = {out=s.CudaTensor.zero {elem_type=float; dim}; bck=()}
+    inl zero_like x = zero (primal x .dim)
+
     // #Recurrent
-    inl hebb n {input out H} = 
+    inl hebb {d with input out n} = 
         inm x = matmult ({T=input},out)
-        match H with
-        | () ->
-            activation {
-                fwd=inl {n x} -> n * x
-                bck=inl {in={n x}} -> { n=x; x=n }
-                } {n x}
-        | _ ->
+        match d with
+        | {H} ->
             activation {
                 fwd=inl {n x H} -> n * x + (one - n) * H
                 bck=inl {in={n x H}} -> { n=x-H; x=n; H=one-n }
                 } {n x H}
+        | _ ->
+            activation {
+                fwd=inl {n x} -> n * x
+                bck=inl {in={n x}} -> { n=x; x=n }
+                } {n x}
 
-    inl plastic_hebb initializer activation size =
+    inl plastic_hebb =
         {
         init = inl sublayer_size -> 
             {
             dsc = 
                 {
                 input = {
-                    bias = initializer (sublayer_size, size)
-                    alpha = initializer (sublayer_size, size)
-                    n = Initializer.constant {dim=sublayer_size, size; init=to float 0.5}
+                    bias = Initializer.tanh (sublayer_size, sublayer_size)
+                    alpha = Initializer.tanh (sublayer_size, sublayer_size)
+                    n = Initializer.constant {dim=sublayer_size, sublayer_size; init=to float 0.5}
                     }
-                bias = Initializer.bias size
                 }
-            size
+            size=sublayer_size
             }
 
         apply = inl {d with weights input} s -> 
-            assert (input.span_outer = 1) "The differentirable plasticity layer supports only online learning for now."
+            assert (primal input .span_outer = 1) "The differentirable plasticity layer supports only online learning for now."
             inl apply =
-                inm W, H = 
+                inl f = Struct.map' (inl x -> x.reshape (inl 1 :: x -> x))
+                inm out =
                     match d with
-                    | {state} ->
-                        inm H = hebb weights.input.n state
+                    | {state={H out}} -> 
                         inm W = hadmultb (weights.input.alpha, H) weights.input.bias 
-                        succ (W, H)
-                    | _ -> succ (weights.input.bias, ())
-                inm out = matmultb (input, W) weights.bias >>= activation
-                inm _ = print out
-                succ {out state={out input H}}
+                        matmultb (out, W) (f input)
+                    | _ -> 
+                        succ input
+                    >>= Activation.tanh
+
+                inm H = 
+                    match d with
+                    | {state={H}} -> hebb {n=weights.input.n; input out H}
+                    | _ -> hebb {n=weights.input.n; input out}
+                succ {out state={out H}}
             inl {out={out state} bck} = apply s
             {out state bck}
         block = ()
@@ -990,7 +1005,7 @@ inl float ->
                     inm state =
                         match d with
                         | {state} -> succ state
-                        | _ -> inl s -> {out=s.CudaTensor.zero {elem_type=float; dim=primal right .dim}; bck=()}
+                        | _ -> zero_like right
                     natural_matmultb weights.state state
                 activation {
                     fwd=inl {left right} -> left * right |> tanh_fwd

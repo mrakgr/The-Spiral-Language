@@ -183,7 +183,8 @@ inl network,_ =
     //    mi_prong 128, 
     //    prong {activation=Activation.linear; size=size.hot}
     inl network =
-        plastic_hebb Initializer.tanh Activation.tanh 4,
+        linear 6,
+        plastic_hebb,
         linear size.hot
     //inl network =
     //    mi 128,
