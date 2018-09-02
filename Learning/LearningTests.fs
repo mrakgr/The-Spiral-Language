@@ -158,7 +158,7 @@ inl input = input.view_span (inl x :: _ -> x-1)
 
 inl data = {input label} |> Struct.map (inl x -> x.round_split' size.step)
 
-inl learning_rate = 2f32 ** -9f32
+inl learning_rate = 2f32 ** -8f32
 
 inl network,_ =
     open Feedforward
