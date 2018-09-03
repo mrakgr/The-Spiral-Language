@@ -369,36 +369,24 @@ inl float ->
                         ) x (adjoints in)
         }
 
-    inl broadcasting_activation {fwd bck_in bck_in_inner in in_inner} s =
-        inl x = primals in |> HostTensor.zip
-        inl dim = x.dim
-        inl x_inner = primals in_inner |> HostTensor.zip
-        inl out = s.CudaFun.map_map {map=fwd; in_inner=x_inner} x |> dr s
-
+    inl broadcasting_activation {d with fwd bck} s =
+        inl d = {d without fwd bck}
+        inl out = 
+            inl d = primals d
+            s.CudaFun.map_map {d with map=fwd} x |> dr s
+        
         {
         out
         bck=inl _ -> join
-            inl ins = to_dev_tensor {in in_inner out}
+            inl ins = to_dev_tensor d
+            inl out = to_dev_tensor out
+            inl dim = primal out .dim
+            inl primals = primals ins
+            inl adjoints = adjoints ins
             inl _ =
-                inl ins = {ins with in=primals self}
-                if Struct.is_empty (adjoints ins.in_inner) = false then
-                    s.CudaFun.redo_map {
-                        dim
-                        neutral_elem=Struct.map (const zero) x_inner.elem_type; redo=Struct.map2 (+)
-                        init=inl a ->
-                            inl in_inner = Struct.map (inl x -> x a) (primals ins.in_inner)
-                            inl b ->
-                                inl {in out} = Struct.map' (inl x -> x b a .get) {ins without in_inner}
-                                Struct.map ((*) (adjoint out)) (bck_in_inner <| primals {in in_inner out})
-                        outit=inl a x ->
-                            Struct.iter2 (inl x -> function
-                                | () -> ()
-                                | z -> z .set (z .get + x)
-                                ) x (Struct.map (inl x -> x a) (adjoints ins.in_inner))
-                        }
-            inl _ =
-                inl ins = {ins with in_inner=primals self}
-                if Struct.is_empty (adjoints ins.in) = false then
+                match adjoints with
+                | {in=adjoint} when Struct.is_empty adjoint = false ->
+                    inl bck_in = bck.bck_in
                     s.CudaKernel.iter2 {dim} <| inl i ->
                         inl {in out} = Struct.map' (inl x -> x i) {ins without in_inner}
                         inl i ->
@@ -409,6 +397,26 @@ inl float ->
                                 | () -> ()
                                 | z -> z .set (z .get + out * x)
                                 ) x z
+            inl _ =
+                inl ins = {ins with in=primals self}
+                if Struct.is_empty (adjoints ins.in_inner) = false then
+                    match d with
+                    | {bck_in_inner} ->
+                        s.CudaFun.redo_map {
+                            dim
+                            neutral_elem=Struct.map (const zero) x_inner.elem_type; redo=Struct.map2 (+)
+                            init=inl a ->
+                                inl in_inner = Struct.map (inl x -> x a) (primals ins.in_inner)
+                                inl b ->
+                                    inl {in out} = Struct.map' (inl x -> x b a .get) {ins without in_inner}
+                                    Struct.map ((*) (adjoint out)) (bck_in_inner <| primals {in in_inner out})
+                            outit=inl a x ->
+                                Struct.iter2 (inl x -> function
+                                    | () -> ()
+                                    | z -> z .set (z .get + x)
+                                    ) x (Struct.map (inl x -> x a) (adjoints ins.in_inner))
+                            }
+                    | _ -> ()
             ()
         }
 
