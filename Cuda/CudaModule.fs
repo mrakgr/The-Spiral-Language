@@ -1303,20 +1303,42 @@ inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
     inl by = gridDim axis * blockDim axis
     inl near_to = dim.near_to
 
-    match iteration_mode with
-    | .items_per_thread {d with body} ->
-        inl span = span dim
-        inl items_per_thread = divup span by
-        forcd {d with from=0;near_to=items_per_thread; body=inl {state i=item} ->
-            inl i = from + by * item
-            inl num_valid = span - by * item
-            if i < near_to then body {span num_valid item state i=index_convert i} else state
-            }
-    | .std d -> forcd {d with from by near_to body=inl d -> self {d with i = index_convert self}}
+    inl lit_is = Struct.foldl (inl s x -> s && lit_is x) true (by,dim)
+    inl can_be_eliminated = lit_is && by = span dim
+
+    if can_be_eliminated then
+        inl body = d.body
+        inl d = {d without body}
+        match iteration_mode with
+        | .items_per_thread d -> 
+            inl span = span dim
+            body {d with span num_valid=span; item=0; i=index_convert from}
+        | .std d -> body {d with i = index_convert from}
+        | .state_loading {d with state} -> 
+            state {d without state with i = index_convert from}
+            |> match d with {finally} -> finally | _ -> id // The return here must be unit
+            () 
+    else
+        match iteration_mode with
+        | .items_per_thread {d with body} ->
+            inl span = span dim
+            inl items_per_thread = divup span by
+            forcd {d with from=0; near_to=items_per_thread; body=inl {state i=item} ->
+                inl i = from + by * item
+                inl num_valid = span - by * item
+                if i < near_to then body {span num_valid item state i=index_convert i} else state
+                }
+        | .std d -> forcd {d with from by near_to body=inl d -> self {d with i = index_convert self}}
+        | .state_loading {d with state} ->
+            if from < near_to then
+                forcd {d with from=from+by; state=state (index_convert from); by near_to 
+                    body=inl d -> self {d with i = index_convert self}
+                    }
 
 inl grid_for_items = grid_for_template {iteration_mode=.items_per_thread}
 inl grid_for = grid_for_template {iteration_mode=.std}
-    
+inl grid_for_state_loading = grid_for_template {iteration_mode=.state_loading}
+
 inl warp_size = 32
 inl syncthreads () = macro.cd () [text: "__syncthreads()"]
 
@@ -1584,7 +1606,7 @@ met init_inscan w {d with redo neutral_elem dim=b,a init outit} =
                 }
         }
 
-met init_redo w {dim=b,a init redo neutral_elem outit} =
+met init_redo w {dim=b,a init redo outit} =
     w.run {
         blockDim = lit_min 1024 (length a)
         gridDim = {y = min 256 (length b)}
@@ -1592,12 +1614,13 @@ met init_redo w {dim=b,a init redo neutral_elem outit} =
             inl grid_for = grid_for {blockDim gridDim}
             grid_for .y b {body=inl {i} ->
                 inl init = init i
-
-                inl x =
-                    grid_for .x a {state=dyn neutral_elem; body=inl {state i=j} -> redo state (init j) }
-                    |> cub_block_reduce {blockDim redo}
-
-                if threadIdx.x = 0 then outit i x
+                grid_for_state_loading .x a {state 
+                    state=init
+                    body=inl {state i=j} -> redo state (init j)
+                    finally=
+                        cub_block_reduce {blockDim redo}
+                        >> inl x -> if threadIdx.x = 0 then outit i x
+                    }
                 }
         }
 
