@@ -413,7 +413,8 @@ inl float ->
                         finally out x in
 
             handle .in_inner <| inl {bck ins key_adjoint} ->
-                s.CudaFun.redo_map {
+                inl ty = primal ins.in_inner .elem_type
+                s.CudaKernel.redo_init {
                     dim
                     neutral_elem=Struct.map (const zero) x_inner.elem_type; redo=Struct.map2 (+)
                     init=inl a ->
@@ -427,6 +428,12 @@ inl float ->
                             Struct.map ((*) (adjoint ins.out .get)) (bck (get_primals ins))
                     outit=inl a x ->
                         finally one x (Struct.map (inl x -> x a) (adjoints ins.in_inner))
+                    }
+
+            handle .in_outer <| inl {bck ins} ->
+                s.CudaKernel.init_redo {    
+                    dim
+                    neutral_elem=Struct.map (const zero) x_inner.elem_type; redo=Struct.map2 (+)
                     }
         }
 
