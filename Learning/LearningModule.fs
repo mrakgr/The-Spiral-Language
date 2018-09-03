@@ -378,25 +378,33 @@ inl float ->
         {
         out
         bck=inl _ -> join
-            inl ins = to_dev_tensor d
-            inl out = to_dev_tensor out
-            inl dim = primal out .dim
+            inl ins = to_dev_tensor d |> inl ins -> {ins with out=to_dev_tensor out}
+            inl dim = primal ins.out .dim
             inl primals = primals ins
             inl adjoints = adjoints ins
+            inl ins_with_adjoint_of k = Struct.foldl (inl m k -> {m with $k={primal=self; adjoint=adjoints (ins k); block=()}}) ins k
+            inl without_adjoint_of k ins = Struct.foldl (inl ins k -> {ins with $k=primals self}) ins k
+            inl adjoint_of k ins = Struct.foldl (inl m k -> {m with $k=adjoints (ins k)}) {} k
+            inl index k i ins = Struct.foldl (inl ins k -> if module_has_member k ins then {ins with $k=Struct.map' (inl x -> x i) self} else ins) ins k
             inl _ =
                 match adjoints with
                 | {in=adjoint} when Struct.is_empty adjoint = false ->
-                    inl bck_in = bck.bck_in
+                    inl bck = bck.bck_in
+                    inl key_adjoint = .in, out
+                    inl ins = ins_with_adjoint_of key_adjoint
                     s.CudaKernel.iter2 {dim} <| inl i ->
-                        inl {in out} = Struct.map' (inl x -> x i) {ins without in_inner}
+                        inl ins = 
+                            index (.in_scalar) 0 ins
+                            |> index (.in, .in_outer, .out) i
                         inl i ->
-                            inl ins = Struct.map' (inl x -> x i) {ins with in out}
-                            inl x = bck_in (Struct.map (inl x -> x .get) (primals ins))
-                            inl z, out = adjoints ins.in, adjoint ins.out .get
+                            inl ins = index (in, .in_inner, .out) i ins
+                            inl x = bck (ins_without_adjoint_of key_adjoint ins)
+                            inl {in out} = adjoint_of key_adjoint ins
+                            inl out = out.get
                             Struct.iter2 (inl x -> function
                                 | () -> ()
-                                | z -> z .set (z .get + out * x)
-                                ) x z
+                                | in -> in .set (in .get + out * x)
+                                ) x in
             inl _ =
                 inl ins = {ins with in=primals self}
                 if Struct.is_empty (adjoints ins.in_inner) = false then
