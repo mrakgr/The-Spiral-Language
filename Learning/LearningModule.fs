@@ -378,54 +378,56 @@ inl float ->
         {
         out
         bck=inl _ -> join
-            inl ins = to_dev_tensor d |> inl ins -> {ins with out=to_dev_tensor out}
+            inl ins = to_dev_tensor {d with out}
             inl dim = primal ins.out .dim
-            inl primals = primals ins
-            inl adjoints = adjoints ins
-            inl ins_with_adjoint_of k = Struct.foldl (inl m k -> {m with $k={primal=self; adjoint=adjoints (ins k); block=()}}) ins k
-            inl without_adjoint_of k ins = Struct.foldl (inl ins k -> {ins with $k=primals self}) ins k
+            inl primals_with_adjoint_of = Struct.foldl (inl m k -> {m with $k={primal=self; adjoint=adjoints (ins k); block=()}}) (primals ins)
+            inl get_primals ins = Struct.map' (inl x -> x.get) (primals ins)
             inl adjoint_of k ins = Struct.foldl (inl m k -> {m with $k=adjoints (ins k)}) {} k
             inl index k i ins = Struct.foldl (inl ins k -> if module_has_member k ins then {ins with $k=Struct.map' (inl x -> x i) self} else ins) ins k
-            inl _ =
-                match adjoints with
-                | {in=adjoint} when Struct.is_empty adjoint = false ->
-                    inl bck = bck.bck_in
-                    inl key_adjoint = .in, out
-                    inl ins = ins_with_adjoint_of key_adjoint
-                    s.CudaKernel.iter2 {dim} <| inl i ->
-                        inl ins = 
-                            index (.in_scalar) 0 ins
-                            |> index (.in, .in_outer, .out) i
-                        inl i ->
-                            inl ins = index (in, .in_inner, .out) i ins
-                            inl x = bck (ins_without_adjoint_of key_adjoint ins)
-                            inl {in out} = adjoint_of key_adjoint ins
-                            inl out = out.get
-                            Struct.iter2 (inl x -> function
-                                | () -> ()
-                                | in -> in .set (in .get + out * x)
-                                ) x in
-            inl _ =
-                inl ins = {ins with in=primals self}
-                if Struct.is_empty (adjoints ins.in_inner) = false then
-                    match d with
-                    | {bck_in_inner} ->
-                        s.CudaFun.redo_map {
-                            dim
-                            neutral_elem=Struct.map (const zero) x_inner.elem_type; redo=Struct.map2 (+)
-                            init=inl a ->
-                                inl in_inner = Struct.map (inl x -> x a) (primals ins.in_inner)
-                                inl b ->
-                                    inl {in out} = Struct.map' (inl x -> x b a .get) {ins without in_inner}
-                                    Struct.map ((*) (adjoint out)) (bck_in_inner <| primals {in in_inner out})
-                            outit=inl a x ->
-                                Struct.iter2 (inl x -> function
-                                    | () -> ()
-                                    | z -> z .set (z .get + x)
-                                    ) x (Struct.map (inl x -> x a) (adjoints ins.in_inner))
-                            }
-                    | _ -> ()
-            ()
+            inl finally out =
+                Struct.iter2 (inl x -> function
+                    | () -> ()
+                    | in -> in .set (in .get + out * x)
+                    )
+
+            inl handle =
+                inl ads = adjoints ins
+                inl k f ->
+                    match ads with
+                    | {$k=adjoint} when Struct.is_empty adjoint = false ->
+                        inl bck = bck k
+                        inl key_adjoint = k, .out
+                        inl ins = primals_with_adjoint_of key_adjoint
+                        f {bck key_adjoint ins}
+
+            handle .in <| inl {bck ins key_adjoint} ->
+                s.CudaKernel.iter2 {dim} <| inl i ->
+                    inl ins =
+                        index .in_scalar 0 ins
+                        |> index (.in, .in_outer, .out) i
+                    inl i ->
+                        inl ins = index (in, .in_inner, .out) i ins
+                        inl x = bck (get_primals ins)
+                        inl {in out} = adjoint_of key_adjoint ins
+                        inl out = out.get
+                        finally out x in
+
+            handle .in_inner <| inl {bck ins key_adjoint} ->
+                s.CudaFun.redo_map {
+                    dim
+                    neutral_elem=Struct.map (const zero) x_inner.elem_type; redo=Struct.map2 (+)
+                    init=inl a ->
+                        inl ins =
+                            index .in_scalar 0 ins
+                            |> index .in_inner a
+                        inl b ->
+                            inl ins = 
+                                index (.in, .in_outer, .out) b ins
+                                |> index (.in, .out) a
+                            Struct.map ((*) (adjoint ins.out .get)) (bck (get_primals ins))
+                    outit=inl a x ->
+                        finally one x (Struct.map (inl x -> x a) (adjoints ins.in_inner))
+                    }
         }
 
     inl Primitive =
