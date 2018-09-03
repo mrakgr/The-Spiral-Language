@@ -166,7 +166,7 @@ inl network,_ =
     //inl network =
     //    mi_prong 128, 
     //    prong {activation=Activation.linear; size=size.hot}
-    inl network = 
+    inl network =
         linear 128,
         plastic_hebb',
         linear size.hot
