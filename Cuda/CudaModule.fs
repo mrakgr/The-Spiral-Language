@@ -1307,15 +1307,13 @@ inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
     inl can_be_eliminated = lit_is && by = span dim
 
     if can_be_eliminated then
-        inl body = d.body
-        inl d = {d without body}
         match iteration_mode with
-        | .items_per_thread d -> 
+        | .items_per_thread {d with body} -> 
             inl span = span dim
-            body {d with span num_valid=span; item=0; i=index_convert from}
-        | .std d -> body {d with i = index_convert from}
-        | .state_loading {d with state} -> 
-            state {d without state with i = index_convert from}
+            body {d without body with span num_valid=span; item=0; i=index_convert from}
+        | .std {d with body} -> body {d without body with i = index_convert from}
+        | .state_loading {d with body state} -> 
+            state (index_convert from) 
             |> match d with {finally} -> finally | _ -> id // The return here must be unit
             () 
     else
@@ -1474,7 +1472,7 @@ met iter w {d with dim} f =
         }
 
 /// The exclusive scan over the innermost dimension.
-met init_exscan w {dim=b,a redo neutral_elem init outit} =
+met init_exscan w {dim=b,a redo init outit} =
     w.run {
         blockDim = {x = lit_min 1024 (length a)}
         gridDim = {y = min 256 (length b)}
@@ -1532,15 +1530,18 @@ met inscan w {dim redo neutral_elem init outit} =
                 }
         }
 
-met redo w {redo neutral_elem dim init outit} =
+met redo w {redo dim init outit} =
     inl run {dim blockDim gridDim init outit} =
         w.run {
             blockDim gridDim
             kernel = cuda 
-                inl x = 
-                    grid_for {blockDim gridDim} .x dim {state=dyn neutral_elem; body=inl {state i} -> redo state (init i) }
-                    |> cub_block_reduce {blockDim redo}
-                if threadIdx.x = 0 then outit blockIdx.x x
+                grid_for_state_loading {blockDim gridDim} .x dim {
+                    state=init
+                    body=inl {state i} -> redo state (init i) 
+                    finally=
+                        cub_block_reduce {blockDim redo}
+                        >> inl x -> if threadIdx.x = 0 then outit blockIdx.x x
+                    }
             }
 
     inl l = length dim
@@ -1550,7 +1551,7 @@ met redo w {redo neutral_elem dim init outit} =
     if gridDim = 1 then
         run {dim blockDim gridDim init outit}
     else
-        inb temp = w.CudaTensor.create {elem_type=neutral_elem; dim=gridDim} |> temporary
+        inb temp = w.CudaTensor.create {elem_type=type init (dyn 0); dim=gridDim} |> temporary
         inl temp = to_dev_tensor temp
         run {blockDim gridDim dim init outit=inl i -> temp i .set}
         run {outit blockDim=gridDim; gridDim=1; dim=temp.dim; init=inl i -> temp i .get}
@@ -1561,7 +1562,7 @@ met iter2 w {d with dim=b,a} f =
     w.run {blockDim 
         gridDim={x=divup l blockDim; y=min 256 (length b)}
         kernel = cuda 
-            inl grid_for = grid_for {blockDim gridDim} 
+            inl grid_for = grid_for {blockDim gridDim}
             grid_for .y b {body=inl {i} ->
                 inl f = f i
                 grid_for .x a {body=inl {i} -> f i}
@@ -1611,10 +1612,9 @@ met init_redo w {dim=b,a init redo outit} =
         blockDim = lit_min 1024 (length a)
         gridDim = {y = min 256 (length b)}
         kernel = cuda 
-            inl grid_for = grid_for {blockDim gridDim}
-            grid_for .y b {body=inl {i} ->
+            grid_for {blockDim gridDim} .y b {body=inl {i} ->
                 inl init = init i
-                grid_for_state_loading .x a {state 
+                grid_for_state_loading {blockDim gridDim} .x a { 
                     state=init
                     body=inl {state i=j} -> redo state (init j)
                     finally=
@@ -1830,7 +1830,7 @@ met inscan_init w {dim=b,a init outit redo neutral_elem} =
 // Does a reduction based on data from the init function and pipes it into the outit function.
 // Note that dimension are iterated in reverse order and hence the arguments are passed as such into `init` as well.
 // The first argument to init is the inner dimension and then the outer. `outit` is iterated over the inner dimension.
-met redo_init w {dim=b, a init redo neutral_elem outit} =
+met redo_init w {dim=b, a init redo outit} =
     inl length = {b=length b; a=length a}
     inl x = lit_min warp_size length.a
     inl y = lit_min (1024 / x) length.b
@@ -1840,17 +1840,20 @@ met redo_init w {dim=b, a init redo neutral_elem outit} =
 
     w.run {blockDim gridDim
         kernel = cuda
-            inl grid_for = grid_for {blockDim gridDim}
-            grid_for .x a {body=inl {i} ->
+            grid_for {blockDim gridDim} .x a {body=inl {i} ->
                 inl init = init i
                 inl finally result = outit i result
 
                 if blockDim.y > 1 then
-                    grid_for .y b {state=dyn neutral_elem; body=inl {state i=j} -> redo state (init j)}
-                    |> block_reduce_2dt (blockDim.x,threadIdx.x) (blockDim.y, threadIdx.y) redo
-                    |> inl result -> if threadIdx.y = 0 then finally result
+                    grid_for_state_loading {blockDim gridDim} .y b {
+                        state=init
+                        body=inl {state i=j} -> redo state (init j)
+                        finally=
+                            block_reduce_2dt (blockDim.x,threadIdx.x) (blockDim.y, threadIdx.y) redo
+                            >> inl result -> if threadIdx.y = 0 then finally result
+                        }
                 else 
-                    finally (init 0) // Note: if the neutral_elem is non-associative this will cause an error.
+                    finally (init 0)
             }
         }
 
@@ -1951,7 +1954,7 @@ inl map_map w d in =
 // Note that the dimension get passed in reverse order into `map`. The kernel iterates over the inner and then over the outer dimension.
 inl redo_map w d in =
     indiv join
-        inl {neutral_elem redo} = d
+        inl {redo} = d
         inl map = match d with {map} -> (inl _ _ -> map) | {mapi} -> mapi
         inl in = match d with {in_inner} -> {in=zip in; in_inner=zip in_inner} | _ -> {in=zip in}
         inl in = match d with {in_outer} -> {in with in_outer=zip in_outer} | _ -> in
@@ -1980,17 +1983,18 @@ inl redo_map w d in =
                 inl a' :: () = out.dim
                 assert (a = a') "The input and the output must have the same dimensions."
                 out
-            | _ -> w.CudaTensor.create {dim=a;
-                elem_type=type 
-                    inl in = module_map (inl _ x -> x.elem_type) in
-                    inl out = map (index_example a) (index_example b) in
-                    match in with {mid} -> {mid out} | _ -> {out}
-                    |> map_out (index_example a)
-                    }
+            | _ -> 
+                w.CudaTensor.create {dim=a;
+                    elem_type=type 
+                        inl in = module_map (inl _ x -> x.elem_type) in
+                        inl out = map (index_example a) (index_example b) in
+                        match in with {mid} -> {mid out} | _ -> {out}
+                        |> map_out (index_example a)
+                        }
         inl _ =
             inl in, out = to_dev_tensor (in, out)
             w.CudaKernel.redo_init {
-                dim neutral_elem redo
+                dim redo
                 init=inl a -> 
                     inl in = {in without mid}
                     inl map = map a
@@ -2016,7 +2020,7 @@ inl redo_map w d in =
 
 inl redo w d in =
     indiv join
-        inl {neutral_elem redo} = d
+        inl {redo} = d
         inl map = match d with {map} -> (inl _ -> map) | {mapi} -> mapi | _ -> (inl _ -> id)
         inl map_out = match d with {map_out} -> map_out | _ -> id
         inl in = zip in
@@ -2031,7 +2035,7 @@ inl redo w d in =
         inl _ =
             inl in, out = to_dev_tensor (in, out)
             w.CudaKernel.redo {
-                neutral_elem redo dim
+                redo dim
                 init=inl i -> map i (in i .get)
                 outit=inl i x -> out i .set (map_out x)
                 }
@@ -2041,7 +2045,7 @@ inl redo w d in =
 
 inl map_redo w d in =
     indiv join
-        inl {neutral_elem redo} = d
+        inl {redo} = d
         inl map = match d with {map} -> (inl _ _ -> map) | {mapi} -> mapi
         inl in = match d with {in_inner} -> {in=zip in; in_inner=zip in_inner} | _ -> {in=zip in}
         inl in = match d with {in_outer} -> {in with in_outer=zip in_outer} | _ -> in
@@ -2080,7 +2084,7 @@ inl map_redo w d in =
         inl _ =
             inl in, out = to_dev_tensor (in, out)
             w.CudaKernel.init_redo {
-                dim neutral_elem redo
+                dim redo
                 init=inl b -> 
                     inl map = map b
                     inl in =

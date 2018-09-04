@@ -522,7 +522,8 @@ inl o1 = s.CudaTensor.create {dim=1; elem_type=int64}
 
 inl _ =
     inl a1,o1 = CudaAux.to_dev_tensor (a1,o1)
-    s.CudaKernel.redo {neutral_elem=0; redo=(+)
+    s.CudaKernel.redo {
+        redo=(+)
         dim=a1.dim
         init=inl i -> a1 i .get
         outit=inl i -> o1 i .set
@@ -596,7 +597,6 @@ inl f (a1, a2) =
         s.CudaKernel.init_redo {
             dim=a1.dim
             init=inl b a -> a1 b a .get, a2 b a .get
-            neutral_elem=-infinityf32,0f32
             redo=inl a b -> if fst a > fst b then a else b
             outit=inl b -> o1 b .set << snd
             } 
@@ -613,7 +613,6 @@ inl f a1 =
         s.CudaKernel.init_redo {
             dim=a1.dim
             init=inl b a -> a1 b a .get, a
-            neutral_elem=-infinityf32,-1
             redo=inl a b -> if fst a > fst b then a else b
             outit=inl b -> o1 b .set << snd
             }
@@ -831,7 +830,6 @@ inl _ =
         // Note that the arguments are in reverse order compared to init_redo.
         init=inl inner (outer,mid) -> x outer mid inner .get
         outit=inl inner -> o inner .set
-        neutral_elem=-infinityf32
         redo=max
         }
 
@@ -889,7 +887,7 @@ inb s = CudaModules (1024*1024)
 inl a1 = s.CudaFun.init {dim=10,5} (const 2)
 inl a2 = s.CudaFun.init {dim=5} id
 
-s.CudaFun.redo_map {neutral_elem=0; redo=(+); mid=a2
+s.CudaFun.redo_map {redo=(+); mid=a2
     map=inl {in} -> in
     map_out=inl {mid out} -> mid + out
     } a1
@@ -903,7 +901,7 @@ inb s = CudaModules (1024*1024)
 
 inl a1 = s.CudaFun.init {dim=2049} id
 
-s.CudaFun.redo {neutral_elem=0; redo=(+)} a1
+s.CudaFun.redo {redo=(+)} a1
 |> s.CudaTensor.print
     """
 
@@ -915,7 +913,7 @@ inb s = CudaModules (1024*1024)
 inl a1 = s.CudaFun.init {dim=10,5} (const 2)
 inl a2 = s.CudaFun.init {dim=10} id
 
-s.CudaFun.map_redo {neutral_elem=0; redo=(+); mid=a2
+s.CudaFun.map_redo {redo=(+); mid=a2
     map=inl {in} -> in
     map_out=inl {mid out} -> mid + out
     } a1
