@@ -373,7 +373,7 @@ inl float ->
         inl d = {d without fwd bck}
         inl out = 
             inl d = primals d
-            s.CudaFun.map_map {d with map=fwd} x |> dr s
+            s.CudaFun.map_map {map=fwd} d |> dr s
         
         {
         out
@@ -416,7 +416,7 @@ inl float ->
                 inl ty = primal ins.in_inner .elem_type
                 s.CudaKernel.redo_init {
                     dim
-                    neutral_elem=Struct.map (const zero) x_inner.elem_type; redo=Struct.map2 (+)
+                    redo=Struct.map2 (+)
                     init=inl a ->
                         inl ins =
                             index .in_scalar 0 ins
@@ -433,7 +433,30 @@ inl float ->
             handle .in_outer <| inl {bck ins} ->
                 s.CudaKernel.init_redo {    
                     dim
-                    neutral_elem=Struct.map (const zero) x_inner.elem_type; redo=Struct.map2 (+)
+                    redo=Struct.map2 (+)
+                    init=inl b ->
+                        inl ins =
+                            index .in_scalar 0 ins
+                            |> index (.in, .in_outer, .out) b
+                        inl a ->
+                            inl ins = index (.in, .in_inner, .out) a ins
+                            Struct.map ((*) (adjoint ins.out .get)) (bck (get_primals ins))
+                    outit=inl b x ->
+                        finally one x (Struct.map (inl x -> x b) (adjoints ins.in_outer))
+                    }
+
+            handle .in_scalar <| inl {bck ins} ->
+                s.CudaKernel.redo {    
+                    dim
+                    redo=Struct.map2 (+)
+                    init=inl b,a ->
+                        inl ins =
+                            index .in_scalar 0 ins
+                            |> index (.in, .in_outer, .out) b
+                            |> index (.in, .in_inner, .out) a
+                        Struct.map ((*) (adjoint ins.out .get)) (bck (get_primals ins))
+                    outit=inl i x ->
+                        finally one x (Struct.map (inl x -> x i) (adjoints ins.in_scalar))
                     }
         }
 
@@ -773,8 +796,10 @@ inl float ->
     inl center in in_inner =
         broadcasting_activation {
             fwd=inl {in_inner in} -> in - in_inner
-            bck_in=inl _ -> one
-            bck_in_inner=inl _ -> -one
+            bck={
+                in=inl _ -> one
+                in_inner=inl _ -> -one
+                }
             in_inner in
             }
 
@@ -1034,12 +1059,14 @@ inl float ->
                     | _ -> 
                         broadcasting_activation {
                             fwd=inl {in=right in_inner=left} -> left * right |> tanh_fwd
-                            bck_in=inl {in=right in_inner=left out} ->
-                                inl out = tanh_bck out
-                                out * left
-                            bck_in_inner=inl {in=right in_inner=left out} ->
-                                inl out = tanh_bck out
-                                out * right
+                            bck={
+                                in=inl {in=right in_inner=left out} ->
+                                    inl out = tanh_bck out
+                                    out * left
+                                in_inner=inl {in=right in_inner=left out} ->
+                                    inl out = tanh_bck out
+                                    out * right
+                                }
                             in=right
                             in_inner=weights.state.bias
                             }
