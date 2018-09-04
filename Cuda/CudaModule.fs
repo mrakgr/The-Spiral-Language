@@ -1917,7 +1917,7 @@ inl assert_dim in k dim =
     match in with
     | {$k=in} ->
         Struct.foldr2 (inl a b i -> 
-            assert (a = b) (string_format "The {0}th dimension of {1} must match. {2} <> {3}" (i,k,a,b))
+            assert (a = b) (string_format "The {0}th dimension of {1} must match. {2} <> {3}" (i,type_lit_cast k,a,b))
             i+1
             ) (in .dim |> Tuple.unwrap) dim 0
         |> ignore
