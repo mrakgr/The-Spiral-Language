@@ -683,7 +683,18 @@ inl float ->
             inl stddev = sqrt (mult / to float32 (Tuple.foldl (+) 0 dim))
             s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=float}
 
-        inl prong {d with sublayer_size size} =
+        Struct.map (function // Rough and possibly poorly tuned inits. Recommended to be used together with PRONG or layer/batch norm.
+            | {sigmoid=dim} -> init 2f32 dim s |> dr s
+            | {tanh=dim} -> init 3f32 dim s |> dr s
+            | {relu=dim} -> init 1f32 dim s |> dr s
+            | {bias=dim} -> s.CudaTensor.zero {elem_type=float; dim} |> dr s
+            | {zero=dim} -> s.CudaTensor.zero {elem_type=float; dim}
+            | {identity=dim} -> s.CudaFun.init {dim} (inl a, b -> if a = b then one else zero)
+            | {reference=x} -> ref x
+            | {constant={dim init}} -> s.CudaFun.init {dim} (const init) |> dr s
+            | {prong={d with sublayer_size size}} -> 
+                inl extra = match d with {extra} -> extra | _ -> {}
+
                 // 2 ** -3 is a sensible default.
                 // There is a relation between the epsilon parameter and the learning rate.
                 // Tests on the poker game show that up to 2 ** -2, every 2x increase in epsilon also allows a 2x increase in the learning rate.
@@ -692,7 +703,7 @@ inl float ->
                 // it lowers the winrate instead. High learning rates seem to be necessary for generalization.
                 inl default_epsilon = match d with {default_epsilon} -> default_epsilon | _ -> to float (2.0 ** -3.0)
 
-                {
+                { extra with
                 front = {
                     covariance = Initializer.identity (sublayer_size, sublayer_size)
                     precision = Initializer.identity (sublayer_size, sublayer_size)
@@ -706,29 +717,6 @@ inl float ->
                     }
                 k = match d with {steps_until_inverse_update} -> steps_until_inverse_update | _ -> 128 
                     |> Initializer.counter 
-                }
-
-        Struct.map (function // Rough and possibly poorly tuned inits. Recommended to be used together with PRONG or layer/batch norm.
-            | {sigmoid=dim} -> init 2f32 dim s |> dr s
-            | {tanh=dim} -> init 3f32 dim s |> dr s
-            | {relu=dim} -> init 1f32 dim s |> dr s
-            | {bias=dim} -> s.CudaTensor.zero {elem_type=float; dim} |> dr s
-            | {zero=dim} -> s.CudaTensor.zero {elem_type=float; dim}
-            | {identity=dim} -> s.CudaFun.init {dim} (inl a, b -> if a = b then one else zero)
-            | {reference=x} -> ref x
-            | {constant={dim init}} -> s.CudaFun.init {dim} (const init) |> dr s
-            | {prong'=d} -> prong d |> initialize s
-            | {prong=d} -> 
-                inl d = prong d
-                {d with 
-                input = Initializer.tanh (sublayer_size, size)
-                bias = Initializer.bias size
-                } |> initialize s
-            | {prong_rnn=d} ->
-                inl d = prong d
-                {d with 
-                input = Initializer.tanh (sublayer_size, size)
-                bias = Initializer.constant {dim=size; init=one}
                 } |> initialize s
             | {counter=init} ->
                 inl r = ref init
@@ -743,6 +731,28 @@ inl float ->
                 |> stack
             | x -> x
             ) x
+
+    inl prong_ff {d with sublayer_size size} = 
+        Initializer.prong {d with 
+            extra={
+                input=
+                    match d with
+                    | {initializer} -> initializer (sublayer_size, size)
+                    | _ -> Initializer.tanh (sublayer_size, size)
+                bias=Initializer.bias size
+                }
+            }
+
+    inl prong_rnn {d with sublayer_size size} = 
+        Initializer.prong {d with 
+            extra={
+                input=
+                    match d with
+                    | {initializer} -> initializer (sublayer_size, size)
+                    | _ -> Initializer.tanh (sublayer_size, size)
+                bias=Initializer.constant {dim=size; init=one}
+                }
+            }
 
     inl init s size dsc = 
         Struct.foldl_map (inl sublayer_size {x with init} -> 
@@ -904,7 +914,7 @@ inl float ->
 
     inl prong {w with activation size} = 
         {
-        init = inl sublayer_size -> { size dsc = Initializer.prong {w with sublayer_size} }
+        init = inl sublayer_size -> { size dsc = prong_ff {w with sublayer_size} }
         apply = inl {weights input} -> natural_matmultb weights input >>= activation
         optimize = inl {weights={input bias} learning_rate} s -> Tuple.iter (Optimizer.sgd learning_rate s) (input, bias)
         block = ()
@@ -963,6 +973,84 @@ inl float ->
                     }
                 } {in_scalar=n; in={x}}
 
+    inl mi_hebb_prong size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                state = Initializer.prong {
+                    extra = {
+                        input = {
+                            bias = Initializer.tanh (size, size)
+                            alpha = Initializer.tanh (size, size)
+                            n = Initializer.constant {dim=1; init=to float 0.5}
+                            }
+                        bias = Initializer.constant {dim=size; init=one}
+                        }
+                    sublayer_size=size
+                    size
+                    } 
+                input = prong_ff {sublayer_size=size; size}
+                }
+            size
+            }
+
+        apply = inl {d with weights input} s -> 
+            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl apply =
+                inm input = natural_matmultb weights.input input
+                inm out =
+                    match d with
+                    | {state={H out}} -> 
+                        inm W = hadmultb (weights.state.input.alpha, H) weights.state.input.bias 
+                        inl x = weights.state
+                        inm left = natural_matmultb {x with input=W} out
+                        activation {
+                            fwd=inl {left right} -> left * right |> tanh_fwd
+                            bck=inl {in={left right} out} ->
+                                inl out = tanh_bck out
+                                {
+                                left = out * right
+                                right = out * left
+                                }
+                            } {left right=input}
+                    | _ -> 
+                        broadcasting_activation {
+                            fwd=inl {in=right in_inner=left} -> left * right |> tanh_fwd
+                            bck={
+                                in=inl {in=right in_inner=left out} ->
+                                    inl out = tanh_bck out
+                                    out * left
+                                in_inner=inl {in=right in_inner=left out} ->
+                                    inl out = tanh_bck out
+                                    out * right
+                                }
+                            }
+                            { in=input; in_inner=weights.state.bias }
+
+                inm H = 
+                    match d with
+                    | {state={H}} -> hebb {n=weights.state.input.n; input out H}
+                    | _ -> hebb {n=weights.state.input.n; input out}
+
+                succ {out state={out H}}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        optimize=inl {weights={input state} learning_rate} s -> 
+            inl f = Tuple.iter (Optimizer.sgd learning_rate s) << Tuple.wrap
+            inl _ =
+                inl {input bias} = input
+                f (input, bias)
+            inl _ =
+                inl {input bias} = state
+                f bias
+                inl {bias alpha n} = input
+                f (bias, alpha, n)
+            ()
+        block = ()
+        }
+
     inl mi_hebb size =
         {
         init = inl sublayer_size -> 
@@ -970,7 +1058,7 @@ inl float ->
             dsc = 
                 {
                 state = {
-                    weight = {
+                    input = {
                         bias = Initializer.tanh (size, size)
                         alpha = Initializer.tanh (size, size)
                         n = Initializer.constant {dim=1; init=to float 0.5}
@@ -978,7 +1066,7 @@ inl float ->
                     bias = Initializer.constant {dim=size; init=one}
                     }
                 input = {
-                    weight = Initializer.tanh (sublayer_size, size)
+                    input = Initializer.tanh (sublayer_size, size)
                     bias = Initializer.bias size
                     }
                 }
@@ -988,11 +1076,11 @@ inl float ->
         apply = inl {d with weights input} s -> 
             assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
             inl apply =
-                inm input = matmultb (input, weights.input.weight) weights.input.bias
+                inm input = matmultb (input, weights.input.input) weights.input.bias
                 inm out =
                     match d with
                     | {state={H out}} -> 
-                        inm W = hadmultb (weights.state.weight.alpha, H) weights.state.weight.bias 
+                        inm W = hadmultb (weights.state.input.alpha, H) weights.state.input.bias 
                         inm left = matmultb (out, W) weights.state.bias
                         activation {
                             fwd=inl {left right} -> left * right |> tanh_fwd
@@ -1019,8 +1107,8 @@ inl float ->
 
                 inm H = 
                     match d with
-                    | {state={H}} -> hebb {n=weights.state.weight.n; input out H}
-                    | _ -> hebb {n=weights.state.weight.n; input out}
+                    | {state={H}} -> hebb {n=weights.state.input.n; input out H}
+                    | _ -> hebb {n=weights.state.input.n; input out}
 
                 succ {out state={out H}}
             inl {out={out state} bck} = apply s
@@ -1087,8 +1175,8 @@ inl float ->
             {
             dsc = 
                 {
-                input = Initializer.prong {sublayer_size size}
-                state = Initializer.prong_rnn {sublayer_size=size; size}
+                input = prong_ff {sublayer_size size}
+                state = prong_rnn {sublayer_size=size; size}
                 }
             size
             }
@@ -1121,7 +1209,7 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {mi mi_hebb mi_prong}
+    inl RNN = {mi mi_hebb mi_hebb_prong mi_prong}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
