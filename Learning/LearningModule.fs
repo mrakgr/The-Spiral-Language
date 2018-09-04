@@ -280,7 +280,7 @@ inl float ->
 
     inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
 
-    inl fwd_add_bias C bias s = s.CudaFun.map_map {out=C; in_inner=bias; map=inl {in in_inner} -> in+in_inner} C
+    inl fwd_add_bias C bias s = s.CudaFun.map_map {out=C; map=inl {in in_inner} -> in+in_inner} {in=C; in_inner=bias}
     inl bck_add_bias C bias s = 
         s.CudaFun.redo_map {out=bias; mid=bias; neutral_elem=zero; redo=(+);
             map=inl {in} -> in
@@ -396,23 +396,24 @@ inl float ->
                     match ads with
                     | {$k=adjoint} when Struct.is_empty adjoint = false ->
                         inl bck = bck k
-                        inl key_adjoint = k, .out
-                        inl ins = primals_with_adjoint_of key_adjoint
-                        f {bck key_adjoint ins}
+                        inl ins = primals_with_adjoint_of (k, .out)
+                        f {bck ins}
+                    | _ -> ()
 
-            handle .in <| inl {bck ins key_adjoint} ->
+            handle .in <| inl {bck ins} ->
                 s.CudaKernel.iter2 {dim} <| inl i ->
                     inl ins =
                         index .in_scalar 0 ins
+                        |> index .in_scalar .get
                         |> index (.in, .in_outer, .out) i
+                        |> index .in_outer .get
                     inl i ->
-                        inl ins = index (in, .in_inner, .out) i ins
-                        inl x = bck (get_primals ins)
-                        inl {in out} = adjoint_of key_adjoint ins
-                        inl out = out.get
-                        finally out x in
+                        inl ins = index (.in, .in_inner, .out) i ins
+                        inl x = primals ins |> index (.in, .out, .in_inner) .get |> bck
+                        inl {in out} = adjoint_of (.in, .out) ins
+                        finally out.get x in
 
-            handle .in_inner <| inl {bck ins key_adjoint} ->
+            handle .in_inner <| inl {bck ins} ->
                 inl ty = primal ins.in_inner .elem_type
                 s.CudaKernel.redo_init {
                     dim
@@ -420,12 +421,16 @@ inl float ->
                     init=inl a ->
                         inl ins =
                             index .in_scalar 0 ins
+                            |> index .in_scalar .get
                             |> index .in_inner a
+                            |> index .in_inner .get
                         inl b ->
                             inl ins = 
                                 index (.in, .in_outer, .out) b ins
                                 |> index (.in, .out) a
-                            Struct.map ((*) (adjoint ins.out .get)) (bck (get_primals ins))
+                            primals ins
+                            |> index (.in, .in_outer, .out) .get
+                            |> bck |> Struct.map ((*) (adjoint ins.out .get))
                     outit=inl a x ->
                         finally one x (Struct.map (inl x -> x a) (adjoints ins.in_inner))
                     }
@@ -437,10 +442,14 @@ inl float ->
                     init=inl b ->
                         inl ins =
                             index .in_scalar 0 ins
+                            |> index .in_scalar .get
                             |> index (.in, .in_outer, .out) b
+                            |> index .in_outer .get
                         inl a ->
                             inl ins = index (.in, .in_inner, .out) a ins
-                            Struct.map ((*) (adjoint ins.out .get)) (bck (get_primals ins))
+                            primals ins 
+                            |> index (.in, .in_inner, .out) .get 
+                            |> bck |> Struct.map ((*) (adjoint ins.out .get))
                     outit=inl b x ->
                         finally one x (Struct.map (inl x -> x b) (adjoints ins.in_outer))
                     }
@@ -820,7 +829,7 @@ inl float ->
                 | {front={center}} ret -> 
                     inl x = primal x
                     update_center {learning_rate} s center x
-                    inb x = s.CudaFun.map_map {in_inner=center; map=inl {in in_inner} -> in-in_inner} x |> CudaAux.temporary
+                    inb x = s.CudaFun.map_map {map=inl {in in_inner} -> in-in_inner} {in=x; in_inner=center} |> CudaAux.temporary
                     ret x
                 | _ ret -> 
                     ret (primal x)

@@ -1914,9 +1914,17 @@ inl map w d in =
 inl map_map w d in =
     indiv join
         inl map = match d with {map} -> (inl _ _ -> map) | {mapi} -> mapi
-        inl in = match d with {in_inner} -> {in=zip in; in_inner=zip in_inner} | _ -> {in=zip in}
-        inl in = match d with {in_outer} -> {in with in_outer=zip in_outer} | _ -> in
-        inl b,a as dim = in.in.dim
+        inl in = module_map (inl _ x -> zip x) in
+        inl b,a as dim = 
+            match in with
+            | {in} -> in.dim
+            | {in_inner in_outer} -> Tuple.unwrap in_outer.dim, Tuple.unwrap in_inner.dim
+        match in with
+        | {in} ->
+            inl b',a' = in.dim
+            assert (b = b') "The outer dimension of the two inputs must be the same."
+            assert (a = a') "The inner dimension of the two inputs must be the same."
+        | _ -> ()
         match in with
         | {in_inner} ->
             inl a' :: () = in_inner.dim
@@ -1934,19 +1942,19 @@ inl map_map w d in =
                 assert (dim = out.dim) "The input and the output must have the same dimensions."
                 out
             | _ -> w.CudaTensor.create {dim elem_type=type map (index_example b) (index_example a) (module_map (inl _ x -> x.elem_type) in)}
+        inl index k i ins = Struct.foldl (inl ins k -> if module_has_member k ins then {ins with $k=self i} else ins) ins k
+        inl ins = {in with out}
         inl _ =
-            inl in, out = to_dev_tensor (in, out)
+            inl ins = to_dev_tensor ins
             w.CudaKernel.iter2 {dim} <| inl i ->
-                inl out, map = out i, map i
-                inl in =
-                    {in with in=self i}
-                    |> function {in_outer} as in -> {in with in_outer=self i .get} | in -> in
+                inl map = map i
+                inl ins = 
+                    index (.in, .in_outer, .out) i ins
+                    |> index .in_outer .get
                 inl i ->
-                    inl out, map = out i, map i
-                    inl in =
-                        {in with in=self i .get}
-                        |> function {in_inner} as in -> {in with in_inner=self i .get} | in -> in
-                    out.set (map in)
+                    inl map = map i
+                    inl ins = index (.in, .in_inner, .out) i ins
+                    ins.out.set (map <| index (.in, .in_inner, .out) .get ins)
         match d with
         | {out} -> ()
         | _ -> stack out

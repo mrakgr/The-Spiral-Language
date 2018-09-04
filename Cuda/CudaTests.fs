@@ -875,7 +875,7 @@ inb s = CudaModules (1024*1024)
 inl a1 = s.CudaFun.init {dim=10,5} (const 2)
 inl a2 = s.CudaFun.init {dim=5} id
 
-s.CudaFun.map_map {in_inner=a2; map=inl {in in_inner} -> in+in_inner} a1
+s.CudaFun.map_map {map=inl {in in_inner} -> in+in_inner} {in=a1; in_inner=a2}
 |> s.CudaTensor.print
     """
 
@@ -935,7 +935,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) fun6
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) fun3
 |> printfn "%s"
 |> ignore
 
