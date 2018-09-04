@@ -369,16 +369,13 @@ inl float ->
                         ) x (adjoints in)
         }
 
-    inl broadcasting_activation {d with fwd bck} s =
-        inl d = {d without fwd bck}
-        inl out = 
-            inl d = primals d
-            s.CudaFun.map_map {map=fwd} d |> dr s
+    inl broadcasting_activation {fwd bck} ins s =
+        inl out = s.CudaFun.map_map {map=fwd} (primals ins) |> dr s
         
         {
         out
         bck=inl _ -> join
-            inl ins = to_dev_tensor {d with out}
+            inl ins = to_dev_tensor {ins with out}
             inl dim = primal ins.out .dim
             inl primals_with_adjoint_of = Struct.foldl (inl m k -> {m with $k={primal=self; adjoint=adjoints (ins k); block=()}}) (primals ins)
             inl get_primals ins = Struct.map' (inl x -> x.get) (primals ins)
@@ -809,8 +806,7 @@ inl float ->
                 in=inl _ -> one
                 in_inner=inl _ -> -one
                 }
-            in_inner in
-            }
+            } {in_inner in}
 
     inl natural_matmultb_template config {weights with input bias} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
@@ -954,7 +950,7 @@ inl float ->
                 } {in_scalar=n; in={x H}}
         | _ ->
             broadcasting_activation {
-                fwd=inl {in_scalar=n in={x H}} -> n * x
+                fwd=inl {in_scalar=n in={x}} -> n * x
                 bck={
                     in_scalar=inl {in_scalar=n in={x}} -> x
                     in=inl {in_scalar=n in={x}} -> { x=n }
@@ -1134,9 +1130,8 @@ inl float ->
                                     inl out = tanh_bck out
                                     out * right
                                 }
-                            in=right
-                            in_inner=weights.state.bias
                             }
+                            { in=right; in_inner=weights.state.bias }
                 succ {out state=out}
             inl {out={out state} bck} = apply s
             {out state bck}
