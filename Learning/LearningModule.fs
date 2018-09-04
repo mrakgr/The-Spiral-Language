@@ -683,16 +683,7 @@ inl float ->
             inl stddev = sqrt (mult / to float32 (Tuple.foldl (+) 0 dim))
             s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=float}
 
-        Struct.map (function // Rough and possibly poorly tuned inits. Recommended to be used together with PRONG or layer/batch norm.
-            | {sigmoid=dim} -> init 2f32 dim s |> dr s
-            | {tanh=dim} -> init 3f32 dim s |> dr s
-            | {relu=dim} -> init 1f32 dim s |> dr s
-            | {bias=dim} -> s.CudaTensor.zero {elem_type=float; dim} |> dr s
-            | {zero=dim} -> s.CudaTensor.zero {elem_type=float; dim}
-            | {identity=dim} -> s.CudaFun.init {dim} (inl a, b -> if a = b then one else zero)
-            | {reference=x} -> ref x
-            | {constant={dim init}} -> s.CudaFun.init {dim} (const init) |> dr s
-            | {prong={d with sublayer_size size}} -> 
+        inl prong {d with sublayer_size size} =
                 // 2 ** -3 is a sensible default.
                 // There is a relation between the epsilon parameter and the learning rate.
                 // Tests on the poker game show that up to 2 ** -2, every 2x increase in epsilon also allows a 2x increase in the learning rate.
@@ -702,14 +693,6 @@ inl float ->
                 inl default_epsilon = match d with {default_epsilon} -> default_epsilon | _ -> to float (2.0 ** -3.0)
 
                 {
-                input = 
-                    match d with
-                    | {initializer={input}} -> input
-                    | _ -> Initializer.tanh (sublayer_size, size)
-                bias = 
-                    match d with
-                    | {initializer={bias}} -> bias
-                    | _ -> Initializer.bias size
                 front = {
                     covariance = Initializer.identity (sublayer_size, sublayer_size)
                     precision = Initializer.identity (sublayer_size, sublayer_size)
@@ -723,6 +706,29 @@ inl float ->
                     }
                 k = match d with {steps_until_inverse_update} -> steps_until_inverse_update | _ -> 128 
                     |> Initializer.counter 
+                }
+
+        Struct.map (function // Rough and possibly poorly tuned inits. Recommended to be used together with PRONG or layer/batch norm.
+            | {sigmoid=dim} -> init 2f32 dim s |> dr s
+            | {tanh=dim} -> init 3f32 dim s |> dr s
+            | {relu=dim} -> init 1f32 dim s |> dr s
+            | {bias=dim} -> s.CudaTensor.zero {elem_type=float; dim} |> dr s
+            | {zero=dim} -> s.CudaTensor.zero {elem_type=float; dim}
+            | {identity=dim} -> s.CudaFun.init {dim} (inl a, b -> if a = b then one else zero)
+            | {reference=x} -> ref x
+            | {constant={dim init}} -> s.CudaFun.init {dim} (const init) |> dr s
+            | {prong'=d} -> prong d |> initialize s
+            | {prong=d} -> 
+                inl d = prong d
+                {d with 
+                input = Initializer.tanh (sublayer_size, size)
+                bias = Initializer.bias size
+                } |> initialize s
+            | {prong_rnn=d} ->
+                inl d = prong d
+                {d with 
+                input = Initializer.tanh (sublayer_size, size)
+                bias = Initializer.constant {dim=size; init=one}
                 } |> initialize s
             | {counter=init} ->
                 inl r = ref init
@@ -937,7 +943,7 @@ inl float ->
     inl zero_like x = zero (primal x .dim)
 
     // #Recurrent
-    inl hebb' {d with input out n} = 
+    inl hebb {d with input out n} = 
         inm x = matmult ({T=input},out)
         match d with
         | {H} ->
@@ -957,45 +963,36 @@ inl float ->
                     }
                 } {in_scalar=n; in={x}}
 
-    inl hebb {d with input out n} = 
-        inm x = matmult ({T=input},out)
-        match d with
-        | {H} ->
-            activation {
-                fwd=inl {n x H} -> n * x + (one - n) * H
-                bck=inl {in={n x H}} -> { n=x-H; x=n; H=one-n }
-                } {n x H}
-        | _ ->
-            activation {
-                fwd=inl {n x} -> n * x
-                bck=inl {in={n x}} -> { n=x; x=n }
-                } {n x}
-
-    inl plastic_hebb'' =
+    inl mi_hebb size =
         {
         init = inl sublayer_size -> 
             {
             dsc = 
                 {
                 state = {
-                    input = {
-                        bias = Initializer.tanh (sublayer_size, sublayer_size)
-                        alpha = Initializer.tanh (sublayer_size, sublayer_size)
+                    weight = {
+                        bias = Initializer.tanh (size, size)
+                        alpha = Initializer.tanh (size, size)
                         n = Initializer.constant {dim=1; init=to float 0.5}
                         }
-                    bias = Initializer.constant {dim=sublayer_size; init=one}
+                    bias = Initializer.constant {dim=size; init=one}
+                    }
+                input = {
+                    weight = Initializer.tanh (sublayer_size, size)
+                    bias = Initializer.bias size
                     }
                 }
-            size=sublayer_size
+            size
             }
 
         apply = inl {d with weights input} s -> 
             assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
             inl apply =
+                inm input = matmultb (input, weights.input.weight) weights.input.bias
                 inm out =
                     match d with
                     | {state={H out}} -> 
-                        inm W = hadmultb (weights.state.input.alpha, H) weights.state.input.bias 
+                        inm W = hadmultb (weights.state.weight.alpha, H) weights.state.weight.bias 
                         inm left = matmultb (out, W) weights.state.bias
                         activation {
                             fwd=inl {left right} -> left * right |> tanh_fwd
@@ -1022,84 +1019,9 @@ inl float ->
 
                 inm H = 
                     match d with
-                    | {state={H}} -> hebb' {n=weights.state.input.n; input out H}
-                    | _ -> hebb' {n=weights.state.input.n; input out}
-                succ {out state={out H}}
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        block = ()
-        }
+                    | {state={H}} -> hebb {n=weights.state.weight.n; input out H}
+                    | _ -> hebb {n=weights.state.weight.n; input out}
 
-    inl plastic_hebb' =
-        {
-        init = inl sublayer_size -> 
-            {
-            dsc = 
-                {
-                input = {
-                    bias = Initializer.tanh (sublayer_size, sublayer_size)
-                    alpha = Initializer.tanh (sublayer_size, sublayer_size)
-                    n = Initializer.constant {dim=sublayer_size, sublayer_size; init=to float 0.5}
-                    }
-                }
-            size=sublayer_size
-            }
-
-        apply = inl {d with weights input} s -> 
-            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-            inl apply =
-                inl f = Struct.map' (inl x -> x.reshape (inl 1 :: x -> x))
-                inm out =
-                    match d with
-                    | {state={H out}} -> 
-                        inm W = hadmultb (weights.input.alpha, H) weights.input.bias 
-                        matmultb (out, W) (f input)
-                    | _ -> 
-                        succ input
-                    >>= Activation.tanh
-
-                inm H = 
-                    match d with
-                    | {state={H}} -> hebb {n=weights.input.n; input out H}
-                    | _ -> hebb {n=weights.input.n; input out}
-                succ {out state={out H}}
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        block = ()
-        }
-
-    inl plastic_hebb =
-        {
-        init = inl sublayer_size -> 
-            {
-            dsc = 
-                {
-                input = {
-                    bias = Initializer.tanh (sublayer_size, sublayer_size)
-                    alpha = Initializer.tanh (sublayer_size, sublayer_size)
-                    n = Initializer.constant {dim=sublayer_size, sublayer_size; init=to float 0.5}
-                    }
-                bias = Initializer.bias sublayer_size
-                }
-            size=sublayer_size
-            }
-
-        apply = inl {d with weights input} s -> 
-            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-            inl apply =
-                inm out =
-                    match d with
-                    | {state={H out}} -> 
-                        inm W = hadmultb (weights.input.alpha, H) weights.input.bias 
-                        matmultb (input, W) weights.bias
-                    | _ -> 
-                        succ input
-                    >>= Activation.tanh
-
-                inm H = 
-                    match d with
-                    | {state={H}} -> hebb {n=weights.input.n; input out H}
-                    | _ -> hebb {n=weights.input.n; input out}
                 succ {out state={out H}}
             inl {out={out state} bck} = apply s
             {out state bck}
@@ -1166,7 +1088,7 @@ inl float ->
             dsc = 
                 {
                 input = Initializer.prong {sublayer_size size}
-                state = Initializer.prong {sublayer_size=size; initializer={bias=Initializer.constant {dim=size; init=one}}; size}
+                state = Initializer.prong_rnn {sublayer_size=size; size}
                 }
             size
             }
@@ -1199,7 +1121,7 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {plastic_hebb'' plastic_hebb' plastic_hebb mi mi_prong}
+    inl RNN = {mi mi_hebb mi_prong}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
