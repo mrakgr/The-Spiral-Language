@@ -941,6 +941,26 @@ inl float ->
     inl zero_like x = zero (primal x .dim)
 
     // #Recurrent
+    inl hebb' {d with input out n} = 
+        inm x = matmult ({T=input},out)
+        match d with
+        | {H} ->
+            broadcasting_activation {
+                fwd=inl {in_scalar=n in={x H}} -> n * x + (one - n) * H
+                bck={
+                    in_scalar=inl {in_scalar=n in={x H}} -> x-H
+                    in=inl {in_scalar=n in={x H}} -> { x=n; H=one-n }
+                    }
+                } {in_scalar=n; in={x H}}
+        | _ ->
+            broadcasting_activation {
+                fwd=inl {in_scalar=n in={x H}} -> n * x
+                bck={
+                    in_scalar=inl {in_scalar=n in={x}} -> x
+                    in=inl {in_scalar=n in={x}} -> { x=n }
+                    }
+                } {in_scalar=n; in={x}}
+
     inl hebb {d with input out n} = 
         inm x = matmult ({T=input},out)
         match d with
@@ -954,6 +974,44 @@ inl float ->
                 fwd=inl {n x} -> n * x
                 bck=inl {in={n x}} -> { n=x; x=n }
                 } {n x}
+
+    inl plastic_hebb'' =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                input = {
+                    bias = Initializer.tanh (sublayer_size, sublayer_size)
+                    alpha = Initializer.tanh (sublayer_size, sublayer_size)
+                    n = Initializer.constant {dim=1; init=to float 0.5}
+                    }
+                }
+            size=sublayer_size
+            }
+
+        apply = inl {d with weights input} s -> 
+            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl apply =
+                inl f = Struct.map' (inl x -> x.reshape (inl 1 :: x -> x))
+                inm out =
+                    match d with
+                    | {state={H out}} -> 
+                        inm W = hadmultb (weights.input.alpha, H) weights.input.bias 
+                        matmultb (out, W) (f input)
+                    | _ -> 
+                        succ input
+                    >>= Activation.tanh
+
+                inm H = 
+                    match d with
+                    | {state={H}} -> hebb' {n=weights.input.n; input out H}
+                    | _ -> hebb' {n=weights.input.n; input out}
+                succ {out state={out H}}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        block = ()
+        }
 
     inl plastic_hebb' =
         {
@@ -971,7 +1029,7 @@ inl float ->
             }
 
         apply = inl {d with weights input} s -> 
-            assert (primal input .span_outer = 1) "The differentirable plasticity layer supports only online learning for now."
+            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
             inl apply =
                 inl f = Struct.map' (inl x -> x.reshape (inl 1 :: x -> x))
                 inm out =
@@ -1010,7 +1068,7 @@ inl float ->
             }
 
         apply = inl {d with weights input} s -> 
-            assert (primal input .span_outer = 1) "The differentirable plasticity layer supports only online learning for now."
+            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
             inl apply =
                 inm out =
                     match d with
@@ -1125,7 +1183,7 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {plastic_hebb' plastic_hebb mi mi_prong}
+    inl RNN = {plastic_hebb'' plastic_hebb' plastic_hebb mi mi_prong}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
