@@ -32,14 +32,15 @@ inl {test_images test_labels} = module_map (inl _ x -> x.round_split' test_minib
 inl input_size = 784
 inl label_size = 10
 
+inl learning_rate = 2f32 ** -10f32
 inl network,_ =
     open Feedforward
-    inl network =
-        relu 256,
-        linear label_size
     //inl network =
-    //    prong {activation=Activation.relu; size=256},
-    //    prong {activation=Activation.linear; size=label_size}
+    //    relu 256,
+    //    linear label_size
+    inl network =
+        prong {activation=Activation.relu; size=256},
+        prong {activation=Activation.linear; size=label_size}
 
     init s input_size network
 
@@ -66,7 +67,7 @@ inl train {data={input label} network learning_rate final} s =
 
         if nan_is state then state else next state
         }
-    |> inl cost -> cost / to float64 (HostTensor.span range)
+    |> inl cost -> cost / to float64 input.span_outer2
 
 inl test {data={input label} network final} s =
     inl range = fst input.dim
@@ -86,7 +87,7 @@ inl test {data={input label} network final} s =
         if nan_is state.cost then state
         else next state
         }
-    |> inl cost -> {cost with cost = self / to float64 (HostTensor.span range)}
+    |> inl cost -> {cost with cost = self / to float64 input.span_outer2}
 
 Loops.for' {from=0; near_to=5; body=inl {i next} -> 
     inl cost =
@@ -95,11 +96,11 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
             train {
                 data={input=train_images; label=train_labels}
                 network
-                learning_rate = 2f32 ** -7f32
+                learning_rate
                 final = Error.softmax_cross_entropy
                 } s
 
-    string_format "Training: {0}" (cost / to float64 train_minibatch_size) |> Console.writeline
+    string_format "Training: {0}" cost |> Console.writeline
 
     if nan_is cost then
         Console.writeline "Training diverged. Aborting..."
@@ -111,7 +112,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
                 final=Error.softmax_cross_entropy
                 } s 
 
-        string_format "Testing: {0}({1}/{2})" (cost / to float64 test_minibatch_size, ac, max_ac) |> Console.writeline
+        string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
         next ()
     }
     """
@@ -126,7 +127,7 @@ open Learning float
 
 inl size = {
     seq = 1115394
-    minibatch = 1
+    minibatch = 64
     step = 64
     hot = 128
     }
@@ -151,24 +152,24 @@ inl input =
     s.CudaFun.init {dim=seq,minibatch,size.hot} <| inl seq, minibatch, hot ->
         if data minibatch seq .get = to uint8 hot then 1f32 else 0f32
 
-inl input = input.view_span (inl x :: _ -> x / 64) // Am using only 1/64th of the dataset here in order to speed up testing on plastic RNNs.
+//inl input = input.view_span (inl x :: _ -> x / 64) // Am using only 1/64th of the dataset here in order to speed up testing on plastic RNNs.
 
 inl label = input.view_span (const {from=1}) 
 inl input = input.view_span (inl x :: _ -> x-1) 
 
 inl data = {input label} |> Struct.map (inl x -> x.round_split' size.step)
 
-inl learning_rate = 2f32 ** -5.5f32
+inl learning_rate = 2f32 ** -13.5f32
 
 inl network,_ =
     open Feedforward
     open RNN
-    //inl network =
-    //    mi_prong 128, 
+    inl network =
+        mi_prong 128, 
+        prong {activation=Activation.linear; size=size.hot}
+    //inl network = 
+    //    mi_hebb_prong 128,
     //    prong {activation=Activation.linear; size=size.hot}
-    inl network = 
-        mi_hebb 128,
-        linear size.hot
     //inl network =
     //    mi 128,
     //    linear size.hot
@@ -250,7 +251,7 @@ met train {data={input label} network learning_rate final} s =
                 }
         finally=inl {cost state} -> (match state with {s} -> s.RegionMem.clear); cost
         }
-    |> inl cost -> cost / to float64 input.span_outer2
+    |> inl cost -> cost / to float64 input.span_outer3
 
 inl f (!dyn learning_rate) next i =
     Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)

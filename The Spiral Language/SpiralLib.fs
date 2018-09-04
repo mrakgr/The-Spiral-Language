@@ -1563,6 +1563,7 @@ inl rec facade data =
         empty = inl data -> facade {data with bodies=()}
         span_outer = inl {dim} -> match dim with () -> 1 | x :: _ -> span x
         span_outer2 = inl {dim=a::b::_} -> span a * span b
+        span_outer3 = inl {dim=a::b::c::_} -> span a * span b * span c
         split = inl data f -> split f (facade data)
         flatten = inl data -> flatten (facade data)
         reshape = inl data f -> reshape f (facade data)
