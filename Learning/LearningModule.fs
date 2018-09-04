@@ -977,10 +977,13 @@ inl float ->
             {
             dsc = 
                 {
-                input = {
-                    bias = Initializer.tanh (sublayer_size, sublayer_size)
-                    alpha = Initializer.tanh (sublayer_size, sublayer_size)
-                    n = Initializer.constant {dim=1; init=to float 0.5}
+                state = {
+                    input = {
+                        bias = Initializer.tanh (sublayer_size, sublayer_size)
+                        alpha = Initializer.tanh (sublayer_size, sublayer_size)
+                        n = Initializer.constant {dim=1; init=to float 0.5}
+                        }
+                    bias = Initializer.constant {dim=sublayer_size; init=one}
                     }
                 }
             size=sublayer_size
@@ -989,20 +992,38 @@ inl float ->
         apply = inl {d with weights input} s -> 
             assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
             inl apply =
-                inl f = Struct.map' (inl x -> x.reshape (inl 1 :: x -> x))
                 inm out =
                     match d with
                     | {state={H out}} -> 
-                        inm W = hadmultb (weights.input.alpha, H) weights.input.bias 
-                        matmultb (out, W) (f input)
+                        inm W = hadmultb (weights.state.input.alpha, H) weights.state.input.bias 
+                        inm left = matmultb (out, W) weights.state.bias
+                        activation {
+                            fwd=inl {left right} -> left * right |> tanh_fwd
+                            bck=inl {in={left right} out} ->
+                                inl out = tanh_bck out
+                                {
+                                left = out * right
+                                right = out * left
+                                }
+                            } {left right=input}
                     | _ -> 
-                        succ input
-                    >>= Activation.tanh
+                        broadcasting_activation {
+                            fwd=inl {in=right in_inner=left} -> left * right |> tanh_fwd
+                            bck={
+                                in=inl {in=right in_inner=left out} ->
+                                    inl out = tanh_bck out
+                                    out * left
+                                in_inner=inl {in=right in_inner=left out} ->
+                                    inl out = tanh_bck out
+                                    out * right
+                                }
+                            }
+                            { in=input; in_inner=weights.state.bias }
 
                 inm H = 
                     match d with
-                    | {state={H}} -> hebb' {n=weights.input.n; input out H}
-                    | _ -> hebb' {n=weights.input.n; input out}
+                    | {state={H}} -> hebb' {n=weights.state.input.n; input out H}
+                    | _ -> hebb' {n=weights.state.input.n; input out}
                 succ {out state={out H}}
             inl {out={out state} bck} = apply s
             {out state bck}
