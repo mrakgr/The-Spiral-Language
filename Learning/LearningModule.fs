@@ -957,23 +957,17 @@ inl float ->
         inm x = matmult ({T=input},out)
         match d with
         | {H} ->
-            broadcasting_activation {
-                fwd=inl {in_scalar=n in={x H}} -> n * x + (one - n) * H
-                bck={
-                    in_scalar=inl {in_scalar=n in={x H}} -> x-H
-                    in=inl {in_scalar=n in={x H}} -> { x=n; H=one-n }
-                    }
-                } {in_scalar=n; in={x H}}
+            activation {
+                fwd=inl {x H} -> n * x + (one - n) * H
+                bck=inl {in={x H}} -> { x=n; H=one-n }
+                } {x H}
         | _ ->
-            broadcasting_activation {
-                fwd=inl {in_scalar=n in={x}} -> n * x
-                bck={
-                    in_scalar=inl {in_scalar=n in={x}} -> x
-                    in=inl {in_scalar=n in={x}} -> { x=n }
-                    }
-                } {in_scalar=n; in={x}}
+            activation {
+                fwd=inl {x} -> n * x
+                bck=inl {in={x}} -> { x=n }
+                } {x}
 
-    inl mi_hebb_prong size =
+    inl mi_hebb_prong n size =
         {
         init = inl sublayer_size -> 
             {
@@ -1031,8 +1025,8 @@ inl float ->
 
                 inm H = 
                     match d with
-                    | {state={H}} -> hebb {n=weights.state.input.n; input out H}
-                    | _ -> hebb {n=weights.state.input.n; input out}
+                    | {state={H}} -> hebb {n=weights.state.input.n; input out H n}
+                    | _ -> hebb {n=weights.state.input.n; input out n}
 
                 succ {out state={out H}}
             inl {out={out state} bck} = apply s
@@ -1051,7 +1045,7 @@ inl float ->
         block = ()
         }
 
-    inl mi_hebb size =
+    inl mi_hebb n size =
         {
         init = inl sublayer_size -> 
             {
@@ -1107,8 +1101,8 @@ inl float ->
 
                 inm H = 
                     match d with
-                    | {state={H}} -> hebb {n=weights.state.input.n; input out H}
-                    | _ -> hebb {n=weights.state.input.n; input out}
+                    | {state={H}} -> hebb {n=weights.state.input.n; input out H n}
+                    | _ -> hebb {n=weights.state.input.n; input out n}
 
                 succ {out state={out H}}
             inl {out={out state} bck} = apply s

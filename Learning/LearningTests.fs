@@ -159,7 +159,8 @@ inl input = input.view_span (inl x :: _ -> x-1)
 
 inl data = {input label} |> Struct.map (inl x -> x.round_split' size.step)
 
-inl learning_rate = 2f32 ** -7.5f32
+inl learning_rate = 2f32 ** -9.5f32
+inl n = 1f32 / to float size.step
 
 inl network,_ =
     open Feedforward
@@ -170,17 +171,17 @@ inl network,_ =
             mi_prong 128, 
             prong {activation=Activation.linear; size=size.hot}
         mi_hebb_prong =
-            mi_hebb_prong 128,
+            mi_hebb_prong n 128,
             prong {activation=Activation.linear; size=size.hot}
         mi =
             mi 128,
             linear size.hot
         mi_hebb =
-            mi_hebb 128,
+            mi_hebb n 128,
             linear size.hot
         }
 
-    init s size.hot network.mi_hebb
+    init s size.hot network.mi_hebb_prong
 
 inl truncate network s' =
     inl s = s'.RegionMem.create
