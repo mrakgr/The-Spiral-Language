@@ -42,8 +42,20 @@ test ()
 //sin(var_1)
     """
 
+let example2 =
+    "example2",[tuple;console],"Module description.",
+    """
+inl rec foo n = 
+    assert (lit_is n) "n must be known at compile time."
+    assert (n >= 0) "n must greater or equal to zero."
+    if n = 0 then ()
+    else (if n % 2 = 0 then int32 else string) :: foo (n - 1)
+
+inl stringify = function _: int32 -> "int" | _ : string -> "string"
+foo 10 |> Tuple.map stringify |> Console.writeline
+    """
+
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example2
 |> printfn "%s"
 |> ignore
-
