@@ -127,7 +127,7 @@ open Learning float
 
 inl size = {
     seq = 1115394
-    minibatch = 64
+    minibatch = 1
     step = 64
     hot = 128
     }
@@ -152,29 +152,35 @@ inl input =
     s.CudaFun.init {dim=seq,minibatch,size.hot} <| inl seq, minibatch, hot ->
         if data minibatch seq .get = to uint8 hot then 1f32 else 0f32
 
-//inl input = input.view_span (inl x :: _ -> x / 64) // Am using only 1/64th of the dataset here in order to speed up testing on plastic RNNs.
+inl input = input.view_span (inl x :: _ -> x / 64) // Am using only 1/64th of the dataset here in order to speed up testing on plastic RNNs.
 
 inl label = input.view_span (const {from=1}) 
 inl input = input.view_span (inl x :: _ -> x-1) 
 
 inl data = {input label} |> Struct.map (inl x -> x.round_split' size.step)
 
-inl learning_rate = 2f32 ** -13.5f32
+inl learning_rate = 2f32 ** -7.5f32
 
 inl network,_ =
     open Feedforward
     open RNN
-    inl network =
-        mi_prong 128, 
-        prong {activation=Activation.linear; size=size.hot}
-    //inl network = 
-    //    mi_hebb_prong 128,
-    //    prong {activation=Activation.linear; size=size.hot}
-    //inl network =
-    //    mi 128,
-    //    linear size.hot
+    inl network = 
+        {
+        mi_prong =
+            mi_prong 128, 
+            prong {activation=Activation.linear; size=size.hot}
+        mi_hebb_prong =
+            mi_hebb_prong 128,
+            prong {activation=Activation.linear; size=size.hot}
+        mi =
+            mi 128,
+            linear size.hot
+        mi_hebb =
+            mi_hebb 128,
+            linear size.hot
+        }
 
-    init s size.hot network
+    init s size.hot network.mi_hebb
 
 inl truncate network s' =
     inl s = s'.RegionMem.create
