@@ -303,13 +303,24 @@ inl make_patterns n size =
         inl pattern = make_pattern size
         inl n -> Struct.map (inl x -> x n) pattern
         )
+
+inl size = {
+    pattern = 6
+    episode = 5
+    seq = 2
+
+    shot = 3
+    pattern_repetition = 10
+    empty_input_after_repetition = 3
+    }
+
+inl dataset =
+    make_patterns (size.seq * size.episode) size.pattern 
+        .reshape (inl a,b -> size.seq, size.episode, b)
+    |> s.CudaTensor.from_host_tensor
     |> HostTensor.unzip
 
-inl pattern_size = 6
-inl patterns = make_patterns 5 pattern_size
-inl gpu_patterns = Struct.map s.CudaTensor.from_host_tensor patterns
-Struct.iter HostTensor.print patterns
-Struct.iter s.CudaTensor.print gpu_patterns
+Struct.iter s.CudaTensor.print dataset
     """
 
 let tests =
