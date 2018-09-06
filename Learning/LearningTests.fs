@@ -390,24 +390,35 @@ met train {shot pattern_repetition empty_input_after_repetition} {data network l
                         finally=next
                         }
                 finally=inl {d with state prev_states} ->
+                    inl prev_states = List.cons state prev_states |> dyn
+                    
                     inl order = rng.next(0,episode_size)
                     inl input = data.degraded order
                     inl label = data.original order
 
-                    inl {state} = run {state input}
+                    inl {network s} = state
+                    inl {state={network s substate}} = run {state={network s} input}
 
-                    match state with
-                    | {final} -> 
+                    inl cost =
+                        match substate with
+                        | {final} -> final label + cost
+                        | _ -> failwith cost "impossible"
+
+                    inl f bck =
+                        inl learning_rate = learning_rate ** 0.85
+                        inl apply bck _ = bck {learning_rate} |> ignore
+                        Struct.foldr apply bck ()
+
+                    match substate with {bck} -> f bck
+                    List.foldl (inl _ -> function
+                        | {substate={bck}} -> f bck
+                        | _ -> ()
+                        ) () prev_states
+
+                    Optimizer.standard learning_rate s network
                     
-                    body input {state next=inl {state with cost state prev_states} ->
-                        
-                        
-                        inl prev_states = List.cons state prev_states |> dyn
-                        
-
-                        if nan_is cost then cost 
-                        else next {cost}
-                        }
+                    if nan_is cost then cost 
+                    else next {cost}
                 }
         finally=inl {cost} -> cost / to float64 (HostTensor.snap range*shot*pattern_repetition*empty_input_after_repetition)
         }
