@@ -322,106 +322,10 @@ inl dataset =
 
 Struct.iter s.CudaTensor.print dataset
 
-met train {shot pattern_repetition empty_input_after_repetition} {data network learning_rate final} s =
-    HostTensor.zip data |> ignore
+met train {data network learning_rate final} s = // TODO: Work in progress.
+    ()
 
-    inl s = s.RegionMem.create
-
-    inl ty, {run} = 
-        Union.infer {
-            run={
-                map=inl {state={network s} input} ->
-                    inl network, input = run s input network
-                    inl final label =
-                        match label with
-                        | () -> ()
-                        | _ ->
-                            inl {out bck} = final label input s
-                            bck()
-                            s.CudaTensor.get out |> to float64
-
-                    inl substate = {bck=Struct.map (inl {bck} -> bck) network; final}
-                    inl network = Struct.map (inl x -> {x without bck}) network
-                    {state={network s substate}}
-                input=inl _ -> Struct.map (inl x -> x (dyn 0) (dyn 0)) data
-                block=()
-                }
-            } {network s}
-
-    inl empty_states = List.empty ty |> dyn
-    inl first_state = {network s} |> heap |> box ty |> dyn
-
-    inl zero = s.CudaTensor.zero_like (data.original 0 0)
-
-    inl range = fst data.original.dim
-    // Episodes
-    Loops.for' {range with state={cost=dyn 0.0}; 
-        body=inl {i next state} ->
-            inl data = Struct.map (inl x -> x i) data
-            inl range = fst data.original.dim
-            inl size_episode = HostTensor.span range
-
-            inl body input {state={d with state prev_states} next} =
-                inl prev_states = List.cons state prev_states |> dyn
-                inl {network s} = state
-                inl {state} = run {state={network s} input}
-                next {d with prev_states state}
-            
-            // Shot
-            inl order = Array.init size_episode id 
-            Loops.for' {from=0; near_to=shot; state={state with state=first_state; prev_states=empty_states}
-                body=inl {state next i} ->
-                    Array.shuffle_inplace rng order
-                    // Patterns
-                    Loops.for {from=0; near_to=size_episode; state 
-                        body=inl {state next i} ->
-                            inl input = data.original (order i)
-
-                            // Repetitions
-                            Loops.for' {from=0; near_to=pattern_repetition; state 
-                                body=body input
-                                finally=inl state ->
-                                    // Empty inputs after repetition
-                                    Loops.for' {from=0; near_to=empty_input_after_repetition; state 
-                                        body=body zero
-                                        finally=next
-                                        }
-                                }
-                        finally=next
-                        }
-                finally=inl {d with state prev_states} ->
-                    inl prev_states = List.cons state prev_states |> dyn
-                    
-                    inl order = rng.next(0,episode_size)
-                    inl input = data.degraded order
-                    inl label = data.original order
-
-                    inl {network s} = state
-                    inl {state={network s substate}} = run {state={network s} input}
-
-                    inl cost =
-                        match substate with
-                        | {final} -> final label + cost
-                        | _ -> failwith cost "impossible"
-
-                    inl f bck =
-                        inl learning_rate = learning_rate ** 0.85
-                        inl apply bck _ = bck {learning_rate} |> ignore
-                        Struct.foldr apply bck ()
-
-                    match substate with {bck} -> f bck
-                    List.foldl (inl _ -> function
-                        | {substate={bck}} -> f bck
-                        | _ -> ()
-                        ) () prev_states
-
-                    Optimizer.standard learning_rate s network
-                    
-                    if nan_is cost then cost 
-                    else next {cost}
-                }
-        finally=inl {cost} -> cost / to float64 (HostTensor.snap range*shot*pattern_repetition*empty_input_after_repetition)
-        }
+()
     """
 
 let tests =
