@@ -298,12 +298,18 @@ inl make_pattern size =
         Array.init size (inl i -> mask i * original i)
     {original degraded}
 
-inl size = 6
-Console.writeline(make_pattern size)
-Console.writeline(make_pattern size)
-Console.writeline(make_pattern size)
-Console.writeline(make_pattern size)
-Console.writeline(make_pattern size)
+inl make_patterns n size =
+    HostTensor.init (n,size) (inl n ->
+        inl pattern = make_pattern size
+        inl n -> Struct.map (inl x -> x n) pattern
+        )
+    |> HostTensor.unzip
+
+inl pattern_size = 6
+inl patterns = make_patterns 5 pattern_size
+inl gpu_patterns = Struct.map s.CudaTensor.from_host_tensor patterns
+Struct.iter HostTensor.print patterns
+Struct.iter s.CudaTensor.print gpu_patterns
     """
 
 let tests =
