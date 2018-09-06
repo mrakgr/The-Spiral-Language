@@ -323,7 +323,23 @@ inl dataset =
 Struct.iter s.CudaTensor.print dataset
 
 met train {data network learning_rate final} s = // TODO: Work in progress.
-    ()
+    inl cost = ref 0.0
+
+    loop_over size.seq <| inl i ->
+        inl data = index_into i data
+
+        loop_over size.shot <| inl i ->
+            loop_over size.pattern_repetition <| inl _ ->
+                network.run (data.original (order i))
+                
+            loop_over size.empty_input_after_repetition <| inl _ ->
+                network.run zero
+        
+        inl i = random size.pattern
+        network.run (data.degraded i)
+        network.peek <| inl inl {final} -> cost := cost() + final (data.original i)
+        network.pop_bcks {learning_rate=learning_rate ** 0.85}
+        network.optimize learning_rate
 
 ()
     """
