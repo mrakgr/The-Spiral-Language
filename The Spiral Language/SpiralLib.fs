@@ -592,7 +592,28 @@ inl sort_descending ar = macro.fs ar [text: "Array.sortDescending "; arg: ar]
 /// (a -> unit) -> a array -> unit
 inl iter f x = for {from=0; near_to=array_length x; body=inl {i} -> f (x i)}
 
-{empty singleton foldl foldr init copy map filter append concat forall exists sort sort_descending iter}
+/// Shuffles the array inplace. Takes in a range.
+/// a array -> {from near_to} -> unit
+met knuth_shuffle rnd {from near_to} ar =
+    inl swap i j =
+        inl item = ar i
+        ar i <- ar j
+        ar j <- item
+
+    Loops.for {from near_to=near_to-1; body=inl {i} -> swap i (rnd.next(to int32 i, to int32 near_to))}
+
+/// Shuffles the array inplace.
+/// a array -> unit
+inl shuffle_inplace rnd x = knuth_shuffle rnd {from=0; near_to=array_length x} x
+    
+/// Shuffles the array.
+/// a array -> a array
+inl shuffle rnd x =
+    inl x' = copy x
+    shuffle_inplace rnd x'
+    x'
+
+{empty singleton foldl foldr init copy map filter append concat forall exists sort sort_descending iter knuth_shuffle shuffle_inplace shuffle}
 |> stackify
     """) |> module_
 

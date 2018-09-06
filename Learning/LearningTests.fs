@@ -279,13 +279,40 @@ inl f (!dyn learning_rate) next i =
 Loops.for' {from=0; near_to=5; body=inl {i next} -> f learning_rate next i}
     """
 
+let learning3 =
+    "learning3",[cuda_modules;timer;learning;random],"Does the plastic RNN work on the Binary Pattern test?",
+    """
+inb s = CudaModules (1024*1024*1024)
+
+inl float = float32
+open Learning float
+
+inl rng = Random()
+
+inl make_pattern size =
+    inl original = Array.init size (inl _ -> if rng.next_double > 0.5 then 1f32 else -1f32)
+    inl degraded =
+        inl size_half = size / 2
+        inl mask = Array.init size (inl x -> if x < size_half then 0f32 else 1f32) 
+        Array.shuffle_inplace rng mask
+        Array.init size (inl i -> mask i * original i)
+    {original degraded}
+
+inl size = 6
+Console.writeline(make_pattern size)
+Console.writeline(make_pattern size)
+Console.writeline(make_pattern size)
+Console.writeline(make_pattern size)
+Console.writeline(make_pattern size)
+    """
+
 let tests =
     [|
-    learning1;learning2
+    learning1;learning2;learning3
     |]
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning3
 |> printfn "%s"
 |> ignore

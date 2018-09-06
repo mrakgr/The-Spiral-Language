@@ -68,18 +68,9 @@ inl unshuffled =
     //|> Tuple.concat
 
 inl deck _ =
-    met knuth_shuffle rnd ln ar =
-        macro.fs () [text: "//In Knuth shuffle"]
-        inl swap i j =
-            inl item = ar i
-            ar i <- ar j
-            ar j <- item
-
-        Loops.for {from=0; near_to=ln-1; body=inl {i} -> swap i (rnd.next(to int32 i, to int32 ln))}
-
     inl ar = macro.fs (array Card) [fs_array_args: unshuffled]
-    assert (array_length ar = num_cards) "The number of cards in the deck must be 52."
-    knuth_shuffle rnd num_cards ar
+    assert (array_length ar = num_cards) "The number of cards in the deck must be total all the possible cards."
+    Array.shuffle_inplace rnd ar
 
     inl deck = heapm {ar p=dyn num_cards}
 
