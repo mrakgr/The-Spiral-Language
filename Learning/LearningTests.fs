@@ -322,6 +322,8 @@ inl dataset =
 
 Struct.iter s.CudaTensor.print dataset
 
+inl loop_over near_to f = Loops.for {from=0; near_to body=inl {i} -> f i}
+
 met train {data network learning_rate final} s = // TODO: Work in progress.
     inl cost = ref 0.0
 
@@ -335,7 +337,7 @@ met train {data network learning_rate final} s = // TODO: Work in progress.
             loop_over size.empty_input_after_repetition <| inl _ ->
                 network.run zero
         
-        inl i = random size.pattern
+        inl i = rng.next size.pattern
         network.run (data.degraded i)
         network.peek <| inl inl {final} -> cost := cost() + final (data.original i)
         network.pop_bcks {learning_rate=learning_rate ** 0.85}
