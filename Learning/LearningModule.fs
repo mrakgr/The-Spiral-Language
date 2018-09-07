@@ -948,9 +948,10 @@ inl float ->
     inl print x s =
         s.CudaTensor.print (primal x)
         {out=(); bck=()}
-
-    inl zero dim s = {out=s.CudaTensor.zero {elem_type=float; dim}; bck=()}
-    inl zero_like x = zero (primal x .dim)
+    
+    inl zero_like x = 
+        inl zero dim s = {out=s.CudaTensor.zero {elem_type=float; dim}; bck=()}
+        zero (primal x .dim)
 
     // #Recurrent
     inl hebb {d with input out n} = 
@@ -1054,8 +1055,7 @@ inl float ->
                 state = {
                     input = {
                         bias = Initializer.tanh (size, size)
-                        alpha = Initializer.tanh (size, size)
-                        n = Initializer.constant {dim=1; init=to float 0.5}
+                        alpha = Initializer.constant {dim=size, size; init=0.01f32}
                         }
                     bias = Initializer.constant {dim=size; init=one}
                     }
@@ -1101,8 +1101,8 @@ inl float ->
 
                 inm H = 
                     match d with
-                    | {state={H}} -> hebb {n=weights.state.input.n; input out H n}
-                    | _ -> hebb {n=weights.state.input.n; input out n}
+                    | {state={H}} -> hebb {input out H n}
+                    | _ -> hebb {input out n}
 
                 succ {out state={out H}}
             inl {out={out state} bck} = apply s

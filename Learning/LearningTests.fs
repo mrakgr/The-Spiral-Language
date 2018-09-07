@@ -287,7 +287,7 @@ inb s = CudaModules (1024*1024*1024)
 inl float = float32
 open Learning float
 
-inl rng = Random()
+inl rng = Random(42i32)
 
 inl make_pattern size =
     inl original = Array.init size (inl _ -> if rng.next_double > 0.5 then 1f32 else -1f32)
@@ -307,7 +307,8 @@ inl make_patterns n size =
 inl size = {
     pattern = 51
     episode = 5
-    seq = 1000
+    minibatch = 1
+    seq = 50
 
     shot = 3
     pattern_repetition = 10
@@ -315,8 +316,8 @@ inl size = {
     }
 
 inl data =
-    make_patterns (size.seq * size.episode) size.pattern 
-        .reshape (inl a,b -> size.seq, size.episode, 1, b)
+    make_patterns (size.seq * size.episode * size.minibatch) size.pattern 
+        .reshape (inl a,b -> size.seq, size.episode, size.minibatch, b)
     |> s.CudaTensor.from_host_tensor
     |> HostTensor.unzip
 
@@ -368,29 +369,31 @@ met train {!data network learning_rate final} s =
         input=inl _ -> data.original (dyn 0) (dyn 0)
         block=()
         }
-    inl network = runner {network s} {run}
-
+    
     inl order = Array.init size.episode id 
-    inl zero = s.CudaTensor.zero {dim=1,1,size.pattern; elem_type=float32}
+    inl zero = s.CudaTensor.zero {dim=1,size.minibatch,size.pattern; elem_type=float32} (dyn 0) // This (dyn 0) is so the offset stops being a literal.
 
     loop_over' size.seq <| inl {next i} ->
-        inl data = index_into i data
+        inl _ =
+            inb s = s.RegionMem.create'
+            inl network = runner {network s} {run}
+            inl data = index_into i data
 
-        loop_over size.shot <| inl _ ->
-            Array.shuffle_inplace rng order
+            loop_over size.shot <| inl _ ->
+                Array.shuffle_inplace rng order
 
-            loop_over size.episode <| inl i ->
-                loop_over size.pattern_repetition <| inl _ ->
-                    network.run (data.original (order i))
+                loop_over size.episode <| inl i ->
+                    loop_over size.pattern_repetition <| inl _ ->
+                        network.run (data.original (order i))
                 
-                loop_over size.empty_input_after_repetition <| inl _ ->
-                    network.run (zero (dyn 0))
+                    loop_over size.empty_input_after_repetition <| inl _ ->
+                        network.run zero
         
-        inl i = rng.next (to int32 size.episode) |> to int64
-        network.run (data.degraded i)
-        network.peek |> function {final} -> cost := cost () + final (data.original i) | _ -> ()
-        network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
-        network.optimize learning_rate
+            inl i = rng.next (to int32 size.episode) |> to int64
+            network.run (data.degraded i)
+            network.peek |> function {final} -> cost := cost () + final (data.original i) | _ -> ()
+            network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
+            network.optimize learning_rate
 
         if nan_is (cost()) then () else next()
     cost() / to float64 size.seq
@@ -417,9 +420,9 @@ inl network,_ =
             linear size.pattern
         }
 
-    init s size.pattern network.mi
+    init s size.pattern network.mi_hebb
 
-loop_over 1 <| inl i ->
+loop_over 5 <| inl i ->
     Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
     inl cost =
         Timer.time_it (string_format "iteration {0}" i)
