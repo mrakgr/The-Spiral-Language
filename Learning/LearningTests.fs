@@ -32,15 +32,15 @@ inl {test_images test_labels} = module_map (inl _ x -> x.round_split' test_minib
 inl input_size = 784
 inl label_size = 10
 
-inl learning_rate = 2f32 ** -10f32
+inl learning_rate = 2f32 ** -11f32
 inl network,_ =
     open Feedforward
-    //inl network =
-    //    relu 256,
-    //    linear label_size
     inl network =
-        prong {activation=Activation.relu; size=256},
-        prong {activation=Activation.linear; size=label_size}
+        relu 256,
+        linear label_size
+    //inl network =
+    //    prong {activation=Activation.relu; size=256},
+    //    prong {activation=Activation.linear; size=label_size}
 
     init s input_size network
 
@@ -90,6 +90,7 @@ inl test {data={input label} network final} s =
     |> inl cost -> {cost with cost = self / to float64 input.span_outer2}
 
 Loops.for' {from=0; near_to=5; body=inl {i next} -> 
+    inl final = Error.square
     inl cost =
         //Timer.time_it (string_format "iteration {0}" i)
         //<| inl _ ->
@@ -97,7 +98,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
                 data={input=train_images; label=train_labels}
                 network
                 learning_rate
-                final = Error.softmax_cross_entropy
+                final
                 } s
 
     string_format "Training: {0}" cost |> Console.writeline
@@ -109,7 +110,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
             test {
                 data={input=test_images; label=test_labels}
                 network
-                final=Error.softmax_cross_entropy
+                final
                 } s 
 
         string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
@@ -305,10 +306,10 @@ inl make_patterns n size =
         )
 
 inl size = {
-    pattern = 5
+    pattern = 51
     episode = 5
     minibatch = 1
-    seq = 1
+    seq = 200
 
     shot = 3
     pattern_repetition = 10
@@ -398,8 +399,8 @@ met train {!data network learning_rate final} s =
         if nan_is (cost()) then () else next()
     cost() / to float64 size.seq
 
-inl learning_rate = 2f32 ** -8f32
-inl n = 2f32 ** -6.65f32 // 2f32 ** -6.65f32 ~= 0.01
+inl learning_rate = 2f32 ** -11f32
+inl n = 2f32 ** -8f32 // 2f32 ** -6.65f32 ~= 0.01
 
 inl network,_ =
     open Feedforward
@@ -413,14 +414,15 @@ inl network,_ =
             mi_hebb_prong n 128,
             prong {activation=Activation.linear; size=size.pattern}
         mi =
-            mi 128,
+            mi size.pattern,
             linear size.pattern
         mi_hebb =
             mi_hebb n size.pattern,
             linear size.pattern
+        vanilla_hebb = vanilla_hebb n
         }
 
-    init s size.pattern network.mi_hebb
+    init s size.pattern network.vanilla_hebb
 
 loop_over 5 <| inl i ->
     Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)

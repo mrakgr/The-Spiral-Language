@@ -1104,7 +1104,52 @@ inl float ->
                     | {state={H}} -> hebb {input out H n}
                     | _ -> hebb {input out n}
 
-                inm _ = print H
+                succ {out state={out H}}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        block = ()
+        }
+
+    inl vanilla_hebb n =
+        {
+        init = inl size -> 
+            {
+            dsc = 
+                {
+                state = {
+                    input = {
+                        bias = Initializer.tanh (size, size)
+                        alpha = Initializer.tanh (size, size)
+                        }
+                    }
+                }
+            size
+            }
+
+        apply = inl {d with weights input} s -> 
+            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl apply =
+                inm out =
+                    match d with
+                    | {state={H out}} -> 
+                        inm W = hadmultb (weights.state.input.alpha, H) weights.state.input.bias 
+                        inm left = matmult (out, W)
+                        activation {
+                            fwd=inl {left right} -> left + right |> tanh_fwd
+                            bck=inl {in={left right} out} ->
+                                inl out = tanh_bck out
+                                {
+                                left = out
+                                right = out
+                                }
+                            } {left right=input}
+                    | _ -> 
+                        Activation.tanh input
+
+                inm H =
+                    match d with
+                    | {state={H}} -> hebb {input out H n}
+                    | _ -> hebb {input out n}
 
                 succ {out state={out H}}
             inl {out={out state} bck} = apply s
@@ -1205,7 +1250,7 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {mi mi_hebb mi_hebb_prong mi_prong}
+    inl RNN = {mi mi_hebb vanilla_hebb mi_hebb_prong mi_prong}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
