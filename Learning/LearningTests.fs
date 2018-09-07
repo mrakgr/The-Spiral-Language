@@ -323,11 +323,11 @@ inl data =
 //Struct.iter s.CudaTensor.print dataset
 
 inl loop_over near_to f = Loops.for {from=0; near_to body=inl {i} -> f i}
-inl loop_over' near_to f = Loops.for {from=0; near_to body=inl {i next} -> f {i next}}
+inl loop_over' near_to f = Loops.for' {from=0; near_to body=inl {i next} -> f {i next}}
 inl index_into i x = Struct.map (inl x -> x i) x
 
-inl runner {network s} funs input =
-    inl init_state = {network s}
+inl runner {network s} funs =
+    inl init_state = heap {network s}
     inl elem_type, funs = Union.infer funs init_state
     
     inl init_state = box elem_type init_state
@@ -347,10 +347,9 @@ inl runner {network s} funs input =
             states.clear
             states.add init_state
         | .optimize learning_rate -> Optimizer.standard learning_rate s network
-        | k x ->
-            inl x, state = (funs k) states.last x
-            states.add state
-            x
+        | k input ->
+            (funs k) {state=states.last; input}
+            |> states.add
 
     heap network
 
@@ -363,20 +362,20 @@ met train {!data network learning_rate final} s =
                 inl {out bck} = final label input s
                 bck()
                 s.CudaTensor.get out |> to float64
-            {state={network s final}}
+            {network s final}
         input=inl _ -> data.original (dyn 0) (dyn 0)
         block=()
         }
     inl network = runner {network s} {run}
 
-    inl order = Array.init size_episode id 
+    inl order = Array.init size.episode id 
     loop_over' size.seq <| inl {next i} ->
         inl data = index_into i data
 
         loop_over size.shot <| inl _ ->
             Array.shuffle_inplace rng order
 
-            loop_over size.pattern <| inl i ->
+            loop_over size.episode <| inl i ->
                 loop_over size.pattern_repetition <| inl _ ->
                     network.run (data.original (order i))
                 
@@ -392,7 +391,42 @@ met train {!data network learning_rate final} s =
         if nan_is (cost()) then () else next()
     cost()
 
-()
+inl learning_rate = 2f32 ** -10f32
+inl n = 2f32 ** -6.65f32 // 2f32 ** -6.65f32 ~= 0.01
+
+inl network,_ =
+    open Feedforward
+    open RNN
+    inl network = 
+        {
+        mi_prong =
+            mi_prong 128, 
+            prong {activation=Activation.linear; size=size.pattern}
+        mi_hebb_prong =
+            mi_hebb_prong n 128,
+            prong {activation=Activation.linear; size=size.pattern}
+        mi =
+            mi 128,
+            linear size.pattern
+        mi_hebb =
+            mi_hebb n 128,
+            linear size.pattern
+        }
+
+    init s size.pattern network.mi
+
+loop_over 1 <| inl i ->
+    Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
+    inl cost =
+        Timer.time_it (string_format "iteration {0}" i)
+        <| inl _ ->
+            train {
+                network
+                learning_rate
+                final = Error.square
+                } s
+
+    Console.printfn "Training: {0}" cost
     """
 
 let tests =
