@@ -314,34 +314,83 @@ inl size = {
     empty_input_after_repetition = 3
     }
 
-inl dataset =
+inl data =
     make_patterns (size.seq * size.episode) size.pattern 
         .reshape (inl a,b -> size.seq, size.episode, 1, b)
     |> s.CudaTensor.from_host_tensor
     |> HostTensor.unzip
 
-Struct.iter s.CudaTensor.print dataset
+//Struct.iter s.CudaTensor.print dataset
 
 inl loop_over near_to f = Loops.for {from=0; near_to body=inl {i} -> f i}
+inl loop_over' near_to f = Loops.for {from=0; near_to body=inl {i next} -> f {i next}}
+inl index_into i x = Struct.map (inl x -> x i) x
 
-met train {data network learning_rate final} s = // TODO: Work in progress.
+inl runner {network s} funs input =
+    inl init_state = {network s}
+    inl elem_type, funs = Union.infer funs init_state
+    
+    inl init_state = box elem_type init_state
+    inl network =
+        inl states = ResizeArray.create {elem_type}
+        states.add init_state
+
+        function
+        | .peek -> states.last
+        | .pop_bcks x ->
+            Loops.for {from=states.count - 1i32; by=-1i32; down_to=0i32; body=inl {i} -> 
+                inl {network} = states i
+                Struct.foldr (inl {bck} _ ->
+                    Struct.foldr (inl bck _ -> bck x) bck ()
+                    ) network ()
+                }
+            states.clear
+            states.add init_state
+        | .optimize learning_rate -> Optimizer.standard learning_rate s network
+        | k x ->
+            inl x, state = (funs k) states.last x
+            states.add state
+            x
+
+    heap network
+
+met train {!data network learning_rate final} s =
     inl cost = ref 0.0
+    inl run = {
+        map=inl {network s} input ->
+            inl network, input = run s input network
+            inl final label =
+                inl {out bck} = final label input s
+                bck()
+                s.CudaTensor.get out |> to float64
+            (), {network s final}
+        input=inl _ -> data.original (dyn 0) (dyn 0)
+        block=()
+        }
+    inl network = runner {network s} {run}
 
-    loop_over size.seq <| inl i ->
+    inl order = Array.init size_episode id 
+    loop_over' size.seq <| inl {next i} ->
         inl data = index_into i data
 
-        loop_over size.shot <| inl i ->
-            loop_over size.pattern_repetition <| inl _ ->
-                network.run (data.original (order i))
+        loop_over size.shot <| inl _ ->
+            Array.shuffle_inplace rng order
+
+            loop_over size.pattern <| inl i ->
+                loop_over size.pattern_repetition <| inl _ ->
+                    network.run (data.original (order i))
                 
-            loop_over size.empty_input_after_repetition <| inl _ ->
-                network.run zero
+                loop_over size.empty_input_after_repetition <| inl _ ->
+                    network.run zero
         
-        inl i = rng.next size.pattern
+        inl i = rng.next size.pattern |> to int64
         network.run (data.degraded i)
-        network.peek <| inl inl {final} -> cost := cost() + final (data.original i)
+        inl cost = network.peek |> function {final} -> cost := cost () + final (data.original i) | _ -> ()
         network.pop_bcks {learning_rate=learning_rate ** 0.85}
         network.optimize learning_rate
+
+        if nan_is (cost()) then () else next()
+    cost()
 
 ()
     """
