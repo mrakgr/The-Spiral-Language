@@ -306,10 +306,10 @@ inl make_patterns n size =
         )
 
 inl size = {
-    pattern = 51
+    pattern = 50
     episode = 5
     minibatch = 1
-    seq = 200
+    seq = 1
 
     shot = 3
     pattern_repetition = 10
@@ -424,7 +424,7 @@ inl network,_ =
 
     init s size.pattern network.vanilla_hebb
 
-loop_over 5 <| inl i ->
+loop_over 1 <| inl i ->
     Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
     inl cost =
         Timer.time_it (string_format "iteration {0}" i)
