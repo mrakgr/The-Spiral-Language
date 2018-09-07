@@ -305,10 +305,10 @@ inl make_patterns n size =
         )
 
 inl size = {
-    pattern = 51
+    pattern = 5
     episode = 5
     minibatch = 1
-    seq = 50
+    seq = 1
 
     shot = 3
     pattern_repetition = 10
@@ -416,7 +416,7 @@ inl network,_ =
             mi 128,
             linear size.pattern
         mi_hebb =
-            mi_hebb n 128,
+            mi_hebb n size.pattern,
             linear size.pattern
         }
 

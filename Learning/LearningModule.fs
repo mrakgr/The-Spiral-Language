@@ -1104,6 +1104,8 @@ inl float ->
                     | {state={H}} -> hebb {input out H n}
                     | _ -> hebb {input out n}
 
+                inm _ = print H
+
                 succ {out state={out H}}
             inl {out={out state} bck} = apply s
             {out state bck}
