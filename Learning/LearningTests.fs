@@ -357,13 +357,13 @@ inl runner {network s} funs input =
 met train {!data network learning_rate final} s =
     inl cost = ref 0.0
     inl run = {
-        map=inl {network s} input ->
+        map=inl {state={network s} input} ->
             inl network, input = run s input network
             inl final label =
                 inl {out bck} = final label input s
                 bck()
                 s.CudaTensor.get out |> to float64
-            (), {network s final}
+            {state={network s final}}
         input=inl _ -> data.original (dyn 0) (dyn 0)
         block=()
         }
