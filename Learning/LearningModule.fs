@@ -224,10 +224,10 @@ inl mutable_function f {state=(!heap state) input} =
     |> heap
 
 inl infer f (!heap state) =
-    inl f = Struct.map (inl d -> {d with map=met x -> module_map (inl _ -> heap) (self x)}) f
+    inl f = Struct.map (inl d -> {d with map=met state input -> heap (self state input)}) f
     inl unroll_state state =
         inl rec loop {f with map input} state =
-            inl state' = map {state input=input ()} .state
+            inl state' = map state (input ())
             if eq_type state state' then state
             else state \/ loop f state'
         
@@ -245,7 +245,7 @@ inl infer f (!heap state) =
                 if eq_type prev cur then cur else loop cur
             loop state
 
-    ty, Struct.map (inl {map} {state input} -> match state with () | _ -> map {state input} |> inl d -> {d with state=box ty self}) f
+    ty, Struct.map (inl {map} state input -> match state with () | _ -> map state input |> box ty) f
 
 {int to_one_hot to_dense from_one_hot from_dense length_one_hot length_dense unroll mutable_function infer} |> stackify
     """) |> module_
