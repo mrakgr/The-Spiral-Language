@@ -309,7 +309,7 @@ inl size = {
     pattern = 50
     episode = 5
     minibatch = 1
-    seq = 1
+    seq = 1000
 
     shot = 3
     pattern_repetition = 10
@@ -391,11 +391,13 @@ met train {!data network learning_rate final} s =
                         network.run zero
         
             inl i = rng.next (to int32 size.episode) |> to int64
-            network.run (data.degraded i)
+            loop_over size.pattern_repetition <| inl _ ->
+                network.run (data.degraded i)
             network.peek |> function {final} -> cost := cost () + final (data.original i) | _ -> ()
             network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
             network.optimize learning_rate
 
+        if i % 30 = 0 then Console.printfn "Cost is {0}" (cost() / to float64 (i+1))
         if nan_is (cost()) then () else next()
     cost() / to float64 size.seq
 
