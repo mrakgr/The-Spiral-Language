@@ -305,9 +305,9 @@ inl make_patterns n size =
         )
 
 inl size = {
-    pattern = 6
+    pattern = 51
     episode = 5
-    seq = 2
+    seq = 1000
 
     shot = 3
     pattern_repetition = 10
@@ -386,16 +386,16 @@ met train {!data network learning_rate final} s =
                 loop_over size.empty_input_after_repetition <| inl _ ->
                     network.run (zero (dyn 0))
         
-        inl i = rng.next (to int32 size.pattern) |> to int64
+        inl i = rng.next (to int32 size.episode) |> to int64
         network.run (data.degraded i)
         network.peek |> function {final} -> cost := cost () + final (data.original i) | _ -> ()
         network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
         network.optimize learning_rate
 
         if nan_is (cost()) then () else next()
-    cost()
+    cost() / to float64 size.seq
 
-inl learning_rate = 2f32 ** -10f32
+inl learning_rate = 2f32 ** -8f32
 inl n = 2f32 ** -6.65f32 // 2f32 ** -6.65f32 ~= 0.01
 
 inl network,_ =
