@@ -340,15 +340,17 @@ inl runner {network s} funs =
         | .pop_bcks x ->
             Loops.for {from=states.count - 1i32; by=-1i32; down_to=0i32; body=inl {i} -> 
                 inl {network} = states i
-                Struct.foldr (inl {bck} _ ->
-                    Struct.foldr (inl bck _ -> bck x) bck ()
+                Struct.foldr (inl layer _ ->
+                    match layer with
+                    | {bck} -> Struct.foldr (inl bck _ -> bck x) bck ()
+                    | _ -> ()
                     ) network ()
                 }
             states.clear
             states.add init_state
         | .optimize learning_rate -> Optimizer.standard learning_rate s network
         | k input ->
-            (funs k) {state=states.last; input}
+            (funs k) states.last input
             |> states.add
 
     heap network
@@ -356,7 +358,7 @@ inl runner {network s} funs =
 met train {!data network learning_rate final} s =
     inl cost = ref 0.0
     inl run = {
-        map=inl {state={network s} input} ->
+        map=inl {network s} input ->
             inl network, input = run s input network
             inl final label =
                 inl {out bck} = final label input s
@@ -369,6 +371,8 @@ met train {!data network learning_rate final} s =
     inl network = runner {network s} {run}
 
     inl order = Array.init size.episode id 
+    inl zero = s.CudaTensor.zero {dim=1,1,size.pattern; elem_type=float32}
+
     loop_over' size.seq <| inl {next i} ->
         inl data = index_into i data
 
@@ -380,12 +384,12 @@ met train {!data network learning_rate final} s =
                     network.run (data.original (order i))
                 
                 loop_over size.empty_input_after_repetition <| inl _ ->
-                    network.run zero
+                    network.run (zero (dyn 0))
         
-        inl i = rng.next size.pattern |> to int64
+        inl i = rng.next (to int32 size.pattern) |> to int64
         network.run (data.degraded i)
-        inl cost = network.peek |> function {final} -> cost := cost () + final (data.original i) | _ -> ()
-        network.pop_bcks {learning_rate=learning_rate ** 0.85}
+        network.peek |> function {final} -> cost := cost () + final (data.original i) | _ -> ()
+        network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
         network.optimize learning_rate
 
         if nan_is (cost()) then () else next()

@@ -279,7 +279,7 @@ inl rec map_last f = function
     | x :: () -> f x :: ()
     | x :: x' -> x :: map_last f x'
     | () -> error_type "Must not be an empty tuple."
-    | _ -> error_type "Must be a tuple"
+    | _ -> error_type "Must be a tuple."
 
 inl length = foldl (inl s _ -> s+1) 0
 
