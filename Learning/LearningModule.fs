@@ -1129,7 +1129,7 @@ inl float ->
         apply = inl {d with weights input} s -> 
             assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
             inl apply =
-                inm _ = print (primal input)
+                //inm _ = print (primal input)
                 inm out =
                     match d with
                     | {state={H out}} -> 

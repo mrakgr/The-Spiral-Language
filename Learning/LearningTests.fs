@@ -306,10 +306,10 @@ inl make_patterns n size =
         )
 
 inl size = {
-    pattern = 6
+    pattern = 50
     episode = 5
     minibatch = 1
-    seq = 100
+    seq = 2000
 
     shot = 3
     pattern_repetition = 10
@@ -380,7 +380,7 @@ met train {!data network learning_rate final} s =
             inl network = runner {network s} {run}
             inl data = index_into i data
 
-            Console.writeline "inputs:"
+            //Console.writeline "inputs:"
             loop_over size.shot <| inl _ ->
                 Array.shuffle_inplace rng order
 
@@ -394,21 +394,20 @@ met train {!data network learning_rate final} s =
             inl i = rng.next (to int32 size.episode) |> to int64
             loop_over size.pattern_repetition <| inl _ ->
                 network.run (data.degraded i)
-            Console.writeline "target:"
-            s.CudaTensor.print (data.original i)
+            //Console.writeline "target:"
+            //s.CudaTensor.print (data.original i)
             network.peek |> function {final} -> cost := cost () + final (data.original i) | _ -> ()
             network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
             network.optimize learning_rate
 
         inl iters = 10
         if i % iters = 0 then 
-            Console.printfn "Cost is {0}" (cost() / to float64 iters)
+            Console.printfn "At iteration {0} the cost is {1}" (i, cost() / to float64 iters)
             cost := 0.0
         if nan_is (cost()) then () else next()
-    cost() / to float64 size.seq
 
 inl learning_rate = 2f32 ** -10f32
-inl n = 2f32 ** -8f32 // 2f32 ** -6.65f32 ~= 0.01
+inl n = 0.01f32
 
 inl network,_ =
     open Feedforward
@@ -432,17 +431,12 @@ inl network,_ =
 
     init s size.pattern network.vanilla_hebb
 
-loop_over 1 <| inl i ->
-    Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
-    inl cost =
-        Timer.time_it (string_format "iteration {0}" i)
-        <| inl _ ->
-            train {
-                network
-                learning_rate
-                final = Error.square
-                } s
-    Console.printfn "Training: {0}" cost
+Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
+train {
+    network
+    learning_rate
+    final = Error.square
+    } s
     """
 
 let tests =
