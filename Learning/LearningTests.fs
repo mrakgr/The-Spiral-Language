@@ -380,7 +380,6 @@ met train {!data network learning_rate final} s =
             inl network = runner {network s} {run}
             inl data = index_into i data
 
-            //Console.writeline "inputs:"
             loop_over size.shot <| inl _ ->
                 Array.shuffle_inplace rng order
 
@@ -394,14 +393,12 @@ met train {!data network learning_rate final} s =
             inl i = rng.next (to int32 size.episode) |> to int64
             loop_over size.pattern_repetition <| inl _ ->
                 network.run (data.degraded i)
-            //Console.writeline "target:"
-            //s.CudaTensor.print (data.original i)
             network.peek |> function {final} -> cost := cost () + final (data.original i) | _ -> ()
             network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
             network.optimize learning_rate
 
         inl iters = 10
-        if i % iters = 0 then 
+        if (i + 1) % iters = 0 then 
             Console.printfn "At iteration {0} the cost is {1}" (i, cost() / to float64 iters)
             cost := 0.0
         if nan_is (cost()) then () else next()

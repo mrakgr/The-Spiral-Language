@@ -1134,8 +1134,8 @@ inl float ->
                 inm out =
                     match d with
                     | {state={H out}} -> 
-                        //inm W = hadmultb (weights.state.input.alpha, H) weights.state.input.bias 
-                        inm left = matmult (out, weights.state.input.bias )
+                        inm W = hadmultb (weights.state.input.alpha, H) weights.state.input.bias 
+                        inm left = matmult (out, W )
                         activation {
                             fwd=inl {left right} -> left + 20f32 * right |> tanh_fwd
                             bck=inl {in={left right} out} ->
