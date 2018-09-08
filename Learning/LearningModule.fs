@@ -946,7 +946,7 @@ inl float ->
         {sigmoid relu tanh linear zero prong} |> stackify
 
     inl print x s =
-        s.CudaTensor.print (primal x)
+        s.CudaTensor.print x
         {out=(); bck=()}
     
     inl zero_like x = 
@@ -1129,6 +1129,7 @@ inl float ->
         apply = inl {d with weights input} s -> 
             assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
             inl apply =
+                inm _ = print (primal input)
                 inm out =
                     match d with
                     | {state={H out}} -> 
