@@ -978,16 +978,15 @@ inl float ->
                 state = Initializer.prong {
                     extra = {
                         input = {
-                            bias = Initializer.tanh (size, size)
-                            alpha = Initializer.tanh (size, size)
-                            n = Initializer.constant {dim=1; init=to float 0.5}
+                            bias = Initializer.randn {stddev=0.01f32; dim=size, size}
+                            alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
                             }
                         bias = Initializer.constant {dim=size; init=one}
                         }
                     sublayer_size=size
                     size
                     } 
-                input = prong_ff {sublayer_size=size; size}
+                input = prong_ff {sublayer_size=sublayer_size; size}
                 }
             size
             }
@@ -1027,23 +1026,17 @@ inl float ->
 
                 inm H = 
                     match d with
-                    | {state={H}} -> hebb {n=weights.state.input.n; input out H n}
-                    | _ -> hebb {n=weights.state.input.n; input out n}
+                    | {state={H}} -> hebb {input out H n}
+                    | _ -> hebb {input out n}
 
                 succ {out state={out H}}
             inl {out={out state} bck} = apply s
             {out state bck}
-        optimize=inl {weights={input state} learning_rate} s -> 
-            inl f = Tuple.iter (Optimizer.sgd learning_rate s) << Tuple.wrap
-            inl _ =
-                inl {input bias} = input
-                f (input, bias)
-            inl _ =
-                inl {input bias} = state
-                f bias
-                inl {bias alpha n} = input
-                f (bias, alpha, n)
-            ()
+        optimize=inl {weights learning_rate} s -> 
+            Struct.iter (function
+                | {primal adjoint} as x -> Optimizer.sgd learning_rate s x
+                | _ -> ()
+                ) weights
         block = ()
         }
 
@@ -1055,8 +1048,8 @@ inl float ->
                 {
                 state = {
                     input = {
-                        bias = Initializer.tanh (size, size)
-                        alpha = Initializer.constant {dim=size, size; init=0.01f32}
+                        bias = Initializer.randn {stddev=0.01f32; dim=size, size}
+                        alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
                         }
                     bias = Initializer.constant {dim=size; init=one}
                     }

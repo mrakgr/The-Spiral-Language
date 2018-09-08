@@ -403,7 +403,7 @@ met train {!data network learning_rate final} s =
             cost := 0.0
         if nan_is (cost()) then () else next()
 
-inl learning_rate = 2f32 ** -10f32
+inl learning_rate = 2f32 ** -13f32
 inl n = 0.01f32
 
 inl network,_ =
@@ -426,7 +426,7 @@ inl network,_ =
         vanilla_hebb = vanilla_hebb n
         }
 
-    init s size.pattern network.vanilla_hebb
+    init s size.pattern network.mi_hebb_prong
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {
