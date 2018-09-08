@@ -1130,7 +1130,7 @@ inl float ->
                     inm input = 
                         match d with
                         | {state={H}} ->
-                            inm W = hadmultb (weights.input.alpha, H.state) (weights.input.bias)
+                            inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
                             matmult (input, W)
                         | _ ->
                             matmult (input, weights.input.bias)
