@@ -684,6 +684,7 @@ inl float ->
             s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=float}
 
         Struct.map (function // Rough and possibly poorly tuned inits. Recommended to be used together with PRONG or layer/batch norm.
+            | {randn={dim stddev}} -> s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=float} |> dr s
             | {sigmoid=dim} -> init 2f32 dim s |> dr s
             | {tanh=dim} -> init 3f32 dim s |> dr s
             | {relu=dim} -> init 1f32 dim s |> dr s
@@ -1118,8 +1119,8 @@ inl float ->
                 {
                 state = {
                     input = {
-                        bias = Initializer.tanh (size, size)
-                        alpha = Initializer.tanh (size, size)
+                        bias = Initializer.randn {stddev=0.01f32; dim=size, size}
+                        alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
                         }
                     }
                 }
@@ -1133,8 +1134,8 @@ inl float ->
                 inm out =
                     match d with
                     | {state={H out}} -> 
-                        inm W = hadmultb (weights.state.input.alpha, H) weights.state.input.bias 
-                        inm left = matmult (out, W)
+                        //inm W = hadmultb (weights.state.input.alpha, H) weights.state.input.bias 
+                        inm left = matmult (out, weights.state.input.bias )
                         activation {
                             fwd=inl {left right} -> left + 20f32 * right |> tanh_fwd
                             bck=inl {in={left right} out} ->
