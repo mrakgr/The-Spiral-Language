@@ -1104,18 +1104,21 @@ inl float ->
         block = ()
         }
 
-    inl vanilla_hebb n =
+    inl vanilla_hebb n size =
         {
-        init = inl size -> 
+        init = inl sublayer_size -> 
             {
             dsc = 
                 {
                 state = {
-                    input = {
-                        bias = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        }
+                    bias = Initializer.randn {stddev=0.01f32; dim=size, size}
+                    alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
                     }
+                input = {
+                    bias = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                    alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                    }
+                bias = Initializer.bias size
                 }
             size
             }
@@ -1123,35 +1126,44 @@ inl float ->
         apply = inl {d with weights input} s -> 
             assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
             inl apply =
-                //inm _ = print (primal input)
                 inm out =
-                    match d with
-                    | {state={H out}} -> 
-                        inm W = hadmultb (weights.state.input.alpha, H) weights.state.input.bias 
-                        inm left = matmult (out, W )
-                        activation {
-                            fwd=inl {left right} -> left + 20f32 * right |> tanh_fwd
-                            bck=inl {in={left right} out} ->
-                                inl out = tanh_bck out
-                                {
-                                left = out
-                                right = out * 20f32
-                                }
-                            } {left right=input}
-                    | _ -> 
-                        activation {
-                            fwd=inl {right} -> 20f32 * right |> tanh_fwd
-                            bck=inl {in={right} out} ->
-                                inl out = tanh_bck out
-                                {
-                                right = out * 20f32
-                                }
-                            } {right=input}
+                    inm input = 
+                        match d with
+                        | {state={H}} ->
+                            inm W = hadmultb (weights.input.alpha, H.state) (weights.input.bias)
+                            matmult (input, W)
+                        | _ ->
+                            matmult (input, weights.input.bias)
+                    inm state =
+                        match d with
+                        | {state={H={state} out}} ->
+                            inm W = 
+                                match state with
+                                | () -> succ weights.state.bias
+                                | _ -> hadmultb (weights.state.alpha, state) (weights.state.bias)
+                            matmult (out, W)
+                        | _ ->
+                            succ ()
+                    activation {
+                        fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
+                        bck=inl {in out} ->
+                            inl out = tanh_bck out
+                            Struct.map (const out) in
+                        } {input state bias=weights.bias}
 
-                inm H =
-                    match d with
-                    | {state={H}} -> hebb {input out H n}
-                    | _ -> hebb {input out n}
+                inl H =
+                    inm input = 
+                        match d with
+                        | {state={H with input=H}} -> hebb {input out H n}
+                        | _ -> hebb {input out n}
+                    inm state = 
+                        match d with
+                        | {state={out=input {H with state=H}}} -> 
+                            match H with
+                            | () -> hebb {input out n}
+                            | _ -> hebb {input out H n}
+                        | _ -> succ ()
+                    {input state}
 
                 succ {out state={out H}}
             inl {out={out state} bck} = apply s
