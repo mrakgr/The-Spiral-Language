@@ -1125,25 +1125,26 @@ inl float ->
 
         apply = inl {d with weights input} s -> 
             assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl H =
+                match d with
+                | {state={H}} -> H
+                | _ -> 
+                    inl f k = s.CudaTensor.zero_like (primal weights k .bias .dim)
+                    {input=f .input; state=f .state}
+
+            inl out' =
+                match d with
+                | {state={out}} -> out
+                | _ -> s.CudaTensor.zero_like (1 :: primal weights .bias .dim)
+
             inl apply =
                 inm out =
-                    inm input =  
-                        match d with
-                        | {state={H}} ->
-                            inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
-                            matmult (input, W)
-                        | _ ->
-                            matmult (input, weights.input.bias)
+                    inm input = 
+                        inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
+                        matmult (input, W)
                     inm state =
-                        match d with
-                        | {state={H={state} out}} ->
-                            inm W = 
-                                match state with
-                                | () -> succ weights.state.bias
-                                | _ -> hadmultb (weights.state.alpha, state) (weights.state.bias)
-                            matmult (out, W)
-                        | _ ->
-                            succ ()
+                        inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
+                        matmult (out', W)
                     activation {
                         fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
                         bck=inl {in out} ->
@@ -1152,17 +1153,8 @@ inl float ->
                         } {input state bias=weights.bias}
 
                 inl H =
-                    inm input = 
-                        match d with
-                        | {state={H with input=H}} -> hebb {input out H n}
-                        | _ -> hebb {input out n}
-                    inm state = 
-                        match d with
-                        | {state={out=input {H with state=H}}} -> 
-                            match H with
-                            | () -> hebb {input out n}
-                            | _ -> hebb {input out H n}
-                        | _ -> succ ()
+                    inm input = hebb {input out n H=H.input}
+                    inm state = hebb {input=out'; out n H=H.state}
                     {input state}
 
                 succ {out state={out H}}
