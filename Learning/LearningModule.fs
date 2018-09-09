@@ -1135,7 +1135,7 @@ inl float ->
             inl out' =
                 match d with
                 | {state={out}} -> out
-                | _ -> s.CudaTensor.zero_like (1 :: primal weights .bias .dim)
+                | _ -> s.CudaTensor.zero {dim=1 :: primal weights .bias .dim}
 
             inl apply =
                 inm out =
