@@ -283,7 +283,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} -> f learning_rate next i}
 let learning3 =
     "learning3",[cuda_modules;timer;learning;random],"Does the plastic RNN work on the Binary Pattern test?",
     """
-inb s = CudaModules (1024*1024*1024)
+inb s = CudaModules (1024*1024*1024*3)
 
 inl float = float32
 open Learning float
@@ -306,14 +306,14 @@ inl make_patterns n size =
         )
 
 inl size = {
-    pattern = 50
+    pattern = 1000
     episode = 5
     minibatch = 1
-    seq = 4000
+    seq = 128
 
-    shot = 3
-    pattern_repetition = 10
-    empty_input_after_repetition = 3
+    shot = 1
+    pattern_repetition = 5
+    empty_input_after_repetition = 4
     }
 
 inl data =

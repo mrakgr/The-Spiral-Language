@@ -716,7 +716,7 @@ inl float ->
                     precision = Initializer.identity (size, size)
                     epsilon = match d with {epsilon={back}} -> back | _ -> default_epsilon
                     }
-                k = match d with {steps_until_inverse_update} -> steps_until_inverse_update | _ -> 32 
+                k = match d with {steps_until_inverse_update} -> steps_until_inverse_update | _ -> 128 
                     |> Initializer.counter 
                 } |> initialize s
             | {counter=init} ->
@@ -892,6 +892,7 @@ inl float ->
                 match weights with
                 | {back={covariance precision epsilon}} ret ->
                     inl z = adjoint z
+                    s.CudaTensor.print z
                     update_covariance {identity_coef=epsilon; learning_rate} s covariance z
                     match config with
                     | {mode=.optimize} ->
