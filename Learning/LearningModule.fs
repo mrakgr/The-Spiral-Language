@@ -1040,70 +1040,6 @@ inl float ->
         block = ()
         }
 
-    inl mi_hebb n size =
-        {
-        init = inl sublayer_size -> 
-            {
-            dsc = 
-                {
-                state = {
-                    input = {
-                        bias = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        }
-                    bias = Initializer.constant {dim=size; init=one}
-                    }
-                input = {
-                    input = Initializer.tanh (sublayer_size, size)
-                    bias = Initializer.bias size
-                    }
-                }
-            size
-            }
-
-        apply = inl {d with weights input} s -> 
-            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-            inl apply =
-                inm input = matmultb (input, weights.input.input) weights.input.bias
-                inm out =
-                    match d with
-                    | {state={H out}} -> 
-                        inm W = hadmultb (weights.state.input.alpha, H) weights.state.input.bias 
-                        inm left = matmultb (out, W) weights.state.bias
-                        activation {
-                            fwd=inl {left right} -> left * right |> tanh_fwd
-                            bck=inl {in={left right} out} ->
-                                inl out = tanh_bck out
-                                {
-                                left = out * right
-                                right = out * left
-                                }
-                            } {left right=input}
-                    | _ -> 
-                        broadcasting_activation {
-                            fwd=inl {in=right in_inner=left} -> left * right |> tanh_fwd
-                            bck={
-                                in=inl {in=right in_inner=left out} ->
-                                    inl out = tanh_bck out
-                                    out * left
-                                in_inner=inl {in=right in_inner=left out} ->
-                                    inl out = tanh_bck out
-                                    out * right
-                                }
-                            }
-                            { in=input; in_inner=weights.state.bias }
-
-                inm H = 
-                    match d with
-                    | {state={H}} -> hebb {input out H n}
-                    | _ -> hebb {input out n}
-
-                succ {out state={out H}}
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        block = ()
-        }
-
     inl vanilla_hebb n size =
         {
         init = inl sublayer_size -> 
@@ -1162,6 +1098,72 @@ inl float ->
             {out state bck}
         block = ()
         }
+
+    inl mi_hebb n size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                state = {
+                    bias = Initializer.randn {stddev=0.01f32; dim=size, size}
+                    alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
+                    }
+                input = {
+                    bias = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                    alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                    }
+                bias = {
+                    si = Initializer.constant {dim=1,size; init=to float 1}
+                    i = Initializer.constant {dim=1,size; init=to float 0.5}
+                    s = Initializer.constant {dim=1,size; init=to float 0.5}
+                    c = Initializer.bias (1,size)
+                    }
+                }
+            size
+            }
+
+        apply = inl {d with weights input} s -> 
+            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl H =
+                match d with
+                | {state={H}} -> H
+                | _ -> 
+                    inl f k = s.CudaTensor.zero_like (primal (weights k .bias))
+                    {input=f .input; state=f .state}
+
+            inl out' =
+                match d with
+                | {state={out}} -> out
+                | _ -> s.CudaTensor.zero_like (primal (weights.bias.c))
+
+            inl apply =
+                inm out =
+                    inm input = 
+                        inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
+                        matmult (input, W)
+                    inm state =
+                        inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
+                        matmult (out', W)
+                    activation {
+                        fwd=inl {input state bias={si s i c}} -> si * state * input + s * state + i * input + c |> tanh_fwd
+                        bck=inl {in={input state} out} ->
+                            inl out = tanh_bck out
+                            { si = input*state; i = input; s = state; c = one } 
+                            |> Struct.map (const out)
+                        } {input state bias=weights.bias}
+                
+                inm H =
+                    inm input = hebb {input out n H=H.input}
+                    inm state = hebb {input=out'; out n H=H.state}
+                    succ {input state}
+                
+                succ {out state={out H}}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        block = ()
+        }
+
 
     inl mi size =
         {
