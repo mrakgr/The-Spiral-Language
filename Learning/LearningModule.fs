@@ -825,9 +825,11 @@ inl float ->
                 }
             } {in_inner in}
 
-    inl natural_matmultb_template config {weights with input bias} x s =
+    inl natural_matmultb_template config {weights with input} x s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
-        fwd_add_bias (primal z) (primal bias) s
+        match weights with
+        | {bias} -> fwd_add_bias (primal z) (primal bias) s
+        | _ -> ()
         {
         out=z
         bck=inl {learning_rate} -> join
@@ -908,7 +910,9 @@ inl float ->
 
             s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
             on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
-            bck_add_bias z_precise_adjoint (adjoint bias) s
+            match weights with
+            | {bias} -> bck_add_bias z_precise_adjoint (adjoint bias) s
+            | _ -> ()
         }
 
     inl natural_matmultb = natural_matmultb_template {front_mode=.prong; mode=.optimize}
@@ -968,77 +972,6 @@ inl float ->
                 fwd=inl {x} -> n * x
                 bck=inl {in={x}} -> { x=n }
                 } {x}
-
-    inl mi_hebb_prong n size =
-        {
-        init = inl sublayer_size -> 
-            {
-            dsc = 
-                {
-                state = Initializer.prong {
-                    extra = {
-                        input = {
-                            bias = Initializer.randn {stddev=0.01f32; dim=size, size}
-                            alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
-                            }
-                        bias = Initializer.constant {dim=size; init=one}
-                        }
-                    sublayer_size=size
-                    size
-                    } 
-                input = prong_ff {sublayer_size=sublayer_size; size}
-                }
-            size
-            }
-
-        apply = inl {d with weights input} s -> 
-            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-            inl apply =
-                inm input = natural_matmultb weights.input input
-                inm out =
-                    match d with
-                    | {state={H out}} -> 
-                        inm W = hadmultb (weights.state.input.alpha, H) weights.state.input.bias 
-                        inl x = weights.state
-                        inm left = natural_matmultb {x with input=W} out
-                        activation {
-                            fwd=inl {left right} -> left * right |> tanh_fwd
-                            bck=inl {in={left right} out} ->
-                                inl out = tanh_bck out
-                                {
-                                left = out * right
-                                right = out * left
-                                }
-                            } {left right=input}
-                    | _ -> 
-                        broadcasting_activation {
-                            fwd=inl {in=right in_inner=left} -> left * right |> tanh_fwd
-                            bck={
-                                in=inl {in=right in_inner=left out} ->
-                                    inl out = tanh_bck out
-                                    out * left
-                                in_inner=inl {in=right in_inner=left out} ->
-                                    inl out = tanh_bck out
-                                    out * right
-                                }
-                            }
-                            { in=input; in_inner=weights.state.bias }
-
-                inm H = 
-                    match d with
-                    | {state={H}} -> hebb {input out H n}
-                    | _ -> hebb {input out n}
-
-                succ {out state={out H}}
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        optimize=inl {weights learning_rate} s -> 
-            Struct.iter (function
-                | {primal adjoint} as x -> Optimizer.sgd learning_rate s x
-                | _ -> ()
-                ) weights
-        block = ()
-        }
 
     inl vanilla_hebb n size =
         {
@@ -1167,6 +1100,89 @@ inl float ->
         block = ()
         }
 
+    inl mi_hebb_prong n size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                state = Initializer.prong {
+                    extra = {
+                        bias = Initializer.randn {stddev=0.01f32; dim=size, size}
+                        alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
+                        }
+                    sublayer_size=size
+                    size
+                    }
+                input = Initializer.prong {
+                    extra = {
+                        bias = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                        alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                        }
+                    sublayer_size
+                    size
+                    }
+                bias = {
+                    si = Initializer.constant {dim=1,size; init=to float 1}
+                    i = Initializer.constant {dim=1,size; init=to float 0.5}
+                    s = Initializer.constant {dim=1,size; init=to float 0.5}
+                    c = Initializer.bias (1,size)
+                    }
+                }
+            size
+            }
+
+        apply = inl {d with weights input} s -> 
+            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl H =
+                match d with
+                | {state={H}} -> H
+                | _ -> 
+                    inl f k = s.CudaTensor.zero_like (primal (weights k .bias))
+                    {input=f .input; state=f .state}
+
+            inl out' =
+                match d with
+                | {state={out}} -> out
+                | _ -> s.CudaTensor.zero_like (primal (weights.bias.c))
+
+            inl apply =
+                inm out =
+                    inm input = 
+                        inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
+                        inl weights = weights.input |> inl x -> {x without bias with input=W}
+                        natural_matmultb weights input
+                    inm state =
+                        inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
+                        inl weights = weights.state |> inl x -> {x without bias with input=W}
+                        natural_matmultb weights out'
+                    activation {
+                        fwd=inl {input state bias={si s i c}} -> si * state * input + s * state + i * input + c |> tanh_fwd
+                        bck=inl {in={in with input state} out} ->
+                            inl out = tanh_bck out
+                            {
+                            input = one
+                            state = one
+                            bias = { si = input*state; i = input; s = state; c = one } 
+                            } |> Struct.map ((*) out)
+                        } {input state bias=weights.bias}
+                
+                inm H =
+                    inm input = hebb {input out n H=H.input}
+                    inm state = hebb {input=out'; out n H=H.state}
+                    succ {input state}
+                
+                succ {out state={out H}}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        optimize=inl {weights learning_rate} s -> 
+            Struct.iter (function
+                | {primal adjoint} as x -> Optimizer.sgd learning_rate s x
+                | _ -> ()
+                ) weights
+        block = ()
+        }
+
 
     inl mi size =
         {
@@ -1261,7 +1277,7 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {mi mi_hebb vanilla_hebb mi_hebb_prong mi_prong}
+    inl RNN = {mi mi_hebb mi_hebb_prong vanilla_hebb mi_prong}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
