@@ -420,13 +420,11 @@ inl network,_ =
         mi =
             mi size.pattern,
             linear size.pattern
-        mi_hebb =
-            mi_hebb n size.pattern,
-            linear size.pattern
+        mi_hebb = mi_hebb n size.pattern, linear size.pattern
         vanilla_hebb = vanilla_hebb n size.pattern
         }
 
-    init s size.pattern network.vanilla_hebb
+    init s size.pattern network.mi_hebb
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {

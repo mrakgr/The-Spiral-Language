@@ -1147,10 +1147,13 @@ inl float ->
                         matmult (out', W)
                     activation {
                         fwd=inl {input state bias={si s i c}} -> si * state * input + s * state + i * input + c |> tanh_fwd
-                        bck=inl {in={input state} out} ->
+                        bck=inl {in={in with input state} out} ->
                             inl out = tanh_bck out
-                            { si = input*state; i = input; s = state; c = one } 
-                            |> Struct.map (const out)
+                            {
+                            input = one
+                            state = one
+                            bias = { si = input*state; i = input; s = state; c = one } 
+                            } |> Struct.map ((*) out)
                         } {input state bias=weights.bias}
                 
                 inm H =
