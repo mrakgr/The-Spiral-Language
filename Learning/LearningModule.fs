@@ -1118,7 +1118,7 @@ inl float ->
                     bias = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
                     alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
                     }
-                bias = Initializer.bias size
+                bias = Initializer.bias (1,size)
                 }
             size
             }
@@ -1129,13 +1129,13 @@ inl float ->
                 match d with
                 | {state={H}} -> H
                 | _ -> 
-                    inl f k = s.CudaTensor.zero_like (primal weights k .bias .dim)
+                    inl f k = s.CudaTensor.zero_like (primal (weights k .bias))
                     {input=f .input; state=f .state}
 
             inl out' =
                 match d with
                 | {state={out}} -> out
-                | _ -> s.CudaTensor.zero {dim=1 :: primal weights .bias .dim}
+                | _ -> s.CudaTensor.zero_like (primal (weights .bias))
 
             inl apply =
                 inm out =
@@ -1151,12 +1151,12 @@ inl float ->
                             inl out = tanh_bck out
                             Struct.map (const out) in
                         } {input state bias=weights.bias}
-
-                inl H =
+                
+                inm H =
                     inm input = hebb {input out n H=H.input}
                     inm state = hebb {input=out'; out n H=H.state}
-                    {input state}
-
+                    succ {input state}
+                
                 succ {out state={out H}}
             inl {out={out state} bck} = apply s
             {out state bck}
