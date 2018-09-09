@@ -716,7 +716,7 @@ inl float ->
                     precision = Initializer.identity (size, size)
                     epsilon = match d with {epsilon={back}} -> back | _ -> default_epsilon
                     }
-                k = match d with {steps_until_inverse_update} -> steps_until_inverse_update | _ -> 128 
+                k = match d with {steps_until_inverse_update} -> steps_until_inverse_update | _ -> 32 
                     |> Initializer.counter 
                 } |> initialize s
             | {counter=init} ->
