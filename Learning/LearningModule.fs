@@ -1127,7 +1127,7 @@ inl float ->
             assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
             inl apply =
                 inm out =
-                    inm input = 
+                    inm input =  
                         match d with
                         | {state={H}} ->
                             inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
