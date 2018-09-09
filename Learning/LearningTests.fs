@@ -397,13 +397,13 @@ met train {!data network learning_rate final} s =
             network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
             network.optimize learning_rate
 
-        inl iters = 10
+        inl iters = 1
         if (i + 1) % iters = 0 then 
             Console.printfn "At iteration {0} the cost is {1}" (i, cost() / to float64 iters)
             cost := 0.0
         if nan_is (cost()) then () else next()
 
-inl learning_rate = 2f32 ** -14f32
+inl learning_rate = 2f32 ** -12f32
 inl n = 0.01f32
 
 inl network,_ =
