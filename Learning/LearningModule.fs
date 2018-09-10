@@ -538,9 +538,7 @@ inl float ->
 
     inl prong {learning_rate} s cov w =
         inl f {covariance precision} = s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
-
-        match cov with {input} -> f input | _ -> ()
-        match cov with {output} -> f output | _ -> ()
+        module_map (inl _ x -> f x; ()) {cov without back} |> ignore
 
         inl reproject a b ret =
             inl x = s.CudaBlas.gemm .nT .nT one a b |> CudaAux.temporary
@@ -551,11 +549,11 @@ inl float ->
         
         Struct.iter (inl w ->
             match cov with
-            | {input={precision=input} output={precision=output}} -> 
-                inb x = reproject input (adjoint w)
-                reproject_to x output (primal w)
-            | {output={precision=output}} -> reproject_to (adjoint w) output (primal w)
-            | {input={precision=input}} -> reproject_to input (adjoint w) (primal w)
+            | {front={precision=front} back={precision=back}} -> 
+                inb x = reproject front (adjoint w)
+                reproject_to x back (primal w)
+            | {back={precision=back}} -> reproject_to (adjoint w) back (primal w)
+            | {front={precision=front}} -> reproject_to front (adjoint w) (primal w)
             clear (adjoint w)
             ) w
 
@@ -706,6 +704,27 @@ inl float ->
             inl stddev = sqrt (mult / to float32 (Tuple.foldl (+) 0 dim))
             s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=float}
 
+        // 2 ** -3 is a sensible default.
+        // There is a relation between the epsilon parameter and the learning rate.
+        // Tests on the poker game show that up to 2 ** -2, every 2x increase in epsilon also allows a 2x increase in the learning rate.
+        // The networks can be trained with epsilons of 2 ** -10 and lower, but all that seems to do is make the network overfit 
+        // and forces the learning rates to go low. Unlike on Mnist where overfitting lowers the test accuracy, on the poker game 
+        // it lowers the winrate instead. High learning rates seem to be necessary for generalization.
+        inl default_epsilon = match d with {default_epsilon} -> default_epsilon | _ -> to float (2.0 ** -3.0)
+
+        inl covariance size =
+            Struct.map (inl x -> 
+                inl {epsilon size} =
+                    match x with
+                    | {size epsilon} -> x
+                    | _ -> {epsilon=default_epsilon; size}
+                {
+                covariance = Initializer.identity (size, size)
+                precision = Initializer.identity (size, size)
+                epsilon
+                } |> initialize s
+                ) {size with block=()}
+
         Struct.map (function // Rough and possibly poorly tuned inits. Recommended to be used together with PRONG or layer/batch norm.
             | {randn={dim stddev}} -> s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=float} |> dr s
             | {sigmoid=dim} -> init 2f32 dim s |> dr s
@@ -718,14 +737,6 @@ inl float ->
             | {constant={dim init}} -> s.CudaFun.init {dim} (const init) |> dr s
             | {prong={d with sublayer_size size}} -> 
                 inl extra = match d with {extra} -> extra | _ -> {}
-
-                // 2 ** -3 is a sensible default.
-                // There is a relation between the epsilon parameter and the learning rate.
-                // Tests on the poker game show that up to 2 ** -2, every 2x increase in epsilon also allows a 2x increase in the learning rate.
-                // The networks can be trained with epsilons of 2 ** -10 and lower, but all that seems to do is make the network overfit 
-                // and forces the learning rates to go low. Unlike on Mnist where overfitting lowers the test accuracy, on the poker game 
-                // it lowers the winrate instead. High learning rates seem to be necessary for generalization.
-                inl default_epsilon = match d with {default_epsilon} -> default_epsilon | _ -> to float (2.0 ** -3.0)
 
                 { extra with
                 front = {
@@ -742,6 +753,7 @@ inl float ->
                 k = match d with {steps_until_inverse_update} -> steps_until_inverse_update | _ -> 128 
                     |> Initializer.counter 
                 } |> initialize s
+            | {covariance={dim}} -> covariance dim
             | {counter=init} ->
                 inl r = ref init
                 inl mod y =
@@ -934,7 +946,6 @@ inl float ->
                 match weights with
                 | {back={covariance precision epsilon}} ret ->
                     inl z = adjoint z
-                    s.CudaTensor.print z
                     update_covariance {identity_coef=epsilon; learning_rate} s covariance z
                     match config with
                     | {mode=.optimize} ->
@@ -1166,13 +1177,13 @@ inl float ->
                         }
                     }
                 covariance = {
-                    state = Init.covariance (size, size) // Has both input and output
-                    input = Init.covariance (sublayer_size, size)
+                    state = Initializer.covariance {dim={front=size; back=size}} 
+                    input = Initializer.covariance {dim={front=sublayer_size; back=size}}
                     bias = {
-                        si = Initializer.ng size // Has only output
-                        i = Initializer.ng size
-                        s = Initializer.ng size
-                        c = Initializer.ng size
+                        si = Initializer.covariance {dim={back=size}}
+                        i = Initializer.covariance {dim={back=size}}
+                        s = Initializer.covariance {dim={back=size}}
+                        c = Initializer.covariance {dim={back=size}}
                         }
                     }
                 }
@@ -1198,11 +1209,11 @@ inl float ->
                     inm input = 
                         inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
                         matmult (input, W)
-                    inm _ = covariance_update covariance.input.input (primal input) // Does the updates on the backward pass.
+                    inm _ = covariance_update covariance.input.front (primal input) // Does the updates on the backward pass.
                     inm state =
                         inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
                         matmult (out', W)
-                    inm _ = covariance_update covariance.state.input (primal state)
+                    inm _ = covariance_update covariance.state.front (primal state)
                     inm bias = with_zero_adjoints weights.bias
                     inm out =
                         activation {
@@ -1215,9 +1226,9 @@ inl float ->
                                 bias = { si = input*state; i = input; s = state; c = one } 
                                 } |> Struct.map ((*) out)
                             } {input state bias}
-                    inm _ = covariance_update (Struct.map (inl {output} -> output) covariance.bias) (Struct.map (inl {adjoint} -> adjoint) bias)
-                    inm _ = covariance_update covariance.input.output (adjoint input)
-                    inm _ = covariance_update covariance.state.output (adjoint state)
+                    inm _ = covariance_update (Struct.map (inl {back} -> back) covariance.bias) (Struct.map (inl {adjoint} -> adjoint) bias)
+                    inm _ = covariance_update covariance.input.back (adjoint input)
+                    inm _ = covariance_update covariance.state.back (adjoint state)
                     succ out
 
                 inm H =
