@@ -536,13 +536,36 @@ inl float ->
                 P - learning_rate * A, zero
             } (primal, adjoint)
 
+    inl prong {learning_rate} s cov w =
+        inl f {covariance precision} = s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
+
+        match cov with {input} -> f input | _ -> ()
+        match cov with {output} -> f output | _ -> ()
+
+        inl reproject a b ret =
+            inl x = s.CudaBlas.gemm .nT .nT one a b |> CudaAux.temporary
+            ret x
+
+        inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -learning_rate a b one c
+        inl clear = s.CudaTensor.clear
+        
+        Struct.iter (inl w ->
+            match cov with
+            | {input={precision=input} output={precision=output}} -> 
+                inb x = reproject input (adjoint w)
+                reproject_to x output (primal w)
+            | {output={precision=output}} -> reproject_to (adjoint w) output (primal w)
+            | {input={precision=input}} -> reproject_to input (adjoint w) (primal w)
+            clear (adjoint w)
+            ) w
+
     inl standard learning_rate s = 
         Struct.iter (function 
             | {optimize weights} -> optimize {learning_rate weights} s
             | {weights} -> Struct.iter (sgd learning_rate s) weights
             )
 
-    inl Optimizer = {sgd clipped_sgd standard}
+    inl Optimizer = {sgd clipped_sgd standard prong}
 
     inl softmax_body temp k input =
         inl x = k.block.map (inl x -> x / temp) (k.block.load input)
@@ -799,11 +822,14 @@ inl float ->
                 ) cov x
         }
 
-    inl with_zero_adjoints {primal adjoint=prev} s =
-        inl adjoint = s.CudaTensor.zero_like primal
+    inl with_zero_adjoints x s =
+        inl out = Struct.map (inl x -> {x with adjoint=s.CudaTensor.zero_like self}) x
         {
-        out={primal adjoint block=()}
-        bck=met _ -> s.CudaFun.map {out=prev; map=inl a,b -> a+b} (prev,adjoint)
+        out
+        bck=met _ -> 
+            inl x = Struct.map (inl {adjoint} -> adjoint) x
+            inl out = Struct.map (inl {adjoint} -> adjoint) out
+            s.CudaFun.map {out=x; map=inl a,b -> Struct.map2 (+) a b} (x,adjoint)
         }
 
     met update_center {learning_rate} s center x =
@@ -1189,7 +1215,7 @@ inl float ->
                                 bias = { si = input*state; i = input; s = state; c = one } 
                                 } |> Struct.map ((*) out)
                             } {input state bias}
-                    inm _ = covariance_update covariance.bias (Struct.map (inl {adjoint} -> adjoint) bias)
+                    inm _ = covariance_update (Struct.map (inl {output} -> output) covariance.bias) (Struct.map (inl {adjoint} -> adjoint) bias)
                     inm _ = covariance_update covariance.input.output (adjoint input)
                     inm _ = covariance_update covariance.state.output (adjoint state)
                     succ out
@@ -1203,7 +1229,7 @@ inl float ->
             inl {out={out state} bck} = apply s
             {out state bck}
         optimize=inl {weights={weights covariance} learning_rate} s -> 
-            Struct.iter2 prong_optimize covariance weights
+            Struct.iter2 (Optimizer.prong {learning_rate} s) covariance weights
         block = ()
         }
 
