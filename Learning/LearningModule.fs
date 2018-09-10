@@ -1107,33 +1107,37 @@ inl float ->
             {
             dsc = 
                 {
-                state = Initializer.prong {
-                    extra = {
+                weights = {
+                    state = {
                         bias = Initializer.randn {stddev=0.01f32; dim=size, size}
                         alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
                         }
-                    sublayer_size=size
-                    size
-                    }
-                input = Initializer.prong {
-                    extra = {
+                    input = {
                         bias = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
                         alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
                         }
-                    sublayer_size
-                    size
+                    bias = {
+                        si = Initializer.constant {dim=1,size; init=to float 1}
+                        i = Initializer.constant {dim=1,size; init=to float 0.5}
+                        s = Initializer.constant {dim=1,size; init=to float 0.5}
+                        c = Initializer.bias (1,size)
+                        }
                     }
-                bias = {
-                    si = Initializer.constant {dim=1,size; init=to float 1}
-                    i = Initializer.constant {dim=1,size; init=to float 0.5}
-                    s = Initializer.constant {dim=1,size; init=to float 0.5}
-                    c = Initializer.bias (1,size)
+                covariance = {
+                    state = Init.covariance (size, size) // Has both input and output
+                    input = Init.covariance (sublayer_size, size)
+                    bias = {
+                        si = Initializer.ng size // Has only output
+                        i = Initializer.ng size
+                        s = Initializer.ng size
+                        c = Initializer.ng size
+                        }
                     }
                 }
             size
             }
 
-        apply = inl {d with weights input} s -> 
+        apply = inl {d with weights={weights covariance} input} s -> 
             assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
             inl H =
                 match d with
@@ -1151,23 +1155,29 @@ inl float ->
                 inm out =
                     inm input = 
                         inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
-                        inl weights = weights.input |> inl x -> {x without bias with input=W}
-                        natural_matmultb weights input
+                        matmult (input, W)
+                    inm _ = covariance_update covariance.input.input (primal input) // Does the updates on the backward pass.
                     inm state =
                         inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
-                        inl weights = weights.state |> inl x -> {x without bias with input=W}
-                        natural_matmultb weights out'
-                    activation {
-                        fwd=inl {input state bias={si s i c}} -> si * state * input + s * state + i * input + c |> tanh_fwd
-                        bck=inl {in={in with input state} out} ->
-                            inl out = tanh_bck out
-                            {
-                            input = one
-                            state = one
-                            bias = { si = input*state; i = input; s = state; c = one } 
-                            } |> Struct.map ((*) out)
-                        } {input state bias=weights.bias}
-                
+                        matmult (out', W)
+                    inm _ = covariance_update covariance.state.input (primal state)
+                    inm bias = with_zero_adjoints weights.bias
+                    inm out =
+                        activation {
+                            fwd=inl {input state bias={si s i c}} -> si * state * input + s * state + i * input + c |> tanh_fwd
+                            bck=inl {in={in with input state} out} ->
+                                inl out = tanh_bck out
+                                {
+                                input = one
+                                state = one
+                                bias = { si = input*state; i = input; s = state; c = one } 
+                                } |> Struct.map ((*) out)
+                            } {input state bias}
+                    inm _ = covariance_update covariance.bias (Struct.map (inl {adjoint} -> adjoint) bias)
+                    inm _ = covariance_update covariance.input.output (adjoint input)
+                    inm _ = covariance_update covariance.state.output (adjoint state)
+                    succ out
+
                 inm H =
                     inm input = hebb {input out n H=H.input}
                     inm state = hebb {input=out'; out n H=H.state}
@@ -1176,11 +1186,8 @@ inl float ->
                 succ {out state={out H}}
             inl {out={out state} bck} = apply s
             {out state bck}
-        optimize=inl {weights learning_rate} s -> 
-            Struct.iter (function
-                | {primal adjoint} as x -> Optimizer.sgd learning_rate s x
-                | _ -> ()
-                ) weights
+        optimize=inl {weights={weights covariance} learning_rate} s -> 
+            Struct.iter2 prong_optimize covariance weights
         block = ()
         }
 
