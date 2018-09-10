@@ -790,6 +790,22 @@ inl float ->
                     cov .set (alpha * cov .get + identity)
         s.CudaBlas.syrk' .Lower .T (beta / to float k) x one cov // symmetric rank-k update. (beta / to float k) * x * x^T + cov
 
+    inl covariance_update cov x s =
+        {
+        out=()
+        bck=met {learning_rate} ->
+            Struct.iter2 (inl {epsilon covariance precision} x ->
+                update_covariance {identity_coef=epsilon; learning_rate} s covariance x
+                ) cov x
+        }
+
+    inl with_zero_adjoints {primal adjoint=prev} s =
+        inl adjoint = s.CudaTensor.zero_like primal
+        {
+        out={primal adjoint block=()}
+        bck=met _ -> s.CudaFun.map {out=prev; map=inl a,b -> a+b} (prev,adjoint)
+        }
+
     met update_center {learning_rate} s center x =
         inl k = x.span_outer
         inl alpha = Math.pow (one - learning_rate) k
