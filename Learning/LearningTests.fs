@@ -160,7 +160,7 @@ inl input = input.view_span (inl x :: _ -> x-1)
 
 inl data = {input label} |> Struct.map (inl x -> x.round_split' size.step)
 
-inl learning_rate = 2f32 ** -9.5f32
+inl learning_rate = 2f32 ** -9f32
 inl n = 1f32 / to float size.step
 
 inl network,_ =
@@ -170,6 +170,9 @@ inl network,_ =
         {
         mi_prong =
             mi_prong 128, 
+            prong {activation=Activation.linear; size=size.hot}
+        mi_prong_alt =
+            mi_prong_alt 128, 
             prong {activation=Activation.linear; size=size.hot}
         mi_hebb_prong =
             mi_hebb_prong n 128,
@@ -182,7 +185,7 @@ inl network,_ =
             linear size.hot
         }
 
-    init s size.hot network.mi_hebb_prong
+    init s size.hot network.mi_prong_alt
 
 inl truncate network s' =
     inl s = s'.RegionMem.create
@@ -201,18 +204,18 @@ met train {data={input label} network learning_rate final} s =
     inl ty, {run truncate} = 
         Union.infer {
             run={
-                map=inl {state={network s} input={input label}} ->
+                map=inl {network s} {input label} ->
                     inl network, input = run s input network
                     inl {out bck} = final label input s
                     inl out _ = s.CudaTensor.get out |> to float64
                     inl prev = {out bck=Struct.map (inl {bck} -> bck) network, bck}
                     inl network = Struct.map (inl x -> {x without bck}) network
-                    {state={network s prev}}
+                    {network s prev}
                 input=const {input=input (dyn 0) (dyn 0); label=label (dyn 0) (dyn 0)}
                 block=()
                 }
             truncate={
-                map=inl {state={network s}} -> {state=truncate network s}
+                map=inl {network s} _ -> truncate network s
                 input=const ()
                 block=()
                 }
@@ -233,7 +236,7 @@ met train {data={input label} network learning_rate final} s =
                 body=inl {i next state={d with state prev_states}} ->
                     inl prev_states = List.cons state prev_states |> dyn
                     inl input, label = input i, label i
-                    inl {state} = run {state input={input label}}
+                    inl state = run state {input label}
                     next {d with prev_states state}
                 finally=inl {state with cost state prev_states} ->
                     inl prev_states = List.cons state prev_states |> dyn
@@ -252,7 +255,7 @@ met train {data={input label} network learning_rate final} s =
                             | _ -> cost
                             ) cost prev_states
 
-                    inl {state} = truncate {state input=()}
+                    inl state = truncate state ()
 
                     if nan_is cost then (match state with {s} -> s.RegionMem.clear); cost 
                     else next {cost state prev_states=empty_states}
@@ -438,6 +441,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
 |> printfn "%s"
 |> ignore
