@@ -879,7 +879,7 @@ inl float ->
                 }
             } {in_inner in}
 
-    inl natural_matmultb_template config {weights with input} x s =
+    inl natural_matmultb_template config x {weights with input} s =
         inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
         match weights with
         | {bias} -> fwd_add_bias (primal z) (primal bias) s
