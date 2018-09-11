@@ -830,10 +830,9 @@ inl float ->
         {
         out=()
         bck=met {learning_rate} ->
-            ()
-            //Struct.iter2 (inl {epsilon covariance precision} x ->
-            //    update_covariance {identity_coef=epsilon; learning_rate} s covariance x
-            //    ) cov x
+            Struct.iter2 (inl {epsilon covariance precision} x ->
+                update_covariance {identity_coef=epsilon; learning_rate} s covariance x
+                ) cov x
         }
 
     inl with_zero_adjoints x s =
@@ -841,10 +840,9 @@ inl float ->
         {
         out
         bck=met _ -> 
-            //inl x = Struct.map (inl {adjoint} -> adjoint) x
-            //inl out = Struct.map (inl {adjoint} -> adjoint) out
-            //s.CudaFun.map {out=x; map=inl a,b -> Struct.map2 (+) a b} (x,out)
-            ()
+            inl x = Struct.map (inl {adjoint} -> adjoint) x
+            inl out = Struct.map (inl {adjoint} -> adjoint) out
+            s.CudaFun.map {out=x; map=inl a,b -> Struct.map2 (+) a b} (x,out)
         }
 
     met update_center {learning_rate} s center x =
@@ -1415,8 +1413,58 @@ inl float ->
         block = ()
         }
 
+    inl mi_alt size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                state = Initializer.tanh (size, size)
+                input = Initializer.tanh (sublayer_size, size)
+                bias = {
+                    si = Initializer.constant {dim=1,size; init=to float 1}
+                    i = Initializer.constant {dim=1,size; init=to float 0.5}
+                    s = Initializer.constant {dim=1,size; init=to float 0.5}
+                    c = Initializer.bias (1,size)
+                    }
+                }
+            size
+            }
 
-    inl RNN = {mi mi_hebb mi_hebb_prong vanilla_hebb mi_prong mi_prong_alt}
+        apply = inl {d with weights input} s -> 
+            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl out' =
+                match d with
+                | {state={out}} -> out
+                | _ -> s.CudaTensor.zero_like (primal (weights.bias.c))
+
+            inl apply =
+                inm out =
+                    inm input = matmult (input, weights.input)
+                    inm state = matmult (out', weights.state)
+                    
+                    inl bias = weights.bias
+                    inm out =
+                        activation {
+                            fwd=inl {input state bias={si s i c}} -> si * state * input + s * state + i * input + c |> tanh_fwd
+                            bck=inl {in={in with input state} out} ->
+                                inl out = tanh_bck out
+                                {
+                                input = one
+                                state = one
+                                bias = { si = input*state; i = input; s = state; c = one } 
+                                } |> Struct.map ((*) out)
+                            } {input state bias}
+                    
+                    succ out
+
+                succ {out state={out}}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        block = ()
+        }
+
+    inl RNN = {mi mi_hebb mi_hebb_prong vanilla_hebb mi_prong mi_prong_alt mi_alt}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.

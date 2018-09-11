@@ -180,12 +180,15 @@ inl network,_ =
         mi =
             mi 128,
             linear size.hot
+        mi_alt =
+            mi_alt 128,
+            linear size.hot
         mi_hebb =
             mi_hebb n 128,
             linear size.hot
         }
 
-    init s size.hot network.mi_prong_alt
+    init s size.hot network.mi_alt
 
 inl truncate network s' =
     inl s = s'.RegionMem.create
