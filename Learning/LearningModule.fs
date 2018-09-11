@@ -538,10 +538,10 @@ inl float ->
 
     inl prong {learning_rate} s cov w =
         inl f {covariance precision} = s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
-        module_map (inl _ x -> f x; ()) {cov without back} |> ignore
+        module_map (inl _ x -> f x; ()) {cov without block} |> ignore
 
         inl reproject a b ret =
-            inl x = s.CudaBlas.gemm .nT .nT one a b |> CudaAux.temporary
+            inb x = s.CudaBlas.gemm .nT .nT one a b |> CudaAux.temporary
             ret x
 
         inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -learning_rate a b one c
@@ -710,20 +710,21 @@ inl float ->
         // The networks can be trained with epsilons of 2 ** -10 and lower, but all that seems to do is make the network overfit 
         // and forces the learning rates to go low. Unlike on Mnist where overfitting lowers the test accuracy, on the poker game 
         // it lowers the winrate instead. High learning rates seem to be necessary for generalization.
-        inl default_epsilon = match d with {default_epsilon} -> default_epsilon | _ -> to float (2.0 ** -3.0)
+        inl default_epsilon = to float (2.0 ** -3.0)
 
         inl covariance size =
             Struct.map (inl x -> 
                 inl {epsilon size} =
                     match x with
                     | {size epsilon} -> x
-                    | _ -> {epsilon=default_epsilon; size}
+                    | size -> {epsilon=default_epsilon; size}
                 {
                 covariance = Initializer.identity (size, size)
                 precision = Initializer.identity (size, size)
                 epsilon
                 } |> initialize s
-                ) {size with block=()}
+                ) size
+            |> inl x -> {x with block=()}
 
         Struct.map (function // Rough and possibly poorly tuned inits. Recommended to be used together with PRONG or layer/batch norm.
             | {randn={dim stddev}} -> s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=float} |> dr s
@@ -825,11 +826,13 @@ inl float ->
                     cov .set (alpha * cov .get + identity)
         s.CudaBlas.syrk' .Lower .T (beta / to float k) x one cov // symmetric rank-k update. (beta / to float k) * x * x^T + cov
 
-    inl covariance_update cov x s =
+    inl covariance_update msg cov x s =
         {
         out=()
         bck=met {learning_rate} ->
+            Console.writeline msg
             Struct.iter2 (inl {epsilon covariance precision} x ->
+                s.CudaTensor.print x
                 update_covariance {identity_coef=epsilon; learning_rate} s covariance x
                 ) cov x
         }
@@ -841,7 +844,7 @@ inl float ->
         bck=met _ -> 
             inl x = Struct.map (inl {adjoint} -> adjoint) x
             inl out = Struct.map (inl {adjoint} -> adjoint) out
-            s.CudaFun.map {out=x; map=inl a,b -> Struct.map2 (+) a b} (x,adjoint)
+            s.CudaFun.map {out=x; map=inl a,b -> Struct.map2 (+) a b} (x,out)
         }
 
     met update_center {learning_rate} s center x =
@@ -974,7 +977,7 @@ inl float ->
     inl prong {w with activation size} = 
         {
         init = inl sublayer_size -> { size dsc = prong_ff {w with sublayer_size} }
-        apply = inl {weights input} -> natural_matmultb weights input >>= activation
+        apply = inl {weights input} -> natural_matmultb input weights >>= activation
         optimize = inl {weights={input bias} learning_rate} s -> Tuple.iter (Optimizer.sgd learning_rate s) (input, bias)
         block = ()
         }
@@ -1209,11 +1212,11 @@ inl float ->
                     inm input = 
                         inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
                         matmult (input, W)
-                    inm _ = covariance_update covariance.input.front (primal input) // Does the updates on the backward pass.
+                    inm _ = covariance_update "primal input:" covariance.input.front (primal input) // Does the updates on the backward pass.
                     inm state =
                         inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
                         matmult (out', W)
-                    inm _ = covariance_update covariance.state.front (primal state)
+                    inm _ = covariance_update "primal state:" covariance.state.front (primal state)
                     inm bias = with_zero_adjoints weights.bias
                     inm out =
                         activation {
@@ -1226,9 +1229,9 @@ inl float ->
                                 bias = { si = input*state; i = input; s = state; c = one } 
                                 } |> Struct.map ((*) out)
                             } {input state bias}
-                    inm _ = covariance_update (Struct.map (inl {back} -> back) covariance.bias) (Struct.map (inl {adjoint} -> adjoint) bias)
-                    inm _ = covariance_update covariance.input.back (adjoint input)
-                    inm _ = covariance_update covariance.state.back (adjoint state)
+                    inm _ = covariance_update "biases:" (Struct.map (inl {back} -> back) covariance.bias) (Struct.map (inl {adjoint} -> adjoint) bias)
+                    inm _ = covariance_update "adjoint input:" covariance.input.back (adjoint input)
+                    inm _ = covariance_update "adjoint state:" covariance.state.back (adjoint state)
                     succ out
 
                 inm H =
@@ -1312,13 +1315,13 @@ inl float ->
 
         apply = inl {d with weights input} s -> 
             inl apply =
-                inm right = natural_matmultb weights.input input
+                inm right = natural_matmultb input weights.input
                 inm left =
                     inm state =
                         match d with
                         | {state} -> succ state
                         | _ -> zero_like right
-                    natural_matmultb weights.state state
+                    natural_matmultb state weights.state
                 activation {
                     fwd=inl {left right} -> left * right |> tanh_fwd
                     bck=inl {in={left right} out} ->
