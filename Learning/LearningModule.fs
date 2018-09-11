@@ -1087,6 +1087,18 @@ inl float ->
         block = ()
         }
 
+    inl generalized_mi =
+        activation {
+            fwd=inl {input state bias={si s i c}} -> si * state * input + s * state + i * input + c |> tanh_fwd
+            bck=inl {in={input state bias={si s i c}} out} ->
+                inl out = tanh_bck out
+                {
+                input = si * state + i
+                state = si * input + s
+                bias = { si = input*state; i = input; s = state; c = one } 
+                } |> Struct.map ((*) out)
+            }
+
     inl mi_hebb n size =
         {
         init = inl sublayer_size -> 
@@ -1133,16 +1145,8 @@ inl float ->
                     inm state =
                         inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
                         matmult (out', W)
-                    activation {
-                        fwd=inl {input state bias={si s i c}} -> si * state * input + s * state + i * input + c |> tanh_fwd
-                        bck=inl {in={in with input state} out} ->
-                            inl out = tanh_bck out
-                            {
-                            input = one
-                            state = one
-                            bias = { si = input*state; i = input; s = state; c = one } 
-                            } |> Struct.map ((*) out)
-                        } {input state bias=weights.bias}
+
+                    generalized_mi {input state bias=weights.bias}
                 
                 inm H =
                     inm input = hebb {input out n H=H.input}
@@ -1221,17 +1225,7 @@ inl float ->
                     
                     inm bias = with_zero_adjoints weights.bias
                     inm _ = covariance_update (Struct.map (inl {back} -> back) covariance.bias) (Struct.map (inl {adjoint} -> adjoint) bias)
-                    inm out =
-                        activation {
-                            fwd=inl {input state bias={si s i c}} -> si * state * input + s * state + i * input + c |> tanh_fwd
-                            bck=inl {in={in with input state} out} ->
-                                inl out = tanh_bck out
-                                {
-                                input = one
-                                state = one
-                                bias = { si = input*state; i = input; s = state; c = one } 
-                                } |> Struct.map ((*) out)
-                            } {input state bias}
+                    inm out = generalized_mi {input state bias}
                     
                     succ out
 
@@ -1391,18 +1385,7 @@ inl float ->
                     
                     inm bias = with_zero_adjoints weights.bias
                     inm _ = covariance_update (Struct.map (inl {back} -> back) covariance.bias) (Struct.map (inl {adjoint} -> adjoint) bias)
-                    inm out =
-                        activation {
-                            fwd=inl {input state bias={si s i c}} -> si * state * input + s * state + i * input + c |> tanh_fwd
-                            bck=inl {in={in with input state} out} ->
-                                inl out = tanh_bck out
-                                {
-                                input = one
-                                state = one
-                                bias = { si = input*state; i = input; s = state; c = one } 
-                                } |> Struct.map ((*) out)
-                            } {input state bias}
-                    
+                    inm out = generalized mi {input state bias}
                     succ out
 
                 succ {out state={out}}
@@ -1444,18 +1427,7 @@ inl float ->
                     inm state = matmult (out', weights.state)
                     
                     inl bias = weights.bias
-                    inm out =
-                        activation {
-                            fwd=inl {input state bias={si s i c}} -> si * state * input + s * state + i * input + c |> tanh_fwd
-                            bck=inl {in={in with input state} out} ->
-                                inl out = tanh_bck out
-                                {
-                                input = one
-                                state = one
-                                bias = { si = input*state; i = input; s = state; c = one } 
-                                } |> Struct.map ((*) out)
-                            } {input state bias}
-                    
+                    inm out = generalized_mi {input state bias}
                     succ out
 
                 succ {out state={out}}
