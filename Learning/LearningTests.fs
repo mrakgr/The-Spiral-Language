@@ -160,7 +160,7 @@ inl input = input.view_span (inl x :: _ -> x-1)
 
 inl data = {input label} |> Struct.map (inl x -> x.round_split' size.step)
 
-inl learning_rate = 2f32 ** -10f32
+inl learning_rate = 2f32 ** -7f32
 inl n = 1f32 / to float size.step
 
 inl network,_ =
@@ -188,7 +188,7 @@ inl network,_ =
             linear size.hot
         }
 
-    init s size.hot network.mi_prong_alt
+    init s size.hot network.mi_hebb
 
 inl truncate network s' =
     inl s = s'.RegionMem.create
