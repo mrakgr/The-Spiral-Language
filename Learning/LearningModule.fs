@@ -1240,6 +1240,101 @@ inl float ->
         block = ()
         }
 
+    inl mi_hebb'_prong n size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                weights = {
+                    alpha = {
+                        input = Initializer.constant {dim=1,1; init=zero}
+                        state = Initializer.constant {dim=1,1; init=zero}
+                        }
+                    state = Initializer.randn {stddev=0.01f32; dim=size, size}
+                    input = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                    bias = {
+                        si = Initializer.constant {dim=1,size; init=to float 1}
+                        i = Initializer.constant {dim=1,size; init=to float 0.5}
+                        s = Initializer.constant {dim=1,size; init=to float 0.5}
+                        c = Initializer.bias (1,size)
+                        }
+                    }
+                covariance = {
+                    alpha = {
+                        input = Initializer.covariance {dim={back=1}}
+                        state = Initializer.covariance {dim={back=1}}
+                        }
+                    state = Initializer.covariance {dim={front=size; back=size}} 
+                    input = Initializer.covariance {dim={front=sublayer_size; back=size}}
+                    bias = {
+                        si = Initializer.covariance {dim={back=size}}
+                        i = Initializer.covariance {dim={back=size}}
+                        s = Initializer.covariance {dim={back=size}}
+                        c = Initializer.covariance {dim={back=size}}
+                        }
+                    }
+                }
+            size
+            }
+
+        apply = inl {d with weights={weights covariance} input} s -> 
+            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl H =
+                match d with
+                | {state={H}} -> H
+                | _ -> 
+                    inl f k = s.CudaTensor.zero_like (primal (weights k))
+                    {input=f .input; state=f .state}
+
+            inl out' =
+                match d with
+                | {state={out}} -> out
+                | _ -> s.CudaTensor.zero_like (primal (weights.bias.c))
+
+            inl apply =
+                inm _ = covariance_update covariance.input.front (primal input) // Does the updates on the backward pass.
+                inm _ = covariance_update covariance.state.front (primal out')
+                inm out =
+                    inl weight_add {B H alpha} = 
+                        broadcasting_activation {
+                            fwd=inl {in={B H} in_scalar={alpha}} -> B + alpha * H
+                            bck={
+                                in=inl {in={B H} in_scalar={alpha}} -> {B = one; H = alpha }
+                                in_scalar=inl {in={B H} in_scalar={alpha}} -> {alpha = H}
+                                }
+                            } {in={B H}; in_scalar={alpha}}
+
+                    inm alpha = with_zero_adjoints weights.alpha
+                    inm _ = covariance_update (Struct.map (inl {back} -> back) covariance.alpha) (Struct.map (inl {adjoint} -> adjoint) alpha)
+                    inl flatten = Struct.map' (inl x -> x.flatten)
+                    inm input = 
+                        inm W = weight_add {alpha=flatten alpha.input; H=H.input; B=weights.input}
+                        matmult (input, W)
+                    inm _ = covariance_update covariance.input.back (adjoint input)
+                    
+                    inm state =
+                        inm W = weight_add {alpha=flatten alpha.state; H=H.state; B=weights.state}
+                        matmult (out', W)
+                    inm _ = covariance_update covariance.state.back (adjoint state)
+                    
+                    inm bias = with_zero_adjoints weights.bias
+                    inm _ = covariance_update (Struct.map (inl {back} -> back) covariance.bias) (Struct.map (inl {adjoint} -> adjoint) bias)
+                    generalized_mi {input state bias}
+
+                inm H =
+                    inm input = hebb {input out n H=H.input}
+                    inm state = hebb {input=out'; out n H=H.state}
+                    succ {input state}
+                
+                succ {out state={out H}}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        optimize=inl {weights={weights covariance} learning_rate} s -> 
+            Struct.iter2 (Optimizer.prong {learning_rate} s) covariance weights
+        block = ()
+        }
+
 
     inl mi size =
         {
@@ -1434,7 +1529,7 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {mi mi_hebb mi_hebb_prong vanilla_hebb mi_prong mi_prong_alt mi_alt}
+    inl RNN = {mi mi_hebb mi_hebb_prong mi_hebb'_prong vanilla_hebb mi_prong mi_prong_alt mi_alt}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.

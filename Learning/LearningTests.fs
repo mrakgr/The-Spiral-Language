@@ -425,6 +425,7 @@ inl network,_ =
         vanilla_hebb = vanilla_hebb n size.pattern
         mi_hebb = mi_hebb n size.pattern, mi_hebb n size.pattern
         mi_hebb_prong = mi_hebb_prong n size.pattern
+        mi_hebb'_prong = mi_hebb'_prong n size.pattern, mi_hebb'_prong n size.pattern
         mi_alt_prong = mi_prong_alt size.pattern
         }
 
