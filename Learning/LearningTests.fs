@@ -409,7 +409,7 @@ met train {!data network learning_rate final} s =
             cost := 0.0
         if nan_is (cost()) then () else next()
 
-inl learning_rate = 2f32 ** -12f32
+inl learning_rate = 2f32 ** -9f32
 inl n = 0.01f32
 
 inl network,_ =
