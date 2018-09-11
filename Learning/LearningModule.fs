@@ -537,7 +537,9 @@ inl float ->
             } (primal, adjoint)
 
     inl prong {learning_rate} s cov w =
-        inl f {covariance precision} = s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
+        inl f {covariance precision} = 
+            s.CudaTensor.print covariance
+            s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
         module_map (inl _ x -> f x; ()) {cov without block} |> ignore
 
         inl reproject a b ret =
@@ -826,13 +828,11 @@ inl float ->
                     cov .set (alpha * cov .get + identity)
         s.CudaBlas.syrk' .Lower .T (beta / to float k) x one cov // symmetric rank-k update. (beta / to float k) * x * x^T + cov
 
-    inl covariance_update msg cov x s =
+    inl covariance_update cov x s =
         {
         out=()
         bck=met {learning_rate} ->
-            Console.writeline msg
             Struct.iter2 (inl {epsilon covariance precision} x ->
-                s.CudaTensor.print x
                 update_covariance {identity_coef=epsilon; learning_rate} s covariance x
                 ) cov x
         }
@@ -1208,16 +1208,21 @@ inl float ->
                 | _ -> s.CudaTensor.zero_like (primal (weights.bias.c))
 
             inl apply =
+                inm _ = covariance_update covariance.input.front (primal input) // Does the updates on the backward pass.
+                inm _ = covariance_update covariance.state.front (primal out')
                 inm out =
                     inm input = 
                         inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
                         matmult (input, W)
-                    inm _ = covariance_update "primal input:" covariance.input.front (primal input) // Does the updates on the backward pass.
+                    inm _ = covariance_update covariance.input.back (adjoint input)
+                    
                     inm state =
                         inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
                         matmult (out', W)
-                    inm _ = covariance_update "primal state:" covariance.state.front (primal state)
+                    inm _ = covariance_update covariance.state.back (adjoint state)
+                    
                     inm bias = with_zero_adjoints weights.bias
+                    inm _ = covariance_update (Struct.map (inl {back} -> back) covariance.bias) (Struct.map (inl {adjoint} -> adjoint) bias)
                     inm out =
                         activation {
                             fwd=inl {input state bias={si s i c}} -> si * state * input + s * state + i * input + c |> tanh_fwd
@@ -1229,9 +1234,7 @@ inl float ->
                                 bias = { si = input*state; i = input; s = state; c = one } 
                                 } |> Struct.map ((*) out)
                             } {input state bias}
-                    inm _ = covariance_update "biases:" (Struct.map (inl {back} -> back) covariance.bias) (Struct.map (inl {adjoint} -> adjoint) bias)
-                    inm _ = covariance_update "adjoint input:" covariance.input.back (adjoint input)
-                    inm _ = covariance_update "adjoint state:" covariance.state.back (adjoint state)
+                    
                     succ out
 
                 inm H =
