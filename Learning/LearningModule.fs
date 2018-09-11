@@ -1225,9 +1225,7 @@ inl float ->
                     
                     inm bias = with_zero_adjoints weights.bias
                     inm _ = covariance_update (Struct.map (inl {back} -> back) covariance.bias) (Struct.map (inl {adjoint} -> adjoint) bias)
-                    inm out = generalized_mi {input state bias}
-                    
-                    succ out
+                    generalized_mi {input state bias}
 
                 inm H =
                     inm input = hebb {input out n H=H.input}
