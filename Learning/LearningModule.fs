@@ -537,9 +537,7 @@ inl float ->
             } (primal, adjoint)
 
     inl prong {learning_rate} s cov w =
-        inl f {covariance precision} = 
-            s.CudaTensor.print covariance
-            s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
+        inl f {covariance precision} = s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
         module_map (inl _ x -> f x; ()) {cov without block} |> ignore
 
         inl reproject a b ret =
