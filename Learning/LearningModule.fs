@@ -537,7 +537,11 @@ inl float ->
             } (primal, adjoint)
 
     inl prong {learning_rate} s cov w =
-        inl f {covariance precision} = s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
+        inl k_max = 128
+        inl f {covariance precision k} = 
+            if k () >= k_max then
+                k := 0
+                s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
         module_map (inl _ x -> f x; ()) {cov without block} |> ignore
 
         inl reproject a b ret =
@@ -721,6 +725,7 @@ inl float ->
                 {
                 covariance = Initializer.identity (size, size)
                 precision = Initializer.identity (size, size)
+                k = ref 0
                 epsilon
                 } |> initialize s
                 ) size
@@ -830,8 +835,9 @@ inl float ->
         {
         out=()
         bck=met {learning_rate} ->
-            Struct.iter2 (inl {epsilon covariance precision} x ->
+            Struct.iter2 (inl {epsilon covariance precision k} x ->
                 update_covariance {identity_coef=epsilon; learning_rate} s covariance x
+                k := k() + x.span_outer
                 ) cov x
         }
 
