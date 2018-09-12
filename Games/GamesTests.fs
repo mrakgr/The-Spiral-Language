@@ -172,7 +172,7 @@ Struct.iter (inl i ->
             open (Learning float32)
             inl actor =
                 inl n = 0.04f32
-                RNN.mi_hebb'_prong n 128, RNN.mi_hebb'_prong n 128
+                RNN.mi_hebb'_prong n 128, RNN.mi_hebb'_prong n 128 
                 //RNN.mi_prong_alt 128, RNN.mi_prong_alt 128
                 //RNN.mi_alt 128
             //inl actor = 
