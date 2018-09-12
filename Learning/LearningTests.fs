@@ -188,7 +188,7 @@ inl network,_ =
             linear size.hot
         }
 
-    init s size.hot network.mi_hebb_prong
+    init s size.hot network.mi_prong_alt
 
 inl truncate network s' =
     inl s = s'.RegionMem.create
@@ -426,7 +426,7 @@ inl network,_ =
         mi_hebb = mi_hebb n size.pattern, mi_hebb n size.pattern
         mi_hebb_prong = mi_hebb_prong n size.pattern
         mi_hebb'_prong = mi_hebb'_prong n size.pattern, mi_hebb'_prong n size.pattern
-        mi_alt_prong = mi_prong_alt size.pattern
+        mi_prong_alt = mi_prong_alt size.pattern
         }
 
     init s size.pattern network.mi_hebb
@@ -446,6 +446,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
 |> printfn "%s"
 |> ignore
