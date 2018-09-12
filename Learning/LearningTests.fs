@@ -412,7 +412,7 @@ met train {!data network learning_rate final} s =
 inl learning_rate = 2f32 ** -10f32
 inl n = 0.01f32
 
-inl network,_ =
+inl network,_ = 
     open Feedforward
     open RNN
     inl network = 
