@@ -172,8 +172,8 @@ Struct.iter (inl i ->
             open (Learning float32)
             inl actor =
                 inl n = 0.04f32
-                //RNN.mi_hebb n 128
-                RNN.mi_alt 128
+                RNN.mi_hebb n 128
+                //RNN.mi_alt 128
             //inl actor = 
             //    Feedforward.tanh 256
             //inl actor = 
@@ -207,7 +207,7 @@ Struct.iter (inl i ->
         //open Poker {max_stack_size num_players log=Console.printfn}
         //f game 10 1
         }
-    ) (-9.5)
+    ) (-9)
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3
