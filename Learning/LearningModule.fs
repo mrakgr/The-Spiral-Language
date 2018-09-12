@@ -1257,8 +1257,10 @@ inl float ->
                         input = Initializer.constant {dim=1,1; init=zero}
                         state = Initializer.constant {dim=1,1; init=zero}
                         }
-                    state = Initializer.randn {stddev=0.01f32; dim=size, size}
-                    input = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                    state = //Initializer.randn {stddev=0.01f32; dim=size, size} // Use this one for the Binary Pattern test.
+                        Initializer.tanh (size, size)
+                    input = //Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                        Initializer.tanh (sublayer_size, size)
                     bias = {
                         si = Initializer.constant {dim=1,size; init=to float 1}
                         i = Initializer.constant {dim=1,size; init=to float 0.5}
