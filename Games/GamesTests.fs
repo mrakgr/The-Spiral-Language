@@ -170,17 +170,17 @@ Struct.iter (inl i ->
 
         inl a = 
             open (Learning float32)
-            inl actor =
-                inl n = 0.04f32
-                RNN.mi_hebb'_prong n 128, RNN.mi_hebb'_prong n 128 
+            //inl actor =
+            //    inl n = 0.04f32
+            //    RNN.mi_hebb'_prong n 128, RNN.mi_hebb'_prong n 128 
                 //RNN.mi_prong_alt 128, RNN.mi_prong_alt 128
                 //RNN.mi_alt 128
             //inl actor = 
             //    Feedforward.tanh 256
-            //inl actor = 
-            //    open Feedforward
-            //    prong {activation=Activation.tanh; size=256},
-            //    prong {activation=Activation.tanh; size=256}
+            inl actor = 
+                open Feedforward
+                prong {activation=Activation.tanh; size=256},
+                prong {activation=Activation.tanh; size=256}
             //player_pg {learning_rate name="One"; actor} s
             player_mc_ac {learning_rate name="One"; shared=actor; block_critic_gradients=true; discount_factor=1f32} s
         inl b = player_rules {name="Two"}
@@ -212,5 +212,5 @@ Struct.iter (inl i ->
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3
-|> printfn "%s"
+//|> printfn "%s"
 |> ignore
