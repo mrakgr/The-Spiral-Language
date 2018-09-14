@@ -188,7 +188,7 @@ s.CudaTensor.set (a1 0 1) 0f32
 s.CudaTensor.set (a1 0 2) 0f32
 s.CudaTensor.set (a1 1 2) 0f32
 
-inl a2 = s.CudaKernel.init {dim=3,3} (inl a b -> if a = b then 1f32 else 0f32)
+inl a2 = s.CudaFun.init {dim=3,3} (inl a b -> if a = b then 1f32 else 0f32)
 inl o1 = s.CudaBlas.trsm .Left .Lower .nT .NonUnit 1f32 a1 a2
 inl o2 = s.CudaBlas.trinv .Lower a1
 inl r1 = s.CudaBlas.gemm .nT .nT 1f32 a1 o2
@@ -222,8 +222,8 @@ let blas6 =
     """
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
-inl A = s.CudaKernel.init {dim=3,5} (inl a b -> to float32 (a+b))
-inl B = s.CudaKernel.init {dim=3,5} (inl a b -> to float32 (100+a+b))
+inl A = s.CudaFun.init {dim=3,5} (inl a b -> to float32 (a+b))
+inl B = s.CudaFun.init {dim=3,5} (inl a b -> to float32 (100+a+b))
 inl C = s.CudaBlas.geam .T .T 1f32 A 1f32 B
 s.CudaTensor.print A
 s.CudaTensor.print B
@@ -355,7 +355,7 @@ inl n = 2
 inl m = 5
 inl dim = n,m
 //inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim}
-inl A = s.CudaKernel.init {dim} (inl a b -> to float32 (a+b*2+1))
+inl A = s.CudaFun.init {dim} (inl a b -> to float32 (a+b*2+1))
 
 inl out, ipiv = s.CudaSolve.getrf A
 
@@ -374,7 +374,7 @@ inl perm ipiv =
         }
 
     inl ipiv = CudaAux.to_dev_tensor (s.CudaTensor.from_host_tensor ar)
-    s.CudaKernel.init {dim=m,m} <| inl a b ->
+    s.CudaFun.init {dim=m,m} <| inl a b ->
         inl p = ipiv a .get
         if b = p then 1f32 else 0f32
 
@@ -384,13 +384,13 @@ inl lu O =
 
     /// Note: The are transposed. getrf loads the array assuming a column major format while Spiral uses the row major.
     inl L =
-        s.CudaKernel.init {dim=m,m} <| inl a b ->
+        s.CudaFun.init {dim=m,m} <| inl a b ->
             if a = b then 1f32
             elif a < b && a < n then O a b .get
             else 0f32
 
     inl U =
-        s.CudaKernel.init {dim} <| inl a b ->
+        s.CudaFun.init {dim} <| inl a b ->
             if a >= b then O a b .get
             else 0f32
 
@@ -731,7 +731,7 @@ inl outer_size = 6
 
 inl prob = softmax_forward (s.CudaRandom.create {dst=.Uniform} {elem_type=float32; dim=outer_size,inner_size}) s
 inl scan_prob = probs prob s
-inl boundary = s.CudaKernel.init {dim=outer_size} (const 0.2f32)
+inl boundary = s.CudaFun.init {dim=outer_size} (const 0.2f32)
 
 inl sample prob boundary =
     inl b, a = prob.dim
@@ -935,7 +935,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) fun3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel11
 |> printfn "%s"
 |> ignore
 

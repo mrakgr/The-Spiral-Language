@@ -876,7 +876,7 @@ inl s ret ->
                     | .Left -> get_dims A B
                     | .Right -> get_dims B A
                 inl B = CudaAux.to_dev_tensor B
-                s.CudaKernel.init {dim} (inl a, b -> B a, b .get)
+                s.CudaFun.init {dim} (inl a, b -> B a, b .get)
             trsm' s side uplo trans diag alpha A B
             stack B
 
@@ -1474,7 +1474,7 @@ met iter w {d with dim} f =
         }
 
 /// The exclusive scan over the innermost dimension.
-met init_exscan w {dim=b,a redo init outit} =
+met init_exscan w {dim=b,a redo neutral_elem init outit} =
     w.run {
         blockDim = {x = lit_min 1024 (length a)}
         gridDim = {y = min 256 (length b)}
@@ -2346,7 +2346,7 @@ inl s ret ->
                     if a = b then to .set 1f32 else to .set 0f32
             handle_error s {info = s.CudaSolve.getrs' .nT A ipiv to}
         | _ ->
-            inl to = s.CudaKernel.init {dim=from.dim} (inl a, b -> if a = b then 1f32 else 0f32)
+            inl to = s.CudaFun.init {dim=from.dim} (inl a, b -> if a = b then 1f32 else 0f32)
             handle_error s {info = s.CudaSolve.getrs' .nT A ipiv to}
             to
 

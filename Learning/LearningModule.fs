@@ -257,6 +257,7 @@ let learning =
 inl float ->
     // #Primitives
     inl to_dev_tensor = CudaAux.to_dev_tensor
+    inl atomic_add = CudaAux.atomic_add
     
     inl zero = to float 0
     inl half = to float 0.5
@@ -1536,6 +1537,160 @@ inl float ->
             {out state bck}
         block = ()
         }
+
+    inl mi_hebb n size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                state = {
+                    bias = Initializer.randn {stddev=0.01f32; dim=size, size}
+                    alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
+                    }
+                input = {
+                    bias = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                    alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                    }
+                bias = {
+                    si = Initializer.constant {dim=1,size; init=to float 1}
+                    i = Initializer.constant {dim=1,size; init=to float 0.5}
+                    s = Initializer.constant {dim=1,size; init=to float 0.5}
+                    c = Initializer.bias (1,size)
+                    }
+                }
+            size
+            }
+
+        apply = inl {d with weights input} s -> 
+            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl H =
+                match d with
+                | {state={H}} -> H
+                | _ -> 
+                    inl f k = s.CudaTensor.zero_like (primal (weights k .bias))
+                    {input=f .input; state=f .state}
+
+            inl out' =
+                match d with
+                | {state={out}} -> out
+                | _ -> s.CudaTensor.zero_like (primal (weights.bias.c))
+
+            inl apply =
+                inm out =
+                    inm input = 
+                        inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
+                        matmult (input, W)
+                    inm state =
+                        inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
+                        matmult (out', W)
+
+                    generalized_mi {input state bias=weights.bias}
+                
+                inm H =
+                    inm input = hebb {input out n H=H.input}
+                    inm state = hebb {input=out'; out n H=H.state}
+                    succ {input state}
+                
+                succ {out state={out H}}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        block = ()
+        }
+
+    inl Modulated =
+        inl modulated_oja_update n {ins with input out m H} s =
+            inl 1,b = primal input .dim
+            inl 1,a = primal out .dim
+            assert (a = primal m .dim) "b = primal m .dim"
+            assert ((b,a) = primal H .dim) "(a,b) = primal H .dim"
+            inl index_into (b,a) x = 
+                {
+                input = 1, b
+                out = 1, a
+                m = 1, a
+                H = b, a
+                } |> Struct.map2 (<|) x
+            inl fwd {input out m H} =
+                H + m * n * (input * out - out * out * H)
+            inl bck {input out m H} =
+                { 
+                input = inl _ -> m * n * out
+                out = inl _ -> m * n * (input - (to float 2) * out * H)
+                H = inl _ -> one - m * n * out * out
+                m = inl _ -> n * (input * out - out * out * H)
+                }
+            inl H' =
+                inl ins = to_dev_tensor (primals ins)
+                s.CudaFun.init {
+                    dim=b,a
+                    init=inl dim ->
+                        index_into dim ins 
+                        |> Struct.map (inl x -> x .get)
+                        |> fwd
+                    }
+                |> dr s
+            {
+            out=H'
+            bck=met _ ->
+                inl ins = to_dev_tensor ins
+                inl error = to_dev_tensor (adjoint H)
+                s.CudaKernel.iter {
+                    dim=b,a
+                    init=inl dim ->
+                        inl outs =
+                            index_into dim (primals ins) 
+                            |> Struct.map (inl x -> x .get)
+                            |> bck
+                        inl error = error dim .get
+                        inl ins = index_into dim (adjoints ins)
+                        ins.H.set (ins.H.get + error * outs.H ()) 
+                        Struct.iter2 (inl a b -> atomic_add a (error * b ())) {ins without H} {outs without H}
+                    }
+            }
+
+        inl vanilla n size =
+            {
+            init = inl sublayer_size -> 
+                {
+                dsc = 
+                    {
+                    input = 
+                        {
+                        weight = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                        bias = Initializer.bias size
+                        }
+                    modulator = {
+                        weight = Initializer.tanh (sublayer_size, size)
+                        bias = Initializer.bias size
+                        }
+                    }
+                size
+                }
+            apply = inl {d with weights input} s -> 
+                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+                inl H =
+                    match d with
+                    | {state={H}} -> H
+                    | _ -> weights.input.weight
+
+                inl out' =
+                    match d with
+                    | {state={out}} -> out
+                    | _ -> s.CudaTensor.zero {elem_type=float; dim=1,size}
+
+                inl apply =
+                    inm out = matmultb (input, H) weights.input.bias
+                    inm m = matmultb (input, weights.modulator.weight) weights.modulator.bias
+                    inm H = modulated_oja_update {n input out m H}
+                
+                    succ {out state={out H}}
+                inl {out={out state} bck} = apply s
+                {out state bck}
+            block = ()
+            }
+
+        {vanilla}
 
     inl RNN = {mi mi_hebb mi_hebb_prong mi_hebb'_prong vanilla_hebb mi_prong mi_prong_alt mi_alt}
 
