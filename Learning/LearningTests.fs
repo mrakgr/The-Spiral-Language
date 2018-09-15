@@ -312,14 +312,14 @@ inl make_patterns n size =
         )
 
 inl size = {
-    pattern = 50
-    episode = 5
+    pattern = 10
+    episode = 1
     minibatch = 1
     seq = 500
 
-    shot = 3
-    pattern_repetition = 10
-    empty_input_after_repetition = 3
+    shot = 1
+    pattern_repetition = 5
+    empty_input_after_repetition = 0
     }
 
 inl data =
@@ -358,7 +358,7 @@ inl runner {network s} funs =
             inl {network} = states.last
             Struct.foldr (inl layer _ ->
                 match layer with
-                | {init_state state} -> Struct.iter2 (inl to from -> s.CudaTensor.copy {from to}) init_state state
+                | {init_state state} -> Struct.iter2 (inl to from -> s.CudaTensor.copy {from to}) init_state (primals state)
                 | _ -> ()
                 ) network ()
         | .optimize learning_rate -> Optimizer.standard learning_rate s network
@@ -405,8 +405,8 @@ met train {!data network learning_rate final} s =
             loop_over size.pattern_repetition <| inl _ ->
                 network.run (data.degraded i)
             network.peek |> function {final} -> cost := cost () + final (data.original i) | _ -> ()
-            network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
             network.burn_in_state
+            network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
             network.optimize learning_rate
 
         inl iters = 10

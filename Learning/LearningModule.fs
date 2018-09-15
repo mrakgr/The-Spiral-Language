@@ -735,6 +735,7 @@ inl float ->
 
         Struct.map (function // Rough and possibly poorly tuned inits. Recommended to be used together with PRONG or layer/batch norm.
             | {randn={dim stddev}} -> s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=float} |> dr s
+            | {randn'={dim stddev}} -> s.CudaRandom.create {dst=.Normal; stddev mean=0.0f32} {dim elem_type=float}
             | {sigmoid=dim} -> init 2f32 dim s |> dr s
             | {tanh=dim} -> init 3f32 dim s |> dr s
             | {relu=dim} -> init 1f32 dim s |> dr s
@@ -800,9 +801,13 @@ inl float ->
 
     inl init s size dsc = 
         Struct.foldl_map (inl sublayer_size {x with init} -> 
-            inl {dsc size} = init sublayer_size
+            inl {d with dsc size} = init sublayer_size
             inl weights = initialize s dsc |> heap
-            {x without init with weights}, size
+            match d with
+            | {init_state} -> 
+                inl init_state = initialize s init_state |> heap
+                {x without init with init_state weights}, size
+            | _ -> {x without init with weights}, size
             ) size dsc
 
     inl run s input = 
@@ -810,7 +815,7 @@ inl float ->
             inl input = 
                 inl input = {input}
                 inl input = match layer with {weights} -> {input with weights} | _ -> input
-                match layer with {state} -> {input with state} | _ -> input
+                match layer with {state} | {init_state=state} -> {input with state} | _ -> input
 
             inl {x with out} = indiv join apply input s |> stack
             inl layer = match x with {bck} -> {layer with bck=heap bck} | _ -> layer
@@ -1608,6 +1613,14 @@ inl float ->
             assert_dim .out (sng, a)
             assert_dim .m (sng, a)
 
+            inl output_functions =
+                inl add a b = a.set (a.get + b)
+                {
+                input=atomic_add
+                out=atomic_add
+                m=atomic_add
+                H=add
+                }
             inl index_into (b,a) x = 
                 Struct.map2 (<|) (Struct.choose id x)                 
                     {
@@ -1616,16 +1629,17 @@ inl float ->
                     m = 0, a
                     H = b, a
                     } 
+            inl tanh = tanh_fwd
             inl fwd {input out m H} =
-                H + m * n * (input * out - out * out * H)
+                H + tanh m * n * (input * out - out * out * H)
             inl bck {input out m H} =
                 { 
-                input = inl _ -> m * n * out
-                out = inl _ -> m * n * (input - two * out * H)
-                H = inl _ -> one - m * n * out * out
-                m = inl _ -> n * (input * out - out * out * H)
+                input = inl _ -> tanh m * n * out
+                out = inl _ -> tanhm * n * (input - two * out * H)
+                H = inl _ -> one - tanh m * n * out * out
+                m = inl _ -> (tanh >> tanh_bck) m * n * (input * out - out * out * H)
                 }
-            inl H' =
+            inl out =
                 inl ins = to_dev_tensor (primals ins)
                 s.CudaFun.init {dim=b,a} (inl dim ->
                     index_into dim ins 
@@ -1634,10 +1648,10 @@ inl float ->
                     )
                 |> dr s
             {
-            out=H'
+            out
             bck=met _ ->
                 inl ins = to_dev_tensor ins
-                inl error = to_dev_tensor (adjoint H)
+                inl error = to_dev_tensor (adjoint out)
                 s.CudaKernel.iter {dim=b,a} (inl dim ->
                         inl outs =
                             index_into dim (primals ins) 
@@ -1645,8 +1659,9 @@ inl float ->
                             |> bck
                         inl error = error dim .get
                         inl ins = index_into dim (adjoints ins)
-                        ins.H.set (ins.H.get + error * outs.H ()) 
-                        Struct.iter2 (inl a b -> atomic_add a (error * b ())) {ins without H} {outs without H}
+                        Struct.iter3 (inl in b f -> f in (error * b ()))
+                            (Struct.choose id ins)
+                            outs output_functions
                     )
             }
 
@@ -1658,34 +1673,29 @@ inl float ->
                     {
                     input = 
                         {
-                        weight = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
                         bias = Initializer.bias size
                         }
-                    modulator = {
+                    modulator = 
+                        {
                         weight = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
                         bias = Initializer.bias size
                         }
                     }
+                init_state =
+                    {
+                    H = Initializer.randn' {stddev=0.01f32; dim=sublayer_size, size}
+                    }
                 size
                 }
-            apply = inl {d with weights input} s -> 
+            apply = inl {d with state={H} weights input} s -> 
                 assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-                inl H =
-                    match d with
-                    | {state={H}} -> H
-                    | _ -> weights.input.weight
-
-                inl out' =
-                    match d with
-                    | {state={out}} -> out
-                    | _ -> s.CudaTensor.zero {elem_type=float; dim=1,size}
 
                 inl apply =
                     inm out = matmultb (input, H) weights.input.bias
                     inm m = matmultb (input, weights.modulator.weight) weights.modulator.bias
                     inm H = modulated_oja_update n {input out m H}
                 
-                    succ {out state={out H}}
+                    succ {out state={H}}
                 inl {out={out state} bck} = apply s
                 {out state bck}
             block = ()
