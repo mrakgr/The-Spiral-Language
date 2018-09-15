@@ -404,10 +404,14 @@ met train {!data network learning_rate final} s =
             network.optimize learning_rate
 
         inl iters = 10
+        
         if (i + 1) % iters = 0 then 
             Console.printfn "At iteration {0} the cost is {1}" (i, cost() / to float64 iters)
             cost := 0.0
-        if nan_is (cost()) then () else next()
+            next()
+        elif nan_is (cost()) then
+            Console.printfn "At iteration {0} the cost is {1}" (i, cost())
+        else next()
 
 inl learning_rate = 2f32 ** -10f32
 inl n = 0.01f32

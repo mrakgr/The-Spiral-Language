@@ -1609,12 +1609,13 @@ inl float ->
             assert_dim .m (sng, a)
 
             inl index_into (b,a) x = 
-                {
-                input = 0, b
-                out = 0, a
-                m = 0, a
-                H = b, a
-                } |> Struct.map2 (<|) x
+                Struct.map2 (<|) (Struct.choose id x)                 
+                    {
+                    input = 0, b
+                    out = 0, a
+                    m = 0, a
+                    H = b, a
+                    } 
             inl fwd {input out m H} =
                 H + m * n * (input * out - out * out * H)
             inl bck {input out m H} =
@@ -1637,9 +1638,7 @@ inl float ->
             bck=met _ ->
                 inl ins = to_dev_tensor ins
                 inl error = to_dev_tensor (adjoint H)
-                s.CudaKernel.iter {
-                    dim=b,a
-                    init=inl dim ->
+                s.CudaKernel.iter {dim=b,a} (inl dim ->
                         inl outs =
                             index_into dim (primals ins) 
                             |> Struct.map (inl x -> x .get)
@@ -1648,7 +1647,7 @@ inl float ->
                         inl ins = index_into dim (adjoints ins)
                         ins.H.set (ins.H.get + error * outs.H ()) 
                         Struct.iter2 (inl a b -> atomic_add a (error * b ())) {ins without H} {outs without H}
-                    }
+                    )
             }
 
         inl feedforward n size =
