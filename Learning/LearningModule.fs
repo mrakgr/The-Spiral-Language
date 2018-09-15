@@ -1662,7 +1662,7 @@ inl float ->
                         bias = Initializer.bias size
                         }
                     modulator = {
-                        weight = Initializer.tanh (sublayer_size, size)
+                        weight = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
                         bias = Initializer.bias size
                         }
                     }

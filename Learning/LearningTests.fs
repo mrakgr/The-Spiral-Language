@@ -315,7 +315,7 @@ inl size = {
     pattern = 50
     episode = 5
     minibatch = 1
-    seq = 200
+    seq = 500
 
     shot = 3
     pattern_repetition = 10
@@ -327,8 +327,6 @@ inl data =
         .reshape (inl a,b -> size.seq, size.episode, size.minibatch, b)
     |> s.CudaTensor.from_host_tensor
     |> HostTensor.unzip
-
-//Struct.iter s.CudaTensor.print dataset
 
 inl loop_over near_to f = Loops.for {from=0; near_to body=inl {i} -> f i}
 inl loop_over' near_to f = Loops.for' {from=0; near_to body=inl {i next} -> f {i next}}
@@ -356,6 +354,13 @@ inl runner {network s} funs =
                 }
             states.clear
             states.add init_state
+        | .burn_in_state ->
+            inl {network} = states.last
+            Struct.foldr (inl layer _ ->
+                match layer with
+                | {init_state state} -> Struct.iter2 (inl to from -> s.CudaTensor.copy {from to}) init_state state
+                | _ -> ()
+                ) network ()
         | .optimize learning_rate -> Optimizer.standard learning_rate s network
         | k input ->
             (funs k) states.last input
@@ -401,6 +406,7 @@ met train {!data network learning_rate final} s =
                 network.run (data.degraded i)
             network.peek |> function {final} -> cost := cost () + final (data.original i) | _ -> ()
             network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
+            network.burn_in_state
             network.optimize learning_rate
 
         inl iters = 10
@@ -413,7 +419,7 @@ met train {!data network learning_rate final} s =
             Console.printfn "At iteration {0} the cost is {1}" (i, cost())
         else next()
 
-inl learning_rate = 2f32 ** -10f32
+inl learning_rate = 2f32 ** -12f32
 inl n = 0.01f32
 
 inl network,_ = 
