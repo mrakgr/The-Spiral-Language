@@ -258,6 +258,7 @@ inl float ->
     // #Primitives
     inl to_dev_tensor = CudaAux.to_dev_tensor
     inl atomic_add = CudaAux.atomic_add
+    inl assert_dim = CudaAux.assert_dim
     
     inl zero = to float 0
     inl half = to float 0.5
@@ -1600,15 +1601,18 @@ inl float ->
 
     inl Modulated =
         inl modulated_oja_update n {ins with input out m H} s =
-            inl 1,b = primal input .dim
-            inl 1,a = primal out .dim
-            assert (a = primal m .dim) "b = primal m .dim"
-            assert ((b,a) = primal H .dim) "(a,b) = primal H .dim"
+            inl b,a = primal H .dim
+            inl assert_dim = assert_dim (primals ins)
+            inl sng = {from=0; near_to=1}
+            assert_dim .input (sng, b)
+            assert_dim .out (sng, a)
+            assert_dim .m (sng, a)
+
             inl index_into (b,a) x = 
                 {
-                input = 1, b
-                out = 1, a
-                m = 1, a
+                input = 0, b
+                out = 0, a
+                m = 0, a
                 H = b, a
                 } |> Struct.map2 (<|) x
             inl fwd {input out m H} =
@@ -1616,19 +1620,17 @@ inl float ->
             inl bck {input out m H} =
                 { 
                 input = inl _ -> m * n * out
-                out = inl _ -> m * n * (input - (to float 2) * out * H)
+                out = inl _ -> m * n * (input - two * out * H)
                 H = inl _ -> one - m * n * out * out
                 m = inl _ -> n * (input * out - out * out * H)
                 }
             inl H' =
                 inl ins = to_dev_tensor (primals ins)
-                s.CudaFun.init {
-                    dim=b,a
-                    init=inl dim ->
-                        index_into dim ins 
-                        |> Struct.map (inl x -> x .get)
-                        |> fwd
-                    }
+                s.CudaFun.init {dim=b,a} (inl dim ->
+                    index_into dim ins 
+                    |> Struct.map (inl x -> x .get)
+                    |> fwd
+                    )
                 |> dr s
             {
             out=H'
@@ -1649,7 +1651,7 @@ inl float ->
                     }
             }
 
-        inl vanilla n size =
+        inl feedforward n size =
             {
             init = inl sublayer_size -> 
                 {
@@ -1682,7 +1684,7 @@ inl float ->
                 inl apply =
                     inm out = matmultb (input, H) weights.input.bias
                     inm m = matmultb (input, weights.modulator.weight) weights.modulator.bias
-                    inm H = modulated_oja_update {n input out m H}
+                    inm H = modulated_oja_update n {input out m H}
                 
                     succ {out state={out H}}
                 inl {out={out state} bck} = apply s
@@ -1690,9 +1692,9 @@ inl float ->
             block = ()
             }
 
-        {vanilla}
+        {feedforward}
 
-    inl RNN = {mi mi_hebb mi_hebb_prong mi_hebb'_prong vanilla_hebb mi_prong mi_prong_alt mi_alt}
+    inl RNN = {mi mi_hebb mi_hebb_prong mi_hebb'_prong vanilla_hebb mi_prong mi_prong_alt mi_alt Modulated}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.

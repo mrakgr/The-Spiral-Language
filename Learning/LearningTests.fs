@@ -315,7 +315,7 @@ inl size = {
     pattern = 50
     episode = 5
     minibatch = 1
-    seq = 2000
+    seq = 200
 
     shot = 3
     pattern_repetition = 10
@@ -427,9 +427,10 @@ inl network,_ =
         mi_hebb_prong = mi_hebb_prong n size.pattern
         mi_hebb'_prong = mi_hebb'_prong n size.pattern, mi_hebb'_prong n size.pattern
         mi_prong_alt = mi_prong_alt size.pattern
+        modulated_feedforward = Modulated.feedforward n size.pattern
         }
 
-    init s size.pattern network.mi_hebb
+    init s size.pattern network.modulated_feedforward
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {
@@ -446,6 +447,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning3
 |> printfn "%s"
 |> ignore
