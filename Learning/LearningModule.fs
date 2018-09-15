@@ -1605,7 +1605,7 @@ inl float ->
         }
 
     inl Modulated =
-        inl modulated_oja_update n {ins with input out m H} s =
+        inl modulated_hebb_update n {ins with input out m H} s =
             inl b,a = primal H .dim
             inl assert_dim = assert_dim (primals ins)
             inl sng = {from=0; near_to=1}
@@ -1631,11 +1631,11 @@ inl float ->
                     } 
             inl tanh = tanh_fwd
             inl fwd {input out m H} =
-                H - n * (input * out - out * out * H)
+                H - (n * input * out - (n - one) * H
             inl bck {input out m H} =
                 { 
                 input = inl _ -> n * out
-                out = inl _ -> n * (input - two * out * H)
+                out = inl _ -> n * input
                 H = inl _ -> one - n * out * out
                 m = inl _ -> n * (input * out - out * out * H)
                 }
@@ -1691,7 +1691,7 @@ inl float ->
                 assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
 
                 inl apply =
-                    inm out = matmultb (input, H) weights.input.bias
+                    inm out = matmultb (input, H) weights.input.bias >>= tanh
                     inm _ = print (primal out)
                     inm m = matmultb (input, weights.modulator.weight) weights.modulator.bias
                     inm _ = print (primal H)
