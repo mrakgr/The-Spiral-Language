@@ -419,8 +419,8 @@ met train {!data network learning_rate final} s =
             Console.printfn "At iteration {0} the cost is {1}" (i, cost())
         else next()
 
-inl learning_rate = 2f32 ** -12f32
-inl n = 0.01f32
+inl learning_rate = 2f32 ** -10f32
+inl n = 0.1f32
 
 inl network,_ = 
     open Feedforward

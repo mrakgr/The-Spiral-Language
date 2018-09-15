@@ -1635,7 +1635,7 @@ inl float ->
             inl bck {input out m H} =
                 { 
                 input = inl _ -> tanh m * n * out
-                out = inl _ -> tanhm * n * (input - two * out * H)
+                out = inl _ -> tanh m * n * (input - two * out * H)
                 H = inl _ -> one - tanh m * n * out * out
                 m = inl _ -> (tanh >> tanh_bck) m * n * (input * out - out * out * H)
                 }
@@ -1693,6 +1693,9 @@ inl float ->
                 inl apply =
                     inm out = matmultb (input, H) weights.input.bias
                     inm m = matmultb (input, weights.modulator.weight) weights.modulator.bias
+                    inm _ = print (primal weights.input.bias)
+                    inm _ = print (primal weights.modulator.weight)
+                    inm _ = print (primal weights.modulator.bias)
                     inm H = modulated_oja_update n {input out m H}
                 
                     succ {out state={H}}
