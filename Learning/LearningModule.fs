@@ -1630,24 +1630,18 @@ inl float ->
                     H = b, a
                     } 
             inl tanh = tanh_fwd
+            inl abs_bck x = if x >= zero then one else -one
+
             inl fwd {input out m H} =
-                n * tanh m * input * out + (n - one) * H
+                H + n * (m * input * out - abs m * out * out * H)
             inl bck {input out m H} =
                 { 
-                input = inl _ -> n * tanh m * out
-                out = inl _ -> n * tanh m * input
-                H = inl _ -> n - one
-                m = inl _ -> n * (tanh >> tanh_bck) m * input * out
+                input = inl _ -> n * m * out
+                out = inl _ -> n * (m * input - abs m * two * out * H)
+                H = inl _ -> one - n * abs m * out * out
+                m = inl _ -> n * (input * out - abs_bck m * out * out * H)
                 }
-            //inl fwd {input out m H} =
-            //    H + n * (tanh m * input * out - out * out * H)
-            //inl bck {input out m H} =
-            //    { 
-            //    input = inl _ -> n * tanh m * out
-            //    out = inl _ -> n * (tanh m * input - two * out * H)
-            //    H = inl _ -> one - n * out * out
-            //    m = inl _ -> n * (tanh >> tanh_bck) m * input * out
-            //    }
+
             inl out =
                 inl ins = to_dev_tensor (primals ins)
                 s.CudaFun.init {dim=b,a} (inl dim ->
@@ -1662,7 +1656,7 @@ inl float ->
                 inl ins = to_dev_tensor ins
                 inl error = to_dev_tensor (adjoint out)
                 s.CudaKernel.iter {dim=b,a} (inl dim ->
-                        inl outs =
+                        inl ads =
                             index_into dim (primals ins) 
                             |> Struct.map (inl x -> x .get)
                             |> bck
@@ -1670,7 +1664,7 @@ inl float ->
                         inl ins = index_into dim (adjoints ins)
                         Struct.iter3 (inl in b f -> f in (error * b ()))
                             (Struct.choose id ins)
-                            outs output_functions
+                            ads output_functions
                     )
             }
 
@@ -1701,9 +1695,9 @@ inl float ->
 
                 inl apply =
                     inm out = matmultb (input, H) weights.input.bias >>= tanh
-                    inm _ = print (primal out)
+                    //inm _ = print (primal out)
                     inm m = matmultb (input, weights.modulator.weight) weights.modulator.bias
-                    inm _ = print (primal H)
+                    //inm _ = print (primal H)
                     inm H = modulated_oja_update n {input out m H}
                 
                     succ {out state={H}}
