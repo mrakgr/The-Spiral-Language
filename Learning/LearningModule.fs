@@ -1631,14 +1631,23 @@ inl float ->
                     } 
             inl tanh = tanh_fwd
             inl fwd {input out m H} =
-                H + n * (tanh m * input * out - out * out * H)
+                n * tanh m * input * out + (n - one) * H
             inl bck {input out m H} =
                 { 
                 input = inl _ -> n * tanh m * out
-                out = inl _ -> n * (tanh m * input - two * out * H)
-                H = inl _ -> one - n * out * out
+                out = inl _ -> n * tanh m * input
+                H = inl _ -> n - one
                 m = inl _ -> n * (tanh >> tanh_bck) m * input * out
                 }
+            //inl fwd {input out m H} =
+            //    H + n * (tanh m * input * out - out * out * H)
+            //inl bck {input out m H} =
+            //    { 
+            //    input = inl _ -> n * tanh m * out
+            //    out = inl _ -> n * (tanh m * input - two * out * H)
+            //    H = inl _ -> one - n * out * out
+            //    m = inl _ -> n * (tanh >> tanh_bck) m * input * out
+            //    }
             inl out =
                 inl ins = to_dev_tensor (primals ins)
                 s.CudaFun.init {dim=b,a} (inl dim ->
@@ -1692,9 +1701,9 @@ inl float ->
 
                 inl apply =
                     inm out = matmultb (input, H) weights.input.bias >>= tanh
-                    //inm _ = print (primal out)
+                    inm _ = print (primal out)
                     inm m = matmultb (input, weights.modulator.weight) weights.modulator.bias
-                    //inm _ = print (primal H)
+                    inm _ = print (primal H)
                     inm H = modulated_oja_update n {input out m H}
                 
                     succ {out state={H}}
