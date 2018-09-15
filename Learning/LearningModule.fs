@@ -1631,13 +1631,13 @@ inl float ->
                     } 
             inl tanh = tanh_fwd
             inl fwd {input out m H} =
-                H + tanh m * n * (input * out - out * out * H)
+                H - n * (input * out - out * out * H)
             inl bck {input out m H} =
                 { 
-                input = inl _ -> tanh m * n * out
-                out = inl _ -> tanh m * n * (input - two * out * H)
-                H = inl _ -> one - tanh m * n * out * out
-                m = inl _ -> (tanh >> tanh_bck) m * n * (input * out - out * out * H)
+                input = inl _ -> n * out
+                out = inl _ -> n * (input - two * out * H)
+                H = inl _ -> one - n * out * out
+                m = inl _ -> n * (input * out - out * out * H)
                 }
             inl out =
                 inl ins = to_dev_tensor (primals ins)
@@ -1677,7 +1677,7 @@ inl float ->
                         }
                     modulator = 
                         {
-                        weight = Initializer.randn' {stddev=0.01f32; dim=sublayer_size, size}
+                        weight = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
                         bias = Initializer.bias size
                         }
                     }
