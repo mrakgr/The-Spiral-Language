@@ -1605,7 +1605,7 @@ inl float ->
         }
 
     inl Modulated =
-        inl modulated_hebb_update n {ins with input out m H} s =
+        inl modulated_oja_update n {ins with input out m H} s =
             inl b,a = primal H .dim
             inl assert_dim = assert_dim (primals ins)
             inl sng = {from=0; near_to=1}
@@ -1631,13 +1631,13 @@ inl float ->
                     } 
             inl tanh = tanh_fwd
             inl fwd {input out m H} =
-                H - (n * input * out - (n - one) * H
+                H + n * (tanh m * input * out - out * out * H)
             inl bck {input out m H} =
                 { 
-                input = inl _ -> n * out
-                out = inl _ -> n * input
+                input = inl _ -> n * tanh m * out
+                out = inl _ -> n * (tanh m * input - two * out * H)
                 H = inl _ -> one - n * out * out
-                m = inl _ -> n * (input * out - out * out * H)
+                m = inl _ -> n * (tanh >> tanh_bck) m * input * out
                 }
             inl out =
                 inl ins = to_dev_tensor (primals ins)
@@ -1692,9 +1692,9 @@ inl float ->
 
                 inl apply =
                     inm out = matmultb (input, H) weights.input.bias >>= tanh
-                    inm _ = print (primal out)
+                    //inm _ = print (primal out)
                     inm m = matmultb (input, weights.modulator.weight) weights.modulator.bias
-                    inm _ = print (primal H)
+                    //inm _ = print (primal H)
                     inm H = modulated_oja_update n {input out m H}
                 
                     succ {out state={H}}
