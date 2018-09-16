@@ -413,7 +413,6 @@ inl float ->
                         finally out.get x in
 
             handle .in_inner <| inl {bck ins} ->
-                inl ty = primal ins.in_inner .elem_type
                 s.CudaKernel.redo_init {
                     dim
                     redo=Struct.map2 (+)
@@ -2190,9 +2189,89 @@ inl float ->
             block = ()
             }
 
+        inl semimodulated_vanilla_oja n size =
+            {
+            init = inl sublayer_size -> 
+                {
+                dsc = 
+                    {
+                    state = {
+                        bias = Initializer.randn {stddev=0.01f32; dim=size, size}
+                        }
+                    input = {
+                        bias = //Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                            Initializer.dr (Initializer.identity (sublayer_size, size))
+                        }
+                    modulator = {
+                        input = {
+                            weight = Initializer.randn {stddev=0.001f32; dim=sublayer_size+size, size}
+                            bias = Initializer.bias size
+                            }
+                        state = {
+                            weight = Initializer.randn {stddev=0.001f32; dim=sublayer_size+size, size}
+                            bias = Initializer.bias size
+                            }
+                        }
+                    bias = Initializer.bias (1,size)
+                    }
+                size=size
+                }
+
+            apply = inl {d with weights input} s -> 
+                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+                inl H =
+                    match d with
+                    | {state={H}} -> H
+                    | _ -> 
+                        inl f k = s.CudaTensor.zero_like (primal (weights k .bias))
+                        {input=f .input; state=f .state}
+
+                inl state =
+                    match d with
+                    | {state={state}} -> state
+                    | _ -> s.CudaTensor.zero_like (primal (weights .bias))
+
+                inl apply =
+                    inm out =
+                        inm input' = concat (state,input)
+                        inl calculate k =
+                            inm alpha = matmultb (input', weights.modulator k .weight) (weights.modulator k .bias)
+                            inm static = matmult ({input state} k, weights k .bias)
+                            inm plastic = matmult ({input state} k, H k)
+                            broadcasting_activation {
+                                fwd=inl {in={static plastic} in_inner={alpha}} -> static + alpha * plastic
+                                bck={
+                                    in=inl {in={static plastic} in_inner={alpha}} -> { static = one; plastic = alpha }
+                                    in_inner=inl {in={static plastic} in_inner={alpha}} -> { alpha = plastic }
+                                    }
+                                } {in={static plastic}; in_inner={alpha=Struct.map' (inl x -> x.flatten) alpha}}
+
+                        inm input = calculate .input
+                        inm state = calculate .state
+                    
+                        activation {
+                            fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
+                            bck=inl {in out} ->
+                                inl out = tanh_bck out
+                                Struct.map (const out) in
+                            } {input state bias=weights.bias}
+
+                    inm H =
+                        inl oja_update k = oja_update n {input={input state} k; out H=H k}
+                        inm input = oja_update .input
+                        inm state = oja_update .state
+                        succ {input state}
+
+                    succ {out state={state=out; H}}
+
+                inl {out={out state} bck} = apply s
+                {out state bck}
+            block = ()
+            }
+
         {
         unmodulated_feedforward feedforward rnn unmodulated_vanilla_oja unmodulated_concatenative_vanilla_oja concatenative_vanilla_oja
-        vanilla_oja
+        vanilla_oja semimodulated_vanilla_oja
         }
 
     inl RNN = {mi mi_hebb mi_hebb_prong mi_hebb'_prong vanilla_hebb mi_prong mi_prong_alt mi_alt Modulated}

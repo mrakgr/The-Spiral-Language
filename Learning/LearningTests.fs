@@ -419,7 +419,7 @@ met train {!data network learning_rate final} s =
             Console.printfn "At iteration {0} the cost is {1}" (i, cost())
         else next()
 
-inl learning_rate = 2f32 ** -10.5f32
+inl learning_rate = 2f32 ** -12.5f32
 inl n = 0.01f32
 
 inl network,_ = 
@@ -442,7 +442,6 @@ inl network,_ =
             unmodulated_feedforward = Modulated.unmodulated_feedforward size.pattern
             feedforward = Modulated.feedforward n size.pattern
             unmodulated_vanilla_oja = 
-                Modulated.unmodulated_vanilla_oja n size.pattern,
                 Modulated.unmodulated_vanilla_oja n size.pattern
             unmodulated_concatenative_vanilla_oja = 
                 Modulated.unmodulated_concatenative_vanilla_oja n 64,
@@ -450,11 +449,13 @@ inl network,_ =
             concatenative_vanilla_oja = 
                 Modulated.concatenative_vanilla_oja n 64,
                 Modulated.vanilla_oja n size.pattern
+            semimodulated_vanilla_oja =
+                Modulated.semimodulated_vanilla_oja n size.pattern
             rnn = Modulated.rnn n size.pattern
             }
         }
 
-    init s size.pattern network.modulated.concatenative_vanilla_oja
+    init s size.pattern network.modulated.semimodulated_vanilla_oja
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {
