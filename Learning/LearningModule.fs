@@ -1633,14 +1633,24 @@ inl float ->
             inl abs_bck x = if x >= zero then one else -one
 
             inl fwd {input out m H} =
-                H + n * (m * input * out - abs m * out * out * H)
+                H + n * abs m * (input * out - out * out * H)
             inl bck {input out m H} =
                 { 
-                input = inl _ -> n * m * out
-                out = inl _ -> n * (m * input - abs m * two * out * H)
+                input = inl _ -> n * abs m * out
+                out = inl _ -> n * abs m * (input - two * out * H)
                 H = inl _ -> one - n * abs m * out * out
-                m = inl _ -> n * (input * out - abs_bck m * out * out * H)
+                m = inl _ -> n * abs_bck m * (input * out - out * out * H)
                 }
+
+            //inl fwd {input out m H} =
+            //    H + n * (m * input * out - abs m * out * out * H)
+            //inl bck {input out m H} =
+            //    { 
+            //    input = inl _ -> n * m * out
+            //    out = inl _ -> n * (m * input - abs m * two * out * H)
+            //    H = inl _ -> one - n * abs m * out * out
+            //    m = inl _ -> n * (input * out - abs_bck m * out * out * H)
+            //    }
 
             inl out =
                 inl ins = to_dev_tensor (primals ins)
