@@ -1862,65 +1862,6 @@ inl float ->
             block = ()
             }
 
-        inl unmodulated_vanilla_oja n size =
-            {
-            init = inl sublayer_size -> 
-                {
-                dsc = 
-                    {
-                    state = {
-                        bias = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        }
-                    input = {
-                        bias = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                        alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                        }
-                    bias = Initializer.bias (1,size)
-                    }
-                size
-                }
-
-            apply = inl {d with weights input} s -> 
-                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-                inl H =
-                    match d with
-                    | {state={H}} -> H
-                    | _ -> 
-                        inl f k = s.CudaTensor.zero_like (primal (weights k .bias))
-                        {input=f .input; state=f .state}
-
-                inl out' =
-                    match d with
-                    | {state={out}} -> out
-                    | _ -> s.CudaTensor.zero_like (primal (weights .bias))
-
-                inl apply =
-                    inm out =
-                        inm input = 
-                            inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
-                            matmult (input, W)
-                        inm state =
-                            inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
-                            matmult (out', W)
-                        activation {
-                            fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
-                            bck=inl {in out} ->
-                                inl out = tanh_bck out
-                                Struct.map (const out) in
-                            } {input state bias=weights.bias}
-                
-                    inm H =
-                        inm input = oja_update n {input out H=H.input}
-                        inm state = oja_update n {input=out'; out H=H.state}
-                        succ {input state}
-
-                    succ {out state={out H}}
-                inl {out={out state} bck} = apply s
-                {out state bck}
-            block = ()
-            }
-
         inl unmodulated_concatenative_vanilla_oja n size =
             {
             init = inl sublayer_size -> 
@@ -1993,7 +1934,8 @@ inl float ->
                         alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
                         }
                     input = {
-                        bias = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                        bias = //Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                            Initializer.dr (Initializer.identity (sublayer_size,size))
                         alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
                         }
                     bias = Initializer.bias (1,size)
