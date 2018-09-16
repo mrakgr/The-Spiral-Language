@@ -1632,25 +1632,47 @@ inl float ->
                 )
         }
 
-    inl concat x s =
-        inl b,a = 
-            Struct.foldl (inl s x ->
-                match s with
-                | () -> x.dim
-                | b, a ->
-                    inl b', a' = x.dim
-                    assert (b = b') "The outer dimensions of the inputs must be the same."
-                    s
-                ) () (primals x)
+    //inl concat x s =
+    //    inl b,a = 
+    //        Struct.foldl (inl s x ->
+    //            match s with
+    //            | () -> x.dim
+    //            | b, a ->
+    //                inl b', a' = x.dim
+    //                assert (b = b') "The outer dimensions of the inputs must be the same."
+    //                s
+    //            ) () (primals x)
 
-        inl out =
-            inl x = to_dev_tensor (primals x)
-            inl out = s.CudaTensor.create {elem_type=Struct.map (inl x -> x.elem_type) x; dim=b,a}
-            s.CudaFun.iter {dim=b,a} (inl b,a ->
-                Struct.foldl (inl s x ->
-                    if s <= a && a < s + x.span_outer then x b a .get
-                    )
-                )
+    //    inl out = s.CudaTensor.create {elem_type=Struct.map (inl x -> x.elem_type) x; dim=b,a} |> dr s
+    //    inl _ =
+    //        inl x, out = to_dev_tensor (primals (x, out))
+    //        s.CudaFun.iter {dim=b,a} (inl b,a ->
+    //            Struct.foldl (inl s x ->
+    //                inl span_inner = x.dim |> inl b,a -> HostTensor.span a
+    //                inl s' = s + span_inner
+    //                if s <= a && a < s' then out b a .set (x b a .get) else ()
+    //                s'
+    //                ) 0  x
+    //            |> ignore
+    //            )
+    //    {
+    //    out
+    //    bck=met _ ->
+    //        inl x, out = to_dev_tensor (adjoints (x, out))
+    //        s.CudaFun.iter {dim=b,a} (inl b,a ->
+    //            Struct.foldl (inl s x ->
+    //                inl span_inner = x.dim |> inl b,a -> HostTensor.span a
+    //                inl s' = s + span_inner
+    //                if s <= a && a < s' then 
+    //                    inl a = a - s
+    //                    x b a .set (x b a .get + out )
+    //                    //out b a .set (x b a .get) 
+    //                else ()
+    //                s'
+    //                ) 0  x
+    //            |> ignore
+    //            )
+    //    }
 
     inl Modulated = // This is experimental for now.
         inl modulated_oja_update n {ins with input out m H} =
