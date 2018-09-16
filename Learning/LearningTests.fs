@@ -451,11 +451,13 @@ inl network,_ =
                 Modulated.vanilla_oja n size.pattern
             semimodulated_vanilla_oja =
                 Modulated.semimodulated_vanilla_oja n size.pattern
+            semimodulated_vanilla_oja_alt =
+                Modulated.semimodulated_vanilla_oja_alt n size.pattern
             rnn = Modulated.rnn n size.pattern
             }
         }
 
-    init s size.pattern network.modulated.semimodulated_vanilla_oja
+    init s size.pattern network.modulated.semimodulated_vanilla_oja_alt
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {
