@@ -2146,11 +2146,11 @@ inl float ->
                         }
                     modulator = {
                         input = {
-                            weight = Initializer.randn {stddev=0.001f32; dim=sublayer_size+size, size}
+                            weight = Initializer.bias (sublayer_size+size, size)
                             bias = Initializer.bias size
                             }
                         state = {
-                            weight = Initializer.randn {stddev=0.001f32; dim=sublayer_size+size, size}
+                            weight = Initializer.bias (sublayer_size+size, size)
                             bias = Initializer.bias size
                             }
                         }
