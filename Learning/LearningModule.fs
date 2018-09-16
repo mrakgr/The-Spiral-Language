@@ -1634,23 +1634,25 @@ inl float ->
 
     inl concat x s =
         inl span_inner x = x.dim |> inl b,a -> HostTensor.span a
-        inl b,a = 
+        inl {dim elem_type} = 
             Struct.foldl (inl s x ->
                 match s with
-                | () -> x.dim
-                | b, a ->
-                    inl b', a' = x.dim
+                | () -> {dim=x.dim; elem_type=x.elem_type}
+                | {dim=b, {from=0 near_to=a}} ->
+                    inl b', {from=0 near_to=a'} = x.dim
                     assert (b = b') "The outer dimensions of the inputs must be the same."
-                    s
+                    {s with dim=b,a+a'}
                 ) () (primals x)
 
-        inl out = s.CudaTensor.create {elem_type=Struct.map (inl x -> x.elem_type) x; dim=b,a} |> dr s
+        inl out = s.CudaTensor.create {elem_type dim} |> dr s
         inl _ =
             inl x, out = to_dev_tensor (primals (x, out))
-            s.CudaFun.iter {dim=b,a} (inl b,a ->
+            s.CudaKernel.iter {dim} (inl b,a ->
                 Struct.foldl (inl s x ->
                     inl s' = s + span_inner x
-                    if s <= a && a < s' then out b a .set (x b (a - s) .get) else ()
+                    if s <= a && a < s' then 
+                        out b a .set (x b (a - s) .get)
+                    else ()
                     s'
                     ) 0  x
                 |> ignore
@@ -1659,18 +1661,18 @@ inl float ->
         out
         bck=met _ ->
             inl dims_adjoints = Struct.map (function
-                | {primal adjoint} -> {dim=primal.dim; adjoint; block=()}
+                | {primal adjoint} -> {dim=primal.dim; adjoint=to_dev_tensor adjoint; block=()}
                 | primal -> {dim=primal.dim; block=()}
                 )
-            inl x, out = to_dev_tensor (dims_adjoints (x, out))
-            s.CudaFun.iter {dim=b,a} (inl b,a ->
+            inl x, out = dims_adjoints (x, out)
+            s.CudaKernel.iter {dim} (inl b,a ->
                 Struct.foldl (inl s x ->
                     inl s' = s + span_inner x
                     match x with
                     | {adjoint=x} ->
                         if s <= a && a < s' then 
                             inl x = x b (a - s)
-                            x .set (x .get + out b a)
+                            x .set (x .get + out.adjoint b a .get)
                         else ()
                     | _ -> ()
                     s'
@@ -1761,8 +1763,6 @@ inl float ->
             //    H = inl _ -> one - n * abs m * out * out
             //    m = inl _ -> n * (input * out - abs_bck m * out * out * H)
             //    }
-
-
 
         inl unmodulated_feedforward size =
             {
@@ -1882,7 +1882,7 @@ inl float ->
                         alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
                         }
                     input = {
-                        bias = Initializer.randn {stddev=0.01f32; dim=size, size}
+                        bias = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
                         alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
                         }
                     bias = Initializer.bias (1,size)
@@ -1923,14 +1923,75 @@ inl float ->
                         inm input = oja_update n {input out H=H.input}
                         inm state = oja_update n {input=out'; out H=H.state}
                         succ {input state}
-                
+
                     succ {out state={out H}}
                 inl {out={out state} bck} = apply s
                 {out state bck}
             block = ()
             }
 
-        {unmodulated_feedforward feedforward rnn unmodulated_vanilla_oja}
+        inl unmodulated_concatenative_vanilla_oja n size =
+            {
+            init = inl sublayer_size -> 
+                {
+                dsc = 
+                    {
+                    state = {
+                        bias = Initializer.randn {stddev=0.01f32; dim=size, size}
+                        alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
+                        }
+                    input = {
+                        bias = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                        alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                        }
+                    bias = Initializer.bias (1,size)
+                    }
+                size=sublayer_size+size
+                }
+
+            apply = inl {d with weights input} s -> 
+                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+                inl H =
+                    match d with
+                    | {state={H}} -> H
+                    | _ -> 
+                        inl f k = s.CudaTensor.zero_like (primal (weights k .bias))
+                        {input=f .input; state=f .state}
+
+                inl out' =
+                    match d with
+                    | {state={out}} -> out
+                    | _ -> s.CudaTensor.zero_like (primal (weights .bias))
+
+                inl apply =
+                    inm out =
+                        inm input = 
+                            inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
+                            matmult (input, W)
+                        inm state =
+                            inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
+                            matmult (out', W)
+                        activation {
+                            fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
+                            bck=inl {in out} ->
+                                inl out = tanh_bck out
+                                Struct.map (const out) in
+                            } {input state bias=weights.bias}
+                    
+                    inm H =
+                        inm input = oja_update n {input out H=H.input}
+                        inm state = oja_update n {input=out'; out H=H.state}
+                        succ {input state}
+                    
+                    inm out' = concat (out,input)
+                    succ {out=out'; state={out H}}
+
+                inl {out={out state} bck} = apply s
+                {out state bck}
+            block = ()
+            }
+
+        {unmodulated_feedforward feedforward rnn unmodulated_vanilla_oja unmodulated_concatenative_vanilla_oja}
 
     inl RNN = {mi mi_hebb mi_hebb_prong mi_hebb'_prong vanilla_hebb mi_prong mi_prong_alt mi_alt Modulated}
 

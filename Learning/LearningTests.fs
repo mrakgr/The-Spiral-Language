@@ -437,18 +437,21 @@ inl network,_ =
         mi_hebb_prong = mi_hebb_prong n size.pattern
         mi_hebb'_prong = mi_hebb'_prong n size.pattern
         mi_prong_alt = mi_prong_alt size.pattern
-        modulated= 
+        modulated = 
             {
             unmodulated_feedforward = Modulated.unmodulated_feedforward size.pattern
             feedforward = Modulated.feedforward n size.pattern
             unmodulated_vanilla_oja = 
                 Modulated.unmodulated_vanilla_oja n size.pattern,
                 Modulated.unmodulated_vanilla_oja n size.pattern
+            unmodulated_concatenative_vanilla_oja = 
+                Modulated.unmodulated_concatenative_vanilla_oja n 64,
+                Modulated.unmodulated_vanilla_oja n size.pattern
             rnn = Modulated.rnn n size.pattern
             }
         }
 
-    init s size.pattern network.vanilla_hebb
+    init s size.pattern network.modulated.unmodulated_concatenative_vanilla_oja
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {
