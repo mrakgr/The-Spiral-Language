@@ -741,6 +741,7 @@ inl float ->
             | {relu=dim} -> init 1f32 dim s |> dr s
             | {bias=dim} -> s.CudaTensor.zero {elem_type=float; dim} |> dr s
             | {zero=dim} -> s.CudaTensor.zero {elem_type=float; dim}
+            | {dr=x} -> dr s (initialize s x)
             | {identity=dim} -> s.CudaFun.init {dim} (inl a, b -> if a = b then one else zero)
             | {reference=x} -> ref x
             | {constant={dim init}} -> s.CudaFun.init {dim} (const init) |> dr s
@@ -1604,6 +1605,33 @@ inl float ->
         block = ()
         }
 
+    inl hebb_template {output_functions index_into fwd bck} =
+        inl out =
+            inl ins = to_dev_tensor (primals ins)
+            s.CudaFun.init {dim=b,a} (inl dim ->
+                index_into dim ins 
+                |> Struct.map (inl x -> x .get)
+                |> fwd
+                )
+            |> dr s
+        {
+        out
+        bck=met _ ->
+            inl ins = to_dev_tensor ins
+            inl error = to_dev_tensor (adjoint out)
+            s.CudaKernel.iter {dim=b,a} (inl dim ->
+                    inl ads =
+                        index_into dim (primals ins) 
+                        |> Struct.map (inl x -> x .get)
+                        |> bck
+                    inl error = error dim .get
+                    inl ins = index_into dim (adjoints ins)
+                    Struct.iter3 (inl in b f -> f in (error * b ()))
+                        (Struct.choose id ins)
+                        ads output_functions
+                )
+        }
+
     inl Modulated = // This is experimental for now.
         inl modulated_oja_update n {ins with input out m H} s =
             inl b,a = primal H .dim
@@ -1641,6 +1669,41 @@ inl float ->
                 H = inl _ -> one - n * abs m * out * out
                 m = inl _ -> n * abs_bck m * (input * out - out * out * H)
                 }
+            hebb_template {output_functions index_into fwd bck}
+
+        inl oja_update n {ins with input out H} s =
+            inl b,a = primal H .dim
+            inl assert_dim = assert_dim (primals ins)
+            inl sng = {from=0; near_to=1}
+            assert_dim .input (sng, b)
+            assert_dim .out (sng, a)
+
+            inl output_functions =
+                inl add a b = a.set (a.get + b)
+                {
+                input=atomic_add
+                out=atomic_add
+                H=add
+                }
+            inl index_into (b,a) x = 
+                Struct.map2 (<|) (Struct.choose id x)                 
+                    {
+                    input = 0, b
+                    out = 0, a
+                    H = b, a
+                    } 
+            inl tanh = tanh_fwd
+            inl abs_bck x = if x >= zero then one else -one
+
+            inl fwd {input out m H} =
+                H + n * (input * out - out * out * H)
+            inl bck {input out m H} =
+                { 
+                input = inl _ -> n * out
+                out = inl _ -> n * (input - two * out * H)
+                H = inl _ -> one - n * out * out
+                }
+            hebb_template {output_functions index_into fwd bck}
 
             //inl fwd {input out m H} =
             //    H + n * (m * input * out - abs m * out * out * H)
@@ -1652,31 +1715,7 @@ inl float ->
             //    m = inl _ -> n * (input * out - abs_bck m * out * out * H)
             //    }
 
-            inl out =
-                inl ins = to_dev_tensor (primals ins)
-                s.CudaFun.init {dim=b,a} (inl dim ->
-                    index_into dim ins 
-                    |> Struct.map (inl x -> x .get)
-                    |> fwd
-                    )
-                |> dr s
-            {
-            out
-            bck=met _ ->
-                inl ins = to_dev_tensor ins
-                inl error = to_dev_tensor (adjoint out)
-                s.CudaKernel.iter {dim=b,a} (inl dim ->
-                        inl ads =
-                            index_into dim (primals ins) 
-                            |> Struct.map (inl x -> x .get)
-                            |> bck
-                        inl error = error dim .get
-                        inl ins = index_into dim (adjoints ins)
-                        Struct.iter3 (inl in b f -> f in (error * b ()))
-                            (Struct.choose id ins)
-                            ads output_functions
-                    )
-            }
+
 
         inl unmodulated_feedforward size =
             {
@@ -1758,9 +1797,9 @@ inl float ->
                     {
                     H = {
                         input = Initializer.randn' {stddev=0.01f32; dim=sublayer_size, size}
-                        state = Initializer.randn' {stddev=0.01f32; dim=sublayer_size, size}
+                        state = Initializer.randn' {stddev=0.01f32; dim=size, size}
                         }
-                    state = Initializer.zero size
+                    state = Initializer.zero (1,size)
                     }
                 size
                 }
@@ -1772,19 +1811,79 @@ inl float ->
                     
                     inm H = 
                         inl f k =
+                            inl input = {state input} k
                             inm m = matmultb (input, weights .modulator k .weight) (weights .modulator k .bias)
-                            modulated_oja_update n {input={state input} k; out m H=H k}
+                            modulated_oja_update n {input out m H=H k}
                         inm state = f .state
                         inm input = f .input
-                        {state input}
+                        succ {state input}
                 
-                    succ {out state={H}}
+                    succ {out state={H state=out}}
                 inl {out={out state} bck} = apply s
                 {out state bck}
             block = ()
             }
 
-        {unmodulated_feedforward feedforward rnn}
+        inl unmodulated_vanilla_hebb n size =
+            {
+            init = inl sublayer_size -> 
+                {
+                dsc = 
+                    {
+                    state = {
+                        bias = Initializer.randn {stddev=0.01f32; dim=size, size}
+                        alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
+                        }
+                    input = {
+                        bias = Initializer.dr (Initializer.identity (sublayer_size, size))
+                        alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                        }
+                    bias = Initializer.bias (1,size)
+                    }
+                size
+                }
+
+            apply = inl {d with weights input} s -> 
+                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+                inl H =
+                    match d with
+                    | {state={H}} -> H
+                    | _ -> 
+                        inl f k = s.CudaTensor.zero_like (primal (weights k .bias))
+                        {input=f .input; state=f .state}
+
+                inl out' =
+                    match d with
+                    | {state={out}} -> out
+                    | _ -> s.CudaTensor.zero_like (primal (weights .bias))
+
+                inl apply =
+                    inm out =
+                        inm input = 
+                            inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
+                            matmult (input, W)
+                        inm state =
+                            inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
+                            matmult (out', W)
+                        activation {
+                            fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
+                            bck=inl {in out} ->
+                                inl out = tanh_bck out
+                                Struct.map (const out) in
+                            } {input state bias=weights.bias}
+                
+                    inm H =
+                        inm input = hebb {input out n H=H.input}
+                        inm state = hebb {input=out'; out n H=H.state}
+                        succ {input state}
+                
+                    succ {out state={out H}}
+                inl {out={out state} bck} = apply s
+                {out state bck}
+            block = ()
+            }
+
+        {unmodulated_feedforward feedforward rnn unmodulated_vanilla_hebb}
 
     inl RNN = {mi mi_hebb mi_hebb_prong mi_hebb'_prong vanilla_hebb mi_prong mi_prong_alt mi_alt Modulated}
 

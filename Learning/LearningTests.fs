@@ -315,7 +315,7 @@ inl size = {
     pattern = 50
     episode = 5
     minibatch = 1
-    seq = 500
+    seq = 2000
 
     shot = 3
     pattern_repetition = 10
@@ -433,19 +433,20 @@ inl network,_ =
         mi = mi size.pattern
 
         vanilla_hebb = vanilla_hebb n size.pattern
-        mi_hebb = mi_hebb n size.pattern, mi_hebb n size.pattern
+        mi_hebb = mi_hebb n size.pattern
         mi_hebb_prong = mi_hebb_prong n size.pattern
-        mi_hebb'_prong = mi_hebb'_prong n size.pattern, mi_hebb'_prong n size.pattern
+        mi_hebb'_prong = mi_hebb'_prong n size.pattern
         mi_prong_alt = mi_prong_alt size.pattern
         modulated= 
             {
             unmodulated_feedforward = Modulated.unmodulated_feedforward size.pattern
             feedforward = Modulated.feedforward n size.pattern
+            unmodulated_vanilla_hebb = Modulated.unmodulated_vanilla_hebb n size.pattern
             rnn = Modulated.rnn n size.pattern
             }
         }
 
-    init s size.pattern network.modulated.feedforward
+    init s size.pattern network.modulated.unmodulated_vanilla_hebb
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {
