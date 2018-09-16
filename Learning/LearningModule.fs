@@ -1711,9 +1711,7 @@ inl float ->
 
                 inl apply =
                     inm out = matmultb (input, H) weights.input.bias >>= tanh
-                    //inm _ = print (HostTensor.zip (primal input, primal out))
                     inm m = matmultb (input, weights.modulator.weight) weights.modulator.bias
-                    //inm _ = print (primal H)
                     inm H = modulated_oja_update n {input out m H}
                 
                     succ {out state={H}}
@@ -1722,7 +1720,61 @@ inl float ->
             block = ()
             }
 
-        {unmodulated_feedforward feedforward}
+        inl rnn n size =
+            {
+            init = inl sublayer_size -> 
+                {
+                dsc = 
+                    {
+                    input = 
+                        {
+                        bias = Initializer.bias size
+                        }
+                    modulator = 
+                        {
+                        input =
+                            {
+                            weight = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                            bias = Initializer.bias size
+                            }
+                        state =
+                            {
+                            weight = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                            bias = Initializer.bias size
+                            }
+                        }
+                    }
+                init_state =
+                    {
+                    H = {
+                        input = Initializer.randn' {stddev=0.01f32; dim=sublayer_size, size}
+                        state = Initializer.randn' {stddev=0.01f32; dim=sublayer_size, size}
+                        }
+                    state = Initializer.zero size
+                    }
+                size
+                }
+            apply = inl {d with state={H state} weights input} s -> 
+                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+
+                inl apply =
+                    inm out = matmultb ((state, H.state), (input, H.input)) weights.input.bias >>= tanh
+                    
+                    inm H = 
+                        inl f k =
+                            inm m = matmultb (input, weights .modulator k .weight) (weights .modulator k .bias)
+                            modulated_oja_update n {input={state input} k; out m H=H k}
+                        inm state = f .state
+                        inm input = f .input
+                        {state input}
+                
+                    succ {out state={H}}
+                inl {out={out state} bck} = apply s
+                {out state bck}
+            block = ()
+            }
+
+        {unmodulated_feedforward feedforward rnn}
 
     inl RNN = {mi mi_hebb mi_hebb_prong mi_hebb'_prong vanilla_hebb mi_prong mi_prong_alt mi_alt Modulated}
 

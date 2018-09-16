@@ -419,7 +419,7 @@ met train {!data network learning_rate final} s =
             Console.printfn "At iteration {0} the cost is {1}" (i, cost())
         else next()
 
-inl learning_rate = 2f32 ** -11f32
+inl learning_rate = 2f32 ** -10f32
 inl n = 0.01f32
 
 inl network,_ = 
@@ -441,6 +441,7 @@ inl network,_ =
             {
             unmodulated_feedforward = Modulated.unmodulated_feedforward size.pattern
             feedforward = Modulated.feedforward n size.pattern
+            rnn = Modulated.rnn n size.pattern
             }
         }
 
