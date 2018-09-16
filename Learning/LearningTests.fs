@@ -447,11 +447,14 @@ inl network,_ =
             unmodulated_concatenative_vanilla_oja = 
                 Modulated.unmodulated_concatenative_vanilla_oja n 64,
                 Modulated.unmodulated_vanilla_oja n size.pattern
+            concatenative_vanilla_oja = 
+                Modulated.concatenative_vanilla_oja n 64,
+                Modulated.unmodulated_vanilla_oja n size.pattern
             rnn = Modulated.rnn n size.pattern
             }
         }
 
-    init s size.pattern network.modulated.unmodulated_concatenative_vanilla_oja
+    init s size.pattern network.modulated.concatenative_vanilla_oja
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {
