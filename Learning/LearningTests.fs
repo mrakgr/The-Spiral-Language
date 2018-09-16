@@ -405,7 +405,7 @@ met train {!data network learning_rate final} s =
             loop_over size.pattern_repetition <| inl _ ->
                 network.run (data.degraded i)
             network.peek |> function {final} -> cost := cost () + final (data.original i) | _ -> ()
-            network.burn_in_state
+            //network.burn_in_state
             network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
             network.optimize learning_rate
 
@@ -420,7 +420,7 @@ met train {!data network learning_rate final} s =
         else next()
 
 inl learning_rate = 2f32 ** -10f32
-inl n = 0.1f32
+inl n = 1.0f32
 
 inl network,_ = 
     open Feedforward
@@ -437,10 +437,14 @@ inl network,_ =
         mi_hebb_prong = mi_hebb_prong n size.pattern
         mi_hebb'_prong = mi_hebb'_prong n size.pattern, mi_hebb'_prong n size.pattern
         mi_prong_alt = mi_prong_alt size.pattern
-        modulated_feedforward = Modulated.feedforward n size.pattern
+        modulated= 
+            {
+            unmodulated_feedforward = Modulated.unmodulated_feedforward size.pattern
+            feedforward = Modulated.feedforward n size.pattern
+            }
         }
 
-    init s size.pattern network.modulated_feedforward
+    init s size.pattern network.modulated.feedforward
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {

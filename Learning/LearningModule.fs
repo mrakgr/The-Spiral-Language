@@ -1604,7 +1604,7 @@ inl float ->
         block = ()
         }
 
-    inl Modulated =
+    inl Modulated = // This is experimental for now.
         inl modulated_oja_update n {ins with input out m H} s =
             inl b,a = primal H .dim
             inl assert_dim = assert_dim (primals ins)
@@ -1668,6 +1668,22 @@ inl float ->
                     )
             }
 
+        inl unmodulated_feedforward size =
+            {
+            init = inl sublayer_size -> 
+                {
+                dsc = 
+                    {
+                    input = Initializer.randn {dim=sublayer_size, size; stddev=0.01f32}
+                    bias = Initializer.bias size
+                    }
+                size
+                }
+
+            apply = inl {weights input} -> matmultb (input, weights.input) weights.bias >>= Activation.tanh
+            block = ()
+            }
+
         inl feedforward n size =
             {
             init = inl sublayer_size -> 
@@ -1706,7 +1722,7 @@ inl float ->
             block = ()
             }
 
-        {feedforward}
+        {unmodulated_feedforward feedforward}
 
     inl RNN = {mi mi_hebb mi_hebb_prong mi_hebb'_prong vanilla_hebb mi_prong mi_prong_alt mi_alt Modulated}
 
