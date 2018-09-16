@@ -1644,8 +1644,12 @@ inl float ->
                 ) () (primals x)
 
         inl out =
-            s.CudaFun.init {dim=b,a} (
-                
+            inl x = to_dev_tensor (primals x)
+            inl out = s.CudaTensor.create {elem_type=Struct.map (inl x -> x.elem_type) x; dim=b,a}
+            s.CudaFun.iter {dim=b,a} (inl b,a ->
+                Struct.foldl (inl s x ->
+                    if s <= a && a < s + x.span_outer then x b a .get
+                    )
                 )
 
     inl Modulated = // This is experimental for now.
