@@ -2116,7 +2116,7 @@ inl float ->
                         inm state = f.state
                         succ {input state}
                     
-                    succ {out=out'; state={state=out; H}}
+                    succ {out state={state=out; H}}
 
                 inl {out={out state} bck} = apply s
                 {out state bck}
@@ -2197,7 +2197,10 @@ inl float ->
             block = ()
             }
 
-        {unmodulated_feedforward feedforward rnn unmodulated_vanilla_oja unmodulated_concatenative_vanilla_oja concatenative_vanilla_oja}
+        {
+        unmodulated_feedforward feedforward rnn unmodulated_vanilla_oja unmodulated_concatenative_vanilla_oja concatenative_vanilla_oja
+        vanilla_oja
+        }
 
     inl RNN = {mi mi_hebb mi_hebb_prong mi_hebb'_prong vanilla_hebb mi_prong mi_prong_alt mi_alt Modulated}
 
