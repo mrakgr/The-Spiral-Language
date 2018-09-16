@@ -441,12 +441,12 @@ inl network,_ =
             {
             unmodulated_feedforward = Modulated.unmodulated_feedforward size.pattern
             feedforward = Modulated.feedforward n size.pattern
-            unmodulated_vanilla_hebb = Modulated.unmodulated_vanilla_hebb n size.pattern
+            unmodulated_vanilla_oja = Modulated.unmodulated_vanilla_oja n size.pattern
             rnn = Modulated.rnn n size.pattern
             }
         }
 
-    init s size.pattern network.modulated.unmodulated_vanilla_hebb
+    init s size.pattern network.modulated.unmodulated_vanilla_oja
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {

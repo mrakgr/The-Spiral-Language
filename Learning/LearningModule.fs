@@ -1605,10 +1605,10 @@ inl float ->
         block = ()
         }
 
-    inl hebb_template {output_functions index_into fwd bck} =
+    inl hebb_template {output_functions index_into fwd bck dim} ins s =
         inl out =
             inl ins = to_dev_tensor (primals ins)
-            s.CudaFun.init {dim=b,a} (inl dim ->
+            s.CudaFun.init {dim} (inl dim ->
                 index_into dim ins 
                 |> Struct.map (inl x -> x .get)
                 |> fwd
@@ -1619,7 +1619,7 @@ inl float ->
         bck=met _ ->
             inl ins = to_dev_tensor ins
             inl error = to_dev_tensor (adjoint out)
-            s.CudaKernel.iter {dim=b,a} (inl dim ->
+            s.CudaKernel.iter {dim} (inl dim ->
                     inl ads =
                         index_into dim (primals ins) 
                         |> Struct.map (inl x -> x .get)
@@ -1633,8 +1633,8 @@ inl float ->
         }
 
     inl Modulated = // This is experimental for now.
-        inl modulated_oja_update n {ins with input out m H} s =
-            inl b,a = primal H .dim
+        inl modulated_oja_update n {ins with input out m H} =
+            inl b,a as dim = primal H .dim
             inl assert_dim = assert_dim (primals ins)
             inl sng = {from=0; near_to=1}
             assert_dim .input (sng, b)
@@ -1669,10 +1669,10 @@ inl float ->
                 H = inl _ -> one - n * abs m * out * out
                 m = inl _ -> n * abs_bck m * (input * out - out * out * H)
                 }
-            hebb_template {output_functions index_into fwd bck}
+            hebb_template {output_functions index_into fwd bck dim} ins
 
-        inl oja_update n {ins with input out H} s =
-            inl b,a = primal H .dim
+        inl oja_update n {ins with input out H} =
+            inl b,a as dim = primal H .dim
             inl assert_dim = assert_dim (primals ins)
             inl sng = {from=0; near_to=1}
             assert_dim .input (sng, b)
@@ -1695,15 +1695,15 @@ inl float ->
             inl tanh = tanh_fwd
             inl abs_bck x = if x >= zero then one else -one
 
-            inl fwd {input out m H} =
+            inl fwd {input out H} =
                 H + n * (input * out - out * out * H)
-            inl bck {input out m H} =
+            inl bck {input out H} =
                 { 
                 input = inl _ -> n * out
                 out = inl _ -> n * (input - two * out * H)
                 H = inl _ -> one - n * out * out
                 }
-            hebb_template {output_functions index_into fwd bck}
+            hebb_template {output_functions index_into fwd bck dim} ins
 
             //inl fwd {input out m H} =
             //    H + n * (m * input * out - abs m * out * out * H)
@@ -1824,7 +1824,7 @@ inl float ->
             block = ()
             }
 
-        inl unmodulated_vanilla_hebb n size =
+        inl unmodulated_vanilla_oja n size =
             {
             init = inl sublayer_size -> 
                 {
@@ -1873,8 +1873,8 @@ inl float ->
                             } {input state bias=weights.bias}
                 
                     inm H =
-                        inm input = hebb {input out n H=H.input}
-                        inm state = hebb {input=out'; out n H=H.state}
+                        inm input = oja_update n {input out H=H.input}
+                        inm state = oja_update n {input=out'; out H=H.state}
                         succ {input state}
                 
                     succ {out state={out H}}
@@ -1883,7 +1883,7 @@ inl float ->
             block = ()
             }
 
-        {unmodulated_feedforward feedforward rnn unmodulated_vanilla_hebb}
+        {unmodulated_feedforward feedforward rnn unmodulated_vanilla_oja}
 
     inl RNN = {mi mi_hebb mi_hebb_prong mi_hebb'_prong vanilla_hebb mi_prong mi_prong_alt mi_alt Modulated}
 
