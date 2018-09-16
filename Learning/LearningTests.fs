@@ -409,7 +409,7 @@ met train {!data network learning_rate final} s =
             network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
             network.optimize learning_rate
 
-        inl iters = 1
+        inl iters = 10
         
         if (i + 1) % iters = 0 then 
             Console.printfn "At iteration {0} the cost is {1}" (i, cost() / to float64 iters)
@@ -441,7 +441,9 @@ inl network,_ =
             {
             unmodulated_feedforward = Modulated.unmodulated_feedforward size.pattern
             feedforward = Modulated.feedforward n size.pattern
-            unmodulated_vanilla_oja = Modulated.unmodulated_vanilla_oja n size.pattern
+            unmodulated_vanilla_oja = 
+                Modulated.unmodulated_vanilla_oja n size.pattern,
+                Modulated.unmodulated_vanilla_oja n size.pattern
             rnn = Modulated.rnn n size.pattern
             }
         }

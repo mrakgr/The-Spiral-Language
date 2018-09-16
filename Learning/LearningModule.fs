@@ -1632,6 +1632,22 @@ inl float ->
                 )
         }
 
+    inl concat x s =
+        inl b,a = 
+            Struct.foldl (inl s x ->
+                match s with
+                | () -> x.dim
+                | b, a ->
+                    inl b', a' = x.dim
+                    assert (b = b') "The outer dimensions of the inputs must be the same."
+                    s
+                ) () (primals x)
+
+        inl out =
+            s.CudaFun.init {dim=b,a} (
+                
+                )
+
     inl Modulated = // This is experimental for now.
         inl modulated_oja_update n {ins with input out m H} =
             inl b,a as dim = primal H .dim
