@@ -1877,7 +1877,7 @@ inl float ->
                         alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
                         }
                     input = {
-                        bias = Initializer.dr (Initializer.identity (sublayer_size, size))
+                        bias = Initializer.randn {stddev=0.01f32; dim=size, size}
                         alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
                         }
                     bias = Initializer.bias (1,size)
