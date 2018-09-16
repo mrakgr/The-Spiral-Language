@@ -1711,7 +1711,7 @@ inl float ->
 
                 inl apply =
                     inm out = matmultb (input, H) weights.input.bias >>= tanh
-                    //inm _ = print (primal out)
+                    //inm _ = print (HostTensor.zip (primal input, primal out))
                     inm m = matmultb (input, weights.modulator.weight) weights.modulator.bias
                     //inm _ = print (primal H)
                     inm H = modulated_oja_update n {input out m H}

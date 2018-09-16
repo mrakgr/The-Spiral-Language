@@ -312,14 +312,14 @@ inl make_patterns n size =
         )
 
 inl size = {
-    pattern = 10
-    episode = 1
+    pattern = 50
+    episode = 5
     minibatch = 1
     seq = 500
 
-    shot = 1
-    pattern_repetition = 5
-    empty_input_after_repetition = 0
+    shot = 3
+    pattern_repetition = 10
+    empty_input_after_repetition = 3
     }
 
 inl data =
@@ -409,7 +409,7 @@ met train {!data network learning_rate final} s =
             network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
             network.optimize learning_rate
 
-        inl iters = 10
+        inl iters = 1
         
         if (i + 1) % iters = 0 then 
             Console.printfn "At iteration {0} the cost is {1}" (i, cost() / to float64 iters)
@@ -419,8 +419,8 @@ met train {!data network learning_rate final} s =
             Console.printfn "At iteration {0} the cost is {1}" (i, cost())
         else next()
 
-inl learning_rate = 2f32 ** -10f32
-inl n = 1.0f32
+inl learning_rate = 2f32 ** -11f32
+inl n = 0.01f32
 
 inl network,_ = 
     open Feedforward
