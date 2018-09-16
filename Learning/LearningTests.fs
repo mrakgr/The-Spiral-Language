@@ -289,7 +289,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} -> f learning_rate next i}
 let learning3 =
     "learning3",[cuda_modules;timer;learning;random],"Does the plastic RNN work on the Binary Pattern test?",
     """
-inb s = CudaModules (1024*1024*1024*3)
+inb s = CudaModules (1024*1024*1024)
 
 inl float = float32
 open Learning float
@@ -419,7 +419,7 @@ met train {!data network learning_rate final} s =
             Console.printfn "At iteration {0} the cost is {1}" (i, cost())
         else next()
 
-inl learning_rate = 2f32 ** -10f32
+inl learning_rate = 2f32 ** -10.5f32
 inl n = 0.01f32
 
 inl network,_ = 
@@ -448,7 +448,7 @@ inl network,_ =
                 Modulated.unmodulated_concatenative_vanilla_oja n 64,
                 Modulated.unmodulated_vanilla_oja n size.pattern
             concatenative_vanilla_oja = 
-                //Modulated.concatenative_vanilla_oja n 64,
+                Modulated.concatenative_vanilla_oja n 64,
                 Modulated.vanilla_oja n size.pattern
             rnn = Modulated.rnn n size.pattern
             }

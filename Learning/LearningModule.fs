@@ -2060,11 +2060,11 @@ inl float ->
                     modulator = {
                         input = {
                             weight = Initializer.randn {stddev=0.01f32; dim=sublayer_size+size, size}
-                            bias = Initializer.bias size
+                            bias = Initializer.constant {dim=size; init=one}
                             }
                         state = {
                             weight = Initializer.randn {stddev=0.01f32; dim=sublayer_size+size, size}
-                            bias = Initializer.bias size
+                            bias = Initializer.constant {dim=size; init=one}
                             }
                         }
                     bias = Initializer.bias (1,size)
@@ -2103,7 +2103,7 @@ inl float ->
                     inm H =
                         inm input' = concat (state,input)
                         inl f k =
-                            inm m = matmultb (input', weights.modulator k .weight) (weights.modulator k .bias)
+                            inm m = matmultb (input', weights.modulator k .weight) (weights.modulator k .bias) >>= tanh
                             modulated_oja_update n {m input={input state} k; out H=H k}
                         inm input = f.input
                         inm state = f.state
@@ -2176,7 +2176,7 @@ inl float ->
                     inm H =
                         inm input' = concat (state,input)
                         inl f k =
-                            inm m = matmultb (input', weights.modulator k .weight) (weights.modulator k .bias)
+                            inm m = matmultb (input', weights.modulator k .weight) (weights.modulator k .bias) >>= tanh
                             modulated_oja_update n {m input={input state} k; out H=H k}
                         inm input = f.input
                         inm state = f.state
