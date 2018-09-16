@@ -1710,13 +1710,13 @@ inl float ->
             inl abs_bck x = if x >= zero then one else -one
 
             inl fwd {input out m H} =
-                H + n * abs m * (input * out - out * out * H)
+                H + n * (m * input * out - abs m * out * out * H)
             inl bck {input out m H} =
                 { 
-                input = inl _ -> n * abs m * out
-                out = inl _ -> n * abs m * (input - two * out * H)
+                input = inl _ -> n * m * out
+                out = inl _ -> n * (m * input - abs m * two * out * H)
                 H = inl _ -> one - n * abs m * out * out
-                m = inl _ -> n * abs_bck m * (input * out - out * out * H)
+                m = inl _ -> n * (input * out - abs_bck m * out * out * H)
                 }
             hebb_template {output_functions index_into fwd bck dim} ins
 
@@ -1754,15 +1754,7 @@ inl float ->
                 }
             hebb_template {output_functions index_into fwd bck dim} ins
 
-            //inl fwd {input out m H} =
-            //    H + n * (m * input * out - abs m * out * out * H)
-            //inl bck {input out m H} =
-            //    { 
-            //    input = inl _ -> n * m * out
-            //    out = inl _ -> n * (m * input - abs m * two * out * H)
-            //    H = inl _ -> one - n * abs m * out * out
-            //    m = inl _ -> n * (input * out - abs_bck m * out * out * H)
-            //    }
+
 
         inl unmodulated_feedforward size =
             {
@@ -2061,7 +2053,8 @@ inl float ->
                         alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
                         }
                     input = {
-                        bias = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                        bias = //Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                            Initializer.dr (Initializer.identity (sublayer_size, size))
                         alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
                         }
                     modulator = {
