@@ -56,13 +56,11 @@ inl unwrap (x :: () | x) = x
 inl rec foldl f s = function
     | x :: xs -> foldl f (f s x) xs
     | () -> s
-    | x -> f s x
 
 inl rec foldr f l s = 
     match l with
     | x :: xs -> f x (foldr f xs s)
     | () -> s
-    | x -> f x s
 
 inl reducel f l =
     match l with
@@ -83,16 +81,11 @@ inl rec scanr f l s =
 inl append = foldr (::)
 inl concat x = foldr append x ()
 
-inl rec rev a =
-    match a with
-    | a :: a' -> a :: rev a'
-    | () -> ()
-
-inl rec map f a =
-    match a with
-    | a :: a' -> f a :: map f a'
-    | () -> ()
-    | a -> f a
+inl rev, map =
+    inl map' f l = foldl (inl s x -> f x :: s) () l
+    inl rev l = map' id l
+    inl map f = map' f >> rev
+    rev, map
 
 inl iter f = foldl (const f) ()
 inl iteri f = foldl f 0
@@ -103,13 +96,12 @@ inl rec choose f = function
         | () -> choose f a'
         | x -> x :: choose f a'
     | () -> ()
-    | a -> f a
 
 inl rec map2 f a b = 
     match a,b with
     | a :: as', b :: bs' -> f a b :: map2 f as' bs'
     | (), () -> ()
-    | a, b -> f a b
+    | _ -> error_type "The two tuples have uneven lengths." 
 
 inl rec choose2 f a b = 
     match a, b with
@@ -118,46 +110,93 @@ inl rec choose2 f a b =
         | () -> choose2 f as' bs'
         | x -> x :: choose2 f as' bs'
     | (), () -> ()
-    | a, b -> f a b
+    | _ -> error_type "The two tuples have uneven lengths." 
 
 inl rec iter2 f a b = 
     match a,b with
     | a :: as', b :: bs' -> f a b; iter2 f as' bs'
     | (), () -> ()
-    | a, b -> f a b; ()
+    | _ -> error_type "The two tuples have uneven lengths." 
 
 inl rec map3 f a b c = 
     match a,b,c with
     | a :: as', b :: bs', c :: cs' -> f a b c :: map3 f as' bs' cs'
     | (), (), () -> ()
-    | a, b, c -> f a b c
+    | _ -> error_type "The three tuples have uneven lengths." 
 
 inl rec foldl2 f s a b =
     match a,b with
     | a :: as', b :: bs' -> foldl2 f (f s a b) as' bs'
     | (), () -> s
-    | a, b -> f s a b
+    | _ -> error_type "The two tuples have uneven lengths." 
 
 inl rec foldr2 f a b s = 
     match a,b with
     | a :: a', b :: b' -> f a b (foldr2 f a' b' s)
     | (), () -> s
-    | a, b -> f a b s
 
 inl rec forall f = function
     | x :: xs -> f x && forall f xs
     | () -> true
-    | x -> f x
 
 inl rec exists f = function
     | x :: xs -> f x || exists f xs
     | () -> false
-    | x -> f x
 
 inl rec filter f = function
     | x :: xs -> if f x then x :: filter f xs else filter f xs
     | () -> ()
-    | x -> if f x then x else ()
+
+inl is_empty = function
+    | _ :: _ -> false
+    | () -> true
+    | _ -> error_type "Not a tuple."
+
+inl is_non_empty_tuple = function
+    | _ :: _ -> true
+    | _ -> false
+
+inl transpose l on_fail on_succ =
+    inl rec loop acc_total acc_head acc_tail l = 
+        match l with
+        | () :: ys ->
+            match acc_head with
+            | () when forall is_empty ys ->
+                match acc_total with
+                | _ :: _ -> rev acc_total |> on_succ
+                | () -> error_type "Empty inputs in the inner dimension to transpose are invalid."
+            | _ -> on_fail()
+        | (x :: xs) :: ys -> loop acc_total (x :: acc_head) (xs :: acc_tail) ys
+        | _ :: _ -> on_fail ()
+        | () -> 
+            match acc_tail with
+            | _ :: _ -> loop (rev acc_head :: acc_total) () () (rev acc_tail)
+            | () -> rev acc_total |> on_succ
+    loop () () () l
+
+inl zip_template on_ireg l = 
+    inl rec zip = function // when forall is_non_empty_tuple l 
+        | _ :: _ as l -> transpose l (inl _ -> on_ireg l) (map (function | x :: () -> zip x | x -> x))
+        | () -> error_type "Zip called on an empty tuple."
+        | _ -> error_type "Zip called on a non-tuple."
+    zip l
+
+inl regularity_guard l =
+    if forall is_empty l then l
+    else error_type "Irregular inputs in unzip/zip."
+inl zip = zip_template regularity_guard
+inl zip' = zip_template id
+
+inl rec unzip_template on_irreg l = 
+    inl rec unzip = function
+        | _ :: _ as l when forall is_non_empty_tuple l -> transpose (map unzip l) (inl _ -> on_irreg l) id 
+        | _ :: _ -> l
+        | () -> error_type "Unzip called on an empty tuple."
+        | _ -> error_type "Unzip called on a non-tuple."
+    unzip l
+
+inl unzip = unzip_template regularity_guard
+inl unzip' = unzip_template id
 
 inl init_template k n f =
     inl rec loop n = 
@@ -212,9 +251,6 @@ inl rec foldl_map f s l =
         inl l', s = foldl_map f s l'
         l :: l', s
     | () -> (), s
-    | l ->
-        inl l, s = f s l
-        l, s
 
 inl rec foldr_map f l s = 
     match l with
@@ -223,9 +259,6 @@ inl rec foldr_map f l s =
         inl l, s = f l s
         l :: l', s
     | () -> (), s
-    | l ->
-        inl l, s = f l s
-        l :: l', s
 
 inl mapi f = foldl_map (inl s x -> f s x, s + 1) 0 >> fst
 
@@ -241,9 +274,6 @@ inl rec foldl_map2 f s a b =
         inl l', s = foldl_map2 f s a' b'
         l :: l', s
     | (), () -> (), s
-    | a, b ->
-        inl l, s = f s a b
-        l, s
 
 inl rec map_last f = function
     | x :: () -> f x :: ()
@@ -255,7 +285,7 @@ inl length = foldl (inl s _ -> s+1) 0
 
 {
 head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists split_at take drop
-filter init repeat append concat singleton range tryFind contains intersperse wrap unwrap
+filter zip unzip init repeat append concat singleton range tryFind contains intersperse wrap unwrap
 foldl_map foldl_map2 foldr_map map2 foldl2 foldr2 choose choose2 mapi find map_last map3 length
 } 
 |> stackify
@@ -1442,7 +1472,7 @@ inl map_dim = function
         assert (x > 0) "Tensor needs to be at least size 1."
         {from=0; near_to=x}
 
-inl map_dims = Tuple.map map_dim
+inl map_dims = Tuple.map map_dim << Tuple.wrap
 
 inl span = function
     | {from near_to} -> near_to - from
@@ -1504,7 +1534,7 @@ inl show' {cutoff_near_to} tns =
 inl show = show' {cutoff_near_to=1000}
 
 /// Total tensor size in elements.
-inl length = Tuple.foldl (inl s (!span x) -> s * x) 1
+inl length = Tuple.foldl (inl s (!span x) -> s * x) 1 << Tuple.wrap
 
 /// Splits a tensor's dimensions. Works on non-contiguous tensors.
 /// Given the tensor dimensions (a,b,c) and a function which maps them to (a,(q,w),c)
@@ -1559,7 +1589,7 @@ inl flatten tns =
     | !(Tuple.map span) dim ->
         tns .set_dim (length dim)
             .update_body (inl {d with size} ->
-                Tuple.map2 (inl a b -> a,b) dim size
+                Tuple.zip (dim,size)
                 |> Tuple.reducel (inl d,s d',s' ->
                     assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
                     d*s, s'
@@ -1642,7 +1672,7 @@ inl rec facade data =
                 | {from near_to} :: dim ->
                     assert (i >= from && i < near_to) "Argument out of bounds." 
                     {data with bodies = Struct.map (inl ar -> tensor_apply ar (i-from)) self; dim}
-                ) data i
+                ) data (Tuple.wrap i)
             |> facade
         /// Returns the tensor data.
         unwrap = id
