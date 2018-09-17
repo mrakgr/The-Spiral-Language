@@ -60,7 +60,7 @@ inl train {data={input label} network learning_rate final} s =
                 apply bck
                 Struct.foldr (inl {bck} _ -> Struct.foldr (inl bck _ -> apply bck) bck ()) network ()
 
-            Optimizer.standard learning_rate s network
+            Optimizer.standard learning_rate s network 
 
             inl cost = s.CudaTensor.get out |> to float64
             state + cost
