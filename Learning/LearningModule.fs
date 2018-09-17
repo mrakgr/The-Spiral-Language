@@ -1738,6 +1738,7 @@ inl float ->
 
         inl oja_update n {ins with input out H} =
             inl b,a as dim = primal H .dim
+            inl span_inner = HostTensor.span a |> to float
             inl assert_dim = assert_dim (primals ins)
             inl sng = {from=0; near_to=1}
             assert_dim .input (sng, b)
@@ -1756,13 +1757,17 @@ inl float ->
                     input = 0, b
                     out = 0, a
                     H = b, a
+                    n = 
+                        match n with
+                        | {from near_to} -> (near_to - from) / span_inner * (to float a + half)
+                        | _ -> n
                     } 
             inl tanh = tanh_fwd
             inl abs_bck x = if x >= zero then one else -one
 
-            inl fwd {input out H} =
+            inl fwd {n input out H} =
                 H + n * (input * out - out * out * H)
-            inl bck {input out H} =
+            inl bck {n input out H} =
                 { 
                 input = inl _ -> n * out
                 out = inl _ -> n * (input - two * out * H)
@@ -2624,6 +2629,7 @@ inl float ->
                         inl out = Struct.foldl (+) zero out
                         s + factor * out
                         ) zero
+                    >> tanh_fwd
                 bck=inl {in out} ->
                     Liple.map (inl {factor out} ->
                         {
@@ -2631,6 +2637,7 @@ inl float ->
                         out=Struct.map (const factor) out
                         }
                         ) in
+                    |> Struct.map ((*) (tanh_bck out))
                 }
 
         inl multiscale_v1 (!dyn n) size =
@@ -2712,19 +2719,22 @@ inl float ->
                                         Struct.map (const out) in
                                     } {input state bias=weights.bias}
 
-                            inm H =
-                                inl oja_update k = oja_update n {input={input state} k; out H=H k}
-                                inm input = oja_update .input
-                                inm state = oja_update .state
-                                succ {input state}
-
-                            succ {out H block=()}
+                            succ {out block=()}
                             ) weights H n
                         |> sequence
 
-                    inl H = Struct.map (inl {out H} -> H) cell_results
-                    inl outs = Struct.map2 (inl {cell={factor}} {out} -> {factor out}) weights cell_results
-                    inm out = attend outs
+                    inm out = 
+                        Struct.map2 (inl {cell={factor}} {out} -> {factor out}) weights cell_results
+                        |> attend
+
+                    inm H =
+                        Struct.map2 (inl H n ->
+                            inl oja_update k = oja_update n {input={input state} k; out H=H k}
+                            inm input = oja_update .input
+                            inm state = oja_update .state
+                            succ {input state}
+                            ) H n
+                        |> sequence
                     
                     succ {out state={state=out; H}}
 

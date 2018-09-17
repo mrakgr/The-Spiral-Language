@@ -419,7 +419,7 @@ met train {!data network learning_rate final} s =
             Console.printfn "At iteration {0} the cost is {1}" (i, cost())
         else next()
 
-inl learning_rate = 2f32 ** -13.5f32
+inl learning_rate = 2f32 ** -12.5f32
 inl n = 0.01f32
 
 inl network,_ = 
@@ -486,3 +486,8 @@ let tests =
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning3
 |> printfn "%s"
 |> ignore
+
+let f span_inner from near_to a =
+    from + (near_to - from) / span_inner * (float a + 0.5)
+
+f 1.0 1.0 2.0 1
