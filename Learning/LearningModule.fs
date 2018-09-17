@@ -1681,20 +1681,20 @@ inl float ->
         }
 
     inl Modulated = // This is experimental for now.
-        inl modulated_oja_update n {ins with input out m H} =
+        inl modulated_oja_update {ins with input out n H} =
             inl b,a as dim = primal H .dim
             inl assert_dim = assert_dim (primals ins)
             inl sng = {from=0; near_to=1}
             assert_dim .input (sng, b)
             assert_dim .out (sng, a)
-            assert_dim .m (sng, a)
+            assert_dim .n (sng, a)
 
             inl output_functions =
                 inl add a b = a.set (a.get + b)
                 {
                 input=atomic_add
                 out=atomic_add
-                m=atomic_add
+                n=atomic_add
                 H=add
                 }
             inl index_into (b,a) x = 
@@ -1702,20 +1702,20 @@ inl float ->
                     {
                     input = 0, b
                     out = 0, a
-                    m = 0, a
+                    n = 0, a
                     H = b, a
                     } 
             inl tanh = tanh_fwd
             inl abs_bck x = if x >= zero then one else -one
 
-            inl fwd {input out m H} =
-                H + n * (m * input * out - abs m * out * out * H)
-            inl bck {input out m H} =
+            inl fwd {input out n H} =
+                H + n * input * out - abs n * out * out * H
+            inl bck {input out n H} =
                 { 
-                input = inl _ -> n * m * out
-                out = inl _ -> n * (m * input - abs m * two * out * H)
-                H = inl _ -> one - n * abs m * out * out
-                m = inl _ -> n * (input * out - abs_bck m * out * out * H)
+                input = inl _ -> n * out
+                out = inl _ -> n * input - abs n * two * out * H
+                H = inl _ -> one - abs n * out * out
+                n = inl _ -> input * out - abs_bck n * out * out * H
                 }
             hebb_template {output_functions index_into fwd bck dim} ins
 
@@ -2390,10 +2390,126 @@ inl float ->
             block = ()
             }
 
+        inl modulated_rnn size =
+            {
+            init = inl sublayer_size -> 
+                {
+                dsc = 
+                    {
+                    state = Initializer.randn {stddev=0.01f32; dim=size, size}
+                    input = Initializer.dr (Initializer.identity (sublayer_size, size))
+                    modulator = {
+                        input = {
+                            input = Initializer.bias (sublayer_size, size)
+                            state = Initializer.bias (size, size)
+                            bias = {
+                                si = Initializer.constant {dim=1,size; init=to float 1}
+                                i = Initializer.constant {dim=1,size; init=to float 0.5}
+                                s = Initializer.constant {dim=1,size; init=to float 0.5}
+                                c = Initializer.bias (1,size)
+                                }
+                            }
+                        state = {
+                            input = Initializer.bias (sublayer_size, size)
+                            state = Initializer.bias (size, size)
+                            bias = {
+                                si = Initializer.constant {dim=1,size; init=to float 1}
+                                i = Initializer.constant {dim=1,size; init=to float 0.5}
+                                s = Initializer.constant {dim=1,size; init=to float 0.5}
+                                c = Initializer.bias (1,size)
+                                }
+                            }
+                    n = {
+                        input = {
+                            input = Initializer.bias (sublayer_size, size)
+                            state = Initializer.bias (size, size)
+                            bias = {
+                                si = Initializer.constant {dim=1,size; init=to float 1}
+                                i = Initializer.constant {dim=1,size; init=to float 0.5}
+                                s = Initializer.constant {dim=1,size; init=to float 0.5}
+                                c = Initializer.constant {dim=1,size; init=to float 0.01}
+                                }
+                            }
+                        state = {
+                            input = Initializer.bias (sublayer_size, size)
+                            state = Initializer.bias (size, size)
+                            bias = {
+                                si = Initializer.constant {dim=1,size; init=to float 1}
+                                i = Initializer.constant {dim=1,size; init=to float 0.5}
+                                s = Initializer.constant {dim=1,size; init=to float 0.5}
+                                c = Initializer.constant {dim=1,size; init=to float 0.01}
+                                }
+                            }
+                        }
+                    bias = Initializer.bias (1,size)
+                    }
+                size=size
+                }
+
+            apply = inl {d with weights input} s -> 
+                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+                inl H =
+                    match d with
+                    | {state={H}} -> H
+                    | _ -> 
+                        inl f k = s.CudaTensor.zero_like (primal (weights k))
+                        {input=f .input; state=f .state}
+
+                inl state =
+                    match d with
+                    | {state={state}} -> state
+                    | _ -> s.CudaTensor.zero_like (primal (weights .bias))
+
+                inl apply =
+                    inm out =
+                        inl calculate k =
+                            inm alpha = 
+                                inl modulator = weights.modulator k
+                                inm input = matmult (input, modulator.input)
+                                inm state = matmult (state, modulator.state)
+                                generalized_mi {modulator with input state}
+                            inm static = matmult ({input state} k, weights k)
+                            inm plastic = matmult ({input state} k, H k)
+                            broadcasting_activation {
+                                fwd=inl {in={static plastic} in_inner={alpha}} -> static + alpha * plastic
+                                bck={
+                                    in=inl {in={static plastic} in_inner={alpha}} -> { static = one; plastic = alpha }
+                                    in_inner=inl {in={static plastic} in_inner={alpha}} -> { alpha = plastic }
+                                    }
+                                } {in={static plastic}; in_inner={alpha=Struct.map' (inl x -> x.flatten) alpha}}
+
+                        inm input = calculate .input
+                        inm state = calculate .state
+                    
+                        activation {
+                            fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
+                            bck=inl {in out} ->
+                                inl out = tanh_bck out
+                                Struct.map (const out) in
+                            } {input state bias=weights.bias}
+
+                    inm H =
+                        inl oja_update k = 
+                            inm n = 
+                                inl modulator = weights.n k
+                                inm input = matmult (input, modulator.input)
+                                inm state = matmult (state, modulator.state)
+                                generalized_mi {modulator with input state}
+                            modulated_oja_update {n input={input state} k; out H=H k}
+                        inm input = oja_update .input
+                        inm state = oja_update .state
+                        succ {input state}
+
+                    succ {out state={state=out; H}}
+
+                inl {out={out state} bck} = apply s
+                {out state bck}
+            block = ()
+            }
 
         {
         unmodulated_feedforward feedforward rnn unmodulated_vanilla_oja unmodulated_concatenative_vanilla_oja concatenative_vanilla_oja
-        vanilla_oja semimodulated_vanilla_oja semimodulated_vanilla_oja_alt semimodulated_mi_oja
+        vanilla_oja semimodulated_vanilla_oja semimodulated_vanilla_oja_alt semimodulated_mi_oja modulated_rnn
         }
 
     inl RNN = {mi mi_hebb mi_hebb_prong mi_hebb'_prong vanilla_hebb mi_prong mi_prong_alt mi_alt Modulated}
