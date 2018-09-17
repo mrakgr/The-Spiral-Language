@@ -459,19 +459,22 @@ inl network,_ =
                 Modulated.modulated_rnn size.pattern
             semimodulated_vanilla_oja_alt2 =
                 Modulated.semimodulated_vanilla_oja_alt2 n size.pattern
-            
-            // Advanced
+            }
+        advanced =
+            inl n = 
+                //{from=n/3f32; near_to=n*3f32; block=()}
+                n
+            {
             semimodulated_vanilla_oja_alt = 
                 //Modulated.semimodulated_vanilla_oja_alt n size.pattern
-                Modulated.semimodulated_vanilla_oja_alt {from=n; near_to=n; block=()} size.pattern
+                Modulated.semimodulated_vanilla_oja_alt n size.pattern
             multiscale_v1 =
-                Modulated.multiscale_v1 n size.pattern
+                Modulated.multiscale_v1 (n,n,n) size.pattern
                 //Modulated.multiscale_v1 {from=n; near_to=n; block=()} size.pattern
-                
             }
         }
 
-    init s size.pattern network.modulated.semimodulated_vanilla_oja_alt
+    init s size.pattern network.advanced.multiscale_v1
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {
