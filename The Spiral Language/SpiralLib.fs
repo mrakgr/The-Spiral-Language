@@ -261,6 +261,102 @@ foldl_map foldl_map2 foldr_map map2 foldl2 foldr2 choose choose2 mapi find map_l
 |> stackify
     """) |> module_
 
+let liple =
+    (
+    "Liple",[],"Operations on tuples and singletons.",
+    """
+inl rec map f a =
+    match a with
+    | a :: a' -> f a :: map f a'
+    | () -> ()
+    | a -> f a
+
+inl rec choose f = function
+    | a :: a' ->
+        match f a with
+        | () -> choose f a'
+        | x -> x :: choose f a'
+    | () -> ()
+    | a -> f a
+
+inl rec map2 f a b = 
+    match a,b with
+    | a :: as', b :: bs' -> f a b :: map2 f as' bs'
+    | (), () -> ()
+    | a, b -> f a b
+
+inl rec choose2 f a b = 
+    match a, b with
+    | a :: as', b :: bs' -> 
+        match f a b with
+        | () -> choose2 f as' bs'
+        | x -> x :: choose2 f as' bs'
+    | (), () -> ()
+    | a, b -> f a b
+
+inl rec iter2 f a b = 
+    match a,b with
+    | a :: as', b :: bs' -> f a b; iter2 f as' bs'
+    | (), () -> ()
+    | a, b -> f a b; ()
+
+inl rec map3 f a b c = 
+    match a,b,c with
+    | a :: as', b :: bs', c :: cs' -> f a b c :: map3 f as' bs' cs'
+    | (), (), () -> ()
+    | a, b, c -> f a b c
+
+inl rec foldl f s = function
+    | x :: xs -> foldl f (f s x) xs
+    | () -> s
+    | x -> f s x
+
+inl rec foldr f l s = 
+    match l with
+    | x :: xs -> f x (foldr f xs s)
+    | () -> s
+    | x -> f x s
+
+inl rec foldl2 f s a b =
+    match a,b with
+    | a :: as', b :: bs' -> foldl2 f (f s a b) as' bs'
+    | (), () -> s
+    | a, b -> f s a b
+
+inl rec foldr2 f a b s = 
+    match a,b with
+    | a :: a', b :: b' -> f a b (foldr2 f a' b' s)
+    | (), () -> s
+    | a, b -> f a b s
+
+inl rec foldl_map f s l = 
+    match l with
+    | l :: l' ->
+        inl l, s = f s l
+        inl l', s = foldl_map f s l'
+        l :: l', s
+    | () -> (), s
+    | l ->
+        inl l, s = f s l
+        l, s
+
+inl rec foldr_map f l s = 
+    match l with
+    | l :: l' ->
+        inl l', s = foldr_map f l' s
+        inl l, s = f l s
+        l :: l', s
+    | () -> (), s
+    | l ->
+        inl l, s = f l s
+        l, s
+
+inl mapi f = foldl_map (inl s x -> f s x, s + 1) 0 >> fst
+
+{map choose map2 choose2 iter2 map3 foldl foldr foldl2 foldr2 foldl_map foldr_map mapi} |> stackify
+    """
+    ) |> module_
+
 let loops =
     (
     "Loops",[tuple],"The Loop module.",
