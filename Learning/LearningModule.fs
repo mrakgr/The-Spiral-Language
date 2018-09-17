@@ -1632,10 +1632,12 @@ inl float ->
                         |> Struct.map (inl x -> x .get)
                         |> bck
                     inl error = error dim .get
-                    inl ins = index_into dim (adjoints ins)
-                    Struct.iter3 (inl in b f -> f in (error * b ()))
-                        (Struct.choose id ins)
-                        ads output_functions
+                    inl ins = 
+                        inl a = Struct.choose id (adjoints ins)
+                        inl b = index_into dim a
+                        Struct.map2 (inl a b -> b) a b // This is to get rid of the `n` in a safe way.
+                    
+                    Struct.iter3 (inl in b f -> f in (error * b ())) ins ads output_functions
                 )
         }
 
@@ -1752,16 +1754,17 @@ inl float ->
                 H=add
                 }
             inl index_into (b,a) x = 
-                Struct.map2 (<|) (Struct.choose id x)                 
+                inl n =
+                    match n with
+                    | {from near_to} _ -> from + (near_to - from) / (span_inner + one) * (to float a + one)
+                    | _ _ -> n
+                Struct.map2 (<|) (Struct.choose id x)
                     {
                     input = 0, b
                     out = 0, a
                     H = b, a
-                    n = 
-                        match n with
-                        | {from near_to} -> from + (near_to - from) / (span_inner + one) * (float a + one)
-                        | _ -> n
                     } 
+                |> inl x -> {x with n}
             inl tanh = tanh_fwd
             inl abs_bck x = if x >= zero then one else -one
 

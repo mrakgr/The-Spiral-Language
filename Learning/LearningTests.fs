@@ -462,9 +462,12 @@ inl network,_ =
             
             // Advanced
             semimodulated_vanilla_oja_alt = 
-                Modulated.semimodulated_vanilla_oja_alt {from=0.001f32; near_to=0.1f32} size.pattern
+                //Modulated.semimodulated_vanilla_oja_alt n size.pattern
+                Modulated.semimodulated_vanilla_oja_alt {from=n; near_to=n; block=()} size.pattern
             multiscale_v1 =
-                Modulated.multiscale_v1 (n*3f32, n) size.pattern
+                Modulated.multiscale_v1 n size.pattern
+                //Modulated.multiscale_v1 {from=n; near_to=n; block=()} size.pattern
+                
             }
         }
 
