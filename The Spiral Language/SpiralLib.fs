@@ -83,10 +83,15 @@ inl rec scanr f l s =
 inl append = foldr (::)
 inl concat x = foldr append x ()
 
-inl map f a =
+inl rec rev a =
+    match a with
+    | a :: a' -> a :: rev a'
+    | () -> ()
+
+inl rec map f a =
     match a with
     | a :: a' -> f a :: map f a'
-    | (), () -> ()
+    | () -> ()
     | a -> f a
 
 inl iter f = foldl (const f) ()
@@ -249,7 +254,7 @@ inl rec map_last f = function
 inl length = foldl (inl s _ -> s+1) 0
 
 {
-head tail last foldl foldr reducel scanl scanr map iter iteri iter2 forall exists split_at take drop
+head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists split_at take drop
 filter init repeat append concat singleton range tryFind contains intersperse wrap unwrap
 foldl_map foldl_map2 foldr_map map2 foldl2 foldr2 choose choose2 mapi find map_last map3 length
 } 
@@ -1458,7 +1463,7 @@ inl flatten tns =
     | !(Tuple.map span) dim ->
         tns .set_dim (length dim)
             .update_body (inl {d with size} ->
-                Tuple.zip (dim,size)
+                Tuple.map2 (inl a b -> a,b) dim size
                 |> Tuple.reducel (inl d,s d',s' ->
                     assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
                     d*s, s'
