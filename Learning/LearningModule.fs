@@ -2723,8 +2723,9 @@ inl float ->
                         |> sequence
 
                     inl H = Struct.map (inl {out H} -> H) cell_results
-                    inl outs = Struct.map2 (inl {cell={factor}} {out} -> {factor out}) weights cell_results
-                    inm out = attend outs
+                    //inl outs = Struct.map2 (inl {cell={factor}} {out} -> {factor out}) weights cell_results
+                    //inm out = attend outs
+                    inl out = cell_results.out
 
                     succ {out state={state=out; H}}
 
