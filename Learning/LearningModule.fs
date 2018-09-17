@@ -252,7 +252,7 @@ inl infer f (!heap state) =
 
 let learning =
     (
-    "Learning",[struct';extern_;cuda_aux;math;union;list],"The deep learning module.",
+    "Learning",[struct';extern_;cuda_aux;math;union;list;liple],"The deep learning module.",
     """
 inl float ->
     // #Primitives
@@ -346,9 +346,7 @@ inl float ->
                     inl out = adjoint out .get
                     Struct.iter2 (inl x -> function
                         | () -> ()
-                        | z -> 
-                            print_static {x out z}
-                            z .set (z .get + out * x)
+                        | z -> z .set (z .get + out * x)
                         ) x (adjoints in)
         }
 
@@ -567,7 +565,14 @@ inl float ->
     inl standard learning_rate s = 
         Struct.iter (function 
             | {optimize weights} -> optimize {learning_rate weights} s
-            | {weights} -> Struct.iter (sgd learning_rate s) weights
+            | {weights} -> 
+                inl rec loop x =
+                    Struct.iter (function
+                        | {cell} -> loop cell
+                        | x -> sgd learning_rate s x
+                        ) x
+                loop weights
+                        
             )
 
     inl Optimizer = {sgd clipped_sgd standard prong}
@@ -2615,18 +2620,17 @@ inl float ->
         inl attend =
             activation {
                 fwd=
-                    Tuple.wrap 
-                    >> Tuple.foldl (inl s {factor out} ->
+                    Liple.foldl (inl s {factor out} ->
                         inl out = Struct.foldl (+) zero out
                         s + factor * out
                         ) zero
                 bck=inl {in out} ->
-                    Tuple.wrap in |> Tuple.map (inl {factor out} ->
+                    Liple.map (inl {factor out} ->
                         {
                         factor=Struct.foldl (+) zero out
                         out=Struct.map (inl x -> factor * x) out
                         }
-                        ) 
+                        ) in
                 }
 
         inl multiscale_v1 (!dyn n) size =
