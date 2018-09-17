@@ -2716,6 +2716,115 @@ inl float ->
                                 inm state = calculate .state
                     
                                 activation {
+                                    fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in //|> tanh_fwd
+                                    bck=inl {in out} ->
+                                        Struct.map (const one) in
+                                        //inl out = tanh_bck out
+                                        //Struct.map (const out) in
+                                    } {input state bias=weights.bias}
+
+                            succ {out block=()}
+                            ) weights H n
+                        |> sequence
+
+                    inm out = 
+                        Struct.map2 (inl {cell={factor}} {out} -> {factor out}) weights cell_results
+                        |> attend
+
+                    inm H =
+                        Struct.map2 (inl H n ->
+                            inl oja_update k = oja_update n {input={input state} k; out H=H k}
+                            inm input = oja_update .input
+                            inm state = oja_update .state
+                            succ {input state}
+                            ) H n
+                        |> sequence
+                    
+                    succ {out state={state=out; H}}
+
+                inl {out={out state} bck} = apply s
+                {out state bck}
+            block = ()
+            }
+
+        inl plastic_lstm (!dyn n) size =
+            {
+            init = inl sublayer_size -> 
+                {
+                dsc = 
+                    inl modulator _ = {
+                        input = Initializer.bias (sublayer_size, size)
+                        state = Initializer.bias (size, size)
+                        bias = {
+                            si = Initializer.constant {dim=1,size; init=to float 1}
+                            i = Initializer.constant {dim=1,size; init=to float 0.5}
+                            s = Initializer.constant {dim=1,size; init=to float 0.5}
+                            c = Initializer.bias (1,size)
+                            }
+                        }
+
+                    inl cell _ =
+                        {
+                        input = Initializer.dr (Initializer.identity (sublayer_size, size))
+                        state = Initializer.randn {stddev=0.01f32; dim=size, size}
+                        modulator = 
+                            {
+                            input = modulator()
+                            state = modulator()
+                            }
+                        bias = Initializer.bias (1,size)
+                        factor = Initializer.constant {dim=1,size; init=to float 1}
+                        }
+
+                    {
+                    input=cell()
+                    output=cell()
+                    forget=cell()
+                    memory=cell()
+                    }
+                size=size
+                }
+
+            apply = inl {d with weights input} s -> 
+                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+                inl H =
+                    match d with
+                    | {state={H}} -> H
+                    | _ -> 
+                        Struct.map (inl {cell=weights} ->
+                            inl f k = s.CudaTensor.zero_like (primal (weights k))
+                            {input=f .input; state=f .state}
+                            ) weights
+
+                inl state =
+                    match d with
+                    | {state={state}} -> state
+                    | _ -> s.CudaTensor.zero {elem_type=float; dim=1,size}
+
+                inl apply =
+                    inm cell_results =
+                        Struct.map3 (inl {cell=weights} H n ->
+                            inm out =
+                                inl calculate k =
+                                    inm alpha = 
+                                        inl modulator = weights.modulator k
+                                        inm input = matmult (input, modulator.input)
+                                        inm state = matmult (state, modulator.state)
+                                        generalized_mi {modulator with input state}
+                                    inm static = matmult ({input state} k, weights k)
+                                    inm plastic = matmult ({input state} k, H k)
+                                    broadcasting_activation {
+                                        fwd=inl {in={static plastic} in_inner={alpha}} -> static + alpha * plastic
+                                        bck={
+                                            in=inl {in={static plastic} in_inner={alpha}} -> { static = one; plastic = alpha }
+                                            in_inner=inl {in={static plastic} in_inner={alpha}} -> { alpha = plastic }
+                                            }
+                                        } {in={static plastic}; in_inner={alpha=Struct.map' (inl x -> x.flatten) alpha}}
+
+                                inm input = calculate .input
+                                inm state = calculate .state
+                    
+                                activation {
                                     fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
                                     bck=inl {in out} ->
                                         inl out = tanh_bck out

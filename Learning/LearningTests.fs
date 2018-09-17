@@ -469,7 +469,7 @@ inl network,_ =
                 //Modulated.semimodulated_vanilla_oja_alt n size.pattern
                 Modulated.semimodulated_vanilla_oja_alt n size.pattern
             multiscale_v1 =
-                Modulated.multiscale_v1 (n,n,n) size.pattern
+                Modulated.multiscale_v1 (n,n) size.pattern
                 //Modulated.multiscale_v1 {from=n; near_to=n; block=()} size.pattern
             }
         }
