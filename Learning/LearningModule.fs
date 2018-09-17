@@ -346,7 +346,9 @@ inl float ->
                     inl out = adjoint out .get
                     Struct.iter2 (inl x -> function
                         | () -> ()
-                        | z -> z .set (z .get + out * x)
+                        | z -> 
+                            print_static {x out z}
+                            z .set (z .get + out * x)
                         ) x (adjoints in)
         }
 
@@ -774,6 +776,7 @@ inl float ->
                 | .mod -> mod
                 | .reset -> r := init
                 |> stack
+            | {x with cell} -> {x with cell=initialize s self}
             | x -> x
             ) x
 
@@ -2612,17 +2615,18 @@ inl float ->
         inl attend =
             activation {
                 fwd=
-                    Struct.foldl (inl s {factor out} ->
-                        inl out = Struct.foldl (+) 0 out
+                    Tuple.wrap 
+                    >> Tuple.foldl (inl s {factor out} ->
+                        inl out = Struct.foldl (+) zero out
                         s + factor * out
-                        ) 0
+                        ) zero
                 bck=inl {in out} ->
-                    Struct.map (inl {factor out} ->
+                    Tuple.wrap in |> Tuple.map (inl {factor out} ->
                         {
-                        factor=Struct.foldl (+) 0 out
+                        factor=Struct.foldl (+) zero out
                         out=Struct.map (inl x -> factor * x) out
                         }
-                        ) in
+                        ) 
                 }
 
         inl multiscale_v1 (!dyn n) size =
@@ -2672,7 +2676,7 @@ inl float ->
                 inl state =
                     match d with
                     | {state={state}} -> state
-                    | _ -> s.CudaTensor.zero_like (primal (weights .bias))
+                    | _ -> s.CudaTensor.zero {elem_type=float; dim=1,size}
 
                 inl apply =
                     inm cell_results =
@@ -2715,7 +2719,7 @@ inl float ->
                         |> sequence
 
                     inl H = Struct.map (inl {out H} -> H) cell_results
-                    inl outs = Struct.map2 (inl {layer={factor}} {out} -> {factor out block=HostTensor.create {elem_type=(); dim=out.dim}}) weights cell_results
+                    inl outs = Struct.map2 (inl {cell={factor}} {out} -> {factor out}) weights cell_results
                     inm out = attend outs
 
                     succ {out state={state=out; H}}
@@ -2728,6 +2732,7 @@ inl float ->
         {
         unmodulated_feedforward feedforward rnn unmodulated_vanilla_oja unmodulated_concatenative_vanilla_oja concatenative_vanilla_oja
         vanilla_oja semimodulated_vanilla_oja semimodulated_vanilla_oja_alt semimodulated_mi_oja modulated_rnn semimodulated_vanilla_oja_alt2
+        multiscale_v1
         }
 
     inl RNN = {mi mi_hebb mi_hebb_prong mi_hebb'_prong vanilla_hebb mi_prong mi_prong_alt mi_alt Modulated}
