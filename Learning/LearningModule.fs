@@ -2684,7 +2684,7 @@ inl float ->
 
                 inl apply =
                     inm cell_results =
-                        Struct.map (inl {cell=weights} ->
+                        Struct.map3 (inl {cell=weights} H n ->
                             inm out =
                                 inl calculate k =
                                     inm alpha = 
@@ -2719,7 +2719,7 @@ inl float ->
                                 succ {input state}
 
                             succ {out H block=()}
-                            ) weights
+                            ) weights H n
                         |> sequence
 
                     inl H = Struct.map (inl {out H} -> H) cell_results

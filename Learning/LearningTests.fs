@@ -419,7 +419,7 @@ met train {!data network learning_rate final} s =
             Console.printfn "At iteration {0} the cost is {1}" (i, cost())
         else next()
 
-inl learning_rate = 2f32 ** -12.5f32
+inl learning_rate = 2f32 ** -13.5f32
 inl n = 0.01f32
 
 inl network,_ = 
@@ -462,7 +462,7 @@ inl network,_ =
             semimodulated_vanilla_oja_alt2 =
                 Modulated.semimodulated_vanilla_oja_alt2 n size.pattern
             multiscale_v1 =
-                Modulated.multiscale_v1 n size.pattern
+                Modulated.multiscale_v1 (n*3f32, n) size.pattern
             }
         }
 
