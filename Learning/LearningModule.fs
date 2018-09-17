@@ -2602,6 +2602,128 @@ inl float ->
             block = ()
             }
 
+        inl sequence x s =
+            inl x = Struct.map (inl x -> x s |> inl x -> {x with block=()}) x
+            {
+            out = Struct.map (inl {out} -> out) x
+            bck = Struct.map (inl {bck} -> bck) x
+            }
+
+        inl attend =
+            activation {
+                fwd=
+                    Struct.foldl (inl s {factor out} ->
+                        inl out = Struct.foldl (+) 0 out
+                        s + factor * out
+                        ) 0
+                bck=inl {in out} ->
+                    Struct.map (inl {factor out} ->
+                        {
+                        factor=Struct.foldl (+) 0 out
+                        out=Struct.map (inl x -> factor * x) out
+                        }
+                        ) in
+                }
+
+        inl multiscale_v1 (!dyn n) size =
+            {
+            init = inl sublayer_size -> 
+                {
+                dsc = 
+                    inl modulator _ = {
+                        input = Initializer.bias (sublayer_size, size)
+                        state = Initializer.bias (size, size)
+                        bias = {
+                            si = Initializer.constant {dim=1,size; init=to float 1}
+                            i = Initializer.constant {dim=1,size; init=to float 0.5}
+                            s = Initializer.constant {dim=1,size; init=to float 0.5}
+                            c = Initializer.bias (1,size)
+                            }
+                        }
+
+                    inl cell _ =
+                        {
+                        input = Initializer.dr (Initializer.identity (sublayer_size, size))
+                        state = Initializer.randn {stddev=0.01f32; dim=size, size}
+                        modulator = 
+                            {
+                            input = modulator()
+                            state = modulator()
+                            }
+                        bias = Initializer.bias (1,size)
+                        factor = Initializer.constant {dim=1,size; init=to float 1}
+                        }
+
+                    Struct.map (inl _ -> {cell=cell(); block=()}) n
+                size=size
+                }
+
+            apply = inl {d with weights input} s -> 
+                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+                inl H =
+                    match d with
+                    | {state={H}} -> H
+                    | _ -> 
+                        Struct.map (inl {cell=weights} ->
+                            inl f k = s.CudaTensor.zero_like (primal (weights k))
+                            {input=f .input; state=f .state}
+                            ) weights
+
+                inl state =
+                    match d with
+                    | {state={state}} -> state
+                    | _ -> s.CudaTensor.zero_like (primal (weights .bias))
+
+                inl apply =
+                    inm cell_results =
+                        Struct.map (inl {cell=weights} ->
+                            inm out =
+                                inl calculate k =
+                                    inm alpha = 
+                                        inl modulator = weights.modulator k
+                                        inm input = matmult (input, modulator.input)
+                                        inm state = matmult (state, modulator.state)
+                                        generalized_mi {modulator with input state}
+                                    inm static = matmult ({input state} k, weights k)
+                                    inm plastic = matmult ({input state} k, H k)
+                                    broadcasting_activation {
+                                        fwd=inl {in={static plastic} in_inner={alpha}} -> static + alpha * plastic
+                                        bck={
+                                            in=inl {in={static plastic} in_inner={alpha}} -> { static = one; plastic = alpha }
+                                            in_inner=inl {in={static plastic} in_inner={alpha}} -> { alpha = plastic }
+                                            }
+                                        } {in={static plastic}; in_inner={alpha=Struct.map' (inl x -> x.flatten) alpha}}
+
+                                inm input = calculate .input
+                                inm state = calculate .state
+                    
+                                activation {
+                                    fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
+                                    bck=inl {in out} ->
+                                        inl out = tanh_bck out
+                                        Struct.map (const out) in
+                                    } {input state bias=weights.bias}
+
+                            inm H =
+                                inl oja_update k = oja_update n {input={input state} k; out H=H k}
+                                inm input = oja_update .input
+                                inm state = oja_update .state
+                                succ {input state}
+
+                            succ {out H block=()}
+                            ) weights
+                        |> sequence
+
+                    inl H = Struct.map (inl {out H} -> H) cell_results
+                    inl outs = Struct.map2 (inl {layer={factor}} {out} -> {factor out block=HostTensor.create {elem_type=(); dim=out.dim}}) weights cell_results
+                    inm out = attend outs
+
+                    succ {out state={state=out; H}}
+
+                inl {out={out state} bck} = apply s
+                {out state bck}
+            block = ()
+            }
 
         {
         unmodulated_feedforward feedforward rnn unmodulated_vanilla_oja unmodulated_concatenative_vanilla_oja concatenative_vanilla_oja
