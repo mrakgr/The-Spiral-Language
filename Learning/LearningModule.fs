@@ -2747,6 +2747,71 @@ inl float ->
             block = ()
             }
 
+        inl lstm_activation memory_old {ins with input output forget memory} s = // TODO: Work in progress.
+            inl b,a as dim = memory_old.dim
+            assert_dim = assert_dim (primals ins)
+            assert_dim .input dim
+            assert_dim .output dim
+            assert_dim .forget dim
+            assert_dim .memory dim
+
+            inl {memory'' out} =
+                inl ins = primals ins
+                inl ins = to_dev_tensor {ins with memory_old}
+                s.CudaFun.map {dim} (inl dim ->
+                    inl {input output memory forget memory_old} = Tuple.map (inl x -> x dim .get) ins
+
+                    inl input' = sigmoid_fwd input
+                    inl forget' = sigmoid_fwd forget
+                    inl output' = sigmoid_fwd output
+                    inl memory' = tanh_fwd memory
+                    inl memory'' = input' * memory' + forget' * memory_old
+                    inl memory''' = tanh memory''
+                    inl out = output' * memory'''
+
+                    {memory'' out}
+                    )
+                |> Struct.map (dr s)
+
+            {
+            out={memory=memory''; out}
+            bck=met _ ->
+                inl outs = {
+                    d_memory'' = adjoint memory'' |> to_dev_tensor
+                    d_out = adjoint out |> to_dev_tensor
+                    }
+                inl ins = to_dev_tensor {ins with memory_old}
+                s.CudaKernel.iter {dim} (inl dim ->
+                    inl get x = x dim .get
+                    inl set x = x dim .set
+                    inl {input output memory forget memory_old} = Tuple.map get ins
+
+                    inl input' = sigmoid_fwd input
+                    inl forget' = sigmoid_fwd forget
+                    inl output' = sigmoid_fwd output
+                    inl memory' = tanh_fwd memory
+                    inl memory'' = input' * memory' + forget' * memory_old
+                    inl memory''' = tanh memory''
+                    
+                    inl d_out = get d_out
+
+                    inl d_output' = memory''' * d_out
+                    inl d_memory''' = output' * d_out
+                    
+                    inl d_memory'' = get outs.d_memory'' + tanh_bck memory''' * d_memory'''
+                    set outs.d_memory'' d_memory
+
+                    inl d_input' = memory' * d_memory''
+                    inl d_memory' = input' * d_memory''
+                    inl d_forget' = memory_old' * d_memory''
+                    set outs.d_memory_old (forget' * d_memory'')
+                    set outs.d_memory (tanh_bck memory' * d_memory')
+                    set outs.d_output (sigmoid_bck output' * d_output')
+                    set outs.d_forget (sigmoid_bck forget' * d_forget')
+                    set outs.d_input (sigmoid_bck input' * d_input')
+                    )
+            }
+
         inl plastic_lstm n size =
             {
             init = inl sublayer_size -> 
@@ -2763,7 +2828,7 @@ inl float ->
                             }
                         }
 
-                    inl cell _ =
+                    inl cell init =
                         {
                         input = Initializer.dr (Initializer.identity (sublayer_size, size))
                         state = Initializer.randn {stddev=0.01f32; dim=size, size}
@@ -2772,14 +2837,14 @@ inl float ->
                             input = modulator()
                             state = modulator()
                             }
-                        bias = Initializer.bias (1,size)
+                        bias = Initializer.constant {dim=1,size; init}
                         }
 
                     {
-                    input=cell()
-                    output=cell()
-                    forget=cell()
-                    memory=cell()
+                    input=cell zero
+                    output=cell zero
+                    forget=cell one
+                    memory=cell zero
                     }
                 size=size
                 }
