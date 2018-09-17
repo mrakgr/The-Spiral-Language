@@ -420,7 +420,7 @@ met train {!data network learning_rate final} s =
         else next()
 
 inl learning_rate = 2f32 ** -12.5f32
-inl n = 0.005f32
+inl n = 0.01f32
 
 inl network,_ = 
     open Feedforward
@@ -449,12 +449,14 @@ inl network,_ =
             concatenative_vanilla_oja = 
                 Modulated.concatenative_vanilla_oja n 64, 
                 Modulated.vanilla_oja n size.pattern 
-            semimodulated_vanilla_oja =
+            semimodulated_vanilla_oja = 
                 Modulated.semimodulated_vanilla_oja n size.pattern
-            semimodulated_vanilla_oja_alt =
+            semimodulated_vanilla_oja_alt = // This one is best for now.
                 Modulated.semimodulated_vanilla_oja_alt n size.pattern
             semimodulated_mi_oja =
                 Modulated.semimodulated_mi_oja n size.pattern
+            rnn =
+                Modulated.rnn size.pattern
             modulated_rnn =
                 Modulated.modulated_rnn size.pattern
             semimodulated_vanilla_oja_alt2 =
@@ -482,4 +484,3 @@ let tests =
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning3
 |> printfn "%s"
 |> ignore
-
