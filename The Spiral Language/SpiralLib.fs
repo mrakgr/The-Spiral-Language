@@ -56,11 +56,13 @@ inl unwrap (x :: () | x) = x
 inl rec foldl f s = function
     | x :: xs -> foldl f (f s x) xs
     | () -> s
+    | x -> f s x
 
 inl rec foldr f l s = 
     match l with
     | x :: xs -> f x (foldr f xs s)
     | () -> s
+    | x -> f x s
 
 inl reducel f l =
     match l with
@@ -96,12 +98,13 @@ inl rec choose f = function
         | () -> choose f a'
         | x -> x :: choose f a'
     | () -> ()
+    | a -> f a
 
 inl rec map2 f a b = 
     match a,b with
     | a :: as', b :: bs' -> f a b :: map2 f as' bs'
     | (), () -> ()
-    | _ -> error_type "The two tuples have uneven lengths." 
+    | a, b -> f a b
 
 inl rec choose2 f a b = 
     match a, b with
@@ -110,42 +113,46 @@ inl rec choose2 f a b =
         | () -> choose2 f as' bs'
         | x -> x :: choose2 f as' bs'
     | (), () -> ()
-    | _ -> error_type "The two tuples have uneven lengths." 
+    | a, b -> f a b
 
 inl rec iter2 f a b = 
     match a,b with
     | a :: as', b :: bs' -> f a b; iter2 f as' bs'
     | (), () -> ()
-    | _ -> error_type "The two tuples have uneven lengths." 
+    | a, b -> f a b; ()
 
 inl rec map3 f a b c = 
     match a,b,c with
     | a :: as', b :: bs', c :: cs' -> f a b c :: map3 f as' bs' cs'
     | (), (), () -> ()
-    | _ -> error_type "The three tuples have uneven lengths." 
+    | a, b, c -> f a b c
 
 inl rec foldl2 f s a b =
     match a,b with
     | a :: as', b :: bs' -> foldl2 f (f s a b) as' bs'
     | (), () -> s
-    | _ -> error_type "The two tuples have uneven lengths." 
+    | a, b -> f s a b
 
 inl rec foldr2 f a b s = 
     match a,b with
     | a :: a', b :: b' -> f a b (foldr2 f a' b' s)
     | (), () -> s
+    | a, b -> f a b s
 
 inl rec forall f = function
     | x :: xs -> f x && forall f xs
     | () -> true
+    | x -> f x
 
 inl rec exists f = function
     | x :: xs -> f x || exists f xs
     | () -> false
+    | x -> f x
 
 inl rec filter f = function
     | x :: xs -> if f x then x :: filter f xs else filter f xs
     | () -> ()
+    | x -> if f x then x else ()
 
 inl is_empty = function
     | _ :: _ -> false
@@ -251,6 +258,9 @@ inl rec foldl_map f s l =
         inl l', s = foldl_map f s l'
         l :: l', s
     | () -> (), s
+    | l ->
+        inl l, s = f s l
+        l, s
 
 inl rec foldr_map f l s = 
     match l with
@@ -259,6 +269,9 @@ inl rec foldr_map f l s =
         inl l, s = f l s
         l :: l', s
     | () -> (), s
+    | l ->
+        inl l, s = f l s
+        l :: l', s
 
 inl mapi f = foldl_map (inl s x -> f s x, s + 1) 0 >> fst
 
@@ -274,6 +287,9 @@ inl rec foldl_map2 f s a b =
         inl l', s = foldl_map2 f s a' b'
         l :: l', s
     | (), () -> (), s
+    | a, b ->
+        inl l, s = f s a b
+        l, s
 
 inl rec map_last f = function
     | x :: () -> f x :: ()
@@ -1376,7 +1392,7 @@ inl map_dim = function
         assert (x > 0) "Tensor needs to be at least size 1."
         {from=0; near_to=x}
 
-inl map_dims = Tuple.map map_dim << Tuple.wrap
+inl map_dims = Tuple.map map_dim
 
 inl span = function
     | {from near_to} -> near_to - from
@@ -1438,7 +1454,7 @@ inl show' {cutoff_near_to} tns =
 inl show = show' {cutoff_near_to=1000}
 
 /// Total tensor size in elements.
-inl length = Tuple.foldl (inl s (!span x) -> s * x) 1 << Tuple.wrap
+inl length = Tuple.foldl (inl s (!span x) -> s * x) 1
 
 /// Splits a tensor's dimensions. Works on non-contiguous tensors.
 /// Given the tensor dimensions (a,b,c) and a function which maps them to (a,(q,w),c)
@@ -1576,7 +1592,7 @@ inl rec facade data =
                 | {from near_to} :: dim ->
                     assert (i >= from && i < near_to) "Argument out of bounds." 
                     {data with bodies = Struct.map (inl ar -> tensor_apply ar (i-from)) self; dim}
-                ) data (Tuple.wrap i)
+                ) data i
             |> facade
         /// Returns the tensor data.
         unwrap = id

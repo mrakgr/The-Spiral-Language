@@ -346,9 +346,7 @@ inl float ->
                     inl out = adjoint out .get
                     Struct.iter2 (inl x -> function
                         | () -> ()
-                        | z -> 
-                            print_static {x out z}
-                            z .set (z .get + out * x)
+                        | z -> z .set (z .get + out * x)
                         ) x (adjoints in)
         }
 
