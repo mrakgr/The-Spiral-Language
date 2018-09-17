@@ -451,8 +451,6 @@ inl network,_ =
                 Modulated.vanilla_oja n size.pattern 
             semimodulated_vanilla_oja = 
                 Modulated.semimodulated_vanilla_oja n size.pattern
-            semimodulated_vanilla_oja_alt = // This one is best for now.
-                Modulated.semimodulated_vanilla_oja_alt n size.pattern
             semimodulated_mi_oja =
                 Modulated.semimodulated_mi_oja n size.pattern
             rnn =
@@ -461,12 +459,16 @@ inl network,_ =
                 Modulated.modulated_rnn size.pattern
             semimodulated_vanilla_oja_alt2 =
                 Modulated.semimodulated_vanilla_oja_alt2 n size.pattern
+            
+            // Advanced
+            semimodulated_vanilla_oja_alt = 
+                Modulated.semimodulated_vanilla_oja_alt {from=0.001f32; near_to=0.1f32} size.pattern
             multiscale_v1 =
                 Modulated.multiscale_v1 (n*3f32, n) size.pattern
             }
         }
 
-    init s size.pattern network.modulated.multiscale_v1
+    init s size.pattern network.modulated.semimodulated_vanilla_oja_alt
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {
@@ -487,7 +489,3 @@ output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\outpu
 |> printfn "%s"
 |> ignore
 
-let f span_inner from near_to a =
-    from + (near_to - from) / span_inner * (float a + 0.5)
-
-f 1.0 1.0 2.0 1

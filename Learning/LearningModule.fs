@@ -1759,7 +1759,7 @@ inl float ->
                     H = b, a
                     n = 
                         match n with
-                        | {from near_to} -> (near_to - from) / span_inner * (to float a + half)
+                        | {from near_to} -> from + (near_to - from) / (span_inner + one) * (float a + one)
                         | _ -> n
                     } 
             inl tanh = tanh_fwd
