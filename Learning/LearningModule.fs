@@ -2747,7 +2747,7 @@ inl float ->
             block = ()
             }
 
-        inl plastic_lstm (!dyn n) size =
+        inl plastic_lstm n size =
             {
             init = inl sublayer_size -> 
                 {
@@ -2773,7 +2773,6 @@ inl float ->
                             state = modulator()
                             }
                         bias = Initializer.bias (1,size)
-                        factor = Initializer.constant {dim=1,size; init=to float 1}
                         }
 
                     {
@@ -2796,14 +2795,16 @@ inl float ->
                             {input=f .input; state=f .state}
                             ) weights
 
-                inl state =
+                inl {state memory} =
                     match d with
-                    | {state={state}} -> state
-                    | _ -> s.CudaTensor.zero {elem_type=float; dim=1,size}
+                    | {state={state memory}} -> {state memory}
+                    | _ -> 
+                        inl f _ = s.CudaTensor.zero {elem_type=float; dim=1,size}
+                        { state=f(); memory=f() }
 
                 inl apply =
-                    inm cell_results =
-                        Struct.map3 (inl {cell=weights} H n ->
+                    inm {out memory} =
+                        Struct.map2 (inl {cell=weights} H ->
                             inm out =
                                 inl calculate k =
                                     inm alpha = 
@@ -2825,30 +2826,25 @@ inl float ->
                                 inm state = calculate .state
                     
                                 activation {
-                                    fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
-                                    bck=inl {in out} ->
-                                        inl out = tanh_bck out
-                                        Struct.map (const out) in
+                                    fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in
+                                    bck=inl {in out} -> Struct.map (const one) in
                                     } {input state bias=weights.bias}
 
                             succ {out block=()}
-                            ) weights H n
+                            ) weights H
                         |> sequence
-
-                    inm out = 
-                        Struct.map2 (inl {cell={factor}} {out} -> {factor out}) weights cell_results
-                        |> attend
+                        >>= lstm_activation memory
 
                     inm H =
-                        Struct.map2 (inl H n ->
+                        Struct.map (inl H ->
                             inl oja_update k = oja_update n {input={input state} k; out H=H k}
                             inm input = oja_update .input
                             inm state = oja_update .state
                             succ {input state}
-                            ) H n
+                            ) H
                         |> sequence
                     
-                    succ {out state={state=out; H}}
+                    succ {out state={state=out; memory H}}
 
                 inl {out={out state} bck} = apply s
                 {out state bck}
@@ -2858,7 +2854,7 @@ inl float ->
         {
         unmodulated_feedforward feedforward rnn unmodulated_vanilla_oja unmodulated_concatenative_vanilla_oja concatenative_vanilla_oja
         vanilla_oja semimodulated_vanilla_oja semimodulated_vanilla_oja_alt semimodulated_mi_oja modulated_rnn semimodulated_vanilla_oja_alt2
-        multiscale_v1
+        multiscale_v1 plastic_lstm
         }
 
     inl RNN = {mi mi_hebb mi_hebb_prong mi_hebb'_prong vanilla_hebb mi_prong mi_prong_alt mi_alt Modulated}
