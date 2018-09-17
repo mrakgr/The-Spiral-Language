@@ -1756,7 +1756,9 @@ inl float ->
             inl index_into (b,a) x = 
                 inl n =
                     match n with
-                    | {from near_to} _ -> from + (near_to - from) / (span_inner + one) * (to float a + one)
+                    | {from near_to} _ -> 
+                        inl from, near_to = log from, log near_to
+                        exp (from + (near_to - from) / (span_inner + one) * (to float a + one))
                     | _ _ -> n
                 Struct.map2 (<|) (Struct.choose id x)
                     {

@@ -495,3 +495,7 @@ output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\outpu
 |> printfn "%s"
 |> ignore
 
+100.0 ** 1.15
+
+125.992105 / 112.2462048
+141.4213562 / 125.992105
