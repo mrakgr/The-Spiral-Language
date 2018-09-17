@@ -2628,7 +2628,7 @@ inl float ->
                     Liple.map (inl {factor out} ->
                         {
                         factor=Struct.foldl (+) zero out
-                        out=Struct.map (inl x -> factor * x) out
+                        out=Struct.map (const factor) out
                         }
                         ) in
                 }
@@ -2723,10 +2723,9 @@ inl float ->
                         |> sequence
 
                     inl H = Struct.map (inl {out H} -> H) cell_results
-                    //inl outs = Struct.map2 (inl {cell={factor}} {out} -> {factor out}) weights cell_results
-                    //inm out = attend outs
-                    inl out = cell_results.out
-
+                    inl outs = Struct.map2 (inl {cell={factor}} {out} -> {factor out}) weights cell_results
+                    inm out = attend outs
+                    
                     succ {out state={state=out; H}}
 
                 inl {out={out state} bck} = apply s
