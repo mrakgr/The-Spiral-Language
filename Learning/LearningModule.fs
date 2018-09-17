@@ -1687,7 +1687,7 @@ inl float ->
             inl sng = {from=0; near_to=1}
             assert_dim .input (sng, b)
             assert_dim .out (sng, a)
-            assert_dim .n (sng, a)
+            assert_dim .n (sng)
 
             inl output_functions =
                 inl add a b = a.set (a.get + b)
@@ -1702,12 +1702,21 @@ inl float ->
                     {
                     input = 0, b
                     out = 0, a
-                    n = 0, a
+                    n = 0
                     H = b, a
                     } 
             inl tanh = tanh_fwd
             inl abs_bck x = if x >= zero then one else -one
 
+            //inl fwd {input out n H} =
+            //    H + n * input * out - abs n * out * out * H
+            //inl bck {input out n H} =
+            //    { 
+            //    input = inl _ -> n * out
+            //    out = inl _ -> n * input - abs n * two * out * H
+            //    H = inl _ -> one - abs n * out * out
+            //    n = inl _ -> input * out - abs_bck n * out * out * H
+            //    }
             inl fwd {input out n H} =
                 H + n * (input * out - out * out * H)
             inl bck {input out n H} =
@@ -2428,7 +2437,7 @@ inl float ->
                                 si = Initializer.constant {dim=1,size; init=to float 1}
                                 i = Initializer.constant {dim=1,size; init=to float 0.5}
                                 s = Initializer.constant {dim=1,size; init=to float 0.5}
-                                c = Initializer.constant {dim=1,size; init=to float 0.01}
+                                c = Initializer.constant {dim=1; init=to float 0.01}
                                 }
                             }
                         state = {
@@ -2438,7 +2447,7 @@ inl float ->
                                 si = Initializer.constant {dim=1,size; init=to float 1}
                                 i = Initializer.constant {dim=1,size; init=to float 0.5}
                                 s = Initializer.constant {dim=1,size; init=to float 0.5}
-                                c = Initializer.constant {dim=1,size; init=to float 0.01}
+                                c = Initializer.constant {dim=1; init=to float 0.01}
                                 }
                             }
                         }
@@ -2491,11 +2500,7 @@ inl float ->
 
                     inm H =
                         inl oja_update k = 
-                            inm n = 
-                                inl modulator = weights.n k
-                                inm input = matmult (input, modulator.input)
-                                inm state = matmult (state, modulator.state)
-                                generalized_mi {modulator with input state}
+                            inl n = weights .n k .bias .c
                             modulated_oja_update {n input={input state} k; out H=H k}
                         inm input = oja_update .input
                         inm state = oja_update .state
