@@ -1709,13 +1709,13 @@ inl float ->
             inl abs_bck x = if x >= zero then one else -one
 
             inl fwd {input out n H} =
-                H + n * input * out - abs n * out * out * H
+                H + n * (input * out - out * out * H)
             inl bck {input out n H} =
                 { 
                 input = inl _ -> n * out
-                out = inl _ -> n * input - abs n * two * out * H
-                H = inl _ -> one - abs n * out * out
-                n = inl _ -> input * out - abs_bck n * out * out * H
+                out = inl _ -> n * input - two * out * H
+                H = inl _ -> one - out * out
+                n = inl _ -> input * out
                 }
             hebb_template {output_functions index_into fwd bck dim} ins
 
@@ -2400,8 +2400,8 @@ inl float ->
                     input = Initializer.dr (Initializer.identity (sublayer_size, size))
                     modulator = {
                         input = {
-                            input = Initializer.bias (sublayer_size, size)
-                            state = Initializer.bias (size, size)
+                            input = Initializer.randn {stddev=0.001f32; dim=sublayer_size, size}
+                            state = Initializer.randn {stddev=0.001f32; dim=size, size}
                             bias = {
                                 si = Initializer.constant {dim=1,size; init=to float 1}
                                 i = Initializer.constant {dim=1,size; init=to float 0.5}
@@ -2410,8 +2410,8 @@ inl float ->
                                 }
                             }
                         state = {
-                            input = Initializer.bias (sublayer_size, size)
-                            state = Initializer.bias (size, size)
+                            input = Initializer.randn {stddev=0.001f32; dim=sublayer_size, size}
+                            state = Initializer.randn {stddev=0.001f32; dim=size, size}
                             bias = {
                                 si = Initializer.constant {dim=1,size; init=to float 1}
                                 i = Initializer.constant {dim=1,size; init=to float 0.5}
@@ -2419,10 +2419,11 @@ inl float ->
                                 c = Initializer.bias (1,size)
                                 }
                             }
+                        }
                     n = {
                         input = {
-                            input = Initializer.bias (sublayer_size, size)
-                            state = Initializer.bias (size, size)
+                            input = Initializer.randn {stddev=0.001f32; dim=sublayer_size, size}
+                            state = Initializer.randn {stddev=0.001f32; dim=size, size}
                             bias = {
                                 si = Initializer.constant {dim=1,size; init=to float 1}
                                 i = Initializer.constant {dim=1,size; init=to float 0.5}
@@ -2431,8 +2432,8 @@ inl float ->
                                 }
                             }
                         state = {
-                            input = Initializer.bias (sublayer_size, size)
-                            state = Initializer.bias (size, size)
+                            input = Initializer.randn {stddev=0.001f32; dim=sublayer_size, size}
+                            state = Initializer.randn {stddev=0.001f32; dim=size, size}
                             bias = {
                                 si = Initializer.constant {dim=1,size; init=to float 1}
                                 i = Initializer.constant {dim=1,size; init=to float 0.5}
