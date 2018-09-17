@@ -447,7 +447,7 @@ inl network,_ =
                 Modulated.unmodulated_concatenative_vanilla_oja n 64,
                 Modulated.unmodulated_vanilla_oja n size.pattern
             concatenative_vanilla_oja = 
-                Modulated.concatenative_vanilla_oja n 64,
+                Modulated.concatenative_vanilla_oja n 64, 
                 Modulated.vanilla_oja n size.pattern 
             semimodulated_vanilla_oja =
                 Modulated.semimodulated_vanilla_oja n size.pattern
