@@ -2613,18 +2613,17 @@ inl float ->
         inl attend =
             activation {
                 fwd=
-                    Tuple.wrap 
-                    >> Tuple.foldl (inl s {factor out} ->
+                    Tuple.foldl (inl s {factor out} ->
                         inl out = Struct.foldl (+) zero out
                         s + factor * out
                         ) zero
                 bck=inl {in out} ->
-                    Tuple.wrap in |> Tuple.map (inl {factor out} ->
+                    Tuple.map (inl {factor out} ->
                         {
                         factor=Struct.foldl (+) zero out
                         out=Struct.map (inl x -> factor * x) out
                         }
-                        ) 
+                        ) in 
                 }
 
         inl multiscale_v1 (!dyn n) size =
