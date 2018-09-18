@@ -154,7 +154,7 @@ inl activation_lstm dim x =
     inm _ = try_link_adjoint dim {from to={out={memory}}}
                 
     inm out =
-        inm memory_new = tanh memory
+        inm memory = tanh memory
         inm output = sigmoid output_cell
         output * memory
     inm _ = try_link_adjoint dim {from to={out={out}}}
@@ -2918,40 +2918,40 @@ inl float ->
             block = ()
             }
 
-        //inl activation_lstm memory_old {ins with input_cell output_cell forget_cell memory_cell} s =
-        //    inl b,a as dim = primal memory_old .dim
-        //    inl primals_ins = primals ins
-        //    assert_dim primals_ins (Struct.map (const dim) primals_ins)
-        //    inl in = {ins with memory_old}
+        inl activation_lstm memory_old {ins with input_cell output_cell forget_cell memory_cell} s =
+            inl b,a as dim = primal memory_old .dim
+            inl primals_ins = primals ins
+            assert_dim primals_ins (Struct.map (const dim) primals_ins)
+            inl in = {ins with memory_old}
             
-        //    inl out =
-        //        inl x = to_dev_tensor {in=primals in}
-        //        s.CudaFun.init {dim} (inl dim -> CudaAD.activation_lstm dim x .out |> primals)
-        //        |> HostTensor.unzip
-        //        |> Struct.map (dr s)
+            inl out =
+                inl x = to_dev_tensor {in=primals in}
+                s.CudaFun.init {dim} (inl dim -> CudaAD.activation_lstm dim x .out |> primals)
+                |> HostTensor.unzip
+                |> Struct.map (dr s)
 
-        //    {
-        //    out
-        //    bck=met _ ->
-        //        inl x = to_dev_tensor {in out}
-        //        s.CudaKernel.iter {dim} (inl dim -> CudaAD.activation_lstm dim x |> CudaAD.run |> ignore)
-        //    }
+            {
+            out
+            bck=met _ ->
+                inl x = to_dev_tensor {in out}
+                s.CudaKernel.iter {dim} (inl dim -> CudaAD.activation_lstm dim x |> CudaAD.run |> ignore)
+            }
 
-        inl activation_lstm memory_old {ins with input_cell output_cell forget_cell memory_cell} =
-            inm memory = 
-                inm input = sigmoid input_cell
-                inm forget = sigmoid forget_cell
-                inm memory = tanh memory_cell
-                inm a = hadmult (input,memory)
-                inm b = hadmult (forget,memory_old)
-                add (a, b)
+        //inl activation_lstm memory_old {ins with input_cell output_cell forget_cell memory_cell} =
+        //    inm memory = 
+        //        inm input = sigmoid input_cell
+        //        inm forget = sigmoid forget_cell
+        //        inm memory = tanh memory_cell
+        //        inm a = hadmult (input,memory)
+        //        inm b = hadmult (forget,memory_old)
+        //        add (a, b)
 
-            inm out =
-                inm memory = tanh memory
-                inm output = sigmoid output_cell
-                hadmult (output, memory)
+        //    inm out =
+        //        inm memory = tanh memory
+        //        inm output = sigmoid output_cell
+        //        hadmult (output, memory)
 
-            succ {memory out}
+        //    succ {memory out}
 
         inl plastic_lstm n size =
             {
