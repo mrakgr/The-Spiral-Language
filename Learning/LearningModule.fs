@@ -734,11 +734,11 @@ inl float ->
             | {weights} -> 
                 inl rec loop x =
                     Struct.iter (function
-                        | {cell} -> loop cell
-                        | x -> sgd learning_rate s x
+                        | {primal adjoint} & x -> sgd learning_rate s x
+                        | {} & x -> loop {x without block}
+                        | x -> ()
                         ) x
                 loop weights
-                        
             )
 
     inl Optimizer = {sgd clipped_sgd standard prong}
