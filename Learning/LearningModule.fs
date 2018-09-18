@@ -2829,14 +2829,13 @@ inl float ->
                 }
 
             inl link_adjoint dim {from to} =
-                inl out =
-                    Struct.iter2 (inl from to ->
-                        match from, to with
-                        | {adjoint=from}, {adjoint=to} -> to 0 <- from 0
-                        | _ -> ()
-                        ) from to
+                Struct.iter2 (inl from to ->
+                    match from, to with
+                    | {adjoint=from}, {adjoint=to} -> to 0 <- from 0
+                    | _ -> ()
+                    ) from to
                 {
-                out
+                out=()
                 bck=inl _ ->
                     Struct.iter2 (inl from to ->
                         match from, to with
@@ -2852,22 +2851,36 @@ inl float ->
 
             inl succ out = {out bck=const ()}
 
+            inl activation_lstm x =
+                inm {memory'' out} = 
+                    match x with
+                    | {out={memory'' out}} -> link dim outs
+                    | _ -> succ {memory''=(); out=()}
+                inm {input output memory forget memory_old} = link dim x.in
+
+                inm input' = sigmoid input
+                inm forget' = sigmoid forget
+                inm output' = sigmoid output
+                inm memory' = tanh memory
+                inm memory'' =
+                    inm a = input' * memory'
+                    inm b = forget' * memory_old
+                    inm to = a + b
+                    inm _ = link_adjoint dim {from=memory''; to}
+                    succ to
+                inm memory''' = tanh memory''
+                inm out =
+                    inm to = output' * memory'''
+                    inm _ = link_adjoint dim {from=out; to}
+                    succ to
+                succ out
+
             inl {memory'' out} =
                 inl ins = primals ins
                 inl ins = to_dev_tensor {ins with memory_old}
                 s.CudaFun.map {dim} (inl dim ->
                     
-                    //inl {input output memory forget memory_old} = Tuple.map (inl x -> x dim .get) ins
 
-                    //inl input' = sigmoid_fwd input
-                    //inl forget' = sigmoid_fwd forget
-                    //inl output' = sigmoid_fwd output
-                    //inl memory' = tanh_fwd memory
-                    //inl memory'' = input' * memory' + forget' * memory_old
-                    //inl memory''' = tanh memory''
-                    //inl out = output' * memory'''
-
-                    //{memory'' out}
                     )
                 |> Struct.map (dr s)
 
