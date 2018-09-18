@@ -947,7 +947,7 @@ inl float ->
                 | .mod -> mod
                 | .reset -> r := init
                 |> stack
-            | {x with unwrap} -> initialize s unwrap |> inl x -> {x with block=()}
+            | {x with wrap} -> initialize s wrap |> inl x -> {x with block=()}
             | x -> x
             ) x
 
@@ -2829,20 +2829,21 @@ inl float ->
                             }
                         }
 
-                    inl cell _ =
-                        {
-                        input = Initializer.dr (Initializer.identity (sublayer_size, size))
-                        state = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        modulator = 
-                            {
-                            input = modulator()
-                            state = modulator()
+                    inl cell _ = {
+                        wrap = {
+                            input = Initializer.dr (Initializer.identity (sublayer_size, size))
+                            state = Initializer.randn {stddev=0.01f32; dim=size, size}
+                            modulator = {
+                                input = modulator()
+                                state = modulator()
+                                }
+                            bias = Initializer.bias (1,size)
+                            factor = Initializer.constant {dim=1,size; init=to float 1}
                             }
-                        bias = Initializer.bias (1,size)
-                        factor = Initializer.constant {dim=1,size; init=to float 1}
+                        block=()
                         }
 
-                    Struct.map (inl _ -> {cell=cell(); block=()}) n
+                    Struct.map (inl _ -> cell()) n
                 size=size
                 }
 
@@ -2852,11 +2853,11 @@ inl float ->
                     match d with
                     | {state={H}} -> H
                     | _ -> 
-                        Struct.map (inl {cell=weights} ->
+                        Struct.map (inl weights ->
                             inl f k = s.CudaTensor.zero_like (primal (weights k))
                             {input=f .input; state=f .state}
                             ) weights
-
+                
                 inl state =
                     match d with
                     | {state={state}} -> state
@@ -2864,7 +2865,7 @@ inl float ->
 
                 inl apply =
                     inm cell_results =
-                        Struct.map3 (inl {cell=weights} H n ->
+                        Struct.map3 (inl weights H n ->
                             inm out =
                                 inl calculate k =
                                     inm alpha = 
@@ -2898,7 +2899,7 @@ inl float ->
                         |> sequence
 
                     inm out = 
-                        Struct.map2 (inl {cell={factor}} {out} -> {factor out}) weights cell_results
+                        Struct.map2 (inl {factor} {out} -> {factor out}) weights cell_results
                         |> attend
 
                     inm H =
@@ -2953,8 +2954,7 @@ inl float ->
                         }
 
                     inl cell init = {
-                        unwrap=
-                            {
+                        wrap = {
                             input = Initializer.dr (Initializer.identity (sublayer_size, size))
                             state = Initializer.randn {stddev=0.01f32; dim=size, size}
                             modulator = 
