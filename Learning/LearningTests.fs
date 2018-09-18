@@ -474,7 +474,7 @@ inl network,_ =
             }
         }
 
-    init s size.pattern network.advanced.multiscale_v1
+    init s size.pattern network.advanced.plastic_lstm
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {

@@ -148,7 +148,7 @@ inl activation_lstm dim x =
         inm forget = sigmoid forget_cell
         inm memory = tanh memory_cell
 
-        inm a = input * memory_cell
+        inm a = input * memory
         inm b = forget * memory_old
         a + b
     inm _ = try_link_adjoint dim {from to={out={memory}}}
@@ -2918,24 +2918,37 @@ inl float ->
             block = ()
             }
 
-        inl activation_lstm memory_old {ins with input_cell output_cell forget_cell memory_cell} s =
-            inl b,a as dim = primal memory_old .dim
-            inl primals_ins = primals ins
-            assert_dim primals_ins (Struct.map (const dim) primals_ins)
-            inl in = {ins with memory_old}
+        //inl activation_lstm memory_old {ins with input_cell output_cell forget_cell memory_cell} s =
+        //    inl b,a as dim = primal memory_old .dim
+        //    inl primals_ins = primals ins
+        //    assert_dim primals_ins (Struct.map (const dim) primals_ins)
+        //    inl in = {ins with memory_old}
             
-            inl out =
-                inl x = to_dev_tensor {in=primals in}
-                s.CudaFun.init {dim} (inl dim -> CudaAD.activation_lstm dim x .out |> primals)
-                |> HostTensor.unzip
-                |> Struct.map (dr s)
+        //    inl out =
+        //        inl x = to_dev_tensor {in=primals in}
+        //        s.CudaFun.init {dim} (inl dim -> CudaAD.activation_lstm dim x .out |> primals)
+        //        |> HostTensor.unzip
+        //        |> Struct.map (dr s)
 
-            {
-            out
-            bck=met _ ->
-                inl x = to_dev_tensor {in out}
-                s.CudaKernel.iter {dim} (inl dim -> CudaAD.activation_lstm dim x |> CudaAD.run |> ignore)
-            }
+        //    {
+        //    out
+        //    bck=met _ ->
+        //        inl x = to_dev_tensor {in out}
+        //        s.CudaKernel.iter {dim} (inl dim -> CudaAD.activation_lstm dim x |> CudaAD.run |> ignore)
+        //    }
+
+        inl activation_lstm memory_old {ins with input_cell output_cell forget_cell memory_cell} =
+            inm f = sigmoid forget_cell
+            inm i' = sigmoid input_cell
+            inm o = sigmoid output_cell
+            inm c' = tanh memory_cell
+            inm c =
+                inm x1 = hadmult (f,memory_old)
+                inm x2 = hadmult (i',c')
+                add (x1, x2)
+            inm h' = tanh c
+            inm h = hadmult (o, h')
+            succ {memory=c; out=h}
 
         inl plastic_lstm n size =
             {
