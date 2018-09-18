@@ -94,7 +94,7 @@ inl link dim x =
         |> Struct.map (inl x ->
             match x with
             | {adjoint} -> 
-                inl ar = cuda_create_local_array adjoint 1
+                inl ar = array_create_cuda_local adjoint 1
                 ar 0 <- adjoint
                 {x with adjoint=ar}
             | _ -> 
@@ -132,16 +132,7 @@ inl sequence x =
     {out bck}
 
 inl try_link_adjoint dim {from to} =
-    Struct.map2 (inl from to ->
-        inl x =
-            match from with
-            | {} | () -> succ ()
-            | from ->
-                match to with 
-                | {} | () -> succ ()
-                | to -> link_adjoint dim {from to}
-        {x with block=()}
-        ) from to
+    module_intersect (inl from to -> link_adjoint dim {from to}) from to
     |> sequence
 
 inl run {out bck} = Struct.foldr (<|) bck (); out
@@ -150,9 +141,9 @@ inl activation_lstm dim x =
     inm {from with in={input_cell output_cell memory_cell forget_cell memory_old}} = link dim x
 
     inm memory =
-        inm input_cell = sigmoid input_cell
-        inm forget_cell = sigmoid forget_cell
-        inm memory_cell = tanh memory_cell
+        inm input = sigmoid input_cell
+        inm forget = sigmoid forget_cell
+        inm memory = tanh memory_cell
 
         inm a = input * memory_cell
         inm b = forget * memory_old
@@ -161,7 +152,7 @@ inl activation_lstm dim x =
                 
     inm out =
         inm memory_new = tanh memory
-        inm output = sigmoid output
+        inm output = sigmoid output_cell
         output * memory
     inm _ = try_link_adjoint dim {from to={out={out}}}
 
@@ -1864,11 +1855,12 @@ inl float ->
     inl Modulated = // This is experimental for now.
         inl modulated_oja_update {ins with input out n H} =
             inl b,a as dim = primal H .dim
-            inl assert_dim = assert_dim (primals ins)
             inl sng = {from=0; near_to=1}
-            assert_dim .input (sng, b)
-            assert_dim .out (sng, a)
-            assert_dim .n (sng)
+            assert_dim (primals ins) {
+                input=sng, b
+                out=sng, a
+                n=sng
+                }
 
             inl output_functions =
                 inl add a b = a.set (a.get + b)
@@ -1912,10 +1904,11 @@ inl float ->
         inl oja_update n {ins with input out H} =
             inl b,a as dim = primal H .dim
             inl span_inner = HostTensor.span a |> to float
-            inl assert_dim = assert_dim (primals ins)
             inl sng = {from=0; near_to=1}
-            assert_dim .input (sng, b)
-            assert_dim .out (sng, a)
+            assert_dim (primals ins) {
+                input=sng, b
+                out=sng, a
+                }
 
             inl output_functions =
                 inl add a b = a.set (a.get + b)
@@ -2921,21 +2914,22 @@ inl float ->
             }
 
         inl activation_lstm memory_old {ins with input_cell output_cell forget_cell memory_cell} s =
-            inl b,a as dim = memory_old.dim
-            inl assert_dim = assert_dim (primals ins)
-            Liple.iter (inl k -> assert_dim k dim) (.input,.output,.forget,.memory)
+            inl b,a as dim = primal memory_old .dim
+            inl primals_ins = primals ins
+            assert_dim primals_ins (Struct.map (const dim) primals_ins)
             inl in = {ins with memory_old}
-
+            
             inl out =
                 inl x = to_dev_tensor {in=primals in}
-                s.CudaFun.init {dim} (inl dim -> CudaAD.activation_lstm dim x .out)
+                s.CudaFun.init {dim} (inl dim -> CudaAD.activation_lstm dim x .out |> primals)
+                |> HostTensor.unzip
                 |> Struct.map (dr s)
 
             {
             out
             bck=met _ ->
                 inl x = to_dev_tensor {in out}
-                s.CudaKernel.iter {dim} (inl dim -> CudaAD.activation_lstm x |> CudaAD.run)
+                s.CudaKernel.iter {dim} (inl dim -> CudaAD.activation_lstm dim x |> CudaAD.run |> ignore)
             }
 
         inl plastic_lstm n size =
@@ -3026,12 +3020,12 @@ inl float ->
                         >>= activation_lstm memory_old
 
                     inm H =
-                        Struct.map (inl H ->
+                        Struct.map2 (inl _ H ->
                             inl oja_update k = oja_update n {input={input state} k; out H=H k}
                             inm input = oja_update .input
                             inm state = oja_update .state
                             succ {input state}
-                            ) H
+                            ) weights H
                         |> sequence
                     
                     succ {out state={state=out; memory_old=memory; H}}

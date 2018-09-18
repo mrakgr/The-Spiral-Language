@@ -170,13 +170,19 @@ inl atomic_add o x =
     inl adr = macro.cd ar [arg: ar; text: " + "; arg: offset]
     macro.cd () [text: "atomicAdd"; args: adr, x]
 
-inl assert_dim =
-    module_map <| inl k dim ->
-        Struct.foldr2 (inl a b i -> 
-            assert (a = b) (string_format "The {0}th dimension of {1} must match. {2} <> {3}" (i,type_lit_cast k,a,b))
-            i+1
-            ) (in .dim |> Tuple.unwrap) dim 0
-        |> ignore
+inl assert_dim in =
+    module_map (inl k dim ->
+        match in with
+        | {$k=in} ->
+            Struct.foldr2 (inl a b i -> 
+                assert (a = b) (string_format "The {0}th dimension of {1} must match. {2} <> {3}" (i,type_lit_cast k,a,b))
+                i+1
+                ) (in .dim |> Tuple.unwrap) dim 0
+            |> ignore
+        | _ ->
+            ()
+        )
+    >> ignore
 
 {ptr_cuda to_dev_tensor allocator_block_size temporary atomic_add assert_dim} |> stackify
     """
@@ -1975,11 +1981,11 @@ inl redo_map w d in =
         inl in = match d with {mid} -> {in with mid=zip mid} | _ -> in
         inl b,a as dim = in.in.dim
 
-        inl assert_dim = assert_dim in
-
-        assert_dim .in_inner a
-        assert_dim .mid a
-        assert_dim .in_outer b
+        assert_dim in {
+            in_inner=a
+            mid=a
+            in_outer=b
+            }
 
         inl map_out = match d with {map_out} -> (inl _ -> map_out) | {mapi_out} -> mapi_out | _ -> (inl _ {out} -> out)
         inl out = 
@@ -2058,11 +2064,11 @@ inl map_redo w d in =
         inl in = match d with {mid} -> {in with mid=zip mid} | _ -> in
         inl b,a as dim = in.in.dim
 
-        inl assert_dim = assert_dim in
-
-        assert_dim .in_inner a
-        assert_dim .mid b
-        assert_dim .in_outer b
+        assert_dim in { 
+            in_inner=a
+            mid=b
+            in_outer=b
+            }
 
         inl map_out = match d with {map_out} -> (inl _ -> map_out) | {mapi_out} -> mapi_out | _ -> (inl _ {out} -> out)
         inl out = 

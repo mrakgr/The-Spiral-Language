@@ -306,6 +306,18 @@ inl module_foldl_map f s =
         m, s
         ) ({}, s)
 
+/// Maps the leaves of the intersection of the two modules.
+inl module_intersect f a b = 
+    inl rec loop = function
+        | {} & a, {} & b ->
+            module_foldl (inl k m a ->
+                match b with
+                | {$k=b} -> {m with $k=loop (a,b)}
+                | _ -> m
+                ) {} a
+        | a,b -> f a b
+    loop (a,b)
+
 {
 type_lit_lift error_type print_static dyn (=>) cd fs log exp tanh sqrt array_create array_length array_is array
 split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
@@ -315,6 +327,7 @@ string_length lit_is box_is failwith assert max min eq_type module_values caseab
 (:?>) (=) module_map module_filter module_foldl module_foldr module_has_member sizeof string_format string_concat
 array_create_cuda_shared array_create_cuda_local infinityf64 infinityf32 abs blittable_is threadIdx blockIdx
 lit_min lit_max var module_add module_remove obj nan_is stackify case_foldl_map module_foldl_map module_length
+module_intersect
 }
 |> module_map (const stack)
     """) |> module_
