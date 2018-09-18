@@ -1919,7 +1919,9 @@ inl map w d in =
                 inl out=zip out
                 assert (dim = out.dim) "The input and the output must have the same dimensions."
                 out
-            | _ -> w.CudaTensor.create {dim elem_type=type map (index_example dim) in.elem_type}
+            | _ -> 
+                inl elem_type = type map (index_example dim) in.elem_type
+                w.CudaTensor.create {dim elem_type}
         inl _ =
             inl in, out = to_dev_tensor (in, out)
             w.CudaKernel.iter {dim} <| inl i -> out i .set (map i (in i .get))

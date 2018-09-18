@@ -498,8 +498,9 @@ inl float ->
     inl activation {fwd bck} in s =
         inl x = primals in |> HostTensor.zip
         inl dim = x.dim
+        
         inl out = s.CudaFun.map {map=fwd} x |> dr s
-
+        
         {
         out
         bck=inl _ -> join
@@ -646,8 +647,8 @@ inl float ->
     inl succ out _ = {out bck=()}
 
     // #Activation
-    inl sigmoid_fwd x = CudaAD.sigmoid_fwd
-    inl sigmoid_bck out = CudaAD.sigmoid_bck
+    inl sigmoid_fwd = CudaAD.sigmoid_fwd
+    inl sigmoid_bck = CudaAD.sigmoid_bck
 
     inl sigmoid = activation {
         fwd = sigmoid_fwd
@@ -655,15 +656,15 @@ inl float ->
         }
 
     inl tanh_fwd = CudaAD.tanh_fwd
-    inl tanh_bck out = CudaAD.tanh_bck
+    inl tanh_bck = CudaAD.tanh_bck
 
     inl tanh = activation {
         fwd = tanh_fwd
         bck = inl {out} -> tanh_bck out
         }
 
-    inl relu_fwd x = CudaAD.relu_fwd
-    inl relu_bck out = CudaAD.relu_bck
+    inl relu_fwd = CudaAD.relu_fwd
+    inl relu_bck = CudaAD.relu_bck
 
     inl relu = activation {
         fwd = relu_fwd
