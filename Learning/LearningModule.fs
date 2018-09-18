@@ -5,6 +5,160 @@ open Spiral.Types
 open Spiral.Lib
 open Cuda.Lib
 
+let cuda_ad =
+    (
+    "CudaAD",[struct';liple],"The CudaAD module",
+    """
+inl zero = 0f32
+inl half = 0.5f32
+inl one = 1f32
+inl two = 2f32
+
+inl (>>=) a b =
+    inl {out=a bck=bck_a} = a
+    inl {out=b bck=bck_b} = b a
+    {out=b; bck=bck_a,bck_b}
+
+inl succ out = {out bck=const ()}
+
+inl dr x =
+    {
+    primal=x
+    adjoint=
+        inl x = array_create_cuda_local x 1
+        x <- zero
+        x
+    block=()
+    }
+
+inl set_adjoint x out =
+    match x with
+    | {adjoint} -> adjoint 0 <- out ()
+    | _ -> ()
+
+inl get_adjoint {adjoint} = adjoint 0
+
+inl sigmoid x =
+    inl out = primal x |> sigmoid_fwd |> dr
+    {
+    out
+    bck=inl _ -> set_adjoint x (inl _ -> sigmoid_bck (primal out) * get_adjoint out)
+    }
+
+inl tanh x =
+    inl out = primal x |> tanh_fwd |> dr
+    {
+    out
+    bck=inl _ -> set_adjoint x (inl _ -> tanh_bck (primal out) * get_adjoint out)
+    }
+
+inl (*) a b =
+    inl out = primal a * primal b |> dr
+    {
+    out
+    bck=inl _ ->
+        set_adjoint a (inl _ -> primal b * get_adjoint out)
+        set_adjoint b (inl _ -> primal a * get_adjoint out)
+    }
+
+inl (+) a b =
+    inl out = primal a + primal b |> dr
+    {
+    out
+    bck=inl _ ->
+        set_adjoint a (inl _ -> get_adjoint out)
+        set_adjoint b (inl _ -> get_adjoint out)
+    }
+
+inl link dim x =
+    inl out = 
+        Struct.map' (inl x -> x dim .get) x
+        |> Struct.map (inl x ->
+            match x with
+            | {adjoint} -> 
+                inl ar = cuda_create_local_array adjoint 1
+                ar <- adjoint
+                {x with adjoint=ar}
+            | _ -> 
+                x
+                )
+    {
+    out
+    bck = inl _ ->
+        Struct.iter2 (inl x out ->
+            match x, out with
+            | {adjoint=x}, {adjoint=out} -> x dim .set (out 0)
+            | _ -> ()
+            ) x out
+    }
+
+inl link_adjoint dim {from to} =
+    Struct.iter2 (inl from to ->
+        match from, to with
+        | {adjoint=from}, {adjoint=to} -> to 0 <- from 0
+        | _ -> ()
+        ) from to
+    {
+    out=()
+    bck=inl _ ->
+        Struct.iter2 (inl from to ->
+            match from, to with
+            | {adjoint=from}, {adjoint=to} -> from 0 <- to 0
+            | _ -> ()
+            ) from to
+    }
+
+inl sequence x =
+    inl out = Struct.map (inl {out} -> out) x
+    inl bck = Struct.map (inl {bkc} -> bck) x
+    {out bck}
+
+inl try_link_adjoint dim {from to} =
+    Struct.map2 (inl from to ->
+        inl x =
+            match from with
+            | {} | () -> succ ()
+            | from ->
+                match to with 
+                | {} | () -> succ ()
+                | to -> link_adjoint dim {from to}
+        {x with block=()}
+        ) from to
+    |> sequence
+
+inl run_bcks {out bck} = Struct.foldr (<|) bck ()
+
+inl activation_lstm dim x =
+    inm {x with in={input output memory forget memory_old}} = link dim x
+
+    inm memory_new =
+        inm input = sigmoid input
+        inm forget = sigmoid forget
+                    
+        inm memory = tanh memory
+        inm a = input * memory
+        inm b = forget * memory_new
+        inm to = a + b
+        inm _ = try_link_adjoint dim {from to={out={memory_new=to}}}
+        succ to
+                
+    inm out =
+        inm memory_new = tanh memory_new
+        inm output = sigmoid output
+        inm to = output * memory_new
+        inm _ = try_link_adjoint dim {from to={out={out=to}}}
+        succ to
+
+    succ {memory_new out}
+
+{
+(>>=) succ dr sigmoid tanh (+) (*) link link_adjoint sequence try_link_adjoint run_bcks
+lstm_activation
+}
+|> stackify
+    """
+    )
+
 let union =
     (
     "Union",[tuple;console;option;list],"The Union module.",
@@ -2757,126 +2911,6 @@ inl float ->
             assert_dim .forget dim
             assert_dim .memory dim
 
-            inl drc x =
-                {
-                primal=x
-                adjoint=
-                    inl x = array_create_cuda_local x 1
-                    x <- zero
-                    x
-                block=()
-                }
-
-            inl set_adjoint x out =
-                match x with
-                | {adjoint} -> adjoint 0 <- out ()
-                | _ -> ()
-
-            inl get_adjoint {adjoint} = adjoint 0
-
-            inl sigmoid x =
-                inl out = primal x |> sigmoid_fwd |> drc
-                {
-                out
-                bck=inl _ -> set_adjoint x (inl _ -> sigmoid_bck (primal out) * get_adjoint out)
-                }
-
-            inl tanh x =
-                inl out = primal x |> tanh_fwd |> drc
-                {
-                out
-                bck=inl _ -> set_adjoint x (inl _ -> tanh_bck (primal out) * get_adjoint out)
-                }
-
-            inl (*) a b =
-                inl out = primal a * primal b |> drc
-                {
-                out
-                bck=inl _ ->
-                    set_adjoint a (inl _ -> primal b * get_adjoint out)
-                    set_adjoint b (inl _ -> primal a * get_adjoint out)
-                }
-
-            inl (+) a b =
-                inl out = primal a + primal b |> drc
-                {
-                out
-                bck=inl _ ->
-                    set_adjoint a (inl _ -> get_adjoint out)
-                    set_adjoint b (inl _ -> get_adjoint out)
-                }
-
-            inl link dim x =
-                inl out = 
-                    Struct.map' (inl x -> x dim .get) x
-                    |> Struct.map (inl x ->
-                        match x with
-                        | {adjoint} -> 
-                            inl ar = cuda_create_local_array adjoint 1
-                            ar <- adjoint
-                            {x with adjoint=ar}
-                        | _ -> 
-                            x
-                            )
-                {
-                out
-                bck = inl _ ->
-                    Struct.iter2 (inl x out ->
-                        match x, out with
-                        | {adjoint=x}, {adjoint=out} -> x dim .set (out 0)
-                        | _ -> ()
-                        ) x out
-                }
-
-            inl link_adjoint dim {from to} =
-                Struct.iter2 (inl from to ->
-                    match from, to with
-                    | {adjoint=from}, {adjoint=to} -> to 0 <- from 0
-                    | _ -> ()
-                    ) from to
-                {
-                out=()
-                bck=inl _ ->
-                    Struct.iter2 (inl from to ->
-                        match from, to with
-                        | {adjoint=from}, {adjoint=to} -> from 0 <- to 0
-                        | _ -> ()
-                        ) from to
-                }
-
-            inl (>>=) a b =
-                inl {out=a bck=bck_a} = a
-                inl {out=b bck=bck_b} = b a
-                {out=b; bck=bck_a,bck_b}
-
-            inl succ out = {out bck=const ()}
-
-            inl activation_lstm dim x =
-                inm {memory_new out} = 
-                    match x with
-                    | {out={memory out}} -> link dim outs
-                    | _ -> succ {memory_new=(); out=()}
-                inm {input output memory forget memory_old} = link dim x.in
-
-                inm memory_new =
-                    inm input = sigmoid input
-                    inm forget = sigmoid forget
-                    
-                    inm memory = tanh memory
-                    inm a = input * memory
-                    inm b = forget * memory_new
-                    inm to = a + b
-                    inm _ = link_adjoint dim {from=memory_new; to}
-                    succ to
-                
-                inm out =
-                    inm memory_new = tanh memory_new
-                    inm output = sigmoid output
-                    inm to = output * memory_new
-                    inm _ = link_adjoint dim {from=out; to}
-                    succ to
-
-                succ {memory_new out}
 
             inl {memory'' out} =
                 inl ins = primals ins
