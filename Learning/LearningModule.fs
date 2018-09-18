@@ -26,7 +26,7 @@ inl dr x =
     primal=x
     adjoint=
         inl x = array_create_cuda_local x 1
-        x <- zero
+        x 0 <- zero
         x
     block=()
     }
@@ -38,6 +38,11 @@ inl set_adjoint x out =
 
 inl get_adjoint {adjoint} = adjoint 0
 
+inl primal = Struct.map (inl {primal} | primal -> primal)
+
+inl sigmoid_fwd x = one / (one + exp -x)
+inl sigmoid_bck out = out * (one - out)
+
 inl sigmoid x =
     inl out = primal x |> sigmoid_fwd |> dr
     {
@@ -45,11 +50,24 @@ inl sigmoid x =
     bck=inl _ -> set_adjoint x (inl _ -> sigmoid_bck (primal out) * get_adjoint out)
     }
 
+inl tanh_fwd = tanh
+inl tanh_bck out = one - out * out
+
 inl tanh x =
     inl out = primal x |> tanh_fwd |> dr
     {
     out
     bck=inl _ -> set_adjoint x (inl _ -> tanh_bck (primal out) * get_adjoint out)
+    }
+
+inl relu_fwd x = if x > zero then x else zero
+inl relu_bck out = if out > zero then one else zero
+
+inl relu x =
+    inl out = primal x |> relu_fwd |> dr
+    {
+    out
+    bck=inl _ -> set_adjoint x (inl _ -> relu_bck (primal out) * get_adjoint out)
     }
 
 inl (*) a b =
@@ -77,7 +95,7 @@ inl link dim x =
             match x with
             | {adjoint} -> 
                 inl ar = cuda_create_local_array adjoint 1
-                ar <- adjoint
+                ar 0 <- adjoint
                 {x with adjoint=ar}
             | _ -> 
                 x
@@ -129,35 +147,34 @@ inl try_link_adjoint dim {from to} =
 inl run {out bck} = Struct.foldr (<|) bck (); out
 
 inl activation_lstm dim x =
-    inm {x with in={input output memory forget memory_old}} = link dim x
+    inm {from with in={input_cell output_cell memory_cell forget_cell memory_old}} = link dim x
 
-    inm memory_new =
-        inm input = sigmoid input
-        inm forget = sigmoid forget
-                    
-        inm memory = tanh memory
-        inm a = input * memory
-        inm b = forget * memory_new
-        inm to = a + b
-        inm _ = try_link_adjoint dim {from to={out={memory_new=to}}}
-        succ to
+    inm memory =
+        inm input_cell = sigmoid input_cell
+        inm forget_cell = sigmoid forget_cell
+        inm memory_cell = tanh memory_cell
+
+        inm a = input * memory_cell
+        inm b = forget * memory_old
+        a + b
+    inm _ = try_link_adjoint dim {from to={out={memory}}}
                 
     inm out =
-        inm memory_new = tanh memory_new
+        inm memory_new = tanh memory
         inm output = sigmoid output
-        inm to = output * memory_new
-        inm _ = try_link_adjoint dim {from to={out={out=to}}}
-        succ to
+        output * memory
+    inm _ = try_link_adjoint dim {from to={out={out}}}
 
-    succ {memory_new out}
+    succ {memory out}
 
 {
-(>>=) succ dr sigmoid tanh (+) (*) link link_adjoint sequence try_link_adjoint run
-lstm_activation
+(>>=) succ dr sigmoid tanh relu (+) (*) link link_adjoint sequence try_link_adjoint run
+sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
+activation_lstm
 }
 |> stackify
     """
-    )
+    ) |> module_
 
 let union =
     (
@@ -406,7 +423,7 @@ inl infer f (!heap state) =
 
 let learning =
     (
-    "Learning",[struct';extern_;cuda_aux;math;union;list;liple],"The deep learning module.",
+    "Learning",[struct';extern_;cuda_aux;math;union;list;liple;cuda_ad],"The deep learning module.",
     """
 inl float ->
     // #Primitives
@@ -635,24 +652,24 @@ inl float ->
     inl succ out _ = {out bck=()}
 
     // #Activation
-    inl sigmoid_fwd x = one / (one + exp -x)
-    inl sigmoid_bck out = out * (one - out)
+    inl sigmoid_fwd x = CudaAD.sigmoid_fwd
+    inl sigmoid_bck out = CudaAD.sigmoid_bck
 
     inl sigmoid = activation {
         fwd = sigmoid_fwd
         bck = inl {out} -> sigmoid_bck out
         }
 
-    inl tanh_fwd = tanh
-    inl tanh_bck out = one - out * out
+    inl tanh_fwd = CudaAD.tanh_fwd
+    inl tanh_bck out = CudaAD.tanh_bck
 
     inl tanh = activation {
         fwd = tanh_fwd
         bck = inl {out} -> tanh_bck out
         }
 
-    inl relu_fwd x = if x > zero then x else zero
-    inl relu_bck out = if out > zero then one else zero
+    inl relu_fwd x = CudaAD.relu_fwd
+    inl relu_bck out = CudaAD.relu_bck
 
     inl relu = activation {
         fwd = relu_fwd
@@ -935,7 +952,7 @@ inl float ->
                 | .mod -> mod
                 | .reset -> r := init
                 |> stack
-            | {x with cell} -> {x with cell=initialize s self}
+            | {x with unwrap} -> initialize s unwrap |> inl x -> {x with block=()}
             | x -> x
             ) x
 
@@ -2903,22 +2920,22 @@ inl float ->
             block = ()
             }
 
-        inl lstm_activation memory_old {ins with input output forget memory} s =
+        inl activation_lstm memory_old {ins with input_cell output_cell forget_cell memory_cell} s =
             inl b,a as dim = memory_old.dim
-            assert_dim = assert_dim (primals ins)
+            inl assert_dim = assert_dim (primals ins)
             Liple.iter (inl k -> assert_dim k dim) (.input,.output,.forget,.memory)
             inl in = {ins with memory_old}
 
             inl out =
                 inl x = to_dev_tensor {in=primals in}
-                s.CudaFun.map {dim} (inl dim -> CudaAD.lstm_activation x .out)
+                s.CudaFun.init {dim} (inl dim -> CudaAD.activation_lstm dim x .out)
                 |> Struct.map (dr s)
 
             {
             out
             bck=met _ ->
                 inl x = to_dev_tensor {in out}
-                s.CudaKernel.iter {dim} (inl dim -> CudaAD.lstm_activation x |> CudaAD.run)
+                s.CudaKernel.iter {dim} (inl dim -> CudaAD.activation_lstm x |> CudaAD.run)
             }
 
         inl plastic_lstm n size =
@@ -2937,23 +2954,26 @@ inl float ->
                             }
                         }
 
-                    inl cell init =
-                        {
-                        input = Initializer.dr (Initializer.identity (sublayer_size, size))
-                        state = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        modulator = 
+                    inl cell init = {
+                        unwrap=
                             {
-                            input = modulator()
-                            state = modulator()
+                            input = Initializer.dr (Initializer.identity (sublayer_size, size))
+                            state = Initializer.randn {stddev=0.01f32; dim=size, size}
+                            modulator = 
+                                {
+                                input = modulator()
+                                state = modulator()
+                                }
+                            bias = Initializer.constant {dim=1,size; init}
                             }
-                        bias = Initializer.constant {dim=1,size; init}
+                        block=()
                         }
 
                     {
-                    input=cell zero
-                    output=cell zero
-                    forget=cell one
-                    memory=cell zero
+                    input_cell=cell zero
+                    output_cell=cell zero
+                    forget_cell=cell one
+                    memory_cell=cell zero
                     }
                 size=size
                 }
@@ -2964,50 +2984,46 @@ inl float ->
                     match d with
                     | {state={H}} -> H
                     | _ -> 
-                        Struct.map (inl {cell=weights} ->
-                            inl f k = s.CudaTensor.zero_like (primal (weights k))
-                            {input=f .input; state=f .state}
+                        Struct.map (inl weights ->
+                            module_map (inl k _ -> s.CudaTensor.zero_like (primal (weights k))) {input=(); state=()}
                             ) weights
 
-                inl {state memory} =
+                inl {state memory_old} =
                     match d with
-                    | {state={state memory}} -> {state memory}
+                    | {state={state memory_old}} -> {state memory_old}
                     | _ -> 
                         inl f _ = s.CudaTensor.zero {elem_type=float; dim=1,size}
-                        { state=f(); memory=f() }
+                        { state=f(); memory_old=f() }
 
                 inl apply =
                     inm {out memory} =
-                        Struct.map2 (inl {cell=weights} H ->
-                            inm out =
-                                inl calculate k =
-                                    inm alpha = 
-                                        inl modulator = weights.modulator k
-                                        inm input = matmult (input, modulator.input)
-                                        inm state = matmult (state, modulator.state)
-                                        generalized_mi {modulator with input state}
-                                    inm static = matmult ({input state} k, weights k)
-                                    inm plastic = matmult ({input state} k, H k)
-                                    broadcasting_activation {
-                                        fwd=inl {in={static plastic} in_inner={alpha}} -> static + alpha * plastic
-                                        bck={
-                                            in=inl {in={static plastic} in_inner={alpha}} -> { static = one; plastic = alpha }
-                                            in_inner=inl {in={static plastic} in_inner={alpha}} -> { alpha = plastic }
-                                            }
-                                        } {in={static plastic}; in_inner={alpha=Struct.map' (inl x -> x.flatten) alpha}}
+                        Struct.map2 (inl weights H ->
+                            inl calculate k =
+                                inm alpha = 
+                                    inl modulator = weights.modulator k
+                                    inm input = matmult (input, modulator.input)
+                                    inm state = matmult (state, modulator.state)
+                                    generalized_mi {modulator with input state}
+                                inm static = matmult ({input state} k, weights k)
+                                inm plastic = matmult ({input state} k, H k)
+                                broadcasting_activation {
+                                    fwd=inl {in={static plastic} in_inner={alpha}} -> static + alpha * plastic
+                                    bck={
+                                        in=inl {in={static plastic} in_inner={alpha}} -> { static = one; plastic = alpha }
+                                        in_inner=inl {in={static plastic} in_inner={alpha}} -> { alpha = plastic }
+                                        }
+                                    } {in={static plastic}; in_inner={alpha=Struct.map' (inl x -> x.flatten) alpha}}
 
-                                inm input = calculate .input
-                                inm state = calculate .state
+                            inm input = calculate .input
+                            inm state = calculate .state
                     
-                                activation {
-                                    fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in
-                                    bck=inl {in out} -> Struct.map (const one) in
-                                    } {input state bias=weights.bias}
-
-                            succ {out block=()}
+                            activation {
+                                fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in
+                                bck=inl {in out} -> Struct.map (const one) in
+                                } {input state bias=weights.bias}
                             ) weights H
-                        |> sequence
-                        >>= lstm_activation memory
+                        |> sequence // Note: The the weights are wrapped in a block which sequence removes.
+                        >>= activation_lstm memory_old
 
                     inm H =
                         Struct.map (inl H ->
@@ -3018,7 +3034,7 @@ inl float ->
                             ) H
                         |> sequence
                     
-                    succ {out state={state=out; memory H}}
+                    succ {out state={state=out; memory_old=memory; H}}
 
                 inl {out={out state} bck} = apply s
                 {out state bck}

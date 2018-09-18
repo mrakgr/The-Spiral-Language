@@ -170,16 +170,13 @@ inl atomic_add o x =
     inl adr = macro.cd ar [arg: ar; text: " + "; arg: offset]
     macro.cd () [text: "atomicAdd"; args: adr, x]
 
-inl assert_dim in k dim =
-    match in with
-    | {$k=in} ->
+inl assert_dim =
+    module_map <| inl k dim ->
         Struct.foldr2 (inl a b i -> 
             assert (a = b) (string_format "The {0}th dimension of {1} must match. {2} <> {3}" (i,type_lit_cast k,a,b))
             i+1
             ) (in .dim |> Tuple.unwrap) dim 0
         |> ignore
-    | _ ->
-        ()
 
 {ptr_cuda to_dev_tensor allocator_block_size temporary atomic_add assert_dim} |> stackify
     """
@@ -1935,12 +1932,12 @@ inl map_map w d in =
             | {in} -> in.dim
             | {in_inner in_outer} -> Tuple.unwrap in_outer.dim, Tuple.unwrap in_inner.dim
 
-        inl assert_dim = assert_dim in
-
-        assert_dim .in (b,a) // TODO: Refactor the other functions so they use this form.
-        assert_dim .in_outer b
-        assert_dim .in_inner a
-        assert_dim .in_scalar {from=0; near_to=1}
+        assert_dim in {
+            in=b,a
+            in_outer=b
+            in_inner=a
+            in_scalar={from=0; near_to=1}
+            }
 
         inl out = 
             match d with

@@ -301,6 +301,8 @@ inl rec map f a =
     | () -> ()
     | a -> f a
 
+inl iter f = map (inl x -> f x; ()) >> ignore
+
 inl rec choose f = function
     | a :: a' ->
         match f a with
@@ -383,7 +385,7 @@ inl rec foldr_map f l s =
 
 inl mapi f = foldl_map (inl s x -> f s x, s + 1) 0 >> fst
 
-{map choose map2 choose2 iter2 map3 foldl foldr foldl2 foldr2 foldl_map foldr_map mapi} |> stackify
+{map iter choose map2 choose2 iter2 map3 foldl foldr foldl2 foldr2 foldl_map foldr_map mapi} |> stackify
     """
     ) |> module_
 
