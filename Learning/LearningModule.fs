@@ -2938,17 +2938,20 @@ inl float ->
         //    }
 
         inl activation_lstm memory_old {ins with input_cell output_cell forget_cell memory_cell} =
-            inm f = sigmoid forget_cell
-            inm i' = sigmoid input_cell
-            inm o = sigmoid output_cell
-            inm c' = tanh memory_cell
-            inm c =
-                inm x1 = hadmult (f,memory_old)
-                inm x2 = hadmult (i',c')
-                add (x1, x2)
-            inm h' = tanh c
-            inm h = hadmult (o, h')
-            succ {memory=c; out=h}
+            inm memory = 
+                inm input = sigmoid input_cell
+                inm forget = sigmoid forget_cell
+                inm memory = tanh memory_cell
+                inm a = hadmult (input,memory)
+                inm b = hadmult (forget,memory_old)
+                add (a, b)
+
+            inm out =
+                inm memory = tanh memory
+                inm output = sigmoid output_cell
+                hadmult (output, memory)
+
+            succ {memory out}
 
         inl plastic_lstm n size =
             {
