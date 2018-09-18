@@ -2757,6 +2757,87 @@ inl float ->
             assert_dim .forget dim
             assert_dim .memory dim
 
+            inl drc x =
+                {
+                primal=x
+                adjoint=
+                    inl x = array_create_cuda_local x 1
+                    x <- zero
+                    x
+                block=()
+                }
+
+            inl sigmoid x =
+                inl out = primal x |> sigmoid_fwd |> drc
+                {
+                out
+                bck=inl _ -> x.adjoint 0 <- sigmoid_bck (primal out) * adjoint out
+                }
+
+            inl tanh x =
+                inl out = primal x |> tanh_fwd |> drc
+                {
+                out
+                bck=inl _ -> x.adjoint 0 <- tanh_bck (primal out) * adjoint out
+                }
+
+            inl (*) a b =
+                inl out = primal a * primal b |> drc
+                {
+                out
+                bck=inl _ ->
+                    a.adjoint 0 <- primal b * adjoint out
+                    b.adjoint 0 <- primal a * adjoint out
+                }
+
+            inl (+) a b =
+                inl out = primal a + primal b |> drc
+                {
+                out
+                bck=inl _ ->
+                    a.adjoint 0 <- adjoint out
+                    b.adjoint 0 <- adjoint out
+                }
+
+            inl link dim x =
+                inl out = 
+                    Struct.map' (inl x -> x dim .get) x
+                    |> Struct.map (inl x ->
+                        match x with
+                        | {adjoint} -> 
+                            inl ar = cuda_create_local_array adjoint 1
+                            ar <- adjoint
+                            {x with adjoint=ar}
+                        | _ -> 
+                            x
+                            )
+                {
+                out
+                bck = inl _ ->
+                    Struct.iter2 (inl x out ->
+                        match x, out with
+                        | {adjoint=x}, {adjoint=out} -> x dim .set (out 0)
+                        | _ -> ()
+                        ) x out
+                }
+
+            inl link_adjoint dim {from to} =
+                inl out =
+                    Struct.iter2 (inl from to ->
+                        match from, to with
+                        | {adjoint=from}, {adjoint=to} -> to 0 <- from 0
+                        | _ -> ()
+                        ) from to
+                {
+                out
+                bck=inl _ ->
+                    Struct.iter2 (inl from to ->
+                        match from, to with
+                        | {adjoint=from}, {adjoint=to} -> from 0 <- to 0
+                        | _ -> ()
+                        ) from to
+                }
+
             inl {memory'' out} =
                 inl ins = primals ins
                 inl ins = to_dev_tensor {ins with memory_old}
