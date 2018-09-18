@@ -471,10 +471,12 @@ inl network,_ =
             multiscale_v1 =
                 Modulated.multiscale_v1 (n,n) size.pattern
                 //Modulated.multiscale_v1 {from=n; near_to=n; block=()} size.pattern
+            plastic_lstm =
+                Modulated.plastic_lstm n size.pattern
             }
         }
 
-    init s size.pattern network.advanced.multiscale_v1
+    init s size.pattern network.advanced.plastic_lstm
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {
