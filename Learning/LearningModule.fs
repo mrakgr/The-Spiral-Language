@@ -2851,29 +2851,32 @@ inl float ->
 
             inl succ out = {out bck=const ()}
 
-            inl activation_lstm x =
-                inm {memory'' out} = 
+            inl activation_lstm dim x =
+                inm {memory_new out} = 
                     match x with
-                    | {out={memory'' out}} -> link dim outs
-                    | _ -> succ {memory''=(); out=()}
+                    | {out={memory out}} -> link dim outs
+                    | _ -> succ {memory_new=(); out=()}
                 inm {input output memory forget memory_old} = link dim x.in
 
-                inm input' = sigmoid input
-                inm forget' = sigmoid forget
-                inm output' = sigmoid output
-                inm memory' = tanh memory
-                inm memory'' =
-                    inm a = input' * memory'
-                    inm b = forget' * memory_old
+                inm memory_new =
+                    inm input = sigmoid input
+                    inm forget = sigmoid forget
+                    
+                    inm memory = tanh memory
+                    inm a = input * memory
+                    inm b = forget * memory_new
                     inm to = a + b
-                    inm _ = link_adjoint dim {from=memory''; to}
+                    inm _ = link_adjoint dim {from=memory_new; to}
                     succ to
-                inm memory''' = tanh memory''
+                
                 inm out =
-                    inm to = output' * memory'''
+                    inm memory_new = tanh memory_new
+                    inm output = sigmoid output
+                    inm to = output * memory_new
                     inm _ = link_adjoint dim {from=out; to}
                     succ to
-                succ out
+
+                succ {memory_new out}
 
             inl {memory'' out} =
                 inl ins = primals ins
