@@ -2767,18 +2767,25 @@ inl float ->
                 block=()
                 }
 
+            inl set_adjoint x out =
+                match x with
+                | {adjoint} -> adjoint 0 <- out ()
+                | _ -> ()
+
+            inl get_adjoint {adjoint} = adjoint 0
+
             inl sigmoid x =
                 inl out = primal x |> sigmoid_fwd |> drc
                 {
                 out
-                bck=inl _ -> x.adjoint 0 <- sigmoid_bck (primal out) * adjoint out
+                bck=inl _ -> set_adjoint x (inl _ -> sigmoid_bck (primal out) * get_adjoint out)
                 }
 
             inl tanh x =
                 inl out = primal x |> tanh_fwd |> drc
                 {
                 out
-                bck=inl _ -> x.adjoint 0 <- tanh_bck (primal out) * adjoint out
+                bck=inl _ -> set_adjoint x (inl _ -> tanh_bck (primal out) * get_adjoint out)
                 }
 
             inl (*) a b =
@@ -2786,8 +2793,8 @@ inl float ->
                 {
                 out
                 bck=inl _ ->
-                    a.adjoint 0 <- primal b * adjoint out
-                    b.adjoint 0 <- primal a * adjoint out
+                    set_adjoint a (inl _ -> primal b * get_adjoint out)
+                    set_adjoint b (inl _ -> primal a * get_adjoint out)
                 }
 
             inl (+) a b =
@@ -2795,8 +2802,8 @@ inl float ->
                 {
                 out
                 bck=inl _ ->
-                    a.adjoint 0 <- adjoint out
-                    b.adjoint 0 <- adjoint out
+                    set_adjoint a (inl _ -> get_adjoint out)
+                    set_adjoint b (inl _ -> get_adjoint out)
                 }
 
             inl link dim x =
@@ -2838,21 +2845,29 @@ inl float ->
                         ) from to
                 }
 
+            inl (>>=) a b =
+                inl {out=a bck=bck_a} = a
+                inl {out=b bck=bck_b} = b a
+                {out=b; bck=bck_a,bck_b}
+
+            inl succ out = {out bck=const ()}
+
             inl {memory'' out} =
                 inl ins = primals ins
                 inl ins = to_dev_tensor {ins with memory_old}
                 s.CudaFun.map {dim} (inl dim ->
-                    inl {input output memory forget memory_old} = Tuple.map (inl x -> x dim .get) ins
+                    
+                    //inl {input output memory forget memory_old} = Tuple.map (inl x -> x dim .get) ins
 
-                    inl input' = sigmoid_fwd input
-                    inl forget' = sigmoid_fwd forget
-                    inl output' = sigmoid_fwd output
-                    inl memory' = tanh_fwd memory
-                    inl memory'' = input' * memory' + forget' * memory_old
-                    inl memory''' = tanh memory''
-                    inl out = output' * memory'''
+                    //inl input' = sigmoid_fwd input
+                    //inl forget' = sigmoid_fwd forget
+                    //inl output' = sigmoid_fwd output
+                    //inl memory' = tanh_fwd memory
+                    //inl memory'' = input' * memory' + forget' * memory_old
+                    //inl memory''' = tanh memory''
+                    //inl out = output' * memory'''
 
-                    {memory'' out}
+                    //{memory'' out}
                     )
                 |> Struct.map (dr s)
 
