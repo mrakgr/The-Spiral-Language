@@ -2937,22 +2937,6 @@ inl float ->
                 s.CudaKernel.iter {dim} (inl dim -> CudaAD.activation_lstm dim x |> CudaAD.run |> ignore)
             }
 
-        //inl activation_lstm memory_old {ins with input_cell output_cell forget_cell memory_cell} =
-        //    inm memory = 
-        //        inm input = sigmoid input_cell
-        //        inm forget = sigmoid forget_cell
-        //        inm memory = tanh memory_cell
-        //        inm a = hadmult (input,memory)
-        //        inm b = hadmult (forget,memory_old)
-        //        add (a, b)
-
-        //    inm out =
-        //        inm memory = tanh memory
-        //        inm output = sigmoid output_cell
-        //        hadmult (output, memory)
-
-        //    succ {memory out}
-
         inl plastic_lstm n size =
             {
             init = inl sublayer_size -> 
