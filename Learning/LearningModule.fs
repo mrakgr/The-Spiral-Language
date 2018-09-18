@@ -128,11 +128,14 @@ inl link_adjoint dim {from to} =
 
 inl sequence x =
     inl out = Struct.map (inl {out} -> out) x
-    inl bck = Struct.map (inl {bkc} -> bck) x
+    inl bck = Struct.map (inl {bck} -> bck) x
     {out bck}
 
 inl try_link_adjoint dim {from to} =
-    module_intersect (inl from to -> link_adjoint dim {from to}) from to
+    inl a = module_intersect (inl from to -> from) from to
+    inl b = module_intersect (inl from to -> to) from to
+
+    Struct.map2 (inl from to -> link_adjoint dim {from to} |> inl x -> {x with block=()}) a b
     |> sequence
 
 inl run {out bck} = Struct.foldr (<|) bck (); out

@@ -35,12 +35,12 @@ inl label_size = 10
 inl learning_rate = 2f32 ** -11f32
 inl network,_ =
     open Feedforward
-    //inl network =
-    //    relu 256,
-    //    linear label_size
     inl network =
-        prong {activation=Activation.relu; size=256},
-        prong {activation=Activation.linear; size=label_size}
+        relu 256,
+        linear label_size
+    //inl network =
+    //    prong {activation=Activation.relu; size=256},
+    //    prong {activation=Activation.linear; size=label_size}
 
     init s input_size network
 
@@ -476,7 +476,7 @@ inl network,_ =
             }
         }
 
-    init s size.pattern network.advanced.plastic_lstm
+    init s size.pattern network.advanced.semimodulated_vanilla_oja_alt
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {
@@ -493,7 +493,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
 |> printfn "%s"
 |> ignore
 
