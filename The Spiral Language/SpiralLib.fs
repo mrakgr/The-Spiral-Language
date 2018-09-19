@@ -2064,5 +2064,11 @@ inl rec pow (n: float64 | n: float32) (k: int64) =
 
         pow n k
 
-{pow} |> stackify
+inl sign x =
+    inl zero = to x 0
+    if x > zero then 1
+    elif x < zero then -1
+    else 0
+
+{pow sign} |> stackify
     """) |> module_

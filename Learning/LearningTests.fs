@@ -379,7 +379,6 @@ met train {!data network learning_rate final} s =
         map=inl {network s} input ->
             inl network, input = run s input network
             inl final label =
-                s.CudaTensor.print (primal label, primal input)
                 inl {out=square bck} = final label input s
                 inl sgn = Error.sign_accuracy label input s
                 bck()
@@ -418,7 +417,7 @@ met train {!data network learning_rate final} s =
             network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
             network.optimize learning_rate
 
-        inl iters = 1
+        inl iters = 10
         
         if (i + 1) % iters = 0 then 
             inl square = cost.square() / to float32 iters

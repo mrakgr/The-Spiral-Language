@@ -876,7 +876,7 @@ inl float ->
     inl sign_accuracy label input s =
         inl input, label = primal input, primal label
         s.CudaFun.redo {
-            map=inl input, label -> if input >= zero && label >= zero then 1 else 0
+            map=inl input, label -> if Math.sign label = Math.sign input then 1 else 0
             redo=(+)
             } (input,label)
         |> inl x -> x 0
