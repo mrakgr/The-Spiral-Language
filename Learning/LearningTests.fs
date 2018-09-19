@@ -484,7 +484,7 @@ inl network,_ =
             }
         }
 
-    init s size.pattern network.modulated.unmodulated_vanilla_oja
+    init s size.pattern network.advanced.multiscale_v1
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {
