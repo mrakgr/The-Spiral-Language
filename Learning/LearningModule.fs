@@ -873,7 +873,15 @@ inl float ->
             }
         |> inl x -> x 0
 
-    inl Error = {square sigmoid_cross_entropy softmax_cross_entropy accuracy} |> stackify
+    inl sign_accuracy label input s =
+        inl input, label = primal input, primal label
+        s.CudaFun.redo {
+            map=inl input, label -> if input >= zero && label >= zero then 1 else 0
+            redo=(+)
+            } (input,label)
+        |> inl x -> x 0
+
+    inl Error = {square sigmoid_cross_entropy softmax_cross_entropy accuracy sign_accuracy} |> stackify
 
     // #Initializer
     inl Initializer x dim = {$x=dim; block=()}

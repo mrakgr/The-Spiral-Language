@@ -369,14 +369,19 @@ inl runner {network s} funs =
     heap network
 
 met train {!data network learning_rate final} s =
-    inl cost = ref 0.0
+    inl cost = 
+        {
+        square=ref 0f32
+        sgn=ref 0
+        }
     inl run = {
         map=inl {network s} input ->
             inl network, input = run s input network
             inl final label =
-                inl {out bck} = final label input s
+                inl {out=square bck} = final label input s
+                inl sgn = Error.sign_accuracy label input s
                 bck()
-                s.CudaTensor.get out |> to float64
+                Struct.map s.CudaTensor.get {sgn square}
             {network s final}
         input=inl _ -> data.original (dyn 0) (dyn 0)
         block=()
@@ -404,7 +409,9 @@ met train {!data network learning_rate final} s =
             inl i = rng.next (to int32 size.episode) |> to int64
             loop_over size.pattern_repetition <| inl _ ->
                 network.run (data.degraded i)
-            network.peek |> function {final} -> cost := cost () + final (data.original i) | _ -> ()
+            network.peek |> function 
+                | {final} -> Struct.iter2 (inl a b -> a := a() + b) cost (final (data.original i))
+                | _ -> ()
             //network.burn_in_state
             network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
             network.optimize learning_rate
@@ -412,11 +419,13 @@ met train {!data network learning_rate final} s =
         inl iters = 10
         
         if (i + 1) % iters = 0 then 
-            Console.printfn "At iteration {0} the cost is {1}" (i, cost() / to float64 iters)
-            cost := 0.0
+            inl square = cost.square() / to float32 iters
+            inl sgn = to float64 (cost.sgn()) / to float64 (iters * size.pattern)
+            Console.printfn "At iteration {0} the cost and accuracy are {1} and {2}/1." (i, square, sgn)
+            Struct.iter (inl x -> x := to (type x()) 0) cost
             next()
-        elif nan_is (cost()) then
-            Console.printfn "At iteration {0} the cost is {1}" (i, cost())
+        elif nan_is (cost.square()) then
+            Console.printfn "At iteration {0} the cost is {1}" (i, cost.square())
         else next()
 
 inl learning_rate = 2f32 ** -12.5f32
@@ -474,7 +483,7 @@ inl network,_ =
             }
         }
 
-    init s size.pattern network.advanced.plastic_lstm
+    init s size.pattern network.advanced.semimodulated_vanilla_oja_alt
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {
