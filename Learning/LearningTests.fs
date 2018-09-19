@@ -422,7 +422,7 @@ met train {!data network learning_rate final} s =
         if (i + 1) % iters = 0 then 
             inl square = cost.square() / to float32 iters
             inl sgn = to float64 (cost.sgn()) / to float64 (iters * size.pattern)
-            Console.printfn "At iteration {0} the cost and accuracy are {1} and {2}/1." (i, square, sgn)
+            Console.printfn "At iteration {0} the cost and the sign accuracy are {1} and {2}/1." (i, square, sgn)
             Struct.iter (inl x -> x := to (type x()) 0) cost
             next()
         elif nan_is (cost.square()) then
@@ -437,54 +437,13 @@ inl network,_ =
     open RNN
     inl network = 
         {
-        mi_prong =
-            mi_prong 128, 
-            prong {activation=Activation.linear; size=size.pattern}
+        mi_prong = mi_prong size.pattern
         mi = mi size.pattern
-
-        vanilla_hebb = vanilla_hebb n size.pattern, vanilla_hebb n size.pattern
-        mi_hebb = mi_hebb n size.pattern
-        mi_hebb_prong = mi_hebb_prong n size.pattern
-        mi_hebb'_prong = mi_hebb'_prong n size.pattern
         mi_prong_alt = mi_prong_alt size.pattern
-        modulated = 
-            {
-            unmodulated_feedforward = Modulated.unmodulated_feedforward size.pattern
-            feedforward = Modulated.feedforward n size.pattern
-            unmodulated_vanilla_oja = 
-                Modulated.unmodulated_vanilla_oja n size.pattern
-            unmodulated_concatenative_vanilla_oja = 
-                Modulated.unmodulated_concatenative_vanilla_oja n 64,
-                Modulated.unmodulated_vanilla_oja n size.pattern
-            concatenative_vanilla_oja = 
-                Modulated.concatenative_vanilla_oja n 64, 
-                Modulated.vanilla_oja n size.pattern 
-            semimodulated_vanilla_oja = 
-                Modulated.semimodulated_vanilla_oja n size.pattern
-            semimodulated_mi_oja =
-                Modulated.semimodulated_mi_oja n size.pattern
-            rnn =
-                Modulated.rnn size.pattern
-            modulated_rnn =
-                Modulated.modulated_rnn size.pattern
-            semimodulated_vanilla_oja_alt2 =
-                Modulated.semimodulated_vanilla_oja_alt2 n size.pattern
-            }
-        advanced =
-            inl n = 
-                //{from=n/3f32; near_to=n*3f32; block=()} // Ranges do not work well on Binary Pattern.
-                n
-            {
-            semimodulated_vanilla_oja_alt = // Works great.
-                Modulated.semimodulated_vanilla_oja_alt n size.pattern
-            multiscale_v1 = // Works great. Should be named `multicell` as all of the Oja rule users support n in range form.
-                Modulated.multiscale_v1 (n,n) size.pattern
-            plastic_lstm = // Does not work.
-                Modulated.plastic_lstm n size.pattern
-            }
+        plastic_rnn = plastic_rnn n size.pattern
         }
 
-    init s size.pattern network.advanced.semimodulated_vanilla_oja_alt
+    init s size.pattern network.plastic_rnn
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {

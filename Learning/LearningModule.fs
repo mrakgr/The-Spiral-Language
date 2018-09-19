@@ -688,8 +688,28 @@ inl float ->
             bck=inl {in={b x1 x2}} -> {b = one; x1 = x2; x2 = x1 }
             } {x1 x2 b}
 
+    // Optimized LSTM activation.
+    inl lstm memory_old {ins with input_cell output_cell forget_cell memory_cell} s =
+        inl b,a as dim = primal memory_old .dim
+        inl primals_ins = primals ins
+        assert_dim primals_ins (Struct.map (const dim) primals_ins)
+        inl in = {ins with memory_old}
+            
+        inl out =
+            inl x = to_dev_tensor {in=primals in}
+            s.CudaFun.init {dim} (inl dim -> CudaAD.activation_lstm dim x .out |> primals)
+            |> HostTensor.unzip
+            |> Struct.map (dr s)
+
+        {
+        out
+        bck=met _ ->
+            inl x = to_dev_tensor {in out}
+            s.CudaKernel.iter {dim} (inl dim -> CudaAD.activation_lstm dim x |> CudaAD.run |> ignore)
+        }
+
     inl linear = succ
-    inl Activation = {linear sigmoid tanh relu add hadmult hadmultb } |> stack
+    inl Activation = { linear sigmoid tanh relu add hadmult hadmultb lstm } |> stack
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
@@ -1209,80 +1229,7 @@ inl float ->
         zero (primal x .dim)
 
     // #Recurrent
-    inl hebb {d with input out n} = 
-        inm x = matmult ({T=input},out)
-        match d with
-        | {H} ->
-            activation {
-                fwd=inl {x H} -> n * x + (one - n) * H
-                bck=inl {in={x H}} -> { x=n; H=one-n }
-                } {x H}
-        | _ ->
-            activation {
-                fwd=inl {x} -> n * x
-                bck=inl {in={x}} -> { x=n }
-                } {x}
-
-    inl vanilla_hebb n size =
-        {
-        init = inl sublayer_size -> 
-            {
-            dsc = 
-                {
-                state = {
-                    bias = Initializer.randn {stddev=0.01f32; dim=size, size}
-                    alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
-                    }
-                input = {
-                    bias = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                    alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                    }
-                bias = Initializer.bias (1,size)
-                }
-            size
-            }
-
-        apply = inl {d with weights input} s -> 
-            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-            inl H =
-                match d with
-                | {state={H}} -> H
-                | _ -> 
-                    inl f k = s.CudaTensor.zero_like (primal (weights k .bias))
-                    {input=f .input; state=f .state}
-
-            inl out' =
-                match d with
-                | {state={out}} -> out
-                | _ -> s.CudaTensor.zero_like (primal (weights .bias))
-
-            inl apply =
-                inm out =
-                    inm input = 
-                        inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
-                        matmult (input, W)
-                    inm state =
-                        inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
-                        matmult (out', W)
-                    activation {
-                        fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
-                        bck=inl {in out} ->
-                            inl out = tanh_bck out
-                            Struct.map (const out) in
-                        } {input state bias=weights.bias}
-                
-                inm H =
-                    inm input = hebb {input out n H=H.input}
-                    inm state = hebb {input=out'; out n H=H.state}
-                    succ {input state}
-                
-                succ {out state={out H}}
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        block = ()
-        }
-
-    inl generalized_mi =
+    inl generalized_mi = // Online only version for now.
         activation {
             fwd=inl {input state bias={si s i c}} -> si * state * input + s * state + i * input + c |> tanh_fwd
             bck=inl {in={input state bias={si s i c}} out} ->
@@ -1293,245 +1240,6 @@ inl float ->
                 bias = { si = input*state; i = input; s = state; c = one } 
                 } |> Struct.map ((*) out)
             }
-
-    inl mi_hebb n size =
-        {
-        init = inl sublayer_size -> 
-            {
-            dsc = 
-                {
-                state = {
-                    bias = Initializer.randn {stddev=0.01f32; dim=size, size}
-                    alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
-                    }
-                input = {
-                    bias = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                    alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                    }
-                bias = {
-                    si = Initializer.constant {dim=1,size; init=to float 1}
-                    i = Initializer.constant {dim=1,size; init=to float 0.5}
-                    s = Initializer.constant {dim=1,size; init=to float 0.5}
-                    c = Initializer.bias (1,size)
-                    }
-                }
-            size
-            }
-
-        apply = inl {d with weights input} s -> 
-            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-            inl H =
-                match d with
-                | {state={H}} -> H
-                | _ -> 
-                    inl f k = s.CudaTensor.zero_like (primal (weights k .bias))
-                    {input=f .input; state=f .state}
-
-            inl out' =
-                match d with
-                | {state={out}} -> out
-                | _ -> s.CudaTensor.zero_like (primal (weights.bias.c))
-
-            inl apply =
-                inm out =
-                    inm input = 
-                        inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
-                        matmult (input, W)
-                    inm state =
-                        inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
-                        matmult (out', W)
-
-                    generalized_mi {input state bias=weights.bias}
-                
-                inm H =
-                    inm input = hebb {input out n H=H.input}
-                    inm state = hebb {input=out'; out n H=H.state}
-                    succ {input state}
-                
-                succ {out state={out H}}
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        block = ()
-        }
-
-    inl mi_hebb_prong n size =
-        {
-        init = inl sublayer_size -> 
-            {
-            dsc = 
-                {
-                weights = {
-                    state = {
-                        bias = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        }
-                    input = {
-                        bias = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                        alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                        }
-                    bias = {
-                        si = Initializer.constant {dim=1,size; init=to float 1}
-                        i = Initializer.constant {dim=1,size; init=to float 0.5}
-                        s = Initializer.constant {dim=1,size; init=to float 0.5}
-                        c = Initializer.bias (1,size)
-                        }
-                    }
-                covariance = {
-                    state = Initializer.covariance {dim={front=size; back=size}} 
-                    input = Initializer.covariance {dim={front=sublayer_size; back=size}}
-                    bias = {
-                        si = Initializer.covariance {dim={back=size}}
-                        i = Initializer.covariance {dim={back=size}}
-                        s = Initializer.covariance {dim={back=size}}
-                        c = Initializer.covariance {dim={back=size}}
-                        }
-                    }
-                }
-            size
-            }
-
-        apply = inl {d with weights={weights covariance} input} s -> 
-            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-            inl H =
-                match d with
-                | {state={H}} -> H
-                | _ -> 
-                    inl f k = s.CudaTensor.zero_like (primal (weights k .bias))
-                    {input=f .input; state=f .state}
-
-            inl out' =
-                match d with
-                | {state={out}} -> out
-                | _ -> s.CudaTensor.zero_like (primal (weights.bias.c))
-
-            inl apply =
-                inm _ = covariance_update covariance.input.front (primal input) // Does the updates on the backward pass.
-                inm _ = covariance_update covariance.state.front (primal out')
-                inm out =
-                    inm input = 
-                        inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
-                        matmult (input, W)
-                    inm _ = covariance_update covariance.input.back (adjoint input)
-                    
-                    inm state =
-                        inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
-                        matmult (out', W)
-                    inm _ = covariance_update covariance.state.back (adjoint state)
-                    
-                    inm bias = with_zero_adjoints weights.bias
-                    inm _ = covariance_update (Struct.map (inl {back} -> back) covariance.bias) (Struct.map (inl {adjoint} -> adjoint) bias)
-                    generalized_mi {input state bias}
-
-                inm H =
-                    inm input = hebb {input out n H=H.input}
-                    inm state = hebb {input=out'; out n H=H.state}
-                    succ {input state}
-                
-                succ {out state={out H}}
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        optimize=inl {weights={weights covariance} learning_rate} s -> 
-            Struct.iter2 (Optimizer.prong {learning_rate} s) covariance weights
-        block = ()
-        }
-
-    inl mi_hebb'_prong n size =
-        {
-        init = inl sublayer_size -> 
-            {
-            dsc = 
-                {
-                weights = {
-                    alpha = {
-                        input = Initializer.constant {dim=1,1; init=zero}
-                        state = Initializer.constant {dim=1,1; init=zero}
-                        }
-                    state = //Initializer.randn {stddev=0.01f32; dim=size, size} // Use this one for the Binary Pattern test.
-                        Initializer.tanh (size, size)
-                    input = //Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                        Initializer.tanh (sublayer_size, size)
-                    bias = {
-                        si = Initializer.constant {dim=1,size; init=to float 1}
-                        i = Initializer.constant {dim=1,size; init=to float 0.5}
-                        s = Initializer.constant {dim=1,size; init=to float 0.5}
-                        c = Initializer.bias (1,size)
-                        }
-                    }
-                covariance = {
-                    alpha = {
-                        input = Initializer.covariance {dim={back=1}}
-                        state = Initializer.covariance {dim={back=1}}
-                        }
-                    state = Initializer.covariance {dim={front=size; back=size}} 
-                    input = Initializer.covariance {dim={front=sublayer_size; back=size}}
-                    bias = {
-                        si = Initializer.covariance {dim={back=size}}
-                        i = Initializer.covariance {dim={back=size}}
-                        s = Initializer.covariance {dim={back=size}}
-                        c = Initializer.covariance {dim={back=size}}
-                        }
-                    }
-                }
-            size
-            }
-
-        apply = inl {d with weights={weights covariance} input} s -> 
-            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-            inl H =
-                match d with
-                | {state={H}} -> H
-                | _ -> 
-                    inl f k = s.CudaTensor.zero_like (primal (weights k))
-                    {input=f .input; state=f .state}
-
-            inl out' =
-                match d with
-                | {state={out}} -> out
-                | _ -> s.CudaTensor.zero_like (primal (weights.bias.c))
-
-            inl apply =
-                inm _ = covariance_update covariance.input.front (primal input) // Does the updates on the backward pass.
-                inm _ = covariance_update covariance.state.front (primal out')
-                inm out =
-                    inl weight_add {B H alpha} = 
-                        broadcasting_activation {
-                            fwd=inl {in={B H} in_scalar={alpha}} -> B + alpha * H
-                            bck={
-                                in=inl {in={B H} in_scalar={alpha}} -> {B = one; H = alpha }
-                                in_scalar=inl {in={B H} in_scalar={alpha}} -> {alpha = H}
-                                }
-                            } {in={B H}; in_scalar={alpha}}
-
-                    inm alpha = with_zero_adjoints weights.alpha
-                    inm _ = covariance_update (Struct.map (inl {back} -> back) covariance.alpha) (Struct.map (inl {adjoint} -> adjoint) alpha)
-                    inl flatten = Struct.map' (inl x -> x.flatten)
-                    inm input = 
-                        inm W = weight_add {alpha=flatten alpha.input; H=H.input; B=weights.input}
-                        matmult (input, W)
-                    inm _ = covariance_update covariance.input.back (adjoint input)
-                    
-                    inm state =
-                        inm W = weight_add {alpha=flatten alpha.state; H=H.state; B=weights.state}
-                        matmult (out', W)
-                    inm _ = covariance_update covariance.state.back (adjoint state)
-                    
-                    inm bias = with_zero_adjoints weights.bias
-                    inm _ = covariance_update (Struct.map (inl {back} -> back) covariance.bias) (Struct.map (inl {adjoint} -> adjoint) bias)
-                    generalized_mi {input state bias}
-
-                inm H =
-                    inm input = hebb {input out n H=H.input}
-                    inm state = hebb {input=out'; out n H=H.state}
-                    succ {input state}
-                
-                succ {out state={out H}}
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        optimize=inl {weights={weights covariance} learning_rate} s -> 
-            Struct.iter2 (Optimizer.prong {learning_rate} s) covariance weights
-        block = ()
-        }
-
 
     inl mi size =
         {
@@ -1726,95 +1434,6 @@ inl float ->
         block = ()
         }
 
-    inl mi_hebb n size =
-        {
-        init = inl sublayer_size -> 
-            {
-            dsc = 
-                {
-                state = {
-                    bias = Initializer.randn {stddev=0.01f32; dim=size, size}
-                    alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
-                    }
-                input = {
-                    bias = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                    alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                    }
-                bias = {
-                    si = Initializer.constant {dim=1,size; init=to float 1}
-                    i = Initializer.constant {dim=1,size; init=to float 0.5}
-                    s = Initializer.constant {dim=1,size; init=to float 0.5}
-                    c = Initializer.bias (1,size)
-                    }
-                }
-            size
-            }
-
-        apply = inl {d with weights input} s -> 
-            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-            inl H =
-                match d with
-                | {state={H}} -> H
-                | _ -> 
-                    inl f k = s.CudaTensor.zero_like (primal (weights k .bias))
-                    {input=f .input; state=f .state}
-
-            inl out' =
-                match d with
-                | {state={out}} -> out
-                | _ -> s.CudaTensor.zero_like (primal (weights.bias.c))
-
-            inl apply =
-                inm out =
-                    inm input = 
-                        inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
-                        matmult (input, W)
-                    inm state =
-                        inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
-                        matmult (out', W)
-
-                    generalized_mi {input state bias=weights.bias}
-                
-                inm H =
-                    inm input = hebb {input out n H=H.input}
-                    inm state = hebb {input=out'; out n H=H.state}
-                    succ {input state}
-                
-                succ {out state={out H}}
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        block = ()
-        }
-
-    inl hebb_template {output_functions index_into fwd bck dim} ins s =
-        inl out =
-            inl ins = to_dev_tensor (primals ins)
-            s.CudaFun.init {dim} (inl dim ->
-                index_into dim ins 
-                |> Struct.map (inl x -> x .get)
-                |> fwd
-                )
-            |> dr s
-        {
-        out
-        bck=met _ ->
-            inl ins = to_dev_tensor ins
-            inl error = to_dev_tensor (adjoint out)
-            s.CudaKernel.iter {dim} (inl dim ->
-                    inl ads =
-                        index_into dim (primals ins) 
-                        |> Struct.map (inl x -> x .get)
-                        |> bck
-                    inl error = error dim .get
-                    inl ins = 
-                        inl a = Struct.choose id (adjoints ins)
-                        inl b = index_into dim a
-                        Struct.map2 (inl a b -> b) a b // This is to get rid of the `n` in a safe way.
-                    
-                    Struct.iter3 (inl in b f -> f in (error * b ())) ins ads output_functions
-                )
-        }
-
     inl concat x s =
         inl span_inner x = x.dim |> inl b,a -> HostTensor.span a
         inl {dim elem_type} = 
@@ -1864,899 +1483,130 @@ inl float ->
                 )
         }
 
-    inl Modulated = // This is experimental for now.
-        inl modulated_oja_update {ins with input out n H} =
-            inl b,a as dim = primal H .dim
-            inl sng = {from=0; near_to=1}
-            assert_dim (primals ins) {
-                input=sng, b
-                out=sng, a
-                n=sng
-                }
-
-            inl output_functions =
-                inl add a b = a.set (a.get + b)
-                {
-                input=atomic_add
-                out=atomic_add
-                n=atomic_add
-                H=add
-                }
-            inl index_into (b,a) x = 
-                Struct.map2 (<|) (Struct.choose id x)                 
-                    {
-                    input = 0, b
-                    out = 0, a
-                    n = 0
-                    H = b, a
-                    } 
-            inl tanh = tanh_fwd
-            inl abs_bck x = if x >= zero then one else -one
-
-            //inl fwd {input out n H} =
-            //    H + n * input * out - abs n * out * out * H
-            //inl bck {input out n H} =
-            //    { 
-            //    input = inl _ -> n * out
-            //    out = inl _ -> n * input - abs n * two * out * H
-            //    H = inl _ -> one - abs n * out * out
-            //    n = inl _ -> input * out - abs_bck n * out * out * H
-            //    }
-            inl fwd {input out n H} =
-                H + n * (input * out - out * out * H)
-            inl bck {input out n H} =
-                { 
-                input = inl _ -> n * out
-                out = inl _ -> n * input - two * out * H
-                H = inl _ -> one - out * out
-                n = inl _ -> input * out
-                }
-            hebb_template {output_functions index_into fwd bck dim} ins
-
-        inl oja_update n {ins with input out H} =
-            inl b,a as dim = primal H .dim
-            inl span_inner = HostTensor.span a |> to float
-            inl sng = {from=0; near_to=1}
-            assert_dim (primals ins) {
-                input=sng, b
-                out=sng, a
-                }
-
-            inl output_functions =
-                inl add a b = a.set (a.get + b)
-                {
-                input=atomic_add
-                out=atomic_add
-                H=add
-                }
-            inl index_into (b,a) x = 
-                inl n =
-                    match n with
-                    | {from near_to} _ -> 
-                        inl from, near_to = log from, log near_to
-                        exp (from + (near_to - from) / (span_inner + one) * (to float a + one))
-                    | _ _ -> n
-                Struct.map2 (<|) (Struct.choose id x)
-                    {
-                    input = 0, b
-                    out = 0, a
-                    H = b, a
-                    } 
-                |> inl x -> {x with n}
-            inl tanh = tanh_fwd
-            inl abs_bck x = if x >= zero then one else -one
-
-            inl fwd {n input out H} =
-                H + n * (input * out - out * out * H)
-            inl bck {n input out H} =
-                { 
-                input = inl _ -> n * out
-                out = inl _ -> n * (input - two * out * H)
-                H = inl _ -> one - n * out * out
-                }
-            hebb_template {output_functions index_into fwd bck dim} ins
-
-
-
-        inl unmodulated_feedforward size =
-            {
-            init = inl sublayer_size -> 
-                {
-                dsc = 
-                    {
-                    input = Initializer.randn {dim=sublayer_size, size; stddev=0.01f32}
-                    bias = Initializer.bias size
-                    }
-                size
-                }
-
-            apply = inl {weights input} -> matmultb (input, weights.input) weights.bias >>= Activation.tanh
-            block = ()
-            }
-
-        inl feedforward n size =
-            {
-            init = inl sublayer_size -> 
-                {
-                dsc = 
-                    {
-                    input = 
-                        {
-                        bias = Initializer.bias size
-                        }
-                    modulator = 
-                        {
-                        weight = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                        bias = Initializer.bias size
-                        }
-                    }
-                init_state =
-                    {
-                    H = Initializer.randn' {stddev=0.01f32; dim=sublayer_size, size}
-                    }
-                size
-                }
-            apply = inl {d with state={H} weights input} s -> 
-                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-
-                inl apply =
-                    inm out = matmultb (input, H) weights.input.bias >>= tanh
-                    inm m = matmultb (input, weights.modulator.weight) weights.modulator.bias
-                    inm H = modulated_oja_update n {input out m H}
-                
-                    succ {out state={H}}
-                inl {out={out state} bck} = apply s
-                {out state bck}
-            block = ()
-            }
-
-        inl rnn n size =
-            {
-            init = inl sublayer_size -> 
-                {
-                dsc = 
-                    {
-                    input = 
-                        {
-                        bias = Initializer.bias size
-                        }
-                    modulator = 
-                        {
-                        input =
-                            {
-                            weight = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                            bias = Initializer.bias size
-                            }
-                        state =
-                            {
-                            weight = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                            bias = Initializer.bias size
-                            }
-                        }
-                    }
-                init_state =
-                    {
-                    H = {
-                        input = Initializer.randn' {stddev=0.01f32; dim=sublayer_size, size}
-                        state = Initializer.randn' {stddev=0.01f32; dim=size, size}
-                        }
-                    state = Initializer.zero (1,size)
-                    }
-                size
-                }
-            apply = inl {d with state={H state} weights input} s -> 
-                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-
-                inl apply =
-                    inm out = matmultb ((state, H.state), (input, H.input)) weights.input.bias >>= tanh
+    inl hebb_template {output_functions index_into fwd bck dim} ins s =
+        inl out =
+            inl ins = to_dev_tensor (primals ins)
+            s.CudaFun.init {dim} (inl dim ->
+                index_into dim ins 
+                |> Struct.map (inl x -> x .get)
+                |> fwd
+                )
+            |> dr s
+        {
+        out
+        bck=met _ ->
+            inl ins = to_dev_tensor ins
+            inl error = to_dev_tensor (adjoint out)
+            s.CudaKernel.iter {dim} (inl dim ->
+                    inl ads =
+                        index_into dim (primals ins) 
+                        |> Struct.map (inl x -> x .get)
+                        |> bck
+                    inl error = error dim .get
+                    inl ins = 
+                        inl a = Struct.choose id (adjoints ins)
+                        inl b = index_into dim a
+                        Struct.map2 (inl a b -> b) a b // This is to get rid of the `n` in a safe way.
                     
-                    inm H = 
-                        inl f k =
-                            inl input = {state input} k
-                            inm m = matmultb (input, weights .modulator k .weight) (weights .modulator k .bias)
-                            modulated_oja_update n {input out m H=H k}
-                        inm state = f .state
-                        inm input = f .input
-                        succ {state input}
-                
-                    succ {out state={H state=out}}
-                inl {out={out state} bck} = apply s
-                {out state bck}
-            block = ()
+                    Struct.iter3 (inl in b f -> f in (error * b ())) ins ads output_functions
+                )
+        }
+
+
+    inl oja_update n {ins with input out H} =
+        inl b,a as dim = primal H .dim
+        inl span_inner = HostTensor.span a |> to float
+        inl sng = {from=0; near_to=1}
+        assert_dim (primals ins) {
+            input=sng, b
+            out=sng, a
             }
 
-        inl unmodulated_concatenative_vanilla_oja n size =
+        inl output_functions =
+            inl add a b = a.set (a.get + b)
             {
-            init = inl sublayer_size -> 
+            input=atomic_add
+            out=atomic_add
+            H=add
+            }
+        inl index_into (b,a) x = 
+            inl n =
+                match n with
+                | {from near_to} _ -> 
+                    inl from, near_to = log from, log near_to
+                    exp (from + (near_to - from) / (span_inner + one) * (to float a + one))
+                | _ _ -> n
+            Struct.map2 (<|) (Struct.choose id x)
                 {
-                dsc = 
-                    {
-                    state = {
-                        bias = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        }
+                input = 0, b
+                out = 0, a
+                H = b, a
+                } 
+            |> inl x -> {x with n}
+        inl tanh = tanh_fwd
+        inl abs_bck x = if x >= zero then one else -one
+
+        inl fwd {n input out H} =
+            H + n * (input * out - out * out * H)
+        inl bck {n input out H} =
+            { 
+            input = inl _ -> n * out
+            out = inl _ -> n * (input - two * out * H)
+            H = inl _ -> one - n * out * out
+            }
+        hebb_template {output_functions index_into fwd bck dim} ins
+
+    inl plastic_rnn n size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                state = Initializer.randn {stddev=0.01f32; dim=size, size}
+                input = Initializer.dr (Initializer.identity (sublayer_size, size))
+                modulator = {
                     input = {
-                        bias = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                        alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
+                        input = Initializer.bias (sublayer_size, size)
+                        state = Initializer.bias (size, size)
+                        bias = {
+                            si = Initializer.constant {dim=1,size; init=to float 1}
+                            i = Initializer.constant {dim=1,size; init=to float 0.5}
+                            s = Initializer.constant {dim=1,size; init=to float 0.5}
+                            c = Initializer.bias (1,size)
+                            }
                         }
-                    bias = Initializer.bias (1,size)
-                    }
-                size=sublayer_size+size
-                }
-
-            apply = inl {d with weights input} s -> 
-                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-                inl H =
-                    match d with
-                    | {state={H}} -> H
-                    | _ -> 
-                        inl f k = s.CudaTensor.zero_like (primal (weights k .bias))
-                        {input=f .input; state=f .state}
-
-                inl out' =
-                    match d with
-                    | {state={out}} -> out
-                    | _ -> s.CudaTensor.zero_like (primal (weights .bias))
-
-                inl apply =
-                    inm out =
-                        inm input = 
-                            inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
-                            matmult (input, W)
-                        inm state =
-                            inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
-                            matmult (out', W)
-                        activation {
-                            fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
-                            bck=inl {in out} ->
-                                inl out = tanh_bck out
-                                Struct.map (const out) in
-                            } {input state bias=weights.bias}
-                    
-                    inm H =
-                        inm input = oja_update n {input out H=H.input}
-                        inm state = oja_update n {input=out'; out H=H.state}
-                        succ {input state}
-                    
-                    inm out' = concat (out,input)
-                    succ {out=out'; state={out H}}
-
-                inl {out={out state} bck} = apply s
-                {out state bck}
-            block = ()
-            }
-
-        inl unmodulated_vanilla_oja n size =
-            {
-            init = inl sublayer_size -> 
-                {
-                dsc = 
-                    {
                     state = {
-                        bias = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
+                        input = Initializer.bias (sublayer_size, size)
+                        state = Initializer.bias (size, size)
+                        bias = {
+                            si = Initializer.constant {dim=1,size; init=to float 1}
+                            i = Initializer.constant {dim=1,size; init=to float 0.5}
+                            s = Initializer.constant {dim=1,size; init=to float 0.5}
+                            c = Initializer.bias (1,size)
+                            }
                         }
-                    input = {
-                        bias = //Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                            Initializer.dr (Initializer.identity (sublayer_size,size))
-                        alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                        }
-                    bias = Initializer.bias (1,size)
                     }
-                size
+                bias = Initializer.bias (1,size)
                 }
-
-            apply = inl {d with weights input} s -> 
-                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-                inl H =
-                    match d with
-                    | {state={H}} -> H
-                    | _ -> 
-                        inl f k = s.CudaTensor.zero_like (primal (weights k .bias))
-                        {input=f .input; state=f .state}
-
-                inl out' =
-                    match d with
-                    | {state={out}} -> out
-                    | _ -> s.CudaTensor.zero_like (primal (weights .bias))
-
-                inl apply =
-                    inm out =
-                        inm input = 
-                            inm W = hadmultb (weights.input.alpha, H.input) (weights.input.bias)
-                            matmult (input, W)
-                        inm state =
-                            inm W = hadmultb (weights.state.alpha, H.state) (weights.state.bias)
-                            matmult (out', W)
-                        activation {
-                            fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
-                            bck=inl {in out} ->
-                                inl out = tanh_bck out
-                                Struct.map (const out) in
-                            } {input state bias=weights.bias}
-                
-                    inm H =
-                        inm input = oja_update n {input out H=H.input}
-                        inm state = oja_update n {input=out'; out H=H.state}
-                        succ {input state}
-
-                    succ {out state={out H}}
-                inl {out={out state} bck} = apply s
-                {out state bck}
-            block = ()
+            size=size
             }
 
-        inl vanilla_oja n size =
-            {
-            init = inl sublayer_size -> 
-                {
-                dsc = 
-                    {
-                    state = {
-                        bias = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        }
-                    input = {
-                        bias = //Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                            Initializer.dr (Initializer.identity (sublayer_size, size))
-                        alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                        }
-                    modulator = {
-                        input = {
-                            weight = Initializer.randn {stddev=0.01f32; dim=sublayer_size+size, size}
-                            bias = Initializer.constant {dim=size; init=one}
-                            }
-                        state = {
-                            weight = Initializer.randn {stddev=0.01f32; dim=sublayer_size+size, size}
-                            bias = Initializer.constant {dim=size; init=one}
-                            }
-                        }
-                    bias = Initializer.bias (1,size)
-                    }
-                size=size
-                }
+        apply = inl {d with weights input} s -> 
+            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl H =
+                match d with
+                | {state={H}} -> H
+                | _ -> 
+                    inl f k = s.CudaTensor.zero_like (primal (weights k))
+                    {input=f .input; state=f .state}
 
-            apply = inl {d with weights input} s -> 
-                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-                inl H =
-                    match d with
-                    | {state={H}} -> H
-                    | _ -> 
-                        inl f k = s.CudaTensor.zero_like (primal (weights k .bias))
-                        {input=f .input; state=f .state}
+            inl state =
+                match d with
+                | {state={state}} -> state
+                | _ -> s.CudaTensor.zero_like (primal (weights .bias))
 
-                inl state =
-                    match d with
-                    | {state={state}} -> state
-                    | _ -> s.CudaTensor.zero_like (primal (weights .bias))
-
-                inl apply =
-                    inm out =
-                        inl f k =
-                            inm W = hadmultb (weights k .alpha, H k) (weights k .bias)
-                            matmult ({input state} k, W)
-                        inm input = f.input
-                        inm state = f.state
-                        activation {
-                            fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
-                            bck=inl {in out} ->
-                                inl out = tanh_bck out
-                                Struct.map (const out) in
-                            } {input state bias=weights.bias}
-                    
-                    inm H =
-                        inm input' = concat (state,input)
-                        inl f k =
-                            inm m = matmultb (input', weights.modulator k .weight) (weights.modulator k .bias) >>= tanh
-                            modulated_oja_update n {m input={input state} k; out H=H k}
-                        inm input = f.input
-                        inm state = f.state
-                        succ {input state}
-                    
-                    succ {out state={state=out; H}}
-
-                inl {out={out state} bck} = apply s
-                {out state bck}
-            block = ()
-            }
-
-        inl concatenative_vanilla_oja n size =
-            {
-            init = inl sublayer_size -> 
-                {
-                dsc = 
-                    {
-                    state = {
-                        bias = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        alpha = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        }
-                    input = {
-                        bias = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                        alpha = Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                        }
-                    modulator = {
-                        input = {
-                            weight = Initializer.randn {stddev=0.01f32; dim=sublayer_size+size, size}
-                            bias = Initializer.bias size
-                            }
-                        state = {
-                            weight = Initializer.randn {stddev=0.01f32; dim=sublayer_size+size, size}
-                            bias = Initializer.bias size
-                            }
-                        }
-                    bias = Initializer.bias (1,size)
-                    }
-                size=sublayer_size+size
-                }
-
-            apply = inl {d with weights input} s -> 
-                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-                inl H =
-                    match d with
-                    | {state={H}} -> H
-                    | _ -> 
-                        inl f k = s.CudaTensor.zero_like (primal (weights k .bias))
-                        {input=f .input; state=f .state}
-
-                inl state =
-                    match d with
-                    | {state={state}} -> state
-                    | _ -> s.CudaTensor.zero_like (primal (weights .bias))
-
-                inl apply =
-                    inm out =
-                        inl f k =
-                            inm W = hadmultb (weights k .alpha, H k) (weights k .bias)
-                            matmult ({input state} k, W)
-                        inm input = f.input
-                        inm state = f.state
-                        activation {
-                            fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
-                            bck=inl {in out} ->
-                                inl out = tanh_bck out
-                                Struct.map (const out) in
-                            } {input state bias=weights.bias}
-                    
-                    inm H =
-                        inm input' = concat (state,input)
-                        inl f k =
-                            inm m = matmultb (input', weights.modulator k .weight) (weights.modulator k .bias) >>= tanh
-                            modulated_oja_update n {m input={input state} k; out H=H k}
-                        inm input = f.input
-                        inm state = f.state
-                        succ {input state}
-                    
-                    inm out' = concat (out,input)
-                    succ {out=out'; state={state=out; H}}
-
-                inl {out={out state} bck} = apply s
-                {out state bck}
-            block = ()
-            }
-
-        inl semimodulated_vanilla_oja n size =
-            {
-            init = inl sublayer_size -> 
-                {
-                dsc = 
-                    {
-                    state = {
-                        bias = Initializer.randn {stddev=0.01f32; dim=size, size}
-                        }
-                    input = {
-                        bias = //Initializer.randn {stddev=0.01f32; dim=sublayer_size, size}
-                            Initializer.dr (Initializer.identity (sublayer_size, size))
-                        }
-                    modulator = {
-                        input = {
-                            weight = Initializer.bias (sublayer_size+size, size)
-                            bias = Initializer.bias size
-                            }
-                        state = {
-                            weight = Initializer.bias (sublayer_size+size, size)
-                            bias = Initializer.bias size
-                            }
-                        }
-                    bias = Initializer.bias (1,size)
-                    }
-                size=size
-                }
-
-            apply = inl {d with weights input} s -> 
-                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-                inl H =
-                    match d with
-                    | {state={H}} -> H
-                    | _ -> 
-                        inl f k = s.CudaTensor.zero_like (primal (weights k .bias))
-                        {input=f .input; state=f .state}
-
-                inl state =
-                    match d with
-                    | {state={state}} -> state
-                    | _ -> s.CudaTensor.zero_like (primal (weights .bias))
-
-                inl apply =
-                    inm out =
-                        inm input' = concat (state,input)
-                        inl calculate k =
-                            inm alpha = matmultb (input', weights.modulator k .weight) (weights.modulator k .bias)
-                            inm static = matmult ({input state} k, weights k .bias)
-                            inm plastic = matmult ({input state} k, H k)
-                            broadcasting_activation {
-                                fwd=inl {in={static plastic} in_inner={alpha}} -> static + alpha * plastic
-                                bck={
-                                    in=inl {in={static plastic} in_inner={alpha}} -> { static = one; plastic = alpha }
-                                    in_inner=inl {in={static plastic} in_inner={alpha}} -> { alpha = plastic }
-                                    }
-                                } {in={static plastic}; in_inner={alpha=Struct.map' (inl x -> x.flatten) alpha}}
-
-                        inm input = calculate .input
-                        inm state = calculate .state
-                    
-                        activation {
-                            fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
-                            bck=inl {in out} ->
-                                inl out = tanh_bck out
-                                Struct.map (const out) in
-                            } {input state bias=weights.bias}
-
-                    inm H =
-                        inl oja_update k = oja_update n {input={input state} k; out H=H k}
-                        inm input = oja_update .input
-                        inm state = oja_update .state
-                        succ {input state}
-
-                    succ {out state={state=out; H}}
-
-                inl {out={out state} bck} = apply s
-                {out state bck}
-            block = ()
-            }
-
-        inl semimodulated_vanilla_oja_alt n size =
-            {
-            init = inl sublayer_size -> 
-                {
-                dsc = 
-                    {
-                    state = Initializer.randn {stddev=0.01f32; dim=size, size}
-                    input = Initializer.dr (Initializer.identity (sublayer_size, size))
-                    modulator = {
-                        input = {
-                            input = Initializer.bias (sublayer_size, size)
-                            state = Initializer.bias (size, size)
-                            bias = {
-                                si = Initializer.constant {dim=1,size; init=to float 1}
-                                i = Initializer.constant {dim=1,size; init=to float 0.5}
-                                s = Initializer.constant {dim=1,size; init=to float 0.5}
-                                c = Initializer.bias (1,size)
-                                }
-                            }
-                        state = {
-                            input = Initializer.bias (sublayer_size, size)
-                            state = Initializer.bias (size, size)
-                            bias = {
-                                si = Initializer.constant {dim=1,size; init=to float 1}
-                                i = Initializer.constant {dim=1,size; init=to float 0.5}
-                                s = Initializer.constant {dim=1,size; init=to float 0.5}
-                                c = Initializer.bias (1,size)
-                                }
-                            }
-                        }
-                    bias = Initializer.bias (1,size)
-                    }
-                size=size
-                }
-
-            apply = inl {d with weights input} s -> 
-                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-                inl H =
-                    match d with
-                    | {state={H}} -> H
-                    | _ -> 
-                        inl f k = s.CudaTensor.zero_like (primal (weights k))
-                        {input=f .input; state=f .state}
-
-                inl state =
-                    match d with
-                    | {state={state}} -> state
-                    | _ -> s.CudaTensor.zero_like (primal (weights .bias))
-
-                inl apply =
-                    inm out =
-                        inl calculate k =
-                            inm alpha = 
-                                inl modulator = weights.modulator k
-                                inm input = matmult (input, modulator.input)
-                                inm state = matmult (state, modulator.state)
-                                generalized_mi {modulator with input state}
-                            inm static = matmult ({input state} k, weights k)
-                            inm plastic = matmult ({input state} k, H k)
-                            broadcasting_activation {
-                                fwd=inl {in={static plastic} in_inner={alpha}} -> static + alpha * plastic
-                                bck={
-                                    in=inl {in={static plastic} in_inner={alpha}} -> { static = one; plastic = alpha }
-                                    in_inner=inl {in={static plastic} in_inner={alpha}} -> { alpha = plastic }
-                                    }
-                                } {in={static plastic}; in_inner={alpha=Struct.map' (inl x -> x.flatten) alpha}}
-
-                        inm input = calculate .input
-                        inm state = calculate .state
-                    
-                        activation {
-                            fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
-                            bck=inl {in out} ->
-                                inl out = tanh_bck out
-                                Struct.map (const out) in
-                            } {input state bias=weights.bias}
-
-                    inm H =
-                        inl oja_update k = oja_update n {input={input state} k; out H=H k}
-                        inm input = oja_update .input
-                        inm state = oja_update .state
-                        succ {input state}
-
-                    succ {out state={state=out; H}}
-
-                inl {out={out state} bck} = apply s
-                {out state bck}
-            block = ()
-            }
-
-        inl semimodulated_mi_oja n size =
-            {
-            init = inl sublayer_size -> 
-                {
-                dsc = 
-                    {
-                    state = Initializer.randn {stddev=0.003f32; dim=size, size}
-                    input = Initializer.dr (Initializer.identity (sublayer_size, size))
-                    modulator = {
-                        input = {
-                            input = Initializer.bias (sublayer_size, size)
-                            state = Initializer.bias (size, size)
-                            bias = {
-                                si = Initializer.constant {dim=1,size; init=to float 1}
-                                i = Initializer.constant {dim=1,size; init=to float 0.5}
-                                s = Initializer.constant {dim=1,size; init=to float 0.5}
-                                c = Initializer.bias (1,size)
-                                }
-                            }
-                        state = {
-                            input = Initializer.bias (sublayer_size, size)
-                            state = Initializer.bias (size, size)
-                            bias = {
-                                si = Initializer.constant {dim=1,size; init=to float 1}
-                                i = Initializer.constant {dim=1,size; init=to float 0.5}
-                                s = Initializer.constant {dim=1,size; init=to float 0.5}
-                                c = Initializer.bias (1,size)
-                                }
-                            }
-                        }
-                    bias = {
-                        si = Initializer.constant {dim=1,size; init=to float 1}
-                        i = Initializer.constant {dim=1,size; init=to float 0.5}
-                        s = Initializer.constant {dim=1,size; init=to float 0.5}
-                        c = Initializer.bias (1,size)
-                        }
-                    }
-                size=size
-                }
-
-            apply = inl {d with weights input} s -> 
-                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-                inl H =
-                    match d with
-                    | {state={H}} -> H
-                    | _ -> 
-                        inl f k = s.CudaTensor.zero_like (primal (weights k))
-                        {input=f .input; state=f .state}
-
-                inl state =
-                    match d with
-                    | {state={state}} -> state
-                    | _ -> s.CudaTensor.zero_like (primal (weights .bias .c))
-
-                inl apply =
-                    inm out =
-                        inl calculate k =
-                            inm alpha = 
-                                inl modulator = weights.modulator k
-                                inm input = matmult (input, modulator.input)
-                                inm state = matmult (state, modulator.state)
-                                generalized_mi {modulator with input state}
-                            inm static = matmult ({input state} k, weights k)
-                            inm plastic = matmult ({input state} k, H k)
-                            broadcasting_activation {
-                                fwd=inl {in={static plastic} in_inner={alpha}} -> static + alpha * plastic
-                                bck={
-                                    in=inl {in={static plastic} in_inner={alpha}} -> { static = one; plastic = alpha }
-                                    in_inner=inl {in={static plastic} in_inner={alpha}} -> { alpha = plastic }
-                                    }
-                                } {in={static plastic}; in_inner={alpha=Struct.map' (inl x -> x.flatten) alpha}}
-
-                        inm input = calculate .input
-                        inm state = calculate .state
-                        generalized_mi {input state bias=weights.bias}
-
-                    inm H =
-                        inl oja_update k = oja_update n {input={input state} k; out H=H k}
-                        inm input = oja_update .input
-                        inm state = oja_update .state
-                        succ {input state}
-
-                    succ {out state={state=out; H}}
-
-                inl {out={out state} bck} = apply s
-                {out state bck}
-            block = ()
-            }
-
-        inl modulated_rnn size =
-            {
-            init = inl sublayer_size -> 
-                {
-                dsc = 
-                    {
-                    state = Initializer.randn {stddev=0.01f32; dim=size, size}
-                    input = Initializer.dr (Initializer.identity (sublayer_size, size))
-                    modulator = {
-                        input = {
-                            input = Initializer.randn {stddev=0.001f32; dim=sublayer_size, size}
-                            state = Initializer.randn {stddev=0.001f32; dim=size, size}
-                            bias = {
-                                si = Initializer.constant {dim=1,size; init=to float 1}
-                                i = Initializer.constant {dim=1,size; init=to float 0.5}
-                                s = Initializer.constant {dim=1,size; init=to float 0.5}
-                                c = Initializer.bias (1,size)
-                                }
-                            }
-                        state = {
-                            input = Initializer.randn {stddev=0.001f32; dim=sublayer_size, size}
-                            state = Initializer.randn {stddev=0.001f32; dim=size, size}
-                            bias = {
-                                si = Initializer.constant {dim=1,size; init=to float 1}
-                                i = Initializer.constant {dim=1,size; init=to float 0.5}
-                                s = Initializer.constant {dim=1,size; init=to float 0.5}
-                                c = Initializer.bias (1,size)
-                                }
-                            }
-                        }
-                    n = {
-                        input = {
-                            input = Initializer.randn {stddev=0.001f32; dim=sublayer_size, size}
-                            state = Initializer.randn {stddev=0.001f32; dim=size, size}
-                            bias = {
-                                si = Initializer.constant {dim=1,size; init=to float 1}
-                                i = Initializer.constant {dim=1,size; init=to float 0.5}
-                                s = Initializer.constant {dim=1,size; init=to float 0.5}
-                                c = Initializer.constant {dim=1; init=to float 0.01}
-                                }
-                            }
-                        state = {
-                            input = Initializer.randn {stddev=0.001f32; dim=sublayer_size, size}
-                            state = Initializer.randn {stddev=0.001f32; dim=size, size}
-                            bias = {
-                                si = Initializer.constant {dim=1,size; init=to float 1}
-                                i = Initializer.constant {dim=1,size; init=to float 0.5}
-                                s = Initializer.constant {dim=1,size; init=to float 0.5}
-                                c = Initializer.constant {dim=1; init=to float 0.01}
-                                }
-                            }
-                        }
-                    bias = Initializer.bias (1,size)
-                    }
-                size=size
-                }
-
-            apply = inl {d with weights input} s -> 
-                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-                inl H =
-                    match d with
-                    | {state={H}} -> H
-                    | _ -> 
-                        inl f k = s.CudaTensor.zero_like (primal (weights k))
-                        {input=f .input; state=f .state}
-
-                inl state =
-                    match d with
-                    | {state={state}} -> state
-                    | _ -> s.CudaTensor.zero_like (primal (weights .bias))
-
-                inl apply =
-                    inm out =
-                        inl calculate k =
-                            inm alpha = 
-                                inl modulator = weights.modulator k
-                                inm input = matmult (input, modulator.input)
-                                inm state = matmult (state, modulator.state)
-                                generalized_mi {modulator with input state}
-                            inm static = matmult ({input state} k, weights k)
-                            inm plastic = matmult ({input state} k, H k)
-                            broadcasting_activation {
-                                fwd=inl {in={static plastic} in_inner={alpha}} -> static + alpha * plastic
-                                bck={
-                                    in=inl {in={static plastic} in_inner={alpha}} -> { static = one; plastic = alpha }
-                                    in_inner=inl {in={static plastic} in_inner={alpha}} -> { alpha = plastic }
-                                    }
-                                } {in={static plastic}; in_inner={alpha=Struct.map' (inl x -> x.flatten) alpha}}
-
-                        inm input = calculate .input
-                        inm state = calculate .state
-                    
-                        activation {
-                            fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
-                            bck=inl {in out} ->
-                                inl out = tanh_bck out
-                                Struct.map (const out) in
-                            } {input state bias=weights.bias}
-
-                    inm H =
-                        inl oja_update k = 
-                            inl n = weights .n k .bias .c
-                            modulated_oja_update {n input={input state} k; out H=H k}
-                        inm input = oja_update .input
-                        inm state = oja_update .state
-                        succ {input state}
-
-                    succ {out state={state=out; H}}
-
-                inl {out={out state} bck} = apply s
-                {out state bck}
-            block = ()
-            }
-
-        inl semimodulated_vanilla_oja_alt2 n size =
-            {
-            init = inl sublayer_size -> 
-                {
-                dsc = 
-                    {
-                    state = Initializer.randn {stddev=0.01f32; dim=size, size}
-                    input = Initializer.dr (Initializer.identity (sublayer_size, size))
-                    modulator = {
-                        input = {
-                            input = Initializer.bias (sublayer_size, size)
-                            state = Initializer.bias (size, size)
-                            bias = {
-                                si = Initializer.constant {dim=1,size; init=to float 1}
-                                i = Initializer.constant {dim=1,size; init=to float 0.5}
-                                s = Initializer.constant {dim=1,size; init=to float 0.5}
-                                c = Initializer.bias (1,size)
-                                }
-                            }
-                        state = {
-                            input = Initializer.bias (sublayer_size, size)
-                            state = Initializer.bias (size, size)
-                            bias = {
-                                si = Initializer.constant {dim=1,size; init=to float 1}
-                                i = Initializer.constant {dim=1,size; init=to float 0.5}
-                                s = Initializer.constant {dim=1,size; init=to float 0.5}
-                                c = Initializer.bias (1,size)
-                                }
-                            }
-                        }
-                    bias = Initializer.bias (1,size)
-                    }
-                size=size
-                }
-
-            apply = inl {d with weights input} s -> 
-                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-                inl H =
-                    match d with
-                    | {state={H}} -> H
-                    | _ -> 
-                        inl f k = s.CudaTensor.zero_like (primal (weights k))
-                        {input=f .input; state=f .state}
-
-                inl state =
-                    match d with
-                    | {state={state}} -> state
-                    | _ -> s.CudaTensor.zero_like (primal (weights .bias))
-
-                inl apply =
+            inl apply =
+                inm out =
                     inl calculate k =
                         inm alpha = 
                             inl modulator = weights.modulator k
@@ -2775,285 +1625,28 @@ inl float ->
 
                     inm input = calculate .input
                     inm state = calculate .state
-                    inm out =
-                        activation {
-                            fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
-                            bck=inl {in out} ->
-                                inl out = tanh_bck out
-                                Struct.map (const out) in
-                            } {input state bias=weights.bias}
-
-                    inm H =
-                        inl oja_update k = oja_update n {input={input state} k; out H=H k}
-                        inm input = oja_update .input
-                        inm state = oja_update .state
-                        succ {input state}
-
-                    succ {out state={state=out; H}}
-
-                inl {out={out state} bck} = apply s
-                {out state bck}
-            block = ()
-            }
-
-        inl sequence x s =
-            inl x = Struct.map (inl x -> x s |> inl x -> {x with block=()}) x
-            {
-            out = Struct.map (inl {out} -> out) x
-            bck = Struct.map (inl {bck} -> bck) x
-            }
-
-        inl attend =
-            activation {
-                fwd=
-                    Liple.foldl (inl s {factor out} ->
-                        inl out = Struct.foldl (+) zero out
-                        s + factor * out
-                        ) zero
-                    >> tanh_fwd
-                bck=inl {in out} ->
-                    Liple.map (inl {factor out} ->
-                        {
-                        factor=Struct.foldl (+) zero out
-                        out=Struct.map (const factor) out
-                        }
-                        ) in
-                    |> Struct.map ((*) (tanh_bck out))
-                }
-
-        inl multiscale_v1 (!dyn n) size =
-            {
-            init = inl sublayer_size -> 
-                {
-                dsc = 
-                    inl modulator _ = {
-                        input = Initializer.bias (sublayer_size, size)
-                        state = Initializer.bias (size, size)
-                        bias = {
-                            si = Initializer.constant {dim=1,size; init=to float 1}
-                            i = Initializer.constant {dim=1,size; init=to float 0.5}
-                            s = Initializer.constant {dim=1,size; init=to float 0.5}
-                            c = Initializer.bias (1,size)
-                            }
-                        }
-
-                    inl cell _ = {
-                        wrap = {
-                            input = Initializer.dr (Initializer.identity (sublayer_size, size))
-                            state = Initializer.randn {stddev=0.01f32; dim=size, size}
-                            modulator = {
-                                input = modulator()
-                                state = modulator()
-                                }
-                            bias = Initializer.bias (1,size)
-                            factor = Initializer.constant {dim=1,size; init=to float 1}
-                            }
-                        block=()
-                        }
-
-                    Struct.map (inl _ -> cell()) n
-                size=size
-                }
-
-            apply = inl {d with weights input} s -> 
-                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-                inl H =
-                    match d with
-                    | {state={H}} -> H
-                    | _ -> 
-                        Struct.map (inl weights ->
-                            inl f k = s.CudaTensor.zero_like (primal (weights k))
-                            {input=f .input; state=f .state}
-                            ) weights
-                
-                inl state =
-                    match d with
-                    | {state={state}} -> state
-                    | _ -> s.CudaTensor.zero {elem_type=float; dim=1,size}
-
-                inl apply =
-                    inm cell_results =
-                        Struct.map3 (inl weights H n ->
-                            inm out =
-                                inl calculate k =
-                                    inm alpha = 
-                                        inl modulator = weights.modulator k
-                                        inm input = matmult (input, modulator.input)
-                                        inm state = matmult (state, modulator.state)
-                                        generalized_mi {modulator with input state}
-                                    inm static = matmult ({input state} k, weights k)
-                                    inm plastic = matmult ({input state} k, H k)
-                                    broadcasting_activation {
-                                        fwd=inl {in={static plastic} in_inner={alpha}} -> static + alpha * plastic
-                                        bck={
-                                            in=inl {in={static plastic} in_inner={alpha}} -> { static = one; plastic = alpha }
-                                            in_inner=inl {in={static plastic} in_inner={alpha}} -> { alpha = plastic }
-                                            }
-                                        } {in={static plastic}; in_inner={alpha=Struct.map' (inl x -> x.flatten) alpha}}
-
-                                inm input = calculate .input
-                                inm state = calculate .state
                     
-                                activation {
-                                    fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in //|> tanh_fwd
-                                    bck=inl {in out} ->
-                                        Struct.map (const one) in
-                                        //inl out = tanh_bck out
-                                        //Struct.map (const out) in
-                                    } {input state bias=weights.bias}
+                    activation {
+                        fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
+                        bck=inl {in out} ->
+                            inl out = tanh_bck out
+                            Struct.map (const out) in
+                        } {input state bias=weights.bias}
 
-                            succ {out block=()}
-                            ) weights H n
-                        |> sequence
+                inm H =
+                    inl oja_update k = oja_update n {input={input state} k; out H=H k}
+                    inm input = oja_update .input
+                    inm state = oja_update .state
+                    succ {input state}
 
-                    inm out = 
-                        Struct.map2 (inl {factor} {out} -> {factor out}) weights cell_results
-                        |> attend
+                succ {out state={state=out; H}}
 
-                    inm H =
-                        Struct.map2 (inl H n ->
-                            inl oja_update k = oja_update n {input={input state} k; out H=H k}
-                            inm input = oja_update .input
-                            inm state = oja_update .state
-                            succ {input state}
-                            ) H n
-                        |> sequence
-                    
-                    succ {out state={state=out; H}}
-
-                inl {out={out state} bck} = apply s
-                {out state bck}
-            block = ()
-            }
-
-        inl activation_lstm memory_old {ins with input_cell output_cell forget_cell memory_cell} s =
-            inl b,a as dim = primal memory_old .dim
-            inl primals_ins = primals ins
-            assert_dim primals_ins (Struct.map (const dim) primals_ins)
-            inl in = {ins with memory_old}
-            
-            inl out =
-                inl x = to_dev_tensor {in=primals in}
-                s.CudaFun.init {dim} (inl dim -> CudaAD.activation_lstm dim x .out |> primals)
-                |> HostTensor.unzip
-                |> Struct.map (dr s)
-
-            {
-            out
-            bck=met _ ->
-                inl x = to_dev_tensor {in out}
-                s.CudaKernel.iter {dim} (inl dim -> CudaAD.activation_lstm dim x |> CudaAD.run |> ignore)
-            }
-
-        inl plastic_lstm n size =
-            {
-            init = inl sublayer_size -> 
-                {
-                dsc = 
-                    inl modulator _ = {
-                        input = Initializer.bias (sublayer_size, size)
-                        state = Initializer.bias (size, size)
-                        bias = {
-                            si = Initializer.constant {dim=1,size; init=to float 1}
-                            i = Initializer.constant {dim=1,size; init=to float 0.5}
-                            s = Initializer.constant {dim=1,size; init=to float 0.5}
-                            c = Initializer.bias (1,size)
-                            }
-                        }
-
-                    inl cell init = {
-                        wrap = {
-                            input = Initializer.dr (Initializer.identity (sublayer_size, size))
-                            state = Initializer.randn {stddev=0.01f32; dim=size, size}
-                            modulator = 
-                                {
-                                input = modulator()
-                                state = modulator()
-                                }
-                            bias = Initializer.constant {dim=1,size; init}
-                            }
-                        block=()
-                        }
-
-                    {
-                    input_cell=cell zero
-                    output_cell=cell zero
-                    forget_cell=cell one
-                    memory_cell=cell zero
-                    }
-                size=size
-                }
-
-            apply = inl {d with weights input} s -> 
-                assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-                inl H =
-                    match d with
-                    | {state={H}} -> H
-                    | _ -> 
-                        Struct.map (inl weights ->
-                            module_map (inl k _ -> s.CudaTensor.zero_like (primal (weights k))) {input=(); state=()}
-                            ) weights
-
-                inl {state memory_old} =
-                    match d with
-                    | {state={state memory_old}} -> {state memory_old}
-                    | _ -> 
-                        inl f _ = s.CudaTensor.zero {elem_type=float; dim=1,size}
-                        { state=f(); memory_old=f() }
-
-                inl apply =
-                    inm {out memory} =
-                        Struct.map2 (inl weights H ->
-                            inl calculate k =
-                                inm alpha = 
-                                    inl modulator = weights.modulator k
-                                    inm input = matmult (input, modulator.input)
-                                    inm state = matmult (state, modulator.state)
-                                    generalized_mi {modulator with input state}
-                                inm static = matmult ({input state} k, weights k)
-                                inm plastic = matmult ({input state} k, H k)
-                                broadcasting_activation {
-                                    fwd=inl {in={static plastic} in_inner={alpha}} -> static + alpha * plastic
-                                    bck={
-                                        in=inl {in={static plastic} in_inner={alpha}} -> { static = one; plastic = alpha }
-                                        in_inner=inl {in={static plastic} in_inner={alpha}} -> { alpha = plastic }
-                                        }
-                                    } {in={static plastic}; in_inner={alpha=Struct.map' (inl x -> x.flatten) alpha}}
-
-                            inm input = calculate .input
-                            inm state = calculate .state
-                    
-                            activation {
-                                fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in
-                                bck=inl {in out} -> Struct.map (const one) in
-                                } {input state bias=weights.bias}
-                            ) weights H
-                        |> sequence // Note: The the weights are wrapped in a block which sequence removes.
-                        >>= activation_lstm memory_old
-
-                    inm H =
-                        Struct.map2 (inl _ H ->
-                            inl oja_update k = oja_update n {input={input state} k; out H=H k}
-                            inm input = oja_update .input
-                            inm state = oja_update .state
-                            succ {input state}
-                            ) weights H
-                        |> sequence
-                    
-                    succ {out state={state=out; memory_old=memory; H}}
-
-                inl {out={out state} bck} = apply s
-                {out state bck}
-            block = ()
-            }
-
-        {
-        unmodulated_feedforward feedforward rnn unmodulated_vanilla_oja unmodulated_concatenative_vanilla_oja concatenative_vanilla_oja
-        vanilla_oja semimodulated_vanilla_oja semimodulated_vanilla_oja_alt semimodulated_mi_oja modulated_rnn semimodulated_vanilla_oja_alt2
-        multiscale_v1 plastic_lstm
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        block = ()
         }
 
-    inl RNN = {mi mi_hebb mi_hebb_prong mi_hebb'_prong vanilla_hebb mi_prong mi_prong_alt mi_alt Modulated}
+    inl RNN = {mi mi_prong mi_prong_alt mi_alt plastic_rnn}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
