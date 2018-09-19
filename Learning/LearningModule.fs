@@ -873,7 +873,7 @@ inl float ->
             }
         |> inl x -> x 0
 
-    inl sign_accuracy label input s =
+    inl sign_accuracy label input s = // For the Binary Pattern test.
         inl input, label = primal input, primal label
         s.CudaFun.redo {
             map=inl input, label -> if Math.sign label = Math.sign input then 1 else 0
