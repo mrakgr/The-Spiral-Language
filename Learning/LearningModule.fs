@@ -1563,7 +1563,8 @@ inl float ->
             dsc = 
                 {
                 state = Initializer.randn {stddev=0.01f32; dim=size, size}
-                input = Initializer.dr (Initializer.identity (sublayer_size, size))
+                input = Initializer.randn {stddev=0.01f32; dim=size, size}
+                    //Initializer.dr (Initializer.identity (sublayer_size, size))
                 modulator = {
                     input = {
                         input = Initializer.bias (sublayer_size, size)
