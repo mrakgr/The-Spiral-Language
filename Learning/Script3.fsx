@@ -2,7 +2,7 @@
 
 type R<'a> = {passes: int32; error : 'a}
 
-let inline error_weight_norm num_weights float passes =
+let inline error_weight_norm num_weights float passes = 
     let n = float 0.01
     let zero = float 0.0
     let one = float 1.0
