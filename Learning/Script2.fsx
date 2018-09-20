@@ -1,4 +1,6 @@
-﻿type R<'a> = {passes: int32; error : 'a}
+﻿/// Error measurements for the reversible weight updates for Hebbian learning.
+
+type R<'a> = {passes: int32; error : 'a}
 
 let inline error_template float passes H' H =
     let rng = System.Random()
