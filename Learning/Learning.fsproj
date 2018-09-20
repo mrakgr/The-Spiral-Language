@@ -68,6 +68,7 @@
     <None Include="Script1.fsx" />
     <Compile Include="LearningModule.fs" />
     <Compile Include="LearningTests.fs" />
+    <None Include="Script2.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
