@@ -9,8 +9,7 @@ let inline error_template float passes H' H =
     let Hs, r = Array.mapFold H' (float 0.0) input_out
     let H's, r' = Array.mapFoldBack H input_out r
 
-    let errors = Array.map2 (fun a b -> abs (a - b)) Hs H's
-    {passes=passes; error=errors.[0]} // The error is highest at the beginning as could be expected.
+    {passes=passes; error=abs r'} // The error is highest at the beginning as could be expected.
 
 let inline error_oja float passes =
     let n = float 0.01
