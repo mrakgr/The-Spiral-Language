@@ -11,7 +11,9 @@ let inline error_weight_norm num_weights float passes =
         let mean = Array.sum x / num_weights
         let x = Array.map (fun x -> x - mean) x
         let std = Array.fold (fun s x -> s + x * x) zero x / num_weights |> sqrt
-        Array.map (fun x -> if std <> zero then x / std else zero) x, mean, std
+        // Note: It would be beter to not normalize stds < 1 in a real implementation
+        // and let the weights grow naturally until then.
+        Array.map (fun x -> if std <> zero then x / std else zero) x, mean, std 
 
     let unnorm x (mean,std) =
         Array.map (fun x -> if std <> zero then x * std else zero) x
