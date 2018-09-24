@@ -480,6 +480,47 @@ inl {basic_methods State Action} ->
             .data_add {name; win=ref 0; action trace}
 
     inl Learning = Learning float32
+
+    inl player_pg_alt {name actor learning_rate} cd =
+        open Learning
+        inl action = RL.action {State Action final=RL.sampling_pg}
+
+        inl input_size = Union.length_dense State
+        inl num_actions = Union.length_one_hot Action
+
+        inl net,_ = Tuple.append (Tuple.wrap actor) (RL.Layer.pg {size=num_actions} :: ()) |> init cd input_size
+        //inl net,_ = Tuple.append (Tuple.wrap actor) (Feedforward.linear num_actions :: ()) |> init cd input_size
+
+        inl run = 
+            Union.mutable_function 
+                (inl {state={state with net} input={input cd}} ->
+                    inl input =
+                        match state with
+                        | {prev_input} -> s.CudaFun.map {map=inl a,b -> a-b} (input,prev_input)
+                        | _ -> input
+                    inl {action net bck} = action {net input} cd
+                    inl bck x = 
+                        Struct.foldr (inl bck _ -> bck {x with learning_rate}) bck ()
+                        Struct.foldr (inl {bck} -> Struct.foldr (inl bck _ -> bck {learning_rate}) bck) net ()
+                    {state={net bck prev_input=input}; out=action}
+                    )
+                {state={net}; input={input=State; cd}}
+
+        inl methods = {basic_methods with
+            bet=inl s input -> s.data.run {input cd=s.data.cd}
+            showdown=inl s reward -> 
+                inl l = s.data.run.reset
+                inl reward = dyn (to float32 reward)
+                List.foldl (inl _ -> function {bck} -> bck {reward} | _ -> ()) () l
+
+                Optimizer.standard learning_rate s.data.cd s.data.net
+            game_over=inl s -> ()
+            }
+
+        Object
+            .member_add methods
+            .data_add {name; win=ref 0; net run}
+
     inl player_pg {name actor learning_rate} cd =
         open Learning
         inl action = RL.action {State Action final=RL.sampling_pg}
