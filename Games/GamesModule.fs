@@ -481,46 +481,6 @@ inl {basic_methods State Action} ->
 
     inl Learning = Learning float32
 
-    inl player_pg_alt {name actor learning_rate} cd =
-        open Learning
-        inl action = RL.action {State Action final=RL.sampling_pg}
-
-        inl input_size = Union.length_dense State
-        inl num_actions = Union.length_one_hot Action
-
-        inl net,_ = Tuple.append (Tuple.wrap actor) (RL.Layer.pg {size=num_actions} :: ()) |> init cd input_size
-        //inl net,_ = Tuple.append (Tuple.wrap actor) (Feedforward.linear num_actions :: ()) |> init cd input_size
-
-        inl run = 
-            Union.mutable_function 
-                (inl {state={state with net} input={input cd}} ->
-                    inl input =
-                        match state with
-                        | {prev_input} -> s.CudaFun.map {map=inl a,b -> a-b} (input,prev_input)
-                        | _ -> input
-                    inl {action net bck} = action {net input} cd
-                    inl bck x = 
-                        Struct.foldr (inl bck _ -> bck {x with learning_rate}) bck ()
-                        Struct.foldr (inl {bck} -> Struct.foldr (inl bck _ -> bck {learning_rate}) bck) net ()
-                    {state={net bck prev_input=input}; out=action}
-                    )
-                {state={net}; input={input=State; cd}}
-
-        inl methods = {basic_methods with
-            bet=inl s input -> s.data.run {input cd=s.data.cd}
-            showdown=inl s reward -> 
-                inl l = s.data.run.reset
-                inl reward = dyn (to float32 reward)
-                List.foldl (inl _ -> function {bck} -> bck {reward} | _ -> ()) () l
-
-                Optimizer.standard learning_rate s.data.cd s.data.net
-            game_over=inl s -> ()
-            }
-
-        Object
-            .member_add methods
-            .data_add {name; win=ref 0; net run}
-
     inl player_pg {name actor learning_rate} cd =
         open Learning
         inl action = RL.action {State Action final=RL.sampling_pg}
@@ -640,7 +600,95 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0; actor shared critic run}
 
+    inl player_mc_ac_alt {d with name learning_rate discount_factor} cd =
+        open Learning
+        inl action = RL.action {State Action final=RL.sampling_pg}
+
+        inl input_size = Union.length_dense State
+        inl num_actions = Union.length_one_hot Action
+
+        inl learning_rate = {
+            actor=learning_rate
+            critic=learning_rate ** 0.85f32
+            shared=learning_rate
+            }
+
+        // The RL layers use the PRONG updates.
+        inl actor = match d with {actor} -> Tuple.append (Tuple.wrap actor) (RL.Layer.pg {size=num_actions}  :: ()) | _ -> RL.Layer.pg {size=num_actions}
+        inl critic = match d with {critic} -> critic :: RL.Layer.mc {} :: () | _ -> RL.Layer.mc {}
+        // The feedforward linear layers do not use PRONG updates.
+        //inl actor = match d with {actor} -> Tuple.append (Tuple.wrap actor) (Feedforward.linear num_actions  :: ()) | _ -> Feedforward.linear num_actions
+        //inl critic = match d with {critic} -> critic :: Feedforward.linear 1 :: () | _ -> Feedforward.linear 1
+        inl shared = match d with {shared} -> shared | _ -> ()
+
+        inl shared, shared_size = init cd input_size shared
+        inl actor, _ = init cd shared_size actor
+        inl critic, _ = init cd shared_size critic
+
+        inl block_critic_gradients =
+            match d with
+            | {block_critic_gradients} -> block_critic_gradients
+            | _ -> true
+
+        inl run = 
+            Union.mutable_function 
+                (inl {state={state with shared actor critic} input={input cd}} ->
+                    assert (eq_type State input) "The input must be equal to the state type."
+                    inl input = 
+                        inl tns = Union.to_dense input |> HostTensor.array_as_tensor
+                        cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
+                    inl input =
+                        match state with
+                        | {prev_input} -> cd.CudaFun.map {map=inl a,b -> a-b} (input,prev_input)
+                        | _ -> input
+                    inl shared, shared_out = run cd input shared
+                    inl actor, actor_out = run cd shared_out actor
+                    inl {out bck=actor_bck} = RL.sampling_pg actor_out cd
+                    inl critic, critic_out = 
+                        if block_critic_gradients then run cd (primal shared_out) critic
+                        else run cd shared_out critic
+
+                    inl bck x = 
+                        inl {value bck=critic_bck} = RL.Value.mc critic_out cd x
+                        critic_bck {learning_rate=learning_rate.critic}
+                        actor_bck {reward=value}
+                        inl f learning_rate network = Struct.foldr (inl {bck} -> Struct.foldr (inl bck _ -> bck {learning_rate=learning_rate}) bck) network ()
+                        f learning_rate.critic critic; f learning_rate.actor actor; f learning_rate.shared shared
+                        
+                    inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
+                    {state={actor critic shared bck prev_input=input}; out=action}
+                    )
+                {state={shared actor critic}; input={input=State; cd}}
+
+        inl methods = {basic_methods with
+            bet=inl s input -> s.data.run {input cd=s.data.cd}
+            showdown=inl s reward -> 
+                inl l = s.data.run.reset
+                inl reward = dyn (to float32 reward)
+                inl original = discount_factor
+                List.foldl (inl discount_factor x -> 
+                    match x with
+                    | {bck} -> bck {discount_factor reward} 
+                    | _ -> ()
+                    original*discount_factor
+                    ) discount_factor l
+                |> ignore
+
+                inl cd = s.data.cd
+                inl f learning_rate = Optimizer.standard learning_rate cd
+
+                f learning_rate.shared s.data.shared
+                f learning_rate.actor s.data.actor
+                f learning_rate.critic s.data.critic
+            game_over=inl s -> ()
+            }
+
+        Object
+            .member_add methods
+            .data_add {name; win=ref 0; actor shared critic run}
+
+
     {
-    player_random player_rules player_tabular_mc player_tabular_sarsa player_pg player_mc_ac
+    player_random player_rules player_tabular_mc player_tabular_sarsa player_pg player_mc_ac player_mc_ac_alt
     } |> stackify
     """) |> module_
