@@ -170,18 +170,17 @@ Struct.iter (inl i ->
 
         inl a = 
             open (Learning float32)
-            //inl actor =
-            //    inl n = 0.04f32
-            //    RNN.plastic_rnn n 128
+            inl actor =
+                inl n = 0.1f32
+                RNN.plastic_rnn n 128
             //inl actor = 
             //    Feedforward.tanh 256
-            inl actor = 
-                open Feedforward
-                prong {activation=Activation.tanh; size=256},
-                prong {activation=Activation.tanh; size=256}
+            //inl actor = 
+            //    open Feedforward
+            //    prong {activation=Activation.tanh; size=256},
+            //    prong {activation=Activation.tanh; size=256}
             //player_pg {learning_rate name="One"; actor} s
-            //player_mc_ac {learning_rate name="One"; shared=actor; block_critic_gradients=true; discount_factor=1f32} s
-            player_mc_ac_alt {learning_rate name="One"; shared=actor; block_critic_gradients=true; discount_factor=1f32} s
+            player_mc_ac {learning_rate name="One"; shared=actor; block_critic_gradients=true; discount_factor=1f32} s
         inl b = player_rules {name="Two"}
 
         met f game (!dyn near_to) (!dyn near_to_inner) = 
