@@ -1562,8 +1562,10 @@ inl float ->
             {
             dsc = 
                 {
-                state = Initializer.randn {stddev=0.01f32; dim=size, size}
-                input = Initializer.dr (Initializer.identity (sublayer_size, size))
+                //state = Initializer.randn {stddev=0.01f32; dim=size, size} // For the Binary Pattern
+                //input = Initializer.dr (Initializer.identity (sublayer_size, size))
+                state = Initializer.tanh (size, size) // For regular tasks
+                input = Initializer.tanh (sublayer_size, size)
                 modulator = {
                     input = {
                         input = Initializer.bias (sublayer_size, size)
