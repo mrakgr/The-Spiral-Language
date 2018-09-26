@@ -1591,23 +1591,26 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let names, bindings =
                 match l with
                 | VV (l, _) :: bindings -> l, bindings
-                | V _ as x :: bindings -> [x], bindings
-                | x -> failwith "Compiler error: Malformed ModuleWith."
+                | x :: bindings -> [x], bindings
+                | _ -> failwith "Compiler error: Malformed ModuleWith."
+
+            let inline layout_map cur_env name (on_succ: EnvTerm -> TypedExpr) =
+                match Map.tryFind name cur_env with
+                | Some recf ->
+                    match recf with
+                    | TyMap(env,MapTypeModule) -> on_succ env
+                    | TyType(LayoutT(_,TyMap(_,MapTypeModule))) -> on_type_er (trace d) "For the sake of consistency directly updating a layout type is disallowed. Unseal it using 'indiv' first."
+                    | _ -> on_type_er (trace d) <| sprintf "Variable %s is not a module." name
+                | _ -> on_type_er (trace d) <| sprintf "Module %s is not bound in the environment." name
 
             let rec module_with_loop names (C cur_env) = 
-                let inline layout_map name (on_succ: EnvTerm -> TypedExpr) =
-                    match Map.tryFind name cur_env with
-                    | Some recf ->
-                        match recf with
-                        | TyMap(env,MapTypeModule) -> on_succ env
-                        | TyType(LayoutT(_,TyMap(_,MapTypeModule))) -> on_type_er (trace d) "For the sake of consistency directly updating a layout type is disallowed. Unseal it using 'indiv' first."
-                        | _ -> on_type_er (trace d) <| sprintf "Variable %s is not a module." name
-                    | _ -> on_type_er (trace d) <| sprintf "Module %s is not bound in the environment." name
-
                 match names with
-                | V(name, _) :: names -> layout_map name (module_with_loop names)
-                | Lit(LitString name, _) :: names -> tymap (Map.add name (layout_map name (module_with_loop names)) cur_env |> Env, MapTypeModule)
-                | [] ->
+                | Lit(LitString name, _) :: names -> tymap (Map.add name (layout_map cur_env name (module_with_loop names)) cur_env |> Env, MapTypeModule)
+                | x :: names ->
+                    match tev d x with
+                    | TypeString name -> tymap (Map.add name (layout_map cur_env name (module_with_loop names)) cur_env |> Env, MapTypeModule)
+                    | _ -> on_type_er (trace d) "The expression in the module_with construct is not a type string."
+                | [] -> 
                     let bind env name e =
                         match Map.tryFind name env with
                         | Some v -> {d with env = env_add "self" v d.env}
@@ -1627,8 +1630,15 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         | x -> failwithf "impossible\nGot: %A" x
                         ) cur_env bindings
                     |> fun env -> tymap(Env env, MapTypeModule)
-                | x -> failwithf "Compiler error: Malformed ModuleWith."
-            module_with_loop names d.env
+
+            match names with
+            | V(name, _) :: names -> layout_map (c d.env) name (module_with_loop names)
+            | x :: names ->
+                match tev d x with
+                | TyMap(env,MapTypeModule) -> module_with_loop names env 
+                | TyType(LayoutT(_,TyMap(_,MapTypeModule))) -> on_type_er (trace d) "For the sake of consistency directly updating a layout type is disallowed. Unseal it using 'indiv' first."
+                | _ -> on_type_er (trace d) "The expression in the module_with construct is not a module."
+            | x -> failwithf "Compiler error: Malformed ModuleWith."
 
         let failwith_ d typ a =
             match tev2 d typ a with
