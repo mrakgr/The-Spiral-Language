@@ -2265,11 +2265,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let mp_without n = op(ModuleWithout,[lit_string n])
             let mp_without_inject n = op(ModuleWithout,[v n])
             let mp_create l = op(ModuleCreate,l)
-            let mp_with (n,l) = 
-                match n with
-                | [x] -> op(ModuleWith,v x :: l)
-                | x :: xs -> op(ModuleWith,vv (v x :: List.map lit_string xs) :: l)
-                | _ -> failwith "impossible"
+            let mp_with init names l = 
+                let l = List.concat l
+                match names with
+                | _ :: _ -> op(ModuleWith,vv (init :: names) :: l)
+                | _ -> op(ModuleWith,init :: l)
 
             let inline parse_binding_with s =
                 let i = col s
@@ -2294,8 +2294,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let module_with = 
                 let withs s = (with_ >>. many1 module_create_with) s
                 let withouts s = (without >>. many1 module_create_without) s 
-                pipe2 (sepBy1 var_name dot) (many1 (withs <|> withouts))
-                <| fun names l -> mp_with (names,List.concat l)
+                pipe3 ((var_name |>> v) <|> rounds expr)
+                    (many (dot >>. ((var_name |>> lit_string) <|> rounds expr)))
+                    (many1 (withs <|> withouts))
+                    mp_with
 
             let module_create = many module_create_with |>> mp_create
                 
