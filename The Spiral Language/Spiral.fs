@@ -2130,6 +2130,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         and pat_module_body expr s =
             let pat_name = var_name |>> PatModuleMember
+            let pat_semicolon = semicolon' >>. pat_module_body expr
 
             let inline pat_inject pat = 
                 pipe2 (inject >>. var_name) (eq' >>. patterns_template expr) (fun a b -> PatModuleInject(a, b))
@@ -2156,7 +2157,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let inline pat_xor pat = pat_template caret PatXor pat
             let inline pat_or pat = pat_template bar PatOr pat
             let inline pat_and pat = many pat |>> PatAnd
-            pat_and ^<| pat_or ^<| pat_xor ^<| pat_not ^<| pat_inject ^<| pat_bind ^<| choice [pat_name; pat_module_inner expr; rounds (pat_module_body expr)] 
+            pat_and ^<| pat_or ^<| pat_xor ^<| pat_not ^<| pat_inject ^<| pat_bind ^<| choice [pat_semicolon; pat_name; pat_module_inner expr; rounds (pat_module_body expr)] 
             <| s
 
         and patterns_template expr s = // The order in which the pattern parsers are chained in determines their precedence.

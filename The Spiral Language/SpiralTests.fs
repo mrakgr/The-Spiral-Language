@@ -568,7 +568,7 @@ module_add .add (inl a b -> a + b) {}
 let test46 =
     "test46",[],"Does the module pattern work?",
     """
-inl f {a b c} = a + b + c
+inl f {a; b; c} = a + b + c
 inl x =
     {
     a=1
