@@ -1231,6 +1231,17 @@ inl float ->
     // #Recurrent
     inl generalized_mi = // Online only version for now.
         activation {
+            fwd=inl {input state bias={si s i c}} -> si * state * input + s * state + i * input + c
+            bck=inl {in={input state bias={si s i c}} out} ->
+                {
+                input = si * state + i
+                state = si * input + s
+                bias = { si = input*state; i = input; s = state; c = one } 
+                }
+            }
+
+    inl generalized_mi_tanh = // Online only version for now.
+        activation {
             fwd=inl {input state bias={si s i c}} -> si * state * input + s * state + i * input + c |> tanh_fwd
             bck=inl {in={input state bias={si s i c}} out} ->
                 inl out = tanh_bck out
@@ -1383,7 +1394,7 @@ inl float ->
                     
                     inm bias = with_zero_adjoints weights.bias
                     inm _ = covariance_update (Struct.map (inl {back} -> back) covariance.bias) (Struct.map (inl {adjoint} -> adjoint) bias)
-                    inm out = generalized_mi {input state bias}
+                    inm out = generalized_mi_tanh {input state bias}
                     succ out
 
                 succ {out state={out}}
@@ -1425,7 +1436,7 @@ inl float ->
                     inm state = matmult (out', weights.state)
                     
                     inl bias = weights.bias
-                    inm out = generalized_mi {input state bias}
+                    inm out = generalized_mi_tanh {input state bias}
                     succ out
 
                 succ {out state={out}}
@@ -1562,10 +1573,10 @@ inl float ->
             {
             dsc = 
                 {
-                //state = Initializer.randn {stddev=0.01f32; dim=size, size} // For the Binary Pattern
-                //input = Initializer.dr (Initializer.identity (sublayer_size, size))
-                state = Initializer.tanh (size, size) // For regular tasks
-                input = Initializer.tanh (sublayer_size, size)
+                state = Initializer.randn {stddev=0.01f32; dim=size, size} // For the Binary Pattern
+                input = Initializer.dr (Initializer.identity (sublayer_size, size))
+                //state = Initializer.tanh (size, size) // For regular tasks
+                //input = Initializer.tanh (sublayer_size, size)
                 modulator = {
                     input = {
                         input = Initializer.bias (sublayer_size, size)
@@ -1648,119 +1659,119 @@ inl float ->
         block = ()
         }
 
-    inl fused_plastic_rnn n size =
-        {
-        init = inl sublayer_size -> 
-            inl matrix a b = Initializer.matrix (a,b)
-            {
-            dsc = 
-                {
-                input = matrix sublayer_size {
-                    input=Initializer.tanh size
-                    modulator=
-                        {
-                        input=Initializer.bias size
-                        state=Initializer.bias size
-                        }
-                    }
-                state = matrix size {
-                    state=Initializer.tanh size
-                    modulator=
-                        {
-                        input=Initializer.bias size
-                        state=Initializer.bias size
-                        }
-                    }
-                bias = {
-                    modulator = 
-                        inl f _ = matrix 1 {
-                            si = Initializer.constant {dim=1,size; init=to float 1}
-                            i = Initializer.constant {dim=1,size; init=to float 0.5}
-                            s = Initializer.constant {dim=1,size; init=to float 0.5}
-                            c = Initializer.bias (1,size)
-                            }
-                        {
-                        input = f()
-                        state = f()
-                        }
-                    main = Initializer.bias (1,size)
-                    }
-                }
-            size=size
-            }
+    //inl fused_plastic_rnn n size =
+    //    {
+    //    init = inl sublayer_size -> 
+    //        inl matrix a b = Initializer.matrix (a,b)
+    //        {
+    //        dsc = 
+    //            {
+    //            input = matrix sublayer_size {
+    //                input=Initializer.tanh size
+    //                modulator=
+    //                    {
+    //                    input=Initializer.bias size
+    //                    state=Initializer.bias size
+    //                    }
+    //                }
+    //            state = matrix size {
+    //                state=Initializer.tanh size
+    //                modulator=
+    //                    {
+    //                    input=Initializer.bias size
+    //                    state=Initializer.bias size
+    //                    }
+    //                }
+    //            bias = {
+    //                modulator = 
+    //                    inl f _ = matrix 1 {
+    //                        si = Initializer.constant {dim=1,size; init=to float 1}
+    //                        i = Initializer.constant {dim=1,size; init=to float 0.5}
+    //                        s = Initializer.constant {dim=1,size; init=to float 0.5}
+    //                        c = Initializer.bias (1,size)
+    //                        }
+    //                    {
+    //                    input = f()
+    //                    state = f()
+    //                    }
+    //                main = Initializer.bias (1,size)
+    //                }
+    //            }
+    //        size=size
+    //        }
 
-        apply = inl {d with weights input} s -> 
-            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
-            inl H =
-                match d with
-                | {state={H}} -> H
-                | _ -> 
-                    inl f k = s.CudaTensor.zero_like (primal (weights k))
-                    {input=f .input; state=f .state}
+    //    apply = inl {d with weights input} s -> 
+    //        assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+    //        inl H =
+    //            match d with
+    //            | {state={H}} -> H
+    //            | _ -> 
+    //                inl f k = s.CudaTensor.zero_like (primal (weights k))
+    //                {input=f .input; state=f .state}
 
-            inl state =
-                match d with
-                | {state={state}} -> state
-                | _ -> s.CudaTensor.zero_like (primal (weights .bias .main))
+    //        inl state =
+    //            match d with
+    //            | {state={state}} -> state
+    //            | _ -> s.CudaTensor.zero_like (primal (weights .bias .main))
 
-            inl apply =
-                inm out =
-                    inm input = matmult (input,weights.input)
-                    inm state = matmult (state,weights.state)
-                    inl modulator = {
-                        input={
-                            input=input.modulator.input
-                            state=state.modulator.input
-                            }
-                        state={
-                            input=input.modulator.state
-                            state=state.modulator.state
-                            }
-                        }
-                    inm plastic =
-                        fused_activation {
-                            fwd=inl {bias modulator} ->
-                                module_map (inl k {si i s c} ->
-                                    inl {input state} = modulator k
-                                    si * input * state + i * input + s * state + c
-                                    ) bias.modulator
-                            bck=inl {bias modulator} ->
-                                module_map (inl k {si i s c} ->
-                                    inl {input state} = modulator k
-                                    {
-                                    input = si * state + i
-                                    state = si * input + s
-                                    bias = { si = input*state; i = input; s = state; c = one } 
-                                    }
-                                    ) bias.modulator
-                            } {bias={(weights.bias) without main}; modulator}
+    //        inl apply =
+    //            inm out =
+    //                inm input = matmult (input,weights.input)
+    //                inm state = matmult (state,weights.state)
+    //                inl modulator = {
+    //                    input={
+    //                        input=input.modulator.input
+    //                        state=state.modulator.input
+    //                        }
+    //                    state={
+    //                        input=input.modulator.state
+    //                        state=state.modulator.state
+    //                        }
+    //                    }
+    //                inm plastic =
+    //                    fused_activation {
+    //                        fwd=inl {bias modulator} ->
+    //                            module_map (inl k {si i s c} ->
+    //                                inl {input state} = modulator k
+    //                                si * input * state + i * input + s * state + c
+    //                                ) bias.modulator
+    //                        bck=inl {bias modulator} ->
+    //                            module_map (inl k {si i s c} ->
+    //                                inl {input state} = modulator k
+    //                                {
+    //                                input = si * state + i
+    //                                state = si * input + s
+    //                                bias = { si = input*state; i = input; s = state; c = one } 
+    //                                }
+    //                                ) bias.modulator
+    //                        } {bias={(weights.bias) without main}; modulator}
 
-                    inl static = {
-                        input = input.input
-                        state = state.state
-                        }
+    //                inl static = {
+    //                    input = input.input
+    //                    state = state.state
+    //                    }
 
-                    activation {
-                        fwd=inl {static plastic main} ->
-                            Struct.map2 (inl static {plastic H} -> static + plastic * H) static 
-                            |> Struct.foldl (+) main
-                            |> tanh_fwd
-                        bck=inl {static plastic main out} ->
-                            {
-                            static=Struct.map (const one) plastic
-                            plastic=Struct.map (inl {plastic H} -> {plastic=H; H=plastic}) plastic
-                            main=one
-                            }
-                            |> Struct.map ((*) (tanh_bck out))
-                        } {plastic static main=weights.bias.main}
+    //                activation {
+    //                    fwd=inl {static plastic main} ->
+    //                        Struct.map2 (inl static {plastic H} -> static + plastic * H) static 
+    //                        |> Struct.foldl (+) main
+    //                        |> tanh_fwd
+    //                    bck=inl {static plastic main out} ->
+    //                        {
+    //                        static=Struct.map (const one) plastic
+    //                        plastic=Struct.map (inl {plastic H} -> {plastic=H; H=plastic}) plastic
+    //                        main=one
+    //                        }
+    //                        |> Struct.map ((*) (tanh_bck out))
+    //                    } {plastic static main=weights.bias.main}
                 
-                inm H = oja_update {input={input state} out H} // Will update both matrices at once
-                succ {out state={state=out; H}}
+    //            inm H = oja_update {input={input state} out H} // Will update both matrices at once
+    //            succ {out state={state=out; H}}
 
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        block = ()
-        }
+    //        inl {out={out state} bck} = apply s
+    //        {out state bck}
+    //    block = ()
+    //    }
 
     inl RNN = {mi mi_prong mi_prong_alt mi_alt plastic_rnn}
 
