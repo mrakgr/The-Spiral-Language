@@ -59,7 +59,7 @@ let (var_15: int64) = (var_13 * var_14)
 let (var_16: bool) = (var_3 = var_15)
 let (var_17: bool) = (var_16 = false)
 if var_17 then
-    (failwith "The product of the split dimension must equal to that of the previous one.")
+    (failwith "The length of the split dimension must equal to that of the previous one.")
 else
     ()
 let (var_18: bool) = (var_13 > 0L)
