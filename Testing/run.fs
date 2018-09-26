@@ -58,8 +58,10 @@ foo 10 |> Tuple.map stringify |> Console.writeline
 let test112 =
     "test112",[],"Does the () module-with pattern work?",
     """
-inl m = {}
-{(m) with a = 1}
+inl k = .q
+inl m = { $k = { b = 2 }}
+
+{(m).(k) with a = 1}
     """
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
