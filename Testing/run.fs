@@ -222,7 +222,7 @@ inl rec facade data =
                 | () -> error_type "Cannot apply the tensor anymore."
                 | near_to :: dim ->
                     assert (i >= 0 && i < near_to) "Argument out of bounds." 
-                    {data with bodies = Struct.map (inl ar -> tensor_apply ar (i-from)) self; dim}
+                    {data with bodies = Struct.map (inl ar -> tensor_apply ar i) self; dim}
                 ) data (Tuple.wrap i)
             |> facade
         /// Returns the tensor data.
@@ -372,7 +372,7 @@ inl from_scalar x =
 
 {
 create facade init copy assert_size array_as_tensor array_to_tensor map zip show print length
-equal split flatten assert_contiguous assert_dim reshape unzip from_scalar map_dim map_dims
+equal split flatten assert_contiguous assert_dim reshape unzip from_scalar
 } |> stackify
     """) |> Spiral.Types.module_
 
@@ -389,4 +389,3 @@ tns 2 2 .get
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test79
 |> printfn "%s"
 |> ignore
-
