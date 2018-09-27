@@ -387,50 +387,33 @@ tns 2 2 .get
 
 let view_host_tensor =
     (
-    "HostTensor",[tuple;struct';loops;extern_;console;liple],"The host tensor module.",
+    "ViewHostTensor",[tuple;struct';loops;extern_;console;liple],"The host tensor module.",
     """
 inl rec facade data = 
     inl methods = stack {
-        length = inl {data with dim} -> length dim
-        elem_type = inl {data with bodies} -> Struct.map (inl {ar} -> ar.elem_type) bodies
-        update_body = inl {data with bodies} f -> {data with bodies=Struct.map f bodies} |> facade
-        set_dim = inl {data with dim} dim -> {data with dim} |> facade
-        get = inl {data with dim bodies} -> 
-            match dim with
-            | () -> Struct.map tensor_get bodies
-            | _ -> error_type "Cannot get from tensor whose dimensions have not been applied completely."
-        set = inl {data with dim bodies} v ->
-            match dim with
-            | () -> Struct.iter2 (inl v bodies -> tensor_set bodies v) v bodies
-            | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
+        length = inl {data with basic} -> basic.length
+        elem_type = inl {data with basic} -> basic.elem_type
+        update_body = inl data f -> {data with basic=self.update_body f} |> facade
+        get = inl {data with basic} -> basic.get
+        set = inl {data with basic} v -> basic.set v
         // Crops the dimensions of a tensor.
         view = inl data -> view data >> facade
-        /// Applies the tensor. `i` can be a tuple.
+        // Applies the tensor. `i` can be a tuple.
         apply = inl data i ->
-            Tuple.foldl (inl {data with dim} i ->
-                match dim with
-                | () -> error_type "Cannot apply the tensor anymore."
-                | near_to :: dim ->
-                    assert (i >= 0 && i < near_to) "Argument out of bounds." 
-                    {data with bodies = Struct.map (inl ar -> tensor_apply ar i) self; dim}
+            Tuple.foldl (inl {data with basic dim} -> 
+                function
+                | .(_) ->
+                    match dim with
+                    | () -> error_type "Cannot apply the tensor anymore."
+                    | {$k=dim} -> {data with dim basic = self .view dim}
+                | i ->
+                    match dim with
+                    | () -> error_type "Cannot apply the tensor anymore."
+                    | from :: dim -> {data with basic = self (i+from); dim}
                 ) data (Tuple.wrap i)
             |> facade
         /// Returns the tensor data.
         unwrap = id
-        /// Returns an empty tensor of the same dimension.
-        empty = inl data -> facade {data with bodies=()}
-        span_outer = inl {dim} -> match dim with () -> 1 | x :: _ -> x
-        span_outer2 = inl {dim=a::b::_} -> a * b
-        span_outer3 = inl {dim=a::b::c::_} -> a * b * c
-        split = inl data f -> split f (facade data)
-        flatten = inl data -> flatten (facade data)
-        reshape = inl data f -> reshape f (facade data)
-        // Rounds the dimension to the multiple.
-        round = inl data mult -> view_span data (inl x :: _ | x -> x - x % mult) |> facade
-        // Rounds the dimension to a multiple and splits it so that the outermost dimension becomes the multiple.
-        round_split = inl data mult -> facade data .round mult .split (inl x :: _ | x -> mult,x/mult)
-        // Rounds the dimension to a multiple and splits it so that the dimension next to the outermost becomes the multiple.
-        round_split' = inl data mult -> facade data .round mult .split (inl x :: _ | x -> x/mult,mult)
         }
 
     function
