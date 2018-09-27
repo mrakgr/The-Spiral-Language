@@ -57,28 +57,9 @@ foo 10 |> Tuple.map stringify |> Console.writeline
 
 let host_tensor =
     (
-    "HostTensor",[tuple;struct';loops;extern_;console],"The host tensor module.",
+    "HostTensor",[tuple;struct';loops;extern_;console;liple],"The host tensor module.",
     """
 // A lot of the code in this module is made with purpose of being reused on the Cuda side.
-inl map_dim = function
-    | {from to} -> 
-        assert (from <= to) "Tensor needs to be at least size 1."
-        {from; near_to=to+1}
-    | {from near_to} as d -> 
-        assert (from < near_to) "Tensor needs to be at least size 1."
-        d
-    | x -> 
-        assert (x > 0) "Tensor needs to be at least size 1."
-        {from=0; near_to=x}
-
-inl map_dims = Tuple.map map_dim << Tuple.wrap
-
-inl span = function
-    | {from near_to} -> near_to - from
-    | {from by} -> by
-    | {from to} -> to - from + 1
-    | x : int64 -> x
-
 inl rec view_offsets offset = function
     | s :: s', i :: i' -> s * i + view_offsets offset (s', i')
     | _, () -> offset
@@ -87,7 +68,6 @@ inl tensor_view {data with size offset} i' = {data with offset = view_offsets of
 inl tensor_get {data with offset ar} = ar offset
 inl tensor_set {data with offset ar} v = ar offset <- v
 inl tensor_apply {data with size=s::size offset} i = {data with size offset=offset + i * s}
-inl tensor_update_dim f dim = dim |> Tuple.map span |> Tuple.unwrap |> f
 
 inl show' {cutoff_near_to} tns = 
     open Extern
@@ -133,7 +113,7 @@ inl show' {cutoff_near_to} tns =
 inl show = show' {cutoff_near_to=1000}
 
 /// Total tensor size in elements.
-inl length = Tuple.foldl (inl s (!span x) -> s * x) 1 << Tuple.wrap
+inl length = Liple.foldl (*) 1
 
 /// Splits a tensor's dimensions. Works on non-contiguous tensors.
 /// Given the tensor dimensions (a,b,c) and a function which maps them to (a,(q,w),c)
@@ -144,10 +124,10 @@ inl split f tns =
             inl next = concat (d',n')
             match n with
             | _ :: _ -> 
-                assert (span d = length n) "The length of the split dimension must equal to that of the previous one."
+                assert (d = length n) "The length of the split dimension must equal to that of the previous one."
                 Tuple.append n next
             | _ -> 
-                assert (span d = span n) "The span on the new dimension must be equal to that of the previous one."
+                assert (d = n) "The span on the new dimension must be equal to that of the previous one."
                 n :: next
         | d', () -> d'
 
@@ -156,7 +136,7 @@ inl split f tns =
             inl next = update_size (s', x')
             match dim with
             | _ :: _ ->
-                inl _ :: size = Tuple.scanr (inl x s -> span x * s) dim init
+                inl _ :: size = Tuple.scanr (*) dim init
                 Tuple.append size next
             | _ -> init :: next
         | s', () -> s'
@@ -174,8 +154,8 @@ inl split f tns =
                 | _ -> false
             
             match dim with
-            | dim :: () -> span dim
-            | dim -> Tuple.map span dim
+            | dim :: () -> dim
+            | dim -> Tuple.map dim
             |> f |> inl x -> if wrapped_is x then x else x :: ()
 
         tns .set_dim (concat (dim, dim'))
@@ -185,7 +165,7 @@ inl split f tns =
 inl flatten tns =
     match tns.dim with
     | () -> tns
-    | !(Tuple.map span) dim ->
+    | dim ->
         tns .set_dim (length dim)
             .update_body (inl {d with size} ->
                 Tuple.zip (dim,size)
@@ -197,52 +177,26 @@ inl flatten tns =
                 )
 
 /// Flattens and then splits the tensor dimensions.
-inl reshape f tns = split (inl _ -> tns.dim |> Tuple.map span |> Tuple.unwrap |> f) (flatten tns)
+inl reshape f tns = split (inl _ -> tns.dim |> Tuple.unwrap |> f) (flatten tns)
 
 inl view {data with dim} f =
     inl rec new_dim = function
-        | {from near_to} :: d', {nd with from=from' near_to=near_to'} :: h' ->
-            assert (from' >= from && from' < near_to) "Lower boundary out of bounds." 
-            assert (near_to' > from && near_to' <= near_to) "Higher boundary out of bounds." 
-            inl i',nd' = new_dim (d',h')
-            from'-from :: i', nd :: nd'
-        | (), _ :: _ -> error_type "The view has more dimensions than the tensor."
-        | dim, () -> (),dim
-
-    inl indices, dim = new_dim (dim, tensor_update_dim f dim |> map_dims)
-    {data with bodies = Struct.map (inl ar -> tensor_view ar indices) self; dim}
-
-inl view_span {data with dim} f =
-    inl rec new_dim = function
-        | {from near_to} :: d', h :: h' ->
-            inl check from' near_to' =
-                assert (from' >= from && from' < near_to) "Lower boundary out of bounds." 
-                assert (near_to' > from && near_to' <= near_to) "Higher boundary out of bounds." 
-            inl case_from_near_to {nd with from=from' near_to=near_to'} =
-                inl from' = from + from'
-                check from' (from + near_to')
-                from', {from = 0; near_to = span nd}
-
-            inl i, nd = 
+        | h :: h', near_to :: d' ->
+            inl from' = match h with {from} | from -> from
+            assert (from' >= 0 && from' < near_to) "Lower boundary out of bounds." 
+            inl near_to' = 
                 match h with
-                | {from=from' by} ->
-                    assert (by >= 0) "`by` must be positive or zero."
-                    inl from' = from + from'
-                    check from' (from' + by)
-                    from', {from = 0; near_to = by}
-                // Note: Do not remove from' or it will shadow it in the next branch.
-                | {from=from' near_to} -> case_from_near_to h
-                | {from=from'} ->
-                    inl from = from + from'
-                    check from near_to
-                    from', {from = 0; near_to = span {from near_to}}
-                | _ -> case_from_near_to (map_dim h)
-            inl i', nd' = new_dim (d',h')
-            i :: i', nd :: nd'
-        | (), _ :: _ -> error_type "The view has more dimensions than the tensor."
-        | dim, () -> (),dim
+                | {near_to} -> near_to
+                | {by} -> from' + by
+                | _ -> near_to
+            assert (near_to' > 0 && near_to' <= near_to) "Higher boundary out of bounds." 
 
-    inl indices, dim = new_dim (dim, tensor_update_dim f dim |> Tuple.wrap)
+            inl i', nd' = new_dim (h', d')
+            from' :: i', near_to' - from' :: nd'
+        | _ :: _, () -> error_type "The view has more dimensions than the tensor."
+        | (), dim -> (),dim
+
+    inl indices, dim = new_dim (dim, Tuple.unwrap dim |> f |> Tuple.wrap)
     {data with bodies = Struct.map (inl ar -> tensor_view ar indices) self; dim}
 
 inl rec facade data = 
@@ -250,7 +204,7 @@ inl rec facade data =
         length = inl {data with dim} -> length dim
         elem_type = inl {data with bodies} -> Struct.map (inl {ar} -> ar.elem_type) bodies
         update_body = inl {data with bodies} f -> {data with bodies=Struct.map f bodies} |> facade
-        set_dim = inl {data with dim} dim -> {data with dim=map_dims dim} |> facade
+        set_dim = inl {data with dim} dim -> {data with dim} |> facade
         get = inl {data with dim bodies} -> 
             match dim with
             | () -> Struct.map tensor_get bodies
@@ -261,15 +215,13 @@ inl rec facade data =
             | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
         // Crops the dimensions of a tensor.
         view = inl data -> view data >> facade
-        // Resizes the view towards zero.
-        view_span = inl data -> view_span data >> facade
         /// Applies the tensor. `i` can be a tuple.
         apply = inl data i ->
             Tuple.foldl (inl {data with dim} i ->
                 match dim with
                 | () -> error_type "Cannot apply the tensor anymore."
-                | {from near_to} :: dim ->
-                    assert (i >= from && i < near_to) "Argument out of bounds." 
+                | near_to :: dim ->
+                    assert (i >= 0 && i < near_to) "Argument out of bounds." 
                     {data with bodies = Struct.map (inl ar -> tensor_apply ar (i-from)) self; dim}
                 ) data (Tuple.wrap i)
             |> facade
@@ -277,14 +229,12 @@ inl rec facade data =
         unwrap = id
         /// Returns an empty tensor of the same dimension.
         empty = inl data -> facade {data with bodies=()}
-        span_outer = inl {dim} -> match dim with () -> 1 | x :: _ -> span x
-        span_outer2 = inl {dim=a::b::_} -> span a * span b
-        span_outer3 = inl {dim=a::b::c::_} -> span a * span b * span c
+        span_outer = inl {dim} -> match dim with () -> 1 | x :: _ -> x
+        span_outer2 = inl {dim=a::b::_} -> a * b
+        span_outer3 = inl {dim=a::b::c::_} -> a * b * c
         split = inl data f -> split f (facade data)
         flatten = inl data -> flatten (facade data)
         reshape = inl data f -> reshape f (facade data)
-        from = inl {dim={from}::_} -> from
-        near_to = inl {dim={near_to}::_} -> near_to
         // Rounds the dimension to the multiple.
         round = inl data mult -> view_span data (inl x :: _ | x -> x - x % mult) |> facade
         // Rounds the dimension to a multiple and splits it so that the outermost dimension becomes the multiple.
@@ -308,13 +258,13 @@ inl make_body {d with dim elem_type} =
             | {pad_to} -> min 1 (pad_to / sizeof elem_type)
             | {last_size} -> last_size
             | _ -> 1
-        inl len :: size = Tuple.scanr (inl (!span x) s -> x * s) dim init
+        inl len :: size = Tuple.scanr (*) dim init
         inl ar = match d with {array_create} | _ -> array_create elem_type len
         {ar size offset=0; block=()}
 
 /// Creates an empty tensor given the descriptor. {size elem_type ?layout=(.toa | .aot) ?array_create ?pad_to} -> tensor
 inl create {dsc with dim elem_type} = 
-    inl create (!map_dims dim) =
+    inl create dim =
         inl dsc = {dsc with dim}
         inl bodies =
             inl layout = match dsc with {layout} -> layout | _ -> .toa
@@ -337,7 +287,7 @@ inl init =
         inl tns = create {elem_type dim layout}
         inl rec loop tns f = 
             match tns.dim with
-            | {from near_to} :: _ -> Loops.for { from near_to; body=inl {i} -> loop (tns i) (f i) }
+            | near_to :: _ -> Loops.for { from=0; near_to; body=inl {i} -> loop (tns i) (f i) }
             | () -> tns .set f
         loop tns f
         tns
@@ -358,13 +308,13 @@ inl map f tns =
 inl copy = map id
 
 /// Asserts the tensor size. Useful for setting those values to statically known ones. 
-/// Should be used on 1d tensors. Does not copy. size -> tensor -> tensor.
-inl assert_size (!map_dims dim') tns = 
+/// Does not copy. size -> tensor -> tensor.
+inl assert_size dim' tns = 
     assert (tns.dim = dim') "The dimensions must match."
     tns.set_dim dim'
 
 /// Reinterprets an array as a tensor. Does not copy. array -> tensor.
-inl array_as_tensor ar = facade {dim=map_dims (array_length ar); bodies={ar size=1::(); offset=0; block=()}}
+inl array_as_tensor ar = facade {dim=array_length ar; bodies={ar size=1::(); offset=0; block=()}}
 
 /// Reinterprets an array as a tensor. array -> tensor.
 inl array_to_tensor = array_as_tensor >> copy
@@ -382,7 +332,7 @@ inl assert_zip l =
 inl zip l = 
     match assert_zip l with
     | () -> error_type "Empty inputs to zip are not allowed."
-    | !(inl x -> x.unwrap) tns -> facade {tns with bodies=Struct.map (inl x -> x.bodies) l}
+    | tns -> facade {(tns.unwrap) with bodies=Struct.map (inl x -> x.bodies) l}
 
 /// Unzips all the elements of a tensor.
 /// tensor -> tensor structure
@@ -394,8 +344,8 @@ inl unzip tns =
 /// tensor structure -> bool
 inl rec equal (!zip t) =
     match t.dim with
-    | {from near_to} :: _ ->
-        Loops.for' {from near_to state=true; body=inl {next i} ->
+    | near_to :: _ ->
+        Loops.for' {from=0; near_to state=true; body=inl {next i} ->
             equal (t i) && next true
             }
     | _ -> 
@@ -422,7 +372,7 @@ inl from_scalar x =
 
 {
 create facade init copy assert_size array_as_tensor array_to_tensor map zip show print length
-span equal split flatten assert_contiguous assert_dim reshape unzip from_scalar map_dim map_dims
+equal split flatten assert_contiguous assert_dim reshape unzip from_scalar map_dim map_dims
 } |> stackify
     """) |> Spiral.Types.module_
 
