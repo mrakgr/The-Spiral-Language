@@ -209,15 +209,15 @@ inl rec facade data =
 
                         match i with
                         | {from=from'} ->
-                            inl near_to' = 
-                                match i with
-                                | {near_to} -> near_to
-                                | {by} -> from' + by
-                                | _ -> near_to
-                            assert (near_to' > 0 && near_to' <= near_to) "Higher boundary out of bounds." 
-                            assert (from' < near_to') "The view must be positive."
                             assert (from' >= 0 && from' < near_to) "Argument out of bounds." 
-                            view from' near_to'
+                            inl check near_to' =
+                                assert (near_to' > 0 && near_to' <= near_to) "Higher boundary out of bounds." 
+                                assert (from' < near_to') "The view must be positive."
+                                view from' near_to'
+                            match i with
+                            | {near_to=near_to'} -> check near_to'
+                            | {by} -> check (from' + by)
+                            | _ -> view from' near_to
                         | () -> view 0 near_to 
                         | from' -> 
                             assert (from' >= 0 && from' < near_to) "Argument out of bounds." 
@@ -274,7 +274,10 @@ inl create {dsc with dim elem_type} =
         facade {bodies dim}
     match dim with
     | () -> create 1 0
-    | dim -> create dim
+    | dim -> 
+        inl dim = Tuple.wrap dim
+        Tuple.iter (inl dim -> assert (dim > 0) "Dimensions of a tensor must be positive") dim
+        create dim
     
 /// Creates a new tensor based on given sizes. Takes in a setter function. 
 /// ?layout -> size -> f -> tensor.
