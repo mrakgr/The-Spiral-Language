@@ -378,6 +378,23 @@ equal split flatten assert_contiguous assert_dim reshape unzip from_scalar
 } |> stackify
     """) |> Spiral.Types.module_
 
+let test96 =
+    "test96",[host_tensor;console],"Does the show from HostTensor work?",
+    """
+open HostTensor
+init (2,3,4) (inl a b c -> a*b*c)  
+|> show |> Console.writeline
+    """
+
+let test97 =
+    "test97",[host_tensor],"Do the views work?",
+    """
+open HostTensor
+inl w = 2,3,4
+init (2,3,4) (inl a b c -> a*b*c) (1,{from=1},{from=1; by=2})
+|> show |> Console.writeline
+    """
+
 let view_host_tensor =
     (
     "ViewHostTensor",[tuple;struct';loops;extern_;console;liple],"The host tensor module.",
@@ -417,23 +434,6 @@ inl rec facade data =
 
     """
     ) |> Spiral.Types.module_
-
-let test96 =
-    "test96",[host_tensor;console],"Does the show from HostTensor work?",
-    """
-open HostTensor
-init (2,3,4) (inl a b c -> a*b*c)  
-|> show |> Console.writeline
-    """
-
-let test97 =
-    "test97",[host_tensor],"Do the views work?",
-    """
-open HostTensor
-inl w = 2,3,4
-init (2,3,4) (inl a b c -> a*b*c) (1,{from=1},{from=1; by=2})
-|> show |> Console.writeline
-    """
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test97
