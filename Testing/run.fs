@@ -194,49 +194,35 @@ inl rec facade data =
             | () -> Struct.iter2 (inl v bodies -> tensor_set bodies v) v bodies
             | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
         /// Applies the tensor. `i` can be a tuple.
-        apply = inl data i -> // TODO: Work in progress.
-            inl i = Tuple.wrap i
-            inl calculate_offset data =
-                Tuple.foldl (inl {data with dim} i ->
+        apply = inl data i ->
+            inl rec loop data i =
+                match i with
+                | () -> data
+                | i :: i' ->
                     match dim with
                     | () -> error_type "Cannot apply the tensor anymore."
                     | near_to :: dim ->
+                        inl rest from = loop {data with bodies=Struct.map (tensor_apply from) self; dim} i'
+                        inl view from near_to =
+                            inl size = Struct.map (inl {size=s::_} -> s) data.bodies
+                            {(rest from) with bodies=Struct.map2 (inl size ar -> {ar with size=size :: self}) size self; dim=near_to :: self}
+
                         match i with
-                        | () ->
-                            {data with bodies = Struct.map (tensor_apply 0) self; dim}
-                        | {from} | from ->
-                            assert (from >= 0 && from < near_to) "Argument out of bounds." 
-                            {data with bodies = Struct.map (tensor_apply from) self; dim}
-                    ) data i
-                |> inl data' ->
-                    {data with bodies = Struct.map2 (inl ar ar' -> {ar with offset=ar'.offset}) self data'.bodies}
-
-            inl filter_apply data =
-                inl rec loop data i =
-                    match i with
-                    | i :: i' ->
-                        match dim with
-                        | () -> error_type "Cannot apply the tensor anymore."
-                        | near_to :: dim ->
-                            inl rest = loop {data with bodies=Struct.map (inl {ar with size=_::size} -> {ar with size}) self; dim}
-                            inl view near_to =
-                                inl size = Struct.map (inl {size=s::_} -> s) data.bodies
-                                {rest with bodies=Struct.map2 (inl size ar -> {ar with size=size :: self}) size self; dim=near_to :: self}
-
-                            match i with
-                            | {from=from'} ->
-                                inl near_to' = 
-                                    match i with
-                                    | {near_to} -> near_to
-                                    | {by} -> from' + by
-                                    | _ -> near_to
-                                assert (near_to' > 0 && near_to' <= near_to) "Higher boundary out of bounds." 
-                                view near_to'
-                            | () -> view near_to 
-                            | _ -> rest
-                loop data i
-
-            calculate_offset data |> filter_apply |> facade
+                        | {from=from'} ->
+                            inl near_to' = 
+                                match i with
+                                | {near_to} -> near_to
+                                | {by} -> from' + by
+                                | _ -> near_to
+                            assert (near_to' > 0 && near_to' <= near_to) "Higher boundary out of bounds." 
+                            assert (from' < near_to') "The view must be positive."
+                            assert (from' >= 0 && from' < near_to) "Argument out of bounds." 
+                            view from' near_to'
+                        | () -> view 0 near_to 
+                        | from' -> 
+                            assert (from' >= 0 && from' < near_to) "Argument out of bounds." 
+                            rest from'
+            loop data (Tuple.wrap i) |> facade
         /// Returns the tensor data.
         unwrap = id
         /// Returns an empty tensor of the same dimension.
