@@ -195,44 +195,8 @@ inl rec facade data =
             | () -> Struct.iter2 (inl v bodies -> tensor_set bodies v) v bodies
             | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
         /// Applies the tensor. `i` can be a tuple.
-        apply = inl data i ->
-            inl rec loop {data with dim} i =
-                match i with
-                | i :: i' ->
-                    match dim with
-                    | () -> error_type "Cannot apply the tensor anymore."
-                    | near_to :: dim ->
-                        match i with
-                        | () ->
-                            inl head = Struct.map tensor_head data.bodies
-                            inl data = loop {data with bodies = Struct.map tensor_skip self; dim} i'
-                            {data with bodies = Struct.map (tensor_cons head) self}
-                        | {from=from'} ->
-                            assert (from' >= 0 && from' < near_to) "Lower boundary out of bounds." 
-                            inl near_to' = 
-                                match i with
-                                | {near_to} -> near_to
-                                | {by} -> from' + by
-                                | _ -> near_to
-                            assert (near_to' > 0 && near_to' <= near_to) "Higher boundary out of bounds." 
-
-                            inl head = 
-                                Struct.map tensor_head data.bodies
-                                |> Struct.map (inl ar -> tensor_view ar from')
-                            inl tail = Struct.map tensor_tail data.bodies
-
-                            //inl i', nd' = new_dim (h', d')
-                            //from' :: i', near_to' - from' :: nd'
-                        | _ ->
-                            assert (i >= 0 && i < near_to) "Argument out of bounds." 
-                            loop {data with bodies = Struct.map (inl ar -> tensor_apply ar i) self; dim} i'
-                | () -> data
-
-            inl offset = Struct.map (inl {offset} -> offset) data
-            inl data = Struct.map (inl data -> {data with offset = 0}) data
-            loop data (Tuple.wrap i) 
-            |> Struct.map2 (inl offset data -> {data with offset=self+offset}) offset
-            |> facade
+        apply = inl data i -> // TODO: Work in progress.
+            () 
         /// Returns the tensor data.
         unwrap = id
         /// Returns an empty tensor of the same dimension.
