@@ -195,7 +195,7 @@ inl rec facade data =
             | () -> Struct.iter2 (inl v bodies -> tensor_set bodies v) v bodies
             | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
         /// Applies the tensor. `i` can be a tuple.
-        apply = inl data i -> // TODO: Work in progress.
+        apply = inl data i -> // TODO: Work in progress. 
             () 
         /// Returns the tensor data.
         unwrap = id
