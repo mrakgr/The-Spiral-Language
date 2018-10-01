@@ -78,9 +78,10 @@ inl show' {cutoff_near_to} tns =
     inl indent near_to = Loops.for {from=0; near_to; body=inl _ -> append ' '}
     inl blank = dyn ""
     inl rec loop {tns ind cutoff} =
+        inl from = 0
         match tns.dim with
         | () -> tns.get |> Extern.show |> append
-        | {from near_to} :: () ->
+        | near_to :: () ->
             indent ind; append "[|"
             inl cutoff =
                 Loops.for' {from near_to state=blank,cutoff; finally=snd; body=inl {next state=prefix,cutoff i} -> 
@@ -94,7 +95,7 @@ inl show' {cutoff_near_to} tns =
                     }
             append_line "|]"
             cutoff
-        | {from near_to} :: x' ->
+        | near_to :: x' ->
             indent ind; append_line "[|"
             inl cutoff =
                 Loops.for' {from near_to state=cutoff; body=inl {next state=cutoff i} -> 
@@ -124,7 +125,7 @@ inl split f tns =
             inl next = concat (d',n')
             match n with
             | _ :: _ -> 
-                assert (d = length n) "The length of the split dimension must equal to that of the previous one."
+                assert (d = length n) "The length of the split dimension must be equal to that of the previous one."
                 Tuple.append n next
             | _ -> 
                 assert (d = n) "The span on the new dimension must be equal to that of the previous one."
@@ -199,13 +200,13 @@ inl rec facade data =
                 match i with
                 | () -> data
                 | i :: i' ->
-                    match dim with
+                    match data.dim with
                     | () -> error_type "Cannot apply the tensor anymore."
                     | near_to :: dim ->
                         inl rest from = loop {data with bodies=Struct.map (tensor_apply from) self; dim} i'
                         inl view from near_to =
                             inl size = Struct.map (inl {size=s::_} -> s) data.bodies
-                            {(rest from) with bodies=Struct.map2 (inl size ar -> {ar with size=size :: self}) size self; dim=near_to :: self}
+                            {(rest from) with bodies=Struct.map2 (inl size ar -> {ar with size=size :: self}) size self; dim=near_to - from :: self}
 
                         match i with
                         | {from=from'} ->
@@ -273,7 +274,7 @@ inl create {dsc with dim elem_type} =
 
         facade {bodies dim}
     match dim with
-    | () -> create 1 0
+    | () -> create (1 :: ()) 0
     | dim -> 
         inl dim = Tuple.wrap dim
         Tuple.iter (inl dim -> assert (dim > 0) "Dimensions of a tensor must be positive") dim
@@ -377,15 +378,6 @@ equal split flatten assert_contiguous assert_dim reshape unzip from_scalar
 } |> stackify
     """) |> Spiral.Types.module_
 
-let test79 =
-    "test79",[host_tensor],"Does the HostTensor init work? Do set and index for the new array module work?",
-    """
-inl tns = HostTensor.init (10,10) (inl a b -> a*b)
-inl x = tns 2 2 .get
-tns 2 2 .set (x+100)
-tns 2 2 .get
-    """
-
 let view_host_tensor =
     (
     "ViewHostTensor",[tuple;struct';loops;extern_;console;liple],"The host tensor module.",
@@ -426,7 +418,24 @@ inl rec facade data =
     """
     ) |> Spiral.Types.module_
 
+let test96 =
+    "test96",[host_tensor;console],"Does the show from HostTensor work?",
+    """
+open HostTensor
+init (2,3,4) (inl a b c -> a*b*c)  
+|> show |> Console.writeline
+    """
+
+let test97 =
+    "test97",[host_tensor],"Do the views work?",
+    """
+open HostTensor
+inl w = 2,3,4
+init (2,3,4) (inl a b c -> a*b*c) (1,{from=1},{from=1; by=2})
+|> show |> Console.writeline
+    """
+
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test79
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test97
 |> printfn "%s"
 |> ignore
