@@ -211,6 +211,31 @@ inl rec facade data =
                 |> inl data' ->
                     {data with bodies = Struct.map2 (inl ar ar' -> {ar with offset=ar'.offset}) self data'.bodies}
 
+            inl filter_apply data =
+                inl rec loop data i =
+                    match i with
+                    | i :: i' ->
+                        match dim with
+                        | () -> error_type "Cannot apply the tensor anymore."
+                        | near_to :: dim ->
+                            inl rest = loop {data with bodies=Struct.map (inl {ar with size=_::size} -> {ar with size}) self; dim}
+                            inl view near_to =
+                                inl size = Struct.map (inl {size=s::_} -> s) data.bodies
+                                {rest with bodies=Struct.map2 (inl size ar -> {ar with size=size :: self}) size self; dim=near_to :: self}
+
+                            match i with
+                            | {from=from'} ->
+                                inl near_to' = 
+                                    match i with
+                                    | {near_to} -> near_to
+                                    | {by} -> from' + by
+                                    | _ -> near_to
+                                assert (near_to' > 0 && near_to' <= near_to) "Higher boundary out of bounds." 
+                                view near_to'
+                            | () -> view near_to 
+                            | _ -> rest
+                loop data i
+
             calculate_offset data |> filter_apply |> facade
         /// Returns the tensor data.
         unwrap = id
