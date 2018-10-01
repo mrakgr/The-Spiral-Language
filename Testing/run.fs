@@ -67,8 +67,7 @@ inl rec view_offsets offset = function
 inl tensor_view {data with size offset} i' = {data with offset = view_offsets offset (size,i')}
 inl tensor_get {data with offset ar} = ar offset
 inl tensor_set {data with offset ar} v = ar offset <- v
-inl tensor_apply {data with size=s::size offset} i = {data with size offset=offset + i * s}
-inl tensor_skip data = tensor_apply data 0
+inl tensor_apply i {data with size=s::size offset} = {data with size offset=offset + i * s}
 
 inl show' {cutoff_near_to} tns = 
     open Extern
@@ -195,8 +194,24 @@ inl rec facade data =
             | () -> Struct.iter2 (inl v bodies -> tensor_set bodies v) v bodies
             | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
         /// Applies the tensor. `i` can be a tuple.
-        apply = inl data i -> // TODO: Work in progress. 
-            () 
+        apply = inl data i -> // TODO: Work in progress.
+            inl i = Tuple.wrap i
+            inl calculate_offset data =
+                Tuple.foldl (inl {data with dim} i ->
+                    match dim with
+                    | () -> error_type "Cannot apply the tensor anymore."
+                    | near_to :: dim ->
+                        match i with
+                        | () ->
+                            {data with bodies = Struct.map (tensor_apply 0) self; dim}
+                        | {from} | from ->
+                            assert (from >= 0 && from < near_to) "Argument out of bounds." 
+                            {data with bodies = Struct.map (tensor_apply from) self; dim}
+                    ) data i
+                |> inl data' ->
+                    {data with bodies = Struct.map2 (inl ar ar' -> {ar with offset=ar'.offset}) self data'.bodies}
+
+            calculate_offset data |> filter_apply |> facade
         /// Returns the tensor data.
         unwrap = id
         /// Returns an empty tensor of the same dimension.
