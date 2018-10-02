@@ -410,18 +410,34 @@ inl rec facade data =
         view = inl data -> view data >> facade
         // Applies the tensor. `i` can be a tuple.
         apply = inl data i ->
-            Tuple.foldl (inl {data with basic dim} -> 
-                function
-                | .(_) ->
-                    match dim with
+            inl rec loop data i =
+                match i with
+                | () -> data
+                | i :: i' ->
+                    match data.dim with
                     | () -> error_type "Cannot apply the tensor anymore."
-                    | {$k=dim} -> {data with dim basic = self .view dim}
-                | i ->
-                    match dim with
-                    | () -> error_type "Cannot apply the tensor anymore."
-                    | from :: dim -> {data with basic = self (i+from); dim}
-                ) data (Tuple.wrap i)
-            |> facade
+                    | near_to :: dim ->
+                        inl rest from = loop {data with bodies=Struct.map (tensor_apply from) self; dim} i'
+                        inl view from near_to =
+                            inl size = Struct.map (inl {size=s::_} -> s) data.bodies
+                            {(rest from) with bodies=Struct.map2 (inl size ar -> {ar with size=size :: self}) size self; dim=near_to - from :: self}
+
+                        match i with
+                        | {from=from'} ->
+                            assert (from' >= 0 && from' < near_to) "Argument out of bounds." 
+                            inl check near_to' =
+                                assert (near_to' > 0 && near_to' <= near_to) "Higher boundary out of bounds." 
+                                assert (from' < near_to') "The view must be positive."
+                                view from' near_to'
+                            match i with
+                            | {near_to=near_to'} -> check near_to'
+                            | {by} -> check (from' + by)
+                            | _ -> view from' near_to
+                        | () -> view 0 near_to 
+                        | from' -> 
+                            assert (from' >= 0 && from' < near_to) "Argument out of bounds." 
+                            rest from'
+            loop data (Tuple.wrap i) |> facade
         /// Returns the tensor data.
         unwrap = id
         }
