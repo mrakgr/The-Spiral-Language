@@ -414,6 +414,14 @@ inl rec facade data =
                 | i :: i' ->
                     match data.dim with
                     | () -> error_type "Cannot apply the tensor anymore."
+                    | {from near_to} ->
+                        assert ()
+
+                    //| {} & from :: dim ->
+                    //    inl rec loop' from i =
+                    //        assert (module_length i = 1) "The index must be a module with a single member."
+                    //        match i with
+                    //        | {}
                     | from :: dim ->
                         inl apply b =
                             inl a', b' = loop {data with dim} i'
