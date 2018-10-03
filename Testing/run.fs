@@ -414,32 +414,42 @@ inl rec facade data =
                 | i :: i' ->
                     match data.dim with
                     | () -> error_type "Cannot apply the tensor anymore."
-                    | {from near_to} ->
-                        assert ()
-
-                    //| {} & from :: dim ->
-                    //    inl rec loop' from i =
-                    //        assert (module_length i = 1) "The index must be a module with a single member."
-                    //        match i with
-                    //        | {}
-                    | from :: dim ->
+                    | branch :: dim -> 
                         inl apply b =
                             inl a', b' = loop {data with dim} i'
                             a', b :: b'
                         inl view a b = 
                             inl a', b' = loop {data with dim} i'
                             a :: a', b :: b'
-                        match i with
-                        | {from=from'} ->
+
+                        // The view tensor support two kinds of views.
+                        match branch with
+                        | {} -> Tree view
+                            inl rec loop branch i =
+                                match branch with
+                                | {from near_to} -> // Tree view's leaf - the ranges start at zero.
+                                    match i with
+                                    | () -> view 0 {from near_to} // Only () is supported for the sake of simplicity for now.
+                                | _ -> // Tree view's branch
+                                    match i with
+                                    | () -> view branch i
+                                    | _ ->
+                                        inl {c k i} = module_foldl (inl s k x -> {s with c=self+1; k x}) {c=0} i
+                                        assert (c = 1) "The number of branches indexed into must be 1."
+                                        loop (branch k) i
+                            loop branch i
+                        | from -> // Range view
                             match i with
-                            | {near_to=near_to'} -> view 0 {from=from'-from; near_to=near_to'-from}
-                            | {by} -> view 0 {from=from'-from; by}
-                            | _ -> view 0 {from=from'-from}
-                        | () -> view from ()
-                        | from' -> apply (from'-from)
+                            | {from=from'} ->
+                                match i with
+                                | {near_to=near_to'} -> view 0 {from=from'-from; near_to=near_to'-from}
+                                | {by} -> view 0 {from=from'-from; by}
+                                | _ -> view 0 {from=from'-from}
+                            | () -> view from ()
+                            | from' -> apply (from'-from)
             inl dim, apply = loop data (Tuple.wrap i)
             inl basic = data.basic apply
-            facade {data with dim}
+            facade {data with basic dim}
 
         /// Returns the tensor data.
         unwrap = id
