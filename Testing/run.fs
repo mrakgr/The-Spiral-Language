@@ -461,6 +461,27 @@ inl rec facade data =
         else methods x data
     | i -> methods .apply data i
 
+inl map_dim = function
+    | {from near_to} -> 
+        inl s = near_to - from
+        assert (0 < s) "The size must be a positive value."
+        s, from
+    | {} as x -> // Tree view
+        inl rec loop from = function
+            | {} as x -> 
+                module_foldl (inl (from,m) k x -> 
+                    inl near_to, x = loop from x
+                    near_to, {m with $k=x}
+                    ) (from, {}) x
+            | size: int64 ->  
+                inl near_to=from+size
+                assert (from < near_to) "The size must be a positive value."
+                near_to, {from near_to}
+            | _ -> error_type "The tree's leaves must be integer values and branches must be modules."
+        loop 0 x
+    | _ -> error_type "Expected a range or a tree view."
+        
+
     """
     ) |> Spiral.Types.module_
 
