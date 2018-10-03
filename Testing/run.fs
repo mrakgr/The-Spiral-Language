@@ -406,24 +406,33 @@ inl rec facade data =
         update_body = inl data f -> {data with basic=self.update_body f} |> facade
         get = inl {data with basic} -> basic.get
         set = inl {data with basic} v -> basic.set v
-        // Crops the dimensions of a tensor.
-        view = inl data -> view data >> facade
         // Applies the tensor. `i` can be a tuple.
         apply = inl data i ->
             inl rec loop data i =
                 match i with
                 | () -> ()
                 | i :: i' ->
-                    match i with
-                    | {from=from'} ->
-                        inl check near_to' = view from' near_to'
+                    match data.dim with
+                    | () -> error_type "Cannot apply the tensor anymore."
+                    | from :: dim ->
+                        inl apply b =
+                            inl a', b' = loop {data with dim} i'
+                            a', b :: b'
+                        inl view a b = 
+                            inl a', b' = loop {data with dim} i'
+                            a :: a', b :: b'
                         match i with
-                        | {near_to=near_to'} -> check near_to'
-                        | {by} -> check (from' + by)
-                        | _ -> view from' near_to
-                    | () -> view 0 near_to
-                    | from' -> rest from'
-                    
+                        | {from=from'} ->
+                            match i with
+                            | {near_to=near_to'} -> view 0 {from=from'-from; near_to=near_to'-from}
+                            | {by} -> view 0 {from=from'-from; by}
+                            | _ -> view 0 {from=from'-from}
+                        | () -> view from ()
+                        | from' -> apply (from'-from)
+            inl dim, apply = loop data (Tuple.wrap i)
+            inl basic = data.basic apply
+            facade {data with dim}
+
         /// Returns the tensor data.
         unwrap = id
         }
