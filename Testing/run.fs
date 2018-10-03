@@ -410,48 +410,20 @@ inl rec facade data =
         view = inl data -> view data >> facade
         // Applies the tensor. `i` can be a tuple.
         apply = inl data i ->
-            inl rec new_i data i =
-                match data.dim with
-                | () -> error_type "Cannot apply the tensor anymore."
-                | {} ->
-                | from ->
+            inl rec loop data i =
+                match i with
+                | () -> ()
+                | i :: i' ->
                     match i with
-                    | i :: i' ->
-                        inl rest from = new_i {data with basic = self from} i'
-                        inl view from near_to = 
-                            
+                    | {from=from'} ->
+                        inl check near_to' = view from' near_to'
                         match i with
-                        | {from=from'} ->
-                            assert (from' >= 0 && from' < near_to) "Argument out of bounds." 
-                            inl check near_to' =
-                                assert (near_to' > 0 && near_to' <= near_to) "Higher boundary out of bounds." 
-                                assert (from' < near_to') "The view must be positive."
-                                view from' near_to'
-                            match i with
-                            | {near_to=near_to'} -> check near_to'
-                            | {by} -> check (from' + by)
-                            | _ -> view from' near_to
-                        | () -> view 0 near_to 
-                        | from' -> 
-                            assert (from' >= 0 && from' < near_to) "Argument out of bounds." 
-                            rest from'
-                //match i with
-                //| () -> ()
-                //| i :: i' ->
-                //    match i with
-                //    | {} ->
-                //        match data.dim with
-                //        | () -> error_type "Cannot apply the tensor anymore."
-                //        | {} -> 
-                //        | _ -> error_type "Expected a module as the dimension."
-                //    | () -> () :: new_i {data with dim} i'
-                //    | i -> 
-                //        match data.dim with
-                //        | () -> error_type "Cannot apply the tensor anymore."
-                //        | {} -> error_type "Expected a module as the index."
-                //        | from :: dim -> i - from :: new_i {data with dim} i'
-
-            loop data (Tuple.wrap i) |> facade
+                        | {near_to=near_to'} -> check near_to'
+                        | {by} -> check (from' + by)
+                        | _ -> view from' near_to
+                    | () -> view 0 near_to
+                    | from' -> rest from'
+                    
         /// Returns the tensor data.
         unwrap = id
         }
