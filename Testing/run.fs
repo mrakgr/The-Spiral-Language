@@ -481,6 +481,8 @@ inl map_dim = function
         loop 0 x
     | _ -> error_type "Expected a range or a tree view."
         
+inl create {dsc with dim} = 
+    () // TODO: Work in progress.
 
     """
     ) |> Spiral.Types.module_
