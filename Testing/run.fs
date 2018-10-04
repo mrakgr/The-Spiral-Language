@@ -418,7 +418,7 @@ inl rec facade data =
                                     match i with
                                     | () -> view branch i
                                     | _ ->
-                                        inl {c k i} = module_foldl (inl s k x -> {s with c=self+1; k x}) {c=0} i
+                                        inl {c k i} = module_foldl (inl k s i -> {s with c=self+1; k i}) {c=0} i
                                         assert (c = 1) "The number of branches indexed into must be 1."
                                         loop (branch k) i
                             loop branch i
@@ -453,7 +453,7 @@ inl map_dim = function
     | {} as x -> // Tree view
         inl rec loop from = function
             | {} as x -> 
-                module_foldl (inl (from,m) k x -> 
+                module_foldl (inl k (from,m) x -> 
                     inl near_to, x = loop from x
                     near_to, {m with $k=x}
                     ) (from, {}) x
@@ -499,7 +499,7 @@ init (2,3,4) (inl a b c -> a*b*c) (1,{from=1},{from=1; by=2})
     """
 
 let test113 =
-    "test113",[view_host_tensor;console],"Do the tensor views work?",
+    "test113",[view_host_tensor;console],"Do the tensor range views work?",
     """
 inl tns =
     HostTensor.init (2,3,4) (inl a b c -> a*b*c)  
@@ -509,7 +509,18 @@ inl tns = tns ((), {from=3; by=2}, {from=3})
 tns .basic |> HostTensor.print
     """
 
+let test114 =
+    "test114",[view_host_tensor;console],"Do the tensor tree views work?",
+    """
+inl tns =
+    HostTensor.init (2,3,4) (inl a b c -> a*b*c)  
+    |> ViewHostTensor.wrap ({a=2},{b=3},{c=4})
+
+inl tns = tns ({a=()}, {b=()}, {c=()})
+tns .basic |> HostTensor.print
+    """
+
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test113
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test114
 |> printfn "%s"
 |> ignore
