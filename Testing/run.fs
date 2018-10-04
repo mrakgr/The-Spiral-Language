@@ -482,7 +482,9 @@ inl map_dim = function
     | _ -> error_type "Expected a range or a tree view."
         
 inl create {dsc with dim} = 
-    () // TODO: Work in progress.
+    inl size, dim = Tuple.map map_dim (Tuple.wrap dim) |> Tuple.unzip
+    inl basic = HostTensor.create {dsc with dim}
+    facade {basic dim}
 
     """
     ) |> Spiral.Types.module_
