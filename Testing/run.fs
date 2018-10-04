@@ -467,7 +467,7 @@ inl map_dim = function
         
 inl create {dsc with dim} = 
     inl size, dim = Tuple.map map_dim (Tuple.wrap dim) |> Tuple.unzip
-    inl basic = HostTensor.create {dsc with dim}
+    inl basic = HostTensor.create {dsc with dim=size}
     facade {basic dim}
 
 inl wrap dim basic =
