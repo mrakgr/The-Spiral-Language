@@ -379,9 +379,9 @@ equal split flatten assert_contiguous assert_dim reshape unzip from_scalar
 } |> stackify
     """) |> Spiral.Types.module_
 
-let view_host_tensor =
+let host_tensor_view =
     (
-    "ViewHostTensor",[tuple;host_tensor],"Views for the tensor.",
+    "HostTensorView",[tuple;host_tensor],"Views for the tensor.",
     """
 inl rec facade data = 
     inl methods = stack {
@@ -406,7 +406,7 @@ inl rec facade data =
                             inl a', b' = loop {data with dim} i'
                             a :: a', b :: b'
 
-                        // The view tensor support two kinds of views.
+                        // The tensor view support two kinds of views.
                         match branch with
                         | {} -> // Tree view
                             inl rec loop branch i =
@@ -499,28 +499,37 @@ init (2,3,4) (inl a b c -> a*b*c) (1,{from=1},{from=1; by=2})
     """
 
 let test113 =
-    "test113",[view_host_tensor;console],"Do the tensor range views work?",
+    "test113",[host_tensor_view;console],"Do the tensor range views work?",
     """
 inl tns =
     HostTensor.init (2,3,4) (inl a b c -> a*b*c)  
-    |> ViewHostTensor.wrap ({from=2; near_to=4},{from=2; near_to=5},{from=2; near_to=6})
+    |> HostTensorView.wrap ({from=2; near_to=4},{from=2; near_to=5},{from=2; near_to=6})
 
 inl tns = tns ((), {from=3; by=2}, {from=3})
 tns .basic |> HostTensor.print
     """
 
 let test114 =
-    "test114",[view_host_tensor;console],"Do the tensor tree views work?",
+    "test114",[host_tensor_view;console],"Do the tensor tree views work?",
     """
 inl tns =
     HostTensor.init (2,3,4) (inl a b c -> a*b*c)  
-    |> ViewHostTensor.wrap ({a=1; b=1},{a=1; b=2},{a=1; b={q=3}})
+    |> HostTensorView.wrap ({a=1; b=1},{a=1; b=2},{a=1; b={q=3}})
+
+inl tns = tns ({b=()}, {b=()}, {b={q=()}})
+tns .basic |> HostTensor.print
+    """
+
+let test115 =
+    "test115",[host_tensor_view;console],"Does the tensor view's create function work?",
+    """
+inl tns = HostTensorView.create {dim={a=1; b=1}, {a=1; b=2}, {a=1; b={q=3}}; elem_type=float32}
 
 inl tns = tns ({b=()}, {b=()}, {b={q=()}})
 tns .basic |> HostTensor.print
     """
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test114
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test115
 |> printfn "%s"
 |> ignore
