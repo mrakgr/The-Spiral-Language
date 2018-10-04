@@ -416,7 +416,7 @@ inl rec facade data =
                                     | () -> view 0 {from near_to} // Only () is supported for the sake of simplicity for now.
                                 | _ -> // Tree view's branch
                                     match i with
-                                    | () -> view branch i
+                                    | () -> error_type "Partial tree view indexing is disallowed." // view branch i
                                     | _ ->
                                         inl {c k i} = module_foldl (inl k s i -> {s with c=self+1; k i}) {c=0} i
                                         assert (c = 1) "The number of branches indexed into must be 1."
@@ -514,9 +514,9 @@ let test114 =
     """
 inl tns =
     HostTensor.init (2,3,4) (inl a b c -> a*b*c)  
-    |> ViewHostTensor.wrap ({a=2},{b=3},{c=4})
+    |> ViewHostTensor.wrap ({a=1; b=1},{a=1; b=2},{a=1; b={q=3}})
 
-inl tns = tns ({a=()}, {b=()}, {c=()})
+inl tns = tns ({b=()}, {b=()}, {b={q=()}})
 tns .basic |> HostTensor.print
     """
 
