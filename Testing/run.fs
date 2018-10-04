@@ -379,23 +379,6 @@ equal split flatten assert_contiguous assert_dim reshape unzip from_scalar
 } |> stackify
     """) |> Spiral.Types.module_
 
-let test96 =
-    "test96",[host_tensor;console],"Does the show from HostTensor work?",
-    """
-open HostTensor
-init (2,3,4) (inl a b c -> a*b*c)  
-|> show |> Console.writeline
-    """
-
-let test97 =
-    "test97",[host_tensor],"Does the view indexing work?",
-    """
-open HostTensor
-inl w = 2,3,4
-init (2,3,4) (inl a b c -> a*b*c) (1,{from=1},{from=1; by=2})
-|> show |> Console.writeline
-    """
-
 let view_host_tensor =
     (
     "ViewHostTensor",[tuple;host_tensor],"Views for the tensor.",
@@ -498,14 +481,31 @@ facade create wrap
     """
     ) |> Spiral.Types.module_
 
+let test96 =
+    "test96",[host_tensor;console],"Does the show from HostTensor work?",
+    """
+open HostTensor
+init (2,3,4) (inl a b c -> a*b*c)  
+|> show |> Console.writeline
+    """
+
+let test97 =
+    "test97",[host_tensor],"Does the view indexing work?",
+    """
+open HostTensor
+inl w = 2,3,4
+init (2,3,4) (inl a b c -> a*b*c) (1,{from=1},{from=1; by=2})
+|> show |> Console.writeline
+    """
+
 let test113 =
     "test113",[view_host_tensor;console],"Do the tensor views work?",
     """
 inl tns =
     HostTensor.init (2,3,4) (inl a b c -> a*b*c)  
-    |> ViewHostTensor.wrap ({from=2; near_to=4},{from=2; near_to=5},{from=2; near_to=6})
+    //|> ViewHostTensor.wrap ({from=2; near_to=4},{from=2; near_to=5},{from=2; near_to=6})
 
-tns (3,4,5) .get |> Console.writeline
+tns 1 2 3 .get |> Console.writeline
     """
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
