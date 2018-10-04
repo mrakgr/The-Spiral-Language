@@ -486,6 +486,14 @@ inl create {dsc with dim} =
     inl basic = HostTensor.create {dsc with dim}
     facade {basic dim}
 
+inl wrap dim basic =
+    inl size, dim = Tuple.map map_dim (Tuple.wrap dim) |> Tuple.unzip
+    assert (basic.dim = size) "The view must be of the same size as the tensor it is wrapping."
+    facade {basic dim}
+
+{
+facade create wrap
+} |> stackify
     """
     ) |> Spiral.Types.module_
 
