@@ -394,7 +394,7 @@ inl rec facade data =
         apply = inl data i ->
             inl rec loop data i =
                 match i with
-                | () -> (),()
+                | () -> data.dim, ()
                 | i :: i' ->
                     match data.dim with
                     | () -> error_type "Cannot apply the tensor anymore."
@@ -503,9 +503,9 @@ let test113 =
     """
 inl tns =
     HostTensor.init (2,3,4) (inl a b c -> a*b*c)  
-    //|> ViewHostTensor.wrap ({from=2; near_to=4},{from=2; near_to=5},{from=2; near_to=6})
+    |> ViewHostTensor.wrap ({from=2; near_to=4},{from=2; near_to=5},{from=2; near_to=6})
 
-tns 1 2 3 .get |> Console.writeline
+tns 3 4 5 .get |> Console.writeline
     """
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
