@@ -1043,17 +1043,17 @@ let test96 =
     "test96",[host_tensor;console],"Does the show from HostTensor work?",
     """
 open HostTensor
-init ({from=1; near_to=5},{from=1;to=3},{from=1;to=101}) (inl a b c -> a*b*c)  
+init (2,3,4) (inl a b c -> a*b*c)  
 |> show |> Console.writeline
     """
 
 let test97 =
-    "test97",[host_tensor],"Does the view_span work?",
+    "test97",[host_tensor;console],"Does the view indexing work?",
     """
 open HostTensor
-inl w = {from=1; by=2}, {from=1; by=2},{from=1; by=3}
-init ({from=1; near_to=5},3,10) (inl a b c -> a*b*c) .view_span (const w)
-|> show
+inl w = 2,3,4
+init (2,3,4) (inl a b c -> a*b*c) (1,{from=1},{from=1; by=2})
+|> show |> Console.writeline
     """
 
 let test98 =
@@ -1210,6 +1210,37 @@ inl k = .q
 inl m = { $k = { b = 2 }}
 
 {(m).(k) with a = 1}
+    """
+
+let test113 =
+    "test113",[host_tensor_view;console],"Do the tensor range views work?",
+    """
+inl tns =
+    HostTensor.init (2,3,4) (inl a b c -> a*b*c)  
+    |> HostTensorView.wrap ({from=2; near_to=4},{from=2; near_to=5},{from=2; near_to=6})
+
+inl tns = tns ((), {from=3; by=2}, {from=3})
+tns .basic |> HostTensor.print
+    """
+
+let test114 =
+    "test114",[host_tensor_view;console],"Do the tensor tree views work?",
+    """
+inl tns =
+    HostTensor.init (2,3,4) (inl a b c -> a*b*c)  
+    |> HostTensorView.wrap ({a=1; b=1},{a=1; b=2},{a=1; b={q=3}})
+
+inl tns = tns ({b=()}, {b=()}, {b={q=()}})
+tns .basic |> HostTensor.print
+    """
+
+let test115 =
+    "test115",[host_tensor_view;console],"Does the tensor view's create function work?",
+    """
+inl tns = HostTensorView.create {dim={a=1; b=1}, {a=1; b=2}, {a=1; b={q=3}}; elem_type=float32}
+
+inl tns = tns ({b=()}, {b=()}, {b={q=()}})
+tns .basic |> HostTensor.print
     """
 
 let parsing1 = 
@@ -1996,7 +2027,7 @@ let tests =
     test80;test81;test82;test83;test84;test85;test86;test87;test88;test89
     test90;test91;test92;test93;test94;test95;test96;test97;test98;test99
     test100;test101;test102;test103;test104;test105;test106;test107;test108;test109
-    test110;test111;test112
+    test110;test111;test112;test113;test114;test115
     hacker_rank_1;hacker_rank_2;hacker_rank_3;hacker_rank_4;hacker_rank_5;hacker_rank_6;hacker_rank_7;hacker_rank_8;hacker_rank_9
     parsing1;parsing2;parsing3;parsing4;parsing5;parsing6;parsing7;parsing8
     loop1;loop2;loop3;     loop5;loop6;loop7;loop8
