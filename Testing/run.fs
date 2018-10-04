@@ -57,9 +57,10 @@ foo 10 |> Tuple.map stringify |> Console.writeline
 
 let host_tensor =
     (
-    "HostTensor",[tuple;struct';loops;extern_;console;liple],"The host tensor module.",
+    "HostTensor",[tuple;struct';loops;extern_;console;liple],"The HostTensor module.",
     """
 // A lot of the code in this module is made with purpose of being reused on the Cuda side.
+// Despite its name, it can be overloaded to work inside Cuda kernels by passing a different `array_create` as argument into `create`.
 inl rec view_offsets offset = function
     | s :: s', i :: i' -> s * i + view_offsets offset (s', i')
     | _, () -> offset
@@ -387,7 +388,7 @@ init (2,3,4) (inl a b c -> a*b*c)
     """
 
 let test97 =
-    "test97",[host_tensor],"Do the views work?",
+    "test97",[host_tensor],"Does the view indexing work?",
     """
 open HostTensor
 inl w = 2,3,4
@@ -397,7 +398,7 @@ init (2,3,4) (inl a b c -> a*b*c) (1,{from=1},{from=1; by=2})
 
 let view_host_tensor =
     (
-    "ViewHostTensor",[tuple;struct';loops;extern_;console;liple],"The host tensor module.",
+    "ViewHostTensor",[tuple;host_tensor],"Views for the tensor.",
     """
 inl rec facade data = 
     inl methods = stack {
@@ -497,7 +498,17 @@ facade create wrap
     """
     ) |> Spiral.Types.module_
 
+let test113 =
+    "test113",[view_host_tensor;console],"Do the tensor views work?",
+    """
+inl tns =
+    HostTensor.init (2,3,4) (inl a b c -> a*b*c)  
+    |> ViewHostTensor.wrap ({from=2; near_to=4},{from=2; near_to=5},{from=2; near_to=6}))
+
+tns (3,4,5) .get |> Console.writeline
+    """
+
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test97
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test113
 |> printfn "%s"
 |> ignore
