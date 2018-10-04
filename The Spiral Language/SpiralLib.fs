@@ -1720,7 +1720,7 @@ inl assert_size dim' tns =
     tns.set_dim dim'
 
 /// Reinterprets an array as a tensor. Does not copy. array -> tensor.
-inl array_as_tensor ar = facade {dim=array_length ar; bodies={ar size=1::(); offset=0; block=()}}
+inl array_as_tensor ar = facade {dim=array_length ar::(); bodies={ar size=1::(); offset=0; block=()}}
 
 /// Reinterprets an array as a tensor. array -> tensor.
 inl array_to_tensor = array_as_tensor >> copy
@@ -1830,6 +1830,7 @@ inl rec facade data =
                             | {from=from'} ->
                                 match i with
                                 | {near_to=near_to'} -> view 0 {from=from'-from; near_to=near_to'-from}
+                                | {to=to'} -> view 0 {from=from'-from; near_to=to'+1-from}
                                 | {by} -> view 0 {from=from'-from; by}
                                 | _ -> view 0 {from=from'-from}
                             | () -> view from ()
@@ -1849,10 +1850,14 @@ inl rec facade data =
     | i -> methods .apply data i
 
 inl map_dim = function
-    | {from near_to} -> 
-        inl s = near_to - from
-        assert (0 < s) "The size must be a positive value."
-        s, from
+    | {from} as x -> 
+        inl by = 
+            match x with
+            | {near_to} -> near_to - from
+            | {to} -> to + 1 - from
+            | {by} -> by
+        assert (0 < by) "The size must be a positive value."
+        by, from
     | {} as x -> // Tree view
         inl rec loop from = function
             | {} as x -> 

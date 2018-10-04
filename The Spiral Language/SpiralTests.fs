@@ -1983,7 +1983,7 @@ run_with_unit_ret (readall()) parser
     """
 
 let hacker_rank_9 =
-    "hacker_rank_9",[tuple;array;host_tensor;parsing;console;option],"The Power Sum",
+    "hacker_rank_9",[tuple;array;host_tensor_view;parsing;console;option],"The Power Sum",
     """
 // https://www.hackerrank.com/challenges/the-power-sum
 
@@ -1996,9 +1996,13 @@ inl x_range = {from=1; to=1000}
 inl n_range = {from=2; to=10}
 
 inl x_to_n = 
-    inl cache = HostTensor.init (x_range,n_range) (inl x n ->
-        for {from=2; to=n; state=x; body=inl {state=x'} -> x*x'}
-        )
+    inl cache = HostTensorView.create {dim=x_range,n_range; elem_type=int64}
+    for {x_range with body=inl {i=x} ->
+        for {n_range with body=inl {i=n} ->
+            for {from=2; to=n; state=x; body=inl {state=x'} -> x*x'}
+            |> cache x n .set
+            }
+        }
     inl (x, n) -> cache x n .get
 
 met rec solve !dyn state !dyn sum !dyn from to,n =
