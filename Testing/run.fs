@@ -505,7 +505,8 @@ inl tns =
     HostTensor.init (2,3,4) (inl a b c -> a*b*c)  
     |> ViewHostTensor.wrap ({from=2; near_to=4},{from=2; near_to=5},{from=2; near_to=6})
 
-tns 3 4 5 .get |> Console.writeline
+inl tns = tns ((), {from=3; by=2}, {from=3})
+tns .basic |> HostTensor.print
     """
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
