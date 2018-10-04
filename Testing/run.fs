@@ -411,7 +411,7 @@ inl rec facade data =
         apply = inl data i ->
             inl rec loop data i =
                 match i with
-                | () -> ()
+                | () -> (),()
                 | i :: i' ->
                     match data.dim with
                     | () -> error_type "Cannot apply the tensor anymore."
@@ -425,7 +425,7 @@ inl rec facade data =
 
                         // The view tensor support two kinds of views.
                         match branch with
-                        | {} -> Tree view
+                        | {} -> // Tree view
                             inl rec loop branch i =
                                 match branch with
                                 | {from near_to} -> // Tree view's leaf - the ranges start at zero.
@@ -503,7 +503,7 @@ let test113 =
     """
 inl tns =
     HostTensor.init (2,3,4) (inl a b c -> a*b*c)  
-    |> ViewHostTensor.wrap ({from=2; near_to=4},{from=2; near_to=5},{from=2; near_to=6}))
+    |> ViewHostTensor.wrap ({from=2; near_to=4},{from=2; near_to=5},{from=2; near_to=6})
 
 tns (3,4,5) .get |> Console.writeline
     """
