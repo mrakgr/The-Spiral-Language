@@ -116,7 +116,7 @@ inb s = s.RegionStream.create'
 inl s = s.RegionStream.allocate
 
 inl sigmoid_initializer' s x = 
-    inl stddev = sqrt (2.0f32 / to float32 (Tuple.foldl (inl s x -> s + HostTensor.span x) 0 x.dim))
+    inl stddev = sqrt (2.0f32 / to float32 (Tuple.foldl (inl s x -> s + x) 0 x.dim))
     Console.writeline {stddev}
     s.CudaRandom.fill {dst=.Normal; stddev mean=0f32} x
 
@@ -188,7 +188,7 @@ s.CudaTensor.set (a1 0 1) 0f32
 s.CudaTensor.set (a1 0 2) 0f32
 s.CudaTensor.set (a1 1 2) 0f32
 
-inl a2 = s.CudaFun.init {dim=3,3} (inl a b -> if a = b then 1f32 else 0f32)
+inl a2 = s.CudaFun.init {dim=3,3} (inl a, b -> if a = b then 1f32 else 0f32)
 inl o1 = s.CudaBlas.trsm .Left .Lower .nT .NonUnit 1f32 a1 a2
 inl o2 = s.CudaBlas.trinv .Lower a1
 inl r1 = s.CudaBlas.gemm .nT .nT 1f32 a1 o2
@@ -222,8 +222,8 @@ let blas6 =
     """
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
-inl A = s.CudaFun.init {dim=3,5} (inl a b -> to float32 (a+b))
-inl B = s.CudaFun.init {dim=3,5} (inl a b -> to float32 (100+a+b))
+inl A = s.CudaFun.init {dim=3,5} (inl a, b -> to float32 (a+b))
+inl B = s.CudaFun.init {dim=3,5} (inl a, b -> to float32 (100+a+b))
 inl C = s.CudaBlas.geam .T .T 1f32 A 1f32 B
 s.CudaTensor.print A
 s.CudaTensor.print B
@@ -328,7 +328,7 @@ inl { test_images test_labels train_images train_labels} =
     Mnist.load_mnist_tensors mnist_path
     |> s.CudaTensor.from_host_tensors
 
-inl x = train_images .view_span (const k)
+inl x = train_images {from=0; by=k}
 
 inl x = 
     if n <> 28*28 then 
@@ -355,15 +355,15 @@ inl n = 2
 inl m = 5
 inl dim = n,m
 //inl A = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim}
-inl A = s.CudaFun.init {dim} (inl a b -> to float32 (a+b*2+1))
+inl A = s.CudaFun.init {dim} (inl a, b -> to float32 (a+b*2+1))
 
 inl out, ipiv = s.CudaSolve.getrf A
 
 inl perm ipiv =
     inl p = s.CudaTensor.to_host_tensor ipiv
-    inl range :: () = p.dim
+    inl near_to :: () = p.dim
     inl ar = HostTensor.init (max n m) id
-    Loops.for {range with body=inl {i} ->
+    Loops.for {from=0; near_to body=inl {i} ->
         inl swap a b =
             inl x = ar a .get
             inl y = ar b .get
@@ -374,7 +374,7 @@ inl perm ipiv =
         }
 
     inl ipiv = CudaAux.to_dev_tensor (s.CudaTensor.from_host_tensor ar)
-    s.CudaFun.init {dim=m,m} <| inl a b ->
+    s.CudaFun.init {dim=m,m} <| inl a, b ->
         inl p = ipiv a .get
         if b = p then 1f32 else 0f32
 
@@ -384,13 +384,13 @@ inl lu O =
 
     /// Note: The are transposed. getrf loads the array assuming a column major format while Spiral uses the row major.
     inl L =
-        s.CudaFun.init {dim=m,m} <| inl a b ->
+        s.CudaFun.init {dim=m,m} <| inl a, b ->
             if a = b then 1f32
             elif a < b && a < n then O a b .get
             else 0f32
 
     inl U =
-        s.CudaFun.init {dim} <| inl a b ->
+        s.CudaFun.init {dim} <| inl a, b ->
             if a >= b then O a b .get
             else 0f32
 
@@ -436,7 +436,7 @@ inl { test_images test_labels train_images train_labels} =
     Mnist.load_mnist_tensors mnist_path
     |> s.CudaTensor.from_host_tensors
 
-inl x = train_images .view_span (const k)
+inl x = train_images {from=0; by=k}
 
 inl x = 
     if n <> 28*28 then 
@@ -935,6 +935,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel11
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) random1
 |> printfn "%s"
 |> ignore

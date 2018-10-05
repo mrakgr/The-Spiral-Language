@@ -1864,6 +1864,7 @@ inl rec facade data =
 
 inl map_dim default = function
     | () -> default(), 0
+    | by: int64 -> by, 0
     | {from} as x -> 
         inl by = 
             match x with

@@ -889,7 +889,7 @@ inl s ret ->
                     | .Left -> get_dims A B
                     | .Right -> get_dims B A
                 inl B = CudaAux.to_dev_tensor B
-                s.CudaFun.init {dim} (inl a, b -> B a, b .get)
+                s.CudaFun.init {dim} (inl a, b -> B a b .get)
             trsm' s side uplo trans diag alpha A B
             stack B
 
@@ -1179,13 +1179,13 @@ inl s ret ->
                 inl lda_inv = ld Ainv
                 inl info = s.CudaTensor.create {elem_type=int32; dim=batch_size}
                 inl _ =
-                    inl A, Ainv = s.CudaKernel.tensor_to_pointers (A, Ainv)
+                    inl A, Ainv = s.CudaFun.tensor_to_pointers (A, Ainv)
                     matinv_batched' s n A lda Ainv lda_inv info
                 (Ainv, info) |> ret |> stack
 
     inl matinv_batched_asserted s A = 
         matinv_batched s A (inl Ainv, info ->
-            inl r = s.CudaKernel.redo {redo=max; neutral_elem=0i32} info
+            inl r = s.CudaFun.redo {redo=max; neutral_elem=0i32} info 0
             assert (s.CudaTensor.get r = 0i32) "The matrix inversion failed."
             Ainv
             )
@@ -1240,7 +1240,7 @@ inl s ret ->
 
 let cuda_kernel =
     (
-    "CudaKernel",[host_tensor;cuda_tensor],"The Cuda kernels module.",
+    "CudaKernel",[host_tensor_view;cuda_tensor],"The Cuda kernels module.",
     """
 open HostTensor
 open Extern
@@ -1670,7 +1670,7 @@ inl block_reduce_template dim ar (near_to, threadIdx) redo state =
                 elem_type=state
                 dim=Liple.map length dim
                 }
-            |> ViewTensor.wrap dim
+            |> HostTensorView.wrap dim
             |> ar
 
         block_reduce_body ar near_to threadIdx redo state

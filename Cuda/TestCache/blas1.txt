@@ -236,38 +236,30 @@ and method_28((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: (int64 ref)),
     let (var_9: (uint64 ref)) = var_8.mem_0
     method_29((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_7: (int64 ref)), (var_9: (uint64 ref)), (var_4: EnvHeap16), (var_5: ManagedCuda.BasicTypes.CUmodule))
     EnvStack18((var_7: (int64 ref)), (var_9: (uint64 ref)))
-and method_30((var_0: EnvHeap16), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64)): unit =
-    let (var_11: int64) = (var_8 - var_7)
-    let (var_12: int64) = (var_10 - var_9)
-    let (var_13: int64) = (var_11 * var_12)
-    let (var_14: bool) = (var_13 > 0L)
-    let (var_15: bool) = (var_14 = false)
-    if var_15 then
-        (failwith "Tensor needs to be at least size 1.")
-    else
-        ()
-    let (var_16: int64) = (var_12 * var_6)
-    let (var_17: bool) = (var_5 = var_16)
-    let (var_18: bool) = (var_17 = false)
-    if var_18 then
+and method_30((var_0: EnvHeap16), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64)): unit =
+    let (var_9: int64) = (var_7 * var_8)
+    let (var_10: int64) = (var_8 * var_6)
+    let (var_11: bool) = (var_5 = var_10)
+    let (var_12: bool) = (var_11 = false)
+    if var_12 then
         (failwith "The tensor must be contiguous in order to be flattened.")
     else
         ()
-    let (var_19: int64) = (var_11 * var_5)
-    let (var_20: (float32 [])) = method_31((var_0: EnvHeap16), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_11: int64), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_4: int64), (var_5: int64), (var_6: int64))
-    let (var_21: int64) = 0L
-    method_32((var_20: (float32 [])), (var_21: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64))
-and method_39((var_0: EnvStack12)): unit =
+    let (var_13: int64) = (var_7 * var_5)
+    let (var_14: (float32 [])) = method_31((var_0: EnvHeap16), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_7: int64), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_4: int64), (var_5: int64), (var_6: int64))
+    let (var_15: int64) = 0L
+    method_32((var_14: (float32 [])), (var_15: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64))
+and method_37((var_0: EnvStack12)): unit =
     let (var_1: ResizeArray<Env11>) = var_0.mem_0
     let (var_2: int32) = var_1.get_Count()
     let (var_3: int32) = 0
-    method_40((var_1: ResizeArray<Env11>), (var_2: int32), (var_3: int32))
+    method_38((var_1: ResizeArray<Env11>), (var_2: int32), (var_3: int32))
     var_1.Clear()
-and method_41((var_0: EnvStack9)): unit =
+and method_39((var_0: EnvStack9)): unit =
     let (var_1: ResizeArray<Env8>) = var_0.mem_0
     let (var_2: int32) = var_1.get_Count()
     let (var_3: int32) = 0
-    method_42((var_1: ResizeArray<Env8>), (var_2: int32), (var_3: int32))
+    method_40((var_1: ResizeArray<Env8>), (var_2: int32), (var_3: int32))
     var_1.Clear()
 and method_4((var_0: (uint64 ref))): uint64 =
     let (var_1: uint64) = (!var_0)
@@ -457,20 +449,21 @@ and method_31((var_0: EnvHeap16), (var_1: ManagedCuda.BasicTypes.CUmodule), (var
     if var_26 <> ManagedCuda.BasicTypes.CUResult.Success then raise <| new ManagedCuda.CudaException(var_26)
     var_17.Free()
     var_16
-and method_32((var_0: (float32 [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64)): unit =
-    let (var_8: System.Text.StringBuilder) = System.Text.StringBuilder()
-    let (var_9: string) = ""
-    let (var_10: int64) = 0L
+and method_32((var_0: (float32 [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64)): unit =
+    let (var_6: System.Text.StringBuilder) = System.Text.StringBuilder()
+    let (var_7: string) = ""
+    let (var_8: int64) = 0L
+    let (var_9: int64) = 0L
+    method_33((var_6: System.Text.StringBuilder), (var_9: int64))
+    let (var_10: System.Text.StringBuilder) = var_6.AppendLine("[|")
     let (var_11: int64) = 0L
-    method_33((var_8: System.Text.StringBuilder), (var_11: int64))
-    let (var_12: System.Text.StringBuilder) = var_8.AppendLine("[|")
-    let (var_13: int64) = method_34((var_8: System.Text.StringBuilder), (var_9: string), (var_0: (float32 [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_10: int64))
-    let (var_14: int64) = 0L
-    method_33((var_8: System.Text.StringBuilder), (var_14: int64))
-    let (var_15: System.Text.StringBuilder) = var_8.AppendLine("|]")
-    let (var_16: string) = var_8.ToString()
-    System.Console.WriteLine(var_16)
-and method_40((var_0: ResizeArray<Env11>), (var_1: int32), (var_2: int32)): unit =
+    let (var_12: int64) = method_34((var_6: System.Text.StringBuilder), (var_7: string), (var_0: (float32 [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_8: int64), (var_11: int64))
+    let (var_13: int64) = 0L
+    method_33((var_6: System.Text.StringBuilder), (var_13: int64))
+    let (var_14: System.Text.StringBuilder) = var_6.AppendLine("|]")
+    let (var_15: string) = var_6.ToString()
+    System.Console.WriteLine(var_15)
+and method_38((var_0: ResizeArray<Env11>), (var_1: int32), (var_2: int32)): unit =
     let (var_3: bool) = (var_2 < var_1)
     if var_3 then
         let (var_4: Env11) = var_0.[var_2]
@@ -492,10 +485,10 @@ and method_40((var_0: ResizeArray<Env11>), (var_1: int32), (var_2: int32)): unit
         else
             ()
         let (var_15: int32) = (var_2 + 1)
-        method_40((var_0: ResizeArray<Env11>), (var_1: int32), (var_15: int32))
+        method_38((var_0: ResizeArray<Env11>), (var_1: int32), (var_15: int32))
     else
         ()
-and method_42((var_0: ResizeArray<Env8>), (var_1: int32), (var_2: int32)): unit =
+and method_40((var_0: ResizeArray<Env8>), (var_1: int32), (var_2: int32)): unit =
     let (var_3: bool) = (var_2 < var_1)
     if var_3 then
         let (var_4: Env8) = var_0.[var_2]
@@ -512,7 +505,7 @@ and method_42((var_0: ResizeArray<Env8>), (var_1: int32), (var_2: int32)): unit 
         else
             ()
         let (var_12: int32) = (var_2 + 1)
-        method_42((var_0: ResizeArray<Env8>), (var_1: int32), (var_12: int32))
+        method_40((var_0: ResizeArray<Env8>), (var_1: int32), (var_12: int32))
     else
         ()
 and method_3((var_0: EnvStack1), (var_1: ResizeArray<Env20>), (var_2: int32), (var_3: int32)): unit =
@@ -562,31 +555,34 @@ and method_33((var_0: System.Text.StringBuilder), (var_1: int64)): unit =
         method_33((var_0: System.Text.StringBuilder), (var_4: int64))
     else
         ()
-and method_34((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64)): int64 =
-    let (var_11: bool) = (var_6 < var_7)
-    if var_11 then
-        let (var_12: bool) = (var_10 < 1000L)
-        if var_12 then
-            let (var_13: bool) = (var_6 >= var_6)
-            let (var_14: bool) = (var_13 = false)
-            if var_14 then
+and method_34((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64)): int64 =
+    let (var_10: bool) = (var_9 < var_6)
+    if var_10 then
+        let (var_11: bool) = (var_8 < 1000L)
+        if var_11 then
+            let (var_12: bool) = (var_9 >= 0L)
+            let (var_13: bool) = (var_12 = false)
+            if var_13 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_15: int64) = 0L
-            method_35((var_0: System.Text.StringBuilder), (var_15: int64))
-            let (var_16: System.Text.StringBuilder) = var_0.Append("[|")
-            let (var_17: int64) = method_36((var_0: System.Text.StringBuilder), (var_2: (float32 [])), (var_3: int64), (var_5: int64), (var_8: int64), (var_9: int64), (var_1: string), (var_10: int64))
-            let (var_18: System.Text.StringBuilder) = var_0.AppendLine("|]")
-            let (var_19: int64) = (var_6 + 1L)
-            method_38((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_17: int64), (var_19: int64))
+            let (var_14: int64) = (var_9 * var_4)
+            let (var_15: int64) = (var_3 + var_14)
+            let (var_16: int64) = 0L
+            method_35((var_0: System.Text.StringBuilder), (var_16: int64))
+            let (var_17: System.Text.StringBuilder) = var_0.Append("[|")
+            let (var_18: int64) = 0L
+            let (var_19: int64) = method_36((var_0: System.Text.StringBuilder), (var_2: (float32 [])), (var_15: int64), (var_5: int64), (var_7: int64), (var_1: string), (var_8: int64), (var_18: int64))
+            let (var_20: System.Text.StringBuilder) = var_0.AppendLine("|]")
+            let (var_21: int64) = (var_9 + 1L)
+            method_34((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_19: int64), (var_21: int64))
         else
-            let (var_21: int64) = 0L
-            method_33((var_0: System.Text.StringBuilder), (var_21: int64))
-            let (var_22: System.Text.StringBuilder) = var_0.AppendLine("...")
-            var_10
+            let (var_23: int64) = 0L
+            method_33((var_0: System.Text.StringBuilder), (var_23: int64))
+            let (var_24: System.Text.StringBuilder) = var_0.AppendLine("...")
+            var_8
     else
-        var_10
+        var_8
 and method_11((var_0: EnvHeap16), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_2: uint64)): Env21 =
     let (var_3: EnvHeap4) = var_0.mem_5
     let (var_4: (uint64 ref)) = var_3.mem_4
@@ -655,58 +651,32 @@ and method_35((var_0: System.Text.StringBuilder), (var_1: int64)): unit =
         method_35((var_0: System.Text.StringBuilder), (var_4: int64))
     else
         ()
-and method_36((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: string), (var_7: int64)): int64 =
-    let (var_8: bool) = (var_4 < var_5)
+and method_36((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: string), (var_6: int64), (var_7: int64)): int64 =
+    let (var_8: bool) = (var_7 < var_4)
     if var_8 then
-        let (var_9: bool) = (var_7 < 1000L)
+        let (var_9: bool) = (var_6 < 1000L)
         if var_9 then
-            let (var_10: System.Text.StringBuilder) = var_0.Append(var_6)
-            let (var_11: bool) = (var_4 >= var_4)
+            let (var_10: System.Text.StringBuilder) = var_0.Append(var_5)
+            let (var_11: bool) = (var_7 >= 0L)
             let (var_12: bool) = (var_11 = false)
             if var_12 then
                 (failwith "Argument out of bounds.")
             else
                 ()
-            let (var_13: float32) = var_1.[int32 var_2]
-            let (var_14: string) = System.String.Format("{0}",var_13)
-            let (var_15: System.Text.StringBuilder) = var_0.Append(var_14)
-            let (var_16: string) = "; "
-            let (var_17: int64) = (var_7 + 1L)
-            let (var_18: int64) = (var_4 + 1L)
-            method_37((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_16: string), (var_17: int64), (var_18: int64))
+            let (var_13: int64) = (var_7 * var_3)
+            let (var_14: int64) = (var_2 + var_13)
+            let (var_15: float32) = var_1.[int32 var_14]
+            let (var_16: string) = System.String.Format("{0}",var_15)
+            let (var_17: System.Text.StringBuilder) = var_0.Append(var_16)
+            let (var_18: string) = "; "
+            let (var_19: int64) = (var_6 + 1L)
+            let (var_20: int64) = (var_7 + 1L)
+            method_36((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_18: string), (var_19: int64), (var_20: int64))
         else
-            let (var_20: System.Text.StringBuilder) = var_0.Append("...")
-            var_7
+            let (var_22: System.Text.StringBuilder) = var_0.Append("...")
+            var_6
     else
-        var_7
-and method_38((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_10: int64), (var_11: int64)): int64 =
-    let (var_12: bool) = (var_11 < var_7)
-    if var_12 then
-        let (var_13: bool) = (var_10 < 1000L)
-        if var_13 then
-            let (var_14: bool) = (var_11 >= var_6)
-            let (var_15: bool) = (var_14 = false)
-            if var_15 then
-                (failwith "Argument out of bounds.")
-            else
-                ()
-            let (var_16: int64) = (var_11 - var_6)
-            let (var_17: int64) = (var_16 * var_4)
-            let (var_18: int64) = (var_3 + var_17)
-            let (var_19: int64) = 0L
-            method_35((var_0: System.Text.StringBuilder), (var_19: int64))
-            let (var_20: System.Text.StringBuilder) = var_0.Append("[|")
-            let (var_21: int64) = method_36((var_0: System.Text.StringBuilder), (var_2: (float32 [])), (var_18: int64), (var_5: int64), (var_8: int64), (var_9: int64), (var_1: string), (var_10: int64))
-            let (var_22: System.Text.StringBuilder) = var_0.AppendLine("|]")
-            let (var_23: int64) = (var_11 + 1L)
-            method_38((var_0: System.Text.StringBuilder), (var_1: string), (var_2: (float32 [])), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64), (var_9: int64), (var_21: int64), (var_23: int64))
-        else
-            let (var_25: int64) = 0L
-            method_33((var_0: System.Text.StringBuilder), (var_25: int64))
-            let (var_26: System.Text.StringBuilder) = var_0.AppendLine("...")
-            var_10
-    else
-        var_10
+        var_6
 and method_12((var_0: (int32 ref)), (var_1: EnvStack3), (var_2: EnvStack3), (var_3: EnvStack2)): unit =
     let (var_4: int32) = (!var_0)
     let (var_5: ResizeArray<EnvStack1>) = var_3.mem_0
@@ -845,33 +815,6 @@ and method_16((var_0: EnvHeap16), (var_1: ManagedCuda.BasicTypes.CUmodule)): uni
     let (var_26: uint64) = (var_25 + var_4)
     let (var_27: uint64) = (var_26 - var_24)
     var_15.[var_23] <- var_27
-and method_37((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_6: string), (var_7: int64), (var_8: int64)): int64 =
-    let (var_9: bool) = (var_8 < var_5)
-    if var_9 then
-        let (var_10: bool) = (var_7 < 1000L)
-        if var_10 then
-            let (var_11: System.Text.StringBuilder) = var_0.Append(var_6)
-            let (var_12: bool) = (var_8 >= var_4)
-            let (var_13: bool) = (var_12 = false)
-            if var_13 then
-                (failwith "Argument out of bounds.")
-            else
-                ()
-            let (var_14: int64) = (var_8 - var_4)
-            let (var_15: int64) = (var_14 * var_3)
-            let (var_16: int64) = (var_2 + var_15)
-            let (var_17: float32) = var_1.[int32 var_16]
-            let (var_18: string) = System.String.Format("{0}",var_17)
-            let (var_19: System.Text.StringBuilder) = var_0.Append(var_18)
-            let (var_20: string) = "; "
-            let (var_21: int64) = (var_7 + 1L)
-            let (var_22: int64) = (var_8 + 1L)
-            method_37((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2: int64), (var_3: int64), (var_4: int64), (var_5: int64), (var_20: string), (var_21: int64), (var_22: int64))
-        else
-            let (var_24: System.Text.StringBuilder) = var_0.Append("...")
-            var_7
-    else
-        var_7
 and method_15((var_0: (int32 ref)), (var_1: EnvStack3), (var_2: EnvStack3), (var_3: EnvStack2), (var_4: int32), (var_5: int32), (var_6: uint64), (var_7: int32)): Env23 =
     let (var_8: bool) = (var_7 < var_4)
     if var_8 then
@@ -1058,51 +1001,41 @@ let (var_125: (uint64 ref)) = var_123.mem_1
 let (var_126: int64) = 0L
 let (var_127: int64) = 3L
 let (var_128: int64) = 1L
-let (var_129: int64) = 0L
-let (var_130: int64) = 2L
+let (var_129: int64) = 2L
+let (var_130: int64) = 3L
+method_30((var_110: EnvHeap16), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_112: (int64 ref)), (var_113: (uint64 ref)), (var_126: int64), (var_127: int64), (var_128: int64), (var_129: int64), (var_130: int64))
 let (var_131: int64) = 0L
-let (var_132: int64) = 3L
-method_30((var_110: EnvHeap16), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_112: (int64 ref)), (var_113: (uint64 ref)), (var_126: int64), (var_127: int64), (var_128: int64), (var_129: int64), (var_130: int64), (var_131: int64), (var_132: int64))
-let (var_133: int64) = 0L
-let (var_134: int64) = 4L
-let (var_135: int64) = 1L
+let (var_132: int64) = 4L
+let (var_133: int64) = 1L
+let (var_134: int64) = 3L
+let (var_135: int64) = 4L
+method_30((var_110: EnvHeap16), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_115: (int64 ref)), (var_116: (uint64 ref)), (var_131: int64), (var_132: int64), (var_133: int64), (var_134: int64), (var_135: int64))
 let (var_136: int64) = 0L
-let (var_137: int64) = 3L
-let (var_138: int64) = 0L
-let (var_139: int64) = 4L
-method_30((var_110: EnvHeap16), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_115: (int64 ref)), (var_116: (uint64 ref)), (var_133: int64), (var_134: int64), (var_135: int64), (var_136: int64), (var_137: int64), (var_138: int64), (var_139: int64))
-let (var_140: int64) = 0L
-let (var_141: int64) = 4L
-let (var_142: int64) = 1L
-let (var_143: int64) = 0L
+let (var_137: int64) = 4L
+let (var_138: int64) = 1L
+let (var_139: int64) = 2L
+let (var_140: int64) = 4L
+method_30((var_110: EnvHeap16), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_118: (int64 ref)), (var_119: (uint64 ref)), (var_136: int64), (var_137: int64), (var_138: int64), (var_139: int64), (var_140: int64))
+let (var_141: int64) = 0L
+let (var_142: int64) = 3L
+let (var_143: int64) = 1L
 let (var_144: int64) = 2L
-let (var_145: int64) = 0L
-let (var_146: int64) = 4L
-method_30((var_110: EnvHeap16), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_118: (int64 ref)), (var_119: (uint64 ref)), (var_140: int64), (var_141: int64), (var_142: int64), (var_143: int64), (var_144: int64), (var_145: int64), (var_146: int64))
-let (var_147: int64) = 0L
-let (var_148: int64) = 3L
-let (var_149: int64) = 1L
-let (var_150: int64) = 0L
-let (var_151: int64) = 2L
-let (var_152: int64) = 0L
-let (var_153: int64) = 3L
-method_30((var_110: EnvHeap16), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_121: (int64 ref)), (var_122: (uint64 ref)), (var_147: int64), (var_148: int64), (var_149: int64), (var_150: int64), (var_151: int64), (var_152: int64), (var_153: int64))
-let (var_154: int64) = 0L
-let (var_155: int64) = 4L
-let (var_156: int64) = 1L
-let (var_157: int64) = 0L
-let (var_158: int64) = 3L
-let (var_159: int64) = 0L
-let (var_160: int64) = 4L
-method_30((var_110: EnvHeap16), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_124: (int64 ref)), (var_125: (uint64 ref)), (var_154: int64), (var_155: int64), (var_156: int64), (var_157: int64), (var_158: int64), (var_159: int64), (var_160: int64))
-method_39((var_108: EnvStack12))
-method_41((var_93: EnvStack9))
+let (var_145: int64) = 3L
+method_30((var_110: EnvHeap16), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_121: (int64 ref)), (var_122: (uint64 ref)), (var_141: int64), (var_142: int64), (var_143: int64), (var_144: int64), (var_145: int64))
+let (var_146: int64) = 0L
+let (var_147: int64) = 4L
+let (var_148: int64) = 1L
+let (var_149: int64) = 3L
+let (var_150: int64) = 4L
+method_30((var_110: EnvHeap16), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_124: (int64 ref)), (var_125: (uint64 ref)), (var_146: int64), (var_147: int64), (var_148: int64), (var_149: int64), (var_150: int64))
+method_37((var_108: EnvStack12))
+method_39((var_93: EnvStack9))
 var_59.Dispose()
 var_53.Dispose()
-let (var_161: uint64) = method_4((var_40: (uint64 ref)))
-let (var_162: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_161)
-let (var_163: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_162)
-var_54.FreeMemory(var_163)
+let (var_151: uint64) = method_4((var_40: (uint64 ref)))
+let (var_152: ManagedCuda.BasicTypes.SizeT) = ManagedCuda.BasicTypes.SizeT(var_151)
+let (var_153: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_152)
+var_54.FreeMemory(var_153)
 var_40 := 0UL
 var_1.Dispose()
 
