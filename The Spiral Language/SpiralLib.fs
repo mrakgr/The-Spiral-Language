@@ -1559,8 +1559,7 @@ inl split f tns =
                 | _ -> false
             
             match dim with
-            | dim :: () -> dim
-            | dim -> Tuple.map dim
+            | dim :: () | dim -> dim
             |> f |> inl x -> if wrapped_is x then x else x :: ()
 
         tns .set_dim (concat (dim, dim'))
@@ -1639,7 +1638,9 @@ inl rec facade data =
         flatten = inl data -> flatten (facade data)
         reshape = inl data f -> reshape f (facade data)
         // Rounds the dimension to the multiple.
-        round = inl data mult -> view_span data (inl x :: _ | x -> x - x % mult) |> facade
+        round = inl data mult -> 
+            inl x :: _ = data.dim
+            facade data {from=0; by=x - x % mult}
         // Rounds the dimension to a multiple and splits it so that the outermost dimension becomes the multiple.
         round_split = inl data mult -> facade data .round mult .split (inl x :: _ | x -> mult,x/mult)
         // Rounds the dimension to a multiple and splits it so that the dimension next to the outermost becomes the multiple.

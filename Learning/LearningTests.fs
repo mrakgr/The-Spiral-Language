@@ -45,9 +45,9 @@ inl network,_ =
     init s input_size network
 
 inl train {data={input label} network learning_rate final} s =
-    inl range = fst input.dim
-    assert (range = fst label.dim) "The input and label must have the same outer dimension."
-    Loops.for' {range with state=dyn 0.0; body=inl {i next state} ->
+    inl near_to = fst input.dim
+    assert (near_to = fst label.dim) "The input and label must have the same outer dimension."
+    Loops.for' {from=0; near_to state=dyn 0.0; body=inl {i next state} ->
         inl input, label = input i, label i
         inl state =
             inb s = s.RegionMem.create'
@@ -70,9 +70,9 @@ inl train {data={input label} network learning_rate final} s =
     |> inl cost -> cost / to float64 input.span_outer2
 
 inl test {data={input label} network final} s =
-    inl range = fst input.dim
-    assert (range = fst label.dim) "The input and label must have the same outer dimension."
-    Loops.for' {range with state=dyn {cost=0.0;ac=0;max_ac=0}; body=inl {i next state} ->
+    inl near_to = fst input.dim
+    assert (near_to = fst label.dim) "The input and label must have the same outer dimension."
+    Loops.for' {from=0; near_to state=dyn {cost=0.0;ac=0;max_ac=0}; body=inl {i next state} ->
         inl input, label = input i, label i
         inl state =
             inb s = s.RegionMem.create'
@@ -460,6 +460,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
 |> printfn "%s"
 |> ignore
