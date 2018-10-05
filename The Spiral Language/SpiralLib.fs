@@ -1588,7 +1588,7 @@ inl rec facade data =
         length = inl {data with dim} -> length dim
         elem_type = inl {data with bodies} -> Struct.map (inl {ar} -> ar.elem_type) bodies
         update_body = inl {data with bodies} f -> {data with bodies=Struct.map f bodies} |> facade
-        set_dim = inl {data with dim} dim -> {data with dim} |> facade
+        set_dim = inl {data with dim} dim -> {data with dim=Tuple.wrap dim} |> facade
         get = inl {data with dim bodies} -> 
             match dim with
             | () -> Struct.map tensor_get bodies
@@ -1717,6 +1717,7 @@ inl copy = map id
 /// Asserts the tensor size. Useful for setting those values to statically known ones. 
 /// Does not copy. size -> tensor -> tensor.
 inl assert_size dim' tns = 
+    inl dim' = Tuple.wrap dim'
     assert (tns.dim = dim') "The dimensions must match."
     tns.set_dim dim'
 

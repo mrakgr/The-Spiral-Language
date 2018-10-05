@@ -153,10 +153,12 @@ inl input =
     s.CudaFun.init {dim=seq,minibatch,size.hot} <| inl seq, minibatch, hot ->
         if data minibatch seq .get = to uint8 hot then 1f32 else 0f32
 
-inl input = input.view_span (inl x :: _ -> x / 64) // Am using only 1/64th of the dataset here in order to speed up testing on plastic RNNs.
+inl by :: _ = input.dim
+inl by = by / 64
+inl input = input {from=0; by} // Am using only 1/64th of the dataset here in order to speed up testing on plastic RNNs.
 
-inl label = input.view_span (const {from=1}) 
-inl input = input.view_span (inl x :: _ -> x-1) 
+inl label = input {from=1}
+inl input = input {from=0; by=by-1}
 
 inl data = {input label} |> Struct.map (inl x -> x.round_split' size.step)
 
@@ -174,17 +176,11 @@ inl network,_ =
         mi_prong_alt =
             mi_prong_alt 128, 
             prong {activation=Activation.linear; size=size.hot}
-        mi_hebb_prong =
-            mi_hebb_prong n 128,
-            prong {activation=Activation.linear; size=size.hot}
         mi =
             mi 128,
             linear size.hot
         mi_alt =
             mi_alt 128,
-            linear size.hot
-        mi_hebb =
-            mi_hebb n 128,
             linear size.hot
         }
 
@@ -227,15 +223,15 @@ met train {data={input label} network learning_rate final} s =
     inl empty_states = List.empty ty |> dyn
     inl state = {network s} |> heap |> box ty |> dyn
 
-    inl range = fst input.dim
-    assert (range = fst label.dim) "The input and label must have the same outer(1) dimension."
-    Loops.for' {range with state={cost=dyn 0.0; state prev_states=empty_states}; 
+    inl near_to = fst input.dim
+    assert (near_to = fst label.dim) "The input and label must have the same outer(1) dimension."
+    Loops.for' {from=0; near_to state={cost=dyn 0.0; state prev_states=empty_states}; 
         body=inl {i next state} ->
             inl input, label = input i, label i
-            inl range = fst input.dim
-            assert (range = fst label.dim) "The input and label must have the same outer(2) dimension."
+            inl near_to = fst input.dim
+            assert (near_to = fst label.dim) "The input and label must have the same outer(2) dimension."
 
-            Loops.for' {range with state
+            Loops.for' {from=0; near_to state
                 body=inl {i next state={d with state prev_states}} ->
                     inl prev_states = List.cons state prev_states |> dyn
                     inl input, label = input i, label i
@@ -250,7 +246,6 @@ met train {data={input label} network learning_rate final} s =
                             Struct.foldr (inl bck _ -> apply bck) bck ()
                         | _ -> ()
                         ) () prev_states
-
                     Optimizer.standard learning_rate s network
                     inl cost =
                         List.foldl (inl cost -> function
@@ -460,6 +455,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
 |> printfn "%s"
 |> ignore
