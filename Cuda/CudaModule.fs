@@ -755,9 +755,8 @@ inl s ret ->
         | .nT -> true
         | _ -> false
 
-    inl len = HostTensor.span
-    inl rows x = x.dim |> inl a,b -> len a
-    inl cols x = x.dim |> inl a,b -> len b
+    inl rows x = x.dim |> inl a,b -> a
+    inl cols x = x.dim |> inl a,b -> b
     inl ld x = x.bodies.size |> fst
 
     use cublas' =
@@ -1107,8 +1106,7 @@ inl s ret ->
             inl assert_dim x =
                 match x.dim with
                 | a, b -> 
-                    inl a = len a
-                    assert (a = len b) "The tensor must be a square matrix."
+                    assert (a = b) "The tensor must be a square matrix."
                     a, ld x
                 | _ -> error_type "The tensor must have two dimensions."
 
@@ -1143,9 +1141,9 @@ inl s ret ->
         inl b :: () = Ainv.dim
         inl c :: () = info.dim
 
-        inl batch_size = len a
-        assert (batch_size = len b) "Ainv must be equal to batch size."
-        assert (batch_size = len c) "info must be equal to batch size."
+        inl batch_size = a
+        assert (batch_size = b) "Ainv must be equal to batch size."
+        assert (batch_size = c) "info must be equal to batch size."
 
         // TODO: Adapt it for other float types.
         inl f = to int32
@@ -1165,9 +1163,9 @@ inl s ret ->
                 inl batch_size, n =
                     match A.dim with
                     | a,b,c ->  
-                        inl n = len b
-                        assert (n = len c) "The (sub)matrix needs to be square."
-                        len a, n
+                        inl n = b
+                        assert (n = c) "The (sub)matrix needs to be square."
+                        a, n
                     | _ -> error_type "The tensor A needs to be 3d."
 
                 inl ld x = 
@@ -1192,8 +1190,8 @@ inl s ret ->
             Ainv
             )
 
-    inl rows x = x.dim |> inl _,a,b -> len a
-    inl cols x = x.dim |> inl _,a,b -> len b
+    inl rows x = x.dim |> inl _,a,b -> a
+    inl cols x = x.dim |> inl _,a,b -> b
     inl ld x = match x.bodies.size with stride,ld,_ -> ld 
     inl stride x = match x.bodies.size with stride,ld,_ -> stride
 
@@ -1247,6 +1245,8 @@ let cuda_kernel =
 open HostTensor
 open Extern
 
+inl span = function {from near_to} -> near_to - from | by -> by
+inl length = Liple.foldl (inl s x -> s * span x) 1
 inl index_example dim = Tuple.map (inl _ -> var 0) (Tuple.wrap dim) |> Tuple.unwrap
 
 /// These two loops are only here until NVidia gets its shit together and fixes the NVCC tuple local write bugs for tail recursive loops.
@@ -1668,8 +1668,9 @@ inl block_reduce_template dim ar (near_to, threadIdx) redo state =
             HostTensor.create {
                 array_create=array_create_cuda_shared
                 elem_type=state
-                dim
+                dim=Liple.map length dim
                 }
+            |> ViewTensor.wrap dim
             |> ar
 
         block_reduce_body ar near_to threadIdx redo state
@@ -2207,7 +2208,6 @@ inl s ret ->
                 ) (Tuple.wrap args)
         dense_call' handle method args
 
-    inl span = HostTensor.span
     inl ld x = x.bodies.size |> fst
 
     inl i32 = to int32
@@ -2239,7 +2239,7 @@ inl s ret ->
     inl potrf' s uplo A =
         indiv join
             assert (eq_type A.elem_type float32) "The type of matrix A must be float32."
-            inl n, n' = A.dim |> Tuple.map span
+            inl n, n' = A.dim
             assert (n = n') "The matrix A must be square."
             inl lda = ld A
             inl Lwork = 
@@ -2300,7 +2300,7 @@ inl s ret ->
     inl getrf' s A =
         indiv join
             assert (eq_type A.elem_type float32) "The type of matrix A must be float32."
-            inl n, m = A.dim |> Tuple.map span
+            inl n, m = A.dim
         
             inl lda = ld A
             inl Lwork = 
@@ -2325,10 +2325,10 @@ inl s ret ->
         indiv join
             assert (eq_type A.elem_type float32) "The type of matrix A must be float32."
             assert (eq_type B.elem_type float32) "The type of matrix B must be float32."
-            inl n, m = A.dim |> Tuple.map span
+            inl n, m = A.dim
             assert (n = m) "The matrix A must be square."
 
-            inl n',nrhs = B.dim |> Tuple.map span
+            inl n',nrhs = B.dim
             assert (n = n') "The two matrices must have the same outer dimension."
 
             inl info = s.CudaTensor.create {elem_type=int32; dim=1}
