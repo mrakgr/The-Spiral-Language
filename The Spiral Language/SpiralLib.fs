@@ -1862,7 +1862,8 @@ inl rec facade data =
         else methods x data
     | i -> methods .apply data i
 
-inl map_dim = function
+inl map_dim default = function
+    | () -> default(), 0
     | {from} as x -> 
         inl by = 
             match x with
@@ -1887,12 +1888,12 @@ inl map_dim = function
     | _ -> error_type "Expected a range or a tree view."
         
 inl create {dsc with dim} = 
-    inl size, dim = Tuple.map map_dim (Tuple.wrap dim) |> Tuple.unzip
+    inl size, dim = Tuple.map (map_dim (inl _ -> error_type "() not allowed in view create.")) (Tuple.wrap dim) |> Tuple.unzip
     inl basic = HostTensor.create {dsc with dim=size}
     facade {basic dim}
 
 inl wrap dim basic =
-    inl size, dim = Tuple.map map_dim (Tuple.wrap dim) |> Tuple.unzip
+    inl size, dim = Tuple.map2 map_dim (Tuple.map const basic.dim) (Tuple.wrap dim) |> Tuple.unzip
     assert (basic.dim = size) "The view must be of the same size as the tensor it is wrapping."
     facade {basic dim}
 
