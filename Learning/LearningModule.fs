@@ -1526,11 +1526,10 @@ inl float ->
 
     inl oja_update n {ins with input out H} =
         inl b,a as dim = primal H .dim
-        inl span_inner = HostTensor.span a |> to float
-        inl sng = {from=0; near_to=1}
+        inl span_inner = to float a
         assert_dim (primals ins) {
-            input=sng, b
-            out=sng, a
+            input=1, b
+            out=1, a
             }
 
         inl output_functions =
