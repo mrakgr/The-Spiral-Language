@@ -1819,7 +1819,20 @@ inl rec facade data =
                                     | () -> view 0 {from near_to} // Only () is supported for the sake of simplicity for now.
                                 | _ -> // Tree view's branch
                                     match i with
-                                    | () -> error_type "Partial tree view indexing is disallowed." // view branch i
+                                    | () -> 
+                                        inl rec loop s branch = 
+                                            match branch with
+                                            | {from near_to} ->
+                                                match s with
+                                                | () -> {from=0; near_to=near_to-from}, {from near_to}
+                                                | {from} -> Struct.map (inl x -> x-from) branch, {s with near_to}
+                                            | {} ->
+                                                module_foldl (inl k (m,s) branch -> 
+                                                    inl branch, s = loop s branch
+                                                    {m with $k=branch}, s
+                                                    ) ({},s) branch
+                                        inl a, b = loop () branch
+                                        view a b
                                     | _ ->
                                         inl {c k i} = module_foldl (inl k s i -> {s with c=self+1; k i}) {c=0} i
                                         assert (c = 1) "The number of branches indexed into must be 1."
