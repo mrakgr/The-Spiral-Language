@@ -1827,7 +1827,7 @@ inl float ->
                         inl _ _ _ -> reward
                     | _ ->
                         assert (dim_a = fst reward.dim) "Reward's dimensions must be equal to that of the input's outer dimnesion."
-                        assert (snd reward.dim = {from=0; near_to=1}) "Reward's second dimension must be {from=0; near_to=1}." 
+                        assert (snd reward.dim = 1) "Reward's second dimension must be 1." 
                         CudaAux.to_dev_tensor reward
 
                 inl x_a, p, out = to_dev_tensor (adjoint x, p, out)

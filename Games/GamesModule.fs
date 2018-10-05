@@ -44,7 +44,7 @@ stack inl {d with elem_type} ->
 
 let poker =
     (
-    "Poker",[learning;random;console;option;dictionary;resize_array;object],"The Poker module.",
+    "Poker",[array;learning;random;console;option;dictionary;resize_array;object],"The Poker module.",
     """
 inl Suits = .Spades :: () //, .Clubs, .Hearts, .Diamonds
 inl Suit = Tuple.reducel (inl a b -> a \/ b) Suits
@@ -601,6 +601,6 @@ inl {basic_methods State Action} ->
             .data_add {name; win=ref 0; actor shared critic run}
 
     {
-    player_random player_rules player_tabular_mc player_tabular_sarsa player_pg player_mc_ac player_mc_ac_alt
+    player_random player_rules player_tabular_mc player_tabular_sarsa player_pg player_mc_ac
     } |> stackify
     """) |> module_
