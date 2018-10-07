@@ -990,7 +990,7 @@ inl float ->
             dsc = 
                 {
                 input = initializer (sublayer_size, size)
-                bias = Initializer.bias size
+                bias = Initializer.dual.zero size
                 }
             size
             }
@@ -1000,12 +1000,13 @@ inl float ->
         }
 
     inl Feedforward = 
-        inl sigmoid = layer Initializer.sigmoid sigmoid
-        inl relu = layer Initializer.relu relu
-        inl tanh = layer Initializer.tanh tanh
-        inl linear = layer Initializer.sigmoid succ
-        inl zero = layer Initializer.bias succ        
-        {sigmoid relu tanh linear zero prong} |> stackify
+        inl I = Initializer.dual
+        inl sigmoid = layer I.sigmoid sigmoid
+        inl relu = layer I.relu relu
+        inl tanh = layer I.tanh tanh
+        inl linear = layer I.sigmoid succ
+        inl zero = layer I.zero succ
+        {sigmoid relu tanh linear zero} |> stackify
 
     inl print x s =
         s.CudaTensor.print x
