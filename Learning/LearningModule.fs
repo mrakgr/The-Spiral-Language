@@ -922,8 +922,13 @@ inl float ->
             inl tns = to_dev_tensor tns
             s.CudaKernel.iter {dim=tns.dim} (inl i -> tns i .set init)
 
-        inl tensor {init} size s =
-            inl tns, size' = init size s
+        inl tensor d dim s =
+            inl tns = Struct.map (inl _ -> s.CudaTensor.create {dim elem_type=float}) d.init |> heap
+            function
+            | .tensor -> tns
+            | .init -> Struct.iter2 (inl f -> f s) d.init tns
+            | .save stream -> Struct.iter2 (inl f -> f stream s) d.save tns
+            | .load stream -> Struct.iter2 (inl f -> f stream s) d.load tns
 
         {
         tensor
