@@ -131,16 +131,9 @@ inl sequence x =
     inl bck = Struct.map (inl {bck} -> bck) x
     {out bck}
 
-inl try_link_adjoint dim {from to} =
-    inl a = module_intersect (inl from to -> from) from to
-    inl b = module_intersect (inl from to -> to) from to
-
-    Struct.map2 (inl from to -> link_adjoint dim {from to} |> inl x -> {x with block=()}) a b
-    |> sequence
-
 inl run {out bck} = Struct.foldr (<|) bck (); out
 
-inl activation_lstm dim x =
+inl activation_lstm x =
     inm memory =
         inm input = sigmoid input_cell
         inm forget = sigmoid forget_cell
@@ -156,6 +149,38 @@ inl activation_lstm dim x =
         output * memory
 
     succ {memory out}
+
+    inl init {dim} init s =
+        inl out =
+            s.CudaFun.init {dim} (inl dim -> primals (init dim))
+            |> HostTensor.unzip
+            |> Struct.map (dr s)
+
+        {
+        out
+        bck=met _ ->
+            inl out = to_dev_tensor out
+            s.CudaKernel.iter {dim} (inl dim -> init dim |> link_adjoint out |> CudaAD.run |> ignore)
+        }
+
+    inl map in s =
+        inl b,a as dim = primal memory_old .dim
+        inl primals_ins = primals ins
+        assert_dim primals_ins (Struct.map (const dim) primals_ins)
+        inl in = {ins with memory_old}
+            
+        inl out =
+            inl x = to_dev_tensor {in=primals in}
+            s.CudaFun.init {dim} (inl dim -> CudaAD.activation_lstm dim x .out |> primals)
+            |> HostTensor.unzip
+            |> Struct.map (dr s)
+
+        {
+        out
+        bck=met _ ->
+            inl x = to_dev_tensor {in out}
+            s.CudaKernel.iter {dim} (inl dim -> CudaAD.activation_lstm dim x |> CudaAD.run |> ignore)
+        }
 
 {
 (>>=) succ dr sigmoid tanh relu (+) (*) link link_adjoint sequence try_link_adjoint run
