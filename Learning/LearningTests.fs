@@ -35,12 +35,12 @@ inl label_size = 10
 inl learning_rate = 2f32 ** -11f32
 inl network,_ =
     open Feedforward
-    //inl network =
-    //    relu 256,
-    //    linear label_size
     inl network =
-        prong {activation=Activation.relu; size=256},
-        prong {activation=Activation.linear; size=label_size}
+        relu 256,
+        linear label_size
+    //inl network =
+    //    prong {activation=Activation.relu; size=256},
+    //    prong {activation=Activation.linear; size=label_size}
 
     init s input_size network
 
@@ -60,7 +60,7 @@ inl train {data={input label} network learning_rate final} s =
                 apply bck
                 Struct.foldr (inl {bck} _ -> Struct.foldr (inl bck _ -> apply bck) bck ()) network ()
 
-            Optimizer.standard learning_rate s network 
+            Optimizer.standard learning_rate s network
 
             inl cost = s.CudaTensor.get out |> to float64
             state + cost
@@ -455,6 +455,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
 |> printfn "%s"
 |> ignore

@@ -753,9 +753,9 @@ inl float ->
             | {optimize weights} -> optimize {learning_rate weights} s
             | {weights} -> 
                 inl rec loop x =
-                    Struct.iter (function
+                    Struct.iter (inl x ->
+                        match x.tensor with
                         | {primal adjoint} & x -> sgd learning_rate s x
-                        | {} & x -> loop {x without block}
                         | x -> ()
                         ) x
                 loop weights
@@ -964,15 +964,15 @@ inl float ->
             {x without init with weights}, size
             ) size dsc
 
-    inl run s input = 
-        Struct.foldl_map (inl input {layer with apply} -> 
-            inl input = 
+    inl run s input =
+        Struct.foldl_map (inl input {layer with apply} ->
+            inl input =
                 inl input = {input}
                 inl input = match layer with {weights} -> {input with weights} | _ -> input
                 match layer with {state} -> {input with state} | _ -> input
 
-            inl {x with out} = 
-                indiv join 
+            inl {x with out} =
+                indiv join
                     match input with
                     | {weights} -> {input with weights = Struct.map' (inl x -> x.tensor) weights}
                     | _ -> input
