@@ -26,9 +26,6 @@ inl {test_images test_labels train_images train_labels} =
 inl {train_images train_labels} = module_map (inl _ x -> x.round_split' train_minibatch_size) {train_images train_labels}
 inl {test_images test_labels} = module_map (inl _ x -> x.round_split' test_minibatch_size) {test_images test_labels}
 
-/// Temporary measure to make the test go faster.
-//inl train_images, train_labels = Tuple.map (inl x -> x.view_span (inl x :: _ -> x/10)) (train_images,train_labels)
-
 inl input_size = 784
 inl label_size = 10
 

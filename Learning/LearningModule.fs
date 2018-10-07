@@ -1018,29 +1018,6 @@ inl float ->
         zero (primal x .dim)
 
     // #Recurrent
-    inl generalized_mi = // Online only version for now.
-        activation {
-            fwd=inl {input state bias={si s i c}} -> si * state * input + s * state + i * input + c
-            bck=inl {in={input state bias={si s i c}} out} ->
-                {
-                input = si * state + i
-                state = si * input + s
-                bias = { si = input*state; i = input; s = state; c = one } 
-                }
-            }
-
-    inl generalized_mi_tanh = // Online only version for now.
-        activation {
-            fwd=inl {input state bias={si s i c}} -> si * state * input + s * state + i * input + c |> tanh_fwd
-            bck=inl {in={input state bias={si s i c}} out} ->
-                inl out = tanh_bck out
-                {
-                input = si * state + i
-                state = si * input + s
-                bias = { si = input*state; i = input; s = state; c = one } 
-                } |> Struct.map ((*) out)
-            }
-
     inl mi size =
         {
         init = inl sublayer_size -> 
