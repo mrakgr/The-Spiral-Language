@@ -17,7 +17,7 @@ inl two = 2f32
 inl (>>=) a b =
     inl {out=a bck=bck_a} = a
     inl {out=b bck=bck_b} = b a
-    {out=b; bck=bck_a,bck_b}
+    {out=b; bck=bck_a << bck_b}
 
 inl succ out = {out bck=const ()}
 
@@ -111,27 +111,16 @@ inl link dim x =
     }
 
 inl link_adjoint dim {from to} =
-    Struct.iter2 (inl from to ->
-        match from, to with
-        | {adjoint=from}, {adjoint=to} -> to 0 <- from 0
-        | _ -> ()
-        ) from to
+    Struct.iter2 (inl from to -> to 0 <- from dim .get) from to
     {
     out=()
-    bck=inl _ ->
-        Struct.iter2 (inl from to ->
-            match from, to with
-            | {adjoint=from}, {adjoint=to} -> from 0 <- to 0
-            | _ -> ()
-            ) from to
+    bck=inl _ -> Struct.iter2 (inl from to -> from dim .set (to 0)) from to
     }
 
 inl sequence x =
     inl out = Struct.map (inl {out} -> out) x
     inl bck = Struct.map (inl {bck} -> bck) x
     {out bck}
-
-inl run {out bck} = Struct.foldr (<|) bck (); out
 
 inl activation_lstm x =
     inm memory =
@@ -150,37 +139,25 @@ inl activation_lstm x =
 
     succ {memory out}
 
-    inl init {dim} init s =
-        inl out =
-            s.CudaFun.init {dim} (inl dim -> primals (init dim))
-            |> HostTensor.unzip
-            |> Struct.map (dr s)
+inl init {dim} init s =
+    inl out =
+        s.CudaFun.init {dim} (inl dim -> primals (init dim))
+        |> HostTensor.unzip
+        |> Struct.map (dr s)
 
-        {
-        out
-        bck=met _ ->
-            inl out = to_dev_tensor out
-            s.CudaKernel.iter {dim} (inl dim -> init dim |> link_adjoint out |> CudaAD.run |> ignore)
-        }
+    {
+    out
+    bck=met _ ->
+        inl from = adjoints (to_dev_tensor out)
+        s.CudaKernel.iter {dim} <| inl dim -> 
+            inl {out=to bck} = init dim
+            inl {bck=bck'} = link_adjoint dim {from to=adjoints to}
+            bck(); bck'()
+    }
 
-    inl map in s =
-        inl b,a as dim = primal memory_old .dim
-        inl primals_ins = primals ins
-        assert_dim primals_ins (Struct.map (const dim) primals_ins)
-        inl in = {ins with memory_old}
-            
-        inl out =
-            inl x = to_dev_tensor {in=primals in}
-            s.CudaFun.init {dim} (inl dim -> CudaAD.activation_lstm dim x .out |> primals)
-            |> HostTensor.unzip
-            |> Struct.map (dr s)
-
-        {
-        out
-        bck=met _ ->
-            inl x = to_dev_tensor {in out}
-            s.CudaKernel.iter {dim} (inl dim -> CudaAD.activation_lstm dim x |> CudaAD.run |> ignore)
-        }
+inl map in f s =
+    inl in = zip in |> to_dev_tensor
+    init {dim=in.dim} (inl dim -> link dim in >>= f) s
 
 {
 (>>=) succ dr sigmoid tanh relu (+) (*) link link_adjoint sequence try_link_adjoint run
