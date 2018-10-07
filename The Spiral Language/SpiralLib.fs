@@ -1245,6 +1245,10 @@ inl iter f = map (inl x -> f x; ()) >> ignore
 inl iter2 f a b = map2 (inl a b -> f a b; ()) a b |> ignore
 inl iter3 f a b c = map3 (inl a b c -> f a b c; ()) a b c |> ignore
 
+inl iter' f = map' (inl x -> f x; ()) >> ignore
+inl iter2' f a b = map2' (inl a b -> f a b; ()) a b |> ignore
+inl iter3' f a b c = map3' (inl a b c -> f a b c; ()) a b c |> ignore
+
 inl foldl f s x = 
     inl rec loop s = function
         | x when caseable_box_is x -> f s x
@@ -1453,7 +1457,7 @@ inl foldr3_map f a b c s =
     loop s (a,b,c)
 
 {
-map' map map2' map2 map3' map3 iter iter2 iter3 foldl foldl2 foldl3 choose choose2 choose3 
+map' map map2' map2 map3' map3 iter iter' iter2 iter2' iter3 iter3' foldl foldl2 foldl3 choose choose2 choose3 
 foldl_map foldl2_map foldl3_map foldr foldr2 foldr3 foldr_map foldr2_map foldr3_map is_empty
 } |> stackify
     """) |> module_

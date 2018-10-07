@@ -929,12 +929,12 @@ inl float ->
         inl custom f tns s = f tsn s
 
         inl tensor d dim s =
-            inl tns = Struct.map (inl _ -> s.CudaTensor.create {dim elem_type=float}) d.init |> heap
+            inl tns = Struct.map' (inl _ -> s.CudaTensor.create {dim elem_type=float}) d.init |> heap
             function
             | .tensor -> tns
-            | .init -> Struct.iter2 (inl f tns -> f tns s) d.init tns; tns
-            | .save stream -> Struct.iter2 (inl f tns -> f stream tns s) d.save tns
-            | .load stream -> Struct.iter2 (inl f tns -> f stream tns s) d.load tns
+            | .init -> Struct.iter2' (inl f tns -> f tns s) d.init tns
+            | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
+            | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
 
         inl sing init = tensor {init}
         inl dual primal = tensor {init={primal adjoint=zero; block=()}}
@@ -944,11 +944,12 @@ inl float ->
         inl sigmoid = number sigmoid
         inl tanh = number tanh
         inl randn stddev = number (randn stddev)
+        inl zero = number zero
         inl identity = number identity
         inl custom = number custom
 
         {
-        relu sigmoid tanh randn identity custom
+        relu sigmoid tanh randn zero identity custom
         }
 
     inl Initializer = 
@@ -960,7 +961,7 @@ inl float ->
     inl init s size dsc = 
         Struct.foldl_map (inl sublayer_size {x with init} -> 
             inl {d with dsc size} = init sublayer_size
-            inl weights = Struct.map' (inl x -> x s .init) dsc |> heap
+            inl weights = Struct.map' (inl x -> x s |> inl x -> x.init; x) dsc |> heap
             {x without init with weights}, size
             ) size dsc
 
