@@ -962,15 +962,15 @@ inl float ->
         Struct.foldl_map (inl input {layer with apply} -> 
             inl input = 
                 inl input = {input}
-                inl input = 
-                    match layer with 
-                    | {weights} -> 
-                        inl weights = Struct.map' (inl x -> x.tensor) weights
-                        {input with weights} 
-                    | _ -> input
+                inl input = match layer with {weights} -> {input with weights} | _ -> input
                 match layer with {state} | {init_state=state} -> {input with state} | _ -> input
 
-            inl {x with out} = indiv join apply input s |> stack
+            inl {x with out} = 
+                indiv join 
+                    match input with
+                    | {weights} -> {input with weights = Struct.map' (inl x -> x.tensor) weights}
+                    | _ -> input
+                    |> inl input -> apply input s |> stack
             inl layer = match x with {bck} -> {layer with bck=heap bck} | _ -> layer
             inl layer = match x with {state} -> {layer with state=heap state} | _ -> layer
             layer, out
