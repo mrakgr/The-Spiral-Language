@@ -904,7 +904,7 @@ inl float ->
     inl Error = {square sigmoid_cross_entropy softmax_cross_entropy accuracy sign_accuracy} |> stackify
 
     // #Initializer
-    inl Initializer =
+    inl Initializer number =
         inl normal {stddev mean} tns s = s.CudaRandom.fill {dst=.Normal; stddev mean} tns
         inl stddev_sum_init mult tns = 
             inl stddev = sqrt (mult / to float32 (Tuple.foldl (+) 0 tns.dim))
@@ -921,19 +921,36 @@ inl float ->
         inl init init tns s = 
             inl tns = to_dev_tensor tns
             s.CudaKernel.iter {dim=tns.dim} (inl i -> tns i .set init)
+        inl identity tns s = 
+            inl a,b as dim = tns.dim
+            assert (a = b) "The tensor needs to be a square matrix."
+            inl tns = to_dev_tensor tns
+            s.CudaKernel.iter {dim} (inl a,b as i -> tns i .set (if a = b then one else zero))
+        inl custom f tns s = f tsn s
 
         inl tensor d dim s =
             inl tns = Struct.map (inl _ -> s.CudaTensor.create {dim elem_type=float}) d.init |> heap
             function
             | .tensor -> tns
-            | .init -> Struct.iter2 (inl f -> f s) d.init tns
-            | .save stream -> Struct.iter2 (inl f -> f stream s) d.save tns
-            | .load stream -> Struct.iter2 (inl f -> f stream s) d.load tns
+            | .init -> Struct.iter2 (inl f tns -> f tns s) d.init tns
+            | .save stream -> Struct.iter2 (inl f tns -> f stream tns s) d.save tns
+            | .load stream -> Struct.iter2 (inl f tns -> f stream tns s) d.load tns
+            |> heap
+
+        inl sing init = tensor {init}
+        inl dual primal = tensor {init={primal adjoint=zero}}
+        inl number = {sing dual} number
+
+        inl relu = number relu
+        inl sigmoid = number sigmoid
+        inl tanh = number tanh
+        inl randn stddev = number (randn stddev)
+        inl identity = number identity
+        inl custom = number custom
 
         {
-        tensor
+        relu sigmoid tanh randn identity custom
         }
-        |> stackify
 
     inl run s input = 
         Struct.foldl_map (inl input {layer with apply} -> 
