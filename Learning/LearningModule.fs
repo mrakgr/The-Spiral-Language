@@ -951,6 +951,12 @@ inl float ->
         relu sigmoid tanh randn identity custom
         }
 
+    inl Initializer = 
+        {
+        sing = Initializer.sing
+        dual = Initializer.dual
+        }
+
     inl init s size dsc = 
         Struct.foldl_map (inl sublayer_size {x with init} -> 
             inl {d with dsc size} = init sublayer_size
@@ -963,7 +969,7 @@ inl float ->
             inl input = 
                 inl input = {input}
                 inl input = match layer with {weights} -> {input with weights} | _ -> input
-                match layer with {state} | {init_state=state} -> {input with state} | _ -> input
+                match layer with {state} -> {input with state} | _ -> input
 
             inl {x with out} = 
                 indiv join 
