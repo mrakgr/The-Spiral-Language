@@ -140,6 +140,23 @@ inl try_link_adjoint dim {from to} =
 
 inl run {out bck} = Struct.foldr (<|) bck (); out
 
+inl activation_lstm dim x =
+    inm memory =
+        inm input = sigmoid input_cell
+        inm forget = sigmoid forget_cell
+        inm memory = tanh memory_cell
+
+        inm a = input * memory
+        inm b = forget * memory_old
+        a + b
+                
+    inm out =
+        inm memory = tanh memory
+        inm output = sigmoid output_cell
+        output * memory
+
+    succ {memory out}
+
 {
 (>>=) succ dr sigmoid tanh relu (+) (*) link link_adjoint sequence try_link_adjoint run
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
