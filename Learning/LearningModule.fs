@@ -88,26 +88,22 @@ inl (+) a b =
         set_adjoint b (inl _ -> get_adjoint out)
     }
 
-inl link {total cur} x =
+inl link {dim cur} x =
     inl out = 
-        Struct.map' (inl x -> x cur .get) x
-        |> Struct.map (inl x ->
-            match x with
-            | {adjoint} -> 
-                inl ar = array_create_cuda_local adjoint 1
-                ar 0 <- adjoint
-                {x with adjoint=ar}
-            | _ -> 
-                x
-                )
+        Struct.map <| function
+            | {primal adjoint} -> primal cur .get |> dr
+            | x -> x cur .get
+    
     {
     out
     bck = inl _ ->
         Struct.iter2 (inl x out ->
             match x, out with
             | {adjoint=x}, {adjoint=out} -> 
-                if x.dim = total_dim then x cur .set (out 0)
-                else ...
+                inl x = x cur
+                inl out = out 0
+                if x.dim = dim then x .set (x .get + out)
+                else atomic_add x out
             | _ -> ()
             ) x out
     }
@@ -143,7 +139,7 @@ inl activation_lstm x =
 
 inl init {dim} init s =
     inl out =
-        s.CudaFun.init {dim} (inl dim -> primals (init dim))
+        s.CudaFun.init {dim} (inl dim -> primals (init dim .out))
         |> HostTensor.unzip
         |> Struct.map (dr s)
 
@@ -160,7 +156,7 @@ inl init {dim} init s =
 inl map in f s =
     inl in = zip in |> to_dev_tensor
     inl dim = in.dim
-    init {dim} (inl dim' -> link {total=dim; cur=dim'} in >>= f) s
+    init {dim} (inl cur -> link {dim cur} in >>= f) s
 
 {
 (>>=) succ dr sigmoid tanh relu (+) (*) link link_adjoint sequence try_link_adjoint run
