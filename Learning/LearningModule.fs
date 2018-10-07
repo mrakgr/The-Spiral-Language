@@ -932,10 +932,9 @@ inl float ->
             inl tns = Struct.map (inl _ -> s.CudaTensor.create {dim elem_type=float}) d.init |> heap
             function
             | .tensor -> tns
-            | .init -> Struct.iter2 (inl f tns -> f tns s) d.init tns
+            | .init -> Struct.iter2 (inl f tns -> f tns s) d.init tns; tns
             | .save stream -> Struct.iter2 (inl f tns -> f stream tns s) d.save tns
             | .load stream -> Struct.iter2 (inl f tns -> f stream tns s) d.load tns
-            |> heap
 
         inl sing init = tensor {init}
         inl dual primal = tensor {init={primal adjoint=zero; block=()}}
@@ -951,6 +950,13 @@ inl float ->
         {
         relu sigmoid tanh randn identity custom
         }
+
+    inl init s size dsc = 
+        Struct.foldl_map (inl sublayer_size {x with init} -> 
+            inl {d with dsc size} = init sublayer_size
+            inl weights = Struct.map' (inl x -> x s .init) dsc |> heap
+            {x without init with weights}, size
+            ) size dsc
 
     inl run s input = 
         Struct.foldl_map (inl input {layer with apply} -> 
