@@ -140,27 +140,6 @@ inl try_link_adjoint dim {from to} =
 
 inl run {out bck} = Struct.foldr (<|) bck (); out
 
-inl activation_lstm dim x =
-    inm {from with in={input_cell output_cell memory_cell forget_cell memory_old}} = link dim x
-
-    inm memory =
-        inm input = sigmoid input_cell
-        inm forget = sigmoid forget_cell
-        inm memory = tanh memory_cell
-
-        inm a = input * memory
-        inm b = forget * memory_old
-        a + b
-    inm _ = try_link_adjoint dim {from to={out={memory}}}
-                
-    inm out =
-        inm memory = tanh memory
-        inm output = sigmoid output_cell
-        output * memory
-    inm _ = try_link_adjoint dim {from to={out={out}}}
-
-    succ {memory out}
-
 {
 (>>=) succ dr sigmoid tanh relu (+) (*) link link_adjoint sequence try_link_adjoint run
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
@@ -688,28 +667,8 @@ inl float ->
             bck=inl {in={b x1 x2}} -> {b = one; x1 = x2; x2 = x1 }
             } {x1 x2 b}
 
-    // Optimized LSTM activation.
-    inl lstm memory_old {ins with input_cell output_cell forget_cell memory_cell} s =
-        inl b,a as dim = primal memory_old .dim
-        inl primals_ins = primals ins
-        assert_dim primals_ins (Struct.map (const dim) primals_ins)
-        inl in = {ins with memory_old}
-            
-        inl out =
-            inl x = to_dev_tensor {in=primals in}
-            s.CudaFun.init {dim} (inl dim -> CudaAD.activation_lstm dim x .out |> primals)
-            |> HostTensor.unzip
-            |> Struct.map (dr s)
-
-        {
-        out
-        bck=met _ ->
-            inl x = to_dev_tensor {in out}
-            s.CudaKernel.iter {dim} (inl dim -> CudaAD.activation_lstm dim x |> CudaAD.run |> ignore)
-        }
-
     inl linear = succ
-    inl Activation = { linear sigmoid tanh relu add hadmult hadmultb lstm } |> stack
+    inl Activation = { linear sigmoid tanh relu add hadmult hadmultb } |> stack
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
