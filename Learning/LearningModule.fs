@@ -938,7 +938,7 @@ inl float ->
             |> heap
 
         inl sing init = tensor {init}
-        inl dual primal = tensor {init={primal adjoint=zero}}
+        inl dual primal = tensor {init={primal adjoint=zero; block=()}}
         inl number = {sing dual} number
 
         inl relu = number relu
@@ -956,7 +956,12 @@ inl float ->
         Struct.foldl_map (inl input {layer with apply} -> 
             inl input = 
                 inl input = {input}
-                inl input = match layer with {weights} -> {input with weights} | _ -> input
+                inl input = 
+                    match layer with 
+                    | {weights} -> 
+                        inl weights = Struct.map' (inl x -> x.tensor) weights
+                        {input with weights} 
+                    | _ -> input
                 match layer with {state} | {init_state=state} -> {input with state} | _ -> input
 
             inl {x with out} = indiv join apply input s |> stack
