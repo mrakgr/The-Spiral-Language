@@ -924,11 +924,12 @@ inl float ->
 
         inl tensor {init} size s =
             inl tns, size' = init size s
-
         {
         tensor
         }
         |> stackify
+
+
 
     inl run s input = 
         Struct.foldl_map (inl input {layer with apply} -> 
@@ -942,6 +943,176 @@ inl float ->
             inl layer = match x with {state} -> {layer with state=heap state} | _ -> layer
             layer, out
             ) input
+
+    /// Updates the covariance such that cov(t+1) = alpha * cov t + beta / k * x^T * x + epsilon * I
+    met update_covariance {identity_coef learning_rate} s cov x =
+        inl k = x.span_outer
+        inl alpha = Math.pow (one - learning_rate) k
+        inl epsilon = (one - alpha) * identity_coef
+        inl beta = one - alpha - epsilon
+        inl _ =
+            inl cov = CudaAux.to_dev_tensor cov
+            s.CudaKernel.iter {dim=cov.dim} <| inl a, b -> 
+                if b <= a then
+                    inl cov = cov a b
+                    inl identity = if a = b then epsilon else zero
+                    cov .set (alpha * cov .get + identity)
+        s.CudaBlas.syrk' .Lower .T (beta / to float k) x one cov // symmetric rank-k update. (beta / to float k) * x * x^T + cov
+
+    inl covariance_update cov x s =
+        {
+        out=()
+        bck=met {learning_rate} ->
+            Struct.iter2 (inl {epsilon covariance precision k} x ->
+                update_covariance {identity_coef=epsilon; learning_rate} s covariance x
+                k := k() + x.span_outer
+                ) cov x
+        }
+
+    inl with_zero_adjoints x s =
+        inl out = Struct.map (inl x -> {x with adjoint=s.CudaTensor.zero_like self}) x
+        {
+        out
+        bck=met _ -> 
+            inl x = Struct.map (inl {adjoint} -> adjoint) x
+            inl out = Struct.map (inl {adjoint} -> adjoint) out
+            s.CudaFun.map {out=x; map=inl a,b -> Struct.map2 (+) a b} (x,out)
+        }
+
+    met update_center {learning_rate} s center x =
+        inl k = x.span_outer
+        inl alpha = Math.pow (one - learning_rate) k
+        inl beta = one - alpha
+        s.CudaFun.redo_map {neutral_elem=zero; redo=(+); mid=center; out=center;
+            map=inl {in} -> in
+            map_out=inl {mid out} -> alpha * mid + beta / to float k * out 
+            } x
+
+    /// Updates the state state matrix such that A(t+1) = alpha * A(t) + beta / k * a^T * b + epsilon * I
+    /// Was changed from the Zap paper to have positive eigenvalues in order to mirror the covariance matrix updates 
+    /// used in natural gradient methods.
+    met update_steady_state {identity_coef learning_rate} cd A a b =
+        inl k = a.span_outer
+        inl alpha = Math.pow (one - learning_rate) k
+        inl epsilon = (one - alpha) * identity_coef
+        inl beta = one - alpha - epsilon
+        inl _ =
+            inl A = CudaAux.to_dev_tensor A
+            cd.CudaKernel.iter {dim=A.dim} <| inl a, b -> 
+                inl A = A a b
+                inl identity = if a = b then epsilon else zero
+                A .set (alpha * A .get + identity)
+
+        cd.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
+
+    inl center in in_inner =
+        broadcasting_activation {
+            fwd=inl {in_inner in} -> in - in_inner
+            bck={
+                in=inl _ -> one
+                in_inner=inl _ -> -one
+                }
+            } {in_inner in}
+
+    inl natural_matmultb_template config x {weights with input} s =
+        inl z = s.CudaBlas.gemm .nT .nT one (primal x) (primal input) |> dr s
+        match weights with
+        | {bias} -> fwd_add_bias (primal z) (primal bias) s
+        | _ -> ()
+        {
+        out=z
+        bck=inl {learning_rate} -> join
+            inl k = weights.k
+            inl is_update = k.dec (primal x).span_outer
+            match config with
+            | {mode=.optimize} -> if is_update then k.reset
+            | {mode=.update} -> ()
+
+            inb x_centered =
+                match weights with
+                | {front={center}} ret -> 
+                    inl x = primal x
+                    update_center {learning_rate} s center x
+                    inb x = s.CudaFun.map_map {map=inl {in in_inner} -> in-in_inner} {in=x; in_inner=center} |> CudaAux.temporary
+                    ret x
+                | _ ret -> 
+                    ret (primal x)
+
+            inb x_precise_primal = 
+                match weights with
+                | {front={covariance precision epsilon}} ret -> 
+                    inl x = x_centered
+                    match config with
+                    | {front_mode=.prong} ->
+                        update_covariance {identity_coef=epsilon; learning_rate} s covariance x
+
+                        match config with
+                        | {mode=.optimize} ->
+                            if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
+                            inb x_precise_primal = s.CudaBlas.symm .Right .Lower one precision x |> CudaAux.temporary
+                            ret x_precise_primal
+                        | {mode=.update} ->
+                            ret x
+                    | {front_mode=.zap} ->
+                        // Zap is quite similar to PRONG's front pass.
+                        inl steady_state = covariance
+                        inl steady_state_inverse = precision
+
+                        match d with
+                        | {state=state' discount_factor} ->
+                            inb basis_update = 
+                                inl map basis_max, basis_cur = basis_cur - discount_factor * basis_max
+                                s.CudaFun.map {map} (state', primal x) |> CudaAux.temporary
+                            update_steady_state {identity_coef=epsilon; learning_rate} s steady_state x basis_update
+                        | {state} -> error_type "Do not forget the discount factor."
+                        | _ -> update_steady_state {identity_coef=epsilon; learning_rate} s steady_state x x
+
+                        match config with
+                        | {mode=.optimize} ->
+                            if is_update then s.CudaSolve.lu_inverse {from=steady_state; to=steady_state_inverse}
+                            inb x_precise_primal = s.CudaBlas.gemm .nT .T one x steady_state_inverse |> CudaAux.temporary
+                            ret x_precise_primal
+                        | {mode=.update} ->
+                            ret x
+                | {front} -> error_type "front is improperly formed."
+                | _ ret -> ret <| primal x
+
+            inb z_precise_adjoint = 
+                match weights with
+                | {back={covariance precision epsilon}} ret ->
+                    inl z = adjoint z
+                    update_covariance {identity_coef=epsilon; learning_rate} s covariance z
+                    match config with
+                    | {mode=.optimize} ->
+                        if covariance.length = 1 then
+                            inl covariance = CudaAux.to_dev_tensor covariance
+                            inb z_precise_adjoint = s.CudaFun.map {map=inl z -> z / covariance 0 0 .get} z |> CudaAux.temporary
+                            ret z_precise_adjoint
+                        else
+                            if is_update then s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
+                            inb z_precise_adjoint = s.CudaBlas.symm .Right .Lower one precision z |> CudaAux.temporary
+                            ret z_precise_adjoint
+                    | {mode=.update} ->
+                        ret z
+                | {back} -> error_type "back is improperly formed."
+                | _ ret -> ret <| adjoint z
+
+            s.CudaBlas.gemm' .T .nT one x_precise_primal z_precise_adjoint one (adjoint input)
+            on_non_nil (s.CudaBlas.gemm' .nT .T one (adjoint z) (primal input) one) (adjoint x)
+            match weights with
+            | {bias} -> bck_add_bias z_precise_adjoint (adjoint bias) s
+            | _ -> ()
+        }
+
+    inl natural_matmultb = natural_matmultb_template {front_mode=.prong; mode=.optimize}
+
+    inl prong {w with activation size} = 
+        {
+        init = inl sublayer_size -> { size dsc = prong_ff {w with sublayer_size} }
+        apply = inl {weights input} -> natural_matmultb input weights >>= activation
+        optimize = inl {weights={input bias} learning_rate} s -> Tuple.iter (Optimizer.sgd learning_rate s) (input, bias)
+        block = ()
+        }
 
     // #Feedforward
     inl layer initializer activation size =
@@ -1053,6 +1224,106 @@ inl float ->
         block = ()
         }
 
+    inl mi_prong size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                input = prong_ff {sublayer_size size}
+                state = prong_rnn {sublayer_size=size; size}
+                }
+            size
+            }
+
+        apply = inl {d with weights input} s -> 
+            inl apply =
+                inm right = natural_matmultb input weights.input
+                inm left =
+                    inm state =
+                        match d with
+                        | {state} -> succ state
+                        | _ -> zero_like right
+                    natural_matmultb state weights.state
+                activation {
+                    fwd=inl {left right} -> left * right |> tanh_fwd
+                    bck=inl {in={left right} out} ->
+                        inl out = tanh_bck out
+                        {
+                        left = out * right
+                        right = out * left
+                        }
+                    } {left right}
+                >>= inl out -> succ {out state=out}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        optimize=inl {weights={input state} learning_rate} s -> 
+            Tuple.iter (inl {input bias} ->
+                Tuple.iter (Optimizer.sgd learning_rate s) (input, bias)
+                ) (input,state)
+        block = ()
+        }
+
+    inl mi_prong_alt size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                weights = {
+                    state = Initializer.tanh (size, size)
+                    input = Initializer.tanh (sublayer_size, size)
+                    bias = {
+                        si = Initializer.constant {dim=1,size; init=to float 1}
+                        i = Initializer.constant {dim=1,size; init=to float 0.5}
+                        s = Initializer.constant {dim=1,size; init=to float 0.5}
+                        c = Initializer.bias (1,size)
+                        }
+                    }
+                covariance = {
+                    state = Initializer.covariance {dim={front=size; back=size}} 
+                    input = Initializer.covariance {dim={front=sublayer_size; back=size}}
+                    bias = {
+                        si = Initializer.covariance {dim={back=size}}
+                        i = Initializer.covariance {dim={back=size}}
+                        s = Initializer.covariance {dim={back=size}}
+                        c = Initializer.covariance {dim={back=size}}
+                        }
+                    }
+                }
+            size
+            }
+
+        apply = inl {d with weights={weights covariance} input} s -> 
+            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl out' =
+                match d with
+                | {state={out}} -> out
+                | _ -> s.CudaTensor.zero_like (primal (weights.bias.c))
+
+            inl apply =
+                inm _ = covariance_update covariance.input.front (primal input) // Does the updates on the backward pass.
+                inm _ = covariance_update covariance.state.front (primal out')
+                inm out =
+                    inm input = matmult (input, weights.input)
+                    inm _ = covariance_update covariance.input.back (adjoint input)
+                    
+                    inm state = matmult (out', weights.state)
+                    inm _ = covariance_update covariance.state.back (adjoint state)
+                    
+                    inm bias = with_zero_adjoints weights.bias
+                    inm _ = covariance_update (Struct.map (inl {back} -> back) covariance.bias) (Struct.map (inl {adjoint} -> adjoint) bias)
+                    inm out = generalized_mi_tanh {input state bias}
+                    succ out
+
+                succ {out state={out}}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        optimize=inl {weights={weights covariance} learning_rate} s -> 
+            Struct.iter2 (Optimizer.prong {learning_rate} s) covariance weights
+        block = ()
+        }
+
     inl mi_alt size =
         {
         init = inl sublayer_size -> 
@@ -1094,7 +1365,7 @@ inl float ->
         }
 
     inl concat x s =
-        inl span_inner x = x.dim |> inl b,a -> a
+        inl span_inner x = x.dim |> inl b,a -> HostTensor.span a
         inl {dim elem_type} = 
             Struct.foldl (inl s x ->
                 match s with
@@ -1142,7 +1413,264 @@ inl float ->
                 )
         }
 
-    inl RNN = {mi mi_alt}
+    inl hebb_template {output_functions index_into fwd bck dim} ins s =
+        inl out =
+            inl ins = to_dev_tensor (primals ins)
+            s.CudaFun.init {dim} (inl dim ->
+                index_into dim ins 
+                |> Struct.map (inl x -> x .get)
+                |> fwd
+                )
+            |> dr s
+        {
+        out
+        bck=met _ ->
+            inl ins = to_dev_tensor ins
+            inl error = to_dev_tensor (adjoint out)
+            s.CudaKernel.iter {dim} (inl dim ->
+                    inl ads =
+                        index_into dim (primals ins) 
+                        |> Struct.map (inl x -> x .get)
+                        |> bck
+                    inl error = error dim .get
+                    inl ins = 
+                        inl a = Struct.choose id (adjoints ins)
+                        inl b = index_into dim a
+                        Struct.map2 (inl a b -> b) a b // This is to get rid of the `n` in a safe way.
+                    
+                    Struct.iter3 (inl in b f -> f in (error * b ())) ins ads output_functions
+                )
+        }
+
+
+    inl oja_update n {ins with input out H} =
+        inl b,a as dim = primal H .dim
+        inl span_inner = to float a
+        assert_dim (primals ins) {
+            input=1, b
+            out=1, a
+            }
+
+        inl output_functions =
+            inl add a b = a.set (a.get + b)
+            {
+            input=atomic_add
+            out=atomic_add
+            H=add
+            }
+        inl index_into (b,a) x = 
+            inl n =
+                match n with
+                | {from near_to} _ -> 
+                    inl from, near_to = log from, log near_to
+                    exp (from + (near_to - from) / (span_inner + one) * (to float a + one))
+                | _ _ -> n
+            Struct.map2 (<|) (Struct.choose id x)
+                {
+                input = 0, b
+                out = 0, a
+                H = b, a
+                } 
+            |> inl x -> {x with n}
+        inl tanh = tanh_fwd
+        inl abs_bck x = if x >= zero then one else -one
+
+        inl fwd {n input out H} =
+            H + n * (input * out - out * out * H)
+        inl bck {n input out H} =
+            { 
+            input = inl _ -> n * out
+            out = inl _ -> n * (input - two * out * H)
+            H = inl _ -> one - n * out * out
+            }
+        hebb_template {output_functions index_into fwd bck dim} ins
+
+    inl plastic_rnn n size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                state = Initializer.randn {stddev=0.01f32; dim=size, size} // For the Binary Pattern
+                input = Initializer.dr (Initializer.identity (sublayer_size, size))
+                //state = Initializer.tanh (size, size) // For regular tasks
+                //input = Initializer.tanh (sublayer_size, size)
+                modulator = {
+                    input = {
+                        input = Initializer.bias (sublayer_size, size)
+                        state = Initializer.bias (size, size)
+                        bias = {
+                            si = Initializer.constant {dim=1,size; init=to float 1}
+                            i = Initializer.constant {dim=1,size; init=to float 0.5}
+                            s = Initializer.constant {dim=1,size; init=to float 0.5}
+                            c = Initializer.bias (1,size)
+                            }
+                        }
+                    state = {
+                        input = Initializer.bias (sublayer_size, size)
+                        state = Initializer.bias (size, size)
+                        bias = {
+                            si = Initializer.constant {dim=1,size; init=to float 1}
+                            i = Initializer.constant {dim=1,size; init=to float 0.5}
+                            s = Initializer.constant {dim=1,size; init=to float 0.5}
+                            c = Initializer.bias (1,size)
+                            }
+                        }
+                    }
+                bias = Initializer.bias (1,size)
+                }
+            size=size
+            }
+
+        apply = inl {d with weights input} s -> 
+            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl H =
+                match d with
+                | {state={H}} -> H
+                | _ -> 
+                    inl f k = s.CudaTensor.zero_like (primal (weights k))
+                    {input=f .input; state=f .state}
+
+            inl state =
+                match d with
+                | {state={state}} -> state
+                | _ -> s.CudaTensor.zero_like (primal (weights .bias))
+
+            inl apply =
+                inm out =
+                    inl calculate k =
+                        inm alpha = 
+                            inl modulator = weights.modulator k
+                            inm input = matmult (input, modulator.input)
+                            inm state = matmult (state, modulator.state)
+                            generalized_mi {modulator with input state}
+                        inm static = matmult ({input state} k, weights k)
+                        inm plastic = matmult ({input state} k, H k)
+                        broadcasting_activation {
+                            fwd=inl {in={static plastic} in_inner={alpha}} -> static + alpha * plastic
+                            bck={
+                                in=inl {in={static plastic} in_inner={alpha}} -> { static = one; plastic = alpha }
+                                in_inner=inl {in={static plastic} in_inner={alpha}} -> { alpha = plastic }
+                                }
+                            } {in={static plastic}; in_inner={alpha=Struct.map' (inl x -> x.flatten) alpha}}
+
+                    inm input = calculate .input
+                    inm state = calculate .state
+                    
+                    activation {
+                        fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
+                        bck=inl {in out} ->
+                            inl out = tanh_bck out
+                            Struct.map (const out) in
+                        } {input state bias=weights.bias}
+
+                inm H =
+                    inl oja_update k = oja_update n {input={input state} k; out H=H k}
+                    inm input = oja_update .input
+                    inm state = oja_update .state
+                    succ {input state}
+
+                succ {out state={state=out; H}}
+
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        block = ()
+        }
+
+    inl optimized_plastic_rnn n size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                state = Initializer.randn {stddev=0.01f32; dim=size, size} // For the Binary Pattern
+                input = Initializer.dr (Initializer.identity (sublayer_size, size))
+                //state = Initializer.tanh (size, size) // For regular tasks
+                //input = Initializer.tanh (sublayer_size, size)
+                modulator = {
+                    input = {
+                        input = Initializer.bias (sublayer_size, size)
+                        state = Initializer.bias (size, size)
+                        bias = {
+                            si = Initializer.constant {dim=1,size; init=to float 1}
+                            i = Initializer.constant {dim=1,size; init=to float 0.5}
+                            s = Initializer.constant {dim=1,size; init=to float 0.5}
+                            c = Initializer.bias (1,size)
+                            }
+                        }
+                    state = {
+                        input = Initializer.bias (sublayer_size, size)
+                        state = Initializer.bias (size, size)
+                        bias = {
+                            si = Initializer.constant {dim=1,size; init=to float 1}
+                            i = Initializer.constant {dim=1,size; init=to float 0.5}
+                            s = Initializer.constant {dim=1,size; init=to float 0.5}
+                            c = Initializer.bias (1,size)
+                            }
+                        }
+                    }
+                bias = Initializer.bias (1,size)
+                }
+            size=size
+            }
+
+        apply = inl {d with weights input} s -> 
+            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl H =
+                match d with
+                | {state={H}} -> H
+                | _ -> 
+                    inl f k = s.CudaTensor.zero_like (primal (weights k))
+                    {input=f .input; state=f .state}
+
+            inl state =
+                match d with
+                | {state={state}} -> state
+                | _ -> s.CudaTensor.zero_like (primal (weights .bias))
+
+            inl apply =
+                inm out =
+                    inl calculate k =
+                        inm alpha = 
+                            inl modulator = weights.modulator k
+                            inm input = matmult (input, modulator.input)
+                            inm state = matmult (state, modulator.state)
+                            generalized_mi {modulator with input state}
+                        inm static = matmult ({input state} k, weights k)
+                        inm plastic = matmult ({input state} k, H k)
+                        broadcasting_activation {
+                            fwd=inl {in={static plastic} in_inner={alpha}} -> static + alpha * plastic
+                            bck={
+                                in=inl {in={static plastic} in_inner={alpha}} -> { static = one; plastic = alpha }
+                                in_inner=inl {in={static plastic} in_inner={alpha}} -> { alpha = plastic }
+                                }
+                            } {in={static plastic}; in_inner={alpha=Struct.map' (inl x -> x.flatten) alpha}}
+
+                    inm input = calculate .input
+                    inm state = calculate .state
+                    
+                    activation {
+                        fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
+                        bck=inl {in out} ->
+                            inl out = tanh_bck out
+                            Struct.map (const out) in
+                        } {input state bias=weights.bias}
+
+                inm H =
+                    inl oja_update k = oja_update n {input={input state} k; out H=H k}
+                    inm input = oja_update .input
+                    inm state = oja_update .state
+                    succ {input state}
+
+                succ {out state={state=out; H}}
+
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        block = ()
+        }
+
+
+    inl RNN = {mi mi_prong mi_prong_alt mi_alt plastic_rnn}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
