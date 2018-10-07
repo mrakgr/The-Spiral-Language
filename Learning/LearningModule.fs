@@ -88,9 +88,9 @@ inl (+) a b =
         set_adjoint b (inl _ -> get_adjoint out)
     }
 
-inl link dim x =
+inl link {total cur} x =
     inl out = 
-        Struct.map' (inl x -> x dim .get) x
+        Struct.map' (inl x -> x cur .get) x
         |> Struct.map (inl x ->
             match x with
             | {adjoint} -> 
@@ -105,7 +105,9 @@ inl link dim x =
     bck = inl _ ->
         Struct.iter2 (inl x out ->
             match x, out with
-            | {adjoint=x}, {adjoint=out} -> x dim .set (out 0)
+            | {adjoint=x}, {adjoint=out} -> 
+                if x.dim = total_dim then x cur .set (out 0)
+                else ...
             | _ -> ()
             ) x out
     }
@@ -157,12 +159,14 @@ inl init {dim} init s =
 
 inl map in f s =
     inl in = zip in |> to_dev_tensor
-    init {dim=in.dim} (inl dim -> link dim in >>= f) s
+    inl dim = in.dim
+    init {dim} (inl dim' -> link {total=dim; cur=dim'} in >>= f) s
 
 {
 (>>=) succ dr sigmoid tanh relu (+) (*) link link_adjoint sequence try_link_adjoint run
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
 activation_lstm
+init map
 }
 |> stackify
     """

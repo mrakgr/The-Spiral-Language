@@ -237,6 +237,9 @@ inl (=) a b =
     if eq_type a b then a = b
     else error_type ("Trying to compare variables of two different types. Got:",a,b)
 
+/// Structural polymorphic unequality for every type in the language (apart from functions.)
+inl (<>) a b = (a = b) <> true
+
 /// Returns the size a type.
 /// type -> int64
 inl sizeof x = !SizeOf(x)
