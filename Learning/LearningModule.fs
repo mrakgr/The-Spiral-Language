@@ -1045,7 +1045,16 @@ inl float ->
                     inm state = matmult (out', weights.state)
                     
                     inl bias = weights.bias
-                    inm out = map CudaAD.generalized_mi_tanh {input state bias}
+                    inm out = //map CudaAD.generalized_mi_tanh {input state bias}
+                        open CudaAD
+                        inl dim = primal input .dim
+                        inl link cur = link {dim cur}
+                        inl {input state bias} = to_dev_tensor {input state bias}
+                        Primitive.init {dim} (inl b,a as cur ->
+                            inm {input state} = link cur {input state}
+                            inm bias = link (0,a) bias
+                            generalized_mi_tanh {input state bias}
+                            )
                     succ out
 
                 succ {out state={out}}
