@@ -97,8 +97,32 @@ inl link {dim cur} x =
         Struct.iter2 (inl x out ->
             match x, out with
             | {adjoint=x}, {adjoint=out} -> 
-                inl is_non_atomic = eq_type x.dim dim && x.dim = dim
                 inl x = x cur
+                inl out = out 0
+                x .set (x .get + out)
+            | _ -> ()
+            ) x out
+    }
+
+inl broadcasting_link {dim cur} x =
+    inl index_into =
+        Struct.fold2 <| inl primal dim cur ->
+            inl i = if dim = 1 then 0 else cur
+            primal i
+    inl out = 
+        Struct.map (function
+            | {primal adjoint} -> index_into primal dim cur .get |> dr
+            | x -> index_into x dim cur .get
+            ) x
+    
+    {
+    out
+    bck = inl _ ->
+        Struct.iter2 (inl x out ->
+            match x, out with
+            | {adjoint=x}, {adjoint=out} -> 
+                inl is_non_atomic = x.dim = dim
+                inl x = index_into x dim cur
                 inl out = out 0
                 if is_non_atomic then x .set (x .get + out)
                 else atomic_add x out
