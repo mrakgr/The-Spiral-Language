@@ -151,8 +151,8 @@ inl input =
         if data minibatch seq .get = to uint8 hot then 1f32 else 0f32
 
 inl by :: _ = input.dim
-inl by = by / 64
-inl input = input {from=0; by} // Am using only 1/64th of the dataset here in order to speed up testing on plastic RNNs.
+inl by = by / 64 // Am using only 1/64th of the dataset here in order to speed up testing on plastic RNNs.
+inl input = input {from=0; by} 
 
 inl label = input {from=1}
 inl input = input {from=0; by=by-1}
@@ -167,21 +167,12 @@ inl network,_ =
     open RNN
     inl network = 
         {
-        mi_prong =
-            mi_prong 128, 
-            prong {activation=Activation.linear; size=size.hot}
-        mi_prong_alt =
-            mi_prong_alt 128, 
-            prong {activation=Activation.linear; size=size.hot}
         mi =
             mi 128,
             linear size.hot
-        mi_alt =
-            mi_alt 128,
-            linear size.hot
         }
 
-    init s size.hot network.mi_prong_alt
+    init s size.hot network.mi
 
 inl truncate network s' =
     inl s = s'.RegionMem.create
@@ -452,7 +443,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
 |> printfn "%s"
 |> ignore
 

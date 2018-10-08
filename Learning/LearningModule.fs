@@ -9,6 +9,7 @@ let cuda_ad =
     (
     "CudaAD",[struct';liple],"The CudaAD module",
     """
+inl float = float32
 inl zero = 0f32
 inl half = 0.5f32
 inl one = 1f32
@@ -29,9 +30,11 @@ inl dr x =
     {
     primal=x
     adjoint=
-        inl x = array_create_cuda_local x 1
-        x 0 <- zero
-        x
+        Struct.map (inl _ ->
+            inl x = array_create_cuda_local float 1
+            x 0 <- zero
+            x
+            ) x
     block=()
     }
 
@@ -106,11 +109,12 @@ inl (+) =
             set_adjoint b (inl _ -> get_adjoint out)
         }
 
-inl link {dim cur} =
+inl link {dim cur} x =
     inl out = 
-        Struct.map <| function
+        Struct.map (function
             | {primal adjoint} -> primal cur .get |> dr
             | x -> x cur .get
+            ) x
     
     {
     out
@@ -147,7 +151,7 @@ inl generalized_mi {bias={si s i c} input state} = si * state * input + s * stat
 inl generalized_mi_tanh {bias={si s i c} input state} = si * state * input + s * state + i * input + c |> tanh
 
 {
-(>>=) succ dr sigmoid tanh relu (+) (*) link link_adjoint sequence try_link_adjoint run
+(>>=) succ dr sigmoid tanh relu (+) (*) link link_adjoint sequence
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
 activation_lstm generalized_mi generalized_mi_tanh
 }
@@ -635,9 +639,12 @@ inl float ->
         }
 
     inl map f in s =
-        inl in = zip in |> to_dev_tensor
-        inl dim = in.dim
-        init {dim} (inl cur -> link {dim cur} in >>= f) s
+        inl in = 
+            {primal=primals in; adjoint=adjoints in} 
+            |> module_map (inl _ -> HostTensor.zip >> to_dev_tensor) 
+            |> inl x -> {x with block=()}
+        inl dim = primal in .dim
+        init {dim} (inl cur -> CudaAD.link {dim cur} in CudaAD.(>>=) f) s
 
     inl Primitive =
         {
@@ -1095,7 +1102,7 @@ inl float ->
                 )
         }
 
-    inl RNN = {mi mi_alt}
+    inl RNN = {mi}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
