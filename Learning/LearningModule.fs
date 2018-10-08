@@ -122,9 +122,10 @@ inl link {dim cur} x =
         Struct.iter2 (inl x out ->
             match x, out with
             | {adjoint=x}, {adjoint=out} -> 
+                inl is_non_atomic = eq_type x.dim dim && x.dim = dim
                 inl x = x cur
                 inl out = out 0
-                if x.dim = dim then x .set (x .get + out)
+                if is_non_atomic then x .set (x .get + out)
                 else atomic_add x out
             | _ -> ()
             ) x out
@@ -627,11 +628,12 @@ inl float ->
             s.CudaFun.init {dim} (inl dim -> primals (init dim .out))
             |> HostTensor.unzip
             |> Struct.map (dr s)
-
+        
         {
         out
         bck=met _ ->
             inl from = adjoints (to_dev_tensor out)
+            open CudaAD
             s.CudaKernel.iter {dim} <| inl dim -> 
                 inl {out=to bck} = init dim >>= succ
                 inl {bck=bck'} = link_adjoint dim {from to=adjoints to}
@@ -639,12 +641,11 @@ inl float ->
         }
 
     inl map f in s =
-        inl in = 
-            {primal=primals in; adjoint=adjoints in} 
-            |> module_map (inl _ -> HostTensor.zip >> to_dev_tensor) 
-            |> inl x -> {x with block=()}
-        inl dim = primal in .dim
-        init {dim} (inl cur -> CudaAD.link {dim cur} in CudaAD.(>>=) f) s
+        inl dim = HostTensor.assert_zip (primals in) .dim
+
+        inl in = to_dev_tensor in
+        open CudaAD
+        init {dim} (inl cur -> link {dim cur} in >>= f) s
 
     inl Primitive =
         {

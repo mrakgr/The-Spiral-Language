@@ -1767,7 +1767,7 @@ inl rec equal (!zip t) =
 /// Asserts that the tensor is contiguous.
 inl assert_contiguous = flatten >> ignore
 /// Asserts that the dimensions of the tensors are all equal.
-inl assert_dim l = assert_zip >> ignore
+inl assert_dim = assert_zip >> ignore
 /// Prints the tensor to the standard output.
 met print (!dyn x) = 
     match x with
@@ -1784,7 +1784,7 @@ inl from_scalar x =
 
 {
 create facade init copy assert_size array_as_tensor array_to_tensor map zip show print length
-equal split flatten assert_contiguous assert_dim reshape unzip from_scalar
+equal split flatten assert_contiguous assert_zip assert_dim reshape unzip from_scalar
 } |> stackify
     """) |> module_
 
