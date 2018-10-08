@@ -15,9 +15,13 @@ inl one = 1f32
 inl two = 2f32
 
 inl (>>=) a b =
-    inl {out=a bck=bck_a} = a
-    inl {out=b bck=bck_b} = b a
-    {out=b; bck=bck_a << bck_b}
+    match a with
+    | {out=a bck=bck_a} ->
+        inl {out=b bck=bck_b} = b a
+        {out=b; bck=bck_a << bck_b}
+    | _ ->
+        inl {out=b bck=bck_b} = b a
+        {out=b; bck=bck_b}
 
 inl succ out = {out bck=const ()}
 
@@ -43,52 +47,66 @@ inl primal = Struct.map (inl {primal} | primal -> primal)
 inl sigmoid_fwd x = one / (one + exp -x)
 inl sigmoid_bck out = out * (one - out)
 
+inl unary f x =
+    inm x = x
+    f x
+
 inl sigmoid x =
-    inl out = primal x |> sigmoid_fwd |> dr
-    {
-    out
-    bck=inl _ -> set_adjoint x (inl _ -> sigmoid_bck (primal out) * get_adjoint out)
-    }
+    unary <| inl x ->
+        inl out = primal x |> sigmoid_fwd |> dr
+        {
+        out
+        bck=inl _ -> set_adjoint x (inl _ -> sigmoid_bck (primal out) * get_adjoint out)
+        }
 
 inl tanh_fwd = tanh
 inl tanh_bck out = one - out * out
 
-inl tanh x =
-    inl out = primal x |> tanh_fwd |> dr
-    {
-    out
-    bck=inl _ -> set_adjoint x (inl _ -> tanh_bck (primal out) * get_adjoint out)
-    }
+inl tanh =
+    unary <| inl x ->
+        inl out = primal x |> tanh_fwd |> dr
+        {
+        out
+        bck=inl _ -> set_adjoint x (inl _ -> tanh_bck (primal out) * get_adjoint out)
+        }
 
 inl relu_fwd x = if x > zero then x else zero
 inl relu_bck out = if out > zero then one else zero
 
-inl relu x =
-    inl out = primal x |> relu_fwd |> dr
-    {
-    out
-    bck=inl _ -> set_adjoint x (inl _ -> relu_bck (primal out) * get_adjoint out)
-    }
+inl relu =
+    unary <| inl x ->
+        inl out = primal x |> relu_fwd |> dr
+        {
+        out
+        bck=inl _ -> set_adjoint x (inl _ -> relu_bck (primal out) * get_adjoint out)
+        }
 
-inl (*) a b =
-    inl out = primal a * primal b |> dr
-    {
-    out
-    bck=inl _ ->
-        set_adjoint a (inl _ -> primal b * get_adjoint out)
-        set_adjoint b (inl _ -> primal a * get_adjoint out)
-    }
+inl binary f a b =
+    inm a = a
+    inm b = b
+    f a b
 
-inl (+) a b =
-    inl out = primal a + primal b |> dr
-    {
-    out
-    bck=inl _ ->
-        set_adjoint a (inl _ -> get_adjoint out)
-        set_adjoint b (inl _ -> get_adjoint out)
-    }
+inl (*) =
+    binary <| inl a b ->
+        inl out = primal a * primal b |> dr
+        {
+        out
+        bck=inl _ ->
+            set_adjoint a (inl _ -> primal b * get_adjoint out)
+            set_adjoint b (inl _ -> primal a * get_adjoint out)
+        }
 
-inl link {dim cur} x =
+inl (+) =
+    binary <| inl a b ->
+        inl out = primal a + primal b |> dr
+        {
+        out
+        bck=inl _ ->
+            set_adjoint a (inl _ -> get_adjoint out)
+            set_adjoint b (inl _ -> get_adjoint out)
+        }
+
+inl link {dim cur} =
     inl out = 
         Struct.map <| function
             | {primal adjoint} -> primal cur .get |> dr
@@ -120,22 +138,12 @@ inl sequence x =
     inl bck = Struct.map (inl {bck} -> bck) x
     {out bck}
 
-inl activation_lstm x =
-    inm memory =
-        inm input = sigmoid input_cell
-        inm forget = sigmoid forget_cell
-        inm memory = tanh memory_cell
-
-        inm a = input * memory
-        inm b = forget * memory_old
-        a + b
-                
-    inm out =
-        inm memory = tanh memory
-        inm output = sigmoid output_cell
-        output * memory
-
+inl activation_lstm {input_cell forget_cell output_cell memory} =
+    inm memory = sigmoid input_cell * tanh memory_cell + sigmoid forget_cell * memory
+    inm out = sigmoid output_cell * tanh memory
     succ {memory out}
+
+inl generalized_mi {si s i c input state} = si * state * input + s * state + i * input + c
 
 inl init {dim} init s =
     inl out =
@@ -148,7 +156,7 @@ inl init {dim} init s =
     bck=met _ ->
         inl from = adjoints (to_dev_tensor out)
         s.CudaKernel.iter {dim} <| inl dim -> 
-            inl {out=to bck} = init dim
+            inl {out=to bck} = init dim >>= succ
             inl {bck=bck'} = link_adjoint dim {from to=adjoints to}
             bck(); bck'()
     }
