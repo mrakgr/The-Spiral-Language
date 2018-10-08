@@ -104,10 +104,10 @@ inl link {dim cur} x =
             ) x out
     }
 
-inl broadcasting_link {dim cur} x =
+inl broadcasting_link cur x = // TODO: Work in progress.
     inl index_into =
         Struct.fold2 <| inl primal dim cur ->
-            inl i = if dim = 1 then 0 else cur
+            inl i = dim = primal.span_outer then cur else 0
             primal i
     inl out = 
         Struct.map (function
@@ -772,7 +772,7 @@ inl float ->
             | {weights} -> 
                 inl rec loop x =
                     Struct.iter (inl x ->
-                        match x.tensor with
+                        match x.data with
                         | {primal adjoint} & x -> sgd learning_rate s x
                         | x -> ()
                         ) x
@@ -949,7 +949,7 @@ inl float ->
         inl tensor d dim s =
             inl tns = Struct.map' (inl _ -> s.CudaTensor.create {dim elem_type=float}) d.init |> heap
             function
-            | .tensor -> tns
+            | .data -> tns
             | .init -> Struct.iter2' (inl f tns -> f tns s) d.init tns
             | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
             | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
@@ -994,7 +994,7 @@ inl float ->
             inl {x with out} =
                 indiv join
                     match input with
-                    | {weights} -> {input with weights = Struct.map' (inl x -> x.tensor) weights}
+                    | {weights} -> {input with weights = Struct.map' (inl x -> x.data) weights}
                     | _ -> input
                     |> inl input -> apply input s |> stack
             inl layer = match x with {bck} -> {layer with bck=heap bck} | _ -> layer
