@@ -84,31 +84,6 @@ inl relu =
         bck=inl _ -> set_adjoint x (inl _ -> relu_bck (primal out) * get_adjoint out)
         }
 
-inl binary f a b =
-    inm a = a
-    inm b = b
-    f a b
-
-inl (*) =
-    binary <| inl a b ->
-        inl out = primal a * primal b |> dr
-        {
-        out
-        bck=inl _ ->
-            set_adjoint a (inl _ -> primal b * get_adjoint out)
-            set_adjoint b (inl _ -> primal a * get_adjoint out)
-        }
-
-inl (+) =
-    binary <| inl a b ->
-        inl out = primal a + primal b |> dr
-        {
-        out
-        bck=inl _ ->
-            set_adjoint a (inl _ -> get_adjoint out)
-            set_adjoint b (inl _ -> get_adjoint out)
-        }
-
 inl link {dim cur} x =
     inl out = 
         Struct.map (function
@@ -142,6 +117,31 @@ inl sequence x =
     inl out = Struct.map (inl {out} -> out) x
     inl bck = Struct.map (inl {bck} -> bck) x
     {out bck}
+
+inl binary f a b =
+    inm a = a
+    inm b = b
+    f a b
+
+inl (*) =
+    binary <| inl a b ->
+        inl out = primal a * primal b |> dr
+        {
+        out
+        bck=inl _ ->
+            set_adjoint a (inl _ -> primal b * get_adjoint out)
+            set_adjoint b (inl _ -> primal a * get_adjoint out)
+        }
+
+inl (+) =
+    binary <| inl a b ->
+        inl out = primal a + primal b |> dr
+        {
+        out
+        bck=inl _ ->
+            set_adjoint a (inl _ -> get_adjoint out)
+            set_adjoint b (inl _ -> get_adjoint out)
+        }
 
 inl activation_lstm {input_cell forget_cell output_cell memory} =
     inm memory = sigmoid input_cell * tanh memory_cell + sigmoid forget_cell * memory
