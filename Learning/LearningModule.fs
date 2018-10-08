@@ -1010,59 +1010,6 @@ inl float ->
             {
             dsc = 
                 {
-                input = {
-                    bias = Initializer.bias size
-                    weight = Initializer.tanh (sublayer_size, size)
-                    }
-                state = {
-                    bias = Initializer.constant {dim=size; init=one}
-                    weight = Initializer.tanh (size, size)
-                    }
-                }
-            size
-            }
-
-        apply = inl {d with weights input} s -> 
-            inl apply =
-                inm right = matmultb (input, weights.input.weight) weights.input.bias
-                inm out =
-                    match d with
-                    | {state} ->
-                        inm left = matmultb (state, weights.state.weight) weights.state.bias
-                        activation {
-                            fwd=inl {left right} -> left * right |> tanh_fwd
-                            bck=inl {in={left right} out} ->
-                                inl out = tanh_bck out
-                                {
-                                left = out * right
-                                right = out * left
-                                }
-                            } {left right}
-                    | _ -> 
-                        broadcasting_activation {
-                            fwd=inl {in=right in_inner=left} -> left * right |> tanh_fwd
-                            bck={
-                                in=inl {in=right in_inner=left out} ->
-                                    inl out = tanh_bck out
-                                    out * left
-                                in_inner=inl {in=right in_inner=left out} ->
-                                    inl out = tanh_bck out
-                                    out * right
-                                }
-                            }
-                            { in=right; in_inner=weights.state.bias }
-                succ {out state=out}
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        block = ()
-        }
-
-    inl mi_alt size =
-        {
-        init = inl sublayer_size -> 
-            {
-            dsc = 
-                {
                 state = Initializer.tanh (size, size)
                 input = Initializer.tanh (sublayer_size, size)
                 bias = {
