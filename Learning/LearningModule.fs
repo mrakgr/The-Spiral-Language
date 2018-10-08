@@ -143,34 +143,13 @@ inl activation_lstm {input_cell forget_cell output_cell memory} =
     inm out = sigmoid output_cell * tanh memory
     succ {memory out}
 
-inl generalized_mi {si s i c input state} = si * state * input + s * state + i * input + c
-
-inl init {dim} init s =
-    inl out =
-        s.CudaFun.init {dim} (inl dim -> primals (init dim .out))
-        |> HostTensor.unzip
-        |> Struct.map (dr s)
-
-    {
-    out
-    bck=met _ ->
-        inl from = adjoints (to_dev_tensor out)
-        s.CudaKernel.iter {dim} <| inl dim -> 
-            inl {out=to bck} = init dim >>= succ
-            inl {bck=bck'} = link_adjoint dim {from to=adjoints to}
-            bck(); bck'()
-    }
-
-inl map in f s =
-    inl in = zip in |> to_dev_tensor
-    inl dim = in.dim
-    init {dim} (inl cur -> link {dim cur} in >>= f) s
+inl generalized_mi {bias={si s i c} input state} = si * state * input + s * state + i * input + c
+inl generalized_mi_tanh {bias={si s i c} input state} = si * state * input + s * state + i * input + c |> tanh
 
 {
 (>>=) succ dr sigmoid tanh relu (+) (*) link link_adjoint sequence try_link_adjoint run
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
-activation_lstm
-init map
+activation_lstm generalized_mi generalized_mi_tanh
 }
 |> stackify
     """
@@ -639,9 +618,30 @@ inl float ->
                     }
         }
 
+    inl init {dim} init s =
+        inl out =
+            s.CudaFun.init {dim} (inl dim -> primals (init dim .out))
+            |> HostTensor.unzip
+            |> Struct.map (dr s)
+
+        {
+        out
+        bck=met _ ->
+            inl from = adjoints (to_dev_tensor out)
+            s.CudaKernel.iter {dim} <| inl dim -> 
+                inl {out=to bck} = init dim >>= succ
+                inl {bck=bck'} = link_adjoint dim {from to=adjoints to}
+                bck(); bck'()
+        }
+
+    inl map f in s =
+        inl in = zip in |> to_dev_tensor
+        inl dim = in.dim
+        init {dim} (inl cur -> link {dim cur} in >>= f) s
+
     inl Primitive =
         {
-        matmult activation error matmultb broadcasting_activation
+        matmult activation error matmultb broadcasting_activation init map
         } |> stack
 
     // #Operations
@@ -904,7 +904,7 @@ inl float ->
         inl randn stddev = normal {stddev mean=0f32}
         
         inl zero tns s = s.CudaTensor.clear tns
-        inl init init tns s = 
+        inl const init tns s = 
             inl tns = to_dev_tensor tns
             s.CudaKernel.iter {dim=tns.dim} (inl i -> tns i .set init)
         inl identity tns s = 
@@ -932,10 +932,11 @@ inl float ->
         inl randn stddev = number (randn stddev)
         inl zero = number zero
         inl identity = number identity
+        inl const init = number (const init)
         inl custom = number custom
 
         {
-        relu sigmoid tanh randn zero identity custom
+        relu sigmoid tanh randn zero identity const custom
         }
 
     inl Initializer = 
@@ -1009,25 +1010,26 @@ inl float ->
         init = inl sublayer_size -> 
             {
             dsc = 
+                open Initializer.dual
                 {
-                state = Initializer.tanh (size, size)
-                input = Initializer.tanh (sublayer_size, size)
+                state = tanh (size, size)
+                input = tanh (sublayer_size, size)
                 bias = {
-                    si = Initializer.constant {dim=1,size; init=to float 1}
-                    i = Initializer.constant {dim=1,size; init=to float 0.5}
-                    s = Initializer.constant {dim=1,size; init=to float 0.5}
-                    c = Initializer.bias (1,size)
+                    si = const one (1,size)
+                    i = const half (1,size)
+                    s = const half (1,size)
+                    c = zero (1,size)
                     }
                 }
             size
             }
 
-        apply = inl {d with weights input} s -> 
-            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+        apply = inl {d with size weights input} s -> 
+            inl span = primal input .span_outer
             inl out' =
                 match d with
                 | {state={out}} -> out
-                | _ -> s.CudaTensor.zero_like (primal (weights.bias.c))
+                | _ -> s.CudaTensor.zero {elem_type=float; dim=span,size}
 
             inl apply =
                 inm out =
@@ -1035,7 +1037,7 @@ inl float ->
                     inm state = matmult (out', weights.state)
                     
                     inl bias = weights.bias
-                    inm out = generalized_mi_tanh {input state bias}
+                    inm out = map CudaAD.generalized_mi_tanh {input state bias}
                     succ out
 
                 succ {out state={out}}
