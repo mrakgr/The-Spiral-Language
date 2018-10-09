@@ -1741,13 +1741,30 @@ inl array_as_tensor ar = facade {dim=array_length ar::(); bodies={ar size=1::();
 /// Reinterprets an array as a tensor. array -> tensor.
 inl array_to_tensor = array_as_tensor >> copy
 
-/// Asserts that all the dimensions of the tensors are equal. Returns the dimension of the first tensor if applicable.
+/// Asserts that all the dimensions of the tensors are equal. Returns the first tensor if applicable.
 /// tensor structure -> (tensor | ())
-inl assert_zip l =
+inl assert_zip =
     Struct.foldl (inl s x ->
         match s with
         | () -> x
-        | s -> assert (s.dim = x.dim) "All tensors in zip need to have the same dimensions"; s) () l
+        | s -> assert (s.dim = x.dim) "All tensors in zip need to have the same dimensions"; s
+        ) ()
+
+/// Asserts that all dimensions of the tensors are broadcastable. Returns the dimensions of the largest combination of tensors if applicable.
+/// tensor structure -> (dim | ())
+inl assert_broadcastable =
+    Struct.foldl (inl s x ->
+        match s with
+        | () -> x.dim
+        | _ ->
+            assert (eq_type s x.dim) "The inputs must have the same number of dimensions."
+            Struct.map2 (inl s x ->
+                if s = 1 then x
+                else
+                    assert (s = x) "The dimensions of the inputs must all be either singular or equal to each other."
+                    s
+                ) s x.dim
+        ) ()
 
 /// Zips all the tensors in the argument together. Their dimensions must be equal.
 /// tensor structure -> tensor
@@ -1794,7 +1811,7 @@ inl from_scalar x =
 
 {
 create facade init copy assert_size array_as_tensor array_to_tensor map zip show print length
-equal split flatten assert_contiguous assert_zip assert_dim reshape unzip from_scalar
+equal split flatten assert_contiguous assert_zip assert_broadcastable assert_dim reshape unzip from_scalar
 } |> stackify
     """) |> module_
 

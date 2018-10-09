@@ -677,20 +677,7 @@ inl float ->
         }
 
     inl map f in s =
-        inl dim = 
-            Struct.foldl (inl s x ->
-                match s with
-                | () -> x.dim
-                | _ ->
-                    assert (eq_type s x.dim) "The inputs must have the same number of dimensions."
-                    Struct.map2 (inl s x ->
-                        if s = 1 then x
-                        else
-                            assert (s = x) "The dimensions of the inputs must all be either singular or equal to each other."
-                            s
-                        ) s x.dim
-                ) () (primals in)
-
+        inl dim = HostTensor.assert_broadcastable (primals in)
         inl in = to_dev_tensor in
         open CudaAD
         init {dim} (inl cur -> broadcasting_link dim cur in >>= f) s
