@@ -483,13 +483,63 @@ inl float ->
     inl matmult_stream l s = 
         inl f = function {T} -> T, .T | nT -> nT, .nT
         inl f' = function {T} -> T, .nT | nT -> nT, .T
-        inl rec loop s C = function
-            | {mult=a,b} ->
-                inl (A,TA),(B,TB) = f A, f B
-                match C with
-                | () -> s.CudaBlas.gemm TA TB one (primal A) (primal B) |> dr s
-                | C -> s.CudaBlas.gemm' TA TB one (primal A) (primal B) one (primal C); C
 
+        inl get_dims (x :: _ | x) =
+            inl get_dim = function 
+                | {T} -> T.dim |> inl b,a -> a,b
+                | T -> T.dim
+            inl (b,_),(_,a) = Tuple.map get_dim x
+            b,a
+
+        inl init =
+            Liple.map <| inl {d with list} ->
+                inl dim = get_dims list
+                inl s = match d with {stream} -> s.data_add {stream} | _ -> s
+                {d with C = s.CudaTensor.create {elem_type=float; dim}}
+
+        inl run =  
+            Liple.iter <| inl {d with list C} ->
+                inl _ =
+                    inl s = match d with {stream} -> s.data_add {stream} | _ -> s
+                    Liple.foldl (inl beta (A,B) ->
+                        inl (A,TA),(B,TB) = f A, f B
+                        s.CudaBlas.gemm' TA TB one (primal A) (primal B) beta (primal C)
+                        one
+                        ) zero list
+                match d with
+                | {stream} -> s.data.stream.wait_on stream
+                | _ -> ()
+
+        inl bck {d with list C} =
+            inl _ =
+                inl s = match d with {stream} -> s.data_add {stream} | _ -> s
+                inl s' = match d with {stream} -> s.data_add {stream_aux} | _ -> s
+                Liple.iter (inl (A,B) ->
+                    inl (A,TA),(B,TB) = f' A, f' B
+                    on_non_nil (inl A -> 
+                        match TA with // Note: TA and TB are opposite of what they should be.
+                        | .T -> s.CudaBlas.gemm' .nT TB one C' (primal B) one A
+                        | .nT -> s.CudaBlas.gemm' .nT TB one (primal B) C' one A
+                        ) (adjoint A)
+                    on_non_nil (inl B -> 
+                        match TB with
+                        | .T -> s'.CudaBlas.gemm' TA .nT one (primal A) C' one B
+                        | .nT -> s'.CudaBlas.gemm' TA .nT one C' (primal A) one B
+                        ) (adjoint B)
+                    ) list
+            match d with
+            | {stream} -> s.data.stream.wait_on stream
+            | _ -> ()
+            match d with
+            | {stream_aux} -> s.data.stream.wait_on stream_aux
+            | _ -> ()
+
+        inl l = init l
+        run l
+        {
+        out=Liple.map (inl {C} -> C) l
+        bck=met _ -> Liple.iter bck l
+        }
 
     inl matmultb l bias s = 
         inl l =
