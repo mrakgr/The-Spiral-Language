@@ -104,7 +104,7 @@ inl link {dim cur} x =
             ) x out
     }
 
-inl broadcasting_link cur x = // TODO: Work in progress.
+inl broadcasting_link cur x =
     inl index_into =
         Struct.fold2 <| inl primal dim cur ->
             inl i = dim = primal.span_outer then cur else 0
