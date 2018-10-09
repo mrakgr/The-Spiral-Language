@@ -106,7 +106,7 @@ inl link cur x =
 
 inl broadcasting_link dim cur x =
     inl index_into x =
-        Struct.fold (inl x cur ->
+        Struct.foldl (inl x cur ->
             x (if x.span_outer = 1 then 0 else cur)
             ) x cur
 
@@ -178,7 +178,7 @@ inl generalized_mi {bias={si s i c} input state} = si * state * input + s * stat
 inl generalized_mi_tanh {bias={si s i c} input state} = si * state * input + s * state + i * input + c |> tanh
 
 {
-(>>=) succ dr sigmoid tanh relu (+) (*) link link_adjoint sequence
+(>>=) succ dr sigmoid tanh relu (+) (*) link broadcasting_link link_adjoint sequence
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
 activation_lstm generalized_mi generalized_mi_tanh
 }
@@ -667,11 +667,22 @@ inl float ->
         }
 
     inl map f in s =
-        inl dim = HostTensor.assert_zip (primals in) .dim
+        inl dim = 
+            Struct.foldl (inl s x ->
+                match s with
+                | () -> x.dim
+                | _ ->
+                    Struct.map2 (inl s x ->
+                        if s = 1 then x
+                        else
+                            assert (s = x) "The dimensions of the inputs must all be either singular or equal to each other."
+                            s
+                        ) s x.dim
+                ) () (primals in)
 
         inl in = to_dev_tensor in
         open CudaAD
-        init {dim} (inl cur -> link {dim cur} in >>= f) s
+        init {dim} (inl cur -> broadcasting_link dim cur in >>= f) s
 
     inl Primitive =
         {
@@ -1071,16 +1082,7 @@ inl float ->
                     inm state = matmult (out', weights.state)
                     
                     inl bias = weights.bias
-                    inm out = //map CudaAD.generalized_mi_tanh {input state bias}
-                        open CudaAD
-                        inl dim = primal input .dim
-                        inl link cur = link {dim cur}
-                        inl {input state bias} = to_dev_tensor {input state bias}
-                        Primitive.init {dim} (inl b,a as cur ->
-                            inm {input state} = link cur {input state}
-                            inm bias = link (0,a) bias
-                            generalized_mi_tanh {input state bias}
-                            )
+                    inm out = map CudaAD.generalized_mi_tanh {input state bias}
                     succ out
 
                 succ {out state={out}}
