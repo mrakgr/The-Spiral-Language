@@ -104,6 +104,7 @@ inl link cur x =
             ) x out
     }
 
+inl atomic_add = CudaAux.atomic_add
 inl broadcasting_link dim cur x =
     inl index_into x =
         Struct.foldl (inl x cur ->
@@ -672,6 +673,7 @@ inl float ->
                 match s with
                 | () -> x.dim
                 | _ ->
+                    assert (eq_type s x.dim) "The inputs must have the same number of dimensions."
                     Struct.map2 (inl s x ->
                         if s = 1 then x
                         else
