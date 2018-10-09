@@ -480,6 +480,17 @@ inl float ->
             map_out=inl {mid out} -> mid + out
             } C
 
+    inl matmult_stream l s = 
+        inl f = function {T} -> T, .T | nT -> nT, .nT
+        inl f' = function {T} -> T, .nT | nT -> nT, .T
+        inl rec loop s C = function
+            | {mult=a,b} ->
+                inl (A,TA),(B,TB) = f A, f B
+                match C with
+                | () -> s.CudaBlas.gemm TA TB one (primal A) (primal B) |> dr s
+                | C -> s.CudaBlas.gemm' TA TB one (primal A) (primal B) one (primal C); C
+
+
     inl matmultb l bias s = 
         inl l =
             match l with
@@ -964,6 +975,14 @@ inl float ->
             | .init -> Struct.iter2' (inl f tns -> f tns s) d.init tns
             | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
             | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
+
+        inl stream s =
+            inl stream = s.RegionStream.allocate.data.stream
+            function
+            | .data -> stream
+            | .init -> ()
+            | .save stream -> ()
+            | .load stream -> ()
 
         inl sing init = tensor {init}
         inl dual primal = tensor {init={primal adjoint=zero; block=()}}
