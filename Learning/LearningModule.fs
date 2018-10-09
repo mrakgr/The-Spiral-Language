@@ -134,10 +134,19 @@ inl broadcasting_link dim cur x =
     }
 
 inl link_adjoint dim {from to} =
-    Struct.iter2 (inl from to -> to 0 <- from dim .get) from to
+    Struct.iter2 (inl from to -> 
+        match to with
+        | () -> ()
+        | _ -> to 0 <- from dim .get
+        ) from to
     {
     out=()
-    bck=inl _ -> Struct.iter2 (inl from to -> from dim .set (to 0)) from to
+    bck=inl _ -> 
+        Struct.iter2 (inl from to -> 
+            match to with
+            | () -> ()
+            | _ -> from dim .set (to 0)
+            ) from to
     }
 
 inl sequence x =
