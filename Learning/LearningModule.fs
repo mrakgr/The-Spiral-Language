@@ -84,7 +84,7 @@ inl relu =
         bck=inl _ -> set_adjoint x (inl _ -> relu_bck (primal out) * get_adjoint out)
         }
 
-inl link {dim cur} x =
+inl link cur x =
     inl out = 
         Struct.map (function
             | {primal adjoint} -> primal cur .get |> dr
@@ -104,28 +104,30 @@ inl link {dim cur} x =
             ) x out
     }
 
-inl broadcasting_link cur x =
-    inl index_into =
-        Struct.fold2 <| inl primal dim cur ->
-            inl i = dim = primal.span_outer then cur else 0
-            primal i
+inl broadcasting_link dim cur x =
+    inl index_into x =
+        Struct.fold (inl x cur ->
+            x (if x.span_outer = 1 then 0 else cur)
+            ) x cur
+
     inl out = 
         Struct.map (function
-            | {primal adjoint} -> index_into primal dim cur .get |> dr
-            | x -> index_into x dim cur .get
+            | {primal adjoint} -> index_into primal .get |> dr
+            | x -> index_into x .get
             ) x
     
     {
     out
     bck = inl _ ->
+        inl dim_is_not_one = Tuple.map (inl dim -> dim <> 1) dim
         Struct.iter2 (inl x out ->
             match x, out with
             | {adjoint=x}, {adjoint=out} -> 
-                inl is_non_atomic = x.dim = dim
-                inl x = index_into x dim cur
+                inl is_atomic = Tuple.exists2 (inl dim_is_not_one cur -> dim_is_not_one && cur = 1) dim_is_not_one x.dim
+                inl x = index_into x
                 inl out = out 0
-                if is_non_atomic then x .set (x .get + out)
-                else atomic_add x out
+                if is_atomic then atomic_add x out
+                else x .set (x .get + out)
             | _ -> ()
             ) x out
     }

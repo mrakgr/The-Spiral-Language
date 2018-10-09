@@ -139,9 +139,19 @@ inl rec forall f = function
     | x :: xs -> f x && forall f xs
     | () -> true
 
+inl rec forall2 f x y = 
+    match x,y with
+    | x :: xs, y :: ys -> f x y && forall2 f xs ys
+    | (), () -> false
+
 inl rec exists f = function
     | x :: xs -> f x || exists f xs
     | () -> false
+
+inl rec exists2 f x y = 
+    match x,y with
+    | x :: xs, y :: ys -> f x y || exists2 f xs ys
+    | (), () -> false
 
 inl rec filter f = function
     | x :: xs -> if f x then x :: filter f xs else filter f xs
@@ -284,7 +294,7 @@ inl rec map_last f = function
 inl length = foldl (inl s _ -> s+1) 0
 
 {
-head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall exists split_at take drop
+head tail last foldl foldr reducel scanl scanr rev map iter iteri iter2 forall forall2 exists exists2 split_at take drop
 filter zip unzip init repeat append concat singleton range tryFind contains intersperse wrap unwrap
 foldl_map foldl_map2 foldr_map map2 foldl2 foldr2 choose choose2 mapi find map_last map3 length
 } 
