@@ -1138,9 +1138,7 @@ inl float ->
 
             inl apply =
                 inm out =
-                    inm input = matmult_stream {(weights.input) with data=input}
-                    inm state = matmult_stream {(weights.state) with data=out'}
-                    
+                    inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out'})
                     inl bias = weights.bias
                     inm out = map CudaAD.generalized_mi_tanh {input state bias}
                     succ out
