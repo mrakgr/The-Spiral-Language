@@ -481,67 +481,53 @@ inl float ->
             } C
 
     inl matmult_stream l s = 
-        inl f = function {T} -> T, .T | nT -> nT, .nT
-        inl f' = function {T} -> T, .nT | nT -> nT, .T
-
-        inl get_dims (x :: _ | x) =
+        inl get_dims {data weight} =
             inl get_dim = function 
                 | {T} -> T.dim |> inl b,a -> a,b
                 | T -> T.dim
-            inl (b,_),(_,a) = Tuple.map get_dim x
+            inl (b,_),(_,a) = Tuple.map get_dim (data, weight)
             b,a
 
-        inl init =
-            Liple.map <| inl {d with list} ->
-                inl dim = get_dims list
-                inl s = match d with {stream} -> s.data_add {stream} | _ -> s
-                {d with C = s.CudaTensor.create {elem_type=float; dim}}
+        inl init {d with data weight streams=l,r} = 
+            inl dim = get_dims {data weight}
+            inl s = s.data_add {stream=l}
+            {d with out = s.CudaTensor.create {elem_type=float; dim} |> dr s}
+        
+        inl run {out data weight streams=l,r} =  
+            l.wait_on s.data.stream
+            inl s = s.data_add {stream=l}
 
-        inl run {d with list C} =  
-            inl _ =
-                inl s = 
-                    match d with 
-                    | {stream=(stream,_) :: _ | (stream,_)} -> s.data_add {stream} 
-                    | _ -> s
-                Liple.foldl (inl beta (A,B) ->
-                    inl (A,TA),(B,TB) = f A, f B
-                    s.CudaBlas.gemm' TA TB one (primal A) (primal B) beta (primal C)
-                    one
-                    ) zero list
-            match d with
-            | {stream=(stream,_) :: _ | (stream,_)} -> s.data.stream.wait_on stream
-            | _ -> ()
+            inl f = function {T} -> T, .T | nT -> nT, .nT
+            inl (A,TA),(B,TB) = f data, f weight
+            s.CudaBlas.gemm' TA TB one (primal A) (primal B) zero (primal out)
 
-        inl bck {d with list C} =
-            inl stream =
-                match d with
-                | {stream} -> stream
-                | _ -> Liple.map (const ()) list
-            inl _ =
-                Liple.iter2 (inl (A,B) stream ->
-                    inl (A,TA),(B,TB) = f' A, f' B
-                    on_non_nil (inl A -> 
-                        inl s = match stream with stream, _ -> s.data_add {stream} | () -> s
-                        match TA with // Note: TA and TB are opposite of what they should be.
-                        | .T -> s.CudaBlas.gemm' .nT TB one C' (primal B) one A
-                        | .nT -> s.CudaBlas.gemm' .nT TB one (primal B) C' one A
-                        ) (adjoint A)
-                    on_non_nil (inl B -> 
-                        inl s = match stream with _, stream -> s.data_add {stream} | () -> s
-                        match TB with
-                        | .T -> s.CudaBlas.gemm' TA .nT one (primal A) C' one B
-                        | .nT -> s.CudaBlas.gemm' TA .nT one C' (primal A) one B
-                        ) (adjoint B)
-                    ) list stream
-            match d with
-            | {stream} -> Liple.iter s.data.stream.wait_on stream
-            | _ -> ()
+        inl bck {out data weight streams=l,r} =
+            inl f' = function {T} -> T, .nT | nT -> nT, .T
+            inl (A,TA),(B,TB) = f' data, f' weight
+            inl out = adjoint out
+            on_non_nil (inl A -> 
+                l.wait_on s.data.stream
+                inl s = s.data_add {stream=l}
+                match TA with
+                | .T -> s.CudaBlas.gemm' .nT TB one out (primal B) one A
+                | .nT -> s.CudaBlas.gemm' .nT TB one (primal B) out one A
+                ) (adjoint A)
+            on_non_nil (inl B -> 
+                r.wait_on s.data.stream
+                inl s = s.data_add {stream=r}
+                match TB with
+                | .T -> s.CudaBlas.gemm' TA .nT one (primal A) out one B
+                | .nT -> s.CudaBlas.gemm' TA .nT one out (primal A) one B
+                ) (adjoint B)
 
-        inl l = init l
+        inl l = Liple.map init l
         Liple.iter run l
+        Liple.iter (inl {stream=l,r} -> s.data.stream.wait_on l) l
         {
-        out=Liple.map (inl {C} -> C) l
-        bck=met _ -> Liple.iter bck l
+        out=Liple.map (inl {out} -> out) l
+        bck=met _ ->
+            Liple.iter bck l
+            Liple.iter (inl {stream=x} -> Tuple.iter s.data.stream.wait_on x) l
         }
 
     inl matmultb l bias s = 
@@ -570,7 +556,7 @@ inl float ->
                 Tuple.iter (inl A, B -> 
                     inl (A,TA),(B,TB) = f' A, f' B
                     on_non_nil (inl A -> 
-                        match TA with // Note: TA and TB are opposite of what they should be.
+                        match TA with
                         | .T -> s.CudaBlas.gemm' .nT TB one C' (primal B) one A
                         | .nT -> s.CudaBlas.gemm' .nT TB one (primal B) C' one A
                         ) (adjoint A)
