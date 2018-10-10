@@ -520,14 +520,14 @@ inl float ->
                 | .nT -> s.CudaBlas.gemm' TA .nT one out (primal A) one B
                 ) (adjoint B)
 
-        inl l = Liple.map init l
-        Liple.iter run l
-        Liple.iter (inl {streams=l,r} -> s.data.stream.wait_on l) l
+        inl l = Struct.map init l
+        Struct.iter run l
+        Struct.iter (inl {streams=l,r} -> s.data.stream.wait_on l) l
         {
-        out=Liple.map (inl {out} -> out) l
+        out=Struct.map (inl {out} -> out) l
         bck=met _ ->
-            Liple.iter bck l
-            Liple.iter (inl {streams=x} -> Tuple.iter s.data.stream.wait_on x) l
+            Struct.iter bck l
+            Struct.iter (inl {streams=x} -> Tuple.iter s.data.stream.wait_on x) l
         }
 
     inl matmultb l bias s = 
@@ -832,7 +832,7 @@ inl float ->
             | {optimize weights} -> optimize {learning_rate weights} s
             | {weights} -> 
                 inl rec loop x =
-                    Struct.iter (inl x ->
+                    Struct.iter' (inl x ->
                         match x.data with
                         | {primal adjoint} & x -> sgd learning_rate s x
                         | x -> ()
@@ -1115,6 +1115,7 @@ inl float ->
                 inl weight_streams f dim = {
                     weight = f dim
                     streams = stream, stream
+                    block = ()
                     }
                 {
                 state = weight_streams tanh (size, size)
