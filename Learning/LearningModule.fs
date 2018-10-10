@@ -485,7 +485,7 @@ inl float ->
             inl get_dim = function 
                 | {T} -> T.dim |> inl b,a -> a,b
                 | T -> T.dim
-            inl (b,_),(_,a) = Tuple.map get_dim (data, weight)
+            inl (b,_),(_,a) = Tuple.map (primal >> get_dim) (data, weight)
             b,a
 
         inl init {d with data weight streams=l,r} = 
@@ -522,12 +522,12 @@ inl float ->
 
         inl l = Liple.map init l
         Liple.iter run l
-        Liple.iter (inl {stream=l,r} -> s.data.stream.wait_on l) l
+        Liple.iter (inl {streams=l,r} -> s.data.stream.wait_on l) l
         {
         out=Liple.map (inl {out} -> out) l
         bck=met _ ->
             Liple.iter bck l
-            Liple.iter (inl {stream=x} -> Tuple.iter s.data.stream.wait_on x) l
+            Liple.iter (inl {streams=x} -> Tuple.iter s.data.stream.wait_on x) l
         }
 
     inl matmultb l bias s = 
