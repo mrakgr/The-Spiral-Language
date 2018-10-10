@@ -1112,9 +1112,13 @@ inl float ->
             {
             dsc = 
                 open Initializer.dual
+                inl weight_streams f dim = {
+                    weight = f dim
+                    streams = stream, stream
+                    }
                 {
-                state = tanh (size, size)
-                input = tanh (sublayer_size, size)
+                state = weight_streams tanh (size, size)
+                input = weight_streams tanh (sublayer_size, size)
                 bias = {
                     si = const one (1,size)
                     i = const half (1,size)
@@ -1134,8 +1138,8 @@ inl float ->
 
             inl apply =
                 inm out =
-                    inm input = matmult (input, weights.input)
-                    inm state = matmult (out', weights.state)
+                    inm input = matmult_stream {(weights.input) with data=input}
+                    inm state = matmult_stream {(weights.state) with data=out'}
                     
                     inl bias = weights.bias
                     inm out = map CudaAD.generalized_mi_tanh {input state bias}
