@@ -179,7 +179,7 @@ inl (+) =
             set_adjoint b (inl _ -> get_adjoint out)
         }
 
-inl activation_lstm {input_cell forget_cell output_cell memory} =
+inl lstm {input_cell forget_cell output_cell memory_cell memory} =
     inm memory = sigmoid input_cell * tanh memory_cell + sigmoid forget_cell * memory
     inm out = sigmoid output_cell * tanh memory
     succ {memory out}
@@ -190,7 +190,7 @@ inl generalized_mi_tanh {bias={si s i c} input state} = si * state * input + s *
 {
 (>>=) succ dr sigmoid tanh relu (+) (*) link broadcasting_link link_adjoint sequence
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
-activation_lstm generalized_mi generalized_mi_tanh
+lstm generalized_mi generalized_mi_tanh
 }
 |> stackify
     """
@@ -1147,6 +1147,52 @@ inl float ->
                 succ {out state={out}}
             inl {out={out state} bck} = apply s
             {out state bck}
+        block = ()
+        }
+
+    inl mi size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                open Initializer.dual
+                inl weight_streams f dim = {
+                    weight = f dim
+                    streams = stream, stream
+                    block = ()
+                    }
+                {
+                state = weight_streams tanh (size, size)
+                input = weight_streams tanh (sublayer_size, size)
+                bias = 
+                    tensor_view 1 {
+                        input_cell = view size zero
+                        forget_cell = view size (const one)
+                        memory_cell = view size zero
+                        output_cell = view size zero
+                        }
+                }
+            size
+            }
+
+        apply = inl {d with size weights input} s -> 
+            () // TODO: Work in progress.
+            //inl span = primal input .span_outer
+            //inl out' =
+            //    match d with
+            //    | {state={out}} -> out
+            //    | _ -> s.CudaTensor.zero {elem_type=float; dim=span,size}
+
+            //inl apply =
+            //    inm out =
+            //        inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out'})
+            //        inl bias = weights.bias
+            //        inm out = map CudaAD.lstm {input state bias}
+            //        succ out
+
+            //    succ {out state={out}}
+            //inl {out={out state} bck} = apply s
+            //{out state bck}
         block = ()
         }
 
