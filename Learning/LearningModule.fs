@@ -1015,8 +1015,6 @@ inl float ->
             | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
             | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
 
-
-
         inl stream s =
             inl stream = s.RegionStream.allocate.data.stream
             function
