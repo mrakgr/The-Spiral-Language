@@ -1015,13 +1015,7 @@ inl float ->
             | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
             | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
 
-        inl tensor_view d dim s =
-            inl tns = Struct.map' (inl _ -> s.CudaTensor.create_view {dim elem_type=float}) d.init |> heap
-            function
-            | .data -> tns
-            | .init -> Struct.iter2' (inl f tns -> f tns s) d.init tns
-            | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
-            | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
+
 
         inl stream s =
             inl stream = s.RegionStream.allocate.data.stream
