@@ -1015,6 +1015,14 @@ inl float ->
             | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
             | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
 
+        inl tensor_view d dim s =
+            inl tns = Struct.map' (inl _ -> s.CudaTensor.create_view {dim elem_type=float}) d.init |> heap
+            function
+            | .data -> tns
+            | .init -> Struct.iter2' (inl f tns -> f tns s) d.init tns
+            | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
+            | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
+
         inl stream s =
             inl stream = s.RegionStream.allocate.data.stream
             function
@@ -1027,17 +1035,20 @@ inl float ->
         inl dual primal = tensor {init={primal adjoint=zero; block=()}}
         inl number = {sing dual} number
 
-        inl relu = number relu
-        inl sigmoid = number sigmoid
-        inl tanh = number tanh
-        inl randn stddev = number (randn stddev)
-        inl zero = number zero
-        inl identity = number identity
-        inl const init = number (const init)
-        inl custom = number custom
+        inl Tensor = {
+            relu = number relu
+            sigmoid = number sigmoid
+            tanh = number tanh
+            randn = inl stddev -> number (randn stddev)
+            zero = number zero
+            identity = number identity
+            const = inl init -> number (const init)
+            custom = number custom
+            }
 
         {
         relu sigmoid tanh randn zero identity const custom stream
+        Tensor
         }
 
     inl Initializer = 
@@ -1079,7 +1090,7 @@ inl float ->
             dsc = 
                 {
                 input = initializer (sublayer_size, size)
-                bias = Initializer.dual.zero size
+                bias = Initializer.dual.Tensor.zero size
                 }
             size
             }
@@ -1089,7 +1100,7 @@ inl float ->
         }
 
     inl Feedforward = 
-        inl I = Initializer.dual
+        inl I = Initializer.dual.Tensor
         inl sigmoid = layer I.sigmoid sigmoid
         inl relu = layer I.relu relu
         inl tanh = layer I.tanh tanh
@@ -1111,7 +1122,7 @@ inl float ->
         init = inl sublayer_size -> 
             {
             dsc = 
-                open Initializer.dual
+                open Initializer.dual.Tensor
                 inl weight_streams f dim = {
                     weight = f dim
                     streams = stream, stream
@@ -1150,12 +1161,12 @@ inl float ->
         block = ()
         }
 
-    inl mi size =
+    inl lstm size =
         {
         init = inl sublayer_size -> 
             {
             dsc = 
-                open Initializer.dual
+                open Initializer.dual.Tensor
                 inl weight_streams f dim = {
                     weight = f dim
                     streams = stream, stream
@@ -1318,7 +1329,7 @@ inl float ->
             inl default w = 
                 inl defaults =
                     {
-                    initializer=Initializer.bias
+                    initializer=Initializer.dual.Tensor.bias
                     activation=Activation.linear
                     }
 

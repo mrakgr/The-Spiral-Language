@@ -491,7 +491,7 @@ inl s -> s.module_add .Stream (stackify {allocate})
 
 let cuda_tensor = 
     (
-    "CudaTensor",[extern_;host_tensor;cuda_aux],"The Cuda tensor module.",
+    "CudaTensor",[extern_;host_tensor_view;cuda_aux],"The Cuda tensor module.",
     """
 open HostTensor
 open Extern
@@ -571,6 +571,7 @@ met set_elem s (!dyn {dst with size=()}) (!dyn v) =
 inl methods = 
     {
     create=inl s data -> create {data with array_create = array_create_cuda_global s}
+    create_view=inl s data -> HostTensorView.create {data with array_create = array_create_cuda_global s}
     create_like=inl s tns -> s.CudaTensor.create {elem_type=tns.elem_type; dim=tns.dim}
 
     to_host_array from_host_array from_cudadevptr_array
