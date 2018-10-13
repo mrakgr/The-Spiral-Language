@@ -1194,6 +1194,7 @@ inl float ->
         }
 
     inl lstm size =
+        open Initializer.dual.TensorView
         inl inner = 
             {
             dim =
@@ -1225,9 +1226,8 @@ inl float ->
         init = inl sublayer_size -> 
             {
             dsc = 
-                open Initializer.dual
-                inl weight_streams dim = {
-                    weight = tensor_view dim
+                inl weight_streams d = {
+                    weight = tensor_view d
                     streams = stream, stream
                     block = ()
                     }
@@ -1240,23 +1240,24 @@ inl float ->
             }
 
         apply = inl {d with weights input} s -> 
-            () // TODO: Work in progress.
-            //inl span = primal input .span_outer
-            //inl out' =
-            //    match d with
-            //    | {state={out}} -> out
-            //    | _ -> s.CudaTensor.zero {elem_type=float; dim=span,size}
+            inl span = primal input .span_outer
+            inl out', memory =
+                match d with
+                | {state={out memory}} -> out, memory
+                | _ -> 
+                    inl f _ = s.CudaTensor.zero {elem_type=float; dim=span,size}
+                    f(), f()
 
-            //inl apply =
-            //    inm out =
-            //        inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out'})
-            //        inl bias = weights.bias
-            //        inm out = map CudaAD.lstm {input state bias}
-            //        succ out
+            inl apply =
+                inm out =
+                    inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out'})
+                    inl bias = weights.bias
+                    inm out = map CudaAD.lstm {memory input state bias}
+                    succ out
 
-            //    succ {out state={out}}
-            //inl {out={out state} bck} = apply s
-            //{out state bck}
+                succ {out state={out}}
+            inl {out={out state} bck} = apply s
+            {out state bck}
         block = ()
         }
 
