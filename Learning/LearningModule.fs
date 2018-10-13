@@ -1179,26 +1179,47 @@ inl float ->
         }
 
     inl lstm size =
+        inl inner = 
+            {
+            dim =
+                {
+                input_cell = size
+                forget_cell = size
+                memory_cell = size
+                output_cell = size
+                }
+            }
+        inl init =
+            {
+            bias =
+                {
+                input_cell = const zero
+                forget_cell = const one
+                memory_cell = const zero
+                output_cell = const zero
+                }
+            cell = 
+                {
+                input_cell = sigmoid
+                forget_cell = sigmoid
+                memory_cell = tanh
+                output_cell = sigmoid
+                }
+            }
         {
         init = inl sublayer_size -> 
             {
             dsc = 
                 open Initializer.dual
-                inl weight_streams f dim = {
-                    weight = f dim
+                inl weight_streams dim = {
+                    weight = tensor_view dim
                     streams = stream, stream
                     block = ()
                     }
                 {
-                state = weight_streams tanh (size, size)
-                input = weight_streams tanh (sublayer_size, size)
-                bias = 
-                    tensor_view 1 {
-                        input_cell = view size zero
-                        forget_cell = view size (const one)
-                        memory_cell = view size zero
-                        output_cell = view size zero
-                        }
+                input = weight_streams { init = init.cell; dim = sublayer_size inner.dim }
+                state = weight_streams { init = init.cell; dim = size, inner.dim }
+                bias = tensor_view {init = init.bias; dim = 1, inner.dim}
                 }
             size
             }
