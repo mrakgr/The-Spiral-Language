@@ -1015,6 +1015,31 @@ inl float ->
             | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
             | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
 
+        inl tensor_view d dim s =
+            inl init init tns =
+                inl dim = tns.dim
+                inl tns = tns.basic
+                inl f x next s =
+                    match x with
+                    | {} ->
+                        inl rec loop init x = 
+                            match x with
+                            | {from near_to} -> next {s with apply=x :: self; init}
+                            | {} -> module_map (inl k x -> loop init.k x; ()) x
+                        loop s.init x
+                    | from -> next {s with apply=() :: self}
+
+                inl finally {apply init} = Tuple.rev apply |> tns |> init
+                                
+                Tuple.foldr f dim finally {init apply=()}
+
+            inl tns = Struct.map' (inl _ -> s.CudaTensor.create_view {dim elem_type=float}) d.init |> heap
+            function
+            | .data -> tns
+            | .init -> Struct.iter2' (inl init tns -> init (init ()) tns) d.init tns
+            | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
+            | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
+
         inl stream s =
             inl stream = s.RegionStream.allocate.data.stream
             function
