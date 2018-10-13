@@ -1067,6 +1067,7 @@ inl float ->
             identity = number Init.identity
             const = inl init -> number (Init.const init)
             custom = number Init.custom
+            stream
             }
 
         inl TensorView =
@@ -1078,9 +1079,9 @@ inl float ->
             
             inl view = {sing dual} number
 
-            { Init with view }
+            { Init with view stream }
 
-        { stream Tensor TensorView }
+        { Tensor TensorView }
 
     inl Initializer = 
         {
