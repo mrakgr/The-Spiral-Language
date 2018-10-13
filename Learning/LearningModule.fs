@@ -1082,9 +1082,9 @@ inl float ->
             ) size dsc
 
     inl run s input =
-        Struct.foldl_map (inl input {layer with apply size} ->
+        Struct.foldl_map (inl input {layer with apply} ->
             inl input =
-                inl input = {input size}
+                inl input = {input}
                 inl input = match layer with {weights} -> {input with weights} | _ -> input
                 match layer with {state} -> {input with state} | _ -> input
 
@@ -1158,7 +1158,7 @@ inl float ->
             size
             }
 
-        apply = inl {d with size weights input} s -> 
+        apply = inl {d with weights input} s -> 
             inl span = primal input .span_outer
             inl out' =
                 match d with
@@ -1183,7 +1183,7 @@ inl float ->
         init = inl sublayer_size -> 
             {
             dsc = 
-                open Initializer.dual.Tensor
+                open Initializer.dual
                 inl weight_streams f dim = {
                     weight = f dim
                     streams = stream, stream
@@ -1203,7 +1203,7 @@ inl float ->
             size
             }
 
-        apply = inl {d with size weights input} s -> 
+        apply = inl {d with weights input} s -> 
             () // TODO: Work in progress.
             //inl span = primal input .span_outer
             //inl out' =
