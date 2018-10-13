@@ -1015,8 +1015,8 @@ inl float ->
             function
             | .data -> tns
             | .init -> Struct.iter2' (inl init tns -> init tns s) init tns
-            //| .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
-            //| .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
+            | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
+            | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
 
         inl tensor_view_init init tns s =
             inl dim = tns.dim
@@ -1027,14 +1027,14 @@ inl float ->
                     inl rec loop init x = 
                         match x with
                         | {from near_to} -> next {s with apply=x :: self; init}
-                        | {} -> module_map (inl k x -> loop init.k x; ()) x
+                        | {} -> module_map (inl k x -> loop (init k) x; ()) x
                     loop s.init x
                 | from -> next {s with apply=() :: self}
 
             inl finally {apply init} = 
                 inl tns = Tuple.rev apply |> tns 
                 init tns s
-                                
+
             Tuple.foldr f dim finally {init apply=()}
 
         inl tensor_view {init dim} s =
@@ -1042,6 +1042,8 @@ inl float ->
             function
             | .data -> tns
             | .init -> Struct.iter2' (inl init tns -> init tns s) init tns
+            | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
+            | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
 
         inl stream s =
             inl stream = s.RegionStream.allocate.data.stream
@@ -1051,7 +1053,9 @@ inl float ->
             | .save stream -> ()
             | .load stream -> ()
 
-        inl T k = 
+        inl Tensor = 
+            inl sing init dim = tensor {dim init}
+            inl dual primal dim = tensor {dim init={primal adjoint=Init.zero; block=()}}
             inl number = {sing dual} number
             
             {
@@ -1065,15 +1069,18 @@ inl float ->
             custom = number Init.custom
             }
 
-        {
-        stream
-        Init
-        Tensor = T {
-            sing = inl init dim -> tensor {dim init}
-            dual = inl primal dim -> tensor {dim init={primal adjoint=zero; block=()}}
-            }
-        TensorView = T (inl {init dim} -> tensor_view {init=tensor_view_init init; dim}) 
-        }
+        inl TensorView =
+            inl sing {init dim} = tensor_view {init=tensor_view_init init; dim}
+            inl dual {init dim} =
+                inl primal = tensor_view_init init
+                inl adjoint tns s = Init.zero tns.basic s
+                tensor_view {init={primal adjoint block=()}; dim}
+            
+            inl view = {sing dual} number
+
+            { Init with view }
+
+        { stream Tensor TensorView }
 
     inl Initializer = 
         {
