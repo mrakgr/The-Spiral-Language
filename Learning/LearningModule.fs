@@ -984,38 +984,41 @@ inl float ->
 
     // #Initializer
     inl Initializer number =
-        inl normal {stddev mean} tns s = s.CudaRandom.fill {dst=.Normal; stddev mean} tns
-        inl stddev_sum_init mult tns = 
-            inl stddev = sqrt (mult / to float32 (Tuple.foldl (+) 0 tns.dim))
-            inl mean = 0f32
-            normal {stddev mean} tns
+        inl Init =
+            inl normal {stddev mean} tns s = s.CudaRandom.fill {dst=.Normal; stddev mean} tns
+            inl stddev_sum_init mult tns = 
+                inl stddev = sqrt (mult / to float32 (Tuple.foldl (+) 0 tns.dim))
+                inl mean = 0f32
+                normal {stddev mean} tns
 
-        // Rough and possibly poorly tuned inits. Recommended to be used together with PRONG or layer/batch norm.
-        inl relu = stddev_sum_init 1f32
-        inl sigmoid = stddev_sum_init 2f32
-        inl tanh = stddev_sum_init 3f32
-        inl randn stddev = normal {stddev mean=0f32}
+            {
+            // Rough and possibly poorly tuned inits. Recommended to be used together with PRONG or layer/batch norm.
+            relu = stddev_sum_init 1f32
+            sigmoid = stddev_sum_init 2f32
+            tanh = stddev_sum_init 3f32
+            randn = inl stddev -> normal {stddev mean=0f32}
         
-        inl zero tns s = s.CudaTensor.clear tns
-        inl const init tns s = 
-            inl tns = to_dev_tensor tns
-            s.CudaKernel.iter {dim=tns.dim} (inl i -> tns i .set init)
-        inl identity tns s = 
-            inl a,b as dim = tns.dim
-            assert (a = b) "The tensor needs to be a square matrix."
-            inl tns = to_dev_tensor tns
-            s.CudaKernel.iter {dim} (inl a,b as i -> tns i .set (if a = b then one else zero))
-        inl custom f tns s = f tsn s
+            zero = inl tns s -> s.CudaTensor.clear tns
+            const = inl init tns s ->
+                inl tns = to_dev_tensor tns
+                s.CudaKernel.iter {dim=tns.dim} (inl i -> tns i .set init)
+            identity = inl tns s ->
+                inl a,b as dim = tns.dim
+                assert (a = b) "The tensor needs to be a square matrix."
+                inl tns = to_dev_tensor tns
+                s.CudaKernel.iter {dim} (inl a,b as i -> tns i .set (if a = b then one else zero))
+            custom = inl f tns s -> f tns s
+            }
 
         inl tensor d dim s =
             inl tns = Struct.map' (inl _ -> s.CudaTensor.create {dim elem_type=float}) d.init |> heap
             function
             | .data -> tns
-            | .init -> Struct.iter2' (inl f tns -> f tns s) d.init tns
+            | .init -> Struct.iter2' (inl f tns -> f () tns s) d.init tns
             | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
             | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
 
-        inl tensor_view d dim s =
+        inl tensor_view d s =
             inl init init tns =
                 inl dim = tns.dim
                 inl tns = tns.basic
@@ -1029,14 +1032,17 @@ inl float ->
                         loop s.init x
                     | from -> next {s with apply=() :: self}
 
-                inl finally {apply init} = Tuple.rev apply |> tns |> init
+                inl finally {apply init} = 
+                    inl tns = Tuple.rev apply |> tns 
+                    init tns s
                                 
                 Tuple.foldr f dim finally {init apply=()}
 
+            inl dim = d.dim
             inl tns = Struct.map' (inl _ -> s.CudaTensor.create_view {dim elem_type=float}) d.init |> heap
             function
             | .data -> tns
-            | .init -> Struct.iter2' (inl init tns -> init (init ()) tns) d.init tns
+            | .init -> Struct.iter2' (inl f tns -> init (f ()) tns) d.init tns
             | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
             | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
 
@@ -1048,24 +1054,29 @@ inl float ->
             | .save stream -> ()
             | .load stream -> ()
 
-        inl sing init = tensor {init}
-        inl dual primal = tensor {init={primal adjoint=zero; block=()}}
-        inl number = {sing dual} number
-
-        inl Tensor = {
-            relu = number relu
-            sigmoid = number sigmoid
-            tanh = number tanh
-            randn = inl stddev -> number (randn stddev)
-            zero = number zero
-            identity = number identity
-            const = inl init -> number (const init)
-            custom = number custom
+        inl T tensor = 
+            inl sing init = tensor {init=const init}
+            inl dual primal = 
+                inl adjoint = Struct.map' (inl _ -> Init.const zero) primal
+                tensor {init=Struct.map const {primal adjoint block=()}}
+            inl number = {sing dual} number
+            
+            {
+            relu = number Init.relu
+            sigmoid = number Init.sigmoid
+            tanh = number Init.tanh
+            randn = inl stddev -> number (Init.randn stddev)
+            zero = number Init.zero
+            identity = number Init.identity
+            const = inl init -> number (Init.const init)
+            custom = number Init.custom
             }
 
         {
-        relu sigmoid tanh randn zero identity const custom stream
-        Tensor
+        stream
+        Init
+        Tensor = T tensor
+        TensorView = T tensor_view
         }
 
     inl Initializer = 
