@@ -154,6 +154,12 @@ inl sequence x =
     inl bck = Struct.map (inl {bck} -> bck) x
     {out bck}
 
+inl sequence_module f x =
+    inl x = module_map (const f) x
+    inl bck = module_foldr (inl k {bck} s -> bck << s) x (const ())
+    inl out = module_map (inl _ {out} -> out) x
+    {out bck}
+
 inl binary f a b =
     inm a = a
     inm b = b
@@ -179,9 +185,10 @@ inl (+) =
             set_adjoint b (inl _ -> get_adjoint out)
         }
 
-inl lstm {input_cell forget_cell output_cell memory_cell memory} =
-    inm memory = sigmoid input_cell * tanh memory_cell + sigmoid forget_cell * memory
-    inm out = sigmoid output_cell * tanh memory
+inl lstm {memory cell} =
+    inm cell = sequence_module (inl {input state bias} -> input + state + bias) cell
+    inm memory = sigmoid cell.input * tanh cell.memory + sigmoid cell.forget * memory
+    inm out = sigmoid cell.output * tanh memory
     succ {memory out}
 
 inl generalized_mi {bias={si s i c} input state} = si * state * input + s * state + i * input + c
@@ -1037,13 +1044,16 @@ inl float ->
 
             Tuple.foldr f dim finally {init apply=()}
 
-        inl tensor_view {init dim} s =
+        inl tensor_view_template f {init dim} s =
             inl tns = Struct.map' (inl _ -> s.CudaTensor.create_view {dim elem_type=float}) init |> heap
             function
-            | .data -> tns
+            | .data -> f tns
             | .init -> Struct.iter2' (inl init tns -> init tns s) init tns
             | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
             | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
+
+        inl tensor_view = tensor_view_template id
+        inl tensor_view' = tensor_view_template (Struct.map' (inl x -> x.basic))
 
         inl stream s =
             inl stream = s.RegionStream.allocate.data.stream
@@ -1071,15 +1081,16 @@ inl float ->
             }
 
         inl TensorView =
-            inl sing {init dim} = tensor_view {init=tensor_view_init init; dim}
-            inl dual {init dim} =
+            inl sing tensor_view {init dim} = tensor_view {init=tensor_view_init init; dim}
+            inl dual tensor_view {init dim} =
                 inl primal = tensor_view_init init
                 inl adjoint tns s = Init.zero tns.basic s
                 tensor_view {init={primal adjoint block=()}; dim}
             
-            inl view = {sing dual} number
+            inl view = Struct.map ((<|) tensor_view) {sing dual} number
+            inl view' = Struct.map ((<|) tensor_view') {sing dual} number
 
-            { Init with view stream }
+            { Init with view view' stream }
 
         { Tensor TensorView }
 
@@ -1227,7 +1238,7 @@ inl float ->
             {
             dsc = 
                 inl weight_streams d = {
-                    weight = tensor_view d
+                    weight = view' d
                     streams = stream, stream
                     block = ()
                     }
@@ -1249,13 +1260,14 @@ inl float ->
                     f(), f()
 
             inl apply =
-                inm out =
+                inm {out memory} =
                     inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out'})
                     inl bias = weights.bias
-                    inm out = map CudaAD.lstm {memory input state bias}
-                    succ out
+                    inl input, state = Struct.map' (HostTensorView.wrap ((),inner.dim) >> HostTensorView.split) (input, state)
+                    inl cell = Struct.map3 (inl input state bias -> {input state bias}) input state bias
+                    map CudaAD.lstm {memory cell}
 
-                succ {out state={out}}
+                succ {out state={out memory}}
             inl {out={out state} bck} = apply s
             {out state bck}
         block = ()

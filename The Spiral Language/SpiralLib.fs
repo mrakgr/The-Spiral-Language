@@ -1931,8 +1931,23 @@ inl wrap dim basic =
     assert (basic.dim = size) "The view must be of the same size as the tensor it is wrapping."
     facade {basic dim}
 
+inl split tns s =
+    inl dim = tns.dim
+    inl tns = tns.basic
+    inl f x next s =
+        match x with
+        | {} ->
+            inl rec loop x = 
+                match x with
+                | {from near_to} -> next (x :: s)
+                | {} -> module_map (inl k x -> loop x) x
+            loop s.init x
+        | from -> next (() :: s)
+
+    Tuple.foldr f dim (Tuple.rev >> tns) ()
+
 {
-facade create wrap
+facade create wrap split
 } |> stackify
     """
     ) |> module_
