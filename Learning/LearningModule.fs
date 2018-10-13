@@ -1010,41 +1010,38 @@ inl float ->
             custom = inl f tns s -> f tns s
             }
 
-        inl tensor d dim s =
-            inl tns = Struct.map' (inl _ -> s.CudaTensor.create {dim elem_type=float}) d.init |> heap
+        inl tensor {dim init} s =
+            inl tns = Struct.map' (inl _ -> s.CudaTensor.create {dim elem_type=float}) init |> heap
             function
             | .data -> tns
-            | .init -> Struct.iter2' (inl f tns -> f () tns s) d.init tns
-            | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
-            | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
+            | .init -> Struct.iter2' (inl init tns -> init tns s) init tns
+            //| .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
+            //| .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
 
-        inl tensor_view d s =
-            inl init init tns =
-                inl dim = tns.dim
-                inl tns = tns.basic
-                inl f x next s =
-                    match x with
-                    | {} ->
-                        inl rec loop init x = 
-                            match x with
-                            | {from near_to} -> next {s with apply=x :: self; init}
-                            | {} -> module_map (inl k x -> loop init.k x; ()) x
-                        loop s.init x
-                    | from -> next {s with apply=() :: self}
+        inl tensor_view_init init tns s =
+            inl dim = tns.dim
+            inl tns = tns.basic
+            inl f x next s =
+                match x with
+                | {} ->
+                    inl rec loop init x = 
+                        match x with
+                        | {from near_to} -> next {s with apply=x :: self; init}
+                        | {} -> module_map (inl k x -> loop init.k x; ()) x
+                    loop s.init x
+                | from -> next {s with apply=() :: self}
 
-                inl finally {apply init} = 
-                    inl tns = Tuple.rev apply |> tns 
-                    init tns s
+            inl finally {apply init} = 
+                inl tns = Tuple.rev apply |> tns 
+                init tns s
                                 
-                Tuple.foldr f dim finally {init apply=()}
+            Tuple.foldr f dim finally {init apply=()}
 
-            inl dim = d.dim
-            inl tns = Struct.map' (inl _ -> s.CudaTensor.create_view {dim elem_type=float}) d.init |> heap
+        inl tensor_view {init dim} s =
+            inl tns = Struct.map' (inl _ -> s.CudaTensor.create_view {dim elem_type=float}) init |> heap
             function
             | .data -> tns
-            | .init -> Struct.iter2' (inl f tns -> init (f ()) tns) d.init tns
-            | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
-            | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
+            | .init -> Struct.iter2' (inl init tns -> init tns s) init tns
 
         inl stream s =
             inl stream = s.RegionStream.allocate.data.stream
@@ -1054,11 +1051,7 @@ inl float ->
             | .save stream -> ()
             | .load stream -> ()
 
-        inl T tensor = 
-            inl sing init = tensor {init=const init}
-            inl dual primal = 
-                inl adjoint = Struct.map' (inl _ -> Init.const zero) primal
-                tensor {init=Struct.map const {primal adjoint block=()}}
+        inl T k = 
             inl number = {sing dual} number
             
             {
@@ -1075,8 +1068,11 @@ inl float ->
         {
         stream
         Init
-        Tensor = T tensor
-        TensorView = T tensor_view
+        Tensor = T {
+            sing = inl init dim -> tensor {dim init}
+            dual = inl primal dim -> tensor {dim init={primal adjoint=zero; block=()}}
+            }
+        TensorView = T (inl {init dim} -> tensor_view {init=tensor_view_init init; dim}) 
         }
 
     inl Initializer = 
