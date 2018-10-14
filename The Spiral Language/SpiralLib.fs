@@ -1782,6 +1782,7 @@ inl expand_singular dim tns =
                 false
             ) (Tuple.wrap dim) tns.dim
     tns.update_body (inl d -> {d with size = Tuple.map2 (inl cur is_expandable -> if is_expandable then 0 else cur) self is_expandable})
+       .set_dim dim
 
 /// Zips all the tensors in the argument together. Their dimensions must be equal.
 /// tensor structure -> tensor

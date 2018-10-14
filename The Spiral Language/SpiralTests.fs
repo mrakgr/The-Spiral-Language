@@ -1253,6 +1253,15 @@ inl tns =
 tns ((),{d=()}) .basic |> Tensor.print
     """
 
+let test117 =
+    "test117",[host_tensor;console],"Do the tensor expand_singular work?",
+    """
+open Tensor
+init (1,5) (inl a b -> a, b)
+|> Tensor.expand_singular (5,5) 
+|> Tensor.print
+    """
+
 let parsing1 = 
     "parsing1",[parsing;console],"Does the Parsing module work?",
     """
@@ -2041,7 +2050,7 @@ let tests =
     test80;test81;test82;test83;test84;test85;test86;test87;test88;test89
     test90;test91;test92;test93;test94;test95;test96;test97;test98;test99
     test100;test101;test102;test103;test104;test105;test106;test107;test108;test109
-    test110;test111;test112;test113;test114;test115;test116
+    test110;test111;test112;test113;test114;test115;test116;test117
     hacker_rank_1;hacker_rank_2;hacker_rank_3;hacker_rank_4;hacker_rank_5;hacker_rank_6;hacker_rank_7;hacker_rank_8;hacker_rank_9
     parsing1;parsing2;parsing3;parsing4;parsing5;parsing6;parsing7;parsing8
     loop1;loop2;loop3;     loop5;loop6;loop7;loop8
