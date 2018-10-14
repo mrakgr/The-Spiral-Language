@@ -1770,6 +1770,19 @@ inl assert_broadcastable =
                 ) s x.dim
         ) ()
 
+/// Expands the singular dimensions of a tensor to a specified size depending on the argument passed to it. 
+/// It does that without allocating or moving memory by setting the size for the offset calculation to zero.
+inl expand_singular dim tns =
+    inl is_expandable =
+        Tuple.map2 (inl dim cur -> 
+            if cur <> dim then
+                assert (cur = 1) "Only singular dimensions can be expanded."
+                true
+            else
+                false
+            ) (Tuple.wrap dim) tns.dim
+    tns.update_body (inl d -> {d with size = Tuple.map2 (inl cur is_expandable -> if is_expandable then 0 else cur) self is_expandable})
+
 /// Zips all the tensors in the argument together. Their dimensions must be equal.
 /// tensor structure -> tensor
 inl zip l = 
@@ -1814,7 +1827,7 @@ inl from_scalar x =
     t
 
 {
-create facade init copy assert_size array_as_tensor array_to_tensor map zip show print length
+create facade init copy assert_size array_as_tensor array_to_tensor map zip show print length expand_singular
 equal split flatten assert_contiguous assert_zip assert_broadcastable assert_dim reshape unzip from_scalar
 } |> stackify
     """) |> module_
