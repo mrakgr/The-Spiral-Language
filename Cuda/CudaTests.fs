@@ -85,7 +85,7 @@ inb s = s.RegionMem.create'
 inb s = s.RegionStream.create'
 inl s = s.RegionStream.allocate
 
-inl h = HostTensor.create {elem_type=int64; dim=1,2,3}
+inl h = Tensor.create {elem_type=int64; dim=1,2,3}
 inl a1 = s.CudaTensor.from_host_tensor h
 inl a2 = s.CudaTensor.to_host_tensor a1
 ()
@@ -362,7 +362,7 @@ inl out, ipiv = s.CudaSolve.getrf A
 inl perm ipiv =
     inl p = s.CudaTensor.to_host_tensor ipiv
     inl near_to :: () = p.dim
-    inl ar = HostTensor.init (max n m) id
+    inl ar = Tensor.init (max n m) id
     Loops.for {from=0; near_to body=inl {i} ->
         inl swap a b =
             inl x = ar a .get
@@ -516,7 +516,7 @@ let kernel6 =
     """
 inb s = CudaModules (1024*1024)
 
-inl h = HostTensor.init 2048 ((+) 1)
+inl h = Tensor.init 2048 ((+) 1)
 inl a1 = s.CudaTensor.from_host_tensor h
 inl o1 = s.CudaTensor.create {dim=1; elem_type=int64}
 
@@ -539,8 +539,8 @@ inb s = CudaModules (1024*1024)
 inl inner_size = 8
 inl outer_size = 8
 
-inl h = HostTensor.init inner_size (const 123)
-inl h' = HostTensor.init (outer_size,inner_size) (inl a b -> a,b)
+inl h = Tensor.init inner_size (const 123)
+inl h' = Tensor.init (outer_size,inner_size) (inl a b -> a,b)
 inl a1 = s.CudaTensor.from_host_tensor h
 inl a2 = s.CudaTensor.from_host_tensor h'
 inl o1 = s.CudaTensor.create {elem_type=a1.elem_type,a2.elem_type; dim=a2.dim}
@@ -853,7 +853,7 @@ let fun2 =
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
 /// Creates a host tensor with the given generator function.
-inl h = HostTensor.init 32 (inl x -> x + 1) 
+inl h = Tensor.init 32 (inl x -> x + 1) 
 /// Loads the tensor on the GPU based on the host tensor
 inl a1 = s.CudaTensor.from_host_tensor h
 /// Makes a tensor of the same type and dimensions as `a1` and zeroes it.
@@ -864,7 +864,7 @@ s.CudaFun.map {out=o1; map=inl a -> a * 2} a1
 /// Transfers the tensor back to host.
 inl a2 = s.CudaTensor.to_host_tensor o1
 /// Zips the two tensors and prints them out.
-HostTensor.zip (h,a2) |> HostTensor.show |> Console.writeline
+Tensor.zip (h,a2) |> Tensor.show |> Console.writeline
     """
 
 let fun3 =

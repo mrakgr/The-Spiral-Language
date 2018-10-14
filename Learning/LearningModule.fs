@@ -579,7 +579,7 @@ inl float ->
     inl matmult l s = matmultb l () s
 
     inl activation {fwd bck} in s =
-        inl x = primals in |> HostTensor.zip
+        inl x = primals in |> Tensor.zip
         inl dim = x.dim
         
         inl out = s.CudaFun.map {map=fwd} x |> dr s
@@ -602,7 +602,7 @@ inl float ->
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
     /// just to set the adjoint to 1. The current library is intended for a narrow purpose.
     inl error {fwd bck} in s =
-        inl x = primals in |> HostTensor.zip
+        inl x = primals in |> Tensor.zip
         inl dim = x.dim
         inl out = s.CudaFun.redo {redo=(+); neutral_elem=zero; map=fwd} x 0
         
@@ -719,7 +719,7 @@ inl float ->
     inl init {dim} init s =
         inl out =
             s.CudaFun.init {dim} (inl dim -> primals (init dim .out))
-            |> HostTensor.unzip
+            |> Tensor.unzip
             |> Struct.map (dr s)
         
         {
@@ -734,7 +734,7 @@ inl float ->
         }
 
     inl map f in s =
-        inl dim = HostTensor.assert_broadcastable (primals in)
+        inl dim = Tensor.assert_broadcastable (primals in)
         inl in = to_dev_tensor in
         open CudaAD
         init {dim} (inl cur -> broadcasting_link dim cur in >>= f) s
@@ -1251,7 +1251,7 @@ inl float ->
                 inm {out memory} =
                     inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
                     inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
-                    inl bias, input, state = Struct.map' (HostTensorView.wrap ((),inner.dim) >> HostTensorView.split) (weights.bias, input, state) |> Liple.map zip_dual
+                    inl bias, input, state = Struct.map' (View.wrap ((),inner.dim) >> View.split) (weights.bias, input, state) |> Liple.map zip_dual
                     inl cell = Struct.map3 (inl input state bias -> {input state bias}) input state bias
                     map CudaAD.lstm {memory cell}
                 
@@ -1360,7 +1360,7 @@ inl float ->
                 inl reward = 
                     match reward with
                     | _: float32 | _: float64 ->
-                        assert (HostTensor.span dim_a = 1) "In the scalar reward case, the outer dimension of the input must be 1."
+                        assert (Tensor.span dim_a = 1) "In the scalar reward case, the outer dimension of the input must be 1."
                         inl reward = to float reward
                         inl _ _ _ -> reward
                     | _ ->
@@ -1403,7 +1403,7 @@ inl float ->
             indiv join
                 assert (eq_type State input) "The input must be equal to the state type."
                 inl input = 
-                    inl tns = Union.to_dense input |> HostTensor.array_as_tensor
+                    inl tns = Union.to_dense input |> Tensor.array_as_tensor
                     s.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
 
                 inl net, input = run s input net

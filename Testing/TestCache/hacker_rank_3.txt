@@ -854,21 +854,22 @@ and method_26((var_0: EnvHeapMutable2)): Tuple1 =
     let (var_1: int64) = var_0.mem_1
     let (var_2: int64) = var_0.mem_2
     let (var_3: (Tuple1 [])) = var_0.mem_0
-    let (var_4: bool) = (var_1 <> var_2)
-    let (var_5: bool) = (var_4 = false)
-    if var_5 then
+    let (var_4: bool) = (var_1 = var_2)
+    let (var_5: bool) = (var_4 <> true)
+    let (var_6: bool) = (var_5 = false)
+    if var_6 then
         (failwith "Cannot dequeue past the end of the queue.")
     else
         ()
-    let (var_6: int64) = var_3.LongLength
-    let (var_7: int64) = (var_1 + 1L)
-    let (var_8: bool) = (var_7 = var_6)
-    let (var_9: int64) =
-        if var_8 then
+    let (var_7: int64) = var_3.LongLength
+    let (var_8: int64) = (var_1 + 1L)
+    let (var_9: bool) = (var_8 = var_7)
+    let (var_10: int64) =
+        if var_9 then
             0L
         else
-            var_7
-    var_0.mem_1 <- var_9
+            var_8
+    var_0.mem_1 <- var_10
     var_3.[int32 var_1]
 and method_27((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64), (var_4: string), (var_5: EnvHeapMutable2), (var_6: string), (var_7: string), (var_8: string), (var_9: int64), (var_10: int64), (var_11: Rec3)): unit =
     let (var_12: int64) = (var_9 - 1L)

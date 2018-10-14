@@ -552,7 +552,7 @@ inl {basic_methods State Action} ->
                 (inl {state={state with shared actor critic} input={input cd}} ->
                     assert (eq_type State input) "The input must be equal to the state type."
                     inl input = 
-                        inl tns = Union.to_dense input |> HostTensor.array_as_tensor
+                        inl tns = Union.to_dense input |> Tensor.array_as_tensor
                         cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
                     inl shared, shared_out = run cd input shared
                     inl actor, actor_out = run cd shared_out actor

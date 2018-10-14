@@ -889,9 +889,9 @@ Tuple.scanl (+) 0 x, Tuple.scanr (+) x 0
     """
 
 let test79 =
-    "test79",[host_tensor],"Does the HostTensor init work? Do set and index for the new array module work?",
+    "test79",[host_tensor],"Does the Tensor init work? Do set and index for the new array module work?",
     """
-inl tns = HostTensor.init (10,10) (inl a b -> a*b)
+inl tns = Tensor.init (10,10) (inl a b -> a*b)
 inl x = tns 2 2 .get
 tns 2 2 .set (x+100)
 tns 2 2 .get
@@ -939,7 +939,7 @@ inl q = true && dyn true
 let test84 =
     "test84",[host_tensor],"Does the scalar tensor work?",
     """
-open HostTensor
+open Tensor
 inl ar = init () 5
 ar .get
     """
@@ -947,7 +947,7 @@ ar .get
 let test85 =
     "test85",[host_tensor],"Does the split work?",
     """
-open HostTensor
+open Tensor
 inl ar = init (32*32) id |> split (const (16,64))
 (ar 0 0, ar 0 1, ar 0 2, ar 1 0, ar 1 1, ar 1 2) |> Tuple.map (inl x -> x.get)
     """
@@ -955,7 +955,7 @@ inl ar = init (32*32) id |> split (const (16,64))
 let test86 =
     "test86",[host_tensor],"Is the type of host tensor for the TOA layout correct? Does it work on the singleton dimensions?",
     """
-open HostTensor
+open Tensor
 inl ar = init 10 id
 ar 5 .get
     """
@@ -990,7 +990,7 @@ let test89 =
 let test90 =
     "test90",[host_tensor],"Does the tensor map work?",
     """
-open HostTensor
+open Tensor
 init (2,2) (inl a b -> a*2+b)
 |> map ((*) 2)
     """
@@ -998,7 +998,7 @@ init (2,2) (inl a b -> a*2+b)
 let test91 =
     "test91",[array;host_tensor],"Does assert_size work? Does converting from array to tensor work?",
     """
-open HostTensor
+open Tensor
 inl tns =
     Array.init 6 id
     |> array_to_tensor
@@ -1040,9 +1040,9 @@ Array.init 8 (inl i -> {x = to float64 i; y = to float64 i-30.0} |> dyn |> packe
     """
 
 let test96 =
-    "test96",[host_tensor;console],"Does the show from HostTensor work?",
+    "test96",[host_tensor;console],"Does the show from Tensor work?",
     """
-open HostTensor
+open Tensor
 init (2,3,4) (inl a b c -> a*b*c)  
 |> show |> Console.writeline
     """
@@ -1050,7 +1050,7 @@ init (2,3,4) (inl a b c -> a*b*c)
 let test97 =
     "test97",[host_tensor;console],"Does the view indexing work?",
     """
-open HostTensor
+open Tensor
 inl w = 2,3,4
 init (2,3,4) (inl a b c -> a*b*c) (1,{from=1},{from=1; by=2})
 |> show |> Console.writeline
@@ -1216,41 +1216,41 @@ let test113 =
     "test113",[host_tensor_view;console],"Do the tensor range views work?",
     """
 inl tns =
-    HostTensor.init (2,3,4) (inl a b c -> a*b*c)  
-    |> HostTensorView.wrap ({from=2; near_to=4},{from=2; near_to=5},{from=2; near_to=6})
+    Tensor.init (2,3,4) (inl a b c -> a*b*c)  
+    |> View.wrap ({from=2; near_to=4},{from=2; near_to=5},{from=2; near_to=6})
 
 inl tns = tns ((), {from=3; by=2}, {from=3})
-tns .basic |> HostTensor.print
+tns .basic |> Tensor.print
     """
 
 let test114 =
     "test114",[host_tensor_view;console],"Do the tensor tree views work?",
     """
 inl tns =
-    HostTensor.init (2,3,4) (inl a b c -> a*b*c)  
-    |> HostTensorView.wrap ({a=1; b=1},{a=1; b=2},{a=1; b={q=3}})
+    Tensor.init (2,3,4) (inl a b c -> a*b*c)  
+    |> View.wrap ({a=1; b=1},{a=1; b=2},{a=1; b={q=3}})
 
 inl tns = tns ({b=()}, {b=()}, {b={q=()}})
-tns .basic |> HostTensor.print
+tns .basic |> Tensor.print
     """
 
 let test115 =
     "test115",[host_tensor_view;console],"Does the tensor view's create function work?",
     """
-inl tns = HostTensorView.create {dim={a=1; b=1}, {a=1; b=2}, {a=1; b={q=3}}; elem_type=float32}
+inl tns = View.create {dim={a=1; b=1}, {a=1; b=2}, {a=1; b={q=3}}; elem_type=float32}
 
 inl tns = tns ({b=()}, {b=()}, {b={q=()}})
-tns .basic |> HostTensor.print
+tns .basic |> Tensor.print
     """
 
 let test116 =
     "test116",[host_tensor_view;console],"Do the tensor tree partial views work?",
     """
 inl tns =
-    HostTensor.init (4,16) (inl a b -> a,b)
-    |> HostTensorView.wrap ((), {a={b=4; c=4}; d={e=4; f=4}})
+    Tensor.init (4,16) (inl a b -> a,b)
+    |> View.wrap ((), {a={b=4; c=4}; d={e=4; f=4}})
 
-tns ((),{d=()}) .basic |> HostTensor.print
+tns ((),{d=()}) .basic |> Tensor.print
     """
 
 let parsing1 = 
@@ -1682,7 +1682,7 @@ inl parser =
         }
     |> function
         | {mario=.Some, (mario_row, mario_col as mario_pos) princess=.Some, (princess_row, princess_col as princess_pos)} ->
-            inl cells_visited = HostTensor.init (n,n) (inl _ _ -> false)
+            inl cells_visited = Tensor.init (n,n) (inl _ _ -> false)
             cells_visited mario_row mario_col .set true
 
             inl up_string = dyn "UP"
@@ -1787,7 +1787,7 @@ inl parser ret =
 
 inl main = {
     some = met {n field mario=(mario_row, mario_col as mario_pos) princess=(princess_row, princess_col as princess_pos)} ->
-        inl cells_visited = HostTensor.init (n,n) (inl _ _ -> false)
+        inl cells_visited = Tensor.init (n,n) (inl _ _ -> false)
         cells_visited mario_row mario_col .set true
 
         inl up_string = dyn "UP"
@@ -1914,7 +1914,7 @@ inl second = 1
 inl max_t = 15
 
 inl cache = 
-    inl cache = HostTensor.init (max_t,max_t,num_players) (inl _ _ _ -> none first)
+    inl cache = Tensor.init (max_t,max_t,num_players) (inl _ _ _ -> none first)
     inl op (x,y,player_one,player_two) -> cache (x-1) (y-1) player_one op
 
 met rec solve !dyn (x,y,player_one,player_two) as d = 
@@ -2006,7 +2006,7 @@ inl x_range = {from=1; to=1000}
 inl n_range = {from=2; to=10}
 
 inl x_to_n = 
-    inl cache = HostTensorView.create {dim=x_range,n_range; elem_type=int64}
+    inl cache = View.create {dim=x_range,n_range; elem_type=int64}
     for {x_range with body=inl {i=x} ->
         for {n_range with body=inl {i=n} ->
             for {from=2; to=n; state=x; body=inl {state=x'} -> x*x'}

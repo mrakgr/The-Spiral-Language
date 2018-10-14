@@ -3828,6 +3828,8 @@ The implementation of `HostTensor` in the standard library is somewhat convolute
 
 Tensors in Spiral can have an arbitrary number of dimensions, arbitrary types and arbitrary layouts in addition to supporting views. Indexing into them emulates the partial application of functions. `init` for them takes arguments in curried form which supports scope control.
 
+*Note: The HostTensor module was greatly redesigned since this was last written so the examples won't compile anymore. This tutorial will be updated at some point to reflect this. The tensor does not longer support ranges, but instead it has been split into `Tensor` and `View`. `View` in particular supports both range views as shown here and named tree-based views which make certain optimization such as for the LSTM layer a lot safer and easier to implement.*
+
 ```
 let example = 
     "example",[option;tuple;loops;extern_;console;host_tensor],"Module description.",

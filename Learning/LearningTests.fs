@@ -139,8 +139,8 @@ inl data =
         assert (x < size.hot) "The inputs need to be in the [0,127] range."
         to uint8 x
         )
-    |> HostTensor.array_as_tensor
-    |> HostTensor.assert_size size.seq
+    |> Tensor.array_as_tensor
+    |> Tensor.assert_size size.seq
     |> s.CudaTensor.from_host_tensor
     |> inl data -> data.round_split size.minibatch
 
@@ -292,7 +292,7 @@ inl make_pattern size =
     {original degraded}
 
 inl make_patterns n size =
-    HostTensor.init (n,size) (inl n ->
+    Tensor.init (n,size) (inl n ->
         inl pattern = make_pattern size
         inl n -> Struct.map (inl x -> x n) pattern
         )
@@ -312,7 +312,7 @@ inl data =
     make_patterns (size.seq * size.episode * size.minibatch) size.pattern 
         .reshape (inl a,b -> size.seq, size.episode, size.minibatch, b)
     |> s.CudaTensor.from_host_tensor
-    |> HostTensor.unzip
+    |> Tensor.unzip
 
 inl loop_over near_to f = Loops.for {from=0; near_to body=inl {i} -> f i}
 inl loop_over' near_to f = Loops.for' {from=0; near_to body=inl {i next} -> f {i next}}

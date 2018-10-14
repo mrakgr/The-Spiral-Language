@@ -1474,10 +1474,11 @@ foldl_map foldl2_map foldl3_map foldr foldr2 foldr3 foldr_map foldr2_map foldr3_
 
 let host_tensor =
     (
-    "HostTensor",[tuple;struct';loops;extern_;console;liple],"The HostTensor module.",
+    "Tensor",[tuple;struct';loops;extern_;console;liple],"The Tensor module.",
     """
 // A lot of the code in this module is made with purpose of being reused on the Cuda side.
 // Despite its name, it can be overloaded to work inside Cuda kernels by passing a different `array_create` as argument into `create`.
+// Used to be named HostTensor, but was shortened to reduce typing burden.
 inl rec view_offsets offset = function
     | s :: s', i :: i' -> s * i + view_offsets offset (s', i')
     | _, () -> offset
@@ -1820,7 +1821,7 @@ equal split flatten assert_contiguous assert_zip assert_broadcastable assert_dim
 
 let host_tensor_view =
     (
-    "HostTensorView",[tuple;host_tensor],"Views for the tensor.",
+    "View",[tuple;host_tensor],"Views for the tensor.",
     """
 inl rec facade data = 
     inl methods = stack {
@@ -1926,7 +1927,7 @@ inl map_dim default = function
         
 inl create {dsc with dim} = 
     inl size, dim = Tuple.map (map_dim (inl _ -> error_type "() not allowed in view create.")) (Tuple.wrap dim) |> Tuple.unzip
-    inl basic = HostTensor.create {dsc with dim=size}
+    inl basic = Tensor.create {dsc with dim=size}
     facade {basic dim}
 
 inl wrap dim basic =

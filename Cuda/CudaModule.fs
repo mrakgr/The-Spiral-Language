@@ -76,14 +76,14 @@ inl load_mnist_tensors mnist_path =
             inl size, ar = load_mnist .image (combine (mnist_path, file))
             assert (image_size = size) "Mnist dimensions do not match the expected values."
             inl images, rows, cols = image_size
-            HostTensor.array_as_tensor ar
-            |> HostTensor.split (const (images, rows * cols))
-            |> HostTensor.map (inl x -> to float32 x / 255f32)
+            Tensor.array_as_tensor ar
+            |> Tensor.split (const (images, rows * cols))
+            |> Tensor.map (inl x -> to float32 x / 255f32)
             
         | {file label_size} ->
             inl n, ar = load_mnist .label (combine (mnist_path, file))
             assert (label_size = n) "Mnist dimensions do not match the expected values."
-            HostTensor.init (label_size, 10) (inl a ->
+            Tensor.init (label_size, 10) (inl a ->
                 inl x = ar a
                 inl b -> if to uint8 b = x then 1.0f32 else 0.0f32
                 )
@@ -493,7 +493,7 @@ let cuda_tensor =
     (
     "CudaTensor",[extern_;host_tensor_view;cuda_aux],"The Cuda tensor module.",
     """
-open HostTensor
+open Tensor
 open Extern
 
 inl SizeT_type = fs [text: "ManagedCuda.BasicTypes.SizeT"]
@@ -571,7 +571,7 @@ met set_elem s (!dyn {dst with size=()}) (!dyn v) =
 inl methods = 
     {
     create=inl s data -> create {data with array_create = array_create_cuda_global s}
-    create_view=inl s data -> HostTensorView.create {data with array_create = array_create_cuda_global s}
+    create_view=inl s data -> View.create {data with array_create = array_create_cuda_global s}
     create_like=inl s tns -> s.CudaTensor.create {elem_type=tns.elem_type; dim=tns.dim}
 
     to_host_array from_host_array from_cudadevptr_array
@@ -586,7 +586,7 @@ inl methods =
         | {bodies dim=()} -> Struct.iter2 (set_elem s) bodies v
         | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
 
-    from_scalar = inl s -> HostTensor.from_scalar >> s.CudaTensor.from_host_tensor
+    from_scalar = inl s -> Tensor.from_scalar >> s.CudaTensor.from_host_tensor
     from_host_tensor=inl s -> transfer_template s.CudaTensor.from_host_array
     from_host_tensors=inl s -> Struct.map s.CudaTensor.from_host_tensor
     to_host_tensor=inl s -> transfer_template s.CudaTensor.to_host_array
@@ -630,8 +630,8 @@ inl methods =
 
     print=met s (!dyn x) -> 
         match x with
-        | {cutoff input} -> HostTensor.print {cutoff input=s.CudaTensor.to_host_tensor (zip input)} 
-        | x -> s.CudaTensor.to_host_tensor (zip x) |> HostTensor.print
+        | {cutoff input} -> Tensor.print {cutoff input=s.CudaTensor.to_host_tensor (zip input)} 
+        | x -> s.CudaTensor.to_host_tensor (zip x) |> Tensor.print
 
     mmap=inl s f tns -> s.CudaKernel.map' (const f) tns.empty tns
     } |> stackify
@@ -656,7 +656,7 @@ inl s ret ->
         FS.Constructor (fs [text: "ManagedCuda.CudaRand.CudaRandDevice"]) (FS.StaticField generator_type .PseudoDefault generator_type)
     inl s = s.data_add {random=random'}
     
-    open HostTensor
+    open Tensor
     
     inl fill_array s distribution size1d ar =
         // The allocator always allocates in blocks of 256 so incrementing the odd sizes by 1 won't be a problem.
@@ -767,7 +767,7 @@ inl s ret ->
         FS.Constructor cublas_type (enum pointer_mode_type .Host, enum atomics_mode_type .Allowed)
     inl s = s.data_add {cublas=cublas'}
 
-    open HostTensor
+    open Tensor
     
     inl call s method args = 
         inl cublas = s.data.cublas
@@ -1243,7 +1243,7 @@ let cuda_kernel =
     (
     "CudaKernel",[host_tensor_view;cuda_tensor],"The Cuda kernels module.",
     """
-open HostTensor
+open Tensor
 open Extern
 
 inl span = function {from near_to} -> near_to - from | by -> by
@@ -1252,7 +1252,7 @@ inl index_example dim = Tuple.map (inl _ -> var 0) (Tuple.wrap dim) |> Tuple.unw
 
 /// These two loops are only here until NVidia gets its shit together and fixes the NVCC tuple local write bugs for tail recursive loops.
 inl whilecd {cond state body} =
-    inl r = HostTensor.create {
+    inl r = Tensor.create {
         array_create=array_create_cuda_local 
         elem_type=state 
         dim=()
@@ -1399,7 +1399,7 @@ inl cub_block_scan {scan_type is_input_tensor return_aggregate} {d with blockDim
     inl out, ty = 
         if is_input_tensor then 
             inl elem_type = in.elem_type
-            HostTensor.create {
+            Tensor.create {
                 array_create = array_create_cuda_local
                 elem_type dim=in.dim
                 }, elem_type
@@ -1666,12 +1666,12 @@ inl block_reduce_body ar near_to threadIdx redo state =
 inl block_reduce_template dim ar (near_to, threadIdx) redo state =
     if near_to > 1 then
         inl ar = 
-            HostTensor.create {
+            Tensor.create {
                 array_create=array_create_cuda_shared
                 elem_type=state
                 dim=Liple.map length dim
                 }
-            |> HostTensorView.wrap dim
+            |> View.wrap dim
             |> ar
 
         block_reduce_body ar near_to threadIdx redo state
@@ -1746,7 +1746,7 @@ met init_seq w {dim=b,a init} =
             inl grid_for_items = grid_for_items dims
             inl inner_loop = grid_for_items .x a
             inl create_items map = 
-                inl items = HostTensor.create {
+                inl items = Tensor.create {
                     array_create = array_create_cuda_local
                     layout=.aot
                     elem_type=type map {item=var 0; i=var 0}
@@ -1813,7 +1813,7 @@ met inscan_init w {dim=b,a init outit redo neutral_elem} =
                             inl to = near_to - from
 
                             inl ar = 
-                                HostTensor.create {
+                                Tensor.create {
                                     array_create=array_create_cuda_shared
                                     elem_type=state
                                     dim=to, blockDim.x
@@ -1888,7 +1888,7 @@ let cuda_fun =
     (
     "CudaFun",[host_tensor;cuda_tensor],"The CudaFun module.",
     """
-open HostTensor
+open Tensor
 inl to_dev_tensor = CudaAux.to_dev_tensor
 
 inl index_example dim = Tuple.map (inl _ -> var 0) (Tuple.wrap dim) |> Tuple.unwrap
@@ -2193,7 +2193,7 @@ inl s ret ->
         inl stream = s.data.stream
         inl handle = s.data.cusolve_dense_handle ()
         dense_call' handle .cusolverDnSetStream (stream.extract :: ())
-        inl to_dev_tensor x = HostTensor.assert_contiguous x; CudaAux.to_dev_tensor x
+        inl to_dev_tensor x = Tensor.assert_contiguous x; CudaAux.to_dev_tensor x
 
         inl args =
             inl strip ptr = 
