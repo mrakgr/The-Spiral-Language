@@ -165,7 +165,7 @@ inl n = 1f32 / to float size.step
 inl network,_ =
     open Feedforward
     open RNN
-    inl network = 
+    inl network =
         {
         mi =
             mi 128,
