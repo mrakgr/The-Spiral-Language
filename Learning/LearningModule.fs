@@ -1171,7 +1171,7 @@ inl float ->
         {
         init = inl sublayer_size -> 
             {
-            dsc = 
+            dsc =
                 open Initializer.dual.Tensor
                 inl weight_streams f dim = {
                     weight = f dim
