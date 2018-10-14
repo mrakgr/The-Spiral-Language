@@ -1210,8 +1210,12 @@ inl float ->
         block = ()
         }
 
-    inl expand_singular dim tns =
-        () // TODO: WIP.
+    inl expand_singular dim tns s =
+        inl out = Tensor.expand_singular dim (primal tns) |> dr s
+        {
+        out
+        bck=met _ -> bck_add_bias (adjoint out) (adjoint tns) s
+        }
 
     inl mi' size =
         {
