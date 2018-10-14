@@ -1210,6 +1210,60 @@ inl float ->
         block = ()
         }
 
+    inl mi' size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc =
+                open Initializer.dual.Tensor
+                inl weight_streams f dim = {
+                    weight = f dim
+                    streams = stream, stream
+                    block = ()
+                    }
+                {
+                weights =
+                    state = weight_streams tanh (size, size)
+                    input = weight_streams tanh (sublayer_size, size)
+                    bias = {
+                        si = const one (1,size)
+                        i = const half (1,size)
+                        s = const half (1,size)
+                        c = zero (1,size)
+                        }
+                covariance =
+                    state = covariance {in=size; out=size}
+                    input = covariance {in=sublayer_size; out=size}
+                    bias = {
+                        si = covariance {out=size}
+                        i = covariance {out=size}
+                        s = covariance {out=size}
+                        c = covariance {out=size}
+                        }
+                }
+            size
+            }
+
+        apply = inl {d with weights input} s -> 
+            inl span = primal input .span_outer
+            inl out =
+                match d with
+                | {state={out}} -> out
+                | _ -> s.CudaTensor.zero {elem_type=float; dim=span,size}
+
+            inl apply =
+                inm out =
+                    inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
+                    inl bias = weights.bias
+                    map CudaAD.generalized_mi_tanh {input state bias}
+
+                succ {out state={out}}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        block = ()
+        }
+
+
     inl lstm size =
         open Initializer.dual.TensorView
         inl inner = 
