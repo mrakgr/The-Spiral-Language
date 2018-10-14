@@ -1773,14 +1773,15 @@ inl assert_broadcastable =
 /// Expands the singular dimensions of a tensor to a specified size depending on the argument passed to it. 
 /// It does that without allocating or moving memory by setting the size for the offset calculation to zero.
 inl expand_singular dim tns =
+    inl dim = Tuple.wrap dim |> Tuple.map2 (inl cur dim -> match dim with () -> cur | _ -> dim) tns.dim
     inl is_expandable =
-        Tuple.map2 (inl dim cur -> 
+        Tuple.map2 (inl cur dim -> 
             if cur <> dim then
                 assert (cur = 1) "Only singular dimensions can be expanded."
                 true
             else
                 false
-            ) (Tuple.wrap dim) tns.dim
+            ) tns.dim dim
     tns.update_body (inl d -> {d with size = Tuple.map2 (inl cur is_expandable -> if is_expandable then 0 else cur) self is_expandable})
        .set_dim dim
 

@@ -1210,6 +1210,9 @@ inl float ->
         block = ()
         }
 
+    inl expand_singular dim tns =
+        () // TODO: WIP.
+
     inl mi' size =
         {
         init = inl sublayer_size -> 
