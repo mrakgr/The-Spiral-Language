@@ -1643,6 +1643,8 @@ inl rec facade data =
             loop data (Tuple.wrap i) |> facade
         /// Returns the tensor data.
         unwrap = id
+        /// Placeholder that returns the identity
+        basic = id >> facade
         /// Returns an empty tensor of the same dimension.
         empty = inl data -> facade {data with bodies=()}
         span_outer = inl {dim} -> match dim with () -> 1 | x :: _ -> x
@@ -1760,6 +1762,7 @@ inl assert_broadcastable =
             assert (eq_type s x.dim) "The inputs must have the same number of dimensions."
             Struct.map2 (inl s x ->
                 if s = 1 then x
+                elif x = 1 then s
                 else
                     assert (s = x) "The dimensions of the inputs must all be either singular or equal to each other."
                     s
@@ -1931,7 +1934,7 @@ inl wrap dim basic =
     assert (basic.dim = size) "The view must be of the same size as the tensor it is wrapping."
     facade {basic dim}
 
-inl split tns s =
+inl split tns =
     inl dim = tns.dim
     inl tns = tns.basic
     inl f x next s =
@@ -1941,7 +1944,7 @@ inl split tns s =
                 match x with
                 | {from near_to} -> next (x :: s)
                 | {} -> module_map (inl k x -> loop x) x
-            loop s.init x
+            loop x
         | from -> next (() :: s)
 
     Tuple.foldr f dim (Tuple.rev >> tns) ()

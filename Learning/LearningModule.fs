@@ -54,7 +54,7 @@ inl unary f x =
     inm x = x
     f x
 
-inl sigmoid x =
+inl sigmoid =
     unary <| inl x ->
         inl out = primal x |> sigmoid_fwd |> dr
         {
@@ -799,7 +799,8 @@ inl float ->
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
-        s.CudaFun.map {out=primal,adjoint; map=inl P, A -> P - learning_rate * A, zero} (primal, adjoint)
+        inl out = primal.basic, adjoint.basic
+        s.CudaFun.map {out map=inl P, A -> P - learning_rate * A, zero} out
 
     inl clipped_sgd max learning_rate s {primal adjoint} = 
         s.CudaFun.map {
@@ -992,11 +993,18 @@ inl float ->
     // #Initializer
     inl Initializer number =
         inl Init =
-            inl normal {stddev mean} tns s = s.CudaRandom.fill {dst=.Normal; stddev mean} tns
+            inl normal {stddev mean} to s = 
+                inb from = s.CudaRandom.create {dst=.Normal; stddev mean} {elem_type=float; dim=to.dim} |> CudaAux.temporary
+                inl {from to} = to_dev_tensor {from to}
+                s.CudaKernel.iter {dim=to.dim} (inl i -> to i .set (from i .get))
             inl stddev_sum_init mult tns = 
                 inl stddev = sqrt (mult / to float32 (Tuple.foldl (+) 0 tns.dim))
                 inl mean = 0f32
                 normal {stddev mean} tns
+
+            inl constant init tns s =
+                inl tns = to_dev_tensor tns
+                s.CudaKernel.iter {dim=tns.dim} (inl i -> tns i .set init)
 
             {
             // Rough and possibly poorly tuned inits. Recommended to be used together with PRONG or layer/batch norm.
@@ -1005,10 +1013,9 @@ inl float ->
             tanh = stddev_sum_init 3f32
             randn = inl stddev -> normal {stddev mean=0f32}
         
-            zero = inl tns s -> s.CudaTensor.clear tns
-            const = inl init tns s ->
-                inl tns = to_dev_tensor tns
-                s.CudaKernel.iter {dim=tns.dim} (inl i -> tns i .set init)
+            zero = constant zero
+            const = constant
+
             identity = inl tns s ->
                 inl a,b as dim = tns.dim
                 assert (a = b) "The tensor needs to be a square matrix."
@@ -1034,14 +1041,14 @@ inl float ->
                     inl rec loop init x = 
                         match x with
                         | {from near_to} -> next {s with apply=x :: self; init}
-                        | {} -> module_map (inl k x -> loop (init k) x; ()) x
+                        | {} -> module_map (inl k x -> loop (init k) x; ()) x |> ignore
                     loop s.init x
                 | from -> next {s with apply=() :: self}
 
             inl finally {apply init} = 
                 inl tns = Tuple.rev apply |> tns 
                 init tns s
-
+            
             Tuple.foldr f dim finally {init apply=()}
 
         inl tensor_view_template f {init dim} s =
@@ -1210,27 +1217,27 @@ inl float ->
             {
             dim =
                 {
-                input_cell = size
-                forget_cell = size
-                memory_cell = size
-                output_cell = size
+                input = size
+                forget = size
+                memory = size
+                output = size
                 }
             }
         inl init =
             {
             bias =
                 {
-                input_cell = const zero
-                forget_cell = const one
-                memory_cell = const zero
-                output_cell = const zero
+                input = zero
+                forget = const one
+                memory = zero
+                output = zero
                 }
             cell = 
                 {
-                input_cell = sigmoid
-                forget_cell = sigmoid
-                memory_cell = tanh
-                output_cell = sigmoid
+                input = sigmoid
+                forget = sigmoid
+                memory = tanh
+                output = sigmoid
                 }
             }
         {
@@ -1243,16 +1250,16 @@ inl float ->
                     block = ()
                     }
                 {
-                input = weight_streams { init = init.cell; dim = sublayer_size inner.dim }
+                input = weight_streams { init = init.cell; dim = sublayer_size, inner.dim }
                 state = weight_streams { init = init.cell; dim = size, inner.dim }
-                bias = tensor_view {init = init.bias; dim = 1, inner.dim}
+                bias = view {init = init.bias; dim = 1, inner.dim}
                 }
             size
             }
 
         apply = inl {d with weights input} s -> 
             inl span = primal input .span_outer
-            inl out', memory =
+            inl out, memory =
                 match d with
                 | {state={out memory}} -> out, memory
                 | _ -> 
@@ -1261,12 +1268,13 @@ inl float ->
 
             inl apply =
                 inm {out memory} =
-                    inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out'})
-                    inl bias = weights.bias
-                    inl input, state = Struct.map' (HostTensorView.wrap ((),inner.dim) >> HostTensorView.split) (input, state)
+                    inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
+                    inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
+                    inl bias = Struct.map' HostTensorView.split weights.bias |> zip_dual
+                    inl input, state = Struct.map' (HostTensorView.wrap ((),inner.dim) >> HostTensorView.split) (input, state) |> Liple.map zip_dual
                     inl cell = Struct.map3 (inl input state bias -> {input state bias}) input state bias
                     map CudaAD.lstm {memory cell}
-
+                
                 succ {out state={out memory}}
             inl {out={out state} bck} = apply s
             {out state bck}
@@ -1322,7 +1330,7 @@ inl float ->
                 )
         }
 
-    inl RNN = {mi}
+    inl RNN = {mi lstm}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
