@@ -1087,8 +1087,8 @@ inl float ->
                 inl adjoint tns s = Init.zero tns.basic s
                 tensor_view {init={primal adjoint block=()}; dim}
             
-            inl view = Struct.map ((<|) tensor_view) {sing dual} number
-            inl view' = Struct.map ((<|) tensor_view') {sing dual} number
+            inl view = Struct.map (inl x -> x tensor_view) {sing dual} number
+            inl view' = Struct.map (inl x -> x tensor_view') {sing dual} number
 
             { Init with view view' stream }
 
