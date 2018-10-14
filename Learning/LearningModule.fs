@@ -799,7 +799,7 @@ inl float ->
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
-        inl out = primal.basic, adjoint.basic
+        inl out = primal, adjoint
         s.CudaFun.map {out map=inl P, A -> P - learning_rate * A, zero} out
 
     inl clipped_sgd max learning_rate s {primal adjoint} = 
@@ -1252,7 +1252,7 @@ inl float ->
                 {
                 input = weight_streams { init = init.cell; dim = sublayer_size, inner.dim }
                 state = weight_streams { init = init.cell; dim = size, inner.dim }
-                bias = view {init = init.bias; dim = 1, inner.dim}
+                bias = view' {init = init.bias; dim = 1, inner.dim}
                 }
             size
             }
@@ -1270,8 +1270,7 @@ inl float ->
                 inm {out memory} =
                     inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
                     inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
-                    inl bias = Struct.map' HostTensorView.split weights.bias |> zip_dual
-                    inl input, state = Struct.map' (HostTensorView.wrap ((),inner.dim) >> HostTensorView.split) (input, state) |> Liple.map zip_dual
+                    inl bias, input, state = Struct.map' (HostTensorView.wrap ((),inner.dim) >> HostTensorView.split) (weights.bias, input, state) |> Liple.map zip_dual
                     inl cell = Struct.map3 (inl input state bias -> {input state bias}) input state bias
                     map CudaAD.lstm {memory cell}
                 
