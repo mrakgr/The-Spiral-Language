@@ -1193,17 +1193,16 @@ inl float ->
 
         apply = inl {d with weights input} s -> 
             inl span = primal input .span_outer
-            inl out' =
+            inl out =
                 match d with
                 | {state={out}} -> out
                 | _ -> s.CudaTensor.zero {elem_type=float; dim=span,size}
 
             inl apply =
                 inm out =
-                    inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out'})
+                    inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
                     inl bias = weights.bias
-                    inm out = map CudaAD.generalized_mi_tanh {input state bias}
-                    succ out
+                    map CudaAD.generalized_mi_tanh {input state bias}
 
                 succ {out state={out}}
             inl {out={out state} bck} = apply s
@@ -1215,30 +1214,12 @@ inl float ->
         open Initializer.dual.TensorView
         inl inner = 
             {
-            dim =
-                {
-                input = size
-                forget = size
-                memory = size
-                output = size
-                }
+            dim = { input = size; forget = size; memory = size; output = size }
             }
         inl init =
             {
-            bias =
-                {
-                input = zero
-                forget = const one
-                memory = zero
-                output = zero
-                }
-            cell = 
-                {
-                input = sigmoid
-                forget = sigmoid
-                memory = tanh
-                output = sigmoid
-                }
+            bias = { input = zero; forget = const one; memory = zero; output = zero }
+            cell = { input = sigmoid; forget = sigmoid; memory = tanh; output = sigmoid }
             }
         {
         init = inl sublayer_size -> 
