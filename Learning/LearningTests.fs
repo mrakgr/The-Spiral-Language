@@ -171,7 +171,7 @@ inl network,_ =
             mi 128,
             linear size.hot
         lstm = 
-            lstm 128,
+            lstm 128, 
             linear size.hot
         }
 
