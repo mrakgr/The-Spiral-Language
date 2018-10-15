@@ -1229,7 +1229,7 @@ inl float ->
                     block = ()
                     }
                 {
-                weights =
+                weights = {
                     state = weight_streams tanh (size, size)
                     input = weight_streams tanh (sublayer_size, size)
                     bias = {
@@ -1238,15 +1238,17 @@ inl float ->
                         s = const half (1,size)
                         c = zero (1,size)
                         }
-                covariance =
-                    state = covariance {in=size; out=size}
-                    input = covariance {in=sublayer_size; out=size}
+                    }
+                covariance = {
+                    state = covariance {front=size; out=size}
+                    input = covariance {front=sublayer_size; back=size}
                     bias = {
-                        si = covariance {out=size}
-                        i = covariance {out=size}
-                        s = covariance {out=size}
-                        c = covariance {out=size}
+                        si = covariance {back=size}
+                        i = covariance {back=size}
+                        s = covariance {back=size}
+                        c = covariance {back=size}
                         }
+                    }
                 }
             size
             }
