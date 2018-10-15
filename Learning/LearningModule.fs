@@ -149,11 +149,6 @@ inl link_adjoint dim {from to} =
             ) from to
     }
 
-inl sequence x =
-    inl out = Struct.map (inl {out} -> out) x
-    inl bck = Struct.map (inl {bck} -> bck) x
-    {out bck}
-
 inl sequence_module f x =
     inl x = module_map (const f) x
     inl bck = module_foldr (inl k {bck} s -> bck << s) x (const ())
@@ -195,7 +190,7 @@ inl generalized_mi {bias={si s i c} input state} = si * state * input + s * stat
 inl generalized_mi_tanh {bias={si s i c} input state} = si * state * input + s * state + i * input + c |> tanh
 
 {
-(>>=) succ dr sigmoid tanh relu (+) (*) link broadcasting_link link_adjoint sequence
+(>>=) succ dr sigmoid tanh relu (+) (*) link broadcasting_link link_adjoint
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
 lstm generalized_mi generalized_mi_tanh
 }
@@ -1228,6 +1223,9 @@ inl float ->
                     streams = stream, stream
                     block = ()
                     }
+
+                inl covariance = Struct.map (inl x -> identity (x,x))
+
                 {
                 weights = {
                     state = weight_streams tanh (size, size)
@@ -1253,7 +1251,7 @@ inl float ->
             size
             }
 
-        apply = inl {d with weights input} s -> 
+        apply = inl {d with weights={weights covariance} input} s -> 
             inl span = primal input .span_outer
             inl out =
                 match d with
@@ -1263,7 +1261,7 @@ inl float ->
             inl apply =
                 inm out =
                     inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
-                    inl bias = weights.bias
+                    inm bias = weights.bias |> Struct.map (inl tns -> {(expand_singular (span,()) tns s) with block=()}) |> sequence
                     map CudaAD.generalized_mi_tanh {input state bias}
 
                 succ {out state={out}}
@@ -1373,7 +1371,7 @@ inl float ->
                 )
         }
 
-    inl RNN = {mi lstm}
+    inl RNN = {mi mi' lstm}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
