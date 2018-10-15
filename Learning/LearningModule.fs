@@ -843,7 +843,7 @@ inl float ->
 
     inl standard learning_rate s = 
         Struct.iter (function 
-            | {optimize weights} -> 
+            | {optimize weights} ->
                 inl weights = Struct.map' (inl x -> x.data) weights
                 optimize {learning_rate weights} s
             | {weights} -> 
