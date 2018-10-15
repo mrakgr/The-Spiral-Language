@@ -1249,66 +1249,66 @@ inl float ->
         bck = Struct.map (inl {bck} -> bck) x
         }
 
-    inl mi' size = ()
-        //{
-        //init = inl sublayer_size -> 
-        //    {
-        //    dsc =
-        //        open Initializer.dual.Tensor
+    inl mi' size = 
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc =
+                open Initializer.dual.Tensor
 
-        //        inl covariance = module_map (inl _ !(View.dim) x -> covariance (x,x))
-        //        inl weight f (b,a as dim) = {
-        //            weight = f dim
-        //            streams = stream, stream
-        //            covariance = covariance {front=b; back=a}
-        //            precision = covariance {front=b; back=a}
-        //            epsilon = val (2.0f32 ** -3.0f32)
-        //            k = var 0
-        //            block = ()
-        //            }
+                inl covariance = module_map (inl _ !(View.dim) x -> covariance (x,x))
+                inl weight f (b,a as dim) = {
+                    weight = f dim
+                    streams = stream, stream
+                    covariance = covariance {front=b; back=a}
+                    precision = covariance {front=b; back=a}
+                    epsilon = val (2.0f32 ** -3.0f32)
+                    k = var 0
+                    block = ()
+                    }
 
-        //        inl bias f dim = {
-        //            weight = f (1,dim)
-        //            covariance = covariance {back=dim}
-        //            precision = covariance {back=dim}
-        //            epsilon = val (2.0f32 ** -3.0f32)
-        //            k = var 0
-        //            block = ()
-        //            }
+                inl bias f dim = {
+                    weight = f (1,dim)
+                    covariance = covariance {back=dim}
+                    precision = covariance {back=dim}
+                    epsilon = val (2.0f32 ** -3.0f32)
+                    k = var 0
+                    block = ()
+                    }
 
-        //        {
-        //        state = weight tanh (size, size)
-        //        input = weight tanh (sublayer_size, size)
-        //        bias = {
-        //            si = bias (const one) size
-        //            i = bias (const half) size
-        //            s = bias (const half) size
-        //            c = bias zero size
-        //            }
-        //        }
-        //    size
-        //    }
+                {
+                state = weight tanh (size, size)
+                input = weight tanh (sublayer_size, size)
+                bias = {
+                    si = bias (const one) size
+                    i = bias (const half) size
+                    s = bias (const half) size
+                    c = bias zero size
+                    }
+                }
+            size
+            }
 
-        //apply = inl {d with weights input} s -> 
-        //    inl span = primal input .span_outer
-        //    inl out =
-        //        match d with
-        //        | {state={out}} -> out
-        //        | _ -> s.CudaTensor.zero {elem_type=float; dim=span,size}
+        apply = inl {d with weights input} s -> 
+            inl span = primal input .span_outer
+            inl out =
+                match d with
+                | {state={out}} -> out
+                | _ -> s.CudaTensor.zero {elem_type=float; dim=span,size}
 
-        //    inl apply =
-        //        inm out =
-        //            inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
-        //            inm bias = weights.bias |> Struct.map (expand_singular (span,())) |> sequence
-        //            map CudaAD.generalized_mi_tanh {input state bias}
+            inl apply =
+                inm out =
+                    inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
+                    inm bias = weights.bias |> Struct.map (expand_singular (span,())) |> sequence
+                    map CudaAD.generalized_mi_tanh {input state bias}
                 
-        //        succ {out state={out}}
-        //    inl {out={out state} bck} = apply s
-        //    {out state bck}
+                succ {out state={out}}
+            inl {out={out state} bck} = apply s
+            {out state bck}
 
-        //optimize = Optimizer.kfac
-        //block = ()
-        //}
+        optimize = Optimizer.kfac
+        block = ()
+        }
 
     inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
 
