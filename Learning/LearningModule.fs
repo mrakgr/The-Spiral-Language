@@ -1115,7 +1115,7 @@ inl float ->
             inl view = Struct.map (inl x -> x tensor_view) {sing dual} number
             inl view' = Struct.map (inl x -> x tensor_view') {sing dual} number
 
-            { Init with view view' stream var val }
+            { Init with view view' stream var val covariance = Tensor.covariance}
 
         { Tensor TensorView }
 
@@ -1256,7 +1256,7 @@ inl float ->
             dsc =
                 open Initializer.dual.Tensor
 
-                inl covariance = Struct.map (inl x -> covariance (x,x))
+                inl covariance = module_map (inl _ !(View.dim) x -> covariance (x,x))
                 inl weight f (b,a as dim) = {
                     weight = f dim
                     streams = stream, stream
@@ -1310,6 +1310,67 @@ inl float ->
         block = ()
         }
 
+    inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
+
+    inl mi'' size =
+        inl dim = {bias = { si = size; i = size; s = size; c = size }}
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc =
+                open Initializer.dual.TensorView
+
+                inl covariance = module_map (inl _ !(View.dim) x -> covariance (x,x))
+                inl weight {init with dim=b,a} = {
+                    weight = view' init
+                    streams = stream, stream
+                    covariance = covariance {front=b; back=a}
+                    precision = covariance {front=b; back=a}
+                    epsilon = val (2.0f32 ** -3.0f32)
+                    k = var 0
+                    block = ()
+                    }
+
+                inl bias {init with dim=1,a} = {
+                    weight = view' init
+                    covariance = covariance {back=a}
+                    precision = covariance {back=a}
+                    epsilon = val (2.0f32 ** -3.0f32)
+                    k = var 0
+                    block = ()
+                    }
+                
+                {
+                state = weight {init=tanh; dim=size, size}
+                input = weight {init=tanh; dim=sublayer_size, size}
+                bias = bias {init={si=const one; i=const half; s=const half; c=zero}; dim=1, dim.bias}
+                }
+
+            size
+            }
+
+        apply = inl {d with weights input} s -> 
+            inl span = primal input .span_outer
+            inl out =
+                match d with
+                | {state={out}} -> out
+                | _ -> s.CudaTensor.zero {elem_type=float; dim=span,size}
+
+            inl apply =
+                inm out =
+                    inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
+                    inm bias = expand_singular (span,()) weights.bias 
+                    inl bias = Struct.map' (View.wrap ((), dim.bias) >> View.split) bias |> zip_dual
+                    map CudaAD.generalized_mi_tanh {input state bias}
+                
+                succ {out state={out}}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+
+        optimize = Optimizer.kfac
+        block = ()
+        }
+
     inl lstm size =
         open Initializer.dual.TensorView
         inl inner = 
@@ -1350,7 +1411,6 @@ inl float ->
             inl apply =
                 inm {out memory} =
                     inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
-                    inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
                     inl bias, input, state = Struct.map' (View.wrap ((),inner.dim) >> View.split) (weights.bias, input, state) |> Liple.map zip_dual
                     inl cell = Struct.map3 (inl input state bias -> {input state bias}) input state bias
                     map CudaAD.lstm {memory cell}
@@ -1410,7 +1470,7 @@ inl float ->
                 )
         }
 
-    inl RNN = {mi mi' lstm}
+    inl RNN = {mi mi' mi'' lstm}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.

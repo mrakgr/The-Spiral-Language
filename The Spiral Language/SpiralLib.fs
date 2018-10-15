@@ -1941,7 +1941,7 @@ inl map_dim default = function
     | _ -> error_type "Expected a range or a tree view."
         
 inl create {dsc with dim} = 
-    inl size, dim = Tuple.map (map_dim (inl _ -> error_type "() not allowed in view create.")) (Tuple.wrap dim) |> Tuple.unzip
+    inl size, dim = Tuple.map (map_dim (inl _ -> error_type "() not allowed in View create.")) (Tuple.wrap dim) |> Tuple.unzip
     inl basic = Tensor.create {dsc with dim=size}
     facade {basic dim}
 
@@ -1965,8 +1965,10 @@ inl split tns =
 
     Tuple.foldr f dim (Tuple.rev >> tns) ()
 
+inl dim = map_dim (inl _ -> error_type "() not allowed in View dim.") >> fst
+
 {
-facade create wrap split
+facade create wrap split dim
 } |> stackify
     """
     ) |> module_
