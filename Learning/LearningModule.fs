@@ -847,8 +847,7 @@ inl float ->
                 inl weights = Struct.map' (inl x -> x.data) weights
                 optimize {learning_rate weights} s
             | {weights} -> 
-                inl weights = Struct.map' (inl x -> x.data) weights
-                Struct.iter' (function {x with primal adjoint} -> sgd learning_rate s x | _ -> ()) weights
+                Struct.iter' (function !(inl x -> x.data) {x with primal adjoint} -> sgd learning_rate s x | _ -> ()) weights
             )
 
     inl Optimizer = {sgd clipped_sgd standard kfac}
