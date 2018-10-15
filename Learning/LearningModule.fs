@@ -854,7 +854,7 @@ inl float ->
                 loop weights
             )
 
-    inl Optimizer = {sgd clipped_sgd standard prong}
+    inl Optimizer = {sgd clipped_sgd standard kfac}
 
     inl softmax_body temp k input =
         inl x = k.block.map (inl x -> x / temp) (k.block.load input)
@@ -1265,7 +1265,7 @@ inl float ->
                     streams = stream, stream
                     covariance = covariance {front=b; back=a}
                     precision = covariance {front=b; back=a}
-                    epsilon = val (2 ** -3)
+                    epsilon = val (2.0 ** -3.0)
                     k = var 0
                     block = ()
                     }
@@ -1274,7 +1274,7 @@ inl float ->
                     weight = f dim
                     covariance = covariance {back=dim}
                     precision = covariance {back=dim}
-                    epsilon = val (2 ** -3)
+                    epsilon = val (2.0 ** -3.0)
                     k = var 0
                     block = ()
                     }
@@ -1309,7 +1309,7 @@ inl float ->
             inl {out={out state} bck} = apply s
             {out state bck}
 
-        optimizer = Optimizer.prong
+        optimizer = Optimizer.kfac
         block = ()
         }
 
@@ -1483,24 +1483,24 @@ inl float ->
                         x_a.set (x_a.get + (p - label) * reward) 
             }
 
-        inl Layer =
-            inl default w = 
-                inl defaults =
-                    {
-                    initializer=Initializer.dual.Tensor.bias
-                    activation=Activation.linear
-                    }
+        //inl Layer =
+        //    inl default w = 
+        //        inl defaults =
+        //            {
+        //            initializer=Initializer.dual.Tensor.bias
+        //            activation=Activation.linear
+        //            }
 
-                module_foldl (inl k w x -> match w with {$k=_} -> w | _ -> {w with $k=x}) w defaults
+        //        module_foldl (inl k w x -> match w with {$k=_} -> w | _ -> {w with $k=x}) w defaults
 
-            inl pg = default >> prong
+        //    inl pg = default >> prong
 
-            // Both the MC and the TD layers do their reprojection steps on the optimization pass unlike
-            // the vanilla PRONG layers.
-            inl mc (!default {w with !size}) = prong {w with size=1}
-                //prong_template {front_mode=.prong; mode=.update} {w with size=1}
+        //    // Both the MC and the TD layers do their reprojection steps on the optimization pass unlike
+        //    // the vanilla PRONG layers.
+        //    inl mc (!default {w with !size}) = prong {w with size=1}
+        //        //prong_template {front_mode=.prong; mode=.update} {w with size=1}
 
-            {pg mc}
+        //    {pg mc}
 
         /// For online learning.
         inl action {State Action final} {net input} s =
@@ -1516,7 +1516,7 @@ inl float ->
                 inl action = Union.from_one_hot Action (s.CudaTensor.get (out 0))
                 stack {action net bck}
        
-        {action sampling_pg Layer Value}
+        {action sampling_pg Value}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward RNN RL
