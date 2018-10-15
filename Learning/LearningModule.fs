@@ -529,10 +529,11 @@ inl float ->
                 | .nT -> s.CudaBlas.gemm' TA .nT one out (primal A) one B
                 ) (adjoint B)
             match d with
-            | {covariance} ->
+            | {covariance k} ->
                 inl update k data = match covariance with {$k=cov} -> update_covariance learning_rate data cov s | _ -> ()
                 update .front (primal data)
                 update .back (adjoint out)
+                k := k() + (primal data .span_outer)
 
         inl l = Struct.map init l
         Struct.iter run l
@@ -1075,6 +1076,21 @@ inl float ->
             | .save stream -> ()
             | .load stream -> ()
 
+        inl var init s =
+            inl data = ref init
+            function
+            | .data -> data
+            | .init -> ()
+            | .save stream -> ()
+            | .load stream -> ()
+
+        inl val init s =
+            function
+            | .data -> init
+            | .init -> ()
+            | .save stream -> ()
+            | .load stream -> ()
+
         inl Tensor = 
             inl sing init dim = tensor {dim init}
             inl dual primal dim = tensor {dim init={primal adjoint=Init.zero; block=()}}
@@ -1090,7 +1106,7 @@ inl float ->
             covariance = sing Init.identity
             const = inl init -> number (Init.const init)
             custom = number Init.custom
-            stream
+            stream var val
             }
 
         inl TensorView =
@@ -1103,7 +1119,7 @@ inl float ->
             inl view = Struct.map (inl x -> x tensor_view) {sing dual} number
             inl view' = Struct.map (inl x -> x tensor_view') {sing dual} number
 
-            { Init with view view' stream }
+            { Init with view view' stream var val }
 
         { Tensor TensorView }
 
@@ -1216,7 +1232,7 @@ inl float ->
         block = ()
         }
 
-    inl expand_singular dim {weight covariance} s =
+    inl expand_singular dim {weight covariance k} s =
         inl out = Tensor.expand_singular dim (primal weight) |> dr s
         inl squeeze weight =
             assert (weight.span_outer = 1) "The span of outer must be 1."
@@ -1226,6 +1242,7 @@ inl float ->
         bck=met learning_rate -> 
             bck_add_bias (adjoint out) (adjoint weight |> squeeze) s
             update_covariance learning_rate (adjoint out) covariance.back s
+            k := k() + (primal out .span_outer)
         }
 
     inl sequence x s =
@@ -1248,6 +1265,8 @@ inl float ->
                     streams = stream, stream
                     covariance = covariance {front=b; back=a}
                     precision = covariance {front=b; back=a}
+                    epsilon = val (2 ** -3)
+                    k = var 0
                     block = ()
                     }
 
@@ -1255,6 +1274,8 @@ inl float ->
                     weight = f dim
                     covariance = covariance {back=dim}
                     precision = covariance {back=dim}
+                    epsilon = val (2 ** -3)
+                    k = var 0
                     block = ()
                     }
 
