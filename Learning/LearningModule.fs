@@ -1207,9 +1207,19 @@ inl float ->
 
     inl expand_singular dim tns s =
         inl out = Tensor.expand_singular dim (primal tns) |> dr s
+        inl squeeze tns =
+            assert (tns.span_outer = 1) "The span of outer must be 1."
+            tns 0
         {
         out
-        bck=met _ -> bck_add_bias (adjoint out) (adjoint tns) s
+        bck=met _ -> bck_add_bias (adjoint out) (adjoint tns |> squeeze) s
+        }
+
+    inl sequence x s =
+        inl x = Struct.map (inl x -> x s |> inl x -> {x with block=()}) x
+        {
+        out = Struct.map (inl {out} -> out) x
+        bck = Struct.map (inl {bck} -> bck) x
         }
 
     inl mi' size =
@@ -1261,9 +1271,9 @@ inl float ->
             inl apply =
                 inm out =
                     inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
-                    inm bias = weights.bias |> Struct.map (inl tns -> {(expand_singular (span,()) tns s) with block=()}) |> sequence
+                    inm bias = weights.bias |> Struct.map (expand_singular (span,())) |> sequence
                     map CudaAD.generalized_mi_tanh {input state bias}
-
+                
                 succ {out state={out}}
             inl {out={out state} bck} = apply s
             {out state bck}
