@@ -2253,12 +2253,11 @@ inl s ret ->
             dense_call s .cusolverDnSpotrf(opposite_fill uplo, i32 n, {ptr=A}, i32 lda, {ptr=workspace}, Lwork, {ptr=dev_info})
             stack (dev_info 0)
 
-    inl symm_copy s uplo = 
-        inl body {from to=to'} =
-            inl from,to' = CudaAux.to_dev_tensor (from,to')
-            s.CudaKernel.iter {dim=from.dim} <| inl a, b ->
+    inl symm_map s f uplo = 
+        inl body !(CudaAux.to_dev_tensor) {from to} =
+            s.CudaKernel.iter {dim=from.dim} <| inl a, b as dim ->
                 inl check = match uplo with .Lower -> a >= b | .Upper -> a <= b
-                if check then to' a b .set (from a b .get)
+                if check then to dim .set (f dim (from dim .get))
 
         function
         | {from to} ->  
@@ -2268,6 +2267,8 @@ inl s ret ->
             inl to = s.CudaTensor.create_like from
             body {from to}
             to
+
+    inl symm_copy s = symm_map s (inl _ x -> x)
 
     inl potrf s uplo A =
         indiv join
@@ -2279,22 +2280,34 @@ inl s ret ->
 
             stack A
 
-    inl cholesky_inverse s = 
-        inl body C_sqrt = 
-            inb C_sqrt_inv = s.CudaBlas.trinv .Lower C_sqrt |> CudaAux.temporary
-            s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 C_sqrt_inv C_sqrt_inv C_sqrt
+    inl cholesky_body C_sqrt = 
+        inb C_sqrt_inv = s.CudaBlas.trinv .Lower C_sqrt |> CudaAux.temporary
+        s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 C_sqrt_inv C_sqrt_inv C_sqrt
 
-        function
+    inl dampen epsilon b,a from =
+        inl one, zero = to epsilon one, to epsilon zero
+        inl i = if b = a then one else zero
+        epsilon * i + (one - epsilon) * from
+
+    inl regularized_cholesky_inverse s {epsilon from to} = 
+        symm_map s (dampen epsilon) .Lower {from to}
+        handle_error s { 
+            info = potrf' s .Lower to
+            pos = "The leading minor of order %d is not positive definite."
+            }
+        cholesky_body to
+
+    inl cholesky_inverse s = function
         | {from to} ->
             symm_copy s .Lower {from to}
             handle_error s { 
                 info = potrf' s .Lower to
                 pos = "The leading minor of order %d is not positive definite."
                 }
-            body to
+            cholesky_body to
         | {from} | from -> 
             inl C_sqrt = potrf s .Lower from
-            body C_sqrt
+            cholesky_body C_sqrt
             C_sqrt
 
     /// The LU decomposition.
@@ -2358,7 +2371,7 @@ inl s ret ->
             handle_error s {info = s.CudaSolve.getrs' .nT A ipiv to}
             to
 
-    ret <| s.module_add .CudaSolve {potrf' potrf getrf' getrf getrs' getrs cholesky_inverse lu_inverse}
+    ret <| s.module_add .CudaSolve {potrf' potrf getrf' getrf getrs' getrs regularized_cholesky_inverse cholesky_inverse lu_inverse}
     
     dense_call s .cusolverDnDestroy()
     """) |> module_

@@ -510,7 +510,7 @@ inl float ->
             inl (A,TA),(B,TB) = f data, f weight
             s.CudaBlas.gemm' TA TB one (primal A) (primal B) zero (primal out)
 
-        inl bck learning_rate {d with out data weight streams=l,r} =
+        inl bck {learning_rate} {d with out data weight streams=l,r} =
             inl f' = function {T} -> T, .nT | nT -> nT, .T
             inl (A,TA),(B,TB) = f' data, f' weight
             inl out = adjoint out
@@ -539,8 +539,8 @@ inl float ->
         Struct.iter (inl {streams=l,r} -> s.data.stream.wait_on l) l
         {
         out=Struct.map (inl {out} -> out) l
-        bck=met learning_rate ->
-            Struct.iter (bck learning_rate) l
+        bck=met d ->
+            Struct.iter (bck d) l
             Struct.iter (inl {streams=x} -> Tuple.iter s.data.stream.wait_on x) l
         }
 
@@ -817,30 +817,28 @@ inl float ->
                 P - learning_rate * A, zero
             } (primal, adjoint)
 
-    inl prong {learning_rate} s cov w =
+    inl kfac weights s =
         inl k_max = 128
-        inl f {covariance precision k} = 
+        Struct.iter (inl {weight covariance precision k epsilon} ->
             if k () >= k_max then
                 k := 0
-                s.CudaSolve.cholesky_inverse {from=covariance; to=precision}
-        module_map (inl _ x -> f x; ()) {cov without block} |> ignore
+                Struct.iter2 (inl from to -> s.CudaSolve.regularized_cholesky_inverse {epsilon from to}) covariance precision
 
-        inl reproject a b ret =
-            inb x = s.CudaBlas.gemm .nT .nT one a b |> CudaAux.temporary
-            ret x
+            inl reproject a b ret =
+                inb x = s.CudaBlas.gemm .nT .nT one a b |> CudaAux.temporary
+                ret x
 
-        inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -learning_rate a b one c
-        inl clear = s.CudaTensor.clear
-        
-        Struct.iter (inl w ->
-            match cov with
-            | {front={precision=front} back={precision=back}} -> 
-                inb x = reproject front (adjoint w)
-                reproject_to x back (primal w)
-            | {back={precision=back}} -> reproject_to (adjoint w) back (primal w)
-            | {front={precision=front}} -> reproject_to front (adjoint w) (primal w)
-            clear (adjoint w)
-            ) w
+            inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -learning_rate a b one c
+            inl clear = s.CudaTensor.clear
+
+            match precision with
+            | {front back} -> 
+                inb x = reproject front (adjoint weight)
+                reproject_to x back (primal weight)
+            | {back} -> reproject_to (adjoint weight) back (primal weight)
+            | {front} -> reproject_to front (adjoint weight) (primal weight)
+            clear (adjoint weight)
+            ) weights
 
     inl standard learning_rate s = 
         Struct.iter (function 
@@ -1249,12 +1247,14 @@ inl float ->
                     weight = f dim
                     streams = stream, stream
                     covariance = covariance {front=b; back=a}
+                    precision = covariance {front=b; back=a}
                     block = ()
                     }
 
                 inl bias f dim = {
                     weight = f dim
                     covariance = covariance {back=dim}
+                    precision = covariance {back=dim}
                     block = ()
                     }
 
@@ -1271,7 +1271,7 @@ inl float ->
             size
             }
 
-        apply = inl {d with weights={weights covariance} input} s -> 
+        apply = inl {d with weights input} s -> 
             inl span = primal input .span_outer
             inl out =
                 match d with
@@ -1287,6 +1287,8 @@ inl float ->
                 succ {out state={out}}
             inl {out={out state} bck} = apply s
             {out state bck}
+
+        optimizer = Optimizer.prong
         block = ()
         }
 
