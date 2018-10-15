@@ -2285,7 +2285,7 @@ inl s ret ->
         s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 C_sqrt_inv C_sqrt_inv C_sqrt
 
     inl dampen epsilon b,a from =
-        inl one, zero = to epsilon one, to epsilon zero
+        inl one, zero = to epsilon 1, to epsilon 0
         inl i = if b = a then one else zero
         epsilon * i + (one - epsilon) * from
 

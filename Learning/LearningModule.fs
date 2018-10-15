@@ -818,10 +818,10 @@ inl float ->
                 P - learning_rate * A, zero
             } (primal, adjoint)
 
-    inl kfac weights s =
+    inl kfac {learning_rate weights} s =
         inl k_max = 128
         Struct.iter (inl {weight covariance precision k epsilon} ->
-            if k () >= k_max then
+            if k() >= k_max then
                 k := 0
                 Struct.iter2 (inl from to -> s.CudaSolve.regularized_cholesky_inverse {epsilon from to}) covariance precision
 
@@ -843,15 +843,12 @@ inl float ->
 
     inl standard learning_rate s = 
         Struct.iter (function 
-            | {optimize weights} -> optimize {learning_rate weights} s
+            | {optimize weights} -> 
+                inl weights = Struct.map' (inl x -> x.data) weights
+                optimize {learning_rate weights} s
             | {weights} -> 
-                inl rec loop x =
-                    Struct.iter' (inl x ->
-                        match x.data with
-                        | {primal adjoint} & x -> sgd learning_rate s x
-                        | x -> ()
-                        ) x
-                loop weights
+                inl weights = Struct.map' (inl x -> x.data) weights
+                Struct.iter' (function {x with primal adjoint} -> sgd learning_rate s x | _ -> ()) weights
             )
 
     inl Optimizer = {sgd clipped_sgd standard kfac}
@@ -1266,7 +1263,7 @@ inl float ->
                     streams = stream, stream
                     covariance = covariance {front=b; back=a}
                     precision = covariance {front=b; back=a}
-                    epsilon = val (2.0 ** -3.0)
+                    epsilon = val (2.0f32 ** -3.0f32)
                     k = var 0
                     block = ()
                     }
@@ -1275,7 +1272,7 @@ inl float ->
                     weight = f (1,dim)
                     covariance = covariance {back=dim}
                     precision = covariance {back=dim}
-                    epsilon = val (2.0 ** -3.0)
+                    epsilon = val (2.0f32 ** -3.0f32)
                     k = var 0
                     block = ()
                     }
@@ -1310,10 +1307,9 @@ inl float ->
             inl {out={out state} bck} = apply s
             {out state bck}
 
-        optimizer = Optimizer.kfac
+        optimize = Optimizer.kfac
         block = ()
         }
-
 
     inl lstm size =
         open Initializer.dual.TensorView
