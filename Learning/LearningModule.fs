@@ -503,7 +503,7 @@ inl float ->
             inl (A,TA),(B,TB) = f data, f weight
             s.CudaBlas.gemm' TA TB one (primal A) (primal B) zero (primal out)
 
-        inl bck {out data weight streams=l,r} =
+        inl bck learning_rate {d with out data weight streams=l,r} =
             inl f' = function {T} -> T, .nT | nT -> nT, .T
             inl (A,TA),(B,TB) = f' data, f' weight
             inl out = adjoint out
@@ -521,14 +521,19 @@ inl float ->
                 | .T -> s.CudaBlas.gemm' TA .nT one (primal A) out one B
                 | .nT -> s.CudaBlas.gemm' TA .nT one out (primal A) one B
                 ) (adjoint B)
+            match d with
+            | {covariance} ->
+                inl update k data = match covariance with {$k=cov} -> update_covariance learning_rate data cov s | _ -> ()
+                update .front (primal data)
+                update .back (adjoint out)
 
         inl l = Struct.map init l
         Struct.iter run l
         Struct.iter (inl {streams=l,r} -> s.data.stream.wait_on l) l
         {
         out=Struct.map (inl {out} -> out) l
-        bck=met _ ->
-            Struct.iter bck l
+        bck=met learning_rate ->
+            Struct.iter (bck learning_rate) l
             Struct.iter (inl {streams=x} -> Tuple.iter s.data.stream.wait_on x) l
         }
 
@@ -1206,14 +1211,16 @@ inl float ->
         block = ()
         }
 
-    inl expand_singular dim tns s =
-        inl out = Tensor.expand_singular dim (primal tns) |> dr s
-        inl squeeze tns =
-            assert (tns.span_outer = 1) "The span of outer must be 1."
-            tns 0
+    inl expand_singular dim {weight covariance} s =
+        inl out = Tensor.expand_singular dim (primal weight) |> dr s
+        inl squeeze weight =
+            assert (weight.span_outer = 1) "The span of outer must be 1."
+            weight 0
         {
         out
-        bck=met _ -> bck_add_bias (adjoint out) (adjoint tns |> squeeze) s
+        bck=met learning_rate -> 
+            bck_add_bias (adjoint out) (adjoint weight |> squeeze) s
+            update_covariance learning_rate (adjoint out) covariance.back s
         }
 
     inl sequence x s =
@@ -1266,9 +1273,8 @@ inl float ->
 
             inl apply =
                 inm out =
-                    inm input, state = matmult_stream ({(weights.input) with data=input; covariance}, {(weights.state) with data=out})
+                    inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
                     inm bias = weights.bias |> Struct.map (expand_singular (span,())) |> sequence
-                    inm _ = update_covariance {cov=covariance.bias; back=bias}
                     map CudaAD.generalized_mi_tanh {input state bias}
                 
                 succ {out state={out}}
@@ -1293,14 +1299,14 @@ inl float ->
         init = inl sublayer_size -> 
             {
             dsc = 
-                inl weight_streams d = {
+                inl weight d = {
                     weight = view' d
                     streams = stream, stream
                     block = ()
                     }
                 {
-                input = weight_streams { init = init.cell; dim = sublayer_size, inner.dim }
-                state = weight_streams { init = init.cell; dim = size, inner.dim }
+                input = weight { init = init.cell; dim = sublayer_size, inner.dim }
+                state = weight { init = init.cell; dim = size, inner.dim }
                 bias = view' {init = init.bias; dim = 1, inner.dim}
                 }
             size
