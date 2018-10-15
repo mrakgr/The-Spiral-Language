@@ -1077,6 +1077,7 @@ inl float ->
             randn = inl stddev -> number (Init.randn stddev)
             zero = number Init.zero
             identity = number Init.identity
+            covariance = sing Init.identity
             const = inl init -> number (Init.const init)
             custom = number Init.custom
             stream
@@ -1228,34 +1229,29 @@ inl float ->
             {
             dsc =
                 open Initializer.dual.Tensor
-                inl weight_streams f dim = {
+
+                inl covariance = Struct.map (inl x -> covariance (x,x))
+                inl weight f (b,a as dim) = {
                     weight = f dim
                     streams = stream, stream
+                    covariance = covariance {front=b; back=a}
                     block = ()
                     }
 
-                inl covariance = Struct.map (inl x -> identity (x,x))
+                inl bias f dim = {
+                    weight = f dim
+                    covariance = covariance {back=dim}
+                    block = ()
+                    }
 
                 {
-                weights = {
-                    state = weight_streams tanh (size, size)
-                    input = weight_streams tanh (sublayer_size, size)
-                    bias = {
-                        si = const one (1,size)
-                        i = const half (1,size)
-                        s = const half (1,size)
-                        c = zero (1,size)
-                        }
-                    }
-                covariance = {
-                    state = covariance {front=size; out=size}
-                    input = covariance {front=sublayer_size; back=size}
-                    bias = {
-                        si = covariance {back=size}
-                        i = covariance {back=size}
-                        s = covariance {back=size}
-                        c = covariance {back=size}
-                        }
+                state = weight tanh (size, size)
+                input = weight tanh (sublayer_size, size)
+                bias = {
+                    si = bias (const one) size
+                    i = bias (const half) size
+                    s = bias (const half) size
+                    c = bias zero size
                     }
                 }
             size
