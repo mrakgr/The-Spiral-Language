@@ -473,6 +473,13 @@ inl float ->
         | () -> ()
         | B -> ret B
 
+    /// Updates the covariance such that cov(t+1) = alpha * cov t + beta / k * x^T * x
+    met update_covariance learning_rate x cov s =
+        inl k = x.span_outer
+        inl alpha = Math.pow (one - learning_rate) k
+        inl beta = one - alpha
+        s.CudaBlas.syrk' .Lower .T (beta / to float k) x alpha cov // symmetric rank-k update. (beta / to float k) * x * x^T + alpha * cov
+
     inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
 
     inl fwd_add_bias C bias s = s.CudaFun.map_map {out=C; map=inl {in in_inner} -> in+in_inner} {in=C; in_inner=bias}
