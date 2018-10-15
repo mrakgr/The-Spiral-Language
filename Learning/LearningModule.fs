@@ -1270,8 +1270,9 @@ inl float ->
 
             inl apply =
                 inm out =
-                    inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
+                    inm input, state = matmult_stream ({(weights.input) with data=input; covariance}, {(weights.state) with data=out})
                     inm bias = weights.bias |> Struct.map (expand_singular (span,())) |> sequence
+                    inm _ = update_covariance {cov=covariance.bias; back=bias}
                     map CudaAD.generalized_mi_tanh {input state bias}
                 
                 succ {out state={out}}
