@@ -532,8 +532,8 @@ inl float ->
             | {covariance k} ->
                 inl update k data = match covariance with {$k=cov} -> update_covariance learning_rate data cov s | _ -> ()
                 update .front (primal data)
-                update .back (adjoint out)
-                k := k() + (primal data .span_outer)
+                update .back out
+                k := k() + out.span_outer
 
         inl l = Struct.map init l
         Struct.iter run l
@@ -1234,14 +1234,15 @@ inl float ->
 
     inl expand_singular dim {weight covariance k} s =
         inl out = Tensor.expand_singular dim (primal weight) |> dr s
+        
         inl squeeze weight =
             assert (weight.span_outer = 1) "The span of outer must be 1."
             weight 0
         {
         out
-        bck=met learning_rate -> 
+        bck=met d -> 
             bck_add_bias (adjoint out) (adjoint weight |> squeeze) s
-            update_covariance learning_rate (adjoint out) covariance.back s
+            update_covariance d.learning_rate (adjoint out) covariance.back s
             k := k() + (primal out .span_outer)
         }
 
@@ -1271,7 +1272,7 @@ inl float ->
                     }
 
                 inl bias f dim = {
-                    weight = f dim
+                    weight = f (1,dim)
                     covariance = covariance {back=dim}
                     precision = covariance {back=dim}
                     epsilon = val (2.0 ** -3.0)
