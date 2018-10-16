@@ -1488,10 +1488,8 @@ inl float ->
             {out state bck}
         optimize = inl {learning_rate weights} ->
             inl {covariance precision epsilon k} = weights.input
-            inl weights = {weights.state with covariance precision epsilon k}
-            inl covariance = {covariance without front}
-            inl precision = {precision without front}
-            inl weights = {weights.bias with covariance precision epsilon k}
+            inl weights = {weights.state with covariance={self with back=covariance.back}; precision={self with back=precision.back}; epsilon k}
+            inl weights = {weights.bias with covariance={back=covariance.back}; precision={back=precision.back}; epsilon k}
             Optimizer.kfac {learning_rate weights}
 
         block = ()
