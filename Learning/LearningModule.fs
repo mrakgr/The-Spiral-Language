@@ -528,13 +528,14 @@ inl float ->
                 | .T -> s.CudaBlas.gemm' TA .nT one (primal A) out one B
                 | .nT -> s.CudaBlas.gemm' TA .nT one out (primal A) one B
                 ) (adjoint B)
-            match d with
-            | {covariance k} ->
-                inl update k data = match covariance with {$k=cov} -> update_covariance learning_rate data cov s | _ -> ()
-                update .front (primal data)
-                update .back out
-                k := k() + out.span_outer
-            | _ -> ()
+            inl update k data = 
+                match d with 
+                | {$k={covariance k}} -> 
+                    update_covariance learning_rate data covariance s 
+                    k := k() + out.span_outer
+                | _ -> ()
+            update .front (primal data)
+            update .back out
 
         inl l = Struct.map init l
         Struct.iter run l
@@ -821,11 +822,13 @@ inl float ->
 
     inl kfac {learning_rate weights} s =
         inl k_max = 128
-        Struct.iter (inl {weight covariance precision k epsilon} ->
+
+        inl factor {covariance=from precision=to k epsilon} = 
             if k() >= k_max then
                 k := 0
-                Struct.iter2 (inl from to -> s.CudaSolve.regularized_cholesky_inverse {epsilon from to}) covariance precision
+                s.CudaSolve.regularized_cholesky_inverse {epsilon from to}
 
+        Struct.iter (inl {d with weight} ->
             inl reproject a b ret =
                 inb x = s.CudaBlas.gemm .nT .nT one a b |> CudaAux.temporary
                 ret x
@@ -833,12 +836,13 @@ inl float ->
             inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -learning_rate a b one c
             inl clear = s.CudaTensor.clear
 
-            match precision with
+            match d with
             | {front back} -> 
-                inb x = reproject front (adjoint weight)
-                reproject_to x back (primal weight)
-            | {back} -> reproject_to (adjoint weight) back (primal weight)
-            | {front} -> reproject_to front (adjoint weight) (primal weight)
+                factor front; factor back
+                inb x = reproject front.precision (adjoint weight)
+                reproject_to x back.precision (primal weight)
+            | {back} -> factor back; reproject_to (adjoint weight) back.precision (primal weight)
+            | {front} -> factor front; reproject_to front.precision (adjoint weight) (primal weight)
             clear (adjoint weight)
             ) weights
 
@@ -1100,7 +1104,6 @@ inl float ->
             randn = inl stddev -> number (Init.randn stddev)
             zero = number Init.zero
             identity = number Init.identity
-            covariance = sing Init.identity
             const = inl init -> number (Init.const init)
             custom = number Init.custom
             stream var val
@@ -1116,7 +1119,7 @@ inl float ->
             inl view = Struct.map (inl x -> x tensor_view) {sing dual} number
             inl view' = Struct.map (inl x -> x tensor_view') {sing dual} number
 
-            { Init with view view' stream var val covariance = Tensor.covariance}
+            { Init with view view' stream var val }
 
         { Tensor TensorView }
 
@@ -1229,7 +1232,7 @@ inl float ->
         block = ()
         }
 
-    inl expand_singular dim {weight covariance k} s =
+    inl expand_singular dim {weight back} s =
         inl out = Tensor.expand_singular dim (primal weight) |> dr s
         
         inl squeeze weight =
@@ -1239,8 +1242,8 @@ inl float ->
         out
         bck=met d -> 
             bck_add_bias (adjoint out) (adjoint weight |> squeeze) s
-            update_covariance d.learning_rate (adjoint out) covariance.back s
-            k := k() + (primal out .span_outer)
+            update_covariance d.learning_rate (adjoint out) back.covariance s
+            back.k := back.k() + (primal out .span_outer)
         }
 
     inl sequence x s =
@@ -1250,30 +1253,28 @@ inl float ->
         bck = Struct.map (inl {bck} -> bck) x
         }
 
+    inl covariance = 
+        inl identity = Initializer.sing.Tensor.identity
+        inl epsilon x -> {covariance=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
+
     inl mi' size = 
         {
         init = inl sublayer_size -> 
             {
             dsc =
                 open Initializer.dual.Tensor
-
-                inl covariance = module_map (inl _ !(View.dim) x -> covariance (x,x))
+                inl epsilon = 2.0f32 ** -3.0f32
                 inl weight f (b,a as dim) = {
                     weight = f dim
                     streams = stream, stream
-                    covariance = covariance {front=b; back=a}
-                    precision = covariance {front=b; back=a}
-                    epsilon = val (2.0f32 ** -3.0f32)
-                    k = var 0
+                    front = covariance epsilon b
+                    back = covariance epsilon a
                     block = ()
                     }
 
-                inl bias f dim = {
-                    weight = f (1,dim)
-                    covariance = covariance {back=dim}
-                    precision = covariance {back=dim}
-                    epsilon = val (2.0f32 ** -3.0f32)
-                    k = var 0
+                inl bias f a = {
+                    weight = f (1,a)
+                    back = covariance epsilon a
                     block = ()
                     }
 
@@ -1559,7 +1560,6 @@ inl float ->
         optimize = Optimizer.kfac
         block = ()
         }
-
 
     inl concat x s =
         inl span_inner x = x.dim |> inl b,a -> a
