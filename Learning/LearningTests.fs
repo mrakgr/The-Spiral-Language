@@ -432,9 +432,6 @@ inl network,_ =
     open RNN
     inl network = 
         {
-        mi_prong = mi_prong size.pattern
-        mi = mi size.pattern
-        mi_prong_alt = mi_prong_alt size.pattern
         plastic_rnn = plastic_rnn n size.pattern
         }
 

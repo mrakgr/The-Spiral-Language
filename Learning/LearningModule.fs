@@ -1188,6 +1188,70 @@ inl float ->
         inl zero dim s = {out=s.CudaTensor.zero {elem_type=float; dim}; bck=()}
         zero (primal x .dim)
 
+    inl concat x s =
+        inl span_inner x = x.dim |> inl b,a -> a
+        inl {dim elem_type} = 
+            Struct.foldl (inl s x ->
+                match s with
+                | () -> {dim=x.dim; elem_type=x.elem_type}
+                | {dim=b, {from=0 near_to=a}} ->
+                    inl b', {from=0 near_to=a'} = x.dim
+                    assert (b = b') "The outer dimensions of the inputs must be the same."
+                    {s with dim=b,a+a'}
+                ) () (primals x)
+
+        inl out = s.CudaTensor.create {elem_type dim} |> dr s
+        inl _ =
+            inl x, out = to_dev_tensor (primals (x, out))
+            s.CudaKernel.iter {dim} (inl b,a ->
+                Struct.foldl (inl s x ->
+                    inl s' = s + span_inner x
+                    if s <= a && a < s' then 
+                        out b a .set (x b (a - s) .get)
+                    else ()
+                    s'
+                    ) 0  x
+                |> ignore
+                )
+        {
+        out
+        bck=met _ ->
+            inl dims_adjoints = Struct.map (function
+                | {primal adjoint} -> {dim=primal.dim; adjoint=to_dev_tensor adjoint; block=()}
+                | primal -> {dim=primal.dim; block=()}
+                )
+            inl x, out = dims_adjoints (x, out)
+            s.CudaKernel.iter {dim} (inl b,a ->
+                Struct.foldl (inl s x ->
+                    inl s' = s + span_inner x
+                    match x with
+                    | {adjoint=x} ->
+                        if s <= a && a < s' then 
+                            inl x = x b (a - s)
+                            x .set (x .get + out.adjoint b a .get)
+                        else ()
+                    | _ -> ()
+                    s'
+                    ) 0  x
+                |> ignore
+                )
+        }
+
+    inl sequence x s =
+        inl x = Struct.map (inl x -> x s |> inl x -> {x with block=()}) x
+        {
+        out = Struct.map (inl {out} -> out) x
+        bck = Struct.map (inl {bck} -> bck) x
+        }
+
+    inl covariance = 
+        inl {identity val var} = Initializer.sing.Tensor
+        inl epsilon !(View.dim) x -> {covariance=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
+
+    inl default_epsilon = 2.0f32 ** -3.0f32
+
+    inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
+
     // #Recurrent
     inl mi size =
         {
@@ -1246,19 +1310,6 @@ inl float ->
             back.k := back.k() + (primal out .span_outer)
         }
 
-    inl sequence x s =
-        inl x = Struct.map (inl x -> x s |> inl x -> {x with block=()}) x
-        {
-        out = Struct.map (inl {out} -> out) x
-        bck = Struct.map (inl {bck} -> bck) x
-        }
-
-    inl covariance = 
-        inl {identity val var} = Initializer.sing.Tensor
-        inl epsilon !(View.dim) x -> {covariance=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
-
-    inl default_epsilon = 2.0f32 ** -3.0f32
-
     inl mi' size = 
         {
         init = inl sublayer_size -> 
@@ -1312,8 +1363,6 @@ inl float ->
         optimize = Optimizer.kfac
         block = ()
         }
-
-    inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
 
     inl mi'' size =
         inl inner = {dim = { si = size; i = size; s = size; c = size }}
@@ -1484,56 +1533,99 @@ inl float ->
         block = ()
         }
 
-    inl concat x s =
-        inl span_inner x = x.dim |> inl b,a -> a
-        inl {dim elem_type} = 
-            Struct.foldl (inl s x ->
-                match s with
-                | () -> {dim=x.dim; elem_type=x.elem_type}
-                | {dim=b, {from=0 near_to=a}} ->
-                    inl b', {from=0 near_to=a'} = x.dim
-                    assert (b = b') "The outer dimensions of the inputs must be the same."
-                    {s with dim=b,a+a'}
-                ) () (primals x)
-
-        inl out = s.CudaTensor.create {elem_type dim} |> dr s
-        inl _ =
-            inl x, out = to_dev_tensor (primals (x, out))
-            s.CudaKernel.iter {dim} (inl b,a ->
-                Struct.foldl (inl s x ->
-                    inl s' = s + span_inner x
-                    if s <= a && a < s' then 
-                        out b a .set (x b (a - s) .get)
-                    else ()
-                    s'
-                    ) 0  x
-                |> ignore
-                )
+    inl plastic_rnn n size =
         {
-        out
-        bck=met _ ->
-            inl dims_adjoints = Struct.map (function
-                | {primal adjoint} -> {dim=primal.dim; adjoint=to_dev_tensor adjoint; block=()}
-                | primal -> {dim=primal.dim; block=()}
-                )
-            inl x, out = dims_adjoints (x, out)
-            s.CudaKernel.iter {dim} (inl b,a ->
-                Struct.foldl (inl s x ->
-                    inl s' = s + span_inner x
-                    match x with
-                    | {adjoint=x} ->
-                        if s <= a && a < s' then 
-                            inl x = x b (a - s)
-                            x .set (x .get + out.adjoint b a .get)
-                        else ()
-                    | _ -> ()
-                    s'
-                    ) 0  x
-                |> ignore
-                )
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                {
+                state = Initializer.randn {stddev=0.01f32; dim=size, size} // For the Binary Pattern
+                input = Initializer.dr (Initializer.identity (sublayer_size, size))
+                //state = Initializer.tanh (size, size) // For regular tasks
+                //input = Initializer.tanh (sublayer_size, size)
+                modulator = {
+                    input = {
+                        input = Initializer.bias (sublayer_size, size)
+                        state = Initializer.bias (size, size)
+                        bias = {
+                            si = Initializer.constant {dim=1,size; init=to float 1}
+                            i = Initializer.constant {dim=1,size; init=to float 0.5}
+                            s = Initializer.constant {dim=1,size; init=to float 0.5}
+                            c = Initializer.bias (1,size)
+                            }
+                        }
+                    state = {
+                        input = Initializer.bias (sublayer_size, size)
+                        state = Initializer.bias (size, size)
+                        bias = {
+                            si = Initializer.constant {dim=1,size; init=to float 1}
+                            i = Initializer.constant {dim=1,size; init=to float 0.5}
+                            s = Initializer.constant {dim=1,size; init=to float 0.5}
+                            c = Initializer.bias (1,size)
+                            }
+                        }
+                    }
+                bias = Initializer.bias (1,size)
+                }
+            size=size
+            }
+
+        apply = inl {d with weights input} s -> 
+            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl H =
+                match d with
+                | {state={H}} -> H
+                | _ -> 
+                    inl f k = s.CudaTensor.zero_like (primal (weights k))
+                    {input=f .input; state=f .state}
+
+            inl state =
+                match d with
+                | {state={state}} -> state
+                | _ -> s.CudaTensor.zero_like (primal (weights .bias))
+
+            inl apply =
+                inm out =
+                    inl calculate k =
+                        inm alpha = 
+                            inl modulator = weights.modulator k
+                            inm input = matmult (input, modulator.input)
+                            inm state = matmult (state, modulator.state)
+                            generalized_mi {modulator with input state}
+                        inm static = matmult ({input state} k, weights k)
+                        inm plastic = matmult ({input state} k, H k)
+                        broadcasting_activation {
+                            fwd=inl {in={static plastic} in_inner={alpha}} -> static + alpha * plastic
+                            bck={
+                                in=inl {in={static plastic} in_inner={alpha}} -> { static = one; plastic = alpha }
+                                in_inner=inl {in={static plastic} in_inner={alpha}} -> { alpha = plastic }
+                                }
+                            } {in={static plastic}; in_inner={alpha=Struct.map' (inl x -> x.flatten) alpha}}
+
+                    inm input = calculate .input
+                    inm state = calculate .state
+                    
+                    activation {
+                        fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
+                        bck=inl {in out} ->
+                            inl out = tanh_bck out
+                            Struct.map (const out) in
+                        } {input state bias=weights.bias}
+
+                inm H =
+                    inl oja_update k = oja_update n {input={input state} k; out H=H k}
+                    inm input = oja_update .input
+                    inm state = oja_update .state
+                    succ {input state}
+
+                succ {out state={state=out; H}}
+
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        block = ()
         }
 
-    inl RNN = {mi mi' mi'' lstm lstm'}
+    inl RNN = {mi mi' mi'' lstm lstm' plastic_rnn}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
