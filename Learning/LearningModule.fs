@@ -1436,18 +1436,19 @@ inl float ->
         init = inl sublayer_size -> 
             {
             dsc = 
+                inl covariance = module_map (inl _ !(View.dim) x -> covariance (x,x))
                 inl weight d = {
                     weight = view' d
                     streams = stream, stream
                     block = ()
                     }
-                inl weight' d = {(weight d) with
+                inl weight' {d with dim=b,a} = {(weight d) with
                     covariance = covariance {front=b; back=a}
                     precision = covariance {front=b; back=a}
                     epsilon = val (2.0f32 ** -3.0f32)
                     k = var 0
                     }
-                inl weight'' d = {(weight d) with
+                inl weight'' {d with dim=b,a} = {(weight d) with
                     covariance = covariance {front=b}
                     precision = covariance {front=b}
                     epsilon = val (2.0f32 ** -3.0f32)
@@ -1460,7 +1461,7 @@ inl float ->
                 {
                 input = weight' { init = init.cell; dim = sublayer_size, inner.dim }
                 state = weight'' { init = init.cell; dim = size, inner.dim }
-                bias = view' {init = init.bias; dim = 1, inner.dim}
+                bias = bias {init = init.bias; dim = 1, inner.dim}
                 }
             size
             }
@@ -1485,11 +1486,11 @@ inl float ->
             inl {out={out state} bck} = apply s
             {out state bck}
         optimize = inl {learning_rate weights} ->
-            inl {covariance precision epsilon k} to = weight.input
-            inl weights = {weight.state with covariance precision epsilon k}
+            inl {covariance precision epsilon k} = weights.input
+            inl weights = {weights.state with covariance precision epsilon k}
             inl covariance = {covariance without front}
             inl precision = {precision without front}
-            inl weights = {weight.bias with covariance precision epsilon k}
+            inl weights = {weights.bias with covariance precision epsilon k}
             Optimizer.kfac {learning_rate weights}
 
         block = ()
@@ -1545,7 +1546,7 @@ inl float ->
                 )
         }
 
-    inl RNN = {mi mi' mi'' lstm}
+    inl RNN = {mi mi' mi'' lstm lstm'}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
