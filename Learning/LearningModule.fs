@@ -1313,7 +1313,7 @@ inl float ->
     inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
 
     inl mi'' size =
-        inl dim = {bias = { si = size; i = size; s = size; c = size }}
+        inl inner = {dim = { si = size; i = size; s = size; c = size }}
         {
         init = inl sublayer_size -> 
             {
@@ -1343,7 +1343,7 @@ inl float ->
                 {
                 state = weight {init=tanh; dim=size, size}
                 input = weight {init=tanh; dim=sublayer_size, size}
-                bias = bias {init={si=const one; i=const half; s=const half; c=zero}; dim=1, dim.bias}
+                bias = bias {init={si=const one; i=const half; s=const half; c=zero}; dim=1, inner.dim}
                 }
 
             size
@@ -1360,7 +1360,7 @@ inl float ->
                 inm out =
                     inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
                     inm bias = expand_singular (span,()) weights.bias 
-                    inl bias = Struct.map' (View.wrap ((), dim.bias) >> View.split) bias |> zip_dual
+                    inl bias = Struct.map' (View.wrap ((), inner.dim) >> View.split) bias |> zip_dual
                     map CudaAD.generalized_mi_tanh {input state bias}
                 
                 succ {out state={out}}
@@ -1420,6 +1420,81 @@ inl float ->
             {out state bck}
         block = ()
         }
+
+    inl lstm' size =
+        open Initializer.dual.TensorView
+        inl inner = 
+            {
+            dim = { input = size; forget = size; memory = size; output = size }
+            }
+        inl init =
+            {
+            bias = { input = zero; forget = const one; memory = zero; output = zero }
+            cell = { input = sigmoid; forget = sigmoid; memory = tanh; output = sigmoid }
+            }
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                inl weight d = {
+                    weight = view' d
+                    streams = stream, stream
+                    block = ()
+                    }
+                inl weight' d = {(weight d) with
+                    covariance = covariance {front=b; back=a}
+                    precision = covariance {front=b; back=a}
+                    epsilon = val (2.0f32 ** -3.0f32)
+                    k = var 0
+                    }
+                inl weight'' d = {(weight d) with
+                    covariance = covariance {front=b}
+                    precision = covariance {front=b}
+                    epsilon = val (2.0f32 ** -3.0f32)
+                    k = var 0
+                    }
+                inl bias {init with dim=1,a} = {
+                    weight = view' init
+                    block = ()
+                    }
+                {
+                input = weight' { init = init.cell; dim = sublayer_size, inner.dim }
+                state = weight'' { init = init.cell; dim = size, inner.dim }
+                bias = view' {init = init.bias; dim = 1, inner.dim}
+                }
+            size
+            }
+
+        apply = inl {d with weights input} s -> 
+            inl span = primal input .span_outer
+            inl out, memory =
+                match d with
+                | {state={out memory}} -> out, memory
+                | _ -> 
+                    inl f _ = s.CudaTensor.zero {elem_type=float; dim=span,size}
+                    f(), f()
+
+            inl apply =
+                inm {out memory} =
+                    inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
+                    inl bias, input, state = Struct.map' (View.wrap ((),inner.dim) >> View.split) (weights.bias.weight, input, state) |> Liple.map zip_dual
+                    inl cell = Struct.map3 (inl input state bias -> {input state bias}) input state bias
+                    map CudaAD.lstm {memory cell}
+                
+                succ {out state={out memory}}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        optimize = inl {learning_rate weights} ->
+            inl {covariance precision epsilon k} to = weight.input
+            inl weights = {weight.state with covariance precision epsilon k}
+            inl covariance = {covariance without front}
+            inl precision = {precision without front}
+            inl weights = {weight.bias with covariance precision epsilon k}
+            Optimizer.kfac {learning_rate weights}
+
+        block = ()
+        }
+
 
     inl concat x s =
         inl span_inner x = x.dim |> inl b,a -> a
