@@ -1533,6 +1533,77 @@ inl float ->
         block = ()
         }
 
+    inl hebb_template {output_functions index_into fwd bck dim} ins s =
+        inl out =
+            inl ins = to_dev_tensor (primals ins)
+            s.CudaFun.init {dim} (inl dim ->
+                index_into dim ins 
+                |> Struct.map (inl x -> x .get)
+                |> fwd
+                )
+            |> dr s
+        {
+        out
+        bck=met _ ->
+            inl ins = to_dev_tensor ins
+            inl error = to_dev_tensor (adjoint out)
+            s.CudaKernel.iter {dim} (inl dim ->
+                    inl ads =
+                        index_into dim (primals ins) 
+                        |> Struct.map (inl x -> x .get)
+                        |> bck
+                    inl error = error dim .get
+                    inl ins = 
+                        inl a = Struct.choose id (adjoints ins)
+                        inl b = index_into dim a
+                        Struct.map2 (inl a b -> b) a b // This is to get rid of the `n` in a safe way.
+                    
+                    Struct.iter3 (inl in b f -> f in (error * b ())) ins ads output_functions
+                )
+        }
+
+    inl oja_update n {ins with input out H} =
+        inl b,a as dim = primal H .dim
+        inl span_inner = to float a
+        assert_dim (primals ins) {
+            input=1, b
+            out=1, a
+            }
+
+        inl output_functions =
+            inl add a b = a.set (a.get + b)
+            {
+            input=atomic_add
+            out=atomic_add
+            H=add
+            }
+        inl index_into (b,a) x = 
+            inl n =
+                match n with
+                | {from near_to} _ -> 
+                    inl from, near_to = log from, log near_to
+                    exp (from + (near_to - from) / (span_inner + one) * (to float a + one))
+                | _ _ -> n
+            Struct.map2 (<|) (Struct.choose id x)
+                {
+                input = 0, b
+                out = 0, a
+                H = b, a
+                } 
+            |> inl x -> {x with n}
+        inl tanh = tanh_fwd
+        inl abs_bck x = if x >= zero then one else -one
+
+        inl fwd {n input out H} =
+            H + n * (input * out - out * out * H)
+        inl bck {n input out H} =
+            { 
+            input = inl _ -> n * out
+            out = inl _ -> n * (input - two * out * H)
+            H = inl _ -> one - n * out * out
+            }
+        hebb_template {output_functions index_into fwd bck dim} ins
+
     inl plastic_rnn n size =
         {
         init = inl sublayer_size -> 
@@ -1547,7 +1618,7 @@ inl float ->
                     }
 
                 {
-                state = (randn 0.01f32) (size, size} // For the Binary Pattern
+                state = (randn 0.01f32) (size, size) // For the Binary Pattern
                 input = identity (sublayer_size, size)
                 modulator = {
                     input = {
@@ -1587,7 +1658,7 @@ inl float ->
                             inl modulator = weights.modulator k
                             inm input = matmult (input, modulator.input)
                             inm state = matmult (state, modulator.state)
-                            generalized_mi {modulator with input state}
+                            map CudaAD.generalized_mi {modulator with input state}
                         inm static = matmult ({input state} k, weights k)
                         inm plastic = matmult ({input state} k, H k)
                         broadcasting_activation {
