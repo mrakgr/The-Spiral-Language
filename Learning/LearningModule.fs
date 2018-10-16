@@ -1484,65 +1484,6 @@ inl float ->
         block = ()
         }
 
-    inl lstm'' size =
-        open Initializer.dual.TensorView
-        inl inner = 
-            {
-            dim = { input = size; forget = size; memory = size; output = size }
-            }
-        inl init =
-            {
-            bias = { input = zero; forget = const one; memory = zero; output = zero }
-            cell = { input = sigmoid; forget = sigmoid; memory = tanh; output = sigmoid }
-            }
-        {
-        init = inl sublayer_size -> 
-            {
-            dsc = 
-                inl weight {d with dim=b,a} = {
-                    weight = view' d
-                    streams = stream, stream
-                    front = covariance default_epsilon b
-                    back = covariance default_epsilon a
-                    block = ()
-                    }
-                inl bias {init with dim=1,a} = {
-                    weight = view' init
-                    back = covariance default_epsilon a
-                    block = ()
-                    }
-                {
-                input = weight { init = init.cell; dim = sublayer_size, inner.dim }
-                state = weight { init = init.cell; dim = size, inner.dim }
-                bias = bias {init = init.bias; dim = 1, inner.dim}
-                }
-            size
-            }
-
-        apply = inl {d with weights input} s -> 
-            inl span = primal input .span_outer
-            inl out, memory =
-                match d with
-                | {state={out memory}} -> out, memory
-                | _ -> 
-                    inl f _ = s.CudaTensor.zero {elem_type=float; dim=span,size}
-                    f(), f()
-
-            inl apply =
-                inm {out memory} =
-                    inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
-                    inm bias = expand_singular (span,()) weights.bias
-                    inl bias, input, state = Struct.map' (View.wrap ((),inner.dim) >> View.split) (bias, input, state) |> Liple.map zip_dual
-                    inl cell = Struct.map3 (inl input state bias -> {input state bias}) input state bias
-                    map CudaAD.lstm {memory cell}
-                
-                succ {out state={out memory}}
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        optimize = Optimizer.kfac
-        block = ()
-        }
-
     inl concat x s =
         inl span_inner x = x.dim |> inl b,a -> a
         inl {dim elem_type} = 

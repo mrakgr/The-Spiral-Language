@@ -182,9 +182,6 @@ inl network,_ =
         lstm' = 
             lstm' 128,
             linear size.hot
-        lstm'' = 
-            lstm'' 128,
-            linear size.hot
         }
 
     init s size.hot network.lstm'
