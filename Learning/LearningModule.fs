@@ -1252,6 +1252,20 @@ inl float ->
 
     inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
 
+    inl expand_singular dim {weight back} s =
+        inl out = Tensor.expand_singular dim (primal weight) |> dr s
+        
+        inl squeeze weight =
+            assert (weight.span_outer = 1) "The span of outer must be 1."
+            weight 0
+        {
+        out
+        bck=met d -> 
+            bck_add_bias (adjoint out) (adjoint weight |> squeeze) s
+            update_covariance d.learning_rate (adjoint out) back.covariance s
+            back.k := back.k() + (primal out .span_outer)
+        }
+
     // #Recurrent
     inl mi size =
         {
@@ -1259,14 +1273,14 @@ inl float ->
             {
             dsc =
                 open Initializer.dual.Tensor
-                inl weight_streams f dim = {
+                inl weight f dim = {
                     weight = f dim
                     streams = stream, stream
                     block = ()
                     }
                 {
-                state = weight_streams tanh (size, size)
-                input = weight_streams tanh (sublayer_size, size)
+                state = weight tanh (size, size)
+                input = weight tanh (sublayer_size, size)
                 bias = {
                     si = const one (1,size)
                     i = const half (1,size)
@@ -1294,20 +1308,6 @@ inl float ->
             inl {out={out state} bck} = apply s
             {out state bck}
         block = ()
-        }
-
-    inl expand_singular dim {weight back} s =
-        inl out = Tensor.expand_singular dim (primal weight) |> dr s
-        
-        inl squeeze weight =
-            assert (weight.span_outer = 1) "The span of outer must be 1."
-            weight 0
-        {
-        out
-        bck=met d -> 
-            bck_add_bias (adjoint out) (adjoint weight |> squeeze) s
-            update_covariance d.learning_rate (adjoint out) back.covariance s
-            back.k := back.k() + (primal out .span_outer)
         }
 
     inl mi' size = 
@@ -1538,34 +1538,30 @@ inl float ->
         init = inl sublayer_size -> 
             {
             dsc = 
+                open Initializer.dual.Tensor
+                inl bias size = {
+                    si = const one (1,size)
+                    i = const half (1,size)
+                    s = const half (1,size)
+                    c = zero (1,size)
+                    }
+
                 {
-                state = Initializer.randn {stddev=0.01f32; dim=size, size} // For the Binary Pattern
-                input = Initializer.dr (Initializer.identity (sublayer_size, size))
-                //state = Initializer.tanh (size, size) // For regular tasks
-                //input = Initializer.tanh (sublayer_size, size)
+                state = (randn 0.01f32) (size, size} // For the Binary Pattern
+                input = identity (sublayer_size, size)
                 modulator = {
                     input = {
-                        input = Initializer.bias (sublayer_size, size)
-                        state = Initializer.bias (size, size)
-                        bias = {
-                            si = Initializer.constant {dim=1,size; init=to float 1}
-                            i = Initializer.constant {dim=1,size; init=to float 0.5}
-                            s = Initializer.constant {dim=1,size; init=to float 0.5}
-                            c = Initializer.bias (1,size)
-                            }
+                        input = zero (sublayer_size, size)
+                        state = zero (size, size)
+                        bias = bias size
                         }
                     state = {
-                        input = Initializer.bias (sublayer_size, size)
-                        state = Initializer.bias (size, size)
-                        bias = {
-                            si = Initializer.constant {dim=1,size; init=to float 1}
-                            i = Initializer.constant {dim=1,size; init=to float 0.5}
-                            s = Initializer.constant {dim=1,size; init=to float 0.5}
-                            c = Initializer.bias (1,size)
-                            }
+                        input = zero (sublayer_size, size)
+                        state = zero (size, size)
+                        bias = bias size
                         }
                     }
-                bias = Initializer.bias (1,size)
+                bias = zero (1,size)
                 }
             size=size
             }
