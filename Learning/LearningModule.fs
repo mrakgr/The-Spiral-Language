@@ -1255,7 +1255,9 @@ inl float ->
 
     inl covariance = 
         inl {identity val var} = Initializer.sing.Tensor
-        inl epsilon x -> {covariance=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
+        inl epsilon !(View.dim) x -> {covariance=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
+
+    inl default_epsilon = 2.0f32 ** -3.0f32
 
     inl mi' size = 
         {
@@ -1263,18 +1265,17 @@ inl float ->
             {
             dsc =
                 open Initializer.dual.Tensor
-                inl epsilon = 2.0f32 ** -3.0f32
                 inl weight f (b,a as dim) = {
                     weight = f dim
                     streams = stream, stream
-                    front = covariance epsilon b
-                    back = covariance epsilon a
+                    front = covariance default_epsilon b
+                    back = covariance default_epsilon a
                     block = ()
                     }
 
                 inl bias f a = {
                     weight = f (1,a)
-                    back = covariance epsilon a
+                    back = covariance default_epsilon a
                     block = ()
                     }
 
@@ -1321,24 +1322,17 @@ inl float ->
             {
             dsc =
                 open Initializer.dual.TensorView
-
-                inl covariance = module_map (inl _ !(View.dim) x -> covariance (x,x))
                 inl weight {init with dim=b,a} = {
                     weight = view' init
                     streams = stream, stream
-                    covariance = covariance {front=b; back=a}
-                    precision = covariance {front=b; back=a}
-                    epsilon = val (2.0f32 ** -3.0f32)
-                    k = var 0
+                    front = covariance default_epsilon b
+                    back = covariance default_epsilon a
                     block = ()
                     }
 
                 inl bias {init with dim=1,a} = {
                     weight = view' init
-                    covariance = covariance {back=a}
-                    precision = covariance {back=a}
-                    epsilon = val (2.0f32 ** -3.0f32)
-                    k = var 0
+                    back = covariance default_epsilon a
                     block = ()
                     }
                 
@@ -1438,23 +1432,17 @@ inl float ->
         init = inl sublayer_size -> 
             {
             dsc = 
-                inl covariance = module_map (inl _ !(View.dim) x -> covariance (x,x))
                 inl weight d = {
                     weight = view' d
                     streams = stream, stream
                     block = ()
                     }
                 inl weight' {d with dim=b,a} = {(weight d) with
-                    covariance = covariance {front=b; back=a}
-                    precision = covariance {front=b; back=a}
-                    epsilon = val (2.0f32 ** -3.0f32)
-                    k = var 0
+                    front = covariance default_epsilon b
+                    back = covariance default_epsilon a
                     }
                 inl weight'' {d with dim=b,a} = {(weight d) with
-                    covariance = covariance {front=b}
-                    precision = covariance {front=b}
-                    epsilon = val (2.0f32 ** -3.0f32)
-                    k = var 0
+                    front = covariance default_epsilon b
                     }
                 inl bias {init with dim=1,a} = {
                     weight = view' init
@@ -1488,9 +1476,9 @@ inl float ->
             inl {out={out state} bck} = apply s
             {out state bck}
         optimize = inl {learning_rate weights} ->
-            inl {covariance precision epsilon k} = weights.input
-            inl weights = {weights.state with covariance={self with back=covariance.back}; precision={self with back=precision.back}; epsilon k}
-            inl weights = {weights.bias with covariance={back=covariance.back}; precision={back=precision.back}; epsilon k}
+            inl {back} = weights.input
+            inl weights = {weights.state with back}
+            inl weights = {weights.bias with back}
             Optimizer.kfac {learning_rate weights}
 
         block = ()
@@ -1511,22 +1499,16 @@ inl float ->
         init = inl sublayer_size -> 
             {
             dsc = 
-                inl covariance = module_map (inl _ !(View.dim) x -> covariance (x,x))
                 inl weight {d with dim=b,a} = {
                     weight = view' d
                     streams = stream, stream
-                    covariance = covariance {front=b; back=a}
-                    precision = covariance {front=b; back=a}
-                    epsilon = val (2.0f32 ** -3.0f32)
-                    k = var 0
+                    front = covariance default_epsilon b
+                    back = covariance default_epsilon a
                     block = ()
                     }
                 inl bias {init with dim=1,a} = {
                     weight = view' init
-                    covariance = covariance {back=a}
-                    precision = covariance {back=a}
-                    epsilon = val (2.0f32 ** -3.0f32)
-                    k = var 0
+                    back = covariance default_epsilon a
                     block = ()
                     }
                 {
