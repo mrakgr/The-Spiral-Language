@@ -187,7 +187,7 @@ inl network,_ =
             linear size.hot
         }
 
-    init s size.hot network.lstm'
+    init s size.hot network.lstm
 
 inl truncate network s' =
     inl s = s'.RegionMem.create
