@@ -534,6 +534,7 @@ inl float ->
                 update .front (primal data)
                 update .back out
                 k := k() + out.span_outer
+            | _ -> ()
 
         inl l = Struct.map init l
         Struct.iter run l
