@@ -1533,7 +1533,7 @@ inl float ->
                 )
         }
 
-    inl RNN = {mi mi' mi'' lstm lstm' lstm''}
+    inl RNN = {mi mi' mi'' lstm lstm'}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
