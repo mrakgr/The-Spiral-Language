@@ -1254,7 +1254,7 @@ inl float ->
         }
 
     inl covariance = 
-        inl identity = Initializer.sing.Tensor.identity
+        inl {identity val var} = Initializer.sing.Tensor
         inl epsilon x -> {covariance=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
 
     inl mi' size = 
