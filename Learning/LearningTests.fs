@@ -307,14 +307,14 @@ inl make_patterns n size =
         )
 
 inl size = {
-    pattern = 50
+    pattern = 20
     episode = 5
     minibatch = 1
-    seq = 1
+    seq = 2
 
-    shot = 3
-    pattern_repetition = 10
-    empty_input_after_repetition = 3
+    shot = 1
+    pattern_repetition = 1
+    empty_input_after_repetition = 0
     }
 
 inl data =
@@ -412,7 +412,7 @@ met train {!data network learning_rate final} s =
             network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
             network.optimize learning_rate
 
-        inl iters = 10
+        inl iters = 1
         
         if (i + 1) % iters = 0 then 
             inl square = cost.square() / to float32 iters
@@ -433,9 +433,10 @@ inl network,_ =
     inl network = 
         {
         plastic_rnn = plastic_rnn n size.pattern
+        plastic_rnn' = plastic_rnn' n size.pattern
         }
 
-    init s size.pattern network.plastic_rnn
+    init s size.pattern network.plastic_rnn'
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {
@@ -453,5 +454,5 @@ let tests =
 //rewrite_test_cache tests cfg None
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning3
-//|> printfn "%s"
+|> printfn "%s"
 |> ignore
