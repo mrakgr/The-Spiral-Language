@@ -310,11 +310,11 @@ inl size = {
     pattern = 20
     episode = 5
     minibatch = 1
-    seq = 2
+    seq = 50
 
     shot = 1
-    pattern_repetition = 1
-    empty_input_after_repetition = 0
+    pattern_repetition = 5
+    empty_input_after_repetition = 3
     }
 
 inl data =
@@ -425,7 +425,7 @@ met train {!data network learning_rate final} s =
         else next()
 
 inl learning_rate = 2f32 ** -11.5f32
-inl n = 0.005f32
+inl n = 0.1f32
 
 inl network,_ = 
     open Feedforward
@@ -436,7 +436,7 @@ inl network,_ =
         plastic_rnn' = plastic_rnn' n size.pattern
         }
 
-    init s size.pattern network.plastic_rnn'
+    init s size.pattern network.plastic_rnn
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {

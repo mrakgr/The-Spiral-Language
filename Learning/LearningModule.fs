@@ -1661,7 +1661,7 @@ inl float ->
                         ) {out H input={input state}}
 
                 //s.CudaTensor.print (primal H.input)
-                s.CudaTensor.print (primal out)
+                //s.CudaTensor.print (primal out)
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s
@@ -1816,7 +1816,7 @@ inl float ->
                             Struct.map (const out) in
                         } {input state bias=weights.bias}
                 
-                s.CudaTensor.print (primal out)
+                //s.CudaTensor.print (primal out)
 
                 inm H =
                     inl oja_update k = oja_update n {input={input state} k; out H=H k}
