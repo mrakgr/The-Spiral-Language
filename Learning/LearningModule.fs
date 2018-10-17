@@ -1534,94 +1534,97 @@ inl float ->
         block = ()
         }
 
-    //inl plastic_rnn n size =
-    //    open Initializer.dual.TensorView
-    //    inl init = 
-    //        inl bias = {si=const one; i=const half; s=const half; c=zero}
-    //        {
-    //        input = {static=identity; modulator={input=zero; state=zero}}
-    //        state = {static=randn 0.01f32; modulator={input=zero; state=zero}}
-    //        bias = {static=zero; modulator={input=bias; state=bias}}
-    //        }
-    //    inl dim =
-    //        {
-    //        matrix = {static=size; modulator={input=size; state=size}}
-    //        bias =
-    //            inl dim = {si=size; i=size; s=size; c=size}
-    //            {static=size; modulator={input=dim; state=dim}}
-    //        }
-    //    {
-    //    init = inl sublayer_size -> 
-    //        {
-    //        dsc =
-    //            open Initializer.dual.TensorView
-    //            inl streams = stream, stream
-    //            inl weight d = {
-    //                weight = view' d
-    //                streams
-    //                block = ()
-    //                }
-    //            inl bias {init with dim=1,a} = {
-    //                weight = view' init
-    //                block = ()
-    //                }
-    //            {
-    //            input = weight {init=init.input; dim=sublayer_size, dim.matrix}
-    //            state = weight {init=init.state; dim=size, dim.matrix}
-    //            bias = bias {init=init.bias; dim=1,dim.bias}
-    //            streams = {modulator={input=streams; state=streams}}
-    //            sublayer_size = val sublayer_size
-    //            }
-    //        size
-    //        }
+    inl plastic_rnn n size =
+        open Initializer.dual.TensorView
+        inl init = 
+            inl bias = {si=const one; i=const half; s=const half; c=zero}
+            {
+            input = {static=identity; modulator={input=zero; state=zero}}
+            state = {static=randn 0.01f32; modulator={input=zero; state=zero}}
+            bias = {static=zero; modulator={input=bias; state=bias}}
+            }
+        inl dim =
+            {
+            matrix = {static=size; modulator={input=size; state=size}}
+            bias =
+                inl dim = {si=size; i=size; s=size; c=size}
+                {static=size; modulator={input=dim; state=dim}}
+            }
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc =
+                open Initializer.dual.TensorView
+                inl streams = stream, stream
+                inl weight d = {
+                    weight = view' d
+                    streams
+                    block = ()
+                    }
+                inl bias {init with dim=1,a} = {
+                    weight = view' init
+                    block = ()
+                    }
+                {
+                input = weight {init=init.input; dim=sublayer_size, dim.matrix}
+                state = weight {init=init.state; dim=size, dim.matrix}
+                bias = bias {init=init.bias; dim=1,dim.bias}
+                streams = {modulator={input=streams; state=streams}}
+                sublayer_size = val sublayer_size
+                }
+            size
+            }
 
-    //    apply = inl {d with weights input} s -> 
-    //        inl span = primal input .span_outer
-    //        assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
-    //        inl H =
-    //            match d with
-    //            | {state={H}} -> H
-    //            | _ -> 
-    //                {
-    //                input=s.CudaTensor.zero {elem_type=float; dim=weights.sublayer_size, size}
-    //                state=s.CudaTensor.zero {elem_type=float; dim=size, size}
-    //                }
+        apply = inl {d with weights input} s -> 
+            inl span = primal input .span_outer
+            assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl H =
+                match d with
+                | {state={H}} -> H
+                | _ -> 
+                    {
+                    input=s.CudaTensor.zero {elem_type=float; dim=weights.sublayer_size, size}
+                    state=s.CudaTensor.zero {elem_type=float; dim=size, size}
+                    }
 
-    //        inl out =
-    //            match d with
-    //            | {state={out}} -> state
-    //            | _ -> s.CudaTensor.zero {elem_type=float; dim=span, size}
+            inl out =
+                match d with
+                | {state={out}} -> out
+                | _ -> s.CudaTensor.zero {elem_type=float; dim=span, size}
 
-    //        inl apply =
-    //            inm out =
-    //                inm {input state plastic} = 
-    //                    matmult_stream {
-    //                        input={(weights.input) with data=input}
-    //                        state={(weights.state) with data=out}
-    //                        plastic=
-    //                            module_map (inl k weight -> { weight streams = weights.streams.modulator k; block=() }) H
-    //                        }
-    //                inl input, state = Struct.map' (View.wrap ((),dim.matrix) >> View.split) (input, state) |> Liple.map zip_dual
-    //                inl bias = Struct.map' (View.wrap ((),dim.bias) >> View.split) weights.bias |> Liple.map zip_dual
-    //                inl input = 
-    //                    {
-    //                    static = input.static
-    //                    modulator = {input = input.modulator.input; state = state.modulator.input; bias = bias.modulator.input}
-    //                    plastic = plastic.input
-    //                    }
-    //                inl state = 
-    //                    {
-    //                    static = state.static
-    //                    modulator = {input = input.modulator.state; state = state.modulator.state; bias = bias.modulator.state}
-    //                    plastic = plastic.state
-    //                    }
-    //                inl bias = bias.static
-    //                map CudaAD.plastic_rnn {input state bias}
-    //                ()
-    //            ()
+            inl apply =
+                inm out =
+                    inm {input state plastic} = 
+                        matmult_stream {
+                            input={(weights.input) with data=input}
+                            state={(weights.state) with data=out}
+                            plastic=
+                                module_map (inl k weight -> { weight streams = weights.streams.modulator k; block=() }) H
+                            }
+                    inl input, state = wrap_split ((), dim.matrix) (input, state)
+                    inl bias = wrap_split (() ,dim.bias) weights.bias
+                    inl input = 
+                        {
+                        static = input.static
+                        modulator = {input = input.modulator.input; state = state.modulator.input; bias = bias.modulator.input}
+                        plastic = plastic.input
+                        }
+                    inl state = 
+                        {
+                        static = state.static
+                        modulator = {input = input.modulator.state; state = state.modulator.state; bias = bias.modulator.state}
+                        plastic = plastic.state
+                        }
+                    inl bias = bias.static
+                    map CudaAD.plastic_rnn {input state bias}
+                // TODO: Do not forget the Oja update.
+                succ {out state={out H}}
 
-    //    block = ()
-    //    }
+            inl {out={out state} bck} = apply s
+            {out state bck}
+
+        block = ()
+        }
 
     inl RNN = {mi mi' mi'' lstm lstm'}
 
