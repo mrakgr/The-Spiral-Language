@@ -1614,7 +1614,8 @@ inl float ->
                             input={(weights.input) with data=input}
                             state={(weights.state) with data=state}
                             plastic=
-                                module_map (inl k weight -> { weight streams = weights.streams.modulator k; block=() }) H
+                                Struct.map3 (inl weight data streams -> { weight data streams block=() }) 
+                                    H {input state} weights.streams.modulator
                             }
                     inl input, state = wrap_split ((), dim.matrix) (input, state)
                     inl bias = wrap_split ((), dim.bias) weights.bias
@@ -1645,7 +1646,7 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {mi mi' mi'' lstm lstm'}
+    inl RNN = {mi mi' mi'' lstm lstm' plastic_rnn}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
