@@ -15,6 +15,12 @@ inl half = 0.5f32
 inl one = 1f32
 inl two = 2f32
 
+inl learning_rate_range cur = function
+    | {from near_to} -> 
+        inl from, near_to = log from, log near_to
+        exp (from + (near_to - from) / (span_inner + one) * (to float a + one))
+    | n -> n
+
 inl (>>=) a b =
     match a with
     | {out=a bck=bck_a} ->
@@ -180,32 +186,26 @@ inl (+) =
             set_adjoint b (inl _ -> get_adjoint out)
         }
 
+inl generalized_mi {bias={si s i c} input state} = si * state * input + s * state + i * input + c
+inl generalized_mi_tanh {bias={si s i c} input state} = si * state * input + s * state + i * input + c |> tanh
+
 inl lstm {memory cell} =
     inm cell = sequence_module (inl {input state bias} -> input + state + bias) cell
     inm memory = sigmoid cell.input * tanh cell.memory + sigmoid cell.forget * memory
     inm out = sigmoid cell.output * tanh memory
     succ {memory out}
 
-inl generalized_mi {bias={si s i c} input state} = si * state * input + s * state + i * input + c
-inl generalized_mi_tanh {bias={si s i c} input state} = si * state * input + s * state + i * input + c |> tanh
+inl oja_update n cur =
+    inl n = learning_rate_range cur n
+    sequence_module <| inl {input out H} -> H + n * (input * out - out * out * H)
 
 inl plastic_rnn {input state bias} =
     inl f input = input.static + generalized_mi input.modulator * input.plastic
     f input + f state + bias
-
-inl learning_rate_range cur = function
-    | {from near_to} -> 
-        inl from, near_to = log from, log near_to
-        exp (from + (near_to - from) / (span_inner + one) * (to float a + one))
-    | n -> n
-
-inl oja_update n cur =
-    inl n = learning_rate_range cur n
-    Liple.map <| inl {input out H} -> H + n * (input * out - out * out * H)
 {
 (>>=) succ dr sigmoid tanh relu (+) (*) link broadcasting_link link_adjoint
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
-lstm generalized_mi generalized_mi_tanh plastic_rnn
+generalized_mi generalized_mi_tanh lstm oja_update plastic_rnn
 }
 |> stackify
     """
@@ -1602,9 +1602,9 @@ inl float ->
                     state=s.CudaTensor.zero {elem_type=float; dim=size, size}
                     }
 
-            inl out =
+            inl state =
                 match d with
-                | {state={out}} -> out
+                | {state={state}} -> state
                 | _ -> s.CudaTensor.zero {elem_type=float; dim=span, size}
 
             inl apply =
@@ -1612,12 +1612,12 @@ inl float ->
                     inm {input state plastic} = 
                         matmult_stream {
                             input={(weights.input) with data=input}
-                            state={(weights.state) with data=out}
+                            state={(weights.state) with data=state}
                             plastic=
                                 module_map (inl k weight -> { weight streams = weights.streams.modulator k; block=() }) H
                             }
                     inl input, state = wrap_split ((), dim.matrix) (input, state)
-                    inl bias = wrap_split (() ,dim.bias) weights.bias
+                    inl bias = wrap_split ((), dim.bias) weights.bias
                     inl input = 
                         {
                         static = input.static
@@ -1632,8 +1632,12 @@ inl float ->
                         }
                     inl bias = bias.static
                     map CudaAD.plastic_rnn {input state bias}
-                // TODO: Do not forget the Oja update.
-                succ {out state={out H}}
+                inm H =
+                    mapi (inl cur {input H out} -> 
+                        inl f k = {out input = input k; H = H k }
+                        CudaAD.oja_update n cur { input = f.input; state = f.state }
+                        ) {out H input={input state}}
+                succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s
             {out state bck}
