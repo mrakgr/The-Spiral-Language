@@ -1618,7 +1618,7 @@ inl float ->
                                     H {input state} weights.streams.modulator
                             }
                     inl input, state = wrap_split ((), dim.matrix) (input, state)
-                    inl bias = wrap_split ((), dim.bias) weights.bias
+                    inl bias = wrap_split ((), dim.bias) weights.bias.weight
                     inl input = 
                         {
                         static = input.static
