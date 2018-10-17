@@ -44,9 +44,9 @@ inl dr x =
     block=()
     }
 
-inl set_adjoint x out =
+inl add_adjoint x out =
     match x with
-    | {adjoint} -> adjoint 0 <- out ()
+    | {adjoint} -> adjoint 0 <- adjoint 0 + out ()
     | _ -> ()
 
 inl get_adjoint {adjoint} = adjoint 0
@@ -65,7 +65,7 @@ inl sigmoid =
         inl out = primal x |> sigmoid_fwd |> dr
         {
         out
-        bck=inl _ -> set_adjoint x (inl _ -> sigmoid_bck (primal out) * get_adjoint out)
+        bck=inl _ -> add_adjoint x (inl _ -> sigmoid_bck (primal out) * get_adjoint out)
         }
 
 inl tanh_fwd = tanh
@@ -76,7 +76,7 @@ inl tanh =
         inl out = primal x |> tanh_fwd |> dr
         {
         out
-        bck=inl _ -> set_adjoint x (inl _ -> tanh_bck (primal out) * get_adjoint out)
+        bck=inl _ -> add_adjoint x (inl _ -> tanh_bck (primal out) * get_adjoint out)
         }
 
 inl relu_fwd x = if x > zero then x else zero
@@ -87,7 +87,7 @@ inl relu =
         inl out = primal x |> relu_fwd |> dr
         {
         out
-        bck=inl _ -> set_adjoint x (inl _ -> relu_bck (primal out) * get_adjoint out)
+        bck=inl _ -> add_adjoint x (inl _ -> relu_bck (primal out) * get_adjoint out)
         }
 
 inl link cur x =
@@ -172,8 +172,8 @@ inl (/) =
         {
         out
         bck=inl _ ->
-            set_adjoint a (inl _ -> get_adjoint out / primal b)
-            set_adjoint b (inl _ -> -(get_adjoint out) * primal a / (primal b * primal b))
+            add_adjoint a (inl _ -> get_adjoint out / primal b)
+            add_adjoint b (inl _ -> -(get_adjoint out) * primal a / (primal b * primal b))
         }
 
 
@@ -183,8 +183,8 @@ inl (*) =
         {
         out
         bck=inl _ ->
-            set_adjoint a (inl _ -> primal b * get_adjoint out)
-            set_adjoint b (inl _ -> primal a * get_adjoint out)
+            add_adjoint a (inl _ -> primal b * get_adjoint out)
+            add_adjoint b (inl _ -> primal a * get_adjoint out)
         }
 
 inl (+) =
@@ -193,8 +193,8 @@ inl (+) =
         {
         out
         bck=inl _ ->
-            set_adjoint a (inl _ -> get_adjoint out)
-            set_adjoint b (inl _ -> get_adjoint out)
+            add_adjoint a (inl _ -> get_adjoint out)
+            add_adjoint b (inl _ -> get_adjoint out)
         }
 
 inl (-) =
@@ -203,8 +203,8 @@ inl (-) =
         {
         out
         bck=inl _ ->
-            set_adjoint a (inl _ -> get_adjoint out)
-            set_adjoint b (inl _ -> -(get_adjoint out))
+            add_adjoint a (inl _ -> get_adjoint out)
+            add_adjoint b (inl _ -> -(get_adjoint out))
         }
 
 inl generalized_mi {bias={si s i c} input state} = si * state * input + s * state + i * input + c
