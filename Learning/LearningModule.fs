@@ -220,9 +220,7 @@ inl lstm {memory cell} =
 //    inl n = learning_rate_range cur n
 //    sequence_module <| inl {input out H} -> H + n * (input * out - out * out * H)
 
-inl oja_update n =
-    inl n = learning_rate_range cur n
-    inl {input out H} -> H + n * (input * out - out * out * H)
+inl oja_update n {input out H} = H + n * (input * out - out * out * H)
 
 inl plastic_rnn {input state bias} =
     inl f input = input.static + generalized_mi input.modulator * input.plastic
@@ -2028,14 +2026,9 @@ inl float ->
                     map CudaAD.plastic_rnn_cell' {input state bias=weights.bias}
 
                 inm H =
-                    //inl oja_update k = oja_update n {input={input state} k; out H=H k}
-                    //inm input = oja_update .input
-                    //inm state = oja_update .state
-                    //succ {input state}
-                    mapi (inl cur {input H out} -> 
-                        inl f k = {out input = input k; H = H k }
-                        CudaAD.oja_update n cur { input = f.input; state = f.state }
-                        ) {out H input={input state}}
+                    inm input = map (CudaAD.oja_update n) {out H=H.input; input}
+                    inm state = map (CudaAD.oja_update n) {out H=H.state; input=state}
+                    succ {input state}
 
                 succ {out state={state=out; H}}
 
