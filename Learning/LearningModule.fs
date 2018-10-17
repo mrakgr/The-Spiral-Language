@@ -196,7 +196,7 @@ inl plastic_rnn {input state bias} =
 {
 (>>=) succ dr sigmoid tanh relu (+) (*) link broadcasting_link link_adjoint
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
-lstm generalized_mi generalized_mi_tanh
+lstm generalized_mi generalized_mi_tanh plastic_rnn
 }
 |> stackify
     """
@@ -747,15 +747,17 @@ inl float ->
                 bck(); bck'()
         }
 
-    inl map f in s =
+    inl mapi f in s =
         inl dim = Tensor.assert_broadcastable (primals in)
         inl in = to_dev_tensor in
         open CudaAD
-        init {dim} (inl cur -> broadcasting_link dim cur in >>= f) s
+        init {dim} (inl cur -> broadcasting_link dim cur in >>= f cur) s
+
+    inl map = mapi << const
 
     inl Primitive =
         {
-        matmult activation error matmultb broadcasting_activation init map
+        matmult activation error matmultb broadcasting_activation init mapi map
         } |> stack
 
     // #Operations
