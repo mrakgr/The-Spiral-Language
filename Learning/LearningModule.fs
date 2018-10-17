@@ -166,16 +166,6 @@ inl binary f a b =
     inm b = b
     f a b
 
-inl (*) =
-    binary <| inl a b ->
-        inl out = primal a * primal b |> dr
-        {
-        out
-        bck=inl _ ->
-            set_adjoint a (inl _ -> primal b * get_adjoint out)
-            set_adjoint b (inl _ -> primal a * get_adjoint out)
-        }
-
 inl (/) =
     binary <| inl a b ->
         inl out = primal a / primal b |> dr
@@ -184,6 +174,17 @@ inl (/) =
         bck=inl _ ->
             set_adjoint a (inl _ -> get_adjoint out / primal b)
             set_adjoint b (inl _ -> -(get_adjoint out) * primal a / (primal b * primal b))
+        }
+
+
+inl (*) =
+    binary <| inl a b ->
+        inl out = primal a * primal b |> dr
+        {
+        out
+        bck=inl _ ->
+            set_adjoint a (inl _ -> primal b * get_adjoint out)
+            set_adjoint b (inl _ -> primal a * get_adjoint out)
         }
 
 inl (+) =
@@ -221,7 +222,7 @@ inl oja_update n cur =
 
 inl plastic_rnn {input state bias} =
     inl f input = input.static + generalized_mi input.modulator * input.plastic
-    f input + f state + bias
+    f input + f state + bias |> tanh
 {
 (>>=) succ dr sigmoid tanh relu (*) (/) (+) (-) link broadcasting_link link_adjoint
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
@@ -1653,11 +1654,11 @@ inl float ->
                         }
                     inl bias = bias.static
                     map CudaAD.plastic_rnn {input state bias}
-                //inm H =
-                //    mapi (inl cur {input H out} -> 
-                //        inl f k = {out input = input k; H = H k }
-                //        CudaAD.oja_update n cur { input = f.input; state = f.state }
-                //        ) {out H input={input state}}
+                inm H =
+                    mapi (inl cur {input H out} -> 
+                        inl f k = {out input = input k; H = H k }
+                        CudaAD.oja_update n cur { input = f.input; state = f.state }
+                        ) {out H input={input state}}
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s
