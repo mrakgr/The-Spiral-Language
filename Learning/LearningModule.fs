@@ -1251,7 +1251,7 @@ inl float ->
     inl default_epsilon = 2.0f32 ** -3.0f32
 
     inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
-    inl wrap_with dim = Struct.map' (View.wrap dim >> View.split) >> Struct.map zip_dual
+    inl wrap_split dim = Struct.map' (View.wrap dim >> View.split) >> Struct.map zip_dual
 
     inl expand_singular dim {weight back} s =
         inl out = Tensor.expand_singular dim (primal weight) |> dr s
@@ -1518,7 +1518,7 @@ inl float ->
             inl apply =
                 inm {out memory} =
                     inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
-                    inl bias, input, state = Struct.map' (View.wrap ((),dim.inner) >> View.split) (weights.bias.weight, input, state) |> Liple.map zip_dual
+                    inl bias, input, state = wrap_split ((), dim.inner) (weights.bias.weight, input, state)
                     inl cell = Struct.map3 (inl input state bias -> {input state bias}) input state bias
                     map CudaAD.lstm {memory cell}
                 
