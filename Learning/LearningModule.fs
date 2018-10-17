@@ -1251,6 +1251,7 @@ inl float ->
     inl default_epsilon = 2.0f32 ** -3.0f32
 
     inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
+    inl wrap_with dim = Struct.map' (View.wrap dim >> View.split) >> Struct.map zip_dual
 
     inl expand_singular dim {weight back} s =
         inl out = Tensor.expand_singular dim (primal weight) |> dr s
@@ -1365,7 +1366,7 @@ inl float ->
         }
 
     inl mi'' size =
-        inl inner = {dim = { si = size; i = size; s = size; c = size }}
+        inl dim = {inner = { si = size; i = size; s = size; c = size }}
         {
         init = inl sublayer_size -> 
             {
@@ -1388,7 +1389,7 @@ inl float ->
                 {
                 state = weight {init=tanh; dim=size, size}
                 input = weight {init=tanh; dim=sublayer_size, size}
-                bias = bias {init={si=const one; i=const half; s=const half; c=zero}; dim=1, inner.dim}
+                bias = bias {init={si=const one; i=const half; s=const half; c=zero}; dim=1, dim.inner}
                 }
 
             size
@@ -1405,7 +1406,7 @@ inl float ->
                 inm out =
                     inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
                     inm bias = expand_singular (span,()) weights.bias 
-                    inl bias = Struct.map' (View.wrap ((), inner.dim) >> View.split) bias |> zip_dual
+                    inl bias = Struct.map' (View.wrap ((), dim.inner) >> View.split) bias |> zip_dual
                     map CudaAD.generalized_mi_tanh {input state bias}
                 
                 succ {out state={out}}
@@ -1418,9 +1419,9 @@ inl float ->
 
     inl lstm size =
         open Initializer.dual.TensorView
-        inl inner = 
+        inl dim = 
             {
-            dim = { input = size; forget = size; memory = size; output = size }
+            inner = { input = size; forget = size; memory = size; output = size }
             }
         inl init =
             {
@@ -1437,9 +1438,9 @@ inl float ->
                     block = ()
                     }
                 {
-                input = weight { init = init.cell; dim = sublayer_size, inner.dim }
-                state = weight { init = init.cell; dim = size, inner.dim }
-                bias = view' {init = init.bias; dim = 1, inner.dim}
+                input = weight { init = init.cell; dim = sublayer_size, dim.inner }
+                state = weight { init = init.cell; dim = size, dim.inner }
+                bias = view' {init = init.bias; dim = 1, dim.inner}
                 }
             size
             }
@@ -1456,7 +1457,7 @@ inl float ->
             inl apply =
                 inm {out memory} =
                     inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
-                    inl bias, input, state = Struct.map' (View.wrap ((),inner.dim) >> View.split) (weights.bias, input, state) |> Liple.map zip_dual
+                    inl bias, input, state = Struct.map' (View.wrap ((),dim.inner) >> View.split) (weights.bias, input, state) |> Liple.map zip_dual
                     inl cell = Struct.map3 (inl input state bias -> {input state bias}) input state bias
                     map CudaAD.lstm {memory cell}
                 
@@ -1468,9 +1469,9 @@ inl float ->
 
     inl lstm' size =
         open Initializer.dual.TensorView
-        inl inner = 
+        inl dim = 
             {
-            dim = { input = size; forget = size; memory = size; output = size }
+            inner = { input = size; forget = size; memory = size; output = size }
             }
         inl init =
             {
@@ -1498,9 +1499,9 @@ inl float ->
                     block = ()
                     }
                 {
-                input = weight' { init = init.cell; dim = sublayer_size, inner.dim }
-                state = weight'' { init = init.cell; dim = size, inner.dim }
-                bias = bias {init = init.bias; dim = 1, inner.dim}
+                input = weight' { init = init.cell; dim = sublayer_size, dim.inner }
+                state = weight'' { init = init.cell; dim = size, dim.inner }
+                bias = bias {init = init.bias; dim = 1, dim.inner}
                 }
             size
             }
@@ -1517,7 +1518,7 @@ inl float ->
             inl apply =
                 inm {out memory} =
                     inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
-                    inl bias, input, state = Struct.map' (View.wrap ((),inner.dim) >> View.split) (weights.bias.weight, input, state) |> Liple.map zip_dual
+                    inl bias, input, state = Struct.map' (View.wrap ((),dim.inner) >> View.split) (weights.bias.weight, input, state) |> Liple.map zip_dual
                     inl cell = Struct.map3 (inl input state bias -> {input state bias}) input state bias
                     map CudaAD.lstm {memory cell}
                 
@@ -1533,77 +1534,94 @@ inl float ->
         block = ()
         }
 
-    inl hebb_template {output_functions index_into fwd bck dim} ins s =
-        inl out =
-            inl ins = to_dev_tensor (primals ins)
-            s.CudaFun.init {dim} (inl dim ->
-                index_into dim ins 
-                |> Struct.map (inl x -> x .get)
-                |> fwd
-                )
-            |> dr s
-        {
-        out
-        bck=met _ ->
-            inl ins = to_dev_tensor ins
-            inl error = to_dev_tensor (adjoint out)
-            s.CudaKernel.iter {dim} (inl dim ->
-                    inl ads =
-                        index_into dim (primals ins) 
-                        |> Struct.map (inl x -> x .get)
-                        |> bck
-                    inl error = error dim .get
-                    inl ins = 
-                        inl a = Struct.choose id (adjoints ins)
-                        inl b = index_into dim a
-                        Struct.map2 (inl a b -> b) a b // This is to get rid of the `n` in a safe way.
-                    
-                    Struct.iter3 (inl in b f -> f in (error * b ())) ins ads output_functions
-                )
-        }
-
-    inl oja_update n {ins with input out H} =
-        inl b,a as dim = primal H .dim
-        inl span_inner = to float a
-        assert_dim (primals ins) {
-            input=1, b
-            out=1, a
-            }
-
-        inl output_functions =
-            inl add a b = a.set (a.get + b)
+    inl plastic_rnn n size =
+        open Initializer.dual.TensorView
+        inl init = 
+            inl bias = {si=const one; i=const half; s=const half; c=zero}
             {
-            input=atomic_add
-            out=atomic_add
-            H=add
+            input = {static=identity; modulator={input=zero; state=zero}}
+            state = {static=randn 0.01f32; modulator={input=zero; state=zero}}
+            bias = {static=zero; modulator={input=bias; state=bias}}
             }
-        inl index_into (b,a) x = 
-            inl n =
-                match n with
-                | {from near_to} _ -> 
-                    inl from, near_to = log from, log near_to
-                    exp (from + (near_to - from) / (span_inner + one) * (to float a + one))
-                | _ _ -> n
-            Struct.map2 (<|) (Struct.choose id x)
+        inl dim =
+            {
+            matrix = {static=size; modulator={input=size; state=size}}
+            bias =
+                inl dim = {si=size; i=size; s=size; c=size}
+                {static=size; modulator={input=dim; state=dim}}
+            }
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc =
+                open Initializer.dual.TensorView
+                inl streams = stream, stream
+                inl weight d = {
+                    weight = view' d
+                    streams
+                    block = ()
+                    }
+                inl bias {init with dim=1,a} = {
+                    weight = view' init
+                    block = ()
+                    }
                 {
-                input = 0, b
-                out = 0, a
-                H = b, a
-                } 
-            |> inl x -> {x with n}
-        inl tanh = tanh_fwd
-        inl abs_bck x = if x >= zero then one else -one
-
-        inl fwd {n input out H} =
-            H + n * (input * out - out * out * H)
-        inl bck {n input out H} =
-            { 
-            input = inl _ -> n * out
-            out = inl _ -> n * (input - two * out * H)
-            H = inl _ -> one - n * out * out
+                input = weight {init=init.input; dim=sublayer_size, dim.matrix}
+                state = weight {init=init.state; dim=size, dim.matrix}
+                bias = bias {init=init.bias; dim=1,dim.bias}
+                streams = {modulator={input=streams; state=streams}}
+                sublayer_size = val sublayer_size
+                }
+            size
             }
-        hebb_template {output_functions index_into fwd bck dim} ins
 
+        apply = inl {d with weights input} s -> 
+            inl span = primal input .span_outer
+            assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl H =
+                match d with
+                | {state={H}} -> H
+                | _ -> 
+                    {
+                    input=s.CudaTensor.zero {elem_type=float; dim=weights.sublayer_size, size}
+                    state=s.CudaTensor.zero {elem_type=float; dim=size, size}
+                    }
+
+            inl out =
+                match d with
+                | {state={out}} -> state
+                | _ -> s.CudaTensor.zero {elem_type=float; dim=span, size}
+
+            inl apply =
+                inm out =
+                    inm {input state plastic} = 
+                        matmult_stream {
+                            input={(weights.input) with data=input}
+                            state={(weights.state) with data=out}
+                            plastic=
+                                module_map (inl k weight -> { weight streams = weights.streams.modulator k; block=() }) H
+                            }
+                    inl input, state = Struct.map' (View.wrap ((),dim.matrix) >> View.split) (input, state) |> Liple.map zip_dual
+                    inl bias = Struct.map' (View.wrap ((),dim.bias) >> View.split) weights.bias |> Liple.map zip_dual
+                    inl input = 
+                        {
+                        static = input.static
+                        modulator = {input = input.modulator.input; state = state.modulator.input; bias = bias.modulator.input}
+                        plastic = plastic.input
+                        }
+                    inl state = 
+                        {
+                        static = state.static
+                        modulator = {input = input.modulator.state; state = state.modulator.state; bias = bias.modulator.state}
+                        plastic = plastic.state
+                        }
+                    inl bias = bias.static
+                    map CudaAD.plastic_rnn {input state bias}
+                    ()
+                ()
+
+        block = ()
+        }
 
     inl RNN = {mi mi' mi'' lstm lstm' plastic_rnn}
 

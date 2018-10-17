@@ -74,6 +74,7 @@
     <None Include="LearningTests.fs%27%27" />
     <Compile Include="LearningModule.fs" />
     <Compile Include="LearningTests.fs" />
+    <Content Include="hebb.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
