@@ -1670,6 +1670,105 @@ inl float ->
         block = ()
         }
 
+    inl plastic_rnn'' n size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                open Initializer.dual.Tensor
+                inl bias size = {
+                    si = const one (1,size)
+                    i = const half (1,size)
+                    s = const half (1,size)
+                    c = zero (1,size)
+                    }
+
+                {
+                state = randn 0.01f32 (size, size) // For the Binary Pattern
+                input = identity (sublayer_size, size)
+                modulator = {
+                    input = {
+                        input = zero (sublayer_size, size)
+                        state = zero (size, size)
+                        bias = bias size
+                        }
+                    state = {
+                        input = zero (sublayer_size, size)
+                        state = zero (size, size)
+                        bias = bias size
+                        }
+                    }
+                bias = zero (1,size)
+                }
+            size=size
+            }
+
+        apply = inl {d with weights input} s -> 
+            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl H =
+                match d with
+                | {state={H}} -> H
+                | _ -> 
+                    inl f k = s.CudaTensor.zero_like (primal (weights k))
+                    {input=f .input; state=f .state}
+
+            inl state =
+                match d with
+                | {state={state}} -> state
+                | _ -> s.CudaTensor.zero_like (primal (weights .bias))
+
+            inl apply =
+                inm out =
+                    inm static =
+                       inm input = matmult (input, weights.input) 
+                       inm state = matmult (state, weights.state) 
+                       succ {input state}
+
+                    inm plastic =
+                       inm input = matmult (input, H.input) 
+                       inm state = matmult (state, H.state) 
+                       succ {input state}
+
+                    inm modulator =
+                        inm input =
+                            inm input = matmult (input, weights.modulator.input.input)
+                            inm state = matmult (state, weights.modulator.input.state)
+                            succ {input state}
+                        inm state =
+                            inm input = matmult (input, weights.modulator.state.input)
+                            inm state = matmult (state, weights.modulator.state.state)
+                            succ {input state}
+                        succ {input state}
+
+                    inl input = 
+                        {
+                        static = static.input
+                        modulator = {input = modulator.input.input; state = modulator.input.state; bias = weights.modulator.input.bias}
+                        plastic = plastic.input
+                        }
+                    inl state = 
+                        {
+                        static = static.input
+                        modulator = {input = modulator.state.input; state = modulator.state.state; bias = weights.modulator.state.bias}
+                        plastic = plastic.state
+                        }
+                    inl bias = weights.bias
+                    
+                    map CudaAD.plastic_rnn {input state bias}
+                
+                inm H =
+                    mapi (inl cur {input H out} -> 
+                        inl f k = {out input = input k; H = H k }
+                        CudaAD.oja_update n cur { input = f.input; state = f.state }
+                        ) {out H input={input state}}
+
+                succ {out state={state=out; H}}
+
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        block = ()
+        }
+
     inl hebb_template {output_functions index_into fwd bck dim} ins s =
         inl out =
             inl ins = to_dev_tensor (primals ins)
@@ -1831,7 +1930,7 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {mi mi' mi'' lstm lstm' plastic_rnn plastic_rnn'}
+    inl RNN = {mi mi' mi'' lstm lstm' plastic_rnn plastic_rnn' plastic_rnn''}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
