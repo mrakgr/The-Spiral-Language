@@ -1660,7 +1660,8 @@ inl float ->
                         CudaAD.oja_update n cur { input = f.input; state = f.state }
                         ) {out H input={input state}}
 
-                s.CudaTensor.print (primal H.input)
+                //s.CudaTensor.print (primal H.input)
+                s.CudaTensor.print (primal out)
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s
