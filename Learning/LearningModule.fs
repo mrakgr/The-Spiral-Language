@@ -1406,7 +1406,7 @@ inl float ->
                 inm out =
                     inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
                     inm bias = expand_singular (span,()) weights.bias 
-                    inl bias = Struct.map' (View.wrap ((), dim.inner) >> View.split) bias |> zip_dual
+                    inl bias = wrap_split ((), dim.inner) bias
                     map CudaAD.generalized_mi_tanh {input state bias}
                 
                 succ {out state={out}}
@@ -1457,7 +1457,7 @@ inl float ->
             inl apply =
                 inm {out memory} =
                     inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
-                    inl bias, input, state = Struct.map' (View.wrap ((),dim.inner) >> View.split) (weights.bias, input, state) |> Liple.map zip_dual
+                    inl bias, input, state = wrap_split ((), dim.inner) (weights.bias, input, state)
                     inl cell = Struct.map3 (inl input state bias -> {input state bias}) input state bias
                     map CudaAD.lstm {memory cell}
                 
