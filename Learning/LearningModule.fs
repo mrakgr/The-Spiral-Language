@@ -193,6 +193,15 @@ inl plastic_rnn {input state bias} =
     inl f input = input.static + generalized_mi input.modulator * input.plastic
     f input + f state + bias
 
+inl learning_rate_range cur = function
+    | {from near_to} -> 
+        inl from, near_to = log from, log near_to
+        exp (from + (near_to - from) / (span_inner + one) * (to float a + one))
+    | n -> n
+
+inl oja_update n cur =
+    inl n = learning_rate_range cur n
+    Liple.map <| inl {input out H} -> H + n * (input * out - out * out * H)
 {
 (>>=) succ dr sigmoid tanh relu (+) (*) link broadcasting_link link_adjoint
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
