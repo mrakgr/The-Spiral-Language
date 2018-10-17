@@ -189,6 +189,10 @@ inl lstm {memory cell} =
 inl generalized_mi {bias={si s i c} input state} = si * state * input + s * state + i * input + c
 inl generalized_mi_tanh {bias={si s i c} input state} = si * state * input + s * state + i * input + c |> tanh
 
+inl plastic_rnn {input state bias} =
+    inl f input = input.static + generalized_mi input.modulator * input.plastic
+    f input + f state + bias
+
 {
 (>>=) succ dr sigmoid tanh relu (+) (*) link broadcasting_link link_adjoint
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
