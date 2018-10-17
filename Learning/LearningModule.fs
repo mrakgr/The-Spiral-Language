@@ -216,9 +216,13 @@ inl lstm {memory cell} =
     inm out = sigmoid cell.output * tanh memory
     succ {memory out}
 
-inl oja_update n cur =
+//inl oja_update n cur =
+//    inl n = learning_rate_range cur n
+//    sequence_module <| inl {input out H} -> H + n * (input * out - out * out * H)
+
+inl oja_update n =
     inl n = learning_rate_range cur n
-    sequence_module <| inl {input out H} -> H + n * (input * out - out * out * H)
+    inl {input out H} -> H + n * (input * out - out * out * H)
 
 inl plastic_rnn {input state bias} =
     inl f input = input.static + generalized_mi input.modulator * input.plastic
