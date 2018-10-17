@@ -223,10 +223,15 @@ inl oja_update n cur =
 inl plastic_rnn {input state bias} =
     inl f input = input.static + generalized_mi input.modulator * input.plastic
     f input + f state + bias |> tanh
+
+inl plastic_rnn_cell {static alpha plastic} = static + alpha * plastic
+inl plastic_rnn_cell' {input state bias} = input + state + bias |> tanh
+
 {
 (>>=) succ dr sigmoid tanh relu (*) (/) (+) (-) link broadcasting_link link_adjoint
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
 generalized_mi generalized_mi_tanh lstm oja_update plastic_rnn
+plastic_rnn_cell plastic_rnn_cell'
 }
 |> stackify
     """
@@ -1723,22 +1728,22 @@ inl float ->
                        inm input = matmult (input, weights.input) 
                        inm state = matmult (state, weights.state) 
                        succ {input state}
-
+                    
                     inm plastic =
                        inm input = matmult (input, H.input) 
                        inm state = matmult (state, H.state) 
                        succ {input state}
-
+                    
                     inm modulator =
-                        inm input =
+                        inm a =
                             inm input = matmult (input, weights.modulator.input.input)
                             inm state = matmult (state, weights.modulator.input.state)
                             succ {input state}
-                        inm state =
+                        inm b =
                             inm input = matmult (input, weights.modulator.state.input)
                             inm state = matmult (state, weights.modulator.state.state)
                             succ {input state}
-                        succ {input state}
+                        succ {input=a; state=b}
 
                     inl input = 
                         {
@@ -1748,13 +1753,36 @@ inl float ->
                         }
                     inl state = 
                         {
-                        static = static.input
+                        static = static.state
                         modulator = {input = modulator.state.input; state = modulator.state.state; bias = weights.modulator.state.bias}
                         plastic = plastic.state
                         }
                     inl bias = weights.bias
-                    
-                    map CudaAD.plastic_rnn {input state bias}
+
+                    inm alpha =
+                        inm input = map CudaAD.generalized_mi input.modulator
+                        inm state = map CudaAD.generalized_mi state.modulator
+                        succ {input state}
+
+                    inl f static alpha plastic =
+                        broadcasting_activation {
+                            fwd=inl {in={static plastic} in_inner={alpha}} -> static + alpha * plastic
+                            bck={
+                                in=inl {in={static plastic} in_inner={alpha}} -> { static = one; plastic = alpha }
+                                in_inner=inl {in={static plastic} in_inner={alpha}} -> { alpha = plastic }
+                                }
+                            } {in={static plastic}; in_inner={alpha=Struct.map' (inl x -> x.flatten) alpha}}
+
+                    inm input = f input.static alpha.input input.plastic
+                    inm state = f state.static alpha.state state.plastic
+
+                    activation {
+                        fwd=inl in -> Struct.foldl (inl s x -> s + x) zero in |> tanh_fwd
+                        bck=inl {in out} ->
+                            inl out = tanh_bck out
+                            Struct.map (const out) in
+                        } {input state bias=weights.bias}
+                    //map CudaAD.plastic_rnn {input state bias}
                 
                 inm H =
                     mapi (inl cur {input H out} -> 
@@ -1930,7 +1958,89 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {mi mi' mi'' lstm lstm' plastic_rnn plastic_rnn' plastic_rnn''}
+    inl plastic_rnn''' n size =
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc = 
+                open Initializer.dual.Tensor
+                inl bias size = {
+                    si = const one (1,size)
+                    i = const half (1,size)
+                    s = const half (1,size)
+                    c = zero (1,size)
+                    }
+
+                {
+                state = randn 0.01f32 (size, size) // For the Binary Pattern
+                input = identity (sublayer_size, size)
+                modulator = {
+                    input = {
+                        input = zero (sublayer_size, size)
+                        state = zero (size, size)
+                        bias = bias size
+                        }
+                    state = {
+                        input = zero (sublayer_size, size)
+                        state = zero (size, size)
+                        bias = bias size
+                        }
+                    }
+                bias = zero (1,size)
+                }
+            size=size
+            }
+
+        apply = inl {d with weights input} s -> 
+            assert (primal input .span_outer = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl H =
+                match d with
+                | {state={H}} -> H
+                | _ -> 
+                    inl f k = s.CudaTensor.zero_like (primal (weights k))
+                    {input=f .input; state=f .state}
+
+            inl state =
+                match d with
+                | {state={state}} -> state
+                | _ -> s.CudaTensor.zero_like (primal (weights .bias))
+
+            inl apply =
+                inm out =
+                    inl calculate k =
+                        inm alpha = 
+                            inl modulator = weights.modulator k
+                            inm input = matmult (input, modulator.input)
+                            inm state = matmult (state, modulator.state)
+                            map CudaAD.generalized_mi {modulator with input state}
+                        inm static = matmult ({input state} k, weights k)
+                        inm plastic = matmult ({input state} k, H k)
+
+                        map CudaAD.plastic_rnn_cell {static alpha plastic}
+
+                    inm input = calculate .input
+                    inm state = calculate .state
+                    
+                    map CudaAD.plastic_rnn_cell' {input state bias=weights.bias}
+
+                inm H =
+                    //inl oja_update k = oja_update n {input={input state} k; out H=H k}
+                    //inm input = oja_update .input
+                    //inm state = oja_update .state
+                    //succ {input state}
+                    mapi (inl cur {input H out} -> 
+                        inl f k = {out input = input k; H = H k }
+                        CudaAD.oja_update n cur { input = f.input; state = f.state }
+                        ) {out H input={input state}}
+
+                succ {out state={state=out; H}}
+
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        block = ()
+        }
+
+    inl RNN = {mi mi' mi'' lstm lstm' plastic_rnn plastic_rnn' plastic_rnn'' plastic_rnn'''}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
