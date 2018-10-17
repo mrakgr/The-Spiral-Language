@@ -1653,11 +1653,11 @@ inl float ->
                         }
                     inl bias = bias.static
                     map CudaAD.plastic_rnn {input state bias}
-                inm H =
-                    mapi (inl cur {input H out} -> 
-                        inl f k = {out input = input k; H = H k }
-                        CudaAD.oja_update n cur { input = f.input; state = f.state }
-                        ) {out H input={input state}}
+                //inm H =
+                //    mapi (inl cur {input H out} -> 
+                //        inl f k = {out input = input k; H = H k }
+                //        CudaAD.oja_update n cur { input = f.input; state = f.state }
+                //        ) {out H input={input state}}
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s
