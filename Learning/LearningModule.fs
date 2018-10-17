@@ -220,7 +220,11 @@ inl lstm {memory cell} =
 //    inl n = learning_rate_range cur n
 //    sequence_module <| inl {input out H} -> H + n * (input * out - out * out * H)
 
-inl oja_update n {input out H} = H + n * (input * out - out * out * H)
+inl oja_update n {input out H} = 
+    inm a = input * out
+    inm b = out * out * H
+    inm c = a - b
+    H + n * c
 
 inl plastic_rnn {input state bias} =
     inl f input = input.static + generalized_mi input.modulator * input.plastic
