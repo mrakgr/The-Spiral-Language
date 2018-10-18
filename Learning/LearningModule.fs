@@ -176,7 +176,6 @@ inl (/) =
             add_adjoint b (inl _ -> -(get_adjoint out) * primal a / (primal b * primal b))
         }
 
-
 inl (*) =
     binary <| inl a b ->
         inl out = primal a * primal b |> dr
