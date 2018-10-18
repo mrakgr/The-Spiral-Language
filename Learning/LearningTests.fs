@@ -184,7 +184,7 @@ inl network,_ =
             linear size.hot
         }
 
-    init s size.hot network.lstm'
+    init s size.hot network.mi''
 
 inl truncate network s' =
     inl s = s'.RegionMem.create
@@ -456,7 +456,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None 
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
 |> printfn "%s"
 |> ignore
 
