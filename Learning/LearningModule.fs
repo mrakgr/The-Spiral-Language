@@ -1668,7 +1668,7 @@ inl float ->
                     mapi (inl cur {input H out} -> 
                         inl f k = {out input = input k; H = H k }
                         CudaAD.oja_update n cur { input = f.input; state = f.state }
-                        ) {out H input={input state}}
+                        ) {out H input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) {input state}}
 
                 //s.CudaTensor.print (primal H.input)
                 //s.CudaTensor.print (primal out)
