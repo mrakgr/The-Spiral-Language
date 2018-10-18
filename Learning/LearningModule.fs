@@ -1963,6 +1963,12 @@ inl float ->
         block = ()
         }
 
+    inl print_adjoint x s =
+        {
+        out=()
+        bck=inl _ -> s.CudaTensor.print (adjoint x)
+        }
+
     inl plastic_rnn''' n size =
         {
         init = inl sublayer_size -> 
@@ -2029,8 +2035,11 @@ inl float ->
                     map CudaAD.plastic_rnn_cell' {input state bias=weights.bias}
 
                 inm H =
-                    inm input = map (CudaAD.oja_update n) {out H=H.input; input}
-                    inm state = map (CudaAD.oja_update n) {out H=H.state; input=state}
+                    inm _ = print_adjoint input
+                    //inm input = map (CudaAD.oja_update n) {out H=H.input; input}
+                    inl oja_update k = oja_update n {input={input state} k; out H=H k}
+                    inm input = oja_update .input
+                    inm state = oja_update .state
                     succ {input state}
 
                 succ {out state={state=out; H}}
