@@ -307,14 +307,14 @@ inl make_patterns n size =
         )
 
 inl size = {
-    pattern = 20
+    pattern = 5
     episode = 5
     minibatch = 1
     seq = 1
 
     shot = 1
-    pattern_repetition = 5
-    empty_input_after_repetition = 3
+    pattern_repetition = 1
+    empty_input_after_repetition = 0
     }
 
 inl data =

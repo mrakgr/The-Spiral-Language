@@ -1966,7 +1966,10 @@ inl float ->
     inl print_adjoint x s =
         {
         out=()
-        bck=inl _ -> s.CudaTensor.print (adjoint x)
+        bck=inl _ -> 
+            match adjoint x with
+            | () -> ()
+            | x -> s.CudaTensor.print x
         }
 
     inl plastic_rnn''' n size =
@@ -1987,13 +1990,13 @@ inl float ->
                 input = identity (sublayer_size, size)
                 modulator = {
                     input = {
-                        input = zero (sublayer_size, size)
-                        state = zero (size, size)
+                        input = randn 0.01f32 (sublayer_size, size)
+                        state = randn 0.01f32 (size, size)
                         bias = bias size
                         }
                     state = {
-                        input = zero (sublayer_size, size)
-                        state = zero (size, size)
+                        input = randn 0.01f32 (sublayer_size, size)
+                        state = randn 0.01f32 (size, size)
                         bias = bias size
                         }
                     }
@@ -2035,7 +2038,7 @@ inl float ->
                     map CudaAD.plastic_rnn_cell' {input state bias=weights.bias}
 
                 inm H =
-                    inm _ = print_adjoint input
+                    inm _ = print_adjoint H.input
                     //inm input = map (CudaAD.oja_update n) {out H=H.input; input}
                     inl oja_update k = oja_update n {input={input state} k; out H=H k}
                     inm input = oja_update .input
