@@ -1318,6 +1318,26 @@ inl float ->
             Struct.iter (inl {stream} -> s.data.stream.wait_on stream) x
         }
 
+    //inl expand_singular dim x s =
+    //    inl out = 
+    //        Struct.map (inl {weight} ->
+    //            Tensor.expand_singular dim (primal weight) |> dr s
+    //            ) x
+        
+    //    inl squeeze weight =
+    //        assert (weight.span_outer = 1) "The span of outer must be 1."
+    //        weight 0
+
+    //    {
+    //    out
+    //    bck=met d -> 
+    //        Struct.iter2 (inl out {weight back} ->
+    //            bck_add_bias (adjoint out) (adjoint weight |> squeeze) s
+    //            update_covariance d.learning_rate (adjoint out) back.covariance s
+    //            back.k := back.k() + (primal out .span_outer)
+    //            ) out x
+    //    }
+
     // #Recurrent
     inl mi size =
         {
