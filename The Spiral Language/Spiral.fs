@@ -2639,7 +2639,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | ListT _ as x -> print_tag_tuple x
             | UnionT _ as x -> print_tag_union x
             | ArrayT((ArtCudaLocal | ArtCudaShared | ArtCudaGlobal _),t) -> 
-                if restrict_array then sprintf "__restrict__ %s *" (print_type false t)
+                if restrict_array then sprintf "%s * __restrict__" (print_type false t)
                 else sprintf "%s *" (print_type false t)
             | ArrayT _ -> failwith "Not implemented."
             | LayoutT (_, _) | RecT _ | DotNetTypeT _ as x -> failwithf "%s is not supported on the Cuda side." (show_ty x)
@@ -2956,11 +2956,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | x -> sprintf "return %s" x
             let print_body() = enter <| fun _ -> codegen' {branch_return=method_return; trace=[]} body
             let print_method prefix =
-                let args array_restrict = print_args' (print_tyv_with_type array_restrict) fv
+                let args = print_args' (print_tyv_with_type true) fv
                 if is_forward_declaration then
-                    sprintf "%s %s %s(%s)" prefix (print_type false (get_type body)) method_name (args false) |> state
+                    sprintf "%s %s %s(%s)" prefix (print_type false (get_type body)) method_name args |> state
                 else
-                    sprintf "%s %s %s(%s) {" prefix (print_type false (get_type body)) method_name (args true) |> state_new
+                    sprintf "%s %s %s(%s) {" prefix (print_type false (get_type body)) method_name args |> state_new
                     print_body()
                     "}" |> state_new
 
