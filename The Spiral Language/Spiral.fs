@@ -2956,11 +2956,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | x -> sprintf "return %s" x
             let print_body() = enter <| fun _ -> codegen' {branch_return=method_return; trace=[]} body
             let print_method prefix =
-                let args = print_args' (print_tyv_with_type true) fv
+                let args array_restrict = print_args' (print_tyv_with_type array_restrict) fv
                 if is_forward_declaration then
-                    sprintf "%s %s %s(%s)" prefix (print_type false (get_type body)) method_name args |> state
+                    sprintf "%s %s %s(%s)" prefix (print_type false (get_type body)) method_name (args false) |> state
                 else
-                    sprintf "%s %s %s(%s) {" prefix (print_type false (get_type body)) method_name args |> state_new
+                    sprintf "%s %s %s(%s) {" prefix (print_type false (get_type body)) method_name (args true) |> state_new
                     print_body()
                     "}" |> state_new
 
