@@ -1587,16 +1587,24 @@ inl flatten tns =
     | dim ->
         tns .set_dim (length dim)
             .update_body (inl {d with size} ->
-                Tuple.zip (dim,size)
-                |> Tuple.reducel (inl d,s d',s' ->
+                inl _,s :: b = Tuple.zip (dim,size)
+                Tuple.foldl (inl s d',s' ->
                     assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
-                    d*s, s'
-                    )
-                |> inl _,s -> {d with size=s :: ()}
+                    s'
+                    ) s b
+                |> s -> {d with size=s :: ()}
                 )
 
 /// Flattens and then splits the tensor dimensions.
 inl reshape f tns = split (inl _ -> tns.dim |> Tuple.unwrap |> f) (flatten tns)
+
+/// Performs an rotation of the tensor dimensions without moving its contents.
+inl rotate f tns =
+    inl f = Tuple.unwrap >> f >> Tuple.wrap
+    inl dim' = f tns.dim
+    assert (tns.dim = dim') "The new and old dimensions must be equal."
+    tns .update_body (inl d -> {d with size = f self})
+        .set_dim dim'
 
 inl rec facade data = 
     inl methods = stack {
