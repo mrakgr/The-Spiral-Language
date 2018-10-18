@@ -1290,19 +1290,26 @@ inl float ->
 
     inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
     inl wrap_split dim = Struct.map' (View.wrap dim >> View.split) >> Struct.map zip_dual
+    inl wrap_split_weight = Struct.map2 (inl dim {d with weight} -> wrap_split dim weight)
 
-    inl expand_singular dim {weight back} s =
-        inl out = Tensor.expand_singular dim (primal weight) |> dr s
+    inl expand_singular dim x s =
+        inl out = 
+            Struct.map (inl {weight} ->
+                Tensor.expand_singular dim (primal weight) |> dr s
+                ) x
         
         inl squeeze weight =
             assert (weight.span_outer = 1) "The span of outer must be 1."
             weight 0
+
         {
         out
         bck=met d -> 
-            bck_add_bias (adjoint out) (adjoint weight |> squeeze) s
-            update_covariance d.learning_rate (adjoint out) back.covariance s
-            back.k := back.k() + (primal out .span_outer)
+            Struct.iter2 (inl out {weight back} ->
+                bck_add_bias (adjoint out) (adjoint weight |> squeeze) s
+                update_covariance d.learning_rate (adjoint out) back.covariance s
+                back.k := back.k() + (primal out .span_outer)
+                ) out x
         }
 
     // #Recurrent
@@ -1682,9 +1689,7 @@ inl float ->
         inl dim =
             {
             matrix = {static=size; modulator={input=size; state=size}}
-            bias =
-                inl dim = {si=size; i=size; s=size; c=size}
-                {static=size; modulator={input=dim; state=dim}}
+            bias = {si=size; i=size; s=size; c=size}
             }
         {
         init = inl sublayer_size -> 
@@ -1707,7 +1712,13 @@ inl float ->
                 {
                 input = weight {init=init.input; dim=sublayer_size, dim.matrix}
                 state = weight {init=init.state; dim=size, dim.matrix}
-                bias = bias {init=init.bias; dim=1,dim.bias}
+                bias = {
+                    static=bias {init=init.bias.static; dim=1,size}
+                    modulator={
+                        input=bias {init=init.bias.modulator.input; dim=1,dim.bias}
+                        state=bias {init=init.bias.modulator.state; dim=1,dim.bias}
+                        }
+                    }
                 streams = {modulator={input=streams; state=streams}}
                 sublayer_size = val sublayer_size
                 }
@@ -1743,7 +1754,7 @@ inl float ->
                             }
                     inl input, state = wrap_split ((), dim.matrix) (input, state)
                     inm bias = expand_singular (span, ()) weights.bias
-                    inl bias = wrap_split ((), dim.bias) bias
+                    inl bias = wrap_split_weight {modulator={input=(),dim.bias; state=(),dim.bias}} weights.bias
                     inl input = 
                         {
                         static = input.static
@@ -1756,7 +1767,7 @@ inl float ->
                         modulator = {input = input.modulator.state; state = state.modulator.state; bias = bias.modulator.state}
                         plastic = plastic.state
                         }
-                    inl bias = bias.static
+                    inl bias = weights.bias.static.weight
                     map CudaAD.plastic_rnn {input state bias}
                 inm H =
                     mapi (inl cur {input H out} -> 
