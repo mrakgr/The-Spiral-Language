@@ -1820,13 +1820,10 @@ inl float ->
                 bias = {
                     static=bias {init=init.bias.static; dim=1,size}
                     modulator=
-                        inl bias {init dim} = 
-                            {si=dim; i=dim; s=dim; c=dim}
-                            |> Struct.map2 (inl init dim -> bias {init dim}) init
-                            
+                        inl bias init = Struct.map2 (inl init dim -> bias {init dim=1,dim}) init dim.bias
                         {
-                        input=bias {init=init.bias.modulator.input; dim=1,dim.bias}
-                        state=bias {init=init.bias.modulator.state; dim=1,dim.bias}
+                        input=bias init.bias.modulator.input
+                        state=bias init.bias.modulator.state
                         }
                     }
                 streams = {modulator={input=streams; state=streams}}
@@ -1864,7 +1861,7 @@ inl float ->
                             }
                     inl input, state = wrap_split ((), dim.matrix) (input, state)
                     inm bias = expand_singular (span, ()) weights.bias
-                    inl bias = Struct.map (inl {weight} -> weight.basic) weights.bias
+                    inl bias = Struct.map (wrap_split_weight ((), size)) weights.bias
                     inl input = 
                         {
                         static = input.static
@@ -1893,7 +1890,7 @@ inl float ->
         }
 
 
-    inl RNN = {mi mi' mi'' lstm lstm' plastic_rnn plastic_rnn'}
+    inl RNN = {mi mi' mi'' lstm lstm' plastic_rnn plastic_rnn' plastic_rnn''}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
