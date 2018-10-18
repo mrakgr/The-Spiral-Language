@@ -438,7 +438,7 @@ inl network,_ =
         plastic_rnn''' = plastic_rnn''' n size.pattern
         }
 
-    init s size.pattern network.plastic_rnn''' 
+    init s size.pattern network.plastic_rnn'''
 
 Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
 train {
