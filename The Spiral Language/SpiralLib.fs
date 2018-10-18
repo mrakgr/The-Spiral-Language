@@ -1587,12 +1587,12 @@ inl flatten tns =
     | dim ->
         tns .set_dim (length dim)
             .update_body (inl {d with size} ->
-                inl _,s :: b = Tuple.zip (dim,size)
+                inl (_,s) :: b = Tuple.zip (dim,size)
                 Tuple.foldl (inl s d',s' ->
                     assert (s = d' * s') "The tensor must be contiguous in order to be flattened."
                     s'
                     ) s b
-                |> s -> {d with size=s :: ()}
+                |> inl s -> {d with size=s :: ()}
                 )
 
 /// Flattens and then splits the tensor dimensions.
@@ -1602,7 +1602,7 @@ inl reshape f tns = split (inl _ -> tns.dim |> Tuple.unwrap |> f) (flatten tns)
 inl rotate f tns =
     inl f = Tuple.unwrap >> f >> Tuple.wrap
     inl dim' = f tns.dim
-    assert (tns.dim = dim') "The new and old dimensions must be equal."
+    assert (length tns.dim = length dim' && eq_type tns.dim dim') "The new and old dimensions must have equal length and rank."
     tns .update_body (inl d -> {d with size = f self})
         .set_dim dim'
 
@@ -1839,6 +1839,7 @@ inl from_scalar x =
 {
 create facade init copy assert_size array_as_tensor array_to_tensor map zip show print length expand_singular
 equal split flatten assert_contiguous assert_zip assert_broadcastable assert_dim reshape unzip from_scalar
+rotate
 } |> stackify
     """) |> module_
 

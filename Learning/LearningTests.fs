@@ -307,14 +307,14 @@ inl make_patterns n size =
         )
 
 inl size = {
-    pattern = 2
+    pattern = 50
     episode = 5
     minibatch = 1
-    seq = 1
+    seq = 200
 
-    shot = 1
-    pattern_repetition = 1
-    empty_input_after_repetition = 0
+    shot = 3
+    pattern_repetition = 10
+    empty_input_after_repetition = 3
     }
 
 inl data =
@@ -412,7 +412,7 @@ met train {!data network learning_rate final} s =
             network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
             network.optimize learning_rate
 
-        inl iters = 1
+        inl iters = 10
         
         if (i + 1) % iters = 0 then 
             inl square = cost.square() / to float32 iters
@@ -425,7 +425,7 @@ met train {!data network learning_rate final} s =
         else next()
 
 inl learning_rate = 2f32 ** -11.5f32
-inl n = 0.1f32
+inl n = 0.005f32
 
 inl network,_ = 
     open Feedforward
@@ -434,18 +434,18 @@ inl network,_ =
         {
         plastic_rnn = plastic_rnn n size.pattern
         plastic_rnn' = plastic_rnn' n size.pattern
-        plastic_rnn'' = plastic_rnn'' n size.pattern
-        plastic_rnn''' = plastic_rnn''' n size.pattern
         }
 
-    init s size.pattern network.plastic_rnn'''  
+    init s size.pattern network.plastic_rnn
 
-Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
-train {
-    network
-    learning_rate
-    final = Error.square
-    } s
+Timer.time_it "Training"
+<| inl _ ->
+    Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
+    train {
+        network
+        learning_rate
+        final = Error.square
+        } s
     """
 
 let tests =
