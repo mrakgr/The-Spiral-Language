@@ -1570,7 +1570,7 @@ inl float ->
         block = ()
         }
 
-    inl plastic_rnn n size =
+    inl plastic_rnn' n size =
         open Initializer.dual.TensorView
         inl init = 
             inl bias = {si=const one; i=const half; s=const half; c=zero}
@@ -1595,10 +1595,13 @@ inl float ->
                 inl weight d = {
                     weight = view' d
                     streams
+                    front = covariance default_epsilon b
+                    back = covariance default_epsilon a
                     block = ()
                     }
                 inl bias {init with dim=1,a} = {
                     weight = view' init
+                    back = covariance default_epsilon a
                     block = ()
                     }
                 {
@@ -1639,7 +1642,8 @@ inl float ->
                                     H {input state} weights.streams.modulator
                             }
                     inl input, state = wrap_split ((), dim.matrix) (input, state)
-                    inl bias = wrap_split ((), dim.bias) weights.bias.weight
+                    inm bias = expand_singular (span, ()) weights.bias
+                    inl bias = wrap_split ((), dim.bias) bias
                     inl input = 
                         {
                         static = input.static
@@ -1664,11 +1668,11 @@ inl float ->
 
             inl {out={out state} bck} = apply s
             {out state bck}
-
+        optimize = Optimizer.kfac
         block = ()
         }
 
-    inl RNN = {mi mi' mi'' lstm lstm' plastic_rnn}
+    inl RNN = {mi mi' mi'' lstm lstm' plastic_rnn plastic_rnn'}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
