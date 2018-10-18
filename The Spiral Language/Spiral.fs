@@ -2632,13 +2632,15 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let print_tag_closure' t = sprintf "FunPointer%i" t // Not actual closures. They are only function pointers on the Cuda side.
         let print_tag_closure t = def_enqueue print_tag_closure' t
 
-        let rec print_type = function
+        let rec print_type restrict_array = function
             | Unit -> "void"
             | MapT _ as x -> print_tag_env None x
             | LayoutT ((LayoutStack | LayoutPackedStack) as layout, _) as x -> print_tag_env (Some layout) x
             | ListT _ as x -> print_tag_tuple x
             | UnionT _ as x -> print_tag_union x
-            | ArrayT((ArtCudaLocal | ArtCudaShared | ArtCudaGlobal _),t) -> sprintf "%s *" (print_type t)
+            | ArrayT((ArtCudaLocal | ArtCudaShared | ArtCudaGlobal _),t) -> 
+                if restrict_array then sprintf "__restrict__ %s *" (print_type false t)
+                else sprintf "%s *" (print_type false t)
             | ArrayT _ -> failwith "Not implemented."
             | LayoutT (_, _) | RecT _ | DotNetTypeT _ as x -> failwithf "%s is not supported on the Cuda side." (show_ty x)
             | TermFunctionT _ as t -> print_tag_closure t
@@ -2657,21 +2659,21 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | BoolT -> "char"
                 | CharT -> "unsigned short"
                 | StringT -> failwith "The string type is not supported on the Cuda side."
-            | CudaTypeT x -> codegen_macro (codegen' {branch_return=id; trace=[]}) print_type x
+            | CudaTypeT x -> codegen_macro (codegen' {branch_return=id; trace=[]}) (print_type false) x
             | LitT _ -> failwith "Should be covered in Unit."
-        and print_tyv_with_type (tag,ty as v) = sprintf "%s %s" (print_type ty) (print_tyv v)
+        and print_tyv_with_type restrict_array (tag,ty as v) = sprintf "%s %s" (print_type restrict_array ty) (print_tyv v)
         and codegen' ({branch_return=branch_return; trace=trace} as d) expr =
             let inline codegen expr = codegen' {d with branch_return=id} expr
 
             //let inline print_method_definition_args x = print_args' print_tyv_with_type x
             let inline print_join_point_args x = 
-                let print_with_error_checking x = print_type (snd x) |> ignore; print_tyv x
+                let print_with_error_checking x = print_type false (snd x) |> ignore; print_tyv x
                 print_args' print_with_error_checking x
 
             let print_type_array = function // C syntax sucks.
-                | ArrayT(ArtCudaLocal,t) -> print_type t
-                | ArrayT(ArtCudaShared,t) -> sprintf "__shared__ %s" (print_type t)
-                | t -> print_type t
+                | ArrayT(ArtCudaLocal,t) -> print_type false t
+                | ArrayT(ArtCudaShared,t) -> sprintf "__shared__ %s" (print_type false t)
+                | t -> print_type false t
             let print_tyv_with_array (tag,ty as v) = sprintf "%s %s" (print_type_array ty) (print_tyv v)
 
             let print_value = function
@@ -2727,7 +2729,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         sprintf "case %i : {" i |> state_new
                         enter' <| fun _ ->
                             let case_ty = get_type case
-                            if is_unit case_ty = false then sprintf "%s %s = %s.data.%s" (print_type case_ty) (codegen case) v (print_case i) |> state
+                            if is_unit case_ty = false then sprintf "%s %s = %s.data.%s" (print_type false case_ty) (codegen case) v (print_case i) |> state
                             codegen' body |> state
                             "break" |> state
                         "}" |> state_new
@@ -2759,7 +2761,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 sprintf "((%s) (%s))" conv_func (codegen from)
 
             let inline print_scope tyv f =
-                print_tyv_with_type tyv |> state
+                print_tyv_with_type false tyv |> state
                 f (codegen' {d with branch_return = assign_to (print_tyv tyv)})
 
             try
@@ -2767,7 +2769,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | TyT Unit | TyV (_, Unit) -> ""
                 | TyT t -> //on_type_er trace <| sprintf "Usage of naked type %s as an instance on the term level is invalid." t
                     printfn "Error: Naked type on the term level has been generated on the Cuda side. Check the code for the exact location of it."
-                    sprintf "naked_type /*%s*/" (print_type t)
+                    sprintf "naked_type /*%s*/" (print_type false t)
                 | TyV v -> print_tyv v |> branch_return
                 | TyLet(tyv,b,TyV tyv',_,trace) when tyv = tyv' -> codegen' {d with trace=trace} b
                 | TyState(b,rest,_,trace) ->
@@ -2793,7 +2795,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         let d = {d with branch_return=id; trace=trace}
                         match b with
                         | TyOp(ArrayCreate,[a],t) -> sprintf "%s[%s]" (print_tyv_with_array (tag,t)) (codegen' d a)
-                        | _ -> sprintf "%s = %s" (print_tyv_with_type tyv) (codegen' d b) 
+                        | _ -> sprintf "%s = %s" (print_tyv_with_type false tyv) (codegen' d b) 
                         |> state 
                     codegen' {d with trace=trace} rest
                 | TyLit x -> print_value x |> branch_return
@@ -2885,8 +2887,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         else
                             sprintf "// %s" (codegen x) |> state_new
                         ""
-                    | MacroCuda,[a] -> codegen_macro codegen print_type a
-                    | SizeOf,[TyType a] -> sprintf "(sizeof %s)" (print_type a)
+                    | MacroCuda,[a] -> codegen_macro codegen (print_type false) a
+                    | SizeOf,[TyType a] -> sprintf "(sizeof %s)" (print_type false a)
 
                     | x -> failwithf "Compiler error: Missing TyOp case. %A" x
                     |> branch_return
@@ -2895,8 +2897,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | e -> on_type_er trace e.Message
 
         let print_closure_type_definition name (a,r) =
-            let ret_ty = print_type r
-            let ty = tuple_field_ty a |> List.map print_type |> String.concat ", "
+            let ret_ty = print_type false r
+            let ty = tuple_field_ty a |> List.map (print_type false) |> String.concat ", "
             sprintf "typedef %s(*%s)(%s)" ret_ty name ty |> state
 
         let print_union_definition name tys =
@@ -2907,7 +2909,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 enter' <| fun _ ->
                     Array.iteri (fun i t -> 
                         if is_unit t = false then
-                            sprintf "%s %sCase%i" (print_type t) name i |> state
+                            sprintf "%s %sCase%i" (print_type false t) name i |> state
                         ) tys
                 "} data" |> state
             "}" |> state
@@ -2915,7 +2917,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             Array.iteri (fun i t ->
                 let is_unit_false = is_unit t = false
                 let case_name = sprintf "%sCase%i" name i
-                if is_unit_false then sprintf "__device__ __forceinline__ %s make_%s(%s v) {" name case_name (print_type t) |> state_new
+                if is_unit_false then sprintf "__device__ __forceinline__ %s make_%s(%s v) {" name case_name (print_type false t) |> state_new
                 else sprintf "__device__ __forceinline__  %s make_%s() {" name case_name |> state_new
                 enter' <| fun _ ->
                     sprintf "%s t" name |> state
@@ -2932,7 +2934,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
             let args =
                 List.map (fun (name,ty) ->
-                    sprintf "%s %s" (print_type ty) name
+                    sprintf "%s %s" (print_type false ty) name
                     ) tys
 
             sprintf "struct %s {" name |> state_new
@@ -2954,11 +2956,11 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | x -> sprintf "return %s" x
             let print_body() = enter <| fun _ -> codegen' {branch_return=method_return; trace=[]} body
             let print_method prefix =
-                let args = print_args' print_tyv_with_type fv
+                let args = print_args' (print_tyv_with_type true) fv
                 if is_forward_declaration then
-                    sprintf "%s %s %s(%s)" prefix (print_type (get_type body)) method_name args |> state
+                    sprintf "%s %s %s(%s)" prefix (print_type false (get_type body)) method_name args |> state
                 else
-                    sprintf "%s %s %s(%s) {" prefix (print_type (get_type body)) method_name args |> state_new
+                    sprintf "%s %s %s(%s) {" prefix (print_type false (get_type body)) method_name args |> state_new
                     print_body()
                     "}" |> state_new
 
