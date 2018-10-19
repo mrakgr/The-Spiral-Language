@@ -1775,7 +1775,7 @@ inl float ->
                                     H {input state} weights.streams.modulator
                             }
                     inl input, state = wrap_split ((), dim.matrix) (input, state)
-                    inm bias = expand_singular (span, ()) weights.bias
+                    inm bias = expand_singular (span, ()) bias
                     inl bias = wrap_split_weight {modulator={input=(),dim.bias; state=(),dim.bias}} weights.bias
                     inl input = 
                         {
@@ -1884,7 +1884,7 @@ inl float ->
                             }
                     inl input, state = wrap_split ((), dim.matrix) (input, state)
                     inm bias = expand_singular (span, ()) weights.bias
-                    inl bias = Struct.map (wrap_split_weight ((), size)) weights.bias
+                    inl bias = Struct.map (wrap_split_weight ((), size)) bias
                     inl input = 
                         {
                         static = input.static
@@ -1911,6 +1911,117 @@ inl float ->
         optimize = Optimizer.kfac
         block = ()
         }
+
+    inl modulated_rnn' n size =
+        open Initializer.dual.TensorView
+        inl init = 
+            inl bias = {si=const one; i=const half; s=const half; c=zero}
+            {
+            input = {static=identity; modulator={input=zero; state=zero}; chaneller={input=zero; state=zero}}
+            state = {static=randn 0.01f32; modulator={input=zero; state=zero}; chaneller={input=zero; state=zero}}
+            bias = {static=zero; modulator={input=bias; state=bias}; chaneller={input=bias; state=bias}}
+            }
+        inl dim =
+            {
+            matrix = {static=size; modulator={input=size; state=size}; chaneller={input=size; state=size}}
+            bias = {si=size; i=size; s=size; c=size}
+            }
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc =
+                open Initializer.dual.TensorView
+                inl streams = stream, stream
+                inl weight {d with dim=b,a} = {
+                    weight = view' d
+                    streams
+                    front = covariance default_epsilon b
+                    back = covariance default_epsilon a
+                    block = ()
+                    }
+                inl bias {init with dim=1,a} = {
+                    weight = view' init
+                    back = covariance default_epsilon a
+                    stream = stream
+                    block = ()
+                    }
+                {
+                input = weight {init=init.input; dim=sublayer_size, dim.matrix}
+                state = weight {init=init.state; dim=size, dim.matrix}
+                bias = {
+                    static=bias {init=init.bias.static; dim=1,size}
+                    modulator={
+                        input=bias {init=init.bias.modulator.input; dim=1,dim.bias}
+                        state=bias {init=init.bias.modulator.state; dim=1,dim.bias}
+                        }
+                    chaneller={
+                        input=bias {init=init.bias.chaneller.input; dim=1,dim.bias}
+                        state=bias {init=init.bias.chaneller.state; dim=1,dim.bias}
+                        }
+                    }
+                streams = {modulator={input=streams; state=streams}}
+                sublayer_size = val sublayer_size
+                }
+            size
+            }
+
+        apply = inl {d with weights input} s -> 
+            inl span = primal input .span_outer
+            assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl H =
+                match d with
+                | {state={H}} -> H
+                | _ -> 
+                    {
+                    input=s.CudaTensor.zero {elem_type=float; dim=weights.sublayer_size, size}
+                    state=s.CudaTensor.zero {elem_type=float; dim=size, size}
+                    }
+
+            inl state =
+                match d with
+                | {state={state}} -> state
+                | _ -> s.CudaTensor.zero {elem_type=float; dim=span, size}
+
+            inl apply =
+                inm out =
+                    inm {input state plastic} = 
+                        matmult_stream {
+                            input={(weights.input) with data=input}
+                            state={(weights.state) with data=state}
+                            plastic=
+                                Struct.map3 (inl weight data streams -> { weight data streams block=() }) 
+                                    H {input state} weights.streams.modulator
+                            }
+                    inl input, state = wrap_split ((), dim.matrix) (input, state)
+                    inm bias = expand_singular (span, ()) weights.bias
+                    inl bias = wrap_split_weight {modulator={input=(),dim.bias; state=(),dim.bias}} weights.bias // TODO: Fix this.
+                    inl input = 
+                        {
+                        static = input.static
+                        modulator = {input = input.modulator.input; state = state.modulator.input; bias = bias.modulator.input}
+                        plastic = plastic.input
+                        }
+                    inl state = 
+                        {
+                        static = state.static
+                        modulator = {input = input.modulator.state; state = state.modulator.state; bias = bias.modulator.state}
+                        plastic = plastic.state
+                        }
+                    inl bias = weights.bias.static.weight
+                    map CudaAD.plastic_rnn {input state bias}
+                inm H =
+                    mapi (inl cur {input H out} -> 
+                        inl f k = {out input = input k; H = H k }
+                        CudaAD.oja_update n cur { input = f.input; state = f.state }
+                        ) {out H input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) {input state}}
+
+                succ {out state={state=out; H}}
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        optimize = Optimizer.kfac
+        block = ()
+        }
+
 
 
     inl RNN = {mi mi' mi'' lstm lstm' plastic_rnn plastic_rnn' plastic_rnn''}
