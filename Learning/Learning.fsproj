@@ -69,7 +69,6 @@
     <None Include="Script2.fsx" />
     <None Include="Script3.fsx" />
     <None Include="Script4.fsx" />
-    <None Include="Script5.fsx" />
     <None Include="LearningModule.fs%27%27" />
     <None Include="LearningTests.fs%27%27" />
     <Compile Include="LearningModule.fs" />

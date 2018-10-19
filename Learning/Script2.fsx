@@ -16,10 +16,10 @@ let inline error_oja float passes =
     let one = float 1.0
 
     let H' H (input, out) = 
-        let r = H + n * (input * out - out * out * H)
+        let r = n * input * out + (one - n * out * out) * H
         r,r
     let H (input, out) H' = 
-        let r = (n * input * out - H') / (n * out * out - one) 
+        let r = (H' - n * input * out) / (one - n * out * out) 
         H',r
 
     error_template float passes H' H
