@@ -880,6 +880,7 @@ inl float ->
                     reproject_to x back.precision (primal weight)
                 | {back} -> factor back; reproject_to (adjoint weight) back.precision (primal weight)
                 | {front} -> factor front; reproject_to front.precision (adjoint weight) (primal weight)
+                | _ -> s.CudaBlas.geam' .nT .nT -learning_rate (adjoint weight) one (primal weight) (primal weight)
                 clear (adjoint weight)
             | _ -> ()
             ) weights
@@ -1392,7 +1393,7 @@ inl float ->
 
                 inl bias f a = {
                     weight = f (1,a)
-                    back = covariance default_epsilon a
+                    //back = covariance default_epsilon a
                     stream = stream
                     block = ()
                     }
@@ -1420,7 +1421,8 @@ inl float ->
             inl apply =
                 inm out =
                     inm input, state = matmult_stream ({(weights.input) with data=input}, {(weights.state) with data=out})
-                    inm bias = weights.bias |> Struct.map (expand_singular (span,())) |> sequence
+                    //inm bias = weights.bias |> Struct.map (expand_singular (span,())) |> sequence
+                    inl bias = weights.bias |> Struct.map (inl {weight} -> weight)
                     map CudaAD.generalized_mi_tanh {input state bias}
                 
                 succ {out state={out}}
@@ -1775,7 +1777,7 @@ inl float ->
                                     H {input state} weights.streams.modulator
                             }
                     inl input, state = wrap_split ((), dim.matrix) (input, state)
-                    inm bias = expand_singular (span, ()) bias
+                    //inm bias = expand_singular (span, ()) weights.bias // TODO: Fix this.
                     inl bias = wrap_split_weight {modulator={input=(),dim.bias; state=(),dim.bias}} weights.bias
                     inl input = 
                         {
@@ -1884,7 +1886,7 @@ inl float ->
                             }
                     inl input, state = wrap_split ((), dim.matrix) (input, state)
                     inm bias = expand_singular (span, ()) weights.bias
-                    inl bias = Struct.map (wrap_split_weight ((), size)) bias
+                    inl bias = Struct.map (wrap_split_weight ((), size)) weights.bias
                     inl input = 
                         {
                         static = input.static
@@ -1993,8 +1995,8 @@ inl float ->
                                     H {input state} weights.streams.modulator
                             }
                     inl input, state = wrap_split ((), dim.matrix) (input, state)
-                    inm bias = expand_singular (span, ()) weights.bias
-                    inl bias = wrap_split_weight {modulator={input=(),dim.bias; state=(),dim.bias}} weights.bias // TODO: Fix this.
+                    //inm bias = expand_singular (span, ()) weights.bias // TODO: Fix this.
+                    inl bias = wrap_split_weight {modulator={input=(),dim.bias; state=(),dim.bias}} weights.bias
                     inl input = 
                         {
                         static = input.static

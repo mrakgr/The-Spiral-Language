@@ -174,17 +174,17 @@ inl network,_ =
             lstm 128,
             linear size.hot
         mi' =
-            mi' 384,
+            mi' 128,
             linear size.hot
         mi'' =
-            mi'' 384,
+            mi'' 128,
             linear size.hot
         lstm' = 
             lstm' 128,
             linear size.hot
         }
 
-    init s size.hot network.mi''
+    init s size.hot network.mi'
 
 inl truncate network s' =
     inl s = s'.RegionMem.create
@@ -437,7 +437,7 @@ inl network,_ =
         plastic_rnn'' = plastic_rnn'' n size.pattern
         }
 
-    init s size.pattern network.plastic_rnn'' 
+    init s size.pattern network.plastic_rnn''
 
 Timer.time_it "Training"
 <| inl _ ->
