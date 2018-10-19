@@ -1596,7 +1596,7 @@ inl float ->
         optimize = inl {learning_rate weights} ->
             inl {back} = weights.input
             inl weights = {weights.state with back}
-            inl weights = {weights.bias with back}
+            //inl weights = {weights.bias with back}
             Optimizer.kfac {learning_rate weights}
 
         block = ()
