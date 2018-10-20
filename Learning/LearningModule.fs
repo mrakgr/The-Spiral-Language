@@ -1233,8 +1233,8 @@ inl float ->
             Struct.foldl (inl s x ->
                 match s with
                 | () -> {dim=x.dim; elem_type=x.elem_type}
-                | {dim=b, {from=0 near_to=a}} ->
-                    inl b', {from=0 near_to=a'} = x.dim
+                | {dim=b, a} ->
+                    inl b', a' = x.dim
                     assert (b = b') "The outer dimensions of the inputs must be the same."
                     {s with dim=b,a+a'}
                 ) () (primals x)
@@ -1348,7 +1348,7 @@ inl float ->
         inl inner = size
         {
         init = inl sublayer_size -> 
-            Initializer.dual.TensorView
+            open Initializer.dual.TensorView
             inl outer = {input=sublayer_size; state=size}
             inl init = {input=tanh; state=tanh}
             {
@@ -1358,7 +1358,7 @@ inl float ->
 
         apply = inl {d with weights input} s -> 
             inl span = primal input .span_outer
-            inl out, memory =
+            inl out =
                 match d with
                 | {state={out}} -> out
                 | _ -> 
@@ -1366,8 +1366,10 @@ inl float ->
                     f()
 
             inl apply =
-                inm data = concat {input state=out}
-                matmult_stream {weights with data} >>= tanh
+                inm out =
+                    inm data = concat {input state=out}
+                    matmult_stream {weights with data} >>= tanh
+                succ {out state={out}}
 
             inl {out={out state} bck} = apply s
             {out state bck}

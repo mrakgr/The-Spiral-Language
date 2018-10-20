@@ -159,7 +159,7 @@ inl input = input {from=0; by=by-1}
 
 inl data = {input label} |> Struct.map (inl x -> x.round_split' size.step)
 
-inl learning_rate = 2f32 ** -12f32
+inl learning_rate = 2f32 ** -13.5f32
 inl n = 1f32 / to float size.step
 
 inl network,_ =
@@ -167,24 +167,12 @@ inl network,_ =
     open RNN
     inl network =
         {
-        mi =
-            mi 128,
-            linear size.hot
-        lstm = 
-            lstm 128,
-            linear size.hot
-        mi' =
-            mi' 128,
-            linear size.hot
-        mi'' =
-            mi'' 128,
-            linear size.hot
-        lstm' = 
-            lstm' 128,
+        rnn =
+            rnn 128,
             linear size.hot
         }
 
-    init s size.hot network.lstm'
+    init s size.hot network.rnn
 
 inl truncate network s' =
     inl s = s'.RegionMem.create
