@@ -1350,7 +1350,7 @@ inl float ->
         init = inl sublayer_size -> 
             open Initializer.dual.TensorView
             inl outer = {input=sublayer_size; state=size}
-            inl init = {input=tanh; state=tanh}
+            inl init = {input=relu; state=relu}
             {
             dsc = weight {init dim=outer,inner}
             size

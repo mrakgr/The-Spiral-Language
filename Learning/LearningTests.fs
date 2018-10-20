@@ -159,7 +159,7 @@ inl input = input {from=0; by=by-1}
 
 inl data = {input label} |> Struct.map (inl x -> x.round_split' size.step)
 
-inl learning_rate = 2f32 ** -13.5f32
+inl learning_rate = 2f32 ** -12.5f32
 inl n = 1f32 / to float size.step
 
 inl network,_ =
