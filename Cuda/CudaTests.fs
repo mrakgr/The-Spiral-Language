@@ -920,6 +920,26 @@ s.CudaFun.map_redo {redo=(+); mid=a2
 |> s.CudaTensor.print
     """
 
+let kernel2 =
+    "kernel2",[cuda_modules],"Does the segmented_iter kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl dim = {q={a=1; b=2; c=3}}
+inl map = 
+    inl const x i v = x
+    {q={a=const 1; b=const 2; c=const 3}}
+inl x = s.CudaTensor.create_view {elem_type=int64; dim}
+inl _ = 
+    inl x = CudaAux.to_dev_tensor x
+    s.CudaKernel.segmented_iter {dim} <| inl i -> 
+        Struct.iter2 (inl i map -> 
+            inl x = x .view i
+            x .set (map i (x .get))
+            ) i map
+s.CudaTensor.print x
+    """
+
 let tests =
     [|
     allocator1
@@ -935,6 +955,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) random1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel2
 |> printfn "%s"
 |> ignore
