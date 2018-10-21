@@ -1974,13 +1974,20 @@ inl split tns =
 
     Tuple.foldr f dim (Tuple.rev >> tns) ()
 
-//inl view tns i =
-//    inl dim = tns.dim
-//    inl tns = tns.basic
-                
-//    inl f dim i next s =
-//        match dim, i with
-//        | {from near_to}, _ -> next {s with dim=dim :: self}
+inl view tns i =
+    inl rec f i = function
+        | {from near_to} -> (), i
+        | {} as dim ->
+            inl {k c i} = module_foldl (inl k s i -> {s with k i c=self+1}) {c=0} i
+            assert (c = 1) "The number of branches in a view's index must be 1."
+            inl x, s = f i (dim k)
+            {$k=x}, s
+        | from ->
+            (), i
+
+    inl dim, i = Tuple.foldl_map f i tns.dim
+    match i with {} -> error_type "The index does not match the tensor dimensions"
+    tns dim i
 
 
 
