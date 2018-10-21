@@ -1847,8 +1847,24 @@ let host_tensor_view =
     (
     "View",[tuple;host_tensor],"Views for the tensor.",
     """
+inl view tns i =
+    inl rec f i = function
+        | {from near_to} -> (), i
+        | {} as dim ->
+            inl {k c i} = module_foldl (inl k s i -> {s with k i c=self+1}) {c=0} i
+            assert (c = 1) "The number of branches in a view's index must be 1."
+            inl x, s = f i (dim k)
+            {$k=x}, s
+        | from ->
+            (), i
+
+    inl dim, i = Tuple.foldl_map f i tns.dim
+    match i with {} -> error_type "The index does not match the tensor dimensions"
+    tns dim i
+
 inl rec facade data = 
     inl methods = stack {
+        view = inl data -> view (facade data)
         length = inl {data with basic} -> basic.length
         elem_type = inl {data with basic} -> basic.elem_type
         update_body = inl data f -> {data with basic=self.update_body f} |> facade
@@ -1973,23 +1989,6 @@ inl split tns =
         | from -> next (() :: s)
 
     Tuple.foldr f dim (Tuple.rev >> tns) ()
-
-inl view tns i =
-    inl rec f i = function
-        | {from near_to} -> (), i
-        | {} as dim ->
-            inl {k c i} = module_foldl (inl k s i -> {s with k i c=self+1}) {c=0} i
-            assert (c = 1) "The number of branches in a view's index must be 1."
-            inl x, s = f i (dim k)
-            {$k=x}, s
-        | from ->
-            (), i
-
-    inl dim, i = Tuple.foldl_map f i tns.dim
-    match i with {} -> error_type "The index does not match the tensor dimensions"
-    tns dim i
-
-
 
 inl dim = map_dim (inl _ -> error_type "() not allowed in View dim.") >> fst
 
