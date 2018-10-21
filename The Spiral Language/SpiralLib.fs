@@ -1974,6 +1974,16 @@ inl split tns =
 
     Tuple.foldr f dim (Tuple.rev >> tns) ()
 
+//inl view tns i =
+//    inl dim = tns.dim
+//    inl tns = tns.basic
+                
+//    inl f dim i next s =
+//        match dim, i with
+//        | {from near_to}, _ -> next {s with dim=dim :: self}
+
+
+
 inl dim = map_dim (inl _ -> error_type "() not allowed in View dim.") >> fst
 
 {
