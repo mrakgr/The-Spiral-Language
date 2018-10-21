@@ -1960,7 +1960,7 @@ inl map_dim default = function
             | size: int64 ->  
                 inl near_to=from+size
                 assert (from < near_to) "The size must be a positive value."
-                near_to, {from near_to}
+                near_to, {from near_to block=()}
             | _ -> error_type "The tree's leaves must be integer values and branches must be modules."
         loop 0 x
     | _ -> error_type "Expected a range or a tree view."
@@ -1991,6 +1991,29 @@ inl split tns =
     Tuple.foldr f dim (Tuple.rev >> tns) ()
 
 inl dim = map_dim (inl _ -> error_type "() not allowed in View dim.") >> fst
+
+inl from_basic dim i ret =
+    inl f dim i ret =
+        match dim with
+        | {} ->
+            inl zip_inner dim ret = 
+                match dim with
+                | {d with from near_to} -> {d with zip=ret}
+                | {} -> module_map (inl k x -> zip_inner x (inl x -> ret {$k=x}))
+            Struct.foldr (inl {zip from near_to} next _ -> 
+                match next with
+                | () -> ret (zip i)
+                | _ -> if i < near_to then ret (zip i) else next ()
+                ) (zip_inner dim id) () ()
+        | from -> ret (from + i)
+    Tuple.foldl (inl next dim {i x} ->
+        inl size, dim = map_dim (inl _ -> error_type "() not allowed in View view.") dim
+        assert (size > 0) "Size of a dimension must be greater than zero"
+        inb x' = f dim (i % size)
+        next {i=i / size; x=x' :: x}
+        )
+        (inl {x} -> Tuple.rev x |> ret)
+        dim {i x=()}
 
 {
 facade create wrap split dim
