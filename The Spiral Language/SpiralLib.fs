@@ -1859,8 +1859,6 @@ inl view tns i =
         | from ->
             (), i
     inl dim, i = Tuple.foldl_map f i tns.dim
-    match i with {} -> error_type "The index does not match the tensor dimensions" | _ -> ()
-    
     tns dim i
 
 inl rec facade data = 
@@ -1880,12 +1878,12 @@ inl rec facade data =
                     match data.dim with
                     | () -> error_type "Cannot apply the tensor anymore."
                     | branch :: dim -> 
-                        inl apply b =
-                            inl a', b' = loop {data with dim} i'
-                            a', b :: b'
-                        inl view a b = 
-                            inl a', b' = loop {data with dim} i'
-                            a :: a', b :: b'
+                        inl apply b c =
+                            inl a', b', c' = loop {data with dim} i'
+                            a', b :: b', c :: c'
+                        inl view a b c = 
+                            inl a', b', c' = loop {data with dim} i'
+                            a :: a', b :: b', c :: c'
 
                         // The tensor view support two kinds of views.
                         match branch with
@@ -1893,8 +1891,7 @@ inl rec facade data =
                             inl rec loop branch i =
                                 match branch with
                                 | {from near_to} -> // Tree view's leaf - the ranges start at zero.
-                                    match i with
-                                    | () -> view 0 branch // Only () is supported for the sake of simplicity for now.
+                                    view 0 branch i
                                 | _ -> // Tree view's branch
                                     match i with
                                     | () -> // Do a partial view.
@@ -1903,7 +1900,7 @@ inl rec facade data =
                                             | () -> {from=0; near_to=near_to-from; block=()}, x
                                             | {from} -> Struct.map (inl x -> x-from) x, {s with near_to}
                                             ) () branch
-                                        |> inl a, b -> view a b
+                                        |> inl a, b -> view a b ()
                                     | _ ->
                                         inl {c k i} = module_foldl (inl k s i -> {s with c=self+1; k i}) {c=0} i
                                         assert (c = 1) "The number of branches indexed into must be 1."
@@ -1913,14 +1910,14 @@ inl rec facade data =
                             match i with
                             | {from=from'} ->
                                 match i with
-                                | {near_to=near_to'} -> view 0 {from=from'-from; near_to=near_to'-from}
-                                | {to=to'} -> view 0 {from=from'-from; near_to=to'+1-from}
-                                | {by} -> view 0 {from=from'-from; by}
-                                | _ -> view 0 {from=from'-from}
-                            | () -> view from ()
-                            | from' -> apply (from'-from)
-            inl dim, apply = loop data (Tuple.wrap i)
-            inl basic = data.basic apply
+                                | {near_to=near_to'} -> view 0 {from=from'-from; near_to=near_to'-from} ()
+                                | {to=to'} -> view 0 {from=from'-from; near_to=to'+1-from} ()
+                                | {by} -> view 0 {from=from'-from; by} ()
+                                | _ -> view 0 {from=from'-from} ()
+                            | () -> view from () ()
+                            | from' -> apply (from'-from) ()
+            inl dim, apply, apply' = loop data (Tuple.wrap i)
+            inl basic = data.basic apply apply'
             facade {data with basic dim}
 
         /// Returns the tensor data.
@@ -2001,15 +1998,25 @@ inl from_basic dim i ret =
                 (inl {zip from near_to} -> ret (zip (i - from)))
                 ()
         | from -> ret (from + i)
-    Liple.foldr (inl dim next (i, l) ->
-        inb x' = f dim i
-        next (x' :: x)
+    Liple.foldr2 (inl dim i next (a1, a2) ->
+        inb a1', a2' = f dim i
+        next (a1' :: a1, a2' :: a2)
         )
+        dim i 
         (inl x -> Tuple.rev x |> Tuple.unwrap |> ret)
-        dim i ()
+        ()
+
+inl dim_merge x = 
+    Liple.foldr (inl x next l ->
+        Struct.map (inl x -> next (x :: l)) x
+        ) x (Tuple.rev >> Tuple.unwrap) ()
+
+inl from_basic' dim i ret =
+    inb x = from_basic dim i
+    ret (dim_merge x)
 
 {
-facade create wrap split dim from_basic
+facade create wrap split dim from_basic from_basic'
 } |> stackify
     """
     ) |> module_
