@@ -1984,7 +1984,7 @@ inl split tns =
 
     Tuple.foldr f dim (Tuple.rev >> tns) ()
 
-inl dim = map_dim (inl _ -> error_type "() not allowed in View dim.") >> fst
+inl dim = Liple.map (map_dim (inl _ -> error_type "() not allowed in View dim.") >> fst)
 
 inl from_basic dim i ret =
     inl f dim i ret =
@@ -2001,14 +2001,12 @@ inl from_basic dim i ret =
                 (inl {zip from near_to} -> ret (zip (i - from)))
                 ()
         | from -> ret (from + i)
-    Liple.foldl (inl next dim {i x} ->
-        inl size, dim = map_dim (inl _ -> error_type "() not allowed in View view.") dim
-        assert (size > 0) "Size of a dimension must be greater than zero"
-        inb x' = f dim (i % size)
-        next {i=i / size; x=x' :: x}
+    Liple.foldr (inl dim next (i, l) ->
+        inb x' = f dim i
+        next (x' :: x)
         )
-        (inl {x} -> Tuple.rev x |> Tuple.unwrap |> ret)
-        dim {i x=()}
+        (inl x -> Tuple.rev x |> Tuple.unwrap |> ret)
+        dim i ()
 
 {
 facade create wrap split dim from_basic

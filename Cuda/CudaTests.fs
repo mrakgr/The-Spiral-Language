@@ -925,12 +925,13 @@ let kernel2 =
     """
 inb s = CudaModules (1024*1024)
 
-inl dim = {q={a=1; b=2; c=3}}
+inl dim = {input=1; state=2}, {a=1; b=2; c=3}
 inl map = 
     inl const x i v = x
-    {q={a=const 1; b=const 2; c=const 3}}
-inl x' = s.CudaTensor.create {elem_type=int64; dim=10}
-inl x = x' {from=0; by=6} |> View.wrap dim
+    inl q = {a=const 1; b=const 2; c=const 3}
+    inl w = {a=const 4; b=const 5; c=const 6}
+    {input=q; state=w}
+inl x = s.CudaTensor.create_view {elem_type=int64; dim}
 inl _ = 
     inl x = CudaAux.to_dev_tensor x
     s.CudaKernel.segmented_iter {dim} <| inl i -> 
@@ -938,7 +939,7 @@ inl _ =
             inl x = x .view i
             x .set (map i (x .get))
             ) i map
-s.CudaTensor.print x'
+s.CudaTensor.print x.basic
     """
 
 let tests =
