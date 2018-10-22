@@ -1488,6 +1488,8 @@ met iter w {d with dim} f =
         kernel = cuda grid_for {blockDim gridDim} .x dim {body=inl {i} -> f i}
         }
 
+inl segmeted_iter w {d with dim} f = iter w {d with dim=View.dim self} (inl i -> View.from_basic dim i f)
+
 /// The exclusive scan over the innermost dimension.
 met init_exscan w {dim=b,a redo neutral_elem init outit} =
     w.run {
