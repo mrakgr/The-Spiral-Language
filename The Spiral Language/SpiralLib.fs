@@ -1996,9 +1996,9 @@ inl from_basic dim i ret =
                 | {} -> module_map (inl k x -> zip_inner x (inl x -> ret {$k=x})) dim
             Struct.foldr (inl d next -> function
                 | () -> next d
-                | {zip near_to} -> if i < near_to then ret (zip i) else next d
+                | {zip from near_to} -> if i < near_to then ret (zip (i - from)) else next d
                 ) (zip_inner dim id)
-                (inl {zip near_to} -> ret (zip i))
+                (inl {zip from near_to} -> ret (zip (i - from)))
                 ()
         | from -> ret (from + i)
     Liple.foldl (inl next dim {i x} ->
