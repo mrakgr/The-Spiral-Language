@@ -1893,23 +1893,16 @@ inl rec facade data =
                                 match branch with
                                 | {from near_to} -> // Tree view's leaf - the ranges start at zero.
                                     match i with
-                                    | () -> view 0 {from near_to} // Only () is supported for the sake of simplicity for now.
+                                    | () -> view 0 branch // Only () is supported for the sake of simplicity for now.
                                 | _ -> // Tree view's branch
                                     match i with
-                                    | () -> 
-                                        inl rec loop s branch = 
-                                            match branch with
-                                            | {from near_to} ->
-                                                match s with
-                                                | () -> {from=0; near_to=near_to-from}, {from near_to}
-                                                | {from} -> Struct.map (inl x -> x-from) branch, {s with near_to}
-                                            | {} ->
-                                                module_foldl (inl k (m,s) branch -> 
-                                                    inl branch, s = loop s branch
-                                                    {m with $k=branch}, s
-                                                    ) ({},s) branch
-                                        inl a, b = loop () branch
-                                        view a b
+                                    | () -> // Do a partial view.
+                                        Struct.foldl_map (inl s {x with from near_to} ->
+                                            match s with
+                                            | () -> {from=0; near_to=near_to-from; block=()}, x
+                                            | {from} -> Struct.map (inl x -> x-from) x, {s with near_to}
+                                            ) () branch
+                                        |> inl a, b -> view a b
                                     | _ ->
                                         inl {c k i} = module_foldl (inl k s i -> {s with c=self+1; k i}) {c=0} i
                                         assert (c = 1) "The number of branches indexed into must be 1."
@@ -2000,11 +1993,12 @@ inl from_basic dim i ret =
                 match dim with
                 | {d with from near_to} -> {d with zip=ret}
                 | {} -> module_map (inl k x -> zip_inner x (inl x -> ret {$k=x}))
-            Struct.foldr (inl {zip from near_to} next _ -> 
-                match next with
-                | () -> ret (zip i)
-                | _ -> if i < near_to then ret (zip i) else next ()
-                ) (zip_inner dim id) () ()
+            Struct.foldr (inl d next -> function
+                | () -> next d
+                | {zip near_to} -> if i < near_to then ret (zip i) else next d
+                ) (zip_inner dim id) 
+                (inl {zip near_to} -> ret (zip i))
+                ()
         | from -> ret (from + i)
     Tuple.foldl (inl next dim {i x} ->
         inl size, dim = map_dim (inl _ -> error_type "() not allowed in View view.") dim
@@ -2016,7 +2010,7 @@ inl from_basic dim i ret =
         dim {i x=()}
 
 {
-facade create wrap split dim
+facade create wrap split dim from_basic
 } |> stackify
     """
     ) |> module_
