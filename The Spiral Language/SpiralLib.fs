@@ -1848,18 +1848,19 @@ let host_tensor_view =
     "View",[tuple;host_tensor],"Views for the tensor.",
     """
 inl view tns i =
-    inl rec f i = function
+    inl rec f i dim = 
+        match dim with
         | {from near_to} -> (), i
-        | {} as dim ->
+        | {} ->
             inl {k c i} = module_foldl (inl k s i -> {s with k i c=self+1}) {c=0} i
             assert (c = 1) "The number of branches in a view's index must be 1."
             inl x, s = f i (dim k)
             {$k=x}, s
         | from ->
             (), i
-
     inl dim, i = Tuple.foldl_map f i tns.dim
     match i with {} -> error_type "The index does not match the tensor dimensions" | _ -> ()
+    
     tns dim i
 
 inl rec facade data = 
@@ -1919,9 +1920,7 @@ inl rec facade data =
                             | () -> view from ()
                             | from' -> apply (from'-from)
             inl dim, apply = loop data (Tuple.wrap i)
-            //print_static apply
             inl basic = data.basic apply
-            //print_static "qwe"
             facade {data with basic dim}
 
         /// Returns the tensor data.
