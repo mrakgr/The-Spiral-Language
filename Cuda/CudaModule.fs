@@ -1488,7 +1488,7 @@ met iter w {d with dim} f =
         kernel = cuda grid_for {blockDim gridDim} .x dim {body=inl {i} -> f i}
         }
 
-inl segmeted_iter w {d with dim} f = iter w {d with dim=View.dim self} (inl i -> View.from_basic dim i f)
+inl segmented_iter w {d with dim} f = iter w {d with dim=View.dim self} (inl i -> View.from_basic dim i f)
 
 /// The exclusive scan over the innermost dimension.
 met init_exscan w {dim=b,a redo neutral_elem init outit} =
@@ -1879,7 +1879,7 @@ met redo_init w {dim=b, a init redo outit} =
 
 inl methods =
     {
-    iter init_exscan inscan redo iter2 iter3 init_inscan init_redo init_redo_redo
+    iter segmented_iter init_exscan inscan redo iter2 iter3 init_inscan init_redo init_redo_redo
     init_seq inscan_init redo_init
     } |> stackify
 

@@ -933,7 +933,7 @@ inl x = s.CudaTensor.create_view {elem_type=int64; dim}
 inl _ = 
     inl x = CudaAux.to_dev_tensor x
     s.CudaKernel.segmented_iter {dim} <| inl i -> 
-        Struct.iter2 (inl i map -> 
+        Struct.iter2 (inl _ map ->
             inl x = x .view i
             x .set (map i (x .get))
             ) i map

@@ -1647,7 +1647,10 @@ inl rec facade data =
                             | _ -> view from' near_to
                         | () -> view 0 near_to 
                         | from' -> 
-                            assert (from' >= 0 && from' < near_to) "Argument out of bounds." 
+                            print_static ({from' near_to}, from' < near_to)
+                            inl a = from' >= 0
+                            inl b = from' < near_to
+                            assert (a && b) "Argument out of bounds."  //qwe
                             rest from'
             loop data (Tuple.wrap i) |> facade
         /// Returns the tensor data.
@@ -1859,7 +1862,7 @@ inl view tns i =
             (), i
 
     inl dim, i = Tuple.foldl_map f i tns.dim
-    match i with {} -> error_type "The index does not match the tensor dimensions"
+    match i with {} -> error_type "The index does not match the tensor dimensions" | _ -> ()
     tns dim i
 
 inl rec facade data = 
@@ -1919,7 +1922,9 @@ inl rec facade data =
                             | () -> view from ()
                             | from' -> apply (from'-from)
             inl dim, apply = loop data (Tuple.wrap i)
+            print_static apply
             inl basic = data.basic apply
+            print_static "qwe"
             facade {data with basic dim}
 
         /// Returns the tensor data.
@@ -1989,24 +1994,24 @@ inl from_basic dim i ret =
     inl f dim i ret =
         match dim with
         | {} ->
-            inl zip_inner dim ret = 
+            inl rec zip_inner dim ret = 
                 match dim with
                 | {d with from near_to} -> {d with zip=ret}
-                | {} -> module_map (inl k x -> zip_inner x (inl x -> ret {$k=x}))
+                | {} -> module_map (inl k x -> zip_inner x (inl x -> ret {$k=x})) dim
             Struct.foldr (inl d next -> function
                 | () -> next d
                 | {zip near_to} -> if i < near_to then ret (zip i) else next d
-                ) (zip_inner dim id) 
+                ) (zip_inner dim id)
                 (inl {zip near_to} -> ret (zip i))
                 ()
         | from -> ret (from + i)
-    Tuple.foldl (inl next dim {i x} ->
+    Liple.foldl (inl next dim {i x} ->
         inl size, dim = map_dim (inl _ -> error_type "() not allowed in View view.") dim
         assert (size > 0) "Size of a dimension must be greater than zero"
         inb x' = f dim (i % size)
         next {i=i / size; x=x' :: x}
         )
-        (inl {x} -> Tuple.rev x |> ret)
+        (inl {x} -> Tuple.rev x |> Tuple.unwrap |> ret)
         dim {i x=()}
 
 {
