@@ -1647,10 +1647,7 @@ inl rec facade data =
                             | _ -> view from' near_to
                         | () -> view 0 near_to 
                         | from' -> 
-                            print_static ({from' near_to}, from' < near_to)
-                            inl a = from' >= 0
-                            inl b = from' < near_to
-                            assert (a && b) "Argument out of bounds."  //qwe
+                            assert (from' >= 0 && from' < near_to) "Argument out of bounds." 
                             rest from'
             loop data (Tuple.wrap i) |> facade
         /// Returns the tensor data.
@@ -1922,9 +1919,9 @@ inl rec facade data =
                             | () -> view from ()
                             | from' -> apply (from'-from)
             inl dim, apply = loop data (Tuple.wrap i)
-            print_static apply
+            //print_static apply
             inl basic = data.basic apply
-            print_static "qwe"
+            //print_static "qwe"
             facade {data with basic dim}
 
         /// Returns the tensor data.
