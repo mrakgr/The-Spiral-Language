@@ -465,6 +465,28 @@ inl _ =
 s.CudaTensor.print x
     """
 
+let kernel2 =
+    "kernel2",[cuda_modules],"Does the segmented_iter kernel work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl dim = {input=1; state=2}, {a=1; b=2; c=3}
+inl map = 
+    inl const x i v = x
+    inl q = {a=const 1; b=const 2; c=const 3}
+    inl w = {a=const 4; b=const 5; c=const 6}
+    {input=q; state=w}
+inl x = s.CudaTensor.create_view {elem_type=int64; dim}
+inl _ = 
+    inl x = CudaAux.to_dev_tensor x
+    s.CudaKernel.segmented_iter {dim} <| inl i -> 
+        Struct.iter2 (inl _ map ->
+            inl x = x .view i
+            x .set (map i (x .get))
+            ) i map
+s.CudaTensor.print x.basic
+    """
+
 let kernel4 =
     "kernel4",[cuda_modules],"Does the init_exscan kernel work?",
     """
@@ -920,33 +942,11 @@ s.CudaFun.map_redo {redo=(+); mid=a2
 |> s.CudaTensor.print
     """
 
-let kernel2 =
-    "kernel2",[cuda_modules],"Does the segmented_iter kernel work?",
-    """
-inb s = CudaModules (1024*1024)
-
-inl dim = {input=1; state=2}, {a=1; b=2; c=3}
-inl map = 
-    inl const x i v = x
-    inl q = {a=const 1; b=const 2; c=const 3}
-    inl w = {a=const 4; b=const 5; c=const 6}
-    {input=q; state=w}
-inl x = s.CudaTensor.create_view {elem_type=int64; dim}
-inl _ = 
-    inl x = CudaAux.to_dev_tensor x
-    s.CudaKernel.segmented_iter {dim} <| inl i -> 
-        Struct.iter2 (inl _ map ->
-            inl x = x .view i
-            x .set (map i (x .get))
-            ) i map
-s.CudaTensor.print x.basic
-    """
-
 let tests =
     [|
     allocator1
     tensor1;tensor2;tensor3;
-    kernel1;                  kernel4;kernel5;kernel6;kernel7;kernel8;kernel9;kernel10
+    kernel1;kernel2;          kernel4;kernel5;kernel6;kernel7;kernel8;kernel9;kernel10
     kernel11;kernel12;kernel13
     fun1;fun2;fun3;fun4;fun5;fun6
     random1
@@ -955,8 +955,8 @@ let tests =
     inverse1;inverse2
     |]
 
-//rewrite_test_cache tests cfg None
+rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel2
-|> printfn "%s"
-|> ignore
+//output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel2
+//|> printfn "%s"
+//|> ignore

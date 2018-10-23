@@ -4,9 +4,9 @@ let cuda_kernels = """
 #include <assert.h>
 
 extern "C" {
-    __global__ void method_20(long long int * var_0, long long int * var_1, long long int * var_2);
+    __global__ void method_20(long long int * __restrict__ var_0, long long int * __restrict__ var_1, long long int * __restrict__ var_2);
     
-    __global__ void method_20(long long int * var_0, long long int * var_1, long long int * var_2) {
+    __global__ void method_20(long long int * __restrict__ var_0, long long int * __restrict__ var_1, long long int * __restrict__ var_2) {
         long long int var_3 = threadIdx.x;
         long long int var_4 = blockIdx.x;
         long long int var_5 = (32 * var_4);
@@ -289,54 +289,48 @@ and method_22((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule), (var
         (failwith "The tensor must be contiguous in order to be flattened.")
     else
         ()
-    let (var_28: int64) = (var_20 * var_5)
-    let (var_29: int64) = (var_22 * var_7)
-    let (var_30: bool) = (var_6 = var_29)
-    let (var_31: bool) = (var_30 = false)
-    if var_31 then
+    let (var_28: int64) = (var_22 * var_7)
+    let (var_29: bool) = (var_6 = var_28)
+    let (var_30: bool) = (var_29 = false)
+    if var_30 then
         (failwith "The tensor must be contiguous in order to be flattened.")
     else
         ()
-    let (var_32: int64) = (var_28 * var_6)
-    let (var_33: int64) = (var_21 * var_12)
-    let (var_34: bool) = (var_11 = var_33)
-    let (var_35: bool) = (var_34 = false)
-    if var_35 then
+    let (var_31: int64) = (var_21 * var_12)
+    let (var_32: bool) = (var_11 = var_31)
+    let (var_33: bool) = (var_32 = false)
+    if var_33 then
         (failwith "The tensor must be contiguous in order to be flattened.")
     else
         ()
-    let (var_36: int64) = (var_20 * var_11)
-    let (var_37: int64) = (var_22 * var_13)
-    let (var_38: bool) = (var_12 = var_37)
+    let (var_34: int64) = (var_22 * var_13)
+    let (var_35: bool) = (var_12 = var_34)
+    let (var_36: bool) = (var_35 = false)
+    if var_36 then
+        (failwith "The tensor must be contiguous in order to be flattened.")
+    else
+        ()
+    let (var_37: int64) = (var_21 * var_18)
+    let (var_38: bool) = (var_17 = var_37)
     let (var_39: bool) = (var_38 = false)
     if var_39 then
         (failwith "The tensor must be contiguous in order to be flattened.")
     else
         ()
-    let (var_40: int64) = (var_36 * var_12)
-    let (var_41: int64) = (var_21 * var_18)
-    let (var_42: bool) = (var_17 = var_41)
-    let (var_43: bool) = (var_42 = false)
-    if var_43 then
+    let (var_40: int64) = (var_22 * var_19)
+    let (var_41: bool) = (var_18 = var_40)
+    let (var_42: bool) = (var_41 = false)
+    if var_42 then
         (failwith "The tensor must be contiguous in order to be flattened.")
     else
         ()
-    let (var_44: int64) = (var_20 * var_17)
-    let (var_45: int64) = (var_22 * var_19)
-    let (var_46: bool) = (var_18 = var_45)
-    let (var_47: bool) = (var_46 = false)
-    if var_47 then
-        (failwith "The tensor must be contiguous in order to be flattened.")
-    else
-        ()
-    let (var_48: int64) = (var_44 * var_18)
-    let (var_49: (int64 [])) = method_23((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_20: int64), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64))
-    let (var_50: (int64 [])) = method_23((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_20: int64), (var_8: (int64 ref)), (var_9: (uint64 ref)), (var_10: int64), (var_11: int64), (var_12: int64), (var_13: int64))
-    let (var_51: (int64 [])) = method_23((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_20: int64), (var_14: (int64 ref)), (var_15: (uint64 ref)), (var_16: int64), (var_17: int64), (var_18: int64), (var_19: int64))
-    let (var_52: int64) = 0L
-    let (var_53: int64) = 0L
-    let (var_54: int64) = 0L
-    method_24((var_49: (int64 [])), (var_52: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_50: (int64 [])), (var_53: int64), (var_11: int64), (var_12: int64), (var_13: int64), (var_51: (int64 [])), (var_54: int64), (var_17: int64), (var_18: int64), (var_19: int64), (var_20: int64), (var_21: int64), (var_22: int64))
+    let (var_43: (int64 [])) = method_23((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_20: int64), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_4: int64), (var_5: int64), (var_6: int64), (var_7: int64))
+    let (var_44: (int64 [])) = method_23((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_20: int64), (var_8: (int64 ref)), (var_9: (uint64 ref)), (var_10: int64), (var_11: int64), (var_12: int64), (var_13: int64))
+    let (var_45: (int64 [])) = method_23((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_20: int64), (var_14: (int64 ref)), (var_15: (uint64 ref)), (var_16: int64), (var_17: int64), (var_18: int64), (var_19: int64))
+    let (var_46: int64) = 0L
+    let (var_47: int64) = 0L
+    let (var_48: int64) = 0L
+    method_24((var_43: (int64 [])), (var_46: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_44: (int64 [])), (var_47: int64), (var_11: int64), (var_12: int64), (var_13: int64), (var_45: (int64 [])), (var_48: int64), (var_17: int64), (var_18: int64), (var_19: int64), (var_20: int64), (var_21: int64), (var_22: int64))
 and method_21((var_0: EnvHeap14)): ManagedCuda.BasicTypes.CUstream =
     let (var_1: (bool ref)) = var_0.mem_1
     let (var_2: bool) = (!var_1)
@@ -361,9 +355,10 @@ and method_33((var_0: EnvStack9)): unit =
     var_1.Clear()
 and method_4((var_0: (uint64 ref))): uint64 =
     let (var_1: uint64) = (!var_0)
-    let (var_2: bool) = (var_1 <> 0UL)
-    let (var_3: bool) = (var_2 = false)
-    if var_3 then
+    let (var_2: bool) = (var_1 = 0UL)
+    let (var_3: bool) = (var_2 <> true)
+    let (var_4: bool) = (var_3 = false)
+    if var_4 then
         (failwith "A disposed Cuda memory cell has been tried to be accessed.")
     else
         ()
@@ -522,14 +517,15 @@ and method_3((var_0: EnvStack1), (var_1: ResizeArray<Env19>), (var_2: int32), (v
         let (var_7: (uint64 ref)) = var_6.mem_0
         let (var_8: uint64) = var_5.mem_1
         let (var_9: uint64) = (!var_7)
-        let (var_10: bool) = (var_9 <> 0UL)
-        if var_10 then
-            let (var_11: ResizeArray<Env19>) = var_0.mem_0
-            var_11.Add((Env19((Env20(var_7)), var_8)))
+        let (var_10: bool) = (var_9 = 0UL)
+        let (var_11: bool) = (var_10 <> true)
+        if var_11 then
+            let (var_12: ResizeArray<Env19>) = var_0.mem_0
+            var_12.Add((Env19((Env20(var_7)), var_8)))
         else
             ()
-        let (var_12: int32) = (var_3 + 1)
-        method_3((var_0: EnvStack1), (var_1: ResizeArray<Env19>), (var_2: int32), (var_12: int32))
+        let (var_13: int32) = (var_3 + 1)
+        method_3((var_0: EnvStack1), (var_1: ResizeArray<Env19>), (var_2: int32), (var_13: int32))
     else
         ()
 and method_10((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_2: int64)): Env8 =

@@ -4,11 +4,11 @@ let cuda_kernels = """
 #include <assert.h>
 
 extern "C" {
-    __global__ void method_45(float * var_0, float * var_1);
-    __global__ void method_50(int * var_0);
-    __global__ void method_55(float * var_0);
+    __global__ void method_45(float * __restrict__ var_0, float * __restrict__ var_1);
+    __global__ void method_50(int * __restrict__ var_0);
+    __global__ void method_59(float * __restrict__ var_0);
     
-    __global__ void method_45(float * var_0, float * var_1) {
+    __global__ void method_45(float * __restrict__ var_0, float * __restrict__ var_1) {
         long long int var_2 = threadIdx.x;
         long long int var_3 = blockIdx.x;
         long long int var_4 = (32 * var_3);
@@ -72,7 +72,7 @@ extern "C" {
         } else {
         }
     }
-    __global__ void method_50(int * var_0) {
+    __global__ void method_50(int * __restrict__ var_0) {
         long long int var_1 = threadIdx.x;
         long long int var_2 = blockIdx.x;
         long long int var_3 = (var_1 + var_2);
@@ -96,7 +96,7 @@ extern "C" {
         int is_info_zero = var_8;
         assert(is_info_zero);
     }
-    __global__ void method_55(float * var_0) {
+    __global__ void method_59(float * __restrict__ var_0) {
         long long int var_1 = threadIdx.x;
         long long int var_2 = blockIdx.x;
         long long int var_3 = (32 * var_2);
@@ -552,10 +552,9 @@ and method_35((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule), (var
         (failwith "The tensor must be contiguous in order to be flattened.")
     else
         ()
-    let (var_13: int64) = (var_7 * var_5)
-    let (var_14: (float32 [])) = method_36((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_7: int64), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_4: int64), (var_5: int64), (var_6: int64))
-    let (var_15: int64) = 0L
-    method_37((var_14: (float32 [])), (var_15: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64))
+    let (var_13: (float32 [])) = method_36((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_7: int64), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_4: int64), (var_5: int64), (var_6: int64))
+    let (var_14: int64) = 0L
+    method_37((var_13: (float32 [])), (var_14: int64), (var_5: int64), (var_6: int64), (var_7: int64), (var_8: int64))
 and method_42((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: EnvHeap17), (var_3: ManagedCuda.BasicTypes.CUmodule)): EnvStack24 =
     let (var_4: Env8) = method_31((var_2: EnvHeap17), (var_3: ManagedCuda.BasicTypes.CUmodule))
     let (var_5: (int64 ref)) = var_4.mem_0
@@ -575,9 +574,9 @@ and method_51((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: EnvHeap17), (
     let (var_4: EnvStack24) = method_52((var_2: EnvHeap17), (var_3: ManagedCuda.BasicTypes.CUmodule))
     let (var_5: (int64 ref)) = var_4.mem_0
     let (var_6: (uint64 ref)) = var_4.mem_1
-    method_56((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_5: (int64 ref)), (var_6: (uint64 ref)), (var_2: EnvHeap17), (var_3: ManagedCuda.BasicTypes.CUmodule))
+    method_60((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_5: (int64 ref)), (var_6: (uint64 ref)), (var_2: EnvHeap17), (var_3: ManagedCuda.BasicTypes.CUmodule))
     EnvStack24((var_5: (int64 ref)), (var_6: (uint64 ref)))
-and method_57((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_4: EnvHeap17), (var_5: ManagedCuda.BasicTypes.CUmodule)): unit =
+and method_61((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_4: EnvHeap17), (var_5: ManagedCuda.BasicTypes.CUmodule)): unit =
     let (var_6: ManagedCuda.CudaBlas.CudaBlas) = var_4.mem_1
     let (var_7: (int64 ref)) = var_4.mem_7
     let (var_8: EnvHeap14) = var_4.mem_8
@@ -600,12 +599,12 @@ and method_57((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: (int64 ref)),
     let (var_24: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_23)
     let (var_25: ManagedCuda.CudaBlas.CublasStatus) = ManagedCuda.CudaBlas.CudaBlasNativeMethods.cublasStrmm_v2(var_9, var_11, var_12, var_13, var_14, 8, 8, var_15, var_18, 8, var_21, 8, var_24, 8)
     if var_25 <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException(var_25)
-and method_58((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_4: EnvHeap17), (var_5: ManagedCuda.BasicTypes.CUmodule)): EnvStack24 =
+and method_62((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_4: EnvHeap17), (var_5: ManagedCuda.BasicTypes.CUmodule)): EnvStack24 =
     let (var_6: Env8) = method_31((var_4: EnvHeap17), (var_5: ManagedCuda.BasicTypes.CUmodule))
     let (var_7: (int64 ref)) = var_6.mem_0
     let (var_8: Env22) = var_6.mem_1
     let (var_9: (uint64 ref)) = var_8.mem_0
-    method_59((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_7: (int64 ref)), (var_9: (uint64 ref)), (var_4: EnvHeap17), (var_5: ManagedCuda.BasicTypes.CUmodule))
+    method_63((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_7: (int64 ref)), (var_9: (uint64 ref)), (var_4: EnvHeap17), (var_5: ManagedCuda.BasicTypes.CUmodule))
     EnvStack24((var_7: (int64 ref)), (var_9: (uint64 ref)))
 and method_17((var_0: EnvHeap14)): ManagedCuda.BasicTypes.CUstream =
     let (var_1: (bool ref)) = var_0.mem_1
@@ -617,23 +616,24 @@ and method_17((var_0: EnvHeap14)): ManagedCuda.BasicTypes.CUstream =
         ()
     let (var_4: ManagedCuda.CudaStream) = var_0.mem_2
     var_4.Stream
-and method_60((var_0: EnvStack12)): unit =
+and method_64((var_0: EnvStack12)): unit =
     let (var_1: ResizeArray<Env11>) = var_0.mem_0
     let (var_2: int32) = var_1.get_Count()
     let (var_3: int32) = 0
-    method_61((var_1: ResizeArray<Env11>), (var_2: int32), (var_3: int32))
+    method_65((var_1: ResizeArray<Env11>), (var_2: int32), (var_3: int32))
     var_1.Clear()
-and method_62((var_0: EnvStack9)): unit =
+and method_66((var_0: EnvStack9)): unit =
     let (var_1: ResizeArray<Env8>) = var_0.mem_0
     let (var_2: int32) = var_1.get_Count()
     let (var_3: int32) = 0
-    method_63((var_1: ResizeArray<Env8>), (var_2: int32), (var_3: int32))
+    method_67((var_1: ResizeArray<Env8>), (var_2: int32), (var_3: int32))
     var_1.Clear()
 and method_4((var_0: (uint64 ref))): uint64 =
     let (var_1: uint64) = (!var_0)
-    let (var_2: bool) = (var_1 <> 0UL)
-    let (var_3: bool) = (var_2 = false)
-    if var_3 then
+    let (var_2: bool) = (var_1 = 0UL)
+    let (var_3: bool) = (var_2 <> true)
+    let (var_4: bool) = (var_3 = false)
+    if var_4 then
         (failwith "A disposed Cuda memory cell has been tried to be accessed.")
     else
         ()
@@ -897,14 +897,14 @@ and method_46((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: EnvHeap17), (
 and method_48((var_0: uint64), (var_1: EnvHeap17), (var_2: ManagedCuda.BasicTypes.CUmodule)): unit =
     method_49((var_0: uint64), (var_2: ManagedCuda.BasicTypes.CUmodule), (var_1: EnvHeap17))
 and method_52((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule)): EnvStack24 =
-    let (var_6: Env8) = method_31((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule))
+    let (var_6: Env8) = method_53((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule))
     let (var_7: (int64 ref)) = var_6.mem_0
     let (var_8: Env22) = var_6.mem_1
     let (var_9: (uint64 ref)) = var_8.mem_0
     let (var_10: uint64) = method_4((var_9: (uint64 ref)))
-    method_53((var_10: uint64), (var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule))
+    method_57((var_10: uint64), (var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule))
     EnvStack24((var_7: (int64 ref)), (var_9: (uint64 ref)))
-and method_56((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_4: EnvHeap17), (var_5: ManagedCuda.BasicTypes.CUmodule)): unit =
+and method_60((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_4: EnvHeap17), (var_5: ManagedCuda.BasicTypes.CUmodule)): unit =
     let (var_6: ManagedCuda.CudaBlas.CudaBlas) = var_4.mem_1
     let (var_7: (int64 ref)) = var_4.mem_7
     let (var_8: EnvHeap14) = var_4.mem_8
@@ -924,7 +924,7 @@ and method_56((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: (int64 ref)),
     let (var_21: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_20)
     let (var_22: ManagedCuda.CudaBlas.CublasStatus) = ManagedCuda.CudaBlas.CudaBlasNativeMethods.cublasStrsm_v2(var_9, var_11, var_12, var_13, var_14, 8, 8, var_15, var_18, 8, var_21, 8)
     if var_22 <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException(var_22)
-and method_59((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_4: (int64 ref)), (var_5: (uint64 ref)), (var_6: EnvHeap17), (var_7: ManagedCuda.BasicTypes.CUmodule)): unit =
+and method_63((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: (int64 ref)), (var_3: (uint64 ref)), (var_4: (int64 ref)), (var_5: (uint64 ref)), (var_6: EnvHeap17), (var_7: ManagedCuda.BasicTypes.CUmodule)): unit =
     let (var_8: ManagedCuda.CudaBlas.CudaBlas) = var_6.mem_1
     let (var_9: (int64 ref)) = var_6.mem_7
     let (var_10: EnvHeap14) = var_6.mem_8
@@ -946,7 +946,7 @@ and method_59((var_0: (int64 ref)), (var_1: (uint64 ref)), (var_2: (int64 ref)),
     let (var_25: ManagedCuda.BasicTypes.CUdeviceptr) = ManagedCuda.BasicTypes.CUdeviceptr(var_24)
     let (var_26: ManagedCuda.CudaBlas.CublasStatus) = ManagedCuda.CudaBlas.CudaBlasNativeMethods.cublasSgemm_v2(var_11, var_13, var_14, 8, 8, 8, var_15, var_18, 8, var_21, 8, var_22, var_25, 8)
     if var_26 <> ManagedCuda.CudaBlas.CublasStatus.Success then raise <| new ManagedCuda.CudaBlas.CudaBlasException(var_26)
-and method_61((var_0: ResizeArray<Env11>), (var_1: int32), (var_2: int32)): unit =
+and method_65((var_0: ResizeArray<Env11>), (var_1: int32), (var_2: int32)): unit =
     let (var_3: bool) = (var_2 < var_1)
     if var_3 then
         let (var_4: Env11) = var_0.[var_2]
@@ -968,10 +968,10 @@ and method_61((var_0: ResizeArray<Env11>), (var_1: int32), (var_2: int32)): unit
         else
             ()
         let (var_15: int32) = (var_2 + 1)
-        method_61((var_0: ResizeArray<Env11>), (var_1: int32), (var_15: int32))
+        method_65((var_0: ResizeArray<Env11>), (var_1: int32), (var_15: int32))
     else
         ()
-and method_63((var_0: ResizeArray<Env8>), (var_1: int32), (var_2: int32)): unit =
+and method_67((var_0: ResizeArray<Env8>), (var_1: int32), (var_2: int32)): unit =
     let (var_3: bool) = (var_2 < var_1)
     if var_3 then
         let (var_4: Env8) = var_0.[var_2]
@@ -988,7 +988,7 @@ and method_63((var_0: ResizeArray<Env8>), (var_1: int32), (var_2: int32)): unit 
         else
             ()
         let (var_12: int32) = (var_2 + 1)
-        method_63((var_0: ResizeArray<Env8>), (var_1: int32), (var_12: int32))
+        method_67((var_0: ResizeArray<Env8>), (var_1: int32), (var_12: int32))
     else
         ()
 and method_3((var_0: EnvStack1), (var_1: ResizeArray<Env25>), (var_2: int32), (var_3: int32)): unit =
@@ -999,14 +999,15 @@ and method_3((var_0: EnvStack1), (var_1: ResizeArray<Env25>), (var_2: int32), (v
         let (var_7: (uint64 ref)) = var_6.mem_0
         let (var_8: uint64) = var_5.mem_1
         let (var_9: uint64) = (!var_7)
-        let (var_10: bool) = (var_9 <> 0UL)
-        if var_10 then
-            let (var_11: ResizeArray<Env25>) = var_0.mem_0
-            var_11.Add((Env25((Env22(var_7)), var_8)))
+        let (var_10: bool) = (var_9 = 0UL)
+        let (var_11: bool) = (var_10 <> true)
+        if var_11 then
+            let (var_12: ResizeArray<Env25>) = var_0.mem_0
+            var_12.Add((Env25((Env22(var_7)), var_8)))
         else
             ()
-        let (var_12: int32) = (var_3 + 1)
-        method_3((var_0: EnvStack1), (var_1: ResizeArray<Env25>), (var_2: int32), (var_12: int32))
+        let (var_13: int32) = (var_3 + 1)
+        method_3((var_0: EnvStack1), (var_1: ResizeArray<Env25>), (var_2: int32), (var_13: int32))
     else
         ()
 and method_19((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_2: int64)): Env8 =
@@ -1087,8 +1088,11 @@ and method_49((var_0: uint64), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_2:
     let (var_9: ManagedCuda.BasicTypes.CUstream) = method_17((var_8: EnvHeap14))
     let (var_11: (System.Object [])) = [|var_0|]: (System.Object [])
     var_4.RunAsync(var_9, var_11)
-and method_53((var_0: uint64), (var_1: EnvHeap17), (var_2: ManagedCuda.BasicTypes.CUmodule)): unit =
-    method_54((var_0: uint64), (var_2: ManagedCuda.BasicTypes.CUmodule), (var_1: EnvHeap17))
+and method_53((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule)): Env8 =
+    let (var_2: int64) = 256L
+    method_54((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_2: int64))
+and method_57((var_0: uint64), (var_1: EnvHeap17), (var_2: ManagedCuda.BasicTypes.CUmodule)): unit =
+    method_58((var_0: uint64), (var_2: ManagedCuda.BasicTypes.CUmodule), (var_1: EnvHeap17))
 and method_20((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_2: uint64)): Env22 =
     let (var_3: EnvHeap4) = var_0.mem_6
     let (var_4: (uint64 ref)) = var_3.mem_4
@@ -1183,11 +1187,22 @@ and method_41((var_0: System.Text.StringBuilder), (var_1: (float32 [])), (var_2:
             var_6
     else
         var_6
-and method_54((var_0: uint64), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_2: EnvHeap17)): unit =
+and method_54((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_2: int64)): Env8 =
+    let (var_3: uint64) = (uint64 var_2)
+    let (var_4: uint64) = (var_3 + 256UL)
+    let (var_5: uint64) = (var_4 - 1UL)
+    let (var_6: uint64) = (var_5 &&& 18446744073709551360UL)
+    let (var_7: Env22) = method_55((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_6: uint64))
+    let (var_8: (uint64 ref)) = var_7.mem_0
+    let (var_9: (int64 ref)) = (ref 0L)
+    let (var_10: EnvStack9) = var_0.mem_4
+    method_26((var_9: (int64 ref)), (var_8: (uint64 ref)), (var_10: EnvStack9))
+    (Env8(var_9, (Env22(var_8))))
+and method_58((var_0: uint64), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_2: EnvHeap17)): unit =
     // Cuda join point
-    // method_55((var_0: uint64))
+    // method_59((var_0: uint64))
     let (var_3: ManagedCuda.CudaContext) = var_2.mem_0
-    let (var_4: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_55", var_1, var_3)
+    let (var_4: ManagedCuda.CudaKernel) = ManagedCuda.CudaKernel("method_59", var_1, var_3)
     let (var_5: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(2u, 1u, 1u)
     var_4.set_GridDimensions(var_5)
     let (var_6: ManagedCuda.VectorTypes.dim3) = ManagedCuda.VectorTypes.dim3(32u, 1u, 1u)
@@ -1335,6 +1350,60 @@ and method_25((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule)): uni
     let (var_26: uint64) = (var_25 + var_4)
     let (var_27: uint64) = (var_26 - var_24)
     var_15.[var_23] <- var_27
+and method_55((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule), (var_2: uint64)): Env22 =
+    let (var_3: EnvHeap4) = var_0.mem_6
+    let (var_4: (uint64 ref)) = var_3.mem_4
+    let (var_5: uint64) = var_3.mem_5
+    let (var_6: (int32 ref)) = var_3.mem_0
+    let (var_7: EnvStack3) = var_3.mem_1
+    let (var_8: EnvStack3) = var_3.mem_2
+    let (var_9: EnvStack2) = var_3.mem_3
+    method_21((var_6: (int32 ref)), (var_7: EnvStack3), (var_8: EnvStack3), (var_9: EnvStack2))
+    let (var_10: Tuple27) = method_22((var_6: (int32 ref)), (var_7: EnvStack3), (var_8: EnvStack3), (var_9: EnvStack2))
+    let (var_11: uint64) = var_10.mem_0
+    let (var_12: uint64) = var_10.mem_1
+    let (var_13: bool) = (var_11 >= var_2)
+    let (var_34: Env25) =
+        if var_13 then
+            let (var_14: (uint64 ref)) = (ref var_12)
+            (Env25((Env22(var_14)), var_2))
+        else
+            let (var_15: ResizeArray<EnvStack1>) = var_9.mem_0
+            let (var_16: int32) = var_15.get_Count()
+            let (var_17: int32) = 0
+            let (var_18: Env28) = method_23((var_6: (int32 ref)), (var_7: EnvStack3), (var_8: EnvStack3), (var_9: EnvStack2), (var_16: int32), (var_17: int32))
+            let (var_19: int32) = var_18.mem_0
+            let (var_20: uint64) = var_18.mem_1
+            var_6 := var_19
+            method_21((var_6: (int32 ref)), (var_7: EnvStack3), (var_8: EnvStack3), (var_9: EnvStack2))
+            let (var_21: Tuple27) = method_22((var_6: (int32 ref)), (var_7: EnvStack3), (var_8: EnvStack3), (var_9: EnvStack2))
+            let (var_22: uint64) = var_21.mem_0
+            let (var_23: uint64) = var_21.mem_1
+            let (var_24: bool) = (var_22 >= var_2)
+            if var_24 then
+                let (var_25: (uint64 ref)) = (ref var_23)
+                (Env25((Env22(var_25)), var_2))
+            else
+                method_56((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule))
+                method_21((var_6: (int32 ref)), (var_7: EnvStack3), (var_8: EnvStack3), (var_9: EnvStack2))
+                let (var_26: Tuple27) = method_22((var_6: (int32 ref)), (var_7: EnvStack3), (var_8: EnvStack3), (var_9: EnvStack2))
+                let (var_27: uint64) = var_26.mem_0
+                let (var_28: uint64) = var_26.mem_1
+                let (var_29: bool) = (var_27 >= var_2)
+                if var_29 then
+                    let (var_30: (uint64 ref)) = (ref var_28)
+                    (Env25((Env22(var_30)), var_2))
+                else
+                    (failwith "Out of memory in the designated section.")
+    let (var_35: Env22) = var_34.mem_0
+    let (var_36: (uint64 ref)) = var_35.mem_0
+    let (var_37: uint64) = var_34.mem_1
+    let (var_38: int32) = (!var_6)
+    let (var_39: ResizeArray<EnvStack1>) = var_9.mem_0
+    let (var_40: EnvStack1) = var_39.[var_38]
+    let (var_41: ResizeArray<Env25>) = var_40.mem_0
+    var_41.Add((Env25((Env22(var_36)), var_37)))
+    (Env22(var_36))
 and method_24((var_0: (int32 ref)), (var_1: EnvStack3), (var_2: EnvStack3), (var_3: EnvStack2), (var_4: int32), (var_5: int32), (var_6: uint64), (var_7: int32)): Env28 =
     let (var_8: bool) = (var_7 < var_4)
     if var_8 then
@@ -1374,6 +1443,43 @@ and method_24((var_0: (int32 ref)), (var_1: EnvStack3), (var_2: EnvStack3), (var
         method_24((var_0: (int32 ref)), (var_1: EnvStack3), (var_2: EnvStack3), (var_3: EnvStack2), (var_4: int32), (var_33: int32), (var_34: uint64), (var_35: int32))
     else
         (Env28(var_5, var_6))
+and method_56((var_0: EnvHeap17), (var_1: ManagedCuda.BasicTypes.CUmodule)): unit =
+    let (var_2: EnvHeap4) = var_0.mem_6
+    let (var_3: (uint64 ref)) = var_2.mem_4
+    let (var_4: uint64) = var_2.mem_5
+    let (var_5: (int32 ref)) = var_2.mem_0
+    let (var_6: EnvStack3) = var_2.mem_1
+    let (var_7: EnvStack3) = var_2.mem_2
+    let (var_8: EnvStack2) = var_2.mem_3
+    let (var_9: ResizeArray<Env25>) = ResizeArray<Env25>()
+    let (var_10: EnvStack1) = EnvStack1((var_9: ResizeArray<Env25>))
+    let (var_11: ResizeArray<EnvStack1>) = var_8.mem_0
+    let (var_12: int32) = var_11.get_Count()
+    let (var_13: int32) = 0
+    method_2((var_10: EnvStack1), (var_11: ResizeArray<EnvStack1>), (var_12: int32), (var_13: int32))
+    var_11.Clear()
+    let (var_14: ResizeArray<uint64>) = var_6.mem_0
+    var_14.Clear()
+    let (var_15: ResizeArray<uint64>) = var_7.mem_0
+    var_15.Clear()
+    let (var_16: uint64) = method_4((var_3: (uint64 ref)))
+    var_14.Add(var_16)
+    var_15.Add(0UL)
+    let (var_17: ResizeArray<Env25>) = ResizeArray<Env25>()
+    let (var_18: EnvStack1) = EnvStack1((var_17: ResizeArray<Env25>))
+    var_11.Add(var_18)
+    var_5 := 0
+    let (var_19: ResizeArray<Env25>) = var_10.mem_0
+    let (var_20: int32) = var_19.get_Count()
+    let (var_21: int32) = 0
+    method_5((var_5: (int32 ref)), (var_6: EnvStack3), (var_7: EnvStack3), (var_8: EnvStack2), (var_19: ResizeArray<Env25>), (var_20: int32), (var_21: int32))
+    let (var_22: int32) = var_11.get_Count()
+    let (var_23: int32) = (var_22 - 1)
+    let (var_24: uint64) = var_14.[var_23]
+    let (var_25: uint64) = (!var_3)
+    let (var_26: uint64) = (var_25 + var_4)
+    let (var_27: uint64) = (var_26 - var_24)
+    var_15.[var_23] <- var_27
 let (var_0: string) = cuda_kernels
 let (var_1: ManagedCuda.CudaContext) = ManagedCuda.CudaContext(false)
 var_1.Synchronize()
@@ -1665,7 +1771,7 @@ let (var_239: (uint64 ref)) = var_237.mem_1
 let (var_240: EnvStack24) = method_51((var_238: (int64 ref)), (var_239: (uint64 ref)), (var_122: EnvHeap17), (var_32: ManagedCuda.BasicTypes.CUmodule))
 let (var_241: (int64 ref)) = var_240.mem_0
 let (var_242: (uint64 ref)) = var_240.mem_1
-method_57((var_241: (int64 ref)), (var_242: (uint64 ref)), (var_238: (int64 ref)), (var_239: (uint64 ref)), (var_122: EnvHeap17), (var_32: ManagedCuda.BasicTypes.CUmodule))
+method_61((var_241: (int64 ref)), (var_242: (uint64 ref)), (var_238: (int64 ref)), (var_239: (uint64 ref)), (var_122: EnvHeap17), (var_32: ManagedCuda.BasicTypes.CUmodule))
 var_242 := 0UL
 let (var_243: int64) = 0L
 let (var_244: int64) = 8L
@@ -1673,7 +1779,7 @@ let (var_245: int64) = 1L
 let (var_246: int64) = 8L
 let (var_247: int64) = 8L
 method_35((var_122: EnvHeap17), (var_32: ManagedCuda.BasicTypes.CUmodule), (var_238: (int64 ref)), (var_239: (uint64 ref)), (var_243: int64), (var_244: int64), (var_245: int64), (var_246: int64), (var_247: int64))
-let (var_248: EnvStack24) = method_58((var_230: (int64 ref)), (var_231: (uint64 ref)), (var_238: (int64 ref)), (var_239: (uint64 ref)), (var_122: EnvHeap17), (var_32: ManagedCuda.BasicTypes.CUmodule))
+let (var_248: EnvStack24) = method_62((var_230: (int64 ref)), (var_231: (uint64 ref)), (var_238: (int64 ref)), (var_239: (uint64 ref)), (var_122: EnvHeap17), (var_32: ManagedCuda.BasicTypes.CUmodule))
 let (var_249: (int64 ref)) = var_248.mem_0
 let (var_250: (uint64 ref)) = var_248.mem_1
 let (var_251: int64) = 0L
@@ -1691,8 +1797,8 @@ let (var_261: ManagedCuda.CudaSolve.cusolverStatus) = ManagedCuda.CudaSolve.Cuda
 if var_261 <> ManagedCuda.CudaSolve.cusolverStatus.Success then raise <| new ManagedCuda.CudaSolve.CudaSolveException(var_261)
 let (var_262: ManagedCuda.CudaSolve.cusolverStatus) = ManagedCuda.CudaSolve.CudaSolveNativeMethods.Dense.cusolverDnDestroy(var_259)
 if var_262 <> ManagedCuda.CudaSolve.cusolverStatus.Success then raise <| new ManagedCuda.CudaSolve.CudaSolveException(var_262)
-method_60((var_108: EnvStack12))
-method_62((var_93: EnvStack9))
+method_64((var_108: EnvStack12))
+method_66((var_93: EnvStack9))
 var_59.Dispose()
 var_53.Dispose()
 let (var_263: uint64) = method_4((var_40: (uint64 ref)))
