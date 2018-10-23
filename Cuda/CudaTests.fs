@@ -943,7 +943,23 @@ s.CudaFun.map_redo {redo=(+); mid=a2
     """
 
 let fun7 =
-    "fun7",[cuda_modules],"Does the segmented_map function work?",
+    "fun7",[cuda_modules],"Does the segmented_init function work?",
+    """
+inb s = CudaModules (1024*1024)
+
+inl dim = {input=1; state=2}, {a=1; b=2; c=3}
+inl map =
+    inl const x v = x
+    inl q = {a=const 1; b=const 2; c=const 3}
+    inl w = {a=const 4; b=const 5; c=const 6}
+    {input=q; state=w}
+
+inl x = s.CudaFun.segmented_init {dim} map
+s.CudaTensor.print x.basic
+    """
+
+let fun8 =
+    "fun8",[cuda_modules],"Does the segmented_map function work?",
     """
 inb s = CudaModules (1024*1024)
 

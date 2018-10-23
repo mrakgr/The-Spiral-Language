@@ -1944,6 +1944,37 @@ inl index_example' dim =
         loop x
     ) dim (Tuple.rev >> Tuple.unwrap) ()
 
+inl rec view_map map i = 
+    match i with
+    | {} ->
+        inl {c k x} = module_foldr (inl k x s -> {s with k x c=self+1}) i {c=0}
+        assert (c = 1) "The number of branches in i must be 1."
+        view_map (map k) (i k)
+    | _ ->
+        map i
+
+inl segmented_init w d init =
+    indiv join
+        inl init = view_map init
+        inl dim = d.dim
+        inl out = 
+            match d with
+            | {out} -> 
+                assert (dim = out.dim') "The input and the output must have the same dimensions."
+                out
+            | _ -> 
+                inl elem_type = type init (index_example' dim)
+                w.CudaTensor.create_view {dim elem_type}
+        inl _ =
+            inl in, out = to_dev_tensor (in, out)
+            w.CudaKernel.segmented_iter {dim} <| inl i -> 
+                inl out = out .view i
+                inl in = in .view i
+                out .set (init i)
+        match d with
+        | {out} -> ()
+        | _ -> stack out
+
 inl segmented_map w d in =
     indiv join
         inl map = 
@@ -1951,17 +1982,7 @@ inl segmented_map w d in =
             | {map} -> Struct.map const map
             | {mapi} -> mapi
 
-        inl map i x =
-            inl rec loop i map =
-                match i with
-                | {} ->
-                    inl {c k x} = module_foldr (inl k x s -> {s with k x c=self+1}) i {c=0}
-                    assert (c = 1) "The number of branches in i must be 1."
-                    loop (i k) (map k)
-                | _ ->
-                    map i x
-            loop i map
-        
+        inl map = view_map map
         inl dim = in.dim'
         inl out = 
             match d with
