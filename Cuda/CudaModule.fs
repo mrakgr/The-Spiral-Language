@@ -1945,8 +1945,8 @@ inl index_example' dim =
     ) dim (Tuple.rev >> Tuple.unwrap) ()
 
 inl rec view_map map i = 
-    match i with
-    | {} ->
+    match i, map with
+    | {}, {} ->
         inl {c k x} = module_foldr (inl k x s -> {s with k x c=self+1}) i {c=0}
         assert (c = 1) "The number of branches in i must be 1."
         view_map (map k) (i k)
@@ -1966,11 +1966,8 @@ inl segmented_init w d init =
                 inl elem_type = type init (index_example' dim)
                 w.CudaTensor.create_view {dim elem_type}
         inl _ =
-            inl in, out = to_dev_tensor (in, out)
-            w.CudaKernel.segmented_iter {dim} <| inl i -> 
-                inl out = out .view i
-                inl in = in .view i
-                out .set (init i)
+            inl out = to_dev_tensor out
+            w.CudaKernel.segmented_iter {dim} <| inl i -> out .view i .set (init i)
         match d with
         | {out} -> ()
         | _ -> stack out
@@ -1994,10 +1991,7 @@ inl segmented_map w d in =
                 w.CudaTensor.create_view {dim elem_type}
         inl _ =
             inl in, out = to_dev_tensor (in, out)
-            w.CudaKernel.segmented_iter {dim} <| inl i -> 
-                inl out = out .view i
-                inl in = in .view i
-                out .set (map i (in .get))
+            w.CudaKernel.segmented_iter {dim} <| inl i -> out .view i .set (map i (in .view i .get))
         match d with
         | {out} -> ()
         | _ -> stack out
@@ -2212,7 +2206,7 @@ inl tensor_to_pointers w x =
 
 inl methods =
     {
-    map segmented_map init map_map redo_map redo map_redo
+    map segmented_map init segmented_init map_map redo_map redo map_redo
     tensor_to_pointers
     } |> stackify
 
