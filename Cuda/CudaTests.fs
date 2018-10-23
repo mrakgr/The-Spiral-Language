@@ -955,7 +955,7 @@ inl map =
     {input=q; state=w}
 
 inl x = s.CudaTensor.create_view {elem_type=int64; dim}
-inl x = s.CudaKernel.segmented_map {dim map} x
+inl x = s.CudaFun.segmented_map {dim map} x
 s.CudaTensor.print x.basic
     """
 
@@ -965,7 +965,7 @@ let tests =
     tensor1;tensor2;tensor3;
     kernel1;kernel2;          kernel4;kernel5;kernel6;kernel7;kernel8;kernel9;kernel10
     kernel11;kernel12;kernel13
-    fun1;fun2;fun3;fun4;fun5;fun6
+    fun1;fun2;fun3;fun4;fun5;fun6;fun7
     random1
     blas1;blas2;blas3;blas4;blas5;blas6;blas7;blas8;blas9
     cusolver1;cusolver2
@@ -974,7 +974,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) fun7
 |> printfn "%s"
 |> ignore
 

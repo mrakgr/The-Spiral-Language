@@ -1934,16 +1934,15 @@ inl map w d in =
         | _ -> stack out
 
 inl index_example' dim =
-    inl rec loop dim =
-        Liple.foldr (inl x next l ->
-            match x with
+    Liple.foldr (inl x next l ->
+        inl rec loop = function
             | {from near_to} -> next (dyn 0 :: l)
             | {} ->
                 inl {k x} = module_foldr (inl k x _ -> {k x}) x ()
-                {$k = loop x next}
+                {$k = loop x}
             | _ -> next (dyn 0 :: l)
-            ) dim
-    loop dim (Tuple.rev >> Tuple.unwrap) ()
+        loop x
+    ) dim (Tuple.rev >> Tuple.unwrap) ()
 
 inl segmented_map w d in =
     indiv join
@@ -1951,19 +1950,33 @@ inl segmented_map w d in =
             match d with 
             | {map} -> Struct.map const map
             | {mapi} -> mapi
-        inl map i x = Struct.map2 (inl i map -> map i x) i map
-        inl dim = in.dim
+
+        inl map i x =
+            inl rec loop i map =
+                match i with
+                | {} ->
+                    inl {c k x} = module_foldr (inl k x s -> {s with k x c=self+1}) i {c=0}
+                    assert (c = 1) "The number of branches in i must be 1."
+                    loop (i k) (map k)
+                | _ ->
+                    map i x
+            loop i map
+        
+        inl dim = in.dim'
         inl out = 
             match d with
             | {out} -> 
-                assert (dim = out.dim) "The input and the output must have the same dimensions."
+                assert (dim = out.dim') "The input and the output must have the same dimensions."
                 out
             | _ -> 
                 inl elem_type = type map (index_example' dim) in.elem_type
-                w.CudaTensor.create {dim elem_type}
+                w.CudaTensor.create_view {dim elem_type}
         inl _ =
             inl in, out = to_dev_tensor (in, out)
-            w.CudaKernel.segmented_iter {dim} <| inl i -> out .view i .set (map i (in .view i .get))
+            w.CudaKernel.segmented_iter {dim} <| inl i -> 
+                inl out = out .view i
+                inl in = in .view i
+                out .set (map i (in .get))
         match d with
         | {out} -> ()
         | _ -> stack out
@@ -2178,7 +2191,7 @@ inl tensor_to_pointers w x =
 
 inl methods =
     {
-    map init map_map redo_map redo map_redo
+    map segmented_map init map_map redo_map redo map_redo
     tensor_to_pointers
     } |> stackify
 

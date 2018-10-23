@@ -1869,6 +1869,7 @@ inl rec facade data =
         update_body = inl data f -> {data with basic=self.update_body f} |> facade
         get = inl {data with basic} -> basic.get
         set = inl {data with basic} v -> basic.set v
+        dim' = inl {dim} -> Struct.map (inl {from near_to} -> near_to - from) dim
         // Applies the tensor. `i` can be a tuple.
         apply = inl data i ->
             inl rec loop data i =
