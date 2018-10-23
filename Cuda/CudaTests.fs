@@ -955,8 +955,9 @@ let tests =
     inverse1;inverse2
     |]
 
-rewrite_test_cache tests cfg None
+//rewrite_test_cache tests cfg None
 
-//output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel2
-//|> printfn "%s"
-//|> ignore
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel2
+|> printfn "%s"
+|> ignore
+
