@@ -1933,6 +1933,41 @@ inl map w d in =
         | {out} -> ()
         | _ -> stack out
 
+inl index_example' dim =
+    inl rec loop dim =
+        Liple.foldr (inl x next l ->
+            match x with
+            | {from near_to} -> next (dyn 0 :: l)
+            | {} ->
+                inl {k x} = module_foldr (inl k x _ -> {k x}) x ()
+                {$k = loop x next}
+            | _ -> next (dyn 0 :: l)
+            ) dim
+    loop dim (Tuple.rev >> Tuple.unwrap) ()
+
+inl segmented_map w d in =
+    indiv join
+        inl map = 
+            match d with 
+            | {map} -> Struct.map const map
+            | {mapi} -> mapi
+        inl map i x = Struct.map2 (inl i map -> map i x) i map
+        inl dim = in.dim
+        inl out = 
+            match d with
+            | {out} -> 
+                assert (dim = out.dim) "The input and the output must have the same dimensions."
+                out
+            | _ -> 
+                inl elem_type = type map (index_example' dim) in.elem_type
+                w.CudaTensor.create {dim elem_type}
+        inl _ =
+            inl in, out = to_dev_tensor (in, out)
+            w.CudaKernel.segmented_iter {dim} <| inl i -> out .view i .set (map i (in .view i .get))
+        match d with
+        | {out} -> ()
+        | _ -> stack out
+
 inl assert_dim = CudaAux.assert_dim
 
 inl map_map w d in =
