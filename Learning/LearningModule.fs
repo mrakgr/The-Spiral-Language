@@ -1349,8 +1349,8 @@ inl float ->
         {
         init = inl sublayer_size -> 
             open Initializer.dual.TensorView
-            inl outer = {input=sublayer_size; state=size}
-            inl init = {input=relu; state=relu}
+            inl outer = {bias=1; input=sublayer_size; state=size}
+            inl init = {bias=const 0; input=relu; state=relu}
             {
             dsc = weight {init dim=outer,inner}
             size
@@ -1367,7 +1367,8 @@ inl float ->
 
             inl apply =
                 inm out =
-                    inm data = concat {input state=out}
+                    inm data = segmented_init {bias=const 1; input=load input; state=load out}
+                    inl data = data.basic
                     matmult_stream {weights with data} >>= tanh
                 succ {out state={out}}
 
