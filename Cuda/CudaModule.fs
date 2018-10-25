@@ -573,6 +573,7 @@ inl methods =
     create=inl s data -> create {data with array_create = array_create_cuda_global s}
     create_view=inl s data -> View.create {data with array_create = array_create_cuda_global s}
     create_like=inl s tns -> s.CudaTensor.create {elem_type=tns.elem_type; dim=tns.dim}
+    create_like_view=inl s tns -> s.CudaTensor.create_view {elem_type=tns.elem_type; dim=tns.dim}
 
     to_host_array from_host_array from_cudadevptr_array
 
@@ -627,8 +628,12 @@ inl methods =
   
     zero=inl s d -> indiv join s.CudaTensor.create d |> clear' s |> stack
     zero_like=inl s d -> indiv join s.CudaTensor.create_like d |> clear' s |> stack
+    zero_like_view=inl s d -> indiv join 
+        inl x = s.CudaTensor.create_like_view d
+        s.CudaTensor.clear x.basic
+        stack x
 
-    print=met s (!dyn x) -> 
+    print=met s (!dyn x) ->
         match x with
         | {cutoff input} -> Tensor.print {cutoff input=s.CudaTensor.to_host_tensor (zip input)} 
         | x -> s.CudaTensor.to_host_tensor (zip x) |> Tensor.print

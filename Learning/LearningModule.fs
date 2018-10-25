@@ -155,6 +155,8 @@ inl link_adjoint dim {from to} =
             ) from to
     }
 
+inl link_adjoint_view dim x = link_adjoint dim {x with from=Struct.map (inl x -> x.view) self}
+
 inl sequence_module f x =
     inl x = module_map (const f) x
     inl bck = module_foldr (inl k {bck} s -> bck << s) x (const ())
@@ -224,7 +226,7 @@ inl plastic_rnn {input state bias} =
     f input + f state + bias |> tanh
 
 {
-(>>=) succ dr sigmoid tanh relu (*) (/) (+) (-) link broadcasting_link link_adjoint
+(>>=) succ dr sigmoid tanh relu (*) (/) (+) (-) link broadcasting_link link_adjoint link_adjoint_view
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
 generalized_mi generalized_mi_tanh lstm oja_update plastic_rnn
 }
@@ -515,6 +517,7 @@ inl float ->
         s.CudaBlas.syrk' .Lower .T (beta / to float k) x alpha cov // symmetric rank-k update. (beta / to float k) * x * x^T + alpha * cov
 
     inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
+    inl drv s primal = {primal adjoint=s.CudaTensor.zero_like_view primal; block=()}
 
     inl fwd_add_bias C bias s = s.CudaFun.map_map {out=C; map=inl {in in_inner} -> in+in_inner} {in=C; in_inner=bias}
     inl bck_add_bias C bias s = 
@@ -785,9 +788,35 @@ inl float ->
 
     inl map = mapi << const
 
+    inl segmented_init {dim} init s =
+        inl out =
+            s.CudaFun.segmented_init {dim} (inl dim -> primals (init dim .out))
+            |> Tensor.unzip
+            |> Struct.map (drv s)
+
+        {
+        out
+        bck=met _ ->
+            inl from = adjoints (to_dev_tensor out)
+            open CudaAD
+            s.CudaKernel.segmented_iter {dim} <| inl dim -> 
+                inl {out=to bck} = init dim >>= succ
+                inl {bck=bck'} = link_adjoint_view dim {from to=adjoints to}
+                bck(); bck'()
+        }
+
+    //inl segmented_mapi f in s =
+    //    inl dim = Tensor.assert_broadcastable (primals in)
+    //    inl in = to_dev_tensor in
+    //    open CudaAD
+    //    init {dim} (inl cur -> broadcasting_link dim cur in >>= f cur) s
+
+    //inl segmented_map = mapi << const
+
     inl Primitive =
         {
         matmult activation error matmultb broadcasting_activation init mapi map
+        segmented_init
         } |> stack
 
     // #Operations
