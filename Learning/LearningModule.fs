@@ -799,12 +799,13 @@ inl float ->
     inl segmented_init {dim} init s =
         inl out =
             open CudaAD
-            s.CudaFun.segmented_init {dim} <| inl dim -> 
-                Struct.map2 (inl dim init ->
+            inl init =
+                Struct.map (inl init dim ->
                     inl {out} = init dim >>= succ
                     primals out
-                    ) dim init
-            |> Tensor.unzip
+                    ) init
+            s.CudaFun.segmented_init {dim} init
+            |> View.unzip
             |> Struct.map (drv s)
 
         {
@@ -1094,8 +1095,6 @@ inl float ->
             sigmoid = stddev_sum_init 2f32
             tanh = stddev_sum_init 3f32
             randn = inl stddev -> normal {stddev mean=0f32}
-        
-            zero = constant zero
             const = constant
 
             identity = inl tns s ->
@@ -1169,7 +1168,7 @@ inl float ->
 
         inl Tensor = 
             inl sing init dim = tensor {dim init}
-            inl dual primal dim = tensor {dim init={primal adjoint=Init.zero; block=()}}
+            inl dual primal dim = tensor {dim init={primal adjoint=Init.const zero; block=()}}
             inl number = {sing dual} number
             
             {
@@ -1177,7 +1176,6 @@ inl float ->
             sigmoid = number Init.sigmoid
             tanh = number Init.tanh
             randn = inl stddev -> number (Init.randn stddev)
-            zero = number Init.zero
             identity = number Init.identity
             const = inl init -> number (Init.const init)
             custom = number Init.custom
@@ -1188,7 +1186,7 @@ inl float ->
             inl sing tensor_view {init dim} = tensor_view {init=tensor_view_init init; dim}
             inl dual tensor_view {init dim} =
                 inl primal = tensor_view_init init
-                inl adjoint tns s = Init.zero tns.basic s
+                inl adjoint tns s = Init.const zero tns.basic s
                 tensor_view {init={primal adjoint block=()}; dim}
             
             inl view = Struct.map (inl x -> x tensor_view) {sing dual} number
@@ -1237,7 +1235,7 @@ inl float ->
             dsc = 
                 {
                 input = initializer (sublayer_size, size)
-                bias = Initializer.dual.Tensor.zero size
+                bias = Initializer.dual.Tensor.const zero size
                 }
             size
             }
@@ -1252,7 +1250,7 @@ inl float ->
         inl relu = layer I.relu relu
         inl tanh = layer I.tanh tanh
         inl linear = layer I.sigmoid succ
-        inl zero = layer I.zero succ
+        inl zero = layer (I.const zero) succ
         {sigmoid relu tanh linear zero} |> stackify
 
     inl print x s =
@@ -1321,7 +1319,7 @@ inl float ->
 
     inl covariance = 
         inl {identity val var} = Initializer.sing.Tensor
-        inl epsilon !(View.dim) x -> {covariance=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
+        inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
 
     inl default_epsilon = 2.0f32 ** -3.0f32
 
@@ -1390,13 +1388,17 @@ inl float ->
         init = inl sublayer_size -> 
             open Initializer.dual.TensorView
             inl outer = {bias=1; input=sublayer_size; state=size}
-            inl init = {bias=const 0; input=relu; state=relu}
+            inl init = {bias=const zero; input=relu; state=relu}
             {
-            dsc = weight {init dim=outer,inner}
+            dsc = 
+                {
+                weights = weight {init dim=outer,inner}
+                outer = val outer
+                }
             size
             }
 
-        apply = inl {d with weights input} s -> 
+        apply = inl {d with weights={weights outer} input} s -> 
             inl span = primal input .span_outer
             inl out =
                 match d with
@@ -1407,7 +1409,7 @@ inl float ->
 
             inl apply =
                 inm out =
-                    inm data = segmented_init {dim=outer,inner} {bias=const 1; input=load input; state=load out}
+                    inm data = segmented_init {dim=outer,inner} {bias=const one; input=load input; state=load out}
                     inl data = data.basic
                     matmult_stream {weights with data} >>= tanh
                 succ {out state={out}}

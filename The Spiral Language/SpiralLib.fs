@@ -1958,13 +1958,13 @@ inl map_dim default = function
     | _ -> error_type "Expected a range or a tree view."
         
 inl create {dsc with dim} = 
-    inl size, dim = Tuple.map (map_dim (inl _ -> error_type "() not allowed in View create.")) (Tuple.wrap dim) |> Tuple.unzip
-    inl basic = Tensor.create {dsc with dim=size}
+    inl span, dim = Tuple.map (map_dim (inl _ -> error_type "() not allowed in View create.")) (Tuple.wrap dim) |> Tuple.unzip
+    inl basic = Tensor.create {dsc with dim=span}
     facade {basic dim}
 
 inl wrap dim basic =
-    inl size, dim = Tuple.map2 map_dim (Tuple.map const basic.dim) (Tuple.wrap dim) |> Tuple.unzip
-    assert (basic.dim = size) "The view must be of the same size as the tensor it is wrapping."
+    inl span, dim = Tuple.map2 map_dim (Tuple.map const basic.dim) (Tuple.wrap dim) |> Tuple.unzip
+    assert (basic.dim = span) "The view must be of the same span as the tensor it is wrapping."
     facade {basic dim}
 
 inl split tns =
@@ -1982,7 +1982,7 @@ inl split tns =
 
     Tuple.foldr f dim (Tuple.rev >> tns) ()
 
-inl size = Liple.map (map_dim (inl _ -> error_type "() not allowed in View size.") >> fst)
+inl span = Liple.map (map_dim (inl _ -> error_type "() not allowed in View span.") >> fst)
 
 inl from_basic dim i ret =
     inl f dim i ret =
@@ -2013,8 +2013,13 @@ inl dim_merge x =
         Struct.map (inl x -> next (x :: l)) x
         ) x (Tuple.rev >> Tuple.unwrap) ()
 
+inl unzip tns =
+    inl {basic dim=dim'} = tns.unwrap
+    inl {bodies dim} = basic.unwrap
+    Struct.map (inl bodies -> facade {basic=Tensor.facade {bodies dim}; dim=dim'}) bodies
+
 {
-facade create wrap split size from_basic dim_merge
+facade create wrap split span from_basic dim_merge unzip
 } |> stackify
     """
     ) |> module_
