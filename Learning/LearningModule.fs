@@ -790,11 +790,12 @@ inl float ->
 
     inl segmented_init {dim} init s =
         inl out =
-            s.CudaFun.segmented_init {dim} (inl dim -> 
+            open CudaAD
+            s.CudaFun.segmented_init {dim} <| inl dim -> 
                 Struct.map2 (inl dim init ->
-                    primals (init dim .out)
+                    inl {out} = init dim >>= succ
+                    primals out
                     ) dim init
-                )
             |> Tensor.unzip
             |> Struct.map (drv s)
 
@@ -804,9 +805,11 @@ inl float ->
             inl from = adjoints (to_dev_tensor out)
             open CudaAD
             s.CudaKernel.segmented_iter {dim} <| inl dim -> 
-                inl {out=to bck} = init dim >>= succ
-                inl {bck=bck'} = link_adjoint_view dim {from to=adjoints to}
-                bck(); bck'()
+                Struct.iter2 (inl dim init ->
+                    inl {out=to bck} = init dim >>= succ
+                    inl {bck=bck'} = link_adjoint_view dim {from to=adjoints to}
+                    bck(); bck'()
+                    ) dim init
         }
 
     //inl segmented_mapi f in s =
