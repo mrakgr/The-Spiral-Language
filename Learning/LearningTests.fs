@@ -301,7 +301,7 @@ inl size = {
     pattern = 50
     episode = 5
     minibatch = 1
-    seq = 200
+    seq = 1000
 
     shot = 3
     pattern_repetition = 10
@@ -415,8 +415,7 @@ met train {!data network learning_rate final} s =
             Console.printfn "At iteration {0} the cost is {1}" (i, cost.square())
         else next()
 
-inl learning_rate = 2f32 ** -13f32
-inl n = 0.005f32
+inl learning_rate = 2f32 ** -17f32
 
 inl network,_ = 
     open Feedforward
