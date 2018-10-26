@@ -90,60 +90,68 @@ inl relu =
         bck=inl _ -> add_adjoint x (inl _ -> relu_bck (primal out) * get_adjoint out)
         }
 
-inl link cur x =
-    inl out = 
-        Struct.map (function
-            | {primal adjoint} -> primal cur .get |> dr
-            | x -> x cur .get
-            ) x
-    
-    {
-    out
-    bck = inl _ ->
-        Struct.iter2 (inl x out ->
-            match x, out with
-            | {adjoint=x}, {adjoint=out} -> 
-                inl x = x cur
-                inl out = out 0
-                x .set (x .get + out)
-            | _ -> ()
-            ) x out
-    }
+inl add_atomic = CudaAux.atomic_add
+inl add x out = x .set (x .get + out)
 
-inl atomic_add = CudaAux.atomic_add
-inl broadcasting_link dim cur x =
-    inl index_into x =
+inl {link link_broadcast link_auto} =
+    inl index cur x = x cur
+    inl index_broadcast cur x =
         Struct.foldl (inl x cur ->
             x (if x.span_outer = 1 then 0 else cur)
             ) x cur
 
-    inl out = 
+    inl get_primal = 
         Struct.map (function
-            | {primal adjoint} -> index_into primal .get |> dr
-            | x -> index_into x .get
-            ) x
-    
-    {
-    out
-    bck = inl _ ->
-        inl dim_is_not_one = Tuple.map (inl dim -> dim <> 1) dim
+            | {primal adjoint} -> primal .get |> dr
+            | x -> x .get
+            )
+
+    inl bck f x out =
         Struct.iter2 (inl x out ->
             match x, out with
-            | {adjoint=x}, {adjoint=out} -> 
-                inl is_atomic = Tuple.exists2 (inl dim_is_not_one cur -> dim_is_not_one && cur = 1) dim_is_not_one x.dim
-                inl x = index_into x
-                inl out = out 0
-                if is_atomic then atomic_add x out
-                else x .set (x .get + out)
+            | {adjoint=x}, {adjoint=out} -> f x (out 0)
             | _ -> ()
-            ) x out
-    }
+            )
 
-inl link_adjoint dim {from to} =
+    {
+    link = inl x cur ->
+        inl x = Struct.map (index cur) x
+        inl out = get_primal x
+    
+        {
+        out
+        bck = inl _ -> bck add x out
+        }
+
+    link_broadcast = inl x cur ->
+        inl x = Struct.map' (index_broadcast cur) x 
+        inl out = get_primal x
+    
+        {
+        out
+        bck = inl _ -> bck atomic_add x out
+        }
+
+    link_auto = inl dim x cur ->
+        inl x = Struct.map' (index_broadcast cur) x 
+        inl out = get_primal x
+    
+        {
+        out
+        bck = inl _ ->
+            inl dim_is_not_one = Tuple.map (inl dim -> dim <> 1) dim
+            inl add_auto x out =
+                inl is_atomic = Tuple.exists2 (inl dim_is_not_one cur -> dim_is_not_one && cur = 1) dim_is_not_one x.dim
+                if is_atomic then atomic_add x out else add x out
+            bck add_auto x out
+        }
+    }
+    
+inl link_adjoint cur {from to} =
     Struct.iter2 (inl from to -> 
         match to with
         | () -> ()
-        | _ -> to 0 <- from dim .get
+        | _ -> to 0 <- from cur .get
         ) from to
     {
     out=()
@@ -151,11 +159,11 @@ inl link_adjoint dim {from to} =
         Struct.iter2 (inl from to -> 
             match to with
             | () -> ()
-            | _ -> from dim .set (to 0)
+            | _ -> from cur .set (to 0)
             ) from to
     }
 
-inl link_adjoint_view dim x = link_adjoint dim {x with from=Struct.map (inl x -> x.view) self}
+inl link_adjoint_view cur x = link_adjoint cur {x with from=Struct.map (inl x -> x.view) self}
 
 inl sequence_module f x =
     inl x = module_map (const f) x
@@ -226,7 +234,7 @@ inl plastic_rnn {input state bias} =
     f input + f state + bias |> tanh
 
 {
-(>>=) succ dr sigmoid tanh relu (*) (/) (+) (-) link broadcasting_link link_adjoint link_adjoint_view
+(>>=) succ dr sigmoid tanh relu (*) (/) (+) (-) link link_broadcast link_auto link_adjoint link_adjoint_view
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
 generalized_mi generalized_mi_tanh lstm oja_update plastic_rnn
 }
@@ -784,7 +792,7 @@ inl float ->
         inl dim = Tensor.assert_broadcastable (primals in)
         inl in = to_dev_tensor in
         open CudaAD
-        init {dim} (inl cur -> broadcasting_link dim cur in >>= f cur) s
+        init {dim} (inl cur -> link_auto dim in cur >>= f cur) s
 
     inl map = mapi << const
 
@@ -804,9 +812,9 @@ inl float ->
         bck=met _ ->
             inl from = adjoints (to_dev_tensor out)
             open CudaAD
-            s.CudaKernel.segmented_iter {dim} <| inl dim -> 
-                Struct.iter2 (inl dim init ->
-                    inl {out=to bck} = init dim >>= succ
+            s.CudaKernel.segmented_iter {dim} <| inl dim ->
+                Struct.iter2 (inl cur init ->
+                    inl {out=to bck} = init cur >>= succ
                     inl {bck=bck'} = link_adjoint_view dim {from to=adjoints to}
                     bck(); bck'()
                     ) dim init
@@ -1370,6 +1378,10 @@ inl float ->
         back = covariance default_epsilon a
         block = ()
         }
+
+    inl load = to_dev_tensor >> CudaAD.link
+    inl loadb = to_dev_tensor >> CudaAD.link_broadcast
+    inl loada dim = to_dev_tensor >> CudaAD.link_auto dim
 
     // #Recurrent
     inl rnn size =
