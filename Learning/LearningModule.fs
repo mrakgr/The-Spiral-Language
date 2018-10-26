@@ -134,8 +134,7 @@ inl {link link_broadcast link_auto} =
         }
 
     link_auto = inl dim x cur ->
-        inl x = Struct.map' (index_broadcast cur) x 
-        inl out = get_primal x
+        inl out = Struct.map' (index_broadcast cur) x |> get_primal
     
         {
         out
@@ -143,6 +142,7 @@ inl {link link_broadcast link_auto} =
             inl dim_is_not_one = Tuple.map (inl dim -> dim <> 1) dim
             inl add_auto x out =
                 inl is_atomic = Tuple.exists2 (inl dim_is_not_one cur -> dim_is_not_one && cur = 1) dim_is_not_one x.dim
+                inl x = index_broadcast cur x
                 if is_atomic then atomic_add x out else add x out
             bck add_auto x out
         }
@@ -1425,8 +1425,13 @@ inl float ->
         {
         init = inl sublayer_size -> 
             open Initializer.dual.TensorView
+            inl init = 
+                {
+                bias = {input=const zero; forget=const one; output=const zero; memory=const zero}
+                input = {input=tanh; forget=tanh; output=tanh; memory=tanh}
+                state = {input=tanh; forget=tanh; output=tanh; memory=tanh}
+                }
             inl outer = {bias=1; input=sublayer_size; state=size}
-            inl init = {bias=const zero; input=relu; state=relu}
             {
             dsc = 
                 {
@@ -1450,7 +1455,7 @@ inl float ->
                     inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
                     inl data = Struct.map' (inl data -> data.basic) data
                     inm cell = matmult_stream {weights with data}
-                    inl cell = wrap_split ((),inner) data
+                    inl cell = wrap_split ((),inner) cell
                     map CudaAD.lstm {memory cell}
 
                 succ {out state={out memory}}
