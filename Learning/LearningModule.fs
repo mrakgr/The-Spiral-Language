@@ -790,7 +790,11 @@ inl float ->
 
     inl segmented_init {dim} init s =
         inl out =
-            s.CudaFun.segmented_init {dim} (inl dim -> primals (init dim .out))
+            s.CudaFun.segmented_init {dim} (inl dim -> 
+                Struct.map2 (inl dim init ->
+                    primals (init dim .out)
+                    ) dim init
+                )
             |> Tensor.unzip
             |> Struct.map (drv s)
 
