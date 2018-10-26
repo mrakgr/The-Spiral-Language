@@ -1409,8 +1409,8 @@ inl float ->
 
             inl apply =
                 inm out =
-                    inm data = segmented_init {dim=outer,inner} {bias=const one; input=load input; state=load out}
-                    inl data = data.basic
+                    inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
+                    inl data = Struct.map' (inl data -> data.basic) data
                     matmult_stream {weights with data} >>= tanh
                 succ {out state={out}}
 

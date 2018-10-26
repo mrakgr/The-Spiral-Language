@@ -1962,6 +1962,11 @@ inl create {dsc with dim} =
     inl basic = Tensor.create {dsc with dim=span}
     facade {basic dim}
 
+inl create_like dsc tns =
+    inl basic = tns.basic
+    inl basic = Tensor.create {dsc with dim=basic.dim; elem_type=basic.elem_type}
+    facade {basic dim=tns.dim}
+
 inl wrap dim basic =
     inl span, dim = Tuple.map2 map_dim (Tuple.map const basic.dim) (Tuple.wrap dim) |> Tuple.unzip
     assert (basic.dim = span) "The view must be of the same span as the tensor it is wrapping."
@@ -2019,7 +2024,7 @@ inl unzip tns =
     Struct.map (inl bodies -> facade {basic=Tensor.facade {bodies dim}; dim=dim'}) bodies
 
 {
-facade create wrap split span from_basic dim_merge unzip
+facade create create_like wrap split span from_basic dim_merge unzip
 } |> stackify
     """
     ) |> module_

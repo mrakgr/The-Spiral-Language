@@ -573,7 +573,7 @@ inl methods =
     create=inl s data -> create {data with array_create = array_create_cuda_global s}
     create_view=inl s data -> View.create {data with array_create = array_create_cuda_global s}
     create_like=inl s tns -> s.CudaTensor.create {elem_type=tns.elem_type; dim=tns.dim}
-    create_like_view=inl s tns -> s.CudaTensor.create_view {elem_type=tns.elem_type; dim=tns.dim}
+    create_like_view=inl s tns -> View.create_like {array_create = array_create_cuda_global s} tns
 
     to_host_array from_host_array from_cudadevptr_array
 
