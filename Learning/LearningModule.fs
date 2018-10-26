@@ -1395,7 +1395,7 @@ inl float ->
 
             inl apply =
                 inm out =
-                    inm data = segmented_init {bias=const 1; input=load input; state=load out}
+                    inm data = segmented_init {dim=outer,inner} {bias=const 1; input=load input; state=load out}
                     inl data = data.basic
                     matmult_stream {weights with data} >>= tanh
                 succ {out state={out}}
