@@ -423,12 +423,10 @@ inl network,_ =
     open RNN
     inl network = 
         {
-        plastic_rnn = plastic_rnn n size.pattern
-        plastic_rnn' = plastic_rnn' n size.pattern
-        plastic_rnn'' = plastic_rnn'' n size.pattern
+        plastic_rnn = plastic_rnn size.pattern
         }
 
-    init s size.pattern network.plastic_rnn''
+    init s size.pattern network.plastic_rnn
 
 Timer.time_it "Training"
 <| inl _ ->
@@ -447,7 +445,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None 
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning3
 |> printfn "%s"
 |> ignore
 

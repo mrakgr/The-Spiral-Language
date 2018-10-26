@@ -137,7 +137,7 @@ inl {link link_broadcast link_auto} =
             inl add_auto x out =
                 inl is_atomic = Tuple.exists2 (inl dim_is_not_one cur -> dim_is_not_one && cur = 1) dim_is_not_one x.dim
                 inl x = index_broadcast cur x
-                if is_atomic then atomic_add x out else add x out
+                if is_atomic then add_atomic x out else add x out
             bck add_auto x out
         }
     }
@@ -1487,16 +1487,17 @@ inl float ->
                 | {state={out H}} -> out, H
                 | _ -> 
                     s.CudaTensor.zero {elem_type=float; dim=span,size},
-                    s.CudaTensor.zero_view {elem_type=float; dim=outer, inner} .basic
-                    
+                    s.CudaTensor.zero_view {elem_type=float; dim=outer, size} .basic
+            
             inl apply =
                 inm {out H} =
                     inm input = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
                     inl input = Struct.map' (inl data -> data.basic) input
-                    inm static, plastic = matmult_stream ({weights with data=input}, {streams weight=H; data=input})
+                    inm static, plastic = matmult_stream ({weights with data=input}, {streams weight=H; data=input; block=()})
                     inl {static alpha theta} = wrap_split ((),inner) static
                     inm out = map CudaAD.plastic_rnn.out {static alpha plastic}
-                    map CudaAD.plastic_rnn.H {H theta out input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) input}
+                    inm H = map CudaAD.plastic_rnn.H {H theta out input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) input}
+                    succ {out H}
 
                 succ {out state={out H}}
 
