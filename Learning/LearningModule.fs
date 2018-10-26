@@ -221,7 +221,6 @@ inl generalized_mi {bias={si s i c} input state} = si * state * input + s * stat
 inl generalized_mi_tanh {bias={si s i c} input state} = si * state * input + s * state + i * input + c |> tanh
 
 inl lstm {memory cell} =
-    inm cell = sequence_module (inl {input state bias} -> input + state + bias) cell
     inm memory = sigmoid cell.input * tanh cell.memory + sigmoid cell.forget * memory
     inm out = sigmoid cell.output * tanh memory
     succ {memory out}
@@ -1421,7 +1420,48 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {rnn}
+    inl lstm size =
+        inl inner = {input=size; forget=size; output=size; memory=size}
+        {
+        init = inl sublayer_size -> 
+            open Initializer.dual.TensorView
+            inl outer = {bias=1; input=sublayer_size; state=size}
+            inl init = {bias=const zero; input=relu; state=relu}
+            {
+            dsc = 
+                {
+                weights = weight {init dim=outer,inner}
+                outer = val outer
+                }
+            size
+            }
+
+        apply = inl {d with weights={weights outer} input} s -> 
+            inl span = primal input .span_outer
+            inl out, memory =
+                match d with
+                | {state={out memory}} -> out, memory
+                | _ -> 
+                    inl f _ = s.CudaTensor.zero {elem_type=float; dim=span,size}
+                    f(), f()
+
+            inl apply =
+                inm {out memory} =
+                    inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
+                    inl data = Struct.map' (inl data -> data.basic) data
+                    inm cell = matmult_stream {weights with data}
+                    inl cell = wrap_split ((),inner) data
+                    map CudaAD.lstm {memory cell}
+
+                succ {out state={out memory}}
+
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        optimize = Optimizer.kfac
+        block = ()
+        }
+
+    inl RNN = {rnn lstm}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
