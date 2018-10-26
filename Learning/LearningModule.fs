@@ -94,11 +94,12 @@ inl add_atomic = CudaAux.atomic_add
 inl add x out = x .set (x .get + out)
 
 inl {link link_broadcast link_auto} =
-    inl index cur x = x cur
-    inl index_broadcast cur x =
-        Struct.foldl (inl x cur ->
-            x (if x.span_outer = 1 then 0 else cur)
-            ) x cur
+    inl index cur = Struct.map' <| inl x -> x cur
+    inl index_broadcast cur =
+        Struct.map' <| inl x ->
+            Struct.foldl (inl x cur ->
+                x (if x.span_outer = 1 then 0 else cur)
+                ) x cur
 
     inl get_primal = 
         Struct.map (function
@@ -106,7 +107,7 @@ inl {link link_broadcast link_auto} =
             | x -> x .get
             )
 
-    inl bck f x out =
+    inl bck f =
         Struct.iter2 (inl x out ->
             match x, out with
             | {adjoint=x}, {adjoint=out} -> f x (out 0)
@@ -807,7 +808,7 @@ inl float ->
             s.CudaFun.segmented_init {dim} init
             |> View.unzip
             |> Struct.map (drv s)
-
+        
         {
         out
         bck=met _ ->
