@@ -627,6 +627,7 @@ inl methods =
             to
   
     zero=inl s d -> indiv join s.CudaTensor.create d |> clear' s |> stack
+    zero_view=inl s d -> indiv join s.CudaTensor.create_view d |> clear' s |> stack
     zero_like=inl s d -> indiv join s.CudaTensor.create_like d |> clear' s |> stack
     zero_like_view=inl s d -> indiv join 
         inl x = s.CudaTensor.create_like_view d
