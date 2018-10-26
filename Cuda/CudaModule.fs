@@ -1977,30 +1977,6 @@ inl segmented_init w d init =
         | {out} -> ()
         | _ -> stack out
 
-inl segmented_map w d in =
-    indiv join
-        inl map = 
-            match d with 
-            | {map} -> Struct.map const map
-            | {mapi} -> mapi
-
-        inl map = view_map map
-        inl dim = in.dim'
-        inl out = 
-            match d with
-            | {out} -> 
-                assert (dim = out.dim') "The input and the output must have the same dimensions."
-                out
-            | _ -> 
-                inl elem_type = type map (index_example' dim) in.elem_type
-                w.CudaTensor.create_view {dim elem_type}
-        inl _ =
-            inl in, out = to_dev_tensor (in, out)
-            w.CudaKernel.segmented_iter {dim} <| inl i -> out .view i .set (map i (in .view i .get))
-        match d with
-        | {out} -> ()
-        | _ -> stack out
-
 inl assert_dim = CudaAux.assert_dim
 
 inl map_map w d in =
@@ -2211,7 +2187,7 @@ inl tensor_to_pointers w x =
 
 inl methods =
     {
-    map segmented_map init segmented_init map_map redo_map redo map_redo
+    map init segmented_init map_map redo_map redo map_redo
     tensor_to_pointers
     } |> stackify
 

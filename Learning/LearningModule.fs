@@ -812,14 +812,6 @@ inl float ->
                     ) dim init
         }
 
-    //inl segmented_mapi f in s =
-    //    inl dim = Tensor.assert_broadcastable (primals in)
-    //    inl in = to_dev_tensor in
-    //    open CudaAD
-    //    init {dim} (inl cur -> broadcasting_link dim cur in >>= f cur) s
-
-    //inl segmented_map = mapi << const
-
     inl Primitive =
         {
         matmult activation error matmultb broadcasting_activation init mapi map
