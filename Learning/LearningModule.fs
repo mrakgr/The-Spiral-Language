@@ -221,7 +221,7 @@ inl lstm {memory cell} =
 
 inl plastic_rnn =
     {
-    out = inl {static alpha plastic} -> static + alpha.bias * alpha.value * plastic |> tanh
+    out = inl {static alpha plastic} -> static + alpha * plastic |> tanh
     H = inl {H theta out input} -> H + 0.01f32 * (input * out - out * out * H)
     }
 
@@ -1467,7 +1467,6 @@ inl float ->
 
     inl plastic_rnn size =
         inl inner = {static=size; alpha=size; theta=size}
-        inl inner_bias = {alpha={bias=size}}
         {
         init = inl sublayer_size -> 
             open Initializer.dual.TensorView
@@ -1475,25 +1474,20 @@ inl float ->
                 {
                 bias = {static=const zero; alpha=const (to float 0.01); theta=const (to float 0.01)}
                 input = {static=identity; alpha=const zero; theta=const zero}
-                state = {static=randn 0.01f32; alpha=const zero; theta=const zero}
-                }
-            inl init_bias =
-                {
-                alpha = {bias=const half}
+                state = {static=const zero; alpha=const zero; theta=const zero}
                 }
             inl outer = {bias=1; input=sublayer_size; state=size}
             {
             dsc = 
                 {
                 weights = weight {init dim=outer,inner}
-                biases = bias {init=init_bias; dim=1,inner_bias}
                 streams = stream, stream
                 outer = val outer
                 }
             size
             }
 
-        apply = inl {d with weights={weights outer streams biases} input} s -> 
+        apply = inl {d with weights={weights outer streams} input} s -> 
             inl span = primal input .span_outer
             inl out, H =
                 match d with
@@ -1508,8 +1502,7 @@ inl float ->
                     inl input = Struct.map' (inl data -> data.basic) input
                     inm static, plastic = matmult_stream ({weights with data=input}, {streams weight=H; data=input; block=()})
                     inl {static alpha theta} = wrap_split ((),inner) static
-                    inl biases = wrap_split_weight ((),inner_bias) biases
-                    inm out = map CudaAD.plastic_rnn.out {static plastic alpha={value=alpha; bias=biases.alpha.bias}}
+                    inm out = map CudaAD.plastic_rnn.out {static plastic alpha}
                     inm H = map CudaAD.plastic_rnn.H {H theta out input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) input}
                     succ {out H}
 
