@@ -1465,54 +1465,6 @@ inl float ->
         block = ()
         }
 
-    inl plastic_rnn size =
-        inl inner = {static=size; alpha=size; theta=size}
-        {
-        init = inl sublayer_size -> 
-            open Initializer.dual.TensorView
-            inl init = 
-                {
-                bias = {static=const zero; alpha=const (to float 0.01); theta=const (to float 0.01)}
-                input = {static=identity; alpha=const zero; theta=const zero}
-                state = {static=const zero; alpha=randn 0.01f32; theta=randn 0.01f32}
-                }
-            inl outer = {bias=1; input=sublayer_size; state=size}
-            {
-            dsc = 
-                {
-                weights = weight {init dim=outer,inner}
-                streams = stream, stream
-                outer = val outer
-                }
-            size
-            }
-
-        apply = inl {d with weights={weights outer streams} input} s -> 
-            inl span = primal input .span_outer
-            inl out, H =
-                match d with
-                | {state={out H}} -> out, H
-                | _ -> 
-                    s.CudaTensor.zero {elem_type=float; dim=span,size},
-                    s.CudaTensor.zero_view {elem_type=float; dim=outer, size} .basic
-            
-            inl apply =
-                inm {out H} =
-                    inm input = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
-                    inl input = Struct.map' (inl data -> data.basic) input
-                    inm static, plastic = matmult_stream ({weights with data=input}, {streams weight=H; data=input; block=()})
-                    inl {static alpha theta} = wrap_split ((),inner) static
-                    inm out = map CudaAD.plastic_rnn.out {static plastic alpha theta}
-                    inm H = map CudaAD.plastic_rnn.H {H out input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) input}
-                    succ {out H}
-
-                succ {out state={out H}}
-
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        //optimize = Optimizer.kfac
-        block = ()
-        }
 
     inl RNN = {rnn lstm plastic_rnn}
 
