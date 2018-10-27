@@ -415,7 +415,7 @@ met train {!data network learning_rate final} s =
             Console.printfn "At iteration {0} the cost is {1}" (i, cost.square())
         else next()
 
-inl learning_rate = 2f32 ** -15f32
+inl learning_rate = 2f32 ** -13f32
 inl n = 0.005f32
 
 inl network,_ = 
@@ -434,7 +434,9 @@ Timer.time_it "Training"
     train {
         network
         learning_rate
-        final = Error.square
+        final = inl label input s ->
+            inl label = s.CudaFun.map {map=inl x -> (x + 1f32) / 0.5f32} label
+            Error.sigmoid_cross_entropy label input s
         } s
     """
 
