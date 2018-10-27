@@ -15,6 +15,12 @@ inl half = 0.5f32
 inl one = 1f32
 inl two = 2f32
 
+inl learning_rate_range cur = function
+    | {from near_to} -> 
+        inl from, near_to = log from, log near_to
+        exp (from + (near_to - from) / (span_inner + one) * (to float a + one))
+    | n -> n
+
 inl (>>=) a b =
     match a with
     | {out=a bck=bck_a} ->
@@ -219,16 +225,18 @@ inl lstm {memory cell} =
     inm out = sigmoid cell.output * tanh memory
     succ {memory out}
 
-inl plastic_rnn =
-    {
-    out = inl {static alpha theta plastic} -> static + theta * alpha * plastic |> tanh
-    H = inl {H out input} -> H + 0.01f32 * (input * out - out * out * H)
-    }
+inl oja_update n cur =
+    inl n = learning_rate_range cur n
+    sequence_module <| inl {input out H} -> H + n * (input * out - out * out * H)
+
+inl plastic_rnn {input state bias} =
+    inl f input = input.static + generalized_mi input.alpha * input.plastic
+    f input + f state + bias |> tanh
 
 {
 (>>=) succ dr sigmoid tanh relu (*) (/) (+) (-) link link_broadcast link_auto link_adjoint link_adjoint_view
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
-generalized_mi generalized_mi_tanh lstm plastic_rnn
+generalized_mi generalized_mi_tanh lstm oja_update plastic_rnn
 }
 |> stackify
     """
@@ -1465,6 +1473,94 @@ inl float ->
         block = ()
         }
 
+    inl plastic_rnn n size =
+        inl dim =
+            {
+            matrix = {static=size; alpha={input=size; state=size}}
+            bias =
+                inl dim = {si=size; i=size; s=size; c=size}
+                {static=size; alpha={input=dim; state=dim}}
+            }
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc =
+                open Initializer.dual.TensorView
+                inl init = 
+                    inl bias = {si=const one; i=const half; s=const half; c=const zero}
+                    {
+                    input = {static=identity; alpha={input=const zero; state=const zero}}
+                    state = {static=randn 0.01f32; alpha={input=const zero; state=const zero}}
+                    bias = {static=const zero; alpha={input=bias; state=bias}}
+                    }
+                inl streams = stream, stream
+                {
+                input = weight {init=init.input; dim=sublayer_size, dim.matrix}
+                state = weight {init=init.state; dim=size, dim.matrix}
+                bias = bias {init=init.bias; dim=1, dim.bias}
+                streams = {alpha={input=streams; state=streams}}
+                sublayer_size = val sublayer_size
+                }
+            size
+            }
+
+        apply = inl {d with weights input} s ->
+            inl span = primal input .span_outer
+            assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl H =
+                match d with
+                | {state={H}} -> H
+                | _ -> 
+                    {
+                    input=s.CudaTensor.zero {elem_type=float; dim=weights.sublayer_size, size}
+                    state=s.CudaTensor.zero {elem_type=float; dim=size, size}
+                    }
+
+            inl state =
+                match d with
+                | {state={state}} -> state
+                | _ -> s.CudaTensor.zero {elem_type=float; dim=span, size}
+
+            inl apply =
+                inm out =
+                    inm {input state plastic} = 
+                        matmult_stream {
+                            input={(weights.input) with data=input}
+                            state={(weights.state) with data=state}
+                            plastic=
+                                Struct.map3 (inl weight data streams -> { weight data streams block=() }) 
+                                    H {input state} weights.streams.alpha
+                            }
+                    inl input, state = wrap_split ((), dim.matrix) (input, state)
+                    inl bias = wrap_split ((), dim.bias) weights.bias.weight
+                    inl input = 
+                        {
+                        static = input.static
+                        alpha = {input = input.alpha.input; state = state.alpha.input; bias = bias.alpha.input}
+                        plastic = plastic.input
+                        }
+                    inl state = 
+                        {
+                        static = state.static
+                        alpha = {input = input.alpha.state; state = state.alpha.state; bias = bias.alpha.state}
+                        plastic = plastic.state
+                        }
+                    inl bias = bias.static
+                    map CudaAD.plastic_rnn {input state bias}
+                inm H =
+                    mapi (inl cur {input H out} -> 
+                        inl f k = {out input = input k; H = H k }
+                        CudaAD.oja_update n cur { input = f.input; state = f.state }
+                        ) {out H input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) {input state}}
+
+                succ {out state={state=out; H}}
+
+            inl {out={out state} bck} = apply s
+            {out state bck}
+
+        optimize = Optimizer.kfac
+        block = ()
+        }
 
     inl RNN = {rnn lstm plastic_rnn}
 
