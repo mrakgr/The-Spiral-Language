@@ -221,8 +221,8 @@ inl lstm {memory cell} =
 
 inl plastic_rnn =
     {
-    out = inl {static alpha plastic} -> static + alpha * plastic |> tanh
-    H = inl {H theta out input} -> H + 0.01f32 * (input * out - out * out * H)
+    out = inl {static alpha theta plastic} -> static + theta * alpha * plastic |> tanh
+    H = inl {H out input} -> H + 0.01f32 * (input * out - out * out * H)
     }
 
 {
@@ -1474,7 +1474,7 @@ inl float ->
                 {
                 bias = {static=const zero; alpha=const (to float 0.01); theta=const (to float 0.01)}
                 input = {static=identity; alpha=const zero; theta=const zero}
-                state = {static=const zero; alpha=const zero; theta=const zero}
+                state = {static=const zero; alpha=randn 0.01f32; theta=randn 0.01f32}
                 }
             inl outer = {bias=1; input=sublayer_size; state=size}
             {
@@ -1502,8 +1502,8 @@ inl float ->
                     inl input = Struct.map' (inl data -> data.basic) input
                     inm static, plastic = matmult_stream ({weights with data=input}, {streams weight=H; data=input; block=()})
                     inl {static alpha theta} = wrap_split ((),inner) static
-                    inm out = map CudaAD.plastic_rnn.out {static plastic alpha}
-                    inm H = map CudaAD.plastic_rnn.H {H theta out input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) input}
+                    inm out = map CudaAD.plastic_rnn.out {static plastic alpha theta}
+                    inm H = map CudaAD.plastic_rnn.H {H out input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) input}
                     succ {out H}
 
                 succ {out state={out H}}
