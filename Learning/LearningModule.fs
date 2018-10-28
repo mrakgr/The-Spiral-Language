@@ -926,11 +926,16 @@ inl float ->
                     ret x
 
                 inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -learning_rate a b one c
+                //inl reproject_to a b c = 
+                //    inl q = s.CudaBlas.gemm .nT .nT one a b
+                //    s.CudaTensor.print q
+                //    s.CudaBlas.geam' .nT .nT one c -learning_rate q c
                 inl clear = s.CudaTensor.clear
 
                 match d with
                 | {front back} -> 
                     factor front; factor back
+                    //s.CudaTensor.print (adjoint weight)
                     inb x = reproject front.precision (adjoint weight)
                     reproject_to x back.precision (primal weight)
                 | {back} -> factor back; reproject_to (adjoint weight) back.precision (primal weight)
@@ -1757,8 +1762,7 @@ inl float ->
         }
 
     inl plastic_rnn''' size =
-        inl inner = 
-            {theta=size}
+        inl inner = {theta=size}
         {
         init = inl sublayer_size -> 
             open Initializer.dual.TensorView

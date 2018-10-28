@@ -159,7 +159,7 @@ inl input = input {from=0; by=by-1}
 
 inl data = {input label} |> Struct.map (inl x -> x.round_split' size.step)
 
-inl learning_rate = 2f32 ** -11f32
+inl learning_rate = 2f32 ** -12f32
 inl n = 1f32 / to float size.step
 
 inl network,_ =
@@ -175,7 +175,7 @@ inl network,_ =
             linear size.hot
         }
 
-    init s size.hot network.lstm
+    init s size.hot network.rnn
 
 inl truncate network s' =
     inl s = s'.RegionMem.create
@@ -301,7 +301,7 @@ inl size = {
     pattern = 50
     episode = 5
     minibatch = 1
-    seq = 200
+    seq = 2000
 
     shot = 3
     pattern_repetition = 10
@@ -415,7 +415,7 @@ met train {!data network learning_rate final covariance_modifier} s =
             Console.printfn "At iteration {0} the cost is {1}" (i, cost.square())
         else next()
 
-inl learning_rate = 2f32 ** -10f32
+inl learning_rate = 2f32 ** -13f32
 inl covariance_modifier = 2f32 ** 0f32
 inl n = 0.0001f32
 
