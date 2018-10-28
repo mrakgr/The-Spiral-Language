@@ -241,10 +241,12 @@ inl plastic_rnn' =
         //H + 0.005f32 * (input * out - out * out * H)
     }
 
+inl oja_update'' = sequence_module <| inl {input out H theta} -> H + generalized_mi theta * (input * out - out * out * H)
+
 {
 (>>=) succ dr sigmoid tanh relu (*) (/) (+) (-) link link_broadcast link_auto link_adjoint link_adjoint_view
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
-generalized_mi generalized_mi_tanh lstm oja_update plastic_rnn plastic_rnn'
+generalized_mi generalized_mi_tanh lstm oja_update plastic_rnn plastic_rnn' oja_update''
 }
 |> stackify
     """
@@ -1495,7 +1497,7 @@ inl float ->
             dsc =
                 open Initializer.dual.TensorView
                 inl init = 
-                    inl bias = {si=const one; i=const half; s=const half; c=const zero}
+                    inl bias = {si=const zero; i=const zero; s=const zero; c=const 0.01f32}
                     {
                     input = {static=identity; alpha={input=const zero; state=const zero}}
                     state = {static=randn 0.01f32; alpha={input=const zero; state=const zero}}
@@ -1583,7 +1585,7 @@ inl float ->
             inl init = 
                 {
                 one =
-                    {
+                    { // When initialized like this, it starts out at 95% on the Binary Pattern test.
                     bias = {static=const zero; alpha=const (to float 0.01); theta=const (to float 0.01)}
                     input = {static=identity; alpha=const zero; theta=const zero}
                     state = {static=randn 0.01f32; alpha=const zero; theta=const zero}
@@ -1649,7 +1651,102 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {rnn lstm plastic_rnn plastic_rnn'}
+    inl plastic_rnn'' size =
+        inl dim =
+            {
+            matrix = {static=size; alpha={input=size; state=size}; theta={input=size; state=size}}
+            bias =
+                inl dim = {si=size; i=size; s=size; c=size}
+                {static=size; alpha={input=dim; state=dim}; theta={input=dim; state=dim}}
+            }
+        {
+        init = inl sublayer_size -> 
+            {
+            dsc =
+                open Initializer.dual.TensorView
+                inl init = 
+                    inl bias = {si=const one; i=const half; s=const half; c=const 0.01f32}
+                    {
+                    input = {static=identity; alpha={input=const zero; state=const zero}; theta={input=const zero; state=const zero}}
+                    state = {static=randn 0.01f32; alpha={input=const zero; state=const zero}; theta={input=const zero; state=const zero}}
+                    bias = {static=const zero; alpha={input=bias; state=bias}; theta={input=bias; state=bias}}
+                    }
+                inl streams = stream, stream
+                {
+                input = weight {init=init.input; dim=sublayer_size, dim.matrix}
+                state = weight {init=init.state; dim=size, dim.matrix}
+                bias = bias {init=init.bias; dim=1, dim.bias}
+                streams = {H={input=streams; state=streams}}
+                sublayer_size = val sublayer_size
+                }
+            size
+            }
+
+        apply = inl {d with weights input} s ->
+            inl span = primal input .span_outer
+            assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl H =
+                match d with
+                | {state={H}} -> H
+                | _ -> 
+                    {
+                    input=s.CudaTensor.zero {elem_type=float; dim=weights.sublayer_size, size}
+                    state=s.CudaTensor.zero {elem_type=float; dim=size, size}
+                    }
+
+            inl state =
+                match d with
+                | {state={state}} -> state
+                | _ -> s.CudaTensor.zero {elem_type=float; dim=span, size}
+
+            inl apply =
+                inm {theta out} = 
+                    inm {input state plastic} = 
+                        matmult_stream {
+                            input={(weights.input) with data=input}
+                            state={(weights.state) with data=state}
+                            plastic=
+                                Struct.map3 (inl weight data streams -> { weight data streams block=() }) 
+                                    H {input state} weights.streams.H
+                            }
+                    inl input, state = wrap_split ((), dim.matrix) (input, state)
+                    inl bias = wrap_split ((), dim.bias) weights.bias.weight
+                    inl theta =
+                        {
+                        input = {input = input.theta.input; state = state.theta.input; bias = bias.theta.input}
+                        state = {input = input.theta.state; state = state.theta.state; bias = bias.theta.state}
+                        }
+                    inl input = 
+                        {
+                        static = input.static
+                        alpha = {input = input.alpha.input; state = state.alpha.input; bias = bias.alpha.input}
+                        plastic = plastic.input
+                        }
+                    inl state = 
+                        {
+                        static = state.static
+                        alpha = {input = input.alpha.state; state = state.alpha.state; bias = bias.alpha.state}
+                        plastic = plastic.state
+                        }
+                    inl bias = bias.static
+                    inm out = map CudaAD.plastic_rnn {input state bias}
+                    succ {theta out}
+                inm H =
+                    map (inl {input H out theta} -> 
+                        inl f k = {out input = input k; H = H k; theta = theta k}
+                        CudaAD.oja_update'' { input = f.input; state = f.state }
+                        ) {out H theta input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) {input state}}
+
+                succ {out state={state=out; H}}
+
+            inl {out={out state} bck} = apply s
+            {out state bck}
+
+        //optimize = Optimizer.kfac // Does not work with KFAC on the Binary Pattern test.
+        block = ()
+        }
+
+    inl RNN = {rnn lstm plastic_rnn plastic_rnn' plastic_rnn''}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
