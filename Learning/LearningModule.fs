@@ -233,10 +233,18 @@ inl plastic_rnn {input state bias} =
     inl f input = input.static + generalized_mi input.alpha * input.plastic
     f input + f state + bias |> tanh
 
+inl plastic_rnn' =
+    {
+    out = inl {static alpha plastic} -> static + alpha * plastic |> tanh
+    H = inl {H theta out input} ->
+        H + tanh theta * (input * out - out * out * H)
+        //H + 0.005f32 * (input * out - out * out * H)
+    }
+
 {
 (>>=) succ dr sigmoid tanh relu (*) (/) (+) (-) link link_broadcast link_auto link_adjoint link_adjoint_view
 sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
-generalized_mi generalized_mi_tanh lstm oja_update plastic_rnn
+generalized_mi generalized_mi_tanh lstm oja_update plastic_rnn plastic_rnn'
 }
 |> stackify
     """
@@ -1321,7 +1329,7 @@ inl float ->
         inl {identity val var} = Initializer.sing.Tensor
         inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
 
-    inl default_epsilon = to float (2.0 ** -1.0)
+    inl default_epsilon = to float (2.0 ** -3.0)
 
     inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
     inl wrap_split dim = Struct.map' (View.wrap dim >> View.split) >> Struct.map zip_dual
@@ -1473,7 +1481,7 @@ inl float ->
         block = ()
         }
 
-    inl plastic_rnn' n size =
+    inl plastic_rnn n size =
         inl dim =
             {
             matrix = {static=size; alpha={input=size; state=size}}
@@ -1558,11 +1566,90 @@ inl float ->
             inl {out={out state} bck} = apply s
             {out state bck}
 
-        optimize = Optimizer.kfac
+        optimize = Optimizer.kfac // Does not work with KFAC on the Binary Pattern test.
         block = ()
         }
 
-    inl RNN = {rnn lstm plastic_rnn}
+    inl plastic_rnn' size =
+        inl inner = 
+            {
+            one = {static=size; alpha=size; theta=size}
+            two = {alpha=size}
+            three = {theta=size}
+            }
+        {
+        init = inl sublayer_size -> 
+            open Initializer.dual.TensorView
+            inl init = 
+                {
+                one =
+                    {
+                    bias = {static=const zero; alpha=const (to float 0.01); theta=const (to float 0.01)}
+                    input = {static=identity; alpha=const zero; theta=const zero}
+                    state = {static=randn 0.01f32; alpha=const zero; theta=const zero}
+                    }
+                two =
+                    {
+                    alpha = identity
+                    }
+                three =
+                    {
+                    theta = identity
+                    }
+                }
+            inl outer = 
+                {
+                one = {bias=1; input=sublayer_size; state=size}
+                two = size
+                three = size
+                }
+            {
+            dsc = 
+                {
+                weights = 
+                    {
+                    one = weight {init=init.one; dim=outer.one,inner.one}
+                    two = weight {init=init.two; dim=outer.two,inner.two}
+                    three = weight {init=init.three; dim=outer.three,inner.three}
+                    }
+                streams = stream, stream
+                outer = val outer
+                }
+            size
+            }
+
+        apply = inl {d with weights={weights outer streams} input} s -> 
+            inl span = primal input .span_outer
+            inl out, H =
+                match d with
+                | {state={out H}} -> out, H
+                | _ -> 
+                    s.CudaTensor.zero {elem_type=float; dim=span,size},
+                    s.CudaTensor.zero_view {elem_type=float; dim=outer.one, size} .basic
+            
+            inl apply =
+                inm {out H} =
+                    inm input = segmented_init {dim=span,outer.one} {bias=const one; input=load input; state=load out}
+                    inl input = Struct.map' (inl data -> data.basic) input
+                    inm static, plastic = matmult_stream ({(weights.one) with data=input}, {streams weight=H; data=input; block=()})
+                    inl {static alpha theta} = wrap_split ((),inner.one) static
+                    //inm alpha = tanh alpha
+                    //inm alpha = matmult_stream {(weights.two) with data=alpha}
+                    //inm theta = tanh theta
+                    //inm theta = matmult_stream {(weights.three) with data=theta}
+                    inm out = map CudaAD.plastic_rnn'.out {static alpha plastic}
+                    inm H = map CudaAD.plastic_rnn'.H {H theta out input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) input}
+                    succ {out H}
+
+                succ {out state={out H}}
+
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        //optimize = Optimizer.kfac
+        block = ()
+        }
+
+    inl RNN = {rnn lstm plastic_rnn plastic_rnn'}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
