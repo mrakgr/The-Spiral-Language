@@ -434,9 +434,7 @@ Timer.time_it "Training"
     train {
         network
         learning_rate
-        final = inl label input s ->
-            inl label = s.CudaFun.map {map=inl x -> (x + 1f32) / 0.5f32} label
-            Error.sigmoid_cross_entropy label input s
+        final = Error.square
         } s
     """
 
