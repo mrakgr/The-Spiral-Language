@@ -354,7 +354,7 @@ inl runner {network s} funs =
 
     heap network
 
-met train {!data network learning_rate final} s =
+met train {!data network learning_rate final covariance_modifier} s =
     inl cost = 
         {
         square=ref 0f32
@@ -400,7 +400,7 @@ met train {!data network learning_rate final} s =
                 | {final} -> Struct.iter2 (inl a b -> a := a() + b) cost (final (data.original i))
                 | _ -> ()
             //network.burn_in_state
-            network.pop_bcks {learning_rate=learning_rate ** 0.85f32}
+            network.pop_bcks {learning_rate=(learning_rate ** 0.85f32) * covariance_modifier}
             network.optimize learning_rate
 
         inl iters = 10
@@ -415,7 +415,8 @@ met train {!data network learning_rate final} s =
             Console.printfn "At iteration {0} the cost is {1}" (i, cost.square())
         else next()
 
-inl learning_rate = 2f32 ** -13f32
+inl learning_rate = 2f32 ** -11f32
+inl covariance_modifier = 2f32 ** -3f32
 inl n = 0.005f32
 
 inl network,_ = 
@@ -423,10 +424,10 @@ inl network,_ =
     open RNN
     inl network = 
         {
-        plastic_rnn = plastic_rnn n size.pattern
+        plastic_rnn' = plastic_rnn' n size.pattern
         }
 
-    init s size.pattern network.plastic_rnn
+    init s size.pattern network.plastic_rnn'
 
 Timer.time_it "Training"
 <| inl _ ->
@@ -434,6 +435,7 @@ Timer.time_it "Training"
     train {
         network
         learning_rate
+        covariance_modifier
         final = Error.square
         } s
     """

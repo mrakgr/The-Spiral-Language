@@ -1321,7 +1321,7 @@ inl float ->
         inl {identity val var} = Initializer.sing.Tensor
         inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
 
-    inl default_epsilon = 2.0f32 ** -3.0f32
+    inl default_epsilon = to float (2.0 ** -1.0)
 
     inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
     inl wrap_split dim = Struct.map' (View.wrap dim >> View.split) >> Struct.map zip_dual
@@ -1473,7 +1473,7 @@ inl float ->
         block = ()
         }
 
-    inl plastic_rnn n size =
+    inl plastic_rnn' n size =
         inl dim =
             {
             matrix = {static=size; alpha={input=size; state=size}}
