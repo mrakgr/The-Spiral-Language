@@ -244,7 +244,9 @@ inl plastic_rnn {input state bias} =
 inl plastic_rnn' =
     {
     out = inl {static alpha plastic} -> static + alpha * plastic |> tanh
-    H = inl {H theta out input} -> H + tanh theta * input * out - abs theta * out * out * H
+    H = inl {H theta out input} -> 
+        inm theta = (to float 0.0001f32) * theta
+        H + theta * input * out - abs theta * out * out * H
     }
 
 inl oja_update'' = sequence_module <| inl {input out H theta} -> H + generalized_mi theta * (input * out - out * out * H)
@@ -1594,7 +1596,7 @@ inl float ->
                     { 
                     // When initialized like this, it starts out at 99% on the Binary Pattern test.
                     // In fact, it is much better than training.
-                    bias = {static=const zero; alpha=const one; theta=const (to float 0.0001)}
+                    bias = {static=const zero; alpha=const one; theta=const one}
                     input = {static=identity; alpha=const zero; theta=const zero}
                     state = {static=const zero; alpha=const zero; theta=const zero}
                     }
@@ -1655,7 +1657,7 @@ inl float ->
 
             inl {out={out state} bck} = apply s
             {out state bck}
-        //optimize = Optimizer.kfac
+        optimize = Optimizer.kfac
         block = ()
         }
 
@@ -1754,7 +1756,60 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {rnn lstm plastic_rnn plastic_rnn' plastic_rnn''}
+    inl plastic_rnn''' size =
+        inl inner = 
+            {theta=size}
+        {
+        init = inl sublayer_size -> 
+            open Initializer.dual.TensorView
+            inl init = 
+                    { 
+                    // When initialized like this, it starts out at 99% on the Binary Pattern test.
+                    // In fact, it is much better than training.
+                    bias = {theta=const 1f32}
+                    input = {theta=const zero}
+                    state = {theta=const zero}
+                    }
+            inl outer = {bias=1; input=sublayer_size; state=size}
+            {
+            dsc = 
+                {
+                weights = weight {init=init; dim=outer,inner}
+                streams = stream, stream
+                outer = val outer
+                }
+            size
+            }
+
+        apply = inl {d with weights={weights outer streams} input} s -> 
+            inl span = primal input .span_outer
+            inl out, H =
+                match d with
+                | {state={out H}} -> out, H
+                | _ -> 
+                    s.CudaTensor.zero {elem_type=float; dim=span,size},
+                    s.CudaTensor.zero_view {elem_type=float; dim=outer, size} .basic
+            
+            inl apply =
+                inm {out H} =
+                    inl input' = input
+                    inm input = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
+                    inl input = Struct.map' (inl data -> data.basic) input
+                    inm theta, plastic = matmult_stream ({weights with data=input}, {streams weight=H; data=input; block=()})
+                    inl {theta} = wrap_split ((),inner) theta
+                    inm out = add (input', plastic) >>= tanh
+                    inm H = map CudaAD.plastic_rnn'.H {H theta out input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) input}
+                    succ {out H}
+
+                succ {out state={out H}}
+
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        optimize = Optimizer.kfac
+        block = ()
+        }
+
+    inl RNN = {rnn lstm plastic_rnn plastic_rnn' plastic_rnn'' plastic_rnn'''}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.

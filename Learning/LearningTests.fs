@@ -415,7 +415,7 @@ met train {!data network learning_rate final covariance_modifier} s =
             Console.printfn "At iteration {0} the cost is {1}" (i, cost.square())
         else next()
 
-inl learning_rate = 2f32 ** -16f32
+inl learning_rate = 2f32 ** -10f32
 inl covariance_modifier = 2f32 ** 0f32
 inl n = 0.0001f32
 
@@ -427,9 +427,10 @@ inl network,_ =
         plastic_rnn = plastic_rnn n size.pattern
         plastic_rnn' = plastic_rnn' size.pattern
         plastic_rnn'' = plastic_rnn'' size.pattern
+        plastic_rnn''' = plastic_rnn''' size.pattern
         }
 
-    init s size.pattern network.plastic_rnn'
+    init s size.pattern network.plastic_rnn'''
 
 Timer.time_it "Training"
 <| inl _ ->
@@ -452,3 +453,4 @@ let tests =
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning3
 |> printfn "%s"
 |> ignore
+
