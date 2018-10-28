@@ -90,6 +90,14 @@ inl relu =
         bck=inl _ -> add_adjoint x (inl _ -> relu_bck (primal out) * get_adjoint out)
         }
 
+inl abs =
+    unary <| inl x ->
+        inl out = primal x |> abs |> dr
+        {
+        out
+        bck=inl _ -> add_adjoint x (inl _ -> (if primal x >= zero then one else -one) * get_adjoint out)
+        }
+
 inl add_atomic = CudaAux.atomic_add
 inl add x out = x .set (x .get + out)
 
@@ -236,16 +244,14 @@ inl plastic_rnn {input state bias} =
 inl plastic_rnn' =
     {
     out = inl {static alpha plastic} -> static + alpha * plastic |> tanh
-    H = inl {H theta out input} ->
-        H + tanh theta * (input * out - out * out * H)
-        //H + 0.005f32 * (input * out - out * out * H)
+    H = inl {H theta out input} -> H + tanh theta * input * out - abs theta * out * out * H
     }
 
 inl oja_update'' = sequence_module <| inl {input out H theta} -> H + generalized_mi theta * (input * out - out * out * H)
 
 {
 (>>=) succ dr sigmoid tanh relu (*) (/) (+) (-) link link_broadcast link_auto link_adjoint link_adjoint_view
-sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck
+sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck abs
 generalized_mi generalized_mi_tanh lstm oja_update plastic_rnn plastic_rnn' oja_update''
 }
 |> stackify
@@ -1497,10 +1503,10 @@ inl float ->
             dsc =
                 open Initializer.dual.TensorView
                 inl init = 
-                    inl bias = {si=const zero; i=const zero; s=const zero; c=const 0.01f32}
+                    inl bias = {si=const zero; i=const zero; s=const zero; c=const 1f32}
                     {
                     input = {static=identity; alpha={input=const zero; state=const zero}}
-                    state = {static=randn 0.01f32; alpha={input=const zero; state=const zero}}
+                    state = {static=const zero; alpha={input=const zero; state=const zero}}
                     bias = {static=const zero; alpha={input=bias; state=bias}}
                     }
                 inl streams = stream, stream
@@ -1585,10 +1591,12 @@ inl float ->
             inl init = 
                 {
                 one =
-                    { // When initialized like this, it starts out at 95% on the Binary Pattern test.
-                    bias = {static=const zero; alpha=const (to float 0.01); theta=const (to float 0.01)}
+                    { 
+                    // When initialized like this, it starts out at 99% on the Binary Pattern test.
+                    // In fact, it is much better than training.
+                    bias = {static=const zero; alpha=const one; theta=const (to float 0.0001)}
                     input = {static=identity; alpha=const zero; theta=const zero}
-                    state = {static=randn 0.01f32; alpha=const zero; theta=const zero}
+                    state = {static=const zero; alpha=const zero; theta=const zero}
                     }
                 two =
                     {

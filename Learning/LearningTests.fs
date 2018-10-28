@@ -417,7 +417,7 @@ met train {!data network learning_rate final covariance_modifier} s =
 
 inl learning_rate = 2f32 ** -16f32
 inl covariance_modifier = 2f32 ** 0f32
-inl n = 0.005f32
+inl n = 0.0001f32
 
 inl network,_ = 
     open Feedforward
@@ -429,7 +429,7 @@ inl network,_ =
         plastic_rnn'' = plastic_rnn'' size.pattern
         }
 
-    init s size.pattern network.plastic_rnn''
+    init s size.pattern network.plastic_rnn'
 
 Timer.time_it "Training"
 <| inl _ ->
