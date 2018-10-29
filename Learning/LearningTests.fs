@@ -125,7 +125,7 @@ open Learning float
 
 inl size = {
     seq = 1115394
-    minibatch = 64
+    minibatch = 4
     step = 64
     hot = 128
     }
@@ -253,7 +253,7 @@ met train {data={input label} network learning_rate final} s =
         }
     |> inl cost -> cost / to float64 input.span_outer3
 
-inl f (!dyn learning_rate) next i =
+inl f learning_rate next i =
     Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
     inl cost =
         Timer.time_it (string_format "iteration {0}" i)
@@ -301,10 +301,10 @@ inl size = {
     pattern = 50
     episode = 5
     minibatch = 1
-    seq = 2000
+    seq = 500
 
-    shot = 3
-    pattern_repetition = 10
+    shot = 1
+    pattern_repetition = 5
     empty_input_after_repetition = 3
     }
 
@@ -400,7 +400,7 @@ met train {!data network learning_rate final covariance_modifier} s =
                 | {final} -> Struct.iter2 (inl a b -> a := a() + b) cost (final (data.original i))
                 | _ -> ()
             //network.burn_in_state
-            network.pop_bcks {learning_rate=(learning_rate ** 0.85f32) * covariance_modifier}
+            network.pop_bcks {learning_rate=(learning_rate) * covariance_modifier}
             network.optimize learning_rate
 
         inl iters = 10
@@ -416,7 +416,7 @@ met train {!data network learning_rate final covariance_modifier} s =
         else next()
 
 inl learning_rate = 2f32 ** -7f32
-inl covariance_modifier = 2f32 ** 0f32
+inl covariance_modifier = 2f32 ** -3f32
 inl n = 0.0001f32
 
 inl network,_ = 
@@ -450,7 +450,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None 
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
 |> printfn "%s"
 |> ignore
 
