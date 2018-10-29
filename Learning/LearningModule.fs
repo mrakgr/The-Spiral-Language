@@ -245,7 +245,7 @@ inl plastic_rnn' =
     {
     out = inl {static alpha plastic} -> static + alpha * plastic |> tanh
     H = inl {H theta out input} -> 
-        inm theta = (to float 0.0001f32) * theta
+        inm theta = (to float 0.0001) * theta
         H + theta * input * out - abs theta * out * out * H
     }
 
