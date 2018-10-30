@@ -51,55 +51,53 @@ inl add_adjoint x out =
 
 inl get_adjoint {adjoint} = adjoint 0
 
-inl primal = Struct.map (inl {primal} | primal -> primal)
+inl primal {primal} | primal = primal
 
-inl sigmoid_fwd x = one / (one + exp -x)
-inl sigmoid_bck out = out * (one - out)
-
-inl unary f x =
+inl unary_bind f x =
     inm x = x
     f x
 
-inl sigmoid =
-    unary <| inl x ->
-        inl out = primal x |> sigmoid_fwd |> dr
+inl binary_bind f a b =
+    inm a = a
+    inm b = b
+    f a b
+
+inl unary_op fwd bck =
+    unary_bind <| inl x ->
+        inl out = primal x |> fwd |> dr
         {
         out
-        bck=inl _ -> add_adjoint x (inl _ -> sigmoid_bck (primal out) * get_adjoint out)
+        bck=inl _ -> add_adjoint x (inl _ -> bck (primal x) (primal out) * get_adjoint out)
         }
 
-inl tanh_fwd = tanh
-inl tanh_bck out = one - out * out
+inl unary fwd bck = {fwd bck op = unary_op fwd bck}
+
+inl sigmoid =
+    unary {
+        fwd = inl x -> one / (one + exp -x)
+        bck = inl x out -> out * (one - out)
+        }
 
 inl tanh =
-    unary <| inl x ->
-        inl out = primal x |> tanh_fwd |> dr
-        {
-        out
-        bck=inl _ -> add_adjoint x (inl _ -> tanh_bck (primal out) * get_adjoint out)
+    unary {
+        fwd = tanh
+        bck = inl x out -> one - out * out
         }
 
-inl relu_fwd x = if x > zero then x else zero
-inl relu_bck out = if out > zero then one else zero
-
 inl relu =
-    unary <| inl x ->
-        inl out = primal x |> relu_fwd |> dr
-        {
-        out
-        bck=inl _ -> add_adjoint x (inl _ -> relu_bck (primal out) * get_adjoint out)
+    unary {
+        fwd = inl x -> if x > zero then x else zero
+        bck = inl x out -> if out > zero then one else zero
         }
 
 inl abs =
-    unary <| inl x ->
-        inl out = primal x |> abs |> dr
-        {
-        out
-        bck=inl _ -> add_adjoint x (inl _ -> (if primal x >= zero then one else -one) * get_adjoint out)
+    unary {
+        fwd = abs
+        bck = inl x out -> if x >= zero then one else -one
         }
 
 inl add_atomic = CudaAux.atomic_add
-inl add x out = x .set (x .get + out)
+inl add_std x out = x .set (x .get + out)
 
 inl {link link_broadcast link_auto} =
     inl index cur = Struct.map' <| inl x -> x cur
@@ -124,16 +122,16 @@ inl {link link_broadcast link_auto} =
 
     {
     link = inl x cur ->
-        inl x = Struct.map (index cur) x
+        inl x = index cur x
         inl out = get_primal x
     
         {
         out
-        bck = inl _ -> bck add x out
+        bck = inl _ -> bck add_std x out
         }
 
     link_broadcast = inl x cur ->
-        inl x = Struct.map' (index_broadcast cur) x 
+        inl x = index_broadcast cur x 
         inl out = get_primal x
     
         {
@@ -142,20 +140,20 @@ inl {link link_broadcast link_auto} =
         }
 
     link_auto = inl dim x cur ->
-        inl out = Struct.map' (index_broadcast cur) x |> get_primal
+        inl out = index_broadcast cur x |> get_primal
     
         {
         out
         bck = inl _ ->
             inl dim_is_not_one = Tuple.map (inl dim -> dim <> 1) dim
             inl add_auto x out =
-                inl is_atomic = Tuple.exists2 (inl dim_is_not_one cur -> dim_is_not_one && cur = 1) dim_is_not_one x.dim
+                inl is_atomic = Tuple.exists2 (inl dim_is_not_one x_dim -> dim_is_not_one && x_dim = 1) dim_is_not_one x.dim
                 inl x = index_broadcast cur x
-                if is_atomic then add_atomic x out else add x out
+                if is_atomic then add_atomic x out else add_std x out
             bck add_auto x out
         }
     }
-    
+   
 inl link_adjoint cur {from to} =
     Struct.iter2 (inl from to -> 
         match to with
@@ -180,14 +178,10 @@ inl sequence_module f x =
     inl out = module_map (inl _ {out} -> out) x
     {out bck}
 
-inl binary f a b =
-    inm a = a
-    inm b = b
-    f a b
-
-inl (/) =
+inl div =
+    inl fwd a b = a / b
     binary <| inl a b ->
-        inl out = primal a / primal b |> dr
+        inl out = fwd (primal a) (primal b) |> dr
         {
         out
         bck=inl _ ->
