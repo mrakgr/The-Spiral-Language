@@ -1746,7 +1746,7 @@ met init_seq w {dim=b,a init} =
     inl items_per_thread, blockDim =
         assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
         if num_valid <= 1024 then 1, num_valid
-        else divup num_valid 256, 256
+        else divup num_valid 1024, 1024
 
     w.run {
         blockDim
@@ -1767,8 +1767,8 @@ met init_seq w {dim=b,a init} =
                 inner_loop {body=inl {x with item i} -> items item .set (map x)}
                 items
 
-            grid_for .y b {body=inl {i} ->
-                init i <| inl x ->
+            grid_for .y b {body=inl {i=b} ->
+                init b <| inl x ->
                     inl block_reduce redo = 
                         inl d = {blockDim redo}
                         if num_valid % blockDim.x = 0 then cub_block_reduce d
@@ -1781,8 +1781,13 @@ met init_seq w {dim=b,a init} =
                         }
 
                     inl block = {
-                        load=inl (!zip tns) -> create_items (inl {i} -> tns i .get)
-                        store=inl {from=(!zip from) to=(!zip to)} -> inner_loop {body=inl {item i} -> to i .set (from item .get)}
+                        init=inl f -> create_items (inl {i=a} -> f b a)
+                        load=inl (!zip tns) -> 
+                            assert (tns.dim = length a) "The tensor being loaded must have the inner dimension of length equal to inner dimension given to the kernel."
+                            create_items (inl {i} -> tns i .get)
+                        store=inl {from=(!zip from) to=(!zip to)} -> 
+                            assert (to.dim = length a) "The tensor being stored must have the inner dimension of length equal to inner dimension given to the kernel."
+                            inner_loop {body=inl {item i} -> to i .set (from item .get)}
                         store_scalar=inl {from to} -> if threadIdx.x = 0 then to .set from
                         map=inl f (!zip tns) -> create_items (inl {item} -> f (tns item .get))
                         uter=inl redo items -> block_reduce redo items.bodies.ar |> broadcast_zero
