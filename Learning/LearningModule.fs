@@ -70,7 +70,7 @@ inl unary_op fwd bck =
         bck=inl _ -> add_adjoint x (inl _ -> bck (primal x) (primal out) * get_adjoint out)
         }
 
-inl unary fwd bck = {fwd bck op = unary_op fwd bck}
+inl unary {fwd bck} = {fwd bck op = unary_op fwd bck}
 
 inl sigmoid =
     unary {
@@ -178,45 +178,53 @@ inl sequence_module f x =
     inl out = module_map (inl _ {out} -> out) x
     {out bck}
 
-inl div =
-    inl fwd a b = a / b
-    binary <| inl a b ->
+inl binary_op fwd bck =
+    binary_bind <| inl a b ->
         inl out = fwd (primal a) (primal b) |> dr
         {
         out
         bck=inl _ ->
-            add_adjoint a (inl _ -> get_adjoint out / primal b)
-            add_adjoint b (inl _ -> -(get_adjoint out) * primal a / (primal b * primal b))
+            add_adjoint a (inl _ -> bck.a (primal a) (primal b) (primal out) * get_adjoint out)
+            add_adjoint b (inl _ -> bck.b (primal a) (primal b) (primal out) * get_adjoint out)
         }
 
-inl (*) =
-    binary <| inl a b ->
-        inl out = primal a * primal b |> dr
-        {
-        out
-        bck=inl _ ->
-            add_adjoint a (inl _ -> primal b * get_adjoint out)
-            add_adjoint b (inl _ -> primal a * get_adjoint out)
+inl binary {fwd bck} = {fwd bck op = binary_op fwd bck}
+
+inl div =
+    binary {
+        fwd = (/)
+        bck = {
+            a=inl a b out -> one / b
+            b=inl a b out -> -out / b
+            }
         }
 
-inl (+) =
-    binary <| inl a b ->
-        inl out = primal a + primal b |> dr
-        {
-        out
-        bck=inl _ ->
-            add_adjoint a (inl _ -> get_adjoint out)
-            add_adjoint b (inl _ -> get_adjoint out)
+
+inl mult =
+    binary {
+        fwd = (*)
+        bck = {
+            a = inl a b out -> b
+            b = inl a b out -> a
+            }
         }
 
-inl (-) =
-    binary <| inl a b ->
-        inl out = primal a - primal b |> dr
-        {
-        out
-        bck=inl _ ->
-            add_adjoint a (inl _ -> get_adjoint out)
-            add_adjoint b (inl _ -> -(get_adjoint out))
+inl add =
+    binary {
+        fwd = (+)
+        bck = {
+            a = inl a b out -> one
+            b = inl a b out -> one
+            }
+        }
+
+inl sub =
+    binary {
+        fwd = (-)
+        bck = {
+            a = inl a b out -> one
+            b = inl a b out -> -one
+            }
         }
 
 inl generalized_mi {bias={si s i c} input state} = si * state * input + s * state + i * input + c
