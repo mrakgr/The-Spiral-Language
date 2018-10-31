@@ -1012,8 +1012,8 @@ inl float ->
         bck = inl {in out} -> sigmoid_bck in out
         }
 
-    inl tanh_fwd = CudaAD.Unary.tanh_fwd
-    inl tanh_bck = CudaAD.Unary.tanh_bck
+    inl tanh_fwd = CudaAD.Unary.tanh.fwd
+    inl tanh_bck = CudaAD.Unary.tanh.bck
 
     // Unlike the others tanh supports multiple inputs that it sums before mapping.
     // TODO: Do that for the other activations as well.
@@ -1022,8 +1022,8 @@ inl float ->
         bck = inl {in out} -> Liple.map (const (tanh_bck in out)) in
         }
 
-    inl relu_fwd = CudaAD.Unary.relu_fwd
-    inl relu_bck = CudaAD.Unary.relu_bck
+    inl relu_fwd = CudaAD.Unary.relu.fwd
+    inl relu_bck = CudaAD.Unary.relu.bck
 
     inl relu = activation {
         fwd = relu_fwd

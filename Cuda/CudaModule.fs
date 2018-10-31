@@ -1783,12 +1783,8 @@ met init_seq w {dim=b,a init} =
                     inl block = {
                         iter=inl body -> inner_loop {body}
                         init=inl f -> create_items f
-                        load=inl (!zip tns) -> 
-                            assert (tns.dim = length a) "The tensor being loaded must have the inner dimension of length equal to inner dimension given to the kernel."
-                            create_items (inl {i} -> tns i .get)
-                        store=inl {from=(!zip from) to=(!zip to)} -> 
-                            assert (to.dim = length a) "The tensor being stored must have the inner dimension of length equal to inner dimension given to the kernel."
-                            inner_loop {body=inl {item i} -> to i .set (from item .get)}
+                        load=inl (!zip tns) -> create_items (inl {i} -> tns i .get)
+                        store=inl {from=(!zip from) to=(!zip to)} -> inner_loop {body=inl {item i} -> to i .set (from item .get)}
                         store_scalar=inl {from to} -> if threadIdx.x = 0 then to .set from
                         map=inl f (!zip tns) -> create_items (inl {item} -> f (tns item .get))
                         uter=inl redo items -> block_reduce redo items.bodies.ar |> broadcast_zero
