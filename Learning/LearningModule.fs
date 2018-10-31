@@ -264,7 +264,112 @@ inl Activation =
     {generalized_mi generalized_mi_tanh lstm oja_update plastic_rnn plastic_rnn' oja_update''}
 
 inl Seq k =
-    ()
+    inl dr x =
+        {
+        primal=x
+        adjoint=Struct.map (inl _ -> k.block.init (const zero)) x
+        block=()
+        }
+
+    inl add_adjoint x out =
+        match x with
+        | {adjoint} -> 
+            k.iter (inl {item} -> 
+                inl adjoint = adjoint item
+                adjoint .set (adjoint .get + out item)
+                )
+        | _ -> ()
+
+    inl get_adjoint item {adjoint} = adjoint item .get
+
+    inl primal {primal} | primal = primal
+
+    inl unary_op fwd bck =
+        unary_bind <| inl x ->
+            inl out = primal x |> fwd |> dr
+            {
+            out
+            bck=inl _ -> add_adjoint x (inl item -> bck (primal x) (primal out) * get_adjoint item out)
+            }
+
+    inl unary {fwd bck} = {fwd bck op = unary_op fwd bck}
+    inl Unary = module_map (const unary) Unary
+
+    inl add_atomic a b {i item} = atomic_add (a i) (b item .get)
+    inl add_std a b {i item} = add_std (a i) (b item .get)
+    
+    inl {link link_broadcast link_auto} =
+        inl index a = Struct.map' <| inl x -> x a
+        inl index_broadcast cur =
+            Struct.map' <| inl x ->
+                Struct.foldl (inl x cur ->
+                    x (if x.span_outer = 1 then 0 else cur)
+                    ) x cur
+
+        inl get_primal = 
+            Struct.map (function
+                | {primal adjoint} -> primal .get |> dr
+                | x -> x .get
+                )
+
+        inl bck f =
+            Struct.iter2 (inl x out ->
+                match x, out with
+                | {adjoint=x}, {adjoint=out} -> k.block.iter (f x out)
+                | _ -> ()
+                )
+
+        {
+        link = inl x b ->
+            inl x = index b x
+            inl out = k.block.init (inl {i=a} -> index a x) |> get_primal
+    
+            {
+            out
+            bck = inl _ -> bck add_std x out
+            }
+
+        link_broadcast = inl x cur ->
+            inl x = index_broadcast cur x 
+            inl out = get_primal x
+    
+            {
+            out
+            bck = inl _ -> bck atomic_add x out
+            }
+
+        link_auto = inl dim x cur ->
+            inl out = index_broadcast cur x |> get_primal
+    
+            {
+            out
+            bck = inl _ ->
+                inl dim_is_not_one = Tuple.map (inl dim -> dim <> 1) dim
+                inl add_auto x out =
+                    inl is_atomic = Tuple.exists2 (inl dim_is_not_one x_dim -> dim_is_not_one && x_dim = 1) dim_is_not_one x.dim
+                    inl x = index_broadcast cur x
+                    if is_atomic then add_atomic x out else add_std x out
+                bck add_auto x out
+            }
+        }
+   
+    inl link_adjoint cur {from to} =
+        Struct.iter2 (inl from to -> 
+            match to with
+            | () -> ()
+            | _ -> to 0 <- from cur .get
+            ) from to
+        {
+        out=()
+        bck=inl _ -> 
+            Struct.iter2 (inl from to -> 
+                match to with
+                | () -> ()
+                | _ -> from cur .set (to 0)
+                ) from to
+        }
+
+    inl link_adjoint_view cur x = link_adjoint cur {x with from=Struct.map (inl x -> x.view) self}        
 
 {
 (>>=) succ dr link link_broadcast link_auto link_adjoint link_adjoint_view
