@@ -1781,7 +1781,8 @@ met init_seq w {dim=b,a init} =
                         }
 
                     inl block = {
-                        init=inl f -> create_items (inl {i=a} -> f b a)
+                        iter=inl body -> inner_loop {body}
+                        init=inl f -> create_items f
                         load=inl (!zip tns) -> 
                             assert (tns.dim = length a) "The tensor being loaded must have the inner dimension of length equal to inner dimension given to the kernel."
                             create_items (inl {i} -> tns i .get)

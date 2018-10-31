@@ -1004,28 +1004,30 @@ inl float ->
     inl succ out _ = {out bck=()}
 
     // #Activation
-    inl sigmoid_fwd = CudaAD.sigmoid_fwd
-    inl sigmoid_bck = CudaAD.sigmoid_bck
+    inl sigmoid_fwd = CudaAD.Unary.sigmoid.fwd
+    inl sigmoid_bck = CudaAD.Unary.sigmoid.bck
 
     inl sigmoid = activation {
         fwd = sigmoid_fwd
-        bck = inl {out} -> sigmoid_bck out
+        bck = inl {in out} -> sigmoid_bck in out
         }
 
-    inl tanh_fwd = CudaAD.tanh_fwd
-    inl tanh_bck = CudaAD.tanh_bck
+    inl tanh_fwd = CudaAD.Unary.tanh_fwd
+    inl tanh_bck = CudaAD.Unary.tanh_bck
 
+    // Unlike the others tanh supports multiple inputs that it sums before mapping.
+    // TODO: Do that for the other activations as well.
     inl tanh = activation {
-        fwd = tanh_fwd
-        bck = inl {out} -> tanh_bck out
+        fwd = Liple.foldl (+) zero >> tanh_fwd
+        bck = inl {in out} -> Liple.map (const (tanh_bck in out)) in
         }
 
-    inl relu_fwd = CudaAD.relu_fwd
-    inl relu_bck = CudaAD.relu_bck
+    inl relu_fwd = CudaAD.Unary.relu_fwd
+    inl relu_bck = CudaAD.Unary.relu_bck
 
     inl relu = activation {
         fwd = relu_fwd
-        bck = inl {out} -> relu_bck out
+        bck = inl {in out} -> relu_bck in out
         }
 
     inl add = activation {
@@ -1631,7 +1633,7 @@ inl float ->
                     inl data = Struct.map' (inl data -> data.basic) data
                     inm cell = matmult_stream {weights with data}
                     inl cell = wrap_split ((),inner) cell
-                    map CudaAD.lstm {memory cell}
+                    map CudaAD.Activation.lstm {memory cell}
 
                 succ {out state={out memory}}
 
@@ -1714,11 +1716,11 @@ inl float ->
                         plastic = plastic.state
                         }
                     inl bias = bias.static
-                    map CudaAD.plastic_rnn {input state bias}
+                    map CudaAD.Activation.plastic_rnn {input state bias}
                 inm H =
                     mapi (inl cur {input H out} -> 
                         inl f k = {out input = input k; H = H k }
-                        CudaAD.oja_update n cur { input = f.input; state = f.state }
+                        CudaAD.Activation.oja_update n cur { input = f.input; state = f.state }
                         ) {out H input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) {input state}}
 
                 succ {out state={state=out; H}}
@@ -1799,8 +1801,8 @@ inl float ->
                     //inm alpha = matmult_stream {(weights.two) with data=alpha}
                     //inm theta = tanh theta
                     //inm theta = matmult_stream {(weights.three) with data=theta}
-                    inm out = map CudaAD.plastic_rnn'.out {static alpha plastic}
-                    inm H = map CudaAD.plastic_rnn'.H {H theta out input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) input}
+                    inm out = map CudaAD.Activation.plastic_rnn'.out {static alpha plastic}
+                    inm H = map CudaAD.Activation.plastic_rnn'.H {H theta out input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) input}
                     succ {out H}
 
                 succ {out state={out H}}
@@ -1889,12 +1891,12 @@ inl float ->
                         plastic = plastic.state
                         }
                     inl bias = bias.static
-                    inm out = map CudaAD.plastic_rnn {input state bias}
+                    inm out = map CudaAD.Activation.plastic_rnn {input state bias}
                     succ {theta out}
                 inm H =
                     map (inl {input H out theta} -> 
                         inl f k = {out input = input k; H = H k; theta = theta k}
-                        CudaAD.oja_update'' { input = f.input; state = f.state }
+                        CudaAD.Activation.oja_update'' { input = f.input; state = f.state }
                         ) {out H theta input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) {input state}}
 
                 succ {out state={state=out; H}}
@@ -1947,7 +1949,7 @@ inl float ->
                     inm theta, plastic = matmult_stream ({weights with data=input}, {streams weight=H; data=input; block=()})
                     inl {theta} = wrap_split ((),inner) theta
                     inm out = add (input', plastic) >>= tanh
-                    inm H = map CudaAD.plastic_rnn'.H {H theta out input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) input}
+                    inm H = map CudaAD.Activation.plastic_rnn'.H {H theta out input=Struct.map' (Tensor.rotate (inl a,b -> b,a)) input}
                     succ {out H}
 
                 succ {out state={out H}}
