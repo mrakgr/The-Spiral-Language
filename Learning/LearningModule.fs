@@ -190,7 +190,7 @@ inl binary_op fwd bck =
 
 inl binary {fwd bck} = {fwd bck op = binary_op fwd bck}
 
-inl div =
+inl (/) =
     binary {
         fwd = (/)
         bck = {
@@ -200,7 +200,7 @@ inl div =
         }
 
 
-inl mult =
+inl (*) =
     binary {
         fwd = (*)
         bck = {
@@ -209,7 +209,7 @@ inl mult =
             }
         }
 
-inl add =
+inl (+) =
     binary {
         fwd = (+)
         bck = {
@@ -218,7 +218,7 @@ inl add =
             }
         }
 
-inl sub =
+inl (-) =
     binary {
         fwd = (-)
         bck = {
@@ -227,36 +227,48 @@ inl sub =
             }
         }
 
-inl generalized_mi {bias={si s i c} input state} = si * state * input + s * state + i * input + c
-inl generalized_mi_tanh {bias={si s i c} input state} = si * state * input + s * state + i * input + c |> tanh
+inl Unary = {sigmoid tanh relu abs}
+inl Binary = {(*) (/) (+) (-)}
+inl Op =
+    inl m = module_map (inl _ {op} -> op) Unary
+    module_foldl (inl k m {op} -> {m with $k=op}) m Binary
 
-inl lstm {memory cell} =
-    inm memory = sigmoid cell.input * tanh cell.memory + sigmoid cell.forget * memory
-    inm out = sigmoid cell.output * tanh memory
-    succ {memory out}
+inl Activation =
+    open Op
+    inl generalized_mi {bias={si s i c} input state} = si * state * input + s * state + i * input + c
+    inl generalized_mi_tanh {bias={si s i c} input state} = si * state * input + s * state + i * input + c |> tanh
 
-inl oja_update n cur =
-    inl n = learning_rate_range cur n
-    sequence_module <| inl {input out H} -> H + n * (input * out - out * out * H)
+    inl lstm {memory cell} =
+        inm memory = sigmoid cell.input * tanh cell.memory + sigmoid cell.forget * memory
+        inm out = sigmoid cell.output * tanh memory
+        succ {memory out}
 
-inl plastic_rnn {input state bias} =
-    inl f input = input.static + generalized_mi input.alpha * input.plastic
-    f input + f state + bias |> tanh
+    inl oja_update n cur =
+        inl n = learning_rate_range cur n
+        sequence_module <| inl {input out H} -> H + n * (input * out - out * out * H)
 
-inl plastic_rnn' =
-    {
-    out = inl {static alpha plastic} -> static + alpha * plastic |> tanh
-    H = inl {H theta out input} -> 
-        inm theta = (to float 0.0001) * theta
-        H + theta * input * out - abs theta * out * out * H
-    }
+    inl plastic_rnn {input state bias} =
+        inl f input = input.static + generalized_mi input.alpha * input.plastic
+        f input + f state + bias |> tanh
 
-inl oja_update'' = sequence_module <| inl {input out H theta} -> H + generalized_mi theta * (input * out - out * out * H)
+    inl plastic_rnn' =
+        {
+        out = inl {static alpha plastic} -> static + alpha * plastic |> tanh
+        H = inl {H theta out input} -> 
+            inm theta = (to float 0.0001) * theta
+            H + theta * input * out - abs theta * out * out * H
+        }
+
+    inl oja_update'' = sequence_module <| inl {input out H theta} -> H + generalized_mi theta * (input * out - out * out * H)
+
+    {generalized_mi generalized_mi_tanh lstm oja_update plastic_rnn plastic_rnn' oja_update''}
+
+inl Seq k =
+    ()
 
 {
-(>>=) succ dr sigmoid tanh relu (*) (/) (+) (-) link link_broadcast link_auto link_adjoint link_adjoint_view
-sigmoid_fwd sigmoid_bck tanh_fwd tanh_bck relu_fwd relu_bck abs
-generalized_mi generalized_mi_tanh lstm oja_update plastic_rnn plastic_rnn' oja_update''
+(>>=) succ dr link link_broadcast link_auto link_adjoint link_adjoint_view
+Unary Binary Op Activation Seq
 }
 |> stackify
     """
