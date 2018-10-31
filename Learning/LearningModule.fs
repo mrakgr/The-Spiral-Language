@@ -72,29 +72,83 @@ inl unary_op fwd bck =
 
 inl unary {fwd bck} = {fwd bck op = unary_op fwd bck}
 
-inl sigmoid =
-    unary {
-        fwd = inl x -> one / (one + exp -x)
-        bck = inl x out -> out * (one - out)
+inl binary_op fwd bck =
+    binary_bind <| inl a b ->
+        inl out = fwd (primal a) (primal b) |> dr
+        {
+        out
+        bck=inl _ ->
+            add_adjoint a (inl _ -> bck.a (primal a) (primal b) (primal out) * get_adjoint out)
+            add_adjoint b (inl _ -> bck.b (primal a) (primal b) (primal out) * get_adjoint out)
         }
 
-inl tanh =
-    unary {
-        fwd = tanh
-        bck = inl x out -> one - out * out
-        }
+inl binary {fwd bck} = {fwd bck op = binary_op fwd bck}
 
-inl relu =
-    unary {
-        fwd = inl x -> if x > zero then x else zero
-        bck = inl x out -> if out > zero then one else zero
-        }
+inl Unary = 
+    inl sigmoid =
+        unary {
+            fwd = inl x -> one / (one + exp -x)
+            bck = inl x out -> out * (one - out)
+            }
 
-inl abs =
-    unary {
-        fwd = abs
-        bck = inl x out -> if x >= zero then one else -one
-        }
+    inl tanh =
+        unary {
+            fwd = tanh
+            bck = inl x out -> one - out * out
+            }
+
+    inl relu =
+        unary {
+            fwd = inl x -> if x > zero then x else zero
+            bck = inl x out -> if out > zero then one else zero
+            }
+
+    inl abs =
+        unary {
+            fwd = abs
+            bck = inl x out -> if x >= zero then one else -one
+            }
+        
+    {sigmoid tanh relu abs}
+
+inl Binary = 
+    inl (/) =
+        binary {
+            fwd = (/)
+            bck = {
+                a=inl a b out -> one / b
+                b=inl a b out -> -out / b
+                }
+            }
+
+    inl (*) =
+        binary {
+            fwd = (*)
+            bck = {
+                a = inl a b out -> b
+                b = inl a b out -> a
+                }
+            }
+
+    inl (+) =
+        binary {
+            fwd = (+)
+            bck = {
+                a = inl a b out -> one
+                b = inl a b out -> one
+                }
+            }
+
+    inl (-) =
+        binary {
+            fwd = (-)
+            bck = {
+                a = inl a b out -> one
+                b = inl a b out -> -one
+                }
+            }    
+    
+    {(*) (/) (+) (-)}
 
 inl add_atomic = CudaAux.atomic_add
 inl add_std x out = x .set (x .get + out)
@@ -178,57 +232,6 @@ inl sequence_module f x =
     inl out = module_map (inl _ {out} -> out) x
     {out bck}
 
-inl binary_op fwd bck =
-    binary_bind <| inl a b ->
-        inl out = fwd (primal a) (primal b) |> dr
-        {
-        out
-        bck=inl _ ->
-            add_adjoint a (inl _ -> bck.a (primal a) (primal b) (primal out) * get_adjoint out)
-            add_adjoint b (inl _ -> bck.b (primal a) (primal b) (primal out) * get_adjoint out)
-        }
-
-inl binary {fwd bck} = {fwd bck op = binary_op fwd bck}
-
-inl (/) =
-    binary {
-        fwd = (/)
-        bck = {
-            a=inl a b out -> one / b
-            b=inl a b out -> -out / b
-            }
-        }
-
-
-inl (*) =
-    binary {
-        fwd = (*)
-        bck = {
-            a = inl a b out -> b
-            b = inl a b out -> a
-            }
-        }
-
-inl (+) =
-    binary {
-        fwd = (+)
-        bck = {
-            a = inl a b out -> one
-            b = inl a b out -> one
-            }
-        }
-
-inl (-) =
-    binary {
-        fwd = (-)
-        bck = {
-            a = inl a b out -> one
-            b = inl a b out -> -one
-            }
-        }
-
-inl Unary = {sigmoid tanh relu abs}
-inl Binary = {(*) (/) (+) (-)}
 inl Op =
     inl m = module_map (inl _ {op} -> op) Unary
     module_foldl (inl k m {op} -> {m with $k=op}) m Binary
@@ -286,14 +289,27 @@ inl Seq k =
 
     inl unary_op fwd bck =
         unary_bind <| inl x ->
-            inl out = primal x |> fwd |> dr
+            inl out = k.block.map fwd (primal x) |> dr
             {
             out
-            bck=inl _ -> add_adjoint x (inl item -> bck (primal x) (primal out) * get_adjoint item out)
+            bck=inl _ -> add_adjoint x (inl item -> bck (primal x item .get) (primal out item .get) * get_adjoint item out)
             }
 
     inl unary {fwd bck} = {fwd bck op = unary_op fwd bck}
     inl Unary = module_map (const unary) Unary
+
+    inl binary_op fwd bck =
+        binary_bind <| inl a b ->
+            inl out = k.block.map (inl a,b -> fwd a b) (primal a, primal b) |> dr
+            {
+            out
+            bck=inl _ ->
+                add_adjoint a (inl item -> bck.a (primal a item .get) (primal b item .get) (primal out item .get) * get_adjoint item out)
+                add_adjoint b (inl item -> bck.b (primal a item .get) (primal b item .get) (primal out item .get) * get_adjoint item out)
+            }
+
+    inl binary {fwd bck} = {fwd bck op = binary_op fwd bck}
+    inl Binary = module_map (const binary) Binary
 
     inl add_atomic a b {i item} = atomic_add (a i) (b item .get)
     inl add_std a b {i item} = add_std (a i) (b item .get)
