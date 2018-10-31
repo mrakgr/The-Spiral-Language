@@ -311,6 +311,16 @@ inl Seq k =
     inl binary {fwd bck} = {fwd bck op = binary_op fwd bck}
     inl Binary = module_map (const binary) Binary
 
+    inl sum =
+        unary_bind <| inl x ->
+            inl out = k.block.uter (+) (primal x) |> dr
+            {
+            out
+            bck=inl _ -> 
+                inl er = k.block.uter (+) (adjoint out)
+                add_adjoint x (inl item -> get_adjoint item out)
+            }
+
     inl add_atomic a b {i item} = atomic_add (a i) (b item .get)
     inl add_std a b {i item} = add_std (a i) (b item .get)
     
@@ -380,8 +390,17 @@ inl Seq k =
                 ) from to
         }
 
-    inl link_adjoint_view b x = link_adjoint b {x with from=Struct.map (inl x -> x.view) self}
-    ()
+    inl link_adjoint_view b x = link_adjoint b {x with from=Struct.map (inl x a b -> x .view a .view b) self} 
+
+    inl Op =
+        inl m = module_map (inl _ {op} -> op) Unary
+        inl m = module_foldl (inl k m {op} -> {m with $k=op}) m Binary
+        {m with sum}
+
+    {
+    dr link link_broadcast link_auto link_adjoint link_adjoint_view 
+    Unary Binary Op
+    }
 
 {
 (>>=) succ dr link link_broadcast link_auto link_adjoint link_adjoint_view
