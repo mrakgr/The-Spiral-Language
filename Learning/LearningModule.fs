@@ -99,14 +99,14 @@ inl abs =
 inl add_atomic = CudaAux.atomic_add
 inl add_std x out = x .set (x .get + out)
 
-inl {link link_broadcast link_auto} =
-    inl index cur = Struct.map' <| inl x -> x cur
-    inl index_broadcast cur =
-        Struct.map' <| inl x ->
-            Struct.foldl (inl x cur ->
-                x (if x.span_outer = 1 then 0 else cur)
-                ) x cur
+inl index_std cur = Struct.map' <| inl x -> x cur
+inl index_broadcast cur =
+    Struct.map' <| inl x ->
+        Struct.foldl (inl x cur ->
+            x (if x.span_outer = 1 then 0 else cur)
+            ) x cur
 
+inl {link link_broadcast link_auto} =
     inl get_primal = 
         Struct.map (function
             | {primal adjoint} -> primal .get |> dr
@@ -122,7 +122,7 @@ inl {link link_broadcast link_auto} =
 
     {
     link = inl x cur ->
-        inl x = index cur x
+        inl x = index_std cur x
         inl out = get_primal x
     
         {
@@ -276,7 +276,7 @@ inl Seq k =
         | {adjoint} -> 
             k.iter (inl {item} -> 
                 inl adjoint = adjoint item
-                adjoint .set (adjoint .get + out item)
+                adjoint .set (adjoint .get + out item .get)
                 )
         | _ -> ()
 
@@ -299,13 +299,6 @@ inl Seq k =
     inl add_std a b {i item} = add_std (a i) (b item .get)
     
     inl {link link_broadcast link_auto} =
-        inl index a = Struct.map' <| inl x -> x a
-        inl index_broadcast cur =
-            Struct.map' <| inl x ->
-                Struct.foldl (inl x cur ->
-                    x (if x.span_outer = 1 then 0 else cur)
-                    ) x cur
-
         inl get_primal = 
             Struct.map (function
                 | {primal adjoint} -> primal .get |> dr
@@ -321,7 +314,7 @@ inl Seq k =
 
         {
         link = inl x b ->
-            inl x = index b x
+            inl x = index_std b x
             inl out = k.block.init (inl {i=a} -> index a x) |> get_primal
     
             {
@@ -329,17 +322,19 @@ inl Seq k =
             bck = inl _ -> bck add_std x out
             }
 
-        link_broadcast = inl x cur ->
-            inl x = index_broadcast cur x 
-            inl out = get_primal x
+        link_broadcast = inl x b ->
+            inl x = index_broadcast b x 
+            inl out = k.block.init (inl {i=a} -> index_broadcast a x) |> get_primal
     
             {
             out
             bck = inl _ -> bck atomic_add x out
             }
 
-        link_auto = inl dim x cur ->
-            inl out = index_broadcast cur x |> get_primal
+        link_auto = inl dim x b ->
+            inl out = 
+                inl x = index_broadcast b x 
+                k.block.init (inl {i=a} -> index_broadcast a x) |> get_primal
     
             {
             out
@@ -347,17 +342,17 @@ inl Seq k =
                 inl dim_is_not_one = Tuple.map (inl dim -> dim <> 1) dim
                 inl add_auto x out =
                     inl is_atomic = Tuple.exists2 (inl dim_is_not_one x_dim -> dim_is_not_one && x_dim = 1) dim_is_not_one x.dim
-                    inl x = index_broadcast cur x
+                    inl x = index_broadcast b x
                     if is_atomic then add_atomic x out else add_std x out
                 bck add_auto x out
             }
         }
    
-    inl link_adjoint cur {from to} =
+    inl link_adjoint b {from to} =
         Struct.iter2 (inl from to -> 
             match to with
             | () -> ()
-            | _ -> to 0 <- from cur .get
+            | _ -> k.iter (inl {item i=a} -> to item .set (from b a .get))
             ) from to
         {
         out=()
@@ -365,11 +360,12 @@ inl Seq k =
             Struct.iter2 (inl from to -> 
                 match to with
                 | () -> ()
-                | _ -> from cur .set (to 0)
+                | _ -> k.iter (inl {item i=a} -> from b a .set (to item .get))
                 ) from to
         }
 
-    inl link_adjoint_view cur x = link_adjoint cur {x with from=Struct.map (inl x -> x.view) self}        
+    inl link_adjoint_view b x = link_adjoint b {x with from=Struct.map (inl x -> x.view) self}
+    ()
 
 {
 (>>=) succ dr link link_broadcast link_auto link_adjoint link_adjoint_view
