@@ -407,21 +407,25 @@ inl Seq k =
     inl Activation =
         open Op
 
-        inl l2_norm_body size x =
-            inl mean x = sum x / to float size
-            inm centered = x - mean x
-            inm std = sqr centered |> mean |> sqrt
-            succ (centered, std)
+        inl l2_norm_body =
+            unary_bind <| inl x ->
+                inl mean x = sum x / to float k.size
+                inm x = x - mean x
+                inm std = sqr x |> mean |> sqrt
+                succ (centered, std)
 
-        inl layer_norm epsilon size x =
-            inm x, std = l2_norm_body size x
+        inl layer_norm epsilon x =
+            inm x, std = l2_norm_body x
             x / (std + epsilon)
 
-        inl weight_norm size x =
-            inm x, std = l2_norm_body size x
+        inl weight_norm x =
+            inm x, std = l2_norm_body x
             if_ {cond=std < one; true=x; false=x / std}
+
+        inl weight_normed_hebbian_update {H in out} = weight_norm (H + in * out)
             
-        {layer_norm weight_norm}
+        {layer_norm weight_norm weight_normed_hebbian_update}
+
     {
     dr link link_broadcast link_auto link_adjoint link_adjoint_view 
     Unary Binary Op
