@@ -397,6 +397,24 @@ inl Seq k =
         inl m = module_foldl (inl k m {op} -> {m with $k=op}) m Binary
         {m with sum}
 
+    inl Activation =
+        open Op
+
+        inl l2_norm_body size x =
+            inl mean x = sum x / to float size
+            inm centered = x - mean x
+            inm std = sqr centered |> mean |> sqrt
+            succ (centered, std)
+
+        inl layer_norm epsilon size x =
+            inm x, std = l2_norm_body size x
+            x / (std + epsilon)
+
+        inl weight_norm size x =
+            inm x, std = l2_norm_body size x
+            if_ {cond=std < one; true=x; false=x / std}
+            
+        {layer_norm weight_norm}
     {
     dr link link_broadcast link_auto link_adjoint link_adjoint_view 
     Unary Binary Op
