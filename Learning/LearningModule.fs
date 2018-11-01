@@ -108,8 +108,20 @@ inl Unary =
             fwd = abs
             bck = inl x out -> if x >= zero then one else -one
             }
-        
-    {sigmoid tanh relu abs}
+
+    inl sqr =
+        unary {
+            fwd = inl x -> x * x
+            bck = inl x out -> two * x
+            }
+
+    inl sqrt =
+        unary {
+            fwd = sqrt
+            bck = inl x out -> half / out
+            }
+
+    {sigmoid tanh relu abs sqr sqrt}
 
 inl Binary = 
     inl (/) =
@@ -146,8 +158,8 @@ inl Binary =
                 a = inl a b out -> one
                 b = inl a b out -> -one
                 }
-            }    
-    
+            }
+
     {(*) (/) (+) (-)}
 
 inl add_atomic = CudaAux.atomic_add
