@@ -419,13 +419,12 @@ inl Seq k =
     inl Activation =
         open Op
 
-        inl l2_norm_body =
-            unary_bind <| inl x ->
-                inl dim = val (to float (snd k.dim))
-                inl mean x = sum x / dim
-                inm x = x - mean x
-                inm std = sqr x |> mean |> sqrt
-                succ (x, std)
+        inl l2_norm_body x =
+            inl dim = val (to float (snd k.dim))
+            inl mean x = sum x / dim
+            inm x = x - mean x
+            inm std = sqr x |> mean |> sqrt
+            succ (x, std)
 
         inl layer_norm epsilon x =
             inm x, std = l2_norm_body x
@@ -435,7 +434,7 @@ inl Seq k =
             inm x, std = l2_norm_body x
             if_ {cond=std < one; t=x; f=x / std}
 
-        inl weight_normed_hebbian_update {H in out} = weight_norm (H + in * out)
+        inl weight_normed_hebbian_update {H in out} = (H + in * out) >>= weight_norm
             
         {layer_norm weight_norm weight_normed_hebbian_update}
 
@@ -1121,12 +1120,12 @@ inl float ->
     inl relu_ln = seq float <| inl k -> 
             open CudaAD
             open Seq k
-            Op.relu >> Activation.layer_norm (to float (10.0 ** -7.0))
+            Op.relu >> Activation.layer_norm 
 
-    inl ln_relu = seq float <| inl k x -> 
+    inl ln_relu = seq float <| inl k -> 
             open CudaAD
             open Seq k
-            Activation.layer_norm (to float (10.0 ** -7.0)) >> Op.relu
+            Activation.layer_norm >> Op.relu
 
     inl linear = succ
     inl Activation = { linear sigmoid tanh relu add hadmult hadmultb ln relu_ln ln_relu } |> stack
