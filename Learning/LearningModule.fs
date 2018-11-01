@@ -412,7 +412,11 @@ inl Seq k =
 
         inl weight_norm size x =
             inm x, std = l2_norm_body size x
-            if_ {cond=std < one; true=x; false=x / std}
+            op {
+                fwd = if std < one then x else x / std
+                bck = inl _ -> if std < one then one
+                }
+            //if_ {cond=std < one; true=x; false=x / std}
             
         {layer_norm weight_norm}
     {
