@@ -1792,11 +1792,12 @@ met iter_seq w {dim=b,a init} =
                         }
 
                     inl grid = {
-                        for = grid_for
-                        for_items = grid_for_items
+                        for=grid_for
+                        for_items=grid_for_items
                         }
 
-                    {grid block thread} x
+                    inl dim=b,a
+                    {grid block thread dim} x
                 }
         }
 

@@ -421,10 +421,10 @@ inl Seq k =
 
         inl l2_norm_body =
             unary_bind <| inl x ->
-                inl mean x = sum x / to float k.size
+                inl mean x = sum x / to float (snd k.dim)
                 inm x = x - mean x
                 inm std = sqr x |> mean |> sqrt
-                succ (centered, std)
+                x, std
 
         inl layer_norm epsilon x =
             inm x, std = l2_norm_body x
@@ -1116,8 +1116,13 @@ inl float ->
             bck=inl {in={b x1 x2}} -> {b = one; x1 = x2; x2 = x1 }
             } {x1 x2 b}
 
+    inl ln = seq <| inl k -> CudaAD .Seq k .Activation .layer_norm (to float (10.0 ** -7.0))
+    inl relu_ln = seq <| inl k -> 
+            open CudaAD
+            Op.relu >> (Seq k).Activation.layer_norm (to float (10.0 ** -7.0))
+
     inl linear = succ
-    inl Activation = { linear sigmoid tanh relu add hadmult hadmultb } |> stack
+    inl Activation = { linear sigmoid tanh relu add hadmult hadmultb layer_norm } |> stack
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
