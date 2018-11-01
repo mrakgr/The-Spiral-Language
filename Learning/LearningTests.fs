@@ -33,7 +33,7 @@ inl learning_rate = 2f32 ** -8f32
 inl network,_ =
     open Feedforward
     inl network =
-        relu 256,
+        relu_ln 256,
         linear label_size
     //inl network =
     //    prong {activation=Activation.relu; size=256},

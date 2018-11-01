@@ -1191,15 +1191,14 @@ inl float ->
     inl softmax temp input s =
         inl output = s.CudaTensor.create_like input
         inl ins = CudaAux.to_dev_tensor (input,output)
-        s.CudaKernel.iter_seq {
-            dim=input.dim
-            init=inl b k ->
+        s.CudaKernel.iter_seq {dim=input.dim}
+            (inl b k ->
                 inl input,output = Tuple.map (inl x -> x b) ins
                 k.block.store {
                     from=softmax_body temp k input
                     to=output
                     }
-            }
+            )
         output
                 
     inl sample_body prob s =
@@ -1207,9 +1206,8 @@ inl float ->
         inl boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=b}
         inl output = s.CudaTensor.create {elem_type=int64; dim=boundary.dim}
         inl inputs = Tuple.map CudaAux.to_dev_tensor (prob,boundary,output)
-        s.CudaKernel.iter_seq { // The sampling function
-            dim
-            init=inl b k ->
+        s.CudaKernel.iter_seq {dim} // The sampling function
+            (inl b k ->
                 inl prob,boundary,to = Tuple.map (inl x -> x b) inputs
                 inl boundary = boundary.get
                 k.block.store_scalar {to
@@ -1234,7 +1232,7 @@ inl float ->
                                 {scan redo}
                             } .redo |> snd
                     }
-            }
+            )
         output
 
     //#Error
@@ -1264,15 +1262,14 @@ inl float ->
             inl cost = s.CudaTensor.create {elem_type=float; dim=primal input .dim |> fst}
             inl _ =
                 inl input, label, cost as ins = to_dev_tensor (primals (input, label, cost))
-                s.CudaKernel.iter_seq {
-                    dim=input.dim
-                    init=inl b k ->
+                s.CudaKernel.iter_seq {dim=input.dim}
+                    (inl b k ->
                         inl input,label,to = Tuple.map (inl x -> x b) ins
                         inl prob = softmax_body temp k input
                         inl label = k.block.load label
                         inl costs = k.block.map (inl {prob label} -> -label * log prob) {prob label}
                         k.block.store_scalar { to from = k.block.redo (+) costs }
-                    }
+                    )
             s.CudaFun.redo {
                 redo = (+)
                 neutral_elem = zero
@@ -1280,9 +1277,8 @@ inl float ->
 
         inl bck _ = join
             inl ins = to_dev_tensor (input, label)
-            s.CudaKernel.iter_seq {
-                dim=primal input .dim
-                init=inl b k ->
+            s.CudaKernel.iter_seq {dim=primal input .dim}
+                (inl b k ->
                     inl input, label = Struct.map' (inl x -> x b) ins
                     inl prob = softmax_body temp k (primal input)
                     inl label = k.block.load (primal label)
@@ -1293,7 +1289,7 @@ inl float ->
                                 }
                     ret {in={prob label}; map=inl {prob label} -> (prob - label) / temp} (adjoint input)
                     ret {in=prob; map=inl prob -> -(log prob)} (adjoint label)
-                }
+                )
         {out=cost; bck}
 
     inl accuracy label input s =

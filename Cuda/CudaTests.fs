@@ -691,7 +691,8 @@ inl a2 = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=fl
 inl softmax_forward input s =
     inl output = s.CudaTensor.create_like input
     inl ins = CudaAux.to_dev_tensor (input,output)
-    s.CudaKernel.iter_seq {dim=input.dim} 
+    s.CudaKernel.iter_seq 
+        {dim=input.dim} 
         (inl b k ->
             inl input,output = Tuple.map (inl x -> x b) ins
             inl x = k.block.load input
@@ -722,9 +723,8 @@ inl softmax_backward z dz s =
     assert (z.dim = dz.dim) "The dimensions of output and its adjoint must be the same."
     inl output = s.CudaTensor.create_like z
     inl inputs = CudaAux.to_dev_tensor (z,dz,output)
-    s.CudaKernel.iter_seq {
-        dim=z.dim
-        init=inl b k ->
+    s.CudaKernel.iter_seq {dim=z.dim}
+        (inl b k ->
             inl z,dz,output = Tuple.map (inl x -> x b) inputs
             inl z,dz = Tuple.map k.block.load (z,dz)
             inl er = k.block.map (inl z,dz -> z*dz) (z,dz) |> k.block.uter (+)
@@ -732,7 +732,7 @@ inl softmax_backward z dz s =
                 from=k.block.map (inl {dz z} -> (dz - er) * z) {dz z}
                 to=output // Do not forget than the real softmax backwards needs to add to adjoint rather than writing to it directly.
                 }
-        }
+        )
     output
 
 inl o1 = softmax_forward a1 s
@@ -760,9 +760,8 @@ inl sample prob boundary =
     assert (b = b') "The outer dimensions of prob and boundary must match."
     inl output = s.CudaTensor.create {elem_type=int64; dim=boundary.dim}
     inl inputs = Tuple.map CudaAux.to_dev_tensor (prob,boundary,output)
-    s.CudaKernel.iter_seq { // The sampling function
-        dim=fst inputs .dim
-        init=inl b k ->
+    s.CudaKernel.iter_seq {dim=fst inputs .dim} // The sampling function
+        (inl b k ->
             inl prob,boundary,to = Tuple.map (inl x -> x b) inputs
             inl boundary = boundary.get
             k.block.store_scalar {to
@@ -787,7 +786,7 @@ inl sample prob boundary =
                             {scan redo}
                         } .redo |> snd
                 }
-        }
+        )
     output
 
 Tuple.iter s.CudaTensor.print (prob,scan_prob,boundary,sample prob boundary)
@@ -970,8 +969,8 @@ let tests =
     inverse1;inverse2
     |]
 
-rewrite_test_cache tests cfg None
+//rewrite_test_cache tests cfg None
 
-//output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) fun7
-//|> printfn "%s"
-//|> ignore
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel11
+|> printfn "%s"
+|> ignore
