@@ -997,9 +997,9 @@ inl float ->
                 bck(); bck'()
         }
 
-    inl init_seq {dim} init s =
+    inl init_seq {dim elem_type} init s =
         inl out =
-            s.CudaFun.init_seq {dim} (inl b k -> primals (init b k .out))
+            s.CudaFun.init_seq {dim elem_type} (inl b k -> primals (init b k .out))
             |> Tensor.unzip
             |> Struct.map (dr s)
         
@@ -1047,16 +1047,16 @@ inl float ->
                     ) dim init
         }
 
-    inl seqi f in s =
+    inl seqi elem_type f in s =
         inl dim = Tensor.assert_broadcastable (primals in)
         inl in = to_dev_tensor in
         open CudaAD
-        init_seq {dim} (inl b k -> 
+        init_seq {dim elem_type} (inl b k -> 
             inl Seq = Seq k
             Seq.link_auto dim in b >>= f b k
             ) s
 
-    inl seq = seqi << const
+    inl seq elem_type f = seqi elem_type (const f)
 
     inl Primitive =
         {
@@ -1116,8 +1116,8 @@ inl float ->
             bck=inl {in={b x1 x2}} -> {b = one; x1 = x2; x2 = x1 }
             } {x1 x2 b}
 
-    inl ln = seq <| inl k -> CudaAD .Seq k .Activation .layer_norm (to float (10.0 ** -7.0))
-    inl relu_ln = seq <| inl k -> 
+    inl ln = seq float <| inl k -> CudaAD .Seq k .Activation .layer_norm (to float (10.0 ** -7.0))
+    inl relu_ln = seq float <| inl k -> 
             open CudaAD
             Op.relu >> (Seq k).Activation.layer_norm (to float (10.0 ** -7.0))
 

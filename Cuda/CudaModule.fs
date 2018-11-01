@@ -1926,14 +1926,14 @@ inl init w {d with dim} f =
 
 inl init_seq w {d with dim} f =
     indiv join
-        inl elem_type = type f (index_example dim)
         inl out =            
             match d with
             | {out} -> 
                 inl out=zip out
                 assert (dim = out.dim) "The input and the output must have the same dimensions."
                 out
-            | _ -> w.CudaTensor.create {dim elem_type}
+            | _ -> 
+                w.CudaTensor.create {dim elem_type=d.elem_type}
         inl _ =
             inl out = to_dev_tensor out |> zip
             w.CudaKernel.iter_seq d <| inl b k -> k.block.store {from=f b k; to=out b}
