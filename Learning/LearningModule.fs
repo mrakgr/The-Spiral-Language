@@ -962,7 +962,7 @@ inl float ->
         open CudaAD
         init {dim} (inl cur -> link_auto dim in cur >>= f cur) s
 
-    inl map = mapi << const
+    inl map f = mapi << const
 
     inl segmented_init {dim} init s =
         inl out =
@@ -989,15 +989,21 @@ inl float ->
                     ) dim init
         }
 
-    inl iter_seq {dim} init s =
-        inl out =
-            s.CudaKernel.iter_seq
-        ()
+    inl seqi f in s =
+        inl dim = Tensor.assert_broadcastable (primals in)
+        inl in = to_dev_tensor in
+        open CudaAD
+        init_seq {dim} (inl b k -> 
+            inl Seq = Seq k
+            Seq.link_auto dim in b >>= f b k
+            ) s
+
+    inl seq = seqi << const
 
     inl Primitive =
         {
         matmult activation error matmultb broadcasting_activation init mapi map
-        segmented_init
+        segmented_init seq seqi
         } |> stack
 
     // #Operations
