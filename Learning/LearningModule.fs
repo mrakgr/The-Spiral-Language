@@ -330,16 +330,6 @@ inl Seq k =
     inl binary {fwd bck} = {fwd bck op = binary_op fwd bck}
     inl Binary = module_map (const binary) Binary
 
-    inl sum =
-        unary_bind <| inl x ->
-            inl out = k.block.uter (+) (primal x) |> val |> dr
-            {
-            out
-            bck=inl _ -> 
-                inl er = k.block.uter (+) out.adjoint
-                add_adjoint x (const er)
-            }
-
     inl add_atomic a b {i item} = atomic_add (a i) (b item .get)
     inl add_std a b {i item} = add_std (a i) (b item .get)
     
@@ -413,10 +403,20 @@ inl Seq k =
 
     inl Op =
         inl m = module_map (inl _ {op} -> op) Unary
-        inl m = module_foldl (inl k m {op} -> {m with $k=op}) m Binary
-        {m with sum}
+        module_foldl (inl k m {op} -> {m with $k=op}) m Binary
 
-    inl Activation =
+    inl Op =
+        inl sum =
+            unary_bind <| inl x ->
+                inl out = k.block.uter (+) (primal x) |> val |> dr
+                {
+                out
+                bck=inl _ -> 
+                    inl er = k.block.uter (+) out.adjoint
+                    add_adjoint x (const er)
+                }
+
+        //// ----------
         open Op
 
         inl l2_norm_body x =
@@ -426,17 +426,23 @@ inl Seq k =
             inm std = sqr x |> mean |> sqrt
             succ (x, std)
 
-        inl layer_norm epsilon x =
-            inm x, std = l2_norm_body x
-            x / (std + val epsilon)
+        inl layer_norm =
+            unary_bind <| inl x ->
+                inm x, std = l2_norm_body x
+                x / (std + val (to float (10.0 ** -7.0)))
 
-        inl weight_norm x =
-            inm x, std = l2_norm_body x
-            if_ {cond=std < one; t=x; f=x / std}
+        inl weight_norm =
+            unary_bind <| inl x ->
+                inm x, std = l2_norm_body x
+                if_ {cond=std < one; t=x; f=x / std}
+        
+        {Op with sum layer_norm weight_norm}
 
-        inl weight_normed_hebbian_update {H in out} = (H + in * out) >>= weight_norm
+    inl Activation =
+        open Op
+        inl wn_hebb {H in out} = weight_norm (H + in * out)
             
-        {layer_norm weight_norm weight_normed_hebbian_update}
+        {wn_hebb}
 
     {
     dr link link_broadcast link_auto link_adjoint link_adjoint_view 
@@ -1116,16 +1122,16 @@ inl float ->
             bck=inl {in={b x1 x2}} -> {b = one; x1 = x2; x2 = x1 }
             } {x1 x2 b}
 
-    inl ln = seq float <| inl k -> CudaAD .Seq k .Activation .layer_norm (to float (10.0 ** -7.0))
+    inl ln = seq float <| inl k -> CudaAD .Seq k .Op .layer_norm
     inl relu_ln = seq float <| inl k -> 
             open CudaAD
-            open Seq k
-            Op.relu >> Activation.layer_norm 
+            open Seq k .Op
+            relu >> layer_norm 
 
     inl ln_relu = seq float <| inl k -> 
             open CudaAD
-            open Seq k
-            Activation.layer_norm >> Op.relu
+            open Seq k .Op
+            layer_norm >> relu
 
     inl linear = succ
     inl Activation = { linear sigmoid tanh relu add hadmult hadmultb ln relu_ln ln_relu } |> stack
