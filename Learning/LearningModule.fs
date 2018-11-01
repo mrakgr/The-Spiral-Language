@@ -52,6 +52,7 @@ inl add_adjoint x out =
 inl get_adjoint {adjoint} = adjoint 0
 
 inl primal {primal} | primal = primal
+inl primals = Struct.map primal
 
 inl unary_bind f x =
     inm x = x
@@ -286,10 +287,11 @@ inl Activation =
     {generalized_mi generalized_mi_tanh lstm oja_update plastic_rnn plastic_rnn' oja_update''}
 
 inl Seq k =
+    inl val x = k.block.init (const x)
     inl dr x =
         {
         primal=x
-        adjoint=Struct.map (inl _ -> k.block.init (const zero)) x
+        adjoint=Struct.map (inl _ -> val zero) x
         block=()
         }
 
@@ -303,8 +305,6 @@ inl Seq k =
         | _ -> ()
 
     inl get_adjoint item {adjoint} = adjoint item .get
-
-    inl primal {primal} | primal = primal
 
     inl unary_op fwd bck =
         unary_bind <| inl x ->
@@ -332,24 +332,18 @@ inl Seq k =
 
     inl sum =
         unary_bind <| inl x ->
-            inl out = k.block.uter (+) (primal x) |> dr
+            inl out = k.block.uter (+) (primal x) |> val |> dr
             {
             out
             bck=inl _ -> 
                 inl er = k.block.uter (+) (adjoint out)
-                add_adjoint x (inl item -> get_adjoint item out)
+                add_adjoint x (const er)
             }
 
     inl add_atomic a b {i item} = atomic_add (a i) (b item .get)
     inl add_std a b {i item} = add_std (a i) (b item .get)
     
     inl {link link_broadcast link_auto} =
-        inl get_primal = 
-            Struct.map (function
-                | {primal adjoint} -> primal .get |> dr
-                | x -> x .get
-                )
-
         inl bck f =
             Struct.iter2 (inl x out ->
                 match x, out with
@@ -357,10 +351,14 @@ inl Seq k =
                 | _ -> ()
                 )
 
+        inl get = Struct.map' (inl x -> x.get)
+
         {
         link = inl x b ->
             inl x = index_std b x
-            inl out = k.block.init (inl {i=a} -> index a x) |> get_primal
+            inl out = 
+                inl x = primals x
+                k.block.init (inl {i=a} -> index_std a x |> get) |> dr
     
             {
             out
@@ -369,7 +367,9 @@ inl Seq k =
 
         link_broadcast = inl x b ->
             inl x = index_broadcast b x 
-            inl out = k.block.init (inl {i=a} -> index_broadcast a x) |> get_primal
+            inl out = 
+                inl x = primals x
+                k.block.init (inl {i=a} -> index_broadcast a x |> get) |> dr
     
             {
             out
@@ -378,9 +378,9 @@ inl Seq k =
 
         link_auto = inl dim x b ->
             inl out = 
-                inl x = index_broadcast b x 
-                k.block.init (inl {i=a} -> index_broadcast a x) |> get_primal
-    
+                inl x = index_broadcast b (primals x) 
+                k.block.init (inl {i=a} -> index_broadcast a x |> get) |> dr
+
             {
             out
             bck = inl _ ->
@@ -397,7 +397,7 @@ inl Seq k =
         Struct.iter2 (inl from to -> 
             match to with
             | () -> ()
-            | _ -> k.iter (inl {item i=a} -> to item .set (from b a .get))
+            | _ -> k.block.iter (inl {item i=a} -> to item .set (from b a .get))
             ) from to
         {
         out=()
@@ -405,7 +405,7 @@ inl Seq k =
             Struct.iter2 (inl from to -> 
                 match to with
                 | () -> ()
-                | _ -> k.iter (inl {item i=a} -> from b a .set (to item .get))
+                | _ -> k.block.iter (inl {item i=a} -> from b a .set (to item .get))
                 ) from to
         }
 
@@ -421,14 +421,15 @@ inl Seq k =
 
         inl l2_norm_body =
             unary_bind <| inl x ->
-                inl mean x = sum x / to float (snd k.dim)
+                inl dim = val (to float (snd k.dim))
+                inl mean x = sum x / dim
                 inm x = x - mean x
                 inm std = sqr x |> mean |> sqrt
-                x, std
+                succ (x, std)
 
         inl layer_norm epsilon x =
             inm x, std = l2_norm_body x
-            x / (std + epsilon)
+            x / (std + val epsilon)
 
         inl weight_norm x =
             inm x, std = l2_norm_body x
@@ -440,7 +441,7 @@ inl Seq k =
 
     {
     dr link link_broadcast link_auto link_adjoint link_adjoint_view 
-    Unary Binary Op
+    Unary Binary Op Activation
     }
 
 {
@@ -1117,9 +1118,10 @@ inl float ->
             } {x1 x2 b}
 
     inl ln = seq float <| inl k -> CudaAD .Seq k .Activation .layer_norm (to float (10.0 ** -7.0))
-    inl relu_ln = seq float <| inl k -> 
+    inl relu_ln = seq float <| inl k x -> 
             open CudaAD
-            Op.relu >> (Seq k).Activation.layer_norm (to float (10.0 ** -7.0))
+            open Seq k
+            Op.relu x >>= Activation.layer_norm (to float (10.0 ** -7.0))
 
     inl linear = succ
     inl Activation = { linear sigmoid tanh relu add hadmult hadmultb ln relu_ln } |> stack
