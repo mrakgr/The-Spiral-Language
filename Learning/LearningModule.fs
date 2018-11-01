@@ -951,8 +951,8 @@ inl float ->
             inl from = adjoints (to_dev_tensor out)
             open CudaAD
             s.CudaKernel.iter {dim} <| inl dim -> 
-                inl {out=to bck} = init dim >>= succ
-                inl {bck=bck'} = link_adjoint dim {from to=adjoints to}
+                inl {out bck} = init dim >>= succ
+                inl {bck=bck'} = link_adjoint dim {from to=adjoints out}
                 bck(); bck'()
         }
 
@@ -968,8 +968,8 @@ inl float ->
             inl from = adjoints (to_dev_tensor out)
             open CudaAD
             s.CudaKernel.iter_seq {dim} <| inl b k -> 
-                inl {out=to bck} = init b k >>= succ
-                inl {bck=bck'} = (Seq k).link_adjoint dim {from to=adjoints to}
+                inl {out bck} = init b k >>= succ
+                inl {bck=bck'} = (Seq k).link_adjoint dim {from to=adjoints out}
                 bck(); bck'()
         }
 

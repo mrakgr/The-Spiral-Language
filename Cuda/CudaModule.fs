@@ -1923,6 +1923,23 @@ inl init w {d with dim} f =
         | {out} -> ()
         | _ -> stack out
 
+inl init_seq w {d with dim} f =
+    indiv join
+        inl elem_type = type f (index_example dim)
+        inl out =            
+            match d with
+            | {out} -> 
+                inl out=zip out
+                assert (dim = out.dim) "The input and the output must have the same dimensions."
+                out
+            | _ -> w.CudaTensor.create {dim elem_type}
+        inl _ =
+            inl out = to_dev_tensor out |> zip
+            w.CudaKernel.iter_seq d <| inl b k -> k.store {from=f b; to=out b}
+        match d with
+        | {out} -> ()
+        | _ -> stack out
+
 inl map w d in =
     indiv join
         inl map = match d with {map} -> const map | {mapi} -> mapi
@@ -2193,7 +2210,7 @@ inl tensor_to_pointers w x =
 
 inl methods =
     {
-    map init segmented_init map_map redo_map redo map_redo
+    map init init_seq segmented_init map_map redo_map redo map_redo
     tensor_to_pointers
     } |> stackify
 
