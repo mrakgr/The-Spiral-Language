@@ -989,6 +989,11 @@ inl float ->
                     ) dim init
         }
 
+    inl init_seq {dim} init s =
+        inl out =
+            s.CudaKernel.init_seq
+        ()
+
     inl Primitive =
         {
         matmult activation error matmultb broadcasting_activation init mapi map
