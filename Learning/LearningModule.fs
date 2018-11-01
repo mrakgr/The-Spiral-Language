@@ -300,7 +300,7 @@ inl Seq k =
         | {adjoint} -> 
             k.block.iter (inl {item} -> 
                 inl adjoint = adjoint item
-                adjoint .set (adjoint .get + out item .get)
+                adjoint .set (adjoint .get + out item)
                 )
         | _ -> ()
 
@@ -336,7 +336,7 @@ inl Seq k =
             {
             out
             bck=inl _ -> 
-                inl er = k.block.uter (+) (adjoint out)
+                inl er = k.block.uter (+) out.adjoint
                 add_adjoint x (const er)
             }
 
