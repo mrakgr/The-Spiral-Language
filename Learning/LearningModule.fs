@@ -956,6 +956,23 @@ inl float ->
                 bck(); bck'()
         }
 
+    inl init_seq {dim} init s =
+        inl out =
+            s.CudaFun.init_seq {dim} (inl b k -> primals (init b k .out))
+            |> Tensor.unzip
+            |> Struct.map (dr s)
+        
+        {
+        out
+        bck=met _ ->
+            inl from = adjoints (to_dev_tensor out)
+            open CudaAD
+            s.CudaKernel.iter_seq {dim} <| inl b k -> 
+                inl {out=to bck} = init b k >>= succ
+                inl {bck=bck'} = (Seq k).link_adjoint dim {from to=adjoints to}
+                bck(); bck'()
+        }
+
     inl mapi f in s =
         inl dim = Tensor.assert_broadcastable (primals in)
         inl in = to_dev_tensor in
@@ -1003,7 +1020,7 @@ inl float ->
     inl Primitive =
         {
         matmult activation error matmultb broadcasting_activation init mapi map
-        segmented_init seq seqi
+        segmented_init init_seq seq seqi
         } |> stack
 
     // #Operations
