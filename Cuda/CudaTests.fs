@@ -691,9 +691,8 @@ inl a2 = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=fl
 inl softmax_forward input s =
     inl output = s.CudaTensor.create_like input
     inl ins = CudaAux.to_dev_tensor (input,output)
-    s.CudaKernel.iter_seq {
-        dim=input.dim
-        init=inl b k ->
+    s.CudaKernel.iter_seq {dim=input.dim} 
+        (inl b k ->
             inl input,output = Tuple.map (inl x -> x b) ins
             inl x = k.block.load input
             inl max_x = k.block.uter max x
@@ -703,7 +702,7 @@ inl softmax_forward input s =
                 from=k.block.map (inl z -> z / sum_z) z
                 to=output
                 }
-        }
+            )
     output
 
 inl probs input s = 

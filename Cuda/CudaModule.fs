@@ -1741,7 +1741,7 @@ met iter_redo_redo w {dim=c,b,a init} =
         }
 
 /// Does arbitrary operations over the innermost dimension using registers.
-met iter_seq w {dim=b,a init} =
+met iter_seq w {dim=b,a} f =
     inl num_valid = length a
     inl items_per_thread, blockDim =
         assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
@@ -1768,7 +1768,7 @@ met iter_seq w {dim=b,a init} =
                 items
 
             grid_for .y b {body=inl {i=b} ->
-                init b <| inl x ->
+                f b <| inl x ->
                     inl block_reduce redo = 
                         inl d = {blockDim redo}
                         if num_valid % blockDim.x = 0 then cub_block_reduce d
@@ -1936,7 +1936,7 @@ inl init_seq w {d with dim} f =
             | _ -> w.CudaTensor.create {dim elem_type}
         inl _ =
             inl out = to_dev_tensor out |> zip
-            w.CudaKernel.iter_seq d <| inl b k -> k.store {from=f b; to=out b}
+            w.CudaKernel.iter_seq d <| inl b k -> k.block.store {from=f b k; to=out b}
         match d with
         | {out} -> ()
         | _ -> stack out

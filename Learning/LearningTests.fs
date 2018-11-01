@@ -29,11 +29,11 @@ inl {test_images test_labels} = module_map (inl _ x -> x.round_split' test_minib
 inl input_size = 784
 inl label_size = 10
 
-inl learning_rate = 2f32 ** -11f32
+inl learning_rate = 2f32 ** -8f32
 inl network,_ =
     open Feedforward
     inl network =
-        relu 256,
+        relu_ln 256,
         linear label_size
     //inl network =
     //    prong {activation=Activation.relu; size=256},
@@ -87,7 +87,7 @@ inl test {data={input label} network final} s =
     |> inl cost -> {cost with cost = self / to float64 input.span_outer2}
 
 Loops.for' {from=0; near_to=5; body=inl {i next} -> 
-    inl final = Error.square
+    inl final = Error.softmax_cross_entropy
     inl cost =
         //Timer.time_it (string_format "iteration {0}" i)
         //<| inl _ ->
@@ -450,7 +450,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None 
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
 |> printfn "%s"
 |> ignore
 

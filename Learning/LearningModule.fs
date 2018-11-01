@@ -245,7 +245,7 @@ inl sequence_module f x =
     {out bck}
 
 // Note: This conditional lacks delayed evaluation.
-inl if_ {cond true false} =
+inl if_ {cond t f} =
     {
     out=if cond.out then true else false
     bck=inl _ -> if cond.out then true.bck() else false.bck()
@@ -432,7 +432,7 @@ inl Seq k =
 
         inl weight_norm x =
             inm x, std = l2_norm_body x
-            if_ {cond=std < one; true=x; false=x / std}
+            if_ {cond=std < one; t=x; f=x / std}
 
         inl weight_normed_hebbian_update {H in out} = weight_norm (H + in * out)
             
@@ -1122,7 +1122,7 @@ inl float ->
             Op.relu >> (Seq k).Activation.layer_norm (to float (10.0 ** -7.0))
 
     inl linear = succ
-    inl Activation = { linear sigmoid tanh relu add hadmult hadmultb layer_norm } |> stack
+    inl Activation = { linear sigmoid tanh relu add hadmult hadmultb ln relu_ln } |> stack
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
@@ -1495,7 +1495,8 @@ inl float ->
         inl tanh = layer I.tanh tanh
         inl linear = layer I.sigmoid succ
         inl zero = layer (I.const zero) succ
-        {sigmoid relu tanh linear zero} |> stackify
+        inl relu_ln = layer (I.relu) relu_ln
+        {sigmoid relu tanh linear zero relu_ln} |> stackify
 
     inl print x s =
         s.CudaTensor.print x
