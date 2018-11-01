@@ -488,7 +488,7 @@ s.CudaTensor.print x.basic
     """
 
 let kernel4 =
-    "kernel4",[cuda_modules],"Does the init_exscan kernel work?",
+    "kernel4",[cuda_modules],"Does the iter_exscan kernel work?",
     """
 inb s = CudaModules (1024*1024)
 
@@ -499,7 +499,7 @@ inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=fl
 inl o1 = s.CudaTensor.create_like a1
 inl _ =
     inl a1, o1 = CudaAux.to_dev_tensor (a1,o1)
-    s.CudaKernel.init_exscan {
+    s.CudaKernel.iter_exscan {
         dim=a1.dim
         neutral_elem=0f32
         redo=(+)
@@ -578,7 +578,7 @@ Tuple.iter s.CudaTensor.print (a1,a2,o1)
     """
 
 let kernel8 =
-    "kernel8",[cuda_modules],"Does the init_inscan kernel work?",
+    "kernel8",[cuda_modules],"Does the iter_inscan kernel work?",
     """
 inb s = CudaModules (1024*1024)
 
@@ -589,7 +589,7 @@ inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=fl
 inl o1 = s.CudaTensor.create_like a1
 inl _ = 
     inl a1, o1 = CudaAux.to_dev_tensor (a1,o1)
-    s.CudaKernel.init_inscan {
+    s.CudaKernel.iter_inscan {
         dim=a1.dim
         neutral_elem=-infinityf32
         redo=max
@@ -601,7 +601,7 @@ Tuple.iter s.CudaTensor.print (a1,o1)
     """
 
 let kernel9 =
-    "kernel9",[cuda_modules],"Does the init_redo kernel work?",
+    "kernel9",[cuda_modules],"Does the iter_redo kernel work?",
     """
 inb s = CudaModules (1024*1024)
 
@@ -616,7 +616,7 @@ inl f (a1, a2) =
     inl o1 = s.CudaTensor.create {elem_type=float32; dim=outer_size} 
     inl _ = 
         inl o1 = CudaAux.to_dev_tensor o1
-        s.CudaKernel.init_redo {
+        s.CudaKernel.iter_redo {
             dim=a1.dim
             init=inl b a -> a1 b a .get, a2 b a .get
             redo=inl a b -> if fst a > fst b then a else b
@@ -632,7 +632,7 @@ inl f a1 =
     inl o1 = s.CudaTensor.create {elem_type=int64; dim=outer_size}
     inl _ = 
         inl o1 = CudaAux.to_dev_tensor o1
-        s.CudaKernel.init_redo {
+        s.CudaKernel.iter_redo {
             dim=a1.dim
             init=inl b a -> a1 b a .get, a
             redo=inl a b -> if fst a > fst b then a else b
@@ -644,7 +644,7 @@ s.CudaTensor.print (f a1)
     """
 
 let kernel10 =
-    "kernel10",[cuda_modules],"Does the init_redo_redo kernel work?",
+    "kernel10",[cuda_modules],"Does the iter_redo_redo kernel work?",
     """
 inb s = CudaModules (1024*1024)
 
@@ -654,7 +654,7 @@ s.CudaTensor.print a1
 inl o1 = s.CudaTensor.create {elem_type=float32,int64; dim=c}
 inl _ =
     inl a1,o1 = CudaAux.to_dev_tensor (a1,o1)
-    s.CudaKernel.init_redo_redo {
+    s.CudaKernel.iter_redo_redo {
         dim=c,b,a
         init=inl c' k ->
             inl a1 = a1 c'
@@ -678,7 +678,7 @@ s.CudaTensor.print o1
     """
 
 let kernel11 =
-    "kernel11",[cuda_modules],"Does the init_seq kernel work?",
+    "kernel11",[cuda_modules],"Does the iter_seq kernel work?",
     """
 inb s = CudaModules (1024*1024)
 
@@ -691,7 +691,7 @@ inl a2 = s.CudaRandom.create {dst=.Normal; stddev=0f32; mean=1f32} {elem_type=fl
 inl softmax_forward input s =
     inl output = s.CudaTensor.create_like input
     inl ins = CudaAux.to_dev_tensor (input,output)
-    s.CudaKernel.init_seq {
+    s.CudaKernel.iter_seq {
         dim=input.dim
         init=inl b k ->
             inl input,output = Tuple.map (inl x -> x b) ins
@@ -710,7 +710,7 @@ inl probs input s =
     inl output = s.CudaTensor.create_like input
     inl _ =
         inl input,output = CudaAux.to_dev_tensor (input,output)
-        s.CudaKernel.init_exscan {
+        s.CudaKernel.iter_exscan {
             dim=input.dim
             redo=(+)
             neutral_elem=0f32
@@ -723,7 +723,7 @@ inl softmax_backward z dz s =
     assert (z.dim = dz.dim) "The dimensions of output and its adjoint must be the same."
     inl output = s.CudaTensor.create_like z
     inl inputs = CudaAux.to_dev_tensor (z,dz,output)
-    s.CudaKernel.init_seq {
+    s.CudaKernel.iter_seq {
         dim=z.dim
         init=inl b k ->
             inl z,dz,output = Tuple.map (inl x -> x b) inputs
@@ -761,7 +761,7 @@ inl sample prob boundary =
     assert (b = b') "The outer dimensions of prob and boundary must match."
     inl output = s.CudaTensor.create {elem_type=int64; dim=boundary.dim}
     inl inputs = Tuple.map CudaAux.to_dev_tensor (prob,boundary,output)
-    s.CudaKernel.init_seq { // The sampling function
+    s.CudaKernel.iter_seq { // The sampling function
         dim=fst inputs .dim
         init=inl b k ->
             inl prob,boundary,to = Tuple.map (inl x -> x b) inputs
@@ -813,7 +813,7 @@ Tuple.iter s.CudaTensor.print (prob,scan_prob,boundary,sample prob boundary)
     """
 
 let kernel12 =
-    "kernel12",[cuda_modules],"Does the inscan_init kernel work?",
+    "kernel12",[cuda_modules],"Does the inscan_iter kernel work?",
     """
 inb s = CudaModules (1024*1024)
 
@@ -824,7 +824,7 @@ inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=fl
 inl o1 = s.CudaTensor.create {elem_type=float32; dim=a}
 inl _ = 
     inl a1,o1 = CudaAux.to_dev_tensor (a1,o1)
-    s.CudaKernel.inscan_init {
+    s.CudaKernel.inscan_iter {
         dim=a1.dim
         neutral_elem=-infinityf32
         redo=max
@@ -836,7 +836,7 @@ Tuple.iter s.CudaTensor.print (a1,o1)
     """
 
 let kernel13 =
-    "kernel13",[cuda_modules],"Does the redo_init kernel work?",
+    "kernel13",[cuda_modules],"Does the redo_iter kernel work?",
     """
 inb s = CudaModules (1024*1024)
 inl inner_size = 5
@@ -847,9 +847,9 @@ inl o = s.CudaTensor.create {elem_type=float32; dim=inner_size}
 
 inl _ =
     inl x,o = CudaAux.to_dev_tensor (x,o)
-    s.CudaKernel.redo_init {
+    s.CudaKernel.redo_iter {
         dim=(outer_size,middle_size),inner_size
-        // Note that the arguments are in reverse order compared to init_redo.
+        // Note that the arguments are in reverse order compared to iter_redo.
         init=inl inner (outer,mid) -> x outer mid inner .get
         outit=inl inner -> o inner .set
         redo=max
@@ -971,8 +971,8 @@ let tests =
     inverse1;inverse2
     |]
 
-//rewrite_test_cache tests cfg None
+rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) fun7
-|> printfn "%s"
-|> ignore
+//output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) fun7
+//|> printfn "%s"
+//|> ignore

@@ -989,9 +989,9 @@ inl float ->
                     ) dim init
         }
 
-    inl init_seq {dim} init s =
+    inl iter_seq {dim} init s =
         inl out =
-            s.CudaKernel.init_seq
+            s.CudaKernel.iter_seq
         ()
 
     inl Primitive =
@@ -1120,7 +1120,7 @@ inl float ->
     inl softmax temp input s =
         inl output = s.CudaTensor.create_like input
         inl ins = CudaAux.to_dev_tensor (input,output)
-        s.CudaKernel.init_seq {
+        s.CudaKernel.iter_seq {
             dim=input.dim
             init=inl b k ->
                 inl input,output = Tuple.map (inl x -> x b) ins
@@ -1136,7 +1136,7 @@ inl float ->
         inl boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=b}
         inl output = s.CudaTensor.create {elem_type=int64; dim=boundary.dim}
         inl inputs = Tuple.map CudaAux.to_dev_tensor (prob,boundary,output)
-        s.CudaKernel.init_seq { // The sampling function
+        s.CudaKernel.iter_seq { // The sampling function
             dim
             init=inl b k ->
                 inl prob,boundary,to = Tuple.map (inl x -> x b) inputs
@@ -1193,7 +1193,7 @@ inl float ->
             inl cost = s.CudaTensor.create {elem_type=float; dim=primal input .dim |> fst}
             inl _ =
                 inl input, label, cost as ins = to_dev_tensor (primals (input, label, cost))
-                s.CudaKernel.init_seq {
+                s.CudaKernel.iter_seq {
                     dim=input.dim
                     init=inl b k ->
                         inl input,label,to = Tuple.map (inl x -> x b) ins
@@ -1209,7 +1209,7 @@ inl float ->
 
         inl bck _ = join
             inl ins = to_dev_tensor (input, label)
-            s.CudaKernel.init_seq {
+            s.CudaKernel.iter_seq {
                 dim=primal input .dim
                 init=inl b k ->
                     inl input, label = Struct.map' (inl x -> x b) ins

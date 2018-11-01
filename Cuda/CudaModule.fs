@@ -1500,7 +1500,7 @@ met iter w {d with dim} f =
 inl segmented_iter w {d with dim} f = iter w {d with dim=View.span self} (inl i -> View.from_basic dim i (View.dim_merge >> f))
 
 /// The exclusive scan over the innermost dimension.
-met init_exscan w {dim=b,a redo neutral_elem init outit} =
+met iter_exscan w {dim=b,a redo neutral_elem init outit} =
     w.run {
         blockDim = {x = lit_min 1024 (length a)}
         gridDim = {y = min 256 (length b)}
@@ -1539,7 +1539,7 @@ met inscan w {dim redo neutral_elem init outit} =
         }
 
     // Scan the aggregates to get the prefixes.
-    init_exscan w {dim=1,gridDim; redo neutral_elem
+    iter_exscan w {dim=1,gridDim; redo neutral_elem
         init = inl a b -> prefix b .get
         outit = inl a b -> prefix b .set
         }
@@ -1614,7 +1614,7 @@ met iter3 w {d with dim=c,b,a} f =
         }
 
 /// The inclusive scan over the innermost dimension.
-met init_inscan w {d with redo neutral_elem dim=b,a init outit} =
+met iter_inscan w {d with redo neutral_elem dim=b,a init outit} =
     w.run {
         blockDim = lit_min 1024 (length a)
         gridDim = {y=min 256 (length b)}
@@ -1635,7 +1635,7 @@ met init_inscan w {d with redo neutral_elem dim=b,a init outit} =
                 }
         }
 
-met init_redo w {dim=b,a init redo outit} =
+met iter_redo w {dim=b,a init redo outit} =
     w.run {
         blockDim = lit_min 1024 (length a)
         gridDim = {y = min 256 (length b)}
@@ -1717,7 +1717,7 @@ inl block_reduce_3d (blockDimZ, threadIdxZ) (blockDimY, threadIdxY) (near_to, th
         x
 
 /// Maps the input and then reduces twice, first along the inner dimension and then along the middle.
-met init_redo_redo w {dim=c,b,a init} = 
+met iter_redo_redo w {dim=c,b,a init} = 
     inl x = lit_min 1024 (length a)
     inl y = lit_min (1024 / x) (length b)
     w.run {
@@ -1741,7 +1741,7 @@ met init_redo_redo w {dim=c,b,a init} =
         }
 
 /// Does arbitrary operations over the innermost dimension using registers.
-met init_seq w {dim=b,a init} =
+met iter_seq w {dim=b,a init} =
     inl num_valid = length a
     inl items_per_thread, blockDim =
         assert (lit_is num_valid) "The inner dimension of the input to this kernel must be known at compile time."
@@ -1803,7 +1803,7 @@ met init_seq w {dim=b,a init} =
 // The inclusive scan over the outermost dimension.
 // Note that dimension are iterated in reverse order and hence the arguments are passed as such into `init` as well.
 // The first argument to init is the inner dimension and then the outer. `outit` is iterated over the inner dimension.
-met inscan_init w {dim=b,a init outit redo neutral_elem} =
+met inscan_iter w {dim=b,a init outit redo neutral_elem} =
     inl length = {b=length b; a=length a}
     inl x = lit_min warp_size length.a
     inl y = lit_min (1024 / x) length.b
@@ -1861,7 +1861,7 @@ met inscan_init w {dim=b,a init outit redo neutral_elem} =
 // Does a reduction based on data from the init function and pipes it into the outit function.
 // Note that dimension are iterated in reverse order and hence the arguments are passed as such into `init` as well.
 // The first argument to init is the inner dimension and then the outer. `outit` is iterated over the inner dimension.
-met redo_init w {dim=b, a init redo outit} =
+met redo_iter w {dim=b, a init redo outit} =
     inl length = {b=length b; a=length a}
     inl x = lit_min warp_size length.a
     inl y = lit_min (1024 / x) length.b
@@ -1890,8 +1890,8 @@ met redo_init w {dim=b, a init redo outit} =
 
 inl methods =
     {
-    iter segmented_iter init_exscan inscan redo iter2 iter3 init_inscan init_redo init_redo_redo
-    init_seq inscan_init redo_init
+    iter segmented_iter iter_exscan inscan redo iter2 iter3 iter_inscan iter_redo iter_redo_redo
+    iter_seq inscan_iter redo_iter
     } |> stackify
 
 inl s -> s.module_add .CudaKernel methods
@@ -2061,7 +2061,7 @@ inl redo_map w d in =
                         }
         inl _ =
             inl in, out = to_dev_tensor (in, out)
-            w.CudaKernel.redo_init {
+            w.CudaKernel.redo_iter {
                 dim redo
                 init=inl a -> 
                     inl in = {in without mid}
@@ -2144,7 +2144,7 @@ inl map_redo w d in =
                         }
         inl _ =
             inl in, out = to_dev_tensor (in, out)
-            w.CudaKernel.init_redo {
+            w.CudaKernel.iter_redo {
                 dim redo
                 init=inl b -> 
                     inl map = map b
