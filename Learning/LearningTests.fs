@@ -29,7 +29,7 @@ inl {test_images test_labels} = module_map (inl _ x -> x.round_split' test_minib
 inl input_size = 784
 inl label_size = 10
 
-inl learning_rate = 2f32 ** -8f32
+inl learning_rate = 2f32 ** -10f32
 inl network,_ =
     open Feedforward
     inl network =
