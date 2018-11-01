@@ -998,23 +998,6 @@ inl float ->
                 bck(); bck'()
         }
 
-    inl init_seq {dim elem_type} init s =
-        inl out =
-            s.CudaFun.init_seq {dim elem_type} (inl b k -> primals (init b k .out))
-            |> Tensor.unzip
-            |> Struct.map (dr s)
-        
-        {
-        out
-        bck=met _ ->
-            inl from = adjoints (to_dev_tensor out)
-            open CudaAD
-            s.CudaKernel.iter_seq {dim} <| inl b k -> 
-                inl {out bck} = init b k >>= succ
-                inl {bck=bck'} = (Seq k).link_adjoint b {from to=adjoints out}
-                bck(); bck'()
-        }
-
     inl mapi f in s =
         inl dim = Tensor.assert_broadcastable (primals in)
         inl in = to_dev_tensor in
@@ -1046,6 +1029,23 @@ inl float ->
                     inl {bck=bck'} = link_adjoint_view dim {from to=adjoints to}
                     bck(); bck'()
                     ) dim init
+        }
+
+    inl init_seq {dim elem_type} init s =
+        inl out =
+            s.CudaFun.init_seq {dim elem_type} (inl b k -> primals (init b k .out))
+            |> Tensor.unzip
+            |> Struct.map (dr s)
+        
+        {
+        out
+        bck=met _ ->
+            inl from = adjoints (to_dev_tensor out)
+            open CudaAD
+            s.CudaKernel.iter_seq {dim} <| inl b k -> 
+                inl {out bck} = init b k >>= succ
+                inl {bck=bck'} = (Seq k).link_adjoint b {from to=adjoints out}
+                bck(); bck'()
         }
 
     inl seqi elem_type f in s =
