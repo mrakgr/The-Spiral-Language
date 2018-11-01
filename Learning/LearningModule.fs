@@ -232,6 +232,13 @@ inl sequence_module f x =
     inl out = module_map (inl _ {out} -> out) x
     {out bck}
 
+// Note: This conditional lacks delayed evaluation.
+inl if_ {cond true false} =
+    {
+    out=if cond.out then true else false
+    bck=inl _ -> if cond.out then true.bck() else false.bck()
+    }
+
 inl Op =
     inl m = module_map (inl _ {op} -> op) Unary
     module_foldl (inl k m {op} -> {m with $k=op}) m Binary
@@ -412,11 +419,7 @@ inl Seq k =
 
         inl weight_norm size x =
             inm x, std = l2_norm_body size x
-            op {
-                fwd = if std < one then x else x / std
-                bck = inl _ -> if std < one then one
-                }
-            //if_ {cond=std < one; true=x; false=x / std}
+            if_ {cond=std < one; true=x; false=x / std}
             
         {layer_norm weight_norm}
     {
