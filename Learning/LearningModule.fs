@@ -298,7 +298,7 @@ inl Seq k =
     inl add_adjoint x out =
         match x with
         | {adjoint} -> 
-            k.iter (inl {item} -> 
+            k.block.iter (inl {item} -> 
                 inl adjoint = adjoint item
                 adjoint .set (adjoint .get + out item .get)
                 )
@@ -1011,7 +1011,7 @@ inl float ->
             open CudaAD
             s.CudaKernel.iter_seq {dim} <| inl b k -> 
                 inl {out bck} = init b k >>= succ
-                inl {bck=bck'} = (Seq k).link_adjoint dim {from to=adjoints out}
+                inl {bck=bck'} = (Seq k).link_adjoint b {from to=adjoints out}
                 bck(); bck'()
         }
 
