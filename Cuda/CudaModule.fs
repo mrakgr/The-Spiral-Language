@@ -1785,9 +1785,11 @@ met iter_seq w {dim=b,a} f =
                         init=inl f -> create_items f
                         load=inl (!zip tns) -> create_items (inl {i} -> tns i .get)
                         store=inl {from=(!zip from) to=(!zip to)} -> inner_loop {body=inl {item i} -> to i .set (from item .get)}
+                        add_store=inl {from=(!zip from) to=(!zip to)} -> inner_loop {body=inl {item i} -> to i .set (to i .get + from item .get)}
                         store_scalar=inl {from to} -> if threadIdx.x = 0 then to .set from
                         map=inl f (!zip tns) -> create_items (inl {item} -> f (tns item .get))
                         uter=inl redo items -> block_reduce redo items.bodies.ar |> broadcast_zero
+                        uter'=inl redo items -> block_reduce redo items.bodies.ar |> broadcast_zero |> (create_items << const)
                         redo=inl redo items -> block_reduce redo items.bodies.ar
                         }
 

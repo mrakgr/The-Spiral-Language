@@ -1106,22 +1106,24 @@ inl float ->
         bck = inl {in out} -> relu_bck in out
         }
 
-    inl add a b = activation {
-        fwd = inl a,b -> a+b
-        bck = inl _ -> one, one
-        } (a,b)
+    inl add a b = 
+        activation {
+            fwd = inl a,b -> a+b
+            bck = inl _ -> one, one
+            } (a,b)
 
-    inl sub a b = activation {
-        fwd = inl a,b -> a-b
-        bck = inl _ -> one, -one
-        } (a,b)
+    inl sub a b = 
+        activation {
+            fwd = inl a,b -> a-b
+            bck = inl _ -> one, -one
+            } (a,b)
 
-    inl sqr = activation {
+    inl sqr' = activation {
         fwd = inl x -> x
         bck = inl {in} -> two * in
         }
 
-    inl sqrt = activation {
+    inl sqrt' = activation {
         fwd = inl x -> sqrt x
         bck = inl {in out} -> half / out
         }
@@ -1145,49 +1147,63 @@ inl float ->
             bck=inl {in={b x1 x2}} -> {b = one; x1 = x2; x2 = x1 }
             } {x1 x2 b}
 
-    inl sum x =
-        broadcasting_activation {
-            fwd=inl {in_inner} -> in_inner
-            bck={
-                in_inner=inl _ -> one
-                }
-            }
-
-    inl mean x =
-        inl b,a = primal x .dim
+    inl mean in s =
+        inl b,a = primal in .dim
         inl mean = one / to float a
-        broadcasting_activation {
-            fwd=inl {in_inner} -> in_inner * n
-            bck={
-                in_inner=inl _ -> n
-                }
-            }
+        inl out = 
+            inl in = to_dev_tensor (primal in)
+            s.CudaFun.init_seq {elem_type=float32; dim=b,a}
+                (inl b k ->
+                    k.block.load (in b)
+                    |> k.block.uter' (+)
+                    |> k.block.map ((*) mean)
+                    )
+            |> dr s
+
+        {
+        out
+        bck=inl _ ->
+            inl {in out} = to_dev_tensor (adjoints {in out})
+            s.CudaKernel.iter_seq {dim=b,a}
+                (inl b k ->
+                    k.block.add_store {
+                        from=k.block.load (out b) |> k.block.uter' (+) |> k.block.map ((*) mean)
+                        to=in b
+                        }
+                    )
+        }
+
+    inl print x s =
+        s.CudaTensor.print x
+        {out=(); bck=()}
 
     inl ln x =
         inm m = mean x
         inm x = sub x m
-        inm std = sqr x >>= mean >> sqrt
-        div x std
+        inm std = sqr' x >>= mean >>= sqrt'
+        inm r = div x std
+        inm _ = print (primal r)
+        succ r
 
     //inl ln = seq float <| inl k -> 
     //    open CudaAD
     //    open Seq k .Op
     //    layer_norm 
     
-    inl relu_ln = seq float <| inl k -> 
-        open CudaAD
-        open Seq k .Op
-        relu >> layer_norm 
+    //inl relu_ln = seq float <| inl k -> 
+    //    open CudaAD
+    //    open Seq k .Op
+    //    relu >> layer_norm 
 
-    inl generalized_mi_relu_ln = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_relu_ln
+    //inl generalized_mi_relu_ln = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_relu_ln
 
-    inl tanh_ln = seq float <| inl k -> 
-        open CudaAD
-        open Seq k .Op
-        tanh >> layer_norm 
+    //inl tanh_ln = seq float <| inl k -> 
+    //    open CudaAD
+    //    open Seq k .Op
+    //    tanh >> layer_norm 
 
     inl linear = succ
-    inl Activation = { linear sigmoid tanh relu add hadmult hadmultb relu_ln tanh_ln} |> stack
+    inl Activation = { linear sigmoid tanh relu add hadmult hadmultb } |> stack
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
@@ -1559,13 +1575,9 @@ inl float ->
         inl relu_ln = 
             //layer (I.relu) relu_ln
             layer (I.relu) (inl x -> Activation.relu x >>= ln)
-        inl tanh_ln = layer (I.tanh) tanh_ln
-        {sigmoid relu tanh linear zero relu_ln tanh_ln} |> stackify
-
-    inl print x s =
-        s.CudaTensor.print x
-        {out=(); bck=()}
-    
+        //inl tanh_ln = layer (I.tanh) tanh_ln
+        {sigmoid relu tanh linear zero relu_ln} |> stackify
+   
     inl zero_like x = 
         inl zero dim s = {out=s.CudaTensor.zero {elem_type=float; dim}; bck=()}
         zero (primal x .dim)
