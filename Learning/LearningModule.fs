@@ -1127,8 +1127,13 @@ inl float ->
             open Seq k .Op
             relu >> layer_norm 
 
+    inl tanh_ln = seq float <| inl k -> 
+            open CudaAD
+            open Seq k .Op
+            tanh >> layer_norm 
+
     inl linear = succ
-    inl Activation = { linear sigmoid tanh relu add hadmult hadmultb relu_ln } |> stack
+    inl Activation = { linear sigmoid tanh relu add hadmult hadmultb relu_ln tanh_ln} |> stack
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
@@ -1498,7 +1503,8 @@ inl float ->
         inl linear = layer I.sigmoid succ
         inl zero = layer (I.const zero) succ
         inl relu_ln = layer (I.relu) relu_ln
-        {sigmoid relu tanh linear zero relu_ln} |> stackify
+        inl tanh_ln = layer (I.tanh) tanh_ln
+        {sigmoid relu tanh linear zero relu_ln tanh_ln} |> stackify
 
     inl print x s =
         s.CudaTensor.print x
@@ -1665,7 +1671,7 @@ inl float ->
                 inm out =
                     inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
                     inl data = Struct.map' (inl data -> data.basic) data
-                    matmult_stream {weights with data} >>= relu_ln
+                    matmult_stream {weights with data} >>= tanh_ln
                 succ {out state={out}}
 
             inl {out={out state} bck} = apply s
