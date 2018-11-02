@@ -2095,7 +2095,7 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {rnn lstm plastic_rnn plastic_rnn' plastic_rnn'' plastic_rnn'''}
+    inl RNN = {rnn mi lstm plastic_rnn plastic_rnn' plastic_rnn'' plastic_rnn'''}
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
