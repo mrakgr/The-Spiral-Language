@@ -203,7 +203,7 @@ inl {link link_broadcast link_auto} =
     
         {
         out
-        bck = inl _ -> bck atomic_add x out
+        bck = inl _ -> bck add_atomic x out
         }
 
     link_auto = inl dim x cur ->
@@ -259,7 +259,7 @@ inl Op =
 inl Activation =
     open Op
     inl generalized_mi {bias={si s i c} input state} = si * state * input + s * state + i * input + c
-    inl generalized_mi_tanh {si s i c} {input state} = si * state * input + s * state + i * input + c |> tanh
+    inl generalized_mi_tanh {bias={si s i c} input state} = si * state * input + s * state + i * input + c |> tanh
 
     inl lstm {memory cell} =
         inm memory = sigmoid cell.input * tanh cell.memory + sigmoid cell.forget * memory
@@ -330,7 +330,7 @@ inl Seq k =
     inl binary {fwd bck} = {fwd bck op = binary_op fwd bck}
     inl Binary = module_map (const binary) Binary
 
-    inl add_atomic a b {i item} = atomic_add (a i) (b item .get)
+    inl add_atomic a b {i item} = add_atomic (a i) (b item .get)
     inl add_std a b {i item} = add_std (a i) (b item .get)
     
     inl {link link_broadcast link_auto} =
@@ -348,7 +348,7 @@ inl Seq k =
             inl x = index_std b x
             inl out = 
                 inl x = primals x
-                k.block.init (inl {i=a} -> index_std a x |> get) |> dr
+                Struct.map (inl x -> k.block.init (inl {i=a} -> index_std a x |> get) |> dr) x
     
             {
             out
@@ -359,7 +359,7 @@ inl Seq k =
             inl x = index_broadcast b x 
             inl out = 
                 inl x = primals x
-                k.block.init (inl {i=a} -> index_broadcast a x |> get) |> dr
+                Struct.map (inl x -> k.block.init (inl {i=a} -> index_broadcast a x |> get) |> dr) x
     
             {
             out
@@ -369,8 +369,8 @@ inl Seq k =
         link_auto = inl dim x b ->
             inl out = 
                 inl x = index_broadcast b (primals x) 
-                k.block.init (inl {i=a} -> index_broadcast a x |> get) |> dr
-
+                Struct.map (inl x -> k.block.init (inl {i=a} -> index_broadcast a x |> get) |> dr) x 
+            
             {
             out
             bck = inl _ ->
@@ -440,9 +440,10 @@ inl Seq k =
 
     inl Activation =
         open Op
+        inl generalized_mi_relu_ln {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= relu >>= layer_norm
         inl wn_hebb {H in out} = weight_norm (H + in * out)
             
-        {wn_hebb}
+        {generalized_mi_relu_ln wn_hebb}
 
     {
     dr link link_broadcast link_auto link_adjoint link_adjoint_view 
@@ -1009,7 +1010,7 @@ inl float ->
         open CudaAD
         init {dim} (inl cur -> link_auto dim in cur >>= f cur) s
 
-    inl map f = mapi << const
+    inl map = mapi << const
 
     inl segmented_init {dim} init s =
         inl out =
@@ -1123,14 +1124,16 @@ inl float ->
             } {x1 x2 b}
 
     inl relu_ln = seq float <| inl k -> 
-            open CudaAD
-            open Seq k .Op
-            relu >> layer_norm 
+        open CudaAD
+        open Seq k .Op
+        relu >> layer_norm 
+
+    inl generalized_mi_relu_ln = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_relu_ln
 
     inl tanh_ln = seq float <| inl k -> 
-            open CudaAD
-            open Seq k .Op
-            tanh >> layer_norm 
+        open CudaAD
+        open Seq k .Op
+        tanh >> layer_norm 
 
     inl linear = succ
     inl Activation = { linear sigmoid tanh relu add hadmult hadmultb relu_ln tanh_ln} |> stack
@@ -1723,12 +1726,14 @@ inl float ->
                         input={(weights.input) with data=input}
                         state={(weights.state) with data=out}
                         }
-                    >>= CudaAD.Activation.generalized_mi_tanh bias
+                    >>= inl x -> 
+                        //map CudaAD.Activation.generalized_mi_tanh {x with bias}
+                        generalized_mi_relu_ln {x with bias}
                 succ {out state={out}}
 
             inl {out={out state} bck} = apply s
             {out state bck}
-        optimize = Optimizer.kfac
+        //optimize = Optimizer.kfac
         block = ()
         }
 
