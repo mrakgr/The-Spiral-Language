@@ -1790,8 +1790,8 @@ inl float ->
                         state={(weights.state) with data=out}
                         }
                     >>= inl x -> map CudaAD.Activation.generalized_mi {x with bias}
-                    >>= Activation.tanh
                     >>= ln
+                    >>= Activation.relu
                     //>>= inl x -> 
                     //    //map CudaAD.Activation.generalized_mi_tanh {x with bias}
                     //    generalized_mi_relu_ln {x with bias}
