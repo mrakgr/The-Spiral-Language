@@ -1106,23 +1106,74 @@ inl float ->
         bck = inl {in out} -> relu_bck in out
         }
 
-    inl add = activation {
+    inl add a b = activation {
         fwd = inl a,b -> a+b
         bck = inl _ -> one, one
+        } (a,b)
+
+    inl sub a b = activation {
+        fwd = inl a,b -> a-b
+        bck = inl _ -> one, -one
+        } (a,b)
+
+    inl sqr = activation {
+        fwd = inl x -> x
+        bck = inl {in} -> two * in
         }
 
-    inl hadmult (a,b) = 
+    inl sqrt = activation {
+        fwd = inl x -> sqrt x
+        bck = inl {in out} -> half / out
+        }
+
+    inl div a b = 
+        activation {
+            fwd = inl {a b} -> a/b
+            bck = inl {in={a b} out} -> { a = one / b; b = -out / b }
+            } {a b}
+
+    inl mult a b =
         activation {
             fwd = inl {a b} -> a*b
             bck = inl {in={a b}} -> { a = b; b = a }
             } {a b}
 
+    inl hadmult (a,b) = mult a b
     inl hadmultb (x1,x2) b =
         activation {
             fwd=inl {b x1 x2} -> b + x1 * x2
             bck=inl {in={b x1 x2}} -> {b = one; x1 = x2; x2 = x1 }
             } {x1 x2 b}
 
+    inl sum x =
+        broadcasting_activation {
+            fwd=inl {in_inner} -> in_inner
+            bck={
+                in_inner=inl _ -> one
+                }
+            }
+
+    inl mean x =
+        inl b,a = primal x .dim
+        inl mean = one / to float a
+        broadcasting_activation {
+            fwd=inl {in_inner} -> in_inner * n
+            bck={
+                in_inner=inl _ -> n
+                }
+            }
+
+    inl ln x =
+        inm m = mean x
+        inm x = sub x m
+        inm std = sqr x >>= mean >> sqrt
+        div x std
+
+    //inl ln = seq float <| inl k -> 
+    //    open CudaAD
+    //    open Seq k .Op
+    //    layer_norm 
+    
     inl relu_ln = seq float <| inl k -> 
         open CudaAD
         open Seq k .Op
@@ -1505,7 +1556,9 @@ inl float ->
         inl tanh = layer I.tanh tanh
         inl linear = layer I.sigmoid succ
         inl zero = layer (I.const zero) succ
-        inl relu_ln = layer (I.relu) relu_ln
+        inl relu_ln = 
+            //layer (I.relu) relu_ln
+            layer (I.relu) (inl x -> Activation.relu x >>= ln)
         inl tanh_ln = layer (I.tanh) tanh_ln
         {sigmoid relu tanh linear zero relu_ln tanh_ln} |> stackify
 
