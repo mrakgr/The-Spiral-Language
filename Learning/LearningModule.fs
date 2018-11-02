@@ -1177,27 +1177,23 @@ inl float ->
         s.CudaTensor.print (primal x)
         {out=(); bck=()}
 
-    inl ln x =
-        inm m = mean x
-        inm x = sub x m
-        //inm _ = print x
-        inm std = sqr' x >>= mean >>= sqrt'
-        //inm _ = print std
-        inm r = div x std
-        //inm _ = print (primal r)
-        succ r
+    //inl ln x =
+    //    inm m = mean x
+    //    inm x = sub x m
+    //    inm std = sqr' x >>= mean >>= sqrt'
+    //    div x std
 
-    //inl ln = seq float <| inl k -> 
-    //    open CudaAD
-    //    open Seq k .Op
-    //    layer_norm 
+    inl ln = seq float <| inl k -> 
+        open CudaAD
+        open Seq k .Op
+        layer_norm 
     
     //inl relu_ln = seq float <| inl k -> 
     //    open CudaAD
     //    open Seq k .Op
     //    relu >> layer_norm 
 
-    //inl generalized_mi_relu_ln = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_relu_ln
+    inl generalized_mi_relu_ln = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_relu_ln
 
     //inl tanh_ln = seq float <| inl k -> 
     //    open CudaAD
@@ -1793,9 +1789,12 @@ inl float ->
                         input={(weights.input) with data=input}
                         state={(weights.state) with data=out}
                         }
-                    >>= inl x -> 
-                        //map CudaAD.Activation.generalized_mi_tanh {x with bias}
-                        generalized_mi_relu_ln {x with bias}
+                    >>= inl x -> map CudaAD.Activation.generalized_mi {x with bias}
+                    >>= Activation.tanh
+                    >>= ln
+                    //>>= inl x -> 
+                    //    //map CudaAD.Activation.generalized_mi_tanh {x with bias}
+                    //    generalized_mi_relu_ln {x with bias}
                 succ {out state={out}}
 
             inl {out={out state} bck} = apply s

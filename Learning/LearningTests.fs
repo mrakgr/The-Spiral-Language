@@ -29,7 +29,7 @@ inl {test_images test_labels} = module_map (inl _ x -> x.round_split' test_minib
 inl input_size = 784
 inl label_size = 10
 
-inl learning_rate = 0f32 //2f32 ** -13f32
+inl learning_rate = 2f32 ** -11f32
 inl network,_ =
     open Feedforward
     inl network =
@@ -159,7 +159,7 @@ inl input = input {from=0; by=by-1}
 
 inl data = {input label} |> Struct.map (inl x -> x.round_split' size.step)
 
-inl learning_rate = 2f32 ** -12f32
+inl learning_rate = 2f32 ** -13f32
 inl n = 1f32 / to float size.step
 
 inl network,_ =
@@ -453,7 +453,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None 
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
 |> printfn "%s"
 |> ignore
 
