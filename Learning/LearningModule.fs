@@ -1112,28 +1112,6 @@ inl float ->
             bck = inl _ -> one, one
             } (a,b)
 
-    inl sub a b = 
-        activation {
-            fwd = inl a,b -> a-b
-            bck = inl _ -> one, -one
-            } (a,b)
-
-    inl sqr' = activation {
-        fwd = inl x -> x * x
-        bck = inl {in} -> two * in
-        }
-
-    inl sqrt' = activation {
-        fwd = inl x -> sqrt x
-        bck = inl {in out} -> half / out
-        }
-
-    inl div a b = 
-        activation {
-            fwd = inl {a b} -> a/b
-            bck = inl {in={a b} out} -> { a = one / b; b = -out / b }
-            } {a b}
-
     inl mult a b =
         activation {
             fwd = inl {a b} -> a*b
@@ -1147,61 +1125,24 @@ inl float ->
             bck=inl {in={b x1 x2}} -> {b = one; x1 = x2; x2 = x1 }
             } {x1 x2 b}
 
-    inl mean in s =
-        inl b,a = primal in .dim
-        inl mean = one / to float a
-        inl out = 
-            inl in = to_dev_tensor (primal in)
-            s.CudaFun.init_seq {elem_type=float32; dim=b,a}
-                (inl b k ->
-                    k.block.load (in b)
-                    |> k.block.uter' (+)
-                    |> k.block.map ((*) mean)
-                    )
-            |> dr s
-
-        {
-        out
-        bck=inl _ ->
-            inl {in out} = to_dev_tensor (adjoints {in out})
-            s.CudaKernel.iter_seq {dim=b,a}
-                (inl b k ->
-                    k.block.add_store {
-                        from=k.block.load (out b) |> k.block.uter' (+) |> k.block.map ((*) mean)
-                        to=in b
-                        }
-                    )
-        }
-
     inl print x s =
         s.CudaTensor.print (primal x)
         {out=(); bck=()}
-
-    //inl ln x =
-    //    inm m = mean x
-    //    inm x = sub x m
-    //    inm std = sqr' x >>= mean >>= sqrt'
-    //    div x std
 
     inl ln = seq float <| inl k -> 
         open CudaAD
         open Seq k .Op
         layer_norm 
     
-    //inl relu_ln = seq float <| inl k -> 
-    //    open CudaAD
-    //    open Seq k .Op
-    //    relu >> layer_norm 
+    inl ln_relu = seq float <| inl k -> 
+        open CudaAD
+        open Seq k .Op
+        layer_norm >> relu
 
     inl generalized_mi_ln_relu = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_ln_relu
 
-    //inl tanh_ln = seq float <| inl k -> 
-    //    open CudaAD
-    //    open Seq k .Op
-    //    tanh >> layer_norm 
-
     inl linear = succ
-    inl Activation = { linear sigmoid tanh relu add hadmult hadmultb } |> stack
+    inl Activation = { linear sigmoid tanh relu add hadmult hadmultb ln_relu} |> stack
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
@@ -1570,11 +1511,8 @@ inl float ->
         inl tanh = layer I.tanh tanh
         inl linear = layer I.sigmoid succ
         inl zero = layer (I.const zero) succ
-        inl relu_ln = 
-            //layer (I.relu) relu_ln
-            layer (I.relu) (inl x -> Activation.relu x >>= ln)
-        //inl tanh_ln = layer (I.tanh) tanh_ln
-        {sigmoid relu tanh linear zero relu_ln} |> stackify
+        inl ln_relu = layer (I.relu) ln_relu
+        {sigmoid relu tanh linear zero ln_relu} |> stackify
    
     inl zero_like x = 
         inl zero dim s = {out=s.CudaTensor.zero {elem_type=float; dim}; bck=()}
@@ -1737,7 +1675,7 @@ inl float ->
                 inm out =
                     inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
                     inl data = Struct.map' (inl data -> data.basic) data
-                    matmult_stream {weights with data} >>= tanh_ln
+                    matmult_stream {weights with data} >>= tanh
                 succ {out state={out}}
 
             inl {out={out state} bck} = apply s
@@ -1789,17 +1727,12 @@ inl float ->
                         input={(weights.input) with data=input}
                         state={(weights.state) with data=out}
                         }
-                    //>>= inl x -> map CudaAD.Activation.generalized_mi {x with bias}
-                    //>>= ln
-                    //>>= Activation.relu
-                    >>= inl x -> 
-                        //map CudaAD.Activation.generalized_mi_tanh {x with bias}
-                        generalized_mi_ln_relu {x with bias}
+                    >>= inl x -> generalized_mi_ln_relu {x with bias}
                 succ {out state={out}}
 
             inl {out={out state} bck} = apply s
             {out state bck}
-        //optimize = Optimizer.kfac
+        optimize = Optimizer.kfac
         block = ()
         }
 

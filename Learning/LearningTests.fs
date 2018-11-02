@@ -29,11 +29,11 @@ inl {test_images test_labels} = module_map (inl _ x -> x.round_split' test_minib
 inl input_size = 784
 inl label_size = 10
 
-inl learning_rate = 2f32 ** -11f32
+inl learning_rate = 2f32 ** -10f32
 inl network,_ =
     open Feedforward
     inl network =
-        relu_ln 256,
+        ln_relu 256,
         linear label_size
     //inl network =
     //    prong {activation=Activation.relu; size=256},
@@ -178,7 +178,7 @@ inl network,_ =
             linear size.hot
         }
 
-    init s size.hot network.mi
+    init s size.hot network.rnn
 
 inl truncate network s' =
     inl s = s'.RegionMem.create
