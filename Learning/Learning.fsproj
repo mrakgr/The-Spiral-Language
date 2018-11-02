@@ -74,6 +74,7 @@
     <None Include="old modules\LearningModule.fs%27%27" />
     <None Include="old modules\LearningTests.fs%27%27" />
     <Content Include="old modules\rnns.txt" />
+    <None Include="Script1.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

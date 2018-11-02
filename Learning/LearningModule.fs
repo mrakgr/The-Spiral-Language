@@ -1119,7 +1119,7 @@ inl float ->
             } (a,b)
 
     inl sqr' = activation {
-        fwd = inl x -> x
+        fwd = inl x -> x * x
         bck = inl {in} -> two * in
         }
 
@@ -1174,15 +1174,17 @@ inl float ->
         }
 
     inl print x s =
-        s.CudaTensor.print x
+        s.CudaTensor.print (primal x)
         {out=(); bck=()}
 
     inl ln x =
         inm m = mean x
         inm x = sub x m
+        //inm _ = print x
         inm std = sqr' x >>= mean >>= sqrt'
+        //inm _ = print std
         inm r = div x std
-        inm _ = print (primal r)
+        //inm _ = print (primal r)
         succ r
 
     //inl ln = seq float <| inl k -> 
