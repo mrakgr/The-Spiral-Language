@@ -1122,19 +1122,13 @@ inl float ->
             bck=inl {in={b x1 x2}} -> {b = one; x1 = x2; x2 = x1 }
             } {x1 x2 b}
 
-    inl ln = seq float <| inl k -> CudaAD .Seq k .Op .layer_norm
     inl relu_ln = seq float <| inl k -> 
             open CudaAD
             open Seq k .Op
             relu >> layer_norm 
 
-    inl ln_relu = seq float <| inl k -> 
-            open CudaAD
-            open Seq k .Op
-            layer_norm >> relu
-
     inl linear = succ
-    inl Activation = { linear sigmoid tanh relu add hadmult hadmultb ln relu_ln ln_relu } |> stack
+    inl Activation = { linear sigmoid tanh relu add hadmult hadmultb relu_ln } |> stack
 
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
@@ -1503,10 +1497,8 @@ inl float ->
         inl tanh = layer I.tanh tanh
         inl linear = layer I.sigmoid succ
         inl zero = layer (I.const zero) succ
-        inl ln = layer (I.relu) ln
         inl relu_ln = layer (I.relu) relu_ln
-        inl ln_relu = layer (I.relu) ln_relu
-        {sigmoid relu tanh linear zero ln relu_ln ln_relu} |> stackify
+        {sigmoid relu tanh linear zero relu_ln} |> stackify
 
     inl print x s =
         s.CudaTensor.print x
