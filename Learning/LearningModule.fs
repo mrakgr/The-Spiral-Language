@@ -259,7 +259,7 @@ inl Op =
 inl Activation =
     open Op
     inl generalized_mi {bias={si s i c} input state} = si * state * input + s * state + i * input + c
-    inl generalized_mi_tanh {bias={si s i c} input state} = si * state * input + s * state + i * input + c |> tanh
+    inl generalized_mi_tanh {si s i c} {input state} = si * state * input + s * state + i * input + c |> tanh
 
     inl lstm {memory cell} =
         inm memory = sigmoid cell.input * tanh cell.memory + sigmoid cell.forget * memory
@@ -1672,6 +1672,58 @@ inl float ->
                     inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
                     inl data = Struct.map' (inl data -> data.basic) data
                     matmult_stream {weights with data} >>= tanh_ln
+                succ {out state={out}}
+
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        optimize = Optimizer.kfac
+        block = ()
+        }
+
+    inl mi size =
+        inl inner = 
+            {
+            matrix = size
+            bias = {si=size; i=size; s=size; c=size}
+            }
+        {
+        init = inl sublayer_size -> 
+            open Initializer.dual.TensorView
+            inl outer = sublayer_size
+            inl init = {
+                bias = {si=const one; i=const half; s=const half; c=const zero}
+                }
+            {
+            dsc = 
+                {
+                weights = 
+                    {
+                    input = weight {init=tanh; dim=outer,inner.matrix}
+                    state = weight {init=tanh; dim=outer,inner.matrix}
+                    }
+                bias = bias {init=init.bias; dim=1,inner.bias}
+                outer = val outer
+                }
+            size
+            }
+
+        apply = inl {d with weights={weights bias outer} input} s -> 
+            inl span = primal input .span_outer
+            inl out =
+                match d with
+                | {state={out}} -> out
+                | _ -> 
+                    inl f _ = s.CudaTensor.zero {elem_type=float; dim=span,size}
+                    f()
+
+            inl apply =
+                inm out =
+                    inl bias = wrap_split_weight ((),inner.bias) bias
+                    matmult_stream {
+                        input={(weights.input) with data=input}
+                        state={(weights.state) with data=out}
+                        }
+                    >>= CudaAD.Activation.generalized_mi_tanh bias
                 succ {out state={out}}
 
             inl {out={out state} bck} = apply s
