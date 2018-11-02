@@ -1684,6 +1684,66 @@ inl float ->
         block = ()
         }
 
+    inl plastic_rnn size =
+        {
+        init = inl sublayer_size -> 
+            open Initializer.dual.TensorView
+            inl outer = 
+                {
+                static={bias=1; input=sublayer_size; state=size}
+                plastic={input=sublayer_size; state=size}
+                }
+            inl inner = 
+                {
+                static={modulation={input=sublayer_size; state=size} out=size}
+                plastic=size
+                }
+            inl init = 
+                {
+                bias={modulation={input=const zero; state=const zero}; out=const zero}
+                input={modulation={input=identity; state=const zero}; out=identity}
+                state={modulation={input=const zero; state=identity}; out=const zero}
+                }
+            {
+            dsc = 
+                {
+                weights = weight {init dim=outer.static,inner.static}
+                dim = val {outer inner sublayer_size}
+                }
+            size
+            }
+
+        apply = inl {d with weights={weights dim={outer inner sublayer_size}} input} s -> 
+            inl span = primal input .span_outer
+            assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl H =
+                match d with
+                | {state={H}} -> H
+                | _ -> s.CudaTensor.zero {elem_type=float; dim=outer.plastic, inner.plastic}
+
+            inl state =
+                match d with
+                | {state={state}} -> state
+                | _ -> s.CudaTensor.zero {elem_type=float; dim=span, size}
+            
+            inl apply =
+                inm {modulation out} =
+                    inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
+                    inl data = Struct.map' (inl data -> data.basic) data
+                    inm data = matmult_stream {weights with data}
+                    wrap_split ((), {modulation=sublayer_size+size; out=size}) data
+                inm out =
+                    inm out' = matmult_stream {data=modulation; weight=H; streams=weights.streams}
+                    tanh (out, out')
+                inm H = wn_hebb {H modulation out}
+                succ {out state={state=out; H}}
+
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        optimize = Optimizer.kfac
+        block = ()
+        }
+
     inl mi size =
         inl inner = 
             {
