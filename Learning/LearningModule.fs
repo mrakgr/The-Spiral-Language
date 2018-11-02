@@ -440,10 +440,10 @@ inl Seq k =
 
     inl Activation =
         open Op
-        inl generalized_mi_relu_ln {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= relu >>= layer_norm
+        inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
         inl wn_hebb {H in out} = weight_norm (H + in * out)
             
-        {generalized_mi_relu_ln wn_hebb}
+        {generalized_mi_ln_relu wn_hebb}
 
     {
     dr link link_broadcast link_auto link_adjoint link_adjoint_view 
@@ -1193,7 +1193,7 @@ inl float ->
     //    open Seq k .Op
     //    relu >> layer_norm 
 
-    inl generalized_mi_relu_ln = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_relu_ln
+    inl generalized_mi_ln_relu = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_ln_relu
 
     //inl tanh_ln = seq float <| inl k -> 
     //    open CudaAD
@@ -1789,12 +1789,12 @@ inl float ->
                         input={(weights.input) with data=input}
                         state={(weights.state) with data=out}
                         }
-                    >>= inl x -> map CudaAD.Activation.generalized_mi {x with bias}
-                    >>= ln
-                    >>= Activation.relu
-                    //>>= inl x -> 
-                    //    //map CudaAD.Activation.generalized_mi_tanh {x with bias}
-                    //    generalized_mi_relu_ln {x with bias}
+                    //>>= inl x -> map CudaAD.Activation.generalized_mi {x with bias}
+                    //>>= ln
+                    //>>= Activation.relu
+                    >>= inl x -> 
+                        //map CudaAD.Activation.generalized_mi_tanh {x with bias}
+                        generalized_mi_ln_relu {x with bias}
                 succ {out state={out}}
 
             inl {out={out state} bck} = apply s
