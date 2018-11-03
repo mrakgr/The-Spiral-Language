@@ -1726,7 +1726,6 @@ inl float ->
                     succ (wrap_split ((), module_map (const View.span) inner.static) data)
                 inm out =
                     inl data = Struct.map' (inl data -> data .view {a=()} .basic) data
-                    print_static (primal data .unwrap)
                     inm out' = matmult_stream {data weight=H; streams=weights.streams; block=()}
                     tanh (out, out')
                 inm H = wn_hebb {H modulation out}

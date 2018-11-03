@@ -1820,6 +1820,8 @@ inl rec equal (!zip t) =
 
 /// Asserts that the tensor is contiguous.
 inl assert_contiguous = flatten >> ignore
+/// Asserts that the innermost dimension of the tensor is not padded.
+inl assert_unpadded tns = tns.update_body (inl {size} -> assert (Tuple.last size = 1) "The tensor must be unpadded in the innermost dimension.") |> ignore
 /// Asserts that the dimensions of the tensors are all equal.
 inl assert_dim = assert_zip >> ignore
 /// Prints the tensor to the standard output.
@@ -1839,7 +1841,7 @@ inl from_scalar x =
 {
 create facade init copy assert_size array_as_tensor array_to_tensor map zip show print length expand_singular
 equal split flatten assert_contiguous assert_zip assert_broadcastable assert_dim reshape unzip from_scalar
-rotate
+rotate assert_unpadded
 } |> stackify
     """) |> module_
 

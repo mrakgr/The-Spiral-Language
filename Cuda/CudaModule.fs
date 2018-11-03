@@ -781,7 +781,7 @@ inl s ret ->
     inl call s method args = 
         inl cublas = s.data.cublas
         inl stream = s.data.stream
-        inl to_dev_tensor x = assert_contiguous x; CudaAux.to_dev_tensor x
+        inl to_dev_tensor x = assert_unpadded x; CudaAux.to_dev_tensor x
         inl handle = FS.Method cublas .get_CublasHandle() (fs [text: "ManagedCuda.CudaBlas.CudaBlasHandle"])
         FS.Method cublas .set_Stream stream.extract ()
         inl args = 
