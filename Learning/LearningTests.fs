@@ -304,7 +304,7 @@ inl size = {
     pattern = 50
     episode = 5
     minibatch = 1
-    seq = 500
+    seq = 200
 
     shot = 1
     pattern_repetition = 5
@@ -418,7 +418,7 @@ met train {!data network learning_rate final covariance_modifier} s =
             Console.printfn "At iteration {0} the cost is {1}" (i, cost.square())
         else next()
 
-inl learning_rate = 0f32 //2f32 ** -10f32
+inl learning_rate = 2f32 ** -24f32
 inl covariance_modifier = 2f32 ** 0f32
 inl n = 0.0001f32
 

@@ -1146,7 +1146,8 @@ inl float ->
             } {x1 x2 b}
 
     inl print x s =
-        s.CudaTensor.print (primal x)
+        inb x = s.CudaFun.map {map=id} (primal x) |> CudaAux.temporary
+        s.CudaTensor.print x
         {out=(); bck=()}
 
     inl ln_relu = seq float <| inl k -> 
@@ -1718,7 +1719,7 @@ inl float ->
                 static={modulation out=size}
                 plastic=size
                 }
-            inl identity' = identity' 0.01f32
+            inl identity' = identity' 0.0001f32
             inl init = 
                 {
                 bias={modulation={input=const zero; state=const zero}; out=const zero}
@@ -1753,16 +1754,23 @@ inl float ->
                     inl data = Struct.map' (inl data -> data.basic) data
                     inm data = matmult_stream {weights with data}
                     succ (wrap_split ((), module_map (const View.span) inner.static) data)
+                //inm _ = print state
+                //inm _ = print (Struct.map' (inl x -> x.basic) data)
+                //inm _ = print modulation
+                //inm _ = print out
                 inm out =
                     inl data = Struct.map' (inl data -> data .view {a=()} .basic) data
                     inm out' = matmult_stream {data weight={T=H}; streams=weights.streams; block=()}
+                    //inm _ = print out'
                     tanh (out, out')
+                //inm _ = print out
                 inm H = wn_hebb {H modulation out}
+                //inm _ = print H
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s
             {out state bck}
-        optimize = Optimizer.kfac
+        //optimize = Optimizer.kfac
         block = ()
         }
 
