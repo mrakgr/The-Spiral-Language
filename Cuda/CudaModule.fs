@@ -1789,7 +1789,6 @@ met iter_seq w {dim=b,a} f =
                         store_scalar=inl {from to} -> if threadIdx.x = 0 then to .set from
                         map=inl f (!zip tns) -> create_items (inl {item} -> f (tns item .get))
                         uter=inl redo items -> block_reduce redo items.bodies.ar |> broadcast_zero
-                        uter'=inl redo items -> block_reduce redo items.bodies.ar |> broadcast_zero |> (create_items << const)
                         redo=inl redo items -> block_reduce redo items.bodies.ar
                         }
 

@@ -398,30 +398,40 @@ inl Seq k =
                     add_adjoint x (const er)
                 }
 
+        inl mean =
+            unary_bind <| inl x ->
+                inl dim = to float (Tensor.length (snd k.dim))
+                inl div x = x / dim
+                inl out = k.block.uter (+) (primal x) |> div |> val |> dr
+                {
+                out
+                bck=inl _ -> 
+                    inl er = k.block.uter (+) out.adjoint |> div
+                    add_adjoint x (const er)
+                }
+
         //// ----------
         open Op
 
         inl norm_template f x =
-            inl dim = val (to float (snd k.dim))
-            inl mean x = sum x / dim
             inm x = x - mean x
             inm std = f x + val (to float (10.0 ** -7.0))
             succ (x, std)
 
         inl l1_norm_body = norm_template (abs >> mean)
-        inl l2_norm_body x = norm_template (sqr >> mean >> sqrt)
+        inl l2_norm_body = norm_template (sqr >> mean >> sqrt)
 
         inl layer_norm =
             unary_bind <| inl x ->
-                inm x, std = l1_norm_body x
+                inm x, std = l2_norm_body x
                 x / std
 
         inl weight_norm =
             unary_bind <| inl x ->
-                inm x, std = l1_norm_body x
+                inm x, std = l2_norm_body x
                 if_ {cond=std < one; t=x; f=x / std}
         
-        {Op with sum layer_norm weight_norm}
+        {Op with sum mean layer_norm weight_norm}
 
     inl Activation =
         open Op
@@ -1656,7 +1666,7 @@ inl float ->
                 inm out =
                     inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
                     inl data = Struct.map' (inl data -> data.basic) data
-                    matmult_stream {weights with data} >>= tanh
+                    matmult_stream {weights with data} >>= ln_relu
                 succ {out state={out}}
 
             inl {out={out state} bck} = apply s
