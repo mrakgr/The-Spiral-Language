@@ -63,8 +63,8 @@ inl op fwd bck =
         {
         out
         bck=inl _ -> 
-            inl x = {(primals x) with out=primal out}
-            module_iter (inl k x' -> add_adjoint x' (inl _ -> bck x * get_adjoint out)) x
+            inl x' = {(primals x) with out=primal out}
+            Struct.iter2 (inl bck x -> add_adjoint x (inl _ -> bck x' * get_adjoint out)) bck x
         }
 
 inl unary_op fwd bck a = op (inl {a} -> fwd a) {a = inl {a out} -> bck a out} {a}
@@ -309,8 +309,8 @@ inl Seq k =
             {
             out
             bck=inl _ -> 
-                inl x = {(primals x) with out=primal out}
-                module_iter (inl k x' -> add_adjoint x' (inl item -> bck x * get_adjoint item out)) x
+                inl x' = {(primals x) with out=primal out}
+                Struct.iter2 (inl bck x -> add_adjoint x (inl item -> bck (Struct.map' (inl x -> x item .get) x') * get_adjoint item out)) bck x
             }
 
     inl unary_op fwd bck a = op (inl {a} -> fwd a) {a = inl {a out} -> bck a out} {a}
