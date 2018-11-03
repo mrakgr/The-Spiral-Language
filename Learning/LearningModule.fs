@@ -63,6 +63,12 @@ inl binary_bind f a b =
     inm b = b
     f a b
 
+inl trinary_bind f a b c =
+    inm a = a
+    inm b = b
+    inm c = c
+    f a b c
+
 inl unary_op fwd bck =
     unary_bind <| inl x ->
         inl out = primal x |> fwd |> dr
@@ -94,6 +100,19 @@ inl binary_op fwd bck =
         }
 
 inl binary {fwd bck} = {fwd bck op = binary_op fwd bck}
+
+inl trinary_op fwd bck =
+    trinary_bind <| inl a b c ->
+        inl out = fwd (primal a) (primal b) (primal c) |> dr
+        {
+        out
+        bck=inl _ ->
+            add_adjoint a (inl _ -> bck.a (primal a) (primal b) (primal c) (primal out) * get_adjoint out)
+            add_adjoint b (inl _ -> bck.b (primal a) (primal b) (primal c) (primal out) * get_adjoint out)
+            add_adjoint c (inl _ -> bck.c (primal a) (primal b) (primal c) (primal out) * get_adjoint out)
+        }
+
+inl trinary {fwd bck} = {fwd bck op = trinary_op fwd bck}
 
 inl Unary = 
     inl sigmoid =
@@ -181,6 +200,18 @@ inl Comp =
     inl (>) = comp (>)
     {(<) (<=) (=) (>=) (>)}
 
+inl Trinary =
+    inl cond =
+        trinary {
+            fwd=inl cond tr fl -> if cond then tr else fl
+            bck={
+                a = inl cond tr fl out -> one
+                b = inl cond tr fl out -> if cond = true then one else zero
+                c = inl cond tr fl out -> if cond = true then zero else one
+                }
+            }
+    {cond}
+
 inl add_atomic = CudaAux.atomic_add
 inl add_std x out = x .set (x .get + out)
 
@@ -262,13 +293,6 @@ inl sequence_module f x =
     inl bck = module_foldr (inl k {bck} s -> bck << s) x (const ())
     inl out = module_map (inl _ {out} -> out) x
     {out bck}
-
-// Note: This conditional lacks delayed evaluation.
-inl if_ {cond t f} =
-    {
-    out=if cond.out then true else false
-    bck=inl _ -> if cond.out then true.bck() else false.bck()
-    }
 
 inl Op =
     inl m = module_map (inl _ {op} -> op) Unary
