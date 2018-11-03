@@ -1130,7 +1130,9 @@ inl float ->
         layer_norm >> relu
 
     inl generalized_mi_ln_relu = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_ln_relu
-    inl wn_hebb = seq float <| inl k -> CudaAD .Seq k .Activation .wn_hebb
+    inl wn_hebb x = 
+        {x with out=Struct.map' (Tensor.rotate (inl a,b -> b,a)) self}
+        |> seq float (inl k -> CudaAD .Seq k .Activation .wn_hebb)
 
     inl linear = succ
     inl Activation = { linear sigmoid tanh relu add hadmult hadmultb ln_relu} |> stack
@@ -1714,7 +1716,7 @@ inl float ->
                 match d with
                 | {state} -> state
                 | _ -> {
-                    H=s.CudaTensor.zero_view {elem_type=float; dim=outer.plastic, inner.plastic} .basic
+                    H=s.CudaTensor.zero_view {elem_type=float; dim=inner.plastic, outer.plastic} .basic
                     state=s.CudaTensor.zero {elem_type=float; dim=span, size}
                     }
 
@@ -1726,7 +1728,7 @@ inl float ->
                     succ (wrap_split ((), module_map (const View.span) inner.static) data)
                 inm out =
                     inl data = Struct.map' (inl data -> data .view {a=()} .basic) data
-                    inm out' = matmult_stream {data weight=H; streams=weights.streams; block=()}
+                    inm out' = matmult_stream {data weight={T=H}; streams=weights.streams; block=()}
                     tanh (out, out')
                 inm H = wn_hebb {H modulation out}
                 succ {out state={state=out; H}}
