@@ -200,6 +200,9 @@ inl module_values x = !ModuleValues(x)
 /// Maps over a module.
 /// (string type_lit -> a -> b) -> a module -> b module
 inl module_map f a = !ModuleMap(f,a)
+/// Iterates over a module.
+/// (string type_lit -> a -> ()) -> a module -> ()
+inl module_iter f a = module_map (inl k a -> f k a; ()) a |> ignore
 /// Filters a module at compile time.
 /// (string type_lit -> a -> bool) -> a module -> a module
 inl module_filter f a = !ModuleFilter(f,a)
@@ -269,7 +272,7 @@ inl macro = {
 inl infinityf64 = !InfinityF64()
 inl infinityf32 = !InfinityF32()
 // Note: Nan is not allowed as a literal because it cannot be memoized. Just use zero or something else.
-// Since join points use structural equality and nan = nan returns false, nans will cause it to diverge.
+// Since join points use structural equality and nan = nan returns false, nans will cause the compiler to diverge.
 // Note for future language designers - make nan = nan return true!
 
 /// Returns the absolute value.
@@ -330,7 +333,7 @@ string_length lit_is box_is failwith assert max min eq_type module_values caseab
 (:?>) (=) module_map module_filter module_foldl module_foldr module_has_member sizeof string_format string_concat
 array_create_cuda_shared array_create_cuda_local infinityf64 infinityf32 abs blittable_is threadIdx blockIdx
 lit_min lit_max var module_add module_remove obj nan_is stackify case_foldl_map module_foldl_map module_length
-module_intersect
+module_intersect module_iter
 }
 |> module_map (const stack)
     """) |> module_

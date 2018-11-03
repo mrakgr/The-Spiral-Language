@@ -54,65 +54,38 @@ inl bind f x =
         next {m with $k=x}
         ) x f {}
 
-inl unary_bind f x =
-    inm x = x
-    f x
+inl unary_bind f a = bind (inl {a} -> f a) {a}
+inl binary_bind f a b = bind (inl {a b} -> f a b) {a b}
 
-inl binary_bind f a b =
-    inm a = a
-    inm b = b
-    f a b
-
-inl trinary_bind f a b c =
-    inm a = a
-    inm b = b
-    inm c = c
-    f a b c
-
-inl unary_op fwd bck =
-    unary_bind <| inl x ->
-        inl out = primal x |> fwd |> dr
+inl op fwd bck =
+    bind <| inl x ->
+        inl out = primals x |> fwd |> dr
         {
         out
-        bck=inl _ -> add_adjoint x (inl _ -> bck (primal x) (primal out) * get_adjoint out)
+        bck=inl _ -> 
+            inl x = {(primals x) with out=primal out}
+            module_iter (inl k x' -> add_adjoint x' (inl _ -> bck x * get_adjoint out)) x
         }
 
+inl unary_op fwd bck a = op (unary_bind fwd) {a = inl {a out} -> bck a out} {a}
 inl unary {fwd bck} = {fwd bck op = unary_op fwd bck}
 
-inl comp_op fwd =
-    binary_bind <| inl a b ->
+inl comp_op fwd a b =
+    bind (inl {a b} ->
         inl out = fwd (primal a) (primal b)
         {
         out
         bck=const ()
         }
+        ) {a b}
 
 inl comp fwd = {fwd op = comp_op fwd}
 
-inl binary_op fwd bck =
-    binary_bind <| inl a b ->
-        inl out = fwd (primal a) (primal b) |> dr
-        {
-        out
-        bck=inl _ ->
-            add_adjoint a (inl _ -> bck.a (primal a) (primal b) (primal out) * get_adjoint out)
-            add_adjoint b (inl _ -> bck.b (primal a) (primal b) (primal out) * get_adjoint out)
-        }
+inl binary_op fwd bck a b =
+    inl bck = module_map (inl k bck -> inl {a b out} -> bck a b out) bck
+    op (binary_bind fwd) bck {a b}
 
 inl binary {fwd bck} = {fwd bck op = binary_op fwd bck}
-
-inl trinary_op fwd bck =
-    trinary_bind <| inl a b c ->
-        inl out = fwd (primal a) (primal b) (primal c) |> dr
-        {
-        out
-        bck=inl _ ->
-            add_adjoint a (inl _ -> bck.a (primal a) (primal b) (primal c) (primal out) * get_adjoint out)
-            add_adjoint b (inl _ -> bck.b (primal a) (primal b) (primal c) (primal out) * get_adjoint out)
-            add_adjoint c (inl _ -> bck.c (primal a) (primal b) (primal c) (primal out) * get_adjoint out)
-        }
-
-inl trinary {fwd bck} = {fwd bck op = trinary_op fwd bck}
 
 inl Unary = 
     inl sigmoid =
@@ -200,16 +173,15 @@ inl Comp =
     inl (>) = comp (>)
     {(<) (<=) (=) (>=) (>)}
 
-inl Trinary =
+inl Custom =
     inl cond =
-        trinary {
-            fwd=inl cond tr fl -> if cond then tr else fl
-            bck={
-                a = inl cond tr fl out -> one
-                b = inl cond tr fl out -> if cond = true then one else zero
-                c = inl cond tr fl out -> if cond = true then zero else one
-                }
+        inl fwd {cond tr fl} = if cond then tr else fl
+        inl bck = {
+            cond = inl _ -> one
+            tr = inl {cond} -> if cond then one else zero
+            fl = inl {cond} -> if cond then zero else one
             }
+        {fwd bck op = op fwd bck}
     {cond}
 
 inl add_atomic = CudaAux.atomic_add
@@ -295,9 +267,9 @@ inl sequence_module f x =
     {out bck}
 
 inl Op =
-    inl m = module_map (inl _ {op} -> op) Unary
-    inl m = module_foldl (inl k m {op} -> {m with $k=op}) m Comp
-    module_foldl (inl k m {op} -> {m with $k=op}) m Binary
+    module_foldl (inl _ ->
+        module_foldl (inl k m {op} -> {m with $k=op})
+        ) {} {Unary Comp Custom Binary}
 
 inl Activation =
     open Op
@@ -330,41 +302,33 @@ inl Seq k =
         | _ -> ()
 
     inl get_adjoint item {adjoint} = adjoint item .get
-
-    inl unary_op fwd bck =
-        unary_bind <| inl x ->
-            inl out = k.block.map fwd (primal x) |> dr
+    inl op =
+        bind <| inl x ->
+            inl out = primals x |> k.block.map fwd |> dr
             {
             out
-            bck=inl _ -> add_adjoint x (inl item -> bck (primal x item .get) (primal out item .get) * get_adjoint item out)
+            bck=inl _ -> 
+                inl x = {(primals x) with out=primal out}
+                module_iter (inl k x' -> add_adjoint x' (inl item -> bck x * get_adjoint item out)) x
             }
 
+    inl unary_op fwd bck a = op (unary_bind fwd) {a = inl {a out} -> bck a out} {a}
     inl unary {fwd bck} = {fwd bck op = unary_op fwd bck}
-    inl Unary = module_map (const unary) Unary
 
-    inl comp_op fwd =
-        binary_bind <| inl a b ->
+    inl comp_op fwd a b =
+        bind (inl {a b} ->
             inl out = k.block.map (inl a,b -> fwd a b) (primal a, primal b)
             {
             out
             bck=const ()
             }
-
+            ) {a b}
     inl comp {fwd} = {fwd op = comp_op fwd}
-    inl Comp = module_map (const comp) Comp
 
-    inl binary_op fwd bck =
-        binary_bind <| inl a b ->
-            inl out = k.block.map (inl a,b -> fwd a b) (primal a, primal b) |> dr
-            {
-            out
-            bck=inl _ ->
-                add_adjoint a (inl item -> bck.a (primal a item .get) (primal b item .get) (primal out item .get) * get_adjoint item out)
-                add_adjoint b (inl item -> bck.b (primal a item .get) (primal b item .get) (primal out item .get) * get_adjoint item out)
-            }
-
+    inl binary_op fwd bck a b =
+        inl bck = module_map (inl k bck -> inl {a b out} -> bck a b out) bck
+        op (binary_bind fwd) bck {a b}
     inl binary {fwd bck} = {fwd bck op = binary_op fwd bck}
-    inl Binary = module_map (const binary) Binary
 
     inl add_atomic a b {i item} = add_atomic (a i) (b item .get)
     inl add_std a b {i item} = add_std (a i) (b item .get)
@@ -437,10 +401,15 @@ inl Seq k =
 
     inl link_adjoint_view b x = link_adjoint b {x with from=Struct.map (inl x a b -> x .view a .view b) self} 
 
+    inl Unary = module_map (const unary) Unary
+    inl Comp = module_map (const comp) Comp
+    inl Binary = module_map (const binary) Binary
+    inl Custom = module_map (const op) Custom
+
     inl Op =
-        inl m = module_map (inl _ {op} -> op) Unary
-        inl m = module_foldl (inl k m {op} -> {m with $k=op}) m Comp
-        module_foldl (inl k m {op} -> {m with $k=op}) m Binary
+        module_foldl (inl _ ->
+            module_foldl (inl k m {op} -> {m with $k=op})
+            ) {} {Unary Comp Custom Binary}
 
     inl Op =
         inl sum =
@@ -484,7 +453,7 @@ inl Seq k =
         inl weight_norm =
             unary_bind <| inl x ->
                 inm x, std = l2_norm_body x
-                if_ {cond=std < val one; t=x; f=x / std}
+                cond {cond=std < val one; tr=x; fl=x / std}
         
         {Op with sum mean layer_norm weight_norm}
 
