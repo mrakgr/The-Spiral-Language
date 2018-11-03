@@ -461,12 +461,12 @@ inl Seq k =
     inl Activation =
         open Op
         inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
-        inl wn_hebb {H modulation out} = weight_norm (H + modulation * out)
+        inl wn_hebb {H modulation out} = weight_norm (H + (layer_norm >> tanh >> (*) (val 0.001f32)) modulation * out)
             
         {generalized_mi_ln_relu wn_hebb}
 
     {
-    dr link link_broadcast link_auto link_adjoint link_adjoint_view 
+    dr val link link_broadcast link_auto link_adjoint link_adjoint_view 
     Unary Binary Op Activation
     }
 
@@ -1155,6 +1155,12 @@ inl float ->
         open Seq k .Op
         layer_norm >> relu
 
+    inl ln_tanh = seq float <| inl k x -> 
+        open CudaAD
+        open Seq k
+        open Op
+        Liple.foldl (+) (val zero) x |> layer_norm >>= tanh
+
     inl generalized_mi_ln_relu = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_ln_relu
     inl wn_hebb x = 
         {x with out=Struct.map' (Tensor.rotate (inl a,b -> b,a)) self}
@@ -1719,7 +1725,7 @@ inl float ->
                 static={modulation out=size}
                 plastic=size
                 }
-            inl identity' = identity' 0.0001f32
+            inl identity' = identity' 1f32
             inl init = 
                 {
                 bias={modulation={input=const zero; state=const zero}; out=const zero}
@@ -1762,7 +1768,7 @@ inl float ->
                     inl data = Struct.map' (inl data -> data .view {a=()} .basic) data
                     inm out' = matmult_stream {data weight={T=H}; streams=weights.streams; block=()}
                     //inm _ = print out'
-                    tanh (out, out')
+                    ln_tanh (out, out')
                 //inm _ = print out
                 inm H = wn_hebb {H modulation out}
                 //inm _ = print H
