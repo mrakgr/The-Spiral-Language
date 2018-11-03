@@ -73,6 +73,16 @@ inl unary_op fwd bck =
 
 inl unary {fwd bck} = {fwd bck op = unary_op fwd bck}
 
+inl comp_op fwd =
+    binary_bind <| inl a b ->
+        inl out = fwd (primal a) (primal b)
+        {
+        out
+        bck=const ()
+        }
+
+inl comp fwd = {fwd op = comp_op fwd}
+
 inl binary_op fwd bck =
     binary_bind <| inl a b ->
         inl out = fwd (primal a) (primal b) |> dr
@@ -162,6 +172,14 @@ inl Binary =
             }
 
     {(*) (/) (+) (-)}
+
+inl Comp =
+    inl (<) = comp (<)
+    inl (<=) = comp (<=)
+    inl (=) = comp (=)
+    inl (>=) = comp (>=)
+    inl (>) = comp (>)
+    {(<) (<=) (=) (>=) (>)}
 
 inl add_atomic = CudaAux.atomic_add
 inl add_std x out = x .set (x .get + out)
@@ -254,6 +272,7 @@ inl if_ {cond t f} =
 
 inl Op =
     inl m = module_map (inl _ {op} -> op) Unary
+    inl m = module_foldl (inl k m {op} -> {m with $k=op}) m Comp
     module_foldl (inl k m {op} -> {m with $k=op}) m Binary
 
 inl Activation =
@@ -298,6 +317,17 @@ inl Seq k =
 
     inl unary {fwd bck} = {fwd bck op = unary_op fwd bck}
     inl Unary = module_map (const unary) Unary
+
+    inl comp_op fwd =
+        binary_bind <| inl a b ->
+            inl out = k.block.map (inl a,b -> fwd a b) (primal a, primal b)
+            {
+            out
+            bck=const ()
+            }
+
+    inl comp {fwd} = {fwd op = comp_op fwd}
+    inl Comp = module_map (const comp) Comp
 
     inl binary_op fwd bck =
         binary_bind <| inl a b ->
@@ -385,6 +415,7 @@ inl Seq k =
 
     inl Op =
         inl m = module_map (inl _ {op} -> op) Unary
+        inl m = module_foldl (inl k m {op} -> {m with $k=op}) m Comp
         module_foldl (inl k m {op} -> {m with $k=op}) m Binary
 
     inl Op =
@@ -429,7 +460,7 @@ inl Seq k =
         inl weight_norm =
             unary_bind <| inl x ->
                 inm x, std = l2_norm_body x
-                if_ {cond=std < one; t=x; f=x / std}
+                if_ {cond=std < val one; t=x; f=x / std}
         
         {Op with sum mean layer_norm weight_norm}
 
