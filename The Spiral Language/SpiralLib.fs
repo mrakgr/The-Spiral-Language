@@ -1903,7 +1903,7 @@ inl rec facade data =
                                         Struct.foldl_map (inl s {x with from near_to} ->
                                             match s with
                                             | () -> {from=0; near_to=near_to-from; block=()}, x
-                                            | {from} -> Struct.map (inl x -> x-from) x, {s with near_to}
+                                            | {from} -> Struct.map' (inl x -> x-from) x, {s with near_to}
                                             ) () branch
                                         |> inl a, b -> view a () b
                                     | _ ->
