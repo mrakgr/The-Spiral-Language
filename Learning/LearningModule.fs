@@ -1679,21 +1679,24 @@ inl float ->
         {
         init = inl sublayer_size -> 
             open Initializer.dual.TensorView
+            inl modulation = {input=sublayer_size; state=size}
             inl outer = 
                 {
-                static={bias=1; input=sublayer_size; state=size}
-                plastic={input=sublayer_size; state=size}
+                static={bias=1; a=modulation} // a is here so the dimension comes first. They are ordered lexically.
+                plastic=out
                 }
             inl inner = 
                 {
-                static={modulation={input=sublayer_size; state=size} out=size}
+                static={modulation out=size}
                 plastic=size
                 }
             inl init = 
                 {
                 bias={modulation={input=const zero; state=const zero}; out=const zero}
-                input={modulation={input=identity; state=const zero}; out=identity}
-                state={modulation={input=const zero; state=identity}; out=const zero}
+                a={
+                    input={modulation={input=identity; state=const zero}; out=identity}
+                    state={modulation={input=const zero; state=identity}; out=const zero}
+                    }
                 }
             {
             dsc = 
@@ -1704,7 +1707,7 @@ inl float ->
             size
             }
 
-        apply = inl {d with weights={weights dim={outer inner sublayer_size}} input} s -> 
+        apply = inl {d with weights={weights dim={outer inner}} input} s -> 
             inl span = primal input .span_outer
             assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
             inl {state H} =
@@ -1716,13 +1719,14 @@ inl float ->
                     }
 
             inl apply =
+                inm data = segmented_init {dim=span,outer} {bias=const one; a={input=load input; state=load state}}
                 inm {modulation out} =
-                    inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
                     inl data = Struct.map' (inl data -> data.basic) data
                     inm data = matmult_stream {weights with data}
-                    wrap_split ((), {modulation=sublayer_size+size; out=size}) data
+                    succ (wrap_split ((), module_map (const View.span) inner.static) data)
                 inm out =
-                    inm out' = matmult_stream {data=modulation; weight=H; streams=weights.streams}
+                    inl data = Struct.map' (inl data -> data .view {a=()} .basic) data
+                    inm out' = matmult_stream {data weight=H; streams=weights.streams}
                     tanh (out, out')
                 inm H = wn_hebb {H modulation out}
                 succ {out state={state=out; H}}
