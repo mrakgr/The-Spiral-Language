@@ -15,12 +15,6 @@ inl half = 0.5f32
 inl one = 1f32
 inl two = 2f32
 
-inl learning_rate_range cur = function
-    | {from near_to} -> 
-        inl from, near_to = log from, log near_to
-        exp (from + (near_to - from) / (span_inner + one) * (to float a + one))
-    | n -> n
-
 inl (>>=) a b =
     match a with
     | {out=a bck=bck_a} ->
@@ -53,6 +47,12 @@ inl get_adjoint {adjoint} = adjoint 0
 
 inl primal {primal} | primal = primal
 inl primals = Struct.map primal
+
+inl bind f x =
+    module_foldr (inl k x next m ->
+        inm x = x
+        next {m with $k=x}
+        ) x f {}
 
 inl unary_bind f x =
     inm x = x
