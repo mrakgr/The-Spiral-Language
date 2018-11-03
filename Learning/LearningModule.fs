@@ -775,7 +775,7 @@ inl float ->
             inl get_dim = function 
                 | {T} -> T.dim |> inl b,a -> a,b
                 | T -> T.dim
-            inl (b,_),(_,a) = Tuple.map (primal >> get_dim) (data, weight)
+            inl (b,_),(_,a) = Tuple.map (primals >> get_dim) (data, weight)
             b,a
 
         inl init {d with data weight streams=l,r} = 
