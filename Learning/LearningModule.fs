@@ -1683,7 +1683,7 @@ inl float ->
             inl outer = 
                 {
                 static={bias=1; a=modulation} // a is here so the dimension comes first. They are ordered lexically.
-                plastic=out
+                plastic=modulation
                 }
             inl inner = 
                 {
@@ -1714,7 +1714,7 @@ inl float ->
                 match d with
                 | {state} -> state
                 | _ -> {
-                    H=s.CudaTensor.zero {elem_type=float; dim=outer.plastic, inner.plastic}
+                    H=s.CudaTensor.zero_view {elem_type=float; dim=outer.plastic, inner.plastic} .basic
                     state=s.CudaTensor.zero {elem_type=float; dim=span, size}
                     }
 
