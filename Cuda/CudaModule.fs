@@ -1994,6 +1994,7 @@ inl segmented_init w d init =
                 out
             | _ -> 
                 inl elem_type = type init (index_example' dim)
+                asd
                 w.CudaTensor.create_view {dim elem_type}
         inl _ =
             inl out = to_dev_tensor out
