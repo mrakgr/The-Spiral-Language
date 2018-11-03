@@ -1967,7 +1967,7 @@ inl index_example' dim =
     Liple.foldr (inl x next l ->
         inl rec loop = function
             | {from near_to} -> next (dyn 0 :: l)
-            | {} ->
+            | {} as x ->
                 inl {k x} = module_foldr (inl k x _ -> {k x}) x ()
                 {$k = loop x}
             | _ -> next (dyn 0 :: l)
@@ -1994,7 +1994,6 @@ inl segmented_init w d init =
                 out
             | _ -> 
                 inl elem_type = type init (index_example' dim)
-                asd
                 w.CudaTensor.create_view {dim elem_type}
         inl _ =
             inl out = to_dev_tensor out

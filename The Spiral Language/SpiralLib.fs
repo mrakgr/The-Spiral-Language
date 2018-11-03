@@ -1852,10 +1852,14 @@ inl view tns i =
         match dim with
         | {from near_to} -> (), i
         | {} ->
-            inl {k c i} = module_foldl (inl k s i -> {s with k i c=self+1}) {c=0} i
-            assert (c = 1) "The number of branches in a view's index must be 1."
-            inl x, s = f i (dim k)
-            {$k=x}, s
+            match i with
+            | {} ->
+                inl {k c i} = module_foldl (inl k s i -> {s with k i c=self+1}) {c=0} i
+                assert (c = 1) "The number of branches in a view's index must be 1."
+                inl x, s = f i (dim k)
+                {$k=x}, s
+            | _ ->
+                (), i
         | from ->
             (), i
     inl dim, i = Tuple.foldl_map f i tns.dim
