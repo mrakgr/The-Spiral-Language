@@ -1719,7 +1719,7 @@ inl float ->
                     }
 
             inl apply =
-                inm data = segmented_init {dim=span,outer} {bias=const one; a={input=load input; state=load state}}
+                inm data = segmented_init {dim=span,outer.static} {bias=const one; a={input=load input; state=load state}}
                 inm {modulation out} =
                     inl data = Struct.map' (inl data -> data.basic) data
                     inm data = matmult_stream {weights with data}
