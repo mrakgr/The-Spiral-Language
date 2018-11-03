@@ -405,13 +405,13 @@ inl Seq k =
             inl dim = val (to float (snd k.dim))
             inl mean x = sum x / dim
             inm x = x - mean x
-            inm std = sqr x |> mean |> sqrt
+            inm std = (sqr x |> mean |> sqrt) + val (to float (10.0 ** -7.0))
             succ (x, std)
 
         inl layer_norm =
             unary_bind <| inl x ->
                 inm x, std = l2_norm_body x
-                x / (std + val (to float (10.0 ** -7.0)))
+                x / std
 
         inl weight_norm =
             unary_bind <| inl x ->
