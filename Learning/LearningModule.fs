@@ -401,21 +401,24 @@ inl Seq k =
         //// ----------
         open Op
 
-        inl l2_norm_body x =
+        inl norm_template f x =
             inl dim = val (to float (snd k.dim))
             inl mean x = sum x / dim
             inm x = x - mean x
-            inm std = (sqr x |> mean |> sqrt) + val (to float (10.0 ** -7.0))
+            inm std = f x + val (to float (10.0 ** -7.0))
             succ (x, std)
+
+        inl l1_norm_body = norm_template (abs >> mean)
+        inl l2_norm_body x = norm_template (sqr >> mean >> sqrt)
 
         inl layer_norm =
             unary_bind <| inl x ->
-                inm x, std = l2_norm_body x
+                inm x, std = l1_norm_body x
                 x / std
 
         inl weight_norm =
             unary_bind <| inl x ->
-                inm x, std = l2_norm_body x
+                inm x, std = l1_norm_body x
                 if_ {cond=std < one; t=x; f=x / std}
         
         {Op with sum layer_norm weight_norm}
