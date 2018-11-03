@@ -461,7 +461,7 @@ inl Seq k =
     inl Activation =
         open Op
         inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
-        inl wn_hebb {H modulation out} = weight_norm (H + (layer_norm >> tanh >> (*) (val 0.001f32)) modulation * out)
+        inl wn_hebb {H modulation out} = weight_norm (H + modulation * out)
             
         {generalized_mi_ln_relu wn_hebb}
 
@@ -1771,7 +1771,7 @@ inl float ->
                     ln_tanh (out, out')
                 //inm _ = print out
                 inm H = wn_hebb {H modulation out}
-                //inm _ = print H
+                inm _ = print H
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s
