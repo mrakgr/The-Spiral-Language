@@ -1367,6 +1367,11 @@ inl float ->
                 inl tns = to_dev_tensor tns
                 s.CudaKernel.iter {dim=tns.dim} (inl i -> tns i .set init)
 
+            inl identity init tns s =
+                inl a,b as dim = tns.dim
+                assert (a = b) "The tensor needs to be a square matrix."
+                inl tns = to_dev_tensor tns
+                s.CudaKernel.iter {dim} (inl a,b as i -> tns i .set (if a = b then init else zero))
             {
             // Rough and possibly poorly tuned inits. Recommended to be used together with PRONG or layer/batch norm.
             relu = stddev_sum_init 1f32
@@ -1374,12 +1379,8 @@ inl float ->
             tanh = stddev_sum_init 3f32
             randn = inl stddev -> normal {stddev mean=0f32}
             const = constant
-
-            identity = inl tns s ->
-                inl a,b as dim = tns.dim
-                assert (a = b) "The tensor needs to be a square matrix."
-                inl tns = to_dev_tensor tns
-                s.CudaKernel.iter {dim} (inl a,b as i -> tns i .set (if a = b then one else zero))
+            identity' = identity
+            identity = identity one
             custom = inl f tns s -> f tns s
             }
 
@@ -1717,12 +1718,13 @@ inl float ->
                 static={modulation out=size}
                 plastic=size
                 }
+            inl identity' = identity' 0.01f32
             inl init = 
                 {
                 bias={modulation={input=const zero; state=const zero}; out=const zero}
                 a={
-                    input={modulation={input=identity; state=const zero}; out=identity}
-                    state={modulation={input=const zero; state=identity}; out=const zero}
+                    input={modulation={input=identity'; state=const zero}; out=identity}
+                    state={modulation={input=const zero; state=identity'}; out=const zero}
                     }
                 }
             {
