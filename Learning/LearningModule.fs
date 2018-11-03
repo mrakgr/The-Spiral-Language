@@ -67,7 +67,7 @@ inl op fwd bck =
             module_iter (inl k x' -> add_adjoint x' (inl _ -> bck x * get_adjoint out)) x
         }
 
-inl unary_op fwd bck a = op (unary_bind fwd) {a = inl {a out} -> bck a out} {a}
+inl unary_op fwd bck a = op (inl {a} -> fwd a) {a = inl {a out} -> bck a out} {a}
 inl unary {fwd bck} = {fwd bck op = unary_op fwd bck}
 
 inl comp_op fwd a b =
@@ -82,8 +82,9 @@ inl comp_op fwd a b =
 inl comp fwd = {fwd op = comp_op fwd}
 
 inl binary_op fwd bck a b =
+    inl fwd {a b} = fwd a b
     inl bck = module_map (inl k bck -> inl {a b out} -> bck a b out) bck
-    op (binary_bind fwd) bck {a b}
+    op fwd bck {a b}
 
 inl binary {fwd bck} = {fwd bck op = binary_op fwd bck}
 
@@ -302,7 +303,7 @@ inl Seq k =
         | _ -> ()
 
     inl get_adjoint item {adjoint} = adjoint item .get
-    inl op =
+    inl op fwd bck =
         bind <| inl x ->
             inl out = primals x |> k.block.map fwd |> dr
             {
@@ -312,7 +313,7 @@ inl Seq k =
                 module_iter (inl k x' -> add_adjoint x' (inl item -> bck x * get_adjoint item out)) x
             }
 
-    inl unary_op fwd bck a = op (unary_bind fwd) {a = inl {a out} -> bck a out} {a}
+    inl unary_op fwd bck a = op (inl {a} -> fwd a) {a = inl {a out} -> bck a out} {a}
     inl unary {fwd bck} = {fwd bck op = unary_op fwd bck}
 
     inl comp_op fwd a b =
@@ -326,8 +327,9 @@ inl Seq k =
     inl comp {fwd} = {fwd op = comp_op fwd}
 
     inl binary_op fwd bck a b =
+        inl fwd {a b} = fwd a b
         inl bck = module_map (inl k bck -> inl {a b out} -> bck a b out) bck
-        op (binary_bind fwd) bck {a b}
+        op fwd bck {a b}
     inl binary {fwd bck} = {fwd bck op = binary_op fwd bck}
 
     inl add_atomic a b {i item} = add_atomic (a i) (b item .get)
@@ -404,8 +406,7 @@ inl Seq k =
     inl Unary = module_map (const unary) Unary
     inl Comp = module_map (const comp) Comp
     inl Binary = module_map (const binary) Binary
-    inl Custom = module_map (const op) Custom
-
+    inl Custom = module_map (inl _ {fwd bck} -> {fwd bck op = op fwd bck}) Custom
     inl Op =
         module_foldl (inl _ ->
             module_foldl (inl k m {op} -> {m with $k=op})
