@@ -462,7 +462,7 @@ inl Seq k =
     inl Activation =
         open Op
         inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
-        inl wn_hebb eta {H input out} = H + val eta * input * out >>= weight_norm
+        inl wn_hebb {H eta input out} = H + eta * input * out >>= weight_norm
             
         {generalized_mi_ln_relu wn_hebb}
 
@@ -1010,8 +1010,10 @@ inl float ->
 
     inl init {dim} init s =
         inl out =
-            s.CudaFun.init {dim} (inl dim -> primals (init dim .out))
-            |> Tensor.unzip
+            inl x = 
+                open CudaAD
+                s.CudaFun.init {dim} (inl dim -> (init dim >>= succ) .out)
+            Tensor.unzip x
             |> Struct.map (dr s)
         
         {
@@ -1163,9 +1165,9 @@ inl float ->
         alpha * plastic + static >>= tanh
 
     inl generalized_mi_ln_relu = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_ln_relu
-    inl wn_hebb eta x = 
+    inl wn_hebb x = 
         {x with out=Struct.map' (Tensor.rotate (inl a,b -> b,a)) self}
-        |> seq float (inl k -> CudaAD .Seq k .Activation .wn_hebb eta)
+        |> seq float (inl k -> CudaAD .Seq k .Activation .wn_hebb)
 
     inl linear = succ
     inl Activation = { linear sigmoid tanh relu add hadmult hadmultb ln_relu} |> stack
@@ -1719,22 +1721,24 @@ inl float ->
             inl inner = 
                 {
                 plastic=size
+                bias={eta=1; alpha=1}
                 }
             inl init = 
                 {
                 alpha=const 0.01f32
+                eta=const 0.01f32
                 }
             {
             dsc = 
                 {
-                alpha = bias {init=init.alpha; dim=1,1}
+                bias = weight {init dim=1,inner.bias}
                 streams = stream, stream
                 dim = val {outer inner sublayer_size}
                 }
             size
             }
 
-        apply = inl {d with weights={alpha streams dim={outer inner}} input} s -> 
+        apply = inl {d with weights={bias streams dim={outer inner}} input} s -> 
             inl span = primal input .span_outer
             assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
             inl {state H} =
@@ -1746,21 +1750,26 @@ inl float ->
                     }
 
             inl apply =
+                inm token = Primitive.init {dim=span,1} (const one)
+                inm {alpha eta} =
+                    inm x = matmult_stream {bias with data=token}
+                    succ (wrap_split ((), inner.bias) x)
                 inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
                 inl data = Struct.map' (inl data -> data.basic) data
+                
                 inm out =
                     inm plastic = matmult_stream {data weight={T=H}; streams block=()}
                     map (inl {alpha plastic static} ->
                         open CudaAD
                         open Op
                         alpha * plastic + static >>= tanh
-                        ) {alpha=alpha.weight; plastic static=input}
-                inm H = wn_hebb 0.01f32 {H out input=data}
+                        ) {alpha plastic static=input}
+                inm H = wn_hebb {H eta out input=data}
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s
             {out state bck}
-        //optimize = Optimizer.kfac
+        optimize = Optimizer.kfac
         block = ()
         }
 
