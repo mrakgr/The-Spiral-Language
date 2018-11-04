@@ -308,7 +308,7 @@ inl size = {
     pattern = 10
     episode = 5
     minibatch = 1
-    seq = 10
+    seq = 1
 
     shot = 1
     pattern_repetition = 1

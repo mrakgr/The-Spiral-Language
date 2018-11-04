@@ -1766,9 +1766,9 @@ inl float ->
                 
                 inm out =
                     inm plastic = matmult_stream {data weight={T=H}; streams block=()}
-                    //ln_tanh {alpha plastic static=input}
-                    map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
-                //inm _ = print out
+                    ln_tanh {alpha plastic static=input}
+                    //map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
+                inm _ = print out
                 inm H = wn_hebb {H eta out input=data}
                 succ {out state={state=out; H}}
 
