@@ -1711,7 +1711,60 @@ inl float ->
         block = ()
         }
 
-    inl plastic_rnn size = ()
+    inl plastic_rnn size =
+        {
+        init = inl sublayer_size -> 
+            open Initializer.dual.TensorView
+            inl outer = {bias=1; input=sublayer_size; state=size}
+            inl inner = 
+                {
+                plastic=size
+                }
+            inl init = 
+                {
+                alpha=const 0.01f32
+                eta=const 0.01f32
+                }
+            {
+            dsc = 
+                {
+                alpha = bias {init=init.alpha; dim=1,1}
+                eta = bias {init=init.eta; dim=1,1}
+                streams = stream, stream
+                dim = val {outer inner sublayer_size}
+                }
+            size
+            }
+
+        apply = inl {d with weights={alpha eta streams dim={outer inner}} input} s -> 
+            inl span = primal input .span_outer
+            assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl {state H} =
+                match d with
+                | {state} -> state
+                | _ -> {
+                    H=s.CudaTensor.zero_view {elem_type=float; dim=inner.plastic, outer} .basic
+                    state=s.CudaTensor.zero {elem_type=float; dim=span, size}
+                    }
+
+            inl apply =
+                inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
+                inl data = Struct.map' (inl data -> data.basic) data
+                inm out =
+                    inm plastic = matmult_stream {data=state; weight={T=H}; streams block=()}
+                    map (inl {alpha plastic static} ->
+                        open CudaAD
+                        open Op
+                        alpha * plastic + static >>= tanh
+                        ) {alpha plastic static=input}
+                inm H = wn_hebb {H eta out input=data}
+                succ {out state={state=out; H}}
+
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        //optimize = Optimizer.kfac
+        block = ()
+        }
 
     inl mi size =
         inl inner = 
