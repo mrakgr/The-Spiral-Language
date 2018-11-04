@@ -462,7 +462,7 @@ inl Seq k =
     inl Activation =
         open Op
         inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
-        inl wn_hebb {H eta input out} = H + val 0.0f32 * input * out >>= weight_norm
+        inl wn_hebb {H eta input out} = H + val 0.001f32 * input * out >>= weight_norm
             
         {generalized_mi_ln_relu wn_hebb}
 
@@ -1758,11 +1758,10 @@ inl float ->
                 //inm _ = print modulation
                 //inm _ = print out
                 inm out =
-                    //inm plastic = matmult_stream {data=state; weight={T=H}; streams=weights.streams; block=()}
+                    inm plastic = matmult_stream {data=state; weight={T=H}; streams=weights.streams; block=()}
                     //inm _ = print out'
-                    //ln_tanh (alpha, plastic, out)
-                    tanh out
-                inm _ = print out
+                    ln_tanh (alpha, plastic, out)
+                //inm _ = print out
                 inm H = wn_hebb {H eta out input=state}
                 //inm _ = print weights.weight
                 succ {out state={state=out; H}}

@@ -305,14 +305,14 @@ inl make_patterns n size =
         )
 
 inl size = {
-    pattern = 10
+    pattern = 50
     episode = 5
     minibatch = 1
-    seq = 10
+    seq = 500
 
     shot = 1
-    pattern_repetition = 1
-    empty_input_after_repetition = 0
+    pattern_repetition = 5
+    empty_input_after_repetition = 3
     }
 
 inl data =
@@ -410,7 +410,7 @@ met train {!data network learning_rate final covariance_modifier} s =
             network.pop_bcks {learning_rate=(learning_rate) * covariance_modifier}
             network.optimize learning_rate
 
-        inl iters = 1
+        inl iters = 10
         
         if nan_is (cost.square()) then
             Console.printfn "At iteration {0} the cost is {1}" (i, cost.square())
@@ -422,7 +422,7 @@ met train {!data network learning_rate final covariance_modifier} s =
             next()
         else next()
 
-inl learning_rate = 2f32 ** -25f32
+inl learning_rate = 2f32 ** -15f32
 inl covariance_modifier = 2f32 ** 0f32
 inl n = 0.0001f32
 
