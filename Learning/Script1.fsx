@@ -4,3 +4,7 @@ let x =
     |> Array.sum
     |> fun x -> x / float ar.Length
     |> sqrt
+
+let a = [|-2.0; 2.0; 1.98; -1.98; 2.0; 2.0; -1.98; -1.98; 1.98; -2.0|]
+let b = [|0; 0; -1; 1; 0; 0; 1; 1; -1; 0|] |> Array.map float
+Array.fold2 (fun s a b -> s + a * b) 0.0 a b

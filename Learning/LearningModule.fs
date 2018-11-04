@@ -238,6 +238,7 @@ inl {link link_broadcast link_auto} =
             inl add_auto x out =
                 inl is_atomic = Tuple.exists2 (inl dim_is_not_one x_dim -> dim_is_not_one && x_dim = 1) dim_is_not_one x.dim
                 inl x = index_broadcast cur x
+                //macro.cd () [text: "printf"; args: "%f at %lli\n", out, threadIdx.x]
                 if is_atomic then add_atomic x out else add_std x out
             bck add_auto x out
         }
@@ -1773,10 +1774,12 @@ inl float ->
                 inm _ = print_bck (alpha, eta)
                 inm out =
                     inm plastic = matmult_stream {data weight={T=H}; streams block=()}
-                    //ln_tanh {alpha plastic static=input}
-                    map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
-                //inm _ = print out
+                    ln_tanh {alpha plastic static=input}
+                    //map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
+                inm _ = print input
+                inm _ = print_bck out
                 inm H = wn_hebb {H eta out input=data}
+                
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s

@@ -306,7 +306,7 @@ inl make_patterns n size =
 
 inl size = {
     pattern = 10
-    episode = 5
+    episode = 1
     minibatch = 1
     seq = 1
 
