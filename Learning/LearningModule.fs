@@ -462,7 +462,7 @@ inl Seq k =
     inl Activation =
         open Op
         inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
-        inl wn_hebb {H eta input out} = H + val 0.001f32 * input * out >>= weight_norm
+        inl wn_hebb {H eta input out} = H + eta * input * out >>= weight_norm
             
         {generalized_mi_ln_relu wn_hebb}
 
@@ -1160,7 +1160,7 @@ inl float ->
         open CudaAD
         open Seq k
         open Op
-        alpha * val 0.001f32 + static >>= tanh
+        alpha * plastic + static >>= tanh
 
     inl generalized_mi_ln_relu = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_ln_relu
     inl wn_hebb x = 
@@ -1711,66 +1711,6 @@ inl float ->
         block = ()
         }
 
-    inl plastic_rnn size =
-        {
-        init = inl sublayer_size -> 
-            open Initializer.dual.TensorView
-            inl outer = {bias=1; input=sublayer_size; state=size}
-            inl inner = 
-                {
-                static={alpha=1; eta=1; out=size}
-                plastic=size
-                }
-            inl init = 
-                {
-                bias={alpha=const 0.01f32; eta=const 0.001f32; out=const zero}
-                input={alpha=const zero; eta=const zero; out=identity}
-                state={alpha=const zero; eta=const zero; out=const zero}
-                }
-            {
-            dsc = 
-                {
-                weights = weight {init dim=outer,inner.static}
-                dim = val {outer inner sublayer_size}
-                }
-            size
-            }
-
-        apply = inl {d with weights={weights dim={outer inner}} input} s -> 
-            inl span = primal input .span_outer
-            assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
-            inl {state H} =
-                match d with
-                | {state} -> state
-                | _ -> {
-                    H=s.CudaTensor.zero_view {elem_type=float; dim=inner.plastic, size} .basic
-                    state=s.CudaTensor.zero {elem_type=float; dim=span, size}
-                    }
-
-            inl apply =
-                inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
-                inl data = Struct.map' (inl data -> data.basic) data
-                inm {alpha eta out} =
-                    inm data = matmult_stream {weights with data}
-                    succ (wrap_split ((), inner.static) data)
-                //inm _ = print state
-                //inm _ = print (Struct.map' (inl x -> x.basic) data)
-                //inm _ = print modulation
-                //inm _ = print out
-                inm out =
-                    inm plastic = matmult_stream {data=state; weight={T=H}; streams=weights.streams; block=()}
-                    //inm _ = print out'
-                    ln_tanh (alpha, plastic, out)
-                //inm _ = print out
-                inm H = wn_hebb {H eta out input=state}
-                //inm _ = print weights.weight
-                succ {out state={state=out; H}}
-
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        //optimize = Optimizer.kfac
-        block = ()
-        }
 
     inl mi size =
         inl inner = 
