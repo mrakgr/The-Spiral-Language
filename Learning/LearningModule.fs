@@ -282,7 +282,10 @@ inl Activation =
         inm out = sigmoid cell.output * tanh memory
         succ {memory out}
 
-    {generalized_mi generalized_mi_tanh lstm }
+    inl hebb_tanh {alpha plastic static} =
+        alpha * plastic + static >>= tanh
+
+    {generalized_mi generalized_mi_tanh lstm hebb_tanh}
 
 inl Seq k =
     inl val x = k.block.init (const x)
@@ -1158,7 +1161,7 @@ inl float ->
         open Seq k .Op
         layer_norm >> relu
 
-    inl ln_tanh = seq float <| inl k (alpha,plastic,static) -> 
+    inl ln_tanh = seq float <| inl k {alpha plastic static} -> 
         open CudaAD
         open Seq k
         open Op
@@ -1667,6 +1670,7 @@ inl float ->
         open Initializer.dual.TensorView
         {
         weight = view' d
+        streams = stream, stream
         block = ()
         }
 
@@ -1731,7 +1735,7 @@ inl float ->
             {
             dsc = 
                 {
-                bias = weight {init dim=1,inner.bias}
+                bias = bias {init dim=1,inner.bias}
                 streams = stream, stream
                 dim = val {outer inner sublayer_size}
                 }
@@ -1759,17 +1763,14 @@ inl float ->
                 
                 inm out =
                     inm plastic = matmult_stream {data weight={T=H}; streams block=()}
-                    map (inl {alpha plastic static} ->
-                        open CudaAD
-                        open Op
-                        alpha * plastic + static >>= tanh
-                        ) {alpha plastic static=input}
+                    ln_tanh {alpha plastic static=input}
+                    //map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
                 inm H = wn_hebb {H eta out input=data}
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s
             {out state bck}
-        optimize = Optimizer.kfac
+        //optimize = Optimizer.kfac
         block = ()
         }
 
