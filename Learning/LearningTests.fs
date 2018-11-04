@@ -305,14 +305,14 @@ inl make_patterns n size =
         )
 
 inl size = {
-    pattern = 50
+    pattern = 10
     episode = 5
     minibatch = 1
-    seq = 500
+    seq = 30
 
     shot = 1
-    pattern_repetition = 5
-    empty_input_after_repetition = 3
+    pattern_repetition = 1
+    empty_input_after_repetition = 0
     }
 
 inl data =
@@ -422,7 +422,7 @@ met train {!data network learning_rate final covariance_modifier} s =
             next()
         else next()
 
-inl learning_rate = 2f32 ** -15f32
+inl learning_rate = 2f32 ** -10f32
 inl covariance_modifier = 2f32 ** 0f32
 inl n = 0.0001f32
 

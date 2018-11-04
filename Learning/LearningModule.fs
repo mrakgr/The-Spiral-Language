@@ -1178,6 +1178,7 @@ inl float ->
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
         inl out = primal, adjoint
+        s.CudaTensor.print out
         s.CudaFun.map {out map=inl P, A -> P - learning_rate * A, zero} out
 
     inl clipped_sgd max learning_rate s {primal adjoint} = 
@@ -1763,8 +1764,9 @@ inl float ->
                 
                 inm out =
                     inm plastic = matmult_stream {data weight={T=H}; streams block=()}
-                    //ln_tanh {alpha plastic static=input}
-                    map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
+                    ln_tanh {alpha plastic static=input}
+                    //map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
+                //inm _ = print out
                 inm H = wn_hebb {H eta out input=data}
                 succ {out state={state=out; H}}
 
