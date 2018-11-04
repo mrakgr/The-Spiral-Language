@@ -461,7 +461,7 @@ inl Seq k =
     inl Activation =
         open Op
         inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
-        inl wn_hebb {H eta input out} = weight_norm (H + eta * input * out)
+        inl wn_hebb {H eta input out} = weight_norm H // + val 0.0f32 * input * out)
             
         {generalized_mi_ln_relu wn_hebb}
 
@@ -1159,7 +1159,7 @@ inl float ->
         open CudaAD
         open Seq k
         open Op
-        alpha * plastic + static >>= tanh
+        alpha * val 0.001f32 + static >>= tanh
 
     inl generalized_mi_ln_relu = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_ln_relu
     inl wn_hebb x = 
@@ -1742,7 +1742,7 @@ inl float ->
                 match d with
                 | {state} -> state
                 | _ -> {
-                    H=s.CudaTensor.zero_view {elem_type=float; dim=inner.plastic, outer} .basic
+                    H=s.CudaTensor.zero_view {elem_type=float; dim=inner.plastic, size} .basic
                     state=s.CudaTensor.zero {elem_type=float; dim=span, size}
                     }
 
@@ -1757,12 +1757,12 @@ inl float ->
                 //inm _ = print modulation
                 //inm _ = print out
                 inm out =
-                    inm plastic = matmult_stream {data weight={T=H}; streams=weights.streams; block=()}
+                    inm plastic = matmult_stream {data=state; weight={T=H}; streams=weights.streams; block=()}
                     //inm _ = print out'
                     ln_tanh (alpha, plastic, out)
                 //inm _ = print out
-                inm H = wn_hebb {H eta out input=data}
-                //inm _ = print H
+                inm H = wn_hebb {H eta out input=state}
+                //inm _ = print weights.weight
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s

@@ -305,10 +305,10 @@ inl make_patterns n size =
         )
 
 inl size = {
-    pattern = 50
+    pattern = 10
     episode = 5
     minibatch = 1
-    seq = 2000
+    seq = 10
 
     shot = 1
     pattern_repetition = 5
@@ -410,19 +410,19 @@ met train {!data network learning_rate final covariance_modifier} s =
             network.pop_bcks {learning_rate=(learning_rate) * covariance_modifier}
             network.optimize learning_rate
 
-        inl iters = 10
+        inl iters = 1
         
-        if (i + 1) % iters = 0 then 
+        if nan_is (cost.square()) then
+            Console.printfn "At iteration {0} the cost is {1}" (i, cost.square())
+        elif (i + 1) % iters = 0 then 
             inl square = cost.square() / to float32 iters
             inl sgn = to float64 (cost.sgn()) / to float64 (iters * size.pattern)
             Console.printfn "At iteration {0} the cost and the sign accuracy are {1} and {2}/1." (i, square, sgn)
             Struct.iter (inl x -> x := to (type x()) 0) cost
             next()
-        elif nan_is (cost.square()) then
-            Console.printfn "At iteration {0} the cost is {1}" (i, cost.square())
         else next()
 
-inl learning_rate = 2f32 ** -17f32
+inl learning_rate = 2f32 ** -25f32
 inl covariance_modifier = 2f32 ** 0f32
 inl n = 0.0001f32
 
