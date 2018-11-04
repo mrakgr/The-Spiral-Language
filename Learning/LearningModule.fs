@@ -1165,7 +1165,7 @@ inl float ->
         open Seq k .Op
         layer_norm >> relu
 
-    inl hebb_ln_tanh = seq float <| inl k {alpha plastic static} -> 
+    inl hebb_ln_tanh = seq float <| inl k {alpha plastic static} -> // TODO: Do not forget to put layer norm back in.
         open CudaAD
         open Seq k
         open Op
@@ -1721,63 +1721,6 @@ inl float ->
         block = ()
         }
 
-    //inl plastic_rnn size =
-    //    {
-    //    init = inl sublayer_size -> 
-    //        open Initializer.dual.TensorView
-    //        inl outer = {bias=1; input=sublayer_size; state=size}
-    //        inl inner = 
-    //            {
-    //            plastic=size
-    //            bias={eta=1; alpha=1}
-    //            }
-    //        inl init = 
-    //            {
-    //            alpha=const 0.01f32
-    //            eta=const 0.01f32
-    //            }
-    //        {
-    //        dsc = 
-    //            {
-    //            bias = weight {init dim=1,inner.bias}
-    //            streams = stream, stream
-    //            dim = val {outer inner sublayer_size}
-    //            }
-    //        size
-    //        }
-
-    //    apply = inl {d with weights={bias streams dim={outer inner}} input} s -> 
-    //        inl span = primal input .span_outer
-    //        assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
-    //        inl {state H} =
-    //            match d with
-    //            | {state} -> state
-    //            | _ -> {
-    //                H=s.CudaTensor.zero_view {elem_type=float; dim=inner.plastic, outer} .basic
-    //                state=s.CudaTensor.zero {elem_type=float; dim=span, size}
-    //                }
-
-    //        inl apply =
-    //            inm token = Primitive.init {dim=span,1} (const one)
-    //            inm {alpha eta} =
-    //                inm x = matmult_stream {bias with data=token}
-    //                succ (wrap_split ((), inner.bias) x)
-    //            inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
-    //            inl data = Struct.map' (inl data -> data.basic) data
-                
-    //            inm out =
-    //                inm plastic = matmult_stream {data weight={T=H}; streams block=()}
-    //                map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
-    //            inm H = wn_hebb {H eta out input=data}
-                
-    //            succ {out state={state=out; H}}
-
-    //        inl {out={out state} bck} = apply s
-    //        {out state bck}
-    //    //optimize = Optimizer.kfac
-    //    block = ()
-    //    }
-
     inl plastic_rnn size =
         {
         init = inl sublayer_size -> 
@@ -1786,6 +1729,7 @@ inl float ->
             inl inner = 
                 {
                 plastic=size
+                bias={eta=1; alpha=1}
                 }
             inl init = 
                 {
@@ -1795,15 +1739,14 @@ inl float ->
             {
             dsc = 
                 {
-                alpha = bias {init=init.alpha; dim=1,1}
-                eta = bias {init=init.eta; dim=1,1}
+                bias = weight {init dim=1,inner.bias}
                 streams = stream, stream
                 dim = val {outer inner sublayer_size}
                 }
             size
             }
 
-        apply = inl {d with weights={alpha eta streams dim={outer inner}} input} s -> 
+        apply = inl {d with weights={bias streams dim={outer inner}} input} s -> 
             inl span = primal input .span_outer
             assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
             inl {state H} =
@@ -1815,12 +1758,18 @@ inl float ->
                     }
 
             inl apply =
+                inm token = Primitive.init {dim=span,1} (const one)
+                inm {alpha eta} =
+                    inm x = matmult_stream {bias with data=token}
+                    succ (wrap_split ((), inner.bias) x)
                 inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
                 inl data = Struct.map' (inl data -> data.basic) data
+                
                 inm out =
                     inm plastic = matmult_stream {data weight={T=H}; streams block=()}
-                    map CudaAD.Activation.hebb_tanh {alpha=alpha.weight; plastic static=input}
-                inm H = wn_hebb {H eta=eta.weight; out input=data}
+                    map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
+                inm H = wn_hebb {H eta out input=data}
+                
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s
@@ -1828,6 +1777,57 @@ inl float ->
         //optimize = Optimizer.kfac
         block = ()
         }
+
+    //inl plastic_rnn size =
+    //    {
+    //    init = inl sublayer_size -> 
+    //        open Initializer.dual.TensorView
+    //        inl outer = {bias=1; input=sublayer_size; state=size}
+    //        inl inner = 
+    //            {
+    //            plastic=size
+    //            }
+    //        inl init = 
+    //            {
+    //            alpha=const 0.01f32
+    //            eta=const 0.01f32
+    //            }
+    //        {
+    //        dsc = 
+    //            {
+    //            alpha = bias {init=init.alpha; dim=1,1}
+    //            eta = bias {init=init.eta; dim=1,1}
+    //            streams = stream, stream
+    //            dim = val {outer inner sublayer_size}
+    //            }
+    //        size
+    //        }
+
+    //    apply = inl {d with weights={alpha eta streams dim={outer inner}} input} s -> 
+    //        inl span = primal input .span_outer
+    //        assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
+    //        inl {state H} =
+    //            match d with
+    //            | {state} -> state
+    //            | _ -> {
+    //                H=s.CudaTensor.zero_view {elem_type=float; dim=inner.plastic, outer} .basic
+    //                state=s.CudaTensor.zero {elem_type=float; dim=span, size}
+    //                }
+
+    //        inl apply =
+    //            inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
+    //            inl data = Struct.map' (inl data -> data.basic) data
+    //            inm out =
+    //                inm plastic = matmult_stream {data weight={T=H}; streams block=()}
+    //                map CudaAD.Activation.hebb_tanh {alpha=alpha.weight; plastic static=input}
+    //            inm H = wn_hebb {H eta=eta.weight; out input=data}
+    //            succ {out state={state=out; H}}
+
+    //        inl {out={out state} bck} = apply s
+    //        {out state bck}
+    //    //optimize = Optimizer.kfac
+    //    block = ()
+    //    }
 
     inl mi size =
         inl inner = 
