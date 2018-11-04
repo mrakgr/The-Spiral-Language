@@ -283,7 +283,8 @@ inl Activation =
         succ {memory out}
 
     inl hebb_tanh {alpha plastic static} =
-        alpha * plastic + static >>= tanh
+        //alpha * plastic + static >>= tanh
+        alpha * static
 
     {generalized_mi generalized_mi_tanh lstm hebb_tanh}
 
@@ -1165,7 +1166,8 @@ inl float ->
         open CudaAD
         open Seq k
         open Op
-        alpha * plastic + static >>= tanh
+        //alpha * plastic + static >>= tanh
+        alpha * static
 
     inl generalized_mi_ln_relu = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_ln_relu
     inl wn_hebb x = 
@@ -1764,8 +1766,8 @@ inl float ->
                 
                 inm out =
                     inm plastic = matmult_stream {data weight={T=H}; streams block=()}
-                    ln_tanh {alpha plastic static=input}
-                    //map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
+                    //ln_tanh {alpha plastic static=input}
+                    map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
                 //inm _ = print out
                 inm H = wn_hebb {H eta out input=data}
                 succ {out state={state=out; H}}
