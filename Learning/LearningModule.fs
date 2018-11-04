@@ -440,11 +440,12 @@ inl Seq k =
 
         inl norm_template f x =
             inm x = x - mean x
-            inm std = f x + val (to float (10.0 ** -7.0))
+            inm std = f x
             succ (x, std)
 
-        inl l1_norm_body = norm_template (abs >> mean)
-        inl l2_norm_body = norm_template (sqr >> mean >> sqrt)
+        inl safe x = x + val (to float (10.0 ** -7.0))
+        inl l1_norm_body = norm_template (abs >> mean >> safe)
+        inl l2_norm_body = norm_template (sqr >> mean >> safe >> sqrt)
 
         inl layer_norm =
             unary_bind <| inl x ->
@@ -461,13 +462,7 @@ inl Seq k =
     inl Activation =
         open Op
         inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
-        inl wn_hebb {H eta input out} = 
-            inm x = val 0.0f32 * input * out
-            //k.block.map (inl x, input, out ->
-            //    macro.cd () [text: "printf"; args: "%f, %f, %f\n", x, input, out]
-            //    ) (primals (x, input, out))
-            //|> ignore
-            H + x >>= weight_norm
+        inl wn_hebb {H eta input out} = H + val 0.0f32 * input * out >>= weight_norm
             
         {generalized_mi_ln_relu wn_hebb}
 
