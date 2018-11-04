@@ -238,7 +238,6 @@ inl {link link_broadcast link_auto} =
             inl add_auto x out =
                 inl is_atomic = Tuple.exists2 (inl dim_is_not_one x_dim -> dim_is_not_one && x_dim = 1) dim_is_not_one x.dim
                 inl x = index_broadcast cur x
-                //macro.cd () [text: "printf"; args: "%f at %lli\n", out, threadIdx.x]
                 if is_atomic then add_atomic x out else add_std x out
             bck add_auto x out
         }
@@ -337,7 +336,11 @@ inl Seq k =
         op fwd bck {a b}
     inl binary {fwd bck} = {fwd bck op = binary_op fwd bck}
 
-    inl add_atomic a b {i item} = add_atomic (a i) (b item .get)
+    inl add_atomic a b {i item} = 
+        inl a = a i
+        inl b = b item .get
+        macro.cd () [text: "printf"; args: "%f at %lli\n", b, threadIdx.x]
+        add_atomic a b
     inl add_std a b {i item} = add_std (a i) (b item .get)
     
     inl {link link_broadcast link_auto} =
@@ -1776,9 +1779,9 @@ inl float ->
                     inm plastic = matmult_stream {data weight={T=H}; streams block=()}
                     ln_tanh {alpha plastic static=input}
                     //map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
-                inm _ = print input
-                inm _ = print_bck out
-                inm H = wn_hebb {H eta out input=data}
+                //inm _ = print input
+                //inm _ = print_bck out
+                //inm H = wn_hebb {H eta out input=data}
                 
                 succ {out state={state=out; H}}
 
