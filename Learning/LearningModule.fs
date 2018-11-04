@@ -282,10 +282,7 @@ inl Activation =
         inm out = sigmoid cell.output * tanh memory
         succ {memory out}
 
-    inl hebb_tanh {alpha plastic static} =
-        //alpha * plastic + static >>= tanh
-        alpha * static
-
+    inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
     {generalized_mi generalized_mi_tanh lstm hebb_tanh}
 
 inl Seq k =
@@ -1168,12 +1165,11 @@ inl float ->
         open Seq k .Op
         layer_norm >> relu
 
-    inl ln_tanh = seq float <| inl k {alpha plastic static} -> 
+    inl hebb_ln_tanh = seq float <| inl k {alpha plastic static} -> 
         open CudaAD
         open Seq k
         open Op
-        //alpha * plastic + static >>= tanh
-        alpha * static
+        alpha * plastic + static >>= tanh
 
     inl generalized_mi_ln_relu = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_ln_relu
     inl wn_hebb x = 
@@ -1186,7 +1182,6 @@ inl float ->
     // #Optimizer
     inl sgd learning_rate s {primal adjoint} = 
         inl out = primal, adjoint
-        s.CudaTensor.print out
         s.CudaFun.map {out map=inl P, A -> P - learning_rate * A, zero} out
 
     inl clipped_sgd max learning_rate s {primal adjoint} = 
@@ -1770,14 +1765,11 @@ inl float ->
                 inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
                 inl data = Struct.map' (inl data -> data.basic) data
                 
-                inm _ = print_bck (alpha, eta)
                 inm out =
                     inm plastic = matmult_stream {data weight={T=H}; streams block=()}
-                    ln_tanh {alpha plastic static=input}
-                    //map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
-                //inm _ = print input
-                //inm _ = print_bck out
-                //inm H = wn_hebb {H eta out input=data}
+                    //hebb_ln_tanh {alpha plastic static=input}
+                    map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
+                inm H = wn_hebb {H eta out input=data}
                 
                 succ {out state={state=out; H}}
 
