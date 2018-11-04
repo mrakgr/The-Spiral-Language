@@ -311,8 +311,8 @@ inl size = {
     seq = 10
 
     shot = 1
-    pattern_repetition = 5
-    empty_input_after_repetition = 3
+    pattern_repetition = 1
+    empty_input_after_repetition = 0
     }
 
 inl data =
