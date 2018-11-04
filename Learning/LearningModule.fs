@@ -1015,7 +1015,7 @@ inl float ->
         inl out =
             inl x = 
                 open CudaAD
-                s.CudaFun.init {dim} (inl dim -> (init dim >>= succ) .out)
+                s.CudaFun.init {dim} (inl dim -> primals ((init dim >>= succ) .out))
             Tensor.unzip x
             |> Struct.map (dr s)
         
@@ -1763,8 +1763,7 @@ inl float ->
                 
                 inm out =
                     inm plastic = matmult_stream {data weight={T=H}; streams block=()}
-                    ln_tanh {alpha plastic static=input}
-                    //map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
+                    map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
                 inm H = wn_hebb {H eta out input=data}
                 succ {out state={state=out; H}}
 
