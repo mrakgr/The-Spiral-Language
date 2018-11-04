@@ -463,7 +463,7 @@ inl Seq k =
     inl Activation =
         open Op
         inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
-        inl wn_hebb {H eta input out} = H + eta * input * out >>= weight_norm
+        inl wn_hebb {H modulation out} = weight_norm (H + modulation * out)
             
         {generalized_mi_ln_relu wn_hebb}
 
@@ -1725,51 +1725,57 @@ inl float ->
         {
         init = inl sublayer_size -> 
             open Initializer.dual.TensorView
-            inl outer = {bias=1; input=sublayer_size; state=size}
+            inl modulation = {input=sublayer_size; state=size}
+            inl outer = 
+                {
+                static={bias=1; a=modulation} // a is here so the dimension comes first. They are ordered lexically.
+                plastic=modulation
+                }
             inl inner = 
                 {
+                static={modulation out=size}
                 plastic=size
-                bias={eta=1; alpha=1}
                 }
+            inl identity' = identity' 0.001f32
             inl init = 
                 {
-                alpha=const 0.01f32
-                eta=const 0.01f32
+                bias={modulation={input=const zero; state=const zero}; out=const zero}
+                a={
+                    input={modulation={input=identity'; state=const zero}; out=identity}
+                    state={modulation={input=const zero; state=identity'}; out=const zero}
+                    }
                 }
             {
             dsc = 
                 {
-                bias = weight {init dim=1,inner.bias}
-                streams = stream, stream
+                weights = weight {init dim=outer.static,inner.static}
                 dim = val {outer inner sublayer_size}
                 }
             size
             }
 
-        apply = inl {d with weights={bias streams dim={outer inner}} input} s -> 
+        apply = inl {d with weights={weights dim={outer inner}} input} s -> 
             inl span = primal input .span_outer
             assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
             inl {state H} =
                 match d with
                 | {state} -> state
                 | _ -> {
-                    H=s.CudaTensor.zero_view {elem_type=float; dim=inner.plastic, outer} .basic
+                    H=s.CudaTensor.zero_view {elem_type=float; dim=inner.plastic, outer.plastic} .basic
                     state=s.CudaTensor.zero {elem_type=float; dim=span, size}
                     }
 
             inl apply =
-                inm token = Primitive.init {dim=span,1} (const one)
-                inm {alpha eta} =
-                    inm x = matmult_stream {bias with data=token}
-                    succ (wrap_split ((), inner.bias) x)
-                inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
-                inl data = Struct.map' (inl data -> data.basic) data
-                
+                inm data = segmented_init {dim=span,outer.static} {bias=const one; a={input=load input; state=load state}}
+                inm {modulation out} =
+                    inl data = Struct.map' (inl data -> data.basic) data
+                    inm data = matmult_stream {weights with data}
+                    succ (wrap_split ((), module_map (const View.span) inner.static) data)
                 inm out =
-                    inm plastic = matmult_stream {data weight={T=H}; streams block=()}
-                    map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
-                inm H = wn_hebb {H eta out input=data}
-                
+                    inl data = Struct.map' (inl data -> data .view {a=()} .basic) data
+                    inm out' = matmult_stream {data weight={T=H}; streams=weights.streams; block=()}
+                    tanh (out, out')
+                inm H = wn_hebb {H modulation out}
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s
@@ -1777,57 +1783,6 @@ inl float ->
         //optimize = Optimizer.kfac
         block = ()
         }
-
-    //inl plastic_rnn size =
-    //    {
-    //    init = inl sublayer_size -> 
-    //        open Initializer.dual.TensorView
-    //        inl outer = {bias=1; input=sublayer_size; state=size}
-    //        inl inner = 
-    //            {
-    //            plastic=size
-    //            }
-    //        inl init = 
-    //            {
-    //            alpha=const 0.01f32
-    //            eta=const 0.01f32
-    //            }
-    //        {
-    //        dsc = 
-    //            {
-    //            alpha = bias {init=init.alpha; dim=1,1}
-    //            eta = bias {init=init.eta; dim=1,1}
-    //            streams = stream, stream
-    //            dim = val {outer inner sublayer_size}
-    //            }
-    //        size
-    //        }
-
-    //    apply = inl {d with weights={alpha eta streams dim={outer inner}} input} s -> 
-    //        inl span = primal input .span_outer
-    //        assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
-    //        inl {state H} =
-    //            match d with
-    //            | {state} -> state
-    //            | _ -> {
-    //                H=s.CudaTensor.zero_view {elem_type=float; dim=inner.plastic, outer} .basic
-    //                state=s.CudaTensor.zero {elem_type=float; dim=span, size}
-    //                }
-
-    //        inl apply =
-    //            inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
-    //            inl data = Struct.map' (inl data -> data.basic) data
-    //            inm out =
-    //                inm plastic = matmult_stream {data weight={T=H}; streams block=()}
-    //                map CudaAD.Activation.hebb_tanh {alpha=alpha.weight; plastic static=input}
-    //            inm H = wn_hebb {H eta=eta.weight; out input=data}
-    //            succ {out state={state=out; H}}
-
-    //        inl {out={out state} bck} = apply s
-    //        {out state bck}
-    //    //optimize = Optimizer.kfac
-    //    block = ()
-    //    }
 
     inl mi size =
         inl inner = 
