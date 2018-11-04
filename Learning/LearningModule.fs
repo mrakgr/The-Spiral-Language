@@ -336,11 +336,7 @@ inl Seq k =
         op fwd bck {a b}
     inl binary {fwd bck} = {fwd bck op = binary_op fwd bck}
 
-    inl add_atomic a b {i item} = 
-        inl a = a i
-        inl b = b item .get
-        macro.cd () [text: "printf"; args: "%f at %lli\n", b, threadIdx.x]
-        add_atomic a b
+    inl add_atomic a b {i item} = add_atomic (index_broadcast i a) (b item .get)
     inl add_std a b {i item} = add_std (a i) (b item .get)
     
     inl {link link_broadcast link_auto} =
