@@ -1159,7 +1159,7 @@ inl float ->
         open CudaAD
         open Seq k
         open Op
-        alpha * plastic + static >>= layer_norm >>= tanh
+        alpha * plastic + static >>= tanh
 
     inl generalized_mi_ln_relu = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_ln_relu
     inl wn_hebb x = 
@@ -1767,7 +1767,7 @@ inl float ->
 
             inl {out={out state} bck} = apply s
             {out state bck}
-        optimize = Optimizer.kfac
+        //optimize = Optimizer.kfac
         block = ()
         }
 
