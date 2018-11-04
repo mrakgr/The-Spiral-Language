@@ -462,7 +462,7 @@ inl Seq k =
     inl Activation =
         open Op
         inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
-        inl wn_hebb {H eta input out} = H + eta * input * out >>= weight_norm
+        inl wn_hebb eta {H input out} = H + val eta * input * out >>= weight_norm
             
         {generalized_mi_ln_relu wn_hebb}
 
@@ -1163,9 +1163,9 @@ inl float ->
         alpha * plastic + static >>= tanh
 
     inl generalized_mi_ln_relu = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_ln_relu
-    inl wn_hebb x = 
+    inl wn_hebb eta x = 
         {x with out=Struct.map' (Tensor.rotate (inl a,b -> b,a)) self}
-        |> seq float (inl k -> CudaAD .Seq k .Activation .wn_hebb)
+        |> seq float (inl k -> CudaAD .Seq k .Activation .wn_hebb eta)
 
     inl linear = succ
     inl Activation = { linear sigmoid tanh relu add hadmult hadmultb ln_relu} |> stack
@@ -1723,20 +1723,18 @@ inl float ->
             inl init = 
                 {
                 alpha=const 0.01f32
-                eta=const 0.01f32
                 }
             {
             dsc = 
                 {
                 alpha = bias {init=init.alpha; dim=1,1}
-                eta = bias {init=init.eta; dim=1,1}
                 streams = stream, stream
                 dim = val {outer inner sublayer_size}
                 }
             size
             }
 
-        apply = inl {d with weights={alpha eta streams dim={outer inner}} input} s -> 
+        apply = inl {d with weights={alpha streams dim={outer inner}} input} s -> 
             inl span = primal input .span_outer
             assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
             inl {state H} =
@@ -1757,7 +1755,7 @@ inl float ->
                         open Op
                         alpha * plastic + static >>= tanh
                         ) {alpha=alpha.weight; plastic static=input}
-                inm H = wn_hebb {H eta=eta.weight; out input=data}
+                inm H = wn_hebb 0.01f32 {H out input=data}
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s
