@@ -1153,9 +1153,15 @@ inl float ->
             } {x1 x2 b}
 
     inl print x s =
-        inb x = s.CudaFun.map {map=id} (primal x) |> CudaAux.temporary
+        inb x = s.CudaFun.map {map=id} (primals x) |> CudaAux.temporary
         s.CudaTensor.print x
         {out=(); bck=()}
+
+    inl print_bck x s =
+        {out=(); bck=inl _ ->
+            inb x = s.CudaFun.map {map=id} (adjoints x) |> CudaAux.temporary
+            s.CudaTensor.print x            
+            }
 
     inl ln_relu = seq float <| inl k -> 
         open CudaAD
@@ -1764,11 +1770,12 @@ inl float ->
                 inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
                 inl data = Struct.map' (inl data -> data.basic) data
                 
+                inm _ = print_bck (alpha, eta)
                 inm out =
                     inm plastic = matmult_stream {data weight={T=H}; streams block=()}
-                    ln_tanh {alpha plastic static=input}
-                    //map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
-                inm _ = print out
+                    //ln_tanh {alpha plastic static=input}
+                    map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
+                //inm _ = print out
                 inm H = wn_hebb {H eta out input=data}
                 succ {out state={state=out; H}}
 
