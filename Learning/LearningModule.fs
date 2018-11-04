@@ -1735,7 +1735,7 @@ inl float ->
             {
             dsc = 
                 {
-                bias = bias {init dim=1,inner.bias}
+                bias = weight {init dim=1,inner.bias}
                 streams = stream, stream
                 dim = val {outer inner sublayer_size}
                 }
@@ -1763,6 +1763,7 @@ inl float ->
                 
                 inm out =
                     inm plastic = matmult_stream {data weight={T=H}; streams block=()}
+                    //ln_tanh {alpha plastic static=input}
                     map CudaAD.Activation.hebb_tanh {alpha plastic static=input}
                 inm H = wn_hebb {H eta out input=data}
                 succ {out state={state=out; H}}
