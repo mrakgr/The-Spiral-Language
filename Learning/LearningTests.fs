@@ -422,7 +422,7 @@ met train {!data network learning_rate final covariance_modifier} s =
             next()
         else next()
 
-inl learning_rate = 2f32 ** -16f32
+inl learning_rate = 0f32 //2f32 ** -16f32
 inl covariance_modifier = 2f32 ** 0f32
 inl n = 0.0001f32
 
