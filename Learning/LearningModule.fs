@@ -1711,6 +1711,7 @@ inl float ->
         block = ()
         }
 
+    inl plastic_rnn size = ()
 
     inl mi size =
         inl inner = 
