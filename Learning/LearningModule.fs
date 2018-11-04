@@ -1751,13 +1751,13 @@ inl float ->
                 inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
                 inl data = Struct.map' (inl data -> data.basic) data
                 inm out =
-                    inm plastic = matmult_stream {data=state; weight={T=H}; streams block=()}
+                    inm plastic = matmult_stream {data weight={T=H}; streams block=()}
                     map (inl {alpha plastic static} ->
                         open CudaAD
                         open Op
                         alpha * plastic + static >>= tanh
-                        ) {alpha plastic static=input}
-                inm H = wn_hebb {H eta out input=data}
+                        ) {alpha=alpha.weight; plastic static=input}
+                inm H = wn_hebb {H eta=eta.weight; out input=data}
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s
