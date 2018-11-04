@@ -461,7 +461,7 @@ inl Seq k =
     inl Activation =
         open Op
         inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
-        inl wn_hebb {H modulation out} = weight_norm (H + modulation * out)
+        inl wn_hebb {H eta input out} = weight_norm (H + eta * input * out)
             
         {generalized_mi_ln_relu wn_hebb}
 
@@ -1155,11 +1155,11 @@ inl float ->
         open Seq k .Op
         layer_norm >> relu
 
-    inl ln_tanh = seq float <| inl k x -> 
+    inl ln_tanh = seq float <| inl k (alpha,plastic,static) -> 
         open CudaAD
         open Seq k
         open Op
-        Liple.foldl (+) (val zero) x |> layer_norm >>= tanh
+        alpha * plastic + static |> layer_norm >>= tanh
 
     inl generalized_mi_ln_relu = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_ln_relu
     inl wn_hebb x = 
@@ -1714,30 +1714,22 @@ inl float ->
         {
         init = inl sublayer_size -> 
             open Initializer.dual.TensorView
-            inl modulation = {input=sublayer_size; state=size}
-            inl outer = 
-                {
-                static={bias=1; a=modulation} // a is here so the dimension comes first. They are ordered lexically.
-                plastic=modulation
-                }
+            inl outer = {bias=1; input=sublayer_size; state=size}
             inl inner = 
                 {
-                static={modulation out=size}
+                static={alpha=1; eta=1; out=size}
                 plastic=size
                 }
-            inl identity' = identity' 1f32
             inl init = 
                 {
-                bias={modulation={input=const zero; state=const zero}; out=const zero}
-                a={
-                    input={modulation={input=identity'; state=const zero}; out=identity}
-                    state={modulation={input=const zero; state=identity'}; out=const zero}
-                    }
+                bias={alpha=const 0.01f32; eta=const 0.01f32; out=const zero}
+                input={alpha=const zero; eta=const zero; out=identity}
+                state={alpha=const zero; eta=const zero; out=const zero}
                 }
             {
             dsc = 
                 {
-                weights = weight {init dim=outer.static,inner.static}
+                weights = weight {init dim=outer,inner.static}
                 dim = val {outer inner sublayer_size}
                 }
             size
@@ -1750,28 +1742,27 @@ inl float ->
                 match d with
                 | {state} -> state
                 | _ -> {
-                    H=s.CudaTensor.zero_view {elem_type=float; dim=inner.plastic, outer.plastic} .basic
+                    H=s.CudaTensor.zero_view {elem_type=float; dim=inner.plastic, outer} .basic
                     state=s.CudaTensor.zero {elem_type=float; dim=span, size}
                     }
 
             inl apply =
-                inm data = segmented_init {dim=span,outer.static} {bias=const one; a={input=load input; state=load state}}
-                inm {modulation out} =
-                    inl data = Struct.map' (inl data -> data.basic) data
+                inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
+                inl data = Struct.map' (inl data -> data.basic) data
+                inm {alpha eta out} =
                     inm data = matmult_stream {weights with data}
-                    succ (wrap_split ((), module_map (const View.span) inner.static) data)
+                    succ (wrap_split ((), inner.static) data)
                 //inm _ = print state
                 //inm _ = print (Struct.map' (inl x -> x.basic) data)
                 //inm _ = print modulation
                 //inm _ = print out
                 inm out =
-                    inl data = Struct.map' (inl data -> data .view {a=()} .basic) data
-                    inm out' = matmult_stream {data weight={T=H}; streams=weights.streams; block=()}
+                    inm plastic = matmult_stream {data weight={T=H}; streams=weights.streams; block=()}
                     //inm _ = print out'
-                    ln_tanh (out, out')
+                    ln_tanh (alpha, plastic, out)
                 //inm _ = print out
-                inm H = wn_hebb {H modulation out}
-                inm _ = print H
+                inm H = wn_hebb {H eta out input=data}
+                //inm _ = print H
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s

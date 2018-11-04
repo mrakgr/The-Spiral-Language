@@ -308,7 +308,7 @@ inl size = {
     pattern = 50
     episode = 5
     minibatch = 1
-    seq = 1
+    seq = 500
 
     shot = 1
     pattern_repetition = 5
@@ -454,6 +454,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None 
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning3
 |> printfn "%s"
 |> ignore
