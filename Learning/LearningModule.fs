@@ -1780,7 +1780,7 @@ inl float ->
 
             inl {out={out state} bck} = apply s
             {out state bck}
-        //optimize = Optimizer.kfac
+        optimize = Optimizer.kfac
         block = ()
         }
 
