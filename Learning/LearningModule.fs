@@ -125,7 +125,19 @@ inl Unary =
             bck = inl x out -> half / out
             }
 
-    {sigmoid tanh relu abs sqr sqrt}
+    inl exp =
+        unary {
+            fwd = exp
+            bck = inl x out -> out
+            }
+
+    inl log =
+        unary {
+            fwd = log
+            bck = inl x out -> one / x
+            }
+
+    {sigmoid tanh relu abs sqr sqrt exp log}
 
 inl Binary = 
     inl (/) =
@@ -164,7 +176,16 @@ inl Binary =
                 }
             }
 
-    {(*) (/) (+) (-)}
+    inl (**) =
+        binary {
+            fwd = (**)
+            bck = {
+                a = inl a b out -> b * a ** (b - one)
+                b = inl a b out -> out * log a
+                }
+            }
+
+    {(*) (/) (+) (-) (**)}
 
 inl Comp =
     inl (<) = comp (<)
@@ -463,7 +484,10 @@ inl Seq k =
     inl Activation =
         open Op
         inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
-        inl wn_hebb {H eta input out} = weight_norm (H + eta * input * out)
+        inl wn_hebb {H upper lower eta input out} = 
+            inm eta = tanh match eta with {input out} -> (input + out) / 2 | _ -> eta
+            inm eta = exp (eta * log upper + (1.0 - eta) * log lower)
+            weight_norm (H + eta * input * out)
             
         {generalized_mi_ln_relu wn_hebb}
 
