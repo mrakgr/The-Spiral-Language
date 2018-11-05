@@ -14,6 +14,7 @@ inl zero = 0f32
 inl half = 0.5f32
 inl one = 1f32
 inl two = 2f32
+inl epsilon = to float (10.0 ** -7.0)
 
 inl (>>=) a b =
     match a with
@@ -465,7 +466,7 @@ inl Seq k =
             inm std = f x
             succ (x, std)
 
-        inl safe x = x + val (to float (10.0 ** -7.0))
+        inl safe x = x + val epsilon
         inl l1_norm_body = norm_template (abs >> mean >> safe)
         inl l2_norm_body = norm_template (sqr >> mean >> safe >> sqrt)
 
@@ -485,8 +486,8 @@ inl Seq k =
         open Op
         inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
         inl wn_hebb {H upper lower eta input out} = 
-            inm eta = tanh match eta with {input out} -> (input + out) / 2 | _ -> eta
-            inm eta = exp (eta * log upper + (1.0 - eta) * log lower)
+            inm eta = tanh match eta with {input out} -> (input + out) / val two | _ -> eta
+            inm eta = exp (eta * log upper + (val one - eta) * log lower)
             weight_norm (H + eta * input * out)
             
         {generalized_mi_ln_relu wn_hebb}
@@ -1782,7 +1783,7 @@ inl float ->
             {
             dsc = 
                 {
-                weights = weight {init=init.weigths; dim=outer,inner.static}
+                weights = weight {init=init.weights; dim=outer,inner.weights.static}
                 biases = bias {init=init.biases; dim=1,inner.biases}
                 dim = val {outer inner sublayer_size}
                 }
@@ -1800,8 +1801,8 @@ inl float ->
                     state=s.CudaTensor.zero {elem_type=float; dim=span, size}
                     }
 
-            inl apply =
-                inl {alpha upper lower} = wrap_split ((), inner.biases) biases
+            inl apply = 
+                inl {alpha upper lower} = wrap_split ((), inner.biases) biases.weight
                 inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
                 inl data = Struct.map' (inl data -> data.basic) data
                 inm {eta out} =
