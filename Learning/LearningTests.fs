@@ -422,7 +422,7 @@ met train {!data network learning_rate final covariance_modifier} s =
             next()
         else next()
 
-inl learning_rate = 2f32 ** -17f32
+inl learning_rate = 2f32 ** -18f32
 inl covariance_modifier = 2f32 ** 0f32
 inl n = 0.0001f32
 
@@ -445,6 +445,7 @@ Timer.time_it "Training"
         covariance_modifier
         final = Error.square
         } s
+
     """
 
 let tests =

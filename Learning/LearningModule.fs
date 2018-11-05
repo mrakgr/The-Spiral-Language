@@ -1178,14 +1178,12 @@ inl float ->
             } {x1 x2 b}
 
     inl print x s =
-        inb x = s.CudaFun.map {map=id} (primals x) |> CudaAux.temporary
-        s.CudaTensor.print x
+        s.CudaTensor.print (primal x)
         {out=(); bck=()}
 
     inl print_bck x s =
         {out=(); bck=inl _ ->
-            inb x = s.CudaFun.map {map=id} (adjoints x) |> CudaAux.temporary
-            s.CudaTensor.print x            
+            s.CudaTensor.print (adjoint x)
             }
 
     inl ln_relu = seq float <| inl k -> 
@@ -1642,7 +1640,7 @@ inl float ->
         inl {identity val var} = Initializer.sing.Tensor
         inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
 
-    inl default_epsilon = to float (2.0 ** -5.0)
+    inl default_epsilon = to float (2.0 ** -3.0)
 
     inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
     inl wrap_split dim = Struct.map' (View.wrap dim >> View.split) >> Struct.map zip_dual

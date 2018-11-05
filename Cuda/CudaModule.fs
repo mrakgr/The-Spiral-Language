@@ -638,6 +638,7 @@ inl methods =
         stack x
 
     print=met s (!dyn x) ->
+        inb x = s.CudaFun.map {map=id} x |> CudaAux.temporary
         match x with
         | {cutoff input} -> Tensor.print {cutoff input=s.CudaTensor.to_host_tensor (zip input)} 
         | x -> s.CudaTensor.to_host_tensor (zip x) |> Tensor.print
