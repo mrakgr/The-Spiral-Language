@@ -8,3 +8,23 @@ let x =
 let a = [|-2.0; 2.0; 1.98; -1.98; 2.0; 2.0; -1.98; -1.98; 1.98; -2.0|]
 let b = [|0; 0; -1; 1; 0; 0; 1; 1; -1; 0|] |> Array.map float
 Array.fold2 (fun s a b -> s + a * b) 0.0 a b
+
+let sigmoid x = 1.0 / (1.0 + exp -x)
+let log_sigmoid = log << sigmoid
+let log_sigmoid' x = log 1.0 - log (1.0 + exp -x)
+log_sigmoid -100.0
+log_sigmoid' -100.0
+
+log10 1.0
+
+let sqrt_sigmoid = sqrt << sigmoid
+sqrt_sigmoid -12.0
+
+exp 5.0
+
+exp 0.4
+
+let wrapped sup l x = l * exp (-l * x) / (1.0 - exp (-sup*l))
+let f = wrapped 1.0 1.0
+
+0.5 ** -4.0

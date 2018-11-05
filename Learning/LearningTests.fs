@@ -422,7 +422,7 @@ met train {!data network learning_rate final covariance_modifier} s =
             next()
         else next()
 
-inl learning_rate = 2f32 ** -21f32
+inl learning_rate = 2f32 ** -18f32
 inl covariance_modifier = 2f32 ** 0f32
 inl n = 0.0001f32
 
@@ -457,4 +457,3 @@ let tests =
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning3
 |> printfn "%s"
 |> ignore
-

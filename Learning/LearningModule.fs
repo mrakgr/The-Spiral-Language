@@ -463,7 +463,7 @@ inl Seq k =
     inl Activation =
         open Op
         inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
-        inl wn_hebb {H modulation out} = weight_norm (H + modulation * out)
+        inl wn_hebb {H eta input out} = weight_norm (H + eta * input * out)
             
         {generalized_mi_ln_relu wn_hebb}
 
@@ -1614,7 +1614,7 @@ inl float ->
         inl {identity val var} = Initializer.sing.Tensor
         inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
 
-    inl default_epsilon = to float (2.0 ** -3.0)
+    inl default_epsilon = to float (2.0 ** -5.0)
 
     inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
     inl wrap_split dim = Struct.map' (View.wrap dim >> View.split) >> Struct.map zip_dual
@@ -1725,30 +1725,22 @@ inl float ->
         {
         init = inl sublayer_size -> 
             open Initializer.dual.TensorView
-            inl modulation = {input=sublayer_size; state=size}
-            inl outer = 
-                {
-                static={bias=1; a=modulation} // a is here so the dimension comes first. They are ordered lexically.
-                plastic=modulation
-                }
+            inl outer = {bias=1; input=sublayer_size; state=size}
             inl inner = 
                 {
-                static={modulation out=size}
+                static={alpha=1; eta=1; out=size}
                 plastic=size
                 }
-            inl identity' = identity' 0.001f32
             inl init = 
                 {
-                bias={modulation={input=const zero; state=const zero}; out=const zero}
-                a={
-                    input={modulation={input=identity'; state=const zero}; out=identity}
-                    state={modulation={input=const zero; state=identity'}; out=const zero}
-                    }
+                bias={alpha=const 0.01f32; eta=const 0.01f32; out=const zero}
+                input={alpha=const zero; eta=const zero; out=identity}
+                state={alpha=const zero; eta=const zero; out=const zero}
                 }
             {
             dsc = 
                 {
-                weights = weight {init dim=outer.static,inner.static}
+                weights = weight {init dim=outer,inner.static}
                 dim = val {outer inner sublayer_size}
                 }
             size
@@ -1761,21 +1753,20 @@ inl float ->
                 match d with
                 | {state} -> state
                 | _ -> {
-                    H=s.CudaTensor.zero_view {elem_type=float; dim=inner.plastic, outer.plastic} .basic
+                    H=s.CudaTensor.zero_view {elem_type=float; dim=inner.plastic, outer} .basic
                     state=s.CudaTensor.zero {elem_type=float; dim=span, size}
                     }
 
             inl apply =
-                inm data = segmented_init {dim=span,outer.static} {bias=const one; a={input=load input; state=load state}}
-                inm {modulation out} =
-                    inl data = Struct.map' (inl data -> data.basic) data
+                inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
+                inl data = Struct.map' (inl data -> data.basic) data
+                inm {alpha eta out} =
                     inm data = matmult_stream {weights with data}
-                    succ (wrap_split ((), module_map (const View.span) inner.static) data)
+                    succ (wrap_split ((), inner.static) data)
                 inm out =
-                    inl data = Struct.map' (inl data -> data .view {a=()} .basic) data
-                    inm out' = matmult_stream {data weight={T=H}; streams=weights.streams; block=()}
-                    tanh (out, out')
-                inm H = wn_hebb {H modulation out}
+                    inm plastic = matmult_stream {data weight={T=H}; streams=weights.streams; block=()}
+                    map CudaAD.Activation.hebb_tanh {alpha plastic static=out}
+                inm H = wn_hebb {H eta out input=data}
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s
