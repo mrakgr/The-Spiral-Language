@@ -31,3 +31,5 @@ let wrapped sup l x = l * exp (-l * x) / (1.0 - exp (-sup*l))
 
 let f upper lower x = exp (x * log upper + (1.0 - x) * log lower)
 f 0.1 0.001 -1.0
+
+log 0.1

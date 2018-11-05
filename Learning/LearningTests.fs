@@ -432,9 +432,10 @@ inl network,_ =
     inl network = 
         {
         plastic_rnn = plastic_rnn size.pattern
+        plastic_rnn' = plastic_rnn' size.pattern
         }
 
-    init s size.pattern network.plastic_rnn
+    init s size.pattern network.plastic_rnn'
 
 Timer.time_it "Training"
 <| inl _ ->

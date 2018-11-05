@@ -485,12 +485,12 @@ inl Seq k =
     inl Activation =
         open Op
         inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
-        inl wn_hebb {H upper lower eta input out} = 
+        inl wn_hebb {H upper mid eta input out} = 
             inm eta = 
                 match eta with 
                 | {input out} -> (tanh input + tanh out) / val two 
                 | _ -> tanh eta
-            inm eta = exp (eta * log upper + (val one - eta) * log lower)
+            inm eta = exp (eta * log upper + (val one - eta) * log mid)
             weight_norm (H + eta * input * out)
             
         {generalized_mi_ln_relu wn_hebb}
@@ -1198,9 +1198,10 @@ inl float ->
         alpha * plastic + static >>= layer_norm >>= relu
 
     inl generalized_mi_ln_relu = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_ln_relu
-    inl wn_hebb x = 
-        {x with out=Struct.map' (Tensor.rotate (inl a,b -> b,a)) self}
-        |> seq float (inl k -> CudaAD .Seq k .Activation .wn_hebb)
+    inl wn_hebb {x with eta out} = 
+        inl rotate = Struct.map' (Tensor.rotate (inl a,b -> b,a))
+        inl eta = match eta with {out} -> {eta with out=rotate out} | _ -> eta
+        seq float (inl k -> CudaAD .Seq k .Activation .wn_hebb) {x with eta out=rotate out}
 
     inl linear = succ
     inl Activation = { linear sigmoid tanh relu add hadmult hadmultb ln_relu} |> stack
@@ -1747,7 +1748,7 @@ inl float ->
         block = ()
         }
 
-    inl plastic_rnn size =
+    inl plastic_rnn size = // Scalar modulation
         {
         init = inl sublayer_size -> 
             open Initializer.dual.TensorView
@@ -1763,7 +1764,7 @@ inl float ->
                     {
                     alpha = 1
                     upper = 1
-                    lower = 1
+                    mid = 1
                     }
                 }
             inl init = 
@@ -1778,7 +1779,7 @@ inl float ->
                     {
                     alpha = const 0.01f32
                     upper = const 0.1f32
-                    lower = const 0.001f32
+                    mid = const 0.001f32
                     }
                 }
             {
@@ -1804,7 +1805,7 @@ inl float ->
                     }
 
             inl apply = 
-                inl {alpha upper lower} = wrap_split ((), inner.biases) biases.weight
+                inl {alpha upper mid} = wrap_split ((), inner.biases) biases.weight
                 inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
                 inl data = Struct.map' (inl data -> data.basic) data
                 inm {static plastic} = 
@@ -1815,7 +1816,7 @@ inl float ->
                         }
                 inl {eta out=static} = wrap_split ((), inner.weights.static) static
                 inm out = map CudaAD.Activation.hebb_tanh {alpha plastic static}
-                inm H = wn_hebb {H upper lower eta out input=data}
+                inm H = wn_hebb {H upper mid eta out input=data}
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s
@@ -1823,6 +1824,84 @@ inl float ->
         optimize = Optimizer.kfac
         block = ()
         }
+
+    inl plastic_rnn' size = // Full modulation
+        {
+        init = inl sublayer_size -> 
+            open Initializer.dual.TensorView
+            inl outer = {bias=1; input=sublayer_size; state=size}
+            inl inner = 
+                {
+                weights =
+                    {
+                    static={eta={input=View.span outer; out=size}; out=size}
+                    plastic=size
+                    }
+                biases =
+                    {
+                    alpha = 1
+                    upper = 1
+                    mid = 1
+                    }
+                }
+            inl init = 
+                {
+                weights =
+                    {
+                    bias={eta={input=const zero; out=const zero}; out=const zero}
+                    input={eta={input=const zero; out=const zero}; out=identity}
+                    state={eta={input=const zero; out=const zero}; out=const zero}
+                    }
+                biases =
+                    {
+                    alpha = const 0.01f32
+                    upper = const 0.1f32
+                    mid = const 0.001f32
+                    }
+                }
+            {
+            dsc = 
+                {
+                weights = weight {init=init.weights; dim=outer,inner.weights.static}
+                biases = bias {init=init.biases; dim=1,inner.biases}
+                streams = stream, stream
+                dim = val {outer inner sublayer_size}
+                }
+            size
+            }
+
+        apply = inl {d with weights={weights biases dim={outer inner} streams} input} s -> 
+            inl span = primal input .span_outer
+            assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
+            inl {state H} =
+                match d with
+                | {state} -> state
+                | _ -> {
+                    H=s.CudaTensor.zero_view {elem_type=float; dim=inner.weights.plastic, outer} .basic
+                    state=s.CudaTensor.zero {elem_type=float; dim=span, size}
+                    }
+
+            inl apply = 
+                inl {alpha upper mid} = wrap_split ((), inner.biases) biases.weight
+                inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
+                inl data = Struct.map' (inl data -> data.basic) data
+                inm {static plastic} = 
+                    matmult_stream 
+                        {
+                        static={weights with data}
+                        plastic={data weight={T=H}; streams block=()}
+                        }
+                inl {eta out=static} = wrap_split ((), inner.weights.static) static
+                inm out = map CudaAD.Activation.hebb_tanh {alpha plastic static}
+                inm H = wn_hebb {H upper mid eta out input=data}
+                succ {out state={state=out; H}}
+
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        optimize = Optimizer.kfac
+        block = ()
+        }
+
 
     inl mi size =
         inl inner = 
@@ -1922,7 +2001,7 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {rnn plastic_rnn mi lstm }
+    inl RNN = {rnn plastic_rnn plastic_rnn' mi lstm }
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
