@@ -25,6 +25,9 @@ exp 5.0
 exp 0.4
 
 let wrapped sup l x = l * exp (-l * x) / (1.0 - exp (-sup*l))
-let f = wrapped 1.0 1.0
+//let f = wrapped 1.0 1.0
 
 0.5 ** -4.0
+
+let f upper lower x = exp (x * log upper + (1.0 - x) * log lower)
+f 0.1 0.001 -1.0

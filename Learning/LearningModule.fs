@@ -1728,45 +1728,65 @@ inl float ->
             inl outer = {bias=1; input=sublayer_size; state=size}
             inl inner = 
                 {
-                static={alpha=1; eta=1; out=size}
-                plastic=size
+                weights =
+                    {
+                    static={eta=1; out=size}
+                    plastic=size
+                    }
+                biases =
+                    {
+                    alpha = 1
+                    upper = 1
+                    lower = 1
+                    }
                 }
             inl init = 
                 {
-                bias={alpha=const 0.01f32; eta=const 0.01f32; out=const zero}
-                input={alpha=const zero; eta=const zero; out=identity}
-                state={alpha=const zero; eta=const zero; out=const zero}
+                weights =
+                    {
+                    bias={eta=const zero; out=const zero}
+                    input={eta=const zero; out=identity}
+                    state={eta=const zero; out=const zero}
+                    }
+                biases =
+                    {
+                    alpha = const 0.01f32
+                    upper = const 0.1f32
+                    lower = const 0.001f32
+                    }
                 }
             {
             dsc = 
                 {
-                weights = weight {init dim=outer,inner.static}
+                weights = weight {init=init.weigths; dim=outer,inner.static}
+                biases = bias {init=init.biases; dim=1,inner.biases}
                 dim = val {outer inner sublayer_size}
                 }
             size
             }
 
-        apply = inl {d with weights={weights dim={outer inner}} input} s -> 
+        apply = inl {d with weights={weights biases dim={outer inner}} input} s -> 
             inl span = primal input .span_outer
             assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
             inl {state H} =
                 match d with
                 | {state} -> state
                 | _ -> {
-                    H=s.CudaTensor.zero_view {elem_type=float; dim=inner.plastic, outer} .basic
+                    H=s.CudaTensor.zero_view {elem_type=float; dim=inner.weights.plastic, outer} .basic
                     state=s.CudaTensor.zero {elem_type=float; dim=span, size}
                     }
 
             inl apply =
+                inl {alpha upper lower} = wrap_split ((), inner.biases) biases
                 inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
                 inl data = Struct.map' (inl data -> data.basic) data
-                inm {alpha eta out} =
+                inm {eta out} =
                     inm data = matmult_stream {weights with data}
-                    succ (wrap_split ((), inner.static) data)
+                    succ (wrap_split ((), inner.weights.static) data)
                 inm out =
                     inm plastic = matmult_stream {data weight={T=H}; streams=weights.streams; block=()}
                     map CudaAD.Activation.hebb_tanh {alpha plastic static=out}
-                inm H = wn_hebb {H eta out input=data}
+                inm H = wn_hebb {H upper lower eta out input=data}
                 succ {out state={state=out; H}}
 
             inl {out={out state} bck} = apply s
