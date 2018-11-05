@@ -486,7 +486,10 @@ inl Seq k =
         open Op
         inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
         inl wn_hebb {H upper lower eta input out} = 
-            inm eta = tanh match eta with {input out} -> (input + out) / val two | _ -> eta
+            inm eta = 
+                match eta with 
+                | {input out} -> (tanh input + tanh out) / val two 
+                | _ -> tanh eta
             inm eta = exp (eta * log upper + (val one - eta) * log lower)
             weight_norm (H + eta * input * out)
             
