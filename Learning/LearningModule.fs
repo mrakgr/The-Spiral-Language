@@ -1772,7 +1772,7 @@ inl float ->
                 {
                 weights =
                     {
-                    bias={eta=const zero; out=const zero}
+                    bias={eta=const one; out=const zero}
                     input={eta=const zero; out=identity}
                     state={eta=const zero; out=const zero}
                     }
