@@ -242,13 +242,16 @@ met train {data={input label} network learning_rate final} s =
                             inl learning_rate = learning_rate ** 0.85f32
                             match m with
                             | () -> 
-                                Struct.map (inl bck -> bck {learning_rate}) bck
+                                Struct.foldr_map (inl bck _ -> bck {learning_rate}, ()) bck ()
                             | _ ->
-                                Struct.map2 (inl bck m -> 
-                                    match m with
-                                    | () -> bck {learning_rate}
-                                    | {} -> bck {m with learning_rate}
-                                    ) bck m
+                                Struct.foldr2_map (inl bck m _ -> 
+                                    inl x =
+                                        match m with
+                                        | () -> bck {learning_rate}
+                                        | {} -> bck {m with learning_rate}
+                                    x, ()
+                                    ) bck m ()
+                            |> fst
                             |> next
                         | _ -> next m
                         ) () prev_states
@@ -454,6 +457,7 @@ Timer.time_it "Training"
         covariance_modifier
         final = Error.square
         } s
+
     """
 
 let tests =
