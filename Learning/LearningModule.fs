@@ -853,7 +853,7 @@ inl float ->
                 | {$k={steady_state k}} -> 
                     inl data_next =
                         match w with
-                        | {data=!primal data_next} -> s.CudaFun.map {map=inl {data data_next} -> data-data_next} {data data_next}
+                        | {data_next} -> s.CudaFun.map {map=inl {data data_next} -> data-data_next} {data data_next}
                         | _ -> data
                     update_steady_state learning_rate data data_next steady_state s
                     k := k() + out.span_outer
@@ -870,12 +870,14 @@ inl float ->
         inl out = Struct.map (inl {out} -> out) l
         {
         out
-        bck=met d ->
-            match d with
-            | {data} -> Struct.iter2 (inl l data -> bck {d with data} l) l data
-            | _ -> Struct.iter (bck d) l
-            Struct.iter (inl {streams=x} -> Tuple.iter s.data.stream.wait_on x) l
-            {data=out}
+        bck=inl d ->
+            indiv join
+                match d with
+                | {data_next} -> Struct.iter2 (inl l data_next -> bck {d with data_next} l) l data_next
+                | _ -> Struct.iter (bck d) l
+                Struct.iter (inl {streams=x} -> Tuple.iter s.data.stream.wait_on x) l
+                inl data_next = Struct.map (inl {data} -> primal data) l
+                stack {data_next}
         }
 
     inl matmultb l bias s = 
