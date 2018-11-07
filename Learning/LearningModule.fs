@@ -1241,10 +1241,12 @@ inl float ->
     inl kfac {learning_rate weights} s =
         inl k_max = 128
 
-        inl factor {covariance=from precision=to k epsilon} = 
+        inl factor {d with precision=to k epsilon} =
             if k() >= k_max then
                 k := 0
-                s.CudaSolve.regularized_cholesky_inverse {epsilon from to}
+                match d with
+                | {steady_state=from} -> s.CudaSolve.regularized_lu_inverse {epsilon from to}
+                | {covariance=from} -> s.CudaSolve.regularized_cholesky_inverse {epsilon from to}
 
         Struct.iter (function
             | {d with weight} ->
