@@ -2427,19 +2427,32 @@ inl s ret ->
             handle_error s { info = getrs' s trans A ipiv B }
             B
 
+    inl set_to_identity x =
+        inl x = CudaAux.to_dev_tensor x
+        inl to = to x.elem_type
+        inl one, zero = to 1, to 0
+        s.CudaKernel.iter {dim=from.dim} <| inl a, b -> 
+            inl x = x a b
+            if a = b then x .set one else x .set zero
+
+    inl regularized_lu_inverse {epsilon from to} =
+        inb from = s.CudaFun.map {mapi=dampen epsilon} from |> CudaAux.temporary
+        inl {ipiv info} = getrf' s from
+        inb ipiv = CudaAux.temporary ipiv
+        handle_error s { info pos = "U(x,x) = 0 where x = %d."}
+        set_to_identity to
+        handle_error s {info = s.CudaSolve.getrs' .nT from ipiv to}
+
     inl lu_inverse s ({from} | from as d) =
         inl A, ipiv = s.CudaSolve.getrf from
         inb ipiv = CudaAux.temporary ipiv
         match d with
         | {to} ->
-            inl _ =
-                inl to = CudaAux.to_dev_tensor to
-                s.CudaKernel.iter {dim=from.dim} <| inl a, b -> 
-                    inl to = to a b
-                    if a = b then to .set 1f32 else to .set 0f32
+            set_to_identity to
             handle_error s {info = s.CudaSolve.getrs' .nT A ipiv to}
         | _ ->
-            inl to = s.CudaFun.init {dim=from.dim} (inl a, b -> if a = b then 1f32 else 0f32)
+            inl to = s.CudaTensor.create_like from
+            set_to_identity to
             handle_error s {info = s.CudaSolve.getrs' .nT A ipiv to}
             to
 
