@@ -1719,7 +1719,7 @@ inl float ->
         {
         weight = view' d
         streams = stream, stream
-        front = steady_state default_epsilon b
+        front = covariance default_epsilon b
         back = covariance default_epsilon a
         block = ()
         }
@@ -1771,7 +1771,7 @@ inl float ->
 
             inl {out={out state} bck} = apply s
             {out state bck}
-        optimize = Optimizer.kfac
+        //optimize = Optimizer.kfac
         block = ()
         }
 
