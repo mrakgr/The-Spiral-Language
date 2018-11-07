@@ -2456,7 +2456,11 @@ inl s ret ->
             handle_error s {info = s.CudaSolve.getrs' .nT A ipiv to}
             to
 
-    ret <| s.module_add .CudaSolve {potrf' potrf getrf' getrf getrs' getrs regularized_cholesky_inverse cholesky_inverse lu_inverse}
+    s.module_add .CudaSolve
+    |> {
+        potrf' potrf getrf' getrf getrs' getrs regularized_cholesky_inverse cholesky_inverse regularized_lu_inverse lu_inverse
+        }
+    |> ret
     
     dense_call s .cusolverDnDestroy()
     """) |> module_
