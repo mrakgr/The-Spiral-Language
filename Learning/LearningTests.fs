@@ -130,7 +130,7 @@ open Learning float
 inl size = {
     seq = 1115394
     minibatch = 64
-    step = 64
+    step = 8
     hot = 128
     }
 
