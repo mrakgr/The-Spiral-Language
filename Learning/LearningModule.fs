@@ -783,12 +783,21 @@ inl float ->
         | () -> ()
         | B -> ret B
 
-    /// Updates the covariance such that cov(t+1) = alpha * cov t + beta / k * x^T * x
+    /// Updates the covariance such that cov(t+1) = alpha * cov(t) + beta / k * x^T * x
     met update_covariance learning_rate x cov s =
         inl k = x.span_outer
         inl alpha = Math.pow (one - learning_rate) k
         inl beta = one - alpha
         s.CudaBlas.syrk' .Lower .T (beta / to float k) x alpha cov // symmetric rank-k update. (beta / to float k) * x * x^T + alpha * cov
+
+    /// Updates the state state matrix such that A(t+1) = alpha * A(t) + beta / k * a^T * b
+    /// Was changed from the Zap paper to have positive eigenvalues in order to mirror the covariance matrix updates 
+    /// used in natural gradient methods.
+    met update_steady_state learning_rate a b A s =
+        inl k = a.span_outer
+        inl alpha = Math.pow (one - learning_rate) k
+        inl beta = one - alpha
+        s.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
 
     inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
     inl drv s primal = {primal adjoint=s.CudaTensor.zero_like_view primal; block=()}
@@ -821,7 +830,7 @@ inl float ->
             inl (A,TA),(B,TB) = f data, f weight
             s.CudaBlas.gemm' TA TB one (primal A) (primal B) zero (primal out)
 
-        inl bck {learning_rate} {d with out data weight streams=l,r} =
+        inl bck {w with learning_rate} {d with out data weight streams=l,r} =
             inl f' = function {T} -> T, .nT | nT -> nT, .T
             inl (A,TA),(B,TB) = f' data, f' weight
             inl out = adjoint out
@@ -842,7 +851,11 @@ inl float ->
             inl update k data = 
                 match d with 
                 | {$k={steady_state k}} -> 
-                    update_steady_state learning_rate data steady_state s
+                    inl data_next =
+                        match w with
+                        | {data=!primal data_next} -> s.CudaFun.map {map=inl {data data_next} -> data-data_next} {data data_next}
+                        | _ -> data
+                    update_steady_state learning_rate data data_next steady_state s
                     k := k() + out.span_outer
                 | {$k={covariance k}} -> 
                     update_covariance learning_rate data covariance s 
@@ -857,8 +870,11 @@ inl float ->
         {
         out=Struct.map (inl {out} -> out) l
         bck=met d ->
-            Struct.iter (bck d) l
+            match d with
+            | {data} -> Struct.iter2 (inl l data -> bck {d with data} l) l data
+            | _ -> Struct.iter (bck d) l
             Struct.iter (inl {streams=x} -> Tuple.iter s.data.stream.wait_on x) l
+            {data=out}
         }
 
     inl matmultb l bias s = 
