@@ -841,6 +841,9 @@ inl float ->
                 ) (adjoint B)
             inl update k data = 
                 match d with 
+                | {$k={steady_state k}} -> 
+                    update_steady_state learning_rate data steady_state s
+                    k := k() + out.span_outer
                 | {$k={covariance k}} -> 
                     update_covariance learning_rate data covariance s 
                     k := k() + out.span_outer
