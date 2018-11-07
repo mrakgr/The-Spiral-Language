@@ -867,8 +867,9 @@ inl float ->
         inl l = Struct.map init l
         Struct.iter run l
         Struct.iter (inl {streams=l,r} -> s.data.stream.wait_on l) l
+        inl out = Struct.map (inl {out} -> out) l
         {
-        out=Struct.map (inl {out} -> out) l
+        out
         bck=met d ->
             match d with
             | {data} -> Struct.iter2 (inl l data -> bck {d with data} l) l data
@@ -1658,9 +1659,12 @@ inl float ->
         bck = Struct.map (inl {bck} -> bck) x
         }
 
-    inl covariance = 
+    inl covariance_template k = 
         inl {identity val var} = Initializer.sing.Tensor
-        inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
+        inl epsilon !(View.span) x -> {$k=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
+
+    inl covariance = covariance_template .covariance
+    inl steady_state = covariance_template .steady_state
 
     inl default_epsilon = to float (2.0 ** -3.0)
 
@@ -1713,7 +1717,7 @@ inl float ->
         {
         weight = view' d
         streams = stream, stream
-        front = covariance default_epsilon b
+        front = steady_state default_epsilon b
         back = covariance default_epsilon a
         block = ()
         }

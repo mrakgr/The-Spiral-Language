@@ -237,12 +237,20 @@ met train {data={input label} network learning_rate final} s =
                     next {d with prev_states state}
                 finally=inl {state with cost state prev_states} ->
                     inl prev_states = List.cons state prev_states |> dyn
-                    List.foldl (inl _ -> function
+                    List.foldl' ignore (inl next m -> function
                         | {prev={bck}} ->
                             inl learning_rate = learning_rate ** 0.85f32
-                            inl apply bck = bck {learning_rate} |> ignore
-                            Struct.foldr (inl bck _ -> apply bck) bck ()
-                        | _ -> ()
+                            match m with
+                            | () -> 
+                                Struct.map (inl bck -> bck {learning_rate}) bck
+                            | _ ->
+                                Struct.map2 (inl bck m -> 
+                                    match m with
+                                    | () -> bck {learning_rate}
+                                    | {} -> bck {m with learning_rate}
+                                    ) bck m
+                            |> next
+                        | _ -> next m
                         ) () prev_states
                     Optimizer.standard learning_rate s network
                     inl cost =
@@ -446,7 +454,6 @@ Timer.time_it "Training"
         covariance_modifier
         final = Error.square
         } s
-
     """
 
 let tests =
@@ -456,6 +463,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None 
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
 |> printfn "%s"
 |> ignore

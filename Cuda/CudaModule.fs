@@ -2431,11 +2431,11 @@ inl s ret ->
         inl x = CudaAux.to_dev_tensor x
         inl to = to x.elem_type
         inl one, zero = to 1, to 0
-        s.CudaKernel.iter {dim=from.dim} <| inl a, b -> 
+        s.CudaKernel.iter {dim=x.dim} <| inl a, b -> 
             inl x = x a b
             if a = b then x .set one else x .set zero
 
-    inl regularized_lu_inverse {epsilon from to} =
+    inl regularized_lu_inverse s {epsilon from to} =
         inb from = s.CudaFun.map {mapi=dampen epsilon} from |> CudaAux.temporary
         inl {ipiv info} = getrf' s from
         inb ipiv = CudaAux.temporary ipiv
@@ -2455,11 +2455,11 @@ inl s ret ->
             set_to_identity to
             handle_error s {info = s.CudaSolve.getrs' .nT A ipiv to}
             to
-
-    s.module_add .CudaSolve
-    |> {
-        potrf' potrf getrf' getrf getrs' getrs regularized_cholesky_inverse cholesky_inverse regularized_lu_inverse lu_inverse
-        }
+    
+    {
+    potrf' potrf getrf' getrf getrs' getrs regularized_cholesky_inverse cholesky_inverse regularized_lu_inverse lu_inverse
+    }
+    |> s.module_add .CudaSolve
     |> ret
     
     dense_call s .cusolverDnDestroy()
