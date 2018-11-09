@@ -790,6 +790,15 @@ inl float ->
         inl beta = one - alpha
         s.CudaBlas.syrk' .Lower .T (beta / to float k) x alpha cov // symmetric rank-k update. (beta / to float k) * x * x^T + alpha * cov
 
+    /// Updates the state state matrix such that A(t+1) = alpha * A(t) + beta / k * a^T * b
+    /// Was changed from the Zap paper to have positive eigenvalues in order to mirror the covariance matrix updates 
+    /// used in natural gradient methods.
+    met update_steady_state learning_rate a b A s =
+        inl k = a.span_outer
+        inl alpha = Math.pow (one - learning_rate) k
+        inl beta = one - alpha
+        s.CudaBlas.gemm' .T .nT (beta / to float32 k) a b one A
+
     inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
     inl drv s primal = {primal adjoint=s.CudaTensor.zero_like_view primal; block=()}
 
@@ -841,6 +850,13 @@ inl float ->
                 ) (adjoint B)
             inl update k data = 
                 match d with 
+                | {$k={steady_state k}} -> 
+                    inl data_next =
+                        match w with
+                        | {data_next} -> s.CudaFun.map {map=inl {data data_next} -> data-data_next} {data data_next}
+                        | _ -> data
+                    update_steady_state learning_rate data data_next steady_state s
+                    k := k() + out.span_outer
                 | {$k={covariance k}} -> 
                     update_covariance learning_rate data covariance s 
                     k := k() + out.span_outer
@@ -1228,10 +1244,12 @@ inl float ->
     inl kfac {learning_rate weights} s =
         inl k_max = 128
 
-        inl factor {d with covariance=from precision=to k epsilon} =
+        inl factor {d with precision=to k epsilon} =
             if k() >= k_max then
                 k := 0
-                s.CudaSolve.regularized_cholesky_inverse {epsilon from to}
+                match d with
+                | {steady_state=from} -> s.CudaSolve.regularized_lu_inverse {epsilon from to}
+                | {covariance=from} -> s.CudaSolve.regularized_cholesky_inverse {epsilon from to}
 
         Struct.iter (function
             | {d with weight} ->
@@ -1556,49 +1574,6 @@ inl float ->
             layer, out
             ) input
 
-    inl zero_like x = 
-        inl zero dim s = {out=s.CudaTensor.zero {elem_type=float; dim}; bck=()}
-        zero (primal x .dim)
-
-    inl sequence x s =
-        inl x = Struct.map (inl x -> x s |> inl x -> {x with block=()}) x
-        {
-        out = Struct.map (inl {out} -> out) x
-        bck = Struct.map (inl {bck} -> bck) x
-        }
-
-    inl covariance =
-        inl {identity val var} = Initializer.sing.Tensor
-        inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
-
-    inl default_epsilon = to float (2.0 ** -3.0)
-
-    inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
-    inl wrap_split dim = Struct.map' (View.wrap dim >> View.split) >> Struct.map zip_dual
-    inl wrap_split_weight = Struct.map2 (inl dim {d with weight} -> wrap_split dim weight)
-
-    inl weight {d with dim=b,a} = 
-        open Initializer.dual.TensorView
-        {
-        weight = view' d
-        streams = stream, stream
-        front = covariance default_epsilon b
-        back = covariance default_epsilon a
-        block = ()
-        }
-
-    inl bias {d with dim=1,a} = 
-        open Initializer.dual.TensorView
-        {
-        weight = view' d
-        streams = stream, stream
-        block = ()
-        }
-
-    inl load = to_dev_tensor >> CudaAD.link
-    inl loadb = to_dev_tensor >> CudaAD.link_broadcast
-    inl loada dim = to_dev_tensor >> CudaAD.link_auto dim
-
     // #Feedforward
     inl layer initializer activation size =
         {
@@ -1626,6 +1601,141 @@ inl float ->
         inl ln_relu = layer (I.relu) ln_relu
         {sigmoid relu tanh linear zero ln_relu} |> stackify
    
+    inl zero_like x = 
+        inl zero dim s = {out=s.CudaTensor.zero {elem_type=float; dim}; bck=()}
+        zero (primal x .dim)
+
+    inl concat x s =
+        inl span_inner x = x.dim |> inl b,a -> a
+        inl {dim elem_type} = 
+            Struct.foldl (inl s x ->
+                match s with
+                | () -> {dim=x.dim; elem_type=x.elem_type}
+                | {dim=b, a} ->
+                    inl b', a' = x.dim
+                    assert (b = b') "The outer dimensions of the inputs must be the same."
+                    {s with dim=b,a+a'}
+                ) () (primals x)
+
+        inl out = s.CudaTensor.create {elem_type dim} |> dr s
+        inl _ =
+            inl x, out = to_dev_tensor (primals (x, out))
+            s.CudaKernel.iter {dim} (inl b,a ->
+                Struct.foldl (inl s x ->
+                    inl s' = s + span_inner x
+                    if s <= a && a < s' then 
+                        out b a .set (x b (a - s) .get)
+                    else ()
+                    s'
+                    ) 0  x
+                |> ignore
+                )
+        {
+        out
+        bck=met _ ->
+            inl dims_adjoints = Struct.map (function
+                | {primal adjoint} -> {dim=primal.dim; adjoint=to_dev_tensor adjoint; block=()}
+                | primal -> {dim=primal.dim; block=()}
+                )
+            inl x, out = dims_adjoints (x, out)
+            s.CudaKernel.iter {dim} (inl b,a ->
+                Struct.foldl (inl s x ->
+                    inl s' = s + span_inner x
+                    match x with
+                    | {adjoint=x} ->
+                        if s <= a && a < s' then 
+                            inl x = x b (a - s)
+                            x .set (x .get + out.adjoint b a .get)
+                        else ()
+                    | _ -> ()
+                    s'
+                    ) 0  x
+                |> ignore
+                )
+        }
+
+    inl sequence x s =
+        inl x = Struct.map (inl x -> x s |> inl x -> {x with block=()}) x
+        {
+        out = Struct.map (inl {out} -> out) x
+        bck = Struct.map (inl {bck} -> bck) x
+        }
+
+    inl covariance_template k = 
+        inl {identity val var} = Initializer.sing.Tensor
+        inl epsilon !(View.span) x -> {$k=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
+
+    inl covariance = covariance_template .covariance
+    inl steady_state = covariance_template .steady_state
+
+    inl default_epsilon = to float (2.0 ** -3.0)
+
+    inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
+    inl wrap_split dim = Struct.map' (View.wrap dim >> View.split) >> Struct.map zip_dual
+    inl wrap_split_weight = Struct.map2 (inl dim {d with weight} -> wrap_split dim weight)
+
+    inl expand_singular dim x s =
+        inl out = 
+            Struct.map (inl {x with weight} ->
+                inl s = 
+                    match x with
+                    | {stream} -> s.data_add {stream}
+                    | _ -> s
+                Tensor.expand_singular dim (primal weight) |> dr s
+                ) x
+
+        inl wait_for_streams _ =
+            Struct.iter (function {stream} -> s.data.stream.wait_on stream | _ -> ()) x
+
+        wait_for_streams()
+        
+        inl squeeze weight =
+            assert (weight.span_outer = 1) "The span of outer must be 1."
+            weight 0
+
+        {
+        out
+        bck=met d -> 
+            Struct.iter2 (inl out {x with weight back} ->
+                
+                inl s = 
+                    match x with
+                    | {stream} ->
+                        stream.wait_on s.data.stream
+                        s.data_add {stream}
+                    | _ ->
+                        s
+                        
+                bck_add_bias (adjoint out) (adjoint weight |> squeeze) s
+                update_covariance d.learning_rate (adjoint out) back.covariance s
+                back.k := back.k() + (primal out .span_outer)
+                ) out x
+
+            wait_for_streams()
+        }
+
+    inl weight {d with dim=b,a} = 
+        open Initializer.dual.TensorView
+        {
+        weight = view' d
+        streams = stream, stream
+        front = covariance default_epsilon b
+        back = covariance default_epsilon a
+        block = ()
+        }
+
+    inl bias {d with dim=1,a} = 
+        open Initializer.dual.TensorView
+        {
+        weight = view' d
+        streams = stream, stream
+        block = ()
+        }
+
+    inl load = to_dev_tensor >> CudaAD.link
+    inl loadb = to_dev_tensor >> CudaAD.link_broadcast
+    inl loada dim = to_dev_tensor >> CudaAD.link_auto dim
+
     // #Recurrent
     inl rnn size =
         inl inner = size
@@ -1742,7 +1852,7 @@ inl float ->
         block = ()
         }
 
-    inl plastic_rnn' size = // Border modulation
+    inl plastic_rnn' size = // Full modulation
         {
         init = inl sublayer_size -> 
             open Initializer.dual.TensorView
@@ -1818,6 +1928,7 @@ inl float ->
         optimize = Optimizer.kfac
         block = ()
         }
+
 
     inl mi size =
         inl inner = 
@@ -1921,8 +2032,39 @@ inl float ->
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
-        inl R {r gamma lambda R' V'} =
-            ()
+            inl td v s {discount_factor reward value'=v'} =
+                inl value =
+                    inl input =
+                        match reward with
+                        | _: float32 -> assert ((primal v).length = 1) "The length of v must be 1."; {v=primal v}
+                        | _ -> {reward v=primal v}
+
+                    inl {value input} =
+                        match v' with
+                        | () -> {
+                            value = inl {reward v} -> reward - v
+                            input
+                            }
+                        | _ -> {
+                            value = inl {reward v' v} -> (reward + discount_factor * v') - v
+                            input = {input with v'}
+                            }
+
+                    inl value = 
+                        match reward with
+                        | _: float32 -> inl x -> value {x with reward}
+                        | _ -> value
+
+                    s.CudaFun.map {map=value} input
+
+                { value bck = inl _ -> on_non_nil (inl out -> s.CudaFun.map {out map=inl {value out} -> out - two * value} {value out}) (adjoint v) }
+
+            inl mc v s {discount_factor reward} =
+                match reward with
+                | _: float32 -> td v s {discount_factor reward=discount_factor * reward; value'=()}
+                | _ -> td v s {discount_factor reward=zero; value'=reward}
+
+            {td mc}
 
         /// The PG activation.
         inl sampling_pg x s =
