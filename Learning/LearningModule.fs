@@ -1714,15 +1714,6 @@ inl float ->
             wait_for_streams()
         }
 
-    inl weight_ss {d with dim=b,a} = 
-        open Initializer.dual.TensorView
-        {
-        weight = view' d
-        streams = stream, stream
-        front = steady_state default_epsilon b
-        block = ()
-        }
-
     inl weight {d with dim=b,a} = 
         open Initializer.dual.TensorView
         {
