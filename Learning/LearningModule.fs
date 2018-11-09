@@ -58,6 +58,14 @@ inl bind f x =
 inl unary_bind f a = bind (inl {a} -> f a) {a}
 inl binary_bind f a b = bind (inl {a b} -> f a b) {a b}
 
+inl as_cost =
+    bind <| inl x ->
+        inl out = primal x
+        {
+        out
+        bck=inl _ -> x 0 <- one
+        }
+
 inl op fwd bck =
     bind <| inl x ->
         inl out = primals x |> fwd |> dr
@@ -307,7 +315,8 @@ inl Activation =
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
     inl td {r discount_factor eligibility_decay R' V' V} =
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * V')
-        {R' = R; out = sqr(R - V)}
+        inm error = R - V |> as_cost // Is equivalent `sqr (R - V) / two` on the backward pass.
+        {R error}
 
     {generalized_mi generalized_mi_tanh lstm hebb_tanh td}
 
