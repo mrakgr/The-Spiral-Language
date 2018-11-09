@@ -305,7 +305,11 @@ inl Activation =
         succ {memory out}
 
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
-    {generalized_mi generalized_mi_tanh lstm hebb_tanh}
+    inl td {r discount_factor eligibility_decay R' V' V} =
+        inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * V')
+        {R' = R; out = sqr(R - V)}
+
+    {generalized_mi generalized_mi_tanh lstm hebb_tanh td}
 
 inl Seq k =
     inl val x = k.block.init (const x)
@@ -1289,7 +1293,7 @@ inl float ->
                 
     inl sample_body prob s =
         inl b, a as dim = prob.dim
-        inl boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=b}
+        inb boundary = s.CudaRandom.create {dst=.Uniform} {elem_type=float; dim=b} |> CudaAux.temporary
         inl output = s.CudaTensor.create {elem_type=int64; dim=boundary.dim}
         inl inputs = Tuple.map CudaAux.to_dev_tensor (prob,boundary,output)
         s.CudaKernel.iter_seq {dim} // The sampling function
@@ -1921,8 +1925,6 @@ inl float ->
 
     inl RL =
         inl Value = // The value functions for RL act more like activations.
-        inl R {r gamma lambda R' V'} =
-            ()
 
         /// The PG activation.
         inl sampling_pg x s =
