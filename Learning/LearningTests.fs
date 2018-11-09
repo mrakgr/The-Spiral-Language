@@ -6,7 +6,7 @@ open System.IO
 open Spiral.Types
 open Cuda.Lib
 
-let cfg = {Spiral.Types.cfg_default with trace_length=40; cuda_assert_enabled=true}
+let cfg = {Spiral.Types.cfg_default with trace_length=40; cuda_assert_enabled=false}
 
 let learning1 =
     "learning1",[cuda_modules;learning;mnist;timer],"Does the training work with Mnist?",
