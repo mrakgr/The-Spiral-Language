@@ -1947,15 +1947,9 @@ inl float ->
             out
             bck=inl {reward} ->
                 inl reward = 
-                    match reward with
-                    | _: float32 | _: float64 ->
-                        assert (Tensor.span dim_a = 1) "In the scalar reward case, the outer dimension of the input must be 1."
-                        inl reward = to float reward
-                        inl _ _ _ -> reward
-                    | _ ->
-                        assert (dim_a = fst reward.dim) "Reward's dimensions must be equal to that of the input's outer dimnesion."
-                        assert (snd reward.dim = 1) "Reward's second dimension must be 1." 
-                        CudaAux.to_dev_tensor reward
+                    assert (dim_a = fst reward.dim) "Reward's dimensions must be equal to that of the input's outer dimnesion."
+                    assert (snd reward.dim = 1) "Reward's second dimension must be 1." 
+                    CudaAux.to_dev_tensor reward
 
                 inl x_a, p, out = to_dev_tensor (adjoint x, p, out)
                 s.CudaKernel.iter2 {dim=dim_a, dim_b} <| inl j ->
