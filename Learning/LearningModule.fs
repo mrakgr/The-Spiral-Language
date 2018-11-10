@@ -1964,6 +1964,38 @@ inl float ->
                         x_a.set (x_a.get + (p - label) * reward) 
             }
 
+        inl ac size =
+            inl inner = {action_probs=size; eligibility_decay=1; V=1}
+            {
+            init = inl sublayer_size -> 
+                open Initializer.dual.TensorView
+                inl outer = sublayer_size
+                inl init = {bias=const zero; input=relu; state=relu}
+                {
+                dsc = 
+                    {
+                    weights = weight {init dim=outer,inner}
+                    outer = val outer
+                    }
+                size
+                }
+
+            apply = inl {d with weights={weights outer} input} s -> 
+                inl span = primal input .span_outer
+                inl apply =
+                    inm out =
+                        inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
+                        inl data = Struct.map' (inl data -> data.basic) data
+                        matmult_stream {weights with data} >>= ln_relu
+                    succ {out state={out}}
+
+                inl {out={out state} bck} = apply s
+                {out state bck}
+            optimize = Optimizer.kfac
+            block = ()
+            }
+
+
         //inl Layer =
         //    inl default w = 
         //        inl defaults =
