@@ -1999,14 +1999,13 @@ inl float ->
             apply = inl {d with weights={weights outer} input} s -> 
                 inl span = primal input .span_outer
                 inl apply =
-                    inm out = 
-                        inm out = matmult_stream {weights with data=input}
-                        wrap_split ((), inner) out
+                    inm out = matmult_stream {weights with data=input}
+                    inl out = wrap_split ((), inner) out
                     succ {out state={out}}
 
                 inl {out={out state} bck} = apply s
                 {out state bck}
-            optimize = Optimizer.kfac // TODO: Do not forget to speed up the critic relative to the rest.
+            optimize = Optimizer.kfac
             block = ()
             }
 

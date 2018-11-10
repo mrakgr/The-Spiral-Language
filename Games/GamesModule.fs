@@ -489,29 +489,50 @@ inl {basic_methods State Action} ->
         inl net, net_size = init cd input_size (net, RL.ac num_actions)
         inl run = 
             Union.mutable_function 
-                (inl {state={state with ac} input={input cd}} ->
+                (inl {state={net} input={input cd}} ->
                     assert (eq_type State input) "The input must be equal to the state type."
                     inl input = 
                         inl tns = Union.to_dense input |> Tensor.array_as_tensor
                         cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
                     inl net, out = run cd input net
-                    inl {out bck} = RL.ac_sample_action out cd
+                    inl {out bck=bck_final} = RL.ac_sample_action out cd
                     inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
-                    {state={net}; out=action}
+                    {state={net bck_final}; out=action}
                     )
                 {state={net}; input={input=State; cd}}
 
         inl methods = {basic_methods with
             bet=inl s input -> s.data.run {input cd=s.data.cd}
             showdown=inl s r -> 
-                inl {net ac} = s.data.run.reset
-                List.foldl' ignore (inl next {r R' V'} {bck} -> 
-                    inl {out={R' V'} bck} = bck {discount_factor r R' V' }
-                    next {r=dyn 0f32; R' V'}
-                    bck ()
-                    ) {r=dyn (to float32 r); V'=0f32; R'=0f32} ac
+                inl l = s.data.run.reset
+                List.foldl' ignore (inl next {r R' V'} -> function
+                    | {bck_final} ->
+                        inl {out={R' V'} bck} = bck_final {discount_factor r R' V' }
+                        next {r=dyn 0f32; R' V'}
+                        bck ()
+                    | _ ->
+                        ()
+                    ) {r=dyn (to float32 r); V'=0f32; R'=0f32} l
 
-                Optimizer.standard learning_rate s.data.cd s.data.ac
+                List.foldl' ignore (inl next m {net} ->
+                    inl bck = Struct.map (inl {bck} -> bck) net
+                    inl learning_rate = learning_rate ** 0.85f32
+                    match m with
+                    | () -> 
+                        Struct.foldr_map (inl bck _ -> bck {learning_rate}, ()) bck ()
+                    | _ ->
+                        Struct.foldr2_map (inl bck m _ -> 
+                            inl x =
+                                match m with
+                                | () -> bck {learning_rate}
+                                | {} -> bck {m with learning_rate}
+                            x, ()
+                            ) bck m ()
+                    |> fst
+                    |> next
+                    ) () l
+
+                Optimizer.standard learning_rate s.data.cd s.data.net
             game_over=inl s -> ()
             }
 
