@@ -214,6 +214,7 @@ type Op =
     | ErrorType
     | Dynamize
     | LitIs
+    | ValIs
 
     // Type lit ops
     | TypeLitCreate
@@ -652,6 +653,12 @@ let inline codegen_macro codegen print_type x = codegen_macro' show_typedexpr co
 
 let lit_is = function
     | TyLit _ -> true
+    | _ -> false
+
+let val_is = function
+    | TyLit _ 
+    | TyV(_, (PrimT _ | LitT _))
+    | TyT(PrimT _ | LitT _) -> true
     | _ -> false
 
 type Timings = {
