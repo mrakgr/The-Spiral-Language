@@ -483,13 +483,10 @@ inl {basic_methods State Action} ->
 
     inl player_ac {net name learning_rate discount_factor} cd =
         open Learning
-        
-
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
 
-        inl ac = RL.ac num_actions |> init cd input_size |> fst
-
+        inl net, net_size = init cd input_size (net, RL.ac num_actions)
         inl run = 
             Union.mutable_function 
                 (inl {state={state with ac} input={input cd}} ->
@@ -497,38 +494,30 @@ inl {basic_methods State Action} ->
                     inl input = 
                         inl tns = Union.to_dense input |> Tensor.array_as_tensor
                         cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
-                    inl ac, out = run cd input ac
+                    inl net, out = run cd input net
+                    inl {out bck} = RL.ac_sample_action out cd
                     inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
-                    {state={ac}; out=action}
+                    {state={net}; out=action}
                     )
-                {state={shared actor critic}; input={input=State; cd}}
+                {state={net}; input={input=State; cd}}
 
         inl methods = {basic_methods with
             bet=inl s input -> s.data.run {input cd=s.data.cd}
-            showdown=inl s reward -> 
-                inl l = s.data.run.reset
-                inl reward = dyn (to float32 reward)
-                inl original = discount_factor
-                List.foldl (inl discount_factor x -> 
-                    match x with
-                    | {bck} -> bck {discount_factor reward} 
-                    | _ -> ()
-                    original * discount_factor
-                    ) discount_factor l
-                |> ignore
+            showdown=inl s r -> 
+                inl {net ac} = s.data.run.reset
+                List.foldl' ignore (inl next {r R' V'} {bck} -> 
+                    inl {out={R' V'} bck} = bck {discount_factor r R' V' }
+                    next {r=dyn 0f32; R' V'}
+                    bck ()
+                    ) {r=dyn (to float32 r); V'=0f32; R'=0f32} ac
 
-                inl cd = s.data.cd
-                inl f learning_rate = Optimizer.standard learning_rate cd
-
-                f learning_rate.shared s.data.shared
-                f learning_rate.actor s.data.actor
-                f learning_rate.critic s.data.critic
+                Optimizer.standard learning_rate s.data.cd s.data.ac
             game_over=inl s -> ()
             }
 
         Object
             .member_add methods
-            .data_add {name; win=ref 0; actor shared critic run}
+            .data_add {name; win=ref 0; net ac run}
 
     {
     player_random player_rules player_tabular_mc player_tabular_sarsa player_pg player_mc_ac

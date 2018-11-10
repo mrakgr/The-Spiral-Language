@@ -2002,7 +2002,6 @@ inl float ->
                     inm out = 
                         inm out = matmult_stream {weights with data=input}
                         wrap_split ((), inner) out
-                        |> ac_sample_action
                     succ {out state={out}}
 
                 inl {out={out state} bck} = apply s
@@ -2025,7 +2024,7 @@ inl float ->
                 inl action = Union.from_one_hot Action (s.CudaTensor.get (out 0))
                 stack {action net bck}
        
-        {action ac}
+        {action ac ac_sample_action}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward RNN RL
