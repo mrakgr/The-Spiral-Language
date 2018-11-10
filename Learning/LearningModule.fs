@@ -314,6 +314,7 @@ inl Activation =
 
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
     inl td {r discount_factor eligibility_decay R' V' V} =
+        inm eligibility_decay = sigmoid eligibility_decay
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * V')
         inm error = R - V |> as_cost // Is equivalent `sqr (R - V) / two` on the backward pass.
         {R error}
@@ -1967,12 +1968,12 @@ inl float ->
         inl ac size =
             inl inner = {action_probs=size; eligibility_decay=1; V=1}
             {
-            init = inl sublayer_size -> 
+            init = inl sublayer_size ->
                 open Initializer.dual.TensorView
                 inl outer = sublayer_size
-                inl init = {bias=const zero; input=relu; state=relu}
+                inl init = {action_probs=const zero; eligibility_decay=const zero; V=const zero}
                 {
-                dsc = 
+                dsc =
                     {
                     weights = weight {init dim=outer,inner}
                     outer = val outer
@@ -1983,10 +1984,10 @@ inl float ->
             apply = inl {d with weights={weights outer} input} s -> 
                 inl span = primal input .span_outer
                 inl apply =
-                    inm out =
-                        inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
-                        inl data = Struct.map' (inl data -> data.basic) data
-                        matmult_stream {weights with data} >>= ln_relu
+                    inm out = 
+                        inm out = matmult_stream {weights with data=input}
+                        wrap_split ((), inner) out
+                        |> ac_sample_action
                     succ {out state={out}}
 
                 inl {out={out state} bck} = apply s
