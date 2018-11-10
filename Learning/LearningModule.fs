@@ -219,17 +219,24 @@ inl Custom =
 inl add_atomic = CudaAux.atomic_add
 inl add_std x out = x .set (x .get + out)
 
-inl index_std cur = Struct.map' <| inl x -> x cur
+inl index_std cur = 
+    Struct.map' <| function
+        | x: val_is x -> x
+        | x -> x cur
+
 inl index_broadcast cur =
-    Struct.map' <| inl x ->
-        Struct.foldl (inl x cur ->
-            x (if x.span_outer = 1 then 0 else cur)
-            ) x cur
+    Struct.map' <| function
+        | x: val_is x -> x
+        | x ->
+            Struct.foldl (inl x cur ->
+                x (if x.span_outer = 1 then 0 else cur)
+                ) x cur
 
 inl {link link_broadcast link_auto} =
     inl get_primal = 
         Struct.map (function
             | {primal adjoint} -> primal .get |> dr
+            | x: val_is x -> x
             | x -> x .get
             )
 
