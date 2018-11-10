@@ -167,7 +167,6 @@ inl learning_rate = 2f32 ** -13f32
 inl n = 1f32 / to float size.step
 
 inl network,_ =
-    open Feedforward
     open RNN
     inl network =
         {
