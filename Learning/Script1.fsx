@@ -10,6 +10,7 @@ let b = [|0; 0; -1; 1; 0; 0; 1; 1; -1; 0|] |> Array.map float
 Array.fold2 (fun s a b -> s + a * b) 0.0 a b
 
 let sigmoid x = 1.0 / (1.0 + exp -x)
+sigmoid 3.0
 let log_sigmoid = log << sigmoid
 let log_sigmoid' x = log 1.0 - log (1.0 + exp -x)
 log_sigmoid -100.0

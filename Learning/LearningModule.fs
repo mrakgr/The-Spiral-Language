@@ -14,6 +14,7 @@ inl zero = 0f32
 inl half = 0.5f32
 inl one = 1f32
 inl two = 2f32
+inl three = 3f32
 inl epsilon = to float (10.0 ** -7.0)
 
 inl (>>=) a b =
@@ -314,7 +315,9 @@ inl Activation =
 
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
     inl td {r discount_factor eligibility_decay R' V' V} =
-        inm eligibility_decay = sigmoid eligibility_decay
+        // Since the layer does not have a bias, I am adding two here based on the theory 
+        // that larger prediction horizons would be better at the beginning.
+        inm eligibility_decay = sigmoid (eligibility_decay + three) 
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * V')
         inm error = R - V |> as_cost // Is equivalent `sqr (R - V) / two` on the backward pass.
         {R error}
@@ -2004,7 +2007,7 @@ inl float ->
 
                 inl {out={out state} bck} = apply s
                 {out state bck}
-            optimize = Optimizer.kfac
+            optimize = Optimizer.kfac // TODO: Do not forget to speed up the critic relative to the rest.
             block = ()
             }
 

@@ -58,19 +58,21 @@
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
-    <None Include="Module.fs%27%27" />
-    <None Include="Tests.fs%27%27" />
-    <None Include="Module.fs%27" />
-    <None Include="Tests.fs%27" />
-    <None Include="GamesModule.fs%27" />
-    <None Include="GamesTests.fs%27" />
-    <None Include="GamesModule.fs%27%27" />
-    <None Include="GamesTests.fs%27%27" />
-    <None Include="Script1.fsx" />
-    <None Include="GamesModule.fs%27%27%27" />
-    <None Include="GamesTests.fs%27%27%27" />
     <Compile Include="GamesModule.fs" />
     <Compile Include="GamesTests.fs" />
+    <None Include="old modules\GamesTests.fs%27%27%27" />
+    <None Include="old modules\Module.fs%27%27" />
+    <None Include="old modules\Tests.fs%27%27" />
+    <None Include="old modules\Module.fs%27" />
+    <None Include="old modules\Tests.fs%27" />
+    <None Include="old modules\GamesModule.fs%27" />
+    <None Include="old modules\GamesTests.fs%27" />
+    <None Include="old modules\GamesModule.fs%27%27" />
+    <None Include="old modules\GamesTests.fs%27%27" />
+    <None Include="old modules\Script1.fsx" />
+    <None Include="old modules\GamesModule.fs%27%27%27" />
+    <None Include="old modules\GamesModule.fs%27%27%27%27" />
+    <None Include="old modules\GamesTests.fs%27%27%27%27" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
