@@ -538,9 +538,9 @@ inl {basic_methods State Action} ->
 
         Object
             .member_add methods
-            .data_add {name; win=ref 0; net ac run}
+            .data_add {name; win=ref 0; net run}
 
     {
-    player_random player_rules player_tabular_mc player_tabular_sarsa player_pg player_mc_ac
+    player_random player_rules player_tabular_mc player_tabular_sarsa player_ac
     } |> stackify
     """) |> module_
