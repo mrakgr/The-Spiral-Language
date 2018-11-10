@@ -1942,7 +1942,7 @@ inl float ->
 
             {
             out
-            bck=inl {reward} -> join
+            bck=inl {reward} ->
                 inl reward = 
                     match reward with
                     | _: float32 | _: float64 ->
@@ -1963,6 +1963,18 @@ inl float ->
                         inl x_a = x_a i
                         inl label = if out = i then one else zero
                         x_a.set (x_a.get + (p - label) * reward) 
+            }
+
+        inl ac_sampling_action {action_probs eligibility_decay V} s =
+            inl {out bck} = sampling_pg action_probs s
+            {
+            out
+            bck=inl d ->
+                inl {out={R error} bck=bck'} = map CudaAD.Activation.td {d with eligibility_decay V}
+                {
+                out={R'=R; V'=V}
+                bck=inl _ -> bck' (); bck {reward=error}
+                }
             }
 
         inl ac size =
@@ -1996,26 +2008,6 @@ inl float ->
             block = ()
             }
 
-
-        //inl Layer =
-        //    inl default w = 
-        //        inl defaults =
-        //            {
-        //            initializer=Initializer.dual.Tensor.bias
-        //            activation=Activation.linear
-        //            }
-
-        //        module_foldl (inl k w x -> match w with {$k=_} -> w | _ -> {w with $k=x}) w defaults
-
-        //    inl pg = default >> prong
-
-        //    // Both the MC and the TD layers do their reprojection steps on the optimization pass unlike
-        //    // the vanilla PRONG layers.
-        //    inl mc (!default {w with !size}) = prong {w with size=1}
-        //        //prong_template {front_mode=.prong; mode=.update} {w with size=1}
-
-        //    {pg mc}
-
         /// For online learning.
         inl action {State Action final} {net input} s =
             indiv join
@@ -2030,7 +2022,7 @@ inl float ->
                 inl action = Union.from_one_hot Action (s.CudaTensor.get (out 0))
                 stack {action net bck}
        
-        {action sampling_pg Value}
+        {action ac}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward RNN RL
