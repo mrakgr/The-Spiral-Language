@@ -1933,8 +1933,6 @@ inl float ->
     inl RNN = {rnn plastic_rnn plastic_rnn' mi lstm }
 
     inl RL =
-        inl Value = // The value functions for RL act more like activations.
-
         /// The PG activation.
         inl sampling_pg x s =
             inl dim_a, dim_b = primal x .dim
