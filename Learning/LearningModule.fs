@@ -1976,7 +1976,7 @@ inl float ->
             bck=inl d ->
                 inl {out={R error} bck=bck'} = map CudaAD.Activation.td {d with eligibility_decay V} s
                 {
-                out={R'=R; V'=V}
+                out={R'=R; V'=primal V}
                 bck=inl _ -> bck' (); bck {reward=error}
                 }
             }
