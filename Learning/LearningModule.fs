@@ -321,14 +321,18 @@ inl Activation =
         succ {memory out}
 
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
-    inl td {r discount_factor eligibility_decay R' V' V scale scale'} =
-        inm scale' = discount_factor * scale'
+
+    inl bounded_exp {eta upper mid} = exp (eta * log upper + (one - eta) * log mid) // TODO: Make this an Op. Remove the duplicate in Seq.
+    // Uses KL divergence of univariate Gaussians for cost rather than squared error.
+    inl td {r discount_factor eligibility_decay R' V' V scale scale_r scale'} =
         inm eligibility_decay = sigmoid eligibility_decay 
+        inm {scale scale_r scale'} = sequence_module bounded_exp {scale scale_r scale'}
+
+        inm scale' = scale_r + discount_factor * scale'
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * V')
         inm error = R - V
-        // KL divergence for univariate Gaussians rather than squared error is used for cost.
         inm _ = log (scale' / scale) + (sqr scale + sqr error) / sqr scale' - half |> as_cost
-        {R scaled_error=scale * error}
+        {R scaled_error=primal (error / scale)}
 
     {generalized_mi generalized_mi_tanh lstm hebb_tanh td}
 
@@ -509,13 +513,14 @@ inl Seq k =
 
     inl Activation =
         open Op
+        inl bounded_exp {eta upper mid} = exp (eta * log upper + (val one - eta) * log mid) // TODO: Make this an Op. Remove the duplicate in Seq.
         inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
         inl wn_hebb {H upper mid eta input out} = 
             inm eta = 
                 match eta with 
                 | {input out} -> (tanh input + tanh out) / val two 
                 | _ -> tanh eta
-            inm eta = exp (eta * log upper + (val one - eta) * log mid)
+            inm eta = bounded_exp {eta mid upper}
             weight_norm (H + eta * input * out)
             
         {generalized_mi_ln_relu wn_hebb}
