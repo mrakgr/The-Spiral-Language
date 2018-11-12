@@ -1981,12 +1981,18 @@ inl float ->
                 }
             }
 
+        inl mask_out mask weights s =
+            inl weights = to_dev_tensor weights
+            s.CudaKernel.segmented_iter {dim=mask} (inl i -> weights.view i .set zero)
+
         inl ac size =
             inl inner = {action_probs=size; eligibility_decay=1; V=1; scale=1; scale_fin=1; upper=1; mid=1}
+            
             {
             init = inl sublayer_size ->
                 open Initializer.dual.TensorView
                 inl outer = {bias=1; input=sublayer_size}
+                inl mask = {bias=outer.bias}, {upper=inner.upper; mid=inner.mid}
                 inl init = 
                     {
                     bias=
@@ -2001,6 +2007,8 @@ inl float ->
                     {
                     weights = weight {init dim=outer,inner}
                     outer = val outer
+                    inner = val inner
+                    mask = val mask
                     }
                 size
                 }
@@ -2014,7 +2022,9 @@ inl float ->
 
                 inl {out={out state} bck} = apply s
                 {out state bck}
-            optimize = Optimizer.kfac
+            optimize {d with weights={weights inner outer mask}} s = 
+                Optimizer.kfac d s
+                mask_out mask (View.wrap (outer,inner) weights) s
             block = ()
             }
 
