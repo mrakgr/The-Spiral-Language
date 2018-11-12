@@ -495,9 +495,11 @@ inl {basic_methods State Action} ->
                         inl tns = Union.to_dense input |> Tensor.array_as_tensor
                         cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
                     inl net, out = run cd input net
+                    inl bck = Struct.map (inl {bck} -> bck) net
+                    inl net = Struct.map (inl d -> {d without bck}) net
                     inl {out bck=bck_final} = RL.ac_sample_action out cd
                     inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
-                    {state={net bck_final}; out=action}
+                    {state={net bck bck_final}; out=action}
                     )
                 {state={net}; input={input=State; cd}}
 
@@ -514,22 +516,24 @@ inl {basic_methods State Action} ->
                         ()
                     ) {r=dyn (to float32 r); V'=0f32; R'=0f32; scale'={upper=0f32; mid=0f32; eta=0f32}} l
 
-                List.foldl' ignore (inl next m {net} ->
-                    inl bck = Struct.map (inl {bck} -> bck) net
-                    inl learning_rate = learning_rate ** 0.85f32
-                    match m with
-                    | () -> 
-                        Struct.foldr_map (inl bck _ -> bck {learning_rate}, ()) bck ()
+                List.foldl' ignore (inl next m -> function
+                    | {bck} ->
+                        inl learning_rate = learning_rate ** 0.85f32
+                        match m with
+                        | () -> 
+                            Struct.foldr_map (inl bck _ -> bck {learning_rate}, ()) bck ()
+                        | _ ->
+                            Struct.foldr2_map (inl bck m _ -> 
+                                inl x =
+                                    match m with
+                                    | () -> bck {learning_rate}
+                                    | {} -> bck {m with learning_rate}
+                                x, ()
+                                ) bck m ()
+                        |> fst
+                        |> next
                     | _ ->
-                        Struct.foldr2_map (inl bck m _ -> 
-                            inl x =
-                                match m with
-                                | () -> bck {learning_rate}
-                                | {} -> bck {m with learning_rate}
-                            x, ()
-                            ) bck m ()
-                    |> fst
-                    |> next
+                        ()
                     ) () l
 
                 Optimizer.standard learning_rate s.data.cd s.data.net

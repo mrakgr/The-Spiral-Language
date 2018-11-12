@@ -342,7 +342,7 @@ inl Activation =
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * primal V')
         inm error = R - V
         inm _ = log (scale' / scale) + (sqr scale + sqr error) / sqr scale' - half |> as_cost
-        inm !primal scaled_error = error / scale
+        inm scaled_error = error / scale
         succ {R scaled_error}
 
     {generalized_mi generalized_mi_tanh lstm hebb_tanh td}
@@ -1970,6 +1970,7 @@ inl float ->
             out
             bck=inl {reward} ->
                 inl reward = 
+                    inl reward = primal reward
                     assert (dim_a = fst reward.dim) "Reward's dimensions must be equal to that of the input's outer dimnesion."
                     assert (snd reward.dim = 1) "Reward's second dimension must be 1." 
                     CudaAux.to_dev_tensor reward
@@ -2042,7 +2043,7 @@ inl float ->
                 {out state bck}
             optimize = inl {d with weights={weights inner outer mask}} s ->
                 Optimizer.kfac d s
-                mask_out mask (View.wrap (outer,inner) weights) s
+                mask_out mask (View.wrap (outer,inner) (primal weights.weight)) s
             block = ()
             }
 
