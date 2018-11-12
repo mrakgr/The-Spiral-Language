@@ -338,7 +338,7 @@ inl Activation =
         inm {scale scale_r scale'} = module_map (const bounded_exp) {scale scale_r scale'}
 
         inm scale' = scale_r + discount_factor * scale'
-        inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * V')
+        inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * primal V')
         inm error = R - V
         inm _ = log (scale' / scale) + (sqr scale + sqr error) / sqr scale' - half |> as_cost
         {R scaled_error=primal (error / scale)}
@@ -1990,7 +1990,7 @@ inl float ->
             bck=inl d ->
                 inl {out={R scaled_error} bck=bck'} = map CudaAD.Activation.td {d with eligibility_decay V scale scale_r} s
                 {
-                out={R'=R; V'=primal V; scale'=scale}
+                out={R'=R; V'=V; scale'=scale}
                 bck=inl _ -> bck' (); bck {reward=scaled_error}
                 }
             }
