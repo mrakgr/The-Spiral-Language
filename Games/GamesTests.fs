@@ -7,7 +7,7 @@ open Module
 open Cuda.Lib
 open Learning.Lib
 
-let cfg = {Spiral.Types.cfg_default with cuda_assert_enabled=false}
+let cfg = {Spiral.Types.cfg_default with cuda_assert_enabled=true}
 
 let union1 =
     "union1",[union;option;extern_;console],"Does the to_sparse work?",

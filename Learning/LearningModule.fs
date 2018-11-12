@@ -2042,9 +2042,11 @@ inl float ->
                 inl {out={out state} bck} = apply s
                 {out state bck}
             optimize = inl {d with weights={weights inner outer mask}} s ->
+                inl w = View.wrap (outer,inner) (primal weights.weight)
                 Optimizer.kfac d s
-                mask_out mask (View.wrap (outer,inner) (primal weights.weight)) s
-                s.CudaTensor.print (primal weights.weight)
+                s.CudaTensor.print (w ({bias=()}, {scale=()}) .basic)
+                mask_out mask w s
+                
             block = ()
             }
 
