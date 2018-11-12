@@ -45,9 +45,12 @@ inl add_adjoint x out =
     | {adjoint} -> adjoint 0 <- adjoint 0 + out ()
     | _ -> ()
 
+inl adjoint {adjoint} = adjoint
 inl get_adjoint {adjoint} = adjoint 0
 
-inl primal {primal} | primal = primal
+inl primal = function
+    | {out bck} -> error_type "Not supposed to be used on {out bck}."
+    | {primal} | primal -> primal
 inl primals = Struct.map primal
 
 inl bind f x =
@@ -60,11 +63,11 @@ inl unary_bind f a = bind (inl {a} -> f a) {a}
 inl binary_bind f a b = bind (inl {a b} -> f a b) {a b}
 
 inl as_cost =
-    bind <| inl x ->
+    unary_bind <| inl x ->
         inl out = primal x
         {
         out
-        bck=inl _ -> x 0 <- one
+        bck=inl _ -> adjoint x 0 <- one
         }
 
 inl op fwd bck =
@@ -229,12 +232,12 @@ inl add_std x out = x .set (x .get + out)
 
 inl index_std cur = 
     Struct.map' <| function
-        | x: val_is x -> x
+        | x when val_is x -> x
         | x -> x cur
 
 inl index_broadcast cur =
     Struct.map' <| function
-        | x: val_is x -> x
+        | x when val_is x -> x
         | x ->
             Struct.foldl (inl x cur ->
                 x (if x.span_outer = 1 then 0 else cur)
@@ -244,7 +247,7 @@ inl {link link_broadcast link_auto} =
     inl get_primal = 
         Struct.map (function
             | {primal adjoint} -> primal .get |> dr
-            | x: val_is x -> x
+            | x when val_is x -> x
             | x -> x .get
             )
 
@@ -339,7 +342,8 @@ inl Activation =
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * primal V')
         inm error = R - V
         inm _ = log (scale' / scale) + (sqr scale + sqr error) / sqr scale' - half |> as_cost
-        {R scaled_error=primal (error / scale)}
+        inm !primal scaled_error = error / scale
+        succ {R scaled_error}
 
     {generalized_mi generalized_mi_tanh lstm hebb_tanh td}
 

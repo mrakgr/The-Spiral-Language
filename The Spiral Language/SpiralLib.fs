@@ -1766,7 +1766,7 @@ inl assert_zip =
 inl assert_broadcastable =
     Struct.foldl (inl s x ->
         match s with
-        | _: val_is x -> s
+        | _ when val_is x -> s
         | () -> x.dim
         | _ ->
             assert (eq_type s x.dim) "The inputs must have the same number of dimensions."
