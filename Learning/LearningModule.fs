@@ -342,7 +342,7 @@ inl Activation =
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * primal V')
         inm error = R - V
         inm _ = log (scale' / scale) + (sqr scale + sqr error) / sqr scale' - half |> as_cost
-        inm scaled_error = error / scale
+        inm scaled_error = error / scale // Is used as reward for the actor.
         succ {R scaled_error}
 
     {generalized_mi generalized_mi_tanh lstm hebb_tanh td}
