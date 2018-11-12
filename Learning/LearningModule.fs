@@ -335,7 +335,7 @@ inl Activation =
 
     // Uses KL divergence of univariate Gaussians for cost rather than squared error.
     inl td {r discount_factor eligibility_decay R' V' V scale scale_r scale'} =
-        inm r = r / 10f32
+        inm r = r * 10f32
 
         //inl eligibility_decay = one
         inm eligibility_decay = sigmoid eligibility_decay 
