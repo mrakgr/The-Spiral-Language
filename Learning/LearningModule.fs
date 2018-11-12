@@ -2028,13 +2028,15 @@ inl float ->
             apply = inl {d with weights={weights outer} input} s -> 
                 inl span = primal input .span_outer
                 inl apply =
-                    inm out = matmult_stream {weights with data=input}
+                    inm data = segmented_init {dim=span,outer} {bias=const one; input=load input}
+                    inl data = Struct.map' (inl data -> data.basic) data
+                    inm out = matmult_stream {weights with data}
                     inl out = wrap_split ((), inner) out
                     succ {out state={out}}
 
                 inl {out={out state} bck} = apply s
                 {out state bck}
-            optimize {d with weights={weights inner outer mask}} s = 
+            optimize = inl {d with weights={weights inner outer mask}} s ->
                 Optimizer.kfac d s
                 mask_out mask (View.wrap (outer,inner) weights) s
             block = ()
