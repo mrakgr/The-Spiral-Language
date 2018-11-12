@@ -322,9 +322,12 @@ inl Activation =
 
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
 
-    inl bounded_exp {eta upper mid} = exp (eta * log upper + (one - eta) * log mid) // TODO: Make this an Op. Remove the duplicate in Seq.
     // Uses KL divergence of univariate Gaussians for cost rather than squared error.
     inl td {r discount_factor eligibility_decay R' V' V scale scale_r scale'} =
+        inl bounded_exp {eta upper mid} = 
+            inm eta = tanh eta
+            exp (eta * log upper + (one - eta) * log mid)
+
         inm eligibility_decay = sigmoid eligibility_decay 
         inm {scale scale_r scale'} = sequence_module bounded_exp {scale scale_r scale'}
 
@@ -513,14 +516,13 @@ inl Seq k =
 
     inl Activation =
         open Op
-        inl bounded_exp {eta upper mid} = exp (eta * log upper + (val one - eta) * log mid) // TODO: Make this an Op. Remove the duplicate in Seq.
         inl generalized_mi_ln_relu {bias={si s i c} input state} = si * state * input + s * state + i * input + c >>= layer_norm >>= relu
         inl wn_hebb {H upper mid eta input out} = 
             inm eta = 
                 match eta with 
                 | {input out} -> (tanh input + tanh out) / val two 
                 | _ -> tanh eta
-            inm eta = bounded_exp {eta mid upper}
+            inm eta = exp (eta * log upper + (val one - eta) * log mid)
             weight_norm (H + eta * input * out)
             
         {generalized_mi_ln_relu wn_hebb}
@@ -1992,7 +1994,9 @@ inl float ->
             s.CudaKernel.segmented_iter {dim=mask} (inl i -> weights.view i .set zero)
 
         inl ac size =
-            inl inner = {action_probs=size; eligibility_decay=1; V=1; scale=1; scale_fin=1; upper=1; mid=1}
+            inl inner = 
+                inl p = {eta=1; upper=1; mid=1}
+                {action_probs=size; eligibility_decay=1; V=1; scale=p; scale_r=p; upper=1; mid=1}
             
             {
             init = inl sublayer_size ->
