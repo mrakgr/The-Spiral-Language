@@ -2044,6 +2044,7 @@ inl float ->
             optimize = inl {d with weights={weights inner outer mask}} s ->
                 Optimizer.kfac d s
                 mask_out mask (View.wrap (outer,inner) (primal weights.weight)) s
+                s.CudaTensor.print (primal weights.weight)
             block = ()
             }
 
