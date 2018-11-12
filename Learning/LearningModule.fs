@@ -337,8 +337,8 @@ inl Activation =
     inl td {r discount_factor eligibility_decay R' V' V scale scale_r scale'} =
         inm r = r / 10f32
 
-        //inl eligibility_decay = one
-        inm eligibility_decay = sigmoid eligibility_decay 
+        inl eligibility_decay = 0.8f32
+        //inm eligibility_decay = sigmoid eligibility_decay 
 
         //inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> bounded_exp { upper lower=mid; eta = tanh eta}) {scale scale_r scale'}
         //inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> exp (mid * tanh eta)) {scale scale_r scale'}
