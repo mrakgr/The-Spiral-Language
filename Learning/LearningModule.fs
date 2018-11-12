@@ -343,16 +343,16 @@ inl Activation =
         //inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> bounded_exp { upper lower=mid; eta = tanh eta}) {scale scale_r scale'}
         //inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> exp (mid * tanh eta)) {scale scale_r scale'}
         //inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> exp (eta)) {scale scale_r scale'}
-        inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> eta + one) {scale scale_r scale'}
-        inm scale' = scale_r + discount_factor * scale'
+        //inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> eta + 0.1f32) {scale scale_r scale'}
+        //inm scale' = scale_r + discount_factor * scale'
 
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * primal V')
 
         //inm error = R
         inm error = R - V
 
-        //inm _ = sqr error |> as_cost
-        inm _ = log (scale' / scale) + (sqr scale + sqr error) / (two * sqr scale') - half |> as_cost
+        inm _ = sqr error |> as_cost
+        //inm _ = log (scale' / scale) + (sqr scale + sqr error) / (two * sqr scale') - half |> as_cost
         //inm _ = // Symmetric KL divergence
         //    inm {error scale scale'} = module_map (const sqr) {error scale scale'}
         //    inl f scale scale' = (scale + error) / (two * scale')
