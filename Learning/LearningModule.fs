@@ -1982,12 +1982,20 @@ inl float ->
             }
 
         inl ac size =
-            inl inner = {action_probs=size; eligibility_decay=1; V=1}
+            inl inner = {action_probs=size; eligibility_decay=1; V=1; scale=1; scale_fin=1; upper=1; mid=1}
             {
             init = inl sublayer_size ->
                 open Initializer.dual.TensorView
-                inl outer = sublayer_size
-                inl init = {action_probs=const zero; eligibility_decay=const zero; V=const zero}
+                inl outer = {bias=1; input=sublayer_size}
+                inl init = 
+                    {
+                    bias=
+                        {
+                        action_probs=const zero; eligibility_decay=const two; V=const zero; 
+                        scale=const one; scale_fin=const one; upper=const two; mid=const one
+                        }
+                    input=Struct.map' (inl _ -> const zero) inner
+                    }
                 {
                 dsc =
                     {
