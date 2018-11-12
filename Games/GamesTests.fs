@@ -7,7 +7,7 @@ open Module
 open Cuda.Lib
 open Learning.Lib
 
-let cfg = {Spiral.Types.cfg_default with cuda_assert_enabled=true}
+let cfg = {Spiral.Types.cfg_default with cuda_assert_enabled=false}
 
 let union1 =
     "union1",[union;option;extern_;console],"Does the to_sparse work?",
@@ -193,11 +193,11 @@ Struct.iter (inl i ->
                     Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
                 }
 
-        f game 1 1
+        f game 15 1000
         //open Poker {max_stack_size num_players log=Console.printfn}
         //f game 10 1
         }
-    ) (-14)
+    ) (-9)
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3

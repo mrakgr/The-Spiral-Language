@@ -342,7 +342,7 @@ inl Activation =
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * primal V')
         inm error = R - V
         inm _ = log (scale' / scale) + (sqr scale + sqr error) / sqr scale' - half |> as_cost
-        inm scaled_error = error / scale // Is used as reward for the actor.
+        inm scaled_error = error // / scale // Is used as reward for the actor.
         succ {R scaled_error}
 
     {generalized_mi generalized_mi_tanh lstm hebb_tanh td}
@@ -2011,7 +2011,7 @@ inl float ->
             init = inl sublayer_size ->
                 open Initializer.dual.TensorView
                 inl outer = {bias=1; input=sublayer_size}
-                inl mask = {bias=outer.bias}, {scale=p_mask; scale_r=p_mask}
+                inl mask = {input=outer.input}, {scale=p_mask; scale_r=p_mask}
                 inl init = 
                     {
                     bias=
@@ -2044,7 +2044,7 @@ inl float ->
             optimize = inl {d with weights={weights inner outer mask}} s ->
                 inl w = View.wrap (outer,inner) (primal weights.weight)
                 Optimizer.kfac d s
-                s.CudaTensor.print (w ({bias=()}, {scale=()}) .basic)
+                //s.CudaTensor.print (w ({bias=()}, {scale=()}) .basic)
                 mask_out mask w s
                 
             block = ()
