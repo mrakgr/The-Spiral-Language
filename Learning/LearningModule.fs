@@ -352,11 +352,11 @@ inl Activation =
         inm error = R - V
 
         //inm _ = sqr error |> as_cost
-        //inm _ = log (scale' / scale) + (sqr scale + sqr error) / sqr scale' - half |> as_cost
-        inm _ = // Symmetric KL divergence
-            inm {error scale scale'} = module_map (const sqr) {error scale scale'}
-            inl f scale scale' = (scale + error) / (scale' + 10f32 ** -6f32)
-            (f scale scale' + f scale' scale) / two |> as_cost
+        inm _ = log (scale' / scale) + (sqr scale + sqr error) / (two * sqr scale') - half |> as_cost
+        //inm _ = // Symmetric KL divergence
+        //    inm {error scale scale'} = module_map (const sqr) {error scale scale'}
+        //    inl f scale scale' = (scale + error) / (two * scale')
+        //    (f scale scale' + f scale' scale) / two |> as_cost
 
         inm scaled_error = error
         //inm scaled_error = error / scale // Is used as reward for the actor.
