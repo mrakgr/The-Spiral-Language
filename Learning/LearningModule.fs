@@ -338,14 +338,14 @@ inl Activation =
         inl eligibility_decay = one
         //inm eligibility_decay = sigmoid eligibility_decay 
 
-        //inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> bounded_exp { upper lower=mid; eta = tanh eta}) {scale scale_r scale'}
-        //inm scale' = scale_r + discount_factor * scale'
+        inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> bounded_exp { upper lower=mid; eta = tanh eta}) {scale scale_r scale'}
+        inm scale' = scale_r + discount_factor * scale'
 
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * primal V')
         inm error = R - V
 
-        inm _ = sqr error |> as_cost
-        //inm _ = log (scale' / scale) + (sqr scale + sqr error) / sqr scale' - half |> as_cost
+        //inm _ = sqr error |> as_cost
+        inm _ = log (scale' / scale) + (sqr scale + sqr error) / sqr scale' - half |> as_cost
 
         inm scaled_error = error
         //inm scaled_error = error / scale // Is used as reward for the actor.
@@ -2049,10 +2049,8 @@ inl float ->
                 inl {out={out state} bck} = apply s
                 {out state bck}
             optimize = inl {d with weights={weights inner outer mask}} s ->
-                inl w = View.wrap (outer,inner) (primal weights.weight)
                 Optimizer.kfac d s
-                mask_out mask w s
-                
+                mask_out mask (View.wrap (outer,inner) (primal weights.weight)) s
             block = ()
             }
 
