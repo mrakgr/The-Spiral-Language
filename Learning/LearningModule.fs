@@ -335,7 +335,7 @@ inl Activation =
 
     // Uses KL divergence of univariate Gaussians for cost rather than squared error.
     inl td {r discount_factor eligibility_decay R' V' V scale scale_r scale'} =
-        inm r = r / 100f32
+        inm r = r / 10f32
 
         //inl eligibility_decay = one
         inm eligibility_decay = sigmoid eligibility_decay 
@@ -351,8 +351,8 @@ inl Activation =
         //inm error = R
         inm error = R - V
 
-        //inm _ = sqr error |> as_cost
-        inm _ = log (scale' / scale) + (sqr scale + sqr error) / (two * sqr scale') - half |> as_cost
+        inm _ = sqr error |> as_cost
+        //inm _ = log (scale' / scale) + (sqr scale + sqr error) / (two * sqr scale') - half |> as_cost
         //inm _ = // Symmetric KL divergence
         //    inm {error scale scale'} = module_map (const sqr) {error scale scale'}
         //    inl f scale scale' = (scale + error) / (two * scale')
