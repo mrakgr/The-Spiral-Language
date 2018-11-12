@@ -335,13 +335,15 @@ inl Activation =
 
     // Uses KL divergence of univariate Gaussians for cost rather than squared error.
     inl td {r discount_factor eligibility_decay R' V' V scale scale_r scale'} =
-        inm r = r / 10f32
+        //inm r = r / 10f32
 
         //inl eligibility_decay = one
         inm eligibility_decay = sigmoid eligibility_decay 
 
-        inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> bounded_exp { upper lower=mid; eta = tanh eta}) {scale scale_r scale'}
+        //inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> bounded_exp { upper lower=mid; eta = tanh eta}) {scale scale_r scale'}
         //inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> exp (mid * tanh eta)) {scale scale_r scale'}
+        //inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> exp (eta)) {scale scale_r scale'}
+        inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> eta + one) {scale scale_r scale'}
         inm scale' = scale_r + discount_factor * scale'
 
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * primal V')
@@ -2031,7 +2033,7 @@ inl float ->
                 inl init = 
                     {
                     bias=
-                        inl p = {upper=const two; mid=const one; eta=const zero}
+                        inl p = {upper=const (to float 10); mid=const (to float 0.1); eta=const zero}
                         { action_probs=const zero; eligibility_decay=const two; V=const zero; scale=p; scale_r=p }
                     input=Struct.map' (inl _ -> const zero) inner
                     }
