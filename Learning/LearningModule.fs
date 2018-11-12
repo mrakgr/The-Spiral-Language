@@ -340,8 +340,8 @@ inl Activation =
         //inl eligibility_decay = one
         inm eligibility_decay = sigmoid eligibility_decay 
 
-        //inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> bounded_exp { upper lower=mid; eta = tanh eta}) {scale scale_r scale'}
-        inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> exp (mid * tanh eta)) {scale scale_r scale'}
+        inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> bounded_exp { upper lower=mid; eta = tanh eta}) {scale scale_r scale'}
+        //inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> exp (mid * tanh eta)) {scale scale_r scale'}
         inm scale' = scale_r + discount_factor * scale'
 
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * primal V')
