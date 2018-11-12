@@ -335,14 +335,21 @@ inl Activation =
 
     // Uses KL divergence of univariate Gaussians for cost rather than squared error.
     inl td {r discount_factor eligibility_decay R' V' V scale scale_r scale'} =
-        inm eligibility_decay = sigmoid eligibility_decay 
-        inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> bounded_exp { upper lower=mid; eta = tanh eta}) {scale scale_r scale'}
+        inl eligibility_decay = one
+        //inm eligibility_decay = sigmoid eligibility_decay 
 
-        inm scale' = scale_r + discount_factor * scale'
+        //inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> bounded_exp { upper lower=mid; eta = tanh eta}) {scale scale_r scale'}
+        //inm scale' = scale_r + discount_factor * scale'
+
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * primal V')
         inm error = R - V
-        inm _ = log (scale' / scale) + (sqr scale + sqr error) / sqr scale' - half |> as_cost
-        inm scaled_error = error // / scale // Is used as reward for the actor.
+
+        inm _ = sqr error |> as_cost
+        //inm _ = log (scale' / scale) + (sqr scale + sqr error) / sqr scale' - half |> as_cost
+
+        inm scaled_error = error
+        //inm scaled_error = error / scale // Is used as reward for the actor.
+
         succ {R scaled_error}
 
     {generalized_mi generalized_mi_tanh lstm hebb_tanh td}
@@ -2044,7 +2051,6 @@ inl float ->
             optimize = inl {d with weights={weights inner outer mask}} s ->
                 inl w = View.wrap (outer,inner) (primal weights.weight)
                 Optimizer.kfac d s
-                //s.CudaTensor.print (w ({bias=()}, {scale=()}) .basic)
                 mask_out mask w s
                 
             block = ()
