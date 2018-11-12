@@ -214,7 +214,15 @@ inl Custom =
             fl = inl {cond} -> if cond then zero else one
             }
         {fwd bck op = op fwd bck}
-    {cond}
+    inl bounded_exp =
+        inl fwd {eta upper lower} = if upper = lower then lower else exp (eta * log upper + (one - eta) * log lower)
+        inl bck = {
+            eta = inl {eta upper lower out} -> if upper = lower then zero else out * (log upper - log lower)
+            upper = inl {eta upper lower out} -> if upper = lower then zero else out * eta / upper
+            lower = inl {eta upper lower out} -> if upper = lower then one else out * (one - eta) / lower
+            }
+        {fwd bck op = op fwd bck}
+    {cond bounded_exp}
 
 inl add_atomic = CudaAux.atomic_add
 inl add_std x out = x .set (x .get + out)
@@ -299,12 +307,6 @@ inl link_adjoint cur {from to} =
 
 inl link_adjoint_view cur x = link_adjoint cur {x with from=Struct.map (inl x -> x.view) self}
 
-inl sequence_module f x =
-    inl x = module_map (const f) x
-    inl bck = module_foldr (inl k {bck} s -> bck << s) x (const ())
-    inl out = module_map (inl _ {out} -> out) x
-    {out bck}
-
 inl Op =
     module_foldl (inl _ ->
         module_foldl (inl k m {op} -> {m with $k=op})
@@ -312,6 +314,12 @@ inl Op =
 
 inl Activation =
     open Op
+    inl module_map f x =
+        inl x = module_map f x
+        inl bck = module_foldr (inl k {bck} s -> bck << s) x (const ())
+        inl out = module_map (inl _ {out} -> out) x
+        {out bck}
+
     inl generalized_mi {bias={si s i c} input state} = si * state * input + s * state + i * input + c
     inl generalized_mi_tanh {bias={si s i c} input state} = si * state * input + s * state + i * input + c |> tanh
 
@@ -324,12 +332,10 @@ inl Activation =
 
     // Uses KL divergence of univariate Gaussians for cost rather than squared error.
     inl td {r discount_factor eligibility_decay R' V' V scale scale_r scale'} =
-        inl bounded_exp {eta upper mid} = 
-            inm eta = tanh eta
-            exp (eta * log upper + (one - eta) * log mid)
+        inl bounded_exp {eta upper mid} = bounded_exp { upper lower=mid; eta = tanh eta}
 
         inm eligibility_decay = sigmoid eligibility_decay 
-        inm {scale scale_r scale'} = sequence_module bounded_exp {scale scale_r scale'}
+        inm {scale scale_r scale'} = module_map (const bounded_exp) {scale scale_r scale'}
 
         inm scale' = scale_r + discount_factor * scale'
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * V')
@@ -522,7 +528,7 @@ inl Seq k =
                 match eta with 
                 | {input out} -> (tanh input + tanh out) / val two 
                 | _ -> tanh eta
-            inm eta = exp (eta * log upper + (val one - eta) * log mid)
+            inm eta = bounded_exp {eta upper lower=mid}
             weight_norm (H + eta * input * out)
             
         {generalized_mi_ln_relu wn_hebb}
