@@ -321,13 +321,14 @@ inl Activation =
         succ {memory out}
 
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
-    inl td {r discount_factor eligibility_decay R' V' V} =
-        // Since the layer does not have a bias, I am adding two here based on the theory 
-        // that larger prediction horizons would be better at the beginning.
-        inm eligibility_decay = sigmoid (eligibility_decay + three) 
+    inl td {r discount_factor eligibility_decay R' V' V scale scale'} =
+        inm scale' = discount_factor * scale'
+        inm eligibility_decay = sigmoid eligibility_decay 
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * V')
-        inm error = R - V |> as_cost // Is equivalent `sqr (R - V) / two` on the backward pass.
-        {R error}
+        inm error = R - V
+        // KL divergence for univariate Gaussians rather than squared error is used for cost.
+        inm _ = log (scale' / scale) + (sqr scale + sqr error) / sqr scale' - half |> as_cost
+        {R scaled_error=scale * error}
 
     {generalized_mi generalized_mi_tanh lstm hebb_tanh td}
 
