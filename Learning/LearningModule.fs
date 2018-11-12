@@ -1994,22 +1994,20 @@ inl float ->
             s.CudaKernel.segmented_iter {dim=mask} (inl i -> weights.view i .set zero)
 
         inl ac size =
-            inl inner = 
-                inl p = {eta=1; upper=1; mid=1}
-                {action_probs=size; eligibility_decay=1; V=1; scale=p; scale_r=p; upper=1; mid=1}
+            inl p_mask = {upper=1; mid=1}
+            inl p = {p_mask with eta=1}
+            inl inner = {action_probs=size; eligibility_decay=1; V=1; scale=p; scale_r=p}
             
             {
             init = inl sublayer_size ->
                 open Initializer.dual.TensorView
                 inl outer = {bias=1; input=sublayer_size}
-                inl mask = {bias=outer.bias}, {upper=inner.upper; mid=inner.mid}
+                inl mask = {bias=outer.bias}, {scale=p_mask; scale_r=p_mask}
                 inl init = 
                     {
                     bias=
-                        {
-                        action_probs=const zero; eligibility_decay=const two; V=const zero; 
-                        scale=const one; scale_fin=const one; upper=const two; mid=const one
-                        }
+                        inl p = {upper=const two; mid=const one; eta=const zero}
+                        { action_probs=const zero; eligibility_decay=const two; V=const zero; scale=p; scale_r=p }
                     input=Struct.map' (inl _ -> const zero) inner
                     }
                 {
