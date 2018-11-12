@@ -332,10 +332,8 @@ inl Activation =
 
     // Uses KL divergence of univariate Gaussians for cost rather than squared error.
     inl td {r discount_factor eligibility_decay R' V' V scale scale_r scale'} =
-        inl bounded_exp {eta upper mid} = bounded_exp { upper lower=mid; eta = tanh eta}
-
         inm eligibility_decay = sigmoid eligibility_decay 
-        inm {scale scale_r scale'} = module_map (const bounded_exp) {scale scale_r scale'}
+        inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> bounded_exp { upper lower=mid; eta = tanh eta}) {scale scale_r scale'}
 
         inm scale' = scale_r + discount_factor * scale'
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * primal V')
