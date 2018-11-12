@@ -355,7 +355,7 @@ inl Activation =
         //inm _ = log (scale' / scale) + (sqr scale + sqr error) / sqr scale' - half |> as_cost
         inm _ = // Symmetric KL divergence
             inm {error scale scale'} = module_map (const sqr) {error scale scale'}
-            inl f scale scale' = (scale + error) / scale'
+            inl f scale scale' = (scale + error) / (scale' + 10f32 ** -6f32)
             (f scale scale' + f scale' scale) / two |> as_cost
 
         inm scaled_error = error
