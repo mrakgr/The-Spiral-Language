@@ -1983,15 +1983,15 @@ inl float ->
                         x_a.set (x_a.get + (p - label) * reward) 
             }
 
-        inl ac_sample_action {action_probs eligibility_decay V} s =
+        inl ac_sample_action {action_probs eligibility_decay V scale scale_r} s =
             inl {out bck} = sampling_pg action_probs s
             {
             out
             bck=inl d ->
-                inl {out={R error} bck=bck'} = map CudaAD.Activation.td {d with eligibility_decay V} s
+                inl {out={R scaled_error} bck=bck'} = map CudaAD.Activation.td {d with eligibility_decay V scale scale_r} s
                 {
-                out={R'=R; V'=primal V}
-                bck=inl _ -> bck' (); bck {reward=error}
+                out={R'=R; V'=primal V; scale'=scale}
+                bck=inl _ -> bck' (); bck {reward=scaled_error}
                 }
             }
 

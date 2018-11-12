@@ -505,14 +505,14 @@ inl {basic_methods State Action} ->
             bet=inl s input -> s.data.run {input cd=s.data.cd}
             showdown=inl s r -> 
                 inl l = s.data.run.reset
-                List.foldl' ignore (inl next {r R' V'} -> function
+                List.foldl' ignore (inl next {r R' V' scale'} -> function
                     | {bck_final} ->
-                        inl {out={R' V'} bck} = bck_final {discount_factor r R' V' }
-                        next {r=dyn 0f32; R' V'}
+                        inl {out={R' V' scale'} bck} = bck_final {discount_factor r R' V' scale'}
+                        next {r=dyn 0f32; R' V' scale'}
                         bck ()
                     | _ ->
                         ()
-                    ) {r=dyn (to float32 r); V'=0f32; R'=0f32} l
+                    ) {r=dyn (to float32 r); V'=0f32; R'=0f32; scale'={upper=0f32; mid=0f32; eta=0f32}} l
 
                 List.foldl' ignore (inl next m {net} ->
                     inl bck = Struct.map (inl {bck} -> bck) net
