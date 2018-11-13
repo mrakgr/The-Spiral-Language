@@ -216,7 +216,7 @@ inl Binary =
                 }
             }
 
-    {(*) (/) (+) (-) (**)}
+    {(*) (/) (+) (-) (**) max min}
 
 inl Comp =
     inl (<) = comp (<)
@@ -360,7 +360,7 @@ inl Activation =
         inm _ = abs (log (max (abs (primal error)) epsilon) + scale) |> as_cost
         inm scale = exp scale
         
-        inm _ = sqr (error * primal scale) |> as_cost
+        inm _ = sqr (error ) |> as_cost
         inm scaled_error = error * scale // Is used as reward for the actor.
 
         succ {R scaled_error}
@@ -2006,15 +2006,16 @@ inl float ->
                         x_a.set (x_a.get + (p - label) * reward) 
             }
 
-        inl ac_sample_action {action_probs eligibility_decay V scale scale_r} s =
+        inl ac_sample_action {action_probs eligibility_decay V scale } s =
             inl {out bck} = sampling_pg action_probs s
             {
             out
             bck=inl d ->
-                s.CudaTensor.print (primal scale.eta)
-                inl {out={R scaled_error} bck=bck'} = map CudaAD.Activation.td {d with eligibility_decay V scale scale_r} s
+                inl epsilon = 2.0 ** -3.0 |> to float
+                //Console.writeline (s.CudaTensor.get (primal scale 0 0) |> exp)
+                inl {out={R scaled_error} bck=bck'} = map (CudaAD.Activation.td epsilon) {d with eligibility_decay V scale } s
                 {
-                out={R'=R; V'=V; scale'=scale}
+                out={R'=R; V'=V}
                 bck=inl _ -> bck' (); bck {reward=scaled_error}
                 }
             }
@@ -2024,20 +2025,15 @@ inl float ->
             s.CudaKernel.segmented_iter {dim=mask} (inl i -> weights.view i .set zero)
 
         inl ac size =
-            inl p_mask = {upper=1; mid=1}
-            inl p = {p_mask with eta=1}
-            inl inner = {action_probs=size; eligibility_decay=1; V=1; scale=p; scale_r=p}
+            inl inner = {action_probs=size; eligibility_decay=1; V=1; scale=1}
             
             {
             init = inl sublayer_size ->
                 open Initializer.dual.TensorView
                 inl outer = {bias=1; input=sublayer_size}
-                inl mask = {input=outer.input}, {scale=p_mask; scale_r=p_mask}
                 inl init = 
                     {
-                    bias=
-                        inl p = {upper=const (to float 10); mid=const (to float 0.1); eta=const zero}
-                        { action_probs=const zero; eligibility_decay=const two; V=const zero; scale=p; scale_r=p }
+                    bias= { action_probs=const zero; eligibility_decay=const two; V=const zero; scale=const (to float (log 0.1)) }
                     input=Struct.map' (inl _ -> const zero) inner
                     }
                 {
@@ -2046,7 +2042,6 @@ inl float ->
                     weights = weight {init dim=outer,inner}
                     outer = val outer
                     inner = val inner
-                    mask = val mask
                     }
                 size
                 }
@@ -2062,9 +2057,7 @@ inl float ->
 
                 inl {out={out state} bck} = apply s
                 {out state bck}
-            optimize = inl {d with weights={weights inner outer mask}} s ->
-                Optimizer.kfac d s
-                mask_out mask (View.wrap (outer,inner) (primal weights.weight)) s
+            optimize = Optimizer.kfac
             block = ()
             }
 
