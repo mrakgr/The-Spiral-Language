@@ -352,7 +352,7 @@ inl Activation =
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
 
     inl td epsilon {r discount_factor eligibility_decay R' V' V scale} =
-        //inm r = r * 100f32
+        inm r = r * 100f32
 
         inm eligibility_decay = sigmoid eligibility_decay 
 
@@ -2014,7 +2014,7 @@ inl float ->
             out
             bck=inl d ->
                 inl epsilon = 2.0 ** -3.0 |> to float
-                //Console.writeline (s.CudaTensor.get (primal scale 0 0) |> exp)
+                Console.writeline (s.CudaTensor.get (primal scale 0 0) |> exp)
                 inl {out={R scaled_error} bck=bck'} = map (CudaAD.Activation.td epsilon) {d with eligibility_decay V scale } s
                 {
                 out={R'=R; V'=V}
@@ -2035,7 +2035,7 @@ inl float ->
                 inl outer = {bias=1; input=sublayer_size}
                 inl init = 
                     {
-                    bias= { action_probs=const zero; eligibility_decay=const two; V=const zero; scale=const (to float (log 0.1)) }
+                    bias= { action_probs=const zero; eligibility_decay=const two; V=const zero; scale=const (to float (log 0.001)) }
                     input=Struct.map' (inl _ -> const zero) inner
                     }
                 {
