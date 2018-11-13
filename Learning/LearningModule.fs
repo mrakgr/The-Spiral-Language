@@ -352,7 +352,7 @@ inl Activation =
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
 
     inl td epsilon {r discount_factor eligibility_decay R' V' V scale} =
-        inm r = r / 10f32
+        //inm r = r / 10f32
 
         inm eligibility_decay = sigmoid eligibility_decay 
 
