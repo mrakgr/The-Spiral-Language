@@ -359,10 +359,10 @@ inl Activation =
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * primal V')
         inm error = R - V
         
-        inm _ = abs (abs error - scale) |> as_cost
         inm scale = max epsilon scale
+        inm _ = abs (abs (primal error) - scale) / primal scale |> as_cost
 
-        inm _ = sqr (error) |> as_cost
+        inm _ = sqr (error / primal scale) |> as_cost
         inm scaled_error = error / scale // Is used as reward for the actor.
 
         succ {R scaled_error}
