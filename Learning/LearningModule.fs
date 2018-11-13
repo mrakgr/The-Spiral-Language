@@ -352,17 +352,17 @@ inl Activation =
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
 
     inl td epsilon {r discount_factor eligibility_decay R' V' V scale} =
-        //inm r = r * 100f32
+        inm r = r / 10f32
 
         inm eligibility_decay = sigmoid eligibility_decay 
 
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * primal V')
         inm error = R - V
         
+        inm _ = abs (abs error - scale) |> as_cost
         inm scale = max epsilon scale
-        inm _ = abs (abs (primal error) - scale) / primal scale |> as_cost
 
-        inm _ = sqr (error / primal scale) |> as_cost
+        inm _ = sqr error |> as_cost
         inm scaled_error = error / scale // Is used as reward for the actor.
 
         succ {R scaled_error}
@@ -2033,7 +2033,7 @@ inl float ->
             init = inl sublayer_size ->
                 open Initializer.dual.TensorView
                 inl outer = {bias=1; input=sublayer_size}
-                inl init = 
+                inl init =
                     {
                     bias= { action_probs=const zero; eligibility_decay=const two; V=const zero; scale=const one }
                     input=Struct.map' (inl _ -> const zero) inner
