@@ -198,6 +198,24 @@ inl Binary =
                 }
             }
 
+    inl max =
+        binary {
+            fwd = max
+            bck = {
+                a = inl a b out -> if a > b then one else zero
+                b = inl a b out -> if a > b then zero else one
+                }
+            }
+
+    inl min =
+        binary {
+            fwd = min
+            bck = {
+                a = inl a b out -> if a > b then zero else one
+                b = inl a b out -> if a > b then one else zero
+                }
+            }
+
     {(*) (/) (+) (-) (**)}
 
 inl Comp =
@@ -333,33 +351,17 @@ inl Activation =
 
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
 
-    // Uses KL divergence of univariate Gaussians for cost rather than squared error.
-    inl td {r discount_factor eligibility_decay R' V' V scale scale_r scale'} =
-        //inm r = r / 10f32
-
-        inl eligibility_decay = 0.8f32
-        //inm eligibility_decay = sigmoid eligibility_decay 
-
-        //inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> bounded_exp { upper lower=mid; eta = tanh eta}) {scale scale_r scale'}
-        //inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> exp (mid * tanh eta)) {scale scale_r scale'}
-        //inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> exp (eta)) {scale scale_r scale'}
-        inm {scale scale_r scale'} = module_map (inl _ {eta upper mid} -> eta + one) {scale scale_r scale'}
-        inm scale' = scale_r + discount_factor * scale'
+    inl td epsilon {r discount_factor eligibility_decay R' V' V scale} =
+        inm eligibility_decay = sigmoid eligibility_decay 
 
         inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * primal V')
-
-        //inm error = R
         inm error = R - V
-
-        //inm _ = sqr error |> as_cost
-        inm _ = log (scale' / scale) + (sqr scale + sqr error) / (two * sqr scale') - half |> as_cost
-        //inm _ = // Symmetric KL divergence
-        //    inm {error scale scale'} = module_map (const sqr) {error scale scale'}
-        //    inl f scale scale' = (scale + error) / (two * scale')
-        //    (f scale scale' + f scale' scale) / two |> as_cost
-
-        inm scaled_error = error
-        //inm scaled_error = error / scale // Is used as reward for the actor.
+        
+        inm _ = abs (log (max (abs (primal error)) epsilon) + scale) |> as_cost
+        inm scale = exp scale
+        
+        inm _ = sqr (error * primal scale) |> as_cost
+        inm scaled_error = error * scale // Is used as reward for the actor.
 
         succ {R scaled_error}
 
