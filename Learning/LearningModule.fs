@@ -929,68 +929,17 @@ inl float ->
                 stack {data_next}
         }
 
-    inl matmult_ac {data weight streams} s = 
-        inl get_dims {data weight} =
-            inl get_dim = function 
-                | {T} -> T.dim |> inl b,a -> a,b
-                | T -> T.dim
-            inl (b,_),(_,a) = Tuple.map (primals >> get_dim) (data, weight)
-            b,a
-
-        inl init {d with data weight streams=l,r} = 
-            inl dim = get_dims {data weight}
-            inl s = s.data_add {stream=l}
-            {d with out = s.CudaTensor.create_view {elem_type=float; dim} |> dr s}
-        
-        inl run {out data weight streams=l,r} =  
-            l.wait_on s.data.stream
-            inl s = s.data_add {stream=l}
-
-            inl f = function {T} -> T, .T | nT -> nT, .nT
-            inl (A,TA),(B,TB) = f data, f weight
-            s.CudaBlas.gemm' TA TB one (primal A .basic) (primal B .basic) zero (primal out .basic)
-
-        inl bck {w with learning_rate} {d with out data weight streams=l,r} =
-            inl f' = function {T} -> basic T, .nT | nT -> basic nT, .T
-            inl (A,TA),(B,TB) = f' data, f' weight
-            inl out = adjoint out |> basic
-            on_non_nil (inl A -> 
-                l.wait_on s.data.stream
-                inl s = s.data_add {stream=l}
-                match TA with
-                | .T -> s.CudaBlas.gemm' .nT TB one out (primal B) one A
-                | .nT -> s.CudaBlas.gemm' .nT TB one (primal B) out one A
-                ) (adjoint A)
-            on_non_nil (inl B -> 
-                r.wait_on s.data.stream
-                inl s = s.data_add {stream=r}
-                match TB with
-                | .T -> s.CudaBlas.gemm' TA .nT one (primal A) out one B
-                | .nT -> s.CudaBlas.gemm' TA .nT one out (primal A) one B
-                ) (adjoint B)
-            inl update k data = 
-                match d with 
-                | {$k={covariance k}} -> 
-                    update_covariance learning_rate data covariance s 
-                    k := k() + out.span_outer
-                | _ -> ()
-            update .front (primal data)
-            update .back out
-
-        inl l = Struct.map init l
-        Struct.iter run l
-        Struct.iter (inl {streams=l,r} -> s.data.stream.wait_on l) l
-        inl out = Struct.map (inl {out} -> out) l
+    inl matmult_ac {data weight front streams} s = 
+        inl {out with policy value scale} = fwd streams data weight s // trace is part of policy
+        wait_on streams s
         {
         out
-        bck=inl d ->
-            indiv join
-                match d with
-                | {data_next} -> Struct.iter2 (inl l data_next -> bck {d with data_next} l) l data_next
-                | _ -> Struct.iter (bck d) l
-                Struct.iter (inl {streams=x} -> Tuple.iter s.data.stream.wait_on x) l
-                inl data_next = Struct.map (inl {data} -> primal data) l
-                stack {data_next}
+        bck=inl _ ->
+            bck streams weight data policy s
+            bck streams weight {rescaled={data scale}} value s
+            bck streams weight {blocked=data} scale s
+            update_covariance front data s
+            wait_on streams s
         }
 
     inl matmultb l bias s = 
