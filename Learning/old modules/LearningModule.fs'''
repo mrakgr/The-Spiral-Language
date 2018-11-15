@@ -2029,7 +2029,7 @@ inl float ->
             s.CudaKernel.segmented_iter {dim=mask} (inl i -> weights.view i .set zero)
 
         inl ac size =
-            inl inner = {policy=size; eligibility_decay=1; value=1; scale=1}
+            inl inner = {action_probs=size; eligibility_decay=1; V=1; scale=1}
             
             {
             init = inl sublayer_size ->
@@ -2037,7 +2037,7 @@ inl float ->
                 inl outer = {bias=1; input=sublayer_size}
                 inl init =
                     {
-                    bias= { policy=const zero; eligibility_decay=const two; value=const zero; scale=const one }
+                    bias= { action_probs=const zero; eligibility_decay=const two; V=const zero; scale=const one }
                     input=Struct.map' (inl _ -> const zero) inner
                     }
                 {
