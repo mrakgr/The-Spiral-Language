@@ -836,6 +836,7 @@ inl float ->
         | _: float32 -> infinityf32
         | _: float64 -> infinityf64
 
+    inl basic = Struct.map' (inl x -> x.basic)
     inl primal = function {primal} | primal -> primal
     inl adjoint = function {adjoint} -> adjoint | _ -> ()
 
@@ -928,7 +929,7 @@ inl float ->
                 stack {data_next}
         }
 
-    inl matmult_ac l s = 
+    inl matmult_ac {data weight streams} s = 
         inl get_dims {data weight} =
             inl get_dim = function 
                 | {T} -> T.dim |> inl b,a -> a,b
@@ -947,12 +948,12 @@ inl float ->
 
             inl f = function {T} -> T, .T | nT -> nT, .nT
             inl (A,TA),(B,TB) = f data, f weight
-            s.CudaBlas.gemm' TA TB one (primal A) (primal B) zero (primal out)
+            s.CudaBlas.gemm' TA TB one (primal A .basic) (primal B .basic) zero (primal out .basic)
 
         inl bck {w with learning_rate} {d with out data weight streams=l,r} =
-            inl f' = function {T} -> T, .nT | nT -> nT, .T
+            inl f' = function {T} -> basic T, .nT | nT -> basic nT, .T
             inl (A,TA),(B,TB) = f' data, f' weight
-            inl out = adjoint out
+            inl out = adjoint out |> basic
             on_non_nil (inl A -> 
                 l.wait_on s.data.stream
                 inl s = s.data_add {stream=l}
