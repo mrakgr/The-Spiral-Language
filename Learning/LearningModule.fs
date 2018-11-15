@@ -929,19 +929,6 @@ inl float ->
                 stack {data_next}
         }
 
-    inl matmult_ac {data weight front streams} s = 
-        inl {out with policy value scale} = fwd streams data weight s // trace is part of policy
-        wait_on streams s
-        {
-        out
-        bck=inl _ ->
-            bck streams weight data policy s
-            bck streams weight {rescaled={data scale}} value s
-            bck streams weight {blocked=data} scale s
-            update_covariance front data s
-            wait_on streams s
-        }
-
     inl matmultb l bias s = 
         inl l =
             match l with
