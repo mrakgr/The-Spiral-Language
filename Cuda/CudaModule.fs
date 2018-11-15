@@ -780,7 +780,10 @@ inl s ret ->
     inl s = s.data_add {cublas=cublas'}
 
     open Tensor
-    
+
+    inl mode_dev_ptr s = macro.fs () [arg: s.data.cublas, text: " <- ManagedCuda.CudaBlas.PointerMode.Device"]
+    inl mode_host_ptr s = macro.fs () [arg: s.data.cublas, text: " <- ManagedCuda.CudaBlas.PointerMode.Host"]
+
     inl call s method args = 
         inl cublas = s.data.cublas
         inl stream = s.data.stream
@@ -1099,9 +1102,9 @@ inl s ret ->
         inl f = to int32
         match mode with
         | .dev_ptr ->
-            mode_dev_ptr()
+            mode_dev_ptr s
             call s .cublasSgemm_v2(transb, transa, f n, f m, f k, {ptr=alpha}, {ptr=B}, f (ld B), {ptr=A}, f (ld A), {ptr=beta}, {ptr=C}, f (ld C))
-            mode_host_ptr()
+            mode_host_ptr s
         | .host_ptr ->
             call s .cublasSgemm_v2(transb, transa, f n, f m, f k, alpha, {ptr=B}, f (ld B), {ptr=A}, f (ld A), beta, {ptr=C}, f (ld C))
 
@@ -1260,6 +1263,7 @@ inl s ret ->
         {
         trmm' trmm trsm' trsm trinv symm' symm geam' geam transpose gemm' gemm matinv_batched matinv_batched_asserted 
         gemm_strided_batched' gemm_strided_batched syrk' syrk gemv' gemv symv' symv syr' syr trmv' trmv
+        gemm_dev_ptr'
         }
 
     ret <| s.module_add .CudaBlas modules
