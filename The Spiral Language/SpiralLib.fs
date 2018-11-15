@@ -1950,16 +1950,18 @@ inl map_dim default = function
         assert (0 < by) "The size must be a positive value."
         by, from
     | {} as x -> // Tree view
+        inl case_size from size =
+            inl near_to=from+size
+            assert (from < near_to) "The size must be a positive value."
+            near_to, {from near_to block=()}
         inl rec loop from = function
+            | {from=from' near_to} -> case_size from (near_to - from')
             | {} as x -> 
                 module_foldl (inl k (from,m) x -> 
                     inl near_to, x = loop from x
                     near_to, {m with $k=x}
                     ) (from, {}) x
-            | size: int64 ->  
-                inl near_to=from+size
-                assert (from < near_to) "The size must be a positive value."
-                near_to, {from near_to block=()}
+            | size: int64 -> case_size from size
             | _ -> error_type "The tree's leaves must be integer values and branches must be modules."
         loop 0 x
     | _ -> error_type "Expected a range or a tree view."
