@@ -1072,13 +1072,17 @@ inl s ret ->
             gemv' s trans alpha A x (to alpha 0) y
             stack y
 
-    /// General matrix-matrix multiply from cuBLAS. Inplace version
-    met gemm' s transa transb alpha A B beta C =
+    met gemm_template mode s transa transb alpha A B beta C =
         assert (eq_type A.elem_type float32) "A must be of type float32."
         assert (eq_type B.elem_type float32) "B must be of type float32."
         assert (eq_type C.elem_type float32) "C must be of type float32."
-        assert (eq_type alpha float32) "alpha must be of type float32."
-        assert (eq_type beta float32) "beta must be of type float32."
+        match mode with
+        | .dev_ptr ->
+            assert (eq_type alpha.elem_type float32) "alpha must be of type float32."
+            assert (eq_type beta.elem_type float32) "beta must be of type float32."
+        | .host_ptr ->
+            assert (eq_type alpha float32) "alpha must be of type float32."
+            assert (eq_type beta float32) "beta must be of type float32."
 
         inl a_col = if isnT transa then cols A else rows A
         inl b_row = if isnT transb then rows B else cols B
@@ -1093,7 +1097,17 @@ inl s ret ->
         // The arguments are switched in order to convert from column major (which CuBlas uses) to row major (which Spiral's tensors use)
         // TODO: Adapt it for other float types.
         inl f = to int32
-        call s .cublasSgemm_v2(transb, transa, f n, f m, f k, alpha, {ptr=B}, f (ld B), {ptr=A}, f (ld A), beta, {ptr=C}, f (ld C))
+        match mode with
+        | .dev_ptr ->
+            mode_dev_ptr()
+            call s .cublasSgemm_v2(transb, transa, f n, f m, f k, {ptr=alpha}, {ptr=B}, f (ld B), {ptr=A}, f (ld A), {ptr=beta}, {ptr=C}, f (ld C))
+            mode_host_ptr()
+        | .host_ptr ->
+            call s .cublasSgemm_v2(transb, transa, f n, f m, f k, alpha, {ptr=B}, f (ld B), {ptr=A}, f (ld A), beta, {ptr=C}, f (ld C))
+
+    /// General matrix-matrix multiply from cuBLAS. Inplace version
+    inl gemm' = gemm_template .host_ptr
+    inl gemm_dev_ptr' = gemm_template .dev_ptr
 
     inl gemm s transa transb alpha A B =
         indiv join
