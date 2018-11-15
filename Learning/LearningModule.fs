@@ -243,7 +243,14 @@ inl Custom =
             lower = inl {eta upper lower out} -> if upper = lower then one else out * (one - eta) / lower
             }
         {fwd bck op = op fwd bck}
-    {cond bounded_exp}
+    inl grad_sqrt =
+        inl fwd {scale input} = input
+        inl bck = {
+            scale = const zero
+            input = inl {scale input} -> one / sqrt (scale + epsilon)
+            }
+        {fwd bck op = op fwd bck}
+    {cond bounded_exp grad_sqrt}
 
 inl add_atomic = CudaAux.atomic_add
 inl add_std x out = x .set (x .get + out)
@@ -1642,15 +1649,22 @@ inl float ->
     inl wrap_split dim = Struct.map' (View.wrap dim >> View.split) >> Struct.map zip_dual
     inl wrap_split_weight = Struct.map2 (inl dim {d with weight} -> wrap_split dim weight)
 
-    inl weight {d with dim=b,a} = 
+    inl weight' d = 
         open Initializer.dual.TensorView
         {
         weight = view' d
         streams = stream, stream
-        front = covariance default_epsilon b
-        back = covariance default_epsilon a
         block = ()
         }
+    inl weightf {d with dim=b,a} = 
+        {(weight' d) with
+            front = covariance default_epsilon b
+            }
+    inl weight {d with dim=b,a} = 
+        {(weight' d) with
+            front = covariance default_epsilon b
+            back = covariance default_epsilon a
+            }
 
     inl bias {d with dim=1,a} = 
         open Initializer.dual.TensorView
@@ -1663,6 +1677,8 @@ inl float ->
     inl load = to_dev_tensor >> CudaAD.link
     inl loadb = to_dev_tensor >> CudaAD.link_broadcast
     inl loada dim = to_dev_tensor >> CudaAD.link_auto dim
+    inl load_sqr = to_dev_tensor >> CudaAD.link >> CudaAD.Op.sqr
+    inl loadb_grad_sqrt = to_dev_tensor >> CudaAD.link_broadcast >> CudaAD.Op.grad_sqrt
 
     // #Feedforward
     inl layer initializer activation size =
@@ -2030,7 +2046,12 @@ inl float ->
             s.CudaKernel.segmented_iter {dim=mask} (inl i -> weights.view i .set zero)
 
         inl ac size =
-            inl inner = {policy=size; eligibility_decay=1; value=1; scale=1}
+            inl inner = 
+                {
+                pt={policy=size; trace=1}
+                value=1
+                scale=1
+                }
             
             {
             init = inl sublayer_size ->
@@ -2038,25 +2059,52 @@ inl float ->
                 inl outer = {bias=1; input=sublayer_size}
                 inl init =
                     {
-                    bias= { policy=const zero; eligibility_decay=const two; value=const zero; scale=const one }
-                    input=Struct.map' (inl _ -> const zero) inner
+                    pt = 
+                        {
+                        bias = { policy=const zero; trace=const two}
+                        input = { policy=const zero; trace=const zero}
+                        }
+                    value =
+                        {
+                        bias = const zero
+                        input = const zero
+                        }
+                    scale =
+                        {
+                        bias = const zero
+                        input = const zero
+                        }
                     }
                 {
                 dsc =
                     {
-                    weights = weight {init dim=outer,inner}
+                    weights = {
+                        pt = weightf {init=init.pt dim=outer,inner.pt}
+                        scale = weightf {init=init.scale dim=outer,inner.scale}
+                        }
+                    value = weightf {init=init.value dim=outer,inner.value}
                     outer = val outer
                     inner = val inner
                     }
                 size
                 }
 
-            apply = inl {d with weights={weights outer} input} s -> 
+            apply = inl {d with weights={weights value outer} input} s -> 
                 inl span = primal input .span_outer
                 inl apply =
-                    inm data = segmented_init {dim=span,outer} {bias=const one; input=load input}
-                    inm out = matmult_ac {weights with data}
-                    succ {out state={out}}
+                    inm {pt=!(wrap_split ((), inner.pt)) {policy trace} scale} = 
+                        inm data = 
+                            inm pt = segmented_init {dim=span,outer} {bias=const one; input=load input} // TODO: Fuse these two.
+                            inm scale = segmented_init {dim=span,outer} {bias=const one; input=load_sqr input}
+                            inl scale = primal scale
+                            succ {pt scale}
+                        inl data = Struct.map' (inl data -> data.basic) data
+                        Struct.map2 (inl weights data -> {weights with data}) weights data
+                        |> matmult_stream
+                    inm value =
+                        inm data = segmented_init {dim=span,outer} {bias=const one; input=loadb_grad_sqrt {scale input}} // TODO: Switch to loada.
+                        matmult_stream {value with data}
+                    succ {out state={out={policy trace value scale}}}
 
                 inl {out={out state} bck} = apply s
                 {out state bck}
