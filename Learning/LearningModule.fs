@@ -360,7 +360,8 @@ inl Activation =
 
     inl td reward_scale {r discount trace R' value' value scale} =
         inm r = r * num reward_scale
-        inm trace = sigmoid trace 
+        //inm trace = sigmoid trace 
+        inm trace = half
 
         inm R = r + discount * (trace * R' + (one - trace) * primal value')
         inm error = R - value
@@ -834,7 +835,7 @@ inl float ->
     inl half = num 0.5
     inl one = num 1
     inl two = num 2
-    inl epsilon x = num 2.0 ** num x
+    inl epsilon x = num 2 ** num x
     inl infinity =
         match float with
         | _: float32 -> infinityf32
@@ -2026,7 +2027,7 @@ inl float ->
                         x_a.set (x_a.get + (p - label) * reward) 
             }
 
-        inl reward_scale = 1
+        inl reward_scale = epsilon 0
         inl ac_sample_action {policy trace value scale} s =
             inl {out bck} = sampling_pg policy s
             {
@@ -2070,7 +2071,7 @@ inl float ->
                         }
                     scale =
                         {
-                        bias = const (num reward_scale)
+                        bias = const (num 10 * num reward_scale)
                         input = const zero
                         }
                     }
