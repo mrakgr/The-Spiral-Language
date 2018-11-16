@@ -2095,7 +2095,7 @@ inl float ->
                         Struct.map2 (inl weights data -> {weights with data}) weights data
                         |> matmult_stream
                     inm value =
-                        inm data = segmented_init {dim=span,outer} {bias=const one; input=loada_grad_rescale (span, View.span outer) {scale input}}
+                        inm data = segmented_init {dim=span,outer} {bias=const one; input=loada_grad_rescale (primal input .dim) {scale input}}
                         inl data = Struct.map' (inl data -> data.basic) data
                         matmult_stream {value with data}
                     succ {policy trace value scale}
