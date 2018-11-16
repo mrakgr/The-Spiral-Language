@@ -1830,7 +1830,7 @@ met print (!dyn x) =
     match x with
     | {cutoff input} -> show' {cutoff_near_to=cutoff} input
     | x -> show x 
-    |> Console.writeline
+    |> Console.write
 
 /// Creates a tensor from a scalar.
 /// x -> x tensor
