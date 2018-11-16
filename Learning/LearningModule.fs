@@ -359,7 +359,6 @@ inl Activation =
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
 
     inl td {r discount trace R' value' value scale} =
-        inm r = r / num 10
         inm trace = sigmoid trace 
 
         inm R = r + discount * (trace * R' + (one - trace) * primal value')
@@ -2066,7 +2065,7 @@ inl float ->
                         }
                     scale =
                         {
-                        bias = const zero
+                        bias = const 10f32
                         input = const zero
                         }
                     }
