@@ -359,7 +359,7 @@ inl Activation =
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
 
     inl td reward_scale {r discount trace R' value' value scale} =
-        inm r = r / num reward_scale
+        inm r = r * num reward_scale
         inm trace = sigmoid trace 
 
         inm R = r + discount * (trace * R' + (one - trace) * primal value')
@@ -369,7 +369,7 @@ inl Activation =
         inm _ = sqr error / two |> as_cost
         inm scaled_error = error / scale // Is used as reward for the actor.
 
-        succ {R scaled_error}
+        succ {R scaled_error error}
 
     {generalized_mi generalized_mi_tanh lstm hebb_tanh td}
 
@@ -2032,8 +2032,8 @@ inl float ->
             {
             out
             bck=inl d ->
-                s.CudaTensor.print (primals {value scale} |> Struct.map (inl x -> x 0) |> Tensor.zip)
-                inl {out={R scaled_error} bck=bck'} = map (CudaAD.Activation.td reward_scale) {d with trace value scale} s
+                inl {out={R scaled_error error} bck=bck'} = map (CudaAD.Activation.td reward_scale) {d with trace value scale} s
+                //s.CudaTensor.print (primals {value scale error} |> Tensor.zip |> inl x -> x 0)
                 {
                 out={R'=R; value'=value}
                 bck=inl _ -> bck' (); bck {reward=scaled_error}
