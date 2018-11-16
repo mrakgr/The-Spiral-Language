@@ -2031,6 +2031,8 @@ inl float ->
             {
             out
             bck=inl d ->
+                s.CudaTensor.print (primal value)
+                s.CudaTensor.print (primal scale)
                 inl {out={R scaled_error} bck=bck'} = map CudaAD.Activation.td {d with trace value scale} s
                 {
                 out={R'=R; value'=value}
