@@ -367,7 +367,7 @@ inl Activation =
         
         inm _ = sqr (abs (primal error) - scale) / two |> as_cost
         inm _ = sqr error / two |> as_cost
-        inm scaled_error = error // / (scale + epsilon -10) // Is used as reward for the actor.
+        inm scaled_error = error / (scale + epsilon -10) // Is used as reward for the actor.
 
         succ {R scaled_error}
 
