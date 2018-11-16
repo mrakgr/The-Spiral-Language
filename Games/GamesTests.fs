@@ -168,7 +168,7 @@ Struct.iter (inl i ->
         Console.writeline "------"
         Console.printfn "The CudaRandom pseudorandom seed is {0}" i
 
-        inl a = 
+        inl a =
             open (Learning float32)
             inl net = () //RNN.rnn 128
             player_ac {learning_rate net name="One"; discount=0.99f32} s
