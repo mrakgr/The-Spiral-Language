@@ -359,7 +359,7 @@ inl Activation =
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
 
     inl td {r discount trace R' value' value scale} =
-        inm r = r / num 10
+        inm r = r / num 1
         inm trace = sigmoid trace 
 
         inm R = r + discount * (trace * R' + (one - trace) * primal value')
@@ -367,7 +367,7 @@ inl Activation =
         
         inm _ = sqr (abs (primal error) - scale) / two |> as_cost
         inm _ = sqr error / two |> as_cost
-        inm scaled_error = error / (scale + epsilon -10) // Is used as reward for the actor.
+        inm scaled_error = error / scale // Is used as reward for the actor.
 
         succ {R scaled_error}
 
@@ -829,10 +829,12 @@ inl float ->
     inl atomic_add = CudaAux.atomic_add
     inl assert_dim = CudaAux.assert_dim
     
-    inl zero = to float 0
-    inl half = to float 0.5
-    inl one = to float 1
-    inl two = to float 2
+    inl num = to float
+    inl zero = num 0
+    inl half = num 0.5
+    inl one = num 1
+    inl two = num 2
+    inl epsilon x = num 2.0 ** num x
     inl infinity =
         match float with
         | _: float32 -> infinityf32
@@ -2066,7 +2068,7 @@ inl float ->
                         }
                     scale =
                         {
-                        bias = const one
+                        bias = const (num 10)
                         input = const zero
                         }
                     }
