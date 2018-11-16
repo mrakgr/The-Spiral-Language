@@ -358,10 +358,10 @@ inl Activation =
 
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
 
-    inl td {r discount_factor trace R' value' value scale} =
+    inl td {r discount trace R' value' value scale} =
         inm trace = sigmoid trace 
 
-        inm R = r + discount_factor * (trace * R' + (one - trace) * primal value')
+        inm R = r + discount * (trace * R' + (one - trace) * primal value')
         inm error = R - value
         
         inm _ = sqr (abs (primal error) - scale) / two |> as_cost
@@ -2020,14 +2020,14 @@ inl float ->
                         x_a.set (x_a.get + (p - label) * reward) 
             }
 
-        inl ac_sample_action {action_probs eligibility_decay V scale } s =
-            inl {out bck} = sampling_pg action_probs s
+        inl ac_sample_action {policy trace value scale} s =
+            inl {out bck} = sampling_pg policy s
             {
             out
             bck=inl d ->
-                inl {out={R scaled_error} bck=bck'} = map CudaAD.Activation.td {d with eligibility_decay V scale } s
+                inl {out={R scaled_error} bck=bck'} = map CudaAD.Activation.td {d with trace value scale} s
                 {
-                out={R'=R; V'=V}
+                out={R'=R; value'=value}
                 bck=inl _ -> bck' (); bck {reward=scaled_error}
                 }
             }
