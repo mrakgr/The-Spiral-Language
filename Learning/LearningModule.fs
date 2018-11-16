@@ -10,12 +10,12 @@ let cuda_ad =
     "CudaAD",[struct';liple],"The CudaAD module",
     """
 inl float = float32
-inl zero = 0f32
-inl half = 0.5f32
-inl one = 1f32
-inl two = 2f32
-inl three = 3f32
-inl epsilon x = to float (2.0 ** x)
+inl num = to float
+inl zero = num 0
+inl half = num 0.5
+inl one = num 1
+inl two = num 2
+inl epsilon x = num 2.0 ** num x
 
 inl (>>=) a b =
     match a with
@@ -1671,7 +1671,10 @@ inl float ->
     inl load = to_dev_tensor >> CudaAD.link
     inl loadb = to_dev_tensor >> CudaAD.link_broadcast
     inl loada dim = to_dev_tensor >> CudaAD.link_auto dim
-    inl loada_grad_rescale dim = to_dev_tensor >> CudaAD.link_auto dim >> CudaAD.Op.grad_rescale
+    inl loada_grad_rescale dim x = 
+        inl x = to_dev_tensor x 
+        open CudaAD
+        inl cur -> link_auto dim x cur >>= Op.grad_rescale
 
     // #Feedforward
     inl layer initializer activation size =
@@ -2070,10 +2073,10 @@ inl float ->
                 dsc =
                     {
                     weights = {
-                        pt = weightf {init=init.pt dim=outer,inner.pt}
-                        scale = weightf {init=init.scale dim=outer,inner.scale}
+                        pt = weightf {init=init.pt; dim=outer,inner.pt}
+                        scale = weightf {init=init.scale; dim=outer,inner.scale}
                         }
-                    value = weightf {init=init.value dim=outer,inner.value}
+                    value = weightf {init=init.value; dim=outer,inner.value}
                     outer = val outer
                     inner = val inner
                     }
@@ -2086,18 +2089,19 @@ inl float ->
                     inm {pt=!(wrap_split ((), inner.pt)) {policy trace} scale} = 
                         inm data = 
                             inm pt = segmented_init {dim=span,outer} {bias=const one; input=load input}
-                            inl scale = primal scale
+                            inl scale = primal pt
                             succ {pt scale}
                         inl data = Struct.map' (inl data -> data.basic) data
                         Struct.map2 (inl weights data -> {weights with data}) weights data
                         |> matmult_stream
                     inm value =
-                        inm data = segmented_init {dim=span,outer} {bias=const one; input=loada_grad_rescale (primal input .dim) {scale input}}
+                        inm data = segmented_init {dim=span,outer} {bias=const one; input=loada_grad_rescale (span, View.span outer) {scale input}}
+                        inl data = Struct.map' (inl data -> data.basic) data
                         matmult_stream {value with data}
-                    succ {out state={out={policy trace value scale}}}
+                    succ {policy trace value scale}
 
-                inl {out={out state} bck} = apply s
-                {out state bck}
+                inl {out bck} = apply s
+                {out bck}
             optimize = Optimizer.kfac
             block = ()
             }
