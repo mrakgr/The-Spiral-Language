@@ -358,8 +358,8 @@ inl Activation =
 
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
 
-    inl td {r discount trace R' value' value scale} =
-        inm r = r / num 1
+    inl td reward_scale {r discount trace R' value' value scale} =
+        inm r = r / num reward_scale
         inm trace = sigmoid trace 
 
         inm R = r + discount * (trace * R' + (one - trace) * primal value')
@@ -2026,6 +2026,7 @@ inl float ->
                         x_a.set (x_a.get + (p - label) * reward) 
             }
 
+        inl reward_scale = 1
         inl ac_sample_action {policy trace value scale} s =
             inl {out bck} = sampling_pg policy s
             {
@@ -2033,7 +2034,7 @@ inl float ->
             bck=inl d ->
                 s.CudaTensor.print (primal value)
                 s.CudaTensor.print (primal scale)
-                inl {out={R scaled_error} bck=bck'} = map CudaAD.Activation.td {d with trace value scale} s
+                inl {out={R scaled_error} bck=bck'} = map (CudaAD.Activation.td reward_scale) {d with trace value scale} s
                 {
                 out={R'=R; value'=value}
                 bck=inl _ -> bck' (); bck {reward=scaled_error}
@@ -2070,7 +2071,7 @@ inl float ->
                         }
                     scale =
                         {
-                        bias = const (num 10)
+                        bias = const (num reward_scale)
                         input = const zero
                         }
                     }
