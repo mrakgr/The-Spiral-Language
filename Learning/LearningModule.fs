@@ -368,7 +368,7 @@ inl Activation =
         
         inm _ = sqr (abs (primal error) - scale) / two |> as_cost
         inm _ = sqr error / two |> as_cost
-        inm scaled_error = error / scale // Is used as reward for the actor.
+        inm scaled_error = error // / scale // Is used as reward for the actor.
 
         succ {R scaled_error error}
 
@@ -2027,7 +2027,7 @@ inl float ->
                         x_a.set (x_a.get + (p - label) * reward) 
             }
 
-        inl reward_scale = epsilon 0
+        inl reward_scale = epsilon -3
         inl ac_sample_action {policy trace value scale} s =
             inl {out bck} = sampling_pg policy s
             {
@@ -2079,7 +2079,7 @@ inl float ->
                 dsc =
                     {
                     weights = {
-                        pt = weightf {init=init.pt; dim=outer,inner.pt}
+                        pt = weight {init=init.pt; dim=outer,inner.pt}
                         scale = weightf {init=init.scale; dim=outer,inner.scale}
                         }
                     value = weightf {init=init.value; dim=outer,inner.value}
