@@ -15,7 +15,7 @@ inl half = 0.5f32
 inl one = 1f32
 inl two = 2f32
 inl three = 3f32
-inl epsilon = to float (10.0 ** -7.0)
+inl epsilon x = to float (2.0 ** x)
 
 inl (>>=) a b =
     match a with
@@ -247,7 +247,7 @@ inl Custom =
         inl fwd {scale input} = input
         inl bck = {
             scale = const zero
-            input = inl {scale input} -> one / sqrt (scale + epsilon)
+            input = inl {scale input} -> one / sqrt (scale + epsilon -10)
             }
         {fwd bck op = op fwd bck}
     {cond bounded_exp grad_sqrt}
@@ -537,7 +537,7 @@ inl Seq k =
             inm std = f x
             succ (x, std)
 
-        inl safe x = x + val epsilon
+        inl safe x = x + val (epsilon -10)
         inl l1_norm_body = norm_template (abs >> mean >> safe)
         inl l2_norm_body = norm_template (sqr >> mean >> safe >> sqrt)
 
