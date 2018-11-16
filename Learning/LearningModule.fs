@@ -243,14 +243,14 @@ inl Custom =
             lower = inl {eta upper lower out} -> if upper = lower then one else out * (one - eta) / lower
             }
         {fwd bck op = op fwd bck}
-    inl grad_sqrt =
+    inl grad_rescale =
         inl fwd {scale input} = input
         inl bck = {
             scale = const zero
-            input = inl {scale input} -> one / sqrt (scale + epsilon -10)
+            input = inl {scale input} -> one / (scale + epsilon -10)
             }
         {fwd bck op = op fwd bck}
-    {cond bounded_exp grad_sqrt}
+    {cond bounded_exp grad_rescale}
 
 inl add_atomic = CudaAux.atomic_add
 inl add_std x out = x .set (x .get + out)
@@ -358,7 +358,7 @@ inl Activation =
 
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
 
-    inl td epsilon {r discount_factor eligibility_decay R' V' V scale} =
+    inl td {r discount_factor eligibility_decay R' V' V scale} =
         inm r = r / 10f32
         inm epsilon = epsilon / 10f32
         inm scale = scale / 10f32
@@ -1677,8 +1677,7 @@ inl float ->
     inl load = to_dev_tensor >> CudaAD.link
     inl loadb = to_dev_tensor >> CudaAD.link_broadcast
     inl loada dim = to_dev_tensor >> CudaAD.link_auto dim
-    inl load_sqr = to_dev_tensor >> CudaAD.link >> CudaAD.Op.sqr
-    inl loadb_grad_sqrt = to_dev_tensor >> CudaAD.link_broadcast >> CudaAD.Op.grad_sqrt
+    inl loada_grad_rescale dim = to_dev_tensor >> CudaAD.link_auto dim >> CudaAD.Op.grad_rescale
 
     // #Feedforward
     inl layer initializer activation size =
@@ -2032,9 +2031,7 @@ inl float ->
             {
             out
             bck=inl d ->
-                inl epsilon = 2.0 ** -3.0 |> to float
-                //Console.writeline (s.CudaTensor.get (primal scale 0 0) |> exp)
-                inl {out={R scaled_error} bck=bck'} = map (CudaAD.Activation.td epsilon) {d with eligibility_decay V scale } s
+                inl {out={R scaled_error} bck=bck'} = map CudaAD.Activation.td {d with eligibility_decay V scale } s
                 {
                 out={R'=R; V'=V}
                 bck=inl _ -> bck' (); bck {reward=scaled_error}
@@ -2094,15 +2091,14 @@ inl float ->
                 inl apply =
                     inm {pt=!(wrap_split ((), inner.pt)) {policy trace} scale} = 
                         inm data = 
-                            inm pt = segmented_init {dim=span,outer} {bias=const one; input=load input} // TODO: Fuse these two.
-                            inm scale = segmented_init {dim=span,outer} {bias=const one; input=load_sqr input}
+                            inm pt = segmented_init {dim=span,outer} {bias=const one; input=load input}
                             inl scale = primal scale
                             succ {pt scale}
                         inl data = Struct.map' (inl data -> data.basic) data
                         Struct.map2 (inl weights data -> {weights with data}) weights data
                         |> matmult_stream
                     inm value =
-                        inm data = segmented_init {dim=span,outer} {bias=const one; input=loadb_grad_sqrt {scale input}} // TODO: Switch to loada.
+                        inm data = segmented_init {dim=span,outer} {bias=const one; input=loada_grad_rescale (primal input .dim) {scale input}}
                         matmult_stream {value with data}
                     succ {out state={out={policy trace value scale}}}
 
