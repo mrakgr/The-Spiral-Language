@@ -358,21 +358,15 @@ inl Activation =
 
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
 
-    inl td {r discount_factor eligibility_decay R' V' V scale} =
-        inm r = r / 10f32
-        inm epsilon = epsilon / 10f32
-        inm scale = scale / 10f32
+    inl td {r discount_factor trace R' value' value scale} =
+        inm trace = sigmoid trace 
 
-        inm eligibility_decay = sigmoid eligibility_decay 
-
-        inm R = r + discount_factor * (eligibility_decay * R' + (one - eligibility_decay) * primal V')
-        inm error = R - V
+        inm R = r + discount_factor * (trace * R' + (one - trace) * primal value')
+        inm error = R - value
         
-        inm _ = abs (abs error - scale) |> as_cost
-        inm scale = max epsilon scale
-
-        inm _ = sqr error |> as_cost
-        inm scaled_error = error / scale // Is used as reward for the actor.
+        inm _ = sqr (abs (primal error) - scale) / two |> as_cost
+        inm _ = sqr error / two |> as_cost
+        inm scaled_error = error / (scale + epsilon -10) // Is used as reward for the actor.
 
         succ {R scaled_error}
 
