@@ -361,14 +361,14 @@ inl Activation =
     inl td reward_scale {r discount trace R' value' value scale} =
         inm r = r * num reward_scale
         //inm trace = sigmoid trace 
-        inm trace = half
+        inm trace = zero
 
         inm R = r + discount * (trace * R' + (one - trace) * primal value')
         inm error = R - value
         
-        inm _ = sqr (abs (primal error) - scale) / two |> as_cost
-        inm _ = sqr error / two |> as_cost
-        inm scaled_error = error // / scale // Is used as reward for the actor.
+        inm _ = sqr (abs (primal error) - scale) / num 2 |> as_cost
+        inm _ = sqr error / num 2 |> as_cost
+        inm scaled_error = error / (min scale (epsilon -3)) // Is used as reward for the actor.
 
         succ {R scaled_error error}
 
