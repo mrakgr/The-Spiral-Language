@@ -374,7 +374,7 @@ inl Activation =
 
     inl grad_rescale {scale input} =
         inm error = (primal input) - scale
-        inm cost = abs error / num 2 |> as_cost
+        inm cost = sqr error / num 2 |> as_cost
         //inm _ = grad_rescale {scale input}
         succ error
 
@@ -1330,6 +1330,35 @@ inl float ->
             | _ -> ()
             ) weights
 
+    inl kfac_ema {learning_rate weights} s =
+        inl k_max = 128
+
+        inl factor {d with covariance=from precision=to k epsilon} =
+            if k() >= k_max then
+                k := 0
+                s.CudaSolve.regularized_cholesky_inverse {epsilon from to}
+
+        Struct.iter (function
+            | {d with weight} ->
+                inl reproject a b ret =
+                    inb x = s.CudaBlas.gemm .nT .nT one a b |> CudaAux.temporary // TODO: Replace the gemm with a symm here.
+                    ret x
+
+                inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -learning_rate a b (one-learning_rate) c // TODO: Replace the gemm with a symm here.
+                inl clear = s.CudaTensor.clear
+
+                match d with
+                | {front back} -> 
+                    factor front; factor back
+                    inb x = reproject front.precision (adjoint weight)
+                    reproject_to x back.precision (primal weight)
+                | {back} -> factor back; reproject_to (adjoint weight) back.precision (primal weight)
+                | {front} -> factor front; reproject_to front.precision (adjoint weight) (primal weight)
+                | _ -> s.CudaBlas.geam' .nT .nT -learning_rate (adjoint weight) (one-learning_rate) (primal weight) (primal weight)
+                clear (adjoint weight)
+            | _ -> ()
+            ) weights
+
     inl standard learning_rate s = 
         Struct.iter (function 
             | {optimize weights} ->
@@ -1339,7 +1368,7 @@ inl float ->
                 Struct.iter' (function !(inl x -> x.data) {x with primal adjoint} -> sgd learning_rate s x | _ -> ()) weights
             )
 
-    inl Optimizer = {sgd clipped_sgd standard kfac}
+    inl Optimizer = {sgd clipped_sgd standard kfac kfac_ema}
 
     inl softmax_body temp k input =
         inl x = k.block.map (inl x -> x / temp) (k.block.load input)
@@ -1760,12 +1789,15 @@ inl float ->
         init = inl sublayer_size -> 
             open Initializer.dual.TensorView
             inl outer = {bias=1; input=sublayer_size; state=size}
-            inl init = {bias=const zero; input=relu; state=relu}
+            inl init = {
+                weights={bias=const zero; input=relu; state=relu}
+                scale={bias=const zero; input=const zero; state=const zero}
+                }
             {
             dsc = 
                 {
-                weights = weight {init dim=outer,inner}
-                scale = weight' {init dim=outer,inner}
+                weights = weight {init=init.weights; dim=outer,inner}
+                scale = weight' {init=init.scale; dim=outer,inner}
                 outer = val outer
                 }
             size
@@ -1788,14 +1820,15 @@ inl float ->
                         out={weights with data}
                         scale={scale with data=primal data}
                         }
+                inm out = ln_relu out
                 inm cost = grad_norm {scale input=out}
                 inm _ = print cost
-                inm out = ln_relu out
+                
                 succ {out state={out}}
 
             inl {out={out state} bck} = apply s
             {out state bck}
-        //optimize = Optimizer.kfac
+        optimize = Optimizer.kfac_ema
         block = ()
         }
 

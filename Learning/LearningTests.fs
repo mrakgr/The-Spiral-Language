@@ -155,7 +155,7 @@ inl input =
         if data minibatch seq .get = to uint8 hot then 1f32 else 0f32
 
 inl by :: _ = input.dim
-inl by = by / 128 // Am using only 1/64th of the dataset here in order to speed up testing on plastic RNNs.
+inl by = by / 64 // Am using only 1/64th of the dataset here in order to speed up testing on plastic RNNs.
 inl input = input {from=0; by} 
 
 inl label = input {from=1}
