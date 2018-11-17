@@ -1797,7 +1797,7 @@ inl float ->
             dsc = 
                 {
                 weights = weight {init=init.weights; dim=outer,inner}
-                scale = weight' {init=init.scale; dim=outer,inner}
+                scale = weight' {init=init.scale; dim=outer,1}
                 outer = val outer
                 }
             size
@@ -1828,7 +1828,7 @@ inl float ->
 
             inl {out={out state} bck} = apply s
             {out state bck}
-        optimize = Optimizer.kfac_ema
+        optimize = Optimizer.kfac
         block = ()
         }
 
