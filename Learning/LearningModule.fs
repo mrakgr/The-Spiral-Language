@@ -1747,7 +1747,7 @@ inl float ->
 
             inl {out={out state} bck} = apply s
             {out state bck}
-        optimize = Optimizer.kfac
+        //optimize = Optimizer.kfac
         block = ()
         }
 
@@ -1764,7 +1764,7 @@ inl float ->
             dsc = 
                 {
                 weights = weight {init dim=outer,inner}
-                scale = weight {init dim=outer,inner}
+                scale = weightf {init dim=outer,1}
                 outer = val outer
                 }
             size
@@ -1787,6 +1787,7 @@ inl float ->
                         out={weights with data}
                         scale={scale with data=primal data}
                         }
+                inm _ = print scale
                 inm _ = grad_norm {scale input=out}
                 inm out = ln_relu out
                 succ {out state={out}}
