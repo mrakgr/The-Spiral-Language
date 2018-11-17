@@ -1770,7 +1770,7 @@ inl float ->
             size
             }
 
-        apply = inl {d with weights={weights outer} input} s -> 
+        apply = inl {d with weights={weights scale outer} input} s -> 
             inl span = primal input .span_outer
             inl out =
                 match d with
@@ -2049,7 +2049,7 @@ inl float ->
         block = ()
         }
 
-    inl RNN = {rnn plastic_rnn plastic_rnn' mi lstm }
+    inl RNN = {rnn rnn_norm plastic_rnn plastic_rnn' mi lstm }
 
     inl RL =
         /// The PG activation.
