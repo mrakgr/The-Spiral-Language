@@ -373,9 +373,10 @@ inl Activation =
         succ {R scaled_error error}
 
     inl grad_rescale {scale input} =
-        inm _ = sqr (abs (primal input) - scale) / num 2 |> as_cost
-        inm _ = grad_rescale {scale input}
-        succ ()
+        inm error = (primal input) - scale
+        inm cost = sqr error / num 2 |> as_cost
+        //inm _ = grad_rescale {scale input}
+        succ error
 
     {generalized_mi generalized_mi_tanh lstm hebb_tanh td grad_rescale}
 
@@ -1787,8 +1788,8 @@ inl float ->
                         out={weights with data}
                         scale={scale with data=primal data}
                         }
-                inm _ = print scale
-                inm _ = grad_norm {scale input=out}
+                inm cost = grad_norm {scale input=out}
+                inm _ = print cost
                 inm out = ln_relu out
                 succ {out state={out}}
 
