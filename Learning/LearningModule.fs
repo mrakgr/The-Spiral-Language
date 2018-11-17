@@ -247,7 +247,7 @@ inl Custom =
         inl fwd {scale input} = input
         inl bck = {
             scale = const zero
-            input = inl {scale input} -> one / (scale + epsilon -10)
+            input = inl {scale input} -> one / (abs scale + epsilon -10)
             }
         {fwd bck op = op fwd bck}
     {cond bounded_exp grad_rescale}
@@ -372,7 +372,12 @@ inl Activation =
 
         succ {R scaled_error error}
 
-    {generalized_mi generalized_mi_tanh lstm hebb_tanh td}
+    inl grad_rescale {scale input} =
+        inm _ = sqr (abs (primal input) - scale) / num 2 |> as_cost
+        inm _ = grad_rescale {scale input}
+        succ ()
+
+    {generalized_mi generalized_mi_tanh lstm hebb_tanh td grad_rescale}
 
 inl Seq k =
     inl val x = k.block.init (const x)
@@ -1743,6 +1748,52 @@ inl float ->
             inl {out={out state} bck} = apply s
             {out state bck}
         optimize = Optimizer.kfac
+        block = ()
+        }
+
+    inl grad_norm = map CudaAD.Activation.grad_rescale
+
+    inl rnn_norm size =
+        inl inner = size
+        {
+        init = inl sublayer_size -> 
+            open Initializer.dual.TensorView
+            inl outer = {bias=1; input=sublayer_size; state=size}
+            inl init = {bias=const zero; input=relu; state=relu}
+            {
+            dsc = 
+                {
+                weights = weight {init dim=outer,inner}
+                scale = weight {init dim=outer,inner}
+                outer = val outer
+                }
+            size
+            }
+
+        apply = inl {d with weights={weights outer} input} s -> 
+            inl span = primal input .span_outer
+            inl out =
+                match d with
+                | {state={out}} -> out
+                | _ -> 
+                    inl f _ = s.CudaTensor.zero {elem_type=float; dim=span,size}
+                    f()
+
+            inl apply =
+                inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
+                inl data = Struct.map' (inl data -> data.basic) data
+                inm {out scale} = 
+                    matmult_stream {
+                        out={weights with data}
+                        scale={scale with data=primal data}
+                        }
+                inm _ = grad_norm {scale input=out}
+                inm out = ln_relu out
+                succ {out state={out}}
+
+            inl {out={out state} bck} = apply s
+            {out state bck}
+        //optimize = Optimizer.kfac
         block = ()
         }
 
