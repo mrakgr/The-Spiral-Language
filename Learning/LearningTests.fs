@@ -155,7 +155,7 @@ inl input =
         if data minibatch seq .get = to uint8 hot then 1f32 else 0f32
 
 inl by :: _ = input.dim
-inl by = by / 64 // Am using only 1/64th of the dataset here in order to speed up testing on plastic RNNs.
+//inl by = by / 64 // Am using only 1/64th of the dataset here in order to speed up testing on plastic RNNs.
 inl input = input {from=0; by} 
 
 inl label = input {from=1}
@@ -290,7 +290,7 @@ inl f learning_rate next i =
     if nan_is cost then Console.writeline "Training diverged. Aborting..."
     else next ()
 
-Loops.for' {from=0; near_to=1; body=inl {i next} -> f learning_rate next i}
+Loops.for' {from=0; near_to=5; body=inl {i next} -> f learning_rate next i}
     """
 
 let learning3 =

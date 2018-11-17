@@ -373,10 +373,9 @@ inl Activation =
         succ {R scaled_error error}
 
     inl grad_rescale {scale input} =
-        inm error = (primal input) - scale
+        inm error = abs (get_adjoint input) - scale
         inm cost = sqr error / num 2 |> as_cost
-        //inm _ = grad_rescale {scale input}
-        succ error
+        grad_rescale {scale input}
 
     {generalized_mi generalized_mi_tanh lstm hebb_tanh td grad_rescale}
 
@@ -1791,13 +1790,13 @@ inl float ->
             inl outer = {bias=1; input=sublayer_size; state=size}
             inl init = {
                 weights={bias=const zero; input=relu; state=relu}
-                scale={bias=const zero; input=const zero; state=const zero}
+                scale={bias=const one; input=const zero; state=const zero}
                 }
             {
             dsc = 
                 {
-                weights = weight {init=init.weights; dim=outer,inner}
-                scale = weight' {init=init.scale; dim=outer,1}
+                weights = weight' {init=init.weights; dim=outer,inner}
+                scale = weight {init=init.scale; dim=outer,inner}
                 outer = val outer
                 }
             size
@@ -1820,9 +1819,9 @@ inl float ->
                         out={weights with data}
                         scale={scale with data=primal data}
                         }
+                inm out = grad_norm {scale input=out}
                 inm out = ln_relu out
-                inm cost = grad_norm {scale input=out}
-                inm _ = print cost
+                //inm _ = print cost
                 
                 succ {out state={out}}
 
