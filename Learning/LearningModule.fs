@@ -374,7 +374,7 @@ inl Activation =
 
     inl grad_rescale {scale input} =
         inm error = (primal input) - scale
-        inm cost = sqr error / num 2 |> as_cost
+        inm cost = abs error / num 2 |> as_cost
         //inm _ = grad_rescale {scale input}
         succ error
 
@@ -1765,7 +1765,7 @@ inl float ->
             dsc = 
                 {
                 weights = weight {init dim=outer,inner}
-                scale = weightf {init dim=outer,1}
+                scale = weight' {init dim=outer,inner}
                 outer = val outer
                 }
             size
