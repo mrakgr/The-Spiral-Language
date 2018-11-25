@@ -1486,6 +1486,7 @@ inl rec view_offsets offset = function
 inl tensor_view {data with size offset} i' = {data with offset = view_offsets offset (size,i')}
 inl tensor_get {data with offset ar} = ar offset
 inl tensor_set {data with offset ar} v = ar offset <- v
+inl tensor_modify {data with offset ar} f v = ar offset <- f (ar offset) v
 inl tensor_apply i {data with size=s::size offset} = {data with size offset=offset + i * s}
 
 inl show' {cutoff_near_to} tns = 
@@ -1608,18 +1609,26 @@ inl rotate f tns =
 
 inl rec facade data = 
     inl methods = stack {
-        length = inl {data with dim} -> length dim
-        elem_type = inl {data with bodies} -> Struct.map (inl {ar} -> ar.elem_type) bodies
+        length = inl {dim} -> length dim
+        elem_type = inl {bodies} -> Struct.map (inl {ar} -> ar.elem_type) bodies
         update_body = inl {data with bodies} f -> {data with bodies=Struct.map f bodies} |> facade
         set_dim = inl {data with dim} dim -> {data with dim=Tuple.wrap dim} |> facade
-        get = inl {data with dim bodies} -> 
+        get = inl {dim bodies} -> 
             match dim with
-            | () -> Struct.map tensor_get bodies
+            | () -> Struct.map' tensor_get bodies
             | _ -> error_type "Cannot get from tensor whose dimensions have not been applied completely."
-        set = inl {data with dim bodies} v ->
+        set = inl {dim bodies} v ->
             match dim with
-            | () -> Struct.iter2 (inl v bodies -> tensor_set bodies v) v bodies
+            | () -> Struct.iter2' (inl v bodies -> tensor_set bodies v) v bodies
             | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
+        modify = inl {dim bodies} f v ->
+            match dim with
+            | () -> Struct.iter2' (inl v bodies -> tensor_modify bodies f v) v bodies
+            | _ -> error_type "Cannot modify a tensor whose dimensions have not been applied completely."
+        modify' = inl {dim bodies} f v -> // Skips over ()
+            match dim with
+            | () -> Struct.iter2' (inl v bodies -> match bodies with () -> () | _ -> tensor_modify bodies f v) v bodies
+            | _ -> error_type "Cannot modify a tensor whose dimensions have not been applied completely."
         /// Applies the tensor. `i` can be a tuple.
         apply = inl data i ->
             inl rec loop data i =
@@ -1874,8 +1883,10 @@ inl rec facade data =
         length = inl {data with basic} -> basic.length
         elem_type = inl {data with basic} -> basic.elem_type
         update_body = inl data f -> {data with basic=self.update_body f} |> facade
-        get = inl {data with basic} -> basic.get
-        set = inl {data with basic} v -> basic.set v
+        get = inl {basic} -> basic.get
+        set = inl {basic} -> basic.set
+        modify = inl {basic} -> basic.modify
+        modify' = inl {basic} -> basic.modify'
         dim' = inl {dim} -> Struct.map (inl {from near_to} -> near_to - from) dim
         // Applies the tensor. `i` can be a tuple.
         apply = inl data i ->

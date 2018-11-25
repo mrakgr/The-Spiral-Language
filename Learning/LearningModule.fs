@@ -934,16 +934,12 @@ inl float ->
         {
         out
         bck=inl _ -> join
-            if Struct.is_empty in.elem_type = false then
-                inl ins = to_dev_tensor {in out}
-                s.CudaKernel.iter {dim=in.dim} <| inl i ->
-                    inl {in out} = Struct.map' (inl x -> x i) ins
-                    inl x = bck {in=primal in .get; out=primal out .get}
-                    inl out = adjoint out .get
-                    Struct.iter2 (inl x -> function
-                        | () -> ()
-                        | z -> z .set (z .get + out * x)
-                        ) x (adjoints in)
+            inl ins = to_dev_tensor {in out}
+            s.CudaKernel.iter {dim=in.dim} <| inl i ->
+                inl {in out} = Struct.map' (inl x -> x i) ins
+                inl x = bck {in=primal in .get; out=primal out .get}
+                inl out = adjoint out .get
+				adjoints in .modify' (inl in x -> in + out * x) x
         }
 
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
@@ -956,15 +952,11 @@ inl float ->
         {
         out
         bck=inl _ -> join
-            if Struct.is_empty in = false then
-                inl in = to_dev_tensor in // As none of the cost functions I've ran into use the `out`, I've removed it for the time being.
-                s.CudaKernel.iter {dim} <| inl i ->
-                    inl in = Struct.map' (inl x -> x i) in
-                    inl x = bck {in=Struct.map (inl x -> x .get) (primals in)}
-                    Struct.iter2 (inl x -> function
-                        | () -> ()
-                        | z -> z .set (z .get + x) // The adjoint is set to 0.
-                        ) x (adjoints in)
+            inl in = to_dev_tensor in // As none of the cost functions I've ran into use the `out`, I've removed it for the time being.
+            s.CudaKernel.iter {dim} <| inl i ->
+                inl in = Struct.map' (inl x -> x i) in
+                inl x = bck {in=Struct.map (inl x -> x .get) (primals in)}
+                adjoints in .modify' (inl in x -> in + x) x // The adjoint is assumed to be 1 for cost functions.
         }
 
     inl broadcasting_activation {fwd bck} ins s =
