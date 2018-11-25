@@ -79,6 +79,7 @@
     <None Include="old modules\LearningTests.fs%27%27%27%27" />
     <None Include="Script1.fsx" />
     <None Include="Script2.fsx" />
+    <Compile Include="LearningModule.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
