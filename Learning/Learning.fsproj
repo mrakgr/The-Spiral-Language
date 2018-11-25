@@ -58,8 +58,6 @@
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
-    <Compile Include="LearningModule.fs" />
-    <Compile Include="LearningTests.fs" />
     <Content Include="old modules\q-learning.txt" />
     <Content Include="old modules\mc.txt" />
     <Content Include="old modules\dmc.txt" />
@@ -77,6 +75,8 @@
     <Content Include="old modules\steady_state.txt" />
     <None Include="old modules\LearningModule.fs%27%27%27" />
     <None Include="old modules\LearningTests.fs%27%27%27" />
+    <None Include="old modules\LearningModule.fs%27%27%27%27" />
+    <None Include="old modules\LearningTests.fs%27%27%27%27" />
     <None Include="Script1.fsx" />
     <None Include="Script2.fsx" />
   </ItemGroup>
