@@ -940,7 +940,7 @@ inl float ->
                     inl {in out} = Struct.map' (inl x -> x i) ins
                     inl x = bck {in=primal in .get; out=primal out .get}
                     inl out = adjoint out .get
-                    Struct.iter2 (inl x -> function // WIP.......
+                    Struct.iter2 (inl x -> function
                         | () -> ()
                         | z -> z .set (z .get + out * x)
                         ) x (adjoints in)
