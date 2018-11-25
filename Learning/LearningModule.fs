@@ -846,37 +846,41 @@ inl float ->
         | _: float32 -> infinityf32
         | _: float64 -> infinityf64
 
-    inl primals = View.unzip' (Struct.map (function {primal} | primal -> primal))
-    inl adjoints = View.unzip' (Struct.map (function {adjoint} -> adjoint | _ -> ()))
+    inl on_non_nil ret B =
+        match B.elem_type with
+        | () -> ()
+        | B -> ret B
+
+	inl pr = function {primal} | primal -> primal
+	inl adj = function {adjoint} -> adjoint | _ -> ()
+
+    inl primal = View.unzip' pr
+    inl adjoint = View.unzip' adj
+
+    inl primals = View.unzip' (Struct.map pr)
+    inl adjoints = View.unzip' (Struct.map adj)
 
     /// Updates the covariance such that cov(t+1) = alpha * cov(t) + beta / k * x^T * x
     met update_covariance learning_rate x cov s =
         inl k = x.span_outer
         inl alpha = Math.pow (one - learning_rate) k
         inl beta = one - alpha
-        s.CudaBlas.syrk' .Lower .T (beta / to float k) x alpha cov // symmetric rank-k update. (beta / to float k) * x * x^T + alpha * cov
+        s.CudaBlas.syrk' .Lower .T (beta / to float k) x.basic alpha cov.basic // symmetric rank-k update. (beta / to float k) * x * x^T + alpha * cov
 
-    inl dr s primal = View.zip {primal adjoint=s.CudaTensor.zero_like_view primal; block=()} // WIP...
-
-    inl fwd_add_bias C bias s = s.CudaFun.map_map {out=C; map=inl {in in_inner} -> in+in_inner} {in=C; in_inner=bias}
-    inl bck_add_bias C bias s = 
-        s.CudaFun.redo_map {out=bias; mid=bias; neutral_elem=zero; redo=(+);
-            map=inl {in} -> in
-            map_out=inl {mid out} -> mid + out
-            } C
+    inl dr s primal = View.zip {primal adjoint=s.CudaTensor.zero_like_view primal; block=()}
 
     inl matmult_stream l s = 
         inl get_dims {data weight} =
             inl get_dim = function 
                 | {T} -> T.dim |> inl b,a -> a,b
                 | T -> T.dim
-            inl (b,_),(_,a) = Tuple.map (primals >> get_dim) (data, weight)
+            inl (b,_),(_,a) = Tuple.map get_dim (data, weight)
             b,a
 
         inl init {d with data weight streams=l,r} = 
             inl dim = get_dims {data weight}
             inl s = s.data_add {stream=l}
-            {d with out = s.CudaTensor.create {elem_type=float; dim} |> dr s}
+            {d with out = s.CudaTensor.create_view {elem_type=float; dim} |> dr s}
         
         inl run {out data weight streams=l,r} =  
             l.wait_on s.data.stream
@@ -884,7 +888,7 @@ inl float ->
 
             inl f = function {T} -> T, .T | nT -> nT, .nT
             inl (A,TA),(B,TB) = f data, f weight
-            s.CudaBlas.gemm' TA TB one (primal A) (primal B) zero (primal out)
+            s.CudaBlas.gemm' TA TB one (primal A .basic) (primal B .basic) zero (primal out .basic)
 
         inl bck {w with learning_rate} {d with out data weight streams=l,r} =
             inl f' = function {T} -> T, .nT | nT -> nT, .T
@@ -894,15 +898,15 @@ inl float ->
                 l.wait_on s.data.stream
                 inl s = s.data_add {stream=l}
                 match TA with
-                | .T -> s.CudaBlas.gemm' .nT TB one out (primal B) one A
-                | .nT -> s.CudaBlas.gemm' .nT TB one (primal B) out one A
+                | .T -> s.CudaBlas.gemm' .nT TB one out.basic (primal B .basic) one A.basic
+                | .nT -> s.CudaBlas.gemm' .nT TB one (primal B .basic) out.basic one A.basic
                 ) (adjoint A)
             on_non_nil (inl B -> 
                 r.wait_on s.data.stream
                 inl s = s.data_add {stream=r}
                 match TB with
-                | .T -> s.CudaBlas.gemm' TA .nT one (primal A) out one B
-                | .nT -> s.CudaBlas.gemm' TA .nT one out (primal A) one B
+                | .T -> s.CudaBlas.gemm' TA .nT one (primal A .basic) out.basic one B.basic
+                | .nT -> s.CudaBlas.gemm' TA .nT one out.basic (primal A .basic) one B.basic
                 ) (adjoint B)
             inl update k data = 
                 match d with 
@@ -919,73 +923,24 @@ inl float ->
         inl out = Struct.map (inl {out} -> out) l
         {
         out
-        bck=inl d ->
-            indiv join
-                match d with
-                | {data_next} -> Struct.iter2 (inl l data_next -> bck {d with data_next} l) l data_next
-                | _ -> Struct.iter (bck d) l
-                Struct.iter (inl {streams=x} -> Tuple.iter s.data.stream.wait_on x) l
-                inl data_next = Struct.map (inl {data} -> primal data) l
-                stack {data_next}
+        bck=met d ->
+            Struct.iter (bck d) l
+            Struct.iter (inl {streams=x} -> Tuple.iter s.data.stream.wait_on x) l
         }
 
-    inl matmultb l bias s = 
-        inl l =
-            match l with
-            | () -> error_type "The first argument must not be empty."
-            | (_,_) :: _ -> l
-            | _ :: _ -> l :: ()
-        inl f = function {T} -> T, .T | nT -> nT, .nT
-        inl f' = function {T} -> T, .nT | nT -> nT, .T
-        inl C = 
-            Tuple.foldl (inl C (A,B) ->
-                inl (A,TA),(B,TB) = f A, f B
-                match C with
-                | () -> s.CudaBlas.gemm TA TB one (primal A) (primal B) |> dr s
-                | C -> s.CudaBlas.gemm' TA TB one (primal A) (primal B) one (primal C); C
-                ) () l
-        match bias with
-        | () -> ()
-        | _ -> fwd_add_bias (primal C) (primal bias) s
-        {
-        out=C
-        bck=inl _ -> join
-            inl C' = adjoint C
-            inl l =
-                Tuple.iter (inl A, B -> 
-                    inl (A,TA),(B,TB) = f' A, f' B
-                    on_non_nil (inl A -> 
-                        match TA with
-                        | .T -> s.CudaBlas.gemm' .nT TB one C' (primal B) one A
-                        | .nT -> s.CudaBlas.gemm' .nT TB one (primal B) C' one A
-                        ) (adjoint A)
-                    on_non_nil (inl B -> 
-                        match TB with
-                        | .T -> s.CudaBlas.gemm' TA .nT one (primal A) C' one B
-                        | .nT -> s.CudaBlas.gemm' TA .nT one C' (primal A) one B
-                        ) (adjoint B)
-                    ) l
-            on_non_nil (inl bias -> bck_add_bias C' bias s) (adjoint bias)
-        }
-
-    inl matmult l s = matmultb l () s
-
-    inl activation {fwd bck} in s =
-        inl x = primals in |> Tensor.zip
-        inl dim = x.dim
-        
-        inl out = s.CudaFun.map {map=fwd} x |> dr s
+    inl activation {fwd bck} (!(View.zip) in) s =
+        inl out = s.CudaFun.map {map=fwd} (primal in) |> dr s
         
         {
         out
         bck=inl _ -> join
-            if Struct.is_empty in = false then
+            if Struct.is_empty in.elem_type = false then
                 inl ins = to_dev_tensor {in out}
-                s.CudaKernel.iter {dim} <| inl i ->
+                s.CudaKernel.iter {dim=in.dim} <| inl i ->
                     inl {in out} = Struct.map' (inl x -> x i) ins
-                    inl x = bck {in=Struct.map (inl x -> x .get) (primals in); out=primal out .get}
+                    inl x = bck {in=primal in .get; out=primal out .get}
                     inl out = adjoint out .get
-                    Struct.iter2 (inl x -> function
+                    Struct.iter2 (inl x -> function // WIP...
                         | () -> ()
                         | z -> z .set (z .get + out * x)
                         ) x (adjoints in)

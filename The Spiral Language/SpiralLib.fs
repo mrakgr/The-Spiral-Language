@@ -2034,8 +2034,13 @@ inl unzip' f tns =
 
 inl unzip = unzip' id
 
+inl zip l = 
+    match Tensor.assert_zip l with
+    | () -> error_type "Empty inputs to zip are not allowed."
+    | tns -> facade {(tns.unwrap) with bodies=Struct.map (inl x -> x.bodies) l}
+
 {
-facade create create_like wrap split span from_basic dim_merge unzip' unzip
+facade create create_like wrap split span from_basic dim_merge unzip' unzip zip
 } |> stackify
     """
     ) |> module_
