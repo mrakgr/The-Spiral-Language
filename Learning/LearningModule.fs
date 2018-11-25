@@ -846,17 +846,8 @@ inl float ->
         | _: float32 -> infinityf32
         | _: float64 -> infinityf64
 
-    inl basic = Struct.map' (inl x -> x.basic)
-    inl primal = function {primal} | primal -> primal
-    inl adjoint = function {adjoint} -> adjoint | _ -> ()
-
-    inl primals = Struct.map primal
-    inl adjoints = Struct.map adjoint
-
-    inl on_non_nil ret B =
-        match B with
-        | () -> ()
-        | B -> ret B
+    inl primals = View.unzip' (Struct.map (function {primal} | primal -> primal))
+    inl adjoints = View.unzip' (Struct.map (function {adjoint} -> adjoint | _ -> ()))
 
     /// Updates the covariance such that cov(t+1) = alpha * cov(t) + beta / k * x^T * x
     met update_covariance learning_rate x cov s =
@@ -865,8 +856,7 @@ inl float ->
         inl beta = one - alpha
         s.CudaBlas.syrk' .Lower .T (beta / to float k) x alpha cov // symmetric rank-k update. (beta / to float k) * x * x^T + alpha * cov
 
-    inl dr s primal = {primal adjoint=s.CudaTensor.zero_like primal; block=()}
-    inl drv s primal = {primal adjoint=s.CudaTensor.zero_like_view primal; block=()}
+    inl dr s primal = View.zip {primal adjoint=s.CudaTensor.zero_like_view primal; block=()} // WIP...
 
     inl fwd_add_bias C bias s = s.CudaFun.map_map {out=C; map=inl {in in_inner} -> in+in_inner} {in=C; in_inner=bias}
     inl bck_add_bias C bias s = 
