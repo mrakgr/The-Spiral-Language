@@ -854,11 +854,11 @@ inl float ->
 	inl pr = function {primal} | primal -> primal
 	inl adj = function {adjoint} -> adjoint | _ -> ()
 
-    inl primal = View.unzip' pr
-    inl adjoint = View.unzip' adj
+    inl primal x = x.update_body' pr
+    inl adjoint x = x.update_body' adj
 
-    inl primals = View.unzip' (Struct.map pr)
-    inl adjoints = View.unzip' (Struct.map adj)
+    inl primals x = x.update_body' (Struct.map pr)
+    inl adjoints x = x.update_body' (Struct.map adj) // TODO: Implement update_body'.
 
     /// Updates the covariance such that cov(t+1) = alpha * cov(t) + beta / k * x^T * x
     met update_covariance learning_rate x cov s =
