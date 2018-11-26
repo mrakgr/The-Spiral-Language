@@ -1773,21 +1773,24 @@ inl assert_zip =
 
 /// Asserts that all dimensions of the tensors are broadcastable. Returns the dimensions of the largest combination of tensors if applicable.
 /// tensor structure -> (dim | ())
-inl assert_broadcastable =
+inl assert_broadcastable_template dim = // TODO: Remove the template.
     Struct.foldl (inl s x ->
         match s with
         | _ when val_is x -> s
-        | () -> x.dim
+        | () -> dim x
         | _ ->
-            assert (eq_type s x.dim) "The inputs must have the same number of dimensions."
+            inl dim = x.dim
+            assert (eq_type s dim) "The inputs must have the same number of dimensions."
             Struct.map2 (inl s x ->
                 if s = 1 then x
                 elif x = 1 then s
                 else
                     assert (s = x) "The dimensions of the inputs must all be either singular or equal to each other."
                     s
-                ) s x.dim
+                ) s dim
         ) ()
+
+inl assert_broadcastable = assert_broadcastable_template (inl x -> x.dim)
 
 /// Expands the singular dimensions of a tensor to a specified size depending on the argument passed to it. 
 /// It does that without allocating or moving memory by setting the size for the offset calculation to zero.
@@ -1852,7 +1855,7 @@ inl from_scalar x =
 {
 create facade init copy assert_size array_as_tensor array_to_tensor map zip show print length expand_singular
 equal split flatten assert_contiguous assert_zip assert_broadcastable assert_dim reshape unzip from_scalar
-rotate assert_unpadded
+rotate assert_unpadded assert_broadcastable_template
 } |> stackify
     """) |> module_
 
@@ -1889,7 +1892,6 @@ inl rec facade data =
         set = inl {basic} -> basic.set
         modify = inl {basic} -> basic.modify
         modify' = inl {basic} -> basic.modify'
-        dim' = inl {dim} -> Struct.map (inl {from near_to} -> near_to - from) dim
         // Applies the tensor. `i` can be a tuple.
         apply = inl data i ->
             inl rec loop data i =
@@ -2010,6 +2012,7 @@ inl split tns =
     Tuple.foldr f dim (Tuple.rev >> tns) ()
 
 inl span = Liple.map (map_dim (inl _ -> error_type "() not allowed in View span.") >> fst)
+inl dim = Liple.map (map_dim (inl _ -> error_type "() not allowed in View dim.") >> snd)
 
 inl from_basic dim i ret =
     inl f dim i ret =
@@ -2027,18 +2030,13 @@ inl from_basic dim i ret =
                 ()
         | from -> ret (from + i)
     Liple.foldr2 (inl dim i next l ->
-        inl _, dim = map_dim (inl _ -> error_type "() not allowed in View view.") dim
+        inl _, dim = map_dim (inl _ -> error_type "() not allowed in View from_basic.") dim
         inb l' = f dim i
         next (l' :: l)
         )
         dim i 
         (inl x -> Tuple.rev x |> Tuple.unwrap |> ret)
         ()
-
-inl dim_merge x = 
-    Liple.foldr (inl x next l ->
-        Struct.map (inl x -> next (x :: l)) x
-        ) x (Tuple.rev >> Tuple.unwrap) ()
 
 inl unzip tns =
     inl {basic dim=dim'} = tns.unwrap
@@ -2050,8 +2048,18 @@ inl zip l =
     | () -> error_type "Empty inputs to zip are not allowed."
     | tns -> facade {(tns.unwrap) with bodies=Struct.map (inl x -> x.bodies) l}
 
+inl assert_broadcastable = // TODO: Remove this.
+    inl dim x = 
+        Tuple.map2 (inl x y ->
+            match x with
+            | {} -> dim x
+            | from -> assert (from = 0) "Range views not allowed in assert_broadcastable."; y
+            ) x.dim x.basic.dim
+
+    Tensor.assert_broadcastable_template dim
+
 {
-facade create create_like wrap split span from_basic dim_merge unzip zip
+facade create create_like wrap split span from_basic unzip zip assert_broadcastable
 } |> stackify
     """
     ) |> module_

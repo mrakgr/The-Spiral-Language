@@ -1987,7 +1987,6 @@ inl map w d in =
 inl index_example' dim =
     Liple.foldr (inl x next l ->
         inl rec loop = function
-            | {from near_to} -> next (dyn 0 :: l)
             | {} as x ->
                 inl {k x} = module_foldr (inl k x _ -> {k x}) x ()
                 {$k = loop x}
@@ -2011,7 +2010,7 @@ inl segmented_init w d init =
         inl out = 
             match d with
             | {out} -> 
-                assert (dim = out.dim') "The input and the output must have the same dimensions."
+                assert (dim = out.dim) "The input and the output must have the same dimensions." // TODO: Remove ranges from tensor views.
                 out
             | _ -> 
                 inl elem_type = type init (index_example' dim)
