@@ -2040,12 +2040,10 @@ inl dim_merge x =
         Struct.map (inl x -> next (x :: l)) x
         ) x (Tuple.rev >> Tuple.unwrap) ()
 
-inl unzip' f tns =
+inl unzip tns =
     inl {basic dim=dim'} = tns.unwrap
     inl {bodies dim} = basic.unwrap
-    Struct.map (inl bodies -> facade {basic=Tensor.facade {bodies dim}; dim=dim'}) (f bodies)
-
-inl unzip = unzip' id
+    Struct.map (inl bodies -> facade {basic=Tensor.facade {bodies dim}; dim=dim'}) bodies
 
 inl zip l = 
     match Tensor.assert_zip l with
@@ -2053,7 +2051,7 @@ inl zip l =
     | tns -> facade {(tns.unwrap) with bodies=Struct.map (inl x -> x.bodies) l}
 
 {
-facade create create_like wrap split span from_basic dim_merge unzip' unzip zip
+facade create create_like wrap split span from_basic dim_merge unzip zip
 } |> stackify
     """
     ) |> module_

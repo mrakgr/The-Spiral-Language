@@ -1321,9 +1321,7 @@ inl float ->
             inl tns = s.CudaTensor.create_view {dim=Struct.map' (const dim) init; elem_type=float} |> heap
             function
             | .data -> tns
-            | .init -> 
-                inl tns = View.unzip_into init
-                //Struct.iter2' (inl init tns -> init tns s) init tns
+            | .init -> Struct.iter2' (inl init tns -> init tns s) init (View.unzip tns)
             | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
             | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
 
