@@ -1298,14 +1298,6 @@ inl float ->
             custom = inl f tns s -> f tns s
             }
 
-        inl tensor {dim init} s =
-            inl tns = Struct.map' (inl _ -> s.CudaTensor.create {dim elem_type=float}) init |> heap
-            function
-            | .data -> tns
-            | .init -> Struct.iter2' (inl init tns -> init tns s) init tns
-            | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
-            | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
-
         inl tensor_view_init init tns s =
             inl dim = tns.dim
             inl tns = tns.basic
@@ -1320,21 +1312,20 @@ inl float ->
                 | from -> next {s with apply=() :: self}
 
             inl finally {apply init} = 
-                inl tns = Tuple.rev apply |> tns 
+                inl tns = Tuple.rev apply |> tns |> basic
                 init tns s
             
             Tuple.foldr f dim finally {init apply=()}
 
-        inl tensor_view_template f {init dim} s =
-            inl tns = Struct.map' (inl _ -> s.CudaTensor.create_view {dim elem_type=float}) init |> heap
+        inl tensor_view f {init dim} s =
+            inl tns = s.CudaTensor.create_view {dim=Struct.map' (const dim) init; elem_type=float} |> heap
             function
-            | .data -> f tns
-            | .init -> Struct.iter2' (inl init tns -> init tns s) init tns
+            | .data -> tns
+            | .init -> 
+                inl tns = View.unzip_into init
+                //Struct.iter2' (inl init tns -> init tns s) init tns
             | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
             | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
-
-        inl tensor_view = tensor_view_template id
-        inl tensor_view' = tensor_view_template (Struct.map' (inl x -> x.basic))
 
         inl stream s =
             inl stream = s.RegionStream.allocate.data.stream
@@ -1359,35 +1350,16 @@ inl float ->
             | .save stream -> ()
             | .load stream -> ()
 
-        inl Tensor = 
-            inl sing init dim = tensor {dim init}
-            inl dual primal dim = tensor {dim init={primal adjoint=Init.const zero; block=()}}
-            inl number = {sing dual} number
+        inl sing tensor_view {init dim} = tensor_view {init=tensor_view_init init; dim}
+        inl dual tensor_view {init dim} =
+            inl primal = tensor_view_init init
+            inl adjoint tns s = Init.const zero tns.basic s
+            tensor_view {init={primal adjoint block=()}; dim}
             
-            {
-            relu = number Init.relu
-            sigmoid = number Init.sigmoid
-            tanh = number Init.tanh
-            randn = inl stddev -> number (Init.randn stddev)
-            identity = number Init.identity
-            const = inl init -> number (Init.const init)
-            custom = number Init.custom
-            stream var val
-            }
+        inl view = Struct.map (inl x -> x tensor_view) {sing dual} number
+        inl view' = Struct.map (inl x -> x tensor_view') {sing dual} number
 
-        inl TensorView =
-            inl sing tensor_view {init dim} = tensor_view {init=tensor_view_init init; dim}
-            inl dual tensor_view {init dim} =
-                inl primal = tensor_view_init init
-                inl adjoint tns s = Init.const zero tns.basic s
-                tensor_view {init={primal adjoint block=()}; dim}
-            
-            inl view = Struct.map (inl x -> x tensor_view) {sing dual} number
-            inl view' = Struct.map (inl x -> x tensor_view') {sing dual} number
-
-            { Init with view view' stream var val }
-
-        { Tensor TensorView }
+        { Init with view view' stream var val }
 
     inl Initializer = 
         {
