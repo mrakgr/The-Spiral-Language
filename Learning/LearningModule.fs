@@ -244,14 +244,7 @@ inl Custom =
             lower = inl {eta upper lower out} -> if upper = lower then one else out * (one - eta) / lower
             }
         {fwd bck op = op fwd bck}
-    inl grad_rescale =
-        inl fwd {scale input} = input
-        inl bck = {
-            scale = const zero
-            input = inl {scale input} -> one / (abs scale + epsilon -10)
-            }
-        {fwd bck op = op fwd bck}
-    {cond bounded_exp grad_rescale}
+    {cond bounded_exp}
 
 inl add_atomic = CudaAux.atomic_add
 inl add_std x out = x .set (x .get + out)
@@ -1355,9 +1348,8 @@ inl float ->
             tensor_view {init={primal adjoint block=()}; dim}
             
         inl view = Struct.map (inl x -> x tensor_view) {sing dual} number
-        inl view' = Struct.map (inl x -> x tensor_view') {sing dual} number
 
-        { Init with view view' stream var val }
+        { Init with view stream var val }
 
     inl Initializer = 
         {
@@ -1390,10 +1382,6 @@ inl float ->
             layer, out
             ) input
 
-    inl zero_like x = 
-        inl zero dim s = {out=s.CudaTensor.zero {elem_type=float; dim}; bck=()}
-        zero (primal x .dim)
-
     inl sequence x s =
         inl x = Struct.map (inl x -> x s |> inl x -> {x with block=()}) x
         {
@@ -1402,14 +1390,11 @@ inl float ->
         }
 
     inl covariance =
-        inl {identity val var} = Initializer.sing.Tensor
+        inl {identity val var} = Initializer.sing
+        inl identity dim = view {init=identity; dim}
         inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
 
     inl default_epsilon = to float (2.0 ** -3.0)
-
-    inl zip_dual {primal adjoint} = Struct.map2 (inl primal adjoint -> {primal adjoint block=()}) primal adjoint
-    inl wrap_split dim = Struct.map' (View.wrap dim >> View.split) >> Struct.map zip_dual
-    inl wrap_split_weight = Struct.map2 (inl dim {d with weight} -> wrap_split dim weight)
 
     inl weight' d = 
         open Initializer.dual.TensorView
@@ -1439,10 +1424,6 @@ inl float ->
     inl load = to_dev_tensor >> CudaAD.link
     inl loadb = to_dev_tensor >> CudaAD.link_broadcast
     inl loada dim = to_dev_tensor >> CudaAD.link_auto dim
-    inl loada_grad_rescale dim x = 
-        inl x = to_dev_tensor x 
-        open CudaAD
-        inl cur -> link_auto dim x cur >>= Op.grad_rescale
 
     // #Feedforward
     inl layer initializer activation size =
