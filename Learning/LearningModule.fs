@@ -858,7 +858,7 @@ inl float ->
     inl adjoint x = x.update_body' adj
 
     inl primals x = x.update_body' (Struct.map pr)
-    inl adjoints x = x.update_body' (Struct.map adj) // TODO: Implement update_body'.
+    inl adjoints x = x.update_body' (Struct.map adj)
 
     /// Updates the covariance such that cov(t+1) = alpha * cov(t) + beta / k * x^T * x
     met update_covariance learning_rate x cov s =
@@ -929,130 +929,37 @@ inl float ->
         }
 
     inl activation {fwd bck} (!(View.zip) in) s =
-        inl out = s.CudaFun.map {map=fwd} (primal in) |> dr s
+        inl v = in.dim
+        inl in = in.basic
+        inl out = s.CudaFun.map {map=fwd} (primals in) |> View.wrap v |> dr s
         
         {
         out
         bck=inl _ -> join
-            inl ins = to_dev_tensor {in out}
-            s.CudaKernel.iter {dim=in.dim} <| inl i ->
-                inl {in out} = Struct.map' (inl x -> x i) ins
-                inl x = bck {in=primal in .get; out=primal out .get}
-                inl out = adjoint out .get
-				adjoints in .modify' (inl in x -> in + out * x) x
+            if Struct.is_empty (adjoints in .elem_type) = false then
+                inl ins = to_dev_tensor {in out}
+                s.CudaKernel.iter {dim=in.dim} <| inl i ->
+                    inl {in out} = Struct.map' (inl x -> x i) ins
+                    inl x = bck {in=primals in .get; out=primal out .get}
+                    inl out = adjoint out .get
+				    adjoints in .modify' (inl in x -> in + out * x) x
         }
 
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
     /// just to set the adjoint to 1. The current library is intended for a narrow purpose.
-    inl error {fwd bck} in s =
-        inl x = primals in |> Tensor.zip
-        inl dim = x.dim
-        inl out = s.CudaFun.redo {redo=(+); neutral_elem=zero; map=fwd} x 0
+    inl error {fwd bck} (!(View.zip) in) s =
+        inl in = in.basic
+        inl out = s.CudaFun.redo {redo=(+); neutral_elem=zero; map=fwd} (primals in) 0
         
         {
         out
         bck=inl _ -> join
-            inl in = to_dev_tensor in // As none of the cost functions I've ran into use the `out`, I've removed it for the time being.
-            s.CudaKernel.iter {dim} <| inl i ->
-                inl in = Struct.map' (inl x -> x i) in
-                inl x = bck {in=Struct.map (inl x -> x .get) (primals in)}
-                adjoints in .modify' (inl in x -> in + x) x // The adjoint is assumed to be 1 for cost functions.
-        }
-
-    inl broadcasting_activation {fwd bck} ins s =
-        inl out = s.CudaFun.map_map {map=fwd} (primals ins) |> dr s
-        
-        {
-        out
-        bck=inl _ -> join
-            inl ins = to_dev_tensor {ins with out}
-            inl dim = primal ins.out .dim
-            inl primals_with_adjoint_of = Struct.foldl (inl m k -> {m with $k={primal=self; adjoint=adjoints (ins k); block=()}}) (primals ins)
-            inl get_primals ins = Struct.map' (inl x -> x.get) (primals ins)
-            inl adjoint_of k ins = Struct.foldl (inl m k -> {m with $k=adjoints (ins k)}) {} k
-            inl index k i ins = Struct.foldl (inl ins k -> if module_has_member k ins then {ins with $k=Struct.map' (inl x -> x i) self} else ins) ins k
-            inl finally out =
-                Struct.iter2 (inl x -> function
-                    | () -> ()
-                    | in -> in .set (in .get + out * x)
-                    )
-
-            inl handle =
-                inl ads = adjoints ins
-                inl k f ->
-                    match ads with
-                    | {$k=adjoint} when Struct.is_empty adjoint = false ->
-                        inl bck = bck k
-                        inl ins = primals_with_adjoint_of (k, .out)
-                        f {bck ins}
-                    | _ -> ()
-
-            handle .in <| inl {bck ins} ->
-                s.CudaKernel.iter2 {dim} <| inl i ->
-                    inl ins =
-                        index .in_scalar 0 ins
-                        |> index .in_scalar .get
-                        |> index (.in, .in_outer, .out) i
-                        |> index .in_outer .get
-                    inl i ->
-                        inl ins = index (.in, .in_inner, .out) i ins
-                        inl x = primals ins |> index (.in, .out, .in_inner) .get |> bck
-                        inl {in out} = adjoint_of (.in, .out) ins
-                        finally out.get x in
-
-            handle .in_inner <| inl {bck ins} ->
-                s.CudaKernel.redo_init {
-                    dim
-                    redo=Struct.map2 (+)
-                    init=inl a ->
-                        inl ins =
-                            index .in_scalar 0 ins
-                            |> index .in_scalar .get
-                            |> index .in_inner a
-                            |> index .in_inner .get
-                        inl b ->
-                            inl ins = 
-                                index (.in, .in_outer, .out) b ins
-                                |> index (.in, .out) a
-                            primals ins
-                            |> index (.in, .in_outer, .out) .get
-                            |> bck |> Struct.map ((*) (adjoint ins.out .get))
-                    outit=inl a x ->
-                        finally one x (Struct.map (inl x -> x a) (adjoints ins.in_inner))
-                    }
-
-            handle .in_outer <| inl {bck ins} ->
-                s.CudaKernel.init_redo {    
-                    dim
-                    redo=Struct.map2 (+)
-                    init=inl b ->
-                        inl ins =
-                            index .in_scalar 0 ins
-                            |> index .in_scalar .get
-                            |> index (.in, .in_outer, .out) b
-                            |> index .in_outer .get
-                        inl a ->
-                            inl ins = index (.in, .in_inner, .out) a ins
-                            primals ins 
-                            |> index (.in, .in_inner, .out) .get 
-                            |> bck |> Struct.map ((*) (adjoint ins.out .get))
-                    outit=inl b x ->
-                        finally one x (Struct.map (inl x -> x b) (adjoints ins.in_outer))
-                    }
-
-            handle .in_scalar <| inl {bck ins} ->
-                s.CudaKernel.redo {    
-                    dim
-                    redo=Struct.map2 (+)
-                    init=inl b,a ->
-                        inl ins =
-                            index .in_scalar 0 ins
-                            |> index (.in, .in_outer, .out) b
-                            |> index (.in, .in_inner, .out) a
-                        Struct.map ((*) (adjoint ins.out .get)) (bck (get_primals ins))
-                    outit=inl i x ->
-                        finally one x (Struct.map (inl x -> x i) (adjoints ins.in_scalar))
-                    }
+            if Struct.is_empty (adjoints in .elem_type) = false then
+                inl in = to_dev_tensor in // As none of the cost functions I've ran into use the `out`, I've removed it for the time being.
+                s.CudaKernel.iter {dim=in.dim} <| inl i ->
+                    inl in = Struct.map' (inl x -> x i) in
+                    inl x = bck {in=Struct.map (inl x -> x .get) (primals in)}
+                    adjoints in .modify' (inl in x -> in + x) x // The adjoint is assumed to be 1 for cost functions.
         }
 
     inl init {dim} init s =

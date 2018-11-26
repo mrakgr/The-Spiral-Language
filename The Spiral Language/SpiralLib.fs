@@ -1612,6 +1612,7 @@ inl rec facade data =
         length = inl {dim} -> length dim
         elem_type = inl {bodies} -> Struct.map (inl {ar} -> ar.elem_type) bodies
         update_body = inl {data with bodies} f -> {data with bodies=Struct.map f bodies} |> facade
+        update_body' = inl {data with bodies} f -> {data with bodies=f bodies} |> facade
         set_dim = inl {data with dim} dim -> {data with dim=Tuple.wrap dim} |> facade
         get = inl {dim bodies} -> 
             match dim with
@@ -1883,6 +1884,7 @@ inl rec facade data =
         length = inl {data with basic} -> basic.length
         elem_type = inl {data with basic} -> basic.elem_type
         update_body = inl data f -> {data with basic=self.update_body f} |> facade
+        update_body' = inl data f -> {data with basic=self.update_body' f} |> facade
         get = inl {basic} -> basic.get
         set = inl {basic} -> basic.set
         modify = inl {basic} -> basic.modify
