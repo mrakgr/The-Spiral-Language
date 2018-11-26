@@ -46,6 +46,7 @@ inl add_adjoint x out =
     | _ -> ()
 
 inl adjoint {adjoint} = adjoint
+inl adjoints = Struct.map adjoint
 inl get_adjoint {adjoint} = adjoint 0
 
 inl primal = function
@@ -573,6 +574,7 @@ inl Seq k =
     }
 
 {
+primal primals adjoint adjoints
 (>>=) succ dr link link_broadcast link_auto link_adjoint link_adjoint_view
 Unary Binary Op Activation Seq
 }
@@ -964,59 +966,31 @@ inl float ->
 
     inl init {dim} init s =
         inl out =
-            inl x = 
-                open CudaAD
-                s.CudaFun.init {dim} (inl dim -> primals ((init dim >>= succ) .out))
-            Tensor.unzip x
-            |> Struct.map (dr s)
+            open CudaAD
+            s.CudaFun.segmented_init {dim} (inl dim -> (init dim >>= succ) .out)
         
         {
         out
         bck=met _ ->
             inl from = adjoints (to_dev_tensor out)
             open CudaAD
-            s.CudaKernel.iter {dim} <| inl dim -> 
+            s.CudaKernel.segmented_iter {dim} <| inl dim -> 
                 inl {out bck} = init dim >>= succ
-                inl {bck=bck'} = link_adjoint dim {from to=adjoints out}
+                inl {bck=bck'} = link_adjoint_view dim {from to=adjoints out}
                 bck(); bck'()
         }
 
     inl mapi f in s =
-        inl dim = Tensor.assert_broadcastable (primals in)
+        inl dim = View.assert_broadcastable in
         inl in = to_dev_tensor in
         open CudaAD
         init {dim} (inl cur -> link_auto dim in cur >>= f cur) s
 
     inl map = mapi << const
 
-    inl segmented_init {dim} init s =
+    inl init_seq {dim} init s =
         inl out =
-            open CudaAD
-            inl init =
-                Struct.map (inl init dim ->
-                    inl {out} = init dim >>= succ
-                    primals out
-                    ) init
-            s.CudaFun.segmented_init {dim} init
-            |> View.unzip
-            |> Struct.map (drv s)
-        
-        {
-        out
-        bck=met _ ->
-            inl from = adjoints (to_dev_tensor out)
-            open CudaAD
-            s.CudaKernel.segmented_iter {dim} <| inl dim ->
-                Struct.iter2 (inl cur init ->
-                    inl {out=to bck} = init cur >>= succ
-                    inl {bck=bck'} = link_adjoint_view dim {from to=adjoints to}
-                    bck(); bck'()
-                    ) dim init
-        }
-
-    inl init_seq {dim elem_type} init s =
-        inl out =
-            s.CudaFun.init_seq {dim elem_type} (inl b k -> primals (init b k .out))
+            s.CudaFun.init_seq {dim} (inl b k -> primals (init b k .out)) // TODO: Implement return type inference for init_seq
             |> Tensor.unzip
             |> Struct.map (dr s)
         
@@ -1031,21 +1005,21 @@ inl float ->
                 bck(); bck'()
         }
 
-    inl seqi elem_type f in s =
-        inl dim = Tensor.assert_broadcastable (primals in)
+    inl seqi f in s =
+        inl dim = View.assert_broadcastable int
         inl in = to_dev_tensor in
         open CudaAD
-        init_seq {dim elem_type} (inl b k -> 
+        init_seq {dim} (inl b k -> 
             inl Seq = Seq k
             Seq.link_auto dim in b >>= f b k
             ) s
 
-    inl seq elem_type f = seqi elem_type (const f)
+    inl seq f = seqi (const f)
 
     inl Primitive =
         {
         matmult activation error matmultb broadcasting_activation init mapi map
-        segmented_init init_seq seq seqi
+        init_seq seq seqi
         } |> stack
 
     // #Operations
@@ -1102,47 +1076,21 @@ inl float ->
             bck=inl {in={b x1 x2}} -> {b = one; x1 = x2; x2 = x1 }
             } {x1 x2 b}
 
-    inl print x s =
-        s.CudaTensor.print (primal x)
-        {out=(); bck=()}
-
-    inl print_bck x s =
-        {out=(); bck=inl _ ->
-            s.CudaTensor.print (adjoint x)
-            }
+    inl print x s = {out=s.CudaTensor.print (primal x); bck=()}
+    inl print_bck x s = {out=(); bck=inl _ -> s.CudaTensor.print (adjoint x)}
 
     inl ln_relu = seq float <| inl k -> 
         open CudaAD
         open Seq k .Op
         layer_norm >> relu
 
-    inl hebb_ln_relu = seq float <| inl k {alpha plastic static} -> 
-        open CudaAD
-        open Seq k
-        open Op
-        alpha * plastic + static >>= layer_norm >>= relu
-
-    inl generalized_mi_ln_relu = seq float <| inl k -> CudaAD .Seq k .Activation .generalized_mi_ln_relu
-    inl wn_hebb {x with eta out} = 
-        inl rotate = Struct.map' (Tensor.rotate (inl a,b -> b,a))
-        inl eta = match eta with {out} -> {eta with out=rotate out} | _ -> eta
-        seq float (inl k -> CudaAD .Seq k .Activation .wn_hebb) {x with eta out=rotate out}
-
     inl linear = succ
     inl Activation = { linear sigmoid tanh relu add hadmult hadmultb ln_relu} |> stack
 
     // #Optimizer
-    inl sgd learning_rate s {primal adjoint} = 
-        inl out = primal, adjoint
-        s.CudaFun.map {out map=inl P, A -> P - learning_rate * A, zero} out
-
-    inl clipped_sgd max learning_rate s {primal adjoint} = 
-        s.CudaFun.map {
-            out=primal,adjoint
-            map=inl P, A -> 
-                inl A = if A < -max then -max elif A > max then max else A
-                P - learning_rate * A, zero
-            } (primal, adjoint)
+    inl sgd learning_rate s x =
+        inl out = x.basic
+        s.CudaFun.map {out map=inl {primal adjoint} -> {primal=primal - learning_rate * adjoint; adjoint=zero}} out
 
     inl kfac {learning_rate weights} s =
         inl k_max = 128
@@ -1173,35 +1121,6 @@ inl float ->
             | _ -> ()
             ) weights
 
-    inl kfac_ema {learning_rate weights} s =
-        inl k_max = 128
-
-        inl factor {d with covariance=from precision=to k epsilon} =
-            if k() >= k_max then
-                k := 0
-                s.CudaSolve.regularized_cholesky_inverse {epsilon from to}
-
-        Struct.iter (function
-            | {d with weight} ->
-                inl reproject a b ret =
-                    inb x = s.CudaBlas.gemm .nT .nT one a b |> CudaAux.temporary // TODO: Replace the gemm with a symm here.
-                    ret x
-
-                inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -learning_rate a b (one-learning_rate) c // TODO: Replace the gemm with a symm here.
-                inl clear = s.CudaTensor.clear
-
-                match d with
-                | {front back} -> 
-                    factor front; factor back
-                    inb x = reproject front.precision (adjoint weight)
-                    reproject_to x back.precision (primal weight)
-                | {back} -> factor back; reproject_to (adjoint weight) back.precision (primal weight)
-                | {front} -> factor front; reproject_to front.precision (adjoint weight) (primal weight)
-                | _ -> s.CudaBlas.geam' .nT .nT -learning_rate (adjoint weight) (one-learning_rate) (primal weight) (primal weight)
-                clear (adjoint weight)
-            | _ -> ()
-            ) weights
-
     inl standard learning_rate s = 
         Struct.iter (function 
             | {optimize weights} ->
@@ -1211,7 +1130,7 @@ inl float ->
                 Struct.iter' (function !(inl x -> x.data) {x with primal adjoint} -> sgd learning_rate s x | _ -> ()) weights
             )
 
-    inl Optimizer = {sgd clipped_sgd standard kfac kfac_ema}
+    inl Optimizer = {sgd standard kfac}
 
     inl softmax_body temp k input =
         inl x = k.block.map (inl x -> x / temp) (k.block.load input)
