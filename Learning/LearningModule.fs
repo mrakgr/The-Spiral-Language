@@ -1396,22 +1396,15 @@ inl float ->
 
     inl default_epsilon = to float (2.0 ** -3.0)
 
-    inl weight' d = 
-        open Initializer.dual.TensorView
+    inl weight d = 
+        open Initializer.dual
         {
-        weight = view' d
+        weight = view d
         streams = stream, stream
+        front = covariance default_epsilon b
+        back = covariance default_epsilon a
         block = ()
         }
-    inl weightf {d with dim=b,a} = 
-        {(weight' d) with
-            front = covariance default_epsilon b
-            }
-    inl weight {d with dim=b,a} = 
-        {(weight' d) with
-            front = covariance default_epsilon b
-            back = covariance default_epsilon a
-            }
 
     inl bias {d with dim=1,a} = 
         open Initializer.dual.TensorView
@@ -1429,27 +1422,34 @@ inl float ->
     inl layer initializer activation size =
         {
         init = inl sublayer_size -> 
+            open Initializer.dual
+            inl outer = {bias=1; input=sublayer_size}
+            inl init = {bias=const zero; input=initializer}
             {
             dsc = 
                 {
-                input = initializer (sublayer_size, size)
-                bias = Initializer.dual.Tensor.const zero size
+                weights = weight {init dim=outer,inner}
+                outer = val outer
                 }
             size
             }
 
-        apply = inl {weights input} -> matmultb (input, weights.input) weights.bias >>= activation
+        apply = inl {weights={weights outer} input} ->
+            inm data = init {dim=input.span_outer,outer} {bias=const one; input=load input}
+            matmult_stream {weights with data} >>= ln_relu
+
+        optimize = Optimizer.kfac
         block = ()
         }
 
-    inl Feedforward = 
-        inl I = Initializer.dual.Tensor
+    inl Feedforward =
+        inl I = Initializer.dual
         inl sigmoid = layer I.sigmoid sigmoid
         inl relu = layer I.relu relu
         inl tanh = layer I.tanh tanh
         inl linear = layer I.sigmoid succ
         inl zero = layer (I.const zero) succ
-        inl ln_relu = layer (I.relu) ln_relu
+        inl ln_relu = layer I.relu ln_relu
         {sigmoid relu tanh linear zero ln_relu} |> stackify
    
     // #Recurrent
@@ -1470,70 +1470,18 @@ inl float ->
             }
 
         apply = inl {d with weights={weights outer} input} s -> 
-            inl span = primal input .span_outer
+            inl span = input .span_outer
             inl out =
                 match d with
                 | {state={out}} -> out
                 | _ -> 
-                    inl f _ = s.CudaTensor.zero {elem_type=float; dim=span,size}
+                    inl f _ = s.CudaTensor.zero_view {elem_type=float; dim=span,size}
                     f()
 
             inl apply =
                 inm out =
-                    inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
-                    inl data = Struct.map' (inl data -> data.basic) data
-                    matmult_stream {weights with data} >>= ln_relu
-                succ {out state={out}}
-
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        //optimize = Optimizer.kfac
-        block = ()
-        }
-
-    inl grad_norm = map CudaAD.Activation.grad_rescale
-
-    inl rnn_norm size =
-        inl inner = size
-        {
-        init = inl sublayer_size -> 
-            open Initializer.dual.TensorView
-            inl outer = {bias=1; input=sublayer_size; state=size}
-            inl init = {
-                weights={bias=const zero; input=relu; state=relu}
-                scale={bias=const one; input=const zero; state=const zero}
-                }
-            {
-            dsc = 
-                {
-                weights = weight' {init=init.weights; dim=outer,inner}
-                scale = weight {init=init.scale; dim=outer,inner}
-                outer = val outer
-                }
-            size
-            }
-
-        apply = inl {d with weights={weights scale outer} input} s -> 
-            inl span = primal input .span_outer
-            inl out =
-                match d with
-                | {state={out}} -> out
-                | _ -> 
-                    inl f _ = s.CudaTensor.zero {elem_type=float; dim=span,size}
-                    f()
-
-            inl apply =
-                inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
-                inl data = Struct.map' (inl data -> data.basic) data
-                inm {out scale} = 
-                    matmult_stream {
-                        out={weights with data}
-                        scale={scale with data=primal data}
-                        }
-                inm out = grad_norm {scale input=out}
-                inm out = ln_relu out
-                //inm _ = print cost
-                
+                    inm data = init {dim=span,outer} {bias=const one; input=load input; state=load out}
+                    matmult_stream {weights with data} >>= tanh
                 succ {out state={out}}
 
             inl {out={out state} bck} = apply s
@@ -1542,387 +1490,9 @@ inl float ->
         block = ()
         }
 
-    inl plastic_rnn size = // Scalar modulation
-        {
-        init = inl sublayer_size -> 
-            open Initializer.dual.TensorView
-            inl outer = {bias=1; input=sublayer_size; state=size}
-            inl inner = 
-                {
-                weights =
-                    {
-                    static={eta=1; out=size}
-                    plastic=size
-                    }
-                biases =
-                    {
-                    alpha = 1
-                    upper = 1
-                    mid = 1
-                    }
-                }
-            inl init = 
-                {
-                weights =
-                    {
-                    bias={eta=const zero; out=const zero}
-                    input={eta=const zero; out=identity}
-                    state={eta=const zero; out=const zero}
-                    }
-                biases =
-                    {
-                    alpha = const 0.01f32
-                    upper = const 0.1f32
-                    mid = const 0.001f32
-                    }
-                }
-            {
-            dsc = 
-                {
-                weights = weight {init=init.weights; dim=outer,inner.weights.static}
-                biases = bias {init=init.biases; dim=1,inner.biases}
-                streams = stream, stream
-                dim = val {outer inner sublayer_size}
-                }
-            size
-            }
+    inl RNN = {rnn}
 
-        apply = inl {d with weights={weights biases dim={outer inner} streams} input} s -> 
-            inl span = primal input .span_outer
-            assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
-            inl {state H} =
-                match d with
-                | {state} -> state
-                | _ -> {
-                    H=s.CudaTensor.zero_view {elem_type=float; dim=inner.weights.plastic, outer} .basic
-                    state=s.CudaTensor.zero {elem_type=float; dim=span, size}
-                    }
-
-            inl apply = 
-                inl {alpha upper mid} = wrap_split ((), inner.biases) biases.weight
-                inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
-                inl data = Struct.map' (inl data -> data.basic) data
-                inm {static plastic} = 
-                    matmult_stream 
-                        {
-                        static={weights with data}
-                        plastic={data weight={T=H}; streams block=()}
-                        }
-                inl {eta out=static} = wrap_split ((), inner.weights.static) static
-                inm out = map CudaAD.Activation.hebb_tanh {alpha plastic static}
-                inm H = wn_hebb {H upper mid eta out input=data}
-                succ {out state={state=out; H}}
-
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        optimize = Optimizer.kfac
-        block = ()
-        }
-
-    inl plastic_rnn' size = // Border modulation
-        {
-        init = inl sublayer_size -> 
-            open Initializer.dual.TensorView
-            inl outer = {bias=1; input=sublayer_size; state=size}
-            inl inner = 
-                {
-                weights =
-                    {
-                    static={eta={input=View.span outer; out=size}; out=size}
-                    plastic=size
-                    }
-                biases =
-                    {
-                    alpha = 1
-                    upper = 1
-                    mid = 1
-                    }
-                }
-            inl init = 
-                {
-                weights =
-                    {
-                    bias={eta={input=const zero; out=const zero}; out=const zero}
-                    input={eta={input=const zero; out=const zero}; out=identity}
-                    state={eta={input=const zero; out=const zero}; out=const zero}
-                    }
-                biases =
-                    {
-                    alpha = const 0.01f32
-                    upper = const 0.1f32
-                    mid = const 0.001f32
-                    }
-                }
-            {
-            dsc = 
-                {
-                weights = weight {init=init.weights; dim=outer,inner.weights.static}
-                biases = bias {init=init.biases; dim=1,inner.biases}
-                streams = stream, stream
-                dim = val {outer inner sublayer_size}
-                }
-            size
-            }
-
-        apply = inl {d with weights={weights biases dim={outer inner} streams} input} s -> 
-            inl span = primal input .span_outer
-            assert (span = 1) "The differentiable plasticity layer supports only online learning for now."
-            inl {state H} =
-                match d with
-                | {state} -> state
-                | _ -> {
-                    H=s.CudaTensor.zero_view {elem_type=float; dim=inner.weights.plastic, outer} .basic
-                    state=s.CudaTensor.zero {elem_type=float; dim=span, size}
-                    }
-
-            inl apply = 
-                inl {alpha upper mid} = wrap_split ((), inner.biases) biases.weight
-                inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load state}
-                inl data = Struct.map' (inl data -> data.basic) data
-                inm {static plastic} = 
-                    matmult_stream 
-                        {
-                        static={weights with data}
-                        plastic={data weight={T=H}; streams block=()}
-                        }
-                inl {eta out=static} = wrap_split ((), inner.weights.static) static
-                inm out = map CudaAD.Activation.hebb_tanh {alpha plastic static}
-                inm H = wn_hebb {H upper mid eta out input=data}
-                succ {out state={state=out; H}}
-
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        optimize = Optimizer.kfac
-        block = ()
-        }
-
-    inl mi size =
-        inl inner = 
-            {
-            matrix = size
-            bias = {si=size; i=size; s=size; c=size}
-            }
-        {
-        init = inl sublayer_size -> 
-            open Initializer.dual.TensorView
-            inl outer = sublayer_size
-            inl init = {
-                bias = {si=const one; i=const half; s=const half; c=const zero}
-                }
-            {
-            dsc = 
-                {
-                weights = 
-                    {
-                    input = weight {init=tanh; dim=outer,inner.matrix}
-                    state = weight {init=tanh; dim=outer,inner.matrix}
-                    }
-                bias = bias {init=init.bias; dim=1,inner.bias}
-                outer = val outer
-                }
-            size
-            }
-
-        apply = inl {d with weights={weights bias outer} input} s -> 
-            inl span = primal input .span_outer
-            inl out =
-                match d with
-                | {state={out}} -> out
-                | _ -> 
-                    inl f _ = s.CudaTensor.zero {elem_type=float; dim=span,size}
-                    f()
-
-            inl apply =
-                inm out =
-                    inl bias = wrap_split_weight ((),inner.bias) bias
-                    matmult_stream {
-                        input={(weights.input) with data=input}
-                        state={(weights.state) with data=out}
-                        }
-                    >>= inl x -> generalized_mi_ln_relu {x with bias}
-                succ {out state={out}}
-
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        optimize = Optimizer.kfac
-        block = ()
-        }
-
-    inl lstm size =
-        inl inner = {input=size; forget=size; output=size; memory=size}
-        {
-        init = inl sublayer_size -> 
-            open Initializer.dual.TensorView
-            inl init = 
-                {
-                bias = {input=const zero; forget=const one; output=const zero; memory=const zero}
-                input = {input=tanh; forget=tanh; output=tanh; memory=tanh}
-                state = {input=tanh; forget=tanh; output=tanh; memory=tanh}
-                }
-            inl outer = {bias=1; input=sublayer_size; state=size}
-            {
-            dsc = 
-                {
-                weights = weight {init dim=outer,inner}
-                outer = val outer
-                }
-            size
-            }
-
-        apply = inl {d with weights={weights outer} input} s -> 
-            inl span = primal input .span_outer
-            inl out, memory =
-                match d with
-                | {state={out memory}} -> out, memory
-                | _ -> 
-                    inl f _ = s.CudaTensor.zero {elem_type=float; dim=span,size}
-                    f(), f()
-
-            inl apply =
-                inm {out memory} =
-                    inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
-                    inl data = Struct.map' (inl data -> data.basic) data
-                    inm cell = matmult_stream {weights with data}
-                    inl cell = wrap_split ((),inner) cell
-                    map CudaAD.Activation.lstm {memory cell}
-
-                succ {out state={out memory}}
-
-            inl {out={out state} bck} = apply s
-            {out state bck}
-        optimize = Optimizer.kfac
-        block = ()
-        }
-
-    inl RNN = {rnn rnn_norm plastic_rnn plastic_rnn' mi lstm }
-
-    inl RL =
-        /// The PG activation.
-        inl sampling_pg x s =
-            inl dim_a, dim_b = primal x .dim
-            inl p = softmax one (primal x) s
-            inl out = sample_body p s
-
-            {
-            out
-            bck=inl {reward} ->
-                inl reward = 
-                    inl reward = primal reward
-                    assert (dim_a = fst reward.dim) "Reward's dimensions must be equal to that of the input's outer dimnesion."
-                    assert (snd reward.dim = 1) "Reward's second dimension must be 1." 
-                    CudaAux.to_dev_tensor reward
-
-                inl x_a, p, out = to_dev_tensor (adjoint x, p, out)
-                s.CudaKernel.iter2 {dim=dim_a, dim_b} <| inl j ->
-                    inl x_a, p, out, reward = x_a j, p j, out j .get, reward j 0 .get
-
-                    inl i ->
-                        inl p = p i .get
-                        inl x_a = x_a i
-                        inl label = if out = i then one else zero
-                        x_a.set (x_a.get + (p - label) * reward) 
-            }
-
-        inl reward_scale = epsilon -3
-        inl ac_sample_action {policy trace value scale} s =
-            inl {out bck} = sampling_pg policy s
-            {
-            out
-            bck=inl d ->
-                inl {out={R scaled_error error} bck=bck'} = map (CudaAD.Activation.td reward_scale) {d with trace value scale} s
-                //s.CudaTensor.print (primals {value scale error} |> Tensor.zip |> inl x -> x 0)
-                {
-                out={R'=R; value'=value}
-                bck=inl _ -> bck' (); bck {reward=scaled_error}
-                }
-            }
-
-        inl mask_out mask weights s =
-            inl weights = to_dev_tensor weights
-            s.CudaKernel.segmented_iter {dim=mask} (inl i -> weights.view i .set zero)
-
-        inl ac size =
-            inl inner = 
-                {
-                pt={policy=size; trace=1}
-                value=1
-                scale=1
-                }
-            
-            {
-            init = inl sublayer_size ->
-                open Initializer.dual.TensorView
-                inl outer = {bias=1; input=sublayer_size}
-                inl init =
-                    {
-                    pt = 
-                        {
-                        bias = { policy=const zero; trace=const two}
-                        input = { policy=const zero; trace=const zero}
-                        }
-                    value =
-                        {
-                        bias = const zero
-                        input = const zero
-                        }
-                    scale =
-                        {
-                        bias = const (num 10 * num reward_scale)
-                        input = const zero
-                        }
-                    }
-                {
-                dsc =
-                    {
-                    weights = {
-                        pt = weight {init=init.pt; dim=outer,inner.pt}
-                        scale = weightf {init=init.scale; dim=outer,inner.scale}
-                        }
-                    value = weightf {init=init.value; dim=outer,inner.value}
-                    outer = val outer
-                    inner = val inner
-                    }
-                size
-                }
-
-            apply = inl {d with weights={weights value outer} input} s -> 
-                inl span = primal input .span_outer
-                inl apply =
-                    inm {pt=!(wrap_split ((), inner.pt)) {policy trace} scale} = 
-                        inm data = 
-                            inm pt = segmented_init {dim=span,outer} {bias=const one; input=load input}
-                            inl scale = primal pt
-                            succ {pt scale}
-                        inl data = Struct.map' (inl data -> data.basic) data
-                        Struct.map2 (inl weights data -> {weights with data}) weights data
-                        |> matmult_stream
-                    inm value =
-                        inm data = segmented_init {dim=span,outer} {bias=const one; input=loada_grad_rescale (primal input .dim) {scale input}}
-                        inl data = Struct.map' (inl data -> data.basic) data
-                        matmult_stream {value with data}
-                    succ {policy trace value scale}
-
-                inl {out bck} = apply s
-                {out bck}
-            optimize = Optimizer.kfac
-            block = ()
-            }
-
-        /// For online learning.
-        inl action {State Action final} {net input} s =
-            indiv join
-                assert (eq_type State input) "The input must be equal to the state type."
-                inl input = 
-                    inl tns = Union.to_dense input |> Tensor.array_as_tensor
-                    s.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
-
-                inl net, input = run s input net
-                inl {out bck} = final input s
-
-                inl action = Union.from_one_hot Action (s.CudaTensor.get (out 0))
-                stack {action net bck}
-       
-        {action ac ac_sample_action}
+    inl RL = {}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward RNN RL
