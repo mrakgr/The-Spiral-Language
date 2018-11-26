@@ -853,6 +853,7 @@ inl float ->
         | () -> ()
         | B -> ret B
 
+    inl basic x = x.basic
 	inl pr = function {primal} | primal -> primal
 	inl adj = function {adjoint} -> adjoint | _ -> ()
 
@@ -1095,7 +1096,7 @@ inl float ->
     inl kfac {learning_rate weights} s =
         inl k_max = 128
 
-        inl factor {d with covariance=from precision=to k epsilon} =
+        inl factor {d with k epsilon covariance=(!basic from) precision=(!basic to)} =
             if k() >= k_max then
                 k := 0
                 s.CudaSolve.regularized_cholesky_inverse {epsilon from to}
@@ -1103,10 +1104,10 @@ inl float ->
         Struct.iter (function
             | {d with weight} ->
                 inl reproject a b ret =
-                    inb x = s.CudaBlas.gemm .nT .nT one a b |> CudaAux.temporary // TODO: Replace the gemm with a symm here.
+                    inb x = s.CudaBlas.gemm .nT .nT one a.basic b.basic |> CudaAux.temporary // TODO: Replace the gemm with a symm here.
                     ret x
 
-                inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -learning_rate a b one c // TODO: Replace the gemm with a symm here.
+                inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -learning_rate a.basic b.basic one c.basic // TODO: Replace the gemm with a symm here.
                 inl clear = s.CudaTensor.clear
 
                 match d with
@@ -1116,7 +1117,7 @@ inl float ->
                     reproject_to x back.precision (primal weight)
                 | {back} -> factor back; reproject_to (adjoint weight) back.precision (primal weight)
                 | {front} -> factor front; reproject_to front.precision (adjoint weight) (primal weight)
-                | _ -> s.CudaBlas.geam' .nT .nT -learning_rate (adjoint weight) one (primal weight) (primal weight)
+                | _ -> s.CudaBlas.geam' .nT .nT -learning_rate (adjoint weight .basic) one (primal weight .basic) (primal weight .basic)
                 clear (adjoint weight)
             | _ -> ()
             ) weights
