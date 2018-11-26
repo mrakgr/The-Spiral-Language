@@ -1204,15 +1204,14 @@ inl float ->
             } {x y}
 
     /// Applies a softmax and then calculates the cross entropy cost. Is intended to take the output of a linear layer as input.
-    inl softmax_cross_entropy label input s =
-        assert ((primal label).dim = (primal input).dim) "Labels and inputs must have equal dimensions."
+    inl softmax_cross_entropy (!basic label) (!basic input) s =
+        assert (label.dim = input.dim) "Labels and inputs must have equal dimensions."
         
         inl temp = one
-
         inl cost = 
-            inl cost = s.CudaTensor.create {elem_type=float; dim=primal input .dim |> fst}
+            inl cost = s.CudaTensor.create {elem_type=float; dim=input .dim |> fst}
             inl _ =
-                inl input, label, cost as ins = to_dev_tensor (primals (input, label, cost))
+                inl !primal input, !primal label, cost as ins = to_dev_tensor (input, label, cost)
                 s.CudaKernel.iter_seq {dim=input.dim}
                     (inl b k ->
                         inl input,label,to = Tuple.map (inl x -> x b) ins
@@ -1228,7 +1227,7 @@ inl float ->
 
         inl bck _ = join
             inl ins = to_dev_tensor (input, label)
-            s.CudaKernel.iter_seq {dim=primal input .dim}
+            s.CudaKernel.iter_seq {dim=input .dim}
                 (inl b k ->
                     inl input, label = Struct.map' (inl x -> x b) ins
                     inl prob = softmax_body temp k (primal input)
@@ -1244,7 +1243,7 @@ inl float ->
         {out=cost; bck}
 
     inl accuracy label input s =
-        inl input, label = primal input, primal label
+        inl input, label = primal input .basic, primal label .basic
         s.CudaFun.map_redo {
             map=inl {in} -> in
             neutral_elem=-infinity,zero
@@ -1257,7 +1256,7 @@ inl float ->
         |> inl x -> x 0
 
     inl sign_accuracy label input s = // For the Binary Pattern test.
-        inl input, label = primal input, primal label
+        inl input, label = primal input .basic, primal label .basic
         s.CudaFun.redo {
             map=inl input, label -> if Math.sign label = Math.sign input then 1 else 0
             redo=(+)
@@ -1288,7 +1287,7 @@ inl float ->
                 inl tns = to_dev_tensor tns
                 s.CudaKernel.iter {dim} (inl a,b as i -> tns i .set (if a = b then init else zero))
             {
-            // Rough and possibly poorly tuned inits. Recommended to be used together with PRONG or layer/batch norm.
+            // Rough and possibly poorly tuned inits. Recommended to be used together with KFAC.
             relu = stddev_sum_init 1f32
             sigmoid = stddev_sum_init 2f32
             tanh = stddev_sum_init 3f32
