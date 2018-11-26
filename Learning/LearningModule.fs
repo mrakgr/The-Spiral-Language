@@ -990,10 +990,7 @@ inl float ->
     inl map = mapi << const
 
     inl init_seq {dim} init s =
-        inl out =
-            s.CudaFun.init_seq {dim} (inl b k -> primals (init b k .out)) // TODO: Implement return type inference for init_seq
-            |> Tensor.unzip
-            |> Struct.map (dr s)
+        inl out = s.CudaFun.init_seq {dim} (inl b k -> primals (init b k .out))
         
         {
         out
@@ -1007,7 +1004,7 @@ inl float ->
         }
 
     inl seqi f in s =
-        inl dim = View.assert_broadcastable int
+        inl dim = View.assert_broadcastable in
         inl in = to_dev_tensor in
         open CudaAD
         init_seq {dim} (inl b k -> 
