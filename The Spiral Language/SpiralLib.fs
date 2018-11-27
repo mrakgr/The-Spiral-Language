@@ -1881,11 +1881,11 @@ inl view tns i =
     inl dim, i = Tuple.foldl_map f i tns.dim
     tns dim i
 
-inl rec facade data = 
+inl rec facade data =
     inl methods = stack {
         view = inl data -> view (facade data)
-        length = inl {data with basic} -> basic.length
-        elem_type = inl {data with basic} -> basic.elem_type
+        length = inl {basic} -> basic.length
+        elem_type = inl {basic} -> basic.elem_type
         update_body = inl data f -> {data with basic=self.update_body f} |> facade
         update_body' = inl data f -> {data with basic=self.update_body' f} |> facade
         get = inl {basic} -> basic.get
@@ -1914,7 +1914,6 @@ inl rec facade data =
                             inl a', b', c' = loop {data with tree_dim} i'
                             a :: a', b :: b', c :: c'
 
-                        // The tensor view support two kinds of views.
                         match branch with
                         | {} ->
                             inl rec loop branch i =
@@ -2036,6 +2035,56 @@ let host_tensor_range_view =
     (
     "ViewR",[tuple;host_tensor],"Range views for the tensor.",
     """
+inl rec facade data =
+    inl methods = stack {
+        length = inl {basic} -> basic.length
+        elem_type = inl {basic} -> basic.elem_type
+        update_body = inl data f -> {data with basic=self.update_body f} |> facade
+        update_body' = inl data f -> {data with basic=self.update_body' f} |> facade
+        get = inl {basic} -> basic.get
+        set = inl {basic} -> basic.set
+        modify = inl {basic} -> basic.modify
+        modify' = inl {basic} -> basic.modify'
+        dim = inl _ -> error_type "Using `dim` is illegal on range views to prevent it to be used in equality comparisons."
+        // Applies the tensor. `i` can be a tuple.
+        apply = inl data i ->
+            inl rec loop data i =
+                match i with
+                | () -> data.range_dim, (), ()
+                | i :: i' ->
+                    match data.range_dim with
+                    | () -> error_type "Cannot apply the tensor anymore."
+                    | from :: range_dim -> 
+                        inl apply b c =
+                            inl a', b' = loop {data with range_dim} i'
+                            a', b :: b'
+                        inl view a b c = 
+                            inl a', b' = loop {data with range_dim} i'
+                            a :: a', b :: b'
+
+                        match i with
+                        | {from=from'} ->
+                            match i with
+                            | {near_to=near_to'} -> view 0 {from=from'-from; near_to=near_to'-from}
+                            | {to=to'} -> view 0 {from=from'-from; near_to=to'+1-from} 
+                            | {by} -> view 0 {from=from'-from; by}
+                            | _ -> view 0 {from=from'-from}
+                        | () -> view from ()
+                        | from' -> apply (from'-from)
+
+            inl range_dim, apply = loop data (Tuple.wrap i)
+            inl basic = data.basic apply
+            facade {data with basic range_dim}
+
+        /// Returns the tensor data.
+        unwrap = id
+        }
+
+    function
+    | .(_) & x -> 
+        if module_has_member x data then data x
+        else methods x data
+    | i -> methods .apply data i
 
     """
     ) |> module_
