@@ -1483,11 +1483,11 @@ inl rec view_offsets offset = function
     | s :: s', i :: i' -> s * i + view_offsets offset (s', i')
     | _, () -> offset
 
-inl tensor_view {data with size offset} i' = {data with offset = view_offsets offset (size,i')}
-inl tensor_get {data with offset ar} = ar offset
-inl tensor_set {data with offset ar} v = ar offset <- v
-inl tensor_modify {data with offset ar} f v = ar offset <- f (ar offset) v
-inl tensor_apply i {data with size=s::size offset} = {data with size offset=offset + i * s}
+inl tensor_view !unconst {data with size offset} i' = const {data with offset = view_offsets offset (size,i')}
+inl tensor_get !unconst {offset ar} = ar offset
+inl tensor_set !unconst {offset ar} v = ar offset <- v
+inl tensor_modify !unconst {offset ar} f v = ar offset <- f (ar offset) v
+inl tensor_apply i !unconst {data with size=s::size offset} = const {data with size offset=offset + i * s}
 
 inl show' {cutoff_near_to} tns = 
     open Extern
@@ -1610,8 +1610,8 @@ inl rotate f tns =
 inl rec facade data = 
     inl methods = stack {
         length = inl {dim} -> length dim
-        elem_type = inl {bodies} -> Struct.map (inl {ar} -> ar.elem_type) bodies
-        update_body = inl {data with bodies} f -> {data with bodies=Struct.map f bodies} |> facade
+        elem_type = inl {bodies} -> Struct.map' (inl !unconst {ar} -> ar.elem_type) bodies
+        update_body = inl {data with bodies} f -> {data with bodies=Struct.map' (unconst >> f >> const) bodies} |> facade
         update_body' = inl {data with bodies} f -> {data with bodies=f bodies} |> facade
         set_dim = inl {data with dim} dim -> {data with dim=Tuple.wrap dim} |> facade
         get = inl {dim bodies} -> 
@@ -1639,10 +1639,10 @@ inl rec facade data =
                     match data.dim with
                     | () -> error_type "Cannot apply the tensor anymore."
                     | near_to :: dim ->
-                        inl rest from = loop {data with bodies=Struct.map (tensor_apply from) self; dim} i'
+                        inl rest from = loop {data with bodies=Struct.map' (tensor_apply from) self; dim} i'
                         inl view from near_to =
-                            inl size = Struct.map (inl {size=s::_} -> s) data.bodies
-                            {(rest from) with bodies=Struct.map2 (inl size ar -> {ar with size=size :: self}) size self; dim=near_to - from :: self}
+                            inl size = Struct.map' (inl !unconst {size=s::_} -> s) data.bodies
+                            {(rest from) with bodies=Struct.map2 (inl size (!unconst ar) -> const {ar with size=size :: self}) size self; dim=near_to - from :: self}
 
                         match i with
                         | {from=from'} ->
@@ -1699,7 +1699,7 @@ inl make_body {d with dim elem_type} =
             | _ -> 1
         inl len :: size = Tuple.scanr (*) dim init
         inl ar = match d with {array_create} | _ -> array_create elem_type len
-        {ar size offset=0; block=()}
+        const {ar size offset=0}
 
 /// Creates an empty tensor given the descriptor. {size elem_type ?layout=(.toa | .aot) ?array_create ?pad_to} -> tensor
 inl create {dsc with dim elem_type} = 
@@ -1757,7 +1757,7 @@ inl assert_size dim' tns =
     tns.set_dim dim'
 
 /// Reinterprets an array as a tensor. Does not copy. array -> tensor.
-inl array_as_tensor ar = facade {dim=array_length ar::(); bodies={ar size=1::(); offset=0; block=()}}
+inl array_as_tensor ar = facade {dim=array_length ar::(); bodies=const {ar size=1::(); offset=0}}
 
 /// Reinterprets an array as a tensor. array -> tensor.
 inl array_to_tensor = array_as_tensor >> copy
@@ -1980,7 +1980,7 @@ inl map_dim default = function
     | _ -> error_type "Expected a tree view."
         
 inl create {dsc with dim} =
-    inl span, dim = Tuple.map (map_dim (inl _ -> error_type "() not allowed in View create.")) (Tuple.wrap dim) |> Tuple.unzip
+    inl span, tree_dim = Tuple.map (map_dim (inl _ -> error_type "() not allowed in View create.")) (Tuple.wrap dim) |> Tuple.unzip
     inl basic = Tensor.create {dsc with dim=span}
     facade {basic tree_dim}
 
@@ -1990,7 +1990,7 @@ inl create_like dsc tns =
     facade {basic tree_dim=tns.tree_dim}
 
 inl wrap dim basic =
-    inl span, dim = Tuple.map2 map_dim (Tuple.map const basic.dim) (Tuple.wrap dim) |> Tuple.unzip
+    inl span, tree_dim = Tuple.map2 map_dim (Tuple.map const basic.dim) (Tuple.wrap dim) |> Tuple.unzip
     assert (basic.dim = span) "The view must be of the same span as the tensor it is wrapping."
     facade {basic tree_dim}
 
@@ -2072,15 +2072,15 @@ inl rec facade data =
         apply = inl data i ->
             inl rec loop data i =
                 match i with
-                | () -> data.range_dim, (), ()
+                | () -> data.range_dim, ()
                 | i :: i' ->
                     match data.range_dim with
                     | () -> error_type "Cannot apply the tensor anymore."
                     | from :: range_dim -> 
-                        inl apply b c =
+                        inl apply b =
                             inl a', b' = loop {data with range_dim} i'
                             a', b :: b'
-                        inl view a b c = 
+                        inl view a b = 
                             inl a', b' = loop {data with range_dim} i'
                             a :: a', b :: b'
 

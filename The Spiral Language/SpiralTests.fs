@@ -1213,18 +1213,18 @@ inl m = { $k = { b = 2 }}
     """
 
 let test113 =
-    "test113",[host_tensor_view;console],"Do the tensor range views work?",
+    "test113",[host_tensor_range_view;console],"Do the tensor range views work?",
     """
 inl tns =
     Tensor.init (2,3,4) (inl a b c -> a*b*c)  
-    |> View.wrap ({from=2; near_to=4},{from=2; near_to=5},{from=2; near_to=6})
+    |> ViewR.wrap ({from=2; near_to=4},{from=2; near_to=5},{from=2; near_to=6})
 
 inl tns = tns ((), {from=3; by=2}, {from=3})
 tns .basic |> Tensor.print
     """
 
 let test114 =
-    "test114",[host_tensor_view;console],"Do the tensor tree views work?",
+    "test114",[host_tensor_tree_view;console],"Do the tensor tree views work?",
     """
 inl tns =
     Tensor.init (2,3,4) (inl a b c -> a*b*c)  
@@ -1235,7 +1235,7 @@ tns .basic |> Tensor.print
     """
 
 let test115 =
-    "test115",[host_tensor_view;console],"Does the tensor view's create function work?",
+    "test115",[host_tensor_tree_view;console],"Does the tensor view's create function work?",
     """
 inl tns = View.create {dim={a=1; b=1}, {a=1; b=2}, {a=1; b={q=3}}; elem_type=float32}
 
@@ -1244,7 +1244,7 @@ tns .basic |> Tensor.print
     """
 
 let test116 =
-    "test116",[host_tensor_view;console],"Do the tensor tree partial views work?",
+    "test116",[host_tensor_tree_view;console],"Do the tensor tree partial views work?",
     """
 inl tns =
     Tensor.init (4,16) (inl a b -> a,b)
@@ -2002,7 +2002,7 @@ run_with_unit_ret (readall()) parser
     """
 
 let hacker_rank_9 =
-    "hacker_rank_9",[tuple;array;host_tensor_view;parsing;console;option],"The Power Sum",
+    "hacker_rank_9",[tuple;array;host_tensor_range_view;parsing;console;option],"The Power Sum",
     """
 // https://www.hackerrank.com/challenges/the-power-sum
 
@@ -2015,14 +2015,14 @@ inl x_range = {from=1; to=1000}
 inl n_range = {from=2; to=10}
 
 inl x_to_n = 
-    inl cache = View.create {dim=x_range,n_range; elem_type=int64}
+    inl cache = ViewR.create {dim=x_range,n_range; elem_type=int64}
     for {x_range with body=inl {i=x} ->
         for {n_range with body=inl {i=n} ->
             for {from=2; to=n; state=x; body=inl {state=x'} -> x*x'}
             |> cache x n .set
             }
         }
-    inl (x, n) -> cache x n .get
+    inl x -> cache x .get
 
 met rec solve !dyn state !dyn sum !dyn from to,n =
     for' {from to state body=inl {next state i=x} ->

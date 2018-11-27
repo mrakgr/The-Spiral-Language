@@ -36,7 +36,7 @@ and method_3((var_0: (int64 [])), (var_1: int64), (var_2: int64), (var_3: int64)
     method_4((var_8: System.Text.StringBuilder), (var_15: int64))
     let (var_16: System.Text.StringBuilder) = var_8.AppendLine("|]")
     let (var_17: string) = var_8.ToString()
-    System.Console.WriteLine(var_17)
+    System.Console.Write(var_17)
 and method_1((var_0: int64), (var_1: (int64 [])), (var_2: int64), (var_3: int64)): unit =
     let (var_4: bool) = (var_3 < 3L)
     if var_4 then

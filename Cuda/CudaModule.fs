@@ -164,11 +164,11 @@ inl allocator_block_size = 256u64
 
 inl temporary tns ret =
     inl x = ret tns
-    Struct.iter (inl {ar} -> ar.ptr.Dispose) tns.bodies
+    Struct.iter' (inl !unconst {ar} -> ar.ptr.Dispose) tns.bodies
     x
 
 inl atomic_add o x =
-    inl (),{ar offset} = o.dim, o.bodies
+    inl (),{ar offset} = o.dim, unconst o.bodies
     inl adr = macro.cd ar [arg: ar; text: " + "; arg: offset]
     macro.cd () [text: "atomicAdd"; args: adr, x]
 
@@ -493,7 +493,7 @@ inl s -> s.module_add .Stream (stackify {allocate})
 
 let cuda_tensor = 
     (
-    "CudaTensor",[extern_;host_tensor_view;cuda_aux],"The Cuda tensor module.",
+    "CudaTensor",[extern_;host_tensor_tree_view;cuda_aux],"The Cuda tensor module.",
     """
 open Tensor
 open Extern
@@ -563,9 +563,9 @@ met from_cudadevptr_array s ar =
     inl dst = copy s (array_length ar) {array_create=array_create_cuda_global s; ptr_get=ptr_cuda} {ar size=(); offset=0; ptr_get=ptr_dotnet}
     CUdeviceptr dst.ptr.Try
 
-inl get_elem s {src with size=()} = to_host_array s 1 src 0
+inl get_elem s !unconst {src with size=()} = to_host_array s 1 src 0
 
-met set_elem s (!dyn {dst with size=()}) (!dyn v) =
+met set_elem s (!(unconst >> dyn) {dst with size=()}) (!dyn v) =
     inl ar = array_create v 1
     ar 0 <- v
     copy s 1 {dst with ptr_get=ptr_cuda} {ar size=(); offset=0; ptr_get=ptr_dotnet}
@@ -581,12 +581,12 @@ inl methods =
 
     get=inl s tns ->
         match tns.unwrap with
-        | {bodies dim=()} -> Struct.map (get_elem s) bodies
+        | {bodies dim=()} -> Struct.map' (get_elem s) bodies
         | _ -> error_type "Cannot get from tensor whose dimensions have not been applied completely."
 
     set=inl s tns v ->
         match tns.unwrap with
-        | {bodies dim=()} -> Struct.iter2 (set_elem s) bodies v
+        | {bodies dim=()} -> Struct.iter2' (set_elem s) bodies v
         | _ -> error_type "Cannot set to a tensor whose dimensions have not been applied completely."
 
     from_scalar = inl s -> Tensor.from_scalar >> s.CudaTensor.from_host_tensor
@@ -613,7 +613,7 @@ inl methods =
             assert (eq_type dst.elem_type src.elem_type) "The two tensors must have the same type."
             assert (dst.dim = src.dim) "The two tensors must have the same dimensions."
             inl span = dst.span_outer
-            Struct.iter2 (inl dst src ->
+            Struct.iter2' (inl (!unconst dst) (!unconst src) ->
                 inl size = match dst.size with () -> 1 | x :: _ -> x
                 inl elem_type_size = sizeof dst.ar.elem_type
                 inb dst = ptr_cuda dst
@@ -770,7 +770,7 @@ inl s ret ->
 
     inl rows x = x.dim |> inl a,b -> a
     inl cols x = x.dim |> inl a,b -> b
-    inl ld x = x.bodies.size |> fst
+    inl ld x = unconst x.bodies .size |> fst
 
     use cublas' =
         inl cublas_type = fs [text: "ManagedCuda.CudaBlas.CudaBlas"]
@@ -792,8 +792,8 @@ inl s ret ->
         FS.Method cublas .set_Stream stream.extract ()
         inl args = 
             inl strip ptr = 
-                assert (Tuple.last ptr.bodies.size = 1) "The stride of the innermost dimension should always be 1."
-                (to_dev_tensor ptr).bodies.ar
+                assert (Tuple.last (unconst ptr.bodies .size) = 1) "The stride of the innermost dimension should always be 1."
+                unconst (to_dev_tensor ptr).bodies .ar
             Tuple.map (function
                 | x : float64 | x : float32 -> ref x
                 | {ptr} -> strip ptr |> CUdeviceptr
@@ -1222,8 +1222,8 @@ inl s ret ->
 
     inl rows x = x.dim |> inl _,a,b -> a
     inl cols x = x.dim |> inl _,a,b -> b
-    inl ld x = match x.bodies.size with stride,ld,_ -> ld 
-    inl stride x = match x.bodies.size with stride,ld,_ -> stride
+    inl ld x = match unconst x.bodies .size with stride,ld,_ -> ld 
+    inl stride x = match unconst x.bodies .size with stride,ld,_ -> stride
 
     met gemm_strided_batched' s transa transb alpha A B beta C =
         assert (eq_type A.elem_type float32) "A must be of type float32."
@@ -1449,7 +1449,7 @@ inl cub_block_scan {scan_type is_input_tensor return_aggregate} {d with blockDim
         ]
 
     inl call =
-        inl in, out = if is_input_tensor then in.bodies.ar, out.bodies.ar else in, out
+        inl in, out = if is_input_tensor then unconst in.bodies .ar, unconst out.bodies .ar else in, out
 
         inl exclusive_scan initial_elem =
             [
@@ -1809,8 +1809,8 @@ met iter_seq w {dim=b,a} f =
                         add_store=inl {from=(!zip from) to=(!zip to)} -> inner_loop {body=inl {item i} -> to i .set (to i .get + from item .get)}
                         store_scalar=inl {from to} -> if threadIdx.x = 0 then to .set from
                         map=inl f (!zip tns) -> create_items (inl {item} -> f (tns item .get))
-                        uter=inl redo items -> block_reduce redo items.bodies.ar |> broadcast_zero
-                        redo=inl redo items -> block_reduce redo items.bodies.ar
+                        uter=inl redo items -> block_reduce redo (unconst items.bodies .ar) |> broadcast_zero
+                        redo=inl redo items -> block_reduce redo (unconst items.bodies .ar)
                         }
 
                     inl grid = {
@@ -2208,7 +2208,7 @@ inl map_redo w d in =
         | _ -> stack out
 
 inl address_at o =
-    inl {ar offset} = o.bodies
+    inl {ar offset} = unconst o.bodies
     macro.cd uint64 [text: "(unsigned long long) ("; arg: ar; text: " + "; arg: offset; text: ")"]
 
 /// Turns the outermost dimension of the tensor(s) into tensor of pointers to the inner ones.
@@ -2288,8 +2288,8 @@ inl s ret ->
 
         inl args =
             inl strip ptr = 
-                assert (Tuple.last ptr.bodies.size = 1) "The stride of the innermost dimension should always be 1."
-                (to_dev_tensor ptr).bodies.ar
+                assert (Tuple.last (unconst ptr.bodies .size) = 1) "The stride of the innermost dimension should always be 1."
+                unconst (to_dev_tensor ptr).bodies .ar
             Tuple.map (function
                 | x : float64 | x : float32 -> ref x
                 | {ptr} -> strip ptr |> CUdeviceptr
@@ -2300,7 +2300,7 @@ inl s ret ->
                 ) (Tuple.wrap args)
         dense_call' handle method args
 
-    inl ld x = x.bodies.size |> fst
+    inl ld x = unconst x.bodies .size |> fst
 
     inl i32 = to int32
 

@@ -328,23 +328,23 @@ and method_11((var_0: int64), (var_1: (int64 [])), (var_2: int64), (var_3: int64
     let (var_6: bool) = (var_5 <= var_3)
     if var_6 then
         let (var_7: int64) = (var_5 - 1L)
-        let (var_8: bool) = (var_7 >= 0L)
-        let (var_10: bool) =
-            if var_8 then
+        let (var_8: int64) = (var_0 - 2L)
+        let (var_9: bool) = (var_7 >= 0L)
+        let (var_11: bool) =
+            if var_9 then
                 (var_7 < 1000L)
             else
                 false
-        let (var_11: bool) = (var_10 = false)
-        if var_11 then
+        let (var_12: bool) = (var_11 = false)
+        if var_12 then
             (failwith "Argument out of bounds.")
         else
             ()
-        let (var_12: int64) = (var_7 * 9L)
-        let (var_13: int64) = (var_0 - 2L)
-        let (var_14: bool) = (var_13 >= 0L)
+        let (var_13: int64) = (var_7 * 9L)
+        let (var_14: bool) = (var_8 >= 0L)
         let (var_16: bool) =
             if var_14 then
-                (var_13 < 9L)
+                (var_8 < 9L)
             else
                 false
         let (var_17: bool) = (var_16 = false)
@@ -352,7 +352,7 @@ and method_11((var_0: int64), (var_1: (int64 [])), (var_2: int64), (var_3: int64
             (failwith "Argument out of bounds.")
         else
             ()
-        let (var_18: int64) = (var_12 + var_13)
+        let (var_18: int64) = (var_13 + var_8)
         let (var_19: int64) = var_1.[int32 var_18]
         let (var_20: int64) = (var_2 + var_19)
         let (var_21: bool) = (var_20 = var_3)
