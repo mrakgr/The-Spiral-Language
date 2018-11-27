@@ -1958,21 +1958,41 @@ inl rec facade data =
         if module_has_member x data then data x
         else methods x data
     | i -> methods .apply data i
+
+inl map_dim default = function
+    | () -> default(), ()
+    | by: int64 -> by, ()
+    | {} as x ->
+        inl case_size from size =
+            inl near_to=from+size
+            assert (from < near_to) "The size must be a positive value."
+            near_to, {from near_to block=()}
+        inl rec loop from = function
+            | {from=from' near_to} -> case_size from (near_to - from')
+            | {} as x -> 
+                module_foldl (inl k (from,m) x -> 
+                    inl near_to, x = loop from x
+                    near_to, {m with $k=x}
+                    ) (from, {}) x
+            | size: int64 -> case_size from size
+            | _ -> error_type "The tree's leaves must be integer values and branches must be modules."
+        loop 0 x
+    | _ -> error_type "Expected a tree view."
         
 inl create {dsc with dim} =
     inl span, dim = Tuple.map (map_dim (inl _ -> error_type "() not allowed in View create.")) (Tuple.wrap dim) |> Tuple.unzip
     inl basic = Tensor.create {dsc with dim=span}
-    facade {basic dim}
+    facade {basic tree_dim}
 
 inl create_like dsc tns =
     inl basic = tns.basic
     inl basic = Tensor.create {dsc with dim=basic.dim; elem_type=basic.elem_type}
-    facade {basic dim=tns.dim}
+    facade {basic tree_dim=tns.tree_dim}
 
 inl wrap dim basic =
     inl span, dim = Tuple.map2 map_dim (Tuple.map const basic.dim) (Tuple.wrap dim) |> Tuple.unzip
     assert (basic.dim = span) "The view must be of the same span as the tensor it is wrapping."
-    facade {basic dim}
+    facade {basic tree_dim}
 
 inl split tns =
     inl dim = tns.dim
@@ -2016,9 +2036,9 @@ inl from_basic dim i ret =
         ()
 
 inl unzip tns =
-    inl {basic dim=dim'} = tns.unwrap
+    inl {basic tree_dim=dim'} = tns.unwrap
     inl {bodies dim} = basic.unwrap
-    Struct.map (inl bodies -> facade {basic=Tensor.facade {bodies dim}; dim=dim'}) bodies
+    Struct.map (inl bodies -> facade {basic=Tensor.facade {bodies dim}; tree_dim=dim'}) bodies
 
 inl zip l = 
     match Tensor.assert_zip l with
@@ -2086,6 +2106,33 @@ inl rec facade data =
         else methods x data
     | i -> methods .apply data i
 
+inl map_dim = 
+    function
+    | {from near_to} as x -> from, near_to - from
+    | {from to} -> from, to + 1 - from
+    | {from by} -> from, by
+    | by -> 0, by
+    >> inl _, by as x ->
+        assert (0 < by) "The size must be a positive value."
+        x
+
+inl create {dsc with dim} = 
+    inl range_dim, span = Tuple.map map_dim (Tuple.wrap dim) |> Tuple.unzip
+    inl basic = Tensor.create {dsc with dim=span}
+    facade {basic range_dim}
+
+inl create_like dsc tns =
+    inl basic = tns.basic
+    inl basic = Tensor.create {dsc with dim=basic.dim; elem_type=basic.elem_type}
+    facade {basic range_dim=tns.range_dim}
+
+inl wrap dim basic =
+    inl range_dim, span = Tuple.map map_dim (Tuple.wrap dim) |> Tuple.unzip
+    assert (basic.dim = span) "The view must be of the same span as the tensor it is wrapping."
+    facade {basic range_dim}
+
+{facade create create_like wrap}
+|> stackify
     """
     ) |> module_
 
