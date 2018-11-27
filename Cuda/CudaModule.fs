@@ -493,7 +493,7 @@ inl s -> s.module_add .Stream (stackify {allocate})
 
 let cuda_tensor = 
     (
-    "CudaTensor",[extern_;host_tensor_tree_view;cuda_aux],"The Cuda tensor module.",
+    "CudaTensor",[extern_;host_tensor_tree_view;host_tensor_range_view;cuda_aux],"The Cuda tensor module.",
     """
 open Tensor
 open Extern
@@ -1271,7 +1271,7 @@ inl s ret ->
 
 let cuda_kernel =
     (
-    "CudaKernel",[host_tensor_view;cuda_tensor],"The Cuda kernels module.",
+    "CudaKernel",[cuda_tensor],"The Cuda kernels module.",
     """
 open Tensor
 open Extern
@@ -1703,7 +1703,7 @@ inl block_reduce_template dim ar (near_to, threadIdx) redo state =
                 elem_type=state
                 dim=Liple.map length dim
                 }
-            |> View.wrap dim
+            |> ViewR.wrap dim
             |> ar
 
         block_reduce_body ar near_to threadIdx redo state
