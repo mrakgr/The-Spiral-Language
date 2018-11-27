@@ -1773,11 +1773,11 @@ inl assert_zip =
 
 /// Asserts that all dimensions of the tensors are broadcastable. Returns the dimensions of the largest combination of tensors if applicable.
 /// tensor structure -> (dim | ())
-inl assert_broadcastable_template dim = // TODO: Remove the template.
+inl assert_broadcastable =
     Struct.foldl (inl s x ->
         match s with
         | _ when val_is x -> s
-        | () -> dim x
+        | () -> x.dim
         | _ ->
             inl dim = x.dim
             assert (eq_type s dim) "The inputs must have the same number of dimensions."
@@ -1789,8 +1789,6 @@ inl assert_broadcastable_template dim = // TODO: Remove the template.
                     s
                 ) s dim
         ) ()
-
-inl assert_broadcastable = assert_broadcastable_template (inl x -> x.dim)
 
 /// Expands the singular dimensions of a tensor to a specified size depending on the argument passed to it. 
 /// It does that without allocating or moving memory by setting the size for the offset calculation to zero.
@@ -1855,14 +1853,16 @@ inl from_scalar x =
 {
 create facade init copy assert_size array_as_tensor array_to_tensor map zip show print length expand_singular
 equal split flatten assert_contiguous assert_zip assert_broadcastable assert_dim reshape unzip from_scalar
-rotate assert_unpadded assert_broadcastable_template
+rotate assert_unpadded
 } |> stackify
     """) |> module_
 
-let host_tensor_view =
+let host_tensor_tree_view =
     (
-    "View",[tuple;host_tensor],"Views for the tensor.",
+    "View",[tuple;host_tensor],"Tree views for the tensor.",
     """
+// Previously this view had range functionality, but it was removed due to it blocking equality (with broadcasting) that is
+// often used used in the ML library. That functionality has been moved to `ViewR`.
 inl view tns i =
     inl rec f i dim = 
         match dim with
@@ -1876,7 +1876,7 @@ inl view tns i =
                 {$k=x}, s
             | _ ->
                 (), i
-        | from ->
+        | _ ->
             (), i
     inl dim, i = Tuple.foldl_map f i tns.dim
     tns dim i
@@ -1892,25 +1892,31 @@ inl rec facade data =
         set = inl {basic} -> basic.set
         modify = inl {basic} -> basic.modify
         modify' = inl {basic} -> basic.modify'
+        dim = inl {basic tree_dim} ->
+            Tuple.map2 (inl tree basic ->
+                match tree with
+                | () -> basic
+                | {} -> Struct.map (inl {near_to from} -> near_to - from) tree
+                ) tree_dim basic.dim
         // Applies the tensor. `i` can be a tuple.
         apply = inl data i ->
             inl rec loop data i =
                 match i with
-                | () -> data.dim, (), ()
+                | () -> data.tree_dim, (), ()
                 | i :: i' ->
-                    match data.dim with
+                    match data.tree_dim with
                     | () -> error_type "Cannot apply the tensor anymore."
-                    | branch :: dim -> 
+                    | branch :: tree_dim -> 
                         inl apply b c =
-                            inl a', b', c' = loop {data with dim} i'
+                            inl a', b', c' = loop {data with tree_dim} i'
                             a', b :: b', c :: c'
                         inl view a b c = 
-                            inl a', b', c' = loop {data with dim} i'
+                            inl a', b', c' = loop {data with tree_dim} i'
                             a :: a', b :: b', c :: c'
 
                         // The tensor view support two kinds of views.
                         match branch with
-                        | {} -> // Tree view
+                        | {} ->
                             inl rec loop branch i =
                                 match branch with
                                 | {from near_to} -> // Tree view's leaf - the ranges start at zero.
@@ -1929,19 +1935,20 @@ inl rec facade data =
                                         assert (c = 1) "The number of branches indexed into must be 1."
                                         loop (branch k) i
                             loop branch i
-                        | from -> // Range view
+                        | () ->
                             match i with
-                            | {from=from'} ->
+                            | {from} ->
                                 match i with
-                                | {near_to=near_to'} -> view 0 () {from=from'-from; near_to=near_to'-from}
-                                | {to=to'} -> view 0 () {from=from'-from; near_to=to'+1-from} 
-                                | {by} -> view 0 () {from=from'-from; by}
-                                | _ -> view 0 () {from=from'-from}
-                            | () -> view from () ()
-                            | from' -> apply () (from'-from)
-            inl dim, apply, apply' = loop data (Tuple.wrap i)
+                                | {near_to} -> view () () {from near_to}
+                                | {to} -> view () () {from near_to=to+1} 
+                                | {by} -> view () () {from by}
+                                | _ -> view () () {from}
+                            | () -> view () () ()
+                            | from -> apply () from
+
+            inl tree_dim, apply, apply' = loop data (Tuple.wrap i)
             inl basic = data.basic apply apply'
-            facade {data with basic dim}
+            facade {data with basic tree_dim}
 
         /// Returns the tensor data.
         unwrap = id
@@ -1952,34 +1959,6 @@ inl rec facade data =
         if module_has_member x data then data x
         else methods x data
     | i -> methods .apply data i
-
-inl map_dim default = function
-    | () -> default(), 0
-    | by: int64 -> by, 0
-    | {from} as x -> 
-        inl by = 
-            match x with
-            | {near_to} -> near_to - from
-            | {to} -> to + 1 - from
-            | {by} -> by
-        assert (0 < by) "The size must be a positive value."
-        by, from
-    | {} as x -> // Tree view
-        inl case_size from size =
-            inl near_to=from+size
-            assert (from < near_to) "The size must be a positive value."
-            near_to, {from near_to block=()}
-        inl rec loop from = function
-            | {from=from' near_to} -> case_size from (near_to - from')
-            | {} as x -> 
-                module_foldl (inl k (from,m) x -> 
-                    inl near_to, x = loop from x
-                    near_to, {m with $k=x}
-                    ) (from, {}) x
-            | size: int64 -> case_size from size
-            | _ -> error_type "The tree's leaves must be integer values and branches must be modules."
-        loop 0 x
-    | _ -> error_type "Expected a range or a tree view."
         
 inl create {dsc with dim} = 
     inl span, dim = Tuple.map (map_dim (inl _ -> error_type "() not allowed in View create.")) (Tuple.wrap dim) |> Tuple.unzip
@@ -2048,18 +2027,8 @@ inl zip l =
     | () -> error_type "Empty inputs to zip are not allowed."
     | tns -> facade {(tns.unwrap) with bodies=Struct.map (inl x -> x.bodies) l}
 
-inl assert_broadcastable = // TODO: Remove this.
-    inl dim x = 
-        Tuple.map2 (inl x y ->
-            match x with
-            | {} -> dim x
-            | from -> assert (from = 0) "Range views not allowed in assert_broadcastable."; y
-            ) x.dim x.basic.dim
-
-    Tensor.assert_broadcastable_template dim
-
 {
-facade create create_like wrap split span from_basic unzip zip assert_broadcastable
+facade create create_like wrap split span from_basic unzip zip
 } |> stackify
     """
     ) |> module_
