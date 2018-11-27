@@ -2011,6 +2011,8 @@ inl split tns =
 
 inl span = Liple.map (map_dim (inl _ -> error_type "() not allowed in View span.") >> fst)
 
+/// Maps a scalar index `i` into a tree based `dim` scope. Passes the result into `ret`.
+/// tree -> int64 -> (tree -> _)
 inl from_basic dim i ret =
     inl f dim i ret =
         match dim with
@@ -2065,7 +2067,7 @@ inl rec facade data =
         set = inl {basic} -> basic.set
         modify = inl {basic} -> basic.modify
         modify' = inl {basic} -> basic.modify'
-        dim = inl {basic range_dim} -> Tuple.map2 (inl from near_to -> {from near_to}) range_dim basic.dim
+        dim = inl {basic range_dim} -> Tuple.map2 (inl from near_to -> {from near_to block=()}) range_dim basic.dim
         // Applies the tensor. `i` can be a tuple.
         apply = inl data i ->
             inl rec loop data i =
@@ -2131,7 +2133,17 @@ inl wrap dim basic =
     assert (basic.dim = span) "The view must be of the same span as the tensor it is wrapping."
     facade {basic range_dim}
 
-{facade create create_like wrap}
+inl unzip tns =
+    inl {basic range_dim=dim'} = tns.unwrap
+    inl {bodies dim} = basic.unwrap
+    Struct.map (inl bodies -> facade {basic=Tensor.facade {bodies dim}; range_dim=dim'}) bodies
+
+inl zip l = 
+    match Tensor.assert_zip l with
+    | () -> error_type "Empty inputs to zip are not allowed."
+    | tns -> facade {(tns.unwrap) with bodies=Struct.map (inl x -> x.bodies) l}
+
+{facade create create_like wrap unzip zip}
 |> stackify
     """
     ) |> module_
