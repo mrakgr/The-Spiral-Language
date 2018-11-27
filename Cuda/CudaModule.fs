@@ -1769,58 +1769,57 @@ met iter_seq w {dim=b,a} f =
         if num_valid <= 1024 then 1, num_valid
         else divup num_valid 1024, 1024
 
+    inl body {dims with blockDim gridDim} =
+        inl grid_for = grid_for dims
+        inl grid_for_items = grid_for_items dims
+        inl inner_loop = grid_for_items .x a
+        inl create_items map = 
+            inl items = Tensor.create {
+                array_create = array_create_cuda_local
+                layout=.aot
+                elem_type=type map {item=var 0; i=var 0}
+                dim=items_per_thread
+                }
+
+            inner_loop {body=inl {x with item i} -> items item .set (map x)}
+            items
+
+        inl block_reduce redo = 
+            inl d = {blockDim redo}
+            if num_valid % blockDim.x = 0 then cub_block_reduce d
+            else cub_block_reduce {d with num_valid} 
+
+        inl thread = {
+            redo = inl {redo num_valid} -> cub_block_reduce {blockDim redo num_valid}
+            inscan = inl redo -> cub_block_scan {scan_type=.inclusive; is_input_tensor=false; return_aggregate=true} {blockDim redo}
+            exscan = inl {prefix redo} -> cub_block_scan {scan_type=.exclusive,prefix; is_input_tensor=false; return_aggregate=true} {blockDim redo}
+            }
+
+        inl block = {
+            iter=inl body -> inner_loop {body}
+            init=inl f -> create_items f
+            load=inl (!zip tns) -> create_items (inl {i} -> tns i .get)
+            store=inl {from=(!zip from) to=(!zip to)} -> inner_loop {body=inl {item i} -> to i .set (from item .get)}
+            add_store=inl {from=(!zip from) to=(!zip to)} -> inner_loop {body=inl {item i} -> to i .set (to i .get + from item .get)}
+            store_scalar=inl {from to} -> if threadIdx.x = 0 then to .set from
+            map=inl f (!zip tns) -> create_items (inl {item} -> f (tns item .get))
+            uter=inl redo items -> block_reduce redo (unconst items.bodies .ar) |> broadcast_zero
+            redo=inl redo items -> block_reduce redo (unconst items.bodies .ar)
+            }
+
+        inl grid = {
+            for=grid_for
+            for_items=grid_for_items
+            }
+
+        inl seq_module = {grid block thread dim=b,a}
+        
+        grid_for .y b {body=inl {i=b} -> f b seq_module }
+
     w.run {
         blockDim
         gridDim={y=min 256 (length b)}
-        kernel = cuda
-            inl dims = {blockDim gridDim}
-            inl grid_for = grid_for dims
-            inl grid_for_items = grid_for_items dims
-            inl inner_loop = grid_for_items .x a
-            inl create_items map = 
-                inl items = Tensor.create {
-                    array_create = array_create_cuda_local
-                    layout=.aot
-                    elem_type=type map {item=var 0; i=var 0}
-                    dim=items_per_thread
-                    }
-
-                inner_loop {body=inl {x with item i} -> items item .set (map x)}
-                items
-
-            grid_for .y b {body=inl {i=b} ->
-                f b <| inl x ->
-                    inl block_reduce redo = 
-                        inl d = {blockDim redo}
-                        if num_valid % blockDim.x = 0 then cub_block_reduce d
-                        else cub_block_reduce {d with num_valid} 
-
-                    inl thread = {
-                        redo = inl {redo num_valid} -> cub_block_reduce {blockDim redo num_valid}
-                        inscan = inl redo -> cub_block_scan {scan_type=.inclusive; is_input_tensor=false; return_aggregate=true} {blockDim redo}
-                        exscan = inl {prefix redo} -> cub_block_scan {scan_type=.exclusive,prefix; is_input_tensor=false; return_aggregate=true} {blockDim redo}
-                        }
-
-                    inl block = {
-                        iter=inl body -> inner_loop {body}
-                        init=inl f -> create_items f
-                        load=inl (!zip tns) -> create_items (inl {i} -> tns i .get)
-                        store=inl {from=(!zip from) to=(!zip to)} -> inner_loop {body=inl {item i} -> to i .set (from item .get)}
-                        add_store=inl {from=(!zip from) to=(!zip to)} -> inner_loop {body=inl {item i} -> to i .set (to i .get + from item .get)}
-                        store_scalar=inl {from to} -> if threadIdx.x = 0 then to .set from
-                        map=inl f (!zip tns) -> create_items (inl {item} -> f (tns item .get))
-                        uter=inl redo items -> block_reduce redo (unconst items.bodies .ar) |> broadcast_zero
-                        redo=inl redo items -> block_reduce redo (unconst items.bodies .ar)
-                        }
-
-                    inl grid = {
-                        for=grid_for
-                        for_items=grid_for_items
-                        }
-
-                    inl dim=b,a
-                    {grid block thread dim} x
-                }
+        kernel = cuda body {blockDim gridDim}
         }
 
 // The inclusive scan over the outermost dimension.
@@ -1955,7 +1954,8 @@ inl init_seq w {d with dim} f =
                 assert (dim = out.dim) "The input and the output must have the same dimensions."
                 out
             | _ -> 
-                w.CudaTensor.create {dim elem_type=d.elem_type}
+                inl elem_type = type_catch w.CudaKernel.iter_seq d (inl b k -> type_raise f b k)
+                w.CudaTensor.create {dim elem_type}
         inl _ =
             inl out = to_dev_tensor out |> zip
             w.CudaKernel.iter_seq d <| inl b k -> k.block.store {from=f b k; to=out b}
@@ -2010,7 +2010,7 @@ inl segmented_init w d init =
         inl out = 
             match d with
             | {out} -> 
-                assert (dim = out.dim) "The input and the output must have the same dimensions." // TODO: Remove ranges from tensor views.
+                assert (dim = out.dim) "The input and the output must have the same dimensions."
                 out
             | _ -> 
                 inl elem_type = type init (index_example' dim)
