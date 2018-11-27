@@ -1919,7 +1919,7 @@ inl rec facade data =
                             inl rec loop branch i =
                                 match branch with
                                 | {from near_to} -> // Tree view's leaf - the ranges start at zero.
-                                    view 0 branch i
+                                    view () branch i
                                 | _ -> // Tree view's branch
                                     match i with
                                     | () -> // Do a partial view.
@@ -2047,8 +2047,13 @@ inl zip l =
     | () -> error_type "Empty inputs to zip are not allowed."
     | tns -> facade {(tns.unwrap) with bodies=Struct.map (inl x -> x.bodies) l}
 
+inl dim_merge x = 
+    Liple.foldr (inl x next l ->
+        Struct.map (inl x -> next (x :: l)) x
+        ) x (Tuple.rev >> Tuple.unwrap) ()
+
 {
-facade create create_like wrap split span from_basic unzip zip
+facade create create_like wrap split span from_basic unzip zip dim_merge
 } |> stackify
     """
     ) |> module_

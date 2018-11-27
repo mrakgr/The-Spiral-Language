@@ -105,15 +105,9 @@ s.CudaTensor.print b
     """
 
 let random1 =
-    "random1",[cuda;allocator;region;cuda_stream;host_tensor;cuda_tensor;cuda_random;console],"Does the create_tensor work?",
+    "random1",[cuda_modules],"Does the CudaRandom.fill work?",
     """
-inb s = Cuda
-inb s = Allocator s 1024
-inb s = CudaRandom s
-inl s = Region s |> CudaStream |> CudaTensor
-inb s = s.RegionMem.create'
-inb s = s.RegionStream.create'
-inl s = s.RegionStream.allocate
+inb s = CudaModules (1024*1024)
 
 inl sigmoid_initializer' s x = 
     inl stddev = sqrt (2.0f32 / to float32 (Tuple.foldl (inl s x -> s + x) 0 x.dim))
@@ -130,16 +124,9 @@ s.CudaTensor.print o1
     """
 
 let blas1 =
-    "blas1",[cuda;allocator;region;cuda_stream;cuda_tensor;cuda_blas;cuda_random;host_tensor;console],"Does the gemm work?",
+    "blas1",[cuda_modules],"Does the gemm work?",
     """
-inb s = Cuda
-inb s = Allocator s 1024
-inb s = CudaRandom s
-inb s = CudaBlas s
-inl s = Region s |> CudaStream |> CudaTensor
-inb s = s.RegionMem.create'
-inb s = s.RegionStream.create'
-inl s = s.RegionStream.allocate
+inb s = CudaModules (1024*1024)
 
 inl a1 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=2,3}
 inl a2 = s.CudaRandom.create {dst=.Normal; stddev=1f32; mean=0f32} {elem_type=float32; dim=3,4}
@@ -971,6 +958,6 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) kernel11
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) blas1
 |> printfn "%s"
 |> ignore
