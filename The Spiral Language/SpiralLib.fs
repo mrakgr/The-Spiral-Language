@@ -1959,7 +1959,7 @@ inl rec facade data =
         else methods x data
     | i -> methods .apply data i
         
-inl create {dsc with dim} = 
+inl create {dsc with dim} =
     inl span, dim = Tuple.map (map_dim (inl _ -> error_type "() not allowed in View create.")) (Tuple.wrap dim) |> Tuple.unzip
     inl basic = Tensor.create {dsc with dim=span}
     facade {basic dim}
