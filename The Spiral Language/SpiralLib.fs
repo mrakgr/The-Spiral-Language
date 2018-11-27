@@ -1991,7 +1991,6 @@ inl split tns =
     Tuple.foldr f dim (Tuple.rev >> tns) ()
 
 inl span = Liple.map (map_dim (inl _ -> error_type "() not allowed in View span.") >> fst)
-inl dim = Liple.map (map_dim (inl _ -> error_type "() not allowed in View dim.") >> snd)
 
 inl from_basic dim i ret =
     inl f dim i ret =
@@ -2030,6 +2029,14 @@ inl zip l =
 {
 facade create create_like wrap split span from_basic unzip zip
 } |> stackify
+    """
+    ) |> module_
+
+let host_tensor_range_view =
+    (
+    "ViewR",[tuple;host_tensor],"Range views for the tensor.",
+    """
+
     """
     ) |> module_
 
