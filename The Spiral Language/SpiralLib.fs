@@ -2045,7 +2045,7 @@ inl rec facade data =
         set = inl {basic} -> basic.set
         modify = inl {basic} -> basic.modify
         modify' = inl {basic} -> basic.modify'
-        dim = inl _ -> error_type "Using `dim` is illegal on range views to prevent it to be used in equality comparisons."
+        dim = inl {basic range_dim} -> Tuple.map2 (inl from near_to -> {from near_to}) range_dim basic.dim
         // Applies the tensor. `i` can be a tuple.
         apply = inl data i ->
             inl rec loop data i =
