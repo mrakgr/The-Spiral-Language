@@ -1,0 +1,10 @@
+module SpiralExample.Main
+let cuda_kernels = """
+#include <assert.h>
+
+extern "C" {
+    
+}
+"""
+
+3L
