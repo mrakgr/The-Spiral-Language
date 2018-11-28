@@ -1311,7 +1311,7 @@ inl float ->
             Tuple.foldr f dim finally {init apply=()}
 
         inl tensor_view {init dim} s =
-            inl tns = s.CudaTensor.create_view {dim=Struct.map' (const dim) init; elem_type=float} |> heap
+            inl tns = s.CudaTensor.create_view {dim elem_type=Struct.map' (const float) init} |> heap
             function
             | .data -> tns
             | .init -> Struct.iter2' (inl init tns -> init tns s) init (View.unzip tns)
