@@ -1310,7 +1310,7 @@ inl float ->
             
             Tuple.foldr f dim finally {init apply=()}
 
-        inl tensor_view f {init dim} s =
+        inl tensor_view {init dim} s =
             inl tns = s.CudaTensor.create_view {dim=Struct.map' (const dim) init; elem_type=float} |> heap
             function
             | .data -> tns
@@ -1341,13 +1341,13 @@ inl float ->
             | .save stream -> ()
             | .load stream -> ()
 
-        inl sing tensor_view {init dim} = tensor_view {init=tensor_view_init init; dim}
-        inl dual tensor_view {init dim} =
+        inl sing {init dim} = tensor_view {init=tensor_view_init init; dim}
+        inl dual {init dim} =
             inl primal = tensor_view_init init
             inl adjoint tns s = Init.const zero tns.basic s
             tensor_view {init={primal adjoint block=()}; dim}
             
-        inl view = Struct.map (inl x -> x tensor_view) {sing dual} number
+        inl view = {sing dual} number
 
         { Init with view stream var val }
 
