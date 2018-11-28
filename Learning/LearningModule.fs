@@ -1438,7 +1438,7 @@ inl float ->
             }
 
         apply = inl {weights={weights outer} input} ->
-            inm data = segmented_init {dim=input.span_outer,outer} {bias=const one; input=load input}
+            inm data = segmented_init {dim=fst input.dim, outer} {bias=const one; input=load input}
             matmult_stream {weights with data} >>= activation
 
         optimize = Optimizer.kfac
