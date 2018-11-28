@@ -55,8 +55,18 @@ inl stringify = function _: int32 -> "int" | _ : string -> "string"
 foo 10 |> Tuple.map stringify |> Console.writeline
     """
 
+let example3 =
+    "example3",[tuple;console],"Module description.",
+    """
+inl block = .blocke
+inl x = {block=(); q=1}
+match x with
+| {!($block=x)} -> "asd"
+| _ -> "qwe"
+    """
+
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example3
 |> printfn "%s"
 |> ignore
 
