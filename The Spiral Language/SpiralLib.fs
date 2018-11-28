@@ -2012,7 +2012,7 @@ inl split tns =
 inl span = Liple.map (map_dim (inl _ -> error_type "() not allowed in View span.") >> fst)
 
 /// Maps a scalar index `i` into a tree based `dim` scope. Passes the result into `ret`.
-/// tree -> int64 -> (tree -> _)
+/// tree -> int64 -> (tree -> a)
 inl from_basic dim i ret =
     inl f dim i ret =
         match dim with
@@ -2027,7 +2027,7 @@ inl from_basic dim i ret =
                 ) (zip_inner dim id)
                 (inl {zip from near_to} -> ret (zip (i - from)))
                 ()
-        | from -> ret (from + i)
+        | () -> ret i
     Liple.foldr2 (inl dim i next l ->
         inl _, dim = map_dim (inl _ -> error_type "() not allowed in View from_basic.") dim
         inb l' = f dim i
