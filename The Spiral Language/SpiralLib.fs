@@ -2040,6 +2040,7 @@ inl from_basic dim i ret =
 inl unzip tns =
     inl {basic tree_dim=dim'} = tns.unwrap
     inl {bodies dim} = basic.unwrap
+    print_static {bodies}
     Struct.map (inl bodies -> facade {basic=Tensor.facade {bodies dim}; tree_dim=dim'}) bodies
 
 inl zip l = 
