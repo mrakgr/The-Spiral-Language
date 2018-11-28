@@ -1292,7 +1292,7 @@ inl float ->
             }
 
         inl tensor_view_init init tns s =
-            inl dim = tns.dim
+            inl dim = tns.tree_dim
             inl tns = tns.basic
             inl f x next s =
                 match x with
@@ -1307,7 +1307,7 @@ inl float ->
             inl finally {apply init} = 
                 inl tns = Tuple.rev apply |> tns |> basic
                 init tns s
-            
+
             Tuple.foldr f dim finally {init apply=()}
 
         inl tensor_view {init dim} s =
