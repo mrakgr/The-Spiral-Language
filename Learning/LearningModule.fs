@@ -1358,6 +1358,7 @@ inl float ->
         }
 
     inl init s size dsc = 
+        print_static dsc
         Struct.foldl_map (inl sublayer_size {x with init} -> 
             inl {d with dsc size} = init sublayer_size
             inl weights = Struct.map' (inl x -> x s |> inl x -> x.init; x) dsc |> heap
