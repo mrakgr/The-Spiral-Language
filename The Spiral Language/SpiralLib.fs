@@ -1268,12 +1268,30 @@ inl foldl f s x =
         | x -> f s x
     loop s x
 
+inl foldl' f s x = 
+    inl rec loop s = function
+        | x when caseable_box_is x -> f s x
+        | () -> s
+        | x :: xs -> loop (loop s x) xs
+        | {} & x -> module_foldl (inl _ -> loop) s x
+        | x -> f s x
+    loop s x
+
 inl foldl2 f s a b = 
     inl rec loop s = function
         | x, y when caseable_box_is x || caseable_box_is y -> f s x y
         | x :: xs, y :: ys -> loop (loop s (x,y)) (xs,ys)
         | (), () -> s
         | {!block} & x, {!block} & y -> module_foldl (inl k s x -> loop s (x,y k)) s x
+        | x, y -> f s x y
+    loop s (a,b)
+
+inl foldl2' f s a b = 
+    inl rec loop s = function
+        | x, y when caseable_box_is x || caseable_box_is y -> f s x y
+        | x :: xs, y :: ys -> loop (loop s (x,y)) (xs,ys)
+        | (), () -> s
+        | {} & x, {} & y -> module_foldl (inl k s x -> loop s (x,y k)) s x
         | x, y -> f s x y
     loop s (a,b)
 
