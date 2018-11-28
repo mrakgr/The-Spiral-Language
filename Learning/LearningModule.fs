@@ -959,6 +959,7 @@ inl float ->
         }
 
     inl segmented_init {dim} init s =
+        print_static init
         inl out =
             open CudaAD
             s.CudaFun.segmented_init {dim} (inl dim -> (init dim >>= succ) .out)
