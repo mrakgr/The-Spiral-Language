@@ -2387,7 +2387,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
         let rec expressions expr s = 
             [
-            case_join_point; case_join_point_type; case_type
+            case_join_point; case_join_point_type; case_type; case_type_catch
             case_cuda; case_inbuilt_op; case_parser_macro
             case_inl_pat_list_expr; case_met_pat_list_expr; case_lit; case_if_then_else
             case_rounds; case_typecase; case_typeinl; case_var; case_module; case_named_tuple
