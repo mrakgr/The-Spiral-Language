@@ -1995,7 +1995,6 @@ inl index_example' dim =
     ) dim (Tuple.rev >> Tuple.unwrap) ()
 
 inl rec view_map map i = 
-    print_static {map i}
     match i, map with
     | {}, {} ->
         inl {c k x} = module_foldr (inl k x s -> {s with k x c=self+1}) i {c=0}

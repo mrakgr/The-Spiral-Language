@@ -961,7 +961,14 @@ inl float ->
     inl segmented_init {dim} init s =
         inl out =
             open CudaAD
-            inl init = Struct.map' (inl init dim -> (init dim >>= succ) .out) init
+            inl init = 
+                Struct.map' (inl init dim -> 
+                    (init dim >>= succ) .out
+                    |> Struct.map (function
+                        | {primal adjoint} -> {primal adjoint=adjoint 0}
+                        | x -> x
+                        )
+                    ) init
             s.CudaFun.segmented_init {dim} init
         
         {
