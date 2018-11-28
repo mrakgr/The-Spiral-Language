@@ -1975,7 +1975,7 @@ inl map_dim default = function
                     near_to, {m with $k=x}
                     ) (from, {}) x
             | size: int64 -> case_size from size
-            | _ -> error_type "The tree's leaves must be integer values and branches must be modules."
+            | x -> error_type ("The tree's leaves must be integer values and branches must be modules. Got: ", x)
         loop 0 x
     | _ -> error_type "Expected a tree view."
         
