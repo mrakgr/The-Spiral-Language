@@ -958,7 +958,7 @@ inl float ->
                     adjoints in .modify' (inl in x -> in + x) x // The adjoint is assumed to be 1 for cost functions.
         }
 
-    inl init {dim} init s =
+    inl segmented_init {dim} init s =
         inl out =
             open CudaAD
             s.CudaFun.segmented_init {dim} (inl dim -> (init dim >>= succ) .out)
@@ -978,7 +978,7 @@ inl float ->
         inl dim = View.assert_broadcastable in
         inl in = to_dev_tensor in
         open CudaAD
-        init {dim} (inl cur -> link_auto dim in cur >>= f cur) s
+        segmented_init {dim} (inl cur -> link_auto dim in cur >>= f cur) s
 
     inl map = mapi << const
 
@@ -1009,7 +1009,7 @@ inl float ->
 
     inl Primitive =
         {
-        activation error init mapi map
+        activation error segmented_init mapi map
         init_seq seq seqi
         } |> stack
 
@@ -1358,7 +1358,6 @@ inl float ->
         }
 
     inl init s size dsc = 
-        print_static {size dsc}
         Struct.foldl_map (inl sublayer_size {x with init} -> 
             inl {d with dsc size} = init sublayer_size
             inl weights = Struct.map' (inl x -> x s |> inl x -> x.init; x) dsc |> heap
@@ -1436,8 +1435,8 @@ inl float ->
             }
 
         apply = inl {weights={weights outer} input} ->
-            inm data = init {dim=input.span_outer,outer} {bias=const one; input=load input}
-            matmult_stream {weights with data} >>= ln_relu
+            inm data = segmented_init {dim=input.span_outer,outer} {bias=const one; input=load input}
+            matmult_stream {weights with data} >>= activation
 
         optimize = Optimizer.kfac
         block = ()
@@ -1481,7 +1480,7 @@ inl float ->
 
             inl apply =
                 inm out =
-                    inm data = init {dim=span,outer} {bias=const one; input=load input; state=load out}
+                    inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
                     matmult_stream {weights with data} >>= tanh
                 succ {out state={out}}
 
