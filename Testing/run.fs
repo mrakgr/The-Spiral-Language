@@ -56,12 +56,13 @@ foo 10 |> Tuple.map stringify |> Console.writeline
     """
 
 let example3 =
-    "example3",[tuple;console],"Module description.",
+    "example3",[],"Module description.",
     """
-inl block = .blocke
-inl x = {block=(); q=1}
-match x with
-| {!($block=x)} -> "asd"
+inl x = .blocke
+// Combination of not `!` and injection `$` patterns.
+// Since the module does not have the member `blocke`, the case returns "asd" at compile time.
+match {block=()} with 
+| {!($x)} -> "asd"
 | _ -> "qwe"
     """
 

@@ -2144,7 +2144,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             let pat_semicolon = semicolon' >>. pat_module_body expr
 
             let inline pat_inject pat = 
-                pipe2 (inject >>. var_name) (eq' >>. patterns_template expr) (fun a b -> PatModuleInject(a, b))
+                pipe2 (inject >>. var_name) ((eq' >>. patterns_template expr) <|>% PatE) (fun a b -> PatModuleInject(a, b))
                 <|> pat
 
             let inline pat_bind pat = 
