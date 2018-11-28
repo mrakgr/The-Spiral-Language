@@ -1432,10 +1432,11 @@ inl foldr3_map f a b c s =
 {
 map map2 map3 iter iter2 iter3 foldl foldl2 foldl3 choose choose2 choose3 
 foldl_map foldl2_map foldl3_map foldr foldr2 foldr3 foldr_map foldr2_map foldr3_map
-} |> stackify
+}
     """) |> module_
 
 let struct' =
+    (
     "Struct",[struct_template],"The Struct module.",
     """
 inl rec is_empty = function
@@ -1448,12 +1449,12 @@ inl rec is_empty = function
 inl blocked = StructTemplate .block
 inl unblocked = StructTemplate .("")
     
-module_foldl (inl k m x ->
-    inl k = string_concat "" (k, "'")
+module_foldl (inl .(k) m x ->
+    inl k = .(string_concat "" (k, "'"))
     {m with $k=x}
     ) blocked {unblocked with is_empty}
 |> stackify
-    """
+    """) |> module_
 
 let host_tensor =
     (
@@ -1748,7 +1749,7 @@ inl array_to_tensor = array_as_tensor >> copy
 /// Asserts that all the dimensions of the tensors are equal. Returns the first tensor if applicable.
 /// tensor structure -> (tensor | ())
 inl assert_zip =
-    Struct.foldl (inl s x ->
+    Struct.foldl' (inl s x ->
         match s with
         | () -> x
         | s -> assert (s.dim = x.dim) "All tensors in zip need to have the same dimensions"; s
@@ -1757,7 +1758,7 @@ inl assert_zip =
 /// Asserts that all dimensions of the tensors are broadcastable. Returns the dimensions of the largest combination of tensors if applicable.
 /// tensor structure -> (dim | ())
 inl assert_broadcastable =
-    Struct.foldl (inl s x ->
+    Struct.foldl' (inl s x ->
         match s with
         | _ when val_is x -> s
         | () -> x.dim
@@ -1793,13 +1794,13 @@ inl expand_singular dim tns =
 inl zip l = 
     match assert_zip l with
     | () -> error_type "Empty inputs to zip are not allowed."
-    | tns -> facade {(tns.unwrap) with bodies=Struct.map (inl x -> x.bodies) l}
+    | tns -> facade {(tns.unwrap) with bodies=Struct.map' (inl x -> x.bodies) l}
 
 /// Unzips all the elements of a tensor.
 /// tensor -> tensor structure
 inl unzip tns =
     inl {bodies dim} = tns.unwrap
-    Struct.map (inl bodies -> facade {bodies dim}) bodies
+    Struct.map' (inl bodies -> facade {bodies dim}) bodies
 
 /// Are all subtensors structurally equal?
 /// tensor structure -> bool
@@ -2021,14 +2022,18 @@ inl from_basic dim i ret =
         ()
 
 inl unzip tns =
-    inl {basic tree_dim=dim'} = tns.unwrap
+    inl {basic tree_dim} = tns.unwrap
     inl {bodies dim} = basic.unwrap
-    Struct.map' (inl bodies -> facade {basic=Tensor.facade {bodies dim}; tree_dim=dim'}) bodies
+    Struct.map' (inl bodies -> facade {tree_dim basic=Tensor.facade {bodies dim}}) bodies
 
 inl zip l = 
     match Tensor.assert_zip l with
     | () -> error_type "Empty inputs to zip are not allowed."
-    | tns -> facade {(tns.unwrap) with bodies=Struct.map (inl x -> x.bodies) l}
+    | tns -> 
+        inl {basic tree_dim} = tns.unwrap
+        inl {bodies dim} = basic.unwrap
+        inl bodies = Struct.map' (inl x -> x.basic.bodies) l
+        facade {tree_dim basic=Tensor.facade {bodies dim}}
 
 inl dim_merge x = 
     Liple.foldr (inl x next l ->
@@ -2122,14 +2127,18 @@ inl wrap dim basic =
     facade {basic range_dim}
 
 inl unzip tns =
-    inl {basic range_dim=dim'} = tns.unwrap
+    inl {basic range_dim} = tns.unwrap
     inl {bodies dim} = basic.unwrap
-    Struct.map (inl bodies -> facade {basic=Tensor.facade {bodies dim}; range_dim=dim'}) bodies
+    Struct.map' (inl bodies -> facade {range_dim basic=Tensor.facade {bodies dim}}) bodies
 
 inl zip l = 
     match Tensor.assert_zip l with
     | () -> error_type "Empty inputs to zip are not allowed."
-    | tns -> facade {(tns.unwrap) with bodies=Struct.map (inl x -> x.bodies) l}
+    | tns -> 
+        inl {basic range_dim} = tns.unwrap
+        inl {bodies dim} = basic.unwrap
+        inl bodies = Struct.map' (inl x -> x.basic.bodies) l
+        facade {range_dim basic=Tensor.facade {bodies dim}}
 
 {facade create create_like wrap unzip zip}
 |> stackify
