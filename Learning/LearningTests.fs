@@ -28,7 +28,6 @@ inl {test_images test_labels} = module_map (inl _ x -> x.round_split' test_minib
 
 inl {train_images train_labels test_images test_labels} = Struct.map (View.wrap ((), (), ())) {train_images train_labels test_images test_labels}
 
-
 inl input_size = 784
 inl label_size = 10
 
@@ -38,9 +37,6 @@ inl network,_ =
     inl network =
         relu 50,
         linear label_size
-    //inl network =
-    //    prong {activation=Activation.relu; size=256},
-    //    prong {activation=Activation.linear; size=label_size}
 
     init s input_size network
 
@@ -73,7 +69,7 @@ inl test {data={input label} network final} s =
     inl near_to = fst input.dim
     assert (near_to = fst label.dim) "The input and label must have the same outer dimension."
     Loops.for' {from=0; near_to state=dyn {cost=0.0;ac=0;max_ac=0}; body=inl {i next state} ->
-        inl !(Tuple.map (View.wrap ())) (input, label) = input i, label i
+        inl input, label = input i, label i
         inl state =
             inb s = s.RegionMem.create'
             inl network, input = run s input network

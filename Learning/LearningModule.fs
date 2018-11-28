@@ -965,7 +965,7 @@ inl float ->
                 Struct.map' (inl init dim -> 
                     (init dim >>= succ) .out
                     |> Struct.map (function
-                        | {primal adjoint} -> {primal adjoint=adjoint 0}
+                        | {primal adjoint} as x -> {x with adjoint=adjoint 0} // TODO: Work in progress.
                         | x -> x
                         )
                     ) init

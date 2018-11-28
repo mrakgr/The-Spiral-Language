@@ -1984,16 +1984,6 @@ inl map w d in =
         | {out} -> ()
         | _ -> stack out
 
-inl index_example' dim =
-    Liple.foldr (inl x next l ->
-        inl rec loop = function
-            | {} as x ->
-                inl {k x} = module_foldr (inl k x _ -> {k x}) x ()
-                {$k = loop x}
-            | _ -> next (dyn 0 :: l)
-        loop x
-    ) dim (Tuple.rev >> Tuple.unwrap) ()
-
 inl rec view_map map i = 
     match i, map with
     | {}, {} ->
@@ -2003,7 +1993,7 @@ inl rec view_map map i =
     | _ ->
         map i
 
-inl segmented_init w d init =
+inl segmented_init w d init = TODO: Work in progress.
     indiv join
         inl init = view_map init
         inl dim = d.dim
@@ -2013,11 +2003,16 @@ inl segmented_init w d init =
                 assert (dim = out.dim) "The input and the output must have the same dimensions."
                 out
             | _ -> 
-                inl elem_type = type init (index_example' dim)
+                inl elem_type = type init (index_example' dim) // TODO: Make a unification function. Taking the type of the first won't cut it.
                 w.CudaTensor.create_view {dim elem_type}
         inl _ =
             inl out = to_dev_tensor out
-            w.CudaKernel.segmented_iter {dim} <| inl i -> out .view i .set (init i)
+            w.CudaKernel.segmented_iter {dim} <| inl i -> 
+                inl x = out .view i
+                print_static x.unwrap.basic.unwrap
+                inl o = (init i)
+                print_static o
+                x .set o 
         match d with
         | {out} -> ()
         | _ -> stack out
