@@ -847,8 +847,8 @@ inl float ->
         | B -> ret B
 
     inl basic x = x.basic
-	inl pr = function {primal} | primal -> primal
-	inl adj = function {adjoint} -> adjoint | _ -> ()
+    inl pr = function {primal} | primal -> primal
+    inl adj = function {adjoint} -> adjoint | _ -> ()
 
     inl primal x = x.update_body' pr
     inl adjoint x = x.update_body' adj
@@ -938,7 +938,7 @@ inl float ->
                     inl {in out} = Struct.map' (inl x -> x i) ins
                     inl x = bck {in=primals in .get; out=primal out .get}
                     inl out = adjoint out .get
-				    adjoints in .modify' (inl in x -> in + out * x) x
+                    adjoints in .modify' (inl in x -> in + out * x) x
         }
 
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
@@ -1009,7 +1009,7 @@ inl float ->
 
     inl Primitive =
         {
-        matmult activation error matmultb broadcasting_activation init mapi map
+        activation error init mapi map
         init_seq seq seqi
         } |> stack
 
@@ -1390,13 +1390,13 @@ inl float ->
         }
 
     inl covariance =
-        inl {identity val var} = Initializer.sing
+        inl {identity val var view} = Initializer.sing
         inl identity dim = view {init=identity; dim}
         inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
 
     inl default_epsilon = to float (2.0 ** -3.0)
 
-    inl weight d = 
+    inl weight {d with dim=b,a} = 
         open Initializer.dual
         {
         weight = view d
@@ -1428,7 +1428,7 @@ inl float ->
             {
             dsc = 
                 {
-                weights = weight {init dim=outer,inner}
+                weights = weight {init dim=outer,size}
                 outer = val outer
                 }
             size
