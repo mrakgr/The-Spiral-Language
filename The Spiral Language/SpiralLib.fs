@@ -1710,7 +1710,7 @@ inl create {dsc with dim elem_type} =
             inl create elem_type = make_body {dsc with elem_type}
             match layout with
             | .aot -> create elem_type
-            | .toa -> Struct.map create elem_type
+            | .toa -> Struct.map' create elem_type
 
         facade {bodies dim}
     match dim with
@@ -2040,7 +2040,7 @@ inl from_basic dim i ret =
 inl unzip tns =
     inl {basic tree_dim=dim'} = tns.unwrap
     inl {bodies dim} = basic.unwrap
-    Struct.map (inl bodies -> facade {basic=Tensor.facade {bodies dim}; tree_dim=dim'}) bodies
+    Struct.map' (inl bodies -> facade {basic=Tensor.facade {bodies dim}; tree_dim=dim'}) bodies
 
 inl zip l = 
     match Tensor.assert_zip l with
