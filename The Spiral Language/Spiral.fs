@@ -137,6 +137,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let pat_pos pos x = PatPos(Spiral.Types.Position(pos,x))
 
     let type_get a = op(TypeGet,[a])
+    let type_catch a = op(TypeCatch,[a])
     let type_union l = op(TypeUnion,l)
     let type_box a b = op(TypeBox,[a;b])
 
@@ -729,6 +730,12 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             |> rect_unbox' d
 
         let type_get d a = tev_annot d a |> get_type |> TyT
+        let type_catch d a =
+            try type_get d a 
+            with
+            | :? TypeRaised as x -> TyT x.Data0
+            | _ -> reraise()
+        let type_raise d a = tev d a |> get_type |> TypeRaised |> raise
         let rec case_type d args_ty =
             let union_case = function
                 | UnionT l -> Set.toList l
@@ -1837,6 +1844,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | TypeUnion,l -> type_union d l
             | TypeBox,[a;b] -> type_box d a b
             | TypeGet,[a] -> type_get d a
+            | TypeCatch,[a] -> type_catch d a
+            | TypeRaise,[a] -> type_raise d a
             | TypeSplit,[a] -> type_split d a
 
             | TermFunctionTypeCreate,[a;b] -> term_fun_type_create d a b
@@ -1896,7 +1905,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             var_name_core >>=? function
                 | "match" | "function" | "with" | "without" | "as" | "when" | "inl" | "met" | "inm" 
                 | "inb" | "use" | "rec" | "if" | "then" | "elif" | "else" | "true" | "false" 
-                | "open" | "openb" | "join" | "join_type" | "type" as x -> fun _ -> Reply(Error,messageError <| sprintf "%s not allowed as an identifier." x)
+                | "open" | "openb" | "join" | "join_type" | "type" | "type_catch" as x -> fun _ -> Reply(Error,messageError <| sprintf "%s not allowed as an identifier." x)
                 | x -> preturn x
 
         let between_brackets l p r = between (skipChar l >>. spaces) (skipChar r >>. spaces) p
@@ -2322,6 +2331,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let case_join_point expr = keywordString "join" >>. expr |>> join_point_entry_method
         let case_join_point_type expr = keywordString "join_type" >>. expr |>> join_point_entry_type
         let case_type expr = keywordString "type" >>. expr |>> type_get
+        let case_type_catch expr = keywordString "type_catch" >>. expr |>> type_catch
         let case_cuda expr = keywordString "cuda" >>. expr |>> inl' ["blockDim";"gridDim"]
 
         let inbuilt_op_core c = operatorChar c >>. var_name

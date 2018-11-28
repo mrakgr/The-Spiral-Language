@@ -330,6 +330,9 @@ inl module_intersect f a b =
 /// (() -> a) -> a
 inl unconst x = x()
 
+/// Raises an exception at the type level. `type_catch` should be used to contain and extract the type within it.
+inl type_raise x = !TypeRaise(x)
+
 {
 type_lit_lift error_type print_static dyn (=>) cd fs log exp tanh sqrt array_create array_length array_is array
 split box stack packed_stack heap heapm indiv bool int64 int32 int16 int8 uint64 uint32 uint16 uint8 float64 float32
@@ -339,7 +342,7 @@ string_length lit_is val_is box_is failwith assert max min eq_type module_values
 (:?>) (=) module_map module_filter module_foldl module_foldr module_has_member sizeof string_format string_concat
 array_create_cuda_shared array_create_cuda_local infinityf64 infinityf32 abs blittable_is threadIdx blockIdx
 lit_min lit_max var module_add module_remove obj nan_is stackify case_foldl_map module_foldl_map module_length
-module_intersect module_iter unconst
+module_intersect module_iter unconst type_raise
 }
 |> module_map (const stack)
     """) |> module_

@@ -192,6 +192,8 @@ type Op =
     | LayoutToHeapMutable
 
     // Type 
+    | TypeCatch
+    | TypeRaise
     | TypeGet
     | TypeUnion
     | TypeSplit
@@ -399,8 +401,6 @@ type LangEnv = {
     cse_env : CSEDict
     trace : Trace
     }
-
-exception TypeError of Trace * string
 
 type Result<'a,'b> = Succ of 'a | Fail of 'b
 
@@ -667,3 +667,6 @@ type Timings = {
     peval_time: TimeSpan
     codegen_time: TimeSpan
     }
+
+exception TypeError of Trace * string
+exception TypeRaised of Ty
