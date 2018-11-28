@@ -1626,7 +1626,7 @@ inl rec facade data =
                         inl rest from = loop {data with bodies=Struct.map' (tensor_apply from) self; dim} i'
                         inl view from near_to =
                             inl size = Struct.map' (inl !unconst {size=s::_} -> s) data.bodies
-                            {(rest from) with bodies=Struct.map2 (inl size (!unconst ar) -> const {ar with size=size :: self}) size self; dim=near_to - from :: self}
+                            {(rest from) with bodies=Struct.map2' (inl size (!unconst ar) -> const {ar with size=size :: self}) size self; dim=near_to - from :: self}
 
                         match i with
                         | {from=from'} ->

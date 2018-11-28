@@ -1420,6 +1420,7 @@ inl float ->
     inl load = to_dev_tensor >> CudaAD.link
     inl loadb = to_dev_tensor >> CudaAD.link_broadcast
     inl loada dim = to_dev_tensor >> CudaAD.link_auto dim
+    inl load_const = CudaAD.dr
 
     // #Feedforward
     inl layer initializer activation size =
@@ -1438,7 +1439,7 @@ inl float ->
             }
 
         apply = inl {weights={weights outer} input} ->
-            inm data = segmented_init {dim=fst input.dim, outer} {bias=const one; input=load input}
+            inm data = segmented_init {dim=fst input.dim, outer} {bias=load_const one; input=load input}
             matmult_stream {weights with data} >>= activation
 
         optimize = Optimizer.kfac
@@ -1473,7 +1474,7 @@ inl float ->
             }
 
         apply = inl {d with weights={weights outer} input} s -> 
-            inl span = input .span_outer
+            inl span = fst input.dim
             inl out =
                 match d with
                 | {state={out}} -> out
@@ -1483,7 +1484,7 @@ inl float ->
 
             inl apply =
                 inm out =
-                    inm data = segmented_init {dim=span,outer} {bias=const one; input=load input; state=load out}
+                    inm data = segmented_init {dim=span,outer} {bias=load_const one; input=load input; state=load out}
                     matmult_stream {weights with data} >>= tanh
                 succ {out state={out}}
 
