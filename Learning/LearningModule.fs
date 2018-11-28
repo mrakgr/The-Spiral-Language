@@ -1315,7 +1315,7 @@ inl float ->
             function
             | .data -> tns
             | .init -> 
-                print_static {init tns}
+                print_static {init tns=View.unzip tns}
                 Struct.iter2' (inl init tns -> init tns s) init (View.unzip tns)
             | .save stream -> Struct.iter2' (inl f tns -> f stream tns s) d.save tns
             | .load stream -> Struct.iter2' (inl f tns -> f stream tns s) d.load tns
