@@ -961,7 +961,7 @@ inl float ->
     inl segmented_init {dim} init s =
         inl out =
             open CudaAD
-            inl init = Struct.map (inl init dim -> (init dim >>= succ) .out) init
+            inl init = Struct.map' (inl init dim -> (init dim >>= succ) .out) init
             s.CudaFun.segmented_init {dim} init
         
         {
@@ -970,7 +970,7 @@ inl float ->
             inl from = adjoints (to_dev_tensor out)
             open CudaAD
             s.CudaKernel.segmented_iter {dim} <| inl dim -> 
-                Struct.iter2 (inl cur init ->
+                Struct.iter2' (inl cur init ->
                     inl {out bck} = init dim >>= succ
                     inl {bck=bck'} = link_adjoint_view dim {from to=adjoints out}
                     bck(); bck'()
@@ -1420,7 +1420,7 @@ inl float ->
     inl load = to_dev_tensor >> CudaAD.link
     inl loadb = to_dev_tensor >> CudaAD.link_broadcast
     inl loada dim = to_dev_tensor >> CudaAD.link_auto dim
-    inl load_const = CudaAD.dr
+    inl load_const x _ = CudaAD.dr x
 
     // #Feedforward
     inl layer initializer activation size =
