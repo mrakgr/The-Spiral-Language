@@ -977,6 +977,28 @@ inl float ->
                     ) dim init
         }
 
+    inl rec unify_dual = // Note that if `s < r` then this unification won't be right, but a type error will occur in the kernel instead so it is fine.
+        Struct.map2 (inl s r ->
+            match s,r with
+            | {primal adjoint}, {primal adjoint} ->
+                assert (eq_type s r) "The two structures must be the same type."
+                s
+            | {primal adjoint}, _ ->
+                assert (eq_type primal r) "The two structures must be the same type."
+                s
+            | _, {primal adjoint} ->
+                assert (eq_type s primal) "The two structures must be the same type."
+                r
+            | _, _ ->
+                assert (eq_type s r) "The two structures must be the same type."
+                s
+            )
+
+    inl upscale_scalar elem_type x =
+        match elem_type with
+        | {primal adjoint} -> const {primal=x; block=()}
+        | _ -> const x
+
     inl concat l =
         inl dim =
             Struct.foldl_map (inl s x -> 
