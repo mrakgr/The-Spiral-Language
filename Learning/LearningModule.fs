@@ -1066,15 +1066,10 @@ inl float ->
     inl map = mapi << const
 
     inl init_seq {dim} init s =
-        inl out = 
-            s.CudaFun.init_seq {dim} <| inl b k -> 
-                init b k .out
-                |> Struct.map (function
-                    | {primal adjoint} as x -> {x with adjoint=adjoint 0}
-                    | x -> x
-                    )
+        inl out = s.CudaFun.init_seq {dim} <| inl b k -> init b k .out
+
         {
-        out
+        out=View.wrap dim out
         bck=met _ ->
             inl from = adjoints (to_dev_tensor out)
             open CudaAD
@@ -1092,7 +1087,6 @@ inl float ->
             inl Seq = Seq k
             Seq.link_auto dim in b >>= f b k
             ) s
-        |> View.wrap dim
 
     inl seq f = seqi (const f)
 
