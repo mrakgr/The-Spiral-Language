@@ -907,8 +907,8 @@ inl float ->
             inl update k data = 
                 match d with 
                 | {$k={covariance k}} -> 
-                    update_covariance learning_rate data covariance s 
-                    k := k() + out.span_outer
+                    update_covariance learning_rate (basic data) (basic covariance) s 
+                    k := k() + (basic out).span_outer
                 | _ -> ()
             update .front (primal data)
             update .back out
