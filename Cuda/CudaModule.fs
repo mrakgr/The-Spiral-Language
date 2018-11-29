@@ -1997,6 +1997,7 @@ inl segmented_init w d init =
     indiv join
         inl init = view_map init
         inl dim = d.dim
+        print_static {dim}
         inl out = 
             match d with
             | {out} -> 
