@@ -1180,7 +1180,7 @@ inl float ->
                 | {back} -> factor back; reproject_to (adjoint weight) back.precision (primal weight)
                 | {front} -> factor front; reproject_to front.precision (adjoint weight) (primal weight)
                 | _ -> s.CudaBlas.geam' .nT .nT -learning_rate (adjoint weight .basic) one (primal weight .basic) (primal weight .basic)
-                clear (adjoint weight)
+                clear (adjoint weight .basic)
             | _ -> ()
             ) weights
 

@@ -63,7 +63,7 @@ inl train {data={input label} network learning_rate final} s =
 
         if nan_is state then state else next state
         }
-    |> inl cost -> cost / to float64 input.span_outer2
+    |> inl cost -> cost / to float64 input.basic.span_outer2
 
 inl test {data={input label} network final} s =
     inl near_to = fst input.dim
@@ -77,13 +77,13 @@ inl test {data={input label} network final} s =
 
             inl cost = out |> s.CudaTensor.get |> to float64
             inl ac = Error.accuracy label input s |> s.CudaTensor.get
-            inl max_ac = (primal input).span_outer
+            inl max_ac = (primal input).basic.span_outer
             {state with cost=self+cost; ac=self+ac; max_ac=self+max_ac}
 
         if nan_is state.cost then state
         else next state
         }
-    |> inl cost -> {cost with cost = self / to float64 input.span_outer2}
+    |> inl cost -> {cost with cost = self / to float64 input.basic.span_outer2}
 
 Loops.for' {from=0; near_to=5; body=inl {i next} -> 
     inl final = Error.softmax_cross_entropy
@@ -112,10 +112,6 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
         string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
         next ()
     }
-
-Struct.iter (inl {weights={input}} ->
-    s.CudaTensor.print (primal input.data)
-    ) network
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
