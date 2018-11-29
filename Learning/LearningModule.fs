@@ -970,7 +970,7 @@ inl float ->
                 Struct.map' (inl init cur -> 
                     (init cur >>= succ) .out
                     |> Struct.map (function
-                        | {primal adjoint} as x -> {x with adjoint=adjoint 0} // TODO: Work in progress.
+                        | {primal adjoint} as x -> {x with adjoint=adjoint 0}
                         | x -> x
                         )
                     ) init
@@ -1516,7 +1516,7 @@ inl float ->
             inm data = concat {bias=one; input}
             matmult_stream {weights with data} >>= activation
 
-        optimize = Optimizer.kfac
+        //optimize = Optimizer.kfac
         block = ()
         }
 
