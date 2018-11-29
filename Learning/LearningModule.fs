@@ -45,7 +45,9 @@ inl add_adjoint x out =
     | {adjoint} -> adjoint 0 <- adjoint 0 + out ()
     | _ -> ()
 
-inl adjoint {adjoint} = adjoint
+inl adjoint = function
+    | {adjoint} -> adjoint
+    | _ -> ()
 inl adjoints = Struct.map adjoint
 inl get_adjoint {adjoint} = adjoint 0
 
