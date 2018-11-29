@@ -1088,12 +1088,13 @@ inl float ->
 
     inl seqi f in s =
         inl dim = Tensor.assert_broadcastable in
-        inl in = to_dev_tensor in
+        inl in = to_dev_tensor (Struct.map (inl x -> x.basic) in)
         open CudaAD
         init_seq {dim} (inl b k -> 
             inl Seq = Seq k
             Seq.link_auto dim in b >>= f b k
             ) s
+        |> View.wrap dim
 
     inl seq f = seqi (const f)
 
