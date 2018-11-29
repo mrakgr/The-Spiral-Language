@@ -2005,10 +2005,10 @@ inl segmented_init w d init =
             | _ -> 
                 inl elem_type = d.elem_type // TODO: Replace the explicit argument with inference.
                 w.CudaTensor.create_view {dim elem_type}
-        inl _ =
-            inl out = to_dev_tensor out
-            w.CudaKernel.segmented_iter {dim} <| inl i -> 
-                out .view i .set (init i)
+        //inl _ =
+        //    inl out = to_dev_tensor out
+        //    w.CudaKernel.segmented_iter {dim} <| inl i -> 
+        //        out .view i .set (init i)
         match d with
         | {out} -> ()
         | _ -> stack out

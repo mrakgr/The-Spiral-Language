@@ -1491,8 +1491,8 @@ inl float ->
         {
         init = inl sublayer_size -> 
             open Initializer.dual
-            inl outer = {input=sublayer_size}
-            inl init = {input=initializer}
+            inl outer = {bias=1; input=sublayer_size}
+            inl init = {bias=const zero; input=initializer}
             {
             dsc = 
                 {
@@ -1503,8 +1503,8 @@ inl float ->
             }
 
         apply = inl {weights={weights outer} input} ->
-            //inm data = concat {bias=one; input}
-            matmult_stream {weights with data=input} >>= activation
+            inm data = concat {bias=one; input}
+            matmult_stream {weights with data} >>= activation
 
         optimize = Optimizer.kfac
         block = ()
