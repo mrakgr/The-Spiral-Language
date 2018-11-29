@@ -275,12 +275,13 @@ inl {link link_broadcast link_auto} =
                     ) (View.unzip x)
             )
 
-    inl bck f =
+    inl bck f x out =
+        inl x = Struct.map View.unzip x
         Struct.iter2 (inl x out ->
             match x, out with
             | {adjoint=x}, {adjoint=out} -> f x (out 0)
             | _ -> ()
-            )
+            ) x out
 
     {
     link = inl x cur ->
