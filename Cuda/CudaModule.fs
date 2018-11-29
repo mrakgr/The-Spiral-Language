@@ -1954,7 +1954,10 @@ inl init_seq w {d with dim} f =
                 assert (dim = out.dim) "The input and the output must have the same dimensions."
                 out
             | _ -> 
-                inl elem_type = type_catch w.CudaKernel.iter_seq d (inl b k -> type_raise (f b k))
+                inl elem_type = 
+                    type_catch w.CudaKernel.iter_seq d <| inl b k -> 
+                        Struct.map' (inl x -> x.elem_type) (f b k)
+                        |> type_raise
                 w.CudaTensor.create {dim elem_type}
         inl _ =
             inl out = to_dev_tensor out |> zip

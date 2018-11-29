@@ -1876,6 +1876,7 @@ inl rec facade data =
         set = inl {basic} -> basic.set
         modify = inl {basic} -> basic.modify
         modify' = inl {basic} -> basic.modify'
+        span_outer = inl {basic tree_dim=(() :: _ | ())} -> basic.span_outer
         dim = inl {basic tree_dim} ->
             Tuple.map2 (inl tree basic ->
                 match tree with

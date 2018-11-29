@@ -260,9 +260,9 @@ inl index_broadcast cur =
     Struct.map' <| function
         | x when val_is x -> x
         | x ->
-            Struct.foldl2 (inl x dim cur ->
-                x (if dim = 1 then 0 else cur)
-                ) x x.dim cur
+            Struct.foldl2 (inl x cur ->
+                x (if x.span_outer = 1 then 0 else cur)
+                ) x cur
 
 inl {link link_broadcast link_auto} =
     inl get_primal = 
@@ -1067,14 +1067,12 @@ inl float ->
 
     inl init_seq {dim} init s =
         inl out = 
-            s.CudaFun.init_seq {dim} (inl b k -> 
+            s.CudaFun.init_seq {dim} <| inl b k -> 
                 init b k .out
                 |> Struct.map (function
                     | {primal adjoint} as x -> {x with adjoint=adjoint 0}
                     | x -> x
                     )
-                )
-
         {
         out
         bck=met _ ->
