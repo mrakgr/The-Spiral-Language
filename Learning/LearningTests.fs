@@ -35,7 +35,7 @@ inl learning_rate = 2f32 ** -9f32
 inl network,_ =
     open Feedforward
     inl network =
-        relu 128,
+        ln_relu 128,
         linear label_size
 
     init s input_size network
