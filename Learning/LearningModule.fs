@@ -1008,6 +1008,7 @@ inl float ->
             match elem_type, x with
             | {primal adjoint}, {primal adjoint} -> x
             | {primal adjoint}, _ -> {primal=x; block=()}
+            | _ -> x
             ) elem_type
         |> x.update_body'
         |> load
@@ -1015,12 +1016,15 @@ inl float ->
     inl concat l =
         inl dim =
             Struct.foldl_map (inl s x -> 
-                inl b, a = x.dim
-                match s with
-                | () -> ()
-                | _ -> assert (s = b) "The outer dimensions of l must be equal."
-                a, b
-                ) l
+                match x with
+                | _ when val_is x -> 1, s
+                | _ ->
+                    inl b, a = x.dim
+                    match s with
+                    | () -> ()
+                    | _ -> assert (s = b) "The outer dimensions of l must be equal."
+                    a, b
+                ) () l
             |> inl a, b -> b, a
         inl elem_type =
             Struct.foldl (inl s x ->
@@ -1497,7 +1501,7 @@ inl float ->
             }
 
         apply = inl {weights={weights outer} input} ->
-            inm data = segmented_init {dim=fst input.dim, outer} {bias=load_const one; input=load input}
+            inm data = concat {bias=one; input}
             matmult_stream {weights with data} >>= activation
 
         optimize = Optimizer.kfac
