@@ -1058,7 +1058,7 @@ inl float ->
         segmented_init {dim elem_type} init
 
     inl mapi f in s =
-        inl dim = View.assert_broadcastable in
+        inl dim = Tensor.assert_broadcastable in
         inl in = to_dev_tensor in
         open CudaAD
         segmented_init {dim} (inl cur -> link_auto dim in cur >>= f cur) s
@@ -1066,8 +1066,15 @@ inl float ->
     inl map = mapi << const
 
     inl init_seq {dim} init s =
-        inl out = s.CudaFun.init_seq {dim} (inl b k -> primals (init b k .out))
-        
+        inl out = 
+            s.CudaFun.init_seq {dim} (inl b k -> 
+                init b k .out
+                |> Struct.map (function
+                    | {primal adjoint} as x -> {x with adjoint=adjoint 0}
+                    | x -> x
+                    )
+                )
+
         {
         out
         bck=met _ ->
@@ -1080,7 +1087,7 @@ inl float ->
         }
 
     inl seqi f in s =
-        inl dim = View.assert_broadcastable in
+        inl dim = Tensor.assert_broadcastable in
         inl in = to_dev_tensor in
         open CudaAD
         init_seq {dim} (inl b k -> 
@@ -1153,7 +1160,7 @@ inl float ->
     inl print x s = {out=s.CudaTensor.print (primal x); bck=()}
     inl print_bck x s = {out=(); bck=inl _ -> s.CudaTensor.print (adjoint x)}
 
-    inl ln_relu = seq float <| inl k -> 
+    inl ln_relu = seq <| inl k -> 
         open CudaAD
         open Seq k .Op
         layer_norm >> relu
