@@ -999,6 +999,19 @@ inl float ->
         | {primal adjoint} -> const {primal=x; block=()}
         | _ -> const x
 
+    inl load = to_dev_tensor >> CudaAD.link
+    inl loadb = to_dev_tensor >> CudaAD.link_broadcast
+    inl loada dim = to_dev_tensor >> CudaAD.link_auto dim
+
+    inl upscale_tensor elem_type x =
+        Struct.map2 (inl elem_type x ->
+            match elem_type, x with
+            | {primal adjoint}, {primal adjoint} -> x
+            | {primal adjoint}, _ -> {primal=x; block=()}
+            ) elem_type
+        |> x.update_body'
+        |> load
+
     inl concat l =
         inl dim =
             Struct.foldl_map (inl s x -> 
@@ -1062,7 +1075,7 @@ inl float ->
 
     inl Primitive =
         {
-        activation error segmented_init mapi map
+        activation error segmented_init concat mapi map
         init_seq seq seqi
         } |> stack
 
@@ -1466,11 +1479,6 @@ inl float ->
         streams = stream, stream
         block = ()
         }
-
-    inl load = to_dev_tensor >> CudaAD.link
-    inl loadb = to_dev_tensor >> CudaAD.link_broadcast
-    inl loada dim = to_dev_tensor >> CudaAD.link_auto dim
-    inl load_const x _ = CudaAD.dr x
 
     // #Feedforward
     inl layer initializer activation size =
