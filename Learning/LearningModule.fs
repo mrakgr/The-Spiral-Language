@@ -963,17 +963,19 @@ inl float ->
     inl segmented_init {dim elem_type} init s =
         inl out =
             open CudaAD
-            inl init = Struct.map' (inl init dim -> (init dim >>= succ) .out) init
+            inl init = Struct.map' (inl init cur -> (init cur >>= succ) .out) init
             s.CudaFun.segmented_init {dim elem_type} init
         
         {
         out
         bck=met _ ->
             inl from = adjoints (to_dev_tensor out)
+            print_static out.elem_type
             open CudaAD
             s.CudaKernel.segmented_iter {dim} <| inl dim -> 
                 Struct.iter2' (inl cur init ->
-                    inl {out bck} = init dim >>= succ
+                    inl {out bck} = init cur >>= succ
+                    
                     inl {bck=bck'} = link_adjoint_view dim {from to=adjoints out}
                     bck(); bck'()
                     ) dim init
