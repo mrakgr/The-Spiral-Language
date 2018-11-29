@@ -1993,7 +1993,7 @@ inl rec view_map map i =
     | _ ->
         map i
 
-inl segmented_init w d init = TODO: Work in progress.
+inl segmented_init w d init =
     indiv join
         inl init = view_map init
         inl dim = d.dim
@@ -2003,16 +2003,12 @@ inl segmented_init w d init = TODO: Work in progress.
                 assert (dim = out.dim) "The input and the output must have the same dimensions."
                 out
             | _ -> 
-                inl elem_type = type init (index_example' dim) // TODO: Make a unification function. Taking the type of the first won't cut it.
+                inl elem_type = d.elem_type // TODO: Replace the explicit argument with inference.
                 w.CudaTensor.create_view {dim elem_type}
         inl _ =
             inl out = to_dev_tensor out
             w.CudaKernel.segmented_iter {dim} <| inl i -> 
-                inl x = out .view i
-                print_static x.unwrap.basic.unwrap
-                inl o = (init i)
-                print_static o
-                x .set o 
+                out .view i .set (init i)
         match d with
         | {out} -> ()
         | _ -> stack out
