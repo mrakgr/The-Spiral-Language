@@ -1194,13 +1194,13 @@ inl float ->
             | _ -> ()
             ) weights
 
-    inl standard learning_rate s = 
-        Struct.iter (function 
+    inl standard learning_rate s =
+        Struct.iter (function
             | {optimize weights} ->
                 inl weights = Struct.map' (inl x -> x.data) weights
                 optimize {learning_rate weights} s
-            | {weights} -> 
-                Struct.iter' (function !(inl x -> x.data) {x with primal adjoint} -> sgd learning_rate s x | _ -> ()) weights
+            | {weights} ->
+                Struct.iter (function {weight} -> sgd learning_rate s weight.data | _ -> ()) weights
             )
 
     inl Optimizer = {sgd standard kfac}
