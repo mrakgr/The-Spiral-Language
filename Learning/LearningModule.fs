@@ -260,9 +260,9 @@ inl index_broadcast cur =
     Struct.map' <| function
         | x when val_is x -> x
         | x ->
-            Struct.foldl (inl x cur ->
-                x (if x.span_outer = 1 then 0 else cur)
-                ) x cur
+            Struct.foldl2 (inl x dim cur ->
+                x (if dim = 1 then 0 else cur)
+                ) x x.dim cur
 
 inl {link link_broadcast link_auto} =
     inl get_primal = 
@@ -436,7 +436,7 @@ inl Seq k =
                 match x, out with
                 | {adjoint=x}, {adjoint=out} -> k.block.iter (f x out)
                 | _ -> ()
-                )
+                ) << Tensor.unzip
 
         inl get = Struct.map' (inl x -> x.get)
 
@@ -444,7 +444,7 @@ inl Seq k =
         link = inl x b ->
             inl x = index_std b x
             inl out = 
-                inl x = primals x
+                inl x = primals (Tensor.unzip x)
                 Struct.map (inl x -> k.block.init (inl {i=a} -> index_std a x |> get) |> dr) x
     
             {
@@ -455,7 +455,7 @@ inl Seq k =
         link_broadcast = inl x b ->
             inl x = index_broadcast b x 
             inl out = 
-                inl x = primals x
+                inl x = primals (Tensor.unzip x)
                 Struct.map (inl x -> k.block.init (inl {i=a} -> index_broadcast a x |> get) |> dr) x
     
             {
@@ -465,7 +465,7 @@ inl Seq k =
 
         link_auto = inl dim x b ->
             inl out = 
-                inl x = index_broadcast b (primals x) 
+                inl x = index_broadcast b (primals (Tensor.unzip x)) 
                 Struct.map (inl x -> k.block.init (inl {i=a} -> index_broadcast a x |> get) |> dr) x 
             
             {
