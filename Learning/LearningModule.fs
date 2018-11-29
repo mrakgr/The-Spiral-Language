@@ -977,6 +977,34 @@ inl float ->
                     ) dim init
         }
 
+    inl concat l =
+        inl dim =
+            Struct.foldl_map (inl s x -> 
+                inl b, a = x.dim
+                match s with
+                | () -> ()
+                | _ -> assert (s = b) "The outer dimensions of l must be equal."
+                a, b
+                ) l
+            |> inl a, b -> b, a
+        inl elem_type =
+            Struct.foldl (inl s x ->
+                inl r =
+                    match x with
+                    | x when val_is x -> type x
+                    | x -> x.elem_type
+                match s with
+                | () -> r
+                | _ -> unify_dual s r
+                ) () l
+        inl init =
+            Struct.map (inl x ->
+                match x with
+                | x when val_is x -> upscale_scalar elem_type x
+                | x -> upscale_tensor elem_type x
+                ) l
+        segmented_init {dim elem_type} init
+
     inl mapi f in s =
         inl dim = View.assert_broadcastable in
         inl in = to_dev_tensor in
