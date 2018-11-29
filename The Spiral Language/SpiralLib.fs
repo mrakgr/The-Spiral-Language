@@ -1452,8 +1452,8 @@ inl unblocked = StructTemplate .("")
 module_foldl (inl .(k) m x ->
     inl k = .(string_concat "" (k, "'"))
     {m with $k=x}
-    ) blocked {unblocked with is_empty}
-|> stackify
+    ) blocked unblocked
+|> inl x -> stackify {x with is_empty}
     """) |> module_
 
 let host_tensor =
