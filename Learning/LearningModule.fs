@@ -958,18 +958,11 @@ inl float ->
                     adjoints in .modify' (inl in x -> in + x) x // The adjoint is assumed to be 1 for cost functions.
         }
 
-    inl segmented_init {dim} init s =
+    inl segmented_init {dim elem_type} init s =
         inl out =
             open CudaAD
-            inl init = 
-                Struct.map' (inl init dim -> 
-                    (init dim >>= succ) .out
-                    |> Struct.map (function
-                        | {primal adjoint} as x -> {x with adjoint=adjoint 0} // TODO: Work in progress.
-                        | x -> x
-                        )
-                    ) init
-            s.CudaFun.segmented_init {dim} init
+            inl init = Struct.map' (inl init dim -> (init dim >>= succ) .out) init
+            s.CudaFun.segmented_init {dim elem_type} init
         
         {
         out
