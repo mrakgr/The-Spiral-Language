@@ -267,9 +267,12 @@ inl index_broadcast cur =
 inl {link link_broadcast link_auto} =
     inl get_primal = 
         Struct.map (function
-            | {primal adjoint} -> primal .get |> dr
             | x when val_is x -> x
-            | x -> x .get
+            | x -> 
+                Struct.map (function
+                    | {primal adjoint} -> primal .get |> dr
+                    | x -> x.get
+                    ) (View.unzip x)
             )
 
     inl bck f =
