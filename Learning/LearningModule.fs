@@ -844,7 +844,7 @@ inl float ->
     inl on_non_nil ret B =
         match B.elem_type with
         | () -> ()
-        | B -> ret B
+        | _ -> ret B
 
     inl basic x = x.basic
     inl pr = function {primal} | primal -> primal
@@ -1274,10 +1274,10 @@ inl float ->
         inl cost = 
             inl cost = s.CudaTensor.create {elem_type=float; dim=input .dim |> fst}
             inl _ =
-                inl !primal input, !primal label, cost as ins = to_dev_tensor (input, label, cost)
+                inl (!primal input), (!primal label), cost = to_dev_tensor (input, label, cost)
                 s.CudaKernel.iter_seq {dim=input.dim}
                     (inl b k ->
-                        inl input,label,to = Tuple.map (inl x -> x b) ins
+                        inl input,label,to = Tuple.map (inl x -> x b) (input, label, cost)
                         inl prob = softmax_body temp k input
                         inl label = k.block.load label
                         inl costs = k.block.map (inl {prob label} -> -label * log prob) {prob label}
