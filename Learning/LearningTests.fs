@@ -88,8 +88,8 @@ inl test {data={input label} network final} s =
 Loops.for' {from=0; near_to=5; body=inl {i next} -> 
     inl final = Error.softmax_cross_entropy
     inl cost =
-        //Timer.time_it (string_format "iteration {0}" i)
-        //<| inl _ ->
+        Timer.time_it (string_format "iteration {0}" i)
+        <| inl _ ->
             train {
                 data={input=train_images; label=train_labels}
                 network

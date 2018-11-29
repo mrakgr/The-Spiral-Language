@@ -1177,10 +1177,10 @@ inl float ->
         Struct.iter (function
             | {d with weight} ->
                 inl reproject a b ret =
-                    inb x = s.CudaBlas.gemm .nT .nT one a.basic b.basic |> CudaAux.temporary // TODO: Replace the gemm with a symm here.
+                    inb x = s.CudaBlas.symm .Left .Lower one a.basic b.basic |> CudaAux.temporary
                     ret x
 
-                inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -learning_rate a.basic b.basic one c.basic // TODO: Replace the gemm with a symm here.
+                inl reproject_to a b c = s.CudaBlas.symm' .Right .Lower -learning_rate b.basic a.basic one c.basic
                 inl clear = s.CudaTensor.clear
 
                 match d with
