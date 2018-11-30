@@ -893,7 +893,7 @@ inl float ->
             inl (A,TA),(B,TB) = f data, f weight
             s.CudaBlas.gemm' TA TB one (primal A .basic) (primal B .basic) zero (primal out .basic)
 
-        inl bck {w with learning_rate} {d with out data weight streams=l,r} =
+        inl bck w {d with out data weight streams=l,r} =
             inl f' = function {T} -> T, .nT | nT -> nT, .T
             inl (A,TA),(B,TB) = f' data, f' weight
             inl out = adjoint out
@@ -914,7 +914,7 @@ inl float ->
             inl update k data = 
                 match d with 
                 | {$k={covariance k}} -> 
-                    update_covariance learning_rate (basic data) (basic covariance) s 
+                    update_covariance (basic data) (basic covariance) s 
                     k := k() + (basic out).span_outer
                 | _ -> ()
             update .front (primal data)
@@ -1163,11 +1163,13 @@ inl float ->
     inl Activation = { linear sigmoid tanh relu add hadmult hadmultb ln_relu} |> stack
 
     // #Optimizer
-    inl sgd learning_rate s x =
+    inl sgd s x =
+        inl learning_rate = s.data.learning_rate.weight
         inl out = x.basic
         s.CudaFun.map {out map=inl {primal adjoint} -> {primal=primal - learning_rate * adjoint; adjoint=zero}} out
 
-    inl kfac {learning_rate weights} s =
+    inl kfac {weights} s =
+        inl learning_rate = s.data.learning_rate.weight
         inl k_max = 128
 
         inl factor {d with k epsilon covariance precision sampling} =
@@ -1197,13 +1199,13 @@ inl float ->
             | _ -> ()
             ) weights
 
-    inl standard learning_rate s =
+    inl standard s =
         Struct.iter (function
             | {optimize weights} ->
                 inl weights = Struct.map' (inl x -> x.data) weights
-                optimize {learning_rate weights} s
+                optimize {weights} s
             | {weights} ->
-                Struct.iter (function {weight} -> sgd learning_rate s weight.data | _ -> ()) weights
+                Struct.iter (function {weight} -> sgd s weight.data | _ -> ()) weights
             )
 
     inl Optimizer = {sgd standard kfac}
@@ -1501,22 +1503,28 @@ inl float ->
         }
 
     inl weight_sample {d with stddev weight front back} s =
-        inl random = s.CudaRandom.create {stddev dst=.Normal; mean=0f32} {elem_type=float; dim=weight.basic.dim}
-        inl dim = weight.dim
-        inl (*) a b = 
-            inl f = function
-                | {T=T} -> .T, T
-                | nT -> .nT, nT
-            inl ta, a = f a
-            inl tb, b = f b
-            s.CudaBlas.gemm ta tb one a.basic b.basic |> View.wrap dim
-        inl (+) a b = s.CudaBlas.geam .nT .nT one a.basic one b.basic |> View.wrap dim
+        match s.data with
+        | {learning_rate} ->
+            inl random = s.CudaRandom.create {stddev dst=.Normal; mean=0f32} {elem_type=float; dim=weight.basic.dim}
+            inl dim = weight.dim
+            inl (*) a b = 
+                inl f = function
+                    | {T=T} -> .T, T
+                    | nT -> .nT, nT
+                inl ta, a = f a
+                inl tb, b = f b
+                s.CudaBlas.gemm ta tb one a.basic b.basic |> View.wrap dim
+            inl (+) a b = s.CudaBlas.geam .nT .nT one a.basic one b.basic |> View.wrap dim
         
-        inl x = {T=front.sampling} * random * back.sampling
-        {
-        out = { d with weight = View.zip {(View.unzip weight) with primal = self + x} }
-        bck = const ()
-        }
+            {
+            out = { d with weight = View.zip {(View.unzip weight) with primal = self + {T=front.sampling} * random * back.sampling} }
+            bck = const ()
+            }
+        | _ ->
+            {
+            out = d
+            bck = const ()
+            }
 
     // #Feedforward
     inl layer activation size =
