@@ -1487,6 +1487,7 @@ inl float ->
         streams = stream, stream
         front = covariance default_epsilon b
         back = covariance default_epsilon a
+        stddev = one / to float (View.span a)
         block = ()
         }
 
@@ -1540,12 +1541,12 @@ inl float ->
 
     inl Feedforward =
         inl I = Initializer.dual
-        inl sigmoid = layer I.sigmoid sigmoid
-        inl relu = layer I.relu relu
-        inl tanh = layer I.tanh tanh
-        inl linear = layer I.sigmoid succ
+        inl sigmoid = layer (I.const zero) sigmoid
+        inl relu = layer (I.const zero) relu
+        inl tanh = layer (I.const zero) tanh
+        inl linear = layer (I.const zero) succ
         inl zero = layer (I.const zero) succ
-        inl ln_relu = layer I.relu ln_relu
+        inl ln_relu = layer (I.const zero) ln_relu
         {sigmoid relu tanh linear zero ln_relu} |> stackify
    
     // #Recurrent
