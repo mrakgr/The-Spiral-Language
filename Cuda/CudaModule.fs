@@ -910,12 +910,10 @@ inl s ret ->
             stack B
 
     /// The triangular matrix inverse
-    inl trinv s uplo A =
-        indiv join
-            inl float = A.elem_type
-            inl B = s.CudaFun.init {dim=A.dim} (inl a, b -> if a = b then to float 1 else to float 0)
-            trsm' s .Left uplo .nT .NonUnit (to float 1) A B
-            stack B
+    met trinv' s uplo {factor inv_factor} = // The inv_factor gets overwritten.
+        inl float = factor.elem_type
+        s.CudaFun.map {out=inv_factor; mapi=inl (a, b) _ -> if a = b then to float 1 else to float 0} inv_factor
+        trsm' s .Left uplo .nT .NonUnit (to float 1) factor inv_factor
 
     /// Symmetric matrix vector product.
     met symv' s uplo alpha A x beta y =
@@ -2365,35 +2363,22 @@ inl s ret ->
 
             stack A
 
-    inl cholesky_body C_sqrt = 
-        inb C_sqrt_inv = s.CudaBlas.trinv .Lower C_sqrt |> CudaAux.temporary
-        s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 C_sqrt_inv C_sqrt_inv C_sqrt
+    inl cholesky_body {factor inv_factor} = 
+        s.CudaBlas.trinv' .Lower {factor inv_factor}
+        s.CudaBlas.trmm' .Left .Lower .T .NonUnit 1f32 inv_factor inv_factor factor // `factor` becomes inverse covariance
 
     inl dampen epsilon b,a from =
         inl one, zero = to epsilon 1, to epsilon 0
         inl i = if b = a then one else zero
         epsilon * i + (one - epsilon) * from
 
-    inl regularized_cholesky_inverse s {epsilon from to} = 
-        symm_map s (dampen epsilon) .Lower {from to}
-        handle_error s { 
-            info = potrf' s .Lower to
+    inl regularized_cholesky_inverse s {epsilon covariance precision sampling} = 
+        symm_map s (dampen epsilon) .Lower {from=covariance; to=precision}
+        handle_error s {
+            info = potrf' s .Lower precision // Overwrites precision with covariance's factor
             pos = "The leading minor of order %d is not positive definite."
             }
-        cholesky_body to
-
-    inl cholesky_inverse s = function
-        | {from to} ->
-            symm_copy s .Lower {from to}
-            handle_error s { 
-                info = potrf' s .Lower to
-                pos = "The leading minor of order %d is not positive definite."
-                }
-            cholesky_body to
-        | {from} | from -> 
-            inl C_sqrt = potrf s .Lower from
-            cholesky_body C_sqrt
-            C_sqrt
+        cholesky_body {factor=precision; inv_factor=sampling}
 
     /// The LU decomposition.
     inl getrf' s A =
