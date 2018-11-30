@@ -864,9 +864,9 @@ inl float ->
 
     /// Updates the covariance such that cov(t+1) = alpha * cov(t) + beta / k * x^T * x
     met update_covariance x cov s =
-        inl learning_rate = s.data.learning_rate.covariance
+        inl rate = s.data.rate.covariance
         inl k = x.span_outer
-        inl alpha = Math.pow (one - learning_rate) k
+        inl alpha = Math.pow (one - rate) k
         inl beta = one - alpha
         s.CudaBlas.syrk' .Lower .T (beta / to float k) x.basic alpha cov.basic // symmetric rank-k update. (beta / to float k) * x * x^T + alpha * cov
 
@@ -1164,12 +1164,12 @@ inl float ->
 
     // #Optimizer
     inl sgd s x =
-        inl learning_rate = s.data.learning_rate.weight
+        inl rate = s.data.rate.weight
         inl out = x.basic
-        s.CudaFun.map {out map=inl {primal adjoint} -> {primal=primal - learning_rate * adjoint; adjoint=zero}} out
+        s.CudaFun.map {out map=inl {primal adjoint} -> {primal=primal - rate * adjoint; adjoint=zero}} out
 
     inl kfac {weights} s =
-        inl learning_rate = s.data.learning_rate.weight
+        inl rate = s.data.rate.weight
         inl k_max = 128
 
         inl factor {d with k epsilon covariance precision sampling} =
@@ -1184,7 +1184,7 @@ inl float ->
                     inb x = s.CudaBlas.gemm .nT .nT one a.basic b.basic |> CudaAux.temporary
                     ret x
 
-                inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -learning_rate a.basic b.basic one c.basic 
+                inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -rate a.basic b.basic one c.basic 
                 inl clear = s.CudaTensor.clear
 
                 match d with
@@ -1194,7 +1194,7 @@ inl float ->
                     reproject_to x back.precision (primal weight)
                 | {back} -> factor back; reproject_to (adjoint weight) back.precision (primal weight)
                 | {front} -> factor front; reproject_to front.precision (adjoint weight) (primal weight)
-                | _ -> s.CudaBlas.geam' .nT .nT -learning_rate (adjoint weight .basic) one (primal weight .basic) (primal weight .basic)
+                | _ -> s.CudaBlas.geam' .nT .nT -rate (adjoint weight .basic) one (primal weight .basic) (primal weight .basic)
                 clear (adjoint weight .basic)
             | _ -> ()
             ) weights
@@ -1490,7 +1490,7 @@ inl float ->
         streams = stream, stream
         front = covariance default_epsilon b
         back = covariance default_epsilon a
-        stddev = val (one / (to float (View.span b)))
+        stddev = val (one / sqrt (to float (View.span b)))
         block = ()
         }
 
@@ -1504,8 +1504,8 @@ inl float ->
 
     inl weight_sample {d with stddev weight front back} s =
         match s.data with
-        | {learning_rate} ->
-            inl stddev = learning_rate.noise * stddev
+        | {rate} ->
+            inl stddev = rate.noise * stddev
             inl random = s.CudaRandom.create {stddev dst=.Normal; mean=0f32} {elem_type=float; dim=weight.basic.dim}
             inl dim = weight.dim
             inl (*) a b = 
