@@ -1490,7 +1490,7 @@ inl float ->
         streams = stream, stream
         front = covariance default_epsilon b
         back = covariance default_epsilon a
-        stddev = val (to float 0.03) //val (one / (to float (View.span a)))
+        stddev = val (one / (to float (View.span b)))
         block = ()
         }
 
@@ -1505,6 +1505,7 @@ inl float ->
     inl weight_sample {d with stddev weight front back} s =
         match s.data with
         | {learning_rate} ->
+            inl stddev = learning_rate.noise * stddev
             inl random = s.CudaRandom.create {stddev dst=.Normal; mean=0f32} {elem_type=float; dim=weight.basic.dim}
             inl dim = weight.dim
             inl (*) a b = 
