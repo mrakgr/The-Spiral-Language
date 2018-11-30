@@ -1500,22 +1500,13 @@ inl float ->
         }
 
     inl weight_sample {d with stddev weight front back} s =
-        inl dim = weight.basic.dim
-        inl weight = View.unzip weight
-        inl random = s.CudaRandom.create {stddev dst=.Normal; mean=0f32} {elem_type=float; dim}
+        inl random = s.CudaRandom.create {stddev dst=.Normal; mean=0f32} {elem_type=float; dim=weight.basic.dim}
+        inl dim = weight.dim
         inl (*) a b = s.CudaBlas.gemm .nT .nT one a.basic b.basic |> View.wrap dim
         inl (+) a b = s.CudaBlas.geam .nT .nT one a.basic one b.basic |> View.wrap dim
-
+        
         {
-        out = {
-            d with 
-            weight = 
-                View.zip {
-                    primal = weight.primal + (front.sampling * random * back.sampling)
-                    adjoint = weight.adjoint
-                    block=()
-                    }
-            }
+        out = { d with weight = View.zip {(View.unzip weight) with primal = self + (front.sampling * random * back.sampling)} }
         bck = const ()
         }
 
