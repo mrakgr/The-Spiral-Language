@@ -1487,7 +1487,7 @@ inl float ->
         streams = stream, stream
         front = covariance default_epsilon b
         back = covariance default_epsilon a
-        stddev = val (one / to float (View.span a))
+        stddev = val (to float 0.01) //val (one / (to float (View.span a)))
         block = ()
         }
 
@@ -1502,11 +1502,17 @@ inl float ->
     inl weight_sample {d with stddev weight front back} s =
         inl random = s.CudaRandom.create {stddev dst=.Normal; mean=0f32} {elem_type=float; dim=weight.basic.dim}
         inl dim = weight.dim
-        inl (*) a b = s.CudaBlas.gemm .nT .nT one a.basic b.basic |> View.wrap dim
+        inl (*) a b = 
+            inl f = function
+                | {T=T} -> .T, T
+                | nT -> .nT, nT
+            inl ta, a = f a
+            inl tb, b = f b
+            s.CudaBlas.gemm ta tb one a.basic b.basic |> View.wrap dim
         inl (+) a b = s.CudaBlas.geam .nT .nT one a.basic one b.basic |> View.wrap dim
         
         {
-        out = { d with weight = View.zip {(View.unzip weight) with primal = self + (front.sampling * random * back.sampling)} }
+        out = { d with weight = View.zip {(View.unzip weight) with primal = self + (front.sampling * random * {T=back.sampling})} }
         bck = const ()
         }
 
@@ -1516,7 +1522,7 @@ inl float ->
         init = inl sublayer_size -> 
             open Initializer.dual
             inl outer = {bias=1; input=sublayer_size}
-            inl init = {bias=const zero; input=const zero}
+            inl init = {bias=const zero; input=relu}
             {
             dsc = 
                 {
