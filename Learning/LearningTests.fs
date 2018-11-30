@@ -40,7 +40,7 @@ inl network,_ =
 
     init s input_size network
 
-inl train {data={input label} network learning_rate final} s =
+inl train {data={input label} network final} s =
     inl near_to = fst input.dim
     assert (near_to = fst label.dim) "The input and label must have the same outer dimension."
     Loops.for' {from=0; near_to state=dyn 0.0; body=inl {i next state} ->
@@ -50,13 +50,8 @@ inl train {data={input label} network learning_rate final} s =
             inl network, input = run s input network
             inl {out bck} = final label input s
 
-            inl _ =
-                inl learning_rate = learning_rate ** 0.85f32
-                inl apply bck = bck {learning_rate} |> ignore
-                apply bck
-                Struct.foldr (inl {bck} _ -> Struct.foldr (inl bck _ -> apply bck) bck ()) network ()
-
-            Optimizer.standard learning_rate s network
+            Struct.foldr (inl {bck} _ -> Struct.foldr (inl bck _ -> bck() |> ignore) bck ()) network ()
+            Optimizer.standard s network
 
             inl cost = s.CudaTensor.get out |> to float64
             state + cost
@@ -88,12 +83,12 @@ inl test {data={input label} network final} s =
 Loops.for' {from=0; near_to=5; body=inl {i next} -> 
     inl final = Error.softmax_cross_entropy
     inl cost =
+        inl s = s.data_add {learning_rate}
         Timer.time_it (string_format "iteration {0}" i)
         <| inl _ ->
             train {
                 data={input=train_images; label=train_labels}
                 network
-                learning_rate
                 final
                 } s
 

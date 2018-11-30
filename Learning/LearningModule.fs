@@ -863,7 +863,8 @@ inl float ->
     inl adjoints x = x.update_body' (Struct.map adj)
 
     /// Updates the covariance such that cov(t+1) = alpha * cov(t) + beta / k * x^T * x
-    met update_covariance learning_rate x cov s =
+    met update_covariance x cov s =
+        inl learning_rate = s.data.learning_rate.covariance
         inl k = x.span_outer
         inl alpha = Math.pow (one - learning_rate) k
         inl beta = one - alpha
