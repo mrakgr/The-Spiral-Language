@@ -1487,7 +1487,7 @@ inl float ->
         streams = stream, stream
         front = covariance default_epsilon b
         back = covariance default_epsilon a
-        stddev = one / to float (View.span a)
+        stddev = val (one / to float (View.span a))
         block = ()
         }
 
@@ -1499,28 +1499,33 @@ inl float ->
         block = ()
         }
 
-    inl weight_sample {d with stddev weight front back} =
+    inl weight_sample {d with stddev weight front back} s =
         inl dim = weight.basic.dim
         inl weight = View.unzip weight
         inl random = s.CudaRandom.create {stddev dst=.Normal; mean=0f32} {elem_type=float; dim}
         inl (*) a b = s.CudaBlas.gemm .nT .nT one a.basic b.basic |> View.wrap dim
-        inl (+) a b = s.CudaBlas.geam .nT .nT one a.basic b.basic |> View.wrap dim
+        inl (+) a b = s.CudaBlas.geam .nT .nT one a.basic one b.basic |> View.wrap dim
 
         {
-        d with weight = {
-            primal = weight.primal + (front.sampling * random * back.sampling)
-            adjoint = weight.adjoint
-            block=()
+        out = {
+            d with 
+            weight = 
+                View.zip {
+                    primal = weight.primal + (front.sampling * random * back.sampling)
+                    adjoint = weight.adjoint
+                    block=()
+                    }
             }
+        bck = const ()
         }
 
     // #Feedforward
-    inl layer initializer activation size =
+    inl layer activation size =
         {
         init = inl sublayer_size -> 
             open Initializer.dual
             inl outer = {bias=1; input=sublayer_size}
-            inl init = {bias=const zero; input=initializer}
+            inl init = {bias=const zero; input=const zero}
             {
             dsc = 
                 {
@@ -1532,7 +1537,7 @@ inl float ->
 
         apply = inl {weights={weights outer} input} ->
             inm data = concat {bias=one; input}
-            inl weights = weight_sample weights
+            inm weights = weight_sample weights
             matmult_stream {weights with data} >>= activation
 
         optimize = Optimizer.kfac
@@ -1540,13 +1545,12 @@ inl float ->
         }
 
     inl Feedforward =
-        inl I = Initializer.dual
-        inl sigmoid = layer (I.const zero) sigmoid
-        inl relu = layer (I.const zero) relu
-        inl tanh = layer (I.const zero) tanh
-        inl linear = layer (I.const zero) succ
-        inl zero = layer (I.const zero) succ
-        inl ln_relu = layer (I.const zero) ln_relu
+        inl sigmoid = layer sigmoid
+        inl relu = layer relu
+        inl tanh = layer tanh
+        inl linear = layer succ
+        inl zero = layer succ
+        inl ln_relu = layer ln_relu
         {sigmoid relu tanh linear zero ln_relu} |> stackify
    
     // #Recurrent
