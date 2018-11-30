@@ -324,13 +324,17 @@ inl x =
     else
         x
 
-inl C = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
-s.CudaTensor.print C
+inl covariance = s.CudaBlas.gemm .T .nT (one / to float32 k) x x
+s.CudaTensor.print covariance
 Console.writeline "-----"
 
-inl C_inv = s.CudaSolve.cholesky_inverse C
-s.CudaTensor.print C_inv
-s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_inv)
+inl precision = s.CudaTensor.create_like covariance
+inl sampling = s.CudaTensor.create_like covariance
+inl epsilon = 0f32
+
+s.CudaSolve.regularized_cholesky_inverse {covariance epsilon precision sampling}
+s.CudaTensor.print precision
+s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one covariance precision)
     """
 
 let cusolver2 =
@@ -958,7 +962,7 @@ let tests =
 
 //rewrite_test_cache tests cfg None
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) blas1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) inverse1
 |> printfn "%s"
 |> ignore
 
