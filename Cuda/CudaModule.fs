@@ -1259,7 +1259,7 @@ inl s ret ->
 
     inl modules =
         {
-        trmm' trmm trsm' trsm trinv symm' symm geam' geam transpose gemm' gemm matinv_batched matinv_batched_asserted 
+        trmm' trmm trsm' trsm trinv' symm' symm geam' geam transpose gemm' gemm matinv_batched matinv_batched_asserted 
         gemm_strided_batched' gemm_strided_batched syrk' syrk gemv' gemv symv' symv syr' syr trmv' trmv
         gemm_dev_ptr'
         }
@@ -2455,7 +2455,7 @@ inl s ret ->
             to
     
     {
-    potrf' potrf getrf' getrf getrs' getrs regularized_cholesky_inverse cholesky_inverse regularized_lu_inverse lu_inverse
+    potrf' potrf getrf' getrf getrs' getrs regularized_cholesky_inverse regularized_lu_inverse lu_inverse
     }
     |> s.module_add .CudaSolve
     |> ret

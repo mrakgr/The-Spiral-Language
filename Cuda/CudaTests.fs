@@ -333,6 +333,7 @@ inl sampling = s.CudaTensor.create_like covariance
 inl epsilon = 0f32
 
 s.CudaSolve.regularized_cholesky_inverse {covariance epsilon precision sampling}
+s.CudaTensor.print sampling
 s.CudaTensor.print precision
 s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one covariance precision)
     """
