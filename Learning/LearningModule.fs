@@ -1498,6 +1498,21 @@ inl float ->
         block = ()
         }
 
+    inl weight_sample {d with stddev weight front back} =
+        inl dim = weight.basic.dim
+        inl weight = View.unzip weight
+        inl random = s.CudaRandom.create {stddev dst=.Normal; mean=0f32} {elem_type=float; dim}
+        inl (*) a b = s.CudaBlas.gemm .nT .nT one a.basic b.basic |> View.wrap dim
+        inl (+) a b = s.CudaBlas.geam .nT .nT one a.basic b.basic |> View.wrap dim
+
+        {
+        d with weight = {
+            primal = weight.primal + (front.sampling * random * back.sampling)
+            adjoint = weight.adjoint
+            block=()
+            }
+        }
+
     // #Feedforward
     inl layer initializer activation size =
         {
