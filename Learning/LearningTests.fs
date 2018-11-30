@@ -31,11 +31,11 @@ inl {train_images train_labels test_images test_labels} = Struct.map (View.wrap 
 inl input_size = 784
 inl label_size = 10
 
-inl learning_rate = 2f32 ** -9f32
+inl learning_rate = 2f32 ** -8f32
 inl network,_ =
     open Feedforward
     inl network =
-        tanh 128,
+        ln_relu 128,
         linear label_size
 
     init s input_size network
