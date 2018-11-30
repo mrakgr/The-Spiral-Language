@@ -1490,7 +1490,7 @@ inl float ->
         streams = stream, stream
         front = covariance default_epsilon b
         back = covariance default_epsilon a
-        stddev = val (one / sqrt (to float (View.span b)))
+        stddev = val (one / (to float (View.span b)))
         block = ()
         }
 

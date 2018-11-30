@@ -84,7 +84,7 @@ inl test {data={input label} network final} s =
     |> inl cost -> {cost with cost = self / to float64 input.basic.span_outer2}
 
 inl learning_rate = epsilon -8
-inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32; noise=epsilon -3}}
+inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32; noise=epsilon 1}}
 Console.writeline pars
 Loops.for' {from=0; near_to=15; body=inl {i next} -> 
     inl final = Error.softmax_cross_entropy
