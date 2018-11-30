@@ -1169,10 +1169,11 @@ inl float ->
     inl kfac {learning_rate weights} s =
         inl k_max = 128
 
-        inl factor {d with k epsilon covariance=(!basic from) precision=(!basic to)} =
+        inl factor {d with k epsilon covariance precision sampling} =
             if k() >= k_max then
                 k := 0
-                s.CudaSolve.regularized_cholesky_inverse {epsilon from to}
+                inl {covariance precision sampling} = Struct.map (inl x -> x.basic) {covariance precision sampling}
+                s.CudaSolve.regularized_cholesky_inverse {epsilon covariance precision sampling}
 
         Struct.iter (function
             | {d with weight} ->
@@ -1475,7 +1476,7 @@ inl float ->
     inl covariance =
         inl {identity val var view} = Initializer.sing
         inl identity dim = view {init=identity; dim}
-        inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); epsilon=val epsilon; k=var 0}
+        inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); sampling=identity (x, x); epsilon=val epsilon; k=var 0}
 
     inl default_epsilon = to float (2.0 ** -3.0)
 
@@ -1515,6 +1516,7 @@ inl float ->
 
         apply = inl {weights={weights outer} input} ->
             inm data = concat {bias=one; input}
+            inl weights = weight_sample weights
             matmult_stream {weights with data} >>= activation
 
         optimize = Optimizer.kfac
