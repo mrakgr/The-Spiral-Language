@@ -31,7 +31,8 @@ inl {train_images train_labels test_images test_labels} = Struct.map (View.wrap 
 inl input_size = 784
 inl label_size = 10
 
-inl learning_rate = 2f32 ** -9f32
+inl float = float32
+inl epsilon x = to float 2 ** to float x
 inl network,_ =
     open Feedforward
     inl network =
@@ -82,10 +83,13 @@ inl test {data={input label} network final} s =
         }
     |> inl cost -> {cost with cost = self / to float64 input.basic.span_outer2}
 
+inl learning_rate = epsilon -8
+inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32; noise=epsilon -3}}
+Console.writeline pars
 Loops.for' {from=0; near_to=15; body=inl {i next} -> 
     inl final = Error.softmax_cross_entropy
     inl cost =
-        inl s = s.data_add {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32; noise=2f32 ** -1f32}}
+        inl s = s.data_add pars
         Timer.time_it (string_format "iteration {0}" i)
         <| inl _ ->
             train {
