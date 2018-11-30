@@ -1481,7 +1481,7 @@ inl float ->
         inl identity dim = view {init=identity; dim}
         inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); sampling=identity (x, x); epsilon=val epsilon; k=var 0}
 
-    inl default_epsilon = to float (2.0 ** -4.0)
+    inl default_epsilon = to float (2.0 ** -3.0)
 
     inl weight {d with dim=b,a} = 
         open Initializer.dual

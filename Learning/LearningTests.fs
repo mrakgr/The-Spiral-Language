@@ -36,8 +36,8 @@ inl epsilon x = to float 2 ** to float x
 inl network,_ =
     open Feedforward
     inl network =
-        tanh 512,
-        tanh 512,
+        ln_relu 512,
+        ln_relu 512,
         linear label_size
 
     init s input_size network
@@ -83,8 +83,8 @@ inl test {data={input label} network final} s =
         }
     |> inl cost -> {cost with cost = self / to float64 input.basic.span_outer2}
 
-inl learning_rate = epsilon -11
-inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32; noise=epsilon 0}}
+inl learning_rate = epsilon -9
+inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32; noise=epsilon 3}}
 Console.writeline pars
 Loops.for' {from=0; near_to=15; body=inl {i next} -> 
     inl final = Error.softmax_cross_entropy
