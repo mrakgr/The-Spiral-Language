@@ -1487,7 +1487,7 @@ inl float ->
         streams = stream, stream
         front = covariance default_epsilon b
         back = covariance default_epsilon a
-        stddev = val (to float 0.01) //val (one / (to float (View.span a)))
+        stddev = val (to float 0.03) //val (one / (to float (View.span a)))
         block = ()
         }
 
@@ -1511,8 +1511,9 @@ inl float ->
             s.CudaBlas.gemm ta tb one a.basic b.basic |> View.wrap dim
         inl (+) a b = s.CudaBlas.geam .nT .nT one a.basic one b.basic |> View.wrap dim
         
+        inl x = {T=front.sampling} * random * back.sampling
         {
-        out = { d with weight = View.zip {(View.unzip weight) with primal = self + (front.sampling * random * {T=back.sampling})} }
+        out = { d with weight = View.zip {(View.unzip weight) with primal = self + x} }
         bck = const ()
         }
 
@@ -1522,7 +1523,7 @@ inl float ->
         init = inl sublayer_size -> 
             open Initializer.dual
             inl outer = {bias=1; input=sublayer_size}
-            inl init = {bias=const zero; input=relu}
+            inl init = {bias=const zero; input=const zero}
             {
             dsc = 
                 {
