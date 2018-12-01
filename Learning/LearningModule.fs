@@ -1518,7 +1518,7 @@ inl float ->
             inl (+) a b = s.CudaBlas.geam .nT .nT one a.basic one b.basic |> View.wrap dim
         
             {
-            out = { d with weight = View.zip {(View.unzip weight) with primal = self + {T=front.sampling} * random * back.sampling} }
+            out = { d with weight = View.zip {(View.unzip weight) with primal = self + front.sampling * random * back.sampling} }
             bck = const ()
             }
         | _ ->
