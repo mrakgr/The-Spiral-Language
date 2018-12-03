@@ -1170,7 +1170,7 @@ inl float ->
 
     inl kfac {weights} s =
         inl rate = s.data.rate.weight
-        inl l2 = s.data.rate.l2
+        inl l2 = match rate with {l2} -> l2 | _ -> zero
         inl fin = one - l2 * rate
         inl k_max = 128
 
