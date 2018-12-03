@@ -1170,6 +1170,8 @@ inl float ->
 
     inl kfac {weights} s =
         inl rate = s.data.rate.weight
+        inl l2 = s.data.rate.l2
+        inl fin = one - l2 * rate
         inl k_max = 128
 
         inl factor {d with k epsilon covariance precision sampling} =
@@ -1184,7 +1186,7 @@ inl float ->
                     inb x = s.CudaBlas.gemm .nT .nT one a.basic b.basic |> CudaAux.temporary
                     ret x
 
-                inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -rate a.basic b.basic one c.basic 
+                inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -rate a.basic b.basic fin c.basic 
                 inl clear = s.CudaTensor.clear
 
                 match d with
@@ -1194,7 +1196,7 @@ inl float ->
                     reproject_to x back.precision (primal weight)
                 | {back} -> factor back; reproject_to (adjoint weight) back.precision (primal weight)
                 | {front} -> factor front; reproject_to front.precision (adjoint weight) (primal weight)
-                | _ -> s.CudaBlas.geam' .nT .nT -rate (adjoint weight .basic) one (primal weight .basic) (primal weight .basic)
+                | _ -> s.CudaBlas.geam' .nT .nT -rate (adjoint weight .basic) fin (primal weight .basic) (primal weight .basic)
                 clear (adjoint weight .basic)
             | _ -> ()
             ) weights
