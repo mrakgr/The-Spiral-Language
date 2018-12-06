@@ -1598,13 +1598,13 @@ met redo w {redo dim init outit} =
     inl blockDim = lit_min l 1024
     inl gridDim = min 128 (divup l blockDim)
 
-    if gridDim = 1 then
-        run {dim blockDim gridDim init outit}
-    else
-        inb temp = w.CudaTensor.create {elem_type=type init (index_example dim); dim=gridDim} |> temporary
-        inl temp = to_dev_tensor temp
-        run {blockDim gridDim dim init outit=inl i -> temp i .set}
-        run {outit blockDim=gridDim; gridDim=1; dim=temp.dim; init=inl i -> temp i .get}
+    //if gridDim = 1 then
+    run {dim blockDim gridDim init outit}
+    //else
+    //    inb temp = w.CudaTensor.create {elem_type=type init (index_example dim); dim=gridDim} |> temporary
+    //    inl temp = to_dev_tensor temp
+    //    run {blockDim gridDim dim init outit=inl i -> temp i .set}
+    //    run {outit blockDim=gridDim; gridDim=1; dim=temp.dim; init=inl i -> temp i .get}
 
 met iter2 w {d with dim=b,a} f =
     inl l = length a
