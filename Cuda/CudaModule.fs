@@ -1377,7 +1377,7 @@ inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
         | .std d -> forcd {d with from by near_to body=inl d -> self {d with i = index_convert self}}
         | .state_loading {d with state} ->
             if from < near_to then
-                forcd {d with from=from+by; state=state (index_convert from); by near_to // add cutoff
+                forcd {d with from=from+by; state=state (index_convert from); by near_to 
                     body=inl d -> self {d with i = index_convert self}
                     }
 
@@ -1592,6 +1592,7 @@ met redo w {redo dim init outit} =
                         cub_block_reduce {blockDim redo}
                         >> inl x -> if threadIdx.x = 0 then outit blockIdx.x x
                     }
+
             }
 
     inl l = length dim
@@ -1601,9 +1602,10 @@ met redo w {redo dim init outit} =
     if gridDim = 1 then
         run {dim blockDim gridDim init outit}
     else
-        inb temp = w.CudaTensor.create {elem_type=type init (index_example dim); dim=gridDim} |> temporary
-        inl temp = to_dev_tensor temp
+        inb temp' = w.CudaTensor.create {elem_type=type init (index_example dim); dim=gridDim} |> temporary
+        inl temp = to_dev_tensor temp'
         run {blockDim gridDim dim init outit=inl i -> temp i .set}
+        w.CudaTensor.print temp'
         run {outit blockDim=gridDim; gridDim=1; dim=temp.dim; init=inl i -> temp i .get}
 
 met iter2 w {d with dim=b,a} f =
