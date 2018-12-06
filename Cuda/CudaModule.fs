@@ -1380,6 +1380,8 @@ inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
                 forcd {d with from=from+by; state=state (index_convert from); by near_to 
                     body=inl d -> self {d with i = index_convert self}
                     }
+            else
+                macro.cd () [text: "printf(\"I am in else.\n\")"]
 
 inl grid_for_items = grid_for_template {iteration_mode=.items_per_thread}
 inl grid_for = grid_for_template {iteration_mode=.std}
