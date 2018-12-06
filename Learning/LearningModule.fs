@@ -1494,14 +1494,6 @@ inl float ->
         block = ()
         }
 
-    inl bias {d with dim=1,a} = 
-        open Initializer.dual.TensorView
-        {
-        weight = view' d
-        streams = stream, stream
-        block = ()
-        }
-
     inl weight_sample {d with stddev weight front back} s =
         match s.data with
         | {rate} ->
@@ -1555,7 +1547,7 @@ inl float ->
         inl inner = size
         {
         init = inl sublayer_size -> 
-            open Initializer.dual.TensorView
+            open Initializer.dual
             inl outer = {bias=1; input=sublayer_size; state=size}
             inl init = {bias=const zero; input=relu; state=relu}
             {

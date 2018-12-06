@@ -162,8 +162,12 @@ inl data =
     |> Struct.map (inl x -> x.round_split' size.step)
     |> Struct.map (View.wrap ((), (), (), ()))
 
-inl learning_rate = 2f32 ** -13f32
-inl n = 1f32 / to float size.step
+inl float = float32
+inl epsilon x = to float 2 ** to float x
+
+inl learning_rate = epsilon -13
+inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32}}
+Console.writeline pars
 
 inl network,_ =
     open Feedforward
@@ -188,7 +192,7 @@ inl truncate network s' =
     s.refresh
     {network s}
 
-met train {data={input label} network learning_rate final} s =
+met train {data={input label} network final} s =
     inl s = s.RegionMem.create
 
     inl ty, {run truncate} = 
@@ -262,10 +266,6 @@ met train {data={input label} network learning_rate final} s =
         finally=inl {cost state} -> (match state with {s} -> s.RegionMem.clear); cost
         }
     |> inl cost -> cost / to float64 input.basic.span_outer3
-
-inl learning_rate = epsilon -13
-inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32}}
-Console.writeline pars
 
 inl f learning_rate next i =
     Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
