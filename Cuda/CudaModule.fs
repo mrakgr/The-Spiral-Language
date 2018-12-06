@@ -1376,12 +1376,10 @@ inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
                 }
         | .std d -> forcd {d with from by near_to body=inl d -> self {d with i = index_convert self}}
         | .state_loading {d with state} ->
-            if from < near_to then
-                forcd {d with from=from+by; state=state (index_convert from); by near_to 
-                    body=inl d -> self {d with i = index_convert self}
-                    }
-            else
-                macro.cd () [text: "printf(\"I am in else.\\n\")"]
+            assert (by < span dim) "The step size must be less than the dimension size."
+            forcd {d with from=from+by; state=state (index_convert from); by near_to 
+                body=inl d -> self {d with i = index_convert self}
+                }
 
 inl grid_for_items = grid_for_template {iteration_mode=.items_per_thread}
 inl grid_for = grid_for_template {iteration_mode=.std}
