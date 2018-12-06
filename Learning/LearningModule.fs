@@ -1509,13 +1509,11 @@ inl float ->
         | {rate} ->
             inl random = s.CudaRandom.create {stddev=rate.noise * stddev; dst=.Normal; mean=0f32} {elem_type=float; dim=weight.basic.dim}
 
-            inl f self =
-                inl a = s.CudaBlas.trmm .Left .Lower .nT .NonUnit 1f32 front.sampling.basic random.basic
-                inl b = s.CudaBlas.trmm .Right .Lower .nT .NonUnit 1f32 back.sampling.basic a
-                s.CudaBlas.geam .nT .nT one self.basic one b.basic |> View.wrap weight.dim
+            inb a = s.CudaBlas.trmm .Left .Lower .nT .NonUnit 1f32 front.sampling.basic random.basic |> CudaAux.temporary
+            inb b = s.CudaBlas.trmm .Right .Lower .nT .NonUnit 1f32 back.sampling.basic a |> CudaAux.temporary
 
             {
-            out = { d with weight = View.zip {(View.unzip weight) with primal = f self} }
+            out = { d with weight = View.zip {(View.unzip weight) with primal = (s.CudaBlas.geam' .nT .nT one self.basic one b.basic random; View.wrap weight.dim random)} }
             bck = const ()
             }
         | _ ->

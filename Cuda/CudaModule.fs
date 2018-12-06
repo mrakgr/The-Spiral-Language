@@ -844,8 +844,6 @@ inl s ret ->
 
         inl assert_side A B =
             assert (A.col = B.row) "Colums of A does not match rows of B in TRMM."
-            print_static {A B}
-            print_static C.dim
             assert (A.row = rows C && B.col = cols C) "Output matrix dimensions do not match in TRMM."
 
         inl f = function {T} -> {row=cols T; col=rows T} | T -> {row=rows T; col=cols T}
