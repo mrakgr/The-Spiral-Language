@@ -1170,8 +1170,6 @@ inl float ->
 
     inl kfac {weights} s =
         inl rate = s.data.rate.weight
-        inl l2 = match rate with {l2} -> l2 | _ -> zero
-        inl fin = one - l2 * rate
         inl k_max = 128
 
         inl factor {d with k epsilon covariance precision sampling} =
@@ -1186,7 +1184,7 @@ inl float ->
                     inb x = s.CudaBlas.gemm .nT .nT one a.basic b.basic |> CudaAux.temporary
                     ret x
 
-                inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -rate a.basic b.basic fin c.basic 
+                inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -rate a.basic b.basic one c.basic 
                 inl clear = s.CudaTensor.clear
 
                 match d with
@@ -1196,7 +1194,7 @@ inl float ->
                     reproject_to x back.precision (primal weight)
                 | {back} -> factor back; reproject_to (adjoint weight) back.precision (primal weight)
                 | {front} -> factor front; reproject_to front.precision (adjoint weight) (primal weight)
-                | _ -> s.CudaBlas.geam' .nT .nT -rate (adjoint weight .basic) fin (primal weight .basic) (primal weight .basic)
+                | _ -> s.CudaBlas.geam' .nT .nT -rate (adjoint weight .basic) one (primal weight .basic) (primal weight .basic)
                 clear (adjoint weight .basic)
             | _ -> ()
             ) weights
@@ -1507,20 +1505,14 @@ inl float ->
     inl weight_sample {d with stddev weight front back} s =
         match s.data with
         | {rate} ->
-            inl random = s.CudaRandom.create {stddev=rate.noise * stddev; dst=.Normal; mean=0f32} {elem_type=float; dim=weight.basic.dim}
+            inl random = s.CudaRandom.create {stddev=stddev; dst=.Normal; mean=0f32} {elem_type=float; dim=weight.basic.dim}
 
             inb a = s.CudaBlas.trmm .Left .Lower .nT .NonUnit 1f32 front.sampling.basic random.basic |> CudaAux.temporary
             inb b = s.CudaBlas.trmm .Right .Lower .nT .NonUnit 1f32 back.sampling.basic a |> CudaAux.temporary
 
-            {
-            out = { d with weight = View.zip {(View.unzip weight) with primal = (s.CudaBlas.geam' .nT .nT one self.basic one b.basic random; View.wrap weight.dim random)} }
-            bck = const ()
-            }
+            { d with weight = View.zip {(View.unzip weight) with primal = (s.CudaBlas.geam' .nT .nT one self.basic one b.basic random; View.wrap weight.dim random)} }
         | _ ->
-            {
-            out = d
-            bck = const ()
-            }
+            d
 
     // #Feedforward
     inl layer activation size =
@@ -1538,10 +1530,12 @@ inl float ->
             size
             }
 
-        apply = inl {weights={weights outer} input} ->
-            inm data = concat {bias=one; input}
-            inm weights = weight_sample weights
-            matmult_stream {weights with data} >>= activation
+        apply = inl {weights={weights outer} input} s ->
+            inl weights = weight_sample weights s // TODO: Make this stateful even for FF nets.
+            inl apply = 
+                inm data = concat {bias=one; input}
+                matmult_stream {weights with data} >>= activation
+            apply s
 
         optimize = Optimizer.kfac
         block = ()
@@ -1575,18 +1569,18 @@ inl float ->
 
         apply = inl {d with weights={weights outer} input} s -> 
             inl span = fst input.dim
-            inl out =
+            inl out, weights =
                 match d with
-                | {state={out}} -> out
+                | {state={out weights}} -> out, weights
                 | _ -> 
                     inl f _ = s.CudaTensor.zero_view {elem_type=float; dim=span,size}
-                    f()
+                    f(), weight_sample weights s
 
             inl apply =
                 inm out =
-                    inm data = segmented_init {dim=span,outer} {bias=load_const one; input=load input; state=load out}
-                    matmult_stream {weights with data} >>= tanh
-                succ {out state={out}}
+                    inm data = concat {bias=one; input; state=out}
+                    matmult_stream {weights with data} >>= ln_relu
+                succ {out state={out weights}}
 
             inl {out={out state} bck} = apply s
             {out state bck}
