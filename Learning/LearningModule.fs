@@ -893,7 +893,7 @@ inl float ->
             inl (A,TA),(B,TB) = f data, f weight
             s.CudaBlas.gemm' TA TB one (primal A .basic) (primal B .basic) zero (primal out .basic)
 
-        inl bck w {d with out data weight streams=l,r} =
+        inl bck {d with out data weight streams=l,r} =
             inl f' = function {T} -> T, .nT | nT -> nT, .T
             inl (A,TA),(B,TB) = f' data, f' weight
             inl out = adjoint out
@@ -926,8 +926,8 @@ inl float ->
         inl out = Struct.map (inl {out} -> out) l
         {
         out
-        bck=met d ->
-            Struct.iter (bck d) l
+        bck=met _ ->
+            Struct.iter bck l
             Struct.iter (inl {streams=x} -> Tuple.iter s.data.stream.wait_on x) l
         }
 

@@ -157,7 +157,10 @@ inl input = input {from=0; by}
 inl label = input {from=1}
 inl input = input {from=0; by=by-1}
 
-inl data = {input label} |> Struct.map (inl x -> x.round_split' size.step)
+inl data = 
+    {input label} 
+    |> Struct.map (inl x -> x.round_split' size.step)
+    |> Struct.map (View.wrap ((), (), (), ()))
 
 inl learning_rate = 2f32 ** -13f32
 inl n = 1f32 / to float size.step
@@ -229,16 +232,15 @@ met train {data={input label} network learning_rate final} s =
                     inl prev_states = List.cons state prev_states |> dyn
                     List.foldl' ignore (inl next m -> function
                         | {prev={bck}} ->
-                            inl learning_rate = learning_rate ** 0.85f32
                             match m with
                             | () -> 
-                                Struct.foldr_map (inl bck _ -> bck {learning_rate}, ()) bck ()
+                                Struct.foldr_map (inl bck _ -> bck (), ()) bck ()
                             | _ ->
                                 Struct.foldr2_map (inl bck m _ -> 
                                     inl x =
                                         match m with
-                                        | () -> bck {learning_rate}
-                                        | {} -> bck {m with learning_rate}
+                                        | () -> bck ()
+                                        | {} -> bck m
                                     x, ()
                                     ) bck m ()
                             |> fst
@@ -259,16 +261,20 @@ met train {data={input label} network learning_rate final} s =
                 }
         finally=inl {cost state} -> (match state with {s} -> s.RegionMem.clear); cost
         }
-    |> inl cost -> cost / to float64 input.span_outer3
+    |> inl cost -> cost / to float64 input.basic.span_outer3
+
+inl learning_rate = epsilon -13
+inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32}}
+Console.writeline pars
 
 inl f learning_rate next i =
     Console.printfn "The learning rate is 2 ** {0}" (log learning_rate / log 2f32)
     inl cost =
+        inl s = s.data_add pars
         Timer.time_it (string_format "iteration {0}" i)
         <| inl _ ->
             train {
                 data network
-                learning_rate
                 final = Error.softmax_cross_entropy
                 } s
 
