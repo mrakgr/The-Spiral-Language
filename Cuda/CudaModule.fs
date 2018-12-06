@@ -640,10 +640,13 @@ inl methods =
         stack x
 
     print=met s (!dyn x) ->
-        inb x = s.CudaFun.map {map=id} x |> CudaAux.temporary
         match x with
-        | {cutoff input} -> Tensor.print {cutoff input=s.CudaTensor.to_host_tensor (zip input)} 
-        | x -> s.CudaTensor.to_host_tensor (zip x) |> Tensor.print
+        | {cutoff input=x} -> 
+            inb x = s.CudaFun.map {map=id} x |> CudaAux.temporary    
+            Tensor.print {cutoff input=s.CudaTensor.to_host_tensor (zip x)} 
+        | x -> 
+            inb x = s.CudaFun.map {map=id} x |> CudaAux.temporary
+            s.CudaTensor.to_host_tensor (zip x) |> Tensor.print
 
     mmap=inl s f tns -> s.CudaKernel.map' (const f) tns.empty tns
     } |> stackify

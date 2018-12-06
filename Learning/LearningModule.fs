@@ -1510,7 +1510,7 @@ inl float ->
             inl random = s.CudaRandom.create {stddev=rate.noise * stddev; dst=.Normal; mean=0f32} {elem_type=float; dim=weight.basic.dim}
 
             inl f self =
-                inl std =
+                inl a, std =
                     inl dim = weight.dim
                     inl (*) a b = 
                         inl f = function
@@ -1520,21 +1520,21 @@ inl float ->
                         inl tb, b = f b
                         s.CudaBlas.gemm ta tb one a.basic b.basic |> View.wrap dim
                     inl (+) a b = s.CudaBlas.geam .nT .nT one a.basic one b.basic |> View.wrap dim
-                    self + front.sampling * random * back.sampling
+                    inl a = front.sampling * random
+                    a, self + a * back.sampling
 
-                inl trmm =
+                inl a', trmm =
                     inl a = s.CudaBlas.trmm .Left .Lower .nT .NonUnit 1f32 front.sampling.basic random.basic
                     inl b = s.CudaBlas.trmm .Right .Lower .nT .NonUnit 1f32 back.sampling.basic a
-                    s.CudaBlas.geam .nT .nT one self.basic one b.basic
-                    |> View.wrap weight.dim
+                    a, s.CudaBlas.geam .nT .nT one self.basic one b.basic |> View.wrap weight.dim
 
-                inl x = s.CudaBlas.geam .nT .nT one std.basic one trmm.basic
-                s.CudaTensor.print x
+                inl x = s.CudaBlas.geam .nT .nT one std.basic -one trmm.basic
+                //s.CudaTensor.print {cutoff=9999; input=x}
 
                 s.CudaFun.redo {
-                    map=inl a,b -> abs (a-b)
+                    map=abs
                     redo=max
-                    } (std.basic, trmm.basic)
+                    } x
                 |> s.CudaTensor.print
                 trmm
             {
