@@ -843,14 +843,16 @@ inl s ret ->
         assert (eq_type alpha float32) "alpha must be of type float32."
 
         inl assert_side A B =
-            inl a_row, a_col = if isnT trans then rows A, cols A else cols A, rows A
-            inl b_row, b_col = rows B, cols B
-            assert (a_col = b_row) "Colums of A does not match rows of B in TRMM."
-            assert (a_row = rows C && b_col = cols C) "Output matrix dimensions do not match in TRMM."
+            assert (A.col = B.row) "Colums of A does not match rows of B in TRMM."
+            print_static {A B}
+            print_static C.dim
+            assert (A.row = rows C && B.col = cols C) "Output matrix dimensions do not match in TRMM."
 
+        inl f = function {T} -> {row=cols T; col=rows T} | T -> {row=rows T; col=cols T}
+        inl g T = match trans with .T -> {T} | .nT -> T
         match side with
-        | .Left -> assert_side A B
-        | .Right -> assert_side B A
+        | .Left -> assert_side (f (g A)) (f B)
+        | .Right -> assert_side (f B) (f (g A))
 
         inl m = rows B
         inl n = cols B
@@ -860,16 +862,13 @@ inl s ret ->
 
     inl trmm s side uplo trans diag alpha A B =
         indiv join
-            inl get_dims A B =
-                inl a_row = if isnT trans then rows A else cols A
-                inl b_col = cols B
-                a_row, b_col
-
             inl C =
                 inl dim =
+                    inl f = function {T} -> {row=cols T; col=rows T} | T -> {row=rows T; col=cols T}
+                    inl g T = match trans with .T -> {T} | .nT -> T
                     match side with
-                    | .Left -> get_dims A B
-                    | .Right -> get_dims B A
+                    | .Left -> (f (g A)) .row, (f B) .col
+                    | .Right -> (f B) .row, (f (g A)) .col
                 s.CudaTensor.create {dim elem_type = A.elem_type}
             trmm' s side uplo trans diag alpha A B C
             stack C

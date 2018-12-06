@@ -1510,33 +1510,10 @@ inl float ->
             inl random = s.CudaRandom.create {stddev=rate.noise * stddev; dst=.Normal; mean=0f32} {elem_type=float; dim=weight.basic.dim}
 
             inl f self =
-                inl a, std =
-                    inl dim = weight.dim
-                    inl (*) a b = 
-                        inl f = function
-                            | {T=T} -> .T, T
-                            | nT -> .nT, nT
-                        inl ta, a = f a
-                        inl tb, b = f b
-                        s.CudaBlas.gemm ta tb one a.basic b.basic |> View.wrap dim
-                    inl (+) a b = s.CudaBlas.geam .nT .nT one a.basic one b.basic |> View.wrap dim
-                    inl a = front.sampling * random
-                    a, self + a * back.sampling
+                inl a = s.CudaBlas.trmm .Left .Lower .nT .NonUnit 1f32 front.sampling.basic random.basic
+                inl b = s.CudaBlas.trmm .Right .Lower .nT .NonUnit 1f32 back.sampling.basic a
+                s.CudaBlas.geam .nT .nT one self.basic one b.basic |> View.wrap weight.dim
 
-                inl a', trmm =
-                    inl a = s.CudaBlas.trmm .Left .Lower .nT .NonUnit 1f32 front.sampling.basic random.basic
-                    inl b = s.CudaBlas.trmm .Right .Lower .nT .NonUnit 1f32 back.sampling.basic a
-                    a, s.CudaBlas.geam .nT .nT one self.basic one b.basic |> View.wrap weight.dim
-
-                inl x = s.CudaBlas.geam .nT .nT one std.basic -one trmm.basic
-                //s.CudaTensor.print {cutoff=9999; input=x}
-
-                s.CudaFun.redo {
-                    map=abs
-                    redo=max
-                    } x
-                |> s.CudaTensor.print
-                trmm
             {
             out = { d with weight = View.zip {(View.unzip weight) with primal = f self} }
             bck = const ()
