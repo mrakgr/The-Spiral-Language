@@ -1509,11 +1509,36 @@ inl float ->
         | {rate} ->
             inl random = s.CudaRandom.create {stddev=rate.noise * stddev; dst=.Normal; mean=0f32} {elem_type=float; dim=weight.basic.dim}
 
-            inb a = s.CudaBlas.trmm .Left .Lower .nT .NonUnit 1f32 front.sampling.basic random.basic |> CudaAux.temporary
-            inb b = s.CudaBlas.trmm .Right .Lower .nT .NonUnit 1f32 back.sampling.basic a |> CudaAux.temporary
-        
+            inl f self =
+                inl std =
+                    inl dim = weight.dim
+                    inl (*) a b = 
+                        inl f = function
+                            | {T=T} -> .T, T
+                            | nT -> .nT, nT
+                        inl ta, a = f a
+                        inl tb, b = f b
+                        s.CudaBlas.gemm ta tb one a.basic b.basic |> View.wrap dim
+                    inl (+) a b = s.CudaBlas.geam .nT .nT one a.basic one b.basic |> View.wrap dim
+                    self + front.sampling * random * back.sampling
+
+                inl trmm =
+                    inl a = s.CudaBlas.trmm .Left .Lower .nT .NonUnit 1f32 front.sampling.basic random.basic
+                    inl b = s.CudaBlas.trmm .Right .Lower .nT .NonUnit 1f32 back.sampling.basic a
+                    s.CudaBlas.geam .nT .nT one self.basic one b.basic
+                    |> View.wrap weight.dim
+
+                inl x = s.CudaBlas.geam .nT .nT one std.basic one trmm.basic
+                s.CudaTensor.print x
+
+                s.CudaFun.redo {
+                    map=inl a,b -> abs (a-b)
+                    redo=max
+                    } (std.basic, trmm.basic)
+                |> s.CudaTensor.print
+                trmm
             {
-            out = { d with weight = View.zip {(View.unzip weight) with primal = (s.CudaBlas.geam' .nT .nT one self.basic one b.basic random; View.wrap weight.dim random)} }
+            out = { d with weight = View.zip {(View.unzip weight) with primal = f self} }
             bck = const ()
             }
         | _ ->
