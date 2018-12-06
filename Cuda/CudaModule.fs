@@ -1381,7 +1381,7 @@ inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
                     body=inl d -> self {d with i = index_convert self}
                     }
             else
-                macro.cd () [text: "printf(\"I am in else.\n\")"]
+                macro.cd () [text: "printf(\"I am in else.\\n\")"]
 
 inl grid_for_items = grid_for_template {iteration_mode=.items_per_thread}
 inl grid_for = grid_for_template {iteration_mode=.std}
