@@ -2010,7 +2010,8 @@ inl segmented_init w d init =
         inl _ =
             inl out = to_dev_tensor out
             w.CudaKernel.segmented_iter {dim} <| inl i -> 
-                out .view i .set (init i)
+                inl o = init i
+                out .view i .set o
         match d with
         | {out} -> ()
         | _ -> stack out
