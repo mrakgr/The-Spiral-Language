@@ -3529,7 +3529,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
         let trace = 
             List.toArray trace
             |> Array.filter (fun ((Module(N(file_name,_,_,_))), _, _) -> filter_set.Contains file_name = false)
-            |> fun x -> x.[0..(max x.Length settings.trace_length - 1 |> max 0)]
+            |> fun x -> x.[0..(min x.Length settings.trace_length - 1 |> max 0)]
         let code: Dictionary<Module, ModuleCode []> = d0()
         let error = System.Text.StringBuilder(1024)
         Array.foldBack (fun ((file & Module(N(file_name,_,_,file_code))), line, col as trace) prev_trace ->
