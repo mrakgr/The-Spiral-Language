@@ -258,7 +258,7 @@ met train {data={input label} network final} s =
                             |> next
                         | _ -> next m
                         ) () prev_states
-                    Optimizer.standard learning_rate s network
+                    Optimizer.standard s network
                     inl cost =
                         List.foldl (inl cost -> function
                             | {prev={out}} -> cost + out()

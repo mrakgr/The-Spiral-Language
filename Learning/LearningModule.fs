@@ -271,7 +271,7 @@ inl {link link_broadcast link_auto} =
             | x ->
                 Struct.map (function
                     | {primal adjoint} -> primal .get |> dr
-                    | {primal} -> {primal=primal.get}
+                    | {primal} -> {primal=primal.get; block=()}
                     | primal -> primal.get
                     ) (View.unzip x)
             )
