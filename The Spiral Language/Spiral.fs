@@ -3527,11 +3527,12 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let print_type_error (trace: Trace) message = 
         let filter_set = HashSet(settings.filter_list,HashIdentity.Structural)
         let trace = 
-            let mutable c = settings.trace_length
-            List.takeWhile (fun x -> if c > 0 then c <- c-1; true else false) trace
+            List.toArray trace
+            |> Array.filter (fun ((Module(N(file_name,_,_,_))), _, _) -> filter_set.Contains file_name = false)
+            |> fun x -> x.[0..(max x.Length settings.trace_length - 1 |> max 0)]
         let code: Dictionary<Module, ModuleCode []> = d0()
         let error = System.Text.StringBuilder(1024)
-        List.foldBack (fun ((file & Module(N(file_name,_,_,file_code))), line, col as trace) prev_trace ->
+        Array.foldBack (fun ((file & Module(N(file_name,_,_,file_code))), line, col as trace) prev_trace ->
             if filter_set.Contains file_name = false then
                 let b =
                     match prev_trace with
