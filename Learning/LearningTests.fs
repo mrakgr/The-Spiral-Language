@@ -214,7 +214,7 @@ met train {data={input label} network final} s =
                 block=()
                 }
             } {network s}
-
+    
     inl empty_states = List.empty ty |> dyn
     inl state = {network s} |> heap |> box ty |> dyn
 
