@@ -1504,7 +1504,8 @@ inl float ->
             inb a = s.CudaBlas.trmm .Left .Lower .nT .NonUnit 1f32 front.sampling.basic random.basic |> CudaAux.temporary
             inb b = s.CudaBlas.trmm .Right .Lower .nT .NonUnit 1f32 back.sampling.basic a |> CudaAux.temporary
 
-            { d with weight = View.zip {(View.unzip weight) with primal = (s.CudaBlas.geam' .nT .nT one self.basic one b.basic random; View.wrap weight.dim random)} }
+            //{ d with weight = View.zip {(View.unzip weight) with primal = (s.CudaBlas.geam' .nT .nT one self.basic one b.basic random; View.wrap weight.dim random)} }
+            d
         | _ ->
             d
 
