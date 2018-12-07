@@ -1513,6 +1513,7 @@ inl float ->
                             map=inl a,b -> abs(a-b)
                             redo=max
                             } (self.basic, random)
+                        |> s.CudaTensor.print
                         View.wrap weight.dim random
                     } 
                 }
