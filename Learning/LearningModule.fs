@@ -1570,8 +1570,10 @@ inl float ->
 
             inl apply =
                 inm out =
-                    print_static input
+                    print_static input.elem_type
+                    print_static out.elem_type
                     inm data = concat {bias=one; input; state=out}
+                    print_static "asd"
                     matmult_stream {weights with data} >>= ln_relu
                 succ {out state={out weights}}
             inl {out={out state} bck} = apply s
