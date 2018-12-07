@@ -185,7 +185,14 @@ inl truncate network s' =
     inl s = s'.RegionMem.create
     inl network = 
         Struct.map (function
-            | {state} as d -> {d without bck with state = Struct.map (inl x -> x.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)) (primals state) |> heap}
+            | {state} as d -> 
+                inl state = 
+                    Struct.map (function
+                        | {weight} as x -> x
+                        | x -> (primals x).update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)
+                        ) state
+                    |> heap
+                {d without bck with state}
             | d -> {d without bck}
             ) network
     s'.RegionMem.clear
