@@ -271,7 +271,7 @@ inl {link link_broadcast link_auto} =
             | x -> 
                 Struct.map (function
                     | {primal adjoint} -> primal .get |> dr
-                    | x -> x.get
+                    | {primal} | primal -> primal.get
                     ) (View.unzip x)
             )
 
@@ -1573,7 +1573,6 @@ inl float ->
                     inm data = concat {bias=one; input; state=out}
                     matmult_stream {weights with data} >>= ln_relu
                 succ {out state={out weights}}
-
             inl {out={out state} bck} = apply s
             {out state bck}
         optimize = Optimizer.kfac
