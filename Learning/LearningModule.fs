@@ -1570,6 +1570,7 @@ inl float ->
 
             inl apply =
                 inm out =
+                    print_static input
                     inm data = concat {bias=one; input; state=out}
                     matmult_stream {weights with data} >>= ln_relu
                 succ {out state={out weights}}
