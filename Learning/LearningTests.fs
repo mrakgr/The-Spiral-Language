@@ -192,7 +192,8 @@ inl truncate network s' =
                     //    | x -> (primals x).update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)
                     //    ) state
                     match state with
-                    | {weights out} -> {out=out.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)}
+                    | {out} -> {out=out.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)}
+                    | _ -> ()
                     |> heap
                 {d without bck with state}
             | d -> {d without bck}
