@@ -187,10 +187,12 @@ inl truncate network s' =
         Struct.map (function
             | {state} as d -> 
                 inl state = 
-                    Struct.map (function
-                        | {weight} as x -> {x with weight=self.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)}
-                        | x -> (primals x).update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)
-                        ) state
+                    //Struct.map (function
+                    //    | {weight} as x -> {x with weight=self.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)}
+                    //    | x -> (primals x).update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)
+                    //    ) state
+                    match state with
+                    | {weights out} -> {out=out.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)}
                     |> heap
                 {d without bck with state}
             | d -> {d without bck}
