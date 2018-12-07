@@ -165,7 +165,7 @@ inl data =
 inl float = float32
 inl epsilon x = to float 2 ** to float x
 
-inl learning_rate = epsilon -16
+inl learning_rate = epsilon -13
 inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32}}
 Console.writeline pars
 
