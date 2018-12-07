@@ -472,6 +472,7 @@ type CompilerSettings = {
     cuda_includes : string list
     trace_length : int // The length of the error messages.
     cuda_assert_enabled : bool // Enables the bounds checking in Cuda kernels. Off by default.
+    filter_list : string list // List of modules to be ignored in the trace.
     }
 
 /// Here are the paths on my machine.
@@ -487,6 +488,11 @@ let cfg_default = {
     cuda_includes = ["cub/cub.cuh"]
     trace_length = 40
     cuda_assert_enabled = false
+    filter_list = 
+        [
+        "Core"; "Option"; "Lazy"; "Tuple"; "Liple"; "Loops"; "Extern"; "Array"; "List"; "Parsing"; "Console"
+        "Queue"; "StructTemplate"; "Struct"; "Tensor"; "View"; "ViewR"; "Object"; "Cuda"; "Random"; "Math"
+        ]
     }
 
 let cfg_testing = {cfg_default with cuda_includes=[]; trace_length=20}

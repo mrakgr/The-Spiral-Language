@@ -3525,28 +3525,30 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
     // #Run
     let print_type_error (trace: Trace) message = 
+        let filter_set = HashSet(settings.filter_list,HashIdentity.Structural)
         let trace = 
             let mutable c = settings.trace_length
             List.takeWhile (fun x -> if c > 0 then c <- c-1; true else false) trace
         let code: Dictionary<Module, ModuleCode []> = d0()
         let error = System.Text.StringBuilder(1024)
         List.foldBack (fun ((file & Module(N(file_name,_,_,file_code))), line, col as trace) prev_trace ->
-            let b =
-                match prev_trace with
-                | Some (prev_file, prev_line, col) when prev_file <> file || prev_line <> line -> true
-                | None -> true
-                | _ -> false
-            if b then
-                let er_code =
-                    memoize code (fun _ -> file_code.Split [|'\n'|]) file
-                    |> fun x -> x.[int line - 1]
+            if filter_set.Contains file_name = false then
+                let b =
+                    match prev_trace with
+                    | Some (prev_file, prev_line, col) when prev_file <> file || prev_line <> line -> true
+                    | None -> true
+                    | _ -> false
+                if b then
+                    let er_code =
+                        memoize code (fun _ -> file_code.Split [|'\n'|]) file
+                        |> fun x -> x.[int line - 1]
 
-                let er_file = if file_name <> "" then sprintf " in file \"%s\"." file_name else file_name
-                error.AppendLine <| sprintf "Error trace on line: %i, column: %i%s" line col er_file |> ignore
-                error.AppendLine er_code |> ignore
-                let col = int (col - 1L)
-                for i=1 to col do error.Append(' ') |> ignore
-                error.AppendLine "^" |> ignore
+                    let er_file = if file_name <> "" then sprintf " in file \"%s\"." file_name else file_name
+                    error.AppendLine <| sprintf "Error trace on line: %i, column: %i%s" line col er_file |> ignore
+                    error.AppendLine er_code |> ignore
+                    let col = int (col - 1L)
+                    for i=1 to col do error.Append(' ') |> ignore
+                    error.AppendLine "^" |> ignore
             Some trace
             ) trace None
         |> ignore
