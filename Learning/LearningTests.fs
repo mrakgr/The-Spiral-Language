@@ -200,21 +200,22 @@ met train {data={input label} network final} s =
             run={
                 map=inl {network s} {input label} ->
                     inl network, input = run s input network
-                    inl {out bck} = final label input s
-                    inl out _ = s.CudaTensor.get out |> to float64
-                    inl prev = {out bck=Struct.map (inl {bck} -> bck) network, bck}
-                    inl network = Struct.map (inl x -> {x without bck}) network
-                    {network s prev}
+                    //inl {out bck} = final label input s
+                    {network s}
+                    //inl out _ = s.CudaTensor.get out |> to float64
+                    //inl prev = {out bck=Struct.map (inl {bck} -> bck) network, bck}
+                    //inl network = Struct.map (inl x -> {x without bck}) network
+                    //{network s prev}
                 input=const {input=input (dyn 0) (dyn 0); label=label (dyn 0) (dyn 0)}
                 block=()
                 }
-            truncate={
-                map=inl {network s} _ -> truncate network s
-                input=const ()
-                block=()
-                }
+            //truncate={
+            //    map=inl {network s} _ -> truncate network s
+            //    input=const ()
+            //    block=()
+            //    }
             } {network s}
-    
+    qwe
     inl empty_states = List.empty ty |> dyn
     inl state = {network s} |> heap |> box ty |> dyn
 
