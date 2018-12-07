@@ -265,10 +265,10 @@ inl index_broadcast cur =
                 ) x cur
 
 inl {link link_broadcast link_auto} =
-    inl get_primal = 
+    inl get_primal =
         Struct.map (function
             | x when val_is x -> x
-            | x -> 
+            | x ->
                 Struct.map (function
                     | {primal adjoint} -> primal .get |> dr
                     | {primal} | primal -> primal.get
