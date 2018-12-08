@@ -928,6 +928,7 @@ inl float ->
         {
         out
         bck=met _ ->
+
             Struct.iter bck l
             Struct.iter (inl {streams=x} -> Tuple.iter s.data.stream.wait_on x) l
         }
