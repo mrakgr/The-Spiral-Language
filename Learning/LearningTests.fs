@@ -53,15 +53,14 @@ inl train {data={input label} network final} s =
         inl state =
             inb s = s.RegionMem.create'
             inl network, input = run s input network
-            state
-            //inl {out bck} = final label input s
+            inl {out bck} = final label input s
 
-            //bck()
-            //Struct.foldr (inl {bck} _ -> Struct.foldr (inl bck _ -> bck()) bck ()) network ()
+            bck()
+            Struct.foldr (inl {bck} _ -> Struct.foldr (inl bck _ -> bck()) bck ()) network ()
             //Optimizer.standard s network
 
-            //inl cost = s.CudaTensor.get out |> to float64
-            //state + cost
+            inl cost = s.CudaTensor.get out |> to float64
+            state + cost
 
         if nan_is state then state else next state
         }
