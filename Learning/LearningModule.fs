@@ -1465,15 +1465,18 @@ inl float ->
                 match layer with {state} -> {input with state} | _ -> input
 
             inl {x with out} =
+                macro.fs () [text: "// I am going into run's branch join point."]
                 indiv join
                     match input with
                     | {weights} -> {input with weights = Struct.map' (inl x -> x.data) weights}
                     | _ -> input
-                    |> inl input -> apply input s |> stack
-            inl layer = match x with {bck} -> {layer with bck=heap bck} | _ -> layer
-            inl layer = match x with {state} -> {layer with state=heap state} | _ -> layer
+                    |> inl input -> apply input s 
+                    |> module_map (const heap)
+                    
+            inl layer = match x with {bck} -> {layer with bck} | _ -> layer
+            inl layer = match x with {state} -> {layer with state} | _ -> layer
             layer, out
-            ) input
+            ) (heap input)
 
     inl sequence x s =
         inl x = Struct.map (inl x -> x s |> inl x -> {x with block=()}) x
