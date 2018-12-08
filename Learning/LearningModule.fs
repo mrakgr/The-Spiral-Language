@@ -867,7 +867,7 @@ inl float ->
     met update_covariance x cov s =
         inl rate = s.data.rate.covariance
         inl k = x.span_outer
-        inl alpha = Math.pow (one - rate) k
+        inl alpha = (one - rate) ** to float k
         inl beta = one - alpha
         s.CudaBlas.syrk' .Lower .T (beta / to float k) x.basic alpha cov.basic // symmetric rank-k update. (beta / to float k) * x * x^T + alpha * cov
 
@@ -894,10 +894,7 @@ inl float ->
             inl (A,TA),(B,TB) = f data, f weight
             s.CudaBlas.gemm' TA TB one (primal A .basic) (primal B .basic) zero (primal out .basic)
 
-        inl bck d = 
-            inl {d with out data weight streams=l,r} = Struct.map' indiv d
-            inl {data weight} = Struct.map' dyn {weight data}
-            join
+        inl bck {d with out data weight streams=l,r} = 
             inl f' = function {T} -> T, .nT | nT -> nT, .T
             inl (A,TA),(B,TB) = f' data, f' weight
             inl out = adjoint out
