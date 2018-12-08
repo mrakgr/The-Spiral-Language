@@ -894,7 +894,10 @@ inl float ->
             inl (A,TA),(B,TB) = f data, f weight
             s.CudaBlas.gemm' TA TB one (primal A .basic) (primal B .basic) zero (primal out .basic)
 
-        inl bck {d with out data weight streams=l,r} =
+        inl bck d = 
+            inl {d with out data weight streams=l,r} = Struct.map' indiv d
+            inl {data weight} = Struct.map' dyn {weight data}
+            join
             inl f' = function {T} -> T, .nT | nT -> nT, .T
             inl (A,TA),(B,TB) = f' data, f' weight
             inl out = adjoint out
@@ -912,6 +915,7 @@ inl float ->
                 | .T -> s.CudaBlas.gemm' TA .nT one (primal A .basic) out.basic one B.basic
                 | .nT -> s.CudaBlas.gemm' TA .nT one out.basic (primal A .basic) one B.basic
                 ) (adjoint B)
+            
             inl update k data = 
                 match d with 
                 | {$k={covariance k}} -> 
@@ -920,6 +924,7 @@ inl float ->
                 | _ -> ()
             update .front (primal data)
             update .back out
+            
 
         inl l = Struct.map init l
         Struct.iter run l
@@ -1173,6 +1178,10 @@ inl float ->
         s.CudaFun.map {out map=inl {primal adjoint} -> {primal=primal - rate * adjoint; adjoint=zero}} out
 
     inl kfac {weights} s =
+        inl weights = Struct.map' (indiv >> dyn) weights
+        join
+        macro.fs () [text: "// I am in kfac."]
+
         inl rate = s.data.rate.weight
         inl k_max = 128
 
@@ -1184,6 +1193,7 @@ inl float ->
 
         Struct.iter (function
             | {d with weight} ->
+                
                 inl reproject a b ret =
                     inb x = s.CudaBlas.gemm .nT .nT one a.basic b.basic |> CudaAux.temporary
                     ret x
