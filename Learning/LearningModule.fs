@@ -940,14 +940,13 @@ inl float ->
         {
         out
         bck=met _ ->
-            ()
-            //if Struct.is_empty (adjoints in .elem_type) = false then
-            //    inl ins = to_dev_tensor {in out}
-            //    s.CudaKernel.iter {dim=in.dim} <| inl i ->
-            //        inl {in out} = Struct.map' (inl x -> x i) ins
-            //        inl x = bck {in=primals in .get; out=primal out .get}
-            //        inl out = adjoint out .get
-            //        adjoints in .modify' (inl in x -> in + out * x) x
+            if Struct.is_empty (adjoints in .elem_type) = false then
+                inl ins = to_dev_tensor {in out}
+                s.CudaKernel.iter {dim=in.dim} <| inl i ->
+                    inl {in out} = Struct.map' (inl x -> x i) ins
+                    inl x = bck {in=primals in .get; out=primal out .get}
+                    inl out = adjoint out .get
+                    adjoints in .modify' (inl in x -> in + out * x) x
         }
 
     /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
