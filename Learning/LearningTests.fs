@@ -35,11 +35,15 @@ inl float = float32
 inl epsilon x = to float 2 ** to float x
 inl network,_ =
     open Feedforward
+    inl layer = tanh
     inl network =
-        tanh 512,
-        tanh 512,
-        tanh 512,
-        tanh 512,
+        layer 512,
+        layer 512,
+        layer 512,
+        layer 512,
+        layer 512,
+        layer 512,
+        layer 512,
         linear label_size
 
     init s input_size network
@@ -56,7 +60,7 @@ inl train {data={input label} network final} s =
             inl {out bck} = final label input s
 
             bck()
-            Struct.foldr (inl {bck} _ -> Struct.foldr (inl bck _ -> bck()) bck ()) network ()
+            Struct.foldr (met {bck} _ -> Struct.foldr (inl bck _ -> bck()) bck ()) network ()
             Optimizer.standard s network
 
             inl cost = s.CudaTensor.get out |> to float64
@@ -102,19 +106,19 @@ Loops.for' {from=0; near_to=45; body=inl {i next} ->
                 } s
 
     string_format "Training: {0}" cost |> Console.writeline
+    next ()
+    //if nan_is cost then
+    //    Console.writeline "Training diverged. Aborting..."
+    //else
+    //    inl {cost ac max_ac} =
+    //        test {
+    //            data={input=test_images; label=test_labels}
+    //            network
+    //            final
+    //            } s 
 
-    if nan_is cost then
-        Console.writeline "Training diverged. Aborting..."
-    else
-        inl {cost ac max_ac} =
-            test {
-                data={input=test_images; label=test_labels}
-                network
-                final
-                } s 
-
-        string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
-        next ()
+    //    string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
+    //    next ()
     }
     """
 
