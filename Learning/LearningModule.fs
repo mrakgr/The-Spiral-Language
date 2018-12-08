@@ -918,7 +918,7 @@ inl float ->
             
             inl update k data = 
                 match d with 
-                | {$k={covariance k}} -> 
+                | {$k={covariance k}} ->
                     update_covariance (basic data) (basic covariance) s 
                     k := k() + (basic out).span_outer
                 | _ -> ()
