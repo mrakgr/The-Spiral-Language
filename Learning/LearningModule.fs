@@ -867,7 +867,7 @@ inl float ->
     met update_covariance x cov s =
         inl rate = s.data.rate.covariance
         inl k = x.span_outer
-        inl alpha = (one - rate) ** to float k
+        inl alpha = Math.pow (one - rate) k
         inl beta = one - alpha
         s.CudaBlas.syrk' .Lower .T (beta / to float k) x.basic alpha cov.basic // symmetric rank-k update. (beta / to float k) * x * x^T + alpha * cov
 

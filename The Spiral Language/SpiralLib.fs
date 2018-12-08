@@ -2364,7 +2364,7 @@ let math =
 /// Note that the second argument for the function needs to be an integer.
 /// The language already has an inbuilt operator ** for floats as the second argument.
 inl rec pow (n: float64 | n: float32) (k: int64) =
-    if k < 0 then to n 1 / pow n -k
+    if k < 0 then to n 1 / (join pow n -k : n)
     elif k=1 then n
     elif k=0 then to n 1
     else
