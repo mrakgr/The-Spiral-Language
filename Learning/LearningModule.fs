@@ -1350,7 +1350,7 @@ inl float ->
     // #Initializer
     inl Initializer number =
         inl Init =
-            inl normal {stddev mean} to s = 
+            met normal (!dyn {stddev mean}) (!dyn to) s = 
                 inb from = s.CudaRandom.create {dst=.Normal; stddev mean} {elem_type=float; dim=to.dim} |> CudaAux.temporary
                 inl {from to} = to_dev_tensor {from to}
                 s.CudaKernel.iter {dim=to.dim} (inl i -> to i .set (from i .get))
@@ -1359,11 +1359,11 @@ inl float ->
                 inl mean = 0f32
                 normal {stddev mean} tns
 
-            inl constant init tns s =
+            met constant (!dyn init) (!dyn tns) s =
                 inl tns = to_dev_tensor tns
                 s.CudaKernel.iter {dim=tns.dim} (inl i -> tns i .set init)
 
-            inl identity init tns s =
+            met identity (!dyn init) (!dyn tns) s =
                 inl a,b as dim = tns.dim
                 assert (a = b) "The tensor needs to be a square matrix."
                 inl tns = to_dev_tensor tns
