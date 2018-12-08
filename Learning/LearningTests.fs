@@ -103,19 +103,18 @@ Loops.for' {from=0; near_to=45; body=inl {i next} ->
 
     string_format "Training: {0}" cost |> Console.writeline
 
-    next()
-    //if nan_is cost then
-    //    Console.writeline "Training diverged. Aborting..."
-    //else
-    //    inl {cost ac max_ac} =
-    //        test {
-    //            data={input=test_images; label=test_labels}
-    //            network
-    //            final
-    //            } s 
+    if nan_is cost then
+        Console.writeline "Training diverged. Aborting..."
+    else
+        inl {cost ac max_ac} =
+            test {
+                data={input=test_images; label=test_labels}
+                network
+                final
+                } s 
 
-    //    string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
-    //    next ()
+        string_format "Testing: {0}({1}/{2})" (cost, ac, max_ac) |> Console.writeline
+        next ()
     }
     """
 
