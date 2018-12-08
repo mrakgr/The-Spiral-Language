@@ -928,7 +928,6 @@ inl float ->
         {
         out
         bck=met _ ->
-
             Struct.iter bck l
             Struct.iter (inl {streams=x} -> Tuple.iter s.data.stream.wait_on x) l
         }
@@ -940,7 +939,7 @@ inl float ->
         
         {
         out
-        bck=inl _ -> join
+        bck=met _ ->
             if Struct.is_empty (adjoints in .elem_type) = false then
                 inl ins = to_dev_tensor {in out}
                 s.CudaKernel.iter {dim=in.dim} <| inl i ->
