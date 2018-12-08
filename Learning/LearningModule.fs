@@ -1041,6 +1041,7 @@ inl float ->
                     a, b
                 ) () l
             |> inl a, b -> b, a
+
         inl elem_type =
             Struct.foldl (inl s x ->
                 inl r =
@@ -1058,6 +1059,7 @@ inl float ->
                 | x when val_is x -> upscale_scalar elem_type x
                 | x -> upscale_tensor elem_type x
                 ) l
+
         segmented_init {dim elem_type} init
 
     inl mapi f in s =
@@ -1458,14 +1460,12 @@ inl float ->
 
     inl run s input =
         Struct.foldl_map (inl input {layer with apply} ->
-            macro.fs () [text: "// I am in run's branch."]
             inl input =
                 inl input = {input}
                 inl input = match layer with {weights} -> {input with weights} | _ -> input
                 match layer with {state} -> {input with state} | _ -> input
 
             inl {x with out} =
-                macro.fs () [text: "// I am going into run's branch join point."]
                 indiv join
                     match input with
                     | {weights} -> {input with weights = Struct.map' (inl x -> x.data) weights}
