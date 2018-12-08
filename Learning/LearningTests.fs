@@ -46,19 +46,22 @@ inl train {data={input label} network final} s =
     assert (near_to = fst label.dim) "The input and label must have the same outer dimension."
     Loops.for' {from=0; near_to state=dyn 0.0; body=inl {i next state} ->
         inl input, label = input i, label i
-        inl state =
-            inb s = s.RegionMem.create'
-            inl network, input = run s input network
-            inl {out bck} = final label input s
 
-            bck()
-            Struct.foldr (inl {bck} _ -> Struct.foldr (inl bck _ -> bck()) bck ()) network ()
-            Optimizer.standard s network
+        next state
 
-            inl cost = s.CudaTensor.get out |> to float64
-            state + cost
+        //inl state =
+        //    inb s = s.RegionMem.create'
+        //    inl network, input = run s input network
+        //    inl {out bck} = final label input s
 
-        if nan_is state then state else next state
+        //    bck()
+        //    Struct.foldr (inl {bck} _ -> Struct.foldr (inl bck _ -> bck()) bck ()) network ()
+        //    Optimizer.standard s network
+
+        //    inl cost = s.CudaTensor.get out |> to float64
+        //    state + cost
+
+        //if nan_is state then state else next state
         }
     |> inl cost -> cost / to float64 input.basic.span_outer2
 
