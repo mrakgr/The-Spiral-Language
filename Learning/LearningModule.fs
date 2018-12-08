@@ -1458,6 +1458,7 @@ inl float ->
 
     inl run s input =
         Struct.foldl_map (inl input {layer with apply} ->
+            macro.fs () [text: "// I am in run's branch."]
             inl input =
                 inl input = {input}
                 inl input = match layer with {weights} -> {input with weights} | _ -> input
