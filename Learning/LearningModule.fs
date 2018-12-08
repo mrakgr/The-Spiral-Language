@@ -928,9 +928,8 @@ inl float ->
         {
         out
         bck=met _ ->
-            ()
-            //Struct.iter bck l
-            //Struct.iter (inl {streams=x} -> Tuple.iter s.data.stream.wait_on x) l
+            Struct.iter bck l
+            Struct.iter (inl {streams=x} -> Tuple.iter s.data.stream.wait_on x) l
         }
 
     inl activation {fwd bck} (!(View.zip) in) s =
@@ -984,15 +983,14 @@ inl float ->
         {
         out
         bck=met _ ->
-            ()
-            //inl from = adjoints (to_dev_tensor out)
-            //open CudaAD
-            //s.CudaKernel.segmented_iter {dim} <| inl dim -> 
-            //    Struct.iter2' (inl cur init ->
-            //        inl {out bck} = init cur >>= succ
-            //        inl {bck=bck'} = link_adjoint_view dim {from to=adjoints out}
-            //        bck(); bck'()
-            //        ) dim init
+            inl from = adjoints (to_dev_tensor out)
+            open CudaAD
+            s.CudaKernel.segmented_iter {dim} <| inl dim -> 
+                Struct.iter2' (inl cur init ->
+                    inl {out bck} = init cur >>= succ
+                    inl {bck=bck'} = link_adjoint_view dim {from to=adjoints out}
+                    bck(); bck'()
+                    ) dim init
         }
 
     inl rec unify_dual = // Note that if `s < r` then this unification won't be right, but a type error will occur in the kernel instead so it is fine.
