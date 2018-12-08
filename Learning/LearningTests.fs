@@ -48,6 +48,7 @@ inl train {data={input label} network final} s =
         inl input, label = input i, label i
 
         next state
+
         //inl state =
         //    inb s = s.RegionMem.create'
         //    inl network, input = run s input network
