@@ -198,9 +198,9 @@ inl truncate network s' =
         Struct.map (function
             | {state} as d -> 
                 inl state = 
-                    match state with
-                    | {out} -> {out=out.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x)}
-                    | _ -> ()
+                    Struct.map 
+                        (inl out -> out.update_body (inl {x with ar} -> s.RegionMem.assign ar.ptr; x))
+                        {(indiv state) without weights}
                     |> heap
                 {d without bck with state}
             | d -> {d without bck}
@@ -212,7 +212,7 @@ inl truncate network s' =
 met train {data={input label} network final} s =
     inl s = s.RegionMem.create
 
-    inl ty, {run truncate} = 
+    inl ty, {} = 
         Union.infer {
             run={
                 map=inl {network s} {input label} ->
