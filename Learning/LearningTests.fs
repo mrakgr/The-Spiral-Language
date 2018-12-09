@@ -286,5 +286,5 @@ Loops.for' {from=0; near_to=5; body=inl {i next} -> f learning_rate next i}
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
-//|> printfn "%s"
+|> printfn "%s"
 |> ignore
