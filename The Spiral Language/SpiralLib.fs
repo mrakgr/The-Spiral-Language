@@ -1184,261 +1184,500 @@ inl create typ n =
 |> stackify
     """) |> module_
 
-let struct_template = 
-    (
-    "StructTemplate",[],"The StructTemplate module.",
-    """
-inl block ->
-// The functions in this module are intended for iterating over generic types.
-// The modules always iterate over the first argument to them.
-inl map f x = 
-    inl rec loop = function
-        | x when caseable_box_is x -> f x
-        | x :: xs -> loop x :: loop xs
-        | () -> ()
-        | {!($block)} & x -> module_map (inl _ -> loop) x
-        | x -> f x
-    loop x
-
-inl map2 f a b = 
-    inl rec loop = function
-        | x, y when caseable_box_is x || caseable_box_is y -> f x y
-        | x :: xs, y :: ys -> loop (x,y) :: loop (xs,ys)
-        | (), () -> ()
-        | {!($block)} & x, {!($block)} & y -> module_map (inl k x -> loop (x,y k)) x
-        | x, y -> f x y
-    loop (a,b)
-
-inl map3 f a b c = 
-    inl rec loop = function
-        | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z
-        | x :: xs, y :: ys, z :: zs -> loop (x,y,z) :: loop (xs,ys,zs)
-        | (), (), () -> ()
-        | {!($block)} & x, {!($block)} & y, {!($block)} & z -> module_map (inl k x -> loop (x,y k,z k)) x
-        | x, y, z -> f x y z
-    loop (a,b,c)
-
-inl iter f = map (inl x -> f x; ()) >> ignore
-inl iter2 f a b = map2 (inl a b -> f a b; ()) a b |> ignore
-inl iter3 f a b c = map3 (inl a b c -> f a b c; ()) a b c |> ignore
-
-inl foldl f s x = 
-    inl rec loop s = function
-        | x when caseable_box_is x -> f s x
-        | () -> s
-        | x :: xs -> loop (loop s x) xs
-        | {!($block)} & x -> module_foldl (inl _ -> loop) s x
-        | x -> f s x
-    loop s x
-
-inl foldl2 f s a b = 
-    inl rec loop s = function
-        | x, y when caseable_box_is x || caseable_box_is y -> f s x y
-        | x :: xs, y :: ys -> loop (loop s (x,y)) (xs,ys)
-        | (), () -> s
-        | {!($block)} & x, {!($block)} & y -> module_foldl (inl k s x -> loop s (x,y k)) s x
-        | x, y -> f s x y
-    loop s (a,b)
-
-inl foldl3 f s a b c = 
-    inl rec loop s = function
-        | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f s x y z
-        | x :: xs, y :: ys, z :: zs -> loop (loop s (x,y,z)) (xs,ys,zs)
-        | (), (), () -> s
-        | {!($block)} & x, {!($block)} & y, {!($block)} & z -> module_foldl (inl k s x -> loop s (x,y k,z k)) s x
-        | x, y, z -> f s x y z
-    loop s (a,b,c)
-
-inl choose f x = 
-    inl rec loop = function
-        | x when caseable_box_is x -> f x
-        | () -> ()
-        | x :: xs -> 
-            match loop x with
-            | () -> loop xs
-            | x -> x :: loop xs
-        | {!($block)} & x -> 
-            module_foldl (inl k s x -> 
-                match loop x with
-                | () -> s
-                | x -> module_add k x s
-                ) {} x
-        | x -> f x
-    loop x
-
-inl choose2 f a b = 
-    inl rec loop = function
-        | x, y when caseable_box_is x || caseable_box_is y -> f x y
-        | x :: xs, y :: ys ->
-            match loop (x,y) with
-            | () -> loop (xs,ys)
-            | x -> x :: loop (xs,ys)
-        | (), () -> ()
-        | {!($block)} & x, {!($block)} & y ->
-            module_foldl (inl k s x -> 
-                match loop (x,y k) with
-                | () -> s
-                | x -> module_add k x s
-                ) {} x
-        | x, y -> f x y
-    loop (a,b)
-
-inl choose3 f a b c = 
-    inl rec loop = function
-        | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z
-        | x :: xs, y :: ys, z :: zs -> 
-            match loop (x,y,z) with
-            | () -> loop (xs,ys,zs)
-            | x -> x :: loop (xs,ys,zs)
-        | (), (), () -> ()
-        | {!($block)} & x, {!($block)} & y, {!($block)} & z -> 
-            module_foldl (inl k s x -> 
-                match loop (x,y k,z k) with
-                | () -> s
-                | x -> module_add k x s
-                ) {} x
-        | x, y, z -> f x y z
-    loop (a,b,c)
-
-inl foldl_map f s x = 
-    inl rec loop s = function
-        | x when caseable_box_is x -> f s x
-        | () -> (), s
-        | x :: xs -> 
-            inl x, s = loop s x
-            inl x', s = loop s xs
-            x :: x', s
-        | {!($block)} & x -> 
-            module_foldl (inl k (m,s) v -> 
-                inl x, s = loop s v
-                inl m = module_add k x m
-                m, s
-                ) ({},s) x
-        | x -> f s x
-    loop s x
-
-inl foldl2_map f s a b = 
-    inl rec loop s = function
-        | x, y when caseable_box_is x || caseable_box_is y -> f s x y
-        | x :: xs, y :: ys -> 
-            inl x, s = loop s (x,y)
-            inl x', s = loop s (xs,ys)
-            x :: x', s
-        | (), () -> (), s
-        | {!($block)} & x, {!($block)} & y -> 
-            module_foldl (inl k (m,s) v -> 
-                inl x, s = loop s (v, y k)
-                inl m = module_add k x m
-                m, s
-                ) ({},s) x
-        | x, y -> f s x y
-    loop s (a,b)
-
-inl foldl3_map f s a b c = 
-    inl rec loop s = function
-        | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f s x y z
-        | x :: xs, y :: ys, z :: zs -> 
-            inl x, s = loop s (x,y,z)
-            inl x', s = loop s (xs,ys,zs)
-            x :: x', s
-        | (), (), () -> (), s
-        | {!($block)} & x, {!($block)} & y, {!($block)} & z ->
-            module_foldl (inl k (m,s) v -> 
-                inl x, s = loop s (v, y k, z k)
-                inl m = module_add k x m
-                m, s
-                ) ({},s) x
-        | x, y, z -> f s x y z
-    loop s (a,b,c)
-
-inl foldr f a s = 
-    inl rec loop s = function
-        | x when caseable_box_is x -> f x s
-        | x :: xs -> loop (loop s xs) x
-        | () -> s
-        | {!($block)} & x -> module_foldr (inl k x s -> loop s x) x s
-        | x -> f x s
-    loop s a
-
-inl foldr2 f a b s = 
-    inl rec loop s = function
-        | x, y when caseable_box_is x || caseable_box_is y -> f x y s
-        | x :: xs, y :: ys -> loop (loop s (xs,ys)) (x,y)
-        | (), () -> s
-        | {!($block)} & x, {!($block)} & y -> module_foldr (inl k x s -> loop s (x,y k)) x s
-        | x, y -> f x y s
-    loop s (a,b)
-
-inl foldr3 f a b c s = 
-    inl rec loop s = function
-        | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z s
-        | x :: xs, y :: ys, z :: zs -> loop (loop s (xs,ys,zs)) (x,y,z)
-        | (), (), () -> s
-        | {!($block)} & x, {!($block)} & y, {!($block)} & z -> module_foldr (inl k x s -> loop s (x,y k,z k)) x s
-        | x, y, z -> f x y z s
-    loop s (a,b,c)
-
-inl foldr_map f a s = 
-    inl rec loop s = function
-        | x when caseable_box_is x -> f x s
-        | x :: xs -> 
-            inl x', s = loop s xs
-            inl x, s = loop s x
-            x :: x', s
-        | () -> (), s
-        | {!($block)} & x ->
-            module_foldr (inl k v (m,s) -> 
-                inl x, s = loop s v
-                inl m = module_add k x m
-                m, s
-                ) x ({},s)
-        | x -> f x s
-    loop s a
-
-inl foldr2_map f a b s = 
-    inl rec loop s = function
-        | x, y when caseable_box_is x || caseable_box_is y -> f x y s
-        | x :: xs, y :: ys -> 
-            inl x', s = loop s (xs,ys)
-            inl x, s = loop s (x,y)
-            x :: x', s
-        | (), () -> (), s
-        | {!($block)} & x, {!($block)} & y ->
-            module_foldr (inl k v (m,s) -> 
-                inl x, s = loop s (v, y k)
-                inl m = module_add k x m
-                m, s
-                ) x ({},s)
-        | x, y -> f x y s
-    loop s (a,b)
-
-inl foldr3_map f a b c s = 
-    inl rec loop s = function
-        | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z s
-        | x :: xs, y :: ys, z :: zs -> 
-            inl x', s = loop s (xs,ys,zs)
-            inl x, s = loop s (x,y,z)
-            x :: x', s
-        | (), (), () -> (), s
-        | {!($block)} & x, {!($block)} & y, {!($block)} & z ->
-            module_foldr (inl k v (m,s) -> 
-                inl x, s = loop s (v, y k, z k)
-                inl m = module_add k x m
-                m, s
-                ) x ({},s)
-        | x, y, z -> f x y z s
-    loop s (a,b,c)
-
-{
-map map2 map3 iter iter2 iter3 foldl foldl2 foldl3 choose choose2 choose3 
-foldl_map foldl2_map foldl3_map foldr foldr2 foldr3 foldr_map foldr2_map foldr3_map
-}
-    """) |> module_
-
 let struct' =
     (
-    "Struct",[struct_template],"The Struct module.",
+    "Struct",[],"The Struct module.",
     """
+// The functions in this module are intended for iterating over generic types.
+// The modules always iterate over the first argument to them.
+inl blocked = 
+    inl map f x = 
+        inl rec loop = function
+            | x when caseable_box_is x -> f x
+            | x :: xs -> loop x :: loop xs
+            | () -> ()
+            | {!block} & x -> module_map (inl _ -> loop) x
+            | x -> f x
+        loop x
+
+    inl map2 f a b = 
+        inl rec loop = function
+            | x, y when caseable_box_is x || caseable_box_is y -> f x y
+            | x :: xs, y :: ys -> loop (x,y) :: loop (xs,ys)
+            | (), () -> ()
+            | {!block} & x, {!block} & y -> module_map (inl k x -> loop (x,y k)) x
+            | x, y -> f x y
+        loop (a,b)
+
+    inl map3 f a b c = 
+        inl rec loop = function
+            | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z
+            | x :: xs, y :: ys, z :: zs -> loop (x,y,z) :: loop (xs,ys,zs)
+            | (), (), () -> ()
+            | {!block} & x, {!block} & y, {!block} & z -> module_map (inl k x -> loop (x,y k,z k)) x
+            | x, y, z -> f x y z
+        loop (a,b,c)
+
+    inl iter f = map (inl x -> f x; ()) >> ignore
+    inl iter2 f a b = map2 (inl a b -> f a b; ()) a b |> ignore
+    inl iter3 f a b c = map3 (inl a b c -> f a b c; ()) a b c |> ignore
+
+    inl foldl f s x = 
+        inl rec loop s = function
+            | x when caseable_box_is x -> f s x
+            | () -> s
+            | x :: xs -> loop (loop s x) xs
+            | {!block} & x -> module_foldl (inl _ -> loop) s x
+            | x -> f s x
+        loop s x
+
+    inl foldl2 f s a b = 
+        inl rec loop s = function
+            | x, y when caseable_box_is x || caseable_box_is y -> f s x y
+            | x :: xs, y :: ys -> loop (loop s (x,y)) (xs,ys)
+            | (), () -> s
+            | {!block} & x, {!block} & y -> module_foldl (inl k s x -> loop s (x,y k)) s x
+            | x, y -> f s x y
+        loop s (a,b)
+
+    inl foldl3 f s a b c = 
+        inl rec loop s = function
+            | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f s x y z
+            | x :: xs, y :: ys, z :: zs -> loop (loop s (x,y,z)) (xs,ys,zs)
+            | (), (), () -> s
+            | {!block} & x, {!block} & y, {!block} & z -> module_foldl (inl k s x -> loop s (x,y k,z k)) s x
+            | x, y, z -> f s x y z
+        loop s (a,b,c)
+
+    inl choose f x = 
+        inl rec loop = function
+            | x when caseable_box_is x -> f x
+            | () -> ()
+            | x :: xs -> 
+                match loop x with
+                | () -> loop xs
+                | x -> x :: loop xs
+            | {!block} & x -> 
+                module_foldl (inl k s x -> 
+                    match loop x with
+                    | () -> s
+                    | x -> module_add k x s
+                    ) {} x
+            | x -> f x
+        loop x
+
+    inl choose2 f a b = 
+        inl rec loop = function
+            | x, y when caseable_box_is x || caseable_box_is y -> f x y
+            | x :: xs, y :: ys ->
+                match loop (x,y) with
+                | () -> loop (xs,ys)
+                | x -> x :: loop (xs,ys)
+            | (), () -> ()
+            | {!block} & x, {!block} & y ->
+                module_foldl (inl k s x -> 
+                    match loop (x,y k) with
+                    | () -> s
+                    | x -> module_add k x s
+                    ) {} x
+            | x, y -> f x y
+        loop (a,b)
+
+    inl choose3 f a b c = 
+        inl rec loop = function
+            | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z
+            | x :: xs, y :: ys, z :: zs -> 
+                match loop (x,y,z) with
+                | () -> loop (xs,ys,zs)
+                | x -> x :: loop (xs,ys,zs)
+            | (), (), () -> ()
+            | {!block} & x, {!block} & y, {!block} & z -> 
+                module_foldl (inl k s x -> 
+                    match loop (x,y k,z k) with
+                    | () -> s
+                    | x -> module_add k x s
+                    ) {} x
+            | x, y, z -> f x y z
+        loop (a,b,c)
+
+    inl foldl_map f s x = 
+        inl rec loop s = function
+            | x when caseable_box_is x -> f s x
+            | () -> (), s
+            | x :: xs -> 
+                inl x, s = loop s x
+                inl x', s = loop s xs
+                x :: x', s
+            | {!block} & x -> 
+                module_foldl (inl k (m,s) v -> 
+                    inl x, s = loop s v
+                    inl m = module_add k x m
+                    m, s
+                    ) ({},s) x
+            | x -> f s x
+        loop s x
+
+    inl foldl2_map f s a b = 
+        inl rec loop s = function
+            | x, y when caseable_box_is x || caseable_box_is y -> f s x y
+            | x :: xs, y :: ys -> 
+                inl x, s = loop s (x,y)
+                inl x', s = loop s (xs,ys)
+                x :: x', s
+            | (), () -> (), s
+            | {!block} & x, {!block} & y -> 
+                module_foldl (inl k (m,s) v -> 
+                    inl x, s = loop s (v, y k)
+                    inl m = module_add k x m
+                    m, s
+                    ) ({},s) x
+            | x, y -> f s x y
+        loop s (a,b)
+
+    inl foldl3_map f s a b c = 
+        inl rec loop s = function
+            | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f s x y z
+            | x :: xs, y :: ys, z :: zs -> 
+                inl x, s = loop s (x,y,z)
+                inl x', s = loop s (xs,ys,zs)
+                x :: x', s
+            | (), (), () -> (), s
+            | {!block} & x, {!block} & y, {!block} & z ->
+                module_foldl (inl k (m,s) v -> 
+                    inl x, s = loop s (v, y k, z k)
+                    inl m = module_add k x m
+                    m, s
+                    ) ({},s) x
+            | x, y, z -> f s x y z
+        loop s (a,b,c)
+
+    inl foldr f a s = 
+        inl rec loop s = function
+            | x when caseable_box_is x -> f x s
+            | x :: xs -> loop (loop s xs) x
+            | () -> s
+            | {!block} & x -> module_foldr (inl k x s -> loop s x) x s
+            | x -> f x s
+        loop s a
+
+    inl foldr2 f a b s = 
+        inl rec loop s = function
+            | x, y when caseable_box_is x || caseable_box_is y -> f x y s
+            | x :: xs, y :: ys -> loop (loop s (xs,ys)) (x,y)
+            | (), () -> s
+            | {!block} & x, {!block} & y -> module_foldr (inl k x s -> loop s (x,y k)) x s
+            | x, y -> f x y s
+        loop s (a,b)
+
+    inl foldr3 f a b c s = 
+        inl rec loop s = function
+            | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z s
+            | x :: xs, y :: ys, z :: zs -> loop (loop s (xs,ys,zs)) (x,y,z)
+            | (), (), () -> s
+            | {!block} & x, {!block} & y, {!block} & z -> module_foldr (inl k x s -> loop s (x,y k,z k)) x s
+            | x, y, z -> f x y z s
+        loop s (a,b,c)
+
+    inl foldr_map f a s = 
+        inl rec loop s = function
+            | x when caseable_box_is x -> f x s
+            | x :: xs -> 
+                inl x', s = loop s xs
+                inl x, s = loop s x
+                x :: x', s
+            | () -> (), s
+            | {!block} & x ->
+                module_foldr (inl k v (m,s) -> 
+                    inl x, s = loop s v
+                    inl m = module_add k x m
+                    m, s
+                    ) x ({},s)
+            | x -> f x s
+        loop s a
+
+    inl foldr2_map f a b s = 
+        inl rec loop s = function
+            | x, y when caseable_box_is x || caseable_box_is y -> f x y s
+            | x :: xs, y :: ys -> 
+                inl x', s = loop s (xs,ys)
+                inl x, s = loop s (x,y)
+                x :: x', s
+            | (), () -> (), s
+            | {!block} & x, {!block} & y ->
+                module_foldr (inl k v (m,s) -> 
+                    inl x, s = loop s (v, y k)
+                    inl m = module_add k x m
+                    m, s
+                    ) x ({},s)
+            | x, y -> f x y s
+        loop s (a,b)
+
+    inl foldr3_map f a b c s = 
+        inl rec loop s = function
+            | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z s
+            | x :: xs, y :: ys, z :: zs -> 
+                inl x', s = loop s (xs,ys,zs)
+                inl x, s = loop s (x,y,z)
+                x :: x', s
+            | (), (), () -> (), s
+            | {!block} & x, {!block} & y, {!block} & z ->
+                module_foldr (inl k v (m,s) -> 
+                    inl x, s = loop s (v, y k, z k)
+                    inl m = module_add k x m
+                    m, s
+                    ) x ({},s)
+            | x, y, z -> f x y z s
+        loop s (a,b,c)
+
+    {
+    map map2 map3 iter iter2 iter3 foldl foldl2 foldl3 choose choose2 choose3 
+    foldl_map foldl2_map foldl3_map foldr foldr2 foldr3 foldr_map foldr2_map foldr3_map
+    }
+
+inl unblocked =
+    inl map f x = 
+        inl rec loop = function
+            | x when caseable_box_is x -> f x
+            | x :: xs -> loop x :: loop xs
+            | () -> ()
+            | {} & x -> module_map (inl _ -> loop) x
+            | x -> f x
+        loop x
+
+    inl map2 f a b = 
+        inl rec loop = function
+            | x, y when caseable_box_is x || caseable_box_is y -> f x y
+            | x :: xs, y :: ys -> loop (x,y) :: loop (xs,ys)
+            | (), () -> ()
+            | {} & x, {} & y -> module_map (inl k x -> loop (x,y k)) x
+            | x, y -> f x y
+        loop (a,b)
+
+    inl map3 f a b c = 
+        inl rec loop = function
+            | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z
+            | x :: xs, y :: ys, z :: zs -> loop (x,y,z) :: loop (xs,ys,zs)
+            | (), (), () -> ()
+            | {} & x, {} & y, {} & z -> module_map (inl k x -> loop (x,y k,z k)) x
+            | x, y, z -> f x y z
+        loop (a,b,c)
+
+    inl iter f = map (inl x -> f x; ()) >> ignore
+    inl iter2 f a b = map2 (inl a b -> f a b; ()) a b |> ignore
+    inl iter3 f a b c = map3 (inl a b c -> f a b c; ()) a b c |> ignore
+
+    inl foldl f s x = 
+        inl rec loop s = function
+            | x when caseable_box_is x -> f s x
+            | () -> s
+            | x :: xs -> loop (loop s x) xs
+            | {} & x -> module_foldl (inl _ -> loop) s x
+            | x -> f s x
+        loop s x
+
+    inl foldl2 f s a b = 
+        inl rec loop s = function
+            | x, y when caseable_box_is x || caseable_box_is y -> f s x y
+            | x :: xs, y :: ys -> loop (loop s (x,y)) (xs,ys)
+            | (), () -> s
+            | {} & x, {} & y -> module_foldl (inl k s x -> loop s (x,y k)) s x
+            | x, y -> f s x y
+        loop s (a,b)
+
+    inl foldl3 f s a b c = 
+        inl rec loop s = function
+            | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f s x y z
+            | x :: xs, y :: ys, z :: zs -> loop (loop s (x,y,z)) (xs,ys,zs)
+            | (), (), () -> s
+            | {} & x, {} & y, {} & z -> module_foldl (inl k s x -> loop s (x,y k,z k)) s x
+            | x, y, z -> f s x y z
+        loop s (a,b,c)
+
+    inl choose f x = 
+        inl rec loop = function
+            | x when caseable_box_is x -> f x
+            | () -> ()
+            | x :: xs -> 
+                match loop x with
+                | () -> loop xs
+                | x -> x :: loop xs
+            | {} & x -> 
+                module_foldl (inl k s x -> 
+                    match loop x with
+                    | () -> s
+                    | x -> module_add k x s
+                    ) {} x
+            | x -> f x
+        loop x
+
+    inl choose2 f a b = 
+        inl rec loop = function
+            | x, y when caseable_box_is x || caseable_box_is y -> f x y
+            | x :: xs, y :: ys ->
+                match loop (x,y) with
+                | () -> loop (xs,ys)
+                | x -> x :: loop (xs,ys)
+            | (), () -> ()
+            | {} & x, {} & y ->
+                module_foldl (inl k s x -> 
+                    match loop (x,y k) with
+                    | () -> s
+                    | x -> module_add k x s
+                    ) {} x
+            | x, y -> f x y
+        loop (a,b)
+
+    inl choose3 f a b c = 
+        inl rec loop = function
+            | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z
+            | x :: xs, y :: ys, z :: zs -> 
+                match loop (x,y,z) with
+                | () -> loop (xs,ys,zs)
+                | x -> x :: loop (xs,ys,zs)
+            | (), (), () -> ()
+            | {} & x, {} & y, {} & z -> 
+                module_foldl (inl k s x -> 
+                    match loop (x,y k,z k) with
+                    | () -> s
+                    | x -> module_add k x s
+                    ) {} x
+            | x, y, z -> f x y z
+        loop (a,b,c)
+
+    inl foldl_map f s x = 
+        inl rec loop s = function
+            | x when caseable_box_is x -> f s x
+            | () -> (), s
+            | x :: xs -> 
+                inl x, s = loop s x
+                inl x', s = loop s xs
+                x :: x', s
+            | {} & x -> 
+                module_foldl (inl k (m,s) v -> 
+                    inl x, s = loop s v
+                    inl m = module_add k x m
+                    m, s
+                    ) ({},s) x
+            | x -> f s x
+        loop s x
+
+    inl foldl2_map f s a b = 
+        inl rec loop s = function
+            | x, y when caseable_box_is x || caseable_box_is y -> f s x y
+            | x :: xs, y :: ys -> 
+                inl x, s = loop s (x,y)
+                inl x', s = loop s (xs,ys)
+                x :: x', s
+            | (), () -> (), s
+            | {} & x, {} & y -> 
+                module_foldl (inl k (m,s) v -> 
+                    inl x, s = loop s (v, y k)
+                    inl m = module_add k x m
+                    m, s
+                    ) ({},s) x
+            | x, y -> f s x y
+        loop s (a,b)
+
+    inl foldl3_map f s a b c = 
+        inl rec loop s = function
+            | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f s x y z
+            | x :: xs, y :: ys, z :: zs -> 
+                inl x, s = loop s (x,y,z)
+                inl x', s = loop s (xs,ys,zs)
+                x :: x', s
+            | (), (), () -> (), s
+            | {} & x, {} & y, {} & z ->
+                module_foldl (inl k (m,s) v -> 
+                    inl x, s = loop s (v, y k, z k)
+                    inl m = module_add k x m
+                    m, s
+                    ) ({},s) x
+            | x, y, z -> f s x y z
+        loop s (a,b,c)
+
+    inl foldr f a s = 
+        inl rec loop s = function
+            | x when caseable_box_is x -> f x s
+            | x :: xs -> loop (loop s xs) x
+            | () -> s
+            | {} & x -> module_foldr (inl k x s -> loop s x) x s
+            | x -> f x s
+        loop s a
+
+    inl foldr2 f a b s = 
+        inl rec loop s = function
+            | x, y when caseable_box_is x || caseable_box_is y -> f x y s
+            | x :: xs, y :: ys -> loop (loop s (xs,ys)) (x,y)
+            | (), () -> s
+            | {} & x, {} & y -> module_foldr (inl k x s -> loop s (x,y k)) x s
+            | x, y -> f x y s
+        loop s (a,b)
+
+    inl foldr3 f a b c s = 
+        inl rec loop s = function
+            | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z s
+            | x :: xs, y :: ys, z :: zs -> loop (loop s (xs,ys,zs)) (x,y,z)
+            | (), (), () -> s
+            | {} & x, {} & y, {} & z -> module_foldr (inl k x s -> loop s (x,y k,z k)) x s
+            | x, y, z -> f x y z s
+        loop s (a,b,c)
+
+    inl foldr_map f a s = 
+        inl rec loop s = function
+            | x when caseable_box_is x -> f x s
+            | x :: xs -> 
+                inl x', s = loop s xs
+                inl x, s = loop s x
+                x :: x', s
+            | () -> (), s
+            | {} & x ->
+                module_foldr (inl k v (m,s) -> 
+                    inl x, s = loop s v
+                    inl m = module_add k x m
+                    m, s
+                    ) x ({},s)
+            | x -> f x s
+        loop s a
+
+    inl foldr2_map f a b s = 
+        inl rec loop s = function
+            | x, y when caseable_box_is x || caseable_box_is y -> f x y s
+            | x :: xs, y :: ys -> 
+                inl x', s = loop s (xs,ys)
+                inl x, s = loop s (x,y)
+                x :: x', s
+            | (), () -> (), s
+            | {} & x, {} & y ->
+                module_foldr (inl k v (m,s) -> 
+                    inl x, s = loop s (v, y k)
+                    inl m = module_add k x m
+                    m, s
+                    ) x ({},s)
+            | x, y -> f x y s
+        loop s (a,b)
+
+    inl foldr3_map f a b c s = 
+        inl rec loop s = function
+            | x, y, z when caseable_box_is x || caseable_box_is y || caseable_box_is z -> f x y z s
+            | x :: xs, y :: ys, z :: zs -> 
+                inl x', s = loop s (xs,ys,zs)
+                inl x, s = loop s (x,y,z)
+                x :: x', s
+            | (), (), () -> (), s
+            | {} & x, {} & y, {} & z ->
+                module_foldr (inl k v (m,s) -> 
+                    inl x, s = loop s (v, y k, z k)
+                    inl m = module_add k x m
+                    m, s
+                    ) x ({},s)
+            | x, y, z -> f x y z s
+        loop s (a,b,c)
+
+    {
+    map map2 map3 iter iter2 iter3 foldl foldl2 foldl3 choose choose2 choose3 
+    foldl_map foldl2_map foldl3_map foldr foldr2 foldr3 foldr_map foldr2_map foldr3_map
+    }
+
 inl rec is_empty = function
     | x when caseable_box_is x -> false
     | x :: xs -> is_empty x && is_empty xs
@@ -1446,9 +1685,6 @@ inl rec is_empty = function
     | {} & x -> module_foldl (inl k s x -> s && is_empty x) true x
     | x -> false
 
-inl blocked = StructTemplate .block
-inl unblocked = StructTemplate .("")
-    
 module_foldl (inl .(k) m x ->
     inl k = .(string_concat "" (k, "'"))
     {m with $k=x}
