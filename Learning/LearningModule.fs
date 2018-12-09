@@ -901,16 +901,18 @@ inl float ->
             on_non_nil (inl A -> 
                 l.wait_on s.data.stream
                 inl s = s.data_add {stream=l}
-                match TA with
-                | .T -> s.CudaBlas.gemm' .nT TB one out.basic (primal B .basic) one A.basic
-                | .nT -> s.CudaBlas.gemm' .nT TB one (primal B .basic) out.basic one A.basic
+                ()
+                //match TA with
+                //| .T -> s.CudaBlas.gemm' .nT TB one out.basic (primal B .basic) one A.basic
+                //| .nT -> s.CudaBlas.gemm' .nT TB one (primal B .basic) out.basic one A.basic
                 ) (adjoint A)
             on_non_nil (inl B -> 
                 r.wait_on s.data.stream
                 inl s = s.data_add {stream=r}
-                match TB with
-                | .T -> s.CudaBlas.gemm' TA .nT one (primal A .basic) out.basic one B.basic
-                | .nT -> s.CudaBlas.gemm' TA .nT one out.basic (primal A .basic) one B.basic
+                ()
+                //match TB with
+                //| .T -> s.CudaBlas.gemm' TA .nT one (primal A .basic) out.basic one B.basic
+                //| .nT -> s.CudaBlas.gemm' TA .nT one out.basic (primal A .basic) one B.basic
                 ) (adjoint B)
             
             inl update k data = 
