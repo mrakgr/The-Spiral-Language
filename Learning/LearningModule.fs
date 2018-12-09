@@ -1209,10 +1209,12 @@ inl float ->
     inl standard s =
         Struct.iter (function
             | {optimize weights} ->
-                inl weights = Struct.map' (inl x -> x.data) weights
-                optimize {weights} s
+                inl weights = Struct.map' (inl x -> x) weights
+                //optimize {weights} s
+                ()
             | {weights} ->
-                Struct.iter (function {weight} -> sgd s weight.data | _ -> ()) weights
+                //Struct.iter (function {weight} -> sgd s weight.data | _ -> ()) weights
+                ()
             )
 
     inl Optimizer = {sgd standard kfac}

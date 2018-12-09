@@ -251,24 +251,11 @@ met train {data={input label} network final} s =
                     next {d with prev_states state}
                 finally=inl {state with cost state prev_states} ->
                     inl prev_states = List.cons state prev_states |> dyn
-                    //List.foldl' ignore (inl next m -> function
-                    //    | {prev={bck}} ->
-                    //        match m with
-                    //        | () -> 
-                    //            Struct.foldr_map (inl bck _ -> bck (), ()) bck ()
-                    //        | _ ->
-                    //            Struct.foldr2_map (inl bck m _ -> 
-                    //                inl x =
-                    //                    match m with
-                    //                    | () -> bck ()
-                    //                    | {} -> bck m
-                    //                x, ()
-                    //                ) bck m ()
-                    //        |> fst
-                    //        |> next
-                    //    | _ -> next m
-                    //    ) () prev_states
-                    //Optimizer.standard s network
+                    List.foldl (inl _ -> function
+                        | {prev={bck}} -> Struct.foldr (inl bck _ -> bck()) bck ()
+                        | _ -> ()
+                        ) () prev_states
+                    Optimizer.standard s network
                     inl cost =
                         List.foldl (inl cost -> function
                             | {prev={out}} -> cost + out()
