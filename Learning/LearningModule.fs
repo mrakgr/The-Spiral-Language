@@ -1207,17 +1207,13 @@ inl float ->
             ) weights
 
     inl standard s x =
-        macro.fs () [text: "// I am in standard."]
         Struct.iter (function
-            | {optimize weights} ->
+            | {optimize weights} -> join
                 inl weights = Struct.map' (inl x -> x.data) weights
-                //optimize {weights} s
-                ()
-            | {weights} ->
-                //Struct.iter (function {weight} -> sgd s weight.data | _ -> ()) weights
-                ()
+                optimize {weights} s
+            | {weights} -> join
+                Struct.iter (function {weight} -> sgd s weight.data | _ -> ()) weights
             ) x
-        macro.fs () [text: "// I am done with standard."]
 
     inl Optimizer = {sgd standard kfac}
 
