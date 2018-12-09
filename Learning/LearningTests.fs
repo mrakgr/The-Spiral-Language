@@ -182,11 +182,6 @@ inl network,_ =
         {
         rnn =
             rnn 128,
-            rnn 128,
-            rnn 128,
-            rnn 128,
-            rnn 128,
-            rnn 128,
             linear size.hot
         }
 
