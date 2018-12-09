@@ -212,7 +212,7 @@ inl truncate network s' =
 met train {data={input label} network final} s =
     inl s = s.RegionMem.create
 
-    inl ty, {} = 
+    inl ty, {run truncate} = 
         Union.infer {
             run={
                 map=inl {network s} {input label} ->
@@ -268,7 +268,7 @@ met train {data={input label} network final} s =
                     //        |> next
                     //    | _ -> next m
                     //    ) () prev_states
-                    Optimizer.standard s network
+                    //Optimizer.standard s network
                     inl cost =
                         List.foldl (inl cost -> function
                             | {prev={out}} -> cost + out()
