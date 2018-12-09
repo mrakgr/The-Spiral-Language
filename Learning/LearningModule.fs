@@ -1174,7 +1174,7 @@ inl float ->
         inl out = x.basic
         s.CudaFun.map {out map=inl {primal adjoint} -> {primal=primal - rate * adjoint; adjoint=zero}} out
 
-    inl kfac {weights} s =
+    met kfac {weights} s =
         inl rate = s.data.rate.weight
         inl k_max = 128
 
@@ -1210,7 +1210,7 @@ inl float ->
         Struct.iter (function
             | {optimize weights} ->
                 inl weights = Struct.map' (inl x -> x.data) weights
-                join optimize {weights} s
+                optimize {weights} s
             | {weights} ->
                 Struct.iter (function {weight} -> sgd s weight.data | _ -> ()) weights
             )
