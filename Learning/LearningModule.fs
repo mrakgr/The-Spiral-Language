@@ -1456,9 +1456,10 @@ inl float ->
 
     inl init s size dsc = 
         Struct.foldl_map (inl sublayer_size {x with init} -> 
-            inl {d with dsc size} = init sublayer_size
-            inl weights = Struct.map' (inl x -> x s |> inl x -> x.init; x) dsc |> heap
-            {x without init with weights size}, size
+            indiv join
+                inl {dsc size} = init sublayer_size
+                inl weights = Struct.map' (inl x -> x s |> inl x -> x.init; x) dsc |> heap
+                stack ({x without init with weights size}, size)
             ) size dsc
 
     inl run s input =
