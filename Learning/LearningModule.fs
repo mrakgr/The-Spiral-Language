@@ -1206,16 +1206,18 @@ inl float ->
             | _ -> ()
             ) weights
 
-    inl standard s =
+    inl standard s x =
+        macro.fs () [text: "// I am in standard."]
         Struct.iter (function
             | {optimize weights} ->
-                inl weights = Struct.map' (inl x -> x) weights
+                inl weights = Struct.map' (inl x -> x.data) weights
                 //optimize {weights} s
                 ()
             | {weights} ->
                 //Struct.iter (function {weight} -> sgd s weight.data | _ -> ()) weights
                 ()
-            )
+            ) x
+        macro.fs () [text: "// I am done with standard."]
 
     inl Optimizer = {sgd standard kfac}
 
