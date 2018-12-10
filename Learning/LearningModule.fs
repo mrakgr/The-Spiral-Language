@@ -977,7 +977,7 @@ inl float ->
             s.CudaFun.init {dim} init
         
         {
-        out
+        out=View.wrap dim out
         bck=met _ ->
             inl from = to_dev_tensor (adjoints out)
             open CudaAD
@@ -987,13 +987,17 @@ inl float ->
                 bck(); bck'()
         }
 
-    inl mapi f in s =
-        inl dim = Tensor.assert_broadcastable in
+    inl mapi_template dim f in s =
         inl in = to_dev_tensor in
         open CudaAD
         init {dim} (inl cur -> link_auto dim in cur >>= f cur) s
 
-    inl map = mapi << const
+    inl mapi f in s =
+        inl dim = Tensor.assert_broadcastable in
+        assert (Tuple.exists (function {} -> true | _ -> false) dim = false) "Tree views are not allowed in mapi."
+        mapi_template dim f in s
+
+    inl map f in s = mapi_template (Tensor.assert_broadcastable in) (const f)
 
     inl segmented_init {dim elem_type} init s =
         inl out =
