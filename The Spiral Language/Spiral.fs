@@ -1478,7 +1478,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         if v_ty = r_ty then make_tyv_and_push_typed_expr_even_if_unit d (TyOp(MutableSet,[module_;v;r],BListT))
                         else on_type_er (trace d) <| sprintf "The two sides in the module set have different types.\nExpected: %s\n     Got: %s" (show_typedexpr v_ty) (show_typedexpr r_ty)
                 | x -> on_type_er (trace d) <| sprintf "Expected a type string as the input to a mutable heap module.\nGot: %s" (show_typedexpr x)
-            | _ -> on_type_er (trace d) <| sprintf "Expected a heap mutable module, reference or an array the input to mutable set.\nGot: %s" (show_typedexpr a)
+            | _ -> on_type_er (trace d) <| sprintf "Expected a heap mutable module, reference or an array as the input to mutable set.\nGot: %s" (show_typedexpr a)
 
         let array_length d ar =
             let ar = tev d ar
