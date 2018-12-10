@@ -965,6 +965,36 @@ inl float ->
                     adjoints in .modify' (inl in x -> in + x) x // The adjoint is assumed to be 1 for cost functions.
         }
 
+    inl init {dim} init s =
+        inl out =
+            open CudaAD
+            inl init cur =
+                (init cur >>= succ) .out
+                |> Struct.map (function
+                    | {primal adjoint} as x -> {x with adjoint=adjoint 0}
+                    | x -> x
+                    )
+            s.CudaFun.init {dim} init
+        
+        {
+        out
+        bck=met _ ->
+            inl from = to_dev_tensor (adjoints out)
+            open CudaAD
+            s.CudaKernel.iter {dim} <| inl cur -> 
+                inl {out bck} = init cur >>= succ
+                inl {bck=bck'} = link_adjoint dim {from to=adjoints out}
+                bck(); bck'()
+        }
+
+    inl mapi f in s =
+        inl dim = Tensor.assert_broadcastable in
+        inl in = to_dev_tensor in
+        open CudaAD
+        init {dim} (inl cur -> link_auto dim in cur >>= f cur) s
+
+    inl map = mapi << const
+
     inl segmented_init {dim elem_type} init s =
         inl out =
             open CudaAD
@@ -981,7 +1011,7 @@ inl float ->
         {
         out
         bck=met _ ->
-            inl from = adjoints (to_dev_tensor out)
+            inl from = to_dev_tensor (adjoints out)
             open CudaAD
             s.CudaKernel.segmented_iter {dim} <| inl dim -> 
                 Struct.iter2' (inl cur init ->
@@ -1060,14 +1090,6 @@ inl float ->
                 ) l
 
         segmented_init {dim elem_type} init
-
-    inl mapi f in s =
-        inl dim = Tensor.assert_broadcastable in
-        inl in = to_dev_tensor in
-        open CudaAD
-        segmented_init {dim} (inl cur -> link_auto dim in cur >>= f cur) s
-
-    inl map = mapi << const
 
     inl init_seq {dim} init s =
         inl out = s.CudaFun.init_seq {dim} <| inl b k -> init b k .out
