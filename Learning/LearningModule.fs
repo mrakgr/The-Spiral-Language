@@ -1623,16 +1623,15 @@ inl float ->
             }
 
         inl reward_scale = epsilon -3
-        inl ac_sample_action {policy trace value scale} s =
+        inl ac_sample_action {policy trace value} s =
             inl {out bck} = sampling_pg policy s
             {
             out
             bck=inl d ->
-                inl {out={R scaled_error error} bck=bck'} = map (CudaAD.Activation.td reward_scale) {d with trace value scale} s
-                //s.CudaTensor.print (primals {value scale error} |> Tensor.zip |> inl x -> x 0)
+                inl {out={R error} bck=bck'} = map (CudaAD.Activation.td reward_scale) {d with trace value} s
                 {
                 out={R'=R; value'=value}
-                bck=inl _ -> bck' (); bck {reward=scaled_error}
+                bck=inl _ -> bck' (); bck {reward=error}
                 }
             }
 
