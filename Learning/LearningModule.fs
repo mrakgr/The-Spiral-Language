@@ -1649,22 +1649,11 @@ inl float ->
                 size
                 }
 
-            apply = inl {d with weights={weights value outer} input} s -> 
-                inl span = primal input .span_outer
+            apply = inl {d with weights={weights} input} s -> 
                 inl apply =
-                    inm {pt=!(wrap_split ((), inner.pt)) {policy trace} scale} = 
-                        inm data = 
-                            inm pt = segmented_init {dim=span,outer} {bias=const one; input=load input}
-                            inl scale = primal pt
-                            succ {pt scale}
-                        inl data = Struct.map' (inl data -> data.basic) data
-                        Struct.map2 (inl weights data -> {weights with data}) weights data
-                        |> matmult_stream
-                    inm value =
-                        inm data = segmented_init {dim=span,outer} {bias=const one; input=loada_grad_rescale (primal input .dim) {scale input}}
-                        inl data = Struct.map' (inl data -> data.basic) data
-                        matmult_stream {value with data}
-                    succ {policy trace value scale}
+                    inm data = concat {bias=one; input}
+                    inm out = matmult_stream {weights with data}
+                    succ (View.split out)
 
                 inl {out bck} = apply s
                 {out bck}
