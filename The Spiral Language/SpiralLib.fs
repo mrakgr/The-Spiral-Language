@@ -2226,7 +2226,7 @@ inl split tns =
                 | {from near_to} -> next (x :: s)
                 | {} -> module_map (inl k x -> loop x) x
             loop x
-        | from -> next (() :: s)
+        | _ -> next (() :: s)
 
     Tuple.foldr f dim (Tuple.rev >> tns) ()
 
