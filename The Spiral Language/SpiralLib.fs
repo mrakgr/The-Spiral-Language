@@ -2217,6 +2217,7 @@ inl wrap dim basic =
 
 inl split tns =
     inl dim = tns.tree_dim
+    inl tree_dim = Tuple.map (const ()) dim
     inl tns = tns.basic
     inl f x next s =
         match x with
@@ -2228,7 +2229,7 @@ inl split tns =
             loop x
         | _ -> next (() :: s)
 
-    Tuple.foldr f dim (Tuple.rev >> tns) ()
+    Tuple.foldr f dim (Tuple.rev >> tns >> inl basic -> facade {basic tree_dim}) ()
 
 inl span = Liple.map (map_dim (inl _ -> error_type "() not allowed in View span.") >> fst)
 

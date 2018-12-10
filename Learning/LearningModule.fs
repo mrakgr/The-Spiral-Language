@@ -322,7 +322,7 @@ inl link_adjoint cur {from to} =
     Struct.iter2 (inl from to -> 
         match to with
         | () -> ()
-        | _ -> to 0 <- from cur .get
+        | _ -> to 0 <- from .view cur .get
         ) from to
     {
     out=()
@@ -330,11 +330,9 @@ inl link_adjoint cur {from to} =
         Struct.iter2 (inl from to -> 
             match to with
             | () -> ()
-            | _ -> from cur .set (to 0)
+            | _ -> from .view cur .set (to 0)
             ) from to
     }
-
-inl link_adjoint_view cur x = link_adjoint cur {x with from=Struct.map (inl x -> x.view) self}
 
 inl Op =
     module_foldl (inl _ ->
@@ -482,7 +480,7 @@ inl Seq k =
         Struct.iter2 (inl from to -> 
             match to with
             | () -> ()
-            | _ -> k.block.iter (inl {item i=a} -> to item .set (from b a .get))
+            | _ -> k.block.iter (inl {item i=a} -> to item .set (from .view b .view a .get))
             ) from to
         {
         out=()
@@ -490,11 +488,9 @@ inl Seq k =
             Struct.iter2 (inl from to -> 
                 match to with
                 | () -> ()
-                | _ -> k.block.iter (inl {item i=a} -> from b a .set (to item .get))
+                | _ -> k.block.iter (inl {item i=a} -> from .view b .view a .set (to item .get))
                 ) from to
         }
-
-    inl link_adjoint_view b x = link_adjoint b {x with from=Struct.map (inl x a b -> x .view a .view b) self} 
 
     inl Unary = module_map (const unary) Unary
     inl Comp = module_map (const comp) Comp
@@ -566,13 +562,13 @@ inl Seq k =
         {generalized_mi_ln_relu wn_hebb}
 
     {
-    dr val link link_broadcast link_auto link_adjoint link_adjoint_view 
+    dr val link link_broadcast link_auto link_adjoint 
     Unary Binary Op Activation
     }
 
 {
 primal primals adjoint adjoints
-(>>=) succ dr link link_broadcast link_auto link_adjoint link_adjoint_view
+(>>=) succ dr link link_broadcast link_auto link_adjoint
 Unary Binary Op Activation Seq
 }
 |> stackify
@@ -975,9 +971,10 @@ inl float ->
                     | x -> x
                     )
             s.CudaFun.init {dim} init
+            |> View.wrap dim out
         
         {
-        out=View.wrap dim out
+        out
         bck=met _ ->
             inl from = to_dev_tensor (adjoints out)
             open CudaAD
@@ -997,7 +994,7 @@ inl float ->
         assert (Tuple.exists (function {} -> true | _ -> false) dim = false) "Tree views are not allowed in mapi."
         mapi_template dim f in s
 
-    inl map f in s = mapi_template (Tensor.assert_broadcastable in) (const f)
+    inl map f in = mapi_template (Tensor.assert_broadcastable in) (const f) in
 
     inl segmented_init {dim elem_type} init s =
         inl out =
