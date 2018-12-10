@@ -1568,12 +1568,11 @@ inl float ->
             dsc = 
                 {
                 weights = weight {init dim=outer,inner}
-                outer = val outer
                 }
             size
             }
 
-        apply = inl {d with weights={weights outer} input} s -> 
+        apply = inl {d with weights={weights} input} s -> 
             inl span = fst input.dim
             inl out, weights =
                 match d with
@@ -1636,46 +1635,17 @@ inl float ->
             }
 
         inl ac size =
-            inl inner = 
-                {
-                pt={policy=size; trace=1}
-                value=1
-                scale=1
-                }
+            inl inner = { policy=size; trace=1; value=1 }
             
             {
             init = inl sublayer_size ->
-                open Initializer.dual.TensorView
+                open Initializer.dual
                 inl outer = {bias=1; input=sublayer_size}
                 inl init =
-                    {
-                    pt = 
-                        {
-                        bias = { policy=const zero; trace=const two}
-                        input = { policy=const zero; trace=const zero}
-                        }
-                    value =
-                        {
-                        bias = const zero
-                        input = const zero
-                        }
-                    scale =
-                        {
-                        bias = const (num 10 * num reward_scale)
-                        input = const zero
-                        }
-                    }
+                    inl f bias = { bias = const zero; input = const zero }
+                    { policy = f zero; trace = f two; value = f zero }
                 {
-                dsc =
-                    {
-                    weights = {
-                        pt = weight {init=init.pt; dim=outer,inner.pt}
-                        scale = weightf {init=init.scale; dim=outer,inner.scale}
-                        }
-                    value = weightf {init=init.value; dim=outer,inner.value}
-                    outer = val outer
-                    inner = val inner
-                    }
+                dsc = { weights = weight {init dim=outer,inner} }
                 size
                 }
 
