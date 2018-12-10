@@ -481,7 +481,7 @@ inl {basic_methods State Action} ->
 
     inl Learning = Learning float32
 
-    inl player_ac {net name learning_rate discount} cd =
+    inl player_ac {net name discount} cd =
         open Learning
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
@@ -494,6 +494,7 @@ inl {basic_methods State Action} ->
                     inl input = 
                         inl tns = Union.to_dense input |> Tensor.array_as_tensor
                         cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
+                        |> View.wrap ((), ())
                     inl net, out = run cd input net
                     inl bck = Struct.map (inl {bck} -> bck) net
                     inl net = Struct.map (inl d -> {d without bck}) net
@@ -516,27 +517,12 @@ inl {basic_methods State Action} ->
                         ()
                     ) {r=dyn (to float32 r); value'=0f32; R'=0f32} l
 
-                List.foldl' ignore (inl next m -> function
-                    | {bck} ->
-                        inl learning_rate = learning_rate ** 0.85f32
-                        match m with
-                        | () -> 
-                            Struct.foldr_map (inl bck _ -> bck {learning_rate}, ()) bck ()
-                        | _ ->
-                            Struct.foldr2_map (inl bck m _ -> 
-                                inl x =
-                                    match m with
-                                    | () -> bck {learning_rate}
-                                    | {} -> bck {m with learning_rate}
-                                x, ()
-                                ) bck m ()
-                        |> fst
-                        |> next
-                    | _ ->
-                        ()
-                    ) () l
+                List.foldl (inl _ -> function
+                    | {prev={bck}} -> Struct.foldr (inl bck _ -> bck()) bck ()
+                    | _ -> ()
+                    ) () prev_states
 
-                Optimizer.standard learning_rate s.data.cd s.data.net
+                Optimizer.standard s.data.cd s.data.net
             game_over=inl s -> ()
             }
 

@@ -168,10 +168,13 @@ Struct.iter (inl i ->
         Console.writeline "------"
         Console.printfn "The CudaRandom pseudorandom seed is {0}" i
 
+        inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32}}
+        inl s = s.data_add pars
+
         inl a =
             open (Learning float32)
             inl net = () //RNN.rnn 128
-            player_ac {learning_rate net name="One"; discount=0.99f32} s 
+            player_ac {net name="One"; discount=0.99f32} s 
         inl b = player_rules {name="Two"}
 
         met f game (!dyn near_to) (!dyn near_to_inner) = 

@@ -286,7 +286,6 @@ inl {link link_broadcast link_auto} =
 
     {
     link = inl x cur ->
-        print_static x.unwrap
         inl x = index_std cur x
         inl out = get_primal x
     
