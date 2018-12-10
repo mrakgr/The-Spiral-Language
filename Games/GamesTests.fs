@@ -171,7 +171,7 @@ Struct.iter (inl i ->
         inl a =
             open (Learning float32)
             inl net = () //RNN.rnn 128
-            player_ac {learning_rate net name="One"; discount=0.99f32} s
+            player_ac {learning_rate net name="One"; discount=0.99f32} s 
         inl b = player_rules {name="Two"}
 
         met f game (!dyn near_to) (!dyn near_to_inner) = 
