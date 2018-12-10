@@ -986,6 +986,7 @@ inl float ->
 
     inl mapi_template dim f in s =
         inl in = to_dev_tensor in
+        print_static in
         open CudaAD
         init {dim} (inl cur -> link_auto dim in cur >>= f cur) s
 
@@ -1621,8 +1622,8 @@ inl float ->
     inl RL =
         /// The PG activation.
         inl sampling_pg x s =
-            inl dim_a, dim_b = primal x .dim
-            print_static dim_a
+            inl x = x.basic
+            inl dim_a, dim_b = x .dim
             inl p = softmax one (primal x) s
             inl out = sample_body p s
 
