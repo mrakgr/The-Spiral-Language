@@ -1598,7 +1598,129 @@ inl float ->
 
     inl RNN = {rnn}
 
-    inl RL = {}
+    inl RL =
+        /// The PG activation.
+        inl sampling_pg x s =
+            inl dim_a, dim_b = primal x .dim
+            inl p = softmax one (primal x) s
+            inl out = sample_body p s
+
+            {
+            out
+            bck=inl {reward} ->
+                inl reward = 
+                    inl reward = primal reward
+                    assert (dim_a = fst reward.dim) "Reward's dimensions must be equal to that of the input's outer dimnesion."
+                    assert (snd reward.dim = 1) "Reward's second dimension must be 1." 
+                    CudaAux.to_dev_tensor reward
+
+                inl x_a, p, out = to_dev_tensor (adjoint x, p, out)
+                s.CudaKernel.iter2 {dim=dim_a, dim_b} <| inl j ->
+                    inl x_a, p, out, reward = x_a j, p j, out j .get, reward j 0 .get
+
+                    inl i ->
+                        inl p = p i .get
+                        inl x_a = x_a i
+                        inl label = if out = i then one else zero
+                        x_a.set (x_a.get + (p - label) * reward) 
+            }
+
+        inl reward_scale = epsilon -3
+        inl ac_sample_action {policy trace value scale} s =
+            inl {out bck} = sampling_pg policy s
+            {
+            out
+            bck=inl d ->
+                inl {out={R scaled_error error} bck=bck'} = map (CudaAD.Activation.td reward_scale) {d with trace value scale} s
+                //s.CudaTensor.print (primals {value scale error} |> Tensor.zip |> inl x -> x 0)
+                {
+                out={R'=R; value'=value}
+                bck=inl _ -> bck' (); bck {reward=scaled_error}
+                }
+            }
+
+        inl ac size =
+            inl inner = 
+                {
+                pt={policy=size; trace=1}
+                value=1
+                scale=1
+                }
+            
+            {
+            init = inl sublayer_size ->
+                open Initializer.dual.TensorView
+                inl outer = {bias=1; input=sublayer_size}
+                inl init =
+                    {
+                    pt = 
+                        {
+                        bias = { policy=const zero; trace=const two}
+                        input = { policy=const zero; trace=const zero}
+                        }
+                    value =
+                        {
+                        bias = const zero
+                        input = const zero
+                        }
+                    scale =
+                        {
+                        bias = const (num 10 * num reward_scale)
+                        input = const zero
+                        }
+                    }
+                {
+                dsc =
+                    {
+                    weights = {
+                        pt = weight {init=init.pt; dim=outer,inner.pt}
+                        scale = weightf {init=init.scale; dim=outer,inner.scale}
+                        }
+                    value = weightf {init=init.value; dim=outer,inner.value}
+                    outer = val outer
+                    inner = val inner
+                    }
+                size
+                }
+
+            apply = inl {d with weights={weights value outer} input} s -> 
+                inl span = primal input .span_outer
+                inl apply =
+                    inm {pt=!(wrap_split ((), inner.pt)) {policy trace} scale} = 
+                        inm data = 
+                            inm pt = segmented_init {dim=span,outer} {bias=const one; input=load input}
+                            inl scale = primal pt
+                            succ {pt scale}
+                        inl data = Struct.map' (inl data -> data.basic) data
+                        Struct.map2 (inl weights data -> {weights with data}) weights data
+                        |> matmult_stream
+                    inm value =
+                        inm data = segmented_init {dim=span,outer} {bias=const one; input=loada_grad_rescale (primal input .dim) {scale input}}
+                        inl data = Struct.map' (inl data -> data.basic) data
+                        matmult_stream {value with data}
+                    succ {policy trace value scale}
+
+                inl {out bck} = apply s
+                {out bck}
+            optimize = Optimizer.kfac
+            block = ()
+            }
+
+        /// For online learning.
+        inl action {State Action final} {net input} s =
+            indiv join
+                assert (eq_type State input) "The input must be equal to the state type."
+                inl input = 
+                    inl tns = Union.to_dense input |> Tensor.array_as_tensor
+                    s.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
+
+                inl net, input = run s input net
+                inl {out bck} = final input s
+
+                inl action = Union.from_one_hot Action (s.CudaTensor.get (out 0))
+                stack {action net bck}
+       
+        {action ac ac_sample_action}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward RNN RL
