@@ -35,7 +35,7 @@ inl float = float32
 inl epsilon x = to float 2 ** to float x
 inl network,_ = 
     open Feedforward
-    inl layer = tanh
+    inl layer = ln_relu
     inl network =
         layer 512,
         layer 512,
