@@ -336,14 +336,18 @@ inl {link link_broadcast link_auto} =
    
 inl link_adjoint cur {from to} =
     Struct.iter2 (inl from to -> 
-        to 0 <- from
-        ) (from .view cur .get) to
+        match to with
+        | () -> ()
+        | _ -> to 0 <- from .view cur .get
+        ) from to
     {
     out=()
     bck=inl _ -> 
         Struct.iter2 (inl from to -> 
-            from .view cur .set to
-            ) from (Struct.map (inl x -> x 0) to)
+            match to with
+            | () -> ()
+            | _ -> from .view cur .set (to 0)
+            ) from to
     }
 
 inl Op =
