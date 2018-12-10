@@ -337,21 +337,20 @@ inl {link link_broadcast link_auto} =
     }
    
 inl link_adjoint cur {from to} =
+    inl from = from .view cur |> View.unzip
     Struct.iter2 (inl from to -> 
         match to with
         | () -> ()
-        | _ -> to 0 <- from
-        ) (from .view cur .get) to
+        | _ -> to 0 <- from .get
+        ) from to
     {
     out=()
     bck=inl _ -> 
         Struct.iter2 (inl from to -> 
             match to with
             | () -> ()
-            | _ -> 
-                print_static {from to}
-                from (to 0)
-            ) (from .view cur .set) to
+            | _ -> from .set (to 0)
+            ) from to
     }
 
 inl Op =
