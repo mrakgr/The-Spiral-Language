@@ -277,7 +277,11 @@ inl {link link_broadcast link_auto} =
             )
 
     inl bck f x out =
-        inl x = Struct.map View.unzip x
+        inl x = 
+            Struct.map (function
+                | x when val_is x -> x
+                | x -> View.unzip x
+                ) x
         Struct.iter2 (inl x out ->
             match x, out with
             | {adjoint=x}, {adjoint=out} -> f x (out 0)
@@ -320,18 +324,14 @@ inl {link link_broadcast link_auto} =
    
 inl link_adjoint cur {from to} =
     Struct.iter2 (inl from to -> 
-        match to with
-        | () -> ()
-        | _ -> to 0 <- from .view cur .get
-        ) from to
+        to 0 <- from
+        ) (from .view cur .get) to
     {
     out=()
     bck=inl _ -> 
         Struct.iter2 (inl from to -> 
-            match to with
-            | () -> ()
-            | _ -> from .view cur .set (to 0)
-            ) from to
+            from .view cur .set to
+            ) from (Struct.map (inl x -> x 0) to)
     }
 
 inl Op =
@@ -476,7 +476,7 @@ inl Seq k =
             }
         }
    
-    inl link_adjoint b {from to} =
+    inl link_adjoint b {from to} = // TODO: Redesign this so it matched the other link_adjoint.
         Struct.iter2 (inl from to -> 
             match to with
             | () -> ()

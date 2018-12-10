@@ -520,7 +520,7 @@ inl {basic_methods State Action} ->
                 List.foldl (inl _ -> function
                     | {prev={bck}} -> Struct.foldr (inl bck _ -> bck()) bck ()
                     | _ -> ()
-                    ) () prev_states
+                    ) () l
 
                 Optimizer.standard s.data.cd s.data.net
             game_over=inl s -> ()
