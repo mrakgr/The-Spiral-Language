@@ -2216,7 +2216,7 @@ inl wrap dim basic =
     facade {basic tree_dim}
 
 inl split tns =
-    inl dim = tns.dim
+    inl dim = tns.tree_dim
     inl tns = tns.basic
     inl f x next s =
         match x with
