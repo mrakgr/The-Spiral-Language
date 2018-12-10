@@ -32,7 +32,7 @@ inl input_size = 784
 inl label_size = 10
 
 inl float = float32
-inl epsilon x = to float 2 ** to float x
+inl epsilon x = to float 2 ** to float x 
 inl network,_ =
     open Feedforward
     inl layer = tanh
