@@ -969,7 +969,6 @@ inl float ->
         inl out =
             open CudaAD
             inl init = 
-                print_static {dim elem_type init}
                 Struct.map' (inl init cur -> 
                     (init cur >>= succ) .out
                     |> Struct.map (function
