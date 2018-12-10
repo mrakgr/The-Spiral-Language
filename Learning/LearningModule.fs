@@ -480,7 +480,7 @@ inl Seq k =
         Struct.iter2 (inl from to -> 
             match to with
             | () -> ()
-            | _ -> k.block.iter (inl {item i=a} -> to item .set (from .view b .view a .get))
+            | _ -> k.block.iter (inl {item i=a} -> to item .set (from .view (b, a) .get))
             ) from to
         {
         out=()
@@ -488,7 +488,7 @@ inl Seq k =
             Struct.iter2 (inl from to -> 
                 match to with
                 | () -> ()
-                | _ -> k.block.iter (inl {item i=a} -> from .view b .view a .set (to item .get))
+                | _ -> k.block.iter (inl {item i=a} -> from .view (b, a) .set (to item .get))
                 ) from to
         }
 
@@ -1017,7 +1017,7 @@ inl float ->
             s.CudaKernel.segmented_iter {dim} <| inl dim -> 
                 Struct.iter2' (inl cur init ->
                     inl {out bck} = init cur >>= succ
-                    inl {bck=bck'} = link_adjoint_view dim {from to=adjoints out}
+                    inl {bck=bck'} = link_adjoint dim {from to=adjoints out}
                     bck(); bck'()
                     ) dim init
         }
@@ -1093,10 +1093,11 @@ inl float ->
         segmented_init {dim elem_type} init
 
     inl init_seq {dim} init s =
-        inl out = s.CudaFun.init_seq {dim} <| inl b k -> init b k .out
-
+        inl out = 
+            s.CudaFun.init_seq {dim} <| inl b k -> init b k .out
+            |> View.wrap dim
         {
-        out=View.wrap dim out
+        out
         bck=met _ ->
             inl from = adjoints (to_dev_tensor out)
             open CudaAD
