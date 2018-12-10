@@ -269,6 +269,7 @@ inl {link link_broadcast link_auto} =
         Struct.map (function
             | x when val_is x -> x
             | x ->
+                print_static x.unwrap
                 Struct.map (function
                     | {primal adjoint} -> primal .get |> dr
                     | {primal} -> {primal=primal.get; block=()}
