@@ -1622,6 +1622,7 @@ inl float ->
         /// The PG activation.
         inl sampling_pg x s =
             inl dim_a, dim_b = primal x .dim
+            print_static dim_a
             inl p = softmax one (primal x) s
             inl out = sample_body p s
 
