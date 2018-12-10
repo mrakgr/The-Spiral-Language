@@ -322,10 +322,7 @@ inl link_adjoint cur {from to} =
     Struct.iter2 (inl from to -> 
         match to with
         | () -> ()
-        | _ -> 
-            print_static {to cur}
-            print_static from.dim
-            to 0 <- from .view cur .get
+        | _ -> to 0 <- from .view cur .get
         ) from to
     {
     out=()
@@ -983,7 +980,7 @@ inl float ->
             open CudaAD
             s.CudaKernel.iter {dim} <| inl cur -> 
                 inl {out bck} = init cur >>= succ
-                inl {bck=bck'} = link_adjoint dim {from to=adjoints out}
+                inl {bck=bck'} = link_adjoint cur {from to=adjoints out}
                 bck(); bck'()
         }
 
@@ -1017,12 +1014,12 @@ inl float ->
         bck=met _ ->
             inl from = to_dev_tensor (adjoints out)
             open CudaAD
-            s.CudaKernel.segmented_iter {dim} <| inl dim -> 
+            s.CudaKernel.segmented_iter {dim} <| inl cur' -> 
                 Struct.iter2' (inl cur init ->
                     inl {out bck} = init cur >>= succ
-                    inl {bck=bck'} = link_adjoint dim {from to=adjoints out}
+                    inl {bck=bck'} = link_adjoint cur' {from to=adjoints out}
                     bck(); bck'()
-                    ) dim init
+                    ) cur' init
         }
 
     inl rec unify_dual = // Note that if `s < r` then this unification won't be right, but a type error will occur in the kernel instead so it is fine.

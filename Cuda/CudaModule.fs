@@ -1356,10 +1356,7 @@ inl grid_for_template {iteration_mode} {blockDim gridDim} axis dim =
         | .items_per_thread {d with body} -> 
             inl span = span dim
             body {d without body with span num_valid=span; item=0; i=index_convert from}
-        | .std {d with body} -> 
-            print_static {from dim}
-            print_static (index_convert from)
-            body {d without body with i = index_convert from}
+        | .std {d with body} -> body {d without body with i = index_convert from}
         | .state_loading {d with body state} -> 
             state (index_convert from) 
             |> match d with {finally} -> finally | _ -> id // The return here must be unit
