@@ -476,20 +476,20 @@ inl Seq k =
             }
         }
    
-    inl link_adjoint b {from to} = // TODO: Redesign this so it matched the other link_adjoint.
-        Struct.iter2 (inl from to -> 
-            match to with
-            | () -> ()
-            | _ -> k.block.iter (inl {item i=a} -> to item .set (from .view (b, a) .get))
-            ) from to
+    inl link_adjoint b {from to} = 
+        k.block.iter (inl {item i=a} -> 
+            Struct.iter2 (inl from to ->
+                to item .set from
+                ) (from .view (b, a) .get) to
+            )
         {
         out=()
         bck=inl _ -> 
-            Struct.iter2 (inl from to -> 
-                match to with
-                | () -> ()
-                | _ -> k.block.iter (inl {item i=a} -> from .view (b, a) .set (to item .get))
-                ) from to
+            k.block.iter (inl {item i=a} -> 
+                Struct.iter2 (inl from to ->
+                    from (to item .get)
+                    ) (from .view (b, a) .set) to
+                )
         }
 
     inl Unary = module_map (const unary) Unary
