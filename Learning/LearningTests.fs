@@ -36,7 +36,7 @@ inl epsilon x = to float 2 ** to float x
 inl network,_ = 
     open Feedforward
     inl layer = ln_relu
-    inl network = 
+    inl network =
         layer 512,
         layer 512,
         linear label_size
