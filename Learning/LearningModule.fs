@@ -1642,7 +1642,7 @@ inl float ->
                 open Initializer.dual
                 inl outer = {bias=1; input=sublayer_size}
                 inl init =
-                    inl f bias = { bias = const zero; input = const zero }
+                    inl f bias = { bias = const bias; input = const zero }
                     { policy = f zero; trace = f two; value = f zero }
                 {
                 dsc = { weights = weight {init dim=outer,inner} }
@@ -1665,7 +1665,7 @@ inl float ->
         inl action {State Action final} {net input} s =
             indiv join
                 assert (eq_type State input) "The input must be equal to the state type."
-                inl input = 
+                inl input =
                     inl tns = Union.to_dense input |> Tensor.array_as_tensor
                     s.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
                     |> View.wrap ((), ())
