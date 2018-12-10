@@ -20,11 +20,13 @@ inl epsilon x = num 2.0 ** num x
 inl (>>=) a b =
     match a with
     | {out=a bck=bck_a} ->
-        inl {out=b bck=bck_b} = b a
-        {out=b; bck=bck_a << bck_b}
+        match b a with
+        | {out=b bck=bck_b} -> {out=b; bck=bck_a << bck_b}
+        | b -> {out=b; bck=bck_a}
     | _ ->
-        inl {out=b bck=bck_b} = b a
-        {out=b; bck=bck_b}
+        match b a with
+        | {out=b bck=bck_b} -> {out=b; bck=bck_b}
+        | b -> b
 
 inl succ out = {out bck=const ()}
 
@@ -338,16 +340,18 @@ inl link_adjoint cur {from to} =
     Struct.iter2 (inl from to -> 
         match to with
         | () -> ()
-        | _ -> to 0 <- from .view cur .get
-        ) from to
+        | _ -> to 0 <- from
+        ) (from .view cur .get) to
     {
     out=()
     bck=inl _ -> 
         Struct.iter2 (inl from to -> 
             match to with
             | () -> ()
-            | _ -> from .view cur .set (to 0)
-            ) from to
+            | _ -> 
+                print_static {from to}
+                from (to 0)
+            ) (from .view cur .set) to
     }
 
 inl Op =
