@@ -1641,9 +1641,10 @@ inl float ->
             init = inl sublayer_size ->
                 open Initializer.dual
                 inl outer = {bias=1; input=sublayer_size}
-                inl init =
-                    inl f bias = { bias = const bias; input = const zero }
-                    { policy = f zero; trace = f two; value = f zero }
+                inl init = {
+                    bias = {policy=const zero; trace=const two; value=const zero}
+                    input = {policy=const zero; trace=const zero; value=const zero}
+                    }
                 {
                 dsc = { weights = weight {init dim=outer,inner} }
                 size
