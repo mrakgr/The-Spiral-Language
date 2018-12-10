@@ -359,19 +359,16 @@ inl Activation =
 
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
 
-    inl td reward_scale {r discount trace R' value' value scale} =
+    inl td reward_scale {r discount trace R' value' value} =
         inm r = r * num reward_scale
-        //inm trace = sigmoid trace 
-        inm trace = zero
+        inm trace = sigmoid trace 
 
         inm R = r + discount * (trace * R' + (one - trace) * primal value')
         inm error = R - value
         
-        inm _ = sqr (abs (primal error) - scale) / num 2 |> as_cost
         inm _ = sqr error / num 2 |> as_cost
-        inm scaled_error = error / (min scale (epsilon -3)) // Is used as reward for the actor.
 
-        succ {R scaled_error error}
+        succ {R error=primal error}
 
     inl grad_rescale {scale input} =
         inm error = abs (get_adjoint input) - scale
