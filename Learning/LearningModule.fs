@@ -322,7 +322,10 @@ inl link_adjoint cur {from to} =
     Struct.iter2 (inl from to -> 
         match to with
         | () -> ()
-        | _ -> to 0 <- from .view cur .get
+        | _ -> 
+            print_static {to cur}
+            print_static from.dim
+            to 0 <- from .view cur .get
         ) from to
     {
     out=()
@@ -1652,7 +1655,8 @@ inl float ->
             {
             out
             bck=inl d ->
-                inl {out=!(View.unzip) {R error} bck=bck'} = map (CudaAD.Activation.td reward_scale) {d with trace value} s
+                inl {out bck=bck'} = map (CudaAD.Activation.td reward_scale) {d with trace value} s
+                inl {R error} = View.unzip out |> module_map (const View.zip)
                 {
                 out={R'=R; value'=value}
                 bck=inl _ -> bck' (); bck {reward=error}
