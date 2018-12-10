@@ -260,7 +260,7 @@ inl index_broadcast cur =
     Struct.map' <| function
         | x when val_is x -> x
         | x ->
-            Struct.foldl2 (inl x cur ->
+            Struct.foldl (inl x cur ->
                 x (if x.span_outer = 1 then 0 else cur)
                 ) x cur
 
@@ -971,7 +971,7 @@ inl float ->
                     | x -> x
                     )
             s.CudaFun.init {dim} init
-            |> View.wrap dim out
+            |> View.wrap dim
         
         {
         out
@@ -986,7 +986,6 @@ inl float ->
 
     inl mapi_template dim f in s =
         inl in = to_dev_tensor in
-        print_static in
         open CudaAD
         init {dim} (inl cur -> link_auto dim in cur >>= f cur) s
 
@@ -1653,7 +1652,7 @@ inl float ->
             {
             out
             bck=inl d ->
-                inl {out={R error} bck=bck'} = map (CudaAD.Activation.td reward_scale) {d with trace value} s
+                inl {out=!(View.unzip) {R error} bck=bck'} = map (CudaAD.Activation.td reward_scale) {d with trace value} s
                 {
                 out={R'=R; value'=value}
                 bck=inl _ -> bck' (); bck {reward=error}
