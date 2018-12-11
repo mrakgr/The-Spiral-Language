@@ -1258,6 +1258,10 @@ inl float ->
                 //reproject_to x back.precision (adjoint weight)
 
                 inl adjoint = {prev=prev_adjoint.basic; cur=adjoint weight .basic}
+                Console.writeline "cur: "
+                s.CudaTensor.print {cutoff=99999; input=adjoint.cur}
+                Console.writeline "prev:"
+                s.CudaTensor.print {cutoff=99999; input=adjoint.prev}
                 inl dot =
                     inl rate = learning_rate()
                     Console.writeline rate
