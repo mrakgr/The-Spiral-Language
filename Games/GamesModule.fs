@@ -518,7 +518,7 @@ inl {basic_methods State Action} ->
                     ) {r=dyn (to float32 r); value'=0f32; R'=0f32} l
 
                 List.foldl (inl _ -> function
-                    | {prev={bck}} -> Struct.foldr (inl bck _ -> bck()) bck ()
+                    | {bck} -> Struct.foldr (inl bck _ -> bck()) bck ()
                     | _ -> ()
                     ) () l
 
