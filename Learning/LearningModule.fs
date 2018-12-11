@@ -1236,7 +1236,7 @@ inl float ->
     /// KFAC: https://arxiv.org/abs/1503.05671
     /// Hypergradient descent: https://arxiv.org/abs/1703.04782
     inl kfac {weights} s =
-        inl hyper_rate = s.data.rate.weight
+        inl {weight=hyper_rate minibatch_size} = s.data.rate
         inl k_max = 128
 
         inl factor {d with k epsilon covariance precision sampling} =
@@ -1262,9 +1262,10 @@ inl float ->
                     inl rate = learning_rate()
                     Console.writeline rate
                     s.CudaFun.redo {
-                        map=inl {prev cur} -> (prev / to float 128) * (cur / to float 128)
+                        map=inl {prev cur} -> prev * cur
                         redo=(+)
-                        map_out=inl prev_cur -> rate + hyper_rate * prev_cur
+                        // Note: Hypergradient descent requires dividing the gradient by the minibatch size.
+                        map_out=inl prev_cur -> rate + hyper_rate / to float (minibatch_size * minibatch_size) * prev_cur
                         } adjoint 0
                     |> s.CudaTensor.get
                 inl out = {adjoint primal=primal weight .basic}
