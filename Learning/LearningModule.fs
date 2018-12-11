@@ -75,27 +75,28 @@ inl as_cost =
         bck=inl _ -> adjoint x 0 <- one
         }
 
-inl cond_primals =
-    Struct.foldl_map (inl s -> function
-        | {adjoint primal} -> primal, true
-        | x -> x, s
-        ) false
+inl cond_primals {input map on_succ} =
+    inl (!map out), c =
+        Struct.foldl_map (inl s -> function
+            | {adjoint primal} -> primal, true
+            | x -> x, s
+            ) false input
+    if c then on_succ out else out
 
 inl op fwd bck =
     bind <| inl x ->
-        inl x, c = cond_primals x
-
-        if c then
-            inl out = fwd x |> dr
-            {
-            out
-            bck=inl _ -> 
-                inl x' = {(primals x) with out=primal out}
-                Struct.iter2 (inl bck x -> add_adjoint x (inl _ -> bck x' * get_adjoint out)) bck x
+        cond_primals {
+            input=x
+            map=fwd
+            on_succ=inl out ->
+                inl out = dr out
+                {
+                out
+                bck=inl _ -> 
+                    inl x' = {(primals x) with out=primal out}
+                    Struct.iter2 (inl bck x -> add_adjoint x (inl _ -> bck x' * get_adjoint out)) bck x
+                }
             }
-        else 
-            fwd x
-            
 
 inl unary_op fwd bck a = op (inl {a} -> fwd a) {a = inl {a out} -> bck a out} {a}
 inl unary {fwd bck} = {fwd bck op = unary_op fwd bck}
@@ -415,18 +416,18 @@ inl Seq k =
     inl get_adjoint item {adjoint} = adjoint item .get
     inl op fwd bck =
         bind <| inl x ->
-            inl x, c = cond_primals x
-
-            if c then
-                inl out = k.block.map fwd x |> dr
-                {
-                out
-                bck=inl _ -> 
-                    inl x' = {(primals x) with out=primal out}
-                    Struct.iter2 (inl bck x -> add_adjoint x (inl item -> bck (Struct.map' (inl x -> x item .get) x') * get_adjoint item out)) bck x
+            cond_primals {
+                input=x
+                map=k.block.map fwd
+                on_succ=inl out ->
+                    inl out = dr out
+                    {
+                    out
+                    bck=inl _ -> 
+                        inl x' = {(primals x) with out=primal out}
+                        Struct.iter2 (inl bck x -> add_adjoint x (inl item -> bck (Struct.map' (inl x -> x item .get) x') * get_adjoint item out)) bck x
+                    }
                 }
-            else
-                k.block.map fwd x
 
     inl unary_op fwd bck a = op (inl {a} -> fwd a) {a = inl {a out} -> bck a out} {a}
     inl unary {fwd bck} = {fwd bck op = unary_op fwd bck}
@@ -529,35 +530,36 @@ inl Seq k =
     inl Op =
         inl sum =
             unary_bind <| inl x ->
-                inl x, c = cond_primals x
-                inl out = k.block.uter (+) x |> val
-                if c then
-                    inl out = dr out
-                    {
-                    out
-                    bck=inl _ -> 
-                        inl er = k.block.uter (+) out.adjoint
-                        add_adjoint x (const er)
+                cond_primals {
+                    input=x
+                    map=k.block.uter (+) >> val
+                    on_succ=inl out ->
+                        inl out = dr out
+                        {
+                        out
+                        bck=inl _ -> 
+                            inl er = k.block.uter (+) out.adjoint
+                            add_adjoint x (const er)
+                        }
                     }
-                else
-                    out
 
         inl mean =
             unary_bind <| inl x ->
-                inl x, c = cond_primals x
-                inl dim = to float (Tensor.length (snd k.dim))
-                inl div x = x / dim
-                inl out = k.block.uter (+) x |> div |> val
-                if c then
-                    inl out = dr out
-                    {
-                    out
-                    bck=inl _ -> 
-                        inl er = k.block.uter (+) out.adjoint |> div
-                        add_adjoint x (const er)
+                inl div =
+                    inl dim = to float (Tensor.length (snd k.dim))    
+                    inl x -> x / dim
+                cond_primals {
+                    input=x
+                    map=k.block.uter (+) >> div >> val
+                    on_succ=inl out ->
+                        inl out = dr out
+                        {
+                        out
+                        bck=inl _ -> 
+                            inl er = k.block.uter (+) out.adjoint |> div
+                            add_adjoint x (const er)
+                        }
                     }
-                else
-                    out
 
         //// ----------
         open Op
