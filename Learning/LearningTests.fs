@@ -86,7 +86,7 @@ inl network,_ =
 
     init s input_size network
 
-inl learning_rate = epsilon -9
+inl learning_rate = epsilon -13
 inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32}}
 Console.writeline pars
 Loops.for' {from=0; near_to=45; body=inl {i next} -> 
