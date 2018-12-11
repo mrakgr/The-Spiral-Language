@@ -1261,15 +1261,15 @@ inl float ->
                     inl rate = learning_rate()
                     s.CudaFun.redo {
                         map=inl {prev cur} -> prev * cur, prev * prev, cur * cur
-                        redo=Struct.map (+)
+                        redo=Struct.map2 (+)
                         map_out=inl prev_cur, prev_prev, cur_cur ->
                             inl angle = prev_cur / (sqrt prev_prev * sqrt cur_cur)
                             rate * (one + hyper_rate * angle) // Multiplicative hypergradient learning rate update
-                        } adjoint
+                        } adjoint 0
                     |> s.CudaTensor.get
                 inl out = {adjoint primal=primal weight .basic}
                 inl rate = learning_rate()
-                s.CudaTensor.map { out
+                s.CudaFun.map { out
                     map=inl {adjoint={prev cur} primal} -> {adjoint={prev=cur; cur=zero}; primal=primal + rate * cur}
                     } out
             | _ -> ()
@@ -1564,7 +1564,7 @@ inl float ->
         inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); sampling=identity (x, x); epsilon=val epsilon; k=var 0}
 
     inl default_covariance_dampening_factor = epsilon -3
-    inl default_learning_rate = epsilon -15
+    inl default_learning_rate = epsilon -20
 
     inl weight {d with dim=b,a} =
         open Initializer.dual
