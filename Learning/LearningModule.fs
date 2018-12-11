@@ -1232,7 +1232,7 @@ inl float ->
         inl out = x.basic
         s.CudaFun.map {out map=inl {primal adjoint} -> {primal=primal - rate * adjoint; adjoint=zero}} out
 
-    met kfac {weights} s =
+    inl kfac {weights} s =
         inl rate = s.data.rate.weight
         inl k_max = 128
 
@@ -1558,6 +1558,7 @@ inl float ->
         open Initializer.dual
         {
         weight = view d
+        prev_adjoint = Initializer.sing.view {d with init=Struct.map (inl _ -> const zero) self}
         streams = stream, stream
         front = covariance default_epsilon b
         back = covariance default_epsilon a
