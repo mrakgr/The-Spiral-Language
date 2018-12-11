@@ -80,8 +80,8 @@ inl network,_ =
     open Feedforward
     inl layer = ln_relu
     inl network = 
-        layer 512,
-        layer 512,
+        //layer 512,
+        //layer 512,
         linear label_size
 
     init s input_size network
@@ -89,7 +89,7 @@ inl network,_ =
 inl learning_rate = epsilon -13
 inl pars = {rate={weight=learning_rate; covariance=0.85f32}}
 Console.writeline pars
-Loops.for' {from=0; near_to=5; body=inl {i next} -> 
+Loops.for' {from=0; near_to=1; body=inl {i next} -> 
     inl final = Error.softmax_cross_entropy
     inl cost =
         inl s = s.data_add pars
