@@ -33,15 +33,6 @@ inl label_size = 10
 
 inl float = float32
 inl epsilon x = to float 2 ** to float x
-inl network,_ = 
-    open Feedforward
-    inl layer = ln_relu
-    inl network =
-        layer 512,
-        layer 512,
-        linear label_size
-
-    init s input_size network
 
 inl train {data={input label} network final} s =
     inl near_to = fst input.dim
@@ -85,7 +76,17 @@ inl test {data={input label} network final} s =
         }
     |> inl cost -> {cost with cost = self / to float64 input.basic.span_outer2}
 
-inl learning_rate = epsilon -13
+inl network,_ = 
+    open Feedforward
+    inl layer = tanh
+    inl network =
+        layer 512,
+        layer 512,
+        linear label_size
+
+    init s input_size network
+
+inl learning_rate = epsilon -9
 inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32}}
 Console.writeline pars
 Loops.for' {from=0; near_to=45; body=inl {i next} -> 
