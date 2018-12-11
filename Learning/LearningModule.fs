@@ -1583,7 +1583,7 @@ inl float ->
         init = inl sublayer_size -> 
             open Initializer.dual
             inl outer = {bias=1; input=sublayer_size}
-            inl init = {bias=const zero; input=relu}
+            inl init = {bias=const zero; input=const zero}
             {
             dsc = 
                 {
@@ -1624,7 +1624,7 @@ inl float ->
         init = inl sublayer_size -> 
             open Initializer.dual
             inl outer = {bias=1; input=sublayer_size; state=size}
-            inl init = {bias=const zero; input=relu; state=relu}
+            inl init = {bias=const zero; input=const zero; state=const zero}
             {
             dsc = 
                 {
