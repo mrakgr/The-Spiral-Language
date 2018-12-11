@@ -78,7 +78,7 @@ inl test {data={input label} network final} s =
 
 inl network,_ = 
     open Feedforward
-    inl layer = tanh
+    inl layer = ln_relu
     inl network =
         layer 512,
         layer 512,
