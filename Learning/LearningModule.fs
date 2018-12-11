@@ -1253,9 +1253,10 @@ inl float ->
                 inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT one a.basic b.basic zero c.basic 
                 inl {front back prev_adjoint learning_rate} = d
 
-                factor front; factor back
-                inb x = reproject front.precision (adjoint weight)
-                reproject_to x back.precision (adjoint weight)
+                //factor front; factor back
+                //inb x = reproject front.precision (adjoint weight)
+                //reproject_to x back.precision (adjoint weight)
+
                 inl adjoint = {prev=prev_adjoint.basic; cur=adjoint weight .basic}
                 learning_rate :=
                     inl rate = learning_rate()
