@@ -894,8 +894,7 @@ inl float ->
     inl adjoints x = x.update_body' (Struct.map adj)
 
     /// Updates the covariance such that cov(t+1) = alpha * cov(t) + beta / k * x^T * x
-    met update_covariance x cov s =
-        inl rate = s.data.rate.covariance
+    met update_covariance rate x cov s =
         inl k = x.span_outer
         inl alpha = Math.pow (one - rate) k
         inl beta = one - alpha
@@ -924,7 +923,7 @@ inl float ->
             inl (A,TA),(B,TB) = f data, f weight
             s.CudaBlas.gemm' TA TB one (primal A .basic) (primal B .basic) zero (primal out .basic)
 
-        inl bck {d with out data weight streams=l,r} = 
+        inl bck {d with out data weight streams=l,r learning_rate} = 
             inl f' = function {T} -> T, .nT | nT -> nT, .T
             inl (A,TA),(B,TB) = f' data, f' weight
             inl out = adjoint out
@@ -943,10 +942,11 @@ inl float ->
                 | .nT -> s.CudaBlas.gemm' TA .nT one out.basic (primal A .basic) one B.basic
                 ) (adjoint B)
             
+            inl learning_rate = learning_rate () ** s.data.rate.covariance
             inl update k data = 
                 match d with 
                 | {$k={covariance k}} ->
-                    update_covariance (basic data) (basic covariance) s 
+                    update_covariance learning_rate (basic data) (basic covariance) s 
                     k := k() + (basic out).span_outer
                 | _ -> ()
             update .front (primal data)
@@ -1552,17 +1552,19 @@ inl float ->
         inl identity dim = view {init=identity; dim}
         inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); sampling=identity (x, x); epsilon=val epsilon; k=var 0}
 
-    inl default_epsilon = to float (2.0 ** -3.0)
+    inl default_covariance_dampening_factor = epsilon -3
+    inl default_learning_rate = epsilon -15
 
-    inl weight {d with dim=b,a} = 
+    inl weight {d with dim=b,a} =
         open Initializer.dual
         {
         weight = view d
         prev_adjoint = Initializer.sing.view {d with init=Struct.map (inl _ -> const zero) self}
         streams = stream, stream
-        front = covariance default_epsilon b
-        back = covariance default_epsilon a
+        front = covariance default_covariance_dampening_factor b
+        back = covariance default_covariance_dampening_factor a
         stddev = val (one / (to float (View.span b)))
+        learning_rate = var default_learning_rate
         block = ()
         }
 
