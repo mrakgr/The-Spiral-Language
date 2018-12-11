@@ -942,7 +942,7 @@ inl float ->
                 | .nT -> s.CudaBlas.gemm' TA .nT one out.basic (primal A .basic) one B.basic
                 ) (adjoint B)
             
-            inl learning_rate = learning_rate () ** s.data.rate.covariance
+            inl learning_rate = abs (learning_rate ()) ** s.data.rate.covariance
             inl update k data = 
                 match d with 
                 | {$k={covariance k}} ->
