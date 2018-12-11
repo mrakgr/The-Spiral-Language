@@ -1259,6 +1259,7 @@ inl float ->
                 inl adjoint = {prev=prev_adjoint.basic; cur=adjoint weight .basic}
                 learning_rate :=
                     inl rate = learning_rate()
+                    Console.writeline rate
                     s.CudaFun.redo {
                         map=inl {prev cur} -> prev * cur, prev * prev, cur * cur
                         redo=Struct.map2 (+)
@@ -1564,7 +1565,7 @@ inl float ->
         inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); sampling=identity (x, x); epsilon=val epsilon; k=var 0}
 
     inl default_covariance_dampening_factor = epsilon -3
-    inl default_learning_rate = epsilon -20
+    inl default_learning_rate = epsilon -13
 
     inl weight {d with dim=b,a} =
         open Initializer.dual
