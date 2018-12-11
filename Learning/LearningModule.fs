@@ -1259,7 +1259,6 @@ inl float ->
                 inl adjoint = {prev=prev_adjoint.basic; cur=adjoint weight .basic}
                 learning_rate :=
                     inl rate = learning_rate()
-                    Console.writeline rate
                     s.CudaFun.redo {
                         map=inl {prev cur} -> prev * cur, prev * prev, cur * cur
                         redo=Struct.map2 (+)
@@ -1271,7 +1270,7 @@ inl float ->
                 inl out = {adjoint primal=primal weight .basic}
                 inl rate = learning_rate()
                 s.CudaFun.map { out
-                    map=inl {adjoint={prev cur} primal} -> {adjoint={prev=cur; cur=zero}; primal=primal + rate * cur}
+                    map=inl {adjoint={prev cur} primal} -> {adjoint={prev=cur; cur=zero}; primal=primal - rate * cur}
                     } out
             | _ -> ()
             ) weights
