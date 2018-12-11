@@ -168,7 +168,7 @@ Struct.iter (inl i ->
         Console.writeline "------"
         Console.printfn "The CudaRandom pseudorandom seed is {0}" i
 
-        inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32}}
+        inl pars = {rate={weight=learning_rate; covariance=0.85f32}}
         inl s = s.data_add pars
 
         inl a =
@@ -200,7 +200,7 @@ Struct.iter (inl i ->
         //open Poker {max_stack_size num_players log=Console.printfn}
         //f game 10 1
         }
-    ) (-12)
+    ) (-14)
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3
