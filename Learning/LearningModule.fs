@@ -1259,11 +1259,14 @@ inl float ->
                 inl adjoint = {prev=prev_adjoint.basic; cur=adjoint weight .basic}
                 learning_rate :=
                     inl rate = learning_rate()
+                    //Console.writeline rate
                     s.CudaFun.redo {
                         map=inl {prev cur} -> prev * cur, prev * prev, cur * cur
                         redo=Struct.map2 (+)
                         map_out=inl prev_cur, prev_prev, cur_cur ->
-                            inl angle = prev_cur / (sqrt prev_prev * sqrt cur_cur)
+                            inl angle = 
+                                inl x = prev_cur / (sqrt prev_prev * sqrt cur_cur)
+                                if nan_is x then zero else x
                             rate * (one + hyper_rate * angle) // Multiplicative hypergradient learning rate update
                         } adjoint 0
                     |> s.CudaTensor.get
