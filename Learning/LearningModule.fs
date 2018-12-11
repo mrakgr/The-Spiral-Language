@@ -1258,15 +1258,16 @@ inl float ->
                 //reproject_to x back.precision (adjoint weight)
 
                 inl adjoint = {prev=prev_adjoint.basic; cur=adjoint weight .basic}
-                learning_rate :=
+                inl dot =
                     inl rate = learning_rate()
                     Console.writeline rate
                     s.CudaFun.redo {
                         map=inl {prev cur} -> prev * cur
                         redo=(+)
-                        map_out=inl prev_cur -> rate + hyper_rate * prev_cur
+                        //map_out=inl prev_cur -> rate + hyper_rate * prev_cur
                         } adjoint 0
                     |> s.CudaTensor.get
+                Console.writeline {dot}
                 inl out = {adjoint primal=primal weight .basic}
                 inl rate = learning_rate()
                 s.CudaFun.map { out
