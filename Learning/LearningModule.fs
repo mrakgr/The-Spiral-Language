@@ -1236,7 +1236,7 @@ inl float ->
     /// KFAC: https://arxiv.org/abs/1503.05671
     /// Hypergradient descent: https://arxiv.org/abs/1703.04782
     inl kfac {weights} s =
-        inl {weight=hyper_rate minibatch_size} = s.data.rate
+        inl {weight=hyper_rate} = s.data.rate
         inl k_max = 128
 
         inl factor {d with k epsilon covariance precision sampling} =
@@ -1252,6 +1252,7 @@ inl float ->
                     ret x
                 inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT one a.basic b.basic zero c.basic 
                 inl {front back prev_adjoint learning_rate} = d
+                inl k = front.k()
 
                 factor front; factor back
                 inb x = reproject front.precision (adjoint weight)
@@ -1265,8 +1266,8 @@ inl float ->
                         s.CudaFun.redo {
                             map=inl {prev cur} -> prev * cur
                             redo=(+)
-                            // Note: Hypergradient descent requires dividing the gradient by the minibatch size.
-                            map_out=inl prev_cur -> rate + hyper_rate / to float (minibatch_size * minibatch_size) * prev_cur
+                            // Note: Hypergradient descent requires dividing the gradient by the minibatch size times the number of timesteps.
+                            map_out=inl prev_cur -> rate + hyper_rate / to float (k * k) * prev_cur
                             } 
                     s.CudaTensor.get (additive adjoint 0)
                 inl out = {adjoint primal=primal weight .basic}
@@ -1566,7 +1567,7 @@ inl float ->
         inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); sampling=identity (x, x); epsilon=val epsilon; k=var 0}
 
     inl default_covariance_dampening_factor = epsilon -3
-    inl default_learning_rate = epsilon -20
+    inl default_learning_rate = zero //epsilon -20
 
     inl weight {d with dim=b,a} =
         open Initializer.dual

@@ -87,7 +87,7 @@ inl network,_ =
     init s input_size network
 
 inl learning_rate = epsilon -14
-inl pars = {rate={weight=learning_rate; covariance=0.85f32; minibatch_size=train_minibatch_size}}
+inl pars = {rate={weight=learning_rate; covariance=0.85f32}}
 Console.writeline pars
 Loops.for' {from=0; near_to=5; body=inl {i next} -> 
     inl final = Error.softmax_cross_entropy
@@ -168,7 +168,7 @@ inl float = float32
 inl epsilon x = to float 2 ** to float x
 
 inl learning_rate = epsilon -14
-inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32; minibatch_size=size.minibatch}}
+inl pars = {rate={weight=learning_rate; covariance=0.85f32}}
 Console.writeline pars
 
 inl network,_ =
