@@ -1253,21 +1253,35 @@ inl float ->
                 inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT one a.basic b.basic zero c.basic 
                 inl {front back prev_adjoint learning_rate} = d
 
-                //factor front; factor back
-                //inb x = reproject front.precision (adjoint weight)
-                //reproject_to x back.precision (adjoint weight)
+                factor front; factor back
+                inb x = reproject front.precision (adjoint weight)
+                reproject_to x back.precision (adjoint weight)
 
                 inl adjoint = {prev=prev_adjoint.basic; cur=adjoint weight .basic}
                 learning_rate :=
                     inl rate = learning_rate()
-                    Console.writeline rate
-                    s.CudaFun.redo {
-                        map=inl {prev cur} -> prev * cur
-                        redo=(+)
-                        // Note: Hypergradient descent requires dividing the gradient by the minibatch size.
-                        map_out=inl prev_cur -> rate + hyper_rate / to float (minibatch_size * minibatch_size) * prev_cur
-                        } adjoint 0
-                    |> s.CudaTensor.get
+                    //Console.writeline rate
+                    inl additive =
+                        s.CudaFun.redo {
+                            map=inl {prev cur} -> prev * cur
+                            redo=(+)
+                            // Note: Hypergradient descent requires dividing the gradient by the minibatch size.
+                            map_out=inl prev_cur -> rate + hyper_rate / to float (minibatch_size * minibatch_size) * prev_cur
+                            } 
+                    inl multiplicative =
+                        s.CudaFun.redo {
+                            map=inl {prev cur} -> prev * cur, prev * prev, cur * cur
+                            redo=Struct.map2 (+)
+                            map_out=inl out ->
+                                inl m = to float (minibatch_size * minibatch_size)
+                                inl prev_cur, prev_prev, cur_cur = Struct.map (inl x -> x / m) out
+                                inl angle = 
+                                    inl x = prev_cur / (sqrt prev_prev * sqrt cur_cur)
+                                    if nan_is x then zero else x
+                                rate * (one + hyper_rate * angle)
+                            }
+                    //s.CudaTensor.get (additive adjoint 0)
+                    s.CudaTensor.get (multiplicative adjoint 0)
                 inl out = {adjoint primal=primal weight .basic}
                 inl rate = learning_rate()
                 s.CudaFun.map { out
