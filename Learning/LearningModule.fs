@@ -1260,7 +1260,7 @@ inl float ->
                 inl adjoint = {prev=prev_adjoint.basic; cur=adjoint weight .basic}
                 learning_rate :=
                     inl rate = learning_rate()
-                    //Console.writeline rate
+                    Console.writeline rate
                     inl additive =
                         s.CudaFun.redo {
                             map=inl {prev cur} -> prev * cur
@@ -1280,8 +1280,8 @@ inl float ->
                                     if nan_is x then zero else x
                                 rate * (one + hyper_rate * angle)
                             }
-                    //s.CudaTensor.get (additive adjoint 0)
-                    s.CudaTensor.get (multiplicative adjoint 0)
+                    s.CudaTensor.get (additive adjoint 0)
+                    //s.CudaTensor.get (multiplicative adjoint 0)
                 inl out = {adjoint primal=primal weight .basic}
                 inl rate = learning_rate()
                 s.CudaFun.map { out
@@ -1579,7 +1579,7 @@ inl float ->
         inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); sampling=identity (x, x); epsilon=val epsilon; k=var 0}
 
     inl default_covariance_dampening_factor = epsilon -3
-    inl default_learning_rate = epsilon -15
+    inl default_learning_rate = epsilon -20
 
     inl weight {d with dim=b,a} =
         open Initializer.dual
