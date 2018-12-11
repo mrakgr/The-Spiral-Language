@@ -1232,8 +1232,11 @@ inl float ->
         inl out = x.basic
         s.CudaFun.map {out map=inl {primal adjoint} -> {primal=primal - rate * adjoint; adjoint=zero}} out
 
+    /// KFAC with hypergradient descent for automatic learning rate adjustment.
+    /// KFAC: https://arxiv.org/abs/1503.05671
+    /// Hypergradient descent: https://arxiv.org/abs/1703.04782
     inl kfac {weights} s =
-        inl rate = s.data.rate.weight
+        inl hyper_rate = s.data.rate.weight
         inl k_max = 128
 
         inl factor {d with k epsilon covariance precision sampling} =
@@ -1244,23 +1247,31 @@ inl float ->
 
         Struct.iter (function
             | {d with weight} ->
-                
                 inl reproject a b ret =
                     inb x = s.CudaBlas.gemm .nT .nT one a.basic b.basic |> CudaAux.temporary
                     ret x
+                inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT one a.basic b.basic zero c.basic 
+                inl {front back prev_adjoint learning_rate} = d
 
-                inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -rate a.basic b.basic one c.basic 
-                inl clear = s.CudaTensor.clear
-
-                match d with
-                | {front back} -> 
-                    factor front; factor back
-                    inb x = reproject front.precision (adjoint weight)
-                    reproject_to x back.precision (primal weight)
-                | {back} -> factor back; reproject_to (adjoint weight) back.precision (primal weight)
-                | {front} -> factor front; reproject_to front.precision (adjoint weight) (primal weight)
-                | _ -> s.CudaBlas.geam' .nT .nT -rate (adjoint weight .basic) one (primal weight .basic) (primal weight .basic)
-                clear (adjoint weight .basic)
+                factor front; factor back
+                inb x = reproject front.precision (adjoint weight)
+                reproject_to x back.precision (adjoint weight)
+                inl adjoint = {prev=prev_adjoint.basic; cur=adjoint weight .basic}
+                learning_rate :=
+                    inl rate = learning_rate()
+                    s.CudaFun.redo {
+                        map=inl {prev cur} -> prev * cur, prev * prev, cur * cur
+                        redo=Struct.map (+)
+                        map_out=inl prev_cur, prev_prev, cur_cur ->
+                            inl angle = prev_cur / (sqrt prev_prev * sqrt cur_cur)
+                            rate * (one + hyper_rate * angle) // Multiplicative hypergradient learning rate update
+                        } adjoint
+                    |> s.CudaTensor.get
+                inl out = {adjoint primal=primal weight .basic}
+                inl rate = learning_rate()
+                s.CudaTensor.map { out
+                    map=inl {adjoint={prev cur} primal} -> {adjoint={prev=cur; cur=zero}; primal=primal + rate * cur}
+                    } out
             | _ -> ()
             ) weights
 
