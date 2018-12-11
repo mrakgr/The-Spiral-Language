@@ -173,7 +173,7 @@ Struct.iter (inl i ->
 
         inl a =
             open (Learning float32)
-            inl net = RNN.rnn 128
+            inl net = RNN.rnn 512
             player_ac {net name="One"; discount=0.99f32} s 
         inl b = player_rules {name="Two"}
 
@@ -200,7 +200,7 @@ Struct.iter (inl i ->
         //open Poker {max_stack_size num_players log=Console.printfn}
         //f game 10 1
         }
-    ) (-11)
+    ) (-10)
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3

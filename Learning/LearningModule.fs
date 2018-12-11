@@ -1714,18 +1714,13 @@ inl float ->
                 }
 
             apply = inl {d with weights={weights} input} s -> 
-                inl weights =
-                    match d with
-                    | {state={weights}} -> weights
-                    | _ -> weight_sample weights s
-
                 inl apply =
                     inm data = concat {bias=one; input}
                     inm out = matmult_stream {weights with data}
                     succ (View.split out)
 
                 inl {out bck} = apply s
-                {out bck state={weights}}
+                {out bck}
             optimize = Optimizer.kfac
             block = ()
             }
