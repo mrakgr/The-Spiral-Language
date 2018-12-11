@@ -1693,7 +1693,9 @@ inl float ->
                 inl {R error} = View.unzip out |> module_map (const View.zip)
                 {
                 out={R'=R; value'=value}
-                bck=inl _ -> bck' (); bck {reward=error}
+                bck=inl _ -> 
+                    s.CudaTensor.print (error .basic)
+                    bck' (); bck {reward=error}
                 }
             }
 
