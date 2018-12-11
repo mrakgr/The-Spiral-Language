@@ -1261,7 +1261,7 @@ inl float ->
                 inl adjoint = {prev=prev_adjoint.basic; cur=adjoint weight .basic}
                 learning_rate :=
                     inl rate = learning_rate()
-                    //Console.writeline rate
+                    Console.writeline rate
                     inl additive =
                         s.CudaFun.redo {
                             map=inl {prev cur} -> prev * cur
