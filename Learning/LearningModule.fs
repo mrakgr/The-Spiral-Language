@@ -894,7 +894,8 @@ inl float ->
     inl adjoints x = x.update_body' (Struct.map adj)
 
     /// Updates the covariance such that cov(t+1) = alpha * cov(t) + beta / k * x^T * x
-    met update_covariance rate x cov s =
+    met update_covariance x cov s =
+        inl rate = s.data.rate.covariance
         inl k = x.span_outer
         inl alpha = Math.pow (one - rate) k
         inl beta = one - alpha
@@ -942,16 +943,16 @@ inl float ->
                 | .nT -> s.CudaBlas.gemm' TA .nT one out.basic (primal A .basic) one B.basic
                 ) (adjoint B)
             
-            inl learning_rate = abs (s.data.rate.global ()) ** s.data.rate.covariance
             inl update k data = 
                 match d with 
                 | {$k={covariance k}} ->
-                    update_covariance learning_rate (basic data) (basic covariance) s 
+                    update_covariance (basic data) (basic covariance) s 
                     k := k() + (basic out).span_outer
                 | _ -> ()
             update .front (primal data)
             update .back out
             
+
         inl l = Struct.map init l
         Struct.iter run l
         Struct.iter (inl {streams=l,r} -> s.data.stream.wait_on l) l
@@ -1231,69 +1232,48 @@ inl float ->
         inl out = x.basic
         s.CudaFun.map {out map=inl {primal adjoint} -> {primal=primal - rate * adjoint; adjoint=zero}} out
 
-    /// KFAC with hypergradient descent for automatic learning rate adjustment.
-    /// KFAC: https://arxiv.org/abs/1503.05671
-    /// Hypergradient descent: https://arxiv.org/abs/1703.04782
+    met kfac {weights} s =
+        inl rate = s.data.rate.weight
+        inl k_max = 128
+
+        inl factor {d with k epsilon covariance precision sampling} =
+            if k() >= k_max then
+                k := 0
+                inl {covariance precision sampling} = Struct.map (inl x -> x.basic) {covariance precision sampling}
+                s.CudaSolve.regularized_cholesky_inverse {epsilon covariance precision sampling}
+
+        Struct.iter (function
+            | {d with weight} ->
+                
+                inl reproject a b ret =
+                    inb x = s.CudaBlas.gemm .nT .nT one a.basic b.basic |> CudaAux.temporary
+                    ret x
+
+                inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT -rate a.basic b.basic one c.basic 
+                inl clear = s.CudaTensor.clear
+
+                match d with
+                | {front back} -> 
+                    factor front; factor back
+                    inb x = reproject front.precision (adjoint weight)
+                    reproject_to x back.precision (primal weight)
+                | {back} -> factor back; reproject_to (adjoint weight) back.precision (primal weight)
+                | {front} -> factor front; reproject_to front.precision (adjoint weight) (primal weight)
+                | _ -> s.CudaBlas.geam' .nT .nT -rate (adjoint weight .basic) one (primal weight .basic) (primal weight .basic)
+                clear (adjoint weight .basic)
+            | _ -> ()
+            ) weights
+
     inl standard s x =
-        inl dot = ref zero
         Struct.iter (function
-            | {weights} -> join
+            | {optimize weights} -> join
                 inl weights = Struct.map' (inl x -> x.data) weights
-                inl k_max = 128
-
-                inl factor {d with k epsilon covariance precision sampling} =
-                    if k() >= k_max then
-                        k := 0
-                        inl {covariance precision sampling} = Struct.map (inl x -> x.basic) {covariance precision sampling}
-                        s.CudaSolve.regularized_cholesky_inverse {epsilon covariance precision sampling}
-
-                Struct.iter (function
-                    | {d with weight} ->
-                        inl reproject a b ret =
-                            inb x = s.CudaBlas.gemm .nT .nT one a.basic b.basic |> CudaAux.temporary
-                            ret x
-                        inl reproject_to a b c = s.CudaBlas.gemm' .nT .nT one a.basic b.basic zero c.basic 
-                        inl {front back prev_adjoint} = d
-                        inl k = front.k()
-
-                        factor front; factor back
-                        inb x = reproject front.precision (adjoint weight)
-                        reproject_to x back.precision (adjoint weight)
-
-                        inl adjoint = {prev=prev_adjoint.basic; cur=adjoint weight .basic}
-                        inl additive =
-                            s.CudaFun.redo {
-                                map=inl {prev cur} -> prev * cur
-                                redo=(+)
-                                // Note: Hypergradient descent requires dividing the gradient by the minibatch size times the number of timesteps.
-                                map_out=inl prev_cur -> prev_cur / to float (k * k)
-                                } 
-                        dot := dot() + s.CudaTensor.get (additive adjoint 0)
-                    | _ -> ()
-                    ) weights
+                optimize {weights} s
+            | {weights} -> join
+                Struct.iter (function {weight} -> sgd s weight.data | _ -> ()) weights
             ) x
 
-        inl {hyper global} = s.data.rate
-        //global := global() + hyper * dot()
-        //Console.writeline (global())
-
-        Struct.iter (function
-            | {weights} -> join
-                inl weights = Struct.map' (inl x -> x.data) weights
-                Struct.iter (function
-                    | {d with weight} ->
-                        inl {prev_adjoint} = d
-                        inl adjoint = {prev=prev_adjoint.basic; cur=adjoint weight .basic}
-                        inl out = {adjoint primal=primal weight .basic}
-                        inl rate = global()
-                        s.CudaFun.map { out
-                            map=inl {adjoint={prev cur} primal} -> {adjoint={prev=cur; cur=zero}; primal=primal - rate * cur}
-                            } out
-                    | _ -> ()
-                    ) weights
-            ) x
-
-    inl Optimizer = {sgd standard }
+    inl Optimizer = {sgd standard kfac}
 
     inl softmax_body temp k input =
         inl x = k.block.map (inl x -> x / temp) (k.block.load input)
@@ -1572,19 +1552,16 @@ inl float ->
         inl identity dim = view {init=identity; dim}
         inl epsilon !(View.span) x -> {covariance=identity (x, x); precision=identity (x, x); sampling=identity (x, x); epsilon=val epsilon; k=var 0}
 
-    inl default_covariance_dampening_factor = epsilon -3
-    inl default_learning_rate = zero //epsilon -20
+    inl default_epsilon = to float (2.0 ** -3.0)
 
-    inl weight {d with dim=b,a} =
+    inl weight {d with dim=b,a} = 
         open Initializer.dual
         {
         weight = view d
-        prev_adjoint = Initializer.sing.view {d with init=Struct.map (inl _ -> const zero) self}
         streams = stream, stream
-        front = covariance default_covariance_dampening_factor b
-        back = covariance default_covariance_dampening_factor a
+        front = covariance default_epsilon b
+        back = covariance default_epsilon a
         stddev = val (one / (to float (View.span b)))
-        learning_rate = var default_learning_rate
         block = ()
         }
 
@@ -1627,6 +1604,7 @@ inl float ->
             inl {out bck} = apply s
             {out state={weights}; bck}
 
+        optimize = Optimizer.kfac
         block = ()
         }
 
@@ -1671,6 +1649,7 @@ inl float ->
                 succ {out state={out weights}}
             inl {out={out state} bck} = apply s
             {out state bck}
+        optimize = Optimizer.kfac
         block = ()
         }
 
@@ -1742,6 +1721,7 @@ inl float ->
 
                 inl {out bck} = apply s
                 {out bck}
+            optimize = Optimizer.kfac
             block = ()
             }
 

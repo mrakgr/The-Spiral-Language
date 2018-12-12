@@ -86,10 +86,10 @@ inl network,_ =
 
     init s input_size network
 
-inl learning_rate = epsilon -14
-inl pars = {rate={hyper=learning_rate; global=ref 0f32; covariance=0.85f32}}
+inl learning_rate = epsilon -13
+inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32}}
 Console.writeline pars
-Loops.for' {from=0; near_to=5; body=inl {i next} -> 
+Loops.for' {from=0; near_to=45; body=inl {i next} -> 
     inl final = Error.softmax_cross_entropy
     inl cost =
         inl s = s.data_add pars
@@ -167,8 +167,8 @@ inl data =
 inl float = float32
 inl epsilon x = to float 2 ** to float x
 
-inl learning_rate = epsilon -16
-inl pars = {rate={hyper=learning_rate; global=ref 0f32; covariance=0.85f32}}
+inl learning_rate = epsilon -13
+inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32}}
 Console.writeline pars
 
 inl network,_ =
@@ -281,6 +281,6 @@ inl f learning_rate next i =
 Loops.for' {from=0; near_to=5; body=inl {i next} -> f learning_rate next i}
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
 |> printfn "%s"
 |> ignore
