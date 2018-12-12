@@ -171,7 +171,7 @@ Struct.iter (inl i ->
         inl pars = {rate={weight=learning_rate; covariance=0.85f32}}
         inl s = s.data_add pars
 
-        inl a = 
+        inl a =
             open (Learning float32)
             inl net = RNN.rnn 512
             player_ac {net name="One"; discount=0.99f32} s 
