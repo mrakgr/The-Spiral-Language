@@ -923,7 +923,7 @@ inl float ->
             inl (A,TA),(B,TB) = f data, f weight
             s.CudaBlas.gemm' TA TB one (primal A .basic) (primal B .basic) zero (primal out .basic)
 
-        inl bck {d with out data weight streams=l,r learning_rate} = 
+        inl bck {d with out data weight streams=l,r} = 
             inl f' = function {T} -> T, .nT | nT -> nT, .T
             inl (A,TA),(B,TB) = f' data, f' weight
             inl out = adjoint out
@@ -942,7 +942,7 @@ inl float ->
                 | .nT -> s.CudaBlas.gemm' TA .nT one out.basic (primal A .basic) one B.basic
                 ) (adjoint B)
             
-            inl learning_rate = abs (learning_rate ()) ** s.data.rate.covariance
+            inl learning_rate = abs (s.data.rate.global ()) ** s.data.rate.covariance
             inl update k data = 
                 match d with 
                 | {$k={covariance k}} ->
@@ -952,7 +952,6 @@ inl float ->
             update .front (primal data)
             update .back out
             
-
         inl l = Struct.map init l
         Struct.iter run l
         Struct.iter (inl {streams=l,r} -> s.data.stream.wait_on l) l

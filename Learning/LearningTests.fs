@@ -168,7 +168,7 @@ inl float = float32
 inl epsilon x = to float 2 ** to float x
 
 inl learning_rate = epsilon -14
-inl pars = {rate={weight=learning_rate; covariance=0.85f32}}
+inl pars = {rate={hyper=learning_rate; global=ref 0f32; covariance=0.85f32}}
 Console.writeline pars
 
 inl network,_ =
