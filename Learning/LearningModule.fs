@@ -379,7 +379,7 @@ inl Activation =
 
     inl td reward_scale {r discount trace R' value' value} =
         inm r = r * num reward_scale
-        inm trace = one //sigmoid trace 
+        inm trace = sigmoid trace 
 
         inm R = r + discount * (trace * R' + (one - trace) * primal value')
         inm error = R - value
