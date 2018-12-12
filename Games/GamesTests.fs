@@ -168,7 +168,7 @@ Struct.iter (inl i ->
         Console.writeline "------"
         Console.printfn "The CudaRandom pseudorandom seed is {0}" i
 
-        inl pars = {rate={weight=learning_rate; covariance=0.85f32}}
+        inl pars = {rate={hyper=learning_rate; global=ref 0f32; covariance=0.85f32}}
         inl s = s.data_add pars
 
         inl a =

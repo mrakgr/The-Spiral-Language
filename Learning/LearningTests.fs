@@ -167,7 +167,7 @@ inl data =
 inl float = float32
 inl epsilon x = to float 2 ** to float x
 
-inl learning_rate = epsilon -14
+inl learning_rate = epsilon -16
 inl pars = {rate={hyper=learning_rate; global=ref 0f32; covariance=0.85f32}}
 Console.writeline pars
 
@@ -281,6 +281,6 @@ inl f learning_rate next i =
 Loops.for' {from=0; near_to=5; body=inl {i next} -> f learning_rate next i}
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
 |> printfn "%s"
 |> ignore

@@ -1275,6 +1275,7 @@ inl float ->
 
         inl {hyper global} = s.data.rate
         global := global() + hyper * dot()
+        //Console.writeline (global())
 
         Struct.iter (function
             | {weights} -> join
