@@ -1274,7 +1274,7 @@ inl float ->
             ) x
 
         inl {hyper global} = s.data.rate
-        global := global() + hyper * dot()
+        //global := global() + hyper * dot()
         //Console.writeline (global())
 
         Struct.iter (function
