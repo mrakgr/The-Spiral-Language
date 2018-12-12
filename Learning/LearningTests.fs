@@ -87,7 +87,7 @@ inl network,_ =
     init s input_size network
 
 inl learning_rate = epsilon -14
-inl pars = {rate={weight=learning_rate; covariance=0.85f32}}
+inl pars = {rate={hyper=learning_rate; global=ref 0f32; covariance=0.85f32}}
 Console.writeline pars
 Loops.for' {from=0; near_to=5; body=inl {i next} -> 
     inl final = Error.softmax_cross_entropy
@@ -281,6 +281,6 @@ inl f learning_rate next i =
 Loops.for' {from=0; near_to=5; body=inl {i next} -> f learning_rate next i}
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
 |> printfn "%s"
 |> ignore

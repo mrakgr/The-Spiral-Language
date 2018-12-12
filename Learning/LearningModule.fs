@@ -1237,7 +1237,7 @@ inl float ->
     inl standard s x =
         inl dot = ref zero
         Struct.iter (function
-            | {optimize weights} -> join
+            | {weights} -> join
                 inl weights = Struct.map' (inl x -> x.data) weights
                 inl k_max = 128
 
@@ -1277,7 +1277,7 @@ inl float ->
         global := global() + hyper * dot()
 
         Struct.iter (function
-            | {optimize weights} -> join
+            | {weights} -> join
                 inl weights = Struct.map' (inl x -> x.data) weights
                 Struct.iter (function
                     | {d with weight} ->
@@ -1290,7 +1290,7 @@ inl float ->
                             } out
                     | _ -> ()
                     ) weights
-            )
+            ) x
 
     inl Optimizer = {sgd standard }
 
@@ -1626,7 +1626,6 @@ inl float ->
             inl {out bck} = apply s
             {out state={weights}; bck}
 
-        optimize = Optimizer.kfac
         block = ()
         }
 
@@ -1671,7 +1670,6 @@ inl float ->
                 succ {out state={out weights}}
             inl {out={out state} bck} = apply s
             {out state bck}
-        optimize = Optimizer.kfac
         block = ()
         }
 
@@ -1743,7 +1741,6 @@ inl float ->
 
                 inl {out bck} = apply s
                 {out bck}
-            optimize = Optimizer.kfac
             block = ()
             }
 
