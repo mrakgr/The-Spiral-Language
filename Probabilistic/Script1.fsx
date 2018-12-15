@@ -28,4 +28,3 @@ let test = cps {
     }
 
 test id
-
