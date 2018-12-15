@@ -1,4 +1,6 @@
-﻿let rng = System.Random()
+﻿// The opener. It has a bare bones implementation of a CPS monad.
+
+let rng = System.Random()
 
 let bernoulli p = if rng.NextDouble() >= p then 0.0 else 1.0
 let flip p = if rng.NextDouble() >= p then false else true
