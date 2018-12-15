@@ -30,6 +30,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Games", "Games\Games.fsproj
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Cuda", "Cuda\Cuda.fsproj", "{65203654-5EF9-4CE1-A56B-0EBA11FF03A0}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Probabilistic", "Probabilistic\Probabilistic.fsproj", "{91AF34DA-9D8D-4EA8-B6E9-07283298BE8F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -64,6 +66,10 @@ Global
 		{65203654-5EF9-4CE1-A56B-0EBA11FF03A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{65203654-5EF9-4CE1-A56B-0EBA11FF03A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{65203654-5EF9-4CE1-A56B-0EBA11FF03A0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{91AF34DA-9D8D-4EA8-B6E9-07283298BE8F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{91AF34DA-9D8D-4EA8-B6E9-07283298BE8F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{91AF34DA-9D8D-4EA8-B6E9-07283298BE8F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{91AF34DA-9D8D-4EA8-B6E9-07283298BE8F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
