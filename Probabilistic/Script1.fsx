@@ -13,3 +13,19 @@ let binomial _ =
 
 binomial()
 
+type CPSBuilder() =
+    member __.Bind(a,b) = fun ret -> a (fun a' -> b a' ret)
+    member __.Return x = fun ret -> ret x
+
+let cps = new CPSBuilder()
+
+let num x ret = ret x
+
+let test = cps {
+    let! a = num 1
+    let! b = num 2
+    return (a + b)
+    }
+
+test id
+
