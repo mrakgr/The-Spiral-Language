@@ -1,4 +1,5 @@
 ﻿// Here is the second experiment. I try to get a grip on propagating probabilities here.
+// This inference method is called likelihood weighting.
 
 let rng = System.Random()
 let bernoulli p _ = if rng.NextDouble() >= p then (1.0 - p), 0 else p, 1
@@ -21,11 +22,11 @@ type ProbBuilder() =
 let prob = new ProbBuilder()
 
 let example = prob {
-    let! a = sample (bernoulli 0.01)
+    let! a = sample (bernoulli 0.5)
     let! b = sample (bernoulli 0.5)
     let! c = sample (bernoulli 0.5)
-    let! _ = condition (a+b+c >= 2)
-    return a
+    let! _ = factor (if a = 1 || b = 1 then 0.0 else -1.0)
+    return (a + b + c)
     }
 
 let forward iters program =
@@ -33,15 +34,11 @@ let forward iters program =
     for i = 1 to iters do
         program 0.0 <| fun (score: float) v ->
             match dict.TryGetValue(v) with
-            | true, (score', n) -> dict.[v] <- (score' + exp score, n+1)
-            | _ -> dict.[v] <- (exp score, 1)
+            | true, score' -> dict.[v] <- score' + exp score
+            | _ -> dict.[v] <- exp score
     
-    let ar = 
-        dict 
-        |> Seq.toArray
-        |> Array.map (fun x -> x.Key, fst x.Value / float (snd x.Value))
+    let ar = Seq.toArray dict
+    let sum = ar |> Array.fold (fun s x -> s + x.Value) 0.0
+    ar |> Array.map (fun x -> x.Key, x.Value / sum) |> Array.sort
 
-    let sum = Array.fold (fun s (_,x) -> s + x) 0.0 ar
-    Array.map (fun (a,b) -> a, b / sum) ar |> Array.sort
-
-forward 10000 example
+forward 100000 example
