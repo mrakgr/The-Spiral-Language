@@ -153,7 +153,7 @@ inl Unary =
     inl sqrt =
         unary {
             fwd = sqrt
-            bck = inl x out -> half / out
+            bck = inl x out -> if out = zero then zero else half / out
             }
 
     inl exp =
