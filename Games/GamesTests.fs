@@ -206,12 +206,26 @@ Struct.iter (inl i ->
 let grid1 =
     "grid1",[cuda_modules;loops;timer],"The Gridworld (Sea) test.",
     """
-//inl n = 50
-//inl reward state =
-//    inl {row col} = state.pos
-//    if col = n-1 then 1.0 
-//    else
-//        if state.
+inl n = 50
+inl Position = type Union.int {from=0; near_to=n} int64
+inl State = type {row=int64; col=int64} \/ .Start \/ End
+inl Actions = type .Left \/ .Right
+
+inl transition action state =
+    | .Start -> {row=0; col=0}, {reward=0.01 / to float64 n}
+    inl row = row - 1
+    inl col =
+        match action with
+        | .Left -> 
+            inl col = col - 1
+            if col < 0 then 0 else col
+        | .Right -> 
+            inl col = col + 1
+            if col >= n then n-1 else col            
+    
+
+inl game player =
+    ()
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) grid1
