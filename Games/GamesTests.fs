@@ -204,12 +204,16 @@ Struct.iter (inl i ->
     """
 
 let grid1 =
-    "grid1",[cuda_modules;loops;timer],"The Gridworld (basic) test.",
+    "grid1",[cuda_modules;loops;timer],"The Gridworld (Sea) test.",
     """
-()
+//inl n = 50
+//inl reward state =
+//    inl {row col} = state.pos
+//    if col = n-1 then 1.0 
+//    else
+//        if state.
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) grid1
 |> printfn "%s"
 |> ignore
-
