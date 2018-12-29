@@ -206,6 +206,35 @@ Struct.iter (inl i ->
 let grid1 =
     "grid1",[cuda_modules;loops;timer],"The Gridworld (Sea) test.",
     """
+inl n = 50
+inl reward {row col} =
+    if row = col then 0.01 / to float64 n + (if row = n - 1 then 1.0 else 0.0)
+    else 0.0
+
+inl transition action {row col} ret =
+    inl row = row + 1
+    if row = n then ret .End
+    else
+        inl col =
+            match action with
+            | .Left -> 
+                inl col = col - 1
+                if col < 0 then 0 else col
+            | .Right -> 
+                inl col = col + 1
+                if col >= n then n-1 else col           
+        ret {row col}
+
+inl game player =
+    Loops.for' {from=0; near_to=n; state={row=0; col=0}
+        body=inl {state i next} ->
+            player.observe (observe state)
+            player.reward (reward state)
+            transition player.action state <| function
+            | .End -> player.game_over
+            | state -> next state
+        finally=ignore
+        }
 
 ()
     """
