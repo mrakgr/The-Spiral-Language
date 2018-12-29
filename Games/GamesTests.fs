@@ -241,6 +241,29 @@ inl game player =
         finally=ignore
         }
 
+inl player_tabular_sarsa {Action State init learning_rate} =
+    inl {action} = PlayerTabular {Action State init learning_rate}
+    inl Reward = type float64
+    inl History = type State \/ Action \/ Reward
+    inl buffer = ResizeArray.create {elem_type=History}
+    inl trace = ResizeArray.create {elem_type=heap (action State .bck)}
+
+    inl methods = {
+        observe=inl s rep -> s.data.buffer.add (box History rep)
+        reward=inl s v -> s.data.buffer.add (box History v)
+        action=inl s ->
+            inl hist = get_latest_slice s.data.buffer
+            inl {action bck} = s.data.action rep
+            s.data.trace.add (heap bck)
+            action
+        game_over=inl s ->
+            s.data.trace.foldr (inl bck v -> bck v) (dyn (to float32 v)) |> ignore; s.data.trace.clear
+        }
+
+    Object
+        .member_add methods
+        .data_add {name; win=ref 0; action trace buffer}
+
 ()
     """
 
