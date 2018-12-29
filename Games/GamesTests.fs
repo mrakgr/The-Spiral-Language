@@ -222,8 +222,13 @@ inl transition action {row col} ret =
                 if col < 0 then 0 else col
             | .Right -> 
                 inl col = col + 1
-                if col >= n then n-1 else col           
+                if col >= n then n - 1 else col           
         ret {row col}
+
+inl Position = Union.int {from=0; near_to=n}
+inl observe = Struct.map Position
+inl Observation = type observe {row=int64; col=int64}
+inl Action = type .Left \/ .Right
 
 inl game player =
     Loops.for' {from=0; near_to=n; state={row=0; col=0}
