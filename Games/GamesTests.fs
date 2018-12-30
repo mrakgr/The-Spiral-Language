@@ -139,14 +139,16 @@ inl game player =
         }
 
 inl player_tabular_sarsa {init elem_type=!(Tuple.wrap) elem_type} =
+    inl float = float32
+    inl zero = to float 0
     inl dicts = 
         Tuple.map (inl x ->
             match x with
-            | {Observation Action} -> {x with dict = Dictionary {elem_type=int32, array float32}}
-            | {Observation} -> {x with dict = Dictionary {elem_type=int32, float32}}
+            | {Observation Action} -> {x with dict = Dictionary {elem_type=int32, array float}}
+            | {Observation} -> {x with dict = Dictionary {elem_type=int32, float}}
             ) elem_type
     
-    inl action obs =
+    inl rec act {learning_rate discount trace} obs =
         inl rec loop = function
             | {Observation=(_: obs) Action dict} :: _ ->
                 inl ar =
@@ -167,23 +169,53 @@ inl player_tabular_sarsa {init elem_type=!(Tuple.wrap) elem_type} =
 
                 {
                 action=Union.from_one_hot Action a
-                bck=inl {learning_rate discount trace} {R' V'} -> 
-                    inl R = discount * ((trace - one) * R' + trace * V')
-                    ar a <- V + learning_rate * (R - V)
-                    {R V}
+                bck=inl V' -> 
+                    ar a <- V + learning_rate * (V' - V)
+                    discount * ((trace - one) * V' + trace * V)
                 }
-
             | {Observation=(_: obs) dict} :: _ ->
-                inl ar =
-                    inl i = Union.to_one_hot obs |> to int32
+                inl i = Union.to_one_hot obs |> to int32
+                inl V =
                     dict i {
-                        on_fail = inl _ -> 
-                            inl ar = Array.init near_to (const init)
-                            dict.set i ar
-                            ar
+                        on_fail = inl _ -> dict.set i init; init
                         on_succ = id
                         }
-                
+
+                {
+                bck=inl V' -> 
+                    dist.set i (V + learning_rate * (V' - V))
+                    discount * ((trace - one) * V' + trace * V)
+                }
+            | _ :: next -> loop next
+            | () -> error_type {message = "The type of the argument matches none of the `elem_type`s."; argument=obs; elem_type}
+        loop dicts
+
+    inl reward rew = { bck = inl V' -> rew + V' }
+
+    {act reward}
+
+inl player_tabular_sarsa_interface {init elem_type learning_rate discount trace} =
+    inl float = float32
+    inl zero = to float 0
+    inl trace = ResizeArray.create {elem_type=float => float}
+
+    inl player = player_tabular_sarsa {init elem_type}
+
+    inl act obs =
+        inl {x with bck} = player.act {learning_rate discount trace} obs
+        trace.add (term_cast bck float)
+        match x with
+        | {action} -> action
+        | _ -> ()
+
+    inl reward x = 
+        inl {bck} = player.reward (to float x |> dyn)
+        trace.add (term_cast bck range)
+
+    inl optimize _ = trace.foldr (<|) zero |> ignore; trace.clear
+
+    heap {act reward optimize}
+
 ()
     """
 
