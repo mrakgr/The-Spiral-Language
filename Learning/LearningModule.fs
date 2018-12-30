@@ -616,6 +616,8 @@ let union =
     (
     "Union",[tuple;console;option;list],"The Union module.",
     """
+/// Note: The innermost dimension is the first one rather than the last which is used by tensors.
+
 /// The bounded integer type's constructor.
 inl int {from near_to} value =
     assert (value >= from) "Value must be greater or equal to from."
