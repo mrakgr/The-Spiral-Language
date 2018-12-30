@@ -164,4 +164,3 @@ inl player_tabular_sarsa {Action State init learning_rate} =
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) grid1
 |> printfn "%s"
 |> ignore
-
