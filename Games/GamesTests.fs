@@ -138,13 +138,52 @@ inl game player =
         finally=ignore
         }
 
-inl player_tabular_sarsa {Observation Action} =
-    inl Observation = Observation \/ ()
-    inl Action = Action \/ ()
-    inl elem_type = type {observation=Observation; action=Action; reward=float64}
+inl player_tabular_sarsa {init elem_type=!(Tuple.wrap) elem_type} =
+    inl dicts = 
+        Tuple.map (inl x ->
+            match x with
+            | {Observation Action} -> {x with dict = Dictionary {elem_type=int32, array float32}}
+            | {Observation} -> {x with dict = Dictionary {elem_type=int32, float32}}
+            ) elem_type
+    
+    inl action obs =
+        inl rec loop = function
+            | {Observation=(_: obs) Action dict} :: _ ->
+                inl ar =
+                    inl i = Union.to_one_hot obs |> to int32
+                    dict i {
+                        on_fail = inl _ -> 
+                            inl ar = Array.init near_to (const init)
+                            dict.set i ar
+                            ar
+                        on_succ = id
+                        }
 
-    inl trace = ResizeArray.create {elem_type}
-    ()
+                inl V, a =
+                    Loops.for {from=0; near_to state=dyn (-infinityf32, 0); body=inl {state=s,a i} ->
+                        inl V = ar i
+                        if V > s then V,i else s,a
+                        }
+
+                {
+                action=Union.from_one_hot Action a
+                bck=inl {learning_rate discount trace} {R' V'} -> 
+                    inl R = discount * ((trace - one) * R' + trace * V')
+                    ar a <- V + learning_rate * (R - V)
+                    {R V}
+                }
+
+            | {Observation=(_: obs) dict} :: _ ->
+                inl ar =
+                    inl i = Union.to_one_hot obs |> to int32
+                    dict i {
+                        on_fail = inl _ -> 
+                            inl ar = Array.init near_to (const init)
+                            dict.set i ar
+                            ar
+                        on_succ = id
+                        }
+                
 ()
     """
 
