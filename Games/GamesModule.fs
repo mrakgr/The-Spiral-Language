@@ -44,6 +44,8 @@ inl base {init elem_type=!(Tuple.wrap) elem_type} =
                 {
                 action=Union.from_one_hot Action a
                 bck=inl V' -> 
+                    inl obs = obs.row.value, obs.col.value
+                    Console.writeline {obs V a}
                     ar a <- V + learning_rate * (V' - V)
                     discount * ((trace - one) * V' + trace * V)
                 }
