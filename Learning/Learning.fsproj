@@ -80,6 +80,7 @@
     <None Include="Script1.fsx" />
     <None Include="Script2.fsx" />
     <Compile Include="LearningModule.fs" />
+    <None Include="LearningTests.fs%27" />
     <Compile Include="LearningTests.fs" />
   </ItemGroup>
   <ItemGroup>
