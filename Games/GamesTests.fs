@@ -98,9 +98,9 @@ test (dyn <| Option.some (box Q {a b c}))
     """
 
 let grid1 =
-    "grid1",[cuda_modules;loops;timer],"The Gridworld (Sea) test.",
+    "grid1",[console;loops],"The Gridworld (Sea) test.",
     """
-inl n = 50
+inl n = 10
 inl reward {row col} =
     if row = col then 0.01 / to float64 (n - 1) + (if row = n - 1 then 1.0 else 0.0)
     else 0.0
@@ -136,10 +136,28 @@ inl game player =
         finally=ignore
         }
 
-inl player = PlayerTabular.create {init=1f32; elem_type={Observation Action}; learning_rate=0.01f32; trace=0.5f32; discount=1f32}
-()
+inl player = 
+    inl {act reward optimize} = PlayerTabular.template {init=2f32; elem_type={Observation Action}; learning_rate=0.01f32; trace=0.5f32; discount=1f32}
+    inl act {obs with row col} =
+        inl row, col = row.value, col.value
+        Console.write {row col}
+        act obs
+    inl reward_sum = ref 0.0
+    inl reward rew =
+        reward_sum := reward_sum() + rew
+        reward rew
+    inl optimize x =
+        Console.writeline ""
+        Console.printfn "The sum of rewards for the episode is {0}." (reward_sum())
+        reward_sum := 0f32
+        optimize x
+    heap {act reward optimize}
+
+inl num_episondes = 100
+Loops.for {from=0; near_to=num_episodes; body=inl {i} -> game player}
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) grid1
 |> printfn "%s"
 |> ignore
+

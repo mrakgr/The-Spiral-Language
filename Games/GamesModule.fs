@@ -89,6 +89,6 @@ inl template {init elem_type learning_rate discount trace} =
     {act reward optimize}
 
 {
-create=template >> heap
+template
 } |> stackify
     """) |> module_
