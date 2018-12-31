@@ -100,7 +100,7 @@ test (dyn <| Option.some (box Q {a b c}))
 let grid1 =
     "grid1",[console;loops;union;struct';player_tabular],"The Gridworld (Sea) test.",
     """
-inl n = 3
+inl n = 50
 inl reward {row col} =
     if row = col then -0.01 / to float64 (n - 1) + (if row = n - 1 then 1.0 else 0.0)
     else 0.0
@@ -137,30 +137,29 @@ inl game player =
         }
 
 inl player = 
-    inl step = 1
+    inl step = 10000
     inl step_count = ref 1
-    inl {act reward optimize} = PlayerTabular.template {init=1.2f32; elem_type={Observation Action}; learning_rate=0.01f32; trace=0.5f32; discount=1f32}
-    inl act {obs with row col} =
-        //if step_count() = step then 
-        //    inl row, col = row.value, col.value
-        //    Console.write (row, col)
-        act obs
+    inl {act reward optimize} = PlayerTabular.template {init=1.2f32; elem_type={Observation Action}; learning_rate=0.01f32; trace=0.7f32; discount=1f32}
+    //inl act {obs with row col} =
+    //    if step_count() = step then 
+    //        inl row, col = row.value, col.value
+    //        Console.write (row, col)
+    //    act obs
     inl reward_sum = ref 0.0
     inl reward rew =
-        if step_count() = step then
-            reward_sum := reward_sum() + rew
+        reward_sum := reward_sum() + rew
         reward rew
     inl optimize x =
-        if step_count() = step then
-            Console.writeline ""
-            Console.printfn "The sum of rewards for the episode is {0}." (reward_sum())
+        inl k = step_count()
+        if k = step then
+            Console.printfn "The average of rewards for the past {0} episodes is {1}." (k, (reward_sum() / to float64 k))
             reward_sum := 0.0
             step_count := 0
         step_count := step_count() + 1
         optimize x
     heap {act reward optimize}
 
-inl num_episodes = 1000
+inl num_episodes = 150000
 Loops.for {from=0; near_to=num_episodes; body=inl {i} -> game player}
     """
 

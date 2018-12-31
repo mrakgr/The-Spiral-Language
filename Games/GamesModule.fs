@@ -44,10 +44,8 @@ inl base {init elem_type=!(Tuple.wrap) elem_type} =
                 {
                 action=Union.from_one_hot Action a
                 bck=inl V' -> 
-                    inl obs = obs.row.value, obs.col.value
-                    Console.writeline {obs V a}
                     ar a <- V + learning_rate * (V' - V)
-                    discount * ((trace - one) * V' + trace * V)
+                    discount * (trace * V' + (one - trace) * V)
                 }
             | {Observation=(_: obs) dict} :: _ ->
                 inl i = Union.to_one_hot obs |> to int32
@@ -60,7 +58,7 @@ inl base {init elem_type=!(Tuple.wrap) elem_type} =
                 {
                 bck=inl V' -> 
                     dist.set i (V + learning_rate * (V' - V))
-                    discount * ((trace - one) * V' + trace * V)
+                    discount * (trace * V' + (one - trace) * V)
                 }
             | _ :: next -> loop next
             | () -> error_type {message = "The type of the argument matches none of the `elem_type`s."; argument=obs; elem_type}
