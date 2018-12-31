@@ -98,7 +98,7 @@ test (dyn <| Option.some (box Q {a b c}))
     """
 
 let grid1 =
-    "grid1",[console;loops],"The Gridworld (Sea) test.",
+    "grid1",[console;loops;union;struct';player_tabular],"The Gridworld (Sea) test.",
     """
 inl n = 10
 inl reward {row col} =
@@ -149,11 +149,11 @@ inl player =
     inl optimize x =
         Console.writeline ""
         Console.printfn "The sum of rewards for the episode is {0}." (reward_sum())
-        reward_sum := 0f32
+        reward_sum := 0.0
         optimize x
     heap {act reward optimize}
 
-inl num_episondes = 100
+inl num_episodes = 100
 Loops.for {from=0; near_to=num_episodes; body=inl {i} -> game player}
     """
 
