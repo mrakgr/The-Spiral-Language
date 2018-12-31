@@ -143,4 +143,3 @@ inl player = PlayerTabular.create {init=1f32; elem_type={Observation Action}; le
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) grid1
 |> printfn "%s"
 |> ignore
-
