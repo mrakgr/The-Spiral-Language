@@ -88,7 +88,76 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
     }
     """
 
+let learning2 =
+    "learning2",[cuda_modules;timer;learning],"Does the full training work with the char-RNN?",
+    """
+inb s = CudaModules (1024*1024*1024)
+
+inl float = float32
+open Learning float
+
+inl size = {
+    seq = 1115394
+    minibatch = 64
+    step = 64
+    hot = 128
+    }
+
+// I got this dataset from Karpathy.
+inl path = @"C:\ML Datasets\TinyShakespeare\tiny_shakespeare.txt"
+inl data = 
+    macro.fs (array char) [text: "System.IO.File.ReadAllText"; args: path; text: ".ToCharArray()"]
+    |> Array.map (inl x -> 
+        inl x = to int64 x
+        assert (x < size.hot) "The inputs need to be in the [0,127] range."
+        to uint8 x
+        )
+    |> Tensor.array_as_tensor
+    |> Tensor.assert_size size.seq
+    |> s.CudaTensor.from_host_tensor
+    |> inl data -> data.round_split size.minibatch
+
+inl input =
+    inl minibatch,seq = data.dim
+    inl data = CudaAux.to_dev_tensor data
+    s.CudaFun.init {dim=seq,minibatch,size.hot} <| inl seq, minibatch, hot ->
+        if data minibatch seq .get = to uint8 hot then 1f32 else 0f32
+
+inl by :: _ = input.dim
+//inl by = by / 64 // Am using only 1/64th of the dataset here in order to speed up testing on plastic RNNs.
+inl input = input {from=0; by} 
+
+inl label = input {from=1}
+inl input = input {from=0; by=by-1}
+
+inl data = 
+    {input label} 
+    |> Struct.map (inl x -> x.round_split' size.step)
+    |> Struct.map (View.wrap ((), (), (), ()))
+
+inl float = float32
+inl epsilon x = to float 2 ** to float x
+
+inl learning_rate = epsilon -13
+inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32}}
+Console.writeline pars
+
+inl network =
+    open Feedforward
+    open RNN
+
+    rnn 128,
+    linear size.hot
+
+inl agent = 
+    recurrent 
+        .with_context s
+        .initialize network (input 0 0)
+        .with_pars pars
+        .with_error Error.softmax_cross_entropy
+
+    """
+
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
 |> printfn "%s"
 |> ignore
-
