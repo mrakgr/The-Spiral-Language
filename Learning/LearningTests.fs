@@ -156,6 +156,28 @@ inl agent =
         .with_pars pars
         .with_error Error.softmax_cross_entropy
 
+inl train agent {cost} {input label} =
+    inb _ = agent.with_region
+    inl b,a =
+        inl b :: a :: _ = input.dim
+        inl b' :: a' :: _ = label.dim
+        assert (b = b') "The input and label must have the same outer(1) dimension."
+        assert (a = a') "The input and label must have the same outer(2) dimension."
+        b, a
+
+    Loops.for {from=0; near_to=b; body=inl {i} ->
+        inl input, label = input i, label i
+        Loops.for {from=0; near_to=a; body=inl {i} ->
+            inl input, label = input i, label i
+            agent.forward input
+            agent.cost {label out=cost}
+            }
+
+        agent.backward
+        agent.optimize
+        agent.truncate
+        }
+
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
