@@ -43,14 +43,14 @@ inl network =
     linear label_size
 
 inl learning_rate = epsilon -13
-inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32}}
-Console.writeline pars
+inl rate = {weight=learning_rate; covariance=learning_rate ** 0.85f32}
+Console.writeline rate
 
 inl agent = 
     feedforward 
         .with_context s
         .initialize network (train_images 0)
-        .with_pars pars
+        .with_rate rate
         .with_error Error.softmax_cross_entropy
 
 inl train_template is_train agent {outs with cost} {input label} =
@@ -65,23 +65,33 @@ inl train_template is_train agent {outs with cost} {input label} =
 inl train = train_template true
 inl test = train_template false
 
+inl iterate {input label} run =
+    inl near_to =
+        inl b :: _ = input.dim
+        inl b' :: _ = label.dim
+        assert (b = b') "Input and label must have the same outer dimension."
+        b
+    for {from=0; near_to body=inl {i} -> run <| Struct.map (inl x -> x i) {input label}}
+
 Loops.for' {from=0; near_to=5; body=inl {i next} -> 
     agent.push_region
     inl cost = agent.alloc_cost
     Timer.time_it (string_format "iteration {0}" i)
     <| inl _ -> iterate {input=train_images; label=train_labels} (train agent {cost})
 
-    inl cost = agent.get cost
+    inl cost = agent.get cost / to float train_images.basic.span_outer2
     if nan_is cost then 
         Console.writeline "Training diverged. Aborting..."
+        agent.pop_region
     else
-        string_format "Training: {0}" cost |> Console.writeline
+        Console.printfn "Training: {0}" cost
 
         inl cost = agent.alloc_cost
         inl accuracy, max_accuracy = agent.alloc_accuracy
         iterate {input=test_images; label=test_labels} (test agent {cost accuracy max_accuracy})
 
-        string_format "Testing: {0}({1}/{2})" (agent.get (cost, accuracy, max_accuracy)) |> Console.writeline
+        inl cost, accuracy, max_accuracy = agent.get (cost, accuracy, max_accuracy)
+        Console.printfn "Testing: {0}({1}/{2})" (cost / to float test_images.basic.span_outer2, accuracy, max_accuracy)
 
         agent.pop_region
         next ()
@@ -139,8 +149,8 @@ inl float = float32
 inl epsilon x = to float 2 ** to float x
 
 inl learning_rate = epsilon -13
-inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32}}
-Console.writeline pars
+inl rate = {weight=learning_rate; covariance=learning_rate ** 0.85f32}
+Console.writeline rate
 
 inl network =
     open Feedforward
@@ -153,7 +163,7 @@ inl agent =
     recurrent 
         .with_context s
         .initialize network (input 0 0)
-        .with_pars pars
+        .with_rate rate
         .with_error Error.softmax_cross_entropy
 
 inl train agent {cost} {input label} =
@@ -178,6 +188,21 @@ inl train agent {cost} {input label} =
         agent.truncate
         }
 
+Loops.for' {from=0; near_to=5; body=inl {i next} -> 
+    agent.push_region
+    inl cost = agent.alloc_cost
+    Timer.time_it (string_format "iteration {0}" i)
+    <| inl _ -> train agent {cost} {input label}
+
+    inl cost = agent.get cost / to float input.basic.span_outer3
+    if nan_is cost then 
+        Console.writeline "Training diverged. Aborting..."
+        agent.pop_region
+    else
+        Console.printfn "Training: {0}" cost
+        agent.pop_region
+        next ()
+    }
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
