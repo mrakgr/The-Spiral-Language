@@ -47,7 +47,7 @@ inl rate = {weight=learning_rate; covariance=learning_rate ** 0.85f32}
 Console.writeline rate
 
 inl agent = 
-    feedforward 
+    Agent.feedforward 
         .with_context s
         .initialize network (train_images 0)
         .with_rate rate
@@ -160,7 +160,7 @@ inl network =
     linear size.hot
 
 inl agent = 
-    recurrent 
+    Agent.recurrent 
         .with_context s
         .initialize network (input 0 0)
         .with_rate rate

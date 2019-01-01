@@ -1744,7 +1744,21 @@ inl float ->
        
         {action ac ac_sample_action}
 
+    inl Agent =
+        inl feedforward =
+            inl methods = {
+                with_context = inl s cd -> s.data_add {cd}
+                with_rate = inl s rate -> s.data_add {rate}
+                with_error = inl s rate -> s.member_add {error}
+                initialize = inl s network sample ->
+                    inl cd = s.data.cd
+                    inl _, size = sample.dim
+                    s.data_add {network = init cd network size}
+                }
+
+        {feedforward}
+
     { 
-    dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward RNN RL
+    dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward RNN RL Agent
     }
     """) |> module_
