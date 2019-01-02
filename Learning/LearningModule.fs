@@ -1755,25 +1755,24 @@ inl float ->
                     inl _, size = input.dim
                     inl network = init cd network size
                     inl {bck output} =
-                        inl {bck output} =
-                            type
-                                inl network, output = run cd input s.data.network
-                                inl bck = Struct.map (inl {bck} -> bck) network
-                                module_map (inl _ x -> x \/ ()) {bck output}
-                        {bck=ref (box bck ()); output=ref (box output ())}
+                        type
+                            inl network, output = run cd input s.data.network
+                            inl bck = Struct.map (inl {bck} -> bck) network
+                            {bck output}
+                        |> module_map (inl _ elem_type  -> ResizeArray.create {elem_type})
                     s.data_add {network bck output}
                 feedforward = inl s input ->
                     inl rate = s.data.rate
                     inl cd = s.data.cd.data_add {rate}
                     inl network, output = run cd input s.data.network
-                    ref_box_assign s.data.bck (Struct.map (inl {bck} -> bck) network)
-                    ref_box_assign s.data.output output
-                cost = inl s {label out} -> s.error {label out}
-                backward = inl s -> Struct.iter (inl x -> x()) s.data.bck
+                    s.data.bck.add (Struct.map (inl {bck} -> bck) network) // TODO: Making sure that addition to a ResizeArray does boxing.
+                    s.data.output.add output
+                cost = inl s {label out} -> s.error {label out} s.data.output.last // TODO: Make sure to take care of storing bcks for label.
+                backward = inl s -> Struct.foldr (inl x _ -> x (); ()) s.data.bck.last () // TODO: This is all wrong, fix it.
                 optimize = inl s -> 
                     Optimizer.standard s.data.cd s.data.network
-                    ref_box_assign s.data.bck ()
-                    ref_box_assign s.data.output ()
+                    s.data.bck.clear
+                    s.data.output.clear
                 }
 
         {feedforward}
