@@ -49,7 +49,7 @@ Console.writeline rate
 inl agent = 
     Agent.feedforward 
         .with_context s
-        .initialize network (train_images 0)
+        .initialize network {input=train_images 0; label=train_labels 0}
         .with_rate rate
         .with_error Error.softmax_cross_entropy
 
@@ -87,11 +87,12 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
         Console.printfn "Training: {0}" cost
 
         inl cost = agent.alloc_cost
-        inl accuracy, max_accuracy = agent.alloc_accuracy
+        inl accuracy = agent.alloc_accuracy
+        inl max_accuracy = test_images.basic.span_outer2
         iterate {input=test_images; label=test_labels} (test agent {cost accuracy max_accuracy})
 
-        inl cost, accuracy, max_accuracy = agent.get (cost, accuracy, max_accuracy)
-        Console.printfn "Testing: {0}({1}/{2})" (cost / to float test_images.basic.span_outer2, accuracy, max_accuracy)
+        inl cost, accuracy = agent.get (cost, accuracy)
+        Console.printfn "Testing: {0}({1}/{2})" (cost / to float max_accuracy, accuracy, max_accuracy)
 
         agent.region_clear
         next ()

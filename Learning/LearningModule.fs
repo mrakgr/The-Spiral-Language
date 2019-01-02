@@ -983,14 +983,13 @@ inl float ->
                     adjoints in .modify' (inl in x -> in + out * x) x
         }
 
-    /// Does not return a `dr` unlike the rest. This is an optimization in order to avoid having to call too many useless kernels that 
-    /// just to set the adjoint to 1. The current library is intended for a narrow purpose.
-    inl error {fwd bck} (!(View.zip) in) s =
+    /// Takes in an `out` argument. Stopping to gather a scalar so it can be accumulated is actually expensive enough that
+    /// this optimization is worth it.
+    inl error {fwd bck out} (!(View.zip) in) s =
         inl in = in.basic
-        inl out = s.CudaFun.redo {redo=(+); neutral_elem=zero; map=fwd} (primals in) 0
+        inl out = s.CudaFun.redo {redo=(+); neutral_elem=zero; map=fwd; out} (primals in) 0
         
         {
-        out
         bck=inl _ -> join
             if Struct.is_empty (adjoints in .elem_type) = false then
                 inl in = to_dev_tensor in // As none of the cost functions I've ran into use the `out`, I've removed it for the time being.
@@ -1334,43 +1333,45 @@ inl float ->
         output
 
     //#Error
-    inl square y x = 
+    inl square {label out} x = 
         error {
+            out
             fwd = inl {x y} -> (y - x) * (y - x)
             bck = inl {in={x y}} -> {x = two * (x - y); y = -(two * (x - y))}
-            } {x y}
+            } {x y=label}
 
-    inl sigmoid_cross_entropy y x = 
+    inl sigmoid_cross_entropy {label out} x = 
         error {
+            out
             fwd = inl {x y} -> 
                 inl x = sigmoid_fwd x
                 -(y * log x + (one - y) * log (one - x))
             bck = inl {in={x y}} -> 
                 inl x = sigmoid_fwd x
                 { x = x - y; y = log (one - x) - log x }
-            } {x y}
+            } {x y=label}
 
     /// Applies a softmax and then calculates the cross entropy cost. Is intended to take the output of a linear layer as input.
-    inl softmax_cross_entropy (!basic label) (!basic input) s =
+    inl softmax_cross_entropy {label=!basic label; out} (!basic input) s =
         assert (label.dim = input.dim) "Labels and inputs must have equal dimensions."
         
         inl temp = one
-        inl cost = 
-            inl cost = s.CudaTensor.create {elem_type=float; dim=input .dim |> fst}
-            inl _ =
-                inl (!primal input), (!primal label), cost = to_dev_tensor (input, label, cost)
-                s.CudaKernel.iter_seq {dim=input.dim}
-                    (inl b k ->
-                        inl input,label,to = Tuple.map (inl x -> x b) (input, label, cost)
-                        inl prob = softmax_body temp k input
-                        inl label = k.block.load label
-                        inl costs = k.block.map (inl {prob label} -> -label * log prob) {prob label}
-                        k.block.store_scalar { to from = k.block.redo (+) costs }
-                    )
-            s.CudaFun.redo {
-                redo = (+)
-                neutral_elem = zero
-                } cost 0
+        inl cost = s.CudaTensor.create {elem_type=float; dim=input .dim |> fst}
+        inl _ =
+            inl (!primal input), (!primal label), cost = to_dev_tensor (input, label, cost)
+            s.CudaKernel.iter_seq {dim=input.dim}
+                (inl b k ->
+                    inl input,label,to = Tuple.map (inl x -> x b) (input, label, cost)
+                    inl prob = softmax_body temp k input
+                    inl label = k.block.load label
+                    inl costs = k.block.map (inl {prob label} -> -label * log prob) {prob label}
+                    k.block.store_scalar { to from = k.block.redo (+) costs }
+                )
+        s.CudaFun.redo {
+            out
+            redo = (+)
+            neutral_elem = zero
+            } cost 0
 
         inl bck _ = join
             inl ins = to_dev_tensor (input, label)
@@ -1387,9 +1388,9 @@ inl float ->
                     ret {in={prob label}; map=inl {prob label} -> (prob - label) / temp} (adjoint input)
                     ret {in=prob; map=inl prob -> -(log prob)} (adjoint label)
                 )
-        {out=cost; bck}
+        {bck}
 
-    inl accuracy label input s =
+    inl accuracy {label out} input s =
         inl input, label = primal input .basic, primal label .basic
         s.CudaFun.map_redo {
             map=inl {in} -> in
@@ -1398,19 +1399,10 @@ inl float ->
             map_out=inl {out=_,x} -> to int64 x
             } (input,label)
         |> s.CudaFun.redo {
-            neutral_elem=0; redo=(+)
+            neutral_elem=0; redo=(+); out
             }
-        |> inl x -> x 0
 
-    inl sign_accuracy label input s = // For the Binary Pattern test.
-        inl input, label = primal input .basic, primal label .basic
-        s.CudaFun.redo {
-            map=inl input, label -> if Math.sign label = Math.sign input then 1 else 0
-            redo=(+)
-            } (input,label)
-        |> inl x -> x 0
-
-    inl Error = {square sigmoid_cross_entropy softmax_cross_entropy accuracy sign_accuracy} |> stackify
+    inl Error = {square sigmoid_cross_entropy softmax_cross_entropy accuracy} |> stackify
 
     // #Initializer
     inl Initializer number =
@@ -1745,12 +1737,13 @@ inl float ->
         {action ac ac_sample_action}
 
     inl Agent =
+        inl dyn_offset = Struct.map (inl input -> input.split (inl x :: x' -> (1,x) :: x') (dyn 0))
         inl feedforward =
             inl methods = {
                 with_context = inl s cd -> s.data_add {cd}
                 with_rate = inl s rate -> s.data_add {rate}
                 with_error = inl s error -> s.member_add {error}
-                initialize = inl s network {input label} ->
+                initialize = inl s network (!dyn_offset {input label}) ->
                     inl cd = s.data.cd
                     inl _, size = input.dim
                     inl network = init cd network size
@@ -1759,19 +1752,19 @@ inl float ->
                             inl network_current, output = run cd input s.data.network
                             inl {bck=bck_error} = s.error {label out} output s.data.cd
                             {network_current output bck_error}
-                        |> module_map (inl _ !heap elem_type  -> ResizeArray.create {elem_type})
+                        |> module_map (inl _ (!heap elem_type)  -> ResizeArray.create {elem_type})
                     s.data_add {network network_current output}
                 feedforward = inl s input ->
                     inl rate = s.data.rate
                     inl cd = s.data.cd.data_add {rate}
                     inl network_current, output = run cd input s.data.network
-                    s.data.bck.add network_current // TODO: Make sure that addition to a ResizeArray does boxing.
+                    s.data.bck.add network_current
                     s.data.output.add output
                 cost = inl s {label out} ->
-                    inl {bck} = s.error {label out} s.data.output.last s.data.cd // TODO: Make sure that the cost functions takes in `out`.
+                    inl {bck} = s.error {label out} s.data.output.last s.data.cd
                     s.data.bck_error.add (heap bck)
                 accuracy = inl s {label out} ->
-                    Error.accuracy {label out} input s // TODO: Make sure that the accuracy function takes in `out`.
+                    Error.accuracy {label out} input s
                 backward = inl s ->
                     Struct.foldr (met {bck} _ -> Struct.foldr (inl bck _ -> bck()) bck ()) s.data.network_current.last ()
                 optimize = inl s ->
@@ -1780,16 +1773,13 @@ inl float ->
                     s.data.output.clear
                     s.data.bck_error.clear
                 region_create = inl s -> s.data_add {cd=s.data.cd.RegionMem.create}
-                region_create' = inl s ret -> 
+                region_create' = inl s ret ->
                     inb cd = s.data.cd.RegionMem.create' 
                     ret (s.data_add {cd})
                 region_clear = inl s -> s.data.cd.RegionMem.clear
-                alloc_cost = inl s -> s.data.cd.CudaTensor.zero {elem_type=float32; dim=()}
-                alloc_accuracy = inl s ->
-                    inl f _ = s.data.cd.CudaTensor.zero {elem_type=int64; dim=()}
-                    {accuracy = f (); max_accuracy = f ()}
-                get = inl s ->
-                    Struct.map s.data.cd.CudaTensor.get
+                alloc_cost = inl s -> s.data.cd.CudaTensor.zero {elem_type=float32; dim=1}
+                alloc_accuracy = inl s -> s.data.cd.CudaTensor.zero {elem_type=int64; dim=1}
+                get = inl s -> Struct.map ((inl x -> x 0) >> s.data.cd.CudaTensor.get)
                 }
 
         {feedforward}

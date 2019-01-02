@@ -117,9 +117,7 @@ inl create {d with elem_type} =
         macro.fs () [arg: x; text: ".["; arg: to int32 i; text: "] <- "; arg: v]
     inl clear () = FS.Method x .Clear() ()
     inl count () = FS.Method x .get_Count() int32
-    inl add y = 
-        assert (eq_type elem_type y) ("The type added to the ResizeArray must match its element type.", elem_type, y)
-        FS.Method x .Add y ()
+    inl add !(box elem_type) y = FS.Method x .Add y ()
     inl remove_at y = FS.Method x .RemoveAt y ()
 
     inl iter f = Loops.for {from=0i32; near_to=count(); by=1i32; body=inl {i} -> f (index i)}
@@ -2129,7 +2127,7 @@ inl redo w d in =
             match d with
             | {out} -> 
                 inl out=zip out
-                inl {from=0 near_to=1} :: () = out.dim
+                inl 1 :: () = out.dim
                 out
             | _ -> w.CudaTensor.create {dim=1; elem_type=type map (index_example dim) in.elem_type |> map_out}
         inl _ =
