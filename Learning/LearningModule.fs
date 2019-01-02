@@ -1768,8 +1768,10 @@ inl float ->
                     s.data.bck.add network_current // TODO: Make sure that addition to a ResizeArray does boxing.
                     s.data.output.add output
                 cost = inl s {label out} ->
-                    inl {bck} = s.error {label out} s.data.output.last s.data.cd
+                    inl {bck} = s.error {label out} s.data.output.last s.data.cd // TODO: Make sure that the cost functions takes in `out`.
                     s.data.bck_error.add (heap bck)
+                accuracy = inl s {label out} ->
+                    Error.accuracy {label out} input s // TODO: Make sure that the accuracy function takes in `out`.
                 backward = inl s ->
                     Struct.foldr (met {bck} _ -> Struct.foldr (inl bck _ -> bck()) bck ()) s.data.network_current.last ()
                 optimize = inl s ->
@@ -1777,6 +1779,17 @@ inl float ->
                     s.data.network_current.clear
                     s.data.output.clear
                     s.data.bck_error.clear
+                region_create = inl s -> s.data_add {cd=s.data.cd.RegionMem.create}
+                region_create' = inl s ret -> 
+                    inb cd = s.data.cd.RegionMem.create' 
+                    ret (s.data_add {cd})
+                region_clear = inl s -> s.data.cd.RegionMem.clear
+                alloc_cost = inl s -> s.data.cd.CudaTensor.zero {elem_type=float32; dim=()}
+                alloc_accuracy = inl s ->
+                    inl f _ = s.data.cd.CudaTensor.zero {elem_type=int64; dim=()}
+                    {accuracy = f (); max_accuracy = f ()}
+                get = inl s ->
+                    Struct.map s.data.cd.CudaTensor.get
                 }
 
         {feedforward}

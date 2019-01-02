@@ -54,7 +54,7 @@ inl agent =
         .with_error Error.softmax_cross_entropy
 
 inl train_template is_train agent {outs with cost} {input label} =
-    inb _ = agent.with_region
+    inb _ = agent.region_create'
     agent.forward input
     agent.cost {label out=cost}
     match outs with {accuracy max_accuracy} -> agent.accuracy {label=train_labels; out={accuracy max_accuracy}} | _ -> ()
@@ -74,7 +74,7 @@ inl iterate {input label} run =
     for {from=0; near_to body=inl {i} -> run <| Struct.map (inl x -> x i) {input label}}
 
 Loops.for' {from=0; near_to=5; body=inl {i next} -> 
-    agent.push_region
+    inl agent = agent.region_create
     inl cost = agent.alloc_cost
     Timer.time_it (string_format "iteration {0}" i)
     <| inl _ -> iterate {input=train_images; label=train_labels} (train agent {cost})
@@ -82,7 +82,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
     inl cost = agent.get cost / to float train_images.basic.span_outer2
     if nan_is cost then 
         Console.writeline "Training diverged. Aborting..."
-        agent.pop_region
+        agent.region_clear
     else
         Console.printfn "Training: {0}" cost
 
@@ -93,7 +93,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
         inl cost, accuracy, max_accuracy = agent.get (cost, accuracy, max_accuracy)
         Console.printfn "Testing: {0}({1}/{2})" (cost / to float test_images.basic.span_outer2, accuracy, max_accuracy)
 
-        agent.pop_region
+        agent.region_clear
         next ()
     }
     """
