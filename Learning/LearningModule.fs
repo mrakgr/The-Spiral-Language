@@ -1750,10 +1750,30 @@ inl float ->
                 with_context = inl s cd -> s.data_add {cd}
                 with_rate = inl s rate -> s.data_add {rate}
                 with_error = inl s rate -> s.member_add {error}
-                initialize = inl s network sample ->
+                initialize = inl s network input ->
                     inl cd = s.data.cd
-                    inl _, size = sample.dim
-                    s.data_add {network = init cd network size}
+                    inl _, size = input.dim
+                    inl network = init cd network size
+                    inl {bck output} =
+                        inl {bck output} =
+                            type
+                                inl network, output = run cd input s.data.network
+                                inl bck = Struct.map (inl {bck} -> bck) network
+                                module_map (inl _ x -> x \/ ()) {bck output}
+                        {bck=ref (box bck ()); output=ref (box output ())}
+                    s.data_add {network bck output}
+                feedforward = inl s input ->
+                    inl rate = s.data.rate
+                    inl cd = s.data.cd.data_add {rate}
+                    inl network, output = run cd input s.data.network
+                    ref_box_assign s.data.bck (Struct.map (inl {bck} -> bck) network)
+                    ref_box_assign s.data.output output
+                cost = inl s {label out} -> s.error {label out}
+                backward = inl s -> Struct.iter (inl x -> x()) s.data.bck
+                optimize = inl s -> 
+                    Optimizer.standard s.data.cd s.data.network
+                    ref_box_assign s.data.bck ()
+                    ref_box_assign s.data.output ()
                 }
 
         {feedforward}
