@@ -48,10 +48,8 @@ Console.writeline rate
 
 inl agent = 
     Agent.feedforward 
-        .with_context s
-        .with_error Error.softmax_cross_entropy
+        .with {context=s; error=Error.softmax_cross_entropy; rate}
         .initialize network {input=train_images (dyn 0); label=train_labels (dyn 0)}
-        .with_rate rate
 
 inl train_template is_train agent {outs with cost} {input label} =
     inb _ = agent.region_create'

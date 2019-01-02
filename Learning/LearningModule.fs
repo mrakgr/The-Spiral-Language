@@ -1739,29 +1739,28 @@ inl float ->
     inl Agent =
         inl feedforward =
             inl methods = {
-                with_context = inl s cd -> s.data_add {cd}
-                with_rate = inl s rate -> s.data_add {rate}
-                with_error = inl s error -> s.data_add {error}
+                with = inl s {context=cd rate error} -> 
+                    inl cd = cd.data_add rate
+                    s.data_add {cd rate error}
                 initialize = inl s network {input label} ->
                     inl cd = s.data.cd
                     inl _, size = input.dim
                     inl network, _ = init cd size network
-                    inl {network_current output bck_error} =
-                        type
-                            inl network_current, output = run cd input network
-                            inl out = cd.CudaTensor.create {elem_type=float; dim=1}
-                            inl {bck=bck_error} = s.data.error {label out} output s.data.cd
-                            module_map (inl _ x -> heap x) {network_current output bck_error}
-                        |> module_map (inl _ elem_type -> ResizeArray.create {elem_type})
-                    s.data_add {network network_current output bck_error}
+                    inl elem_type, forward =
+                        Union.infer {
+                            map = inl {network cd} {input label out} ->
+                                inl network, output = run cd input network
+                                inl {bck=bck_error} = s.data.error {label out} output s.data.cd
+                                {network bck_error output}
+                            input = {input label out}
+                            block = ()
+                            } {network cd}
+                    inl buffer = ResizeArray.create {elem_type}
+                    s.data_add {buffer network forward}
                 forward = inl s input ->
                     inl rate = s.data.rate
                     inl cd = s.data.cd.data_add {rate}
                     inl network_current, output = run cd input s.data.network
-                    //print_static {network_current}
-                    //print_static s.data.network_current.elem_type
-                    print_static (eq_type (type network_current) s.data.network_current.elem_type)
-                    qwe
                     s.data.network_current.add network_current
                     s.data.output.add output
                 cost = inl s {label out} ->
