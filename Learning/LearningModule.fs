@@ -1749,30 +1749,34 @@ inl float ->
             inl methods = {
                 with_context = inl s cd -> s.data_add {cd}
                 with_rate = inl s rate -> s.data_add {rate}
-                with_error = inl s rate -> s.member_add {error}
-                initialize = inl s network input ->
+                with_error = inl s error -> s.member_add {error}
+                initialize = inl s network {input label} ->
                     inl cd = s.data.cd
                     inl _, size = input.dim
                     inl network = init cd network size
-                    inl {bck output} =
+                    inl {network_current output bck_label} =
                         type
-                            inl network, output = run cd input s.data.network
-                            inl bck = Struct.map (inl {bck} -> bck) network
-                            {bck output}
-                        |> module_map (inl _ elem_type  -> ResizeArray.create {elem_type})
-                    s.data_add {network bck output}
+                            inl network_current, output = run cd input s.data.network
+                            inl {bck=bck_error} = s.error {label out} output s.data.cd
+                            {network_current output bck_error}
+                        |> module_map (inl _ !heap elem_type  -> ResizeArray.create {elem_type})
+                    s.data_add {network network_current output}
                 feedforward = inl s input ->
                     inl rate = s.data.rate
                     inl cd = s.data.cd.data_add {rate}
-                    inl network, output = run cd input s.data.network
-                    s.data.bck.add (Struct.map (inl {bck} -> bck) network) // TODO: Making sure that addition to a ResizeArray does boxing.
+                    inl network_current, output = run cd input s.data.network
+                    s.data.bck.add network_current // TODO: Make sure that addition to a ResizeArray does boxing.
                     s.data.output.add output
-                cost = inl s {label out} -> s.error {label out} s.data.output.last // TODO: Make sure to take care of storing bcks for label.
-                backward = inl s -> Struct.foldr (inl x _ -> x (); ()) s.data.bck.last () // TODO: This is all wrong, fix it.
-                optimize = inl s -> 
+                cost = inl s {label out} ->
+                    inl {bck} = s.error {label out} s.data.output.last s.data.cd
+                    s.data.bck_error.add (heap bck)
+                backward = inl s ->
+                    Struct.foldr (met {bck} _ -> Struct.foldr (inl bck _ -> bck()) bck ()) s.data.network_current.last ()
+                optimize = inl s ->
                     Optimizer.standard s.data.cd s.data.network
-                    s.data.bck.clear
+                    s.data.network_current.clear
                     s.data.output.clear
+                    s.data.bck_error.clear
                 }
 
         {feedforward}
