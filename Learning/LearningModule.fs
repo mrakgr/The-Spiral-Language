@@ -1371,7 +1371,7 @@ inl float ->
             out
             redo = (+)
             neutral_elem = zero
-            } cost 0
+            } cost
 
         inl bck _ = join
             inl ins = to_dev_tensor (input, label)
@@ -1737,31 +1737,35 @@ inl float ->
         {action ac ac_sample_action}
 
     inl Agent =
-        inl dyn_offset = Struct.map (inl input -> input.split (inl x :: x' -> (1,x) :: x') (dyn 0))
         inl feedforward =
             inl methods = {
                 with_context = inl s cd -> s.data_add {cd}
                 with_rate = inl s rate -> s.data_add {rate}
-                with_error = inl s error -> s.member_add {error}
-                initialize = inl s network (!dyn_offset {input label}) ->
+                with_error = inl s error -> s.data_add {error}
+                initialize = inl s network {input label} ->
                     inl cd = s.data.cd
                     inl _, size = input.dim
-                    inl network = init cd network size
-                    inl {network_current output bck_label} =
+                    inl network, _ = init cd size network
+                    inl {network_current output bck_error} =
                         type
-                            inl network_current, output = run cd input s.data.network
-                            inl {bck=bck_error} = s.error {label out} output s.data.cd
-                            {network_current output bck_error}
-                        |> module_map (inl _ (!heap elem_type)  -> ResizeArray.create {elem_type})
-                    s.data_add {network network_current output}
-                feedforward = inl s input ->
+                            inl network_current, output = run cd input network
+                            inl out = cd.CudaTensor.create {elem_type=float; dim=1}
+                            inl {bck=bck_error} = s.data.error {label out} output s.data.cd
+                            module_map (inl _ x -> heap x) {network_current output bck_error}
+                        |> module_map (inl _ elem_type -> ResizeArray.create {elem_type})
+                    s.data_add {network network_current output bck_error}
+                forward = inl s input ->
                     inl rate = s.data.rate
                     inl cd = s.data.cd.data_add {rate}
                     inl network_current, output = run cd input s.data.network
-                    s.data.bck.add network_current
+                    //print_static {network_current}
+                    //print_static s.data.network_current.elem_type
+                    print_static (eq_type (type network_current) s.data.network_current.elem_type)
+                    qwe
+                    s.data.network_current.add network_current
                     s.data.output.add output
                 cost = inl s {label out} ->
-                    inl {bck} = s.error {label out} s.data.output.last s.data.cd
+                    inl {bck} = s.data.error {label out} s.data.output.last s.data.cd
                     s.data.bck_error.add (heap bck)
                 accuracy = inl s {label out} ->
                     Error.accuracy {label out} input s
@@ -1781,6 +1785,7 @@ inl float ->
                 alloc_accuracy = inl s -> s.data.cd.CudaTensor.zero {elem_type=int64; dim=1}
                 get = inl s -> Struct.map ((inl x -> x 0) >> s.data.cd.CudaTensor.get)
                 }
+            Object.member_add methods
 
         {feedforward}
 

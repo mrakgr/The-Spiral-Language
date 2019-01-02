@@ -49,9 +49,9 @@ Console.writeline rate
 inl agent = 
     Agent.feedforward 
         .with_context s
-        .initialize network {input=train_images 0; label=train_labels 0}
-        .with_rate rate
         .with_error Error.softmax_cross_entropy
+        .initialize network {input=train_images (dyn 0); label=train_labels (dyn 0)}
+        .with_rate rate
 
 inl train_template is_train agent {outs with cost} {input label} =
     inb _ = agent.region_create'
@@ -71,7 +71,7 @@ inl iterate {input label} run =
         inl b' :: _ = label.dim
         assert (b = b') "Input and label must have the same outer dimension."
         b
-    for {from=0; near_to body=inl {i} -> run <| Struct.map (inl x -> x i) {input label}}
+    Loops.for {from=0; near_to body=inl {i} -> run <| Struct.map (inl x -> x i) {input label}}
 
 Loops.for' {from=0; near_to=5; body=inl {i next} -> 
     inl agent = agent.region_create
