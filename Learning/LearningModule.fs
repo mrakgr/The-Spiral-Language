@@ -1739,50 +1739,52 @@ inl float ->
     inl Agent =
         inl feedforward =
             inl methods = {
-                with = inl s {context=cd rate error} -> 
+                with = inl s {network input label out context rate error} ->
+                    inl cd = context
                     inl cd = cd.data_add rate
-                    s.data_add {cd rate error}
-                initialize = inl s network {input label} ->
-                    inl cd = s.data.cd
-                    inl _, size = input.dim
-                    inl network, _ = init cd size network
+
+                    inl state = {network cd}
                     inl elem_type, forward =
                         Union.infer {
                             map = inl {network cd} {input label out} ->
                                 inl network, output = run cd input network
-                                inl {bck=bck_error} = s.data.error {label out} output s.data.cd
-                                {network bck_error output}
-                            input = {input label out}
+                                {cd network output}
+                            input = {input}
                             block = ()
-                            } {network cd}
-                    inl buffer = ResizeArray.create {elem_type}
-                    s.data_add {buffer network forward}
+                            } state
+                    inl buffer_forward = ResizeArray.create {elem_type}
+
+                    inl elem_type, cost =
+                        Union.infer {
+                            map = inl {cd output} {label out} -> 
+                                match out with
+                                | {cost accuracy} ->
+                                    inl bck = error {label out=cost} output cd
+                                    Error.accuracy {label out=accuracy} output cd
+                                    bck
+                                | cost ->
+                                    error {label out=cost} output cd
+                            input = {label out}
+                            block = ()
+                            } elem_type
+                    inl buffer_cost = ResizeArray.create {elem_type}
+
+                    s.data_add {buffer_forward buffer_cost forward cost state}
                 forward = inl s input ->
-                    inl rate = s.data.rate
-                    inl cd = s.data.cd.data_add {rate}
-                    inl network_current, output = run cd input s.data.network
-                    s.data.network_current.add network_current
-                    s.data.output.add output
+                    inl state = s.data.state
+                    inl forward = s.data.forward state {input}
+                    s.data.buffer_forward forward
                 cost = inl s {label out} ->
-                    inl {bck} = s.data.error {label out} s.data.output.last s.data.cd
-                    s.data.bck_error.add (heap bck)
-                accuracy = inl s {label out} ->
-                    Error.accuracy {label out} input s
+                    inl cost = s.data.cost s.data.buffer_forward.last {label out}
+                    s.data.buffer_cost cost
                 backward = inl s ->
-                    Struct.foldr (met {bck} _ -> Struct.foldr (inl bck _ -> bck()) bck ()) s.data.network_current.last ()
+                    s.data.buffer_cost.last.bck()
+                    Struct.foldr (met {bck} _ -> Struct.foldr (inl bck _ -> bck()) bck ()) s.data.buffer_forward.last ()
                 optimize = inl s ->
-                    Optimizer.standard s.data.cd s.data.network
-                    s.data.network_current.clear
-                    s.data.output.clear
-                    s.data.bck_error.clear
-                region_create = inl s -> s.data_add {cd=s.data.cd.RegionMem.create}
-                region_create' = inl s ret ->
-                    inb cd = s.data.cd.RegionMem.create' 
-                    ret (s.data_add {cd})
-                region_clear = inl s -> s.data.cd.RegionMem.clear
-                alloc_cost = inl s -> s.data.cd.CudaTensor.zero {elem_type=float32; dim=1}
-                alloc_accuracy = inl s -> s.data.cd.CudaTensor.zero {elem_type=int64; dim=1}
-                get = inl s -> Struct.map ((inl x -> x 0) >> s.data.cd.CudaTensor.get)
+                    inl {cd network} = s.data.buffer_forward.last
+                    Optimizer.standard cd network
+                    s.data.buffer_forward.clear
+                    s.data.buffer_cost.clear
                 }
             Object.member_add methods
 

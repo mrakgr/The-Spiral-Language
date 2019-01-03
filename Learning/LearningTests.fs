@@ -34,13 +34,16 @@ inl label_size = 10
 inl float = float32
 inl epsilon x = to float 2 ** to float x
 
-inl network = 
+inl network, _ = 
     open Feedforward
     inl layer = ln_relu
 
-    layer 512,
-    layer 512,
-    linear label_size
+    inl network =
+        layer 512,
+        layer 512,
+        linear label_size
+
+    init cd size network
 
 inl learning_rate = epsilon -13
 inl rate = {weight=learning_rate; covariance=learning_rate ** 0.85f32}
