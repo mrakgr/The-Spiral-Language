@@ -986,15 +986,17 @@ inl float ->
     /// Takes in an `out` argument. Stopping to gather a scalar so it can be accumulated is actually expensive enough that
     /// this optimization is worth it.
     inl error {fwd bck out} (!(View.zip) in) s =
-        inl in = in.basic
-        inl out = s.CudaFun.redo {redo=(+); neutral_elem=zero; map=fwd; out} (primals in) 0
-        
-        if Struct.is_empty (adjoints in .elem_type) = false then
-            inl in = to_dev_tensor in
-            s.CudaKernel.iter {dim=in.dim} <| inl i ->
-                inl in = Struct.map' (inl x -> x i) in
-                inl x = bck {in=Struct.map (inl x -> x .get) (primals in)}
-                adjoints in .modify' (inl in x -> in + x) x // The adjoint is assumed to be 1 for cost functions.
+        inl in = in.basic |> to_dev_tensor
+        inl out = out.basic |> to_dev_tensor
+        s.CudaKernel.redo {
+            redo=(+); dim=in.dim;
+            init=inl i -> 
+                inl in = in i
+                inl adj, in = adjoint in, primal in .get
+                adj .modify' (inl in x -> in + x) (bck {in}) // The adjoint is assumed to be 1 for cost functions.
+                fwd in
+            outit=inl i x -> out i .set x
+            }
 
     inl init {dim} init s =
         inl out =
@@ -1355,12 +1357,23 @@ inl float ->
         inl temp = one
         inl cost = s.CudaTensor.create {elem_type=float; dim=input .dim |> fst}
         inl _ =
-            inl (!primal input), (!primal label), cost = to_dev_tensor (input, label, cost)
+            inl input, label, cost = to_dev_tensor (input, label, cost)
             s.CudaKernel.iter_seq {dim=input.dim}
                 (inl b k ->
                     inl input,label,to = Tuple.map (inl x -> x b) (input, label, cost)
-                    inl prob = softmax_body temp k input
-                    inl label = k.block.load label
+                    inl prob = softmax_body temp k (primal input)
+                    inl label = k.block.load (primal label)
+
+                    // Back
+                    inl ret {map in} = 
+                        on_non_nil <| inl to ->
+                            k.block.store {
+                                to from=k.block.map (inl {in out} -> out + map in) {in out=k.block.load to}
+                                }
+                    ret {in={prob label}; map=inl {prob label} -> (prob - label) / temp} (adjoint input)
+                    ret {in=prob; map=inl prob -> -(log prob)} (adjoint label)
+
+                    // Front
                     inl costs = k.block.map (inl {prob label} -> -label * log prob) {prob label}
                     k.block.store_scalar { to from = k.block.redo (+) costs }
                 )
@@ -1369,23 +1382,6 @@ inl float ->
             redo = (+)
             neutral_elem = zero
             } cost
-
-        inl bck _ = join
-            inl ins = to_dev_tensor (input, label)
-            s.CudaKernel.iter_seq {dim=input .dim}
-                (inl b k ->
-                    inl input, label = Struct.map' (inl x -> x b) ins
-                    inl prob = softmax_body temp k (primal input)
-                    inl label = k.block.load (primal label)
-                    inl ret {map in} = 
-                        on_non_nil <| inl to ->
-                            k.block.store {
-                                to from=k.block.map (inl {in out} -> out + map in) {in out=k.block.load to}
-                                }
-                    ret {in={prob label}; map=inl {prob label} -> (prob - label) / temp} (adjoint input)
-                    ret {in=prob; map=inl prob -> -(log prob)} (adjoint label)
-                )
-        {bck}
 
     inl accuracy {label out} input s =
         inl input, label = primal input .basic, primal label .basic

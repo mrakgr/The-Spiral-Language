@@ -59,7 +59,6 @@
     <None Include="App.config" />
     <Content Include="packages.config" />
     <Compile Include="GamesModule.fs" />
-    <Compile Include="GamesTests.fs" />
     <None Include="old modules\GamesTests.fs%27%27%27" />
     <None Include="old modules\Module.fs%27%27" />
     <None Include="old modules\Tests.fs%27%27" />
@@ -76,6 +75,7 @@
     <None Include="old modules\GamesModule.fs%27%27%27%27%27" />
     <None Include="old modules\GamesTests.fs%27%27%27%27%27" />
     <Content Include="poker.txt" />
+    <Compile Include="Copy of GamesTests.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
