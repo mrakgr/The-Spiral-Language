@@ -1377,11 +1377,8 @@ inl float ->
                     inl costs = k.block.map (inl {prob label} -> -label * log prob) {prob label}
                     k.block.store_scalar { to from = k.block.redo (+) costs }
                 )
-        s.CudaFun.redo {
-            out
-            redo = (+)
-            neutral_elem = zero
-            } cost
+
+        s.CudaFun.redo { out redo = (+) } cost
 
     inl accuracy {label out} input s =
         inl input, label = primal input .basic, primal label .basic
@@ -1741,16 +1738,17 @@ inl float ->
                         Union.infer {
                             map = inl {network cd} {input} ->
                                 inl network, output = run cd input network
+                                inl bck = Struct.map (inl {bck} -> bck) network
+                                inl network = Struct.map (inl x -> {x without bck}) network
                                 inl final {label out} =
                                     match out with
                                     | {cost accuracy} ->
-                                        inl bck = error {label out=cost} output cd
-                                        Error.accuracy {label out=accuracy} output cd
-                                        bck
-                                    | cost ->
                                         error {label out=cost} output cd
-                                {cd network final output}
-                            input = const {input}
+                                        Error.accuracy {label out=accuracy} output cd
+                                    | {cost} ->
+                                        error {label out=cost} output cd
+                                {cd network bck final}
+                            input = const {input=input (dyn 0)}
                             block = ()
                             } state
                     inl buffer_forward = ResizeArray.create {elem_type}
@@ -1759,24 +1757,26 @@ inl float ->
                 forward = inl s input ->
                     inl state = s.data.state
                     inl forward = s.data.forward state {input}
-                    s.data.buffer_forward forward
+                    s.data.buffer_forward.add forward
                 cost = inl s {label out} ->
-                    inl cost = s.data.cost s.data.buffer_forward.last {label out}
-                    s.data.buffer_cost cost
+                    match s.data.buffer_forward.last with
+                    | {final} -> final {label out}
+                    | _ -> ()
                 backward = inl s ->
-                    s.data.buffer_cost.last.bck()
-                    Struct.foldr (met {bck} _ -> Struct.foldr (inl bck _ -> bck()) bck ()) s.data.buffer_forward.last ()
+                    match s.data.buffer_forward.last with
+                    | {bck} -> join Struct.foldr (inl bck _ -> bck(); ()) bck ()
+                    | _ -> ()
                 optimize = inl s ->
-                    inl {cd network} = s.data.buffer_forward.last
+                    inl {cd network} = s.data.state
                     Optimizer.standard cd network
                     s.data.buffer_forward.clear
                 region_create = inl s -> 
-                    inl {state with cd} = s.data.state
-                    inl cd = s.data.cd.RegionMem.create
+                    inl {state with cd} = indiv s.data.state
+                    inl cd = cd.RegionMem.create
                     s.data_add (heap {state with cd})
                 region_create' = inl s ret ->
-                    inl {state with cd} = s.data.state
-                    inb cd = s.data.cd.RegionMem.create' 
+                    inl {state with cd} = indiv s.data.state
+                    inb cd = cd.RegionMem.create' 
                     ret (s.data_add (heap {state with cd}))
                 region_clear = inl s -> s.data.state.cd.RegionMem.clear
                 alloc_cost = inl s -> s.data.state.cd.CudaTensor.zero {elem_type=float32; dim=1}

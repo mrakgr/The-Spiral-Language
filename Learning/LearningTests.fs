@@ -70,7 +70,7 @@ inl iterate {input label} run =
 Loops.for' {from=0; near_to=5; body=inl {i next} ->
     inl agent =
         Agent.feedforward.initialize
-            {rate network context=s; error=Error.softmax_cross_entropy; input=train_images (dyn 0)}
+            {rate network context=s; error=Error.softmax_cross_entropy; input=train_images}
 
     inl agent = agent.region_create
     inl cost = agent.alloc_cost
@@ -88,7 +88,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
         inl cost = agent.alloc_cost
         inl accuracy = agent.alloc_accuracy
         inl max_accuracy = test_images.basic.span_outer2
-        iterate {input=test_images; label=test_labels} (test agent {cost accuracy max_accuracy})
+        iterate {input=test_images; label=test_labels} (test agent {cost accuracy})
 
         inl cost, accuracy = agent.get (cost, accuracy)
         Console.printfn "Testing: {0}({1}/{2})" (cost / to float max_accuracy, accuracy, max_accuracy)
