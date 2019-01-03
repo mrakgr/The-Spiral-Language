@@ -989,15 +989,12 @@ inl float ->
         inl in = in.basic
         inl out = s.CudaFun.redo {redo=(+); neutral_elem=zero; map=fwd; out} (primals in) 0
         
-        {
-        bck=inl _ -> join
-            if Struct.is_empty (adjoints in .elem_type) = false then
-                inl in = to_dev_tensor in // As none of the cost functions I've ran into use the `out`, I've removed it for the time being.
-                s.CudaKernel.iter {dim=in.dim} <| inl i ->
-                    inl in = Struct.map' (inl x -> x i) in
-                    inl x = bck {in=Struct.map (inl x -> x .get) (primals in)}
-                    adjoints in .modify' (inl in x -> in + x) x // The adjoint is assumed to be 1 for cost functions.
-        }
+        if Struct.is_empty (adjoints in .elem_type) = false then
+            inl in = to_dev_tensor in
+            s.CudaKernel.iter {dim=in.dim} <| inl i ->
+                inl in = Struct.map' (inl x -> x i) in
+                inl x = bck {in=Struct.map (inl x -> x .get) (primals in)}
+                adjoints in .modify' (inl in x -> in + x) x // The adjoint is assumed to be 1 for cost functions.
 
     inl init {dim} init s =
         inl out =
@@ -1739,37 +1736,30 @@ inl float ->
     inl Agent =
         inl feedforward =
             inl methods = {
-                with = inl s {network input label out context rate error} ->
+                initialize = inl s {rate network context error input} ->
                     inl cd = context
                     inl cd = cd.data_add rate
 
                     inl state = heap {network cd}
                     inl elem_type, forward =
                         Union.infer {
-                            map = inl {network cd} {input label out} ->
+                            map = inl {network cd} {input} ->
                                 inl network, output = run cd input network
-                                {cd network output}
-                            input = {input}
+                                inl final {label out} =
+                                    match out with
+                                    | {cost accuracy} ->
+                                        inl bck = error {label out=cost} output cd
+                                        Error.accuracy {label out=accuracy} output cd
+                                        bck
+                                    | cost ->
+                                        error {label out=cost} output cd
+                                {cd network final output}
+                            input = const {input}
                             block = ()
                             } state
                     inl buffer_forward = ResizeArray.create {elem_type}
 
-                    inl elem_type, cost =
-                        Union.infer {
-                            map = inl {cd output} {label out} -> 
-                                match out with
-                                | {cost accuracy} ->
-                                    inl bck = error {label out=cost} output cd
-                                    Error.accuracy {label out=accuracy} output cd
-                                    bck
-                                | cost ->
-                                    error {label out=cost} output cd
-                            input = {label out}
-                            block = ()
-                            } elem_type
-                    inl buffer_cost = ResizeArray.create {elem_type}
-
-                    s.data_add {buffer_forward buffer_cost forward cost state}
+                    s.data_add {buffer_forward forward state}
                 forward = inl s input ->
                     inl state = s.data.state
                     inl forward = s.data.forward state {input}
@@ -1784,7 +1774,6 @@ inl float ->
                     inl {cd network} = s.data.buffer_forward.last
                     Optimizer.standard cd network
                     s.data.buffer_forward.clear
-                    s.data.buffer_cost.clear
                 region_create = inl s -> 
                     inl {state with cd} = s.data.state
                     inl cd = s.data.cd.RegionMem.create

@@ -34,16 +34,15 @@ inl label_size = 10
 inl float = float32
 inl epsilon x = to float 2 ** to float x
 
-inl network, _ = 
+inl network,_ = 
     open Feedforward
     inl layer = ln_relu
-
-    inl network =
+    inl network = 
         layer 512,
         layer 512,
         linear label_size
 
-    init cd size network
+    init s input_size network
 
 inl learning_rate = epsilon -13
 inl rate = {weight=learning_rate; covariance=learning_rate ** 0.85f32}
@@ -68,13 +67,14 @@ inl iterate {input label} run =
         b
     Loops.for {from=0; near_to body=inl {i} -> run <| Struct.map (inl x -> x i) {input label}}
 
-Loops.for' {from=0; near_to=5; body=inl {i next} -> 
-    inl agent = 
-        Agent.feedforward.with
-            {rate network context=s; error=Error.softmax_cross_entropy; input=train_images (dyn 0); label=train_labels (dyn 0)}
+Loops.for' {from=0; near_to=5; body=inl {i next} ->
+    inl agent =
+        Agent.feedforward.initialize
+            {rate network context=s; error=Error.softmax_cross_entropy; input=train_images (dyn 0)}
 
     inl agent = agent.region_create
     inl cost = agent.alloc_cost
+
     Timer.time_it (string_format "iteration {0}" i)
     <| inl _ -> iterate {input=train_images; label=train_labels} (train agent {cost})
 
