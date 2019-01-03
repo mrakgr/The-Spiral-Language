@@ -1731,7 +1731,7 @@ inl float ->
             inl methods = {
                 initialize = inl s {rate network context error input} ->
                     inl cd = context
-                    inl cd = cd.data_add rate
+                    inl cd = cd.data_add {rate}
 
                     inl state = heap {network cd}
                     inl elem_type, forward =
