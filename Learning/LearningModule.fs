@@ -832,7 +832,7 @@ inl mutable_function f {state=(!heap state) input} =
         |> indiv
     |> heap
 
-inl infer f (!heap state) =
+inl infer f state =
     inl f = Struct.map (inl d -> {d with map=met state input -> heap (self state input)}) f
     inl unroll_state state =
         inl rec loop {f with map input} state =
@@ -852,7 +852,7 @@ inl infer f (!heap state) =
             inl rec loop prev =
                 inl cur = unroll_state prev
                 if eq_type prev cur then cur else loop cur
-            loop state
+            loop (var (heap state))
 
     ty, Struct.map (inl {map} state input -> match state with () | _ -> map state input |> box ty) f
 
@@ -1743,7 +1743,7 @@ inl float ->
                     inl cd = context
                     inl cd = cd.data_add rate
 
-                    inl state = {network cd}
+                    inl state = heap {network cd}
                     inl elem_type, forward =
                         Union.infer {
                             map = inl {network cd} {input label out} ->
