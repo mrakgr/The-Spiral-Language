@@ -49,16 +49,10 @@ inl learning_rate = epsilon -13
 inl rate = {weight=learning_rate; covariance=learning_rate ** 0.85f32}
 Console.writeline rate
 
-inl agent = 
-    Agent.feedforward 
-        .with {context=s; error=Error.softmax_cross_entropy; rate}
-        .initialize network {input=train_images (dyn 0); label=train_labels (dyn 0)}
-
-inl train_template is_train agent {outs with cost} {input label} =
+inl train_template is_train agent out {input label} =
     inb _ = agent.region_create'
     agent.forward input
-    agent.cost {label out=cost}
-    match outs with {accuracy max_accuracy} -> agent.accuracy {label=train_labels; out={accuracy max_accuracy}} | _ -> ()
+    agent.cost {label out}
     if is_train then
         agent.backward
         agent.optimize
@@ -75,6 +69,10 @@ inl iterate {input label} run =
     Loops.for {from=0; near_to body=inl {i} -> run <| Struct.map (inl x -> x i) {input label}}
 
 Loops.for' {from=0; near_to=5; body=inl {i next} -> 
+    inl agent = 
+        Agent.feedforward.with
+            {rate network context=s; error=Error.softmax_cross_entropy; input=train_images (dyn 0); label=train_labels (dyn 0)}
+
     inl agent = agent.region_create
     inl cost = agent.alloc_cost
     Timer.time_it (string_format "iteration {0}" i)

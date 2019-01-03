@@ -1785,6 +1785,18 @@ inl float ->
                     Optimizer.standard cd network
                     s.data.buffer_forward.clear
                     s.data.buffer_cost.clear
+                region_create = inl s -> 
+                    inl {state with cd} = s.data.state
+                    inl cd = s.data.cd.RegionMem.create
+                    s.data_add (heap {state with cd})
+                region_create' = inl s ret ->
+                    inl {state with cd} = s.data.state
+                    inb cd = s.data.cd.RegionMem.create' 
+                    ret (s.data_add (heap {state with cd}))
+                region_clear = inl s -> s.data.state.cd.RegionMem.clear
+                alloc_cost = inl s -> s.data.state.cd.CudaTensor.zero {elem_type=float32; dim=1}
+                alloc_accuracy = inl s -> s.data.state.cd.CudaTensor.zero {elem_type=int64; dim=1}
+                get = inl s -> Struct.map ((inl x -> x 0) >> s.data.state.cd.CudaTensor.get)
                 }
             Object.member_add methods
 
