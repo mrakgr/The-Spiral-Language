@@ -49,7 +49,7 @@ inl rate = {weight=learning_rate; covariance=learning_rate ** 0.85f32}
 Console.writeline rate
 
 inl train_template is_train agent out {input label} =
-    inb _ = agent.region_create'
+    inb agent = agent.region_create'
     agent.forward input
     agent.cost {label out}
     if is_train then
@@ -67,17 +67,17 @@ inl iterate {input label} run =
         b
     Loops.for {from=0; near_to body=inl {i} -> run <| Struct.map (inl x -> x i) {input label}}
 
-Loops.for' {from=0; near_to=5; body=inl {i next} ->
-    inl agent =
-        Agent.feedforward.initialize
-            {rate network context=s; error=Error.softmax_cross_entropy; input=train_images}
+inl agent =
+    Agent.feedforward.initialize
+        {rate network context=s; error=Error.softmax_cross_entropy; input=train_images}
 
+Loops.for' {from=0; near_to=5; body=inl {i next} ->
     inl agent = agent.region_create
     inl cost = agent.alloc_cost
 
     Timer.time_it (string_format "iteration {0}" i)
     <| inl _ -> iterate {input=train_images; label=train_labels} (train agent {cost})
-
+    
     inl cost = agent.get cost / to float train_images.basic.span_outer2
     if nan_is cost then 
         Console.writeline "Training diverged. Aborting..."

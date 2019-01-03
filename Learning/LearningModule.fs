@@ -1773,11 +1773,13 @@ inl float ->
                 region_create = inl s -> 
                     inl {state with cd} = indiv s.data.state
                     inl cd = cd.RegionMem.create
-                    s.data_add (heap {state with cd})
+                    inl state = heap {state with cd}
+                    s.data_add {state}
                 region_create' = inl s ret ->
                     inl {state with cd} = indiv s.data.state
                     inb cd = cd.RegionMem.create' 
-                    ret (s.data_add (heap {state with cd}))
+                    inl state = heap {state with cd}
+                    ret (s.data_add {state})
                 region_clear = inl s -> s.data.state.cd.RegionMem.clear
                 alloc_cost = inl s -> s.data.state.cd.CudaTensor.zero {elem_type=float32; dim=1}
                 alloc_accuracy = inl s -> s.data.state.cd.CudaTensor.zero {elem_type=int64; dim=1}
