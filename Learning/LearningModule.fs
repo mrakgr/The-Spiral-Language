@@ -1350,6 +1350,16 @@ inl float ->
                 { x = x - y; y = log (one - x) - log x }
             } {x y=label}
 
+    inl mutable_add_redo (!to_dev_tensor {out temp}) s =
+        assert (out.dim = (1 :: ())) "The `out` needs to be 1d singleton tensor."
+        s.CudaKernel.redo {
+            redo=(+); dim=temp.dim
+            init = inl i -> temp i .get
+            outit = inl i x -> 
+                inl out = out i
+                out .set (out .get + x)
+            }
+
     /// Applies a softmax and then calculates the cross entropy cost. Is intended to take the output of a linear layer as input.
     inl softmax_cross_entropy {label=!basic label; out} (!basic input) s =
         assert (label.dim = input.dim) "Labels and inputs must have equal dimensions."
@@ -1378,19 +1388,18 @@ inl float ->
                     k.block.store_scalar { to from = k.block.redo (+) costs }
                 )
 
-        s.CudaFun.redo { out redo = (+) } cost
+        mutable_add_redo {out temp=cost} s
 
     inl accuracy {label out} input s =
         inl input, label = primal input .basic, primal label .basic
-        s.CudaFun.map_redo {
-            map=inl {in} -> in
-            neutral_elem=-infinity,zero
-            redo=inl a b -> if fst a > fst b then a else b
-            map_out=inl {out=_,x} -> to int64 x
-            } (input,label)
-        |> s.CudaFun.redo {
-            neutral_elem=0; redo=(+); out
-            }
+        inl temp =
+            s.CudaFun.map_redo {
+                map=inl {in} -> in
+                neutral_elem=-infinity,zero
+                redo=inl a b -> if fst a > fst b then a else b
+                map_out=inl {out=_,x} -> to int64 x
+                } (input, label)
+        mutable_add_redo {out temp} s
 
     inl Error = {square sigmoid_cross_entropy softmax_cross_entropy accuracy} |> stackify
 
