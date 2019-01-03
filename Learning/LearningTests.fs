@@ -69,7 +69,7 @@ inl iterate {input label} run =
 
 inl agent =
     Agent.feedforward.initialize
-        {rate network context=s; error=Error.softmax_cross_entropy; input=train_images}
+        {rate network context=s; error=Error.square; input=train_images}
 
 Loops.for' {from=0; near_to=5; body=inl {i next} ->
     inl agent = agent.region_create

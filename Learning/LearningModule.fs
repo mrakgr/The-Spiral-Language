@@ -986,16 +986,19 @@ inl float ->
     /// Takes in an `out` argument. Stopping to gather a scalar so it can be accumulated is actually expensive enough that
     /// this optimization is worth it.
     inl error {fwd bck out} (!(View.zip) in) s =
+        assert (out.dim = (1 :: ())) "The `out` needs to be 1d singleton tensor."
         inl in = in.basic |> to_dev_tensor
         inl out = out.basic |> to_dev_tensor
         s.CudaKernel.redo {
             redo=(+); dim=in.dim;
             init=inl i -> 
                 inl in = in i
-                inl adj, in = adjoint in, primal in .get
+                inl adj, in = adjoints in, primals in .get
                 adj .modify' (inl in x -> in + x) (bck {in}) // The adjoint is assumed to be 1 for cost functions.
                 fwd in
-            outit=inl i x -> out i .set x
+            outit=inl i x -> 
+                inl out = out i
+                out .set (out .get + x)
             }
 
     inl init {dim} init s =
