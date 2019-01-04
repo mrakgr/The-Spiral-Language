@@ -1808,7 +1808,7 @@ inl float ->
                     inl cd = context
                     inl cd = cd.data_add {rate}
                     inl state = heap {network cd}
-                    inl elem_type, {forward truncate} =
+                    inl elem_type, {forward truncate region_create} =
                         Union.infer {
                             forward = {
                                 map = inl {network cd} {input} ->
@@ -1846,11 +1846,16 @@ inl float ->
                                 input = const ()
                                 block = ()
                                 }
+                            region_create = {
+                                map = {state with cd} _ -> {state with cd = cd.RegionMem.create}
+                                input = const ()
+                                block = ()
+                                }
                             } state
                     inl buffer = ResizeArray.create {elem_type}
                     buffer.add state
 
-                    s.data_add {buffer forward truncate}
+                    s.data_add {buffer forward truncate region_create}
                 forward = inl s input ->
                     inl forward = s.data.forward s.data.buffer.last {input}
                     s.data.buffer.add forward
@@ -1872,20 +1877,17 @@ inl float ->
                     s.data.buffer.clear
                     s.data.buffer.add state
                 region_create = inl s ->
-                    inl {state with cd} = indiv s.data.buffer.last
-                    inl cd = cd.RegionMem.create
-                    s.data.buffer.add (heap {state with cd})
+                    s.data.region_create s.data.buffer.last ()
+                    |> s.data.buffer.add state
+                cd = inl s -> s.data.buffer.last |> inl {cd} -> cd
+                region_clear = inl s -> s.cd.RegionMem.clear
                 region_create' = inl s ret ->
-                    inl state_ref = s.data.state
-                    inl state_ref_type = ref_type state_ref
-                    inl {state with cd} = indiv (state_ref())
-                    inb cd = cd.RegionMem.create'
-                    inl state = ref (box state_ref_type (heap {state with cd}))
-                    ret (s.data_add {state})
-                region_clear = inl s -> (s.data.state()).cd.RegionMem.clear
-                alloc_cost = inl s -> (s.data.state()).cd.CudaTensor.zero {elem_type=float32; dim=1}
-                alloc_accuracy = inl s -> (s.data.state()).cd.CudaTensor.zero {elem_type=int64; dim=1}
-                get = inl s -> Struct.map ((inl x -> x 0) >> (s.data.state()).cd.CudaTensor.get)
+                    s.region_create
+                    ret ()
+                    s.region_clear
+                alloc_cost = inl s -> s.cd.CudaTensor.zero {elem_type=float32; dim=1}
+                alloc_accuracy = inl s -> s.cd.CudaTensor.zero {elem_type=int64; dim=1}
+                get = inl s -> Struct.map ((inl x -> x 0) >> (s.cd.CudaTensor.get)
                 }
             Object.member_add methods
 
