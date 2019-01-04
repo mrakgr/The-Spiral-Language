@@ -75,7 +75,7 @@
     <None Include="old modules\GamesModule.fs%27%27%27%27%27" />
     <None Include="old modules\GamesTests.fs%27%27%27%27%27" />
     <Content Include="poker.txt" />
-    <Compile Include="Copy of GamesTests.fs" />
+    <Compile Include="GamesTests.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
