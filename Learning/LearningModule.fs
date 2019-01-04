@@ -377,23 +377,17 @@ inl Activation =
 
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
 
-    inl td reward_scale {r discount trace R' value' value} =
-        inm r = r * num reward_scale
+    inl td discount {trace value reward value'} =
+        inm error = value' - value
+        inm _ = sqr error |> as_cost
+
         inm trace = sigmoid trace 
+        inm value' = discount * (trace * value' + (one - trace) * primal value)
 
-        inm R = r + discount * (trace * R' + (one - trace) * primal value')
-        inm error = R - value
-        
-        inm _ = sqr error / num 2 |> as_cost
+        succ {value' error=primal error}
 
-        succ {R error=primal error}
 
-    inl grad_rescale {scale input} =
-        inm error = abs (get_adjoint input) - scale
-        inm cost = sqr error / num 2 |> as_cost
-        grad_rescale {scale input}
-
-    {generalized_mi generalized_mi_tanh lstm hebb_tanh td grad_rescale}
+    {generalized_mi generalized_mi_tanh lstm hebb_tanh td}
 
 inl Seq k =
     inl val x = k.block.init (const x)
@@ -1679,16 +1673,15 @@ inl float ->
                         x_a.set (x_a.get + (p - label) * reward) 
             }
 
-        inl reward_scale = epsilon -3
         inl ac_sample_action {policy trace value} s =
             inl {out bck} = sampling_pg policy s
             {
             out
-            bck=inl d ->
-                inl {out bck=bck'} = map (CudaAD.Activation.td reward_scale) {d with trace value} s
-                inl {R error} = View.unzip out |> module_map (const View.zip)
+            bck=inl discount d ->
+                inl {out bck=bck'} = map (CudaAD.Activation.td discount) {d with trace value} s
+                inl {value' error} = View.unzip out |> module_map (const View.zip)
                 {
-                out={R'=R; value'=value}
+                out={reward=dyn zero; value'=value}
                 bck=inl _ -> bck' (); bck {reward=error}
                 }
             }
