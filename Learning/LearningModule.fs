@@ -1811,7 +1811,7 @@ inl float ->
                     inl elem_type, {forward truncate region_create} =
                         Union.infer {
                             forward = {
-                                map = inl {network cd} {input} ->
+                                map = inl {network cd} {input} -> join
                                     inl network, output = run cd input network
                                     inl bck = Struct.map (inl {bck} -> bck) network
                                     inl network = Struct.map (inl x -> {x without bck}) network
@@ -1822,12 +1822,12 @@ inl float ->
                                             Error.accuracy {label out=accuracy} output cd
                                         | {cost} ->
                                             error {label out=cost} output cd
-                                    {cd network bck final}
+                                    heap {cd network bck final}
                                 input = const {input=input (dyn 0) (dyn 0)}
                                 block = ()
                                 }
                             truncate = {
-                                map = inl {network cd=cd'} _ ->
+                                map = inl {network cd=cd'} _ -> join
                                     inl cd = cd'.RegionMem.create
                                     inl network = 
                                         Struct.map (function
@@ -1842,12 +1842,12 @@ inl float ->
                                             ) network
                                     cd'.RegionMem.clear
                                     cd.refresh
-                                    {network cd}
+                                    heap {network cd}
                                 input = const ()
                                 block = ()
                                 }
                             region_create = {
-                                map = inl {state with cd} _ -> {(indiv state) with cd = cd.RegionMem.create}
+                                map = inl {state with cd} _ -> join heap {(indiv state) with cd = cd.RegionMem.create}
                                 input = const ()
                                 block = ()
                                 }
@@ -1860,7 +1860,7 @@ inl float ->
                     inl forward = s.data.forward s.data.buffer.last {input}
                     s.data.buffer.add forward
                 cost = inl s {label out} ->
-                    match s.data.buffer.foldr with
+                    match s.data.buffer.last with
                     | {final} -> final {label out}
                     | _ -> ()
                 backward = inl s ->

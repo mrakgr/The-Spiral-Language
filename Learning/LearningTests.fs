@@ -178,7 +178,7 @@ inl train agent {cost} {input label} =
         Loops.for {from=0; near_to=a; body=inl {i} ->
             inl input, label = input i, label i
             agent.forward input
-            agent.cost {label out=cost}
+            agent.cost {label out={cost}}
             }
 
         agent.backward
