@@ -165,7 +165,7 @@ inl rate = {weight=learning_rate; covariance=learning_rate ** 0.85f32}
 Console.writeline rate
 
 inl train agent {cost} {input label} =
-    inb agent = agent.region_create'
+    inb _ = agent.region_create'
     inl b,a =
         inl b :: a :: _ = input.dim
         inl b' :: a' :: _ = label.dim
@@ -190,13 +190,13 @@ inl agent =
         {rate network context=s; error=Error.softmax_cross_entropy; input}
 
 Loops.for' {from=0; near_to=5; body=inl {i next} ->
-    inl agent = agent.region_create
+    agent.region_create
     inl cost = agent.alloc_cost
 
     Timer.time_it (string_format "iteration {0}" i)
     <| inl _ -> train agent {cost} {input label}
     
-    inl cost = agent.get cost / to float train_images.basic.span_outer3
+    inl cost = agent.get cost / to float input.basic.span_outer3
     if nan_is cost then 
         Console.writeline "Training diverged. Aborting..."
         agent.region_clear

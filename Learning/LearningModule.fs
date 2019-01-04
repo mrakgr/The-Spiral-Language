@@ -1847,7 +1847,7 @@ inl float ->
                                 block = ()
                                 }
                             region_create = {
-                                map = {state with cd} _ -> {state with cd = cd.RegionMem.create}
+                                map = inl {state with cd} _ -> {(indiv state) with cd = cd.RegionMem.create}
                                 input = const ()
                                 block = ()
                                 }
@@ -1878,8 +1878,8 @@ inl float ->
                     s.data.buffer.add state
                 region_create = inl s ->
                     s.data.region_create s.data.buffer.last ()
-                    |> s.data.buffer.add state
-                cd = inl s -> s.data.buffer.last |> inl {cd} -> cd
+                    |> s.data.buffer.add
+                cd = inl s -> s.data.buffer.last |> inl {cd} -> join heap cd
                 region_clear = inl s -> s.cd.RegionMem.clear
                 region_create' = inl s ret ->
                     s.region_create
@@ -1887,7 +1887,7 @@ inl float ->
                     s.region_clear
                 alloc_cost = inl s -> s.cd.CudaTensor.zero {elem_type=float32; dim=1}
                 alloc_accuracy = inl s -> s.cd.CudaTensor.zero {elem_type=int64; dim=1}
-                get = inl s -> Struct.map ((inl x -> x 0) >> (s.cd.CudaTensor.get)
+                get = inl s -> Struct.map ((inl x -> x 0) >> s.cd.CudaTensor.get)
                 }
             Object.member_add methods
 
