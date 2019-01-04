@@ -49,12 +49,13 @@ inl rate = {weight=learning_rate; covariance=learning_rate ** 0.85f32}
 Console.writeline rate
 
 inl train_template is_train agent out {input label} =
-    inb agent = agent.region_create'
+    inb _ = agent.region_create'
     agent.forward input
     agent.cost {label out}
     if is_train then
         agent.backward
         agent.optimize
+    agent.truncate
 
 inl train = train_template true
 inl test = train_template false
@@ -68,11 +69,11 @@ inl iterate {input label} run =
     Loops.for {from=0; near_to body=inl {i} -> run <| Struct.map (inl x -> x i) {input label}}
 
 inl agent =
-    Agent.feedforward.initialize
+    Agent.recurrent.initialize
         {rate network context=s; error=Error.softmax_cross_entropy; input=train_images}
 
 Loops.for' {from=0; near_to=5; body=inl {i next} ->
-    inl agent = agent.region_create
+    agent.region_create
     inl cost = agent.alloc_cost
 
     Timer.time_it (string_format "iteration {0}" i)
@@ -183,6 +184,7 @@ inl train agent {cost} {input label} =
 
         agent.backward
         agent.optimize
+        agent.truncate
         }
 
 inl agent =
@@ -208,7 +210,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
     }
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
 |> printfn "%s"
 |> ignore
 

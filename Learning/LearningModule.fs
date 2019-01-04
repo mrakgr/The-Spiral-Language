@@ -1742,66 +1742,6 @@ inl float ->
         inl ref_type x = x.elem_type
         inl ref_box_assign x v = x := box (ref_type x) v
 
-        inl feedforward =
-            inl methods = {
-                initialize = inl s {rate network context error input} ->
-                    inl cd = context
-                    inl cd = cd.data_add {rate}
-
-                    inl state = heap {network cd}
-                    inl elem_type, forward =
-                        Union.infer {
-                            map = inl {network cd} {input} ->
-                                inl network, output = run cd input network
-                                inl bck = Struct.map (inl {bck} -> bck) network
-                                inl network = Struct.map (inl x -> {x without bck}) network
-                                inl final {label out} =
-                                    match out with
-                                    | {cost accuracy} ->
-                                        error {label out=cost} output cd
-                                        Error.accuracy {label out=accuracy} output cd
-                                    | {cost} ->
-                                        error {label out=cost} output cd
-                                {cd network bck final}
-                            input = const {input=input (dyn 0)}
-                            block = ()
-                            } state
-                    inl buffer_forward = ResizeArray.create {elem_type}
-
-                    s.data_add {buffer_forward forward state}
-                forward = inl s input ->
-                    inl state = s.data.state
-                    inl forward = s.data.forward state {input}
-                    s.data.buffer_forward.add forward
-                cost = inl s {label out} ->
-                    match s.data.buffer_forward.last with
-                    | {final} -> final {label out}
-                    | _ -> ()
-                backward = inl s ->
-                    match s.data.buffer_forward.last with
-                    | {bck} -> join Struct.foldr (inl bck _ -> bck(); ()) bck ()
-                    | _ -> ()
-                optimize = inl s ->
-                    inl {cd network} = s.data.state
-                    Optimizer.standard cd network
-                    s.data.buffer_forward.clear
-                region_create = inl s -> 
-                    inl {state with cd} = indiv s.data.state
-                    inl cd = cd.RegionMem.create
-                    inl state = heap {state with cd}
-                    s.data_add {state}
-                region_create' = inl s ret ->
-                    inl {state with cd} = indiv s.data.state
-                    inb cd = cd.RegionMem.create' 
-                    inl state = heap {state with cd}
-                    ret (s.data_add {state})
-                region_clear = inl s -> s.data.state.cd.RegionMem.clear
-                alloc_cost = inl s -> s.data.state.cd.CudaTensor.zero {elem_type=float32; dim=1}
-                alloc_accuracy = inl s -> s.data.state.cd.CudaTensor.zero {elem_type=int64; dim=1}
-                get = inl s -> Struct.map ((inl x -> x 0) >> s.data.state.cd.CudaTensor.get)
-                }
-            Object.member_add methods
-
         inl recurrent =
             inl methods = {
                 initialize = inl s {rate network context error input} ->
@@ -1823,7 +1763,11 @@ inl float ->
                                         | {cost} ->
                                             error {label out=cost} output cd
                                     heap {cd network bck final}
-                                input = const {input=input (dyn 0) (dyn 0)}
+                                input = inl _ ->
+                                    inl rec loop f = function
+                                        | _ :: _ :: () -> f
+                                        | _ :: next -> loop (f (dyn 0)) next
+                                    {input=loop input input.dim}
                                 block = ()
                                 }
                             truncate = {
@@ -1870,10 +1814,10 @@ inl float ->
                         | _ -> ()
                         ) ()
                 optimize = inl s ->
-                    inl {state with cd network} = s.data.buffer.last
+                    inl {cd network} = s.data.buffer.last
                     Optimizer.standard cd network
-                
-                    inl state = s.data.truncate state ()
+                truncate = inl s ->
+                    inl state = s.data.truncate s.data.buffer.last ()
                     s.data.buffer.clear
                     s.data.buffer.add state
                 region_create = inl s ->
@@ -1891,7 +1835,7 @@ inl float ->
                 }
             Object.member_add methods
 
-        {feedforward recurrent}
+        {recurrent}
 
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward RNN RL Agent
