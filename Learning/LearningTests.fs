@@ -69,7 +69,7 @@ inl iterate {input label} run =
 
 inl agent =
     Agent.feedforward.initialize
-        {rate network context=s; error=Error.square; input=train_images}
+        {rate network context=s; error=Error.softmax_cross_entropy; input=train_images}
 
 Loops.for' {from=0; near_to=5; body=inl {i next} ->
     inl agent = agent.region_create
@@ -135,12 +135,12 @@ inl input =
 
 inl by :: _ = input.dim
 //inl by = by / 64 // Am using only 1/64th of the dataset here in order to speed up testing on plastic RNNs.
-inl input = input {from=0; by} 
+inl input = input {from=0; by}
 
 inl label = input {from=1}
 inl input = input {from=0; by=by-1}
 
-inl data = 
+inl data =
     {input label} 
     |> Struct.map (inl x -> x.round_split' size.step)
     |> Struct.map (View.wrap ((), (), (), ()))
@@ -148,26 +148,22 @@ inl data =
 inl float = float32
 inl epsilon x = to float 2 ** to float x
 
+inl network,_ =
+    open Feedforward
+    open RNN
+
+    inl network =
+        rnn 128,
+        linear size.hot
+
+    init s input_size network
+
 inl learning_rate = epsilon -13
 inl rate = {weight=learning_rate; covariance=learning_rate ** 0.85f32}
 Console.writeline rate
 
-inl network =
-    open Feedforward
-    open RNN
-
-    rnn 128,
-    linear size.hot
-
-inl agent = 
-    Agent.recurrent 
-        .with_context s
-        .initialize network (input 0 0)
-        .with_rate rate
-        .with_error Error.softmax_cross_entropy
-
 inl train agent {cost} {input label} =
-    inb _ = agent.with_region
+    inb agent = agent.region_create'
     inl b,a =
         inl b :: a :: _ = input.dim
         inl b' :: a' :: _ = label.dim
@@ -185,22 +181,27 @@ inl train agent {cost} {input label} =
 
         agent.backward
         agent.optimize
-        agent.truncate
         }
 
-Loops.for' {from=0; near_to=5; body=inl {i next} -> 
-    agent.push_region
+inl agent =
+    Agent.recurrent.initialize
+        {rate network context=s; error=Error.softmax_cross_entropy; input=train_images}
+
+Loops.for' {from=0; near_to=5; body=inl {i next} ->
+    inl agent = agent.region_create
     inl cost = agent.alloc_cost
+
     Timer.time_it (string_format "iteration {0}" i)
     <| inl _ -> train agent {cost} {input label}
-
-    inl cost = agent.get cost / to float input.basic.span_outer3
+    
+    inl cost = agent.get cost / to float train_images.basic.span_outer3
     if nan_is cost then 
         Console.writeline "Training diverged. Aborting..."
-        agent.pop_region
+        agent.region_clear
     else
         Console.printfn "Training: {0}" cost
-        agent.pop_region
+
+        agent.region_clear
         next ()
     }
     """
