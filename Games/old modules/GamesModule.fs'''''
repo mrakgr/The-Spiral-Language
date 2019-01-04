@@ -455,7 +455,7 @@ inl {basic_methods State Action} ->
             Union.mutable_function 
                 (inl {state={net} input={input cd}} ->
                     assert (eq_type State input) "The input must be equal to the state type."
-                    inl input = 
+                    inl input =
                         inl tns = Union.to_dense input |> Tensor.array_as_tensor
                         cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
                         |> View.wrap ((), ())
