@@ -1739,17 +1739,64 @@ inl float ->
         {action ac ac_sample_action}
 
     inl Agent =
-        inl ref_type x = x.elem_type
-        inl ref_box_assign x v = x := box (ref_type x) v
+        inl basic_methods = {
+            optimize = inl s ->
+                inl {cd network} = s.data.buffer.last
+                Optimizer.standard cd network
+            truncate = inl s ->
+                inl state = s.data.truncate s.data.buffer.last ()
+                s.data.buffer.clear
+                s.data.buffer.add state
+            region_create = inl s ->
+                s.data.region_create s.data.buffer.last ()
+                |> s.data.buffer.add
+            cd = inl s -> s.data.buffer.last |> inl {cd} -> join heap cd
+            region_clear = inl s -> s.cd.RegionMem.clear
+            region_create' = inl s ret ->
+                s.region_create
+                ret ()
+                s.region_clear
+            alloc_cost = inl s -> s.cd.CudaTensor.zero {elem_type=float32; dim=1}
+            alloc_accuracy = inl s -> s.cd.CudaTensor.zero {elem_type=int64; dim=1}
+            get = inl s -> Struct.map ((inl x -> x 0) >> s.cd.CudaTensor.get)
+            }
+        
+        inl basic_infer = {
+            truncate = {
+                map = inl {network cd=cd'} _ -> join
+                    inl cd = cd'.RegionMem.create
+                    inl network = 
+                        Struct.map (function
+                            | {state} as d -> 
+                                inl state = 
+                                    Struct.map 
+                                        (inl out -> out.update_body (inl {x with ar} -> cd.RegionMem.assign ar.ptr; x))
+                                        (Struct.map primals {(indiv state) without weights})
+                                    |> heap
+                                {d without bck with state}
+                            | d -> {d without bck}
+                            ) network
+                    cd'.RegionMem.clear
+                    cd.refresh
+                    heap {network cd}
+                input = const ()
+                block = ()
+                }
+            region_create = {
+                map = inl {state with cd} _ -> join heap {(indiv state) with cd = cd.RegionMem.create}
+                input = const ()
+                block = ()
+                }
+            }
 
         inl recurrent =
-            inl methods = {
+            inl methods = {basic_methods with
                 initialize = inl s {rate network context error input} ->
                     inl cd = context
                     inl cd = cd.data_add {rate}
                     inl state = heap {network cd}
-                    inl elem_type, {forward truncate region_create} =
-                        Union.infer {
+                    inl elem_type, funs =
+                        Union.infer {basic_infer with
                             forward = {
                                 map = inl {network cd} {input} -> join
                                     inl network, output = run cd input network
@@ -1770,36 +1817,11 @@ inl float ->
                                     {input=loop input input.dim}
                                 block = ()
                                 }
-                            truncate = {
-                                map = inl {network cd=cd'} _ -> join
-                                    inl cd = cd'.RegionMem.create
-                                    inl network = 
-                                        Struct.map (function
-                                            | {state} as d -> 
-                                                inl state = 
-                                                    Struct.map 
-                                                        (inl out -> out.update_body (inl {x with ar} -> cd.RegionMem.assign ar.ptr; x))
-                                                        (Struct.map primals {(indiv state) without weights})
-                                                    |> heap
-                                                {d without bck with state}
-                                            | d -> {d without bck}
-                                            ) network
-                                    cd'.RegionMem.clear
-                                    cd.refresh
-                                    heap {network cd}
-                                input = const ()
-                                block = ()
-                                }
-                            region_create = {
-                                map = inl {state with cd} _ -> join heap {(indiv state) with cd = cd.RegionMem.create}
-                                input = const ()
-                                block = ()
-                                }
                             } state
                     inl buffer = ResizeArray.create {elem_type}
                     buffer.add state
 
-                    s.data_add {buffer forward truncate region_create}
+                    s.data_add {funs with buffer}
                 forward = inl s input ->
                     inl forward = s.data.forward s.data.buffer.last {input}
                     s.data.buffer.add forward
@@ -1813,39 +1835,20 @@ inl float ->
                         | {bck} -> join Struct.foldr (inl bck _ -> bck(); ()) bck ()
                         | _ -> ()
                         ) ()
-                optimize = inl s ->
-                    inl {cd network} = s.data.buffer.last
-                    Optimizer.standard cd network
-                truncate = inl s ->
-                    inl state = s.data.truncate s.data.buffer.last ()
-                    s.data.buffer.clear
-                    s.data.buffer.add state
-                region_create = inl s ->
-                    s.data.region_create s.data.buffer.last ()
-                    |> s.data.buffer.add
-                cd = inl s -> s.data.buffer.last |> inl {cd} -> join heap cd
-                region_clear = inl s -> s.cd.RegionMem.clear
-                region_create' = inl s ret ->
-                    s.region_create
-                    ret ()
-                    s.region_clear
-                alloc_cost = inl s -> s.cd.CudaTensor.zero {elem_type=float32; dim=1}
-                alloc_accuracy = inl s -> s.cd.CudaTensor.zero {elem_type=int64; dim=1}
-                get = inl s -> Struct.map ((inl x -> x 0) >> s.cd.CudaTensor.get)
                 }
             Object.member_add methods
 
         inl rl =
-            inl methods = {
-                initialize = inl s {rate network context Action Observation} ->
+            inl methods = {basic_methods with
+                initialize = inl s {rate discount network context Action Observation} ->
                     inl input_size = Union.length_dense Observation
                     inl num_actions = Union.length_one_hot Action
 
                     inl cd = context
                     inl cd = cd.data_add {rate}
                     inl state = heap {network cd}
-                    inl elem_type, {forward truncate region_create} =
-                        Union.infer {
+                    inl elem_type, funs =
+                        Union.infer {basic_infer with
                             forward = {
                                 map = inl {network cd} {input} -> join
                                     assert (eq_type Observation input) "The input must be equal to the Observation type."
@@ -1857,80 +1860,53 @@ inl float ->
                                     inl bck = Struct.map (inl {bck} -> bck) network
                                     inl network = Struct.map (inl x -> {x without bck}) network
                                     inl {out bck=final} = RL.ac_sample_action out cd
+                                    inl final = final discount
                                     inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
                                     heap {cd network bck final action}
                                 input = inl _ -> {input=var Observation}
                                 block = ()
                                 }
-                            //reward = {
-                            //    map = inl _ {reward} -> join
-                            //        inl final {reward=reward' V'} = {reward=reward+reward'; V'}
-                            //        heap {final}
-                            //    input = inl _ -> {reward}
-                            //    block = ()
-                            //    }
-                            truncate = {
-                                map = inl {network cd=cd'} _ -> join
-                                    inl cd = cd'.RegionMem.create
-                                    inl network = 
-                                        Struct.map (function
-                                            | {state} as d -> 
-                                                inl state = 
-                                                    Struct.map 
-                                                        (inl out -> out.update_body (inl {x with ar} -> cd.RegionMem.assign ar.ptr; x))
-                                                        (Struct.map primals {(indiv state) without weights})
-                                                    |> heap
-                                                {d without bck with state}
-                                            | d -> {d without bck}
-                                            ) network
-                                    cd'.RegionMem.clear
-                                    cd.refresh
-                                    heap {network cd}
-                                input = const ()
-                                block = ()
-                                }
-                            region_create = {
-                                map = inl {state with cd} _ -> join heap {(indiv state) with cd = cd.RegionMem.create}
-                                input = const ()
+                            reward = {
+                                map = inl {network cd} {reward} -> join
+                                    inl final {reward=reward' value'} = {
+                                        out = {reward=reward+reward'; value'}
+                                        bck = const ()
+                                        }
+                                    heap {network cd final}
+                                input = inl _ -> {reward=var float}
                                 block = ()
                                 }
                             } state
                     inl buffer = ResizeArray.create {elem_type}
                     buffer.add state
 
-                    s.data_add {buffer forward truncate region_create}
-                forward = inl s input ->
+                    inl types = {Action Observation}
+                    s.data_add {funs with buffer types}
+                act = inl s input ->
                     inl forward = s.data.forward s.data.buffer.last {input}
                     s.data.buffer.add forward
-                cost = inl s {label out} ->
-                    match s.data.buffer.last with
-                    | {final} -> final {label out}
-                    | _ -> ()
+                    match forward with
+                    | {action} -> action
+                    | _ -> failwith s.data.types.Action "The Action branchs should be impossible."
+                reward = inl s reward ->
+                    s.data.reward s.data.buffer.last {reward}
+                    |> s.data.buffer.add
                 backward = inl s ->
+                    s.data.buffer.foldr' ignore (inl next x out ->
+                        match x with
+                        | {final} ->
+                            inl {out bck} = final out
+                            next out
+                            bck ()
+                        | _ ->
+                            ()
+                        ) {reward=dyn zero; value'=zero}
+
                     s.data.buffer.foldr (inl x _ ->
                         match x with
                         | {bck} -> join Struct.foldr (inl bck _ -> bck(); ()) bck ()
                         | _ -> ()
                         ) ()
-                optimize = inl s ->
-                    inl {cd network} = s.data.buffer.last
-                    Optimizer.standard cd network
-                truncate = inl s ->
-                    inl state = s.data.truncate s.data.buffer.last ()
-                    s.data.buffer.clear
-                    s.data.buffer.add state
-                region_create = inl s ->
-                    s.data.region_create s.data.buffer.last ()
-                    |> s.data.buffer.add
-                cd = inl s -> s.data.buffer.last |> inl {cd} -> join heap cd
-                region_clear = inl s -> s.cd.RegionMem.clear
-                region_create' = inl s ret ->
-                    s.region_create
-                    ret ()
-                    s.region_clear
-                alloc_cost = inl s -> s.cd.CudaTensor.zero {elem_type=float32; dim=1}
-                alloc_accuracy = inl s -> s.cd.CudaTensor.zero {elem_type=int64; dim=1}
-                get = inl s -> Struct.map ((inl x -> x 0) >> s.cd.CudaTensor.get)
                 }
             Object.member_add methods
 
