@@ -1739,6 +1739,9 @@ inl float ->
         {action ac ac_sample_action}
 
     inl Agent =
+        inl ref_type x = x.elem_type
+        inl ref_box_assign x v = x := box (ref_type x) v
+
         inl feedforward =
             inl methods = {
                 initialize = inl s {rate network context error input} ->
@@ -1804,7 +1807,6 @@ inl float ->
                 initialize = inl s {rate network context error input} ->
                     inl cd = context
                     inl cd = cd.data_add {rate}
-
                     inl state = heap {network cd}
                     inl elem_type, {forward truncate} =
                         Union.infer {
@@ -1825,7 +1827,7 @@ inl float ->
                                 block = ()
                                 }
                             truncate = {
-                                map = inl {network cd} _ ->
+                                map = inl {network cd=cd'} _ ->
                                     inl cd = cd'.RegionMem.create
                                     inl network = 
                                         Struct.map (function
@@ -1846,11 +1848,11 @@ inl float ->
                                 }
                             } state
                     inl buffer = ResizeArray.create {elem_type}
+                    buffer.add state
 
-                    s.data_add {buffer forward truncate state}
+                    s.data_add {buffer forward truncate}
                 forward = inl s input ->
-                    inl state = s.data.state
-                    inl forward = s.data.forward state {input}
+                    inl forward = s.data.forward s.data.buffer.last {input}
                     s.data.buffer.add forward
                 cost = inl s {label out} ->
                     match s.data.buffer.foldr with
@@ -1863,27 +1865,27 @@ inl float ->
                         | _ -> ()
                         ) ()
                 optimize = inl s ->
-                    inl {state with cd network} = s.data.state
+                    inl {state with cd network} = s.data.buffer.last
                     Optimizer.standard cd network
+                
+                    inl state = s.data.truncate state ()
                     s.data.buffer.clear
-
-                    inl state = s.data.truncate state
                     s.data.buffer.add state
-                    s.data_add {state}
                 region_create = inl s ->
-                    inl {state with cd} = indiv s.data.state
+                    inl {state with cd} = indiv s.data.buffer.last
                     inl cd = cd.RegionMem.create
-                    inl state = heap {state with cd}
-                    s.data_add {state}
+                    s.data.buffer.add (heap {state with cd})
                 region_create' = inl s ret ->
-                    inl {state with cd} = indiv s.data.state
+                    inl state_ref = s.data.state
+                    inl state_ref_type = ref_type state_ref
+                    inl {state with cd} = indiv (state_ref())
                     inb cd = cd.RegionMem.create'
-                    inl state = heap {state with cd}
+                    inl state = ref (box state_ref_type (heap {state with cd}))
                     ret (s.data_add {state})
-                region_clear = inl s -> s.data.state.cd.RegionMem.clear
-                alloc_cost = inl s -> s.data.state.cd.CudaTensor.zero {elem_type=float32; dim=1}
-                alloc_accuracy = inl s -> s.data.state.cd.CudaTensor.zero {elem_type=int64; dim=1}
-                get = inl s -> Struct.map ((inl x -> x 0) >> s.data.state.cd.CudaTensor.get)
+                region_clear = inl s -> (s.data.state()).cd.RegionMem.clear
+                alloc_cost = inl s -> (s.data.state()).cd.CudaTensor.zero {elem_type=float32; dim=1}
+                alloc_accuracy = inl s -> (s.data.state()).cd.CudaTensor.zero {elem_type=int64; dim=1}
+                get = inl s -> Struct.map ((inl x -> x 0) >> (s.data.state()).cd.CudaTensor.get)
                 }
             Object.member_add methods
 

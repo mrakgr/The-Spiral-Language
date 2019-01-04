@@ -140,7 +140,7 @@ inl input = input {from=0; by}
 inl label = input {from=1}
 inl input = input {from=0; by=by-1}
 
-inl data =
+inl {input label} =
     {input label} 
     |> Struct.map (inl x -> x.round_split' size.step)
     |> Struct.map (View.wrap ((), (), (), ()))
@@ -151,12 +151,14 @@ inl epsilon x = to float 2 ** to float x
 inl network,_ =
     open Feedforward
     open RNN
-
     inl network =
-        rnn 128,
-        linear size.hot
+        {
+        rnn =
+            rnn 128,
+            linear size.hot
+        }
 
-    init s input_size network
+    init s size.hot network.rnn
 
 inl learning_rate = epsilon -13
 inl rate = {weight=learning_rate; covariance=learning_rate ** 0.85f32}
@@ -185,7 +187,7 @@ inl train agent {cost} {input label} =
 
 inl agent =
     Agent.recurrent.initialize
-        {rate network context=s; error=Error.softmax_cross_entropy; input=train_images}
+        {rate network context=s; error=Error.softmax_cross_entropy; input}
 
 Loops.for' {from=0; near_to=5; body=inl {i next} ->
     inl agent = agent.region_create
@@ -206,6 +208,6 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
     }
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
 |> printfn "%s"
 |> ignore
