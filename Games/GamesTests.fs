@@ -166,4 +166,3 @@ Loops.for {from=0; near_to=num_episodes; body=inl {i} -> game player}
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) grid1
 |> printfn "%s"
 |> ignore
-
