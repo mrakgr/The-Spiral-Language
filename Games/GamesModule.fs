@@ -474,56 +474,27 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0; player}
 
-    //inl Learning = Learning float32
+    inl Learning = Learning float32
 
-    //inl player_ac {net name discount} cd =
-    //    open Learning
-    //    inl input_size = Union.length_dense State
-    //    inl num_actions = Union.length_one_hot Action
+    inl player_ac {rate network name discount} cd =
+        open Learning
+        inl input_size = Union.length_dense State
+        inl num_actions = Union.length_one_hot Action
 
-    //    inl net, net_size = init cd input_size (net, RL.ac num_actions)
-    //    inl run = 
-    //        Union.mutable_function 
-    //            (inl {state={net} input={input cd}} ->
-    //                assert (eq_type State input) "The input must be equal to the state type."
-    //                inl input =
-    //                    inl tns = Union.to_dense input |> Tensor.array_as_tensor
-    //                    cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
-    //                    |> View.wrap ((), ())
-    //                inl net, out = run cd input net
-    //                inl bck = Struct.map (inl {bck} -> bck) net
-    //                inl net = Struct.map (inl d -> {d without bck}) net
-    //                inl {out bck=bck_final} = RL.ac_sample_action out cd
-    //                inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
-    //                {state={net bck bck_final}; out=action}
-    //                )
-    //            {state={net}; input={input=State; cd}}
+        inl network, _ = init cd input_size (net, RL.ac num_actions)
+        inl player = 
+            Agent.rl.initialize
+                {rate network context=cd; error=Error.softmax_cross_entropy; input Observation=State; Action}
 
-    //    inl methods = {basic_methods with
-    //        bet=inl s input -> s.data.run {input cd=s.data.cd}
-    //        showdown=inl s r -> 
-    //            inl l = s.data.run.reset
-    //            List.foldl' ignore (inl next {r R' value'} -> function
-    //                | {bck_final} ->
-    //                    inl {out={R' value'} bck} = bck_final {discount r R' value'}
-    //                    next {r=dyn 0f32; R' value'}
-    //                    bck ()
-    //                | _ ->
-    //                    ()
-    //                ) {r=dyn (to float32 r); value'=0f32; R'=0f32} l
+        inl methods = {basic_methods with
+            bet=inl s rep -> s.data.player.act rep
+            showdown=inl s reward -> s.data.player.reward reward
+            game_over=inl s -> s.data.player.optimize
+            }
 
-    //            List.foldl (inl _ -> function
-    //                | {bck} -> Struct.foldr (inl bck _ -> bck()) bck ()
-    //                | _ -> ()
-    //                ) () l
-
-    //            Optimizer.standard s.data.cd s.data.net
-    //        game_over=inl s -> ()
-    //        }
-
-    //    Object
-    //        .member_add methods
-    //        .data_add {name; win=ref 0; net run}
+        Object
+            .member_add methods
+            .data_add {name; win=ref 0; player}
 
     {
     player_random player_rules player_tabular

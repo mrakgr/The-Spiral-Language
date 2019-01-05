@@ -234,13 +234,11 @@ Struct.iter (inl i ->
         Console.writeline "------"
         Console.printfn "The CudaRandom pseudorandom seed is {0}" i
 
-        inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32}}
-        inl s = s.data_add pars
-
+        inl rate = {weight=learning_rate; covariance=learning_rate ** 0.85f32}
         inl a =
             open (Learning float32)
-            inl net = RNN.rnn 512
-            player_ac {net name="One"; discount=0.99f32} s 
+            inl network = RNN.rnn 512
+            player_ac {rate network name="One"; discount=0.99f32} s 
         inl b = player_rules {name="Two"}
 
         met f game (!dyn near_to) (!dyn near_to_inner) = 
@@ -251,10 +249,7 @@ Struct.iter (inl i ->
                     inl b = b.data_add {win=ref 0}
                     Loops.for {from=0; near_to=near_to_inner; body=inl {i} -> 
                         s.refresh
-                        inb cd = s.RegionMem.create'
-                        inl a = a.data_add {cd}
-                        inb cd = s.RegionMem.create'
-                        inl b = b.data_add {cd}
+                        inb _ = a.data.agent.region_create'
                         game stack_size (a, b)
                         }
                     inl a = a.data.win ()
