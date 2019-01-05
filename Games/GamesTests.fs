@@ -174,7 +174,7 @@ open PokerPlayers {basic_methods State Action}
 
 inl a = player_random {name="One"}
 inl b = player_rules {name="Two"}
-inl c = player_tabular_mc {name="Three"; init=8f32; learning_rate=0.01f32}
+inl c = player_tabular {name="Three"; init=8f32; learning_rate=0.01f32; discount=1f32; trace=1f32}
 
 game 10 (a,c)
     """
@@ -189,7 +189,7 @@ inl max_stack_size = num_players * stack_size
 open Poker {max_stack_size num_players}
 open PokerPlayers {basic_methods State Action}
 
-inl a = player_tabular_sarsa {name="One"; init=10f32; learning_rate=0.01f32}
+inl a = player_tabular {name="One"; init=10f32; learning_rate=0.02f32; discount=1f32; trace=0.7f32}
 //inl a = player_random {name="One"}
 inl b = player_rules {name="Two"}
 
@@ -269,6 +269,6 @@ Struct.iter (inl i ->
     ) (-13)
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker2
 |> printfn "%s"
 |> ignore

@@ -6,95 +6,6 @@ open Learning
 open Learning.Lib
 open Cuda.Lib
 
-//let player_tabular =
-//    (
-//    "PlayerTabular",[dictionary;resize_array;array],"The tabular player.",
-//    """
-//inl base {init elem_type=!(Tuple.wrap) elem_type} =
-//    inl float = float32
-//    inl zero = to float 0
-//    inl one = to float 1
-//    inl dicts = 
-//        Tuple.map (inl x ->
-//            match x with
-//            | {Observation Action} -> {x with dict = Dictionary {elem_type=int32, array float}}
-//            | {Observation} -> {x with dict = Dictionary {elem_type=int32, float}}
-//            ) elem_type
-    
-//    inl rec act {learning_rate discount trace} obs =
-//        inl rec loop = function
-//            | {Observation=(_: obs) Action dict} :: _ ->
-//                inl near_to = Union.length_one_hot Action
-//                inl ar =
-//                    inl i = Union.to_one_hot obs |> to int32
-//                    dict i {
-//                        on_fail = inl _ -> 
-//                            inl ar = Array.init near_to (const init)
-//                            dict.set i ar
-//                            ar
-//                        on_succ = id
-//                        }
-
-//                inl V, a =
-//                    Loops.for {from=0; near_to state=dyn (-infinityf32, 0); body=inl {state=s,a i} ->
-//                        inl V = ar i
-//                        if V > s then V,i else s,a
-//                        }
-
-//                {
-//                action=Union.from_one_hot Action a
-//                bck=inl V' -> 
-//                    ar a <- V + learning_rate * (V' - V)
-//                    discount * (trace * V' + (one - trace) * V)
-//                }
-//            | {Observation=(_: obs) dict} :: _ ->
-//                inl i = Union.to_one_hot obs |> to int32
-//                inl V =
-//                    dict i {
-//                        on_fail = inl _ -> dict.set i init; init
-//                        on_succ = id
-//                        }
-
-//                {
-//                bck=inl V' -> 
-//                    dist.set i (V + learning_rate * (V' - V))
-//                    discount * (trace * V' + (one - trace) * V)
-//                }
-//            | _ :: next -> loop next
-//            | () -> error_type {message = "The type of the argument matches none of the `elem_type`s."; argument=obs; elem_type}
-//        loop dicts
-
-//    inl reward !dyn rew = { bck = inl V' -> rew + V' }
-
-//    {act reward}
-
-//inl template {init elem_type learning_rate discount trace} =
-//    inl float = float32
-//    inl zero = to float 0
-//    inl bcks = ResizeArray.create {elem_type=float => float}
-
-//    inl player = base {init elem_type}
-
-//    inl act obs =
-//        inl {x with bck} = player.act {learning_rate discount trace} obs
-//        bcks.add (term_cast bck float)
-//        match x with
-//        | {action} -> action
-//        | _ -> ()
-
-//    inl reward x = 
-//        inl {bck} = player.reward (to float x |> dyn)
-//        bcks.add (term_cast bck float)
-
-//    inl optimize _ = bcks.foldr (<|) zero |> ignore; bcks.clear
-
-//    {act reward optimize}
-
-//{
-//template
-//} |> stackify
-//    """) |> module_
-
 let poker =
     (
     "Poker",[array;learning;random;console;option;dictionary;resize_array;object],"The Poker module.",
@@ -424,38 +335,91 @@ inl {State Action} ->
 
 let player_tabular =
     (
-    "PlayerTabular",[dictionary;array],"The tabular player.",
+    "PlayerTabular",[dictionary;resize_array;array],"The tabular player.",
     """
-inl {State Action init learning_rate} ->
-    inl near_to = Union.length_one_hot Action
-    inl dict = Dictionary {elem_type=int32, type array_create float32 near_to}
-    inl action state =
-        assert (eq_type State state) "The input to this function must have a type equal to State."
-        inl ar = 
-            inl i = Union.to_one_hot state |> to int32
-            dict i {
-                on_fail = inl _ -> 
-                    inl ar = Array.init near_to (const init)
-                    dict.set i ar
-                    ar
-                on_succ = id
+inl base {init elem_type=!(Tuple.wrap) elem_type} = // Is capable of taking multiple `{Observation Action}` or just `{Observation}` atoms.
+    inl float = float32
+    inl zero = to float 0
+    inl one = to float 1
+    inl dicts = 
+        Tuple.map (inl x ->
+            match x with
+            | {Observation Action} -> {x with dict = Dictionary {elem_type=int32, array float}}
+            | {Observation} -> {x with dict = Dictionary {elem_type=int32, float}}
+            ) elem_type
+    
+    inl rec act {learning_rate discount trace} obs =
+        inl rec loop = function
+            | {Observation=(_: obs) Action dict} :: _ ->
+                inl near_to = Union.length_one_hot Action
+                inl ar =
+                    inl i = Union.to_one_hot obs |> to int32
+                    dict i {
+                        on_fail = inl _ -> 
+                            inl ar = Array.init near_to (const init)
+                            dict.set i ar
+                            ar
+                        on_succ = id
+                        }
+
+                inl V, a =
+                    Loops.for {from=0; near_to state=dyn (-infinityf32, 0); body=inl {state=s,a i} ->
+                        inl V = ar i
+                        if V > s then V,i else s,a
+                        }
+
+                {
+                action=Union.from_one_hot Action a
+                bck=inl V' -> 
+                    ar a <- V + learning_rate * (V' - V)
+                    discount * (trace * V' + (one - trace) * V)
                 }
+            | {Observation=(_: obs) dict} :: _ ->
+                inl i = Union.to_one_hot obs |> to int32
+                inl V =
+                    dict i {
+                        on_fail = inl _ -> dict.set i init; init
+                        on_succ = id
+                        }
 
-        inl v, a =
-            Loops.for {from=0; near_to state=dyn (-infinityf32, 0); body=inl {state=s,a i} ->
-                inl v = ar i
-                if v > s then v,i else s,a
+                {
+                bck=inl V' -> 
+                    dist.set i (V + learning_rate * (V' - V))
+                    discount * (trace * V' + (one - trace) * V)
                 }
+            | _ :: next -> loop next
+            | () -> error_type {message = "The type of the argument matches none of the `elem_type`s."; argument=obs; elem_type}
+        loop dicts
 
-        {
-        action=Union.from_one_hot Action a
-        bck=inl v' -> 
-            inl x = v + learning_rate * (v' - v)
-            ar a <- x
-            x
-        }
+    inl reward !dyn rew = { bck = inl V' -> rew + V' }
 
-    {action}
+    {act reward}
+
+inl template {init elem_type learning_rate discount trace} =
+    inl float = float32
+    inl zero = to float 0
+    inl bcks = ResizeArray.create {elem_type=float => float}
+
+    inl player = base {init elem_type}
+
+    inl act obs =
+        inl {x with bck} = player.act {learning_rate discount trace} obs
+        bcks.add (term_cast bck float)
+        match x with
+        | {action} -> action
+        | _ -> ()
+
+    inl reward x = 
+        inl {bck} = player.reward (to float x |> dyn)
+        bcks.add (term_cast bck float)
+
+    inl optimize _ = bcks.foldr (<|) zero |> ignore; bcks.clear
+
+    {act reward optimize}
+
+{
+template
+} |> stackify
     """) |> module_
 
 let poker_players =
@@ -498,92 +462,70 @@ inl {basic_methods State Action} ->
             .member_add methods
             .data_add {name; win=ref 0}
 
-    inl player_tabular_mc {name init learning_rate} =
-        inl {action} = PlayerTabular {Action State init learning_rate}
-        inl trace = ResizeArray.create {elem_type=type heap (action State .bck)}
-
+    inl player_tabular {name init learning_rate discount trace} = 
+        inl player = PlayerTabular.template {init elem_type={Observation=State; Action}; learning_rate trace discount}
         inl methods = {basic_methods with
-            bet=inl s rep -> 
-                inl {action bck} = s.data.action rep
-                s.data.trace.add (heap bck)
-                action
-            showdown=inl s v -> s.data.trace.foldr (inl bck v -> bck v |> ignore; v) (dyn (to float32 v)) |> ignore; s.data.trace.clear
-            game_over=inl s -> ()
+            bet=inl s rep -> s.data.player.act rep
+            showdown=inl s reward -> s.data.player.reward reward
+            game_over=inl s -> s.data.player.optimize()
             }
 
         Object
             .member_add methods
-            .data_add {name; win=ref 0; action trace}
+            .data_add {name; win=ref 0; player}
 
-    inl player_tabular_sarsa {name init learning_rate} =
-        inl {action} = PlayerTabular {Action State init learning_rate}
-        inl trace = ResizeArray.create {elem_type=type heap (action State .bck)}
+    //inl Learning = Learning float32
 
-        inl methods = {basic_methods with
-            bet=inl s rep -> 
-                inl {action bck} = s.data.action rep
-                s.data.trace.add (heap bck)
-                action
-            showdown=inl s v -> s.data.trace.foldr (inl bck v -> bck v) (dyn (to float32 v)) |> ignore; s.data.trace.clear
-            game_over=inl s -> ()
-            }
+    //inl player_ac {net name discount} cd =
+    //    open Learning
+    //    inl input_size = Union.length_dense State
+    //    inl num_actions = Union.length_one_hot Action
 
-        Object
-            .member_add methods
-            .data_add {name; win=ref 0; action trace}
+    //    inl net, net_size = init cd input_size (net, RL.ac num_actions)
+    //    inl run = 
+    //        Union.mutable_function 
+    //            (inl {state={net} input={input cd}} ->
+    //                assert (eq_type State input) "The input must be equal to the state type."
+    //                inl input =
+    //                    inl tns = Union.to_dense input |> Tensor.array_as_tensor
+    //                    cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
+    //                    |> View.wrap ((), ())
+    //                inl net, out = run cd input net
+    //                inl bck = Struct.map (inl {bck} -> bck) net
+    //                inl net = Struct.map (inl d -> {d without bck}) net
+    //                inl {out bck=bck_final} = RL.ac_sample_action out cd
+    //                inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
+    //                {state={net bck bck_final}; out=action}
+    //                )
+    //            {state={net}; input={input=State; cd}}
 
-    inl Learning = Learning float32
+    //    inl methods = {basic_methods with
+    //        bet=inl s input -> s.data.run {input cd=s.data.cd}
+    //        showdown=inl s r -> 
+    //            inl l = s.data.run.reset
+    //            List.foldl' ignore (inl next {r R' value'} -> function
+    //                | {bck_final} ->
+    //                    inl {out={R' value'} bck} = bck_final {discount r R' value'}
+    //                    next {r=dyn 0f32; R' value'}
+    //                    bck ()
+    //                | _ ->
+    //                    ()
+    //                ) {r=dyn (to float32 r); value'=0f32; R'=0f32} l
 
-    inl player_ac {net name discount} cd =
-        open Learning
-        inl input_size = Union.length_dense State
-        inl num_actions = Union.length_one_hot Action
+    //            List.foldl (inl _ -> function
+    //                | {bck} -> Struct.foldr (inl bck _ -> bck()) bck ()
+    //                | _ -> ()
+    //                ) () l
 
-        inl net, net_size = init cd input_size (net, RL.ac num_actions)
-        inl run = 
-            Union.mutable_function 
-                (inl {state={net} input={input cd}} ->
-                    assert (eq_type State input) "The input must be equal to the state type."
-                    inl input =
-                        inl tns = Union.to_dense input |> Tensor.array_as_tensor
-                        cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
-                        |> View.wrap ((), ())
-                    inl net, out = run cd input net
-                    inl bck = Struct.map (inl {bck} -> bck) net
-                    inl net = Struct.map (inl d -> {d without bck}) net
-                    inl {out bck=bck_final} = RL.ac_sample_action out cd
-                    inl action = Union.from_one_hot Action (cd.CudaTensor.get (out 0))
-                    {state={net bck bck_final}; out=action}
-                    )
-                {state={net}; input={input=State; cd}}
+    //            Optimizer.standard s.data.cd s.data.net
+    //        game_over=inl s -> ()
+    //        }
 
-        inl methods = {basic_methods with
-            bet=inl s input -> s.data.run {input cd=s.data.cd}
-            showdown=inl s r -> 
-                inl l = s.data.run.reset
-                List.foldl' ignore (inl next {r R' value'} -> function
-                    | {bck_final} ->
-                        inl {out={R' value'} bck} = bck_final {discount r R' value'}
-                        next {r=dyn 0f32; R' value'}
-                        bck ()
-                    | _ ->
-                        ()
-                    ) {r=dyn (to float32 r); value'=0f32; R'=0f32} l
-
-                List.foldl (inl _ -> function
-                    | {bck} -> Struct.foldr (inl bck _ -> bck()) bck ()
-                    | _ -> ()
-                    ) () l
-
-                Optimizer.standard s.data.cd s.data.net
-            game_over=inl s -> ()
-            }
-
-        Object
-            .member_add methods
-            .data_add {name; win=ref 0; net run}
+    //    Object
+    //        .member_add methods
+    //        .data_add {name; win=ref 0; net run}
 
     {
-    player_random player_rules player_tabular_mc player_tabular_sarsa player_ac
+    player_random player_rules player_tabular
     } |> stackify
     """) |> module_
