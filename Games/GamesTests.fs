@@ -163,6 +163,112 @@ inl num_episodes = 150000
 Loops.for {from=0; near_to=num_episodes; body=inl {i} -> game player}
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) grid1
+let poker1 =
+    "poker1",[poker;poker_players],"Does the poker game work?",
+    """
+inl log = Console.printfn
+inl num_players = 2
+inl max_stack_size = 32
+open Poker {log max_stack_size num_players}
+open PokerPlayers {basic_methods State Action}
+
+inl a = player_random {name="One"}
+inl b = player_rules {name="Two"}
+inl c = player_tabular_mc {name="Three"; init=8f32; learning_rate=0.01f32}
+
+game 10 (a,c)
+    """
+
+let poker2 =
+    "poker2",[cuda_modules;loops;poker;poker_players;timer],"The iterative test.",
+    """
+//inb s = CudaModules (1024*1024*1024)
+inl num_players = 2
+inl stack_size = 10
+inl max_stack_size = num_players * stack_size
+open Poker {max_stack_size num_players}
+open PokerPlayers {basic_methods State Action}
+
+inl a = player_tabular_sarsa {name="One"; init=10f32; learning_rate=0.01f32}
+//inl a = player_random {name="One"}
+inl b = player_rules {name="Two"}
+
+met f game (!dyn near_to) (!dyn near_to_inner) = 
+    Loops.for {from=0; near_to body=inl {i} ->
+        Timer.time_it (string_format "iteration {0}" i)
+        <| inl _ ->
+            //s.refresh
+            //inb s = s.RegionMem.create'
+            //inl a = a.data_add {win=ref 0; state=ref (box_net_state a.net {} s); cd=s}
+            inl a = a.data_add {win=ref 0}
+            inl b = b.data_add {win=ref 0}
+            Loops.for {from=0; near_to=near_to_inner; body=inl {state=s i} -> game stack_size (a, b)}
+            inl a = a.data.win ()
+            inl b = b.data.win ()
+            Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
+        }
+
+f game 30 100000
+//open Poker {max_stack_size num_players log=Console.printfn}
+//f game 10 1
+    """
+
+let poker3 =
+    "poker3",[cuda_modules;loops;poker;poker_players;timer],"The iterative test for NN MC based players.",
+    """
+inb s = CudaModules (1024*1024*1024)
+Struct.iter (inl i ->
+    inl learning_rate = 2f32 ** to float32 i |> dyn
+    Console.printfn "The learning_rate is 2 ** {0}" i
+    Loops.for {from=0; near_to=10; body=inl {i} ->
+        inl num_players = 2
+        inl stack_size = 10
+        inl max_stack_size = num_players * stack_size
+        open Poker {max_stack_size num_players}
+        open PokerPlayers {basic_methods State Action}
+
+        s.refresh
+        inb s = s.RegionMem.create'
+        s.CudaRandom.set_pseudorandom_seed (to uint64 i)
+
+        Console.writeline "------"
+        Console.printfn "The CudaRandom pseudorandom seed is {0}" i
+
+        inl pars = {rate={weight=learning_rate; covariance=learning_rate ** 0.85f32}}
+        inl s = s.data_add pars
+
+        inl a =
+            open (Learning float32)
+            inl net = RNN.rnn 512
+            player_ac {net name="One"; discount=0.99f32} s 
+        inl b = player_rules {name="Two"}
+
+        met f game (!dyn near_to) (!dyn near_to_inner) = 
+            Loops.for {from=0; near_to body=inl {i} ->
+                Timer.time_it (string_format "iteration {0}" i)
+                <| inl _ ->
+                    inl a = a.data_add {win=ref 0}
+                    inl b = b.data_add {win=ref 0}
+                    Loops.for {from=0; near_to=near_to_inner; body=inl {i} -> 
+                        s.refresh
+                        inb cd = s.RegionMem.create'
+                        inl a = a.data_add {cd}
+                        inb cd = s.RegionMem.create'
+                        inl b = b.data_add {cd}
+                        game stack_size (a, b)
+                        }
+                    inl a = a.data.win ()
+                    inl b = b.data.win ()
+                    Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
+                }
+
+        f game 15 1000
+        //open Poker {max_stack_size num_players log=Console.printfn}
+        //f game 10 1
+        }
+    ) (-13)
+    """
+
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker1
 |> printfn "%s"
 |> ignore
