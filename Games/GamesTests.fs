@@ -249,7 +249,7 @@ Struct.iter (inl i ->
                     inl b = b.data_add {win=ref 0}
                     Loops.for {from=0; near_to=near_to_inner; body=inl {i} -> 
                         s.refresh
-                        inb _ = a.data.agent.region_create'
+                        inb _ = a.data.player.region_create'
                         game stack_size (a, b)
                         }
                     inl a = a.data.win ()
@@ -264,6 +264,6 @@ Struct.iter (inl i ->
     ) (-13)
     """
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3
 |> printfn "%s"
 |> ignore

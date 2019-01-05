@@ -481,15 +481,15 @@ inl {basic_methods State Action} ->
         inl input_size = Union.length_dense State
         inl num_actions = Union.length_one_hot Action
 
-        inl network, _ = init cd input_size (net, RL.ac num_actions)
+        inl network, _ = init cd input_size (network, RL.ac num_actions)
         inl player = 
             Agent.rl.initialize
-                {rate network context=cd; error=Error.softmax_cross_entropy; input Observation=State; Action}
+                {rate discount network context=cd; error=Error.softmax_cross_entropy; Observation=State; Action}
 
         inl methods = {basic_methods with
             bet=inl s rep -> s.data.player.act rep
-            showdown=inl s reward -> s.data.player.reward reward
-            game_over=inl s -> s.data.player.optimize
+            showdown=inl s reward -> s.data.player.reward reward; s.data.player.backward; s.data.player.optimize; s.data.player.truncate
+            game_over=inl s -> ()
             }
 
         Object
@@ -497,6 +497,6 @@ inl {basic_methods State Action} ->
             .data_add {name; win=ref 0; player}
 
     {
-    player_random player_rules player_tabular
+    player_random player_rules player_tabular player_ac
     } |> stackify
     """) |> module_

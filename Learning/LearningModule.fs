@@ -1847,7 +1847,7 @@ inl float ->
                                     assert (eq_type Observation input) "The input must be equal to the Observation type."
                                     inl input =
                                         inl tns = Union.to_dense input |> Tensor.array_as_tensor
-                                        cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense State)
+                                        cd.CudaTensor.from_host_tensor tns .reshape (inl x -> 1, Union.length_dense Observation)
                                         |> View.wrap ((), ())
                                     inl network, out = run cd input network
                                     inl bck = Struct.map (inl {bck} -> bck) network
@@ -1881,7 +1881,7 @@ inl float ->
                     match forward with
                     | {action} -> action
                     | _ -> failwith s.data.types.Action "The Action branchs should be impossible."
-                reward = inl s reward ->
+                reward = inl s !dyn reward ->
                     s.data.reward s.data.buffer.last {reward}
                     |> s.data.buffer.add
                 backward = inl s ->
