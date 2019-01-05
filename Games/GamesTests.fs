@@ -220,7 +220,7 @@ inb s = CudaModules (1024*1024*1024)
 Struct.iter (inl i ->
     inl learning_rate = 2f32 ** to float32 i |> dyn
     Console.printfn "The learning_rate is 2 ** {0}" i
-    Loops.for {from=0; near_to=10; body=inl {i} ->
+    Loops.for {from=0; near_to=1; body=inl {i} ->
         inl num_players = 2
         inl stack_size = 10
         inl max_stack_size = num_players * stack_size
@@ -237,8 +237,8 @@ Struct.iter (inl i ->
         inl rate = {weight=learning_rate; covariance=learning_rate ** 0.85f32}
         inl a =
             open (Learning float32)
-            inl network = RNN.rnn 512
-            player_ac {rate network name="One"; discount=0.99f32} s 
+            inl network = RNN.rnn 128
+            player_ac {rate network name="One"; discount=1f32} s 
         inl b = player_rules {name="Two"}
 
         met f game (!dyn near_to) (!dyn near_to_inner) = 
@@ -257,11 +257,11 @@ Struct.iter (inl i ->
                     Console.printfn "Winrate is {0} and {1} out of {2}." (a,b,a+b)
                 }
 
-        f game 15 1000
+        f game 30 1000
         //open Poker {max_stack_size num_players log=Console.printfn}
         //f game 10 1
         }
-    ) (-13)
+    ) (-12)
     """
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3

@@ -378,6 +378,7 @@ inl Activation =
     inl hebb_tanh {alpha plastic static} = alpha * plastic + static >>= tanh
 
     inl td discount {trace value reward value'} =
+        inm value' = reward + value'
         inm error = value' - value
         inm _ = sqr error |> as_cost
 
@@ -1557,13 +1558,13 @@ inl float ->
 
     inl weight_sample {d with stddev weight front back} s =
         match s.data with
-        | {rate} ->
-            inl random = s.CudaRandom.create {stddev dst=.Normal; mean=0f32} {elem_type=float; dim=weight.basic.dim}
+        //| {rate} ->
+        //    inl random = s.CudaRandom.create {stddev dst=.Normal; mean=0f32} {elem_type=float; dim=weight.basic.dim}
 
-            inb a = s.CudaBlas.trmm .Left .Lower .nT .NonUnit 1f32 front.sampling.basic random.basic |> CudaAux.temporary
-            inb b = s.CudaBlas.trmm .Right .Lower .nT .NonUnit 1f32 back.sampling.basic a |> CudaAux.temporary
+        //    inb a = s.CudaBlas.trmm .Left .Lower .nT .NonUnit 1f32 front.sampling.basic random.basic |> CudaAux.temporary
+        //    inb b = s.CudaBlas.trmm .Right .Lower .nT .NonUnit 1f32 back.sampling.basic a |> CudaAux.temporary
 
-            { d with weight = View.zip {(View.unzip weight) with primal = (s.CudaBlas.geam' .nT .nT one self.basic one b.basic random; View.wrap weight.dim random)} }
+        //    { d with weight = View.zip {(View.unzip weight) with primal = (s.CudaBlas.geam' .nT .nT one self.basic one b.basic random; View.wrap weight.dim random)} }
         | _ ->
             d
 
@@ -1573,7 +1574,7 @@ inl float ->
         init = inl sublayer_size -> 
             open Initializer.dual
             inl outer = {bias=1; input=sublayer_size}
-            inl init = {bias=const zero; input=const zero}
+            inl init = {bias=const zero; input=relu}
             {
             dsc = 
                 {
@@ -1614,7 +1615,7 @@ inl float ->
         init = inl sublayer_size -> 
             open Initializer.dual
             inl outer = {bias=1; input=sublayer_size; state=size}
-            inl init = {bias=const zero; input=const zero; state=const zero}
+            inl init = {bias=const zero; input=relu; state=relu}
             {
             dsc = 
                 {
@@ -1861,7 +1862,9 @@ inl float ->
                                 }
                             reward = {
                                 map = inl {network cd} {reward} -> join
-                                    inl final {reward=reward' value'} = {
+                                    assert (eq_type reward float) "The reward needs to be a float type."
+                                    inl final {reward=reward' value'} = 
+                                        {
                                         out = {reward=reward+reward'; value'}
                                         bck = const ()
                                         }
@@ -1881,7 +1884,7 @@ inl float ->
                     match forward with
                     | {action} -> action
                     | _ -> failwith s.data.types.Action "The Action branchs should be impossible."
-                reward = inl s !dyn reward ->
+                reward = inl s (!dyn reward) ->
                     s.data.reward s.data.buffer.last {reward}
                     |> s.data.buffer.add
                 backward = inl s ->

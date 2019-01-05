@@ -488,8 +488,8 @@ inl {basic_methods State Action} ->
 
         inl methods = {basic_methods with
             bet=inl s rep -> s.data.player.act rep
-            showdown=inl s reward -> s.data.player.reward reward; s.data.player.backward; s.data.player.optimize; s.data.player.truncate
-            game_over=inl s -> ()
+            showdown=inl s reward -> s.data.player.reward (to float32 reward)
+            game_over=inl s -> s.data.player.backward; s.data.player.optimize; s.data.player.truncate
             }
 
         Object
