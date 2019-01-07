@@ -66,8 +66,19 @@ match {block=()} with
 | _ -> "qwe"
     """
 
+let example4 =
+    "parser_test",[loops;parsing],"Parser test of compilation speed.",
+    """
+Loops.for {static_from=0; near_to=50; body=inl {i} ->
+    Parsing.sprintf "%i, %i, %i" 1 2 3 |> ignore
+    Parsing.sprintf "%i, %i, %i, %i" 1 2 3 4 |> ignore
+    Parsing.sprintf "%i, %i, %i, %i, %i" 1 2 3 5 6 |> ignore
+    Parsing.sprintf "(%s, %i, %f)" "asd" 11 3.3 |> ignore
+    }
+    """
+
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example3
-|> printfn "%s"
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example4
+//|> printfn "%s"
 |> ignore
 
