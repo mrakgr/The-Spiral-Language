@@ -81,4 +81,3 @@ Loops.for {static_from=0; near_to=40; body=inl {i} ->
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example4
 //|> printfn "%s"
 |> ignore
-
