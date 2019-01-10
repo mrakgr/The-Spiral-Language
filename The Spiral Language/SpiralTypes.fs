@@ -13,12 +13,27 @@ type LayoutType =
     | LayoutHeap
     | LayoutHeapMutable
 
-type Node<'a>(expr:'a, symbol:int) = 
+type EnvVector<'a when 'a : equality and 'a : comparison>(all : FSharpx.Collections.PersistentVector<'a>, live_indices : int[]) = // `live` is assumed to be ordered and immutable
+    member x.Live = live_indices |> Array.map (fun x -> all.[x])
+    override x.ToString() = "<vector>"
+    override x.GetHashCode() = hash x.Live
+    override x.Equals(y) = // TODO: Make this more efficient.
+        match y with 
+        | :? EnvVector<'a> as y -> x.Live = y.Live
+        | _ -> failwith "Invalid equality for EnvVector."
+
+    interface IComparable with
+        member x.CompareTo(y) = 
+            match y with
+            | :? EnvVector<'a> as y -> compare x.Live y.Live
+            | _ -> failwith "Invalid comparison for Node."
+    
+type Node<'a>(expr:'a, symbol:int) =
     member x.Expression = expr
     member x.Symbol = symbol
     override x.ToString() = sprintf "<tag %i>" symbol
     override x.GetHashCode() = symbol
-    override x.Equals(y) = 
+    override x.Equals(y) =
         match y with 
         | :? Node<'a> as y -> symbol = y.Symbol
         | _ -> failwith "Invalid equality for Node."
@@ -249,11 +264,6 @@ type ArrayType =
 
 and FunctionCore = string * Expr
 
-and MapType =
-    | MapTypeFunction of FunctionCore // Type level function. Can also be though of as a procedural macro.
-    | MapTypeRecFunction of FunctionCore * string
-    | MapTypeModule
-
 and Pattern =
     | PatE
     | PatVar of string
@@ -313,7 +323,8 @@ and Ty =
     | PrimT of PrimitiveType
     | ListT of Ty list
     | LitT of Value
-    | MapT of EnvTy * MapType // function or module
+    | FunctionT of EnvTy
+    | MapT of MapTy
     | LayoutT of LayoutType * TypedExpr
     | TermFunctionT of Ty * Ty
     | UnionT of Set<Ty>
@@ -322,20 +333,34 @@ and Ty =
     | DotNetTypeT of TypedExpr // macro
     | CudaTypeT of TypedExpr // macro
 
+and DestructedArgs = TypedExpr
 and TypedExpr =
     // Data structures
     | TyT of Ty
     | TyV of TyTag
     | TyBox of TypedExpr * Ty
     | TyList of TypedExpr list
-    | TyMap of EnvTerm * MapType
+    | TyVector of EnvTerm
+    | TyMap of MapTerm
     | TyLit of Value
 
     // Operations
     | TyLet of TyTag * TypedExpr * TypedExpr * Ty * Trace
     | TyState of TypedExpr * TypedExpr * Ty * Trace
     | TyOp of Op * TypedExpr list * Ty
-    | TyJoinPoint of JoinPointKey * JoinPointType * Arguments * Ty
+    | TyJoinPoint of JoinPointKey * JoinPointType * Arguments * DestructedArgs * Ty
+
+and ConsedEnvTerm = EnvVector<ConsedTypedData>
+and ConsedMapTerm = Map<string,ConsedTypedData>
+
+and ConsedTypedData = 
+    | CTyT of Ty
+    | CTyV of TyTag
+    | CTyBox of ConsedTypedData * Ty
+    | CTyList of ConsedNode<ConsedTypedData list>
+    | CTyVector of ConsedNode<ConsedEnvTerm>
+    | CTyMap of ConsedNode<ConsedMapTerm>
+    | CTyLit of Value
 
 and JoinPointType =
     | JoinPointClosure
@@ -349,10 +374,10 @@ and JoinPointState<'a,'b> =
 
 and Tag = int
 and TyTag = Tag * Ty
-and EnvTy = Map<string, Ty>
-and EnvTerm = 
-| EnvConsed of ConsedNode<Map<string, TypedExpr>>
-| Env of Map<string, TypedExpr>
+and MapTy = Map<string, Ty>
+and EnvTy = EnvVector<Ty>
+and EnvTerm = EnvVector<TypedExpr>
+and MapTerm = Map<string,TypedExpr>
 
 and JoinPointKey = Node<Expr * EnvTerm>
 
@@ -361,33 +386,12 @@ and Renamer = Dictionary<Tag,Tag>
 
 // This key is for functions without arguments. It is intended that the arguments be passed in through the Environment.
 and JoinPointDict<'a,'b> = Dictionary<JoinPointKey, JoinPointState<'a,'b>>
-// For Common Subexpression Elimination. I need it not for its own sake, but to enable other PE based optimizations.
-and CSEDict = Map<TypedExpr,TypedExpr> ref
 
 and Trace = PosKey list
-
-and TraceNode<'a when 'a:equality and 'a:comparison>(expr:'a, trace:Trace) = 
-    member x.Expression = expr
-    member x.Trace = trace
-    override x.ToString() = sprintf "%A" expr
-    override x.GetHashCode() = hash expr
-    override x.Equals(y) = 
-        match y with 
-        | :? TraceNode<'a> as y -> expr = y.Expression
-        | _ -> failwith "Invalid equality for TraceNode."
-
-    interface IComparable with
-        member x.CompareTo(y) = 
-            match y with
-            | :? TraceNode<'a> as y -> compare expr y.Expression
-            | _ -> failwith "Invalid comparison for TraceNode."
 
 type TypeOrMethod =
     | TomType of Ty
     | TomJP of JoinPointType * JoinPointKey
-
-let inline t (x: TraceNode<_>) = x.Expression
-let (|T|) x = t x
 
 type RecursiveBehavior =
     | AnnotationDive
@@ -397,8 +401,8 @@ type LangEnv = {
     rbeh: RecursiveBehavior
     ltag : int ref
     seq : (TypedExpr -> TypedExpr) ref
-    env : EnvTerm
-    cse_env : CSEDict
+    env_main : EnvTerm
+    env_temp : EnvTerm
     trace : Trace
     }
 
@@ -441,10 +445,6 @@ type RenamerResult = {
 
 let cuda_kernels_name = "cuda_kernels"
 
-type AssemblyLoadType =
-    | LoadType of Type
-    | LoadMap of Map<string,AssemblyLoadType>
-
 let string_to_op =
     let cases = Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(typeof<Op>)
     let dict = d0()
@@ -453,12 +453,12 @@ let string_to_op =
         )
     dict.TryGetValue
 
-let c = function
-| Env env -> env
-| EnvConsed env -> env.node
+//let c = function
+//| Env env -> env
+//| EnvConsed env -> env.node
 
-let (|C|) x = c x
-let (|CN|) (x: ConsedNode<_>) = x.node
+//let (|C|) x = c x
+//let (|CN|) (x: ConsedNode<_>) = x.node
 
 type CompilerSettings = {
     cub_path : string
@@ -490,8 +490,8 @@ let cfg_default = {
     cuda_assert_enabled = false
     filter_list = 
         [
-        "Core"; "Option"; "Lazy"; "Tuple"; "Liple"; "Loops"; "Extern"; "Array"; "List"; "Parsing"; "Console"
-        "Queue"; "Struct"; "Tensor"; "View"; "ViewR"; "Object"; "Cuda"; "Random"; "Math"
+        //"Core"; "Option"; "Lazy"; "Tuple"; "Liple"; "Loops"; "Extern"; "Array"; "List"; "Parsing"; "Console"
+        //"Queue"; "Struct"; "Tensor"; "View"; "ViewR"; "Object"; "Cuda"; "Random"; "Math"
         ]
     }
 
