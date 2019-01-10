@@ -67,7 +67,7 @@ match {block=()} with
     """
 
 let example4 =
-    "parser_test",[loops;parsing],"Parser test of compilation speed.",
+    "parser_test",[loops;parsing],"Parser test for compilation speed.",
     """
 Loops.for {static_from=0; near_to=40; body=inl {i} ->
     Parsing.sprintf "%i, %i, %i" 1 2 3 |> ignore
@@ -78,6 +78,6 @@ Loops.for {static_from=0; near_to=40; body=inl {i} ->
     """
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example4
-//|> printfn "%s"
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example
+|> printfn "%s"
 |> ignore
