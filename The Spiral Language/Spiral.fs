@@ -20,9 +20,9 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let join_point_dict_cuda = d0()
 
     // #Smart constructors
-    let trace (d: LangEnv) = d.trace
+    let trace (d: LangEnvInner) = d.trace
 
-    let ty_join_point key jp_type args ret_type = TyJoinPoint(key,jp_type,args,ret_type)
+    let ty_join_point key jp_type args = TyJoinPoint(key,jp_type,args)
 
     let mutable expr_id = -1
     let nodify_expr (dict: Dictionary<_,_>) x =
@@ -47,9 +47,10 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
     let listt x = ListT x
     let litt x = LitT x
-    let funt (x, core) = MapT (x, core)
+    let funt x = FunctionT x
+    let recfunt x = RecFunctionT x
     let uniont x = UnionT x
-    let term_functiont a b = TermFunctionT (a,b)
+    let term_functiont a b = TermCastedFunctionT (a,b)
     let arrayt x = ArrayT x
 
     let BListT = listt []
@@ -73,16 +74,18 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     // nodify_ty variants
     let boxed_type_dict = d0()
     let rec boxed_type_open = function // Will diverge on degenerate cases.
-        | RecT x -> boxed_type_dict.[x] |> boxed_type_open
+        | RecUnionT x -> boxed_type_dict.[x] |> boxed_type_open
         | x -> x
         
     let nodify_memo_key = nodify <| d0()
-    let hashcons_table = hashcons_create 0
-    let consify_env_term x = EnvConsed(hashcons_add hashcons_table x)
+    //let hashcons_table = hashcons_create 0
+    //let consify_env_term x = EnvConsed(hashcons_add hashcons_table x)
 
     let tyv x = TyV x
     let tyvv x = TyList x
-    let tymap (a,t) = (a,t) |> TyMap
+    let tymap x = TyMap x
+    let tyfun x = TyFunction x
+    let tyrecfun x = TyRecFunction x
     let tybox x = TyBox x
 
     let lit_int i = LitInt64 i |> lit
@@ -105,8 +108,8 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let TyB = tyvv []
     
     // The seemingly useless function application is there to filter the environment just in case it has not been done.
-    let join_point_entry_method y = ap (inl "" (op(JoinPointEntryMethod,[y]))) B 
-    let join_point_entry_type y = ap (inl "" (op(JoinPointEntryType,[y]))) B
+    let join_point_entry_method y = op(JoinPointEntryMethod,[y])
+    let join_point_entry_type y = op(JoinPointEntryType,[y])
 
     let module_open a b = open_(a,b,Set.empty)
     let module_openb a b = ap a (inl " module" (module_open (v " module") b)) 
@@ -141,25 +144,28 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
     let type_union l = op(TypeUnion,l)
     let type_box a b = op(TypeBox,[a;b])
 
-    let rec typed_expr_env_free_var_exists x = Map.exists (fun k v -> typed_expr_free_var_exists v) x
+    let rec typed_expr_map_free_var_exists x = Map.exists (fun k v -> typed_expr_free_var_exists v) x
+    and typed_expr_env_free_var_exists x = EnvVector.exists typed_expr_free_var_exists x
     and typed_expr_free_var_exists e =
         let inline f x = typed_expr_free_var_exists x
         match e with
         | TyBox (n,t) -> f n
         | TyList l -> List.exists f l
-        | TyMap(C l,t) -> typed_expr_env_free_var_exists l
+        | TyMap l -> typed_expr_map_free_var_exists l
+        | TyRecFunction(l,_) | TyFunction(l,_) -> typed_expr_env_free_var_exists l
         | TyV (n,t as k) -> true
         | TyT _ | TyLit _ -> false
-        | TyJoinPoint _ | TyOp _ | TyState _ | TyLet _ -> failwith "Compiler error: Only data structures in the TypedExpr can be tested for free variable existence."
 
     // #Unit type tests
     let rec is_unit_tuple t = List.forall is_unit t
-    and is_unit_env x = Map.forall (fun _ -> is_unit) x
+    and is_unit_map x = Map.forall (fun _ -> is_unit) x
+    and is_unit_env x = EnvVector.forall is_unit x
     and is_unit = function
         | LitT _ -> true
-        | UnionT _ | RecT _ | DotNetTypeT _ | CudaTypeT _ | TermFunctionT _ | PrimT _ -> false
+        | UnionT _ | RecUnionT _ | DotNetTypeT _ | CudaTypeT _ | TermCastedFunctionT _ | PrimT _ -> false
         | ArrayT (_,t) -> is_unit t
-        | MapT (env,_) -> is_unit_env env
+        | MapT t -> is_unit_map t
+        | FunctionT (env,_) | RecFunctionT(env,_) -> is_unit_env env
         | LayoutT (_, x) -> typed_expr_free_var_exists x = false
         | ListT t -> is_unit_tuple t
 
@@ -175,48 +181,48 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
             | Int8T | Int16T | Int32T | Int64T 
             | Float32T | Float64T) -> true
         | _ -> false
-    let inline is_numeric a = is_numeric' (get_type a)
+    let inline is_numeric a = is_numeric' (get_type_data a)
 
     let is_string' = function
         | PrimT StringT -> true
         | _ -> false
-    let inline is_string a = is_string' (get_type a)
+    let inline is_string a = is_string' (get_type_data a)
 
     let is_char' = function
         | PrimT CharT -> true
         | _ -> false
-    let inline is_char a = is_char' (get_type a)
+    let inline is_char a = is_char' (get_type_data a)
 
     let is_primt' = function
         | PrimT x -> true
         | _ -> false
-    let inline is_primt a = is_primt' (get_type a)
+    let inline is_primt a = is_primt' (get_type_data a)
 
     let is_float' = function
         | PrimT (Float32T | Float64T) -> true
         | _ -> false
-    let inline is_float a = is_float' (get_type a)
+    let inline is_float a = is_float' (get_type_data a)
 
     let rec is_bool' = function
         | PrimT BoolT -> true
         | _ -> false
-    let inline is_bool a = is_bool' (get_type a)
+    let inline is_bool a = is_bool' (get_type_data a)
 
     let rec is_int' = function
         | PrimT (UInt32T | UInt64T | Int32T | Int64T) -> true
         | _ -> false
-    let inline is_int a = is_int' (get_type a)
+    let inline is_int a = is_int' (get_type_data a)
 
     let rec is_any_int' = function
         | PrimT (UInt8T | UInt16T | UInt32T | UInt64T 
             | Int8T | Int16T | Int32T | Int64T) -> true
         | _ -> false
-    let inline is_any_int x = is_any_int' (get_type x)
+    let inline is_any_int x = is_any_int' (get_type_data x)
 
     let rec is_int64' = function
         | PrimT Int64T -> true
         | _ -> false
-    let inline is_int64 a = is_int64' (get_type a)
+    let inline is_int64 a = is_int64' (get_type_data a)
 
     // #Prepass
     let pattern_dict = d0()

@@ -5,6 +5,7 @@ open System
 open System.Collections.Generic
 open HashConsing
 open System.Text
+open FSharpx.Collections
 
 // Language types
 type LayoutType =
@@ -15,7 +16,9 @@ type LayoutType =
 
 type EnvVector<'a when 'a : equality and 'a : comparison>(all : FSharpx.Collections.PersistentVector<'a>, live_indices : int[]) = // `live` is assumed to be ordered and immutable
     member x.Live = live_indices |> Array.map (fun x -> all.[x])
-    override x.ToString() = "<vector>"
+    member x.All = all
+    member x.LiveIndices = live_indices
+    override x.ToString() = "<env_vector>"
     override x.GetHashCode() = hash x.Live
     override x.Equals(y) = // TODO: Make this more efficient.
         match y with 
@@ -27,6 +30,48 @@ type EnvVector<'a when 'a : equality and 'a : comparison>(all : FSharpx.Collecti
             match y with
             | :? EnvVector<'a> as y -> compare x.Live y.Live
             | _ -> failwith "Invalid comparison for Node."
+
+    //override x.Equals(y) = // TODO: Plug this in when the rest is made correct. I do not want make assumptions about this being correct ATM.
+    //    match y with 
+    //    | :? EnvVector<'a> as y -> 
+    //        if live_indices.Length = y.LiveIndices.Length then
+    //            (live_indices, y.LiveIndices) 
+    //            ||> Array.forall2 (fun x' y' -> x.All.[x'] = y.All.[y'])
+    //        else
+    //            false
+    //    | _ -> failwith "Invalid equality for EnvVector."
+
+    //interface IComparable with
+    //    member x.CompareTo(y) = 
+    //        match y with
+    //        | :? EnvVector<'a> as y -> 
+    //            let l = live_indices.Length
+    //            let c = compare l y.LiveIndices.Length
+    //            if c = 0 then
+    //                let rec loop i =
+    //                    if i < l then
+    //                        let c = compare all.[live_indices.[i]] y.All.[y.LiveIndices.[i]]
+    //                        if c = 0 then loop (i+1)
+    //                        else c 
+    //                    else 0
+    //                loop 0
+    //            else
+    //                c
+    //        | _ -> failwith "Invalid comparison for Node."
+
+[<RequireQualifiedAccess>]
+module EnvVector =
+    let inline map f (x: EnvVector<_>) = 
+        let s = Array.fold (fun (s: PersistentVector<_>) i -> s.Update(i,f x.All.[i])) PersistentVector.empty x.LiveIndices
+        EnvVector(s, x.LiveIndices)
+    let inline fold f (x: EnvVector<_>) s = 
+        let s = Array.fold (fun (s: PersistentVector<_>) i -> f s x.All.[i]) s x.LiveIndices
+        EnvVector(s, x.LiveIndices)
+    let inline foldBack f s (x: EnvVector<_>) = 
+        let s = Array.foldBack (fun i (s: PersistentVector<_>) -> f x.All.[i] s) x.LiveIndices s
+        EnvVector(s, x.LiveIndices)
+    let inline exists f (x: EnvVector<_>) = Array.exists (fun i -> f x.All.[i]) x.LiveIndices
+    let inline forall f (x: EnvVector<_>) = Array.forall (fun i -> f x.All.[i]) x.LiveIndices
     
 type Node<'a>(expr:'a, symbol:int) =
     member x.Expression = expr
@@ -263,6 +308,7 @@ type ArrayType =
     | ArtCudaLocal
 
 and FunctionCore = string * Expr
+and FunctionRecCore = string * Expr * string
 
 and Pattern =
     | PatE
@@ -287,7 +333,6 @@ and Pattern =
     | PatModuleInject of string * Pattern
     | PatPos of Pos<Pattern>
     | PatTypeTermFunction of Pattern * Pattern
-
 
 and [<CustomEquality;CustomComparison>] Expr = 
     | V of string * tag: int
@@ -321,44 +366,65 @@ and [<CustomEquality;CustomComparison>] Expr =
 
 and Ty =
     | PrimT of PrimitiveType
-    | ListT of Ty list
     | LitT of Value
-    | FunctionT of EnvTy
+    | ListT of Ty list
+    | FunctionT of EnvTy * FunctionCore
+    | RecFunctionT of EnvTy * FunctionRecCore
     | MapT of MapTy
-    | LayoutT of LayoutType * TypedExpr
-    | TermFunctionT of Ty * Ty
+    | LayoutT of LayoutType * TypedData
+    | TermCastedFunctionT of Ty * Ty
     | UnionT of Set<Ty>
-    | RecT of JoinPointKey
+    | RecUnionT of JoinPointKey
     | ArrayT of ArrayType * Ty
-    | DotNetTypeT of TypedExpr // macro
-    | CudaTypeT of TypedExpr // macro
+    | DotNetTypeT of TypedData // macro
+    | CudaTypeT of TypedData // macro
 
-and DestructedArgs = TypedExpr
-and TypedExpr =
-    // Data structures
+and TypedData =
     | TyT of Ty
     | TyV of TyTag
-    | TyBox of TypedExpr * Ty
-    | TyList of TypedExpr list
-    | TyVector of EnvTerm
+    | TyBox of TypedData * Ty
+    | TyList of TypedData list
+    | TyFunction of EnvTerm * FunctionCore
+    | TyRecFunction of EnvTerm * FunctionRecCore
     | TyMap of MapTerm
     | TyLit of Value
 
-    // Operations
-    | TyLet of TyTag * TypedExpr * TypedExpr * Ty * Trace
-    | TyState of TypedExpr * TypedExpr * Ty * Trace
-    | TyOp of Op * TypedExpr list * Ty
-    | TyJoinPoint of JoinPointKey * JoinPointType * Arguments * DestructedArgs * Ty
+and TypedBind =
+    | TyLet of TypedData * TypedOp * Ty * Trace
+    | TyState of TypedOp * Ty * Trace
+    | TyReturn of TypedData * Ty * Trace
+
+and TypedOp =
+    | TyOp of Op * TypedData []
+    | TyIf of tr: TypedBind [] * fl: TypedBind []
+    | TyCase of (TypedData * TypedBind []) []
+    | TyJoinPoint of JoinPointKey * JoinPointType * CallArguments
 
 and ConsedEnvTerm = EnvVector<ConsedTypedData>
 and ConsedMapTerm = Map<string,ConsedTypedData>
 
+and ConsedTy =
+    | CPrimT of PrimitiveType
+    | CLitT of Value
+    | CListT of ConsedNode<Ty list>
+    | CFunctionT of ConsedNode<EnvTy * FunctionCore>
+    | CRecFunctionT of ConsedNode<EnvTy * FunctionRecCore>
+    | CMapT of ConsedNode<MapTy>
+    | CLayoutT of ConsedNode<LayoutType * TypedData>
+    | CTermCastedFunctionT of ConsedNode<Ty * Ty>
+    | CUnionT of ConsedNode<Set<Ty>>
+    | CRecUnionT of JoinPointKey
+    | CArrayT of ConsedNode<ArrayType * Ty>
+    | CDotNetTypeT of ConsedNode<TypedData> // macro
+    | CCudaTypeT of ConsedNode<TypedData> // macro
+
 and ConsedTypedData = 
-    | CTyT of Ty
+    | CTyT of ConsedTy
     | CTyV of TyTag
-    | CTyBox of ConsedTypedData * Ty
+    | CTyBox of ConsedTypedData * ConsedTy
     | CTyList of ConsedNode<ConsedTypedData list>
-    | CTyVector of ConsedNode<ConsedEnvTerm>
+    | CTyFunction of ConsedNode<ConsedEnvTerm * FunctionCore>
+    | CTyRecFunction of ConsedNode<ConsedEnvTerm * FunctionRecCore>
     | CTyMap of ConsedNode<ConsedMapTerm>
     | CTyLit of Value
 
@@ -376,12 +442,12 @@ and Tag = int
 and TyTag = Tag * Ty
 and MapTy = Map<string, Ty>
 and EnvTy = EnvVector<Ty>
-and EnvTerm = EnvVector<TypedExpr>
-and MapTerm = Map<string,TypedExpr>
+and EnvTerm = EnvVector<TypedData>
+and MapTerm = Map<string,TypedData>
 
 and JoinPointKey = Node<Expr * EnvTerm>
 
-and Arguments = TyTag list
+and CallArguments = TyTag []
 and Renamer = Dictionary<Tag,Tag>
 
 // This key is for functions without arguments. It is intended that the arguments be passed in through the Environment.
@@ -397,10 +463,12 @@ type RecursiveBehavior =
     | AnnotationDive
     | AnnotationReturn
 
-type LangEnv = {
-    rbeh: RecursiveBehavior
-    ltag : int ref
-    seq : (TypedExpr -> TypedExpr) ref
+type LangEnvOuter = {
+    rbeh : RecursiveBehavior
+    seq : ResizeArray<TypedOp>
+    }
+
+type LangEnvInner = {
     env_main : EnvTerm
     env_temp : EnvTerm
     trace : Trace
@@ -431,7 +499,7 @@ and ProgramNode =
     | Dedent
 
 type EnvRenamer = {
-    memo : Dictionary<TypedExpr,TypedExpr>
+    memo : Dictionary<TypedData,TypedData>
     renamer : Dictionary<Tag,Tag>
     ref_call_args : TyTag list ref
     ref_method_pars : TyTag list ref
@@ -452,13 +520,6 @@ let string_to_op =
         dict.[x.Name] <- Microsoft.FSharp.Reflection.FSharpValue.MakeUnion(x,[||]) :?> Op
         )
     dict.TryGetValue
-
-//let c = function
-//| Env env -> env
-//| EnvConsed env -> env.node
-
-//let (|C|) x = c x
-//let (|CN|) (x: ConsedNode<_>) = x.node
 
 type CompilerSettings = {
     cub_path : string
@@ -526,17 +587,20 @@ let get_type_of_value = function
     | LitString _ -> PrimT StringT
     | LitChar _ -> PrimT CharT
 
-let rec env_to_ty env = Map.map (fun _ -> get_type) env
-and get_type = function
+let rec map_to_ty env = Map.map (fun _ -> get_type_data) env
+and env_to_ty x = EnvVector.map get_type_data x
+and get_type_data = function
+    | TyT t | TyV(_,t) | TyBox(_,t) -> t
     | TyLit x -> get_type_of_value x
-    | TyList l -> List.map get_type l |> ListT
-    | TyMap(C l, t) -> MapT (env_to_ty l, t)
+    | TyList l -> List.map get_type_data l |> ListT
+    | TyMap l -> MapT(map_to_ty l)
+    | TyFunction (l, c) -> FunctionT(env_to_ty l, c)
+    | TyRecFunction (l, c) -> RecFunctionT(env_to_ty l, c)
+let get_type_bind = function
+    | TyLet(_,_,t,_) | TyState(_,t,_) 
+    | TyReturn(_,t,_) -> t
 
-    | TyT t | TyV(_,t) | TyBox(_,t)
-    | TyLet(_,_,_,t,_) | TyJoinPoint(_,_,_,t)
-    | TyState(_,_,t,_) | TyOp(_,_,t) -> t
-
-let (|TyType|) x = get_type x
+let (|TyType|) x = get_type_data x
 
 let show_primt = function
     | UInt8T -> "uint8"
@@ -601,7 +665,7 @@ let inline codegen_macro' show_typedexpr codegen print_type x =
         | TyList [TypeString "args"; TyTuple l] -> append "("; List.map codegen l |> String.concat ", " |> append; append ")"
         | TyList [TypeString "fs_array_args"; TyTuple l] -> append "[|"; List.map codegen l |> String.concat "; " |> append; append "|]"
         | TyList [TypeString "type"; TyType x] -> append (print_type x)
-        | TyList [TypeString "types"; TyTuple l] -> append "<"; List.map (get_type >> print_type) l |> String.concat ", " |> append; append ">" 
+        | TyList [TypeString "types"; TyTuple l] -> append "<"; List.map (get_type_data >> print_type) l |> String.concat ", " |> append; append ">" 
         | TyList [TypeString "iter"; TyList [LS begin_;LS sep;LS end_;ops]] -> iter begin_ sep end_ ops
         | TyList [TypeString "parenth"; ops] -> iter "(" "," ")" ops
         | x -> er x
@@ -614,17 +678,17 @@ let rec show_ty = function
     | PrimT x -> show_primt x
     | ListT l -> sprintf "[%s]" (List.map show_ty l |> String.concat ", ")
     | LitT v -> sprintf "type_lit (%s)" (show_value v)
-    | MapT (v,MapTypeModule) -> 
+    | MapT v -> 
         let body = 
             v |> Map.toArray 
             |> Array.map (fun (k,v) -> sprintf "%s=%s" k (show_ty v))
             |> String.concat "; "
 
         sprintf "{%s}" body
-    | MapT (_, (MapTypeFunction _ | MapTypeRecFunction _)) -> "<function>"
+    | FunctionT _ | RecFunctionT _ -> "<function>"
     | LayoutT (layout_type,body) ->
         sprintf "%s (%s)" (show_layout_type layout_type) (show_typedexpr body)
-    | TermFunctionT (a,b) ->
+    | TermCastedFunctionT (a,b) ->
         sprintf "(%s => %s)" (show_ty a) (show_ty b)
     | UnionT l ->
         let body =
@@ -632,7 +696,7 @@ let rec show_ty = function
             |> Array.map show_ty
             |> String.concat " | "
         sprintf "union {%s}" body
-    | RecT x -> sprintf "rec_type %i" x.Symbol
+    | RecUnionT x -> sprintf "rec_union_type %i" x.Symbol
     | ArrayT (a,b) -> sprintf "%s (%s)" (show_art a) (show_ty b)
     | DotNetTypeT x -> sprintf "dotnet_type (%s)" (codegen_macro' show_typedexpr show_typedexpr show_ty x)
     | CudaTypeT x -> sprintf "cuda_type (%s)" (codegen_macro' show_typedexpr show_typedexpr show_ty x)
@@ -643,17 +707,15 @@ and show_typedexpr = function
     | TyList l -> 
         let body = List.map show_typedexpr l |> String.concat ", "
         sprintf "[%s]" body
-    | TyMap (a,MapTypeModule) ->
+    | TyMap a ->
         let body =
-            Map.toArray (c a)
+            Map.toArray a
             |> Array.map (fun (a,b) -> sprintf "%s=%s" a (show_typedexpr b))
             |> String.concat "; "
         sprintf "{%s}" body
-    | TyMap (_, (MapTypeFunction _ | MapTypeRecFunction _)) -> "<function>"
+    | TyFunction _ | TyRecFunction _ -> "<function>"
     | TyBox (a,b) -> sprintf "(boxed_type %s with %s)" (show_ty b) (show_typedexpr a)
     | TyLit v -> sprintf "lit %s" (show_value v)
-    | TyOp(x,_,t) -> sprintf "<op %A of type %s>" x (show_ty t)
-    | x -> failwithf "Compiler error: The other typed expressions are forbidden to be printed as type errors. They should never appear in bindings. Got: %A" x
 
 let inline codegen_macro codegen print_type x = codegen_macro' show_typedexpr codegen print_type x
 
