@@ -287,6 +287,7 @@ type Op =
     // UnOps
     | Neg
     | FailWith
+    | LocalReturn
 
     // Auxiliary math ops
     | Tanh
@@ -384,21 +385,16 @@ and TypedData =
     | TyV of TyTag
     | TyBox of TypedData * Ty
     | TyList of TypedData list
-    | TyFunction of EnvTerm * FunctionCore
-    | TyRecFunction of EnvTerm * FunctionRecCore
+    | TyFunction of FunctionCore * EnvTerm // TODO: Make sure that environments are being compared last.
+    | TyRecFunction of FunctionRecCore * EnvTerm
     | TyMap of MapTerm
     | TyLit of Value
 
-and TypedBind =
-    | TyLet of TypedData * TypedOp * Ty * Trace
-    | TyState of TypedOp * Ty * Trace
-    | TyReturn of TypedData * Ty * Trace
-
-and TypedOp =
-    | TyOp of Op * TypedData []
-    | TyIf of tr: TypedBind [] * fl: TypedBind []
-    | TyCase of (TypedData * TypedBind []) []
-    | TyJoinPoint of JoinPointKey * JoinPointType * CallArguments
+and TypedExpr = // TypedData being `TyList []` indicates either a statement, or a local return if it is in last place of the array.
+    | TyOp of TypedData * Ty * Trace * Op * TypedData
+    | TyIf of TypedData * Ty * Trace * tr: TypedOp [] * fl: TypedOp []
+    | TyCase of TypedData * Ty * Trace * TyTag * (TypedData * TypedOp []) []
+    | TyJoinPoint of TypedData * Ty * Trace * JoinPointKey * JoinPointType * CallArguments
 
 and ConsedEnvTerm = EnvVector<ConsedTypedData>
 and ConsedMapTerm = Map<string,ConsedTypedData>
