@@ -335,35 +335,16 @@ and Pattern =
     | PatPos of Pos<Pattern>
     | PatTypeTermFunction of Pattern * Pattern
 
-and [<CustomEquality;CustomComparison>] Expr = 
-    | V of string * tag: int
-    | Lit of Value * tag: int
-    | Open of Expr * Expr * Set<string> * tag: int
-    | Fix of string * Expr * tag: int
-    | Pattern of Pattern * tag: int
-    | Function of string * Expr * tag: int
-    | FunctionFilt of Set<string> * string * Expr * tag: int
-    | VV of Expr list * tag: int
-    | Op of Op * Expr list * tag: int
-    | ExprPos of Pos<Expr> * tag: int
-
-    member x.Symbol =
-        match x with
-        | V(_,t) | Lit(_,t) | Open(_,_,_,t) | Fix(_,_,t) | Pattern (_,t)
-        | Function(_,_,t) | FunctionFilt(_,_,_,t) | VV(_,t) 
-        | Op(_,_,t) | ExprPos(_,t) -> t
-
-    override x.GetHashCode() = x.Symbol
-    override x.Equals(y) = 
-        match y with 
-        | :? Expr as y -> x.Symbol = y.Symbol
-        | _ -> failwith "Invalid equality for Expr."
-
-    interface IComparable with
-        member x.CompareTo(y) = 
-            match y with
-            | :? Expr as y -> compare x.Symbol y.Symbol
-            | _ -> failwith "Invalid comparison for Expr."
+and [<ReferenceEquality>] Expr = 
+    | V of string
+    | Lit of Value
+    | Open of Expr * Expr
+    | Pattern of Pattern
+    | Function of Expr * string
+    | RecFunction of Expr * string * rec_name: string
+    | VV of Expr list
+    | Op of Op * Expr list
+    | ExprPos of Pos<Expr>
 
 and Ty =
     | PrimT of PrimitiveType
@@ -385,15 +366,15 @@ and TypedData =
     | TyV of TyTag
     | TyBox of TypedData * Ty
     | TyList of TypedData list
-    | TyFunction of FunctionCore * EnvTerm // TODO: Make sure that environments are being compared last.
+    | TyFunction of FunctionCore * EnvTerm
     | TyRecFunction of FunctionRecCore * EnvTerm
     | TyMap of MapTerm
     | TyLit of Value
 
 and TypedExpr = // TypedData being `TyList []` indicates either a statement, or a local return if it is in last place of the array.
     | TyOp of TypedData * Ty * Trace * Op * TypedData
-    | TyIf of TypedData * Ty * Trace * tr: TypedOp [] * fl: TypedOp []
-    | TyCase of TypedData * Ty * Trace * TyTag * (TypedData * TypedOp []) []
+    | TyIf of TypedData * Ty * Trace * tr: TypedExpr [] * fl: TypedExpr []
+    | TyCase of TypedData * Ty * Trace * TyTag * (TypedData * TypedExpr []) []
     | TyJoinPoint of TypedData * Ty * Trace * JoinPointKey * JoinPointType * CallArguments
 
 and ConsedEnvTerm = EnvVector<ConsedTypedData>
@@ -461,7 +442,7 @@ type RecursiveBehavior =
 
 type LangEnvOuter = {
     rbeh : RecursiveBehavior
-    seq : ResizeArray<TypedOp>
+    seq : ResizeArray<TypedExpr>
     }
 
 type LangEnvInner = {
