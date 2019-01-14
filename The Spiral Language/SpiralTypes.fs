@@ -14,84 +14,30 @@ type LayoutType =
     | LayoutHeap
     | LayoutHeapMutable
 
-type EnvVector<'a when 'a : equality and 'a : comparison>(all : FSharpx.Collections.PersistentVector<'a>, live_indices : int[]) = // `live` is assumed to be ordered and immutable
-    member x.Live = live_indices |> Array.map (fun x -> all.[x])
-    member x.All = all
-    member x.LiveIndices = live_indices
-    override x.ToString() = "<env_vector>"
-    override x.GetHashCode() = hash x.Live
-    override x.Equals(y) = // TODO: Make this more efficient.
-        match y with 
-        | :? EnvVector<'a> as y -> x.Live = y.Live
-        | _ -> failwith "Invalid equality for EnvVector."
-
-    interface IComparable with
-        member x.CompareTo(y) = 
-            match y with
-            | :? EnvVector<'a> as y -> compare x.Live y.Live
-            | _ -> failwith "Invalid comparison for Node."
-
-    //override x.Equals(y) = // TODO: Plug this in when the rest is made correct. I do not want make assumptions about this being correct ATM.
-    //    match y with 
-    //    | :? EnvVector<'a> as y -> 
-    //        if live_indices.Length = y.LiveIndices.Length then
-    //            (live_indices, y.LiveIndices) 
-    //            ||> Array.forall2 (fun x' y' -> x.All.[x'] = y.All.[y'])
-    //        else
-    //            false
-    //    | _ -> failwith "Invalid equality for EnvVector."
-
-    //interface IComparable with
-    //    member x.CompareTo(y) = 
-    //        match y with
-    //        | :? EnvVector<'a> as y -> 
-    //            let l = live_indices.Length
-    //            let c = compare l y.LiveIndices.Length
-    //            if c = 0 then
-    //                let rec loop i =
-    //                    if i < l then
-    //                        let c = compare all.[live_indices.[i]] y.All.[y.LiveIndices.[i]]
-    //                        if c = 0 then loop (i+1)
-    //                        else c 
-    //                    else 0
-    //                loop 0
-    //            else
-    //                c
-    //        | _ -> failwith "Invalid comparison for Node."
-
-[<RequireQualifiedAccess>]
-module EnvVector =
-    let inline map f (x: EnvVector<_>) = 
-        let s = Array.fold (fun (s: PersistentVector<_>) i -> s.Update(i,f x.All.[i])) PersistentVector.empty x.LiveIndices
-        EnvVector(s, x.LiveIndices)
-    let inline fold f (x: EnvVector<_>) s = 
-        let s = Array.fold (fun (s: PersistentVector<_>) i -> f s x.All.[i]) s x.LiveIndices
-        EnvVector(s, x.LiveIndices)
-    let inline foldBack f s (x: EnvVector<_>) = 
-        let s = Array.foldBack (fun i (s: PersistentVector<_>) -> f x.All.[i] s) x.LiveIndices s
-        EnvVector(s, x.LiveIndices)
-    let inline exists f (x: EnvVector<_>) = Array.exists (fun i -> f x.All.[i]) x.LiveIndices
-    let inline forall f (x: EnvVector<_>) = Array.forall (fun i -> f x.All.[i]) x.LiveIndices
-    
-type Node<'a>(expr:'a, symbol:int) =
+type HashNode<'a when 'a : equality and 'a : comparison>(expr:'a) =
+    let h = ref None
     member x.Expression = expr
-    member x.Symbol = symbol
-    override x.ToString() = sprintf "<tag %i>" symbol
-    override x.GetHashCode() = symbol
+    override x.ToString() = expr.ToString()
+    override x.GetHashCode() = 
+        match !h with
+        | Some h -> h
+        | None ->
+            let x = hash expr
+            h := Some x
+            x
     override x.Equals(y) =
         match y with 
-        | :? Node<'a> as y -> symbol = y.Symbol
-        | _ -> failwith "Invalid equality for Node."
+        | :? HashNode<'a> as y -> expr = y.Expression
+        | _ -> false
 
     interface IComparable with
         member x.CompareTo(y) = 
             match y with
-            | :? Node<'a> as y -> compare symbol y.Symbol
+            | :? HashNode<'a> as y -> compare expr y.Expression
             | _ -> failwith "Invalid comparison for Node."
 
-let inline n (x: Node<_>) = x.Expression
+let inline n (x: HashNode<_>) = x.Expression
 let (|N|) x = n x
-let (|S|) (x: Node<_>) = x.Symbol
 
 type ModuleName = string
 type ModuleCode = string
@@ -304,12 +250,13 @@ type Op =
 type ArrayType =
     | ArtDotNetHeap
     | ArtDotNetReference
-    | ArtCudaGlobal of Ty
+    | ArtCudaGlobal of ConsedTy
     | ArtCudaShared
     | ArtCudaLocal
 
 and FunctionCore = string * Expr
 and FunctionRecCore = string * Expr * string
+and HashRef = int option ref
 
 and Pattern =
     | PatE
@@ -335,7 +282,7 @@ and Pattern =
     | PatPos of Pos<Pattern>
     | PatTypeTermFunction of Pattern * Pattern
 
-and [<ReferenceEquality>] Expr = 
+and [<ReferenceEquality>] Expr = // TODO: Replace `ReferenceEquality` with tagging after the prepass. No need for HashConsing for this.
     | V of string
     | Lit of Value
     | Open of Expr * Expr
@@ -346,64 +293,49 @@ and [<ReferenceEquality>] Expr =
     | Op of Op * Expr list
     | ExprPos of Pos<Expr>
 
-and Ty =
-    | PrimT of PrimitiveType
-    | LitT of Value
-    | ListT of Ty list
-    | FunctionT of EnvTy * FunctionCore
-    | RecFunctionT of EnvTy * FunctionRecCore
-    | MapT of MapTy
-    | LayoutT of LayoutType * TypedData
-    | TermCastedFunctionT of Ty * Ty
-    | UnionT of Set<Ty>
-    | RecUnionT of JoinPointKey
-    | ArrayT of ArrayType * Ty
-    | DotNetTypeT of TypedData // macro
-    | CudaTypeT of TypedData // macro
+and ConsedTy =
+    | CListT of ConsedNode<ConsedTy list>
+    | CFunctionT of ConsedNode<FunctionCore * EnvTy>
+    | CRecFunctionT of ConsedNode<FunctionRecCore * EnvTy>
+    | CMapT of ConsedNode<MapTy>
+    | CLayoutT of ConsedNode<LayoutType * ConsedTypedData>
+    | CUnionT of ConsedNode<Set<ConsedTy>>
+
+    | CPrimT of PrimitiveType
+    | CLitT of Value
+    | CTermCastedFunctionT of ConsedTy * ConsedTy
+    | CRecUnionT of JoinPointKey
+    | CArrayT of ArrayType * ConsedTy
+    | CDotNetTypeT of ConsedTypedData // macro
+    | CCudaTypeT of ConsedTypedData // macro
+
+and ConsedTypedData = 
+    | CTyList of ConsedNode<ConsedTypedData list>
+    | CTyFunction of ConsedNode<FunctionCore * EnvTerm>
+    | CTyRecFunction of ConsedNode<FunctionRecCore * EnvTerm>
+    | CTyMap of ConsedNode<MapTerm>
+
+    | CTyT of ConsedTy
+    | CTyV of TyTag
+    | CTyBox of ConsedTypedData * ConsedTy
+    | CTyLit of Value
 
 and TypedData =
-    | TyT of Ty
-    | TyV of TyTag
-    | TyBox of TypedData * Ty
     | TyList of TypedData list
     | TyFunction of FunctionCore * EnvTerm
     | TyRecFunction of FunctionRecCore * EnvTerm
     | TyMap of MapTerm
+
+    | TyT of ConsedTy
+    | TyV of TyTag
+    | TyBox of TypedData * ConsedTy
     | TyLit of Value
 
 and TypedExpr = // TypedData being `TyList []` indicates either a statement, or a local return if it is in last place of the array.
-    | TyOp of TypedData * Ty * Trace * Op * TypedData
-    | TyIf of TypedData * Ty * Trace * tr: TypedExpr [] * fl: TypedExpr []
-    | TyCase of TypedData * Ty * Trace * TyTag * (TypedData * TypedExpr []) []
-    | TyJoinPoint of TypedData * Ty * Trace * JoinPointKey * JoinPointType * CallArguments
-
-and ConsedEnvTerm = EnvVector<ConsedTypedData>
-and ConsedMapTerm = Map<string,ConsedTypedData>
-
-and ConsedTy =
-    | CPrimT of PrimitiveType
-    | CLitT of Value
-    | CListT of ConsedNode<Ty list>
-    | CFunctionT of ConsedNode<EnvTy * FunctionCore>
-    | CRecFunctionT of ConsedNode<EnvTy * FunctionRecCore>
-    | CMapT of ConsedNode<MapTy>
-    | CLayoutT of ConsedNode<LayoutType * TypedData>
-    | CTermCastedFunctionT of ConsedNode<Ty * Ty>
-    | CUnionT of ConsedNode<Set<Ty>>
-    | CRecUnionT of JoinPointKey
-    | CArrayT of ConsedNode<ArrayType * Ty>
-    | CDotNetTypeT of ConsedNode<TypedData> // macro
-    | CCudaTypeT of ConsedNode<TypedData> // macro
-
-and ConsedTypedData = 
-    | CTyT of ConsedTy
-    | CTyV of TyTag
-    | CTyBox of ConsedTypedData * ConsedTy
-    | CTyList of ConsedNode<ConsedTypedData list>
-    | CTyFunction of ConsedNode<ConsedEnvTerm * FunctionCore>
-    | CTyRecFunction of ConsedNode<ConsedEnvTerm * FunctionRecCore>
-    | CTyMap of ConsedNode<ConsedMapTerm>
-    | CTyLit of Value
+    | TyOp of TypedData * ConsedTy * Trace * Op * TypedData
+    | TyIf of TypedData * ConsedTy * Trace * tr: TypedExpr [] * fl: TypedExpr []
+    | TyCase of TypedData * ConsedTy * Trace * TyTag * (TypedData * TypedExpr []) []
+    | TyJoinPoint of TypedData * ConsedTy * Trace * JoinPointKey * JoinPointType * CallArguments
 
 and JoinPointType =
     | JoinPointClosure
@@ -416,10 +348,10 @@ and JoinPointState<'a,'b> =
     | JoinPointDone of 'b
 
 and Tag = int
-and TyTag = Tag * Ty
-and MapTy = Map<string, Ty>
-and EnvTy = EnvVector<Ty>
-and EnvTerm = EnvVector<TypedData>
+and TyTag = Tag * ConsedTy
+and MapTy = Map<string, ConsedTy>
+and EnvTy = ConsedTy []
+and EnvTerm = TypedData []
 and MapTerm = Map<string,TypedData>
 
 and JoinPointKey = Node<Expr * EnvTerm>
@@ -537,7 +469,7 @@ let cfg_testing = {cfg_default with cuda_includes=[]; trace_length=20}
 
 /// Wraps the argument in a list if not a tuple.
 let tuple_field = function 
-    | TyList args -> args
+    | TyList (args) -> args
     | x -> [x]
 
 let (|TyTuple|) x = tuple_field x
@@ -565,17 +497,14 @@ let get_type_of_value = function
     | LitChar _ -> PrimT CharT
 
 let rec map_to_ty env = Map.map (fun _ -> get_type_data) env
-and env_to_ty x = EnvVector.map get_type_data x
+and env_to_ty x = Array.map get_type_data x
 and get_type_data = function
     | TyT t | TyV(_,t) | TyBox(_,t) -> t
     | TyLit x -> get_type_of_value x
     | TyList l -> List.map get_type_data l |> ListT
     | TyMap l -> MapT(map_to_ty l)
-    | TyFunction (l, c) -> FunctionT(env_to_ty l, c)
-    | TyRecFunction (l, c) -> RecFunctionT(env_to_ty l, c)
-let get_type_bind = function
-    | TyLet(_,_,t,_) | TyState(_,t,_) 
-    | TyReturn(_,t,_) -> t
+    | TyFunction (c, l, _) -> FunctionT(c, env_to_ty l)
+    | TyRecFunction (c, l, _) -> RecFunctionT(c, env_to_ty l)
 
 let (|TyType|) x = get_type_data x
 
