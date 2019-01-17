@@ -5,7 +5,6 @@ open System
 open System.Collections.Generic
 open HashConsing
 open System.Text
-open FSharpx.Collections
 
 // Language types
 type LayoutType =
@@ -233,7 +232,6 @@ type Op =
     // UnOps
     | Neg
     | FailWith
-    | LocalReturn
 
     // Auxiliary math ops
     | Tanh
@@ -254,8 +252,8 @@ type ArrayType =
     | ArtCudaShared
     | ArtCudaLocal
 
-and FunctionCore = string * Expr
-and FunctionRecCore = string * Expr * string
+and FunctionCore = Expr * string
+and FunctionRecCore = Expr * string * string
 and HashRef = int option ref
 
 and Pattern =
@@ -331,11 +329,12 @@ and TypedData =
     | TyBox of TypedData * ConsedTy
     | TyLit of Value
 
-and TypedExpr = // TypedData being `TyList []` indicates either a statement, or a local return if it is in last place of the array.
+and TypedExpr = // TypedData being `TyList []` indicates a statement.
     | TyOp of TypedData * ConsedTy * Trace * Op * TypedData
     | TyIf of TypedData * ConsedTy * Trace * tr: TypedExpr [] * fl: TypedExpr []
     | TyCase of TypedData * ConsedTy * Trace * TyTag * (TypedData * TypedExpr []) []
     | TyJoinPoint of TypedData * ConsedTy * Trace * JoinPointKey * JoinPointType * CallArguments
+    | TyLocalReturn of TypedData * ConsedTy * Trace
 
 and JoinPointType =
     | JoinPointClosure

@@ -1783,6 +1783,7 @@ inl float ->
                 }
             }
 
+        // TODO: There should be a call to s.refresh somewhere in there.
         inl recurrent =
             inl methods = {basic_methods with
                 initialize = inl s {rate network context error input} ->
