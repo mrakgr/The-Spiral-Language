@@ -54,16 +54,17 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
+    <None Include="Spiral.fs%27" />
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Compile Include="SpiralHashConsing.fs" />
     <Compile Include="SpiralTypes.fs" />
     <Compile Include="SpiralCoreLib.fs" />
-    <Compile Include="Spiral.fs" />
     <Compile Include="SpiralLib.fs" />
     <Compile Include="SpiralTests.fs" />
     <Content Include="packages.config" />
     <None Include="Script1.fsx" />
+    <Compile Include="Spiral.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FParsec">

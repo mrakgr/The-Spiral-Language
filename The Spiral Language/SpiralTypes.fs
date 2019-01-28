@@ -35,8 +35,21 @@ type HashNode<'a when 'a : equality and 'a : comparison>(expr:'a) =
             | :? HashNode<'a> as y -> compare expr y.Expression
             | _ -> failwith "Invalid comparison for Node."
 
-let inline n (x: HashNode<_>) = x.Expression
-let (|N|) x = n x
+type Node<'a>(expr:'a, symbol:int) = 
+    member x.Expression = expr
+    member x.Symbol = symbol
+    override x.ToString() = sprintf "<tag %i>" symbol
+    override x.GetHashCode() = symbol
+    override x.Equals(y) = 
+        match y with 
+        | :? Node<'a> as y -> symbol = y.Symbol
+        | _ -> failwith "Invalid equality for Node."
+
+    interface IComparable with
+        member x.CompareTo(y) = 
+            match y with
+            | :? Node<'a> as y -> compare symbol y.Symbol
+            | _ -> failwith "Invalid comparison for Node."
 
 type ModuleName = string
 type ModuleCode = string
@@ -44,18 +57,6 @@ type ModuleDescription = string
 type Module = Module of Node<ModuleName * Module list * ModuleDescription * ModuleCode>
 
 type PosKey = Module * int64 * int64
-
-let h0() = HashSet(HashIdentity.Structural)
-let d0() = Dictionary(HashIdentity.Structural)
-
-let inline memoize (memo_dict: Dictionary<_,_>) f k =
-    match memo_dict.TryGetValue k with
-    | true, v -> v
-    | false, _ -> let v = f k in memo_dict.[k] <- v; v
-
-let nodify (dict: Dictionary<_,_>) = memoize dict (fun x -> Node(x,dict.Count))
-let nodify_module = nodify <| d0()
-let module_ x = nodify_module x |> Module
 
 type Pos<'a> = Position of PosKey * 'a with
     member x.Expression = match x with Position (_, expr) -> expr
@@ -244,17 +245,12 @@ type Op =
     | InfinityF64
     | InfinityF32
 
-
 type ArrayType =
     | ArtDotNetHeap
     | ArtDotNetReference
     | ArtCudaGlobal of ConsedTy
     | ArtCudaShared
     | ArtCudaLocal
-
-and FunctionCore = Expr * string
-and FunctionRecCore = Expr * string * string
-and HashRef = int option ref
 
 and Pattern =
     | PatE
@@ -293,14 +289,16 @@ and [<ReferenceEquality>] Expr = // TODO: Replace `ReferenceEquality` with taggi
 
 and ConsedTy =
     | CListT of ConsedNode<ConsedTy list>
-    | CFunctionT of ConsedNode<FunctionCore * EnvTy>
-    | CRecFunctionT of ConsedNode<FunctionRecCore * EnvTy>
+    | CTyKeyword of ConsedNode<KeywordArgTag * ConsedTy []>
+    | CFunctionT of ConsedNode<Expr * EnvTy>
+    | CRecFunctionT of ConsedNode<Expr * EnvTy>
+    | CObjectT of ConsedNode<ObjectTag * EnvTy>
     | CMapT of ConsedNode<MapTy>
+
     | CLayoutT of ConsedNode<LayoutType * ConsedTypedData>
     | CUnionT of ConsedNode<Set<ConsedTy>>
 
     | CPrimT of PrimitiveType
-    | CLitT of Value
     | CTermCastedFunctionT of ConsedTy * ConsedTy
     | CRecUnionT of JoinPointKey
     | CArrayT of ArrayType * ConsedTy
@@ -309,8 +307,10 @@ and ConsedTy =
 
 and ConsedTypedData = 
     | CTyList of ConsedNode<ConsedTypedData list>
-    | CTyFunction of ConsedNode<FunctionCore * EnvTerm>
-    | CTyRecFunction of ConsedNode<FunctionRecCore * EnvTerm>
+    | CTyKeyword of ConsedNode<KeywordArgTag * TypedData []>
+    | CTyFunction of ConsedNode<Expr * EnvTerm>
+    | CTyRecFunction of ConsedNode<Expr * EnvTerm>
+    | CTyObject of ConsedNode<ObjectTag * EnvTerm>
     | CTyMap of ConsedNode<MapTerm>
 
     | CTyT of ConsedTy
@@ -320,8 +320,10 @@ and ConsedTypedData =
 
 and TypedData =
     | TyList of TypedData list
-    | TyFunction of FunctionCore * EnvTerm
-    | TyRecFunction of FunctionRecCore * EnvTerm
+    | TyKeyword of KeywordArgTag * TypedData []
+    | TyFunction of Expr * EnvTerm
+    | TyRecFunction of Expr * EnvTerm
+    | TyObject of ObjectTag * EnvTerm
     | TyMap of MapTerm
 
     | TyT of ConsedTy
@@ -348,10 +350,12 @@ and JoinPointState<'a,'b> =
 
 and Tag = int
 and TyTag = Tag * ConsedTy
-and MapTy = Map<string, ConsedTy>
 and EnvTy = ConsedTy []
 and EnvTerm = TypedData []
-and MapTerm = Map<string,TypedData>
+and KeywordArgTag = int
+and MapTerm = Map<KeywordArgTag,TypedData>
+and MapTy = Map<KeywordArgTag, ConsedTy>
+and ObjectTag = int
 
 and JoinPointKey = Node<Expr * EnvTerm>
 
@@ -364,7 +368,7 @@ and JoinPointDict<'a,'b> = Dictionary<JoinPointKey, JoinPointState<'a,'b>>
 and Trace = PosKey list
 
 type TypeOrMethod =
-    | TomType of Ty
+    | TomType of ConsedTy
     | TomJP of JoinPointType * JoinPointKey
 
 type RecursiveBehavior =
@@ -421,6 +425,9 @@ type RenamerResult = {
 
 let cuda_kernels_name = "cuda_kernels"
 
+let h0() = HashSet(HashIdentity.Structural)
+let d0() = Dictionary(HashIdentity.Structural)
+
 let string_to_op =
     let cases = Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(typeof<Op>)
     let dict = d0()
@@ -466,174 +473,6 @@ let cfg_default = {
 
 let cfg_testing = {cfg_default with cuda_includes=[]; trace_length=20}
 
-/// Wraps the argument in a list if not a tuple.
-let tuple_field = function 
-    | TyList (args) -> args
-    | x -> [x]
-
-let (|TyTuple|) x = tuple_field x
-
-let (|TypeLit|_|) = function
-    | TyT (LitT x) -> Some x
-    | _ -> None
-let (|TypeString|_|) = function
-    | TyT (LitT (LitString x)) -> Some x
-    | _ -> None
-
-let get_type_of_value = function
-    | LitUInt8 _ -> PrimT UInt8T
-    | LitUInt16 _ -> PrimT UInt16T
-    | LitUInt32 _ -> PrimT UInt32T
-    | LitUInt64 _ -> PrimT UInt64T
-    | LitInt8 _ -> PrimT Int8T
-    | LitInt16 _ -> PrimT Int16T
-    | LitInt32 _ -> PrimT Int32T
-    | LitInt64 _ -> PrimT Int64T
-    | LitFloat32 _ -> PrimT Float32T
-    | LitFloat64 _ -> PrimT Float64T   
-    | LitBool _ -> PrimT BoolT
-    | LitString _ -> PrimT StringT
-    | LitChar _ -> PrimT CharT
-
-let rec map_to_ty env = Map.map (fun _ -> get_type_data) env
-and env_to_ty x = Array.map get_type_data x
-and get_type_data = function
-    | TyT t | TyV(_,t) | TyBox(_,t) -> t
-    | TyLit x -> get_type_of_value x
-    | TyList l -> List.map get_type_data l |> ListT
-    | TyMap l -> MapT(map_to_ty l)
-    | TyFunction (c, l, _) -> FunctionT(c, env_to_ty l)
-    | TyRecFunction (c, l, _) -> RecFunctionT(c, env_to_ty l)
-
-let (|TyType|) x = get_type_data x
-
-let show_primt = function
-    | UInt8T -> "uint8"
-    | UInt16T -> "uint16"
-    | UInt32T -> "uint32"
-    | UInt64T -> "uint64"
-    | Int8T -> "int8"
-    | Int16T -> "int16"
-    | Int32T -> "int32"
-    | Int64T -> "int64"
-    | Float32T -> "float32"
-    | Float64T -> "float64"
-    | BoolT -> "bool"
-    | StringT -> "string"
-    | CharT -> "char"
-
-let show_value = function
-    | LitUInt8 x -> sprintf "%iu8" x
-    | LitUInt16 x -> sprintf "%iu16" x
-    | LitUInt32 x -> sprintf "%iu32" x
-    | LitUInt64 x -> sprintf "%iu64" x
-    | LitInt8 x -> sprintf "%ii8" x
-    | LitInt16 x -> sprintf "%ii16" x
-    | LitInt32 x -> sprintf "%ii32" x
-    | LitInt64 x -> sprintf "%ii64" x
-    | LitFloat32 x -> sprintf "%ff32" x
-    | LitFloat64 x -> sprintf "%ff64" x
-    | LitBool x -> sprintf "%b" x
-    | LitString x -> sprintf "%s" x
-    | LitChar x -> sprintf "%c" x
-
-let show_art = function
-    | ArtDotNetHeap -> "array"
-    | ArtDotNetReference -> "ref"
-    | ArtCudaGlobal _ -> "array_cuda_global"
-    | ArtCudaShared -> "array_cuda_shared"
-    | ArtCudaLocal -> "array_cuda_local"
-
-let show_layout_type = function
-    | LayoutStack -> "layout_stack"
-    | LayoutPackedStack -> "layout_packed_stack"
-    | LayoutHeap -> "layout_heap"
-    | LayoutHeapMutable -> "layout_heap_mutable"
-
-let inline codegen_macro' show_typedexpr codegen print_type x = 
-    let strb = StringBuilder()
-    let inline append (x: string) = strb.Append x |> ignore
-    let (|LS|) = function
-            | TyLit (LitString x) | TypeString x -> x
-            | _ -> failwithf "Iter's first three arguments must be strings."
-    let er x = failwithf "Unknown argument in macro. Got: %s" (show_typedexpr x)
-    let rec iter begin_ sep end_ ops = 
-        append begin_
-        match ops with
-        | TyList (x :: xs) -> f x; List.iter (fun x -> append sep; f x) xs
-        | TyList [] -> ()
-        | x -> er x
-        append end_
-    and f = function
-        | TyList [TypeString "text"; (TyLit (LitString x) | TypeString x)] -> append x
-        | TyList [TypeString "arg"; x] -> append (codegen x)
-        | TyList [TypeString "args"; TyTuple l] -> append "("; List.map codegen l |> String.concat ", " |> append; append ")"
-        | TyList [TypeString "fs_array_args"; TyTuple l] -> append "[|"; List.map codegen l |> String.concat "; " |> append; append "|]"
-        | TyList [TypeString "type"; TyType x] -> append (print_type x)
-        | TyList [TypeString "types"; TyTuple l] -> append "<"; List.map (get_type_data >> print_type) l |> String.concat ", " |> append; append ">" 
-        | TyList [TypeString "iter"; TyList [LS begin_;LS sep;LS end_;ops]] -> iter begin_ sep end_ ops
-        | TyList [TypeString "parenth"; ops] -> iter "(" "," ")" ops
-        | x -> er x
-    match x with
-    | TyList x -> List.iter f x
-    | x -> er x
-    strb.ToString()
-
-let rec show_ty = function
-    | PrimT x -> show_primt x
-    | ListT l -> sprintf "[%s]" (List.map show_ty l |> String.concat ", ")
-    | LitT v -> sprintf "type_lit (%s)" (show_value v)
-    | MapT v -> 
-        let body = 
-            v |> Map.toArray 
-            |> Array.map (fun (k,v) -> sprintf "%s=%s" k (show_ty v))
-            |> String.concat "; "
-
-        sprintf "{%s}" body
-    | FunctionT _ | RecFunctionT _ -> "<function>"
-    | LayoutT (layout_type,body) ->
-        sprintf "%s (%s)" (show_layout_type layout_type) (show_typedexpr body)
-    | TermCastedFunctionT (a,b) ->
-        sprintf "(%s => %s)" (show_ty a) (show_ty b)
-    | UnionT l ->
-        let body =
-            Set.toArray l
-            |> Array.map show_ty
-            |> String.concat " | "
-        sprintf "union {%s}" body
-    | RecUnionT x -> sprintf "rec_union_type %i" x.Symbol
-    | ArrayT (a,b) -> sprintf "%s (%s)" (show_art a) (show_ty b)
-    | DotNetTypeT x -> sprintf "dotnet_type (%s)" (codegen_macro' show_typedexpr show_typedexpr show_ty x)
-    | CudaTypeT x -> sprintf "cuda_type (%s)" (codegen_macro' show_typedexpr show_typedexpr show_ty x)
-
-and show_typedexpr = function
-    | TyT x -> sprintf "type (%s)" (show_ty x)
-    | TyV (_,t) -> sprintf "var (%s)" (show_ty t)
-    | TyList l -> 
-        let body = List.map show_typedexpr l |> String.concat ", "
-        sprintf "[%s]" body
-    | TyMap a ->
-        let body =
-            Map.toArray a
-            |> Array.map (fun (a,b) -> sprintf "%s=%s" a (show_typedexpr b))
-            |> String.concat "; "
-        sprintf "{%s}" body
-    | TyFunction _ | TyRecFunction _ -> "<function>"
-    | TyBox (a,b) -> sprintf "(boxed_type %s with %s)" (show_ty b) (show_typedexpr a)
-    | TyLit v -> sprintf "lit %s" (show_value v)
-
-let inline codegen_macro codegen print_type x = codegen_macro' show_typedexpr codegen print_type x
-
-let lit_is = function
-    | TyLit _ -> true
-    | _ -> false
-
-let val_is = function
-    | TyLit _ 
-    | TyV(_, (PrimT _ | LitT _))
-    | TyT(PrimT _ | LitT _) -> true
-    | _ -> false
-
 type Timings = {
     parsing_time: TimeSpan    
     prepass_time: TimeSpan
@@ -642,4 +481,4 @@ type Timings = {
     }
 
 exception TypeError of Trace * string
-exception TypeRaised of Ty
+exception TypeRaised of ConsedTy
