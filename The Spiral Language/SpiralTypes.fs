@@ -13,6 +13,24 @@ type LayoutType =
     | LayoutHeap
     | LayoutHeapMutable
 
+type TaggedDictionary<'a,'b when 'a: equality>(capacity: int, tag: int) =
+    inherit Dictionary<'a,'b>(capacity)
+
+    member __.Tag = tag
+
+    override __.Equals(b) =
+        match b with
+        | :? TaggedDictionary<'a,'b> as b -> tag = b.Tag
+        | _ -> failwith "Invalid equality for TaggedDictionary."
+
+    override __.GetHashCode() = tag
+
+    interface IComparable with
+        member x.CompareTo(y) = 
+            match y with
+            | :? TaggedDictionary<'a,'b> as y -> compare tag y.Tag
+            | _ -> failwith "Invalid comparison for TaggedDictionary."
+
 type HashNode<'a when 'a : equality and 'a : comparison>(expr:'a) =
     let h = ref None
     member x.Expression = expr
@@ -27,13 +45,13 @@ type HashNode<'a when 'a : equality and 'a : comparison>(expr:'a) =
     override x.Equals(y) =
         match y with 
         | :? HashNode<'a> as y -> expr = y.Expression
-        | _ -> false
+        | _ -> failwith "Invalid equality for HashNode."
 
     interface IComparable with
         member x.CompareTo(y) = 
             match y with
             | :? HashNode<'a> as y -> compare expr y.Expression
-            | _ -> failwith "Invalid comparison for Node."
+            | _ -> failwith "Invalid comparison for HashNode."
 
 type Node<'a>(expr:'a, symbol:int) = 
     member x.Expression = expr
@@ -107,7 +125,9 @@ type Op =
 
     // Term function
     | TermFunctionTypeCreate
-    | TermFunctionDomainRangeCPS
+    | TermFunctionIs
+    | TermFunctionDomain
+    | TermFunctionRange
 
     // Unsafe casts
     | UnsafeConvert
@@ -128,36 +148,29 @@ type Op =
 
     // List
     | ListCons
-    | ListTakeNCPS
-    | ListTakeNTailCPS
+    | ListCreate
 
     // Keyword args
     | KeywordArgCreate
-    | KeywordArgCPS
 
     // Module
     | ModuleCreate
     | ModuleWith
     | ModuleWithout
-    | ModuleAdd
-    | ModuleRemove
-    | ModuleIsCPS
-    | ModuleValues
-    | ModuleHasMember
+    
     | ModuleMap
     | ModuleFilter
     | ModuleFoldL
     | ModuleFoldR
     | ModuleLength
-    | MapGetField // Codegen only
-    | ModuleMemberCPS
-    | ModuleInjectCPS
 
     // Braching
     | Case
     | CaseFoldLMap
     | IfStatic
     | While
+    | EqTest
+    | TypeEqTest
 
     // BinOps
     | Add
@@ -195,7 +208,7 @@ type Op =
     | LayoutToHeap
     | LayoutToHeapMutable
 
-    // Type 
+    // Type
     | TypeCatch
     | TypeRaise
     | TypeGet
@@ -251,16 +264,16 @@ and Pattern =
     | PatTuple of Pattern list
     | PatKeyword of string * Pattern []
     | PatCons of Pattern list
-    | PatTypeEq of Pattern * Expr
-    | PatActive of Expr * Pattern
-    | PatPartActive of Expr * Pattern
+    | PatTypeEq of Pattern * RawExpr
+    | PatActive of RawExpr * Pattern
+    | PatPartActive of RawExpr * Pattern
     | PatUnbox of Pattern
     | PatOr of Pattern list
     | PatAnd of Pattern list
     | PatNot of Pattern
-    | PatClauses of (Pattern * Expr) list
+    | PatClauses of (Pattern * RawExpr) list
     | PatLit of Value
-    | PatWhen of Pattern * Expr
+    | PatWhen of Pattern * RawExpr
     | PatModuleIs of Pattern
     | PatModuleMember of string
     | PatModuleRebind of string * Pattern
@@ -268,23 +281,57 @@ and Pattern =
     | PatPos of Pos<Pattern>
     | PatTypeTermFunction of Pattern * Pattern
 
-and [<ReferenceEquality>] Expr = // TODO: Replace `ReferenceEquality` with tagging after the prepass. No need for HashConsing for this.
-    | V of string
-    | Lit of Value
-    | Open of Expr * Expr
-    | Pattern of Pattern
-    | Function of Expr * string
-    | RecFunction of Expr * string * rec_name: string
-    | VV of Expr list
-    | Op of Op * Expr list
-    | ExprPos of Pos<Expr>
+and RawModuleTestPattern = RawModuleTestKeyword of name: string * keyword: string | RawModuleTestInjectVar of name: string * var: string
+and RawModuleWithPattern = 
+    | RawModuleWithKeyword of keyword: string * RawExpr 
+    | RawModuleWithInjectVar of var: string * RawExpr
+    | RawModuleWithoutKeyword of keyword: string 
+    | RawModuleWithoutInjectVar of var: string
+
+and RawExpr =
+    | RawV of string
+    | RawLit of Value
+    | RawOpen of string [] * RawExpr
+    | RawPattern of Pattern
+    | RawFunction of RawExpr * string
+    | RawRecFunction of RawExpr * string * rec_name: string
+    | RawObjectCreate of (KeywordArgTag * RawExpr) []
+    | RawLet of string * bind: RawExpr * on_succ: RawExpr
+    | RawListTakeAllTest of string [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
+    | RawListTakeNTest of string [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
+    | RawModuleTest of RawModuleTestPattern [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
+    | RawModuleWith of RawExpr [] * RawModuleWithPattern []
+    | RawOp of Op * RawExpr []
+    | RawExprPos of Pos<RawExpr>
+
+and ModuleTestPattern = ModuleKeyword of keyword: KeywordArgTag | ModuleInjectVar of var: VarTag
+and ModuleWithPattern = 
+    | ModuleWithKeyword of keyword: KeywordArgTag * Expr 
+    | ModuleWithInjectVar of var: VarTag * Expr
+    | ModuleWithoutKeyword of keyword: KeywordArgTag
+    | ModuleWithoutInjectVar of var: VarTag
+
+and Expr =
+    | V of Tag * VarTag
+    | Lit of Tag * Value
+    | Open of Tag * VarTag * KeywordArgTag [] * Expr
+    | Function of Tag * Expr * FreeVars * StackSize
+    | RecFunction of Tag * Expr * FreeVars * StackSize
+    | ObjectCreate of ObjectDict * FreeVars
+    | Let of Tag * bind: Expr * on_succ: Expr
+    | ListTakeAllTest of Tag * bind: Expr * on_succ: Expr * on_fail: Expr
+    | ListTakeNTest of Tag * bind: Expr * on_succ: Expr * on_fail: Expr
+    | ModuleTest of Tag * ModuleTestPattern [] * bind: Expr * on_succ: Expr * on_fail: Expr
+    | ModuleWith of Tag * Expr [] * ModuleWithPattern []
+    | Op of Tag * Op * Expr []
+    | ExprPos of Tag * Pos<Expr>
 
 and ConsedTy =
     | CListT of ConsedNode<ConsedTy list>
     | CTyKeyword of ConsedNode<KeywordArgTag * ConsedTy []>
     | CFunctionT of ConsedNode<Expr * EnvTy>
     | CRecFunctionT of ConsedNode<Expr * EnvTy>
-    | CObjectT of ConsedNode<ObjectTag * EnvTy>
+    | CObjectT of ConsedNode<ObjectDict * EnvTy>
     | CMapT of ConsedNode<MapTy>
 
     | CLayoutT of ConsedNode<LayoutType * ConsedTypedData>
@@ -302,7 +349,7 @@ and ConsedTypedData =
     | CTyKeyword of ConsedNode<KeywordArgTag * TypedData []>
     | CTyFunction of ConsedNode<Expr * EnvTerm>
     | CTyRecFunction of ConsedNode<Expr * EnvTerm>
-    | CTyObject of ConsedNode<ObjectTag * EnvTerm>
+    | CTyObject of ConsedNode<ObjectDict * EnvTerm>
     | CTyMap of ConsedNode<MapTerm>
 
     | CTyT of ConsedTy
@@ -315,7 +362,7 @@ and TypedData =
     | TyKeyword of KeywordArgTag * TypedData []
     | TyFunction of Expr * EnvTerm
     | TyRecFunction of Expr * EnvTerm
-    | TyObject of ObjectTag * EnvTerm
+    | TyObject of ObjectDict * EnvTerm
     | TyMap of MapTerm
 
     | TyT of ConsedTy
@@ -347,7 +394,10 @@ and EnvTerm = TypedData []
 and KeywordArgTag = int
 and MapTerm = Map<KeywordArgTag,TypedData>
 and MapTy = Map<KeywordArgTag, ConsedTy>
-and ObjectTag = int
+and VarTag = int
+and StackSize = int
+and FreeVars = VarTag []
+and ObjectDict = TaggedDictionary<KeywordArgTag,Expr * FreeVars * StackSize>
 
 and JoinPointKey = Node<Expr * EnvTerm>
 
