@@ -94,6 +94,7 @@ type Value =
     | LitChar of char
 
 type Op =
+    // Type operation
     | ToVar
     
     // Extern type constructors
@@ -126,10 +127,13 @@ type Op =
     | StringConcat
 
     // List
-    | ListIndex // codegen only
     | ListCons
     | ListTakeNCPS
     | ListTakeNTailCPS
+
+    // Keyword args
+    | KeywordArgCreate
+    | KeywordArgCPS
 
     // Module
     | ModuleCreate
@@ -148,12 +152,6 @@ type Op =
     | MapGetField // Codegen only
     | ModuleMemberCPS
     | ModuleInjectCPS
-
-    // Subtype tests
-    | CaseableIs
-    | CaseableBoxIs
-    | BoxIs
-    | BlittableIs
 
     // Braching
     | Case
@@ -204,6 +202,7 @@ type Op =
     | TypeUnion
     | TypeSplit
     | TypeBox
+    | TypeUnbox
     | EqType
     | SizeOf
 
@@ -223,12 +222,6 @@ type Op =
     | Dynamize
     | LitIs
     | ValIs
-
-    // Type lit ops
-    | TypeLitCreate
-    | TypeLitCast
-    | TypeLitIs
-    | TypeLitCPS
 
     // UnOps
     | Neg
@@ -256,17 +249,16 @@ and Pattern =
     | PatE
     | PatVar of string
     | PatTuple of Pattern list
+    | PatKeyword of string * Pattern []
     | PatCons of Pattern list
     | PatTypeEq of Pattern * Expr
     | PatActive of Expr * Pattern
     | PatPartActive of Expr * Pattern
+    | PatUnbox of Pattern
     | PatOr of Pattern list
     | PatAnd of Pattern list
-    | PatXor of Pattern list
     | PatNot of Pattern
     | PatClauses of (Pattern * Expr) list
-    | PatTypeLit of Value
-    | PatTypeLitBind of string
     | PatLit of Value
     | PatWhen of Pattern * Expr
     | PatModuleIs of Pattern
