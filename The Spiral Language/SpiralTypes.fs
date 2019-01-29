@@ -258,26 +258,24 @@ type ArrayType =
     | ArtCudaShared
     | ArtCudaLocal
 
+and PatModuleMembersItem = PatModuleMembersKeyword of string * Pattern | PatModuleMembersInject of string * Pattern
 and Pattern =
     | PatE
     | PatVar of string
-    | PatTuple of Pattern list
-    | PatKeyword of string * Pattern []
-    | PatCons of Pattern list
+    | PatTuple of Pattern []
+    | PatKeyword of (string * Pattern) []
+    | PatCons of Pattern []
     | PatTypeEq of Pattern * RawExpr
     | PatActive of RawExpr * Pattern
     | PatPartActive of RawExpr * Pattern
     | PatUnbox of Pattern
-    | PatOr of Pattern list
-    | PatAnd of Pattern list
+    | PatOr of Pattern []
+    | PatAnd of Pattern []
     | PatNot of Pattern
-    | PatClauses of (Pattern * RawExpr) list
+    | PatClauses of (Pattern * RawExpr) []
     | PatLit of Value
     | PatWhen of Pattern * RawExpr
-    | PatModuleIs of Pattern
-    | PatModuleMember of string
-    | PatModuleRebind of string * Pattern
-    | PatModuleInject of string * Pattern
+    | PatModuleMembers of PatModuleMembersItem []
     | PatPos of Pos<Pattern>
     | PatTypeTermFunction of Pattern * Pattern
 
