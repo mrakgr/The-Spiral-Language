@@ -279,6 +279,10 @@ and Pattern =
     | PatPos of Pos<Pattern>
     | PatTypeTermFunction of Pattern * Pattern
 
+and ModulePrepassExpr =
+    | ModPreLet of string * RawExpr * ModulePrepassExpr
+    | ModPreOpen of string * ModulePrepassExpr
+
 and RawModuleTestPattern = RawModuleTestKeyword of name: string * keyword: string | RawModuleTestInjectVar of name: string * var: string
 and RawModuleWithPattern = 
     | RawModuleWithKeyword of keyword: string * RawExpr 
@@ -419,14 +423,22 @@ type RecursiveBehavior =
     | AnnotationDive
     | AnnotationReturn
 
-type LangEnvOuter = {
-    rbeh : RecursiveBehavior
-    seq : ResizeArray<TypedBind>
+type ModulePrepassEnv = {
+    modpre_seq : ResizeArray<TypedBind>
+    modpre_context : ResizeArray<TypedData>
+    modpre_map : Map<string, int>
     }
 
-type LangEnvInner = {
-    env_main : EnvTerm
-    env_temp : EnvTerm
+type PrepassEnv = {
+    prepass_context : EnvTerm
+    prepass_map : Map<string, int>
+    }
+
+type LangEnv = {
+    rbeh : RecursiveBehavior
+    seq : ResizeArray<TypedBind>
+    env_global : EnvTerm
+    env_cur : EnvTerm
     trace : Trace
     }
 
