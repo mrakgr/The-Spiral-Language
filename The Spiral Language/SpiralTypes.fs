@@ -370,12 +370,16 @@ and TypedData =
     | TyBox of TypedData * ConsedTy
     | TyLit of Value
 
-and TypedExpr = // TypedData being `TyList []` indicates a statement.
-    | TyOp of TypedData * ConsedTy * Trace * Op * TypedData
-    | TyIf of TypedData * ConsedTy * Trace * tr: TypedExpr [] * fl: TypedExpr []
-    | TyCase of TypedData * ConsedTy * Trace * TyTag * (TypedData * TypedExpr []) []
-    | TyJoinPoint of TypedData * ConsedTy * Trace * JoinPointKey * JoinPointType * CallArguments
-    | TyLocalReturn of TypedData * ConsedTy * Trace
+and TypedBind = // TypedData being `TyList []` indicates a statement.
+    | TyLet of TypedData * ConsedTy * Trace * TypedOp
+    | TyLocalReturnOp of ConsedTy * Trace * TypedOp
+    | TyLocalReturnData of TypedData * ConsedTy * Trace
+
+and TypedOp = 
+    | TyOp of Op * TypedData
+    | TyIf of tr: TypedBind [] * fl: TypedBind []
+    | TyCase of TyTag * (TypedData * TypedBind []) []
+    | TyJoinPoint of JoinPointKey * JoinPointType * CallArguments
 
 and JoinPointType =
     | JoinPointClosure
@@ -419,7 +423,7 @@ type RecursiveBehavior =
 
 type LangEnvOuter = {
     rbeh : RecursiveBehavior
-    seq : ResizeArray<TypedExpr>
+    seq : ResizeArray<TypedBind>
     }
 
 type LangEnvInner = {
