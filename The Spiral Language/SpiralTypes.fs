@@ -467,6 +467,14 @@ type RenamerResult = {
     method_pars : TyTag list
     }
 
+let inline n (x: Node<_>) = x.Expression
+let (|N|) x = n x
+
+let inline memoize (memo_dict: Dictionary<_,_>) f k =
+    match memo_dict.TryGetValue k with
+    | true, v -> v
+    | false, _ -> let v = f k in memo_dict.[k] <- v; v
+
 let cuda_kernels_name = "cuda_kernels"
 
 let h0() = HashSet(HashIdentity.Structural)
@@ -524,5 +532,7 @@ type Timings = {
     codegen_time: TimeSpan
     }
 
+exception PrepassUnboundVariable of string
+exception PrepassUnboundVariableWithPos of PosKey * string
 exception TypeError of Trace * string
 exception TypeRaised of ConsedTy
