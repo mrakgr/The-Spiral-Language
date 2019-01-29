@@ -299,6 +299,7 @@ and RawExpr =
     | RawRecFunction of RawExpr * string * rec_name: string
     | RawObjectCreate of (KeywordArgTag * RawExpr) []
     | RawLet of string * bind: RawExpr * on_succ: RawExpr
+    | RawIf of cond: RawExpr * on_succ: RawExpr * on_fail: RawExpr
     | RawListTakeAllTest of string [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
     | RawListTakeNTest of string [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
     | RawModuleTest of RawModuleTestPattern [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
@@ -321,6 +322,7 @@ and Expr =
     | RecFunction of Tag * Expr * FreeVars * StackSize
     | ObjectCreate of ObjectDict * FreeVars
     | Let of Tag * bind: Expr * on_succ: Expr
+    | If of Tag * cond: Expr * on_succ: Expr * on_fail: Expr
     | ListTakeAllTest of Tag * bind: Expr * on_succ: Expr * on_fail: Expr
     | ListTakeNTest of Tag * bind: Expr * on_succ: Expr * on_fail: Expr
     | ModuleTest of Tag * ModuleTestPattern [] * bind: Expr * on_succ: Expr * on_fail: Expr
