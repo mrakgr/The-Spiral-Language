@@ -29,6 +29,7 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
             keyword_to_string_dict.[tag_keyword] <- x
             tag_keyword
     let keyword_to_string x = keyword_to_string_dict.[x] // Should never fail.
+    let keyword_num_args x = keyword_to_string x |> Seq.fold (fun s x -> if x = '.' then s+1 else s) 0
 
     let rec module_prepass (env: ModulePrepassEnv) expr = 
         let error x = raise (PrepassError x)
@@ -68,10 +69,16 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
 
         let rec loop (env: PrepassEnv) expr = 
             let inline env_add_var (env: PrepassEnv) k = 
+                env.prepass_map_length, 
                 { env with 
                     prepass_map = Map.add k env.prepass_map_length env.prepass_map
                     prepass_map_length = env.prepass_map_length + 1
                     }
+
+            let inline subrenaming_env_add_var (count, map) k = count + 1, Map.add k count map
+            let inline subrenaming_env_add_var' k env = subrenaming_env_add_var env k
+
+            let rec subrenaming expr (map,count) = failwith ""
 
             memoize prepass_memo_dict (function
                 | RawV x -> let tag = tag() in V(tag, string_to_var env.prepass_map x), Set.singleton tag, 0
@@ -95,7 +102,7 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                                     | _, TyMap s -> s
                                     | name, _ -> error <| sprintf "The variable %s being opened is not a module." name
                             let on_succ, free_vars, stack_size = 
-                                let env = Map.fold (fun env k _ -> env_add_var env (keyword_to_string k)) env env'
+                                let env = Map.fold (fun env k _ -> env_add_var env (keyword_to_string k) |> snd) env env'
                                 loop env on_succ
                             let free_vars, stack_size =
                                 Map.fold (fun (free_vars, stack_size) k _ -> Set.remove k free_vars, stack_size + 1) 
@@ -105,13 +112,49 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                             error <| sprintf "Module %s is not a proper module or might have been shadowed. Only records returned from previously compiled modules can be opened." module_name
                     | None -> error <| sprintf "Module %s is not bound." module_name
                 | RawFunction(expr, name) ->
-                    let name_argtag = env.prepass_map_length
-                    let expr, free_vars, stack_size = loop (env_add_var env name) expr
+                    let name_argtag, env = env_add_var env name
+                    let expr, free_vars, stack_size = loop env expr
+                    let free_vars = Set.remove (string_to_keyword name) free_vars
                     let array_free_vars = Set.toArray free_vars
-                    let map, count = 
-                        Array.fold (fun (map, count) argtag -> Map.add argtag count map, count+1) (Map.empty, 0) array_free_vars
-                        |> fun (map, count) -> Map.add name_argtag count, count + 1
-                    Function(tag(),expr,array_free_vars,stack_size), free_vars, stack_size
+                    let expr = 
+                        Array.fold subrenaming_env_add_var (0, Map.empty) array_free_vars
+                        |> subrenaming_env_add_var' name_argtag
+                        |> subrenaming expr
+                    Function(tag(),expr,array_free_vars,stack_size), free_vars, 0
+                | RawRecFunction(expr, name, rec_name) ->
+                    let name_argtag, env = env_add_var env name
+                    let rec_name_argtag, env = env_add_var env rec_name
+                    let expr, free_vars, stack_size = loop env expr
+                    let free_vars = Set.remove (string_to_keyword name) free_vars |> Set.remove (string_to_keyword rec_name)
+                    let array_free_vars = Set.toArray free_vars
+                    let expr = 
+                        Array.fold subrenaming_env_add_var (0, Map.empty) array_free_vars
+                        |> subrenaming_env_add_var' name_argtag
+                        |> subrenaming_env_add_var' rec_name_argtag
+                        |> subrenaming expr
+                    Function(tag(),expr,array_free_vars,stack_size), free_vars, 0
+                | RawObjectCreate(ar) ->
+                    let ar, free_vars = 
+                        Array.mapFold (fun free_vars (receiver, args_name, expr) ->
+                            let self_name, env = env_add_var env "self"
+                            let args_name, env = Array.mapFold env_add_var env args_name
+                            let expr, free_vars', stack_size = loop env expr
+                            let free_vars' = Array.fold (fun s x -> Set.remove x s) (Set.remove (string_to_keyword "self") free_vars') args_name
+                            (string_to_keyword receiver, expr, self_name, args_name, stack_size), free_vars + free_vars'
+                            ) Set.empty ar
+                    let array_free_vars = Set.toArray free_vars
+                    let tagged_dict =
+                        let env = Array.fold subrenaming_env_add_var (0, Map.empty) array_free_vars
+                        let tagged_dict = TaggedDictionary(ar.Length,tag())
+                        Array.iter (fun (keyword, expr, self_name, args_name, stack_size) -> 
+                            let env = subrenaming_env_add_var env self_name
+                            let env = Array.fold subrenaming_env_add_var env args_name
+                            let expr = subrenaming expr env
+                            tagged_dict.Add(keyword, (expr, stack_size + 1 + args_name.Length))
+                            ) ar
+                        tagged_dict
+
+                    ObjectCreate(tagged_dict, array_free_vars), free_vars, 0
                 ) expr
         
         let expr, free_vars, stack_size = loop env expr

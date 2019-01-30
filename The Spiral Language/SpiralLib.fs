@@ -1300,7 +1300,7 @@ inl blocked =
             | x, y, z -> f x y z
         loop (a,b,c)
 
-    inl foldl_map f s x = 
+    inl foldl_map f s x = // TODO: Make this map_foldl.
         inl rec loop s = function
             | x when caseable_box_is x -> f s x
             | () -> (), s

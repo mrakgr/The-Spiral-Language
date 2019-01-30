@@ -288,7 +288,7 @@ and RawExpr =
     | RawOpen of string [] * RawExpr
     | RawFunction of RawExpr * string
     | RawRecFunction of RawExpr * string * rec_name: string
-    | RawObjectCreate of (KeywordArgTag * RawExpr) []
+    | RawObjectCreate of (string * string [] * RawExpr) []
     | RawKeywordCreate of string * RawExpr []
     | RawLet of string * bind: RawExpr * on_succ: RawExpr
     | RawIf of cond: RawExpr * on_succ: RawExpr * on_fail: RawExpr
