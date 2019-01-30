@@ -150,9 +150,6 @@ type Op =
     | ListCons
     | ListCreate
 
-    // Keyword args
-    | KeywordArgCreate
-
     // Module
     | ModuleCreate
     | ModuleWith
@@ -167,7 +164,6 @@ type Op =
     // Braching
     | Case
     | CaseFoldLMap
-    | IfStatic
     | While
     | EqTest
     | TypeEqTest
@@ -179,11 +175,11 @@ type Op =
     | Div 
     | Mod 
     | Pow
-    | LTE 
-    | LT 
-    | EQ 
-    | NEQ 
-    | GT 
+    | LTE
+    | LT
+    | EQ
+    | NEQ
+    | GT
     | GTE 
     | BitwiseAnd
     | BitwiseOr
@@ -298,6 +294,7 @@ and RawExpr =
     | RawFunction of RawExpr * string
     | RawRecFunction of RawExpr * string * rec_name: string
     | RawObjectCreate of (KeywordArgTag * RawExpr) []
+    | RawKeywordCreate of string * RawExpr []
     | RawLet of string * bind: RawExpr * on_succ: RawExpr
     | RawIf of cond: RawExpr * on_succ: RawExpr * on_fail: RawExpr
     | RawListTakeAllTest of string [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
@@ -321,6 +318,7 @@ and Expr =
     | Function of Tag * Expr * FreeVars * StackSize
     | RecFunction of Tag * Expr * FreeVars * StackSize
     | ObjectCreate of ObjectDict * FreeVars
+    | KeywordCreate of KeywordArgTag * Expr []
     | Let of Tag * bind: Expr * on_succ: Expr
     | If of Tag * cond: Expr * on_succ: Expr * on_fail: Expr
     | ListTakeAllTest of Tag * bind: Expr * on_succ: Expr * on_fail: Expr
@@ -405,7 +403,7 @@ and MapTy = Map<KeywordArgTag, ConsedTy>
 and VarTag = int
 and StackSize = int
 and FreeVars = VarTag []
-and ObjectDict = TaggedDictionary<KeywordArgTag,Expr * FreeVars * StackSize>
+and ObjectDict = TaggedDictionary<KeywordArgTag,Expr * StackSize>
 
 and JoinPointKey = Node<Expr * EnvTerm>
 
