@@ -200,7 +200,31 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                     let free_vars = vars_free_vars+bind_free_vars+on_succ_free_vars+on_fail_free_vars
                     let stack_size = vars.Length + bind_stack_size + max on_succ_stack_size on_fail_stack_size
                     ModuleTest(tag(),vars,bind,on_succ,on_fail),free_vars,stack_size                    
-
+                | RawModuleWith(binds,patterns) ->
+                    let binds, (binds_free_vars, binds_stack_size) = 
+                        Array.mapFold (fun (free_vars, stack_size) x ->
+                            let bind, free_vars', stack_size' = loop env x
+                            bind,(free_vars+free_vars',max stack_size stack_size')
+                            ) (Set.empty, 0) binds
+                    let patterns, (patterns_free_vars, patterns_stack_size) =
+                        Array.mapFold (fun (free_vars, stack_size) -> function
+                            | RawModuleWithKeyword(keyword,expr) ->
+                                let this_tag, env = env_add_var env "this"
+                                let expr, free_vars', stack_size' = loop env expr
+                                let free_vars' = Set.remove this_tag free_vars'
+                                ModuleWithKeyword(string_to_keyword keyword, expr),(free_vars+free_vars',max stack_size stack_size')
+                            | RawModuleWithInjectVar(var,expr) ->
+                                let this_tag, env = env_add_var env "this"
+                                let expr, free_vars', stack_size' = loop env expr
+                                let free_vars' = Set.remove this_tag free_vars'
+                                let x = string_to_var env.prepass_map var
+                                ModuleWithInjectVar(x, expr),(free_vars+free_vars' |> Set.add x, max stack_size stack_size')
+                            | RawModuleWithoutKeyword keyword -> ModuleWithoutKeyword(string_to_keyword keyword),(free_vars,stack_size)
+                            | RawModuleWithoutInjectVar var -> 
+                                let x = string_to_var env.prepass_map var
+                                ModuleWithoutInjectVar x,(Set.add x free_vars,stack_size)
+                            ) (Set.empty, 0) patterns
+                    ModuleWith(tag(), binds, patterns),binds_free_vars+patterns_free_vars,binds_stack_size+patterns_stack_size
                 ) expr
         
         let expr, free_vars, stack_size = loop env expr
