@@ -275,52 +275,55 @@ and ModulePrepassExpr =
     | ModPreLet of string * RawExpr * ModulePrepassExpr
     | ModPreOpen of string * ModulePrepassExpr
 
+and VarString = string
+and KeywordString = string
+
 and RawModuleTestPattern = RawModuleTestKeyword of name: string * keyword: string | RawModuleTestInjectVar of name: string * var: string
 and RawModuleWithPattern = 
-    | RawModuleWithKeyword of keyword: string * RawExpr 
-    | RawModuleWithInjectVar of var: string * RawExpr
-    | RawModuleWithoutKeyword of keyword: string 
-    | RawModuleWithoutInjectVar of var: string
+    | RawModuleWithKeyword of KeywordString * RawExpr 
+    | RawModuleWithInjectVar of VarString * RawExpr
+    | RawModuleWithoutKeyword of KeywordString 
+    | RawModuleWithoutInjectVar of VarString
 
 and RawExpr =
     | RawV of string
     | RawLit of Value
-    | RawOpen of string [] * RawExpr
-    | RawFunction of RawExpr * string
-    | RawRecFunction of RawExpr * string * rec_name: string
-    | RawObjectCreate of (string * string [] * RawExpr) []
-    | RawKeywordCreate of string * RawExpr []
-    | RawLet of string * bind: RawExpr * on_succ: RawExpr
+    | RawOpen of VarString * KeywordString [] * RawExpr
+    | RawFunction of RawExpr * VarString
+    | RawRecFunction of RawExpr * VarString * rec_name: VarString
+    | RawObjectCreate of (VarString * KeywordString [] * RawExpr) []
+    | RawKeywordCreate of KeywordString * RawExpr []
+    | RawLet of VarString * bind: RawExpr * on_succ: RawExpr
     | RawIf of cond: RawExpr * on_succ: RawExpr * on_fail: RawExpr
-    | RawListTakeAllTest of string [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
-    | RawListTakeNTest of string [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
-    | RawKeywordTest of string * string [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
+    | RawListTakeAllTest of VarString [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
+    | RawListTakeNTest of VarString [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
+    | RawKeywordTest of KeywordString * VarString [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
     | RawModuleTest of RawModuleTestPattern [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
     | RawModuleWith of RawExpr [] * RawModuleWithPattern []
     | RawOp of Op * RawExpr []
     | RawExprPos of Pos<RawExpr>
     | RawPattern of Pattern
 
-and ModuleTestPattern = ModuleKeyword of keyword: KeywordArgTag | ModuleInjectVar of var: VarTag
+and ModuleTestPattern = ModuleKeyword of keyword: KeywordTag | ModuleInjectVar of var: VarTag
 and ModuleWithPattern = 
-    | ModuleWithKeyword of keyword: KeywordArgTag * Expr 
+    | ModuleWithKeyword of keyword: KeywordTag * Expr 
     | ModuleWithInjectVar of var: VarTag * Expr
-    | ModuleWithoutKeyword of keyword: KeywordArgTag
+    | ModuleWithoutKeyword of keyword: KeywordTag
     | ModuleWithoutInjectVar of var: VarTag
 
 and Expr =
     | V of Tag * VarTag
     | Lit of Tag * Value
-    | Open of Tag * VarTag * KeywordArgTag [] * Expr
+    | Open of Tag * VarTag * KeywordTag [] * Expr
     | Function of Tag * Expr * FreeVars * StackSize
     | RecFunction of Tag * Expr * FreeVars * StackSize
     | ObjectCreate of ObjectDict * FreeVars
-    | KeywordCreate of KeywordArgTag * Expr []
+    | KeywordCreate of Tag * KeywordTag * Expr []
     | Let of Tag * bind: Expr * on_succ: Expr
     | If of Tag * cond: Expr * on_succ: Expr * on_fail: Expr
     | ListTakeAllTest of Tag * StackSize * bind: Expr * on_succ: Expr * on_fail: Expr
     | ListTakeNTest of Tag * StackSize * bind: Expr * on_succ: Expr * on_fail: Expr
-    | KeywordTest of Tag * KeywordArgTag * bind: Expr * on_succ: Expr * on_fail: Expr
+    | KeywordTest of Tag * KeywordTag * bind: Expr * on_succ: Expr * on_fail: Expr
     | ModuleTest of Tag * ModuleTestPattern [] * bind: Expr * on_succ: Expr * on_fail: Expr
     | ModuleWith of Tag * Expr [] * ModuleWithPattern []
     | Op of Tag * Op * Expr []
@@ -328,7 +331,7 @@ and Expr =
 
 and ConsedTy =
     | CListT of ConsedNode<ConsedTy list>
-    | CTyKeyword of ConsedNode<KeywordArgTag * ConsedTy []>
+    | CTyKeyword of ConsedNode<KeywordTag * ConsedTy []>
     | CFunctionT of ConsedNode<Expr * EnvTy>
     | CRecFunctionT of ConsedNode<Expr * EnvTy>
     | CObjectT of ConsedNode<ObjectDict * EnvTy>
@@ -346,7 +349,7 @@ and ConsedTy =
 
 and ConsedTypedData = 
     | CTyList of ConsedNode<ConsedTypedData list>
-    | CTyKeyword of ConsedNode<KeywordArgTag * TypedData []>
+    | CTyKeyword of ConsedNode<KeywordTag * TypedData []>
     | CTyFunction of ConsedNode<Expr * EnvTerm>
     | CTyRecFunction of ConsedNode<Expr * EnvTerm>
     | CTyObject of ConsedNode<ObjectDict * EnvTerm>
@@ -359,7 +362,7 @@ and ConsedTypedData =
 
 and TypedData =
     | TyList of TypedData list
-    | TyKeyword of KeywordArgTag * TypedData []
+    | TyKeyword of KeywordTag * TypedData []
     | TyFunction of Expr * EnvTerm
     | TyRecFunction of Expr * EnvTerm
     | TyObject of ObjectDict * EnvTerm
@@ -395,13 +398,13 @@ and Tag = int
 and TyTag = Tag * ConsedTy
 and EnvTy = ConsedTy []
 and EnvTerm = TypedData []
-and KeywordArgTag = int
-and MapTerm = Map<KeywordArgTag,TypedData>
-and MapTy = Map<KeywordArgTag, ConsedTy>
+and KeywordTag = int
+and MapTerm = Map<KeywordTag,TypedData>
+and MapTy = Map<KeywordTag, ConsedTy>
 and VarTag = int
 and StackSize = int
 and FreeVars = VarTag []
-and ObjectDict = TaggedDictionary<KeywordArgTag,Expr * StackSize>
+and ObjectDict = TaggedDictionary<KeywordTag,Expr * StackSize>
 
 and JoinPointKey = Node<Expr * EnvTerm>
 
