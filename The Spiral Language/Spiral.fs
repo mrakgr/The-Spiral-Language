@@ -67,6 +67,12 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
             | None -> error <| sprintf "Variable %s not bound." x
 
         let rec loop (env: PrepassEnv) expr = 
+            let inline env_add_var (env: PrepassEnv) k = 
+                { env with 
+                    prepass_map = Map.add k env.prepass_map_length env.prepass_map
+                    prepass_map_length = env.prepass_map_length + 1
+                    }
+
             memoize prepass_memo_dict (function
                 | RawV x -> let tag = tag() in V(tag, string_to_var env.prepass_map x), Set.singleton tag, 0
                 | RawLit x -> let tag = tag() in Lit(tag, x), Set.empty, 0
@@ -89,11 +95,8 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                                     | _, TyMap s -> s
                                     | name, _ -> error <| sprintf "The variable %s being opened is not a module." name
                             let on_succ, free_vars, stack_size = 
-                                let map, length = 
-                                    Map.fold (fun (map, length) k _ ->
-                                        Map.add (keyword_to_string k) length map, length + 1 
-                                        ) (env.prepass_map, env.prepass_map_length) env'
-                                loop {env with prepass_map=map; prepass_map_length=length} on_succ
+                                let env = Map.fold (fun env k _ -> env_add_var env (keyword_to_string k)) env env'
+                                loop env on_succ
                             let free_vars, stack_size =
                                 Map.fold (fun (free_vars, stack_size) k _ -> Set.remove k free_vars, stack_size + 1) 
                                     (free_vars, stack_size) env'
@@ -101,6 +104,14 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                         else
                             error <| sprintf "Module %s is not a proper module or might have been shadowed. Only records returned from previously compiled modules can be opened." module_name
                     | None -> error <| sprintf "Module %s is not bound." module_name
+                | RawFunction(expr, name) ->
+                    let name_argtag = env.prepass_map_length
+                    let expr, free_vars, stack_size = loop (env_add_var env name) expr
+                    let array_free_vars = Set.toArray free_vars
+                    let map, count = 
+                        Array.fold (fun (map, count) argtag -> Map.add argtag count map, count+1) (Map.empty, 0) array_free_vars
+                        |> fun (map, count) -> Map.add name_argtag count, count + 1
+                    Function(tag(),expr,array_free_vars,stack_size), free_vars, stack_size
                 ) expr
         
         let expr, free_vars, stack_size = loop env expr

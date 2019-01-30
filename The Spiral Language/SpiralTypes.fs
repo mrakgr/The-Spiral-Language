@@ -286,7 +286,6 @@ and RawExpr =
     | RawV of string
     | RawLit of Value
     | RawOpen of string [] * RawExpr
-    | RawPattern of Pattern
     | RawFunction of RawExpr * string
     | RawRecFunction of RawExpr * string * rec_name: string
     | RawObjectCreate of (KeywordArgTag * RawExpr) []
@@ -300,6 +299,7 @@ and RawExpr =
     | RawModuleWith of RawExpr [] * RawModuleWithPattern []
     | RawOp of Op * RawExpr []
     | RawExprPos of Pos<RawExpr>
+    | RawPattern of Pattern
 
 and ModuleTestPattern = ModuleKeyword of keyword: KeywordArgTag | ModuleInjectVar of var: VarTag
 and ModuleWithPattern = 
