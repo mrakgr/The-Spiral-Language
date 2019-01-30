@@ -80,6 +80,16 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
 
             let rec subrenaming expr (count,map) = failwith ""
 
+            let inline list_test f (vars,bind,on_succ,on_fail) =
+                let bind,bind_free_vars,bind_stack_size = loop env bind
+                let on_fail,on_fail_free_vars,on_fail_stack_size = loop env on_fail
+                let vartags, env = Array.mapFold env_add_var env vars
+                let on_succ,on_succ_free_vars,on_succ_stack_size = loop env on_succ
+                let on_succ_free_vars = Array.fold (fun s x -> Set.remove x s) on_succ_free_vars vartags
+                let free_vars = bind_free_vars+on_succ_free_vars+on_fail_free_vars
+                let stack_size = vars.Length + bind_stack_size + max on_succ_stack_size on_fail_stack_size
+                f(tag(),vars.Length,bind,on_succ,on_fail),free_vars,stack_size
+
             memoize prepass_memo_dict (function
                 | RawV x -> let tag = tag() in V(tag, string_to_var env.prepass_map x), Set.singleton tag, 0
                 | RawLit x -> Lit(tag(), x), Set.empty, 0
@@ -166,6 +176,30 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                     let on_succ, free_vars', stack_size' = loop env on_succ
                     let free_vars' = Set.remove name_vartag free_vars'
                     Let(tag(), bind, on_succ), free_vars + free_vars', 1 + max stack_size stack_size'
+                | RawIf(cond,on_succ,on_fail) ->
+                    let cond,free_vars,stack_size = loop env cond
+                    let on_succ,free_vars',stack_size' = loop env on_succ
+                    let on_fail,free_vars'',stack_size'' = loop env on_fail
+                    If(tag(),cond,on_succ,on_fail),free_vars+free_vars'+free_vars'',stack_size+max stack_size' stack_size''
+                | RawListTakeAllTest(vars,bind,on_succ,on_fail) -> list_test ListTakeAllTest (vars,bind,on_succ,on_fail)
+                | RawListTakeNTest(vars,bind,on_succ,on_fail) -> list_test ListTakeNTest (vars,bind,on_succ,on_fail)
+                | RawKeywordTest(keyword,vars,bind,on_succ,on_fail) -> 
+                    list_test (fun (tag,stack_size,bind,on_succ,on_fail) -> KeywordTest(tag,string_to_keyword keyword,bind,on_succ,on_fail)) 
+                        (vars,bind,on_succ,on_fail)
+                | RawModuleTest(vars,bind,on_succ,on_fail) ->
+                    let bind,bind_free_vars,bind_stack_size = loop env bind
+                    let on_fail,on_fail_free_vars,on_fail_stack_size = loop env on_fail
+                    let vartags, env = Array.mapFold (fun s (RawModuleTestKeyword(name,_) | RawModuleTestInjectVar(name,_)) -> env_add_var s name) env vars
+                    let on_succ,on_succ_free_vars,on_succ_stack_size = loop env on_succ
+                    let on_succ_free_vars = Array.fold (fun s x -> Set.remove x s) on_succ_free_vars vartags
+                    let vars, vars_free_vars =
+                        Array.mapFold (fun s -> function
+                            | RawModuleTestInjectVar(_,x) -> let x = string_to_var env.prepass_map x in ModuleTestInjectVar x, Set.add x s
+                            | RawModuleTestKeyword(_,x) -> ModuleTestKeyword(string_to_keyword x), s
+                            ) Set.empty vars
+                    let free_vars = vars_free_vars+bind_free_vars+on_succ_free_vars+on_fail_free_vars
+                    let stack_size = vars.Length + bind_stack_size + max on_succ_stack_size on_fail_stack_size
+                    ModuleTest(tag(),vars,bind,on_succ,on_fail),free_vars,stack_size                    
 
                 ) expr
         

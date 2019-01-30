@@ -278,7 +278,7 @@ and ModulePrepassExpr =
 and VarString = string
 and KeywordString = string
 
-and RawModuleTestPattern = RawModuleTestKeyword of name: string * keyword: string | RawModuleTestInjectVar of name: string * var: string
+and RawModuleTestPattern = RawModuleTestKeyword of name: VarString * keyword: KeywordString | RawModuleTestInjectVar of name: VarString * var: VarString
 and RawModuleWithPattern = 
     | RawModuleWithKeyword of KeywordString * RawExpr 
     | RawModuleWithInjectVar of VarString * RawExpr
@@ -304,7 +304,7 @@ and RawExpr =
     | RawExprPos of Pos<RawExpr>
     | RawPattern of Pattern
 
-and ModuleTestPattern = ModuleKeyword of keyword: KeywordTag | ModuleInjectVar of var: VarTag
+and ModuleTestPattern = ModuleTestKeyword of keyword: KeywordTag | ModuleTestInjectVar of var: VarTag
 and ModuleWithPattern = 
     | ModuleWithKeyword of keyword: KeywordTag * Expr 
     | ModuleWithInjectVar of var: VarTag * Expr
