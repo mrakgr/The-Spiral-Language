@@ -430,13 +430,14 @@ type ModulePrepassEnv = {
 type PrepassEnv = {
     prepass_context : EnvTerm
     prepass_map : Map<string, int>
+    prepass_map_length : int
     }
 
 type LangEnv = {
     rbeh : RecursiveBehavior
     seq : ResizeArray<TypedBind>
     env_global : EnvTerm
-    env_cur : EnvTerm
+    env_stack : EnvTerm
     trace : Trace
     }
 
@@ -542,7 +543,7 @@ type Timings = {
     codegen_time: TimeSpan
     }
 
-exception PrepassUnboundVariable of string
-exception PrepassUnboundVariableWithPos of PosKey * string
+exception PrepassError of string
+exception PrepassErrorWithPos of PosKey * string
 exception TypeError of Trace * string
 exception TypeRaised of ConsedTy
