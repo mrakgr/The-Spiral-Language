@@ -82,7 +82,6 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                     subren_map_length = env.subren_map_length+1
                     subren_map = Map.add k env.subren_map_length env.subren_map
                     }
-            let inline subrenaming_env_add_var' k env = subrenaming_env_add_var env k
 
             let rec subrenaming (env: PrepassSubrenameEnv) expr =
                 let rename x =
