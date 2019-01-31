@@ -60,6 +60,7 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
     and prepass (env: PrepassEnv) expr = 
         let tag () = tag_prepass <- tag_prepass + 1; tag_prepass
         let prepass_memo_dict = Dictionary(HashIdentity.Reference)
+        let prepass_subrenaming_memo_dict = Dictionary(HashIdentity.Reference)
         let error x = raise (PrepassError x)
 
         let string_to_var env x =
@@ -75,10 +76,54 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                     prepass_map_length = env.prepass_map_length + 1
                     }
 
-            let inline subrenaming_env_add_var (count, map) k = count + 1, Map.add k count map
+            let subrenaming_env_init (env: PrepassEnv) = {subren_size_lexical_scope=env.prepass_map_length; subren_map=Map.empty; subren_map_length=0}
+            let inline subrenaming_env_add_var (env: PrepassSubrenameEnv) k = 
+                {env with
+                    subren_map_length = env.subren_map_length+1
+                    subren_map = Map.add k env.subren_map_length env.subren_map
+                    }
             let inline subrenaming_env_add_var' k env = subrenaming_env_add_var env k
 
-            let rec subrenaming expr (count,map) = failwith ""
+            let rec subrenaming (env: PrepassSubrenameEnv) expr =
+                let rename x =
+                    // If is a free variable rename it explicitly else shift it.
+                    if x < env.subren_size_lexical_scope then env.subren_map.[x]
+                    else x - env.subren_size_lexical_scope + env.subren_map_length
+                let rename' x = Array.map rename x
+                let inline f expr = subrenaming env expr
+                memoize prepass_subrenaming_memo_dict (function
+                    | V(tag,vartag) -> V(tag,rename vartag)
+                    | Lit _ as x -> x
+                    | Open(tag,vartag,a,on_succ) -> Open(tag,rename vartag,a,f on_succ)
+                    // Not supposed to rename the bodies of these 3.
+                    | Function(tag,body,free_vars,b) -> Function(tag,body,rename' free_vars,b)
+                    | RecFunction(tag,body,free_vars,b) -> RecFunction(tag,body,rename' free_vars,b)
+                    | ObjectCreate(dict,free_vars) -> ObjectCreate(dict,rename' free_vars)
+                    | KeywordCreate(tag,a,exprs) -> KeywordCreate(tag,a,Array.map f exprs)
+                    | Let(tag,bind,on_succ) -> Let(tag,f bind,f on_succ)
+                    | If(tag,cond,on_succ,on_fail) -> If(tag,f cond,f on_succ,f on_fail)
+                    | ListTakeAllTest(tag,size,bind,on_succ,on_fail) -> ListTakeAllTest(tag,size,f bind,f on_succ,f on_fail)
+                    | ListTakeNTest(tag,size,bind,on_succ,on_fail) -> ListTakeNTest(tag,size,f bind,f on_succ,f on_fail)
+                    | KeywordTest(tag,keyword,bind,on_succ,on_fail) -> KeywordTest(tag,keyword,f bind,f on_succ,f on_fail)
+                    | ModuleTest(tag,patterns,bind,on_succ,on_fail) ->
+                        let patterns =
+                            Array.map (function
+                                | ModuleTestInjectVar x -> ModuleTestInjectVar(rename x)
+                                | ModuleTestKeyword _ as x -> x
+                                ) patterns
+                        ModuleTest(tag,patterns,f bind,f on_succ,f on_fail)
+                    | ModuleWith(tag,exprs,patterns) ->
+                        let patterns =
+                            Array.map (function
+                                | ModuleWithKeyword(keyword,expr) -> ModuleWithKeyword(keyword,f expr)
+                                | ModuleWithInjectVar(var,expr) -> ModuleWithInjectVar(rename var,f expr)
+                                | ModuleWithoutKeyword(keyword) -> ModuleWithoutKeyword keyword
+                                | ModuleWithoutInjectVar(var) -> ModuleWithoutInjectVar(rename var)
+                                ) patterns
+                        ModuleWith(tag,Array.map f exprs,patterns)
+                    | Op(tag,op,exprs) -> Op(tag,op,Array.map f exprs)
+                    | ExprPos(tag, pos) -> ExprPos(tag, Pos.Position(pos.Pos,f pos.Expression))
+                    ) expr
 
             let inline list_test f (vars,bind,on_succ,on_fail) =
                 let bind,bind_free_vars,bind_stack_size = loop env bind
@@ -120,45 +165,43 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                             error <| sprintf "Module %s is not a proper module or might have been shadowed. Only records returned from previously compiled modules can be opened." module_name
                     | None -> error <| sprintf "Module %s is not bound." module_name
                 | RawFunction(expr, name) ->
+                    let subrenaming_env = subrenaming_env_init env
                     let name_vartag, env = env_add_var env name
                     let expr, free_vars, stack_size = loop env expr
                     let free_vars = Set.remove name_vartag free_vars
                     let array_free_vars = Set.toArray free_vars
                     let expr = 
-                        Array.fold subrenaming_env_add_var (0, Map.empty) array_free_vars
-                        |> subrenaming_env_add_var' name_vartag
-                        |> subrenaming expr
+                        Array.fold subrenaming_env_add_var subrenaming_env array_free_vars
+                        |> fun env -> subrenaming env expr
                     Function(tag(),expr,array_free_vars,stack_size), free_vars, 0
                 | RawRecFunction(expr, name, rec_name) ->
+                    let subrenaming_env = subrenaming_env_init env
                     let name_vartag, env = env_add_var env name
                     let rec_name_vartag, env = env_add_var env rec_name
                     let expr, free_vars, stack_size = loop env expr
                     let free_vars = Set.remove name_vartag free_vars |> Set.remove rec_name_vartag
                     let array_free_vars = Set.toArray free_vars
                     let expr = 
-                        Array.fold subrenaming_env_add_var (0, Map.empty) array_free_vars
-                        |> subrenaming_env_add_var' name_vartag
-                        |> subrenaming_env_add_var' rec_name_vartag
-                        |> subrenaming expr
+                        Array.fold subrenaming_env_add_var subrenaming_env array_free_vars
+                        |> fun env -> subrenaming env expr
                     Function(tag(),expr,array_free_vars,stack_size), free_vars, 0
                 | RawObjectCreate(ar) ->
+                    let subrenaming_env = subrenaming_env_init env
                     let ar, free_vars = 
                         Array.mapFold (fun free_vars (keyword_string, var_strings, expr) ->
                             let self_vartag, env = env_add_var env "self"
                             let var_vartags, env = Array.mapFold env_add_var env var_strings
                             let expr, free_vars', stack_size = loop env expr
                             let free_vars' = Array.fold (fun s x -> Set.remove x s) (Set.remove self_vartag free_vars') var_vartags
-                            (string_to_keyword keyword_string, expr, self_vartag, var_vartags, stack_size), free_vars + free_vars'
+                            (string_to_keyword keyword_string, expr, stack_size + 1 + var_vartags.Length), free_vars + free_vars'
                             ) Set.empty ar
                     let array_free_vars = Set.toArray free_vars
                     let tagged_dict =
-                        let env = Array.fold subrenaming_env_add_var (0, Map.empty) array_free_vars
+                        let env = Array.fold subrenaming_env_add_var subrenaming_env array_free_vars
                         let tagged_dict = TaggedDictionary(ar.Length,tag())
-                        Array.iter (fun (keyword, expr, self_vartag, var_vartags, stack_size) -> 
-                            let env = subrenaming_env_add_var env self_vartag
-                            let env = Array.fold subrenaming_env_add_var env var_vartags
-                            let expr = subrenaming expr env
-                            tagged_dict.Add(keyword, (expr, stack_size + 1 + var_vartags.Length))
+                        Array.iter (fun (keyword, expr, stack_size) -> 
+                            let expr = subrenaming env expr
+                            tagged_dict.Add(keyword, (expr, stack_size))
                             ) ar
                         tagged_dict
 

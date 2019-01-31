@@ -436,6 +436,12 @@ type PrepassEnv = {
     prepass_map_length : int
     }
 
+type PrepassSubrenameEnv = {
+    subren_map : Map<int, int>
+    subren_map_length : int
+    subren_size_lexical_scope : int
+    }
+
 type LangEnv = {
     rbeh : RecursiveBehavior
     seq : ResizeArray<TypedBind>
