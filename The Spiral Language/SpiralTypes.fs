@@ -161,8 +161,6 @@ type Op =
     | Case
     | CaseFoldLMap
     | While
-    | EqTest
-    | TypeEqTest
 
     // BinOps
     | Add
@@ -250,12 +248,19 @@ type ArrayType =
     | ArtCudaShared
     | ArtCudaLocal
 
-and PatModuleMembersItem = PatModuleMembersKeyword of string * Pattern | PatModuleMembersInject of string * Pattern
+and PatternArg = {
+    pat_on_succ : RawExpr
+    pat_on_fail : RawExpr
+    }
+
+and PatModuleMembersItem =
+    | PatModuleMembersKeyword of keyword: KeywordString * name: Pattern
+    | PatModuleMembersInject of var: VarString * name: Pattern
 and Pattern =
     | PatE
     | PatVar of string
     | PatTuple of Pattern []
-    | PatKeyword of (string * Pattern) []
+    | PatKeyword of string * Pattern []
     | PatCons of Pattern []
     | PatTypeEq of Pattern * RawExpr
     | PatActive of RawExpr * Pattern
@@ -264,7 +269,6 @@ and Pattern =
     | PatOr of Pattern []
     | PatAnd of Pattern []
     | PatNot of Pattern
-    | PatClauses of (Pattern * RawExpr) []
     | PatLit of Value
     | PatWhen of Pattern * RawExpr
     | PatModuleMembers of PatModuleMembersItem []
@@ -278,7 +282,9 @@ and ModulePrepassExpr =
 and VarString = string
 and KeywordString = string
 
-and RawModuleTestPattern = RawModuleTestKeyword of name: VarString * keyword: KeywordString | RawModuleTestInjectVar of name: VarString * var: VarString
+and RawModuleTestPattern = 
+    | RawModuleTestKeyword of keyword: KeywordString * name: VarString
+    | RawModuleTestInjectVar of var: VarString * name: VarString
 and RawModuleWithPattern = 
     | RawModuleWithKeyword of KeywordString * RawExpr 
     | RawModuleWithInjectVar of VarString * RawExpr
@@ -293,16 +299,16 @@ and RawExpr =
     | RawRecFunction of RawExpr * VarString * rec_name: VarString
     | RawObjectCreate of (VarString * KeywordString [] * RawExpr) []
     | RawKeywordCreate of KeywordString * RawExpr []
-    | RawLet of VarString * bind: RawExpr * on_succ: RawExpr
+    | RawLet of bind: VarString * RawExpr * on_succ: RawExpr
     | RawIf of cond: RawExpr * on_succ: RawExpr * on_fail: RawExpr
-    | RawListTakeAllTest of VarString [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
-    | RawListTakeNTest of VarString [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
-    | RawKeywordTest of KeywordString * VarString [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
-    | RawModuleTest of RawModuleTestPattern [] * bind: RawExpr * on_succ: RawExpr * on_fail: RawExpr
+    | RawListTakeAllTest of VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
+    | RawListTakeNTest of VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
+    | RawKeywordTest of KeywordString * VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
+    | RawModuleTest of RawModuleTestPattern [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawModuleWith of RawExpr [] * RawModuleWithPattern []
     | RawOp of Op * RawExpr []
     | RawExprPos of Pos<RawExpr>
-    | RawPattern of Pattern
+    | RawPattern of VarString * (Pattern * RawExpr) []
 
 and ModuleTestPattern = ModuleTestKeyword of keyword: KeywordTag | ModuleTestInjectVar of var: VarTag
 and ModuleWithPattern = 
@@ -321,10 +327,10 @@ and Expr =
     | KeywordCreate of Tag * KeywordTag * Expr []
     | Let of Tag * bind: Expr * on_succ: Expr
     | If of Tag * cond: Expr * on_succ: Expr * on_fail: Expr
-    | ListTakeAllTest of Tag * StackSize * bind: Expr * on_succ: Expr * on_fail: Expr
-    | ListTakeNTest of Tag * StackSize * bind: Expr * on_succ: Expr * on_fail: Expr
-    | KeywordTest of Tag * KeywordTag * bind: Expr * on_succ: Expr * on_fail: Expr
-    | ModuleTest of Tag * ModuleTestPattern [] * bind: Expr * on_succ: Expr * on_fail: Expr
+    | ListTakeAllTest of Tag * StackSize * bind: VarTag * on_succ: Expr * on_fail: Expr
+    | ListTakeNTest of Tag * StackSize * bind: VarTag * on_succ: Expr * on_fail: Expr
+    | KeywordTest of Tag * KeywordTag * bind: VarTag * on_succ: Expr * on_fail: Expr
+    | ModuleTest of Tag * ModuleTestPattern [] * bind: VarTag * on_succ: Expr * on_fail: Expr
     | ModuleWith of Tag * Expr [] * ModuleWithPattern []
     | Op of Tag * Op * Expr []
     | ExprPos of Tag * Pos<Expr>

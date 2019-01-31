@@ -31,6 +31,21 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
     let keyword_to_string x = keyword_to_string_dict.[x] // Should never fail.
     let keyword_num_args x = keyword_to_string x |> Seq.fold (fun s x -> if x = '.' then s+1 else s) 0
 
+    let v x = RawV x
+    let op (x, args) = RawOp(x,args)
+    let l bind body on_succ = RawLet(bind,body,on_succ)
+    let if_ cond on_succ on_fail = RawIf(cond,on_succ,on_fail)
+    
+
+    let binop op' a b = op(op',[|a;b|])
+    let eq_type a b = binop EqType a b
+    let ap x y = binop Apply x y
+    let rec ap' f l = Array.fold ap f l
+    let inl x y = RawFunction(y,x)
+    let lit x = RawLit x
+    let eq x y = binop EQ x y
+    let expr_pos pos x = RawExprPos(Pos.Position(pos,x))
+
     let rec module_prepass (env: ModulePrepassEnv) expr = 
         let error x = raise (PrepassError x)
         
@@ -101,16 +116,16 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                     | KeywordCreate(tag,a,exprs) -> KeywordCreate(tag,a,Array.map f exprs)
                     | Let(tag,bind,on_succ) -> Let(tag,f bind,f on_succ)
                     | If(tag,cond,on_succ,on_fail) -> If(tag,f cond,f on_succ,f on_fail)
-                    | ListTakeAllTest(tag,size,bind,on_succ,on_fail) -> ListTakeAllTest(tag,size,f bind,f on_succ,f on_fail)
-                    | ListTakeNTest(tag,size,bind,on_succ,on_fail) -> ListTakeNTest(tag,size,f bind,f on_succ,f on_fail)
-                    | KeywordTest(tag,keyword,bind,on_succ,on_fail) -> KeywordTest(tag,keyword,f bind,f on_succ,f on_fail)
+                    | ListTakeAllTest(tag,size,bind,on_succ,on_fail) -> ListTakeAllTest(tag,size,bind,f on_succ,f on_fail)
+                    | ListTakeNTest(tag,size,bind,on_succ,on_fail) -> ListTakeNTest(tag,size,bind,f on_succ,f on_fail)
+                    | KeywordTest(tag,keyword,bind,on_succ,on_fail) -> KeywordTest(tag,keyword,bind,f on_succ,f on_fail)
                     | ModuleTest(tag,patterns,bind,on_succ,on_fail) ->
                         let patterns =
                             Array.map (function
                                 | ModuleTestInjectVar x -> ModuleTestInjectVar(rename x)
                                 | ModuleTestKeyword _ as x -> x
                                 ) patterns
-                        ModuleTest(tag,patterns,f bind,f on_succ,f on_fail)
+                        ModuleTest(tag,patterns,bind,f on_succ,f on_fail)
                     | ModuleWith(tag,exprs,patterns) ->
                         let patterns =
                             Array.map (function
@@ -124,16 +139,59 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                     | ExprPos(tag, pos) -> ExprPos(tag, Pos.Position(pos.Pos,f pos.Expression))
                     ) expr
 
-            let prepass_pattern pattern: RawExpr = failwith ""
+            let prepass_pattern (arg: VarString) (clauses: (Pattern * RawExpr) []): RawExpr = 
+                let mutable tag = 0
+                let patvar () = 
+                    let x = sprintf " pat_var%i" tag
+                    tag <- tag + 1
+                    x
+
+                let rec cp (arg: VarString) (pat: Pattern) (on_succ: RawExpr) (on_fail: RawExpr): RawExpr =
+                    let list_test f pats = 
+                        let binds, on_succ = 
+                            Array.mapFoldBack (fun pat on_succ ->
+                                match pat with
+                                | PatVar arg -> arg, on_succ
+                                | _ -> let arg = patvar() in arg, cp arg pat on_succ on_fail
+                                ) pats on_succ
+                        f(binds,arg,on_succ,on_fail)
+                    match pat with
+                    | PatE -> on_succ
+                    | PatVar x -> l x (v arg) on_succ
+                    | PatTypeEq (exp,typ) ->
+                        let on_succ = cp arg exp on_succ on_fail
+                        if_ (eq_type (v arg) typ) on_succ on_fail
+                    | PatTuple pats -> list_test RawListTakeAllTest pats
+                    | PatCons pats -> list_test RawListTakeNTest pats
+                    | PatKeyword(keyword,pats) -> list_test (fun (a,b,c,d) -> RawKeywordTest(keyword,a,b,c,d)) pats
+                    | PatActive (a,b) ->
+                        let pat_var = patvar()
+                        l pat_var (ap a (v arg)) (cp pat_var b on_succ on_fail)
+                    | PatPartActive (a,pat) -> 
+                        let pat_var = patvar()
+                        let on_succ = inl pat_var (cp pat_var pat on_succ on_fail)
+                        let on_fail = inl "" on_fail
+                        ap' a [|v arg; on_fail; on_succ|]
+                    | PatOr l -> Array.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
+                    | PatAnd l -> Array.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
+                    | PatNot p -> cp arg p on_fail on_succ // switches the on_fail and on_succ arguments
+                    | PatLit x -> 
+                        let x = lit x
+                        if_ (eq_type (v arg) x) (if_ (eq (v arg) x) on_succ on_fail) on_fail
+                    | PatWhen (p, e) -> cp arg p (if_ e on_succ on_fail) on_fail
+                    | PatPos p -> expr_pos p.Pos (cp arg p.Expression on_succ on_fail)
+
+                Array.foldBack (fun (pat, exp) on_fail -> cp arg pat exp on_fail) clauses (op(ErrorPatMiss,[|v arg|]))
+                
 
             let inline list_test f (vars,bind,on_succ,on_fail) =
-                let bind,bind_free_vars,bind_stack_size = loop env bind
+                let bind = string_to_var env.prepass_map bind
                 let on_fail,on_fail_free_vars,on_fail_stack_size = loop env on_fail
                 let vartags, env = Array.mapFold env_add_var env vars
                 let on_succ,on_succ_free_vars,on_succ_stack_size = loop env on_succ
                 let on_succ_free_vars = Array.fold (fun s x -> Set.remove x s) on_succ_free_vars vartags
-                let free_vars = bind_free_vars+on_succ_free_vars+on_fail_free_vars
-                let stack_size = vars.Length + bind_stack_size + max on_succ_stack_size on_fail_stack_size
+                let free_vars = Set.singleton bind+on_succ_free_vars+on_fail_free_vars
+                let stack_size = vars.Length + max on_succ_stack_size on_fail_stack_size
                 f(tag(),vars.Length,bind,on_succ,on_fail),free_vars,stack_size
 
             memoize prepass_memo_dict (function
@@ -231,18 +289,18 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                     list_test (fun (tag,stack_size,bind,on_succ,on_fail) -> KeywordTest(tag,string_to_keyword keyword,bind,on_succ,on_fail)) 
                         (vars,bind,on_succ,on_fail)
                 | RawModuleTest(vars,bind,on_succ,on_fail) ->
-                    let bind,bind_free_vars,bind_stack_size = loop env bind
+                    let bind = string_to_var env.prepass_map bind
                     let on_fail,on_fail_free_vars,on_fail_stack_size = loop env on_fail
-                    let vartags, env = Array.mapFold (fun s (RawModuleTestKeyword(name,_) | RawModuleTestInjectVar(name,_)) -> env_add_var s name) env vars
+                    let vartags, env = Array.mapFold (fun s (RawModuleTestKeyword(_,name) | RawModuleTestInjectVar(_,name)) -> env_add_var s name) env vars
                     let on_succ,on_succ_free_vars,on_succ_stack_size = loop env on_succ
                     let on_succ_free_vars = Array.fold (fun s x -> Set.remove x s) on_succ_free_vars vartags
                     let vars, vars_free_vars =
                         Array.mapFold (fun s -> function
-                            | RawModuleTestInjectVar(_,x) -> let x = string_to_var env.prepass_map x in ModuleTestInjectVar x, Set.add x s
-                            | RawModuleTestKeyword(_,x) -> ModuleTestKeyword(string_to_keyword x), s
+                            | RawModuleTestInjectVar(x,_) -> let x = string_to_var env.prepass_map x in ModuleTestInjectVar x, Set.add x s
+                            | RawModuleTestKeyword(x,_) -> ModuleTestKeyword(string_to_keyword x), s
                             ) Set.empty vars
-                    let free_vars = vars_free_vars+bind_free_vars+on_succ_free_vars+on_fail_free_vars
-                    let stack_size = vars.Length + bind_stack_size + max on_succ_stack_size on_fail_stack_size
+                    let free_vars = vars_free_vars+Set.singleton bind+on_succ_free_vars+on_fail_free_vars
+                    let stack_size = vars.Length + max on_succ_stack_size on_fail_stack_size
                     ModuleTest(tag(),vars,bind,on_succ,on_fail),free_vars,stack_size                    
                 | RawModuleWith(binds,patterns) ->
                     let binds, (binds_free_vars, binds_stack_size) = 
@@ -283,7 +341,7 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                     | :? PrepassError as er ->
                         let mes = er.Data0
                         raise (PrepassErrorWithPos(pos,mes))
-                | RawPattern(pattern) -> prepass_pattern pattern |> loop env
+                | RawPattern(var, pattern) -> prepass_pattern var pattern |> loop env
                 ) expr
         
         let expr, free_vars, stack_size = loop env expr
