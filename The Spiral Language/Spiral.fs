@@ -225,6 +225,20 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                                 ModuleWithoutInjectVar x,(Set.add x free_vars,stack_size)
                             ) (Set.empty, 0) patterns
                     ModuleWith(tag(), binds, patterns),binds_free_vars+patterns_free_vars,binds_stack_size+patterns_stack_size
+                | RawOp(op,exprs) ->
+                    let exprs, (free_vars, stack_size) =
+                        Array.mapFold (fun (free_vars,stack_size) expr ->
+                            let expr, free_vars', stack_size' = loop env expr
+                            expr, (free_vars + free_vars', max stack_size stack_size')
+                            ) (Set.empty, 0) exprs
+                    Op(tag(),op,exprs),free_vars,stack_size
+                | RawExprPos(pos) ->
+                    let pos, expr = pos.Pos, pos.Expression
+                    try loop env expr
+                    with
+                    | :? PrepassError as er ->
+                        let mes = er.Data0
+                        raise (PrepassErrorWithPos(pos,mes))
                 ) expr
         
         let expr, free_vars, stack_size = loop env expr
