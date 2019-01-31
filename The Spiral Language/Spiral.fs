@@ -124,6 +124,8 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                     | ExprPos(tag, pos) -> ExprPos(tag, Pos.Position(pos.Pos,f pos.Expression))
                     ) expr
 
+            let prepass_pattern pattern: RawExpr = failwith ""
+
             let inline list_test f (vars,bind,on_succ,on_fail) =
                 let bind,bind_free_vars,bind_stack_size = loop env bind
                 let on_fail,on_fail_free_vars,on_fail_stack_size = loop env on_fail
@@ -281,6 +283,7 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                     | :? PrepassError as er ->
                         let mes = er.Data0
                         raise (PrepassErrorWithPos(pos,mes))
+                | RawPattern(pattern) -> prepass_pattern pattern |> loop env
                 ) expr
         
         let expr, free_vars, stack_size = loop env expr
