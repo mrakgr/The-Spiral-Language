@@ -4,13 +4,14 @@
 open System
 open System.Collections.Generic
 open HashConsing
+open Parsing
 open Types
 
 // Codegen open
 open System.Text
 
 // #Main
-let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as module_main) = 
+let spiral_compile (settings: CompilerSettings) module_ = 
     let join_point_dict_method = d0()
     let join_point_dict_closure = d0()
     let join_point_dict_type = d0()
@@ -121,12 +122,12 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                 let rec cp (arg: VarString) (pat: Pattern) (on_succ: RawExpr) (on_fail: RawExpr): RawExpr =
                     let list_test f pats = 
                         let binds, on_succ = 
-                            Array.mapFoldBack (fun pat on_succ ->
+                            List.mapFoldBack (fun pat on_succ ->
                                 match pat with
                                 | PatVar arg -> arg, on_succ
                                 | _ -> let arg = patvar() in arg, cp arg pat on_succ on_fail
                                 ) pats on_succ
-                        f(binds,arg,on_succ,on_fail)
+                        f(List.toArray binds,arg,on_succ,on_fail)
                     match pat with
                     | PatE -> on_succ
                     | PatVar x -> l x (v arg) on_succ
@@ -144,8 +145,8 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                         let on_succ = inl pat_var (cp pat_var pat on_succ on_fail)
                         let on_fail = inl "" on_fail
                         ap' a [|v arg; on_fail; on_succ|]
-                    | PatOr l -> Array.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
-                    | PatAnd l -> Array.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
+                    | PatOr l -> List.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
+                    | PatAnd l -> List.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
                     | PatNot p -> cp arg p on_fail on_succ // switches the on_fail and on_succ arguments
                     | PatLit x -> 
                         let x = lit x
@@ -158,7 +159,7 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                         | _ -> let patvar = patvar() in RawCase(patvar,v arg,cp patvar pat on_succ on_fail)
                     | PatModuleMembers items ->
                         let binds, on_succ =
-                            Array.mapFoldBack (fun item on_succ ->
+                            List.mapFoldBack (fun item on_succ ->
                                 match item with
                                 | PatModuleMembersKeyword(keyword,name) ->
                                     match name with
@@ -169,7 +170,7 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                                     | PatVar x -> RawModuleTestInjectVar(var,x), on_succ
                                     | _ -> let arg = patvar() in RawModuleTestInjectVar(var,arg), cp arg pat on_succ on_fail
                                 ) items on_succ
-                        RawModuleTest(binds,arg,on_succ,on_fail)
+                        RawModuleTest(List.toArray binds,arg,on_succ,on_fail)
                     | PatTypeTermFunction(domain,range) ->
                         let f pat on_succ = 
                             match pat with

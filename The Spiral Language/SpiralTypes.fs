@@ -276,19 +276,19 @@ and PatModuleMembersItem =
 and Pattern =
     | PatE
     | PatVar of string
-    | PatTuple of Pattern []
-    | PatKeyword of string * Pattern []
-    | PatCons of Pattern []
+    | PatTuple of Pattern list
+    | PatKeyword of string * Pattern list
+    | PatCons of Pattern list
     | PatTypeEq of Pattern * RawExpr
     | PatActive of RawExpr * Pattern
     | PatPartActive of RawExpr * Pattern
     | PatUnbox of Pattern
-    | PatOr of Pattern []
-    | PatAnd of Pattern []
+    | PatOr of Pattern list
+    | PatAnd of Pattern list
     | PatNot of Pattern
     | PatLit of Value
     | PatWhen of Pattern * RawExpr
-    | PatModuleMembers of PatModuleMembersItem []
+    | PatModuleMembers of PatModuleMembersItem list
     | PatPos of Pos<Pattern>
     | PatTypeTermFunction of Pattern * Pattern
 

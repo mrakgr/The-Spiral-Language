@@ -1,8 +1,10 @@
 ﻿module Spiral.Parsing
+open System
 open Types
 
 // Parser open
 open FParsec
+open System.Text
 
 let string_to_op =
     let cases = Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(typeof<Op>)
@@ -48,7 +50,10 @@ let spiral_parse module_ =
         f ')' || f '}' || f ']'
     let is_operator_char c = (is_identifier_char c || is_separator_char c || is_closing_parenth_char c) = false
 
-    let var_name_core s = (many1Satisfy2L is_identifier_starting_char is_identifier_char "identifier" .>> spaces) s
+    let var_name_core' s = many1Satisfy2L is_identifier_starting_char is_identifier_char "identifier" s
+    let var_name_core s = (var_name_core' .>> spaces) s
+    let keyword_unary s = (skipChar '.' >>.var_name_core' .>> spaces) s
+    let keyword s = attempt (var_name_core' .>> skipChar ':' .>> spaces) s
 
     let var_name =
         var_name_core >>=? function
@@ -252,79 +257,31 @@ let spiral_parse module_ =
     let pat_or pattern = sepBy1 pattern bar |>> function [x] -> x | x -> PatOr x
     let pat_and pattern = sepBy1 pattern amphersand |>> function [x] -> x | x -> PatAnd x
     let lit_var = lit_ <|> (var_name_core |>> LitString)
-    let pat_type_lit = 
-        let literal = lit_var |>> PatTypeLit
-        let bind = var_name |>> PatTypeLitBind
-        prefix_dot >>. (literal <|> rounds bind)
+    
     let pat_lit = lit_ |>> PatLit
     let pat_when expr pattern = pattern .>>. (opt (when_ >>. expr)) |>> function a, Some b -> PatWhen(a,b) | a, None -> a
     let pat_as pattern = pattern .>>. (opt (as_ >>. pattern )) |>> function a, Some b -> PatAnd [a;b] | a, None -> a
 
-    let pat_named_tuple pattern =
-        let pat = pipe2 lit_var (opt (pp' >>. pattern)) (fun lit pat ->
-            let lit = PatTypeLit lit
-            match pat with
-            | Some pat -> PatTuple [lit; pat]
-            | None -> lit)
-        squares (many pat) |>> PatTuple
+    let concat_keyword (x: (string * Pattern) list) =
+        let strb = StringBuilder()
+        let pattern, strb = 
+            List.mapFold (fun (strb: StringBuilder) (str: string, pat) -> 
+                pat, strb.Append(str).Append(':')
+                ) strb x
+        strb.ToString(), pattern
+
+    let pat_keyword_unary = keyword_unary |>> fun keyword -> PatKeyword(keyword,[])
+    let pat_keyword pattern = many1 (tuple2 keyword pattern) |>> (concat_keyword >> PatKeyword)
 
     let pat_closure pattern = sepBy1 pattern arr |>> List.reduceBack (fun a b -> PatTypeTermFunction(a,b))
 
     let (^<|) a b = a b // High precedence, right associative <| operator
 
-    let inline pat_module_nested x b = List.foldBack (fun x b -> PatModuleRebind(x,PatAnd [PatVar x; b])) x b
-
-    let rec pat_module_outer expr s = 
-        curlies
-            (pipe2 
-                (opt (attempt (sepBy1 var_name dot .>> with_))) (pat_module_body expr)
-                (fun n bindings ->
-                    match n with
-                    | None -> PatModuleIs bindings
-                    | Some [] -> failwith "impossible"
-                    | Some (n :: n') -> PatAnd [PatVar n; pat_module_nested n' bindings]))
-            s
-
-    and pat_module_inner expr s = 
-        curlies (pipe2 (sepBy1 var_name dot .>> with_) (pat_module_body expr) pat_module_nested) s
-
-    and pat_module_body expr s =
-        let pat_name = var_name |>> PatModuleMember
-        let pat_semicolon = semicolon' >>. pat_module_body expr
-
-        let inline pat_inject pat = 
-            pipe2 (inject >>. var_name) ((eq' >>. patterns_template expr) <|>% PatE) (fun a b -> PatModuleInject(a, b))
-            <|> pat
-
-        let inline pat_bind pat = 
-            pipe2 pat (opt (eq' >>. patterns_template expr))
-                (fun v -> function
-                    | None -> v
-                    | Some pat ->
-                        let rec loop = function
-                            | PatModuleMember name -> PatModuleRebind(name,pat)
-                            | PatModuleRebind (name,_) as v  -> PatAnd [v; PatModuleRebind(name,pat)]
-                            | PatModuleIs x -> PatModuleIs (loop x)
-                            | PatAnd l -> PatAnd <| List.map loop l
-                            | PatOr l -> PatOr <| List.map loop l
-                            | PatXor l -> PatXor <| List.map loop l
-                            | PatNot x -> PatNot (loop x)
-                            | x -> failwithf "Compiler error: Pattern %A not supported." x
-                        loop v
-                        )
-        let inline pat_template sep con pat = sepBy1 pat sep |>> function [x] -> x | x -> con x
-        let inline pat_not pat = (not_ >>. pat |>> PatNot) <|> pat
-        let inline pat_xor pat = pat_template caret PatXor pat
-        let inline pat_or pat = pat_template bar PatOr pat
-        let inline pat_and pat = many pat |>> PatAnd
-        pat_and ^<| pat_or ^<| pat_xor ^<| pat_not ^<| pat_inject ^<| pat_bind ^<| choice [pat_semicolon; pat_name; pat_module_inner expr; rounds (pat_module_body expr)] 
-        <| s
-
-    and patterns_template expr s = // The order in which the pattern parsers are chained in determines their precedence.
+    let rec patterns_template expr s = // The order in which the pattern parsers are chained determines their precedence.
         let inline recurse s = patterns_template expr s
         pat_when expr ^<| pat_as ^<| pat_or ^<| pat_tuple ^<| pat_cons ^<| pat_and ^<| pat_type expr ^<| pat_closure
         ^<| choice [|pat_active expr recurse; pat_e; pat_var; pat_type_lit; pat_lit 
-                        pat_rounds recurse; pat_named_tuple recurse; pat_module_outer expr|] <| s
+                     pat_rounds recurse; pat_named_tuple recurse; pat_module_outer expr|] <| s
 
     let inline patterns expr s = patpos (patterns_template expr) s
     
