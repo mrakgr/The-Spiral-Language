@@ -300,6 +300,7 @@ and RawExpr =
     | RawObjectCreate of (VarString * KeywordString [] * RawExpr) []
     | RawKeywordCreate of KeywordString * RawExpr []
     | RawLet of bind: VarString * RawExpr * on_succ: RawExpr
+    | RawCase of bind: VarString * RawExpr * on_succ: RawExpr
     | RawIf of cond: RawExpr * on_succ: RawExpr * on_fail: RawExpr
     | RawListTakeAllTest of VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawListTakeNTest of VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
@@ -326,6 +327,7 @@ and Expr =
     | ObjectCreate of ObjectDict * FreeVars
     | KeywordCreate of Tag * KeywordTag * Expr []
     | Let of Tag * bind: Expr * on_succ: Expr
+    | Case of Tag * bind: Expr * on_succ: Expr
     | If of Tag * cond: Expr * on_succ: Expr * on_fail: Expr
     | ListTakeAllTest of Tag * StackSize * bind: VarTag * on_succ: Expr * on_fail: Expr
     | ListTakeNTest of Tag * StackSize * bind: VarTag * on_succ: Expr * on_fail: Expr
