@@ -158,8 +158,8 @@ type Op =
     | ModuleLength
 
     // Braching
-    | Case
-    | CaseFoldLMap
+    | Unbox
+    | UnboxFoldLMap
     | While
 
     // BinOps
@@ -255,7 +255,7 @@ and PatternArg = {
 
 and PatModuleMembersItem =
     | PatModuleMembersKeyword of keyword: KeywordString * name: Pattern
-    | PatModuleMembersInject of var: VarString * name: Pattern
+    | PatModuleMembersInjectVar of var: VarString * name: Pattern
 and Pattern =
     | PatE
     | PatVar of string
@@ -443,8 +443,7 @@ type PrepassEnv = {
     }
 
 type PrepassSubrenameEnv = {
-    subren_map : Map<int, int>
-    subren_map_length : int
+    subren_dict : Dictionary<int, int>
     subren_size_lexical_scope : int
     }
 

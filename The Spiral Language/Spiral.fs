@@ -45,6 +45,7 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
     let lit x = RawLit x
     let eq x y = binop EQ x y
     let expr_pos pos x = RawExprPos(Pos.Position(pos,x))
+    let unbox arg case = binop Unbox arg case
 
     let rec module_prepass (env: ModulePrepassEnv) expr = 
         let error x = raise (PrepassError x)
@@ -91,18 +92,16 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                     prepass_map_length = env.prepass_map_length + 1
                     }
 
-            let subrenaming_env_init (env: PrepassEnv) = {subren_size_lexical_scope=env.prepass_map_length; subren_map=Map.empty; subren_map_length=0}
-            let inline subrenaming_env_add_var (env: PrepassSubrenameEnv) k = 
-                {env with
-                    subren_map_length = env.subren_map_length+1
-                    subren_map = Map.add k env.subren_map_length env.subren_map
-                    }
+            let subrenaming_env_init size_lexical_scope free_vars = 
+                let d = Dictionary(Array.length free_vars, HashIdentity.Structural)
+                Array.iter (fun k -> d.Add(k,d.Count)) free_vars
+                {subren_size_lexical_scope=size_lexical_scope; subren_dict=d}
 
             let rec subrenaming (env: PrepassSubrenameEnv) expr =
                 let rename x =
                     // If is a free variable rename it explicitly else shift it.
-                    if x < env.subren_size_lexical_scope then env.subren_map.[x]
-                    else x - env.subren_size_lexical_scope + env.subren_map_length
+                    if x < env.subren_size_lexical_scope then env.subren_dict.[x]
+                    else x - env.subren_size_lexical_scope + env.subren_dict.Count
                 let rename' x = Array.map rename x
                 let inline f expr = subrenaming env expr
                 memoize prepass_subrenaming_memo_dict (function
@@ -180,6 +179,34 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                         if_ (eq_type (v arg) x) (if_ (eq (v arg) x) on_succ on_fail) on_fail
                     | PatWhen (p, e) -> cp arg p (if_ e on_succ on_fail) on_fail
                     | PatPos p -> expr_pos p.Pos (cp arg p.Expression on_succ on_fail)
+                    | PatUnbox pat -> unbox (v arg) (cp arg pat on_succ on_fail)
+                    | PatModuleMembers items ->
+                        let binds, on_succ =
+                            Array.mapFoldBack (fun item on_succ ->
+                                match item with
+                                | PatModuleMembersKeyword(keyword,name) ->
+                                    match name with
+                                    | PatVar x -> RawModuleTestKeyword(keyword,x), on_succ
+                                    | _ -> let arg = patvar() in RawModuleTestKeyword(keyword,arg), cp arg pat on_succ on_fail
+                                | PatModuleMembersInjectVar(var,name) ->
+                                    match name with
+                                    | PatVar x -> RawModuleTestInjectVar(var,x), on_succ
+                                    | _ -> let arg = patvar() in RawModuleTestInjectVar(var,arg), cp arg pat on_succ on_fail
+                                ) items on_succ
+                        RawModuleTest(binds,arg,on_succ,on_fail)
+                    | PatTypeTermFunction(domain,range) ->
+                        let f pat on_succ = 
+                            match pat with
+                            | PatVar x -> x, on_succ
+                            | _ -> let arg = patvar() in arg, cp arg pat on_succ on_fail
+                        let range, on_succ = f range on_succ
+                        let domain, on_succ = f domain on_succ
+                        let arg = [|v arg|]
+                        if_ (op(TermFunctionIs,arg))
+                            (l domain (op(TermFunctionDomain,arg)) 
+                                (l range (op(TermFunctionRange, arg)) on_succ))
+                            on_fail
+
 
                 Array.foldBack (fun (pat, exp) on_fail -> cp arg pat exp on_fail) clauses (op(ErrorPatMiss,[|v arg|]))
                 
@@ -224,28 +251,24 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                             error <| sprintf "Module %s is not a proper module or might have been shadowed. Only records returned from previously compiled modules can be opened." module_name
                     | None -> error <| sprintf "Module %s is not bound." module_name
                 | RawFunction(expr, name) ->
-                    let subrenaming_env = subrenaming_env_init env
+                    let size_lexical_scope = env.prepass_map_length
                     let name_vartag, env = env_add_var env name
                     let expr, free_vars, stack_size = loop env expr
                     let free_vars = Set.remove name_vartag free_vars
                     let array_free_vars = Set.toArray free_vars
-                    let expr = 
-                        Array.fold subrenaming_env_add_var subrenaming_env array_free_vars
-                        |> fun env -> subrenaming env expr
+                    let expr = subrenaming (subrenaming_env_init size_lexical_scope array_free_vars) expr
                     Function(tag(),expr,array_free_vars,stack_size), free_vars, 0
                 | RawRecFunction(expr, name, rec_name) ->
-                    let subrenaming_env = subrenaming_env_init env
+                    let size_lexical_scope = env.prepass_map_length
                     let name_vartag, env = env_add_var env name
                     let rec_name_vartag, env = env_add_var env rec_name
                     let expr, free_vars, stack_size = loop env expr
                     let free_vars = Set.remove name_vartag free_vars |> Set.remove rec_name_vartag
                     let array_free_vars = Set.toArray free_vars
-                    let expr = 
-                        Array.fold subrenaming_env_add_var subrenaming_env array_free_vars
-                        |> fun env -> subrenaming env expr
+                    let expr = subrenaming (subrenaming_env_init size_lexical_scope array_free_vars) expr
                     Function(tag(),expr,array_free_vars,stack_size), free_vars, 0
                 | RawObjectCreate(ar) ->
-                    let subrenaming_env = subrenaming_env_init env
+                    let size_lexical_scope = env.prepass_map_length
                     let ar, free_vars = 
                         Array.mapFold (fun free_vars (keyword_string, var_strings, expr) ->
                             let self_vartag, env = env_add_var env "self"
@@ -256,10 +279,10 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                             ) Set.empty ar
                     let array_free_vars = Set.toArray free_vars
                     let tagged_dict =
-                        let env = Array.fold subrenaming_env_add_var subrenaming_env array_free_vars
+                        let subrenaming_env = subrenaming_env_init size_lexical_scope array_free_vars
                         let tagged_dict = TaggedDictionary(ar.Length,tag())
                         Array.iter (fun (keyword, expr, stack_size) -> 
-                            let expr = subrenaming env expr
+                            let expr = subrenaming subrenaming_env expr
                             tagged_dict.Add(keyword, (expr, stack_size))
                             ) ar
                         tagged_dict
