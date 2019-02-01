@@ -69,12 +69,31 @@ type Node<'a>(expr:'a, symbol:int) =
             | :? Node<'a> as y -> compare symbol y.Symbol
             | _ -> failwith "Invalid comparison for Node."
 
-type ModuleName = string
-type ModuleCode = string
-type ModuleDescription = string
-type Module = Module of Node<ModuleName * Module list * ModuleDescription * ModuleCode>
+let mutable module_tag = 0
+type SpiralModule(name: string, prerequisites : SpiralModule list, description : string, code : string) = 
+    let tag = module_tag
+    do module_tag <- module_tag + 1
+    member __.Tag = tag
+    member __.Name = name
+    member __.Prerequisites = prerequisites
+    member __.Description = description
+    member __.Code = code
 
-type PosKey = Module * int64 * int64
+    override x.Equals(y) =
+        match y with
+        | :? SpiralModule as y -> x.Tag = y.Tag
+        | _ -> failwith "Invalid equality for SpiralModule."
+
+    override x.GetHashCode() = x.Tag
+    interface IComparable with
+        member x.CompareTo(y) = 
+            match y with
+            | :? SpiralModule as y -> compare x.Tag y.Tag
+            | _ -> failwith "Invalid comparison for SpiralModule."
+
+let spiral_module name prerequisites description code = SpiralModule(name,prerequisites,description,code)
+
+type PosKey = SpiralModule * int64 * int64
 
 type Pos<'a> = Position of PosKey * 'a with
     member x.Expression = match x with Position (_, expr) -> expr
@@ -505,14 +524,6 @@ let cuda_kernels_name = "cuda_kernels"
 let h0() = HashSet(HashIdentity.Structural)
 let d0() = Dictionary(HashIdentity.Structural)
 
-let string_to_op =
-    let cases = Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(typeof<Op>)
-    let dict = d0()
-    cases |> Array.iter (fun x ->
-        dict.[x.Name] <- Microsoft.FSharp.Reflection.FSharpValue.MakeUnion(x,[||]) :?> Op
-        )
-    dict.TryGetValue
-
 type CompilerSettings = {
     cub_path : string
     cuda_path : string
@@ -561,3 +572,35 @@ exception PrepassError of string
 exception PrepassErrorWithPos of PosKey * string
 exception TypeError of Trace * string
 exception TypeRaised of ConsedTy
+
+let v x = RawV x
+let lit x = RawLit x
+let open_ var subs on_succ = RawOpen(var,subs,on_succ)
+let inl x y = RawFunction(y,x)
+let objc m = RawObjectCreate m
+let keyword k l = RawKeywordCreate(k,l)
+let l bind body on_succ = RawLet(bind,body,on_succ)
+let case bind body on_succ = RawCase(bind,body,on_succ)
+let if_ cond on_succ on_fail = RawIf(cond,on_succ,on_fail)
+let list_take_all_test x bind on_succ on_fail = RawListTakeAllTest(x,bind,on_succ,on_fail)
+let list_take_n_test x bind on_succ on_fail = RawListTakeNTest(x,bind,on_succ,on_fail)
+let list_keyword_test keyword x bind on_succ on_fail = RawKeywordTest(keyword,x,bind,on_succ,on_fail)
+let module_test x bind on_succ on_fail = RawModuleTest(x,bind,on_succ,on_fail)
+let module_with binds patterns = RawModuleWith(binds,patterns)
+    
+let op x args = RawOp(x,args)
+let vv x = op ListCreate x
+let B = vv [||]
+let pattern arg clauses = RawPattern(arg,clauses)
+
+let binop op' a b = op op' [|a;b|]
+let eq x y = binop EQ x y
+let eq_type a b = binop EqType a b
+let ap x y = binop Apply x y
+let rec ap' f l = Array.fold ap f l
+let expr_pos pos x = RawExprPos(Position(pos,x))
+let pat_pos pos x = PatPos(Position(pos,x))
+
+// The seemingly useless function application is there to filter the environment just in case it has not been done.
+let join_point_entry_method y = ap (inl "" (op JoinPointEntryMethod [|y|])) B 
+let join_point_entry_type y = ap (inl "" (op JoinPointEntryType [|y|])) B
