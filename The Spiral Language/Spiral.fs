@@ -45,7 +45,6 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
     let lit x = RawLit x
     let eq x y = binop EQ x y
     let expr_pos pos x = RawExprPos(Pos.Position(pos,x))
-    let unbox arg case = binop Unbox arg case
 
     let rec module_prepass (env: ModulePrepassEnv) expr = 
         let error x = raise (PrepassError x)
@@ -114,6 +113,7 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                     | ObjectCreate(dict,free_vars) -> ObjectCreate(dict,rename' free_vars)
                     | KeywordCreate(tag,a,exprs) -> KeywordCreate(tag,a,Array.map f exprs)
                     | Let(tag,bind,on_succ) -> Let(tag,f bind,f on_succ)
+                    | Case(tag,bind,on_succ) -> Case(tag,f bind,f on_succ)
                     | If(tag,cond,on_succ,on_fail) -> If(tag,f cond,f on_succ,f on_fail)
                     | ListTakeAllTest(tag,size,bind,on_succ,on_fail) -> ListTakeAllTest(tag,size,bind,f on_succ,f on_fail)
                     | ListTakeNTest(tag,size,bind,on_succ,on_fail) -> ListTakeNTest(tag,size,bind,f on_succ,f on_fail)
@@ -179,7 +179,10 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                         if_ (eq_type (v arg) x) (if_ (eq (v arg) x) on_succ on_fail) on_fail
                     | PatWhen (p, e) -> cp arg p (if_ e on_succ on_fail) on_fail
                     | PatPos p -> expr_pos p.Pos (cp arg p.Expression on_succ on_fail)
-                    | PatUnbox pat -> unbox (v arg) (cp arg pat on_succ on_fail)
+                    | PatUnbox pat -> 
+                        match pat with
+                        | PatVar patvar -> RawCase(patvar,v arg,on_succ)
+                        | _ -> let patvar = patvar() in RawCase(patvar,v arg,cp patvar pat on_succ on_fail)
                     | PatModuleMembers items ->
                         let binds, on_succ =
                             Array.mapFoldBack (fun item on_succ ->
@@ -207,9 +210,7 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                                 (l range (op(TermFunctionRange, arg)) on_succ))
                             on_fail
 
-
                 Array.foldBack (fun (pat, exp) on_fail -> cp arg pat exp on_fail) clauses (op(ErrorPatMiss,[|v arg|]))
-                
 
             let inline list_test f (vars,bind,on_succ,on_fail) =
                 let bind = string_to_var env.prepass_map bind
@@ -220,6 +221,13 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                 let free_vars = Set.singleton bind+on_succ_free_vars+on_fail_free_vars
                 let stack_size = vars.Length + max on_succ_stack_size on_fail_stack_size
                 f(tag(),vars.Length,bind,on_succ,on_fail),free_vars,stack_size
+
+            let inline let_helper f (name,bind,on_succ) =
+                let bind, free_vars, stack_size = loop env bind
+                let name_vartag, env = env_add_var env name
+                let on_succ, free_vars', stack_size' = loop env on_succ
+                let free_vars' = Set.remove name_vartag free_vars'
+                f(tag(), bind, on_succ), free_vars + free_vars', 1 + max stack_size stack_size'
 
             memoize prepass_memo_dict (function
                 | RawV x -> let tag = tag() in V(tag, string_to_var env.prepass_map x), Set.singleton tag, 0
@@ -295,12 +303,8 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
                             arg, (free_vars + free_vars', max stack_size stack_size')
                             ) (Set.empty, 0) args
                     KeywordCreate(tag(), string_to_keyword name, args), free_vars, stack_size
-                | RawLet(name,bind,on_succ) ->
-                    let bind, free_vars, stack_size = loop env bind
-                    let name_vartag, env = env_add_var env name
-                    let on_succ, free_vars', stack_size' = loop env on_succ
-                    let free_vars' = Set.remove name_vartag free_vars'
-                    Let(tag(), bind, on_succ), free_vars + free_vars', 1 + max stack_size stack_size'
+                | RawLet(name,bind,on_succ) -> let_helper Let (name,bind,on_succ)
+                | RawCase(name,bind,on_succ) -> let_helper Case (name,bind,on_succ)
                 | RawIf(cond,on_succ,on_fail) ->
                     let cond,free_vars,stack_size = loop env cond
                     let on_succ,free_vars',stack_size' = loop env on_succ
@@ -370,6 +374,7 @@ let spiral_compile (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as
         let expr, free_vars, stack_size = loop env expr
         expr, stack_size
         
-        
     and partial_eval _ = failwith ""
+
+
     ()

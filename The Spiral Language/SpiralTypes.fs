@@ -158,8 +158,6 @@ type Op =
     | ModuleLength
 
     // Braching
-    | Unbox
-    | UnboxFoldLMap
     | While
 
     // BinOps
