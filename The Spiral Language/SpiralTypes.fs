@@ -169,12 +169,12 @@ type Op =
     | ListCons
     | ListCreate
 
-    // Module
-    | ModuleMap
-    | ModuleFilter
-    | ModuleFoldL
-    | ModuleFoldR
-    | ModuleLength
+    // Record
+    | RecordMap
+    | RecordFilter
+    | RecordFoldL
+    | RecordFoldR
+    | RecordLength
 
     // Braching
     | While
@@ -270,9 +270,9 @@ and PatternArg = {
     pat_on_fail : RawExpr
     }
 
-and PatModuleMembersItem =
-    | PatModuleMembersKeyword of keyword: KeywordString * name: Pattern
-    | PatModuleMembersInjectVar of var: VarString * name: Pattern
+and PatRecordMembersItem =
+    | PatRecordMembersKeyword of keyword: KeywordString * name: Pattern
+    | PatRecordMembersInjectVar of var: VarString * name: Pattern
 and Pattern =
     | PatE
     | PatVar of string
@@ -288,7 +288,7 @@ and Pattern =
     | PatNot of Pattern
     | PatLit of Value
     | PatWhen of Pattern * RawExpr
-    | PatModuleMembers of PatModuleMembersItem list
+    | PatRecordMembers of PatRecordMembersItem list
     | PatPos of Pos<Pattern>
     | PatTypeTermFunction of Pattern * Pattern
 
@@ -299,14 +299,14 @@ and ModulePrepassExpr =
 and VarString = string
 and KeywordString = string
 
-and RawModuleTestPattern = 
-    | RawModuleTestKeyword of keyword: KeywordString * name: VarString
-    | RawModuleTestInjectVar of var: VarString * name: VarString
-and RawModuleWithPattern = 
-    | RawModuleWithKeyword of KeywordString * RawExpr 
-    | RawModuleWithInjectVar of VarString * RawExpr
-    | RawModuleWithoutKeyword of KeywordString 
-    | RawModuleWithoutInjectVar of VarString
+and RawRecordTestPattern = 
+    | RawRecordTestKeyword of keyword: KeywordString * name: VarString
+    | RawRecordTestInjectVar of var: VarString * name: VarString
+and RawRecordWithPattern = 
+    | RawRecordWithKeyword of KeywordString * RawExpr 
+    | RawRecordWithInjectVar of VarString * RawExpr
+    | RawRecordWithoutKeyword of KeywordString 
+    | RawRecordWithoutInjectVar of VarString
 
 and RawExpr =
     | RawV of string
@@ -322,18 +322,18 @@ and RawExpr =
     | RawListTakeAllTest of vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawListTakeNTest of vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawKeywordTest of KeywordString * vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
-    | RawModuleTest of RawModuleTestPattern [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
-    | RawModuleWith of RawExpr [] * RawModuleWithPattern []
+    | RawRecordTest of RawRecordTestPattern [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
+    | RawRecordWith of RawExpr [] * RawRecordWithPattern []
     | RawOp of Op * RawExpr []
     | RawExprPos of Pos<RawExpr>
     | RawPattern of VarString * (Pattern * RawExpr) []
 
-and ModuleTestPattern = ModuleTestKeyword of keyword: KeywordTag | ModuleTestInjectVar of var: VarTag
-and ModuleWithPattern = 
-    | ModuleWithKeyword of keyword: KeywordTag * Expr 
-    | ModuleWithInjectVar of var: VarTag * Expr
-    | ModuleWithoutKeyword of keyword: KeywordTag
-    | ModuleWithoutInjectVar of var: VarTag
+and RecordTestPattern = RecordTestKeyword of keyword: KeywordTag | RecordTestInjectVar of var: VarTag
+and RecordWithPattern = 
+    | RecordWithKeyword of keyword: KeywordTag * Expr 
+    | RecordWithInjectVar of var: VarTag * Expr
+    | RecordWithoutKeyword of keyword: KeywordTag
+    | RecordWithoutInjectVar of var: VarTag
 
 and Expr =
     | V of Tag * VarTag
@@ -349,8 +349,8 @@ and Expr =
     | ListTakeAllTest of Tag * StackSize * bind: VarTag * on_succ: Expr * on_fail: Expr
     | ListTakeNTest of Tag * StackSize * bind: VarTag * on_succ: Expr * on_fail: Expr
     | KeywordTest of Tag * KeywordTag * bind: VarTag * on_succ: Expr * on_fail: Expr
-    | ModuleTest of Tag * ModuleTestPattern [] * bind: VarTag * on_succ: Expr * on_fail: Expr
-    | ModuleWith of Tag * Expr [] * ModuleWithPattern []
+    | RecordTest of Tag * RecordTestPattern [] * bind: VarTag * on_succ: Expr * on_fail: Expr
+    | RecordWith of Tag * Expr [] * RecordWithPattern []
     | Op of Tag * Op * Expr []
     | ExprPos of Tag * Pos<Expr>
 

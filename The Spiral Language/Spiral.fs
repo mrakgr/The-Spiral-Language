@@ -92,22 +92,22 @@ let spiral_compile (settings: CompilerSettings) module_ =
                     | ListTakeAllTest(tag,size,bind,on_succ,on_fail) -> ListTakeAllTest(tag,size,bind,f on_succ,f on_fail)
                     | ListTakeNTest(tag,size,bind,on_succ,on_fail) -> ListTakeNTest(tag,size,bind,f on_succ,f on_fail)
                     | KeywordTest(tag,keyword,bind,on_succ,on_fail) -> KeywordTest(tag,keyword,bind,f on_succ,f on_fail)
-                    | ModuleTest(tag,patterns,bind,on_succ,on_fail) ->
+                    | RecordTest(tag,patterns,bind,on_succ,on_fail) ->
                         let patterns =
                             Array.map (function
-                                | ModuleTestInjectVar x -> ModuleTestInjectVar(rename x)
-                                | ModuleTestKeyword _ as x -> x
+                                | RecordTestInjectVar x -> RecordTestInjectVar(rename x)
+                                | RecordTestKeyword _ as x -> x
                                 ) patterns
-                        ModuleTest(tag,patterns,bind,f on_succ,f on_fail)
-                    | ModuleWith(tag,exprs,patterns) ->
+                        RecordTest(tag,patterns,bind,f on_succ,f on_fail)
+                    | RecordWith(tag,exprs,patterns) ->
                         let patterns =
                             Array.map (function
-                                | ModuleWithKeyword(keyword,expr) -> ModuleWithKeyword(keyword,f expr)
-                                | ModuleWithInjectVar(var,expr) -> ModuleWithInjectVar(rename var,f expr)
-                                | ModuleWithoutKeyword(keyword) -> ModuleWithoutKeyword keyword
-                                | ModuleWithoutInjectVar(var) -> ModuleWithoutInjectVar(rename var)
+                                | RecordWithKeyword(keyword,expr) -> RecordWithKeyword(keyword,f expr)
+                                | RecordWithInjectVar(var,expr) -> RecordWithInjectVar(rename var,f expr)
+                                | RecordWithoutKeyword(keyword) -> RecordWithoutKeyword keyword
+                                | RecordWithoutInjectVar(var) -> RecordWithoutInjectVar(rename var)
                                 ) patterns
-                        ModuleWith(tag,Array.map f exprs,patterns)
+                        RecordWith(tag,Array.map f exprs,patterns)
                     | Op(tag,op,exprs) -> Op(tag,op,Array.map f exprs)
                     | ExprPos(tag, pos) -> ExprPos(tag, Pos.Position(pos.Pos,f pos.Expression))
                     ) expr
@@ -157,20 +157,20 @@ let spiral_compile (settings: CompilerSettings) module_ =
                         match pat with
                         | PatVar patvar -> RawCase(patvar,v arg,on_succ)
                         | _ -> let patvar = patvar() in RawCase(patvar,v arg,cp patvar pat on_succ on_fail)
-                    | PatModuleMembers items ->
+                    | PatRecordMembers items ->
                         let binds, on_succ =
                             List.mapFoldBack (fun item on_succ ->
                                 match item with
-                                | PatModuleMembersKeyword(keyword,name) ->
+                                | PatRecordMembersKeyword(keyword,name) ->
                                     match name with
-                                    | PatVar x -> RawModuleTestKeyword(keyword,x), on_succ
-                                    | _ -> let arg = patvar() in RawModuleTestKeyword(keyword,arg), cp arg pat on_succ on_fail
-                                | PatModuleMembersInjectVar(var,name) ->
+                                    | PatVar x -> RawRecordTestKeyword(keyword,x), on_succ
+                                    | _ -> let arg = patvar() in RawRecordTestKeyword(keyword,arg), cp arg pat on_succ on_fail
+                                | PatRecordMembersInjectVar(var,name) ->
                                     match name with
-                                    | PatVar x -> RawModuleTestInjectVar(var,x), on_succ
-                                    | _ -> let arg = patvar() in RawModuleTestInjectVar(var,arg), cp arg pat on_succ on_fail
+                                    | PatVar x -> RawRecordTestInjectVar(var,x), on_succ
+                                    | _ -> let arg = patvar() in RawRecordTestInjectVar(var,arg), cp arg pat on_succ on_fail
                                 ) items on_succ
-                        RawModuleTest(List.toArray binds,arg,on_succ,on_fail)
+                        RawRecordTest(List.toArray binds,arg,on_succ,on_fail)
                     | PatTypeTermFunction(domain,range) ->
                         let f pat on_succ = 
                             match pat with
@@ -289,21 +289,21 @@ let spiral_compile (settings: CompilerSettings) module_ =
                 | RawKeywordTest(keyword,vars,bind,on_succ,on_fail) -> 
                     list_test (fun (tag,stack_size,bind,on_succ,on_fail) -> KeywordTest(tag,string_to_keyword keyword,bind,on_succ,on_fail)) 
                         (vars,bind,on_succ,on_fail)
-                | RawModuleTest(vars,bind,on_succ,on_fail) ->
+                | RawRecordTest(vars,bind,on_succ,on_fail) ->
                     let bind = string_to_var env.prepass_map bind
                     let on_fail,on_fail_free_vars,on_fail_stack_size = loop env on_fail
-                    let vartags, env = Array.mapFold (fun s (RawModuleTestKeyword(_,name) | RawModuleTestInjectVar(_,name)) -> env_add_var s name) env vars
+                    let vartags, env = Array.mapFold (fun s (RawRecordTestKeyword(_,name) | RawRecordTestInjectVar(_,name)) -> env_add_var s name) env vars
                     let on_succ,on_succ_free_vars,on_succ_stack_size = loop env on_succ
                     let on_succ_free_vars = Array.fold (fun s x -> Set.remove x s) on_succ_free_vars vartags
                     let vars, vars_free_vars =
                         Array.mapFold (fun s -> function
-                            | RawModuleTestInjectVar(x,_) -> let x = string_to_var env.prepass_map x in ModuleTestInjectVar x, Set.add x s
-                            | RawModuleTestKeyword(x,_) -> ModuleTestKeyword(string_to_keyword x), s
+                            | RawRecordTestInjectVar(x,_) -> let x = string_to_var env.prepass_map x in RecordTestInjectVar x, Set.add x s
+                            | RawRecordTestKeyword(x,_) -> RecordTestKeyword(string_to_keyword x), s
                             ) Set.empty vars
                     let free_vars = vars_free_vars+Set.singleton bind+on_succ_free_vars+on_fail_free_vars
                     let stack_size = vars.Length + max on_succ_stack_size on_fail_stack_size
-                    ModuleTest(tag(),vars,bind,on_succ,on_fail),free_vars,stack_size                    
-                | RawModuleWith(binds,patterns) ->
+                    RecordTest(tag(),vars,bind,on_succ,on_fail),free_vars,stack_size                    
+                | RawRecordWith(binds,patterns) ->
                     let binds, (binds_free_vars, binds_stack_size) = 
                         Array.mapFold (fun (free_vars, stack_size) x ->
                             let bind, free_vars', stack_size' = loop env x
@@ -311,23 +311,23 @@ let spiral_compile (settings: CompilerSettings) module_ =
                             ) (Set.empty, 0) binds
                     let patterns, (patterns_free_vars, patterns_stack_size) =
                         Array.mapFold (fun (free_vars, stack_size) -> function
-                            | RawModuleWithKeyword(keyword,expr) ->
+                            | RawRecordWithKeyword(keyword,expr) ->
                                 let this_tag, env = env_add_var env "this"
                                 let expr, free_vars', stack_size' = loop env expr
                                 let free_vars' = Set.remove this_tag free_vars'
-                                ModuleWithKeyword(string_to_keyword keyword, expr),(free_vars+free_vars',max stack_size stack_size')
-                            | RawModuleWithInjectVar(var,expr) ->
+                                RecordWithKeyword(string_to_keyword keyword, expr),(free_vars+free_vars',max stack_size stack_size')
+                            | RawRecordWithInjectVar(var,expr) ->
                                 let this_tag, env = env_add_var env "this"
                                 let expr, free_vars', stack_size' = loop env expr
                                 let free_vars' = Set.remove this_tag free_vars'
                                 let x = string_to_var env.prepass_map var
-                                ModuleWithInjectVar(x, expr),(free_vars+free_vars' |> Set.add x, max stack_size stack_size')
-                            | RawModuleWithoutKeyword keyword -> ModuleWithoutKeyword(string_to_keyword keyword),(free_vars,stack_size)
-                            | RawModuleWithoutInjectVar var -> 
+                                RecordWithInjectVar(x, expr),(free_vars+free_vars' |> Set.add x, max stack_size stack_size')
+                            | RawRecordWithoutKeyword keyword -> RecordWithoutKeyword(string_to_keyword keyword),(free_vars,stack_size)
+                            | RawRecordWithoutInjectVar var -> 
                                 let x = string_to_var env.prepass_map var
-                                ModuleWithoutInjectVar x,(Set.add x free_vars,stack_size)
+                                RecordWithoutInjectVar x,(Set.add x free_vars,stack_size)
                             ) (Set.empty, 0) patterns
-                    ModuleWith(tag(), binds, patterns),binds_free_vars+patterns_free_vars,binds_stack_size+patterns_stack_size
+                    RecordWith(tag(), binds, patterns),binds_free_vars+patterns_free_vars,binds_stack_size+patterns_stack_size
                 | RawOp(op,exprs) ->
                     let exprs, (free_vars, stack_size) =
                         Array.mapFold (fun (free_vars,stack_size) expr ->

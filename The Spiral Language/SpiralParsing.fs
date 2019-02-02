@@ -67,10 +67,15 @@ let spiral_parse module_ =
     let curlies p = between_brackets '{' p '}'
     let squares p = between_brackets '[' p ']'
         
-    let keywordString x = attempt (skipString x >>. nextCharSatisfiesNot is_identifier_char >>. spaces)
-    let operatorChar x = attempt (skipChar x >>. nextCharSatisfiesNot is_operator_char >>. spaces)
-    let prefixOperatorChar x = attempt (skipChar x >>. nextCharSatisfiesNot is_operator_char)
-    let operatorString x = attempt (skipString x >>. nextCharSatisfiesNot is_operator_char >>. spaces)
+    let keywordString_template str followedByChar (s: CharStream<_>) =
+        let len = String.length str
+        let rec loop i = i = len || s.Peek(i) = str.[i] && loop (i+1)
+        if loop 0 && followedByChar (s.Peek(len)) then Reply(())
+        else Reply(ReplyStatus.Error,expected str)
+    let keywordString x = keywordString_template x (is_identifier_char >> not) >>. spaces
+    let operatorString x = keywordString_template x (is_operator_char >> not) >>. spaces
+    let prefixOperatorChar x = next2CharsSatisfy (fun a b -> a = x && is_operator_char b = false)
+    let operatorChar x = prefixOperatorChar x >>. spaces
 
     let when_ = keywordString "when"
     let as_ = keywordString "as"
@@ -89,7 +94,6 @@ let spiral_parse module_ =
     let eq' = skipChar '=' >>. spaces
     let bar = operatorChar '|' 
     let amphersand = operatorChar '&'
-    let caret = operatorChar '^'
     let lam = operatorString "->"
     let arr = operatorString "=>"
     let set_ref = operatorString ":="
@@ -139,21 +143,29 @@ let spiral_parse module_ =
             | true, x -> Reply(on_succ x)
             | false, _ -> Reply(ReplyStatus.FatalError,messageError er_msg)
 
-        let default_int x _ = safe_parse Int64.TryParse LitInt64 "default int parse failed" x
-        let default_float x _ = safe_parse Double.TryParse LitFloat64 "default float parse failed" x
+        let default_int x = safe_parse Int64.TryParse LitInt64 "default int parse failed" x
+        let default_float x = safe_parse Double.TryParse LitFloat64 "default float parse failed" x
 
-        let int8 x _ = safe_parse SByte.TryParse LitInt8 "int8 parse failed" x
-        let int16 x _ = safe_parse Int16.TryParse LitInt16 "int16 parse failed" x
-        let int32 x _ = safe_parse Int32.TryParse LitInt32 "int32 parse failed" x
-        let int64 x _ = safe_parse Int64.TryParse LitInt64 "int64 parse failed" x
+        let int8 x = safe_parse SByte.TryParse LitInt8 "int8 parse failed" x
+        let int16 x = safe_parse Int16.TryParse LitInt16 "int16 parse failed" x
+        let int32 x = safe_parse Int32.TryParse LitInt32 "int32 parse failed" x
+        let int64 x = safe_parse Int64.TryParse LitInt64 "int64 parse failed" x
 
-        let uint8 x _ = safe_parse Byte.TryParse LitUInt8 "uint8 parse failed" x
-        let uint16 x _ = safe_parse UInt16.TryParse LitUInt16 "uint16 parse failed" x
-        let uint32 x _ = safe_parse UInt32.TryParse LitUInt32 "uint32 parse failed" x
-        let uint64 x _ = safe_parse UInt64.TryParse LitUInt64 "uint64 parse failed" x
+        let uint8 x = safe_parse Byte.TryParse LitUInt8 "uint8 parse failed" x
+        let uint16 x = safe_parse UInt16.TryParse LitUInt16 "uint16 parse failed" x
+        let uint32 x = safe_parse UInt32.TryParse LitUInt32 "uint32 parse failed" x
+        let uint64 x = safe_parse UInt64.TryParse LitUInt64 "uint64 parse failed" x
 
-        let float32 x _ = safe_parse Single.TryParse LitFloat32 "float32 parse failed" x
-        let float64 x _ = safe_parse Double.TryParse LitFloat64 "float64 parse failed" x
+        let float32 x = safe_parse Single.TryParse LitFloat32 "float32 parse failed" x
+        let float64 x = safe_parse Double.TryParse LitFloat64 "float64 parse failed" x
+
+        let inline p2 a b str on_succ (s: CharStream<_>) on_fail = if s.Peek(0) = a && s.Peek(1) = b then on_succ str else on_fail()
+        let inline p3 a b c str on_succ on_fail (s: CharStream<_>) = if s.Peek(0) = a && s.Peek(1) = b && s.Peek(2) = c then on_succ str else on_fail()
+
+        let followedBySuffix x is_x_integer s =
+            p2 'i' '8' x int8
+            <| fun _ -> failwith ""
+            //<| fun _ -> (if is_x_integer then default_int x else default_float x s
 
         let followedBySuffix x is_x_integer =
             let f c l = 
@@ -244,45 +256,55 @@ let spiral_parse module_ =
             |]
         <| s
 
-    let pat_e = wildcard >>% PatE
-    let pat_var = var_name |>> PatVar
-    let pat_expr expr = (var_name |>> v) <|> rounds expr
-    let pat_tuple pattern = sepBy1 pattern comma |>> function [x] -> x | x -> PatTuple x
-    let pat_cons pattern = sepBy1 pattern cons |>> function [x] -> x | x -> PatCons x
-    let pat_rounds pattern = rounds (pattern <|>% PatTuple [])
-    let pat_type expr pattern = tuple2 pattern (opt (pp >>. pat_expr expr)) |>> function a,Some b as x-> PatTypeEq(a,b) | a, None -> a
-    let pat_active expr pattern = 
-        let active_pat = choice [active_pat >>% PatActive; part_active_pat >>% PatPartActive]
-        pipe3 active_pat (pat_expr expr) pattern <| fun c name pat -> c (name,pat)
-    let pat_or pattern = sepBy1 pattern bar |>> function [x] -> x | x -> PatOr x
-    let pat_and pattern = sepBy1 pattern amphersand |>> function [x] -> x | x -> PatAnd x
-    let lit_var = lit_ <|> (var_name_core |>> LitString)
-    
-    let pat_lit = lit_ |>> PatLit
-    let pat_when expr pattern = pattern .>>. (opt (when_ >>. expr)) |>> function a, Some b -> PatWhen(a,b) | a, None -> a
-    let pat_as pattern = pattern .>>. (opt (as_ >>. pattern )) |>> function a, Some b -> PatAnd [a;b] | a, None -> a
-
-    let concat_keyword (x: (string * Pattern) list) =
-        let strb = StringBuilder()
-        let pattern = 
-            List.map (fun (str: string, pat) -> 
-                strb.Append(str).Append(':') |> ignore
-                pat
-                ) x
-        strb.ToString(), pattern
-
-    let pat_keyword_unary = keyword_unary |>> fun keyword -> PatKeyword(keyword,[])
-    let pat_keyword pattern = many1 (tuple2 keyword pattern) |>> (concat_keyword >> PatKeyword)
-
-    let pat_closure pattern = sepBy1 pattern arr |>> List.reduceBack (fun a b -> PatTypeTermFunction(a,b))
-
     let (^<|) a b = a b // High precedence, right associative <| operator
 
     let rec patterns_template expr s = // The order in which the pattern parsers are chained determines their precedence.
         let inline recurse s = patterns_template expr s
-        pat_when expr ^<| pat_as ^<| pat_or ^<| pat_tuple ^<| pat_cons ^<| pat_and ^<| pat_type expr ^<| pat_closure
-        ^<| choice [|pat_active expr recurse; pat_e; pat_var; pat_type_lit; pat_lit 
-                     pat_rounds recurse; pat_named_tuple recurse; pat_module_outer expr|] <| s
+
+        let pat_e = wildcard >>% PatE
+        let pat_var = var_name |>> PatVar
+        let pat_expr = (var_name |>> v) <|> rounds expr
+        let pat_tuple pattern = sepBy1 pattern comma |>> function [x] -> x | x -> PatTuple x
+        let pat_cons pattern = sepBy1 pattern cons |>> function [x] -> x | x -> PatCons x
+        let pat_rounds pattern = rounds (pattern <|>% PatTuple [])
+        let pat_type pattern = tuple2 pattern (opt (pp >>. pat_expr)) |>> function a,Some b as x-> PatTypeEq(a,b) | a, None -> a
+        let pat_active pattern (s: CharStream<_>) =
+            let inline f k = pipe2 pat_expr pattern (fun name pat -> k(name,pat)) s
+            match s.Peek() with
+            | '!' -> f PatActive
+            | '@' -> f PatPartActive
+            | _ -> Reply(ReplyStatus.Error, expected "! or @")
+        let pat_or pattern = sepBy1 pattern bar |>> function [x] -> x | x -> PatOr x
+        let pat_and pattern = sepBy1 pattern amphersand |>> function [x] -> x | x -> PatAnd x
+    
+        let pat_lit = lit_ |>> PatLit
+        let pat_when pattern = pattern .>>. (opt (when_ >>. expr)) |>> function a, Some b -> PatWhen(a,b) | a, None -> a
+        let pat_as pattern = pattern .>>. (opt (as_ >>. pattern )) |>> function a, Some b -> PatAnd [a;b] | a, None -> a
+
+        let concat_keyword (x: (string * Pattern) list) =
+            let strb = StringBuilder()
+            let pattern = 
+                List.map (fun (str: string, pat) -> 
+                    strb.Append(str).Append(':') |> ignore
+                    pat
+                    ) x
+            strb.ToString(), pattern
+
+        let pat_keyword_unary = keyword_unary |>> fun keyword -> PatKeyword(keyword,[])
+        let pat_keyword pattern = 
+            many1 (tuple2 keyword pattern) |>> (concat_keyword >> PatKeyword)
+            <|> pattern
+
+        let pat_record_item pattern =
+            let inline templ var k = pipe2 var (eq' >>. pattern) (fun a b -> k(a,b))
+            templ var_name PatRecordMembersKeyword <|> templ (skipChar '$' >>. var_name) PatRecordMembersInjectVar
+        
+        let pat_record pattern = curlies (many (pat_record_item pattern)) |>> PatRecordMembers
+
+        let pat_closure pattern = sepBy1 pattern arr |>> List.reduceBack (fun a b -> PatTypeTermFunction(a,b))
+
+        pat_when ^<| pat_as ^<| pat_or ^<| pat_keyword ^<| pat_tuple ^<| pat_cons ^<| pat_and ^<| pat_type ^<| pat_closure
+        ^<| choice [|pat_active recurse; pat_e; pat_var; pat_lit; pat_record recurse; pat_rounds recurse; pat_keyword_unary|] <| s
 
     let inline patterns expr s = patpos (patterns_template expr) s
     
