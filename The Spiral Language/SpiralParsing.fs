@@ -70,7 +70,7 @@ let spiral_parse module_ =
     let keywordString_template str followedByChar (s: CharStream<_>) =
         let len = String.length str
         let rec loop i = i = len || s.Peek(i) = str.[i] && loop (i+1)
-        if loop 0 && followedByChar (s.Peek(len)) then Reply(())
+        if loop 0 && followedByChar (s.Peek(len)) then s.Seek(int64 len); Reply(())
         else Reply(ReplyStatus.Error,expected str)
     let keywordString x = keywordString_template x (is_identifier_char >> not) >>. spaces
     let operatorString x = keywordString_template x (is_operator_char >> not) >>. spaces
@@ -98,13 +98,10 @@ let spiral_parse module_ =
     let arr = operatorString "=>"
     let set_ref = operatorString ":="
     let set_array = operatorString "<-"
-    let inl_ = keywordString "inl"
-    let inm_ = keywordString "inm"
-    let use_ = keywordString "use"
-    let inb_ = keywordString "inb"
-    let met_ = keywordString "met"
-    let inl_rec = keywordString "inl" >>. keywordString "rec"
-    let met_rec = keywordString "met" >>. keywordString "rec"
+    let inl = keywordString "inl"
+    let inl_rec = keywordString "inl rec"
+    let inm = keywordString "inm"
+    let inb = keywordString "inb"
     let match_ = keywordString "match"
     let function_ = keywordString "function"
     let with_ = keywordString "with"
@@ -132,7 +129,7 @@ let spiral_parse module_ =
             
         let number_format_with_minus = default_number_format ||| NumberLiteralOptions.AllowMinusSign
 
-        let parser (s: CharStream<_>) = 
+        let inline parser (s: CharStream<_>) = 
             let parse_num_lit number_format s = numberLiteral number_format "number" s
             /// This is necessary in order to differentiate binary from unary operations.
             if s.Peek() = '-' then (unary_minus_check_precondition >>. parse_num_lit number_format_with_minus) s
@@ -143,66 +140,29 @@ let spiral_parse module_ =
             | true, x -> Reply(on_succ x)
             | false, _ -> Reply(ReplyStatus.FatalError,messageError er_msg)
 
-        let default_int x = safe_parse Int64.TryParse LitInt64 "default int parse failed" x
-        let default_float x = safe_parse Double.TryParse LitFloat64 "default float parse failed" x
+        let inline default_int x = safe_parse Int64.TryParse LitInt64 "default int parse failed" x
+        let inline default_float x = safe_parse Double.TryParse LitFloat64 "default float parse failed" x
 
-        let int8 x = safe_parse SByte.TryParse LitInt8 "int8 parse failed" x
-        let int16 x = safe_parse Int16.TryParse LitInt16 "int16 parse failed" x
-        let int32 x = safe_parse Int32.TryParse LitInt32 "int32 parse failed" x
-        let int64 x = safe_parse Int64.TryParse LitInt64 "int64 parse failed" x
-
-        let uint8 x = safe_parse Byte.TryParse LitUInt8 "uint8 parse failed" x
-        let uint16 x = safe_parse UInt16.TryParse LitUInt16 "uint16 parse failed" x
-        let uint32 x = safe_parse UInt32.TryParse LitUInt32 "uint32 parse failed" x
-        let uint64 x = safe_parse UInt64.TryParse LitUInt64 "uint64 parse failed" x
-
-        let float32 x = safe_parse Single.TryParse LitFloat32 "float32 parse failed" x
-        let float64 x = safe_parse Double.TryParse LitFloat64 "float64 parse failed" x
-
-        let inline p2 a b str on_succ (s: CharStream<_>) on_fail = if s.Peek(0) = a && s.Peek(1) = b then on_succ str else on_fail()
-        let inline p3 a b c str on_succ on_fail (s: CharStream<_>) = if s.Peek(0) = a && s.Peek(1) = b && s.Peek(2) = c then on_succ str else on_fail()
-
-        let followedBySuffix x is_x_integer s =
-            p2 'i' '8' x int8
-            <| fun _ -> failwith ""
-            //<| fun _ -> (if is_x_integer then default_int x else default_float x s
-
-        let followedBySuffix x is_x_integer =
-            let f c l = 
-                let l = Array.map (fun (k,m) -> keywordString k >>= fun _ -> m x) l
-                skipChar c >>. choice l
-            choice
-                [|
-                f 'i'
-                    [|
-                    "8", int8
-                    "16", int16
-                    "32", int32
-                    "64", int64
-                    |]
-
-                f 'u'
-                    [|
-                    "8", uint8
-                    "16", uint16
-                    "32", uint32
-                    "64", uint64
-                    |]
-
-                f 'f'
-                    [|
-                    "32", float32
-                    "64", float64
-                    |]
-                (if is_x_integer then default_int x else default_float x) .>> spaces
-                |]
+        let followedBySuffix x is_x_integer (s: CharStream<_>) =
+            match s.Peek(0), s.Peek(1), s.Peek(2) with
+            | 'i', '8', _ -> s.Seek(2L); safe_parse SByte.TryParse LitInt8 "int8 parse failed" x
+            | 'u', '8', _ -> s.Seek(2L); safe_parse Byte.TryParse LitUInt8 "uint8 parse failed" x
+            | 'i', '1', '6' -> s.Seek(3L); safe_parse Int16.TryParse LitInt16 "int16 parse failed" x
+            | 'i', '3', '2' -> s.Seek(3L); safe_parse Int32.TryParse LitInt32 "int32 parse failed" x
+            | 'i', '6', '4' -> s.Seek(3L); safe_parse Int64.TryParse LitInt64 "int64 parse failed" x
+            | 'u', '1', '6' -> s.Seek(3L); safe_parse UInt16.TryParse LitUInt16 "uint16 parse failed" x
+            | 'u', '3', '2' -> s.Seek(3L); safe_parse UInt32.TryParse LitUInt32 "uint32 parse failed" x
+            | 'u', '6', '4' -> s.Seek(3L); safe_parse UInt64.TryParse LitUInt64 "uint64 parse failed" x
+            | 'f', '3', '2' -> s.Seek(3L); safe_parse Single.TryParse LitFloat32 "float32 parse failed" x
+            | 'f', '6', '4' -> s.Seek(3L); safe_parse Double.TryParse LitFloat64 "float64 parse failed" x
+            | _ -> if is_x_integer then default_int x else default_float x
 
         fun s ->
             let reply = parser s
             if reply.Status = Ok then
                 let nl = reply.Result // the parsed NumberLiteral
                 try 
-                    followedBySuffix nl.String nl.IsInteger s
+                    (followedBySuffix nl.String nl.IsInteger .>> spaces) s
                 with
                 | :? System.OverflowException as e ->
                     s.Skip(-nl.String.Length)
@@ -258,8 +218,8 @@ let spiral_parse module_ =
 
     let (^<|) a b = a b // High precedence, right associative <| operator
 
-    let rec patterns_template expr s = // The order in which the pattern parsers are chained determines their precedence.
-        let inline recurse s = patterns_template expr s
+    let rec pattern_template expr s = // The order in which the pattern parsers are chained determines their precedence.
+        let inline recurse s = pattern_template expr s
 
         let pat_e = wildcard >>% PatE
         let pat_var = var_name |>> PatVar
@@ -300,15 +260,12 @@ let spiral_parse module_ =
             templ var_name PatRecordMembersKeyword <|> templ (skipChar '$' >>. var_name) PatRecordMembersInjectVar
         
         let pat_record pattern = curlies (many (pat_record_item pattern)) |>> PatRecordMembers
-
         let pat_closure pattern = sepBy1 pattern arr |>> List.reduceBack (fun a b -> PatTypeTermFunction(a,b))
 
         pat_when ^<| pat_as ^<| pat_or ^<| pat_keyword ^<| pat_tuple ^<| pat_cons ^<| pat_and ^<| pat_type ^<| pat_closure
         ^<| choice [|pat_active recurse; pat_e; pat_var; pat_lit; pat_record recurse; pat_rounds recurse; pat_keyword_unary|] <| s
 
-    let inline patterns expr s = patpos (patterns_template expr) s
-    
-    let pattern_list expr = many (patterns expr)
+    let inline pattern expr s = patpos (pattern_template expr) s
     
     let col (s: CharStream<_>) = s.Column
     let line (s: CharStream<_>) = s.Line
@@ -332,17 +289,46 @@ let spiral_parse module_ =
             (fun cond tr elifs fl -> 
                 let fl = 
                     match fl with Some x -> x | None -> B
-                    |> List.foldBack (fun (cond,tr) fl -> op(IfStatic,[cond;tr;fl])) elifs
-                op(IfStatic,[cond;tr;fl]))
+                    |> List.foldBack (fun (cond,tr) fl -> if_ cond tr fl) elifs
+                if_ cond tr fl)
         <| s
 
     let poperator (s: CharStream<Userstate>) = many1Satisfy is_operator_char .>> spaces <| s
     let var_op_name = var_name <|> rounds (poperator <|> var_name_core)
 
+    let inline expression_expr expr = lam >>. reset_semicolon_level expr
+    let inline statement_expr expr = eq' >>. expr
+
+    let case_statement expr  =
+        choice
+            [|
+            inl_rec >>. tuple3 var_name (many (pattern expr)) (statement_expr expr) >>= fun (name, pats, body) _ -> 
+                List.foldBack (fun pat body ->
+                    match pat with
+                    | PatE -> RawFunction(body,"")
+                    | PatVar name -> RawFunction(body, name)
+                    | _ -> let arg = " pat_main" in RawFunction(RawPattern(arg, [|pat, body|]), arg)
+                    ) pats body
+                |> function
+                    | RawFunction(expr,arg) -> Reply(RawRecFunction(expr,arg,name))
+                    | _ -> Reply(ReplyStatus.Error, expected "function after rec")
+
+            inl >>. many1 (pattern expr) >>= fun pats s ->
+                match s.Read() with
+                | '=' -> (spaces >>. reset_semicolon_level expr |>> body pats ) s
+                | a ->
+                    match a, s.Read() with
+                    | '-', '>' -> (spaces >>. expr |>> body pats) s
+                    | _ -> ...
+                        
+                    
+
+            |]
+
     let inl_pat' (args: Pattern list) body = List.foldBack inl_pat args body
     let meth_pat' args body = inl_pat' args (join_point_entry_method body)
 
-    let inline statement_expr expr = eq' >>. expr
+    
     let case_inl_pat_statement expr = pipe2 (inl_ >>. patterns expr) (statement_expr expr) lp
     let case_inl_name_pat_list_statement expr = pipe3 (inl_ >>. var_op_name) (pattern_list expr) (statement_expr expr) (fun name pattern body -> l name (inl_pat' pattern body)) 
     let case_inl_rec_name_pat_list_statement expr = pipe3 (inl_rec >>. var_op_name) (pattern_list expr) (statement_expr expr) (fun name pattern body -> l_rec name (inl_pat' pattern body))
@@ -368,7 +354,6 @@ let spiral_parse module_ =
         |> List.map (fun x -> x expr |> attempt)
         |> choice
 
-    let inline expression_expr expr = lam >>. reset_semicolon_level expr
     let case_inl_pat_list_expr expr = pipe2 (inl_ >>. pattern_list expr) (expression_expr expr) inl_pat'
     let case_met_pat_list_expr expr = pipe2 (met_ >>. pattern_list expr) (expression_expr expr) meth_pat'
 

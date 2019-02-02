@@ -511,6 +511,8 @@ type RenamerResult = {
     method_pars : TyTag list
     }
 
+
+
 let inline n (x: Node<_>) = x.Expression
 let (|N|) x = n x
 
@@ -585,8 +587,8 @@ let if_ cond on_succ on_fail = RawIf(cond,on_succ,on_fail)
 let list_take_all_test x bind on_succ on_fail = RawListTakeAllTest(x,bind,on_succ,on_fail)
 let list_take_n_test x bind on_succ on_fail = RawListTakeNTest(x,bind,on_succ,on_fail)
 let list_keyword_test keyword x bind on_succ on_fail = RawKeywordTest(keyword,x,bind,on_succ,on_fail)
-let module_test x bind on_succ on_fail = RawModuleTest(x,bind,on_succ,on_fail)
-let module_with binds patterns = RawModuleWith(binds,patterns)
+let module_test x bind on_succ on_fail = RawRecordTest(x,bind,on_succ,on_fail)
+let module_with binds patterns = RawRecordWith(binds,patterns)
     
 let op x args = RawOp(x,args)
 let vv x = op ListCreate x
