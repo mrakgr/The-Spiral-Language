@@ -53,6 +53,7 @@ let spiral_parse module_ =
     let var_name_core' s = many1Satisfy2L is_identifier_starting_char is_identifier_char "identifier" s
     let var_name_core s = (var_name_core' .>> spaces) s
     let keyword_unary s = (skipChar '.' >>.var_name_core' .>> spaces) s
+    let inject_var_name s = (skipChar '$' >>.var_name_core' .>> spaces) s
     let keyword s = attempt (var_name_core' .>> skipChar ':' .>> spaces) s
 
     let var_name =
@@ -102,14 +103,12 @@ let spiral_parse module_ =
     let inl_rec = keywordString "inl rec"
     let inm = keywordString "inm"
     let inb = keywordString "inb"
+    let open_ = keywordString "open"
     let match_ = keywordString "match"
     let function_ = keywordString "function"
     let with_ = keywordString "with"
     let without = keywordString "without"
     let cons = operatorString "::"
-    let active_pat = prefixOperatorChar '!'
-    let not_ = active_pat
-    let part_active_pat = prefixOperatorChar '@'
     let inject = prefixOperatorChar '$'
     let wildcard = operatorChar '_'
 
@@ -279,6 +278,45 @@ let spiral_parse module_ =
 
     let reset_semicolon_level expr = attempt (set_semicolon_level_to_line -1L expr)
 
+    let inline statement_expr expr = eq' >>. expr
+
+    let statements expr =
+        let compile_pattern pat body =
+            match pat with
+            | PatE -> RawFunction(body,"")
+            | PatVar name -> RawFunction(body, name)
+            | _ -> let arg = " pat_main" in RawFunction(RawPattern(arg, [|pat, body|]), arg)
+        let compile_patterns pats body = List.foldBack compile_pattern pats body
+
+        let inline inb_templ inb k =
+            inb >>. pipe2 (pattern expr) (statement_expr expr) (fun pat body ->
+                compile_pattern pat body
+                |> function
+                    | RawFunction(body,arg) -> k arg body
+                    | _ -> failwith "impossible"
+                )
+
+        let inb = inb_templ inb (fun arg body on_succ -> ap body (func arg on_succ))
+        let inm = inb_templ inm (fun arg body on_succ -> ap (ap (v ">>=") body) (func arg on_succ))
+
+        let inl = 
+            inl >>. pipe2 (many1 (pattern expr)) (statement_expr expr) (fun pats body ->
+                compile_patterns pats body
+                |> function
+                    | RawFunction(body,arg) -> l arg body
+                    | _ -> failwith "impossible"
+                )
+
+        let inl_rec = 
+            inl_rec >>. tuple3 var_name (many (pattern expr)) (statement_expr expr) >>= fun (name, pats, body) _ -> 
+                compile_patterns pats body
+                |> function
+                    | RawFunction(body,arg) -> Reply(l name (RawRecFunction(body,arg,name)))
+                    | _ -> Reply(ReplyStatus.Error, expected "function after rec")
+
+        let open_ = open_ >>. var_name .>>. many keyword_unary |>> fun (x, x') on_succ -> RawOpen(x,List.toArray x',on_succ)
+        choice [|inl_rec; inm; inb; attempt inl; open_|]
+
     let inline expr_indent i op expr (s: CharStream<_>) = if op i (col s) then expr s else pzero s
     let if_then_else expr (s: CharStream<_>) =
         let i = (col s)
@@ -297,65 +335,7 @@ let spiral_parse module_ =
     let var_op_name = var_name <|> rounds (poperator <|> var_name_core)
 
     let inline expression_expr expr = lam >>. reset_semicolon_level expr
-    let inline statement_expr expr = eq' >>. expr
-
-    let case_statement expr  =
-        choice
-            [|
-            inl_rec >>. tuple3 var_name (many (pattern expr)) (statement_expr expr) >>= fun (name, pats, body) _ -> 
-                List.foldBack (fun pat body ->
-                    match pat with
-                    | PatE -> RawFunction(body,"")
-                    | PatVar name -> RawFunction(body, name)
-                    | _ -> let arg = " pat_main" in RawFunction(RawPattern(arg, [|pat, body|]), arg)
-                    ) pats body
-                |> function
-                    | RawFunction(expr,arg) -> Reply(RawRecFunction(expr,arg,name))
-                    | _ -> Reply(ReplyStatus.Error, expected "function after rec")
-
-            inl >>. many1 (pattern expr) >>= fun pats s ->
-                match s.Read() with
-                | '=' -> (spaces >>. reset_semicolon_level expr |>> body pats ) s
-                | a ->
-                    match a, s.Read() with
-                    | '-', '>' -> (spaces >>. expr |>> body pats) s
-                    | _ -> ...
-                        
-                    
-
-            |]
-
-    let inl_pat' (args: Pattern list) body = List.foldBack inl_pat args body
-    let meth_pat' args body = inl_pat' args (join_point_entry_method body)
-
-    
-    let case_inl_pat_statement expr = pipe2 (inl_ >>. patterns expr) (statement_expr expr) lp
-    let case_inl_name_pat_list_statement expr = pipe3 (inl_ >>. var_op_name) (pattern_list expr) (statement_expr expr) (fun name pattern body -> l name (inl_pat' pattern body)) 
-    let case_inl_rec_name_pat_list_statement expr = pipe3 (inl_rec >>. var_op_name) (pattern_list expr) (statement_expr expr) (fun name pattern body -> l_rec name (inl_pat' pattern body))
-        
-    let case_met_pat_statement expr = pipe2 (met_ >>. patterns expr) (statement_expr expr) <| fun pattern body -> lp pattern (join_point_entry_method body)
-    let case_met_name_pat_list_statement expr = pipe3 (met_ >>. var_op_name) (pattern_list expr) (statement_expr expr) (fun name pattern body -> l name (meth_pat' pattern body))
-    let case_met_rec_name_pat_list_statement expr = pipe3 (met_rec >>. var_op_name) (pattern_list expr) (statement_expr expr) <| fun name pattern body -> l_rec name (meth_pat' pattern body)
-
-    let case_open expr = 
-        var_name_core >>=? function
-            | "open" -> expr |>> module_open
-            | "openb" -> expr |>> module_openb
-            | x -> fun _ -> Reply(Error,expected "open or openb")
-    let case_inm_pat_statement expr = pipe2 (inm_ >>. patterns expr) (eq' >>. expr) inmp
-    let case_use_pat_statement expr = pipe2 (use_ >>. patterns expr) (eq' >>. expr) usep
-    let case_inn_pat_statement expr = pipe2 (inb_ >>. patterns expr) (eq' >>. expr) inbp
-
-    let statements expr = 
-        [case_inl_pat_statement; case_inl_name_pat_list_statement; case_inl_rec_name_pat_list_statement
-            case_met_pat_statement; case_met_name_pat_list_statement; case_met_rec_name_pat_list_statement
-            case_use_pat_statement; case_inm_pat_statement; case_inn_pat_statement
-            case_open]
-        |> List.map (fun x -> x expr |> attempt)
-        |> choice
-
-    let case_inl_pat_list_expr expr = pipe2 (inl_ >>. pattern_list expr) (expression_expr expr) inl_pat'
-    let case_met_pat_list_expr expr = pipe2 (met_ >>. pattern_list expr) (expression_expr expr) meth_pat'
+    let case_inl_pat_list_expr expr = pipe2 (inl >>. many1 (pattern expr)) (expression_expr expr) inl_pat'
 
     let case_lit expr = lit_ |>> lit
     let case_if_then_else expr = if_then_else expr

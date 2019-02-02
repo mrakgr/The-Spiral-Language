@@ -142,8 +142,8 @@ let spiral_compile (settings: CompilerSettings) module_ =
                         l pat_var (ap a (v arg)) (cp pat_var b on_succ on_fail)
                     | PatPartActive (a,pat) -> 
                         let pat_var = patvar()
-                        let on_succ = inl pat_var (cp pat_var pat on_succ on_fail)
-                        let on_fail = inl "" on_fail
+                        let on_succ = func pat_var (cp pat_var pat on_succ on_fail)
+                        let on_fail = func "" on_fail
                         ap' a [|v arg; on_fail; on_succ|]
                     | PatOr l -> List.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
                     | PatAnd l -> List.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ

@@ -483,8 +483,8 @@ type Userstate = {
     }
 
 type ParserExpr =
-| ParserStatement of (Expr -> Expr)
-| ParserExpr of Expr
+| ParserStatement of (RawExpr -> RawExpr)
+| ParserExpr of RawExpr
 
 // Codegen types
 type CodegenEnv = {
@@ -578,7 +578,7 @@ exception TypeRaised of ConsedTy
 let v x = RawV x
 let lit x = RawLit x
 let open_ var subs on_succ = RawOpen(var,subs,on_succ)
-let inl x y = RawFunction(y,x)
+let func x y = RawFunction(y,x)
 let objc m = RawObjectCreate m
 let keyword k l = RawKeywordCreate(k,l)
 let l bind body on_succ = RawLet(bind,body,on_succ)
