@@ -264,10 +264,11 @@ let spiral_parse module_ =
 
     let concat_keyword (x: (string * Pattern) list) =
         let strb = StringBuilder()
-        let pattern, strb = 
-            List.mapFold (fun (strb: StringBuilder) (str: string, pat) -> 
-                pat, strb.Append(str).Append(':')
-                ) strb x
+        let pattern = 
+            List.map (fun (str: string, pat) -> 
+                strb.Append(str).Append(':') |> ignore
+                pat
+                ) x
         strb.ToString(), pattern
 
     let pat_keyword_unary = keyword_unary |>> fun keyword -> PatKeyword(keyword,[])
