@@ -280,14 +280,15 @@ let spiral_parse module_ =
 
     let inline statement_expr expr = eq' >>. expr
 
-    let statements expr =
-        let compile_pattern pat body =
-            match pat with
-            | PatE -> RawFunction(body,"")
-            | PatVar name -> RawFunction(body, name)
-            | _ -> let arg = " pat_main" in RawFunction(RawPattern(arg, [|pat, body|]), arg)
-        let compile_patterns pats body = List.foldBack compile_pattern pats body
+    let pat_main = " pat_main"
+    let compile_pattern pat body =
+        match pat with
+        | PatE -> RawFunction(body,"")
+        | PatVar name -> RawFunction(body, name)
+        | _ -> RawFunction(RawPattern(pat_main, [|pat, body|]), pat_main)
+    let compile_patterns pats body = List.foldBack compile_pattern pats body
 
+    let statements expr =
         let inline inb_templ inb k =
             inb >>. pipe2 (pattern expr) (statement_expr expr) (fun pat body ->
                 compile_pattern pat body
@@ -343,13 +344,14 @@ let spiral_parse module_ =
     let case_var expr = var_op_name |>> v
 
     let case_typex match_type expr (s: CharStream<_>) =
-        let clause = pipe2 (many1 (patterns expr) .>> lam) expr <| fun pat body ->
-            match pat with
-            | x :: xs -> x, inl_pat' xs body
-            | _ -> failwith "impossible"
+        let clause = 
+            pipe2 (many1 (pattern expr) .>> lam) expr <| fun pats body ->
+                match pats with
+                | x :: xs -> x, compile_patterns xs body
+                | _ -> failwith "impossible"
 
-        let pat_function l = pattern (PatClauses l)
-        let pat_match x l = ap (pat_function l) x
+        let pat_function l = func pat_main <| RawPattern(pat_main, List.toArray l)
+        let pat_match x l' = l pat_main x (RawPattern(pat_main, List.toArray l'))
 
         let clauses i = 
             let bar s = expr_indent i (<=) bar s
