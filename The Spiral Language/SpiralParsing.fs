@@ -50,10 +50,15 @@ let spiral_parse (settings: CompilerSettings) module_ =
         f ')' || f '}' || f ']'
     let is_operator_char c = (is_identifier_char c || is_separator_char c || is_closing_parenth_char c) = false
 
-    let var_name_core' s = many1Satisfy2L is_identifier_starting_char is_identifier_char "identifier" s
+    let var_name_core' s = 
+        (many1Satisfy2L is_identifier_starting_char is_identifier_char "identifier" >>=? fun x s ->
+            if s.Peek() = ':' then Reply(Error,expected "identifier") else Reply(x)
+            ) s
     let var_name_core s = (var_name_core' .>> spaces) s
-    let keyword_unary s = (skipChar '.' >>.var_name_core' .>> spaces) s
-    let keyword s = attempt (var_name_core' .>> skipChar ':' .>> spaces) s
+    let keyword_core' s = 
+        // It is assumed that functions using keyword will append ':' to the end themselves.
+        attempt (many1Satisfy2L is_identifier_starting_char is_identifier_char "keyword" .>> skipChar ':') s
+    let keyword s = (keyword_core' .>> spaces) s
 
     let var_name =
         var_name_core >>=? function
@@ -72,20 +77,20 @@ let spiral_parse (settings: CompilerSettings) module_ =
         
     let keywordString_template str followedByChar (s: CharStream<_>) =
         let len = String.length str
-        let rec loop i = i = len || s.Peek(i) = str.[i] && loop (i+1)
-        if loop 0 && followedByChar (s.Peek(len)) then s.Seek(int64 len); Reply(())
+        if s.Match str && followedByChar (s.Peek(len)) then s.Seek(int64 len); Reply(())
         else Reply(ReplyStatus.Error,expected str)
     let keywordString x = keywordString_template x (is_identifier_char >> not) >>. spaces
     let operatorString x = keywordString_template x (is_operator_char >> not) >>. spaces
     let prefixOperatorChar x = next2CharsSatisfy (fun a b -> a = x && is_operator_char b = false)
     let operatorChar x = prefixOperatorChar x >>. spaces
 
+    let keyword_unary s = (prefixOperatorChar '.' >>.var_name_core' .>> spaces) s
+
     let when_ = keywordString "when"
     let as_ = keywordString "as"
     let prefix_negate = prefixOperatorChar '-'
     let comma = skipChar ',' >>. spaces
     let union = keywordString "\/"
-    let dot = prefixOperatorChar '.'
     let pp = operatorChar ':'
     let pp' = skipChar ':' >>. spaces
     let semicolon' = operatorChar ';'
@@ -127,7 +132,7 @@ let spiral_parse (settings: CompilerSettings) module_ =
             
         let number_format_with_minus = default_number_format ||| NumberLiteralOptions.AllowMinusSign
 
-        let inline parser (s: CharStream<_>) = 
+        let parser (s: CharStream<_>) = 
             let parse_num_lit number_format s = numberLiteral number_format "number" s
             /// This is necessary in order to differentiate binary from unary operations.
             if s.Peek() = '-' && isDigit (s.Peek(1)) then (unary_minus_check_precondition >>. parse_num_lit number_format_with_minus) s
@@ -168,39 +173,30 @@ let spiral_parse (settings: CompilerSettings) module_ =
             else // reconstruct error reply
                 Reply(reply.Status, reply.Error)
 
-    let char_quoted = 
-        let normalChar = satisfy (fun c -> c <> '\\' && c <> ''')
-        let unescape c = match c with
-                            | 'n' -> '\n'
-                            | 'r' -> '\r'
-                            | 't' -> '\t'
-                            | c   -> c
-        let escapedChar = pchar '\\' >>. (anyOf "\\nrt'" |>> unescape)
-        let a = (normalChar <|> escapedChar) .>> pchar ''' |>> LitChar
-        let b = pstring "''" >>% LitChar '''
-        pchar ''' >>. (a <|> b) .>> spaces
+    let char_quoted_read check (s: CharStream<_>) =
+        let x = s.Peek()
+        if check x then
+            s.Seek(1L)
+            match x with
+            | '\\' -> 
+                match s.Read() with
+                | 'n' -> '\n'
+                | 'r' -> '\r'
+                | 't' -> '\t'
+                | x -> x
+            | x -> x
+            |> Reply
+        else Reply(Error,null)
 
-    let string_quoted =
-        let normalChar = satisfy (fun c -> c <> '\\' && c <> '"')
-        let unescape c = match c with
-                            | 'n' -> '\n'
-                            | 'r' -> '\r'
-                            | 't' -> '\t'
-                            | c   -> c
-        let escapedChar = pchar '\\' >>. (anyOf "\\nrt\"" |>> unescape)
-        between (pchar '"') (pchar '"' >>. spaces)
-                (manyChars (normalChar <|> escapedChar))
+    let char_quoted = skipChar '\'' >>. char_quoted_read (fun _ -> true) .>> skipChar '\'' |>> LitChar
+    let string_quoted = skipChar '\"' >>. manyChars (char_quoted_read ((<>) '\"')) .>> skipChar '\"' |>> LitString
+
+    let inline string_raw_template str =
+        skipString str >>. charsTillString str true Int32.MaxValue .>> spaces
         |>> LitString
 
-    let string_raw =
-        between (pstring "@\"") (pchar '"' >>. spaces) (manyChars (satisfy ((<>) '"')))
-        |>> LitString
-
-    let string_raw_triple =
-        let str = pstring "\"\"\""
-            
-        between str (str >>. spaces) (manyChars (fun s -> if s.Peek(0) = '"' && s.Peek(1) = '"' && s.Peek(2) = '"' then Reply(Error,null) else Reply(s.Read())))
-        |>> LitString
+    let string_raw = string_raw_template "@\""
+    let string_raw_triple = string_raw_template "\"\"\""
 
     let lit_ s = 
         choice 
@@ -208,8 +204,8 @@ let spiral_parse (settings: CompilerSettings) module_ =
             pbool
             pnumber
             string_raw_triple
-            string_quoted
             string_raw
+            string_quoted
             char_quoted
             |]
         <| s
@@ -395,7 +391,7 @@ let spiral_parse (settings: CompilerSettings) module_ =
             let withs s = (with_ >>. many1 record_create_with) s
             let withouts s = (without >>. many1 record_create_without) s 
             pipe3 ((var_name |>> v) <|> rounds expr)
-                (many (dot >>. ((var_name |>> Types.keyword_unary) <|> rounds expr)))
+                (many (skipChar '.' >>. ((var_name |>> Types.keyword_unary) <|> rounds expr)))
                 (many1 (withs <|> withouts) |>> List.concat)
                 mp_with
 
@@ -579,7 +575,7 @@ let spiral_parse (settings: CompilerSettings) module_ =
         tdop Int32.MinValue s
 
     let rec expr s = 
-        let expressions s = mset expr ^<| type_union ^<| tuple ^<| operators ^<| application ^<| immediate_keyword_unary ^<| expressions expr <| s
+        let expressions s = mset expr ^<| type_union ^<| keyword_message ^<| tuple ^<| operators ^<| application ^<| immediate_keyword_unary ^<| expressions expr <| s
         let statements s = statements expr <| s
         annotations ^<| indentations statements expressions <| s
     runParserOnString (spaces >>. expr .>> eof) {ops=inbuilt_operators; semicolon_line= -1L} module_.Name module_.Code
