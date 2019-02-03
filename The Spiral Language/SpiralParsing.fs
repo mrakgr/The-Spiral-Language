@@ -29,7 +29,7 @@ let string_to_keyword (x: string) =
 let keyword_to_string x = keyword_to_string_dict.[x] // Should never fail.
 
 // #Parsing
-let spiral_parse module_ = 
+let spiral_parse (settings: CompilerSettings) module_ = 
     let pos' (s: CharStream<_>) = module_, s.Line, s.Column
     let exprpos expr (s: CharStream<_>) = (expr |>> expr_pos (pos' s)) s
     let patpos expr (s: CharStream<_>) = (expr |>> pat_pos (pos' s)) s
@@ -53,7 +53,6 @@ let spiral_parse module_ =
     let var_name_core' s = many1Satisfy2L is_identifier_starting_char is_identifier_char "identifier" s
     let var_name_core s = (var_name_core' .>> spaces) s
     let keyword_unary s = (skipChar '.' >>.var_name_core' .>> spaces) s
-    let inject_var_name s = (skipChar '$' >>.var_name_core' .>> spaces) s
     let keyword s = attempt (var_name_core' .>> skipChar ':' .>> spaces) s
 
     let var_name =
@@ -67,6 +66,9 @@ let spiral_parse module_ =
     let rounds p = between_brackets '(' p ')'
     let curlies p = between_brackets '{' p '}'
     let squares p = between_brackets '[' p ']'
+
+    let poperator (s: CharStream<Userstate>) = many1Satisfy is_operator_char .>> spaces <| s
+    let var_op_name = var_name <|> rounds (poperator <|> var_name_core)
         
     let keywordString_template str followedByChar (s: CharStream<_>) =
         let len = String.length str
@@ -83,8 +85,7 @@ let spiral_parse module_ =
     let prefix_negate = prefixOperatorChar '-'
     let comma = skipChar ',' >>. spaces
     let union = keywordString "\/"
-    let dot = operatorChar '.'
-    let prefix_dot = prefixOperatorChar '.'
+    let dot = prefixOperatorChar '.'
     let pp = operatorChar ':'
     let pp' = skipChar ':' >>. spaces
     let semicolon' = operatorChar ';'
@@ -123,15 +124,13 @@ let spiral_parse module_ =
             ||| NumberLiteralOptions.AllowExponent
             ||| NumberLiteralOptions.AllowHexadecimal
             ||| NumberLiteralOptions.AllowBinary
-            ||| NumberLiteralOptions.AllowInfinity
-            ||| NumberLiteralOptions.AllowNaN
             
         let number_format_with_minus = default_number_format ||| NumberLiteralOptions.AllowMinusSign
 
         let inline parser (s: CharStream<_>) = 
             let parse_num_lit number_format s = numberLiteral number_format "number" s
             /// This is necessary in order to differentiate binary from unary operations.
-            if s.Peek() = '-' then (unary_minus_check_precondition >>. parse_num_lit number_format_with_minus) s
+            if s.Peek() = '-' && isDigit (s.Peek(1)) then (unary_minus_check_precondition >>. parse_num_lit number_format_with_minus) s
             else parse_num_lit default_number_format s
 
         let inline safe_parse f on_succ er_msg x = 
@@ -169,7 +168,7 @@ let spiral_parse module_ =
             else // reconstruct error reply
                 Reply(reply.Status, reply.Error)
 
-    let quoted_char = 
+    let char_quoted = 
         let normalChar = satisfy (fun c -> c <> '\\' && c <> ''')
         let unescape c = match c with
                             | 'n' -> '\n'
@@ -193,14 +192,14 @@ let spiral_parse module_ =
                 (manyChars (normalChar <|> escapedChar))
         |>> LitString
 
-    let satisfy_nonquote = satisfy ((<>) '"')
     let string_raw =
-        between (pstring "@\"") (pchar '"' >>. spaces) (manyChars satisfy_nonquote)
+        between (pstring "@\"") (pchar '"' >>. spaces) (manyChars (satisfy ((<>) '"')))
         |>> LitString
 
     let string_raw_triple =
         let str = pstring "\"\"\""
-        between str (str >>. spaces) (manyChars satisfy_nonquote)
+            
+        between str (str >>. spaces) (manyChars (fun s -> if s.Peek(0) = '"' && s.Peek(1) = '"' && s.Peek(2) = '"' then Reply(Error,null) else Reply(s.Read())))
         |>> LitString
 
     let lit_ s = 
@@ -208,10 +207,10 @@ let spiral_parse module_ =
             [|
             pbool
             pnumber
+            string_raw_triple
             string_quoted
             string_raw
-            string_raw_triple
-            quoted_char
+            char_quoted
             |]
         <| s
 
@@ -255,8 +254,8 @@ let spiral_parse module_ =
             <|> pattern
 
         let pat_record_item pattern =
-            let inline templ var k = pipe2 var (eq' >>. pattern) (fun a b -> k(a,b))
-            templ var_name PatRecordMembersKeyword <|> templ (skipChar '$' >>. var_name) PatRecordMembersInjectVar
+            let inline templ var k = pipe2 var (opt (eq' >>. pattern)) (fun a -> function Some b -> k(a,b) | None -> k(a,PatVar a))
+            templ var_op_name PatRecordMembersKeyword <|> templ (skipChar '$' >>. var_name) PatRecordMembersInjectVar
         
         let pat_record pattern = curlies (many (pat_record_item pattern)) |>> PatRecordMembers
         let pat_closure pattern = sepBy1 pattern arr |>> List.reduceBack (fun a b -> PatTypeTermFunction(a,b))
@@ -332,11 +331,8 @@ let spiral_parse module_ =
                 if_ cond tr fl)
         <| s
 
-    let poperator (s: CharStream<Userstate>) = many1Satisfy is_operator_char .>> spaces <| s
-    let var_op_name = var_name <|> rounds (poperator <|> var_name_core)
-
     let inline expression_expr expr = lam >>. reset_semicolon_level expr
-    let case_inl_pat_list_expr expr = pipe2 (inl >>. many1 (pattern expr)) (expression_expr expr) inl_pat'
+    let case_inl_pat_list_expr expr = pipe2 (inl >>. many1 (pattern expr)) (expression_expr expr) compile_patterns
 
     let case_lit expr = lit_ |>> lit
     let case_if_then_else expr = if_then_else expr
@@ -367,23 +363,19 @@ let spiral_parse module_ =
     let case_typeinl expr (s: CharStream<_>) = case_typex true expr s
     let case_typecase expr (s: CharStream<_>) = case_typex false expr s
 
-    let case_module expr s =
-        let mp_binding (n,e) = vv [lit_string n; e]
-        let mp_binding_inject n e = vv [v n; e]
-        let mp_without n = op(ModuleWithout,[lit_string n])
-        let mp_without_inject n = op(ModuleWithout,[v n])
-        let mp_create l = op(ModuleCreate,l)
-        let mp_with init names l = 
-            let l = List.concat l
-            match names with
-            | _ :: _ -> op(ModuleWith,vv (init :: names) :: l)
-            | _ -> op(ModuleWith,init :: l)
+    let case_record expr s =
+        let mp_binding (n,e) = RawRecordWithKeyword(n, e)
+        let mp_binding_inject n e = RawRecordWithInjectVar(n, e)
+        let mp_without n = RawRecordWithoutKeyword n
+        let mp_without_inject n = RawRecordWithoutInjectVar n
+        let mp_create l = RawRecordWith([||],List.toArray l)
+        let mp_with init names l = RawRecordWith(List.toArray (init :: names), List.toArray l)
 
         let inline parse_binding_with s =
             let i = col s
             let line = s.Line
             let inline body s = (eq' >>. expr_indent i (<) (set_semicolon_level_to_line line expr)) s
-            let a s = 
+            let a s =
                 pipe2 var_op_name (opt body)
                     (fun a -> function
                         | None -> mp_binding (a, v a)
@@ -396,50 +388,38 @@ let spiral_parse module_ =
             let b s = inject >>. var_op_name |>> mp_without_inject <| s
             (a <|> b) s
 
-        let module_create_with s = (parse_binding_with .>> optional semicolon') s
-        let module_create_without s = (parse_binding_without .>> optional semicolon') s
+        let record_create_with s = (parse_binding_with .>> optional semicolon') s
+        let record_create_without s = (parse_binding_without .>> optional semicolon') s
 
-        let module_with = 
-            let withs s = (with_ >>. many1 module_create_with) s
-            let withouts s = (without >>. many1 module_create_without) s 
+        let record_with = 
+            let withs s = (with_ >>. many1 record_create_with) s
+            let withouts s = (without >>. many1 record_create_without) s 
             pipe3 ((var_name |>> v) <|> rounds expr)
-                (many (dot >>. ((var_name |>> lit_string) <|> rounds expr)))
-                (many1 (withs <|> withouts))
+                (many (dot >>. ((var_name |>> Types.keyword_unary) <|> rounds expr)))
+                (many1 (withs <|> withouts) |>> List.concat)
                 mp_with
 
-        let module_create = many module_create_with |>> mp_create
+        let record_create = many record_create_with |>> mp_create
                 
-        curlies (attempt module_with <|> module_create) <| s
-
-    let case_named_tuple expr =
-        let pat s = 
-            let i = col s
-            let line = line s
-            pipe2 lit_var (opt (pp' >>. expr_indent i (<) (set_semicolon_level_to_line line expr))) (fun lit expr ->
-                let tup = type_lit_lift lit
-                match expr with
-                | Some expr -> vv [tup; expr]
-                | None -> tup
-                ) s
-        squares (many (pat .>> optional semicolon')) |>> vv
+        curlies (attempt record_with <|> record_create) <| s
 
     let case_negate expr = unary_minus_check >>. expr |>> (ap (v "negate"))
     let case_join_point expr = keywordString "join" >>. expr |>> join_point_entry_method
     let case_join_point_type expr = keywordString "join_type" >>. expr |>> join_point_entry_type
-    let case_type expr = keywordString "type" >>. expr |>> type_get
-    let case_type_catch expr = keywordString "type_catch" >>. expr |>> type_catch
-    let case_cuda expr = keywordString "cuda" >>. expr |>> inl' ["blockDim";"gridDim"]
+    let case_type expr = keywordString "type" >>. expr |>> unop TypeGet
+    let case_type_catch expr = keywordString "type_catch" >>. expr |>> unop TypeCatch
+    let case_cuda expr = keywordString "cuda" >>. expr |>> (func "blockDim" << func "gridDim")
 
-    let inbuilt_op_core c = operatorChar c >>. var_name
+    let inbuilt_op_core c = skipChar c >>. var_name
     let case_inbuilt_op expr =
         let rec loop = function
-            | ExprPos (x,_) -> loop x.Expression
-            | VV (l, _) -> l 
-            | x -> [x]
+            | RawExprPos x -> loop x.Expression
+            | RawOp(ListCreate, l) -> l 
+            | x -> [|x|]
         let body c = inbuilt_op_core c .>>. rounds (expr <|>% B)
         body '!' >>= fun (a, b) ->
             match string_to_op a with
-            | true, op' -> op(op',loop b) |> preturn
+            | true, op' -> op op' (loop b) |> preturn
             | false, _ -> failFatally <| sprintf "%s not found among the inbuilt Ops." a
 
     let case_parser_macro expr = 
@@ -456,39 +436,27 @@ let spiral_parse module_ =
             | "VSPathInclude" -> f settings.vs_path_include
             | a -> failFatally <| sprintf "%s is not a valid parser macro." a
 
-    let case_lit_lift expr = 
-        let var = var_name |>> (LitString >> type_lit_lift)
-        let lit = expr |>> type_lit_lift'
-        prefix_dot >>. (var <|> lit)
-
-    let binary_lit_lift expr =
-        let is_immeditate_expr x = is_closing_parenth_char x || is_identifier_char x
-        sepBy1 expr (previousCharSatisfies is_immeditate_expr >>. prefix_dot) 
-        |>> List.reduce (fun a b ->
-            match b with
-            | V (x, _) -> type_lit_lift (LitString x)
-            | x -> type_lit_lift' x
-            |> ap a
-            )
+    let case_keyword_unary expr = keyword_unary |>> Types.keyword_unary
 
     let inline tuple_template fin sep expr (s: CharStream<_>) =
         let i = (col s)
         let expr_indent expr (s: CharStream<_>) = expr_indent i (<=) expr s
         sepBy1 (expr_indent expr) (expr_indent sep)
-        |>> function [x] -> x | x -> fin x
+        |>> function [x] -> x | x -> fin (List.toArray x)
         <| s
 
-    let type_union expr s = tuple_template type_union union expr s
+    let type_union expr s = tuple_template (op TypeUnion) union expr s
     let tuple expr s = tuple_template vv comma expr s
 
     let rec expressions expr s = 
         [
         case_join_point; case_join_point_type; case_type; case_type_catch
         case_cuda; case_inbuilt_op; case_parser_macro
-        case_inl_pat_list_expr; case_met_pat_list_expr; case_lit; case_if_then_else
-        case_rounds; case_typecase; case_typeinl; case_var; case_module; case_named_tuple
-        case_negate << expressions; case_lit_lift << expressions
-        ] |> List.map (fun x -> x expr |> attempt) |> choice <| s
+        case_inl_pat_list_expr; case_lit; case_if_then_else
+        case_rounds; case_typecase; case_typeinl; case_record; case_object
+        case_negate << expressions; case_keyword_unary
+        case_var
+        ] |> List.map (fun x -> x expr) |> choice <| s
  
     let process_parser_exprs exprs = 
         let error_statement_in_last_pos _ = Reply(Error,messageError "Statements not allowed in the last position of a block.")
@@ -496,7 +464,7 @@ let spiral_parse module_ =
             | [ParserExpr a] -> on_succ a
             | [ParserStatement _] -> error_statement_in_last_pos
             | ParserStatement a :: xs -> process_parser_exprs (a >> on_succ) xs
-            | ParserExpr a :: xs -> process_parser_exprs (l "" (error_non_unit a) >> on_succ) xs
+            | ParserExpr a :: xs -> process_parser_exprs (l "" (unop ErrorNonUnit a) >> on_succ) xs
             | [] -> on_succ B
             
         process_parser_exprs preturn (List.concat exprs)
@@ -509,6 +477,10 @@ let spiral_parse module_ =
         let inline many_indents expr = many1 (if_ (=) (pipe2 expr (many_semis expr) (fun a b -> a :: b)))
         many_indents ((statements |>> ParserStatement) <|> (exprpos expressions |>> ParserExpr)) >>= process_parser_exprs <| s
 
+    let immediate_keyword_unary expr =
+        let is_immeditate_expr x = is_closing_parenth_char x || is_identifier_char x
+        pipe2 expr (many (previousCharSatisfies is_immeditate_expr >>. keyword_unary |>> Types.keyword_unary)) (List.fold ap)
+
     let application expr (s: CharStream<_>) =
         let i = col s
         let expr_up (s: CharStream<_>) = expr_indent i (<) expr s
@@ -519,11 +491,11 @@ let spiral_parse module_ =
         let line = s.Line
         let expr_indent expr (s: CharStream<_>) = expr_indent i (<) expr s
         let op =
-            (set_ref >>% fun l r -> op(MutableSet,[l;B;r]) |> preturn)
+            (set_ref >>% fun l r -> op MutableSet [|l;B;r|] |> preturn)
             <|> (set_array >>% fun l r -> 
                     let rec loop = function
-                        | ExprPos(p,_) -> loop p.Expression
-                        | Op(Apply,[a;b],_) -> op(MutableSet,[a;b;r]) |> preturn
+                        | RawExprPos(p) -> loop p.Expression
+                        | RawOp(Apply,[|a;b|]) -> op MutableSet [|a;b;r|] |> preturn
                         | _ -> fail "Expected two arguments on the left of <-."
                     loop l)
 
@@ -537,7 +509,7 @@ let spiral_parse module_ =
         let expr_indent expr (s: CharStream<_>) = expr_indent i (<=) expr s
         pipe2 (expr_indent expr) (opt (expr_indent pp' >>. expr_indent expr))
             (fun a -> function
-                | Some b -> op(TypeAnnot,[a;b])
+                | Some b -> binop TypeAnnot a b
                 | None -> a) s
 
     let inbuilt_operators =
@@ -571,9 +543,10 @@ let spiral_parse module_ =
                         match dict_operator.TryGetValue op' with
                         | true, (prec,asoc) -> preturn (prec,asoc,fun a b -> 
                             match orig_op with
-                            | "&&" -> expr_pos p (op(IfStatic, [a; b; lit (LitBool false)]))
-                            | "||" -> expr_pos p (op(IfStatic, [a; lit (LitBool true); b]))
-                            | _ -> expr_pos p (ap' (v orig_op) [a; b]))
+                            | "&&" -> expr_pos p (if_ a b (lit (LitBool false)))
+                            | "||" -> expr_pos p (if_ a (lit (LitBool true)) b)
+                            | _ -> expr_pos p (ap (ap (v orig_op) a) b)
+                            )
                         | false, _ -> on_fail ()
 
                     let on_fail () =
@@ -606,7 +579,7 @@ let spiral_parse module_ =
         tdop Int32.MinValue s
 
     let rec expr s = 
-        let expressions s = mset expr ^<| type_union ^<| tuple ^<| operators ^<| application ^<| binary_lit_lift ^<| expressions expr <| s
+        let expressions s = mset expr ^<| type_union ^<| tuple ^<| operators ^<| application ^<| immediate_keyword_unary ^<| expressions expr <| s
         let statements s = statements expr <| s
         annotations ^<| indentations statements expressions <| s
-    runParserOnString (spaces >>. expr .>> eof) {ops=inbuilt_operators; semicolon_line= -1L} module_name module_code
+    runParserOnString (spaces >>. expr .>> eof) {ops=inbuilt_operators; semicolon_line= -1L} module_.Name module_.Code

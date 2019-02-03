@@ -581,6 +581,7 @@ let open_ var subs on_succ = RawOpen(var,subs,on_succ)
 let func x y = RawFunction(y,x)
 let objc m = RawObjectCreate m
 let keyword k l = RawKeywordCreate(k,l)
+let keyword_unary k = RawKeywordCreate(k,[||])
 let l bind body on_succ = RawLet(bind,body,on_succ)
 let case bind body on_succ = RawCase(bind,body,on_succ)
 let if_ cond on_succ on_fail = RawIf(cond,on_succ,on_fail)
@@ -595,6 +596,7 @@ let vv x = op ListCreate x
 let B = vv [||]
 let pattern arg clauses = RawPattern(arg,clauses)
 
+let unop op' a = op op' [|a|]
 let binop op' a b = op op' [|a;b|]
 let eq x y = binop EQ x y
 let eq_type a b = binop EqType a b
@@ -604,5 +606,5 @@ let expr_pos pos x = RawExprPos(Position(pos,x))
 let pat_pos pos x = PatPos(Position(pos,x))
 
 // The seemingly useless function application is there to filter the environment just in case it has not been done.
-let join_point_entry_method y = ap (inl "" (op JoinPointEntryMethod [|y|])) B 
-let join_point_entry_type y = ap (inl "" (op JoinPointEntryType [|y|])) B
+let join_point_entry_method y = ap (func "" (op JoinPointEntryMethod [|y|])) B 
+let join_point_entry_type y = ap (func "" (op JoinPointEntryType [|y|])) B
