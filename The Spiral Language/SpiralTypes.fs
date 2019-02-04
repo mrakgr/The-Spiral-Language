@@ -4,7 +4,9 @@
 open System
 open System.Collections.Generic
 open HashConsing
-open System.Text
+
+// Globals
+let mutable module_tag = 0
 
 // Language types
 type LayoutType =
@@ -31,45 +33,6 @@ type TaggedDictionary<'a,'b when 'a: equality>(capacity: int, tag: int) =
             | :? TaggedDictionary<'a,'b> as y -> compare tag y.Tag
             | _ -> failwith "Invalid comparison for TaggedDictionary."
 
-type HashNode<'a when 'a : equality and 'a : comparison>(expr:'a) =
-    let h = ref None
-    member x.Expression = expr
-    override x.ToString() = expr.ToString()
-    override x.GetHashCode() = 
-        match !h with
-        | Some h -> h
-        | None ->
-            let x = hash expr
-            h := Some x
-            x
-    override x.Equals(y) =
-        match y with 
-        | :? HashNode<'a> as y -> expr = y.Expression
-        | _ -> failwith "Invalid equality for HashNode."
-
-    interface IComparable with
-        member x.CompareTo(y) = 
-            match y with
-            | :? HashNode<'a> as y -> compare expr y.Expression
-            | _ -> failwith "Invalid comparison for HashNode."
-
-type Node<'a>(expr:'a, symbol:int) = 
-    member x.Expression = expr
-    member x.Symbol = symbol
-    override x.ToString() = sprintf "<tag %i>" symbol
-    override x.GetHashCode() = symbol
-    override x.Equals(y) = 
-        match y with 
-        | :? Node<'a> as y -> symbol = y.Symbol
-        | _ -> failwith "Invalid equality for Node."
-
-    interface IComparable with
-        member x.CompareTo(y) = 
-            match y with
-            | :? Node<'a> as y -> compare symbol y.Symbol
-            | _ -> failwith "Invalid comparison for Node."
-
-let mutable module_tag = 0
 type SpiralModule(name: string, prerequisites : SpiralModule list, description : string, code : string) = 
     let tag = module_tag
     do module_tag <- module_tag + 1
@@ -351,8 +314,8 @@ and Expr =
     | KeywordTest of Tag * KeywordTag * bind: VarTag * on_succ: Expr * on_fail: Expr
     | RecordTest of Tag * RecordTestPattern [] * bind: VarTag * on_succ: Expr * on_fail: Expr
     | RecordWith of Tag * Expr [] * RecordWithPattern []
-    | Op of Tag * Op * Expr []
     | ExprPos of Tag * Pos<Expr>
+    | Op of Tag * Op * Expr []
 
 and ConsedTy =
     | CListT of ConsedNode<ConsedTy list>
@@ -372,7 +335,7 @@ and ConsedTy =
     | CDotNetTypeT of ConsedTypedData // macro
     | CCudaTypeT of ConsedTypedData // macro
 
-and ConsedTypedData = 
+and ConsedTypedData = // for join points and layout types
     | CTyList of ConsedNode<ConsedTypedData list>
     | CTyKeyword of ConsedNode<KeywordTag * TypedData []>
     | CTyFunction of ConsedNode<Expr * EnvTerm>
@@ -423,6 +386,7 @@ and Tag = int
 and TyTag = Tag * ConsedTy
 and EnvTy = ConsedTy []
 and EnvTerm = TypedData []
+and ConsedEnvTerm = ConsedTypedData []
 and KeywordTag = int
 and MapTerm = Map<KeywordTag,TypedData>
 and MapTy = Map<KeywordTag, ConsedTy>
@@ -431,7 +395,7 @@ and StackSize = int
 and FreeVars = VarTag []
 and ObjectDict = TaggedDictionary<KeywordTag,Expr * StackSize>
 
-and JoinPointKey = Node<Expr * EnvTerm>
+and JoinPointKey = Expr * ConsedEnvTerm
 
 and CallArguments = TyTag []
 and Renamer = Dictionary<Tag,Tag>
@@ -467,11 +431,15 @@ type PrepassSubrenameEnv = {
     }
 
 type LangEnv = {
+    // Recursive join points
     rbeh : RecursiveBehavior
+    // Joint points
     seq : ResizeArray<TypedBind>
+    // Objects and inlineables
     env_global : EnvTerm
     env_stack : EnvTerm
-    trace : Trace
+    // If statements
+    cse : Map<Op * TypedData, TypedData> ref
     }
 
 type Result<'a,'b> = Succ of 'a | Fail of 'b
@@ -510,11 +478,6 @@ type RenamerResult = {
     call_args : TyTag list
     method_pars : TyTag list
     }
-
-
-
-let inline n (x: Node<_>) = x.Expression
-let (|N|) x = n x
 
 let inline memoize (memo_dict: Dictionary<_,_>) f k =
     match memo_dict.TryGetValue k with
@@ -608,3 +571,5 @@ let pat_pos pos x = PatPos(Position(pos,x))
 // The seemingly useless function application is there to filter the environment just in case it has not been done.
 let join_point_entry_method y = ap (func "" (op JoinPointEntryMethod [|y|])) B 
 let join_point_entry_type y = ap (func "" (op JoinPointEntryType [|y|])) B
+
+let pat_main = " pat_main"

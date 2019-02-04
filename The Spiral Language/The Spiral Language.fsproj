@@ -60,7 +60,8 @@
     <Compile Include="SpiralHashConsing.fs" />
     <Compile Include="SpiralTypes.fs" />
     <Compile Include="SpiralParsing.fs" />
-    <Compile Include="Spiral.fs" />
+    <Compile Include="SpiralPartEval.fs" />
+    <Compile Include="SpiralPrepass.fs" />
     <Compile Include="SpiralCoreLib.fs" />
     <Compile Include="SpiralLib.fs" />
     <Compile Include="SpiralTests.fs" />

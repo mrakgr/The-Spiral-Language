@@ -6,7 +6,11 @@ open Types
 open FParsec
 open System.Text
 
-let pat_main = " pat_main"
+// Globals
+let keyword_to_string_dict = d0()
+let string_to_keyword_dict = d0()
+let mutable tag_keyword = 0
+
 let string_to_op =
     let cases = Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(typeof<Op>)
     let dict = d0()
@@ -15,10 +19,6 @@ let string_to_op =
         )
     dict.TryGetValue
 
-let keyword_to_string_dict = d0()
-let string_to_keyword_dict = d0()
-
-let mutable tag_keyword = 0
 let string_to_keyword (x: string) =
     match string_to_keyword_dict.TryGetValue x with
     | true, v -> v
