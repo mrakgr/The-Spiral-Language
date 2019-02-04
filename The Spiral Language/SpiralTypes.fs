@@ -314,7 +314,7 @@ and RawExpr =
     | RawOpen of VarString * KeywordString [] * RawExpr
     | RawFunction of RawExpr * VarString
     | RawRecFunction of RawExpr * VarString * rec_name: VarString
-    | RawObjectCreate of (VarString * KeywordString [] * RawExpr) []
+    | RawObjectCreate of (VarString * RawExpr) []
     | RawKeywordCreate of KeywordString * RawExpr []
     | RawLet of var: VarString * bind: RawExpr * on_succ: RawExpr
     | RawCase of var: VarString * bind: RawExpr * on_succ: RawExpr

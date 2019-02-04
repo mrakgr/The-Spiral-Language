@@ -252,12 +252,12 @@ let spiral_compile (settings: CompilerSettings) module_ =
                 | RawObjectCreate(ar) ->
                     let size_lexical_scope = env.prepass_map_length
                     let ar, free_vars = 
-                        Array.mapFold (fun free_vars (keyword_string, var_strings, expr) ->
+                        Array.mapFold (fun free_vars (keyword_string, expr) ->
                             let self_vartag, env = env_add_var env "self"
-                            let var_vartags, env = Array.mapFold env_add_var env var_strings
+                            let main_vartag, env = env_add_var env Parsing.pat_main
                             let expr, free_vars', stack_size = loop env expr
-                            let free_vars' = Array.fold (fun s x -> Set.remove x s) (Set.remove self_vartag free_vars') var_vartags
-                            (string_to_keyword keyword_string, expr, stack_size + 1 + var_vartags.Length), free_vars + free_vars'
+                            let free_vars' = Set.remove main_vartag (Set.remove self_vartag free_vars')
+                            (string_to_keyword keyword_string, expr, stack_size + 2), free_vars + free_vars'
                             ) Set.empty ar
                     let array_free_vars = Set.toArray free_vars
                     let tagged_dict =
@@ -265,7 +265,8 @@ let spiral_compile (settings: CompilerSettings) module_ =
                         let tagged_dict = TaggedDictionary(ar.Length,tag())
                         Array.iter (fun (keyword, expr, stack_size) -> 
                             let expr = subrenaming subrenaming_env expr
-                            tagged_dict.Add(keyword, (expr, stack_size))
+                            try tagged_dict.Add(keyword, (expr, stack_size))
+                            with :? ArgumentException -> error <| sprintf "The same receiver %s already exists in the object." (keyword_to_string keyword)
                             ) ar
                         tagged_dict
 

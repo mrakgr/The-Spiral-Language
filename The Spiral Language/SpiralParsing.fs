@@ -6,6 +6,7 @@ open Types
 open FParsec
 open System.Text
 
+let pat_main = " pat_main"
 let string_to_op =
     let cases = Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(typeof<Op>)
     let dict = d0()
@@ -53,15 +54,14 @@ let spiral_parse (settings: CompilerSettings) module_ =
         f ')' || f '}' || f ']'
     let is_operator_char c = (is_identifier_char c || is_separator_char c || is_closing_parenth_char c) = false
 
-    let var_name_core' s = 
-        (many1Satisfy2L is_identifier_starting_char is_identifier_char "identifier" >>=? fun x s ->
+    let var_name_core' = 
+        many1Satisfy2L is_identifier_starting_char is_identifier_char "identifier" >>=? fun x s ->
             if s.Peek() = ':' then Reply(Error,expected "identifier") else Reply(x)
-            ) s
-    let var_name_core s = (var_name_core' .>> spaces) s
-    let keyword_core' s = 
+    let var_name_core = var_name_core' .>> spaces
+    let keyword_core' = 
         // It is assumed that functions using keyword will append ':' to the end themselves.
-        attempt (many1Satisfy2L is_identifier_starting_char is_identifier_char "keyword" .>> skipChar ':') s
-    let keyword s = (keyword_core' .>> spaces) s
+        attempt (many1Satisfy2L is_identifier_starting_char is_identifier_char "keyword" .>> skipChar ':')
+    let keyword = keyword_core' .>> spaces
 
     let var_name =
         var_name_core >>=? function
@@ -75,7 +75,7 @@ let spiral_parse (settings: CompilerSettings) module_ =
     let curlies p = between_brackets '{' p '}'
     let squares p = between_brackets '[' p ']'
 
-    let poperator (s: CharStream<Userstate>) = many1Satisfy is_operator_char .>> spaces <| s
+    let poperator = many1Satisfy is_operator_char .>> spaces
     let var_op_name = var_name <|> rounds (poperator <|> var_name_core)
         
     let keywordString_template str followedByChar (s: CharStream<_>) =
@@ -201,7 +201,7 @@ let spiral_parse (settings: CompilerSettings) module_ =
     let string_raw = string_raw_template "@\""
     let string_raw_triple = string_raw_template "\"\"\""
 
-    let lit_ s = 
+    let lit_ = 
         choice 
             [|
             pbool
@@ -211,7 +211,6 @@ let spiral_parse (settings: CompilerSettings) module_ =
             string_quoted
             char_quoted
             |]
-        <| s
 
     let concat_keyword x =
         let strb = StringBuilder()
@@ -239,8 +238,8 @@ let spiral_parse (settings: CompilerSettings) module_ =
         let pat_active pattern (s: CharStream<_>) =
             let inline f k = pipe2 pat_expr pattern (fun name pat -> k(name,pat)) s
             match s.Peek() with
-            | '!' -> f PatActive
-            | '@' -> f PatPartActive
+            | '!' -> s.Seek(1L); f PatActive
+            | '@' -> s.Seek(1L); f PatPartActive
             | _ -> Reply(ReplyStatus.Error, expected "! or @")
         let pat_or pattern = sepBy1 pattern bar |>> function [x] -> x | x -> PatOr x
         let pat_and pattern = sepBy1 pattern amphersand |>> function [x] -> x | x -> PatAnd x
@@ -248,8 +247,6 @@ let spiral_parse (settings: CompilerSettings) module_ =
         let pat_lit = lit_ |>> PatLit
         let pat_when pattern = pattern .>>. (opt (when_ >>. expr)) |>> function a, Some b -> PatWhen(a,b) | a, None -> a
         let pat_as pattern = pattern .>>. (opt (as_ >>. pattern )) |>> function a, Some b -> PatAnd [a;b] | a, None -> a
-
-
 
         let pat_keyword_unary = keyword_unary |>> fun keyword -> PatKeyword(keyword,[])
         let pat_keyword pattern = 
@@ -276,10 +273,8 @@ let spiral_parse (settings: CompilerSettings) module_ =
         r
 
     let reset_semicolon_level expr = attempt (set_semicolon_level_to_line -1L expr)
-
     let inline statement_expr expr = eq' >>. expr
 
-    let pat_main = " pat_main"
     let compile_pattern pat body =
         match pat with
         | PatE -> RawFunction(body,"")
@@ -332,112 +327,6 @@ let spiral_parse (settings: CompilerSettings) module_ =
         <| s
 
     let inline expression_expr expr = lam >>. reset_semicolon_level expr
-    let case_inl_pat_list_expr expr = pipe2 (inl >>. many1 (pattern expr)) (expression_expr expr) compile_patterns
-
-    let case_lit expr = lit_ |>> lit
-    let case_if_then_else expr = if_then_else expr
-    let case_rounds expr s = (rounds (reset_semicolon_level expr <|>% B)) s
-    let case_var expr = var_op_name |>> v
-
-    let case_typex match_type expr (s: CharStream<_>) =
-        let clause = 
-            pipe2 (many1 (pattern expr) .>> lam) expr <| fun pats body ->
-                match pats with
-                | x :: xs -> x, compile_patterns xs body
-                | _ -> failwith "impossible"
-
-        let pat_function l = func pat_main <| RawPattern(pat_main, List.toArray l)
-        let pat_match x l' = l pat_main x (RawPattern(pat_main, List.toArray l'))
-
-        let clauses i = 
-            let bar s = expr_indent i (<=) bar s
-            optional bar >>. sepBy1 (expr_indent i (<=) clause) bar
-        let get_col (s: CharStream<_>) = Reply(col s)
-
-        match match_type with
-        | true -> // function
-            (function_ >>. get_col >>=? clauses |>> pat_function) s    
-        | false -> // match
-            pipe2 (match_ >>. expr .>> with_) (get_col >>=? clauses) pat_match s
-
-    let case_typeinl expr (s: CharStream<_>) = case_typex true expr s
-    let case_typecase expr (s: CharStream<_>) = case_typex false expr s
-
-    let case_record expr s =
-        let mp_binding (n,e) = RawRecordWithKeyword(n, e)
-        let mp_binding_inject n e = RawRecordWithInjectVar(n, e)
-        let mp_without n = RawRecordWithoutKeyword n
-        let mp_without_inject n = RawRecordWithoutInjectVar n
-        let mp_create l = RawRecordWith([||],List.toArray l)
-        let mp_with init names l = RawRecordWith(List.toArray (init :: names), List.toArray l)
-
-        let inline parse_binding_with s =
-            let i = col s
-            let line = s.Line
-            let inline body s = (eq' >>. expr_indent i (<) (set_semicolon_level_to_line line expr)) s
-            let a s =
-                pipe2 var_op_name (opt body)
-                    (fun a -> function
-                        | None -> mp_binding (a, v a)
-                        | Some b -> mp_binding (a, b)) s
-            let b s = pipe2 (inject >>. var_op_name) body mp_binding_inject s
-            (a <|> b) s
-
-        let parse_binding_without s = 
-            let a s = var_op_name |>> mp_without <| s
-            let b s = inject >>. var_op_name |>> mp_without_inject <| s
-            (a <|> b) s
-
-        let record_create_with s = (parse_binding_with .>> optional semicolon') s
-        let record_create_without s = (parse_binding_without .>> optional semicolon') s
-
-        let record_with = 
-            let withs s = (with_ >>. many1 record_create_with) s
-            let withouts s = (without >>. many1 record_create_without) s 
-            pipe3 ((var_name |>> v) <|> rounds expr)
-                (many (skipChar '.' >>. ((var_name |>> Types.keyword_unary) <|> rounds expr)))
-                (many1 (withs <|> withouts) |>> List.concat)
-                mp_with
-
-        let record_create = many record_create_with |>> mp_create
-                
-        curlies (attempt record_with <|> record_create) <| s
-
-    let case_negate expr = unary_minus_check >>. expr |>> (ap (v "negate"))
-    let case_join_point expr = keywordString "join" >>. expr |>> join_point_entry_method
-    let case_join_point_type expr = keywordString "join_type" >>. expr |>> join_point_entry_type
-    let case_type expr = keywordString "type" >>. expr |>> unop TypeGet
-    let case_type_catch expr = keywordString "type_catch" >>. expr |>> unop TypeCatch
-    let case_cuda expr = keywordString "cuda" >>. expr |>> (func "blockDim" << func "gridDim")
-
-    let inbuilt_op_core c = skipChar c >>. var_name
-    let case_inbuilt_op expr =
-        let rec loop = function
-            | RawExprPos x -> loop x.Expression
-            | RawOp(ListCreate, l) -> l 
-            | x -> [|x|]
-        let body c = inbuilt_op_core c .>>. rounds (expr <|>% B)
-        body '!' >>= fun (a, b) ->
-            match string_to_op a with
-            | true, op' -> op op' (loop b) |> preturn
-            | false, _ -> failFatally <| sprintf "%s not found among the inbuilt Ops." a
-
-    let case_parser_macro expr = 
-        inbuilt_op_core '@' >>= fun a ->
-            let f x = LitString x |> lit |> preturn
-            match a with
-            | "CubPath" -> f settings.cub_path
-            | "CudaPath" -> f settings.cuda_path
-            | "CudaNVCCOptions" -> f settings.cuda_nvcc_options
-            | "VSPath" -> f settings.vs_path
-            | "VSPathVcvars" -> f settings.vs_path_vcvars
-            | "VcvarsArgs" -> f settings.vcvars_args
-            | "VSPathCL" -> f settings.vs_path_cl
-            | "VSPathInclude" -> f settings.vs_path_include
-            | a -> failFatally <| sprintf "%s is not a valid parser macro." a
-
-    let case_keyword_unary expr = keyword_unary |>> Types.keyword_unary
-
     let inline tuple_template fin sep expr (s: CharStream<_>) =
         let i = (col s)
         let expr_indent expr (s: CharStream<_>) = expr_indent i (<=) expr s
@@ -448,35 +337,134 @@ let spiral_parse (settings: CompilerSettings) module_ =
     let type_union expr s = tuple_template (op TypeUnion) union expr s
     let tuple expr s = tuple_template vv comma expr s
 
-    let case_object expr =
-        let keyword s = 
-            let i = col s
-            tuple2 keyword (expr_indent i (<) var_name) s
-        let f pat body = 
-            match pat with
-            | PatKeyword(name, vars) as x ->
-                let vars = 
-                    List.map (function
-                        | PatV x -> x, PatE
-                        | x -> patvar, 
-                        ) vars
-            compile_pattern
-        let receiver s =
-            let i = col s
-            let line = line s
-            (pipe2 (pattern_template expr) (eq' >>. expr_indent i (<) (set_semicolon_level_to_line line expr)) f) s
-        squares (many receiver) 
-        |>> (List.toArray >> Types.objc)
-
     let rec expressions expr s = 
-        [
+        let case_object =
+            let f (pat, body) s = 
+                match pat with
+                | PatKeyword(name,_) -> 
+                    match compile_pattern pat body with
+                    | RawFunction(x,_) -> Reply((name, x))
+                    | _ -> failwith "impossible"
+                | _ -> Reply(Error,expected "keyword pattern")
+            let receiver s =
+                let i = col s
+                let line = line s
+                (tuple2 (pattern_template expr) (eq' >>. expr_indent i (<) (set_semicolon_level_to_line line expr)) >>= f) s
+            squares (many receiver) |>> (List.toArray >> Types.objc)
+        let case_inl_pat_list_expr = pipe2 (inl >>. many1 (pattern expr)) (expression_expr expr) compile_patterns
+
+        let case_lit = lit_ |>> lit
+        let case_if_then_else = if_then_else expr
+        let case_rounds = rounds (reset_semicolon_level expr <|>% B)
+        let case_var = var_op_name |>> v
+
+        let case_typex match_type (s: CharStream<_>) =
+            let clause = 
+                pipe2 (many1 (pattern expr) .>> lam) expr <| fun pats body ->
+                    match pats with
+                    | x :: xs -> x, compile_patterns xs body
+                    | _ -> failwith "impossible"
+
+            let pat_function l = func pat_main <| RawPattern(pat_main, List.toArray l)
+            let pat_match x l' = l pat_main x (RawPattern(pat_main, List.toArray l'))
+
+            let clauses i = 
+                let bar s = expr_indent i (<=) bar s
+                optional bar >>. sepBy1 (expr_indent i (<=) clause) bar
+            let get_col (s: CharStream<_>) = Reply(col s)
+
+            match match_type with
+            | true -> // function
+                (function_ >>. get_col >>=? clauses |>> pat_function) s    
+            | false -> // match
+                pipe2 (match_ >>. expr .>> with_) (get_col >>=? clauses) pat_match s
+
+        let case_typeinl (s: CharStream<_>) = case_typex true s
+        let case_typecase (s: CharStream<_>) = case_typex false s
+
+        let case_record =
+            let mp_binding (n,e) = RawRecordWithKeyword(n, e)
+            let mp_binding_inject n e = RawRecordWithInjectVar(n, e)
+            let mp_without n = RawRecordWithoutKeyword n
+            let mp_without_inject n = RawRecordWithoutInjectVar n
+            let mp_create l = RawRecordWith([||],List.toArray l)
+            let mp_with init names l = RawRecordWith(List.toArray (init :: names), List.toArray l)
+
+            let parse_binding_with s =
+                let i = col s
+                let line = s.Line
+                let inline body s = (eq' >>. expr_indent i (<) (set_semicolon_level_to_line line expr)) s
+                let a s =
+                    pipe2 var_op_name (opt body)
+                        (fun a -> function
+                            | None -> mp_binding (a, v a)
+                            | Some b -> mp_binding (a, b)) s
+                let b s = pipe2 (inject >>. var_op_name) body mp_binding_inject s
+                (a <|> b) s
+
+            let parse_binding_without s = 
+                let a s = var_op_name |>> mp_without <| s
+                let b s = inject >>. var_op_name |>> mp_without_inject <| s
+                (a <|> b) s
+
+            let record_create_with s = (parse_binding_with .>> optional semicolon') s
+            let record_create_without s = (parse_binding_without .>> optional semicolon') s
+
+            let record_with = 
+                let withs s = (with_ >>. many1 record_create_with) s
+                let withouts s = (without >>. many1 record_create_without) s 
+                pipe3 ((var_name |>> v) <|> rounds expr)
+                    (many (skipChar '.' >>. ((var_name |>> Types.keyword_unary) <|> rounds expr)))
+                    (many1 (withs <|> withouts) |>> List.concat)
+                    mp_with
+
+            let record_create = many record_create_with |>> mp_create
+                
+            curlies (attempt record_with <|> record_create)
+
+        let case_negate = unary_minus_check >>. expressions expr |>> ap (v "negate")
+        let case_join_point = keywordString "join" >>. expr |>> join_point_entry_method
+        let case_join_point_type = keywordString "join_type" >>. expr |>> join_point_entry_type
+        let case_type = keywordString "type" >>. expr |>> unop TypeGet
+        let case_type_catch = keywordString "type_catch" >>. expr |>> unop TypeCatch
+        let case_cuda = keywordString "cuda" >>. expr |>> (func "blockDim" << func "gridDim")
+
+        let inbuilt_op_core c = skipChar c >>. var_name
+        let case_inbuilt_op =
+            let rec loop = function
+                | RawExprPos x -> loop x.Expression
+                | RawOp(ListCreate, l) -> l 
+                | x -> [|x|]
+            let body c = inbuilt_op_core c .>>. rounds (expr <|>% B)
+            body '!' >>= fun (a, b) ->
+                match string_to_op a with
+                | true, op' -> op op' (loop b) |> preturn
+                | false, _ -> failFatally <| sprintf "%s not found among the inbuilt Ops." a
+
+        let case_parser_macro = 
+            inbuilt_op_core '@' >>= fun a _ ->
+                let f x = Reply(LitString x |> lit)
+                match a with
+                | "CubPath" -> f settings.cub_path
+                | "CudaPath" -> f settings.cuda_path
+                | "CudaNVCCOptions" -> f settings.cuda_nvcc_options
+                | "VSPath" -> f settings.vs_path
+                | "VSPathVcvars" -> f settings.vs_path_vcvars
+                | "VcvarsArgs" -> f settings.vcvars_args
+                | "VSPathCL" -> f settings.vs_path_cl
+                | "VSPathInclude" -> f settings.vs_path_include
+                | a -> Reply(FatalError, messageError <| sprintf "%s is not a valid parser macro." a)
+
+        let case_keyword_unary = keyword_unary |>> Types.keyword_unary
+
+        [|
         case_join_point; case_join_point_type; case_type; case_type_catch
         case_cuda; case_inbuilt_op; case_parser_macro
         case_inl_pat_list_expr; case_lit; case_if_then_else
         case_rounds; case_typecase; case_typeinl; case_record; case_object
-        case_negate << expressions; case_keyword_unary
+        case_negate; case_keyword_unary
         case_var
-        ] |> List.map (fun x -> x expr) |> choice <| s
+        |] |> choice <| s
  
     let process_parser_exprs exprs = 
         let error_statement_in_last_pos _ = Reply(Error,messageError "Statements not allowed in the last position of a block.")
@@ -508,25 +496,28 @@ let spiral_parse (settings: CompilerSettings) module_ =
 
     let mset recurse expr (s: CharStream<_>) = 
         let i = col s
-        let line = s.Line
+        let line = line s
         let expr_indent expr (s: CharStream<_>) = expr_indent i (<) expr s
-        let op =
-            (set_ref >>% fun l r -> op MutableSet [|l;B;r|] |> preturn)
-            <|> (set_array >>% fun l r -> 
-                    let rec loop = function
-                        | RawExprPos(p) -> loop p.Expression
-                        | RawOp(Apply,[|a;b|]) -> op MutableSet [|a;b;r|] |> preturn
-                        | _ -> fail "Expected two arguments on the left of <-."
-                    loop l)
+        let true_ l r = Reply(op MutableSet [|l;B;r|])
+        let false_ l r = 
+            let rec loop = function
+                | RawExprPos(p) -> loop p.Expression
+                | RawOp(Apply,[|a;b|]) -> Reply(op MutableSet [|a;b;r|])
+                | _ -> Reply(Error, messageError "Expected two arguments on the left of <-.")
+            loop l
+        let op = (set_ref >>% true) <|> (set_array >>% false)
 
-        (tuple2 expr (opt (expr_indent op .>>. expr_indent (set_semicolon_level_to_line line recurse)))
-        >>= function 
-            | a,Some(f,b) -> f a b
-            | a,None -> preturn a) s
+        (tuple2 expr (opt (expr_indent op .>>. expr_indent (set_semicolon_level_to_line line recurse))) 
+        >>= fun x _ ->
+            match x with
+            | a,Some(true,b) -> true_ a b
+            | a,Some(false,b) -> false_ a b
+            | a,None -> Reply a
+            ) s
 
     let annotations expr (s: CharStream<_>) = 
-        let i = (col s)
-        let expr_indent expr (s: CharStream<_>) = expr_indent i (<=) expr s
+        let i = col s
+        let inline expr_indent expr (s: CharStream<_>) = expr_indent i (<=) expr s
         pipe2 (expr_indent expr) (opt (expr_indent pp' >>. expr_indent expr))
             (fun a -> function
                 | Some b -> binop TypeAnnot a b
