@@ -30,7 +30,10 @@ let keyword_to_string x = keyword_to_string_dict.[x] // Should never fail.
 
 // #Parsing
 let spiral_parse (settings: CompilerSettings) module_ = 
-    let pos' (s: CharStream<_>) = module_, s.Line, s.Column
+    let col (s: CharStream<_>) = s.Column
+    let line (s: CharStream<_>) = s.Line
+
+    let pos' s = module_, line s, col s
     let exprpos expr (s: CharStream<_>) = (expr |>> expr_pos (pos' s)) s
     let patpos expr (s: CharStream<_>) = (expr |>> pat_pos (pos' s)) s
 
@@ -210,6 +213,17 @@ let spiral_parse (settings: CompilerSettings) module_ =
             |]
         <| s
 
+    let concat_keyword x =
+        let strb = StringBuilder()
+        let pattern = 
+            List.map (fun (str: string, pat) -> 
+                strb.Append(str).Append(':') |> ignore
+                pat
+                ) x
+        strb.ToString(), pattern
+
+    let concat_keyword' x = let a,b = concat_keyword x in a, List.toArray b
+
     let (^<|) a b = a b // High precedence, right associative <| operator
 
     let rec pattern_template expr s = // The order in which the pattern parsers are chained determines their precedence.
@@ -235,14 +249,7 @@ let spiral_parse (settings: CompilerSettings) module_ =
         let pat_when pattern = pattern .>>. (opt (when_ >>. expr)) |>> function a, Some b -> PatWhen(a,b) | a, None -> a
         let pat_as pattern = pattern .>>. (opt (as_ >>. pattern )) |>> function a, Some b -> PatAnd [a;b] | a, None -> a
 
-        let concat_keyword (x: (string * Pattern) list) =
-            let strb = StringBuilder()
-            let pattern = 
-                List.map (fun (str: string, pat) -> 
-                    strb.Append(str).Append(':') |> ignore
-                    pat
-                    ) x
-            strb.ToString(), pattern
+
 
         let pat_keyword_unary = keyword_unary |>> fun keyword -> PatKeyword(keyword,[])
         let pat_keyword pattern = 
@@ -261,9 +268,6 @@ let spiral_parse (settings: CompilerSettings) module_ =
 
     let inline pattern expr s = patpos (pattern_template expr) s
     
-    let col (s: CharStream<_>) = s.Column
-    let line (s: CharStream<_>) = s.Line
-
     let set_semicolon_level_to_line line p (s: CharStream<_>) =
         let u = s.UserState
         s.UserState <- { u with semicolon_line=line }
@@ -444,6 +448,26 @@ let spiral_parse (settings: CompilerSettings) module_ =
     let type_union expr s = tuple_template (op TypeUnion) union expr s
     let tuple expr s = tuple_template vv comma expr s
 
+    let case_object expr =
+        let keyword s = 
+            let i = col s
+            tuple2 keyword (expr_indent i (<) var_name) s
+        let f pat body = 
+            match pat with
+            | PatKeyword(name, vars) as x ->
+                let vars = 
+                    List.map (function
+                        | PatV x -> x, PatE
+                        | x -> patvar, 
+                        ) vars
+            compile_pattern
+        let receiver s =
+            let i = col s
+            let line = line s
+            (pipe2 (pattern_template expr) (eq' >>. expr_indent i (<) (set_semicolon_level_to_line line expr)) f) s
+        squares (many receiver) 
+        |>> (List.toArray >> Types.objc)
+
     let rec expressions expr s = 
         [
         case_join_point; case_join_point_type; case_type; case_type_catch
@@ -574,7 +598,13 @@ let spiral_parse (settings: CompilerSettings) module_ =
 
         tdop Int32.MinValue s
 
-    let rec expr s = 
+    let keyword_message expr =
+        let pat s =
+            let i = col s
+            tuple2 keyword (expr_indent i (<) (reset_semicolon_level expr)) s
+        squares (many pat) |>> (concat_keyword' >> RawKeywordCreate)
+
+    let rec expr s =
         let expressions s = mset expr ^<| type_union ^<| keyword_message ^<| tuple ^<| operators ^<| application ^<| immediate_keyword_unary ^<| expressions expr <| s
         let statements s = statements expr <| s
         annotations ^<| indentations statements expressions <| s
