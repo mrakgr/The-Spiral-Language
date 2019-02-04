@@ -338,8 +338,8 @@ and ConsedTy =
 and ConsedTypedData = // for join points and layout types
     | CTyList of ConsedNode<ConsedTypedData list>
     | CTyKeyword of ConsedNode<KeywordTag * TypedData []>
-    | CTyFunction of ConsedNode<Expr * EnvTerm>
-    | CTyRecFunction of ConsedNode<Expr * EnvTerm>
+    | CTyFunction of ConsedNode<Expr * StackSize * EnvTerm>
+    | CTyRecFunction of ConsedNode<Expr * StackSize * EnvTerm>
     | CTyObject of ConsedNode<ObjectDict * EnvTerm>
     | CTyMap of ConsedNode<MapTerm>
 
@@ -351,8 +351,8 @@ and ConsedTypedData = // for join points and layout types
 and TypedData =
     | TyList of TypedData list
     | TyKeyword of KeywordTag * TypedData []
-    | TyFunction of Expr * EnvTerm
-    | TyRecFunction of Expr * EnvTerm
+    | TyFunction of Expr * StackSize * EnvTerm
+    | TyRecFunction of Expr * StackSize * EnvTerm
     | TyObject of ObjectDict * EnvTerm
     | TyMap of MapTerm
 
@@ -438,6 +438,7 @@ type LangEnv = {
     // Objects and inlineables
     env_global : EnvTerm
     env_stack : EnvTerm
+    env_stack_ptr : int
     // If statements
     cse : Map<Op * TypedData, TypedData> ref
     }

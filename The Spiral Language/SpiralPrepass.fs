@@ -243,7 +243,7 @@ and prepass (env: PrepassEnv) expr =
                 let ar, free_vars = 
                     Array.mapFold (fun free_vars (keyword_string, expr) ->
                         let self_vartag, env = env_add_var env "self"
-                        let main_vartag, env = env_add_var env Parsing.pat_main
+                        let main_vartag, env = env_add_var env Types.pat_main
                         let expr, free_vars', stack_size = loop env expr
                         let free_vars' = Set.remove main_vartag (Set.remove self_vartag free_vars')
                         (string_to_keyword keyword_string, expr, stack_size + 2), free_vars + free_vars'
