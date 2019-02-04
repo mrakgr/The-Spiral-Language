@@ -349,6 +349,7 @@ let spiral_compile (settings: CompilerSettings) module_ =
         let expr, free_vars, stack_size = loop env expr
         expr, stack_size
         
-    and partial_eval _ = failwith ""
+    and partial_eval _ = 
+        failwith ""
 
     ()
