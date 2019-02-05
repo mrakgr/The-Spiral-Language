@@ -18,7 +18,7 @@ let raise_type_error x = failwith x
 
 let rect_unbox key = 
     match join_point_dict_type.[key] with
-    | JoinPointInEvaluation () -> raise_type_error "Types that are being constructed cannot be used for boxing otherwise the compiler would diverge."
+    | JoinPointInEvaluation () -> raise_type_error "Types that are being constructed cannot be used for boxing."
     | JoinPointDone ty -> ty
 
 let case_type_union = function

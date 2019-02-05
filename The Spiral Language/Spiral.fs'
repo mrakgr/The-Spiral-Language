@@ -2706,7 +2706,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | LitFloat32 x -> 
                     if x = infinityf then "__int_as_float(0x7f800000)"
                     elif x = -infinityf then "__int_as_float(0xff800000)"
-                    elif x = nanf then "__int_as_float(0x7fffffff)"
+                    elif x = nanf then "__int_as_float(0x7fffffff)" // TODO: Do not check for nan using structural equality!
                     else string x
                 | LitFloat64 x ->
                     if x = infinity then "__longlong_as_double(0x7ff0000000000000ULL)"
