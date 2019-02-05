@@ -1,4 +1,7 @@
-﻿module Spiral.HashConsing
+﻿// Adapted from: https://github.com/backtracking/ocaml-hashcons
+// Type-Safe Modular Hash-Consing: https://www.lri.fr/~filliatr/ftp/publis/hash-consing2.pdf
+
+module Spiral.HashConsing
 
 open System
 open System.Runtime.InteropServices
@@ -17,15 +20,15 @@ type ConsedNode<'a> =
     override x.Equals(y) = 
         match y with 
         | :? ConsedNode<'a> as y -> x.tag = y.tag
-        | _ -> failwith "Invalid equality for HashConsed."
+        | _ -> false
 
     interface IComparable with
         member x.CompareTo(y) = 
             match y with
             | :? ConsedNode<'a> as y -> compare x.tag y.tag
-            | _ -> failwith "Invalid comparison for HashConsed."
+            | _ -> raise <| ArgumentException "Invalid comparison for HashConsed."
 
-type HashConsTable<'a> =
+type HashConsTable =
     {
     mutable table: ResizeArray<GCHandle> []
     mutable total_size: int
@@ -40,8 +43,8 @@ type HashConsTable<'a> =
             x.is_finalized <- true
 
 let hashcons_create i = {table = Array.init (max 7 i) (fun _ -> ResizeArray(0)); total_size=0; limit=3; is_finalized=false; counter=0}
-let hashcons_add (t: HashConsTable<'a>) (x: 'a) =
-    let hashcons_resize (t: HashConsTable<'a>) =
+let hashcons_add (t: HashConsTable) (x: 'a): ConsedNode<'a> =
+    let hashcons_resize (t: HashConsTable) =
         let next_table_length x = x*3/2+3
 
         let table_length' = next_table_length t.table.Length

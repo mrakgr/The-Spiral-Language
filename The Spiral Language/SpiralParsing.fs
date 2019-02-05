@@ -5,19 +5,20 @@ open Types
 // Parser open
 open FParsec
 open System.Text
+open System.Collections.Generic
 
 // Globals
-let keyword_to_string_dict = d0()
-let string_to_keyword_dict = d0()
-let mutable tag_keyword = 0
+let private keyword_to_string_dict = Dictionary(HashIdentity.Structural)
+let private string_to_keyword_dict = Dictionary(HashIdentity.Structural)
+let private string_to_op_dict = Dictionary(HashIdentity.Structural)
+let mutable private tag_keyword = 0
 
-let string_to_op =
-    let cases = Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(typeof<Op>)
-    let dict = d0()
-    cases |> Array.iter (fun x ->
-        dict.[x.Name] <- Microsoft.FSharp.Reflection.FSharpValue.MakeUnion(x,[||]) :?> Op
+let _ =
+    Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(typeof<Op>)
+    |> Array.iter (fun x ->
+        string_to_op_dict.[x.Name] <- Microsoft.FSharp.Reflection.FSharpValue.MakeUnion(x,[||]) :?> Op
         )
-    dict.TryGetValue
+let string_to_op x = string_to_op_dict.TryGetValue x
 
 let string_to_keyword (x: string) =
     match string_to_keyword_dict.TryGetValue x with

@@ -6,7 +6,9 @@ open System.Collections.Generic
 open HashConsing
 
 // Globals
-let mutable module_tag = 0
+let mutable private module_tag = 0
+let private hash_cons_table = HashConsing.hashcons_create 0
+let private hash_cons_add x = HashConsing.hashcons_add hash_cons_table x
 
 // Language types
 type LayoutType =
@@ -23,7 +25,7 @@ type TaggedDictionary<'a,'b when 'a: equality>(capacity: int, tag: int) =
     override __.Equals(b) =
         match b with
         | :? TaggedDictionary<'a,'b> as b -> tag = b.Tag
-        | _ -> failwith "Invalid equality for TaggedDictionary."
+        | _ -> false
 
     override __.GetHashCode() = tag
 
@@ -31,7 +33,7 @@ type TaggedDictionary<'a,'b when 'a: equality>(capacity: int, tag: int) =
         member x.CompareTo(y) = 
             match y with
             | :? TaggedDictionary<'a,'b> as y -> compare tag y.Tag
-            | _ -> failwith "Invalid comparison for TaggedDictionary."
+            | _ -> raise <| ArgumentException "Invalid comparison for TaggedDictionary."
 
 type SpiralModule(name: string, prerequisites : SpiralModule list, description : string, code : string) = 
     let tag = module_tag
@@ -45,7 +47,7 @@ type SpiralModule(name: string, prerequisites : SpiralModule list, description :
     override x.Equals(y) =
         match y with
         | :? SpiralModule as y -> x.Tag = y.Tag
-        | _ -> failwith "Invalid equality for SpiralModule."
+        | _ -> false
 
     override x.GetHashCode() = x.Tag
     interface IComparable with
@@ -316,22 +318,24 @@ and Expr =
     | ExprPos of Tag * Pos<Expr>
     | Op of Tag * Op * Expr []
 
+and HasFreeVars = bool
+
 and ConsedTy =
     | ListT of ConsedNode<ConsedTy list>
     | KeywordT of ConsedNode<KeywordTag * ConsedTy []>
-    | FunctionT of ConsedNode<Expr * EnvTy>
-    | RecFunctionT of ConsedNode<Expr * EnvTy>
+    | FunctionT of ConsedNode<Expr * StackSize * EnvTy>
+    | RecFunctionT of ConsedNode<Expr * StackSize * EnvTy>
     | ObjectT of ConsedNode<ObjectDict * EnvTy>
     | MapT of ConsedNode<MapTy>
-    | LayoutT of ConsedNode<LayoutType * ConsedTypedData>
+    | LayoutT of ConsedNode<LayoutType * ConsedTypedData * HasFreeVars>
     | UnionT of ConsedNode<Set<ConsedTy>>
     | RecUnionT of ConsedNode<JoinPointKey>
 
     | PrimT of PrimitiveType
     | TermCastedFunctionT of ConsedTy * ConsedTy
     | ArrayT of ArrayType * ConsedTy
-    | DotNetTypeT of ConsedTypedData // macro
-    | CudaTypeT of ConsedTypedData // macro
+    | DotNetTypeT of string // macro
+    | CudaTypeT of string // macro
 
 and ConsedTypedData = // for join points and layout types
     | CTyList of ConsedNode<ConsedTypedData list>
@@ -360,15 +364,15 @@ and TypedData =
     | TyLit of Value
 
 and TypedBind = // TypedData being `TyList []` indicates a statement.
-    | TyLet of TypedData * ConsedTy * Trace * TypedOp
-    | TyLocalReturnOp of ConsedTy * Trace * TypedOp
+    | TyLet of TypedData * Trace * TypedOp
+    | TyLocalReturnOp of Trace * TypedOp
     | TyLocalReturnData of TypedData * ConsedTy * Trace
 
 and TypedOp = 
-    | TyOp of Op * TypedData
-    | TyIf of tr: TypedBind [] * fl: TypedBind []
-    | TyCase of TyTag * (TypedData * TypedBind []) []
-    | TyJoinPoint of JoinPointKey * JoinPointType * CallArguments
+    | TyOp of Op * TypedData * ConsedTy
+    | TyIf of tr: TypedBind [] * fl: TypedBind [] * ConsedTy
+    | TyCase of TypedData * (TypedData * TypedBind []) [] * ConsedTy
+    | TyJoinPoint of JoinPointKey * JoinPointType * CallArguments * ConsedTy
 
 and JoinPointType =
     | JoinPointClosure
@@ -430,6 +434,7 @@ type PrepassSubrenameEnv = {
     }
 
 type LangEnv = {
+    trace : Trace
     // Recursive join points
     rbeh : RecursiveBehavior
     // Joint points
@@ -485,9 +490,6 @@ let inline memoize (memo_dict: Dictionary<_,_>) f k =
     | false, _ -> let v = f k in memo_dict.[k] <- v; v
 
 let cuda_kernels_name = "cuda_kernels"
-
-let h0() = HashSet(HashIdentity.Structural)
-let d0() = Dictionary(HashIdentity.Structural)
 
 type CompilerSettings = {
     cub_path : string
@@ -576,40 +578,6 @@ let pat_main = " pat_main"
 
 let inline (|C|) (x: ConsedNode<_>) = x.node
 
-let consed_typed_data_free_var_exists e =
-    let dict = Dictionary(HashIdentity.Reference)
-    let rec typed_data_map_free_var_exists x = Map.exists (fun k v -> typed_data_free_var_exists v) x
-    and typed_data_array_free_var_exists x = Array.exists typed_data_free_var_exists x
-    and typed_data_free_var_exists e =
-        let inline f x = typed_data_free_var_exists x
-        memoize dict (function
-            | CTyBox (n,_) -> f n
-            | CTyList l -> List.exists f l.node
-            | CTyMap l -> typed_data_map_free_var_exists l.node
-            | CTyObject(C(_,env)) | CTyKeyword(C(_,env))
-            | CTyRecFunction(C(_,_,env)) | CTyFunction(C(_,_,env)) -> typed_data_array_free_var_exists env
-            | CTyV _ -> true
-            | CTyT _ | CTyLit _ -> false
-            ) e
-    typed_data_free_var_exists e
-
-let typed_data_free_var_exists e =
-    let dict = Dictionary(HashIdentity.Reference)
-    let rec typed_data_map_free_var_exists x = Map.exists (fun k v -> typed_data_free_var_exists v) x
-    and typed_data_array_free_var_exists x = Array.exists typed_data_free_var_exists x
-    and typed_data_free_var_exists e =
-        let inline f x = typed_data_free_var_exists x
-        memoize dict (function
-            | TyBox (n,_) -> f n
-            | TyList l -> List.exists f l
-            | TyMap l -> typed_data_map_free_var_exists l
-            | TyObject(_,env) | TyKeyword(_,env)
-            | TyRecFunction(_,_,env) | TyFunction(_,_,env) -> typed_data_array_free_var_exists env
-            | TyV _ -> true
-            | TyT _ | TyLit _ -> false
-            ) e
-    typed_data_free_var_exists e
-
 let ty_is_unit e =
     let dict = Dictionary(HashIdentity.Reference)
     let rec is_unit_list t = List.forall is_unit t
@@ -620,8 +588,43 @@ let ty_is_unit e =
             | UnionT _ | RecUnionT _ | DotNetTypeT _ | CudaTypeT _ | TermCastedFunctionT _ | PrimT _ -> false
             | ArrayT (_,t) -> is_unit t
             | MapT t -> is_unit_map t.node
-            | ObjectT(C(_,env)) | KeywordT (C(_,env)) | FunctionT (C(_,env)) | RecFunctionT(C(_,env)) -> is_unit_array env
-            | LayoutT (C(_, x)) -> consed_typed_data_free_var_exists x = false
+            | ObjectT(C(_,env)) | KeywordT(C(_,env)) | FunctionT(C(_,_,env)) | RecFunctionT(C(_,_,env)) -> is_unit_array env
+            | LayoutT (C(_, _, has_free_vars)) -> has_free_vars = false // This is enough as unit types automatically get converted to TyT.
             | ListT t -> is_unit_list t.node
             ) e
     is_unit e
+
+let get_type_of_value = function
+    | LitUInt8 _ -> PrimT UInt8T
+    | LitUInt16 _ -> PrimT UInt16T
+    | LitUInt32 _ -> PrimT UInt32T
+    | LitUInt64 _ -> PrimT UInt64T
+    | LitInt8 _ -> PrimT Int8T
+    | LitInt16 _ -> PrimT Int16T
+    | LitInt32 _ -> PrimT Int32T
+    | LitInt64 _ -> PrimT Int64T
+    | LitFloat32 _ -> PrimT Float32T
+    | LitFloat64 _ -> PrimT Float64T   
+    | LitBool _ -> PrimT BoolT
+    | LitString _ -> PrimT StringT
+    | LitChar _ -> PrimT CharT
+
+let rec type_get_module env = Map.map (fun _ -> type_get) env
+and type_get_list env = List.map type_get env
+and type_get_array env = Array.map type_get env
+and type_get = function
+    | TyKeyword(t,l) -> (t, type_get_array l) |> hash_cons_add |> KeywordT
+    | TyList l -> type_get_list l |> hash_cons_add |> ListT
+    | TyFunction (a,b,l) -> (a,b,type_get_array l) |> hash_cons_add |> FunctionT
+    | TyRecFunction (a,b,l) -> (a,b,type_get_array l) |> hash_cons_add |> RecFunctionT
+    | TyObject(a,l) -> (a,type_get_array l) |> hash_cons_add |> ObjectT
+    | TyMap l -> type_get_module l |> hash_cons_add |> MapT
+    | TyT x | TyV(_,x) | TyBox(_,x) -> x
+    | TyLit x -> get_type_of_value x
+
+let typed_op_type = function
+    | TyOp(_,_,t) | TyIf(_,_,t) | TyCase(_,_,t) | TyJoinPoint(_,_,_,t) -> t
+
+let typed_bind_type = function
+    | TyLet(_,_,op) | TyLocalReturnOp(_,op) -> typed_op_type op
+    | TyLocalReturnData(_,t,_) -> t
