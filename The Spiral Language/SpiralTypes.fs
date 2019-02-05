@@ -244,7 +244,6 @@ and Pattern =
     | PatCons of Pattern list
     | PatTypeEq of Pattern * RawExpr
     | PatActive of RawExpr * Pattern
-    | PatPartActive of RawExpr * Pattern
     | PatUnbox of Pattern
     | PatOr of Pattern list
     | PatAnd of Pattern list
@@ -318,30 +317,29 @@ and Expr =
     | Op of Tag * Op * Expr []
 
 and ConsedTy =
-    | CListT of ConsedNode<ConsedTy list>
-    | CTyKeyword of ConsedNode<KeywordTag * ConsedTy []>
-    | CFunctionT of ConsedNode<Expr * EnvTy>
-    | CRecFunctionT of ConsedNode<Expr * EnvTy>
-    | CObjectT of ConsedNode<ObjectDict * EnvTy>
-    | CMapT of ConsedNode<MapTy>
+    | ListT of ConsedNode<ConsedTy list>
+    | KeywordT of ConsedNode<KeywordTag * ConsedTy []>
+    | FunctionT of ConsedNode<Expr * EnvTy>
+    | RecFunctionT of ConsedNode<Expr * EnvTy>
+    | ObjectT of ConsedNode<ObjectDict * EnvTy>
+    | MapT of ConsedNode<MapTy>
+    | LayoutT of ConsedNode<LayoutType * ConsedTypedData>
+    | UnionT of ConsedNode<Set<ConsedTy>>
+    | RecUnionT of ConsedNode<JoinPointKey>
 
-    | CLayoutT of ConsedNode<LayoutType * ConsedTypedData>
-    | CUnionT of ConsedNode<Set<ConsedTy>>
-
-    | CPrimT of PrimitiveType
-    | CTermCastedFunctionT of ConsedTy * ConsedTy
-    | CRecUnionT of JoinPointKey
-    | CArrayT of ArrayType * ConsedTy
-    | CDotNetTypeT of ConsedTypedData // macro
-    | CCudaTypeT of ConsedTypedData // macro
+    | PrimT of PrimitiveType
+    | TermCastedFunctionT of ConsedTy * ConsedTy
+    | ArrayT of ArrayType * ConsedTy
+    | DotNetTypeT of ConsedTypedData // macro
+    | CudaTypeT of ConsedTypedData // macro
 
 and ConsedTypedData = // for join points and layout types
     | CTyList of ConsedNode<ConsedTypedData list>
-    | CTyKeyword of ConsedNode<KeywordTag * TypedData []>
-    | CTyFunction of ConsedNode<Expr * StackSize * EnvTerm>
-    | CTyRecFunction of ConsedNode<Expr * StackSize * EnvTerm>
-    | CTyObject of ConsedNode<ObjectDict * EnvTerm>
-    | CTyMap of ConsedNode<MapTerm>
+    | CTyKeyword of ConsedNode<KeywordTag * ConsedTypedData []>
+    | CTyFunction of ConsedNode<Expr * StackSize * ConsedEnvTerm>
+    | CTyRecFunction of ConsedNode<Expr * StackSize * ConsedEnvTerm>
+    | CTyObject of ConsedNode<ObjectDict * ConsedEnvTerm>
+    | CTyMap of ConsedNode<ConsedMapTerm>
 
     | CTyT of ConsedTy
     | CTyV of TyTag
@@ -389,6 +387,7 @@ and EnvTerm = TypedData []
 and ConsedEnvTerm = ConsedTypedData []
 and KeywordTag = int
 and MapTerm = Map<KeywordTag,TypedData>
+and ConsedMapTerm = Map<KeywordTag,ConsedTypedData>
 and MapTy = Map<KeywordTag, ConsedTy>
 and VarTag = int
 and StackSize = int
@@ -574,3 +573,55 @@ let join_point_entry_method y = ap (func "" (op JoinPointEntryMethod [|y|])) B
 let join_point_entry_type y = ap (func "" (op JoinPointEntryType [|y|])) B
 
 let pat_main = " pat_main"
+
+let inline (|C|) (x: ConsedNode<_>) = x.node
+
+let consed_typed_data_free_var_exists e =
+    let dict = Dictionary(HashIdentity.Reference)
+    let rec typed_data_map_free_var_exists x = Map.exists (fun k v -> typed_data_free_var_exists v) x
+    and typed_data_array_free_var_exists x = Array.exists typed_data_free_var_exists x
+    and typed_data_free_var_exists e =
+        let inline f x = typed_data_free_var_exists x
+        memoize dict (function
+            | CTyBox (n,_) -> f n
+            | CTyList l -> List.exists f l.node
+            | CTyMap l -> typed_data_map_free_var_exists l.node
+            | CTyObject(C(_,env)) | CTyKeyword(C(_,env))
+            | CTyRecFunction(C(_,_,env)) | CTyFunction(C(_,_,env)) -> typed_data_array_free_var_exists env
+            | CTyV _ -> true
+            | CTyT _ | CTyLit _ -> false
+            ) e
+    typed_data_free_var_exists e
+
+let typed_data_free_var_exists e =
+    let dict = Dictionary(HashIdentity.Reference)
+    let rec typed_data_map_free_var_exists x = Map.exists (fun k v -> typed_data_free_var_exists v) x
+    and typed_data_array_free_var_exists x = Array.exists typed_data_free_var_exists x
+    and typed_data_free_var_exists e =
+        let inline f x = typed_data_free_var_exists x
+        memoize dict (function
+            | TyBox (n,_) -> f n
+            | TyList l -> List.exists f l
+            | TyMap l -> typed_data_map_free_var_exists l
+            | TyObject(_,env) | TyKeyword(_,env)
+            | TyRecFunction(_,_,env) | TyFunction(_,_,env) -> typed_data_array_free_var_exists env
+            | TyV _ -> true
+            | TyT _ | TyLit _ -> false
+            ) e
+    typed_data_free_var_exists e
+
+let ty_is_unit e =
+    let dict = Dictionary(HashIdentity.Reference)
+    let rec is_unit_list t = List.forall is_unit t
+    and is_unit_array t = Array.forall is_unit t
+    and is_unit_map x = Map.forall (fun _ -> is_unit) x
+    and is_unit e = 
+        memoize dict (function
+            | UnionT _ | RecUnionT _ | DotNetTypeT _ | CudaTypeT _ | TermCastedFunctionT _ | PrimT _ -> false
+            | ArrayT (_,t) -> is_unit t
+            | MapT t -> is_unit_map t.node
+            | ObjectT(C(_,env)) | KeywordT (C(_,env)) | FunctionT (C(_,env)) | RecFunctionT(C(_,env)) -> is_unit_array env
+            | LayoutT (C(_, x)) -> consed_typed_data_free_var_exists x = false
+            | ListT t -> is_unit_list t.node
+            ) e
+    is_unit e
