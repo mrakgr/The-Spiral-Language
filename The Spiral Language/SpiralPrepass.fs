@@ -91,9 +91,9 @@ and prepass (env: PrepassEnv) expr =
                     let patterns =
                         Array.map (function
                             | RecordWithKeyword(keyword,expr) -> RecordWithKeyword(keyword,f expr)
-                            | RecordWithInjectVar(var,expr) -> RecordWithInjectVar(rename var,f expr)
+                            | RecordWithInjectVar(x,var,expr) -> RecordWithInjectVar(x,rename var,f expr)
                             | RecordWithoutKeyword(keyword) -> RecordWithoutKeyword keyword
-                            | RecordWithoutInjectVar(var) -> RecordWithoutInjectVar(rename var)
+                            | RecordWithoutInjectVar(x,var) -> RecordWithoutInjectVar(x,rename var)
                             ) patterns
                     RecordWith(tag,Array.map f exprs,patterns)
                 | Op(tag,op,exprs) -> Op(tag,op,Array.map f exprs)
@@ -300,11 +300,11 @@ and prepass (env: PrepassEnv) expr =
                             let expr, free_vars', stack_size' = loop env expr
                             let free_vars' = Set.remove this_tag free_vars'
                             let x = string_to_var env.prepass_map var
-                            RecordWithInjectVar(x, expr),(free_vars+free_vars' |> Set.add x, max stack_size stack_size')
+                            RecordWithInjectVar(var, x, expr),(free_vars+free_vars' |> Set.add x, max stack_size stack_size')
                         | RawRecordWithoutKeyword keyword -> RecordWithoutKeyword(string_to_keyword keyword),(free_vars,stack_size)
                         | RawRecordWithoutInjectVar var -> 
                             let x = string_to_var env.prepass_map var
-                            RecordWithoutInjectVar x,(Set.add x free_vars,stack_size)
+                            RecordWithoutInjectVar(var, x),(Set.add x free_vars,stack_size)
                         ) (Set.empty, 0) patterns
                 RecordWith(tag(), binds, patterns),binds_free_vars+patterns_free_vars,binds_stack_size+patterns_stack_size
             | RawOp(op,exprs) ->

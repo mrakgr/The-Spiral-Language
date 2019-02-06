@@ -292,9 +292,9 @@ and RawExpr =
 and RecordTestPattern = RecordTestKeyword of keyword: KeywordTag | RecordTestInjectVar of var: VarTag
 and RecordWithPattern = 
     | RecordWithKeyword of keyword: KeywordTag * Expr 
-    | RecordWithInjectVar of var: VarTag * Expr
+    | RecordWithInjectVar of VarString * var: VarTag * Expr
     | RecordWithoutKeyword of keyword: KeywordTag
-    | RecordWithoutInjectVar of var: VarTag
+    | RecordWithoutInjectVar of VarString * var: VarTag
 
 and Expr =
     | V of Tag * VarTag

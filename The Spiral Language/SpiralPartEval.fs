@@ -5,6 +5,7 @@ open System
 open System.Collections.Generic
 open Parsing
 open Types
+open Spiral
 
 // Globals
 let private join_point_dict_method = Dictionary(HashIdentity.Structural)
@@ -33,6 +34,7 @@ let case_type d = function
 
 let tag_get () = tag <- tag+1; tag
 let tyv ty = TyV (tag_get(), ty)
+let tyb = TyList []
 
 let rec destructure tyv_or_tyt x =
     let inline f x = destructure tyv_or_tyt x
@@ -53,13 +55,31 @@ let push_var (d: LangEnv) x =
 
 let rec partial_eval (d: LangEnv) x = 
     let inline ev d x = partial_eval d x
-
+    
+    let inline push_var_ptr ptr x = d.env_stack.[ptr] <- x; ptr+1
     let inline v x = let l = d.env_global.Length in if x < l then d.env_global.[x] else d.env_stack.[x - l]
     let inline seq_end_align (end_dat,end_ty) (seq: ResizeArray<_>) =
         if d.seq.Count > 0 then
             match seq.[d.seq.Count-1] with
             | TyLet(end_dat',a,b) when Object.ReferenceEquals(end_dat,end_dat') -> d.seq.[d.seq.Count-1] <- TyLocalReturnOp(a,b)
             | _ -> d.seq.Add(TyLocalReturnData(end_dat,end_ty,d.trace))
+    let inline list_test all_or_n (stack_size,bind,on_succ,on_fail) =
+        let inline on_fail() = ev d on_fail
+        match v bind with
+        | TyList l ->
+            if all_or_n then // all
+                let rec loop d = function
+                    | 1, l -> ev (push_var d (TyList l)) on_succ
+                    | i, x :: x' -> loop (push_var d x) (i-1,x')
+                    | _, [] -> on_fail()
+                loop d (stack_size,l)
+            else // n
+                let rec loop d = function
+                    | 0, [] -> ev d on_succ
+                    | _, [] -> on_fail()
+                    | i, x :: x' -> loop (push_var d x) (i-1,x')
+                loop d (stack_size,l)
+        | _ -> on_fail()
 
     match x with
     | V(_, x) -> v x
@@ -103,19 +123,67 @@ let rec partial_eval (d: LangEnv) x =
                 d.seq.Add(TyLet(end_dat,d.trace,TyCase(v,List.toArray cases,end_ty)))
                 end_dat
         | v -> ev (push_var d v) on_succ
-    | ListTakeAllTest(_,stack_size,bind,on_succ,on_fail) ->
-        let inline on_fail() = ev d on_fail
+    | ListTakeAllTest(_,stack_size,bind,on_succ,on_fail) -> list_test true (stack_size,bind,on_succ,on_fail)
+    | ListTakeNTest(_,stack_size,bind,on_succ,on_fail) -> list_test false (stack_size,bind,on_succ,on_fail)
+    | KeywordTest(_, keyword, bind, on_succ, on_fail) ->
         match v bind with
-        | TyList l ->
-            let rec loop d = function
-                | 0, [] -> ev d on_succ
-                | _, [] -> on_fail()
-                | i, x :: x' -> loop (push_var d x) (i-1,x')
-            loop d (stack_size,l)
+        | TyKeyword(keyword', l) when keyword = keyword' -> ev {d with env_stack_ptr=Array.fold push_var_ptr d.env_stack_ptr l} on_succ
+        | _ -> ev d on_fail
+    | RecordTest(_, pats, bind, on_succ, on_fail) ->
+        let inline on_fail () = ev d on_fail
+        match v bind with
+        | TyMap l -> 
+            let rec loop d i =
+                let inline case keyword =
+                    match l.TryFind keyword with
+                    | Some x -> loop (push_var d x) (i+1)
+                    | None -> on_fail()
+                if i < pats.Length then
+                    match pats.[i] with
+                    | RecordTestKeyword keyword -> case keyword
+                    | RecordTestInjectVar var ->
+                        match v var with
+                        | TyKeyword(keyword,_) -> case keyword
+                        | _ -> raise_type_error d "The injected variable needs to an unary keyword."
+                else ev d on_succ
+            loop d 0
         | _ -> on_fail()
-    //| ListTakeNTest of Tag * StackSize * bind: VarTag * on_succ: Expr * on_fail: Expr
-    //| KeywordTest of Tag * KeywordTag * bind: VarTag * on_succ: Expr * on_fail: Expr
-    //| RecordTest of Tag * RecordTestPattern [] * bind: VarTag * on_succ: Expr * on_fail: Expr
-    //| RecordWith of Tag * Expr [] * RecordWithPattern []
-    //| ExprPos of Tag * Pos<Expr>
-    //| Op of Tag * Op * Expr []
+    | RecordWith(_,vars, withs) ->
+        let withs l =
+            let push_keyword keyword =
+                match Map.tryFind keyword l with
+                | Some this -> push_var d this
+                | None -> push_var d tyb
+            let var_to_keyword var_string var = 
+                match v var with
+                | TyKeyword(keyword,_) -> keyword
+                | _ -> raise_type_error d <| sprintf "The injected variable %s in RecordWith is not a keyword." var_string
+            Array.fold (fun l -> function
+                | RecordWithKeyword(keyword,expr) -> Map.add keyword (ev (push_keyword keyword) expr) l
+                | RecordWithInjectVar(var_string, var,expr) -> let keyword = var_to_keyword var_string var in Map.add keyword (ev (push_keyword keyword) expr) l
+                | RecordWithoutKeyword keyword -> Map.remove keyword l
+                | RecordWithoutInjectVar(var_string, var) -> Map.remove (var_to_keyword var_string var) l
+                ) l withs
+            |> TyMap
+        match vars with
+        | [||] -> withs Map.empty
+        | _ -> 
+            match ev d vars.[0] with
+            | TyMap l -> 
+                let rec loop l i =
+                    if i < vars.Length then
+                        let th = function 1 -> "st" | 2 -> "nd" | 3 -> "rd" | _ -> "th"
+                        match ev d vars.[i] with
+                        | TyKeyword(keyword,_) ->
+                            match Map.tryFind keyword l with
+                            | Some(TyMap l') -> Map.add keyword (loop l' (i+1)) l |> TyMap
+                            | Some _ -> raise_type_error d <| sprintf "The %i%s variable application in RecordWith does not result in a record." i (th i)
+                            | None -> raise_type_error d <| sprintf "The keyword %s cannot be found in the %i%s sub-record." (keyword_to_string keyword) i (th i)
+                        | _ -> let i = i+1 in raise_type_error d <| sprintf "The %i%s variable in RecordWith is not a keyword." i (th i)
+                    else withs l
+                loop l 1
+            | _ -> raise_type_error d "The first variable must be a record."
+    | ExprPos(_,pos) -> ev {d with trace=pos.Pos :: d.trace} pos.Expression
+    | Op(_,op,l) ->
+        match op, l with
+        | _ -> failwith "Compiler error: %A not implemented" op
