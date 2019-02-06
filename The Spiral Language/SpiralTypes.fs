@@ -96,9 +96,6 @@ type Value =
     | LitChar of char
 
 type Op =
-    // Type operation
-    | ToVar
-    
     // Extern type constructors
     | DotNetTypeCreate
     | CudaTypeCreate
@@ -142,6 +139,7 @@ type Op =
     | RecordLength
 
     // Braching
+    | If
     | While
 
     // BinOps
@@ -282,7 +280,6 @@ and RawExpr =
     | RawKeywordCreate of KeywordString * RawExpr []
     | RawLet of var: VarString * bind: RawExpr * on_succ: RawExpr
     | RawCase of var: VarString * bind: RawExpr * on_succ: RawExpr
-    | RawIf of cond: RawExpr * on_succ: RawExpr * on_fail: RawExpr
     | RawListTakeAllTest of vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawListTakeNTest of vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawKeywordTest of KeywordString * vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
@@ -309,7 +306,6 @@ and Expr =
     | KeywordCreate of Tag * KeywordTag * Expr []
     | Let of Tag * bind: Expr * on_succ: Expr
     | Case of Tag * bind: Expr * on_succ: Expr
-    | If of Tag * cond: Expr * on_succ: Expr * on_fail: Expr
     | ListTakeAllTest of Tag * StackSize * bind: VarTag * on_succ: Expr * on_fail: Expr
     | ListTakeNTest of Tag * StackSize * bind: VarTag * on_succ: Expr * on_fail: Expr
     | KeywordTest of Tag * KeywordTag * bind: VarTag * on_succ: Expr * on_fail: Expr
@@ -549,7 +545,7 @@ let keyword k l = RawKeywordCreate(k,l)
 let keyword_unary k = RawKeywordCreate(k,[||])
 let l bind body on_succ = RawLet(bind,body,on_succ)
 let case bind body on_succ = RawCase(bind,body,on_succ)
-let if_ cond on_succ on_fail = RawIf(cond,on_succ,on_fail)
+let if_ cond on_succ on_fail = RawOp(If,[|cond;on_succ;on_fail|])
 let list_take_all_test x bind on_succ on_fail = RawListTakeAllTest(x,bind,on_succ,on_fail)
 let list_take_n_test x bind on_succ on_fail = RawListTakeNTest(x,bind,on_succ,on_fail)
 let list_keyword_test keyword x bind on_succ on_fail = RawKeywordTest(keyword,x,bind,on_succ,on_fail)

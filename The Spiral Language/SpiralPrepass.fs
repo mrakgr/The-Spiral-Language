@@ -77,7 +77,6 @@ and prepass (env: PrepassEnv) expr =
                 | KeywordCreate(tag,a,exprs) -> KeywordCreate(tag,a,Array.map f exprs)
                 | Let(tag,bind,on_succ) -> Let(tag,f bind,f on_succ)
                 | Case(tag,bind,on_succ) -> Case(tag,f bind,f on_succ)
-                | If(tag,cond,on_succ,on_fail) -> If(tag,f cond,f on_succ,f on_fail)
                 | ListTakeAllTest(tag,size,bind,on_succ,on_fail) -> ListTakeAllTest(tag,size,bind,f on_succ,f on_fail)
                 | ListTakeNTest(tag,size,bind,on_succ,on_fail) -> ListTakeNTest(tag,size,bind,f on_succ,f on_fail)
                 | KeywordTest(tag,keyword,bind,on_succ,on_fail) -> KeywordTest(tag,keyword,bind,f on_succ,f on_fail)
@@ -264,11 +263,6 @@ and prepass (env: PrepassEnv) expr =
                 KeywordCreate(tag(), string_to_keyword name, args), free_vars, stack_size
             | RawLet(var,bind,on_succ) -> let_helper Let (var,bind,on_succ)
             | RawCase(var,bind,on_succ) -> let_helper Case (var,bind,on_succ)
-            | RawIf(cond,on_succ,on_fail) ->
-                let cond,free_vars,stack_size = loop env cond
-                let on_succ,free_vars',stack_size' = loop env on_succ
-                let on_fail,free_vars'',stack_size'' = loop env on_fail
-                If(tag(),cond,on_succ,on_fail),free_vars+free_vars'+free_vars'',stack_size+max stack_size' stack_size''
             | RawListTakeAllTest(vars,bind,on_succ,on_fail) -> list_test ListTakeAllTest (vars,bind,on_succ,on_fail)
             | RawListTakeNTest(vars,bind,on_succ,on_fail) -> list_test ListTakeNTest (vars,bind,on_succ,on_fail)
             | RawKeywordTest(keyword,vars,bind,on_succ,on_fail) -> 

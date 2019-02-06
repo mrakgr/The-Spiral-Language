@@ -654,12 +654,12 @@ let rec show_ty = function
     | ListT l -> sprintf "(%s)" (List.map show_ty l.node |> String.concat ", ")
     | MapT v -> 
         let body = 
-            v.node 
-            |> Map.toArray 
+            Map.toArray v.node
             |> Array.map (fun (k,v) -> sprintf "%s=%s" (keyword_to_string k) (show_ty v))
             |> String.concat "; "
 
         sprintf "{%s}" body
+    | ObjectT _ -> "<object>"
     | FunctionT _ | RecFunctionT _ -> "<function>"
     | LayoutT (C(layout_type,body,_)) ->
         sprintf "%s (%s)" (show_layout_type layout_type) (show_consed_typed_data body)
@@ -675,18 +675,46 @@ let rec show_ty = function
     | ArrayT (a,b) -> sprintf "%s (%s)" (show_art a) (show_ty b)
     | DotNetTypeT x | CudaTypeT x -> x
 
+and show_typed_data = function
+    | TyT x -> sprintf "type (%s)" (show_ty x)
+    | TyV (_,t) -> sprintf "var (%s)" (show_ty t)
+    | TyKeyword(keyword,l) -> 
+        let a = (keyword_to_string keyword).Split([|':'|], StringSplitOptions.RemoveEmptyEntries)
+        Array.map2 (fun a l -> [|a;":";show_typed_data l|]) a l
+        |> Array.concat
+        |> String.concat ""
+    | TyList l -> 
+        let body = List.map show_typed_data l |> String.concat ", "
+        sprintf "(%s)" body
+    | TyMap a ->
+        let body =
+            Map.toArray a
+            |> Array.map (fun (a,b) -> sprintf "%s=%s" (keyword_to_string a) (show_typed_data b))
+            |> String.concat "; "
+        sprintf "{%s}" body
+    | TyObject _ -> "<object>"
+    | TyFunction _ | TyRecFunction _ -> "<function>"
+    | TyBox(a,b) -> sprintf "(%s : %s)" (show_typed_data a) (show_ty b)
+    | TyLit v -> sprintf "lit %s" (show_value v)
+
 and show_consed_typed_data = function
     | CTyT x -> sprintf "type (%s)" (show_ty x)
-    //| TyV (_,t) -> sprintf "var (%s)" (show_ty t)
-    //| TyList l -> 
-    //    let body = List.map show_typedexpr l |> String.concat ", "
-    //    sprintf "[%s]" body
-    //| TyMap a ->
-    //    let body =
-    //        Map.toArray a
-    //        |> Array.map (fun (a,b) -> sprintf "%s=%s" a (show_typedexpr b))
-    //        |> String.concat "; "
-    //    sprintf "{%s}" body
-    //| TyFunction _ | TyRecFunction _ -> "<function>"
-    //| TyBox (a,b) -> sprintf "(boxed_type %s with %s)" (show_ty b) (show_typedexpr a)
-    //| TyLit v -> sprintf "lit %s" (show_value v)
+    | CTyV (_,t) -> sprintf "var (%s)" (show_ty t)
+    | CTyKeyword(C(keyword,l)) -> 
+        let a = (keyword_to_string keyword).Split([|':'|], StringSplitOptions.RemoveEmptyEntries)
+        Array.map2 (fun a l -> [|a;":";show_consed_typed_data l|]) a l
+        |> Array.concat
+        |> String.concat ""
+    | CTyList(C l) -> 
+        let body = List.map show_consed_typed_data l |> String.concat ", "
+        sprintf "(%s)" body
+    | CTyMap(C a) ->
+        let body =
+            Map.toArray a
+            |> Array.map (fun (a,b) -> sprintf "%s=%s" (keyword_to_string a) (show_consed_typed_data b))
+            |> String.concat "; "
+        sprintf "{%s}" body
+    | CTyObject _ -> "<object>"
+    | CTyFunction _ | CTyRecFunction _ -> "<function>"
+    | CTyBox(a,b) -> sprintf "(%s : %s)" (show_consed_typed_data a) (show_ty b)
+    | CTyLit v -> sprintf "lit %s" (show_value v)

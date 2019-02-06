@@ -103,9 +103,16 @@ let rec partial_eval (d: LangEnv) x =
                 d.seq.Add(TyLet(end_dat,d.trace,TyCase(v,List.toArray cases,end_ty)))
                 end_dat
         | v -> ev (push_var d v) on_succ
-
-    //| If of Tag * cond: Expr * on_succ: Expr * on_fail: Expr
-    //| ListTakeAllTest of Tag * StackSize * bind: VarTag * on_succ: Expr * on_fail: Expr
+    | ListTakeAllTest(_,stack_size,bind,on_succ,on_fail) ->
+        let inline on_fail() = ev d on_fail
+        match v bind with
+        | TyList l ->
+            let rec loop d = function
+                | 0, [] -> ev d on_succ
+                | _, [] -> on_fail()
+                | i, x :: x' -> loop (push_var d x) (i-1,x')
+            loop d (stack_size,l)
+        | _ -> on_fail()
     //| ListTakeNTest of Tag * StackSize * bind: VarTag * on_succ: Expr * on_fail: Expr
     //| KeywordTest of Tag * KeywordTag * bind: VarTag * on_succ: Expr * on_fail: Expr
     //| RecordTest of Tag * RecordTestPattern [] * bind: VarTag * on_succ: Expr * on_fail: Expr
