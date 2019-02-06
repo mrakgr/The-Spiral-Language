@@ -35,6 +35,7 @@ let tag_get () = tag <- tag+1; tag
 let tyt_to_tyv ty = 
     if ty_is_unit ty then TyT ty
     else TyV (tag_get(), ty)
+    |> destructure
 
 let push_var (d: LangEnv) x =
     d.env_stack.[d.env_stack_ptr] <- x
