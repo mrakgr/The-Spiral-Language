@@ -17,7 +17,7 @@ let rec module_prepass (env: ModulePrepassEnv) expr =
         let count = env.modpre_context.Count
         let context = env.modpre_context.ToArray()
         let expr, size = prepass {prepass_context=context; prepass_map=env.modpre_map; prepass_map_length=count} a
-        let module_ = PartEval.partial_eval {rbeh=AnnotationDive; seq=env.modpre_seq; env_global=context; env_stack=Array.zeroCreate size; trace=[] } expr
+        let module_ = PartEval.partial_eval {rbeh=AnnotationDive; seq=env.modpre_seq; env_global=context; env_stack_ptr=0; env_stack=Array.zeroCreate size; trace=[]; cse=ref Map.empty} expr
         env.modpre_context.Add module_
         module_prepass {env with modpre_map=env.modpre_map.Add (x, count)} b
     | ModPreOpen(x,b) ->

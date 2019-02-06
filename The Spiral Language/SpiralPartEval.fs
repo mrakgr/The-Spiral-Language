@@ -32,10 +32,20 @@ let case_type d = function
     | x -> case_type_union x
 
 let tag_get () = tag <- tag+1; tag
-let tyt_to_tyv ty = 
-    if ty_is_unit ty then TyT ty
-    else TyV (tag_get(), ty)
-    |> destructure
+let tyv ty = TyV (tag_get(), ty)
+
+let rec destructure tyv_or_tyt x =
+    let inline f x = destructure tyv_or_tyt x
+    match x with
+    | ListT x -> TyList(List.map f x.node)
+    | KeywordT(C(a,l)) -> TyKeyword(a,Array.map f l)
+    | FunctionT(C(a,b,l)) -> TyFunction(a,b,Array.map f l)
+    | RecFunctionT(C(a,b,l)) -> TyRecFunction(a,b,Array.map f l)
+    | ObjectT(C(a,l)) -> TyObject(a,Array.map f l)
+    | MapT l -> TyMap(Map.map (fun _ -> f) l.node)
+    | x -> tyv_or_tyt x
+   
+let tyt_to_tyv ty = if ty_is_unit ty then destructure TyT ty else destructure tyv ty
 
 let push_var (d: LangEnv) x =
     d.env_stack.[d.env_stack_ptr] <- x
@@ -45,6 +55,11 @@ let rec partial_eval (d: LangEnv) x =
     let inline ev d x = partial_eval d x
 
     let inline v x = let l = d.env_global.Length in if x < l then d.env_global.[x] else d.env_stack.[x - l]
+    let inline seq_end_align (end_dat,end_ty) (seq: ResizeArray<_>) =
+        if d.seq.Count > 0 then
+            match seq.[d.seq.Count-1] with
+            | TyLet(end_dat',a,b) when Object.ReferenceEquals(end_dat,end_dat') -> d.seq.[d.seq.Count-1] <- TyLocalReturnOp(a,b)
+            | _ -> d.seq.Add(TyLocalReturnData(end_dat,end_ty,d.trace))
 
     match x with
     | V(_, x) -> v x
@@ -64,35 +79,31 @@ let rec partial_eval (d: LangEnv) x =
     | KeywordCreate(_,keyword,l) -> TyKeyword(keyword,Array.map (ev d) l)
     | Let(_,bind,on_succ) -> ev (ev d bind |> push_var d) on_succ
     | Case(_,bind,on_succ) ->
-        let v = ev d bind
-        let rewrite_key = (TypeUnbox, v)
-        match Map.tryFind rewrite_key !d.cse with
-        | Some v -> ev (push_var d v) on_succ
-        | None ->
-            match v with
-            | TyBox(b,_) -> ev (push_var d b) on_succ
-            | (TyV(_, t & (UnionT _ | RecUnionT _)) | TyT(t & (UnionT _ | RecUnionT _))) ->
-                let inline ev_case r_ty' x =
+        match ev d bind with
+        | TyBox(b,_) -> ev (push_var d b) on_succ
+        | (TyV(_, t & (UnionT _ | RecUnionT _)) | TyT(t & (UnionT _ | RecUnionT _))) as v ->
+            let rewrite_key = TypeUnbox, v
+            match Map.tryFind rewrite_key !d.cse with
+            | Some v -> ev (push_var d v) on_succ
+            | None ->
+                let inline ev_case end_ty' x =
+                    let x = tyt_to_tyv x
                     let d = {d with seq=ResizeArray(); cse=ref (Map.add rewrite_key x !d.cse)}
-                    let r = ev (push_var d x) on_succ
-                    let r_ty = type_get r
-                    match r_ty' with
-                    | Some r_ty' -> if r_ty <> r_ty' then raise_type_error d <| sprintf "All the cases in pattern matching clause with dynamic data must have the same type.\nGot: %s and %s" (show_ty a) (show_ty b)
+                    let end_dat = ev (push_var d x) on_succ
+                    let end_ty = type_get end_dat
+                    match end_ty' with
+                    | Some end_ty' -> if end_ty' <> end_ty then raise_type_error d <| sprintf "All the cases in pattern matching clause with dynamic data must have the same type.\nGot: %s and %s" (show_ty end_ty') (show_ty end_ty)
                     | None -> ()
-                    if d.seq.Count > 0 then
-                        match d.seq.[d.seq.Count-1] with
-                        | TyLet(r',a,b) when Object.ReferenceEquals(r,r') -> d.seq.[d.seq.Count-1] <- TyLocalReturnOp(a,b)
-                        | _ -> d.seq.Add(TyLocalReturnData(r,r_ty,d.trace))
-                    (x, d.seq.ToArray()), Some r_ty
-                  
-                case_type d t 
-                |> List.map tyt_to_tyv 
-                |> List.mapFold ev_case None
-                |> fun (a,b) -> TyCase(v,List.toArray a,b.Value)
-                |> make_tyv_and_push_typed_expr_even_if_unit d
-            | v -> ev (push_var d v) on_succ
+                    seq_end_align (end_dat, end_ty) d.seq
+                    (x, d.seq.ToArray()), Some end_ty
+                
+                let cases, end_ty = case_type d t |> List.mapFold ev_case None
+                let end_ty = end_ty.Value
+                let end_dat = tyt_to_tyv end_ty
+                d.seq.Add(TyLet(end_dat,d.trace,TyCase(v,List.toArray cases,end_ty)))
+                end_dat
+        | v -> ev (push_var d v) on_succ
 
-    //| Case of Tag * bind: Expr * on_succ: Expr
     //| If of Tag * cond: Expr * on_succ: Expr * on_fail: Expr
     //| ListTakeAllTest of Tag * StackSize * bind: VarTag * on_succ: Expr * on_fail: Expr
     //| ListTakeNTest of Tag * StackSize * bind: VarTag * on_succ: Expr * on_fail: Expr

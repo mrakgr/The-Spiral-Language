@@ -628,3 +628,4 @@ let typed_op_type = function
 let typed_bind_type = function
     | TyLet(_,_,op) | TyLocalReturnOp(_,op) -> typed_op_type op
     | TyLocalReturnData(_,t,_) -> t
+

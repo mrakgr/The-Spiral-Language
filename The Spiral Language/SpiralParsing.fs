@@ -237,11 +237,10 @@ let spiral_parse (settings: CompilerSettings) module_ =
         let pat_rounds pattern = rounds (pattern <|>% PatTuple [])
         let pat_type pattern = tuple2 pattern (opt (pp >>. pat_expr)) |>> function a,Some b as x-> PatTypeEq(a,b) | a, None -> a
         let pat_active pattern (s: CharStream<_>) =
-            let inline f k = pipe2 pat_expr pattern (fun name pat -> k(name,pat)) s
             match s.Peek() with
-            | '!' -> s.Seek(1L); f PatActive
-            | '@' -> s.Seek(1L); f PatPartActive
-            | _ -> Reply(ReplyStatus.Error, expected "! or @")
+            | '!' -> s.Seek(1L); pipe2 pat_expr pattern (fun name pat -> PatActive(name,pat)) s
+            | '#' -> s.Seek(1L); (pattern |>> PatUnbox) s
+            | _ -> Reply(ReplyStatus.Error, expected "! or #")
         let pat_or pattern = sepBy1 pattern bar |>> function [x] -> x | x -> PatOr x
         let pat_and pattern = sepBy1 pattern amphersand |>> function [x] -> x | x -> PatAnd x
     
@@ -525,7 +524,7 @@ let spiral_parse (settings: CompilerSettings) module_ =
                 | None -> a) s
 
     let inbuilt_operators =
-        let dict_operator = d0()
+        let dict_operator = Dictionary(HashIdentity.Structural)
         let add_infix_operator assoc str prec = dict_operator.Add(str, (prec, assoc))
 
         let left_assoc_ops = 
@@ -601,3 +600,93 @@ let spiral_parse (settings: CompilerSettings) module_ =
         let statements s = statements expr <| s
         annotations ^<| indentations statements expressions <| s
     runParserOnString (spaces >>. expr .>> eof) {ops=inbuilt_operators; semicolon_line= -1L} module_.Name module_.Code
+
+let show_primt = function
+    | UInt8T -> "uint8"
+    | UInt16T -> "uint16"
+    | UInt32T -> "uint32"
+    | UInt64T -> "uint64"
+    | Int8T -> "int8"
+    | Int16T -> "int16"
+    | Int32T -> "int32"
+    | Int64T -> "int64"
+    | Float32T -> "float32"
+    | Float64T -> "float64"
+    | BoolT -> "bool"
+    | StringT -> "string"
+    | CharT -> "char"
+
+let show_value = function
+    | LitUInt8 x -> sprintf "%iu8" x
+    | LitUInt16 x -> sprintf "%iu16" x
+    | LitUInt32 x -> sprintf "%iu32" x
+    | LitUInt64 x -> sprintf "%iu64" x
+    | LitInt8 x -> sprintf "%ii8" x
+    | LitInt16 x -> sprintf "%ii16" x
+    | LitInt32 x -> sprintf "%ii32" x
+    | LitInt64 x -> sprintf "%ii64" x
+    | LitFloat32 x -> sprintf "%ff32" x
+    | LitFloat64 x -> sprintf "%ff64" x
+    | LitBool x -> sprintf "%b" x
+    | LitString x -> sprintf "%s" x
+    | LitChar x -> sprintf "%c" x
+
+let show_art = function
+    | ArtDotNetHeap -> "array"
+    | ArtDotNetReference -> "ref"
+    | ArtCudaGlobal _ -> "array_cuda_global"
+    | ArtCudaShared -> "array_cuda_shared"
+    | ArtCudaLocal -> "array_cuda_local"
+
+let show_layout_type = function
+    | LayoutStack -> "layout_stack"
+    | LayoutPackedStack -> "layout_packed_stack"
+    | LayoutHeap -> "layout_heap"
+    | LayoutHeapMutable -> "layout_heap_mutable"
+
+let rec show_ty = function
+    | PrimT x -> show_primt x
+    | KeywordT(C(keyword,l)) -> 
+        let a = (keyword_to_string keyword).Split([|':'|], StringSplitOptions.RemoveEmptyEntries)
+        Array.map2 (fun a l -> [|a;":";show_ty l|]) a l
+        |> Array.concat
+        |> String.concat ""
+    | ListT l -> sprintf "(%s)" (List.map show_ty l.node |> String.concat ", ")
+    | MapT v -> 
+        let body = 
+            v.node 
+            |> Map.toArray 
+            |> Array.map (fun (k,v) -> sprintf "%s=%s" (keyword_to_string k) (show_ty v))
+            |> String.concat "; "
+
+        sprintf "{%s}" body
+    | FunctionT _ | RecFunctionT _ -> "<function>"
+    | LayoutT (C(layout_type,body,_)) ->
+        sprintf "%s (%s)" (show_layout_type layout_type) (show_consed_typed_data body)
+    | TermCastedFunctionT (a,b) ->
+        sprintf "(%s => %s)" (show_ty a) (show_ty b)
+    | UnionT l ->
+        let body =
+            Set.toArray l.node
+            |> Array.map show_ty
+            |> String.concat " | "
+        sprintf "union {%s}" body
+    | RecUnionT x -> sprintf "rec_union_type %i" x.tag
+    | ArrayT (a,b) -> sprintf "%s (%s)" (show_art a) (show_ty b)
+    | DotNetTypeT x | CudaTypeT x -> x
+
+and show_consed_typed_data = function
+    | CTyT x -> sprintf "type (%s)" (show_ty x)
+    //| TyV (_,t) -> sprintf "var (%s)" (show_ty t)
+    //| TyList l -> 
+    //    let body = List.map show_typedexpr l |> String.concat ", "
+    //    sprintf "[%s]" body
+    //| TyMap a ->
+    //    let body =
+    //        Map.toArray a
+    //        |> Array.map (fun (a,b) -> sprintf "%s=%s" a (show_typedexpr b))
+    //        |> String.concat "; "
+    //    sprintf "{%s}" body
+    //| TyFunction _ | TyRecFunction _ -> "<function>"
+    //| TyBox (a,b) -> sprintf "(boxed_type %s with %s)" (show_ty b) (show_typedexpr a)
+    //| TyLit v -> sprintf "lit %s" (show_value v)
