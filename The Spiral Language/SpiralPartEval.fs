@@ -16,8 +16,31 @@ let private join_point_dict_cuda = Dictionary(HashIdentity.Structural)
 let private hash_cons_table = HashConsing.hashcons_create 0
 let private hash_cons_add x = HashConsing.hashcons_add hash_cons_table x
 
-let mutable private tag = 0u
-let tag () = tag <- tag+1u; tag
+let mutable private tag = 0
+let tag () = tag <- tag+1; tag
+
+let typed_data_to_consed call_data =
+    let dict = Dictionary(HashIdentity.Reference)
+    let call_args = ResizeArray(64)
+    let method_args = ResizeArray(64)
+    let rec f x =
+        memoize dict (function
+            | TyList l -> List.map f l |> hash_cons_add |> CTyList
+            | TyKeyword(a,b) -> (a,Array.map f b) |> hash_cons_add |> CTyKeyword
+            | TyFunction(a,b,c) -> (a,b,Array.map f c) |> hash_cons_add |> CTyFunction
+            | TyRecFunction(a,b,c) -> (a,b,Array.map f c) |> hash_cons_add |> CTyRecFunction
+            | TyObject(a,b) -> (a,Array.map f b) |> hash_cons_add |> CTyObject
+            | TyMap l -> Map.map (fun _ -> f) l |> hash_cons_add |> CTyMap
+            | TyV(T(_,ty) as t) -> 
+                call_args.Add t
+                let t = T(method_args.Count, ty)
+                method_args.Add t
+                CTyV t
+            | TyBox(a,b) -> (f a, b) |> CTyBox
+            | TyLit x -> CTyLit x
+            | TyT x -> CTyT x
+            ) x
+    {consed_data=f call_data; call_args=call_args.ToArray(); consed_args=method_args.ToArray()}
 
 let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))
 let rect_unbox d key = 
@@ -34,7 +57,7 @@ let case_type d = function
     | x -> case_type_union x
 
 
-let tyv ty = TyV (tag(), ty)
+let tyv ty = TyV(T(tag(), ty))
 let tyb = TyList []
 
 let rec destructure tyv_or_tyt x =
@@ -102,7 +125,7 @@ let rec partial_eval (d: LangEnv) x =
     | Case(_,bind,on_succ) ->
         match ev d bind with
         | TyBox(b,_) -> ev (push_var b d) on_succ
-        | (TyV(_, t & (UnionT _ | RecUnionT _)) | TyT(t & (UnionT _ | RecUnionT _))) as v ->
+        | (TyV(T(_, t & (UnionT _ | RecUnionT _))) | TyT(t & (UnionT _ | RecUnionT _))) as v ->
             let rewrite_key = TypeUnbox, v
             match Map.tryFind rewrite_key !d.cse with
             | Some v -> ev (push_var v d) on_succ
@@ -207,8 +230,8 @@ let rec partial_eval (d: LangEnv) x =
                         ev (push_var a d |> push_var b) body
                     | false, _ -> raise_type_error d <| sprintf "The object does not have the receiver for %s." (keyword_to_string keyword)
                 | TyObject _, b -> raise_type_error d <| sprintf "The second argument to an object application is not a keyword.\nGot: %s" (show_typed_data b)
-                | (TyV(_,LayoutT _) | TyT(LayoutT _)) & a, b -> apply d (layout_to_none a, b)
-                | (TyV(_,TermCastedFunctionT(clo_arg_ty,clo_ret_ty)) | TyT(TermCastedFunctionT(clo_arg_ty,clo_ret_ty))) & a, b -> 
+                | (TyV(T(_,LayoutT _)) | TyT(LayoutT _)) & a, b -> apply d (layout_to_none a, b)
+                | (TyV(T(_,TermCastedFunctionT(clo_arg_ty,clo_ret_ty))) | TyT(TermCastedFunctionT(clo_arg_ty,clo_ret_ty))) & a, b -> 
                     let b_ty = type_get b
                     if clo_arg_ty <> b_ty then raise_type_error d <| sprintf "Cannot apply an argument of type %s to closure (%s => %s)." (show_ty b_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
                     else push_bin_op_no_rewrite d Apply (a,b) clo_ret_ty

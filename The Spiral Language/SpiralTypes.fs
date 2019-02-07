@@ -368,7 +368,7 @@ and TypedOp =
     | TyOp of Op * TypedData * ConsedTy
     | TyIf of tr: TypedBind [] * fl: TypedBind [] * ConsedTy
     | TyCase of TypedData * (TypedData * TypedBind []) [] * ConsedTy
-    | TyJoinPoint of JoinPointKey * JoinPointType * CallArguments * ConsedTy
+    | TyJoinPoint of JoinPointKey * JoinPointType * TyTag [] * ConsedTy
 
 and JoinPointType =
     | JoinPointClosure
@@ -381,7 +381,20 @@ and JoinPointState<'a,'b> =
     | JoinPointDone of 'b
 
 and Tag = int
-and TyTag = uint32 * ConsedTy
+and [<CustomComparison;CustomEquality>] TyTag = 
+    | T of Tag * ConsedTy
+
+    override a.Equals(b) =
+        match b with
+        | :? TyTag as b -> match a,b with T(a,_), T(b,_) -> a = b
+        | _ -> false
+    override a.GetHashCode() = match a with T(a,_) -> a
+    interface IComparable with
+        member a.CompareTo(b) = 
+            match b with
+            | :? TyTag as b -> match a,b with T(a,_), T(b,_) -> compare a b
+            | _ -> raise <| ArgumentException "Invalid comparison for TyTag."
+
 and EnvTy = ConsedTy []
 and EnvTerm = TypedData []
 and ConsedEnvTerm = ConsedTypedData []
@@ -395,9 +408,6 @@ and FreeVars = VarTag []
 and ObjectDict = TaggedDictionary<KeywordTag,Expr * StackSize>
 
 and JoinPointKey = Expr * ConsedEnvTerm
-
-and CallArguments = TyTag []
-and Renamer = Dictionary<Tag,Tag>
 
 // This key is for functions without arguments. It is intended that the arguments be passed in through the Environment.
 and JoinPointDict<'a,'b> = Dictionary<JoinPointKey, JoinPointState<'a,'b>>
@@ -467,17 +477,10 @@ and ProgramNode =
     | Indent
     | Dedent
 
-type EnvRenamer = {
-    memo : Dictionary<TypedData,TypedData>
-    renamer : Dictionary<Tag,Tag>
-    ref_call_args : TyTag list ref
-    ref_method_pars : TyTag list ref
-    }
-
 type RenamerResult = {
-    renamer' : Dictionary<Tag,Tag>
-    call_args : TyTag list
-    method_pars : TyTag list
+    consed_data : ConsedTypedData
+    consed_args : TyTag []
+    call_args : TyTag []
     }
 
 let inline memoize (memo_dict: Dictionary<_,_>) f k =
@@ -615,7 +618,7 @@ and type_get = function
     | TyRecFunction (a,b,l) -> (a,b,type_get_array l) |> hash_cons_add |> RecFunctionT
     | TyObject(a,l) -> (a,type_get_array l) |> hash_cons_add |> ObjectT
     | TyMap l -> type_get_module l |> hash_cons_add |> MapT
-    | TyT x | TyV(_,x) | TyBox(_,x) -> x
+    | TyT x | TyV(T(_,x)) | TyBox(_,x) -> x
     | TyLit x -> get_type_of_value x
 
 let typed_op_type = function

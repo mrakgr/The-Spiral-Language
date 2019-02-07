@@ -1,3 +1,1 @@
-﻿open System
-
-"a:b:".Split ([|':'|], StringSplitOptions.RemoveEmptyEntries)
+﻿-1 |> uint32
