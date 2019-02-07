@@ -381,7 +381,7 @@ and JoinPointState<'a,'b> =
     | JoinPointDone of 'b
 
 and Tag = int
-and TyTag = Tag * ConsedTy
+and TyTag = uint32 * ConsedTy
 and EnvTy = ConsedTy []
 and EnvTerm = TypedData []
 and ConsedEnvTerm = ConsedTypedData []

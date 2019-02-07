@@ -16,7 +16,8 @@ let private join_point_dict_cuda = Dictionary(HashIdentity.Structural)
 let private hash_cons_table = HashConsing.hashcons_create 0
 let private hash_cons_add x = HashConsing.hashcons_add hash_cons_table x
 
-let mutable private tag = 0
+let mutable private tag = 0u
+let tag () = tag <- tag+1u; tag
 
 let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))
 let rect_unbox d key = 
@@ -32,8 +33,8 @@ let case_type d = function
     | RecUnionT key -> case_type_union (rect_unbox d key.node)
     | x -> case_type_union x
 
-let tag_get () = tag <- tag+1; tag
-let tyv ty = TyV (tag_get(), ty)
+
+let tyv ty = TyV (tag(), ty)
 let tyb = TyList []
 
 let rec destructure tyv_or_tyt x =
@@ -47,9 +48,9 @@ let rec destructure tyv_or_tyt x =
     | MapT l -> TyMap(Map.map (fun _ -> f) l.node)
     | x -> tyv_or_tyt x
    
-let tyt_to_tyv ty = if ty_is_unit ty then destructure TyT ty else destructure tyv ty
+let type_to_tyv ty = if ty_is_unit ty then destructure TyT ty else destructure tyv ty
 
-let push_var (d: LangEnv) x =
+let push_var x (d: LangEnv) =
     d.env_stack.[d.env_stack_ptr] <- x
     {d with env_stack_ptr=d.env_stack_ptr+1}
 
@@ -69,15 +70,15 @@ let rec partial_eval (d: LangEnv) x =
         | TyList l ->
             if all_or_n then // all
                 let rec loop d = function
-                    | 1, l -> ev (push_var d (TyList l)) on_succ
-                    | i, x :: x' -> loop (push_var d x) (i-1,x')
+                    | 1, l -> ev (push_var (TyList l) d) on_succ
+                    | i, x :: x' -> loop (push_var x d) (i-1,x')
                     | _, [] -> on_fail()
                 loop d (stack_size,l)
             else // n
                 let rec loop d = function
                     | 0, [] -> ev d on_succ
                     | _, [] -> on_fail()
-                    | i, x :: x' -> loop (push_var d x) (i-1,x')
+                    | i, x :: x' -> loop (push_var x d) (i-1,x')
                 loop d (stack_size,l)
         | _ -> on_fail()
 
@@ -97,19 +98,19 @@ let rec partial_eval (d: LangEnv) x =
     | RecFunction(_,on_succ,free_vars,stack_size) -> TyRecFunction(on_succ,stack_size,Array.map v free_vars)
     | ObjectCreate(dict,free_vars) -> TyObject(dict,Array.map v free_vars)
     | KeywordCreate(_,keyword,l) -> TyKeyword(keyword,Array.map (ev d) l)
-    | Let(_,bind,on_succ) -> ev (ev d bind |> push_var d) on_succ
+    | Let(_,bind,on_succ) -> ev (push_var (ev d bind) d) on_succ
     | Case(_,bind,on_succ) ->
         match ev d bind with
-        | TyBox(b,_) -> ev (push_var d b) on_succ
+        | TyBox(b,_) -> ev (push_var b d) on_succ
         | (TyV(_, t & (UnionT _ | RecUnionT _)) | TyT(t & (UnionT _ | RecUnionT _))) as v ->
             let rewrite_key = TypeUnbox, v
             match Map.tryFind rewrite_key !d.cse with
-            | Some v -> ev (push_var d v) on_succ
+            | Some v -> ev (push_var v d) on_succ
             | None ->
                 let inline ev_case end_ty' x =
-                    let x = tyt_to_tyv x
+                    let x = type_to_tyv x
                     let d = {d with seq=ResizeArray(); cse=ref (Map.add rewrite_key x !d.cse)}
-                    let end_dat = ev (push_var d x) on_succ
+                    let end_dat = ev (push_var x d) on_succ
                     let end_ty = type_get end_dat
                     match end_ty' with
                     | Some end_ty' -> if end_ty' <> end_ty then raise_type_error d <| sprintf "All the cases in pattern matching clause with dynamic data must have the same type.\nGot: %s and %s" (show_ty end_ty') (show_ty end_ty)
@@ -119,10 +120,10 @@ let rec partial_eval (d: LangEnv) x =
                 
                 let cases, end_ty = case_type d t |> List.mapFold ev_case None
                 let end_ty = end_ty.Value
-                let end_dat = tyt_to_tyv end_ty
+                let end_dat = type_to_tyv end_ty
                 d.seq.Add(TyLet(end_dat,d.trace,TyCase(v,List.toArray cases,end_ty)))
                 end_dat
-        | v -> ev (push_var d v) on_succ
+        | v -> ev (push_var v d) on_succ
     | ListTakeAllTest(_,stack_size,bind,on_succ,on_fail) -> list_test true (stack_size,bind,on_succ,on_fail)
     | ListTakeNTest(_,stack_size,bind,on_succ,on_fail) -> list_test false (stack_size,bind,on_succ,on_fail)
     | KeywordTest(_, keyword, bind, on_succ, on_fail) ->
@@ -136,7 +137,7 @@ let rec partial_eval (d: LangEnv) x =
             let rec loop d i =
                 let inline case keyword =
                     match l.TryFind keyword with
-                    | Some x -> loop (push_var d x) (i+1)
+                    | Some x -> loop (push_var x d) (i+1)
                     | None -> on_fail()
                 if i < pats.Length then
                     match pats.[i] with
@@ -152,8 +153,8 @@ let rec partial_eval (d: LangEnv) x =
         let withs l =
             let push_keyword keyword =
                 match Map.tryFind keyword l with
-                | Some this -> push_var d this
-                | None -> push_var d tyb
+                | Some this -> push_var this d
+                | None -> push_var tyb d
             let var_to_keyword var_string var = 
                 match v var with
                 | TyKeyword(keyword,_) -> keyword
@@ -187,5 +188,38 @@ let rec partial_eval (d: LangEnv) x =
     | Op(_,op,l) ->
         match op, l with
         | Apply,[|a;b|] ->
-            
+            let rec apply d = function
+                | TyFunction(body,stack_size,env), b ->
+                    let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
+                    ev (push_var b d) body
+                | TyRecFunction(body,stack_size,env) & a, b ->
+                    let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
+                    ev (push_var b d |> push_var a) body
+                | TyMap l, TyKeyword(keyword,_) ->
+                    match Map.tryFind keyword l with
+                    | Some a -> a
+                    | None -> raise_type_error d <| sprintf "The record does not have the field %s." (keyword_to_string keyword)
+                | TyMap _, b -> raise_type_error d <| sprintf "The second argument to a record application is not a keyword.\nGot: %s" (show_typed_data b)
+                | TyObject(dict,env) & a, TyKeyword(keyword,_) & b ->
+                    match dict.TryGetValue keyword with
+                    | true, (body, stack_size) ->
+                        let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
+                        ev (push_var a d |> push_var b) body
+                    | false, _ -> raise_type_error d <| sprintf "The object does not have the receiver for %s." (keyword_to_string keyword)
+                | TyObject _, b -> raise_type_error d <| sprintf "The second argument to an object application is not a keyword.\nGot: %s" (show_typed_data b)
+                | (TyV(_,LayoutT _) | TyT(LayoutT _)) & a, b -> apply d (layout_to_none a, b)
+                | (TyV(_,TermCastedFunctionT(clo_arg_ty,clo_ret_ty)) | TyT(TermCastedFunctionT(clo_arg_ty,clo_ret_ty))) & a, b -> 
+                    let b_ty = type_get b
+                    if clo_arg_ty <> b_ty then raise_type_error d <| sprintf "Cannot apply an argument of type %s to closure (%s => %s)." (show_ty b_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
+                    else push_bin_op_no_rewrite d Apply (a,b) clo_ret_ty
+            apply d (ev d a, ev d b)
+        | TermCast,[|a;b|] ->
+            match ev d a, ev d b with
+            | TyFunction(body,stack_size,env), b ->
+                let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
+                join_point_closure (push_var (type_get b |> type_to_tyv) d) body
+            | TyRecFunction(body,stack_size,env) & a, b ->
+                let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
+                join_point_closure (push_var (type_get b |> type_to_tyv) d |> push_var a) body
+            | x,_ -> raise_type_error d <| sprintf "Expected a function in term casting.\nGot: %s" (show_typed_data x)
         | _ -> failwith "Compiler error: %A not implemented" op

@@ -8,6 +8,7 @@ open Types
 
 // Globals
 let mutable tag_prepass = 0
+let private tag () = tag_prepass <- tag_prepass + 1; tag_prepass
 
 let rec module_prepass (env: ModulePrepassEnv) expr = 
     let error x = raise (PrepassError x)
@@ -36,7 +37,6 @@ let rec module_prepass (env: ModulePrepassEnv) expr =
                         
             
 and prepass (env: PrepassEnv) expr = 
-    let tag () = tag_prepass <- tag_prepass + 1; tag_prepass
     let prepass_memo_dict = Dictionary(HashIdentity.Reference)
     let prepass_subrenaming_memo_dict = Dictionary(HashIdentity.Reference)
     let error x = raise (PrepassError x)
