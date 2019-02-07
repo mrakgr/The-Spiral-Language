@@ -186,4 +186,6 @@ let rec partial_eval (d: LangEnv) x =
     | ExprPos(_,pos) -> ev {d with trace=pos.Pos :: d.trace} pos.Expression
     | Op(_,op,l) ->
         match op, l with
+        | Apply,[|a;b|] ->
+            
         | _ -> failwith "Compiler error: %A not implemented" op
