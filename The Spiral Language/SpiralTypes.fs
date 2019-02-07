@@ -407,7 +407,7 @@ and StackSize = int
 and FreeVars = VarTag []
 and ObjectDict = TaggedDictionary<KeywordTag,Expr * StackSize>
 
-and JoinPointKey = Expr * ConsedEnvTerm
+and JoinPointKey = Expr * ConsedTypedData
 
 // This key is for functions without arguments. It is intended that the arguments be passed in through the Environment.
 and JoinPointDict<'a,'b> = Dictionary<JoinPointKey, JoinPointState<'a,'b>>
@@ -476,12 +476,6 @@ and ProgramNode =
     | Statement of sep: string * code: string
     | Indent
     | Dedent
-
-type RenamerResult = {
-    consed_data : ConsedTypedData
-    consed_args : TyTag []
-    call_args : TyTag []
-    }
 
 let inline memoize (memo_dict: Dictionary<_,_>) f k =
     match memo_dict.TryGetValue k with

@@ -19,10 +19,10 @@ let private hash_cons_add x = HashConsing.hashcons_add hash_cons_table x
 let mutable private tag = 0
 let tag () = tag <- tag+1; tag
 
+let keyword_env = Parsing.string_to_keyword "env:"
 let typed_data_to_consed call_data =
     let dict = Dictionary(HashIdentity.Reference)
     let call_args = ResizeArray(64)
-    let method_args = ResizeArray(64)
     let rec f x =
         memoize dict (function
             | TyList l -> List.map f l |> hash_cons_add |> CTyList
@@ -31,16 +31,12 @@ let typed_data_to_consed call_data =
             | TyRecFunction(a,b,c) -> (a,b,Array.map f c) |> hash_cons_add |> CTyRecFunction
             | TyObject(a,b) -> (a,Array.map f b) |> hash_cons_add |> CTyObject
             | TyMap l -> Map.map (fun _ -> f) l |> hash_cons_add |> CTyMap
-            | TyV(T(_,ty) as t) -> 
-                call_args.Add t
-                let t = T(method_args.Count, ty)
-                method_args.Add t
-                CTyV t
+            | TyV(T(_,ty) as t) -> call_args.Add t; CTyV (T(call_args.Count-1, ty))
             | TyBox(a,b) -> (f a, b) |> CTyBox
             | TyLit x -> CTyLit x
             | TyT x -> CTyT x
             ) x
-    {consed_data=f call_data; call_args=call_args.ToArray(); consed_args=method_args.ToArray()}
+    call_args.ToArray(),f call_data
 
 let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))
 let rect_unbox d key = 
@@ -77,16 +73,23 @@ let push_var x (d: LangEnv) =
     d.env_stack.[d.env_stack_ptr] <- x
     {d with env_stack_ptr=d.env_stack_ptr+1}
 
+let seq_apply (d: LangEnv) (end_dat,end_ty) =
+    if d.seq.Count > 0 then
+        match d.seq.[d.seq.Count-1] with
+        | TyLet(end_dat',a,b) when Object.ReferenceEquals(end_dat,end_dat') -> d.seq.[d.seq.Count-1] <- TyLocalReturnOp(a,b)
+        | _ -> d.seq.Add(TyLocalReturnData(end_dat,end_ty,d.trace))
+    d.seq.ToArray()
+
 let rec partial_eval (d: LangEnv) x = 
     let inline ev d x = partial_eval d x
+    let inline ev_seq d x =
+        let x = ev {d with seq=ResizeArray()} x
+        let x_ty = type_get x
+        seq_apply d (x,x_ty), x_ty
     
     let inline push_var_ptr ptr x = d.env_stack.[ptr] <- x; ptr+1
     let inline v x = let l = d.env_global.Length in if x < l then d.env_global.[x] else d.env_stack.[x - l]
-    let inline seq_end_align (end_dat,end_ty) (seq: ResizeArray<_>) =
-        if d.seq.Count > 0 then
-            match seq.[d.seq.Count-1] with
-            | TyLet(end_dat',a,b) when Object.ReferenceEquals(end_dat,end_dat') -> d.seq.[d.seq.Count-1] <- TyLocalReturnOp(a,b)
-            | _ -> d.seq.Add(TyLocalReturnData(end_dat,end_ty,d.trace))
+
     let inline list_test all_or_n (stack_size,bind,on_succ,on_fail) =
         let inline on_fail() = ev d on_fail
         match v bind with
@@ -132,14 +135,12 @@ let rec partial_eval (d: LangEnv) x =
             | None ->
                 let inline ev_case end_ty' x =
                     let x = type_to_tyv x
-                    let d = {d with seq=ResizeArray(); cse=ref (Map.add rewrite_key x !d.cse)}
-                    let end_dat = ev (push_var x d) on_succ
-                    let end_ty = type_get end_dat
+                    let d = {d with cse=ref (Map.add rewrite_key x !d.cse)}
+                    let seq, end_ty = ev_seq (push_var x d) on_succ
                     match end_ty' with
                     | Some end_ty' -> if end_ty' <> end_ty then raise_type_error d <| sprintf "All the cases in pattern matching clause with dynamic data must have the same type.\nGot: %s and %s" (show_ty end_ty') (show_ty end_ty)
                     | None -> ()
-                    seq_end_align (end_dat, end_ty) d.seq
-                    (x, d.seq.ToArray()), Some end_ty
+                    (x, seq), Some end_ty
                 
                 let cases, end_ty = case_type d t |> List.mapFold ev_case None
                 let end_ty = end_ty.Value
@@ -234,7 +235,7 @@ let rec partial_eval (d: LangEnv) x =
                 | (TyV(T(_,TermCastedFunctionT(clo_arg_ty,clo_ret_ty))) | TyT(TermCastedFunctionT(clo_arg_ty,clo_ret_ty))) & a, b -> 
                     let b_ty = type_get b
                     if clo_arg_ty <> b_ty then raise_type_error d <| sprintf "Cannot apply an argument of type %s to closure (%s => %s)." (show_ty b_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
-                    else push_bin_op_no_rewrite d Apply (a,b) clo_ret_ty
+                    else push_op_no_rewrite d Apply (TyList [a;b]) clo_ret_ty
             apply d (ev d a, ev d b)
         | TermCast,[|a;b|] ->
             match ev d a, ev d b with
@@ -245,4 +246,23 @@ let rec partial_eval (d: LangEnv) x =
                 let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
                 join_point_closure (push_var (type_get b |> type_to_tyv) d |> push_var a) body
             | x,_ -> raise_type_error d <| sprintf "Expected a function in term casting.\nGot: %s" (show_typed_data x)
+        // Note: All join points must be wrapped in a function so that their local environment is fresh and all used free vars are in the `env_global`.
+        | JoinPointEntryMethod,[|body|] -> 
+            let call_args, consed_env = typed_data_to_consed (TyKeyword(keyword_env, d.env_global))
+            let join_point_key = body, consed_env
+           
+            let _, ret_ty = 
+                let dict = join_point_dict_method
+                match dict.TryGetValue join_point_key with
+                | false, _ ->
+                    dict.[join_point_key] <- JoinPointInEvaluation ()
+                    let x = ev_seq {d with cse=ref Map.empty} body
+                    dict.[join_point_key] <- JoinPointDone (call_args,x)
+                    x
+                | true, JoinPointInEvaluation _ -> ev_seq {d with cse=ref Map.empty; rbeh=AnnotationReturn} body
+                | true, JoinPointDone (_,x) -> x
+
+            let ret = type_to_tyv ret_ty
+            d.seq.Add(TyLet(ret, d.trace, TyJoinPoint(join_point_key,JoinPointMethod,call_args,ret_ty)))
+            ret
         | _ -> failwith "Compiler error: %A not implemented" op
