@@ -648,7 +648,7 @@ let rec show_ty = function
     | PrimT x -> show_primt x
     | KeywordT(C(keyword,l)) -> 
         let a = (keyword_to_string keyword).Split([|':'|], StringSplitOptions.RemoveEmptyEntries)
-        Array.map2 (fun a l -> [|a;":";show_ty l|]) a l
+        Array.map2 (fun a l -> [|a;": ";show_ty l|]) a l
         |> Array.concat
         |> String.concat ""
     | ListT l -> sprintf "(%s)" (List.map show_ty l.node |> String.concat ", ")
@@ -671,7 +671,7 @@ let rec show_ty = function
             |> Array.map show_ty
             |> String.concat " | "
         sprintf "union {%s}" body
-    | RecUnionT x -> sprintf "rec_union_type %i" x.tag
+    | RecUnionT (name, _) -> name
     | ArrayT (a,b) -> sprintf "%s (%s)" (show_art a) (show_ty b)
     | DotNetTypeT x | CudaTypeT x -> x
 
@@ -680,7 +680,7 @@ and show_typed_data = function
     | TyV(T(_,t)) -> sprintf "var (%s)" (show_ty t)
     | TyKeyword(keyword,l) -> 
         let a = (keyword_to_string keyword).Split([|':'|], StringSplitOptions.RemoveEmptyEntries)
-        Array.map2 (fun a l -> [|a;":";show_typed_data l|]) a l
+        Array.map2 (fun a l -> [|a;": ";show_typed_data l|]) a l
         |> Array.concat
         |> String.concat ""
     | TyList l -> 
@@ -702,7 +702,7 @@ and show_consed_typed_data = function
     | CTyV(T(_,t)) -> sprintf "var (%s)" (show_ty t)
     | CTyKeyword(C(keyword,l)) -> 
         let a = (keyword_to_string keyword).Split([|':'|], StringSplitOptions.RemoveEmptyEntries)
-        Array.map2 (fun a l -> [|a;":";show_consed_typed_data l|]) a l
+        Array.map2 (fun a l -> [|a;": ";show_consed_typed_data l|]) a l
         |> Array.concat
         |> String.concat ""
     | CTyList(C l) -> 

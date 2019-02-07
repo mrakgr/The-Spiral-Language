@@ -13,7 +13,6 @@ let private hash_cons_add x = HashConsing.hashcons_add hash_cons_table x
 // Language types
 type LayoutType =
     | LayoutStack
-    | LayoutPackedStack
     | LayoutHeap
     | LayoutHeapMutable
 
@@ -325,7 +324,7 @@ and ConsedTy =
     | MapT of ConsedNode<MapTy>
     | LayoutT of ConsedNode<LayoutType * ConsedTypedData * HasFreeVars>
     | UnionT of ConsedNode<Set<ConsedTy>>
-    | RecUnionT of ConsedNode<JoinPointKey>
+    | RecUnionT of string * JoinPointKey
 
     | PrimT of PrimitiveType
     | TermCastedFunctionT of ConsedTy * ConsedTy
@@ -571,21 +570,18 @@ let pat_main = " pat_main"
 
 let inline (|C|) (x: ConsedNode<_>) = x.node
 
-let ty_is_unit e =
+let type_is_unit e =
     let dict = Dictionary(HashIdentity.Reference)
-    let rec is_unit_list t = List.forall is_unit t
-    and is_unit_array t = Array.forall is_unit t
-    and is_unit_map x = Map.forall (fun _ -> is_unit) x
-    and is_unit e = 
+    let rec f e = 
         memoize dict (function
             | UnionT _ | RecUnionT _ | DotNetTypeT _ | CudaTypeT _ | TermCastedFunctionT _ | PrimT _ -> false
-            | ArrayT (_,t) -> is_unit t
-            | MapT t -> is_unit_map t.node
-            | ObjectT(C(_,env)) | KeywordT(C(_,env)) | FunctionT(C(_,_,env)) | RecFunctionT(C(_,_,env)) -> is_unit_array env
+            | ArrayT (_,t) -> f t
+            | MapT t -> Map.forall (fun _ -> f) t.node
+            | ObjectT(C(_,env)) | KeywordT(C(_,env)) | FunctionT(C(_,_,env)) | RecFunctionT(C(_,_,env)) -> Array.forall f env
             | LayoutT (C(_, _, has_free_vars)) -> has_free_vars = false // This is enough as unit types automatically get converted to TyT.
-            | ListT t -> is_unit_list t.node
+            | ListT t -> List.forall f t.node
             ) e
-    is_unit e
+    f e
 
 let get_type_of_value = function
     | LitUInt8 _ -> PrimT UInt8T
@@ -622,3 +618,11 @@ let typed_bind_type = function
     | TyLet(_,_,op) | TyLocalReturnOp(_,op) -> typed_op_type op
     | TyLocalReturnData(_,t,_) -> t
 
+let rec fsharp_to_cuda_blittable_is = function
+    | PrimT t ->
+        match t with
+        | BoolT _ | CharT _ | StringT _ -> false
+        | _ -> true
+    | ArrayT (ArtCudaGlobal _,t) -> fsharp_to_cuda_blittable_is t
+    | LayoutT(C(_, _, false)) ->  true
+    | _ -> false

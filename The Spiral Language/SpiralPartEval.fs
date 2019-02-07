@@ -19,7 +19,7 @@ let private hash_cons_add x = HashConsing.hashcons_add hash_cons_table x
 let mutable private tag = 0
 let tag () = tag <- tag+1; tag
 
-let keyword_env = Parsing.string_to_keyword "env:"
+let keyword_env = Parsing.string_to_keyword "env:" // For join points keys. It is assumed that they will never be printed.
 let typed_data_to_consed call_data =
     let dict = Dictionary(HashIdentity.Reference)
     let call_args = ResizeArray(64)
@@ -41,17 +41,16 @@ let typed_data_to_consed call_data =
 let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))
 let rect_unbox d key = 
     match join_point_dict_type.[key] with
-    | JoinPointInEvaluation () -> raise_type_error d "Types that are being constructed cannot be used for boxing."
-    | JoinPointDone ty -> ty
+    | JoinPointInEvaluation _ -> raise_type_error d "Types that are being constructed cannot be used for boxing."
+    | JoinPointDone(_,_,ty) -> ty
 
 let case_type_union = function
     | UnionT l -> Set.toList l.node
     | x -> [x]
 
 let case_type d = function
-    | RecUnionT key -> case_type_union (rect_unbox d key.node)
+    | RecUnionT(_,key) -> case_type_union (rect_unbox d key)
     | x -> case_type_union x
-
 
 let tyv ty = TyV(T(tag(), ty))
 let tyb = TyList []
@@ -67,7 +66,7 @@ let rec destructure tyv_or_tyt x =
     | MapT l -> TyMap(Map.map (fun _ -> f) l.node)
     | x -> tyv_or_tyt x
    
-let type_to_tyv ty = if ty_is_unit ty then destructure TyT ty else destructure tyv ty
+let type_to_tyv ty = if type_is_unit ty then destructure TyT ty else destructure tyv ty
 
 let push_var x (d: LangEnv) =
     d.env_stack.[d.env_stack_ptr] <- x
@@ -255,14 +254,65 @@ let rec partial_eval (d: LangEnv) x =
                 let dict = join_point_dict_method
                 match dict.TryGetValue join_point_key with
                 | false, _ ->
+                    let tag: Tag = dict.Count
                     dict.[join_point_key] <- JoinPointInEvaluation ()
                     let x = ev_seq {d with cse=ref Map.empty} body
-                    dict.[join_point_key] <- JoinPointDone (call_args,x)
+                    dict.[join_point_key] <- JoinPointDone (tag,call_args,x)
                     x
                 | true, JoinPointInEvaluation _ -> ev_seq {d with cse=ref Map.empty; rbeh=AnnotationReturn} body
-                | true, JoinPointDone (_,x) -> x
+                | true, JoinPointDone (_,_,x) -> x
 
             let ret = type_to_tyv ret_ty
             d.seq.Add(TyLet(ret, d.trace, TyJoinPoint(join_point_key,JoinPointMethod,call_args,ret_ty)))
             ret
+
+        | JoinPointEntryCuda,[|body|] -> 
+            let call_args, consed_env = typed_data_to_consed (TyKeyword(keyword_env, d.env_global))
+            if Array.forall (fun (T(_,x)) -> fsharp_to_cuda_blittable_is x) call_args = false then 
+                Array.choose (fun (T(_,x) as t) -> if fsharp_to_cuda_blittable_is x then None else Some (TyV t)) call_args
+                |> fun x -> show_typed_data (TyList(Array.toList x))
+                |> (raise_type_error d << sprintf "At the Cuda join point the following arguments have disallowed non-blittable types: %s")
+            let join_point_key = body, consed_env
+           
+            let tag, (_, ret_ty) = 
+                let dict = join_point_dict_cuda
+                match dict.TryGetValue join_point_key with
+                | false, _ ->
+                    let tag: Tag = dict.Count
+                    dict.[join_point_key] <- JoinPointInEvaluation tag
+                    let x = ev_seq {d with cse=ref Map.empty} body
+                    dict.[join_point_key] <- JoinPointDone (tag,call_args,x)
+                    tag,x
+                | true, JoinPointInEvaluation tag -> tag, ev_seq {d with cse=ref Map.empty; rbeh=AnnotationReturn} body
+                | true, JoinPointDone (tag,_,x) -> tag, x
+
+            match type_to_tyv ret_ty with
+            | TyList [] -> 
+                let call_args = Array.map (fun x -> TyV x) call_args |> Array.toList
+                TyList (TyLit(LitString <| sprintf "method_%i" tag) :: call_args)
+            | _ -> raise_type_error d "The return type of Cuda join point must be unit tuple.\nGot: %s" (show_ty ret_ty)
+
+        | JoinPointEntryType,[|body;name|] -> 
+            let name =
+                match ev d name with
+                | TyLit (LitString name) -> name
+                | _ -> raise_type_error d "The name of the recursive type must be a string literal."
+            let call_args, consed_env = typed_data_to_consed (TyKeyword(keyword_env, d.env_global))
+            let join_point_key = body, consed_env
+            
+            let inline y _ = RecUnionT (name, join_point_key)
+            let dict = join_point_dict_type
+            match dict.TryGetValue join_point_key with
+            | false, _ ->
+                let tag: Tag = dict.Count
+                dict.[join_point_key] <- JoinPointInEvaluation false
+                let x = ev_seq {d with cse=ref Map.empty} body |> snd
+                match dict.[join_point_key] with
+                | JoinPointInEvaluation false -> dict.[join_point_key] <- JoinPointDone (tag,false,x); x
+                | JoinPointInEvaluation true -> dict.[join_point_key] <- JoinPointDone (tag,true,x); y()
+                | _ -> failwith "impossible"
+            | true, JoinPointInEvaluation _ -> dict.[join_point_key] <- JoinPointInEvaluation true; y()
+            | true, JoinPointDone (_,false,x) -> x
+            | true, JoinPointDone (_,true,_) -> y()
+            |> TyT
         | _ -> failwith "Compiler error: %A not implemented" op
