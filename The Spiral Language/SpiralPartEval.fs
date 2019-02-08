@@ -5,12 +5,15 @@ open System
 open System.Collections.Generic
 open Parsing
 open Types
+open System.Runtime.CompilerServices
 
 // Globals
 let private join_point_dict_method = Dictionary(HashIdentity.Structural)
 let private join_point_dict_closure = Dictionary(HashIdentity.Structural)
 let private join_point_dict_type = Dictionary(HashIdentity.Structural)
 let private join_point_dict_cuda = Dictionary(HashIdentity.Structural)
+let private layout_to_none_dict = ConditionalWeakTable()
+let private layout_to_none_dict' = ConditionalWeakTable()
 
 let private hash_cons_table = HashConsing.hashcons_create 0
 let private hash_cons_add x = HashConsing.hashcons_add hash_cons_table x
@@ -101,16 +104,37 @@ let layout_to_none (d: LangEnv) = function
             let key = LayoutToNone,v
             match Map.tryFind key !d.cse with
             | None ->
-                let ret = consed_typed_data_uncons l 
-                d.seq.Add(TyLet(ret,d.trace,TyOp(LayoutToNone,v,type_get ret)))
-                match t with LayoutHeapMutable -> () | _ -> d.cse := Map.add key ret !d.cse
-                ret
-            | Some v ->
-                v
+                let inline stmt x = TyLet(x,d.trace,TyOp(LayoutToNone,v,type_get x))
+                match t with
+                | LayoutHeapMutable ->
+                    let x = consed_typed_data_uncons l 
+                    d.seq.Add(stmt x)
+                    x
+                | _ ->
+                    let x, stmt = memoize' layout_to_none_dict (consed_typed_data_uncons >> fun x -> x,stmt x) l 
+                    d.seq.Add stmt
+                    d.cse := Map.add key x !d.cse
+                    x
+            | Some x ->
+                x
         else
-            consed_typed_data_uncons l
+            memoize' layout_to_none_dict' consed_typed_data_uncons l
     | a -> a
 
+let layout_to_some layout (d: LangEnv) = function
+    | TyT(LayoutT(C(t,l,h))) | TyV(T(_,LayoutT(C(t,l,h)))) as x when t = layout -> x
+    | x ->
+        let call_args, consed_data = typed_data_to_consed (layout_to_none d x)
+        let ret_ty = (layout,consed_data,call_args.Length > 0) |> hash_cons_add |> LayoutT
+        let ret = type_to_tyv ret_ty
+        let layout =
+            match layout with
+            | LayoutStack -> LayoutToStack
+            | LayoutHeap -> LayoutToHeap
+            | LayoutHeapMutable -> LayoutToHeapMutable
+        d.seq.Add(TyLet(ret,d.trace,TyOp(layout,x,ret_ty)))
+        ret
+    
 let rec partial_eval (d: LangEnv) x = 
     let inline ev d x = partial_eval d x
     let inline ev_seq d x =
@@ -262,7 +286,7 @@ let rec partial_eval (d: LangEnv) x =
                         ev (push_var a d |> push_var b) body
                     | false, _ -> raise_type_error d <| sprintf "The object does not have the receiver for %s." (keyword_to_string keyword)
                 | TyObject _, b -> raise_type_error d <| sprintf "The second argument to an object application is not a keyword.\nGot: %s" (show_typed_data b)
-                | (TyV(T(_,LayoutT _)) | TyT(LayoutT _)) & a, b -> apply d (layout_to_none a, b)
+                | (TyV(T(_,LayoutT _)) | TyT(LayoutT _)) & a, b -> apply d (layout_to_none d a, b)
                 | (TyV(T(_,TermCastedFunctionT(clo_arg_ty,clo_ret_ty))) | TyT(TermCastedFunctionT(clo_arg_ty,clo_ret_ty))) & a, b -> 
                     let b_ty = type_get b
                     if clo_arg_ty <> b_ty then raise_type_error d <| sprintf "Cannot apply an argument of type %s to closure (%s => %s)." (show_ty b_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
@@ -372,4 +396,7 @@ let rec partial_eval (d: LangEnv) x =
             | true, JoinPointDone (_,false,x) -> x
             | true, JoinPointDone (_,true,_) -> y()
             |> TyT
+        | LayoutToStack,[|a|] -> layout_to_some LayoutStack d (ev d a)
+        | LayoutToHeap,[|a|] -> layout_to_some LayoutHeap d (ev d a)
+        | LayoutToHeapMutable,[|a|] -> layout_to_some LayoutHeapMutable d (ev d a)
         | _ -> failwith "Compiler error: %A not implemented" op

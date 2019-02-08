@@ -4,6 +4,7 @@
 open System
 open System.Collections.Generic
 open HashConsing
+open System.Runtime.CompilerServices
 
 // Globals
 let mutable private module_tag = 0
@@ -173,7 +174,6 @@ type Op =
     // Layout
     | LayoutToNone
     | LayoutToStack
-    | LayoutToPackedStack
     | LayoutToHeap
     | LayoutToHeapMutable
 
@@ -476,10 +476,14 @@ and ProgramNode =
     | Indent
     | Dedent
 
+let inline memoize' (memo_dict: ConditionalWeakTable<_,_>) f k =
+    match memo_dict.TryGetValue k with
+    | true, v -> v
+    | false, _ -> let v = f k in memo_dict.Add(k,v); v
 let inline memoize (memo_dict: Dictionary<_,_>) f k =
     match memo_dict.TryGetValue k with
     | true, v -> v
-    | false, _ -> let v = f k in memo_dict.[k] <- v; v
+    | false, _ -> let v = f k in memo_dict.Add(k,v); v
 
 let cuda_kernels_name = "cuda_kernels"
 
