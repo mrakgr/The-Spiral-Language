@@ -237,22 +237,28 @@ let rec partial_eval (d: LangEnv) x =
                     else push_op_no_rewrite d Apply (TyList [a;b]) clo_ret_ty
             apply d (ev d a, ev d b)
         | TermCast,[|a;b|] ->
+            // Compiles into a method with two lambda arguments. The second argument resides in `env_local`.
             let join_point_closure (d: LangEnv) body =
                 let call_args, consed_env = typed_data_to_consed (TyKeyword(keyword_env, d.env_global))
-                let join_point_key = body, consed_env
+                let call_args2, consed_env2, domain_ty = 
+                    let x = d.env_stack.[0]
+                    let call, env = typed_data_to_consed x
+                    call, env, type_get x
+                let join_point_key = body, CTyList (hash_cons_add [consed_env; consed_env2])
            
-                let _, ret_ty = 
-                    let dict = join_point_dict_method
+                let _, range_ty =
+                    let dict = join_point_dict_closure
                     match dict.TryGetValue join_point_key with
                     | false, _ ->
                         let tag: Tag = dict.Count
                         dict.[join_point_key] <- JoinPointInEvaluation ()
                         let x = ev_seq {d with cse=ref Map.empty} body
-                        dict.[join_point_key] <- JoinPointDone (tag,call_args,x)
+                        dict.[join_point_key] <- JoinPointDone (tag,call_args,call_args2,x)
                         x
                     | true, JoinPointInEvaluation _ -> ev_seq {d with cse=ref Map.empty; rbeh=AnnotationReturn} body
-                    | true, JoinPointDone (_,_,x) -> x
+                    | true, JoinPointDone (_,_,_,x) -> x
 
+                let ret_ty = TermCastedFunctionT(domain_ty,range_ty)
                 let ret = type_to_tyv ret_ty
                 d.seq.Add(TyLet(ret, d.trace, TyJoinPoint(join_point_key,JoinPointMethod,call_args,ret_ty)))
                 ret
@@ -264,7 +270,7 @@ let rec partial_eval (d: LangEnv) x =
                 let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
                 join_point_closure (push_var (type_get b |> type_to_tyv) d |> push_var a) body
             | x,_ -> raise_type_error d <| sprintf "Expected a function in term casting.\nGot: %s" (show_typed_data x)
-        // Note: All join points must be wrapped in a function so that their local environment is fresh and all used free vars are in the `env_global`.
+        // Note: All of the following join points must be wrapped in a function so that their local environment is fresh and all used free vars are in the `env_global`.
         | JoinPointEntryMethod,[|body|] -> 
             let call_args, consed_env = typed_data_to_consed (TyKeyword(keyword_env, d.env_global))
             let join_point_key = body, consed_env
