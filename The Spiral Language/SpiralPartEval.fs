@@ -38,6 +38,33 @@ let typed_data_to_consed call_data =
             ) x
     call_args.ToArray(),f call_data
 
+let consed_typed_data_uncons consed_data =
+    let dict = Dictionary(HashIdentity.Reference)
+    let rec f x =
+        memoize dict (function
+            | CTyList l -> List.map f l.node |> TyList
+            | CTyKeyword(C(a,b)) -> (a,Array.map f b) |> TyKeyword
+            | CTyFunction(C(a,b,c)) -> (a,b,Array.map f c) |> TyFunction
+            | CTyRecFunction(C(a,b,c)) -> (a,b,Array.map f c) |> TyRecFunction
+            | CTyObject(C(a,b)) -> (a,Array.map f b) |> TyObject
+            | CTyMap l -> Map.map (fun _ -> f) l.node |> TyMap
+            | CTyV(T(_,ty)) -> TyV (T(tag(), ty))
+            | CTyBox(a,b) -> (f a, b) |> TyBox
+            | CTyLit x -> TyLit x
+            | CTyT x -> TyT x
+            ) x
+    f consed_data
+
+let layout_to_none d = function
+    | TyT(LayoutT(C(t,l,h))) | TyV(T(_,LayoutT(C(t,l,h)))) as v -> 
+        let data = consed_typed_data_uncons l
+        if h then
+            match t with
+            | LayoutHeapMutable -> push_op_no_rewrite d LayoutToNone v (type_get data)
+            | _ -> push_op d LayoutToNone v (type_get data)
+        else data
+    | a -> a
+
 let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))
 let rect_unbox d key = 
     match join_point_dict_type.[key] with

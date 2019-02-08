@@ -562,7 +562,7 @@ let rec ap' f l = Array.fold ap f l
 let expr_pos pos x = RawExprPos(Position(pos,x))
 let pat_pos pos x = PatPos(Position(pos,x))
 
-// The seemingly useless function application is there to filter the environment just in case it has not been done.
+// The seemingly useless function application is there to filter unused arguments from the environment and move the rest to `env_global`.
 let join_point_entry_method y = ap (func "" (op JoinPointEntryMethod [|y|])) B 
 let join_point_entry_type y = ap (func "" (op JoinPointEntryType [|y|])) B
 
@@ -598,16 +598,13 @@ let get_type_of_value = function
     | LitString _ -> PrimT StringT
     | LitChar _ -> PrimT CharT
 
-let rec type_get_module env = Map.map (fun _ -> type_get) env
-and type_get_list env = List.map type_get env
-and type_get_array env = Array.map type_get env
-and type_get = function
-    | TyKeyword(t,l) -> (t, type_get_array l) |> hash_cons_add |> KeywordT
-    | TyList l -> type_get_list l |> hash_cons_add |> ListT
-    | TyFunction (a,b,l) -> (a,b,type_get_array l) |> hash_cons_add |> FunctionT
-    | TyRecFunction (a,b,l) -> (a,b,type_get_array l) |> hash_cons_add |> RecFunctionT
-    | TyObject(a,l) -> (a,type_get_array l) |> hash_cons_add |> ObjectT
-    | TyMap l -> type_get_module l |> hash_cons_add |> MapT
+let rec type_get = function
+    | TyKeyword(t,l) -> (t, Array.map type_get l) |> hash_cons_add |> KeywordT
+    | TyList l -> List.map type_get l |> hash_cons_add |> ListT
+    | TyFunction (a,b,l) -> (a,b,Array.map type_get l) |> hash_cons_add |> FunctionT
+    | TyRecFunction (a,b,l) -> (a,b,Array.map type_get l) |> hash_cons_add |> RecFunctionT
+    | TyObject(a,l) -> (a,Array.map type_get l) |> hash_cons_add |> ObjectT
+    | TyMap l -> Map.map (fun _ -> type_get) l |> hash_cons_add |> MapT
     | TyT x | TyV(T(_,x)) | TyBox(_,x) -> x
     | TyLit x -> get_type_of_value x
 
