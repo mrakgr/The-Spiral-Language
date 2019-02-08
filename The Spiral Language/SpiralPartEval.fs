@@ -237,25 +237,25 @@ let rec partial_eval (d: LangEnv) x =
                     else push_op_no_rewrite d Apply (TyList [a;b]) clo_ret_ty
             apply d (ev d a, ev d b)
         | TermCast,[|a;b|] ->
-            //let join_point_closure (d: LangEnv) body =
-            //    let call_args, consed_env = typed_data_to_consed (TyKeyword(keyword_env, d.env_global))
-            //    let join_point_key = body, consed_env
+            let join_point_closure (d: LangEnv) body =
+                let call_args, consed_env = typed_data_to_consed (TyKeyword(keyword_env, d.env_global))
+                let join_point_key = body, consed_env
            
-            //    let _, ret_ty = 
-            //        let dict = join_point_dict_method
-            //        match dict.TryGetValue join_point_key with
-            //        | false, _ ->
-            //            let tag: Tag = dict.Count
-            //            dict.[join_point_key] <- JoinPointInEvaluation ()
-            //            let x = ev_seq {d with cse=ref Map.empty} body
-            //            dict.[join_point_key] <- JoinPointDone (tag,call_args,x)
-            //            x
-            //        | true, JoinPointInEvaluation _ -> ev_seq {d with cse=ref Map.empty; rbeh=AnnotationReturn} body
-            //        | true, JoinPointDone (_,_,x) -> x
+                let _, ret_ty = 
+                    let dict = join_point_dict_method
+                    match dict.TryGetValue join_point_key with
+                    | false, _ ->
+                        let tag: Tag = dict.Count
+                        dict.[join_point_key] <- JoinPointInEvaluation ()
+                        let x = ev_seq {d with cse=ref Map.empty} body
+                        dict.[join_point_key] <- JoinPointDone (tag,call_args,x)
+                        x
+                    | true, JoinPointInEvaluation _ -> ev_seq {d with cse=ref Map.empty; rbeh=AnnotationReturn} body
+                    | true, JoinPointDone (_,_,x) -> x
 
-            //    let ret = type_to_tyv ret_ty
-            //    d.seq.Add(TyLet(ret, d.trace, TyJoinPoint(join_point_key,JoinPointMethod,call_args,ret_ty)))
-            //    ret
+                let ret = type_to_tyv ret_ty
+                d.seq.Add(TyLet(ret, d.trace, TyJoinPoint(join_point_key,JoinPointMethod,call_args,ret_ty)))
+                ret
             match ev d a, ev d b with
             | TyFunction(body,stack_size,env), b ->
                 let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
