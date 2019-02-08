@@ -341,7 +341,7 @@ and ConsedTypedData = // for join points and layout types
     | CTyMap of ConsedNode<ConsedMapTerm>
 
     | CTyT of ConsedTy
-    | CTyV of TyTag
+    | CTyV of int * ConsedTy // TyTag
     | CTyBox of ConsedTypedData * ConsedTy
     | CTyLit of Value
 
@@ -354,9 +354,10 @@ and TypedData =
     | TyMap of MapTerm
 
     | TyT of ConsedTy
-    | TyV of TyTag
+    | TyV of int * ConsedTy // TyTag
     | TyBox of TypedData * ConsedTy
     | TyLit of Value
+and TyTag = int * ConsedTy
 
 and TypedBind = // TypedData being `TyList []` indicates a statement.
     | TyLet of TypedData * Trace * TypedOp
@@ -380,19 +381,6 @@ and JoinPointState<'a,'b> =
     | JoinPointDone of 'b
 
 and Tag = int
-and [<CustomComparison;CustomEquality>] TyTag = 
-    | T of Tag * ConsedTy
-
-    override a.Equals(b) =
-        match b with
-        | :? TyTag as b -> match a,b with T(a,_), T(b,_) -> a = b
-        | _ -> false
-    override a.GetHashCode() = match a with T(a,_) -> a
-    interface IComparable with
-        member a.CompareTo(b) = 
-            match b with
-            | :? TyTag as b -> match a,b with T(a,_), T(b,_) -> compare a b
-            | _ -> raise <| ArgumentException "Invalid comparison for TyTag."
 
 and EnvTy = ConsedTy []
 and EnvTerm = TypedData []
@@ -605,7 +593,7 @@ let rec type_get = function
     | TyRecFunction (a,b,l) -> (a,b,Array.map type_get l) |> hash_cons_add |> RecFunctionT
     | TyObject(a,l) -> (a,Array.map type_get l) |> hash_cons_add |> ObjectT
     | TyMap l -> Map.map (fun _ -> type_get) l |> hash_cons_add |> MapT
-    | TyT x | TyV(T(_,x)) | TyBox(_,x) -> x
+    | TyT x | TyV(_,x) | TyBox(_,x) -> x
     | TyLit x -> get_type_of_value x
 
 let typed_op_type = function
