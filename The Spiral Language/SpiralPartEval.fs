@@ -5,7 +5,6 @@ open System
 open System.Collections.Generic
 open Parsing
 open Types
-open Spiral
 
 // Globals
 let private join_point_dict_method = Dictionary(HashIdentity.Structural)
@@ -55,16 +54,6 @@ let consed_typed_data_uncons consed_data =
             ) x
     f consed_data
 
-let layout_to_none (d: LangEnv) = function
-    | TyT(LayoutT(C(t,l,h))) | TyV(T(_,LayoutT(C(t,l,h)))) as v -> 
-        let data = consed_typed_data_uncons l
-        if h then
-            match t with
-            | LayoutHeapMutable -> push_op_no_rewrite d LayoutToNone v (type_get data)
-            | _ -> push_op d LayoutToNone v (type_get data)
-        else data
-    | a -> a
-
 let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))
 let rect_unbox d key = 
     match join_point_dict_type.[key] with
@@ -105,6 +94,22 @@ let seq_apply (d: LangEnv) (end_dat,end_ty) =
         | TyLet(end_dat',a,b) when Object.ReferenceEquals(end_dat,end_dat') -> d.seq.[d.seq.Count-1] <- TyLocalReturnOp(a,b)
         | _ -> d.seq.Add(TyLocalReturnData(end_dat,end_ty,d.trace))
     d.seq.ToArray()
+
+let layout_to_none (d: LangEnv) = function
+    | TyT(LayoutT(C(t,l,h))) | TyV(T(_,LayoutT(C(t,l,h)))) as v -> 
+        if h then
+            let key = LayoutToNone,v
+            match Map.tryFind key !d.cse with
+            | None ->
+                let ret = consed_typed_data_uncons l 
+                d.seq.Add(TyLet(ret,d.trace,TyOp(LayoutToNone,v,type_get ret)))
+                match t with LayoutHeapMutable -> () | _ -> d.cse := Map.add key ret !d.cse
+                ret
+            | Some v ->
+                v
+        else
+            consed_typed_data_uncons l
+    | a -> a
 
 let rec partial_eval (d: LangEnv) x = 
     let inline ev d x = partial_eval d x

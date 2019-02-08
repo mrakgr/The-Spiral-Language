@@ -699,7 +699,7 @@ and show_typed_data = function
 
 and show_consed_typed_data = function
     | CTyT x -> sprintf "type (%s)" (show_ty x)
-    | CTyV(T(_,t)) -> sprintf "var (%s)" (show_ty t)
+    | CTyV(_,t) -> sprintf "var (%s)" (show_ty t)
     | CTyKeyword(C(keyword,l)) -> 
         let a = (keyword_to_string keyword).Split([|':'|], StringSplitOptions.RemoveEmptyEntries)
         Array.map2 (fun a l -> [|a;": ";show_consed_typed_data l|]) a l
