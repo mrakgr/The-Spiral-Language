@@ -31,7 +31,7 @@ let typed_data_to_consed call_data =
             | TyRecFunction(a,b,c) -> (a,b,Array.map f c) |> hash_cons_add |> CTyRecFunction
             | TyObject(a,b) -> (a,Array.map f b) |> hash_cons_add |> CTyObject
             | TyMap l -> Map.map (fun _ -> f) l |> hash_cons_add |> CTyMap
-            | TyV(T(_,ty) as t) -> call_args.Add t; CTyV (T(call_args.Count-1, ty))
+            | TyV(T(_,ty) as t) -> call_args.Add t; CTyV (call_args.Count-1, ty)
             | TyBox(a,b) -> (f a, b) |> CTyBox
             | TyLit x -> CTyLit x
             | TyT x -> CTyT x
@@ -48,14 +48,14 @@ let consed_typed_data_uncons consed_data =
             | CTyRecFunction(C(a,b,c)) -> (a,b,Array.map f c) |> TyRecFunction
             | CTyObject(C(a,b)) -> (a,Array.map f b) |> TyObject
             | CTyMap l -> Map.map (fun _ -> f) l.node |> TyMap
-            | CTyV(T(_,ty)) -> TyV (T(tag(), ty))
+            | CTyV(_,ty) -> TyV (T(tag(), ty))
             | CTyBox(a,b) -> (f a, b) |> TyBox
             | CTyLit x -> TyLit x
             | CTyT x -> TyT x
             ) x
     f consed_data
 
-let layout_to_none d = function
+let layout_to_none (d: LangEnv) = function
     | TyT(LayoutT(C(t,l,h))) | TyV(T(_,LayoutT(C(t,l,h)))) as v -> 
         let data = consed_typed_data_uncons l
         if h then
