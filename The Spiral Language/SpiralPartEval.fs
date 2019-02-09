@@ -440,4 +440,14 @@ let rec partial_eval (d: LangEnv) x =
                         else push_typedop d (TyIf(cond,tr,fl,type_tr)) type_tr
                     else raise_type_error d <| sprintf "Types in branches of If do not match.\nGot: %s and %s" (show_ty type_tr) (show_ty type_fl)
                 | cond_ty -> raise_type_error d <| sprintf "Expected a bool in conditional.\nGot: %s" (show_ty cond_ty)
+        | While,[|cond;on_succ|] ->
+            match ev_seq d cond with
+            | [|TyLocalReturnOp(_,TyJoinPoint(_,_,_,_) & cond)|], ty ->
+                match ty with
+                | PrimT BoolT -> 
+                    match ev_seq d on_succ with
+                    | on_succ, ListT(C []) & ty -> push_typedop d (TyWhile(cond,on_succ)) ty
+                    | _, ty -> raise_type_error d <| sprintf "The body of the while loop must be of type unit.\nGot: %s" (show_ty ty)
+                | _ -> raise_type_error d <| sprintf "The conditional of the while loop must be of type bool.\nGot: %s" (show_ty ty)
+            | _ -> raise_type_error d "Compiler error: The body of the conditional of the while loop must be a solitary join point."
         | _ -> raise_type_error d <| sprintf "Compiler error: %A not implemented" op
