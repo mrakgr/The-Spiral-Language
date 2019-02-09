@@ -68,7 +68,7 @@ let spiral_parse (settings: CompilerSettings) module_ =
         var_name_core >>=? function
             | "match" | "function" | "with" | "without" | "as" | "when" | "inl" | "inm" 
             | "inb" | "rec" | "if" | "then" | "elif" | "else" | "true" | "false" 
-            | "open" | "join" | "join_type" | "type" | "type_catch" as x -> fun _ -> Reply(Error,messageError <| sprintf "%s not allowed as an identifier." x)
+            | "open" | "join" | "type" | "type_catch" as x -> fun _ -> Reply(Error,messageError <| sprintf "%s not allowed as an identifier." x)
             | x -> preturn x
 
     let between_brackets l p r = between (skipChar l >>. spaces) (skipChar r >>. spaces) p
@@ -328,7 +328,7 @@ let spiral_parse (settings: CompilerSettings) module_ =
 
     let inline expression_expr expr = lam >>. reset_semicolon_level expr
     let inline tuple_template fin sep expr (s: CharStream<_>) =
-        let i = (col s)
+        let i = col s
         let expr_indent expr (s: CharStream<_>) = expr_indent i (<=) expr s
         sepBy1 (expr_indent expr) (expr_indent sep)
         |>> function [x] -> x | x -> fin (List.toArray x)
@@ -340,11 +340,13 @@ let spiral_parse (settings: CompilerSettings) module_ =
     let rec expressions expr s = 
         let case_object =
             let f (pat, body) s = 
-                match pat with
-                | PatKeyword(name,_) -> 
+                let compile_pattern name pat body =
                     match compile_pattern pat body with
                     | RawFunction(x,_) -> Reply((name, x))
                     | _ -> failwith "impossible"
+                match pat with
+                | PatVar name -> compile_pattern name (PatKeyword(name, [])) body
+                | PatKeyword(name,_) -> compile_pattern name pat body
                 | _ -> Reply(Error,expected "keyword pattern")
             let receiver s =
                 let i = col s
@@ -424,7 +426,6 @@ let spiral_parse (settings: CompilerSettings) module_ =
 
         let case_negate = unary_minus_check >>. expressions expr |>> ap (v "negate")
         let case_join_point = keywordString "join" >>. expr |>> join_point_entry_method
-        let case_join_point_type = keywordString "join_type" >>. expr |>> join_point_entry_type
         let case_type = keywordString "type" >>. expr |>> unop TypeGet
         let case_type_catch = keywordString "type_catch" >>. expr |>> unop TypeCatch
         let case_cuda = keywordString "cuda" >>. expr |>> (func "blockDim" << func "gridDim")
@@ -458,7 +459,7 @@ let spiral_parse (settings: CompilerSettings) module_ =
         let case_keyword_unary = keyword_unary |>> Types.keyword_unary
 
         [|
-        case_join_point; case_join_point_type; case_type; case_type_catch
+        case_join_point; case_type; case_type_catch
         case_cuda; case_inbuilt_op; case_parser_macro
         case_inl_pat_list_expr; case_lit; case_if_then_else
         case_rounds; case_typecase; case_typeinl; case_record; case_object
@@ -589,11 +590,10 @@ let spiral_parse (settings: CompilerSettings) module_ =
 
         tdop Int32.MinValue s
 
-    let keyword_message expr =
-        let pat s =
-            let i = col s
-            tuple2 keyword (expr_indent i (<) (reset_semicolon_level expr)) s
-        squares (many pat) |>> (concat_keyword' >> RawKeywordCreate)
+    let keyword_message expr s =
+        let i = col s
+        let pat s = tuple2 (expr_indent i (<=) keyword) (expr_indent i (<) (reset_semicolon_level expr)) s
+        (many1 pat |>> (concat_keyword' >> RawKeywordCreate) <|> expr) s
 
     let rec expr s =
         let expressions s = mset expr ^<| type_union ^<| keyword_message ^<| tuple ^<| operators ^<| application ^<| immediate_keyword_unary ^<| expressions expr <| s
@@ -640,7 +640,6 @@ let show_art = function
 
 let show_layout_type = function
     | LayoutStack -> "layout_stack"
-    | LayoutPackedStack -> "layout_packed_stack"
     | LayoutHeap -> "layout_heap"
     | LayoutHeapMutable -> "layout_heap_mutable"
 

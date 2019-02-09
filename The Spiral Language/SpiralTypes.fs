@@ -8,8 +8,7 @@ open System.Runtime.CompilerServices
 
 // Globals
 let mutable private module_tag = 0
-let private hash_cons_table = HashConsing.hashcons_create 0
-let private hash_cons_add x = HashConsing.hashcons_add hash_cons_table x
+let private hash_cons_table = HashConsing.HashConsTable()
 
 // Language types
 type LayoutType =
@@ -365,7 +364,8 @@ and TypedBind = // TypedData being `TyList []` indicates a statement.
 
 and TypedOp = 
     | TyOp of Op * TypedData * ConsedTy
-    | TyIf of tr: TypedBind [] * fl: TypedBind [] * ConsedTy
+    | TyIf of cond: TypedData * tr: TypedBind [] * fl: TypedBind [] * ConsedTy
+    | TyWhile of cond: TypedOp * TypedBind []
     | TyCase of TypedData * (TypedData * TypedBind []) [] * ConsedTy
     | TyJoinPoint of JoinPointKey * JoinPointType * TyTag [] * ConsedTy
 
@@ -603,17 +603,19 @@ let get_type_of_value = function
     | LitChar _ -> PrimT CharT
 
 let rec type_get = function
-    | TyKeyword(t,l) -> (t, Array.map type_get l) |> hash_cons_add |> KeywordT
-    | TyList l -> List.map type_get l |> hash_cons_add |> ListT
-    | TyFunction (a,b,l) -> (a,b,Array.map type_get l) |> hash_cons_add |> FunctionT
-    | TyRecFunction (a,b,l) -> (a,b,Array.map type_get l) |> hash_cons_add |> RecFunctionT
-    | TyObject(a,l) -> (a,Array.map type_get l) |> hash_cons_add |> ObjectT
-    | TyMap l -> Map.map (fun _ -> type_get) l |> hash_cons_add |> MapT
+    | TyKeyword(t,l) -> (t, Array.map type_get l) |> hash_cons_table.Add |> KeywordT
+    | TyList l -> List.map type_get l |> hash_cons_table.Add |> ListT
+    | TyFunction (a,b,l) -> (a,b,Array.map type_get l) |> hash_cons_table.Add |> FunctionT
+    | TyRecFunction (a,b,l) -> (a,b,Array.map type_get l) |> hash_cons_table.Add |> RecFunctionT
+    | TyObject(a,l) -> (a,Array.map type_get l) |> hash_cons_table.Add |> ObjectT
+    | TyMap l -> Map.map (fun _ -> type_get) l |> hash_cons_table.Add |> MapT
     | TyT x | TyV(T(_,x)) | TyBox(_,x) -> x
     | TyLit x -> get_type_of_value x
 
+let tyb = ListT (hash_cons_table.Add [])
 let typed_op_type = function
-    | TyOp(_,_,t) | TyIf(_,_,t) | TyCase(_,_,t) | TyJoinPoint(_,_,_,t) -> t
+    | TyWhile _ -> tyb
+    | TyOp(_,_,t) | TyIf(_,_,_,t) | TyCase(_,_,t) | TyJoinPoint(_,_,_,t) -> t
 
 let typed_bind_type = function
     | TyLet(_,_,op) | TyLocalReturnOp(_,op) -> typed_op_type op

@@ -14,12 +14,10 @@ let private join_point_dict_type = Dictionary(HashIdentity.Structural)
 let private join_point_dict_cuda = Dictionary(HashIdentity.Structural)
 let private layout_to_none_dict = ConditionalWeakTable()
 let private layout_to_none_dict' = ConditionalWeakTable()
+let private hash_cons_table = HashConsing.HashConsTable()
 
-let private hash_cons_table = HashConsing.hashcons_create 0
-let private hash_cons_add x = HashConsing.hashcons_add hash_cons_table x
-
-let mutable private tag = 0
-let tag () = tag <- tag+1; tag
+let mutable private part_eval_tag = 0
+let private tag () = part_eval_tag <- part_eval_tag+1; part_eval_tag
 
 let keyword_env = Parsing.string_to_keyword "env:" // For join points keys. It is assumed that they will never be printed.
 let typed_data_to_consed call_data =
@@ -27,12 +25,12 @@ let typed_data_to_consed call_data =
     let call_args = ResizeArray(64)
     let rec f x =
         memoize dict (function
-            | TyList l -> List.map f l |> hash_cons_add |> CTyList
-            | TyKeyword(a,b) -> (a,Array.map f b) |> hash_cons_add |> CTyKeyword
-            | TyFunction(a,b,c) -> (a,b,Array.map f c) |> hash_cons_add |> CTyFunction
-            | TyRecFunction(a,b,c) -> (a,b,Array.map f c) |> hash_cons_add |> CTyRecFunction
-            | TyObject(a,b) -> (a,Array.map f b) |> hash_cons_add |> CTyObject
-            | TyMap l -> Map.map (fun _ -> f) l |> hash_cons_add |> CTyMap
+            | TyList l -> List.map f l |> hash_cons_table.Add |> CTyList
+            | TyKeyword(a,b) -> (a,Array.map f b) |> hash_cons_table.Add |> CTyKeyword
+            | TyFunction(a,b,c) -> (a,b,Array.map f c) |> hash_cons_table.Add |> CTyFunction
+            | TyRecFunction(a,b,c) -> (a,b,Array.map f c) |> hash_cons_table.Add |> CTyRecFunction
+            | TyObject(a,b) -> (a,Array.map f b) |> hash_cons_table.Add |> CTyObject
+            | TyMap l -> Map.map (fun _ -> f) l |> hash_cons_table.Add |> CTyMap
             | TyV(T(_,ty) as t) -> call_args.Add t; CTyV (call_args.Count-1, ty)
             | TyBox(a,b) -> (f a, b) |> CTyBox
             | TyLit x -> CTyLit x
@@ -125,7 +123,7 @@ let layout_to_some layout (d: LangEnv) = function
     | TyT(LayoutT(C(t,l,h))) | TyV(T(_,LayoutT(C(t,l,h)))) as x when t = layout -> x
     | x ->
         let call_args, consed_data = typed_data_to_consed (layout_to_none d x)
-        let ret_ty = (layout,consed_data,call_args.Length > 0) |> hash_cons_add |> LayoutT
+        let ret_ty = (layout,consed_data,call_args.Length > 0) |> hash_cons_table.Add |> LayoutT
         let ret = type_to_tyv ret_ty
         let layout =
             match layout with
@@ -134,6 +132,28 @@ let layout_to_some layout (d: LangEnv) = function
             | LayoutHeapMutable -> LayoutToHeapMutable
         d.seq.Add(TyLet(ret,d.trace,TyOp(layout,x,ret_ty)))
         ret
+
+let push_typedop d op ret_ty =
+    let ret = type_to_tyv ret_ty
+    d.seq.Add(TyLet(ret,d.trace,op))
+    ret
+
+let push_op_no_rewrite (d: LangEnv) op l ret_ty = push_typedop d (TyOp(op,l,ret_ty)) ret_ty
+let push_binop_no_rewrite d op (a,b) ret_ty = push_op_no_rewrite d op (TyList [a;b]) ret_ty
+let push_triop_no_rewrite d op (a,b,c) ret_ty = push_op_no_rewrite d op (TyList [a;b;c]) ret_ty
+
+let push_op (d: LangEnv) op l ret_ty =
+    let key = op,l
+    match Map.tryFind key !d.cse with
+    | Some x -> x
+    | None ->
+        let ret = type_to_tyv ret_ty
+        d.seq.Add(TyLet(ret,d.trace,TyOp(op,l,ret_ty)))
+        d.cse := Map.add key ret !d.cse
+        ret
+
+let push_binop d op (a,b) ret_ty = push_op d op (TyList [a;b]) ret_ty
+let push_triop d op (a,b,c) ret_ty = push_op d op (TyList [a;b;c]) ret_ty
     
 let rec partial_eval (d: LangEnv) x = 
     let inline ev d x = partial_eval d x
@@ -199,9 +219,7 @@ let rec partial_eval (d: LangEnv) x =
                 
                 let cases, end_ty = case_type d t |> List.mapFold ev_case None
                 let end_ty = end_ty.Value
-                let end_dat = type_to_tyv end_ty
-                d.seq.Add(TyLet(end_dat,d.trace,TyCase(v,List.toArray cases,end_ty)))
-                end_dat
+                push_typedop d (TyCase(v,List.toArray cases,end_ty)) end_ty
         | v -> ev (push_var v d) on_succ
     | ListTakeAllTest(_,stack_size,bind,on_succ,on_fail) -> list_test true (stack_size,bind,on_succ,on_fail)
     | ListTakeNTest(_,stack_size,bind,on_succ,on_fail) -> list_test false (stack_size,bind,on_succ,on_fail)
@@ -300,7 +318,7 @@ let rec partial_eval (d: LangEnv) x =
                     let x = d.env_stack.[0]
                     let call, env = typed_data_to_consed x
                     call, env, type_get x
-                let join_point_key = body, CTyList (hash_cons_add [consed_env; consed_env2])
+                let join_point_key = body, CTyList (hash_cons_table.Add [consed_env; consed_env2])
            
                 let _, range_ty =
                     let dict = join_point_dict_closure
@@ -315,9 +333,8 @@ let rec partial_eval (d: LangEnv) x =
                     | true, JoinPointDone (_,_,_,x) -> x
 
                 let ret_ty = TermCastedFunctionT(domain_ty,range_ty)
-                let ret = type_to_tyv ret_ty
-                d.seq.Add(TyLet(ret, d.trace, TyJoinPoint(join_point_key,JoinPointMethod,call_args,ret_ty)))
-                ret
+                push_typedop d (TyJoinPoint(join_point_key,JoinPointClosure,call_args,ret_ty)) ret_ty
+
             match ev d a, ev d b with
             | TyFunction(body,stack_size,env), b ->
                 let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
@@ -343,9 +360,7 @@ let rec partial_eval (d: LangEnv) x =
                 | true, JoinPointInEvaluation _ -> ev_seq {d with cse=ref Map.empty; rbeh=AnnotationReturn} body
                 | true, JoinPointDone (_,_,x) -> x
 
-            let ret = type_to_tyv ret_ty
-            d.seq.Add(TyLet(ret, d.trace, TyJoinPoint(join_point_key,JoinPointMethod,call_args,ret_ty)))
-            ret
+            push_typedop d (TyJoinPoint(join_point_key,JoinPointMethod,call_args,ret_ty)) ret_ty
 
         | JoinPointEntryCuda,[|body|] -> 
             let call_args, consed_env = typed_data_to_consed (TyKeyword(keyword_env, d.env_global))
@@ -399,4 +414,30 @@ let rec partial_eval (d: LangEnv) x =
         | LayoutToStack,[|a|] -> layout_to_some LayoutStack d (ev d a)
         | LayoutToHeap,[|a|] -> layout_to_some LayoutHeap d (ev d a)
         | LayoutToHeapMutable,[|a|] -> layout_to_some LayoutHeapMutable d (ev d a)
-        | _ -> failwith "Compiler error: %A not implemented" op
+        | If,[|cond;on_succ;on_fail|] ->
+            match ev d cond with
+            | TyLit (LitBool true) -> ev d on_succ
+            | TyLit (LitBool false) -> ev d on_fail
+            | cond ->
+                match type_get cond with
+                | PrimT BoolT ->
+                    let lit_tr = TyLit(LitBool true)
+                    let lit_fl = TyLit(LitBool false)
+                    let add_rewrite_cases cse is_true = 
+                        let tr,fl = if is_true then lit_tr, lit_fl else lit_fl, lit_tr
+                        let inline op op cond' res x = x |> Map.add (op,TyList [cond;cond']) res |> Map.add (op,TyList [cond';cond]) res
+                        cse |> op EQ tr tr |> op NEQ tr fl |> op EQ fl fl |> op NEQ fl tr
+                    let tr, type_tr = ev_seq {d with cse = ref (add_rewrite_cases !d.cse true)} on_succ
+                    let fl, type_fl = ev_seq {d with cse = ref (add_rewrite_cases !d.cse false)} on_fail
+                    if type_tr = type_fl then
+                        if tr.Length = 1 && fl.Length = 1 then
+                            match tr.[0], fl.[0] with
+                            | TyLocalReturnData(TyLit (LitBool true),_,_), TyLocalReturnData(TyLit (LitBool false),_,_) -> cond
+                            | TyLocalReturnData(TyLit (LitBool false),_,_), TyLocalReturnData(TyLit (LitBool true),_,_) -> push_binop_no_rewrite d EQ (cond,lit_fl) type_tr
+                            | TyLocalReturnData(tr,_,_), TyLocalReturnData(fl,_,_) when tr = fl -> tr
+                            | TyLocalReturnOp(_,tr), TyLocalReturnOp(_,fl) when tr = fl -> push_typedop d tr type_tr
+                            | _ -> push_typedop d (TyIf(cond,tr,fl,type_tr)) type_tr
+                        else push_typedop d (TyIf(cond,tr,fl,type_tr)) type_tr
+                    else raise_type_error d <| sprintf "Types in branches of If do not match.\nGot: %s and %s" (show_ty type_tr) (show_ty type_fl)
+                | cond_ty -> raise_type_error d <| sprintf "Expected a bool in conditional.\nGot: %s" (show_ty cond_ty)
+        | _ -> raise_type_error d <| sprintf "Compiler error: %A not implemented" op
