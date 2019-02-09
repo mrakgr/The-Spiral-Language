@@ -69,6 +69,14 @@ let case_type d = function
     | RecUnionT(_,key) -> case_type_union (rect_unbox d key)
     | x -> case_type_union x
 
+let case_type_union' = function
+    | UnionT l -> l.node
+    | x -> Set.singleton x
+
+let case_type' d = function
+    | RecUnionT(_,key) -> case_type_union' (rect_unbox d key)
+    | x -> case_type_union' x
+
 let tyv ty = TyV(T(tag(), ty))
 let tyb = TyList []
 
@@ -157,10 +165,12 @@ let push_triop d op (a,b,c) ret_ty = push_op d op (TyList [a;b;c]) ret_ty
     
 let rec partial_eval (d: LangEnv) x = 
     let inline ev d x = partial_eval d x
+    let inline ev2 d a b = ev d a, ev d b
     let inline ev_seq d x =
         let x = ev {d with seq=ResizeArray()} x
         let x_ty = type_get x
         seq_apply d (x,x_ty), x_ty
+    let inline ev_annot d x = ev_seq {d with cse=ref !d.cse} x |> snd
     
     let inline push_var_ptr ptr x = d.env_stack.[ptr] <- x; ptr+1
     let inline v x = let l = d.env_global.Length in if x < l then d.env_global.[x] else d.env_stack.[x - l]
@@ -478,11 +488,134 @@ let rec partial_eval (d: LangEnv) x =
             | TyV(T(tag,_)) -> TyLit(LitString(sprintf "var_%i" tag))
             | x -> raise_type_error d "The body of the macro must be a runtime variable.\nGot: %s" (show_typed_data x)
         | TypeAnnot, [|a;b|] ->
-            let inline ev_annot d x = ev_seq {d with cse=ref !d.cse} x |> snd |> TyT
             match d.rbeh with
-            | AnnotationReturn -> ev_annot {d with rbeh=AnnotationDive} b
+            | AnnotationReturn -> ev_annot {d with rbeh=AnnotationDive} b |> TyT
             | AnnotationDive ->
-                let a, b = ev d a, ev_annot d b
-                let ta, tb = type_get a, type_get b
+                let a, tb = ev d a, ev_annot d b
+                let ta = type_get a
                 if ta = tb then a else raise_type_error d <| sprintf "Type annotation mismatch.\n%s <> %s" (show_ty ta) (show_ty tb)
+        | TypeGet, [|a|] -> ev_annot d a |> TyT
+        | TypeUnion, l -> 
+            let set_field = function UnionT t -> t.node | t -> Set.singleton t
+            Array.fold (fun s x -> Set.union s (ev_annot d x |> set_field)) Set.empty l |> hash_cons_table.Add |> UnionT |> TyT
+        | TypeSplit, [|a|] -> ev_annot d a |> case_type d |> List.map TyT |> TyList
+        | TypeRaise, [|a|] -> ev_annot d a |> TypeRaised |> raise
+        | TypeCatch, [|a|] -> 
+            try ev_annot d a |> TyT
+            with
+            | :? TypeRaised as x -> TyT x.Data0
+            | _ -> reraise()
+        | TypeBox, [|a;b|] -> 
+            let a_ty = ev_annot d a
+            let b = ev d b
+            let b_ty = type_get b
+            if a_ty = b_ty then b
+            elif case_type' d a_ty |> Set.contains b_ty then TyBox(b,a_ty)
+            else raise_type_error d <| sprintf "Type constructor application failed. %s is not a subset of %s." (show_ty b_ty) (show_ty a_ty)
+        | TermFunctionTypeCreate, [|a;b|] -> TermCastedFunctionT(ev_annot d a, ev_annot d b) |> TyT
+        | TermFunctionIs, [|a|] -> 
+            match ev d a with
+            | TyT(TermCastedFunctionT(dom,range)) | TyV(T(_,TermCastedFunctionT(dom,range))) -> TyLit(LitBool true)
+            | _ -> TyLit(LitBool false)
+        | TermFunctionDomain, [|a|] -> 
+            match ev d a with
+            | TyT(TermCastedFunctionT(dom,range)) | TyV(T(_,TermCastedFunctionT(dom,range))) -> TyT dom
+            | x -> raise_type_error d <| sprintf "Not a term casted function.\nGot: %s" (show_typed_data x)
+        | TermFunctionRange, [|a|] -> 
+            match ev d a with
+            | TyT(TermCastedFunctionT(dom,range)) | TyV(T(_,TermCastedFunctionT(dom,range))) -> TyT range
+            | x -> raise_type_error d <| sprintf "Not a term casted function.\nGot: %s" (show_typed_data x)            
+        | StringLength, [|a|] ->
+            match ev d a with
+            | TyLit (LitString str) -> TyLit (LitInt64 (int64 str.Length))
+            | TyType(PrimT StringT) & str -> push_op d StringLength str (PrimT Int64T)
+            | x -> raise_type_error d <| sprintf "Expected a string.\nGot: %s" (show_typed_data x)
+        | StringFormat, [|a;b|] ->
+            match ev2 d a b with
+            | TyLit(LitString format) & a, TyTuple l when List.forall lit_is l ->
+                let f = function
+                    | TyLit x ->
+                        match x with
+                        | LitInt8 x -> box x
+                        | LitInt16 x -> box x
+                        | LitInt32 x -> box x
+                        | LitInt64 x -> box x
+                        | LitUInt8 x -> box x
+                        | LitUInt16 x -> box x
+                        | LitUInt32 x -> box x
+                        | LitUInt64 x -> box x
+                        | LitFloat32 x -> box x
+                        | LitFloat64 x -> box x
+                        | LitString x -> box x
+                        | LitChar x -> box x
+                        | LitBool x -> box x
+                    | _ -> failwith "impossible"
+                try 
+                    match l with
+                    | [a] -> String.Format(format,f a)
+                    | [a;b] -> String.Format(format,f a,f b)
+                    | [a;b;c] -> String.Format(format,f a,f b,f c)
+                    | l -> String.Format(format,List.toArray l |> Array.map f)
+                    |> LitString |> TyLit
+                with :? System.FormatException as e -> raise_type_error d <| sprintf "Dotnet format exception.\nMessage: %s" e.Message
+            | TyType (PrimT StringT) & a, TyTuple l -> push_op d StringFormat (TyList(a :: l)) (PrimT StringT)
+            | a, _ -> raise_type_error d <| sprintf "Expected a string as the first argument to string format.\nGot: %s" (show_typed_data a)
+        | StringConcat,[|sep;l|] -> 
+            let sep, TyTuple l = ev2 d sep l
+            let string_is x = type_get x |> function PrimT StringT -> true | _ -> false
+            if string_is sep = false then raise_type_error d <| sprintf "The first argument to StringConcat must be a string.\nGot: %s" (show_typed_data sep)
+            match List.filter (string_is >> not) l with
+            | [] -> () | l -> raise_type_error d <| sprintf "The second argument to StringConcat must be all strings.\nGot: %s" (show_typed_data (TyList l))
+            match sep with
+            | TyLit(LitString sep) when List.forall lit_is l ->
+                let l = List.map (function TyLit (LitString x) -> x | _ -> failwith "impossible") l
+                String.concat sep l |> LitString |> TyLit
+            | _ -> push_op d StringConcat (TyList (sep :: l)) (PrimT StringT)
+        | UnsafeConvert,[|to_;from|] ->
+            let to_,from = ev2 d to_ from
+            let tot,fromt = type_get to_, type_get from
+            if tot = fromt then from
+            else
+                let inline conv_lit x =
+                    match tot with
+                    | PrimT Int8T -> int8 x |> LitInt8
+                    | PrimT Int16T -> int16 x |> LitInt16
+                    | PrimT Int32T -> int32 x |> LitInt32
+                    | PrimT Int64T -> int64 x |> LitInt64
+                    | PrimT UInt8T -> uint8 x |> LitUInt8
+                    | PrimT UInt16T -> uint16 x |> LitUInt16
+                    | PrimT UInt32T -> uint32 x |> LitUInt32
+                    | PrimT UInt64T -> uint64 x |> LitUInt64
+                    | PrimT CharT -> char x |> LitChar
+                    | PrimT Float32T -> float32 x |> LitFloat32
+                    | PrimT Float64T -> float x |> LitFloat64
+                    | PrimT StringT -> string x |> LitString
+                    | _ -> raise_type_error d <| sprintf "Cannot convert the literal to the following type: %s" (show_ty tot)
+                    |> TyLit
+                match from with
+                | TyLit (LitInt8 a) -> conv_lit a
+                | TyLit (LitInt16 a) -> conv_lit a
+                | TyLit (LitInt32 a) -> conv_lit a
+                | TyLit (LitInt64 a) -> conv_lit a
+                | TyLit (LitUInt8 a) -> conv_lit a
+                | TyLit (LitUInt16 a) -> conv_lit a
+                | TyLit (LitUInt32 a) -> conv_lit a
+                | TyLit (LitUInt64 a) -> conv_lit a
+                | TyLit (LitChar a) -> conv_lit a
+                | TyLit (LitFloat32 a) -> conv_lit a
+                | TyLit (LitFloat64 a) -> conv_lit a
+                | TyLit (LitString a) -> conv_lit a
+                | TyLit (LitBool _) -> raise_type_error d "Cannot convert the bool to any type."
+                | _ ->
+                    let is_convertible_primt x =
+                        match x with
+                        | PrimT BoolT | PrimT StringT -> false
+                        | PrimT _ -> true
+                        | _ -> false
+                    if is_convertible_primt fromt && is_convertible_primt tot then push_binop d UnsafeConvert (to_,from) tot
+                    else raise_type_error d <| sprintf "Cannot convert %s to the following type: %s" (show_typed_data from) (show_ty tot)
+        | PrintStatic,[|a|] -> printfn "%s" (ev d a |> show_typed_data); tyb
+        | RecordMap,[|a;b;c|] ->
+            match ev d a with
+            | Module
         | _ -> raise_type_error d <| sprintf "Compiler error: %A not implemented" op

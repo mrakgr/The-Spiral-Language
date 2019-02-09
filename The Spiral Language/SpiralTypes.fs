@@ -608,6 +608,15 @@ let rec type_get = function
     | TyT x | TyV(T(_,x)) | TyBox(_,x) -> x
     | TyLit x -> get_type_of_value x
 
+let (|TyType|) x = type_get x
+let (|TyTuple|) = function
+    | TyList l -> l
+    | x -> [x]
+
+let lit_is = function
+    | TyLit _ -> true
+    | _ -> false
+
 let tyb = ListT (hash_cons_table.Add [])
 let typed_op_type = function
     | TyWhile _ -> tyb

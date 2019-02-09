@@ -3241,7 +3241,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                         sprintf "System.String.Format(%s,([|%s|] : obj[]))" (codegen format) l 
                 | _ -> failwith "impossible"
 
-            let string_concat = function
+            let string_concat = function // Note: I've changed how this works in v0.1. The list has been flattened.
                 | [sep; TyList l] -> 
                     let l = List.map codegen l |> String.concat "; "
                     sprintf "String.concat %s [|%s|]" (codegen sep) l 
