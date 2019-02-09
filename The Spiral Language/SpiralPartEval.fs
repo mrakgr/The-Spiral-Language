@@ -450,4 +450,39 @@ let rec partial_eval (d: LangEnv) x =
                     | _, ty -> raise_type_error d <| sprintf "The body of the while loop must be of type unit.\nGot: %s" (show_ty ty)
                 | _ -> raise_type_error d <| sprintf "The conditional of the while loop must be of type bool.\nGot: %s" (show_ty ty)
             | _ -> raise_type_error d "Compiler error: The body of the conditional of the while loop must be a solitary join point."
+        | Dynamize,[|a|] ->
+            let rec f = function
+                | TyList l -> List.map f l |> TyList
+                | TyKeyword(a,b) -> (a,Array.map f b) |> TyKeyword
+                | TyFunction(a,b,c) -> (a,b,Array.map f c) |> TyFunction
+                | TyRecFunction(a,b,c) -> (a,b,Array.map f c) |> TyRecFunction
+                | TyObject(a,b) -> (a,Array.map f b) |> TyObject
+                | TyMap l -> Map.map (fun _ -> f) l |> TyMap
+                | TyBox _ | TyLit _ as x -> push_op_no_rewrite d Dynamize x (type_get x)
+                | TyV _ | TyT _ as x -> x
+            
+            f (ev d a)
+        | Macro, [|body;ty|] ->
+            match ev d body with
+            | TyLit(LitString _) as body -> push_op_no_rewrite d Macro body (ev d ty |> type_get)
+            | body -> raise_type_error d "The body of the macro must be a compile time string literal.\nGot: %s" (show_typed_data body)
+        | MacroExtern, [|body;ty|] ->
+            match ev d body with
+            | TyLit(LitString _) as body ->
+                match ev d ty with
+                | TyLit(LitString ty) -> push_op_no_rewrite d Macro body (MacroT ty)
+                | ty -> raise_type_error d "The type of the extern macro must be a compile time string literal.\nGot: %s" (show_typed_data ty)
+            | body -> raise_type_error d "The body of the extern macro must be a compile time string literal.\nGot: %s" (show_typed_data body)
+        | VarToString, [|x|] ->
+            match ev d x with
+            | TyV(T(tag,_)) -> TyLit(LitString(sprintf "var_%i" tag))
+            | x -> raise_type_error d "The body of the macro must be a runtime variable.\nGot: %s" (show_typed_data x)
+        | TypeAnnot, [|a;b|] ->
+            let inline ev_annot d x = ev_seq {d with cse=ref !d.cse} x |> snd |> TyT
+            match d.rbeh with
+            | AnnotationReturn -> ev_annot {d with rbeh=AnnotationDive} b
+            | AnnotationDive ->
+                let a, b = ev d a, ev_annot d b
+                let ta, tb = type_get a, type_get b
+                if ta = tb then a else raise_type_error d <| sprintf "Type annotation mismatch.\n%s <> %s" (show_ty ta) (show_ty tb)
         | _ -> raise_type_error d <| sprintf "Compiler error: %A not implemented" op

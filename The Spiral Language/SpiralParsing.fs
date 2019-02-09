@@ -672,7 +672,7 @@ let rec show_ty = function
         sprintf "union {%s}" body
     | RecUnionT (name, _) -> name
     | ArrayT (a,b) -> sprintf "%s (%s)" (show_art a) (show_ty b)
-    | DotNetTypeT x | CudaTypeT x -> x
+    | MacroT x -> x
 
 and show_typed_data = function
     | TyT x -> sprintf "type (%s)" (show_ty x)

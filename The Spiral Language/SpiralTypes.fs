@@ -95,13 +95,10 @@ type Value =
     | LitChar of char
 
 type Op =
-    // Extern type constructors
-    | DotNetTypeCreate
-    | CudaTypeCreate
-    
     // Macros
-    | MacroCuda
-    | MacroFs
+    | Macro
+    | MacroExtern
+    | VarToString
 
     // Term function
     | TermFunctionTypeCreate
@@ -328,8 +325,7 @@ and ConsedTy =
     | PrimT of PrimitiveType
     | TermCastedFunctionT of ConsedTy * ConsedTy
     | ArrayT of ArrayType * ConsedTy
-    | DotNetTypeT of string // macro
-    | CudaTypeT of string // macro
+    | MacroT of string
 
 and ConsedTypedData = // for join points and layout types
     | CTyList of ConsedNode<ConsedTypedData list>
@@ -578,7 +574,7 @@ let type_is_unit e =
     let dict = Dictionary(HashIdentity.Reference)
     let rec f e = 
         memoize dict (function
-            | UnionT _ | RecUnionT _ | DotNetTypeT _ | CudaTypeT _ | TermCastedFunctionT _ | PrimT _ -> false
+            | UnionT _ | RecUnionT _ | MacroT _ | TermCastedFunctionT _ | PrimT _ -> false
             | ArrayT (_,t) -> f t
             | MapT t -> Map.forall (fun _ -> f) t.node
             | ObjectT(C(_,env)) | KeywordT(C(_,env)) | FunctionT(C(_,_,env)) | RecFunctionT(C(_,_,env)) -> Array.forall f env
