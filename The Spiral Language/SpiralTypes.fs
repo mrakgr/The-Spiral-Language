@@ -185,7 +185,9 @@ type Op =
     | SizeOf
 
     // Array
-    | ArrayCreate
+    | ArrayCreateDotNet
+    | ArrayCreateCudaLocal
+    | ArrayCreateCudaShared
     | ReferenceCreate
     | ArrayIndex
     | MutableSet

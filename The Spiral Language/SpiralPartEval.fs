@@ -217,13 +217,14 @@ let rec partial_eval (d: LangEnv) x =
             match dict.TryGetValue keyword_apply with
             | true, (body, stack_size) ->
                 let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
-                ev (push_var a d |> push_var (TyKeyword(keyword_apply,b))) body
+                ev (push_var a d |> push_var (TyKeyword(keyword_apply,[|b|]))) body
             | false, _ -> raise_type_error d <| sprintf "The second argument to an object application is not a keyword nor is there a receiver for `apply:`.\nGot: %s" (show_typed_data b)
         | (TyV(T(_,LayoutT _)) | TyT(LayoutT _)) & a, b -> apply d (layout_to_none d a, b)
         | (TyV(T(_,TermCastedFunctionT(clo_arg_ty,clo_ret_ty))) | TyT(TermCastedFunctionT(clo_arg_ty,clo_ret_ty))) & a, b -> 
             let b_ty = type_get b
             if clo_arg_ty <> b_ty then raise_type_error d <| sprintf "Cannot apply an argument of type %s to closure (%s => %s)." (show_ty b_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
             else push_op_no_rewrite d Apply (TyList [a;b]) clo_ret_ty
+        | a, _ -> raise_type_error d <| sprintf "The first argument provided cannot be applied.\nGot: %s" (show_typed_data a)
 
 
     match x with
@@ -671,4 +672,6 @@ let rec partial_eval (d: LangEnv) x =
             match ev d a with
             | TyBox _ -> TyLit (LitBool true)
             | _ -> TyLit (LitBool false)
+        | ArrayCreateDotNet,[|a;b|] ->
+            
         | _ -> raise_type_error d <| sprintf "Compiler error: %A not implemented" op
