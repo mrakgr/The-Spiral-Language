@@ -112,10 +112,6 @@ type Op =
     | UnsafeDowncastTo
     | UnsafeCoerceToArrayCudaGlobal
 
-    // Pattern matching errors
-    | ErrorPatMiss
-    | ErrorPatClause
-
     // StringOps
     | StringLength
     | StringIndex
@@ -189,16 +185,23 @@ type Op =
     | ArrayCreateCudaLocal
     | ArrayCreateCudaShared
     | ReferenceCreate
-    | ArrayIndex
-    | MutableSet
     | ArrayLength
     | ArrayIs
+
+    // Getters
+    | GetArray
+    | GetReference
+
+    // Setters
+    | SetArray
+    | SetReference
+    | SetMutableRecord
    
     // Static unary operations
     | PrintStatic
-    | PrintEnv
     | ErrorNonUnit
     | ErrorType
+    | ErrorPatMiss
     | Dynamize
     | LitIs
     | BoxIs
@@ -366,6 +369,7 @@ and TypedOp =
     | TyWhile of cond: TypedOp * TypedBind []
     | TyCase of TypedData * (TypedData * TypedBind []) [] * ConsedTy
     | TyJoinPoint of JoinPointKey * JoinPointType * TyTag [] * ConsedTy
+    | TySetMutableRecord of TypedData * (Tag * ConsedTy) [] * TyTag []
 
 and JoinPointType =
     | JoinPointClosure
@@ -620,13 +624,13 @@ let lit_is = function
     | _ -> false
 
 let tyb = ListT (hash_cons_table.Add [])
-let typed_op_type = function
-    | TyWhile _ -> tyb
-    | TyOp(_,_,t) | TyIf(_,_,_,t) | TyCase(_,_,t) | TyJoinPoint(_,_,_,t) -> t
+//let typed_op_type = function
+//    | TyWhile _ -> tyb
+//    | TyOp(_,_,t) | TyIf(_,_,_,t) | TyCase(_,_,t) | TyJoinPoint(_,_,_,t) -> t
 
-let typed_bind_type = function
-    | TyLet(_,_,op) | TyLocalReturnOp(_,op) -> typed_op_type op
-    | TyLocalReturnData(_,t,_) -> t
+//let typed_bind_type = function
+//    | TyLet(_,_,op) | TyLocalReturnOp(_,op) -> typed_op_type op
+//    | TyLocalReturnData(_,t,_) -> t
 
 let rec fsharp_to_cuda_blittable_is = function
     | PrimT t ->
@@ -635,4 +639,43 @@ let rec fsharp_to_cuda_blittable_is = function
         | _ -> true
     | ArrayT (ArtCudaGlobal _,t) -> fsharp_to_cuda_blittable_is t
     | LayoutT(C(_, _, false)) ->  true
+    | _ -> false
+
+let is_numeric = function
+    | PrimT (UInt8T | UInt16T | UInt32T | UInt64T 
+        | Int8T | Int16T | Int32T | Int64T 
+        | Float32T | Float64T) -> true
+    | _ -> false
+
+let is_string = function
+    | PrimT StringT -> true
+    | _ -> false
+
+let is_char = function
+    | PrimT CharT -> true
+    | _ -> false
+
+let is_primt = function
+    | PrimT x -> true
+    | _ -> false
+
+let is_float = function
+    | PrimT (Float32T | Float64T) -> true
+    | _ -> false
+
+let is_bool = function
+    | PrimT BoolT -> true
+    | _ -> false
+
+let is_int = function
+    | PrimT (UInt32T | UInt64T | Int32T | Int64T) -> true
+    | _ -> false
+
+let is_any_int = function
+    | PrimT (UInt8T | UInt16T | UInt32T | UInt64T 
+        | Int8T | Int16T | Int32T | Int64T) -> true
+    | _ -> false
+
+let is_int64 = function
+    | PrimT Int64T -> true
     | _ -> false

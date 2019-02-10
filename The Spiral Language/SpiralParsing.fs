@@ -107,8 +107,6 @@ let spiral_parse (settings: CompilerSettings) module_ =
     let amphersand = operatorChar '&'
     let lam = operatorString "->"
     let arr = operatorString "=>"
-    let set_ref = operatorString ":="
-    let set_array = operatorString "<-"
     let inl = keywordString "inl"
     let inl_rec = keywordString "inl rec"
     let inm = keywordString "inm"
@@ -495,27 +493,6 @@ let spiral_parse (settings: CompilerSettings) module_ =
         let expr_up (s: CharStream<_>) = expr_indent i (<) expr s
         pipe2 expr (many expr_up) (List.fold ap) s
 
-    let mset recurse expr (s: CharStream<_>) = 
-        let i = col s
-        let line = line s
-        let expr_indent expr (s: CharStream<_>) = expr_indent i (<) expr s
-        let true_ l r = Reply(op MutableSet [|l;B;r|])
-        let false_ l r = 
-            let rec loop = function
-                | RawExprPos(p) -> loop p.Expression
-                | RawOp(Apply,[|a;b|]) -> Reply(op MutableSet [|a;b;r|])
-                | _ -> Reply(Error, messageError "Expected two arguments on the left of <-.")
-            loop l
-        let op = (set_ref >>% true) <|> (set_array >>% false)
-
-        (tuple2 expr (opt (expr_indent op .>>. expr_indent (set_semicolon_level_to_line line recurse))) 
-        >>= fun x _ ->
-            match x with
-            | a,Some(true,b) -> true_ a b
-            | a,Some(false,b) -> false_ a b
-            | a,None -> Reply a
-            ) s
-
     let annotations expr (s: CharStream<_>) = 
         let i = col s
         let inline expr_indent expr (s: CharStream<_>) = expr_indent i (<=) expr s
@@ -549,7 +526,7 @@ let spiral_parse (settings: CompilerSettings) module_ =
             let dict_operator = s.UserState.ops
             let p = pos' s
             (poperator >>=? function
-                | "->" | ":=" | "<-" -> fail "forbidden operator"
+                | "->" -> fail "forbidden operator"
                 | orig_op -> 
                     let rec calculate on_fail op' = 
                         match dict_operator.TryGetValue op' with
@@ -596,7 +573,7 @@ let spiral_parse (settings: CompilerSettings) module_ =
         (many1 pat |>> (concat_keyword' >> RawKeywordCreate) <|> expr) s
 
     let rec expr s =
-        let expressions s = mset expr ^<| type_union ^<| keyword_message ^<| tuple ^<| operators ^<| application ^<| immediate_keyword_unary ^<| expressions expr <| s
+        let expressions s = type_union ^<| keyword_message ^<| tuple ^<| operators ^<| application ^<| immediate_keyword_unary ^<| expressions expr <| s
         let statements s = statements expr <| s
         annotations ^<| indentations statements expressions <| s
     runParserOnString (spaces >>. expr .>> eof) {ops=inbuilt_operators; semicolon_line= -1L} module_.Name module_.Code
