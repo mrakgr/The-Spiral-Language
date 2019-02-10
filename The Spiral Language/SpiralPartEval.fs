@@ -20,6 +20,7 @@ let mutable private part_eval_tag = 0
 let private tag () = part_eval_tag <- part_eval_tag+1; part_eval_tag
 
 let keyword_env = Parsing.string_to_keyword "env:" // For join points keys. It is assumed that they will never be printed.
+let keyword_apply = Parsing.string_to_keyword "apply:"
 let typed_data_to_consed call_data =
     let dict = Dictionary(HashIdentity.Reference)
     let call_args = ResizeArray(64)
@@ -166,6 +167,7 @@ let push_triop d op (a,b,c) ret_ty = push_op d op (TyList [a;b;c]) ret_ty
 let rec partial_eval (d: LangEnv) x = 
     let inline ev d x = partial_eval d x
     let inline ev2 d a b = ev d a, ev d b
+    let inline ev3 d a b c = ev d a, ev d b, ev d c
     let inline ev_seq d x =
         let x = ev {d with seq=ResizeArray()} x
         let x_ty = type_get x
@@ -192,6 +194,37 @@ let rec partial_eval (d: LangEnv) x =
                     | i, x :: x' -> loop (push_var x d) (i-1,x')
                 loop d (stack_size,l)
         | _ -> on_fail()
+
+    let rec apply d = function
+        | TyFunction(body,stack_size,env), b ->
+            let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
+            ev (push_var b d) body
+        | TyRecFunction(body,stack_size,env) & a, b ->
+            let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
+            ev (push_var b d |> push_var a) body
+        | TyMap l, TyKeyword(keyword,_) ->
+            match Map.tryFind keyword l with
+            | Some a -> a
+            | None -> raise_type_error d <| sprintf "The record does not have the field %s." (keyword_to_string keyword)
+        | TyMap _, b -> raise_type_error d <| sprintf "The second argument to a record application is not a keyword.\nGot: %s" (show_typed_data b)
+        | TyObject(dict,env) & a, TyKeyword(keyword,_) & b ->
+            match dict.TryGetValue keyword with
+            | true, (body, stack_size) ->
+                let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
+                ev (push_var a d |> push_var b) body
+            | false, _ -> raise_type_error d <| sprintf "The object does not have the receiver for %s." (keyword_to_string keyword)
+        | TyObject(dict,env) & a, b ->
+            match dict.TryGetValue keyword_apply with
+            | true, (body, stack_size) ->
+                let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
+                ev (push_var a d |> push_var (TyKeyword(keyword_apply,b))) body
+            | false, _ -> raise_type_error d <| sprintf "The second argument to an object application is not a keyword nor is there a receiver for `apply:`.\nGot: %s" (show_typed_data b)
+        | (TyV(T(_,LayoutT _)) | TyT(LayoutT _)) & a, b -> apply d (layout_to_none d a, b)
+        | (TyV(T(_,TermCastedFunctionT(clo_arg_ty,clo_ret_ty))) | TyT(TermCastedFunctionT(clo_arg_ty,clo_ret_ty))) & a, b -> 
+            let b_ty = type_get b
+            if clo_arg_ty <> b_ty then raise_type_error d <| sprintf "Cannot apply an argument of type %s to closure (%s => %s)." (show_ty b_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
+            else push_op_no_rewrite d Apply (TyList [a;b]) clo_ret_ty
+
 
     match x with
     | V(_, x) -> v x
@@ -294,32 +327,7 @@ let rec partial_eval (d: LangEnv) x =
     | ExprPos(_,pos) -> ev {d with trace=pos.Pos :: d.trace} pos.Expression
     | Op(_,op,l) ->
         match op, l with
-        | Apply,[|a;b|] ->
-            let rec apply d = function
-                | TyFunction(body,stack_size,env), b ->
-                    let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
-                    ev (push_var b d) body
-                | TyRecFunction(body,stack_size,env) & a, b ->
-                    let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
-                    ev (push_var b d |> push_var a) body
-                | TyMap l, TyKeyword(keyword,_) ->
-                    match Map.tryFind keyword l with
-                    | Some a -> a
-                    | None -> raise_type_error d <| sprintf "The record does not have the field %s." (keyword_to_string keyword)
-                | TyMap _, b -> raise_type_error d <| sprintf "The second argument to a record application is not a keyword.\nGot: %s" (show_typed_data b)
-                | TyObject(dict,env) & a, TyKeyword(keyword,_) & b ->
-                    match dict.TryGetValue keyword with
-                    | true, (body, stack_size) ->
-                        let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
-                        ev (push_var a d |> push_var b) body
-                    | false, _ -> raise_type_error d <| sprintf "The object does not have the receiver for %s." (keyword_to_string keyword)
-                | TyObject _, b -> raise_type_error d <| sprintf "The second argument to an object application is not a keyword.\nGot: %s" (show_typed_data b)
-                | (TyV(T(_,LayoutT _)) | TyT(LayoutT _)) & a, b -> apply d (layout_to_none d a, b)
-                | (TyV(T(_,TermCastedFunctionT(clo_arg_ty,clo_ret_ty))) | TyT(TermCastedFunctionT(clo_arg_ty,clo_ret_ty))) & a, b -> 
-                    let b_ty = type_get b
-                    if clo_arg_ty <> b_ty then raise_type_error d <| sprintf "Cannot apply an argument of type %s to closure (%s => %s)." (show_ty b_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
-                    else push_op_no_rewrite d Apply (TyList [a;b]) clo_ret_ty
-            apply d (ev d a, ev d b)
+        | Apply,[|a;b|] -> apply d (ev d a, ev d b)
         | TermCast,[|a;b|] ->
             // Compiles into a method with two lambda arguments. The second argument resides in `env_local`.
             let join_point_closure (d: LangEnv) body =
@@ -615,7 +623,52 @@ let rec partial_eval (d: LangEnv) x =
                     if is_convertible_primt fromt && is_convertible_primt tot then push_binop d UnsafeConvert (to_,from) tot
                     else raise_type_error d <| sprintf "Cannot convert %s to the following type: %s" (show_typed_data from) (show_ty tot)
         | PrintStatic,[|a|] -> printfn "%s" (ev d a |> show_typed_data); tyb
-        | RecordMap,[|a;b;c|] ->
+        | RecordMap,[|a;b|] ->
+            match ev2 d a b with
+            | a, TyMap l ->
+                Map.map (fun k x ->
+                    let inline ap a b = apply d (a, b)
+                    ap (ap a (TyKeyword(k,[||]))) x
+                    ) l
+                |> TyMap
+            | _, b -> raise_type_error d <| sprintf "Expected a record.\nGot: %s" (show_typed_data b)
+        | RecordFilter,[|a;b|] ->
+            match ev2 d a b with
+            | a, TyMap l ->
+                Map.filter (fun k x ->
+                    let inline ap a b = apply d (a, b)
+                    match ap (ap a (TyKeyword(k,[||]))) x with
+                    | TyLit(LitBool x) -> x
+                    | x -> raise_type_error d <| sprintf "Expected a bool literal in ModuleFilter.\nGot: %s" (show_typed_data x)
+                    ) l
+                |> TyMap
+            | _, b -> raise_type_error d <| sprintf "Expected a record.\nGot: %s" (show_typed_data b)
+        | RecordFoldL,[|a;b;c|] ->
+            match ev3 d a b c with
+            | a, s, TyMap l ->
+                Map.fold (fun s k x ->
+                    let inline ap a b = apply d (a, b)
+                    ap (ap (ap a (TyKeyword(k,[||]))) s) x
+                    ) s l
+            | _, _, r -> raise_type_error d <| sprintf "Expected a record.\nGot: %s" (show_typed_data r)
+        | RecordFoldR,[|a;b;c|] ->
+            match ev3 d a b c with
+            | a, TyMap l, s ->
+                Map.foldBack (fun k x s ->
+                    let inline ap a b = apply d (a, b)
+                    ap (ap (ap a (TyKeyword(k,[||]))) x) s
+                    ) l s
+            | _, r, _ -> raise_type_error d <| sprintf "Expected a record.\nGot: %s" (show_typed_data r)
+        | RecordLength,[|a|] ->
             match ev d a with
-            | Module 
+            | TyMap l -> Map.count l |> int64 |> LitInt64 |> TyLit
+            | r -> raise_type_error d <| sprintf "Expected a record.\nGot: %s" (show_typed_data r)
+        | LitIs,[|a|] -> 
+            match ev d a with
+            | TyLit _ -> TyLit (LitBool true)
+            | _ -> TyLit (LitBool false)
+        | BoxIs,[|a|] -> 
+            match ev d a with
+            | TyBox _ -> TyLit (LitBool true)
+            | _ -> TyLit (LitBool false)
         | _ -> raise_type_error d <| sprintf "Compiler error: %A not implemented" op

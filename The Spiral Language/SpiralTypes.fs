@@ -199,7 +199,7 @@ type Op =
     | ErrorType
     | Dynamize
     | LitIs
-    | ValIs
+    | BoxIs
 
     // UnOps
     | Neg
