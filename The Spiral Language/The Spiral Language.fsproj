@@ -67,6 +67,7 @@
     <Compile Include="SpiralTests.fs" />
     <Content Include="packages.config" />
     <None Include="Script1.fsx" />
+    <Compile Include="SpiralCodegenFsharp.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FParsec">

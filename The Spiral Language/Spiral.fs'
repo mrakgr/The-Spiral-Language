@@ -3177,7 +3177,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                 | LitFloat32 x -> 
                     if x = infinityf then "infinityf"
                     elif x = -infinityf then "-infinityf"
-                    elif x = nanf then "nanf"
+                    elif x = nanf then "nanf" // Note: Do not check for nan's using structural equality.
                     else sprintf "%ff" x
                 | LitFloat64 x ->
                     if x = infinity then "infinity"
