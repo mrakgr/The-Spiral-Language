@@ -617,5 +617,5 @@ let rec partial_eval (d: LangEnv) x =
         | PrintStatic,[|a|] -> printfn "%s" (ev d a |> show_typed_data); tyb
         | RecordMap,[|a;b;c|] ->
             match ev d a with
-            | Module
+            | Module 
         | _ -> raise_type_error d <| sprintf "Compiler error: %A not implemented" op
