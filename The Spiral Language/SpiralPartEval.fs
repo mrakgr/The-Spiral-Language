@@ -8,10 +8,10 @@ open Types
 open System.Runtime.CompilerServices
 
 // Globals
-let private join_point_dict_method = Dictionary(HashIdentity.Structural)
-let private join_point_dict_closure = Dictionary(HashIdentity.Structural)
-let private join_point_dict_type = Dictionary(HashIdentity.Structural)
-let private join_point_dict_cuda = Dictionary(HashIdentity.Structural)
+let join_point_dict_method = Dictionary(HashIdentity.Structural)
+let join_point_dict_closure = Dictionary(HashIdentity.Structural)
+let join_point_dict_type = Dictionary(HashIdentity.Structural)
+let join_point_dict_cuda = Dictionary(HashIdentity.Structural)
 let private layout_to_none_dict = ConditionalWeakTable()
 let private layout_to_none_dict' = ConditionalWeakTable()
 let private hash_cons_table = HashConsing.HashConsTable()
@@ -723,7 +723,8 @@ let rec partial_eval (d: LangEnv) x =
                 | true, JoinPointInEvaluation tag -> tag, ev_seq {d with cse=ref Map.empty; rbeh=AnnotationReturn} body
                 | true, JoinPointDone (tag,_,x) -> tag, x
 
-            match type_to_tyv ret_ty with
+            let ret = push_typedop d (TyJoinPoint(join_point_key,JoinPointCuda,call_args,ret_ty)) ret_ty
+            match ret with
             | TyList [] -> 
                 let call_args = Array.map (fun x -> TyV x) call_args |> Array.toList
                 TyList (TyLit(LitString <| sprintf "method_%i" tag) :: call_args)
