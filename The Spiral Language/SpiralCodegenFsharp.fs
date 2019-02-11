@@ -4,27 +4,27 @@ open Spiral
 open Spiral.Types
 open Spiral.PartEval
 open System.Collections.Generic
+open System.Text
 
 // Globals
 let type_dict = Dictionary(HashIdentity.Structural)
 
-type ProgramNode =
-    | Text of string
-    | Statement of string
-    | Statements of string []
-    | Indent
-    | Dedent
+type CodegenEnv =
+    {
+    stmts : StringBuilder
+    ret : TypedData option
+    indent : int
+    }
 
-type CodegenEnv() = 
-    let types_printed = HashSet(HashIdentity.Structural)
-    let types_unprinted = HashSet(HashIdentity.Structural)
-    let join_points_printed = HashSet(HashIdentity.Structural)
-    let join_points_unprinted = HashSet(HashIdentity.Structural)
-    let buffer = ResizeArray()
+    member x.Statement s =
+        x.stmts
+            .Append(' ', x.indent)
+            .AppendLine s
+        
 
 let raise_codegen_error x = raise (CodegenError x)
 
-let rec type_ = function
+let rec type_ d = function
     | ListT _  | KeywordT _ | FunctionT _ | RecFunctionT _ | ObjectT _ | MapT _ as x -> 
         match type_non_units x with
         | [||] -> "unit"
@@ -56,26 +56,26 @@ let rec type_ = function
         | true, x -> x
         |> sprintf "SpiralType%i"
 
-let tytag (T(tag,ty)) = sprintf "(var_%i : %s)" tag (type_ ty)
+let tytag d (T(tag,ty)) = sprintf "(var_%i : %s)" tag (type_ d ty)
 
-let typed_data x = 
+let typed_data d x = 
     match typed_data_term_vars x with
     | true, _ -> raise_codegen_error <| sprintf "An attempt to manifest a raw type has been attempted.\nGot: %s" (Parsing.show_typed_data x)
     | false, vars -> 
         Array.map (function
-            | TyV t -> tytag t
-            | TyLit x -> tylit x
+            | TyV t -> tytag d t
+            | TyLit x -> tylit d x
             ) vars
         |> String.concat ", " // TODO: Remember to add parenths.
 
-let assign_one ret x =
-    match ret with
+let assign_one (d: CodegenEnv) x =
+    match d.ret with
     | Some vars -> 
         match typed_data_free_vars vars with
         | [|var|] -> sprintf "let %s = %s" (tytag var) x
         | vars -> raise_codegen_error "Compiler error: Expected a single variable in assign_one."
-        |> Statement
-    | None -> Text x
+        |> d.Env
+    | None -> d.Text x
     
 let op ret x =
     match x with
