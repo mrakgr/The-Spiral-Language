@@ -15,7 +15,6 @@ let type_dict = Dictionary(HashIdentity.Structural)
 type CodegenEnv =
     {
     stmts : StringBuilder
-    ret : TypedData option
     indent : int
     }
 
