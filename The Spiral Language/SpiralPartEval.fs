@@ -39,6 +39,43 @@ let typed_data_to_consed' call_data =
             ) x
     call_args.ToArray(),f call_data
 
+let typed_data_free_vars call_data =
+    let dict = Dictionary(HashIdentity.Reference)
+    let call_args = ResizeArray(64)
+    let rec f x =
+        memoize dict (function
+            | TyList l -> List.iter f l
+            | TyKeyword(a,b) -> Array.iter f b
+            | TyFunction(a,b,c) -> Array.iter f c
+            | TyRecFunction(a,b,c) -> Array.iter f c
+            | TyObject(a,b) -> Array.iter f b
+            | TyMap l -> Map.iter (fun _ -> f) l
+            | TyBox(a,b) -> f a
+            | TyV(T(_,ty) as t) -> call_args.Add t
+            | TyLit _ | TyT _ -> ()
+            ) x
+    f call_data
+    call_args.ToArray()
+
+let typed_data_term_vars call_data =
+    let dict = Dictionary(HashIdentity.Reference)
+    let call_args = ResizeArray(64)
+    let mutable has_naked_type = false
+    let rec f x =
+        memoize dict (function
+            | TyList l -> List.iter f l
+            | TyKeyword(a,b) -> Array.iter f b
+            | TyFunction(a,b,c) -> Array.iter f c
+            | TyRecFunction(a,b,c) -> Array.iter f c
+            | TyObject(a,b) -> Array.iter f b
+            | TyMap l -> Map.iter (fun _ -> f) l
+            | TyBox(a,b) -> f a
+            | TyLit _ | TyV _ as x -> call_args.Add x
+            | TyT _ -> has_naked_type <- true
+            ) x
+    f call_data
+    has_naked_type, call_args.ToArray()
+
 let typed_data_to_consed call_data =
     let dict = Dictionary(HashIdentity.Reference)
     let mutable count = 0
@@ -116,6 +153,16 @@ let case_type' d = function
 
 let tyv ty = TyV(T(tag(), ty))
 let tyb = TyList []
+
+let type_non_units x =
+    let args = ResizeArray(64)
+    let rec f = function
+        | ListT x -> List.iter f x.node
+        | KeywordT(C(_,l)) | FunctionT(C(_,_,l)) | RecFunctionT(C(_,_,l)) | ObjectT(C(_,l)) -> Array.iter f l
+        | MapT l -> Map.iter (fun _ -> f) l.node
+        | x -> if type_is_unit x = false then args.Add x
+    f x
+    args.ToArray()
 
 let rec destructure tyv_or_tyt x =
     let inline f x = destructure tyv_or_tyt x

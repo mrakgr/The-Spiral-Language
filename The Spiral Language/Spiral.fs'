@@ -2881,8 +2881,14 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
 
                     | ShiftLeft,[x;y] -> sprintf "(%s << %s)" (codegen x) (codegen y)
                     | ShiftRight,[x;y] -> sprintf "(%s >> %s)" (codegen x) (codegen y)
+                    
+					| Neg,[a] -> sprintf "(-%s)" (codegen a)
+                    | Log,[x] -> sprintf "log(%s)" (codegen x)
+                    | Exp,[x] -> sprintf "exp(%s)" (codegen x)
+                    | Tanh,[x] -> sprintf "tanh(%s)" (codegen x)
+                    | Sqrt,[x] -> sprintf "sqrt(%s)" (codegen x)
+                    | NanIs,[x] -> sprintf "isnan(%s)" (codegen x)
 
-                    | Neg,[a] -> sprintf "(-%s)" (codegen a)
                     | ListIndex,[a;TyLit(LitInt64 b)] -> if_not_unit t <| fun _ -> sprintf "%s.mem_%i" (codegen a) b
                     | MapGetField, [r; TyV (i,_)] -> if_not_unit t <| fun _ -> sprintf "%s.mem_%i" (codegen r) i
                     | (LayoutToStack | LayoutToPackedStack | LayoutToHeap | LayoutToHeapMutable),[a] ->
@@ -2893,11 +2899,7 @@ let spiral_peval (settings: CompilerSettings) (Module(N(module_name,_,_,_)) as m
                             sprintf "make_%s(%s)" (print_tag_env (layout_from_op op |> Some) t) args
                         | LayoutToHeap | LayoutToHeapMutable -> on_type_er trace "Heapify is unsupported on the Cuda side."
                         | _ -> failwith "impossible"
-                    | Log,[x] -> sprintf "log(%s)" (codegen x)
-                    | Exp,[x] -> sprintf "exp(%s)" (codegen x)
-                    | Tanh,[x] -> sprintf "tanh(%s)" (codegen x)
-                    | Sqrt,[x] -> sprintf "sqrt(%s)" (codegen x)
-                    | NanIs,[x] -> sprintf "isnan(%s)" (codegen x)
+
                     | FailWith,[x] -> 
                         if settings.cuda_assert_enabled then
                             sprintf "printf(%s)" (codegen x) |> state

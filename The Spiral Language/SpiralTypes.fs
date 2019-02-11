@@ -472,12 +472,6 @@ type CodegenEnv = {
     trace: Trace
     }
 
-type Buf = ResizeArray<ProgramNode>
-and ProgramNode =
-    | Statement of sep: string * code: string
-    | Indent
-    | Dedent
-
 let inline memoize' (memo_dict: ConditionalWeakTable<_,_>) f k =
     match memo_dict.TryGetValue k with
     | true, v -> v
@@ -535,6 +529,8 @@ type Timings = {
 
 exception PrepassError of string
 exception PrepassErrorWithPos of PosKey * string
+exception CodegenError of string
+exception CodegenErrorWithPos of PosKey * string
 exception TypeError of Trace * string
 exception TypeRaised of ConsedTy
 
