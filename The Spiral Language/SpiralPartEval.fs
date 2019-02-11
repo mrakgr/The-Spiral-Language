@@ -129,6 +129,21 @@ let consed_typed_data_uncons consed_data =
             ) x
     f consed_data
 
+let consed_typed_free_vars consed_data =
+    let dict = Dictionary(HashIdentity.Reference)
+    let consed_args = ResizeArray(64)
+    let rec f x =
+        memoize dict (function
+            | CTyList l -> List.iter f l.node
+            | CTyKeyword(C(_,l)) | CTyFunction(C(_,_,l)) | CTyRecFunction(C(_,_,l)) | CTyObject(C(_,l)) -> Array.iter f l
+            | CTyMap l -> Map.iter (fun _ -> f) l.node
+            | CTyBox(a,b) -> f a
+            | CTyV(t,ty) -> consed_args.Add(t,ty)
+            | CTyLit _  | CTyT _ -> ()
+            ) x
+    f consed_data
+    consed_args.ToArray()
+
 let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))
 let rect_unbox d key = 
     match join_point_dict_type.[key] with
@@ -181,11 +196,11 @@ let push_var x (d: LangEnv) =
     d.env_stack.[d.env_stack_ptr] <- x
     {d with env_stack_ptr=d.env_stack_ptr+1}
 
-let seq_apply (d: LangEnv) (end_dat,end_ty) =
+let seq_apply (d: LangEnv) end_dat =
     if d.seq.Count > 0 then
         match d.seq.[d.seq.Count-1] with
         | TyLet(end_dat',a,b) when Object.ReferenceEquals(end_dat,end_dat') -> d.seq.[d.seq.Count-1] <- TyLocalReturnOp(a,b)
-        | _ -> d.seq.Add(TyLocalReturnData(end_dat,end_ty,d.trace))
+        | _ -> d.seq.Add(TyLocalReturnData(end_dat,d.trace))
     d.seq.ToArray()
 
 let layout_to_none (d: LangEnv) = function
@@ -194,7 +209,7 @@ let layout_to_none (d: LangEnv) = function
             let key = LayoutToNone,v
             match Map.tryFind key !d.cse with
             | None ->
-                let inline stmt x = TyLet(x,d.trace,TyOp(LayoutToNone,v,type_get x))
+                let inline stmt x = TyLet(x,d.trace,TyLayoutToNone(v))
                 match t with
                 | LayoutHeapMutable ->
                     let x = consed_typed_data_uncons l 
@@ -222,7 +237,7 @@ let layout_to_some layout (d: LangEnv) = function
             | LayoutStack -> LayoutToStack
             | LayoutHeap -> LayoutToHeap
             | LayoutHeapMutable -> LayoutToHeapMutable
-        d.seq.Add(TyLet(ret,d.trace,TyOp(layout,x,ret_ty)))
+        d.seq.Add(TyLet(ret,d.trace,TyOp(layout,x)))
         ret
 
 let push_typedop d op ret_ty =
@@ -230,7 +245,7 @@ let push_typedop d op ret_ty =
     d.seq.Add(TyLet(ret,d.trace,op))
     ret
 
-let push_op_no_rewrite (d: LangEnv) op l ret_ty = push_typedop d (TyOp(op,l,ret_ty)) ret_ty
+let push_op_no_rewrite (d: LangEnv) op l ret_ty = push_typedop d (TyOp(op,l)) ret_ty
 let push_binop_no_rewrite d op (a,b) ret_ty = push_op_no_rewrite d op (TyList [a;b]) ret_ty
 let push_triop_no_rewrite d op (a,b,c) ret_ty = push_op_no_rewrite d op (TyList [a;b;c]) ret_ty
 
@@ -240,7 +255,7 @@ let push_op (d: LangEnv) op l ret_ty =
     | Some x -> x
     | None ->
         let ret = type_to_tyv ret_ty
-        d.seq.Add(TyLet(ret,d.trace,TyOp(op,l,ret_ty)))
+        d.seq.Add(TyLet(ret,d.trace,TyOp(op,l)))
         d.cse := Map.add key ret !d.cse
         ret
 
@@ -254,7 +269,7 @@ let rec partial_eval (d: LangEnv) x =
     let inline ev_seq d x =
         let x = ev {d with seq=ResizeArray()} x
         let x_ty = type_get x
-        seq_apply d (x,x_ty), x_ty
+        seq_apply d x, x_ty
     let inline ev_annot d x = ev_seq {d with cse=ref !d.cse} x |> snd
     
     let inline push_var_ptr ptr x = d.env_stack.[ptr] <- x; ptr+1
@@ -585,7 +600,7 @@ let rec partial_eval (d: LangEnv) x =
                 
                 let cases, end_ty = case_type d t |> List.mapFold ev_case None
                 let end_ty = end_ty.Value
-                push_typedop d (TyCase(v,List.toArray cases,end_ty)) end_ty
+                push_typedop d (TyCase(v,List.toArray cases)) end_ty
         | v -> ev (push_var v d) on_succ
     | ListTakeAllTest(_,stack_size,bind,on_succ,on_fail) -> list_test true (stack_size,bind,on_succ,on_fail)
     | ListTakeNTest(_,stack_size,bind,on_succ,on_fail) -> list_test false (stack_size,bind,on_succ,on_fail)
@@ -674,7 +689,7 @@ let rec partial_eval (d: LangEnv) x =
                     | true, JoinPointDone (_,_,_,x) -> x
 
                 let ret_ty = TermCastedFunctionT(domain_ty,range_ty)
-                push_typedop d (TyJoinPoint(join_point_key,JoinPointClosure,call_args,ret_ty)) ret_ty
+                push_typedop d (TyJoinPoint(join_point_key,JoinPointClosure,call_args)) ret_ty
 
             match ev d a, ev d b with
             | TyFunction(body,stack_size,env), b ->
@@ -701,7 +716,7 @@ let rec partial_eval (d: LangEnv) x =
                 | true, JoinPointInEvaluation _ -> ev_seq {d with cse=ref Map.empty; rbeh=AnnotationReturn} body
                 | true, JoinPointDone (_,_,x) -> x
 
-            push_typedop d (TyJoinPoint(join_point_key,JoinPointMethod,call_args,ret_ty)) ret_ty
+            push_typedop d (TyJoinPoint(join_point_key,JoinPointMethod,call_args)) ret_ty
 
         | JoinPointEntryCuda,[|body|] -> 
             let call_args, consed_env = typed_data_to_consed' (TyKeyword(keyword_env, d.env_global))
@@ -723,7 +738,7 @@ let rec partial_eval (d: LangEnv) x =
                 | true, JoinPointInEvaluation tag -> tag, ev_seq {d with cse=ref Map.empty; rbeh=AnnotationReturn} body
                 | true, JoinPointDone (tag,_,x) -> tag, x
 
-            let ret = push_typedop d (TyJoinPoint(join_point_key,JoinPointCuda,call_args,ret_ty)) ret_ty
+            let ret = push_typedop d (TyJoinPoint(join_point_key,JoinPointCuda,call_args)) ret_ty
             match ret with
             | TyList [] -> 
                 let call_args = Array.map (fun x -> TyV x) call_args |> Array.toList
@@ -774,17 +789,17 @@ let rec partial_eval (d: LangEnv) x =
                     if type_tr = type_fl then
                         if tr.Length = 1 && fl.Length = 1 then
                             match tr.[0], fl.[0] with
-                            | TyLocalReturnData(TyLit (LitBool true),_,_), TyLocalReturnData(TyLit (LitBool false),_,_) -> cond
-                            | TyLocalReturnData(TyLit (LitBool false),_,_), TyLocalReturnData(TyLit (LitBool true),_,_) -> push_binop_no_rewrite d EQ (cond,lit_fl) type_tr
-                            | TyLocalReturnData(tr,_,_), TyLocalReturnData(fl,_,_) when tr = fl -> tr
+                            | TyLocalReturnData(TyLit (LitBool true),_), TyLocalReturnData(TyLit (LitBool false),_) -> cond
+                            | TyLocalReturnData(TyLit (LitBool false),_), TyLocalReturnData(TyLit (LitBool true),_) -> push_binop_no_rewrite d EQ (cond,lit_fl) type_tr
+                            | TyLocalReturnData(tr,_), TyLocalReturnData(fl,_) when tr = fl -> tr
                             | TyLocalReturnOp(_,tr), TyLocalReturnOp(_,fl) when tr = fl -> push_typedop d tr type_tr
-                            | _ -> push_typedop d (TyIf(cond,tr,fl,type_tr)) type_tr
-                        else push_typedop d (TyIf(cond,tr,fl,type_tr)) type_tr
+                            | _ -> push_typedop d (TyIf(cond,tr,fl)) type_tr
+                        else push_typedop d (TyIf(cond,tr,fl)) type_tr
                     else raise_type_error d <| sprintf "Types in branches of If do not match.\nGot: %s and %s" (show_ty type_tr) (show_ty type_fl)
                 | cond_ty -> raise_type_error d <| sprintf "Expected a bool in conditional.\nGot: %s" (show_ty cond_ty)
         | While,[|cond;on_succ|] ->
             match ev_seq d cond with
-            | [|TyLocalReturnOp(_,TyJoinPoint(_,_,_,_) & cond)|], ty ->
+            | [|TyLocalReturnOp(_,TyJoinPoint cond)|], ty ->
                 match ty with
                 | PrimT BoolT -> 
                     match ev_seq d on_succ with

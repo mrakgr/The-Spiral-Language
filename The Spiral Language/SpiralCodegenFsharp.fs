@@ -6,8 +6,6 @@ open Spiral.PartEval
 open System.Collections.Generic
 open System.Text
 open System
-open System
-open Spiral
 
 // Globals
 let type_dict = Dictionary(HashIdentity.Structural)
@@ -106,9 +104,11 @@ let tylit d = function
         |> sprintf "'%s'"
     | LitBool x -> if x then "true" else "false"
 
-let typed_data d x = 
+let error_raw_type x = raise_codegen_error <| sprintf "An attempt to manifest a raw type has been attempted.\nGot: %s" (Parsing.show_typed_data x)
+
+let typed_data (d: CodegenEnv) x = 
     match typed_data_term_vars x with
-    | true, _ -> raise_codegen_error <| sprintf "An attempt to manifest a raw type has been attempted.\nGot: %s" (Parsing.show_typed_data x)
+    | true, _ -> error_raw_type x
     | false, vars -> 
         Array.map (function
             | TyV t -> tytag d t
@@ -118,15 +118,7 @@ let typed_data d x =
         |> String.concat ", "
         |> sprintf "(%s)"
 
-let assign_one (d: CodegenEnv) x =
-    match d.ret with
-    | Some vars -> 
-        match typed_data_free_vars vars with
-        | [|var|] -> sprintf "let %s = %s" (tytag d var) x |> d.Statement
-        | vars -> raise_codegen_error "Compiler error: Expected a single variable in assign_one."
-    | None -> d.Text x
-
-let join_point d key typ args =
+let join_point (d: CodegenEnv) (key, typ, args) =
     let args = Array.map (tytag d) args |> String.concat ", "
     match typ with
     | JoinPointMethod -> // TODO: Make sure to tag the join points later.
@@ -145,68 +137,78 @@ let join_point d key typ args =
         ""
     | JoinPointType -> failwith "impossible" 
    
-let rec op d x =
+let rec op (d: CodegenEnv) x =
     match x with
-    | TyOp(op, x, _) ->
+    | TyOp(op, x) ->
         let inline t x = typed_data d x
-        let inline assign_one x = assign_one d x
         match op, x with
         // Primitive operations on expressions.
-        | Add,TyList [a;b] -> assign_one <| sprintf "(%s + %s)" (t a) (t b)
-        | Sub,TyList [a;b] -> assign_one <| sprintf "(%s - %s)" (t a) (t b)
-        | Mult,TyList [a;b] -> assign_one <| sprintf "(%s * %s)" (t a) (t b)
-        | Div,TyList [a;b] -> assign_one <| sprintf "(%s / %s)" (t a) (t b)
-        | Mod,TyList [a;b] -> assign_one <| sprintf "(%s %% %s)" (t a) (t b)
-        | Pow,TyList [a;b] -> assign_one <| sprintf "pow(%s, %s)" (t a) (t b)
-        | LT,TyList [a;b] -> assign_one <| sprintf "(%s < %s)" (t a) (t b)
-        | LTE,TyList [a;b] -> assign_one <| sprintf "(%s <= %s)" (t a) (t b)
-        | EQ,TyList [a;b] -> assign_one <| sprintf "(%s == %s)" (t a) (t b)
-        | NEQ,TyList [a;b] -> assign_one <| sprintf "(%s != %s)" (t a) (t b)
-        | GT,TyList [a;b] -> assign_one <| sprintf "(%s > %s)" (t a) (t b)
-        | GTE,TyList [a;b] -> assign_one <| sprintf "(%s >= %s)" (t a) (t b)
-        | BitwiseAnd,TyList [a;b] -> assign_one <| sprintf "(%s & %s)" (t a) (t b)
-        | BitwiseOr,TyList [a;b] -> assign_one <| sprintf "(%s | %s)" (t a) (t b)
-        | BitwiseXor,TyList [a;b] -> assign_one <| sprintf "(%s ^ %s)" (t a) (t b)
+        | Add,TyList [a;b] -> sprintf "(%s + %s)" (t a) (t b)
+        | Sub,TyList [a;b] -> sprintf "(%s - %s)" (t a) (t b)
+        | Mult,TyList [a;b] -> sprintf "(%s * %s)" (t a) (t b)
+        | Div,TyList [a;b] -> sprintf "(%s / %s)" (t a) (t b)
+        | Mod,TyList [a;b] -> sprintf "(%s %% %s)" (t a) (t b)
+        | Pow,TyList [a;b] -> sprintf "pow(%s, %s)" (t a) (t b)
+        | LT,TyList [a;b] -> sprintf "(%s < %s)" (t a) (t b)
+        | LTE,TyList [a;b] -> sprintf "(%s <= %s)" (t a) (t b)
+        | EQ,TyList [a;b] -> sprintf "(%s == %s)" (t a) (t b)
+        | NEQ,TyList [a;b] -> sprintf "(%s != %s)" (t a) (t b)
+        | GT,TyList [a;b] -> sprintf "(%s > %s)" (t a) (t b)
+        | GTE,TyList [a;b] -> sprintf "(%s >= %s)" (t a) (t b)
+        | BitwiseAnd,TyList [a;b] -> sprintf "(%s & %s)" (t a) (t b)
+        | BitwiseOr,TyList [a;b] -> sprintf "(%s | %s)" (t a) (t b)
+        | BitwiseXor,TyList [a;b] -> sprintf "(%s ^ %s)" (t a) (t b)
 
-        | ShiftLeft,TyList [x;y] -> assign_one <| sprintf "(%s << %s)" (t x) (t y)
-        | ShiftRight,TyList[x;y] -> assign_one <| sprintf "(%s >> %s)" (t x) (t y)
+        | ShiftLeft,TyList [x;y] -> sprintf "(%s << %s)" (t x) (t y)
+        | ShiftRight,TyList[x;y] -> sprintf "(%s >> %s)" (t x) (t y)
                     
-        | Neg,a -> assign_one <| sprintf "(-%s)" (t a)
-        | Log,x -> assign_one <| sprintf "log(%s)" (t x)
-        | Exp,x -> assign_one <| sprintf "exp(%s)" (t x)
-        | Tanh,x -> assign_one <| sprintf "tanh(%s)" (t x)
-        | Sqrt,x -> assign_one <| sprintf "sqrt(%s)" (t x)
-        | NanIs,x -> assign_one <| sprintf "isnan(%s)" (t x)
-    | TyIf(cond,on_succ,on_fail,_) ->
+        | Neg,a -> sprintf "(-%s)" (t a)
+        | Log,x -> sprintf "log(%s)" (t x)
+        | Exp,x -> sprintf "exp(%s)" (t x)
+        | Tanh,x -> sprintf "tanh(%s)" (t x)
+        | Sqrt,x -> sprintf "sqrt(%s)" (t x)
+        | NanIs,x -> sprintf "isnan(%s)" (t x)
+    | TyIf(cond,on_succ,on_fail) ->
         d.Text(sprintf "if %s then" (typed_data d cond))
         binds d.Indent on_succ
         d.Text("else")
         binds d.Indent on_fail
+        null
     | TyWhile(cond,on_succ) ->
-        match cond with
-        | TyJoinPoint(key,typ,args,_) ->
-            d.Text(sprintf "while %s do" (join_point d key typ args))
-            binds d.Indent on_succ
-        | _ -> failwith "impossible"
-    | TyCase(var,cases,_) ->
+        d.Text(sprintf "while %s do" (join_point d cond))
+        binds d.Indent on_succ
+        null
+    | TyCase(var,cases) ->
         d.Text(sprintf "match %s with" (typed_data d var))
         Array.iter (fun (bind,case) ->
             d.Text(sprintf "| %s ->" (typed_data d bind))
             binds d.Indent case
             ) cases
-        ()
-    | TyJoinPoint(key,typ,args,_) -> assign d (join_point d key typ args)
+        null
+    | TyJoinPoint key -> join_point d key
     | TySetMutableRecord(a,b,c) ->
         let a = typed_data d a
         Array.iter2 (fun (b,_) (T(c,_)) ->
-            d.Statement(sprintf "%s.var_%i <- var_%i" a b c)
+            d.Statement(sprintf "%s.subvar_%i <- var_%i" a b c)
             ) b c
+        null
+    | TyLayoutToNone x ->
+        match x with
+        | TyT _ -> error_raw_type x
+        | TyV(T(tag,LayoutT(C(_,b,_)))) ->
+            consed_typed_free_vars b
+            |> Array.map (fun (tag',_) -> sprintf "var_%i.subvar_%i" tag tag')
+            |> String.concat ", "
+        | _ -> failwith "impossible"
 
 and binds (d: CodegenEnv) x =
     Array.iter (function
-        | TyLet(data,_,x) -> 
-            d.Text(sprintf "let %s = " (Array.map ()))
-            op {d with ret=Some data} x
-            
+        | TyLet(data,_,x) ->
+            let vars = typed_data_free_vars data |> Array.map (tytag d) |> String.concat ", "
+            match x with
+            | TyOp _ -> d.Statement(sprintf "let %s = %s" vars (op d x))
+            | _ -> d.Statement(sprintf "let %s =" vars); op d.Indent x |> ignore
+        | TyLocalReturnOp(_,x) -> match op d x with | null -> () | x -> d.Statement(x)
+        | TyLocalReturnData(x,_) -> d.Statement(typed_data d x)
         ) x
 

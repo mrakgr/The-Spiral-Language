@@ -361,14 +361,17 @@ and TypedData =
 and TypedBind = // TypedData being `TyList []` indicates a statement.
     | TyLet of TypedData * Trace * TypedOp
     | TyLocalReturnOp of Trace * TypedOp
-    | TyLocalReturnData of TypedData * ConsedTy * Trace
+    | TyLocalReturnData of TypedData * Trace
+
+and JoinPoint = JoinPointKey * JoinPointType * TyTag []
 
 and TypedOp = 
-    | TyOp of Op * TypedData * ConsedTy
-    | TyIf of cond: TypedData * tr: TypedBind [] * fl: TypedBind [] * ConsedTy
-    | TyWhile of cond: TypedOp * TypedBind []
-    | TyCase of TypedData * (TypedData * TypedBind []) [] * ConsedTy
-    | TyJoinPoint of JoinPointKey * JoinPointType * TyTag [] * ConsedTy
+    | TyOp of Op * TypedData
+    | TyIf of cond: TypedData * tr: TypedBind [] * fl: TypedBind []
+    | TyWhile of cond: JoinPoint * TypedBind []
+    | TyCase of TypedData * (TypedData * TypedBind []) []
+    | TyLayoutToNone of TypedData
+    | TyJoinPoint of JoinPoint
     | TySetMutableRecord of TypedData * (Tag * ConsedTy) [] * TyTag []
 
 and JoinPointType =
@@ -620,13 +623,6 @@ let lit_is = function
     | _ -> false
 
 let tyb = ListT (hash_cons_table.Add [])
-//let typed_op_type = function
-//    | TyWhile _ -> tyb
-//    | TyOp(_,_,t) | TyIf(_,_,_,t) | TyCase(_,_,t) | TyJoinPoint(_,_,_,t) -> t
-
-//let typed_bind_type = function
-//    | TyLet(_,_,op) | TyLocalReturnOp(_,op) -> typed_op_type op
-//    | TyLocalReturnData(_,t,_) -> t
 
 let rec fsharp_to_cuda_blittable_is = function
     | PrimT t ->
