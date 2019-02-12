@@ -69,8 +69,7 @@ let typed_data_term_vars call_data =
             | TyRecFunction(a,b,c) -> Array.iter f c
             | TyObject(a,b) -> Array.iter f b
             | TyMap l -> Map.iter (fun _ -> f) l
-            | TyBox(a,b) -> f a
-            | TyLit _ | TyV _ as x -> call_args.Add x
+            | TyBox _ | TyLit _ | TyV _ as x -> call_args.Add x
             | TyT _ -> has_naked_type <- true
             ) x
     f call_data
@@ -237,7 +236,7 @@ let layout_to_some layout (d: LangEnv) = function
             | LayoutStack -> LayoutToStack
             | LayoutHeap -> LayoutToHeap
             | LayoutHeapMutable -> LayoutToHeapMutable
-        d.seq.Add(TyLet(ret,d.trace,TyOp(layout,x)))
+        d.seq.Add(TyLet(ret,d.trace,TyOp(layout,TyList[TyT ret_ty;x])))
         ret
 
 let push_typedop d op ret_ty =
@@ -944,7 +943,11 @@ let rec partial_eval (d: LangEnv) x =
             | TyLit(LitString sep) when List.forall lit_is l ->
                 let l = List.map (function TyLit (LitString x) -> x | _ -> failwith "impossible") l
                 String.concat sep l |> LitString |> TyLit
-            | _ -> push_op d StringConcat (TyList (sep :: l)) (PrimT StringT)
+            | _ -> 
+                match l with
+                | [] -> TyLit(LitString "")
+                | [x] -> x 
+                | _ -> push_op d StringConcat (TyList (sep :: l)) (PrimT StringT)
         | UnsafeConvert,[|to_;from|] ->
             let to_,from = ev2 d to_ from
             let tot,fromt = type_get to_, type_get from
@@ -1039,15 +1042,15 @@ let rec partial_eval (d: LangEnv) x =
             | _ -> TyLit (LitBool false)
         | ArrayCreateDotNet,[|a;b|] ->
             match ev_annot d a, ev d b with
-            | a, TyType(PrimT Int64T) & b -> push_binop_no_rewrite d ArrayCreateDotNet (TyT a, b) (ArrayT(ArtDotNetHeap, a))
+            | a, TyType(PrimT Int64T) & b -> push_op_no_rewrite d ArrayCreateDotNet b (ArrayT(ArtDotNetHeap, a))
             | _, b -> raise_type_error d <| sprintf "Expected an int64 as the size of the array.\nGot: %s" (show_typed_data b)
         | ArrayCreateCudaLocal,[|a;b|] ->
             match ev_annot d a, ev d b with
-            | a, TyType(PrimT Int64T) & b -> push_binop_no_rewrite d ArrayCreateCudaLocal (TyT a, b) (ArrayT(ArtCudaLocal, a))
+            | a, TyType(PrimT Int64T) & b -> push_op_no_rewrite d ArrayCreateCudaLocal b (ArrayT(ArtCudaLocal, a))
             | _, b -> raise_type_error d <| sprintf "Expected an int64 as the size of the array.\nGot: %s" (show_typed_data b)
         | ArrayCreateCudaShared,[|a;b|] ->
             match ev_annot d a, ev d b with
-            | a, TyLit(LitInt64 _) & b -> push_binop_no_rewrite d ArrayCreateCudaShared (TyT a, b) (ArrayT(ArtCudaShared, a))
+            | a, TyLit(LitInt64 _) & b -> push_op_no_rewrite d ArrayCreateCudaShared b (ArrayT(ArtCudaShared, a))
             | _, b -> raise_type_error d <| sprintf "Expected an int64 literal as the size of the array.\nGot: %s" (show_typed_data b)
         | ReferenceCreate,[|a|] ->
             let a = ev d a

@@ -56,8 +56,8 @@ let rec type_ d x =
         | CharT -> "char"
     | MacroT x -> x
     | ty ->
-        match type_dict.TryGetValue ty with // TODO: Do not forget to tag this.
-        | false, _ -> let x = type_dict.Count in type_dict.Add(ty,x); x-1
+        match type_dict.TryGetValue ty with
+        | false, _ -> let x = type_dict.Count in type_dict.Add(ty,x); x
         | true, x -> x
         |> sprintf "SpiralType%i"
 
@@ -106,17 +106,25 @@ let tylit d = function
 
 let error_raw_type x = raise_codegen_error <| sprintf "An attempt to manifest a raw type has been attempted.\nGot: %s" (Parsing.show_typed_data x)
 
-let typed_data (d: CodegenEnv) x = 
+let free_vars (d: CodegenEnv) x = 
+    typed_data_free_vars x
+    |> Array.map (tytag d)
+    |> String.concat ", "
+    |> sprintf "(%s)"
+
+let rec typed_data (d: CodegenEnv) x = 
     match typed_data_term_vars x with
     | true, _ -> error_raw_type x
     | false, vars -> 
         Array.map (function
             | TyV t -> tytag d t
             | TyLit x -> tylit d x
+            | TyBox(a,b) -> sprintf "(to_%s %s)" (type_ d b) (typed_data d a)
             | _ -> failwith "impossible"
             ) vars
-        |> String.concat ", "
-        |> sprintf "(%s)"
+        |> function
+            | [|x|] -> x
+            | x -> String.concat ", " x |> sprintf "(%s)"
 
 let join_point (d: CodegenEnv) (key, typ, args) =
     let args = Array.map (tytag d) args |> String.concat ", "
@@ -142,32 +150,66 @@ let rec op (d: CodegenEnv) x =
     | TyOp(op, x) ->
         let inline t x = typed_data d x
         match op, x with
-        // Primitive operations on expressions.
-        | Add,TyList [a;b] -> sprintf "(%s + %s)" (t a) (t b)
-        | Sub,TyList [a;b] -> sprintf "(%s - %s)" (t a) (t b)
-        | Mult,TyList [a;b] -> sprintf "(%s * %s)" (t a) (t b)
-        | Div,TyList [a;b] -> sprintf "(%s / %s)" (t a) (t b)
-        | Mod,TyList [a;b] -> sprintf "(%s %% %s)" (t a) (t b)
-        | Pow,TyList [a;b] -> sprintf "pow(%s, %s)" (t a) (t b)
-        | LT,TyList [a;b] -> sprintf "(%s < %s)" (t a) (t b)
-        | LTE,TyList [a;b] -> sprintf "(%s <= %s)" (t a) (t b)
-        | EQ,TyList [a;b] -> sprintf "(%s == %s)" (t a) (t b)
-        | NEQ,TyList [a;b] -> sprintf "(%s != %s)" (t a) (t b)
-        | GT,TyList [a;b] -> sprintf "(%s > %s)" (t a) (t b)
-        | GTE,TyList [a;b] -> sprintf "(%s >= %s)" (t a) (t b)
-        | BitwiseAnd,TyList [a;b] -> sprintf "(%s & %s)" (t a) (t b)
-        | BitwiseOr,TyList [a;b] -> sprintf "(%s | %s)" (t a) (t b)
-        | BitwiseXor,TyList [a;b] -> sprintf "(%s ^ %s)" (t a) (t b)
+        | (MacroExtern | Macro), TyLit(LitString a) -> a
+        | UnsafeUpcastTo, TyList [a;b] -> sprintf "%s :> %s" (t b) (type_ d (type_get a))
+        | UnsafeDowncastTo, TyList [a;b] -> sprintf "%s :?> %s" (t b) (type_ d (type_get a))
+        | UnsafeConvert, TyList [a;b] -> sprintf "%s %s" (type_ d (type_get a)) (t b)
+        | StringLength, a -> sprintf "int64 %s.Length" (t a)
+        | StringIndex, TyList [a;b] -> sprintf "%s.[int32 %s]" (t a) (t b)
+        | StringSlice, TyList [a;b;c] -> sprintf "%s.[int32 %s..int32 %s]" (t a) (t b) (t c)
+        | StringFormat, TyList (format :: l) -> 
+            match l with
+            | [a;b;c] -> sprintf "System.String.Format(%s,%s,%s,%s)" (t format) (t a) (t b) (t c)
+            | [a;b] -> sprintf "System.String.Format(%s,%s,%s)" (t format) (t a) (t b)
+            | [a] -> sprintf "System.String.Format(%s,%s)" (t format) (t a)
+            | [] -> sprintf "System.String.Format(%s)" (t format)
+            | l -> 
+                let l = List.map (t) l |> String.concat "; "
+                sprintf "System.String.Format(%s,([|%s|] : obj[]))" (t format) l 
+        | StringConcat, TyList (sep :: l) ->
+            let l = List.map (t) l |> String.concat "; "
+            sprintf "String.concat %s [|%s|]" (t sep) l 
+        | Apply, TyList [a;b] -> sprintf "%s%s" (t a) (t b)
+        | (LayoutToStack | LayoutToHeap | LayoutToHeapMutable), TyList [a;b] -> sprintf "to_%s %s" (type_ d (type_get a)) (free_vars d b)
+        | SizeOf, a -> sprintf "sizeof<%s>" (type_ d (type_get a))
+        | ArrayCreateDotNet, a -> sprintf "Array.zeroCreate (System.Convert.ToInt32 %s)" (t a)
+        | (ArrayCreateCudaLocal | ArrayCreateCudaShared), _ -> raise_codegen_error "Cuda arrays are not allowed on the F# side."
+        | ReferenceCreate, a -> sprintf "ref %s" (t a)
+        | ArrayLength, a -> sprintf "%s.LongLength" (t a)
+        | GetArray, TyList [a;b] -> sprintf "%s.[int32 %s]" (t a) (t b)
+        | GetReference, a -> sprintf " !%s" (t x)
+        | SetArray, TyList [a;b;c] -> sprintf "%s.[%s] <- %s" (t a) (t b) (t c)
+        | SetReference, TyList [a;b] -> sprintf "%s := %s" (t a) (t b)
+        | Dynamize, a -> t a
+        | FailWith, a -> sprintf "failwith %s" (t a)
 
-        | ShiftLeft,TyList [x;y] -> sprintf "(%s << %s)" (t x) (t y)
-        | ShiftRight,TyList[x;y] -> sprintf "(%s >> %s)" (t x) (t y)
+        // Primitive operations on expressions.
+        | Add,TyList [a;b] -> sprintf "%s + %s" (t a) (t b)
+        | Sub,TyList [a;b] -> sprintf "%s - %s" (t a) (t b)
+        | Mult,TyList [a;b] -> sprintf "%s * %s" (t a) (t b)
+        | Div,TyList [a;b] -> sprintf "%s / %s" (t a) (t b)
+        | Mod,TyList [a;b] -> sprintf "%s %% %s" (t a) (t b)
+        | Pow,TyList [a;b] -> sprintf "pow(%s, %s)" (t a) (t b)
+        | LT,TyList [a;b] -> sprintf "%s < %s" (t a) (t b)
+        | LTE,TyList [a;b] -> sprintf "%s <= %s" (t a) (t b)
+        | EQ,TyList [a;b] -> sprintf "%s == %s" (t a) (t b)
+        | NEQ,TyList [a;b] -> sprintf "%s != %s" (t a) (t b)
+        | GT,TyList [a;b] -> sprintf "%s > %s" (t a) (t b)
+        | GTE,TyList [a;b] -> sprintf "%s >= %s" (t a) (t b)
+        | BitwiseAnd,TyList [a;b] -> sprintf "%s & %s" (t a) (t b)
+        | BitwiseOr,TyList [a;b] -> sprintf "%s | %s" (t a) (t b)
+        | BitwiseXor,TyList [a;b] -> sprintf "%s ^ %s" (t a) (t b)
+
+        | ShiftLeft,TyList [x;y] -> sprintf "%s << %s" (t x) (t y)
+        | ShiftRight,TyList[x;y] -> sprintf "%s >> %s" (t x) (t y)
                     
-        | Neg,a -> sprintf "(-%s)" (t a)
-        | Log,x -> sprintf "log(%s)" (t x)
-        | Exp,x -> sprintf "exp(%s)" (t x)
-        | Tanh,x -> sprintf "tanh(%s)" (t x)
-        | Sqrt,x -> sprintf "sqrt(%s)" (t x)
-        | NanIs,x -> sprintf "isnan(%s)" (t x)
+        | Neg,a -> sprintf " -%s" (t a)
+        | Log,x -> sprintf "log%s" (t x)
+        | Exp,x -> sprintf "exp%s" (t x)
+        | Tanh,x -> sprintf "tanh%s" (t x)
+        | Sqrt,x -> sprintf "sqrt%s" (t x)
+        | NanIs,x -> sprintf "isnan%s" (t x)
+        | a, b -> raise_codegen_error <| sprintf "Compiler error: Case %A with data %s not implemented." a (Parsing.show_typed_data b)
 
     | TyIf(cond,on_succ,on_fail) ->
         d.Text(sprintf "if %s then" (typed_data d cond))
