@@ -211,16 +211,17 @@ let spiral_parse (settings: CompilerSettings) module_ =
             char_quoted
             |]
 
-    let concat_keyword x =
+    let inline concat_keyword f x =
         let strb = StringBuilder()
         let pattern = 
             List.map (fun (str: string, pat) -> 
                 strb.Append(str).Append(':') |> ignore
-                pat
+                f (str, pat)
                 ) x
         strb.ToString(), pattern
 
-    let concat_keyword' x = let a,b = concat_keyword x in a, List.toArray b
+    let concat_keyword'' x = concat_keyword (function _, Some pat -> pat | str, None -> PatVar str) x
+    let concat_keyword' x = let a,b = concat_keyword snd x in a, List.toArray b
 
     let (^<|) a b = a b // High precedence, right associative <| operator
 
@@ -248,7 +249,7 @@ let spiral_parse (settings: CompilerSettings) module_ =
 
         let pat_keyword_unary = keyword_unary |>> fun keyword -> PatKeyword(keyword,[])
         let pat_keyword pattern = 
-            many1 (tuple2 keyword pattern) |>> (concat_keyword >> PatKeyword)
+            many1 (tuple2 keyword (opt pattern)) |>> (concat_keyword'' >> PatKeyword)
             <|> pattern
 
         let pat_record_item pattern =

@@ -893,7 +893,12 @@ let rec partial_eval (d: LangEnv) x =
             | TyT(TermCastedFunctionT(dom,range)) | TyV(T(_,TermCastedFunctionT(dom,range))) -> TyT range
             | x -> raise_type_error d <| sprintf "Not a term casted function.\nGot: %s" (show_typed_data x)            
         | StringSlice, [|a;b;c|] ->
-            ()
+            match ev3 d a b c with
+            | TyLit(LitString a), TyLit(LitInt64 b), TyLit(LitInt64 c) ->
+                if int b >= 0 && int c < a.Length then a.[(int b)..(int c)] |> LitString |> TyLit
+                else raise_type_error d <| sprintf "String slice out of bounds. length: %i from: %i to: %i" a.Length b c
+            | TyType(PrimT StringT) & a, TyType(PrimT Int64T) & b, TyType(PrimT Int64T) & c -> push_triop d StringSlice (a,b,c) (PrimT StringT)
+            | a,b,c -> raise_type_error d <| sprintf "Expected a string and two int64s as arguments to StringSlice.\nstring: %s\nfrom: %s\nto: %s" (show_typed_data a) (show_typed_data b) (show_typed_data c)
         | StringLength, [|a|] ->
             match ev d a with
             | TyLit (LitString str) -> TyLit (LitInt64 (int64 str.Length))
