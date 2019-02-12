@@ -168,6 +168,7 @@ let rec op (d: CodegenEnv) x =
         | Tanh,x -> sprintf "tanh(%s)" (t x)
         | Sqrt,x -> sprintf "sqrt(%s)" (t x)
         | NanIs,x -> sprintf "isnan(%s)" (t x)
+
     | TyIf(cond,on_succ,on_fail) ->
         d.Text(sprintf "if %s then" (typed_data d cond))
         binds d.Indent on_succ
