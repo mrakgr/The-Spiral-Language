@@ -7,15 +7,27 @@ open System.Collections.Generic
 open System.Text
 open System
 
-// Globals
-let type_dict = Dictionary(HashIdentity.Structural)
+type Tagger<'a when 'a : equality>() = 
+    let dict = Dictionary<'a, int>()
+    let queue = Queue<'a * int>()
+
+    member t.Tag ty =
+        match dict.TryGetValue ty with
+        | false, _ -> let x = dict.Count in queue.Enqueue(ty,x); dict.Add(ty,x); x
+        | true, x -> x
+
+    member t.QueuedCount = queue.Count
+    member t.Dequeue = queue.Dequeue()
 
 type CodegenEnv =
     {
     stmts : StringBuilder
     indent : int
+    join_points : Tagger<JoinPointKey * JoinPointType>
+    types : Tagger<ConsedTy>
     }
 
+    member x.NewDefinition = {x with stmts = StringBuilder()}
     member x.Statement s =
         x.stmts
             .Append(' ', x.indent)
@@ -27,7 +39,7 @@ type CodegenEnv =
         
 let raise_codegen_error x = raise (CodegenError x)
 
-let rec type_ d x = 
+let rec type_ (d: CodegenEnv) x = 
     let inline f x = type_ d x
     match x with
     | ListT _  | KeywordT _ | FunctionT _ | RecFunctionT _ | ObjectT _ | MapT _ as x -> 
@@ -55,11 +67,7 @@ let rec type_ d x =
         | StringT -> "string"
         | CharT -> "char"
     | MacroT x -> x
-    | ty ->
-        match type_dict.TryGetValue ty with
-        | false, _ -> let x = type_dict.Count in type_dict.Add(ty,x); x
-        | true, x -> x
-        |> sprintf "SpiralType%i"
+    | ty -> d.types.Tag ty |> sprintf "SpiralType%i"
 
 let tytag d (T(tag,ty)) = sprintf "(var_%i : %s)" (uint32 tag) (type_ d ty)
 let tylit d = function
@@ -106,12 +114,6 @@ let tylit d = function
 
 let error_raw_type x = raise_codegen_error <| sprintf "An attempt to manifest a raw type has been attempted.\nGot: %s" (Parsing.show_typed_data x)
 
-let free_vars (d: CodegenEnv) x = 
-    typed_data_free_vars x
-    |> Array.map (tytag d)
-    |> String.concat ", "
-    |> sprintf "(%s)"
-
 let rec typed_data (d: CodegenEnv) x = 
     match typed_data_term_vars x with
     | true, _ -> error_raw_type x
@@ -119,7 +121,10 @@ let rec typed_data (d: CodegenEnv) x =
         Array.map (function
             | TyV t -> tytag d t
             | TyLit x -> tylit d x
-            | TyBox(a,b) -> sprintf "(to_%s %s)" (type_ d b) (typed_data d a)
+            | TyBox(a,ty) -> 
+                let tag' = d.types.Tag ty
+                let tag = d.types.Tag (type_get a)
+                sprintf "SpiralType%i_%i %s" tag' tag (typed_data d a)
             | _ -> failwith "impossible"
             ) vars
         |> function
@@ -127,29 +132,19 @@ let rec typed_data (d: CodegenEnv) x =
             | x -> String.concat ", " x |> sprintf "(%s)"
 
 let join_point (d: CodegenEnv) (key, typ, args) =
-    let args = Array.map (tytag d) args |> String.concat ", "
+    let tag = d.join_points.Tag (key,typ)
+    let inline args sep = Array.map (tytag d) args |> String.concat sep
     match typ with
-    | JoinPointMethod -> // TODO: Make sure to tag the join points later.
-        let tag =
-            match PartEval.join_point_dict_method.[key] with // TODO: Do not forget to tag these.
-            | JoinPointDone(tag,_,_) -> tag
-            | _ -> failwith "impossible"
-        sprintf "method_%i(%s)" tag args
-    | JoinPointClosure ->
-        let tag =
-            match PartEval.join_point_dict_closure.[key] with // TODO: Do not forget to tag these.
-            | JoinPointDone(tag,_,_,_) -> tag
-            | _ -> failwith "impossible"
-        sprintf "closure_method_%i(%s)" tag args
-    | JoinPointCuda -> 
-        ""
-    | JoinPointType -> failwith "impossible" 
+    | JoinPointMethod -> sprintf "method_%i(%s)" tag (args ", ")
+    | JoinPointClosure -> sprintf "closure_method_%i(%s)" tag (args ", ")
+    | JoinPointCuda -> sprintf "\"cuda_method_%i\", ([|%s|] : System.Object)" tag (args "; ")
+    | JoinPointType -> failwith "impossible"
    
 let rec op (d: CodegenEnv) x =
     match x with
-    | TyOp(op, x) ->
+    | TyOp(op, x') ->
         let inline t x = typed_data d x
-        match op, x with
+        match op, x' with
         | (MacroExtern | Macro), TyLit(LitString a) -> a
         | UnsafeUpcastTo, TyList [a;b] -> sprintf "%s :> %s" (t b) (type_ d (type_get a))
         | UnsafeDowncastTo, TyList [a;b] -> sprintf "%s :?> %s" (t b) (type_ d (type_get a))
@@ -170,14 +165,23 @@ let rec op (d: CodegenEnv) x =
             let l = List.map (t) l |> String.concat "; "
             sprintf "String.concat %s [|%s|]" (t sep) l 
         | Apply, TyList [a;b] -> sprintf "%s%s" (t a) (t b)
-        | (LayoutToStack | LayoutToHeap | LayoutToHeapMutable), TyList [a;b] -> sprintf "to_%s %s" (type_ d (type_get a)) (free_vars d b)
+        | LayoutToStack, TyList [a;b] ->
+            let tag = d.types.Tag (type_get a)
+            let b = typed_data_free_vars b |> Array.map (tytag d) |> String.concat ", " |> sprintf "(%s)"
+            sprintf "SpiralType%i %s" tag b
+        | (LayoutToHeap | LayoutToHeapMutable), TyList [a;b] ->
+            let b = 
+                typed_data_free_vars b
+                |> Array.mapi (fun i x -> sprintf "subvar_%i = %s" i (tytag d x))
+                |> String.concat "; "
+            sprintf "{%s}" b
         | SizeOf, a -> sprintf "sizeof<%s>" (type_ d (type_get a))
         | ArrayCreateDotNet, a -> sprintf "Array.zeroCreate (System.Convert.ToInt32 %s)" (t a)
         | (ArrayCreateCudaLocal | ArrayCreateCudaShared), _ -> raise_codegen_error "Cuda arrays are not allowed on the F# side."
         | ReferenceCreate, a -> sprintf "ref %s" (t a)
         | ArrayLength, a -> sprintf "%s.LongLength" (t a)
         | GetArray, TyList [a;b] -> sprintf "%s.[int32 %s]" (t a) (t b)
-        | GetReference, a -> sprintf " !%s" (t x)
+        | GetReference, a -> sprintf " !%s" (t a)
         | SetArray, TyList [a;b;c] -> sprintf "%s.[%s] <- %s" (t a) (t b) (t c)
         | SetReference, TyList [a;b] -> sprintf "%s := %s" (t a) (t b)
         | Dynamize, a -> t a
@@ -224,7 +228,7 @@ let rec op (d: CodegenEnv) x =
     | TyCase(var,cases) ->
         d.Text(sprintf "match %s with" (typed_data d var))
         Array.iter (fun (bind,case) ->
-            d.Text(sprintf "| %s ->" (typed_data d bind))
+            d.Text(sprintf "| SpiralType%i %s ->" (d.types.Tag (type_get bind)) (typed_data d bind))
             binds d.Indent case
             ) cases
         null
@@ -249,10 +253,105 @@ and binds (d: CodegenEnv) x =
         | TyLet(data,_,x) ->
             let vars = typed_data_free_vars data |> Array.map (tytag d) |> String.concat ", "
             match x with
-            | TyOp _ -> d.Statement(sprintf "let %s = %s" vars (op d x))
+            | TyJoinPoint _ | TyLayoutToNone _ | TyOp _ -> d.Statement(sprintf "let %s = %s" vars (op d x))
             | _ -> d.Statement(sprintf "let %s =" vars); op d.Indent x |> ignore
         | TyLocalReturnOp(_,x) -> match op d x with | null -> () | x -> d.Statement(x)
         | TyLocalReturnData(x,_) -> d.Statement(typed_data d x)
         ) x
 
+
+let codegen x =
+    let def_main = {
+        stmts = StringBuilder()
+        indent = 0
+        join_points = Tagger()
+        types = Tagger()
+        }
+    let def_types = def_main.NewDefinition
+    let def_join_points = def_main.NewDefinition
+
+    binds def_main x
+
+    let inline print_types is_first =
+        let d = def_types
+        let ty, tag' = d.types.Dequeue
+        if is_first then d.Statement(sprintf "type SpiralType%i =" tag')
+        else d.Statement(sprintf "and SpiralType%i =" tag')
+        let d = d.Indent
+        let rec f = function
+            | LayoutT(C(lay,ty,_)) ->
+                match lay with
+                | LayoutStack ->
+                    d.Text "struct"
+                    let vars = consed_typed_free_vars ty
+                    Array.iter (fun (t,ty) -> d.Text(sprintf "val subvar_%i : %s" t (type_ d ty))) vars
+                    d.Text "end"
+                    let a = Array.map (fun (t,_) -> sprintf "svar_%i" t) vars |> String.concat ", "
+                    let b = Array.map (fun (t,_) -> sprintf "subvar_%i=svar_%i" t t) vars |> String.concat "; "
+                    d.Text(sprintf "new %s = {%s}" a b)
+                | LayoutHeap ->
+                    d.Text "{"
+                    let vars = consed_typed_free_vars ty
+                    Array.iter (fun (t,ty) -> d.Text(sprintf "subvar_%i : %s" t (type_ d ty))) vars
+                    d.Text "}"
+                | LayoutHeapMutable ->
+                    d.Text "{"
+                    let vars = consed_typed_free_vars ty
+                    Array.iter (fun (t,ty) -> d.Text(sprintf "mutable subvar_%i : %s" t (type_ d ty))) vars
+                    d.Text "}"
+            | RecUnionT(n,key) -> 
+                d.Text(sprintf "// %s" n)
+                match join_point_dict_type.[key] with
+                | JoinPointDone(_,l) -> f l
+                | JoinPointInEvaluation _ -> raise_codegen_error "Compiler error: Unfinished type join point."
+            | UnionT(C l) ->
+                Set.iter (fun x ->
+                    let tag = d.types.Tag x
+                    match type_ d x with
+                    | "" -> d.Text(sprintf "| SpiralType%i_%i" tag' tag)
+                    | l -> d.Text(sprintf "| SpiralType%i_%i of %s" tag' tag l)
+                    ) l
+            | x -> raise_codegen_error "Compiler error: Only layout types and union types need to have their definitions printed.\nGot: %s" (Parsing.show_ty x)
+        f ty
+            
+    let inline print_join_points is_first =
+        let d = def_join_points
+        let (key,ty), tag' = d.join_points.Dequeue
+        match ty with
+        | JoinPointMethod ->
+            match join_point_dict_method.[key] with
+            | JoinPointDone(args,(body,ret_ty)) ->
+                let args = Array.map (tytag d) args |> String.concat ", "
+                let ret_ty = type_ d ret_ty
+                if is_first then d.Statement(sprintf "let rec method_%i %s : %s =" tag' args ret_ty)
+                else d.Statement(sprintf "and method_%i %s : %s =" tag' args ret_ty)
+                let d = d.Indent
+                binds d body
+            | JoinPointInEvaluation _ -> raise_codegen_error "Compiler error: Cannot print an unfinished join point."
+        | JoinPointClosure ->
+            match join_point_dict_closure.[key] with
+            | JoinPointDone(args,args2,(body,ret_ty)) ->
+                let args = Array.map (tytag d) args |> String.concat ", "
+                let args2 = Array.map (tytag d) args2 |> String.concat ", "
+                let ret_ty = type_ d ret_ty
+                if is_first then d.Statement(sprintf "let rec closure_method_%i %s %s : %s =" tag' args args2 ret_ty)
+                else d.Statement(sprintf "and closure_method_%i %s %s : %s =" tag' args args2 ret_ty)
+                let d = d.Indent
+                binds d body
+            | JoinPointInEvaluation _ -> raise_codegen_error "Compiler error: Cannot print an unfinished join point."
+        | JoinPointCuda -> raise_codegen_error "Compiler error: Not supported yet."
+        | JoinPointType -> raise_codegen_error "Compiler error: Not supposed to exist on the term level."
+
+    let rec loop is_first_method is_first_type =
+        let d = def_main
+        if d.join_points.QueuedCount > 0 then print_join_points is_first_method; loop false is_first_type
+        elif d.types.QueuedCount > 0 then print_types is_first_type; loop is_first_method false
+        else ()
+
+    loop true true
+
+    def_types.stmts
+        .Append(def_join_points.stmts)
+        .Append(def_main.stmts)
+        .ToString()
 

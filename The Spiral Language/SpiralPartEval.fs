@@ -147,7 +147,7 @@ let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))
 let rect_unbox d key = 
     match join_point_dict_type.[key] with
     | JoinPointInEvaluation _ -> raise_type_error d "Types that are being constructed cannot be used for boxing."
-    | JoinPointDone(_,_,ty) -> ty
+    | JoinPointDone(_,ty) -> ty
 
 let case_type_union = function
     | UnionT l -> Set.toList l.node
@@ -679,13 +679,12 @@ let rec partial_eval (d: LangEnv) x =
                     let dict = join_point_dict_closure
                     match dict.TryGetValue join_point_key with
                     | false, _ ->
-                        let tag: Tag = dict.Count
                         dict.[join_point_key] <- JoinPointInEvaluation ()
                         let x = ev_seq {d with cse=ref Map.empty} body
-                        dict.[join_point_key] <- JoinPointDone (tag,call_args,call_args2,x)
+                        dict.[join_point_key] <- JoinPointDone (call_args,call_args2,x)
                         x
                     | true, JoinPointInEvaluation _ -> ev_seq {d with cse=ref Map.empty; rbeh=AnnotationReturn} body
-                    | true, JoinPointDone (_,_,_,x) -> x
+                    | true, JoinPointDone (_,_,x) -> x
 
                 let ret_ty = TermCastedFunctionT(domain_ty,range_ty)
                 push_typedop d (TyJoinPoint(join_point_key,JoinPointClosure,call_args)) ret_ty
@@ -707,13 +706,12 @@ let rec partial_eval (d: LangEnv) x =
                 let dict = join_point_dict_method
                 match dict.TryGetValue join_point_key with
                 | false, _ ->
-                    let tag: Tag = dict.Count
                     dict.[join_point_key] <- JoinPointInEvaluation ()
                     let x = ev_seq {d with cse=ref Map.empty} body
-                    dict.[join_point_key] <- JoinPointDone (tag,call_args,x)
+                    dict.[join_point_key] <- JoinPointDone (call_args,x)
                     x
                 | true, JoinPointInEvaluation _ -> ev_seq {d with cse=ref Map.empty; rbeh=AnnotationReturn} body
-                | true, JoinPointDone (_,_,x) -> x
+                | true, JoinPointDone (_,x) -> x
 
             push_typedop d (TyJoinPoint(join_point_key,JoinPointMethod,call_args)) ret_ty
 
@@ -725,23 +723,19 @@ let rec partial_eval (d: LangEnv) x =
                 |> (raise_type_error d << sprintf "At the Cuda join point the following arguments have disallowed non-blittable types: %s")
             let join_point_key = body, consed_env
            
-            let tag, (_, ret_ty) = 
+            let _, ret_ty = 
                 let dict = join_point_dict_cuda
                 match dict.TryGetValue join_point_key with
                 | false, _ ->
-                    let tag: Tag = dict.Count
-                    dict.[join_point_key] <- JoinPointInEvaluation tag
+                    dict.[join_point_key] <- JoinPointInEvaluation()
                     let x = ev_seq {d with cse=ref Map.empty} body
-                    dict.[join_point_key] <- JoinPointDone (tag,call_args,x)
-                    tag,x
-                | true, JoinPointInEvaluation tag -> tag, ev_seq {d with cse=ref Map.empty; rbeh=AnnotationReturn} body
-                | true, JoinPointDone (tag,_,x) -> tag, x
+                    dict.[join_point_key] <- JoinPointDone (call_args,x)
+                    x
+                | true, JoinPointInEvaluation _ -> ev_seq {d with cse=ref Map.empty; rbeh=AnnotationReturn} body
+                | true, JoinPointDone (_,x) -> x
 
-            let ret = push_typedop d (TyJoinPoint(join_point_key,JoinPointCuda,call_args)) ret_ty
-            match ret with
-            | TyList [] -> 
-                let call_args = Array.map (fun x -> TyV x) call_args |> Array.toList
-                TyList (TyLit(LitString <| sprintf "method_%i" tag) :: call_args)
+            match ret_ty with
+            | ListT(C []) -> push_typedop d (TyJoinPoint(join_point_key,JoinPointCuda,call_args)) ([PrimT StringT; ArrayT(ArtDotNetHeap,MacroT "System.Object")] |> hash_cons_table.Add |> ListT)
             | _ -> raise_type_error d "The return type of Cuda join point must be unit tuple.\nGot: %s" (show_ty ret_ty)
 
         | JoinPointEntryType,[|body;name|] -> 
@@ -756,16 +750,15 @@ let rec partial_eval (d: LangEnv) x =
             let dict = join_point_dict_type
             match dict.TryGetValue join_point_key with
             | false, _ ->
-                let tag: Tag = dict.Count
                 dict.[join_point_key] <- JoinPointInEvaluation false
                 let x = ev_seq {d with cse=ref Map.empty} body |> snd
                 match dict.[join_point_key] with
-                | JoinPointInEvaluation false -> dict.[join_point_key] <- JoinPointDone (tag,false,x); x
-                | JoinPointInEvaluation true -> dict.[join_point_key] <- JoinPointDone (tag,true,x); y()
+                | JoinPointInEvaluation false -> dict.[join_point_key] <- JoinPointDone (false,x); x
+                | JoinPointInEvaluation true -> dict.[join_point_key] <- JoinPointDone (true,x); y()
                 | _ -> failwith "impossible"
             | true, JoinPointInEvaluation _ -> dict.[join_point_key] <- JoinPointInEvaluation true; y()
-            | true, JoinPointDone (_,false,x) -> x
-            | true, JoinPointDone (_,true,_) -> y()
+            | true, JoinPointDone (false,x) -> x
+            | true, JoinPointDone (true,_) -> y()
             |> TyT
         | LayoutToStack,[|a|] -> layout_to_some LayoutStack d (ev d a)
         | LayoutToHeap,[|a|] -> layout_to_some LayoutHeap d (ev d a)
