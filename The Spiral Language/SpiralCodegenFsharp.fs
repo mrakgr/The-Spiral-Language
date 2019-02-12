@@ -250,13 +250,19 @@ let rec op (d: CodegenEnv) x =
 
 and binds (d: CodegenEnv) x =
     Array.iter (function
-        | TyLet(data,_,x) ->
-            let vars = typed_data_free_vars data |> Array.map (tytag d) |> String.concat ", "
-            match x with
-            | TyJoinPoint _ | TyLayoutToNone _ | TyOp _ -> d.Statement(sprintf "let %s = %s" vars (op d x))
-            | _ -> d.Statement(sprintf "let %s =" vars); op d.Indent x |> ignore
-        | TyLocalReturnOp(_,x) -> match op d x with | null -> () | x -> d.Statement(x)
-        | TyLocalReturnData(x,_) -> d.Statement(typed_data d x)
+        | TyLet(data,trace,x) ->
+            try 
+                let vars = typed_data_free_vars data |> Array.map (tytag d) |> String.concat ", "
+                match x with
+                | TyJoinPoint _ | TyLayoutToNone _ | TyOp _ -> d.Statement(sprintf "let %s = %s" vars (op d x))
+                | _ -> d.Statement(sprintf "let %s =" vars); op d.Indent x |> ignore
+            with :? CodegenError as x -> raise (CodegenErrorWithPos(trace,x.Data0))
+        | TyLocalReturnOp(trace,x) -> 
+            try match op d x with | null -> () | x -> d.Statement(x)
+            with :? CodegenError as x -> raise (CodegenErrorWithPos(trace,x.Data0))
+        | TyLocalReturnData(x,trace) -> 
+            try d.Statement(typed_data d x)
+            with :? CodegenError as x -> raise (CodegenErrorWithPos(trace,x.Data0))
         ) x
 
 

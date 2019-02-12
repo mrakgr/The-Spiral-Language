@@ -533,7 +533,7 @@ type Timings = {
 exception PrepassError of string
 exception PrepassErrorWithPos of PosKey * string
 exception CodegenError of string
-exception CodegenErrorWithPos of PosKey * string
+exception CodegenErrorWithPos of Trace * string
 exception TypeError of Trace * string
 exception TypeRaised of ConsedTy
 
