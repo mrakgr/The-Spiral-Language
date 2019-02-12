@@ -892,6 +892,8 @@ let rec partial_eval (d: LangEnv) x =
             match ev d a with
             | TyT(TermCastedFunctionT(dom,range)) | TyV(T(_,TermCastedFunctionT(dom,range))) -> TyT range
             | x -> raise_type_error d <| sprintf "Not a term casted function.\nGot: %s" (show_typed_data x)            
+        | StringSlice, [|a;b;c|] ->
+            ()
         | StringLength, [|a|] ->
             match ev d a with
             | TyLit (LitString str) -> TyLit (LitInt64 (int64 str.Length))
