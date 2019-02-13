@@ -2071,23 +2071,20 @@ let tests =
 
 open System.IO
 open System
+open Spiral.Compile
 
-let run_test_and_store_it_to_stream cfg stream (name,aux,desc,body as m) =
-    let main_module = module_ m
-    sprintf "%s - %s:\n%s\n\n" name desc (body.Trim()) |> stream
-    match spiral_peval cfg main_module with
-    | Succ (x,_) | Fail x -> stream x
+let run_test_and_store_it_to_stream cfg stream (m: SpiralModule) =
+    sprintf "%s - %s:\n%s\n\n" m.name m.description (m.code.Trim()) |> stream
+    let a,b = compile cfg m
+    stream b
+    a
 
-let output_test_to_string cfg test = 
-    match spiral_peval cfg (module_ test) with
-    | Succ (x,_) | Fail x -> x
-
-let output_test_to_temp cfg path test = 
-    match spiral_peval cfg (module_ test) with
-    | Succ (x,_) | Fail x -> 
-        if Directory.Exists <| Path.GetDirectoryName path then File.WriteAllText(path,x)
-        else failwithf "File %s not found.\nNote to new users: In order to prevent files being made in the middle of nowhere this check was inserted.\nWhat you should do is create a new F# project and point the compiler to a file in that directory instead." path
-        x
+let output_test_to_temp cfg path test =
+    if Directory.Exists <| Path.GetDirectoryName path then 
+        let a,b = compile cfg test
+        File.WriteAllText(path,b)
+        b
+    else failwithf "File %s not found.\nNote to new users: In order to prevent files being made in the middle of nowhere this check was inserted.\nWhat you should do is create a new F# project and point the compiler to a file in that directory instead." path
 
 let make_test_path_from_name name =
     let dir = Environment.CurrentDirectory |> DirectoryInfo
@@ -2095,54 +2092,16 @@ let make_test_path_from_name name =
     Directory.CreateDirectory path |> ignore
     Path.Combine(path,name+".txt")
 
-let cache_test cfg ({parsing_time=a; prepass_time=b; peval_time=c; codegen_time=d} as time) (name,aux,desc,body as m) = 
-    let write x = File.WriteAllText(make_test_path_from_name name, x)
-    match spiral_peval cfg (module_ m) with
-    | Fail x -> write x; time
-    | Succ(x, {parsing_time=a'; prepass_time=b'; peval_time=c'; codegen_time=d'}) -> write x; {parsing_time=a+a'; prepass_time=b+b'; peval_time=c+c'; codegen_time=d+d'}
+let cache_test cfg (time: Timings) (m: SpiralModule) = 
+    let time', b = compile cfg m
+    File.WriteAllText(make_test_path_from_name m.name, b)
+    time.Add time'
     
 let rewrite_test_cache tests cfg x = 
-    let time = {parsing_time=TimeSpan.Zero; prepass_time=TimeSpan.Zero; peval_time=TimeSpan.Zero; codegen_time=TimeSpan.Zero}
-    match x with
-    | None -> Array.fold (cache_test cfg) time tests
-    | Some (min, max) -> Array.fold (cache_test cfg) time tests.[min..max-1]
-    |> fun ({parsing_time=a; prepass_time=b; peval_time=c; codegen_time=d} as time) -> 
-        printfn "The timings are: %A" time
-        printfn "The time it took to run all the tests is: %A" (a+b+c+d)
-
-//let speed1 = // Note: Trying to load this example in the IDE after it has compiled will crush it. Better output it to txt.
-//    "speed1",[parsing;console],"Does the Parsing module work?",
-//    """
-//open Parsing
-//open Console
-//
-//inl p = 
-//    tuple (Tuple.repeat 240 <| (pint64 .>> spaces))
-//    |>> (Tuple.foldl (+) 0 >> writeline)
-//
-//run_with_unit_ret (readall()) p
-//    """
-//
-//let speed2 = // ~0.42s~ 1s
-//    "speed2",[],"Does a simple loop have superlinear scaling?",
-//    """
-//inl rec loop = function
-//    | i when i > 0 -> loop (i-1)
-//    | 0 -> ()
-//loop 50000
-//    """
-//
-//let speed3 = // Minus the startup, this takes 0.05s to peval versus 1.5s for the previous version of the compiler.
-//    let code =
-//        let var i = sprintf "var_%i" i
-//        let bnd (a, b) = sprintf "inl %s = %s" a b
-//        let vars = [|0..900|] |> Array.map var // Any more than this and it will stack overflow.
-//        let bnds = 
-//            vars |> Array.pairwise |> Array.map (fun (a,b) -> b,a) 
-//            |> Array.map bnd |> String.concat "\n"
-//        let adds = String.concat " + " vars
-//        String.concat "\n" [|bnd (var 0, "dyn 0");bnds;adds|]
-
-//    "speed3",([] : Module list),"Does the linear sequence of bindings get compiled in linear time?",code
-    
-
+    let time = 
+        let time: Timings = {parse=TimeSpan.Zero; prepass=TimeSpan.Zero; peval=TimeSpan.Zero; codegen=TimeSpan.Zero}
+        match x with
+        | None -> Array.fold (cache_test cfg) time tests
+        | Some (min, max) -> Array.fold (cache_test cfg) time tests.[min..max-1]
+    printfn "The timings are: %A" time
+    printfn "The time it took to run all the tests is: %A" (time.parse+time.prepass+time.peval+time.codegen)

@@ -6,18 +6,39 @@ open Spiral
 open Spiral.Codegen
 open FParsec.CharParsers
 open System.Diagnostics
-open Spiral
+open System
 
-type ModulePrepassEnv = {
-    settings : SpiralCompilerSettings
-    seq : ResizeArray<TypedBind>
-    context : ResizeArray<TypedData>
-    map : Map<string, int>
-    time_parse : Stopwatch
-    time_prepass : Stopwatch
-    time_peval : Stopwatch
-    time_codegen : Stopwatch
+type Timings =
+    {
+    parse : TimeSpan
+    prepass : TimeSpan
+    peval : TimeSpan
+    codegen : TimeSpan
     }
+
+    member x.Add(y) =
+        {
+        parse = x.parse + y.parse
+        prepass = x.prepass + y.prepass
+        peval = x.peval + y.peval
+        codegen = x.codegen + y.codegen
+        }
+
+type Watches = 
+    {
+    parse : Stopwatch
+    prepass : Stopwatch
+    peval : Stopwatch
+    codegen : Stopwatch
+    }
+
+    member x.Elapsed: Timings =
+        {
+        parse = x.parse.Elapsed
+        prepass = x.prepass.Elapsed
+        peval = x.peval.Elapsed
+        codegen = x.codegen.Elapsed
+        }
 
 let inline timeit (d: Stopwatch) f x =
     d.Start()
@@ -25,18 +46,26 @@ let inline timeit (d: Stopwatch) f x =
     d.Stop()
     x
 
+type ModulePrepassEnv = {
+    settings : SpiralCompilerSettings
+    seq : ResizeArray<TypedBind>
+    context : ResizeArray<TypedData>
+    map : Map<string, int>
+    timing : Watches
+    }
+
 let raise_compile_error x = raise (CompileError x)
 let module_let (env: ModulePrepassEnv) (m: SpiralModule) = 
     let count = env.context.Count
     let context = env.context.ToArray()
     let expr, size = 
-        match timeit env.time_parse (Parsing.parse env.settings) m with
+        match timeit env.timing.parse (Parsing.parse env.settings) m with
         | Success(x,_,_) -> x
         | Failure(x,_,_) -> raise_compile_error x
-        |> timeit env.time_prepass (Prepass.prepass {prepass_context=context; prepass_map=env.map; prepass_map_length=count})
+        |> timeit env.timing.prepass (Prepass.prepass {prepass_context=context; prepass_map=env.map; prepass_map_length=count})
     let module_ = 
         let d = {rbeh=AnnotationDive; seq=env.seq; env_global=context; env_stack_ptr=0; env_stack=Array.zeroCreate size; trace=[]; cse=ref Map.empty}
-        timeit env.time_peval (PartEval.partial_eval d) expr
+        timeit env.timing.peval (PartEval.partial_eval d) expr
     env.context.Add module_
     {env with map=env.map.Add (m.name, count)}
 
@@ -54,58 +83,67 @@ let module_open (env: ModulePrepassEnv) x =
         | x -> raise_compile_error <| sprintf "Expected as module in `module_open`.\nGot: %s" (Parsing.show_typed_data x)
     | _ -> raise_compile_error <| sprintf "In module_open, `open` did not find a module named %s in the environment." x
 
-let compile (settings: SpiralCompilerSettings) (m: SpiralModule) =
-    let ms =
-        let dict = Dictionary(HashIdentity.Reference)
-        let ms = ResizeArray()
-        let rec loop m =
-            memoize dict (fun (m: SpiralModule) ->
-                List.iter loop m.prerequisites
-                ms.Add m
-                ) m
-        loop m
-        ms.ToArray()
+let print_trace (settings: SpiralCompilerSettings) (trace: Types.Trace) message = 
+    let filter_set = HashSet(settings.filter_list,HashIdentity.Structural)
+    let code_dict = Dictionary(HashIdentity.Reference)
+    let error = System.Text.StringBuilder(1024)
+    List.toArray trace
+    |> Array.filter (fun ({name=x},_,_) -> filter_set.Contains x = false)
+    |> fun x -> x.[0..(min x.Length settings.trace_length - 1 |> max 0)]
+    |> Array.rev
+    |> Array.iter (fun ({name=name; code=code},line,col) ->
+        let er_code =
+            code
+            |> memoize code_dict (fun file_code -> file_code.Split [|'\n'|])
+            |> fun x -> x.[int line - 1]
 
+        error
+            .AppendLine(sprintf "Error trace on line: %i, column: %i in module %s." line col name)
+            .AppendLine(er_code)
+            .Append(' ', int (col - 1L))
+            .AppendLine "^"
+        |> ignore
+        )
+    error.AppendLine message |> ignore
+    error.ToString()
+
+let compile (settings: SpiralCompilerSettings) (m: SpiralModule) =
     let env = {
         settings = settings
         context = ResizeArray()
         seq = ResizeArray()
         map = Map.empty
-        time_parse = Stopwatch()
-        time_prepass = Stopwatch()
-        time_peval = Stopwatch()
-        time_codegen = Stopwatch()
+        timing =
+            {
+            parse = Stopwatch()
+            prepass = Stopwatch()
+            peval = Stopwatch()
+            codegen = Stopwatch()
+            }
         }
 
-    let env = module_let env CoreLib.core
-    let env = module_open env "Core"
-    let env = Array.fold module_let env ms
-    env.seq.ToArray() |> timeit env.time_codegen Fsharp.codegen
+    try
+        let ms =
+            let dict = Dictionary(HashIdentity.Reference)
+            let ms = ResizeArray()
+            let rec loop m =
+                memoize dict (fun (m: SpiralModule) ->
+                    List.iter loop m.prerequisites
+                    ms.Add m
+                    ) m
+            loop m
+            ms.ToArray()
 
-    //let watch = System.Diagnostics.Stopwatch.StartNew()
-
-    //parse_modules module_main Fail <| fun body -> 
-    //    printfn "Running %s." module_name
-    //    let parse_time = watch.Elapsed
-    //    printfn "Time for parse: %A" parse_time
-    //    watch.Restart()
-    //    let d = data_empty()
-    //    let input = body |> expr_prepass
-    //    let prepass_time = watch.Elapsed
-    //    printfn "Time for prepass: %A" prepass_time
-    //    watch.Restart()
-    //    try
-    //        let x = !d.seq (expr_peval d input)
-    //        let peval_time = watch.Elapsed
-    //        printfn "Time for peval was: %A" peval_time
-    //        watch.Restart()
-    //        let x = spiral_fsharp_codegen x
-    //        let codegen_time = watch.Elapsed
-    //        printfn "Time for codegen was: %A" codegen_time
-    //        Succ (x, {parsing_time=parse_time; prepass_time=prepass_time;peval_time=peval_time; codegen_time=codegen_time})
-    //    with
-    //    | :? TypeError as e -> 
-    //        let trace, message = e.Data0, e.Data1
-    //        Fail <| print_type_error trace message
-
+        let env = module_let env CoreLib.core
+        let env = module_open env "Core"
+        let env = Array.fold module_let env ms
+        env.timing.Elapsed, env.seq.ToArray() |> timeit env.timing.codegen Fsharp.codegen
+    with
+        | :? PrepassError as x -> env.timing.Elapsed, x.Data0
+        | :? PrepassErrorWithPos as x -> env.timing.Elapsed, print_trace {settings with filter_list=[]} [x.Data0] x.Data1
+        | :? TypeError as x -> env.timing.Elapsed, print_trace settings x.Data0 x.Data1
+        | :? TypeRaised as x -> env.timing.Elapsed, sprintf "Uncaught type raise.\nGot: %s" (Parsing.show_ty x.Data0)
+        | :? CodegenError as x -> env.timing.Elapsed, x.Data0
+        | :? CodegenErrorWithPos as x -> env.timing.Elapsed, print_trace {settings with filter_list=[]} x.Data0 x.Data1
+        | :? CompileError as x -> env.timing.Elapsed, x.Data0
 

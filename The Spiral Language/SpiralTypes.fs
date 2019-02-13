@@ -498,13 +498,6 @@ let cfg_default = {
 
 let cfg_testing = {cfg_default with cuda_includes=[]; trace_length=20}
 
-type Timings = {
-    parsing_time: TimeSpan    
-    prepass_time: TimeSpan
-    peval_time: TimeSpan
-    codegen_time: TimeSpan
-    }
-
 exception PrepassError of string
 exception PrepassErrorWithPos of PosKey * string
 exception TypeError of Trace * string
