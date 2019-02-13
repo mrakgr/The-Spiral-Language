@@ -6,6 +6,7 @@ open Spiral
 open Spiral.Codegen
 open FParsec.CharParsers
 open System.Diagnostics
+open Spiral
 
 type ModulePrepassEnv = {
     settings : SpiralCompilerSettings
@@ -50,8 +51,8 @@ let module_open (env: ModulePrepassEnv) x =
                     Map.add (Spiral.Parsing.keyword_to_string k) count s, count+1
                     ) (env.map, env.context.Count) x
             {env with map=map}
-        | _ -> raise_compile_error <| sprintf "In module_prepass, `open` did not receive a module."
-    | _ -> raise_compile_error <| sprintf "In module_prepass, `open` did not find a module named %s in the environment." x
+        | x -> raise_compile_error <| sprintf "Expected as module in `module_open`.\nGot: %s" (Parsing.show_typed_data x)
+    | _ -> raise_compile_error <| sprintf "In module_open, `open` did not find a module named %s in the environment." x
 
 let compile (settings: SpiralCompilerSettings) (m: SpiralModule) =
     let ms =
