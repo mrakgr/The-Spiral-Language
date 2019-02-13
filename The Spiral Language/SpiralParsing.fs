@@ -30,8 +30,7 @@ let string_to_keyword (x: string) =
         tag_keyword
 let keyword_to_string x = keyword_to_string_dict.[x] // Should never fail.
 
-// #Parsing
-let spiral_parse (settings: CompilerSettings) module_ = 
+let parse (settings: SpiralCompilerSettings) module_ = 
     let col (s: CharStream<_>) = s.Column
     let line (s: CharStream<_>) = s.Line
 

@@ -1,9 +1,13 @@
 ﻿module Spiral.CoreLib
 
-let module_ = Types.module_
-let core =
-    (
-    "Core",[],"The Core module.",
+open Spiral.Types
+
+let core: SpiralModule =
+    {
+    name = "Core"
+    prerequisites = []
+    description = "The Core module."
+    code =
     """
 /// Lifts a literal to the type level.
 inl type_lit_lift x = !TypeLitCreate(x)
@@ -345,4 +349,5 @@ lit_min lit_max var module_add module_remove obj nan_is stackify case_foldl_map 
 module_intersect module_iter unconst type_raise
 }
 |> module_map (const stack)
-    """) |> module_
+    """
+    }

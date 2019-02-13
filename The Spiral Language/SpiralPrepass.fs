@@ -10,33 +10,7 @@ open Types
 let mutable tag_prepass = 0
 let private tag () = tag_prepass <- tag_prepass + 1; tag_prepass
 
-let rec module_prepass (env: ModulePrepassEnv) expr = 
-    let error x = raise (PrepassError x)
-        
-    match expr with
-    | ModPreLet(x,a,b) ->
-        let count = env.modpre_context.Count
-        let context = env.modpre_context.ToArray()
-        let expr, size = prepass {prepass_context=context; prepass_map=env.modpre_map; prepass_map_length=count} a
-        let module_ = PartEval.partial_eval {rbeh=AnnotationDive; seq=env.modpre_seq; env_global=context; env_stack_ptr=0; env_stack=Array.zeroCreate size; trace=[]; cse=ref Map.empty} expr
-        env.modpre_context.Add module_
-        module_prepass {env with modpre_map=env.modpre_map.Add (x, count)} b
-    | ModPreOpen(x,b) ->
-        match env.modpre_map.TryFind x with
-        | Some x ->
-            match env.modpre_context.[x] with
-            | TyMap x ->
-                let map, _ =
-                    Map.fold (fun (s, count) k v ->
-                        env.modpre_context.Add v
-                        Map.add (keyword_to_string k) count s, count+1
-                        ) (env.modpre_map, env.modpre_context.Count) x
-                module_prepass {env with modpre_map=map} b
-            | _ -> error <| sprintf "In module_prepass, `open` did not receive a module."
-        | _ -> error <| sprintf "In module_prepass, `open` did not find a module named %s in the environment." x
-                        
-            
-and prepass (env: PrepassEnv) expr = 
+let rec prepass (env: PrepassEnv) expr = 
     let prepass_memo_dict = Dictionary(HashIdentity.Reference)
     let prepass_subrenaming_memo_dict = Dictionary(HashIdentity.Reference)
     let error x = raise (PrepassError x)

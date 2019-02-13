@@ -7,7 +7,6 @@ open HashConsing
 open System.Runtime.CompilerServices
 
 // Globals
-let mutable private module_tag = 0
 let private hash_cons_table = HashConsing.HashConsTable()
 
 // Language types
@@ -34,28 +33,14 @@ type TaggedDictionary<'a,'b when 'a: equality>(capacity: int, tag: int) =
             | :? TaggedDictionary<'a,'b> as y -> compare tag y.Tag
             | _ -> raise <| ArgumentException "Invalid comparison for TaggedDictionary."
 
-type SpiralModule(name: string, prerequisites : SpiralModule list, description : string, code : string) = 
-    let tag = module_tag
-    do module_tag <- module_tag + 1
-    member __.Tag = tag
-    member __.Name = name
-    member __.Prerequisites = prerequisites
-    member __.Description = description
-    member __.Code = code
+type SpiralModule =
+    {
+    name: string
+    prerequisites : SpiralModule list 
+    description : string 
+    code : string
+    }
 
-    override x.Equals(y) =
-        match y with
-        | :? SpiralModule as y -> x.Tag = y.Tag
-        | _ -> false
-
-    override x.GetHashCode() = x.Tag
-    interface IComparable with
-        member x.CompareTo(y) = 
-            match y with
-            | :? SpiralModule as y -> compare x.Tag y.Tag
-            | _ -> failwith "Invalid comparison for SpiralModule."
-
-let spiral_module name prerequisites description code = SpiralModule(name,prerequisites,description,code)
 
 type PosKey = SpiralModule * int64 * int64
 
@@ -254,10 +239,6 @@ and Pattern =
     | PatPos of Pos<Pattern>
     | PatTypeTermFunction of Pattern * Pattern
 
-and ModulePrepassExpr =
-    | ModPreLet of string * RawExpr * ModulePrepassExpr
-    | ModPreOpen of string * ModulePrepassExpr
-
 and VarString = string
 and KeywordString = string
 
@@ -426,12 +407,6 @@ type RecursiveBehavior =
     | AnnotationDive
     | AnnotationReturn
 
-type ModulePrepassEnv = {
-    modpre_seq : ResizeArray<TypedBind>
-    modpre_context : ResizeArray<TypedData>
-    modpre_map : Map<string, int>
-    }
-
 type PrepassEnv = {
     prepass_context : EnvTerm
     prepass_map : Map<string, int>
@@ -486,7 +461,7 @@ let inline memoize (memo_dict: Dictionary<_,_>) f k =
 
 let cuda_kernels_name = "cuda_kernels"
 
-type CompilerSettings = {
+type SpiralCompilerSettings = {
     cub_path : string
     cuda_path : string
     cuda_nvcc_options : string
@@ -532,10 +507,11 @@ type Timings = {
 
 exception PrepassError of string
 exception PrepassErrorWithPos of PosKey * string
-exception CodegenError of string
-exception CodegenErrorWithPos of Trace * string
 exception TypeError of Trace * string
 exception TypeRaised of ConsedTy
+exception CodegenError of string
+exception CodegenErrorWithPos of Trace * string
+exception CompileError of string
 
 let v x = RawV x
 let lit x = RawLit x
