@@ -1029,9 +1029,25 @@ let rec partial_eval (d: LangEnv) x =
             match ev d a with
             | TyLit _ -> TyLit (LitBool true)
             | _ -> TyLit (LitBool false)
-        | BoxIs,[|a|] -> 
+        | LayoutIs,[|a|] -> 
+            match ev d a |> type_get with
+            | LayoutT _ -> TyLit (LitBool true)
+            | _ -> TyLit (LitBool false)
+        | UnionIs,[|a|] -> 
+            match ev d a |> type_get with
+            | UnionT _ -> TyLit (LitBool true)
+            | _ -> TyLit (LitBool false)
+        | RecUnionIs,[|a|] -> 
+            match ev d a |> type_get with
+            | RecUnionT _ -> TyLit (LitBool true)
+            | _ -> TyLit (LitBool false)
+        | RuntimeUnionIs,[|a|] -> 
             match ev d a with
-            | TyBox _ -> TyLit (LitBool true)
+            | TyT (UnionT _) | TyV(T(_,UnionT _)) -> TyLit (LitBool true)
+            | _ -> TyLit (LitBool false)
+        | RuntimeRecUnionIs,[|a|] -> 
+            match ev d a with
+            | TyT (RecUnionT _) | TyV(T(_,RecUnionT _)) -> TyLit (LitBool true)
             | _ -> TyLit (LitBool false)
         | ArrayCreateDotNet,[|a;b|] ->
             match ev_annot d a, ev d b with

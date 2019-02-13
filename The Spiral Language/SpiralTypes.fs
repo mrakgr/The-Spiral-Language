@@ -189,7 +189,11 @@ type Op =
     | ErrorPatMiss
     | Dynamize
     | LitIs
-    | BoxIs
+    | LayoutIs
+    | UnionIs
+    | RecUnionIs
+    | RuntimeUnionIs
+    | RuntimeRecUnionIs
 
     // UnOps
     | Neg
