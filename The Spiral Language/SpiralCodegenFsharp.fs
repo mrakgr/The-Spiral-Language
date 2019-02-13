@@ -360,4 +360,3 @@ let codegen x =
         .Append(def_join_points.stmts)
         .Append(def_main.stmts)
         .ToString()
-
