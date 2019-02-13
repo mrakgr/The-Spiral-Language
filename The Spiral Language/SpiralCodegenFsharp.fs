@@ -7,7 +7,7 @@ open System.Collections.Generic
 open System.Text
 open System
 
-type Tagger<'a when 'a : equality>() = 
+type Tagger<'a when 'a : equality>() =
     let dict = Dictionary<'a, int>()
     let queue = Queue<'a * int>()
 
@@ -36,7 +36,7 @@ type CodegenEnv =
 
     member x.Text s = x.Statement s
     member x.Indent = {x with indent=x.indent+4}
-        
+
 let raise_codegen_error x = raise (CodegenError x)
 
 let rec type_ (d: CodegenEnv) x = 

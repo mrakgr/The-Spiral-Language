@@ -1,7 +1,8 @@
 ﻿module Spiral.Tests
 open Types
 open Lib
-open Main
+open PartEval
+open Codegen.Fsharp
 
 let test1 = 
     "test1",[],"Does it run?",
