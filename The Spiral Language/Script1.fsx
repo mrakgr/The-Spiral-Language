@@ -35,6 +35,6 @@ let out = @"C:\Users\Marko\Source\Repos\The Spiral Language\The Spiral Language\
 match runParserOnFile (spaces >>. many (parser .>> spaces) .>> eof) () file System.Text.Encoding.Unicode with
 | Success(x,_,_) -> 
     System.IO.File.WriteAllText(out,String.concat "\n" x)
-//| Failure(x,_,_) ->
-//    ()
+| Failure(x,_,_) ->
+    ()
 

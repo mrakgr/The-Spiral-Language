@@ -576,7 +576,7 @@ let parse (settings: SpiralCompilerSettings) module_ =
         let expressions s = type_union ^<| keyword_message ^<| tuple ^<| operators ^<| application ^<| immediate_keyword_unary ^<| expressions expr <| s
         let statements s = statements expr <| s
         annotations ^<| indentations statements expressions <| s
-    runParserOnString (spaces >>. expr .>> eof) {ops=inbuilt_operators; semicolon_line= -1L} module_.Name module_.Code
+    runParserOnString (spaces >>. expr .>> eof) {ops=inbuilt_operators; semicolon_line= -1L} module_.name module_.code
 
 let show_primt = function
     | UInt8T -> "uint8"
