@@ -6,13 +6,14 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>91c9628b-20cf-46aa-ad73-56456a532819</ProjectGuid>
-    <OutputType>Library</OutputType>
+    <OutputType>Exe</OutputType>
     <RootNamespace>The_Spiral_Language</RootNamespace>
     <AssemblyName>The_Spiral_Language</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.4.1.0</TargetFSharpCoreVersion>
     <Name>The Spiral Language</Name>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -57,6 +58,7 @@
     <None Include="Spiral.fs%27" />
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
+    <Content Include="packages.config" />
     <Compile Include="SpiralHashConsing.fs" />
     <Compile Include="SpiralTypes.fs" />
     <Compile Include="SpiralParsing.fs" />
@@ -67,7 +69,6 @@
     <Compile Include="SpiralCompile.fs" />
     <Compile Include="SpiralLib.fs" />
     <Compile Include="SpiralTests.fs" />
-    <Content Include="packages.config" />
     <None Include="Script1.fsx" />
     <Content Include="TextFile1.txt" />
     <Content Include="TextFile1%27.txt" />
@@ -78,6 +79,9 @@
     </Reference>
     <Reference Include="FParsecCS">
       <HintPath>..\packages\FParsec.1.0.3\lib\net40-client\FParsecCS.dll</HintPath>
+    </Reference>
+    <Reference Include="FSharp.Core">
+      <HintPath>..\packages\FSharp.Core.4.6.2\lib\net45\FSharp.Core.dll</HintPath>
     </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
