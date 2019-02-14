@@ -21,6 +21,8 @@ let private tag () = part_eval_tag <- part_eval_tag+1; part_eval_tag
 
 let keyword_env = Parsing.string_to_keyword "env:" // For join points keys. It is assumed that they will never be printed.
 let keyword_apply = Parsing.string_to_keyword "apply:"
+let keyword_key_value = Parsing.string_to_keyword "key:value:"
+let keyword_key_state_value = Parsing.string_to_keyword "key:state:value:"
 let typed_data_to_consed' call_data =
     let dict = Dictionary(HashIdentity.Reference)
     let call_args = ResizeArray(64)
@@ -988,18 +990,14 @@ let rec partial_eval (d: LangEnv) x =
         | RecordMap,[|a;b|] ->
             match ev2 d a b with
             | a, TyMap l ->
-                Map.map (fun k x ->
-                    let inline ap a b = apply d (a, b)
-                    ap (ap a (TyKeyword(k,[||]))) x
-                    ) l
+                Map.map (fun k x -> apply d (a, TyKeyword(keyword_key_value,[|TyKeyword(k,[||]); x|]))) l
                 |> TyMap
             | _, b -> raise_type_error d <| sprintf "Expected a record.\nGot: %s" (show_typed_data b)
         | RecordFilter,[|a;b|] ->
             match ev2 d a b with
             | a, TyMap l ->
                 Map.filter (fun k x ->
-                    let inline ap a b = apply d (a, b)
-                    match ap (ap a (TyKeyword(k,[||]))) x with
+                    match apply d (a, TyKeyword(keyword_key_value,[|TyKeyword(k,[||]); x|])) with
                     | TyLit(LitBool x) -> x
                     | x -> raise_type_error d <| sprintf "Expected a bool literal in ModuleFilter.\nGot: %s" (show_typed_data x)
                     ) l
@@ -1007,19 +1005,11 @@ let rec partial_eval (d: LangEnv) x =
             | _, b -> raise_type_error d <| sprintf "Expected a record.\nGot: %s" (show_typed_data b)
         | RecordFoldL,[|a;b;c|] ->
             match ev3 d a b c with
-            | a, s, TyMap l ->
-                Map.fold (fun s k x ->
-                    let inline ap a b = apply d (a, b)
-                    ap (ap (ap a (TyKeyword(k,[||]))) s) x // TODO: Change this so it uses keywords arguments.
-                    ) s l
+            | a, s, TyMap l -> Map.fold (fun s k x -> apply d (a, TyKeyword(keyword_key_state_value,[|TyKeyword(k,[||]); s; x|]))) s l
             | _, _, r -> raise_type_error d <| sprintf "Expected a record.\nGot: %s" (show_typed_data r)
         | RecordFoldR,[|a;b;c|] ->
             match ev3 d a b c with
-            | a, TyMap l, s ->
-                Map.foldBack (fun k x s ->
-                    let inline ap a b = apply d (a, b)
-                    ap (ap (ap a (TyKeyword(k,[||]))) x) s
-                    ) l s
+            | a, s, TyMap l -> Map.foldBack (fun k x s -> apply d (a, TyKeyword(keyword_key_state_value,[|TyKeyword(k,[||]); s; x|]))) l s
             | _, r, _ -> raise_type_error d <| sprintf "Expected a record.\nGot: %s" (show_typed_data r)
         | RecordLength,[|a|] ->
             match ev d a with
