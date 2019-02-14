@@ -98,6 +98,17 @@ Loops.for {static_from=0; near_to=40; body=inl {i} ->
     """
     }
 
+let test1: SpiralModule =
+    {
+    name="test1"
+    prerequisites=[]
+    description="Does it run?"
+    code=
+    """
+[a=1].a
+    """
+    }
+
 //rewrite_test_cache tests cfg None //(Some(0,40))
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test1
 |> printfn "%s"

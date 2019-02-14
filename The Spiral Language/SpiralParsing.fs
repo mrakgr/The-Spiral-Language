@@ -35,7 +35,11 @@ let parse (settings: SpiralCompilerSettings) module_ =
     let line (s: CharStream<_>) = s.Line
 
     let pos' s = module_, line s, col s
-    let exprpos expr (s: CharStream<_>) = (expr |>> expr_pos (pos' s)) s
+    let exprpos expr (s: CharStream<_>) = 
+        let pos = pos' s
+        (expr |>> function
+            | RawFunction _ | RawObjectCreate _  as x -> x // Pos nodes can get in the way of optimizations.
+            | x -> expr_pos pos x) s
     let patpos expr (s: CharStream<_>) = (expr |>> pat_pos (pos' s)) s
 
     let rec spaces_template s = spaces >>. optional (followedByString "//" >>. skipRestOfLine true >>. spaces_template) <| s
@@ -48,7 +52,7 @@ let parse (settings: SpiralCompilerSettings) module_ =
         f ' ' || f ',' || f ';' || f '\t' || f '\n' || f '\"' || f '(' || f '{' || f '['
     let is_separator_char_ext c = 
         let inline f x = c = x
-        is_separator_char c || f '=' || f ':'
+        is_separator_char c || f '=' || f ':' || f CharStream.EndOfStreamChar
     let is_closing_parenth_char c = 
         let inline f x = c = x
         f ')' || f '}' || f ']'
@@ -80,14 +84,12 @@ let parse (settings: SpiralCompilerSettings) module_ =
         
     let keywordString x = attempt (skipString x >>. satisfy (is_identifier_char >> not)) >>. spaces
     let operatorString x = attempt (skipString x >>. satisfy (is_operator_char >> not)) >>. spaces
-    let prefixOperatorChar x = next2CharsSatisfy (fun a b -> a = x && is_operator_char b = false)
-    let operatorChar x = prefixOperatorChar x >>. spaces
+    let operatorChar x = skipChar x >>. spaces
 
-    let keyword_unary s = (prefixOperatorChar '.' >>.var_name_core' .>> spaces) s
+    let keyword_unary = attempt (skipChar '.' >>. var_name_core' .>> spaces)
 
     let when_ = keywordString "when"
     let as_ = keywordString "as"
-    let prefix_negate = prefixOperatorChar '-'
     let comma = skipChar ',' >>. spaces
     let union = keywordString "\/"
     let pp = operatorChar ':'
@@ -96,8 +98,7 @@ let parse (settings: SpiralCompilerSettings) module_ =
     let semicolon (s: CharStream<_>) = 
         if s.Line <> s.UserState.semicolon_line then semicolon' s
         else Reply(ReplyStatus.Error, messageError "cannot parse ; on this line") 
-    let eq = operatorChar '=' 
-    let eq' = skipChar '=' >>. spaces
+    let eq = operatorChar '='
     let bar = operatorChar '|' 
     let amphersand = operatorChar '&'
     let lam = operatorString "->"
@@ -112,13 +113,10 @@ let parse (settings: SpiralCompilerSettings) module_ =
     let with_ = keywordString "with"
     let without = keywordString "without"
     let cons = operatorString "::"
-    let inject = prefixOperatorChar '$'
+    let inject = skipChar '$'
     let wildcard = operatorChar '_'
 
     let pbool = ((keywordString "false" >>% LitBool false) <|> (keywordString "true" >>% LitBool true)) .>> spaces
-
-    let unary_minus_check_precondition s = previousCharSatisfiesNot (is_separator_char_ext >> not) s
-    let unary_minus_check s = (unary_minus_check_precondition >>. prefix_negate) s
 
     let pnumber : Parser<_,_> =
         let default_number_format =  
@@ -131,8 +129,7 @@ let parse (settings: SpiralCompilerSettings) module_ =
 
         let parser (s: CharStream<_>) = 
             let parse_num_lit number_format s = numberLiteral number_format "number" s
-            /// This is necessary in order to differentiate binary from unary operations.
-            if s.Peek() = '-' && isDigit (s.Peek(1)) then (unary_minus_check_precondition >>. parse_num_lit number_format_with_minus) s
+            if is_separator_char_ext(s.Peek(-1)) && s.Peek() = '-' && isDigit (s.Peek(1)) then parse_num_lit number_format_with_minus s
             else parse_num_lit default_number_format s
 
         let inline safe_parse f on_succ er_msg x = 
@@ -178,7 +175,7 @@ let parse (settings: SpiralCompilerSettings) module_ =
     let char_quoted_read check (s: CharStream<_>) =
         let x = s.Peek()
         if check x then
-            s.Seek(1L)
+            s.Skip()
             match x with
             | '\\' -> 
                 match s.Read() with
@@ -252,8 +249,8 @@ let parse (settings: SpiralCompilerSettings) module_ =
             <|> pattern
 
         let pat_record_item pattern =
-            let inline templ var k = pipe2 var (opt (eq' >>. pattern)) (fun a -> function Some b -> k(a,b) | None -> k(a,PatVar a))
-            templ var_op_name PatRecordMembersKeyword <|> templ (skipChar '$' >>. var_name) PatRecordMembersInjectVar
+            let inline templ var k = pipe2 var (opt (eq >>. pattern)) (fun a -> function Some b -> k(a,b) | None -> k(a,PatVar a))
+            templ var_op_name PatRecordMembersKeyword <|> templ (inject >>. var_name) PatRecordMembersInjectVar
         
         let pat_record pattern = curlies (many (pat_record_item pattern)) |>> PatRecordMembers
         let pat_closure pattern = sepBy1 pattern arr |>> List.reduceBack (fun a b -> PatTypeTermFunction(a,b))
@@ -271,21 +268,24 @@ let parse (settings: SpiralCompilerSettings) module_ =
         r
 
     let reset_semicolon_level expr = attempt (set_semicolon_level_to_line -1L expr)
-    let inline statement_expr expr = eq' >>. expr
+    let inline statement_expr expr = eq >>. expr
 
     let compile_pattern pat body =
+        let inline f expr_pos = function
+            | PatE -> RawFunction(expr_pos body,"")
+            | PatVar name -> RawFunction(expr_pos body, name)
+            | _ -> RawFunction(expr_pos <| RawPattern(pat_main, [|pat, body|]), pat_main)
         match pat with
-        | PatE -> RawFunction(body,"")
-        | PatVar name -> RawFunction(body, name)
-        | _ -> RawFunction(RawPattern(pat_main, [|pat, body|]), pat_main)
+        | PatPos x -> f (expr_pos x.Pos) x.Expression
+        | x -> f id x
     let compile_patterns pats body = List.foldBack compile_pattern pats body
 
     let statements expr =
         let inline inb_templ inb k =
-            inb >>. pipe2 (pattern expr) (statement_expr expr) (fun pat body ->
-                compile_pattern pat body
+            inb >>. pipe2 (pattern expr) (statement_expr expr) (fun pat body on_succ ->
+                compile_pattern pat on_succ
                 |> function
-                    | RawFunction(body,arg) -> k arg body
+                    | RawFunction(on_succ,arg) -> k arg body on_succ
                     | _ -> failwith "impossible"
                 )
 
@@ -293,19 +293,25 @@ let parse (settings: SpiralCompilerSettings) module_ =
         let inm = inb_templ inm (fun arg body on_succ -> ap (ap (v ">>=") body) (func arg on_succ))
 
         let inl = 
-            inl >>. pipe2 (many1 (pattern expr)) (statement_expr expr) (fun pats body ->
-                compile_patterns pats body
+            inl >>. pipe2 (many1 (pattern expr)) (statement_expr expr) (fun pats body on_succ ->
+                compile_patterns pats on_succ
                 |> function
-                    | RawFunction(body,arg) -> l arg body
+                    | RawFunction(on_succ,arg) -> l arg body on_succ
                     | _ -> failwith "impossible"
                 )
 
         let inl_rec = 
             inl_rec >>. tuple3 var_name (many (pattern expr)) (statement_expr expr) >>= fun (name, pats, body) _ -> 
-                compile_patterns pats body
-                |> function
-                    | RawFunction(body,arg) -> Reply(l name (RawRecFunction(body,arg,name)))
-                    | _ -> Reply(ReplyStatus.Error, expected "function after rec")
+                match body with
+                | RawFunction(a,b) ->
+                    Reply(fun on_succ ->
+                        compile_patterns pats on_succ
+                        |> function
+                            | RawFunction(on_succ,arg) -> l name (RawRecFunction(body,arg,name)) on_succ
+                            | _ -> failwith "impossible"
+                        )
+                | _ ->
+                    Reply(ReplyStatus.Error, expected "function after a recursive statement")
 
         let open_ = open_ >>. var_name .>>. many keyword_unary |>> fun (x, x') on_succ -> RawOpen(x,List.toArray x',on_succ)
         choice [|inl_rec; inm; inb; attempt inl; open_|]
@@ -338,18 +344,21 @@ let parse (settings: SpiralCompilerSettings) module_ =
     let rec expressions expr s = 
         let case_object =
             let f (pat, body) s = 
-                let compile_pattern name pat body =
-                    match compile_pattern pat body with
-                    | RawFunction(x,_) -> Reply((name, x))
-                    | _ -> failwith "impossible"
                 match pat with
-                | PatVar name -> compile_pattern name (PatKeyword(name, [])) body
-                | PatKeyword(name,_) -> compile_pattern name pat body
-                | _ -> Reply(Error,expected "keyword pattern")
+                | PatPos pos ->
+                    let compile_pattern name pat body =
+                        match compile_pattern pat body with
+                        | RawFunction(x,_) -> Reply((name, expr_pos pos.Pos x))
+                        | _ -> failwith "impossible"
+                    match pos.Expression with
+                    | PatVar name -> compile_pattern name (PatKeyword(name, [])) body
+                    | PatKeyword(name,_) -> compile_pattern name pat body
+                    | _ -> Reply(Error,expected "keyword pattern")
+                | _ -> Reply(FatalError, expected "positional node")
             let receiver s =
                 let i = col s
                 let line = line s
-                (tuple2 (pattern_template expr) (eq' >>. expr_indent i (<) (set_semicolon_level_to_line line expr)) >>= f) s
+                (tuple2 (pattern expr) (eq >>. expr_indent i (<) (set_semicolon_level_to_line line expr)) >>= f) s
             squares (many receiver) |>> (List.toArray >> Types.objc)
         let case_inl_pat_list_expr = pipe2 (inl >>. many1 (pattern expr)) (expression_expr expr) compile_patterns
 
@@ -393,7 +402,7 @@ let parse (settings: SpiralCompilerSettings) module_ =
             let parse_binding_with s =
                 let i = col s
                 let line = s.Line
-                let inline body s = (eq' >>. expr_indent i (<) (set_semicolon_level_to_line line expr)) s
+                let inline body s = (eq >>. expr_indent i (<) (set_semicolon_level_to_line line expr)) s
                 let a s =
                     pipe2 var_op_name (opt body)
                         (fun a -> function
@@ -422,7 +431,12 @@ let parse (settings: SpiralCompilerSettings) module_ =
                 
             curlies (attempt record_with <|> record_create)
 
-        let case_negate = unary_minus_check >>. expressions expr |>> ap (v "negate")
+        let case_negate (s: CharStream<_>) = 
+            if is_separator_char_ext(s.Peek(-1)) && s.Peek() = '-' && is_operator_char (s.Peek(1)) = false then
+                s.Skip()
+                (expressions expr |>> ap (v "negate")) s
+            else
+                Reply(Error, expected "-")
         let case_join_point = keywordString "join" >>. expr |>> join_point_entry_method
         let case_type = keywordString "type" >>. expr |>> unop TypeGet
         let case_type_catch = keywordString "type_catch" >>. expr |>> unop TypeCatch
@@ -620,21 +634,29 @@ let show_layout_type = function
     | LayoutHeap -> "layout_heap"
     | LayoutHeapMutable -> "layout_heap_mutable"
 
+let inline show_keyword show (keyword,l: _[]) =
+    if l.Length > 0 then
+        let a = (keyword_to_string keyword).Split([|':'|], StringSplitOptions.RemoveEmptyEntries)
+        Array.map2 (fun a l -> String.concat "" [|a;": ";show l|]) a l
+        |> String.concat " "
+    else
+        keyword_to_string keyword
+
+let inline show_map show v = 
+    let body = 
+        Map.toArray v
+        |> Array.map (fun (k,v) -> sprintf "%s=%s" (keyword_to_string k) (show v))
+        |> String.concat "; "
+
+    sprintf "{%s}" body
+
+let inline show_list show l = sprintf "(%s)" (List.map show l |> String.concat ", ")
+
 let rec show_ty = function
     | PrimT x -> show_primt x
-    | KeywordT(C(keyword,l)) -> 
-        let a = (keyword_to_string keyword).Split([|':'|], StringSplitOptions.RemoveEmptyEntries)
-        Array.map2 (fun a l -> [|a;": ";show_ty l|]) a l
-        |> Array.concat
-        |> String.concat ""
-    | ListT l -> sprintf "(%s)" (List.map show_ty l.node |> String.concat ", ")
-    | MapT v -> 
-        let body = 
-            Map.toArray v.node
-            |> Array.map (fun (k,v) -> sprintf "%s=%s" (keyword_to_string k) (show_ty v))
-            |> String.concat "; "
-
-        sprintf "{%s}" body
+    | KeywordT(C(keyword,l)) -> show_keyword show_ty (keyword,l)
+    | ListT l -> show_list show_ty l.node
+    | MapT v -> show_map show_ty v.node
     | ObjectT _ -> "<object>"
     | FunctionT _ | RecFunctionT _ -> "<function>"
     | LayoutT (C(layout_type,body,_)) ->
@@ -654,20 +676,9 @@ let rec show_ty = function
 and show_typed_data = function
     | TyT x -> sprintf "type (%s)" (show_ty x)
     | TyV(T(_,t)) -> sprintf "var (%s)" (show_ty t)
-    | TyKeyword(keyword,l) -> 
-        let a = (keyword_to_string keyword).Split([|':'|], StringSplitOptions.RemoveEmptyEntries)
-        Array.map2 (fun a l -> [|a;": ";show_typed_data l|]) a l
-        |> Array.concat
-        |> String.concat ""
-    | TyList l -> 
-        let body = List.map show_typed_data l |> String.concat ", "
-        sprintf "(%s)" body
-    | TyMap a ->
-        let body =
-            Map.toArray a
-            |> Array.map (fun (a,b) -> sprintf "%s=%s" (keyword_to_string a) (show_typed_data b))
-            |> String.concat "; "
-        sprintf "{%s}" body
+    | TyKeyword(keyword,l) -> show_keyword show_typed_data (keyword,l)
+    | TyList l -> show_list show_typed_data l
+    | TyMap a -> show_map show_typed_data a
     | TyObject _ -> "<object>"
     | TyFunction _ | TyRecFunction _ -> "<function>"
     | TyBox(a,b) -> sprintf "(%s : %s)" (show_typed_data a) (show_ty b)
@@ -676,20 +687,9 @@ and show_typed_data = function
 and show_consed_typed_data = function
     | CTyT x -> sprintf "type (%s)" (show_ty x)
     | CTyV(_,t) -> sprintf "var (%s)" (show_ty t)
-    | CTyKeyword(C(keyword,l)) -> 
-        let a = (keyword_to_string keyword).Split([|':'|], StringSplitOptions.RemoveEmptyEntries)
-        Array.map2 (fun a l -> [|a;": ";show_consed_typed_data l|]) a l
-        |> Array.concat
-        |> String.concat ""
-    | CTyList(C l) -> 
-        let body = List.map show_consed_typed_data l |> String.concat ", "
-        sprintf "(%s)" body
-    | CTyMap(C a) ->
-        let body =
-            Map.toArray a
-            |> Array.map (fun (a,b) -> sprintf "%s=%s" (keyword_to_string a) (show_consed_typed_data b))
-            |> String.concat "; "
-        sprintf "{%s}" body
+    | CTyKeyword(C(keyword,l)) -> show_keyword show_consed_typed_data (keyword,l)
+    | CTyList l -> show_list show_consed_typed_data l.node
+    | CTyMap a -> show_map show_consed_typed_data a.node
     | CTyObject _ -> "<object>"
     | CTyFunction _ | CTyRecFunction _ -> "<function>"
     | CTyBox(a,b) -> sprintf "(%s : %s)" (show_consed_typed_data a) (show_ty b)

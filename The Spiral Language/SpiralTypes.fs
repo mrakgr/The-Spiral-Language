@@ -417,11 +417,6 @@ type PrepassEnv = {
     prepass_map_length : int
     }
 
-type PrepassSubrenameEnv = {
-    subren_dict : Dictionary<int, int>
-    subren_size_lexical_scope : int
-    }
-
 type LangEnv = {
     trace : Trace
     // Recursive join points

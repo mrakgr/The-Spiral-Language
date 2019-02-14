@@ -87,23 +87,25 @@ let print_trace (settings: SpiralCompilerSettings) (trace: Types.Trace) message 
     let filter_set = HashSet(settings.filter_list,HashIdentity.Structural)
     let code_dict = Dictionary(HashIdentity.Reference)
     let error = System.Text.StringBuilder(1024)
-    List.toArray trace
-    |> Array.filter (fun ({name=x},_,_) -> filter_set.Contains x = false)
-    |> fun x -> x.[0..(min x.Length settings.trace_length - 1 |> max 0)]
-    |> Array.rev
-    |> Array.iter (fun ({name=name; code=code},line,col) ->
-        let er_code =
-            code
-            |> memoize code_dict (fun file_code -> file_code.Split [|'\n'|])
-            |> fun x -> x.[int line - 1]
+    let x =
+        List.toArray trace
+        |> Array.filter (fun ({name=x},_,_) -> filter_set.Contains x = false)
+    if x.Length > 0 then
+        x.[0..(min x.Length settings.trace_length - 1 |> max 0)]
+        |> Array.rev
+        |> Array.iter (fun ({name=name; code=code},line,col) ->
+            let er_code =
+                code
+                |> memoize code_dict (fun file_code -> file_code.Split [|'\n'|])
+                |> fun x -> x.[int line - 1]
 
-        error
-            .AppendLine(sprintf "Error trace on line: %i, column: %i in module %s." line col name)
-            .AppendLine(er_code)
-            .Append(' ', int (col - 1L))
-            .AppendLine "^"
-        |> ignore
-        )
+            error
+                .AppendLine(sprintf "Error trace on line: %i, column: %i in module %s." line col name)
+                .AppendLine(er_code)
+                .Append(' ', int (col - 1L))
+                .AppendLine "^"
+            |> ignore
+            )
     error.AppendLine message |> ignore
     error.ToString()
 
@@ -135,8 +137,8 @@ let compile (settings: SpiralCompilerSettings) (m: SpiralModule) =
             loop m
             ms.ToArray()
 
-        //let env = module_let env CoreLib.core
-        //let env = module_open env "Core"
+        let env = module_let env CoreLib.core
+        let env = module_open env "Core"
         let env = Array.fold module_let env ms
         env.timing.Elapsed, env.seq.ToArray() |> timeit env.timing.codegen Fsharp.codegen
     with

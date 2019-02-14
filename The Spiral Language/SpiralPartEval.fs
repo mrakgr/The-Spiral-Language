@@ -1149,7 +1149,7 @@ let rec partial_eval (d: LangEnv) x =
             match ev2 d a b with
             | a, TyList b -> TyList(a::b)
             | a, b -> raise_type_error d <| sprintf "Expected a tuple on the right in ListCons.\nGot: %s" (show_typed_data b)
-        | ListCons, l -> Array.map (ev d) l |> Array.toList |> TyList
+        | ListCreate, l -> Array.map (ev d) l |> Array.toList |> TyList
 
         | EqType,[|a;b|] -> type_get (ev d a) = type_get (ev d b) |> LitBool |> TyLit
         | ErrorType,[|a|] -> ev d a |> show_typed_data |> raise_type_error d

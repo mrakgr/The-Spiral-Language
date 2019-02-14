@@ -12,9 +12,8 @@ let test1: SpiralModule =
     code=
     """
 inl a = 5
-a
-//inl b = 10
-//a + b
+inl b = 10
+a + b
     """
     }
 
