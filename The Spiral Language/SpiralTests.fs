@@ -4,13 +4,18 @@ open Lib
 open PartEval
 open Codegen.Fsharp
 
-let test1 = 
-    "test1",[],"Does it run?",
+let test1: SpiralModule =
+    {
+    name="test1"
+    prerequisites=[]
+    description="Does it run?"
+    code=
     """
 inl a = 5
 inl b = 10
 a + b
     """
+    }
 
 let test2 = 
     "test2",[],"Does it run methods?",
