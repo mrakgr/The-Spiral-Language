@@ -11,11 +11,16 @@ open Spiral.Lib
 open Spiral.Tests
 open System.IO
 open System.Diagnostics
+open Spiral.Types
 
 let cfg = Spiral.Types.cfg_testing
 
-let example = 
-    "example",[],"Module description.",
+let example: SpiralModule =
+    {
+    name="example"
+    prerequisites=[]
+    description="Module description."
+    code=
     """
 // https://gist.github.com/SimonDanisch/812e01d7183681ed414932c8f7b533d0#file-unroll-jl
 // This is not quite the same as the above example, but Spiral's staging optimizations
@@ -41,9 +46,14 @@ test ()
 //let (var_1: float) = sin(var_0)
 //sin(var_1)
     """
+    }
 
-let example2 =
-    "example2",[tuple;console],"Module description.",
+let example2: SpiralModule =
+    {
+    name="example2"
+    prerequisites=[tuple; console]
+    description="Module description."
+    code=
     """
 inl rec foo n = 
     assert (lit_is n) "n must be known at compile time."
@@ -54,9 +64,14 @@ inl rec foo n =
 inl stringify = function _: int32 -> "int" | _ : string -> "string"
 foo 10 |> Tuple.map stringify |> Console.writeline
     """
+    }
 
-let example3 =
-    "example3",[],"Module description.",
+let example3: SpiralModule =
+    {
+    name="example3"
+    prerequisites=[]
+    description="Module description."
+    code=
     """
 inl x = .blocke
 // Combination of not `!` and injection `$` patterns.
@@ -65,9 +80,14 @@ match {block=()} with
 | {!($x)} -> "asd"
 | _ -> "qwe"
     """
+    }
 
-let example4 =
-    "parser_test",[loops;parsing],"Parser test for compilation speed.",
+let example4: SpiralModule =
+    {
+    name="parser_test"
+    prerequisites=[loops; parsing]
+    description="Parser test for compilation speed."
+    code=
     """
 Loops.for {static_from=0; near_to=40; body=inl {i} ->
     Parsing.sprintf "%i, %i, %i" 1 2 3 |> ignore
@@ -76,6 +96,7 @@ Loops.for {static_from=0; near_to=40; body=inl {i} ->
     Parsing.sprintf "(%s, %i, %f)" "asd" 11 3.3 |> ignore
     }
     """
+    }
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example

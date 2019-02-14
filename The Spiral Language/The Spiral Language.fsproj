@@ -69,6 +69,8 @@
     <Compile Include="SpiralTests.fs" />
     <Content Include="packages.config" />
     <None Include="Script1.fsx" />
+    <Content Include="TextFile1.txt" />
+    <Content Include="TextFile1%27.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FParsec">

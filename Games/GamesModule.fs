@@ -6,9 +6,12 @@ open Learning
 open Learning.Lib
 open Cuda.Lib
 
-let poker =
-    (
-    "Poker",[array;learning;random;console;option;dictionary;resize_array;object],"The Poker module.",
+let poker: SpiralModule =
+    {
+    name="Poker"
+    prerequisites=[array; learning; random; console; option; dictionary; resize_array; object]
+    description="The Poker module."
+    code=
     """
 inl Suits = .Spades :: () //, .Clubs, .Hearts, .Diamonds
 inl Suit = Tuple.reducel (inl a b -> a \/ b) Suits
@@ -320,22 +323,30 @@ inl {d with max_stack_size num_players} ->
         }
 
     {basic_methods Action State game}
-    """) |> module_
+    """
+    }
 
-let player_random =
-    (
-    "PlayerRandom",[random],"The player which selects actions at random.",
+let player_random: SpiralModule =
+    {
+    name="PlayerRandom"
+    prerequisites=[random]
+    description="The player which selects actions at random."
+    code=
     """
 inl {State Action} ->
     inl rnd = Random(42i32)
     inl action state = {action = Union.length_one_hot Action |> to int32 |> rnd.next |> to int64 |> Union.from_one_hot Action}
 
     {action}
-    """) |> module_
+    """
+    }
 
-let player_tabular =
-    (
-    "PlayerTabular",[dictionary;resize_array;array],"The tabular player.",
+let player_tabular: SpiralModule =
+    {
+    name="PlayerTabular"
+    prerequisites=[dictionary; resize_array; array]
+    description="The tabular player."
+    code=
     """
 inl base {init elem_type=!(Tuple.wrap) elem_type} = // Is capable of taking multiple `{Observation Action}` or just `{Observation}` atoms.
     inl float = float32
@@ -420,11 +431,15 @@ inl template {init elem_type learning_rate discount trace} =
 {
 template
 } |> stackify
-    """) |> module_
+    """
+    }
 
-let poker_players =
-    (
-    "PokerPlayers",[player_random;player_tabular;list],"The poker players module.",
+let poker_players: SpiralModule =
+    {
+    name="PokerPlayers"
+    prerequisites=[player_random; player_tabular; list]
+    description="The poker players module."
+    code=
     """
 inl {basic_methods State Action} ->
     inl player_random {name} =
@@ -499,4 +514,5 @@ inl {basic_methods State Action} ->
     {
     player_random player_rules player_tabular player_ac
     } |> stackify
-    """) |> module_
+    """
+    }

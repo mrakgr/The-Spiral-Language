@@ -1,10 +1,13 @@
 ﻿module Spiral.Lib
 open CoreLib
-open Main
+open Types
 
-let option =
-    (
-    "Option",[],"The Option module.",
+let option: SpiralModule =
+    {
+    name="Option"
+    prerequisites=[]
+    description="The Option module."
+    code=
     """
 inl Option x = .Some, x \/ .None
 
@@ -13,11 +16,15 @@ inl none x = box (Option x) (.None)
 
 {Option some none} 
 |> stackify
-    """) |> module_
+    """
+    }
 
-let lazy_ =
-    (
-    "Lazy",[option],"The Lazy module.",
+let lazy_: SpiralModule =
+    {
+    name="Lazy"
+    prerequisites=[option]
+    description="The Lazy module."
+    code=
     """
 inl lazy f =
     met f x = f x
@@ -36,11 +43,15 @@ inl lazy f =
 
 {lazy} 
 |> stackify
-    """) |> module_
+    """
+    }
 
-let tuple =
-    (
-    "Tuple",[],"Operations on tuples.",
+let tuple: SpiralModule =
+    {
+    name="Tuple"
+    prerequisites=[]
+    description="Operations on tuples."
+    code=
     """
 inl singleton x = x :: ()
 inl head x :: xs = x
@@ -299,11 +310,15 @@ filter zip unzip init repeat append concat singleton range tryFind contains inte
 foldl_map foldl_map2 foldr_map map2 foldl2 foldr2 choose choose2 mapi find map_last map3 length
 } 
 |> stackify
-    """) |> module_
+    """
+    }
 
-let liple =
-    (
-    "Liple",[],"Operations on tuples and singletons.",
+let liple: SpiralModule =
+    {
+    name="Liple"
+    prerequisites=[]
+    description="Operations on tuples and singletons."
+    code=
     """
 inl rec map f a =
     match a with
@@ -397,11 +412,14 @@ inl mapi f = foldl_map (inl s x -> f s x, s + 1) 0 >> fst
 
 {map iter choose map2 choose2 iter2 map3 foldl foldr foldl2 foldr2 foldl_map foldr_map mapi} |> stackify
     """
-    ) |> module_
+    }
 
-let loops =
-    (
-    "Loops",[tuple],"The Loop module.",
+let loops: SpiralModule =
+    {
+    name="Loops"
+    prerequisites=[tuple]
+    description="The Loop module."
+    code=
     """
 inl rec unroll f x = if eq_type x (type f x) then x else unroll f (f x)
 
@@ -481,11 +499,15 @@ inl foru = for_template .UnrolledState
 
 {for for' foru while unroll} 
 |> stackify
-    """) |> module_
+    """
+    }
 
-let extern_ =
-    (
-    "Extern",[tuple;loops],"The Extern module.",
+let extern_: SpiralModule =
+    {
+    name="Extern"
+    prerequisites=[tuple; loops]
+    description="The Extern module."
+    code=
     """
 inl dot = ."."
 inl space = ." "
@@ -608,12 +630,15 @@ inl assert c msg =
 
 {string_concat closure_of closure_of' FS (use) show' show assert } 
 |> stackify
-    """) |> module_
+    """
+    }
 
-
-let array =
-    (
-    "Array",[tuple;loops],"The array module",
+let array: SpiralModule =
+    {
+    name="Array"
+    prerequisites=[tuple; loops]
+    description="The array module"
+    code=
     """
 open Loops
 
@@ -723,11 +748,15 @@ inl shuffle rnd x =
 
 {empty singleton foldl foldr init copy map filter append concat forall exists sort sort_descending iter knuth_shuffle shuffle_inplace shuffle}
 |> stackify
-    """) |> module_
+    """
+    }
 
-let list =
-    (
-    "List",[loops;option;tuple],"The List module.",
+let list: SpiralModule =
+    {
+    name="List"
+    prerequisites=[loops; option; tuple]
+    description="The List module."
+    code=
     """
 inl rec List x = join_type () \/ x, List x
 
@@ -850,11 +879,15 @@ inl concat l & !elem_type !elem_type t = foldr append l (empty t)
 
 {List empty cons init map foldl' foldl foldr singleton head' tail' last' head tail last append concat} 
 |> stackify
-    """) |> module_
+    """
+    }
 
-let parsing =
-    (
-    "Parsing",[extern_],"Parser combinators.",
+let parsing: SpiralModule =
+    {
+    name="Parsing"
+    prerequisites=[extern_]
+    description="Parser combinators."
+    code=
     """
 open Extern
 // Primitives
@@ -1103,12 +1136,15 @@ run run_with_unit_ret succ fail fatal_fail state type_ tuple (>>=) (|>>) (.>>.) 
 ifm (<?>) pdigit pchar pstring pint64 spaces parse_int repeat parse_array sprintf sprintf_template term_cast
 } 
 |> stackify
-    """) |> module_
+    """
+    }
 
-
-let console =
-    (
-    "Console",[extern_],"IO printing functions.",
+let console: SpiralModule =
+    {
+    name="Console"
+    prerequisites=[extern_]
+    description="IO printing functions."
+    code=
     """
 open Extern
 inl console_type = fs [text: "System.Console"]
@@ -1132,11 +1168,15 @@ inl printfn a b = string_format a b |> writeline
 
 {readall readline write writeline printf printfn}
 |> stackify
-    """) |> module_
+    """
+    }
 
-let queue =
-    (
-    "Queue",[tuple;loops;console],"The queue module.",
+let queue: SpiralModule =
+    {
+    name="Queue"
+    prerequisites=[tuple; loops; console]
+    description="The queue module."
+    code=
     """
 open Loops
 open Console
@@ -1182,11 +1222,15 @@ inl create typ n =
 // Closures can be used as classes as their fields cannot be updated immutably.
 {create enqueue dequeue}
 |> stackify
-    """) |> module_
+    """
+    }
 
-let struct' =
-    (
-    "Struct",[],"The Struct module.",
+let struct': SpiralModule =
+    {
+    name="Struct"
+    prerequisites=[]
+    description="The Struct module."
+    code=
     """
 // The functions in this module are intended for iterating over generic types.
 // The modules always iterate over the first argument to them.
@@ -1690,11 +1734,15 @@ module_foldl (inl .(k) m x ->
     {m with $k=x}
     ) blocked unblocked
 |> inl x -> stackify {x with is_empty}
-    """) |> module_
+    """
+    }
 
-let host_tensor =
-    (
-    "Tensor",[tuple;struct';loops;extern_;console;liple],"The Tensor module.",
+let host_tensor: SpiralModule =
+    {
+    name="Tensor"
+    prerequisites=[tuple; struct'; loops; extern_; console; liple]
+    description="The Tensor module."
+    code=
     """
 // A lot of the code in this module is made with purpose of being reused on the Cuda side.
 // Despite its name, it can be overloaded to work inside Cuda kernels by passing a different `array_create` as argument into `create`.
@@ -2075,11 +2123,15 @@ create facade init copy assert_size array_as_tensor array_to_tensor map zip show
 equal split flatten assert_contiguous assert_zip assert_broadcastable assert_dim reshape unzip from_scalar
 rotate assert_unpadded
 } |> stackify
-    """) |> module_
+    """
+    }
 
-let host_tensor_tree_view =
-    (
-    "View",[tuple;host_tensor],"Tree views for the tensor.",
+let host_tensor_tree_view: SpiralModule =
+    {
+    name="View"
+    prerequisites=[tuple; host_tensor]
+    description="Tree views for the tensor."
+    code=
     """
 // Previously this view had range functionality, but it was removed due to it blocking equality (with broadcasting) that is
 // often used used in the ML library. That functionality has been moved to `ViewR`.
@@ -2282,11 +2334,14 @@ inl dim_merge x =
 facade create create_like wrap split span from_basic unzip zip dim_merge
 } |> stackify
     """
-    ) |> module_
+    }
 
-let host_tensor_range_view =
-    (
-    "ViewR",[tuple;host_tensor],"Range views for the tensor.",
+let host_tensor_range_view: SpiralModule =
+    {
+    name="ViewR"
+    prerequisites=[tuple; host_tensor]
+    description="Range views for the tensor."
+    code=
     """
 inl rec facade data =
     inl methods = stack {
@@ -2381,11 +2436,14 @@ inl zip l =
 {facade create create_like wrap unzip zip}
 |> stackify
     """
-    ) |> module_
+    }
 
-let object =
-    (
-    "Object",[],"The Object module.",
+let object: SpiralModule =
+    {
+    name="Object"
+    prerequisites=[]
+    description="The Object module."
+    code=
     """
 {
 data' = {}
@@ -2396,11 +2454,15 @@ module_add = inl s name v -> module_add name (inl s name -> v name (obj s)) s |>
 unwrap = id
 } 
 |> obj
-    """) |> module_
+    """
+    }
 
-let cuda =
-    (
-    "Cuda",[loops;console;array;host_tensor;extern_;object],"The Cuda module.",
+let cuda: SpiralModule =
+    {
+    name="Cuda"
+    prerequisites=[loops; console; array; host_tensor; extern_; object]
+    description="The Cuda module."
+    code=
     """
 inl ret -> 
     open Extern
@@ -2572,11 +2634,15 @@ inl ret ->
         .member_add {run synchronize}
         .data_add {context stream=()}
     |> ret
-    """) |> module_
+    """
+    }
 
-let random =
-    (
-    "Random",[],"The Random module.",
+let random: SpiralModule =
+    {
+    name="Random"
+    prerequisites=[]
+    description="The Random module."
+    code=
     """
 /// Wrapper for the standard .NET Random class.
 stack inl seed ->
@@ -2591,11 +2657,15 @@ stack inl seed ->
     | .next_double -> next_double()
     | .next_bytes -> next_bytes
     |> stack
-    """) |> module_
+    """
+    }
 
-let math = 
-    (
-    "Math",[],"The Math module.",
+let math: SpiralModule =
+    {
+    name="Math"
+    prerequisites=[]
+    description="The Math module."
+    code=
     """
 /// The partially evaluated power function using repeated squaring.
 /// Note that the second argument for the function needs to be an integer.
@@ -2625,11 +2695,15 @@ inl sign x =
     else 0
 
 {pow sign} |> stackify
-    """) |> module_
+    """
+    }
 
-let dictionary =
-    (
-    "Dictionary",[],"The Dictionary module.",
+let dictionary: SpiralModule =
+    {
+    name="Dictionary"
+    prerequisites=[]
+    description="The Dictionary module."
+    code=
     """
 stack inl {d with elem_type} ->
     inl elem_type = type elem_type
@@ -2661,4 +2735,5 @@ stack inl {d with elem_type} ->
         inl b = macro.fs value [text: "b"]
         if a then on_succ b else on_fail ()
     |> stack
-    """) |> module_
+    """
+    }

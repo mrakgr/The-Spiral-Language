@@ -4,9 +4,12 @@ module Cuda.Lib
 open Spiral.Types
 open Spiral.Lib
 
-let timer =
-    (
-    "Timer",[console],"The Timer module",
+let timer: SpiralModule =
+    {
+    name="Timer"
+    prerequisites=[console]
+    description="The Timer module"
+    code=
     """
 inl stopwatch_ty = fs [text: "System.Diagnostics.Stopwatch"]
 inl timespan_ty = fs [text: "System.TimeSpan"]
@@ -21,11 +24,14 @@ inl time_it msg f =
     r
 {time_it} |> stackify
     """
-    ) |> module_
+    }
 
-let mnist =
-    (
-    "Mnist",[extern_;host_tensor],"The Mnist loader module.",
+let mnist: SpiralModule =
+    {
+    name="Mnist"
+    prerequisites=[extern_; host_tensor]
+    description="The Mnist loader module."
+    code=
     """
 open Extern
 met load_mnist kind (!dyn filename) =
@@ -90,11 +96,15 @@ inl load_mnist_tensors mnist_path =
         ) mnist_files
 
 {load_mnist_tensors}
-    """) |> module_
+    """
+    }
 
-let resize_array =
-    (
-    "ResizeArray",[extern_; loops],"The resizable array module.",
+let resize_array: SpiralModule =
+    {
+    name="ResizeArray"
+    prerequisites=[extern_; loops]
+    description="The resizable array module."
+    code=
     """
 open Extern
 inl create {d with elem_type} =
@@ -145,11 +155,14 @@ inl create {d with elem_type} =
 create
 } |> stack
     """
-    ) |> module_
+    }
 
-let cuda_aux =
-    (
-    "CudaAux",[struct'],"The Cuda auxiliaries module.",
+let cuda_aux: SpiralModule =
+    {
+    name="CudaAux"
+    prerequisites=[struct']
+    description="The Cuda auxiliaries module."
+    code=
     """
 inl ptr_cuda {ar offset} ret = ar.ptr() + to uint64 (offset * sizeof ar.elem_type) |> ret
 inl to_dev_tensor = 
@@ -188,11 +201,14 @@ inl assert_dim in =
 
 {ptr_cuda to_dev_tensor allocator_block_size temporary atomic_add assert_dim} |> stackify
     """
-    ) |> module_
+    }
 
-let allocator = 
-    (
-    "Allocator",[resize_array;loops;option;extern_;console;cuda_aux],"The section based GPU memory allocator module.",
+let allocator: SpiralModule =
+    {
+    name="Allocator"
+    prerequisites=[resize_array; loops; option; extern_; console; cuda_aux]
+    description="The section based GPU memory allocator module."
+    code=
     """
 open Extern
 
@@ -374,11 +390,15 @@ inl section_create s size ret =
     ptr.Dispose
 
 stack section_create
-    """) |> module_
+    """
+    }
 
-let region =
-    (
-    "Region",[resize_array],"The region based resource tracker.",
+let region: SpiralModule =
+    {
+    name="Region"
+    prerequisites=[resize_array]
+    description="The region based resource tracker."
+    code=
     """
 inl counter_ref_create ptr =
     inl count = ref 0
@@ -455,11 +475,15 @@ inl methods_stream =
 inl s -> 
     inl add s (a, b) = s.module_add a (stackify b)
     Tuple.foldl add s (methods_mem, methods_stream)
-    """) |> module_
+    """
+    }
 
-let cuda_stream = 
-    (
-    "CudaStream",[extern_],"The Cuda stream module.",
+let cuda_stream: SpiralModule =
+    {
+    name="CudaStream"
+    prerequisites=[extern_]
+    description="The Cuda stream module."
+    code=
     """
 open Extern
 inl ty x = fs [text: x]
@@ -489,11 +513,15 @@ inl rec allocate _ =
         | () -> data.stream
 
 inl s -> s.module_add .Stream (stackify {allocate})
-    """) |> module_
+    """
+    }
 
-let cuda_tensor = 
-    (
-    "CudaTensor",[extern_;host_tensor_tree_view;host_tensor_range_view;cuda_aux],"The Cuda tensor module.",
+let cuda_tensor: SpiralModule =
+    {
+    name="CudaTensor"
+    prerequisites=[extern_; host_tensor_tree_view; host_tensor_range_view; cuda_aux]
+    description="The Cuda tensor module."
+    code=
     """
 open Tensor
 open Extern
@@ -652,11 +680,15 @@ inl methods =
     } |> stackify
 
 inl s -> s.module_add .CudaTensor methods
-    """) |> module_
+    """
+    }
 
-let cuda_random =
-    (
-    "CudaRandom",[extern_;cuda_tensor],"The CudaRandom module.",
+let cuda_random: SpiralModule =
+    {
+    name="CudaRandom"
+    prerequisites=[extern_; cuda_tensor]
+    description="The CudaRandom module."
+    code=
     """
 inl s ret ->
     open Extern
@@ -724,11 +756,15 @@ inl s ret ->
     inl set_pseudorandom_seed s (v: uint64) = macro.fs () [arg: s.data.random; text: ".SetPseudoRandomGeneratorSeed"; args: v]
 
     ret <| s.module_add .CudaRandom {fill create set_pseudorandom_seed}
-    """) |> module_
+    """
+    }
 
-let cuda_blas =
-    (
-    "CudaBlas",[cuda_tensor;extern_],"The CudaBlas module.",
+let cuda_blas: SpiralModule =
+    {
+    name="CudaBlas"
+    prerequisites=[cuda_tensor; extern_]
+    description="The CudaBlas module."
+    code=
     """
 inl s ret ->
     open Extern
@@ -1265,11 +1301,15 @@ inl s ret ->
         }
 
     ret <| s.module_add .CudaBlas modules
-    """) |> module_
+    """
+    }
 
-let cuda_kernel =
-    (
-    "CudaKernel",[cuda_tensor],"The Cuda kernels module.",
+let cuda_kernel: SpiralModule =
+    {
+    name="CudaKernel"
+    prerequisites=[cuda_tensor]
+    description="The Cuda kernels module."
+    code=
     """
 open Tensor
 open Extern
@@ -1917,11 +1957,15 @@ inl methods =
     } |> stackify
 
 inl s -> s.module_add .CudaKernel methods
-    """) |> module_
+    """
+    }
 
-let cuda_fun =
-    (
-    "CudaFun",[host_tensor;cuda_tensor],"The CudaFun module.",
+let cuda_fun: SpiralModule =
+    {
+    name="CudaFun"
+    prerequisites=[host_tensor; cuda_tensor]
+    description="The CudaFun module."
+    code=
     """
 open Tensor
 inl to_dev_tensor = CudaAux.to_dev_tensor
@@ -2231,11 +2275,15 @@ inl methods =
     } |> stackify
 
 inl s -> s.module_add .CudaFun methods
-    """) |> module_
+    """
+    }
 
-let cuda_solve =
-    (
-    "CudaSolve",[extern_],"The CudaSolve module.",
+let cuda_solve: SpiralModule =
+    {
+    name="CudaSolve"
+    prerequisites=[extern_]
+    description="The CudaSolve module."
+    code=
     """
 inl s ret ->
     open Extern
@@ -2463,11 +2511,15 @@ inl s ret ->
     |> ret
     
     dense_call s .cusolverDnDestroy()
-    """) |> module_
+    """
+    }
 
-let cuda_modules =
-    (
-    "CudaModules",[cuda;allocator;region;cuda_stream;cuda_tensor;cuda_kernel;cuda_fun;cuda_random;cuda_blas;cuda_solve;console],"All the cuda modules in one.",
+let cuda_modules: SpiralModule =
+    {
+    name="CudaModules"
+    prerequisites=[cuda; allocator; region; cuda_stream; cuda_tensor; cuda_kernel; cuda_fun; cuda_random; cuda_blas; cuda_solve; console]
+    description="All the cuda modules in one."
+    code=
     """
 inl size ret ->
     inb s = Cuda
@@ -2480,4 +2532,5 @@ inl size ret ->
     inl s = s.RegionStream.allocate
     inb s = CudaSolve s
     ret s
-    """) |> module_
+    """
+    }

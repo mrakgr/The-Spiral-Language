@@ -17,33 +17,52 @@ a + b
     """
     }
 
-let test2 = 
-    "test2",[],"Does it run methods?",
+let test2: SpiralModule =
+    {
+    name="test2"
+    prerequisites=[]
+    description="Does it run methods?"
+    code=
     """
 met a () = 5
 met b () = 10
 a () + b ()
     """
+    }
 
-let test3 = // 
-    "test3",[],"Does this method case work?",
+let test3: SpiralModule =
+    {
+    name="test3"
+    prerequisites=[]
+    description="Does this method case work?"
+    code=
     """
 inl a = dyn 5
 inl b = dyn 10
 a + b
     """
+    }
 
-let test4 = // 
-    "test4",[],"Does the and pattern work correctly?",
+let test4: SpiralModule =
+    {
+    name="test4"
+    prerequisites=[]
+    description="Does the and pattern work correctly?"
+    code=
     """
 inl f (a, b) (c, d) = dyn (a+c,b+d)
 inl q & (a, b) = dyn (1,2)
 inl w & (c, d) = dyn (3,4)
 f q w
     """
+    }
 
-let test5 = // 
-    "test5",[],"Does basic pattern matching work?",
+let test5: SpiralModule =
+    {
+    name="test5"
+    prerequisites=[]
+    description="Does basic pattern matching work?"
+    code=
     """
 inl f = function
     | .Add x y -> join (x + y)
@@ -54,9 +73,14 @@ inl b = f .Sub 1 2
 inl c = f .Mult 1 2
 a, b, c
     """
+    }
 
-let test6 = // 
-    "test6",[],"Does returning type level methods from methods work?",
+let test6: SpiralModule =
+    {
+    name="test6"
+    prerequisites=[]
+    description="Does returning type level methods from methods work?"
+    code=
     """
 met min n =
     met tes a =
@@ -66,8 +90,14 @@ met min n =
     tes 1 2 (2.2,3,4.5)
 min 10
     """
-let test7 = // 
-    "test7",[],"Do active patterns work?",
+    }
+
+let test7: SpiralModule =
+    {
+    name="test7"
+    prerequisites=[]
+    description="Do active patterns work?"
+    code=
     """
 inl f op1 op2 op3 = function
     | !op1 (.Some, x) -> x
@@ -91,9 +121,14 @@ inl b = f .Sub 1 2
 inl c = f .Mult 1 2
 a, b, c
     """
+    }
 
-let test8 =
-    "test8",[],"Does the basic union type work?",
+let test8: SpiralModule =
+    {
+    name="test8"
+    prerequisites=[]
+    description="Does the basic union type work?"
+    code=
     """
 inl option_int = .Some, 1 \/ .None
 
@@ -102,9 +137,14 @@ match x with
 | .Some, x -> x
 | .None -> 0
     """
+    }
 
-let test9 = // 
-    "test9",[],"Does the partial evaluator optimize unused match cases?",
+let test9: SpiralModule =
+    {
+    name="test9"
+    prerequisites=[]
+    description="Does the partial evaluator optimize unused match cases?"
+    code=
     """
 inl ab = .A \/ .B
 inl ab = box ab
@@ -115,9 +155,14 @@ match x with
 | _, _, .A -> 3
 | _ -> 4
     """
+    }
 
-let test10 = 
-    "test10",[],"Do the join points get filtered?",
+let test10: SpiralModule =
+    {
+    name="test10"
+    prerequisites=[]
+    description="Do the join points get filtered?"
+    code=
     """
 inl ab = box (.A \/ .B)
 met x = (ab .A, ab .A, ab .A, ab .A)
@@ -127,9 +172,14 @@ match x with
 | .A, .B, .A, .B -> join 3
 | _ -> join 4
     """
+    }
 
-let test11 = // 
-    "test11",[],"Do the nested patterns work on dynamic data?",
+let test11: SpiralModule =
+    {
+    name="test11"
+    prerequisites=[]
+    description="Do the nested patterns work on dynamic data?"
+    code=
     """
 inl a = type (1,2)
 inl b = type (1,a,a)
@@ -140,18 +190,28 @@ match x with
 | _, _, _ -> 0
 | _ :: () -> 0
     """
+    }
 
-let test12 = // 
-    "test12",[],"Does recursive pattern matching work on static data?",
+let test12: SpiralModule =
+    {
+    name="test12"
+    prerequisites=[]
+    description="Does recursive pattern matching work on static data?"
+    code=
     """
 inl rec p = function
     | .Some, x -> p x
     | .None -> 0
 p (.Some, .None)
     """
+    }
 
-let test13 = 
-    "test13",[],"A more complex interpreter example on static data.",
+let test13: SpiralModule =
+    {
+    name="test13"
+    prerequisites=[]
+    description="A more complex interpreter example on static data."
+    code=
     """
 inl rec expr x = join_type
     .V, x
@@ -171,9 +231,14 @@ inl rec interpreter_static x =
     | .Mult, a, b -> interpreter_static a * interpreter_static b
 interpreter_static c
     """
+    }
 
-let test14 =
-    "test14",[],"Does recursive pattern matching work on partially static data?",
+let test14: SpiralModule =
+    {
+    name="test14"
+    prerequisites=[]
+    description="Does recursive pattern matching work on partially static data?"
+    code=
     """
 inl rec expr x = join_type
     .V, x
@@ -196,9 +261,14 @@ met rec inter x =
 
 inter c
     """
+    }
 
-let test15 =
-    "test15",[extern_],"Does basic .NET interop work?",
+let test15: SpiralModule =
+    {
+    name="test15"
+    prerequisites=[extern_]
+    description="Does basic .NET interop work?"
+    code=
     """
 open Extern
 inl builder_type = fs [text: "System.Text.StringBuilder"]
@@ -222,9 +292,14 @@ FS.Method dict .Add (key,value) ()
 FS.Method dict .Item (key :: ()) value |> dyn |> ignore
 0
     """
+    }
 
-let hacker_rank_1 =
-    "hacker_rank_1",[extern_],"The very first warmup exercise : https://www.hackerrank.com/challenges/solve-me-first",
+let hacker_rank_1: SpiralModule =
+    {
+    name="hacker_rank_1"
+    prerequisites=[extern_]
+    description="The very first warmup exercise : https://www.hackerrank.com/challenges/solve-me-first"
+    code=
     """
 open Extern
 inl console = fs [text: "System.Console"]
@@ -236,17 +311,27 @@ inl read_int () = read_line() |> parse_int32
 inl a, b = read_int(), read_int()
 write (a + b)
     """
+    }
 
-let test16 = // 
-    "test16",[],"Do var union types work?",
+let test16: SpiralModule =
+    {
+    name="test16"
+    prerequisites=[]
+    description="Do var union types work?"
+    code=
     """
 inl t = int64 \/ float64
 if dyn true then box t 0
 else box t 0.0
     """
+    }
 
-let test17 = // 
-    "test17",[],"Do modules work?",
+let test17: SpiralModule =
+    {
+    name="test17"
+    prerequisites=[]
+    description="Do modules work?"
+    code=
     """
 inl m =
     inl x = 2
@@ -255,9 +340,14 @@ inl m =
     {x y z}
 m.x, m.y, m.z
     """
+    }
 
-let test18 = // 
-    "test18",[],"Do arrays and references work?",
+let test18: SpiralModule =
+    {
+    name="test18"
+    prerequisites=[]
+    description="Do arrays and references work?"
+    code=
     """
 inl a = ref 0
 a := 5
@@ -279,17 +369,27 @@ inl a = array_create id 3 // Is supposed to be unit and not printed.
 a 1 <- id
 a 1 |> ignore
     """
+    }
 
-let test19 =
-    "test19",[],"Does term casting for functions work?",
+let test19: SpiralModule =
+    {
+    name="test19"
+    prerequisites=[]
+    description="Does term casting for functions work?"
+    code=
     """
 inl add a b (c, (d, e), f) = a + b + c + d + e + f
 inl f = term_cast (add 8 (dyn 7)) (int64,(int64,int64),int64)
 f (1,(2,5),3)
     """
+    }
 
-let test20 = // 
-    "test20",[],"Does pattern matching on union non-tuple types work? Do type annotation patterns work?",
+let test20: SpiralModule =
+    {
+    name="test20"
+    prerequisites=[]
+    description="Does pattern matching on union non-tuple types work? Do type annotation patterns work?"
+    code=
     """
 inl t = int64 \/ float64
 inl x = box t 3.5
@@ -297,9 +397,14 @@ match x with
 | q : int64 -> x * x
 | q : float64 -> x + x
     """
+    }
 
-let test21 = // 
-    "test21",[],"Does defining user operators work?",
+let test21: SpiralModule =
+    {
+    name="test21"
+    prerequisites=[]
+    description="Does defining user operators work?"
+    code=
     """
 inl (.+) a b = a + b
 inl x = 2 * 22 .+ 33
@@ -307,26 +412,41 @@ inl x = 2 * 22 .+ 33
 inl f op a b = op a b
 f (*) 2 x
     """
+    }
 
-let test22 = 
-    "test22",[],"Do unary operators work?",
+let test22: SpiralModule =
+    {
+    name="test22"
+    prerequisites=[]
+    description="Do unary operators work?"
+    code=
     """
 inl t1 x = dyn <| -x
 inl t3 x = .(x)
 t1 2.2, t3 "asd"
     """
+    }
 
-let test23 = // 
-    "test23",[],"Do when and as patterns work?",
+let test23: SpiralModule =
+    {
+    name="test23"
+    prerequisites=[]
+    description="Do when and as patterns work?"
+    code=
     """
 inl f = function
     | a,b,c as q when a < 10 -> q
     | _ -> 0,0,0
 f (1,2,3)
     """
+    }
 
-let test24 = // 
-    "test24",[],"Do literal pattern matchers work? Does partial evaluation of equality work?",
+let test24: SpiralModule =
+    {
+    name="test24"
+    prerequisites=[]
+    description="Do literal pattern matchers work? Does partial evaluation of equality work?"
+    code=
     """
 inl f x = 
     match x with
@@ -344,23 +464,38 @@ inl f x =
 f 0, f 1, f false, f true, f "asd", f 1i8,
 f 5.5, f 5f64, f .5.5, f .23u32
     """
+    }
 
-let test25 = // 
-    "test25",[],"Does the tuple cons pattern work?",
+let test25: SpiralModule =
+    {
+    name="test25"
+    prerequisites=[]
+    description="Does the tuple cons pattern work?"
+    code=
     """
 inl f = function | x1 :: x2 :: x3 :: xs -> 3 | x1 :: x2 :: xs -> 2 | x1 :: xs -> 1 | () -> 0
 
 f (), f (1 :: ()), f (1,2)
     """
+    }
 
-let test26 = // 
-    "test26",[tuple],"Does tuple map work? This also tests rev and foldl.",
+let test26: SpiralModule =
+    {
+    name="test26"
+    prerequisites=[tuple]
+    description="Does tuple map work? This also tests rev and foldl."
+    code=
     """
 Tuple.map (inl x -> x * 2) (1,2,3)
     """
+    }
 
-let test27 = // 
-    "test27",[tuple],"Do tuple zip and unzip work?",
+let test27: SpiralModule =
+    {
+    name="test27"
+    prerequisites=[tuple]
+    description="Do tuple zip and unzip work?"
+    code=
     """
 inl j = 2,3.3
 inl k = 4.4,55
@@ -369,9 +504,14 @@ inl m = 88,99
 inl n = 123,456
 Tuple.zip ((j,k),(l,m),n) |> Tuple.unzip
     """
+    }
 
-let test28 = // 
-    "test28",[extern_],"Does string indexing work?",
+let test28: SpiralModule =
+    {
+    name="test28"
+    prerequisites=[extern_]
+    description="Does string indexing work?"
+    code=
     """
 open Extern
 inl console_type = fs [text: "System.Console"]
@@ -379,9 +519,14 @@ inl a = "qwe"
 inl b = FS.StaticMethod console_type .ReadLine() string
 a(0),b(0)
     """
+    }
 
-let test29 =
-    "test29",[],"Does pattern matching work redux?",
+let test29: SpiralModule =
+    {
+    name="test29"
+    prerequisites=[]
+    description="Does pattern matching work redux?"
+    code=
     """
 inl t = int64, int64 \/ int64
 
@@ -390,9 +535,14 @@ match x with
 | a,b -> 0
 | c -> c
     """
+    }
 
-let test30 = // 
-    "test30",[],"Do recursive algebraic datatypes work?",
+let test30: SpiralModule =
+    {
+    name="test30"
+    prerequisites=[]
+    description="Do recursive algebraic datatypes work?"
+    code=
     """
 inl rec List x = join_type .ListCons, (x, List x) \/ .ListNil
 
@@ -408,17 +558,27 @@ met rec sum (!dyn s) l =
 
 nil |> cons 3 |> cons 2 |> cons 1 |> dyn |> sum 0
         """
+    }
 
-let test31 = 
-    "test31",[],"Does passing types into types work?",
+let test31: SpiralModule =
+    {
+    name="test31"
+    prerequisites=[]
+    description="Does passing types into types work?"
+    code=
     """
 inl a = .A, (int64, int64) \/ .B, string
 inl b = a \/ .Hello
 (.A, (2,3)) |> box a |> dyn |> box b
     """
+    }
 
-let test32 =
-    "test32",[extern_],"Do the .NET methods work inside methods?",
+let test32: SpiralModule =
+    {
+    name="test32"
+    prerequisites=[extern_]
+    description="Do the .NET methods work inside methods?"
+    code=
     """
 open Extern
 inl convert_type = fs [text: "System.Convert"]
@@ -426,17 +586,27 @@ inl to_int64 x = FS.StaticMethod convert_type .ToInt64 x int64
 met f = to_int64 (dyn 'a')
 f
     """
+    }
 
-let test33 =
-    "test33",[],"Do the module map and fold functions work?",
+let test33: SpiralModule =
+    {
+    name="test33"
+    prerequisites=[]
+    description="Do the module map and fold functions work?"
+    code=
     """
 inl m = {a=1;b=2;c=3}
 inl m' = module_map (const ((*) 2)) m
 m', module_foldl (const (+)) 0 m'
     """
+    }
 
-let test34 =
-    "test34",[],"Does a simple stackified function work?",
+let test34: SpiralModule =
+    {
+    name="test34"
+    prerequisites=[]
+    description="Does a simple stackified function work?"
+    code=
     """
 inl a = dyn 1
 inl b = dyn 2
@@ -444,9 +614,14 @@ inl add c d = a + b + c + d
 met f g c d = g c d
 f (stack add) (dyn 3) (dyn 4)
     """
+    }
 
-let test35 = // 
-    "test35",[],"Does case on union types with recursive types work properly?",
+let test35: SpiralModule =
+    {
+    name="test35"
+    prerequisites=[]
+    description="Does case on union types with recursive types work properly?"
+    code=
     """
 inl rec List x = join_type
     .Nil 
@@ -462,9 +637,14 @@ match box Res 1 |> dyn with
 | (a, b) as x -> 2
 | _ -> 3
     """
+    }
 
-let test36 =
-    "test36",[],"Does a simple heapified function work?",
+let test36: SpiralModule =
+    {
+    name="test36"
+    prerequisites=[]
+    description="Does a simple heapified function work?"
+    code=
     """
 inl a = dyn 1
 inl b = dyn 2
@@ -472,9 +652,14 @@ inl add c d = a + b + c + d
 met f g c d = g c d
 f (heap add) (dyn 3) (dyn 4)
     """
+    }
 
-let test37 =
-    "test37",[],"Does a simple heapified module work?",
+let test37: SpiralModule =
+    {
+    name="test37"
+    prerequisites=[]
+    description="Does a simple heapified module work?"
+    code=
     """
 inl m = heap { a=dyn 1; b=dyn 2 }
 inl add c d = 
@@ -483,15 +668,25 @@ inl add c d =
 met f g c d = g c d
 f (heap add) (dyn 3) (dyn 4)
     """
+    }
 
-let test38 =
-    "test38",[],"Is type constructor of an int64 an int64?",
+let test38: SpiralModule =
+    {
+    name="test38"
+    prerequisites=[]
+    description="Is type constructor of an int64 an int64?"
+    code=
     """
 box int64 (dyn 1)
     """
+    }
 
-let test39 =
-    "test39",[],"Does the mutable layout type get unpacked multiple times?",
+let test39: SpiralModule =
+    {
+    name="test39"
+    prerequisites=[]
+    description="Does the mutable layout type get unpacked multiple times?"
+    code=
     """
 inl q = type (heapm <| dyn {a=1;b=2;c=3}) \/ (heapm <| dyn {a=1;b=2}) \/ (heap <| dyn (1,2,3))
 match box q (heapm <| dyn {a=1;b=2;c=3}) |> dyn with
@@ -502,9 +697,14 @@ match box q (heapm <| dyn {a=1;b=2;c=3}) |> dyn with
     | _ -> a+b
 | a,b,c -> a*b*c
     """
+    }
 
-let test40 =
-    "test40",[],"Does this compile into just one method? Are the arguments reversed in the method call?",
+let test40: SpiralModule =
+    {
+    name="test40"
+    prerequisites=[]
+    description="Does this compile into just one method? Are the arguments reversed in the method call?"
+    code=
     """
 met rec f a b =
     if dyn true then f b a
@@ -512,9 +712,14 @@ met rec f a b =
     : 0
 f (dyn 1) (dyn 2)
     """
+    }
 
-let test41 =
-    "test41",[],"Does result in a `type ()`?",
+let test41: SpiralModule =
+    {
+    name="test41"
+    prerequisites=[]
+    description="Does result in a `type ()`?"
+    code=
     """
 inl ty = .Up \/ .Down \/ heap (dyn {q=1;block=(1,(),3)})
 inl x = dyn (box ty .Up)
@@ -525,9 +730,14 @@ inl r =
     | _ -> {q=1;block=(1,(),3)}
 box ty (heap r)
     """
+    }
 
-let test42 =
-    "test42",[],"Do partial active patterns work?",
+let test42: SpiralModule =
+    {
+    name="test42"
+    prerequisites=[]
+    description="Do partial active patterns work?"
+    code=
     """
 inl f x on_fail on_succ =
     match x with
@@ -543,26 +753,41 @@ inl m m1 = function
 
 m f 2
     """
+    }
 
-let test43 =
-    "test43",[array],"Do the Array constructors work?",
+let test43: SpiralModule =
+    {
+    name="test43"
+    prerequisites=[array]
+    description="Do the Array constructors work?"
+    code=
     """
 open Array
 
 empty int64, singleton 2.2
     """
+    }
 
-let test44 =
-    "test44",[],"Does the xor pattern work for empty inputs?",
+let test44: SpiralModule =
+    {
+    name="test44"
+    prerequisites=[]
+    description="Does the xor pattern work for empty inputs?"
+    code=
     """
 inl f = function 
     | {a ^ b} -> a
     | _ -> true
 f {a=1}, f {}
     """
+    }
 
-let test45 =
-    "test45",[],"Does the module_add and module_remove work?",
+let test45: SpiralModule =
+    {
+    name="test45"
+    prerequisites=[]
+    description="Does the module_add and module_remove work?"
+    code=
     """
 module_add .add (inl a b -> a + b) {}
 |> module_add .sub (inl a b -> a - b)
@@ -570,9 +795,14 @@ module_add .add (inl a b -> a + b) {}
 |> module_add .w 10
 |> module_remove .q
     """
+    }
 
-let test46 =
-    "test46",[],"Does the module pattern work?",
+let test46: SpiralModule =
+    {
+    name="test46"
+    prerequisites=[]
+    description="Does the module pattern work?"
+    code=
     """
 inl f {a; b; c} = a + b + c
 inl x =
@@ -584,9 +814,14 @@ inl x =
 
 f {x with a = 4}
     """
+    }
 
-let test47 =
-    "test47",[],"Does the nested module pattern work?",
+let test47: SpiralModule =
+    {
+    name="test47"
+    prerequisites=[]
+    description="Does the nested module pattern work?"
+    code=
     """
 inl f {name {p with x y}} = name,(x,y)
 inl x = { name = "Coord" }
@@ -595,9 +830,14 @@ f {x with
     p = { x = 1
           y = 2 }}
     """
+    }
 
-let test48 =
-    "test48",[],"Does the nested module pattern with rebinding work?",
+let test48: SpiralModule =
+    {
+    name="test48"
+    prerequisites=[]
+    description="Does the nested module pattern with rebinding work?"
+    code=
     """
 inl f {name {p with y=y' x=x'}} = name,(x',y')
 inl x = { name = "Coord" }
@@ -605,27 +845,42 @@ f {x with
     p = { x = 1
           y = 2 }}
     """
+    }
 
-let test49 =
-    "test49",[],"Does the lens pattern work? Does self work? Does the semicolon get parsed properly?",
+let test49: SpiralModule =
+    {
+    name="test49"
+    prerequisites=[]
+    description="Does the lens pattern work? Does self work? Does the semicolon get parsed properly?"
+    code=
     """
 inl x = { a = { b = { c = 3 } } }
 
 inl f {x.a.b with c q} = c,q
 f {x.a.b with q = 4; c = self + 3; d = {q = 12; w = 23}}
     """
+    }
 
-let test50 =
-    "test50",[array],"Do the Array init and fold work?",
+let test50: SpiralModule =
+    {
+    name="test50"
+    prerequisites=[array]
+    description="Do the Array init and fold work?"
+    code=
     """
 open Array
 
 inl ar = init 6 (inl x -> x+1)
 foldl (+) (dyn 0) ar, foldr (*) ar (dyn 1)
     """
+    }
 
-let test51 =
-    "test51",[array],"Do the Array map and filter work?",
+let test51: SpiralModule =
+    {
+    name="test51"
+    prerequisites=[array]
+    description="Do the Array map and filter work?"
+    code=
     """
 open Array
 
@@ -633,27 +888,42 @@ inl ar = init 16 id
 map ((*) 2) ar
 |> filter ((<) 15)
     """
+    }
 
-let test52 =
-    "test52",[array],"Does the Array concat work?",
+let test52: SpiralModule =
+    {
+    name="test52"
+    prerequisites=[array]
+    description="Does the Array concat work?"
+    code=
     """
 open Array
 
 inl ar = init 4 (inl _ -> init 8 id)
 concat ar
     """
+    }
 
-let test53 =
-    "test53",[array],"Does the Array append work?",
+let test53: SpiralModule =
+    {
+    name="test53"
+    prerequisites=[array]
+    description="Does the Array append work?"
+    code=
     """
 open Array
 
 inl ar = inl _ -> init 4 id
 append (ar (), ar (), ar())
     """
+    }
 
-let test54 =
-    "test54",[tuple],"Does the monadic bind `inm` work?",
+let test54: SpiralModule =
+    {
+    name="test54"
+    prerequisites=[tuple]
+    description="Does the monadic bind `inm` work?"
+    code=
     """
 inl on_succ a = (a,())
 inl on_log x = ((),Tuple.singleton x)
@@ -671,58 +941,93 @@ inm z = add 5 6
 inm _ = on_log z
 on_succ (x+y+z) // Tuple2(20L, Tuple1(2L, 7L, 11L))
     """
+    }
 
-let test55 =
-    "test55",[],"Does the type literal rebind pattern work?",
+let test55: SpiralModule =
+    {
+    name="test55"
+    prerequisites=[]
+    description="Does the type literal rebind pattern work?"
+    code=
     """
 inl f = .QWE,.66,.2.3
 match f with
 | .(a), .(b), .(c) -> a,b,c
     """
+    }
 
-let test56 =
-    "test56",[],"Does term casting with an unit return get printed properly?",
+let test56: SpiralModule =
+    {
+    name="test56"
+    prerequisites=[]
+    description="Does term casting with an unit return get printed properly?"
+    code=
     """
 inl add a, b = ()
 inl k = term_cast add (int64,int64)
 k (1, 2)
     """
+    }
 
-let test57 =
-    "test57",[],"Does the new module creation syntax work?",
+let test57: SpiralModule =
+    {
+    name="test57"
+    prerequisites=[]
+    description="Does the new module creation syntax work?"
+    code=
     """
 inl a = 1
 inl b = 2
 inl d = 4
 {a b c = 3; d; e = 5}
     """
+    }
 
-let test58 =
-    "test58",[array],"Does the fold function get duplicated?",
+let test58: SpiralModule =
+    {
+    name="test58"
+    prerequisites=[array]
+    description="Does the fold function get duplicated?"
+    code=
     """
 inl ar = array_create (int64,int64) 128
 Array.foldl (inl a,b c,d -> a+c,b+d) (dyn (1,2)) ar
 |> inl a,b -> a*b
     """
+    }
 
-let test59 =
-    "test59",[],"Does the new named tuple syntax work?",
+let test59: SpiralModule =
+    {
+    name="test59"
+    prerequisites=[]
+    description="Does the new named tuple syntax work?"
+    code=
     """
 inl f [a:q b:w c:e] = q,w,e
 f [ a : 1; b : 2; c : 3 ]
     """
+    }
 
-let test60' =
-    "test60'",[],"Is the trace being correctly propagated for TyTs?",
+let test60': SpiralModule =
+    {
+    name="test60'"
+    prerequisites=[]
+    description="Is the trace being correctly propagated for TyTs?"
+    code=
     """
 inl a = dyn 1
 inl b = dyn 2
 inl c = dyn 3
 4 + int64
     """
+    }
 
-let test61 =
-    "test61",[],"Does dyn act like id on already dyned variables? It should not.",
+let test61: SpiralModule =
+    {
+    name="test61"
+    prerequisites=[]
+    description="Does dyn act like id on already dyned variables? It should not."
+    code=
     """
 inl x = dyn false
 dyn x || dyn x || dyn x
@@ -740,24 +1045,39 @@ dyn x || dyn x || dyn x
 //    else
 //        false
     """
+    }
 
-let test62 =
-    "test62",[],"Do && and || work correctly?",
+let test62: SpiralModule =
+    {
+    name="test62"
+    prerequisites=[]
+    description="Do && and || work correctly?"
+    code=
     """
 inl a,b,c,d,e = dyn (true, false, true, false, true)
 met f x = x
 f a && f b || f c && f d || f e
     """
+    }
 
-let test63 =
-    "test63",[list],"Do the list constructors work?",
+let test63: SpiralModule =
+    {
+    name="test63"
+    prerequisites=[list]
+    description="Do the list constructors work?"
+    code=
     """
 open List
 cons 1 (cons 2 (singleton 3))
     """
+    }
 
-let test64 =
-    "test64",[tuple],"Do the tuple foldl_map and foldr_map work?",
+let test64: SpiralModule =
+    {
+    name="test64"
+    prerequisites=[tuple]
+    description="Do the tuple foldl_map and foldr_map work?"
+    code=
     """
 inl l = 2,3,4
 {
@@ -765,18 +1085,28 @@ a = Tuple.foldl_map (inl s x -> x*x, s + x*x) 0 l
 b = Tuple.foldr_map (inl x s -> x*x, s + x*x) l 0
 }
     """
+    }
 
-let test65 =
-    "test65",[tuple;list],"Do the list module folds work?",
+let test65: SpiralModule =
+    {
+    name="test65"
+    prerequisites=[tuple; list]
+    description="Do the list module folds work?"
+    code=
     """
 open List
 
 foldl (+) (dyn 0.0) (dyn (empty float64)),
 foldr (+) (dyn (empty float64)) (dyn 0.0f64)
     """
+    }
 
-let test66 =
-    "test66",[tuple;list],"Does the list module concat (and by extension append) work?",
+let test66: SpiralModule =
+    {
+    name="test66"
+    prerequisites=[tuple; list]
+    description="Does the list module concat (and by extension append) work?"
+    code=
     """
 open List
 
@@ -785,9 +1115,14 @@ inl b = cons 6 () |> cons 5 |> cons 4 |> dyn
 inl c = dyn (cons a (singleton b))
 concat c
     """
+    }
 
-let test67 =
-    "test67",[tuple;list],"Does the list module map work?",
+let test67: SpiralModule =
+    {
+    name="test67"
+    prerequisites=[tuple; list]
+    description="Does the list module map work?"
+    code=
     """
 open List
 
@@ -795,39 +1130,64 @@ inl a = cons 3 () |> cons 2 |> cons 1 |> dyn
 
 map ((*) 2) a
     """
+    }
 
-let test68 =
-    "test68",[tuple;list],"Is it possible to make a list of lists?",
+let test68: SpiralModule =
+    {
+    name="test68"
+    prerequisites=[tuple; list]
+    description="Is it possible to make a list of lists?"
+    code=
     """
 open List
 
 inl a = empty int64 |> dyn
 empty a
     """
+    }
 
-let test69 =
-    "test69",[tuple;list],"Does the list module init work?",
+let test69: SpiralModule =
+    {
+    name="test69"
+    prerequisites=[tuple; list]
+    description="Does the list module init work?"
+    code=
     """
 open List
 
 init 10 (inl x -> 2.2)
     """
+    }
 
-let test70 =
-    "test70",[],"Does the argument get printed on a type error?",
+let test70: SpiralModule =
+    {
+    name="test70"
+    prerequisites=[]
+    description="Does the argument get printed on a type error?"
+    code=
     """
 inl a: float64 = 5
 ()
     """
+    }
 
-let test71' =
-    "test71'",[],"Does the recent change to error printing work? This one should give an error.",
+let test71': SpiralModule =
+    {
+    name="test71'"
+    prerequisites=[]
+    description="Does the recent change to error printing work? This one should give an error."
+    code=
     """
 55 + id
     """
+    }
 
-let test72 =
-    "test72",[],"Does any kind of literal work in the named tuple syntax?",
+let test72: SpiralModule =
+    {
+    name="test72"
+    prerequisites=[]
+    description="Does any kind of literal work in the named tuple syntax?"
+    code=
     """
 inl f = function
     | [1 : x] -> x
@@ -837,9 +1197,14 @@ inl f = function
 
 f [1: 1], f [true: 2], f [add: 1,2], f [3.3]
     """
+    }
 
-let test73 =
-    "test73",[],"Do the or module patterns work?",
+let test73: SpiralModule =
+    {
+    name="test73"
+    prerequisites=[]
+    description="Do the or module patterns work?"
+    code=
     """
 inl x = {a=1; c=3}
 inl f = function
@@ -848,9 +1213,14 @@ inl g = function
     | {(a=t) | (b=t)} -> t
 f x, g x
     """
+    }
 
-let test74 =
-    "test74",[],"Do the xor module patterns work?",
+let test74: SpiralModule =
+    {
+    name="test74"
+    prerequisites=[]
+    description="Do the xor module patterns work?"
+    code=
     """
 inl x = {b=2; c=3}
 inl f = function
@@ -859,52 +1229,82 @@ inl g = function
     | {(a=t) ^ (b=t)} -> t
 f x, g x
     """
+    }
 
-let test75 =
-    "test75",[],"Does the not module pattern work?",
+let test75: SpiralModule =
+    {
+    name="test75"
+    prerequisites=[]
+    description="Does the not module pattern work?"
+    code=
     """
 inl x = {b=2; c=3}
 inl f = function
     | {!a b} -> b
 f x
     """
+    }
 
-let test76' =
-    "test76'",[],"Do the xor module patterns work? This one is supposed to fail.",
+let test76': SpiralModule =
+    {
+    name="test76'"
+    prerequisites=[]
+    description="Do the xor module patterns work? This one is supposed to fail."
+    code=
     """
 inl x = {b=2; c=3}
 inl f = function
     | {b ^ c} -> c
 f x
     """
+    }
 
-let test77' =
-    "test77'",[],"Do the xor module patterns work? This one is supposed to fail.",
+let test77': SpiralModule =
+    {
+    name="test77'"
+    prerequisites=[]
+    description="Do the xor module patterns work? This one is supposed to fail."
+    code=
     """
 inl x = {b=2; c=3}
 inl f = function
     | {(!a) ^ c} -> c
 f x
     """
+    }
 
-let test78 =
-    "test78",[tuple],"Do the tuple scan functions work?",
+let test78: SpiralModule =
+    {
+    name="test78"
+    prerequisites=[tuple]
+    description="Do the tuple scan functions work?"
+    code=
     """
 inl x = 1,2,3,4
 Tuple.scanl (+) 0 x, Tuple.scanr (+) x 0
     """
+    }
 
-let test79 =
-    "test79",[host_tensor],"Does the Tensor init work? Do set and index for the new array module work?",
+let test79: SpiralModule =
+    {
+    name="test79"
+    prerequisites=[host_tensor]
+    description="Does the Tensor init work? Do set and index for the new array module work?"
+    code=
     """
 inl tns = Tensor.init (10,10) (inl a b -> a*b)
 inl x = tns 2 2 .get
 tns 2 2 .set (x+100)
 tns 2 2 .get
     """
+    }
 
-let test80 =
-    "test80",[queue;console],"Does the Queue module work?",
+let test80: SpiralModule =
+    {
+    name="test80"
+    prerequisites=[queue; console]
+    description="Does the Queue module work?"
+    code=
     """
 open Console
 open Queue
@@ -920,54 +1320,89 @@ dequeue' 2
 dequeue' 4
 dequeue' 4
     """
+    }
 
-let test81 =
-    "test81",[],"Does structural polymorphic equality work?",
+let test81: SpiralModule =
+    {
+    name="test81"
+    prerequisites=[]
+    description="Does structural polymorphic equality work?"
+    code=
     """
 {a=1;b=dyn 2;c=dyn 3;d=.qwe} = {a=1;b=2;c=3;d=.qwe}
     """
+    }
 
-let test82 =
-    "test82",[list],"Does structural polymorphic equality work on recursive datatypes?",
+let test82: SpiralModule =
+    {
+    name="test82"
+    prerequisites=[list]
+    description="Does structural polymorphic equality work on recursive datatypes?"
+    code=
     """
 inl a = List.empty int64 |> dyn
 inl b = List.empty int64 |> dyn
 a = b
     """
+    }
 
-let test83 =
-    "test83",[],"Does this destructure trigger an error?",
+let test83: SpiralModule =
+    {
+    name="test83"
+    prerequisites=[]
+    description="Does this destructure trigger an error?"
+    code=
     """
 inl q = true && dyn true
 ()
     """
+    }
 
-let test84 =
-    "test84",[host_tensor],"Does the scalar tensor work?",
+let test84: SpiralModule =
+    {
+    name="test84"
+    prerequisites=[host_tensor]
+    description="Does the scalar tensor work?"
+    code=
     """
 open Tensor
 inl ar = init () 5
 ar .get
     """
+    }
 
-let test85 =
-    "test85",[host_tensor],"Does the split work?",
+let test85: SpiralModule =
+    {
+    name="test85"
+    prerequisites=[host_tensor]
+    description="Does the split work?"
+    code=
     """
 open Tensor
 inl ar = init (32*32) id |> split (const (16,64))
 (ar 0 0, ar 0 1, ar 0 2, ar 1 0, ar 1 1, ar 1 2) |> Tuple.map (inl x -> x.get)
     """
+    }
 
-let test86 =
-    "test86",[host_tensor],"Is the type of host tensor for the TOA layout correct? Does it work on the singleton dimensions?",
+let test86: SpiralModule =
+    {
+    name="test86"
+    prerequisites=[host_tensor]
+    description="Is the type of host tensor for the TOA layout correct? Does it work on the singleton dimensions?"
+    code=
     """
 open Tensor
 inl ar = init 10 id
 ar 5 .get
     """
+    }
 
-let test87 =
-    "test87",[],"Does a pack stackified function work?",
+let test87: SpiralModule =
+    {
+    name="test87"
+    prerequisites=[]
+    description="Does a pack stackified function work?"
+    code=
     """
 inl a = dyn 1
 inl b = dyn 2
@@ -975,9 +1410,14 @@ inl add c d = a + b + c + d
 met f g c d = g c d
 f (packed_stack add) (dyn 3) (dyn 4)
     """
+    }
 
-let test88 =
-    "test88",[extern_],"Does the => related stuff work?",
+let test88: SpiralModule =
+    {
+    name="test88"
+    prerequisites=[extern_]
+    description="Does the => related stuff work?"
+    code=
     """
 open Extern
 inl closure_type = (int64 => int64 => int64)
@@ -986,23 +1426,38 @@ inl clo_add = closure_of add closure_type
 match clo_add with
 | (a: int64) => (b: (int64 => int64)) -> clo_add 1 2
     """
+    }
 
-let test89 =
-    "test89",[],"Does changing layout type work?",
+let test89: SpiralModule =
+    {
+    name="test89"
+    prerequisites=[]
+    description="Does changing layout type work?"
+    code=
     """
 {a=1;b=2} |> dyn |> stack |> heap |> indiv
     """
+    }
 
-let test90 =
-    "test90",[host_tensor],"Does the tensor map work?",
+let test90: SpiralModule =
+    {
+    name="test90"
+    prerequisites=[host_tensor]
+    description="Does the tensor map work?"
+    code=
     """
 open Tensor
 init (2,2) (inl a b -> a*2+b)
 |> map ((*) 2)
     """
+    }
 
-let test91 =
-    "test91",[array;host_tensor],"Does assert_size work? Does converting from array to tensor work?",
+let test91: SpiralModule =
+    {
+    name="test91"
+    prerequisites=[array; host_tensor]
+    description="Does assert_size work? Does converting from array to tensor work?"
+    code=
     """
 open Tensor
 inl tns =
@@ -1013,16 +1468,26 @@ inl tns =
     
 tns 1 0 .get |> ignore
     """
+    }
 
-let test92 =
-    "test92",[],"Does the CSE work as expected?",
+let test92: SpiralModule =
+    {
+    name="test92"
+    prerequisites=[]
+    description="Does the CSE work as expected?"
+    code=
     """
 inl !dyn a,b = 2,3
 (a+b)*(a+b)
     """
+    }
 
-let test93 =
-    "test93",[],"Does the string format work as expected?",
+let test93: SpiralModule =
+    {
+    name="test93"
+    prerequisites=[]
+    description="Does the string format work as expected?"
+    code=
     """
 inl l = 2,2.3,"qwe"
 inl q = 1,2
@@ -1030,48 +1495,78 @@ string_format "{0,-5}{1,-5}{2,-5}" l |> dyn |> ignore
 string_format "{0,-5}{1,-5}{2,-5}" (dyn l) |> ignore
 string_format (dyn "{0} = {1}") (dyn q) |> ignore
     """
+    }
 
-let test94 =
-    "test94",[array],"Does the string concat work as expected?",
+let test94: SpiralModule =
+    {
+    name="test94"
+    prerequisites=[array]
+    description="Does the string concat work as expected?"
+    code=
     """
 Array.init 8 (string_format "{0}") |> string_concat "; " |> string_format "[|{0}|]" |> dyn |> ignore
 (2,2.3,"qwe") |> Tuple.map (string_format "{0}") |> string_concat "; " |> string_format "[{0}]" |> dyn |> ignore
     """
+    }
 
-let test95 =
-    "test95",[extern_;array],"Does the show work?",
+let test95: SpiralModule =
+    {
+    name="test95"
+    prerequisites=[extern_; array]
+    description="Does the show work?"
+    code=
     """
 open Extern
 Array.init 8 (inl i -> {x = to float64 i; y = to float64 i-30.0} |> dyn |> packed_stack) |> show
     """
+    }
 
-let test96 =
-    "test96",[host_tensor;console],"Does the show from Tensor work?",
+let test96: SpiralModule =
+    {
+    name="test96"
+    prerequisites=[host_tensor; console]
+    description="Does the show from Tensor work?"
+    code=
     """
 open Tensor
 init (2,3,4) (inl a b c -> a*b*c)  
 |> show |> Console.writeline
     """
+    }
 
-let test97 =
-    "test97",[host_tensor;console],"Does the view indexing work?",
+let test97: SpiralModule =
+    {
+    name="test97"
+    prerequisites=[host_tensor; console]
+    description="Does the view indexing work?"
+    code=
     """
 open Tensor
 inl w = 2,3,4
 init (2,3,4) (inl a b c -> a*b*c) (1,{from=1},{from=1; by=2})
 |> show |> Console.writeline
     """
+    }
 
-let test98 =
-    "test98",[],"Do the unary operators work next to `=` and `:`?",
+let test98: SpiralModule =
+    {
+    name="test98"
+    prerequisites=[]
+    description="Do the unary operators work next to `=` and `:`?"
+    code=
     """
 inl x=-1
 [qwe:.asd; 1:-2] |> ignore
 x
     """
+    }
 
-let test99 =
-    "test99",[],"Does the binary . operator apply if it is directly next to an expression?",
+let test99: SpiralModule =
+    {
+    name="test99"
+    prerequisites=[]
+    description="Does the binary . operator apply if it is directly next to an expression?"
+    code=
     """
 inl f = function
     | .Hello as x -> .Bye
@@ -1081,9 +1576,14 @@ inl g = function
 
 g f.Hello
     """
+    }
 
-let test100 = 
-    "test100",[],"Does the unit closure get printed correctly.",
+let test100: SpiralModule =
+    {
+    name="test100"
+    prerequisites=[]
+    description="Does the unit closure get printed correctly."
+    code=
     """
 inl rec loop f i =
     inl f, i = term_cast f (), dyn i
@@ -1092,9 +1592,14 @@ inl rec loop f i =
 
 loop (inl _ -> 0) 0
     """
+    }
 
-let test101 = 
-    "test101",[],"Does `a` cause a hygiene violation by leaking its main argument into `inter`?",
+let test101: SpiralModule =
+    {
+    name="test101"
+    prerequisites=[]
+    description="Does `a` cause a hygiene violation by leaking its main argument into `inter`?"
+    code=
     """
 inl a = dyn 1
 
@@ -1105,9 +1610,14 @@ met rec inter x = // Does the int appear in the generated function? It should no
 
 inter ()
     """
+    }
 
-let test102 = 
-    "test102",[loops],"Does the unroll work?",
+let test102: SpiralModule =
+    {
+    name="test102"
+    prerequisites=[loops]
+    description="Does the unroll work?"
+    code=
     """
 inl f x = x ()
 inl dyn = dyn >> ignore
@@ -1121,9 +1631,14 @@ inl x _ =
             loop
 Loops.unroll f x
     """
+    }
 
-let test103 = 
-    "test103",[loops],"Does the foru work?",
+let test103: SpiralModule =
+    {
+    name="test103"
+    prerequisites=[loops]
+    description="Does the foru work?"
+    code=
     """
 inl f x = x ()
 inl dyn = dyn >> ignore
@@ -1137,25 +1652,40 @@ inl x _ =
             loop
 Loops.foru {from=0; near_to=30; state = x; body = inl {state i} -> state ()}
     """
+    }
 
-let test104 = 
-    "test104",[tuple],"Does the map2 work?",
+let test104: SpiralModule =
+    {
+    name="test104"
+    prerequisites=[tuple]
+    description="Does the map2 work?"
+    code=
     """
 inl a = 1,2,3
 inl b = 4,5,6
 Tuple.map2 (inl a b -> a + b) a b
     """
+    }
 
-let test105 = 
-    "test105",[tuple],"Does the foldl2 work?",
+let test105: SpiralModule =
+    {
+    name="test105"
+    prerequisites=[tuple]
+    description="Does the foldl2 work?"
+    code=
     """
 inl a = 1,2,3
 inl b = 4,5,6
 Tuple.foldl2 (inl s a b -> s + a + b) 0 a b
     """
+    }
 
-let test106 = 
-    "test106",[],"Does the injection pattern work?",
+let test106: SpiralModule =
+    {
+    name="test106"
+    prerequisites=[]
+    description="Does the injection pattern work?"
+    code=
     """
 inl m = {
     a = 123
@@ -1164,9 +1694,14 @@ inl m = {
 inl f i {$i=x} = x
 f .a m, f .b m
     """
+    }
 
-let test107 = 
-    "test107",[],"Does the injection constructor work?",
+let test107: SpiralModule =
+    {
+    name="test107"
+    prerequisites=[]
+    description="Does the injection constructor work?"
+    code=
     """
 inl f i v m = {m with $i=v}
 {}
@@ -1174,23 +1709,38 @@ inl f i v m = {m with $i=v}
 |> f .b 456
 |> inl {a b} -> a,b
     """
+    }
 
-let test108 = 
-    "test108",[],"Does the parser give an error on an indented expression after a statement?",
+let test108: SpiralModule =
+    {
+    name="test108"
+    prerequisites=[]
+    description="Does the parser give an error on an indented expression after a statement?"
+    code=
     """
 1 |> ignore
     2
     """
+    }
 
-let test109 = 
-    "test109",[],"Does the newline after a semicolon work correctly?",
+let test109: SpiralModule =
+    {
+    name="test109"
+    prerequisites=[]
+    description="Does the newline after a semicolon work correctly?"
+    code=
     """
 {a=1; b=2; 
  c=3}
     """
+    }
 
-let test110 =
-    "test110",[],"Does destructure work on nested structures?",
+let test110: SpiralModule =
+    {
+    name="test110"
+    prerequisites=[]
+    description="Does destructure work on nested structures?"
+    code=
     """
 inl q = {q=1;w=2;e=3}
 inl w = {a=q;b=q}
@@ -1199,27 +1749,42 @@ inl e = join e
 inl e = join e
 ()
     """
+    }
 
-let test111 =
-    "test111",[],"Does structural equality work correctly on bare types?",
+let test111: SpiralModule =
+    {
+    name="test111"
+    prerequisites=[]
+    description="Does structural equality work correctly on bare types?"
+    code=
     """
 inl Q = (int64,int64) \/ int64
 met f _ = box Q (3)
 inl a, b = f (), f ()
 a = b
     """
+    }
 
-let test112 =
-    "test112",[],"Does the () module-with pattern work?",
+let test112: SpiralModule =
+    {
+    name="test112"
+    prerequisites=[]
+    description="Does the () module-with pattern work?"
+    code=
     """
 inl k = .q
 inl m = { $k = { b = 2 }}
 
 {(m).(k) with a = 1}
     """
+    }
 
-let test113 =
-    "test113",[host_tensor_range_view;console],"Do the tensor range views work?",
+let test113: SpiralModule =
+    {
+    name="test113"
+    prerequisites=[host_tensor_range_view; console]
+    description="Do the tensor range views work?"
+    code=
     """
 inl tns =
     Tensor.init (2,3,4) (inl a b c -> a*b*c)  
@@ -1228,9 +1793,14 @@ inl tns =
 inl tns = tns ((), {from=3; by=2}, {from=3})
 tns .basic |> Tensor.print
     """
+    }
 
-let test114 =
-    "test114",[host_tensor_tree_view;console],"Do the tensor tree views work?",
+let test114: SpiralModule =
+    {
+    name="test114"
+    prerequisites=[host_tensor_tree_view; console]
+    description="Do the tensor tree views work?"
+    code=
     """
 inl tns =
     Tensor.init (2,3,4) (inl a b c -> a*b*c)  
@@ -1239,18 +1809,28 @@ inl tns =
 inl tns = tns ({b=()}, {b=()}, {b={q=()}})
 tns .basic |> Tensor.print
     """
+    }
 
-let test115 =
-    "test115",[host_tensor_tree_view;console],"Does the tensor view's create function work?",
+let test115: SpiralModule =
+    {
+    name="test115"
+    prerequisites=[host_tensor_tree_view; console]
+    description="Does the tensor view's create function work?"
+    code=
     """
 inl tns = View.create {dim={a=1; b=1}, {a=1; b=2}, {a=1; b={q=3}}; elem_type=float32}
 
 inl tns = tns ({b=()}, {b=()}, {b={q=()}})
 tns .basic |> Tensor.print
     """
+    }
 
-let test116 =
-    "test116",[host_tensor_tree_view;console],"Do the tensor tree partial views work?",
+let test116: SpiralModule =
+    {
+    name="test116"
+    prerequisites=[host_tensor_tree_view; console]
+    description="Do the tensor tree partial views work?"
+    code=
     """
 inl tns =
     Tensor.init (4,16) (inl a b -> a,b)
@@ -1258,18 +1838,28 @@ inl tns =
 
 tns ((),{d=()}) .basic |> Tensor.print
     """
+    }
 
-let test117 =
-    "test117",[host_tensor;console],"Do the tensor expand_singular work?",
+let test117: SpiralModule =
+    {
+    name="test117"
+    prerequisites=[host_tensor; console]
+    description="Do the tensor expand_singular work?"
+    code=
     """
 open Tensor
 init (1,5) (inl a b -> a, b)
 |> Tensor.expand_singular (5,5) 
 |> Tensor.print
     """
+    }
 
-let test118 =
-    "test118",[],"Do type_catch and type_raise work?",
+let test118: SpiralModule =
+    {
+    name="test118"
+    prerequisites=[]
+    description="Do type_catch and type_raise work?"
+    code=
     """
 type_catch
     dyn "a" |> ignore
@@ -1278,9 +1868,14 @@ type_catch
     type_raise .(3)
 |> inl .(x) -> x
     """
+    }
 
-let parsing1 = 
-    "parsing1",[parsing;console],"Does the Parsing module work?",
+let parsing1: SpiralModule =
+    {
+    name="parsing1"
+    prerequisites=[parsing; console]
+    description="Does the Parsing module work?"
+    code=
     """
 open Parsing
 open Console
@@ -1291,9 +1886,14 @@ inl p =
 
 run_with_unit_ret (readall()) p
     """
+    }
 
-let parsing2 = 
-    "parsing2",[parsing;console],"Does the Parsing module work?",
+let parsing2: SpiralModule =
+    {
+    name="parsing2"
+    prerequisites=[parsing; console]
+    description="Does the Parsing module work?"
+    code=
     """
 open Parsing
 open Console
@@ -1304,9 +1904,14 @@ inl p =
 
 run_with_unit_ret (dyn "2") p
     """
+    }
 
-let parsing3 = 
-    "parsing3",[parsing;console],"Does the Parsing module work?",
+let parsing3: SpiralModule =
+    {
+    name="parsing3"
+    prerequisites=[parsing; console]
+    description="Does the Parsing module work?"
+    code=
     """
 open Parsing
 open Console
@@ -1317,9 +1922,14 @@ inl p =
 
 run_with_unit_ret (dyn "qwerty") p
     """
+    }
 
-let parsing4 = 
-    "parsing4",[parsing;console],"Does the Parsing module work?",
+let parsing4: SpiralModule =
+    {
+    name="parsing4"
+    prerequisites=[parsing; console]
+    description="Does the Parsing module work?"
+    code=
     """
 open Parsing
 open Console
@@ -1330,9 +1940,14 @@ inl p =
 
 run_with_unit_ret (dyn "1 2 3") p
     """
+    }
 
-let parsing5 =
-    "parsing5",[parsing;console],"Does the Parsing module work?",
+let parsing5: SpiralModule =
+    {
+    name="parsing5"
+    prerequisites=[parsing; console]
+    description="Does the Parsing module work?"
+    code=
     """
 open Parsing
 open Console
@@ -1343,18 +1958,28 @@ inl p =
 
 run_with_unit_ret (readall()) p
     """
+    }
 
-let parsing6 =
-    "parsing6",[parsing;console],"Do the printf's work?",
+let parsing6: SpiralModule =
+    {
+    name="parsing6"
+    prerequisites=[parsing; console]
+    description="Do the printf's work?"
+    code=
     """
 open Parsing
 
 inl a,b,c = dyn (1,2,3)
 sprintf "%i + %i = %i" a b c |> ignore
     """
+    }
 
-let parsing7 =
-    "parsing7",[array;console;parsing;extern_],"Does the parsing library work? Birthday Cake Candles problem.",
+let parsing7: SpiralModule =
+    {
+    name="parsing7"
+    prerequisites=[array; console; parsing; extern_]
+    description="Does the parsing library work? Birthday Cake Candles problem."
+    code=
     """
 //https://www.hackerrank.com/challenges/birthday-cake-candles
 
@@ -1378,9 +2003,14 @@ inl p =
         
 run_with_unit_ret (readall()) p
     """
-    
-let parsing8 =
-    "parsing8",[array;console;parsing],"Does the parsing library work? Diagonal Sum Difference problem.",
+    }
+
+let parsing8: SpiralModule =
+    {
+    name="parsing8"
+    prerequisites=[array; console; parsing]
+    description="Does the parsing library work? Diagonal Sum Difference problem."
+    code=
     """
 //https://www.hackerrank.com/challenges/diagonal-difference
 open Console
@@ -1406,9 +2036,14 @@ inl f =
 
 run_with_unit_ret (readall()) f
         """
+    }
 
-let loop1 =
-    "loop1",[loops;console],"Does the Loop module work?",
+let loop1: SpiralModule =
+    {
+    name="loop1"
+    prerequisites=[loops; console]
+    description="Does the Loop module work?"
+    code=
     """
 open Console
 open Loops
@@ -1421,9 +2056,14 @@ for {from=dyn 999; down_to=dyn 3; by=dyn -1; state=dyn 0; body = inl {state i} -
     }
 |> writeline
     """
+    }
 
-let loop2 =
-    "loop2",[loops;console],"Does the Loop module work?",
+let loop2: SpiralModule =
+    {
+    name="loop2"
+    prerequisites=[loops; console]
+    description="Does the Loop module work?"
+    code=
     """
 open Console
 open Loops
@@ -1434,9 +2074,14 @@ for {from=dyn 3; to=dyn 999; state=dyn 0; body = inl {state i} ->
     }
 |> writeline
     """
+    }
 
-let loop3 =
-    "loop3",[loops;console],"Does the Loop module work?",
+let loop3: SpiralModule =
+    {
+    name="loop3"
+    prerequisites=[loops; console]
+    description="Does the Loop module work?"
+    code=
     """
 open Console
 open Loops
@@ -1447,17 +2092,27 @@ for {static_from=6; down_to=3; by= -1; state=0; body = inl {state i} ->
     }
 |> writeline
     """
+    }
 
-let loop5 = 
-    "loop5",[loops],"Does the Loop module work?",
+let loop5: SpiralModule =
+    {
+    name="loop5"
+    prerequisites=[loops]
+    description="Does the Loop module work?"
+    code=
     """
 open Loops
 
 for {static_from=2; to=2; body = inl {i} -> ()}
     """
+    }
 
-let loop6 =
-    "loop6",[loops;console],"Do state changing nested loops work?",
+let loop6: SpiralModule =
+    {
+    name="loop6"
+    prerequisites=[loops; console]
+    description="Do state changing nested loops work?"
+    code=
     """
 open Loops
 open Console
@@ -1486,9 +2141,14 @@ for' {from=dyn 0; near_to=n; state={};
     finally=ret .none
     }
     """
+    }
 
-let loop7 =
-    "loop7",[console],"Do state changing nested loops work?",
+let loop7: SpiralModule =
+    {
+    name="loop7"
+    prerequisites=[console]
+    description="Do state changing nested loops work?"
+    code=
     """
 open Console
 inl compare_pos (a_row,a_col) (b_row,b_col) = a_row = b_row && a_col = b_col
@@ -1521,9 +2181,14 @@ met rec row {from=r near_to state} as d =
     : ()
 row {from=dyn 0; near_to=dyn n; state={}}
     """
+    }
 
-let loop8 =
-    "loop8",[loops;console],"Do state changing nested loops work?",
+let loop8: SpiralModule =
+    {
+    name="loop8"
+    prerequisites=[loops; console]
+    description="Do state changing nested loops work?"
+    code=
     """
 open Console
 
@@ -1562,10 +2227,14 @@ for {from=0; near_to=n; state={};
     finally = ret .none
     }
     """
+    }
 
-
-let euler2 = 
-    "euler2",[loops;console],"Even Fibonacci Numbers.",
+let euler2: SpiralModule =
+    {
+    name="euler2"
+    prerequisites=[loops; console]
+    description="Even Fibonacci Numbers."
+    code=
     """
 open Loops
 open Console
@@ -1577,9 +2246,14 @@ while {
     }
 |> inl {sum} -> writeline sum
     """
+    }
 
-let euler3 = 
-    "euler3",[array;loops;console;option;extern_],"Largest prime factor",
+let euler3: SpiralModule =
+    {
+    name="euler3"
+    prerequisites=[array; loops; console; option; extern_]
+    description="Largest prime factor"
+    code=
     """
 open Extern
 open Loops
@@ -1614,9 +2288,14 @@ for' {from=sieve_length; to=2; by= -1; state=none int64; body = inl {next state 
     | .Some, result -> writeline result // 6857
     | .None -> failwith () "No prime factor found!"
     """
+    }
 
-let euler4 = 
-    "euler4",[array;loops;console],"Largest palindrome product",
+let euler4: SpiralModule =
+    {
+    name="euler4"
+    prerequisites=[array; loops; console]
+    description="Largest palindrome product"
+    code=
     """
 //A palindromic number reads the same both ways. The largest palindrome made from the product of two 2-digit numbers is 9009 = 91 × 99.
 //Find the largest palindrome made from the product of two 3-digit numbers.
@@ -1640,9 +2319,14 @@ for {from=dyn 100; to=dyn 999; state={highest_palindrome=dyn 0}; body=inl {state
     } 
 |> inl {highest_palindrome} -> writeline highest_palindrome
     """
+    }
 
-let euler5 =
-    "euler5",[tuple;loops;console;extern_],"Smallest multiple",
+let euler5: SpiralModule =
+    {
+    name="euler5"
+    prerequisites=[tuple; loops; console; extern_]
+    description="Smallest multiple"
+    code=
     """
 //2520 is the smallest number that can be divided by each of the numbers from 1 to 10 without any remainder.
 //What is the smallest positive number that is evenly divisible by all of the numbers from 1 to 20?
@@ -1661,9 +2345,14 @@ for' {from=step; to=int64_maxvalue; by=step; state= -1; body=inl {next state i} 
     }
 |> writeline
     """
+    }
 
-let hacker_rank_2 =
-    "hacker_rank_2",[tuple;array;host_tensor;loops;list;option;parsing;console],"Save The Princess",
+let hacker_rank_2: SpiralModule =
+    {
+    name="hacker_rank_2"
+    prerequisites=[tuple; array; host_tensor; loops; list; option; parsing; console]
+    description="Save The Princess"
+    code=
     """
 // https://www.hackerrank.com/challenges/saveprincess
 // A simple dynamic programming problem. It wouldn't be hard to do in F#, but Spiral
@@ -1770,9 +2459,14 @@ inl parser =
 //    "
 run_with_unit_ret (readall()) parser
     """
+    }
 
-let hacker_rank_3 =
-    "hacker_rank_3",[tuple;array;host_tensor;loops;list;parsing;console;queue],"Save The Princess 2",
+let hacker_rank_3: SpiralModule =
+    {
+    name="hacker_rank_3"
+    prerequisites=[tuple; array; host_tensor; loops; list; parsing; console; queue]
+    description="Save The Princess 2"
+    code=
     """
 // https://www.hackerrank.com/challenges/saveprincess2
 // A version of this similar to the previous one made in order to test the new queue.
@@ -1864,9 +2558,14 @@ inl main = {
 
 run_with_unit_ret (readall()) (parser main)
     """
+    }
 
-let hacker_rank_4 =
-    "hacker_rank_4",[tuple;array;parsing;console;option],"Game of Stones",
+let hacker_rank_4: SpiralModule =
+    {
+    name="hacker_rank_4"
+    prerequisites=[tuple; array; parsing; console; option]
+    description="Game of Stones"
+    code=
     """
 // https://www.hackerrank.com/challenges/game-of-stones-1
 open Parsing
@@ -1907,9 +2606,14 @@ inl parser =
 
 run_with_unit_ret (readall()) parser
     """
+    }
 
-let hacker_rank_5 =
-    "hacker_rank_5",[parsing;console],"Game of Stones",
+let hacker_rank_5: SpiralModule =
+    {
+    name="hacker_rank_5"
+    prerequisites=[parsing; console]
+    description="Game of Stones"
+    code=
     """
 // https://www.hackerrank.com/challenges/tower-breakers-1
 open Parsing
@@ -1924,9 +2628,14 @@ inl parser =
 
 run_with_unit_ret (readall()) parser
     """
+    }
 
-let hacker_rank_6 =
-    "hacker_rank_6",[tuple;array;host_tensor;parsing;console;option],"A Chessboard Game",
+let hacker_rank_6: SpiralModule =
+    {
+    name="hacker_rank_6"
+    prerequisites=[tuple; array; host_tensor; parsing; console; option]
+    description="A Chessboard Game"
+    code=
     """
 // https://www.hackerrank.com/challenges/a-chessboard-game-1
 open Parsing
@@ -1964,9 +2673,14 @@ inl parser =
 
 run_with_unit_ret (readall()) parser
     """
+    }
 
-let hacker_rank_7 =
-    "hacker_rank_7",[tuple;array;parsing;console;option],"Introduction to Nim Game",
+let hacker_rank_7: SpiralModule =
+    {
+    name="hacker_rank_7"
+    prerequisites=[tuple; array; parsing; console; option]
+    description="Introduction to Nim Game"
+    code=
     """
 // https://www.hackerrank.com/challenges/nim-game-1/problem
 
@@ -1988,9 +2702,14 @@ inl parser =
 
 run_with_unit_ret (readall()) parser
     """
+    }
 
-let hacker_rank_8 =
-    "hacker_rank_8",[tuple;array;parsing;console;option],"Misere Nim",
+let hacker_rank_8: SpiralModule =
+    {
+    name="hacker_rank_8"
+    prerequisites=[tuple; array; parsing; console; option]
+    description="Misere Nim"
+    code=
     """
 // https://www.hackerrank.com/challenges/misere-nim-1
 
@@ -2017,9 +2736,14 @@ inl parser =
 
 run_with_unit_ret (readall()) parser
     """
+    }
 
-let hacker_rank_9 =
-    "hacker_rank_9",[tuple;array;host_tensor_range_view;parsing;console;option],"The Power Sum",
+let hacker_rank_9: SpiralModule =
+    {
+    name="hacker_rank_9"
+    prerequisites=[tuple; array; host_tensor_range_view; parsing; console; option]
+    description="The Power Sum"
+    code=
     """
 // https://www.hackerrank.com/challenges/the-power-sum
 
@@ -2053,26 +2777,7 @@ met rec solve !dyn state !dyn sum !dyn from to,n =
 inl parser = parse_int .>>. parse_int |>> (solve 0 0 1 >> writeline)
 run_with_unit_ret (readall()) parser 
     """
-
-let tests =
-    [|
-    test1;test2;test3;test4;test5;test6;test7;test8;test9
-    test10;test11;test12;test13;test14;test15;test16;test17;test18;test19
-    test20;test21;test22;test23;test24;test25;test26;test27;test28;test29
-    test30;test31;test32;test33;test34;test35;test36;test37;test38;test39
-    test40;test41;test42;test43;test44;test45;test46;test47;test48;test49
-    test50;test51;test52;test53;test54;test55;test56;test57;test58;test59
-    test60';test61;test62;test63;test64;test65;test66;test67;test68;test69
-    test70;test71';test72;test73;test74;test75;test76';test77';test78;test79
-    test80;test81;test82;test83;test84;test85;test86;test87;test88;test89
-    test90;test91;test92;test93;test94;test95;test96;test97;test98;test99
-    test100;test101;test102;test103;test104;test105;test106;test107;test108;test109
-    test110;test111;test112;test113;test114;test115;test116;test117;test118
-    hacker_rank_1;hacker_rank_2;hacker_rank_3;hacker_rank_4;hacker_rank_5;hacker_rank_6;hacker_rank_7;hacker_rank_8;hacker_rank_9
-    parsing1;parsing2;parsing3;parsing4;parsing5;parsing6;parsing7;parsing8
-    loop1;loop2;loop3;     loop5;loop6;loop7;loop8
-    euler2;euler3;euler4;euler5
-    |]
+    }
 
 open System.IO
 open System

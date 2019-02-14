@@ -5,9 +5,12 @@ open Spiral.Types
 open Spiral.Lib
 open Cuda.Lib
 
-let cuda_ad =
-    (
-    "CudaAD",[struct';liple],"The CudaAD module",
+let cuda_ad: SpiralModule =
+    {
+    name="CudaAD"
+    prerequisites=[struct'; liple]
+    description="The CudaAD module"
+    code=
     """
 inl float = float32
 inl num = to float
@@ -605,11 +608,14 @@ Unary Binary Op Activation Seq
 }
 |> stackify
     """
-    ) |> module_
+    }
 
-let union =
-    (
-    "Union",[tuple;console;option;list],"The Union module.",
+let union: SpiralModule =
+    {
+    name="Union"
+    prerequisites=[tuple; console; option; list]
+    description="The Union module."
+    code=
     """
 /// Note: The innermost dimension is the first one rather than the last which is used by tensors.
 
@@ -852,11 +858,15 @@ inl infer f state =
     ty, Struct.map (inl {map} state input -> match state with () | _ -> map state input |> box ty) f
 
 {int to_one_hot to_dense from_one_hot from_dense length_one_hot length_dense unroll mutable_function infer} |> stackify
-    """) |> module_
+    """
+    }
 
-let learning =
-    (
-    "Learning",[struct';extern_;cuda_aux;math;union;list;liple;cuda_ad],"The deep learning module.",
+let learning: SpiralModule =
+    {
+    name="Learning"
+    prerequisites=[struct'; extern_; cuda_aux; math; union; list; liple; cuda_ad]
+    description="The deep learning module."
+    code=
     """
 inl float ->
     // #Primitives
@@ -1912,4 +1922,5 @@ inl float ->
     { 
     dr primal primals adjoint adjoints (>>=) succ Primitive Activation Optimizer Initializer Error run init Feedforward RNN RL Agent
     }
-    """) |> module_
+    """
+    }
