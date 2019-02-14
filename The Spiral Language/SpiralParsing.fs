@@ -141,21 +141,25 @@ let parse (settings: SpiralCompilerSettings) module_ =
         let inline default_float x = safe_parse Double.TryParse LitFloat64 "default float parse failed" x
 
         let followedBySuffix x is_x_integer (s: CharStream<_>) =
+            let inline guard f =
+                let a = s.Peek()
+                if is_identifier_starting_char a || isDigit a then Reply(Error, expected "non-identifier character")
+                else f x
             if s.Skip('i') then
-                if s.Skip('8') then safe_parse SByte.TryParse LitInt8 "int8 parse failed" x
-                elif s.Skip('1') && s.Skip('6') then safe_parse Int16.TryParse LitInt16 "int16 parse failed" x
-                elif s.Skip('3') && s.Skip('2') then safe_parse Int32.TryParse LitInt32 "int32 parse failed" x
-                elif s.Skip('6') && s.Skip('4') then safe_parse Int64.TryParse LitInt64 "int64 parse failed" x
+                if s.Skip('8') then guard (safe_parse SByte.TryParse LitInt8 "int8 parse failed")
+                elif s.Skip('1') && s.Skip('6') then guard (safe_parse Int16.TryParse LitInt16 "int16 parse failed")
+                elif s.Skip('3') && s.Skip('2') then guard (safe_parse Int32.TryParse LitInt32 "int32 parse failed")
+                elif s.Skip('6') && s.Skip('4') then guard (safe_parse Int64.TryParse LitInt64 "int64 parse failed")
                 else Reply(Error, expected "8,16,32 or 64")
             elif s.Skip('u') then
-                if s.Skip('8') then safe_parse Byte.TryParse LitUInt8 "uint8 parse failed" x
-                elif s.Skip('1') && s.Skip('6') then safe_parse UInt16.TryParse LitUInt16 "uint16 parse failed" x
-                elif s.Skip('3') && s.Skip('2') then safe_parse UInt32.TryParse LitUInt32 "uint32 parse failed" x
-                elif s.Skip('6') && s.Skip('4') then safe_parse UInt64.TryParse LitUInt64 "uint64 parse failed" x
+                if s.Skip('8') then guard (safe_parse Byte.TryParse LitUInt8 "uint8 parse failed")
+                elif s.Skip('1') && s.Skip('6') then guard (safe_parse UInt16.TryParse LitUInt16 "uint16 parse failed")
+                elif s.Skip('3') && s.Skip('2') then guard (safe_parse UInt32.TryParse LitUInt32 "uint32 parse failed")
+                elif s.Skip('6') && s.Skip('4') then guard (safe_parse UInt64.TryParse LitUInt64 "uint64 parse failed")
                 else Reply(Error, expected "8,16,32 or 64")
             elif s.Skip('f') then
-                if s.Skip('3') && s.Skip('2') then safe_parse Single.TryParse LitFloat32 "float32 parse failed" x
-                elif s.Skip('6') && s.Skip('4') then safe_parse Double.TryParse LitFloat64 "float64 parse failed" x
+                if s.Skip('3') && s.Skip('2') then guard (safe_parse Single.TryParse LitFloat32 "float32 parse failed")
+                elif s.Skip('6') && s.Skip('4') then guard (safe_parse Double.TryParse LitFloat64 "float64 parse failed")
                 else Reply(Error, expected "32 or 64")
             else if is_x_integer then default_int x else default_float x
 
