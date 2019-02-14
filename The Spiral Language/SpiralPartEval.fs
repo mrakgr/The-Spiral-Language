@@ -1010,7 +1010,7 @@ let rec partial_eval (d: LangEnv) x =
             | a, s, TyMap l ->
                 Map.fold (fun s k x ->
                     let inline ap a b = apply d (a, b)
-                    ap (ap (ap a (TyKeyword(k,[||]))) s) x
+                    ap (ap (ap a (TyKeyword(k,[||]))) s) x // TODO: Change this so it uses keywords arguments.
                     ) s l
             | _, _, r -> raise_type_error d <| sprintf "Expected a record.\nGot: %s" (show_typed_data r)
         | RecordFoldR,[|a;b;c|] ->
