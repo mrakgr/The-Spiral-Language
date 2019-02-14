@@ -126,16 +126,17 @@ let compile (settings: SpiralCompilerSettings) (m: SpiralModule) =
         let ms =
             let dict = Dictionary(HashIdentity.Reference)
             let ms = ResizeArray()
-            let rec loop m =
+            let rec loop (m: SpiralModule) =
                 memoize dict (fun (m: SpiralModule) ->
                     List.iter loop m.prerequisites
                     ms.Add m
                     ) m
+            
             loop m
             ms.ToArray()
 
-        let env = module_let env CoreLib.core
-        let env = module_open env "Core"
+        //let env = module_let env CoreLib.core
+        //let env = module_open env "Core"
         let env = Array.fold module_let env ms
         env.timing.Elapsed, env.seq.ToArray() |> timeit env.timing.codegen Fsharp.codegen
     with

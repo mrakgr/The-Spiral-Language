@@ -78,12 +78,8 @@ let parse (settings: SpiralCompilerSettings) module_ =
     let poperator = many1Satisfy is_operator_char .>> spaces
     let var_op_name = var_name <|> rounds (poperator <|> var_name_core)
         
-    let keywordString_template str followedByChar (s: CharStream<_>) =
-        let len = String.length str
-        if s.Match str && followedByChar (s.Peek(len)) then s.Seek(int64 len); Reply(())
-        else Reply(ReplyStatus.Error,expected str)
-    let keywordString x = keywordString_template x (is_identifier_char >> not) >>. spaces
-    let operatorString x = keywordString_template x (is_operator_char >> not) >>. spaces
+    let keywordString x = attempt (skipString x >>. satisfy (is_identifier_char >> not)) >>. spaces
+    let operatorString x = attempt (skipString x >>. satisfy (is_operator_char >> not)) >>. spaces
     let prefixOperatorChar x = next2CharsSatisfy (fun a b -> a = x && is_operator_char b = false)
     let operatorChar x = prefixOperatorChar x >>. spaces
 
@@ -148,18 +144,23 @@ let parse (settings: SpiralCompilerSettings) module_ =
         let inline default_float x = safe_parse Double.TryParse LitFloat64 "default float parse failed" x
 
         let followedBySuffix x is_x_integer (s: CharStream<_>) =
-            match s.Peek(0), s.Peek(1), s.Peek(2) with
-            | 'i', '8', _ -> s.Seek(2L); safe_parse SByte.TryParse LitInt8 "int8 parse failed" x
-            | 'u', '8', _ -> s.Seek(2L); safe_parse Byte.TryParse LitUInt8 "uint8 parse failed" x
-            | 'i', '1', '6' -> s.Seek(3L); safe_parse Int16.TryParse LitInt16 "int16 parse failed" x
-            | 'i', '3', '2' -> s.Seek(3L); safe_parse Int32.TryParse LitInt32 "int32 parse failed" x
-            | 'i', '6', '4' -> s.Seek(3L); safe_parse Int64.TryParse LitInt64 "int64 parse failed" x
-            | 'u', '1', '6' -> s.Seek(3L); safe_parse UInt16.TryParse LitUInt16 "uint16 parse failed" x
-            | 'u', '3', '2' -> s.Seek(3L); safe_parse UInt32.TryParse LitUInt32 "uint32 parse failed" x
-            | 'u', '6', '4' -> s.Seek(3L); safe_parse UInt64.TryParse LitUInt64 "uint64 parse failed" x
-            | 'f', '3', '2' -> s.Seek(3L); safe_parse Single.TryParse LitFloat32 "float32 parse failed" x
-            | 'f', '6', '4' -> s.Seek(3L); safe_parse Double.TryParse LitFloat64 "float64 parse failed" x
-            | _ -> if is_x_integer then default_int x else default_float x
+            if s.Skip('i') then
+                if s.Skip('8') then safe_parse SByte.TryParse LitInt8 "int8 parse failed" x
+                elif s.Skip('1') && s.Skip('6') then safe_parse Int16.TryParse LitInt16 "int16 parse failed" x
+                elif s.Skip('3') && s.Skip('2') then safe_parse Int32.TryParse LitInt32 "int32 parse failed" x
+                elif s.Skip('6') && s.Skip('4') then safe_parse Int64.TryParse LitInt64 "int64 parse failed" x
+                else Reply(Error, expected "8,16,32 or 64")
+            elif s.Skip('u') then
+                if s.Skip('8') then safe_parse Byte.TryParse LitUInt8 "uint8 parse failed" x
+                elif s.Skip('1') && s.Skip('6') then safe_parse UInt16.TryParse LitUInt16 "uint16 parse failed" x
+                elif s.Skip('3') && s.Skip('2') then safe_parse UInt32.TryParse LitUInt32 "uint32 parse failed" x
+                elif s.Skip('6') && s.Skip('4') then safe_parse UInt64.TryParse LitUInt64 "uint64 parse failed" x
+                else Reply(Error, expected "8,16,32 or 64")
+            elif s.Skip('f') then
+                if s.Skip('3') && s.Skip('2') then safe_parse Single.TryParse LitFloat32 "float32 parse failed" x
+                elif s.Skip('6') && s.Skip('4') then safe_parse Double.TryParse LitFloat64 "float64 parse failed" x
+                else Reply(Error, expected "32 or 64")
+            else if is_x_integer then default_int x else default_float x
 
         fun s ->
             let reply = parser s
@@ -235,10 +236,9 @@ let parse (settings: SpiralCompilerSettings) module_ =
         let pat_rounds pattern = rounds (pattern <|>% PatTuple [])
         let pat_type pattern = tuple2 pattern (opt (pp >>. pat_expr)) |>> function a,Some b as x-> PatTypeEq(a,b) | a, None -> a
         let pat_active pattern (s: CharStream<_>) =
-            match s.Peek() with
-            | '!' -> s.Seek(1L); pipe2 pat_expr pattern (fun name pat -> PatActive(name,pat)) s
-            | '#' -> s.Seek(1L); (pattern |>> PatUnbox) s
-            | _ -> Reply(ReplyStatus.Error, expected "! or #")
+            if s.Skip('!') then pipe2 pat_expr pattern (fun name pat -> PatActive(name,pat)) s
+            elif s.Skip('#') then (pattern |>> PatUnbox) s
+            else Reply(ReplyStatus.Error, expected "! or #")
         let pat_or pattern = sepBy1 pattern bar |>> function [x] -> x | x -> PatOr x
         let pat_and pattern = sepBy1 pattern amphersand |>> function [x] -> x | x -> PatAnd x
     
