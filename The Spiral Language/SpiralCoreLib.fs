@@ -254,7 +254,11 @@ inl (=) a b =
         | a, b when Is (layout: a) -> Layout (none: a) = Layout (none: b)
         | a :: as', b :: bs -> a = b && as' = bs
         | (), () -> true
-        | {} & a, {} & b -> Record.foldr (inl (key:_ state:next value:x') res -> res && (match b with {$k=x'} -> next (x = x'))) (state:id) a true
+        | {} & a, {} & b -> 
+            Record (
+                foldr: inl (key:_ state:next value:x') res -> res && match b with {$k=x'} -> next (x = x') 
+                state: id
+                ) a true
         | a, b when Is (union: a) || Is (rec_union: a) ->
             inl f a b =
                 inl #a, #b = a, b
