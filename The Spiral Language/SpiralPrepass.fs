@@ -28,10 +28,10 @@ let rec prepass (env: PrepassEnv) expr =
                 prepass_map_length = env.prepass_map_length + 1
                 }
 
-        let subrenaming_env_init free_vars = 
+        let subrenaming_env_init size_lexical_scope free_vars = 
             let d = Dictionary(Array.length free_vars, HashIdentity.Structural)
             Array.iter (fun k -> d.Add(k,d.Count)) free_vars
-            d
+            {subren_size_lexical_scope=size_lexical_scope; subren_dict=d}
 
         let rec subrenaming (env: PrepassSubrenameEnv) expr =
             let rename x =
@@ -218,7 +218,8 @@ let rec prepass (env: PrepassEnv) expr =
                         ) Set.empty ar
                 let array_free_vars = Set.toArray free_vars
                 let tagged_dict =
-                    let subrenaming_env = subrenaming_env_init array_free_vars
+                    let subrenaming_env = subrenaming_env_init size_lexical_scope array_free_vars
+                    printfn "%A" subrenaming_env
                     let tagged_dict = TaggedDictionary(ar.Length,tag())
                     Array.iter (fun (keyword, expr, stack_size) -> 
                         let expr = subrenaming subrenaming_env expr
