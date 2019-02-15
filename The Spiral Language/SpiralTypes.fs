@@ -503,6 +503,17 @@ let cfg_default = {
 
 let cfg_testing = {cfg_default with cuda_includes=[]; trace_length=20}
 
+type LC = {
+    line : int
+    column : int
+    }
+
+type TokenPosition = {
+    start: LC 
+    end_: LC 
+    }
+
+exception TokenizationError of string * TokenPosition
 exception PrepassError of string
 exception PrepassErrorWithPos of PosKey * string
 exception TypeError of Trace * string
