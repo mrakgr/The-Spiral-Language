@@ -1019,6 +1019,10 @@ let rec partial_eval (d: LangEnv) x =
             match ev d a with
             | TyLit _ -> TyLit (LitBool true)
             | _ -> TyLit (LitBool false)
+        | PrimIs,[|a|] -> 
+            match ev d a |> type_get with
+            | PrimT _ -> TyLit (LitBool true)
+            | _ -> TyLit (LitBool false)
         | LayoutIs,[|a|] -> 
             match ev d a |> type_get with
             | LayoutT _ -> TyLit (LitBool true)

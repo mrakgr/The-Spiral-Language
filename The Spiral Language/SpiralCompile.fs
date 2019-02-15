@@ -60,7 +60,9 @@ let module_let (env: ModulePrepassEnv) (m: SpiralModule) =
     let context = env.context.ToArray()
     let expr, size = 
         match timeit env.timing.parse (Parsing.parse env.settings) m with
-        | Success(x,_,_) -> x
+        | Success(x,_,_) -> 
+            //printfn "%A" x
+            x
         | Failure(x,_,_) -> raise_compile_error x
         |> timeit env.timing.prepass (Prepass.prepass {prepass_context=context; prepass_map=env.map; prepass_map_length=count})
     let module_ = 

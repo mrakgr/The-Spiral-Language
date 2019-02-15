@@ -105,7 +105,7 @@ let test1: SpiralModule =
     description="Does it run?"
     code=
     """
-[a=1].a
+()
     """
     }
 

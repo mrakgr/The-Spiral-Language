@@ -35,12 +35,14 @@ let parse (settings: SpiralCompilerSettings) module_ =
     let line (s: CharStream<_>) = s.Line
 
     let pos' s = module_, line s, col s
-    let exprpos expr (s: CharStream<_>) = 
-        let pos = pos' s
-        (expr |>> function
-            | RawFunction _ | RawObjectCreate _  as x -> x // Pos nodes can get in the way of optimizations.
-            | x -> expr_pos pos x) s
-    let patpos expr (s: CharStream<_>) = (expr |>> pat_pos (pos' s)) s
+    //let exprpos expr (s: CharStream<_>) = 
+    //    let pos = pos' s
+    //    (expr |>> function
+    //        | RawFunction _ | RawObjectCreate _  as x -> x // Pos nodes can get in the way of optimizations.
+    //        | x -> expr_pos pos x) s
+    //let patpos expr (s: CharStream<_>) = (expr |>> pat_pos (pos' s)) s
+    let exprpos expr (s: CharStream<_>) = expr s
+    let patpos expr (s: CharStream<_>) = expr s
 
     let rec spaces_template s = spaces >>. optional (followedByString "//" >>. skipRestOfLine true >>. spaces_template) <| s
     let spaces s = spaces_template s
@@ -80,7 +82,7 @@ let parse (settings: SpiralCompilerSettings) module_ =
     let squares p = between_brackets '[' p ']'
 
     let poperator = many1Satisfy is_operator_char .>> spaces
-    let var_op_name = var_name <|> rounds (poperator <|> var_name_core)
+    let var_op_name = var_name <|> rounds poperator
         
     let keywordString x = attempt (skipString x >>. satisfy (is_identifier_char >> not)) >>. spaces
     let operatorString x = attempt (skipString x >>. satisfy (is_operator_char >> not)) >>. spaces
@@ -229,12 +231,11 @@ let parse (settings: SpiralCompilerSettings) module_ =
     let rec pattern_template expr s = // The order in which the pattern parsers are chained determines their precedence.
         let inline recurse s = pattern_template expr s
 
-        let pat_e = wildcard >>% PatE
-        let pat_var = var_name |>> PatVar
+        let pat_e_is = function "_" -> PatE | x -> PatVar x
+        let pat_var_rounds pattern = (var_name |>> pat_e_is) <|> rounds ((poperator |>> PatVar) <|> (pattern <|>% PatTuple []))
         let pat_expr = (var_name |>> v) <|> rounds expr
         let pat_tuple pattern = sepBy1 pattern comma |>> function [x] -> x | x -> PatTuple x
         let pat_cons pattern = sepBy1 pattern cons |>> function [x] -> x | x -> PatCons x
-        let pat_rounds pattern = rounds (pattern <|>% PatTuple [])
         let pat_type pattern = tuple2 pattern (opt (pp >>. pat_expr)) |>> function a,Some b as x-> PatTypeEq(a,b) | a, None -> a
         let pat_active pattern (s: CharStream<_>) =
             if s.Skip('!') then pipe2 pat_expr pattern (fun name pat -> PatActive(name,pat)) s
@@ -260,7 +261,7 @@ let parse (settings: SpiralCompilerSettings) module_ =
         let pat_closure pattern = sepBy1 pattern arr |>> List.reduceBack (fun a b -> PatTypeTermFunction(a,b))
 
         pat_when ^<| pat_as ^<| pat_or ^<| pat_keyword ^<| pat_tuple ^<| pat_cons ^<| pat_and ^<| pat_type ^<| pat_closure
-        ^<| choice [|pat_active recurse; pat_e; pat_var; pat_lit; pat_record recurse; pat_rounds recurse; pat_keyword_unary|] <| s
+        ^<| choice [|pat_active recurse; pat_lit; pat_record recurse; pat_keyword_unary; pat_var_rounds recurse|] <| s
 
     let inline pattern expr s = patpos (pattern_template expr) s
     
@@ -348,17 +349,19 @@ let parse (settings: SpiralCompilerSettings) module_ =
     let rec expressions expr s = 
         let case_object =
             let f (pat, body) s = 
-                match pat with
-                | PatPos pos ->
+                let inline f expr_pos pat =
                     let compile_pattern name pat body =
                         match compile_pattern pat body with
-                        | RawFunction(x,_) -> Reply((name, expr_pos pos.Pos x))
+                        | RawFunction(x,_) -> Reply((name, expr_pos x))
                         | _ -> failwith "impossible"
-                    match pos.Expression with
+                    match pat with
                     | PatVar name -> compile_pattern name (PatKeyword(name, [])) body
                     | PatKeyword(name,_) -> compile_pattern name pat body
                     | _ -> Reply(Error,expected "keyword pattern")
-                | _ -> Reply(FatalError, expected "positional node")
+                    
+                match pat with
+                | PatPos pos -> f (expr_pos pos.Pos) pos.Expression
+                | _ -> f id pat
             let receiver s =
                 let i = col s
                 let line = line s
@@ -368,8 +371,7 @@ let parse (settings: SpiralCompilerSettings) module_ =
 
         let case_lit = lit_ |>> lit
         let case_if_then_else = if_then_else expr
-        let case_rounds = rounds (reset_semicolon_level expr <|>% B)
-        let case_var = var_op_name |>> v
+        let case_var_rounds = (var_name |>> v) <|> rounds ((poperator |>> v) <|> (reset_semicolon_level expr <|>% B))
 
         let case_typex match_type (s: CharStream<_>) =
             let clause = 
@@ -478,9 +480,9 @@ let parse (settings: SpiralCompilerSettings) module_ =
         case_join_point; case_type; case_type_catch
         case_cuda; case_inbuilt_op; case_parser_macro
         case_inl_pat_list_expr; case_lit; case_if_then_else
-        case_rounds; case_typecase; case_typeinl; case_record; case_object
+        case_typecase; case_typeinl; case_record; case_object
         case_negate; case_keyword_unary
-        case_var
+        case_var_rounds
         |] |> choice <| s
  
     let process_parser_exprs exprs = 

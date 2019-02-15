@@ -189,6 +189,7 @@ type Op =
     | ErrorPatMiss
     | Dynamize
     | LitIs
+    | PrimIs
     | LayoutIs
     | UnionIs
     | RecUnionIs

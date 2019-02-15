@@ -51,16 +51,16 @@ let rec prepass (env: PrepassEnv) expr =
                 | KeywordCreate(tag,a,exprs) -> KeywordCreate(tag,a,Array.map f exprs)
                 | Let(tag,bind,on_succ) -> Let(tag,f bind,f on_succ)
                 | Case(tag,bind,on_succ) -> Case(tag,f bind,f on_succ)
-                | ListTakeAllTest(tag,size,bind,on_succ,on_fail) -> ListTakeAllTest(tag,size,bind,f on_succ,f on_fail)
-                | ListTakeNTest(tag,size,bind,on_succ,on_fail) -> ListTakeNTest(tag,size,bind,f on_succ,f on_fail)
-                | KeywordTest(tag,keyword,bind,on_succ,on_fail) -> KeywordTest(tag,keyword,bind,f on_succ,f on_fail)
+                | ListTakeAllTest(tag,size,bind,on_succ,on_fail) -> ListTakeAllTest(tag,size,rename bind,f on_succ,f on_fail)
+                | ListTakeNTest(tag,size,bind,on_succ,on_fail) -> ListTakeNTest(tag,size,rename bind,f on_succ,f on_fail)
+                | KeywordTest(tag,keyword,bind,on_succ,on_fail) -> KeywordTest(tag,keyword,rename bind,f on_succ,f on_fail)
                 | RecordTest(tag,patterns,bind,on_succ,on_fail) ->
                     let patterns =
                         Array.map (function
                             | RecordTestInjectVar x -> RecordTestInjectVar(rename x)
                             | RecordTestKeyword _ as x -> x
                             ) patterns
-                    RecordTest(tag,patterns,bind,f on_succ,f on_fail)
+                    RecordTest(tag,patterns,rename bind,f on_succ,f on_fail)
                 | RecordWith(tag,exprs,patterns) ->
                     let patterns =
                         Array.map (function
@@ -161,7 +161,7 @@ let rec prepass (env: PrepassEnv) expr =
             f(tag(), bind, on_succ), free_vars + free_vars', 1 + max stack_size stack_size'
 
         memoize prepass_memo_dict (function
-            | RawV x -> let tag = tag() in V(tag, string_to_var env.prepass_map x), Set.singleton tag, 0
+            | RawV x -> let tag, x = tag(), string_to_var env.prepass_map x in V(tag, x), Set.singleton x, 0
             | RawLit x -> Lit(tag(), x), Set.empty, 0
             | RawOpen(module_name,submodule_names,on_succ) ->
                 match env.prepass_map.TryFind module_name with
@@ -219,7 +219,6 @@ let rec prepass (env: PrepassEnv) expr =
                 let array_free_vars = Set.toArray free_vars
                 let tagged_dict =
                     let subrenaming_env = subrenaming_env_init size_lexical_scope array_free_vars
-                    printfn "%A" subrenaming_env
                     let tagged_dict = TaggedDictionary(ar.Length,tag())
                     Array.iter (fun (keyword, expr, stack_size) -> 
                         let expr = subrenaming subrenaming_env expr
