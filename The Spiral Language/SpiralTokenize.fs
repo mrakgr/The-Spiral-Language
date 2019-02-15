@@ -309,23 +309,19 @@ let inbuilt_operators =
 
 // Similarly to F#, Spiral filters out the '.' from the operator name and then tries to match to the nearest inbuilt operator
 // for the sake of assigning associativity and precedence.
-let op pos name' = 
-    match inbuilt_operators.TryGetValue name' with
-    | true, v -> v
-    | false, _ ->
+let op pos x = 
+    memoize inbuilt_operators (fun name' ->
         let name = String.filter ((<>) '.') name'
         let rec loop l =
             if l > 0 then
                 let name = name.[0..l-1]
                 match inbuilt_operators.TryGetValue name with
                 | false, _ -> loop (l - 1)
-                | true, v -> 
-                    let x = {v with name=name'}
-                    inbuilt_operators.Add(name',x)
-                    x
+                | true, v -> {v with name=name'}
             else
                 raise (TokenizationError(sprintf "The `%s` operator is not supported." name', pos))
         loop name.Length
+        ) x
 
 let operator s = 
     let start = pos s
