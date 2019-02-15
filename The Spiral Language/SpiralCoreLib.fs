@@ -207,7 +207,8 @@ inl lit_comp op a b =
     if Is (lit: a) && Is (lit: b) then op a b
     elif Is (lit: a) then a
     elif Is (lit: b) then b
-    else error_type "a or b needs to be a literal"
+    else Type (error: "a or b needs to be a literal")
+        
 
 /// Returns the compile time expressible maximum of the two expressions.
 inl lit_max = lit_comp max

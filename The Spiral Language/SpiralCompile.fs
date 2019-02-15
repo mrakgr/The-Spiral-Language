@@ -139,8 +139,8 @@ let compile (settings: SpiralCompilerSettings) (m: SpiralModule) =
             loop m
             ms.ToArray()
 
-        let env = module_let env CoreLib.core
-        let env = module_open env "Core"
+        //let env = module_let env CoreLib.core
+        //let env = module_open env "Core"
         let env = Array.fold module_let env ms
         env.timing.Elapsed, env.seq.ToArray() |> timeit env.timing.codegen Fsharp.codegen
     with

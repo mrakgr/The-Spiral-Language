@@ -86,24 +86,26 @@ let parse (settings: SpiralCompilerSettings) module_ =
         
     let keywordString x = attempt (skipString x >>. satisfy (is_identifier_char >> not)) >>. spaces
     let operatorString x = attempt (skipString x >>. satisfy (is_operator_char >> not)) >>. spaces
-    let operatorChar x = skipChar x >>. spaces
+    let operatorChar x = attempt (skipChar x >>. satisfy (is_operator_char >> not)) >>. spaces
 
     let keyword_unary = attempt (skipChar '.' >>. var_name_core' .>> spaces)
 
     let when_ = keywordString "when"
     let as_ = keywordString "as"
     let comma = skipChar ',' >>. spaces
-    let union = keywordString "\/"
+    let union = operatorString "\/"
     let pp = operatorChar ':'
     let pp' = skipChar ':' >>. spaces
     let semicolon' = operatorChar ';'
     let semicolon (s: CharStream<_>) = 
         if s.Line <> s.UserState.semicolon_line then semicolon' s
         else Reply(ReplyStatus.Error, messageError "cannot parse ; on this line") 
-    let eq = operatorChar '='
+    
+    let eq = skipChar '=' >>. spaces
+    let lam = skipString "->" >>. spaces
+    
     let bar = operatorChar '|' 
     let amphersand = operatorChar '&'
-    let lam = operatorString "->"
     let arr = operatorString "=>"
     let inl = keywordString "inl"
     let inl_rec = keywordString "inl rec"
@@ -116,8 +118,6 @@ let parse (settings: SpiralCompilerSettings) module_ =
     let without = keywordString "without"
     let cons = operatorString "::"
     let inject = skipChar '$'
-    let wildcard = operatorChar '_'
-
     let pbool = ((keywordString "false" >>% LitBool false) <|> (keywordString "true" >>% LitBool true)) .>> spaces
 
     let pnumber : Parser<_,_> =
@@ -178,7 +178,7 @@ let parse (settings: SpiralCompilerSettings) module_ =
             else // reconstruct error reply
                 Reply(reply.Status, reply.Error)
 
-    let char_quoted_read check (s: CharStream<_>) =
+    let inline char_quoted_read check (s: CharStream<_>) =
         let x = s.Peek()
         if check x then
             s.Skip()
@@ -193,8 +193,8 @@ let parse (settings: SpiralCompilerSettings) module_ =
             |> Reply
         else Reply(Error,null)
 
-    let char_quoted = skipChar '\'' >>. char_quoted_read (fun _ -> true) .>> skipChar '\'' |>> LitChar
-    let string_quoted = skipChar '\"' >>. manyChars (char_quoted_read ((<>) '\"')) .>> skipChar '\"' |>> LitString
+    let char_quoted s = (between (skipChar '\'') (skipChar '\'') (char_quoted_read (fun _ -> true)) |>> LitChar) s
+    let string_quoted s = (between (skipChar '"') (skipChar '"') (manyChars (char_quoted_read ((<>) '"'))) |>> LitString) s
 
     let inline string_raw_template str =
         skipString str >>. charsTillString str true Int32.MaxValue .>> spaces
@@ -261,7 +261,7 @@ let parse (settings: SpiralCompilerSettings) module_ =
         let pat_closure pattern = sepBy1 pattern arr |>> List.reduceBack (fun a b -> PatTypeTermFunction(a,b))
 
         pat_when ^<| pat_as ^<| pat_or ^<| pat_keyword ^<| pat_tuple ^<| pat_cons ^<| pat_and ^<| pat_type ^<| pat_closure
-        ^<| choice [|pat_active recurse; pat_lit; pat_record recurse; pat_keyword_unary; pat_var_rounds recurse|] <| s
+        ^<| choice [|pat_var_rounds recurse; pat_active recurse; pat_lit; pat_record recurse; pat_keyword_unary|] <| s
 
     let inline pattern expr s = patpos (pattern_template expr) s
     
@@ -286,11 +286,11 @@ let parse (settings: SpiralCompilerSettings) module_ =
     let compile_patterns pats body = List.foldBack compile_pattern pats body
 
     let statements expr =
-        let inline inb_templ inb k =
+        let inline inb_templ inb l =
             inb >>. pipe2 (pattern expr) (statement_expr expr) (fun pat body on_succ ->
                 compile_pattern pat on_succ
                 |> function
-                    | RawFunction(on_succ,arg) -> k arg body on_succ
+                    | RawFunction(on_succ,arg) -> l arg body on_succ
                     | _ -> failwith "impossible"
                 )
 
@@ -299,10 +299,13 @@ let parse (settings: SpiralCompilerSettings) module_ =
 
         let inl = 
             inl >>. pipe2 (many1 (pattern expr)) (statement_expr expr) (fun pats body on_succ ->
-                compile_patterns pats on_succ
-                |> function
-                    | RawFunction(on_succ,arg) -> l arg body on_succ
-                    | _ -> failwith "impossible"
+                match pats with
+                | x :: x' ->
+                    compile_pattern x on_succ
+                    |> function
+                        | RawFunction(on_succ,arg) -> l arg (compile_patterns x' body) on_succ
+                        | _ -> failwith "impossible"
+                |_ -> failwith "impossible"
                 )
 
         let inl_rec = 
@@ -310,9 +313,9 @@ let parse (settings: SpiralCompilerSettings) module_ =
                 match body with
                 | RawFunction(a,b) ->
                     Reply(fun on_succ ->
-                        compile_patterns pats on_succ
+                        compile_patterns pats body
                         |> function
-                            | RawFunction(on_succ,arg) -> l name (RawRecFunction(body,arg,name)) on_succ
+                            | RawFunction(body,arg) -> l name (RawRecFunction(body,arg,name)) on_succ
                             | _ -> failwith "impossible"
                         )
                 | _ ->
