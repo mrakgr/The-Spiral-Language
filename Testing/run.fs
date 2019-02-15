@@ -105,7 +105,8 @@ let test1: SpiralModule =
     description="Does it run?"
     code=
     """
-""
+inl not x = !EQ(x, falser)
+()
     """
     }
 
