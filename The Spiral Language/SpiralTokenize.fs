@@ -33,6 +33,12 @@ type TokenSpecial =
     | SpecOr
     | SpecAnd
     | SpecTypeUnion
+    | SpecComma
+    | SpecSemicolon
+    | SpecUnaryOne // ! Used for the active pattern and inbuilt ops.
+    | SpecUnaryTwo // @ Used for parser macros
+    | SpecUnaryThree // # Used for the unboxing pattern.
+    | SpecUnaryFour // $ Used for the injection in patterns and in RecordWith
 
 type SpiralToken =
     | TokVar of TokenPosition * string
@@ -43,12 +49,6 @@ type SpiralToken =
     | TokBracketRound of TokenPosition * SpiralToken list
     | TokBracketCurly of TokenPosition * SpiralToken list
     | TokBracketSquare of TokenPosition * SpiralToken list
-    | TokComma of TokenPosition
-    | TokSemicolon of TokenPosition
-    | TokUnaryOne of TokenPosition * SpiralToken // ! Used for the active pattern and inbuilt ops.
-    | TokUnaryTwo of TokenPosition * SpiralToken // @ Used for parser macros
-    | TokUnaryThree of TokenPosition * SpiralToken // # Used for the unboxing pattern.
-    | TokUnaryFour of TokenPosition * SpiralToken // $ Used for the injection in patterns and in RecordWith
     | TokSpecial of TokenPosition * TokenSpecial
 
 let _ =
@@ -215,11 +215,11 @@ let operator s =
 
 let comma s = 
     let start = pos s
-    (skipChar ',' |>> (fun _ -> TokComma(tok start (pos s))) .>> spaces) s
+    (skipChar ',' |>> (fun _ -> TokSpecial(tok start (pos s), SpecComma)) .>> spaces) s
 
 let semicolon s = 
     let start = pos s
-    (skipChar ';' |>> (fun _ -> TokSemicolon(tok start (pos s)))  .>> spaces) s
+    (skipChar ';' |>> (fun _ -> TokSpecial(tok start (pos s), SpecSemicolon))  .>> spaces) s
 
 let inline string_raw_template str str' s =
     let start = pos s
@@ -253,6 +253,15 @@ let string_quoted s =
     let f x = TokValue(tok start (pos s), LitString x)
     (between (skipChar '"') (skipChar '"' >>. spaces) (manyChars (char_quoted_read ((<>) '"'))) |>> f) s
 
+let unary s =
+    let start = pos s
+    match s.Peek() with
+    | '!' -> s.Skip(); TokSpecial(tok start (pos s), SpecUnaryOne) |> Reply
+    | '@' -> s.Skip(); TokSpecial(tok start (pos s), SpecUnaryTwo) |> Reply
+    | '#' -> s.Skip(); TokSpecial(tok start (pos s), SpecUnaryThree) |> Reply
+    | '$' -> s.Skip(); TokSpecial(tok start (pos s), SpecUnaryFour) |> Reply
+    | _ -> Reply(Error, expected "`!`,`@`,`#` or `$`")
+
 let rec tokenize s =
     let inline bracket f l r s = 
         let start = pos s
@@ -265,16 +274,7 @@ let rec tokenize s =
     let bracket_round s = bracket TokBracketRound '(' ')' s
     let bracket_curly s = bracket TokBracketCurly '{' '}' s
     let bracket_square s = bracket TokBracketSquare '[' ']' s
-
-    let unary s =
-        let start = pos s
-        match s.Peek() with
-        | '!' -> s.Skip(); (tokenize |>> (fun x -> TokUnaryOne(tok start (pos s), x)) .>> spaces) s
-        | '@' -> s.Skip(); (tokenize |>> (fun x -> TokUnaryTwo(tok start (pos s), x)) .>> spaces) s
-        | '#' -> s.Skip(); (tokenize |>> (fun x -> TokUnaryThree(tok start (pos s), x)) .>> spaces) s
-        | '$' -> s.Skip(); (tokenize |>> (fun x -> TokUnaryFour(tok start (pos s), x)) .>> spaces) s
-        | _ -> Reply(Error, expected "`!`,`@`,`#` or `$`")
-    
+   
     choice
         [|
         var; keyword_unary; number
