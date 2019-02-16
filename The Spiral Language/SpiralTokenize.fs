@@ -39,6 +39,13 @@ type TokenSpecial =
     | SpecUnaryTwo // @ Used for parser macros
     | SpecUnaryThree // # Used for the unboxing pattern.
     | SpecUnaryFour // $ Used for the injection in patterns and in RecordWith
+    | SpecBracketRoundOpen
+    | SpecBracketCurlyOpen
+    | SpecBracketSquareOpen
+    | SpecBracketRoundClose
+    | SpecBracketCurlyClose
+    | SpecBracketSquareClose
+    | SpecCuda
 
 type SpiralToken =
     | TokVar of TokenPosition * string
@@ -46,9 +53,6 @@ type SpiralToken =
     | TokKeyword of TokenPosition * string
     | TokKeywordUnary of TokenPosition * string
     | TokOperator of TokenPosition * TokenOperator
-    | TokBracketRound of TokenPosition * SpiralToken list
-    | TokBracketCurly of TokenPosition * SpiralToken list
-    | TokBracketSquare of TokenPosition * SpiralToken list
     | TokSpecial of TokenPosition * TokenSpecial
 
 let _ =
@@ -105,6 +109,7 @@ let var (s:CharStream<_>) =
             | "elif" -> TokSpecial(pos,SpecElif) | "else" -> TokSpecial(pos,SpecElse)
             | "open" -> TokSpecial(pos,SpecOpen) | "join" -> TokSpecial(pos,SpecJoin)
             | "type" -> TokSpecial(pos,SpecType) | "type_catch" -> TokSpecial(pos,SpecTypeCatch)
+            | "cuda" -> TokSpecial(pos,SpecCuda)
             | "true" -> TokValue(pos,LitBool true) | "false" -> TokValue(pos,LitBool false)
             | "_" -> TokSpecial(pos,SpecWildcard)
             | x -> TokVar(pos,x)
@@ -213,14 +218,6 @@ let operator s =
             with :? TokenizationError as x -> Reply(Error, messageError x.Data0)
     (many1SatisfyL is_operator_char "operator"  >>= f .>> spaces) s
 
-let comma s = 
-    let start = pos s
-    (skipChar ',' |>> (fun _ -> TokSpecial(tok start (pos s), SpecComma)) .>> spaces) s
-
-let semicolon s = 
-    let start = pos s
-    (skipChar ';' |>> (fun _ -> TokSpecial(tok start (pos s), SpecSemicolon))  .>> spaces) s
-
 let inline string_raw_template str str' s =
     let start = pos s
     let f x = TokValue(tok start (pos s), LitString x)
@@ -253,33 +250,22 @@ let string_quoted s =
     let f x = TokValue(tok start (pos s), LitString x)
     (between (skipChar '"') (skipChar '"' >>. spaces) (manyChars (char_quoted_read ((<>) '"'))) |>> f) s
 
-let unary s =
+let special s =
     let start = pos s
+    let f' spec = s.Skip(); Reply(TokSpecial(tok start (pos s), spec))
+    let f spec = s.Skip(); (spaces >>% (TokSpecial(tok start (pos s), spec))) s
     match s.Peek() with
-    | '!' -> s.Skip(); TokSpecial(tok start (pos s), SpecUnaryOne) |> Reply
-    | '@' -> s.Skip(); TokSpecial(tok start (pos s), SpecUnaryTwo) |> Reply
-    | '#' -> s.Skip(); TokSpecial(tok start (pos s), SpecUnaryThree) |> Reply
-    | '$' -> s.Skip(); TokSpecial(tok start (pos s), SpecUnaryFour) |> Reply
-    | _ -> Reply(Error, expected "`!`,`@`,`#` or `$`")
+    | '!' -> f' SpecUnaryOne | '@' -> f' SpecUnaryTwo | '#' -> f' SpecUnaryThree | '$' -> f' SpecUnaryFour
+    | '(' -> f SpecBracketRoundOpen | '[' -> f SpecBracketSquareOpen | '{' -> f SpecBracketCurlyOpen
+    | ')' -> f SpecBracketRoundClose | ']' -> f SpecBracketSquareClose | '}' -> f SpecBracketCurlyClose
+    | ',' -> f SpecComma | ';' -> f SpecSemicolon
+    | _ -> Reply(Error, expected "`!`,`@`,`#`,`$`,`(`,`[`,`{`,`}`,`]`,`)`")
 
-let rec tokenize s =
-    let inline bracket f l r s = 
-        let start = pos s
-        (
-        between (skipChar l >>. spaces) (skipChar r >>. spaces) (many tokenize)
-        >>= (fun x s -> Reply(f (tok start (pos s), x)))
-        .>> spaces
-        ) s
-
-    let bracket_round s = bracket TokBracketRound '(' ')' s
-    let bracket_curly s = bracket TokBracketCurly '{' '}' s
-    let bracket_square s = bracket TokBracketSquare '[' ']' s
-   
+let tokenize s =
     choice
         [|
         var; keyword_unary; number
-        string_raw; string_raw_triple; char_quoted; string_quoted
-        bracket_round; bracket_curly; bracket_square; unary
-        comma; semicolon; operator
+        string_raw_triple; string_raw; char_quoted; string_quoted
+        special; operator
         |]
         s
