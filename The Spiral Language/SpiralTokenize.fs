@@ -157,17 +157,18 @@ type TokenSpecial =
     | SpecThen
     | SpecElif
     | SpecElse
-    | SpecTrue
-    | SpecFalse
     | SpecOpen
     | SpecJoin
     | SpecType
     | SpecTypeCatch
     | SpecWildcard
+    | SpecLambda
+    | SpecOr
+    | SpecAnd
 
 type SpiralToken =
     | TokVar of TokenPosition * string
-    | TokNumber of TokenPosition * Value
+    | TokValue of TokenPosition * Value
     | TokMessage of TokenPosition * string
     | TokMessageUnary of TokenPosition * string
     | TokOperator of TokenPosition * TokenOperator
@@ -188,6 +189,9 @@ let is_operator_char c =
     let inline f x = c = x
     f '%' || f '^' || f '&' || f '|' || f '*' || f '/' || f '+' || f '-' || f '<' 
     || f '>' || f '=' || f '.' || f ':' || f '?'
+let is_separator_char c = 
+    let inline f x = c = x
+    f ' ' || f ',' || f ':' || f ';' || f '\t' || f '\n' || f '\r' || f '(' || f '{' || f '[' || f CharStream.EndOfStreamChar
 
 let var (s:CharStream<_>) = 
     let start = pos s
@@ -207,9 +211,9 @@ let var (s:CharStream<_>) =
             | "inb" -> TokSpecial(pos,SpecInb) | "rec" -> TokSpecial(pos,SpecRec)
             | "if" -> TokSpecial(pos,SpecIf) | "then" -> TokSpecial(pos,SpecThen)
             | "elif" -> TokSpecial(pos,SpecElif) | "else" -> TokSpecial(pos,SpecElse)
-            | "true" -> TokSpecial(pos,SpecTrue) | "false" -> TokSpecial(pos,SpecFalse)
             | "open" -> TokSpecial(pos,SpecOpen) | "join" -> TokSpecial(pos,SpecJoin)
             | "type" -> TokSpecial(pos,SpecType) | "type_catch" -> TokSpecial(pos,SpecTypeCatch)
+            | "true" -> TokValue(pos,LitBool true) | "false" -> TokValue(pos,LitBool false)
             | "_" -> TokSpecial(pos,SpecWildcard)
             | x -> TokVar(pos,x)
         |> Reply
@@ -227,7 +231,7 @@ let number_format_with_minus = default_number_format ||| NumberLiteralOptions.Al
 let number (s: CharStream<_>) = 
         let inline parser (s: CharStream<_>) = 
             let parse_num_lit number_format s = numberLiteral number_format "number" s
-            if s.Peek() = '-' && isDigit (s.Peek(1)) then parse_num_lit number_format_with_minus s
+            if s.Peek() = '-' && isDigit (s.Peek(1)) && is_separator_char (s.Peek(-1)) then parse_num_lit number_format_with_minus s
             else parse_num_lit default_number_format s
 
         let inline safe_parse f on_succ er_msg x = 
@@ -267,7 +271,7 @@ let number (s: CharStream<_>) =
         if reply.Status = Ok then
             let nl = reply.Result // the parsed NumberLiteral
             try 
-                let f x = TokNumber(tok start (pos s), x)
+                let f x = TokValue(tok start (pos s), x)
                 ((followedBySuffix nl.String nl.IsInteger |>> f) .>> spaces) s
             with
             | :? System.OverflowException as e ->
@@ -303,13 +307,13 @@ let inbuilt_operators =
     let right_associative_ops =
         let f str prec = add_infix_operator Associativity.Right str prec
         f "||" 20; f "&&" 30; f "::" 50; f "^^^" 45
-        f "=>" 0; f "->" 0; f ":>" 35; f ":?>" 35; f "**" 80
+        f "=>" 5; f ":>" 35; f ":?>" 35; f "**" 80
          
     dict_operator
 
 // Similarly to F#, Spiral filters out the '.' from the operator name and then tries to match to the nearest inbuilt operator
 // for the sake of assigning associativity and precedence.
-let op pos x = 
+let op x = 
     memoize inbuilt_operators (fun name' ->
         let name = String.filter ((<>) '.') name'
         let rec loop l =
@@ -319,7 +323,7 @@ let op pos x =
                 | false, _ -> loop (l - 1)
                 | true, v -> {v with name=name'}
             else
-                raise (TokenizationError(sprintf "The `%s` operator is not supported." name', pos))
+                raise (TokenizationError(sprintf "The `%s` operator is not supported." name'))
         loop name.Length
         ) x
 
@@ -327,5 +331,11 @@ let operator s =
     let start = pos s
     let f name s = 
         let pos = tok start (pos s)
-        Reply(TokOperator(pos,op pos name))
+        match name with
+        | "->" -> Reply(TokSpecial(pos,SpecLambda))
+        | "|" -> Reply(TokSpecial(pos,SpecOr))
+        | "&" -> Reply(TokSpecial(pos,SpecAnd))
+        | _ ->
+            try Reply(TokOperator(pos,op name))
+            with :? TokenizationError as x -> Reply(Error, messageError x.Data0)
     (many1SatisfyL is_operator_char "operator"  >>= f .>> spaces) s

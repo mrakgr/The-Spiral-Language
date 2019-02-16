@@ -513,7 +513,7 @@ type TokenPosition = {
     end_: LC 
     }
 
-exception TokenizationError of string * TokenPosition
+exception TokenizationError of string
 exception PrepassError of string
 exception PrepassErrorWithPos of PosKey * string
 exception TypeError of Trace * string
