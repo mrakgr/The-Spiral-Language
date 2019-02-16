@@ -2,6 +2,7 @@
 
 open System.Collections.Generic
 open Types
+open Tokenize
 
 // Globals
 let private keyword_to_string_dict = Dictionary(HashIdentity.Structural)
@@ -26,3 +27,5 @@ let string_to_keyword (x: string) =
         tag_keyword
 let keyword_to_string x = keyword_to_string_dict.[x] // Should never fail.
 
+let parse (x: SpiralToken list)
+    

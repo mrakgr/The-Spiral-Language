@@ -32,12 +32,13 @@ type TokenSpecial =
     | SpecLambda
     | SpecOr
     | SpecAnd
+    | SpecTypeUnion
 
 type SpiralToken =
     | TokVar of TokenPosition * string
     | TokValue of TokenPosition * Value
-    | TokMessage of TokenPosition * string
-    | TokMessageUnary of TokenPosition * string
+    | TokKeyword of TokenPosition * string
+    | TokKeywordUnary of TokenPosition * string
     | TokOperator of TokenPosition * TokenOperator
     | TokBracketRound of TokenPosition * SpiralToken list
     | TokBracketCurly of TokenPosition * SpiralToken list
@@ -79,7 +80,7 @@ let is_identifier_char c = is_identifier_starting_char c || c = ''' || isDigit c
 let is_operator_char c = 
     let inline f x = c = x
     f '%' || f '^' || f '&' || f '|' || f '*' || f '/' || f '+' || f '-' || f '<' 
-    || f '>' || f '=' || f '.' || f ':' || f '?'
+    || f '>' || f '=' || f '.' || f ':' || f '?' || f '\\'
 let is_separator_char c = 
     let inline f x = c = x
     f ' ' || f ',' || f ':' || f ';' || f '\t' || f '\n' || f '\r' || f '(' || f '{' || f '[' || f CharStream.EndOfStreamChar
@@ -90,7 +91,7 @@ let var (s:CharStream<_>) =
     let f x (s: CharStream<_>) =
         if s.Skip(':') then
             let end_ = pos s
-            TokMessage(tok start end_,x)
+            TokKeyword(tok start end_,x)
         else
             let end_ = pos s
             let pos = tok start end_
@@ -171,9 +172,9 @@ let number (s: CharStream<_>) =
     else // reconstruct error reply
         Reply(reply.Status, reply.Error)
 
-let message_unary s =
+let keyword_unary s =
     let start = pos s
-    let f x s = Reply(TokMessageUnary(tok start (pos s), x))
+    let f x s = Reply(TokKeywordUnary(tok start (pos s), x))
 
     let x = s.Peek2()
     if x.Char0 = '.' && is_identifier_starting_char x.Char1 then
@@ -203,6 +204,7 @@ let operator s =
     let f name s = 
         let pos = tok start (pos s)
         match name with
+        | "\/" -> Reply(TokSpecial(pos,SpecTypeUnion))
         | "->" -> Reply(TokSpecial(pos,SpecLambda))
         | "|" -> Reply(TokSpecial(pos,SpecOr))
         | "&" -> Reply(TokSpecial(pos,SpecAnd))
@@ -275,7 +277,7 @@ let rec tokenize s =
     
     choice
         [|
-        var; message_unary; number
+        var; keyword_unary; number
         string_raw; string_raw_triple; char_quoted; string_quoted
         bracket_round; bracket_curly; bracket_square; unary
         comma; semicolon; operator
