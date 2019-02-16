@@ -404,10 +404,6 @@ and JoinPointDict<'a,'b> = Dictionary<JoinPointKey, JoinPointState<'a,'b>>
 
 and Trace = PosKey list
 
-type TypeOrMethod =
-    | TomType of ConsedTy
-    | TomJP of JoinPointType * JoinPointKey
-
 type RecursiveBehavior =
     | AnnotationDive
     | AnnotationReturn
@@ -437,24 +433,7 @@ type LangEnv = {
     cse : Map<Op * TypedData, TypedData> ref
     }
 
-type Result<'a,'b> = Succ of 'a | Fail of 'b
-
-// Parser types
-type Userstate = {
-    ops : Dictionary<string, int * FParsec.Associativity>
-    semicolon_line : int64
-    }
-
-type ParserExpr =
-| ParserStatement of (RawExpr -> RawExpr)
-| ParserExpr of RawExpr
-
 // Codegen types
-type CodegenEnv = {
-    branch_return: string -> string
-    trace: Trace
-    }
-
 let inline memoize' (memo_dict: ConditionalWeakTable<_,_>) f k =
     match memo_dict.TryGetValue k with
     | true, v -> v
@@ -513,7 +492,12 @@ type TokenPosition = {
     end_: LC 
     }
 
-exception TokenizationError of string
+type TokenOperator = {
+    name: string
+    associativity: FParsec.Associativity
+    precedence: int
+    }
+
 exception PrepassError of string
 exception PrepassErrorWithPos of PosKey * string
 exception TypeError of Trace * string

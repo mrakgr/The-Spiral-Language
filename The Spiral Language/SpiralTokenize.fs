@@ -1,146 +1,13 @@
-﻿module Spiral.Parsing
+﻿module Spiral.Tokenize
 open System
 open Types
-
-// Parser open
 open FParsec
-open System.Text
 open System.Collections.Generic
 
 // Globals
-let private keyword_to_string_dict = Dictionary(HashIdentity.Structural)
-let private string_to_keyword_dict = Dictionary(HashIdentity.Structural)
-let private string_to_op_dict = Dictionary(HashIdentity.Structural)
-let mutable private tag_keyword = 0
+let private inbuilt_operators = Dictionary(HashIdentity.Structural)
 
-let _ =
-    Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(typeof<Op>)
-    |> Array.iter (fun x ->
-        string_to_op_dict.[x.Name] <- Microsoft.FSharp.Reflection.FSharpValue.MakeUnion(x,[||]) :?> Op
-        )
-let string_to_op x = string_to_op_dict.TryGetValue x
-
-let string_to_keyword (x: string) =
-    match string_to_keyword_dict.TryGetValue x with
-    | true, v -> v
-    | false, _ ->
-        tag_keyword <- tag_keyword + 1
-        string_to_keyword_dict.[x] <- tag_keyword
-        keyword_to_string_dict.[tag_keyword] <- x
-        tag_keyword
-let keyword_to_string x = keyword_to_string_dict.[x] // Should never fail.
-
-let show_primt = function
-    | UInt8T -> "uint8"
-    | UInt16T -> "uint16"
-    | UInt32T -> "uint32"
-    | UInt64T -> "uint64"
-    | Int8T -> "int8"
-    | Int16T -> "int16"
-    | Int32T -> "int32"
-    | Int64T -> "int64"
-    | Float32T -> "float32"
-    | Float64T -> "float64"
-    | BoolT -> "bool"
-    | StringT -> "string"
-    | CharT -> "char"
-
-let show_value = function
-    | LitUInt8 x -> sprintf "%iu8" x
-    | LitUInt16 x -> sprintf "%iu16" x
-    | LitUInt32 x -> sprintf "%iu32" x
-    | LitUInt64 x -> sprintf "%iu64" x
-    | LitInt8 x -> sprintf "%ii8" x
-    | LitInt16 x -> sprintf "%ii16" x
-    | LitInt32 x -> sprintf "%ii32" x
-    | LitInt64 x -> sprintf "%ii64" x
-    | LitFloat32 x -> sprintf "%ff32" x
-    | LitFloat64 x -> sprintf "%ff64" x
-    | LitBool x -> sprintf "%b" x
-    | LitString x -> sprintf "%s" x
-    | LitChar x -> sprintf "%c" x
-
-let show_art = function
-    | ArtDotNetHeap -> "array"
-    | ArtDotNetReference -> "ref"
-    | ArtCudaGlobal _ -> "array_cuda_global"
-    | ArtCudaShared -> "array_cuda_shared"
-    | ArtCudaLocal -> "array_cuda_local"
-
-let show_layout_type = function
-    | LayoutStack -> "layout_stack"
-    | LayoutHeap -> "layout_heap"
-    | LayoutHeapMutable -> "layout_heap_mutable"
-
-let inline show_keyword show (keyword,l: _[]) =
-    if l.Length > 0 then
-        let a = (keyword_to_string keyword).Split([|':'|], StringSplitOptions.RemoveEmptyEntries)
-        Array.map2 (fun a l -> String.concat "" [|a;": ";show l|]) a l
-        |> String.concat " "
-    else
-        keyword_to_string keyword
-
-let inline show_map show v = 
-    let body = 
-        Map.toArray v
-        |> Array.map (fun (k,v) -> sprintf "%s=%s" (keyword_to_string k) (show v))
-        |> String.concat "; "
-
-    sprintf "{%s}" body
-
-let inline show_list show l = sprintf "(%s)" (List.map show l |> String.concat ", ")
-
-let rec show_ty = function
-    | PrimT x -> show_primt x
-    | KeywordT(C(keyword,l)) -> show_keyword show_ty (keyword,l)
-    | ListT l -> show_list show_ty l.node
-    | MapT v -> show_map show_ty v.node
-    | ObjectT _ -> "<object>"
-    | FunctionT _ | RecFunctionT _ -> "<function>"
-    | LayoutT (C(layout_type,body,_)) ->
-        sprintf "%s (%s)" (show_layout_type layout_type) (show_consed_typed_data body)
-    | TermCastedFunctionT (a,b) ->
-        sprintf "(%s => %s)" (show_ty a) (show_ty b)
-    | UnionT l ->
-        let body =
-            Set.toArray l.node
-            |> Array.map show_ty
-            |> String.concat " | "
-        sprintf "union {%s}" body
-    | RecUnionT (name, _) -> name
-    | ArrayT (a,b) -> sprintf "%s (%s)" (show_art a) (show_ty b)
-    | MacroT x -> x
-
-and show_typed_data = function
-    | TyT x -> sprintf "type (%s)" (show_ty x)
-    | TyV(T(_,t)) -> sprintf "var (%s)" (show_ty t)
-    | TyKeyword(keyword,l) -> show_keyword show_typed_data (keyword,l)
-    | TyList l -> show_list show_typed_data l
-    | TyMap a -> show_map show_typed_data a
-    | TyObject _ -> "<object>"
-    | TyFunction _ | TyRecFunction _ -> "<function>"
-    | TyBox(a,b) -> sprintf "(%s : %s)" (show_typed_data a) (show_ty b)
-    | TyLit v -> sprintf "lit %s" (show_value v)
-
-and show_consed_typed_data = function
-    | CTyT x -> sprintf "type (%s)" (show_ty x)
-    | CTyV(_,t) -> sprintf "var (%s)" (show_ty t)
-    | CTyKeyword(C(keyword,l)) -> show_keyword show_consed_typed_data (keyword,l)
-    | CTyList l -> show_list show_consed_typed_data l.node
-    | CTyMap a -> show_map show_consed_typed_data a.node
-    | CTyObject _ -> "<object>"
-    | CTyFunction _ | CTyRecFunction _ -> "<function>"
-    | CTyBox(a,b) -> sprintf "(%s : %s)" (show_consed_typed_data a) (show_ty b)
-    | CTyLit v -> sprintf "lit %s" (show_value v)
-
-let pos (s: CharStream) = {column=int s.Column; line=int s.Line}
-let tok start end_ = {start=start; end_=end_}
-
-type TokenOperator = {
-    name: string
-    associativity: Associativity
-    precedence: int
-    }
+exception TokenizationError of string
 
 type TokenSpecial =
     | SpecMatch
@@ -177,11 +44,35 @@ type SpiralToken =
     | TokBracketSquare of TokenPosition * SpiralToken list
     | TokComma of TokenPosition
     | TokSemicolon of TokenPosition
-    | TokAnnotatedOne of TokenPosition * SpiralToken // ! Used for the active pattern and inbuilt ops.
-    | TokAnnotatedTwo of TokenPosition * SpiralToken // @ Used for parser macros
-    | TokAnnotatedThree of TokenPosition * SpiralToken // # Used for the unboxing pattern.
-    | TokAnnotatedFour of TokenPosition * SpiralToken // $ Used for the injection in patterns and in RecordWith
+    | TokUnaryOne of TokenPosition * SpiralToken // ! Used for the active pattern and inbuilt ops.
+    | TokUnaryTwo of TokenPosition * SpiralToken // @ Used for parser macros
+    | TokUnaryThree of TokenPosition * SpiralToken // # Used for the unboxing pattern.
+    | TokUnaryFour of TokenPosition * SpiralToken // $ Used for the injection in patterns and in RecordWith
     | TokSpecial of TokenPosition * TokenSpecial
+
+let _ =
+    let add_infix_operator assoc str prec = inbuilt_operators.Add(str, {name=str; precedence=prec; associativity=assoc})
+
+    let left_assoc_ops = 
+        let f = add_infix_operator Associativity.Left
+        f "+" 60; f "-" 60; f "*" 70; f "/" 70; f "%" 70
+        f "<|" 10; f "|>" 10; f "<<" 10; f ">>" 10
+
+        let f str = add_infix_operator Associativity.None str 40
+        f "<="; f "<"; f "="; f ">"; f ">="; f "<>"
+        f "<<<"; f ">>>"; f "&&&"; f "|||"
+
+    let right_associative_ops =
+        let f str prec = add_infix_operator Associativity.Right str prec
+        f "||" 20; f "&&" 30; f "::" 50; f "^^^" 45
+        f "=>" 5; f ":>" 35; f ":?>" 35; f "**" 80
+    ()
+         
+let pos (s: CharStream) = {column=int s.Column; line=int s.Line}
+let tok start end_ = {start=start; end_=end_}
+
+let rec spaces_template s = spaces >>. optional (followedByString "//" >>. skipRestOfLine true >>. spaces_template) <| s
+let spaces s = spaces_template s
 
 let is_identifier_starting_char c = isAsciiLetter c || c = '_'
 let is_identifier_char c = is_identifier_starting_char c || c = ''' || isDigit c 
@@ -229,56 +120,56 @@ let default_number_format =
 let number_format_with_minus = default_number_format ||| NumberLiteralOptions.AllowMinusSign
 
 let number (s: CharStream<_>) = 
-        let inline parser (s: CharStream<_>) = 
-            let parse_num_lit number_format s = numberLiteral number_format "number" s
-            if s.Peek() = '-' && isDigit (s.Peek(1)) && is_separator_char (s.Peek(-1)) then parse_num_lit number_format_with_minus s
-            else parse_num_lit default_number_format s
+    let inline parser (s: CharStream<_>) = 
+        let parse_num_lit number_format s = numberLiteral number_format "number" s
+        if s.Peek() = '-' && isDigit (s.Peek(1)) && is_separator_char (s.Peek(-1)) then parse_num_lit number_format_with_minus s
+        else parse_num_lit default_number_format s
 
-        let inline safe_parse f on_succ er_msg x = 
-            match f x with
-            | true, x -> Reply(on_succ x)
-            | false, _ -> Reply(ReplyStatus.FatalError,messageError er_msg)
+    let inline safe_parse f on_succ er_msg x = 
+        match f x with
+        | true, x -> Reply(on_succ x)
+        | false, _ -> Reply(ReplyStatus.FatalError,messageError er_msg)
 
-        let inline default_int x = safe_parse Int64.TryParse LitInt64 "default int parse failed" x
-        let inline default_float x = safe_parse Double.TryParse LitFloat64 "default float parse failed" x
+    let inline default_int x = safe_parse Int64.TryParse LitInt64 "default int parse failed" x
+    let inline default_float x = safe_parse Double.TryParse LitFloat64 "default float parse failed" x
 
-        let followedBySuffix x is_x_integer (s: CharStream<_>) =
-            let guard f =
-                let a = s.Peek()
-                if is_identifier_starting_char a || isDigit a then Reply(Error, expected "non-identifier character or digit")
-                else f x
-            if s.Skip('i') then
-                if s.Skip('8') then guard (safe_parse SByte.TryParse LitInt8 "int8 parse failed")
-                elif s.Skip('1') && s.Skip('6') then guard (safe_parse Int16.TryParse LitInt16 "int16 parse failed")
-                elif s.Skip('3') && s.Skip('2') then guard (safe_parse Int32.TryParse LitInt32 "int32 parse failed")
-                elif s.Skip('6') && s.Skip('4') then guard (safe_parse Int64.TryParse LitInt64 "int64 parse failed")
-                else Reply(Error, expected "8,16,32 or 64")
-            elif s.Skip('u') then
-                if s.Skip('8') then guard (safe_parse Byte.TryParse LitUInt8 "uint8 parse failed")
-                elif s.Skip('1') && s.Skip('6') then guard (safe_parse UInt16.TryParse LitUInt16 "uint16 parse failed")
-                elif s.Skip('3') && s.Skip('2') then guard (safe_parse UInt32.TryParse LitUInt32 "uint32 parse failed")
-                elif s.Skip('6') && s.Skip('4') then guard (safe_parse UInt64.TryParse LitUInt64 "uint64 parse failed")
-                else Reply(Error, expected "8,16,32 or 64")
-            elif s.Skip('f') then
-                if s.Skip('3') && s.Skip('2') then guard (safe_parse Single.TryParse LitFloat32 "float32 parse failed")
-                elif s.Skip('6') && s.Skip('4') then guard (safe_parse Double.TryParse LitFloat64 "float64 parse failed")
-                else Reply(Error, expected "32 or 64")
-            elif is_x_integer then guard default_int
-            else guard default_float
+    let followedBySuffix x is_x_integer (s: CharStream<_>) =
+        let guard f =
+            let a = s.Peek()
+            if is_identifier_starting_char a || isDigit a then Reply(Error, expected "non-identifier character or digit")
+            else f x
+        if s.Skip('i') then
+            if s.Skip('8') then guard (safe_parse SByte.TryParse LitInt8 "int8 parse failed")
+            elif s.Skip('1') && s.Skip('6') then guard (safe_parse Int16.TryParse LitInt16 "int16 parse failed")
+            elif s.Skip('3') && s.Skip('2') then guard (safe_parse Int32.TryParse LitInt32 "int32 parse failed")
+            elif s.Skip('6') && s.Skip('4') then guard (safe_parse Int64.TryParse LitInt64 "int64 parse failed")
+            else Reply(Error, expected "8,16,32 or 64")
+        elif s.Skip('u') then
+            if s.Skip('8') then guard (safe_parse Byte.TryParse LitUInt8 "uint8 parse failed")
+            elif s.Skip('1') && s.Skip('6') then guard (safe_parse UInt16.TryParse LitUInt16 "uint16 parse failed")
+            elif s.Skip('3') && s.Skip('2') then guard (safe_parse UInt32.TryParse LitUInt32 "uint32 parse failed")
+            elif s.Skip('6') && s.Skip('4') then guard (safe_parse UInt64.TryParse LitUInt64 "uint64 parse failed")
+            else Reply(Error, expected "8,16,32 or 64")
+        elif s.Skip('f') then
+            if s.Skip('3') && s.Skip('2') then guard (safe_parse Single.TryParse LitFloat32 "float32 parse failed")
+            elif s.Skip('6') && s.Skip('4') then guard (safe_parse Double.TryParse LitFloat64 "float64 parse failed")
+            else Reply(Error, expected "32 or 64")
+        elif is_x_integer then guard default_int
+        else guard default_float
 
-        let start = pos s
-        let reply = parser s
-        if reply.Status = Ok then
-            let nl = reply.Result // the parsed NumberLiteral
-            try 
-                let f x = TokValue(tok start (pos s), x)
-                ((followedBySuffix nl.String nl.IsInteger |>> f) .>> spaces) s
-            with
-            | :? System.OverflowException as e ->
-                s.Skip(-nl.String.Length)
-                Reply(FatalError, messageError e.Message)
-        else // reconstruct error reply
-            Reply(reply.Status, reply.Error)
+    let start = pos s
+    let reply = parser s
+    if reply.Status = Ok then
+        let nl = reply.Result // the parsed NumberLiteral
+        try 
+            let f x = TokValue(tok start (pos s), x)
+            ((followedBySuffix nl.String nl.IsInteger |>> f) .>> spaces) s
+        with
+        | :? System.OverflowException as e ->
+            s.Skip(-nl.String.Length)
+            Reply(FatalError, messageError e.Message)
+    else // reconstruct error reply
+        Reply(reply.Status, reply.Error)
 
 let message_unary s =
     let start = pos s
@@ -290,26 +181,6 @@ let message_unary s =
         ((manySatisfy is_identifier_char <?> "unary message") >>= f .>> spaces) s
     else
         Reply(Error, expected "unary message")
-
-let inbuilt_operators =
-    let dict_operator = Dictionary(HashIdentity.Structural)
-    let add_infix_operator assoc str prec = dict_operator.Add(str, {name=str; precedence=prec; associativity=assoc})
-
-    let left_assoc_ops = 
-        let f = add_infix_operator Associativity.Left
-        f "+" 60; f "-" 60; f "*" 70; f "/" 70; f "%" 70
-        f "<|" 10; f "|>" 10; f "<<" 10; f ">>" 10
-
-        let f str = add_infix_operator Associativity.None str 40
-        f "<="; f "<"; f "="; f ">"; f ">="; f "<>"
-        f "<<<"; f ">>>"; f "&&&"; f "|||"
-
-    let right_associative_ops =
-        let f str prec = add_infix_operator Associativity.Right str prec
-        f "||" 20; f "&&" 30; f "::" 50; f "^^^" 45
-        f "=>" 5; f ":>" 35; f ":?>" 35; f "**" 80
-         
-    dict_operator
 
 // Similarly to F#, Spiral filters out the '.' from the operator name and then tries to match to the nearest inbuilt operator
 // for the sake of assigning associativity and precedence.
@@ -339,3 +210,74 @@ let operator s =
             try Reply(TokOperator(pos,op name))
             with :? TokenizationError as x -> Reply(Error, messageError x.Data0)
     (many1SatisfyL is_operator_char "operator"  >>= f .>> spaces) s
+
+let comma s = 
+    let start = pos s
+    (skipChar ',' |>> (fun _ -> TokComma(tok start (pos s))) .>> spaces) s
+
+let semicolon s = 
+    let start = pos s
+    (skipChar ';' |>> (fun _ -> TokSemicolon(tok start (pos s)))  .>> spaces) s
+
+let inline string_raw_template str str' s =
+    let start = pos s
+    let f x = TokValue(tok start (pos s), LitString x)
+    (skipString str >>. charsTillString str' true Int32.MaxValue |>> f .>> spaces) s
+
+let string_raw s = string_raw_template "@\"" "\"" s
+let string_raw_triple s = let x = "\"\"\"" in string_raw_template x x s
+
+let inline char_quoted_read check (s: CharStream<_>) =
+    let x = s.Peek()
+    if check x then
+        s.Skip()
+        match x with
+        | '\\' -> 
+            match s.Read() with
+            | 'n' -> '\n'
+            | 'r' -> '\r'
+            | 't' -> '\t'
+            | x -> x
+        | x -> x
+        |> Reply
+    else Reply(Error,null)
+
+let char_quoted s = 
+    let start = pos s
+    let f x = TokValue(tok start (pos s), LitChar x)
+    (between (skipChar '\'') (skipChar '"' >>. spaces) (char_quoted_read (fun _ -> true)) |>> f) s
+let string_quoted s = 
+    let start = pos s
+    let f x = TokValue(tok start (pos s), LitString x)
+    (between (skipChar '"') (skipChar '"' >>. spaces) (manyChars (char_quoted_read ((<>) '"'))) |>> f) s
+
+let rec tokenize s =
+    let inline bracket f l r s = 
+        let start = pos s
+        (
+        between (skipChar l >>. spaces) (skipChar r >>. spaces) (many tokenize)
+        >>= (fun x s -> Reply(f (tok start (pos s), x)))
+        .>> spaces
+        ) s
+
+    let bracket_round s = bracket TokBracketRound '(' ')' s
+    let bracket_curly s = bracket TokBracketCurly '{' '}' s
+    let bracket_square s = bracket TokBracketSquare '[' ']' s
+
+    let unary s =
+        let start = pos s
+        match s.Peek() with
+        | '!' -> s.Skip(); (tokenize |>> (fun x -> TokUnaryOne(tok start (pos s), x)) .>> spaces) s
+        | '@' -> s.Skip(); (tokenize |>> (fun x -> TokUnaryTwo(tok start (pos s), x)) .>> spaces) s
+        | '#' -> s.Skip(); (tokenize |>> (fun x -> TokUnaryThree(tok start (pos s), x)) .>> spaces) s
+        | '$' -> s.Skip(); (tokenize |>> (fun x -> TokUnaryFour(tok start (pos s), x)) .>> spaces) s
+        | _ -> Reply(Error, expected "`!`,`@`,`#` or `$`")
+    
+    choice
+        [|
+        var; message_unary; number
+        string_raw; string_raw_triple; char_quoted; string_quoted
+        bracket_round; bracket_curly; bracket_square; unary
+        comma; semicolon; operator
+        |]
+        s
