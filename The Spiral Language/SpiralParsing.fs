@@ -334,12 +334,12 @@ let pos' s = module_ s, line s, col s
 
 let inline expr_indent i op expr d = if op i (col d) then expr d else d.FailWith ExpectedIndentation
 
-let exprpos expr d = 
-    let pos = pos' d
-    (expr |>> function
-        | RawFunction _ | RawObjectCreate _  as x -> x // Pos nodes can get in the way of optimizations.
-        | x -> expr_pos pos x) d
-let patpos expr d = (expr |>> pat_pos (pos' d)) d
+//let exprpos expr d = 
+//    let pos = pos' d
+//    (expr |>> function
+//        | RawFunction _ | RawObjectCreate _  as x -> x // Pos nodes can get in the way of optimizations.
+//        | x -> expr_pos pos x) d
+//let patpos expr d = (expr |>> pat_pos (pos' d)) d
 let exprpos expr d = expr d
 let patpos expr d = expr d
 
@@ -385,6 +385,23 @@ let rec pattern_template expr s =
     pat_when ^<| pat_as ^<| pat_or ^<| pat_keyword ^<| pat_tuple ^<| pat_cons ^<| pat_and ^<| pat_type ^<| pat_closure
     ^<| choice [|pat_wildcard; pat_var; pat_active recurse; pat_unbox recurse; pat_lit; pat_record recurse; pat_keyword_unary; pat_rounds recurse|] <| s
 
+let inline pattern expr s = patpos (pattern_template expr) s
+    
+let set_semicolon_level_to_line line p (d: ParserEnv) = p {d with semicolon_line = line}
+let reset_semicolon_level expr d = set_semicolon_level_to_line -1 expr d
+
+let inline statement_expr expr = eq >>. f >>. expr
+
+let compile_pattern pat body =
+    let inline f expr_pos = function
+        | PatE -> RawFunction(expr_pos body,"")
+        | PatVar name -> RawFunction(expr_pos body, name)
+        | _ -> RawFunction(expr_pos <| RawPattern(pat_main, [|pat, body|]), pat_main)
+    match pat with
+    | PatPos x -> f (expr_pos x.Pos) x.Expression
+    | x -> f id x
+let compile_patterns pats body = List.foldBack compile_pattern pats body
+
 let annotations expr d = 
     let i = col d
     let inline expr_indent expr d = expr_indent i (<=) expr d
@@ -411,6 +428,45 @@ let indentations statements expressions d =
     let inline many_semis expr = many (if_ (<) semicolon >>. if_ (<) expr)
     let inline many_indents expr = many1 (if_ (=) (pipe2 expr (many_semis expr) (fun a b -> a :: b)))
     many_indents ((statements |>> ParserStatement) <|> (exprpos expressions |>> ParserExpr)) >>= process_parser_exprs <| d
+
+let statements expr =
+    let inline inb_templ inb l =
+        inb >>. pipe2 (pattern expr) (statement_expr expr) (fun pat body on_succ ->
+            compile_pattern pat on_succ
+            |> function
+                | RawFunction(on_succ,arg) -> l arg body on_succ
+                | _ -> failwith "impossible"
+            )
+
+    let inb = inb_templ inb (fun arg body on_succ -> ap body (func arg on_succ))
+    let inm = inb_templ inm (fun arg body on_succ -> ap (ap (v ">>=") body) (func arg on_succ))
+
+    let inl = 
+        inl >>. pipe2 (many1 (pattern expr)) (statement_expr expr) (fun pats body on_succ ->
+            match pats with
+            | x :: x' ->
+                compile_pattern x on_succ
+                |> function
+                    | RawFunction(on_succ,arg) -> l arg (compile_patterns x' body) on_succ
+                    | _ -> failwith "impossible"
+            |_ -> failwith "impossible"
+            )
+
+    let inl_rec = 
+        inl_rec >>. tuple3 var_name (many (pattern expr)) (statement_expr expr) >>= fun (name, pats, body) _ -> 
+            match body with
+            | RawFunction(a,b) ->
+                Reply(fun on_succ ->
+                    compile_patterns pats body
+                    |> function
+                        | RawFunction(body,arg) -> l name (RawRecFunction(body,arg,name)) on_succ
+                        | _ -> failwith "impossible"
+                    )
+            | _ ->
+                Reply(ReplyStatus.Error, expected "function after a recursive statement")
+
+    let open_ = open_ >>. var_name .>>. many keyword_unary |>> fun (x, x') on_succ -> RawOpen(x,List.toArray x',on_succ)
+    choice [|inl_rec; inm; inb; attempt inl; open_|]
    
 let parse (x: SpiralToken list) =
 
