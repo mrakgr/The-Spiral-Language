@@ -62,30 +62,28 @@ type ParserEnv =
     semicolon_line: int
     }
 
-    member inline private d.LineTemplate f = 
-        if d.Length > 0 then
-            if d.Index < d.Length then f d.l.[d.Index]
-            else f d.l.[d.Length-1]
-        else
-            -1
+    member d.Index = d.i.contents
+    member d.IndexSet i = d.i := i
+    member d.Length = d.l.Length
+
+    member inline d.TryCurrentTemplate on_succ on_fail =
+        let i = d.Index
+        if i > 0 && i < d.Length then on_succ d.l.[i]
+        else on_fail()
+
+    member inline d.TryCurrent f = d.TryCurrentTemplate f (fun () -> Fail [])
+    member d.FailWith er = d.TryCurrent (fun x -> Fail [x,er])
+
+    member inline d.LineTemplate f = d.TryCurrentTemplate f (fun _ -> -1)
 
     member d.Module = d.module_
     member d.Line = d.LineTemplate (fun x -> x.Start.line)
     member d.Col = d.LineTemplate (fun x -> x.Start.column)
     member d.LineEnd = d.LineTemplate (fun x -> x.End.line)
     member d.ColEnd = d.LineTemplate (fun x -> x.End.column)
-
-    member d.Index = d.i.contents
-    member d.IndexSet i = d.i := i
-
-    member d.Length = d.l.Length
-    member d.FailWith x = Fail [d.Index, x]
-    member d.Skip = d.i := d.i.contents+1
-    member d.Skip'(i) = d.i := d.i.contents+i
-    member inline d.TryCurrent f =
-        let i = d.Index
-        if i < d.Length then f d.l.[i]
-        else Fail [d.l.Length-1, Eof]
+    
+    member inline d.Skip'(i) = d.i := d.i.contents+i
+    member d.Skip = d.Skip'(1)
 
     member d.PeekSpecial =
         d.TryCurrent <| function
@@ -292,22 +290,31 @@ let inline many1 a (d: ParserEnv) =
     | Ok a' -> (many a |>> fun b -> a' :: b) d
     | Fail x -> Fail x
 
-/// Note: These 3 have different semantics than the FParsec operators. They revert the index if the first argument fails.
+let inline attempt a (d: ParserEnv) =
+    let s = d.Index
+    match a d with
+    | Ok x -> Ok x
+    | Fail a as a' -> d.IndexSet s; a'
+
 let inline (<|>) a b (d: ParserEnv) =
     let s = d.Index
     match a d with
     | Ok x -> Ok x
-    | Fail a -> 
-        d.IndexSet s
-        match b d with
-        | Ok x -> Ok x
-        | Fail b -> Fail(List.append a b)
+    | Fail a as a' -> 
+        if s = d.Index then
+            match b d with
+            | Ok x -> Ok x
+            | Fail b -> Fail(List.append a b)
+        else
+            a'
 
 let inline (<|>%) a b (d: ParserEnv) =
     let s = d.Index
     match a d with
     | Ok x -> Ok x
-    | Fail _ -> d.IndexSet s; Ok b
+    | Fail a as a' -> 
+        if s = d.Index then Ok b
+        else a'
 
 let inline choice ar (d: ParserEnv) =
     let s = d.Index
@@ -315,11 +322,13 @@ let inline choice ar (d: ParserEnv) =
         if i < Array.length ar then
             match ar.[i] d with
             | Ok x -> Ok x
-            | Fail a -> 
-                d.IndexSet s
-                match loop (i+1) with
-                | Ok x -> Ok x
-                | Fail b -> Fail(List.append a b)
+            | Fail a as a' -> 
+                if s = d.Index then
+                    match loop (i+1) with
+                    | Ok x -> Ok x
+                    | Fail b -> Fail(List.append a b)
+                else
+                    a'
         else
             Fail []
     loop 0
@@ -691,16 +700,22 @@ let rec expressions expr d =
             let b s = inject >>. var_op |>> mp_without_inject <| s
             (a <|> b) s
 
-        let record_create_with s = (parse_binding_with .>> optional semicolon') s
-        let record_create_without s = (parse_binding_without .>> optional semicolon') s
+        let record_create_with s = (parse_binding_with .>> optional semicolon) s
+        let record_create_without s = (parse_binding_without .>> optional semicolon) s
 
         let record_with = 
-            let withs s = (with_ >>. many1 record_create_with) s
-            let withouts s = (without >>. many1 record_create_without) s 
-            pipe3 ((var |>> v) <|> rounds expr)
-                (many ((keyword_unary |>> Types.keyword_unary) <|> (dot >>. rounds expr)))
-                (many1 (withs <|> withouts) |>> List.concat)
-                mp_with
+            let withs' s = many1 record_create_with s
+            let withouts' s = many1 record_create_without s 
+            let withs s = (with_ >>. withs') s
+            let withouts s = (without >>. withouts') s 
+            attempt
+                (tuple3 
+                    ((var |>> v) <|> rounds expr)
+                    (many ((keyword_unary |>> Types.keyword_unary) <|> (dot >>. rounds expr)))
+                    ((with_ >>% withs') <|> (without >>% withouts')))
+            >>= (fun (init,names,next) s ->
+                pipe2 next (many (withs <|> withouts)) (fun a b -> mp_with init names (List.concat(a::b))) s
+                )
 
         let record_create = many record_create_with |>> mp_create
                 
