@@ -110,7 +110,7 @@ inl print_static x = !PrintStatic(x)
 /// Pushes the expression to runtime.
 inl dyn x = !Dynamize(x)
 /// Unary negation.
-inl negate x = !Neg(x)
+inl neg x = !Neg(x)
 /// Evaluates an expression and throws away the result.
 inl ignore x = ()
 /// Returns an expression after evaluating it.
