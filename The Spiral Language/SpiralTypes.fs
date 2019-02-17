@@ -42,7 +42,7 @@ type SpiralModule =
     }
 
 
-type PosKey = SpiralModule * int64 * int64
+type PosKey = SpiralModule * int * int
 
 type Pos<'a> = Position of PosKey * 'a with
     member x.Expression = match x with Position (_, expr) -> expr

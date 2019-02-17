@@ -55,6 +55,14 @@ type SpiralToken =
     | TokOperator of TokenPosition * TokenOperator
     | TokSpecial of TokenPosition * TokenSpecial
 
+    member d.Pos =
+        match d with
+        | TokVar(x,_) | TokValue(x,_) | TokKeyword(x,_)
+        | TokKeywordUnary(x,_) | TokOperator(x,_) | TokSpecial(x,_) -> x
+
+    member d.Start = d.Pos.start
+    member d.End = d.Pos.end_
+
 let _ =
     let add_infix_operator assoc str prec = inbuilt_operators.Add(str, {name=str; precedence=prec; associativity=assoc})
 

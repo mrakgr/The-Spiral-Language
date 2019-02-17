@@ -29,6 +29,10 @@ let string_to_keyword (x: string) =
         tag_keyword
 let keyword_to_string x = keyword_to_string_dict.[x] // Should never fail.
 
+type ParserExpr =
+| ParserStatement of (RawExpr -> RawExpr)
+| ParserExpr of RawExpr
+
 [<Struct>]
 type Result<'a,'b> =
     | Ok of result: 'a
@@ -49,16 +53,30 @@ type ParserErrors =
     | ExpectedRounds
     | ExpectedSquares
     | ExpectedCurlies
+    | ExpectedIndentation
+    | StatementLastInBlock
     | Eof
 
-type ParserEnv<'a> =
+type ParserEnv =
     {
     l: SpiralToken []
     i: int ref
-    state: 'a // I am assuming this is immutable.
+    module_: SpiralModule
+    semicolon_line: int
     }
 
-    member inline d.StateUpdate f = {d with state=f d.state}
+    member inline private d.LineTemplate f = 
+        if d.Length > 0 then
+            if d.Index < d.Length then f d.l.[d.Index]
+            else f d.l.[d.Length-1]
+        else
+            -1
+
+    member d.Module = d.module_
+    member d.Line = d.LineTemplate (fun x -> x.Start.line)
+    member d.Col = d.LineTemplate (fun x -> x.Start.column)
+    member d.LineEnd = d.LineTemplate (fun x -> x.End.line)
+    member d.ColEnd = d.LineTemplate (fun x -> x.End.column)
 
     member d.Index = d.i.contents
     member d.Length = d.l.Length
@@ -108,6 +126,9 @@ type ParserEnv<'a> =
         d.TryCurrent <| function
             | TokKeywordUnary(_,t') -> d.Skip; Ok t'
             | _ -> d.FailWith(ExpectedKeywordUnary)
+
+let inline preturn a d = Ok a
+let inline pfail a (d: ParserEnv) = d.FailWith a
 
 let inline (.>>.) a b d =
     match a d with
@@ -203,7 +224,7 @@ let inline (>>=) a b d =
     | Ok a -> b a d
     | Fail x -> Fail x
 
-let rec many a (d: ParserEnv<_>) =
+let rec many a (d: ParserEnv) =
     let s = d.Index
     match a d with
     | Ok x ->
@@ -214,17 +235,17 @@ let rec many a (d: ParserEnv<_>) =
             | Fail x -> Fail x
     | Fail x -> Ok []
 
-let inline sepBy1 a b (d: ParserEnv<_>) =
+let inline sepBy1 a b (d: ParserEnv) =
     match a d with
     | Ok a' -> (many (b >>. a) |>> fun b -> a' :: b) d
     | Fail x -> Fail x
 
-let inline many1 a (d: ParserEnv<_>) =
+let inline many1 a (d: ParserEnv) =
     match a d with
     | Ok a' -> (many a |>> fun b -> a' :: b) d
     | Fail x -> Fail x
 
-let inline (<|>) a b (d: ParserEnv<_>) =
+let inline (<|>) a b (d: ParserEnv) =
     let s = d.Index
     match a d with
     | Ok x -> Ok x
@@ -236,7 +257,7 @@ let inline (<|>) a b (d: ParserEnv<_>) =
         else
             Fail a
 
-let inline choice ar (d: ParserEnv<_>) =
+let inline choice ar (d: ParserEnv) =
     let s = d.Index
     let rec loop i =
         if i < Array.length ar then
@@ -253,7 +274,7 @@ let inline choice ar (d: ParserEnv<_>) =
             Fail []
     loop 0
 
-let inline special x (d: ParserEnv<_>) = d.SkipSpecial x
+let inline special x (d: ParserEnv) = d.SkipSpecial x
 let match_ d = special SpecMatch d
 let function_ d = special SpecFunction d
 let with_ d = special SpecWith d
@@ -290,21 +311,37 @@ let bracket_curly_close d = special SpecBracketCurlyClose d
 let bracket_square_close d = special SpecBracketSquareClose d
 let cuda d = special SpecCuda d
 
-let cons (d: ParserEnv<_>) = d.SkipOperator "::"
-let colon (d: ParserEnv<_>) = d.SkipOperator ":"
-let arr (d: ParserEnv<_>) = d.SkipOperator "=>"
-let eq (d: ParserEnv<_>) = d.SkipOperator "="
+let cons (d: ParserEnv) = d.SkipOperator "::"
+let colon (d: ParserEnv) = d.SkipOperator ":"
+let arr (d: ParserEnv) = d.SkipOperator "=>"
+let eq (d: ParserEnv) = d.SkipOperator "="
 
-let var (d: ParserEnv<_>) = d.ReadVar
-let op (d: ParserEnv<_>) = d.ReadOp
-let op_as_var (d: ParserEnv<_>) = d.ReadOpAsVar
-let lit_ (d: ParserEnv<_>) = d.ReadLit
-let keyword (d: ParserEnv<_>) = d.ReadKeyword
-let keyword_unary (d: ParserEnv<_>) = d.ReadKeywordUnary
+let var (d: ParserEnv) = d.ReadVar
+let op (d: ParserEnv) = d.ReadOp
+let op_as_var (d: ParserEnv) = d.ReadOpAsVar
+let lit_ (d: ParserEnv) = d.ReadLit
+let keyword (d: ParserEnv) = d.ReadKeyword
+let keyword_unary (d: ParserEnv) = d.ReadKeywordUnary
 
-let rounds a (d: ParserEnv<_>) = (bracket_round_open >>. a .>> bracket_round_close) d
-let curlies a (d: ParserEnv<_>) = (bracket_curly_open >>. a .>> bracket_curly_close) d
-let squares a (d: ParserEnv<_>) = (bracket_square_open >>. a .>> bracket_square_close) d
+let rounds a (d: ParserEnv) = (bracket_round_open >>. a .>> bracket_round_close) d
+let curlies a (d: ParserEnv) = (bracket_curly_open >>. a .>> bracket_curly_close) d
+let squares a (d: ParserEnv) = (bracket_square_open >>. a .>> bracket_square_close) d
+
+let col (d: ParserEnv) = d.Col
+let line (d: ParserEnv) = d.Line
+let module_ (d: ParserEnv) = d.Module
+let pos' s = module_ s, line s, col s
+
+let inline expr_indent i op expr d = if op i (col d) then expr d else d.FailWith ExpectedIndentation
+
+let exprpos expr d = 
+    let pos = pos' d
+    (expr |>> function
+        | RawFunction _ | RawObjectCreate _  as x -> x // Pos nodes can get in the way of optimizations.
+        | x -> expr_pos pos x) d
+let patpos expr d = (expr |>> pat_pos (pos' d)) d
+let exprpos expr d = expr d
+let patpos expr d = expr d
 
 let inline concat_keyword f x =
     let strb = StringBuilder()
@@ -347,6 +384,33 @@ let rec pattern_template expr s =
         
     pat_when ^<| pat_as ^<| pat_or ^<| pat_keyword ^<| pat_tuple ^<| pat_cons ^<| pat_and ^<| pat_type ^<| pat_closure
     ^<| choice [|pat_wildcard; pat_var; pat_active recurse; pat_unbox recurse; pat_lit; pat_record recurse; pat_keyword_unary; pat_rounds recurse|] <| s
+
+let annotations expr d = 
+    let i = col d
+    let inline expr_indent expr d = expr_indent i (<=) expr d
+    pipe2 (expr_indent expr) (opt (expr_indent colon >>. expr_indent expr))
+        (fun a -> function
+            | Some b -> binop TypeAnnot a b
+            | None -> a) d
+
+let process_parser_exprs exprs = 
+    let error_statement_in_last_pos = pfail StatementLastInBlock
+    let rec process_parser_exprs on_succ = function
+        | [ParserExpr a] -> on_succ a
+        | [ParserStatement _] -> error_statement_in_last_pos
+        | ParserStatement a :: xs -> process_parser_exprs (a >> on_succ) xs
+        | ParserExpr a :: xs -> process_parser_exprs (l "" (unop ErrorNonUnit a) >> on_succ) xs
+        | [] -> on_succ B
+            
+    process_parser_exprs preturn (List.concat exprs)
+
+let indentations statements expressions d =
+    let i = col d
+    let inline if_ op tr s = expr_indent i op tr s
+
+    let inline many_semis expr = many (if_ (<) semicolon >>. if_ (<) expr)
+    let inline many_indents expr = many1 (if_ (=) (pipe2 expr (many_semis expr) (fun a b -> a :: b)))
+    many_indents ((statements |>> ParserStatement) <|> (exprpos expressions |>> ParserExpr)) >>= process_parser_exprs <| d
    
 let parse (x: SpiralToken list) =
 
