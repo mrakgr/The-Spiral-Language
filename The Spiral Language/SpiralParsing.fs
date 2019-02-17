@@ -39,6 +39,7 @@ type Result<'a,'b> =
     | Fail of error: 'b
 
 type ParserErrors =
+    | ExpectedSpecial'
     | ExpectedSpecial of TokenSpecial
     | ExpectedOperator'
     | ExpectedOperator of string
@@ -54,7 +55,10 @@ type ParserErrors =
     | ExpectedSquares
     | ExpectedCurlies
     | ExpectedIndentation
+    | ExpectedStatement
+    | ExpectedRecFun
     | StatementLastInBlock
+    | InvalidSemicolon
     | Eof
 
 type ParserEnv =
@@ -86,6 +90,11 @@ type ParserEnv =
         let i = d.Index
         if i < d.Length then f d.l.[i]
         else Fail [d.l.Length-1, Eof]
+
+    member d.PeekSpecial =
+        d.TryCurrent <| function
+            | TokSpecial(_,t') -> Ok t'
+            | _ -> Fail []
 
     member d.SkipSpecial(t) =
         d.TryCurrent <| function
@@ -138,6 +147,48 @@ let inline (.>>.) a b d =
         | Fail x -> Fail x
     | Fail x -> Fail x   
 
+let tuple3 a b c d =
+    match a d with
+    | Ok a ->
+        match b d with
+        | Ok b -> 
+            match c d with
+            | Ok c -> Ok (a, b, c)
+            | Fail x -> Fail x
+        | Fail x -> Fail x
+    | Fail x -> Fail x  
+
+let inline tuple4 a b c d' d =
+    match a d with
+    | Ok a ->
+        match b d with
+        | Ok b -> 
+            match c d with
+            | Ok c -> 
+                match d' d with
+                | Ok d' -> Ok (a, b, c, d')
+                | Fail x -> Fail x
+            | Fail x -> Fail x
+        | Fail x -> Fail x
+    | Fail x -> Fail x  
+
+let inline tuple5 a b c d' e d =
+    match a d with
+    | Ok a ->
+        match b d with
+        | Ok b -> 
+            match c d with
+            | Ok c -> 
+                match d' d with
+                | Ok d' -> 
+                    match e d with
+                    | Ok e -> Ok (a, b, c, d', e)
+                    | Fail x -> Fail x
+                | Fail x -> Fail x
+            | Fail x -> Fail x
+        | Fail x -> Fail x
+    | Fail x -> Fail x  
+
 let inline pipe2 a b f d =
     match a d with
     | Ok a ->
@@ -165,7 +216,7 @@ let inline pipe4 a b c d' f d =
             match c d with
             | Ok c -> 
                 match d' d with
-                | Ok d' -> Ok (f a b c d)
+                | Ok d' -> Ok (f a b c d')
                 | Fail x -> Fail x
             | Fail x -> Fail x
         | Fail x -> Fail x
@@ -181,7 +232,7 @@ let inline pipe5 a b c d' e f d =
                 match d' d with
                 | Ok d' -> 
                     match e d with
-                    | Ok d' -> Ok (f a b c d e)
+                    | Ok e -> Ok (f a b c d' e)
                     | Fail x -> Fail x
                 | Fail x -> Fail x
             | Fail x -> Fail x
@@ -296,9 +347,9 @@ let wildcard d = special SpecWildcard d
 let lambda d = special SpecLambda d
 let or_ d = special SpecOr d
 let and_ d = special SpecAnd d
-let type_union d = special SpecTypeUnion d
+let type_union' d = special SpecTypeUnion d
 let comma d = special SpecComma d
-let semicolon d = special SpecSemicolon d
+let semicolon' d = special SpecSemicolon d
 let unary_one d = special SpecUnaryOne d // ! Used for the active pattern and inbuilt ops.
 let unary_two d = special SpecUnaryTwo d // @ Used for parser macros
 let unary_three d = special SpecUnaryThree d // # Used for the unboxing pattern.
@@ -333,6 +384,8 @@ let module_ (d: ParserEnv) = d.Module
 let pos' s = module_ s, line s, col s
 
 let inline expr_indent i op expr d = if op i (col d) then expr d else d.FailWith ExpectedIndentation
+
+let semicolon (d: ParserEnv) = if d.Line <> d.semicolon_line then semicolon' d else d.FailWith(InvalidSemicolon) 
 
 //let exprpos expr d = 
 //    let pos = pos' d
@@ -390,7 +443,8 @@ let inline pattern expr s = patpos (pattern_template expr) s
 let set_semicolon_level_to_line line p (d: ParserEnv) = p {d with semicolon_line = line}
 let reset_semicolon_level expr d = set_semicolon_level_to_line -1 expr d
 
-let inline statement_expr expr = eq >>. f >>. expr
+let inline statement_body expr = eq >>. reset_semicolon_level expr
+let inline expression_body expr = lambda >>. reset_semicolon_level expr
 
 let compile_pattern pat body =
     let inline f expr_pos = function
@@ -421,28 +475,31 @@ let process_parser_exprs exprs =
             
     process_parser_exprs preturn (List.concat exprs)
 
-let indentations statements expressions d =
+let indentations expr d =
     let i = col d
     let inline if_ op tr s = expr_indent i op tr s
 
     let inline many_semis expr = many (if_ (<) semicolon >>. if_ (<) expr)
     let inline many_indents expr = many1 (if_ (=) (pipe2 expr (many_semis expr) (fun a b -> a :: b)))
-    many_indents ((statements |>> ParserStatement) <|> (exprpos expressions |>> ParserExpr)) >>= process_parser_exprs <| d
+    many_indents expr >>= process_parser_exprs <| d
 
-let statements expr =
-    let inline inb_templ inb l =
-        inb >>. pipe2 (pattern expr) (statement_expr expr) (fun pat body on_succ ->
-            compile_pattern pat on_succ
-            |> function
-                | RawFunction(on_succ,arg) -> l arg body on_succ
-                | _ -> failwith "impossible"
-            )
-
-    let inb = inb_templ inb (fun arg body on_succ -> ap body (func arg on_succ))
-    let inm = inb_templ inm (fun arg body on_succ -> ap (ap (v ">>=") body) (func arg on_succ))
-
-    let inl = 
-        inl >>. pipe2 (many1 (pattern expr)) (statement_expr expr) (fun pats body on_succ ->
+let statements expr (d: ParserEnv) =
+    let handle_inl_expression pats body = compile_patterns pats body |> ParserExpr
+    
+    let handle_inl_rec (name, pats, body) (d: ParserEnv) = 
+        match body with
+        | RawFunction(a,b) ->
+            (fun on_succ ->
+                compile_patterns pats body
+                |> function
+                    | RawFunction(body,arg) -> l name (RawRecFunction(body,arg,name)) on_succ
+                    | _ -> failwith "impossible"
+                )
+            |> ParserStatement |> Ok
+        | _ ->
+            d.FailWith(ExpectedRecFun)
+    let handle_inl_statement pats body = 
+        fun on_succ ->
             match pats with
             | x :: x' ->
                 compile_pattern x on_succ
@@ -450,23 +507,94 @@ let statements expr =
                     | RawFunction(on_succ,arg) -> l arg (compile_patterns x' body) on_succ
                     | _ -> failwith "impossible"
             |_ -> failwith "impossible"
-            )
+        |> ParserStatement
+    let inline inb_templ l pat body =
+        fun on_succ ->
+            compile_pattern pat on_succ
+            |> function
+                | RawFunction(on_succ,arg) -> l arg body on_succ
+                | _ -> failwith "impossible"
+        |> ParserStatement
+    let handle_inm pat body = inb_templ (fun arg body on_succ -> ap body (func arg on_succ)) pat body
+    let handle_inb pat body = inb_templ (fun arg body on_succ -> ap (ap (v ">>=") body) (func arg on_succ)) pat body
+    let handle_open var keys = ParserStatement (fun on_succ -> RawOpen(var,List.toArray keys, on_succ))
 
-    let inl_rec = 
-        inl_rec >>. tuple3 var_name (many (pattern expr)) (statement_expr expr) >>= fun (name, pats, body) _ -> 
-            match body with
-            | RawFunction(a,b) ->
-                Reply(fun on_succ ->
-                    compile_patterns pats body
-                    |> function
-                        | RawFunction(body,arg) -> l name (RawRecFunction(body,arg,name)) on_succ
-                        | _ -> failwith "impossible"
-                    )
-            | _ ->
-                Reply(ReplyStatus.Error, expected "function after a recursive statement")
+    match d.PeekSpecial with
+    | Ok x ->
+        match x with
+        | SpecInl ->
+            d.Skip
+            match d.SkipSpecial SpecRec with
+            | Ok _ -> (tuple3 var (many (pattern expr)) (statement_body expr) >>= handle_inl_rec) d
+            | Fail _ ->
+                (many1 (pattern expr) >>= (fun pats -> 
+                    (statement_body expr |>> handle_inl_statement pats) 
+                    <|> (expression_body expr |>> handle_inl_expression pats)
+                    )) d
+        | SpecInm -> d.Skip; pipe2 (pattern expr) (statement_body expr) handle_inm d
+        | SpecInb -> d.Skip; pipe2 (pattern expr) (statement_body expr) handle_inb d
+        | SpecOpen -> d.Skip; pipe2 var (many keyword_unary) handle_open d
+        | _ -> d.FailWith ExpectedStatement
+    | Fail _ -> d.FailWith ExpectedStatement
+        
+let inline tuple_template fin sep expr (d: ParserEnv) =
+    let i = col d
+    let inline expr_indent expr (d: ParserEnv) = expr_indent i (<=) expr d
+    sepBy1 (expr_indent expr) sep
+    |>> function [x] -> x | x -> fin (List.toArray x)
+    <| d
 
-    let open_ = open_ >>. var_name .>>. many keyword_unary |>> fun (x, x') on_succ -> RawOpen(x,List.toArray x',on_succ)
-    choice [|inl_rec; inm; inb; attempt inl; open_|]
+let type_union expr s = tuple_template (Types.op TypeUnion) type_union' expr s
+let tuple expr s = tuple_template vv comma expr s
+
+let keyword_message expr s =
+    let i = col s
+    let pat s = (expr_indent i (<=) keyword .>>. expr_indent i (<) (reset_semicolon_level expr)) s
+    (many1 pat |>> (concat_keyword' >> RawKeywordCreate) <|> expr) s
+
+let operators expr d =
+    let poperator (s: CharStream<Userstate>) =
+        let dict_operator = s.UserState.ops
+        let p = pos' s
+        (poperator >>=? function
+            | "->" -> fail "forbidden operator"
+            | orig_op -> 
+                let rec calculate on_fail op' = 
+                    match dict_operator.TryGetValue op' with
+                    | true, (prec,asoc) -> preturn (prec,asoc,fun a b -> 
+                        match orig_op with
+                        | "&&" -> expr_pos p (if_ a b (lit (LitBool false)))
+                        | "||" -> expr_pos p (if_ a (lit (LitBool true)) b)
+                        | _ -> expr_pos p (ap (ap (v orig_op) a) b)
+                        )
+                    | false, _ -> on_fail ()
+
+                let on_fail () =
+                    let x = orig_op.TrimStart [|'.'|]
+                    let rec on_fail i () = 
+                        if i >= 0 then calculate (on_fail (i-1)) x.[0..i] 
+                        else fail "unknown operator"
+                    calculate (on_fail (x.Length-1)) x
+
+                calculate on_fail orig_op) s
+
+    let i = col d
+    let inline expr_indent expr s = expr_indent i (<=) expr s
+    let inline term s = expr_indent expr s
+
+    let rec led left (x: TokenOperator) =
+        match x.associativity with
+        | FParsec.Associativity.Right -> tdop (x.precedence-1) |>> m left
+        | _ -> tdop x.precedence |>> m left
+
+    and tdop rbp =
+        let rec loop left = 
+            attempt (poperator >>= fun (prec,asoc,m as v) ->
+                if rbp < prec then led left v >>= loop
+                else pzero) <|>% left
+        term >>= loop
+
+    tdop Int32.MinValue d
    
 let parse (x: SpiralToken list) =
 

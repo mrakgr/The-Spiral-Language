@@ -92,7 +92,7 @@ let is_identifier_char c = is_identifier_starting_char c || c = ''' || isDigit c
 let is_operator_char c = 
     let inline f x = c = x
     f '%' || f '^' || f '&' || f '|' || f '*' || f '/' || f '+' || f '-' || f '<' 
-    || f '>' || f '=' || f '.' || f ':' || f '?' || f '\\'
+    || f '>' || f '=' || f '.' || f ':' || f '?' || f '\\' || f '!' || f '@' || f '#' || f '$'
 let is_separator_char c = 
     let inline f x = c = x
     f ' ' || f ',' || f ':' || f ';' || f '\t' || f '\n' || f '\r' || f '(' || f '{' || f '[' || f CharStream.EndOfStreamChar
@@ -217,6 +217,10 @@ let operator s =
     let f name s = 
         let pos = tok start (pos s)
         match name with
+        | "!" -> Reply(TokSpecial(pos,SpecUnaryOne))
+        | "@" -> Reply(TokSpecial(pos,SpecUnaryTwo))
+        | "#" -> Reply(TokSpecial(pos,SpecUnaryThree))
+        | "$" -> Reply(TokSpecial(pos,SpecUnaryFour))
         | "\/" -> Reply(TokSpecial(pos,SpecTypeUnion))
         | "->" -> Reply(TokSpecial(pos,SpecLambda))
         | "|" -> Reply(TokSpecial(pos,SpecOr))
@@ -260,14 +264,12 @@ let string_quoted s =
 
 let special s =
     let start = pos s
-    let f' spec = s.Skip(); Reply(TokSpecial(tok start (pos s), spec))
     let f spec = s.Skip(); (spaces >>% (TokSpecial(tok start (pos s), spec))) s
     match s.Peek() with
-    | '!' -> f' SpecUnaryOne | '@' -> f' SpecUnaryTwo | '#' -> f' SpecUnaryThree | '$' -> f' SpecUnaryFour
     | '(' -> f SpecBracketRoundOpen | '[' -> f SpecBracketSquareOpen | '{' -> f SpecBracketCurlyOpen
     | ')' -> f SpecBracketRoundClose | ']' -> f SpecBracketSquareClose | '}' -> f SpecBracketCurlyClose
     | ',' -> f SpecComma | ';' -> f SpecSemicolon
-    | _ -> Reply(Error, expected "`!`,`@`,`#`,`$`,`(`,`[`,`{`,`}`,`]`,`)`")
+    | _ -> Reply(Error, expected "``(`,`[`,`{`,`}`,`]`,`)`,`,`,`;`")
 
 let tokenize s =
     choice
