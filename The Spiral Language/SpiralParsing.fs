@@ -6,6 +6,8 @@ open Tokenize
 open System
 open System.Text
 
+type Associativity = FParsec.Associativity
+
 // Globals
 let private keyword_to_string_dict = Dictionary(HashIdentity.Structural)
 let private string_to_keyword_dict = Dictionary(HashIdentity.Structural)
@@ -56,7 +58,6 @@ type ParserErrors =
     | ExpectedCurlies
     | ExpectedIndentation
     | ExpectedStatement
-    | ExpectedRecFun
     | StatementLastInBlock
     | InvalidSemicolon
     | Eof
@@ -86,6 +87,7 @@ type ParserEnv =
     member d.Length = d.l.Length
     member d.FailWith x = Fail [d.Index, x]
     member d.Skip = d.i := d.i.contents+1
+    member d.Skip'(i) = d.i := d.i.contents+i
     member inline d.TryCurrent f =
         let i = d.Index
         if i < d.Length then f d.l.[i]
@@ -481,7 +483,7 @@ let indentations expr d =
 
     let inline many_semis expr = many (if_ (<) semicolon >>. if_ (<) expr)
     let inline many_indents expr = many1 (if_ (=) (pipe2 expr (many_semis expr) (fun a b -> a :: b)))
-    many_indents expr >>= process_parser_exprs <| d
+    (many_indents expr >>= process_parser_exprs) d
 
 let statements expr (d: ParserEnv) =
     let handle_inl_expression pats body = compile_patterns pats body |> ParserExpr
@@ -496,8 +498,8 @@ let statements expr (d: ParserEnv) =
                     | _ -> failwith "impossible"
                 )
             |> ParserStatement |> Ok
-        | _ ->
-            d.FailWith(ExpectedRecFun)
+        | _ -> Fail []
+
     let handle_inl_statement pats body = 
         fun on_succ ->
             match pats with
@@ -553,48 +555,49 @@ let keyword_message expr s =
     (many1 pat |>> (concat_keyword' >> RawKeywordCreate) <|> expr) s
 
 let operators expr d =
-    let poperator (s: CharStream<Userstate>) =
-        let dict_operator = s.UserState.ops
-        let p = pos' s
-        (poperator >>=? function
-            | "->" -> fail "forbidden operator"
-            | orig_op -> 
-                let rec calculate on_fail op' = 
-                    match dict_operator.TryGetValue op' with
-                    | true, (prec,asoc) -> preturn (prec,asoc,fun a b -> 
-                        match orig_op with
-                        | "&&" -> expr_pos p (if_ a b (lit (LitBool false)))
-                        | "||" -> expr_pos p (if_ a (lit (LitBool true)) b)
-                        | _ -> expr_pos p (ap (ap (v orig_op) a) b)
-                        )
-                    | false, _ -> on_fail ()
-
-                let on_fail () =
-                    let x = orig_op.TrimStart [|'.'|]
-                    let rec on_fail i () = 
-                        if i >= 0 then calculate (on_fail (i-1)) x.[0..i] 
-                        else fail "unknown operator"
-                    calculate (on_fail (x.Length-1)) x
-
-                calculate on_fail orig_op) s
+    let op d =
+        let pos = pos' d
+        match op d with
+        | Ok x ->
+            match x.name with
+            | "&&" -> fun a b -> expr_pos pos (Types.if_ a b (lit (LitBool false)))
+            | "||" -> fun a b -> expr_pos pos (Types.if_ a (lit (LitBool true)) b)
+            | x -> fun a b -> expr_pos pos (ap (ap (v x) a) b)
+            |> fun m -> x.precedence, x.associativity, m
+            |> Ok
+        | Fail x -> Fail x
 
     let i = col d
-    let inline expr_indent expr s = expr_indent i (<=) expr s
-    let inline term s = expr_indent expr s
+    let inline term s = expr_indent i (<=) expr s
 
-    let rec led left (x: TokenOperator) =
-        match x.associativity with
-        | FParsec.Associativity.Right -> tdop (x.precedence-1) |>> m left
-        | _ -> tdop x.precedence |>> m left
+    /// Pratt parser
+    let rec led left (prec,asoc,m) =
+        match asoc with
+        | Associativity.Left | Associativity.None -> tdop prec |>> m left
+        | Associativity.Right -> tdop (prec-1) |>> m left
+        | _ -> failwith "impossible"
 
     and tdop rbp =
         let rec loop left = 
-            attempt (poperator >>= fun (prec,asoc,m as v) ->
-                if rbp < prec then led left v >>= loop
-                else pzero) <|>% left
+            op >>= fun (prec,_,_ as v) d ->
+                if rbp < prec then (led left v >>= loop) d
+                else d.Skip'(-1); Ok left
         term >>= loop
 
     tdop Int32.MinValue d
+
+let application expr (d: ParserEnv) =
+    let i = col d
+    let expr_up d = expr_indent i (<) expr d
+    pipe2 expr (many expr_up) (List.fold ap) d
+
+let application_tight expr d =
+    let is_previus_near (d: ParserEnv) = 
+        let a = d.Skip'(-1); let x = d.LineEnd, d.ColEnd in d.Skip; x
+        let b = d.Line, d.Col
+        if a = b then Ok () else Fail []
+
+    pipe2 expr (many (is_previus_near >>. expr)) (List.fold ap) d
    
 let parse (x: SpiralToken list) =
 
