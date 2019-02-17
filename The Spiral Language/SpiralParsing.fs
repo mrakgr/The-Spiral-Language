@@ -35,20 +35,10 @@ type ParserExpr =
 | ParserStatement of (RawExpr -> RawExpr)
 | ParserExpr of RawExpr
 
-[<Struct>]
-type Result<'a,'b> =
-    | Ok of result: 'a
-    | Fail of error: 'b
-
 type ParserErrors =
-    | ExpectedSpecial'
     | ExpectedSpecial of TokenSpecial
     | ExpectedOperator'
     | ExpectedOperator of string
-    | ExpectedUnaryOne
-    | ExpectedUnaryTwo
-    | ExpectedUnaryThree
-    | ExpectedUnaryFour
     | ExpectedVar
     | ExpectedLit
     | ExpectedKeyword
@@ -56,10 +46,12 @@ type ParserErrors =
     | ExpectedRounds
     | ExpectedSquares
     | ExpectedCurlies
-    | ExpectedIndentation
     | ExpectedStatement
+    | ExpectedKeywordPatternInObject
     | StatementLastInBlock
     | InvalidSemicolon
+    | InbuiltOpNotFound of string
+    | ParserMacroNotFound of string
     | Eof
 
 type ParserEnv =
@@ -84,6 +76,8 @@ type ParserEnv =
     member d.ColEnd = d.LineTemplate (fun x -> x.End.column)
 
     member d.Index = d.i.contents
+    member d.IndexSet i = d.i := i
+
     member d.Length = d.l.Length
     member d.FailWith x = Fail [d.Index, x]
     member d.Skip = d.i := d.i.contents+1
@@ -298,17 +292,22 @@ let inline many1 a (d: ParserEnv) =
     | Ok a' -> (many a |>> fun b -> a' :: b) d
     | Fail x -> Fail x
 
+/// Note: These 3 have different semantics than the FParsec operators. They revert the index if the first argument fails.
 let inline (<|>) a b (d: ParserEnv) =
     let s = d.Index
     match a d with
     | Ok x -> Ok x
     | Fail a -> 
-        if s = d.Index then
-            match b d with
-            | Ok x -> Ok x
-            | Fail b -> Fail(List.append a b)
-        else
-            Fail a
+        d.IndexSet s
+        match b d with
+        | Ok x -> Ok x
+        | Fail b -> Fail(List.append a b)
+
+let inline (<|>%) a b (d: ParserEnv) =
+    let s = d.Index
+    match a d with
+    | Ok x -> Ok x
+    | Fail _ -> d.IndexSet s; Ok b
 
 let inline choice ar (d: ParserEnv) =
     let s = d.Index
@@ -317,15 +316,15 @@ let inline choice ar (d: ParserEnv) =
             match ar.[i] d with
             | Ok x -> Ok x
             | Fail a -> 
-                if s = d.Index then
-                    match loop (i+1) with
-                    | Ok x -> Ok x
-                    | Fail b -> Fail(List.append a b)
-                else
-                    Fail a
+                d.IndexSet s
+                match loop (i+1) with
+                | Ok x -> Ok x
+                | Fail b -> Fail(List.append a b)
         else
             Fail []
     loop 0
+
+let optional a (d: ParserEnv) = a d |> ignore; Ok()
 
 let inline special x (d: ParserEnv) = d.SkipSpecial x
 let match_ d = special SpecMatch d
@@ -340,6 +339,7 @@ let inb d = special SpecInb d
 let rec_ d = special SpecRec d
 let if_ d = special SpecIf d
 let then_ d = special SpecThen d
+let elif_ d = special SpecElif d
 let else_ d = special SpecElse d
 let open_ d = special SpecOpen d
 let join d = special SpecJoin d
@@ -350,12 +350,14 @@ let lambda d = special SpecLambda d
 let or_ d = special SpecOr d
 let and_ d = special SpecAnd d
 let type_union' d = special SpecTypeUnion d
+let dot d = special SpecDot d
 let comma d = special SpecComma d
 let semicolon' d = special SpecSemicolon d
 let unary_one d = special SpecUnaryOne d // ! Used for the active pattern and inbuilt ops.
 let unary_two d = special SpecUnaryTwo d // @ Used for parser macros
 let unary_three d = special SpecUnaryThree d // # Used for the unboxing pattern.
 let unary_four d = special SpecUnaryFour d // $ Used for the injection in patterns and in RecordWith
+let inject = unary_four
 let bracket_round_open d = special SpecBracketRoundOpen d
 let bracket_curly_open d = special SpecBracketCurlyOpen d
 let bracket_square_open d = special SpecBracketSquareOpen d
@@ -380,12 +382,14 @@ let rounds a (d: ParserEnv) = (bracket_round_open >>. a .>> bracket_round_close)
 let curlies a (d: ParserEnv) = (bracket_curly_open >>. a .>> bracket_curly_close) d
 let squares a (d: ParserEnv) = (bracket_square_open >>. a .>> bracket_square_close) d
 
+let var_op = var <|> rounds op_as_var
+
 let col (d: ParserEnv) = d.Col
 let line (d: ParserEnv) = d.Line
 let module_ (d: ParserEnv) = d.Module
 let pos' s = module_ s, line s, col s
 
-let inline expr_indent i op expr d = if op i (col d) then expr d else d.FailWith ExpectedIndentation
+let inline expr_indent i op expr d = if op i (col d) then expr d else Fail []
 
 let semicolon (d: ParserEnv) = if d.Line <> d.semicolon_line then semicolon' d else d.FailWith(InvalidSemicolon) 
 
@@ -598,7 +602,254 @@ let application_tight expr d =
         if a = b then Ok () else Fail []
 
     pipe2 expr (many (is_previus_near >>. expr)) (List.fold ap) d
-   
-let parse (x: SpiralToken list) =
 
-    ()
+let rec expressions expr d = 
+    let case_object =
+        let f (pat, body) (d: ParserEnv) = 
+            let inline f expr_pos pat =
+                let compile_pattern name pat body =
+                    match compile_pattern pat body with
+                    | RawFunction(x,_) -> Ok(name, expr_pos x)
+                    | _ -> failwith "impossible"
+                match pat with
+                | PatVar name -> compile_pattern name (PatKeyword(name, [])) body
+                | PatKeyword(name,_) -> compile_pattern name pat body
+                | _ -> d.FailWith(ExpectedKeywordPatternInObject)
+                    
+            match pat with
+            | PatPos pos -> f (expr_pos pos.Pos) pos.Expression
+            | _ -> f id pat
+        let receiver s =
+            let i = col s
+            let line = line s
+            (pattern expr .>>. (eq >>. expr_indent i (<) (set_semicolon_level_to_line line expr)) >>= f) s
+        squares (many receiver) |>> (List.toArray >> Types.objc)
+    let case_inl_pat_list_expr = pipe2 (inl >>. many1 (pattern expr)) (expression_body expr) compile_patterns
+
+    let case_lit = lit_ |>> lit
+    let case_if_then_else d = 
+        let i = col d
+        let expr_indent expr d = expr_indent i (<=) expr d
+        let inline f' str = str >>. expr
+        let inline f str = expr_indent (f' str)
+        pipe4 (f' if_) (f then_) (many (f elif_ .>>. f then_)) (opt (f else_))
+            (fun cond tr elifs fl -> 
+                let fl = 
+                    match fl with Some x -> x | None -> B
+                    |> List.foldBack (fun (cond,tr) fl -> Types.if_ cond tr fl) elifs
+                Types.if_ cond tr fl)
+        <| d
+    let case_var = var |>> v
+    let case_rounds = rounds ((op_as_var |>> v) <|> (reset_semicolon_level expr <|>% B))
+
+    let case_typex match_type (d: ParserEnv) =
+        let clause = 
+            pipe2 (many1 (pattern expr) .>> lambda) expr <| fun pats body ->
+                match pats with
+                | x :: xs -> x, compile_patterns xs body
+                | _ -> failwith "impossible"
+
+        let pat_function l = func pat_main <| RawPattern(pat_main, List.toArray l)
+        let pat_match x l' = l pat_main x (RawPattern(pat_main, List.toArray l'))
+
+        let clauses d = 
+            let i = col d
+            let bar s = expr_indent i (<=) or_ s
+            (optional bar >>. sepBy1 (expr_indent i (<=) clause) bar) d
+
+        match match_type with
+        | true -> // function
+            (function_ >>. clauses |>> pat_function) d
+        | false -> // match
+            pipe2 (match_ >>. expr .>> with_) clauses pat_match d
+
+    let case_typeinl d = case_typex true d
+    let case_typecase d = case_typex false d
+
+    let case_record =
+        let mp_binding (n,e) = RawRecordWithKeyword(n, e)
+        let mp_binding_inject n e = RawRecordWithInjectVar(n, e)
+        let mp_without n = RawRecordWithoutKeyword n
+        let mp_without_inject n = RawRecordWithoutInjectVar n
+        let mp_create l = RawRecordWith([||],List.toArray l)
+        let mp_with init names l = RawRecordWith(List.toArray (init :: names), List.toArray l)
+
+        let parse_binding_with s =
+            let i = col s
+            let line = s.Line
+            let inline body s = (eq >>. expr_indent i (<) (set_semicolon_level_to_line line expr)) s
+            let a s =
+                pipe2 var_op (opt body)
+                    (fun a -> function
+                        | None -> mp_binding (a, v a)
+                        | Some b -> mp_binding (a, b)) s
+            let b s = pipe2 (inject >>. var_op) body mp_binding_inject s
+            (a <|> b) s
+
+        let parse_binding_without s = 
+            let a s = var_op |>> mp_without <| s
+            let b s = inject >>. var_op |>> mp_without_inject <| s
+            (a <|> b) s
+
+        let record_create_with s = (parse_binding_with .>> optional semicolon') s
+        let record_create_without s = (parse_binding_without .>> optional semicolon') s
+
+        let record_with = 
+            let withs s = (with_ >>. many1 record_create_with) s
+            let withouts s = (without >>. many1 record_create_without) s 
+            pipe3 ((var |>> v) <|> rounds expr)
+                (many ((keyword_unary |>> Types.keyword_unary) <|> (dot >>. rounds expr)))
+                (many1 (withs <|> withouts) |>> List.concat)
+                mp_with
+
+        let record_create = many record_create_with |>> mp_create
+                
+        curlies (record_with <|> record_create)
+
+    let case_join_point = join >>. expr |>> join_point_entry_method
+    let case_type = type_ >>. expr |>> unop TypeGet
+    let case_type_catch = type_catch >>. expr |>> unop TypeCatch
+    let case_cuda = cuda >>. expr |>> (func "blockDim" << func "gridDim")
+
+    let inbuilt_op_core c = c >>. var
+    let case_inbuilt_op =
+        let rec loop = function
+            | RawExprPos x -> loop x.Expression
+            | RawOp(ListCreate, l) -> l 
+            | x -> [|x|]
+        let body c = inbuilt_op_core c .>>. rounds (expr <|>% B)
+        body unary_one >>= fun (a, b) d ->
+            match string_to_op a with
+            | true, op' -> Ok(Types.op op' (loop b))
+            | false, _ -> d.FailWith(InbuiltOpNotFound a)
+
+    let case_parser_macro = 
+        inbuilt_op_core unary_two >>= fun a d ->
+            let f x = Ok(LitString x |> lit)
+            match a with
+            | "CubPath" -> f settings.cub_path
+            | "CudaPath" -> f settings.cuda_path
+            | "CudaNVCCOptions" -> f settings.cuda_nvcc_options
+            | "VSPath" -> f settings.vs_path
+            | "VSPathVcvars" -> f settings.vs_path_vcvars
+            | "VcvarsArgs" -> f settings.vcvars_args
+            | "VSPathCL" -> f settings.vs_path_cl
+            | "VSPathInclude" -> f settings.vs_path_include
+            | a -> d.FailWith(ParserMacroNotFound a)
+
+    let case_keyword_unary = keyword_unary |>> Types.keyword_unary
+
+    [|
+    case_lit; case_join_point; case_type; case_type_catch
+    case_cuda; case_inbuilt_op; case_parser_macro
+    case_inl_pat_list_expr; case_if_then_else
+    case_typecase; case_typeinl; case_record; case_object
+    case_keyword_unary
+    case_var; case_rounds
+    |] |> choice <| d
+
+let rec raw_expr s =
+    let expressions s = type_union ^<| keyword_message ^<| tuple ^<| operators ^<| application ^<| application_tight ^<| expressions raw_expr <| s
+    let statements s = statements raw_expr <| s
+    annotations ^<| indentations (statements <|> (expressions |>> ParserExpr)) <| s
+
+open FParsec
+   
+let parse (m: SpiralModule) =
+    match run token_array m.code with
+    | Failure(x,_,_) -> Fail x
+    | Success(l,_,_) ->
+        let d = 
+            {
+            l=l
+            i=ref 0
+            module_=m
+            semicolon_line= -1
+            }
+        match raw_expr d with
+        | Types.Ok x ->  Types.Ok x
+        | Fail [] -> Fail "unexpected error"
+        | Fail x ->
+            let text = function
+                | ExpectedSpecial x ->
+                    match x with
+                    | SpecMatch -> "match"
+                    | SpecFunction -> "function"
+                    | SpecWith -> "with"
+                    | SpecWithout -> "without"
+                    | SpecAs -> "as"
+                    | SpecWhen -> "when"
+                    | SpecInl -> "inl"
+                    | SpecInm -> "inm"
+                    | SpecInb -> "inb"
+                    | SpecRec -> "rec"
+                    | SpecIf -> "if"
+                    | SpecThen -> "then"
+                    | SpecElif -> "elif"
+                    | SpecElse -> "else"
+                    | SpecOpen -> "open"
+                    | SpecJoin -> "join"
+                    | SpecType -> "type"
+                    | SpecTypeCatch -> "type_catch"
+                    | SpecWildcard -> "_"
+                    | SpecLambda -> "->"
+                    | SpecOr -> "|"
+                    | SpecAnd -> "&"
+                    | SpecTypeUnion -> "\/"
+                    | SpecDot -> "."
+                    | SpecComma -> ","
+                    | SpecSemicolon -> ";"
+                    | SpecUnaryOne -> "!"
+                    | SpecUnaryTwo -> "@"
+                    | SpecUnaryThree -> "#"
+                    | SpecUnaryFour -> "$"
+                    | SpecBracketRoundOpen -> "("
+                    | SpecBracketCurlyOpen -> "{"
+                    | SpecBracketSquareOpen -> "["
+                    | SpecBracketRoundClose -> ")"
+                    | SpecBracketCurlyClose -> "}"
+                    | SpecBracketSquareClose -> "}"
+                    | SpecCuda -> "Cuda"
+                | ExpectedOperator' -> "operator"
+                | ExpectedOperator x -> x
+                | ExpectedVar -> "variable"
+                | ExpectedLit -> "literal"
+                | ExpectedKeyword -> "keyword"
+                | ExpectedKeywordUnary -> "unary keyword"
+                | ExpectedRounds -> "()"
+                | ExpectedSquares -> "[]"
+                | ExpectedCurlies -> "{}"
+                | ExpectedStatement -> "statement"
+                | ExpectedKeywordPatternInObject -> "keyword pattern"
+                | StatementLastInBlock -> "A block requires an expression in last position."
+                | InvalidSemicolon -> "invalid syntax"
+                | InbuiltOpNotFound x -> sprintf "`%s` not found among the inbuilt ops." x
+                | ParserMacroNotFound x -> sprintf "`%s` not found among the available parser macros." x
+                | Eof -> "End of file reached."
+
+            let last_error_pos,_ = List.last x
+            let is_expected = function
+                | StatementLastInBlock | InvalidSemicolon 
+                | InbuiltOpNotFound _ | ParserMacroNotFound _ -> false
+                | _ -> true
+
+            List.partition (snd >> is_expected) x
+            |> fun (expected, errors) ->
+                    let expected = 
+                        List.map (snd >> text) expected
+                        |> String.concat ","
+                        |> function
+                            | "" as x -> x
+                            | x -> sprintf "Expected one of: %s\n" x
+                    let errors = 
+                        List.map (snd >> text) errors
+                        |> String.concat "\n"
+                        |> function
+                            | "" as x -> x
+                            | x -> sprintf "Other errors:\n%s\n" x
+                    if l.Length > 0 && last_error_pos <> -1 then
+                        sprintf "%s%s" (expected + errors) (print_line module_ l.[last_error_pos].Start)
+                    else
+                        expected + errors
+            |> fun x -> Types.Fail x
+        

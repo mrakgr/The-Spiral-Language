@@ -33,6 +33,7 @@ type TokenSpecial =
     | SpecOr
     | SpecAnd
     | SpecTypeUnion
+    | SpecDot
     | SpecComma
     | SpecSemicolon
     | SpecUnaryOne // ! Used for the active pattern and inbuilt ops.
@@ -225,6 +226,7 @@ let operator s =
         | "->" -> Reply(TokSpecial(pos,SpecLambda))
         | "|" -> Reply(TokSpecial(pos,SpecOr))
         | "&" -> Reply(TokSpecial(pos,SpecAnd))
+        | "." -> Reply(TokSpecial(pos,SpecDot))
         | _ ->
             try Reply(TokOperator(pos,op name))
             with :? TokenizationError as x -> Reply(Error, messageError x.Data0)
@@ -271,7 +273,7 @@ let special s =
     | ',' -> f SpecComma | ';' -> f SpecSemicolon
     | _ -> Reply(Error, expected "``(`,`[`,`{`,`}`,`]`,`)`,`,`,`;`")
 
-let tokenize s =
+let token s = 
     choice
         [|
         var; keyword_unary; number
@@ -279,3 +281,16 @@ let tokenize s =
         special; operator
         |]
         s
+
+let token_array s =
+    Inline.Many(
+                elementParser = token,
+                stateFromFirstElement = (fun x0 ->
+                    let ra = ResizeArray<_>()
+                    ra.Add(x0)
+                    ra),
+                foldState = (fun ra x -> ra.Add(x); ra),
+                resultFromState = (fun ra -> ra.ToArray())
+                ) s
+
+let tokenize s = between spaces eof token_array s

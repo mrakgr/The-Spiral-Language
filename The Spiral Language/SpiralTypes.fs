@@ -498,6 +498,11 @@ type TokenOperator = {
     precedence: int
     }
 
+[<Struct>]
+type Result<'a,'b> =
+    | Ok of result: 'a
+    | Fail of error: 'b
+
 exception PrepassError of string
 exception PrepassErrorWithPos of PosKey * string
 exception TypeError of Trace * string
