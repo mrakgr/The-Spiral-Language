@@ -14,6 +14,7 @@ type ParserErrors =
     | ExpectedStatement
     | ExpectedKeywordPatternInObject
     | ExpectedEof
+    | ExpectedRecursiveFunction
     | StatementLastInBlock
     | InvalidSemicolon
     | InbuiltOpNotFound of string
@@ -237,8 +238,13 @@ let inline (>>=) a b d =
 let inline (>>=?) a b (d: ParserEnv) =
     let i = d.Index
     match a d with
-    | Ok a -> b a d
-    | Fail x -> d.IndexSet i; Fail x
+    | Ok a -> 
+        let i' = d.Index
+        match b a d with
+        | Ok x -> Ok x
+        | x when i' = d.Index -> d.IndexSet i; x
+        | x -> x
+    | Fail x -> Fail x
 
 let rec many a (d: ParserEnv) =
     let s = d.Index

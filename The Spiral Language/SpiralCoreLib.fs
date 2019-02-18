@@ -13,7 +13,7 @@ inl Type = [
     /// Splits the union or recursive type into a tuple.
     split: x = !TypeSplit(x)
     /// Boxes a type.
-    box: a to: b = !TypeBox(a,b)
+    box: a to: = !TypeBox(to,a)
     /// Cast a function to the term level.
     term_cast:to: = !TermCast(to,term_cast)
     /// Returns boolean whether the two expressions are equal in their types.
@@ -25,7 +25,7 @@ inl Type = [
     /// Raises an exception at the type level. `type_catch` should be used to contain and extract the type within it.
     raise: x = !TypeRaise(x)
     /// Does unchecked conversion for primitives.
-    from:to: = !UnsafeConvert(to,from) 
+    convert:from to: = !UnsafeConvert(to,from) 
     ]
 
 inl Macro = [
@@ -227,7 +227,7 @@ inl tanh x = !Tanh(x)
 /// Square root.
 inl sqrt x = !Sqrt(x)
 /// Returns the absolute value.
-inl abs x = if x >= to x 0 then x else -x
+inl abs x = if x >= Type (convert:0 to:x) then x else neg x
 
 inl infinity = [
     f64 = !InfinityF64()
@@ -239,14 +239,14 @@ inl infinity = [
 
 /// Cuda constants.
 inl threadIdx = [
-    x = macro (type: 0i64 text: "threadIdx.x")
-    y = macro (type: 0i64 text: "threadIdx.y")
-    x = macro (type: 0i64 text: "threadIdx.z")
+    x = Macro (type: 0i64 text: "threadIdx.x")
+    y = Macro (type: 0i64 text: "threadIdx.y")
+    z = Macro (type: 0i64 text: "threadIdx.z")
     ]
 inl blockIdx = [
-    x = macro (type: 0i64 text: "blockIdx.x")
-    y = macro (type: 0i64 text: "blockIdx.y")
-    x = macro (type: 0i64 text: "blockIdx.z")
+    x = Macro (type: 0i64 text: "blockIdx.x")
+    y = Macro (type: 0i64 text: "blockIdx.y")
+    z = Macro (type: 0i64 text: "blockIdx.z")
     ]
 
 /// Structural polymorphic equality for every type in the language (apart from functions, objects and keywords.)
@@ -259,7 +259,7 @@ inl (=) a b =
         | (), () -> true
         | {} & a, {} & b -> 
             Record (
-                foldr: inl (key:_ state:next value:x') res -> res && match b with {$k=x'} -> next (x = x') 
+                foldr: inl (key:k state:next value:x) res -> res && match b with {$k=x'} -> next (x = x') 
                 state: id
                 ) a true
         | a, b when Is (union: a) || Is (rec_union: a) ->
@@ -280,7 +280,7 @@ Type Macro Layout String Is Record
 ref infinity threadIdx blockIdx
 (=>) (+) (-) (*) (**) (/) (%) (:>) (:?>) (=) (|>) (<|) 
 (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>)
-max min lit_min lit_max abs log exp tanh sqrt negate to print_static dyn
+max min lit_min lit_max abs log exp tanh sqrt neg print_static dyn
 ignore id const unconst fst snd not
 failwith assert 
 }

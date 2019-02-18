@@ -105,12 +105,10 @@ let test1: SpiralModule =
     description="Does it run?"
     code=
     """
-/// Gets the first elements of a tuple.
-inl fst x :: _ = x
-/// Gets the second element of a tuple.
-inl snd _ :: x :: _ = x
-inl f _ :: _ :: x = x
-!PrintStatic(f (3,1,4,5))
+{a=1; b=2; c=3}
+|> Record (map:inl key:value:-> value*2)
+|> inl x -> {x with a=this*10}
+|> print_static
     """
     }
 

@@ -21,14 +21,10 @@ let inline expr_indent i op expr d = if op i (col d) then expr d else Fail []
 
 let semicolon (d: ParserEnv) = if d.Line <> d.semicolon_line then semicolon' d else d.FailWith(InvalidSemicolon) 
 
-//let exprpos expr d = 
-//    let pos = pos' d
-//    (expr |>> function
-//        | RawFunction _ | RawObjectCreate _  as x -> x // Pos nodes can get in the way of optimizations.
-//        | x -> expr_pos pos x) d
-//let patpos expr d = (expr |>> pat_pos (pos' d)) d
-let exprpos expr d = expr d
-let patpos expr d = expr d
+let exprpos expr d = (expr |>> expr_pos (pos' d)) d
+let patpos expr d = (expr |>> pat_pos (pos' d)) d
+//let exprpos expr d = expr d
+//let patpos expr d = expr d
 
 let inline concat_keyword f x =
     let strb = StringBuilder()
@@ -67,7 +63,7 @@ let rec pattern_template expr s =
         templ (var <|> op_as_var) PatRecordMembersKeyword <|> templ (unary_four >>. var) PatRecordMembersInjectVar
     let pat_record pattern = curlies (many (pat_record_item pattern)) |>> PatRecordMembers
     let pat_keyword_unary = keyword_unary |>> fun keyword -> PatKeyword(keyword,[])
-    let pat_rounds pattern = rounds (pattern <|> (op_as_var |>> PatVar)) 
+    let pat_rounds pattern = rounds (pattern <|> (op_as_var |>> PatVar) <|>% PatTuple []) 
         
     pat_when ^<| pat_as ^<| pat_or ^<| pat_keyword ^<| pat_tuple ^<| pat_cons ^<| pat_and ^<| pat_type ^<| pat_closure
     ^<| choice [|pat_wildcard; pat_var; pat_active recurse; pat_unbox recurse; pat_lit; pat_record recurse; pat_keyword_unary; pat_rounds recurse|] <| s
@@ -121,16 +117,12 @@ let statements expr (d: ParserEnv) =
     let handle_inl_expression pats body = compile_patterns pats body |> ParserExpr
     
     let handle_inl_rec (name, pats, body) (d: ParserEnv) = 
-        match body with
-        | RawFunction(a,b) ->
-            (fun on_succ ->
-                compile_patterns pats body
-                |> function
-                    | RawFunction(body,arg) -> l name (RawRecFunction(body,arg,name)) on_succ
-                    | _ -> failwith "impossible"
-                )
-            |> ParserStatement |> Ok
-        | _ -> Fail []
+        compile_patterns pats body
+        |> function
+            | RawFunction(body,arg) -> 
+                fun on_succ -> l name (RawRecFunction(body,arg,name)) on_succ
+                |> ParserStatement |> Ok
+            | _ -> d.FailWith(ExpectedRecursiveFunction)
 
     let handle_inl_statement pats body = 
         fun on_succ ->
@@ -159,7 +151,7 @@ let statements expr (d: ParserEnv) =
         | SpecInl ->
             d.Skip
             match d.SkipSpecial SpecRec with
-            | Ok _ -> (tuple3 var (many (pattern expr)) (statement_body expr) >>= handle_inl_rec) d
+            | Ok _ -> (tuple3 var_op (many (pattern expr)) (statement_body expr) >>= handle_inl_rec) d
             | Fail _ ->
                 (many1 (pattern expr) >>= (fun pats -> 
                     (statement_body expr |>> handle_inl_statement pats) 
@@ -213,7 +205,7 @@ let operators expr d =
         let rec loop left = 
             op >>=? (fun (prec,_,_ as v) d ->
                 if rbp < prec then (led left v >>= loop) d
-                else pfail (ExpectedOperator') d) <|>% left
+                else Fail []) <|>% left
         term >>= loop
 
     tdop Int32.MinValue d
@@ -383,12 +375,10 @@ let parser (settings: SpiralCompilerSettings) d =
         case_var; case_rounds
         |] |> choice <| d
 
-
-
     let rec raw_expr s =
         let expressions s = type_union ^<| keyword_message ^<| tuple ^<| operators ^<| application ^<| application_tight ^<| expressions raw_expr <| s
         let statements s = statements raw_expr <| s
-        annotations ^<| indentations (statements <|> (expressions |>> ParserExpr)) <| s
+        annotations ^<| indentations (statements <|> (exprpos expressions |>> ParserExpr)) <| s
 
     (raw_expr .>> eof) d
 

@@ -161,7 +161,7 @@ let rec prepass (env: PrepassEnv) expr =
             f(tag(), bind, on_succ), free_vars + free_vars', 1 + max stack_size stack_size'
 
         memoize prepass_memo_dict (function
-            | RawV x -> let tag, x = tag(), string_to_var env.prepass_map x in V(tag, x), Set.singleton x, 1
+            | RawV x -> let tag, x = tag(), string_to_var env.prepass_map x in V(tag, x), Set.singleton x, 0
             | RawLit x -> Lit(tag(), x), Set.empty, 0
             | RawOpen(module_name,submodule_names,on_succ) ->
                 match env.prepass_map.TryFind module_name with
@@ -196,7 +196,7 @@ let rec prepass (env: PrepassEnv) expr =
                 let free_vars = Set.remove name_vartag free_vars
                 let array_free_vars = Set.toArray free_vars
                 let expr = subrenaming (subrenaming_env_init size_lexical_scope array_free_vars) expr
-                Function(tag(),expr,array_free_vars,stack_size), free_vars, 0
+                Function(tag(),expr,array_free_vars,stack_size + 1), free_vars, 0
             | RawRecFunction(expr, name, rec_name) ->
                 let size_lexical_scope = env.prepass_map_length
                 let name_vartag, env = env_add_var env name
@@ -205,7 +205,7 @@ let rec prepass (env: PrepassEnv) expr =
                 let free_vars = Set.remove name_vartag free_vars |> Set.remove rec_name_vartag
                 let array_free_vars = Set.toArray free_vars
                 let expr = subrenaming (subrenaming_env_init size_lexical_scope array_free_vars) expr
-                Function(tag(),expr,array_free_vars,stack_size), free_vars, 0
+                Function(tag(),expr,array_free_vars,stack_size + 2), free_vars, 0
             | RawObjectCreate(ar) ->
                 let size_lexical_scope = env.prepass_map_length
                 let ar, free_vars = 
@@ -268,13 +268,13 @@ let rec prepass (env: PrepassEnv) expr =
                             let this_tag, env = env_add_var env "this"
                             let expr, free_vars', stack_size' = loop env expr
                             let free_vars' = Set.remove this_tag free_vars'
-                            RecordWithKeyword(string_to_keyword keyword, expr),(free_vars+free_vars',max stack_size stack_size')
+                            RecordWithKeyword(string_to_keyword keyword, expr),(free_vars+free_vars',max stack_size (stack_size'+1))
                         | RawRecordWithInjectVar(var,expr) ->
                             let this_tag, env = env_add_var env "this"
                             let expr, free_vars', stack_size' = loop env expr
                             let free_vars' = Set.remove this_tag free_vars'
                             let x = string_to_var env.prepass_map var
-                            RecordWithInjectVar(var, x, expr),(free_vars+free_vars' |> Set.add x, max stack_size stack_size')
+                            RecordWithInjectVar(var, x, expr),(free_vars+free_vars' |> Set.add x, max stack_size (stack_size'+1))
                         | RawRecordWithoutKeyword keyword -> RecordWithoutKeyword(string_to_keyword keyword),(free_vars,stack_size)
                         | RawRecordWithoutInjectVar var -> 
                             let x = string_to_var env.prepass_map var
@@ -291,7 +291,7 @@ let rec prepass (env: PrepassEnv) expr =
                 Op(tag(),op,exprs),free_vars,stack_size
             | RawExprPos(pos) ->
                 let pos, expr = pos.Pos, pos.Expression
-                try loop env expr
+                try loop env expr |> fun (a,b,c) -> ExprPos(tag(),Position(pos,a)), b, c
                 with
                 | :? PrepassError as er ->
                     let mes = er.Data0

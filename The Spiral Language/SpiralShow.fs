@@ -214,6 +214,7 @@ let show_parser_error = function
     | ExpectedStatement -> "statement"
     | ExpectedKeywordPatternInObject -> "keyword pattern"
     | ExpectedEof -> "end of file"
+    | ExpectedRecursiveFunction -> "recursive function"
     | StatementLastInBlock -> "A block requires an expression in last position."
     | InvalidSemicolon -> "Invalid syntax."
     | InbuiltOpNotFound x -> sprintf "`%s` not found among the inbuilt ops." x
