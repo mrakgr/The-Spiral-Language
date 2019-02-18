@@ -33,7 +33,7 @@ type ParserEnv =
 
     member inline d.TryCurrentTemplate on_succ on_fail =
         let i = d.Index
-        if i > 0 && i < d.Length then on_succ d.l.[i]
+        if 0 <= i && i < d.Length then on_succ d.l.[i]
         else on_fail()
 
     member inline d.TryCurrent f = d.TryCurrentTemplate f (fun () -> Fail [])
@@ -233,6 +233,12 @@ let inline (>>=) a b d =
     match a d with
     | Ok a -> b a d
     | Fail x -> Fail x
+
+let inline (>>=?) a b (d: ParserEnv) =
+    let i = d.Index
+    match a d with
+    | Ok a -> b a d
+    | Fail x -> d.IndexSet i; Fail x
 
 let rec many a (d: ParserEnv) =
     let s = d.Index

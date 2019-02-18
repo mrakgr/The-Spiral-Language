@@ -6,6 +6,11 @@ open Spiral.Show
 open System
 open System.Text
 
+let f x (d: ParserEnv) =
+    let r = x d
+    printfn "%A" r
+    r
+
 type Associativity = FParsec.Associativity
 
 type ParserExpr =
@@ -206,9 +211,9 @@ let operators expr d =
 
     and tdop rbp =
         let rec loop left = 
-            op >>= fun (prec,_,_ as v) d ->
+            op >>=? (fun (prec,_,_ as v) d ->
                 if rbp < prec then (led left v >>= loop) d
-                else d.Skip'(-1); Ok left
+                else pfail (ExpectedOperator') d) <|>% left
         term >>= loop
 
     tdop Int32.MinValue d
@@ -378,6 +383,8 @@ let parser (settings: SpiralCompilerSettings) d =
         case_var; case_rounds
         |] |> choice <| d
 
+
+
     let rec raw_expr s =
         let expressions s = type_union ^<| keyword_message ^<| tuple ^<| operators ^<| application ^<| application_tight ^<| expressions raw_expr <| s
         let statements s = statements raw_expr <| s
@@ -388,7 +395,7 @@ let parser (settings: SpiralCompilerSettings) d =
 open FParsec
    
 let parse settings (m: SpiralModule) =
-    match run token_array m.code with
+    match run tokenize m.code with
     | Failure(x,_,_) -> Fail x
     | Success(l,_,_) ->
         let d = 

@@ -161,7 +161,7 @@ let rec prepass (env: PrepassEnv) expr =
             f(tag(), bind, on_succ), free_vars + free_vars', 1 + max stack_size stack_size'
 
         memoize prepass_memo_dict (function
-            | RawV x -> let tag, x = tag(), string_to_var env.prepass_map x in V(tag, x), Set.singleton x, 0
+            | RawV x -> let tag, x = tag(), string_to_var env.prepass_map x in V(tag, x), Set.singleton x, 1
             | RawLit x -> Lit(tag(), x), Set.empty, 0
             | RawOpen(module_name,submodule_names,on_succ) ->
                 match env.prepass_map.TryFind module_name with
@@ -287,6 +287,7 @@ let rec prepass (env: PrepassEnv) expr =
                         let expr, free_vars', stack_size' = loop env expr
                         expr, (free_vars + free_vars', max stack_size stack_size')
                         ) (Set.empty, 0) exprs
+                
                 Op(tag(),op,exprs),free_vars,stack_size
             | RawExprPos(pos) ->
                 let pos, expr = pos.Pos, pos.Expression

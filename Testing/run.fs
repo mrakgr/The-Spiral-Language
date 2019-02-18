@@ -105,8 +105,12 @@ let test1: SpiralModule =
     description="Does it run?"
     code=
     """
-inl not x = !EQ(x, falser)
-()
+/// Gets the first elements of a tuple.
+inl fst x :: _ = x
+/// Gets the second element of a tuple.
+inl snd _ :: x :: _ = x
+inl f _ :: _ :: x = x
+!PrintStatic(f (3,1,4,5))
     """
     }
 

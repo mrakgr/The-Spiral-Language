@@ -282,15 +282,15 @@ let rec partial_eval (d: LangEnv) x =
         | TyList l ->
             if all_or_n then // all
                 let rec loop d = function
-                    | 1, l -> ev (push_var (TyList l) d) on_succ
-                    | i, x :: x' -> loop (push_var x d) (i-1,x')
-                    | _, [] -> on_fail()
-                loop d (stack_size,l)
-            else // n
-                let rec loop d = function
                     | 0, [] -> ev d on_succ
                     | _, [] -> on_fail()
                     | i, x :: x' -> loop (push_var x d) (i-1,x')
+                loop d (stack_size,l)
+            else // n
+                let rec loop d = function
+                    | 1, l -> ev (push_var (TyList l) d) on_succ
+                    | i, x :: x' -> loop (push_var x d) (i-1,x')
+                    | _, [] -> on_fail()
                 loop d (stack_size,l)
         | _ -> on_fail()
 

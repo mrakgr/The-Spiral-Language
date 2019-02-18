@@ -84,7 +84,9 @@ inl Record = [
     /// Maps over a record.
     map:f =inl a -> !RecordMap(f,a)
     /// Iterates over a record.
-    iter:f =inl a -> self (map:inl x -> f x; ()) a |> ignore
+    iter:f =inl a -> 
+        inl x = self (map:inl x -> f x; ()) a
+        ()
     /// Filters a record at compile time.
     filter:f =inl a -> !RecordFilter(f,a)
     /// Folds over a record left to right.
@@ -94,13 +96,13 @@ inl Record = [
     /// Returns the record length.
     /// record -> int64
     length: x = !RecordLength(x)
-    map_fold_helper=inl key: state:(record:state:) value: ->
+    map_fold_helper=inl f (key: state:(record:state:) value:) ->
         inl value, state = f (key:key state:state value:value)
         {record with $key = value}, state
     /// Does a map operation over a record while threading state.
-    map_foldl:f state: = self (foldl: self.map_fold_helper state:(record:{} state:state))
+    map_foldl:f state: = self (foldl: self.map_fold_helper f state:(record:{} state:state))
     /// Does a map operation (starting from the back) over a record while threading state.
-    map_foldr:f state: = self (foldr: self.map_fold_helper state:(record:{} state:state))
+    map_foldr:f state: = self (foldr: self.map_fold_helper f state:(record:{} state:state))
     /// Sets a mutable record.
     set:field:to: = !SetMutableRecord(set,field,to)
     ]
