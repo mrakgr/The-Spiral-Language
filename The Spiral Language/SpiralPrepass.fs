@@ -3,8 +3,8 @@
 // Global open
 open System
 open System.Collections.Generic
-open Parsing
-open Types
+open Spiral.Show
+open Spiral.Types
 
 // Globals
 let mutable tag_prepass = 0

@@ -1,8 +1,33 @@
 ﻿module Spiral.Show
-open Parsing
-open Types
+open Spiral.Types
 open System.Collections.Generic
 open System
+open System.Runtime.CompilerServices
+open System.Text
+
+// Globals
+let private keyword_to_string_dict = Dictionary(HashIdentity.Structural)
+let private string_to_keyword_dict = Dictionary(HashIdentity.Structural)
+let private string_to_op_dict = Dictionary(HashIdentity.Structural)
+let private code_dict = ConditionalWeakTable()
+let mutable private tag_keyword = 0
+
+let _ =
+    Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(typeof<Op>)
+    |> Array.iter (fun x ->
+        string_to_op_dict.[x.Name] <- Microsoft.FSharp.Reflection.FSharpValue.MakeUnion(x,[||]) :?> Op
+        )
+let string_to_op x = string_to_op_dict.TryGetValue x
+
+let string_to_keyword (x: string) =
+    match string_to_keyword_dict.TryGetValue x with
+    | true, v -> v
+    | false, _ ->
+        tag_keyword <- tag_keyword + 1
+        string_to_keyword_dict.[x] <- tag_keyword
+        keyword_to_string_dict.[tag_keyword] <- x
+        tag_keyword
+let keyword_to_string x = keyword_to_string_dict.[x] // Should never fail.
 
 let show_primt = function
     | UInt8T -> "uint8"
@@ -106,3 +131,111 @@ and show_consed_typed_data = function
     | CTyFunction _ | CTyRecFunction _ -> "<function>"
     | CTyBox(a,b) -> sprintf "(%s : %s)" (show_consed_typed_data a) (show_ty b)
     | CTyLit v -> sprintf "lit %s" (show_value v)
+
+let show_position' (strb: StringBuilder) ({name=name; code=code},line,col) =
+    let er_code =
+        code
+        |> memoize' code_dict (fun file_code -> file_code.Split [|'\n'|])
+        |> fun x -> x.[int line - 1]
+
+    strb
+        .AppendLine(sprintf "Error trace on line: %i, column: %i in module %s." line col name)
+        .AppendLine(er_code)
+        .Append(' ', col - 1)
+        .AppendLine "^"
+    |> ignore
+
+let show_position x = show_position' (StringBuilder()) x
+
+let show_trace (settings: SpiralCompilerSettings) (trace: Types.Trace) message = 
+    let filter_set = HashSet(settings.filter_list,HashIdentity.Structural)
+    
+    let error = System.Text.StringBuilder(1024)
+    let x =
+        List.toArray trace
+        |> Array.filter (fun ({name=x},_,_) -> filter_set.Contains x = false)
+    if x.Length > 0 then
+        x.[0..(min x.Length settings.trace_length - 1 |> max 0)]
+        |> Array.rev
+        |> Array.iter (show_position' error)
+    error.AppendLine message |> ignore
+    error.ToString()
+
+open Spiral.Tokenize
+open Spiral.ParserCombinators
+
+let show_parser_error = function
+    | ExpectedSpecial x ->
+        match x with
+        | SpecMatch -> "match"
+        | SpecFunction -> "function"
+        | SpecWith -> "with"
+        | SpecWithout -> "without"
+        | SpecAs -> "as"
+        | SpecWhen -> "when"
+        | SpecInl -> "inl"
+        | SpecInm -> "inm"
+        | SpecInb -> "inb"
+        | SpecRec -> "rec"
+        | SpecIf -> "if"
+        | SpecThen -> "then"
+        | SpecElif -> "elif"
+        | SpecElse -> "else"
+        | SpecOpen -> "open"
+        | SpecJoin -> "join"
+        | SpecType -> "type"
+        | SpecTypeCatch -> "type_catch"
+        | SpecWildcard -> "_"
+        | SpecLambda -> "->"
+        | SpecOr -> "|"
+        | SpecAnd -> "&"
+        | SpecTypeUnion -> "\/"
+        | SpecColon -> ":"
+        | SpecDot -> "."
+        | SpecComma -> ","
+        | SpecSemicolon -> ";"
+        | SpecUnaryOne -> "!"
+        | SpecUnaryTwo -> "@"
+        | SpecUnaryThree -> "#"
+        | SpecUnaryFour -> "$"
+        | SpecBracketRoundOpen -> "("
+        | SpecBracketCurlyOpen -> "{"
+        | SpecBracketSquareOpen -> "["
+        | SpecBracketRoundClose -> ")"
+        | SpecBracketCurlyClose -> "}"
+        | SpecBracketSquareClose -> "}"
+        | SpecCuda -> "Cuda"
+    | ExpectedOperator' -> "operator"
+    | ExpectedOperator x -> x
+    | ExpectedVar -> "variable"
+    | ExpectedLit -> "literal"
+    | ExpectedKeyword -> "keyword"
+    | ExpectedKeywordUnary -> "unary keyword"
+    | ExpectedStatement -> "statement"
+    | ExpectedKeywordPatternInObject -> "keyword pattern"
+    | ExpectedEof -> "end of file"
+    | StatementLastInBlock -> "A block requires an expression in last position."
+    | InvalidSemicolon -> "Invalid syntax."
+    | InbuiltOpNotFound x -> sprintf "`%s` not found among the inbuilt ops." x
+    | ParserMacroNotFound x -> sprintf "`%s` not found among the available parser macros." x
+    
+let is_expected = function
+    | StatementLastInBlock | InvalidSemicolon 
+    | InbuiltOpNotFound _ | ParserMacroNotFound _ -> false
+    | _ -> true
+
+let show_parser_error_list x = 
+    let expected, errors = List.partition (snd >> is_expected) x
+    let expected = 
+        List.map (snd >> show_parser_error) expected
+        |> String.concat ","
+        |> function
+            | "" as x -> x
+            | x -> sprintf "Expected one of: %s\n" x
+    let errors = 
+        List.map (snd >> show_parser_error) errors
+        |> String.concat "\n"
+        |> function
+            | "" as x -> x
+            | x -> sprintf "Other errors:\n%s\n" x
+    expected + errors

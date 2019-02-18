@@ -1,8 +1,6 @@
 ﻿module Spiral.Tests
-open Types
-open Lib
-open PartEval
-open Codegen.Fsharp
+open Spiral.Types
+open Spiral.Lib
 
 let test1: SpiralModule =
     {
@@ -2807,7 +2805,7 @@ let cache_test cfg (time: Timings) (m: SpiralModule) =
     File.WriteAllText(make_test_path_from_name m.name, b)
     time.Add time'
     
-let rewrite_test_cache tests cfg x = 
+let rewrite_test_cache tests cfg x =
     let time = 
         let time: Timings = {parse=TimeSpan.Zero; prepass=TimeSpan.Zero; peval=TimeSpan.Zero; codegen=TimeSpan.Zero}
         match x with

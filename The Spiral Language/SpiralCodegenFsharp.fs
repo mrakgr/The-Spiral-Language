@@ -2,6 +2,7 @@
 
 open Spiral
 open Spiral.Types
+open Spiral.Show
 open Spiral.PartEval
 open System.Collections.Generic
 open System.Text
@@ -112,7 +113,7 @@ let tylit d = function
         |> sprintf "'%s'"
     | LitBool x -> if x then "true" else "false"
 
-let error_raw_type x = raise_codegen_error <| sprintf "An attempt to manifest a raw type has been attempted.\nGot: %s" (Parsing.show_typed_data x)
+let error_raw_type x = raise_codegen_error <| sprintf "An attempt to manifest a raw type has been attempted.\nGot: %s" (show_typed_data x)
 
 let rec typed_data (d: CodegenEnv) x = 
     match typed_data_term_vars x with
@@ -213,7 +214,7 @@ let rec op (d: CodegenEnv) x =
         | Tanh,x -> sprintf "tanh%s" (t x)
         | Sqrt,x -> sprintf "sqrt%s" (t x)
         | NanIs,x -> sprintf "isnan%s" (t x)
-        | a, b -> raise_codegen_error <| sprintf "Compiler error: Case %A with data %s not implemented." a (Parsing.show_typed_data b)
+        | a, b -> raise_codegen_error <| sprintf "Compiler error: Case %A with data %s not implemented." a (show_typed_data b)
 
     | TyIf(cond,on_succ,on_fail) ->
         d.Text(sprintf "if %s then" (typed_data d cond))
@@ -317,7 +318,7 @@ let codegen x =
                     | "" -> d.Text(sprintf "| SpiralType%i_%i" tag' tag)
                     | l -> d.Text(sprintf "| SpiralType%i_%i of %s" tag' tag l)
                     ) l
-            | x -> raise_codegen_error "Compiler error: Only layout types and union types need to have their definitions printed.\nGot: %s" (Parsing.show_ty x)
+            | x -> raise_codegen_error "Compiler error: Only layout types and union types need to have their definitions printed.\nGot: %s" (show_ty x)
         f ty
             
     let inline print_join_points is_first =

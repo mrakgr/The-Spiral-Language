@@ -3,8 +3,8 @@
 // Global open
 open System
 open System.Collections.Generic
-open Parsing
-open Types
+open Spiral.Show
+open Spiral.Types
 open System.Runtime.CompilerServices
 
 // Globals
@@ -19,10 +19,10 @@ let private hash_cons_table = HashConsing.HashConsTable()
 let mutable private part_eval_tag = 0
 let private tag () = part_eval_tag <- part_eval_tag+1; part_eval_tag
 
-let keyword_env = Parsing.string_to_keyword "env:" // For join points keys. It is assumed that they will never be printed.
-let keyword_apply = Parsing.string_to_keyword "apply:"
-let keyword_key_value = Parsing.string_to_keyword "key:value:"
-let keyword_key_state_value = Parsing.string_to_keyword "key:state:value:"
+let keyword_env = string_to_keyword "env:" // For join points keys. It is assumed that they will never be printed.
+let keyword_apply = string_to_keyword "apply:"
+let keyword_key_value = string_to_keyword "key:value:"
+let keyword_key_state_value = string_to_keyword "key:state:value:"
 let typed_data_to_consed' call_data =
     let dict = Dictionary(HashIdentity.Reference)
     let call_args = ResizeArray(64)

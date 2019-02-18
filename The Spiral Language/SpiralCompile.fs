@@ -1,10 +1,9 @@
 ﻿module Spiral.Compile
 
 open Spiral.Types
-open System.Collections.Generic
-open Spiral
+open Spiral.Show
 open Spiral.Codegen
-open FParsec.CharParsers
+open System.Collections.Generic
 open System.Diagnostics
 open System
 
@@ -60,8 +59,8 @@ let module_let (env: ModulePrepassEnv) (m: SpiralModule) =
     let context = env.context.ToArray()
     let expr, size = 
         match timeit env.timing.parse (Parsing.parse env.settings) m with
-        | Success(x,_,_) -> x
-        | Failure(x,_,_) -> raise_compile_error x
+        | Ok x -> x
+        | Fail x -> raise_compile_error x
         |> timeit env.timing.prepass (Prepass.prepass {prepass_context=context; prepass_map=env.map; prepass_map_length=count})
     let module_ = 
         let d = {rbeh=AnnotationDive; seq=env.seq; env_global=context; env_stack_ptr=0; env_stack=Array.zeroCreate size; trace=[]; cse=ref Map.empty}
@@ -77,37 +76,11 @@ let module_open (env: ModulePrepassEnv) x =
             let map, _ =
                 Map.fold (fun (s, count) k v ->
                     env.context.Add v
-                    Map.add (Spiral.Parsing.keyword_to_string k) count s, count+1
+                    Map.add (keyword_to_string k) count s, count+1
                     ) (env.map, env.context.Count) x
             {env with map=map}
-        | x -> raise_compile_error <| sprintf "Expected as module in `module_open`.\nGot: %s" (Parsing.show_typed_data x)
+        | x -> raise_compile_error <| sprintf "Expected as module in `module_open`.\nGot: %s" (show_typed_data x)
     | _ -> raise_compile_error <| sprintf "In module_open, `open` did not find a module named %s in the environment." x
-
-let print_trace (settings: SpiralCompilerSettings) (trace: Types.Trace) message = 
-    let filter_set = HashSet(settings.filter_list,HashIdentity.Structural)
-    let code_dict = Dictionary(HashIdentity.Reference)
-    let error = System.Text.StringBuilder(1024)
-    let x =
-        List.toArray trace
-        |> Array.filter (fun ({name=x},_,_) -> filter_set.Contains x = false)
-    if x.Length > 0 then
-        x.[0..(min x.Length settings.trace_length - 1 |> max 0)]
-        |> Array.rev
-        |> Array.iter (fun ({name=name; code=code},line,col) ->
-            let er_code =
-                code
-                |> memoize code_dict (fun file_code -> file_code.Split [|'\n'|])
-                |> fun x -> x.[int line - 1]
-
-            error
-                .AppendLine(sprintf "Error trace on line: %i, column: %i in module %s." line col name)
-                .AppendLine(er_code)
-                .Append(' ', int (col - 1L))
-                .AppendLine "^"
-            |> ignore
-            )
-    error.AppendLine message |> ignore
-    error.ToString()
 
 let compile (settings: SpiralCompilerSettings) (m: SpiralModule) =
     let env = {
@@ -143,10 +116,10 @@ let compile (settings: SpiralCompilerSettings) (m: SpiralModule) =
         env.timing.Elapsed, env.seq.ToArray() |> timeit env.timing.codegen Fsharp.codegen
     with
         | :? PrepassError as x -> env.timing.Elapsed, x.Data0
-        | :? PrepassErrorWithPos as x -> env.timing.Elapsed, print_trace {settings with filter_list=[]} [x.Data0] x.Data1
-        | :? TypeError as x -> env.timing.Elapsed, print_trace settings x.Data0 x.Data1
-        | :? TypeRaised as x -> env.timing.Elapsed, sprintf "Uncaught type raise.\nGot: %s" (Parsing.show_ty x.Data0)
+        | :? PrepassErrorWithPos as x -> env.timing.Elapsed, show_trace {settings with filter_list=[]} [x.Data0] x.Data1
+        | :? TypeError as x -> env.timing.Elapsed, show_trace settings x.Data0 x.Data1
+        | :? TypeRaised as x -> env.timing.Elapsed, sprintf "Uncaught type raise.\nGot: %s" (Show.show_ty x.Data0)
         | :? CodegenError as x -> env.timing.Elapsed, x.Data0
-        | :? CodegenErrorWithPos as x -> env.timing.Elapsed, print_trace {settings with filter_list=[]} x.Data0 x.Data1
+        | :? CodegenErrorWithPos as x -> env.timing.Elapsed, show_trace {settings with filter_list=[]} x.Data0 x.Data1
         | :? CompileError as x -> env.timing.Elapsed, x.Data0
 

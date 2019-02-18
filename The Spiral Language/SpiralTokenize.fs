@@ -1,6 +1,6 @@
 ﻿module Spiral.Tokenize
 open System
-open Types
+open Spiral.Types
 open FParsec
 open System.Collections.Generic
 
@@ -34,6 +34,7 @@ type TokenSpecial =
     | SpecAnd
     | SpecTypeUnion
     | SpecDot
+    | SpecColon
     | SpecComma
     | SpecSemicolon
     | SpecUnaryOne // ! Used for the active pattern and inbuilt ops.
@@ -227,6 +228,7 @@ let operator s =
         | "|" -> Reply(TokSpecial(pos,SpecOr))
         | "&" -> Reply(TokSpecial(pos,SpecAnd))
         | "." -> Reply(TokSpecial(pos,SpecDot))
+        | ":" -> Reply(TokSpecial(pos,SpecColon))
         | _ ->
             try Reply(TokOperator(pos,op name))
             with :? TokenizationError as x -> Reply(Error, messageError x.Data0)
