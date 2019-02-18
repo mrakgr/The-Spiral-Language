@@ -837,7 +837,7 @@ let parse (m: SpiralModule) =
                 | ExpectedStatement -> "statement"
                 | ExpectedKeywordPatternInObject -> "keyword pattern"
                 | StatementLastInBlock -> "A block requires an expression in last position."
-                | InvalidSemicolon -> "invalid syntax"
+                | InvalidSemicolon -> "Invalid syntax."
                 | InbuiltOpNotFound x -> sprintf "`%s` not found among the inbuilt ops." x
                 | ParserMacroNotFound x -> sprintf "`%s` not found among the available parser macros." x
                 | Eof -> "End of file reached."
