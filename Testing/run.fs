@@ -105,10 +105,13 @@ let test1: SpiralModule =
     description="Does it run?"
     code=
     """
-{a=1; b=2; c=3}
-|> Record (map:inl key:value:-> value*2)
-|> inl x -> {x with a=this*10}
-|> print_static
+inl min n = join
+    inl tes a = join
+        inl b -> join
+            inl c -> join
+                inl d -> join a,b,c
+    tes 1 2 (2.2,3,4.5)
+min 10
     """
     }
 

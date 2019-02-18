@@ -39,7 +39,8 @@ let typed_data_to_consed' call_data =
             | TyLit x -> CTyLit x
             | TyT x -> CTyT x
             ) x
-    call_args.ToArray(),f call_data
+    let x = f call_data
+    call_args.ToArray(),x
 
 let typed_data_free_vars call_data =
     let dict = Dictionary(HashIdentity.Reference)
@@ -111,7 +112,8 @@ let consed_typed_data_uncons' consed_data =
             | CTyLit x -> TyLit x
             | CTyT x -> TyT x
             ) x
-    consed_args.ToArray(), f consed_data
+    let x = f consed_data
+    consed_args.ToArray(), x
 
 let consed_typed_data_uncons consed_data =
     let dict = Dictionary(HashIdentity.Reference)
@@ -198,10 +200,12 @@ let push_var x (d: LangEnv) =
     {d with env_stack_ptr=d.env_stack_ptr+1}
 
 let seq_apply (d: LangEnv) end_dat =
+    let inline end_ () = d.seq.Add(TyLocalReturnData(end_dat,d.trace))
     if d.seq.Count > 0 then
         match d.seq.[d.seq.Count-1] with
         | TyLet(end_dat',a,b) when Object.ReferenceEquals(end_dat,end_dat') -> d.seq.[d.seq.Count-1] <- TyLocalReturnOp(a,b)
-        | _ -> d.seq.Add(TyLocalReturnData(end_dat,d.trace))
+        | _ -> end_()
+    else end_()
     d.seq.ToArray()
 
 let layout_to_none (d: LangEnv) = function
@@ -268,7 +272,8 @@ let rec partial_eval (d: LangEnv) x =
     let inline ev2 d a b = ev d a, ev d b
     let inline ev3 d a b c = ev d a, ev d b, ev d c
     let inline ev_seq d x =
-        let x = ev {d with seq=ResizeArray()} x
+        let d = {d with seq=ResizeArray()}
+        let x = ev d x
         let x_ty = type_get x
         seq_apply d x, x_ty
     let inline ev_annot d x = ev_seq {d with cse=ref !d.cse} x |> snd
@@ -1161,7 +1166,7 @@ let rec partial_eval (d: LangEnv) x =
             match ev d a' with
             | TyList [] & a -> a
             | a ->
-                let d = match a' with ExprPos(_,x) -> {d with trace = x.Pos :: d.trace} | _ -> d
+                //let d = match a' with ExprPos(_,x) -> {d with trace = x.Pos :: d.trace} | _ -> d
                 raise_type_error d "Only the last expression of a block is allowed to be unit. Use `ignore` if it intended to be such.\nGot: %s" (show_typed_data a)
         | ErrorPatMiss,[|a|] -> ev d a |> show_typed_data |> sprintf "Pattern miss error. The argument is %s" |> raise_type_error d
         | FailWith,[|typ;a|] ->

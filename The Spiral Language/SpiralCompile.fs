@@ -115,7 +115,9 @@ let compile (settings: SpiralCompilerSettings) (m: SpiralModule) =
         let env = module_let env CoreLib.core
         let env = module_open env "Core"
         let env = Array.fold module_let env ms
-        env.timing.Elapsed, env.seq.ToArray() |> timeit env.timing.codegen Fsharp.codegen
+        env.timing.Elapsed, env.seq.ToArray() 
+        //|> fun x -> printfn "%A" x; x
+        |> timeit env.timing.codegen Fsharp.codegen
     with
         | :? PrepassError as x -> env.timing.Elapsed, x.Data0
         | :? PrepassErrorWithPos as x -> env.timing.Elapsed, show_trace {settings with filter_list=[]} [x.Data0] x.Data1

@@ -19,11 +19,11 @@ let test2: SpiralModule =
     {
     name="test2"
     prerequisites=[]
-    description="Does it run methods?"
+    description="Do the join points work?"
     code=
     """
-met a () = 5
-met b () = 10
+inl a () = join 5
+inl b () = join 10
 a () + b ()
     """
     }
@@ -32,7 +32,7 @@ let test3: SpiralModule =
     {
     name="test3"
     prerequisites=[]
-    description="Does this method case work?"
+    description="Does `dyn` work?"
     code=
     """
 inl a = dyn 5
@@ -80,11 +80,11 @@ let test6: SpiralModule =
     description="Does returning type level methods from methods work?"
     code=
     """
-met min n =
-    met tes a =
-        met b -> 
-            met c ->
-                met d -> a,b,c
+inl min n = join
+    inl tes a = join
+        inl b -> join
+            inl c -> join
+                inl d -> join a,b,c
     tes 1 2 (2.2,3,4.5)
 min 10
     """

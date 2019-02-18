@@ -70,7 +70,10 @@ let rec type_ (d: CodegenEnv) x =
     | MacroT x -> x
     | ty -> d.types.Tag ty |> sprintf "SpiralType%i"
 
+let tytag' d (T(tag,ty)) = sprintf "var_%i" (uint32 tag)
 let tytag d (T(tag,ty)) = sprintf "(var_%i : %s)" (uint32 tag) (type_ d ty)
+let tytags' d x = Array.map (tytag' d) x |> String.concat "; "
+let tytags d x = Array.map (tytag d) x |> String.concat ", " |> sprintf "(%s)"
 let tylit d = function
     | LitInt8 x -> sprintf "%iy" x
     | LitInt16 x -> sprintf "%is" x
@@ -120,7 +123,7 @@ let rec typed_data (d: CodegenEnv) x =
     | true, _ -> error_raw_type x
     | false, vars -> 
         Array.map (function
-            | TyV t -> tytag d t
+            | TyV t -> tytag' d t
             | TyLit x -> tylit d x
             | TyBox(a,ty) -> 
                 let tag' = d.types.Tag ty
@@ -134,11 +137,10 @@ let rec typed_data (d: CodegenEnv) x =
 
 let join_point (d: CodegenEnv) (key, typ, args) =
     let tag = d.join_points.Tag (key,typ)
-    let inline args sep = Array.map (tytag d) args |> String.concat sep
     match typ with
-    | JoinPointMethod -> sprintf "method_%i(%s)" tag (args ", ")
-    | JoinPointClosure -> sprintf "closure_method_%i(%s)" tag (args ", ")
-    | JoinPointCuda -> sprintf "\"cuda_method_%i\", ([|%s|] : System.Object)" tag (args "; ")
+    | JoinPointMethod -> sprintf "method_%i %s" tag (tytags d args)
+    | JoinPointClosure -> sprintf "closure_method_%i %s" tag (tytags d args)
+    | JoinPointCuda -> sprintf "\"cuda_method_%i\", ([|%s|] : System.Object)" tag (tytags' d args)
     | JoinPointType -> failwith "impossible"
    
 let rec op (d: CodegenEnv) x =
@@ -168,7 +170,7 @@ let rec op (d: CodegenEnv) x =
         | Apply, TyList [a;b] -> sprintf "%s%s" (t a) (t b)
         | LayoutToStack, TyList [a;b] ->
             let tag = d.types.Tag (type_get a)
-            let b = typed_data_free_vars b |> Array.map (tytag d) |> String.concat ", " |> sprintf "(%s)"
+            let b = typed_data_free_vars b |> tytags d
             sprintf "SpiralType%i %s" tag b
         | (LayoutToHeap | LayoutToHeapMutable), TyList [a;b] ->
             let b = 
@@ -253,7 +255,7 @@ and binds (d: CodegenEnv) x =
     Array.iter (function
         | TyLet(data,trace,x) ->
             try 
-                let vars = typed_data_free_vars data |> Array.map (tytag d) |> String.concat ", "
+                let vars = typed_data_free_vars data |> tytags d
                 match x with
                 | TyJoinPoint _ | TyLayoutToNone _ | TyOp _ -> d.Statement(sprintf "let %s = %s" vars (op d x))
                 | _ -> d.Statement(sprintf "let %s =" vars); op d.Indent x |> ignore
@@ -324,11 +326,13 @@ let codegen x =
     let inline print_join_points is_first =
         let d = def_join_points
         let (key,ty), tag' = d.join_points.Dequeue
+        //let print_tytags x =
+
         match ty with
         | JoinPointMethod ->
             match join_point_dict_method.[key] with
             | JoinPointDone(args,(body,ret_ty)) ->
-                let args = Array.map (tytag d) args |> String.concat ", "
+                let args = tytags d args
                 let ret_ty = type_ d ret_ty
                 if is_first then d.Statement(sprintf "let rec method_%i %s : %s =" tag' args ret_ty)
                 else d.Statement(sprintf "and method_%i %s : %s =" tag' args ret_ty)
@@ -338,8 +342,8 @@ let codegen x =
         | JoinPointClosure ->
             match join_point_dict_closure.[key] with
             | JoinPointDone(args,args2,(body,ret_ty)) ->
-                let args = Array.map (tytag d) args |> String.concat ", "
-                let args2 = Array.map (tytag d) args2 |> String.concat ", "
+                let args = tytags d args
+                let args2 = tytags d args2
                 let ret_ty = type_ d ret_ty
                 if is_first then d.Statement(sprintf "let rec closure_method_%i %s %s : %s =" tag' args args2 ret_ty)
                 else d.Statement(sprintf "and closure_method_%i %s %s : %s =" tag' args args2 ret_ty)
