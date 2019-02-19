@@ -246,7 +246,7 @@ let parser (settings: SpiralCompilerSettings) d =
                 let i = col s
                 let line = line s
                 (pattern expr .>>. (eq >>. expr_indent i (<) (set_semicolon_level_to_line line expr)) >>= f) s
-            squares (many receiver) |>> (List.toArray >> Types.objc)
+            squares (many (receiver .>> optional semicolon')) |>> (List.toArray >> Types.objc)
         let case_inl_pat_list_expr = pipe2 (inl >>. many1 (pattern expr)) (expression_body expr) compile_patterns
 
         let case_lit = lit_ |>> lit
@@ -314,8 +314,8 @@ let parser (settings: SpiralCompilerSettings) d =
                 let b s = inject >>. var_op |>> mp_without_inject <| s
                 (a <|> b) s
 
-            let record_create_with s = (parse_binding_with .>> optional semicolon) s
-            let record_create_without s = (parse_binding_without .>> optional semicolon) s
+            let record_create_with s = (parse_binding_with .>> optional semicolon') s
+            let record_create_without s = (parse_binding_without .>> optional semicolon') s
 
             let record_with = 
                 let withs' s = many1 record_create_with s

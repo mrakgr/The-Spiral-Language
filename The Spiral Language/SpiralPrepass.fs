@@ -121,11 +121,11 @@ let rec prepass (env: PrepassEnv) expr =
                             | PatRecordMembersKeyword(keyword,name) ->
                                 match name with
                                 | PatVar x -> RawRecordTestKeyword(keyword,x), on_succ
-                                | _ -> let arg = patvar() in RawRecordTestKeyword(keyword,arg), cp arg pat on_succ on_fail
+                                | pat -> let arg = patvar() in RawRecordTestKeyword(keyword,arg), cp arg pat on_succ on_fail
                             | PatRecordMembersInjectVar(var,name) ->
                                 match name with
                                 | PatVar x -> RawRecordTestInjectVar(var,x), on_succ
-                                | _ -> let arg = patvar() in RawRecordTestInjectVar(var,arg), cp arg pat on_succ on_fail
+                                | pat -> let arg = patvar() in RawRecordTestInjectVar(var,arg), cp arg pat on_succ on_fail
                             ) items on_succ
                     RawRecordTest(List.toArray binds,arg,on_succ,on_fail)
                 | PatTypeTermFunction(domain,range) ->

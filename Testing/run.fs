@@ -788,9 +788,13 @@ let test39: SpiralModule =
     description="Does the mutable layout type get unpacked multiple times?"
     code=
     """
-inl q = type (heapm <| dyn {a=1;b=2;c=3}) \/ (heapm <| dyn {a=1;b=2}) \/ (heap <| dyn (1,2,3))
-match box q (heapm <| dyn {a=1;b=2;c=3}) |> dyn with
-| {x with a} ->
+inl heapm x = Layout (heapm: x)
+inl heap x = Layout (heap: x)
+inl box a b = Type (box: b to: a)
+inl q = heapm <| dyn {a=1;b=2;c=3} \/ heapm <| dyn {a=1;b=2} \/ heap <| dyn (1,2,3)
+inl #x = {a=1;b=2;c=3} |> dyn |> heapm |> box q |> dyn
+match Layout (none: x) with
+| {a} as x ->
     inl {b} = x
     match x with
     | {c} -> a+b+c
@@ -806,7 +810,7 @@ let test40: SpiralModule =
     description="Does this compile into just one method? Are the arguments reversed in the method call?"
     code=
     """
-met rec f a b =
+inl rec f a b = join
     if dyn true then f b a
     else a + b
     : 0
@@ -821,37 +825,14 @@ let test41: SpiralModule =
     description="Does result in a `type ()`?"
     code=
     """
-inl ty = .Up \/ .Down \/ heap (dyn {q=1;block=(1,(),3)})
-inl x = dyn (box ty .Up)
+inl ty = .Up \/ .Down \/ Layout (heap: dyn {q=1;block=(1,(),3)})
 inl r =
+    inl #x = dyn (Type (box: .Up to: ty))
     match x with
     | .Up -> {q=1;block=(1,(),3)}
     | .Down -> {q=2;block=(2,(),4)}
     | _ -> {q=1;block=(1,(),3)}
-box ty (heap r)
-    """
-    }
-
-let test42: SpiralModule =
-    {
-    name="test42"
-    prerequisites=[]
-    description="Do partial active patterns work?"
-    code=
-    """
-inl f x on_fail on_succ =
-    match x with
-    | x : int64 -> on_succ (x,"is_int64")
-    | x : int32 -> on_succ (x,"is_int32",x*x)
-    | x -> on_fail()
-
-inl m m1 = function
-    | @m1 (q,w,e) -> q,w,e
-    | @m1 (q,w) -> q,w
-    | @m1 q -> q
-    | x -> error_type "The call to m1 failed."
-
-m f 2
+Type (box: Layout (heap: r) to: ty)
     """
     }
 
@@ -862,38 +843,10 @@ let test43: SpiralModule =
     description="Do the Array constructors work?"
     code=
     """
-open Array
+// TODO
+//open Array
 
-empty int64, singleton 2.2
-    """
-    }
-
-let test44: SpiralModule =
-    {
-    name="test44"
-    prerequisites=[]
-    description="Does the xor pattern work for empty inputs?"
-    code=
-    """
-inl f = function 
-    | {a ^ b} -> a
-    | _ -> true
-f {a=1}, f {}
-    """
-    }
-
-let test45: SpiralModule =
-    {
-    name="test45"
-    prerequisites=[]
-    description="Does the module_add and module_remove work?"
-    code=
-    """
-module_add .add (inl a b -> a + b) {}
-|> module_add .sub (inl a b -> a - b)
-|> module_add .q 5
-|> module_add .w 10
-|> module_remove .q
+//empty int64, singleton 2.2
     """
     }
 
@@ -904,7 +857,7 @@ let test46: SpiralModule =
     description="Does the module pattern work?"
     code=
     """
-inl f {a; b; c} = a + b + c
+inl f {a b c} = a + b + c
 inl x =
     {
     a=1
@@ -912,7 +865,7 @@ inl x =
     c=3
     }
 
-f {x with a = 4}
+dyn (f {x with a = 4})
     """
     }
 
@@ -923,12 +876,13 @@ let test47: SpiralModule =
     description="Does the nested module pattern work?"
     code=
     """
-inl f {name {p with x y}} = name,(x,y)
+inl f {name p={x y}} = name,(x,y)
 inl x = { name = "Coord" }
 
 f {x with 
     p = { x = 1
           y = 2 }}
+|> dyn
     """
     }
 
@@ -939,11 +893,12 @@ let test48: SpiralModule =
     description="Does the nested module pattern with rebinding work?"
     code=
     """
-inl f {name {p with y=y' x=x'}} = name,(x',y')
+inl f {name p={y=y' x=x'}} = name,(x',y')
 inl x = { name = "Coord" }
 f {x with 
     p = { x = 1
           y = 2 }}
+|> dyn
     """
     }
 
@@ -956,8 +911,9 @@ let test49: SpiralModule =
     """
 inl x = { a = { b = { c = 3 } } }
 
-inl f {x.a.b with c q} = c,q
-f {x.a.b with q = 4; c = self + 3; d = {q = 12; w = 23}}
+inl f {a={b={c q}}} = c,q
+f {x.a.b with q = 4; c = this + 3; d = {q = 12; w = 23}}
+|> dyn
     """
     }
 
@@ -968,6 +924,7 @@ let test50: SpiralModule =
     description="Do the Array init and fold work?"
     code=
     """
+// TODO
 open Array
 
 inl ar = init 6 (inl x -> x+1)
@@ -982,6 +939,7 @@ let test51: SpiralModule =
     description="Do the Array map and filter work?"
     code=
     """
+// TODO
 open Array
 
 inl ar = init 16 id
@@ -997,6 +955,7 @@ let test52: SpiralModule =
     description="Does the Array concat work?"
     code=
     """
+// TODO
 open Array
 
 inl ar = init 4 (inl _ -> init 8 id)
@@ -1011,6 +970,7 @@ let test53: SpiralModule =
     description="Does the Array append work?"
     code=
     """
+// TODO
 open Array
 
 inl ar = inl _ -> init 4 id
@@ -1025,6 +985,7 @@ let test54: SpiralModule =
     description="Does the monadic bind `inm` work?"
     code=
     """
+// TODO
 inl on_succ a = (a,())
 inl on_log x = ((),Tuple.singleton x)
 inl (>>=) (a,w) f = // The writer monad.
@@ -1043,19 +1004,6 @@ on_succ (x+y+z) // Tuple2(20L, Tuple1(2L, 7L, 11L))
     """
     }
 
-let test55: SpiralModule =
-    {
-    name="test55"
-    prerequisites=[]
-    description="Does the type literal rebind pattern work?"
-    code=
-    """
-inl f = .QWE,.66,.2.3
-match f with
-| .(a), .(b), .(c) -> a,b,c
-    """
-    }
-
 let test56: SpiralModule =
     {
     name="test56"
@@ -1064,7 +1012,7 @@ let test56: SpiralModule =
     code=
     """
 inl add a, b = ()
-inl k = term_cast add (int64,int64)
+inl k = Type (term_cast: add with: 0,0)
 k (1, 2)
     """
     }
@@ -1347,7 +1295,7 @@ f x
 
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test38
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test56
 |> printfn "%s"
 |> ignore
 
