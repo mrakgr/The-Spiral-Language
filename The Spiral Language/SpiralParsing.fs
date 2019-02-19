@@ -21,12 +21,12 @@ let inline expr_indent i op expr d = if op i (col d) then expr d else Fail []
 
 let semicolon (d: ParserEnv) = if d.Line <> d.semicolon_line then semicolon' d else d.FailWith(InvalidSemicolon) 
 
-let exprpos expr d =
-    let pos = pos' d
-    (expr |>> function RawObjectCreate _ | RawFunction _ as x -> x | x -> expr_pos pos x) d
-let patpos expr d = (expr |>> pat_pos (pos' d)) d
-//let exprpos expr d = expr d
-//let patpos expr d = expr d
+//let exprpos expr d =
+//    let pos = pos' d
+//    (expr |>> function RawObjectCreate _ | RawFunction _ as x -> x | x -> expr_pos pos x) d
+//let patpos expr d = (expr |>> pat_pos (pos' d)) d
+let exprpos expr d = expr d
+let patpos expr d = expr d
 
 let inline concat_keyword f x =
     let strb = StringBuilder()
@@ -53,7 +53,7 @@ let rec pattern_template expr s =
     let pat_cons pattern = sepBy1 pattern cons |>> function [x] -> x | x -> PatCons x
     let pat_and pattern = sepBy1 pattern and_ |>> function [x] -> x | x -> PatAnd x
     let pat_expr = (var |>> v) <|> rounds expr
-    let pat_type pattern = pattern .>>. opt (colon >>. pat_expr) |>> function a,Some b as x-> PatTypeEq(a,b) | a, None -> a
+    let pat_type pattern = pattern .>>. opt (colon >>. (pat_expr <|> (lit_ |>> lit))) |>> function a,Some b as x-> PatTypeEq(a,b) | a, None -> a
     let pat_closure pattern = sepBy1 pattern arr |>> List.reduceBack (fun a b -> PatTypeTermFunction(a,b))
     let pat_wildcard = wildcard >>% PatE
     let pat_var = var |>> PatVar
@@ -369,12 +369,11 @@ let parser (settings: SpiralCompilerSettings) d =
         let case_keyword_unary = keyword_unary |>> Types.keyword_unary
 
         [|
-        case_lit; case_join_point; case_type; case_type_catch
-        case_cuda; case_inbuilt_op; case_parser_macro
-        case_inl_pat_list_expr; case_if_then_else
-        case_typecase; case_typeinl; case_record; case_object
-        case_keyword_unary
-        case_var; case_rounds
+        case_lit; case_var; case_join_point; case_type; case_keyword_unary; 
+        case_typecase; case_typeinl; case_rounds; case_record; case_object
+        case_if_then_else; case_inl_pat_list_expr
+        case_inbuilt_op; case_parser_macro
+        case_cuda; case_type_catch
         |] |> choice <| d
 
     let rec raw_expr s =

@@ -770,6 +770,7 @@ let rec partial_eval (d: LangEnv) x =
         | LayoutToStack,[|a|] -> layout_to_some LayoutStack d (ev d a)
         | LayoutToHeap,[|a|] -> layout_to_some LayoutHeap d (ev d a)
         | LayoutToHeapMutable,[|a|] -> layout_to_some LayoutHeapMutable d (ev d a)
+        | LayoutToNone,[|a|] -> layout_to_none d (ev d a)
         | If,[|cond;on_succ;on_fail|] ->
             match ev d cond with
             | TyLit (LitBool true) -> ev d on_succ

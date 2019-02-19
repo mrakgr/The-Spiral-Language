@@ -479,12 +479,12 @@ let test20: SpiralModule =
     description="Does pattern matching on union non-tuple types work? Do type annotation patterns work?"
     code=
     """
-!PrintStatic
-    (
-    match 2 with
-    | x : 0 -> x
-    )
-
+inl t = 0 \/ 0.0
+inl #x = Type (box: 3.5 to: t)
+match x with
+| x : 0 -> x * x
+| x : 0.0 -> x + x
+|> dyn
     """
     }
 
@@ -731,11 +731,11 @@ inl Res =
     \/ 0, 0
     \/ List 0
 
-let #x = Type (box: 1 to:Res) |> dyn
+inl #x = Type (box: 1 to:Res) |> dyn
 match x with
 | _ : 0 -> 1
 | (a, b) -> 2
-| _ : List 0 -> 3
+| _ : (List 0) -> 3
     """
     }
 
@@ -749,8 +749,8 @@ let test36: SpiralModule =
 inl a = dyn 1
 inl b = dyn 2
 inl add c d = a + b + c + d
-met f g c d = g c d
-f (heap add) (dyn 3) (dyn 4)
+inl f g c d = join g c d
+f (Layout (heap: add)) (dyn 3) (dyn 4)
     """
     }
 
@@ -761,12 +761,12 @@ let test37: SpiralModule =
     description="Does a simple heapified module work?"
     code=
     """
-inl m = heap { a=dyn 1; b=dyn 2 }
+inl m = Layout (heap: { a=dyn 1; b=dyn 2 })
 inl add c d = 
-    inl {a b} = m
+    inl {a b} = Layout (none: m)
     a + b + c + d
-met f g c d = g c d
-f (heap add) (dyn 3) (dyn 4)
+inl f g c d = join g c d
+f (Layout (heap: add)) (dyn 3) (dyn 4)
     """
     }
 
@@ -777,7 +777,7 @@ let test38: SpiralModule =
     description="Is type constructor of an int64 an int64?"
     code=
     """
-box int64 (dyn 1)
+Type (box: dyn 1 to: 0)
     """
     }
 
@@ -1347,7 +1347,7 @@ f x
 
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test20
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test38
 |> printfn "%s"
 |> ignore
 

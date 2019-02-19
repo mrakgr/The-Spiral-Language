@@ -216,10 +216,21 @@ let inline (>>.) a b d =
         | Fail x -> Fail x
     | Fail x -> Fail x   
 
-let inline opt a d =
+let inline opt a (d: ParserEnv) =
+    let s = d.Index
     match a d with
     | Ok a -> Ok(Some a)
-    | _ -> Ok(None)
+    | Fail x -> 
+        if s = d.Index then Ok(None)
+        else Fail x
+
+let inline optional a (d: ParserEnv) = 
+    let s = d.Index
+    match a d with
+    | Ok a -> Ok()
+    | Fail x -> 
+        if s = d.Index then Ok()
+        else Fail x
 
 let inline (|>>) a b d =
     match a d with
@@ -310,8 +321,6 @@ let inline choice ar (d: ParserEnv) =
         else
             Fail []
     loop 0
-
-let optional a (d: ParserEnv) = a d |> ignore; Ok()
 
 let inline special x (d: ParserEnv) = d.SkipSpecial x
 let match_ d = special SpecMatch d

@@ -204,7 +204,7 @@ let show_parser_error = function
         | SpecBracketRoundClose -> ")"
         | SpecBracketCurlyClose -> "}"
         | SpecBracketSquareClose -> "}"
-        | SpecCuda -> "Cuda"
+        | SpecCuda -> "cuda"
     | ExpectedOperator' -> "operator"
     | ExpectedOperator x -> x
     | ExpectedVar -> "variable"
@@ -230,7 +230,7 @@ let show_parser_error_list x =
     let expected, errors = List.partition (snd >> is_expected) x
     let expected = 
         List.map (snd >> show_parser_error) expected
-        |> String.concat ","
+        |> String.concat ", "
         |> function
             | "" as x -> x
             | x -> sprintf "Expected one of: %s\n" x
