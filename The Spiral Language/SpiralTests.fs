@@ -117,7 +117,7 @@ inl f = f add sub mult
 inl a = f .Add 1 2
 inl b = f .Sub 1 2
 inl c = f .Mult 1 2
-a, b, c
+dyn (a, b, c)
     """
     }
 
@@ -128,12 +128,12 @@ let test8: SpiralModule =
     description="Does the basic union type work?"
     code=
     """
-inl option_int = .Some, 1 \/ .None
+inl option_int = .Some, (1,2,3) \/ .None
 
-met x = box option_int .None
+inl x = join Type (box: .None to: option_int)
 match x with
-| .Some, x -> x
-| .None -> 0
+| #(.Some, x) -> x
+| #(.None) -> 0,0,0
     """
     }
 
@@ -145,9 +145,9 @@ let test9: SpiralModule =
     code=
     """
 inl ab = .A \/ .B
-inl ab = box ab
-met x = (ab .A, ab .A, ab .A)
-match x with
+inl ab x = Type (box: x to: ab)
+inl #a,#b,#c = join (ab .A, ab .A, ab .A)
+match a,b,c with
 | .A, _, _ -> 1
 | _, .A, _ -> 2
 | _, _, .A -> 3
@@ -162,9 +162,9 @@ let test10: SpiralModule =
     description="Do the join points get filtered?"
     code=
     """
-inl ab = box (.A \/ .B)
-met x = (ab .A, ab .A, ab .A, ab .A)
-match x with
+inl ab x = Type (box: x to: (.A \/ .B))
+inl #a,#b,#c,#d = join (ab .A, ab .A, ab .A, ab .A)
+match a,b,c,d with
 | .A, .A, _, _ -> join 1
 | _, _, .A, .A -> join 2
 | .A, .B, .A, .B -> join 3
@@ -176,13 +176,13 @@ let test11: SpiralModule =
     {
     name="test11"
     prerequisites=[]
-    description="Do the nested patterns work on dynamic data?"
+    description="Do the nested patterns work?"
     code=
     """
 inl a = type (1,2)
 inl b = type (1,a,a)
-inl a,b = box a, box b
-met x = b (1, a (2,3), a (4,5))
+inl a,b = (inl x -> Type (box: x to: a)), (inl x -> Type (box: x to: b))
+inl x = b (1, a (2,3), a (4,5))
 match x with
 | _, (x, _), (_, y) -> x + y
 | _, _, _ -> 0
@@ -211,23 +211,29 @@ let test13: SpiralModule =
     description="A more complex interpreter example on static data."
     code=
     """
-inl rec expr x = join_type
-    .V, x
-    \/ .Add, expr x, expr x
-    \/ .Mult, expr x, expr x
-inl int_expr = box (expr int64)
-inl v x = int_expr (.V, x)
-inl add a b = int_expr (.Add, a, b)
-inl mult a b = int_expr (.Mult, a, b)
+inl rec expr x = 
+    Type (
+        name: "Arith"
+        join:inl _ ->
+            v: x
+            \/ add: expr x, expr x
+            \/ mult: expr x, expr x
+        )
+inl int_expr x = Type (box: x to: expr 0)
+inl v x = int_expr (v: x)
+inl add a b = int_expr (add: a, b)
+inl mult a b = int_expr (mult: a, b)
 inl a = add (v 1) (v 2)
 inl b = add (v 3) (v 4)
 inl c = mult a b
-inl rec interpreter_static x = 
+
+inl rec interpreter_static #x = 
     match x with
-    | .V, x -> x
-    | .Add, a, b -> interpreter_static a + interpreter_static b
-    | .Mult, a, b -> interpreter_static a * interpreter_static b
+    | v: x -> x
+    | add: a, b -> interpreter_static a + interpreter_static b
+    | mult: a, b -> interpreter_static a * interpreter_static b
 interpreter_static c
+|> dyn
     """
     }
 
@@ -238,24 +244,29 @@ let test14: SpiralModule =
     description="Does recursive pattern matching work on partially static data?"
     code=
     """
-inl rec expr x = join_type
-    .V, x
-    \/ .Add, expr x, expr x
-    \/ .Mult, expr x, expr x
-inl int_expr = box (expr int64)
-inl v x = int_expr (.V, x)
-inl add a b = int_expr (.Add, a, b)
-inl mult a b = int_expr (.Mult, a, b)
-inl a = add (v 1) (v 2) |> dyn
-inl b = add (v 3) (v 4) |> dyn
-inl c = mult a b |> dyn
+inl rec expr x = 
+    Type (
+        name: "Arith"
+        join:inl _ ->
+            v: x
+            \/ add: expr x, expr x
+            \/ mult: expr x, expr x
+        )
+inl int_expr x = Type (box: x to: expr 0)
+inl v x = int_expr (v: x)
+inl add a b = int_expr (add: a, b)
+inl mult a b = int_expr (mult: a, b)
+inl a = add (v 1) (v 2)
+inl b = add (v 3) (v 4)
+inl c = dyn (mult a b)
 
-met rec inter x = 
+inl rec inter x = join
+    inl #x = x
     match x with
-    | .V, x -> x
-    | .Add, a, b -> inter a + inter b
-    | .Mult, a, b -> inter a * inter b
-    : int64
+    | v: x -> x
+    | add: a, b -> inter a + inter b
+    | mult: a, b -> inter a * inter b
+    : 0
 
 inter c
     """
@@ -268,46 +279,28 @@ let test15: SpiralModule =
     description="Does basic .NET interop work?"
     code=
     """
-open Extern
-inl builder_type = fs [text: "System.Text.StringBuilder"]
-inl b = FS.Constructor builder_type ("Qwe", 128i32)
-inl a x =
-    FS.Method b .Append x builder_type |> ignore
-    FS.Method b .AppendLine () builder_type |> ignore
-a 123
-a 123i16
-a "qwe"
-inl str = FS.Method b .ToString () string
+() // TODO
+//open Extern
+//inl builder_type = fs [text: "System.Text.StringBuilder"]
+//inl b = FS.Constructor builder_type ("Qwe", 128i32)
+//inl a x =
+//    FS.Method b .Append x builder_type |> ignore
+//    FS.Method b .AppendLine () builder_type |> ignore
+//a 123
+//a 123i16
+//a "qwe"
+//inl str = FS.Method b .ToString () string
 
-inl console = fs [text: "System.Console"]
-FS.StaticMethod console .Write str ()
+//inl console = fs [text: "System.Console"]
+//FS.StaticMethod console .Write str ()
 
-inl key = 1, 1
-inl value = {a=1;b=2;c=3}
-inl dictionary_type = fs [text: "System.Collections.Generic.Dictionary"; types: type (key,value)]
-inl dict = FS.Constructor dictionary_type 128i32
-FS.Method dict .Add (key,value) ()
-FS.Method dict .Item (key :: ()) value |> dyn |> ignore
-0
-    """
-    }
-
-let hacker_rank_1: SpiralModule =
-    {
-    name="hacker_rank_1"
-    prerequisites=[extern_]
-    description="The very first warmup exercise : https://www.hackerrank.com/challenges/solve-me-first"
-    code=
-    """
-open Extern
-inl console = fs [text: "System.Console"]
-inl int32_type = fs [text: "System.Int32"]
-inl parse_int32 str = FS.StaticMethod int32_type .Parse str int32
-inl read_line () = FS.StaticMethod console .ReadLine() string
-inl write x = FS.StaticMethod console .Write x ()
-inl read_int () = read_line() |> parse_int32
-inl a, b = read_int(), read_int()
-write (a + b)
+//inl key = 1, 1
+//inl value = {a=1;b=2;c=3}
+//inl dictionary_type = fs [text: "System.Collections.Generic.Dictionary"; types: type (key,value)]
+//inl dict = FS.Constructor dictionary_type 128i32
+//FS.Method dict .Add (key,value) ()
+//FS.Method dict .Item (key :: ()) value |> dyn |> ignore
+//0
     """
     }
 
@@ -318,9 +311,9 @@ let test16: SpiralModule =
     description="Do var union types work?"
     code=
     """
-inl t = int64 \/ float64
-if dyn true then box t 0
-else box t 0.0
+inl t = 0 \/ 0.0
+if dyn true then Type (box: 0 to: t)
+else Type (box: 0.0 to: t)
     """
     }
 
@@ -336,7 +329,7 @@ inl m =
     inl y = 3.4
     inl z = "123"
     {x y z}
-m.x, m.y, m.z
+dyn (m.x, m.y, m.z)
     """
     }
 
@@ -347,25 +340,26 @@ let test18: SpiralModule =
     description="Do arrays and references work?"
     code=
     """
-inl a = ref 0
-a := 5
-a() |> ignore
+() // TODO
+//inl a = ref 0
+//a := 5
+//a() |> ignore
 
-inl a = ref () // Is not supposed to be printed due to being ().
-a := ()
-a()
+//inl a = ref () // Is not supposed to be printed due to being ().
+//a := ()
+//a()
 
-inl a = ref <| term_cast (inl a, b -> a + b) (int64,int64)
-a := term_cast (inl a, b -> a * b) (int64,int64)
-a() |> ignore
+//inl a = ref <| term_cast (inl a, b -> a + b) (int64,int64)
+//a := term_cast (inl a, b -> a * b) (int64,int64)
+//a() |> ignore
 
-inl a = array_create int64 10
-a 3 <- 2
-a 3 |> ignore
+//inl a = array_create int64 10
+//a 3 <- 2
+//a 3 |> ignore
 
-inl a = array_create id 3 // Is supposed to be unit and not printed.
-a 1 <- id
-a 1 |> ignore
+//inl a = array_create id 3 // Is supposed to be unit and not printed.
+//a 1 <- id
+//a 1 |> ignore
     """
     }
 
@@ -373,11 +367,11 @@ let test19: SpiralModule =
     {
     name="test19"
     prerequisites=[]
-    description="Does term casting for functions work?"
+    description="Does the term casting of functions work?"
     code=
     """
 inl add a b (c, (d, e), f) = a + b + c + d + e + f
-inl f = term_cast (add 8 (dyn 7)) (int64,(int64,int64),int64)
+inl f = Type (term_cast: add 8 (dyn 7) with: type (0,(0,0),0))
 f (1,(2,5),3)
     """
     }
@@ -2342,6 +2336,25 @@ for' {from=step; to=int64_maxvalue; by=step; state= -1; body=inl {next state i} 
     else next state
     }
 |> writeline
+    """
+    }
+
+let hacker_rank_1: SpiralModule =
+    {
+    name="hacker_rank_1"
+    prerequisites=[extern_]
+    description="The very first warmup exercise : https://www.hackerrank.com/challenges/solve-me-first"
+    code=
+    """
+open Extern
+inl console = fs [text: "System.Console"]
+inl int32_type = fs [text: "System.Int32"]
+inl parse_int32 str = FS.StaticMethod int32_type .Parse str int32
+inl read_line () = FS.StaticMethod console .ReadLine() string
+inl write x = FS.StaticMethod console .Write x ()
+inl read_int () = read_line() |> parse_int32
+inl a, b = read_int(), read_int()
+write (a + b)
     """
     }
 

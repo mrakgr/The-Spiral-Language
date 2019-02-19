@@ -15,7 +15,7 @@ inl Type = [
     /// Boxes a type.
     box: a to: = !TypeBox(to,a)
     /// Cast a function to the term level.
-    term_cast:to: = !TermCast(to,term_cast)
+    term_cast: a with: b = !TermCast(a,b)
     /// Returns boolean whether the two expressions are equal in their types.
     eq: a to: b = !EqType(a,b)
     /// Returns the size a type.
@@ -26,6 +26,8 @@ inl Type = [
     raise: x = !TypeRaise(x)
     /// Does unchecked conversion for primitives.
     convert:from to: = !UnsafeConvert(to,from) 
+    /// The type join point
+    name: join: body = !JoinPointEntryType(body(),name)
     ]
 
 inl Macro = [

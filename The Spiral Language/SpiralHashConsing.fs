@@ -35,7 +35,7 @@ type HashConsTable() =
     let mutable is_finalized: bool = false
     let mutable counter: int = 0
 
-    member private t.Resize<'a>() =
+    member private t.Resize() =
         let next_table_length x = x*3/2+3
 
         let table_length' = next_table_length table.Length
@@ -43,17 +43,21 @@ type HashConsTable() =
         let table' = Array.init table_length' (fun i -> ResizeArray())
         let limit' = limit+2
         let total_size' = 
-            (0,table) ||> (Array.fold << Seq.fold) (fun total_size x ->
-                match x.Target with
-                | null -> 
-                    x.Free()
-                    total_size
-                | :? ConsedNode<'a> as node -> 
-                    let bucket = table'.[node.hkey % table_length']
-                    bucket.Add x
-                    total_size+1
-                | _ -> failwith "impossible"
-                )
+            let mutable total_size=0
+            for i=0 to table.Length-1 do
+                let table = table.[i]
+                for i=0 to table.Count-1 do
+                    let x = table.[i]
+                    total_size <-
+                        match x.Target with
+                        | null -> 
+                            x.Free()
+                            total_size
+                        | a -> 
+                            let bucket = table'.[hash a % table_length']
+                            bucket.Add x
+                            total_size+1
+            total_size
         table <- table'
         limit <- limit'
         total_size <- total_size'

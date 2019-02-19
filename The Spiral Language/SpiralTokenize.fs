@@ -260,11 +260,11 @@ let inline char_quoted_read check (s: CharStream<_>) =
 let char_quoted s = 
     let start = pos s
     let f x = TokValue(tok start (pos s), LitChar x)
-    (between (skipChar '\'') (skipChar '"' >>. spaces) (char_quoted_read (fun _ -> true)) |>> f) s
+    (between (skipChar '\'') (skipChar '"') (char_quoted_read (fun _ -> true) |>> f) .>> spaces) s
 let string_quoted s = 
     let start = pos s
     let f x = TokValue(tok start (pos s), LitString x)
-    (between (skipChar '"') (skipChar '"' >>. spaces) (manyChars (char_quoted_read ((<>) '"'))) |>> f) s
+    (between (skipChar '"') (skipChar '"') (manyChars (char_quoted_read ((<>) '"')) |>> f) .>> spaces) s
 
 let special s =
     let start = pos s

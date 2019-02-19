@@ -105,13 +105,9 @@ let test1: SpiralModule =
     description="Does it run?"
     code=
     """
-inl min n = join
-    inl tes a = join
-        inl b -> join
-            inl c -> join
-                inl d -> join a,b,c
-    tes 1 2 (2.2,3,4.5)
-min 10
+inl add a b (c, (d, e), f) = a + b + c + d + e + f
+inl f = Type (term_cast: add 8 (dyn 7) with: type (0,(0,0),0))
+f (1,(2,5),3)
     """
     }
 

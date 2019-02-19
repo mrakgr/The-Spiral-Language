@@ -128,7 +128,9 @@ let rec typed_data (d: CodegenEnv) x =
             | TyBox(a,ty) -> 
                 let tag' = d.types.Tag ty
                 let tag = d.types.Tag (type_get a)
-                sprintf "SpiralType%i_%i %s" tag' tag (typed_data d a)
+                match typed_data d a with
+                | "()" -> sprintf "SpiralType%i_%i" tag' tag
+                | x -> sprintf "SpiralType%i_%i %s" tag' tag x
             | _ -> failwith "impossible"
             ) vars
         |> function
@@ -231,7 +233,10 @@ let rec op (d: CodegenEnv) x =
     | TyCase(var,cases) ->
         d.Text(sprintf "match %s with" (typed_data d var))
         Array.iter (fun (bind,case) ->
-            d.Text(sprintf "| SpiralType%i %s ->" (d.types.Tag (type_get bind)) (typed_data d bind))
+            let tag', tag = d.types.Tag (type_get var), d.types.Tag (type_get bind)
+            match typed_data d bind with
+            | "()" -> d.Text(sprintf "| SpiralType%i_%i ->" tag' tag)
+            | x -> d.Text(sprintf "| SpiralType%i_%i %s ->" tag' tag x)
             binds d.Indent case
             ) cases
         null
@@ -261,7 +266,7 @@ and binds (d: CodegenEnv) x =
                 | _ -> d.Statement(sprintf "let %s =" vars); op d.Indent x |> ignore
             with :? CodegenError as x -> raise (CodegenErrorWithPos(trace,x.Data0))
         | TyLocalReturnOp(trace,x) -> 
-            try match op d x with | null -> () | x -> d.Statement(x)
+            try match op d x with null -> () | x -> d.Statement(x)
             with :? CodegenError as x -> raise (CodegenErrorWithPos(trace,x.Data0))
         | TyLocalReturnData(x,trace) -> 
             try d.Statement(typed_data d x)
@@ -284,11 +289,13 @@ let codegen x =
     let inline print_types is_first =
         let d = def_types
         let ty, tag' = d.types.Dequeue
-        if is_first then d.Statement(sprintf "type SpiralType%i =" tag')
-        else d.Statement(sprintf "and SpiralType%i =" tag')
-        let d = d.Indent
+        let intro() =
+            if is_first then d.Statement(sprintf "type SpiralType%i =" tag')
+            else d.Statement(sprintf "and SpiralType%i =" tag')
+            d.Indent
         let rec f = function
             | LayoutT(C(lay,ty,_)) ->
+                let d = intro()
                 match lay with
                 | LayoutStack ->
                     d.Text "struct"
@@ -314,19 +321,19 @@ let codegen x =
                 | JoinPointDone(_,l) -> f l
                 | JoinPointInEvaluation _ -> raise_codegen_error "Compiler error: Unfinished type join point."
             | UnionT(C l) ->
+                let d = intro()
                 Set.iter (fun x ->
                     let tag = d.types.Tag x
                     match type_ d x with
-                    | "" -> d.Text(sprintf "| SpiralType%i_%i" tag' tag)
+                    | "unit" -> d.Text(sprintf "| SpiralType%i_%i" tag' tag)
                     | l -> d.Text(sprintf "| SpiralType%i_%i of %s" tag' tag l)
                     ) l
-            | x -> raise_codegen_error "Compiler error: Only layout types and union types need to have their definitions printed.\nGot: %s" (show_ty x)
+            | _ -> ()
         f ty
             
     let inline print_join_points is_first =
         let d = def_join_points
         let (key,ty), tag' = d.join_points.Dequeue
-        //let print_tytags x =
 
         match ty with
         | JoinPointMethod ->

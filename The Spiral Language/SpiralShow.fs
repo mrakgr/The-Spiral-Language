@@ -105,7 +105,7 @@ let rec show_ty = function
             Set.toArray l.node
             |> Array.map show_ty
             |> String.concat " | "
-        sprintf "union {%s}" body
+        sprintf "union (%s)" body
     | RecUnionT (name, _) -> name
     | ArrayT (a,b) -> sprintf "%s (%s)" (show_art a) (show_ty b)
     | MacroT x -> x

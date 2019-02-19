@@ -205,7 +205,7 @@ let rec prepass (env: PrepassEnv) expr =
                 let free_vars = Set.remove name_vartag free_vars |> Set.remove rec_name_vartag
                 let array_free_vars = Set.toArray free_vars
                 let expr = subrenaming (subrenaming_env_init size_lexical_scope array_free_vars) expr
-                Function(tag(),expr,array_free_vars,stack_size + 2), free_vars, 0
+                RecFunction(tag(),expr,array_free_vars,stack_size + 2), free_vars, 0
             | RawObjectCreate(ar) ->
                 let size_lexical_scope = env.prepass_map_length
                 let ar, free_vars = 

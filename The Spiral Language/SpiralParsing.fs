@@ -21,7 +21,9 @@ let inline expr_indent i op expr d = if op i (col d) then expr d else Fail []
 
 let semicolon (d: ParserEnv) = if d.Line <> d.semicolon_line then semicolon' d else d.FailWith(InvalidSemicolon) 
 
-let exprpos expr d = (expr |>> expr_pos (pos' d)) d
+let exprpos expr d =
+    let pos = pos' d
+    (expr |>> function RawObjectCreate _ | RawFunction _ as x -> x | x -> expr_pos pos x) d
 let patpos expr d = (expr |>> pat_pos (pos' d)) d
 //let exprpos expr d = expr d
 //let patpos expr d = expr d
@@ -56,7 +58,7 @@ let rec pattern_template expr s =
     let pat_wildcard = wildcard >>% PatE
     let pat_var = var |>> PatVar
     let pat_active pattern = unary_one >>. pat_expr .>>. pattern |>> PatActive 
-    let pat_unbox pattern = unary_three >>. pattern |>> PatUnbox
+    let pat_unbox pattern = unary_three >>. ((var |>> PatVar) <|> rounds pattern) |>> PatUnbox
     let pat_lit = lit_ |>> PatLit
     let pat_record_item pattern =
         let inline templ var k = pipe2 var (opt (eq >>. pattern)) (fun a -> function Some b -> k(a,b) | None -> k(a,PatVar a))
@@ -119,10 +121,10 @@ let statements expr (d: ParserEnv) =
     let handle_inl_rec (name, pats, body) (d: ParserEnv) = 
         compile_patterns pats body
         |> function
-            | RawFunction(body,arg) -> 
+            | RawFunction(body,arg) as x -> 
                 fun on_succ -> l name (RawRecFunction(body,arg,name)) on_succ
                 |> ParserStatement |> Ok
-            | _ -> d.FailWith(ExpectedRecursiveFunction)
+            | x -> d.FailWith(ExpectedRecursiveFunction)
 
     let handle_inl_statement pats body = 
         fun on_succ ->
@@ -388,6 +390,7 @@ let parse settings (m: SpiralModule) =
     match run tokenize m.code with
     | Failure(x,_,_) -> Fail x
     | Success(l,_,_) ->
+        //printfn "%A" l
         let d = 
             {
             l=l
