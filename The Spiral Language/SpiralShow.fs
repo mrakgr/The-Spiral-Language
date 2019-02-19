@@ -219,9 +219,10 @@ let show_parser_error = function
     | InvalidSemicolon -> "Invalid syntax."
     | InbuiltOpNotFound x -> sprintf "`%s` not found among the inbuilt ops." x
     | ParserMacroNotFound x -> sprintf "`%s` not found among the available parser macros." x
+    | UnexpectedEof -> "Unexpected end of file."
     
 let is_expected = function
-    | StatementLastInBlock | InvalidSemicolon 
+    | StatementLastInBlock | InvalidSemicolon | UnexpectedEof
     | InbuiltOpNotFound _ | ParserMacroNotFound _ -> false
     | _ -> true
 
@@ -238,5 +239,5 @@ let show_parser_error_list x =
         |> String.concat "\n"
         |> function
             | "" as x -> x
-            | x -> sprintf "Other errors:\n%s\n" x
+            | x -> sprintf "Parser errors:\n%s\n" x
     expected + errors

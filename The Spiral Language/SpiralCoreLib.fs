@@ -92,9 +92,9 @@ inl Record = [
     /// Filters a record at compile time.
     filter:f =inl a -> !RecordFilter(f,a)
     /// Folds over a record left to right.
-    foldl:f state: = inl a -> !RecordFoldL(f,state,a)
+    foldl:f = inl state a -> !RecordFoldL(f,state,a)
     /// Folds over a record right to left.
-    foldr:f state: = inl a -> !RecordFoldR(f,state,a)
+    foldr:f = inl a state -> !RecordFoldR(f,state,a)
     /// Returns the record length.
     /// record -> int64
     length: x = !RecordLength(x)
@@ -102,9 +102,9 @@ inl Record = [
         inl value, state = f (key:key state:state value:value)
         {record with $key = value}, state
     /// Does a map operation over a record while threading state.
-    map_foldl:f state: = self (foldl: self.map_fold_helper f state:(record:{} state:state))
+    map_foldl:f = inl state -> self (foldl: self.map_fold_helper f) (record:{} state:state)
     /// Does a map operation (starting from the back) over a record while threading state.
-    map_foldr:f state: = self (foldr: self.map_fold_helper f state:(record:{} state:state))
+    map_foldr:f = inl x state -> self (foldr: self.map_fold_helper f) x (record:{} state:state)
     /// Sets a mutable record.
     set:field:to: = !SetMutableRecord(set,field,to)
     ]
@@ -259,11 +259,7 @@ inl (=) a b =
         | a, b when Is (layout: a) -> Layout (none: a) = Layout (none: b)
         | a :: as', b :: bs -> a = b && as' = bs
         | (), () -> true
-        | {} & a, {} & b -> 
-            Record (
-                foldr: inl (key:k state:next value:x) res -> res && match b with {$k=x'} -> next (x = x') 
-                state: id
-                ) a true
+        | {} & a, {} & b -> Record (foldr: inl (key:k state:next value:x) res -> res && match b with {$k=x'} -> next (x = x')) a id true
         | a, b when Is (union: a) || Is (rec_union: a) ->
             inl f a b =
                 inl #a, #b = a, b

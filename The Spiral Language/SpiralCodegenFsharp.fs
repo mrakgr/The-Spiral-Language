@@ -72,8 +72,9 @@ let rec type_ (d: CodegenEnv) x =
 
 let tytag' d (T(tag,ty)) = sprintf "var_%i" (uint32 tag)
 let tytag d (T(tag,ty)) = sprintf "(var_%i : %s)" (uint32 tag) (type_ d ty)
-let tytags' d x = Array.map (tytag' d) x |> String.concat "; "
-let tytags d x = Array.map (tytag d) x |> String.concat ", " |> sprintf "(%s)"
+let tytags_semicolon d x = Array.map (tytag' d) x |> String.concat "; "
+let tytags_comma' d x = Array.map (tytag' d) x |> String.concat ", " |> sprintf "(%s)"
+let tytags_comma d x = Array.map (tytag d) x |> String.concat ", " |> sprintf "(%s)"
 let tylit d = function
     | LitInt8 x -> sprintf "%iy" x
     | LitInt16 x -> sprintf "%is" x
@@ -140,9 +141,9 @@ let rec typed_data (d: CodegenEnv) x =
 let join_point (d: CodegenEnv) (key, typ, args) =
     let tag = d.join_points.Tag (key,typ)
     match typ with
-    | JoinPointMethod -> sprintf "method_%i %s" tag (tytags d args)
-    | JoinPointClosure -> sprintf "closure_method_%i %s" tag (tytags d args)
-    | JoinPointCuda -> sprintf "\"cuda_method_%i\", ([|%s|] : System.Object)" tag (tytags' d args)
+    | JoinPointMethod -> sprintf "method_%i %s" tag (tytags_comma' d args)
+    | JoinPointClosure -> sprintf "closure_method_%i %s" tag (tytags_comma' d args)
+    | JoinPointCuda -> sprintf "\"cuda_method_%i\", ([|%s|] : System.Object)" tag (tytags_semicolon d args)
     | JoinPointType -> failwith "impossible"
    
 let rec op (d: CodegenEnv) x =
@@ -172,12 +173,12 @@ let rec op (d: CodegenEnv) x =
         | Apply, TyList [a;b] -> sprintf "%s%s" (t a) (t b)
         | LayoutToStack, TyList [a;b] ->
             let tag = d.types.Tag (type_get a)
-            let b = typed_data_free_vars b |> tytags d
+            let b = typed_data_free_vars b |> tytags_comma' d
             sprintf "SpiralType%i %s" tag b
         | (LayoutToHeap | LayoutToHeapMutable), TyList [a;b] ->
             let b = 
                 typed_data_free_vars b
-                |> Array.mapi (fun i x -> sprintf "subvar_%i = %s" i (tytag d x))
+                |> Array.mapi (fun i x -> sprintf "subvar_%i = %s" i (tytag' d x))
                 |> String.concat "; "
             sprintf "{%s}" b
         | SizeOf, a -> sprintf "sizeof<%s>" (type_ d (type_get a))
@@ -260,7 +261,7 @@ and binds (d: CodegenEnv) x =
     Array.iter (function
         | TyLet(data,trace,x) ->
             try 
-                let vars = typed_data_free_vars data |> tytags d
+                let vars = typed_data_free_vars data |> tytags_comma d
                 match x with
                 | TyJoinPoint _ | TyLayoutToNone _ | TyOp _ -> d.Statement(sprintf "let %s = %s" vars (op d x))
                 | _ -> d.Statement(sprintf "let %s =" vars); op d.Indent x |> ignore
@@ -302,9 +303,9 @@ let codegen x =
                     let vars = consed_typed_free_vars ty
                     Array.iter (fun (t,ty) -> d.Text(sprintf "val subvar_%i : %s" t (type_ d ty))) vars
                     d.Text "end"
-                    let a = Array.map (fun (t,_) -> sprintf "svar_%i" t) vars |> String.concat ", "
-                    let b = Array.map (fun (t,_) -> sprintf "subvar_%i=svar_%i" t t) vars |> String.concat "; "
-                    d.Text(sprintf "new %s = {%s}" a b)
+                    let a = Array.map (fun (t,_) -> sprintf "v_%i" t) vars |> String.concat ", "
+                    let b = Array.map (fun (t,_) -> sprintf "subvar_%i=v_%i" t t) vars |> String.concat "; "
+                    d.Text(sprintf "new (%s) = {%s}" a b)
                 | LayoutHeap ->
                     d.Text "{"
                     let vars = consed_typed_free_vars ty
@@ -339,7 +340,7 @@ let codegen x =
         | JoinPointMethod ->
             match join_point_dict_method.[key] with
             | JoinPointDone(args,(body,ret_ty)) ->
-                let args = tytags d args
+                let args = tytags_comma d args
                 let ret_ty = type_ d ret_ty
                 if is_first then d.Statement(sprintf "let rec method_%i %s : %s =" tag' args ret_ty)
                 else d.Statement(sprintf "and method_%i %s : %s =" tag' args ret_ty)
@@ -349,8 +350,8 @@ let codegen x =
         | JoinPointClosure ->
             match join_point_dict_closure.[key] with
             | JoinPointDone(args,args2,(body,ret_ty)) ->
-                let args = tytags d args
-                let args2 = tytags d args2
+                let args = tytags_comma d args
+                let args2 = tytags_comma d args2
                 let ret_ty = type_ d ret_ty
                 if is_first then d.Statement(sprintf "let rec closure_method_%i %s %s : %s =" tag' args args2 ret_ty)
                 else d.Statement(sprintf "and closure_method_%i %s %s : %s =" tag' args args2 ret_ty)

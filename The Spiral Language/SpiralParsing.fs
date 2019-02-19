@@ -398,10 +398,7 @@ let parse settings (m: SpiralModule) =
             module_=m
             semicolon_line= -1
             }
-        match parser settings d with
-        | Types.Ok x ->  Types.Ok x
-        | Fail [] -> Fail "unexpected error"
-        | Fail x ->
+        let fail (x: (SpiralToken * ParserErrors) list) = 
             let strb = StringBuilder()
             List.groupBy fst x
             |> List.iter (fun (a,b) -> 
@@ -409,3 +406,10 @@ let parse settings (m: SpiralModule) =
                 strb.Append(show_parser_error_list b) |> ignore
                 )
             Fail(strb.ToString())
+        match parser settings d with
+        | Types.Ok x ->  Types.Ok x
+        | Fail [] -> 
+            if d.Index = d.Length then fail [Array.last l, UnexpectedEof]
+            else Fail "Unknown parse error."
+        | Fail x -> fail x
+

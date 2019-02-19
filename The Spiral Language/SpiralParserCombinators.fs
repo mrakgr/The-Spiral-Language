@@ -19,6 +19,7 @@ type ParserErrors =
     | InvalidSemicolon
     | InbuiltOpNotFound of string
     | ParserMacroNotFound of string
+    | UnexpectedEof
 
 type ParserEnv =
     {
