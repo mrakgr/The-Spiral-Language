@@ -83,7 +83,7 @@ let prepass_pattern (arg: VarString) (clauses: (Pattern * RawExpr) []): RawExpr 
 
 let prepass (env: PrepassEnv) expr = 
     let prepass_memo_dict = Dictionary(HashIdentity.Reference)
-    let prepass_subrenaming_memo_dict = Dictionary(HashIdentity.Reference)
+    let prepass_subrenaming_memo_dict = Dictionary(HashIdentity.Structural)
     let error x = raise (PrepassError x)
 
     let rec subrenaming (env: PrepassSubrenameEnv) expr =
@@ -94,7 +94,10 @@ let prepass (env: PrepassEnv) expr =
         let rename' x = Array.map rename x
         let inline f expr = subrenaming env expr
         match expr with
-        | MoveGlobalPtrTo(tag,vartag,on_succ) -> MoveGlobalPtrTo(tag,rename vartag,memoize prepass_subrenaming_memo_dict (subrenaming env) on_succ)
+        | MoveGlobalPtrTo(tag,vartag,on_succ) -> 
+            memoize prepass_subrenaming_memo_dict (fun _ ->
+                MoveGlobalPtrTo(tag,rename vartag,f on_succ)
+                ) tag
         | V(tag,vartag) -> V(tag,rename vartag)
         | Lit _ as x -> x
         | Open(tag,vartag,a,on_succ) -> Open(tag,rename vartag,a,f on_succ)
@@ -164,9 +167,11 @@ let prepass (env: PrepassEnv) expr =
 
         match expr with
         | RawMoveGlobalPtrTo x ->
-            let on_succ,free_vars,stack_size = memoize prepass_memo_dict (loop env) x
-            if stack_size = 0 then on_succ,free_vars,stack_size
-            else MoveGlobalPtrTo(tag(),env.prepass_map_length,on_succ),free_vars,stack_size
+            memoize prepass_memo_dict (fun x ->
+                let on_succ,free_vars,stack_size = loop env x
+                if stack_size = 0 then on_succ,free_vars,stack_size
+                else MoveGlobalPtrTo(tag(),env.prepass_map_length,on_succ),free_vars,stack_size
+                ) x
         | RawV x -> let tag, x = tag(), string_to_var env.prepass_map x in V(tag, x), Set.singleton x, 0
         | RawLit x -> Lit(tag(), x), Set.empty, 0
         | RawOpen(module_name,submodule_names,on_succ) ->
