@@ -1024,7 +1024,7 @@ let test57: SpiralModule =
     description="Does the new module creation syntax work?"
     code=
     """
-inl a = 1 
+inl a = 1
 inl b = 2
 inl d = 4
 {a b c = 3; d; e = 5}
@@ -1295,7 +1295,7 @@ f x
 
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test56
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test57
 |> printfn "%s"
 |> ignore
 
