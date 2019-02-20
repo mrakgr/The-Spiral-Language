@@ -77,8 +77,9 @@ let prepass_pattern (arg: VarString) (clauses: (Pattern * RawExpr) []): RawExpr 
                     (l range (op TermFunctionRange arg) on_succ))
                 on_fail
 
-    let move_ptr = id //if clauses.Length > 1 then RawMoveGlobalPtrTo else id
-    Array.foldBack (fun (pat, exp) on_fail -> cp arg pat (move_ptr exp) on_fail) clauses (op ErrorPatMiss [|v arg|])
+    let inline f move_ptr = Array.foldBack (fun (pat, exp) on_fail -> cp arg pat (move_ptr exp) on_fail) clauses (op ErrorPatMiss [|v arg|])
+    if clauses.Length > 1 then f RawMoveGlobalPtrTo else f id
+    
 
 let prepass (env: PrepassEnv) expr = 
     let prepass_memo_dict = Dictionary(HashIdentity.Reference)

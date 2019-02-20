@@ -1683,6 +1683,14 @@ inl Q = 0,0 \/ 0
 inl f x = join Type (box: x to: Q)
 inl a, b = f 1, f 1
 a = b
+//inl f x =
+//    match x with
+//    | q,w,e,r,t,z,x,c,v,b,m -> 0
+//    | (((),a,b) | ({q w e r t y z a b}, _, _)) -> 
+//        inl f a b = a + b
+//        f a b
+//    | a,b -> a + b
+//dyn (f ({q=(); w=(); e=(); r=(); t=(); y=(); z=(); a=1; b=2},2,3))
     """
     }
 
@@ -2722,7 +2730,7 @@ run_with_unit_ret (readall()) parser
 
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test111
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test20
 |> printfn "%s"
 |> ignore
 
