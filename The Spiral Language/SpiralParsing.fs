@@ -21,12 +21,12 @@ let inline expr_indent i op expr d = if op i (col d) then expr d else Fail []
 
 let semicolon (d: ParserEnv) = if d.Line <> d.semicolon_line then semicolon' d else d.FailWith(InvalidSemicolon) 
 
-//let exprpos expr d =
-//    let pos = pos' d
-//    (expr |>> function RawObjectCreate _ | RawFunction _ as x -> x | x -> expr_pos pos x) d
-//let patpos expr d = (expr |>> pat_pos (pos' d)) d
-let exprpos expr d = expr d
-let patpos expr d = expr d
+let exprpos expr d =
+    let pos = pos' d
+    (expr |>> function RawObjectCreate _ | RawFunction _ as x -> x | x -> expr_pos pos x) d
+let patpos expr d = (expr |>> pat_pos (pos' d)) d
+//let exprpos expr d = expr d
+//let patpos expr d = expr d
 
 let inline concat_keyword f x =
     let strb = StringBuilder()
