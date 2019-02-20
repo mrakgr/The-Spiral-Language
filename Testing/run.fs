@@ -1024,7 +1024,7 @@ let test57: SpiralModule =
     description="Does the new module creation syntax work?"
     code=
     """
-inl a = 1
+inl a = 1 
 inl b = 2
 inl d = 4
 {a b c = 3; d; e = 5}
