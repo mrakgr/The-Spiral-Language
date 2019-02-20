@@ -39,17 +39,6 @@ inl Macro = [
     string: t text: = !MacroExtern(text,t)
     ]
 
-inl Layout = [
-    /// Converts a data type to a stack layout data type.
-    stack: x = !LayoutToStack(x)
-    /// Converts a data type to a heap layout data type.
-    heap: x = !LayoutToHeap(x)
-    /// Converts a data type to a mutable heap layout data type.
-    heapm: x = !LayoutToHeapMutable(x)
-    /// Converts a layout data type to a standard data type.
-    none: x = !LayoutToNone(x)
-    ]
-
 inl String = [
     /// Returns the length of a string.
     length: x = !StringLength(x)
@@ -108,6 +97,15 @@ inl Record = [
     /// Sets a mutable record.
     set:field:to: = !SetMutableRecord(set,field,to)
     ]
+
+/// Converts a data type to a stack layout data type.
+inl stack x = !LayoutToStack(x)
+/// Converts a data type to a heap layout data type.
+inl heap x = !LayoutToHeap(x)
+/// Converts a data type to a mutable heap layout data type.
+inl heapm x = !LayoutToHeapMutable(x)
+/// Converts a layout data type to a standard data type.
+inl indiv x = !LayoutToNone(x)
 
 /// Prints an expression at compile time.
 inl print_static x = !PrintStatic(x)
@@ -256,7 +254,7 @@ inl (=) a b =
     inl rec (=) a b =
         match a,b with
         | a, b when Is (prim: a) -> !EQ(a,b)
-        | a, b when Is (layout: a) -> Layout (none: a) = Layout (none: b)
+        | a, b when Is (layout: a) -> indiv a = indiv b
         | a :: as', b :: bs -> a = b && as' = bs
         | (), () -> true
         | {} & a, {} & b -> Record (foldr: inl (key:k state:next value:x) res -> res && match b with {$k=x'} -> next (x = x')) a id true
@@ -274,10 +272,11 @@ inl (=) a b =
 inl (<>) a b = (a = b) <> true
 
 {
-Type Macro Layout String Is Record 
+Type Macro String Is Record 
 ref infinity threadIdx blockIdx
 (=>) (+) (-) (*) (**) (/) (%) (:>) (:?>) (=) (|>) (<|) 
 (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>)
+stack heap heapm indiv
 max min lit_min lit_max abs log exp tanh sqrt neg print_static dyn
 ignore id const unconst fst snd not
 failwith assert 

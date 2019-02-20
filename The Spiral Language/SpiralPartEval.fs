@@ -61,20 +61,17 @@ let typed_data_free_vars call_data =
     call_args.ToArray()
 
 let typed_data_term_vars call_data =
-    let dict = Dictionary(HashIdentity.Reference)
     let call_args = ResizeArray(64)
     let mutable has_naked_type = false
-    let rec f x =
-        memoize dict (function
-            | TyList l -> List.iter f l
-            | TyKeyword(a,b) -> Array.iter f b
-            | TyFunction(a,b,c) -> Array.iter f c
-            | TyRecFunction(a,b,c) -> Array.iter f c
-            | TyObject(a,b) -> Array.iter f b
-            | TyMap l -> Map.iter (fun _ -> f) l
-            | TyBox _ | TyLit _ | TyV _ as x -> call_args.Add x
-            | TyT _ -> has_naked_type <- true
-            ) x
+    let rec f = function
+        | TyList l -> List.iter f l
+        | TyKeyword(a,b) -> Array.iter f b
+        | TyFunction(a,b,c) -> Array.iter f c
+        | TyRecFunction(a,b,c) -> Array.iter f c
+        | TyObject(a,b) -> Array.iter f b
+        | TyMap l -> Map.iter (fun _ -> f) l
+        | TyBox _ | TyLit _ | TyV _ as x -> call_args.Add x
+        | TyT _ -> has_naked_type <- true
     f call_data
     has_naked_type, call_args.ToArray()
 
@@ -234,7 +231,8 @@ let layout_to_none (d: LangEnv) = function
 let layout_to_some layout (d: LangEnv) = function
     | TyT(LayoutT(C(t,l,h))) | TyV(T(_,LayoutT(C(t,l,h)))) as x when t = layout -> x
     | x ->
-        let call_args, consed_data = typed_data_to_consed' (layout_to_none d x)
+        let x = layout_to_none d x
+        let call_args, consed_data = typed_data_to_consed' x
         let ret_ty = (layout,consed_data,call_args.Length > 0) |> hash_cons_table.Add |> LayoutT
         let ret = type_to_tyv ret_ty
         let layout =
@@ -772,31 +770,46 @@ let rec partial_eval (d: LangEnv) x =
         | LayoutToHeapMutable,[|a|] -> layout_to_some LayoutHeapMutable d (ev d a)
         | LayoutToNone,[|a|] -> layout_to_none d (ev d a)
         | If,[|cond;on_succ;on_fail|] ->
-            match ev d cond with
-            | TyLit (LitBool true) -> ev d on_succ
-            | TyLit (LitBool false) -> ev d on_fail
-            | cond ->
-                match type_get cond with
-                | PrimT BoolT ->
-                    let lit_tr = TyLit(LitBool true)
-                    let lit_fl = TyLit(LitBool false)
-                    let add_rewrite_cases cse is_true = 
-                        let tr,fl = if is_true then lit_tr, lit_fl else lit_fl, lit_tr
-                        let inline op op cond' res x = x |> Map.add (op,TyList [cond;cond']) res |> Map.add (op,TyList [cond';cond]) res
-                        cse |> op EQ tr tr |> op NEQ tr fl |> op EQ fl fl |> op NEQ fl tr
-                    let tr, type_tr = ev_seq {d with cse = ref (add_rewrite_cases !d.cse true)} on_succ
-                    let fl, type_fl = ev_seq {d with cse = ref (add_rewrite_cases !d.cse false)} on_fail
-                    if type_tr = type_fl then
-                        if tr.Length = 1 && fl.Length = 1 then
-                            match tr.[0], fl.[0] with
-                            | TyLocalReturnData(TyLit (LitBool true),_), TyLocalReturnData(TyLit (LitBool false),_) -> cond
-                            | TyLocalReturnData(TyLit (LitBool false),_), TyLocalReturnData(TyLit (LitBool true),_) -> push_binop_no_rewrite d EQ (cond,lit_fl) type_tr
-                            | TyLocalReturnData(tr,_), TyLocalReturnData(fl,_) when tr = fl -> tr
-                            | TyLocalReturnOp(_,tr), TyLocalReturnOp(_,fl) when tr = fl -> push_typedop d tr type_tr
-                            | _ -> push_typedop d (TyIf(cond,tr,fl)) type_tr
-                        else push_typedop d (TyIf(cond,tr,fl)) type_tr
-                    else raise_type_error d <| sprintf "Types in branches of If do not match.\nGot: %s and %s" (show_ty type_tr) (show_ty type_fl)
-                | cond_ty -> raise_type_error d <| sprintf "Expected a bool in conditional.\nGot: %s" (show_ty cond_ty)
+            let rec if_ = function
+                | TyLit (LitBool true) -> ev d on_succ
+                | TyLit (LitBool false) -> ev d on_fail
+                | cond ->
+                    match type_get cond with
+                    | PrimT BoolT as type_bool ->
+                        let lit_tr = TyLit(LitBool true)
+                        match Map.tryFind (EQ, TyList [cond; lit_tr]) d.cse.contents with
+                        | Some cond -> if_ cond
+                        | None ->
+                            let lit_fl = TyLit(LitBool false)
+                            let add_rewrite_cases cse is_true = 
+                                let tr,fl = if is_true then lit_tr, lit_fl else lit_fl, lit_tr
+                                let inline op op cond' res x = x |> Map.add (op,TyList [cond;cond']) res |> Map.add (op,TyList [cond';cond]) res
+                                cse |> op EQ lit_tr tr |> op NEQ lit_tr fl |> op EQ lit_fl fl |> op NEQ lit_fl tr
+                            let tr, type_tr = ev_seq {d with cse = ref (add_rewrite_cases !d.cse true)} on_succ
+                            let fl, type_fl = ev_seq {d with cse = ref (add_rewrite_cases !d.cse false)} on_fail
+                            if type_tr = type_fl then
+                                if tr.Length = 1 && fl.Length = 1 then
+                                    match tr.[0], fl.[0] with
+                                    | TyLocalReturnOp(_,tr), TyLocalReturnOp(_,fl) when tr = fl -> push_typedop d tr type_tr
+                                    | TyLocalReturnData(tr',_), TyLocalReturnData(fl',_) -> 
+                                        match tr', fl' with
+                                        | tr, fl when tr = fl -> tr
+                                        | TyLit(LitBool false), TyLit(LitBool true) -> push_binop d EQ (cond,lit_fl) type_bool
+                                        | TyLit(LitBool false), fl when cond = fl -> lit_fl
+                                        | TyLit(LitBool true), fl -> // boolean or
+                                            match fl with
+                                            | TyLit (LitBool false) -> cond
+                                            | _ -> if cond = fl then cond else push_binop d BoolOr (cond,fl) type_bool
+                                        | tr, TyLit(LitBool false) -> // boolean and
+                                            match tr with
+                                            | TyLit(LitBool true) -> cond
+                                            | _ -> if cond = tr then cond else push_binop d BoolAnd (cond,tr) type_bool
+                                        | _ -> push_typedop d (TyIf(cond,tr,fl)) type_tr
+                                    | _ -> push_typedop d (TyIf(cond,tr,fl)) type_tr
+                                else push_typedop d (TyIf(cond,tr,fl)) type_tr
+                            else raise_type_error d <| sprintf "Types in branches of If do not match.\nGot: %s and %s" (show_ty type_tr) (show_ty type_fl)
+                    | cond_ty -> raise_type_error d <| sprintf "Expected a bool in conditional.\nGot: %s" (show_ty cond_ty)
+            if_ (ev d cond)
         | While,[|cond;on_succ|] ->
             match ev_seq d cond with
             | [|TyLocalReturnOp(_,TyJoinPoint cond)|], ty ->

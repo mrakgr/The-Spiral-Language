@@ -117,7 +117,7 @@ let tylit d = function
         |> sprintf "'%s'"
     | LitBool x -> if x then "true" else "false"
 
-let error_raw_type x = raise_codegen_error <| sprintf "An attempt to manifest a raw type has been attempted.\nGot: %s" (show_typed_data x)
+let error_raw_type x = raise_codegen_error <| sprintf "An attempt to manifest a raw type has been made.\nGot: %s" (show_typed_data x)
 
 let rec typed_data (d: CodegenEnv) x = 
     match typed_data_term_vars x with
@@ -202,10 +202,12 @@ let rec op (d: CodegenEnv) x =
         | Pow,TyList [a;b] -> sprintf "pow(%s, %s)" (t a) (t b)
         | LT,TyList [a;b] -> sprintf "%s < %s" (t a) (t b)
         | LTE,TyList [a;b] -> sprintf "%s <= %s" (t a) (t b)
-        | EQ,TyList [a;b] -> sprintf "%s == %s" (t a) (t b)
+        | EQ,TyList [a;b] -> sprintf "%s = %s" (t a) (t b)
         | NEQ,TyList [a;b] -> sprintf "%s != %s" (t a) (t b)
         | GT,TyList [a;b] -> sprintf "%s > %s" (t a) (t b)
         | GTE,TyList [a;b] -> sprintf "%s >= %s" (t a) (t b)
+        | BoolAnd,TyList [a;b] -> sprintf "%s && %s" (t a) (t b)
+        | BoolOr,TyList [a;b] -> sprintf "%s || %s" (t a) (t b)
         | BitwiseAnd,TyList [a;b] -> sprintf "%s & %s" (t a) (t b)
         | BitwiseOr,TyList [a;b] -> sprintf "%s | %s" (t a) (t b)
         | BitwiseXor,TyList [a;b] -> sprintf "%s ^ %s" (t a) (t b)

@@ -132,6 +132,8 @@ type Op =
     | NEQ
     | GT
     | GTE 
+    | BoolAnd
+    | BoolOr
     | BitwiseAnd
     | BitwiseOr
     | BitwiseXor
