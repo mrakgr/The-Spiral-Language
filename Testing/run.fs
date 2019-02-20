@@ -228,7 +228,7 @@ inl option_int = .Some, (1,2,3) \/ .None
 
 inl x = join Type (box: .None to: option_int)
 match x with
-| #(.Some, x) -> x
+| #(.Some, x) -> x 
 | #(.None) -> 0,0,0
     """
     }
