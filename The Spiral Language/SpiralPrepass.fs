@@ -77,7 +77,7 @@ let prepass_pattern (arg: VarString) (clauses: (Pattern * RawExpr) []): RawExpr 
                     (l range (op TermFunctionRange arg) on_succ))
                 on_fail
 
-    let move_ptr = if clauses.Length > 1 then RawMoveLocalPtrTo else id
+    let move_ptr = id //if clauses.Length > 1 then RawMoveGlobalPtrTo else id
     Array.foldBack (fun (pat, exp) on_fail -> cp arg pat (move_ptr exp) on_fail) clauses (op ErrorPatMiss [|v arg|])
 
 let prepass (env: PrepassEnv) expr = 
@@ -95,7 +95,7 @@ let prepass (env: PrepassEnv) expr =
         memoize prepass_subrenaming_memo_dict (function
             | V(tag,vartag) -> V(tag,rename vartag)
             | Lit _ as x -> x
-            | MoveLocalPtrTo(tag,vartag,on_succ) -> MoveLocalPtrTo(tag,vartag - env.subren_size_lexical_scope,f on_succ)
+            | MoveGlobalPtrTo(tag,vartag,on_succ) -> MoveGlobalPtrTo(tag,rename vartag,f on_succ)
             | Open(tag,vartag,a,on_succ) -> Open(tag,rename vartag,a,f on_succ)
             // Not supposed to rename the bodies of these 3.
             | Function(tag,body,free_vars,b) -> Function(tag,body,rename' free_vars,b)
@@ -165,9 +165,9 @@ let prepass (env: PrepassEnv) expr =
         memoize prepass_memo_dict (function
             | RawV x -> let tag, x = tag(), string_to_var env.prepass_map x in V(tag, x), Set.singleton x, 0
             | RawLit x -> Lit(tag(), x), Set.empty, 0
-            | RawMoveLocalPtrTo x ->
+            | RawMoveGlobalPtrTo x ->
                 let on_succ,free_vars,stack_size = loop env x
-                MoveLocalPtrTo(tag(),env.prepass_map_length,on_succ),free_vars,stack_size
+                MoveGlobalPtrTo(tag(),env.prepass_map_length,on_succ),free_vars,stack_size
             | RawOpen(module_name,submodule_names,on_succ) ->
                 match env.prepass_map.TryFind module_name with
                 | Some vartag ->

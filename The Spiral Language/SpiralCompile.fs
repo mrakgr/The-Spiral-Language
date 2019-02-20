@@ -61,11 +61,11 @@ let module_let (env: ModulePrepassEnv) (m: SpiralModule) =
         match timeit env.timing.parse (Parsing.parse env.settings) m with
         | Ok x -> x
         | Fail x -> raise_compile_error x
-        |> fun x -> printfn "%A" x; x
+        //|> fun x -> printfn "%A" x; x
         |> timeit env.timing.prepass (Prepass.prepass {prepass_context=context; prepass_map=env.map; prepass_map_length=count})
     let module_ = 
         let d = {rbeh=AnnotationDive; seq=env.seq; env_global=context; env_stack_ptr=0; env_stack=Array.zeroCreate size; trace=[]; cse=ref Map.empty}
-        printfn "%A" expr
+        //printfn "%A" expr
         timeit env.timing.peval (PartEval.partial_eval d) expr
     env.context.Add module_
     {env with map=env.map.Add (m.name, count)}
@@ -112,8 +112,8 @@ let compile (settings: SpiralCompilerSettings) (m: SpiralModule) =
             loop m
             ms.ToArray()
 
-        //let env = module_let env CoreLib.core
-        //let env = module_open env "Core"
+        let env = module_let env CoreLib.core
+        let env = module_open env "Core"
         let env = Array.fold module_let env ms
         env.timing.Elapsed, env.seq.ToArray() 
         //|> fun x -> printfn "%A" x; x

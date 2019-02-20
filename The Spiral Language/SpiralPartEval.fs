@@ -571,7 +571,11 @@ let rec partial_eval (d: LangEnv) x =
     match x with
     | V(_, x) -> v x
     | Lit(_,x) -> TyLit x
-    | MoveLocalPtrTo(_,vartag,on_succ) -> ev {d with env_stack_ptr=vartag} on_succ
+    | MoveGlobalPtrTo(_,vartag,on_succ) -> 
+        //printfn "vartag=%i" vartag
+        //printfn "d.env_global.Length=%i" d.env_global.Length
+        ev {d with env_stack_ptr=vartag - d.env_global.Length} on_succ
+        //ev d on_succ
     | Open(_,x,l,on_succ) -> 
         let map_get = function TyMap x -> x | _ -> failwith "impossible"
         {d with 

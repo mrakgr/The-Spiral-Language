@@ -1679,11 +1679,10 @@ let test111: SpiralModule =
     description="Does structural equality work correctly on union types?"
     code=
     """
-match 2,3 with
-| (),() -> ()
-| _ ->
-    inl f a b = ()
-    f 4 5 
+inl Q = 0,0 \/ 0
+inl f x = join Type (box: x to: Q)
+inl a, b = f 1, f 1
+a = b
     """
     }
 
@@ -2723,7 +2722,7 @@ run_with_unit_ret (readall()) parser
 
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test111
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test8
 |> printfn "%s"
 |> ignore
 

@@ -261,7 +261,7 @@ and RawRecordWithPattern =
 and RawExpr =
     | RawV of string
     | RawLit of Value
-    | RawMoveLocalPtrTo of RawExpr
+    | RawMoveGlobalPtrTo of RawExpr
     | RawOpen of VarString * KeywordString [] * RawExpr
     | RawFunction of RawExpr * VarString
     | RawRecFunction of RawExpr * VarString * rec_name: VarString
@@ -288,7 +288,7 @@ and RecordWithPattern =
 and Expr =
     | V of Tag * VarTag
     | Lit of Tag * Value
-    | MoveLocalPtrTo of Tag * VarTag * Expr
+    | MoveGlobalPtrTo of Tag * VarTag * Expr
     | Open of Tag * VarTag * KeywordTag [] * Expr
     | Function of Tag * Expr * FreeVars * StackSize
     | RecFunction of Tag * Expr * FreeVars * StackSize
