@@ -92,40 +92,39 @@ let prepass (env: PrepassEnv) expr =
             else x - env.subren_size_lexical_scope + env.subren_dict.Count
         let rename' x = Array.map rename x
         let inline f expr = subrenaming env expr
-        memoize prepass_subrenaming_memo_dict (function
-            | V(tag,vartag) -> V(tag,rename vartag)
-            | Lit _ as x -> x
-            | MoveGlobalPtrTo(tag,vartag,on_succ) -> MoveGlobalPtrTo(tag,rename vartag,f on_succ)
-            | Open(tag,vartag,a,on_succ) -> Open(tag,rename vartag,a,f on_succ)
-            // Not supposed to rename the bodies of these 3.
-            | Function(tag,body,free_vars,b) -> Function(tag,body,rename' free_vars,b)
-            | RecFunction(tag,body,free_vars,b) -> RecFunction(tag,body,rename' free_vars,b)
-            | ObjectCreate(dict,free_vars) -> ObjectCreate(dict,rename' free_vars)
-            | KeywordCreate(tag,a,exprs) -> KeywordCreate(tag,a,Array.map f exprs)
-            | Let(tag,bind,on_succ) -> Let(tag,f bind,f on_succ)
-            | Case(tag,bind,on_succ) -> Case(tag,f bind,f on_succ)
-            | ListTakeAllTest(tag,size,bind,on_succ,on_fail) -> ListTakeAllTest(tag,size,rename bind,f on_succ,f on_fail)
-            | ListTakeNTest(tag,size,bind,on_succ,on_fail) -> ListTakeNTest(tag,size,rename bind,f on_succ,f on_fail)
-            | KeywordTest(tag,keyword,bind,on_succ,on_fail) -> KeywordTest(tag,keyword,rename bind,f on_succ,f on_fail)
-            | RecordTest(tag,patterns,bind,on_succ,on_fail) ->
-                let patterns =
-                    Array.map (function
-                        | RecordTestInjectVar x -> RecordTestInjectVar(rename x)
-                        | RecordTestKeyword _ as x -> x
-                        ) patterns
-                RecordTest(tag,patterns,rename bind,f on_succ,f on_fail)
-            | RecordWith(tag,exprs,patterns) ->
-                let patterns =
-                    Array.map (function
-                        | RecordWithKeyword(keyword,expr) -> RecordWithKeyword(keyword,f expr)
-                        | RecordWithInjectVar(x,var,expr) -> RecordWithInjectVar(x,rename var,f expr)
-                        | RecordWithoutKeyword(keyword) -> RecordWithoutKeyword keyword
-                        | RecordWithoutInjectVar(x,var) -> RecordWithoutInjectVar(x,rename var)
-                        ) patterns
-                RecordWith(tag,Array.map f exprs,patterns)
-            | Op(tag,op,exprs) -> Op(tag,op,Array.map f exprs)
-            | ExprPos(tag, pos) -> ExprPos(tag, Pos.Position(pos.Pos,f pos.Expression))
-            ) expr
+        match expr with
+        | MoveGlobalPtrTo(tag,vartag,on_succ) -> MoveGlobalPtrTo(tag,rename vartag,memoize prepass_subrenaming_memo_dict (subrenaming env) on_succ)
+        | V(tag,vartag) -> V(tag,rename vartag)
+        | Lit _ as x -> x
+        | Open(tag,vartag,a,on_succ) -> Open(tag,rename vartag,a,f on_succ)
+        // Not supposed to rename the bodies of these 3.
+        | Function(tag,body,free_vars,b) -> Function(tag,body,rename' free_vars,b)
+        | RecFunction(tag,body,free_vars,b) -> RecFunction(tag,body,rename' free_vars,b)
+        | ObjectCreate(dict,free_vars) -> ObjectCreate(dict,rename' free_vars)
+        | KeywordCreate(tag,a,exprs) -> KeywordCreate(tag,a,Array.map f exprs)
+        | Let(tag,bind,on_succ) -> Let(tag,f bind,f on_succ)
+        | Case(tag,bind,on_succ) -> Case(tag,f bind,f on_succ)
+        | ListTakeAllTest(tag,size,bind,on_succ,on_fail) -> ListTakeAllTest(tag,size,rename bind,f on_succ,f on_fail)
+        | ListTakeNTest(tag,size,bind,on_succ,on_fail) -> ListTakeNTest(tag,size,rename bind,f on_succ,f on_fail)
+        | KeywordTest(tag,keyword,bind,on_succ,on_fail) -> KeywordTest(tag,keyword,rename bind,f on_succ,f on_fail)
+        | RecordTest(tag,patterns,bind,on_succ,on_fail) ->
+            let patterns =
+                Array.map (function
+                    | RecordTestInjectVar x -> RecordTestInjectVar(rename x)
+                    | RecordTestKeyword _ as x -> x
+                    ) patterns
+            RecordTest(tag,patterns,rename bind,f on_succ,f on_fail)
+        | RecordWith(tag,exprs,patterns) ->
+            let patterns =
+                Array.map (function
+                    | RecordWithKeyword(keyword,expr) -> RecordWithKeyword(keyword,f expr)
+                    | RecordWithInjectVar(x,var,expr) -> RecordWithInjectVar(x,rename var,f expr)
+                    | RecordWithoutKeyword(keyword) -> RecordWithoutKeyword keyword
+                    | RecordWithoutInjectVar(x,var) -> RecordWithoutInjectVar(x,rename var)
+                    ) patterns
+            RecordWith(tag,Array.map f exprs,patterns)
+        | Op(tag,op,exprs) -> Op(tag,op,Array.map f exprs)
+        | ExprPos(tag, pos) -> ExprPos(tag, Pos.Position(pos.Pos,f pos.Expression))
 
     let string_to_var env x =
         match Map.tryFind x env with
@@ -162,147 +161,147 @@ let prepass (env: PrepassEnv) expr =
             let free_vars' = Set.remove vartag free_vars'
             f(tag(), bind, on_succ), free_vars + free_vars', 1 + max stack_size stack_size'
 
-        memoize prepass_memo_dict (function
-            | RawV x -> let tag, x = tag(), string_to_var env.prepass_map x in V(tag, x), Set.singleton x, 0
-            | RawLit x -> Lit(tag(), x), Set.empty, 0
-            | RawMoveGlobalPtrTo x ->
-                let on_succ,free_vars,stack_size = loop env x
-                MoveGlobalPtrTo(tag(),env.prepass_map_length,on_succ),free_vars,stack_size
-            | RawOpen(module_name,submodule_names,on_succ) ->
-                match env.prepass_map.TryFind module_name with
-                | Some vartag ->
-                    if vartag < env.prepass_context.Length then
-                        let env' =
-                            Array.fold (fun (name, s) x ->
-                                match s with
-                                | TyMap s ->
-                                    match Map.tryFind (string_to_keyword x) s with
-                                    | Some s -> sprintf "%s.%s" name x,s
-                                    | None -> error <| sprintf "Module %s does not have a submodule named %s." name x
-                                | _ -> error <| sprintf "The variable %s being opened is not a module." name
-                                ) (module_name, env.prepass_context.[vartag]) submodule_names
-                            |> function
-                                | _, TyMap s -> s
-                                | name, _ -> error <| sprintf "The variable %s being opened is not a module." name
-                        let on_succ, free_vars, stack_size = 
-                            let env = Map.fold (fun env k _ -> env_add_var env (keyword_to_string k) |> snd) env env'
-                            loop env on_succ
-                        let free_vars, stack_size =
-                            Map.fold (fun (free_vars, stack_size) k _ -> Set.remove k free_vars, stack_size + 1) 
-                                (free_vars, stack_size) env'
-                        Open(tag(), vartag, Array.map string_to_keyword submodule_names, on_succ), free_vars, stack_size
-                    else
-                        error <| sprintf "Module %s is not a proper module or might have been shadowed. Only records returned from previously compiled modules can be opened." module_name
-                | None -> error <| sprintf "Module %s is not bound." module_name
-            | RawFunction(expr, name) ->
-                let size_lexical_scope = env.prepass_map_length
-                let name_vartag, env = env_add_var env name
-                let expr, free_vars, stack_size = loop env expr
-                let free_vars = Set.remove name_vartag free_vars
-                let array_free_vars = Set.toArray free_vars
-                let expr = subrenaming (subrenaming_env_init size_lexical_scope array_free_vars) expr
-                Function(tag(),expr,array_free_vars,stack_size + 1), free_vars, 0
-            | RawRecFunction(expr, name, rec_name) ->
-                let size_lexical_scope = env.prepass_map_length
-                let name_vartag, env = env_add_var env name
-                let rec_name_vartag, env = env_add_var env rec_name
-                let expr, free_vars, stack_size = loop env expr
-                let free_vars = Set.remove name_vartag free_vars |> Set.remove rec_name_vartag
-                let array_free_vars = Set.toArray free_vars
-                let expr = subrenaming (subrenaming_env_init size_lexical_scope array_free_vars) expr
-                RecFunction(tag(),expr,array_free_vars,stack_size + 2), free_vars, 0
-            | RawObjectCreate(ar) ->
-                let size_lexical_scope = env.prepass_map_length
-                let ar, free_vars = 
-                    Array.mapFold (fun free_vars (keyword_string, expr) ->
-                        let self_vartag, env = env_add_var env "self"
-                        let main_vartag, env = env_add_var env Types.pat_main
-                        let expr, free_vars', stack_size = loop env expr
-                        let free_vars' = Set.remove main_vartag (Set.remove self_vartag free_vars')
-                        (string_to_keyword keyword_string, expr, stack_size + 2), free_vars + free_vars'
-                        ) Set.empty ar
-                let array_free_vars = Set.toArray free_vars
-                let tagged_dict =
-                    let subrenaming_env = subrenaming_env_init size_lexical_scope array_free_vars
-                    let tagged_dict = TaggedDictionary(ar.Length,tag())
-                    Array.iter (fun (keyword, expr, stack_size) -> 
-                        let expr = subrenaming subrenaming_env expr
-                        try tagged_dict.Add(keyword, (expr, stack_size))
-                        with :? ArgumentException -> error <| sprintf "The same receiver %s already exists in the object." (keyword_to_string keyword)
-                        ) ar
-                    tagged_dict
+        match expr with
+        | RawMoveGlobalPtrTo x ->
+            let on_succ,free_vars,stack_size = memoize prepass_memo_dict (loop env) x
+            if stack_size = 0 then on_succ,free_vars,stack_size
+            else MoveGlobalPtrTo(tag(),env.prepass_map_length,on_succ),free_vars,stack_size
+        | RawV x -> let tag, x = tag(), string_to_var env.prepass_map x in V(tag, x), Set.singleton x, 0
+        | RawLit x -> Lit(tag(), x), Set.empty, 0
+        | RawOpen(module_name,submodule_names,on_succ) ->
+            match env.prepass_map.TryFind module_name with
+            | Some vartag ->
+                if vartag < env.prepass_context.Length then
+                    let env' =
+                        Array.fold (fun (name, s) x ->
+                            match s with
+                            | TyMap s ->
+                                match Map.tryFind (string_to_keyword x) s with
+                                | Some s -> sprintf "%s.%s" name x,s
+                                | None -> error <| sprintf "Module %s does not have a submodule named %s." name x
+                            | _ -> error <| sprintf "The variable %s being opened is not a module." name
+                            ) (module_name, env.prepass_context.[vartag]) submodule_names
+                        |> function
+                            | _, TyMap s -> s
+                            | name, _ -> error <| sprintf "The variable %s being opened is not a module." name
+                    let on_succ, free_vars, stack_size = 
+                        let env = Map.fold (fun env k _ -> env_add_var env (keyword_to_string k) |> snd) env env'
+                        loop env on_succ
+                    let free_vars, stack_size =
+                        Map.fold (fun (free_vars, stack_size) k _ -> Set.remove k free_vars, stack_size + 1) 
+                            (free_vars, stack_size) env'
+                    Open(tag(), vartag, Array.map string_to_keyword submodule_names, on_succ), free_vars, stack_size
+                else
+                    error <| sprintf "Module %s is not a proper module or might have been shadowed. Only records returned from previously compiled modules can be opened." module_name
+            | None -> error <| sprintf "Module %s is not bound." module_name
+        | RawFunction(expr, name) ->
+            let size_lexical_scope = env.prepass_map_length
+            let name_vartag, env = env_add_var env name
+            let expr, free_vars, stack_size = loop env expr
+            let free_vars = Set.remove name_vartag free_vars
+            let array_free_vars = Set.toArray free_vars
+            let expr = subrenaming (subrenaming_env_init size_lexical_scope array_free_vars) expr
+            Function(tag(),expr,array_free_vars,stack_size + 1), free_vars, 0
+        | RawRecFunction(expr, name, rec_name) ->
+            let size_lexical_scope = env.prepass_map_length
+            let name_vartag, env = env_add_var env name
+            let rec_name_vartag, env = env_add_var env rec_name
+            let expr, free_vars, stack_size = loop env expr
+            let free_vars = Set.remove name_vartag free_vars |> Set.remove rec_name_vartag
+            let array_free_vars = Set.toArray free_vars
+            let expr = subrenaming (subrenaming_env_init size_lexical_scope array_free_vars) expr
+            RecFunction(tag(),expr,array_free_vars,stack_size + 2), free_vars, 0
+        | RawObjectCreate(ar) ->
+            let size_lexical_scope = env.prepass_map_length
+            let ar, free_vars = 
+                Array.mapFold (fun free_vars (keyword_string, expr) ->
+                    let self_vartag, env = env_add_var env "self"
+                    let main_vartag, env = env_add_var env Types.pat_main
+                    let expr, free_vars', stack_size = loop env expr
+                    let free_vars' = Set.remove main_vartag (Set.remove self_vartag free_vars')
+                    (string_to_keyword keyword_string, expr, stack_size + 2), free_vars + free_vars'
+                    ) Set.empty ar
+            let array_free_vars = Set.toArray free_vars
+            let tagged_dict =
+                let subrenaming_env = subrenaming_env_init size_lexical_scope array_free_vars
+                let tagged_dict = TaggedDictionary(ar.Length,tag())
+                Array.iter (fun (keyword, expr, stack_size) -> 
+                    let expr = subrenaming subrenaming_env expr
+                    try tagged_dict.Add(keyword, (expr, stack_size))
+                    with :? ArgumentException -> error <| sprintf "The same receiver %s already exists in the object." (keyword_to_string keyword)
+                    ) ar
+                tagged_dict
 
-                ObjectCreate(tagged_dict, array_free_vars), free_vars, 0
-            | RawKeywordCreate(name,args) ->
-                let args, (free_vars, stack_size) =
-                    Array.mapFold (fun (free_vars, stack_size) arg ->
-                        let arg, free_vars', stack_size' = loop env arg
-                        arg, (free_vars + free_vars', max stack_size stack_size')
-                        ) (Set.empty, 0) args
-                KeywordCreate(tag(), string_to_keyword name, args), free_vars, stack_size
-            | RawLet(var,bind,on_succ) -> let_helper Let (var,bind,on_succ)
-            | RawCase(var,bind,on_succ) -> let_helper Case (var,bind,on_succ)
-            | RawListTakeAllTest(vars,bind,on_succ,on_fail) -> list_test ListTakeAllTest (vars,bind,on_succ,on_fail)
-            | RawListTakeNTest(vars,bind,on_succ,on_fail) -> list_test ListTakeNTest (vars,bind,on_succ,on_fail)
-            | RawKeywordTest(keyword,vars,bind,on_succ,on_fail) -> 
-                list_test (fun (tag,stack_size,bind,on_succ,on_fail) -> KeywordTest(tag,string_to_keyword keyword,bind,on_succ,on_fail)) 
-                    (vars,bind,on_succ,on_fail)
-            | RawRecordTest(vars,bind,on_succ,on_fail) ->
-                let bind = string_to_var env.prepass_map bind
-                let vartags, env' = Array.mapFold (fun s (RawRecordTestKeyword(_,name) | RawRecordTestInjectVar(_,name)) -> env_add_var s name) env vars
-                let on_succ,on_succ_free_vars,on_succ_stack_size = loop env' on_succ
-                let on_fail,on_fail_free_vars,on_fail_stack_size = loop env on_fail
-                let on_succ_free_vars = Array.fold (fun s x -> Set.remove x s) on_succ_free_vars vartags
-                let vars, vars_free_vars =
-                    Array.mapFold (fun s -> function
-                        | RawRecordTestInjectVar(x,_) -> let x = string_to_var env'.prepass_map x in RecordTestInjectVar x, Set.add x s
-                        | RawRecordTestKeyword(x,_) -> RecordTestKeyword(string_to_keyword x), s
-                        ) Set.empty vars
-                let free_vars = vars_free_vars+Set.singleton bind+on_succ_free_vars+on_fail_free_vars
-                let stack_size = vars.Length + max on_succ_stack_size on_fail_stack_size
-                RecordTest(tag(),vars,bind,on_succ,on_fail),free_vars,stack_size                    
-            | RawRecordWith(binds,patterns) ->
-                let binds, (binds_free_vars, binds_stack_size) = 
-                    Array.mapFold (fun (free_vars, stack_size) x ->
-                        let bind, free_vars', stack_size' = loop env x
-                        bind,(free_vars+free_vars',max stack_size stack_size')
-                        ) (Set.empty, 0) binds
-                let patterns, (patterns_free_vars, patterns_stack_size) =
-                    Array.mapFold (fun (free_vars, stack_size) -> function
-                        | RawRecordWithKeyword(keyword,expr) ->
-                            let this_tag, env = env_add_var env "this"
-                            let expr, free_vars', stack_size' = loop env expr
-                            let free_vars' = Set.remove this_tag free_vars'
-                            RecordWithKeyword(string_to_keyword keyword, expr),(free_vars+free_vars',max stack_size (stack_size'+1))
-                        | RawRecordWithInjectVar(var,expr) ->
-                            let this_tag, env = env_add_var env "this"
-                            let expr, free_vars', stack_size' = loop env expr
-                            let free_vars' = Set.remove this_tag free_vars'
-                            let x = string_to_var env.prepass_map var
-                            RecordWithInjectVar(var, x, expr),(free_vars+free_vars' |> Set.add x, max stack_size (stack_size'+1))
-                        | RawRecordWithoutKeyword keyword -> RecordWithoutKeyword(string_to_keyword keyword),(free_vars,stack_size)
-                        | RawRecordWithoutInjectVar var -> 
-                            let x = string_to_var env.prepass_map var
-                            RecordWithoutInjectVar(var, x),(Set.add x free_vars,stack_size)
-                        ) (Set.empty, 0) patterns
-                RecordWith(tag(), binds, patterns),binds_free_vars+patterns_free_vars,binds_stack_size+patterns_stack_size
-            | RawOp(op,exprs) ->
-                let exprs, (free_vars, stack_size) =
-                    Array.mapFold (fun (free_vars,stack_size) expr ->
+            ObjectCreate(tagged_dict, array_free_vars), free_vars, 0
+        | RawKeywordCreate(name,args) ->
+            let args, (free_vars, stack_size) =
+                Array.mapFold (fun (free_vars, stack_size) arg ->
+                    let arg, free_vars', stack_size' = loop env arg
+                    arg, (free_vars + free_vars', max stack_size stack_size')
+                    ) (Set.empty, 0) args
+            KeywordCreate(tag(), string_to_keyword name, args), free_vars, stack_size
+        | RawLet(var,bind,on_succ) -> let_helper Let (var,bind,on_succ)
+        | RawCase(var,bind,on_succ) -> let_helper Case (var,bind,on_succ)
+        | RawListTakeAllTest(vars,bind,on_succ,on_fail) -> list_test ListTakeAllTest (vars,bind,on_succ,on_fail)
+        | RawListTakeNTest(vars,bind,on_succ,on_fail) -> list_test ListTakeNTest (vars,bind,on_succ,on_fail)
+        | RawKeywordTest(keyword,vars,bind,on_succ,on_fail) -> 
+            list_test (fun (tag,stack_size,bind,on_succ,on_fail) -> KeywordTest(tag,string_to_keyword keyword,bind,on_succ,on_fail)) 
+                (vars,bind,on_succ,on_fail)
+        | RawRecordTest(vars,bind,on_succ,on_fail) ->
+            let bind = string_to_var env.prepass_map bind
+            let vartags, env' = Array.mapFold (fun s (RawRecordTestKeyword(_,name) | RawRecordTestInjectVar(_,name)) -> env_add_var s name) env vars
+            let on_succ,on_succ_free_vars,on_succ_stack_size = loop env' on_succ
+            let on_fail,on_fail_free_vars,on_fail_stack_size = loop env on_fail
+            let on_succ_free_vars = Array.fold (fun s x -> Set.remove x s) on_succ_free_vars vartags
+            let vars, vars_free_vars =
+                Array.mapFold (fun s -> function
+                    | RawRecordTestInjectVar(x,_) -> let x = string_to_var env'.prepass_map x in RecordTestInjectVar x, Set.add x s
+                    | RawRecordTestKeyword(x,_) -> RecordTestKeyword(string_to_keyword x), s
+                    ) Set.empty vars
+            let free_vars = vars_free_vars+Set.singleton bind+on_succ_free_vars+on_fail_free_vars
+            let stack_size = vars.Length + max on_succ_stack_size on_fail_stack_size
+            RecordTest(tag(),vars,bind,on_succ,on_fail),free_vars,stack_size                    
+        | RawRecordWith(binds,patterns) ->
+            let binds, (binds_free_vars, binds_stack_size) = 
+                Array.mapFold (fun (free_vars, stack_size) x ->
+                    let bind, free_vars', stack_size' = loop env x
+                    bind,(free_vars+free_vars',max stack_size stack_size')
+                    ) (Set.empty, 0) binds
+            let patterns, (patterns_free_vars, patterns_stack_size) =
+                Array.mapFold (fun (free_vars, stack_size) -> function
+                    | RawRecordWithKeyword(keyword,expr) ->
+                        let this_tag, env = env_add_var env "this"
                         let expr, free_vars', stack_size' = loop env expr
-                        expr, (free_vars + free_vars', max stack_size stack_size')
-                        ) (Set.empty, 0) exprs
+                        let free_vars' = Set.remove this_tag free_vars'
+                        RecordWithKeyword(string_to_keyword keyword, expr),(free_vars+free_vars',max stack_size (stack_size'+1))
+                    | RawRecordWithInjectVar(var,expr) ->
+                        let this_tag, env = env_add_var env "this"
+                        let expr, free_vars', stack_size' = loop env expr
+                        let free_vars' = Set.remove this_tag free_vars'
+                        let x = string_to_var env.prepass_map var
+                        RecordWithInjectVar(var, x, expr),(free_vars+free_vars' |> Set.add x, max stack_size (stack_size'+1))
+                    | RawRecordWithoutKeyword keyword -> RecordWithoutKeyword(string_to_keyword keyword),(free_vars,stack_size)
+                    | RawRecordWithoutInjectVar var -> 
+                        let x = string_to_var env.prepass_map var
+                        RecordWithoutInjectVar(var, x),(Set.add x free_vars,stack_size)
+                    ) (Set.empty, 0) patterns
+            RecordWith(tag(), binds, patterns),binds_free_vars+patterns_free_vars,binds_stack_size+patterns_stack_size
+        | RawOp(op,exprs) ->
+            let exprs, (free_vars, stack_size) =
+                Array.mapFold (fun (free_vars,stack_size) expr ->
+                    let expr, free_vars', stack_size' = loop env expr
+                    expr, (free_vars + free_vars', max stack_size stack_size')
+                    ) (Set.empty, 0) exprs
                 
-                Op(tag(),op,exprs),free_vars,stack_size
-            | RawExprPos(pos) ->
-                let pos, expr = pos.Pos, pos.Expression
-                try loop env expr |> fun (a,b,c) -> ExprPos(tag(),Position(pos,a)), b, c
-                with
-                | :? PrepassError as er ->
-                    let mes = er.Data0
-                    raise (PrepassErrorWithPos(pos,mes))
-            | RawPattern(var, pattern) -> prepass_pattern var pattern |> loop env
-            ) expr
+            Op(tag(),op,exprs),free_vars,stack_size
+        | RawExprPos(pos) ->
+            let pos, expr = pos.Pos, pos.Expression
+            try loop env expr |> fun (a,b,c) -> ExprPos(tag(),Position(pos,a)), b, c
+            with
+            | :? PrepassError as er ->
+                let mes = er.Data0
+                raise (PrepassErrorWithPos(pos,mes))
+        | RawPattern(var, pattern) -> prepass_pattern var pattern |> loop env
 
     let expr, free_vars, stack_size = loop env expr
     expr, stack_size
