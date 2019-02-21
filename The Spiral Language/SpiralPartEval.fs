@@ -571,16 +571,6 @@ let rec partial_eval (d: LangEnv) x =
     match x with
     | V(_, x) -> v x
     | Lit(_,x) -> TyLit x
-    | MoveGlobalPtrTo(_,vartag,on_succ) -> ev {d with env_stack_ptr=vartag - d.env_global.Length} on_succ
-    | Open(_,x,l,on_succ) -> 
-        let map_get = function TyMap x -> x | _ -> failwith "impossible"
-        {d with 
-            env_stack_ptr=
-                Array.fold (fun s x -> (map_get s).[x]) (v x) l 
-                |> map_get
-                |> Map.fold (fun ptr _ x -> d.env_stack.[ptr] <- x; ptr+1) d.env_stack_ptr
-                }
-        |> fun d -> ev d on_succ
     | Function(_,on_succ,free_vars,stack_size) -> TyFunction(on_succ,stack_size,Array.map v free_vars)
     | RecFunction(_,on_succ,free_vars,stack_size) -> TyRecFunction(on_succ,stack_size,Array.map v free_vars)
     | ObjectCreate(dict,free_vars) -> TyObject(dict,Array.map v free_vars)

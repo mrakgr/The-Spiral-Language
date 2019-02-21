@@ -24,7 +24,6 @@ type TokenSpecial =
     | SpecThen
     | SpecElif
     | SpecElse
-    | SpecOpen
     | SpecJoin
     | SpecType
     | SpecTypeCatch
@@ -117,9 +116,8 @@ let var (s:CharStream<_>) =
             | "inb" -> TokSpecial(pos,SpecInb) | "rec" -> TokSpecial(pos,SpecRec)
             | "if" -> TokSpecial(pos,SpecIf) | "then" -> TokSpecial(pos,SpecThen)
             | "elif" -> TokSpecial(pos,SpecElif) | "else" -> TokSpecial(pos,SpecElse)
-            | "open" -> TokSpecial(pos,SpecOpen) | "join" -> TokSpecial(pos,SpecJoin)
+            | "join" -> TokSpecial(pos,SpecJoin) | "cuda" -> TokSpecial(pos,SpecCuda)
             | "type" -> TokSpecial(pos,SpecType) | "type_catch" -> TokSpecial(pos,SpecTypeCatch)
-            | "cuda" -> TokSpecial(pos,SpecCuda)
             | "true" -> TokValue(pos,LitBool true) | "false" -> TokValue(pos,LitBool false)
             | "_" -> TokSpecial(pos,SpecWildcard)
             | x -> TokVar(pos,x)

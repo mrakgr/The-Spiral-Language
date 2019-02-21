@@ -145,7 +145,6 @@ let statements expr (d: ParserEnv) =
         |> ParserStatement
     let handle_inm pat body = inb_templ (fun arg body on_succ -> ap body (func arg on_succ)) pat body
     let handle_inb pat body = inb_templ (fun arg body on_succ -> ap (ap (v ">>=") body) (func arg on_succ)) pat body
-    let handle_open var keys = ParserStatement (fun on_succ -> RawOpen(var,List.toArray keys, on_succ))
 
     match d.PeekSpecial with
     | Ok x ->
@@ -161,7 +160,6 @@ let statements expr (d: ParserEnv) =
                     )) d
         | SpecInm -> d.Skip; pipe2 (pattern expr) (statement_body expr) handle_inm d
         | SpecInb -> d.Skip; pipe2 (pattern expr) (statement_body expr) handle_inb d
-        | SpecOpen -> d.Skip; pipe2 var (many keyword_unary) handle_open d
         | _ -> d.FailWith ExpectedStatement
     | Fail _ -> d.FailWith ExpectedStatement
         

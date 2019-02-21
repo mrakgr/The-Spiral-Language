@@ -77,9 +77,7 @@ let prepass_pattern (arg: VarString) (clauses: (Pattern * RawExpr) []): RawExpr 
                     (l range (op TermFunctionRange arg) on_succ))
                 on_fail
 
-    let inline f move_ptr = Array.foldBack (fun (pat, exp) on_fail -> cp arg pat (move_ptr exp) on_fail) clauses (op ErrorPatMiss [|v arg|])
-    if clauses.Length > 1 then f RawMoveGlobalPtrTo else f id
-    
+    Array.foldBack (fun (pat, exp) on_fail -> cp arg pat exp on_fail) clauses (op ErrorPatMiss [|v arg|])
 
 let prepass (env: PrepassEnv) expr = 
     let prepass_memo_dict = Dictionary(HashIdentity.Reference)
@@ -94,13 +92,8 @@ let prepass (env: PrepassEnv) expr =
         let rename' x = Array.map rename x
         let inline f expr = subrenaming env expr
         match expr with
-        | MoveGlobalPtrTo(tag,vartag,on_succ) -> 
-            memoize prepass_subrenaming_memo_dict (fun _ ->
-                MoveGlobalPtrTo(tag,rename vartag,f on_succ)
-                ) tag
         | V(tag,vartag) -> V(tag,rename vartag)
         | Lit _ as x -> x
-        | Open(tag,vartag,a,on_succ) -> Open(tag,rename vartag,a,f on_succ)
         // Not supposed to rename the bodies of these 3.
         | Function(tag,body,free_vars,b) -> Function(tag,body,rename' free_vars,b)
         | RecFunction(tag,body,free_vars,b) -> RecFunction(tag,body,rename' free_vars,b)
@@ -166,40 +159,8 @@ let prepass (env: PrepassEnv) expr =
             f(tag(), bind, on_succ), free_vars + free_vars', 1 + max stack_size stack_size'
 
         match expr with
-        | RawMoveGlobalPtrTo x ->
-            memoize prepass_memo_dict (fun x ->
-                let on_succ,free_vars,stack_size = loop env x
-                if stack_size = 0 then on_succ,free_vars,stack_size
-                else MoveGlobalPtrTo(tag(),env.prepass_map_length,on_succ),free_vars,stack_size
-                ) x
         | RawV x -> let tag, x = tag(), string_to_var env.prepass_map x in V(tag, x), Set.singleton x, 0
         | RawLit x -> Lit(tag(), x), Set.empty, 0
-        | RawOpen(module_name,submodule_names,on_succ) ->
-            match env.prepass_map.TryFind module_name with
-            | Some vartag ->
-                if vartag < env.prepass_context.Length then
-                    let env' =
-                        Array.fold (fun (name, s) x ->
-                            match s with
-                            | TyMap s ->
-                                match Map.tryFind (string_to_keyword x) s with
-                                | Some s -> sprintf "%s.%s" name x,s
-                                | None -> error <| sprintf "Module %s does not have a submodule named %s." name x
-                            | _ -> error <| sprintf "The variable %s being opened is not a module." name
-                            ) (module_name, env.prepass_context.[vartag]) submodule_names
-                        |> function
-                            | _, TyMap s -> s
-                            | name, _ -> error <| sprintf "The variable %s being opened is not a module." name
-                    let on_succ, free_vars, stack_size = 
-                        let env = Map.fold (fun env k _ -> env_add_var env (keyword_to_string k) |> snd) env env'
-                        loop env on_succ
-                    let free_vars, stack_size =
-                        Map.fold (fun (free_vars, stack_size) k _ -> Set.remove k free_vars, stack_size + 1) 
-                            (free_vars, stack_size) env'
-                    Open(tag(), vartag, Array.map string_to_keyword submodule_names, on_succ), free_vars, stack_size
-                else
-                    error <| sprintf "Module %s is not a proper module or might have been shadowed. Only records returned from previously compiled modules can be opened." module_name
-            | None -> error <| sprintf "Module %s is not bound." module_name
         | RawFunction(expr, name) ->
             let size_lexical_scope = env.prepass_map_length
             let name_vartag, env = env_add_var env name

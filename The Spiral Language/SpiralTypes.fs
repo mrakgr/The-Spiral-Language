@@ -261,8 +261,6 @@ and RawRecordWithPattern =
 and RawExpr =
     | RawV of string
     | RawLit of Value
-    | RawMoveGlobalPtrTo of RawExpr
-    | RawOpen of VarString * KeywordString [] * RawExpr
     | RawFunction of RawExpr * VarString
     | RawRecFunction of RawExpr * VarString * rec_name: VarString
     | RawObjectCreate of (VarString * RawExpr) []
@@ -288,8 +286,6 @@ and RecordWithPattern =
 and Expr =
     | V of Tag * VarTag
     | Lit of Tag * Value
-    | MoveGlobalPtrTo of Tag * VarTag * Expr
-    | Open of Tag * VarTag * KeywordTag [] * Expr
     | Function of Tag * Expr * FreeVars * StackSize
     | RecFunction of Tag * Expr * FreeVars * StackSize
     | ObjectCreate of ObjectDict * FreeVars
@@ -517,7 +513,6 @@ exception CompileError of string
 
 let v x = RawV x
 let lit x = RawLit x
-let open_ var subs on_succ = RawOpen(var,subs,on_succ)
 let func x y = RawFunction(y,x)
 let objc m = RawObjectCreate m
 let keyword k l = RawKeywordCreate(k,l)

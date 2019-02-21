@@ -337,7 +337,6 @@ let if_ d = special SpecIf d
 let then_ d = special SpecThen d
 let elif_ d = special SpecElif d
 let else_ d = special SpecElse d
-let open_ d = special SpecOpen d
 let join d = special SpecJoin d
 let type_ d = special SpecType d
 let type_catch d = special SpecTypeCatch d
