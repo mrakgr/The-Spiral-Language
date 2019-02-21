@@ -66,6 +66,7 @@
     <Compile Include="SpiralParserCombinators.fs" />
     <Compile Include="SpiralShow.fs" />
     <Compile Include="SpiralParsing.fs" />
+    <None Include="SpiralPrepass.fs%27" />
     <Compile Include="SpiralPrepass.fs" />
     <Compile Include="SpiralPartEval.fs" />
     <Compile Include="SpiralCodegenFsharp.fs" />

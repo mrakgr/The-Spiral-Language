@@ -371,19 +371,20 @@ and JoinPointState<'a,'b> =
     | JoinPointDone of 'b
 
 and Tag = int
-and [<CustomComparison;CustomEquality>] TyTag = 
-    | T of Tag * ConsedTy
+and [<CustomComparison;CustomEquality>] T<'a,'b when 'a: equality and 'a: comparison> = 
+    | T of 'a * 'b
 
     override a.Equals(b) =
         match b with
-        | :? TyTag as b -> match a,b with T(a,_), T(b,_) -> a = b
+        | :? T<'a,'b> as b -> match a,b with T(a,_), T(b,_) -> a = b
         | _ -> false
-    override a.GetHashCode() = match a with T(a,_) -> a
+    override a.GetHashCode() = match a with T(a,_) -> hash a
     interface IComparable with
         member a.CompareTo(b) = 
             match b with
-            | :? TyTag as b -> match a,b with T(a,_), T(b,_) -> compare a b
-            | _ -> raise <| ArgumentException "Invalid comparison for TyTag."
+            | :? T<'a,'b> as b -> match a,b with T(a,_), T(b,_) -> compare a b
+            | _ -> raise <| ArgumentException "Invalid comparison for T."
+and TyTag = T<int,ConsedTy>
 
 and EnvTy = ConsedTy []
 and EnvTerm = TypedData []
