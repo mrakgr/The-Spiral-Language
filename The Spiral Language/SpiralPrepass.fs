@@ -131,13 +131,6 @@ let rec free_vars_and_stack_size x =
                     |> Map.add bind pos
                 free_vars, vars.Length + max on_succ_stack_size on_fail_stack_size
             | RawRecordTest(vars,bind,on_succ,on_fail) ->
-                let varnames = 
-                    Array.foldBack (fun x s ->
-                        match x with
-                        | RawRecordTestInjectVar(_,x) -> Map.add x pos s
-                        | RawRecordTestKeyword(_,x) -> s
-                        ) vars Map.empty
-                    
                 let vars_free_vars =
                     Array.foldBack (fun x s ->
                         match x with
