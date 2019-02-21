@@ -41,7 +41,6 @@ type SpiralModule =
     code : string
     }
 
-
 type PosKey = SpiralModule * int * int
 
 type Pos<'a> = Position of PosKey * 'a with
@@ -274,7 +273,7 @@ and RawExpr =
     | RawRecordWith of RawExpr [] * RawRecordWithPattern []
     | RawOp of Op * RawExpr []
     | RawExprPos of Pos<RawExpr>
-    | RawPattern of VarString * (Pattern * RawExpr) []
+    | RawPattern of (VarString * (Pattern * RawExpr) []) // These parenthesis are here so the pattern compilation can be memoized via reference identity.
 
 and RecordTestPattern = RecordTestKeyword of keyword: KeywordTag | RecordTestInjectVar of var: VarTag
 and RecordWithPattern = 
@@ -410,14 +409,8 @@ type RecursiveBehavior =
     | AnnotationReturn
 
 type PrepassEnv = {
-    prepass_context : EnvTerm
     prepass_map : Map<string, int>
     prepass_map_length : int
-    }
-
-type PrepassSubrenameEnv = {
-    subren_dict : Dictionary<int, int>
-    subren_size_lexical_scope : int
     }
 
 type LangEnv = {
