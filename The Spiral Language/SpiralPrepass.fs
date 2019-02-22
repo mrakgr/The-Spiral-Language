@@ -96,29 +96,27 @@ let prepass x =
 
     let rec free_vars_and_stack_size x =
         memoize free_vars_and_stack_size_dict (fun x ->
-            let rec f' (pos: PosKey option) x = 
-                let inline f x = f' pos x
-                let inline map_add x m = Map.add x pos m
+            let rec f x = 
                 match x with
-                | RawV x -> Map.empty.Add(x, pos), 0
-                | RawLit _ -> Map.empty, 0
+                | RawV x -> Set.singleton x, 0
+                | RawLit _ -> Set.empty, 0
                 | RawFunction(expr, name) ->
                     let _ = memoize function_args_dict (fun _ -> [name]) expr
                     let free_vars, _ = free_vars_and_stack_size expr
-                    Map.remove name free_vars, 0
+                    Set.remove name free_vars, 0
                 | RawRecFunction(expr, name, rec_name) ->
                     let _ = memoize function_args_dict (fun _ -> [name;rec_name]) expr
                     let free_vars, _ = free_vars_and_stack_size expr
-                    Map.remove name free_vars |> Map.remove rec_name, 0
+                    Set.remove name free_vars |> Set.remove rec_name, 0
                 | RawObjectCreate(ar) ->
                     let free_vars =
                         Array.fold (fun free_vars (keyword_string, expr) ->
                             let _ = memoize function_args_dict (fun _ -> object_arg) expr
                             let free_vars', _ = free_vars_and_stack_size expr
-                            Map.remove "self" free_vars' 
-                            |> Map.remove Types.pat_main
-                            |> map_union free_vars
-                            ) Map.empty ar
+                            Set.remove "self" free_vars' 
+                            |> Set.remove Types.pat_main
+                            |> Set.union free_vars
+                            ) Set.empty ar
                     let _ = memoize free_vars_dict (fun _ -> free_vars) x
                     free_vars, 0
                 | RawOp(_, args) | RawKeywordCreate(_,args) ->
