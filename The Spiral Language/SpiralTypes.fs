@@ -253,9 +253,10 @@ and RawRecordWithPattern =
     | RawRecordWithoutInjectVar of VarString
 
 and RawExpr =
-    // Note: The VarStrings are annotated with positional information using `var_position_dict` global in tokenizer.
+    // Note: The VarStrings are annotated with positional information using `var_position_dict` global dictionary in the Tokenize module.
     | RawV of VarString 
     | RawLit of Value
+    | RawInline of RawExpr // Acts as a join point during the prepass.
     | RawFunction of RawExpr * VarString
     | RawRecFunction of RawExpr * VarString * rec_name: VarString
     | RawObjectCreate of (VarString * RawExpr) []
@@ -281,6 +282,7 @@ and RecordWithPattern =
 and Expr =
     | V of Tag * VarTag
     | Lit of Tag * Value
+    | Inline of Tag * Expr * FreeVars * StackSize
     | Function of Tag * Expr * FreeVars * StackSize
     | RecFunction of Tag * Expr * FreeVars * StackSize
     | ObjectCreate of ObjectDict * FreeVars
@@ -499,6 +501,7 @@ exception CompileErrorWithPos of Trace * string
 
 let v x = RawV x
 let lit x = RawLit x
+let inline_ = function RawInline _ as x -> x | x -> RawInline x
 let func x y = RawFunction(y,x)
 let objc m = RawObjectCreate m
 let keyword k l = RawKeywordCreate(k,l)
@@ -527,8 +530,7 @@ let expr_pos pos x = RawExprPos(Position(pos,x))
 let pat_pos pos x = PatPos(Position(pos,x))
 
 // The seemingly useless function application is there to filter unused arguments from the environment and move the rest to `env_global`.
-let join_point_entry_method y = ap (func "" (op JoinPointEntryMethod [|y|])) B 
-let join_point_entry_type y = ap (func "" (op JoinPointEntryType [|y|])) B
+let join_point_entry_method y = inline_ (op JoinPointEntryMethod [|y|])
 
 let pat_main = " pat_main"
 

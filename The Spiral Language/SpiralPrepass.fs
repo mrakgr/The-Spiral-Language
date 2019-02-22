@@ -16,7 +16,6 @@ let prepass x =
     let pattern_dict = Dictionary(HashIdentity.Reference)
     let renaming_dict = Dictionary(HashIdentity.Reference)
 
-    let function_args_dict = Dictionary(HashIdentity.Reference)
     let free_vars_dict = Dictionary(HashIdentity.Reference)
     let object_arg = ["self"; Types.pat_main]
 
@@ -91,7 +90,7 @@ let prepass x =
                         on_fail
 
             let inline g f = Array.foldBack (fun (pat, exp) on_fail -> cp arg pat (f exp) on_fail) clauses (op ErrorPatMiss [|v arg|])
-            if clauses.Length > 1 then g (fun x -> ap (func "" x) B) else g id
+            if clauses.Length > 1 then g inline_ else g id
             ) x
 
     let rec free_vars_and_stack_size x =
@@ -100,18 +99,18 @@ let prepass x =
                 match x with
                 | RawV x -> Set.singleton x, 0
                 | RawLit _ -> Set.empty, 0
+                | RawInline expr ->
+                    let free_vars, _ = free_vars_and_stack_size expr
+                    free_vars, 0
                 | RawFunction(expr, name) ->
-                    let _ = memoize function_args_dict (fun _ -> [name]) expr
                     let free_vars, _ = free_vars_and_stack_size expr
                     Set.remove name free_vars, 0
                 | RawRecFunction(expr, name, rec_name) ->
-                    let _ = memoize function_args_dict (fun _ -> [name;rec_name]) expr
                     let free_vars, _ = free_vars_and_stack_size expr
                     Set.remove name free_vars |> Set.remove rec_name, 0
                 | RawObjectCreate(ar) ->
                     let free_vars =
                         Array.fold (fun free_vars (keyword_string, expr) ->
-                            let _ = memoize function_args_dict (fun _ -> object_arg) expr
                             let free_vars', _ = free_vars_and_stack_size expr
                             Set.remove "self" free_vars' 
                             |> Set.remove Types.pat_main
@@ -183,7 +182,7 @@ let prepass x =
         |> fun env -> Set.fold (fun env k -> env_add k env) (Map.empty, 0) env
         |> fun env -> List.fold (fun env k -> env_add k env) env args
 
-    let rec renaming x =
+    let rec rename x =
         memoize renaming_dict (fun x ->
             let rec f' ((map, count) as env) x =
                 let inline f x = f' env x
@@ -201,24 +200,28 @@ let prepass x =
                 match x with
                 | RawV x -> V(tag(), v x)
                 | RawLit x -> Lit(tag(), x)
+                | RawInline expr ->
+                    let free_vars, stack_size = free_vars_and_stack_size expr
+                    let array_free_vars = array_free_vars_from free_vars
+                    Inline(tag(),rename expr,array_free_vars,stack_size)
                 | RawFunction(expr, name) -> 
                     let free_vars, stack_size = free_vars_and_stack_size expr
                     let free_vars = Set.remove name free_vars
                     let array_free_vars = array_free_vars_from free_vars
-                    Function(tag(),renaming expr,array_free_vars,stack_size + 1)
+                    Function(tag(),f' (env_init free_vars [name]) expr,array_free_vars,stack_size + 1)
                 | RawRecFunction(expr, name, rec_name) -> 
                     let free_vars, stack_size = free_vars_and_stack_size expr
                     let free_vars = Set.remove name free_vars |> Set.remove rec_name
                     let array_free_vars = array_free_vars_from free_vars
-                    RecFunction(tag(),renaming expr,array_free_vars,stack_size + 2)
+                    RecFunction(tag(),f' (env_init free_vars [name; rec_name]) expr,array_free_vars,stack_size + 2)
                 | RawObjectCreate(ar) ->
-                    let array_free_vars = 
-                        memoize free_vars_dict (fun _ -> failwith "Compiler error: `free_vars` for RawObjectCreate need to be memoized.") x 
-                        |> array_free_vars_from
+                    let free_vars = memoize free_vars_dict (fun _ -> failwith "Compiler error: `free_vars` for RawObjectCreate need to be memoized.") x 
+                    let env = env_init free_vars object_arg
+                    let array_free_vars = array_free_vars_from free_vars
                     let tagged_dict = TaggedDictionary(ar.Length,tag())
                     Array.iter (fun (keyword_string, expr) ->
                         let _, stack_size = free_vars_and_stack_size expr
-                        try tagged_dict.Add(string_to_keyword keyword_string, (renaming expr, stack_size + 2))
+                        try tagged_dict.Add(string_to_keyword keyword_string, (f' env expr, stack_size + 2))
                         with :? ArgumentException -> error <| sprintf "The same receiver %s already exists in the object." keyword_string
                         ) ar
                     ObjectCreate(tagged_dict, array_free_vars)
@@ -258,9 +261,8 @@ let prepass x =
                         raise (PrepassErrorWithPos(pos,mes))
                 | RawPattern x -> pattern x |> f
 
-            let args = memoize function_args_dict (fun _ -> []) x
             let free_vars, stack_size = free_vars_and_stack_size x
-            f' (env_init free_vars args) x
+            f' (env_init free_vars []) x
             ) x
 
     let free_vars, stack_size = free_vars_and_stack_size x
@@ -268,4 +270,4 @@ let prepass x =
         let er x = failwithf "Compiler error: The variable `%s` must be annotated with its position in the tokenizer." x
         Set.toArray free_vars
         |> Array.map (fun x -> x, memoize' Tokenize.var_position_dict er x)
-    renaming x, free_vars, stack_size
+    rename x, free_vars, stack_size

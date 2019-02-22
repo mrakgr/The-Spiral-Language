@@ -571,6 +571,9 @@ let rec partial_eval (d: LangEnv) x =
     match x with
     | V(_, x) -> v x
     | Lit(_,x) -> TyLit x
+    | Inline(_,on_succ,free_vars,stack_size) ->
+        let d = {d with env_global=Array.map v free_vars; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
+        ev d on_succ
     | Function(_,on_succ,free_vars,stack_size) -> TyFunction(on_succ,stack_size,Array.map v free_vars)
     | RecFunction(_,on_succ,free_vars,stack_size) -> TyRecFunction(on_succ,stack_size,Array.map v free_vars)
     | ObjectCreate(dict,free_vars) -> TyObject(dict,Array.map v free_vars)

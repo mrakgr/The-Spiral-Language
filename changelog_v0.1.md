@@ -1,4 +1,4 @@
-### (Work in progress)
+(Work in progress)
 
 # Motivation
 
@@ -12,7 +12,7 @@ This and various other issues were something that was well known to me for a lon
 
 Perhaps due to the accumulation of experience the attempt this time was a success.
 
-Not only is the environment handled sanely thanks to the new prepass, but added to the language are the Smalltalk inspired keyword arguments and inbuilt objects. In addition to that the language internals have been greatly simplified. v0.09 of Spiral is a good example of how a static language with partial evaluation should look. v0.1 of Spiral is a good example of how such a language should be implemented. Standing at 4.1k LOC without the libraries, it is a little package filled with power.
+Not only is the environment handled sanely in the partial evaluator thanks to the new prepass, but added to the language are the Smalltalk inspired keyword arguments and inbuilt objects. In addition to that the language internals have been greatly simplified. v0.09 of Spiral is a good example of how a static language with partial evaluation should look. v0.1 of Spiral is a good example of how such a language should be implemented. Standing at 4.1k LOC without the libraries, it is a little package filled with power.
 
 # Additions to the language
 
@@ -59,33 +59,20 @@ Though all the functionality of objects at compile time can be gotten through fu
 inl f = function
     | .add a b -> a + b
     | .mult a b -> a * b
-    ...
+    
 f .add 1 2
 ```
 
-The above does exactly what one would expect and is similar to having an object that has method fields. The key difference from an object is rather than using a quick dictionary lookup
-
+The above does exactly what one would expect and is similar to having an object that has method fields. The key difference from an object is rather than using a quick dictionary lookup, the partial evaluator has to walk the entire body of the function testing for a match in turn. And in v0.09 of Spiral `.add` is a type literal. The way this was compiled is that the partial evaluator would make an instance of the type literal, string and all, and then compare it to the the argument. Not a wise thing to do if the compilation is desired to be done in a timely fashion.
 
 ```
-inl Type = [
-    /// Splits the union or recursive type into a tuple.
-    split: x = !TypeSplit(x)
-    /// Boxes a type.
-    box: a to: = !TypeBox(to,a)
-    /// Cast a function to the term level.
-    term_cast: a with: b = !TermCast(a,b)
-    /// Returns boolean whether the two expressions are equal in their types.
-    eq: a to: b = !EqType(a,b)
-    /// Returns the size a type.
-    sizeof: x = !SizeOf(x)
-    /// Raises an uncatchable type error.
-    error: x = !ErrorType(x)
-    /// Raises an exception at the type level. `type_catch` should be used to contain and extract the type within it.
-    raise: x = !TypeRaise(x)
-    /// Does unchecked conversion for primitives.
-    convert:from to: = !UnsafeConvert(to,from) 
-    /// The type join point
-    name: join: body = !JoinPointEntryType(body(),name)
+inl f = 
+    [
+    add = inl a b -> a + b
+    mult = inl a b -> a * b
     ]
+    
+f .add 1 2
 ```
 
+In v0.1 of Spiral the `.add` is a unary keyword, not a type literal. Under the hood a keyword argument is `int * TypeData []` tuple and not a string. To index into a object at compile time requires only a fast dictionary lookup against an int.

@@ -378,14 +378,13 @@ let test15: SpiralModule =
     description="Does the object with unary patterns?"
     code=
     """
-inl id x = x
 inl f = 
     [
-    add = 1
-    mult = id
+    add = inl a b -> a + b
+    mult = inl a b -> a * b
     ]
     
-f .add
+f .add 1 2 |> dyn
     """
     }
 
@@ -1116,6 +1115,6 @@ print_static
     }
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test15
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example3
 |> printfn "%s"
 |> ignore
